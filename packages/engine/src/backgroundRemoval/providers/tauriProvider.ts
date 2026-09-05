@@ -33,7 +33,7 @@ interface NativeModelProgress {
  * Whether native ONNX inference is actually usable right now — a
  * runtime-verified check (the Rust side confirms the bundled onnxruntime
  * dylib loaded successfully), not just "the ai Cargo feature was compiled
- * in". See crates/strata-bgremove/src/runtime.rs and
+ * in". See crates/varve-bgremove/src/runtime.rs and
  * docs/audits/background-removal-wasm-memory-hardening-2026-07-18.md for
  * why this distinction matters: a build with `ai` on but a missing dylib
  * for this platform must report `false` here, or the dispatch chain would

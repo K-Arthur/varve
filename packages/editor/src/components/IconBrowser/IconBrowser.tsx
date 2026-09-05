@@ -21,7 +21,7 @@ import {
   generateAttributionReportMarkdown,
   generateAttributionReportText,
 } from '@varve/scene';
-import { Button, Icon, SearchField, Select } from '@varve/ui';
+import { Button, Icon, LoadingLabel, SearchField, Select } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { IconDetailsPanel } from './IconDetailsPanel';
@@ -826,7 +826,11 @@ export function IconBrowser({
           />
           <div className="icon-browser__load-more">
             {packLoading ? (
-              <span className="icon-browser__load-more-status">Loading…</span>
+              <LoadingLabel
+                label="Loading icons…"
+                size="xs"
+                className="icon-browser__load-more-status"
+              />
             ) : !packExhausted ? (
               <Button variant="secondary" size="sm" onClick={() => void handleLoadMorePack()}>
                 Load more ({Math.max(0, packTotal - packPage.length).toLocaleString()} remaining)
@@ -884,7 +888,11 @@ export function IconBrowser({
           {query && !search.exhausted && (
             <div className="icon-browser__load-more">
               {search.isLoadingMore ? (
-                <span className="icon-browser__load-more-status">Loading…</span>
+                <LoadingLabel
+                  label="Loading icons…"
+                  size="xs"
+                  className="icon-browser__load-more-status"
+                />
               ) : (
                 <Button variant="secondary" size="sm" onClick={() => void search.loadMore()}>
                   Load more ({Math.max(0, search.total - search.results.length).toLocaleString()}{' '}

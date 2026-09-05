@@ -22,6 +22,7 @@ import { startTextEditing } from '../context';
 import { harmonizeSpacing as applyHarmonize } from '../intelligence/spacingHarmonizer';
 import { getLifecycleCoordinator } from '../lifecycle';
 import { nodeLocalBounds } from '../scene/world';
+import { loadSettings, updateSettings } from '../settings';
 import { deserializeAreaSelection, serializeAreaSelection } from '../tools/savedAreaSelections';
 import {
   areaSelectionFromMaskPixels,
@@ -116,7 +117,10 @@ export function createActionHandlers(
     announceToolChange(tool);
   };
   const isAreaSelectionTool = (tool: ToolId): boolean =>
-    tool === 'marquee' || tool === 'ellipseMarquee' || tool === 'pixelLasso';
+    tool === 'marquee' ||
+    tool === 'ellipseMarquee' ||
+    tool === 'pixelLasso' ||
+    tool === 'magicWand';
   const activePageArea = () => {
     const page = e.state.document.pages?.find(
       (candidate) => candidate.id === e.state.document.activePageId,
@@ -135,7 +139,11 @@ export function createActionHandlers(
   const selectedRasterMaskTarget = () => {
     for (const id of e.state.selection) {
       const node = e.state.document.nodes[id];
-      if (node?.kind === 'frame' || (node?.kind === 'shape' && isImageShape(node))) {
+      if (
+        node?.kind === 'frame' ||
+        node?.kind === 'rasterLayer' ||
+        (node?.kind === 'shape' && isImageShape(node))
+      ) {
         return node;
       }
     }
@@ -570,6 +578,28 @@ export function createActionHandlers(
       applyAreaTransform(areaSelectionTransformMatrix('rotate', { radians: Math.PI / 12 })),
     areaSelectionRotateCCW: () =>
       applyAreaTransform(areaSelectionTransformMatrix('rotate', { radians: -Math.PI / 12 })),
+    transformSelectedPixels: () => {
+      if (!e.state.areaSelection) {
+        e.announce('Create a pixel selection first, then use Transform Pixels');
+        return;
+      }
+      if (e.state.floatingRaster) {
+        e.announce('A pixel transform is already in progress');
+        return;
+      }
+      e.setTool('floatingTransform');
+      e.announce('Transforming selected pixels');
+    },
+    transformSelectionBoundary: () => {
+      if (!e.state.areaSelection) {
+        e.announce('Create a pixel selection first');
+        return;
+      }
+      e.setTool('selectionBoundary');
+      e.announce(
+        'Transform selection boundary — drag to move, Alt+drag to rotate, Shift+drag to scale',
+      );
+    },
     saveAreaSelection,
     restoreLastSavedAreaSelection,
     deleteLastSavedAreaSelection,
@@ -707,6 +737,15 @@ export function createActionHandlers(
     gridOverlayIsometric: () =>
       e.setGridOverlayMode(e.state.gridOverlayMode === 'isometric' ? 'none' : 'isometric'),
     toggleSnap: () => e.setSnapEnabled(!e.state.snapEnabled),
+    toggleMarqueeContainment: () => {
+      const next = !loadSettings().layers.marqueeContainment;
+      updateSettings({ layers: { marqueeContainment: next } });
+      e.announce(
+        next
+          ? 'Marquee selects only fully-contained objects'
+          : 'Marquee selects any intersecting object',
+      );
+    },
     toggleGuidesVisible: () => e.toggleGuidesVisible(),
     toggleGuides: () => e.toggleGuidesVisible(),
     lockAllGuides: () => e.toggleLockAllGuides(),
@@ -729,6 +768,9 @@ export function createActionHandlers(
     restoreAllPanels: () => e.restoreAllPanels(),
     toggleGraphEditor: () => e.toggleGraphEditor(),
     toggleStateMachinePanel: () => e.toggleStateMachinePanel(),
+    openVariablesPanel: () => {
+      if (!e.state.variablesPanelVisible) e.toggleVariablesPanel();
+    },
     toggleDistractionFree: () => e.toggleDistractionFreeMode(),
     toggleBeforeAfterCompare: () => e.toggleBeforeAfterCompare(),
     workspaceDesign: () => e.requestWorkspaceSwitch('design'),
@@ -785,8 +827,10 @@ export function createActionHandlers(
     toolWarp: setTool('warp'),
     toolScale: setTool('scale'),
     toolSlice: setTool('slice'),
+    toolKnife: setTool('knife'),
     toolCloneStamp: setTool('cloneStamp'),
     toolSam2Segment: setTool('sam2Segment'),
+    toolMagicWand: setTool('magicWand'),
     toolPage: setTool('page'),
 
     // ── Object ──

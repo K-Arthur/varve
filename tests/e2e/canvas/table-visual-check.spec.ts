@@ -37,7 +37,7 @@ test('table visual check with inspector', async ({ page }) => {
   await page.screenshot({ path: 'test-results/visual/check-03-header.png', fullPage: false });
 
   // Toggle zebra
-  const zebra = page.getByRole('checkbox', { name: /zebra/i });
+  const zebra = page.getByRole('switch', { name: /zebra/i });
   if (await zebra.isVisible({ timeout: 2000 }).catch(() => false)) {
     await zebra.check();
   }

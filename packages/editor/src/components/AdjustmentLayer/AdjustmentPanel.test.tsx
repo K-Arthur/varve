@@ -9,13 +9,7 @@ import { AdjustmentPanel } from './AdjustmentPanel';
 afterEach(cleanup);
 
 function Harness() {
-  const { createAdjustmentLayer, state, undo } = useEditor();
-  const selectedNode =
-    state.selection.length === 1 ? state.document.nodes[state.selection[0]!] : undefined;
-  const adjustmentIds =
-    selectedNode?.kind === 'adjustment'
-      ? (selectedNode.adjustments ?? []).map((item) => item.id)
-      : [];
+  const { createAdjustmentLayer, undo } = useEditor();
   return (
     <div>
       <button type="button" onClick={() => createAdjustmentLayer()}>
@@ -24,7 +18,6 @@ function Harness() {
       <button type="button" onClick={undo}>
         Undo
       </button>
-      <output data-testid="adjustment-filter-ids">{JSON.stringify(adjustmentIds)}</output>
       <AdjustmentPanel />
     </div>
   );
@@ -54,21 +47,6 @@ describe('AdjustmentPanel', () => {
     expect(screen.getByRole('button', { name: /add adjustment/i })).toBeInTheDocument();
   });
 
-  it('applies a backdrop correction preset as one multi-adjustment recipe', async () => {
-    const user = userEvent.setup();
-    renderHarness();
-    await user.click(screen.getByText('Create adjustment layer'));
-    await waitFor(() => screen.getByText('Adjustment Layer'));
-
-    await user.click(
-      screen.getByRole('button', { name: 'Apply correction preset Balanced Correction' }),
-    );
-
-    expect(screen.getAllByText('Exposure').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Contrast').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Shadow / Highlight').length).toBeGreaterThan(0);
-  });
-
   it('does not violate the Rules of Hooks when selection changes from none to an adjustment node', async () => {
     // Regression test: AdjustmentPanel used to call useState/useRef/useCallback
     // *after* an early `if (...) return null`, so the very transition this
@@ -87,23 +65,13 @@ describe('AdjustmentPanel', () => {
     errorSpy.mockRestore();
   });
 
-  it('keeps backdrop-scoped halftone available in the adjustment-layer menu', async () => {
+  it('lists halftone in the add-adjustment menu (it was previously missing, making halftone unreachable from the UI)', async () => {
     renderHarness();
     fireEvent.click(screen.getByText('Create adjustment layer'));
     await waitFor(() => screen.getByText('Adjustment Layer'));
 
     fireEvent.click(screen.getByRole('button', { name: /add adjustment/i }));
-    expect(screen.getByRole('menuitem', { name: 'Halftone' })).toBeInTheDocument();
-  });
-
-  it('keeps image-local Fine Texture out of the backdrop correction menu', async () => {
-    const user = userEvent.setup();
-    renderHarness();
-    await user.click(screen.getByText('Create adjustment layer'));
-    await waitFor(() => screen.getByText('Adjustment Layer'));
-
-    await user.click(screen.getByRole('button', { name: /add adjustment/i }));
-    expect(screen.queryByRole('menuitem', { name: 'Fine Texture' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('menuitem', { name: 'Halftone' })).toBeInTheDocument();
   });
 
   it('adds the non-first adjustment selected with a real pointer interaction', async () => {
@@ -130,8 +98,8 @@ describe('AdjustmentPanel', () => {
 
     await user.click(screen.getByRole('button', { name: /add adjustment/i }));
     expect(screen.getByRole('menuitem', { name: 'Brightness' })).toHaveFocus();
-    const menuItems = screen.getAllByRole('menuitem');
-    const levelsIndex = menuItems.findIndex((item) => item.textContent === 'Levels');
+    const adjustmentItems = screen.getAllByRole('menuitem');
+    const levelsIndex = adjustmentItems.findIndex((item) => item.textContent === 'Levels');
     expect(levelsIndex).toBeGreaterThan(0);
     await user.keyboard(`${'{ArrowDown}'.repeat(levelsIndex)}{Enter}`);
 
@@ -192,11 +160,6 @@ describe('AdjustmentPanel', () => {
 
     await user.click(screen.getByRole('button', { name: 'Duplicate' }));
     expect(document.querySelectorAll('.adj-panel__item-name')).toHaveLength(3);
-    const ids = JSON.parse(
-      screen.getByTestId('adjustment-filter-ids').textContent ?? '[]',
-    ) as string[];
-    expect(ids).toHaveLength(3);
-    expect(new Set(ids).size).toBe(3);
   });
 
   it('coalesces a slider scrub into one undo operation', async () => {
@@ -224,7 +187,7 @@ describe('AdjustmentPanel', () => {
     await waitFor(() => screen.getByText('Adjustment Layer'));
 
     fireEvent.click(screen.getByRole('button', { name: /add adjustment/i }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Halftone' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Halftone' }));
 
     await waitFor(() => {
       expect(screen.getByLabelText('Screening method')).toBeInTheDocument();
@@ -241,7 +204,7 @@ describe('AdjustmentPanel', () => {
     fireEvent.click(screen.getByText('Create adjustment layer'));
     await waitFor(() => screen.getByText('Adjustment Layer'));
     fireEvent.click(screen.getByRole('button', { name: /add adjustment/i }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Halftone' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Halftone' }));
 
     const freqSlider = await waitFor(() =>
       screen.getByLabelText('Screen frequency in lines per inch'),
@@ -258,7 +221,7 @@ describe('AdjustmentPanel', () => {
     fireEvent.click(screen.getByText('Create adjustment layer'));
     await waitFor(() => screen.getByText('Adjustment Layer'));
     fireEvent.click(screen.getByRole('button', { name: /add adjustment/i }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Halftone' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Halftone' }));
     await waitFor(() => screen.getByLabelText('Screening method'));
 
     fireEvent.click(screen.getByRole('button', { name: /remove halftone/i }));

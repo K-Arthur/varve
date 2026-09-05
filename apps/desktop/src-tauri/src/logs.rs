@@ -79,7 +79,10 @@ pub fn redact_for_log(text: &str) -> String {
     {
         out = out.replace(&home, "<HOME>");
     }
-    if let Some(dir) = LOG_DIR.get().and_then(|path| path.to_str().map(str::to_owned)) {
+    if let Some(dir) = LOG_DIR
+        .get()
+        .and_then(|path| path.to_str().map(str::to_owned))
+    {
         out = out.replace(&dir, "<APP_LOG>");
     }
     let temp = std::env::temp_dir();
@@ -91,18 +94,14 @@ pub fn redact_for_log(text: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{KEPT_GENERATIONS, MAX_LOG_BYTES, rotate_if_needed};
+    use super::{rotate_if_needed, KEPT_GENERATIONS, MAX_LOG_BYTES};
     use std::sync::atomic::{AtomicU32, Ordering};
 
     static COUNTER: AtomicU32 = AtomicU32::new(0);
 
     fn temp_log_dir() -> std::path::PathBuf {
         let n = COUNTER.fetch_add(1, Ordering::SeqCst);
-        let dir = std::env::temp_dir().join(format!(
-            "varve_log_test_{}_{}",
-            std::process::id(),
-            n
-        ));
+        let dir = std::env::temp_dir().join(format!("varve_log_test_{}_{}", std::process::id(), n));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("create temp log dir");
         dir
@@ -116,10 +115,19 @@ mod tests {
 
         rotate_if_needed(&active);
 
-        assert!(!active.exists(), "oversized active log must be rotated away");
+        assert!(
+            !active.exists(),
+            "oversized active log must be rotated away"
+        );
         assert!(dir.join("varve.1.log").exists(), "first generation kept");
-        assert_eq!(dir.join("varve.1.log").metadata().unwrap().len(), MAX_LOG_BYTES + 16);
-        assert!(!dir.join("varve.3.log").exists(), "generation beyond bound must not exist");
+        assert_eq!(
+            dir.join("varve.1.log").metadata().unwrap().len(),
+            MAX_LOG_BYTES + 16
+        );
+        assert!(
+            !dir.join("varve.3.log").exists(),
+            "generation beyond bound must not exist"
+        );
         assert_eq!(KEPT_GENERATIONS, 2);
     }
 
@@ -137,8 +145,14 @@ mod tests {
         let input = format!(r"opened {home}/docs/x.varve (staging in {temp})");
         let redacted = super::redact_for_log(&input);
         assert!(!redacted.contains(&home), "home leaked: {redacted}");
-        assert!(redacted.contains("<HOME>"), "home placeholder missing: {redacted}");
-        assert!(redacted.contains("<TEMP>"), "temp placeholder missing: {redacted}");
+        assert!(
+            redacted.contains("<HOME>"),
+            "home placeholder missing: {redacted}"
+        );
+        assert!(
+            redacted.contains("<TEMP>"),
+            "temp placeholder missing: {redacted}"
+        );
 
         // The Windows spelling of the user profile is only the native form on
         // Windows; there it must be replaced just like the POSIX spelling.

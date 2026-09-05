@@ -267,22 +267,28 @@ function validateVarveRules(content, filename) {
 
   if (name === 'release.yml') {
     const gateSteps = stepBlocks.gate ?? [];
-    const frontendIdx = gateSteps.findIndex(
-      (s) => s.name.includes('frontend') && /pnpm build/.test(s.run),
-    );
-    const desktopCompileIdx = gateSteps.findIndex(
-      (s) => /cargo (test|clippy|build|run)/.test(s.run) && s.run.includes('src-tauri'),
-    );
-    if (frontendIdx === -1) {
-      errors.push(
-        'release.yml gate job: missing "Build frontend" step before desktop cargo tests ' +
-          '(tauri::generate_context!() requires apps/desktop/dist to exist)',
+    // Release no longer repeats ordinary JS/Rust certification: the exact-SHA
+    // integration and candidate checks run before dependency installation.
+    // Keep the historical frontend-before-desktop guard for older/rehearsal
+    // workflow fixtures, but permit the new certified-source gate.
+    if (!gateSteps.some((s) => /verify-certification\.mjs/.test(s.run))) {
+      const frontendIdx = gateSteps.findIndex(
+        (s) => s.name.includes('frontend') && /pnpm build/.test(s.run),
       );
-    } else if (desktopCompileIdx === -1 || frontendIdx > desktopCompileIdx) {
-      errors.push(
-        'release.yml gate job: desktop compilation must come AFTER the frontend build ' +
-          'step (generate_context!() reads frontendDist at compile time)',
+      const desktopCompileIdx = gateSteps.findIndex(
+        (s) => /cargo (test|clippy|build|run)/.test(s.run) && s.run.includes('src-tauri'),
       );
+      if (frontendIdx === -1) {
+        errors.push(
+          'release.yml gate job: missing "Build frontend" step before desktop cargo tests ' +
+            '(tauri::generate_context!() requires apps/desktop/dist to exist)',
+        );
+      } else if (desktopCompileIdx === -1 || frontendIdx > desktopCompileIdx) {
+        errors.push(
+          'release.yml gate job: desktop compilation must come AFTER the frontend build ' +
+            'step (generate_context!() reads frontendDist at compile time)',
+        );
+      }
     }
     validateReleaseSigningRules(content, stepBlocks, errors);
   }
@@ -560,6 +566,12 @@ export function extractStepBlocks(content) {
       if (/^\s{4,6}-\s+run:\s*(.+)$/.test(line)) {
         if (!currentStep) currentStep = { name: '', run: '' };
         currentStep.run = line.match(/^\s{4,6}-\s+run:\s*(.+)$/)[1];
+        continue;
+      }
+      // Named steps put `run:` at the step-property indentation (normally
+      // eight spaces), unlike the compact `- run:` form above.
+      if (/^\s{6,}run:\s*(.+)$/.test(line) && currentStep) {
+        currentStep.run = line.match(/^\s{6,}run:\s*(.+)$/)[1];
         continue;
       }
       if (/^\s{6,}\S/.test(line) && currentStep && !currentStep.run) {

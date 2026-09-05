@@ -12,10 +12,12 @@
 
 import type { AreaSelection, AreaSelectionSettings, Engine, PathPoint } from '@varve/engine';
 import type { Document, NodeId, SceneNode } from '@varve/scene';
-import type { Camera } from '@varve/shared';
+import type { Affine, Camera } from '@varve/shared';
+import type { ObjectSelectionSession } from '../context/objectSelectionTypes';
 import type { TableEditState } from '../context/tableEditState';
 import type { HitTestPolicyName } from '../hitTest/policyTypes';
 import type { NormalizedInputEvent } from './inputNormalizer';
+import type { MagicWandSettings } from './magicWandSettings';
 
 import type { ToolId } from './toolRegistry';
 
@@ -75,7 +77,23 @@ export type DraftShape =
   | { kind: 'arrow'; x1: number; y1: number; x2: number; y2: number; label?: string }
   | { kind: 'frame'; x: number; y: number; w: number; h: number; label?: string }
   | { kind: 'freehand'; points: { x: number; y: number }[]; label?: string }
+  | PredictedStrokeDraft
   | PenConstructionDraft;
+
+/**
+ * Replaceable visual continuation for browser-predicted pen input.
+ *
+ * These dabs are deliberately not document data. The next confirmed event
+ * replaces this entire draft, so prediction can hide latency without advancing
+ * history, spacing, wet paint, or any other authoritative stroke state.
+ */
+export interface PredictedStrokeDraft {
+  kind: 'predicted-stroke';
+  dabs: readonly { x: number; y: number; radius: number; opacity: number }[];
+  color: readonly [number, number, number, number];
+  /** Raster-local to world transform, including parent and page placement. */
+  transform: Affine;
+}
 
 /** One ephemeral Pen anchor. Coordinates and handle offsets are world-space. */
 export interface PenConstructionPoint {
@@ -158,6 +176,8 @@ export interface ToolContext {
   commitAreaSelection?: (selection: AreaSelection) => void;
   areaSelectionSettings?: AreaSelectionSettings;
   setAreaSelectionSettings?: (patch: Partial<AreaSelectionSettings>) => void;
+  magicWandSettings?: MagicWandSettings;
+  setMagicWandSettings?: (patch: Partial<MagicWandSettings>) => void;
   setMaskPreviewMode: (mode: MaskPreviewMode) => void;
   /** Foreground color for painting as RGBA [r, g, b, a] in 0-255 range. */
   foregroundColor: [number, number, number, number];
@@ -176,6 +196,11 @@ export interface ToolContext {
     pathPoints?: PathPoint[],
     pathClosed?: boolean,
   ) => void;
+  /** Apply one atomic Knife cut to selected or intersected vector objects. */
+  sliceWithKnife?: (line: {
+    start: readonly [number, number];
+    end: readonly [number, number];
+  }) => void;
   createTextNodeAt: (
     world: { x: number; y: number },
     size?: { w: number; h: number },
@@ -331,11 +356,14 @@ export interface ToolContext {
     dataUrl: string,
     width: number,
     height: number,
-    coordinateSpace?: 'source-image-pixels' | 'container-local-pixels',
+    coordinateSpace?: 'source-image-pixels' | 'container-local-pixels' | 'node-local-pixels',
   ) => void;
   createRasterLayer: (width: number, height: number, parentId?: NodeId | null) => string | null;
 
   /** SAM2 interactive segmentation */
+  objectSelectionSession?: ObjectSelectionSession | null;
+  /** Patch transient editor state without creating a document/history entry. */
+  patchEditorState?: (patch: { objectSelectionSession?: ObjectSelectionSession | null }) => void;
   applySam2Segmentation?: (params: {
     nodeId: string;
     prompts: {
@@ -344,8 +372,16 @@ export interface ToolContext {
     };
     signal?: AbortSignal;
     operation: 'preview' | 'mask' | 'selection' | 'layer';
+    candidateIndex?: number;
   }) => Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null>;
   cancelSam2Segmentation?: () => void;
+
+  /** Floating raster selection for pixel transforms. */
+  getFloatingRaster?: () => import('@varve/engine').FloatingRasterSelection | null;
+  setFloatingRaster?: (floating: import('@varve/engine').FloatingRasterSelection | null) => void;
+  updateFloatingTransform?: (matrix: import('@varve/shared').Affine) => void;
+  commitFloatingRaster?: () => void;
+  cancelFloatingRaster?: () => void;
 }
 
 export interface Tool {

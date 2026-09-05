@@ -27,6 +27,7 @@ import { sitePath } from '../../lib/siteUrl';
         <ul>
           <li>Documents can live on local, removable, network, and cloud-backed locations.</li>
           <li>Fonts and optional models remain durable user data, separate from regenerable cache.</li>
+          <li>Typography discovery uses a shipped Fontsource catalog offline; additional font files are downloaded only after an explicit desktop install.</li>
           <li>App data, configuration, recovery, logs, and cache use each operating system's supported application directories.</li>
           <li>Packaged builds do not write beside the executable or into a read-only app bundle.</li>
           <li>Recent files survive missing or unplugged locations: a moved document shows a clear missing state instead of silently vanishing from your history.</li>
@@ -40,7 +41,7 @@ import { sitePath } from '../../lib/siteUrl';
           undo history, fonts, printing, and export. The design assistants — contrast checks,
           design-debt scans, layer-name suggestions, and spacing harmonization — run entirely on
           your device with no model downloads and no data leaving the document. What offline
-          actually changes is surfaced honestly: online font and icon search are unavailable, and
+          actually changes is surfaced honestly: remote icon search and additional font downloads are unavailable, while the shipped font catalog remains searchable, and
           nothing pretends a "sync" is pending that a local-first product does not have.
         </p>
       </section>
@@ -54,7 +55,7 @@ import { sitePath } from '../../lib/siteUrl';
 
       <div class="feature-cta">
         <h2>Keep designing locally</h2>
-        <a href={sitePath('/download')} class="btn-primary">Download Varve</a>
+        <a href={sitePath('/download')} class="btn-default">Download Varve</a>
       </div>
     </div>
   </div>

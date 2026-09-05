@@ -12,8 +12,11 @@ export type BrushShape = 'circle' | 'square' | 'texture' | 'custom';
 export type BrushDynamicsInput =
   | 'pressure'
   | 'tilt'
+  | 'tiltDirection'
   | 'speed'
   | 'direction'
+  | 'twist'
+  | 'tangentialPressure'
   | 'random'
   | 'stroke'
   | 'custom';
@@ -151,14 +154,24 @@ export interface StrokePoint {
   y: number;
   /** Pressure 0-1. */
   pressure: number;
-  /** Tilt in degrees from vertical. */
+  /** Tilt magnitude in degrees from vertical (0-90). */
   tilt: number;
   /** Direction of movement in radians. */
   direction: number;
-  /** Speed in pixels per second. */
+  /** Speed in pixels per second (filtered/low-passed). */
   speed: number;
   /** Timestamp in milliseconds. */
   time: number;
+  /**
+   * Tilt azimuth — the direction the pen leans toward, in radians.
+   * null when the pen is upright (tilt ≈ 0).
+   * Needed by directional brush tips (pencil, chisel, nib).
+   */
+  tiltAzimuth?: number | null;
+  /** Barrel rotation in degrees [0, 360); -1 when the device does not expose it. */
+  twist?: number;
+  /** Barrel tangential pressure, normalized to [-1, 1]. */
+  tangentialPressure?: number;
 }
 
 export interface BrushDab {
@@ -242,6 +255,9 @@ export function strokePoint(x: number, y: number, options: Partial<StrokePoint> 
     direction: options.direction ?? 0,
     speed: options.speed ?? 0,
     time: options.time ?? 0,
+    tiltAzimuth: options.tiltAzimuth ?? null,
+    twist: options.twist ?? -1,
+    tangentialPressure: options.tangentialPressure ?? 0,
   };
 }
 
@@ -253,6 +269,148 @@ export function pointDistance(a: StrokePoint, b: StrokePoint): number {
 
 export function strokeDirection(a: StrokePoint, b: StrokePoint): number {
   return Math.atan2(b.y - a.y, b.x - a.x);
+}
+
+// ── Angle-safe utilities ──────────────────────────────────────────────────────
+
+/**
+ * Shortest-arc interpolation for angles. Interpolates through the ±π
+ * boundary so 179° → -179° travels ~2°, not 358°.
+ */
+export function lerpAngle(a: number, b: number, t: number): number {
+  let diff = b - a;
+  // Wrap to [-π, π]
+  diff = ((diff + Math.PI) % (2 * Math.PI)) - Math.PI;
+  if (diff < -Math.PI) diff += 2 * Math.PI;
+  return a + diff * t;
+}
+
+/**
+ * Shortest-arc difference between two angles, in [-π, π].
+ */
+export function angleDiff(a: number, b: number): number {
+  let diff = b - a;
+  diff = ((diff + Math.PI) % (2 * Math.PI)) - Math.PI;
+  if (diff < -Math.PI) diff += 2 * Math.PI;
+  return diff;
+}
+
+/**
+ * Low-pass filtered velocity estimate.
+ *
+ * Raw `dist / dt` is extremely noisy at high sample rates — a 1 ms timestamp
+ * fluctuation can produce huge speed spikes.  This uses exponential smoothing
+ * of the velocity magnitude, with a faster adaptation constant during
+ * acceleration (catching up to the hand) and a slower one during deceleration
+ * (avoiding jitter at rest).
+ */
+export function filteredSpeed(prevSpeed: number, rawSpeed: number, dtSec: number): number {
+  if (dtSec <= 0) return prevSpeed;
+  // Time constant ~50 ms at 60 Hz; adapts to frame rate
+  const tau = 0.05;
+  // Faster adaptation on accel, slower on decel
+  const alpha =
+    rawSpeed > prevSpeed ? 1 - Math.exp(-dtSec / (tau * 0.5)) : 1 - Math.exp(-dtSec / (tau * 2));
+  return prevSpeed + (rawSpeed - prevSpeed) * alpha;
+}
+
+// ── Centripetal Catmull-Rom interpolation ─────────────────────────────────────
+
+/**
+ * Compute the centripetal parameter value for a Catmull-Rom segment.
+ * Uses |Δp|^0.5 which prevents cusps and self-intersection for nearby points.
+ */
+function catmullRomAlpha(p0: { x: number; y: number }, p1: { x: number; y: number }): number {
+  const dx = p1.x - p0.x;
+  const dy = p1.y - p0.y;
+  // Centripetal parameterisation: |Δp|^0.5. A tiny floor keeps duplicate
+  // browser samples finite without turning them into a special code path.
+  return Math.max(0.0001, Math.sqrt(Math.hypot(dx, dy)));
+}
+
+/**
+ * Evaluate a centripetal Catmull-Rom spline at parameter t ∈ [0,1]
+ * between control points P1 and P2, given ghost points P0 and P3.
+ *
+ * This is the lowest-latency causal reconstruction that produces smooth
+ * curves without overshoot.  The centripetal parameterization guarantees
+ * the curve does not self-intersect.
+ */
+export function catmullRomPoint(
+  p0: { x: number; y: number },
+  p1: { x: number; y: number },
+  p2: { x: number; y: number },
+  p3: { x: number; y: number },
+  t: number,
+): { x: number; y: number } {
+  const t0 = 0;
+  const t1 = t0 + catmullRomAlpha(p0, p1);
+  const t2 = t1 + catmullRomAlpha(p1, p2);
+  const t3 = t2 + catmullRomAlpha(p2, p3);
+  const parameter = t1 + (t2 - t1) * Math.max(0, Math.min(1, t));
+
+  const a1 = interpolateByParameter(p0, p1, t0, t1, parameter);
+  const a2 = interpolateByParameter(p1, p2, t1, t2, parameter);
+  const a3 = interpolateByParameter(p2, p3, t2, t3, parameter);
+  const b1 = interpolateByParameter(a1, a2, t0, t2, parameter);
+  const b2 = interpolateByParameter(a2, a3, t1, t3, parameter);
+  return interpolateByParameter(b1, b2, t1, t2, parameter);
+}
+
+function interpolateByParameter(
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  from: number,
+  to: number,
+  parameter: number,
+): { x: number; y: number } {
+  const range = to - from;
+  const t = range > 0 ? (parameter - from) / range : 0;
+  return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+}
+
+/**
+ * Walk a centripetal Catmull-Rom curve between p1→p2 given ghost points
+ * p0, p3 and return a fixed-arc-length step of `stepLength` px.
+ *
+ * If the curve is shorter than stepLength, returns just p2.
+ * This is what replaces naive linear interpolation for sparse input.
+ */
+export function catmullRomStep(
+  p0: { x: number; y: number },
+  p1: { x: number; y: number },
+  p2: { x: number; y: number },
+  p3: { x: number; y: number },
+  startT: number,
+  stepLength: number,
+  maxT: number = 1,
+): { x: number; y: number; t: number } {
+  // Dense deterministic subdivision is sufficient for this convenience
+  // helper. The live engine uses `strokeReconstruction.ts`, which adapts the
+  // number of chords to brush spacing and retains state across batches.
+  const subdivisions = 64;
+  const dt = (maxT - startT) / subdivisions;
+  let prev = catmullRomPoint(p0, p1, p2, p3, startT);
+  let traveled = 0;
+
+  for (let i = 1; i <= subdivisions; i++) {
+    const tt = startT + dt * i;
+    const pt = catmullRomPoint(p0, p1, p2, p3, Math.min(tt, maxT));
+    const segLen = Math.sqrt((pt.x - prev.x) ** 2 + (pt.y - prev.y) ** 2);
+    if (traveled + segLen >= stepLength && segLen > 0) {
+      const ratio = (stepLength - traveled) / segLen;
+      return {
+        x: prev.x + (pt.x - prev.x) * ratio,
+        y: prev.y + (pt.y - prev.y) * ratio,
+        t: startT + dt * (i - 1 + ratio),
+      };
+    }
+    traveled += segLen;
+    prev = pt;
+  }
+  // Reached end of curve segment
+  const end = catmullRomPoint(p0, p1, p2, p3, maxT);
+  return { x: end.x, y: end.y, t: maxT };
 }
 
 /**
@@ -281,6 +439,11 @@ export function smoothStrokePoints(
       direction: first.direction,
       speed: first.speed,
       time: first.time,
+      tiltAzimuth: interpolateOptionalAngle(previous.tiltAzimuth, first.tiltAzimuth, 1 - f0),
+      twist: interpolateTwist(previous.twist, first.twist, 1 - f0),
+      tangentialPressure:
+        (previous.tangentialPressure ?? 0) +
+        ((first.tangentialPressure ?? 0) - (previous.tangentialPressure ?? 0)) * (1 - f0),
     });
   } else {
     smoothed.push(points[0]!);
@@ -297,6 +460,11 @@ export function smoothStrokePoints(
       direction: current.direction,
       speed: current.speed,
       time: current.time,
+      tiltAzimuth: interpolateOptionalAngle(prev.tiltAzimuth, current.tiltAzimuth, 1 - f),
+      twist: interpolateTwist(prev.twist, current.twist, 1 - f),
+      tangentialPressure:
+        (prev.tangentialPressure ?? 0) +
+        ((current.tangentialPressure ?? 0) - (prev.tangentialPressure ?? 0)) * (1 - f),
     });
   }
   return smoothed;
@@ -308,10 +476,31 @@ export function interpolatePoints(a: StrokePoint, b: StrokePoint, t: number): St
     y: a.y + (b.y - a.y) * t,
     pressure: a.pressure + (b.pressure - a.pressure) * t,
     tilt: a.tilt + (b.tilt - a.tilt) * t,
-    direction: a.direction + (b.direction - a.direction) * t,
+    direction: lerpAngle(a.direction, b.direction, t),
     speed: a.speed + (b.speed - a.speed) * t,
     time: a.time + (b.time - a.time) * t,
+    tiltAzimuth: interpolateOptionalAngle(a.tiltAzimuth, b.tiltAzimuth, t),
+    twist: interpolateTwist(a.twist, b.twist, t),
+    tangentialPressure:
+      (a.tangentialPressure ?? 0) + ((b.tangentialPressure ?? 0) - (a.tangentialPressure ?? 0)) * t,
   };
+}
+
+function interpolateOptionalAngle(
+  a: number | null | undefined,
+  b: number | null | undefined,
+  t: number,
+): number | null {
+  if (a === null || a === undefined) return b ?? null;
+  if (b === null || b === undefined) return a;
+  return lerpAngle(a, b, t);
+}
+
+function interpolateTwist(a: number | undefined, b: number | undefined, t: number): number {
+  if (a === undefined || a < 0) return b ?? -1;
+  if (b === undefined || b < 0) return a;
+  const radians = lerpAngle((a * Math.PI) / 180, (b * Math.PI) / 180, t);
+  return ((radians * 180) / Math.PI + 360) % 360;
 }
 
 export interface GenerateDabsOptions {
@@ -523,6 +712,24 @@ export function createStrokeDabSession(
   };
 }
 
+/**
+ * Copy a live session without advancing its spacing or jitter stream.
+ *
+ * This is used exclusively by transient input prediction: the clone can emit
+ * a speculative tail while the authoritative session remains untouched until
+ * the browser delivers confirmed input.
+ */
+export function cloneStrokeDabSession(session: StrokeDabSession): StrokeDabSession {
+  return {
+    rng: createBrushRng(session.rng.state()),
+    spacingCarry: session.spacingCarry,
+    arcLength: session.arcLength,
+    lastPoint: session.lastPoint ? { ...session.lastPoint } : null,
+    started: session.started,
+    lengthReference: session.lengthReference,
+  };
+}
+
 /** Reference length for a session, falling back to the preset-derived fade. */
 function sessionLengthReference(session: StrokeDabSession, preset: BrushPreset): number {
   if (session.lengthReference > 0) return session.lengthReference;
@@ -623,6 +830,9 @@ function getInputValue(
       return point.pressure;
     case 'tilt':
       return point.tilt / 90;
+    case 'tiltDirection':
+      if (point.tiltAzimuth === null || point.tiltAzimuth === undefined) return 0.5;
+      return (((point.tiltAzimuth % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)) / (2 * Math.PI);
     case 'speed':
       if (preset.maxSpeed <= preset.minSpeed) return 0;
       return Math.max(
@@ -631,6 +841,10 @@ function getInputValue(
       );
     case 'direction':
       return (point.direction + Math.PI) / (2 * Math.PI);
+    case 'twist':
+      return point.twist === undefined || point.twist < 0 ? 0.5 : point.twist / 360;
+    case 'tangentialPressure':
+      return Math.max(0, Math.min(1, ((point.tangentialPressure ?? 0) + 1) / 2));
     case 'random':
       return rng.next();
     case 'stroke':

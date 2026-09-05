@@ -97,17 +97,20 @@ export function withDocumentExt(name: string): string {
  * second extension onto an already-extended name.
  */
 export function normalizeSaveFileName(name: string): string {
-  const cleaned = name
+  const withoutPathSeparators = name
+    .split('')
+    .map((c) => (c === '\\' || c === '/' || c === ':' ? ' ' : c))
+    .join('');
+  const normalized = withoutPathSeparators
     .split('')
     .filter((c) => {
       const code = c.charCodeAt(0);
       return code >= 0x20 && code !== 0x7f;
     })
     .join('')
-    .replace(/[\\/:]+/g, ' ')
     .trim()
     .replace(/\s+/g, ' ');
-  const base = cleaned && cleaned !== '.' && cleaned !== '..' ? cleaned : 'Untitled';
+  const base = normalized && normalized !== '.' && normalized !== '..' ? normalized : 'Untitled';
   return withDocumentExt(base);
 }
 
@@ -121,7 +124,9 @@ export function displayNameFromPath(path: string): string {
 /** Directory portion of an OS path, or null when none is derivable. */
 export function directoryOfPath(path: string): string | null {
   const sep = path.includes('\\') ? '\\' : '/';
-  const trimmed = path.replace(/[\\/]+$/, '');
+  let end = path.length;
+  while (end > 0 && (path[end - 1] === '/' || path[end - 1] === '\\')) end -= 1;
+  const trimmed = path.slice(0, end);
   const last = trimmed.lastIndexOf(sep);
   if (last < 0) return null;
   const dir = trimmed.slice(0, last);

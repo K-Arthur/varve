@@ -8,6 +8,7 @@
 
 import { resolveTokenName } from '@varve/codegen';
 import type { Document, ManagedColor, SceneNode, VariableStore } from '@varve/scene';
+import { textNodeLocalBounds } from '@varve/scene';
 import { convertPx, formatValue, managedColorToRgba, type SpecUnit } from '@varve/shared';
 import { CopyButton } from '@varve/ui';
 import { useMemo } from 'react';
@@ -101,9 +102,9 @@ function LayoutReadout({ node, unit, baseFontSize }: SpecReadoutsProps) {
   }
 
   if (node.kind === 'text') {
-    const fs = node.fontSize ?? 16;
-    fields.push({ label: 'Width', value: p((node.text?.length ?? 0) * fs * 0.6) });
-    fields.push({ label: 'Height', value: p(fs * 1.4) });
+    const bounds = textNodeLocalBounds(node);
+    fields.push({ label: 'Width', value: p(bounds.w) });
+    fields.push({ label: 'Height', value: p(bounds.h) });
   }
 
   if (node.kind === 'frame' && node.layoutStyle) {

@@ -7,13 +7,15 @@ import {
   getModelLoader,
 } from '@varve/engine';
 import type { Document, NodeId } from '@varve/scene';
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { commitRasterMask } from '../backgroundRemoval/commitRasterMask';
 import type { CanvasAnnouncer } from '../canvas/CanvasAnnouncer';
+import { setCollapsed } from '../components/Inspector/sectionState';
 import { prepareImageMaskMapper } from '../tools/imageMaskCoordinates';
-import type { EditorState } from './types';
+import type { EditorState, ObjectSelectionSession } from './types';
 
 type WorkerTensor = { data: Float32Array; dims: number[] };
+const SAM2_SOFT_DEADLINE_MS = 15_000;
 
 export interface Sam2SegmentationAPI {
   applySam2Segmentation: (params: {
@@ -31,7 +33,7 @@ export interface Sam2SegmentationAPI {
 }
 
 export function useSam2Segmentation(
-  _state: EditorState,
+  state: EditorState,
   stateRef: React.MutableRefObject<EditorState>,
   setState: React.Dispatch<React.SetStateAction<EditorState>>,
   updateDoc: (fn: (doc: Document) => Document) => void,
@@ -39,6 +41,7 @@ export function useSam2Segmentation(
   enabled = true,
 ): Sam2SegmentationAPI {
   const abortRef = useRef<AbortController | null>(null);
+  const softDeadlineRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const generationRef = useRef(0);
   const embeddingCacheRef = useRef<EmbeddingCache<{
     nodeId: NodeId;
@@ -77,31 +80,67 @@ export function useSam2Segmentation(
     });
   }
 
+  const writeTransientSession = useCallback(
+    (session: ObjectSelectionSession | null, extra: Partial<EditorState> = {}): void => {
+      stateRef.current = {
+        ...stateRef.current,
+        ...extra,
+        objectSelectionSession: session,
+      };
+      setState((prev) => ({ ...prev, ...extra, objectSelectionSession: session }));
+    },
+    [setState, stateRef],
+  );
+
   const cancelSam2Segmentation = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
+    if (softDeadlineRef.current !== null) {
+      clearTimeout(softDeadlineRef.current);
+      softDeadlineRef.current = null;
+    }
     generationRef.current += 1;
-    setState((prev) => ({ ...prev, objectSelectionSession: null }));
-  }, []);
+    writeTransientSession(null, { maskPreviewMode: 'none' });
+  }, [writeTransientSession]);
 
   const selectSam2Candidate = useCallback(
     (index: number) => {
-      setState((prev) => {
-        const session = prev.objectSelectionSession;
-        const candidate = session?.candidates[index];
-        if (!session || !candidate) return prev;
-        return {
-          ...prev,
-          objectSelectionSession: {
-            ...session,
-            selectedCandidate: index,
-            confidence: candidate.confidence,
-          },
-        };
+      const session = stateRef.current.objectSelectionSession;
+      const candidate = session?.candidates[index];
+      if (!session || !candidate) return;
+      writeTransientSession({
+        ...session,
+        selectedCandidate: index,
+        confidence: candidate.confidence,
       });
     },
-    [setState],
+    [stateRef, writeTransientSession],
   );
+
+  useEffect(() => {
+    const session = stateRef.current.objectSelectionSession;
+    if (!session) return;
+    const selected = state.selection;
+    if (
+      (session.documentId && session.documentId !== state.document.id) ||
+      selected.length !== 1 ||
+      selected[0] !== session.nodeId
+    ) {
+      cancelSam2Segmentation();
+    }
+  }, [cancelSam2Segmentation, state.document.id, state.selection, stateRef]);
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+      abortRef.current = null;
+      if (softDeadlineRef.current !== null) {
+        clearTimeout(softDeadlineRef.current);
+        softDeadlineRef.current = null;
+      }
+      generationRef.current += 1;
+    };
+  }, []);
 
   const applySam2Segmentation = useCallback(
     async ({
@@ -145,6 +184,80 @@ export function useSam2Segmentation(
         return null;
       }
 
+      const previousSession = stateRef.current.objectSelectionSession;
+      const sameSessionTarget =
+        previousSession?.nodeId === nodeId &&
+        (!previousSession.documentId || previousSession.documentId === currentDoc.id);
+
+      // Applying a visible candidate must be a commit, not a second model
+      // run. This makes Apply/Enter deterministic and keeps the mask the user
+      // inspected identical to the mask written to the document.
+      if (
+        operation === 'mask' &&
+        sameSessionTarget &&
+        previousSession.status === 'ready' &&
+        previousSession.width > 0 &&
+        previousSession.height > 0
+      ) {
+        const selectedCandidate = candidateIndex ?? previousSession.selectedCandidate;
+        const candidate = previousSession.candidates[selectedCandidate];
+        if (candidate) {
+          abortRef.current?.abort();
+          abortRef.current = null;
+          generationRef.current += 1;
+          if (softDeadlineRef.current !== null) {
+            clearTimeout(softDeadlineRef.current);
+            softDeadlineRef.current = null;
+          }
+          const maskDataUrl = await maskToDataUrl(
+            candidate.mask,
+            previousSession.width,
+            previousSession.height,
+          );
+          let committed = false;
+          updateDoc((doc) => {
+            const liveNode = doc.nodes[nodeId];
+            if (doc.id !== currentDoc.id || liveNode !== node) return doc;
+            const updated = commitRasterMask(doc, nodeId, {
+              dataUrl: maskDataUrl,
+              width: previousSession.width,
+              height: previousSession.height,
+              method: 'ai-quality',
+              modelId: previousSession.modelId || 'sam2-hiera-tiny',
+              confidence: candidate.confidence,
+              generatedAt: Date.now(),
+              sourceLocator: src,
+            });
+            committed = updated !== doc;
+            return updated;
+          });
+          if (committed) {
+            // The committed confidence and method are rendered in the
+            // Background Removal disclosure. Reveal it when Object Selection
+            // applies a mask so the result is immediately reviewable from
+            // every entry point (toolbar, inspector, or keyboard).
+            writeTransientSession(null, {
+              maskPreviewMode: 'none',
+              sectionVisibility: setCollapsed(
+                stateRef.current.sectionVisibility,
+                'background-removal',
+                false,
+              ),
+            });
+            announcerRef.current?.announce(
+              `Selection applied as a mask (${Math.round(candidate.confidence * 100)}% confidence)`,
+            );
+            return {
+              mask: candidate.mask,
+              width: previousSession.width,
+              height: previousSession.height,
+              confidence: candidate.confidence,
+            };
+          }
+          return null;
+        }
+      }
+
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
@@ -158,24 +271,89 @@ export function useSam2Segmentation(
         return null;
       }
 
-      announcerRef.current?.announce('Analyzing subject…');
+      const promptSession: ObjectSelectionSession = {
+        ...(sameSessionTarget ? previousSession : null),
+        nodeId,
+        documentId: currentDoc.id,
+        width: sameSessionTarget ? (previousSession?.width ?? 0) : 0,
+        height: sameSessionTarget ? (previousSession?.height ?? 0) : 0,
+        candidates: sameSessionTarget ? (previousSession?.candidates ?? []) : [],
+        selectedCandidate: sameSessionTarget ? (previousSession?.selectedCandidate ?? 0) : 0,
+        points: prompts.points ?? [],
+        box: prompts.box ?? null,
+        draftPoint: null,
+        draftBox: null,
+        confidence: sameSessionTarget ? (previousSession?.confidence ?? 0) : 0,
+        status: 'preparing',
+        modelId: sameSessionTarget
+          ? (previousSession?.modelId ?? 'sam2-hiera-tiny')
+          : 'sam2-hiera-tiny',
+        sourceLocator: src,
+        startedAt: Date.now(),
+        slow: false,
+        stageTimingsMs: {},
+        error: undefined,
+      };
+      const markFailure = (failure: {
+        code: string;
+        message: string;
+        retryable: boolean;
+      }): void => {
+        // A superseded request may fail after a newer prompt has already
+        // published its own session. Never turn that newer session into an
+        // error or announce a stale failure.
+        if (generation !== generationRef.current) return;
+        if (softDeadlineRef.current !== null) {
+          clearTimeout(softDeadlineRef.current);
+          softDeadlineRef.current = null;
+        }
+        const live = stateRef.current.objectSelectionSession;
+        if (live?.nodeId === nodeId && stateRef.current.document.id === currentDoc.id) {
+          writeTransientSession({ ...live, status: 'error', error: failure });
+        }
+        announcerRef.current?.announce(failure.message);
+      };
+      writeTransientSession(promptSession, { maskPreviewMode: 'overlay' });
+      announcerRef.current?.announce('Preparing object selection…');
+      softDeadlineRef.current = setTimeout(() => {
+        const live = stateRef.current.objectSelectionSession;
+        if (
+          live?.nodeId === nodeId &&
+          stateRef.current.document.id === currentDoc.id &&
+          live.status !== 'ready' &&
+          live.status !== 'error'
+        ) {
+          writeTransientSession({ ...live, slow: true });
+          announcerRef.current?.announce('Object selection is taking longer than expected.');
+        }
+      }, SAM2_SOFT_DEADLINE_MS);
 
       let img: HTMLImageElement | ImageBitmap | null = null;
       try {
         img = await getImageCache().load(src);
       } catch {
-        announcerRef.current?.announce(
-          'Could not load image: the image source may be cross-origin or unavailable',
-        );
+        markFailure({
+          code: 'image_load_failed',
+          message:
+            'Could not load the image pixels. Check the file or its permissions and try again.',
+          retryable: true,
+        });
         return null;
       }
 
       if (!img) {
-        announcerRef.current?.announce('Could not load image');
+        markFailure({
+          code: 'image_load_failed',
+          message:
+            'Could not load the image pixels. Check the file or its permissions and try again.',
+          retryable: true,
+        });
         return null;
       }
 
       if (combinedSignal.aborted) return null;
+
+      writeCurrentSam2Stage(stateRef, setState, nodeId, 'encoding');
 
       const naturalW =
         typeof HTMLImageElement !== 'undefined' && img instanceof HTMLImageElement
@@ -196,9 +374,11 @@ export function useSam2Segmentation(
       try {
         imageData = ctx.getImageData(0, 0, naturalW, naturalH);
       } catch {
-        announcerRef.current?.announce(
-          'Could not read image pixels: the image source may be cross-origin (CORS blocked)',
-        );
+        markFailure({
+          code: 'image_pixels_unavailable',
+          message: 'The image pixels could not be read. Check the file permissions and try again.',
+          retryable: true,
+        });
         return null;
       }
 
@@ -211,7 +391,12 @@ export function useSam2Segmentation(
         sourceHeight: naturalH,
       });
       if (!imageMapper) {
-        announcerRef.current?.announce('Could not map the image placement for selection prompts');
+        markFailure({
+          code: 'placement_invalid',
+          message:
+            'The image placement is not valid for object selection. Reset the image bounds and try again.',
+          retryable: true,
+        });
         return null;
       }
       const normPrompts = normalizePromptsTo01(prompts, imageMapper, naturalW, naturalH);
@@ -219,13 +404,25 @@ export function useSam2Segmentation(
       const encoderId = 'sam2-hiera-tiny-encoder';
       const decoderId = 'sam2-hiera-tiny-decoder';
       const loader = getModelLoader();
-      const resolvedEncoderPath = await loader.getModelPath(encoderId, combinedSignal);
-      const resolvedDecoderPath = await loader.getModelPath(decoderId, combinedSignal);
+      let resolvedEncoderPath: string | null;
+      let resolvedDecoderPath: string | null;
+      try {
+        resolvedEncoderPath = await loader.getModelPath(encoderId, combinedSignal);
+        resolvedDecoderPath = await loader.getModelPath(decoderId, combinedSignal);
+      } catch (error) {
+        const raw = error instanceof Error ? error.message : String(error);
+        if (isCancellationError(raw)) return null;
+        markFailure(mapSegmentationFailure(raw));
+        return null;
+      }
 
       if (!resolvedEncoderPath || !resolvedDecoderPath) {
-        announcerRef.current?.announce(
-          'Select Subject needs a one-time download — install it from Settings > AI Models before using this tool.',
-        );
+        markFailure({
+          code: 'model_not_installed',
+          message:
+            'Object selection needs a one-time model download. Install it from Settings > Offline Models, then try again.',
+          retryable: true,
+        });
         return null;
       }
 
@@ -287,6 +484,17 @@ export function useSam2Segmentation(
 
         if (generation !== generationRef.current || combinedSignal.aborted) return null;
 
+        const liveNode = stateRef.current.document.nodes[nodeId];
+        if (
+          stateRef.current.document.id !== currentDoc.id ||
+          stateRef.current.selection.length !== 1 ||
+          stateRef.current.selection[0] !== nodeId ||
+          liveNode !== node
+        ) {
+          return null;
+        }
+
+        writeCurrentSam2Stage(stateRef, setState, nodeId, 'decoding');
         const decResult: WorkerInferResult = await host.infer(
           {
             type: 'infer',
@@ -337,10 +545,9 @@ export function useSam2Segmentation(
 
         switch (operation) {
           case 'preview':
-            setState((prev) => ({
-              ...prev,
-              maskPreviewMode: 'overlay' as const,
-              objectSelectionSession: {
+            writeTransientSession(
+              {
+                ...promptSession,
                 nodeId,
                 width: naturalW,
                 height: naturalH,
@@ -351,21 +558,43 @@ export function useSam2Segmentation(
                 selectedCandidate,
                 points: prompts.points ?? [],
                 box: prompts.box ?? null,
+                draftPoint: null,
+                draftBox: null,
                 confidence: decoded.confidence,
                 status: 'ready' as const,
                 modelId: 'sam2-hiera-tiny',
                 executionProvider: decOutputs.executionProvider,
+                sourceLocator: src,
+                startedAt: promptSession.startedAt,
+                slow: false,
+                stageTimingsMs: {
+                  ...promptSession.stageTimingsMs,
+                  ready: promptSession.startedAt ? Date.now() - promptSession.startedAt : undefined,
+                },
+                error: undefined,
               },
-            }));
+              { maskPreviewMode: 'overlay' },
+            );
             announcerRef.current?.announce(
               `Subject preview ready (${Math.round(decoded.confidence * 100)}% confidence). Press Enter to apply, Escape to cancel.`,
             );
             return maskResult;
 
           case 'mask': {
+            const liveBeforeCommit = stateRef.current.document.nodes[nodeId];
+            if (
+              stateRef.current.document.id !== currentDoc.id ||
+              stateRef.current.selection.length !== 1 ||
+              stateRef.current.selection[0] !== nodeId ||
+              liveBeforeCommit !== node
+            ) {
+              return null;
+            }
             const maskDataUrl = await maskToDataUrl(bestMask.mask, naturalW, naturalH);
             let committed = false;
             updateDoc((doc) => {
+              const liveNode = doc.nodes[nodeId];
+              if (doc.id !== currentDoc.id || liveNode !== node) return doc;
               const updated = commitRasterMask(doc, nodeId, {
                 dataUrl: maskDataUrl,
                 width: naturalW,
@@ -380,7 +609,7 @@ export function useSam2Segmentation(
               return updated;
             });
             if (committed) {
-              setState((prev) => ({ ...prev, objectSelectionSession: null }));
+              writeTransientSession(null, { maskPreviewMode: 'none' });
               announcerRef.current?.announce(
                 `Selection applied as a mask (${Math.round(decoded.confidence * 100)}% confidence)`,
               );
@@ -389,11 +618,9 @@ export function useSam2Segmentation(
           }
 
           case 'selection':
-            setState((prev) => ({
-              ...prev,
-              selection: [nodeId],
-              maskPreviewMode: 'overlay' as const,
-              objectSelectionSession: {
+            writeTransientSession(
+              {
+                ...promptSession,
                 nodeId,
                 width: naturalW,
                 height: naturalH,
@@ -404,12 +631,23 @@ export function useSam2Segmentation(
                 selectedCandidate,
                 points: prompts.points ?? [],
                 box: prompts.box ?? null,
+                draftPoint: null,
+                draftBox: null,
                 confidence: decoded.confidence,
                 status: 'ready' as const,
                 modelId: 'sam2-hiera-tiny',
                 executionProvider: decOutputs.executionProvider,
+                sourceLocator: src,
+                startedAt: promptSession.startedAt,
+                slow: false,
+                stageTimingsMs: {
+                  ...promptSession.stageTimingsMs,
+                  ready: promptSession.startedAt ? Date.now() - promptSession.startedAt : undefined,
+                },
+                error: undefined,
               },
-            }));
+              { selection: [nodeId], maskPreviewMode: 'overlay' },
+            );
             announcerRef.current?.announce(
               `Selected subject (${Math.round(decoded.confidence * 100)}% confidence)`,
             );
@@ -417,8 +655,11 @@ export function useSam2Segmentation(
 
           case 'layer': {
             const maskDataUrlLayer = await maskToDataUrl(bestMask.mask, naturalW, naturalH);
-            updateDoc((doc) =>
-              commitRasterMask(doc, nodeId, {
+            let committed = false;
+            updateDoc((doc) => {
+              const liveNode = doc.nodes[nodeId];
+              if (doc.id !== currentDoc.id || liveNode !== node) return doc;
+              const updated = commitRasterMask(doc, nodeId, {
                 dataUrl: maskDataUrlLayer,
                 width: naturalW,
                 height: naturalH,
@@ -427,33 +668,38 @@ export function useSam2Segmentation(
                 confidence: decoded.confidence,
                 generatedAt: Date.now(),
                 sourceLocator: src,
-              }),
-            );
-            setState((prev) => ({
-              ...prev,
-              selection: [nodeId],
-              objectSelectionSession: null,
-            }));
-            announcerRef.current?.announce(
-              `Selection created as a new mask layer (${Math.round(decoded.confidence * 100)}% confidence)`,
-            );
+              });
+              committed = updated !== doc;
+              return updated;
+            });
+            if (committed) {
+              writeTransientSession(null, { selection: [nodeId], maskPreviewMode: 'none' });
+              announcerRef.current?.announce(
+                `Selection created as a new mask layer (${Math.round(decoded.confidence * 100)}% confidence)`,
+              );
+            }
             return maskResult;
           }
         }
       } catch (e) {
-        if ((e as Error).message === 'cancelled') return null;
-        const message = mapSegmentationFailure((e as Error).message);
-        announcerRef.current?.announce(message);
+        const raw = e instanceof Error ? e.message : String(e);
+        if (isCancellationError(raw)) return null;
+        const failure = mapSegmentationFailure(raw);
+        markFailure(failure);
         return null;
       } finally {
         if (generation === generationRef.current) {
           abortRef.current = null;
+          if (softDeadlineRef.current !== null) {
+            clearTimeout(softDeadlineRef.current);
+            softDeadlineRef.current = null;
+          }
         }
       }
 
       return null;
     },
-    [enabled, stateRef, setState, updateDoc, announcerRef],
+    [enabled, stateRef, setState, updateDoc, announcerRef, writeTransientSession],
   );
 
   return { applySam2Segmentation, cancelSam2Segmentation, selectSam2Candidate };
@@ -519,20 +765,73 @@ function combineAbortSignals(...signals: AbortSignal[]): AbortSignal {
  * Map backend/worker failures to user-facing messages (error taxonomy in
  * the object-selection docs). Never leak raw tensor/backtrace text.
  */
-function mapSegmentationFailure(raw: string): string {
+function writeCurrentSam2Stage(
+  stateRef: React.MutableRefObject<EditorState>,
+  setState: React.Dispatch<React.SetStateAction<EditorState>>,
+  nodeId: NodeId,
+  status: 'preparing' | 'encoding' | 'decoding',
+): void {
+  const current = stateRef.current.objectSelectionSession;
+  if (!current || current.nodeId !== nodeId) return;
+  const elapsed = current.startedAt ? Math.max(0, Date.now() - current.startedAt) : undefined;
+  const next = {
+    ...current,
+    status,
+    error: undefined,
+    stageTimingsMs:
+      elapsed === undefined
+        ? current.stageTimingsMs
+        : { ...current.stageTimingsMs, [status]: elapsed },
+  } as ObjectSelectionSession;
+  stateRef.current = { ...stateRef.current, objectSelectionSession: next };
+  setState((prev) => ({ ...prev, objectSelectionSession: next }));
+}
+
+function isCancellationError(raw: string): boolean {
+  return /cancelled|canceled|abort/i.test(raw);
+}
+
+function mapSegmentationFailure(raw: string): {
+  code: string;
+  message: string;
+  retryable: boolean;
+} {
   if (raw.includes('safe WASM memory limit')) {
-    return 'Object selection needs more memory than this device can safely use without GPU acceleration. Close other documents or try again on a device with more memory.';
+    return {
+      code: 'out_of_memory',
+      message:
+        'Object selection needs more memory than this device can safely use without GPU acceleration. Close other documents or try again on a device with more memory.',
+      retryable: false,
+    };
   }
   if (raw.startsWith('Worker error:') || /worker.*(failed|undefined)/i.test(raw)) {
-    return 'The AI worker could not start. Reload the document and try again.';
+    return {
+      code: 'worker_crash',
+      message: 'The AI worker could not start. Reload the document and try again.',
+      retryable: true,
+    };
   }
-  if (raw.includes('Model exceeds') || raw.includes('not downloaded')) {
-    return 'The object-selection model is missing. Install it from Settings, AI Models, then try again.';
+  if (/model.*(exceeds|not downloaded|not installed|missing)/i.test(raw)) {
+    return {
+      code: 'model_not_installed',
+      message:
+        'The object-selection model is missing. Install it from Settings, Offline Models, then try again.',
+      retryable: true,
+    };
   }
   if (raw.includes('timed out') || raw.includes('Inference timed out')) {
-    return 'Object selection timed out. The model may still be loading — wait a moment and click again.';
+    return {
+      code: 'inference_timeout',
+      message:
+        'Object selection took too long to respond. Try again; the next run can reuse the model, or use a smaller image.',
+      retryable: true,
+    };
   }
-  return `Subject selection failed: ${raw}`;
+  return {
+    code: 'unknown',
+    message: 'Object selection could not complete. Check the AI model installation and try again.',
+    retryable: true,
+  };
 }
 
 async function maskToDataUrl(mask: Uint8Array, width: number, height: number): Promise<string> {

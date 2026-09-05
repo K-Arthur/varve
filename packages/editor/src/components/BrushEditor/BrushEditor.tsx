@@ -10,7 +10,7 @@
  * brush is worse than no preview.
  */
 import type { BrushPreset } from '@varve/scene';
-import { Button, Input } from '@varve/ui';
+import { Button, Input, NativeSelect, Switch } from '@varve/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { BrushPreviewCache, brushPreviewDataUrl } from '../../brush/brushPreview';
 import { DisclosureSection } from '../Inspector/controls/DisclosureSection';
@@ -108,7 +108,7 @@ export function BrushEditor({ preset, onSave, onClose, makeId }: BrushEditorProp
           Save As
         </Button>
         <Button
-          variant="primary"
+          variant="default"
           onClick={() => {
             onSave(draft);
             setState(commitDraft);
@@ -271,19 +271,19 @@ function GrainSection({ draft, set }: SectionProps) {
           onChange={(e) => set('grainId', e.currentTarget.value || undefined)}
         />
       </div>
-      <div className="brush-editor__field">
-        <label htmlFor="brush-grain-anchor">Anchor</label>
-        <select
-          id="brush-grain-anchor"
-          value={draft.grainAnchor}
-          onChange={(e) => set('grainAnchor', e.currentTarget.value as BrushPreset['grainAnchor'])}
-        >
-          <option value="layer">Layer — fixed to the artwork</option>
-          <option value="canvas">Canvas — fixed to the document</option>
-          <option value="brush">Brush — travels with each dab</option>
-          <option value="stroke">Stroke — slides along the stroke</option>
-        </select>
-      </div>
+      <NativeSelect
+        className="brush-editor__field brush-editor__native-select"
+        id="brush-grain-anchor"
+        label="Anchor"
+        value={draft.grainAnchor}
+        onValueChange={(value) => set('grainAnchor', value as BrushPreset['grainAnchor'])}
+        options={[
+          { value: 'layer', label: 'Layer — fixed to the artwork' },
+          { value: 'canvas', label: 'Canvas — fixed to the document' },
+          { value: 'brush', label: 'Brush — travels with each dab' },
+          { value: 'stroke', label: 'Stroke — slides along the stroke' },
+        ]}
+      />
       <NumberField
         label="Scale"
         value={Math.round(draft.grainScale * 100)}
@@ -302,22 +302,18 @@ function GrainSection({ draft, set }: SectionProps) {
         unit="%"
         onChange={(v) => set('grainContrast', v / 100)}
       />
-      <label className="brush-editor__checkbox">
-        <input
-          type="checkbox"
-          checked={draft.grainInvert}
-          onChange={(e) => set('grainInvert', e.currentTarget.checked)}
-        />
-        <span>Invert grain</span>
-      </label>
-      <label className="brush-editor__checkbox">
-        <input
-          type="checkbox"
-          checked={draft.grainFollowDirection}
-          onChange={(e) => set('grainFollowDirection', e.currentTarget.checked)}
-        />
-        <span>Rotate with stroke direction</span>
-      </label>
+      <Switch
+        className="brush-editor__checkbox"
+        label="Invert grain"
+        checked={draft.grainInvert}
+        onChange={(e) => set('grainInvert', e.currentTarget.checked)}
+      />
+      <Switch
+        className="brush-editor__checkbox"
+        label="Rotate with stroke direction"
+        checked={draft.grainFollowDirection}
+        onChange={(e) => set('grainFollowDirection', e.currentTarget.checked)}
+      />
     </DisclosureSection>
   );
 }
@@ -325,14 +321,12 @@ function GrainSection({ draft, set }: SectionProps) {
 function WetSection({ draft, set }: SectionProps) {
   return (
     <DisclosureSection title="Wet Media">
-      <label className="brush-editor__checkbox">
-        <input
-          type="checkbox"
-          checked={draft.wetEnabled}
-          onChange={(e) => set('wetEnabled', e.currentTarget.checked)}
-        />
-        <span>Wet paint</span>
-      </label>
+      <Switch
+        className="brush-editor__checkbox"
+        label="Wet paint"
+        checked={draft.wetEnabled}
+        onChange={(e) => set('wetEnabled', e.currentTarget.checked)}
+      />
       <NumberField
         label="Mixing"
         value={Math.round(draft.wetMixStrength * 100)}
@@ -353,15 +347,13 @@ function WetSection({ draft, set }: SectionProps) {
         disabled={!draft.wetEnabled}
         onChange={(v) => set('wetDryingRate', v / 100)}
       />
-      <label className="brush-editor__checkbox">
-        <input
-          type="checkbox"
-          checked={draft.wetEdge}
-          disabled={!draft.wetEnabled}
-          onChange={(e) => set('wetEdge', e.currentTarget.checked)}
-        />
-        <span>Wet edge</span>
-      </label>
+      <Switch
+        className="brush-editor__checkbox"
+        label="Wet edge"
+        checked={draft.wetEdge}
+        disabled={!draft.wetEnabled}
+        onChange={(e) => set('wetEdge', e.currentTarget.checked)}
+      />
     </DisclosureSection>
   );
 }

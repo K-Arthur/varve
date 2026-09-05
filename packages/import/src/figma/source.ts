@@ -27,6 +27,8 @@ export interface FigmaPaint {
     color: { r: number; g: number; b: number; a?: number };
   }>;
   gradientHandlePositions?: FigmaPoint[];
+  /** Native Figma gradient transform, mapping normalized fill space to node space. */
+  gradientTransform?: readonly [number, number, number, number, number, number];
   imageRef?: string;
   scaleMode?: string;
 }
@@ -263,6 +265,7 @@ function paint(value: unknown): FigmaPaint | undefined {
     color: color(value.color),
     gradientStops: stops.length > 0 ? stops : undefined,
     gradientHandlePositions: handles,
+    gradientTransform: affine(value.gradientTransform),
     imageRef: stringValue(value.imageRef),
     scaleMode: stringValue(value.scaleMode),
   };

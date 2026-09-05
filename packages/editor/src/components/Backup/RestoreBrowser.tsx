@@ -1,4 +1,5 @@
 import type { BackupIndexEntry, BackupManifest } from '@varve/engine';
+import { LoadingLabel } from '@varve/ui';
 import { useCallback, useEffect, useState } from 'react';
 import type { BackupService } from '../../backupService';
 import { useEditor } from '../../context';
@@ -73,8 +74,8 @@ export function RestoreBrowser({ backupService, projectId, onClose }: RestoreBro
 
   if (loading) {
     return (
-      <div className="restore-browser__loading" role="status">
-        Loading backups...
+      <div className="restore-browser__loading">
+        <LoadingLabel label="Loading backups…" />
       </div>
     );
   }

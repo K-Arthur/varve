@@ -65,7 +65,7 @@ export function PromptDialog() {
           <Button variant="ghost" onClick={handleCancel}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={handleConfirm}>
+          <Button variant="default" onClick={handleConfirm}>
             Confirm
           </Button>
         </div>
@@ -97,7 +97,7 @@ interface ConfirmDialogState {
   title: string;
   description: string;
   confirmLabel?: string;
-  variant?: 'danger' | 'primary';
+  variant?: 'destructive' | 'default';
   resolve: (value: boolean) => void;
 }
 
@@ -106,7 +106,7 @@ let setConfirmState: ((s: ConfirmDialogState | null) => void) | null = null;
 export function confirmDialog(
   title: string,
   description: string,
-  options?: { confirmLabel?: string; variant?: 'danger' | 'primary' },
+  options?: { confirmLabel?: string; variant?: 'destructive' | 'default' },
 ): Promise<boolean> {
   return new Promise((resolve) => {
     if (setConfirmState) {

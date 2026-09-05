@@ -63,11 +63,43 @@ function installWorkerStub() {
   `;
 }
 
+/**
+ * The worker is stubbed below, so the test only needs a model-shaped entry in
+ * IndexedDB. CI serves the real manifest, whose checksum correctly rejects
+ * the 1-byte placeholder. Remove the checksum for this one synthetic model
+ * while preserving every other manifest field and model's production checks.
+ */
+function installSyntheticManifestStub() {
+  return `
+    (() => {
+      const realFetch = window.fetch.bind(window);
+      window.fetch = async (input, init) => {
+        const url = input instanceof Request ? input.url : String(input);
+        if (new URL(url, window.location.href).pathname !== '/models/manifest.json') {
+          return realFetch(input, init);
+        }
+        const response = await realFetch(input, init);
+        if (!response.ok) return response;
+        const manifest = await response.clone().json();
+        const depthModel = manifest.models?.find(
+          (model) => model.id === '${DEPTH_MODEL_ID}',
+        );
+        if (depthModel) depthModel.sha256 = null;
+        return new Response(JSON.stringify(manifest), {
+          status: response.status,
+          statusText: response.statusText,
+          headers: { 'content-type': 'application/json' },
+        });
+      };
+    })();
+  `;
+}
+
 function seedModelStore() {
   return `
     (() => {
-      const put = () => {
-        const request = indexedDB.open('varve-model-store', 2);
+      const put = () => new Promise((resolve, reject) => {
+        const request = indexedDB.open('varve-model-store', 3);
         request.onupgradeneeded = () => {
           if (!request.result.objectStoreNames.contains('models')) {
             request.result.createObjectStore('models');
@@ -76,16 +108,23 @@ function seedModelStore() {
             request.result.createObjectStore('partials');
           }
         };
+        request.onerror = () => reject(request.error ?? new Error('Failed to seed model store'));
         request.onsuccess = () => {
           const db = request.result;
           const tx = db.transaction('models', 'readwrite');
           // modelStore stores raw Blobs keyed by model id.
           tx.objectStore('models').put(new Blob([new Uint8Array([1])]), '${DEPTH_MODEL_ID}');
-          tx.oncomplete = () => db.close();
+          tx.oncomplete = () => {
+            db.close();
+            resolve();
+          };
+          tx.onerror = () => {
+            db.close();
+            reject(tx.error ?? new Error('Failed to write seeded model'));
+          };
         };
       };
       window.__varveSeedDepthModel = put;
-      put();
     })();
   `;
 }
@@ -98,7 +137,9 @@ function seedModelStore() {
 async function navigateWithSeededModel(page: import('@playwright/test').Page) {
   await navigateToEditor(page);
   await page.evaluate(() => {
-    (window as unknown as { __varveSeedDepthModel?: () => void }).__varveSeedDepthModel?.();
+    return (
+      window as unknown as { __varveSeedDepthModel?: () => Promise<void> }
+    ).__varveSeedDepthModel?.();
   });
   await page.reload({ timeout: 120000 });
   await page.getByRole('button', { name: /^new$/i }).waitFor({ state: 'visible', timeout: 60000 });
@@ -166,6 +207,7 @@ async function openDepthBlurSection(page: import('@playwright/test').Page) {
 test.describe('Depth Blur workflow', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(installWorkerStub);
+    await page.addInitScript(installSyntheticManifestStub);
     await page.addInitScript(seedModelStore);
     await navigateWithSeededModel(page);
   });

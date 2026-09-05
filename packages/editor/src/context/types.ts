@@ -38,15 +38,74 @@ import type { HitTestPolicyName } from '../hitTest/policyTypes';
 import type { FrameSpatialIndex } from '../scene/spatialIndex';
 import type { MediaState } from '../state/media-state';
 import type { MotionState } from '../state/motion-state';
+import type { MagicWandSettings } from '../tools/magicWandSettings';
 import type { DraftShape, MaskPreviewMode, ToolId } from '../tools/types';
 import type { WorkspaceMode } from '../workspace/workspaceTypes';
+import type { ObjectSelectionSession } from './objectSelectionTypes';
 import type { SelectionMode, SelectionOrigin } from './selectionState';
 import type { TableEditState } from './tableEditState';
 
 export { createCopyEffectStackToNodes } from './effectStackTransfer';
+export type { ObjectSelectionSession } from './objectSelectionTypes';
 export * from './selectionState';
 export type { TableEditState } from './tableEditState';
 export type { MaskPreviewMode, ToolId };
+
+/** Execute a related mutation as one user-visible history step. */
+export function runCompoundOperation(
+  label: string,
+  action: () => void,
+  ownsTransaction: () => boolean,
+  begin: () => void,
+  setLabel: (label: string) => void,
+  commit: () => void,
+  abort: () => void,
+): void {
+  const owns = ownsTransaction();
+  begin();
+  if (owns) setLabel(label);
+  try {
+    action();
+    commit();
+  } catch (error) {
+    if (owns) abort();
+    else commit();
+    throw error;
+  }
+}
+
+export function mergeMagicWandSettings(
+  current: MagicWandSettings,
+  patch: Partial<MagicWandSettings>,
+): MagicWandSettings {
+  return {
+    ...current,
+    ...patch,
+    tolerance: Number.isFinite(patch.tolerance)
+      ? Math.max(0, Math.min(100, patch.tolerance!))
+      : current.tolerance,
+    edgeFeather: Number.isFinite(patch.edgeFeather)
+      ? Math.max(0, Math.min(100, patch.edgeFeather!))
+      : current.edgeFeather,
+  };
+}
+
+export async function commitFloatingRasterIfCurrent<TDocument, TFloating, TResult>(
+  document: TDocument,
+  floating: TFloating | null | undefined,
+  commit: (document: TDocument, floating: TFloating) => Promise<TResult | null | undefined>,
+  isCurrent: () => boolean,
+  onStale: () => void,
+  onCommit: (result: TResult) => void,
+): Promise<void> {
+  if (!floating) return;
+  const result = await commit(document, floating);
+  if (!result || !isCurrent()) {
+    onStale();
+    return;
+  }
+  onCommit(result);
+}
 
 export type InspectorTab =
   | 'properties'
@@ -159,24 +218,6 @@ export interface BackgroundRemovalPreviewSession {
   modelPrecision?: 'fp32' | 'int8';
   precisionFallback?: boolean;
   precisionFallbackReason?: string;
-}
-
-/** Transient Object Selection state. Never serialized or added to history. */
-export interface ObjectSelectionSession {
-  nodeId: NodeId;
-  width: number;
-  height: number;
-  candidates: Array<{
-    mask: Uint8Array;
-    confidence: number;
-  }>;
-  selectedCandidate: number;
-  points: Array<{ x: number; y: number; label: 0 | 1 }>;
-  box: { x1: number; y1: number; x2: number; y2: number } | null;
-  confidence: number;
-  status: 'previewing' | 'ready' | 'error';
-  modelId: string;
-  executionProvider?: string;
 }
 
 export type CanvasMode = 'full' | 'outline' | 'preview';
@@ -316,6 +357,10 @@ export interface EditorState {
   areaSelection?: AreaSelection | null;
   /** Ephemeral controls shared by the rectangular and elliptical marquee tools. */
   areaSelectionSettings: AreaSelectionSettings;
+  /** Ephemeral controls used by the interactive Magic Wand. */
+  magicWandSettings: MagicWandSettings;
+  /** Ephemeral floating raster selection for pixel transforms. Runtime only. */
+  floatingRaster?: import('@varve/engine').FloatingRasterSelection | null;
   document: Document;
   sessions: SessionMeta[];
   activeId: string;
@@ -385,6 +430,12 @@ export interface EditorState {
    * rather than living in the per-selection Properties inspector.
    */
   stateMachinePanelVisible: boolean;
+  /**
+   * Variables/tokens dialog (document-scoped design-system management).
+   * Opt-in like the state-machine panel: reachable from the command palette
+   * rather than occupying permanent panel space.
+   */
+  variablesPanelVisible: boolean;
   /** Which property track is currently shown in the graph editor (nodeId.property). */
   selectedGraphProperty: string | null;
   /**
@@ -635,8 +686,14 @@ export interface EditorContextValue {
   restoreDefaultCollapsed: () => void;
   hideOptionalSections: () => void;
   // Section ordering
-  moveSectionUp: (sectionId: import('../components/Inspector/sectionRegistry').SectionId) => void;
-  moveSectionDown: (sectionId: import('../components/Inspector/sectionRegistry').SectionId) => void;
+  moveSectionUp: (
+    sectionId: import('../components/Inspector/sectionRegistry').SectionId,
+    withinSectionIds?: readonly import('../components/Inspector/sectionRegistry').SectionId[],
+  ) => void;
+  moveSectionDown: (
+    sectionId: import('../components/Inspector/sectionRegistry').SectionId,
+    withinSectionIds?: readonly import('../components/Inspector/sectionRegistry').SectionId[],
+  ) => void;
   moveSectionToStart: (
     sectionId: import('../components/Inspector/sectionRegistry').SectionId,
   ) => void;
@@ -687,6 +744,11 @@ export interface EditorContextValue {
     pathPoints?: PathPoint[],
     pathClosed?: boolean,
   ) => void;
+  /** Split selected or intersected editable vectors with one atomic Knife cut. */
+  sliceWithKnife?: (line: {
+    start: readonly [number, number];
+    end: readonly [number, number];
+  }) => void;
   createTextNodeAt: (
     world: { x: number; y: number },
     size?: { w: number; h: number },
@@ -720,7 +782,7 @@ export interface EditorContextValue {
     { nodeId: NodeId; node: SceneNode; parentId: NodeId | null; depth: number }
   >;
   setDraft: (draft: DraftShape | null) => void;
-  removeSelected: () => void;
+  removeSelected: (selection?: NodeId[]) => void;
   renameSelected: (name: string) => void;
   /**
    * Rename a specific node. `renameSelected` targets `selection[0]`, which is
@@ -825,8 +887,11 @@ export interface EditorContextValue {
     target: string,
     binding: import('@varve/scene').PropertyBinding | null,
   ) => void;
-  /** Trim image bounds to the non-transparent alpha region of a background-removal mask. */
-  trimToSubject: (padding?: number) => Promise<void>;
+  /** Trim image bounds to visible content or explicit detected bounds. */
+  trimToSubject: (
+    padding?: number,
+    options?: import('../imageCrop').TrimToSubjectOptions,
+  ) => Promise<void>;
   /** Position the crop window to keep detected faces in frame. Returns true
    * when a face-aware crop was applied. */
   applyFaceAwareCrop: (options?: {
@@ -844,6 +909,8 @@ export interface EditorContextValue {
   beginTransaction: (mode?: 'edit' | 'preview') => void;
   commitTransaction: () => void;
   abortTransaction: () => void;
+  /** Run a named collection of mutations as one undoable history step. */
+  groupCompoundOperation: (label: string, action: () => void) => void;
   undo: () => void;
   redo: () => void;
   newDocument: () => void;
@@ -910,8 +977,13 @@ export interface EditorContextValue {
   syncAllInstances: () => import('@varve/scene').SyncResult;
 
   // Flatten
-  flattenSelected: (mode: import('../flatten/types').FlattenMode, scale?: number) => void;
-  rasterizeSelected: (scale?: number) => void;
+  flattenSelected: (
+    mode: import('../flatten/types').FlattenMode,
+    scaleOrOptions?: number | import('../flatten/rasterizeOptions').RasterizeSelectionOptions,
+  ) => void;
+  rasterizeSelected: (
+    scaleOrOptions?: number | import('../flatten/rasterizeOptions').RasterizeSelectionOptions,
+  ) => void;
   mergeSelected: () => void;
 
   // Text to outlines
@@ -970,8 +1042,12 @@ export interface EditorContextValue {
   /** Show a visual toast notification (also announced via aria-live). */
   showToast: (opts: {
     message: string;
-    type?: 'info' | 'success' | 'warning' | 'error';
+    title?: string;
+    description?: string;
+    type?: 'default' | 'info' | 'success' | 'warning' | 'error' | 'loading';
     duration?: number;
+    id?: string;
+    dedupeKey?: string;
   }) => void;
 
   // Adjustment layers
@@ -1418,6 +1494,13 @@ export interface EditorContextValue {
   commitAreaSelection?: (selection: AreaSelection) => void;
   /** Update ephemeral pixel-marquee controls without dirtying the document. */
   setAreaSelectionSettings: (patch: Partial<AreaSelectionSettings>) => void;
+  /** Update ephemeral Magic Wand controls without dirtying the document. */
+  setMagicWandSettings: (patch: Partial<MagicWandSettings>) => void;
+  /** Floating raster selection for pixel transforms (ephemeral, session-only). */
+  setFloatingRaster?: (floating: import('@varve/engine').FloatingRasterSelection | null) => void;
+  updateFloatingTransform?: (matrix: import('@varve/shared').Affine) => void;
+  commitFloatingRaster?: () => void;
+  cancelFloatingRaster?: () => void;
   paintQuickMask: (x: number, y: number, radius: number, value: number) => void;
   fillQuickMask: (value: number) => void;
   invertQuickMask: () => void;

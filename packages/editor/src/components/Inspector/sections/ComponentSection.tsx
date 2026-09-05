@@ -73,7 +73,7 @@ export function ComponentSection({ node }: { node: FrameNode }) {
             fontSize: 'var(--font-size-xs)',
             background: 'var(--color-surface-sunken)',
             border: '1px solid var(--color-border-subtle)',
-            borderRadius: 'var(--radius-sm)',
+            borderRadius: 'var(--radius-control-compact)',
             cursor: overrides.length === 0 ? 'not-allowed' : 'pointer',
             color: 'var(--color-text-primary)',
             opacity: overrides.length === 0 ? 0.5 : 1,
@@ -91,7 +91,7 @@ export function ComponentSection({ node }: { node: FrameNode }) {
             fontSize: 'var(--font-size-xs)',
             background: 'var(--color-surface-sunken)',
             border: '1px solid var(--color-border-subtle)',
-            borderRadius: 'var(--radius-sm)',
+            borderRadius: 'var(--radius-control-compact)',
             cursor: 'pointer',
             color: 'var(--color-text-primary)',
           }}
@@ -114,7 +114,7 @@ export function ComponentSection({ node }: { node: FrameNode }) {
                 style={{
                   fontSize: 'var(--font-size-xs)',
                   padding: '2px 6px',
-                  borderRadius: 'var(--radius-sm)',
+                  borderRadius: 'var(--radius-control-compact)',
                   background:
                     'color-mix(in oklch, var(--color-interactive-default) 15%, transparent)',
                   color: 'var(--color-text-on-accent, var(--color-accent-primary))',
@@ -149,7 +149,7 @@ export function ComponentSection({ node }: { node: FrameNode }) {
                   padding: 'var(--space-1)',
                   background: 'var(--color-surface-sunken)',
                   border: '1px solid var(--color-border-subtle)',
-                  borderRadius: 'var(--radius-sm)',
+                  borderRadius: 'var(--radius-control-compact)',
                   marginBottom: 'var(--space-1)',
                 }}
               >

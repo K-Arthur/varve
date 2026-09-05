@@ -250,7 +250,7 @@ export function PerspectiveOverlay({ tool, zoom, pan, cameraRotation, buildToolC
           gap: 'var(--space-3)',
           padding: 'var(--space-1)',
           border: '1px solid var(--color-border-subtle)',
-          borderRadius: 'var(--radius-md)',
+          borderRadius: 'var(--radius-control)',
           background: 'var(--elevation-surface-raised)',
           boxShadow: 'var(--shadow-md)',
           pointerEvents: 'auto',

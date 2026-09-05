@@ -35,7 +35,7 @@
   gap: 6px;
   padding: 5px 10px;
   border: none;
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  border-radius: var(--radius-control-compact) var(--radius-control-compact) 0 0;
   background: transparent;
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
@@ -72,22 +72,10 @@
  * panel's right boundary; the container's --library-panel-width custom
  * property drives the actual width (Shell default 300px). */
 .panel-width-edge {
-  position: absolute;
   top: 0;
   right: -3px;
-  bottom: 0;
-  width: 6px;
   margin: 0;
-  border: none;
-  background: transparent;
-  cursor: col-resize;
   z-index: var(--z-sticky);
-}
-.panel-width-edge:hover,
-.panel-width-edge:focus-visible,
-.panel-width-edge--active {
-  background: var(--color-interactive-default);
-  opacity: 0.5;
 }
 .panel-width-edge:focus-visible {
   outline: none;

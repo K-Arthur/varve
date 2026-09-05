@@ -31,7 +31,7 @@ export function PlanBadge({ entitlement }: { entitlement: Entitlement }) {
       </div>
       {isFree && (
         <Button
-          variant="primary"
+          variant="default"
           size="sm"
           onClick={() =>
             toast.toast({

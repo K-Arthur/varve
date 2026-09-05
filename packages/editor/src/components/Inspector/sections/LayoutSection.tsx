@@ -21,7 +21,7 @@ import type {
   LayoutStyle,
   SceneNode,
 } from '@varve/scene';
-import { Select } from '@varve/ui';
+import { Select, Switch } from '@varve/ui';
 import { useMemo } from 'react';
 import { useEditor } from '../../../context';
 import { suggestAutoLayout } from '../../../intelligence/autoLayoutSuggestor';
@@ -96,10 +96,9 @@ export function LayoutSection({ node }: { node: FrameNode }) {
   return (
     <DisclosureSection title="Layout" sectionId="layout">
       <FieldRow label="Clip content" htmlFor={`frame-clip-content-${node.id}`}>
-        <input
+        <Switch
           id={`frame-clip-content-${node.id}`}
-          type="checkbox"
-          className="insp-checkbox"
+          aria-label="Clip content"
           checked={node.clipContent !== false}
           onChange={(event) => setNodeClipContent(node.id, event.target.checked)}
         />
@@ -111,7 +110,7 @@ export function LayoutSection({ node }: { node: FrameNode }) {
             fontSize: 'var(--font-size-xs)',
             padding: 'var(--space-1) var(--space-2)',
             background: 'var(--color-surface-sunken)',
-            borderRadius: 'var(--radius-sm)',
+            borderRadius: 'var(--radius-control-compact)',
             display: 'flex',
             alignItems: 'center',
             gap: 'var(--space-1)',
@@ -129,7 +128,7 @@ export function LayoutSection({ node }: { node: FrameNode }) {
               fontSize: 'var(--font-size-xs)',
               padding: '2px 6px',
               border: '1px solid var(--color-border-subtle)',
-              borderRadius: 'var(--radius-sm)',
+              borderRadius: 'var(--radius-control-compact)',
               background: 'var(--elevation-surface-default)',
               cursor: 'pointer',
             }}
@@ -230,11 +229,9 @@ export function LayoutSection({ node }: { node: FrameNode }) {
                 onChange={(v) => patch({ gap: v })}
               />
               <FieldRow label="Wrap">
-                <input
-                  type="checkbox"
-                  className="insp-checkbox"
-                  checked={ls.wrap}
+                <Switch
                   aria-label="Wrap"
+                  checked={ls.wrap}
                   onChange={(e) => patch({ wrap: e.target.checked })}
                 />
               </FieldRow>

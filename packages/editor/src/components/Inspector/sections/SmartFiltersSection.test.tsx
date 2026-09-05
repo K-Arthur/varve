@@ -118,7 +118,10 @@ describe('SmartFiltersSection — object finishing shortcuts', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockedUseEditor.mockReturnValue({
-      state: { sectionVisibility: {} },
+      // 'smart-filters' is collapsed by default in the section registry
+      // (progressive disclosure); these tests exercise the section content,
+      // so seed the visibility state expanded.
+      state: { sectionVisibility: { 'smart-filters': { collapsed: false } } },
       toggleSectionCollapse: vi.fn(),
       toggleSubSectionCollapse: vi.fn(),
       hideInspectorSection: vi.fn(),
@@ -172,7 +175,7 @@ describe('SmartFiltersSection — object finishing shortcuts', () => {
     },
   );
 
-  it('keeps advanced photo-local filters available with an honest flat-fill hint', () => {
+  it('keeps advanced photo-local filters available with an honest flat-fill hint', async () => {
     render(<SmartFiltersSection nodes={[vectorNode()]} />);
 
     expect(
@@ -181,7 +184,9 @@ describe('SmartFiltersSection — object finishing shortcuts', () => {
     fireEvent.click(screen.getByRole('combobox', { name: 'Add Object Filter' }));
 
     for (const kind of ['microDetail', 'definition', 'atmosphere', 'dehaze'] as const) {
-      expect(screen.getByRole('option', { name: filterKindDisplayName(kind) })).toBeInTheDocument();
+      expect(
+        await screen.findByRole('option', { name: filterKindDisplayName(kind) }),
+      ).toBeInTheDocument();
     }
   });
 

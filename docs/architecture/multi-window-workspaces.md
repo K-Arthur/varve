@@ -148,6 +148,12 @@ source panel docked, restores focus to the invoking control, and announces the
 failure. A repeated detach of an already detached singleton focuses the
 existing host instead of creating a duplicate.
 
+The broker gives a new host a 30-second readiness deadline by default, which is
+also the hard maximum. This accommodates a cold auxiliary route (including
+first-load development transforms) while still bounding recovery when a host
+never appears. Callers may choose a shorter deadline, but cannot extend the
+bounded maximum.
+
 Reattachment routes through the same primary authority: the broker validates
 the request, clears the detached record so the docked source returns, sends an
 acknowledgement, and the auxiliary window closes. An unexpected auxiliary

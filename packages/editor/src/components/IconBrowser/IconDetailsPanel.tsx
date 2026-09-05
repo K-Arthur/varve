@@ -4,7 +4,7 @@
  */
 
 import type { IconSourceDescriptor } from '@varve/engine';
-import { Button, Icon, SolidIcon } from '@varve/ui';
+import { Button, Icon, SolidIcon, Spinner } from '@varve/ui';
 import { SafeSvg } from './SafeSvg';
 
 export interface IconDetailsPanelProps {
@@ -62,7 +62,7 @@ export function IconDetailsPanel({
           />
         ) : isAcquiring ? (
           <div className="icon-details__preview-loading" role="status" aria-label="Loading preview">
-            <Icon name="Loader" size={24} className="icon-card__spinner" />
+            <Spinner size="md" className="icon-card__spinner" />
           </div>
         ) : (
           <div
@@ -191,7 +191,7 @@ export function IconDetailsPanel({
         )}
 
         <div className="icon-details__actions">
-          <Button variant="primary" size="sm" onClick={onInsert} disabled={isAcquiring || !svg}>
+          <Button variant="default" size="sm" onClick={onInsert} disabled={isAcquiring || !svg}>
             {isAcquiring ? 'Loading…' : 'Insert'}
           </Button>
           <Button

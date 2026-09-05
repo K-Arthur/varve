@@ -246,6 +246,14 @@ describe('SelectionOverlay — shape handle types', () => {
     expect(lines.length).toBe(1);
   });
 
+  it('hides transform handles for a locked shape', () => {
+    const container = renderOverlay([
+      makeShapeNode('locked', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 }, { locked: true }),
+    ]);
+    expect(container.querySelectorAll('rect[aria-label$="resize handle"]')).toHaveLength(0);
+    expect(container.querySelector('[aria-label="Rotate"]')).toBeNull();
+  });
+
   it('shows 8 resize handles + rotation handle for a polygon shape', () => {
     const container = renderOverlay([
       makeShapeNode('n1', {

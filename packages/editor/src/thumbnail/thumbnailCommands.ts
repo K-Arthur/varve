@@ -30,7 +30,12 @@ export interface ThumbnailCommandContext {
   selection: string[];
   fileId?: string;
   activePageId?: string;
-  showToast: (opts: { message: string; type?: 'info' | 'success' | 'warning' | 'error' }) => void;
+  showToast: (opts: {
+    message: string;
+    type?: 'default' | 'info' | 'success' | 'warning' | 'error' | 'loading';
+    id?: string;
+    dedupeKey?: string;
+  }) => void;
 }
 
 /** Apply a preference: persist it and regenerate the canonical thumbnail. */
@@ -47,18 +52,50 @@ export function applyThumbnailPreference(
     });
     return;
   }
+  const operationId = `thumbnail:${fileId}`;
+  const operationKey = `thumbnail-preference:${fileId}`;
+  let settled = false;
+  const watchdog = setTimeout(() => {
+    if (settled) return;
+    showToast({
+      id: operationId,
+      dedupeKey: operationKey,
+      message: 'Thumbnail update is taking longer than expected',
+      type: 'warning',
+    });
+  }, 30_000);
+  showToast({
+    id: operationId,
+    dedupeKey: operationKey,
+    message: 'Updating file thumbnail…',
+    type: 'loading',
+  });
   void platform
     .setThumbnailPreference(fileId, preference)
     .then(() => {
+      settled = true;
+      clearTimeout(watchdog);
       persistProjectThumbnail(platform, document, {
         fileId,
         preference,
         priority: 'current-doc',
       });
-      showToast({ message: successMessage, type: 'success' });
+      showToast({
+        id: operationId,
+        dedupeKey: operationKey,
+        message: successMessage,
+        type: 'success',
+      });
     })
     .catch(() => {
-      showToast({ message: 'Could not save thumbnail choice', type: 'error' });
+      settled = true;
+      clearTimeout(watchdog);
+      showToast({
+        id: operationId,
+        dedupeKey: operationKey,
+        message: 'Could not save thumbnail choice',
+        type: 'error',
+      });
     });
 }
 

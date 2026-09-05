@@ -7,6 +7,7 @@
  * Callers can override via settings.
  */
 
+import { textMeasureRevision } from '@varve/shared';
 import { getMemoryBudgets } from '../../canvas/memoryBudget';
 
 export interface ThumbnailCacheEntry {
@@ -135,6 +136,11 @@ export function thumbnailCacheKey(
     mask?: { rasterMask?: { editRevision?: number }; visible?: boolean };
     w?: number;
     h?: number;
+    text?: string;
+    fontFamily?: string;
+    fontSize?: number;
+    fontWeight?: number;
+    fontStyle?: string;
   },
   docId?: string,
 ): string {
@@ -145,5 +151,28 @@ export function thumbnailCacheKey(
   );
   const maskRev = node.mask?.rasterMask?.editRevision ?? 0;
   const dims = node.w !== undefined && node.h !== undefined ? `${node.w}x${node.h}` : '';
-  return `${docId ?? ''}:${node.id}:${node.kind}:${fillHash}:${shapeHash}:${imageSrcHash}:mask${maskRev}:${dims}`;
+  return `${docId ?? ''}:${node.id}:${node.kind}:${fillHash}:${shapeHash}:${imageSrcHash}:mask${maskRev}:${dims}:${textIdentity(node)}`;
+}
+
+/**
+ * What a text thumbnail actually depends on.
+ *
+ * Text nodes carry no `shape`, so the hashes above are constant for them: a
+ * cached thumbnail survived editing the string, restyling it, and — through
+ * the measurement revision — the font it is set in becoming usable, which left
+ * the layers panel showing fallback typography indefinitely after the canvas
+ * had corrected itself. Non-text nodes contribute nothing here, so a font load
+ * does not invalidate every thumbnail in the document.
+ */
+function textIdentity(node: {
+  kind: string;
+  text?: string;
+  fontFamily?: string;
+  fontSize?: number;
+  fontWeight?: number;
+  fontStyle?: string;
+}): string {
+  if (node.kind !== 'text') return '';
+  const style = `${node.fontFamily ?? ''}/${node.fontSize ?? ''}/${node.fontWeight ?? ''}/${node.fontStyle ?? ''}`;
+  return `text${stableHash(`${node.text ?? ''}|${style}`)}:${textMeasureRevision()}`;
 }

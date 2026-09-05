@@ -22,6 +22,16 @@ async function dismissRecoveryDialog(page: Page): Promise<void> {
   }
 }
 
+/**
+ * The editor-ready signal is independent of desktop panel visibility. The
+ * layers panel is deliberately a hidden, mounted drawer on narrow screens,
+ * so using it as a boot sentinel makes mobile tests wait for an element that
+ * responsive CSS correctly hides.
+ */
+async function waitForEditorReady(page: Page): Promise<void> {
+  await page.locator('[data-varve-editor-ready="true"]').waitFor({ timeout: 60000 });
+}
+
 /** Force the no-File-System-Access save path (Blob download + IDB mirror). */
 async function forceDownloadSaveFallback(page: Page): Promise<void> {
   await page.addInitScript(() => {
@@ -52,7 +62,7 @@ test.describe('browser demo (/try)', () => {
     page,
   }) => {
     await page.goto(DEMO_URL, { timeout: 120000, waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('.layers-panel', { timeout: 60000 });
+    await waitForEditorReady(page);
     await dismissRecoveryDialog(page);
 
     // Title reflects the demo.
@@ -93,7 +103,7 @@ test.describe('browser demo (/try)', () => {
 
   test('remembers an explicit analytics choice and does not ask again', async ({ page }) => {
     await page.goto(DEMO_URL, { timeout: 120000, waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('.layers-panel', { timeout: 60000 });
+    await waitForEditorReady(page);
 
     const banner = page.locator('.varve-demo-banner');
     const consent = banner.locator('.varve-demo-banner__consent');
@@ -110,7 +120,7 @@ test.describe('browser demo (/try)', () => {
       .toBe('denied');
 
     await page.reload({ timeout: 120000 });
-    await page.waitForSelector('.layers-panel', { timeout: 60000 });
+    await waitForEditorReady(page);
     await expect(page.locator('.varve-demo-banner')).toBeVisible();
     await expect(page.locator('.varve-demo-banner__consent')).toHaveCount(0);
   });
@@ -128,7 +138,7 @@ test.describe('browser demo (/try)', () => {
     });
 
     await page.goto(DEMO_URL, { timeout: 120000, waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('.layers-panel', { timeout: 60000 });
+    await waitForEditorReady(page);
 
     await expect
       .poll(() => wasmUrls.length, { timeout: 30000, message: 'WASM binary should be fetched' })
@@ -139,7 +149,7 @@ test.describe('browser demo (/try)', () => {
   test('edit, save (Blob fallback), reload, and reopen — persistence works', async ({ page }) => {
     await forceDownloadSaveFallback(page);
     await page.goto(DEMO_URL, { timeout: 120000, waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('.layers-panel', { timeout: 60000 });
+    await waitForEditorReady(page);
     await dismissRecoveryDialog(page);
 
     const before = await page.getByRole('treeitem').count();
@@ -157,7 +167,7 @@ test.describe('browser demo (/try)', () => {
     await dismissRecoveryDialog(page);
     await page.reload({ timeout: 120000 });
     await dismissRecoveryDialog(page);
-    await page.waitForSelector('.layers-panel', { timeout: 60000 });
+    await waitForEditorReady(page);
 
     // The document re-opens with the sample + our added shape.
     await expect(page.getByRole('treeitem')).toHaveCount(before + 1, { timeout: 15000 });
@@ -173,7 +183,7 @@ test.describe('browser demo (/try)', () => {
     // claims focus as it mounts, so focusing the summary any earlier is a race
     // the test loses in Firefox and happens to win in Chromium — which read as
     // a Firefox accessibility bug until the settle was added.
-    await page.waitForSelector('.layers-panel', { timeout: 60000 });
+    await waitForEditorReady(page);
     await expect(page.getByRole('treeitem').first()).toBeVisible({ timeout: 30000 });
 
     const summary = page.locator('.varve-demo-banner__limits summary');
@@ -213,7 +223,7 @@ test.describe('browser demo (/try)', () => {
     await page.waitForSelector('.varve-demo-banner', { timeout: 60000 });
 
     // The editor still boots even with no IDB.
-    await page.locator('.layers-panel').waitFor({ timeout: 60000 });
+    await waitForEditorReady(page);
     const canvas = page.locator('.editor-canvas canvas, canvas').first();
     const box = await canvas.boundingBox();
     expect(box).not.toBeNull();
@@ -223,9 +233,10 @@ test.describe('browser demo (/try)', () => {
   test('mobile viewport: demo boots, canvas visible, banner readable', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(DEMO_URL, { timeout: 120000, waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('.layers-panel', { timeout: 60000 });
+    await waitForEditorReady(page);
 
     await expect(page.locator('.varve-demo-banner')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('button', { name: /show layers panel/i })).toBeVisible();
     const canvas = page.locator('.editor-canvas canvas, canvas').first();
     const box = await canvas.boundingBox();
     expect(box).not.toBeNull();
@@ -236,7 +247,7 @@ test.describe('browser demo (/try)', () => {
   test('sample document is not re-seeded over user edits', async ({ page }) => {
     await forceDownloadSaveFallback(page);
     await page.goto(DEMO_URL, { timeout: 120000, waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('.layers-panel', { timeout: 60000 });
+    await waitForEditorReady(page);
     await dismissRecoveryDialog(page);
 
     const before = await page.getByRole('treeitem').count();
@@ -253,7 +264,7 @@ test.describe('browser demo (/try)', () => {
     await dismissRecoveryDialog(page);
     await page.reload({ timeout: 120000 });
     await dismissRecoveryDialog(page);
-    await page.waitForSelector('.layers-panel', { timeout: 60000 });
+    await waitForEditorReady(page);
 
     // The sample still has our added shape — no re-seeding clobbered it.
     await expect(page.getByRole('treeitem')).toHaveCount(before + 1, { timeout: 15000 });
@@ -266,7 +277,7 @@ test.describe('browser demo (/try)', () => {
   // exists.
   test('stale-asset recovery prompt is visible inside the viewport', async ({ page }) => {
     await page.goto(DEMO_URL, { timeout: 120000, waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('.layers-panel', { timeout: 60000 });
+    await waitForEditorReady(page);
     await dismissRecoveryDialog(page);
 
     // Simulate the post-deploy state: a hashed chunk the shell references is gone.
@@ -301,10 +312,10 @@ test.describe('browser demo (/try)', () => {
     page,
   }) => {
     await page.goto(DEMO_URL, { timeout: 120000, waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('.layers-panel', { timeout: 60000 });
+    await waitForEditorReady(page);
     await dismissRecoveryDialog(page);
 
-    const tabs = page.locator('.workspace-tabs__tab');
+    const tabs = page.locator('.workspace-dock__item');
     await expect(tabs).toHaveCount(3);
     const labels = (await tabs.evaluateAll((els) =>
       els.map((el) => el.getAttribute('data-mode')),
@@ -314,7 +325,7 @@ test.describe('browser demo (/try)', () => {
     // Not merely hidden from the tabs: the View menu keeps withheld capability
     // names visible but genuinely disabled, while allowed modes remain active.
     for (const mode of ['print', 'motion', 'codegen', 'logo', 'email']) {
-      await expect(page.locator(`.workspace-tabs [data-mode="${mode}"]`)).toHaveCount(0);
+      await expect(page.locator(`.workspace-dock [data-mode="${mode}"]`)).toHaveCount(0);
     }
     await page.getByRole('menuitem', { name: 'View' }).click();
     const viewMenu = page.locator('.editor-menubar__menu');
@@ -334,7 +345,7 @@ test.describe('browser demo (/try)', () => {
   // single load. Three of them used to stack over the sample document.
   test('opens straight onto the sample document with nothing covering it', async ({ page }) => {
     await page.goto(DEMO_URL, { timeout: 120000, waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('.layers-panel', { timeout: 60000 });
+    await waitForEditorReady(page);
     await dismissRecoveryDialog(page);
     await expect(page.getByRole('treeitem')).toHaveCount(10, { timeout: 30000 });
 
@@ -347,11 +358,60 @@ test.describe('browser demo (/try)', () => {
 
   test('demo attaches screenshots for visual inspection', async ({ page }) => {
     await page.goto(DEMO_URL, { timeout: 120000, waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('.layers-panel', { timeout: 60000 });
+    await waitForEditorReady(page);
 
     await page.screenshot({ path: 'reports/try-demo/light.png', fullPage: true });
     await test.info().attach('demo-light.png', {
       path: 'reports/try-demo/light.png',
+      contentType: 'image/png',
+    });
+  });
+  test('File > Import works in the demo: images and SVG are not withheld', async ({ page }) => {
+    // The demo withholds inference and print production because a browser tab
+    // genuinely cannot do them justice. Import is not on that list, and it
+    // should not be: PNG/JPEG/SVG ingest is entirely client-side, so a
+    // visitor must be able to bring their own artwork into the sample
+    // document. This guards both halves — that import stays reachable, and
+    // that the picker offers artwork rather than Varve documents.
+    await page.goto(DEMO_URL, { timeout: 120000, waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('.layers-panel', { timeout: 60000 });
+    await dismissRecoveryDialog(page);
+
+    const before = await page.getByRole('treeitem').count();
+
+    await page.getByRole('menubar').getByRole('menuitem', { name: 'File' }).click();
+    await page.getByRole('menuitem', { name: /import/i }).click();
+
+    const accept = await page.locator('#file-import-input').getAttribute('accept');
+    expect(accept).toContain('.png');
+    expect(accept).toContain('.svg');
+    expect(accept).not.toContain('.varve');
+
+    await page.locator('#file-import-input').setInputFiles([
+      {
+        name: 'visitor.png',
+        mimeType: 'image/png',
+        buffer: Buffer.from(
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/l5fNwAAAAABJRU5ErkJggg==',
+          'base64',
+        ),
+      },
+      {
+        name: 'visitor.svg',
+        mimeType: 'image/svg+xml',
+        buffer: Buffer.from('<svg><rect x="4" y="4" width="80" height="50" fill="#1f8a70"/></svg>'),
+      },
+    ]);
+
+    await expect(page.getByRole('treeitem').filter({ hasText: 'visitor.png' })).toBeVisible({
+      timeout: 30000,
+    });
+    // The PNG plus the SVG's rect land on top of the sample document.
+    await expect(page.getByRole('treeitem')).toHaveCount(before + 2, { timeout: 30000 });
+
+    await page.screenshot({ path: 'reports/try-demo/import.png', fullPage: true });
+    await test.info().attach('demo-import.png', {
+      path: 'reports/try-demo/import.png',
       contentType: 'image/png',
     });
   });

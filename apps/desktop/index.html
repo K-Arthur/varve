@@ -11,14 +11,26 @@
     <link rel="apple-touch-icon" sizes="180x180" href="%BASE_URL%icons/apple-touch-icon.png" />
     <link rel="manifest" href="%BASE_URL%manifest.json" />
     <script>
-      // Apply saved theme BEFORE React mounts so CSS custom properties
-      // resolve to the correct theme from the first paint.
+      // Mirror @varve/ui's theme runtime before CSS/React can paint. Keep this
+      // dependency-free and CSP-compatible: the module runtime takes over OS
+      // and storage listeners after bootstrap.
       (function () {
-        var saved = localStorage.getItem('varve-theme') ||
-                    localStorage.getItem('strata-theme');
-        if (saved && /^(light|dark|high-contrast)$/.test(saved)) {
-          document.documentElement.dataset.theme = saved;
+        var saved = null;
+        try {
+          saved = localStorage.getItem('varve-theme');
+          if (saved === null) saved = localStorage.getItem('strata-theme');
+        } catch (e) {}
+        var preference = /^(light|dark|high-contrast|system)$/.test(saved || '')
+          ? saved
+          : 'system';
+        var resolved = preference;
+        if (preference === 'system') {
+          resolved = window.matchMedia('(prefers-color-scheme: dark)').matches
+            ? 'dark'
+            : 'light';
         }
+        document.documentElement.dataset.themeMode = preference;
+        document.documentElement.dataset.theme = resolved;
       })();
     </script>
     <script>

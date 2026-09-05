@@ -17,6 +17,8 @@ in [`architecture/image-enhancement-system.md`](architecture/image-enhancement-s
 and [`quality/image-enhancement-benchmark.md`](quality/image-enhancement-benchmark.md).
 The 2026-08-22 implementation evidence matrix is in
 [`audits/image-enhancement-implementation-2026-08-22.md`](audits/image-enhancement-implementation-2026-08-22.md).
+Current interface typography and component sizing contracts are documented in
+[`architecture/interface-sizing-system.md`](architecture/interface-sizing-system.md).
 
 | Doc | Purpose |
 |-----|---------|
@@ -26,6 +28,7 @@ The 2026-08-22 implementation evidence matrix is in
 | [development/contributing.md](development/contributing.md) | Current contribution status, ways to help now, project map, validation, and future PR workflow |
 | [CHANGELOG.md](../CHANGELOG.md) (root) | Release notes — source for `release-notes.mjs` |
 | [brand/github-repository-presence.md](brand/github-repository-presence.md) | Canonical GitHub metadata, social preview, and public-content maintenance |
+| [marketing/positioning-and-discovery.md](marketing/positioning-and-discovery.md) | Current positioning, audience/search intent, claim register, and SEO/GEO/AEO contract |
 
 ## Architecture Decision Records
 
@@ -199,10 +202,13 @@ The 2026-08-22 implementation evidence matrix is in
 | `adr/0227-page-layout-guides.md` | Publishing page margins and columns as derived geometry |
 | `adr/0228-page-export-selection.md` | Explicit page/range/spread export selection |
 | `adr/0229-master-operations-and-overrides.md` | Typed master assignments and sparse override lifecycle |
+| `adr/0230-merge-position-size-constraints-layout.md` | Merge Position & Size and Constraints into the canonical Layout section |
+| `adr/0231-layers-presentation-and-workflow-ownership.md` | Canonical Layers presentation and specialist workflow ownership |
 ## Architecture Docs (current state)
 
 | Doc | Purpose |
 |-----|---------|
+| `architecture/overview.md` | Current repository topology, runtime boundaries, data flow, and change-routing guide |
 | `architecture/render-pipeline.md` | Canvas rendering pipeline |
 | `architecture/adaptive-render-residency.md` | Adaptive visibility, residency, raster representation, fidelity, and budget policy |
 | `architecture/wasm-backends.md` | WASM backend architecture |
@@ -210,10 +216,17 @@ The 2026-08-22 implementation evidence matrix is in
 | `architecture/text-pipeline.md` | Multilingual text rendering and layout |
 | `architecture/text-on-path.md` | Text-on-path data, rendering, editing, export, and fidelity limits |
 | `architecture/loading-system.md` | Loading experience system |
+| `architecture/shine-border-system.md` | Restrained decorative emphasis contract, semantic allowlist, fallbacks, and production ceiling |
+| `architecture/button-action-system.md` | Semantic button taxonomy, canonical action variants, state behavior, and validation contract |
 | `architecture/workspace-system.md` | Workspace mode contract, resolution, and persistence |
+| `architecture/overlay-system.md` | Shared floating geometry, owner-document, overlay-tree, dismissal, and focus contracts |
+| `architecture/menu-system.md` | Shared menu taxonomy, visual contract, metadata, interaction, and validation |
 | `architecture/lifecycle-system.md` | Quit/close/exit lifecycle and shutdown architecture |
 | `architecture/logo-system.md` | Logo workspace system |
 | `architecture/typography-platform.md` | Typography platform |
+| `architecture/spacing-system.md` | Canonical spacing primitives, semantic roles, responsive gutters, and ownership boundaries |
+| `architecture/font-provider-architecture.md` | Fontsource catalog, explicit installation, persistence, and provider boundaries |
+| `architecture/font-semantic-system.md` | Provider-independent font ontology, provenance, local query/ranking, migration, and model gate |
 | `architecture/font-text-geometry.md` | Font readiness, derived text layout, and interaction bounds |
 | `architecture/colour-management.md` | Colour management and ICC |
 | `architecture/security-csp.md` | Content Security Policy |
@@ -222,10 +235,12 @@ The 2026-08-22 implementation evidence matrix is in
 | `architecture/canvas2d-system.md` | Canvas 2D system contract |
 | `architecture/image-lifecycle.md` | Raster ingestion, asset, decode, cache, worker, compositor, and lifecycle contract |
 | `architecture/figma-import-system.md` | Figma REST/plugin JSON import: acquisition, normalization, conversion, and fidelity |
+| `architecture/import-system.md` | File > Import: Open/Import separation, ingestion pipeline, format registry, SVG fidelity and security |
 | `architecture/image-geometry.md` | Image crop, placement, and transform contract |
 | `architecture/image-treatments.md` | Non-destructive Fine Texture, Local Contrast, Atmospheric Depth, Dehaze, Vignette, Grain, and Highlight Glow workflow |
 | `architecture/raster-assets.md` | Canonical raster asset architecture: metadata, resource handles, worker residency, export barrier |
 | `architecture/export-resolution.md` | Geometry, physical sizing, output PPI, effective raster PPI, and batch export semantics |
+| `architecture/knife-and-export-regions.md` | Knife object slicing and Export Regions: why they are separate, the split algorithm, supported node types, tolerances |
 | `architecture/image-trace-system.md` | Native raster-to-vector tracing (silhouette/centerline/pixel-art) |
 | `architecture/image-vector-enhancement.md` | Image/vector enhancement and AI upscaling dispatch |
 | `architecture/palette-extraction-system.md` | Deterministic local image palette, harmony, and WCAG pair analysis |
@@ -233,6 +248,8 @@ The 2026-08-22 implementation evidence matrix is in
 | `architecture/coordinate-system.md` | Coordinate-space contract: spaces, storage, composition, reparenting, migration (ADR-0219) |
 | `architecture/transform-system.md` | Canonical transform-session, geometry-baking, snapping, alignment, and precision contract |
 | `architecture/asset-search-system.md` | Asset Browser retrieval lanes, vector identity, model/runtime gate, and degradation contract |
+| `architecture/file-ingestion-system.md` | Local file acquisition primitives, action vocabulary, parser ownership, and browser/desktop boundaries |
+| `architecture/sortable-system.md` | Shared sortable primitives, collection policy, and specialized tree boundaries |
 | `architecture/background-removal-system.md` | Background-removal system contract and local-first workflow |
 | `architecture/blend-evaluation-policy.md` | Blend evaluation policy and compositing operations |
 | `architecture/visual-awareness-system.md` | Demand-driven face, hand, pose, object, and segmentation capability boundary |
@@ -285,6 +302,7 @@ The 2026-08-22 implementation evidence matrix is in
 | `architecture/workspace-navigation.md` | Workspace navigation behavior |
 | `architecture/filesystem-boundary.md` | Cross-platform directory, path, storage, and native filesystem boundary |
 | `architecture/website-theme-contrast.md` | Website theme and WCAG contrast architecture |
+| `architecture/theme-system.md` | Canonical application colour tokens, theme lifecycle, persistence, synchronization, and authored-colour boundary |
 | `architecture/multi-window-workspaces.md` | Detachable panels and native multi-monitor workspaces |
 | `architecture/multimodal-edit-plan.md` | Multimodal design edit plans and proposal boundary |
 | `architecture/halftone-system.md` | Halftone screening: canonical parameters, coordinates, tone mapping, export parity |
@@ -326,6 +344,7 @@ The following dated files were moved from `docs/architecture/` to
 | `release/platform-support-matrix.md` | Which OSes/architectures are supported vs claimed |
 | `release/production-build.md` | Verified production build commands |
 | `release/release-checklists.md` | Alpha/beta/RC/stable checklists + rollback runbooks |
+| `release/release-candidate-runbook.md` | Exact-SHA candidate certification, resumable packaging, and release-data deployment |
 | `release/ci-secrets.md` | Secret names, permissions, enrolment |
 | `release/update-strategy.md` | Updater status and future key management |
 | `release/website.md` | Website architecture and launch plan |
@@ -361,6 +380,7 @@ The following dated files were moved from `docs/architecture/` to
 | Doc | Purpose |
 |-----|---------|
 | `design/elevation-system.md` | Elevation/shadow system |
+| `design/interaction-feedback-system.md` | Canonical hover, focus, selection, highlight, and drag-feedback contract |
 | `design/visual-direction.md` | Visual direction & polish |
 | `design/design-principles.md` | Design principles |
 | `design/component-status.md` | Component implementation status |
@@ -395,6 +415,7 @@ The following dated files were moved from `docs/architecture/` to
 | `quality/tauri-command-audit.md` | Tauri command surface audit |
 | `quality/editorprovider-surface.md` | EditorProvider surface |
 | `quality/validation-strategy.md` | **Canonical validation policy** — impact-aware planning, tiers, escalation rules |
+| `audits/validation-release-system-audit-2026-08-31.md` | Measured validation/CI/release baseline, root causes, and exact-SHA redesign evidence |
 | `quality/render-path-verification.md` | Render-path verification contract |
 | `quality/object-selection-parity.md` | Object Selection quality/parity methodology |
 | `quality/semantic-similarity-benchmark.md` | Semantic-similarity benchmark reproduction recipe (corpus + retrieval eval) |
@@ -447,7 +468,6 @@ The following dated files were moved from `docs/architecture/` to
 
 | Doc | Purpose |
 |-----|---------|
-| `plans/website-operations-guide.md` | **Operating guide:** how to add releases and platforms (keep current) |
 | `plans/website-progress-tracker.md` | Website implementation progress |
 | `plans/discovery-content-plan.md` | Discovery and content architecture plan — SEO, new pages, engineering articles |
 | `plans/social-surface-plan.md` | Social surface plan — brand collision research, account strategy, manual checklist |
@@ -471,16 +491,21 @@ records; check the current code before acting on their findings.
 | `audits/figma-import-audit-2026-08-20.md` | Figma acquisition, semantic conversion, editor integration, fidelity matrix, and backlog |
 | `audits/email-current-state-audit-2026-08-20.md` | Email template system baseline audit (moved from `docs/email/`, 2026-08-22) |
 | `audits/font-replacement-audit-2026-08-20.md` | Missing-font detection, ranked replacement UX, rich-text coverage, manifest provenance, and validation |
+| `audits/font-semantic-implementation-audit-2026-09-01.md` | Evidence, benchmark, visual validation, model gate, and known gaps for semantic font discovery |
 | `audits/selection-system-audit-2026-08-23.md` | Pixel/node selection gap analysis preceding the selection-system work — see `architecture/selection-system.md` for current state |
 | `audits/selection-validation-report-2026-08-23.md` | Selection-system delivery and validation record, including the UI wiring landed after the implementation plan's "pending" notes |
+| `audits/object-selection-repair-validation-2026-09-02.md` | Object Selection prompt/overlay, inference recovery, automatic bounds trim, and marketing validation record |
 | `audits/effects-surfaces-audit-2026-08-29.md` | Research-backed separation of Effect Studio, Image Tuning, Object Filters, and Adjustment Filters, including raster/vector behavior |
 | `audits/pages-master-layout-audit-2026-08-29.md` | Current page, parent/master, spread, frame, workspace, I/O, and validation capability audit |
+| `audits/shine-border-opportunity-audit-2026-08-31.md` | Repository-wide Shine Border candidate ranking, explicit rejects, and approved production ceiling |
+| `audits/platform-ux-accessibility-responsiveness-audit-2026-09-02.md` | WCAG 2.2 AA, keyboard, touch, responsive, and marketing-site audit with prioritized remediation |
+| `audits/documentation-modernization-audit-2026-09-02.md` | Repository documentation truth, release guidance, architecture orientation, and website claims audit |
 
 ## Website-specific (current state)
 
 | Area | Location | Purpose |
 |------|----------|---------|
-| Source code | `apps/website/` | Astro 7 static site (64 pages) |
+| Source code | `apps/website/` | Astro 7 static site (69 routes) |
 | Release manifest | `apps/website/src/data/release-manifest.json` | Download data for the release pages |
 | Deployment workflow | `.github/workflows/website-deploy.yml` | GitHub Pages auto-deploy |
 | Website build | `pnpm --filter @varve/website build` | Build command (astro check + astro build) |

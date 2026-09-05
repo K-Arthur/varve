@@ -1,14 +1,14 @@
-import { getFontRegistry } from '@varve/engine';
 import type { FontProviderResult } from '@varve/engine/font';
 import {
+  type CatalogSearchResult,
+  type FontArtifactDescriptor,
   FontDownloadManager,
   FontLoader,
-  FontProviderRegistry,
-  FontsourceProvider,
-  GoogleFontsProvider,
+  getFontsourceCatalog,
 } from '@varve/engine/font';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { storeFont } from './fontStorage';
+import { useCallback, useMemo, useSyncExternalStore } from 'react';
+import { isCapabilityRestricted } from '../../capabilities/restrictions';
+import { removeStoredFont, storeFont } from './fontStorage';
 
 export interface OnlineFontSearchResult {
   results: FontProviderResult[];
@@ -17,33 +17,115 @@ export interface OnlineFontSearchResult {
   provider: string;
 }
 
-let globalProviderRegistry: FontProviderRegistry | null = null;
+const EMPTY_RESULTS: FontProviderResult[] = [];
 
-function getProviderRegistry(): FontProviderRegistry {
-  if (!globalProviderRegistry) {
-    globalProviderRegistry = new FontProviderRegistry();
-    globalProviderRegistry.register(new GoogleFontsProvider());
-    globalProviderRegistry.register(new FontsourceProvider());
-  }
-  return globalProviderRegistry;
+function toProviderResult(item: CatalogSearchResult): FontProviderResult {
+  return {
+    providerId: item.providerId,
+    familyId: item.familyId,
+    familyName: item.familyName,
+    category: item.category,
+    variants: item.weights.length * item.styles.length,
+    isVariable: item.variable,
+    languages: item.subsets,
+    packageVersion: item.packageVersion,
+    weights: item.weights,
+    styles: item.styles,
+  };
+}
+
+/**
+ * Search the shipped Fontsource catalog. The historical hook name is kept as
+ * a compatibility seam for mounted selectors, but this path is synchronous,
+ * local, and never performs a provider request.
+ */
+export function useOnlineFontSearch(query: string): {
+  googleFonts: OnlineFontSearchResult;
+  fontsource: OnlineFontSearchResult;
+} {
+  const catalog = getFontsourceCatalog();
+  const subscribe = useCallback((listener: () => void) => catalog.subscribe(listener), [catalog]);
+  const getRevision = useCallback(() => catalog.revision, [catalog]);
+  const revision = useSyncExternalStore(subscribe, getRevision, getRevision);
+  const results = useMemo(() => {
+    if (query.trim().length < 2) return EMPTY_RESULTS;
+    return catalog.search({ query, limit: 24 }).map(toProviderResult);
+  }, [catalog, query, revision]);
+
+  return {
+    googleFonts: {
+      results: EMPTY_RESULTS,
+      loading: false,
+      error: null,
+      provider: 'Legacy provider disabled',
+    },
+    fontsource: {
+      results,
+      loading: false,
+      error: null,
+      provider: 'Fontsource catalog',
+    },
+  };
 }
 
 let globalDownloadManager: FontDownloadManager | null = null;
+const pendingDownloadWaiters = new Map<
+  string,
+  { resolve: () => void; reject: (error: Error) => void; artifact: FontArtifactDescriptor }
+>();
 
 function getDownloadManager(): FontDownloadManager {
   if (!globalDownloadManager) {
-    const registry = getFontRegistry();
     globalDownloadManager = new FontDownloadManager(
       { maxConcurrent: 2, maxFileSize: 10 * 1024 * 1024 },
       {
-        onJobComplete: (job) => {
-          if (job.metadata && job.data) {
-            const fontLoader = new FontLoader(undefined, registry);
-            void fontLoader.loadFont(job.metadata, job.data);
-            void storeFont(job.familyName, job.data, {
-              providerId: job.url.includes('googleapis') ? 'google-fonts' : 'fontsource',
+        onJobComplete: async (job) => {
+          const waiter = pendingDownloadWaiters.get(job.id);
+          try {
+            if (!waiter?.artifact || !job.metadata || !job.data) {
+              throw new Error('The downloaded font did not contain usable font data.');
+            }
+            const artifact = waiter.artifact;
+            const stored = await storeFont(job.familyName, job.data, {
+              providerId: artifact.providerId,
+              familyId: artifact.familyId,
+              packageVersion: artifact.packageVersion,
+              upstreamVersion: artifact.upstreamVersion,
+              weight: artifact.weight,
+              style: artifact.style,
+              subset: artifact.subset,
+              variable: artifact.variable,
+              axes: artifact.axes,
+              postScriptName: job.metadata.identity.postScriptName,
+              license: artifact.license.name,
+              licenseUrl: artifact.license.url,
             });
+            const result = await new FontLoader(undefined).loadFromArrayBufferPublic(
+              artifact.familyName,
+              job.data,
+              'network',
+              'fontsource',
+              { weight: artifact.weight, style: artifact.style },
+            );
+            if (!result.success) {
+              await removeStoredFont(stored.key);
+              throw new Error('The font could not be registered, so its saved copy was removed.');
+            }
+            getFontsourceCatalog().setInstalled(artifact.familyId, true);
+            waiter.resolve();
+          } catch (error) {
+            waiter?.reject(error instanceof Error ? error : new Error(String(error)));
+          } finally {
+            pendingDownloadWaiters.delete(job.id);
           }
+        },
+        onJobFailed: (job) => {
+          pendingDownloadWaiters.get(job.id)?.reject(new Error(userFacingDownloadError(job.error)));
+          pendingDownloadWaiters.delete(job.id);
+        },
+        onJobCancelled: (job) => {
+          pendingDownloadWaiters.get(job.id)?.reject(new Error('Font download cancelled.'));
+          pendingDownloadWaiters.delete(job.id);
         },
       },
     );
@@ -51,101 +133,48 @@ function getDownloadManager(): FontDownloadManager {
   return globalDownloadManager;
 }
 
-export function useOnlineFontSearch(query: string): {
-  googleFonts: OnlineFontSearchResult;
-  fontsource: OnlineFontSearchResult;
-} {
-  const [googleResults, setGoogleResults] = useState<FontProviderResult[]>([]);
-  const [googleLoading, setGoogleLoading] = useState(false);
-  const [googleError, setGoogleError] = useState<string | null>(null);
-
-  const [fontsourceResults, setFontsourceResults] = useState<FontProviderResult[]>([]);
-  const [fontsourceLoading, setFontsourceLoading] = useState(false);
-  const [fontsourceError, setFontsourceError] = useState<string | null>(null);
-
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-
-  const search = useCallback(async (q: string) => {
-    const registry = getProviderRegistry();
-    const norm = q.toLowerCase().trim();
-
-    setGoogleLoading(true);
-    setGoogleError(null);
-    try {
-      const gf = registry.get('google-fonts');
-      if (gf?.enabled) {
-        const results = await gf.search(norm, { limit: 12 });
-        setGoogleResults(results);
-      } else {
-        setGoogleResults([]);
-      }
-    } catch (err) {
-      setGoogleError(err instanceof Error ? err.message : 'Search failed');
-      setGoogleResults([]);
-    }
-    setGoogleLoading(false);
-
-    setFontsourceLoading(true);
-    setFontsourceError(null);
-    try {
-      const fs = registry.get('fontsource');
-      if (fs?.enabled) {
-        const results = await fs.search(norm, { limit: 12 });
-        setFontsourceResults(results);
-      } else {
-        setFontsourceResults([]);
-      }
-    } catch (err) {
-      setFontsourceError(err instanceof Error ? err.message : 'Search failed');
-      setFontsourceResults([]);
-    }
-    setFontsourceLoading(false);
-  }, []);
-
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    const trimmed = query.trim();
-    if (trimmed.length < 2) {
-      setGoogleResults([]);
-      setGoogleLoading(false);
-      setGoogleError(null);
-      setFontsourceResults([]);
-      setFontsourceLoading(false);
-      setFontsourceError(null);
-      return;
-    }
-    debounceRef.current = setTimeout(() => search(trimmed), 300);
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [query, search]);
-
-  return {
-    googleFonts: {
-      results: googleResults,
-      loading: googleLoading,
-      error: googleError,
-      provider: 'Google Fonts',
-    },
-    fontsource: {
-      results: fontsourceResults,
-      loading: fontsourceLoading,
-      error: fontsourceError,
-      provider: 'Fontsource',
-    },
-  };
+function userFacingDownloadError(error?: string): string {
+  const detail = error?.toLowerCase() ?? '';
+  if (
+    detail.includes('failed to fetch') ||
+    detail.includes('network') ||
+    detail.includes('offline')
+  ) {
+    return 'Connect to the internet to download this font.';
+  }
+  if (detail.includes('too large')) return 'The downloaded font is too large to install.';
+  if (detail.includes('format') || detail.includes('signature')) {
+    return 'The downloaded file was not a valid supported font. The previous font was retained.';
+  }
+  return 'This font could not be installed. The previous font was retained.';
 }
 
+/** Download one explicit, version-pinned Fontsource artifact and install it. */
 export async function downloadAndApplyOnlineFont(
   familyName: string,
   providerId: string,
+  familyId = familyName,
+  request: {
+    weight?: number;
+    style?: 'normal' | 'italic';
+    subset?: string;
+    variable?: boolean;
+  } = {},
 ): Promise<void> {
-  const provider = getProviderRegistry().get(providerId);
-  if (!provider) throw new Error(`Provider "${providerId}" not found`);
-
-  const urls = await provider.getDownloadUrls(familyName, 'woff2');
-  if (urls.length === 0) throw new Error(`No download URLs for "${familyName}"`);
-
-  const dm = getDownloadManager();
-  dm.addJob(urls[0]!.url, familyName, 'woff2');
+  if (providerId !== 'fontsource')
+    throw new Error('Only the local Fontsource catalog can install fonts.');
+  if (isCapabilityRestricted('onlineFonts')) {
+    throw new Error(
+      'Font search is available offline, but downloading additional fonts is disabled in this demo.',
+    );
+  }
+  const artifact = getFontsourceCatalog().resolve({ familyId, ...request });
+  const job = getDownloadManager().addJob(artifact.url, familyName, artifact.format, {
+    providerId: artifact.providerId,
+    familyId: artifact.familyId,
+    packageVersion: artifact.packageVersion,
+  });
+  await new Promise<void>((resolve, reject) => {
+    pendingDownloadWaiters.set(job.id, { resolve, reject, artifact });
+  });
 }

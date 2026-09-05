@@ -6,6 +6,7 @@ on:
       - CI
       - Build + Package
       - Release
+      - Release Candidate
       - Website Deploy
       - Model Supply Chain Validation
       - Model Quantization & Validation
@@ -76,14 +77,17 @@ jobs:
           node scripts/ci-debug.mjs \
             --run-id ${{ github.event.workflow_run.id }} \
             --repo ${{ github.repository }} \
-            --output ci-debug-report.md
+            --output ci-debug-report.md \
+            --manifest ci-failure-manifest.json
 
       - name: Upload debug report
         if: always() && steps.probe.outcome == 'success'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: ci-debug-report-${{ github.event.workflow_run.id }}
-          path: ci-debug-report.md
+          path: |
+            ci-debug-report.md
+            ci-failure-manifest.json
           if-no-files-found: ignore
 
   # PR comments are deliberately posted here, after the failed workflow has

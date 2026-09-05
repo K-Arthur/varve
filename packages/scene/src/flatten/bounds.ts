@@ -14,7 +14,7 @@ import { type Document, getParent } from '../document';
 import type { NodeId } from '../types';
 import type { BoundsRect } from './types';
 
-export { mergeNodes, replaceNodesWithFlattened } from './flattenOps';
+export { insertFlattenedCopy, mergeNodes, replaceNodesWithFlattened } from './flattenOps';
 
 /** Compute the pixel expansion for a single effect in all four directions. */
 export function effectPadding(effect: {

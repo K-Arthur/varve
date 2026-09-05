@@ -28,6 +28,15 @@ function makeBuffer(
 }
 
 describe('typed raster colour transforms', () => {
+  it('reuses compiled transforms for identical encodings', () => {
+    expect(createAnalyticRgbTransform(sourceEncoding, targetEncoding)).toBe(
+      createAnalyticRgbTransform(sourceEncoding, targetEncoding),
+    );
+    expect(createAnalyticRgbTransform(sourceEncoding, sourceEncoding)).toBe(
+      createAnalyticRgbTransform(sourceEncoding, sourceEncoding),
+    );
+  });
+
   it('advertises and transforms every supported typed format', async () => {
     const transform = createAnalyticRgbTransform(sourceEncoding, targetEncoding);
     expect(transform).not.toBeNull();
@@ -35,6 +44,7 @@ describe('typed raster colour transforms', () => {
     expect(transform!.supports('rgba16')).toBe(true);
     expect(transform!.supports('rgba16f')).toBe(true);
     expect(transform!.supports('rgba32f')).toBe(true);
+    expect(transform!.supports('cmyka8')).toBe(false);
 
     const cases = [
       { format: 'rgba8' as const, values: [32, 64, 128, 255] },

@@ -2,6 +2,14 @@ import { defineConfig, devices } from '@playwright/test';
 
 const e2ePort = process.env.VARVE_E2E_PORT ?? '1420';
 const e2eBaseUrl = `http://localhost:${e2ePort}`;
+const nodeMajor = Number.parseInt(process.versions.node.split('.')[0] ?? '0', 10);
+// Node 26's V8 fast-API deoptimizer can abort Vite's response path under the
+// full Chromium matrix. Keep the workaround scoped to the dev server process;
+// application and browser code still run with their normal JIT settings.
+const viteServerCommand =
+  nodeMajor >= 26
+    ? `pnpm --filter @varve/desktop exec node --no-turbofan node_modules/vite/bin/vite.js --port ${e2ePort}`
+    : `pnpm --filter @varve/desktop exec vite --port ${e2ePort}`;
 // Canvas E2E includes software-rendered canvases and on-device model
 // inference. Two local browser workers can contend for those resources hard
 // enough to terminate an unrelated page mid-test. Keep the reliable default
@@ -76,9 +84,9 @@ export default defineConfig({
       testMatch: /guides-visual\.spec\.ts/,
     },
     // Visual regression harness (tests/e2e/visual/replay.spec.ts): one
-    // project per DPR. 1x/2x always run; 3x is behind an env var since a
-    // third full baseline set roughly triples this suite's snapshot count
-    // and CI time for a tier DPR bugs are least likely to hide in.
+    // project per DPR. Every supported high-DPI tier is part of the default
+    // gate so backing-store and fractional-coordinate regressions cannot hide
+    // behind a 1x-only baseline.
     {
       name: 'chromium-visual-1x',
       use: { ...devices['Desktop Chrome'], deviceScaleFactor: 1 },
@@ -89,15 +97,11 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], deviceScaleFactor: 2 },
       testMatch: /visual\/replay\.spec\.ts/,
     },
-    ...(process.env.VARVE_VISUAL_3X
-      ? [
-          {
-            name: 'chromium-visual-3x',
-            use: { ...devices['Desktop Chrome'], deviceScaleFactor: 3 },
-            testMatch: /visual\/replay\.spec\.ts/,
-          },
-        ]
-      : []),
+    {
+      name: 'chromium-visual-3x',
+      use: { ...devices['Desktop Chrome'], deviceScaleFactor: 3 },
+      testMatch: /visual\/replay\.spec\.ts/,
+    },
     {
       name: 'tauri',
       use: { ...devices['Desktop Chrome'] },
@@ -128,6 +132,44 @@ export default defineConfig({
       },
       testMatch: /effects\/gpu-agreement\.spec\.ts/,
     },
+    ...(process.env.VARVE_VISUAL_GPU
+      ? [
+          {
+            name: 'chromium-visual-gpu',
+            use: {
+              ...devices['Desktop Chrome'],
+              deviceScaleFactor: 1,
+              channel: 'chromium' as const,
+              launchOptions: {
+                pipe: false,
+                ignoreDefaultArgs: ['--no-startup-window'],
+                args: [
+                  '--enable-unsafe-webgpu',
+                  '--enable-features=Vulkan',
+                  '--use-angle=vulkan',
+                  '--enable-unsafe-swiftshader',
+                  '--remote-debugging-port=0',
+                ],
+              },
+            },
+            testMatch: /visual\/replay\.spec\.ts/,
+          },
+        ]
+      : []),
+    ...(process.env.VARVE_VISUAL_CROSS_RUNTIME
+      ? [
+          {
+            name: 'firefox-visual',
+            use: { ...devices['Desktop Firefox'] },
+            testMatch: /visual\/replay\.spec\.ts/,
+          },
+          {
+            name: 'webkit-visual',
+            use: { ...devices['Desktop Safari'] },
+            testMatch: /visual\/replay\.spec\.ts/,
+          },
+        ]
+      : []),
     {
       name: 'firefox',
       use: {
@@ -143,7 +185,7 @@ export default defineConfig({
     { name: 'webkit', use: { ...devices['Desktop Safari'] } },
   ],
   webServer: {
-    command: `pnpm --filter @varve/desktop exec vite --port ${e2ePort}`,
+    command: viteServerCommand,
     url: e2eBaseUrl,
     // Never reuse another agent's server: with VARVE_E2E_PORT set (per-agent)
     // this port is unique, so no sharing happens. When unset, defaulting to

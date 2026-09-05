@@ -253,7 +253,7 @@ test.describe('Halftone visual verification', () => {
     await expect(slider(page, 'threshold')).toBeVisible();
     await expect(slider(page, 'intensity')).toBeVisible();
     await expect(slider(page, 'softness')).toBeVisible();
-    await expect(page.locator('#halftone-invert')).toBeVisible();
+    await expect(page.getByRole('switch', { name: 'Invert halftone output' })).toBeVisible();
     await expect(page.locator('text=Ink Color').first()).toBeVisible();
     await expect(page.locator('text=Paper Color').first()).toBeVisible();
 
@@ -311,7 +311,7 @@ test.describe('Halftone visual verification', () => {
     const before = await sampleRect(page, 120, 120, 400, 240);
     await page.screenshot({ path: `${SHOT_DIR}/07-invert-off.png` });
 
-    await page.locator('#halftone-invert').click();
+    await page.getByRole('switch', { name: 'Invert halftone output' }).click();
     await page.waitForTimeout(800);
     await page.screenshot({ path: `${SHOT_DIR}/08-invert-on.png` });
     const after = await sampleRect(page, 120, 120, 400, 240);
@@ -402,7 +402,13 @@ test.describe('Halftone visual verification', () => {
     await page.keyboard.press('f');
     await dragOnCanvas(page, 100, 100, 500, 400);
     await page.waitForTimeout(300);
-    await drawRect(page, 130, 130, 450, 350);
+    // The responsive toolbar groups shape tools under a flyout while the
+    // Frame tool is active. Use the canonical Rectangle shortcut here so the
+    // export smoke test remains independent of the flyout's current member.
+    await page.keyboard.press('r');
+    await dragOnCanvas(page, 130, 130, 450, 350);
+    await page.keyboard.press('v');
+    await page.waitForTimeout(300);
     await addHalftoneAdjustment(page);
 
     const exportTab = page.locator('[role="tablist"] button[role="tab"]', {
@@ -546,7 +552,10 @@ test.describe('Halftone visual verification', () => {
     await page.keyboard.press('f');
     await dragOnCanvas(page, 100, 100, 500, 400);
     await page.waitForTimeout(300);
-    await drawRect(page, 130, 130, 450, 350);
+    await page.keyboard.press('r');
+    await dragOnCanvas(page, 130, 130, 450, 350);
+    await page.keyboard.press('v');
+    await page.waitForTimeout(300);
     await addHalftoneAdjustment(page);
 
     const exportTab = page.locator('[role="tablist"] button[role="tab"]', {
@@ -569,7 +578,10 @@ test.describe('Halftone visual verification', () => {
     await page.keyboard.press('f');
     await dragOnCanvas(page, 100, 100, 500, 400);
     await page.waitForTimeout(300);
-    await drawRect(page, 130, 130, 450, 350);
+    await page.keyboard.press('r');
+    await dragOnCanvas(page, 130, 130, 450, 350);
+    await page.keyboard.press('v');
+    await page.waitForTimeout(300);
     await addHalftoneAdjustment(page);
 
     const exportTab = page.locator('[role="tablist"] button[role="tab"]', {
@@ -656,7 +668,7 @@ test.describe('Halftone visual verification', () => {
 
     // Color Halftone is a creative object-local treatment, so it belongs in
     // the Object Filter stack rather than an Adjustment Layer correction.
-    await page.getByRole('tab', { name: 'Appearance' }).click();
+    await page.getByRole('tab', { name: 'Design' }).click();
     const objectFiltersDisclosure = page.getByRole('button', {
       name: 'Object Filters',
       exact: true,

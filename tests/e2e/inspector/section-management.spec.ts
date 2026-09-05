@@ -133,14 +133,16 @@ test.describe('Inspector section management', () => {
     const tablist = page.getByRole('tablist', { name: /inspector tabs/i });
     await expect(tablist).toBeVisible({ timeout: 5000 });
 
-    const propertiesTab = tablist.getByRole('tab').filter({ hasText: /properties/i });
-    await expect(propertiesTab).toBeVisible();
+    // Appearance and Audit are merged into the single context-adaptive
+    // Design tab; only Design and Export remain as persistent tabs.
+    const designTab = tablist.getByRole('tab').filter({ hasText: /^design$/i });
+    await expect(designTab).toBeVisible();
 
     const exportTab = tablist.getByRole('tab').filter({ hasText: /export/i });
     await expect(exportTab).toBeVisible();
 
-    await expect(tablist.getByRole('tab', { name: /appearance/i })).toBeVisible();
-    await expect(tablist.getByRole('tab', { name: /audit/i })).toBeVisible();
+    await expect(tablist.getByRole('tab', { name: /appearance/i })).toHaveCount(0);
+    await expect(tablist.getByRole('tab', { name: /audit/i })).toHaveCount(0);
     await expect(tablist.getByRole('tab', { name: /spec|document/i })).toHaveCount(0);
   });
 });

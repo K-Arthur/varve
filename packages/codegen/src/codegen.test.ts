@@ -580,6 +580,112 @@ describe('legacy exports', () => {
       expect(svg).toContain('cy="50%"');
     });
 
+    it('preserves gradient spread mode in SVG', () => {
+      const node = makeShapeNode('spread', { kind: 'rect', x: 0, y: 0, w: 80, h: 40 });
+      (node as unknown as Record<string, unknown>).fills = [
+        {
+          type: 'gradient',
+          gradient: {
+            type: 'linear',
+            tilingMode: 'reflect',
+            stops: [
+              { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+              { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
+            ],
+          },
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ];
+      expect(exportNodeToSvg(node, createDocument('Spread'))).toContain('spreadMethod="reflect"');
+    });
+
+    it('preserves complete explicit affine geometry in linear and radial SVG gradients', () => {
+      const node = makeShapeNode(
+        'n1',
+        { kind: 'rect', x: 0, y: 0, w: 200, h: 100 },
+        { name: 'Affine gradients' },
+      );
+      (node as unknown as Record<string, unknown>).fills = [
+        {
+          type: 'gradient',
+          gradient: {
+            type: 'linear',
+            stops: [
+              { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+              { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
+            ],
+            transform: [160, 80, -30, 45, 25, 15],
+          },
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+        {
+          type: 'gradient',
+          gradient: {
+            type: 'radial',
+            stops: [
+              { position: 0, color: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 } },
+              { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } },
+            ],
+            transform: [160, 80, -30, 45, 25, 15],
+          },
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ];
+
+      const svg = exportNodeToSvg(node, createDocument('Test'));
+
+      expect(svg).toContain('gradientUnits="userSpaceOnUse"');
+      expect(svg).toContain('x1="0" y1="0.5" x2="1" y2="0.5"');
+      expect(svg).toContain('cx="0.5" cy="0.5" r="0.5"');
+      expect(svg).toContain('gradientTransform="matrix(160,80,-30,45,25,15)"');
+    });
+
+    it('exports affine gradient strokes and descendant gradient definitions', () => {
+      const child = makeShapeNode(
+        'child',
+        { kind: 'rect', x: 0, y: 0, w: 120, h: 60 },
+        { name: 'Gradient child' },
+      );
+      (child as unknown as Record<string, unknown>).fills = [];
+      (child as unknown as Record<string, unknown>).strokes = [
+        {
+          color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+          weight: 4,
+          align: 'center',
+          dashPattern: [],
+          dashOffset: 0,
+          cap: 'round',
+          join: 'miter',
+          miterLimit: 4,
+          visible: true,
+          gradient: {
+            type: 'linear',
+            stops: [
+              { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+              { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
+            ],
+            transform: [120, 20, -10, 60, 5, 8],
+          },
+        },
+      ];
+      const group = makeGroupNode('group', { name: 'Group', children: ['child'] });
+      const doc = {
+        ...createDocument('Stroke gradient'),
+        rootChildren: ['group'],
+        nodes: { group, child },
+      };
+      const svg = exportNodeToSvg(group, doc);
+      expect(svg).toContain('id="grad-child-stroke-0"');
+      expect(svg).toContain('stroke="url(#grad-child-stroke-0)"');
+      expect(svg).toContain('gradientTransform="matrix(120,20,-10,60,5,8)"');
+    });
+
     it('emits color-interpolation="linearRGB" for linear-srgb gradients', () => {
       const node = makeShapeNode(
         'n1',
@@ -749,6 +855,66 @@ describe('legacy exports', () => {
       const gradGap = gaps.find((g) => g.feature?.includes('angular gradient'));
       expect(gradGap).toBeDefined();
       expect(gradGap!.severity).toBe('warning');
+    });
+
+    it('flags unsupported angular gradient strokes via svgTargetGaps', async () => {
+      const { svgTargetGaps } = await import('./svg');
+      const node = makeShapeNode(
+        'stroke-gap',
+        { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
+        {
+          strokes: [
+            {
+              color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+              weight: 2,
+              align: 'center',
+              dashPattern: [],
+              dashOffset: 0,
+              cap: 'round',
+              join: 'miter',
+              miterLimit: 4,
+              visible: true,
+              gradient: {
+                type: 'angular',
+                stops: [
+                  { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+                  { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
+                ],
+              },
+            },
+          ],
+        },
+      );
+      const gap = svgTargetGaps(node, createDocument('Test')).find((entry) =>
+        entry.feature?.includes('angular gradient stroke'),
+      );
+      expect(gap?.severity).toBe('warning');
+    });
+
+    it('flags stacked visible strokes that SVG emits via raster fallback', async () => {
+      const { svgTargetGaps } = await import('./svg');
+      const stroke = {
+        color: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
+        weight: 2,
+        align: 'center' as const,
+        dashPattern: [],
+        dashOffset: 0,
+        cap: 'round' as const,
+        join: 'miter' as const,
+        miterLimit: 4,
+        visible: true,
+      };
+      const node = makeShapeNode(
+        'stacked-strokes',
+        { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
+        {
+          strokes: [stroke, { ...stroke, weight: 6 }],
+        },
+      );
+      const gap = svgTargetGaps(node, createDocument('Test')).find((entry) =>
+        entry.feature?.includes('multiple visible strokes'),
+      );
+      expect(gap?.severity).toBe('warning');
     });
 
     it('uses raster asset when provided for angular gradient shape', () => {

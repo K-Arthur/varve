@@ -10,16 +10,25 @@
  * The desktop build MUST select native (asserted) — that is the strategic wedge
  * (no WASM memory ceiling). The web build selects wasm.
  */
-import type { MeasureTextFn } from '@varve/shared';
 import {
   DEFAULT_ARTWORK_FONT_FAMILY,
-  measureText,
   multiplyAffine,
+  resolveTextGeometry,
+  resolveTextGeometryMode,
   tryInvertAffine,
 } from '@varve/shared';
 import { hitTest } from './geometry';
 import { transformPathShape } from './pathText';
-import type { Backend, Engine, EngineFill, FillIR, RenderItem, Scene, SceneNode } from './types';
+import type {
+  Backend,
+  Engine,
+  EngineFill,
+  FillIR,
+  RenderItem,
+  Scene,
+  SceneNode,
+  TextMode,
+} from './types';
 import type { WasmEngineModule } from './wasmLoader';
 import { loadWasmEngineModule } from './wasmLoader';
 
@@ -64,7 +73,6 @@ function resolvePathShape(
 
 function shapeToPrimitive(
   node: SceneNode,
-  measureTextFn?: MeasureTextFn,
   nodeMap?: Map<string, SceneNode>,
 ): RenderItem['primitive'] {
   // Raster layer nodes produce a rasterLayer primitive from their tile data.
@@ -89,39 +97,46 @@ function shapeToPrimitive(
             fontStyle?: string;
             w?: number;
             h?: number;
+            textMode?: TextMode;
           })
         : null;
     const fontSize = node.fontSize ?? textShape?.fontSize ?? 14;
     const text = node.text ?? textShape?.text ?? '';
     const fontFamily = node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY;
-    const textOptions = {
+    const explicitWidth = node.w ?? textShape?.w;
+    const explicitHeight = node.h ?? textShape?.h;
+    const geometry = resolveTextGeometry({
+      text,
+      w: explicitWidth,
+      h: explicitHeight,
       fontSize,
       fontFamily,
       fontWeight: node.fontWeight ?? 400,
       fontStyle: (node.fontStyle as 'normal' | 'italic' | undefined) ?? 'normal',
       letterSpacing: node.letterSpacing,
       lineHeight: node.lineHeight,
-      textCase: node.textCase as 'none' | 'uppercase' | 'lowercase' | 'capitalize' | undefined,
-    };
-    let width: number;
-    let height: number;
-    if (measureTextFn) {
-      const r = measureTextFn(text, textOptions);
-      width = r.width;
-      height = r.height;
-    } else {
-      const r = measureText(text, textOptions);
-      width = r.width;
-      height = r.height;
-    }
-    const explicitWidth = node.w ?? textShape?.w;
-    const explicitHeight = node.h ?? textShape?.h;
+      paragraphSpacing: node.paragraphSpacing,
+      textCase: node.textCase,
+      textMode: node.textMode ?? textShape?.textMode,
+      textResizing: node.textResizing,
+      richText: node.richText as never,
+      variableAxes: node.variableAxes,
+    });
+    const geometryMode = resolveTextGeometryMode({
+      text,
+      w: explicitWidth,
+      h: explicitHeight,
+      textMode: node.textMode ?? textShape?.textMode,
+      textResizing: node.textResizing,
+    });
+    const textMode =
+      geometryMode === 'path' ? 'path' : geometryMode === 'autoWidth' ? 'point' : 'area';
     return {
       kind: 'text',
       x: 0,
       y: 0,
-      w: explicitWidth === undefined ? Math.max(width, fontSize) : Math.max(explicitWidth, 1),
-      h: explicitHeight === undefined ? Math.max(height, fontSize) : Math.max(explicitHeight, 1),
+      w: Math.max(geometry.bounds.w, 1),
+      h: Math.max(geometry.bounds.h, 1),
       text,
       fontSize,
       fontFamily: node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY,
@@ -143,7 +158,7 @@ function shapeToPrimitive(
       richText: node.richText,
       variableAxes: node.variableAxes,
       openTypeFeatures: node.openTypeFeatures,
-      textMode: node.textMode,
+      textMode,
       pathTextSettings: node.pathTextSettings,
       pathShape: resolvePathShape(node, nodeMap),
       direction: (node.direction as 'ltr' | 'rtl' | 'auto' | undefined) ?? 'auto',
@@ -209,7 +224,15 @@ function shapeToPrimitive(
         arrowheadSize: s.arrowheadSize,
       };
     case 'path':
-      return { kind: 'path', points: s.points, closed: s.closed, tolerance: s.tolerance };
+      return {
+        kind: 'path',
+        points: s.points,
+        closed: s.closed,
+        tolerance: s.tolerance,
+        ...(s.contours && s.contours.length > 0 ? { contours: s.contours } : {}),
+        ...(s.holes && s.holes.length > 0 ? { holes: s.holes } : {}),
+        ...(s.fillRule ? { fillRule: s.fillRule } : {}),
+      };
   }
 }
 
@@ -224,7 +247,7 @@ function stubEngine(): Engine {
         const item: RenderItem = {
           transform: n.transform,
           fill: n.fill ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 0 },
-          primitive: shapeToPrimitive(n, undefined, nodeMap),
+          primitive: shapeToPrimitive(n, nodeMap),
           opacity: n.opacity ?? 1,
           blendMode: n.blendMode ?? 'normal',
           strokes: n.strokes ?? [],

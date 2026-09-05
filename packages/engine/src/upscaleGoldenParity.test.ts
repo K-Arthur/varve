@@ -1,12 +1,12 @@
 /**
  * Cross-language upscale golden: nearest-neighbor 2x on a 2x2 RGBA fixture.
- * Must match crates/strata-upscale nearest test byte-for-byte.
+ * Must match crates/varve-upscale nearest test byte-for-byte.
  */
 
 import { describe, expect, it } from 'vitest';
 import { upscaleImageData } from './imageEnhancement';
 
-/** Shared fixture with strata-upscale `nearest_golden_matches_typescript`. */
+/** Shared fixture with varve-upscale `nearest_golden_matches_typescript`. */
 const SOURCE = new Uint8ClampedArray([
   255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 0, 255,
 ]);

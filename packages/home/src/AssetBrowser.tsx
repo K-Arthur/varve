@@ -1,13 +1,27 @@
 import type { Asset, AssetFolder, Platform } from '@varve/platform';
 import { searchAssets } from '@varve/platform';
-import { ContentSkeleton, Icon, type IconName, SearchField, Tooltip } from '@varve/ui';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { FileRejection } from '@varve/shared';
+import {
+  ContentSkeleton,
+  FileDropZone,
+  FileError,
+  FileQueue,
+  type FileQueueItem,
+  Icon,
+  type IconName,
+  SearchField,
+  Spinner,
+  Tooltip,
+} from '@varve/ui';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { HomeImportOutcome } from './homeImportNotifications';
 import { useSemanticAssetSearch } from './search/useSemanticAssetSearch';
 
 export interface AssetBrowserProps {
   platform: Platform;
   workspaceId: string;
   onInsertAsset?: (asset: Asset) => void;
+  onImportComplete?: (outcome: HomeImportOutcome) => void;
 }
 
 const ASSET_KIND_ICONS: Record<string, IconName> = {
@@ -25,14 +39,36 @@ function formatFileSize(bytes: number): string {
   return `${val.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
-export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrowserProps) {
+type AssetImportItem = FileQueueItem<File>;
+
+const ASSET_ACCEPT = 'image/*,.svg,.ttf,.otf,.woff,.woff2';
+const MAX_ASSET_FILES = 50;
+const MAX_ASSET_SIZE = 128 * 1024 * 1024;
+let importItemSequence = 0;
+
+function createImportItem(file: File): AssetImportItem {
+  importItemSequence += 1;
+  return {
+    id: `asset-import-${Date.now()}-${importItemSequence}`,
+    file,
+    status: 'queued',
+  };
+}
+
+export function AssetBrowser({
+  platform,
+  workspaceId,
+  onInsertAsset,
+  onImportComplete,
+}: AssetBrowserProps) {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [folders, setFolders] = useState<AssetFolder[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importItems, setImportItems] = useState<AssetImportItem[]>([]);
+  const [selectionErrors, setSelectionErrors] = useState<FileRejection<File>[]>([]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -56,30 +92,73 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
     loadData();
   }, [loadData]);
 
-  const handleImport = useCallback(async () => {
-    fileInputRef.current?.click();
+  const updateImportItem = useCallback((id: string, patch: Partial<AssetImportItem>) => {
+    setImportItems((previous) =>
+      previous.map((item) => (item.id === id ? { ...item, ...patch } : item)),
+    );
   }, []);
 
-  const handleFileSelected = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-
+  const processImportItems = useCallback(
+    async (items: readonly AssetImportItem[]) => {
       setImporting(true);
-      try {
-        const buffer = await file.arrayBuffer();
-        await platform.importAsset(workspaceId, file.name, new Uint8Array(buffer), file.type);
-        await loadData();
-      } catch {
-        // Silently fail
-      } finally {
-        setImporting(false);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
+      let success = 0;
+      let failed = 0;
+      for (const item of items) {
+        updateImportItem(item.id, { status: 'processing', progress: 0, error: undefined });
+        try {
+          const buffer = await item.file.arrayBuffer();
+          updateImportItem(item.id, { progress: 50 });
+          await platform.importAsset(
+            workspaceId,
+            item.file.name,
+            new Uint8Array(buffer),
+            item.file.type || 'application/octet-stream',
+          );
+          updateImportItem(item.id, { status: 'complete', progress: 100 });
+          success += 1;
+        } catch (error) {
+          updateImportItem(item.id, {
+            status: 'failed',
+            progress: 0,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          failed += 1;
         }
       }
+      setImporting(false);
+      await loadData();
+      onImportComplete?.({ success, failed, total: items.length });
     },
-    [platform, workspaceId, loadData],
+    [loadData, onImportComplete, platform, updateImportItem, workspaceId],
+  );
+
+  const handleFiles = useCallback(
+    async (files: File[]) => {
+      setSelectionErrors([]);
+      const items = files.map(createImportItem);
+      setImportItems(items);
+      await processImportItems(items);
+    },
+    [processImportItems],
+  );
+
+  const handleReject = useCallback((rejections: FileRejection<File>[]) => {
+    setSelectionErrors(rejections);
+  }, []);
+
+  const removeImportItem = useCallback((id: string) => {
+    setImportItems((previous) => previous.filter((item) => item.id !== id));
+  }, []);
+
+  const retryImport = useCallback(
+    (id: string) => {
+      const failed = importItems.find((item) => item.id === id);
+      if (!failed || importing) return;
+      const retryItem: AssetImportItem = { ...failed, status: 'queued', error: undefined };
+      setImportItems((previous) => previous.map((item) => (item.id === id ? retryItem : item)));
+      void processImportItems([retryItem]);
+    },
+    [importItems, importing, processImportItems],
   );
 
   const rootFolders = useMemo(() => folders.filter((f) => f.parentId === null), [folders]);
@@ -114,14 +193,6 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
 
   return (
     <div className="asset-browser">
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*,.svg,.ttf,.otf,.woff,.woff2"
-        style={{ display: 'none' }}
-        onChange={handleFileSelected}
-      />
-
       <div className="asset-browser__header">
         <SearchField
           value={searchQuery}
@@ -132,16 +203,40 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
         <span className="asset-browser__search-hint" aria-hidden="true">
           Local: filename · OCR · tags · visual
         </span>
-        <button
-          type="button"
-          className="asset-browser__import-btn"
-          onClick={handleImport}
-          disabled={importing}
-        >
-          <Icon name="Upload" label={undefined} size="1rem" />
-          {importing ? 'Importing...' : 'Import'}
-        </button>
+        <FileDropZone
+          className="asset-browser__import-zone"
+          size="compact"
+          label="Drop assets to add"
+          description="Images, SVG, and fonts stay local"
+          actionLabel={importing ? 'Importing…' : 'Import'}
+          icon="FileUp"
+          accept={ASSET_ACCEPT}
+          multiple
+          maxFiles={MAX_ASSET_FILES}
+          maxSize={MAX_ASSET_SIZE}
+          processing={importing}
+          onFiles={handleFiles}
+          onReject={handleReject}
+        />
       </div>
+
+      {selectionErrors.length > 0 && (
+        <FileError
+          title="Some assets were not added"
+          message={selectionErrors
+            .map((rejection) => `${rejection.file.name}: ${rejection.reason}`)
+            .join(' ')}
+          compact
+        />
+      )}
+
+      <FileQueue
+        className="asset-browser__import-queue"
+        items={importItems}
+        label="Asset import queue"
+        onRemove={removeImportItem}
+        onRetry={retryImport}
+      />
 
       {(hasQuery ||
         downloadingModelId ||
@@ -174,12 +269,12 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
             </button>
           ) : semanticStatus.indexing && semanticStatus.indexedCount < semanticStatus.totalCount ? (
             <span>
-              <Icon name="Loader" label={undefined} size="0.875rem" />
+              <Spinner size="sm" />
               Indexing local assets · {semanticStatus.indexedCount} / {semanticStatus.totalCount}
             </span>
           ) : semanticBusy ? (
             <span>
-              <Icon name="Loader" label={undefined} size="0.875rem" />
+              <Spinner size="sm" />
               Searching…
             </span>
           ) : null}

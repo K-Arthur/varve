@@ -4,6 +4,17 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+/** The section is collapsed by default (progressive disclosure); these tests
+ * exercise the content, so expand the disclosure trigger first. */
+function renderLibrary() {
+  const utils = render(<PaintLibrarySection />);
+  const trigger = screen.queryByRole('button', { name: 'Paint Library' });
+  if (trigger && trigger.getAttribute('aria-expanded') === 'false') {
+    fireEvent.click(trigger);
+  }
+  return utils;
+}
+
 vi.mock('../../../../context', () => ({ useEditor: vi.fn() }));
 
 import { useEditor } from '../../../../context';
@@ -81,7 +92,13 @@ describe('PaintLibrarySection', () => {
     announce.mockClear();
     showToast.mockClear();
     mockedUseEditor.mockReturnValue({
-      state: { document: makeDocument() },
+      // 'paint-library' is collapsed by default in the section registry
+      // (progressive disclosure); these tests exercise the section content,
+      // so seed the visibility state expanded.
+      state: {
+        document: makeDocument(),
+        sectionVisibility: { 'paint-library': { collapsed: false } },
+      },
       selectedNodes: () => [],
       updateDoc,
       announce,
@@ -90,7 +107,7 @@ describe('PaintLibrarySection', () => {
   });
 
   it('shows empty state when no paints exist', () => {
-    render(<PaintLibrarySection />);
+    renderLibrary();
     expect(screen.getByText(/no paints/i)).toBeTruthy();
   });
 
@@ -109,7 +126,7 @@ describe('PaintLibrarySection', () => {
       showToast,
     });
 
-    render(<PaintLibrarySection />);
+    renderLibrary();
     expect(screen.getByText('Red')).toBeTruthy();
     expect(screen.getByText('Blue')).toBeTruthy();
   });
@@ -129,7 +146,7 @@ describe('PaintLibrarySection', () => {
       showToast,
     });
 
-    render(<PaintLibrarySection />);
+    renderLibrary();
     const input = screen.getByPlaceholderText(/filter|search/i);
     fireEvent.change(input, { target: { value: 'Red' } });
     expect(screen.getByText('Red Accent')).toBeTruthy();
@@ -147,7 +164,7 @@ describe('PaintLibrarySection', () => {
       showToast,
     });
 
-    render(<PaintLibrarySection />);
+    renderLibrary();
     const addBtn = screen.getByRole('button', { name: /add current fill/i });
     fireEvent.click(addBtn);
 
@@ -179,7 +196,7 @@ describe('PaintLibrarySection', () => {
       showToast,
     });
 
-    render(<PaintLibrarySection />);
+    renderLibrary();
     const applyBtns = screen.getAllByRole('button', { name: /apply/i });
     fireEvent.click(applyBtns[0]);
 
@@ -208,7 +225,7 @@ describe('PaintLibrarySection', () => {
       showToast,
     });
 
-    render(<PaintLibrarySection />);
+    renderLibrary();
     const detachBtn = screen.getByRole('button', { name: /detach/i });
     fireEvent.click(detachBtn);
 
@@ -238,7 +255,7 @@ describe('PaintLibrarySection', () => {
       showToast,
     });
 
-    render(<PaintLibrarySection />);
+    renderLibrary();
     expect(screen.getByText(/referenced|shared/i)).toBeTruthy();
   });
 
@@ -261,7 +278,7 @@ describe('PaintLibrarySection', () => {
       showToast,
     });
 
-    render(<PaintLibrarySection />);
+    renderLibrary();
     const deleteBtn = screen.getAllByRole('button', { name: /delete/i })[0];
     fireEvent.click(deleteBtn!);
 
@@ -285,7 +302,7 @@ describe('PaintLibrarySection', () => {
       showToast,
     });
 
-    render(<PaintLibrarySection />);
+    renderLibrary();
     const entries = screen.getAllByRole('button', { name: /apply/i });
     expect(entries.length).toBe(2);
     fireEvent.click(entries[0]);
@@ -325,7 +342,7 @@ describe('PaintLibrarySection', () => {
       showToast,
     });
 
-    render(<PaintLibrarySection />);
+    renderLibrary();
 
     const entry = screen.getByText('Red').closest('[draggable]') as HTMLElement;
     expect(entry).not.toBeNull();

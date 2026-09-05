@@ -7,7 +7,7 @@ import type {
 import type { GradientInterpolationSpace, ManagedColor } from '@varve/scene';
 import { cryptoId, rgbFromTuple } from '@varve/scene';
 import { denormalizeChannel, managedColorToRgba, normalizeChannel } from '@varve/shared';
-import { Select } from '@varve/ui';
+import { Select, Switch } from '@varve/ui';
 import { ColorPicker } from '@varve/ui/components/ColorPicker';
 import { useCallback, useId, useMemo, useRef, useState } from 'react';
 
@@ -773,45 +773,34 @@ export function GradientMapEditor({
         <span className="gm-editor__unit">{Math.round(intensity * 100)}%</span>
       </div>
 
-      <div className="gm-editor__row">
-        <span className="gm-editor__label">Reverse</span>
-        <input
-          type="checkbox"
-          checked={reverse}
-          onChange={(e) => onChange({ reverse: e.target.checked })}
-          aria-label="Reverse gradient map"
-        />
-      </div>
-
-      <div className="gm-editor__row">
-        <span className="gm-editor__label">Dither</span>
-        <input
-          type="checkbox"
-          checked={dither}
-          onChange={(e) => onChange({ dither: e.target.checked })}
-          aria-label="Dither gradient map"
-        />
-      </div>
-
-      <div className="gm-editor__row">
-        <span className="gm-editor__label">Keep alpha</span>
-        <input
-          type="checkbox"
-          checked={preserveSourceAlpha}
-          onChange={(e) => onChange({ preserveSourceAlpha: e.target.checked })}
-          aria-label="Preserve source alpha"
-        />
-      </div>
-
-      <div className="gm-editor__row">
-        <span className="gm-editor__label">Luminosity</span>
-        <input
-          type="checkbox"
-          checked={preserveLuminosity}
-          onChange={(e) => onChange({ preserveLuminosity: e.target.checked })}
-          aria-label="Preserve luminosity"
-        />
-      </div>
+      <Switch
+        className="gm-editor__switch"
+        label="Reverse"
+        checked={reverse}
+        onChange={(e) => onChange({ reverse: e.target.checked })}
+        aria-label="Reverse gradient map"
+      />
+      <Switch
+        className="gm-editor__switch"
+        label="Dither"
+        checked={dither}
+        onChange={(e) => onChange({ dither: e.target.checked })}
+        aria-label="Dither gradient map"
+      />
+      <Switch
+        className="gm-editor__switch"
+        label="Keep alpha"
+        checked={preserveSourceAlpha}
+        onChange={(e) => onChange({ preserveSourceAlpha: e.target.checked })}
+        aria-label="Preserve source alpha"
+      />
+      <Switch
+        className="gm-editor__switch"
+        label="Luminosity"
+        checked={preserveLuminosity}
+        onChange={(e) => onChange({ preserveLuminosity: e.target.checked })}
+        aria-label="Preserve luminosity"
+      />
     </div>
   );
 }

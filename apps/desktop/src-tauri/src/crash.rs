@@ -58,9 +58,7 @@ fn sanitize_panic_payload(payload: &str) -> String {
     let mut out = String::with_capacity(payload.len().min(512));
     let mut rest = payload;
     while !rest.is_empty() {
-        let end = rest
-            .find(char::is_whitespace)
-            .unwrap_or(rest.len());
+        let end = rest.find(char::is_whitespace).unwrap_or(rest.len());
         let (token, tail) = rest.split_at(end);
         if looks_like_absolute_native_path(token) {
             out.push_str(&redact_native_path_token(token));
@@ -80,9 +78,7 @@ fn looks_like_absolute_native_path(value: &str) -> bool {
     let bytes = value.as_bytes();
     value.starts_with('/')
         || value.starts_with("\\\\")
-        || (bytes.len() >= 3
-            && bytes[1] == b':'
-            && (bytes[2] == b'/' || bytes[2] == b'\\'))
+        || (bytes.len() >= 3 && bytes[1] == b':' && (bytes[2] == b'/' || bytes[2] == b'\\'))
 }
 
 fn redact_native_path_token(value: &str) -> String {

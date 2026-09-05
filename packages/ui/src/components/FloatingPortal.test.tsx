@@ -85,6 +85,34 @@ describe('FloatingPortal', () => {
     menu.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
     expect(onClose).not.toHaveBeenCalled();
   });
+
+  it('keeps an explicitly related portaled descendant open', async () => {
+    const onClose = vi.fn();
+    function NestedPortalFixture() {
+      const anchorRef = useRef<HTMLButtonElement>(null);
+      const submenuRef = useRef<HTMLDivElement>(null);
+      return (
+        <>
+          <button type="button" ref={anchorRef}>
+            Anchor
+          </button>
+          <div ref={submenuRef} role="menu" aria-label="Nested menu">
+            Nested menu
+          </div>
+          <FloatingPortal anchorRef={anchorRef} open onClose={onClose} insideRefs={[submenuRef]}>
+            <div role="menu">Parent menu</div>
+          </FloatingPortal>
+        </>
+      );
+    }
+
+    render(<NestedPortalFixture />);
+    await new Promise((r) => requestAnimationFrame(r));
+    screen
+      .getByRole('menu', { name: 'Nested menu' })
+      .dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    expect(onClose).not.toHaveBeenCalled();
+  });
 });
 
 describe('FloatingPortal positioning', () => {

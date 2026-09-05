@@ -5,7 +5,7 @@
  * pure function of the editor context + close callback. Selection facts are
  * computed locally so hub files do not import extra scene predicates.
  */
-import { isImageShape } from '@varve/scene';
+import { isImageShape, isLiveBooleanNode, isVisualMaskTarget } from '@varve/scene';
 import type { MenuEntry } from '@varve/ui';
 import { getActionRegistry } from '../actions/ActionRegistry';
 import type { EditorContextValue } from '../context';
@@ -13,6 +13,21 @@ import type { EditorContextValue } from '../context';
 interface CanvasContextMenuOptions {
   editor: EditorContextValue;
   closeMenu: () => void;
+}
+
+type LiveBooleanOperation = 'union' | 'subtract' | 'intersect' | 'exclude';
+
+const LIVE_BOOLEAN_OPERATIONS: readonly LiveBooleanOperation[] = [
+  'union',
+  'subtract',
+  'intersect',
+  'exclude',
+];
+
+function liveBooleanOperationLabel(operation: LiveBooleanOperation): string {
+  return operation === 'exclude'
+    ? 'Exclude Overlap'
+    : `${operation[0]!.toUpperCase()}${operation.slice(1)}`;
 }
 
 export function buildCanvasContextMenuItems({
@@ -28,6 +43,7 @@ export function buildCanvasContextMenuItems({
     selectedId !== undefined &&
     editor.state.document.nodes[selectedId]?.kind === 'group';
   const selectedNode = selectedId ? editor.state.document.nodes[selectedId] : undefined;
+  const isSingleLiveBoolean = selectedNode !== undefined && isLiveBooleanNode(selectedNode);
   const isSingleImage =
     hasSelection &&
     editor.state.selection.length === 1 &&
@@ -40,10 +56,28 @@ export function buildCanvasContextMenuItems({
     selectedNode.traceMetadata !== undefined;
   const isSingleFrame =
     hasSelection && editor.state.selection.length === 1 && selectedNode?.kind === 'frame';
+  const isSingleVisualMaskTarget =
+    hasSelection &&
+    editor.state.selection.length === 1 &&
+    selectedNode !== undefined &&
+    isVisualMaskTarget(selectedNode);
   const nodeCount = Object.keys(editor.state.document.nodes).length;
   const hasNodes = nodeCount >= 1;
   const hasMultipleNodes = nodeCount >= 2;
   const record = (actionId: string) => editor.recordAction(`menu:${actionId}`);
+  const setLiveBooleanOperation = (operation: LiveBooleanOperation) => {
+    if (!selectedId) return;
+    editor.updateNode(selectedId, (node) => {
+      if (!isLiveBooleanNode(node)) return node;
+      return {
+        ...node,
+        name: `Boolean ${liveBooleanOperationLabel(operation)}`,
+        boolean: { ...node.boolean, operation },
+      };
+    });
+    record(`boolean-${operation}`);
+    closeMenu();
+  };
   const items: MenuEntry[] = [
     ...(hasSelection
       ? [
@@ -140,13 +174,26 @@ export function buildCanvasContextMenuItems({
           { id: 'ctx-sep3', separator: true as const } satisfies MenuEntry,
           {
             id: 'ctx-ungroup',
-            label: 'Ungroup',
+            label: isSingleLiveBoolean ? 'Expand Boolean' : 'Ungroup',
             onAction: () => {
               record('ungroup');
               editor.ungroupSelected();
               closeMenu();
             },
           } satisfies MenuEntry,
+          ...(isSingleLiveBoolean
+            ? [
+                { id: 'ctx-live-boolean-sep', separator: true as const } satisfies MenuEntry,
+                ...LIVE_BOOLEAN_OPERATIONS.map(
+                  (operation) =>
+                    ({
+                      id: `ctx-live-boolean-${operation}`,
+                      label: `Change Boolean to ${liveBooleanOperationLabel(operation)}`,
+                      onAction: () => setLiveBooleanOperation(operation),
+                    }) satisfies MenuEntry,
+                ),
+              ]
+            : []),
         ]
       : []),
     ...(hasSelection
@@ -172,9 +219,13 @@ export function buildCanvasContextMenuItems({
             single.mask?.type === 'clip' &&
             single.mask.sourceNodeId !== undefined &&
             single.children?.includes(single.mask.sourceNodeId) === true;
+          const isVisualLeaf = single !== undefined && isVisualMaskTarget(single);
           const isMaskContainer =
             single !== undefined &&
-            (single.kind === 'group' || single.kind === 'frame' || single.kind === 'adjustment');
+            (single.kind === 'group' ||
+              single.kind === 'frame' ||
+              single.kind === 'adjustment' ||
+              isVisualLeaf);
           const hasMask = isMaskContainer && single.mask != null;
           const entries: MenuEntry[] = [];
           if (hasMultiple && canClipSource) {
@@ -309,7 +360,7 @@ export function buildCanvasContextMenuItems({
                 } satisfies MenuEntry,
               ]
             : []),
-          ...(isSingleImage || isSingleFrame
+          ...(isSingleImage || isSingleFrame || isSingleVisualMaskTarget
             ? [
                 {
                   id: 'ctx-paint-mask',

@@ -11,6 +11,7 @@ import {
   applyMaskAlpha,
   getImageCache,
   mapBlendMode,
+  primitiveBounds,
   releaseMaskSurface,
   renderEnhancedMask,
   traceSceneNodeOutline,
@@ -191,6 +192,170 @@ export function applyAdjustmentSpatialMask(options: AdjustmentSpatialMaskOptions
     });
   }
   backdropCtx.restore();
+}
+
+/**
+ * Options for replaying a mask on a leaf node (shape, text, raster layer).
+ */
+export interface LeafMaskReplayOptions {
+  /** The masked leaf node. */
+  node: SceneNode;
+  /** The leaf's mask (must be visible and resolved). */
+  mask: Mask;
+  /** The leaf's IR item (transform baked in). */
+  irItem: import('@varve/engine').RenderItem;
+  doc: Document;
+  /** Current doc → device transform. */
+  baseTransform: DOMMatrix;
+  /** Paint the leaf's content (IR item) to the given context. */
+  paintContent: (ctx: CanvasRenderingContext2D) => void;
+  getWorldTransform: (nodeId: NodeId) => readonly [number, number, number, number, number, number];
+}
+
+/**
+ * Whether a leaf mask needs the structural Canvas2D compositing path.
+ *
+ * Image-filled shapes retain the engine's source-image alpha-mask fast path:
+ * rendering them here as well would multiply the same mask twice. Vector and
+ * node-local raster masks are composed after local effects and therefore use
+ * this shared leaf replay path.
+ */
+export function requiresLeafMaskReplay(mask: Mask): boolean {
+  return Boolean(
+    mask.vectorMask ||
+      (mask.rasterMask && mask.rasterMask.coordinateSpace !== 'source-image-pixels') ||
+      (mask.sourceNodeId && mask.type !== 'clip'),
+  );
+}
+
+/**
+ * Replay a mask on a single leaf node (shape, text, raster layer).
+ *
+ * Renders the leaf's content to an offscreen surface, applies the mask
+ * (vector path, raster asset, or live matte), and composites the result
+ * onto the target context. This is the leaf-node equivalent of
+ * `replayMaskedContainer` for containers.
+ *
+ * The content is rendered via the caller's `paintContent` callback, which
+ * should paint the leaf's IR item (with its transform already applied).
+ * The mask is drawn in the leaf's local coordinate space, ensuring
+ * correct compositing via `destination-in`.
+ */
+export function replayLeafMask(
+  targetCtx: CanvasRenderingContext2D,
+  options: LeafMaskReplayOptions,
+): void {
+  const { mask, irItem, doc, baseTransform, paintContent, getWorldTransform } = options;
+
+  const maskSrcId = mask.sourceNodeId ?? undefined;
+  const maskSource = maskSrcId ? doc.nodes[maskSrcId] : undefined;
+  const maskHasVector = !!mask.vectorMask && mask.vectorMask.points.length > 0;
+  // Resolve raster mask asset
+  const rasterAsset = mask.rasterMask
+    ? (doc.rasterMaskAssets?.[mask.rasterMask.assetId] ?? null)
+    : null;
+  const rasterMaskImage = rasterAsset ? getImageCache().getImage(rasterAsset.dataUrl) : null;
+  if (rasterAsset && !rasterMaskImage) {
+    getImageCache()
+      .load(rasterAsset.dataUrl)
+      .catch(() => undefined);
+  }
+
+  // If raster mask asset is still decoding, render unmasked
+  if (mask.rasterMask && !rasterMaskImage) {
+    paintContent(targetCtx);
+    return;
+  }
+
+  // Resolve the mask transform: linked masks follow the leaf's world
+  // transform; unlinked masks use their own independent transform.
+  const maskTransform =
+    mask.linked !== false ? irItem.transform : (mask.transform ?? irItem.transform);
+  const projectToSurface = (
+    transform: readonly [number, number, number, number, number, number],
+  ): [number, number, number, number, number, number] => [
+    baseTransform.a * transform[0] + baseTransform.c * transform[1],
+    baseTransform.b * transform[0] + baseTransform.d * transform[1],
+    baseTransform.a * transform[2] + baseTransform.c * transform[3],
+    baseTransform.b * transform[2] + baseTransform.d * transform[3],
+    baseTransform.a * transform[4] + baseTransform.c * transform[5] + baseTransform.e,
+    baseTransform.b * transform[4] + baseTransform.d * transform[5] + baseTransform.f,
+  ];
+
+  const result = acquireMaskSurface(targetCtx.canvas.width, targetCtx.canvas.height);
+  try {
+    const resultCtx = result.getContext('2d');
+    if (!resultCtx) {
+      paintContent(targetCtx);
+      return;
+    }
+    renderEnhancedMask(
+      resultCtx,
+      {
+        draw: (maskCtx: CanvasRenderingContext2D) => {
+          if (maskHasVector && mask.vectorMask) {
+            // Vector mask: apply the resolved transform so the path is in
+            // device space, matching the content's coordinate space.
+            maskCtx.setTransform(...projectToSurface(maskTransform));
+            traceVectorMaskPoints(maskCtx, mask.vectorMask.points, mask.vectorMask.closed);
+            maskCtx.fillStyle = 'rgba(255,255,255,1)';
+            maskCtx.fill(mask.vectorMask.fillRule ?? 'nonzero');
+          } else if (mask.rasterMask && rasterMaskImage) {
+            // Raster masks use the target's complete local paint bounds.
+            // `primitiveBounds` handles vector paths, text, and tables as
+            // well as rects and raster layers, so coverage is media-agnostic.
+            const bounds = primitiveBounds(irItem.primitive);
+            maskCtx.setTransform(...projectToSurface(maskTransform));
+            maskCtx.drawImage(rasterMaskImage, bounds.x, bounds.y, bounds.w, bounds.h);
+          } else if (maskSrcId && maskSource) {
+            // Scene-node matte: replay the source node's outline into the
+            // mask surface. For linked masks the source follows its own world
+            // transform; for unlinked masks use the mask transform.
+            const srcTransform =
+              mask.linked !== false
+                ? getWorldTransform(maskSrcId)
+                : (mask.transform ?? getWorldTransform(maskSrcId));
+            maskCtx.setTransform(...projectToSurface(srcTransform));
+            traceSceneNodeOutline(
+              maskCtx,
+              maskSource as unknown as Parameters<typeof traceSceneNodeOutline>[1],
+            );
+            maskCtx.fillStyle = 'rgba(255,255,255,1)';
+            maskCtx.fill(mask.fillRule ?? 'nonzero');
+          }
+        },
+      },
+      {
+        draw: (contentCtx: CanvasRenderingContext2D) => {
+          contentCtx.setTransform(
+            baseTransform.a,
+            baseTransform.b,
+            baseTransform.c,
+            baseTransform.d,
+            baseTransform.e,
+            baseTransform.f,
+          );
+          paintContent(contentCtx);
+        },
+      },
+      {
+        luminance: mask.type === 'luminance',
+        inverted: mask.inverted === true,
+        feather: mask.feather,
+        density: mask.density,
+      },
+    );
+    // Composite the masked surface onto the target
+    targetCtx.save();
+    try {
+      targetCtx.setTransform(1, 0, 0, 1, 0, 0);
+      targetCtx.drawImage(result, 0, 0);
+    } finally {
+      targetCtx.restore();
+    }
+  } finally {
+    releaseMaskSurface(result);
+  }
 }
 
 export type { Mask, SceneNode };

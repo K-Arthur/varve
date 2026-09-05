@@ -13,7 +13,7 @@
   background: var(--elevation-surface-overlay);
   color: var(--color-text-primary);
   border: var(--border-micro);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   box-shadow: var(--elevation-shadow-overlay);
   font-family: var(--font-body);
   font-size: var(--font-size-sm);
@@ -37,7 +37,7 @@
   width: 3px;
   height: 100%;
   background: var(--color-interactive-default);
-  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  border-radius: var(--radius-control-compact) 0 0 var(--radius-control-compact);
 }
 
 .did-you-know-tip__icon {
@@ -86,7 +86,7 @@
   background: transparent;
   color: var(--color-interactive-default);
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   font: inherit;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
@@ -111,7 +111,7 @@
   padding: var(--space-1) var(--space-2);
   background: none;
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   color: var(--color-text-muted);
   font: inherit;
   font-size: var(--font-size-xs);

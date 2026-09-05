@@ -40,6 +40,7 @@ import {
   localTransformToAncestor,
   type NodeId,
   nodeLocalBoundsSource,
+  textNodeLocalBounds,
   warpsOnNode,
 } from '@varve/scene';
 import type { Rect } from '@varve/shared';
@@ -318,13 +319,11 @@ function evaluateLeaf(
       invalid: [],
       sourceBounds: evalWarp.sourceBounds,
     };
-    const width =
-      textNode.w ??
-      Math.max(
-        textNode.text.length * (textNode.fontSize ?? 14) * 0.55,
-        (textNode.fontSize ?? 14) * 3,
-      );
-    const height = textNode.h ?? (textNode.fontSize ?? 14) * (textNode.lineHeight ?? 1.4);
+    // Warp cluster adjustments are computed inside the node's real box; a
+    // per-character estimate here disagreed with the cage drawn around it.
+    const textBounds = textNodeLocalBounds(textNode);
+    const width = textBounds.w;
+    const height = textBounds.h;
     const result = warpTextToClusterAdjustments(
       {
         text: textNode.text,

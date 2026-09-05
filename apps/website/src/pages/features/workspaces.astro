@@ -6,7 +6,7 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
 
 <Layout
   title="Workspaces"
-  description="Eight task-focused workspaces with per-workspace panels, toolbar, inspector, and status bar — customized once, remembered per mode."
+  description="Eight task-focused workspaces with per-workspace panels, detachable desktop panel windows, toolbar, inspector, and status bar — customized once, remembered per mode."
 >
   <div class="container-custom">
     <div class="feature-page">
@@ -75,17 +75,19 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
       </section>
 
       <section class="feature-section note">
-        <h2>Beta note</h2>
+        <h2>Panel windows</h2>
         <p>
-          Panel detaching, auxiliary windows, and per-panel docking are in development. The primary
-          workspace surface — visibility, widths, toolbar composition, inspector tabs, and status
-          sections — is complete and persisted per mode.
+          Desktop builds can open Layers, Inspector, Assets, Code, and Logo in their own windows.
+          Each detached panel stays connected to the same document and undo history, and can be
+          reattached from its window. Browser builds use a popup when the browser permits it;
+          single-window browsers keep the panel docked. Timeline, History, and Pages remain docked
+          until their auxiliary rendering and lifecycle support is complete.
         </p>
       </section>
 
       <div class="feature-cta">
         <h2>Pick your workspace</h2>
-        <a href={sitePath('/download')} class="btn-primary">Download Varve</a>
+        <a href={sitePath('/download')} class="btn-default">Download Varve</a>
       </div>
     </div>
   </div>

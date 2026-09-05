@@ -10,6 +10,7 @@ test.describe('Layers Panel - Drag & Drop', () => {
   });
 
   test('layers tree renders with sortable rows', async ({ page }) => {
+    await seedLayers(page, 1);
     const tree = page.getByRole('tree', { name: /layers/i });
     await expect(tree).toBeVisible();
     const items = page.getByRole('treeitem');
@@ -18,6 +19,7 @@ test.describe('Layers Panel - Drag & Drop', () => {
   });
 
   test('drag handle is present on tree rows', async ({ page }) => {
+    await seedLayers(page, 1);
     const items = page.getByRole('treeitem');
     const count = await items.count();
     if (count >= 1) {
@@ -46,10 +48,17 @@ test.describe('Layers Panel - Drag & Drop', () => {
   test('file import input exists', async ({ page }) => {
     const importInput = page.locator('#file-import-input');
     await expect(importInput).toBeVisible({ visible: false });
-    await expect(importInput).toHaveAttribute(
-      'accept',
-      '.svg,.png,.jpg,.jpeg,.webp,.avif,.gif,.bmp,.pdf,.ai,.eps,.psd,.psb,.sketch,.fig,.fig.json,.cube,.3dl,.clf,.ctf',
-    );
+
+    // The accept list is derived from the parser registry, so pinning the
+    // exact string here couples a Layers spec to every import change and
+    // fails on registry edits that are entirely intentional (it last broke on
+    // 27846ef3, "stop advertising formats the pipeline cannot ingest").
+    // Assert the formats this panel's drag-to-canvas story actually depends
+    // on; the registry's own tests own the full list.
+    const accept = (await importInput.getAttribute('accept')) ?? '';
+    for (const ext of ['.png', '.jpg', '.svg', '.pdf', '.psd']) {
+      expect(accept.split(','), `import picker should accept ${ext}`).toContain(ext);
+    }
   });
 
   test('reorders a virtualized row to the pointer target', async ({ page }) => {
@@ -60,11 +69,12 @@ test.describe('Layers Panel - Drag & Drop', () => {
     const before = await rows.allTextContents();
     const source = rows.nth(2);
     const target = rows.nth(0);
+    const sourceHandle = source.locator('.layers-row__drag-handle');
     const sourceId = await source.getAttribute('data-node-id');
     const targetId = await target.getAttribute('data-node-id');
     expect(sourceId).toBeTruthy();
     expect(targetId).toBeTruthy();
-    const sourceBox = await source.boundingBox();
+    const sourceBox = await sourceHandle.boundingBox();
     const targetBox = await target.boundingBox();
     if (!sourceBox || !targetBox) throw new Error('layer row geometry unavailable');
 

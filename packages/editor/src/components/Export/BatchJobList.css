@@ -1,6 +1,6 @@
 .batch-job-list {
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   overflow: hidden;
   background: var(--elevation-surface-default);
 }

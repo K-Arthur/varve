@@ -401,7 +401,7 @@ export function CurveEditor({
           width: WIDTH,
           height: HEIGHT,
           background: 'var(--color-surface-sunken)',
-          borderRadius: 'var(--radius-sm)',
+          borderRadius: 'var(--radius-control-compact)',
         }}
       >
         <canvas
@@ -412,7 +412,7 @@ export function CurveEditor({
             inset: 0,
             width: WIDTH,
             height: HEIGHT,
-            borderRadius: 'var(--radius-sm)',
+            borderRadius: 'var(--radius-control-compact)',
             pointerEvents: 'none',
           }}
         />
@@ -424,7 +424,7 @@ export function CurveEditor({
           viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
           style={{
             background: 'transparent',
-            borderRadius: 'var(--radius-sm)',
+            borderRadius: 'var(--radius-control-compact)',
             cursor: dragIndex !== null ? 'grabbing' : 'crosshair',
             touchAction: 'none',
             userSelect: 'none',

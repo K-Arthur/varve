@@ -80,13 +80,19 @@ pnpm verify:plan
 # Affected-first validation (default inner loop — replaces plain `pnpm test`)
 pnpm verify:affected
 
+# Staged commit checkpoint
+pnpm verify:commit
+
+# Exact refs leaving this machine; CI deferrals are explicit
+pnpm verify:push
+
 # Tier 0 + 1 only (format/lint on touched files + directly related tests)
 pnpm verify:quick
 
 # Individual suites (full-suite operations — reserved for explicit gates)
 just test-rust            # cargo test --workspace
 just test-js              # pnpm test (Vitest)
-just gate                 # Full Cascade Review gate
+VARVE_FULL_GATE_REASON="<why>" just gate-full
 
 # E2E (Playwright, chromium) — feature-scoped by domain directory
 npx playwright install chromium
@@ -98,10 +104,12 @@ npx playwright test tests/e2e/canvas/tools.spec.ts --project=chromium --reporter
 
 ## Quality gates
 
-For ordinary feature work, run the affected gate before committing:
+For ordinary feature work, run the affected gate before committing and the
+exact push checkpoint before pushing:
 
 ```bash
 just check-affected      # or pnpm verify:affected
+pnpm verify:push
 ```
 
 The full repository gate is reserved for release checkpoints,
@@ -119,7 +127,7 @@ just format              # Auto-format
 just format-check        # Check formatting
 just lint                # Lint (Biome + Clippy)
 just gates               # Quality audits (tokens/emoji/docs) + health, architecture, typecheck-regression
-just gate                # Full gate (format-check + lint + test + gates)
+just gate                # Compatibility alias for the full gate; requires an explicit reason
 ```
 
 ## Useful commands

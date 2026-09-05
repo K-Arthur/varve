@@ -68,4 +68,14 @@ describe('TypographySection direction', () => {
     // on parent re-render after context mutation (consistent with textAlign).
     expect(() => fireEvent.click(rtlBtn)).not.toThrow();
   });
+
+  it('uses the shared switch for rich text editing', () => {
+    const node = makeTextNode('t1', 'auto');
+    renderSection(<TypographySection nodes={[node]} />);
+    const richTextSwitch = screen.getByRole('switch', { name: 'Enable rich text editing' });
+
+    expect(richTextSwitch).not.toBeChecked();
+    fireEvent.click(richTextSwitch);
+    expect(richTextSwitch).toBeChecked();
+  });
 });

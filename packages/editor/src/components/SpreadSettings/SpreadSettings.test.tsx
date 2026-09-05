@@ -38,29 +38,29 @@ describe('SpreadSettings', () => {
     expect(screen.getByText('Spreads')).toBeDefined();
   });
 
-  it('renders facing pages checkbox unchecked when disabled', () => {
+  it('renders facing pages switch unchecked when disabled', () => {
     mockEditor({ facingPages: { enabled: false, startOnRight: true } });
     render(<SpreadSettings />);
-    const checkbox = screen.getByRole('checkbox');
-    expect(checkbox).toBeDefined();
-    expect((checkbox as HTMLInputElement).checked).toBe(false);
+    const control = screen.getByRole('switch', { name: 'Facing pages' });
+    expect(control).toBeDefined();
+    expect((control as HTMLInputElement).checked).toBe(false);
   });
 
-  it('renders facing pages checkbox checked when enabled', () => {
+  it('renders facing pages switch checked when enabled', () => {
     mockEditor({ facingPages: { enabled: true, startOnRight: true } });
     render(<SpreadSettings />);
-    const checkbox = screen.getByRole('checkbox');
-    expect((checkbox as HTMLInputElement).checked).toBe(true);
+    const control = screen.getByRole('switch', { name: 'Facing pages' });
+    expect((control as HTMLInputElement).checked).toBe(true);
   });
 
-  it('calls setFacingPagesEnabled when checkbox is toggled', () => {
+  it('calls setFacingPagesEnabled when switch is toggled', () => {
     const setFacingPagesEnabled = vi.fn();
     mockEditor({
       facingPages: { enabled: false, startOnRight: true },
       setFacingPagesEnabled,
     });
     render(<SpreadSettings />);
-    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('switch', { name: 'Facing pages' }));
     expect(setFacingPagesEnabled).toHaveBeenCalledWith(true);
   });
 
@@ -112,11 +112,11 @@ describe('SpreadSettings', () => {
   it('collapses its body so it does not hold sidebar height open', () => {
     mockEditor({ facingPages: { enabled: false, startOnRight: true } });
     render(<SpreadSettings />);
-    expect(screen.getByRole('checkbox')).toBeDefined();
+    expect(screen.getByRole('switch', { name: 'Facing pages' })).toBeDefined();
 
     fireEvent.click(screen.getByRole('button', { name: 'Hide spreads' }));
 
-    expect(screen.queryByRole('checkbox')).toBeNull();
+    expect(screen.queryByRole('switch', { name: 'Facing pages' })).toBeNull();
     // The header remains so it can be reopened.
     expect(screen.getByRole('button', { name: 'Show spreads' })).toBeDefined();
   });

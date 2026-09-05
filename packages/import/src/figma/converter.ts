@@ -1,4 +1,4 @@
-import type { Affine, PathPoint, Shape } from '@varve/engine';
+import { type Affine, multiplyAffine, type Shape } from '@varve/engine';
 import {
   createDocument,
   createEmbeddedAsset,
@@ -127,6 +127,39 @@ function gradientRotation(paint: FigmaPaint): number | undefined {
   return (Math.atan2(second.y - first.y, second.x - first.x) * 180) / Math.PI;
 }
 
+/**
+ * Convert Figma's normalized gradient handles into Varve's canonical affine
+ * field. Figma emits three handles: linear start/end plus the perpendicular
+ * axis point, or radial centre plus the two radius axes. Keeping all three
+ * points avoids reducing authored skew/non-uniform scale to an angle.
+ */
+function gradientTransform(paint: FigmaPaint, bounds: FigmaBounds): Affine | undefined {
+  const normalizedNative = paint.gradientTransform
+    ? ([...paint.gradientTransform] as Affine)
+    : undefined;
+  const scaleToBounds: Affine = [bounds.w, 0, 0, bounds.h, 0, 0];
+  if (normalizedNative) return multiplyAffine(scaleToBounds, normalizedNative);
+
+  const [first, second, third] = paint.gradientHandlePositions ?? [];
+  if (!first || !second || !third) return undefined;
+
+  let normalized: Affine;
+  if (paint.type === 'GRADIENT_LINEAR') {
+    const ux = second.x - first.x;
+    const uy = second.y - first.y;
+    const vx = 2 * (third.x - first.x - ux * 0.5);
+    const vy = 2 * (third.y - first.y - uy * 0.5);
+    normalized = [ux, uy, vx, vy, first.x - vx * 0.5, first.y - vy * 0.5];
+  } else {
+    const ux = 2 * (second.x - first.x);
+    const uy = 2 * (second.y - first.y);
+    const vx = 2 * (third.x - first.x);
+    const vy = 2 * (third.y - first.y);
+    normalized = [ux, uy, vx, vy, first.x - (ux + vx) * 0.5, first.y - (uy + vy) * 0.5];
+  }
+  return multiplyAffine(scaleToBounds, normalized);
+}
+
 function assetForImage(
   state: ConversionState,
   ref: string,
@@ -159,6 +192,7 @@ function fill(state: ConversionState, paint: FigmaPaint, bounds: FigmaBounds): F
     return { type: 'solid', color: color(paint.color), ...common };
   }
   if (paint.type.startsWith('GRADIENT_') && paint.gradientStops) {
+    const transform = gradientTransform(paint, bounds);
     return {
       type: 'gradient',
       gradient: {
@@ -167,7 +201,7 @@ function fill(state: ConversionState, paint: FigmaPaint, bounds: FigmaBounds): F
           position: stop.position,
           color: color(stop.color),
         })),
-        rotation: gradientRotation(paint),
+        ...(transform ? { transform } : { rotation: gradientRotation(paint) }),
       },
       ...common,
     };
@@ -280,9 +314,9 @@ function effects(node: FigmaSourceNode, state: ConversionState): Effect[] {
   });
 }
 
-function pathPoints(path: string): { points: PathPoint[]; closed: boolean } | undefined {
+function pathPoints(path: string): ReturnType<typeof parsePathData> | undefined {
   const parsed = parsePathData(path, 1);
-  return parsed.points.length >= 2 ? parsed : undefined;
+  return parsed.contours.some((contour) => contour.points.length >= 2) ? parsed : undefined;
 }
 
 function shapeForNode(node: FigmaSourceNode, state: ConversionState): Shape {
@@ -315,8 +349,12 @@ function shapeForNode(node: FigmaSourceNode, state: ConversionState): Shape {
       return {
         kind: 'path',
         points: parsed.points,
-        closed: parsed.closed,
+        closed: parsed.closed || parsed.contours.length > 1,
         tolerance: 3,
+        contours: parsed.contours.map((contour) => contour.points),
+        ...(parsed.contours.length > 1
+          ? { holes: parsed.contours.slice(1).map((contour) => contour.points) }
+          : {}),
         fillRule: node.fillGeometry[0]!.windingRule === 'EVENODD' ? 'evenodd' : 'nonzero',
       };
   }

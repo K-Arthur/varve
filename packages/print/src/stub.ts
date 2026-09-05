@@ -26,7 +26,7 @@ export function createStubPrintEngine(): PrintEngine {
       return JSON.stringify({
         error:
           'Font outlining requires the native Tauri backend. ' +
-          'See crates/strata-print/src/outline.rs for the Rust implementation.',
+          'See crates/varve-print/src/outline.rs for the Rust implementation.',
       });
     },
   };

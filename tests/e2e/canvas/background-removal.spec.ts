@@ -1,7 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { expect, test } from '@playwright/test';
+import { expect, type Locator, type TestInfo, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
+
+async function attachShineVisual(testInfo: TestInfo, locator: Locator, name: string) {
+  const screenshotPath = testInfo.outputPath(`${name}.png`);
+  await locator.screenshot({ path: screenshotPath, animations: 'allow' });
+  await testInfo.attach(name, { path: screenshotPath, contentType: 'image/png' });
+}
 
 test.describe('Background removal — all modes', () => {
   test.describe.configure({ mode: 'serial' });
@@ -84,7 +90,7 @@ test.describe('Background removal — all modes', () => {
     fs.unlinkSync(tmpFile);
   }
 
-  test('Quick toolbar — heuristic bg removal', async ({ page }) => {
+  test('Quick toolbar — heuristic bg removal', async ({ page }, testInfo) => {
     await importTestImage(page);
     const btn = page
       .getByTestId('selection-quick-bar')
@@ -93,10 +99,94 @@ test.describe('Background removal — all modes', () => {
     await btn.click();
     const review = page.getByRole('region', { name: 'Background removal review' });
     await expect(review).toBeVisible({ timeout: 15000 });
+    await expect(review).toHaveClass(/varve-shine-border--beam/);
+    await expect(review).toHaveClass(/varve-shine-border--tone-accent/);
+    await expect(review).toHaveClass(/varve-shine-border--active/);
+
+    const reviewBoxBefore = await review.boundingBox();
+    await review.evaluate((element) => element.classList.remove('varve-shine-border--active'));
+    await attachShineVisual(testInfo, review, 'background-review-before-shine');
+    await review.evaluate((element) => element.classList.add('varve-shine-border--active'));
+    await expect
+      .poll(() => review.evaluate((element) => element.getAnimations({ subtree: true }).length))
+      .toBeGreaterThan(0);
+    await review.evaluate((element) => {
+      const animation = element.getAnimations({ subtree: true })[0];
+      if (!animation) throw new Error('Expected the background-review shine animation');
+      animation.pause();
+      animation.currentTime = 288;
+    });
+    await attachShineVisual(testInfo, review, 'background-review-shine-brightest');
+    const shineState = await review.evaluate((element) => {
+      const animation = element.getAnimations({ subtree: true })[0];
+      if (!animation) return null;
+      animation.currentTime = 800;
+      const decoration = getComputedStyle(element, '::after');
+      return {
+        animationName: decoration.animationName,
+        iterationCount: decoration.animationIterationCount,
+        opacity: decoration.opacity,
+        pointerEvents: decoration.pointerEvents,
+      };
+    });
+    expect(shineState).toEqual({
+      animationName: 'varve-shine-border-once',
+      iterationCount: '1',
+      opacity: '0.78',
+      pointerEvents: 'none',
+    });
+    await attachShineVisual(testInfo, review, 'background-review-shine-midpoint');
+    const reviewBoxAfter = await review.boundingBox();
+    expect({ width: reviewBoxAfter?.width, height: reviewBoxAfter?.height }).toEqual({
+      width: reviewBoxBefore?.width,
+      height: reviewBoxBefore?.height,
+    });
+
+    const inspector = page.locator('[data-panel="inspector"]');
+    const inspectorResize = page.getByRole('separator', { name: 'Resize inspector panel' });
+    const inspectorWidthBefore = (await inspector.boundingBox())?.width ?? 0;
+    await inspectorResize.focus();
+    await inspectorResize.press('ArrowLeft');
+    await expect
+      .poll(async () => (await inspector.boundingBox())?.width ?? 0)
+      .toBeGreaterThan(inspectorWidthBefore);
+    await expect(review).toHaveClass(/varve-shine-border--active/);
+    const reviewBoxAfterResize = await review.boundingBox();
+    expect(reviewBoxAfterResize?.width).toBeGreaterThan(reviewBoxAfter?.width ?? 0);
+    const resizedDecoration = await review.evaluate((element) => {
+      const host = getComputedStyle(element);
+      const decoration = getComputedStyle(element, '::after');
+      return {
+        edges: [decoration.top, decoration.right, decoration.bottom, decoration.left],
+        hostRadius: host.borderRadius,
+        shineRadius: decoration.borderRadius,
+      };
+    });
+    expect(resizedDecoration.edges).toEqual(['0px', '0px', '0px', '0px']);
+    expect(resizedDecoration.shineRadius).toBe(resizedDecoration.hostRadius);
+    await attachShineVisual(testInfo, review, 'background-review-after-panel-resize');
+
+    const applyResult = review.getByRole('button', { name: 'Apply result' });
+    await applyResult.focus();
+    expect(
+      await review.evaluate((element) => getComputedStyle(element, '::after').visibility),
+    ).toBe('hidden');
+    await attachShineVisual(testInfo, review, 'background-review-focus-ring');
+    await applyResult.evaluate((element) => element.blur());
+    const timelineAfterBlur = await review.evaluate((element) => {
+      const animation = element.getAnimations({ subtree: true })[0];
+      return animation?.currentTime ?? null;
+    });
+    expect(timelineAfterBlur).toBe(800);
+    await review.evaluate((element) => {
+      element.getAnimations({ subtree: true }).forEach((animation) => {
+        animation.finish();
+      });
+    });
     await expect(review.getByText(/Nothing has been added to the document yet/i)).toBeVisible();
     const contentCanvas = page.getByTestId('editor-canvas');
     const beforeApply = await contentCanvas.screenshot();
-    await review.getByRole('button', { name: 'Apply result' }).click();
+    await applyResult.click();
     await expect(review).toBeHidden();
 
     await expect

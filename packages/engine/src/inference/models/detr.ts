@@ -144,6 +144,59 @@ export interface DetrDetection {
   box: { x: number; y: number; width: number; height: number };
 }
 
+const SUBJECT_LABELS = new Set([
+  'person',
+  'bird',
+  'cat',
+  'dog',
+  'horse',
+  'sheep',
+  'cow',
+  'elephant',
+  'bear',
+  'zebra',
+  'giraffe',
+]);
+
+/**
+ * Rank boxes for the trim workflow. DETR is an object detector, not a
+ * semantic segmentation model, so confidence alone is not a reliable
+ * definition of “the subject”. Centrality, visible area, and common subject
+ * classes provide a stable default while leaving the caller free to present
+ * the remaining detections for an explicit choice.
+ */
+export function rankDetrDetections(
+  detections: readonly DetrDetection[],
+  imageWidth?: number,
+  imageHeight?: number,
+): DetrDetection[] {
+  const maxArea =
+    imageWidth && imageHeight && imageWidth > 0 && imageHeight > 0
+      ? imageWidth * imageHeight
+      : Math.max(1, ...detections.map((detection) => detection.box.width * detection.box.height));
+  const centerX = (imageWidth ?? 1) / 2;
+  const centerY = (imageHeight ?? 1) / 2;
+  const diagonal = Math.hypot(imageWidth ?? 1, imageHeight ?? 1) || 1;
+
+  return detections
+    .map((detection, index) => {
+      const area = detection.box.width * detection.box.height;
+      const boxCenterX = detection.box.x + detection.box.width / 2;
+      const boxCenterY = detection.box.y + detection.box.height / 2;
+      const centrality =
+        imageWidth && imageHeight
+          ? Math.max(0, 1 - Math.hypot(boxCenterX - centerX, boxCenterY - centerY) / diagonal)
+          : 0;
+      const areaScore = Math.max(0, Math.min(1, area / maxArea));
+      const semanticBonus = SUBJECT_LABELS.has(detection.label) ? 0.08 : 0;
+      const rankScore =
+        detection.confidence * 0.62 + areaScore * 0.24 + centrality * 0.06 + semanticBonus;
+      return { detection, rankScore, index };
+    })
+    .sort((a, b) => b.rankScore - a.rankScore || a.index - b.index)
+    .map(({ detection }) => detection);
+}
+
 function softmax(logits: number[]): number[] {
   const max = Math.max(...logits);
   const exps = logits.map((l) => Math.exp(l - max));

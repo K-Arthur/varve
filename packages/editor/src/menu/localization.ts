@@ -101,6 +101,8 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
   'menu.edit.areaSelectionScaleDown': 'Scale Down',
   'menu.edit.areaSelectionRotateCW': 'Rotate Clockwise',
   'menu.edit.areaSelectionRotateCCW': 'Rotate Counter-Clockwise',
+  'menu.edit.transformSelectedPixels': 'Transform Pixels',
+  'menu.edit.transformSelectionBoundary': 'Transform Selection Boundary',
 
   // ── Text ───────────────────────────────────────────────────────────────────
   'menu.text.bold': 'Bold',
@@ -132,6 +134,7 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
   'menu.view.toggleGrid': 'Show Grid',
   'menu.view.toggleSnap': 'Snap',
   'menu.view.toggleGuides': 'Guides',
+  'menu.view.toggleMarqueeContainment': 'Marquee Selects Contained Objects',
   'menu.view.lockGuides': 'Lock Guides',
   'menu.view.clearGuides': 'Clear Guides',
   'menu.view.gridOverlayBaseline': 'Baseline Grid Overlay',
@@ -154,6 +157,7 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
   'menu.view.canvasModeFull': 'Full Color',
   'menu.view.canvasModePreview': 'Preview',
   'menu.view.canvasModeOutline': 'Outline',
+  'menu.view.themeSystem': 'System',
   'menu.view.themeLight': 'Light',
   'menu.view.themeDark': 'Dark',
   'menu.view.themeHighContrast': 'High Contrast',

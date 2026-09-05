@@ -1,165 +1,582 @@
 /**
- * FloatingPortal — portaled overlay anchored to a trigger element.
+ * FloatingPortal — the shared geometry/ownership layer for floating UI.
  *
- * Escapes overflow:hidden ancestors (editor shell, inspector panels) by
- * rendering to document.body with position:fixed via Floating UI.
- *
- * Research basis: Floating UI positioning; APG menu/dialog layering patterns.
+ * Semantic primitives (menus, listboxes, popovers, and dialogs) keep their
+ * own keyboard and focus contracts. This component only owns the things they
+ * can safely share: an explicit anchor, an owner document, a portal host,
+ * measured placement, collision handling, overlay ancestry, and cleanup.
  */
 import {
   autoUpdate,
   computePosition,
   flip,
+  hide,
   offset,
   type Placement,
   shift,
   size,
+  type VirtualElement,
 } from '@floating-ui/dom';
 import {
   type CSSProperties,
+  createContext,
   type ReactNode,
   type RefObject,
-  useEffect,
+  useContext,
+  useId,
   useLayoutEffect,
   useRef,
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
+import {
+  type OverlayCloseReason,
+  type OverlayKind,
+  registerOverlay,
+  traceOverlayEvent,
+} from './OverlayRegistry';
+import {
+  directionForAnchor,
+  type OverlayAnchor,
+  ownerDocumentForAnchor,
+  portalRootForAnchor,
+  resolvePlacementForDirection,
+  safeViewportRect,
+  virtualPointReference,
+  virtualRangeReference,
+} from './overlayGeometry';
+
+const SAFE_VIEWPORT_PADDING = 8;
+
+/** React context carried through portals so a portaled descendant has a real parent overlay. */
+export const OverlayParentContext = createContext<string | null>(null);
+
+export interface FloatingPositionResult {
+  x: number;
+  y: number;
+  placement: Placement;
+  middlewareData: Record<string, unknown>;
+}
 
 export interface FloatingPortalProps {
-  /** Element to anchor the floating layer to. */
-  anchorRef: RefObject<HTMLElement | null>;
+  /** Element ref used by existing element-anchored call sites. */
+  anchorRef?: RefObject<HTMLElement | null>;
+  /** Explicit element or viewport-point anchor for new call sites. */
+  anchor?: OverlayAnchor | null;
+  /** Explicit owner document for point anchors and detached-window hosts. */
+  ownerDocument?: Document;
+  /** Optional window-local host. Defaults to a containing dialog or owner body. */
+  portalRoot?: HTMLElement | null;
   open: boolean;
   children: ReactNode;
   className?: string;
-  /** Floating UI placement relative to anchor. */
+  /** Centralized z-layer token; tooltips intentionally sit below menus. */
+  zIndex?: CSSProperties['zIndex'];
+  /** Floating UI placement relative to the anchor. */
   placement?: Placement;
+  /** Treat horizontal placement as logical inline-start/end in RTL. */
+  logicalPlacement?: boolean;
+  /** Placements to try after the preferred placement overflows. */
+  fallbackPlacements?: Placement[];
+  /** Distance between the reference and floating surface. */
+  offsetDistance?: number;
   /** Optional max height before scroll. The viewport is the default constraint. */
   maxHeight?: number;
   /** Match floating layer width to the anchor element. */
   matchAnchorWidth?: boolean;
   /** Called when user clicks outside the floating layer. */
-  onClose?: () => void;
-  /** Optional id for aria-controls wiring. */
+  onClose?: (reason: OverlayCloseReason) => void;
+  /** Additional portaled descendants that count as inside for outside-click handling. */
+  insideRefs?: readonly RefObject<HTMLElement | null>[];
+  /** Semantic/diagnostic overlay kind. */
+  kind?: OverlayKind;
+  /** Stable ID for the registry; generated from React's stable ID otherwise. */
+  overlayId?: string;
+  /** Optional DOM id for aria-controls wiring. */
   id?: string;
+  /** Override the inherited parent overlay ID when integrating a non-React child. */
+  parentId?: string | null;
+  /** Enable registry pointer dismissal for this surface. */
+  dismissOnPointerDown?: boolean;
+  /** Enable registry Escape dismissal for primitives without a local key handler. */
+  dismissOnEscape?: boolean;
+  /** Close transient surfaces when their owner window loses activation. */
+  dismissOnWindowBlur?: boolean;
+  /** Development/test geometry trace hook. */
+  onPositionChange?: (result: FloatingPositionResult) => void;
+}
+
+function resolveAnchor(
+  anchor: OverlayAnchor | null | undefined,
+  anchorRef: RefObject<HTMLElement | null> | undefined,
+): OverlayAnchor | null {
+  if (anchor) return anchor;
+  const element = anchorRef?.current;
+  return element ? { kind: 'element', element } : null;
+}
+
+function hiddenStyle(
+  maxHeight?: number,
+  zIndex: CSSProperties['zIndex'] = 'var(--z-overlay)',
+): CSSProperties {
+  return {
+    position: 'fixed',
+    left: 0,
+    top: 0,
+    width: 'max-content',
+    maxHeight: maxHeight === undefined ? undefined : Math.max(0, maxHeight),
+    boxSizing: 'border-box',
+    visibility: 'hidden',
+    pointerEvents: 'none',
+    zIndex,
+  };
+}
+
+function rectDetails(rect: DOMRect | undefined): Record<string, number> | undefined {
+  if (!rect) return undefined;
+  return {
+    left: rect.left,
+    top: rect.top,
+    right: rect.right,
+    bottom: rect.bottom,
+    width: rect.width,
+    height: rect.height,
+  };
+}
+
+function fallbackPosition(
+  reference: Element | VirtualElement,
+  floating: HTMLElement,
+  placement: Placement,
+  gap: number,
+  ownerDocument: Document,
+): { x: number; y: number } {
+  const referenceRect = reference.getBoundingClientRect();
+  const floatingRect = floating.getBoundingClientRect();
+  const isTop = placement.startsWith('top');
+  const isRight = placement.startsWith('right');
+  const isLeft = placement.startsWith('left');
+  const isEnd = placement.endsWith('-end');
+  let x = isRight
+    ? referenceRect.right + gap
+    : isLeft
+      ? referenceRect.left - floatingRect.width - gap
+      : isEnd
+        ? referenceRect.right - floatingRect.width
+        : referenceRect.left;
+  let y = isTop
+    ? referenceRect.top - floatingRect.height - gap
+    : placement.startsWith('bottom')
+      ? referenceRect.bottom + gap
+      : isEnd
+        ? referenceRect.bottom - floatingRect.height
+        : referenceRect.top;
+  const safe = safeViewportRect(ownerDocument, SAFE_VIEWPORT_PADDING);
+  x = Math.min(Math.max(safe.left, x), Math.max(safe.left, safe.right - floatingRect.width));
+  y = Math.min(Math.max(safe.top, y), Math.max(safe.top, safe.bottom - floatingRect.height));
+  return { x, y };
 }
 
 export function FloatingPortal({
   anchorRef,
+  anchor: explicitAnchor,
+  ownerDocument: explicitOwnerDocument,
+  portalRoot: explicitPortalRoot,
   open,
   children,
   className,
+  zIndex = 'var(--z-overlay)',
   placement = 'bottom-start',
+  logicalPlacement = false,
+  fallbackPlacements,
+  offsetDistance = 4,
   maxHeight,
   matchAnchorWidth = false,
   onClose,
+  insideRefs,
+  kind = 'popover',
+  overlayId: explicitOverlayId,
   id,
+  parentId: explicitParentId,
+  dismissOnPointerDown,
+  dismissOnEscape = false,
+  dismissOnWindowBlur,
+  onPositionChange,
 }: FloatingPortalProps) {
+  const generatedId = useId();
+  const inheritedParentId = useContext(OverlayParentContext);
   const floatingRef = useRef<HTMLDivElement>(null);
-  const [posStyle, setPosStyle] = useState<CSSProperties>({
-    position: 'fixed',
-    visibility: 'hidden',
-    zIndex: 'var(--z-overlay)',
-  });
+  const closeRef = useRef(onClose);
+  const positionRef = useRef(onPositionChange);
+  const generationRef = useRef(0);
+  const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
+  const [posStyle, setPosStyle] = useState<CSSProperties>(() => hiddenStyle(maxHeight, zIndex));
+
+  closeRef.current = onClose;
+  positionRef.current = onPositionChange;
+  const shouldDismissOnPointerDown = dismissOnPointerDown ?? Boolean(onClose);
+  const shouldDismissOnWindowBlur = dismissOnWindowBlur ?? Boolean(onClose);
+
+  const overlayId = explicitOverlayId ?? `varve-overlay-${generatedId.replace(/[:]/g, '')}`;
+  const parentId = explicitParentId ?? inheritedParentId;
+  const renderAnchor = resolveAnchor(explicitAnchor, anchorRef);
+  const [resolvedOwnerDocument, setResolvedOwnerDocument] = useState<Document | null>(() =>
+    ownerDocumentForAnchor(renderAnchor, explicitOwnerDocument),
+  );
+  const ownerDocument =
+    resolvedOwnerDocument ?? ownerDocumentForAnchor(renderAnchor, explicitOwnerDocument);
+
+  // Resolve the root after refs have been committed. This avoids the first
+  // render accidentally choosing the main window body when an anchor belongs
+  // to a detached window or a native dialog.
+  useLayoutEffect(() => {
+    const currentAnchor = resolveAnchor(explicitAnchor, anchorRef);
+    if (!open || !currentAnchor) {
+      setPortalRoot(null);
+      return;
+    }
+    const measuredOwnerDocument = ownerDocumentForAnchor(currentAnchor, explicitOwnerDocument);
+    if (!measuredOwnerDocument) {
+      setPortalRoot(null);
+      return;
+    }
+    if (!ownerDocument || measuredOwnerDocument !== ownerDocument) {
+      // Refs are assigned during commit, after the first render. Resolve a
+      // ref-only anchor here before creating a portal so a detached-window
+      // surface can never briefly mount in the primary document.
+      setResolvedOwnerDocument(measuredOwnerDocument);
+      setPortalRoot(null);
+      return;
+    }
+    const requestedRoot =
+      explicitPortalRoot && explicitPortalRoot.ownerDocument === ownerDocument
+        ? explicitPortalRoot
+        : portalRootForAnchor(ownerDocument, currentAnchor);
+    setPortalRoot((current) => (current === requestedRoot ? current : requestedRoot));
+  }, [open, ownerDocument, explicitOwnerDocument, explicitAnchor, explicitPortalRoot, anchorRef]);
+
+  // Register once per mounted surface. The registry owns one pointer and one
+  // optional Escape listener per owner document, including across React roots.
+  useLayoutEffect(() => {
+    if (!open || !portalRoot || !ownerDocument || !floatingRef.current) return;
+    const currentAnchor = resolveAnchor(explicitAnchor, anchorRef);
+    const anchorElement =
+      currentAnchor?.kind === 'element' ? currentAnchor.element : currentAnchor?.contextElement;
+    return registerOverlay({
+      id: overlayId,
+      kind,
+      parentId,
+      ownerDocument,
+      portalRoot,
+      node: floatingRef.current,
+      anchorElement,
+      auxiliaryElements: insideRefs
+        ?.map((ref) => ref.current)
+        .filter((element): element is HTMLElement => Boolean(element)),
+      onClose: (reason) => closeRef.current?.(reason),
+      dismissOnPointerDown: shouldDismissOnPointerDown,
+      dismissOnEscape,
+      dismissOnWindowBlur: shouldDismissOnWindowBlur,
+    });
+  }, [
+    open,
+    portalRoot,
+    ownerDocument,
+    explicitAnchor,
+    anchorRef,
+    overlayId,
+    kind,
+    parentId,
+    shouldDismissOnPointerDown,
+    dismissOnEscape,
+    shouldDismissOnWindowBlur,
+    insideRefs,
+  ]);
 
   useLayoutEffect(() => {
-    const anchor = anchorRef.current;
     const floating = floatingRef.current;
-    if (!open || !anchor || !floating) return;
+    if (!open || !portalRoot || !ownerDocument || !floating) return;
 
-    // Show immediately at anchor rect; refine when computePosition resolves.
-    const anchorRect = anchor.getBoundingClientRect();
-    setPosStyle({
-      position: 'fixed',
-      left: anchorRect.left,
-      top: anchorRect.bottom + 4,
-      zIndex: 'var(--z-overlay)',
-      visibility: 'visible',
+    const currentAnchor = resolveAnchor(explicitAnchor, anchorRef);
+    if (
+      !currentAnchor ||
+      (currentAnchor.kind === 'element' &&
+        (!currentAnchor.element.isConnected ||
+          currentAnchor.element.ownerDocument !== ownerDocument)) ||
+      (currentAnchor.kind === 'range' &&
+        (!currentAnchor.range.startContainer.isConnected ||
+          currentAnchor.range.startContainer.ownerDocument !== ownerDocument))
+    ) {
+      traceOverlayEvent(ownerDocument, {
+        event: 'anchor-detached',
+        id: overlayId,
+        kind,
+        parentId,
+        decision: 'close',
+        reason: 'anchor-detached',
+      });
+      closeRef.current?.('anchor-detached');
+      return;
+    }
+
+    const generation = ++generationRef.current;
+    let cancelled = false;
+    setPosStyle(hiddenStyle(maxHeight, zIndex));
+    traceOverlayEvent(ownerDocument, {
+      event: 'anchor-measured',
+      id: overlayId,
+      kind,
+      parentId,
+      decision: 'measure-hidden',
+      details: {
+        anchorKind: currentAnchor.kind,
+        point:
+          currentAnchor.kind === 'point'
+            ? {
+                x: currentAnchor.point.x,
+                y: currentAnchor.point.y,
+                space: currentAnchor.point.space,
+              }
+            : undefined,
+        range:
+          currentAnchor.kind === 'range'
+            ? rectDetails(currentAnchor.range.getBoundingClientRect())
+            : undefined,
+        anchorRect:
+          currentAnchor.kind === 'element'
+            ? rectDetails(currentAnchor.element.getBoundingClientRect())
+            : currentAnchor.kind === 'range'
+              ? rectDetails(currentAnchor.range.getBoundingClientRect())
+              : rectDetails(currentAnchor.contextElement?.getBoundingClientRect()),
+      },
     });
 
+    const reference: Element | VirtualElement =
+      currentAnchor.kind === 'point'
+        ? virtualPointReference(currentAnchor)
+        : currentAnchor.kind === 'range'
+          ? virtualRangeReference(currentAnchor)
+          : currentAnchor.element;
+    const direction = directionForAnchor(currentAnchor, ownerDocument);
+    const resolvedPlacement = resolvePlacementForDirection(placement, direction, logicalPlacement);
+    const resolvedFallbackPlacements = fallbackPlacements?.map((fallback) =>
+      resolvePlacementForDirection(fallback, direction, logicalPlacement),
+    );
     const update = () => {
-      computePosition(anchor, floating, {
-        placement,
+      if (cancelled || generation !== generationRef.current || !floating.isConnected) return;
+      computePosition(reference, floating, {
+        strategy: 'fixed',
+        placement: resolvedPlacement,
         middleware: [
-          offset(4),
-          flip({ padding: 8 }),
-          shift({ padding: 8 }),
+          offset(offsetDistance),
+          flip({
+            padding: SAFE_VIEWPORT_PADDING,
+            fallbackPlacements: resolvedFallbackPlacements,
+          }),
+          shift({ padding: SAFE_VIEWPORT_PADDING }),
           size({
-            padding: 8,
-            apply({ availableHeight, rects, elements }) {
-              const constrainedHeight =
-                maxHeight === undefined ? availableHeight : Math.min(availableHeight, maxHeight);
-              Object.assign(elements.floating.style, {
-                ...(matchAnchorWidth ? { width: `${rects.reference.width}px` } : {}),
-                maxHeight: `${constrainedHeight}px`,
+            padding: SAFE_VIEWPORT_PADDING,
+            apply({ availableWidth, availableHeight, rects, elements }) {
+              const constrainedHeight = Math.max(
+                0,
+                maxHeight === undefined ? availableHeight : Math.min(availableHeight, maxHeight),
+              );
+              const sizeStyle: Record<string, string> = {
+                boxSizing: 'border-box',
                 overflowY: 'auto',
-              });
+              };
+              // jsdom and a hidden owner window can report zero available
+              // space while the reference is still a valid test/transition
+              // anchor. Do not collapse an otherwise measurable surface to
+              // 0px; real viewport constraints are positive and are applied.
+              if (availableWidth > 0) {
+                sizeStyle.maxWidth = `${availableWidth}px`;
+                if (matchAnchorWidth) {
+                  sizeStyle.width = `${Math.min(rects.reference.width, availableWidth)}px`;
+                }
+              }
+              if (constrainedHeight > 0) sizeStyle.maxHeight = `${constrainedHeight}px`;
+              Object.assign(elements.floating.style, sizeStyle);
             },
           }),
+          hide({ padding: SAFE_VIEWPORT_PADDING }),
         ],
       })
-        .then(({ x, y }) => {
-          setPosStyle({
+        .then((result) => {
+          if (cancelled || generation !== generationRef.current || !open || !floating.isConnected) {
+            return;
+          }
+          if (!Number.isFinite(result.x) || !Number.isFinite(result.y)) {
+            throw new Error('Floating UI returned non-finite coordinates');
+          }
+          const referenceRect = reference.getBoundingClientRect();
+          const referenceHasArea = referenceRect.width > 0 || referenceRect.height > 0;
+          const hiddenByReference =
+            referenceHasArea &&
+            Boolean(
+              (result.middlewareData.hide as { referenceHidden?: boolean } | undefined)
+                ?.referenceHidden,
+            );
+          const nextStyle: CSSProperties = {
             position: 'fixed',
-            left: x,
-            top: y,
-            zIndex: 'var(--z-overlay)',
-            visibility: 'visible',
+            left: result.x,
+            top: result.y,
+            boxSizing: 'border-box',
+            // The size middleware writes collision constraints directly to
+            // the floating node before this position update resolves. Keep
+            // those values in React's controlled style object as well;
+            // otherwise React removes max-height/overflow on the next render
+            // and tall context menus can extend below the viewport.
+            maxWidth: floating.style.maxWidth || undefined,
+            maxHeight: floating.style.maxHeight || undefined,
+            overflowY: (floating.style.overflowY || undefined) as CSSProperties['overflowY'],
+            visibility: hiddenByReference ? 'hidden' : 'visible',
+            pointerEvents: hiddenByReference ? 'none' : 'auto',
+            zIndex,
+          };
+          setPosStyle(nextStyle);
+          positionRef.current?.({
+            x: result.x,
+            y: result.y,
+            placement: result.placement,
+            middlewareData: result.middlewareData as Record<string, unknown>,
+          });
+          traceOverlayEvent(ownerDocument, {
+            event: 'placement-computed',
+            id: overlayId,
+            kind,
+            parentId,
+            placement: result.placement,
+            x: result.x,
+            y: result.y,
+            decision: hiddenByReference ? 'hidden-reference' : 'visible',
+            details: {
+              middlewareData: result.middlewareData,
+              preferredPlacement: placement,
+              direction,
+              safeViewport: safeViewportRect(ownerDocument, SAFE_VIEWPORT_PADDING),
+            },
           });
         })
         .catch(() => {
-          const rect = anchor.getBoundingClientRect();
+          if (cancelled || generation !== generationRef.current || !open || !floating.isConnected) {
+            return;
+          }
+          const fallback = fallbackPosition(
+            reference,
+            floating,
+            resolvedPlacement,
+            offsetDistance,
+            ownerDocument,
+          );
           setPosStyle({
             position: 'fixed',
-            left: rect.left,
-            top: rect.bottom + 4,
-            zIndex: 'var(--z-overlay)',
+            left: fallback.x,
+            top: fallback.y,
+            boxSizing: 'border-box',
             visibility: 'visible',
+            pointerEvents: 'auto',
+            zIndex,
+          });
+          traceOverlayEvent(ownerDocument, {
+            event: 'placement-fallback',
+            id: overlayId,
+            kind,
+            parentId,
+            x: fallback.x,
+            y: fallback.y,
+            decision: 'visible-fallback',
           });
         });
     };
 
     update();
-    return autoUpdate(anchor, floating, update);
-  }, [open, anchorRef, placement, maxHeight, matchAnchorWidth]);
-
-  useEffect(() => {
-    if (!open || !onClose) return;
-
-    const handlePointerDown = (e: PointerEvent) => {
-      const target = e.target as Node;
-      // Check the floating element AND any focus-trap wrapper or dialog
-      // that may sit between the portal root and the actual content.
-      if (floatingRef.current?.contains(target)) return;
-      if (anchorRef.current?.contains(target)) return;
-      onClose();
-    };
-
-    // Attach synchronously so there is no timing gap between the portal
-    // rendering and the listener being active.  The opening click's
-    // pointerdown fires BEFORE this effect runs (it fires during the
-    // browser's event dispatch, before React commits), so the listener
-    // is never in place to catch it — no skip logic needed.
-    document.addEventListener('pointerdown', handlePointerDown, true);
+    const cleanupAutoUpdate =
+      currentAnchor.kind === 'element'
+        ? autoUpdate(currentAnchor.element, floating, update)
+        : currentAnchor.kind === 'range' && currentAnchor.contextElement
+          ? autoUpdate(currentAnchor.contextElement, floating, update)
+          : undefined;
+    const OwnerMutationObserver = ownerDocument.defaultView?.MutationObserver;
+    const ownerMutationObserver =
+      (currentAnchor.kind === 'element' || currentAnchor.kind === 'range') && OwnerMutationObserver
+        ? new OwnerMutationObserver(() => {
+            if (
+              (currentAnchor.kind === 'element' &&
+                (!currentAnchor.element.isConnected ||
+                  currentAnchor.element.ownerDocument !== ownerDocument)) ||
+              (currentAnchor.kind === 'range' &&
+                (!currentAnchor.range.startContainer.isConnected ||
+                  currentAnchor.range.startContainer.ownerDocument !== ownerDocument))
+            ) {
+              traceOverlayEvent(ownerDocument, {
+                event: 'anchor-detached',
+                id: overlayId,
+                kind,
+                parentId,
+                decision: 'close',
+                reason: 'anchor-detached',
+              });
+              closeRef.current?.('anchor-detached');
+            }
+          })
+        : undefined;
+    if (ownerMutationObserver) {
+      ownerMutationObserver.observe(ownerDocument, { childList: true, subtree: true });
+    }
 
     return () => {
-      document.removeEventListener('pointerdown', handlePointerDown, true);
+      cancelled = true;
+      generationRef.current += 1;
+      cleanupAutoUpdate?.();
+      ownerMutationObserver?.disconnect();
+      traceOverlayEvent(ownerDocument, {
+        event: 'placement-cleanup',
+        id: overlayId,
+        kind,
+        parentId,
+        decision: 'cancelled',
+      });
     };
-  }, [open, onClose, anchorRef]);
+  }, [
+    open,
+    portalRoot,
+    ownerDocument,
+    explicitAnchor,
+    anchorRef,
+    placement,
+    fallbackPlacements,
+    offsetDistance,
+    maxHeight,
+    zIndex,
+    matchAnchorWidth,
+    logicalPlacement,
+    overlayId,
+    kind,
+    parentId,
+  ]);
 
-  if (!open) return null;
-
-  // Native <dialog> elements render in the browser's top layer. A portal to
-  // document.body is painted below that layer, so selects inside a dialog can
-  // appear to open while their listbox is invisible and unclickable. Keep
-  // nested overlays inside their owning dialog; menus outside dialogs still
-  // use document.body to escape clipping ancestors.
-  const portalRoot = anchorRef.current?.closest('dialog') ?? document.body;
+  // Keep the generated overlay mounted only while open. The placement effect
+  // resets visibility before the browser can paint a stale position.
+  const renderPortalRoot =
+    portalRoot && ownerDocument && portalRoot.ownerDocument === ownerDocument ? portalRoot : null;
+  if (!open || !renderPortalRoot) return null;
 
   return createPortal(
-    <div ref={floatingRef} id={id} className={className} style={posStyle}>
-      {children}
-    </div>,
-    portalRoot,
+    <OverlayParentContext.Provider value={overlayId}>
+      <div
+        ref={floatingRef}
+        id={id}
+        className={className}
+        style={posStyle}
+        data-varve-overlay="true"
+        data-overlay-id={overlayId}
+        data-overlay-kind={kind}
+        data-overlay-state={posStyle.visibility === 'visible' ? 'visible' : 'measuring'}
+      >
+        {children}
+      </div>
+    </OverlayParentContext.Provider>,
+    renderPortalRoot,
   );
 }

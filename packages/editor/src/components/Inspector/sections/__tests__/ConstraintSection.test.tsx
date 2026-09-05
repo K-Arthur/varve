@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { EditorProvider } from '../../../../context';
 import { ConstraintSection } from '../ConstraintSection';
@@ -59,9 +59,16 @@ function buildDocJson(frameChildren: string[] = []) {
 }
 
 function renderWithProvider(element: React.ReactElement) {
-  return render(
+  const utils = render(
     <EditorProvider initialDocumentJson={buildDocJson(['c1'])}>{element}</EditorProvider>,
   );
+  // 'constraints' is collapsed by default in the section registry
+  // (progressive disclosure); these tests exercise the content.
+  const trigger = screen.queryByRole('button', { name: 'Constraints' });
+  if (trigger && trigger.getAttribute('aria-expanded') === 'false') {
+    fireEvent.click(trigger);
+  }
+  return utils;
 }
 
 describe('ConstraintSection', () => {
@@ -88,8 +95,12 @@ describe('ConstraintSection', () => {
         <ConstraintSection nodes={[orphan]} />
       </EditorProvider>,
     );
-    // No frame parent in the document → section renders nothing
-    expect(container.textContent).toBe('');
+    // No frame parent → ConstraintControls renders nothing, but the
+    // DisclosureSection wrapper still renders its title (ADR-0230).
+    expect(container.textContent).toContain('Constraints');
+    // The constraint axis selects are NOT present (no frame parent).
+    expect(screen.queryByLabelText('Horizontal constraint')).toBeNull();
+    expect(screen.queryByLabelText('Vertical constraint')).toBeNull();
   });
 
   it('renders constraint controls when node is inside a frame', () => {

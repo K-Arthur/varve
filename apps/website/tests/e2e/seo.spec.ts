@@ -12,8 +12,8 @@ import { expect, test } from '@playwright/test';
  *   - canonical/og:url are absolute and consistent with each other and with
  *     the visited route, under either deployment origin (varve.studio or the
  *     legacy k-arthur.github.io/varve build);
- *   - sitewide Organization + WebSite JSON-LD on every page, plus the
- *     SoftwareApplication schema on the homepage;
+ *   - sitewide Organization + WebSite + page-level WebPage JSON-LD on every
+ *     indexable page, plus the SoftwareApplication schema on the homepage;
  *   - the social card exists, is a PNG, and is exactly 1200x630;
  *   - robots.txt and sitemap.xml are generated, absolute, and enumerate the
  *     real pages while excluding 404 and alias routes;
@@ -81,6 +81,10 @@ test('every page emits complete, consistent head metadata', async ({ page }) => 
         twitterTitle: get('meta[name="twitter:title"]'),
         twitterImage: get('meta[name="twitter:image"]'),
         twitterImageAlt: get('meta[name="twitter:image:alt"]'),
+        llms:
+          document
+            .querySelector('link[rel="alternate"][type="text/plain"]')
+            ?.getAttribute('href') ?? null,
         ldJson,
         ldTypes: ldJson.map((s) => s['@type']),
       };
@@ -130,11 +134,19 @@ test('every page emits complete, consistent head metadata', async ({ page }) => 
     expect(meta.twitterTitle, `${route}: twitter:title`).toBe(meta.title);
     expect(meta.twitterImage, `${route}: twitter:image`).toBe(meta.ogImage);
     expect(meta.twitterImageAlt, `${route}: twitter:image:alt`).toBe(meta.ogImageAlt);
+    expect(meta.llms, `${route}: llms.txt link`).toMatch(/\/llms\.txt$/);
 
     // Sitewide Organization + WebSite on every page.
     for (const type of ['Organization', 'WebSite']) {
       expect(meta.ldTypes, `${route}: ld+json ${type}`).toContain(type);
     }
+    expect(meta.ldTypes, `${route}: ld+json WebPage`).toContain('WebPage');
+    const webPage = meta.ldJson.find((schema) => schema['@type'] === 'WebPage') as
+      | { url?: string; name?: string; description?: string }
+      | undefined;
+    expect(webPage?.url, `${route}: WebPage url`).toBe(meta.canonical);
+    expect(webPage?.name, `${route}: WebPage name`).toBe(meta.title);
+    expect(webPage?.description, `${route}: WebPage description`).toBe(meta.description);
     const organization = meta.ldJson.find((schema) => schema['@type'] === 'Organization') as
       | { logo?: string; image?: string }
       | undefined;

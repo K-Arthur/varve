@@ -1,4 +1,10 @@
-import { addChild, createDocument, makeFrameNode, makeShapeNode } from '@varve/scene';
+import {
+  addChild,
+  createDesignCanvas,
+  createDocument,
+  makeFrameNode,
+  makeShapeNode,
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
   buildSelectionContext,
@@ -86,5 +92,24 @@ describe('buildSelectionHierarchy', () => {
 
     expect(entry?.kind).toBe('exportRegion');
     expect(entry?.isContainer).toBe(false);
+  });
+
+  it('omits the design-canvas content root but keeps its user-facing ancestors', () => {
+    let doc = createDesignCanvas(createDocument('selection', true), { name: 'Campaign' });
+    const canvasRoot = doc.designCanvases?.[0]?.contentRoot;
+    if (!canvasRoot) throw new Error('design canvas root missing');
+    const frame = makeFrameNode('frame', { name: 'Hero Frame', w: 200, h: 120 });
+    const shape = makeShapeNode(
+      'button',
+      { kind: 'rect', x: 0, y: 0, w: 40, h: 20 },
+      { name: 'button' },
+    );
+    doc = addChild(doc, canvasRoot, frame);
+    doc = addChild(doc, frame.id, shape);
+
+    expect(buildSelectionHierarchy(doc, shape.id).map((entry) => entry.name)).toEqual([
+      'Hero Frame',
+      'button',
+    ]);
   });
 });

@@ -16,6 +16,7 @@ import {
   IconButton,
   NumberInput,
   PresetPicker,
+  RadioGroup,
   SegmentedControl,
   type SegmentedOption,
 } from '@varve/ui';
@@ -342,7 +343,7 @@ export function NewDesignDialog({
                   onChange={(e) => setSavingPresetName(e.target.value)}
                   aria-label="Preset name"
                 />
-                <Button variant="primary" size="sm" onClick={handleConfirmSaveCustomPreset}>
+                <Button variant="default" size="sm" onClick={handleConfirmSaveCustomPreset}>
                   Save
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => setSavingPresetName(null)}>
@@ -356,7 +357,7 @@ export function NewDesignDialog({
               Cancel
             </Button>
             <Button
-              variant="primary"
+              variant="default"
               onClick={handleCreate}
               disabled={
                 creating || (startMode === 'frame' && frameSource === 'custom' && !customValid)
@@ -387,42 +388,34 @@ export function NewDesignDialog({
           />
         </div>
 
-        <fieldset className="new-design__start">
-          <legend className="new-design__start-legend">Starting point</legend>
-          <div className="new-design__start-options" role="radiogroup" aria-label="Starting point">
-            {(
-              [
-                [
-                  'empty',
-                  'Empty design canvas',
+        <div className="new-design__start">
+          <RadioGroup
+            label="Starting point"
+            name="new-design-start"
+            value={startMode}
+            variant="card"
+            columns={3}
+            options={[
+              {
+                value: 'empty',
+                label: 'Empty design canvas',
+                description:
                   'Start on an unbounded design canvas with no frame. Add frames or publishing pages anytime.',
-                ],
-                [
-                  'frame',
-                  'Start with a frame',
-                  'Create the first in-document frame from a preset or custom size.',
-                ],
-                ['template', 'Template', 'Start from a template with ready-made content.'],
-              ] as const
-            ).map(([mode, label, hint]) => (
-              <label
-                key={mode}
-                className={`new-design__start-card${startMode === mode ? ' new-design__start-card--active' : ''}`}
-              >
-                <input
-                  type="radio"
-                  name="new-design-start"
-                  value={mode}
-                  checked={startMode === mode}
-                  onChange={() => setStartMode(mode)}
-                  className="new-design__start-card-input"
-                />
-                <span className="new-design__start-card-title">{label}</span>
-                <span className="new-design__start-card-hint">{hint}</span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
+              },
+              {
+                value: 'frame',
+                label: 'Start with a frame',
+                description: 'Create the first in-document frame from a preset or custom size.',
+              },
+              {
+                value: 'template',
+                label: 'Template',
+                description: 'Start from a template with ready-made content.',
+              },
+            ]}
+            onChange={setStartMode}
+          />
+        </div>
 
         {startMode === 'empty' && (
           <div className="new-design__body-section">

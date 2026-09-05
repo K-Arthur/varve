@@ -56,7 +56,7 @@ async function clickSegment(page: Page, groupLabel: string, optionLabel: string)
 
 function layoutSection(page: Page) {
   return page.locator('section.insp-disclosure').filter({
-    has: page.getByRole('button', { name: 'Layout' }),
+    has: page.getByRole('combobox', { name: 'Layout mode' }),
   });
 }
 

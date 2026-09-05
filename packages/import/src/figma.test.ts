@@ -153,6 +153,47 @@ describe('Figma JSON importer', () => {
     expect(isFigmaJsonSource(new Uint8Array([0x46, 0x49, 0x47, 0x00]))).toBe(false);
   });
 
+  it('preserves compound vector subpaths and Figma winding rules', () => {
+    const source = {
+      name: 'Compound vector',
+      document: {
+        id: '0:0',
+        type: 'DOCUMENT',
+        children: [
+          {
+            id: '0:1',
+            type: 'CANVAS',
+            name: 'Page',
+            absoluteBoundingBox: { x: 0, y: 0, width: 200, height: 200 },
+            children: [
+              {
+                id: '1:1',
+                type: 'VECTOR',
+                name: 'Donut',
+                absoluteBoundingBox: { x: 0, y: 0, width: 100, height: 100 },
+                fillGeometry: [
+                  {
+                    path: 'M 0 0 H 100 V 100 H 0 Z M 25 25 H 75 V 75 H 25 Z',
+                    windingRule: 'EVENODD',
+                  },
+                ],
+                fills: [{ type: 'SOLID', color: { r: 1, g: 0, b: 0 }, opacity: 1 }],
+              },
+            ],
+          },
+        ],
+      },
+    };
+    const result = createFigmaParser().parse(JSON.stringify(source));
+    const vector = Object.values(result.document.nodes).find((node) => node.name === 'Donut');
+    expect(vector?.kind).toBe('shape');
+    if (vector?.kind === 'shape' && vector.shape.kind === 'path') {
+      expect(vector.shape.holes).toHaveLength(1);
+      expect(vector.shape.contours).toHaveLength(2);
+      expect(vector.shape.fillRule).toBe('evenodd');
+    }
+  });
+
   it('decodes and converts an actual native .fig archive into editable Varve nodes', () => {
     const data = nativeFixture();
     expect(isFigmaNativeSource(data)).toBe(true);
@@ -226,6 +267,25 @@ describe('Figma JSON importer', () => {
     expect(mark).toMatchObject({ kind: 'shape', shape: { kind: 'path', closed: true } });
     expect(validateDocument(result.document).valid).toBe(true);
     expect(DocumentCodec.normalize(result.document).document.pages).toHaveLength(1);
+  });
+
+  it('preserves normalized Figma gradient handles as an affine field', () => {
+    const input = JSON.parse(fixture()) as Record<string, any>;
+    const accent = input.document.children[0].children[0].children[1];
+    accent.fills[0].gradientHandlePositions = [
+      { x: 0.2, y: 0.3 },
+      { x: 0.9, y: 0.45 },
+      { x: 0.35, y: 0.95 },
+    ];
+    const result = createFigmaParser().parse(JSON.stringify(input));
+    const imported = Object.values(result.document.nodes).find((node) => node.name === 'Accent');
+    const transform = imported?.fills?.[0]?.gradient?.transform;
+    expect(transform).toBeDefined();
+    expect(transform).toHaveLength(6);
+    transform?.forEach((value, index) => {
+      expect(value).toBeCloseTo([182, 7.2, -104, 55.2, 104, -13.2][index]!, 12);
+    });
+    expect(imported?.fills?.[0]?.gradient?.rotation).toBeUndefined();
   });
 
   it('keeps source ids out of the native scene identity domain', () => {

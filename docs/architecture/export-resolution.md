@@ -36,9 +36,37 @@ preflight uses the lower axis. Rotation and translation do not lower density.
 
 PDF/SVG retain vector content where the format/backend supports it. PPI is
 relevant to their embedded raster assets and raster fallback regions, not to a
-generic page-wide bitmap. The browser canvas encoders currently provide output
-pixel dimensions but do not guarantee embedded PNG/JPEG/WebP density metadata;
-the UI therefore does not claim that metadata was written.
+generic page-wide bitmap. Canvas encoders provide the output pixel dimensions
+but are not relied on for density metadata: the final PNG byte stream receives
+a controlled `pHYs` chunk when the export has an explicit output PPI. JPEG and
+WebP density metadata are not currently authored, so the UI must not claim it
+was embedded for those formats.
+
+## Raster crop transform and pixel convention
+
+Every raster surface is an output-space crop, never an antialiased vector
+rectangle. Given source bounds `{ x, y, width, height }` and an already
+allocated target `{ pixelWidth, pixelHeight }`, rasterization uses one affine
+mapping:
+
+```text
+scaleX = pixelWidth / width
+scaleY = pixelHeight / height
+translateX = -x × scaleX
+translateY = -y × scaleY
+```
+
+This maps the source endpoints exactly to `[0, pixelWidth] × [0,
+pixelHeight]`. Width and height are independently resolved after the canonical
+nearest-pixel rounding policy, so a width-derived scale must never be reused
+for the vertical axis. The backing surface clips output to `[0, pixelWidth) ×
+[0, pixelHeight)`; artwork that reaches that crop boundary has full coverage
+there, while internal diagonal/vector edges keep normal Canvas anti-aliasing.
+
+There is no device-pixel-ratio multiplier in export and no blanket `+0.5`
+translation. DPR belongs to an interactive display backing store, not a
+requested export bitmap; a half-pixel adjustment is only valid for a specific
+primitive/raster API convention and is not part of this general mapping.
 
 ## Batch export
 
@@ -51,6 +79,29 @@ Output limits are resolved before rendering. If a raster job exceeds the
 runtime's axis or pixel budget, the plan records the requested and safe output
 dimensions and preflight surfaces an explicit acknowledgement finding instead
 of silently presenting the reduced dimensions as requested.
+
+The reusable subtree fallback follows the same rule. It fits the
+effect-expanded raster surface through the shared allocation policy before
+rendering, preserves its aspect ratio, and returns both requested and encoded
+pixel dimensions plus the limiting guard (`dimension` or `area`). A caller
+must surface that constraint; it must not label the reduced image as if the
+requested PPI were rendered.
+
+Selection/layer flattening uses the same contract. Its `FlattenOptions.dpi`
+field is resolved as `scale = dpi / 96` before allocation; legacy callers may
+continue to pass `scale` when they intentionally want a density-independent
+multiplier. A supplied PPI always wins over `scale`, invalid PPI values are
+rejected, and width/height are rounded independently. This keeps the
+rasterized replacement at the original document-space placement while making
+its effective output density explicit.
+
+The Object → Rasterize dialog exposes common 72/96/150/300/600 PPI choices
+and a bounded custom value, plus explicit effect-overflow and transparent vs
+white-background choices. It defaults to **Keep original editable layers**:
+the raster copy is inserted at the source paint position and the source
+subtree is hidden rather than composited twice. Clearing that option uses the
+replace path. Both paths allocate a collision-free document ID and are applied
+by one document update, so undo restores the exact pre-rasterization scene.
 
 ## Inspector image diagnostics
 

@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 type Page = {
@@ -214,31 +214,39 @@ describe('PageNav', () => {
     expect(updateDoc).toHaveBeenCalledTimes(1);
   });
 
-  it('disables Move page left/right at the ends of the list', () => {
+  it('disables Move page left/right at the ends of the list', async () => {
     const pages = [makePage('p1', 'A'), makePage('p2', 'B'), makePage('p3', 'C')];
     mockEditor({ pages, currentPageId: 'p1' });
 
     render(<PageNav />);
     fireEvent.contextMenu(screen.getAllByRole('tab')[0]!);
-    expect(screen.getByText('Move page left').closest('button')).toBeDisabled();
-    expect(screen.getByText('Move page right').closest('button')).not.toBeDisabled();
+    let menu = await screen.findByRole('menu', { name: 'Page context menu' });
+    expect(within(menu).getByRole('menuitem', { name: 'Move page left' })).toBeDisabled();
+    expect(within(menu).getByRole('menuitem', { name: 'Move page right' })).not.toBeDisabled();
 
-    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    fireEvent.keyDown(menu, { key: 'Escape' });
+    await waitFor(() =>
+      expect(screen.queryByRole('menu', { name: 'Page context menu' })).toBeNull(),
+    );
     fireEvent.contextMenu(screen.getAllByRole('tab')[2]!);
-    expect(screen.getByText('Move page left').closest('button')).not.toBeDisabled();
-    expect(screen.getByText('Move page right').closest('button')).toBeDisabled();
+    menu = await screen.findByRole('menu', { name: 'Page context menu' });
+    expect(within(menu).getByRole('menuitem', { name: 'Move page left' })).not.toBeDisabled();
+    expect(within(menu).getByRole('menuitem', { name: 'Move page right' })).toBeDisabled();
   });
 
-  it('closes context menu on Escape', () => {
+  it('closes context menu on Escape', async () => {
     const pages = [makePage('p1', 'Page 1')];
     mockEditor({ pages, currentPageId: 'p1' });
 
     render(<PageNav />);
     fireEvent.contextMenu(screen.getByRole('tab'));
-    expect(screen.getByText('Duplicate page')).toBeTruthy();
+    const menu = await screen.findByRole('menu', { name: 'Page context menu' });
+    expect(within(menu).getByRole('menuitem', { name: 'Duplicate page' })).toBeTruthy();
 
-    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
-    expect(screen.queryByText('Duplicate page')).toBeNull();
+    fireEvent.keyDown(menu, { key: 'Escape' });
+    await waitFor(() =>
+      expect(screen.queryByRole('menu', { name: 'Page context menu' })).toBeNull(),
+    );
   });
 });
 

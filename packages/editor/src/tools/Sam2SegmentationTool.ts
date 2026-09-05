@@ -1,12 +1,10 @@
 /**
  * Sam2SegmentationTool — interactive object segmentation via SAM2.
  *
- * Click to add foreground points, Shift+click for background points,
- * drag to create a bounding box. Runs SAM2 inference through the
- * generic multi-model worker to produce a selection mask.
- *
- * Research basis: SAM2 (Meta, 2024) — point/box promptable segmentation,
- *                 Figma's "Select subject" feature, Photoshop's "Select Subject".
+ * Click to add foreground points, Shift+click for background points, and
+ * drag to create a box. Prompt geometry is mirrored into transient editor
+ * state while it is being drawn so the overlay and inspector have one source
+ * of truth. Only the completed prompt is sent to the model.
  */
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
@@ -17,10 +15,15 @@ interface SegmentationPoint {
   label: 0 | 1;
 }
 
+type SegmentationBox = { x1: number; y1: number; x2: number; y2: number };
+
+const DRAG_THRESHOLD_CSS_PX = 3;
+
 export class Sam2SegmentationTool extends BaseTool {
   id = 'sam2Segment' as const;
   private points: SegmentationPoint[] = [];
-  private pendingBox: { x1: number; y1: number; x2: number; y2: number } | null = null;
+  private box: SegmentationBox | null = null;
+  private pendingBox: SegmentationBox | null = null;
   private pendingPoint: SegmentationPoint | null = null;
 
   override cursor(_state: ToolCursorState): CursorSpec {
@@ -28,20 +31,32 @@ export class Sam2SegmentationTool extends BaseTool {
   }
 
   override onActivate(_ctx: ToolContext): void {
-    this.points = [];
-    this.pendingBox = null;
-    this.pendingPoint = null;
+    this.clearLocalPrompts();
+  }
+
+  override onDeactivate(ctx: ToolContext): void {
+    this.clearLocalPrompts();
+    ctx.cancelSam2Segmentation?.();
   }
 
   override onPointerDown(e: PointerEvent, ctx: ToolContext): GestureResult {
     if (e.button !== 0) return { consumed: false };
 
+    this.syncFromSession(ctx);
+    // A new prompt supersedes an older encoder/decoder request immediately,
+    // not only after pointer-up. This closes the small race where an old
+    // result could publish between the next pointer-down and pointer-up.
+    if (ctx.objectSelectionSession && ctx.objectSelectionSession.status !== 'drawing') {
+      ctx.cancelSam2Segmentation?.();
+    }
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
-    // A press is a point only after pointer-up confirms that it did not become
-    // a box. This prevents a box prompt from silently receiving an extra
-    // foreground point at its top-left corner.
     this.pendingPoint = { x: world.x, y: world.y, label: e.shiftKey ? 0 : 1 };
     this.pendingBox = null;
+    this.patchPrompts(ctx, 'drawing', {
+      draftPoint: this.pendingPoint,
+      draftBox: null,
+      invalidatePreview: true,
+    });
     return super.onPointerDown(e, ctx);
   }
 
@@ -54,6 +69,7 @@ export class Sam2SegmentationTool extends BaseTool {
       x2: world.x,
       y2: world.y,
     };
+    this.patchPrompts(ctx, 'drawing', { draftPoint: null, draftBox: this.pendingBox });
   }
 
   override onDragEnd(ctx: ToolContext): void {
@@ -63,119 +79,174 @@ export class Sam2SegmentationTool extends BaseTool {
 
     const moved =
       this.drag.kind === 'dragging' &&
-      (Math.abs(this.drag.currentCanvas.x - this.drag.startCanvas.x) > 3 ||
-        Math.abs(this.drag.currentCanvas.y - this.drag.startCanvas.y) > 3);
-    if (!moved || !this.pendingBox) {
-      this.pendingBox = null;
+      (Math.abs(this.drag.currentCanvas.x - this.drag.startCanvas.x) > DRAG_THRESHOLD_CSS_PX ||
+        Math.abs(this.drag.currentCanvas.y - this.drag.startCanvas.y) > DRAG_THRESHOLD_CSS_PX);
+
+    if (moved && this.pendingBox) {
+      this.box = this.pendingBox;
+    } else {
       this.points.push(point);
     }
-
-    // Trigger segmentation
+    this.pendingBox = null;
+    this.patchPrompts(ctx, 'previewing', { draftPoint: null, draftBox: null });
     void this.runSegmentation(ctx);
   }
 
-  override onDragCancel(_ctx: ToolContext): void {
+  override onDragCancel(ctx: ToolContext): void {
     this.pendingPoint = null;
     this.pendingBox = null;
+    this.patchPrompts(ctx, 'drawing', { draftPoint: null, draftBox: null });
   }
 
-  override onKeyDown(e: PointerEvent | KeyboardEvent, ctx: ToolContext): boolean {
-    if (!(e instanceof KeyboardEvent)) return false;
+  override onKeyDown(e: KeyboardEvent, ctx: ToolContext): boolean {
+    this.syncFromSession(ctx);
     if (e.key === 'Escape') {
-      this.points = [];
-      this.pendingPoint = null;
-      this.pendingBox = null;
-      ctx.announce('Selection cancelled');
+      this.clearLocalPrompts();
+      ctx.cancelSam2Segmentation?.();
+      ctx.announce('Object selection cancelled');
       return true;
     }
+
     if (e.key === 'Backspace' || e.key === 'Delete') {
-      if (this.points.length === 0) return false;
-      this.points.pop();
-      void this.runSegmentation(ctx);
+      if (this.pendingBox) {
+        this.pendingBox = null;
+      } else if (this.box) {
+        this.box = null;
+      } else if (this.points.length > 0) {
+        this.points.pop();
+      } else {
+        return false;
+      }
+      this.patchPrompts(ctx, 'previewing', { draftPoint: null, draftBox: null });
+      if (this.points.length > 0 || this.box) void this.runSegmentation(ctx);
+      else ctx.cancelSam2Segmentation?.();
       return true;
     }
+
     if (e.key === 'Enter') {
-      if (this.points.length === 0 && !this.pendingBox) return false;
+      if (this.points.length === 0 && !this.box) return false;
+      if (
+        ctx.objectSelectionSession &&
+        ctx.objectSelectionSession.status !== 'ready' &&
+        ctx.objectSelectionSession.status !== 'error'
+      ) {
+        ctx.announce('Object selection is still processing. Cancel or wait for the preview.');
+        return true;
+      }
       void this.commitSegmentation(ctx);
       return true;
     }
     return false;
   }
 
+  private clearLocalPrompts(): void {
+    this.points = [];
+    this.box = null;
+    this.pendingBox = null;
+    this.pendingPoint = null;
+  }
+
+  private syncFromSession(ctx: ToolContext): void {
+    // Lightweight tool tests and embedders may not expose transient editor
+    // state. In that case the tool-local compatibility buffer remains the
+    // source of truth.
+    if (!ctx.patchEditorState) return;
+    const session = ctx.objectSelectionSession;
+    const nodeId = ctx.selection?.[0];
+    if (!session || !nodeId || session.nodeId !== nodeId) {
+      this.clearLocalPrompts();
+      return;
+    }
+    if (this.points.length === 0 && !this.box) {
+      this.points = session.points.map((point) => ({ ...point }));
+      this.box = session.box ? { ...session.box } : null;
+    }
+  }
+
+  private patchPrompts(
+    ctx: ToolContext,
+    status: 'drawing' | 'previewing',
+    options: {
+      draftPoint?: SegmentationPoint | null;
+      draftBox?: SegmentationBox | null;
+      invalidatePreview?: boolean;
+    } = {},
+  ): void {
+    const nodeId = ctx.selection?.[0];
+    if (!nodeId || !ctx.patchEditorState) return;
+    const previous =
+      ctx.objectSelectionSession?.nodeId === nodeId ? ctx.objectSelectionSession : undefined;
+    const invalidatePreview = options.invalidatePreview === true;
+    ctx.patchEditorState({
+      objectSelectionSession: {
+        nodeId,
+        documentId: previous?.documentId ?? ctx.document?.id ?? 'unknown',
+        width: invalidatePreview ? 0 : (previous?.width ?? 0),
+        height: invalidatePreview ? 0 : (previous?.height ?? 0),
+        candidates: invalidatePreview ? [] : (previous?.candidates ?? []),
+        selectedCandidate: invalidatePreview ? 0 : (previous?.selectedCandidate ?? 0),
+        points: this.points.map((point) => ({ ...point })),
+        box: this.box ? { ...this.box } : null,
+        draftPoint: options.draftPoint ?? null,
+        draftBox: options.draftBox ?? null,
+        confidence: invalidatePreview ? 0 : (previous?.confidence ?? 0),
+        status,
+        modelId: previous?.modelId ?? 'sam2-hiera-tiny',
+        executionProvider: previous?.executionProvider,
+      },
+    });
+  }
+
   private buildPrompts(): {
     points?: Array<{ x: number; y: number; label: 0 | 1 }>;
-    box?: { x1: number; y1: number; x2: number; y2: number };
+    box?: SegmentationBox;
   } {
-    const points = this.points.map((p) => ({ x: p.x, y: p.y, label: p.label as 0 | 1 }));
+    const points = this.points.map((point) => ({ ...point }));
     const prompts: {
-      points?: typeof points;
-      box?: { x1: number; y1: number; x2: number; y2: number };
+      points?: Array<{ x: number; y: number; label: 0 | 1 }>;
+      box?: SegmentationBox;
     } = {};
     if (points.length > 0) prompts.points = points;
-    if (this.pendingBox) {
-      prompts.box = {
-        x1: this.pendingBox.x1,
-        y1: this.pendingBox.y1,
-        x2: this.pendingBox.x2,
-        y2: this.pendingBox.y2,
-      };
-    }
+    if (this.box) prompts.box = { ...this.box };
     return prompts;
   }
 
   private async runSegmentation(ctx: ToolContext): Promise<void> {
-    if (this.points.length === 0 && !this.pendingBox) return;
-    if (!ctx.applySam2Segmentation) return;
-
-    const selection = ctx.selection;
-    if (!selection || selection.length === 0) return;
-    const nodeId = selection[0]!;
     const prompts = this.buildPrompts();
+    if (!prompts.points?.length && !prompts.box) return;
+    if (!ctx.applySam2Segmentation) return;
+    const nodeId = ctx.selection?.[0];
+    if (!nodeId) return;
 
-    try {
-      ctx.announce('Analyzing subject…');
-      await ctx.applySam2Segmentation({
-        nodeId,
-        prompts,
-        operation: 'preview',
-      });
-    } catch {
-      ctx.announce('Subject selection cancelled');
-    }
+    await ctx.applySam2Segmentation({ nodeId, prompts, operation: 'preview' });
   }
 
-  /** Commit the current preview as a non-destructive mask (Enter key). */
+  /** Commit the visible candidate as a non-destructive mask (Enter key). */
   private async commitSegmentation(ctx: ToolContext): Promise<void> {
     if (!ctx.applySam2Segmentation) return;
-    const selection = ctx.selection;
-    if (!selection || selection.length === 0) return;
-    const nodeId = selection[0]!;
+    const nodeId = ctx.selection?.[0];
+    if (!nodeId) return;
     const prompts = this.buildPrompts();
-
-    try {
-      await ctx.applySam2Segmentation({
-        nodeId,
-        prompts,
-        operation: 'mask',
-      });
-      this.points = [];
-      this.pendingBox = null;
-    } catch {
-      ctx.announce('Could not apply selection');
-    }
+    const result = await ctx.applySam2Segmentation({
+      nodeId,
+      prompts,
+      operation: 'mask',
+      candidateIndex: ctx.objectSelectionSession?.selectedCandidate,
+    });
+    // A failed/cancelled commit must leave the prompt visible for retry.
+    if (result) this.clearLocalPrompts();
   }
 
-  /** Get current prompts for external consumption */
+  /** Compatibility helper used by tool-level tests and diagnostics. */
   getPrompts(): {
     points: SegmentationPoint[];
-    box: { x1: number; y1: number; x2: number; y2: number } | null;
+    box: SegmentationBox | null;
   } {
-    return { points: [...this.points], box: this.pendingBox };
+    return { points: this.points.map((point) => ({ ...point })), box: this.pendingBox ?? this.box };
   }
 
-  /** Clear all prompts */
+  /** Clear local prompt state. The editor-level Escape/cancel path also clears the overlay. */
   clearPrompts(): void {
-    this.points = [];
-    this.pendingBox = null;
+    this.clearLocalPrompts();
   }
 }

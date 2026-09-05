@@ -10,8 +10,8 @@ import {
 } from '@varve/engine';
 import type { Adjustment, AdjustmentKind, AdjustmentNode, SceneNode } from '@varve/scene';
 import { cryptoId, makeAdjustment } from '@varve/scene';
-import { Select, SOLID_CHROME_ICONS, SolidIcon } from '@varve/ui';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Menu, Select, SOLID_CHROME_ICONS, SolidIcon } from '@varve/ui';
+import { type RefObject, useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { NumberField } from '../Inspector/controls/NumberField';
 import { RangeValueControl } from '../Inspector/controls/RangeValueControl';
@@ -129,7 +129,6 @@ export function AdjustmentPanel() {
       });
       setSelectedAdjId(newId);
       setShowAddMenu(false);
-      addBtnRef.current?.focus();
     },
     [nodeId, updateNode],
   );
@@ -241,7 +240,6 @@ export function AdjustmentPanel() {
 
   const closeAddMenu = useCallback(() => {
     setShowAddMenu(false);
-    addBtnRef.current?.focus();
   }, []);
 
   if (!isAdjustmentNode) return null;
@@ -419,7 +417,11 @@ export function AdjustmentPanel() {
           </button>
 
           {showAddMenu && (
-            <AddAdjustmentMenu onSelect={handleAddAdjustment} onClose={closeAddMenu} />
+            <AddAdjustmentMenu
+              triggerRef={addBtnRef}
+              onSelect={handleAddAdjustment}
+              onClose={closeAddMenu}
+            />
           )}
         </div>
       </div>
@@ -516,73 +518,25 @@ export function AdjustmentPanel() {
 }
 
 function AddAdjustmentMenu({
+  triggerRef,
   onSelect,
   onClose,
 }: {
+  triggerRef: RefObject<HTMLButtonElement | null>;
   onSelect: (kind: AdjustmentKind) => void;
   onClose: () => void;
 }) {
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
-  }, []);
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      const items = menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]');
-      if (!items || items.length === 0) return;
-
-      const currentIndex = Array.from(items).indexOf(document.activeElement as HTMLElement);
-
-      switch (e.key) {
-        case 'Escape':
-          e.preventDefault();
-          onClose();
-          break;
-        case 'ArrowDown':
-        case 'ArrowRight':
-          e.preventDefault();
-          items[(currentIndex + 1) % items.length]?.focus();
-          break;
-        case 'ArrowUp':
-        case 'ArrowLeft':
-          e.preventDefault();
-          items[(currentIndex - 1 + items.length) % items.length]?.focus();
-          break;
-        case 'Home':
-          e.preventDefault();
-          items[0]?.focus();
-          break;
-        case 'End':
-          e.preventDefault();
-          items[items.length - 1]?.focus();
-          break;
-      }
-    },
-    [onClose],
-  );
-
   return (
-    <div
-      ref={menuRef}
-      className="adj-panel__add-menu"
-      role="menu"
-      aria-label="Add adjustment"
-      onKeyDown={handleKeyDown}
-    >
-      {ADJUSTMENT_LAYER_KINDS.map((kind) => (
-        <button
-          key={kind}
-          type="button"
-          className="adj-panel__add-menu-item"
-          role="menuitem"
-          tabIndex={-1}
-          onClick={() => onSelect(kind)}
-        >
-          {filterKindDisplayName(kind)}
-        </button>
-      ))}
-    </div>
+    <Menu
+      triggerRef={triggerRef}
+      open
+      onClose={onClose}
+      label="Add adjustment"
+      items={ADJUSTMENT_LAYER_KINDS.map((kind) => ({
+        id: kind,
+        label: filterKindDisplayName(kind),
+        onAction: () => onSelect(kind),
+      }))}
+    />
   );
 }

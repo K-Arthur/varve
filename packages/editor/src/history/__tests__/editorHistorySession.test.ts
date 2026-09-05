@@ -6,12 +6,20 @@
  * divergence branching (abandoned paths preserved and materializable),
  * branch deletion protection, checkpoints, and merge-base discovery.
  */
-import { createMemoryHistoryStore, type HistoryStore } from '@varve/history';
+import {
+  createMemoryHistoryStore,
+  type HistoryStore,
+  MemoryRasterTileStore,
+  type RasterTileStore,
+} from '@varve/history';
 import type { Document } from '@varve/scene';
 import {
   applyOperation,
   canonicalHistoryHash,
+  compositeDabOnNode,
   createDocument,
+  makePathNode,
+  makeRasterLayerNode,
   makeShapeNode,
   registerBuiltinOperations,
 } from '@varve/scene';
@@ -32,8 +40,13 @@ function baseDoc(): Document {
   return applyOperation(doc, 'node.create', { node: a });
 }
 
-function newSession(store: HistoryStore) {
-  return new EditorHistorySession({ store, documentId: DOC_ID, authorActorId: ACTOR });
+function newSession(store: HistoryStore, rasterTileStore?: RasterTileStore) {
+  return new EditorHistorySession({
+    store,
+    documentId: DOC_ID,
+    authorActorId: ACTOR,
+    rasterTileStore,
+  });
 }
 
 describe('EditorHistorySession', () => {
@@ -94,6 +107,202 @@ describe('EditorHistorySession', () => {
     expect(steps).toHaveLength(1);
   });
 
+  it('round-trips fractional Bezier geometry and a committed brush stroke exactly', async () => {
+    const store = createMemoryHistoryStore();
+    const tiles = new MemoryRasterTileStore();
+    const path = makePathNode('path_fractional', {
+      closed: true,
+      points: [
+        { x: 0, y: 0, handleIn: null, handleOut: [12.375, -6.625] },
+        {
+          x: 120.12573,
+          y: 83.77311,
+          handleIn: [-17.38291, 4.99127],
+          handleOut: [23.77831, -11.28441],
+        },
+        { x: 180.5, y: 140.25, handleIn: [-12.5, 8.25], handleOut: null },
+        { x: 20.75, y: 130.5, handleIn: null, handleOut: [-4.5, -13.25] },
+      ],
+    });
+    const raster = makeRasterLayerNode('raster_above', { width: 256, height: 256 });
+    const initial: Document = {
+      ...baseDoc(),
+      nodes: { ...baseDoc().nodes, [path.id]: path, [raster.id]: raster },
+      rootChildren: [...baseDoc().rootChildren, path.id, raster.id],
+    };
+    const session = newSession(store, tiles);
+    await session.attach(initial);
+
+    const movedPath = {
+      ...path,
+      points: path.points.map((point, index) =>
+        index === 1
+          ? { ...point, x: 121.0000004, handleOut: [24.000001, -11.28441] as [number, number] }
+          : point,
+      ),
+    };
+    const vectorAfter: Document = {
+      ...initial,
+      nodes: { ...initial.nodes, [path.id]: movedPath },
+    };
+    await session.capture(initial, vectorAfter, [path.id], {
+      label: 'Move Path Node',
+      kind: 'modify',
+    });
+
+    const paintedRaster = compositeDabOnNode(
+      raster,
+      {
+        x: 121,
+        y: 84,
+        radius: 12.5,
+        opacity: 0.92,
+        flow: 0.77,
+        hardness: 0.4,
+        angle: 0,
+        roundness: 1,
+        strokeT: 0,
+        strokeDistance: 0,
+      },
+      [30, 160, 230, 255],
+    );
+    const rasterAfter: Document = {
+      ...vectorAfter,
+      nodes: { ...vectorAfter.nodes, [raster.id]: paintedRaster },
+    };
+    await session.capture(vectorAfter, rasterAfter, [raster.id], {
+      label: 'Brush Stroke',
+      kind: 'paint',
+    });
+
+    const undoPaint = await session.undo();
+    expect(undoPaint).not.toBeNull();
+    expect(canonicalHistoryHash(undoPaint!.document)).toBe(canonicalHistoryHash(vectorAfter));
+    expect((undoPaint!.document.nodes[path.id] as typeof path).points).toEqual(movedPath.points);
+
+    const undoVector = await session.undo();
+    expect(undoVector).not.toBeNull();
+    expect(canonicalHistoryHash(undoVector!.document)).toBe(canonicalHistoryHash(initial));
+    expect((undoVector!.document.nodes[path.id] as typeof path).points).toEqual(path.points);
+
+    const redoVector = await session.redo();
+    expect(redoVector).not.toBeNull();
+    expect(canonicalHistoryHash(redoVector!.document)).toBe(canonicalHistoryHash(vectorAfter));
+    const redoPaint = await session.redo();
+    expect(redoPaint).not.toBeNull();
+    expect(canonicalHistoryHash(redoPaint!.document)).toBe(canonicalHistoryHash(rasterAfter));
+  });
+
+  it('survives reload and round-trips an interleaved vector/raster history', async () => {
+    const store = createMemoryHistoryStore();
+    const tiles = new MemoryRasterTileStore();
+    const raster = makeRasterLayerNode('raster_interleaved', { width: 256, height: 256 });
+    const initial: Document = {
+      ...baseDoc(),
+      nodes: { ...baseDoc().nodes, [raster.id]: raster },
+      rootChildren: [...baseDoc().rootChildren, raster.id],
+    };
+    const first = newSession(store, tiles);
+    await first.attach(initial);
+
+    const states: Document[] = [initial];
+    let current = initial;
+    const capture = async (next: Document, label: string, kind: 'modify' | 'paint') => {
+      try {
+        await first.capture(current, next, [], { label, kind });
+      } catch (error) {
+        throw new Error(
+          `failed to capture ${label}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+      current = next;
+      states.push(next);
+    };
+
+    await capture(
+      applyOperation(current, 'node.patch', { nodeId: 'n1_aaaa', path: 'opacity', value: 0.625 }),
+      'Vector opacity',
+      'modify',
+    );
+    const firstLayer = current.nodes[raster.id];
+    expect(firstLayer?.kind).toBe('rasterLayer');
+    await capture(
+      {
+        ...current,
+        nodes: {
+          ...current.nodes,
+          [raster.id]: compositeDabOnNode(
+            firstLayer as Extract<typeof firstLayer, { kind: 'rasterLayer' }>,
+            {
+              x: 46.5,
+              y: 78.25,
+              radius: 11.75,
+              opacity: 0.84,
+              flow: 0.72,
+              hardness: 0.55,
+              angle: 0,
+              roundness: 1,
+              strokeT: 0,
+              strokeDistance: 0,
+            },
+            [213, 91, 43, 255],
+          ),
+        },
+      },
+      'Paint one',
+      'paint',
+    );
+    const transformed = applyOperation(current, 'node.patch', {
+      nodeId: 'n1_aaaa',
+      path: 'transform',
+      value: [1, 0, 0, 1, 41.12573, -17.38291],
+    });
+    await capture(transformed, 'Vector transform', 'modify');
+    const secondLayer = current.nodes[raster.id];
+    expect(secondLayer?.kind).toBe('rasterLayer');
+    await capture(
+      {
+        ...current,
+        nodes: {
+          ...current.nodes,
+          [raster.id]: compositeDabOnNode(
+            secondLayer as Extract<typeof secondLayer, { kind: 'rasterLayer' }>,
+            {
+              x: 68.25,
+              y: 91.5,
+              radius: 9.25,
+              opacity: 0.91,
+              flow: 0.63,
+              hardness: 0.37,
+              angle: 0,
+              roundness: 1,
+              strokeT: 1,
+              strokeDistance: 18.5,
+            },
+            [35, 159, 218, 255],
+          ),
+        },
+      },
+      'Paint two',
+      'paint',
+    );
+
+    const reloaded = newSession(store, tiles);
+    const attached = await reloaded.attach(current);
+    expect(attached.reconciled).toBe(false);
+
+    for (let index = states.length - 2; index >= 0; index -= 1) {
+      const undone = await reloaded.undo();
+      expect(undone).not.toBeNull();
+      expect(canonicalHistoryHash(undone!.document)).toBe(canonicalHistoryHash(states[index]!));
+    }
+    for (let index = 1; index < states.length; index += 1) {
+      const redone = await reloaded.redo();
+      expect(redone).not.toBeNull();
+      expect(canonicalHistoryHash(redone!.document)).toBe(canonicalHistoryHash(states[index]!));
+    }
+  });
+
   it('undo moves the head to the parent and restores the journaled selection', async () => {
     const store = createMemoryHistoryStore();
     const session = newSession(store);
@@ -151,6 +360,8 @@ describe('EditorHistorySession', () => {
       value: 0.25,
     });
     await session.capture(doc, divergent, [], { label: 'New direction', kind: 'modify' });
+
+    expect(session.canRedo).toBe(false);
 
     const steps = await session.steps();
     expect(steps.map((s) => s.label)).toEqual(['Genesis', 'Old path', 'New direction']);

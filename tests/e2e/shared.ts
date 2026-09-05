@@ -5,7 +5,7 @@ import type { Page } from '@playwright/test';
  * Shared across all E2E specs — fix one place, not 15.
  *
  * Sequence:
- *   / → [New] → dialog → [Create] → wait for .layers-panel → dismiss welcome
+ *   / → [New] → dialog → [Create] → wait for the editor shell → dismiss welcome
  */
 export async function navigateToEditor(page: Page, path = '/') {
   // Generous timeouts: under heavy concurrent dev-server load (many watched
@@ -24,6 +24,13 @@ export async function navigateToEditor(page: Page, path = '/') {
   if (inSafeMode) {
     await page.evaluate(() => localStorage.removeItem('varve:safe-mode'));
     await page.reload({ timeout: 300000 });
+  }
+  const continueNormalStartup = page.getByRole('button', {
+    name: /continue normal startup/i,
+  });
+  if (await continueNormalStartup.isVisible({ timeout: 5000 }).catch(() => false)) {
+    await continueNormalStartup.click({ timeout: 5000 });
+    await page.waitForTimeout(1000);
   }
   // Crash-recovery dialog (IndexedDB-backed): "Review my documents" only
   // dismisses the dialog, so clicking it is side-effect free.
@@ -63,9 +70,12 @@ export async function navigateToEditor(page: Page, path = '/') {
     await createInDialog.waitFor({ timeout: 45000 });
   }
   await createInDialog.click({ timeout: 15000 });
-  const layersPanel = page.locator('.layers-panel');
+  // Side panels are responsive drawers and are intentionally hidden by
+  // default below the editor breakpoint. Wait for the shell rather than a
+  // desktop-only panel so narrow canvas specs can reach their own assertions.
+  const editorShell = page.locator('.editor-shell');
   try {
-    await layersPanel.waitFor({ timeout: 30000 });
+    await editorShell.waitFor({ state: 'visible', timeout: 30000 });
   } catch (error) {
     // Web storage can swap from the in-memory boot platform to IndexedDB
     // between creation and the open callback. If that narrow race leaves the
@@ -76,7 +86,7 @@ export async function navigateToEditor(page: Page, path = '/') {
       throw error;
     }
     await createdFile.click({ timeout: 10000 });
-    await layersPanel.waitFor({ timeout: 30000 });
+    await editorShell.waitFor({ state: 'visible', timeout: 30000 });
   }
 
   // Startup state can restore more than one modal (for example Settings over
@@ -130,11 +140,36 @@ export async function navigateToEditor(page: Page, path = '/') {
     }
     await page.waitForTimeout(50);
   }
+
+  // The shell mounts before CanvasArea and LayersPanel have completed their
+  // first render. On a loaded CI runner, actions issued immediately after
+  // `.editor-shell` becomes visible can be lost: drawing silently creates no
+  // layer, while menu focus is still owned by the startup portal. Wait for
+  // both interaction surfaces and a non-zero canvas before handing control to
+  // the spec. This remains attached-state safe for responsive layouts, where
+  // the layers panel may be collapsed but remains mounted.
+  await page.locator('canvas.editor-canvas__content-layer').waitFor({
+    state: 'visible',
+    timeout: 60000,
+  });
+  await page.locator('.layers-panel').waitFor({ state: 'attached', timeout: 60000 });
+  await page.waitForFunction(
+    () => {
+      const canvas = document.querySelector(
+        'canvas.editor-canvas__content-layer',
+      ) as HTMLCanvasElement | null;
+      const layers = document.querySelector('.layers-panel');
+      return canvas != null && canvas.clientWidth > 0 && canvas.clientHeight > 0 && layers != null;
+    },
+    undefined,
+    { timeout: 60000 },
+  );
+  await page.waitForTimeout(250);
 }
 
 /** Activate a workspace whether its responsive tab is visible or in More. */
 export async function switchWorkspace(page: Page, label: string) {
-  const tab = page.locator(`.workspace-tabs__tab[aria-label="${label} workspace"]`);
+  const tab = page.locator(`.workspace-dock__item[aria-label="${label} workspace"]`);
   if (await tab.isVisible({ timeout: 1000 }).catch(() => false)) {
     // Workspace switching updates the tab strip in the same React commit as
     // the mode change. Playwright's geometry-based click can therefore hold a
@@ -144,7 +179,7 @@ export async function switchWorkspace(page: Page, label: string) {
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
         await page
-          .locator(`.workspace-tabs__tab[aria-label="${label} workspace"]`)
+          .locator(`.workspace-dock__item[aria-label="${label} workspace"]`)
           .evaluate((element) => (element as HTMLButtonElement).click());
         return;
       } catch {

@@ -5,7 +5,23 @@ interface PerformanceDiagnosticsHandle {
   getFrames: (count: number) => Array<{
     partialRedraw: boolean;
     dirtyScreenRect?: { x: number; y: number; w: number; h: number };
+    frameWorkClass?: 'interaction' | 'authoritative' | 'background';
+    frameWorkBudgetMs?: number;
   }>;
+  frameBudget: {
+    summary: () => {
+      intervalMs: number;
+      classes: Record<
+        'interaction' | 'authoritative' | 'background',
+        {
+          budgetMs: number;
+          samples: number;
+          p95Ms: number;
+          p99Ms: number;
+        }
+      >;
+    };
+  };
   interactions: {
     getTraces: (count: number) => Array<{
       schemaVersion: number;
@@ -153,5 +169,50 @@ test.describe('Canvas performance diagnostics', () => {
         }),
       )
       .toBe(true);
+  });
+
+  test('reports interaction, authoritative, and background budgets from the display interval', async ({
+    page,
+  }) => {
+    await navigateToEditor(page, '/?perf=1');
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    await canvas.focus();
+
+    await canvas.evaluate((element) => {
+      const bounds = element.getBoundingClientRect();
+      element.dispatchEvent(
+        new WheelEvent('wheel', {
+          bubbles: true,
+          cancelable: true,
+          clientX: bounds.left + bounds.width / 2,
+          clientY: bounds.top + bounds.height / 2,
+          deltaY: 120,
+        }),
+      );
+    });
+
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const handle = (window as unknown as { __varvePerf?: PerformanceDiagnosticsHandle })
+            .__varvePerf;
+          return handle?.getFrames(120).some((frame) => frame.frameWorkClass === 'interaction');
+        }),
+      )
+      .toBe(true);
+
+    const summary = await page.evaluate(() => {
+      const handle = (window as unknown as { __varvePerf?: PerformanceDiagnosticsHandle })
+        .__varvePerf;
+      return handle?.frameBudget.summary() ?? null;
+    });
+    expect(summary).not.toBeNull();
+    expect(summary!.classes.interaction.budgetMs).toBeCloseTo(summary!.intervalMs * 0.5);
+    expect(summary!.classes.authoritative.budgetMs).toBeCloseTo(summary!.intervalMs * 0.9);
+    expect(summary!.classes.background.budgetMs).toBeCloseTo(summary!.intervalMs * 0.25);
+    expect(summary!.classes.interaction.samples).toBeGreaterThan(0);
+    expect(summary!.classes.interaction.p99Ms).toBeGreaterThanOrEqual(
+      summary!.classes.interaction.p95Ms,
+    );
   });
 });

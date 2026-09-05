@@ -5,6 +5,22 @@ import { navigateToEditor } from '../shared';
 
 test.describe.configure({ mode: 'serial' });
 
+async function expectReadableMenuLabels(menuLayer: import('@playwright/test').Locator) {
+  const labels = await menuLayer.locator('.editor-menubar__menu-label').evaluateAll((elements) =>
+    elements.map((element) => ({
+      text: element.textContent,
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+      textOverflow: getComputedStyle(element).textOverflow,
+    })),
+  );
+
+  for (const label of labels) {
+    expect(label.textOverflow).not.toBe('ellipsis');
+    expect(label.scrollWidth).toBeLessThanOrEqual(label.clientWidth);
+  }
+}
+
 test.describe('Menubar visual integrity', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize({ width: 1920, height: 1080 });
@@ -13,7 +29,7 @@ test.describe('Menubar visual integrity', () => {
 
   test('hover-switching to View starts at the top and selected rows retain contrast', async ({
     page,
-  }) => {
+  }, testInfo) => {
     await openMenu(page, 'Object');
     await page.getByRole('menubar').getByRole('menuitem', { name: 'View' }).hover();
     const menuLayer = page.locator('.editor-menubar__menu');
@@ -36,15 +52,17 @@ test.describe('Menubar visual integrity', () => {
     expect(geometry.bottom).toBeLessThanOrEqual(1080);
     expect(geometry.right).toBeLessThanOrEqual(1920);
     expect(geometry.scrollTop).toBe(0);
+    await expectReadableMenuLabels(menuLayer);
 
     const results = await new AxeBuilder({ page })
       .include('.editor-menubar__menu')
       .withRules(['color-contrast'])
       .analyze();
     expect(results.violations).toHaveLength(0);
+    await menuLayer.screenshot({ path: testInfo.outputPath('editor-menu-view-light.png') });
   });
 
-  test('Object menu exposes its final command without clipping', async ({ page }) => {
+  test('Object menu exposes its final command without clipping', async ({ page }, testInfo) => {
     await openMenu(page, 'Object');
     const menuLayer = page.locator('.editor-menubar__menu');
     const menu = menuLayer.getByRole('menu', { name: 'Object' });
@@ -66,10 +84,14 @@ test.describe('Menubar visual integrity', () => {
     expect(geometry.scrollTop).toBeGreaterThan(0);
     const finalRect = await finalCommand.evaluate((element) => element.getBoundingClientRect());
     expect(finalRect.bottom).toBeLessThanOrEqual(1080);
+    await expectReadableMenuLabels(menuLayer);
+    await menuLayer.screenshot({ path: testInfo.outputPath('editor-menu-object-overflow.png') });
   });
 
   for (const theme of ['light', 'dark', 'high-contrast'] as const) {
-    test(`active menu rows pass contrast checks in the ${theme} theme`, async ({ page }) => {
+    test(`active menu rows pass contrast checks in the ${theme} theme`, async ({
+      page,
+    }, testInfo) => {
       await page.evaluate((nextTheme) => {
         document.documentElement.dataset.theme = nextTheme;
       }, theme);
@@ -80,6 +102,9 @@ test.describe('Menubar visual integrity', () => {
         .withRules(['color-contrast'])
         .analyze();
       expect(results.violations).toHaveLength(0);
+      await page.locator('.editor-menubar__menu').screenshot({
+        path: testInfo.outputPath(`editor-menu-view-${theme}.png`),
+      });
     });
   }
 });

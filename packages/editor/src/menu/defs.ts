@@ -160,6 +160,7 @@ export function getFileMenu(runAction: (id: string) => void): MenuItemDef[] {
               labelKey: 'Clear Recent Files',
               kind: 'command',
               group: 'recent',
+              destructive: true,
               run: () => runAction('clearRecent'),
             },
           );
@@ -566,6 +567,20 @@ export function getEditMenu(runAction: (id: string) => void): MenuItemDef[] {
           group: 'transform',
           run: () => runAction('areaSelectionRotateCCW'),
         },
+        {
+          id: 'transformSelectedPixels',
+          labelKey: 'menu.edit.transformSelectedPixels',
+          kind: 'command',
+          group: 'transform',
+          run: () => runAction('transformSelectedPixels'),
+        },
+        {
+          id: 'transformSelectionBoundary',
+          labelKey: 'menu.edit.transformSelectionBoundary',
+          kind: 'command',
+          group: 'transform',
+          run: () => runAction('transformSelectionBoundary'),
+        },
       ],
     },
     {
@@ -593,6 +608,7 @@ export function getEditMenu(runAction: (id: string) => void): MenuItemDef[] {
       kind: 'command',
       group: 'selection',
       enabled: enabledWithSelection,
+      destructive: true,
       run: () => runAction('delete'),
     },
     {
@@ -749,6 +765,15 @@ export function getViewMenu(
   deps?: { getTheme?: () => string },
 ): MenuItemDef[] {
   return [
+    {
+      id: 'theme:system',
+      labelKey: 'menu.view.themeSystem',
+      kind: 'radio',
+      group: 'theme',
+      radioGroup: 'theme',
+      checked: () => deps?.getTheme?.() === 'system',
+      run: () => runAction('theme:system'),
+    },
     {
       id: 'theme:light',
       labelKey: 'menu.view.themeLight',
@@ -951,6 +976,13 @@ export function getViewMenu(
       run: () => runAction('toggleGuides'),
     },
     {
+      id: 'toggleMarqueeContainment',
+      labelKey: 'menu.view.toggleMarqueeContainment',
+      kind: 'command',
+      group: 'guides',
+      run: () => runAction('toggleMarqueeContainment'),
+    },
+    {
       id: 'lockGuides',
       labelKey: 'menu.view.lockGuides',
       accelerator: a('l', true, true),
@@ -963,6 +995,7 @@ export function getViewMenu(
       labelKey: 'menu.view.clearGuides',
       kind: 'command',
       group: 'guides',
+      destructive: true,
       run: () => runAction('clearGuides'),
     },
     {
@@ -1442,6 +1475,7 @@ export function getObjectMenu(runAction: (id: string) => void): MenuItemDef[] {
       labelKey: 'menu.object.removeMask',
       kind: 'command',
       group: 'maskOps',
+      destructive: true,
       workspaces: ['design', 'print', 'drawing', 'image'],
       enabled: (ctx) => {
         if (ctx.selection.hasMask) return true;
@@ -2235,6 +2269,7 @@ export function getCanvasContextMenuDefs(runAction: (id: string) => void): MenuI
       group: 'edit-op',
       contexts: ['canvas'],
       enabled: enabledWithSelection,
+      destructive: true,
       run: () => runAction('delete'),
     },
     {

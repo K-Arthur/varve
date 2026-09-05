@@ -1,10 +1,11 @@
-import { ContextMenu, type MenuEntry } from '@varve/ui';
+import { ContextMenu, type MenuEntry, type OverlayAnchor } from '@varve/ui';
 import { useCallback } from 'react';
 import './GuideContextMenu.css';
 
 interface GuideContextMenuProps {
-  x: number;
-  y: number;
+  anchor?: OverlayAnchor | null;
+  x?: number;
+  y?: number;
   guideId: string;
   isLocked: boolean;
   onToggleLock: (id: string) => void;
@@ -13,6 +14,7 @@ interface GuideContextMenuProps {
 }
 
 export function GuideContextMenu({
+  anchor,
   x,
   y,
   guideId,
@@ -44,6 +46,12 @@ export function GuideContextMenu({
   ];
 
   return (
-    <ContextMenu items={items} position={{ x, y }} onClose={onClose} label="Guide context menu" />
+    <ContextMenu
+      items={items}
+      anchor={anchor}
+      position={anchor ? undefined : x !== undefined && y !== undefined ? { x, y } : null}
+      onClose={onClose}
+      label="Guide context menu"
+    />
   );
 }

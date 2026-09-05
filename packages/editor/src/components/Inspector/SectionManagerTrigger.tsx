@@ -6,68 +6,93 @@
  *
  * Research basis: Figma layer panel options, VS Code panel header menus.
  */
-import { Icon } from '@varve/ui';
-import { useEffect, useRef, useState } from 'react';
+import { FloatingPortal, Icon } from '@varve/ui';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { FEATURE_OWNERSHIP, type InspectorSurface } from './featureOwnership';
-import { CATEGORY_LABELS, getAllSections, getSectionDefinition } from './sectionRegistry';
-import { getHiddenSectionIds } from './sectionState';
+import {
+  CATEGORY_LABELS,
+  getSectionDefinition,
+  type SectionDefinition,
+  type SectionId,
+} from './sectionRegistry';
+import { getHiddenSectionIds, getOrderedSectionIds } from './sectionState';
 
 export function SectionManagerTrigger({ surface = 'properties' }: { surface?: InspectorSurface }) {
-  const { state, restoreDefaultSectionState, hideInspectorSection, showInspectorSection } =
-    useEditor();
+  const {
+    state,
+    restoreDefaultSectionState,
+    hideInspectorSection,
+    showInspectorSection,
+    moveSectionUp,
+    moveSectionDown,
+    resetSectionOrder,
+  } = useEditor();
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const surfaceIds = new Set(
+  const firstActionRef = useCallback((control: HTMLButtonElement | null) => {
+    control?.focus();
+  }, []);
+  const surfaceIds = new Set<SectionId>(
     Object.entries(FEATURE_OWNERSHIP)
       .filter(([, ownership]) => ownership.surface === surface)
-      .map(([id]) => id),
+      .map(([id]) => id as SectionId),
   );
   const hiddenIds = getHiddenSectionIds(state.sectionVisibility).filter((id) => surfaceIds.has(id));
   const hiddenCount = hiddenIds.length;
 
-  // Close on outside click
   useEffect(() => {
     if (!open) return;
-    panelRef.current?.querySelector<HTMLElement>('button:not([disabled])')?.focus();
-    const handle = (e: MouseEvent) => {
-      if (
-        panelRef.current &&
-        !panelRef.current.contains(e.target as Node) &&
-        buttonRef.current &&
-        !buttonRef.current.contains(e.target as Node)
-      ) {
-        setOpen(false);
+    const focusFirst = () => {
+      const control = panelRef.current?.querySelector<HTMLElement>(
+        'button:not([disabled]), input:not([disabled])',
+      );
+      if (!control) return false;
+      control.focus();
+      return true;
+    };
+    const ownerDocument = buttonRef.current?.ownerDocument;
+    const OwnerMutationObserver = ownerDocument?.defaultView?.MutationObserver;
+    let focusObserver: MutationObserver | null = null;
+    const tryFocus = () => {
+      if (focusFirst()) {
+        focusObserver?.disconnect();
+        return;
+      }
+      // The measured portal is mounted after this effect's first pass. Watch
+      // only until the first control is available; this keeps focus handoff
+      // deterministic without a timer tied to an assumed render delay.
+      if (focusObserver && ownerDocument?.body) {
+        focusObserver.observe(ownerDocument.body, { childList: true, subtree: true });
       }
     };
-    document.addEventListener('mousedown', handle);
-    return () => document.removeEventListener('mousedown', handle);
-  }, [open]);
-
-  // Close on Escape
-  useEffect(() => {
-    if (!open) return;
-    const handle = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setOpen(false);
-        buttonRef.current?.focus();
-      }
+    if (OwnerMutationObserver) {
+      focusObserver = new OwnerMutationObserver(tryFocus);
+    }
+    tryFocus();
+    return () => {
+      focusObserver?.disconnect();
     };
-    document.addEventListener('keydown', handle);
-    return () => document.removeEventListener('keydown', handle);
   }, [open]);
 
-  const allSections = (getAllSections() as import('./sectionRegistry').SectionDefinition[]).filter(
-    (section) => surfaceIds.has(section.id),
-  );
-  const grouped = new Map<string, typeof allSections>();
-  for (const s of allSections) {
-    const cat = CATEGORY_LABELS[s.category] ?? s.category;
-    const list = grouped.get(cat) ?? [];
-    list.push(s);
-    grouped.set(cat, list);
-  }
+  const orderedSectionIds = getOrderedSectionIds(state.sectionVisibility, [...surfaceIds]);
+  const allSections = orderedSectionIds
+    .map((id) => getSectionDefinition(id))
+    .filter((section): section is SectionDefinition => section !== undefined);
+
+  const managerTitle = (definition: SectionDefinition): string => {
+    switch (definition.id) {
+      case 'position-size':
+        return 'Position & size';
+      case 'layout':
+        return 'Frame layout';
+      case 'layout-child':
+        return 'Child layout';
+      default:
+        return definition.title;
+    }
+  };
 
   return (
     <div className="insp-section-manager">
@@ -76,7 +101,7 @@ export function SectionManagerTrigger({ surface = 'properties' }: { surface?: In
         type="button"
         className="insp-section-manager__trigger"
         aria-expanded={open}
-        aria-haspopup="true"
+        aria-haspopup="dialog"
         aria-label={`Customize sections${hiddenCount > 0 ? `, ${hiddenCount} hidden` : ''}`}
         onClick={() => setOpen(!open)}
       >
@@ -84,7 +109,20 @@ export function SectionManagerTrigger({ surface = 'properties' }: { surface?: In
         {hiddenCount > 0 && <span className="insp-section-manager__badge">{hiddenCount}</span>}
       </button>
 
-      {open && (
+      <FloatingPortal
+        anchorRef={buttonRef}
+        open={open}
+        placement="bottom-end"
+        fallbackPlacements={['top-end', 'bottom-start', 'top-start']}
+        maxHeight={400}
+        kind="popover"
+        dismissOnEscape
+        onClose={(reason) => {
+          setOpen(false);
+          if (reason === 'escape') buttonRef.current?.focus();
+        }}
+        className="insp-section-manager__layer"
+      >
         <div
           ref={panelRef}
           className="insp-section-manager__panel"
@@ -93,6 +131,7 @@ export function SectionManagerTrigger({ surface = 'properties' }: { surface?: In
         >
           <div className="insp-section-manager__actions">
             <button
+              ref={firstActionRef}
               type="button"
               className="insp-section-manager__action"
               onClick={() => {
@@ -124,42 +163,72 @@ export function SectionManagerTrigger({ surface = 'properties' }: { surface?: In
             >
               Restore defaults
             </button>
+            <button
+              type="button"
+              className="insp-section-manager__action"
+              onClick={() => resetSectionOrder()}
+            >
+              Reset order
+            </button>
           </div>
 
-          <div className="insp-section-manager__list">
-            {Array.from(grouped.entries()).map(([category, sections]) => (
-              <div key={category} className="insp-section-manager__group">
-                <span className="insp-section-manager__group-label">{category}</span>
-                {sections.map((def) => {
-                  const hidden = state.sectionVisibility[def.id]?.hidden ?? false;
-                  return (
-                    <label
-                      key={def.id}
-                      className={`insp-section-manager__item${hidden ? ' insp-section-manager__item--hidden' : ''}`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={!hidden}
-                        disabled={!def.canHide}
-                        onChange={() => {
-                          if (hidden) {
-                            showInspectorSection(def.id);
-                          } else {
-                            hideInspectorSection(def.id);
-                          }
-                        }}
-                        className="insp-section-manager__checkbox"
-                      />
-                      <span className="insp-section-manager__label">{def.title}</span>
-                      {def.essential && (
-                        <span className="insp-section-manager__essential">required</span>
-                      )}
-                    </label>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
+          <ol className="insp-section-manager__list" aria-label="Section order">
+            {allSections.map((def, index) => {
+              const hidden = state.sectionVisibility[def.id]?.hidden ?? false;
+              const checkboxId = `${surface}-section-${def.id}`;
+              const category = CATEGORY_LABELS[def.category] ?? def.category;
+              const title = managerTitle(def);
+              return (
+                <li
+                  key={def.id}
+                  className={`insp-section-manager__item${hidden ? ' insp-section-manager__item--hidden' : ''}`}
+                  data-section-id={def.id}
+                >
+                  <input
+                    id={checkboxId}
+                    type="checkbox"
+                    checked={!hidden}
+                    disabled={!def.canHide}
+                    onChange={() => {
+                      if (hidden) {
+                        showInspectorSection(def.id);
+                      } else {
+                        hideInspectorSection(def.id);
+                      }
+                    }}
+                    className="insp-section-manager__checkbox"
+                  />
+                  <label htmlFor={checkboxId} className="insp-section-manager__label">
+                    {title}
+                  </label>
+                  <span className="insp-section-manager__category">{category}</span>
+                  {def.essential && (
+                    <span className="insp-section-manager__essential">required</span>
+                  )}
+                  <button
+                    type="button"
+                    className="insp-section-manager__toggle"
+                    aria-label={`Move ${title} up`}
+                    title="Move up"
+                    disabled={index === 0}
+                    onClick={() => moveSectionUp(def.id, orderedSectionIds)}
+                  >
+                    <Icon name="ChevronUp" label={undefined} size="0.85em" />
+                  </button>
+                  <button
+                    type="button"
+                    className="insp-section-manager__toggle"
+                    aria-label={`Move ${title} down`}
+                    title="Move down"
+                    disabled={index === allSections.length - 1}
+                    onClick={() => moveSectionDown(def.id, orderedSectionIds)}
+                  >
+                    <Icon name="ChevronDown" label={undefined} size="0.85em" />
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
 
           {hiddenIds.length > 0 && (
             <div className="insp-section-manager__recovery">
@@ -181,7 +250,7 @@ export function SectionManagerTrigger({ surface = 'properties' }: { surface?: In
             </div>
           )}
         </div>
-      )}
+      </FloatingPortal>
     </div>
   );
 }

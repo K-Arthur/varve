@@ -21,13 +21,22 @@ import {
   loadPackages,
   toRepoRelativePath,
 } from '../../scripts/quality/affected-plan.mjs';
+import { REQUIRED_CI_JOBS } from '../../scripts/quality/aggregate-ci.mjs';
 import { auditImpactConfig } from '../../scripts/quality/audit-impact-config.mjs';
 import {
   LANES,
+  laneArgv,
   laneCommand,
   packageDirs,
   toWorkspaceRelativePath,
 } from '../../scripts/quality/validation-lanes.mjs';
+import {
+  CI_CATEGORIES,
+  CI_CATEGORY_LANES,
+  POLICY_VERSION,
+  REMOTE_ONLY_PUSH_LANES,
+  selectPushValidation,
+} from '../../scripts/quality/validation-policy.mjs';
 import { IMPACT_CONFIG } from '../../validation-impact.config.mjs';
 
 const ROOT = process.cwd();
@@ -65,7 +74,13 @@ describe('validation infrastructure presence', () => {
       'verify:triage',
       'verify:affected',
       'verify:full',
+      'verify:commit',
+      'verify:push',
       'e2e:visual',
+      'release:prepare',
+      'release:status',
+      'release:certify',
+      'release:resume',
     ]) {
       expect(pkg.scripts, `missing script ${script}`).toHaveProperty(script);
     }
@@ -88,6 +103,10 @@ describe('validation infrastructure presence', () => {
     expect(doc).toMatch(/Tier 0/);
     expect(doc).toMatch(/Tier 5/);
     expect(doc).toMatch(/verify:affected/);
+    expect(doc).toMatch(/Commit checkpoint/);
+    expect(doc).toMatch(/Push checkpoint/);
+    expect(doc).toMatch(/Integration certification/);
+    expect(doc).toMatch(/Release-candidate certification/);
   });
 
   it('keeps triage useful when a later full gate is mandatory', () => {
@@ -110,6 +129,115 @@ describe('validation infrastructure presence', () => {
     }
   });
 
+  it('new push lanes resolve to argument arrays without shell interpolation', () => {
+    for (const lane of [
+      'history:secrets',
+      'history:policy',
+      'format:changed',
+      'lint:changed',
+      'cargo-fmt',
+    ]) {
+      const command = laneArgv(lane, { files: ['path with spaces/[odd].ts'] });
+      expect(command, lane).toBeTruthy();
+      expect(command).not.toContain('sh');
+      if (lane === 'format:changed' || lane === 'lint:changed') {
+        expect(command).toContain('path with spaces/[odd].ts');
+      }
+    }
+  });
+
+  it('every canonical CI category lane resolves to an executable argv', () => {
+    const lanes = new Set(Object.values(CI_CATEGORY_LANES).flat());
+    for (const lane of lanes) {
+      const command = laneArgv(lane, { files: ['path with spaces/[odd].ts'] });
+      expect(command, `CI lane ${lane} has no argv`).toBeTruthy();
+      expect(command, `CI lane ${lane} must be an argv array`).toEqual(expect.any(Array));
+      expect(command?.length, `CI lane ${lane} has an empty argv`).toBeGreaterThan(0);
+    }
+  });
+
+  it('canonical policy has a consumer for every CI category and aggregator job', () => {
+    const ci = readFileSync(join(ROOT, '.github/workflows/ci.yml'), 'utf-8');
+    const candidate = readFileSync(join(ROOT, '.github/workflows/release-candidate.yml'), 'utf-8');
+    expect(POLICY_VERSION).toMatch(/^2026-/);
+    for (const category of CI_CATEGORIES) {
+      expect(CI_CATEGORY_LANES[category]?.length, category).toBeGreaterThan(0);
+      expect(`${ci}\n${candidate}`, category).toContain(category);
+    }
+    for (const job of Object.keys(REQUIRED_CI_JOBS)) {
+      expect(ci, `CI aggregator misses ${job}`).toMatch(new RegExp(`- ${job}(?:\\r?\\n|$)`));
+    }
+  });
+
+  it('keeps the ordinary push checkpoint bounded for many affected packages', () => {
+    const packageLanes = Array.from({ length: 12 }, (_, index) => `typecheck:@varve/pkg-${index}`);
+    const validation = selectPushValidation(
+      {
+        tiers: { 0: [], 1: [], 2: packageLanes, 3: [], 4: [] },
+        changed: { js: ['package.json'], rust: [], other: [], app: [] },
+        full: false,
+        reasons: [],
+      },
+      { files: Array.from({ length: 200 }, (_, index) => `packages/pkg-${index}/src/file.ts`) },
+    );
+    expect(validation.localBlocking).not.toEqual(expect.arrayContaining(packageLanes));
+    expect(validation.deferred).toEqual(expect.arrayContaining(packageLanes));
+    expect(validation.reasons.join('\n')).toMatch(/typecheck count/);
+  });
+
+  it('does not send website Playwright specs to the Vitest direct-file lane', () => {
+    const validation = selectPushValidation(
+      {
+        tiers: { 0: [], 1: [], 2: [], 3: [], 4: ['website-e2e'] },
+        changed: { js: [], rust: [], other: [], app: [] },
+        full: false,
+        reasons: [],
+      },
+      { files: ['apps/website/tests/e2e/contact.spec.ts'] },
+    );
+    expect(validation.localBlocking).not.toContain(
+      'js-unit:file:apps/website/tests/e2e/contact.spec.ts',
+    );
+  });
+
+  it('passes the bounded local checkpoint while explicitly deferring global certification', () => {
+    const validation = selectPushValidation(
+      {
+        tiers: { 0: [], 1: [], 2: [], 3: [], 4: [] },
+        changed: { js: [], rust: [], other: ['pnpm-lock.yaml'], app: [] },
+        full: true,
+        reasons: ['root contract fixture'],
+      },
+      { files: ['pnpm-lock.yaml'] },
+    );
+    expect(validation.localBlocking).toEqual(
+      expect.arrayContaining(['history:secrets', 'format:changed', 'lint:changed']),
+    );
+    expect(validation.remoteRequired).toEqual(
+      expect.arrayContaining(['js-unit:all', 'e2e:all', 'e2e:visual', 'desktop-native']),
+    );
+    expect(validation.deferred).toEqual(
+      expect.arrayContaining(['js-unit:all', 'e2e:all', 'e2e:visual', 'desktop-native']),
+    );
+    expect(validation.reasons.join('\n')).toMatch(/global impact/);
+  });
+
+  it('keeps orchestration remote-only even when strict local validation is requested', () => {
+    const validation = selectPushValidation(
+      {
+        tiers: { 0: [], 1: [], 2: [], 3: [], 4: [] },
+        changed: { js: ['packages/engine/src/index.ts'], rust: [], other: [], app: [] },
+        full: false,
+        reasons: [],
+      },
+      { files: ['packages/engine/src/index.ts'], strict: true },
+    );
+    expect(REMOTE_ONLY_PUSH_LANES).toContain('pipeline-validate');
+    expect(validation.localBlocking).not.toContain('pipeline-validate');
+    expect(validation.remoteRequired).toContain('pipeline-validate');
+    expect(validation.deferred).toEqual([]);
+  });
+
   it('all workspace packages are discoverable', () => {
     const pkgs = pnpmLs()
       .map((p) => p.name)
@@ -128,15 +256,27 @@ describe('validation infrastructure presence', () => {
 
   it('pre-commit stays cheap (no full-suite commands)', () => {
     const hook = readFileSync(join(ROOT, '.githooks/pre-commit'), 'utf-8');
+    expect(hook).toMatch(/verify:commit/);
     expect(hook).not.toMatch(/vitest run(?! tests\/unit\/validationPolicy)/);
     expect(hook).not.toMatch(/playwright test/);
     expect(hook).not.toMatch(/cargo test --workspace/);
   });
 
+  it('the commit driver owns staged checks and documents deferred certification', () => {
+    const driver = readFileSync(join(ROOT, 'scripts/quality/commit-checkpoint.mjs'), 'utf-8');
+    expect(driver).toMatch(/--staged/);
+    expect(driver).toMatch(/direct-unit/);
+    expect(driver).toMatch(/Deferred to integration\/candidate CI/);
+    expect(driver).not.toMatch(/playwright.*test/);
+    expect(driver).not.toMatch(/cargo test --workspace/);
+    expect(driver).not.toMatch(/vitest', 'run'\s*\]/);
+  });
+
   it('pre-push does not unconditionally force the full gate', () => {
     const hook = readFileSync(join(ROOT, '.githooks/pre-push'), 'utf-8');
-    expect(hook).toMatch(/verify:affected|verify:quick/);
-    expect(hook).toMatch(/VARVE_FULL_GATE/);
+    expect(hook).toMatch(/verify:push/);
+    expect(hook).toMatch(/VARVE_PUSH_OVERRIDE_REASON/);
+    expect(hook).not.toMatch(/verify:full|gate-full/);
   });
 
   it('CI exposes a full-validation pathway', () => {
@@ -156,6 +296,8 @@ describe('planner fixture classes', () => {
     const planner = readFileSync(join(ROOT, 'scripts/quality/affected-plan.mjs'), 'utf8');
     expect(planner).not.toContain('2>/dev/null');
     expect(planner).not.toMatch(/\|\s*tail\b/);
+    expect(planner).not.toMatch(/git diff[^\n]*\$\{base\}/);
+    expect(planner).toMatch(/execFileSync\('git'/);
   });
 
   it('normalizes mixed Windows package-manager paths to POSIX repository paths', () => {

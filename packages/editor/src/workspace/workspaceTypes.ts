@@ -295,6 +295,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'line', groupStart: true },
         { toolId: 'arrow' },
         { toolId: 'pen', groupStart: true },
+        { toolId: 'knife' },
         { toolId: 'text', groupStart: true },
         { toolId: 'frame' },
         { toolId: 'table' },
@@ -322,7 +323,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
     inspectorTabs: [
       {
         id: 'properties',
-        label: 'Properties',
+        label: 'Design',
         visible: true,
         default: true,
         group: 'primary',
@@ -391,6 +392,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'line', groupStart: true },
         { toolId: 'arrow' },
         { toolId: 'pen', groupStart: true },
+        { toolId: 'knife' },
         { toolId: 'text', groupStart: true },
         { toolId: 'frame' },
         { toolId: 'table' },
@@ -419,7 +421,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
     inspectorTabs: [
       {
         id: 'properties',
-        label: 'Properties',
+        label: 'Design',
         visible: true,
         default: true,
         group: 'primary',
@@ -486,6 +488,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'eraser' },
         { toolId: 'smudge' },
         { toolId: 'pen', groupStart: true },
+        { toolId: 'knife' },
         { toolId: 'pencil' },
         { toolId: 'line' },
         { toolId: 'arrow' },
@@ -504,7 +507,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         {
           id: 'pixel-selection',
           label: 'Pixel selection',
-          tools: ['marquee', 'ellipseMarquee', 'pixelLasso', 'selectionPaint'],
+          tools: ['marquee', 'ellipseMarquee', 'pixelLasso', 'magicWand', 'selectionPaint'],
         },
         {
           id: 'retouch',
@@ -516,7 +519,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
     inspectorTabs: [
       {
         id: 'properties',
-        label: 'Properties',
+        label: 'Design',
         visible: true,
         default: true,
         group: 'primary',
@@ -609,7 +612,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         {
           id: 'pixel-selection',
           label: 'Pixel selection',
-          tools: ['marquee', 'ellipseMarquee', 'pixelLasso', 'selectionPaint'],
+          tools: ['marquee', 'ellipseMarquee', 'pixelLasso', 'magicWand', 'selectionPaint'],
         },
         {
           id: 'retouch',
@@ -622,7 +625,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
     inspectorTabs: [
       {
         id: 'properties',
-        label: 'Properties',
+        label: 'Design',
         visible: true,
         default: true,
         group: 'primary',
@@ -724,7 +727,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       },
       {
         id: 'properties',
-        label: 'Properties',
+        label: 'Design',
         visible: true,
         group: 'primary',
         overflowPriority: 1,
@@ -789,6 +792,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'hand' },
         { toolId: 'zoom' },
         { toolId: 'pen', groupStart: true },
+        { toolId: 'knife' },
         { toolId: 'pencil' },
         { toolId: 'nodeEdit' },
         { toolId: 'text', groupStart: true },
@@ -815,7 +819,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
     inspectorTabs: [
       {
         id: 'properties',
-        label: 'Properties',
+        label: 'Design',
         visible: true,
         default: true,
         group: 'primary',
@@ -899,7 +903,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
     inspectorTabs: [
       {
         id: 'properties',
-        label: 'Properties',
+        label: 'Design',
         visible: true,
         default: true,
         group: 'primary',
@@ -983,7 +987,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
     inspectorTabs: [
       {
         id: 'properties',
-        label: 'Properties',
+        label: 'Design',
         visible: true,
         default: true,
         group: 'primary',
@@ -1147,6 +1151,37 @@ export function getVisibleInspectorTabs(
   return cfg.inspectorTabs.filter((t) => t.visible).map((t) => t.id);
 }
 
+/**
+ * Return the effective tab metadata for an id.
+ *
+ * The effective workspace config wins. A tab may be intentionally omitted
+ * from a workspace's normal tab row while still being reachable through a
+ * contextual selection or a deep link, so the fallback searches the built-in
+ * configs for the same canonical metadata instead of making the Inspector
+ * maintain a second label/order table.
+ */
+export function getInspectorTabDefinition(
+  id: InspectorTabId,
+  config?: WorkspaceConfig,
+): InspectorTabConfig | undefined {
+  const local = config?.inspectorTabs.find((tab) => tab.id === id);
+  if (local) return local;
+  for (const workspace of Object.values(WORKSPACE_CONFIGS)) {
+    const definition = workspace.inspectorTabs.find((tab) => tab.id === id);
+    if (definition) return definition;
+  }
+  return undefined;
+}
+
+/** Get visible tab metadata in the exact order declared by the config. */
+export function getVisibleInspectorTabConfigs(
+  mode: WorkspaceMode,
+  config?: WorkspaceConfig,
+): InspectorTabConfig[] {
+  const cfg = config ?? getWorkspaceConfig(mode);
+  return cfg.inspectorTabs.filter((tab) => tab.visible);
+}
+
 /** Get the default inspector tab for a mode. */
 export function getDefaultInspectorTab(
   mode: WorkspaceMode,
@@ -1159,10 +1194,11 @@ export function getDefaultInspectorTab(
 /** Get inspector tab configs grouped by visual group, preserving per-group order. */
 export function getGroupedInspectorTabs(
   mode: WorkspaceMode,
+  config?: WorkspaceConfig,
 ): Partial<Record<InspectorTabGroup, InspectorTabConfig[]>> {
-  const config = getWorkspaceConfig(mode);
+  const effectiveConfig = config ?? getWorkspaceConfig(mode);
   const groups: Partial<Record<InspectorTabGroup, InspectorTabConfig[]>> = {};
-  for (const tab of config.inspectorTabs) {
+  for (const tab of effectiveConfig.inspectorTabs) {
     if (!tab.visible) continue;
     const g = tab.group ?? 'workflow';
     if (!groups[g]) groups[g] = [];

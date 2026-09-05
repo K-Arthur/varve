@@ -9,6 +9,7 @@ vi.mock('../../../../context', () => {
   return {
     EditorCtx: createContext(null),
     useEditor: () => ({
+      state: { document: {} },
       trimToSubject: vi.fn().mockResolvedValue(undefined),
       expandImageBounds: vi.fn(),
       resetImageBounds: vi.fn(),
@@ -47,6 +48,17 @@ vi.mock('@varve/ui', () => ({
     </button>
   ),
   Icon: () => null,
+  Switch: ({ checked, onChange, disabled, 'aria-label': ariaLabel }) => (
+    <input
+      type="checkbox"
+      role="switch"
+      checked={checked}
+      aria-checked={checked}
+      onChange={onChange}
+      disabled={disabled}
+      aria-label={ariaLabel}
+    />
+  ),
   Tooltip: ({ children, label }) => <span title={label}>{children}</span>,
 }));
 
@@ -61,6 +73,7 @@ vi.mock('../../controls/DisclosureSection', () => ({
 vi.mock('@floating-ui/dom', () => ({
   computePosition: vi.fn(() => Promise.resolve({ x: 0, y: 0 })),
   autoUpdate: vi.fn(() => vi.fn()),
+  hide: vi.fn(),
 }));
 
 afterEach(cleanup);

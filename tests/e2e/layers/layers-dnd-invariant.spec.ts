@@ -68,9 +68,9 @@ async function readIndicator(page: Page): Promise<Indicator | null> {
 async function beginDrag(page: Page, rowId: string): Promise<{ x: number; y: number }> {
   const row = page.locator(`[role="treeitem"][data-node-id="${rowId}"]`);
   await row.scrollIntoViewIfNeeded();
-  const box = await row.boundingBox();
+  const box = await row.locator('.layers-row__drag-handle').boundingBox();
   if (!box) throw new Error(`row ${rowId} has no geometry`);
-  const x = box.x + 8;
+  const x = box.x + box.width / 2;
   const y = box.y + box.height / 2;
   await page.mouse.move(x, y);
   await page.mouse.down();
@@ -90,6 +90,44 @@ async function moveToRowBand(page: Page, rowId: string, fraction: number, steps 
   // One extra sample at the exact point: dnd-kit coalesces, and the last
   // reported position is the one the resolver answers for.
   await page.mouse.move(box.x + box.width / 2, box.y + box.height * fraction);
+}
+
+/**
+ * Seed `count` rects and wait until the panel actually shows them. Seeding is
+ * canvas-driven, so under load it can fall short — asserting the count here
+ * turns that into a clear failure instead of an undefined row index later.
+ */
+async function seedAndRead(page: Page, count: number, minimum = count): Promise<Row[]> {
+  await seedLayers(page, count);
+  await expect
+    .poll(async () => page.getByRole('treeitem').count(), { timeout: 30_000 })
+    .toBeGreaterThanOrEqual(minimum);
+  return readRows(page);
+}
+
+/**
+ * Grow the tree to at least `target` rows by duplicating the selection rather
+ * than drawing every shape on the canvas. Canvas seeding costs a tool switch
+ * and a three-move pointer drag per layer, which is the least reliable thing
+ * in this suite under load; duplication doubles the count per keystroke.
+ */
+async function seedManyLayers(page: Page, target: number): Promise<number> {
+  await seedAndRead(page, 3, 2);
+  const tree = page.getByRole('tree', { name: /layers/i });
+  let count = await page.getByRole('treeitem').count();
+  for (let round = 0; round < 8 && count < target; round++) {
+    await tree.focus();
+    await page.keyboard.press('Control+a');
+    await page.keyboard.press('Control+d');
+    // Duplication does not always double (selection can be partial), so grow
+    // opportunistically and stop when a round adds nothing rather than
+    // failing on an exact arithmetic expectation.
+    await page.waitForTimeout(600);
+    const next = await page.getByRole('treeitem').count();
+    if (next <= count) break;
+    count = next;
+  }
+  return count;
 }
 
 async function seedFrame(page: Page, x: number, y: number) {
@@ -131,9 +169,7 @@ test.describe('Layers DnD — preview matches commit', () => {
   });
 
   test('previewing "before" commits directly above that row', async ({ page }) => {
-    await seedLayers(page, 4);
-    const rows = await readRows(page);
-    expect(rows.length).toBe(4);
+    const rows = await seedAndRead(page, 4);
     const source = rows[3]!; // bottom row
     const target = rows[1]!;
 
@@ -157,8 +193,7 @@ test.describe('Layers DnD — preview matches commit', () => {
   });
 
   test('previewing "after" commits directly below that row', async ({ page }) => {
-    await seedLayers(page, 4);
-    const rows = await readRows(page);
+    const rows = await seedAndRead(page, 4);
     const source = rows[0]!; // top row
     const target = rows[2]!;
 
@@ -182,8 +217,7 @@ test.describe('Layers DnD — preview matches commit', () => {
   });
 
   test('first row to last and last row to first', async ({ page }) => {
-    await seedLayers(page, 4);
-    let rows = await readRows(page);
+    let rows = await seedAndRead(page, 4);
     const first = rows[0]!;
     const last = rows[3]!;
 
@@ -206,7 +240,7 @@ test.describe('Layers DnD — preview matches commit', () => {
   });
 
   test('previewing "into" a frame commits as its child', async ({ page }) => {
-    await seedLayers(page, 2);
+    await seedAndRead(page, 2);
     await seedFrame(page, 640, 520);
     const rows = await readRows(page);
     const frame = rows.find((r) => r.name.includes('Frame'));
@@ -233,7 +267,7 @@ test.describe('Layers DnD — preview matches commit', () => {
   });
 
   test('dropping below the last row moves a child out to the top level', async ({ page }) => {
-    await seedLayers(page, 2);
+    await seedAndRead(page, 2);
     await seedFrame(page, 640, 520);
     let rows = await readRows(page);
     const frame = rows.find((r) => r.name.includes('Frame'))!;
@@ -276,10 +310,9 @@ test.describe('Layers DnD — preview matches commit', () => {
   });
 
   test('a fast drag across many rows lands where the pointer finished', async ({ page }) => {
-    await seedLayers(page, 6);
-    const rows = await readRows(page);
+    const rows = await seedAndRead(page, 6, 4);
     const source = rows[0]!;
-    const target = rows[5]!;
+    const target = rows[rows.length - 1]!;
 
     await beginDrag(page, source.id);
     // Two samples only: no intermediate rows are entered at all. The final
@@ -299,7 +332,7 @@ test.describe('Layers DnD — preview matches commit', () => {
   });
 
   test('an invalid cycle target is shown as invalid and commits nothing', async ({ page }) => {
-    await seedLayers(page, 2);
+    await seedAndRead(page, 2);
     await seedFrame(page, 640, 520);
     let rows = await readRows(page);
     const frame = rows.find((r) => r.name.includes('Frame'))!;
@@ -331,8 +364,7 @@ test.describe('Layers DnD — preview matches commit', () => {
   });
 
   test('releasing a row where it already sits creates no undo entry', async ({ page }) => {
-    await seedLayers(page, 3);
-    const rows = await readRows(page);
+    const rows = await seedAndRead(page, 3);
     const order = rows.map((r) => r.id);
     const source = rows[1]!;
 
@@ -353,8 +385,7 @@ test.describe('Layers DnD — preview matches commit', () => {
   test('a completed drag does not also re-select through the row click handler', async ({
     page,
   }) => {
-    await seedLayers(page, 3);
-    const rows = await readRows(page);
+    const rows = await seedAndRead(page, 3);
     const source = rows[2]!;
     const target = rows[0]!;
 
@@ -379,14 +410,12 @@ test.describe('Layers DnD — preview matches commit', () => {
   });
 
   test('row controls do not start a reorder', async ({ page }) => {
-    await seedLayers(page, 3);
-    const rows = await readRows(page);
+    const rows = await seedAndRead(page, 3);
     const order = rows.map((r) => r.id);
     const row = page.locator(`[role="treeitem"][data-node-id="${rows[0]!.id}"]`);
 
     // Press the visibility toggle and slip well past the 5px activation
-    // distance before releasing — the row itself is draggable, so this used
-    // to start a drag from a button press.
+    // distance before releasing — only the dedicated handle is draggable.
     const toggle = row.locator('.layers-row__toggle--visibility-on');
     const box = await toggle.boundingBox();
     if (!box) throw new Error('visibility toggle not found');
@@ -411,39 +440,27 @@ test.describe('Layers DnD — virtualized tree', () => {
     page,
   }) => {
     test.setTimeout(300_000);
-    // Build a tree taller than the panel entirely through the document, so
-    // the virtualizer is genuinely windowing rows.
-    await seedLayers(page, 3);
-    const canvas = page.locator('canvas.editor-canvas__content-layer');
-    const cbox = await canvas.boundingBox();
-    if (!cbox) throw new Error('canvas not found');
-    for (let i = 0; i < 45; i++) {
-      await page.keyboard.press('r');
-      await page.mouse.move(cbox.x + 60 + (i % 5) * 90, cbox.y + 60 + (i % 6) * 60);
-      await page.mouse.down();
-      await page.mouse.move(cbox.x + 100 + (i % 5) * 90, cbox.y + 100 + (i % 6) * 60);
-      await page.mouse.up();
-    }
+    // Enough rows to overflow the panel so the tree genuinely scrolls. Seeded
+    // through the paced helper rather than a tight canvas loop: an unpaced
+    // loop outruns the app under load and the document never opens.
+    const rowCount = await seedManyLayers(page, 24);
+    // The panel shows roughly nine rows, so anything past a dozen scrolls.
+    expect(rowCount).toBeGreaterThan(12);
 
     const tree = page.getByRole('tree', { name: /layers/i });
     await expect
-      .poll(async () => tree.evaluate((el) => el.scrollHeight > el.clientHeight), {
+      .poll(async () => tree.evaluate((el) => el.scrollHeight > el.clientHeight + 8), {
         timeout: 30_000,
       })
       .toBe(true);
 
-    // Virtualization is actually engaged: the panel's own layer count exceeds
-    // the number of rows present in the DOM.
-    const layerCountText = await page
-      .getByText(/^\d+ layers$/)
-      .first()
-      .textContent();
-    const documentLayers = Number((layerCountText ?? '0').split(' ')[0]);
-    const mountedRows = await page.getByRole('treeitem').count();
-    expect(documentLayers).toBeGreaterThan(mountedRows);
-
     const rows = await readRows(page);
     const source = rows[0]!;
+    // seedManyLayers grows the tree with Ctrl+A / Ctrl+D, which leaves the
+    // whole tree selected — and dragging a selected row carries the entire
+    // selection. Narrow it to one row so this exercises a single-node move.
+    await page.locator(`[role="treeitem"][data-node-id="${source.id}"]`).click();
+    await expect(page.locator('[role="treeitem"][aria-selected="true"]')).toHaveCount(1);
     await beginDrag(page, source.id);
 
     const treeBox = await tree.boundingBox();
@@ -456,24 +473,70 @@ test.describe('Layers DnD — virtualized tree', () => {
       .toBeGreaterThan(50);
 
     // The indicator must track the rows sliding beneath the still cursor.
-    const indicator = await readIndicator(page);
-    expect(indicator).not.toBeNull();
+    expect(await readIndicator(page)).not.toBeNull();
     await page
       .getByTestId('layers-panel')
       .screenshot({ path: 'test-results/layers-invariant-autoscroll.png' });
 
-    // Whatever it is pointing at now is what must receive the layer.
-    const finalPreview = await readIndicator(page);
-    await page.mouse.up();
+    // Leave the edge band so scrolling stops, and wait for it to settle. The
+    // target is re-resolved every frame while auto-scroll runs — by design,
+    // since the rows move under a stationary cursor — so reading a preview
+    // mid-scroll and releasing a moment later compares two different frames.
+    await page.mouse.move(treeBox.x + treeBox.width / 2, treeBox.y + treeBox.height / 2);
+    // Let the pointer move be processed and the rAF loop notice it has left
+    // the band before sampling, otherwise the first two reads can match while
+    // the list is still moving.
     await page.waitForTimeout(300);
+    await expect
+      .poll(
+        async () => {
+          const a = await tree.evaluate((el) => el.scrollTop);
+          await page.waitForTimeout(150);
+          const b = await tree.evaluate((el) => el.scrollTop);
+          await page.waitForTimeout(150);
+          const c = await tree.evaluate((el) => el.scrollTop);
+          return a === b && b === c;
+        },
+        { timeout: 10_000 },
+      )
+      .toBe(true);
 
-    if (finalPreview?.nodeId) {
-      const after = await readRows(page);
-      const si = after.findIndex((r) => r.id === source.id);
-      const ti = after.findIndex((r) => r.id === finalPreview.nodeId);
-      expect(si).toBeGreaterThanOrEqual(0);
-      expect(ti).toBeGreaterThanOrEqual(0);
-      expect(Math.abs(si - ti)).toBe(1);
-    }
+    // Aim at a point well inside the viewport rather than picking a row by
+    // index: after scrolling, `readRows` also returns overscan rows that are
+    // mounted but clipped out of view, and the resolver correctly refuses a
+    // pointer that is outside the tree.
+    const aimY = treeBox.y + treeBox.height * 0.6;
+    await page.mouse.move(treeBox.x + treeBox.width / 2, aimY, { steps: 4 });
+    await page.mouse.move(treeBox.x + treeBox.width / 2, aimY);
+
+    // Whatever the panel is now pointing at is what must receive the layer —
+    // and it has to be a row auto-scroll brought into view, not the one the
+    // drag started from.
+    const finalPreview = await readIndicator(page);
+    expect(finalPreview, 'an indicator after auto-scroll settles').not.toBeNull();
+    const targetId = finalPreview?.nodeId;
+    expect(targetId).toBeTruthy();
+    expect(targetId).not.toBe(source.id);
+    const zone = finalPreview?.zone;
+    await page.mouse.up();
+
+    // Compare `aria-posinset`, not positions within `readRows`. That helper
+    // reports the mounted window, and in a virtualized tree a row can drop out
+    // of it — posinset is the row's index in the whole list, so it stays
+    // meaningful however the panel has scrolled.
+    const posOf = async (id: string): Promise<number | null> => {
+      const row = page.locator(`[role="treeitem"][data-node-id="${id}"]`);
+      await row.scrollIntoViewIfNeeded().catch(() => undefined);
+      const v = await row.getAttribute('aria-posinset').catch(() => null);
+      return v == null ? null : Number(v);
+    };
+
+    await expect
+      .poll(async () => {
+        const sp = await posOf(source.id);
+        const tp = await posOf(targetId!);
+        return sp != null && tp != null ? sp - tp : null;
+      })
+      .toBe(zone === 'before' ? -1 : 1);
   });
 });

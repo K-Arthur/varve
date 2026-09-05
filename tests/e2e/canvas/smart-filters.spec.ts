@@ -17,7 +17,11 @@ async function selectLayerInPanel(page: Page, index = 0) {
 
 /** Add an Object Filter via the inspector dropdown. */
 async function addSmartFilter(page: Page, kindLabel: string) {
-  const select = page.getByLabel('Add Object Filter');
+  const section = page.getByRole('button', { name: 'Object Filters', exact: true });
+  await section.scrollIntoViewIfNeeded();
+  if ((await section.getAttribute('aria-expanded')) !== 'true') await section.click();
+  const select = page.getByRole('combobox', { name: 'Add Object Filter' });
+  await select.scrollIntoViewIfNeeded();
   await select.click();
   await page.getByRole('option', { name: kindLabel, exact: true }).click();
   await page.waitForTimeout(200);
@@ -273,6 +277,52 @@ test.describe('Object Filters — Invert workflow', () => {
       path: 'reports/smart-filters/multi-filter-stack.png',
       clip: { x: box.x, y: box.y, width: box.width, height: box.height },
     });
+  });
+
+  test('drag handle reorders filters without hijacking stack controls', async ({ page }) => {
+    await page.keyboard.press('r');
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    await expect(canvas).toBeVisible({ timeout: 15000 });
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('Canvas not found');
+
+    await dragOnCanvas(page, 170, 140, 330, 260);
+    await page.getByRole('treeitem').first().waitFor({ timeout: 10000 });
+    await selectLayerInPanel(page, 0);
+    await addSmartFilter(page, 'Invert');
+    await addSmartFilter(page, 'Blur');
+
+    const rows = page.locator('.smart-filters__row');
+    await expect(rows).toHaveCount(2);
+    await expect(rows.nth(0).locator('.smart-filters__name')).toContainText('Invert');
+    await expect(rows.nth(1).locator('.smart-filters__name')).toContainText('Blur');
+
+    const source = rows.nth(1).locator('.smart-filters__drag-handle');
+    const target = rows.nth(0);
+    const sourceBox = await source.boundingBox();
+    if (!sourceBox) throw new Error('Smart filter drag geometry unavailable');
+
+    const startX = sourceBox.x + sourceBox.width / 2;
+    const startY = sourceBox.y + sourceBox.height / 2;
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.mouse.move(startX, startY - 12);
+    const targetBox = await target.boundingBox();
+    if (!targetBox) throw new Error('Smart filter target geometry unavailable');
+    await page.mouse.move(
+      targetBox.x + targetBox.width / 2,
+      targetBox.y + targetBox.height * 0.25,
+      { steps: 6 },
+    );
+    await expect(target).toHaveAttribute('data-sortable-over', 'true');
+    await expect(page.locator('.smart-filters__drag-overlay')).toBeVisible();
+    await page.locator('.smart-filters__stack').screenshot({
+      path: 'reports/smart-filters/drag-reorder-active.png',
+    });
+    await page.mouse.up();
+
+    await expect(rows.nth(0).locator('.smart-filters__name')).toContainText('Blur');
+    await expect(rows.nth(1).locator('.smart-filters__name')).toContainText('Invert');
   });
 
   test('inspector shows Smart Filters section for a shape', async ({ page }) => {

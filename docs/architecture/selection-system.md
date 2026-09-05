@@ -40,6 +40,7 @@ conflate "saved node group" with "saved pixel selection."
 | `MarqueeTool` (rectangle/ellipse) | `RectangleSelectionShape` / `EllipseSelectionShape` | Fixed ratio/size/from-center; shift/alt/shift+alt for add/subtract/intersect |
 | `LassoTool` → `ObjectLassoTool` adapter | node selection | Freehand + polygonal, unchanged from before this work |
 | `PixelLassoTool` (`packages/editor/src/tools/PixelLassoTool.ts`) | `PolygonSelectionShape` | Freehand + polygonal modes via the shared `LassoGesture` engine (`lassoGesture.ts`) — no duplicated gesture logic with the object lasso |
+| `MagicWandTool` (`packages/editor/src/tools/MagicWandTool.ts`) | `RasterMaskSelectionShape` | Click an image for a perceptual OKLab colour range; contiguous (four-neighbour) and global modes, tolerance, colour-range feather, and replace/add/subtract/intersect are all session controls |
 | Selection Paint / Quick Mask (`SelectionPaintTool`, `quickMask` state in `packages/editor/src/context.tsx`) | `RasterMaskSelectionShape` | Explicit Apply/Cancel session; one undo entry per completed stroke; reachable from the Photo/Draw toolbar flyout and the Pixel Selection menu |
 
 All area-selection shapes compose through `combineAreaSelections()` into a
@@ -54,11 +55,19 @@ eagerly for the whole canvas.
 `areaSelectionFromImageLuminance` (proportional coverage, optional
 `threshold`/`invert`), `areaSelectionFromColorRange` (OKLab perceptual
 distance via `@varve/shared`, `tolerance` + `feather` band, global or
-contiguous flood-fill). All produce bounded `RasterMaskSelectionShape`s over
-the image frame. Exposed as **Select from Image Alpha**, **Select from Image
-Luminance**, and **Magic Wand from Image** in the Pixel Selection menu
-(`packages/editor/src/menu/defs.ts`) and the Selection Sources panel; both
-disable themselves when the current selection isn't a single image node.
+contiguous four-neighbour flood-fill). Fully transparent pixels never produce
+coverage or bridge a contiguous range merely because their hidden RGB bytes
+match. All produce bounded `RasterMaskSelectionShape`s over the image frame.
+
+The interactive Magic Wand maps a click through the selected image's canonical
+`ImagePlacement`, then clips its result to the visible source crop before it
+enters document-space `AreaSelection`. It therefore works for placed, scaled,
+rotated, and cropped images without assuming document units are image pixels.
+Tiled fills deliberately decline destructive pixel selection: they have no one
+source-pixel-to-document affine, and a tile-aware target is required before
+that can be made safe. The pre-existing source commands remain exposed as
+**Select from Image Alpha**, **Select from Image Luminance**, and **Magic Wand
+from Image** in the Pixel Selection menu and Selection Sources panel.
 
 SAM2 subject segmentation (`Sam2SegmentationTool`) remains a separate,
 raster-mask-producing path and does **not** feed into `AreaSelection` —
@@ -77,8 +86,36 @@ Engine functions in `packages/engine/src/areaSelection.ts`:
 
 Both are exposed as **Grow / Shrink / Smooth / Threshold** and **Nudge /
 Scale / Rotate** commands in the Pixel Selection menu, each a single
-increment per invocation (repeatable via shortcut or menu re-trigger) rather
-than a live drag handle.
+increment per invocation (repeatable via shortcut or menu re-trigger).
+**Transform Selection Boundary** also activates `SelectionBoundaryTool`, a
+live move/scale/rotate interaction that transforms the `AreaSelection`
+expression only; it never changes node geometry or pixel content. Cancelling
+the gesture restores the exact initial expression.
+
+## Floating pixel transforms
+
+**Transform Pixels** is deliberately separate from selection-boundary
+transform. `FloatingTransformTool` requires both an active `AreaSelection` and
+an explicit single image target. It maps the document-space selection into the
+target's source-pixel space through `ImagePlacement`, samples fractional
+coverage into an immutable premultiplied RGBA buffer, and keeps the document
+unchanged while the user drags. The overlay preview is composed from that same
+immutable target snapshot as the final commit, so it never displays a prior
+preview frame or a double-transformed target plane.
+
+At commit, `commitFloatingSelection()` performs one authoritative
+premultiplied source-over composite. Zero-coverage source pixels are copied
+byte-for-byte; a no-motion transform is also byte-exact. The editor writes the
+result as a copy-on-write embedded image asset and records one document
+transaction, then carries the transformed `AreaSelection` forward. Escape or
+tool switching simply discards the temporary buffer, with no document mutation
+or history entry.
+
+The buffer is bounded by the selection memory policy (currently at most a
+third of the 16.7M-pixel area-selection allowance because preview, source, and
+output planes coexist). This is a safety guard, not a resampling fallback:
+oversized and tiled targets are declined until the raster tile store owns a
+tile-aware floating implementation.
 
 ## Path ↔ selection conversion
 
@@ -110,9 +147,10 @@ Selection menu for the common single-slot case.
   `multiply`/`min`/`max` with numeric soft-edge composition, distinct from
   the analytical `combineAreaSelections()`) has no editor UI. Nothing in
   `packages/editor/src` currently calls it.
-- **No live transform handle.** Selection transform is increment-per-command
-  (nudge/scale-step/rotate-step); there is no draggable on-canvas handle for
-  the selection boundary itself.
+- **Floating pixels currently target one embedded image fill.** Raster layers,
+  linked assets, and tiled fills need their own transactional, tile-aware
+  target adapters; this implementation intentionally does not pretend that
+  rewriting an image asset is equivalent to editing those sources.
 - **Marching-ants boundary segment cap.** `selectionMask.ts`'s
   `MAX_BOUNDARY_SEGMENTS` (250,000) can truncate the visualized boundary for
   very complex raster masks; the underlying selection is unaffected, only its

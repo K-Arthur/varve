@@ -68,6 +68,46 @@ test.describe('Layers Panel - Multi-Page', () => {
     expect(afterCount).toBe(beforeCount + 1);
   });
 
+  test('dragging a page tab reorders pages through the shared sortable surface', async ({
+    page,
+  }) => {
+    const addBtn = page.locator('.page-nav__add-btn');
+    await addBtn.click();
+    await addBtn.click();
+
+    const tabs = page.locator(
+      '[role="tablist"][aria-label="Publishing page navigator"] [role="tab"]',
+    );
+    await expect(tabs).toHaveCount(3);
+    const source = tabs.nth(2);
+    const target = tabs.nth(0);
+    const sourceBox = await source.boundingBox();
+    const targetBox = await target.boundingBox();
+    if (!sourceBox || !targetBox) throw new Error('Page tab drag geometry unavailable');
+
+    const startX = sourceBox.x + sourceBox.width / 2;
+    const startY = sourceBox.y + sourceBox.height / 2;
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.mouse.move(startX + 12, startY);
+    await page.mouse.move(
+      targetBox.x + targetBox.width * 0.25,
+      targetBox.y + targetBox.height / 2,
+      {
+        steps: 6,
+      },
+    );
+    await expect(page.locator('.page-nav__drag-overlay')).toBeVisible();
+    await page.locator('.page-nav-container').screenshot({
+      path: 'test-results/page-nav-drag-reorder-active.png',
+    });
+    await page.mouse.up();
+
+    await expect(tabs.nth(0)).toHaveAttribute('aria-label', /Page 3/);
+    await expect(tabs.nth(1)).toHaveAttribute('aria-label', /Page 1/);
+    await expect(tabs.nth(2)).toHaveAttribute('aria-label', /Page 2/);
+  });
+
   test('deleting a page removes its thumbnail', async ({ page }) => {
     // Add a second page first
     const addBtn = page.locator('.page-nav__add-btn');

@@ -115,7 +115,8 @@ describe('Cross-cutting integration: Items 1-5', () => {
     expect(srcNode.liveTrace!.resolvedAt).toBeGreaterThan(0);
 
     // Derived node exists
-    const derivedIds = Object.keys(baked.nodes).filter((id) => id.startsWith('derived_'));
+    const originalIds = new Set(Object.keys(withResolved.nodes));
+    const derivedIds = Object.keys(baked.nodes).filter((id) => !originalIds.has(id));
     expect(derivedIds.length).toBe(1);
 
     const derivedNode = baked.nodes[derivedIds[0]!] as ShapeNode;

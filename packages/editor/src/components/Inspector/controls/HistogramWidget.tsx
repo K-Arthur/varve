@@ -352,7 +352,7 @@ export function HistogramWidget({
           width: '100%',
           height: HEIGHT,
           background: 'var(--color-surface-sunken)',
-          borderRadius: 'var(--radius-sm)',
+          borderRadius: 'var(--radius-control-compact)',
           cursor: dragType ? 'ew-resize' : 'default',
           touchAction: 'none',
         }}

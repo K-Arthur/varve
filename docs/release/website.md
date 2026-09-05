@@ -1,13 +1,22 @@
 # Varve — Website Architecture and Launch Plan
 
-**Date:** 2026-08-04 (updated 2026-08-12)
-**Status:** implemented, deployed and live at **https://varve.studio** (custom domain, registered and DNS at Porkbun, hosted on GitHub Pages). See `custom-domain-runbook.md` for the DNS records, GitHub configuration and rollback.
+**Last verified:** 2026-09-02
+**Status:** implemented and deployed at **https://varve.studio** (custom
+domain, registered and DNS at Porkbun, hosted on GitHub Pages). The current
+published release is v0.2.1. See `custom-domain-runbook.md` for the DNS
+records, GitHub configuration and rollback.
+
+The current public-message and discovery contract is maintained separately in
+[`docs/marketing/positioning-and-discovery.md`](../marketing/positioning-and-discovery.md).
+Update that brief when a core product fact, audience priority, search intent,
+or public claim changes; keep this document focused on website architecture and
+release-data flow.
 
 ---
 
 ## 1. What already existed
 
-A complete Astro 7 site under `apps/website` — 42 pages covering product,
+A complete Astro 7 site under `apps/website` — 69 routes covering product,
 features, docs, support, licensing, privacy and security. Reusing it was the
 right call; almost none of it needed rewriting.
 
@@ -42,7 +51,7 @@ apps/website/
     │   ├── sitemap.xml.ts           generated from site + base + page files
     │   ├── robots.txt.ts            generated from site + base (sitemap URL)
     │   ├── 404.astro
-    │   └── … 40 more
+    │   └── … remaining routes
     └── test/                        guards manifest honesty + URL rules
 ```
 
@@ -67,12 +76,13 @@ release.yml  →  dist/release/release-manifest.json + SHA256SUMS.txt + SBOMs
                         │      • any failure FAILS the deployment
                         │      ▼
                         └─ offline path (rehearsal/local)
-                             update-website-manifest.mjs --tag v0.1.0
+                             fetch-website-release.mjs --tag v0.2.1
                               │
                               ▼
-    apps/website/src/data/release-manifest.json      (written at build time;
-                                                       committed fallback is the
-                                                       honest no-release state)
+    apps/website/src/data/release-manifest.json      (generated snapshot;
+                                                       refreshed from the latest
+                                                       published release for CI
+                                                       and local fallback builds)
                         │
                         ▼
     download.astro  →  cards, sizes, checksums, per-platform install steps
@@ -121,9 +131,11 @@ assets 404, and `fetch-website-release.mjs` only considers published releases.
 This is the "publish update metadata last" invariant in action: a client can
 never see version X advertised before X's assets and signatures exist.
 
-`hasRelease: false` is a first-class rendered state: before the first tag, the
-page says there is nothing to download and warns against Varve-branded builds
-from elsewhere. This is the default committed state today.
+`hasRelease: false` is a first-class rendered state for a new repository before
+the first published tag. The current committed snapshot is v0.2.1 and was
+generated from the published release; it remains available for local builds
+when GitHub is not queried. The deployment workflow refreshes it from the
+published release before building the public site.
 
 ---
 
@@ -135,15 +147,15 @@ from elsewhere. This is the default committed state today.
 | Cloudflare Pages | Free | Genuine alternative: unlimited bandwidth, deploy previews, works with a private repo. Adds a second vendor and a second place credentials live. Switch if Pages bandwidth or repo visibility becomes a real constraint |
 | Anything else | — | No material advantage |
 
-**Deployment** is `.github/workflows/website-deploy.yml`: pushes touching
-`apps/website/**` or `scripts/release/**`, plus a `workflow_run` trigger
-fired by the Release workflow's `completed` event (the download page is
-rebuilt from the exact published assets), plus manual
-dispatch. The workflow runs the full quality gate (typecheck, unit tests,
-both-mode builds, axe/link e2e) before uploading, and smoke-checks the live
-URL after deploying (`scripts/website/smoke-pages.mjs`). With a custom domain
-later, set `SITE_URL` and `SITE_BASE: /` — no source change; see
-`custom-domain-runbook.md`.
+**Deployment** is `.github/workflows/website-deploy.yml`: website-source
+changes run the website quality corpus; a successful published Release sends a
+protected `repository_dispatch` containing the exact tag and SHA. That release
+path validates release data, builds the site, scans the artifact, deploys, and
+runs the bounded live smoke test without repeating the complete website
+functional/a11y/visual corpus. A guarded `workflow_run` fallback preserves the
+branch-protection architecture and applies the same published-state check.
+With a custom domain later, set `SITE_URL` and `SITE_BASE: /` — no source
+change; see `custom-domain-runbook.md`.
 
 GitHub Pages cannot set arbitrary security headers (`_headers` files are
 ignored there — the old `public/_headers` was removed). CSP is enforced via
@@ -230,6 +242,12 @@ The repo already runs axe-core through Playwright. The route-wide
 computed-style contrast audit (`apps/website/tests/e2e/visibility.spec.ts`)
 and the axe suite cover the site in both deployment modes:
 
+The broader platform audit and its honest environment limits are recorded in
+[`platform-ux-accessibility-responsiveness-audit-2026-09-02.md`](../../docs/audits/platform-ux-accessibility-responsiveness-audit-2026-09-02.md).
+The implementation baseline is WCAG 2.2 AA; the website assumes the last two
+major browser versions and treats physical-device/screen-reader certification
+as a separate test pass.
+
 - [x] Keyboard-only path through the download flow, including the platform tabs
       (arrow-key tablist navigation, Home/End, focus management)
 - [x] Platform tabs expose `role="tablist"`/`role="tab"`/`aria-selected`/`aria-controls`
@@ -241,7 +259,10 @@ and the axe suite cover the site in both deployment modes:
 - [x] Headings form a sensible outline; one `<h1>` per page (axe rule)
 - [x] Checksum `<details>` blocks are reachable and announced
 - [x] 320 px viewport has no horizontal scroll (structural visibility audit)
+- [x] Marketing routes reflow without page-level overflow at 320/375/430/480/600/768/900/1280/1920 px
 - [x] Prefers-reduced-motion respected (theme test + reduced-motion emulation)
+- [x] Touch-sized theme and mobile-menu targets use 44px boxes on coarse-pointer devices
+- [x] Marketing mobile menu keeps focus contained and restores focus on close
 
 Target WCAG 2.2 AA — enforced by the CI website e2e gate.
 
@@ -255,7 +276,7 @@ Target WCAG 2.2 AA — enforced by the CI website e2e gate.
 - [x] Real screenshots added (2026-08-09)
 - [x] Accessibility pass (§6)
 - [x] Mobile layout checked at 320/375/768 px (e2e)
-- [x] Download page verified against a **real** release manifest (v0.1.0, published 2026-08-09)
+- [x] Download page verified against a **real** release manifest (v0.2.1, published 2026-08-25)
 - [x] Every checksum on the page matches the published artifact
 - [x] Privacy, licence and security pages re-read for accuracy
 - [x] Post-deployment smoke check wired into the workflow (`scripts/website/smoke-pages.mjs`)

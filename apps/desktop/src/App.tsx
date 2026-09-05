@@ -53,6 +53,7 @@ const bootPlatform = detectPlatform();
 export function App() {
   const [view, setView] = useState<'home' | 'editor'>('home');
   const [editorMounted, setEditorMounted] = useState(false);
+  const [editorReady, setEditorReady] = useState(false);
   const [openRequest, setOpenRequest] = useState<OpenFileRequest | null>(null);
   const [homeReady, setHomeReady] = useState(false);
   const [homeSettingsOpen, setHomeSettingsOpen] = useState(false);
@@ -305,12 +306,14 @@ export function App() {
       }));
       markEditorStateInitialized();
       setEditorMounted(true);
+      setEditorReady(false);
       setView('editor');
       pendingEditorMilestone.current?.();
       pendingEditorMilestone.current = afterFirstVisiblePaint(
         '.editor-canvas__content-layer',
         () => {
           onEditorReady();
+          setEditorReady(true);
           measure('varve-editor-first-visible-canvas', 'editor_state_initialized');
           window.dispatchEvent(new CustomEvent('varve:ready', { detail: { mode: 'editor' } }));
         },
@@ -355,6 +358,7 @@ export function App() {
   }, [handleOsFileOpen]);
 
   const handleBackToHome = useCallback(() => {
+    setEditorReady(false);
     setView('home');
   }, []);
 
@@ -371,12 +375,14 @@ export function App() {
       }));
       markEditorStateInitialized();
       setEditorMounted(true);
+      setEditorReady(false);
       setView('editor');
       pendingEditorMilestone.current?.();
       pendingEditorMilestone.current = afterFirstVisiblePaint(
         '.editor-canvas__content-layer',
         () => {
           onEditorReady();
+          setEditorReady(true);
           measure('varve-editor-first-visible-canvas', 'editor_state_initialized');
           window.dispatchEvent(new CustomEvent('varve:ready', { detail: { mode: 'editor' } }));
         },
@@ -398,6 +404,7 @@ export function App() {
   }, [demo.config.active]);
 
   const handleResumeEditing = useCallback(() => {
+    setEditorReady(true);
     setView('editor');
     onEditorReady();
   }, [onEditorReady]);
@@ -478,7 +485,10 @@ export function App() {
           </SettingsProvider>
         </div>
         {editorMounted && (
-          <div style={surfaceStyle(view === 'editor')}>
+          <div
+            style={surfaceStyle(view === 'editor')}
+            data-varve-editor-ready={editorReady ? 'true' : undefined}
+          >
             <Shell
               onBackToHome={handleBackToHome}
               openFile={openRequest}

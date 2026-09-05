@@ -7,8 +7,17 @@
  * overlay rendering here instead of managing it inline.
  */
 
-import type { AreaSelection, AreaSelectionExpression } from '@varve/engine';
-import { computeImagePlacement } from '@varve/engine';
+import type {
+  AreaSelection,
+  AreaSelectionExpression,
+  FloatingRasterSelection,
+} from '@varve/engine';
+import {
+  commitFloatingSelection,
+  computeImagePlacement,
+  floatingTransformBounds,
+  floatingTransformedSelection,
+} from '@varve/engine';
 import {
   canBeClipMaskSource,
   type Document,
@@ -25,7 +34,7 @@ import {
   getWorldTransform as getCachedWorldTransform,
 } from '../scene/transformCache';
 import { nodeLocalBounds } from '../scene/world';
-import type { PenConstructionDraft } from '../tools/types';
+import type { PenConstructionDraft, PredictedStrokeDraft } from '../tools/types';
 import { applyEditorCameraToCtx } from './cameraState';
 import { resizeCanvasBackingStore } from './canvasSurface';
 import { computeGridLines, renderGridOnCtx, resolveCanvasColor } from './gridRenderer';
@@ -45,7 +54,9 @@ export interface UseOverlayDrawOptions {
   accentColorRef: MutableRefObject<string>;
   sunkenColorRef: MutableRefObject<string>;
   draft: unknown | null;
+  objectSelectionSession: EditorState['objectSelectionSession'];
   areaSelection: AreaSelection | null | undefined;
+  floatingRaster: FloatingRasterSelection | null | undefined;
   dropTargetFrameId: NodeId | null;
   maskDropTargetId: NodeId | null;
 }
@@ -137,6 +148,69 @@ function drawAreaSelectionBoundary(
   ctx.beginPath();
   traceAreaSelectionBoundary(ctx, selection.expression);
   ctx.stroke();
+  ctx.restore();
+}
+
+const floatingPreviewCache = new WeakMap<FloatingRasterSelection, HTMLCanvasElement>();
+
+function floatingPreviewCanvas(floating: FloatingRasterSelection): HTMLCanvasElement | null {
+  const cached = floatingPreviewCache.get(floating);
+  if (cached) return cached;
+  if (typeof document === 'undefined') return null;
+  const preview = commitFloatingSelection(floating);
+  if (!preview) return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = preview.width;
+  canvas.height = preview.height;
+  const context = canvas.getContext('2d');
+  if (!context) return null;
+  context.putImageData(
+    new ImageData(new Uint8ClampedArray(preview.compositedPixels), preview.width, preview.height),
+    0,
+    0,
+  );
+  floatingPreviewCache.set(floating, canvas);
+  return canvas;
+}
+
+/**
+ * Preview is drawn from the same immutable target snapshot used by commit.
+ * The normal renderer stays untouched during the gesture; this full visible
+ * target replacement avoids a cut-out source plus a progressively resampled
+ * destination frame.
+ */
+function drawFloatingRasterPreview(
+  ctx: CanvasRenderingContext2D,
+  floating: FloatingRasterSelection,
+  zoom: number,
+): void {
+  const canvas = floatingPreviewCanvas(floating);
+  if (!canvas) return;
+  // `commitFloatingSelection` has already applied `floating.transform` while
+  // composing the temporary target image. Draw that image in its normal image
+  // placement; transforming this canvas again would move its entire target
+  // plane twice and disagree with the asset written on commit.
+  const localToDocument = floating.sourceToDocument;
+  ctx.save();
+  ctx.transform(...localToDocument);
+  ctx.beginPath();
+  ctx.rect(
+    floating.visibleSourceRect.x,
+    floating.visibleSourceRect.y,
+    floating.visibleSourceRect.w,
+    floating.visibleSourceRect.h,
+  );
+  ctx.clip();
+  ctx.imageSmoothingEnabled = floating.interpolation !== 'nearest';
+  ctx.drawImage(canvas, 0, 0);
+  ctx.restore();
+
+  const bounds = floatingTransformBounds(floating);
+  ctx.save();
+  ctx.strokeStyle = 'rgba(35, 144, 255, 0.95)';
+  ctx.lineWidth = 1 / zoom;
+  ctx.setLineDash([5 / zoom, 3 / zoom]);
+  ctx.strokeRect(bounds.x, bounds.y, bounds.w, bounds.h);
   ctx.restore();
 }
 
@@ -233,7 +307,8 @@ function drawObjectSelectionPrompts(
 ): void {
   ctx.save();
   ctx.lineWidth = 2 / zoom;
-  for (const point of session.points) {
+  const points = session.draftPoint ? [...session.points, session.draftPoint] : session.points;
+  for (const point of points) {
     const positive = point.label === 1;
     ctx.fillStyle = positive ? 'rgba(32,160,255,0.95)' : 'rgba(236,72,153,0.95)';
     ctx.strokeStyle = 'rgba(255,255,255,0.95)';
@@ -247,15 +322,24 @@ function drawObjectSelectionPrompts(
     ctx.textBaseline = 'middle';
     ctx.fillText(positive ? '+' : '−', point.x, point.y);
   }
-  if (session.box) {
-    const x = Math.min(session.box.x1, session.box.x2);
-    const y = Math.min(session.box.y1, session.box.y2);
-    const w = Math.abs(session.box.x2 - session.box.x1);
-    const h = Math.abs(session.box.y2 - session.box.y1);
-    ctx.strokeStyle = 'rgba(32,160,255,0.95)';
-    ctx.setLineDash([6 / zoom, 4 / zoom]);
+  const box = session.draftBox ?? session.box;
+  if (box) {
+    const x = Math.min(box.x1, box.x2);
+    const y = Math.min(box.y1, box.y2);
+    const w = Math.abs(box.x2 - box.x1);
+    const h = Math.abs(box.y2 - box.y1);
+    // A dark under-stroke remains visible over both light imagery and the
+    // selection preview. Draft boxes are dashed; committed boxes are solid.
+    ctx.strokeStyle = 'rgba(7, 17, 27, 0.9)';
+    ctx.lineWidth = 4 / zoom;
+    ctx.setLineDash(session.draftBox ? [7 / zoom, 5 / zoom] : []);
+    ctx.strokeRect(x, y, w, h);
+    ctx.strokeStyle = 'rgba(32,160,255,0.98)';
+    ctx.lineWidth = 2 / zoom;
+    ctx.setLineDash(session.draftBox ? [7 / zoom, 5 / zoom] : []);
     ctx.strokeRect(x, y, w, h);
   }
+  ctx.setLineDash([]);
   ctx.restore();
 }
 
@@ -266,7 +350,9 @@ export function useOverlayDraw({
   displayDpr,
   accentColorRef,
   draft,
+  objectSelectionSession,
   areaSelection,
+  floatingRaster,
   dropTargetFrameId,
   maskDropTargetId,
 }: UseOverlayDrawOptions): () => void {
@@ -395,8 +481,14 @@ export function useOverlayDraw({
     // ── Pixel-area selection boundary ──────────────────────────────────
     // This is an overlay-only visualization. The analytical expression is
     // never baked into the scene or export output.
-    if (s.areaSelection) {
-      drawAreaSelectionBoundary(ctx, s.areaSelection, s.zoom, areaSelectionPhaseRef.current);
+    if (s.floatingRaster) {
+      drawFloatingRasterPreview(ctx, s.floatingRaster, s.zoom);
+    }
+    const displayedAreaSelection = s.floatingRaster
+      ? floatingTransformedSelection(s.floatingRaster)
+      : s.areaSelection;
+    if (displayedAreaSelection) {
+      drawAreaSelectionBoundary(ctx, displayedAreaSelection, s.zoom, areaSelectionPhaseRef.current);
     }
 
     // ── Subject picker highlight overlay ─────────────────────────────────
@@ -669,6 +761,23 @@ export function useOverlayDraw({
       };
 
       switch (d.kind) {
+        case 'predicted-stroke': {
+          const prediction = d as unknown as PredictedStrokeDraft;
+          ctx.save();
+          ctx.setLineDash([]);
+          ctx.globalAlpha = 0.4;
+          ctx.fillStyle = `rgba(${prediction.color[0]}, ${prediction.color[1]}, ${prediction.color[2]}, ${prediction.color[3] / 255})`;
+          ctx.transform(...prediction.transform);
+          for (const dab of prediction.dabs) {
+            if (dab.opacity <= 0 || dab.radius <= 0) continue;
+            ctx.globalAlpha = Math.min(0.4, Math.max(0, dab.opacity * 0.4));
+            ctx.beginPath();
+            ctx.ellipse(dab.x, dab.y, dab.radius, dab.radius, 0, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
+          break;
+        }
         case 'bezier-path':
           drawPenConstructionPreview(
             ctx,
@@ -779,7 +888,7 @@ export function useOverlayDraw({
           ctx.fillStyle = accentColor;
           ctx.fillText(d.label ?? `${d.pts.length} pts`, sx2 + 4, sy2 + 14);
         }
-      } else if (d.kind !== 'bezier-path') {
+      } else if (d.kind !== 'bezier-path' && d.kind !== 'predicted-stroke') {
         const worldX = d.kind === 'line' || d.kind === 'arrow' ? Math.min(d.x1, d.x2) : d.x;
         const worldY = d.kind === 'line' || d.kind === 'arrow' ? Math.min(d.y1, d.y2) : d.y;
         const sx2 = (worldX - s.pan.x) * s.zoom + cssW / 2;
@@ -801,7 +910,9 @@ export function useOverlayDraw({
     displayDpr,
     accentColorRef,
     draft,
+    objectSelectionSession,
     areaSelection,
+    floatingRaster,
     dropTargetFrameId,
     maskDropTargetId,
   ]);

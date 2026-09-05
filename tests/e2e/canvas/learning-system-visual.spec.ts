@@ -10,6 +10,25 @@
 import { expect, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
 
+async function waitForRectanglePainted(page: import('@playwright/test').Page) {
+  await expect(page.getByRole('treeitem', { name: /Rectangle 1/ })).toBeVisible();
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const canvas = document.querySelector(
+            'canvas.editor-canvas__content-layer',
+          ) as HTMLCanvasElement | null;
+          const context = canvas?.getContext('2d');
+          if (!canvas || !context || canvas.width < 476 || canvas.height < 301) return false;
+          const pixel = context.getImageData(475, 300, 1, 1).data;
+          return pixel[1]! > 100 && pixel[0]! < 150 && pixel[2]! > 100;
+        }),
+      { timeout: 10000 },
+    )
+    .toBe(true);
+}
+
 test.describe('Learning system visual regression', () => {
   test.describe.configure({ mode: 'serial' });
 
@@ -99,6 +118,7 @@ test.describe('Learning system visual regression', () => {
       await page.mouse.up();
       await page.waitForTimeout(300);
     }
+    await waitForRectanglePainted(page);
     await page.keyboard.press('Escape');
     await page.waitForTimeout(200);
     // Switch to dark mode
@@ -107,6 +127,7 @@ test.describe('Learning system visual regression', () => {
       document.documentElement.dataset.theme = 'dark';
     });
     await page.waitForTimeout(500);
+    await waitForRectanglePainted(page);
     // Capture dark mode
     await expect(canvas).toHaveScreenshot('dark-mode-editor.png', { maxDiffPixels: 200 });
   });

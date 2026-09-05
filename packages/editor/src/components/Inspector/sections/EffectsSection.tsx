@@ -309,7 +309,10 @@ export function EffectsSection({ nodes }: EffectsSectionProps) {
   const countMixed = !effectNodes.every((n) => n.effects.length === minEffects);
 
   return (
-    <DisclosureSection title="Layer Effects">
+    <DisclosureSection
+      title="Layer Effects"
+      defaultExpanded={effectNodes.some((n) => n.effects.length > 0)}
+    >
       {effectNodes.every((n) => n.effects.length === 0) ? (
         <div className="insp-empty-message">No effects</div>
       ) : (

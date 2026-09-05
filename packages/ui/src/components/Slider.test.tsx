@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Slider } from './Slider';
 
 describe('Slider', () => {
@@ -95,5 +95,67 @@ describe('Slider', () => {
     });
     fireEvent.click(track, { clientX: 50 });
     expect(Math.abs(val - 50)).toBeLessThanOrEqual(1);
+  });
+
+  it('renders numeric input when showInput is true', () => {
+    const onChange = () => {};
+    render(<Slider value={42} min={0} max={100} label="Volume" onChange={onChange} showInput />);
+    const input = screen.getByRole('spinbutton', { name: 'Volume' });
+    expect(input).toBeDefined();
+    expect((input as HTMLInputElement).value).toBe('42');
+  });
+
+  it('numeric input calls onChange with typed value', () => {
+    let val = 50;
+    const onChange = (v: number) => {
+      val = v;
+    };
+    render(<Slider value={50} min={0} max={100} label="Test" onChange={onChange} showInput />);
+    const input = screen.getByRole('spinbutton', { name: 'Test' });
+    fireEvent.change(input, { target: { value: '75' } });
+    expect(val).toBe(75);
+  });
+
+  it('clamps numeric input value to min/max', () => {
+    let val = 50;
+    const onChange = (v: number) => {
+      val = v;
+    };
+    render(<Slider value={50} min={0} max={100} label="Test" onChange={onChange} showInput />);
+    const input = screen.getByRole('spinbutton', { name: 'Test' });
+    fireEvent.change(input, { target: { value: '200' } });
+    expect(val).toBe(100);
+    fireEvent.change(input, { target: { value: '-10' } });
+    expect(val).toBe(0);
+  });
+
+  it('renders reset button when onReset is provided', () => {
+    const onReset = vi.fn();
+    render(
+      <Slider value={50} min={0} max={100} label="Test" onChange={() => {}} onReset={onReset} />,
+    );
+    const resetBtn = screen.getByRole('button', { name: 'Reset Test' });
+    expect(resetBtn).toBeDefined();
+    fireEvent.click(resetBtn);
+    expect(onReset).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not render reset button when onReset is absent', () => {
+    render(<Slider value={50} min={0} max={100} label="Test" onChange={() => {}} />);
+    expect(screen.queryByRole('button', { name: 'Reset Test' })).toBeNull();
+  });
+
+  it('applies size class when size prop is set', () => {
+    const { container } = render(
+      <Slider value={50} min={0} max={100} label="Test" onChange={() => {}} size="lg" />,
+    );
+    expect(container.firstChild).toHaveClass('varve-slider--lg');
+  });
+
+  it('shows value text when showInput is false (default)', () => {
+    const onChange = () => {};
+    render(<Slider value={60} min={0} max={100} label="Test" onChange={onChange} />);
+    expect(screen.getByText('60')).toBeDefined();
+    expect(screen.queryByRole('spinbutton')).toBeNull();
   });
 });

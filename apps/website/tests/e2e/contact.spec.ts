@@ -60,9 +60,11 @@ test('mail links carry no body payload or personal data', async ({ page }) => {
 test('the contact page is reachable from the site header and footer', async ({ page }) => {
   await page.goto('/');
 
-  await page
-    .getByRole('navigation', { name: 'Main' })
-    .getByRole('link', { name: 'Contact' })
+  const mainNav = page.getByRole('navigation', { name: 'Main' });
+  await mainNav.getByRole('button', { name: 'Support', exact: true }).click();
+  await mainNav
+    .getByRole('menu', { name: 'Support menu' })
+    .getByRole('menuitem', { name: /^Contact\b/ })
     .click();
   await expect(page).toHaveURL(/\/contact\/?$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Contact Varve' })).toBeVisible();

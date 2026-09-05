@@ -13,7 +13,7 @@ use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
-use tauri::{AppHandle, Emitter, Manager, RunEvent, Wry, Window, WindowEvent};
+use tauri::{AppHandle, Emitter, Manager, RunEvent, Window, WindowEvent, Wry};
 
 /// One-shot close/exit authorization tokens, scoped per window label.
 #[derive(Default)]

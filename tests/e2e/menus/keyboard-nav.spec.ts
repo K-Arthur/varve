@@ -97,6 +97,10 @@ test.describe('Menu keyboard navigation', () => {
 
     await page.keyboard.press('ArrowDown');
     const secondLabel = await items.nth(1).textContent();
+    // Wait for the roving-focus effect before sending the reverse key. Without
+    // this checkpoint, a busy browser can process ArrowUp before ArrowDown's
+    // focus handoff, making the assertion observe the intermediate item.
+    await expect(items.nth(1)).toBeFocused();
     void secondLabel;
 
     await page.keyboard.press('ArrowUp');
@@ -217,10 +221,10 @@ test.describe('Menu keyboard navigation', () => {
     expect(activeFirst).toBe(firstSubLabel);
 
     await page.keyboard.press('ArrowDown');
-    const secondLabel2 = await subItems.nth(1).textContent();
-    void secondLabel2;
+    await expect(subItems.nth(1)).toBeFocused();
 
     await page.keyboard.press('ArrowUp');
+    await expect(subItems.first()).toBeFocused();
     const backToFirst = await page.evaluate(() => document.activeElement?.textContent ?? '');
     expect(backToFirst).toBe(firstSubLabel);
 
@@ -393,7 +397,7 @@ test.describe('Menu keyboard navigation', () => {
     await expect(menubar).toHaveAttribute('aria-label', 'Application');
 
     const fileItem = menubar.locator('[role="menuitem"]', { hasText: 'File' });
-    await expect(fileItem).toHaveAttribute('aria-haspopup', 'true');
+    await expect(fileItem).toHaveAttribute('aria-haspopup', 'menu');
 
     await fileItem.click();
     await expect(fileItem).toHaveAttribute('aria-expanded', 'true');

@@ -58,7 +58,7 @@ const HISTORICAL_EXACT = [
   'docs/brand/varve-brand-guide.md', // superseded v1.0 guide — describes the pre-rename asset names
 ];
 // These are CURRENT docs despite living under plans/ (they are operating guides).
-const CURRENT_EXACT = ['docs/plans/website-operations-guide.md'];
+const CURRENT_EXACT = [];
 
 // Banned references in current-state docs. Each entry: [label, RegExp].
 const BANNED = [

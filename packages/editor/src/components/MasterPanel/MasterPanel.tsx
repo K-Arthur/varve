@@ -198,7 +198,7 @@ export function MasterPanel() {
                           `Delete master "${master.name}"?`,
                           {
                             confirmLabel: 'Delete',
-                            variant: 'danger',
+                            variant: 'destructive',
                           },
                         )
                       ) {

@@ -15,18 +15,15 @@ import '@fontsource-variable/ibm-plex-sans/index.css';
 
 import { ErrorBoundary } from '@varve/editor';
 import { AuxiliaryRoot } from '@varve/editor/auxiliary';
+import { initializeThemeLifecycle } from '@varve/ui/tokens';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { dismissBootFallback } from './startup/revealMainWindow';
 
+initializeThemeLifecycle();
+
 async function bootstrapAuxiliary() {
   dismissBootFallback();
-
-  // Restore persisted theme before first paint
-  const savedTheme = localStorage.getItem('varve-theme') ?? localStorage.getItem('strata-theme');
-  if (savedTheme === 'dark' || savedTheme === 'light' || savedTheme === 'high-contrast') {
-    document.documentElement.dataset.theme = savedTheme;
-  }
 
   const root = document.getElementById('root');
   if (!root) throw new Error('Root element not found');

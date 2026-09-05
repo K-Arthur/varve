@@ -36,6 +36,10 @@ export interface ModelManifestEntry {
   sourceModelId?: string;
   /** SHA-256 of the FP32 source at quantization time (provenance). */
   sourceSha256?: string;
+  /** SHA-256 of the upstream artifact before an optional repair transform. */
+  upstreamChecksum?: string;
+  /** Optional post-download transform required before the model is usable. */
+  repair?: 'sam2-empty-value-info';
   notes?: string;
 }
 
@@ -53,6 +57,8 @@ function toLegacyEntry(e: InfModelManifestEntry): ModelManifestEntry {
     bundled: e.bundled,
     remoteUrl: e.remoteUrl,
     remoteDataUrl: e.remoteDataUrl,
+    upstreamChecksum: e.upstreamChecksum,
+    repair: e.repair,
     precision: e.precision as 'fp32' | 'int8' | undefined,
     sourceModelId: e.sourceModelId,
     sourceSha256: e.sourceSha256,

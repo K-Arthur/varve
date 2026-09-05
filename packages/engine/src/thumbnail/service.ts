@@ -9,6 +9,7 @@
  * `@varve/editor/src/thumbnail/`.
  */
 
+import { textMeasureRevision } from '@varve/shared';
 import { createEngine } from '../engine';
 import { type CachedImage, getImageCache } from '../imageCache';
 import { resolveImageResourceHandle } from '../imageResourceRegistry';
@@ -89,6 +90,40 @@ function nodeLocalBounds(node: SceneNode): { x: number; y: number; w: number; h:
         w: shape.outerRadius * 2,
         h: shape.outerRadius * 2,
       };
+    case 'path': {
+      const points = shape.points;
+      if (!points || points.length === 0) return null;
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+      for (const p of points) {
+        minX = Math.min(minX, p.x);
+        minY = Math.min(minY, p.y);
+        maxX = Math.max(maxX, p.x);
+        maxY = Math.max(maxY, p.y);
+        if (p.handleIn) {
+          minX = Math.min(minX, p.handleIn[0]);
+          minY = Math.min(minY, p.handleIn[1]);
+          maxX = Math.max(maxX, p.handleIn[0]);
+          maxY = Math.max(maxY, p.handleIn[1]);
+        }
+        if (p.handleOut) {
+          minX = Math.min(minX, p.handleOut[0]);
+          minY = Math.min(minY, p.handleOut[1]);
+          maxX = Math.max(maxX, p.handleOut[0]);
+          maxY = Math.max(maxY, p.handleOut[1]);
+        }
+      }
+      if (minX === Infinity) return null;
+      const tolerance = shape.tolerance ?? 1;
+      return {
+        x: minX - tolerance,
+        y: minY - tolerance,
+        w: maxX - minX + tolerance * 2,
+        h: maxY - minY + tolerance * 2,
+      };
+    }
     default:
       return null;
   }
@@ -201,10 +236,13 @@ function simpleHash(input: string): string {
 
 function computeCacheKey(nodes: SceneNode[], opts: ThumbnailOptions): string {
   const contentKey = nodes
-    .map(
-      (n) =>
-        `${n.id}:${n.kind}:${JSON.stringify(n.shape)}:${JSON.stringify(n.fill)}:${JSON.stringify(n.fills)}`,
-    )
+    .map((n) => {
+      const base = `${n.id}:${n.kind}:${JSON.stringify(n.shape)}:${JSON.stringify(n.fill)}:${JSON.stringify(n.fills)}`;
+      // Text nodes have no `shape`, so without this the key is blind to the
+      // string, its styling, and the face it is finally set in.
+      if (n.kind !== 'text') return base;
+      return `${base}:${n.text}:${n.fontFamily}:${n.fontSize}:${n.fontWeight}:${n.fontStyle}:${textMeasureRevision()}`;
+    })
     .join('|');
   const hash = simpleHash(contentKey);
   const optsKey = `${opts.maxWidth ?? DEFAULT_THUMBNAIL_WIDTH}x${opts.maxHeight ?? DEFAULT_THUMBNAIL_HEIGHT}-${opts.fit ?? 'contain'}`;

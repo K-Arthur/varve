@@ -186,12 +186,18 @@ export function getEmptyStateContent(mode: string): EmptyStateHint {
   return EMPTY_STATE_BY_MODE[mode] ?? EMPTY_STATE_BY_MODE.design!;
 }
 
+/** Canvas context-menu requests are already in CSS viewport coordinates. */
+export interface CanvasContextMenuRequest {
+  point: { readonly space: 'viewport'; readonly x: number; readonly y: number };
+  contextElement: HTMLElement;
+}
+
 export function CanvasArea({
   canvasContainerRef,
   onContextMenu,
 }: {
   canvasContainerRef?: React.RefObject<HTMLDivElement | null>;
-  onContextMenu?: (pos: { x: number; y: number }) => void;
+  onContextMenu?: (request: CanvasContextMenuRequest) => void;
 }) {
   const contentCanvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -813,6 +819,7 @@ export function CanvasArea({
       displayDpr,
       imageCacheStamp,
       fontLoadStamp,
+      editingTextNodeId: textEditTargetId,
       precomputedStyles,
       precomputedVariantCaches,
       budgets,
@@ -831,6 +838,7 @@ export function CanvasArea({
     state.showOriginalBgNodeId,
     imageCacheStamp,
     fontLoadStamp,
+    textEditTargetId,
     redrawCount,
     state.motion.currentTime,
     state.motion.isPlaying,
@@ -902,7 +910,9 @@ export function CanvasArea({
     accentColorRef,
     sunkenColorRef,
     draft,
+    objectSelectionSession: state.objectSelectionSession,
     areaSelection: state.areaSelection ?? null,
+    floatingRaster: state.floatingRaster ?? null,
     dropTargetFrameId,
     maskDropTargetId,
   });
@@ -911,6 +921,7 @@ export function CanvasArea({
   const input = useCanvasInputs({
     contentCanvasRef,
     canvasRectRef,
+    onContextMenu,
     editor,
     stateRef,
     tmRef: tm,
@@ -1242,9 +1253,12 @@ export function CanvasArea({
   );
 
   const handleContextMenu = useCallback(
-    (e: React.MouseEvent) => {
+    (e: React.MouseEvent<HTMLElement>) => {
       e.preventDefault();
-      onContextMenu?.({ x: e.clientX, y: e.clientY });
+      onContextMenu?.({
+        point: { space: 'viewport', x: e.clientX, y: e.clientY },
+        contextElement: e.currentTarget,
+      });
     },
     [onContextMenu],
   );
@@ -1366,6 +1380,7 @@ export function CanvasArea({
           worldY={deepSelectionCandidates.worldY}
           screenX={deepSelectionCandidates.screenX}
           screenY={deepSelectionCandidates.screenY}
+          contextElement={contentCanvasRef.current ?? undefined}
           candidates={deepSelectionCandidates.candidates}
           onSelect={(nodeId) => {
             const e = editorRef.current;

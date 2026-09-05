@@ -4,6 +4,8 @@
  * Manages worker lifecycle, request/response correlation, cancellation,
  * and stale-result rejection via generation tracking.
  */
+
+import { InferenceError } from './core/InferenceError';
 import type { WorkerInferRequest, WorkerInferResult, WorkerResponse } from './inferenceWorker';
 
 export interface InferenceJobOptions {
@@ -15,9 +17,19 @@ interface PendingJob {
   resolve: (result: WorkerInferResult) => void;
   reject: (error: Error) => void;
   timer: ReturnType<typeof setTimeout>;
+  abortCleanup?: () => void;
 }
 
-const DEFAULT_TIMEOUT = 120_000;
+// The host deadline covers session creation plus execution. Encoder graphs are
+// the expensive cold path; decoder refinements are warm and should recover
+// sooner. These are safety ceilings, not UI progress deadlines. Callers may
+// still provide a stricter operation-specific deadline.
+const MODEL_TIMEOUT_MS: Partial<Record<WorkerInferRequest['modelType'], number>> = {
+  'sam2-encoder': 180_000,
+  'sam2-decoder': 60_000,
+  detr: 120_000,
+};
+const DEFAULT_TIMEOUT_MS = 120_000;
 
 export class InferenceWorkerHost {
   private worker: Worker | null = null;
@@ -66,28 +78,44 @@ export class InferenceWorkerHost {
     if (!job) return;
 
     clearTimeout(job.timer);
+    job.abortCleanup?.();
     this.pendingJobs.delete(msg.requestId);
 
     if (msg.type === 'result') {
       job.resolve(msg);
     } else {
-      job.reject(new Error(msg.message));
+      job.reject(inferenceErrorFromMessage(msg.message));
     }
   }
 
   private handleWorkerError(e: ErrorEvent): void {
-    for (const [id, job] of this.pendingJobs) {
-      clearTimeout(job.timer);
-      job.reject(new Error(`Worker error: ${e.message}`));
-      this.pendingJobs.delete(id);
-    }
+    this.restartWorker(
+      new InferenceError('worker_crash', undefined, {
+        message: `Worker error: ${e.message || 'unknown worker failure'}`,
+        technical: e.message || 'unknown worker failure',
+      }),
+    );
   }
 
   private handleWorkerMessageError(): void {
+    this.restartWorker(
+      new InferenceError('worker_crash', undefined, {
+        message: 'Worker message could not be deserialized',
+        technical: 'Structured clone failed while receiving inference output.',
+      }),
+    );
+  }
+
+  private restartWorker(reason: Error): void {
+    const worker = this.worker;
+    this.worker = null;
+    this.workerReady = false;
+    worker?.terminate();
     for (const [id, job] of this.pendingJobs) {
       clearTimeout(job.timer);
-      job.reject(new Error('Worker message could not be deserialized'));
+      job.abortCleanup?.();
       this.pendingJobs.delete(id);
+      job.reject(reason);
     }
   }
 
@@ -97,7 +125,7 @@ export class InferenceWorkerHost {
   ): Promise<WorkerInferResult> {
     const worker = this.ensureWorker();
     const requestId = `inf_${++this.nextRequestId}_${Date.now().toString(36)}`;
-    const timeout = options.timeoutMs ?? DEFAULT_TIMEOUT;
+    const timeout = options.timeoutMs ?? MODEL_TIMEOUT_MS[request.modelType] ?? DEFAULT_TIMEOUT_MS;
 
     return new Promise((resolve, reject) => {
       if (options.signal?.aborted) {
@@ -106,34 +134,68 @@ export class InferenceWorkerHost {
       }
 
       const timer = setTimeout(() => {
+        const job = this.pendingJobs.get(requestId);
+        if (!job) return;
         this.pendingJobs.delete(requestId);
-        reject(new Error(`Inference timed out after ${timeout}ms`));
+        job.abortCleanup?.();
+        job.reject(
+          new InferenceError('inference_timeout', undefined, {
+            message: `Inference timed out after ${timeout}ms`,
+            technical: `The ${request.modelType} request exceeded the host deadline.`,
+          }),
+        );
+        // ONNX Runtime does not expose cooperative cancellation for every
+        // graph. Terminating the worker is the only way to prevent a timed-out
+        // request from occupying the shared worker and poisoning the retry.
+        this.worker?.terminate();
+        this.worker = null;
+        this.workerReady = false;
+        for (const [id, other] of this.pendingJobs) {
+          clearTimeout(other.timer);
+          other.abortCleanup?.();
+          this.pendingJobs.delete(id);
+          other.reject(
+            new InferenceError('worker_crash', undefined, {
+              message: 'Inference worker restarted after a timeout.',
+              technical: 'The worker was terminated to stop a non-cancellable graph.',
+            }),
+          );
+        }
       }, timeout);
 
-      this.pendingJobs.set(requestId, { resolve, reject, timer });
+      const job: PendingJob = { resolve, reject, timer };
+      this.pendingJobs.set(requestId, job);
 
       const fullRequest: WorkerInferRequest = { ...request, requestId };
       try {
         worker.postMessage(fullRequest);
       } catch (error) {
         clearTimeout(timer);
+        job.abortCleanup?.();
         this.pendingJobs.delete(requestId);
         reject(error instanceof Error ? error : new Error(String(error)));
         return;
       }
 
-      options.signal?.addEventListener(
-        'abort',
-        () => {
-          const job = this.pendingJobs.get(requestId);
-          if (job) {
-            clearTimeout(job.timer);
-            this.pendingJobs.delete(requestId);
-            reject(new Error('cancelled'));
-          }
-        },
-        { once: true },
-      );
+      if (options.signal) {
+        const onAbort = () => {
+          const pending = this.pendingJobs.get(requestId);
+          if (!pending) return;
+          clearTimeout(pending.timer);
+          this.pendingJobs.delete(requestId);
+          pending.abortCleanup = undefined;
+          pending.reject(new InferenceError('inference_cancelled'));
+          // Stop the current graph before a retry can be posted.
+          this.restartWorker(
+            new InferenceError('worker_crash', undefined, {
+              message: 'Inference worker restarted after cancellation.',
+              technical: 'The worker was terminated to stop a non-cancellable graph.',
+            }),
+          );
+        };
+        job.abortCleanup = () => options.signal?.removeEventListener('abort', onAbort);
+        options.signal.addEventListener('abort', onAbort, { once: true });
+      }
     });
   }
 
@@ -141,6 +203,7 @@ export class InferenceWorkerHost {
   dispose(): void {
     for (const [id, job] of this.pendingJobs) {
       clearTimeout(job.timer);
+      job.abortCleanup?.();
       job.reject(new Error('Worker disposed'));
       this.pendingJobs.delete(id);
     }
@@ -174,4 +237,23 @@ export function disposeInferenceWorkerHost(): void {
     sharedHost.dispose();
     sharedHost = null;
   }
+}
+
+function inferenceErrorFromMessage(message: string): Error {
+  if (/memory|allocation|out of memory/i.test(message)) {
+    return new InferenceError('out_of_memory', undefined, { message, technical: message });
+  }
+  if (/timed out|timeout/i.test(message)) {
+    return new InferenceError('inference_timeout', undefined, { message, technical: message });
+  }
+  if (/not downloaded|model.*missing|model.*not found/i.test(message)) {
+    return new InferenceError('model_not_installed', undefined, { message, technical: message });
+  }
+  if (/runtime|onnx/i.test(message)) {
+    return new InferenceError('runtime_initialisation_failed', undefined, {
+      message,
+      technical: message,
+    });
+  }
+  return new InferenceError('unknown', undefined, { message, technical: message });
 }

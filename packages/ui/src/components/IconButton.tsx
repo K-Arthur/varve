@@ -1,34 +1,49 @@
-import { type ButtonHTMLAttributes, forwardRef } from 'react';
+import { forwardRef } from 'react';
 import { Icon, type IconName, SolidIcon, type SolidIconName } from '../icons';
-import type { ButtonSize, ButtonVariant } from './Button';
+import { Button, type ButtonProps } from './Button';
 
-export interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
+export interface IconButtonProps extends Omit<ButtonProps, 'children' | 'aria-label'> {
   icon: IconName | SolidIconName;
   label: string;
-  variant?: ButtonVariant;
-  size?: ButtonSize;
   pressed?: boolean;
   /** Use SolidIcon (filled) instead of Icon (outline) */
   solid?: boolean;
+  /** Optional override for the spoken name outside the busy state. */
+  'aria-label'?: string;
 }
 
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
-  { icon, label, variant = 'ghost', size = 'md', pressed, solid = false, ...rest },
+  {
+    icon,
+    label,
+    variant = 'ghost',
+    size = 'icon',
+    pressed,
+    solid = false,
+    loading = false,
+    loadingLabel,
+    'aria-label': ariaLabel,
+    ...rest
+  },
   ref,
 ) {
   return (
-    <button
-      ref={ref}
-      className={`varve-btn varve-btn--${variant} varve-btn--${size} varve-iconbtn`.trim()}
-      aria-pressed={pressed ?? undefined}
-      aria-label={label}
+    <Button
       {...rest}
+      ref={ref}
+      className={`varve-iconbtn ${rest.className ?? ''}`.trim()}
+      variant={variant}
+      size={size}
+      loading={loading}
+      loadingLabel={loadingLabel ?? `${ariaLabel ?? label}, loading`}
+      aria-pressed={pressed ?? undefined}
+      aria-label={ariaLabel ?? label}
     >
       {solid ? (
         <SolidIcon name={icon as SolidIconName} size="1.15em" />
       ) : (
         <Icon name={icon as IconName} size="1.15em" />
       )}
-    </button>
+    </Button>
   );
 });

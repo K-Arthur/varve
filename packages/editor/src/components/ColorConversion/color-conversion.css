@@ -49,7 +49,7 @@
   padding: var(--space-2);
   background: var(--color-surface-raised);
   border-left: 3px solid var(--color-interactive-default);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
 }
@@ -63,7 +63,7 @@
 
 .color-conversion__btn {
   padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   border: 1px solid var(--color-border-subtle);
   background: var(--color-surface-default);
   color: var(--color-text-primary);

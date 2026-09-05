@@ -135,6 +135,13 @@ export function buildToolContext(
     commitAreaSelection: (selection) => e.commitAreaSelection?.(selection),
     areaSelectionSettings: s.areaSelectionSettings,
     setAreaSelectionSettings: (patch) => e.setAreaSelectionSettings(patch),
+    magicWandSettings: s.magicWandSettings,
+    setMagicWandSettings: (patch) => e.setMagicWandSettings(patch),
+    getFloatingRaster: () => s.floatingRaster ?? null,
+    setFloatingRaster: (floating) => e.setFloatingRaster?.(floating),
+    updateFloatingTransform: (matrix) => e.updateFloatingTransform?.(matrix),
+    commitFloatingRaster: () => e.commitFloatingRaster?.(),
+    cancelFloatingRaster: () => e.cancelFloatingRaster?.(),
     snapEnabled: s.snapEnabled,
     snapGrid: s.snapGrid,
     isolatedNodeId: s.isolatedNodeId,
@@ -145,6 +152,7 @@ export function buildToolContext(
 
     createShapeAt: (world, size, parentId, pathPoints, pathClosed) =>
       e.createShapeAt(world, size, parentId, pathPoints, pathClosed),
+    sliceWithKnife: (line) => e.sliceWithKnife?.(line),
     createTextNodeAt: (world, size, parentId, text) => {
       deps.pendingAutoTextEditRef.current = true;
       e.createTextNodeAt(world, size, parentId, text);
@@ -443,6 +451,8 @@ export function buildToolContext(
     },
     applySam2Segmentation: (params) => e.applySam2Segmentation(params),
     cancelSam2Segmentation: () => e.cancelSam2Segmentation(),
+    objectSelectionSession: s.objectSelectionSession,
+    patchEditorState: (partial) => e.patch(partial),
     commitRasterMask: (nodeId, dataUrl, width, height, coordinateSpace) => {
       import('../backgroundRemoval/commitRasterMask').then(({ commitRasterMask }) => {
         e.updateDoc((doc) =>

@@ -12,6 +12,7 @@ import type { BrushPreset } from '@varve/scene';
 import { BUILT_IN_BRUSH_PRESETS } from '@varve/scene';
 import { type BrushCategory, searchBrushes } from '@varve/shared';
 import { EmptyState, IconButton, SearchField } from '@varve/ui';
+import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BrushPreviewCache, brushPreviewDataUrl } from '../../brush/brushPreview';
 import './BrushBrowser.css';
@@ -38,6 +39,7 @@ export interface BrushBrowserProps {
   onEdit?: (item: BrushBrowserItem) => void;
   onDelete?: (id: string) => void;
   onImport?: () => void;
+  importControl?: ReactNode;
   onExport?: (item: BrushBrowserItem) => void;
 }
 
@@ -74,6 +76,7 @@ export function BrushBrowser({
   onEdit,
   onDelete,
   onImport,
+  importControl,
   onExport,
 }: BrushBrowserProps) {
   const [query, setQuery] = useState('');
@@ -111,7 +114,10 @@ export function BrushBrowser({
           placeholder="Search brushes"
           aria-label="Search brushes"
         />
-        {onImport ? <IconButton icon="Upload" label="Import brushes" onClick={onImport} /> : null}
+        {importControl ??
+          (onImport ? (
+            <IconButton icon="Upload" label="Import brushes" onClick={onImport} />
+          ) : null)}
       </div>
 
       <div className="brush-browser__filters" role="tablist" aria-label="Brush categories">

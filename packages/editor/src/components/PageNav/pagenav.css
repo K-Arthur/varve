@@ -32,7 +32,7 @@
   padding: var(--space-1) var(--space-2);
   cursor: pointer;
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   flex-shrink: 0;
   user-select: none;
   color: var(--color-text-muted);
@@ -75,6 +75,14 @@
   outline-offset: -2px;
 }
 
+.page-nav__drag-overlay {
+  align-items: center;
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  white-space: nowrap;
+}
+
 /* Thumbnail (small preview icon) — shown when canvas has content */
 .page-nav__thumbnail {
   display: flex;
@@ -83,7 +91,7 @@
   width: 24px;
   height: 18px;
   background: var(--color-surface-app);
-  border-radius: 2px;
+  border-radius: var(--radius-control-compact);
   border: 1px solid var(--color-border-subtle);
   overflow: hidden;
   flex-shrink: 0;
@@ -122,7 +130,7 @@
   height: 24px;
   flex-shrink: 0;
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;

@@ -69,6 +69,35 @@ test.describe('Settings dialog', () => {
     await expect(content.locator('.settings-section')).toBeVisible();
   });
 
+  test('keeps switch fields labeled and inside the dialog at a narrow width', async ({ page }) => {
+    await navigateToEditor(page);
+    await page.setViewportSize({ width: 820, height: 720 });
+    await page.evaluate(() => {
+      const file = [...document.querySelectorAll('button')].find(
+        (element) => element.textContent?.trim() === 'File',
+      );
+      (file as HTMLElement | undefined)?.click();
+    });
+    await page.getByRole('menuitem', { name: /Settings/ }).click();
+
+    const settingsDialog = page.locator('dialog.varve-dialog--settings[open]');
+    const switches = settingsDialog.getByRole('switch');
+    const dialogBox = await settingsDialog.boundingBox();
+    expect(dialogBox).not.toBeNull();
+    await expect(switches).not.toHaveCount(0);
+    await expect(
+      settingsDialog.getByRole('switch', { name: 'Prefer WebGPU when available' }),
+    ).toHaveCount(1);
+    for (const switchElement of await switches.all()) {
+      const switchBox = await switchElement.boundingBox();
+      expect(switchBox).not.toBeNull();
+      expect(switchBox!.x + switchBox!.width).toBeLessThanOrEqual(dialogBox!.x + dialogBox!.width);
+    }
+    await expect(settingsDialog).toHaveScreenshot('settings-dialog-switch-narrow.png', {
+      maxDiffPixels: 300,
+    });
+  });
+
   test('opens native-dialog dropdowns and applies settings immediately', async ({ page }) => {
     await navigateToEditor(page);
     await page.evaluate(() => {
@@ -82,10 +111,29 @@ test.describe('Settings dialog', () => {
     const settingsDialog = page.locator('dialog.varve-dialog--settings[open]');
     await settingsDialog.getByRole('tab', { name: 'Export', exact: true }).click();
     const format = settingsDialog.getByRole('combobox', { name: 'Default format' });
+    await expect(format).toHaveAttribute('type', 'button');
+    await format.focus();
     await format.click();
     const listbox = page.getByRole('listbox', { name: 'Default format' });
     await expect(listbox).toBeVisible();
     await expect(listbox.locator('..').locator('..')).toBeAttached();
+    const triggerBox = await format.boundingBox();
+    const listboxBox = await listbox.boundingBox();
+    expect(triggerBox).not.toBeNull();
+    expect(listboxBox).not.toBeNull();
+    expect(listboxBox!.width).toBeGreaterThanOrEqual(triggerBox!.width - 1);
+    expect(listboxBox!.x).toBeGreaterThanOrEqual(0);
+    expect(listboxBox!.x + listboxBox!.width).toBeLessThanOrEqual(
+      (await page.viewportSize())!.width,
+    );
+    await page.screenshot({
+      path: test.info().outputPath('select-open-light.png'),
+      fullPage: true,
+    });
+    await page.keyboard.press('Escape');
+    await expect(format).toBeFocused();
+    await format.click();
+    await expect(listbox).toBeVisible();
     await listbox.getByRole('option', { name: 'SVG', exact: true }).click();
     await expect(format).toContainText('SVG');
 

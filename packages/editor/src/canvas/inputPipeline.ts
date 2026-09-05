@@ -37,7 +37,11 @@ import { shouldIgnoreShortcutTarget } from '../shortcuts/ShortcutManager';
 import type { ToolContext, ToolManager } from '../tools';
 import { computeEdgeVelocity } from '../tools/autoPan';
 import { interactionSession } from '../tools/InteractionContext';
-import { type NormalizedInputEvent, normalizeInputEvent } from '../tools/inputNormalizer';
+import {
+  collectSourceEvents,
+  type NormalizedInputEvent,
+  normalizeInputEvent,
+} from '../tools/inputNormalizer';
 import {
   decayRateFromFrameRetention,
   frameDisplacementToVelocity,
@@ -60,6 +64,11 @@ import { createWheelGestureClassifier } from './wheelGesture';
 
 export interface UseCanvasInputsOptions {
   contentCanvasRef: MutableRefObject<HTMLCanvasElement | null>;
+  /** Keyboard context-menu requests are normalized at the canvas boundary. */
+  onContextMenu?: (request: {
+    point: { readonly space: 'viewport'; readonly x: number; readonly y: number };
+    contextElement: HTMLElement;
+  }) => void;
   /** Cached canvas screen position (updated by ResizeObserver + pointerdown). */
   canvasRectRef: MutableRefObject<{ left: number; top: number }>;
   editor: {
@@ -75,6 +84,7 @@ export interface UseCanvasInputsOptions {
     commitTransaction: () => void;
     hitTestNode: (world: { x: number; y: number }) => { node: SceneNode } | null;
     getWorldBounds: (id: NodeId) => { x: number; y: number; w: number; h: number } | null;
+    worldToCanvas: (wx: number, wy: number) => { x: number; y: number };
     revealSelection: (opts: { fit: boolean; viewport?: { width: number; height: number } }) => void;
     setCanvasMode?: (mode: CanvasMode) => void;
   };
@@ -113,7 +123,10 @@ export interface UseCanvasInputsResult {
 
 /** Hover hit testing is informational and must never tax an active drag. */
 export function shouldResolveHover(tool: string, buttons: number): boolean {
-  return buttons === 0 && (tool === 'select' || tool === 'inspect');
+  // Knife joins select/inspect: it is the one drawing tool whose outcome
+  // depends on which object is under the pointer, so it needs the hover hit to
+  // show what it is about to cut and whether that object can be cut at all.
+  return buttons === 0 && (tool === 'select' || tool === 'inspect' || tool === 'knife');
 }
 
 /**
@@ -147,6 +160,7 @@ function snapshotHeldPointer(ev: PointerEvent): PointerEvent {
 export function useCanvasInputs({
   canvasRectRef,
   contentCanvasRef,
+  onContextMenu,
   editor,
   stateRef,
   tmRef,
@@ -316,7 +330,7 @@ export function useCanvasInputs({
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       const ne = e.nativeEvent as PointerEvent;
-      const ctx = buildToolCtx(ne);
+      const ctx = buildToolCtx(ne, collectSourceEvents(ne, true));
       if (e.buttons !== 0) activeDragPointer.current = snapshotHeldPointer(ne);
 
       if (e.pointerType === 'touch' && touchPointers.current.has(e.pointerId)) {
@@ -895,6 +909,48 @@ export function useCanvasInputs({
       // sentinel reported by many engines when `isComposing` is false.
       if (shouldSkipCanvasKeydown(ne)) return;
 
+      // Keyboard context-menu invocation has no pointer coordinates. Anchor
+      // to the selected object's screen-space centre when it is meaningful;
+      // otherwise use the focused canvas viewport. The resulting point is
+      // explicitly viewport/client space, so canvas zoom never enters the UI
+      // placement calculation.
+      if (e.key === 'ContextMenu' || e.key === 'Apps' || (e.key === 'F10' && e.shiftKey)) {
+        if (!onContextMenu) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const canvas = contentCanvasRef.current;
+        if (!canvas) return;
+        const rect = canvas.getBoundingClientRect();
+        const width = Math.max(0, rect.width || canvas.clientWidth);
+        const height = Math.max(0, rect.height || canvas.clientHeight);
+        let localX = width / 2;
+        let localY = height / 2;
+        const selectedId = stateRef.current.selection[0];
+        const selectedBounds = selectedId ? editor.getWorldBounds(selectedId) : null;
+        if (selectedBounds) {
+          const selectedPoint = editor.worldToCanvas(
+            selectedBounds.x + selectedBounds.w / 2,
+            selectedBounds.y + selectedBounds.h / 2,
+          );
+          if (Number.isFinite(selectedPoint.x) && Number.isFinite(selectedPoint.y)) {
+            localX = selectedPoint.x;
+            localY = selectedPoint.y;
+          }
+        }
+        const margin = 8;
+        const clampInside = (value: number, start: number, end: number): number => {
+          if (end <= start) return start;
+          return Math.min(Math.max(start + margin, value), end - margin);
+        };
+        const x = clampInside(rect.left + localX, rect.left, rect.right);
+        const y = clampInside(rect.top + localY, rect.top, rect.bottom);
+        onContextMenu({
+          point: { space: 'viewport', x, y },
+          contextElement: canvas,
+        });
+        return;
+      }
+
       const tmInst = tmRef.current;
       const activeTrace = isInteractionTracingEnabled() ? getActiveInteractionIdentity() : null;
       if (isInteractionTracingEnabled() && activeTrace === null) {
@@ -1138,6 +1194,7 @@ export function useCanvasInputs({
       }
     },
     [
+      onContextMenu,
       tmRef,
       buildToolCtx,
       stateRef,

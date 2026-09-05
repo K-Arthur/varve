@@ -102,6 +102,20 @@ describe('FontRegistry', () => {
     expect(reg.revision).not.toBe(initial);
   });
 
+  it('deduplicates repeated registrations without collapsing distinct sources', () => {
+    const reg = new FontRegistry([]);
+    const entry = {
+      family: 'Exact Face',
+      weight: 400,
+      style: 'normal' as const,
+      source: 'system' as const,
+    };
+    reg.register(entry);
+    reg.register(entry);
+    reg.register({ ...entry, source: 'bundled' });
+    expect(reg.getEntries('Exact Face')).toHaveLength(2);
+  });
+
   it('registers a font entry with url source', () => {
     const reg = new FontRegistry([]);
     reg.register({
@@ -173,6 +187,23 @@ describe('FontRegistry', () => {
     vi.spyOn(reg as any, 'doLoad').mockResolvedValue(undefined);
     await reg.load('TestFont');
     expect(reg.state('TestFont')).toBe('loaded');
+  });
+
+  it('reports loading while a family load is in flight', async () => {
+    const reg = new FontRegistry([]);
+    reg.register({ family: 'PendingFont', weight: 400, style: 'normal', source: 'system' });
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.spyOn(reg as any, 'doLoad').mockImplementation(() => pending);
+
+    const loading = reg.load('PendingFont');
+    expect(reg.state('PendingFont')).toBe('loading');
+
+    release();
+    await loading;
+    expect(reg.state('PendingFont')).toBe('loaded');
   });
 
   it('state returns error after failed load', async () => {

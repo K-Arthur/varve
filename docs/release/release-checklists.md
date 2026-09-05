@@ -19,8 +19,11 @@ destroy their work.
       (no LFS pointers where models should be; the two model catalogs agree)
 - [ ] `node scripts/release/version.mjs verify v<X.Y.Z>` passes
 - [ ] `CHANGELOG.md` has a `## [X.Y.Z]` section written for users, not for git
-- [ ] `pnpm lint`, `pnpm typecheck`, `pnpm test` pass
-- [ ] `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` pass
+- [ ] `pnpm release:status` shows the intended version, changelog section,
+      exact source SHA, and current validation-policy hash
+- [ ] Integration `CI / certification` passes for the exact master SHA
+- [ ] `Release Candidate / certification` passes for that same SHA and policy
+      hash; use triage/final mode and targeted reruns for classified failures
 - [ ] A Linux package built **in CI** (not on the dev machine — glibc)
 - [ ] The release workflow's automated gates all pass before a draft exists:
       gate job (frontend built before desktop compile), bundle matrix,
@@ -88,6 +91,9 @@ Everything in Alpha, plus:
 
 - [ ] No known data-loss bug, open or closed-but-unverified
 - [ ] All P0 and P1 items in the audit closed
+- [ ] Exact frozen master SHA is reachable from protected `master`
+- [ ] Integration and release-candidate certifications match that SHA and the
+      current validation-policy hash
 - [ ] Full install/upgrade/uninstall matrix passed on every supported OS
 - [ ] Artifacts built from a clean checkout at the exact tag
 - [ ] Checksums verified from a machine that did not build them
@@ -125,9 +131,11 @@ Everything in Alpha, plus:
 1. [ ] Branch from the **release tag**, not from `master`
 2. [ ] Fix only the one thing. Resist everything else
 3. [ ] Add a regression test that fails without the fix
-4. [ ] `just release-bump patch` (or `node scripts/release/version.mjs set <X.Y.Z+1>` for a specific number), then `cargo check --workspace && cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml` to refresh the lockfiles, and update `CHANGELOG.md`
-5. [ ] Run the full quality gate — a hotfix is not an excuse to skip it
-6. [ ] Tag, let `release.yml` build the draft
+4. [ ] Run `pnpm release:prepare <X.Y.Z>`, review the canonical version and
+      changelog diff, then commit and pass integration certification
+5. [ ] Freeze the exact master SHA and pass release-candidate certification;
+      do not tag before it passes
+6. [ ] Create the immutable tag; let `release.yml` build the draft
 7. [ ] Verify the specific fix in the built artifact, on the affected platform
 8. [ ] Publish, then update the website manifest
 9. [ ] Tell affected users directly; do not rely on them noticing

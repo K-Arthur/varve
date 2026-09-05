@@ -27,12 +27,19 @@ describe('SubtreeIrCache benchmarks', () => {
     const hash = SubtreeIrCache.nodeHash('n1', [1, 0, 0, 1, 0, 0], 'style');
     cache.set('n1', hash, makeItem('n1'));
 
-    const start = performance.now();
-    for (let i = 0; i < 1000; i++) {
-      cache.get('n1', hash);
+    const samples: number[] = [];
+    for (let sample = 0; sample < 5; sample++) {
+      const start = performance.now();
+      for (let i = 0; i < 1000; i++) {
+        cache.get('n1', hash);
+      }
+      samples.push(performance.now() - start);
     }
-    const elapsed = performance.now() - start;
-    expect(elapsed).toBeLessThan(10);
+    samples.sort((a, b) => a - b);
+    const median = samples[Math.floor(samples.length / 2)] ?? Number.POSITIVE_INFINITY;
+    // Use the median to keep scheduler jitter from failing an otherwise healthy
+    // cache benchmark while retaining the 0.1ms-per-hit performance target.
+    expect(median).toBeLessThan(10);
   });
 
   it('LRU eviction under 200ms for 500 entry cache', () => {

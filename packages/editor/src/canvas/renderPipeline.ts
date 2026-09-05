@@ -51,6 +51,7 @@ import {
   worldToScreen,
 } from '@varve/shared';
 import type { EditorContextValue, EditorState } from '../context';
+import { isEditorInteractionActive } from '../performance/editorFrameRuntime';
 import { applyPropertyPath } from '../propertyPath';
 import {
   getAdaptiveResidencyManager,
@@ -66,6 +67,7 @@ import {
   workerBitmapDelta,
 } from '../render/canvasRenderAdapter';
 import { admitWorkerImagePayload, workerSourceCapFor } from '../render/collectImageBitmaps';
+import { scheduleSettledImageRefinement } from '../render/imageRefinement';
 import { decorateMockupIr, MockupSurfaceCache } from '../render/mockup/mockupIr';
 import { pathShapeInTextSpace } from '../render/pathTextGeometry';
 import {
@@ -78,6 +80,7 @@ import {
   documentTreatmentSpaceForCapture,
   pixelToDocumentFromCapture,
 } from '../render/treatmentSpace';
+import { documentNeedsWorkerFonts } from '../render/workerFonts';
 import { type MasterOffset, offsetWorldBounds, offsetWorldTransform } from '../scene/masterOffsets';
 import {
   getWorldBounds as getCachedWorldBounds,
@@ -110,7 +113,12 @@ import {
 import { computeFrameDirtyRegion } from './dirtyRegionMerge';
 import { expandReplayList } from './dirtyReplay';
 import type { EngineNodeMemo } from './engineNodeMemo';
-import { applyAdjustmentSpatialMask, replayMaskedContainer } from './maskReplay';
+import {
+  applyAdjustmentSpatialMask,
+  replayLeafMask,
+  replayMaskedContainer,
+  requiresLeafMaskReplay,
+} from './maskReplay';
 import { openFullRedraw, openMultiRectPartialClip, openUnionPartialClip } from './partialPaint';
 import {
   beginContentFrame,
@@ -135,6 +143,22 @@ import type { NodeHashMemo, SubtreeIrCache } from './subtreeIrCache';
 import { appearancePaddingWorld, expandRect, nodeVisualWorldBounds } from './visualBounds';
 
 let _showOriginalBgNodeId: string | null = null;
+
+/**
+ * Whether the worker can be trusted with this document's text.
+ *
+ * The question is per family, not per batch: a document that uses only
+ * families the worker has actually loaded keeps the fast path even while some
+ * other declared family is still arriving or has failed there. Text in a
+ * family the worker cannot draw stays on the main thread.
+ */
+function workerHasFontsForDocument(
+  host: { unavailableFontFamilies: ReadonlySet<string> } | null,
+  doc: Document,
+): boolean {
+  if (!host) return false;
+  return !documentNeedsWorkerFonts(doc, host.unavailableFontFamilies);
+}
 
 export function toEngineNode(node: SceneNode, doc: Document): EngineNode {
   return sceneNodeToEngineNode(
@@ -376,6 +400,8 @@ export interface RenderContentDeps {
   displayDpr: number;
   imageCacheStamp: number;
   fontLoadStamp: number;
+  /** Text node painted by the DOM editor overlay instead of the canvas. */
+  editingTextNodeId?: string | null;
   precomputedStyles: ReturnType<typeof resolveAllStyles>;
   precomputedVariantCaches: ReturnType<typeof buildAllVariantCaches>;
   budgets: ReturnType<typeof getMemoryBudgets>;
@@ -416,6 +442,7 @@ export function renderContent(deps: RenderContentDeps): void {
     displayDpr,
     imageCacheStamp,
     fontLoadStamp,
+    editingTextNodeId,
     precomputedStyles,
     precomputedVariantCaches,
     budgets,
@@ -465,6 +492,7 @@ export function renderContent(deps: RenderContentDeps): void {
     getState: () => stateRef.current,
     imageCacheStamp,
     fontLoadStamp,
+    editingTextNodeId,
     cssW,
     cssH,
     dpr,
@@ -525,7 +553,7 @@ export function renderContent(deps: RenderContentDeps): void {
     // Present-only path: composite the worker bitmap, nothing else. Page
     // decorations are not part of the worker IR, so they repaint through
     // the paintUnderlays hook between the board fill and the bitmap.
-    if (frameDecision.kind === 'present') {
+    if (frameDecision.kind === 'present' && !editingTextNodeId) {
       const presented = tryPresentWorkerFrame({
         ctx,
         canvas,
@@ -656,7 +684,7 @@ export function renderContent(deps: RenderContentDeps): void {
       viewportW: VP_W,
       viewportH: VP_H,
     });
-    const dirty = frameDirty.dirty;
+    const dirty = frameDecision.editingTargetChanged ? { kind: 'full' as const } : frameDirty.dirty;
     const mergedDirty = recordMergedDirty(frameDirty.mergedDirty);
     dirtyRectRef.current = dirty.kind === 'full' ? null : frameDirty.dirtyScreenRect;
     if (frameDirty.fullFallback) nodeWork.fullFallback = true;
@@ -681,7 +709,14 @@ export function renderContent(deps: RenderContentDeps): void {
       profileCanUseWorker &&
       !documentHasPerspectiveImage(doc) &&
       sceneCanUseWorkerRenderer(doc, (src) => getImageCache().isLoaded(src)) &&
-      !sceneNeedsStructuralCompositing(doc);
+      !sceneNeedsStructuralCompositing(doc) &&
+      // The worker realm has its own FontFaceSet and does not inherit the
+      // document's @font-face rules. Until it has adopted them, text in a
+      // declared family would be drawn there in a substituted face — the same
+      // wrong typography this whole area is about, arriving by a different
+      // route. Decided synchronously, before the frame picks its branch.
+      workerHasFontsForDocument(renderWorkerRef.current, doc) &&
+      !editingTextNodeId;
     // One shared surface-validity result per frame: the prune gate and the
     // paint gate must agree, or a pruned replay lands on a fully cleared
     // surface and erases every node outside the dirty region.
@@ -736,6 +771,7 @@ export function renderContent(deps: RenderContentDeps): void {
       const id = entry.nodeId;
       const raw = doc.nodes[id];
       if (!raw) continue;
+      if (editingTextNodeId && id === editingTextNodeId) continue;
       let n = getEffectiveNode(doc, id, variantCaches) ?? raw;
       if (!n.visible) continue;
       if (n.kind === 'group') continue;
@@ -972,16 +1008,41 @@ export function renderContent(deps: RenderContentDeps): void {
       buildIrMs = performance.now() - t0c;
     }
     const needsStructural = sceneNeedsStructuralCompositing(doc);
+    const cameraMoving = isEditorInteractionActive();
+    const imageIntent: 'interactive' | 'settled-preview' = cameraMoving
+      ? 'interactive'
+      : 'settled-preview';
     const imageRepresentation = selectRasterRepresentation({
       viewportWidth: VP_W,
       viewportHeight: VP_H,
       devicePixelRatio: dpr,
       zoom: s.zoom,
-      intent: 'interactive',
+      cameraMoving,
+      intent: imageIntent,
     });
     const replayImagePolicy = {
-      intent: 'interactive' as const,
-      maxSourceDim: imageRepresentation.maxSourceDim,
+      intent: imageIntent,
+      resolveMaxSourceDim: ({
+        projectedLongEdge,
+        sourceWidth,
+        sourceHeight,
+      }: {
+        projectedLongEdge: number;
+        sourceWidth?: number;
+        sourceHeight?: number;
+      }) =>
+        selectRasterRepresentation({
+          viewportWidth: VP_W,
+          viewportHeight: VP_H,
+          devicePixelRatio: dpr,
+          zoom: s.zoom,
+          projectedLongEdge,
+          sourceWidth,
+          sourceHeight,
+          maxDecodedBytes: budgets.imageCacheBytes,
+          cameraMoving,
+          intent: imageIntent,
+        }).maxSourceDim,
     };
     const replayColorOptions = {
       blendEvaluationSpace: resolveBlendEvaluationSpace(doc.colorConfig ?? {}),
@@ -1027,6 +1088,12 @@ export function renderContent(deps: RenderContentDeps): void {
           reuseProbability: 0.5,
         });
       }
+    }
+
+    if (cameraMoving && observedImageSources.size > 0) {
+      scheduleSettledImageRefinement(canvas, isEditorInteractionActive, () => {
+        requestContentDrawRef.current?.('image-settled-refinement', 'asset-ready');
+      });
     }
 
     if (s.canvasMode === 'outline') {
@@ -1130,10 +1197,11 @@ export function renderContent(deps: RenderContentDeps): void {
     const paintLeafItem = (item: IrItem, targetCtx: CanvasRenderingContext2D): void => {
       // Structural replay has an active Canvas2D save/clip stack. A compositor
       // backend may render a leaf into another surface and blit it back, which
-      // cannot inherit that clip. Direct replay also lets the image policy use
-      // a viewport-sized proxy without changing export/print paths.
+      // cannot inherit that clip. The compositor forwards image policy to its
+      // Canvas2D fallback, keeping proxy selection footprint-aware on both
+      // structural and flat scenes.
       if (targetCtx === ctxNN && compositorRef.current && !needsStructural) {
-        compositorRef.current.drawVectorItems([item], replayColorOptions);
+        compositorRef.current.drawVectorItems([item], replayColorOptions, replayImagePolicy);
       } else {
         replayIr(
           targetCtx as unknown as ReplayTarget,
@@ -1783,7 +1851,25 @@ export function renderContent(deps: RenderContentDeps): void {
         targetCtx.drawImage(backdrop, 0, 0, backdrop.width, backdrop.height, bx, by, bw, bh);
         targetCtx.restore();
       } else {
-        if (item) paintLeafItem(item, targetCtx);
+        if (item) {
+          // Leaf nodes with masks: render the content to an offscreen surface,
+          // apply the mask, and composite back. Vector masks, raster masks, and
+          // live mattes are all supported on leaf nodes (shapes, text, raster
+          // layers). Container masks are handled above via replayMaskedContainer.
+          if (mask && requiresLeafMaskReplay(mask)) {
+            replayLeafMask(targetCtx, {
+              node: n,
+              mask,
+              irItem: item,
+              doc,
+              baseTransform: targetCtx.getTransform(),
+              paintContent: (ctx) => paintLeafItem(item, ctx),
+              getWorldTransform: (nodeId) => getCachedWorldTransform(cache, doc, nodeId),
+            });
+          } else {
+            paintLeafItem(item, targetCtx);
+          }
+        }
       }
     }
 
@@ -1893,7 +1979,8 @@ export function renderContent(deps: RenderContentDeps): void {
       renderWorkerRef.current &&
       !workerFailedRef.current &&
       workerReady &&
-      profileCanUseWorker
+      profileCanUseWorker &&
+      !editingTextNodeId
     ) {
       const wb = workerBitmapRef.current;
       const cameraMatches =
@@ -1991,15 +2078,15 @@ export function renderContent(deps: RenderContentDeps): void {
             // 9d47771b fixed for the main-thread path, on the worker path.
             surfaceIsAuthoritative = false;
           } else {
-            compositorRef.current?.drawVectorItems(ir);
+            compositorRef.current?.drawVectorItems(ir, replayColorOptions, replayImagePolicy);
           }
         }
         ctxNN.restore();
       } else {
-        compositorRef.current?.drawVectorItems(ir);
+        compositorRef.current?.drawVectorItems(ir, replayColorOptions, replayImagePolicy);
       }
     } else {
-      compositorRef.current?.drawVectorItems(ir);
+      compositorRef.current?.drawVectorItems(ir, replayColorOptions, replayImagePolicy);
     }
 
     // Record replay time: from the first replay call to just before cleanup
@@ -2009,7 +2096,11 @@ export function renderContent(deps: RenderContentDeps): void {
       ctx.restore();
       dirtyClipOpen = false;
     }
-    const budget = endFrameTiming(frameStart);
+    const budget = endFrameTiming(
+      frameStart,
+      undefined,
+      cameraMoving ? 'interaction' : 'authoritative',
+    );
     frameBackend?.endFrame();
     compositorFrameOpen = false;
     // Recompute both limits on every tier so recovery restores the user's
@@ -2087,6 +2178,8 @@ export function renderContent(deps: RenderContentDeps): void {
       engineNodeHits: engineMemo.hits - engineMemoHitsAtStart,
       setupMs,
       preLoopMs,
+      frameWorkClass: budget.workClass,
+      frameWorkBudgetMs: budget.budgetMs,
       totalMs: budget.elapsedMs,
       renderPath: needsStructural
         ? 'structural'

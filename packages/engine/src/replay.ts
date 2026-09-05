@@ -11,12 +11,7 @@
  * and effects, plus arrow/path/image primitive rendering.
  */
 
-import {
-  type BlendEvaluationSpace,
-  expandGradientStops,
-  managedColorToNormalized,
-  managedColorToRgba,
-} from '@varve/shared';
+import { type BlendEvaluationSpace, managedColorToRgba } from '@varve/shared';
 import { blendPixels, CompositeCanvas, mapBlendMode } from './compositeCanvas';
 import { deserializeDepthMap, resizeDepthMap } from './depthMap';
 import { compositeMaskedEffectPixels, type PixelImageData } from './effectMaskCompositor';
@@ -29,7 +24,6 @@ import {
 } from './effectPipeline';
 import { applyFilterWithCompositing } from './filterCompositor';
 import { applyFilterChain, filterChainToCss, filterToCss, supportsCanvasFilter } from './filters';
-import { FrameCache } from './frameCache';
 import { getImageCache } from './imageCache';
 import { imagePlaceholderFill } from './imagePlaceholder';
 import {
@@ -40,6 +34,7 @@ import {
 import { applyDepthBlur } from './lensBlur';
 import {
   paintWarpedImage,
+  projectedLongEdgeForTransform,
   quadBoundsOf,
   type ReplayImagePolicy,
   resolveReplayImage,
@@ -60,6 +55,12 @@ import {
 } from './rasterPyramid/renderTiles';
 import { emitRasterReplaySample, isRasterReplayMeasured } from './rasterReplayMetrics';
 import { createRasterSurface } from './rasterSurface';
+import {
+  advanceGradientCacheFrame,
+  createGradientStyle,
+  paintTiledGradientFill,
+} from './replayGradient';
+import type { ReplayTarget } from './replayTypes';
 import { layoutRichTextSnapshot } from './richTextLayout';
 import {
   itemNeedsAlphaShadow,
@@ -74,105 +75,11 @@ import { buildTextLayoutSnapshot, type TextLayoutSnapshot } from './textLayoutSn
 import type { ArrowheadStyle, EngineColor, FillIR, Primitive, RenderItem, Stroke } from './types';
 import { splitGraphemes } from './unicode/grapheme';
 
+export { resetGradientCacheForTest } from './replayGradient';
+
 type GlassMaterialEffect = Extract<import('./types').Effect, { type: 'glassMaterial' }>;
 
-export interface ReplayTarget {
-  save(): void;
-  restore(): void;
-  transform(a: number, b: number, c: number, d: number, e: number, f: number): void;
-  translate(x: number, y: number): void;
-  rotate(angle: number): void;
-  scale(x: number, y: number): void;
-  fillRect(x: number, y: number, w: number, h: number): void;
-  strokeRect(x: number, y: number, w: number, h: number): void;
-  beginPath(): void;
-  rect(x: number, y: number, w: number, h: number): void;
-  ellipse(
-    x: number,
-    y: number,
-    rx: number,
-    ry: number,
-    rot: number,
-    start: number,
-    end: number,
-  ): void;
-  arc(x: number, y: number, r: number, start: number, end: number): void;
-  moveTo(x: number, y: number): void;
-  lineTo(x: number, y: number): void;
-  bezierCurveTo(cp1x: number, cp1y: number, cp2x: number, cp2y: number, x: number, y: number): void;
-  /** Rounded-rect path (Canvas2D `roundRect`); radii mirror the CSS shorthand forms. */
-  roundRect?(x: number, y: number, w: number, h: number, radii: number | number[]): void;
-  fill(fillRule?: CanvasFillRule): void;
-  stroke(): void;
-  closePath(): void;
-  clip(): void;
-  fillText(text: string, x: number, y: number): void;
-  /** Optional measurement hook used to derive a canonical browser snapshot. */
-  measureText?(text: string): TextMetrics;
-  font: string;
-  textBaseline: CanvasTextBaseline;
-  fillStyle: string | CanvasGradient | CanvasPattern;
-  lineWidth: number;
-  lineCap: CanvasLineCap;
-  textAlign: CanvasTextAlign;
-  lineJoin: CanvasLineJoin;
-  strokeStyle: string | CanvasGradient | CanvasPattern;
-  /** F6: opacity for the item layer. */
-  globalAlpha: number;
-  /** F6: blend mode compositing. */
-  globalCompositeOperation: string;
-  /** F6: CSS filter for effects. */
-  filter: string;
-  lineDashOffset: number;
-  setLineDash(segments: number[]): void;
-  /**
-   * Draw an image. Supports Canvas2D overloads:
-   *   3-arg: drawImage(image, dx, dy)
-   *   5-arg: drawImage(image, dx, dy, dw, dh)
-   *   9-arg: drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh)
-   */
-  drawImage?(
-    image: CanvasImageSource | string,
-    a1: number,
-    a2: number,
-    a3?: number,
-    a4?: number,
-    a5?: number,
-    a6?: number,
-    a7?: number,
-    a8?: number,
-  ): void;
-  /** P2: create a linear gradient for gradient fills. */
-  createLinearGradient?(x0: number, y0: number, x1: number, y1: number): ReplayGradient;
-  /** P2: create a radial gradient for gradient fills. */
-  createRadialGradient?(
-    x0: number,
-    y0: number,
-    r0: number,
-    x1: number,
-    y1: number,
-    r1: number,
-  ): ReplayGradient;
-  /** P2: create a conic gradient for angular gradient fills. */
-  createConicGradient?(angle: number, cx: number, cy: number): ReplayGradient;
-  /** P2: create a pattern from a canvas/image for tiling fills. */
-  createPattern?(image: CanvasImageSource, repetition: string): CanvasPattern | null;
-  /** P2: for shadow effects (replay clips shadow pass). */
-  shadowColor?: string;
-  shadowBlur?: number;
-  shadowOffsetX?: number;
-  shadowOffsetY?: number;
-  /** Create a pattern from an image source. */
-  createPattern?(image: CanvasImageSource | string, repetition: string): ReplayPattern | null;
-  /** Canvas element reference for offscreen compositing (filter compositor, background blur). */
-  canvas?: { width: number; height: number };
-  /** Reset the current transform matrix (Canvas2D setTransform). */
-  setTransform?(a: number, b: number, c: number, d: number, e: number, f: number): void;
-  /** Read the current transform matrix (Canvas2D getTransform). */
-  getTransform?(): { a: number; b: number; c: number; d: number; e: number; f: number };
-  getImageData?(x: number, y: number, width: number, height: number): ImageData;
-  putImageData?(data: ImageData, x: number, y: number): void;
-}
+export type { ReplayGradient, ReplayPattern, ReplayTarget } from './replayTypes';
 
 export interface ReplayColorOptions {
   /** Artistic blend formula evaluation; defaults to legacy encoded sRGB. */
@@ -187,22 +94,6 @@ export type EffectMaskResolver = (
   width: number,
   height: number,
 ) => PixelImageData | undefined;
-
-export interface ReplayPattern {
-  /** Transform the pattern's coordinate system. */
-  setTransform(transform: {
-    a: number;
-    b: number;
-    c: number;
-    d: number;
-    e: number;
-    f: number;
-  }): void;
-}
-
-export interface ReplayGradient {
-  addColorStop(offset: number, color: string): void;
-}
 
 /**
  * Render alpha mask compositing using offscreen canvas double-buffering.
@@ -267,16 +158,6 @@ function rgba(
   const [r, g, b, a] = managedColorToRgba(c as EngineColor);
   const alpha = opacityOverride !== undefined ? opacityOverride : a / 255;
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-/** Format a working gradient color without rounding channels before Canvas2D. */
-function rgbaWorking(c: EngineColor | readonly [number, number, number, number]): string {
-  if (Array.isArray(c) || 'length' in c) {
-    const arr = c as readonly [number, number, number, number];
-    return `rgba(${arr[0]}, ${arr[1]}, ${arr[2]}, ${arr[3] / 255})`;
-  }
-  const [r, g, b, a] = managedColorToNormalized(c as EngineColor);
-  return `rgba(${r * 255}, ${g * 255}, ${b * 255}, ${a})`;
 }
 
 const TAU = Math.PI * 2;
@@ -871,8 +752,7 @@ export function replayIr(
   // Sweep expired backdrop cache entries (preserves recent entries across frames)
   sweepBackdropCache();
   // Frame-based gradient cache eviction
-  gradientCache.nextFrame();
-  gradientCache.sweep();
+  advanceGradientCacheFrame();
   const previousImageLookup = imageLookupForCurrentReplay;
   const previousEffectMaskResolver = effectMaskResolverForCurrentReplay;
   const previousImagePolicy = imagePolicyForCurrentReplay;
@@ -1176,11 +1056,19 @@ function paintFill(target: ReplayTarget, fill: FillIR, item: RenderItem): void {
     target.fillStyle = rgba(fill.color);
     paintShapeFill(target, item);
   } else if (fill.type === 'gradient') {
+    const bounds = primitiveBounds(item.primitive);
     const tilingMode = fill.tilingMode;
     if (tilingMode && tilingMode !== 'none') {
-      paintTiledGradientFill(target, fill, item, tilingMode as 'repeat' | 'reflect');
+      paintTiledGradientFill(
+        target,
+        fill,
+        item,
+        bounds,
+        tilingMode as 'repeat' | 'reflect',
+        paintShapeFill,
+      );
     } else {
-      target.fillStyle = createGradientStyle(target, fill, item);
+      target.fillStyle = createGradientStyle(target, fill, item, bounds);
       paintShapeFill(target, item);
     }
   } else if (fill.type === 'image') {
@@ -1221,6 +1109,14 @@ function paintImageFill(
   const bounds = primitiveBounds(item.primitive);
   const bw = bounds.w || 1;
   const bh = bounds.h || 1;
+  const baseImagePolicy = imagePolicyForCurrentReplay;
+  const maxSourceDim = baseImagePolicy?.resolveMaxSourceDim?.({
+    projectedLongEdge: projectedLongEdgeForTransform(bw, bh, target.getTransform?.()),
+    sourceWidth: fill.imageWidth,
+    sourceHeight: fill.imageHeight,
+  });
+  const imagePolicy =
+    maxSourceDim && maxSourceDim > 0 ? { ...baseImagePolicy, maxSourceDim } : baseImagePolicy;
 
   const image = resolveReplayImage(
     fill.src,
@@ -1228,7 +1124,7 @@ function paintImageFill(
     getImageCache(),
     fill.frame,
     {
-      ...imagePolicyForCurrentReplay,
+      ...imagePolicy,
       sourceWidth: fill.imageWidth,
       sourceHeight: fill.imageHeight,
     },
@@ -1669,33 +1565,6 @@ function paintPatternFallback(
   target.fillRect(x, y, width, height);
 }
 
-/** Expand gradient stops for canvas API using perceptually uniform interpolation. */
-function expandGradientStopsForFill(
-  fill: Extract<FillIR, { type: 'gradient' }>,
-): { position: number; color: EngineColor }[] {
-  // Missing metadata is a legacy gradient, whose original Canvas2D behavior
-  // was encoded-sRGB. New gradients carry an explicit resolved space.
-  const space = fill.interpolationSpace ?? 'srgb';
-  if (space === 'srgb') {
-    return fill.stops.map((s) => ({ position: s.position, color: s.color }));
-  }
-  const inputs = fill.stops.map((s) => {
-    const [r, g, b, a] = managedColorToNormalized(s.color);
-    return {
-      position: s.position,
-      color: { space: 'rgb' as const, r: r * 255, g: g * 255, b: b * 255, a: a * 255 },
-      ...(s.midpoint !== undefined ? { midpoint: s.midpoint } : {}),
-    };
-  });
-  return expandGradientStops(inputs, space, 16, {
-    precision: 'working',
-    hueInterpolation: fill.hueInterpolation ?? 'shorter',
-  }).map((s) => ({
-    position: s.position,
-    color: s.color as EngineColor,
-  }));
-}
-
 // ── Backdrop blur cache ──────────────────────────────────────────────
 
 interface BackdropCacheEntry {
@@ -1761,111 +1630,6 @@ export function __clearBackdropCache(): void {
 
 export function __getBackdropCacheSize(): number {
   return backdropCache.size;
-}
-
-/** Module-level gradient cache: maps a hash of {fill, bounds} → CanvasGradient | string. */
-const gradientCache = new FrameCache<string, CanvasGradient | string>();
-
-/**
- * Test hook: drop all cached gradient objects. Deterministic tests that
- * compare draw-call sequences across replays need a clean cache so the
- * second pass re-constructs (and re-logs) gradient creation.
- */
-export function resetGradientCacheForTest(): void {
-  gradientCache.clear();
-}
-
-function gradientCacheKey(
-  fill: Extract<FillIR, { type: 'gradient' }>,
-  bounds: { x: number; y: number; w: number; h: number },
-): string {
-  const normalizedRotation = ((fill.rotation % 360) + 360) % 360;
-  return `${fill.gradientType}|${fill.interpolationSpace ?? ''}|${fill.hueInterpolation ?? ''}|${normalizedRotation}|${fill.tilingMode ?? ''}|${JSON.stringify(fill.transform)}|${JSON.stringify(fill.stops)}|${bounds.x.toFixed(2)}|${bounds.y.toFixed(2)}|${bounds.w.toFixed(2)}|${bounds.h.toFixed(2)}`;
-}
-
-/** Create a gradient fillStyle from a FillIR gradient. */
-function createGradientStyle(
-  target: ReplayTarget,
-  fill: Extract<FillIR, { type: 'gradient' }>,
-  item: RenderItem,
-): CanvasGradient | string {
-  const stops = fill.stops;
-  if (stops.length === 0) return 'rgba(0,0,0,0)';
-
-  const bounds = primitiveBounds(item.primitive);
-  // Normalize rotation to [0, 360) so out-of-range values don't escape
-  let rot = ((((fill.rotation % 360) + 360) % 360) * Math.PI) / 180;
-  let cx = (bounds.x + bounds.w) / 2;
-  let cy = (bounds.y + bounds.h) / 2;
-  let halfDiag = Math.sqrt(bounds.w * bounds.w + bounds.h * bounds.h) / 2;
-
-  // Degenerate shape with zero area — render as solid fill of last stop
-  if (halfDiag <= 0) {
-    const last = stops[stops.length - 1];
-    return last ? rgba(last.color) : 'rgba(0,0,0,0)';
-  }
-
-  // When a fill transform matrix is provided, derive gradient parameters from it
-  if (fill.transform) {
-    const t = fill.transform;
-    const du = t[0] * halfDiag; // unit u-axis x
-    const dv = t[1] * halfDiag; // unit u-axis y
-    cx = bounds.x + t[4]; // translate x
-    cy = bounds.y + t[5]; // translate y
-    rot = Math.atan2(dv, du); // rotation from u-axis
-    halfDiag = Math.sqrt(du * du + dv * dv); // scale magnitude
-
-    // Degenerate after transform — render as solid fill of last stop
-    if (halfDiag <= 0) {
-      const last = stops[stops.length - 1];
-      return last ? rgba(last.color) : 'rgba(0,0,0,0)';
-    }
-  }
-
-  // Gradient caching: check cache before computing
-  const key = gradientCacheKey(fill, bounds);
-  const cached = gradientCache.get(key);
-  if (cached !== undefined) return cached;
-
-  const dx = Math.cos(rot) * halfDiag;
-  const dy = Math.sin(rot) * halfDiag;
-
-  let result: CanvasGradient | string | undefined;
-
-  if (fill.gradientType === 'radial' && target.createRadialGradient) {
-    const grad = target.createRadialGradient(cx, cy, 0, cx, cy, halfDiag);
-    const expanded = expandGradientStopsForFill(fill);
-    for (const s of expanded) {
-      grad.addColorStop(s.position, rgbaWorking(s.color));
-    }
-    result = grad;
-  } else if (fill.gradientType === 'angular' && target.createConicGradient) {
-    const grad = target.createConicGradient(rot, cx, cy);
-    const expanded = expandGradientStopsForFill(fill);
-    for (const s of expanded) {
-      grad.addColorStop(s.position, rgbaWorking(s.color));
-    }
-    result = grad;
-  } else if (fill.gradientType === 'diamond' && target.createRadialGradient) {
-    const grad = target.createRadialGradient(cx, cy, 0, cx, cy, halfDiag);
-    const expanded = expandGradientStopsForFill(fill);
-    for (const s of expanded) {
-      grad.addColorStop(s.position, rgbaWorking(s.color));
-    }
-    result = grad;
-  } else if (target.createLinearGradient) {
-    const grad = target.createLinearGradient(cx - dx, cy - dy, cx + dx, cy + dy);
-    const expanded = expandGradientStopsForFill(fill);
-    for (const s of expanded) {
-      grad.addColorStop(s.position, rgbaWorking(s.color));
-    }
-    result = grad;
-  } else {
-    result = rgba(stops[0]?.color ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 0 });
-  }
-
-  gradientCache.set(key, result);
-  return result;
 }
 
 /**
@@ -1954,186 +1718,6 @@ function traceSquirclePath(
   // Top-left corner
   target.bezierCurveTo(x, y + ext(tl) - hnd(tl), x + ext(tl) - hnd(tl), y, x + ext(tl), y);
   target.closePath();
-}
-
-/** Paint a tiled (repeat/reflect) gradient fill using an offscreen canvas pattern. */
-function paintTiledGradientFill(
-  target: ReplayTarget,
-  fill: Extract<FillIR, { type: 'gradient' }>,
-  item: RenderItem,
-  tilingMode: 'repeat' | 'reflect',
-): void {
-  const bounds = primitiveBounds(item.primitive);
-  if (bounds.w <= 0 || bounds.h <= 0) return;
-  // Normalize rotation to [0, 360) so out-of-range values don't escape
-  let rot = ((((fill.rotation % 360) + 360) % 360) * Math.PI) / 180;
-  let cx = (bounds.x + bounds.w) / 2;
-  let cy = (bounds.y + bounds.h) / 2;
-  const halfDiag = Math.sqrt(bounds.w * bounds.w + bounds.h * bounds.h) / 2;
-  if (fill.transform) {
-    const t = fill.transform;
-    const du = t[0] * halfDiag;
-    const dv = t[1] * halfDiag;
-    cx = bounds.x + t[4];
-    cy = bounds.y + t[5];
-    rot = Math.atan2(dv, du);
-  }
-  const dx = Math.cos(rot) * halfDiag;
-  const dy = Math.sin(rot) * halfDiag;
-
-  // Build expanded stops (perceptual interpolation)
-  const expanded = expandGradientStopsForFill(fill);
-
-  // Determine tile canvas size
-  // For linear: tile is along gradient direction
-  // For radial: tile is a square of 2*halfDiag
-
-  const canvas =
-    typeof OffscreenCanvas !== 'undefined'
-      ? new OffscreenCanvas(Math.max(1, Math.ceil(bounds.w)), Math.max(1, Math.ceil(bounds.h)))
-      : null;
-
-  if (!canvas) {
-    // Fallback: render gradient without tiling
-    target.fillStyle = createGradientStyle(target, fill, item);
-    paintShapeFill(target, item);
-    return;
-  }
-
-  const ctx = canvas.getContext('2d');
-  if (!ctx) {
-    target.fillStyle = createGradientStyle(target, fill, item);
-    paintShapeFill(target, item);
-    return;
-  }
-
-  if (fill.gradientType === 'radial' || fill.gradientType === 'diamond') {
-    const tileSize = Math.ceil(halfDiag * 2);
-    const tileCanvas =
-      typeof OffscreenCanvas !== 'undefined'
-        ? new OffscreenCanvas(Math.max(1, tileSize), Math.max(1, tileSize))
-        : null;
-    if (!tileCanvas) {
-      target.fillStyle = createGradientStyle(target, fill, item);
-      paintShapeFill(target, item);
-      return;
-    }
-    const tileCtx = tileCanvas.getContext('2d');
-    if (!tileCtx) {
-      target.fillStyle = createGradientStyle(target, fill, item);
-      paintShapeFill(target, item);
-      return;
-    }
-    const grad = tileCtx.createRadialGradient(
-      tileSize / 2,
-      tileSize / 2,
-      0,
-      tileSize / 2,
-      tileSize / 2,
-      tileSize / 2,
-    );
-    for (const s of expanded) {
-      grad.addColorStop(s.position, rgbaWorking(s.color));
-    }
-    tileCtx.fillStyle = grad;
-    tileCtx.fillRect(0, 0, tileSize, tileSize);
-    if (tilingMode === 'reflect') {
-      // Mirror the tile horizontally for reflect
-      const doubleCanvas =
-        typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(tileSize * 2, tileSize) : null;
-      if (doubleCanvas) {
-        const dCtx = doubleCanvas.getContext('2d');
-        if (dCtx) {
-          // Draw forward tile
-          dCtx.drawImage(tileCanvas, 0, 0);
-          // Draw mirrored tile
-          dCtx.save();
-          dCtx.translate(tileSize * 2, 0);
-          dCtx.scale(-1, 1);
-          dCtx.drawImage(tileCanvas, 0, 0);
-          dCtx.restore();
-          if (target.createPattern) {
-            const pattern = target.createPattern(
-              doubleCanvas as unknown as CanvasImageSource,
-              'repeat',
-            );
-            if (pattern) {
-              target.fillStyle = pattern;
-              paintShapeFill(target, item);
-              return;
-            }
-          }
-        }
-      }
-    }
-    if (target.createPattern) {
-      const pattern = target.createPattern(tileCanvas as unknown as CanvasImageSource, 'repeat');
-      if (pattern) {
-        target.fillStyle = pattern;
-        paintShapeFill(target, item);
-        return;
-      }
-    }
-  }
-
-  if (fill.gradientType === 'angular') {
-    target.fillStyle = createGradientStyle(target, fill, item);
-    paintShapeFill(target, item);
-    return;
-  }
-
-  // Paint the gradient across the canvas
-  const grad = ctx.createLinearGradient(cx - dx, cy - dy, cx + dx, cy + dy);
-  for (const s of expanded) {
-    grad.addColorStop(s.position, rgbaWorking(s.color));
-  }
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, bounds.w, bounds.h);
-
-  if (tilingMode === 'reflect') {
-    // Mirror tiles horizontally
-    const finalCanvas =
-      typeof OffscreenCanvas !== 'undefined'
-        ? new OffscreenCanvas(
-            Math.max(1, Math.ceil(bounds.w * 2)),
-            Math.max(1, Math.ceil(bounds.h)),
-          )
-        : null;
-    if (finalCanvas) {
-      const fCtx = finalCanvas.getContext('2d');
-      if (fCtx) {
-        fCtx.drawImage(canvas, 0, 0);
-        fCtx.save();
-        fCtx.translate(bounds.w * 2, 0);
-        fCtx.scale(-1, 1);
-        fCtx.drawImage(canvas, 0, 0);
-        fCtx.restore();
-        if (target.createPattern) {
-          const pattern = target.createPattern(
-            finalCanvas as unknown as CanvasImageSource,
-            'repeat',
-          );
-          if (pattern) {
-            target.fillStyle = pattern;
-            paintShapeFill(target, item);
-            return;
-          }
-        }
-      }
-    }
-  }
-
-  if (target.createPattern) {
-    const pattern = target.createPattern(canvas as unknown as CanvasImageSource, 'repeat');
-    if (pattern) {
-      target.fillStyle = pattern;
-    } else {
-      target.fillStyle = createGradientStyle(target, fill, item);
-    }
-  } else {
-    target.fillStyle = createGradientStyle(target, fill, item);
-  }
-  paintShapeFill(target, item);
 }
 
 /**
@@ -2599,11 +2183,17 @@ function paintRichText(
           fontStyle: p.fontStyle,
           letterSpacing: p.letterSpacing,
           tracking: p.tracking ?? 0,
+          lineHeight: p.lineHeight,
           direction: p.direction,
           language: p.language,
         },
         target as import('./richTextLayout').RichTextMeasureContext,
-        { maxWidth: p.w, lineHeight: p.fontSize * p.lineHeight, language: p.language },
+        {
+          maxWidth: p.textMode === 'area' ? p.w : 0,
+          lineHeight: p.fontSize * p.lineHeight,
+          paragraphSpacing: p.paragraphSpacing,
+          language: p.language,
+        },
       );
       paintCanonicalRichText(target, p, richText, snapshot);
       return;
@@ -2622,7 +2212,7 @@ function paintRichText(
   };
   const positioned = layoutRichText(
     p.richText! as import('./textLayout').RichTextInput,
-    p.w,
+    p.textMode === 'area' ? p.w : 0,
     defaultFormat,
   );
 
@@ -3082,6 +2672,17 @@ function effectiveWeight(p: { fontWeight: number; variableAxes?: Record<string, 
   return Math.max(1, Math.min(1000, weight));
 }
 
+function ellipsizeText(text: string, maxWidth: number, measure: (value: string) => number): string {
+  const suffix = '…';
+  if (maxWidth <= 0 || measure(suffix) > maxWidth) return '';
+  const clusters = Array.from(text);
+  if (measure(text + suffix) <= maxWidth) return text + suffix;
+  while (clusters.length > 0 && measure(`${clusters.join('')}${suffix}`) > maxWidth) {
+    clusters.pop();
+  }
+  return `${clusters.join('')}${suffix}`;
+}
+
 /** Paint a text primitive via Canvas2D `fillText` with full typography support. */
 function paintText(
   target: ReplayTarget,
@@ -3234,12 +2835,26 @@ function paintText(
   const ls = p.letterSpacing;
   const tr = ((p.tracking ?? 0) * p.fontSize) / 1000;
 
+  const constrainedOverflow =
+    p.textMode === 'area' && (p.textOverflow === 'clip' || p.textOverflow === 'ellipsis');
+  const shouldClipToFrame = constrainedOverflow && p.w > 0 && p.h > 0;
+  if (shouldClipToFrame) {
+    target.save();
+    target.beginPath();
+    target.rect(p.x, p.y, p.w, p.h);
+    target.clip();
+  }
+
   // Compute text overflow: visible text
   const visibleLines: Array<{ text: string; y: number }> = [];
   const currentY = p.y;
+  let hasVerticalOverflow = false;
   for (let i = 0; i < lines.length; i++) {
     const yPos = currentY + i * lh + (i > 0 ? ps : 0);
-    if (p.textOverflow === 'clip' && yPos + lh > p.y + p.h) break;
+    if (constrainedOverflow && yPos + lh > p.y + p.h) {
+      hasVerticalOverflow = true;
+      break;
+    }
     visibleLines.push({ text: lines[i] ?? '', y: yPos });
   }
 
@@ -3259,9 +2874,9 @@ function paintText(
 
     // Handle overflow ellipsis
     let displayLine = text;
-    if (p.textOverflow === 'ellipsis') {
+    if (p.textOverflow === 'ellipsis' && (hasVerticalOverflow || measureLine(text) > p.w)) {
       target.font = `${style}${fw} ${p.fontSize}px "${p.fontFamily}"`;
-      displayLine = text + (text.length > 0 && y + lh > p.y + p.h ? '…' : '');
+      displayLine = ellipsizeText(text, p.w, measureLine);
     }
 
     // Calculate x origin based on text alignment within the box
@@ -3359,6 +2974,8 @@ function paintText(
       target.stroke();
     }
   }
+
+  if (shouldClipToFrame) target.restore();
 }
 
 /** Module-level cached canvas + context for measureText calls (created lazily). */
@@ -3390,8 +3007,19 @@ function measureTextAdvance(target: ReplayTarget, char: string): number {
 }
 
 function parseFontSize(font: string): number {
-  const match = /(\d+(?:\.\d+)?)px/.exec(font);
-  return match?.[1] ? Number.parseFloat(match[1]) : 16;
+  const pxIndex = font.indexOf('px');
+  if (pxIndex < 1) return 16;
+  let start = pxIndex - 1;
+  while (start >= 0) {
+    const code = font.charCodeAt(start);
+    if ((code >= 0x30 && code <= 0x39) || code === 0x2e) {
+      start--;
+      continue;
+    }
+    break;
+  }
+  const parsed = Number.parseFloat(font.slice(start + 1, pxIndex));
+  return Number.isFinite(parsed) ? parsed : 16;
 }
 
 /** Paint a closed/open path fill (supports optional hole rings via evenodd). */
@@ -3461,7 +3089,14 @@ function paintStroke(
   item: RenderItem,
 ): void {
   target.save();
-  target.strokeStyle = rgba(stroke.color);
+  target.strokeStyle = stroke.gradient
+    ? createGradientStyle(
+        target,
+        gradientStrokeToFill(stroke.gradient),
+        item,
+        primitiveBounds(item.primitive),
+      )
+    : rgba(stroke.color);
   target.lineWidth = stroke.weight;
   target.lineCap = stroke.cap as CanvasLineCap;
   target.lineJoin = stroke.join as CanvasLineJoin;
@@ -3555,7 +3190,7 @@ function paintStroke(
       target.stroke();
       if (hasArrowheads) {
         const headSize = arrowheadSize(undefined, stroke.weight);
-        target.fillStyle = rgba(stroke.color);
+        target.fillStyle = target.strokeStyle;
         if (arrowStart !== 'none') {
           drawArrowhead(target, p.from, p.to, headSize, arrowStart, true);
         }
@@ -3581,7 +3216,7 @@ function paintStroke(
       // Draw arrowheads using stroke color, respecting per-stroke arrowStart/arrowEnd.
       // Default: arrow tool produces an end arrowhead.
       const headSize = arrowheadSize(p.arrowheadSize, stroke.weight);
-      target.fillStyle = rgba(stroke.color);
+      target.fillStyle = target.strokeStyle;
       if (arrowStart !== 'none') {
         drawArrowhead(target, p.from, p.to, headSize, arrowStart, true);
       }
@@ -3628,6 +3263,25 @@ function paintStroke(
   }
 
   target.restore();
+}
+
+/** Convert a stroke's spatial gradient to the one canonical replay fill form. */
+function gradientStrokeToFill(
+  gradient: NonNullable<Stroke['gradient']>,
+): Extract<FillIR, { type: 'gradient' }> {
+  return {
+    type: 'gradient',
+    gradientType: gradient.type,
+    stops: gradient.stops,
+    rotation: gradient.rotation ?? 0,
+    interpolationSpace: gradient.interpolationSpace,
+    hueInterpolation: gradient.hueInterpolation,
+    transform: gradient.transform,
+    tilingMode: gradient.tilingMode,
+    opacity: 1,
+    blendMode: 'normal',
+    visible: true,
+  };
 }
 
 /**
@@ -3982,7 +3636,8 @@ export function primitiveBounds(p: RenderItem['primitive']): {
         maxY = Math.max(maxY, y);
       };
 
-      for (const ring of [p.points, ...(p.holes ?? [])]) {
+      const rings = p.contours?.length ? p.contours : [p.points, ...(p.holes ?? [])];
+      for (const ring of rings) {
         for (const point of ring) {
           include(point.x, point.y);
           if (point.handleIn) {

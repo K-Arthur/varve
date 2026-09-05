@@ -102,6 +102,15 @@ export type {
 } from './fontResolver';
 // Missing font resolution
 export { FONT_COMPAT_MAP, FontResolver } from './fontResolver';
+export type { FontStorageMetadata, StoredFontRecord } from './fontStorage';
+export {
+  getStoredFont,
+  getStoredFontCount,
+  listStoredFonts,
+  loadStoredFont,
+  removeStoredFont,
+  storeFont,
+} from './fontStorage';
 // Tauri filesystem font storage adapter
 export type { FontStorageFsMeta } from './fontStorageFs';
 export {
@@ -112,6 +121,88 @@ export {
   removeFontFromFilesystem,
   storeFontOnFilesystem,
 } from './fontStorageFs';
+export type {
+  CatalogAxis,
+  CatalogLicense,
+  CatalogSearchOptions,
+  CatalogSearchResult,
+  FontArtifactDescriptor,
+  FontArtifactRequest,
+  FontsourceCatalogRecord,
+  FontsourceCatalogSnapshot,
+} from './fontsourceCatalog';
+export {
+  FontsourceCatalogStore,
+  getFontsourceCatalog,
+  resetFontsourceCatalog,
+} from './fontsourceCatalog';
 export type { FontUsage } from './fontUsageIndex';
 // Document font usage tracking
 export { FontUsageIndex, migrateLegacyFontRefs } from './fontUsageIndex';
+export {
+  FontSemanticCatalog,
+  getFontSemanticCatalog,
+  migrateLegacyFontCatalogTags,
+  resetFontSemanticCatalog,
+} from './semantic/semanticCatalog';
+export {
+  createFontSemanticProfile,
+  mergeFontSemanticInput,
+  profileFromParsedFontMetadata,
+  semanticInputFromParsedFont,
+  semanticRecordFromFontsource,
+} from './semantic/semanticEnrichment';
+export type { FontSemanticTagDefinition } from './semantic/semanticOntology';
+export {
+  allSemanticSynonyms,
+  FONT_SEMANTIC_TAGS,
+  tagDefinition,
+  tagIdForTerm,
+  tagLabel,
+  validateFontSemanticOntology,
+} from './semantic/semanticOntology';
+export {
+  normalizeFontSemanticText,
+  parseFontSemanticQuery,
+  semanticQueryLabel,
+} from './semantic/semanticQuery';
+export { searchFontSemanticRecords } from './semantic/semanticRanking';
+export type {
+  FontAlternativeMode,
+  FontPairingIntent,
+  FontRecommendation,
+  FontSimilarityIntent,
+} from './semantic/semanticRecommendations';
+export {
+  findFontAlternatives,
+  findFontPairings,
+  findSimilarFonts,
+} from './semantic/semanticRecommendations';
+// Provider-independent semantic discovery. This is a deterministic local lane;
+// optional model embeddings have a separate contract in semanticSimilarity.
+export type {
+  EvidenceStrength,
+  FontAvailabilityConstraint,
+  FontSearchReason,
+  FontSearchResult,
+  FontSemanticAssignment,
+  FontSemanticConflict,
+  FontSemanticFacet,
+  FontSemanticInput,
+  FontSemanticProfile,
+  FontSemanticQuery,
+  FontSemanticRecord,
+  FontSemanticScope,
+  FontSemanticSearchOptions,
+  FontSemanticSource,
+  FontSemanticUserState,
+  FontVisualFeatureVector,
+  NumericConstraint,
+  SemanticConstraint,
+  SemanticPreference,
+} from './semantic/semanticTypes';
+export {
+  FONT_ONTOLOGY_VERSION,
+  FONT_SEMANTIC_ANALYZER_VERSION,
+  FONT_SEMANTIC_SCHEMA_VERSION,
+} from './semantic/semanticTypes';

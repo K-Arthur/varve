@@ -321,6 +321,40 @@ describe('sessionBroker: transactional panel host readiness', () => {
     broker.detach();
   });
 
+  it('allows a cold auxiliary route the full bounded default readiness window', async () => {
+    vi.useFakeTimers();
+    const api = makeEditorApi();
+    const transport = createSessionTransport('test-session', () => {});
+    const broker = new SessionBroker('test-session');
+    broker.attach(api);
+
+    const ready = broker.reservePanelHost({
+      transactionId: 'detach-tx-default-timeout',
+      windowId: 'panel_window_default_timeout',
+      panelTypeId: 'layers',
+      panelInstanceId: 'layers-primary',
+    });
+
+    sendWindowReady(transport, 'panel_window_default_timeout', ['layers'], {
+      transactionId: 'detach-tx-default-timeout',
+      panelTypeId: 'layers',
+      panelInstanceId: 'layers-primary',
+    });
+    await Promise.resolve();
+    const rejected = expect(ready).rejects.toThrow('did not become ready');
+
+    await vi.advanceTimersByTimeAsync(29_999);
+    expect(broker.getPendingPanelHosts()).toHaveLength(1);
+    expect(api.reattachPanel).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1);
+    await rejected;
+    expect(api.reattachPanel).toHaveBeenCalledWith('layers');
+
+    transport.close();
+    broker.detach();
+  });
+
   it('ignores a transaction identity mismatch until the reservation is explicitly aborted', async () => {
     const api = makeEditorApi();
     const transport = createSessionTransport('test-session', () => {});

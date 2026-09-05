@@ -78,6 +78,19 @@ vi.mock('@varve/ui', () => ({
       ))}
     </select>
   ),
+  Switch: ({ label, checked, disabled, onChange, className }) => (
+    <label className={className}>
+      <input
+        type="checkbox"
+        role="switch"
+        checked={checked}
+        aria-checked={checked}
+        disabled={disabled}
+        onChange={onChange}
+      />
+      {label}
+    </label>
+  ),
 }));
 
 import { ColorizeSection } from '../ColorizeSection';
@@ -131,14 +144,14 @@ describe('ColorizeSection', () => {
     expect(screen.getByLabelText(/chroma strength/i)).toBeTruthy();
   });
 
-  it('renders skin protection checkbox for recolor workflow', () => {
+  it('renders skin protection switch for recolor workflow', () => {
     render(<ColorizeSection nodes={[makeImageNode()]} />);
-    expect(screen.getByText('Skin tone protection')).toBeTruthy();
+    expect(screen.getByRole('switch', { name: 'Protect skin tones' })).toBeTruthy();
   });
 
-  it('renders neutral protection checkbox for recolor workflow', () => {
+  it('renders neutral protection switch for recolor workflow', () => {
     render(<ColorizeSection nodes={[makeImageNode()]} />);
-    expect(screen.getByText('Neutral region protection')).toBeTruthy();
+    expect(screen.getByRole('switch', { name: 'Protect neutral regions' })).toBeTruthy();
   });
 
   it('renders palette hint when palette workflow selected', () => {

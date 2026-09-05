@@ -275,7 +275,7 @@ export function VectorizeWorkflow({
           paths,
           omittedHoles: result.omittedHoles,
           cornerAngle: settings.cornerAngle,
-          maxError: 1.0,
+          maxError: settings.maxError ?? 1.0,
           traceMode: settings.traceMode,
           centerlineWidth:
             settings.traceMode === 'centerline' ? settings.centerlineWidth : undefined,
@@ -427,6 +427,12 @@ export function VectorizeWorkflow({
       <Slider
         {...sliderProps('Corner angle', settings.cornerAngle, 90, 180)}
         onChange={(cornerAngle) => patch({ cornerAngle })}
+      />
+      <Slider
+        {...sliderProps('Curve tolerance', settings.maxError, 0.1, 10)}
+        step={0.1}
+        formatValue={(v) => v.toFixed(1)}
+        onChange={(maxError) => patch({ maxError })}
       />
 
       {settings.traceMode === 'centerline' && (

@@ -1,7 +1,7 @@
 .content-skeleton {
   --skeleton-bg: var(--skeleton-bg-color, var(--color-surface-raised));
   --skeleton-shimmer: var(--skeleton-shimmer-color, var(--color-surface-overlay));
-  --skeleton-radius: var(--radius-sm);
+  --skeleton-radius: var(--radius-control-compact);
   position: relative;
   overflow: hidden;
 }
@@ -61,7 +61,7 @@
 
 .content-skeleton__cell {
   aspect-ratio: 1;
-  border-radius: var(--radius-md, 8px);
+  border-radius: var(--radius-control);
   overflow: hidden;
 }
 
@@ -71,14 +71,14 @@
   flex-direction: column;
   gap: var(--space-2, 8px);
   padding: var(--space-3, 12px);
-  border-radius: var(--radius-md, 8px);
+  border-radius: var(--radius-control);
   background: var(--color-surface-default);
 }
 
 .content-skeleton__card-icon {
   width: var(--space-7);
   height: var(--space-7);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   overflow: hidden;
 }
 

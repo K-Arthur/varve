@@ -297,10 +297,15 @@ export function DnDShell({ children, editor, layersDndRef }: DnDShellProps) {
               style={{
                 padding: '4px 12px',
                 background: 'var(--color-surface-raised)',
-                borderRadius: 'var(--radius-sm)',
+                borderRadius: 'var(--radius-control-compact)',
                 boxShadow: 'var(--elevation-shadow-raised)',
                 fontSize: 'var(--font-size-sm)',
                 pointerEvents: 'none',
+                width: 'max-content',
+                maxWidth: '280px',
+                whiteSpace: 'nowrap',
+                textOverflow: 'ellipsis',
+                overflow: 'hidden',
               }}
             >
               {activeDragNode.name}
@@ -314,10 +319,15 @@ export function DnDShell({ children, editor, layersDndRef }: DnDShellProps) {
               style={{
                 padding: '4px 12px',
                 background: 'var(--color-surface-raised)',
-                borderRadius: 'var(--radius-sm)',
+                borderRadius: 'var(--radius-control-compact)',
                 boxShadow: 'var(--elevation-shadow-raised)',
                 fontSize: 'var(--font-size-sm)',
                 pointerEvents: 'none',
+                width: 'max-content',
+                maxWidth: '280px',
+                whiteSpace: 'nowrap',
+                textOverflow: 'ellipsis',
+                overflow: 'hidden',
               }}
             >
               {activeEffectStack.transferMode === 'append' ? 'Append' : 'Copy'}{' '}

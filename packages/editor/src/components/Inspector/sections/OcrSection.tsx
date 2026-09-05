@@ -310,7 +310,7 @@ export function OcrSection({ nodes }: { nodes: SceneNode[] }) {
           <div className="insp-actions">
             <Button
               type="button"
-              variant="primary"
+              variant="default"
               size="sm"
               disabled={state_.status === 'downloading'}
               loading={state_.status === 'downloading'}
@@ -383,7 +383,7 @@ export function OcrSection({ nodes }: { nodes: SceneNode[] }) {
             <div className="insp-actions">
               <Button
                 type="button"
-                variant="primary"
+                variant="default"
                 size="sm"
                 onClick={handleCopyAll}
                 aria-label="Copy all recognized text"

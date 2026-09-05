@@ -55,7 +55,8 @@ export function ShortcutPalette({
   const [query, setQuery] = useState('');
   const [remappingId, setRemappingId] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
-  const [toast, setToast] = useState<string | null>(null);
+  // Dialog-local feedback keeps shortcut edits in context and avoids toast noise.
+  const [feedback, setFeedback] = useState<string | null>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -72,9 +73,9 @@ export function ShortcutPalette({
     );
   }, [effectiveConfig]);
 
-  const showToast = useCallback((msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 2000);
+  const showFeedback = useCallback((msg: string) => {
+    setFeedback(msg);
+    setTimeout(() => setFeedback(null), 2000);
   }, []);
 
   const all = useMemo(
@@ -165,31 +166,31 @@ export function ShortcutPalette({
         try {
           const data = JSON.parse(reader.result as string);
           const count = importKeymap(data);
-          showToast(`Imported ${count} shortcut${count === 1 ? '' : 's'}`);
+          showFeedback(`Imported ${count} shortcut${count === 1 ? '' : 's'}`);
           setReloadKey((k) => k + 1);
         } catch {
-          showToast('Invalid keymap file');
+          showFeedback('Invalid keymap file');
         }
       };
       reader.readAsText(file);
       e.target.value = '';
     },
-    [showToast],
+    [showFeedback],
   );
 
   const handleResetAll = useCallback(() => {
     clearAllOverrides();
-    showToast('All shortcuts reset to defaults');
+    showFeedback('All shortcuts reset to defaults');
     setReloadKey((k) => k + 1);
-  }, [showToast]);
+  }, [showFeedback]);
 
   const handleResetOne = useCallback(
     (id: string) => {
       clearOverride(id);
-      showToast('Shortcut reset to default');
+      showFeedback('Shortcut reset to default');
       setReloadKey((k) => k + 1);
     },
-    [showToast],
+    [showFeedback],
   );
 
   const handleRemapClick = useCallback((id: string, e: React.MouseEvent) => {
@@ -276,7 +277,7 @@ export function ShortcutPalette({
           clearOverride(remappingId);
           setOverride(remappingId, binding);
           setRemappingId(null);
-          showToast(`Remapped to ${formatShortcut(binding)}`);
+          showFeedback(`Remapped to ${formatShortcut(binding)}`);
           setReloadKey((k) => k + 1);
         }
         return;
@@ -336,7 +337,7 @@ export function ShortcutPalette({
       onClose,
       onSelect,
       remappingId,
-      showToast,
+      showFeedback,
       visibleIds,
       highlightId,
       moveHighlight,
@@ -413,9 +414,9 @@ export function ShortcutPalette({
             <input ref={fileRef} type="file" accept=".json" hidden onChange={handleImport} />
           </div>
 
-          {toast && (
-            <div className="shortcut-palette__toast" role="status" aria-live="polite">
-              {toast}
+          {feedback && (
+            <div className="shortcut-palette__feedback" role="status" aria-live="polite">
+              {feedback}
             </div>
           )}
 

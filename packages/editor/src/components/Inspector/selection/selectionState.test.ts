@@ -68,4 +68,9 @@ describe('commonValue', () => {
   it('returns MIXED for an empty selection', () => {
     expect(commonValue([], () => 0)).toBe(MIXED);
   });
+
+  it('preserves undefined for an all-unset property', () => {
+    const nodes = [shape('a', 5), shape('b', 9)];
+    expect(commonValue(nodes, () => undefined)).toBeUndefined();
+  });
 });

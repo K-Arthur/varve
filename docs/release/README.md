@@ -16,6 +16,7 @@ trust. Start with the audit; it explains why the rest of these exist.
 | [production-build.md](production-build.md) | Every build command, marked VERIFIED or UNVERIFIED, with real measurements |
 | [update-strategy.md](update-strategy.md) | Consent-first updater design, package authority, production gates, and key management |
 | [release-checklists.md](release-checklists.md) | Alpha / beta / RC / stable, plus hotfix, rollback and incident runbooks |
+| [release-candidate-runbook.md](release-candidate-runbook.md) | Exact-SHA candidate certification, tag precondition, resumable packaging, and release-data deployment |
 | [release-rollback-runbook.md](release-rollback-runbook.md) | Full rollback procedure: detection, containment, website re-pointing, updater recovery, communication, manual-update path |
 | [ci-secrets.md](ci-secrets.md) | Secret names, job permissions, and the enrolment steps a human must do |
 | [website.md](website.md) | Site architecture, the generated download-manifest flow, hosting and launch checklist |
@@ -28,6 +29,9 @@ trust. Start with the audit; it explains why the rest of these exist.
 | Script | Purpose |
 |---|---|
 | `version.mjs` | Single-source the version across nine manifests (see TARGETS array in source); `verify` gate on tag agreement **and on every push** (ci.yml `pipeline-validate`); `bump`/`snapshot` for the post-release bump and dev builds |
+| `certification.mjs` / `verify-certification.mjs` | Verify exact-SHA integration/candidate checks and the policy-bound candidate artifact before release setup |
+| `resume.mjs` / `write-artifact-provenance.mjs` | Validate reusable platform artifacts and assemble a complete exact-SHA manifest without mixing releases |
+| `website-release-data-check.mjs` | Validate published release-data changes without rerunning the website source corpus |
 | `check-bundled-assets.mjs` | Fail on LFS pointers, catalog disagreement, and unpinned model downloads |
 | `prune-foreign-runtimes.mjs` | Drop other platforms' ONNX Runtime libraries before packaging |
 | `collect-artifacts.mjs` | Rename to a predictable scheme, hash, write manifest + `SHA256SUMS.txt` |
@@ -52,10 +56,10 @@ Signing policy and trust-gate logic is unit-tested by
 ## The shape of a release
 
 ```
-tag v0.1.0
+freeze exact master SHA
    │
-   ├── preflight          tag == version == changelog entry, or stop
-   ├── gate               lint, typecheck, tests, clippy, cargo test
+   ├── candidate           extended exact-SHA matrix + policy-bound evidence
+   ├── tag preflight       tag == version == changelog + exact certifications, or stop
    ├── signing-preflight  resolve signed or manual-download contingency
    ├── bundle             native runners; sign when configured; verify the
    │                      artifact bytes (signing-report-*.json); collect; hash;

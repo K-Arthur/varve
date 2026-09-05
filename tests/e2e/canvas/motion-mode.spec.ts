@@ -39,7 +39,7 @@ async function navigateToEditor(page: import('@playwright/test').Page) {
 }
 
 async function switchWorkspace(page: import('@playwright/test').Page, label: string) {
-  const tab = page.locator(`.workspace-tabs__tab[aria-label="${label} workspace"]`);
+  const tab = page.locator(`.workspace-dock__item[aria-label="${label} workspace"]`);
   if (await tab.isVisible({ timeout: 1000 }).catch(() => false)) {
     await tab.click();
     return;

@@ -38,7 +38,7 @@ const STYLES = `
   max-width: min(560px, calc(100vw - 32px));
   padding: 12px 16px;
   border: 1px solid rgb(255 255 255 / 0.14);
-  border-radius: 10px;
+      border-radius: var(--radius-surface);
   background: #10151f;
   color: #fff;
   color-scheme: dark;
@@ -51,7 +51,7 @@ const STYLES = `
   flex-shrink: 0;
   padding: 7px 14px;
   border: none;
-  border-radius: 6px;
+      border-radius: var(--radius-control);
   font: 600 14px/1 system-ui, sans-serif;
   cursor: pointer;
 }

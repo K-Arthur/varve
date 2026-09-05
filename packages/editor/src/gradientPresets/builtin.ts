@@ -22,6 +22,19 @@ export const GRADIENT_BUILTIN_KEYS = [
   'duotone-blue',
   'duotone-red',
   'acid',
+  'infrared',
+  'moonlight',
+  'autumn',
+  'arctic',
+  'vintage-fade',
+  'cyberpunk',
+  'rose-gold',
+  'forest',
+  'lavender',
+  'high-contrast',
+  'duotone-teal-orange',
+  'tri-tone-warm',
+  'tri-tone-cool',
 ] as const;
 
 export type GradientBuiltinKey = (typeof GRADIENT_BUILTIN_KEYS)[number];
@@ -141,6 +154,130 @@ const BUILTIN_SPECS: BuiltinSpec[] = [
       [0, [30, 60, 10, 255]],
       [0.5, [200, 255, 40, 255]],
       [1, [255, 40, 180, 255]],
+    ],
+  },
+  {
+    key: 'infrared',
+    name: 'Infrared',
+    stops: [
+      [0, [20, 0, 30, 255]],
+      [0.3, [120, 0, 80, 255]],
+      [0.6, [220, 40, 100, 255]],
+      [1, [255, 200, 180, 255]],
+    ],
+  },
+  {
+    key: 'moonlight',
+    name: 'Moonlight',
+    stops: [
+      [0, [5, 8, 20, 255]],
+      [0.4, [30, 50, 90, 255]],
+      [0.7, [80, 120, 160, 255]],
+      [1, [180, 200, 220, 255]],
+    ],
+  },
+  {
+    key: 'autumn',
+    name: 'Autumn',
+    stops: [
+      [0, [40, 15, 5, 255]],
+      [0.35, [160, 60, 20, 255]],
+      [0.65, [220, 140, 40, 255]],
+      [1, [250, 220, 160, 255]],
+    ],
+  },
+  {
+    key: 'arctic',
+    name: 'Arctic',
+    stops: [
+      [0, [10, 20, 40, 255]],
+      [0.5, [100, 160, 200, 255]],
+      [1, [220, 240, 250, 255]],
+    ],
+  },
+  {
+    key: 'vintage-fade',
+    name: 'Vintage Fade',
+    stops: [
+      [0, [30, 25, 20, 255]],
+      [0.3, [120, 95, 70, 255]],
+      [0.7, [190, 170, 140, 255]],
+      [1, [235, 225, 210, 255]],
+    ],
+  },
+  {
+    key: 'cyberpunk',
+    name: 'Cyberpunk',
+    stops: [
+      [0, [10, 5, 30, 255]],
+      [0.3, [200, 0, 100, 255]],
+      [0.6, [0, 220, 255, 255]],
+      [1, [255, 255, 100, 255]],
+    ],
+  },
+  {
+    key: 'rose-gold',
+    name: 'Rose Gold',
+    stops: [
+      [0, [40, 20, 25, 255]],
+      [0.4, [180, 120, 110, 255]],
+      [0.7, [230, 190, 170, 255]],
+      [1, [250, 235, 225, 255]],
+    ],
+  },
+  {
+    key: 'forest',
+    name: 'Forest',
+    stops: [
+      [0, [10, 20, 10, 255]],
+      [0.4, [40, 90, 40, 255]],
+      [0.7, [100, 160, 80, 255]],
+      [1, [200, 230, 180, 255]],
+    ],
+  },
+  {
+    key: 'lavender',
+    name: 'Lavender',
+    stops: [
+      [0, [25, 15, 40, 255]],
+      [0.5, [120, 90, 170, 255]],
+      [1, [220, 200, 240, 255]],
+    ],
+  },
+  {
+    key: 'high-contrast',
+    name: 'High Contrast B&W',
+    stops: [
+      [0, [0, 0, 0, 255]],
+      [0.35, [0, 0, 0, 255]],
+      [0.65, [255, 255, 255, 255]],
+      [1, [255, 255, 255, 255]],
+    ],
+  },
+  {
+    key: 'duotone-teal-orange',
+    name: 'Teal & Orange',
+    stops: [
+      [0, [10, 40, 50, 255]],
+      [1, [240, 160, 60, 255]],
+    ],
+  },
+  {
+    key: 'tri-tone-warm',
+    name: 'Warm Tri-tone',
+    stops: [
+      [0, [30, 10, 5, 255]],
+      [0.5, [160, 80, 40, 255]],
+      [1, [250, 230, 200, 255]],
+    ],
+  },
+  {
+    key: 'tri-tone-cool',
+    name: 'Cool Tri-tone',
+    stops: [
+      [0, [5, 10, 30, 255]],
+      [0.5, [40, 100, 150, 255]],
+      [1, [200, 225, 245, 255]],
     ],
   },
 ];

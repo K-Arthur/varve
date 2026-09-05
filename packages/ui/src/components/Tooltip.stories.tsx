@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react';
+import { Button } from './Button';
 import { Tooltip } from './Tooltip';
 
 const meta: Meta<typeof Tooltip> = {
@@ -18,11 +19,7 @@ export const Top: Story = {
   args: {
     label: 'Tooltip on top',
     placement: 'top',
-    children: (
-      <button type="button" className="varve-btn varve-btn--primary">
-        Hover me
-      </button>
-    ),
+    children: <Button>Hover me</Button>,
   },
 };
 
@@ -30,11 +27,7 @@ export const Bottom: Story = {
   args: {
     label: 'Tooltip on bottom',
     placement: 'bottom',
-    children: (
-      <button type="button" className="varve-btn varve-btn--secondary">
-        Hover me
-      </button>
-    ),
+    children: <Button variant="secondary">Hover me</Button>,
   },
 };
 
@@ -42,11 +35,7 @@ export const Left: Story = {
   args: {
     label: 'Tooltip on left',
     placement: 'left',
-    children: (
-      <button type="button" className="varve-btn varve-btn--ghost">
-        Hover me
-      </button>
-    ),
+    children: <Button variant="ghost">Hover me</Button>,
   },
 };
 
@@ -54,11 +43,7 @@ export const Right: Story = {
   args: {
     label: 'Tooltip on right',
     placement: 'right',
-    children: (
-      <button type="button" className="varve-btn varve-btn--danger">
-        Hover me
-      </button>
-    ),
+    children: <Button variant="destructive">Hover me</Button>,
   },
 };
 
@@ -67,11 +52,7 @@ export const LongLabel: Story = {
     label:
       'This is a longer tooltip label that demonstrates text wrapping and max-width constraints.',
     placement: 'top',
-    children: (
-      <button type="button" className="varve-btn varve-btn--primary">
-        Long tooltip
-      </button>
-    ),
+    children: <Button>Long tooltip</Button>,
   },
 };
 
@@ -79,11 +60,7 @@ export const Dark: Story = {
   args: {
     label: 'Dark theme tooltip',
     placement: 'top',
-    children: (
-      <button type="button" className="varve-btn varve-btn--primary">
-        Hover me
-      </button>
-    ),
+    children: <Button>Hover me</Button>,
   },
   decorators: [
     (Story) => (

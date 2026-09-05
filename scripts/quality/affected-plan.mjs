@@ -18,7 +18,7 @@
  * Exit codes: 0 = plan computed (even if empty), 1 = hard error.
  */
 
-import { execSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { IMPACT_CONFIG } from '../../validation-impact.config.mjs';
@@ -57,29 +57,44 @@ function run(cmd, opts = {}) {
   }
 }
 
+function runGit(args, { raw = false, ...opts } = {}) {
+  try {
+    const output = execFileSync('git', args, {
+      cwd: ROOT,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      ...opts,
+    });
+    return raw ? output : output.trim();
+  } catch {
+    return null;
+  }
+}
+
+function gitPaths(args) {
+  return (runGit([...args, '-z'], { raw: true }) ?? '').split('\0').filter(Boolean);
+}
+
+function resolvedCommit(ref) {
+  return runGit(['rev-parse', '--verify', '--end-of-options', `${ref}^{commit}`]);
+}
+
 function gitChangedFiles({ base, staged }) {
   if (staged) {
-    return (run('git diff --cached --name-only --diff-filter=ACDMRTUXB') ?? '')
-      .split('\n')
-      .filter(Boolean);
+    return gitPaths(['diff', '--cached', '--name-only', '--diff-filter=ACDMRTUXB']);
   }
   if (base) {
-    const out = run(`git diff --name-only --diff-filter=ACDMRTUXB ${base}...HEAD`);
-    const untracked = (run('git ls-files --others --exclude-standard') ?? '')
-      .split('\n')
-      .filter(Boolean);
-    return [...new Set([...(out ?? '').split('\n').filter(Boolean), ...untracked])];
+    const resolvedBase = resolvedCommit(base);
+    const out = resolvedBase
+      ? gitPaths(['diff', '--name-only', '--diff-filter=ACDMRTUXB', `${resolvedBase}...HEAD`])
+      : [];
+    const untracked = gitPaths(['ls-files', '--others', '--exclude-standard']);
+    return [...new Set([...out, ...untracked])];
   }
   // uncommitted (staged + unstaged + untracked)
-  const stagedFiles = (run('git diff --cached --name-only --diff-filter=ACDMRTUXB') ?? '')
-    .split('\n')
-    .filter(Boolean);
-  const unstagedFiles = (run('git diff --name-only --diff-filter=ACDMRTUXB') ?? '')
-    .split('\n')
-    .filter(Boolean);
-  const untracked = (run('git ls-files --others --exclude-standard') ?? '')
-    .split('\n')
-    .filter(Boolean);
+  const stagedFiles = gitPaths(['diff', '--cached', '--name-only', '--diff-filter=ACDMRTUXB']);
+  const unstagedFiles = gitPaths(['diff', '--name-only', '--diff-filter=ACDMRTUXB']);
+  const untracked = gitPaths(['ls-files', '--others', '--exclude-standard']);
   return [...new Set([...stagedFiles, ...unstagedFiles, ...untracked])];
 }
 
@@ -98,11 +113,11 @@ function defaultScope() {
 
 function gitBaseFor({ since }) {
   if (since) return since;
-  const mergeBase = run('git merge-base HEAD origin/master');
+  const mergeBase = runGit(['merge-base', 'HEAD', 'origin/master']);
   if (mergeBase) return mergeBase;
-  const mergeBaseLocal = run('git merge-base HEAD master');
+  const mergeBaseLocal = runGit(['merge-base', 'HEAD', 'master']);
   if (mergeBaseLocal) return mergeBaseLocal;
-  const firstCommit = (run('git rev-list --max-parents=0 HEAD') ?? '')
+  const firstCommit = (runGit(['rev-list', '--max-parents=0', 'HEAD']) ?? '')
     .split(/\r?\n/)
     .filter(Boolean)
     .at(-1);
@@ -114,35 +129,44 @@ function gitBaseFor({ since }) {
 const _PKGS_CACHE = new Map();
 function loadPackages() {
   if (_PKGS_CACHE.has('pkgs')) return _PKGS_CACHE.get('pkgs');
-  const _manifest = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf-8'));
-  const out = run('pnpm m ls --json --depth -1');
   const pkgs = {};
-  if (out) {
-    for (const p of JSON.parse(out)) {
-      if (!p.name) continue;
-      const dir = repoRelativePath(p.path);
-      let manifest2 = null;
-      try {
-        manifest2 = JSON.parse(readFileSync(join(ROOT, dir, 'package.json'), 'utf-8'));
-      } catch {}
-      pkgs[p.name] = {
-        dir,
-        deps: new Set(Object.keys(manifest2?.dependencies ?? {})),
-        devDeps: new Set(Object.keys(manifest2?.devDependencies ?? {})),
-        tests: countTests(dir),
-      };
+  // The plan job runs before dependency installation.  Discover manifests
+  // directly first so CI classification does not depend on `pnpm m ls`, a
+  // command that is both expensive and sensitive to a partially installed
+  // workspace.  pnpm remains a fallback for unusual workspace layouts.
+  const dirs = [];
+  if (existsSync(_PKGS)) {
+    for (const entry of readdirSync(_PKGS, { withFileTypes: true })) {
+      if (entry.isDirectory()) dirs.push(`packages/${entry.name}`);
     }
   }
-  // apps (workspace members but not packages/*)
-  for (const app of ['apps/desktop', 'apps/website', 'apps/web']) {
-    if (!existsSync(join(ROOT, app, 'package.json'))) continue;
-    const m = JSON.parse(readFileSync(join(ROOT, app, 'package.json'), 'utf-8'));
-    pkgs[m.name] = {
-      dir: app,
-      deps: new Set(Object.keys(m.dependencies ?? {})),
-      devDeps: new Set(Object.keys(m.devDependencies ?? {})),
-      tests: countTests(app),
+  dirs.push('apps/desktop', 'apps/website', 'apps/web');
+  for (const dir of dirs) {
+    const manifestPath = join(ROOT, dir, 'package.json');
+    if (!existsSync(manifestPath)) continue;
+    let manifest2;
+    try {
+      manifest2 = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    } catch {
+      continue;
+    }
+    if (!manifest2.name) continue;
+    pkgs[manifest2.name] = {
+      dir,
+      deps: new Set(Object.keys(manifest2.dependencies ?? {})),
+      devDeps: new Set(Object.keys(manifest2.devDependencies ?? {})),
+      tests: countTests(dir),
     };
+  }
+  if (Object.keys(pkgs).length === 0) {
+    const out = run('pnpm m ls --json --depth -1');
+    if (out) {
+      for (const p of JSON.parse(out)) {
+        if (!p.name || !p.path) continue;
+        const dir = repoRelativePath(p.path);
+        pkgs[p.name] = { dir, deps: new Set(), devDeps: new Set(), tests: countTests(dir) };
+      }
+    }
   }
   _PKGS_CACHE.set('pkgs', pkgs);
   return pkgs;
@@ -180,46 +204,79 @@ function countTests(dir) {
 const _CRATES_CACHE = new Map();
 function loadCrates() {
   if (_CRATES_CACHE.has('crates')) return _CRATES_CACHE.get('crates');
-  const out = run('cargo metadata --format-version 1 --no-deps');
-  if (!out) return {};
-  const { packages } = JSON.parse(out);
   const crates = {};
-  for (const p of packages) {
-    const dir = repoRelativePath(p.manifest_path).replace(/\/Cargo\.toml$/, '');
-    crates[p.name] = {
-      dir,
-      deps: new Set(p.dependencies.map((d) => d.name)),
-    };
+  const candidates = [];
+  const cratesRoot = join(ROOT, 'crates');
+  if (existsSync(cratesRoot)) {
+    for (const entry of readdirSync(cratesRoot, { withFileTypes: true })) {
+      if (entry.isDirectory()) candidates.push(`crates/${entry.name}`);
+    }
+  }
+  candidates.push('apps/desktop/src-tauri');
+  for (const dir of candidates) {
+    const manifestPath = join(ROOT, dir, 'Cargo.toml');
+    if (!existsSync(manifestPath)) continue;
+    const source = readFileSync(manifestPath, 'utf8');
+    const packageSection = source.match(/\[package\]([\s\S]*?)(?=\n\[|$)/)?.[1] ?? '';
+    const name = packageSection.match(/^name\s*=\s*["']([^"']+)["']/m)?.[1];
+    if (!name) continue;
+    const deps = new Set();
+    const depsSection = source.match(/\[dependencies\]([\s\S]*?)(?=\n\[|$)/)?.[1] ?? '';
+    for (const match of depsSection.matchAll(/^([A-Za-z0-9_-]+)\s*=/gm)) deps.add(match[1]);
+    crates[name] = { dir, deps };
   }
   _CRATES_CACHE.set('crates', crates);
   return crates;
 }
 
 function matchesGlob(path, glob) {
-  // simple glob: **/ prefix/suffix, * within segments
-  const seg = glob.split('/');
-  const pseg = path.split('/');
-  if (seg.some((s) => s === '**')) {
-    // anchor on first non-** segment
-    const i = seg.findIndex((s) => s !== '**');
-    if (i === -1) return true;
-    const needle = seg.slice(i).filter((s) => s !== '**');
-    if (needle.some((s) => s.includes('*'))) {
-      // fall back to regex for wildcard segments
-      const re = new RegExp(
-        glob
-          .replace(/\./g, '\\.')
-          .replace(/\*\*\//g, '(?:.*/)?')
-          .replace(/\*/g, '[^/]*'),
-      );
-      return re.test(path);
+  // Segment-aware glob: `*` stays within one path segment, while `**` spans
+  // zero or more segments. Keeping matching out of RegExp also ensures that
+  // path/config data can never become executable regular-expression syntax.
+  const patternSegments = glob.split('/');
+  const pathSegments = path.split('/');
+
+  function matchSegment(value, pattern) {
+    let valueIndex = 0;
+    let patternIndex = 0;
+    let starIndex = -1;
+    let starValueIndex = 0;
+    while (valueIndex < value.length) {
+      if (patternIndex < pattern.length && pattern[patternIndex] === value[valueIndex]) {
+        patternIndex += 1;
+        valueIndex += 1;
+      } else if (patternIndex < pattern.length && pattern[patternIndex] === '*') {
+        starIndex = patternIndex;
+        starValueIndex = valueIndex;
+        patternIndex += 1;
+      } else if (starIndex !== -1) {
+        patternIndex = starIndex + 1;
+        starValueIndex += 1;
+        valueIndex = starValueIndex;
+      } else {
+        return false;
+      }
     }
-    return pseg.join('/').endsWith(needle.join('/')) || pseg.join('/').includes(needle.join('/'));
+    while (patternIndex < pattern.length && pattern[patternIndex] === '*') patternIndex += 1;
+    return patternIndex === pattern.length;
   }
-  const re = new RegExp(
-    `^${glob.replace(/\./g, '\\.').replace(/\*\*/g, '.*').replace(/\*/g, '[^/]*')}$`,
-  );
-  return re.test(path);
+
+  function matchSegments(patternIndex, pathIndex) {
+    if (patternIndex === patternSegments.length) return pathIndex === pathSegments.length;
+    if (patternSegments[patternIndex] === '**') {
+      return (
+        matchSegments(patternIndex + 1, pathIndex) ||
+        (pathIndex < pathSegments.length && matchSegments(patternIndex, pathIndex + 1))
+      );
+    }
+    return (
+      pathIndex < pathSegments.length &&
+      matchSegment(pathSegments[pathIndex], patternSegments[patternIndex]) &&
+      matchSegments(patternIndex + 1, pathIndex + 1)
+    );
+  }
+
+  return matchSegments(0, 0);
 }
 
 // ── classification ─────────────────────────────────────────────────────────
@@ -316,6 +373,8 @@ function buildPlan(files, { includeReverse = true } = {}) {
     full: false,
     reasons: [],
     changed: { js: [], rust: [], other: [], app: [] },
+    directTestFiles: [],
+    directE2eFiles: [],
   };
 
   const changedPkgs = new Set();
@@ -597,6 +656,17 @@ function buildPlan(files, { includeReverse = true } = {}) {
   plan.stats.selectedFraction = plan.stats.totalTestFiles
     ? selectedTestFiles / plan.stats.totalTestFiles
     : 0;
+
+  plan.directTestFiles = [...directTestFiles].sort();
+  plan.directE2eFiles = [...directE2eFiles].sort();
+  plan.e2eDomains = [...e2eDomains].sort();
+  plan.benchDomains = [...benchDomains].sort();
+  plan.riskFlags = riskFlags;
+  plan.globalImpact = plan.full;
+  plan.integrationRequired =
+    plan.full || plan.tiers[2].length > 0 || plan.tiers[3].length > 0 || plan.tiers[4].length > 0;
+  plan.releaseCandidateRequired =
+    plan.full || plan.tiers[4].length > 0 || plan.changed.rust.length > 0;
 
   return plan;
 }

@@ -83,12 +83,12 @@ describe('Component functions (Task 1.1)', () => {
     // Create master frame with a child shape
     const { id: rootId, doc: d2 } = nextNodeId(doc);
     doc = d2;
-    const masterFrame = makeFrameNode(rootId, { name: 'MasterBtn' });
+    const masterFrame = makeFrameNode(rootId, { name: 'MasterBtn', layerColor: 'purple' });
     doc = addNode(doc, masterFrame);
 
     const { id: bgId, doc: d3, node: bgNode } = shape(doc, 'bg');
     doc = d3;
-    doc = addChild(doc, rootId, bgNode);
+    doc = addChild(doc, rootId, { ...bgNode, layerColor: 'orange' });
 
     // Register as component
     const { component, doc: d4 } = createComponent(doc, 'Button', rootId, [
@@ -103,6 +103,7 @@ describe('Component functions (Task 1.1)', () => {
     expect(node.kind).toBe('frame');
     expect(node.componentId).toBe(component.id);
     expect(node.name).toBe('Button Instance');
+    expect(node.layerColor).toBe('purple');
     expect(node.children.length).toBeGreaterThan(0);
     // The instance child should be a clone of the master's bg
     const firstChild = node.children[0];
@@ -110,6 +111,7 @@ describe('Component functions (Task 1.1)', () => {
     const instanceChild = getById(doc, firstChild);
     expect(instanceChild).toBeDefined();
     expect(instanceChild?.id).not.toBe(bgId); // Cloned, different id
+    expect(instanceChild?.layerColor).toBe('orange');
   });
 
   it('fillSlot adds a fill node and records it in slots', () => {

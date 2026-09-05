@@ -103,13 +103,27 @@ Desktop-first, but the chrome adapts to varied window sizes.
 
 **Test:** At 1280×720 window size, every primary action is reachable without horizontal scrolling.
 
+## 11. Decorative emphasis is earned and temporary
+
+Animation and luminous edge treatments are exceptions, not polish applied by
+component category.
+
+- A decorative emphasis must correspond to a rare, meaningful state transition with a useful next action.
+- The default surface has no active decorative animation; approved motion is one-shot and leaves a quiet terminal state.
+- Shared Cards, Buttons, rows, panels, dialogs, focus, selection, loading, consent, warning, and error states never gain an effect by default.
+- Every new production placement needs a semantic opportunity audit and direct before/after review in light, dark, reduced-motion, high-contrast, and focus states.
+- Shine Border is governed by the allowlist and production ceiling in the [Shine Border system](../architecture/shine-border-system.md); its existence in Storybook does not grant product approval.
+
+**Test:** Removing the decoration must not remove meaning, and adding it must make one exceptional transition easier to notice without competing with the canvas.
+
 ---
 
 ## When principles conflict
 
 Resolution order:
+
 1. Accessibility (principles 4, 6) always wins.
-2. Content dominance (1) wins over chrome discoverability.
+2. Content dominance and earned emphasis (1, 11) win over chrome discoverability or novelty.
 3. Consistency (2) wins over novelty.
 
 Document the conflict and resolution in the PR description.

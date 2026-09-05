@@ -12,7 +12,7 @@
   font-size: var(--font-size-xs);
   background: var(--color-surface-overlay);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   box-shadow: var(--elevation-shadow-overlay);
 }
 
@@ -38,7 +38,7 @@
   font: inherit;
   background: var(--color-surface-sunken);
   border: var(--border-micro);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 .find-replace-bar__input:focus-visible {
@@ -68,7 +68,7 @@
   cursor: pointer;
   background: transparent;
   border: var(--border-micro);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 .find-replace-bar__action-btn {
@@ -175,7 +175,7 @@
   overflow-y: auto;
   background: var(--color-surface-sunken);
   border: var(--border-micro);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 .find-results-group {

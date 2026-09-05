@@ -15,7 +15,7 @@
   min-width: 60px;
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-surface-default);
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
@@ -64,14 +64,14 @@
 .colorize-section__progress-bar {
   height: 4px;
   background: var(--color-surface-raised);
-  border-radius: 2px;
+  border-radius: var(--radius-control-compact);
   overflow: hidden;
 }
 
 .colorize-section__progress-fill {
   height: 100%;
   background: var(--color-interactive-default);
-  border-radius: 2px;
+  border-radius: var(--radius-control-compact);
   transition: width 0.2s ease;
 }
 
@@ -105,7 +105,7 @@
   appearance: none;
   -webkit-appearance: none;
   background: var(--color-surface-raised);
-  border-radius: 2px;
+  border-radius: var(--radius-control-compact);
   outline: none;
   cursor: pointer;
 }
@@ -129,7 +129,7 @@
   padding: var(--space-2);
   background: var(--color-surface-raised);
   border: 1px solid var(--color-feedback-danger);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font-size: var(--font-size-xs);
   color: var(--color-feedback-danger);
   margin-top: var(--space-2);
@@ -167,7 +167,7 @@
   color: var(--color-text-muted);
   padding: var(--space-1) var(--space-2);
   background: var(--color-surface-raised);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 /* Colorization dialog */
@@ -219,7 +219,7 @@
   height: 150px;
   object-fit: contain;
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-surface-sunken);
 }
 

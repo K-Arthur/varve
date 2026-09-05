@@ -163,9 +163,17 @@ export {
 export type { ColorBlindnessType } from './colorBlindness';
 export { simulateColorBlindness, simulateColorBlindnessCss } from './colorBlindness';
 export type {
+  AnalyticRgbColorTransform,
   BitDepth,
+  ColorRenderingIntent,
+  ColorTransformOperation,
   ManagedColorShim,
+  ManagedColorWorkingColorOptions,
+  ManagedColorWorkingColorResult,
+  ManagedRgbProfileResolution,
   NormalizedRgba,
+  ResolveManagedRgbProfileOptions,
+  RgbColorTransformRequest,
   RgbWorkingSpaceRef,
 } from './colorConversion';
 export {
@@ -177,6 +185,7 @@ export {
   clampChannel,
   cmykToRgb,
   convertEncodedRgb,
+  createAnalyticRgbColorTransform,
   DEFAULT_BIT_DEPTH,
   denormalizeChannel,
   gamutMapToSrgb,
@@ -199,6 +208,7 @@ export {
   managedColorToCss,
   managedColorToNormalized,
   managedColorToRgba,
+  managedColorToWorkingRgba,
   normalizeChannel,
   normalizedToCss,
   normalizeHueDegrees,
@@ -207,6 +217,8 @@ export {
   oklchToOkLab,
   prophotoToLinearUnit,
   rec2020ToLinearUnit,
+  resolveManagedRgbProfile,
+  resolveProfileToRgbWorkingSpace,
   rgbPrimariesLabel,
   rgbToCmyk,
   rgbToHex,
@@ -324,6 +336,33 @@ export {
   METADATA_POLICY_KINDS,
   resolveMetadataFieldDecision,
 } from './exportContracts';
+export type {
+  FileRejection,
+  FileRejectionCode,
+  FileSelectionOptions,
+  FileSelectionResult,
+  IngestFileLike,
+} from './fileIngestion';
+export {
+  fileExtension,
+  fileMatchesAccept,
+  formatFileSize,
+  validateFileSelection,
+} from './fileIngestion';
+export type {
+  GradientGeometrySource,
+  LinearGradientHandles,
+  RadialGradientHandles,
+} from './gradientGeometry';
+export {
+  gradientRotationForBounds,
+  gradientTransformForBounds,
+  linearGradientHandles,
+  materializeLegacyGradientTransform,
+  radialGradientHandles,
+  setGradientRotation,
+  transformLinkedGradient,
+} from './gradientGeometry';
 export type { PathPoint, SpatialTangents } from './interpolation';
 export {
   ensureVertexMatch,

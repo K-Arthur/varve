@@ -116,6 +116,10 @@ __pycache__/
 reports/
 artifacts/
 
+# --- Generated CI plan downloads ---
+ci-plan-artifact/
+candidate-plan/
+
 # --- Build caches ---
 .astro/
 

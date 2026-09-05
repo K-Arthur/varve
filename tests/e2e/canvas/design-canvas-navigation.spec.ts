@@ -24,7 +24,7 @@ test.describe('Design Canvas navigator', () => {
 
     const layers = page.getByRole('tree', { name: 'Layers' });
     await expect(layers.locator('[data-node-id]')).toHaveCount(0);
-    await expect(layers.getByText('No layers yet')).toBeVisible();
+    await expect(page.getByTestId('layers-panel').getByText('No layers yet')).toBeVisible();
   });
 
   test('creates, switches, and renames a Design Canvas', async ({ page }) => {

@@ -28,7 +28,7 @@
   color: var(--color-text-muted);
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   cursor: pointer;
 }
 
@@ -61,7 +61,7 @@
   color: var(--color-text-primary);
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   cursor: pointer;
   text-align: left;
 }
@@ -89,7 +89,7 @@
   padding: 2px 4px;
   color: var(--color-text-muted);
   background: var(--elevation-surface-raised);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 .layer-states__name-input {
@@ -99,7 +99,7 @@
   color: var(--color-text-primary);
   background: var(--elevation-surface-raised);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 .layer-states__actions {
@@ -124,7 +124,7 @@
   color: var(--color-text-muted);
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   cursor: pointer;
 }
 
@@ -147,7 +147,7 @@
   color: var(--color-text-muted);
   background: color-mix(in srgb, var(--color-feedback-warning) 14%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-feedback-warning) 40%, transparent);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 .layer-states__conflict-dismiss {
@@ -161,7 +161,7 @@
   color: var(--color-text-muted);
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   cursor: pointer;
 }
 

@@ -64,10 +64,11 @@ async function dragRowToRow(
 ) {
   const from = rowByName(page, fromName);
   await from.scrollIntoViewIfNeeded();
-  const fromBox = await from.boundingBox();
+  const fromHandle = from.locator('.layers-row__drag-handle');
+  const fromBox = await fromHandle.boundingBox();
   if (!fromBox) throw new Error(`source row ${fromName} not visible`);
   // Grab by the labeled handle; dnd-kit PointerSensor needs >5px travel.
-  const startX = fromBox.x + 8;
+  const startX = fromBox.x + fromBox.width / 2;
   const startY = fromBox.y + fromBox.height / 2;
   await page.mouse.move(startX, startY);
   await page.mouse.down();
@@ -220,7 +221,10 @@ test.describe('Layers Panel — real drag & drop', () => {
     const from = rowByName(page, firstName);
     const fromBox = await from.boundingBox();
     if (!fromBox) throw new Error('row not visible');
-    const startX = fromBox.x + 8;
+    const handle = from.locator('.layers-row__drag-handle');
+    const handleBox = await handle.boundingBox();
+    if (!handleBox) throw new Error('drag handle not visible');
+    const startX = handleBox.x + handleBox.width / 2;
     const startY = fromBox.y + fromBox.height / 2;
     await page.mouse.move(startX, startY);
     await page.mouse.down();
@@ -245,7 +249,16 @@ test.describe('Layers Panel — real drag & drop', () => {
     const source = rows.nth(0);
     const before = await rowNames(page);
     await source.locator('[class*="toggle--locked-off"]').click();
-    await dragRowToRow(page, before[0]!, before[1]!, 0.35, 'layers-dnd-visual-locked');
+    // A locked source must be shown as an invalid drop *before* release, not
+    // silently refused by reparentNode after the fact.
+    await dragRowToRow(
+      page,
+      before[0]!,
+      before[1]!,
+      0.35,
+      'layers-dnd-visual-locked',
+      'layers-row--drop-invalid',
+    );
     expect(await rowNames(page)).toEqual(before);
   });
 
@@ -258,9 +271,7 @@ test.describe('Layers Panel — real drag & drop', () => {
     await row.click();
     await page.keyboard.press('F2');
     const renameInput = row.locator('input[aria-label^="Rename "]');
-    await expect(renameInput).toBeVisible();
-    await renameInput.fill('Should Not Rename');
-    await renameInput.press('Enter');
+    await expect(renameInput).toHaveCount(0);
     await expect(row.locator('.layers-row__name')).toHaveText(originalName);
 
     await row.click();

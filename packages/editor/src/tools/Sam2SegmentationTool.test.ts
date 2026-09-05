@@ -146,6 +146,46 @@ describe('Sam2SegmentationTool', () => {
     expect(tool.getPrompts().points).toHaveLength(0);
     expect(tool.getPrompts().box).toEqual({ x1: 10, y1: 10, x2: 100, y2: 80 });
   });
+
+  it('keeps existing points when a later box prompt is drawn', () => {
+    const tool = new Sam2SegmentationTool();
+    const ctx = statefulMockCtx();
+
+    tool.onPointerDown(
+      new PointerEvent('pointerdown', { clientX: 10, clientY: 10, button: 0 }),
+      ctx,
+    );
+    tool.onDragEnd(ctx);
+    tool.onPointerDown(
+      new PointerEvent('pointerdown', { clientX: 20, clientY: 20, button: 0 }),
+      ctx,
+    );
+    (tool as unknown as { drag: { currentCanvas: { x: number; y: number } } }).drag.currentCanvas =
+      {
+        x: 100,
+        y: 80,
+      };
+    tool.onDragMove(ctx);
+    tool.onDragEnd(ctx);
+
+    expect(ctx.objectSelectionSession?.points).toEqual([{ x: 10, y: 10, label: 1 }]);
+    expect(ctx.objectSelectionSession?.box).toEqual({ x1: 20, y1: 20, x2: 100, y2: 80 });
+  });
+
+  it('cancels the transient session when the tool deactivates', () => {
+    const tool = new Sam2SegmentationTool();
+    const ctx = statefulMockCtx();
+    tool.onPointerDown(
+      new PointerEvent('pointerdown', { clientX: 10, clientY: 10, button: 0 }),
+      ctx,
+    );
+    tool.onDragEnd(ctx);
+
+    tool.onDeactivate(ctx);
+
+    expect(ctx.cancelSam2Segmentation).toHaveBeenCalledTimes(1);
+    expect(tool.getPrompts()).toEqual({ points: [], box: null });
+  });
 });
 
 function mockCtx() {
@@ -154,4 +194,22 @@ function mockCtx() {
     setPointerCapture: vi.fn(),
     announce: vi.fn(),
   } as unknown as import('./types').ToolContext;
+}
+
+function statefulMockCtx() {
+  const ctx = {
+    ...mockCtx(),
+    document: { id: 'doc-1' },
+    selection: ['image-1'],
+    objectSelectionSession: null,
+    patchEditorState: vi.fn((patch: { objectSelectionSession?: unknown }) => {
+      ctx.objectSelectionSession =
+        patch.objectSelectionSession as typeof ctx.objectSelectionSession;
+    }),
+    applySam2Segmentation: vi.fn().mockResolvedValue(null),
+    cancelSam2Segmentation: vi.fn(),
+  } as unknown as import('./types').ToolContext & {
+    objectSelectionSession: import('../context/types').ObjectSelectionSession | null;
+  };
+  return ctx;
 }

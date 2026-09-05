@@ -9,6 +9,7 @@ const {
   mockSavePartial,
   mockLoadPartial,
   mockDeletePartial,
+  mockRepair,
 } = vi.hoisted(() => ({
   mockSave: vi.fn(),
   mockLoad: vi.fn(),
@@ -17,6 +18,7 @@ const {
   mockSavePartial: vi.fn(),
   mockLoadPartial: vi.fn(),
   mockDeletePartial: vi.fn(),
+  mockRepair: vi.fn(),
 }));
 
 vi.mock('../modelStore', () => ({
@@ -33,6 +35,10 @@ vi.mock('../modelStore', () => ({
       this.name = 'ModelStorageQuotaError';
     }
   },
+}));
+
+vi.mock('../../inference/models/sam2GraphRepair', () => ({
+  repairSam2EncoderGraph: mockRepair,
 }));
 
 function mockFetchResponse(opts: { ok: boolean; chunks?: Uint8Array[] }) {
@@ -66,6 +72,7 @@ describe('ModelLoader', () => {
     mockSavePartial.mockReset().mockResolvedValue(undefined);
     mockLoadPartial.mockReset().mockResolvedValue(null);
     mockDeletePartial.mockReset().mockResolvedValue(undefined);
+    mockRepair.mockReset();
     localStorage.clear();
     const { resetModelManifestCache } = await import('../modelManifest');
     resetModelManifestCache();
@@ -135,6 +142,58 @@ describe('ModelLoader', () => {
 
     expect(progressCalls.length).toBeGreaterThan(0);
     expect(progressCalls.at(-1)?.[0]).toBe(10);
+  });
+
+  it('repairs a post-processed model before storing it and verifies both hashes', async () => {
+    const upstream = new Uint8Array([1, 2, 3]);
+    const repaired = new Uint8Array([1, 2, 3, 9]);
+    const digest = async (bytes: Uint8Array): Promise<string> => {
+      const hash = await crypto.subtle.digest('SHA-256', bytes.slice().buffer);
+      return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, '0')).join('');
+    };
+    const upstreamChecksum = await digest(upstream);
+    const repairedChecksum = await digest(repaired);
+    mockRepair.mockReturnValue(repaired);
+
+    const { getModelLoaderReady, resetModelLoader } = await import('../modelLoader');
+    resetModelLoader();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string | URL, init?: RequestInit) => {
+        const path = String(url);
+        if (path.includes('manifest.json')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              version: 1,
+              models: [
+                {
+                  id: 'sam2-hiera-tiny-encoder',
+                  filename: 'sam2_hiera_tiny.encoder.onnx',
+                  localPath: '/models/sam2_hiera_tiny.encoder.onnx',
+                  sha256: repairedChecksum,
+                  upstreamChecksum,
+                  repair: 'sam2-empty-value-info',
+                  bundled: false,
+                  remoteUrl: 'https://example.com/sam2.encoder.onnx',
+                },
+              ],
+            }),
+          });
+        }
+        if (init?.method === 'HEAD' || path.startsWith('/models/')) {
+          return Promise.resolve({ ok: false, statusText: 'Not Found' });
+        }
+        return Promise.resolve(mockFetchResponse({ ok: true, chunks: [upstream] }));
+      }),
+    );
+
+    const loader = await getModelLoaderReady();
+    await loader.downloadModel('sam2-hiera-tiny-encoder');
+
+    expect(mockRepair).toHaveBeenCalledWith(expect.any(Uint8Array));
+    const saved = mockSave.mock.calls.at(-1)?.[1] as Blob;
+    expect(new Uint8Array(await saved.arrayBuffer())).toEqual(repaired);
   });
 
   it('downloadModel transitions to error state and rethrows when both sources fail', async () => {

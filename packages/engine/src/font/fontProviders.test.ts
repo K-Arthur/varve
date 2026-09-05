@@ -282,7 +282,7 @@ describe('GoogleFontsProvider', () => {
     expect(provider.id).toBe('google-fonts');
     expect(provider.name).toBe('Google Fonts');
     expect(provider.kind).toBe('public-api');
-    expect(provider.enabled).toBe(true);
+    expect(provider.enabled).toBe(false);
   });
 
   it('builds the list URL without API key', () => {

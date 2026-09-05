@@ -10,7 +10,7 @@
   padding: var(--space-3);
   background: var(--elevation-surface-raised);
   border: var(--border-micro);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   box-shadow: var(--elevation-shadow-raised);
 }
 .import-progress__info {
@@ -50,7 +50,7 @@
   color: var(--color-text-primary);
   background: var(--elevation-surface-sunken);
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   cursor: pointer;
   transition:
     background var(--duration-quick) var(--ease-default),

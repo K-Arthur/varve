@@ -19,11 +19,11 @@ test.describe('Logo workflow', () => {
   test('New Logo Project creates an artboard + concept and selects it', async ({ page }) => {
     await page.keyboard.press('Control+Alt+n');
     // The new logo artboard frame appears in the layers tree.
-    await expect(page.getByRole('treeitem').first()).toContainText(/Concept 1/i, {
+    const concept = page.getByRole('treeitem').filter({ hasText: /Concept 1/i });
+    await expect(concept).toHaveCount(1, {
       timeout: 15000,
     });
-    // A frame node was created on the canvas.
-    await expect(page.getByRole('treeitem').filter({ hasText: /Concept 1/i })).toBeVisible();
+    await expect(concept).toBeVisible();
   });
 
   test('geometry menu exposes logo path operations', async ({ page }) => {

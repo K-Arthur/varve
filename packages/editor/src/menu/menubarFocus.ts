@@ -57,90 +57,112 @@ export function useMenubarFocusEffects(deps: MenubarFocusDeps): void {
   // items, which focus() silently refuses.
   useEffect(() => {
     if (!openMenu) return;
-    const menu = dropdownMenuRef.current;
-    if (!menu) return;
-    const items = menu.querySelectorAll<HTMLButtonElement>(MENU_ITEM_SELECTOR);
-    const target = items[activeItemIndex];
-    if (target?.hasAttribute('disabled')) {
-      const next = firstEnabledIndex(
-        items.length,
-        (i) => items[i]?.hasAttribute('disabled') ?? true,
-      );
-      if (next >= 0 && next !== activeItemIndex) {
-        setActiveItemIndex(next);
-      }
-      return;
-    }
-    if (!target) return;
-    // FloatingPortal keeps its layer visibility:hidden until the positioning
-    // layout effect lands one render later; focus() on hidden elements is a
-    // no-op, so defer to the next frame.
-    const raf = requestAnimationFrame(() => target.focus({ preventScroll: true }));
-    return () => cancelAnimationFrame(raf);
-  }, [openMenu, activeItemIndex, dropdownMenuRef]);
+    const ownerDocument =
+      menuRef.current?.ownerDocument ?? dropdownMenuRef.current?.ownerDocument ?? document;
+    const ownerWindow = ownerDocument.defaultView;
+    let frame: number | undefined;
+    let observedMenu: HTMLDivElement | null = null;
 
-  // Keep the dropdown roving index in sync with the focused item, so
-  // pointer or programmatic focus on an item is what Enter/ArrowRight act
-  // on (the ui/Toolbar has the same focusin-sync contract).
-  useEffect(() => {
-    if (!openMenu) return;
-    const menu = dropdownMenuRef.current;
-    if (!menu) return;
     const handleFocusIn = () => {
-      const active = document.activeElement;
-      if (!active || !menu.contains(active)) return;
+      const menu = dropdownMenuRef.current;
+      const active = ownerDocument.activeElement;
+      if (!menu || !active || !menu.contains(active)) return;
       const items = menu.querySelectorAll<HTMLButtonElement>(MENU_ITEM_SELECTOR);
       const idx = Array.from(items).indexOf(active as HTMLButtonElement);
-      if (idx >= 0 && idx !== activeItemIndex) {
-        setActiveItemIndex(idx);
-      }
+      if (idx >= 0 && idx !== activeItemIndex) setActiveItemIndex(idx);
     };
-    menu.addEventListener('focusin', handleFocusIn);
-    return () => menu.removeEventListener('focusin', handleFocusIn);
-  }, [openMenu, dropdownMenuRef, activeItemIndex]);
+
+    const focusWhenMounted = () => {
+      const menu = dropdownMenuRef.current;
+      if (!menu) {
+        // The portal host is resolved in a layout effect after the first
+        // open render. Keep the focus handoff pending until that commit has
+        // produced the actual menu node instead of abandoning focus.
+        frame = ownerWindow?.requestAnimationFrame(focusWhenMounted);
+        return;
+      }
+      if (observedMenu !== menu) {
+        observedMenu?.removeEventListener('focusin', handleFocusIn);
+        observedMenu = menu;
+        observedMenu.addEventListener('focusin', handleFocusIn);
+      }
+      const items = menu.querySelectorAll<HTMLButtonElement>(MENU_ITEM_SELECTOR);
+      const target = items[activeItemIndex];
+      if (target?.hasAttribute('disabled')) {
+        const next = firstEnabledIndex(
+          items.length,
+          (i) => items[i]?.hasAttribute('disabled') ?? true,
+        );
+        if (next >= 0 && next !== activeItemIndex) setActiveItemIndex(next);
+        return;
+      }
+      if (!target) return;
+      // FloatingPortal keeps its layer visibility:hidden until the positioning
+      // effect lands; focus after the portal's first mounted frame.
+      target.focus({ preventScroll: true });
+    };
+
+    frame = ownerWindow?.requestAnimationFrame(focusWhenMounted);
+    if (frame === undefined) focusWhenMounted();
+    return () => {
+      if (frame !== undefined) ownerWindow?.cancelAnimationFrame(frame);
+      observedMenu?.removeEventListener('focusin', handleFocusIn);
+    };
+  }, [openMenu, activeItemIndex, dropdownMenuRef, menuRef, setActiveItemIndex]);
 
   // Submenu roving focus: move focus into the submenu only when the user is
   // navigating by keyboard (focus is already inside the dropdown/submenu) —
   // mouse hover must not yank focus out of the dropdown. Skips disabled.
   useEffect(() => {
     if (openSubmenu === null) return;
-    const menu = submenuRef.current;
-    if (!menu) return;
-    const active = document.activeElement;
-    if (active && !dropdownMenuRef.current?.contains(active) && !menu.contains(active)) {
-      return;
-    }
-    const items = menu.querySelectorAll<HTMLButtonElement>(MENU_ITEM_SELECTOR);
-    const target = items[activeSubmenuIndex];
-    if (target?.hasAttribute('disabled')) {
-      const next = firstEnabledIndex(
-        items.length,
-        (i) => items[i]?.hasAttribute('disabled') ?? true,
-      );
-      if (next >= 0 && next !== activeSubmenuIndex) {
-        setActiveSubmenuIndex(next);
+    const ownerDocument =
+      submenuRef.current?.ownerDocument ?? dropdownMenuRef.current?.ownerDocument ?? document;
+    const ownerWindow = ownerDocument.defaultView;
+    let frame: number | undefined;
+    const focusWhenMounted = () => {
+      const menu = submenuRef.current;
+      if (!menu) {
+        frame = ownerWindow?.requestAnimationFrame(focusWhenMounted);
+        return;
       }
-      return;
-    }
-    if (!target) return;
-    const raf = requestAnimationFrame(() => target.focus({ preventScroll: true }));
-    return () => cancelAnimationFrame(raf);
-  }, [openSubmenu, activeSubmenuIndex, dropdownMenuRef, submenuRef]);
+      const active = ownerDocument.activeElement;
+      if (active && !dropdownMenuRef.current?.contains(active) && !menu.contains(active)) return;
+      const items = menu.querySelectorAll<HTMLButtonElement>(MENU_ITEM_SELECTOR);
+      const target = items[activeSubmenuIndex];
+      if (target?.hasAttribute('disabled')) {
+        const next = firstEnabledIndex(
+          items.length,
+          (i) => items[i]?.hasAttribute('disabled') ?? true,
+        );
+        if (next >= 0 && next !== activeSubmenuIndex) setActiveSubmenuIndex(next);
+        return;
+      }
+      if (!target) return;
+      target.focus({ preventScroll: true });
+    };
+    frame = ownerWindow?.requestAnimationFrame(focusWhenMounted);
+    if (frame === undefined) focusWhenMounted();
+    return () => {
+      if (frame !== undefined) ownerWindow?.cancelAnimationFrame(frame);
+    };
+  }, [openSubmenu, activeSubmenuIndex, dropdownMenuRef, submenuRef, setActiveSubmenuIndex]);
 
   // Focus restoration: capture on open, restore on close.
   useEffect(() => {
     const opening = openMenu !== null && prevOpenMenuRef.current === null;
     const closing = openMenu === null && prevOpenMenuRef.current !== null;
+    const ownerDocument =
+      menuRef.current?.ownerDocument ?? dropdownMenuRef.current?.ownerDocument ?? document;
 
     if (opening) {
-      const active = document.activeElement;
-      if (active instanceof HTMLElement && active !== document.body) {
+      const active = ownerDocument.activeElement;
+      if (active instanceof HTMLElement && active !== ownerDocument.body) {
         restoreFocusRef.current = active;
       }
     } else if (closing) {
-      const active = document.activeElement;
+      const active = ownerDocument.activeElement;
       const insideMenus =
-        active !== document.body &&
+        active !== ownerDocument.body &&
         (menuRef.current?.contains(active) ||
           dropdownMenuRef.current?.contains(active) ||
           submenuRef.current?.contains(active));
@@ -152,7 +174,14 @@ export function useMenubarFocusEffects(deps: MenubarFocusDeps): void {
         if (anchor?.isConnected) {
           (walkFocus(anchor, dir) ?? anchor).focus({ preventScroll: true });
         }
-      } else if (!insideMenus && restoreFocusRef.current?.isConnected) {
+      } else if (
+        (active === ownerDocument.body || !active || insideMenus) &&
+        restoreFocusRef.current?.isConnected
+      ) {
+        // Do not steal focus from a dialog, popover, or another deliberate
+        // destination opened by the menu action. Cleanup may run after that
+        // surface's focus effect, so body/inside-menu are the only states that
+        // still belong to this menubar.
         restoreFocusRef.current.focus({ preventScroll: true });
       }
       restoreFocusRef.current = null;

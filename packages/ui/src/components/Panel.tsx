@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { ResizableHandle } from './ResizableHandle';
 
 export interface PanelProps {
   children: ReactNode;
@@ -53,6 +54,7 @@ export function Panel({
   const [isDragging, setIsDragging] = useState(false);
   const startXRef = useRef(0);
   const startWidthRef = useRef(width);
+  const latestWidthRef = useRef(width);
 
   const prevCollapsedRef = useRef(collapsed);
   useEffect(() => {
@@ -79,6 +81,24 @@ export function Panel({
     },
     [minWidth, maxWidth, persistWidth],
   );
+
+  const finishDrag = useCallback(
+    (persist: boolean) => {
+      if (!isDragging) return;
+      setIsDragging(false);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+      if (persist) commitWidth(latestWidthRef.current);
+    },
+    [commitWidth, isDragging],
+  );
+
+  useEffect(() => {
+    return () => {
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    };
+  }, []);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -121,6 +141,7 @@ export function Panel({
       setIsDragging(true);
       startXRef.current = e.clientX;
       startWidthRef.current = width;
+      latestWidthRef.current = width;
       document.body.style.userSelect = 'none';
       document.body.style.cursor = 'col-resize';
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
@@ -134,7 +155,9 @@ export function Panel({
       const delta = e.clientX - startXRef.current;
       const newWidth =
         side === 'left' ? startWidthRef.current + delta : startWidthRef.current - delta;
-      setWidth(clamp(newWidth, minWidth, maxWidth));
+      const next = clamp(newWidth, minWidth, maxWidth);
+      latestWidthRef.current = next;
+      setWidth(next);
     },
     [isDragging, minWidth, maxWidth, side],
   );
@@ -142,13 +165,10 @@ export function Panel({
   const handlePointerUp = useCallback(
     (e: React.PointerEvent) => {
       if (!isDragging) return;
-      setIsDragging(false);
-      document.body.style.userSelect = '';
-      document.body.style.cursor = '';
-      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-      commitWidth(width);
+      (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
+      finishDrag(true);
     },
-    [isDragging, width, commitWidth],
+    [finishDrag, isDragging],
   );
 
   const panelClasses = [
@@ -164,8 +184,7 @@ export function Panel({
   return (
     <div className={panelClasses} style={{ '--panel-width': `${width}px` } as React.CSSProperties}>
       <div className="varve-panel__content">{children}</div>
-      {/* biome-ignore lint/a11y/useSemanticElements: draggable resize handle needs pointer/keyboard events */}
-      <div
+      <ResizableHandle
         role="separator"
         aria-orientation="vertical"
         aria-valuenow={width}
@@ -174,10 +193,13 @@ export function Panel({
         aria-label={label}
         tabIndex={0}
         className="varve-panel__handle"
+        active={isDragging}
         onKeyDown={handleKeyDown}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
+        onPointerCancel={() => finishDrag(false)}
+        onLostPointerCapture={() => finishDrag(true)}
       />
     </div>
   );

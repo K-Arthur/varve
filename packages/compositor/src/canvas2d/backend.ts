@@ -8,6 +8,7 @@ import type {
   CompositorColorOptions,
   CompositorDiagnostics,
   CompositorFrame,
+  CompositorImagePolicy,
 } from '../types';
 
 /** Canvas surface accepted by the 2D backend (main canvas or offscreen overlay). */
@@ -42,7 +43,11 @@ export class Canvas2DBackend implements CompositorBackend {
     }
   }
 
-  drawVectorItems(items: RenderItem[], colorOptions?: CompositorColorOptions): void {
+  drawVectorItems(
+    items: RenderItem[],
+    colorOptions?: CompositorColorOptions,
+    imagePolicy?: CompositorImagePolicy,
+  ): void {
     if (!this.ctx || items.length === 0) return;
     // Always replay: immediate-mode canvas is cleared each frame; skipping draws
     // without a persistent backing store would blank the canvas on cache hits.
@@ -51,7 +56,7 @@ export class Canvas2DBackend implements CompositorBackend {
       items,
       undefined,
       undefined,
-      undefined,
+      imagePolicy,
       colorOptions,
     );
   }

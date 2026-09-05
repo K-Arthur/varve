@@ -10,7 +10,7 @@
  * shell grid's --sidebar-width / --inspector-width custom properties.
  */
 
-import { Tooltip } from '@varve/ui';
+import { ResizableHandle, Tooltip } from '@varve/ui';
 import { useCallback, useState } from 'react';
 import { loadSettings, updateSettings } from '../settings';
 
@@ -146,11 +146,13 @@ export function PanelResizeHandle({
         target.removeEventListener('pointermove', onMove);
         target.removeEventListener('pointerup', onUp);
         target.removeEventListener('pointercancel', onUp);
+        window.removeEventListener('blur', onUp);
         setDragging(false);
       };
       target.addEventListener('pointermove', onMove);
       target.addEventListener('pointerup', onUp);
       target.addEventListener('pointercancel', onUp);
+      window.addEventListener('blur', onUp);
     },
     [isLayers, measurePanel, onResize, width],
   );
@@ -180,7 +182,8 @@ export function PanelResizeHandle({
 
   return (
     <Tooltip label="Drag to resize — double-click to reset">
-      <hr
+      <ResizableHandle
+        role="separator"
         aria-orientation="vertical"
         aria-label={isLayers ? 'Resize layers panel' : 'Resize inspector panel'}
         aria-controls={isLayers ? 'editor-layers-panel' : 'editor-inspector-panel'}
@@ -189,9 +192,8 @@ export function PanelResizeHandle({
         aria-valuemax={PANEL_LIMITS[side].max}
         aria-valuetext={`${currentWidth} pixels`}
         tabIndex={0}
-        className={`panel-resize panel-resize--${isLayers ? 'right' : 'left'}${
-          dragging ? ' panel-resize--active' : ''
-        }`}
+        className={`panel-resize panel-resize--${isLayers ? 'right' : 'left'}`}
+        active={dragging}
         onPointerDown={handlePointerDown}
         onKeyDown={handleKeyDown}
         onDoubleClick={() => onResize(null)}

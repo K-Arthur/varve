@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   cmykToRgb,
   convertEncodedRgb,
+  createAnalyticRgbColorTransform,
   deltaEOk,
   gamutMapToSrgb,
   labToXyz,
@@ -16,10 +17,12 @@ import {
   managedColorToCss,
   managedColorToEngineColor,
   managedColorToRgba,
+  managedColorToWorkingRgba,
   oklabToLinearSrgb,
   PROPHOTO_LINEAR_TOE,
   REC2020_BETA,
   rec2020ToLinearUnit,
+  resolveManagedRgbProfile,
   rgbToCmyk,
   rgbToLinearRgb,
   srgbToLinear,
@@ -443,6 +446,90 @@ describe('managedColorKey', () => {
 });
 
 describe('wide-gamut RGB conversions', () => {
+  it('resolves an explicit P3 profile and preserves out-of-sRGB values in the vector working path', () => {
+    const result = managedColorToWorkingRgba(
+      {
+        space: 'rgb',
+        bitDepth: 'float32',
+        r: 0,
+        g: 1,
+        b: 0,
+        a: 0.5,
+        profile: 'display-p3',
+      },
+      { destination: { primaries: 'srgb', transfer: 'srgb' } },
+    );
+    expect(result.kind).toBe('resolved');
+    if (result.kind !== 'resolved') return;
+    expect(result.source).toEqual({ primaries: 'display-p3', transfer: 'srgb' });
+    expect(result.rgba[0]).toBeLessThan(0);
+    expect(result.rgba[1]).toBeGreaterThan(1);
+    expect(result.rgba[2]).toBeLessThan(0);
+    expect(result.rgba[3]).toBe(0.5);
+  });
+
+  it('uses the document RGB profile only when an RGB colour has no explicit profile', () => {
+    const documentP3 = resolveManagedRgbProfile(
+      { profile: undefined },
+      { documentRgbProfile: 'display-p3' },
+    );
+    expect(documentP3).toEqual({
+      kind: 'resolved',
+      profileId: 'display-p3',
+      encoding: { primaries: 'display-p3', transfer: 'srgb' },
+      provenance: 'document',
+    });
+
+    const explicitSrgb = resolveManagedRgbProfile(
+      { profile: 'srgb' },
+      { documentRgbProfile: 'display-p3' },
+    );
+    expect(explicitSrgb).toMatchObject({ profileId: 'srgb', provenance: 'explicit' });
+  });
+
+  it('reports an unknown RGB profile instead of relabelling its channels as sRGB', () => {
+    const result = managedColorToWorkingRgba(
+      { space: 'rgb', r: 12, g: 34, b: 56, a: 255, profile: 'press-rgb-v7' },
+      { destination: { primaries: 'srgb', transfer: 'srgb' } },
+    );
+    expect(result).toEqual({
+      kind: 'unresolved',
+      resolution: {
+        kind: 'unresolved',
+        profileId: 'press-rgb-v7',
+        provenance: 'explicit',
+        reason: 'unsupported-rgb-profile',
+      },
+    });
+  });
+
+  it('gives equivalent P3 vector and raster values the same destination conversion', () => {
+    const p3: [number, number, number] = [0.91, 0.22, 0.12];
+    const vector = managedColorToWorkingRgba(
+      {
+        space: 'rgb',
+        bitDepth: 'float32',
+        r: p3[0],
+        g: p3[1],
+        b: p3[2],
+        a: 1,
+        profile: 'display-p3',
+      },
+      { destination: { primaries: 'srgb', transfer: 'srgb' } },
+    );
+    const rasterTransform = createAnalyticRgbColorTransform({
+      source: { primaries: 'display-p3', transfer: 'srgb' },
+      destination: { primaries: 'srgb', transfer: 'srgb' },
+    });
+    const raster = rasterTransform?.convertColor(p3);
+    expect(vector.kind).toBe('resolved');
+    expect(raster).not.toBeNull();
+    if (vector.kind !== 'resolved' || !raster) return;
+    expect(vector.rgba[0]).toBeCloseTo(raster[0], 12);
+    expect(vector.rgba[1]).toBeCloseTo(raster[1], 12);
+    expect(vector.rgba[2]).toBeCloseTo(raster[2], 12);
+  });
+
   it('converts sRGB to Display P3 (CSS Color 4 leaf example)', () => {
     // CSS Color 4 §2: lab(51.2345% -13.6271 16.2401) is both
     // color(sRGB 0.41587 0.503670 0.36664) and

@@ -144,10 +144,20 @@ check-plan:
 check-quick:
     pnpm verify:quick
 
-# Tiers 0-4: dependency-aware affected validation. Run this instead of the
+# Tiers 0–4: dependency-aware affected validation. Run this instead of the
 # full gate for ordinary feature work — it selects tests by impact.
 check-affected:
     pnpm verify:affected
+
+# Staged-work checkpoint used by pre-commit; never starts repository-wide
+# browser, visual, native, benchmark, or release certification.
+check-commit:
+    pnpm verify:commit
+
+# Exact Git pre-push ref checkpoint. Heavy repository certification is reported
+# as a CI requirement and is never started automatically by the hook.
+check-push:
+    pnpm verify:push
 
 # Explicit full repository gate. Reserved for release checkpoints,
 # workspace/toolchain changes, and explicit requests. Requires a reason:
@@ -326,6 +336,20 @@ release-prep PART:
     echo "  2. Commit the bump + changelog"
     echo "  3. git tag v${NEW} && git push origin master --tags"
     echo "  4. release.yml builds a DRAFT; verify the draft, then publish"
+
+# Exact-SHA release lifecycle helpers. These do not create tags, publish, or
+# deploy; see docs/release/release-candidate-runbook.md.
+release-prepare VERSION:
+    pnpm release:prepare {{ VERSION }}
+
+release-status:
+    pnpm release:status
+
+release-certify *ARGS:
+    pnpm release:certify -- {{ ARGS }}
+
+release-resume *ARGS:
+    pnpm release:resume -- {{ ARGS }}
 
 # Deterministic dev-build version for the current HEAD (read-only):
 # <release>-dev.<short-sha>. Test bundles built with it never collide with a

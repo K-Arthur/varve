@@ -242,6 +242,61 @@ describe('flattenTree (incremental update)', () => {
     expect(entries.every((entry) => entry.siblingCount === 2)).toBe(true);
   });
 
+  it('reveals a matching descendant through a collapsed ancestor without mutating expansion state', () => {
+    let doc = createDocument('collapsed-search', true);
+    const { id: frame, doc: withFrame } = nextNodeId(doc);
+    doc = addNode(
+      withFrame,
+      makeFrameNode(frame, { name: 'Collapsed Frame', w: 100, h: 100, children: [] }),
+    );
+    const { id: child, doc: withChild } = nextNodeId(doc);
+    doc = addChild(
+      withChild,
+      frame,
+      makeShapeNode(child, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'Target Child' }),
+    );
+
+    const filter: LayerFilterSpec = { ...DEFAULT_FILTER, search: 'Target' };
+    const entries = flattenTree(doc, new Set(), filter, new Set([child]));
+
+    expect(entries.map((entry) => entry.node.id)).toEqual([frame, child]);
+    expect(entries[0]).toMatchObject({
+      parentId: null,
+      depth: 0,
+      childrenVisible: true,
+    });
+    expect(entries[1]).toMatchObject({
+      parentId: frame,
+      depth: 1,
+      childrenVisible: false,
+    });
+  });
+
+  it('restores the collapsed projection when the filter is cleared', () => {
+    let doc = createDocument('collapsed-search-restore', true);
+    const { id: frame, doc: withFrame } = nextNodeId(doc);
+    doc = addNode(withFrame, makeFrameNode(frame, { name: 'Frame', w: 100, h: 100, children: [] }));
+    const { id: child, doc: withChild } = nextNodeId(doc);
+    doc = addChild(
+      withChild,
+      frame,
+      makeShapeNode(child, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'Target' }),
+    );
+
+    const collapsed = new Set<string>();
+    const filtered = flattenTree(
+      doc,
+      collapsed,
+      { ...DEFAULT_FILTER, search: 'Target' },
+      new Set([child]),
+    );
+    const restored = flattenTree(doc, collapsed, DEFAULT_FILTER);
+
+    expect(filtered.map((entry) => entry.node.id)).toEqual([frame, child]);
+    expect(restored.map((entry) => entry.node.id)).toEqual([frame]);
+    expect(collapsed).toEqual(new Set());
+  });
+
   it('preserves order and depth for property-only changes', () => {
     let doc = createDocument('test', true);
     // Create a frame with nested children

@@ -165,6 +165,7 @@ export function instantiate(
     blendMode: masterRoot.blendMode ?? 'normal',
     rotation: masterRoot.rotation ?? 0,
     transform: masterRoot.transform ?? [1, 0, 0, 1, 0, 0],
+    layerColor: masterRoot.layerColor ?? null,
     fill: masterRoot.fill,
     fills: masterRoot.fills,
     w: masterRoot.w,

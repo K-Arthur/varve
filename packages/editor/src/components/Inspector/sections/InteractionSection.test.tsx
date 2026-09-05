@@ -20,6 +20,7 @@ vi.mock('@floating-ui/dom', () => ({
   shift: vi.fn(),
   offset: vi.fn(),
   size: vi.fn(),
+  hide: vi.fn(),
 }));
 
 afterEach(cleanup);
@@ -86,7 +87,7 @@ describe('InteractionSection', () => {
     await waitFor(() => expect(screen.getByLabelText('Trigger')).toBeTruthy());
 
     fireEvent.click(screen.getByLabelText('Trigger'));
-    fireEvent.click(screen.getByRole('option', { name: /on hover/i }));
+    fireEvent.click(await screen.findByRole('option', { name: /on hover/i }));
     await waitFor(() => {
       const ix = getCtx().getNodeInteractions('btn1')[0];
       expect(ix?.trigger).toMatchObject({ kind: 'onHover' });
@@ -100,7 +101,7 @@ describe('InteractionSection', () => {
     await waitFor(() => expect(screen.getByLabelText('Target screen')).toBeTruthy());
 
     fireEvent.click(screen.getByLabelText('Target screen'));
-    fireEvent.click(screen.getByRole('option', { name: /details/i }));
+    fireEvent.click(await screen.findByRole('option', { name: /details/i }));
     await waitFor(() => {
       const action = getCtx().getNodeInteractions('btn1')[0]?.actions[0] as {
         targetId?: string;
@@ -109,15 +110,15 @@ describe('InteractionSection', () => {
     });
   });
 
-  it('toggles enabled checkbox', async () => {
+  it('toggles enabled switch', async () => {
     const { doc } = buildInteractionDoc();
     const getCtx = renderInteractionSection(JSON.stringify(doc));
     getCtx().setSelection('btn1');
     await waitFor(() => expect(screen.getByLabelText('Enabled')).toBeTruthy());
 
-    const checkbox = screen.getByLabelText('Enabled') as HTMLInputElement;
-    expect(checkbox.checked).toBe(true);
-    fireEvent.click(checkbox);
+    const control = screen.getByRole('switch', { name: 'Enabled' }) as HTMLInputElement;
+    expect(control.checked).toBe(true);
+    fireEvent.click(control);
     await waitFor(() => {
       expect(getCtx().getNodeInteractions('btn1')[0]?.enabled).toBe(false);
     });
@@ -168,11 +169,11 @@ describe('InteractionSection', () => {
     await waitFor(() => expect(screen.getByLabelText('Action')).toBeTruthy());
 
     fireEvent.click(screen.getByLabelText('Action'));
-    fireEvent.click(screen.getByRole('option', { name: /play animation/i }));
+    fireEvent.click(await screen.findByRole('option', { name: /play animation/i }));
     await waitFor(() => expect(screen.getByLabelText('Target animation')).toBeTruthy());
 
     fireEvent.click(screen.getByLabelText('Target animation'));
-    fireEvent.click(screen.getByRole('option', { name: /spin/i }));
+    fireEvent.click(await screen.findByRole('option', { name: /spin/i }));
     await waitFor(() => {
       const action = getCtx().getNodeInteractions('btn1')[0]?.actions[0] as {
         animationId?: string;

@@ -1,4 +1,4 @@
-import { Select } from '@varve/ui';
+import { Select, SwitchField } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { BackupService, IncludeAssetsPolicy } from '../../backupService';
 import './backup.css';
@@ -128,18 +128,12 @@ export function BackupSettingsPanel({ backupService, onClose }: BackupSettingsPa
       <h3 className="backup-settings__title">Backup &amp; Recovery</h3>
 
       <div className="backup-settings__section">
-        <label className="backup-settings__toggle">
-          <input
-            type="checkbox"
-            checked={enabled}
-            onChange={(e) => setEnabled(e.target.checked)}
-            aria-describedby="backup-toggle-desc"
-          />
-          <span>Enable automatic backups</span>
-        </label>
-        <p id="backup-toggle-desc" className="backup-settings__description">
-          Periodically save versioned backups of your projects
-        </p>
+        <SwitchField
+          label="Enable automatic backups"
+          description="Periodically save versioned backups of your projects. Changes are staged until you choose Save settings."
+          checked={enabled}
+          onChange={(e) => setEnabled(e.target.checked)}
+        />
       </div>
 
       {enabled && (

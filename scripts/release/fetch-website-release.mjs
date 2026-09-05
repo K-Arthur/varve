@@ -3,8 +3,8 @@
  * Fetch the published release data and rewrite the website's download-page
  * manifest from it.
  *
- * This is the connection between the release pipeline and the website: on the
- * `release.published` event, website-deploy.yml runs this script, which reads
+ * This is the connection between the release pipeline and the website: after
+ * the protected publication dispatch, website-deploy.yml runs this script, which reads
  * the exact published release (not the "latest" endpoint, not a committed
  * snapshot) and verifies its integrity before a single download card is
  * rendered. The committed release-manifest.json is only ever a fallback for

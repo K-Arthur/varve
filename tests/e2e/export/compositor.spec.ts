@@ -1,5 +1,24 @@
+import { createRequire } from 'node:module';
+import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { dragOnCanvas, navigateToEditor } from '../shared';
+
+const requireFromEngine = createRequire(join(process.cwd(), 'packages', 'engine', 'package.json'));
+const { PNG } = requireFromEngine('pngjs') as {
+  PNG: { sync: { read(input: Buffer): { width: number; height: number; data: Buffer } } };
+};
+
+function expectOpaqueRasterEdges(png: { width: number; height: number; data: Buffer }) {
+  const alphaAt = (x: number, y: number) => png.data[(y * png.width + x) * 4 + 3];
+  for (let x = 0; x < png.width; x += 1) {
+    expect(alphaAt(x, 0)).toBe(255);
+    expect(alphaAt(x, png.height - 1)).toBe(255);
+  }
+  for (let y = 0; y < png.height; y += 1) {
+    expect(alphaAt(0, y)).toBe(255);
+    expect(alphaAt(png.width - 1, y)).toBe(255);
+  }
+}
 
 test.describe('Export compositor — structural flattening', () => {
   test.describe.configure({ mode: 'serial' });
@@ -78,6 +97,10 @@ test.describe('Export compositor — structural flattening', () => {
     const buffer = await readFile(path!);
     expect(buffer[0]).toBe(0x89);
     expect(buffer.toString('ascii', 1, 4)).toBe('PNG');
+    const png = PNG.sync.read(buffer);
+    expect(png.width).toBeGreaterThan(0);
+    expect(png.height).toBeGreaterThan(0);
+    expectOpaqueRasterEdges(png);
   });
 
   test('Export a clean document to SVG produces pure vector output', async ({ page }) => {

@@ -212,7 +212,7 @@ export function PaintLibrarySection() {
   }, []);
 
   return (
-    <DisclosureSection title="Paint Library">
+    <DisclosureSection title="Paint Library" defaultExpanded={false}>
       <div className="insp-paint-library">
         <SearchField
           value={search}

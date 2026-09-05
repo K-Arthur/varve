@@ -1,14 +1,26 @@
 {
-  "version": "0.2.0",
+  "version": "0.2.1",
   "notes": "",
   "platforms": {
     "linux-x86_64": {
-      "url": "https://github.com/K-Arthur/varve/releases/download/v0.2.0/Varve-0.2.0-linux-x86_64.AppImage",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUMTFadW14WEIvT1F4NmRVcloxQkRrdkM2bzFxRHpTM21hTFdBZURZdXRWb0hNelpsdEpVc3R3bE1JYWhMU09WYXdNU2x6OC9rUXlVQjlvSjlKTXJiOFdtSDJ5b3lXcFFNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3Mzc3OTE1CWZpbGU6VmFydmUtMC4yLjAtbGludXgteDg2XzY0LkFwcEltYWdlClBCakhOMjROVGpJNk13MmNDbUVTUGRqN1BnVXB6SXR2clBtQzhSREMyU0xQVnFqVGJvSXFETnNHVzlZbUZYUFM5eDNKM2FaNEJYdzFDMzZvbk91WkJ3PT0K"
+      "url": "https://github.com/K-Arthur/varve/releases/download/v0.2.1/Varve-0.2.1-linux-x86_64.AppImage",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUMTFadW14WEIvT1hQanNQZG53dWowamxydUw3Q0ZpWkZ1eWE5Q0k4bjBRbzJrWlY1TUR2eVpqck50UUx0VzJ5aXZSbEFhekR4b05XVnU2NFB3dVRTRjdGY1U1dkxlK2dBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3NjMxOTMzCWZpbGU6VmFydmVfMC4yLjFfYW1kNjQuQXBwSW1hZ2UKa2JtdEQvRXdta0gvcFVMcGJGRk05SEJ1UzcrNGdFYWdmR0kyUzYzU1NVQXY3cHdPbmlOWlh2c1FEM3Z1VGFFZnBoMXZORnVLaWtZdVoyQmNMQW5pQVE9PQo="
     },
     "linux-aarch64": {
-      "url": "https://github.com/K-Arthur/varve/releases/download/v0.2.0/Varve-0.2.0-linux-aarch64.AppImage",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUMTFadW14WEIvT1gxbXBQOHVCek51MW1lcklxcVVnUTVzem5tN2NCcFl3MlFjcW0xdHdRVkhoMmtoSjNKaG12d05vb0hXTVlIcWlMSHRBQUZKM1VablZnVWJhenB6VkFnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3Mzc3OTE4CWZpbGU6VmFydmUtMC4yLjAtbGludXgtYWFyY2g2NC5BcHBJbWFnZQp4Z1RMMUJuTUhiQ011eU5zRmE3S3lOQ2NIZlRYdTY5TVptYWxpK01QVFVvWWlUbFRFUjR3enRsRmFTRzBaUFdRQkFrZ3lzRTlGS3ltUkNWMGZiWjRDQT09Cg=="
+      "url": "https://github.com/K-Arthur/varve/releases/download/v0.2.1/Varve-0.2.1-linux-aarch64.AppImage",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUMTFadW14WEIvT2ZoTytSaVBBQlFhSUo4Y0tyVXplV2ZMRnQyaU8xWnRZUm5DUkZCakdNR1dOVWFaT3BGUzJneHNDOG4ya1hPQUVXQU9VSWk1UlZyUUEwTkFNc2VJV3dVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3NjMxNzM0CWZpbGU6VmFydmVfMC4yLjFfYWFyY2g2NC5BcHBJbWFnZQo4cVd6Z0o3SDFzWW9jN3JuWkxKdXlxNmV6dFM1dFNDcTdSYmVtKytVTXBSaE1qWllWdGhhWHpwTGFpV05NMitDQkpZZkM2NVRVQlQvTCtDRUpxYjBCUT09Cg=="
+    },
+    "windows-x86_64": {
+      "url": "https://github.com/K-Arthur/varve/releases/download/v0.2.1/Varve-0.2.1-windows-x86_64.exe",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUMTFadW14WEIvT2R3andrZFNYUW9Ed01MQUdmMFA4cVpkdmhhd0ZZSU1IVlRwa1VvOEJqQzNSL1VrbG9mQjcwc095V2h4WENkaE5qdHE4bGdOQ0kyZVhvUmphbzBsN3dZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3NjMyNjI2CWZpbGU6VmFydmVfMC4yLjFfeDY0LXNldHVwLmV4ZQpxREsyVzlGbzBvZVp2U0tHNU1CK0Z5OGtISjhzSVg2aTd5alM4K2JHNUV4dVpwMWFQb1ovTjdDcDVVM1E3TS8xdGtxU3NnaS91MHFraHJPMk54ZmZBdz09Cg=="
+    },
+    "windows-aarch64": {
+      "url": "https://github.com/K-Arthur/varve/releases/download/v0.2.1/Varve-0.2.1-windows-aarch64.exe",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUMTFadW14WEIvT2NudE90dzlZZlN1d2I2VnV4aFA5YllEdWxYdUNiVTlNMkdmOERnbjFyM1FOVVJhYlNvMnZwK0JneDI0VTZ2aEVudWJVVGdtaUgzRldmU1lleExranc0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3NjMyOTIyCWZpbGU6VmFydmVfMC4yLjFfYXJtNjQtc2V0dXAuZXhlCkJwTXNEemxLNWpsdmJrRWNvZlFkY1NnVStZVnVjb3NIYVYvNG1VVVB4OUE3UnV2VnpvcURiTXY5b1ByenFobGdSdSs4cGw0MUxuY25mTVl3Vk1vREFBPT0K"
+    },
+    "darwin-aarch64": {
+      "url": "https://github.com/K-Arthur/varve/releases/download/v0.2.1/Varve-0.2.1-macos-aarch64.app.tar.gz",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUMTFadW14WEIvT2NWTGtITDZQS1RndnRyU0VtSXVmQko1MFFRblduUUgzaXF0UWpaeHNDd0Zka2FSRXRqVnZ5WUtleGl4QndXYm95ZUR6WXBpRUE3ekdsZGpWYUQza1F3PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3NjMzNDI1CWZpbGU6VmFydmUuYXBwLnRhci5negp2L3kxaGgrTnJyNXFNS2NYM1Bwalh0NUFOa1VVNFdrNkNRb3VYWFBGd0N3QnNwaVJic0crSWRoVGpscVdCUlpETmRJTWZOYTZ3czR2SG5Wdm5WY1NEZz09Cg=="
     }
   }
 }

@@ -129,16 +129,17 @@ export class FontLoader {
     const family = meta.identity.familyName;
 
     // Deduplicate concurrent loads of the same family
-    const existing = this.inFlight.get(family);
+    const key = `${family}\u0000${meta.identity.postScriptName || meta.identity.subfamilyName}`;
+    const existing = this.inFlight.get(key);
     if (existing) return existing;
 
     const promise = this._loadFontInner(meta, data);
-    this.inFlight.set(family, promise);
+    this.inFlight.set(key, promise);
     try {
       const result = await promise;
       return result;
     } finally {
-      this.inFlight.delete(family);
+      this.inFlight.delete(key);
     }
   }
 
@@ -150,16 +151,37 @@ export class FontLoader {
    * FontRegistry, and makes it available for canvas/DOM rendering.
    * Skips duplicate-restore gracefully (returns the cached result).
    */
-  async restoreFont(family: string, data: ArrayBuffer): Promise<LoadResult> {
-    const existing = this.inFlight.get(family);
+  async restoreFont(
+    family: string,
+    data: ArrayBuffer,
+    storageMetadata?: {
+      providerId?: string;
+      weight?: number;
+      style?: 'normal' | 'italic';
+    },
+  ): Promise<LoadResult> {
+    const key = `${family}\u0000${storageMetadata?.weight ?? 'auto'}:${storageMetadata?.style ?? 'normal'}`;
+    const existing = this.inFlight.get(key);
     if (existing) return existing;
 
-    const promise = this.loadFromArrayBufferPublic(family, data, 'local');
-    this.inFlight.set(family, promise);
+    const registrySource =
+      storageMetadata?.providerId === 'fontsource'
+        ? 'fontsource'
+        : storageMetadata?.providerId === 'google'
+          ? 'google'
+          : 'user';
+    const promise = this.loadFromArrayBufferPublic(
+      family,
+      data,
+      'local',
+      registrySource,
+      storageMetadata,
+    );
+    this.inFlight.set(key, promise);
     try {
       return await promise;
     } finally {
-      this.inFlight.delete(family);
+      this.inFlight.delete(key);
     }
   }
 
@@ -168,7 +190,7 @@ export class FontLoader {
 
     try {
       if (data) {
-        return await this.loadFromArrayBuffer(family, data, 'network');
+        return await this.loadFromArrayBuffer(family, data, 'network', 'user');
       }
 
       if (meta.sourceLocation) {
@@ -203,7 +225,7 @@ export class FontLoader {
         }
 
         const buffer = await response.arrayBuffer();
-        const result = await this.loadFromArrayBuffer(family, buffer, 'network');
+        const result = await this.loadFromArrayBuffer(family, buffer, 'network', 'user');
         return result;
       } catch (err) {
         lastError = err instanceof Error ? err.message : String(err);
@@ -288,8 +310,10 @@ export class FontLoader {
     family: string,
     data: ArrayBuffer,
     source: 'network' | 'local',
+    registrySource: 'system' | 'bundled' | 'google' | 'fontsource' | 'user' = 'user',
+    faceOptions?: { weight?: number; style?: 'normal' | 'italic' },
   ): Promise<LoadResult> {
-    return this.loadFromArrayBuffer(family, data, source);
+    return this.loadFromArrayBuffer(family, data, source, registrySource, faceOptions);
   }
 
   // ── Internal ───────────────────────────────────────────────────────────
@@ -298,6 +322,8 @@ export class FontLoader {
     family: string,
     data: ArrayBuffer,
     source: 'network' | 'local',
+    registrySource: 'system' | 'bundled' | 'google' | 'fontsource' | 'user' = 'user',
+    faceOptions?: { weight?: number; style?: 'normal' | 'italic' },
   ): Promise<LoadResult> {
     if (typeof document === 'undefined' || !document.fonts) {
       const result: LoadResult = {
@@ -320,7 +346,11 @@ export class FontLoader {
       // Parse errors are non-fatal; we fall back to generic registration below.
     }
 
-    const face = new FontFace(family, data);
+    const subfamily = meta?.identity.subfamilyName ?? 'Regular';
+    const weight = faceOptions?.weight ?? weightFromSubfamily(subfamily);
+    const style =
+      faceOptions?.style ?? (subfamily.toLowerCase().includes('italic') ? 'italic' : 'normal');
+    const face = new FontFace(family, data, { weight: String(weight), style });
     try {
       await Promise.race([face.load(), createTimeout(this.config.timeoutMs)]);
     } catch (err) {
@@ -338,12 +368,11 @@ export class FontLoader {
     this.loaded.set(family, result);
 
     // Register in FontRegistry so existing UI components see the font
-    const subfamily = meta?.identity.subfamilyName ?? 'Regular';
     this.registry.register({
       family,
-      weight: weightFromSubfamily(subfamily),
-      style: subfamily.toLowerCase().includes('italic') ? 'italic' : 'normal',
-      source: 'bundled',
+      weight,
+      style,
+      source: registrySource,
     });
 
     if (meta) {

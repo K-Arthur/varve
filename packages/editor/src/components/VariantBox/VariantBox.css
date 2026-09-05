@@ -6,7 +6,7 @@
   max-width: 300px;
   background: var(--elevation-surface-overlay);
   border: var(--border-micro);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   box-shadow: var(--elevation-shadow-overlay);
   padding: var(--space-2);
   display: flex;
@@ -45,7 +45,7 @@
   background: none;
   cursor: pointer;
   color: var(--color-text-muted);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 .variant-box__close:hover {
@@ -76,7 +76,7 @@
   border: none;
   background: none;
   cursor: pointer;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
   text-align: left;
@@ -110,7 +110,7 @@
   border: 1px dashed var(--color-border-subtle);
   background: none;
   cursor: pointer;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   margin-top: var(--space-1);
@@ -139,7 +139,7 @@
 .variant-box__input {
   padding: var(--space-1) var(--space-2);
   border: var(--border-micro);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--elevation-surface-sunken);
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
@@ -190,7 +190,7 @@
   border: var(--border-micro);
   background: var(--elevation-surface-sunken);
   cursor: pointer;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-primary);
   font-size: var(--font-size-xs);
 }
@@ -200,7 +200,7 @@
   border: none;
   background: var(--color-interactive-default);
   cursor: pointer;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-on-accent);
   font-size: var(--font-size-xs);
 }
@@ -233,7 +233,7 @@
 .variant-box__bool-toggle {
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-surface-sunken);
   cursor: pointer;
   font-size: var(--font-size-xs);
@@ -255,7 +255,7 @@
 .variant-box__text-input {
   padding: var(--space-1) var(--space-1);
   border: var(--border-micro);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--elevation-surface-sunken);
   color: var(--color-text-primary);
   font-size: var(--font-size-xs);

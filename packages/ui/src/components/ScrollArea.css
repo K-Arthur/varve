@@ -1,0 +1,104 @@
+.varve-scroll-area {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.varve-scroll-area__viewport {
+  flex: 1 1 auto;
+  block-size: 100%;
+  min-width: 0;
+  min-height: 0;
+  scrollbar-color: var(--color-border-strong) transparent;
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
+  overscroll-behavior: auto;
+}
+
+.varve-scroll-area[data-orientation="vertical"] > .varve-scroll-area__viewport {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.varve-scroll-area[data-orientation="horizontal"] > .varve-scroll-area__viewport {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.varve-scroll-area[data-orientation="both"] > .varve-scroll-area__viewport {
+  overflow: auto;
+}
+
+.varve-scroll-area__viewport::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.varve-scroll-area__viewport::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.varve-scroll-area__viewport::-webkit-scrollbar-thumb {
+  min-height: 24px;
+  min-width: 24px;
+  background: var(--color-border-strong);
+  border: 2px solid transparent;
+  border-radius: var(--radius-control-compact);
+  background-clip: padding-box;
+}
+
+.varve-scroll-area__viewport:hover::-webkit-scrollbar-thumb {
+  background: var(--color-text-subtle);
+  background-clip: padding-box;
+}
+
+.varve-scroll-area__viewport::-webkit-scrollbar-thumb:active {
+  background: var(--color-text-secondary);
+  background-clip: padding-box;
+}
+
+.varve-scroll-area__viewport::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.varve-scroll-progress {
+  block-size: 2px;
+  inline-size: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  background: transparent;
+}
+
+.varve-scroll-progress:not([data-overflow]) {
+  visibility: hidden;
+}
+
+.varve-scroll-progress__value {
+  block-size: 100%;
+  inline-size: 100%;
+  transform: scaleX(0);
+  transform-origin: left center;
+  background: var(--color-interactive-default);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .varve-scroll-progress__value {
+    transition: none;
+  }
+}
+
+[dir="rtl"] .varve-scroll-progress__value {
+  transform-origin: right center;
+}
+
+@media (forced-colors: active) {
+  .varve-scroll-area__viewport {
+    scrollbar-color: ButtonText transparent;
+  }
+  .varve-scroll-progress__value {
+    background: Highlight;
+  }
+}

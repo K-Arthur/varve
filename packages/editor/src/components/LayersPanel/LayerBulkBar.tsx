@@ -6,9 +6,11 @@ import {
   Tooltip,
   TooltipProvider,
 } from '@varve/ui';
+import { type LayerColorPickerValue, LayerColorTagPicker } from './LayerColorTagPicker';
 
 export interface LayerBulkBarProps {
   selectedCount: number;
+  selectedColor?: LayerColorPickerValue;
   onGroup: () => void;
   onLockAll: () => void;
   onUnlockAll: () => void;
@@ -19,28 +21,9 @@ export interface LayerBulkBarProps {
   onDeleteAll: () => void;
 }
 
-const LAYER_COLORS: NonNullable<LayerColor>[] = [
-  'red',
-  'orange',
-  'yellow',
-  'green',
-  'blue',
-  'purple',
-  'gray',
-];
-
-const COLOR_LABELS: Record<NonNullable<LayerColor>, string> = {
-  red: 'Red',
-  orange: 'Orange',
-  yellow: 'Yellow',
-  green: 'Green',
-  blue: 'Blue',
-  purple: 'Purple',
-  gray: 'Gray',
-};
-
 export function LayerBulkBar({
   selectedCount,
+  selectedColor,
   onGroup,
   onLockAll,
   onUnlockAll,
@@ -107,28 +90,16 @@ export function LayerBulkBar({
               <SolidIcon name={SOLID_CHROME_ICONS.visibility} size="0.85em" />
             </button>
           </Tooltip>
-          <div className="layers-bulk-bar__color-group">
-            {LAYER_COLORS.map((c) => (
-              <Tooltip key={c} label={COLOR_LABELS[c]}>
-                <button
-                  type="button"
-                  className={`layers-bulk-bar__color-btn layers-bulk-bar__color-btn--${c}`}
-                  onClick={() => onColorTag(c)}
-                  aria-label={COLOR_LABELS[c]}
-                />
-              </Tooltip>
-            ))}
-            <Tooltip label="Clear layer colour">
-              <button
-                type="button"
-                className="layers-bulk-bar__color-btn layers-bulk-bar__color-btn--clear"
-                onClick={onClearColorTag}
-                aria-label="Clear layer colour"
-              >
-                <SolidIcon name={SOLID_CHROME_ICONS.close} size="0.65em" />
-              </button>
-            </Tooltip>
-          </div>
+          <LayerColorTagPicker
+            ariaLabel="Set color tag for selected layers"
+            value={selectedColor}
+            includeClear
+            clearLabel="Clear layer color"
+            onChange={(color) => {
+              if (color === null) onClearColorTag();
+              else onColorTag(color);
+            }}
+          />
           <Tooltip label="Delete all selected">
             <button
               type="button"

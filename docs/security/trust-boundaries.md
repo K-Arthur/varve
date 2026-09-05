@@ -356,7 +356,7 @@ credentials, DNS credentials, or backend secrets — a future edit that tries
 | `ci-smoke.yml` | dispatch only | D | `contents: read` | — | none | Pipeline health smoke |
 | `e2e-keyboard-nav.yml` | push, PR (paths) | D | `contents: read` | — | none | Keyboard-nav E2E |
 | `model-validation.yml`, `quantize.yml` | push, PR (paths), schedule, dispatch | D | `contents: read` | — | none | Model supply-chain validation |
-| `visual-baselines.yml` | dispatch only | D+ | `contents: write` | — | none | Commits refreshed PNG baselines to master |
+| `visual-baselines.yml` | dispatch only | D+ | `contents: read` | — | none | Produces an inspected baseline artifact; a human commits approved PNGs in a reviewed change |
 | `ci-debug.yml` | `workflow_run` (8 upstreams), completed | D+ trusted default branch | `contents: read`, `actions: read`; `issues: write` only on `post-pr-comment` | — | `GITHUB_TOKEN` only | Failure reports (redacted) and deduplicated PR comments |
 | `website-deploy.yml` | push (website paths), `workflow_run` (Release success), dispatch | E — website deploy | `contents: read`; deploy job: `pages: write`, `id-token: write` | `github-pages` (deploy job) | `GITHUB_TOKEN` only | Publishes the static site to GitHub Pages. **Cannot sign, cannot publish releases** |
 | `release.yml` | tags `v*`, dispatch (tag + publish input) | F — release/signing | `contents: read` base; `verify`: `id-token`, `attestations`; `draft`/`publish`: `contents: write` | `release-publish` (publish job, required reviewers) | signing secrets on the signing steps only | Draft release + assets; publication only via human-approved dispatch. **Never triggered by website code paths** |

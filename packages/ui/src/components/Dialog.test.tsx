@@ -148,7 +148,7 @@ describe('AlertDialog', () => {
         description="Are you sure?"
         onClose={vi.fn()}
         onConfirm={vi.fn()}
-        variant="danger"
+        variant="destructive"
       />,
     );
     expect(container.textContent).toContain('Delete?');

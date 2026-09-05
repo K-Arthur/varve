@@ -93,8 +93,8 @@ export function buildSelectionContext(
 
 /**
  * Return the displayable node path from the nearest structural root to a
- * selected node. Page and master content roots are storage scaffolding, not
- * user-facing layers, so they are intentionally omitted.
+ * selected node. Page, master, and design-canvas content roots are storage
+ * scaffolding, not user-facing layers, so they are intentionally omitted.
  */
 export function buildSelectionHierarchy(doc: Document, nodeId: NodeId): SelectionHierarchyEntry[] {
   if (!doc.nodes[nodeId]) return [];
@@ -102,6 +102,7 @@ export function buildSelectionHierarchy(doc: Document, nodeId: NodeId): Selectio
   const structuralRootIds = new Set<NodeId>([
     ...(doc.pages?.map((page) => page.contentRoot) ?? []),
     ...Object.values(doc.masters ?? {}).map((master) => master.contentRoot),
+    ...(doc.designCanvases?.map((canvas) => canvas.contentRoot) ?? []),
   ]);
   const parentCache = getOrCreateParentCache(doc, null);
   const chain: NodeId[] = [];

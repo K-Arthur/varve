@@ -1,4 +1,5 @@
 import { fireEvent, render } from '@testing-library/react';
+import { makeAdjustment } from '@varve/engine';
 import { createDocument, type Document, type SceneNode } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { LayersRow } from './LayersRow';
@@ -203,7 +204,7 @@ describe('LayersRow Object Filter badge', () => {
     });
     const badge = container.querySelector('.layers-row__object-filter-badge');
     expect(badge).not.toBeNull();
-    expect(badge).toHaveTextContent('1/2 filters');
+    expect(badge).toHaveTextContent('Invert + Blur · 1/2');
     expect(badge).toHaveAttribute('aria-label', expect.stringContaining('2 Object Filters'));
     expect(badge?.tagName).toBe('BUTTON');
     expect(container.querySelectorAll('[role="treeitem"]')).toHaveLength(1);
@@ -224,6 +225,28 @@ describe('LayersRow Object Filter badge', () => {
     expect(onCopyEffectStack).toHaveBeenCalledWith('n1', 'object-filters');
   });
 
+  it('opens the Object Filters editor on normal activation when navigation is available', () => {
+    const onOpenEffectStack = vi.fn();
+    const onCopyEffectStack = vi.fn();
+    const { getByRole } = renderRow({
+      node: makeNode('n1', 'Layer 1', 'shape', {
+        smartFilters: [
+          { id: 'f1', kind: 'invert', visible: true, opacity: 1, blendMode: 'normal', value: 100 },
+        ],
+      }),
+      onOpenEffectStack,
+      onCopyEffectStack,
+    });
+    const badge = getByRole('button', { name: /1 of 1 Object Filters enabled on Layer 1/i });
+
+    fireEvent.click(badge);
+    expect(onOpenEffectStack).toHaveBeenCalledWith('n1', 'object-filters');
+    expect(onCopyEffectStack).not.toHaveBeenCalled();
+
+    fireEvent.click(badge, { shiftKey: true });
+    expect(onCopyEffectStack).toHaveBeenCalledWith('n1', 'object-filters');
+  });
+
   it('agrees with the renderer when the whole filter stack is bypassed', () => {
     // smartFiltersEnabled === false disables every entry for rendering
     // (sceneToEngine/sceneCompositing consume activeSmartFilters). The row
@@ -239,7 +262,7 @@ describe('LayersRow Object Filter badge', () => {
     });
     const badge = container.querySelector('.layers-row__object-filter-badge');
     expect(badge).not.toBeNull();
-    expect(badge).toHaveTextContent('0/2 filters');
+    expect(badge).toHaveTextContent('Invert + Blur · 0/2');
     expect(badge).toHaveAttribute('aria-label', expect.stringContaining('2 Object Filters'));
   });
 
@@ -262,7 +285,87 @@ describe('LayersRow Object Filter badge', () => {
     });
     const badge = container.querySelector('.layers-row__object-filter-badge');
     expect(badge).not.toBeNull();
-    expect(badge).toHaveTextContent('1/3 filters');
+    expect(badge).toHaveTextContent('Invert + Blur + 1 more · 1/3');
+  });
+});
+
+describe('LayersRow adjustment stack identity', () => {
+  it('shows the ordered adjustment names and active count on the layer row', () => {
+    const node = makeNode('a1', 'Grade', 'adjustment', {
+      adjustments: [
+        makeAdjustment('threshold-1', 'threshold'),
+        makeAdjustment('map-1', 'gradientMap'),
+      ],
+    } as Partial<SceneNode>);
+    const { container } = renderRow({ node });
+    const row = container.querySelector('[role="treeitem"]');
+    const summary = container.querySelector('[data-adjustment-summary]');
+    const badge = container.querySelector('.layers-row__adjustment-badge');
+
+    expect(summary).toHaveTextContent('Threshold + Gradient Map');
+    expect(badge).toHaveTextContent('2/2');
+    expect(badge).toHaveAttribute('aria-label', '2 of 2 adjustments active');
+    expect(row).toHaveAttribute(
+      'aria-label',
+      'Grade, Adjustment Layer, Threshold, Gradient Map. 2 of 2 active.',
+    );
+  });
+
+  it('keeps disabled adjustment names discoverable while showing their inactive count', () => {
+    const node = makeNode('a1', 'Grade', 'adjustment', {
+      adjustments: [
+        makeAdjustment('threshold-1', 'threshold'),
+        makeAdjustment('map-1', 'gradientMap', { visible: false }),
+      ],
+    } as Partial<SceneNode>);
+    const { container } = renderRow({ node });
+
+    expect(container.querySelector('[data-adjustment-summary]')).toHaveTextContent(
+      'Threshold + Gradient Map',
+    );
+    expect(container.querySelector('.layers-row__adjustment-badge')).toHaveTextContent('1/2');
+    expect(container.querySelector('[role="treeitem"]')).toHaveAttribute(
+      'aria-label',
+      'Grade, Adjustment Layer, Threshold, Gradient Map (off). 1 of 2 active.',
+    );
+  });
+
+  it('uses a named Effect Studio treatment instead of exposing only its recipe steps', () => {
+    const reticulationMember = (id: string, kind: 'dither' | 'grain', effectIndex: number) => ({
+      ...makeAdjustment(id, kind),
+      studioTreatment: {
+        treatmentId: 'studio-reticulation',
+        instanceId: 'reticulation-1',
+        effectIndex,
+        controls: {},
+      },
+    });
+    const node = makeNode('n1', 'Overlay', 'shape', {
+      smartFilters: [
+        reticulationMember('dither-1', 'dither', 0),
+        reticulationMember('grain-1', 'grain', 1),
+      ],
+    } as Partial<SceneNode>);
+    const { container } = renderRow({ node });
+    const badge = container.querySelector('.layers-row__object-filter-badge');
+
+    expect(badge).toHaveTextContent('Reticulation');
+    expect(badge).not.toHaveTextContent('Dither + Grain');
+    expect(badge).toHaveAttribute(
+      'aria-label',
+      expect.stringContaining('Reticulation (Dither, Grain)'),
+    );
+  });
+
+  it('opens the Adjustment Layer editor when its summary is activated', () => {
+    const onOpenAdjustment = vi.fn();
+    const node = makeNode('a1', 'Grade', 'adjustment', {
+      adjustments: [makeAdjustment('threshold-1', 'threshold')],
+    } as Partial<SceneNode>);
+    const { container } = renderRow({ node, onOpenAdjustment });
+
+    fireEvent.click(container.querySelector('[data-adjustment-summary]')!);
+    expect(onOpenAdjustment).toHaveBeenCalledWith('a1');
   });
 });
 
@@ -283,6 +386,45 @@ describe('LayersRow clipping relationship', () => {
     expect(contentBadge).not.toBeNull();
     expect(contentBadge?.textContent).toBe('clipped');
     expect(contentBadge).toHaveAttribute('aria-label', 'Clipped content');
+  });
+});
+
+describe('LayersRow visual differentiation', () => {
+  it('exposes a semantic search-match cue on the matching row and name', () => {
+    const { container } = renderRow({ searchMatch: true });
+    const row = container.querySelector('[role="treeitem"]');
+
+    expect(row).toHaveAttribute('data-search-match', 'true');
+    expect(container.querySelector('.layers-row__name')).toHaveClass('layers-row__name--match');
+  });
+
+  it('renders an assigned layer colour as a row backdrop cue without a marker shape', () => {
+    const { container } = renderRow({
+      node: makeNode('n1', 'Tagged artwork', 'shape', { layerColor: 'purple' }),
+    });
+    const row = container.querySelector('[role="treeitem"]');
+
+    expect(row).toHaveAttribute('data-layer-category', 'vector');
+    expect(row).toHaveAttribute('data-layer-color', 'purple');
+    expect(container.querySelector('.layers-row__color-tag')).toBeNull();
+    expect(row?.getAttribute('style')).toContain('--layers-row-color');
+  });
+
+  it('keeps inactive masks visible and explains their source form', () => {
+    const { container } = renderRow({
+      node: makeNode('n1', 'Masked artwork', 'shape', {
+        mask: {
+          type: 'alpha',
+          visible: false,
+          rasterMask: {} as never,
+        },
+      }),
+    });
+    const badge = container.querySelector('.layers-row__mask-badge');
+
+    expect(badge).toHaveTextContent('alpha mask');
+    expect(badge).toHaveClass('layers-row__mask-badge--disabled');
+    expect(badge).toHaveAttribute('aria-label', 'raster alpha mask, disabled');
   });
 });
 

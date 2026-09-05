@@ -13,14 +13,14 @@ import type { Adjustment, MeshWarp } from '@varve/engine';
 import type { Document, Fill, IsometricGrid, NodeId, SceneNode } from '@varve/scene';
 import { activePageNodes, resolveAdjustmentScope, walkNodes } from '@varve/scene';
 import type { RulerMode } from '@varve/shared';
-import { computeFloatingOrigin, isWorldRectInViewport, worldToScreen } from '@varve/shared';
+import { isWorldRectInViewport } from '@varve/shared';
 
 import { CanvasNameLabels } from '../canvas/CanvasNameLabels';
 import { useEditor } from '../context';
 import type { GridOverlayMode } from '../context/types';
 import { DebugOverlayHost } from '../debug/DebugOverlayHost';
 import { SelectionOverlay } from '../SelectionOverlay';
-import { nodeWorldBounds } from '../scene/world';
+import { nodeWorldBounds, worldRectToScreenAabb } from '../scene/world';
 import type { PixelProbe } from '../tools';
 import type { CropTool } from '../tools/CropTool';
 import type { PerspectiveTool } from '../tools/PerspectiveTool';
@@ -32,9 +32,11 @@ import { ColorBlindnessOverlay, type ColorBlindnessView } from './ColorBlindness
 import { CreateTableFromDataDialog } from './CreateTableFromDataDialog';
 import { CropOverlay } from './CropOverlay';
 import { DocumentGridOverlay } from './DocumentGridOverlay/DocumentGridOverlay';
+import { ExportRegionOverlay } from './ExportRegionOverlay';
 import { FloatingTextBar } from './FloatingTextBar/FloatingTextBar';
 import { GradientHandleOverlay } from './GradientHandleOverlay';
 import { GuideOverlay } from './GuideOverlay/GuideOverlay';
+import { KnifeHoverOverlay } from './KnifeHoverOverlay';
 import { MeshWarpOverlay } from './MeshWarpOverlay';
 import { MotionPathOverlay } from './MotionPathOverlay';
 import { NodeEditOverlay } from './NodeEditOverlay';
@@ -351,24 +353,15 @@ export function CanvasOverlays({
       width: canvasRect?.width ?? 1920,
       height: canvasRect?.height ?? 1080,
     };
-    const textOrigin = computeFloatingOrigin(textCam, textViewport);
-    const [textCanvasX, textCanvasY] = worldToScreen(
-      textCam,
-      worldX,
-      worldY,
-      textViewport,
-      textOrigin,
-    );
-    const textScreenX = textCanvasX + canvasLeft;
-    const textScreenY = textCanvasY + canvasTop;
     const textBounds = nodeWorldBounds(doc, textEditTargetId);
-    const textScreenW = (textBounds?.w ?? n.w ?? (n.fontSize ?? 16) * 3) * zoom;
-    const textScreenH = (textBounds?.h ?? n.h ?? (n.fontSize ?? 16) * 1.4) * zoom;
+    const projectedBounds = textBounds
+      ? worldRectToScreenAabb(textBounds, textCam, textViewport)
+      : null;
     const textScreenRect = {
-      x: textScreenX,
-      y: textScreenY,
-      w: Math.max(textScreenW, 20),
-      h: Math.max(textScreenH, 20),
+      x: (projectedBounds?.x ?? worldX * zoom + pan.x) + canvasLeft,
+      y: (projectedBounds?.y ?? worldY * zoom + pan.y) + canvasTop,
+      w: Math.max(projectedBounds?.w ?? (n.w ?? (n.fontSize ?? 16) * 3) * zoom, 20),
+      h: Math.max(projectedBounds?.h ?? (n.h ?? (n.fontSize ?? 16) * 1.4) * zoom, 20),
     };
     return (
       <>
@@ -481,16 +474,19 @@ export function CanvasOverlays({
           doc={doc}
           getWorldTransform={editor.getWorldTransform}
           onUpdateGradient={(nodeId, fillIndex, gradient) => {
-            const node = doc.nodes[nodeId];
-            if (!node) return;
-            const nodeAny = node as unknown as Record<string, unknown>;
-            const current: Fill[] = Array.isArray(nodeAny.fills) ? (nodeAny.fills as Fill[]) : [];
-            const next = [...current];
-            if (fillIndex >= 0 && fillIndex < next.length) {
-              next[fillIndex] = { ...next[fillIndex], gradient } as Fill;
-              editor.updateSelectedFillAt(fillIndex, next[fillIndex] as Fill);
-            }
+            editor.updateNode(nodeId, (node) => {
+              const nodeAny = node as unknown as { fills?: Fill[] };
+              const current = nodeAny.fills ?? [];
+              const fill = current[fillIndex];
+              if (fill?.type !== 'gradient') return node;
+              const fills = [...current];
+              fills[fillIndex] = { ...fill, gradient };
+              return { ...node, fills } as SceneNode;
+            });
           }}
+          onEditStart={editor.beginTransaction}
+          onEditEnd={editor.commitTransaction}
+          onEditCancel={editor.abortTransaction}
         />
       )}
       {tool === 'warp' && editor.state.warpEdit && (
@@ -553,7 +549,7 @@ export function CanvasOverlays({
             minWidth: 132,
             padding: 'var(--space-2)',
             border: '1px solid var(--color-border-accent)',
-            borderRadius: 'var(--radius-sm)',
+            borderRadius: 'var(--radius-surface)',
             background: 'var(--elevation-surface-raised)',
             color: 'var(--color-text-primary)',
             boxShadow: 'var(--shadow-md)',
@@ -568,7 +564,7 @@ export function CanvasOverlays({
               style={{
                 width: 12,
                 height: 12,
-                borderRadius: 2,
+                borderRadius: 'var(--radius-control-compact)',
                 background: pixelProbe.hex,
                 border: '1px solid var(--color-border-subtle)',
               }}
@@ -588,6 +584,22 @@ export function CanvasOverlays({
         cameraRotation={cameraRotation}
         selection={[...selection]}
       />
+      <ExportRegionOverlay
+        doc={doc}
+        zoom={zoom}
+        pan={pan}
+        cameraRotation={cameraRotation}
+        selection={selection}
+      />
+      {tool === 'knife' && (
+        <KnifeHoverOverlay
+          doc={doc}
+          hoveredNode={hoveredNode}
+          zoom={zoom}
+          pan={pan}
+          cameraRotation={cameraRotation}
+        />
+      )}
       {renderVariantBox}
       <SelectionQuickBarHost
         textEditTargetId={textEditTargetId}

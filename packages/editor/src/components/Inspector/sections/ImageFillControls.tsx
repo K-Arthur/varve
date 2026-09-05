@@ -9,7 +9,7 @@
 import type { DocumentAsset, EmbeddedAssetInput, ImageFillData, ImageFit } from '@varve/scene';
 import { rasterEncodingLabel, rasterProvenanceLabel } from '@varve/shared';
 import { Icon, Select, Tooltip, TooltipProvider } from '@varve/ui';
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { type ChangeEvent, useCallback, useEffect, useId, useRef, useState } from 'react';
 import { FieldRow } from '../controls/FieldRow';
 
 /**
@@ -87,7 +87,7 @@ export function ImageFillControls({
   );
 
   const handleFileChange = useCallback(
-    (e: Event) => {
+    (e: Event | ChangeEvent<HTMLInputElement>) => {
       const input = e.target as HTMLInputElement;
       const file = input.files?.[0];
       input.value = '';
@@ -136,6 +136,14 @@ export function ImageFillControls({
   //  2. a document-capture fallback armed while a pick is pending — covers
   //     a subtree remount replacing the input while the OS dialog is open.
   const pickPendingRef = useRef(false);
+  const openFilePicker = useCallback(() => {
+    // The visible button opens the hidden input programmatically, so the
+    // document-level click listener cannot observe the input's click itself.
+    // Arm the remount-safe fallback before opening the native picker.
+    pickPendingRef.current = true;
+    fileRef.current?.click();
+  }, []);
+
   useEffect(() => {
     const dispatch = (e: Event) => {
       pickPendingRef.current = false;
@@ -181,7 +189,7 @@ export function ImageFillControls({
           type="button"
           className="insp-image-fill__preview"
           aria-label="Replace image"
-          onClick={() => fileRef.current?.click()}
+          onClick={openFilePicker}
         >
           <img src={image.src} alt="" className="insp-image-fill__preview-img" />
         </button>
@@ -202,11 +210,13 @@ export function ImageFillControls({
           className="insp-image-fill__file"
           aria-hidden
           tabIndex={-1}
+          onChange={handleFileChange}
+          onInput={(e) => handleFileChange(e.nativeEvent)}
         />
         <button
           type="button"
           className="insp-btn-sm insp-image-fill__choose"
-          onClick={() => fileRef.current?.click()}
+          onClick={openFilePicker}
         >
           <Icon name="Image" label={undefined} size="0.85em" />
           <span>{hasSrc ? 'Replace image' : 'Choose image'}</span>

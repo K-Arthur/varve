@@ -80,13 +80,16 @@ test.describe('front-facing adjustment and canvas controls', () => {
     await expect(page.getByTestId('pixel-probe-overlay')).toContainText('Pixel Info');
     await page.screenshot({ path: path.join(REVIEW_DIR, '04-pixel-info.png') });
 
-    const softProof = page.getByText('Soft Proof', { exact: true });
+    // Pixel Info owns the inspector while active. Return to Select so the
+    // document-wide Soft Proof disclosure is available in the Design tab.
+    await page.locator('[data-tool="select"]').click();
+    const softProof = page.getByRole('button', { name: 'Soft Proof', exact: true });
     await expect(softProof).toBeVisible();
     await softProof.click();
-    await expect(page.getByRole('checkbox', { name: /Soft proof disabled/i })).toBeVisible();
-    await expect(page.getByRole('checkbox', { name: 'Show out-of-gamut colors' })).toBeVisible();
-    await page.getByRole('checkbox', { name: /Soft proof disabled/i }).check();
-    await page.getByRole('checkbox', { name: 'Show out-of-gamut colors' }).check();
+    await expect(page.getByRole('switch', { name: 'Simulate output condition' })).toBeVisible();
+    await expect(page.getByRole('switch', { name: 'Show out-of-gamut colors' })).toBeVisible();
+    await page.getByRole('switch', { name: 'Simulate output condition' }).check();
+    await page.getByRole('switch', { name: 'Show out-of-gamut colors' }).check();
     await page.screenshot({ path: path.join(REVIEW_DIR, '05-soft-proof-gamut.png') });
   });
 
@@ -97,7 +100,7 @@ test.describe('front-facing adjustment and canvas controls', () => {
 
     await page.keyboard.press('r');
     await dragOnCanvas(page, 180, 160, 460, 380);
-    await page.getByRole('tab', { name: 'Appearance' }).click();
+    await page.getByRole('tab', { name: 'Design' }).click();
     const objectFiltersDisclosure = page.getByRole('button', {
       name: 'Object Filters',
       exact: true,
@@ -134,7 +137,7 @@ test.describe('front-facing adjustment and canvas controls', () => {
 
     await page.keyboard.press('r');
     await dragOnCanvas(page, 160, 140, 430, 340);
-    await page.getByRole('tab', { name: 'Appearance' }).click();
+    await page.getByRole('tab', { name: 'Design' }).click();
     const objectFiltersDisclosure = page.getByRole('button', {
       name: 'Object Filters',
       exact: true,
@@ -154,7 +157,20 @@ test.describe('front-facing adjustment and canvas controls', () => {
     await expect(rows.nth(1)).toContainText('Contrast');
     await expect(page.getByRole('button', { name: 'Move Contrast up' })).toBeVisible();
 
-    await rows.nth(1).dragTo(rows.nth(0));
+    const sourceHandle = rows.nth(1).locator('.smart-filters__drag-handle');
+    const sourceBox = await sourceHandle.boundingBox();
+    if (!sourceBox) throw new Error('Object Filter drag handle is not measurable');
+    const startX = sourceBox.x + sourceBox.width / 2;
+    const startY = sourceBox.y + sourceBox.height / 2;
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.mouse.move(startX, startY - 12);
+    const targetBox = await rows.nth(0).boundingBox();
+    if (!targetBox) throw new Error('Object Filter target is not measurable');
+    await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, {
+      steps: 6,
+    });
+    await page.mouse.up();
     await expect(rows.nth(0)).toContainText('Contrast');
     await expect(rows.nth(1)).toContainText('Brightness');
     const moveBrightnessUp = page.getByRole('button', { name: 'Move Brightness up' });

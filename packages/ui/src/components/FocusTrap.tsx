@@ -24,14 +24,20 @@ export interface FocusTrapProps {
   active?: boolean;
   initialFocus?: string;
   onClose?: () => void;
+  /** Disable internal restoration when the owning surface has one explicit handoff. */
+  restoreFocus?: boolean;
 }
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])';
 
 function getFocusable(container: HTMLElement): HTMLElement[] {
+  const ownerWindow = container.ownerDocument.defaultView;
   return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
-    (el) => el.offsetParent !== null && getComputedStyle(el).visibility !== 'hidden',
+    (el) =>
+      el.offsetParent !== null &&
+      (ownerWindow?.getComputedStyle(el).visibility ?? getComputedStyle(el).visibility) !==
+        'hidden',
   );
 }
 
@@ -39,7 +45,13 @@ function isFocusable(el: HTMLElement): boolean {
   return el.matches(FOCUSABLE_SELECTOR) || el.getAttribute('tabindex') !== null;
 }
 
-export function FocusTrap({ children, active = true, initialFocus, onClose }: FocusTrapProps) {
+export function FocusTrap({
+  children,
+  active = true,
+  initialFocus,
+  onClose,
+  restoreFocus = true,
+}: FocusTrapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -49,7 +61,9 @@ export function FocusTrap({ children, active = true, initialFocus, onClose }: Fo
     const container = containerRef.current;
     if (!container) return;
 
-    const savedActive = document.activeElement as HTMLElement | null;
+    const ownerDocument = container.ownerDocument;
+    const ownerWindow = ownerDocument.defaultView;
+    const savedActive = ownerDocument.activeElement as HTMLElement | null;
 
     let initialTarget: HTMLElement | null = null;
     if (initialFocus) {
@@ -60,15 +74,16 @@ export function FocusTrap({ children, active = true, initialFocus, onClose }: Fo
       initialTarget = focusable[0] ?? null;
     }
 
-    const focusTimer = requestAnimationFrame(() => {
-      if (initialTarget) {
-        initialTarget.focus({ preventScroll: true });
-      } else {
-        container.setAttribute('tabindex', '-1');
-        container.focus({ preventScroll: true });
-        container.removeAttribute('tabindex');
-      }
-    });
+    const focusTimer =
+      ownerWindow?.requestAnimationFrame(() => {
+        if (initialTarget) {
+          initialTarget.focus({ preventScroll: true });
+        } else {
+          container.setAttribute('tabindex', '-1');
+          container.focus({ preventScroll: true });
+          container.removeAttribute('tabindex');
+        }
+      }) ?? 0;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && onCloseRef.current) {
@@ -83,10 +98,10 @@ export function FocusTrap({ children, active = true, initialFocus, onClose }: Fo
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
 
-      if (e.shiftKey && document.activeElement === first && last) {
+      if (e.shiftKey && ownerDocument.activeElement === first && last) {
         e.preventDefault();
         last.focus();
-      } else if (!e.shiftKey && document.activeElement === last && first) {
+      } else if (!e.shiftKey && ownerDocument.activeElement === last && first) {
         e.preventDefault();
         first.focus();
       }
@@ -95,19 +110,19 @@ export function FocusTrap({ children, active = true, initialFocus, onClose }: Fo
     container.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      cancelAnimationFrame(focusTimer);
+      ownerWindow?.cancelAnimationFrame(focusTimer);
       container.removeEventListener('keydown', handleKeyDown);
 
       // Restore focus to the element focused before the trap activated —
       // on deactivate AND on unmount — only while focus is still inside
       // the trap (never steal focus from a surface that took it).
-      if (container.contains(document.activeElement) && savedActive) {
+      if (restoreFocus && container.contains(ownerDocument.activeElement) && savedActive) {
         if (savedActive.isConnected && isFocusable(savedActive)) {
           savedActive.focus({ preventScroll: true });
         }
       }
     };
-  }, [active, initialFocus]);
+  }, [active, initialFocus, restoreFocus]);
 
   return (
     <div ref={containerRef} tabIndex={-1} style={{ display: 'contents' }}>

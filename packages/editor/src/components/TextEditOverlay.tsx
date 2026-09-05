@@ -16,6 +16,7 @@ import {
   buildWorldToScreenAffine,
   computeFloatingOrigin,
   DEFAULT_ARTWORK_FONT_FAMILY,
+  managedColorToCss,
   multiplyAffine,
 } from '@varve/shared';
 import { useCallback, useEffect, useRef } from 'react';
@@ -63,9 +64,26 @@ export function TextEditOverlay({
   const composingRef = useRef(false);
   const pendingTextRef = useRef<string | null>(null);
   const updateTimerRef = useRef<number | null>(null);
+  const burstTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasActiveBurstRef = useRef(false);
+  const blurCommitFrameRef = useRef<number | null>(null);
+  const committedRef = useRef(false);
   const onUpdateTextRef = useRef(onUpdateText);
   onUpdateTextRef.current = onUpdateText;
   const ctx = useEditor();
+  const ctxRef = useRef(ctx);
+  ctxRef.current = ctx;
+
+  const commitBurst = useCallback(() => {
+    if (burstTimerRef.current !== null) {
+      clearTimeout(burstTimerRef.current);
+      burstTimerRef.current = null;
+    }
+    if (hasActiveBurstRef.current) {
+      hasActiveBurstRef.current = false;
+      ctxRef.current.commitTransaction();
+    }
+  }, []);
 
   // Compute screen-space position from world-space transform
   // Use pre-composed world coordinates when available (accounts for ancestor transforms).
@@ -100,6 +118,22 @@ export function TextEditOverlay({
   const w = localBounds?.w ?? node.w ?? Math.max((node.fontSize ?? 16) * 3, 20);
   const h = localBounds?.h ?? node.h ?? Math.max((node.fontSize ?? 16) * 1.4, 20);
 
+  const notifyUpdate = useCallback((text: string) => {
+    if (!hasActiveBurstRef.current) {
+      hasActiveBurstRef.current = true;
+      ctxRef.current.beginTransaction();
+    }
+    if (burstTimerRef.current !== null) clearTimeout(burstTimerRef.current);
+    burstTimerRef.current = setTimeout(() => {
+      burstTimerRef.current = null;
+      hasActiveBurstRef.current = false;
+      ctxRef.current.commitTransaction();
+    }, 500);
+    onUpdateTextRef.current(text);
+  }, []);
+  const notifyUpdateRef = useRef(notifyUpdate);
+  notifyUpdateRef.current = notifyUpdate;
+
   const flushPendingText = useCallback(() => {
     const pending = pendingTextRef.current;
     pendingTextRef.current = null;
@@ -107,7 +141,7 @@ export function TextEditOverlay({
       window.clearTimeout(updateTimerRef.current);
       updateTimerRef.current = null;
     }
-    if (pending !== null) onUpdateTextRef.current(pending);
+    if (pending !== null) notifyUpdateRef.current(pending);
   }, []);
 
   const scheduleTextUpdate = useCallback((text: string) => {
@@ -120,7 +154,7 @@ export function TextEditOverlay({
       updateTimerRef.current = null;
       const pending = pendingTextRef.current;
       pendingTextRef.current = null;
-      if (pending !== null) onUpdateTextRef.current(pending);
+      if (pending !== null) notifyUpdateRef.current(pending);
     }, 100);
   }, []);
 
@@ -130,16 +164,26 @@ export function TextEditOverlay({
     scheduleTextUpdate(ta.value);
   }, [scheduleTextUpdate]);
 
+  const commit = useCallback(
+    (finalText: string) => {
+      if (committedRef.current) return;
+      committedRef.current = true;
+      flushPendingText();
+      commitBurst();
+      onCommit(finalText);
+    },
+    [commitBurst, flushPendingText, onCommit],
+  );
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === 'Escape') {
         e.preventDefault();
-        flushPendingText();
-        onCommit(textareaRef.current?.value ?? '');
+        commit(textareaRef.current?.value ?? '');
       }
       // Enter inserts newline for multi-line text
     },
-    [flushPendingText, onCommit],
+    [commit],
   );
 
   const handleCompositionStart = useCallback(() => {
@@ -151,25 +195,53 @@ export function TextEditOverlay({
     const ta = textareaRef.current;
     if (ta) {
       flushPendingText();
-      onUpdateTextRef.current(ta.value);
+      notifyUpdateRef.current(ta.value);
     }
   }, [flushPendingText]);
 
   const handleBlur = useCallback(() => {
-    if (!composingRef.current) {
-      const finalText = textareaRef.current?.value ?? '';
-      flushPendingText();
-      onCommit(finalText);
+    if (composingRef.current || committedRef.current) return;
+    if (blurCommitFrameRef.current !== null) {
+      cancelAnimationFrame(blurCommitFrameRef.current);
     }
-  }, [flushPendingText, onCommit]);
+    // The editor, floating toolbar, and its portaled menus form one logical
+    // focus surface. A textarea blur fires before a toolbar control receives
+    // focus, so committing synchronously here unmounts the very control the
+    // user is trying to use. Decide after the browser has completed focus
+    // transfer and retain the session for any Varve overlay.
+    blurCommitFrameRef.current = requestAnimationFrame(() => {
+      blurCommitFrameRef.current = null;
+      if (committedRef.current || composingRef.current) return;
+      const active = document.activeElement;
+      const insideEditingSurface =
+        active instanceof Element &&
+        Boolean(
+          active.closest(
+            '[data-text-edit-surface="true"],[data-varve-overlay="true"],.inspector-panel,.inspector',
+          ),
+        );
+      if (!insideEditingSurface) commit(textareaRef.current?.value ?? '');
+    });
+  }, [commit]);
 
   useEffect(() => {
     return () => {
       if (updateTimerRef.current !== null) {
         window.clearTimeout(updateTimerRef.current);
       }
+      if (blurCommitFrameRef.current !== null) {
+        cancelAnimationFrame(blurCommitFrameRef.current);
+      }
       updateTimerRef.current = null;
       pendingTextRef.current = null;
+      if (burstTimerRef.current !== null) {
+        clearTimeout(burstTimerRef.current);
+        burstTimerRef.current = null;
+      }
+      if (hasActiveBurstRef.current) {
+        hasActiveBurstRef.current = false;
+        ctxRef.current.commitTransaction();
+      }
     };
   }, []);
 
@@ -224,7 +296,11 @@ export function TextEditOverlay({
         fontSize: node.fontSize ?? 16,
         fontFamily: node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY,
         fontWeight: node.fontWeight ?? 400,
-        lineHeight: (node.lineHeight ?? 1.2).toString(),
+        // Keep the editing surface on the same fallback as shared text
+        // geometry and the canvas renderer. Imported nodes may omit the
+        // optional line-height field; using 1.2 here made their caret and
+        // wrapped lines drift from the painted text.
+        lineHeight: (node.lineHeight ?? 1.4).toString(),
         letterSpacing: `${node.letterSpacing ?? 0}px`,
         padding: 0,
         margin: 0,
@@ -233,7 +309,10 @@ export function TextEditOverlay({
         resize: 'none',
         overflow: 'hidden',
         background: 'transparent',
-        color: 'transparent',
+        // The DOM editor is the immediate-feedback surface. Canvas replay is
+        // intentionally allowed to lag behind input; hiding the textarea's
+        // text made typing look frozen on large documents.
+        color: managedColorToCss(node.fill ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 255 }),
         caretColor: 'var(--color-interactive-default, #3b82f6)',
         whiteSpace: 'pre-wrap',
         wordWrap: 'break-word',
@@ -241,6 +320,7 @@ export function TextEditOverlay({
         transformOrigin: '0 0',
         zIndex: 1000,
       }}
+      data-text-edit-surface="true"
     />
   );
   return createPortal(editor, document.body);

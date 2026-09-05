@@ -61,7 +61,7 @@ import {
   runLinterScan,
   type SuppressionEntry,
 } from '@varve/scene';
-import { Icon, Tooltip } from '@varve/ui';
+import { Icon, Menu, type MenuEntry, Switch, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AuditWorkerPool, type ScanProgress } from '../audit/auditWorker';
 import { useEditor } from '../context';
@@ -158,9 +158,25 @@ export function IntelligencePanel({ initialTab }: { initialTab?: ExtendedTab } =
   const { primaryTabs, moreGroups } = useWorkspaceTabs();
   const [tab, setTab] = useState<ExtendedTab>(initialTab ?? primaryTabs[0] ?? 'review');
   const [showMore, setShowMore] = useState(false);
+  const moreTriggerRef = useRef<HTMLButtonElement>(null);
 
   const allMoreTabs = moreGroups.flatMap((g) => g.tabs);
   const moreLabel = allMoreTabs.find((t) => t === tab) ?? null;
+  const moreMenuItems = useMemo<MenuEntry[]>(
+    () =>
+      moreGroups.flatMap((group, groupIndex) => [
+        ...(groupIndex > 0 ? [{ id: `separator-${group.label}`, separator: true as const }] : []),
+        ...group.tabs.map((t) => ({
+          id: t,
+          label: `${group.label}: ${t}`,
+          onAction: () => {
+            setTab(t);
+            setShowMore(false);
+          },
+        })),
+      ]),
+    [moreGroups],
+  );
 
   return (
     <div className="intelligence-panel">
@@ -182,9 +198,12 @@ export function IntelligencePanel({ initialTab }: { initialTab?: ExtendedTab } =
         {moreLabel ? (
           <button
             type="button"
+            ref={moreTriggerRef}
             role="tab"
             className="intelligence-tab intelligence-tab--active"
             aria-selected
+            aria-haspopup="menu"
+            aria-expanded={showMore}
             onClick={() => setShowMore((s) => !s)}
           >
             {moreLabel}
@@ -192,45 +211,25 @@ export function IntelligencePanel({ initialTab }: { initialTab?: ExtendedTab } =
         ) : (
           <button
             type="button"
+            ref={moreTriggerRef}
             role="tab"
             className="intelligence-tab"
             aria-selected={showMore}
+            aria-haspopup="menu"
+            aria-expanded={showMore}
             onClick={() => setShowMore((s) => !s)}
           >
             More
           </button>
         )}
       </div>
-      {showMore && (
-        <div className="intelligence-more-menu" role="menu" aria-label="More intelligence tabs">
-          {moreGroups.map((group) => (
-            <fieldset
-              key={group.label}
-              className="intelligence-more-group"
-              aria-label={group.label}
-            >
-              <span className="intelligence-more-group__label">{group.label}</span>
-              {group.tabs.map((t) => (
-                <button
-                  type="button"
-                  key={t}
-                  role="menuitem"
-                  className={`intelligence-tab intelligence-tab--small${tab === t ? ' intelligence-tab--active' : ''}`}
-                  onClick={() => {
-                    setTab(t);
-                    setShowMore(false);
-                  }}
-                >
-                  {t === 'governance' && <Icon name="Shield" label={undefined} size="0.8em" />}
-                  {t === 'debt' && <Icon name="TriangleAlert" label={undefined} size="0.8em" />}
-                  {t === 'similar' && <Icon name="Images" label={undefined} size="0.8em" />}
-                  {t}
-                </button>
-              ))}
-            </fieldset>
-          ))}
-        </div>
-      )}
+      <Menu
+        triggerRef={moreTriggerRef}
+        open={showMore}
+        onClose={() => setShowMore(false)}
+        label="More intelligence tabs"
+        items={moreMenuItems}
+      />
 
       {tab === 'review' && <ReviewTab />}
       {tab === 'audit' && <AuditTab />}
@@ -1353,14 +1352,12 @@ function NamingTab() {
         are identified by content (e.g. "Golden retriever") using a local AI model.
       </p>
 
-      <label className="intelligence-toggle">
-        <input
-          type="checkbox"
-          checked={onlyDefault}
-          onChange={(e) => setOnlyDefault(e.target.checked)}
-        />
-        <span>Default names only</span>
-      </label>
+      <Switch
+        className="intelligence-toggle"
+        label="Default names only"
+        checked={onlyDefault}
+        onChange={(e) => setOnlyDefault(e.target.checked)}
+      />
 
       <button
         type="button"
@@ -2016,7 +2013,7 @@ function PromoteDialog({
               padding: 'var(--space-1) var(--space-2)',
               background: 'var(--color-surface-raised)',
               border: 'var(--border-micro)',
-              borderRadius: 'var(--radius-sm)',
+              borderRadius: 'var(--radius-control-compact)',
               color: 'var(--color-text-primary)',
             }}
           />
@@ -2055,7 +2052,7 @@ function PromoteDialog({
                   padding: '2px var(--space-1)',
                   background: 'var(--color-surface-raised)',
                   border: 'var(--border-micro)',
-                  borderRadius: 'var(--radius-sm)',
+                  borderRadius: 'var(--radius-control-compact)',
                   color: 'var(--color-text-primary)',
                   fontSize: 'var(--font-size-xs)',
                 }}
@@ -2098,7 +2095,7 @@ function PromoteDialog({
                   padding: '2px var(--space-1)',
                   background: 'var(--color-surface-raised)',
                   border: 'var(--border-micro)',
-                  borderRadius: 'var(--radius-sm)',
+                  borderRadius: 'var(--radius-control-compact)',
                   color: 'var(--color-text-primary)',
                   fontSize: 'var(--font-size-xs)',
                 }}
@@ -2188,7 +2185,7 @@ function VariantCandidateCard({
                 padding: '2px var(--space-1)',
                 background: 'var(--color-surface-raised)',
                 border: 'var(--border-micro)',
-                borderRadius: 'var(--radius-sm)',
+                borderRadius: 'var(--radius-control-compact)',
               }}
             >
               {m.name || m.nodeId.slice(0, 6)}
@@ -2507,6 +2504,26 @@ function SimilarTab() {
   const [searchMode, setSearchMode] = useState<SimilaritySearchMode>('semantic');
   const [scannedCount, setScannedCount] = useState(0);
   const usingTestEmbedder = Boolean(window.__varveSimilarityTest?.mockEmbed);
+  const searchModeOptions: readonly SimilaritySearchMode[] = ['semantic', 'near-duplicates'];
+
+  function handleSearchModeKeyDown(event: React.KeyboardEvent<HTMLInputElement>, index: number) {
+    let nextIndex: number | null = null;
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+      nextIndex = (index + 1) % searchModeOptions.length;
+    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      nextIndex = (index - 1 + searchModeOptions.length) % searchModeOptions.length;
+    } else if (event.key === 'Home') {
+      nextIndex = 0;
+    } else if (event.key === 'End') {
+      nextIndex = searchModeOptions.length - 1;
+    }
+    if (nextIndex === null) return;
+    event.preventDefault();
+    const nextMode = searchModeOptions[nextIndex];
+    if (!nextMode) return;
+    setSearchMode(nextMode);
+    document.getElementById(`similarity-mode-${nextMode}`)?.focus();
+  }
 
   const selectedNode =
     state.selection.length === 1 ? state.document.nodes[state.selection[0]!] : null;
@@ -2846,30 +2863,32 @@ function SimilarTab() {
           role="radiogroup"
           aria-label="Similarity search type"
         >
-          <button
-            type="button"
-            aria-pressed={searchMode === 'semantic'}
-            className={
-              searchMode === 'semantic'
-                ? 'similarity-mode-picker__option is-active'
-                : 'similarity-mode-picker__option'
-            }
-            onClick={() => setSearchMode('semantic')}
-          >
-            Similar
-          </button>
-          <button
-            type="button"
-            aria-pressed={searchMode === 'near-duplicates'}
-            className={
-              searchMode === 'near-duplicates'
-                ? 'similarity-mode-picker__option is-active'
-                : 'similarity-mode-picker__option'
-            }
-            onClick={() => setSearchMode('near-duplicates')}
-          >
-            Near duplicates
-          </button>
+          {searchModeOptions.map((mode, index) => {
+            const selected = searchMode === mode;
+            return (
+              <label
+                key={mode}
+                className={
+                  selected
+                    ? 'similarity-mode-picker__option is-active'
+                    : 'similarity-mode-picker__option'
+                }
+              >
+                <input
+                  id={`similarity-mode-${mode}`}
+                  type="radio"
+                  name="similarity-search-type"
+                  value={mode}
+                  checked={selected}
+                  tabIndex={selected ? 0 : -1}
+                  onChange={() => setSearchMode(mode)}
+                  onKeyDown={(event) => handleSearchModeKeyDown(event, index)}
+                  className="varve-visually-hidden"
+                />
+                {mode === 'semantic' ? 'Similar' : 'Near duplicates'}
+              </label>
+            );
+          })}
         </div>
       )}
 

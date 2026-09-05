@@ -157,10 +157,18 @@ async function parseWOFF2(data: ArrayBuffer): Promise<ParsedFontMetadata> {
  * to header-only parsing. Do not convert this back to a static import.
  */
 async function decompressWOFF2(data: ArrayBuffer): Promise<ArrayBuffer | null> {
+  const timeoutMs = 2_000;
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
   try {
-    const { decompress: decompressBrotli } = await import('wawoff2');
-    const input = new Uint8Array(data);
-    const result = await decompressBrotli(input);
+    const result = await Promise.race([
+      import('wawoff2').then(({ decompress: decompressBrotli }) =>
+        decompressBrotli(new Uint8Array(data)),
+      ),
+      new Promise<null>((resolve) => {
+        timeoutId = setTimeout(() => resolve(null), timeoutMs);
+      }),
+    ]);
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
     // wawoff2 returns a Uint8Array/Buffer of the decompressed SFNT data.
     if (result && result.byteLength > 0) {
       return result.buffer.slice(
@@ -170,6 +178,8 @@ async function decompressWOFF2(data: ArrayBuffer): Promise<ArrayBuffer | null> {
     }
   } catch {
     // Fall back to header-only parsing if decompression fails.
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
   }
   return null;
 }

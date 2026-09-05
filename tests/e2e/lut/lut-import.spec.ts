@@ -151,13 +151,12 @@ test.describe('LUT import and application', () => {
 
     // The adjustment layer is auto-selected. Click the "LUT" entry in the filter stack
     // to select the individual LUT adjustment and show its editor controls.
-    const lutFilter = page.getByText('LUT', { exact: true }).first();
-    if (await lutFilter.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await lutFilter.click();
-      await page.waitForTimeout(500);
+    const lutFilter = page.locator('.adj-panel__item-select').filter({ hasText: /^LUT$/ });
+    await expect(lutFilter).toBeVisible({ timeout: 5000 });
+    await lutFilter.click();
+    await expect(lutFilter).toHaveAttribute('aria-expanded', 'true');
 
-      const slider = page.locator('input[aria-label="LUT intensity"]');
-      expect(await slider.isVisible({ timeout: 2000 }).catch(() => false)).toBeTruthy();
-    }
+    const slider = page.locator('input[aria-label="LUT intensity"]');
+    await expect(slider).toBeVisible({ timeout: 5000 });
   });
 });

@@ -100,7 +100,7 @@
   background: var(--color-interactive-default, #39d0c6);
   color: var(--color-text-on-accent, #0a0e14);
   border: none;
-  border-radius: var(--radius-md, 8px);
+  border-radius: var(--radius-control);
   padding: var(--space-2, 0.5rem) var(--space-4, 1rem);
   font-family: inherit;
   font-size: var(--font-size-sm, 0.875rem);

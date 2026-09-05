@@ -12,6 +12,7 @@ vi.mock('@floating-ui/dom', () => ({
   shift: vi.fn(),
   offset: vi.fn(),
   size: vi.fn(),
+  hide: vi.fn(),
 }));
 
 import { useEditor } from '../../context';
@@ -81,7 +82,7 @@ function mockEditor(overrides: {
 }
 
 describe('MasterPanel', () => {
-  it('renders empty state when no masters exist', () => {
+  it('renders empty state when no masters exist', async () => {
     mockEditor({ masters: {} });
     render(<MasterPanel />);
     expect(screen.getByText('No master pages yet.')).toBeDefined();
@@ -91,7 +92,7 @@ describe('MasterPanel', () => {
     // aria-describedby + role="tooltip" pattern (not a native `title`).
     const createBtn = screen.getByRole('button', { name: 'Create new master page' });
     fireEvent.focus(createBtn);
-    const tooltip = screen.getByRole('tooltip');
+    const tooltip = await screen.findByRole('tooltip');
     expect(tooltip).toHaveTextContent(/reusable layouts/);
     expect(createBtn).toHaveAttribute('aria-describedby', tooltip.id);
   });
@@ -203,7 +204,7 @@ describe('MasterPanel', () => {
     expect(setMasterEdit).toHaveBeenCalledWith(null);
   });
 
-  it('calls setMasterAppliesTo when select changes', () => {
+  it('calls setMasterAppliesTo when select changes', async () => {
     const setMasterAppliesTo = vi.fn();
     mockEditor({
       masters: {
@@ -220,7 +221,7 @@ describe('MasterPanel', () => {
     });
     render(<MasterPanel />);
     fireEvent.click(screen.getByLabelText(/Apply to pages:/));
-    fireEvent.click(screen.getByRole('option', { name: /left pages/i }));
+    fireEvent.click(await screen.findByRole('option', { name: /left pages/i }));
     expect(setMasterAppliesTo).toHaveBeenCalledWith('m1', 'left');
   });
 

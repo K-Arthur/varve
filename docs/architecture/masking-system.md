@@ -36,6 +36,11 @@ or an effect target scope. The model has separate, typed concepts for each.
 
 ## 1b. Capability matrix
 
+| Capability | Model | Commands | Canvas2D | WebGPU | UI | Save/load | Import | Export | Tests | Status |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Vector mask on leaf nodes | `Mask.vectorMask` on visual leaf targets | add/remove/vector path/parameters | `replayLeafMask` destination-in | structural Canvas2D fallback | Mask inspector + context menu | versioned JSON | SVG/PSD where represented | SVG `<mask>`, raster fallback | scene + replay | complete |
+| Raster mask on leaf nodes | `Mask.rasterMask` with `node-local-pixels` on visual leaf targets | paint/commit/remove | `replayLeafMask` destination-in | structural Canvas2D fallback | mask tool + inspector | bounded PNG assets | PSD/background-removal paths | raster/SVG image mask | asset + replay | complete |
+
 This is the implementation matrix, not a type-presence checklist. A check in
 the model column is only complete when the corresponding command, renderer,
 serialization, and test paths are also present.
@@ -44,7 +49,7 @@ serialization, and test paths are also present.
 |---|---|---|---|---|---|---|---|---|---|---|
 | Vector clip / clipping stack | `Mask` + `GroupNode`/`FrameNode` | create/release, retarget | native structural replay | structural Canvas2D fallback | Layers roles, drag-to-matte, inspector | versioned JSON + clone remap | SVG/PSD importer | SVG `<clipPath>`, raster/PDF fallback | scene, replay, E2E | complete with documented source limits |
 | Alpha / luminance mask | `Mask.type` | add/remove/type/parameters | pooled offscreen alpha path | structural Canvas2D fallback | Mask inspector | versioned JSON + asset validation | SVG/PSD where represented | SVG `<mask>`, raster/PDF fallback | compositing + replay | complete |
-| Raster / brush mask | `RasterMaskData` + document asset | paint/commit/remove | image-fill and frame paths | structural Canvas2D fallback except leaf IR alpha masks | mask tool and inspector | bounded PNG assets | PSD/background-removal paths | raster/SVG image mask, PDF raster fallback | asset, replay, E2E | complete for supported coordinate spaces |
+| Raster / brush mask | `RasterMaskData` + document asset | paint/commit/remove | source-image, frame, and visual-leaf paths | structural Canvas2D fallback except source-image leaf IR alpha masks | mask tool and inspector | bounded PNG assets | PSD/background-removal paths | raster/SVG image mask, PDF raster fallback | asset, replay, E2E | complete for supported coordinate spaces |
 | Group/frame clipping | container-owned mask | create/release/reparent | nested structural replay | structural Canvas2D fallback | visible source/content labels | invariant repair on load | importer groups | native SVG where possible | transform, nesting, E2E | complete |
 | Effect spatial mask | adjustment-owned `mask` | mask CRUD | output-region compositing | structural Canvas2D fallback | Mask inspector | stable node references | format-dependent | rasterized boundary where needed | replay + E2E | complete |
 | Effect-local mask | `Effect.mask` + `EffectMaskBinding` | effect mask CRUD | raster effect stages + structural scene-node/vector replay | structural Canvas2D fallback | per-effect live source picker and parameters | additive JSON; deterministic effect IDs | source-dependent | smallest correct raster boundary | unit + inspector coverage; E2E pending | staged |
@@ -169,6 +174,18 @@ density order)
 → parent composition → adjustment layers → group masks
 ```
 
+For a masked leaf node (shape, text, raster layer):
+
+```
+leaf source content (IR item)
+→ local effects (engine IR)
+→ leaf mask application (vector path, raster asset, or live matte;
+   invert → feather → density order via renderEnhancedMask)
+→ parent clipping/live matte
+→ group opacity/blend/isolation
+→ parent composition → adjustment layers → group masks
+```
+
 For an ordinary node's local effect stack, the effect-local stage is more
 specific than the node mask:
 
@@ -274,6 +291,8 @@ post-processing path. Implemented in the live canvas
 | Group opacity/blend after mask | ✓ | ✓ | falls back | ✓ | ✓ |
 | Frame clip ∩ mask | ✓ | ✓ | falls back | ✓ | ✓ |
 | Raster mask (leaf image) | ✓ (engine `alphaMask`) | ✓ | ✓ via engine IR | ✓ | ✓ |
+| Vector mask on leaf shape/text | ✓ (`replayLeafMask`) | ✓ (`replayLeafMask`) | structural Canvas2D fallback | ✓ via Canvas2D | rasterized boundary |
+| Raster mask on leaf vector/text/table/path/raster | ✓ (`replayLeafMask`) | ✓ (`replayLeafMask`) | structural Canvas2D fallback | ✓ via Canvas2D | rasterized boundary |
 | Effect-local mask (raster) | ✓ (premultiplied stage) | ✓ | structural Canvas2D fallback | ✓ | rasterized boundary |
 | Effect-local mask (live node/vector) | ✓ structural replay | ✓ structural replay | structural Canvas2D fallback | ✓ via Canvas2D | rasterized boundary |
 | Brush mask (frame, container-local) | ✓ (alpha path) | ✓ | falls back | ✓ | ✓ `<mask>`+`<image>` |
@@ -449,3 +468,13 @@ Brush painting is the pixel-level mask editing surface:
   export.
 - The mask cache is document-version-keyed (full re-render on any document
   change); no per-mask raster cache yet.
+- Leaf-node vector masks created via "Add Vector Mask" use a default
+  rectangular path covering the node bounds; users must edit the path
+  with the Pen tool for non-rectangular masks.
+- Raster masks on visual leaf targets use `node-local-pixels`: the finite
+  raster coverage is mapped across the target's complete local paint bounds.
+  The target remains authoritative vector/text/raster content, and its
+  transform is applied after that mapping. Image-filled shapes retain their
+  existing `source-image-pixels` alignment; frames use
+  `container-local-pixels`. `node-local-pixels` is a new coordinate space not
+  present in legacy documents.

@@ -18,14 +18,16 @@ browser (Playwright) instead of extending that pattern.
 ## A. Visual regression harness
 
 - **Render harness**: `apps/desktop/visual-harness.html` + `visual-harness-main.ts` — a minimal
-  page that calls `replayIr` directly (not a full app boot), exposed via `window.__renderFixture()`.
-- **Fixtures** (`tests/e2e/visual/fixtures.ts`): node types, opacity + 4 blend modes, a rotated
-  linear gradient, one stroke variant, and a 1,500-node pathological generator. This is a
-  representative subset, not the full requested corpus — see "Deferred" below.
+  page that calls `replayIr` directly (not a full app boot), exposed via `window.__renderFixture()`
+  and a fixed-time motion fixture entry point. Image sources are decoded before the frame is
+  painted so image fixtures cannot snapshot a loading placeholder.
+- **Fixtures** (`tests/e2e/visual/fixtures.ts`): node types, opacity and blend modes, translated
+  and rotated gradients, image fills, filters/LUTs, fixed-time motion-bound properties, all line
+  caps, joined/dashed strokes, multilingual text, and a 1,500-node pathological generator.
+  Full-editor compositing coverage is provided by the companion canvas E2E spec.
 - **Comparison**: Playwright's built-in `toHaveScreenshot()` (pixelmatch under the hood already —
-  no new dependency needed), **per-fixture tolerance** scaled by DPR². Two DPR projects always run
-  in CI (`chromium-visual-1x`, `-2x`); 3x is opt-in via `VARVE_VISUAL_3X` (triples cost for
-  marginal signal at this fixture count).
+  no new dependency needed), **per-fixture tolerance** scaled by DPR². Three Chromium DPR projects
+  run in the default visual gate (`chromium-visual-1x`, `-2x`, and `-3x`).
 - **Structural signal** (`packages/engine/src/__goldens__/drawCallRecorder.ts`): a Proxy-based
   canvas-context recorder that snapshots the sequence of draw calls, independent of real
   rasterization — runs in plain Vitest, no browser needed. **This was verified against the actual
@@ -36,8 +38,8 @@ browser (Playwright) instead of extending that pattern.
   level, independent of whether pixel rendering is available in a given environment.
 - **CI**: `scripts/build-visual-diff-manifest.mjs`, wired into the `e2e` job in
   `.github/workflows/ci.yml`, uploads a side-by-side diff artifact on failure only.
-- **Baseline storage**: measured directly — 5 fixtures × 2 DPRs = 76KB total. **In-repo**, clearly
-  correct at this scale; revisit if the fixture corpus grows toward the full requested scope.
+- **Baseline storage**: in-repo and namespaced by fixture, runtime, DPR, and host platform. The
+  expanded corpus remains reviewable at the current scale; revisit storage if it grows materially.
 - **Review UI** (`tests/e2e/visual/review.html`): static, zero-dependency, zoom/pan per pane. Since
   a static page can't write files, "Accept" reveals the exact local `--update-snapshots` command
   to run instead of pretending to write a baseline server-side — the honest version of the
@@ -45,13 +47,12 @@ browser (Playwright) instead of extending that pattern.
 
 ### Deferred (explicit, not silently dropped — see `tests/e2e/visual/README.md`)
 
-Nested groups, masks/clipping, image fills (all require mounting real `CanvasArea`, not just
-`replayIr` — materially larger scope than this pass), filters/LUTs, motion/bound-property
-fixtures, RTL/emoji/ligature text, conic/radial gradients, additional stroke variants (dashed,
-joins, caps beyond the one shipped), GPU-vs-software and per-platform separate baselines (a real
-blocker if this ever runs on non-Linux CI, not yet encountered since this repo's CI is Linux-only
-for the `e2e` job today), and font-pinning for the text fixture (currently system `sans-serif` —
-**will false-diff across machines**, a known, real gap, not fixed in this pass).
+Nested groups and masks/clipping require the real-editor compositing spec rather than the flat
+`replayIr` harness. GPU-backed Chromium and Firefox/WebKit replay projects have separate,
+opt-in baseline namespaces; they are not required by the default Linux gate until their runtime
+availability is guaranteed in CI. Font-pinning remains deferred for the multilingual fixture;
+the Linux CI image is the canonical text-rendering environment and cross-platform baselines must
+be generated and reviewed on their target platform.
 
 ## B. Performance harness
 

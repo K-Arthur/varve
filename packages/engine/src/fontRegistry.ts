@@ -1,10 +1,10 @@
 /**
  * FontRegistry — manages font sources, loading, caching, and fallback chains.
  *
- * Three font sources:
+ * Font sources:
  *   1. System fonts (browser `queryLocalFonts` API or hardcoded safe list)
  *   2. Bundled fonts (@fontsource CSS imports)
- *   3. Google Fonts (optional, via CSS @import or link injection)
+ *   3. User-installed Fontsource faces and legacy provider entries
  *
  * Variable font axes: entries can specify `variableAxes` for wght/wdth/slnt/opsz
  * axis values. `resolve()` includes `font-variation-settings` when axes are set.
@@ -18,8 +18,8 @@ export interface FontEntry {
   family: string;
   weight: number;
   style: 'normal' | 'italic';
-  source: 'system' | 'bundled' | 'google';
-  /** URL for Google Fonts CSS API or direct woff2 URL for bundled fonts. */
+  source: 'system' | 'bundled' | 'google' | 'fontsource' | 'user';
+  /** Optional source URL retained for legacy/provider metadata. */
   url?: string;
   /** Variable font axis values (e.g. { wght: 500, wdth: 75, slnt: 0, opsz: 14 }). */
   variableAxes?: Record<string, number>;
@@ -33,6 +33,16 @@ export interface FontEntry {
    * at wght 700, Fraunces defaults opsz to 9 rather than 14).
    */
   axisDefinitions?: VariableAxisInfo[];
+}
+
+function fontEntryKey(entry: FontEntry): string {
+  const axes = Object.entries(entry.variableAxes ?? {})
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([tag, value]) => `${tag}=${value}`)
+    .join(',');
+  return [entry.family, entry.weight, entry.style, entry.source, entry.url ?? '', axes].join(
+    '\u0000',
+  );
 }
 
 export type FontLoadState = 'unknown' | 'loading' | 'loaded' | 'error';
@@ -140,7 +150,15 @@ export class FontRegistry {
   /** Set while a coalesced notification is pending (see `_scheduleNotify`). */
   private _notifyScheduled = false;
   /** The browser FontFaceSet is also a font source (not all faces are loaded by this registry). */
-  private readonly handleFontSetChange = (): void => {
+  private readonly handleFontSetChange = (event: Event): void => {
+    const eventFaces = (event as Event & { fontfaces?: Iterable<{ family?: string }> }).fontfaces;
+    if (eventFaces) {
+      const state: FontLoadState = event.type === 'loadingerror' ? 'error' : 'loaded';
+      for (const face of eventFaces) {
+        const family = face.family?.replace(/^['"]|['"]$/g, '');
+        if (family) this.loadState.set(family, state);
+      }
+    }
     this._notify();
   };
 
@@ -218,6 +236,7 @@ export class FontRegistry {
   /** Register a font entry (e.g., from system enumeration or Google Fonts API). */
   register(entry: FontEntry): void {
     const existing = this.entries.get(entry.family) ?? [];
+    if (existing.some((candidate) => fontEntryKey(candidate) === fontEntryKey(entry))) return;
     // Bundled variable families carry their fvar axes even when the caller
     // did not spell them out, so the inspector can offer them.
     const bundled = BUNDLED_VARIABLE_AXES[entry.family];
@@ -350,6 +369,7 @@ export class FontRegistry {
     if (this.loaded.has(family)) return;
     if (this.pending.has(family)) return this.pending.get(family);
 
+    this.loadState.set(family, 'loading');
     const promise = this.doLoad(family);
     this.pending.set(family, promise);
     try {
@@ -392,14 +412,23 @@ export class FontRegistry {
       if (!unique.has(key)) unique.set(key, face);
     }
     if (unique.size === 0) return;
+    for (const face of unique.values()) {
+      if (this.state(face.family) !== 'loaded') this.loadState.set(face.family, 'loading');
+    }
     await Promise.all(
       [...unique.values()].map(async (face) => {
         const descriptor = `${face.style ?? 'normal'} ${face.weight ?? 400} 16px "${face.family.replaceAll('"', '\\"')}"`;
         try {
-          await document.fonts.load(descriptor, 'BESbswy');
+          const loadedFaces = await document.fonts.load(descriptor, 'BESbswy');
+          const ready =
+            loadedFaces.length > 0 ||
+            (typeof document.fonts.check === 'function' &&
+              document.fonts.check(descriptor, 'BESbswy'));
+          this.loadState.set(face.family, ready ? 'loaded' : 'error');
         } catch {
           // A face the browser cannot produce is a resolution result, not a
           // reason to abandon the rest of the document's fonts.
+          this.loadState.set(face.family, 'error');
         }
       }),
     );

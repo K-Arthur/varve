@@ -7,17 +7,22 @@
  * otherwise results teleport or are mis-scaled inside transformed parents.
  */
 
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import {
   booleanAnchorForNode,
   booleanOp,
   placeBooleanResult,
+  preloadClipper,
   shapeNodesInWorldSpace,
 } from './boolean';
 import { nodeWorldTransform } from './coordinateService';
 import type { Document } from './document';
 import { addChild, addNode, createDocument, makeFrameNode, makeShapeNode } from './document';
 import type { ShapeNode } from './types';
+
+beforeAll(async () => {
+  await preloadClipper();
+});
 
 function makeRect(id: string, x: number, y: number, w = 50, h = 50): ShapeNode {
   return makeShapeNode(id, { kind: 'rect', x, y, w, h });

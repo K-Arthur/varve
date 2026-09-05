@@ -70,7 +70,7 @@ test('selected-frame image import remains nested, clipped, and pixel-stable', as
     .setInputFiles(path.resolve('tests/e2e/fixtures/photo-fixture.jpg'));
 
   const imageRow = page
-    .locator('[role="treeitem"][data-layer-type="shape"]')
+    .locator('[role="treeitem"][data-layer-type="image"]')
     .filter({ hasText: /photo-fixture|jpg/i })
     .first();
   await expect(imageRow).toHaveAttribute('aria-level', '2');
@@ -80,9 +80,12 @@ test('selected-frame image import remains nested, clipped, and pixel-stable', as
   await page.waitForTimeout(600);
   await frameRow.click();
 
-  const layout = page.getByRole('button', { name: /^layout$/i });
+  const layout = page
+    .getByRole('region', { name: 'Inspector' })
+    .getByRole('button', { name: 'Layout', exact: true })
+    .first();
   if ((await layout.getAttribute('aria-expanded')) !== 'true') await layout.click();
-  await expect(page.getByRole('checkbox', { name: /^clip content$/i })).toBeChecked();
+  await expect(page.getByRole('switch', { name: /^clip content$/i })).toBeChecked();
 
   const selection = page.locator('svg:has(filter#selection-glow) > rect').first();
   await expect(selection).toBeVisible();
@@ -183,7 +186,7 @@ test('drawing a frame around an existing image captures only that image', async 
   );
 
   const imageRow = page
-    .locator('[role="treeitem"][data-layer-type="shape"]')
+    .locator('[role="treeitem"][data-layer-type="image"]')
     .filter({ hasText: /photo-fixture|jpg/i })
     .first();
   await expect(imageRow).toHaveAttribute('aria-level', '2');

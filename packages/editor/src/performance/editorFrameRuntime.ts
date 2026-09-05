@@ -10,9 +10,17 @@ let nextKey = 1;
 let removeVisibilityListener: (() => void) | null = null;
 
 function createRuntimeScheduler(): FrameScheduler {
+  const refreshRate =
+    typeof screen !== 'undefined'
+      ? (screen as typeof screen & { refreshRate?: number }).refreshRate
+      : undefined;
   const runtime = createFrameScheduler({
     requestFrame: (callback) => window.requestAnimationFrame(callback),
     cancelFrame: (id) => window.cancelAnimationFrame(id),
+    frameIntervalMs:
+      typeof refreshRate === 'number' && Number.isFinite(refreshRate) && refreshRate > 0
+        ? 1000 / refreshRate
+        : undefined,
   });
   if (typeof document !== 'undefined') {
     const updateVisibility = () => runtime.setVisible(document.visibilityState !== 'hidden');
@@ -34,6 +42,11 @@ export function createEditorFrameKey(scope: string): string {
 }
 
 export function requestEditorFrame(key: string, lane: FrameLane, job: FrameJob): void {
+  // Async renderer work can finish after a test environment (or an SSR
+  // request) has torn down its Window. There is no presentation surface left
+  // to update in that case, and touching window.requestAnimationFrame would
+  // turn harmless late work into an unhandled rejection.
+  if (typeof window === 'undefined') return;
   getEditorFrameScheduler().request(key, lane, job);
 }
 

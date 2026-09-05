@@ -228,7 +228,11 @@ describe('Page operations', () => {
     // Add some content to the page
     const { id: childId, doc: d2 } = nextNodeId(doc);
     doc = d2;
-    const shape = makeShapeNode(childId, { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
+    const shape = makeShapeNode(
+      childId,
+      { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
+      { layerColor: 'blue' },
+    );
     doc = addChild(doc, contentRootId, shape);
 
     // Now duplicate
@@ -252,6 +256,7 @@ describe('Page operations', () => {
     const dupChildren = (dupContentRoot! as { children: string[] }).children;
     expect(dupChildren.length).toBe(1);
     expect(dupChildren[0]).not.toBe(origChildren[0]);
+    expect(doc.nodes[dupChildren[0]!]?.layerColor).toBe('blue');
   });
 
   it('duplicatePage creates separate node trees (no shared references)', () => {

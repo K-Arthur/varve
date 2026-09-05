@@ -1,5 +1,5 @@
 import type { FileEntry, Project } from '@varve/platform';
-import { ContextMenu, type MenuEntry } from '@varve/ui';
+import { ContextMenu, type MenuEntry, type OverlayAnchor, type ViewportPoint } from '@varve/ui';
 
 export type FileMenuAction =
   | 'open'
@@ -22,7 +22,9 @@ export type FileMenuAction =
 
 export interface FileContextMenuProps {
   file: FileEntry;
-  position: { x: number; y: number };
+  /** Explicit element/viewport anchor. `position` remains for old embedders. */
+  anchor?: OverlayAnchor | null;
+  position?: ViewportPoint | { x: number; y: number };
   onAction: (action: FileMenuAction) => void;
   onMoveToProject: (projectId: string | null) => void;
   onClose: () => void;
@@ -43,6 +45,7 @@ export interface FileContextMenuProps {
 
 export function FileContextMenu({
   file,
+  anchor,
   position,
   onAction,
   onMoveToProject,
@@ -72,11 +75,18 @@ export function FileContextMenu({
       label: 'Delete permanently',
       onAction: () => onAction('purge'),
       dialog: true,
+      focusTransfer: 'dialog',
     });
   } else {
     items.push({ id: 'open', label: 'Open', onAction: () => onAction('open') });
     items.push({ id: 'sep1', separator: true });
-    items.push({ id: 'rename', label: 'Rename', onAction: () => onAction('rename'), dialog: true });
+    items.push({
+      id: 'rename',
+      label: 'Rename',
+      onAction: () => onAction('rename'),
+      dialog: true,
+      focusTransfer: 'dialog',
+    });
     items.push({ id: 'duplicate', label: 'Duplicate', onAction: () => onAction('duplicate') });
     if (projects.length > 0) {
       items.push({ id: 'sep2', separator: true });
@@ -140,15 +150,18 @@ export function FileContextMenu({
       label: 'Move to Trash',
       onAction: () => onAction('trash'),
       dialog: true,
+      focusTransfer: 'dialog',
     });
   }
 
   return (
     <ContextMenu
       items={items}
+      anchor={anchor}
       position={position}
       onClose={onClose}
       label={`File actions for ${file.name}`}
+      size="default"
     />
   );
 }

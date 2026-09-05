@@ -97,6 +97,31 @@ on a warm server, check whether a parallel process is editing
 `packages/scene` or `packages/engine` — Vite invalidates and re-transforms
 those modules mid-run.
 
+### Object Selection or Trim to Subject appears stuck
+
+Object Selection publishes its point or draft box before model work starts. If
+the model is missing, open Settings > Offline Models and install the SAM2 Tiny
+encoder and prompt decoder; the download is explicit and remains local. The
+first selection can take longer while the ONNX sessions are created, but the
+Inspector should keep showing the current stage and a Cancel action.
+
+`Trim to Subject` is a separate, bounds-only detector workflow. It downloads
+the optional `detr-resnet-50` model on first use and shows detected boxes for
+review before changing the crop. It does not create a pixel mask. A timeout or
+worker failure terminates the affected inference worker so Retry starts cleanly;
+it must not be reported as a successful crop or as a cancellation. If a model
+download is partial or fails verification, remove it from Offline Models and
+retry the download. Use Object Selection when the goal is editable pixels
+rather than a tighter image frame.
+
+### Mobile editor E2E waits for the desktop layers panel
+
+The desktop `.layers-panel` is intentionally hidden at mobile widths. Do not
+force it visible to satisfy a test. Wait for the viewport-independent
+`[data-varve-editor-ready="true"]` signal, then open the mobile layers trigger
+when the test needs drawer contents. The trigger must be accessible and focus
+must return to it after the drawer closes.
+
 ### Perf-budget tests flake under load
 
 Wall-clock assertion tests (e.g., `< 50ms`) fail when run concurrently with
@@ -118,6 +143,46 @@ not `cargo build -p varve-desktop`.
 Heavy tasks (full Vitest, Playwright, cargo tests, desktop builds) acquire
 an exclusive cross-worktree lease. Concurrent agents queue. Opt out with
 `VARVE_HEAVY_TASK_PARALLELISM=0`.
+
+### A push reports remote certification required
+
+This is a successful bounded local checkpoint, not a local test failure. Read
+the printed remote-required and deferred lanes, push the branch, and wait for
+the exact-SHA `CI / certification` check. The normal hook never starts the
+complete repository suite. Use `pnpm verify:push --strict` only for an
+explicit local diagnostic.
+
+### A push reports no safe base, a missing object, or a protected update
+
+Exit `2` means the exact comparison could not be proven; fetch the remote
+default branch or complete history and retry. Exit `4` means policy refused a
+protected ref or release provenance; do not force-push. An unprotected
+non-fast-forward push requires a specific `VARVE_PUSH_OVERRIDE_REASON`, and
+the rewritten commit range is printed and recorded.
+
+### A release fails before packaging
+
+`release.yml` requires both `CI / certification` and
+`Release Candidate / certification` for the exact tag SHA and current policy
+hash. Run `pnpm release:certify -- --sha <master-sha> --mode final`, wait for
+the candidate artifact, and do not retag a different commit. This early
+failure is intentional and avoids installing platform toolchains first.
+
+### A release platform failed after other platforms passed
+
+Keep the successful artifacts and rerun only the failed platform. Reuse is
+allowed only with its exact-SHA/policy/platform provenance sidecar. Run
+`pnpm release:resume -- --dir <dir> --version <version> --sha <sha>` after all
+required targets are present; it refuses mixed commits, modified bytes, and
+partial manifests.
+
+### Visual regression failed
+
+Download and inspect expected, actual, and diff images. Decide whether the
+failure is a product regression, runner/font drift, or an intentional reviewed
+change. `visual-baselines.yml` is comparison-only by default; use its explicit
+reviewed update mode and commit only the approved snapshots. Never increase a
+global tolerance to hide a diff.
 
 ### Desktop tests fail: no display
 
@@ -143,7 +208,13 @@ result is compared against a world-space delta.
 
 GitHub may have blocked job startup for billing reasons. Diagnose with
 `just ci-health` (prints `BILLING` per run). Resolve at
-https://github.com/settings/billing. Validate locally with `just gate`.
+https://github.com/settings/billing. Validate locally according to impact:
+
+```bash
+pnpm verify:plan
+pnpm verify:affected
+pnpm verify:push --since origin/master
+```
 
 ### Actions can't resolve pinned SHAs
 
@@ -175,6 +246,9 @@ permissions. See `docs/CI_CD_RESILIENCE.md`.
 | `pnpm verify:plan` | Print what validation applies |
 | `pnpm verify:quick` | Format/lint + direct tests |
 | `pnpm verify:affected` | Impact-aware validation |
-| `just gate` | Full Cascade Review |
+| `pnpm verify:push` | Exact-ref bounded push checkpoint; remote deferrals are explicit |
+| `pnpm release:status` | Exact release SHA, version, changelog, and policy status |
+| `pnpm release:resume -- ...` | Verify and assemble exact-SHA platform artifacts |
+| `VARVE_FULL_GATE_REASON="<why>" just gate-full` | Explicit full Cascade Review |
 | `just ci-health` | Classify recent CI failures |
 | `just ci-status` | GitHub Actions incident status |

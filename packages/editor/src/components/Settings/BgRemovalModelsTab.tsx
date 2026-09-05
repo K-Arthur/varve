@@ -294,7 +294,7 @@ export function BgRemovalModelsTab() {
                         </Button>
                       ) : (
                         <Button
-                          variant="primary"
+                          variant="default"
                           onClick={() => void handleCompositeDownload(row)}
                           aria-label={`Download ${row.name} model (${row.componentIds.length} parts)`}
                         >
@@ -305,7 +305,7 @@ export function BgRemovalModelsTab() {
                       !row.installed &&
                       row.downloadable && (
                         <Button
-                          variant="primary"
+                          variant="default"
                           onClick={() => setDownloadModelId(row.id)}
                           aria-label={`Download ${row.name} model`}
                         >

@@ -64,7 +64,7 @@ for (const theme of THEMES) {
         await switchToEmailWorkspace(page);
 
         // Check that the workspace tabs area exists and has content
-        const tabs = page.locator('.workspace-tabs');
+        const tabs = page.locator('.workspace-dock');
         if (await tabs.isVisible({ timeout: 3000 }).catch(() => false)) {
           await expect(tabs).toHaveScreenshot(`email-workspace-tabs-${theme}.png`, {
             maxDiffPixels: 200,

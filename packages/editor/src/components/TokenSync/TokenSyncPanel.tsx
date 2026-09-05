@@ -11,7 +11,8 @@
 
 import { applyImportToSync, previewImport } from '@varve/scene/tokens';
 import { parseFormatDocument } from '@varve/tokens';
-import { useRef, useState } from 'react';
+import { FilePickerButton } from '@varve/ui';
+import { useState } from 'react';
 import { useEditor } from '../../context';
 import { docVariableStore } from '../../docVariableStore';
 import {
@@ -38,14 +39,24 @@ export function TokenSyncPanel() {
   const [collapsed, setCollapsed] = useState(false);
   const [preview, setPreview] = useState<ImportPreviewState | null>(null);
   const [applying, setApplying] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = (file: File | undefined) => {
     if (!file) return;
-    void readFileAsText(file).then((text) => {
-      cachePreviewFile(file.name, text);
-      setPreview(buildImportPreview(text, file.name, sync));
-    });
+    void readFileAsText(file)
+      .then((text) => {
+        cachePreviewFile(file.name, text);
+        setPreview(buildImportPreview(text, file.name, sync));
+      })
+      .catch((error) => {
+        setPreview({
+          added: 0,
+          collisions: [],
+          diagnostics: [
+            error instanceof Error ? error.message : 'The token file could not be read.',
+          ],
+          fileId: file.name,
+        });
+      });
   };
 
   const applyPreview = () => {
@@ -93,7 +104,6 @@ export function TokenSyncPanel() {
 
   const resetPreview = () => {
     setPreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   return (
@@ -147,21 +157,15 @@ export function TokenSyncPanel() {
           </div>
 
           <div className="token-sync-panel__actions">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".tokens,.tokens.json,.resolver.json,.json"
-              className="token-sync-panel__file-input"
-              aria-label="Import DTCG token file"
-              onChange={(event) => handleFile(event.target.files?.[0])}
-            />
-            <button
-              type="button"
+            <FilePickerButton
               className="token-sync-panel__import"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              Import DTCG file
-            </button>
+              variant="secondary"
+              accept=".tokens,.tokens.json,.resolver.json,.json"
+              actionLabel="Import DTCG file"
+              inputLabel="Import DTCG token file"
+              onFiles={([file]) => handleFile(file)}
+              onReject={(rejections) => announce(rejections[0]?.reason ?? 'Token file rejected.')}
+            />
           </div>
 
           {preview && (

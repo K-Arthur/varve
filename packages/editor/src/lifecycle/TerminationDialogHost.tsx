@@ -107,7 +107,7 @@ function UnsavedDialog({
             </Button>
           )}
           <Button
-            variant="primary"
+            variant="default"
             disabled={selectedCount === 0}
             onClick={() =>
               proceed(
