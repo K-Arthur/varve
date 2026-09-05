@@ -644,6 +644,17 @@
   box-sizing: border-box;
   width: max-content;
   max-width: calc(100vw - (var(--space-4) * 2));
+  animation: varve-menu-fade-in var(--duration-fast) var(--ease-out);
+}
+@keyframes varve-menu-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .varve-menu {
@@ -848,6 +859,9 @@
   line-height: var(--font-line-control);
   text-transform: uppercase;
 }
+.varve-menu__label--danger {
+  color: var(--color-feedback-danger);
+}
 
 .varve-menu__badge {
   display: inline-flex;
@@ -868,6 +882,9 @@
 @media (prefers-reduced-motion: reduce) {
   .varve-menu .varve-menu__item {
     transition: none;
+  }
+  .varve-floating-layer {
+    animation: none;
   }
 }
 

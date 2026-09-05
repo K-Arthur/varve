@@ -298,23 +298,27 @@ export function PageNav() {
   const ctxPageIdx = pages.findIndex((p) => p.id === ctxPageId);
 
   const ctxItems: MenuEntry[] = [
-    { id: 'rename', label: 'Rename page', onAction: handleRenamePage },
-    { id: 'duplicate', label: 'Duplicate page', onAction: handleDuplicatePage },
+    { id: 'page-label', label: 'Page', type: 'label' },
+    { id: 'rename', label: 'Rename page', icon: 'Pencil', onAction: handleRenamePage },
+    { id: 'duplicate', label: 'Duplicate page', icon: 'CopyPlus', onAction: handleDuplicatePage },
     {
       id: 'move-left',
       label: 'Move page left',
+      icon: 'ArrowLeft',
       onAction: () => handleMovePage('left'),
       disabled: ctxPageIdx <= 0,
     },
     {
       id: 'move-right',
       label: 'Move page right',
+      icon: 'ArrowRight',
       onAction: () => handleMovePage('right'),
       disabled: ctxPageIdx === -1 || ctxPageIdx >= pages.length - 1,
     },
     {
       id: 'use-as-file-thumbnail',
       label: 'Use Page as File Thumbnail',
+      icon: 'Image',
       onAction: () => {
         if (!ctxPageId) return;
         const fileId = state.sessions.find((s) => s.id === state.activeId)?.fileId;
@@ -334,14 +338,20 @@ export function PageNav() {
       disabled:
         !platformRef.current || !state.sessions.some((s) => s.id === state.activeId && s.fileId),
     },
+    { id: 'danger-sep', separator: true },
+    { id: 'danger-label', label: 'Danger Zone', type: 'label', danger: true },
     {
       id: 'delete',
       label: 'Delete page (keep contents)',
+      icon: 'Trash2',
+      destructive: true,
       onAction: handleDeletePage,
     },
     {
       id: 'delete-with-contents',
       label: 'Delete page and contents',
+      icon: 'Trash2',
+      destructive: true,
       onAction: handleDeletePageAndContents,
       // Removing the final page returns the document to a plain canvas; the
       // scene layer forces content preservation in that case, so this can

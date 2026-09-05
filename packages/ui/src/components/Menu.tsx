@@ -65,6 +65,8 @@ export interface MenuLabel {
   id: string;
   label: string;
   type: 'label';
+  /** Use restrained danger treatment for section headings above destructive groups. */
+  danger?: boolean;
 }
 
 export interface MenuItemCheckbox extends MenuItemVisuals {
@@ -244,7 +246,7 @@ function menuBody(
     <>
       <span className="varve-menu__leading">
         {indicator ? <span className="varve-menu__indicator">{indicator}</span> : null}
-        {entry.icon ? <Icon name={entry.icon} size="var(--icon-size-sm)" /> : null}
+        {entry.icon ? <Icon name={entry.icon} size="16px" /> : null}
       </span>
       <span className="varve-menu__item-content">
         <span className="varve-menu__item-label">{entry.label}</span>
@@ -688,7 +690,11 @@ function MenuInternal({
 
     if (isLabel(entry)) {
       return (
-        <div key={entry.id} role="presentation" className="varve-menu__label">
+        <div
+          key={entry.id}
+          role="presentation"
+          className={`varve-menu__label${entry.danger ? ' varve-menu__label--danger' : ''}`}
+        >
           {entry.label}
         </div>
       );

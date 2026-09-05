@@ -60,94 +60,136 @@ export function FileContextMenu({
   const items: MenuEntry[] = [];
 
   if (isMissing) {
-    items.push({ id: 'locate', label: 'Locate file...', onAction: () => onAction('locate') });
+    items.push({ id: 'file-label', label: 'File', type: 'label' });
+    items.push({
+      id: 'locate',
+      label: 'Locate file…',
+      icon: 'FolderSearch',
+      onAction: () => onAction('locate'),
+    });
     items.push({ id: 'sep1', separator: true });
+    items.push({ id: 'danger-label', label: 'Danger Zone', type: 'label', danger: true });
     items.push({
       id: 'remove',
       label: 'Remove from recents',
+      icon: 'X',
+      destructive: true,
       onAction: () => onAction('remove'),
     });
   } else if (isTrash) {
-    items.push({ id: 'restore', label: 'Restore', onAction: () => onAction('restore') });
+    items.push({ id: 'file-label', label: 'File', type: 'label' });
+    items.push({
+      id: 'restore',
+      label: 'Restore',
+      icon: 'RotateCcw',
+      onAction: () => onAction('restore'),
+    });
     items.push({ id: 'sep1', separator: true });
+    items.push({ id: 'danger-label', label: 'Danger Zone', type: 'label', danger: true });
     items.push({
       id: 'purge',
       label: 'Delete permanently',
+      icon: 'Trash2',
+      destructive: true,
       onAction: () => onAction('purge'),
       dialog: true,
       focusTransfer: 'dialog',
     });
   } else {
-    items.push({ id: 'open', label: 'Open', onAction: () => onAction('open') });
+    items.push({ id: 'file-label', label: 'File', type: 'label' });
+    items.push({
+      id: 'open',
+      label: 'Open',
+      icon: 'ExternalLink',
+      onAction: () => onAction('open'),
+    });
     items.push({ id: 'sep1', separator: true });
     items.push({
       id: 'rename',
       label: 'Rename',
+      icon: 'Pencil',
       onAction: () => onAction('rename'),
       dialog: true,
       focusTransfer: 'dialog',
     });
-    items.push({ id: 'duplicate', label: 'Duplicate', onAction: () => onAction('duplicate') });
+    items.push({
+      id: 'duplicate',
+      label: 'Duplicate',
+      icon: 'CopyPlus',
+      onAction: () => onAction('duplicate'),
+    });
     if (projects.length > 0) {
-      items.push({ id: 'sep2', separator: true });
+      items.push({ id: 'org-label', label: 'Organization', type: 'label' });
       for (const proj of projects) {
         items.push({
           id: `move-${proj.id}`,
           label: proj.name,
+          icon: 'Folder',
           onAction: () => onMoveToProject(proj.id),
         });
       }
       items.push({
         id: 'move-none',
         label: 'Unfiled',
+        icon: 'FolderOpen',
         onAction: () => onMoveToProject(null),
       });
     }
-    items.push({ id: 'sep2b', separator: true });
+    items.push({ id: 'order-label', label: 'Order', type: 'label' });
     items.push({
       id: 'move-earlier',
       label: 'Move earlier in order',
+      icon: 'ArrowLeft',
       onAction: () => onAction('move-earlier'),
       disabled: !canMoveEarlier,
     });
     items.push({
       id: 'move-later',
       label: 'Move later in order',
+      icon: 'ArrowRight',
       onAction: () => onAction('move-later'),
       disabled: !canMoveLater,
     });
-    items.push({ id: 'sep3', separator: true });
+    items.push({ id: 'state-label', label: 'State', type: 'label' });
     items.push({
       id: 'favorite',
       label:
         file.favoritedAt && file.favoritedAt > 0 ? 'Remove from Favorites' : 'Add to Favorites',
+      icon: file.favoritedAt && file.favoritedAt > 0 ? 'StarOff' : 'Star',
       onAction: () => onAction('favorite'),
     });
     items.push({
       id: 'pin',
       label: file.pinned ? 'Unpin' : 'Pin',
+      icon: file.pinned ? 'PinOff' : 'Pin',
       onAction: () => onAction('pin'),
     });
     items.push({
       id: 'hide',
       label: isHidden ? 'Show in Recent' : 'Hide from Recent',
+      icon: isHidden ? 'Eye' : 'EyeOff',
       onAction: () => onAction('hide'),
     });
-    items.push({ id: 'sep4', separator: true });
+    items.push({ id: 'info-label', label: 'Info', type: 'label' });
     items.push({
       id: 'versions',
-      label: 'Version History...',
+      label: 'Version History…',
+      icon: 'Clock',
       onAction: () => onAction('versions'),
     });
-    items.push({ id: 'sep5', separator: true });
     items.push({
       id: 'reveal',
       label: 'Show in Folder',
+      icon: 'FolderOpen',
       onAction: () => onAction('reveal'),
     });
+    items.push({ id: 'danger-sep', separator: true });
+    items.push({ id: 'danger-label', label: 'Danger Zone', type: 'label', danger: true });
     items.push({
       id: 'trash',
       label: 'Move to Trash',
+      icon: 'Trash2',
+      destructive: true,
       onAction: () => onAction('trash'),
       dialog: true,
       focusTransfer: 'dialog',

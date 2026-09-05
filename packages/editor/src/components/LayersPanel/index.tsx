@@ -890,12 +890,21 @@ function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuEntry[] 
   } = args;
 
   const items: MenuEntry[] = [
-    { id: 'rename', label: 'Rename', badge: 'F2', onAction: handleRenameFromMenu },
-    { id: 'delete', label: 'Delete', badge: 'Del', onAction: handleDeleteFromMenu },
+    { id: 'layer-label', label: 'Layer', type: 'label' },
+    { id: 'rename', label: 'Rename', icon: 'Pencil', badge: 'F2', onAction: handleRenameFromMenu },
+    {
+      id: 'delete',
+      label: 'Delete',
+      icon: 'Trash2',
+      destructive: true,
+      badge: 'Del',
+      onAction: handleDeleteFromMenu,
+    },
     { id: 'sep1', separator: true },
-    { id: 'copy', label: 'Copy', badge: 'Ctrl+C', onAction: handleCopy },
-    { id: 'cut', label: 'Cut', badge: 'Ctrl+X', onAction: handleCut },
-    { id: 'paste', label: 'Paste', badge: 'Ctrl+V', onAction: handlePaste },
+    { id: 'clipboard-label', label: 'Clipboard', type: 'label' },
+    { id: 'copy', label: 'Copy', icon: 'Copy', badge: 'Ctrl+C', onAction: handleCopy },
+    { id: 'cut', label: 'Cut', icon: 'Scissors', badge: 'Ctrl+X', onAction: handleCut },
+    { id: 'paste', label: 'Paste', icon: 'ClipboardPaste', badge: 'Ctrl+V', onAction: handlePaste },
   ];
 
   const layerEffectCount =
@@ -937,9 +946,21 @@ function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuEntry[] 
   }
 
   items.push(
-    { id: 'sep-order', separator: true },
-    { id: 'front', label: 'Bring to Front', badge: 'Ctrl+Shift+]', onAction: handleMoveToFront },
-    { id: 'back', label: 'Send to Back', badge: 'Ctrl+Shift+[', onAction: handleMoveToBack },
+    { id: 'order-label', label: 'Arrange', type: 'label' },
+    {
+      id: 'front',
+      label: 'Bring to Front',
+      icon: 'ArrowUpToLine',
+      badge: 'Ctrl+Shift+]',
+      onAction: handleMoveToFront,
+    },
+    {
+      id: 'back',
+      label: 'Send to Back',
+      icon: 'ArrowDownToLine',
+      badge: 'Ctrl+Shift+[',
+      onAction: handleMoveToBack,
+    },
   );
 
   if (contextMenuNode?.kind === 'group' && contextMenuNode.traceMetadata !== undefined) {
@@ -1111,6 +1132,8 @@ function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuEntry[] 
         {
           id: 'mask-remove',
           label: 'Remove Mask',
+          icon: 'Trash2',
+          destructive: true,
           onAction: () => {
             removeMaskFromSelected();
             closeMenu();
@@ -1145,24 +1168,30 @@ function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuEntry[] 
     );
   }
 
-  items.push({ id: 'sep4', separator: true });
+  items.push({ id: 'visibility-label', label: 'Visibility', type: 'label' });
 
   const isContainerNode = isContainer(documentNodes[nodeId] as SceneNode);
   if (isContainerNode) {
-    items.push({ id: 'collapse-others', label: 'Collapse Others', onAction: handleCollapseOthers });
+    items.push({
+      id: 'collapse-others',
+      label: 'Collapse Others',
+      icon: 'FoldVertical',
+      onAction: handleCollapseOthers,
+    });
   }
   if (canIsolateContextMenuNode) {
-    items.push({ id: 'isolate', label: 'Isolate', onAction: handleIsolate });
+    items.push({ id: 'isolate', label: 'Isolate', icon: 'Focus', onAction: handleIsolate });
   }
   items.push(
-    { id: 'lock', label: 'Lock', onAction: () => handleLockFromMenu(true) },
-    { id: 'hide', label: 'Hide', onAction: () => handleVisibilityFromMenu(false) },
+    { id: 'lock', label: 'Lock', icon: 'Lock', onAction: () => handleLockFromMenu(true) },
+    { id: 'hide', label: 'Hide', icon: 'EyeOff', onAction: () => handleVisibilityFromMenu(false) },
   );
 
   const soloed = documentNodes[nodeId]?.solo === true;
   items.push({
     id: 'solo',
     label: soloed ? 'Unsolo' : 'Solo',
+    icon: soloed ? 'Eye' : 'Eye',
     onAction: handleSoloFromMenu,
   });
 

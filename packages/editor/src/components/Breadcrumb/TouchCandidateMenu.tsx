@@ -2,6 +2,7 @@ import type { NodeId, SceneNode } from '@varve/scene';
 import { isContainer } from '@varve/scene';
 import { FloatingPortal, pointAnchor, SOLID_TOOL_ICONS, SolidIcon, viewportPoint } from '@varve/ui';
 import { useMemo } from 'react';
+import './selectionBreadcrumb.css';
 
 interface Candidate {
   nodeId: NodeId;
@@ -32,7 +33,6 @@ export function TouchCandidateMenu({
   onEnterContainer,
   onClose,
 }: TouchCandidateMenuProps) {
-  const menuWidth = 220;
   const ownerDocument = contextElement?.ownerDocument ?? document;
   const anchor = useMemo(
     () => pointAnchor(viewportPoint(screenX, screenY), ownerDocument, contextElement),
@@ -64,20 +64,9 @@ export function TouchCandidateMenu({
       className="varve-floating-layer"
     >
       <div
-        className="touch-candidate-menu"
+        className="varve-menu varve-menu--default varve-ctxmenu"
         role="menu"
         aria-label="Select nested object"
-        style={{
-          position: 'static',
-          width: menuWidth,
-          maxHeight: 240,
-          overflowY: 'auto',
-          background: 'var(--elevation-surface-default)',
-          border: '1px solid var(--color-border-subtle)',
-          borderRadius: 'var(--radius-surface)',
-          boxShadow: 'var(--shadow-lg)',
-          padding: 'var(--space-1)',
-        }}
       >
         {candidates.map((candidate) => {
           const node = candidate.node;
@@ -86,23 +75,8 @@ export function TouchCandidateMenu({
             <button
               key={candidate.nodeId}
               type="button"
-              className="touch-candidate-item"
+              className="varve-menu__item"
               role="menuitem"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                width: '100%',
-                padding: '6px 8px',
-                border: 'none',
-                background: 'transparent',
-                color: 'var(--color-text-primary)',
-                cursor: 'pointer',
-                borderRadius: 'var(--radius-control-compact)',
-                fontSize: 'var(--font-size-xs)',
-                textAlign: 'left',
-                minHeight: 32,
-              }}
               onClick={() => {
                 if (isCont) {
                   onEnterContainer(candidate.nodeId);
@@ -113,30 +87,21 @@ export function TouchCandidateMenu({
               }}
               aria-label={`${kindLabel(node)}: ${node.name}${isCont ? '. Tap to enter container.' : ''}`}
             >
-              <SolidIcon
-                name={kindIcon(node) as import('@varve/ui').SolidIconName}
-                size={16}
-                aria-hidden
-              />
-              <span
-                style={{
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  flex: 1,
-                }}
-              >
-                {node.name || kindLabel(node)}
+              <span className="varve-menu__leading">
+                <SolidIcon
+                  name={kindIcon(node) as import('@varve/ui').SolidIconName}
+                  size={16}
+                  aria-hidden
+                />
+              </span>
+              <span className="varve-menu__item-content">
+                <span className="varve-menu__item-label">{node.name || kindLabel(node)}</span>
               </span>
               {isCont && (
-                <span
-                  style={{
-                    fontSize: '0.75em',
-                    color: 'var(--color-text-muted)',
-                    flexShrink: 0,
-                  }}
-                >
-                  frame
+                <span className="varve-menu__trailing">
+                  <span style={{ fontSize: '0.75em', color: 'var(--color-text-muted)' }}>
+                    frame
+                  </span>
                 </span>
               )}
             </button>

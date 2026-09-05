@@ -1,6 +1,6 @@
 # Menu system
 
-Status: current architecture (2026-09-02).
+Status: current architecture (2026-09-05).
 
 Varve has one menu contract for command surfaces. The shared implementation is
 in `packages/ui/src/components/Menu.tsx`; editor command definitions live in
@@ -63,12 +63,34 @@ labels jump when those lanes are used. Empty lanes collapse for plain command
 menus so their labels receive the full semantic width; `default` and `rich`
 labels wrap rather than being visually ellipsized when viewport clamping makes
 their available width tight. Labels are presentation headings (`MenuLabel`),
-not focusable items. State-dependent lists are normalized to remove leading,
-trailing, and duplicate separators before they are painted.
+not focusable items. Labels may carry `danger: true` for danger-zone section
+headings (rendered in `--color-feedback-danger`). State-dependent lists are
+normalized to remove leading, trailing, and duplicate separators before they
+are painted.
 
 Use `compact` for genuinely short command/overflow menus and `default` for
 target-relative menus whose actions include ordinary descriptive labels. The
 Home file context menu is an example of the latter.
+
+## Context menu content guidelines
+
+Every context menu should follow these content rules:
+
+- **Section labels**: Use `MenuLabel` entries to group related commands
+  (Clipboard, Arrange, Clipping & Masking, Visibility, Danger Zone).
+- **Icons**: Add icons on frequently used items (Cut, Copy, Paste, Delete,
+  Group) to aid visual scanning. Do not icon every item.
+- **Destructive actions**: Mark irreversible actions (Delete, Remove Mask,
+  Move to Trash, Delete permanently) with `destructive: true`. Use restrained
+  danger styling (red text, danger-tinted hover background).
+- **Danger Zone**: Place destructive items in a separate trailing group with
+  a `danger: true` label heading.
+- **Disabled items**: Show disabled items when their visible presence explains
+  an unavailable operation; hide items that are irrelevant or forbidden.
+- **Selection snapshot**: Capture the target on invocation; do not act on
+  whichever object happens to be selected when the action runs.
+- **Stale-target guard**: Close the menu or disable actions when the target
+  is deleted while the menu is open.
 
 ## Command metadata and shortcuts
 

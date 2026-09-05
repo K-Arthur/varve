@@ -301,3 +301,55 @@ export const Overflow: Story = {
     );
   },
 };
+
+const groupedItems: readonly MenuEntry[] = [
+  { id: 'clip-label', type: 'label', label: 'Clipboard' },
+  { id: 'cut', label: 'Cut', icon: 'Scissors', shortcut: 'Ctrl+X', onAction: () => {} },
+  { id: 'copy', label: 'Copy', icon: 'Copy', shortcut: 'Ctrl+C', onAction: () => {} },
+  { id: 'paste', label: 'Paste', icon: 'ClipboardPaste', shortcut: 'Ctrl+V', onAction: () => {} },
+  { id: 'sep1', separator: true },
+  { id: 'arrange-label', type: 'label', label: 'Arrange' },
+  { id: 'duplicate', label: 'Duplicate', icon: 'CopyPlus', onAction: () => {} },
+  {
+    id: 'delete',
+    label: 'Delete',
+    icon: 'Trash2',
+    destructive: true,
+    onAction: () => {},
+  },
+  { id: 'sep2', separator: true },
+  { id: 'danger-label', type: 'label', label: 'Danger Zone', danger: true },
+  {
+    id: 'remove-mask',
+    label: 'Remove Mask',
+    icon: 'Trash2',
+    destructive: true,
+    onAction: () => {},
+  },
+];
+
+export const GroupedWithDanger: Story = {
+  render: () => {
+    const [open, setOpen] = useState(false);
+    const triggerRef = useRef<HTMLButtonElement | null>(null);
+    return (
+      <>
+        <MenuButton
+          ref={triggerRef}
+          label="Context"
+          menuId="grouped-menu"
+          expanded={open}
+          onClick={() => setOpen(!open)}
+        />
+        <Menu
+          items={groupedItems}
+          triggerRef={triggerRef}
+          open={open}
+          onClose={() => setOpen(false)}
+          label="Grouped context menu"
+          id="grouped-menu"
+        />
+      </>
+    );
+  },
+};

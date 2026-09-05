@@ -32,15 +32,19 @@ export function GuideContextMenu({
   }, [guideId, onRemove]);
 
   const items: MenuEntry[] = [
+    { id: 'guide-label', label: 'Guide', type: 'label' },
     {
       id: 'toggle-lock',
       label: isLocked ? 'Unlock' : 'Lock',
+      icon: isLocked ? 'LockOpen' : 'Lock',
       onAction: handleToggleLock,
     },
     { id: 'sep', separator: true },
     {
       id: 'delete',
       label: 'Delete',
+      icon: 'Trash2',
+      destructive: true,
       onAction: handleRemove,
     },
   ];

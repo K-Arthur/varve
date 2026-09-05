@@ -135,10 +135,14 @@ export const TimelineRuler: FC<TimelineRulerProps> = ({
   }, []);
 
   const ctxItems: MenuEntry[] = [];
+  if (ctxMarkerId) {
+    ctxItems.push({ id: 'marker-label', label: 'Marker', type: 'label' });
+  }
   if (onRenameMarker && ctxMarkerId) {
     ctxItems.push({
       id: 'rename',
       label: 'Rename marker',
+      icon: 'Pencil',
       onAction: () => {
         onRenameMarker(ctxMarkerId);
         closeContextMenu();
@@ -149,6 +153,8 @@ export const TimelineRuler: FC<TimelineRulerProps> = ({
     ctxItems.push({
       id: 'delete',
       label: 'Delete marker',
+      icon: 'Trash2',
+      destructive: true,
       onAction: () => {
         onDeleteMarker(ctxMarkerId);
         closeContextMenu();
