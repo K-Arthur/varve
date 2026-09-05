@@ -156,7 +156,9 @@ describe('Tabs', () => {
   });
 
   it('only renders the active panel callback when inactive panels unmount', () => {
-    const renderPanel = vi.fn((tab: (typeof tabs)[number]) => <div>{tab.label} panel</div>);
+    const renderPanel = vi.fn((tab: { value: string; label: string }) => (
+      <div>{tab.label} panel</div>
+    ));
     render(
       <Tabs
         label="Code language"
