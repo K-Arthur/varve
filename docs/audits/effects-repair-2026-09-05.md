@@ -1,6 +1,8 @@
 # Adjustments, effects, and filters repair evidence
 
-Status: in progress. This is an evidence ledger, not a completion claim.
+Status: effects-repair milestone complete; repository-wide integration and
+platform release gates remain separate. This is an evidence ledger with explicit
+limits, not a claim of native-platform certification.
 
 ## Checkout and boundaries
 
@@ -15,7 +17,7 @@ from this task's commits. All work remains on master.
 2. Shared compositing and parameter repairs: repaired and covered by focused numerical/browser checks.
 3. Existing adjustment quality and frontend state: persistence and export-quality repairs covered; unrelated affected lanes remain.
 4. Four distinct additions, with complete frontend/export coverage: implemented and covered by focused numerical, editor, browser and PNG checks.
-5. Performance, compatibility, export and multimodal final validation: pending for a later release checkpoint.
+5. Performance, compatibility, export and multimodal final validation: effects-specific browser/export checks complete; native-platform and full-release gates remain for a later checkpoint.
 
 ## Confirmed findings
 
