@@ -15,6 +15,7 @@ import {
   reorderDesignCanvases,
   setActiveDesignCanvas,
 } from '@varve/scene';
+import { Tooltip } from '@varve/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../context';
 import { confirmDialog, promptDialog } from '../PromptDialog';
@@ -164,53 +165,58 @@ export function DesignCanvasPanel() {
                 <span className="design-canvas-panel__name">{canvas.name}</span>
               </button>
               <div className="design-canvas-panel__actions">
-                <button
-                  type="button"
-                  className="pages-panel__icon-btn"
-                  onClick={() => void renameCanvas(canvas)}
-                  aria-label={`Rename ${canvas.name}`}
-                  title="Rename"
-                >
-                  Rename
-                </button>
-                <button
-                  type="button"
-                  className="pages-panel__icon-btn"
-                  onClick={() => duplicateCanvas(canvas.id)}
-                  aria-label={`Duplicate ${canvas.name}`}
-                  title="Duplicate"
-                >
-                  Copy
-                </button>
-                <button
-                  type="button"
-                  className="pages-panel__icon-btn"
-                  onClick={() => moveCanvas(canvas.id, -1)}
-                  disabled={index === 0}
-                  aria-label={`Move ${canvas.name} up`}
-                  title="Move up"
-                >
-                  Up
-                </button>
-                <button
-                  type="button"
-                  className="pages-panel__icon-btn"
-                  onClick={() => moveCanvas(canvas.id, 1)}
-                  disabled={index === canvases.length - 1}
-                  aria-label={`Move ${canvas.name} down`}
-                  title="Move down"
-                >
-                  Down
-                </button>
-                <button
-                  type="button"
-                  className="pages-panel__icon-btn pages-panel__icon-btn--danger"
-                  onClick={() => void removeCanvas(canvas)}
-                  aria-label={`Remove ${canvas.name}`}
-                  title="Remove"
-                >
-                  Remove
-                </button>
+                <Tooltip label="Rename">
+                  <button
+                    type="button"
+                    className="pages-panel__icon-btn"
+                    onClick={() => void renameCanvas(canvas)}
+                    aria-label={`Rename ${canvas.name}`}
+                  >
+                    Rename
+                  </button>
+                </Tooltip>
+                <Tooltip label="Duplicate">
+                  <button
+                    type="button"
+                    className="pages-panel__icon-btn"
+                    onClick={() => duplicateCanvas(canvas.id)}
+                    aria-label={`Duplicate ${canvas.name}`}
+                  >
+                    Copy
+                  </button>
+                </Tooltip>
+                <Tooltip label="Move up">
+                  <button
+                    type="button"
+                    className="pages-panel__icon-btn"
+                    onClick={() => moveCanvas(canvas.id, -1)}
+                    disabled={index === 0}
+                    aria-label={`Move ${canvas.name} up`}
+                  >
+                    Up
+                  </button>
+                </Tooltip>
+                <Tooltip label="Move down">
+                  <button
+                    type="button"
+                    className="pages-panel__icon-btn"
+                    onClick={() => moveCanvas(canvas.id, 1)}
+                    disabled={index === canvases.length - 1}
+                    aria-label={`Move ${canvas.name} down`}
+                  >
+                    Down
+                  </button>
+                </Tooltip>
+                <Tooltip label="Remove">
+                  <button
+                    type="button"
+                    className="pages-panel__icon-btn pages-panel__icon-btn--danger"
+                    onClick={() => void removeCanvas(canvas)}
+                    aria-label={`Remove ${canvas.name}`}
+                  >
+                    Remove
+                  </button>
+                </Tooltip>
               </div>
             </li>
           ))}

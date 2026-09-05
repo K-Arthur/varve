@@ -17,7 +17,7 @@
 import { getFontRegistry } from '@varve/engine';
 import type { SceneNode, TextNode } from '@varve/scene';
 import { resolveNodeFills, textNodeGeometry } from '@varve/scene';
-import { Select, Switch } from '@varve/ui';
+import { Select, Switch, Tooltip } from '@varve/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
@@ -346,15 +346,16 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             value={isMixed(familyRaw) ? '' : familyRaw}
             onChange={(v) => batchUpdate((n) => ({ ...n, fontFamily: v || undefined }))}
           />
-          <button
-            type="button"
-            className="typography__browse-fonts"
-            onClick={() => setFontBrowserOpen(true)}
-            aria-label="Browse fonts"
-            title="Browse fonts"
-          >
-            …
-          </button>
+          <Tooltip label="Browse fonts">
+            <button
+              type="button"
+              className="typography__browse-fonts"
+              onClick={() => setFontBrowserOpen(true)}
+              aria-label="Browse fonts"
+            >
+              …
+            </button>
+          </Tooltip>
         </FieldRow>
         <FieldRow label="Weight">
           <Select

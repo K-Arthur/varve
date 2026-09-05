@@ -6,7 +6,7 @@
  *
  * Research basis: Figma layer panel options, VS Code panel header menus.
  */
-import { FloatingPortal, Icon } from '@varve/ui';
+import { FloatingPortal, Icon, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { FEATURE_OWNERSHIP, type InspectorSurface } from './featureOwnership';
@@ -205,26 +205,28 @@ export function SectionManagerTrigger({ surface = 'properties' }: { surface?: In
                   {def.essential && (
                     <span className="insp-section-manager__essential">required</span>
                   )}
-                  <button
-                    type="button"
-                    className="insp-section-manager__toggle"
-                    aria-label={`Move ${title} up`}
-                    title="Move up"
-                    disabled={index === 0}
-                    onClick={() => moveSectionUp(def.id, orderedSectionIds)}
-                  >
-                    <Icon name="ChevronUp" label={undefined} size="0.85em" />
-                  </button>
-                  <button
-                    type="button"
-                    className="insp-section-manager__toggle"
-                    aria-label={`Move ${title} down`}
-                    title="Move down"
-                    disabled={index === allSections.length - 1}
-                    onClick={() => moveSectionDown(def.id, orderedSectionIds)}
-                  >
-                    <Icon name="ChevronDown" label={undefined} size="0.85em" />
-                  </button>
+                  <Tooltip label="Move up">
+                    <button
+                      type="button"
+                      className="insp-section-manager__toggle"
+                      aria-label={`Move ${title} up`}
+                      disabled={index === 0}
+                      onClick={() => moveSectionUp(def.id, orderedSectionIds)}
+                    >
+                      <Icon name="ChevronUp" label={undefined} size="0.85em" />
+                    </button>
+                  </Tooltip>
+                  <Tooltip label="Move down">
+                    <button
+                      type="button"
+                      className="insp-section-manager__toggle"
+                      aria-label={`Move ${title} down`}
+                      disabled={index === allSections.length - 1}
+                      onClick={() => moveSectionDown(def.id, orderedSectionIds)}
+                    >
+                      <Icon name="ChevronDown" label={undefined} size="0.85em" />
+                    </button>
+                  </Tooltip>
                 </li>
               );
             })}

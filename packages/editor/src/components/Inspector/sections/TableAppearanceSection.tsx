@@ -19,7 +19,7 @@ import {
   TABLE_PAINT_BINDING_KEYS,
   type TablePaintKey,
 } from '@varve/scene';
-import { Icon } from '@varve/ui';
+import { Icon, Tooltip } from '@varve/ui';
 import { useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
@@ -120,16 +120,17 @@ export function TableAppearanceSection({ tableId, table, onSetAppearance, onSetB
                 documentColorMode={editor.documentColorMode}
               />
               {!binding && (
-                <button
-                  type="button"
-                  ref={key === bindingField ? bindingTriggerRef : undefined}
-                  className="insp-inline-btn"
-                  aria-label={`Link ${PAINT_LABELS[key]} to a variable`}
-                  title="Link to a variable"
-                  onClick={() => setBindingField(key)}
-                >
-                  <Icon name="Link" label={undefined} size="0.9em" />
-                </button>
+                <Tooltip label="Link to a variable">
+                  <button
+                    type="button"
+                    ref={key === bindingField ? bindingTriggerRef : undefined}
+                    className="insp-inline-btn"
+                    aria-label={`Link ${PAINT_LABELS[key]} to a variable`}
+                    onClick={() => setBindingField(key)}
+                  >
+                    <Icon name="Link" label={undefined} size="0.9em" />
+                  </button>
+                </Tooltip>
               )}
               {binding && (
                 <button

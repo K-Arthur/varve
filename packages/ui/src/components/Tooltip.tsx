@@ -58,6 +58,14 @@ export interface TooltipProps {
    */
   disabledReason?: string;
   /**
+   * Visual tone for the tooltip. Maps to CSS class variants for border and
+   * surface treatment. Defaults to 'default'.
+   * - 'default': standard tooltip appearance
+   * - 'warning': noncritical caution (amber border)
+   * - 'danger': destructive or error explanation (red border)
+   */
+  tone?: 'default' | 'warning' | 'danger';
+  /**
    * When true, the tooltip only fires when the trigger's text is visually
    * truncated (scrollWidth > clientWidth). Useful for long layer/file names.
    */
@@ -168,6 +176,7 @@ export function Tooltip({
   maxWidth = 240,
   shortcut,
   disabledReason,
+  tone = 'default',
   truncationOnly = false,
   open: controlledOpen,
   onOpenChange,
@@ -463,6 +472,16 @@ export function Tooltip({
     ref: undefined as React.Ref<HTMLElement> | undefined,
   };
 
+  const tooltipClasses = [
+    'varve-tooltip',
+    disabledReason && 'varve-tooltip--disabled',
+    tone === 'warning' && 'varve-tooltip--warning',
+    tone === 'danger' && 'varve-tooltip--danger',
+    shortcut && !disabledReason && 'varve-tooltip--shortcut',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   const tooltipPortal = (
     <FloatingPortal
       anchorRef={triggerRef}
@@ -491,7 +510,7 @@ export function Tooltip({
         ref={tooltipRef}
         id={tooltipId}
         role="tooltip"
-        className="varve-tooltip"
+        className={tooltipClasses}
         data-varve-tooltip=""
         style={{ maxWidth }}
         onPointerEnter={onTooltipPointerEnter}
@@ -500,7 +519,7 @@ export function Tooltip({
         <span className="varve-tooltip__body">{tooltipContent}</span>
         {shortcut && !disabledReason && (
           <span
-            className="varve-tip__shortcut"
+            className="varve-tooltip__shortcut"
             role="status"
             aria-label={`Keyboard shortcut: ${shortcut}`}
           >

@@ -1,6 +1,6 @@
 import { combineAreaSelections } from '@varve/engine';
 import { isImageShape } from '@varve/scene';
-import { Icon } from '@varve/ui';
+import { Icon, Tooltip } from '@varve/ui';
 import { useState } from 'react';
 import { getActionRegistry } from '../../actions/ActionRegistry';
 import { getToolManager } from '../../canvas/toolDispatcher';
@@ -163,15 +163,19 @@ export function SelectionSourcesPanel() {
           >
             Paint selection
           </button>
-          <button
-            type="button"
-            className="insp-selection-sources__button"
-            disabled={!hasClosedPath}
-            title="Select one closed path to use this command"
-            onClick={() => runAction('pathToSelection')}
+          <Tooltip
+            label="Path to selection"
+            disabledReason={!hasClosedPath ? 'Select one closed path to use this command' : undefined}
           >
-            Path to selection
-          </button>
+            <button
+              type="button"
+              className="insp-selection-sources__button"
+              disabled={!hasClosedPath}
+              onClick={() => runAction('pathToSelection')}
+            >
+              Path to selection
+            </button>
+          </Tooltip>
           <button
             type="button"
             className="insp-selection-sources__button"
@@ -180,33 +184,45 @@ export function SelectionSourcesPanel() {
           >
             Selection to path
           </button>
-          <button
-            type="button"
-            className="insp-selection-sources__button"
-            disabled={!hasImage}
-            title="Select one image to use this command"
-            onClick={() => runAction('selectFromImageAlpha')}
+          <Tooltip
+            label="Image alpha"
+            disabledReason={!hasImage ? 'Select one image to use this command' : undefined}
           >
-            Image alpha
-          </button>
-          <button
-            type="button"
-            className="insp-selection-sources__button"
-            disabled={!hasImage}
-            title="Select one image to use this command"
-            onClick={() => runAction('selectFromImageColorRange')}
+            <button
+              type="button"
+              className="insp-selection-sources__button"
+              disabled={!hasImage}
+              onClick={() => runAction('selectFromImageAlpha')}
+            >
+              Image alpha
+            </button>
+          </Tooltip>
+          <Tooltip
+            label="Magic wand"
+            disabledReason={!hasImage ? 'Select one image to use this command' : undefined}
           >
-            Magic wand
-          </button>
-          <button
-            type="button"
-            className="insp-selection-sources__button"
-            disabled={!hasImage}
-            title="Select one image to use this command"
-            onClick={() => runAction('selectFromImageLuminance')}
+            <button
+              type="button"
+              className="insp-selection-sources__button"
+              disabled={!hasImage}
+              onClick={() => runAction('selectFromImageColorRange')}
+            >
+              Magic wand
+            </button>
+          </Tooltip>
+          <Tooltip
+            label="Luminance"
+            disabledReason={!hasImage ? 'Select one image to use this command' : undefined}
           >
-            Luminance
-          </button>
+            <button
+              type="button"
+              className="insp-selection-sources__button"
+              disabled={!hasImage}
+              onClick={() => runAction('selectFromImageLuminance')}
+            >
+              Luminance
+            </button>
+          </Tooltip>
           <label className="insp-selection-sources__name-field">
             <span>Name</span>
             <input
@@ -270,14 +286,15 @@ export function SelectionSourcesPanel() {
                     }}
                   />
                 ) : (
-                  <button
-                    type="button"
-                    className="insp-selection-sources__saved-name"
-                    onClick={() => applySaved(item, 'replace')}
-                    title="Load this saved selection"
-                  >
-                    {item.name}
-                  </button>
+                  <Tooltip label={`Select ${item.name}`} truncationOnly>
+                    <button
+                      type="button"
+                      className="insp-selection-sources__saved-name"
+                      onClick={() => applySaved(item, 'replace')}
+                    >
+                      {item.name}
+                    </button>
+                  </Tooltip>
                 )}
                 <div className="insp-selection-sources__saved-actions">
                   {renamingId === item.id ? (
@@ -291,60 +308,66 @@ export function SelectionSourcesPanel() {
                     </button>
                   ) : (
                     <>
-                      <button
-                        type="button"
-                        className="insp-selection-sources__saved-action"
-                        aria-label={`Add ${item.name}`}
-                        title="Add to current selection"
-                        onClick={() => applySaved(item, 'add')}
-                      >
-                        +
-                      </button>
-                      <button
-                        type="button"
-                        className="insp-selection-sources__saved-action"
-                        aria-label={`Subtract ${item.name}`}
-                        title="Subtract from current selection"
-                        onClick={() => applySaved(item, 'subtract')}
-                      >
-                        −
-                      </button>
-                      <button
-                        type="button"
-                        className="insp-selection-sources__saved-action"
-                        aria-label={`Intersect ${item.name}`}
-                        title="Intersect with current selection"
-                        onClick={() => applySaved(item, 'intersect')}
-                      >
-                        ∩
-                      </button>
-                      <button
-                        type="button"
-                        className="insp-selection-sources__saved-action"
-                        aria-label={`Rename ${item.name}`}
-                        title="Rename saved selection"
-                        onClick={() => beginRename(item)}
-                      >
-                        <Icon name="Pencil" size={13} />
-                      </button>
-                      <button
-                        type="button"
-                        className="insp-selection-sources__saved-action"
-                        aria-label={`Duplicate ${item.name}`}
-                        title="Duplicate saved selection"
-                        onClick={() => duplicate(item)}
-                      >
-                        <Icon name="Copy" size={13} />
-                      </button>
-                      <button
-                        type="button"
-                        className="insp-selection-sources__saved-action"
-                        aria-label={`Delete ${item.name}`}
-                        title="Delete saved selection"
-                        onClick={() => remove(item.id)}
-                      >
-                        <Icon name="Trash2" size={13} />
-                      </button>
+                      <Tooltip label="Add to selection">
+                        <button
+                          type="button"
+                          className="insp-selection-sources__saved-action"
+                          aria-label={`Add ${item.name}`}
+                          onClick={() => applySaved(item, 'add')}
+                        >
+                          +
+                        </button>
+                      </Tooltip>
+                      <Tooltip label="Subtract from selection">
+                        <button
+                          type="button"
+                          className="insp-selection-sources__saved-action"
+                          aria-label={`Subtract ${item.name}`}
+                          onClick={() => applySaved(item, 'subtract')}
+                        >
+                          −
+                        </button>
+                      </Tooltip>
+                      <Tooltip label="Intersect with selection">
+                        <button
+                          type="button"
+                          className="insp-selection-sources__saved-action"
+                          aria-label={`Intersect ${item.name}`}
+                          onClick={() => applySaved(item, 'intersect')}
+                        >
+                          ∩
+                        </button>
+                      </Tooltip>
+                      <Tooltip label="Rename">
+                        <button
+                          type="button"
+                          className="insp-selection-sources__saved-action"
+                          aria-label={`Rename ${item.name}`}
+                          onClick={() => beginRename(item)}
+                        >
+                          <Icon name="Pencil" size={13} />
+                        </button>
+                      </Tooltip>
+                      <Tooltip label="Duplicate">
+                        <button
+                          type="button"
+                          className="insp-selection-sources__saved-action"
+                          aria-label={`Duplicate ${item.name}`}
+                          onClick={() => duplicate(item)}
+                        >
+                          <Icon name="Copy" size={13} />
+                        </button>
+                      </Tooltip>
+                      <Tooltip label="Delete">
+                        <button
+                          type="button"
+                          className="insp-selection-sources__saved-action"
+                          aria-label={`Delete ${item.name}`}
+                          onClick={() => remove(item.id)}
+                        >
+                          <Icon name="Trash2" size={13} />
+                        </button>
+                      </Tooltip>
                     </>
                   )}
                 </div>

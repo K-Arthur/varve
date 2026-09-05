@@ -541,15 +541,16 @@ function FillRow({
           />
         )}
         {!binding && (
-          <button
-            type="button"
-            className="insp-inline-btn"
-            aria-label="Link fill to a variable"
-            title="Link fill to a variable"
-            onClick={() => editor.setBindingField('fill')}
-          >
-            <Icon name="Link" label={undefined} size="0.9em" />
-          </button>
+          <Tooltip label="Link fill to a variable">
+            <button
+              type="button"
+              className="insp-inline-btn"
+              aria-label="Link fill to a variable"
+              onClick={() => editor.setBindingField('fill')}
+            >
+              <Icon name="Link" label={undefined} size="0.9em" />
+            </button>
+          </Tooltip>
         )}
         {binding && onOpenModifier && (
           <button

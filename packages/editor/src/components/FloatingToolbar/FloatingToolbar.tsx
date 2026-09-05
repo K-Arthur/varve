@@ -438,17 +438,18 @@ export function FloatingToolbar() {
           <div className="floating-toolbar__row">
             <Toolbar label="Drawing tools">
               {state.tool === 'table' && (
-                <Button
-                  variant="toolbar"
-                  size="icon-sm"
-                  className="floating-toolbar__btn floating-toolbar__btn--group-start"
-                  aria-label="Table from data"
-                  title="Create a table from pasted spreadsheet data"
-                  data-tool="tableFromData"
-                  onClick={() => openCreateTableFromDataDialog?.()}
-                >
-                  <Icon name="FileSpreadsheet" size={16} />
-                </Button>
+                <Tooltip label="Create table from spreadsheet data">
+                  <Button
+                    variant="toolbar"
+                    size="icon-sm"
+                    className="floating-toolbar__btn floating-toolbar__btn--group-start"
+                    aria-label="Table from data"
+                    data-tool="tableFromData"
+                    onClick={() => openCreateTableFromDataDialog?.()}
+                  >
+                    <Icon name="FileSpreadsheet" size={16} />
+                  </Button>
+                </Tooltip>
               )}
               {collapsedGroups.length > 0 && (
                 <MoreToolsButton

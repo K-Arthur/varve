@@ -127,7 +127,7 @@ describe('Tooltip', () => {
     const trigger = screen.getByRole('button', { name: 'Trigger' });
     fireEvent.focus(trigger);
     const tooltip = await screen.findByRole('tooltip');
-    const shortcut = tooltip.querySelector('.varve-tip__shortcut');
+    const shortcut = tooltip.querySelector('.varve-tooltip__shortcut');
     expect(shortcut).toBeInTheDocument();
     expect(shortcut).toHaveTextContent('V');
   });

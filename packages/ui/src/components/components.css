@@ -481,6 +481,24 @@
   line-height: 1.5;
 }
 
+.varve-tooltip--disabled {
+  background: var(--color-surface-overlay);
+  border-style: dashed;
+}
+
+.varve-tooltip--warning {
+  border-color: var(--color-feedback-warning);
+}
+
+.varve-tooltip--danger {
+  border-color: var(--color-feedback-danger);
+  background: var(--color-surface-overlay);
+}
+
+.varve-tooltip--shortcut {
+  gap: var(--space-icon-label);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .varve-tooltip {
     animation: none;
@@ -495,7 +513,13 @@
     color: CanvasText;
     box-shadow: none;
   }
-  .varve-tip__shortcut {
+  .varve-tooltip--disabled,
+  .varve-tooltip--warning,
+  .varve-tooltip--danger {
+    border-style: solid;
+    border-color: CanvasText;
+  }
+  .varve-tooltip__shortcut {
     border: 1px solid CanvasText;
   }
 }
@@ -1296,6 +1320,20 @@
 }
 .varve-checkbox__label {
   user-select: none;
+}
+.varve-checkbox__description {
+  display: block;
+  font-size: var(--font-size-xs);
+  line-height: var(--font-line-label);
+  color: var(--color-text-muted);
+  margin-left: calc(var(--component-compact-height) + var(--space-1));
+}
+.varve-checkbox__error {
+  display: block;
+  font-size: var(--font-size-xs);
+  line-height: var(--font-line-label);
+  color: var(--color-feedback-danger);
+  margin-left: calc(var(--component-compact-height) + var(--space-1));
 }
 
 .varve-tabs {
@@ -2213,7 +2251,7 @@
    Shortcut Tooltip (Linear-style shortcut labels in tooltips)
    ════════════════════════════════════════════════════════════════════ */
 
-.varve-tip__shortcut {
+.varve-tooltip__shortcut {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2230,6 +2268,7 @@
   font-family: var(--font-mono);
   line-height: 1;
   letter-spacing: 0.02em;
+  flex-shrink: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2237,6 +2276,65 @@
   .bento-cell--featured {
     transition: none;
   }
+}
+
+/* ── Field (shared label/control foundation) ────── */
+.varve-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-form-field);
+}
+.varve-field--row {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+}
+.varve-field--disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+/* Fieldset reset for when as="fieldset" */
+.varve-field:is(fieldset) {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.varve-field__label {
+  font-size: var(--type-interface-label-size);
+  line-height: var(--type-interface-label-line-height);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+  cursor: default;
+}
+.varve-field__required {
+  color: var(--color-feedback-danger);
+  font-weight: var(--font-weight-regular);
+}
+.varve-field__optional {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-regular);
+  font-size: var(--font-size-xs);
+}
+.varve-field__description {
+  font-size: var(--font-size-xs);
+  line-height: var(--font-line-label);
+  color: var(--color-text-muted);
+  margin: 0;
+}
+.varve-field__error {
+  font-size: var(--font-size-xs);
+  line-height: var(--font-line-label);
+  color: var(--color-feedback-danger);
+  margin: 0;
+}
+.varve-field--row .varve-field__label {
+  flex-shrink: 0;
+  min-inline-size: 3.75rem;
+}
+.varve-field--row .varve-field__control {
+  flex: 1;
+  min-width: 0;
 }
 
 /* ── Input (text field) ──────────────────────────── */

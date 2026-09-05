@@ -31,7 +31,7 @@ import {
 import type { Document } from '@varve/scene';
 import { swatchesToPalette } from '@varve/scene';
 import { paletteFileFormat, parsePaletteFile } from '@varve/shared';
-import { FilePickerButton, Select, Switch } from '@varve/ui';
+import { FilePickerButton, Select, Switch, Tooltip } from '@varve/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { RangeValueControl } from '../Inspector/controls/RangeValueControl';
 
@@ -402,15 +402,16 @@ function Color3Row({
             aria-label={`${ariaLabel} ${ch}`}
           />
         ))}
-        <button
-          type="button"
-          className="adj-panel__effect-action"
-          onClick={() => onChange(null)}
-          title="Clear tint"
-          aria-label={`Clear ${ariaLabel}`}
-        >
-          x
-        </button>
+        <Tooltip label="Clear tint">
+          <button
+            type="button"
+            className="adj-panel__effect-action"
+            onClick={() => onChange(null)}
+            aria-label={`Clear ${ariaLabel}`}
+          >
+            x
+          </button>
+        </Tooltip>
       </div>
     </div>
   );

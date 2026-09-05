@@ -14,7 +14,9 @@
  * global shortcuts, dialogs. Panel-only windows stay lean.
  */
 
+import { Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { formatShortcut, getEffectiveBinding } from '../shortcuts/ShortcutManager';
 import { EditorProvider } from '../context';
 import { PanelHostProvider } from '../workspace/PanelHostContext';
 import '../workspace/bootstrap';
@@ -194,28 +196,30 @@ function AuxiliaryTitleBar({
         {title}
         {documentName ? ` — ${documentName}` : ''}
       </span>
-      <button
-        type="button"
-        onClick={onUndo}
-        disabled={!canUndo}
-        data-testid="aux-undo"
-        aria-label="Undo (routes to the main window's undo stack)"
-        title="Undo (Ctrl+Z)"
-        className="auxiliary-shell__button auxiliary-shell__button--history"
-      >
-        Undo
-      </button>
-      <button
-        type="button"
-        onClick={onRedo}
-        disabled={!canRedo}
-        data-testid="aux-redo"
-        aria-label="Redo (routes to the main window's redo stack)"
-        title="Redo (Ctrl+Shift+Z)"
-        className="auxiliary-shell__button auxiliary-shell__button--history"
-      >
-        Redo
-      </button>
+      <Tooltip label="Undo" shortcut={formatShortcut(getEffectiveBinding('undo'))}>
+        <button
+          type="button"
+          onClick={onUndo}
+          disabled={!canUndo}
+          data-testid="aux-undo"
+          aria-label="Undo (routes to the main window's undo stack)"
+          className="auxiliary-shell__button auxiliary-shell__button--history"
+        >
+          Undo
+        </button>
+      </Tooltip>
+      <Tooltip label="Redo" shortcut={formatShortcut(getEffectiveBinding('redo'))}>
+        <button
+          type="button"
+          onClick={onRedo}
+          disabled={!canRedo}
+          data-testid="aux-redo"
+          aria-label="Redo (routes to the main window's redo stack)"
+          className="auxiliary-shell__button auxiliary-shell__button--history"
+        >
+          Redo
+        </button>
+      </Tooltip>
       <button
         type="button"
         onClick={onReattach}

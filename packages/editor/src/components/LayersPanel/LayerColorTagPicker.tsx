@@ -4,7 +4,7 @@ import {
   type LayerColor,
   type LayerColorName,
 } from '@varve/scene';
-import { SOLID_CHROME_ICONS, SolidIcon } from '@varve/ui';
+import { SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
 
 export type LayerColorPickerValue = LayerColor | 'mixed' | undefined;
 
@@ -55,27 +55,29 @@ export function LayerColorTagPicker({
         );
       })}
       {includeNoTag && (
-        <button
-          type="button"
-          className={`layer-color-tag-picker__button layer-color-tag-picker__button--none${value === null ? ' layer-color-tag-picker__button--selected' : ''}`}
-          onClick={() => onChange(null)}
-          aria-label="No color tag"
-          aria-pressed={value === null}
-          title="Filter untagged layers"
-        >
-          <span aria-hidden="true">—</span>
-        </button>
+        <Tooltip label="Filter untagged layers">
+          <button
+            type="button"
+            className={`layer-color-tag-picker__button layer-color-tag-picker__button--none${value === null ? ' layer-color-tag-picker__button--selected' : ''}`}
+            onClick={() => onChange(null)}
+            aria-label="No color tag"
+            aria-pressed={value === null}
+          >
+            <span aria-hidden="true">—</span>
+          </button>
+        </Tooltip>
       )}
       {includeClear && (
-        <button
-          type="button"
-          className="layer-color-tag-picker__button layer-color-tag-picker__button--clear"
-          onClick={() => onChange(null)}
-          aria-label={clearLabel}
-          title={clearLabel}
-        >
-          <SolidIcon name={SOLID_CHROME_ICONS.close} size="0.65em" />
-        </button>
+        <Tooltip label={clearLabel}>
+          <button
+            type="button"
+            className="layer-color-tag-picker__button layer-color-tag-picker__button--clear"
+            onClick={() => onChange(null)}
+            aria-label={clearLabel}
+          >
+            <SolidIcon name={SOLID_CHROME_ICONS.close} size="0.65em" />
+          </button>
+        </Tooltip>
       )}
     </fieldset>
   );
