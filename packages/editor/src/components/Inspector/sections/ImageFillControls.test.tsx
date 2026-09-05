@@ -8,6 +8,7 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { createEmbeddedAsset } from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ImageFillControls } from './ImageFillControls';
 
@@ -23,6 +24,25 @@ describe('ImageFillControls', () => {
     );
     expect(screen.getByRole('button', { name: /choose image|replace image/i })).toBeTruthy();
     expect(screen.getByRole('combobox', { name: /image fit/i })).toBeTruthy();
+  });
+
+  it('uses embedded asset bytes when a canonical reference reaches the inspector', () => {
+    const dataUrl = 'data:image/png;base64,AAAA';
+    const asset = createEmbeddedAsset({
+      dataUrl,
+      mimeType: 'image/png',
+      naturalWidth: 10,
+      naturalHeight: 10,
+    });
+    render(
+      <ImageFillControls
+        image={{ src: `asset:${asset.id}`, assetId: asset.id, fit: 'fill', x: 0, y: 0, scale: 1 }}
+        asset={asset}
+        onChange={() => {}}
+      />,
+    );
+
+    expect(document.querySelector('.insp-image-fill__preview img')).toHaveAttribute('src', dataUrl);
   });
 
   it('loads a local file into onChange as a data URL', async () => {

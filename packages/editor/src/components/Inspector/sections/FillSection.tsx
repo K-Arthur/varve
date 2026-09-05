@@ -14,6 +14,7 @@
 import { complementaryHarmony } from '@varve/engine';
 import type {
   BlendMode,
+  DocumentAsset,
   Fill,
   FillType,
   GradientFill,
@@ -170,7 +171,7 @@ function buildNewFill(kind: AddFillKind, source: Fill | undefined): Fill {
   }
 }
 
-function fillSwatchBg(fill: Fill): string {
+function fillSwatchBg(fill: Fill, assets?: Record<string, DocumentAsset>): string {
   if (fill.type === 'solid' && fill.color) {
     const [r, g, b, a] = managedColorToRgba(fill.color);
     return `rgba(${r},${g},${b},${(a / 255).toFixed(2)})`;
@@ -185,7 +186,11 @@ function fillSwatchBg(fill: Fill): string {
     return `linear-gradient(90deg, ${stops})`;
   }
   if (fill.type === 'image') {
-    const src = fill.image?.src;
+    const src =
+      (fill.image?.assetId ? assets?.[fill.image.assetId]?.dataUrl : undefined) ??
+      (fill.image?.src.startsWith('asset:')
+        ? assets?.[fill.image.src.slice('asset:'.length)]?.dataUrl
+        : fill.image?.src);
     if (src) return `url(${src}) center/cover`;
     return 'var(--color-surface-sunken)';
   }
@@ -442,7 +447,12 @@ function FillRow({
     nodes.length === 1 && nodes[0] ? nodeLocalBounds(nodes[0], editor.state.document) : undefined;
 
   const visible = isMixed(visibleRaw) ? true : visibleRaw;
-  const swatchBg = fillSwatchBg(fill);
+  const embeddedAssetId =
+    fill.type === 'image' && fill.image
+      ? (fill.image.assetId ??
+        (fill.image.src.startsWith('asset:') ? fill.image.src.slice('asset:'.length) : undefined))
+      : undefined;
+  const swatchBg = fillSwatchBg(fill, editor.state.document.assets);
 
   const patch = useCallback(
     (partial: Partial<Fill>) => onChange({ ...fill, ...partial }),
@@ -725,9 +735,7 @@ function FillRow({
                 }
               : undefined
           }
-          asset={
-            fill.image.assetId ? editor.state.document.assets?.[fill.image.assetId] : undefined
-          }
+          asset={embeddedAssetId ? editor.state.document.assets?.[embeddedAssetId] : undefined}
         />
       )}
 

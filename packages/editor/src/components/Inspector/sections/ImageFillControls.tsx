@@ -67,7 +67,8 @@ export function ImageFillControls({
 }) {
   const fileInputId = useId();
   const fileRef = useRef<HTMLInputElement>(null);
-  const hasSrc = Boolean(image.src);
+  const previewSrc = asset?.dataUrl ?? image.src;
+  const hasSrc = Boolean(previewSrc);
 
   const handleFitChange = useCallback(
     (value: string) => {
@@ -78,12 +79,21 @@ export function ImageFillControls({
 
   const handleSrcChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      // A manually typed src leaves the embedded-asset path entirely (it's
-      // no longer the asset table's bytes) — drop the stale assetId rather
-      // than let it keep pointing at unrelated content.
-      onChange({ ...image, src: e.target.value, assetId: undefined });
+      const nextSrc = e.target.value;
+      const canonicalAssetId = nextSrc.startsWith('asset:')
+        ? nextSrc.slice('asset:'.length)
+        : undefined;
+      // A manually typed URL leaves the embedded-asset path entirely. Keep a
+      // canonical reference linked only when it resolves to the asset shown
+      // by this control; otherwise do not let a stale assetId point at
+      // unrelated content.
+      onChange({
+        ...image,
+        src: nextSrc,
+        assetId: canonicalAssetId && canonicalAssetId === asset?.id ? canonicalAssetId : undefined,
+      });
     },
-    [image, onChange],
+    [asset?.id, image, onChange],
   );
 
   const handleFileChange = useCallback(
@@ -191,7 +201,7 @@ export function ImageFillControls({
           aria-label="Replace image"
           onClick={openFilePicker}
         >
-          <img src={image.src} alt="" className="insp-image-fill__preview-img" />
+          <img src={previewSrc} alt="" className="insp-image-fill__preview-img" />
         </button>
       )}
 
