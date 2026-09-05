@@ -90,6 +90,43 @@ test.describe('Background removal — all modes', () => {
     fs.unlinkSync(tmpFile);
   }
 
+  test('Quick removal restores exact canvas pixels through Undo and Redo', async ({
+    page,
+  }, testInfo) => {
+    await importTestImage(page);
+    const canvas = page.getByTestId('editor-canvas');
+    const before = await canvas.screenshot();
+    await page
+      .getByTestId('selection-quick-bar')
+      .getByRole('button', { name: 'Remove background' })
+      .click();
+    const review = page.getByRole('region', { name: 'Background removal review' });
+    await expect(review).toBeVisible({ timeout: 15000 });
+    await review.getByRole('button', { name: 'Apply result' }).click();
+    await expect(review).toBeHidden();
+    await expect.poll(async () => (await canvas.screenshot()).equals(before)).toBe(false);
+    const after = await canvas.screenshot();
+    await page.screenshot({ path: testInfo.outputPath('after-apply-ui.png') });
+    for (let round = 0; round < 2; round++) {
+      await page.keyboard.press('Control+z');
+      await expect
+        .poll(async () => (await canvas.screenshot()).equals(before), {
+          message: 'Undo restores the original image pixels',
+        })
+        .toBe(true);
+      await canvas.screenshot({ path: testInfo.outputPath(`undo-${round}.png`) });
+      await page.keyboard.press('Control+Shift+z');
+      await expect
+        .poll(async () => (await canvas.screenshot()).equals(after), {
+          message: 'Redo restores the committed mask pixels without processing again',
+        })
+        .toBe(true);
+      await canvas.screenshot({ path: testInfo.outputPath(`redo-${round}.png`) });
+    }
+    await testInfo.attach('before', { body: before, contentType: 'image/png' });
+    await testInfo.attach('after', { body: after, contentType: 'image/png' });
+  });
+
   test('Quick toolbar — heuristic bg removal', async ({ page }, testInfo) => {
     await importTestImage(page);
     const btn = page

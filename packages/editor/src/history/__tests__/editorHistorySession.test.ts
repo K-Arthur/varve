@@ -14,16 +14,19 @@ import {
 } from '@varve/history';
 import type { Document } from '@varve/scene';
 import {
+  addNode,
   applyOperation,
   canonicalHistoryHash,
   compositeDabOnNode,
   createDocument,
+  makeImageShapeNode,
   makePathNode,
   makeRasterLayerNode,
   makeShapeNode,
   registerBuiltinOperations,
 } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
+import { commitRasterMask } from '../../backgroundRemoval/commitRasterMask';
 import { EditorHistorySession } from '../editorHistorySession';
 
 registerBuiltinOperations();
@@ -95,6 +98,102 @@ describe('EditorHistorySession', () => {
     const segments = await store.listSegments(DOC_ID);
     const sequences = segments.flatMap((s) => s.operations.map((o) => o.logicalSequence));
     expect(sequences).toEqual([1, 2, 3, 4]);
+  });
+
+  it('serializes rapid navigation behind pending capture and reports the next labels', async () => {
+    const store = createMemoryHistoryStore();
+    const session = newSession(store);
+    const before = baseDoc();
+    await session.attach(before);
+    const middle = applyOperation(before, 'node.patch', {
+      nodeId: 'n1_aaaa',
+      path: 'opacity',
+      value: 0.5,
+    });
+    await session.capture(before, middle, [], { label: 'First', kind: 'modify' });
+    const after = applyOperation(middle, 'node.patch', {
+      nodeId: 'n1_aaaa',
+      path: 'opacity',
+      value: 0.25,
+    });
+    const capture = session.capture(middle, after, [], { label: 'Second', kind: 'modify' });
+    const firstUndo = session.undo();
+    const secondUndo = session.undo();
+    await capture;
+    expect((await firstUndo)?.document).toEqual(middle);
+    // Genesis decoding normalizes allocator metadata; authored state is exact.
+    expect(canonicalHistoryHash((await secondUndo)!.document)).toBe(canonicalHistoryHash(before));
+    expect(session.canUndo).toBe(false);
+    expect(session.redoLabel).toBe('First');
+    const [firstRedo, secondRedo] = await Promise.all([session.redo(), session.redo()]);
+    expect(firstRedo?.document).toEqual(middle);
+    expect(secondRedo?.document).toEqual(after);
+    expect(session.undoLabel).toBe('Second');
+    expect(session.canRedo).toBe(false);
+  });
+
+  it('does not move the branch or visible cursor when checkout cannot replay', async () => {
+    const store = createMemoryHistoryStore();
+    const session = newSession(store);
+    const attached = await session.attach(baseDoc());
+    const original = session.headRevisionId;
+    await store.putRevision({
+      ...attached.headRevision,
+      revisionId: 'broken-replay',
+      snapshotId: 'missing-snapshot',
+      parentRevisionIds: [],
+      canonicalDocumentHash: 'missing',
+    });
+    await expect(session.checkout('broken-replay')).rejects.toThrow();
+    expect(session.headRevisionId).toBe(original);
+    expect((await store.getBranch(DOC_ID, attached.branch.branchId))?.headRevisionId).toBe(
+      original,
+    );
+  });
+
+  it('restores mask bytes and abandoned identities after recreating the session', async () => {
+    const store = createMemoryHistoryStore();
+    const session = newSession(store);
+    const before = addNode(
+      baseDoc(),
+      makeImageShapeNode('image', {
+        src: 'source',
+        w: 1,
+        h: 1,
+        imageWidth: 1,
+        imageHeight: 1,
+      }),
+    );
+    const fields = {
+      width: 1,
+      height: 1,
+      dataUrl:
+        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4////fwAJ+wP9KobjigAAAABJRU5ErkJggg==',
+    };
+    await session.attach(before);
+    const first = commitRasterMask(before, 'image', fields);
+    await session.capture(before, first, ['image'], { label: 'Remove background', kind: 'modify' });
+    const second = commitRasterMask(first, 'image', {
+      ...fields,
+      dataUrl:
+        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAX+XDSwAAAABJRU5ErkJggg==',
+    });
+    const abandoned = await session.capture(first, second, ['image'], {
+      label: 'Replace mask',
+      kind: 'modify',
+    });
+    const restored = newSession(store);
+    await restored.attach(second);
+    const undone = await restored.undo();
+    expect(undone!.document.rasterMaskAssets).toEqual(first.rasterMaskAssets);
+    expect((await restored.redo())!.document.rasterMaskAssets).toEqual(second.rasterMaskAssets);
+    await restored.undo();
+    const fork = commitRasterMask(first, 'image', fields);
+    await restored.capture(first, fork, ['image'], { label: 'Different mask', kind: 'modify' });
+    expect(restored.canRedo).toBe(false);
+    const checkout = await restored.checkout(abandoned!.revisionId);
+    expect(checkout!.document.rasterMaskAssets).toEqual(second.rasterMaskAssets);
+    expect(checkout!.document.nodes.image!.mask).toEqual(second.nodes.image!.mask);
   });
 
   it('suppresses empty captures (reference-equal documents)', async () => {

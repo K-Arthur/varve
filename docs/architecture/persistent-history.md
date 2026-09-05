@@ -306,3 +306,22 @@ mutation inventory (`docs/audits/history-mutation-inventory-2026-08-05.md`).
   `migrateIds.test.ts`, `canonical.test.ts`, `canonicalGolden.test.ts`,
   `canonicalProperties.fuzz.test.ts`, `sha256.test.ts`,
   `operations/__tests__/operations.test.ts`.
+
+## Navigation and mask identity hardening (2026-09-05)
+
+The editor session serializes capture, Undo, Redo, Undo-to and checkout on one
+FIFO. Navigation loads the target document before publishing the branch move;
+a replay failure leaves the current cursor and ordinary redo path unchanged.
+Undo/Redo labels describe the next available action. The React hook checks the
+active document, session object and switch generation before applying a delayed
+result, and dismisses background-removal review overlays when restoring state.
+
+Raster-mask edit revisions are not globally unique: Undo followed by another
+mask edit can repeat the same revision number. New mask payloads therefore use
+fresh immutable asset IDs. Recorded revisions retain those IDs and payloads;
+redo and branch checkout do not recompute the mask. Legacy mask IDs remain
+readable without a schema migration.
+
+See the [hardening evidence ledger](../audits/undo-redo-hardening-2026-09-05.md)
+for tested scenarios and unresolved coverage; these changes do not certify all
+editing routes or storage-failure behavior.

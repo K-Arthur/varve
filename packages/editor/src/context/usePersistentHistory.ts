@@ -90,6 +90,12 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
   const documentId = document?.id ?? null;
 
   const sessionRef = useRef<EditorHistorySession | null>(null);
+  const activeDocumentRef = useRef(documentId);
+  const navigationGenerationRef = useRef(0);
+  if (activeDocumentRef.current !== documentId) {
+    activeDocumentRef.current = documentId;
+    navigationGenerationRef.current += 1;
+  }
   const attachPromiseRef = useRef<Promise<void> | null>(null);
   const patchRef = useRef(patch);
   patchRef.current = patch;
@@ -256,8 +262,12 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
     }
     if (inTransactionRef.current) return;
     const label = captureLabelFor(before, currentDocument);
-    void session
-      .capture(before, currentDocument, selectionRef.current, { label, kind: 'modify' })
+    const capturedSelection = [...selectionRef.current];
+    const attachment = attachPromiseRef.current;
+    void Promise.resolve(attachment)
+      .then(() =>
+        session.capture(before, currentDocument, capturedSelection, { label, kind: 'modify' }),
+      )
       .then(() => bump())
       .catch((err) => console.warn('[history] watcher capture failed', err));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -283,6 +293,9 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
       const synced = syncGridFromDocument(result.document);
       patchRef.current({
         document: result.document,
+        backgroundRemovalPreviewSession: null,
+        subjectPickerSession: null,
+        showOriginalBgNodeId: null,
         selection: result.selection,
         documentGrid: synced.documentGrid,
         isometricGrid: synced.isometricGrid,
@@ -314,20 +327,34 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
 
   const undo = useCallback(async (): Promise<boolean> => {
     const session = sessionRef.current;
+    const generation = navigationGenerationRef.current;
     if (!session?.attached) return false;
     await attachPromiseRef.current;
     const result = await session.undo();
-    if (!result) return false;
+    if (
+      !result ||
+      sessionRef.current !== session ||
+      activeDocumentRef.current !== session.documentId ||
+      generation !== navigationGenerationRef.current
+    )
+      return false;
     applyLoadedRevision(result, session.canUndo, session.canRedo);
     return true;
   }, [applyLoadedRevision]);
 
   const redo = useCallback(async (): Promise<boolean> => {
     const session = sessionRef.current;
+    const generation = navigationGenerationRef.current;
     if (!session?.attached) return false;
     await attachPromiseRef.current;
     const result = await session.redo();
-    if (!result) return false;
+    if (
+      !result ||
+      sessionRef.current !== session ||
+      activeDocumentRef.current !== session.documentId ||
+      generation !== navigationGenerationRef.current
+    )
+      return false;
     applyLoadedRevision(result, session.canUndo, session.canRedo);
     return true;
   }, [applyLoadedRevision]);
@@ -335,10 +362,17 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
   const undoTo = useCallback(
     async (revisionId: string): Promise<boolean> => {
       const session = sessionRef.current;
+      const generation = navigationGenerationRef.current;
       if (!session?.attached) return false;
       await attachPromiseRef.current;
       const result = await session.undoToRevision(revisionId);
-      if (!result) return false;
+      if (
+        !result ||
+        sessionRef.current !== session ||
+        activeDocumentRef.current !== session.documentId ||
+        generation !== navigationGenerationRef.current
+      )
+        return false;
       applyLoadedRevision(result, session.canUndo, session.canRedo);
       return true;
     },
@@ -348,10 +382,17 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
   const checkout = useCallback(
     async (revisionId: string): Promise<boolean> => {
       const session = sessionRef.current;
+      const generation = navigationGenerationRef.current;
       if (!session?.attached) return false;
       await attachPromiseRef.current;
       const result = await session.checkout(revisionId);
-      if (!result) return false;
+      if (
+        !result ||
+        sessionRef.current !== session ||
+        activeDocumentRef.current !== session.documentId ||
+        generation !== navigationGenerationRef.current
+      )
+        return false;
       applyLoadedRevision(result, session.canUndo, session.canRedo);
       return true;
     },

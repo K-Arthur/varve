@@ -1,4 +1,5 @@
 import type { BackgroundRemovalMethod, Document, NodeId, ShapeNode } from '@varve/scene';
+import { getImageFill, imageShapeSrc, isImageShape } from '@varve/scene';
 import { useCallback, useEffect, useRef } from 'react';
 import { getDesktopAnalytics } from '../analytics/desktopAnalytics';
 import { commitRasterMask, hasNativeRasterMask } from '../backgroundRemoval/commitRasterMask';
@@ -405,54 +406,65 @@ export function useBackgroundRemoval(
     if (!preview) return;
     const currentState = stateRef.current;
     const currentNode = currentState.document.nodes[preview.nodeId] as ShapeNode | undefined;
-    void import('@varve/scene').then(({ getImageFill, isImageShape, imageShapeSrc }) => {
-      if (
-        currentState.document.id !== preview.documentId ||
-        !currentState.selection.includes(preview.nodeId) ||
-        !currentNode ||
-        !isImageShape(currentNode) ||
-        imageShapeSrc(currentNode) !== preview.sourceLocator ||
-        computePlacementRevision(getImageFill(currentNode)?.image ?? null) !==
-          preview.placementRevision
-      ) {
-        patch({ backgroundRemovalPreviewSession: null });
-        announcerRef.current?.announce('Preview discarded because the selected image changed');
-        return;
-      }
-      if (preview.width !== preview.sourceWidth || preview.height !== preview.sourceHeight) {
-        announcerRef.current?.announce(
-          'Background removal result could not be applied because its dimensions are invalid',
-        );
-        return;
-      }
-      const committed = commitRasterMask(currentState.document, preview.nodeId, {
-        dataUrl: preview.maskDataUrl,
-        width: preview.width,
-        height: preview.height,
-        sourceLocator: preview.sourceLocator,
-        method: preview.actualMethod,
-        generatedAt: Date.now(),
-        confidence: preview.confidence,
-        decontaminate: preview.decontaminate,
-        runtime:
-          preview.executionProvider === 'native'
-            ? 'native-cpu'
-            : (preview.executionProvider ?? 'typescript'),
-      });
-      if (committed === currentState.document) {
-        announcerRef.current?.announce(
-          'Background removal result could not be applied; the preview remains available',
-        );
-        return;
-      }
-      updateDoc(() => committed);
+    if (
+      currentState.document.id !== preview.documentId ||
+      !currentState.selection.includes(preview.nodeId) ||
+      !currentNode ||
+      !isImageShape(currentNode) ||
+      imageShapeSrc(currentNode) !== preview.sourceLocator ||
+      computePlacementRevision(getImageFill(currentNode)?.image ?? null) !==
+        preview.placementRevision
+    ) {
       patch({ backgroundRemovalPreviewSession: null });
+      announcerRef.current?.announce('Preview discarded because the selected image changed');
+      return;
+    }
+    if (preview.width !== preview.sourceWidth || preview.height !== preview.sourceHeight) {
       announcerRef.current?.announce(
-        preview.requestedMethod === preview.actualMethod
-          ? 'Background removal applied'
-          : `Background removal applied using ${preview.actualMethod} fallback`,
+        'Background removal result could not be applied because its dimensions are invalid',
       );
+      return;
+    }
+    const fields = {
+      dataUrl: preview.maskDataUrl,
+      width: preview.width,
+      height: preview.height,
+      sourceLocator: preview.sourceLocator,
+      method: preview.actualMethod,
+      generatedAt: Date.now(),
+      confidence: preview.confidence,
+      decontaminate: preview.decontaminate,
+      runtime:
+        preview.executionProvider === 'native'
+          ? 'native-cpu'
+          : (preview.executionProvider ?? 'typescript'),
+    } as const;
+    const committed = commitRasterMask(currentState.document, preview.nodeId, fields);
+    if (committed === currentState.document) {
+      announcerRef.current?.announce(
+        'Background removal result could not be applied; the preview remains available',
+      );
+      return;
+    }
+    updateDoc((document) => {
+      // React may execute this updater after another queued edit. Preserve
+      // unrelated changes, and refuse a replaced target or document.
+      if (
+        document.id !== currentState.document.id ||
+        document.nodes[preview.nodeId] !== currentNode
+      ) {
+        return document;
+      }
+      return document === currentState.document
+        ? committed
+        : commitRasterMask(document, preview.nodeId, fields);
     });
+    patch({ backgroundRemovalPreviewSession: null });
+    announcerRef.current?.announce(
+      preview.requestedMethod === preview.actualMethod
+        ? 'Background removal applied'
+        : `Background removal applied using ${preview.actualMethod} fallback`,
+    );
   }, [enabled, stateRef, patch, announcerRef, updateDoc]);
 
   const cancelBackgroundRemovalPreview = useCallback(() => {

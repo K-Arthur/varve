@@ -15,7 +15,7 @@ contain historical claims that require runtime verification.
 | Different masks on divergent paths reuse one immutable asset ID | New `commitRasterMask.test.ts` regression fails with `mask-img-1` on both paths | Fresh payload identities implemented; direct regression passes |
 | Apply captures a document before a dynamic import and later replaces current state | `useBackgroundRemoval.applyBackgroundRemovalPreview` | Reproduced lost unrelated edit; synchronous Apply and updater target guard implemented; regression passes |
 | Navigation moves the branch before loading the restored document | `EditorHistorySession.undo`, `redo`, `checkout`, `undoToRevision` | Reproduced failed checkout moving the cursor; target load now precedes publication; regression passes |
-| Watcher captures do not wait for attachment | `usePersistentHistory` document effect | Delayed-attachment coverage needed |
+| Watcher captures do not wait for attachment | `usePersistentHistory` document effect | Reproduced missing pre-attach edit; watcher now awaits attachment; regression passes |
 | Async navigation applies without checking session identity | `usePersistentHistory` navigation callbacks | Reproduced late result applied to another document; session/generation guards implemented; regression passes |
 | Persistent and fallback stacks both own editing state | `context.tsx` undo/redo callbacks and derived enabled state | Routing and genesis-boundary coverage needed |
 | Effect Studio uses a global preview transaction | `EffectStudioSection.previewTreatment` / `cancelPreview` | Unrelated edits, Save and recovery isolation unverified |
@@ -52,7 +52,12 @@ the committed ID and data URL. No new history stack or processing provider.
 - Baseline `pnpm verify:plan`: no changed files.
 - Direct mask regression before repair: 1 failed, 8 passed; alias reproduced.
 - Direct mask regression in affected validation after repair: 9 passed.
-- `pnpm verify:affected`: running editor and desktop affected closure.
+- `pnpm verify:affected`: initial run superseded during repairs. Final scoped
+  run passed changed-file checks, audits, E2E typechecking and direct tests;
+  stopped at browser startup failure before AI Balanced processing. Three
+  browser scenarios passed and three were skipped by serial-suite behavior.
+  The failed and skipped scenarios are being rerun explicitly; remaining
+  editor/desktop and website lanes are running separately.
 - Real Quick browser traversal: isolated port 1437, 1 passed (43.6 s test,
   1.5 min including startup). Initial default-port run could not start because
   1420 was already occupied. Inspected `after-apply-ui.png`, `undo-0.png` and
@@ -60,8 +65,10 @@ the committed ID and data URL. No new history stack or processing provider.
   traversal directory): original blue background restores, cutout returns,
   mask badge and controls appear. This used the browser Quick heuristic,
   not an AI model or native provider.
-- Navigation and React session isolation: 23 tests passed after repairs.
+- Navigation, mask reload/branch restoration and React session isolation: 25 tests
+  passed after repairs (23 session tests, 2 hook tests).
 - `pnpm audit:docs`, `pnpm audit:emoji`, `pnpm audit:tokens`: passed; token
   audit reports 153 pairs across three themes.
 - Native Tauri/model execution, memory budgets, complete mutation matrix,
-  durable reload and fault scenarios remain unverified.
+  IndexedDB reload and broader fault scenarios remain unverified. Memory-store
+  recreation verifies mask replay independent of the original session cache.

@@ -395,9 +395,12 @@ export class EditorHistorySession {
       if (revision) this.rememberSelection(revision.revisionId, selection);
       return revision;
     };
+    return this.enqueue(task);
+  }
+
+  /** Captures and cursor moves share one FIFO, including failed requests. */
+  private enqueue<T>(task: () => Promise<T>): Promise<T> {
     const result = this.lastCapturePromise.then(task, task);
-    // Swallow capture failures in the queue chain (the next capture must
-    // still run); failures surface via the returned promise.
     this.lastCapturePromise = result.catch(() => undefined);
     return result;
   }
@@ -574,75 +577,74 @@ export class EditorHistorySession {
 
   // ── Undo / redo (ADR-0019 Model A) ──────────────────────────────────────────
 
-  /** Undo one step: move the head to the first parent and return the
-   *  document + selection to load. Returns null at genesis. */
-  async undo(): Promise<{ document: Document; selection: NodeId[] } | null> {
-    await this.lastCapturePromise;
-    if (!this.attachedBranch || !this.headRevisionId) return null;
-    const result = await undoRevision(this.store, this.documentId, this.attachedBranch.branchId);
-    if (!result) return null;
-    this.headRevisionId = result.headRevisionId;
-    this.redoPath.unshift(result.redoTargetRevisionId);
-    this.lastUndoLabelState = 'Undo';
-    const revision = await this.store.getRevision(this.documentId, result.headRevisionId);
-    if (revision) {
-      this.lastUndoLabelState = revision.semanticSummary.label;
-      this.undoableState = revision.parentRevisionIds.length > 0;
-    }
-    const document = await this.loadCachedDocument(result.headRevisionId, revision);
-    return { document, selection: this.selectionJournal.get(result.headRevisionId) ?? [] };
-  }
-
-  /** Redo the most recently abandoned child of the current head. */
-  async redo(): Promise<{ document: Document; selection: NodeId[] } | null> {
-    await this.lastCapturePromise;
-    if (!this.attachedBranch || !this.headRevisionId || this.redoPath.length === 0) return null;
-    const targetId = this.redoPath[0]!;
-    const result = await redoRevision(
-      this.store,
-      this.documentId,
-      this.attachedBranch.branchId,
-      targetId,
-    );
-    this.headRevisionId = result.headRevisionId;
-    this.redoPath.shift();
-    this.lastRedoLabelState = 'Redo';
-    const revision = await this.store.getRevision(this.documentId, result.headRevisionId);
-    if (revision) {
-      this.lastRedoLabelState = revision.semanticSummary.label;
-      this.undoableState = true;
-    }
-    const document = await this.loadCachedDocument(result.headRevisionId, revision);
-    return { document, selection: this.selectionJournal.get(result.headRevisionId) ?? [] };
-  }
-
-  /** Undo N steps in one call. */
-  async undoCount(count: number): Promise<{ document: Document; selection: NodeId[] } | null> {
-    await this.lastCapturePromise;
-    if (!this.attachedBranch || !this.headRevisionId) return null;
-    if (!Number.isInteger(count) || count < 0) throw new Error('undo count must be non-negative');
-    let applied = 0;
-    for (let index = 0; index < count; index++) {
+  /** Restore before publishing the cursor; serialize with all captures. */
+  undo(): Promise<{ document: Document; selection: NodeId[] } | null> {
+    return this.enqueue(async () => {
+      if (!this.attachedBranch || !this.headRevisionId) return null;
+      const head = await this.store.getRevision(this.documentId, this.headRevisionId);
+      const parentId = head?.parentRevisionIds[0];
+      if (!parentId) return null;
+      const revision = await this.store.getRevision(this.documentId, parentId);
+      const document = await this.loadCachedDocument(parentId, revision);
       const result = await undoRevision(this.store, this.documentId, this.attachedBranch.branchId);
-      if (!result) break;
+      if (!result) return null;
       this.headRevisionId = result.headRevisionId;
       this.redoPath.unshift(result.redoTargetRevisionId);
-      applied += 1;
-    }
-    if (applied === 0) return null;
-    const revision = await this.store.getRevision(this.documentId, this.headRevisionId);
-    const document = await this.loadCachedDocument(this.headRevisionId, revision);
-    return { document, selection: this.selectionJournal.get(this.headRevisionId) ?? [] };
+      this.lastUndoLabelState = revision?.semanticSummary.label ?? 'Undo';
+      this.lastRedoLabelState = head?.semanticSummary.label ?? 'Redo';
+      this.undoableState = (revision?.parentRevisionIds.length ?? 0) > 0;
+      return { document, selection: this.selectionJournal.get(parentId) ?? [] };
+    });
   }
 
-  /** Undo to a specific ancestor revision. */
-  async undoToRevision(
+  redo(): Promise<{ document: Document; selection: NodeId[] } | null> {
+    return this.enqueue(async () => {
+      if (!this.attachedBranch || !this.headRevisionId || this.redoPath.length === 0) return null;
+      const targetId = this.redoPath[0]!;
+      const revision = await this.store.getRevision(this.documentId, targetId);
+      const document = await this.loadCachedDocument(targetId, revision);
+      const nextRedo = this.redoPath[1]
+        ? await this.store.getRevision(this.documentId, this.redoPath[1])
+        : null;
+      const result = await redoRevision(
+        this.store,
+        this.documentId,
+        this.attachedBranch.branchId,
+        targetId,
+      );
+      this.headRevisionId = result.headRevisionId;
+      this.redoPath.shift();
+      this.lastUndoLabelState = revision?.semanticSummary.label ?? 'Undo';
+      this.lastRedoLabelState = nextRedo?.semanticSummary.label ?? 'Redo';
+      this.undoableState = (revision?.parentRevisionIds.length ?? 0) > 0;
+      return { document, selection: this.selectionJournal.get(targetId) ?? [] };
+    });
+  }
+
+  undoCount(count: number): Promise<{ document: Document; selection: NodeId[] } | null> {
+    return this.enqueue(async () => {
+      if (!Number.isInteger(count) || count < 0) throw new Error('undo count must be non-negative');
+      if (!this.headRevisionId || count === 0) return null;
+      let target = this.headRevisionId;
+      for (let index = 0; index < count; index++) {
+        const revision = await this.store.getRevision(this.documentId, target);
+        const parent = revision?.parentRevisionIds[0];
+        if (!parent) break;
+        target = parent;
+      }
+      return this.undoToNow(target);
+    });
+  }
+
+  undoToRevision(revisionId: string): Promise<{ document: Document; selection: NodeId[] } | null> {
+    return this.enqueue(() => this.undoToNow(revisionId));
+  }
+
+  private async undoToNow(
     revisionId: string,
   ): Promise<{ document: Document; selection: NodeId[] } | null> {
-    await this.lastCapturePromise;
-    if (!this.attachedBranch || !this.headRevisionId) return null;
-    // Retain the complete abandoned first-parent chain so a subsequent redo
-    // can walk every step, not merely jump back one revision.
+    if (!this.attachedBranch || !this.headRevisionId || revisionId === this.headRevisionId)
+      return null;
     const abandoned: string[] = [];
     let cursorId = this.headRevisionId;
     while (cursorId !== revisionId) {
@@ -652,6 +654,12 @@ export class EditorHistorySession {
       abandoned.push(cursorId);
       cursorId = parentId;
     }
+    const revision = await this.store.getRevision(this.documentId, revisionId);
+    const document = await this.loadCachedDocument(revisionId, revision);
+    const nextRedo = await this.store.getRevision(
+      this.documentId,
+      abandoned[abandoned.length - 1]!,
+    );
     const result = await undoTo(
       this.store,
       this.documentId,
@@ -660,9 +668,10 @@ export class EditorHistorySession {
     );
     this.headRevisionId = result.headRevisionId;
     this.redoPath.unshift(...abandoned.reverse());
-    const revision = await this.store.getRevision(this.documentId, result.headRevisionId);
-    const document = await this.loadCachedDocument(result.headRevisionId, revision);
-    return { document, selection: this.selectionJournal.get(result.headRevisionId) ?? [] };
+    this.lastUndoLabelState = revision?.semanticSummary.label ?? 'Undo';
+    this.lastRedoLabelState = nextRedo?.semanticSummary.label ?? 'Redo';
+    this.undoableState = (revision?.parentRevisionIds.length ?? 0) > 0;
+    return { document, selection: this.selectionJournal.get(revisionId) ?? [] };
   }
 
   /** Preserve abandoned redo paths as a named branch (never delete them). */
@@ -683,16 +692,20 @@ export class EditorHistorySession {
   }
 
   /** Move the working head to an existing revision (explicit checkout). */
-  async checkout(revisionId: string): Promise<{ document: Document; selection: NodeId[] } | null> {
-    await this.lastCapturePromise;
-    if (!this.attachedBranch) return null;
-    const target = await this.store.getRevision(this.documentId, revisionId);
-    if (!target) return null;
-    await moveBranchHead(this.store, this.documentId, this.attachedBranch.branchId, revisionId);
-    this.headRevisionId = revisionId;
-    this.redoPath = [];
-    const document = await this.loadCachedDocument(revisionId, target);
-    return { document, selection: this.selectionJournal.get(revisionId) ?? [] };
+  checkout(revisionId: string): Promise<{ document: Document; selection: NodeId[] } | null> {
+    return this.enqueue(async () => {
+      if (!this.attachedBranch) return null;
+      const target = await this.store.getRevision(this.documentId, revisionId);
+      if (!target) return null;
+      const document = await this.loadCachedDocument(revisionId, target);
+      await moveBranchHead(this.store, this.documentId, this.attachedBranch.branchId, revisionId);
+      this.headRevisionId = revisionId;
+      this.redoPath = [];
+      this.undoableState = target.parentRevisionIds.length > 0;
+      this.lastUndoLabelState = target.semanticSummary.label;
+      this.lastRedoLabelState = 'Redo';
+      return { document, selection: this.selectionJournal.get(revisionId) ?? [] };
+    });
   }
 
   // ── Checkpoints (ADR-0023) ──────────────────────────────────────────────────
