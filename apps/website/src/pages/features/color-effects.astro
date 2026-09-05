@@ -45,6 +45,11 @@ const paletteShot = scenes['palette-inspector']?.status === 'captured' ? scenes[
           effect opacity, blending, and vector-object use explicit.
         </p>
         <p>
+          Embedded image sources stay local to the document and source-preserving
+          through these edits. Crop, fit, masks, and treatment stacks change the
+          placement or rendered result without replacing the original asset.
+        </p>
+        <p>
           A gray vector rectangle at 50% opacity can receive Grain, Vignette, or
           Highlight Glow through Object Finishing without losing its editable fill or
           opacity. Atmospheric Depth is a broad local-depth operator, while Dehaze is a

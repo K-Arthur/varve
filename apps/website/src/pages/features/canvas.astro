@@ -22,6 +22,13 @@ import { sitePath } from '../../lib/siteUrl';
         </p>
       </section>
 
+      <section class="feature-section">
+        <h2>Images stay local and editable</h2>
+        <p>
+          Embedded images are stored once in the document and shared by every placement. Crops, fit, rotation, flips, masks, and treatments remain per-use edits, while the canvas resolves the same source through its local decode cache on desktop and web. Payload-free asset references are repaired at document and render boundaries, so reopening or switching workspace does not turn an image into a grey placeholder.
+        </p>
+      </section>
+
       <figure class="feature-visual">
         <img
           src={sitePath('/screenshots/layout-light.png')}
@@ -44,6 +51,7 @@ import { sitePath } from '../../lib/siteUrl';
           <li><strong>Live minimap:</strong> See the active design canvas or publishing pasteboard, then click or drag to navigate without changing your artwork</li>
           <li><strong>Rulers and guides:</strong> Visual guides for alignment and measurement</li>
           <li><strong>Grid overlays:</strong> Configurable grid patterns for precision work</li>
+          <li><strong>Local image assets:</strong> Embedded image sources stay in the document, decode progressively, and remain editable through crop, fit, masks, and treatments</li>
         </ul>
       </section>
 

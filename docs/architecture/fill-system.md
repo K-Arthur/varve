@@ -3,7 +3,7 @@
 Non-solid fills in the Inspector: gradient, image and pattern fills, plus
 the multi-fill stack they share with solids. This document describes the
 data model, the Inspector interaction model, renderer semantics, and the
-search/verification history (2026-08-27) behind the current behaviour.
+search/verification history (2026-09-05) behind the current behaviour.
 
 ## Model
 
@@ -91,6 +91,16 @@ guard is in `paintFill`, shared by all replay paths).
   (`#d5d8db`) for image fills; patterns fall back to a translucent grey
   while decoding and on invalid dimensions (tile size ≤ 0, step < 1).
 
+### Embedded asset reference guard
+
+Canonical document hashes replace embedded payloads with `asset:<id>`. That is
+serialization syntax, not an image URL. `DocumentCodec` rehydrates the
+reference to the document asset's data URL and restores `assetId`; the
+scene-to-engine adapter performs the same inference for session, clipboard, or
+recovery state that arrives without codec normalization. The engine registry
+accepts the prefixed form as an alias for a registered handle, so an old
+canonical reference cannot leave an image stuck on the grey placeholder.
+
 ## Invariants / hygiene
 
 - Fill edits must invalidate the affected object bounds; gradient cache
@@ -140,3 +150,11 @@ fills) on the grey loading fallback even after the source had loaded:
    Thumbnails now use their own bounded `ImageCache` instance
    (`thumbnailImageCache` in `useThumbnail.ts`), isolating their traffic
    from the render path.
+
+### Historical fix (2026-09-05)
+
+Canonical `asset:<id>` references could cross a session or recovery boundary
+into live image state. The browser then tried to decode the token as a URL,
+while the canvas correctly showed its grey missing-resource placeholder. The
+codec, render adapter, and resource registry now repair and resolve this form;
+the editor E2E suite covers the visible pixels and screenshot evidence.

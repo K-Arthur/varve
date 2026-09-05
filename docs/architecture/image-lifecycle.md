@@ -1,6 +1,6 @@
 # Image lifecycle architecture
 
-**Updated:** 2026-08-13
+**Updated:** 2026-09-05
 
 This document records the verified raster/image lifecycle and its ownership
 boundaries. It complements [image-geometry.md](image-geometry.md), which owns
@@ -33,6 +33,21 @@ No workspace owns a separate loader or cache. Design, Photo, Draw, Print,
 Motion, Logo, and Codegen share one document, asset table, engine facade, and
 decoded cache. Workspace switching changes UI/tool configuration only.
 
+## Canonical references are not image URLs
+
+`asset:<id>` is a payload-free reference used by canonical document hashing. It
+is not a browser-loadable image source and must never be handed to
+`ImageCache` as though it were a data URL or remote URL. Persistence boundaries
+rehydrate that reference to `Document.assets[id].dataUrl` and restore the
+`ImageFillData.assetId` link before the document enters live state.
+
+The scene-to-engine adapter repeats the check defensively for session,
+clipboard, and recovery paths that may bypass `DocumentCodec`: it infers the
+asset id from `asset:<id>`, registers the handle, and emits the short handle in
+the render IR. The engine registry also accepts the prefixed form as an alias
+for an already-registered handle. This keeps a stale canonical reference from
+becoming a permanent grey loading/error placeholder.
+
 ## Representation and ownership
 
 | Representation | Owner | Lifetime and invariant |
@@ -40,7 +55,7 @@ decoded cache. Workspace switching changes UI/tool configuration only.
 | Encoded import bytes | `@varve/import` | Inspected before data-URL allocation; never trusted from extension alone. |
 | Immutable embedded source | `Document.assets` in `@varve/scene` | Shared by `assetId`; original bytes are not modified by crop, transform, upscale, or masks. |
 | Per-placement state | `ImageFillData` | Crop, fit, offsets, rotation, flips, and edit provenance are node/paint usage state. |
-| Materialized `src` | `DocumentCodec` | Compatibility view of an embedded asset; stripped from encoded fills and rehydrated on decode. |
+| Materialized `src` | `DocumentCodec` | Compatibility view of an embedded asset; stripped from encoded fills and rehydrated on decode. Canonical `asset:<id>` references are repaired here as well. |
 | Decoded display image | `@varve/engine` `ImageCache` | URL/data-URL keyed today; in-flight deduplicated, stale-token guarded, entry/byte bounded. |
 | Worker bitmap | editor render worker | Main thread transfers only missing sources. Worker retains unchanged bitmaps and closes removed/replaced sources exactly once. |
 | Returned worker frame | worker host / canvas owner | Latest-revision and viewport/DPR guarded; stale and replaced frames are closed. |
@@ -185,6 +200,13 @@ with resource handles clones in 0.14 ms (205x faster); 100 placements of one
 asset clone in 1.12 ms. IR-size regression tests
 (`packages/engine/src/bench/ir-size.test.ts`) pin the payload-free IR at
 <1/1000th of the legacy serialized size.
+
+Canonical-reference regression evidence (2026-09-05):
+`tests/e2e/canvas/fill-interaction.spec.ts` imports a real PNG, replaces its
+live source with `asset:<id>`, and samples the rendered canvas. The test proves
+the image remains visible without a selection, camera, or reload interaction;
+the screenshot is written to the Playwright run's `fill-visuals` evidence
+directory.
 
 ## Extension rules
 
