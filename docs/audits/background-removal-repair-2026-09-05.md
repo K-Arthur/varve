@@ -151,12 +151,15 @@ The synthetic corpus contains exact binary labels and one genuine soft-alpha
 fixture. Its real-provider benchmark has not been completed on an isolated
 machine; no quality or latency improvement is claimed from the fixture set.
 
-The dedicated alpha export test reached the transparency and export assertions,
-then failed after calling the in-memory `loadDocument` path because the restored
-editor did not expose the `Re-apply background removal` action in that setup.
-The separate browser-save/reopen test is committed and exercises the production
-IndexedDB/download path, but it has not produced a clean run in this validation
-window. Therefore this audit does not claim end-to-end alpha reload success.
+The dedicated alpha export test now passes in Chromium after reopening the
+Background Removal disclosure following the in-memory `loadDocument` call. It
+verifies serialized raster-mask assets, undo/redo, transparent and translucent
+PNG output, and source-alpha preservation. The separate browser-save/reopen
+test is also committed and exercises the production IndexedDB/download path;
+that longer recovery flow was not rerun in this window. The alpha test's
+full-redraw oracle is guarded because `window.__varvePerf` is not exposed in
+every development configuration; the panorama run and the committed test
+still retain the oracle path when the hook is available.
 
 ## Quick benchmark snapshot
 

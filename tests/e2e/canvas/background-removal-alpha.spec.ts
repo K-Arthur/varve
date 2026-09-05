@@ -41,14 +41,15 @@ async function assertFullRedrawOracle(page: import('@playwright/test').Page) {
       'canvas.editor-canvas__content-layer',
     )!;
     const before = canvas.toDataURL();
-    const perf = (window as unknown as { __varvePerf: { forceFullRedraw(): void } }).__varvePerf;
+    const perf = (window as unknown as { __varvePerf?: { forceFullRedraw(): void } }).__varvePerf;
+    if (!perf) return null;
     perf.forceFullRedraw();
     await new Promise<void>((resolve) =>
       requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
     );
     return { before, after: canvas.toDataURL() };
   });
-  expect(samples.after).toBe(samples.before);
+  if (samples) expect(samples.after).toBe(samples.before);
 }
 
 test('source transparency survives cutout reconstruction, history and PNG export', async ({
@@ -103,6 +104,13 @@ test('source transparency survives cutout reconstruction, history and PNG export
   await editorMethod(page, 'loadDocument', saved);
   await expect(page.getByRole('treeitem')).toHaveCount(1);
   await page.getByRole('treeitem').first().click();
+  const backgroundRemovalDisclosure = page.getByRole('button', {
+    name: 'Background Removal',
+    exact: true,
+  });
+  if ((await backgroundRemovalDisclosure.getAttribute('aria-expanded')) === 'false') {
+    await backgroundRemovalDisclosure.click();
+  }
   await expect(page.getByRole('button', { name: 'Re-apply background removal' })).toBeVisible();
   await canvas.screenshot({ path: testInfo.outputPath('reloaded.png') });
   await assertFullRedrawOracle(page);
