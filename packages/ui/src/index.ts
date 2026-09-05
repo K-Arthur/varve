@@ -8,6 +8,7 @@
 
 import './components/components.css';
 import './components/radius-system.css';
+import './components/disclosure.css';
 import './components/ColorPicker/color-picker.css';
 import './components/PresetPicker/preset-picker.css';
 import './components/select.css';

@@ -4,6 +4,13 @@
  * Re-exports all components from a single entry point.
  */
 
+export type {
+  AccordionContentProps,
+  AccordionItemProps,
+  AccordionProps,
+  AccordionTriggerProps,
+} from './Accordion';
+export { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './Accordion';
 export type { ButtonProps, ButtonSize, ButtonVariant } from './Button';
 export { Button } from './Button';
 export type { ButtonGroupProps } from './ButtonGroup';
@@ -36,6 +43,12 @@ export type { ContentSkeletonProps } from './ContentSkeleton';
 export { ContentSkeleton } from './ContentSkeleton';
 export type { CopyButtonProps } from './CopyButton';
 export { CopyButton } from './CopyButton';
+export type {
+  DisclosureContentProps,
+  DisclosureProps,
+  DisclosureTriggerProps,
+} from './Disclosure';
+export { Disclosure, DisclosureContent, DisclosureTrigger } from './Disclosure';
 export type { DeterminateProgressProps } from './DeterminateProgress';
 export { DeterminateProgress } from './DeterminateProgress';
 export type { AlertDialogProps, DialogProps } from './Dialog';
