@@ -9,6 +9,20 @@ const CASES = [
   { id: 'human', image: 'human.jpg', mask: 'human-mask.png' },
   { id: 'car', image: 'car.jpg', mask: 'car-mask.png' },
   { id: 'object', image: 'object.jpg', mask: 'object-mask.png' },
+  ...[
+    'hair',
+    'shapes',
+    'glass',
+    'lowcontrast',
+    'subject-wide',
+    'subject-tall',
+    'subject-tiny',
+    'grayscale',
+  ].map((name) => ({
+    id: `synth-${name}`,
+    image: `synth-${name}.png`,
+    mask: `synth-${name}-mask.png`,
+  })),
 ] as const;
 
 interface BenchmarkResult {
@@ -59,16 +73,18 @@ test.describe('real-image background-removal quality benchmark', () => {
   for (const fixture of CASES) {
     for (const method of METHODS) {
       test(`${fixture.id} — ${method}`, async ({ page }) => {
-        test.setTimeout(method === 'ai-quality' ? 180_000 : 90_000);
         const iterations = Math.max(
           1,
           Number.parseInt(process.env.VARVE_BGREMOVAL_BENCH_ITERATIONS ?? '1', 10) || 1,
         );
+        test.setTimeout((method === 'ai-quality' ? 310000 : 125000) * iterations + 30000);
         const imageDataUrl = fileDataUrl(path.join(BENCH_DIR!, fixture.image));
         const fixtureMaybeWithMask = fixture as { id: string; image: string; mask?: string };
-        const maskDataUrl = fixtureMaybeWithMask.mask
-          ? fileDataUrl(path.join(BENCH_DIR!, fixtureMaybeWithMask.mask))
-          : undefined;
+        const maskDataUrl =
+          fixtureMaybeWithMask.mask &&
+          fs.existsSync(path.join(BENCH_DIR!, fixtureMaybeWithMask.mask))
+            ? fileDataUrl(path.join(BENCH_DIR!, fixtureMaybeWithMask.mask))
+            : undefined;
         const engineModuleUrl = `/@fs${path.resolve(
           'packages/engine/src/backgroundRemoval/index.ts',
         )}`;
@@ -171,7 +187,9 @@ test.describe('real-image background-removal quality benchmark', () => {
                 confidence: output.confidence,
                 modelId: output.modelId,
                 modelPrecision: output.modelPrecision,
-                runtime: 'browser-onnx',
+                runtime: output.executionProvider
+                  ? `browser-${output.executionProvider}`
+                  : 'browser-typescript',
                 device: navigator.userAgent,
                 ...metrics,
                 maskDataUrl: output.maskDataUrl,
@@ -197,11 +215,11 @@ test.describe('real-image background-removal quality benchmark', () => {
             'base64',
           );
         }
+        results.push(result);
         if (!result.ok || !('actualMethod' in result)) {
           expect(result.ok, 'error' in result ? result.error : 'unknown error').toBe(true);
           return;
         }
-        results.push(result);
         expect(result.actualMethod).toBeTruthy();
       });
     }
@@ -216,7 +234,7 @@ test.describe('real-image background-removal quality benchmark', () => {
             schemaVersion: 2,
             generatedAt: new Date().toISOString(),
             gitCommit: process.env.GITHUB_SHA ?? 'working-tree',
-            runtime: 'browser-onnx',
+            runtime: 'browser (see each result for actual provider)',
             iterations: Math.max(
               1,
               Number.parseInt(process.env.VARVE_BGREMOVAL_BENCH_ITERATIONS ?? '1', 10) || 1,
