@@ -139,7 +139,7 @@ export function RadioGroup<V extends string>({
       aria-labelledby={labelId}
       aria-orientation={orientation === 'horizontal' ? 'horizontal' : 'vertical'}
       aria-describedby={describedBy}
-      aria-invalid={error ? true : undefined}
+      aria-invalid={error ? 'true' : undefined}
     >
       <legend id={labelId} className="varve-radio-group__legend">
         {label}

@@ -421,7 +421,7 @@ export function Select({
         aria-required={required || undefined}
         aria-label={triggerLabel}
         aria-labelledby={ariaLabelledBy}
-        aria-invalid={error ? true : undefined}
+        aria-invalid={error ? 'true' : undefined}
         aria-describedby={describedBy}
         className={`varve-select__trigger${error ? ' varve-select__trigger--error' : ''}${disabled ? ' varve-select__trigger--disabled' : ''}${hasStaleValue ? ' varve-select__trigger--stale' : ''}`}
         onClick={() => (open ? closeListbox() : openListbox())}

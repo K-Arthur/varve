@@ -348,7 +348,7 @@ export function MultiSelect({
         aria-label={ariaLabel ?? label}
         aria-labelledby={ariaLabelledBy}
         aria-describedby={describedBy}
-        aria-invalid={error ? true : undefined}
+        aria-invalid={error ? 'true' : undefined}
         className={`varve-multi-select__trigger${error ? ' varve-multi-select__trigger--error' : ''}`}
         onClick={() => (open ? close() : setOpen(true))}
         onKeyDown={handleKeyDown}

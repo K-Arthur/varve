@@ -43,16 +43,16 @@ export type { ContentSkeletonProps } from './ContentSkeleton';
 export { ContentSkeleton } from './ContentSkeleton';
 export type { CopyButtonProps } from './CopyButton';
 export { CopyButton } from './CopyButton';
+export type { DeterminateProgressProps } from './DeterminateProgress';
+export { DeterminateProgress } from './DeterminateProgress';
+export type { AlertDialogProps, DialogProps } from './Dialog';
+export { AlertDialog, Dialog } from './Dialog';
 export type {
   DisclosureContentProps,
   DisclosureProps,
   DisclosureTriggerProps,
 } from './Disclosure';
 export { Disclosure, DisclosureContent, DisclosureTrigger } from './Disclosure';
-export type { DeterminateProgressProps } from './DeterminateProgress';
-export { DeterminateProgress } from './DeterminateProgress';
-export type { AlertDialogProps, DialogProps } from './Dialog';
-export { AlertDialog, Dialog } from './Dialog';
 export type { EmptyStateProps } from './EmptyState';
 export { EmptyState } from './EmptyState';
 export type { FileDropZoneProps } from './FileDropZone';
@@ -71,6 +71,15 @@ export type { IconButtonProps } from './IconButton';
 export { IconButton } from './IconButton';
 export type { InlineActivityIndicatorProps } from './InlineActivityIndicator';
 export { InlineActivityIndicator } from './InlineActivityIndicator';
+export { Field, FieldControl, FieldDescription, FieldError, FieldLabel } from './Field';
+export type {
+  FieldControlProps,
+  FieldDescriptionProps,
+  FieldErrorProps,
+  FieldLabelProps,
+  FieldProps,
+} from './Field';
+export { useFieldIds } from './Field';
 export type { InputProps } from './Input';
 export { Input } from './Input';
 export type {

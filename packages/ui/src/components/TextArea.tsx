@@ -1,4 +1,5 @@
-import { forwardRef, type TextareaHTMLAttributes, useId, useState } from 'react';
+import { forwardRef, type TextareaHTMLAttributes, useState } from 'react';
+import { useFieldIds } from './Field';
 
 export interface TextAreaProps extends Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'size'> {
   label?: string;
@@ -13,10 +14,7 @@ export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(function 
   { label, error, hint, size = 'md', maxLength, id, className = '', disabled, value, ...rest },
   ref,
 ) {
-  const generatedId = useId();
-  const inputId = id || generatedId;
-  const errorId = `${inputId}-error`;
-  const hintId = `${inputId}-hint`;
+  const { id: inputId, errorId, hintId, mergeDescribedBy } = useFieldIds(id);
   const [focused, setFocused] = useState(false);
 
   const classes = [
@@ -30,8 +28,7 @@ export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(function 
     .filter(Boolean)
     .join(' ');
 
-  const describedBy =
-    [error ? errorId : null, hint ? hintId : null].filter(Boolean).join(' ') || undefined;
+  const describedBy = mergeDescribedBy(rest['aria-describedby'], error ? errorId : undefined, hint ? hintId : undefined);
   const currentLength = typeof value === 'string' ? value.length : 0;
 
   return (
@@ -47,7 +44,7 @@ export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(function 
         className="varve-textarea__field"
         disabled={disabled}
         maxLength={maxLength}
-        aria-invalid={error ? true : undefined}
+        aria-invalid={error ? 'true' : undefined}
         aria-describedby={describedBy}
         value={value}
         onFocus={(e) => {

@@ -1,5 +1,5 @@
 import type { ChangeEvent, SelectHTMLAttributes } from 'react';
-import { useId } from 'react';
+import { useFieldIds } from './Field';
 import type { SelectOption, SelectOptionGroup } from './Select';
 
 export interface NativeSelectProps
@@ -32,18 +32,12 @@ export function NativeSelect({
   disabled,
   ...selectProps
 }: NativeSelectProps) {
-  const generatedId = useId().replace(/:/g, '');
-  const controlId = id ?? `varve-native-select-${generatedId}`;
-  const descriptionId = `${controlId}-description`;
-  const errorId = `${controlId}-error`;
-  const describedBy =
-    [
-      selectProps['aria-describedby'],
-      description ? descriptionId : undefined,
-      error ? errorId : undefined,
-    ]
-      .filter(Boolean)
-      .join(' ') || undefined;
+  const { id: controlId, errorId, descriptionId, mergeDescribedBy } = useFieldIds(id);
+  const describedBy = mergeDescribedBy(
+    selectProps['aria-describedby'],
+    description ? descriptionId : undefined,
+    error ? errorId : undefined,
+  );
   const handleChange = (event: ChangeEvent<HTMLSelectElement>) => {
     (onValueChange ?? onChange)?.(event.target.value);
   };
@@ -59,7 +53,7 @@ export function NativeSelect({
         value={value}
         defaultValue={defaultValue}
         disabled={disabled}
-        aria-invalid={error ? true : undefined}
+        aria-invalid={error ? 'true' : undefined}
         aria-describedby={describedBy}
         className={`varve-native-select__control${error ? ' varve-native-select__control--error' : ''}`}
         onChange={handleChange}

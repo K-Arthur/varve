@@ -187,7 +187,7 @@ export function Combobox({
           aria-activedescendant={
             highlightedIdx >= 0 ? `${listboxId}-option-${highlightedIdx}` : undefined
           }
-          aria-invalid={error ? true : undefined}
+          aria-invalid={error ? 'true' : undefined}
           aria-describedby={error ? errorId : undefined}
           placeholder={placeholder}
           disabled={disabled}

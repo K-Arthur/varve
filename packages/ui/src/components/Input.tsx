@@ -1,4 +1,5 @@
-import { forwardRef, type InputHTMLAttributes, useId, useState } from 'react';
+import { forwardRef, type InputHTMLAttributes, useState } from 'react';
+import { useFieldIds } from './Field';
 
 export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size' | 'prefix'> {
   label?: string;
@@ -15,10 +16,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   { label, error, hint, size = 'md', prefix, suffix, id, className = '', disabled, ...rest },
   ref,
 ) {
-  const generatedId = useId();
-  const inputId = id || generatedId;
-  const errorId = `${inputId}-error`;
-  const hintId = `${inputId}-hint`;
+  const { id: inputId, errorId, hintId, mergeDescribedBy } = useFieldIds(id);
   const [focused, setFocused] = useState(false);
 
   const classes = [
@@ -34,8 +32,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
     .filter(Boolean)
     .join(' ');
 
-  const describedBy =
-    [error ? errorId : null, hint ? hintId : null].filter(Boolean).join(' ') || undefined;
+  const describedBy = mergeDescribedBy(rest['aria-describedby'], error ? errorId : undefined, hint ? hintId : undefined);
 
   return (
     <div className={classes}>
