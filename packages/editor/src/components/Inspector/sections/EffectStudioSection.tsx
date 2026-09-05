@@ -22,7 +22,7 @@ import {
   makeSmartFilter,
   type SceneNode,
 } from '@varve/scene';
-import { SOLID_CHROME_ICONS, SolidIcon } from '@varve/ui';
+import { SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { EffectStudioComparison } from '../../EffectStudio/EffectStudioComparison';
@@ -1060,24 +1060,26 @@ export function EffectStudioSection({
                               </small>
                             </span>
                             <span className="effect-studio__reorder-actions">
-                              <button
-                                type="button"
-                                disabled={index === 0}
-                                onClick={() => moveStackEffect(filter, -1)}
-                                aria-label={`Move ${effectDisplayName(filter.kind)} up`}
-                                title="Move this individual filter and customize its named recipe."
-                              >
-                                <SolidIcon name={SOLID_CHROME_ICONS.chevronUp} size="0.65em" />
-                              </button>
-                              <button
-                                type="button"
-                                disabled={index === filters.length - 1}
-                                onClick={() => moveStackEffect(filter, 1)}
-                                aria-label={`Move ${effectDisplayName(filter.kind)} down`}
-                                title="Move this individual filter and customize its named recipe."
-                              >
-                                <SolidIcon name={SOLID_CHROME_ICONS.chevronDown} size="0.65em" />
-                              </button>
+                              <Tooltip label="Move up to customize">
+                                <button
+                                  type="button"
+                                  disabled={index === 0}
+                                  onClick={() => moveStackEffect(filter, -1)}
+                                  aria-label={`Move ${effectDisplayName(filter.kind)} up`}
+                                >
+                                  <SolidIcon name={SOLID_CHROME_ICONS.chevronUp} size="0.65em" />
+                                </button>
+                              </Tooltip>
+                              <Tooltip label="Move down to customize">
+                                <button
+                                  type="button"
+                                  disabled={index === filters.length - 1}
+                                  onClick={() => moveStackEffect(filter, 1)}
+                                  aria-label={`Move ${effectDisplayName(filter.kind)} down`}
+                                >
+                                  <SolidIcon name={SOLID_CHROME_ICONS.chevronDown} size="0.65em" />
+                                </button>
+                              </Tooltip>
                             </span>
                             {filter.visible === false && <small className="is-muted">Hidden</small>}
                           </li>
