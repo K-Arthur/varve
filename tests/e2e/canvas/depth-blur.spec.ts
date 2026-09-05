@@ -63,6 +63,38 @@ function installWorkerStub() {
   `;
 }
 
+/**
+ * The worker is stubbed below, so the test only needs a model-shaped entry in
+ * IndexedDB. CI serves the real manifest, whose checksum correctly rejects
+ * the 1-byte placeholder. Remove the checksum for this one synthetic model
+ * while preserving every other manifest field and model's production checks.
+ */
+function installSyntheticManifestStub() {
+  return `
+    (() => {
+      const realFetch = window.fetch.bind(window);
+      window.fetch = async (input, init) => {
+        const url = input instanceof Request ? input.url : String(input);
+        if (new URL(url, window.location.href).pathname !== '/models/manifest.json') {
+          return realFetch(input, init);
+        }
+        const response = await realFetch(input, init);
+        if (!response.ok) return response;
+        const manifest = await response.clone().json();
+        const depthModel = manifest.models?.find(
+          (model) => model.id === '${DEPTH_MODEL_ID}',
+        );
+        if (depthModel) depthModel.sha256 = null;
+        return new Response(JSON.stringify(manifest), {
+          status: response.status,
+          statusText: response.statusText,
+          headers: { 'content-type': 'application/json' },
+        });
+      };
+    })();
+  `;
+}
+
 function seedModelStore() {
   return `
     (() => {
@@ -93,7 +125,6 @@ function seedModelStore() {
         };
       };
       window.__varveSeedDepthModel = put;
-      void put();
     })();
   `;
 }
@@ -176,6 +207,7 @@ async function openDepthBlurSection(page: import('@playwright/test').Page) {
 test.describe('Depth Blur workflow', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(installWorkerStub);
+    await page.addInitScript(installSyntheticManifestStub);
     await page.addInitScript(seedModelStore);
     await navigateWithSeededModel(page);
   });
