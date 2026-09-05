@@ -974,6 +974,33 @@ export type FilterIR =
   | { kind: 'invert'; value: number; opacity: number; blendMode: string }
   | { kind: 'opacity'; value: number; opacity: number; blendMode: string }
   | { kind: 'blur'; radius: number; opacity: number; blendMode: string }
+  | { kind: 'motionBlur'; distance: number; angle: number; opacity: number; blendMode: string }
+  | {
+      kind: 'mosaic';
+      blockSize: number;
+      originX: number;
+      originY: number;
+      opacity: number;
+      blendMode: string;
+    }
+  | {
+      kind: 'surfaceSmooth';
+      radius: number;
+      sensitivity: number;
+      opacity: number;
+      blendMode: string;
+    }
+  | {
+      kind: 'edgeInk';
+      radius: number;
+      threshold: number;
+      softness: number;
+      foregroundColor: readonly [number, number, number];
+      backgroundColor: readonly [number, number, number];
+      transparentBackground: boolean;
+      opacity: number;
+      blendMode: string;
+    }
   | {
       kind: 'sharpen';
       amount: number;
