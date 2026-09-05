@@ -1,7 +1,15 @@
 import { useDroppable } from '@dnd-kit/core';
 import type { SavedSearch } from '@varve/platform';
 import type { SolidIconName } from '@varve/ui';
-import { SearchField, SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
+import {
+  Disclosure,
+  DisclosureContent,
+  DisclosureTrigger,
+  SearchField,
+  SOLID_CHROME_ICONS,
+  SolidIcon,
+  Tooltip,
+} from '@varve/ui';
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 export interface SidebarEntry {
@@ -45,23 +53,6 @@ const SECTION_LEADER_IDS = new Set([
   'activity',
   'trash',
 ]);
-
-function ChevronIcon({ collapsed }: { collapsed: boolean }) {
-  return (
-    // The rotation transition lives in home.css so the reduced-motion media
-    // query can disable it. An inline transition could not be overridden by
-    // CSS, so it animated even under prefers-reduced-motion: reduce.
-    <span
-      className="sidebar-section__chevron"
-      style={{
-        transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
-        display: 'inline-flex',
-      }}
-    >
-      <SolidIcon name={SOLID_CHROME_ICONS.chevronDown} label={undefined} size="0.75em" />
-    </span>
-  );
-}
 
 function SidebarProjectRow({
   entry,
@@ -144,20 +135,8 @@ export function SidebarNav({
   searchResultCount,
 }: SidebarNavProps) {
   const [focusIdx, setFocusIdx] = useState(0);
-  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const navRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLElement | null)[]>([]);
-
-  const toggleSection = useCallback((id: string) => {
-    setCollapsedSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
-
-  const isCollapsed = useCallback((id: string) => collapsedSections.has(id), [collapsedSections]);
 
   useEffect(() => {
     const idx = entries.findIndex((e) => e.id === activeId);
@@ -296,41 +275,36 @@ export function SidebarNav({
       {/* Projects section — collapsible because it can contain multiple items */}
       {projectEntries.length > 0 && (
         <div className="sidebar-group">
-          <div className="sidebar-group__header">
-            <button
-              type="button"
-              className="sidebar-section__header"
-              onClick={() => toggleSection('projects')}
-              aria-expanded={!isCollapsed('projects')}
-              aria-controls="sidebar-projects-list"
-            >
-              <ChevronIcon collapsed={isCollapsed('projects')} />
-              <span>Projects</span>
-              <span className="sidebar-section__count">
-                {getCount('projects') > 0 ? getCount('projects') : projectEntries.length}
-              </span>
-            </button>
-            {onCreateProject && (
-              <Tooltip label="New project">
-                <button
-                  type="button"
-                  className="sidebar-group__add"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onCreateProject();
-                  }}
-                  aria-label="New project"
-                >
-                  <SolidIcon name={SOLID_CHROME_ICONS.plus} label={undefined} size="0.85em" />
-                </button>
-              </Tooltip>
-            )}
-          </div>
-          {!isCollapsed('projects') && (
-            <div id="sidebar-projects-list">
-              {projectEntries.map((entry) => renderEntry(entry, entries.indexOf(entry), true))}
+          <Disclosure defaultOpen>
+            <div className="sidebar-group__header">
+              <DisclosureTrigger className="sidebar-section__header" hideIndicator={false}>
+                <span>Projects</span>
+                <span className="sidebar-section__count">
+                  {getCount('projects') > 0 ? getCount('projects') : projectEntries.length}
+                </span>
+              </DisclosureTrigger>
+              {onCreateProject && (
+                <Tooltip label="New project">
+                  <button
+                    type="button"
+                    className="sidebar-group__add"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCreateProject();
+                    }}
+                    aria-label="New project"
+                  >
+                    <SolidIcon name={SOLID_CHROME_ICONS.plus} label={undefined} size="0.85em" />
+                  </button>
+                </Tooltip>
+              )}
             </div>
-          )}
+            <DisclosureContent>
+              <div id="sidebar-projects-list">
+                {projectEntries.map((entry) => renderEntry(entry, entries.indexOf(entry), true))}
+              </div>
+            </DisclosureContent>
+          </Disclosure>
         </div>
       )}
 
