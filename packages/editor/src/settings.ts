@@ -49,6 +49,8 @@ export interface PanelSettingsStore {
   rightPanelWidth: number | null;
   /** Logo panel visibility (persisted across sessions). */
   logoPanelVisible: boolean;
+  /** Minimap visibility (global view preference, independent of workspace panels). */
+  minimapVisible: boolean;
 }
 
 export interface AppearanceSettingsStore {
@@ -243,6 +245,7 @@ export const DEFAULT_PANEL_SETTINGS: PanelSettingsStore = {
   leftPanelWidth: null,
   rightPanelWidth: null,
   logoPanelVisible: false,
+  minimapVisible: true,
 };
 
 export const DEFAULT_RENDER_SETTINGS: RenderSettingsStore = {

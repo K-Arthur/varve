@@ -20,6 +20,7 @@ describe('loadSettings', () => {
     expect(s.render.memoryBudget).toBe('medium');
     expect(s.performance.reducedMotionOverride).toBe('system');
     expect(s.performance.showPerformanceDiagnostics).toBe(false);
+    expect(s.panel.minimapVisible).toBe(true);
     expect(s.privacy.usageAnalytics).toBe('unknown');
     expect(s.privacy.diagnostics).toBe('unknown');
   });
@@ -138,6 +139,14 @@ describe('loadSettings', () => {
   it('sanitizes unknown persisted theme preferences to System', () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ appearance: { theme: 'sepia' } }));
     expect(loadSettings().appearance.theme).toBe('system');
+  });
+
+  it('preserves the minimap view preference and recovers missing legacy values', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ panel: { minimapVisible: false } }));
+    expect(loadSettings().panel.minimapVisible).toBe(false);
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ panel: { leftPanelVisible: false } }));
+    expect(loadSettings().panel.minimapVisible).toBe(true);
   });
 });
 

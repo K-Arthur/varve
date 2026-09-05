@@ -147,6 +147,7 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
   'menu.view.toggleGraphEditor': 'Graph Editor',
   'menu.view.toggleStateMachinePanel': 'State Machine Panel',
   'menu.view.toggleLogoPanel': 'Logo Panel',
+  'menu.view.toggleMinimap': 'Minimap',
   'menu.view.distractionFree': 'Distraction-Free Mode',
   'menu.view.softProof': 'Soft Proof',
   'menu.view.beforeAfterCompare': 'Before/After Compare',

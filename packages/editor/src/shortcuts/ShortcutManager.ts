@@ -326,6 +326,11 @@ export const SHORTCUT_DEFS = {
     label: 'Toggle Inspector Panel',
     category: 'View',
   },
+  toggleMinimap: {
+    binding: { key: 'm', ctrl: true, shift: true },
+    label: 'Toggle Minimap',
+    category: 'View',
+  },
   toggleLibraryPanel: {
     binding: { key: 'l', ctrl: true, alt: true },
     label: 'Toggle Library Panel',

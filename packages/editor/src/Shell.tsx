@@ -638,7 +638,7 @@ function ShellInner({
           >
             <ErrorBoundary>
               <PresenceIndicator presences={collabPresences} />
-              <MinimapPanel />
+              <MinimapPanel canvasOwnerRef={canvasContainerRef} />
               <MasterPanel />
               {pageSurfaceVisibility.showPagesPanel && <PagesPanel />}
               <SpreadSettings />

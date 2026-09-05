@@ -763,6 +763,7 @@ export function createActionHandlers(
     toggleLibraryPanel: () => e.toggleLibraryPanel(),
     toggleCodegenPanel: () => e.toggleCodegenPanel(),
     toggleLogoPanel: () => e.toggleLogoPanel(),
+    toggleMinimap: () => e.toggleMinimap(),
     toggleTimelinePanel: () => e.toggleTimelinePanel(),
     toggleHistoryPanel: () => e.toggleHistoryPanel(),
     restoreAllPanels: () => e.restoreAllPanels(),

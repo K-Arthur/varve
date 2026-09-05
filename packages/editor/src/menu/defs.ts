@@ -1059,6 +1059,14 @@ export function getViewMenu(
       run: () => runAction('toggleLogoPanel'),
     },
     {
+      id: 'toggleMinimap',
+      labelKey: 'menu.view.toggleMinimap',
+      accelerator: acceleratorFor('toggleMinimap'),
+      kind: 'command',
+      group: 'panels',
+      run: () => runAction('toggleMinimap'),
+    },
+    {
       id: 'bringAllPanelsToCurrentDisplay',
       labelKey: 'menu.view.bringAllPanelsToCurrentDisplay',
       kind: 'command',

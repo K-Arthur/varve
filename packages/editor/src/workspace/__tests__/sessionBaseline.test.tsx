@@ -94,6 +94,19 @@ describe('session baseline: panel visibility persistence', () => {
     expect(loadSettings().panel.leftPanelVisible).toBe(true);
     expect(loadSettings().panel.rightPanelVisible).toBe(false);
   });
+
+  it('toggleMinimap persists independently of workspace panel visibility', async () => {
+    const getCtx = mountEditor();
+    await waitFor(() => expect(getCtx().state.minimapVisible).toBe(true));
+
+    act(() => getCtx().toggleMinimap());
+    expect(getCtx().state.minimapVisible).toBe(false);
+    expect(getCtx().state.leftPanelVisible).toBe(true);
+    expect(loadSettings().panel.minimapVisible).toBe(false);
+
+    act(() => getCtx().toggleMinimap());
+    expect(loadSettings().panel.minimapVisible).toBe(true);
+  });
 });
 
 describe('session baseline: multi-document switching', () => {
