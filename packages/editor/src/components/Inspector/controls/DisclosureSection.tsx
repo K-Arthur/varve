@@ -11,7 +11,16 @@
  * - Registry (with sectionId): centralized EditorState + localStorage persistence
  *   with hide/show support, context menu, and management UI integration.
  */
-import { ContextMenu, Icon, type OverlayAnchor, pointAnchor, viewportPoint } from '@varve/ui';
+import {
+  ContextMenu,
+  Disclosure,
+  DisclosureContent,
+  DisclosureTrigger,
+  Icon,
+  type OverlayAnchor,
+  pointAnchor,
+  viewportPoint,
+} from '@varve/ui';
 import type { ReactNode } from 'react';
 import { useCallback, useId, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
@@ -82,7 +91,7 @@ export function DisclosureSection({
 
   // ── Legacy mode: local state + sessionStorage ──
   return (
-    <LegacyDisclosure slug={slug} title={title} panelId={panelId} defaultExpanded={defaultExpanded}>
+    <LegacyDisclosure slug={slug} title={title} defaultExpanded={defaultExpanded}>
       {children}
     </LegacyDisclosure>
   );
@@ -197,54 +206,35 @@ function RegistryDisclosure({
 
 // ---------------------------------------------------------------------------
 // Legacy mode — local state + sessionStorage (backward-compatible)
+// Uses the shared Disclosure primitive from @varve/ui for consistent
+// accessibility and visual treatment.
 // ---------------------------------------------------------------------------
 
 function LegacyDisclosure({
   slug,
   title,
-  panelId,
   defaultExpanded,
   children,
 }: {
   slug: string;
   title: string;
-  panelId: string;
   defaultExpanded: boolean;
   children: ReactNode;
 }) {
   const [expanded, setExpanded] = useState<boolean>(() => readStored(slug, defaultExpanded));
 
-  const toggle = useCallback(() => {
-    setExpanded((prev) => {
-      const next = !prev;
+  const handleOpenChange = useCallback(
+    (next: boolean) => {
+      setExpanded(next);
       writeStored(slug, next);
-      return next;
-    });
-  }, [slug]);
+    },
+    [slug],
+  );
 
   return (
-    <section className="insp-disclosure">
-      <button
-        type="button"
-        className="insp-disclosure__trigger"
-        aria-expanded={expanded}
-        aria-controls={panelId}
-        onClick={toggle}
-      >
-        <Icon
-          name="ChevronRight"
-          label={undefined}
-          className="insp-disclosure__chevron"
-          size="0.9em"
-        />
-        <span>{title}</span>
-      </button>
-      {expanded && (
-        <fieldset className="insp-disclosure__content" id={panelId}>
-          <legend className="sr-only">{title}</legend>
-          {children}
-        </fieldset>
-      )}
-    </section>
+    <Disclosure open={expanded} onOpenChange={handleOpenChange} className="insp-disclosure">
+      <DisclosureTrigger className="insp-disclosure__trigger">{title}</DisclosureTrigger>
+      <DisclosureContent className="insp-disclosure__content">{children}</DisclosureContent>
+    </Disclosure>
   );
 }
