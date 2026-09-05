@@ -98,6 +98,24 @@ describe('IntelligencePanel — Audit tab', () => {
   });
 });
 
+describe('IntelligencePanel — tab semantics', () => {
+  it('keeps the More menu trigger outside the tablist and labels the active panel', () => {
+    render(
+      <EditorProvider>
+        <IntelligencePanel initialTab="similar" />
+      </EditorProvider>,
+    );
+
+    const tablist = screen.getByRole('tablist', { name: 'Intelligence tabs' });
+    const moreTrigger = screen.getByRole('button', { name: /more intelligence tabs/i });
+    const panel = screen.getByRole('tabpanel');
+
+    expect(tablist).not.toContainElement(moreTrigger);
+    expect(panel).toHaveAttribute('aria-labelledby', moreTrigger.id);
+    expect(panel.id).toBe(moreTrigger.getAttribute('aria-controls') ?? panel.id);
+  });
+});
+
 describe('IntelligencePanel — Naming tab', () => {
   it('suggests names for a non-image selection without touching the classification model', async () => {
     render(

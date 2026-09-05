@@ -62,7 +62,15 @@ import {
   type SuppressionEntry,
 } from '@varve/scene';
 import { Icon, Menu, type MenuEntry, Switch, Tooltip } from '@varve/ui';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type KeyboardEvent,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { AuditWorkerPool, type ScanProgress } from '../audit/auditWorker';
 import { useEditor } from '../context';
 import type { IntelligenceTab } from '../context/types';
@@ -158,6 +166,8 @@ export function IntelligencePanel({ initialTab }: { initialTab?: ExtendedTab } =
   const { primaryTabs, moreGroups } = useWorkspaceTabs();
   const [tab, setTab] = useState<ExtendedTab>(initialTab ?? primaryTabs[0] ?? 'review');
   const [showMore, setShowMore] = useState(false);
+  const tabIdPrefix = useId();
+  const primaryTabRefs = useRef(new Map<ExtendedTab, HTMLButtonElement>());
   const moreTriggerRef = useRef<HTMLButtonElement>(null);
 
   const allMoreTabs = moreGroups.flatMap((g) => g.tabs);
@@ -178,50 +188,73 @@ export function IntelligencePanel({ initialTab }: { initialTab?: ExtendedTab } =
     [moreGroups],
   );
 
+  const handlePrimaryTabKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+      if (primaryTabs.length === 0) return;
+      let nextIndex: number | undefined;
+      if (event.key === 'ArrowRight') nextIndex = (index + 1) % primaryTabs.length;
+      else if (event.key === 'ArrowLeft')
+        nextIndex = (index - 1 + primaryTabs.length) % primaryTabs.length;
+      else if (event.key === 'Home') nextIndex = 0;
+      else if (event.key === 'End') nextIndex = primaryTabs.length - 1;
+      else return;
+
+      event.preventDefault();
+      const nextTab = primaryTabs[nextIndex];
+      if (!nextTab) return;
+      setTab(nextTab);
+      primaryTabRefs.current.get(nextTab)?.focus({ preventScroll: true });
+    },
+    [primaryTabs],
+  );
+
+  const activePanelId = `${tabIdPrefix}-panel-${tab}`;
+  const activeTabId = primaryTabs.includes(tab)
+    ? `${tabIdPrefix}-tab-${tab}`
+    : `${tabIdPrefix}-more`;
+
   return (
     <div className="intelligence-panel">
-      <div className="intelligence-tabs" role="tablist" aria-label="Intelligence tabs">
-        {primaryTabs.map((t) => (
-          <button
-            type="button"
-            key={t}
-            role="tab"
-            className="intelligence-tab"
-            aria-selected={tab === t}
-            onClick={() => setTab(t)}
-          >
-            {t === 'review' && <Icon name="ShieldCheck" label={undefined} size="0.9em" />}
-            {t === 'audit' && <Icon name="Lightbulb" label={undefined} size="0.9em" />}
-            {t}
-          </button>
-        ))}
-        {moreLabel ? (
-          <button
-            type="button"
-            ref={moreTriggerRef}
-            role="tab"
-            className="intelligence-tab intelligence-tab--active"
-            aria-selected
-            aria-haspopup="menu"
-            aria-expanded={showMore}
-            onClick={() => setShowMore((s) => !s)}
-          >
-            {moreLabel}
-          </button>
-        ) : (
-          <button
-            type="button"
-            ref={moreTriggerRef}
-            role="tab"
-            className="intelligence-tab"
-            aria-selected={showMore}
-            aria-haspopup="menu"
-            aria-expanded={showMore}
-            onClick={() => setShowMore((s) => !s)}
-          >
-            More
-          </button>
-        )}
+      <div className="intelligence-tabs-row">
+        <div className="intelligence-tabs" role="tablist" aria-label="Intelligence tabs">
+          {primaryTabs.map((t, index) => (
+            <button
+              type="button"
+              key={t}
+              id={`${tabIdPrefix}-tab-${t}`}
+              role="tab"
+              className="intelligence-tab"
+              aria-selected={tab === t}
+              aria-controls={`${tabIdPrefix}-panel-${t}`}
+              tabIndex={tab === t || (!primaryTabs.includes(tab) && index === 0) ? 0 : -1}
+              onKeyDown={(event) => handlePrimaryTabKeyDown(event, index)}
+              onClick={() => setTab(t)}
+              ref={(element) => {
+                if (element) primaryTabRefs.current.set(t, element);
+                else primaryTabRefs.current.delete(t);
+              }}
+            >
+              {t === 'review' && <Icon name="ShieldCheck" label={undefined} size="0.9em" />}
+              {t === 'audit' && <Icon name="Lightbulb" label={undefined} size="0.9em" />}
+              {t}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          id={`${tabIdPrefix}-more`}
+          ref={moreTriggerRef}
+          className={`intelligence-tab intelligence-more-trigger${moreLabel ? ' intelligence-tab--active' : ''}`}
+          aria-label={
+            moreLabel ? `${moreLabel} (More intelligence tabs)` : 'More intelligence tabs'
+          }
+          aria-controls={moreLabel ? activePanelId : undefined}
+          aria-haspopup="menu"
+          aria-expanded={showMore}
+          onClick={() => setShowMore((s) => !s)}
+        >
+          {moreLabel ?? 'More'}
+        </button>
       </div>
       <Menu
         triggerRef={moreTriggerRef}
@@ -231,17 +264,26 @@ export function IntelligencePanel({ initialTab }: { initialTab?: ExtendedTab } =
         items={moreMenuItems}
       />
 
-      {tab === 'review' && <ReviewTab />}
-      {tab === 'audit' && <AuditTab />}
-      {tab === 'spacing' && <SpacingTab />}
-      {tab === 'naming' && <NamingTab />}
-      {tab === 'governance' && <GovernanceTab />}
-      {tab === 'debt' && <DebtTab />}
-      {tab === 'prototype' && <PrototypeTab />}
-      {tab === 'layout' && <LayoutTab />}
-      {tab === 'components' && <ComponentsTab />}
-      {tab === 'similar' && <SimilarTab />}
-      {tab === 'linter' && <LinterTab />}
+      <div
+        id={activePanelId}
+        role="tabpanel"
+        aria-labelledby={activeTabId}
+        // biome-ignore lint/a11y/noNoninteractiveTabindex: APG pattern — tabpanel is a focus target
+        tabIndex={0}
+        className="intelligence-tabpanel"
+      >
+        {tab === 'review' && <ReviewTab />}
+        {tab === 'audit' && <AuditTab />}
+        {tab === 'spacing' && <SpacingTab />}
+        {tab === 'naming' && <NamingTab />}
+        {tab === 'governance' && <GovernanceTab />}
+        {tab === 'debt' && <DebtTab />}
+        {tab === 'prototype' && <PrototypeTab />}
+        {tab === 'layout' && <LayoutTab />}
+        {tab === 'components' && <ComponentsTab />}
+        {tab === 'similar' && <SimilarTab />}
+        {tab === 'linter' && <LinterTab />}
+      </div>
     </div>
   );
 }
