@@ -49,6 +49,35 @@ describe('curvesPointsToCurvePoints / curvePointsToCurvesPoints', () => {
   });
 });
 
+describe('AdjustmentEditor — spatial additions', () => {
+  it.each([
+    ['motionBlur', 'Distance'],
+    ['mosaic', 'Block size'],
+    ['surfaceSmooth', 'Edge sensitivity'],
+    ['edgeInk', 'Threshold'],
+  ] as const)('renders a real control for %s', (kind, label) => {
+    const adjustment =
+      kind === 'motionBlur'
+        ? { ...base, kind, distance: 16, angle: 0 }
+        : kind === 'mosaic'
+          ? { ...base, kind, blockSize: 12, originX: 0, originY: 0 }
+          : kind === 'surfaceSmooth'
+            ? { ...base, kind, radius: 3, sensitivity: 24 }
+            : {
+                ...base,
+                kind,
+                radius: 1,
+                threshold: 0.15,
+                softness: 0.15,
+                foregroundColor: [20, 30, 40] as const,
+                backgroundColor: [250, 248, 240] as const,
+                transparentBackground: false,
+              };
+    render(<AdjustmentEditor adjustment={adjustment} onChange={vi.fn()} />);
+    expect(screen.getByRole('slider', { name: label })).toBeInTheDocument();
+  });
+});
+
 describe('AdjustmentEditor — curves', () => {
   it('renders the interactive CurveEditor (not the old raw number inputs)', () => {
     render(

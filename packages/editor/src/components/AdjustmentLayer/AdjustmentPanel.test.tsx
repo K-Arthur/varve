@@ -141,6 +141,21 @@ describe('AdjustmentPanel', () => {
     expect(screen.getByRole('spinbutton', { name: 'Opacity' })).toHaveValue('1');
   });
 
+  it('captures a discrete adjustment edit as one undoable history step', async () => {
+    const user = userEvent.setup();
+    renderHarness();
+    await user.click(screen.getByText('Create adjustment layer'));
+    await user.click(screen.getByRole('button', { name: /add adjustment/i }));
+    await user.click(screen.getByRole('menuitem', { name: 'Brightness' }));
+
+    fireEvent.change(screen.getByRole('slider', { name: 'Brightness' }), {
+      target: { value: '40' },
+    });
+    expect(screen.getByRole('slider', { name: 'Brightness' })).toHaveValue('40');
+    await user.click(screen.getByRole('button', { name: 'Undo' }));
+    expect(screen.getByRole('slider', { name: 'Brightness' })).toHaveValue('0');
+  });
+
   it('duplicates and reorders effects in the stack', async () => {
     const user = userEvent.setup();
     renderHarness();

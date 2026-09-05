@@ -645,7 +645,13 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
         const minY = Math.min(...worldCorners.map(([, y]) => y));
         const maxX = Math.max(...worldCorners.map(([x]) => x));
         const maxY = Math.max(...worldCorners.map(([, y]) => y));
-        const [expL, expT, expR, expB] = totalEffectExpansion(smartFilters);
+        // Spatial object filters are authored in local units. Convert their
+        // support to the document capture axes before allocating the surface;
+        // otherwise a scaled frame can clip its blur or contour fringe.
+        // Frobenius norm is a conservative upper bound for anisotropic/sheared
+        // transforms, so no axis can outrun the allocated support.
+        const objectScale = Math.max(0.01, Math.hypot(a, b, c, d));
+        const [expL, expT, expR, expB] = totalEffectExpansion(smartFilters, objectScale);
         const width = Math.max(1, maxX - minX + expL + expR);
         const height = Math.max(1, maxY - minY + expT + expB);
         const renderScale = Math.max(

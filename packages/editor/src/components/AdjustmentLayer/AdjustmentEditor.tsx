@@ -34,6 +34,7 @@ import {
   RgbSplitEditor,
   VhsEditor,
 } from './LiveEffectEditors';
+import { SpatialEffectEditor } from './SpatialEffectEditors';
 import { ThresholdAdjustmentEditor } from './ThresholdAdjustmentEditor';
 import './adjustment.css';
 
@@ -620,6 +621,12 @@ function LegacyAdjustmentEditor({
 
     case 'paletteSnap':
       return <PaletteSnapEditor adjustment={adjustment} onChange={onChange} doc={doc} />;
+
+    case 'motionBlur':
+    case 'mosaic':
+    case 'surfaceSmooth':
+    case 'edgeInk':
+      return <SpatialEffectEditor adjustment={adjustment} onChange={onChange} />;
 
     case 'bloom':
       return <BloomEditor adjustment={adjustment} onChange={onChange} />;

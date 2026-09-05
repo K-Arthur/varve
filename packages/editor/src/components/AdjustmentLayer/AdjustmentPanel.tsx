@@ -61,6 +61,7 @@ export function AdjustmentPanel() {
     state,
     updateNode,
     beginTransaction,
+    abortTransaction,
     commitTransaction,
     reorderAdjustmentInLayer,
     setSelectedOpacity,
@@ -101,6 +102,23 @@ export function AdjustmentPanel() {
     commitTransaction();
   }, [commitTransaction]);
 
+  // Range controls keep one gesture transaction open. Discrete actions and
+  // typed values own a short transaction so every edit is undoable and saved.
+  const mutateNode = useCallback<typeof updateNode>(
+    (id, update) => {
+      const ownsTransaction = !editTransactionRef.current;
+      if (ownsTransaction) beginTransaction();
+      try {
+        updateNode(id, update);
+      } catch (error) {
+        if (ownsTransaction) abortTransaction();
+        throw error;
+      }
+      if (ownsTransaction) commitTransaction();
+    },
+    [abortTransaction, beginTransaction, commitTransaction, updateNode],
+  );
+
   useEffect(
     () => () => {
       if (editTransactionRef.current) {
@@ -123,14 +141,14 @@ export function AdjustmentPanel() {
       if (!nodeId) return;
       const newId = cryptoId();
       const adj = makeAdjustment(newId, kind);
-      updateNode(nodeId, (n) => {
+      mutateNode(nodeId, (n) => {
         const an = n as AdjustmentNode;
         return { ...an, adjustments: [...(an.adjustments ?? []), adj] } as SceneNode;
       });
       setSelectedAdjId(newId);
       setShowAddMenu(false);
     },
-    [nodeId, updateNode],
+    [mutateNode, nodeId],
   );
 
   const handleAutoWhiteBalance = useCallback(() => {
@@ -143,32 +161,32 @@ export function AdjustmentPanel() {
       highlights: correction,
       preserveLuminosity: true,
     } as Partial<Adjustment>);
-    updateNode(nodeId, (n) => {
+    mutateNode(nodeId, (n) => {
       if (n.kind !== 'adjustment') return n;
       return { ...n, adjustments: [...(n.adjustments ?? []), auto] } as SceneNode;
     });
     setSelectedAdjId(id);
-  }, [nodeId, sourceHistogram, updateNode]);
+  }, [mutateNode, nodeId, sourceHistogram]);
 
   const applyPreset = useCallback(
     (preset: SurfacePreset) => {
       if (!nodeId) return;
       const additions = presetAdjustments(preset);
       if (additions.length === 0) return;
-      updateNode(nodeId, (n) => {
+      mutateNode(nodeId, (n) => {
         if (n.kind !== 'adjustment') return n;
         return { ...n, adjustments: [...(n.adjustments ?? []), ...additions] } as SceneNode;
       });
       setSelectedAdjId(additions[0]?.id ?? null);
       announce(`Applied correction preset ${preset.name}`);
     },
-    [announce, nodeId, updateNode],
+    [announce, mutateNode, nodeId],
   );
 
   const handleRemoveAdjustment = useCallback(
     (adjId: string) => {
       if (!nodeId) return;
-      updateNode(nodeId, (n) => {
+      mutateNode(nodeId, (n) => {
         const an = n as AdjustmentNode;
         return {
           ...an,
@@ -177,13 +195,13 @@ export function AdjustmentPanel() {
       });
       setSelectedAdjId((cur) => (cur === adjId ? null : cur));
     },
-    [nodeId, updateNode],
+    [mutateNode, nodeId],
   );
 
   const handleUpdateAdjustment = useCallback(
     (adjId: string) => (patch: Partial<Adjustment>) => {
       if (!nodeId) return;
-      updateNode(nodeId, (n) => {
+      mutateNode(nodeId, (n) => {
         const an = n as AdjustmentNode;
         return {
           ...an,
@@ -193,7 +211,7 @@ export function AdjustmentPanel() {
         } as SceneNode;
       });
     },
-    [nodeId, updateNode],
+    [mutateNode, nodeId],
   );
 
   const handleToggleVis = useCallback(
@@ -206,7 +224,7 @@ export function AdjustmentPanel() {
   const handleResetAdjustment = useCallback(
     (adjId: string, kind: AdjustmentKind) => {
       if (!nodeId) return;
-      updateNode(nodeId, (n) => {
+      mutateNode(nodeId, (n) => {
         if (n.kind !== 'adjustment') return n;
         return {
           ...n,
@@ -216,14 +234,14 @@ export function AdjustmentPanel() {
         };
       });
     },
-    [nodeId, updateNode],
+    [mutateNode, nodeId],
   );
 
   const handleDuplicateAdjustment = useCallback(
     (adjId: string) => {
       if (!nodeId) return;
       const duplicateId = cryptoId();
-      updateNode(nodeId, (n) => {
+      mutateNode(nodeId, (n) => {
         if (n.kind !== 'adjustment') return n;
         const adjustments = n.adjustments ?? [];
         const sourceIndex = adjustments.findIndex((adjustment) => adjustment.id === adjId);
@@ -235,7 +253,7 @@ export function AdjustmentPanel() {
       });
       setSelectedAdjId(duplicateId);
     },
-    [nodeId, updateNode],
+    [mutateNode, nodeId],
   );
 
   const closeAddMenu = useCallback(() => {
@@ -293,7 +311,7 @@ export function AdjustmentPanel() {
         doc={state.document}
         scope={adjNode.scope}
         onChangeScope={(s) => {
-          updateNode(nodeId!, (n) => {
+          mutateNode(nodeId!, (n) => {
             if (n.kind !== 'adjustment') return n;
             return { ...n, scope: s } as SceneNode;
           });
