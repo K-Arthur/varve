@@ -56,6 +56,8 @@
   padding: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-color: var(--color-border-strong) transparent;
+  scrollbar-width: thin;
   scrollbar-gutter: stable;
   list-style: none;
 }

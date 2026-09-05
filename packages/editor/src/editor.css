@@ -1874,6 +1874,8 @@ input[type="number"] {
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
+  scrollbar-color: var(--color-border-strong) transparent;
+  scrollbar-width: thin;
   background: var(--color-surface-raised);
   border-right: 1px solid var(--color-border-subtle);
   z-index: var(--elevation-z-raised);
@@ -1886,6 +1888,8 @@ input[type="number"] {
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
+  scrollbar-color: var(--color-border-strong) transparent;
+  scrollbar-width: thin;
   background: var(--color-surface-raised);
   border-left: 1px solid var(--color-border-subtle);
   z-index: var(--elevation-z-raised);
@@ -1901,6 +1905,8 @@ input[type="number"] {
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
+  scrollbar-color: var(--color-border-strong) transparent;
+  scrollbar-width: thin;
   background: var(--color-surface-raised);
   border-left: 1px solid var(--color-border-subtle);
   z-index: var(--z-sticky);
@@ -2211,6 +2217,8 @@ input[type="number"] {
   flex: 1;
   overflow-y: auto;
   min-height: 0;
+  scrollbar-color: var(--color-border-strong) transparent;
+  scrollbar-width: thin;
 }
 
 .history-panel__search {
@@ -3101,6 +3109,8 @@ dialog.varve-dialog--settings[open] {
   /* Reserve gutter space so the scrollbar doesn't overlap content or cause
      reflow when it appears/disappears. */
   scrollbar-gutter: stable;
+  scrollbar-color: var(--color-border-strong) transparent;
+  scrollbar-width: thin;
   padding-right: var(--space-1);
 }
 .settings-dialog__footer {
@@ -3686,6 +3696,8 @@ dialog.varve-dialog--settings[open] {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  scrollbar-color: var(--color-border-strong) transparent;
+  scrollbar-width: thin;
 }
 .ai-panel__suggestions {
   display: flex;
@@ -4435,6 +4447,8 @@ dialog.varve-dialog--settings[open] {
   overflow-y: auto;
   overflow-x: hidden;
   min-height: 0;
+  scrollbar-color: var(--color-border-strong) transparent;
+  scrollbar-width: thin;
 }
 
 .timeline-playback-controls {
@@ -4769,12 +4783,21 @@ dialog.varve-dialog--settings[open] {
 }
 
 .timeline-panel__tracks::-webkit-scrollbar-thumb {
-  background: var(--color-border-subtle);
+  min-height: 24px;
+  background: var(--color-border-strong);
+  border: 2px solid transparent;
   border-radius: var(--radius-control-compact);
+  background-clip: padding-box;
 }
 
 .timeline-panel__tracks::-webkit-scrollbar-thumb:hover {
-  background: var(--color-text-muted);
+  background: var(--color-text-subtle);
+  background-clip: padding-box;
+}
+
+.timeline-panel__tracks::-webkit-scrollbar-thumb:active {
+  background: var(--color-text-secondary);
+  background-clip: padding-box;
 }
 
 /* ── Crash reporting (Phase 3/8/9) ───────────────────────── */

@@ -600,6 +600,8 @@
   padding: var(--space-dialog);
   min-height: 0;
   overflow-y: auto;
+  scrollbar-color: var(--color-border-strong) transparent;
+  scrollbar-width: thin;
 }
 .varve-dialog__footer {
   display: flex;

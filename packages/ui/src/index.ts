@@ -13,6 +13,7 @@ import './components/ColorPicker/color-picker.css';
 import './components/PresetPicker/preset-picker.css';
 import './components/select.css';
 import './components/sortable.css';
+import './components/scrollbar.css';
 import './components/interaction-states.css';
 
 export * from './components';

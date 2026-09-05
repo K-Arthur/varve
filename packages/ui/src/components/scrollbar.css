@@ -1,0 +1,65 @@
+/* scrollbar.css — Token-styled scrollbars for native overflow regions.
+ *
+ * Apply .varve-scrollbar to any element with overflow: auto/scroll to get
+ * consistent scrollbar appearance matching ScrollArea without changing the
+ * element's role as a scroll root. This is for surfaces where wrapping in
+ * ScrollArea would change the DOM structure (dialogs, panels, lists).
+ *
+ * Usage: <div className="varve-scrollbar" style={{ overflowY: 'auto' }}>
+ *
+ * Scrollbar states:
+ *   - Firefox: thin scrollbar-color via CSS properties
+ *   - WebKit/Chromium: custom ::-webkit-scrollbar pseudo-elements
+ *   - forced-colors: system scrollbar colors
+ */
+
+.varve-scrollbar {
+  scrollbar-color: var(--color-border-strong) transparent;
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
+}
+
+/* WebKit / Chromium / legacy Edge */
+.varve-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.varve-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.varve-scrollbar::-webkit-scrollbar-thumb {
+  min-height: 24px;
+  min-width: 24px;
+  background: var(--color-border-strong);
+  border: 2px solid transparent;
+  border-radius: var(--radius-control-compact);
+  background-clip: padding-box;
+}
+
+.varve-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-subtle);
+  background-clip: padding-box;
+}
+
+.varve-scrollbar::-webkit-scrollbar-thumb:active {
+  background: var(--color-text-secondary);
+  background-clip: padding-box;
+}
+
+.varve-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Horizontal-only scrollbar regions get a thinner track */
+.varve-scrollbar--x::-webkit-scrollbar {
+  height: 6px;
+}
+
+/* Forced colors mode */
+@media (forced-colors: active) {
+  .varve-scrollbar {
+    scrollbar-color: ButtonText transparent;
+  }
+}

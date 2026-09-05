@@ -189,6 +189,8 @@
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
+  scrollbar-color: var(--color-border-strong) transparent;
+  scrollbar-width: thin;
   outline: none;
   padding: var(--space-1) var(--space-1);
 }

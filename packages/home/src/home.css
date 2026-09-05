@@ -116,6 +116,8 @@
   background: var(--color-surface-raised);
   border-right: 1px solid var(--color-border-subtle);
   overflow-y: auto;
+  scrollbar-color: var(--color-border-strong) transparent;
+  scrollbar-width: thin;
   transition: width var(--duration-base) var(--ease-standard);
   box-shadow: 1px 0 3px rgb(0 0 0 / 0.04);
   /* Per-surface muted text for raised backgrounds (a11y WCAG AA fix). */
