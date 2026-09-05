@@ -176,100 +176,205 @@ const breadcrumbSchema = {
       <div class="faq-section">
         <h2>General</h2>
         
-        <div class="faq-item">
-          <h3>Is Varve free?</h3>
-          <p>Yes, the Varve Community Edition is free to download and use, and it stays free. There are no subscriptions, no feature lockouts, and no cloud requirements. The source code is available on <a href="https://github.com/K-Arthur/varve">GitHub</a>. If a paid Pro edition ever exists, it will be a separate product — it will never be this one.</p>
-        </div>
+        <details class="faq-item">
+          <summary class="faq-item__question">
+            <span class="faq-item__chevron" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            Is Varve free?
+          </summary>
+          <div class="faq-item__answer">
+            <p>Yes, the Varve Community Edition is free to download and use, and it stays free. There are no subscriptions, no feature lockouts, and no cloud requirements. The source code is available on <a href="https://github.com/K-Arthur/varve">GitHub</a>. If a paid Pro edition ever exists, it will be a separate product — it will never be this one.</p>
+          </div>
+        </details>
 
-        <div class="faq-item">
-          <h3>Does Varve work offline?</h3>
-          <p>Yes. Core editing works fully offline with no account required. Optional network features — model downloads, additional font downloads, update checks, and user-configured cloud providers — are each explicit and user-controlled. See the <a href={sitePath('/about/privacy')}>privacy policy</a> for details.</p>
-        </div>
+        <details class="faq-item">
+          <summary class="faq-item__question">
+            <span class="faq-item__chevron" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            Does Varve work offline?
+          </summary>
+          <div class="faq-item__answer">
+            <p>Yes. Core editing works fully offline with no account required. Optional network features — model downloads, additional font downloads, update checks, and user-configured cloud providers — are each explicit and user-controlled. See the <a href={sitePath('/about/privacy')}>privacy policy</a> for details.</p>
+          </div>
+        </details>
 
-        <div class="faq-item">
-          <h3>How do updates work?</h3>
-          <p>
-            {release.updater ? (
-              <>Updates are consent-first and cryptographically verified. The current release (v{releaseVersion}) includes an in-app updater. On first launch you can choose to allow automatic update checks. Updates are verified before installation and never overwrite unsaved work. Package-specific limitations apply. See the <a href={sitePath('/docs/updates')}>Updates guide</a> for details.</>
-            ) : (
-              <>Updates are designed to be consent-first. The current release (v{releaseVersion}) does not include an in-app updater, so manual updates through the <a
-                href={sitePath('/download')}>download page</a> or GitHub Releases are the
-                dependable path. Future feed-enabled builds can offer automatic checks, notifications,
-                or verified downloads in <strong>Settings &gt; Updates</strong>. See the <a href={sitePath('/docs/updates')}>Updates guide</a>{' '}
-                for details.</>
-            )}
-          </p>
-        </div>
+        <details class="faq-item">
+          <summary class="faq-item__question">
+            <span class="faq-item__chevron" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            How do updates work?
+          </summary>
+          <div class="faq-item__answer">
+            <p>
+              {release.updater ? (
+                <>Updates are consent-first and cryptographically verified. The current release (v{releaseVersion}) includes an in-app updater. On first launch you can choose to allow automatic update checks. Updates are verified before installation and never overwrite unsaved work. Package-specific limitations apply. See the <a href={sitePath('/docs/updates')}>Updates guide</a> for details.</>
+              ) : (
+                <>Updates are designed to be consent-first. The current release (v{releaseVersion}) does not include an in-app updater, so manual updates through the <a
+                  href={sitePath('/download')}>download page</a> or GitHub Releases are the
+                  dependable path. Future feed-enabled builds can offer automatic checks, notifications,
+                  or verified downloads in <strong>Settings &gt; Updates</strong>. See the <a href={sitePath('/docs/updates')}>Updates guide</a>{' '}
+                  for details.</>
+              )}
+            </p>
+          </div>
+        </details>
 
-        <div class="faq-item">
-          <h3>Does checking for updates send my documents anywhere?</h3>
-          <p>No. An update check sends only your current version, platform, architecture and release channel to Varve's release endpoint. No account, document data, machine identifier or device fingerprint is transmitted, and update consent is separate from any analytics or diagnostics consent.</p>
-        </div>
+        <details class="faq-item">
+          <summary class="faq-item__question">
+            <span class="faq-item__chevron" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            Does checking for updates send my documents anywhere?
+          </summary>
+          <div class="faq-item__answer">
+            <p>No. An update check sends only your current version, platform, architecture and release channel to Varve's release endpoint. No account, document data, machine identifier or device fingerprint is transmitted, and update consent is separate from any analytics or diagnostics consent.</p>
+          </div>
+        </details>
 
-        <div class="faq-item">
-          <h3>What platforms does Varve support?</h3>
-          <p>Varve publishes Linux x86_64 and ARM64 (aarch64) packages (AppImage, deb, rpm), Apple Silicon macOS builds, and Windows x86_64 and ARM64 installers. There is no Intel macOS build: Varve's on-device AI runs on the ONNX Runtime, whose upstream discontinued macOS Intel binaries in February 2026, and Apple has ended new Intel macOS support — a deliberate dependency constraint, not an oversight.</p>
-        </div>
+        <details class="faq-item">
+          <summary class="faq-item__question">
+            <span class="faq-item__chevron" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            What platforms does Varve support?
+          </summary>
+          <div class="faq-item__answer">
+            <p>Varve publishes Linux x86_64 and ARM64 (aarch64) packages (AppImage, deb, rpm), Apple Silicon macOS builds, and Windows x86_64 and ARM64 installers. There is no Intel macOS build: Varve's on-device AI runs on the ONNX Runtime, whose upstream discontinued macOS Intel binaries in February 2026, and Apple has ended new Intel macOS support — a deliberate dependency constraint, not an oversight.</p>
+          </div>
+        </details>
 
-        <div class="faq-item">
-          <h3>Has Varve shipped a release yet?</h3>
-          <p>Yes. The latest published application release is Varve {releaseVersion}, released in {releaseDateStr}. Published installers cover Linux (x86_64 and ARM64: AppImage, deb, rpm), macOS (Apple Silicon), and Windows (x86_64 and ARM64). It is public beta software: expect bugs, incomplete tools, and a document format that may still change. See the <a href={sitePath('/download')}>download page</a> for checksums and the <a href={sitePath('/releases')}>release notes</a> for what changed. Downloads labeled "Varve" anywhere other than the official GitHub repository are not official.
-          </p>
-        </div>
+        <details class="faq-item">
+          <summary class="faq-item__question">
+            <span class="faq-item__chevron" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            Has Varve shipped a release yet?
+          </summary>
+          <div class="faq-item__answer">
+            <p>Yes. The latest published application release is Varve {releaseVersion}, released in {releaseDateStr}. Published installers cover Linux (x86_64 and ARM64: AppImage, deb, rpm), macOS (Apple Silicon), and Windows (x86_64 and ARM64). It is public beta software: expect bugs, incomplete tools, and a document format that may still change. See the <a href={sitePath('/download')}>download page</a> for checksums and the <a href={sitePath('/releases')}>release notes</a> for what changed. Downloads labeled "Varve" anywhere other than the official GitHub repository are not official.
+            </p>
+          </div>
+        </details>
 
-        <div class="faq-item">
-          <h3>What does FSL-1.1-MIT mean?</h3>
-          <p>FSL-1.1-MIT (Functional Source License, Version 1.1, MIT Future License) is a source-available license. You can use, modify, and redistribute Varve for any Permitted Purpose — anything other than a Competing Use, such as offering a substitute product or hosted service. After two years, each release converts to the MIT license. See the <a href={sitePath('/about/license')}>license page</a> for details.</p>
-        </div>
+        <details class="faq-item">
+          <summary class="faq-item__question">
+            <span class="faq-item__chevron" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            What does FSL-1.1-MIT mean?
+          </summary>
+          <div class="faq-item__answer">
+            <p>FSL-1.1-MIT (Functional Source License, Version 1.1, MIT Future License) is a source-available license. You can use, modify, and redistribute Varve for any Permitted Purpose — anything other than a Competing Use, such as offering a substitute product or hosted service. After two years, each release converts to the MIT license. See the <a href={sitePath('/about/license')}>license page</a> for details.</p>
+          </div>
+        </details>
 
-        <div class="faq-item">
-          <h3>Is Varve open source?</h3>
-          <p>The source code is publicly available, but Varve is licensed under FSL-1.1-MIT, which is a source-available (not OSI-approved open-source) license. After two years from each release, the code converts to the MIT license and becomes fully open-source. See the <a href={sitePath('/about/license')}>license page</a> for the reasoning behind this choice.</p>
-        </div>
+        <details class="faq-item">
+          <summary class="faq-item__question">
+            <span class="faq-item__chevron" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            Is Varve open source?
+          </summary>
+          <div class="faq-item__answer">
+            <p>The source code is publicly available, but Varve is licensed under FSL-1.1-MIT, which is a source-available (not OSI-approved open-source) license. After two years from each release, the code converts to the MIT license and becomes fully open-source. See the <a href={sitePath('/about/license')}>license page</a> for the reasoning behind this choice.</p>
+          </div>
+        </details>
       </div>
 
       <div class="faq-section">
         <h2>Features & Capabilities</h2>
         
-        <div class="faq-item">
-          <h3>Does Varve have real-time collaboration?</h3>
-          <p>Not yet. Collaboration features are currently UI scaffolding only with no transport or wire protocol. This is planned for future development.</p>
-        </div>
+        <details class="faq-item">
+          <summary class="faq-item__question">
+            <span class="faq-item__chevron" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            Does Varve have real-time collaboration?
+          </summary>
+          <div class="faq-item__answer">
+            <p>Not yet. Collaboration features are currently UI scaffolding only with no transport or wire protocol. This is planned for future development.</p>
+          </div>
+        </details>
 
-        <div class="faq-item">
-          <h3>Can I use Varve for professional print work?</h3>
-          <p>Varve has CMYK color management, ICC profiles, PDF/X-1a and PDF/X-4 export, crop marks, color bars, and print preflight checks. However, Varve is in beta — test thoroughly before using for critical print production. See the <a href={sitePath('/features/color-effects')}>Color & Effects</a> page for current status.</p>
-        </div>
+        <details class="faq-item">
+          <summary class="faq-item__question">
+            <span class="faq-item__chevron" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            Can I use Varve for professional print work?
+          </summary>
+          <div class="faq-item__answer">
+            <p>Varve has CMYK color management, ICC profiles, PDF/X-1a and PDF/X-4 export, crop marks, color bars, and print preflight checks. However, Varve is in beta — test thoroughly before using for critical print production. See the <a href={sitePath('/features/color-effects')}>Color & Effects</a> page for current status.</p>
+          </div>
+        </details>
 
-        <div class="faq-item">
-          <h3>Does Varve support ARM processors?</h3>
-          <p>Yes. Apple Silicon (ARM64) on macOS, Linux ARM64, and Windows ARM64 are all published as native builds. Use the architecture-labeled download on the <a href={sitePath('/download')}>download page</a> — do not install an x86_64 build by assumption on ARM hardware.</p>
-        </div>
+        <details class="faq-item">
+          <summary class="faq-item__question">
+            <span class="faq-item__chevron" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            Does Varve support ARM processors?
+          </summary>
+          <div class="faq-item__answer">
+            <p>Yes. Apple Silicon (ARM64) on macOS, Linux ARM64, and Windows ARM64 are all published as native builds. Use the architecture-labeled download on the <a href={sitePath('/download')}>download page</a> — do not install an x86_64 build by assumption on ARM hardware.</p>
+          </div>
+        </details>
 
-        <div class="faq-item">
-          <h3>What export formats does Varve support?</h3>
-          <p>Varve exports to SVG, React/Tailwind, React/CSS-Modules, Flutter, SwiftUI, and PDF with CMYK support. See the <a href={sitePath('/features/export')}>Export & Code Generation</a> page for details.</p>
-        </div>
+        <details class="faq-item">
+          <summary class="faq-item__question">
+            <span class="faq-item__chevron" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            What export formats does Varve support?
+          </summary>
+          <div class="faq-item__answer">
+            <p>Varve exports to SVG, React/Tailwind, React/CSS-Modules, Flutter, SwiftUI, and PDF with CMYK support. See the <a href={sitePath('/features/export')}>Export & Code Generation</a> page for details.</p>
+          </div>
+        </details>
 
       </div>
 
       <div class="faq-section">
         <h2>Development & Community</h2>
         
-        <div class="faq-item">
-          <h3>Who develops Varve?</h3>
-          <p>Varve is built by one designer-developer independently. See the <a href={sitePath('/about')}>About page</a> for the full story.</p>
-        </div>
+        <details class="faq-item">
+          <summary class="faq-item__question">
+            <span class="faq-item__chevron" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            Who develops Varve?
+          </summary>
+          <div class="faq-item__answer">
+            <p>Varve is built by one designer-developer independently. See the <a href={sitePath('/about')}>About page</a> for the full story.</p>
+          </div>
+        </details>
 
-        <div class="faq-item">
-          <h3>How can I contribute?</h3>
-          <p>You can contribute code, documentation, testing, or design. See the <a href={sitePath('/contribute')}>contribution guidelines</a> for details. Non-financial contributions are equally valuable to financial support.</p>
-        </div>
+        <details class="faq-item">
+          <summary class="faq-item__question">
+            <span class="faq-item__chevron" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            How can I contribute?
+          </summary>
+          <div class="faq-item__answer">
+            <p>You can contribute code, documentation, testing, or design. See the <a href={sitePath('/contribute')}>contribution guidelines</a> for details. Non-financial contributions are equally valuable to financial support.</p>
+          </div>
+        </details>
 
-        <div class="faq-item">
-          <h3>How can I support the project financially?</h3>
-          <p>Varve accepts financial support via GitHub Sponsors. See the <a href={sitePath('/support-project')}>Support Project</a> page for sponsorship tiers and what support enables.</p>
-        </div>
+        <details class="faq-item">
+          <summary class="faq-item__question">
+            <span class="faq-item__chevron" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            How can I support the project financially?
+          </summary>
+          <div class="faq-item__answer">
+            <p>Varve accepts financial support via GitHub Sponsors. See the <a href={sitePath('/support-project')}>Support Project</a> page for sponsorship tiers and what support enables.</p>
+          </div>
+        </details>
       </div>
 
       <div class="faq-cta">
@@ -321,23 +426,60 @@ const breadcrumbSchema = {
     background: var(--surface-card);
     border: 1px solid var(--border-default);
     border-radius: var(--website-radius-surface);
-    padding: 1.5rem;
     margin-bottom: 1rem;
   }
   
-  .faq-item h3 {
+  .faq-item__question {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1.25rem 1.5rem;
     font-size: 1.125rem;
     font-weight: 600;
-    margin-bottom: 0.75rem;
     color: var(--text-primary);
+    cursor: pointer;
+    list-style: none;
+    line-height: 1.4;
+  }
+  .faq-item__question::-webkit-details-marker,
+  .faq-item__question::marker {
+    display: none;
+    content: '';
+  }
+  .faq-item__question:hover {
+    color: var(--text-link);
+  }
+  .faq-item__question:focus-visible {
+    outline: 2px solid var(--text-link);
+    outline-offset: -2px;
+    border-radius: calc(var(--website-radius-surface) - 1px);
   }
   
-  .faq-item p {
+  .faq-item__chevron {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--text-muted, #888);
+    transition: transform 0.2s ease;
+  }
+  .faq-item[open] .faq-item__chevron {
+    transform: rotate(90deg);
+  }
+  
+  @media (prefers-reduced-motion: reduce) {
+    .faq-item__chevron {
+      transition: none;
+    }
+  }
+  
+  .faq-item__answer {
+    padding: 0 1.5rem 1.25rem 1.5rem;
     color: var(--text-secondary);
     line-height: 1.6;
   }
   
-  .faq-item a {
+  .faq-item__answer a {
     color: var(--text-link);
   }
   
