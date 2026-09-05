@@ -53,8 +53,14 @@ test('spatial object filters are discoverable, editable, persistent in the stack
   await addFilter(page, 'Motion Blur');
   await expect(page.getByRole('slider', { name: 'Distance' })).toBeVisible();
   const motionBefore = await canvasHash(page);
-  await page.getByRole('slider', { name: 'Angle' }).fill('35');
+  const motionAngleValue = page.getByRole('spinbutton', { name: 'Angle value' });
+  await motionAngleValue.fill('35');
+  await motionAngleValue.press('Enter');
   await expect.poll(() => canvasHash(page)).not.toBe(motionBefore);
+  await page.keyboard.press('Control+z');
+  await expect(motionAngleValue).toHaveValue('0');
+  await page.keyboard.press('Control+Shift+z');
+  await expect(motionAngleValue).toHaveValue('35');
 
   await addFilter(page, 'Mosaic');
   await expect(page.getByRole('slider', { name: 'Block size' })).toBeVisible();
