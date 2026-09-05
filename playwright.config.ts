@@ -2,6 +2,14 @@ import { defineConfig, devices } from '@playwright/test';
 
 const e2ePort = process.env.VARVE_E2E_PORT ?? '1420';
 const e2eBaseUrl = `http://localhost:${e2ePort}`;
+const nodeMajor = Number.parseInt(process.versions.node.split('.')[0] ?? '0', 10);
+// Node 26's V8 fast-API deoptimizer can abort Vite's response path under the
+// full Chromium matrix. Keep the workaround scoped to the dev server process;
+// application and browser code still run with their normal JIT settings.
+const viteServerCommand =
+  nodeMajor >= 26
+    ? `pnpm --filter @varve/desktop exec node --no-turbofan node_modules/vite/bin/vite.js --port ${e2ePort}`
+    : `pnpm --filter @varve/desktop exec vite --port ${e2ePort}`;
 // Canvas E2E includes software-rendered canvases and on-device model
 // inference. Two local browser workers can contend for those resources hard
 // enough to terminate an unrelated page mid-test. Keep the reliable default
@@ -177,7 +185,7 @@ export default defineConfig({
     { name: 'webkit', use: { ...devices['Desktop Safari'] } },
   ],
   webServer: {
-    command: `pnpm --filter @varve/desktop exec vite --port ${e2ePort}`,
+    command: viteServerCommand,
     url: e2eBaseUrl,
     // Never reuse another agent's server: with VARVE_E2E_PORT set (per-agent)
     // this port is unique, so no sharing happens. When unset, defaulting to
