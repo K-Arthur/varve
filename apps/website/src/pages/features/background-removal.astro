@@ -18,7 +18,7 @@ import StatusPill from '../../components/StatusPill.astro';
       <h1>Cut out subjects without leaving your document.</h1>
       <p class="feature-intro">
         Varve keeps background removal local and undoable. Choose a simple fast cutout, let Auto
-        select the best installed model, or use High quality when hair, fur, foliage, and thin
+        select a supported installed model, or use High quality when hair, fur, foliage, and thin
         edges deserve more time.
       </p>
 
@@ -26,7 +26,7 @@ import StatusPill from '../../components/StatusPill.astro';
         <article class="mode-card">
           <span class="mode-card__number">01</span>
           <h2>Fast</h2>
-          <p>Instant heuristic masking for flat, studio, and colour-consistent backgrounds.</p>
+          <p>Local heuristic masking for flat, studio, and colour-consistent backgrounds.</p>
           <span class="mode-card__meta">No model download</span>
         </article>
         <article class="mode-card mode-card--accent">
@@ -46,9 +46,10 @@ import StatusPill from '../../components/StatusPill.astro';
       <section class="feature-section">
         <h2>Review before you apply</h2>
         <p>
-          Compare the original and cutout, switch between checkerboard, black, and white
-          backgrounds, then apply the mask as a normal document edit. Brush refinement, hair-edge
-          refinement, and trimap editing remain available after the first pass.
+          Review the cutout on a checkerboard before applying it as an editable mask. After Apply,
+          use Show Original to compare, or Edit mask to inspect edges against black and white
+          backgrounds. Brush refinement, hair-edge refinement, and trimap editing are available
+          for further corrections.
         </p>
       </section>
 
@@ -66,17 +67,26 @@ import StatusPill from '../../components/StatusPill.astro';
         <p>
           Models estimate foreground alpha; they do not promise physical matting for glass, smoke,
           steam, or every translucent edge. Unsafe bare-WASM allocations are blocked before they
-          can destabilize the editor, and any reduced-quality fallback is shown rather than hidden.
+          can destabilize the editor. AI attempts share a bounded waiting period, and reduced-quality
+          fallback is identified in the review. Fast mode needs no model download for simple backgrounds.
         </p>
       </section>
 
       <section class="feature-section">
-        <h2>Measured, not marketed</h2>
+        <h2>Keep fine details under your control</h2>
         <p>
-          Varve evaluates global masks and boundaries separately across hair, fur, products,
-          portraits, vehicles, illustrations, and other design-workload images. Large benchmark
-          corpora stay outside ordinary CI; model downloads require explicit consent and checksum
-          verification.
+          Optional soft-edge contraction tightens the mask boundary; it does not recolour the
+          original pixels. Leave it off for delicate details, then inspect any adjustment before
+          keeping it. Source images remain available for further editing.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>Review the edges that matter</h2>
+        <p>
+          Check hair, thin structures, internal holes, and translucent edges at a useful zoom
+          before exporting. A successful run does not guarantee a perfect cutout. Use manual
+          mask editing for corrections; optional model downloads require your consent.
         </p>
       </section>
 

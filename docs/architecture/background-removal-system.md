@@ -1,6 +1,6 @@
 # Background-removal system
 
-Status: current implementation contract, 2026-08-13.
+Status: current implementation contract, 2026-09-05.
 
 Varve keeps background removal local by default. The workflow creates a
 non-destructive raster mask on the selected image; the source raster remains
@@ -131,3 +131,45 @@ user-authored trimap. A binary foreground estimate cannot honestly promise
 physical alpha separation for those cases. The synthetic `synth-glass` fixture
 is the regression target for this limit (u2netp/IS-Net/BiRefNet all score it
 low against the ground-truth matte; see the audit tables).
+
+
+## Coverage and asynchronous review contract
+
+Provider `rawMask` and the persisted mask PNG represent subject coverage,
+0–255 in orientation-normalized source pixels. They do not contain the source
+image alpha. Rendering and export combine coverage with source alpha once.
+The optional `sourceAlpha` buffer is a distinct, already-combined output and
+must not be committed as coverage. PNG-only preview output is decoded and
+resized; changing metadata alone is not reconstruction. Truncated buffers and
+inconsistent PNG dimensions are rejected.
+
+Requests start cancellation tracking before source decoding. Every publication
+boundary (inference, component finalization, render-cache warming) rechecks the
+controller and current source. Review retains immutable image-fill, asset and
+mask dependencies, not a decoded RGBA buffer. Apply rechecks those dependencies
+inside the current-document mutation. Unrelated document edits remain valid;
+changing the source, mask, or placement invalidates review. Sources with more
+than one image fill are rejected because the result would be a node-wide mask.
+Shared paints use the canonical paint resolver.
+
+Placement comparison preserves exact numeric values, fit names, crop, rotation
+and flips. SHA-256 source fingerprints keep the full digest. If SubtleCrypto
+is unavailable, a unique non-coalescing token prevents false source matches;
+it is deliberately not represented as a content hash. Legacy preview fixtures
+can still carry numeric placement revisions, but new requests use exact keys.
+These fields are transient editor state, not a project serialization migration.
+
+AI availability probes have a five-second ceiling. All attempts in an Auto
+request share 125 seconds; High quality and its Auto fallback share 310 seconds.
+Cancellation/expiry clears timers and aborts the active provider signal. Worker
+cancellation terminates its worker; native/direct runtimes may finish work that
+cannot be interrupted, but their late results cannot become editor previews.
+
+The user-facing **Contract soft edges** option is off by default, including
+quick-bar, batch and pre-export processing. The internal `decontaminate` option
+name remains for compatibility. It contracts semi-transparent mask pixels; it
+does not perform foreground RGB correction. Refinement decodes natural source
+dimensions and rejects mismatched masks/trimaps instead of using display bounds.
+
+Current repair findings, runtime evidence and remaining limitations are tracked
+in [the repair audit](../audits/background-removal-repair-2026-09-05.md).

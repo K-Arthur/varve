@@ -1,5 +1,12 @@
 # Background Removal — Deferred Implementation (Phases 5-6)
 
+> Historical implementation record. The code examples and old completion
+> checklists below are not current contracts. See the
+> [current architecture](../architecture/background-removal-system.md) and
+> [2026-09-05 repair evidence](../audits/background-removal-repair-2026-09-05.md)
+> for coverage-mask semantics, bounded requests, native asset commits and
+> verified workflow status.
+
 **Base commit:** Current HEAD | **Branch:** master
 
 ## Session 46 — Production hardening (2026-07-08)

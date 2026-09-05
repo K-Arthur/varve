@@ -569,6 +569,36 @@ never hard-code them.
 Multilingual text rendering, shaping, BiDi layout, and export. M1–M8 complete.
 See `docs/architecture/text-pipeline.md`.
 
+## Disclosure / Accordion System
+
+Shared primitives for collapsible sections. Canonical components:
+`packages/ui/src/components/Disclosure.tsx`, `Accordion.tsx`.
+
+| Component | Purpose | Key Features |
+|---|---|---|
+| `Disclosure` | Standalone show/hide | Controlled/uncontrolled, compact/standard variants, keepMounted |
+| `DisclosureTrigger` | Toggle button | Chevron indicator, leading icon, custom indicator support |
+| `DisclosureContent` | Collapsible panel | Mount/unmount or hidden state, `section` element for a11y |
+| `Accordion` | Coordinated group | Single/multiple modes, collapsible single-selection, value-based state |
+| `AccordionItem` | Individual section | Wraps trigger + content, disabled state |
+| `AccordionTrigger` | Group toggle | Same API as DisclosureTrigger, wired to Accordion state |
+| `AccordionContent` | Group panel | Same API as DisclosureContent, wired to Accordion state |
+
+**Editor-specific wrappers:**
+- `DisclosureSection` (`Inspector/controls/DisclosureSection.tsx`) — Inspector
+  panel sections with registry mode (centralized EditorState + localStorage)
+  and legacy mode (sessionStorage). Not yet migrated to shared primitives
+  due to `<fieldset>` semantics and deep registry coupling.
+- `SectionCollapseToggle` (`components/SectionCollapseToggle.tsx`) — Left sidebar
+  section headers. Chevron SVG unified with shared component.
+
+**Migrated surfaces:** NewDesignDialog advanced settings, FormatMigration
+per-file report, PreflightFindingsPanel findings list.
+
+**Migration status:** Experimental API. Inspector DisclosureSection and 7
+sidebar panels still use local implementations with shared visual language
+(chevron, tokens). Full migration planned.
+
 ## Layout — what each package/crate now contains
 
 ### crates/ (Rust)

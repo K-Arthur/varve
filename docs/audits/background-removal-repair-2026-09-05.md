@@ -119,3 +119,30 @@ physically correct matting.
   dependent checks, canvas E2E, website E2E, and the render benchmark. Its 91%
   test-file selection reflects the engine/editor dependency graph. Rust and
   the full global visual suite remain deliberately unrelated.
+
+## Milestone 3: export and marketing validation
+
+The source-isolation, reconstruction, renderer, batch/export and editor-hook
+changes were committed on `master` in `37cb287fb` (the commit also contains a
+concurrent Tooltip story update) after the repository checkpoint passed its
+format, health, security, contacts, import-boundary and direct-unit lanes.
+The deadline dispatcher is in `766bd92cb`; this audit is in `058d4008b`.
+
+The focused batch/native set passed 30 tests, including frozen export snapshots,
+ambiguous-fill rejection, source/asset identity checks and cancellation after
+decode. The website built in both custom-domain and GitHub Pages modes. Four
+Chromium website visual cases passed across both modes: mobile dark and desktop
+light screenshots were inspected for readable contrast and no horizontal
+overflow. The generated desktop captures are kept beside the feature spec.
+
+The editor browser rerun after the renderer fix was not accepted as evidence:
+the shared development server was changing Minimap and Export modules during
+startup and then failed to resolve a transient import. Earlier real-browser
+coverage passed the normal Fast/Auto flow, Undo/Redo, disconnected regions and
+pointer surfaces, while the large panorama exposed the reduced-mask coordinate
+bug that the focused replay test now covers. A clean post-fix editor E2E run is
+still required before claiming the panorama path visually verified.
+
+The synthetic corpus contains exact binary labels and one genuine soft-alpha
+fixture. Its real-provider benchmark has not been completed on an isolated
+machine; no quality or latency improvement is claimed from the fixture set.

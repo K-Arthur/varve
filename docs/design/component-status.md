@@ -1,6 +1,6 @@
 # Component Status — `@varve/ui` maturity tracker
 
-**Last updated:** 2026-08-31
+**Last updated:** 2026-09-05
 **See:** ADR-0011 (governance), `docs/design/design-principles.md`
 
 ## Maturity states
@@ -32,6 +32,8 @@
 | Slider | ✅ | — | ✅ | APG slider pattern |
 | Tabs | ✅ | — | ✅ | APG tabs + roving tabindex |
 | SegmentedControl | ✅ | ✅ | — | APG radiogroup |
+| Disclosure | 🧪 | ✅ | ✅ | APG disclosure; controlled/uncontrolled, compact/standard, keepMounted |
+| Accordion | 🧪 | ✅ | ✅ | Coordinated disclosure group; single/multiple modes, collapsible single-selection |
 | ViewModeSwitcher | ✅ | — | — | |
 
 ## Overlays & feedback
@@ -83,7 +85,6 @@ extracted to `@varve/ui` as `beta` components:
 - Combobox (distinct from Select — free-text entry with suggestions)
 - Tree / TreeGrid
 - VirtualList (for large layer/component lists)
-- Disclosure / accordion
 - Badge / Tag
 - Progress (indeterminate)
 - Spinner
