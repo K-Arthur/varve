@@ -395,9 +395,29 @@ test('tooltip interaction', async ({ page }) => {
 - [toolShortcutLabel Utility](../../packages/editor/src/shortcuts/toolShortcutLabel.ts)
 - [workspaceShortcutLabel Utility](../../packages/editor/src/workspace/workspaceShortcutLabel.ts)
 
+## Visual Tones
+
+Use the `tone` prop to communicate the severity of tooltip content:
+
+```tsx
+// Warning tone — noncritical caution
+<Tooltip label="Overlapping layers may produce unexpected blending" tone="warning">
+  <button>Blend</button>
+</Tooltip>
+
+// Danger tone — destructive or error explanation
+<Tooltip label="This will delete all hidden layers permanently" tone="danger">
+  <button>Delete hidden</button>
+</Tooltip>
+```
+
+Available tones: `'default'` (standard), `'warning'` (amber border), `'danger'`
+(red border). The `disabledReason` prop automatically applies a dashed-border
+variant — do not also set `tone="warning"` for disabled reasons.
+
 ## Migration Status
 
-As of 2026-08-01 the home app, the editor, and the `@varve/ui` package all use
+As of 2026-09-05 the home app, the editor, and the `@varve/ui` package all use
 the shared `Tooltip` component — **no new native `title` tooltips should be
 added**. When you touch a control that still has a `title` attribute, migrate
 it in place:
@@ -407,6 +427,20 @@ it in place:
    or `label` prop) independent of the tooltip.
 3. For truncated text use `truncationOnly`; for disabled controls use
    `disabledReason`; for status indicators use `role="img"` + `aria-label`.
+4. For non-interactive elements (iframes, dialogs, section headings), keep
+   the `title` attribute — it is the correct ARIA pattern for those elements.
+
+### Remaining legitimate `title` attributes
+
+These are intentionally NOT migrated because `title` is the correct
+accessibility pattern for them:
+
+- `<Dialog title="...">` — dialog accessible name
+- `<DisclosureSection title="...">` — section heading
+- `<iframe title="...">` — frame accessible name
+- Non-interactive `<div>` elements with supplementary hover info
+- `<SwitchField>`, `<Select>` disabled reason display (rendered inline, not
+  as hover content)
 
 ## Getting Help
 

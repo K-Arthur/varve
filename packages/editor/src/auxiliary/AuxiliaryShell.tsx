@@ -16,8 +16,8 @@
 
 import { Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { formatShortcut, getEffectiveBinding } from '../shortcuts/ShortcutManager';
 import { EditorProvider } from '../context';
+import { formatShortcut, getEffectiveBinding } from '../shortcuts/ShortcutManager';
 import { PanelHostProvider } from '../workspace/PanelHostContext';
 import '../workspace/bootstrap';
 import { type PanelTypeId, tryGetPanelDefinition } from '../workspace/panelRegistry';

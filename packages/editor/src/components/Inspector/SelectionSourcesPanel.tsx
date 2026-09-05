@@ -165,7 +165,9 @@ export function SelectionSourcesPanel() {
           </button>
           <Tooltip
             label="Path to selection"
-            disabledReason={!hasClosedPath ? 'Select one closed path to use this command' : undefined}
+            disabledReason={
+              !hasClosedPath ? 'Select one closed path to use this command' : undefined
+            }
           >
             <button
               type="button"
