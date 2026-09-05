@@ -44,13 +44,14 @@ chain after exhaustion, stalled native readiness, and cancellation cleanup.
 All four pass after the repair. This is deadline/lifecycle evidence, not an
 inference speed or cutout quality benchmark.
 
-## Validation record (in progress)
+## Validation record
 
 - `pnpm verify:plan`: selected affected editor/website/dependent checks;
   no full-suite escalation.
-- `pnpm verify:affected`: baseline stopped at formatting errors in pre-existing
-  changes (including concurrent filter-strength tests). Those files were not
-  reformatted as part of the dispatcher change.
+- `pnpm verify:affected`: the dependency-aware run reached the editor aggregate,
+  where unrelated concurrent PromptDialog, render-count, transaction-history,
+  and Minimap changes failed. Those files were not changed as part of this
+  repair and were left untouched.
 - `pnpm exec vitest run packages/engine/src/backgroundRemoval/__tests__/dispatchDeadline.test.ts`:
   four passing after repair; pre-repair failures recorded separately.
 - Full suite: not run. Rust tests/global visual suite are unrelated to this
@@ -105,7 +106,8 @@ physically correct matting.
 
 - Isolated-index `pnpm verify:affected --staged`: engine 353 test files passed,
   4,339 tests passed, three files/five tests skipped by their existing guards;
-  engine typecheck passed. Dependent lanes are still running.
+  engine typecheck passed. The dependent editor aggregate is not a clean signal
+  while the concurrent Minimap/history work is in flight.
 - `pnpm exec vitest run packages/engine/src/replay-image-fill.test.ts`:
   26 tests passed, including reduced-proxy crop mapping.
 - Focused editor lifecycle/inspector/quick-bar run: 81 passed; one legacy
@@ -148,6 +150,13 @@ full-redraw oracle for future runs.
 The synthetic corpus contains exact binary labels and one genuine soft-alpha
 fixture. Its real-provider benchmark has not been completed on an isolated
 machine; no quality or latency improvement is claimed from the fixture set.
+
+The dedicated alpha export test reached the transparency and export assertions,
+then failed after calling the in-memory `loadDocument` path because the restored
+editor did not expose the `Re-apply background removal` action in that setup.
+The separate browser-save/reopen test is committed and exercises the production
+IndexedDB/download path, but it has not produced a clean run in this validation
+window. Therefore this audit does not claim end-to-end alpha reload success.
 
 ## Quick benchmark snapshot
 
