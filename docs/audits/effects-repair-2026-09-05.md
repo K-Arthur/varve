@@ -11,11 +11,11 @@ from this task's commits. All work remains on master.
 
 ## Milestones
 
-1. Audit and deterministic reproductions: in progress.
-2. Shared compositing and parameter repairs: in progress.
-3. Existing adjustment quality and frontend state: pending.
-4. Four distinct additions, with complete frontend/export coverage: pending.
-5. Performance, compatibility, export and multimodal final validation: pending.
+1. Audit and deterministic reproductions: source inventory complete; broad regression closure remains.
+2. Shared compositing and parameter repairs: repaired and covered by focused numerical/browser checks.
+3. Existing adjustment quality and frontend state: persistence and export-quality repairs covered; unrelated affected lanes remain.
+4. Four distinct additions, with complete frontend/export coverage: implemented and covered by focused numerical, editor, browser and PNG checks.
+5. Performance, compatibility, export and multimodal final validation: pending for a later release checkpoint.
 
 ## Confirmed findings
 
@@ -49,7 +49,8 @@ backdrop adjustment surfaces have intentionally different eligibility.
 Candidate searches found no registered directional blur, mosaic, bilateral
 surface smoothing, or contour primitive. Related code (bloom directional streaks
 and background-removal Sobel analysis) is not an independently editable object
-filter. Candidate selection remains provisional until the catalog audit is done.
+filter. Four object-local CPU candidates are now registered and wired through the
+same FilterIR/compositor/export path.
 
 ## References
 
@@ -71,5 +72,54 @@ for CSS filter semantics, not a claim of measured CPU/CSS agreement.
 - `pnpm exec vitest run packages/editor/src/components/Inspector/sections/SmartFiltersSection.test.tsx`: 11 passed. The new test initially used an exact accessible name missing the unit suffix; corrected to match the numeric control's full name.
 - Browser console confirmed discrete stack edits bypassed persistent history. Object Filters now captures its discrete mutations in transactions, while range gestures retain one transaction. Real Undo/Redo verifies typed strength restoration.
 - `pnpm verify:plan --staged` then `VARVE_E2E_PORT=1441 VARVE_TEST_WORKERS=2 pnpm verify:affected --staged` running with an isolated temporary Git index containing only task files. This leaves the shared index and master branch intact. Plan selects 83% of JS tests because of engine reverse dependencies, plus website checks; no full escalation. Format, lint, emoji, docs and E2E typecheck have passed so far.
-- Regression audits and remaining affected lanes: pending.
+- `VARVE_E2E_PORT=1445 VARVE_E2E_WORKERS=1 pnpm exec playwright test tests/e2e/effects/spatial-filters.spec.ts --project=chromium --reporter=list`: passed. The test adds all four filters through Object Filters, checks repaint, captures the inspector/canvas, exports PNG and decodes it independently with `pngjs`.
+- `VARVE_E2E_PORT=1450 VARVE_E2E_WORKERS=1 pnpm exec playwright test tests/e2e/effects/palette-persistence.spec.ts --project=chromium --reporter=list`: passed. Custom RGB palette, Lab metric, 32-bit seed, save/reload and rendered palette pixels survive browser reopen.
+- Opened and inspected `reports/effects-repair/spatial-filters-inspector.png`, `spatial-filters-canvas.png`, `spatial-filters-export.png`, `palette-before-reopen.png`, and `palette-after-reopen.png`. Controls remain readable, the object is visibly updated, and exported/reloaded pixels are present.
+- Engine typecheck reaches an unrelated concurrent fixture error in `src/replay-image-fill.test.ts` (missing image `x`, `y`, and `scale`); no candidate source error is reported. Editor typecheck was previously blocked by the same concurrent registry edit and is rerun after the next checkpoint.
+- Regression audits and the broad affected closure: pending while concurrent history/background-removal lanes finish.
 - Full suite: not run. No release or platform certification claimed.
+
+## Milestone checkpoint: alpha, history, and product guidance
+
+The normal-strength and Object Filters transaction repairs have direct numerical,
+component, real-inspector Undo/Redo, and independently decoded PNG evidence. They
+are ready for a bounded local checkpoint, not repository certification.
+
+The affected editor lane has reported three failures while unrelated concurrent
+work modifies context and UI modules:
+
+- ShortcutPalette Alt+Enter: repeated 15-second timeout. Narrowing this keyboard
+  scenario to the named Undo command retains the actual userEvent remapping path
+  and adds a target-specific assertion. Its isolated rerun passed (10.09 seconds)
+  without increasing timeouts. The remaining 17 tests were excluded from this
+  exact diagnostic rerun; the affected lane runs the entire spec.
+- PromptDialog accessible input name: under investigation; no effect-code caller.
+- EditorProvider document-consumer render count: under investigation amid concurrent
+  history/context changes; no conclusion about its cause yet.
+
+Website scope copy was reviewed in a real browser at 1280px/light and 390px/dark;
+mobile document width equals viewport width. Artifacts:
+`reports/effects-repair/website-scope-light.png` and
+`reports/effects-repair/website-scope-mobile-dark.png`.
+
+The candidate kernels have ten passing numerical tests and a visually reviewed
+landscape contact sheet at `reports/effects-repair/spatial/contact-sheet.png`.
+They are wired into the shared FilterIR compositor, bounds metadata, scene
+normalization, Object Filter editor and export path. The real browser stack test
+and independent PNG decode now pass; platform-native and performance certification
+remain outside this checkpoint.
+Kernel-only timing samples are in `spatial/kernel-timings.json`; concurrent host
+load makes these exploratory, not a reliable end-user latency benchmark.
+
+Changed scope: engine normal-strength compositor and contract prose; Object Filters
+transaction ownership; one bounded shortcut validation fixture; website scope copy.
+Validation plan: affected engine/editor/website plus reverse JS closure, no full escalation.
+Commands actually run: exact commands in the ledger above; `pnpm audit:docs`,
+`pnpm audit:emoji`, `pnpm audit:tokens` as regression rechecks.
+Passed: direct compositor (43), spatial kernels (10), spatial FilterIR compositor (4),
+AdjustmentEditor (17), Object Filters component (11), browser alpha/history/PNG,
+spatial browser/export (1), palette persistence browser/export (1), website layout
+review; see log for continuing affected lanes.
+Skipped as unrelated: Rust workspace and full visual matrix, excluded by planner.
+Escalations: none for this checkpoint; affected editor failures are being isolated.
+Full suite run: no.

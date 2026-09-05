@@ -52,7 +52,7 @@ renderer owns execution. No UI surface creates a parallel effect list.
 
 ## Effect Studio catalog
 
-Effect Studio exposes 36 named treatment recipes across six outcome-oriented
+Effect Studio exposes 35 named treatment recipes across six outcome-oriented
 families. The labels intentionally describe the result rather than reproduce a
 generic filter-menu taxonomy:
 
