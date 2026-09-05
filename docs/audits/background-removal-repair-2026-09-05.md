@@ -116,6 +116,11 @@ physically correct matting.
   updating from AI-only wording to the shared background-removal error.
 - `pnpm typecheck:e2e`: passed after resolving PNG decoding through the engine's
   existing pngjs dependency, without adding a dependency.
+- `VARVE_E2E_PORT=1499 VARVE_E2E_OUTPUT_DIR=bg-repair-alpha-final2 pnpm exec
+  playwright test tests/e2e/canvas/background-removal-alpha.spec.ts
+  --project=chromium --workers=1 --reporter=list`: one passing test in the
+  isolated browser run after making the optional redraw hook and disclosure
+  state explicit.
 - Private-index `node scripts/audit-health.mjs --staged`: passed.
 - Final impact plan: no full-suite escalation; selects affected package and
   dependent checks, canvas E2E, website E2E, and the render benchmark. Its 91%
