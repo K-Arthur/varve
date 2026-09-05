@@ -71,9 +71,7 @@ export const SingleMode: Story = {
 };
 
 export const SingleCollapsible: Story = {
-  render: () => (
-    <AccordionDemo mode="single" collapsible defaultValue="layout" />
-  ),
+  render: () => <AccordionDemo mode="single" collapsible defaultValue="layout" />,
 };
 
 export const Compact: Story = {
@@ -114,7 +112,9 @@ export const DeeplyNested: Story = {
               <AccordionItem value="inner-a">
                 <AccordionTrigger>Nested Item A</AccordionTrigger>
                 <AccordionContent>
-                  <div style={{ padding: 'var(--space-2) 0', color: 'var(--color-text-secondary)' }}>
+                  <div
+                    style={{ padding: 'var(--space-2) 0', color: 'var(--color-text-secondary)' }}
+                  >
                     Inner content with independent state.
                   </div>
                 </AccordionContent>
@@ -122,7 +122,9 @@ export const DeeplyNested: Story = {
               <AccordionItem value="inner-b">
                 <AccordionTrigger>Nested Item B</AccordionTrigger>
                 <AccordionContent>
-                  <div style={{ padding: 'var(--space-2) 0', color: 'var(--color-text-secondary)' }}>
+                  <div
+                    style={{ padding: 'var(--space-2) 0', color: 'var(--color-text-secondary)' }}
+                  >
                     Another inner content panel.
                   </div>
                 </AccordionContent>
