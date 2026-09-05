@@ -3,7 +3,7 @@ import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 ---
 
-<Layout title="Canvas & Rendering" description="Varve's canvas: infinite canvas with culling, sticky snap, rulers, guides, grids, view rotation, and multi-page documents, rendered by a native Rust engine.">
+<Layout title="Canvas & Rendering" description="Varve's canvas: infinite canvas with culling, sticky snap, rulers, guides, grids, view rotation, multi-page documents, and a live minimap, rendered by a native Rust engine.">
   <div class="container-custom">
     <div class="feature-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -41,6 +41,7 @@ import { sitePath } from '../../lib/siteUrl';
           <li><strong>Dirty-rect redraw:</strong> Minimize redraws to changed regions</li>
           <li><strong>Precision tools:</strong> Sticky snap, numerical precision, sub-pixel accuracy</li>
           <li><strong>Multi-page support:</strong> Work with multiple artboards/pages in one document</li>
+          <li><strong>Live minimap:</strong> See the active design canvas or publishing pasteboard, then click or drag to navigate without changing your artwork</li>
           <li><strong>Rulers and guides:</strong> Visual guides for alignment and measurement</li>
           <li><strong>Grid overlays:</strong> Configurable grid patterns for precision work</li>
         </ul>
@@ -49,7 +50,7 @@ import { sitePath } from '../../lib/siteUrl';
       <section class="feature-section">
         <h2>Technical Depth</h2>
         <p>
-          The rendering pipeline is built on IR-replay (ADR-0001), validated empirically on Wayland Linux. The engine uses viewport culling, dirty-rect redraw, and spatial indexing for fast hit testing. The SubtreeReplayCache optimizes repeated rendering of unchanged subtrees.
+          The rendering pipeline is built on IR-replay (ADR-0001), validated empirically on Wayland Linux. The engine uses viewport culling, dirty-rect redraw, and spatial indexing for fast hit testing. The SubtreeReplayCache optimizes repeated rendering of unchanged subtrees. The minimap reuses the same world bounds, page placement, camera rotation, and live canvas dimensions as the main surface, so navigation remains an honest overview rather than a second approximation of the document.
         </p>
         <p>
           Current benchmarks show 86fps canvas2D replay with the IR-replay architecture. The same facade works on desktop (native Rust via Tauri IPC) and web (WASM) with zero functional compromise.

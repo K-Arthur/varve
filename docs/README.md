@@ -260,6 +260,7 @@ Current interface typography and component sizing contracts are documented in
 | `architecture/auto-layout-system.md` | Auto-layout (flex/grid) engine — canonical doc |
 | `architecture/blend-spaces.md` | Blend-space model from the 2026-08-17 blend-space landing |
 | `architecture/surface-model.md` | Page-layout surfaces, design frames, artboards, export markers, and workspace disclosure |
+| `architecture/minimap-system.md` | Live canvas minimap geometry, navigation, scope, persistence, lifecycle, and validation |
 | `architecture/page-layout-guides.md` | Publishing page margins, columns, inheritance, and view-only guides |
 | `architecture/page-export-selection.md` | Ordered page export selection, exclusions, ranges, and spread units |
 | `architecture/master-pages.md` | Master source ownership, projection, assignments, and sparse overrides |
@@ -500,6 +501,7 @@ records; check the current code before acting on their findings.
 | `audits/shine-border-opportunity-audit-2026-08-31.md` | Repository-wide Shine Border candidate ranking, explicit rejects, and approved production ceiling |
 | `audits/platform-ux-accessibility-responsiveness-audit-2026-09-02.md` | WCAG 2.2 AA, keyboard, touch, responsive, and marketing-site audit with prioritized remediation |
 | `audits/documentation-modernization-audit-2026-09-02.md` | Repository documentation truth, release guidance, architecture orientation, and website claims audit |
+| `audits/minimap-repair-2026-09-05.md` | Minimap geometry, lifecycle, persistence, responsive, and marketing repair record |
 
 ## Website-specific (current state)
 
