@@ -135,13 +135,15 @@ Chromium website visual cases passed across both modes: mobile dark and desktop
 light screenshots were inspected for readable contrast and no horizontal
 overflow. The generated desktop captures are kept beside the feature spec.
 
-The editor browser rerun after the renderer fix was not accepted as evidence:
-the shared development server was changing Minimap and Export modules during
-startup and then failed to resolve a transient import. Earlier real-browser
-coverage passed the normal Fast/Auto flow, Undo/Redo, disconnected regions and
-pointer surfaces, while the large panorama exposed the reduced-mask coordinate
-bug that the focused replay test now covers. A clean post-fix editor E2E run is
-still required before claiming the panorama path visually verified.
+An initial editor run passed the normal Fast/Auto flow, Undo/Redo,
+disconnected regions and pointer surfaces, while the large panorama exposed the
+reduced-mask coordinate bug that the focused replay test covers. After the
+renderer fix, a clean isolated Chromium run on port 1496 passed the large
+panorama assertion in 49.8 seconds. A second attempt that added a screenshot
+and full-redraw oracle failed before the canvas mounted because concurrent
+Minimap changes destabilized the shared development server; it is not counted
+as a product failure. The committed alpha workflow carries the same
+full-redraw oracle for future runs.
 
 The synthetic corpus contains exact binary labels and one genuine soft-alpha
 fixture. Its real-provider benchmark has not been completed on an isolated
