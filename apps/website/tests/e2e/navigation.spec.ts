@@ -136,6 +136,13 @@ test('platform selector: tablist semantics and arrow-key navigation', async ({ p
   await page.keyboard.press('ArrowRight');
   await expect(page.locator('[role="tab"]').nth(1)).toBeFocused();
   await expect(page.locator('[role="tab"]').nth(1)).toHaveAttribute('aria-selected', 'true');
+
+  await first.click();
+  await expect(first).toHaveAttribute('aria-selected', 'true');
+  const firstPanelId = await first.getAttribute('aria-controls');
+  expect(firstPanelId).toBeTruthy();
+  await expect(page.locator(`#${firstPanelId}`)).toBeVisible();
+  await expect(page.locator('[role="tabpanel"]:not([hidden])')).toHaveCount(1);
   void baseURL;
 });
 
