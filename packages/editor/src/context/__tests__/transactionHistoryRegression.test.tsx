@@ -3,6 +3,39 @@ import { describe, expect, it } from 'vitest';
 import { EditorProvider, useEditor } from '../../context';
 
 describe('EditorProvider transaction history ordering', () => {
+  it('does not resurrect shadow-stack content when Undo is requested at genesis', async () => {
+    let editor: ReturnType<typeof useEditor> | undefined;
+    function Consumer() {
+      editor = useEditor();
+      return null;
+    }
+    render(
+      <EditorProvider>
+        <Consumer />
+      </EditorProvider>,
+    );
+    await waitFor(() => expect(editor?.persistentHistory.attached).toBe(true));
+    act(() => {
+      editor!.setTool('rect');
+      editor!.createShapeAt({ x: 10, y: 10 }, { w: 100, h: 60 });
+    });
+    await waitFor(() => expect(editor?.state.selection).toHaveLength(1));
+    const firstId = editor!.state.selection[0]!;
+    await waitFor(async () => expect(await editor!.persistentHistory.steps()).toHaveLength(2));
+    act(() => editor!.createShapeAt({ x: 150, y: 10 }, { w: 100, h: 60 }));
+    await waitFor(async () => expect(await editor!.persistentHistory.steps()).toHaveLength(3));
+    act(() => editor!.undo());
+    await waitFor(() => expect(editor!.persistentHistory.session!.undoLabel).not.toBe('Undo'));
+    await act(async () => {
+      await editor!.persistentHistory.undo();
+    });
+    await waitFor(() => expect(editor!.state.document.nodes[firstId]).toBeUndefined());
+    await act(async () => {
+      editor!.undo();
+    });
+    expect(editor!.state.document.nodes[firstId]).toBeUndefined();
+  });
+
   it('undoes a transform on the first undo after commit', async () => {
     let editor: ReturnType<typeof useEditor> | undefined;
     function Consumer() {

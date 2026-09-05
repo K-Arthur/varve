@@ -72,3 +72,96 @@ the committed ID and data URL. No new history stack or processing provider.
 - Native Tauri/model execution, memory budgets, complete mutation matrix,
   IndexedDB reload and broader fault scenarios remain unverified. Memory-store
   recreation verifies mask replay independent of the original session cache.
+
+## Milestone commits and additional evidence
+
+- `bbe203d27`: immutable mask identities and branch regression.
+- `bf25fd1ae`: synchronous Apply boundary, shared capture/navigation queue,
+  replay-before-cursor-publication, accurate navigation labels, switch guards,
+  preview dismissal and delayed-attachment capture. Commit checkpoint: 26 tests
+  passed; no hook bypasses.
+- Extra Undo at genesis did **not** reproduce resurrection in the added
+  EditorProvider test. Four transaction regression tests passed. The broader
+  fallback-routing audit remains open; the hypothesis is not a confirmed bug.
+- Editor typecheck passed after correcting the new fixture's ShapeNode narrowing.
+- Architecture audit exited 0; 15 distinct cycles and zero layer violations.
+  Existing hub import warnings remain. No baseline was reset.
+- Browser mask tests: six of seven scenarios passed across bounded runs (Quick
+  round-trip, Quick toolbar, disconnected subjects, AI Balanced surface, no
+  crash, and Properties mask editing). AI Balanced UI success alone does not
+  prove which model/provider ran. Quick is the separately verified real
+  heuristic path.
+- Panoramic failure remains: import the 3000 × 600 fixture, Remove background,
+  Apply result. The alpha-mask layer badge and Edit mask control appear, but
+  the canvas screenshot stays unchanged for 15 seconds. Evidence:
+  `test-results/run-3229180-1440/` panoramic scenario directory. No baseline
+  replacement or weakened assertion was used.
+- Website: typecheck and 169 unit tests passed; both static builds completed.
+  The browser suite passed 375/379. The corner-radius timeout passed on targeted
+  rerun. Download dark remains unstable at 6357/6365 px page height; its page,
+  shared layout and global CSS have no diff from the starting commit.
+  Both background-removal mobile snapshots differ while that feature page is
+  being edited concurrently. Those unrelated baselines are unchanged.
+- The corrected getting-started history tip was captured and personally
+  inspected in light and dark themes. Screenshots and capture script:
+  `reports/undo-redo-hardening-2026-09-05/website-history-*.png`.
+
+## Shared-worktree limits
+
+Separate background-removal and effects work appeared during this run,
+including new failing lifecycle tests, provider/renderer edits and marketing
+copy changes. Those files are preserved. The second commit uses explicit paths
+so other staged work is excluded. Package-suite output from this period is
+worktree evidence, not certification of a frozen commit. The broad editor /
+desktop run and diagnostic history benchmark are still in progress.
+
+## Agent validation report — milestone, not final certification
+
+```text
+Changed scope: editor history/session wiring, mask commit IDs, regression tests,
+  persistent-history docs and website getting-started history guidance.
+Validation plan: editor + desktop affected closure; changed tests and background
+  removal E2E; website unit/type/browser checks; docs/emoji. No full escalation.
+Commands actually run:
+  pnpm verify:plan
+  pnpm verify:affected
+  VARVE_E2E_PORT=1438 pnpm verify:affected
+  pnpm exec vitest run packages/editor/src/backgroundRemoval/__tests__/commitRasterMask.test.ts
+  pnpm exec vitest run packages/editor/src/context/useBackgroundRemoval.test.tsx
+  pnpm exec vitest run packages/editor/src/context/usePersistentHistory.test.tsx
+  pnpm exec vitest run packages/editor/src/history/__tests__/editorHistorySession.test.ts
+  pnpm exec vitest run packages/editor/src/context/__tests__/transactionHistoryRegression.test.tsx
+  pnpm exec vitest run packages/editor apps/desktop --maxWorkers=2
+  pnpm --filter @varve/editor typecheck
+  pnpm --filter @varve/desktop typecheck
+  pnpm typecheck:e2e
+  pnpm audit:docs
+  pnpm audit:emoji
+  pnpm audit:tokens
+  node scripts/audit-architecture.mjs --ci
+  pnpm --filter @varve/website typecheck
+  pnpm test:website
+  pnpm test:website:e2e
+  pnpm exec playwright test -c playwright.website.config.ts --project=ghpages --workers=1 --grep 'all static-page buttons|download page dark'
+  node reports/undo-redo-hardening-2026-09-05/website-review.mjs
+  pnpm exec vitest bench packages/history/src/__benchmarks__/history.bench.ts --run --pool=forks --maxWorkers=1
+Passed: direct repair tests; transaction regression; editor and E2E typechecks;
+  docs/emoji/tokens; architecture; website type/unit/build; six mask UI scenarios;
+  light/dark inspection of the corrected website guidance.
+Skipped as unrelated: Rust/native suites and global canvas visual matrix;
+  no Rust/native or shared renderer changes in these commits.
+Escalations: none. Remaining failures and active checks are detailed above.
+Full suite run: no
+```
+
+Browser command details: every app run used `pnpm exec playwright test
+ tests/e2e/canvas/background-removal.spec.ts --project=chromium --reporter=list`.
+Port / `--grep` pairs: 1437 / `restores exact canvas`; 1439 /
+`Inspector — AI|No crash|large panoramic|Properties exposes`; 1440 /
+`No crash|large panoramic|Properties exposes`; 1441 / `Properties exposes`.
+The initial default-port invocation could not start because 1420 was occupied.
+
+Final scoped review checkpoint: `pnpm verify:plan --staged` and
+`pnpm verify:quick --staged` ran against a temporary index containing only the
+three review files (the shared index was preserved). Four transaction tests
+and all Tier 0 checks passed in 105.5 seconds. Desktop typecheck also passed.
