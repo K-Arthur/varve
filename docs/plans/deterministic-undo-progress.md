@@ -1,5 +1,11 @@
 # Deterministic Undo/Redo Engine — Progress Tracker
 
+## Follow-up verification
+
+The [2026-09-05 hardening audit](../audits/undo-redo-hardening-2026-09-05.md)
+tracks newly reproduced defects and remaining runtime coverage. The completed
+items below describe the earlier implementation, not universal undo coverage.
+
 ## Phase 1: Migrate Bypass Mutation Paths
 - [x] 1A: createShapeAt — wrap in transaction
 - [x] 1B: groupSelected — wrap in transaction

@@ -5,9 +5,8 @@
  * All mask data goes through the native raster mask pipeline:
  *   Document.rasterMaskAssets + NodeBase.mask.rasterMask
  *
- * First commit for a node creates a stable asset ID (mask-{nodeId}).
- * Subsequent commits create versioned IDs (mask-{nodeId}-v{N}) because
- * the asset system treats assets as immutable by ID.
+ * Each accepted payload receives a fresh immutable asset ID. Edit revisions
+ * can repeat on divergent history paths and must not identify asset bytes.
  *
  * Research basis: Figma non-destructive pixel masks, ADR-0005 offline-first
  * asset model, immutable Document pattern.
@@ -15,6 +14,7 @@
 import type { BackgroundRemovalProvenance, Document, NodeId, RasterMaskAsset } from '@varve/scene';
 import {
   addRasterMaskAsset,
+  cryptoId,
   removeRasterMaskAsset,
   resolveNodePaints,
   updateRasterMaskAsset,
@@ -130,10 +130,8 @@ function normalizeSourceDimensions(
 /**
  * Commit a raster mask to the document as a native RasterMaskAsset.
  *
- * - First call: creates a stable `mask-{nodeId}` asset.
- * - Subsequent calls: creates a versioned `mask-{nodeId}-v{rev}` asset
- *   and updates the node reference, because the asset system treats
- *   assets as immutable by ID.
+ * Creates a fresh asset identity and updates the node reference. History
+ * retains that committed identity; replay never mints a replacement ID.
  *
  * The asset dimensions must match the source image fill dimensions
  * (enforced by validateSourcePixelDimensions). Callers must ensure
@@ -148,16 +146,12 @@ export function commitRasterMask(
   const node = sourceAlignedDoc.nodes[nodeId];
   const existingMask = node?.mask?.rasterMask;
 
+  const asset = makeAsset(`mask-${cryptoId()}`, fields);
   if (existingMask) {
-    const currentRev = existingMask.editRevision ?? 0;
-    const newRev = currentRev + 1;
-    const assetId = `mask-${nodeId}-v${newRev}`;
-    const asset = makeAsset(assetId, fields);
     const updated = updateRasterMaskAsset(sourceAlignedDoc, nodeId, asset);
     return updated === sourceAlignedDoc ? doc : updated;
   }
 
-  const asset = makeAsset(`mask-${nodeId}`, fields);
   const updated = addRasterMaskAsset(
     sourceAlignedDoc,
     nodeId,

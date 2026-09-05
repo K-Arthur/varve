@@ -35,7 +35,24 @@ function makeDoc(): Document {
 }
 
 describe('commitRasterMask', () => {
-  it('commits a new raster mask with stable asset ID', () => {
+  it('never aliases mask payloads on divergent history paths', () => {
+    const before = makeDoc();
+    const fields = { width: 1, height: 1, dataUrl: PNG_WHITE };
+    const abandoned = commitRasterMask(before, 'img-1', fields);
+    const divergent = commitRasterMask(before, 'img-1', { ...fields, dataUrl: PNG_BLACK });
+    const abandonedId = abandoned.nodes['img-1']!.mask!.rasterMask!.assetId;
+    const divergentId = divergent.nodes['img-1']!.mask!.rasterMask!.assetId;
+    expect(divergentId).not.toBe(abandonedId);
+    expect(abandoned.rasterMaskAssets![abandonedId]!.dataUrl).toBe(PNG_WHITE);
+    expect(divergent.rasterMaskAssets![divergentId]!.dataUrl).toBe(PNG_BLACK);
+    const replacement = commitRasterMask(abandoned, 'img-1', fields);
+    const fork = commitRasterMask(abandoned, 'img-1', { ...fields, dataUrl: PNG_BLACK });
+    expect(replacement.nodes['img-1']!.mask!.rasterMask!.assetId).not.toBe(
+      fork.nodes['img-1']!.mask!.rasterMask!.assetId,
+    );
+  });
+
+  it('commits a new raster mask with an immutable asset ID', () => {
     const doc = makeDoc();
     const updated = commitRasterMask(doc, 'img-1', {
       dataUrl: PNG_WHITE,
@@ -49,8 +66,8 @@ describe('commitRasterMask', () => {
     expect(hasNativeRasterMask(updated, 'img-1')).toBe(true);
     const node = updated.nodes['img-1']!;
     expect(node.mask?.rasterMask).toBeDefined();
-    expect(node.mask!.rasterMask!.assetId).toBe('mask-img-1');
-    const asset = updated.rasterMaskAssets!['mask-img-1']!;
+    expect(node.mask!.rasterMask!.assetId).toMatch(/^mask-/);
+    const asset = updated.rasterMaskAssets![node.mask!.rasterMask!.assetId]!;
     expect(asset.dataUrl).toBe(PNG_WHITE);
   });
 
@@ -141,7 +158,7 @@ describe('commitRasterMask', () => {
     }
   });
 
-  it('creates a versioned asset ID on update', () => {
+  it('creates a distinct asset ID on update', () => {
     const doc = makeDoc();
     const first = commitRasterMask(doc, 'img-1', {
       dataUrl: PNG_WHITE,
@@ -156,9 +173,11 @@ describe('commitRasterMask', () => {
     });
 
     const node = updated.nodes['img-1']!;
-    expect(node.mask?.rasterMask?.assetId).toBe('mask-img-1-v2');
+    expect(node.mask?.rasterMask?.assetId).not.toBe(
+      first.nodes['img-1']!.mask!.rasterMask!.assetId,
+    );
     expect(node.mask?.rasterMask?.editRevision).toBeGreaterThanOrEqual(1);
-    const asset = updated.rasterMaskAssets!['mask-img-1-v2']!;
+    const asset = updated.rasterMaskAssets![node.mask!.rasterMask!.assetId]!;
     expect(asset.dataUrl).toBe(PNG_BLACK);
   });
 
@@ -174,7 +193,9 @@ describe('commitRasterMask', () => {
     expect(hasNativeRasterMask(removed, 'img-1')).toBe(false);
     const node = removed.nodes['img-1']!;
     expect((node as { mask?: unknown }).mask).toBeUndefined();
-    expect(removed.rasterMaskAssets?.['mask-img-1']).toBeUndefined();
+    expect(
+      removed.rasterMaskAssets?.[committed.nodes['img-1']!.mask!.rasterMask!.assetId],
+    ).toBeUndefined();
   });
 
   it('hasNativeRasterMask returns false for a node without a mask', () => {
