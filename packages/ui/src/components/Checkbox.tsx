@@ -26,7 +26,8 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(function Che
   const errorId = `${checkboxId}-error`;
   const descriptionId = description ? `${checkboxId}-description` : undefined;
 
-  const describedBy = [error ? errorId : undefined, descriptionId].filter(Boolean).join(' ') || undefined;
+  const describedBy =
+    [error ? errorId : undefined, descriptionId].filter(Boolean).join(' ') || undefined;
 
   return (
     <label className={`varve-checkbox${className ? ` ${className}` : ''}`}>

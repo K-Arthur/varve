@@ -74,18 +74,19 @@ export function FieldLabel({
   optional,
   className = '',
 }: FieldLabelProps) {
-  const classes = [
-    'varve-field__label',
-    visuallyHidden ? 'varve-visually-hidden' : '',
-    className,
-  ]
+  const classes = ['varve-field__label', visuallyHidden ? 'varve-visually-hidden' : '', className]
     .filter(Boolean)
     .join(' ');
 
   return (
     <label className={classes} htmlFor={htmlFor}>
       {children}
-      {required && <span className="varve-field__required" aria-hidden="true"> *</span>}
+      {required && (
+        <span className="varve-field__required" aria-hidden="true">
+          {' '}
+          *
+        </span>
+      )}
       {optional && <span className="varve-field__optional"> (Optional)</span>}
     </label>
   );
@@ -113,11 +114,7 @@ export interface FieldErrorProps {
 
 export function FieldError({ children, id, className = '' }: FieldErrorProps) {
   return (
-    <p
-      className={`varve-field__error${className ? ` ${className}` : ''}`}
-      id={id}
-      role="alert"
-    >
+    <p className={`varve-field__error${className ? ` ${className}` : ''}`} id={id} role="alert">
       {children}
     </p>
   );

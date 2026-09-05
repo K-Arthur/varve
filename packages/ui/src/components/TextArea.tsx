@@ -28,7 +28,11 @@ export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(function 
     .filter(Boolean)
     .join(' ');
 
-  const describedBy = mergeDescribedBy(rest['aria-describedby'], error ? errorId : undefined, hint ? hintId : undefined);
+  const describedBy = mergeDescribedBy(
+    rest['aria-describedby'],
+    error ? errorId : undefined,
+    hint ? hintId : undefined,
+  );
   const currentLength = typeof value === 'string' ? value.length : 0;
 
   return (

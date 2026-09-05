@@ -1,5 +1,4 @@
-import { Button, Dialog, Icon } from '@varve/ui';
-import { useState } from 'react';
+import { Button, Dialog, Disclosure, DisclosureContent, DisclosureTrigger, Icon } from '@varve/ui';
 
 export interface FormatMigrationResult {
   name: string;
@@ -16,8 +15,6 @@ export interface FormatMigrationProps {
 }
 
 export function FormatMigration({ open, onClose, results, onViewReport }: FormatMigrationProps) {
-  const [expanded, setExpanded] = useState(false);
-
   const successCount = results.filter((r) => r.success).length;
   const warnCount = results.filter((r) => r.warnings.length > 0).length;
   const allWarnings = results.flatMap((r) => r.warnings);
@@ -61,54 +58,51 @@ export function FormatMigration({ open, onClose, results, onViewReport }: Format
 
         {results.length > 0 && (
           <div className="format-migration__details">
-            <button
-              type="button"
-              className="format-migration__toggle"
-              onClick={() => setExpanded(!expanded)}
-            >
-              {expanded ? 'Hide' : 'Show'} per-file report ({results.length} files)
-            </button>
-
-            {expanded && (
-              <ul className="format-migration__list">
-                {results.map((r) => (
-                  <li
-                    key={r.name}
-                    className={`format-migration__file${!r.success ? ' format-migration__file--fail' : ''}${r.warnings.length > 0 ? ' format-migration__file--warn' : ''}`}
-                  >
-                    <span className="format-migration__file-icon">
-                      {r.success ? (
-                        <Icon name="Check" label="Success" size="0.85em" />
-                      ) : (
-                        <Icon name="X" label="Failed" size="0.85em" />
-                      )}
-                    </span>
-                    <span className="format-migration__file-name">{r.name}</span>
-                    {r.warnings.length > 0 && (
-                      <span className="format-migration__file-badge">
-                        {r.warnings.length} issue{r.warnings.length !== 1 ? 's' : ''}
+            <Disclosure>
+              <DisclosureTrigger className="format-migration__toggle" hideIndicator>
+                {`Show per-file report (${results.length} files)`}
+              </DisclosureTrigger>
+              <DisclosureContent>
+                <ul className="format-migration__list">
+                  {results.map((r) => (
+                    <li
+                      key={r.name}
+                      className={`format-migration__file${!r.success ? ' format-migration__file--fail' : ''}${r.warnings.length > 0 ? ' format-migration__file--warn' : ''}`}
+                    >
+                      <span className="format-migration__file-icon">
+                        {r.success ? (
+                          <Icon name="Check" label="Success" size="0.85em" />
+                        ) : (
+                          <Icon name="X" label="Failed" size="0.85em" />
+                        )}
                       </span>
-                    )}
-                    {r.success && onViewReport && (
-                      <button
-                        type="button"
-                        className="format-migration__file-report"
-                        onClick={() => onViewReport(r)}
-                      >
-                        Report
-                      </button>
-                    )}
-                    {r.details && r.details.length > 0 && (
-                      <ul className="format-migration__file-details">
-                        {r.details.map((d) => (
-                          <li key={d}>{d}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
+                      <span className="format-migration__file-name">{r.name}</span>
+                      {r.warnings.length > 0 && (
+                        <span className="format-migration__file-badge">
+                          {r.warnings.length} issue{r.warnings.length !== 1 ? 's' : ''}
+                        </span>
+                      )}
+                      {r.success && onViewReport && (
+                        <button
+                          type="button"
+                          className="format-migration__file-report"
+                          onClick={() => onViewReport(r)}
+                        >
+                          Report
+                        </button>
+                      )}
+                      {r.details && r.details.length > 0 && (
+                        <ul className="format-migration__file-details">
+                          {r.details.map((d) => (
+                            <li key={d}>{d}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </DisclosureContent>
+            </Disclosure>
           </div>
         )}
 

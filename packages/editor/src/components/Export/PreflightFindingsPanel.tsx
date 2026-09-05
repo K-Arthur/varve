@@ -12,8 +12,8 @@
  */
 
 import type { ExportFinding, ExportFindingSeverity } from '@varve/scene/export';
-import { Icon } from '@varve/ui';
-import { useMemo, useState } from 'react';
+import { Disclosure, DisclosureContent, DisclosureTrigger, Icon } from '@varve/ui';
+import { useMemo } from 'react';
 
 import './PreflightFindingsPanel.css';
 
@@ -69,8 +69,6 @@ export function PreflightFindingsPanel({
   showClean = false,
   onApplyFix,
 }: PreflightFindingsPanelProps) {
-  const [open, setOpen] = useState(true);
-
   const counts = useMemo(() => {
     const result: Record<ExportFindingSeverity, number> = { error: 0, warning: 0, info: 0 };
     for (const finding of findings) result[finding.severity] += 1;
@@ -109,68 +107,68 @@ export function PreflightFindingsPanel({
       className={`preflight-panel preflight-panel--has-issues${counts.error > 0 ? ' preflight-panel--blocked' : ''}`}
       aria-label="Export preflight"
     >
-      <div className="preflight-panel__header">
-        <button
-          type="button"
-          className="preflight-panel__toggle"
-          aria-expanded={open}
-          aria-controls="preflight-findings-list"
-          onClick={() => setOpen((prev) => !prev)}
-        >
-          <Icon
-            name="ChevronDown"
-            size={14}
-            label={undefined}
-            className={`preflight-panel__chevron${open ? ' preflight-panel__chevron--open' : ''}`}
-          />
-          <span className="preflight-panel__summary">Preflight: {summary}</span>
-        </button>
-        {onApplyFix && (
-          <span className="varve-visually-hidden" role="status">
-            {summary}
-          </span>
-        )}
-      </div>
-      {open && (
-        <ul className="preflight-panel__list" id="preflight-findings-list">
-          {grouped.map((group) => {
-            const meta = severityMeta(group.severity);
-            return group.findings.map((finding) => {
-              const fixLabel = fixActionLabel(finding);
-              return (
-                <li
-                  key={finding.id}
-                  className={`preflight-panel__finding preflight-panel__finding--${meta.className}`}
-                >
-                  <Icon
-                    name={meta.icon}
-                    size={14}
-                    className={`preflight-panel__severity-icon preflight-panel__severity-icon--${meta.className}`}
-                    label={undefined}
-                  />
-                  <div className="preflight-panel__finding-body">
-                    <p className="preflight-panel__finding-title">
-                      <span className="varve-visually-hidden">{meta.label}: </span>
-                      {finding.title}
-                    </p>
-                    <p className="preflight-panel__finding-desc">{finding.description}</p>
-                    <p className="preflight-panel__finding-code">{finding.code}</p>
-                  </div>
-                  {fixLabel && onApplyFix && (
-                    <button
-                      type="button"
-                      className="preflight-panel__fix"
-                      onClick={() => onApplyFix(finding)}
-                    >
-                      {fixLabel}
-                    </button>
-                  )}
-                </li>
-              );
-            });
-          })}
-        </ul>
-      )}
+      <Disclosure defaultOpen>
+        <div className="preflight-panel__header">
+          <DisclosureTrigger
+            className="preflight-panel__toggle"
+            indicator={
+              <Icon
+                name="ChevronDown"
+                size={14}
+                label={undefined}
+                className="preflight-panel__chevron"
+              />
+            }
+          >
+            <span className="preflight-panel__summary">Preflight: {summary}</span>
+          </DisclosureTrigger>
+          {onApplyFix && (
+            <span className="varve-visually-hidden" role="status">
+              {summary}
+            </span>
+          )}
+        </div>
+        <DisclosureContent>
+          <ul className="preflight-panel__list">
+            {grouped.map((group) => {
+              const meta = severityMeta(group.severity);
+              return group.findings.map((finding) => {
+                const fixLabel = fixActionLabel(finding);
+                return (
+                  <li
+                    key={finding.id}
+                    className={`preflight-panel__finding preflight-panel__finding--${meta.className}`}
+                  >
+                    <Icon
+                      name={meta.icon}
+                      size={14}
+                      className={`preflight-panel__severity-icon preflight-panel__severity-icon--${meta.className}`}
+                      label={undefined}
+                    />
+                    <div className="preflight-panel__finding-body">
+                      <p className="preflight-panel__finding-title">
+                        <span className="varve-visually-hidden">{meta.label}: </span>
+                        {finding.title}
+                      </p>
+                      <p className="preflight-panel__finding-desc">{finding.description}</p>
+                      <p className="preflight-panel__finding-code">{finding.code}</p>
+                    </div>
+                    {fixLabel && onApplyFix && (
+                      <button
+                        type="button"
+                        className="preflight-panel__fix"
+                        onClick={() => onApplyFix(finding)}
+                      >
+                        {fixLabel}
+                      </button>
+                    )}
+                  </li>
+                );
+              });
+            })}
+          </ul>
+        </DisclosureContent>
+      </Disclosure>
     </section>
   );
 }

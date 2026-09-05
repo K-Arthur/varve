@@ -46,10 +46,11 @@ export function SectionCollapseToggle({
           className={collapsed ? 'section-collapse-btn__icon--collapsed' : undefined}
         >
           <path
-            d="M3 4.5L6 7.5L9 4.5"
+            d="M4.5 3L7.5 6L4.5 9"
             stroke="currentColor"
             strokeWidth="1.5"
             strokeLinecap="round"
+            strokeLinejoin="round"
           />
         </svg>
       </button>

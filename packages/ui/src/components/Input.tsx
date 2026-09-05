@@ -32,7 +32,11 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
     .filter(Boolean)
     .join(' ');
 
-  const describedBy = mergeDescribedBy(rest['aria-describedby'], error ? errorId : undefined, hint ? hintId : undefined);
+  const describedBy = mergeDescribedBy(
+    rest['aria-describedby'],
+    error ? errorId : undefined,
+    hint ? hintId : undefined,
+  );
 
   return (
     <div className={classes}>

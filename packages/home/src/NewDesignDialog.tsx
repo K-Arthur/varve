@@ -13,6 +13,9 @@ import {
   Button,
   Checkbox,
   Dialog,
+  Disclosure,
+  DisclosureContent,
+  DisclosureTrigger,
   IconButton,
   NumberInput,
   PresetPicker,
@@ -519,28 +522,26 @@ export function NewDesignDialog({
         )}
 
         <div className="new-design__advanced">
-          <button
-            type="button"
-            className="new-design__advanced-toggle"
-            aria-expanded={advancedOpen}
-            aria-controls="new-design-advanced"
-            onClick={() => setAdvancedOpen((o) => !o)}
-          >
-            <span className="new-design__advanced-toggle-label">Advanced settings</span>
-            <span className="new-design__advanced-toggle-hint">
-              {intent === 'print'
-                ? 'Print intent: CMYK, bleed, DPI'
-                : 'Screen intent: RGB at 8-bit'}
-            </span>
-            <span
-              className={`new-design__advanced-chevron${advancedOpen ? ' new-design__advanced-chevron--open' : ''}`}
-              aria-hidden
+          <Disclosure open={advancedOpen} onOpenChange={setAdvancedOpen}>
+            <DisclosureTrigger
+              className="new-design__advanced-toggle"
+              indicator={
+                <span
+                  className={`new-design__advanced-chevron${advancedOpen ? ' new-design__advanced-chevron--open' : ''}`}
+                  aria-hidden
+                >
+                  ▾
+                </span>
+              }
             >
-              ▾
-            </span>
-          </button>
-          {advancedOpen && (
-            <div id="new-design-advanced" className="new-design__advanced-panel">
+              <span className="new-design__advanced-toggle-label">Advanced settings</span>
+              <span className="new-design__advanced-toggle-hint">
+                {intent === 'print'
+                  ? 'Print intent: CMYK, bleed, DPI'
+                  : 'Screen intent: RGB at 8-bit'}
+              </span>
+            </DisclosureTrigger>
+            <DisclosureContent className="new-design__advanced-panel">
               <div className="new-design__field-row">
                 <span className="new-design__field-label">Intent</span>
                 <SegmentedControl
@@ -578,8 +579,8 @@ export function NewDesignDialog({
                   <span className="new-design__field-hint">{unit}</span>
                 </div>
               )}
-            </div>
-          )}
+            </DisclosureContent>
+          </Disclosure>
         </div>
       </div>
     </Dialog>
