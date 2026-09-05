@@ -97,6 +97,10 @@ test.describe('Menu keyboard navigation', () => {
 
     await page.keyboard.press('ArrowDown');
     const secondLabel = await items.nth(1).textContent();
+    // Wait for the roving-focus effect before sending the reverse key. Without
+    // this checkpoint, a busy browser can process ArrowUp before ArrowDown's
+    // focus handoff, making the assertion observe the intermediate item.
+    await expect(items.nth(1)).toBeFocused();
     void secondLabel;
 
     await page.keyboard.press('ArrowUp');
