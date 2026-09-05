@@ -24,6 +24,7 @@ export function resolveEffectQuality(
   param: EffectQualityParam | undefined,
   caller: EffectQuality,
 ): EffectQuality {
+  if (caller === 'export') return 'export';
   if (param && param !== 'auto') return param;
   return caller;
 }

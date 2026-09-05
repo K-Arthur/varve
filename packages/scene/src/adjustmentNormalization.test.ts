@@ -4,6 +4,42 @@ import { createDocument, makeAdjustmentNode } from './document';
 import { DocumentCodec } from './documentCodec';
 
 describe('adjustment normalization', () => {
+  it.each(['dither', 'paletteSnap'])('round-trips authored %s palettes and seeds', (kind) => {
+    const colors = [
+      [13, 27, 219],
+      [240, 182, 11],
+    ];
+    const first = normalizeAdjustmentStack(
+      [
+        {
+          kind,
+          colors,
+          seed: 4294967295,
+          paletteMode: 'custom',
+          metric: 'lab',
+          algorithm: 'blue-noise',
+          ditherAlgorithm: 'atkinson',
+        },
+      ],
+      'photo',
+    );
+    expect(first.adjustments[0]).toMatchObject({ colors, seed: 4294967295, metric: 'lab' });
+    expect(first.adjustments[0]).toMatchObject(
+      kind === 'dither'
+        ? { paletteMode: 'custom', algorithm: 'blue-noise' }
+        : { ditherAlgorithm: 'atkinson' },
+    );
+    const second = normalizeAdjustmentStack(JSON.parse(JSON.stringify(first.adjustments)), 'photo');
+    expect(second.adjustments).toEqual(first.adjustments);
+    expect(second.changed).toBe(false);
+  });
+
+  it('preserves an explicit export quality tier on reload', () => {
+    expect(
+      normalizeAdjustmentStack([{ kind: 'bloom', quality: 'export' }], 'photo').adjustments[0],
+    ).toMatchObject({ quality: 'export' });
+  });
+
   it('fills defaults, clamps unsafe values, and keeps a stable id', () => {
     const result = normalizeAdjustmentStack(
       [

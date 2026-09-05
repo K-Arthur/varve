@@ -4,8 +4,8 @@
  * Adjustments are intentionally defined by @varve/engine because they feed
  * FilterIR, but serialized scene data is untrusted. This module is the scene
  * boundary that fills fields added by newer/older documents, clamps values
- * that could create invalid pixels or unbounded raster work, and drops
- * unknown entries with an explicit warning from DocumentCodec.
+ * that could create invalid pixels or unbounded raster work, and preserves
+ * unknown entries as non-executing forward-compatible placeholders.
  */
 
 import {
@@ -79,7 +79,33 @@ const ENUMS: Record<string, readonly string[]> = {
     'davinciWideGamut',
     'custom',
   ],
-  quality: ['auto', 'interactive', 'draft', 'normal', 'high', 'final'],
+  quality: ['auto', 'interactive', 'draft', 'normal', 'high', 'final', 'export'],
+  paletteMode: ['none', 'levels', 'custom'],
+  metric: ['rgb', 'linear-rgb', 'lab', 'oklab'],
+  algorithm: [
+    'floyd-steinberg',
+    'atkinson',
+    'jarvis-judice-ninke',
+    'stucki',
+    'sierra',
+    'bayer',
+    'blue-noise',
+  ],
+  ditherAlgorithm: [
+    'floyd-steinberg',
+    'atkinson',
+    'jarvis-judice-ninke',
+    'stucki',
+    'sierra',
+    'bayer',
+    'blue-noise',
+  ],
+  mode: ['offset', 'radial'],
+  borderMode: ['transparent', 'clamp', 'mirror', 'wrap'],
+  composite: ['screen', 'add'],
+  phosphorMask: ['none', 'rgb-stripe', 'bgr-stripe', 'aperture-grille', 'shadow-mask'],
+  occlusionSource: ['luminance', 'alpha'],
+  output: ['combined', 'lighting', 'refraction'],
 };
 
 const KIND_NUMERIC_RANGES: Record<string, Record<string, [number, number]>> = {
@@ -176,6 +202,7 @@ function normalizeStudioTreatmentMetadata(
 function numberRange(kind: AdjustmentKind, key: string): [number, number] {
   if (key === 'opacity') return [0, 1];
   if (key === 'id') return [0, 0];
+  if (key === 'seed') return [0, 4294967295];
   if (isImageTreatmentKind(kind)) {
     const parameter = imageTreatmentParameter(kind, key);
     if (parameter) return [parameter.min, parameter.max];
@@ -275,6 +302,46 @@ function normalizeCurvePoints(value: unknown): Array<{ input: number; output: nu
   }));
 }
 
+function normalizeEnum(
+  kind: AdjustmentKind,
+  key: string,
+  value: unknown,
+  fallback: string,
+): unknown {
+  const allowed =
+    kind === 'halftone' && key === 'channel'
+      ? ['k', 'c', 'm', 'y', 'cmyk']
+      : kind === 'gradientMap' && key === 'interpolation'
+        ? ['srgb', 'linear-srgb', 'oklab', 'oklch', 'hsl']
+        : kind === 'gradientMap' && key === 'luminanceMode'
+          ? [
+              'relative-luminance',
+              'perceptual-lightness',
+              'average-rgb',
+              'max-channel',
+              'alpha',
+              'red',
+              'green',
+              'blue',
+              'compatibility',
+            ]
+          : kind === 'gradientMap' && key === 'mode'
+            ? ['luminance', 'channel']
+            : ENUMS[key];
+  return allowed?.includes(value as string) ? value : fallback;
+}
+
+/** Palette entries are RGB triples, not the channels of one colour. */
+function normalizePalette(value: unknown, fallback: unknown): number[][] {
+  const source = Array.isArray(value) ? value : Array.isArray(fallback) ? fallback : [];
+  return source
+    .filter((entry) => Array.isArray(entry) && entry.length >= 3)
+    .slice(0, 256)
+    .map((entry) =>
+      [0, 1, 2].map((channel) => Math.round(finiteNumber(entry[channel], 0, 0, 255))),
+    );
+}
+
 function normalizeValue(
   kind: AdjustmentKind,
   key: string,
@@ -282,6 +349,8 @@ function normalizeValue(
   fallback: unknown,
 ): unknown {
   if (value === undefined && fallback === undefined) return undefined;
+  if (key === 'colors') return normalizePalette(value, fallback);
+  if (key === 'seed') return Math.round(finiteNumber(value, Number(fallback) || 0, 0, 4294967295));
   if (key === 'points') return normalizeCurvePoints(value);
   if (key === 'stops') return normalizeStops(value, fallback, 'gradient-stop');
   if (key === 'opacityStops') return normalizeOpacityStops(value, fallback);
@@ -306,27 +375,7 @@ function normalizeValue(
   }
   if (typeof fallback === 'boolean') return typeof value === 'boolean' ? value : fallback;
   if (typeof fallback === 'string') {
-    const allowed =
-      kind === 'halftone' && key === 'channel'
-        ? ['k', 'c', 'm', 'y', 'cmyk']
-        : kind === 'gradientMap' && key === 'interpolation'
-          ? ['srgb', 'linear-srgb', 'oklab', 'oklch', 'hsl']
-          : kind === 'gradientMap' && key === 'luminanceMode'
-            ? [
-                'relative-luminance',
-                'perceptual-lightness',
-                'average-rgb',
-                'max-channel',
-                'alpha',
-                'red',
-                'green',
-                'blue',
-                'compatibility',
-              ]
-            : kind === 'gradientMap' && key === 'mode'
-              ? ['luminance', 'channel']
-              : ENUMS[key];
-    return allowed?.includes(value as string) ? value : fallback;
+    return normalizeEnum(kind, key, value, fallback);
   }
   if (Array.isArray(fallback)) return normalizeColor(value, fallback);
   if (isRecord(fallback)) {

@@ -148,7 +148,9 @@ describe('quality helpers', () => {
   it('resolves quality params against the caller tier', () => {
     expect(resolveEffectQuality('auto', 'export')).toBe('export');
     expect(resolveEffectQuality('auto', 'normal')).toBe('normal');
-    expect(resolveEffectQuality('interactive', 'export')).toBe('interactive');
+    expect(resolveEffectQuality('interactive', 'export')).toBe('export');
+    expect(resolveEffectQuality('normal', 'export')).toBe('export');
+    expect(resolveEffectQuality('interactive', 'normal')).toBe('interactive');
     expect(resolveEffectQuality(undefined, 'normal')).toBe('normal');
   });
 
