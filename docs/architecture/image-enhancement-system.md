@@ -117,6 +117,23 @@ otherwise compete with an apply job. Changing preview inputs cancels and
 invalidates the previous request, so stale output cannot overwrite the current
 settings. No browser-bilinear comparison is used.
 
+An explicit `Denoise → None` is a no-op. It is different from an omitted
+strength (legacy callers keep the medium default) and from a selected light,
+medium, or strong stage. The planner removes the no-op stage before model
+readiness or execution, so choosing None cannot silently load SCUNet.
+
+The shared `estimateRestorationMemory()` contract is used for admission and
+the dialog's resource warning. It includes the decoded source, current and
+next frame buffers, fixed-scale AI intermediate output, resize staging, and
+declared runtime peaks for all models in the request. It is intentionally a
+conservative upper bound because model sessions may remain cached; it is not
+presented as an exact allocator measurement.
+
+Each completed stage records the provider that actually won fallback
+resolution (for example native, worker, or direct CPU) alongside its selected
+model id. The aggregate provider field remains for compatibility, but callers
+that need provenance should read the stage records.
+
 Alpha is carried separately by both restoration paths, and pixel-art
 scaling stays on its specialized algorithm path rather than entering photo
 restoration. The `restorationAuto` heuristic adds a conservative
@@ -143,13 +160,15 @@ with a pinned hash.
 
 `packages/engine/src/restorationAuto.ts` runs a cheap classical analysis
 (Laplacian-MAD noise, Laplacian-variance blur, 8px-grid blockiness,
-resolution) and proposes an operation in human terms with a confidence
-number. No neural classifier gates which neural model loads. Below 96 px
+resolution) and proposes an operation in human terms with an internal,
+uncalibrated signal score. No neural classifier gates which neural model
+loads. Below 96 px
 short edge, noise/blur signals are suppressed (only resolution matters) to
 avoid flagging icons as noisy. A compression-restoration suggestion is
 never silently substituted: the dialog explains the operation is
 unavailable and offers the closest validated operation instead. Limited
-palette on small images surfaces a pixel-art hint.
+palette on small images surfaces a pixel-art hint. The UI presents only a
+qualitative signal label, not that internal score as a probability.
 
 Progress and errors in the Enhance dialog are stage-aware (`Denoise` →
 `Upscale` etc. with ✓/•) and typed (`model-not-installed` offers Download,

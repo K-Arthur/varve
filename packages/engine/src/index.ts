@@ -1056,6 +1056,7 @@ export type {
   CapabilityStatus,
   RestorationCapability,
   RestorationErrorCode,
+  RestorationMemoryEstimate,
   RestorationOperation,
   RestorationPlan,
   RestorationRequest,
@@ -1066,6 +1067,7 @@ export type {
 } from './restoration';
 export {
   capabilitiesForTask,
+  estimateRestorationMemory,
   firstAvailableCapability,
   isRestorationErrorCode,
   isRestorationOperationAvailable,

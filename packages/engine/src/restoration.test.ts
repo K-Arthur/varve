@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   capabilitiesForTask,
+  estimateRestorationMemory,
   firstAvailableCapability,
   isRestorationErrorCode,
   isRestorationOperationAvailable,
@@ -31,6 +32,34 @@ describe('restoration capability planning', () => {
     expect(plan.stages[0]?.modelId).toBe('scunet');
     expect(plan.stages[1]?.modelId).toBeUndefined();
     expect(plan.warnings).toHaveLength(1);
+  });
+
+  it('treats explicit denoise None as a no-op without loading SCUNet', () => {
+    const plan = planRestoration({ operation: 'denoise', denoise: { strength: 'none' } });
+    expect(plan.stages).toEqual([]);
+    expect(plan.warnings).toEqual(['Denoise skipped because its strength is set to None.']);
+  });
+
+  it('estimates source, model, intermediate, and final allocations', () => {
+    const estimate = estimateRestorationMemory(
+      {
+        operation: 'upscale',
+        upscale: { method: 'ai', modelId: 'upscale-realesr-general', scale: 2 },
+      },
+      100,
+      80,
+    );
+
+    expect(estimate.outputWidth).toBe(200);
+    expect(estimate.outputHeight).toBe(160);
+    expect(estimate.sourceBytes).toBe(100 * 80 * 4);
+    expect(estimate.outputBytes).toBe(200 * 160 * 4);
+    expect(estimate.modelBytes).toBe(17_032_533);
+    expect(estimate.stagingBytes).toBe(200 * 160 * 4);
+    expect(estimate.peakBytes).toBeGreaterThan(
+      estimate.sourceBytes + estimate.outputBytes + estimate.modelBytes,
+    );
+    expect(estimate.warnings[0]).toMatch(/4x inference.*final resize/i);
   });
 
   it('rejects unsupported operations instead of falling back to an unrelated model', () => {

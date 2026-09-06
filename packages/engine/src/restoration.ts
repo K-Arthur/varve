@@ -173,7 +173,8 @@ export function firstAvailableCapability(task: RestorationTask): RestorationCapa
 export interface RestorationRequest {
   operation: RestorationOperation;
   denoise?: {
-    strength: 'light' | 'medium' | 'strong';
+    /** `none` is an explicit no-op; omitted keeps legacy medium behavior. */
+    strength: 'none' | 'light' | 'medium' | 'strong';
     modelId?: string;
   };
   deblur?: {
@@ -206,11 +207,29 @@ export interface RestorationStageState extends Omit<RestorationStagePlan, 'statu
   status: 'pending' | 'running' | 'completed' | 'cancelled' | 'failed';
   progress: number;
   processingTimeMs?: number;
+  /** Provider actually used after fallback resolution (native, worker, CPU). */
+  provider?: string;
 }
 
 export interface RestorationPlan {
   operation: RestorationOperation;
   stages: RestorationStagePlan[];
+  warnings: string[];
+}
+
+export interface RestorationMemoryEstimate {
+  sourceBytes: number;
+  outputBytes: number;
+  /** Largest simultaneous decoded/intermediate frame footprint. */
+  workingBytes: number;
+  /** Sum of declared per-stage runtime peaks retained by the session cache. */
+  modelBytes: number;
+  /** Extra frame/staging buffers required by the largest stage. */
+  stagingBytes: number;
+  /** Conservative end-to-end peak estimate used for admission. */
+  peakBytes: number;
+  outputWidth: number;
+  outputHeight: number;
   warnings: string[];
 }
 
@@ -397,10 +416,17 @@ export function planRestoration(request: RestorationRequest): RestorationPlan {
       status: 'ready',
     });
   };
+  const addDenoiseStage = () => {
+    if (request.denoise?.strength === 'none') {
+      warnings.push('Denoise skipped because its strength is set to None.');
+      return;
+    }
+    addStage('denoise', request.denoise?.modelId);
+  };
 
   switch (request.operation) {
     case 'denoise':
-      addStage('denoise', request.denoise?.modelId);
+      addDenoiseStage();
       break;
     case 'upscale':
       if (!request.upscale) {
@@ -411,7 +437,7 @@ export function planRestoration(request: RestorationRequest): RestorationPlan {
       else stages.push({ id: 'upscale', task: 'upscale', status: 'ready' });
       break;
     case 'restore-upscale':
-      addStage('denoise', request.denoise?.modelId);
+      addDenoiseStage();
       if (!request.upscale) {
         throw new RestorationPlanningError('invalid-request', 'Upscale settings are required');
       }
@@ -449,4 +475,124 @@ export function planRestoration(request: RestorationRequest): RestorationPlan {
   }
 
   return { operation: request.operation, stages, warnings };
+}
+
+function imageBytes(width: number, height: number): number {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    throw new RestorationPlanningError('invalid-request', 'Image dimensions must be positive');
+  }
+  return Math.ceil(width) * Math.ceil(height) * 4;
+}
+
+function outputDimensions(width: number, height: number, scale: number): [number, number] {
+  if (!Number.isFinite(scale) || scale <= 0) {
+    throw new RestorationPlanningError('invalid-request', 'Upscale scale must be positive');
+  }
+  return [Math.max(1, Math.round(width * scale)), Math.max(1, Math.round(height * scale))];
+}
+
+/**
+ * Estimate the largest live allocation for a request without loading a model.
+ *
+ * This deliberately includes the original decoded frame, the current stage
+ * input/output, stage staging buffers, and the declared runtime peaks for every
+ * model in the request. It is conservative because model sessions may remain
+ * cached after a preceding stage; it is therefore suitable for admission, not
+ * for a claim about exact allocator behavior.
+ */
+export function estimateRestorationMemory(
+  request: RestorationRequest,
+  sourceWidth: number,
+  sourceHeight: number,
+): RestorationMemoryEstimate {
+  const plan = planRestoration(request);
+  const sourceBytes = imageBytes(sourceWidth, sourceHeight);
+  const warnings = [...plan.warnings];
+  const modelBytes = plan.stages.reduce((total, stage) => {
+    const capability = stage.modelId
+      ? RESTORATION_CAPABILITIES.find((candidate) => candidate.id === stage.modelId)
+      : undefined;
+    return total + (capability?.peakMemoryBytes ?? 0);
+  }, 0);
+
+  let currentWidth = Math.ceil(sourceWidth);
+  let currentHeight = Math.ceil(sourceHeight);
+  let workingBytes = sourceBytes;
+  let stagingBytes = 0;
+  let peakBytes = sourceBytes + modelBytes;
+
+  for (const stage of plan.stages) {
+    const inputBytes = imageBytes(currentWidth, currentHeight);
+    let outputWidth = currentWidth;
+    let outputHeight = currentHeight;
+    let stageStagingBytes = inputBytes;
+
+    if (stage.task === 'upscale') {
+      const upscale = request.upscale;
+      if (!upscale) {
+        throw new RestorationPlanningError('invalid-request', 'Upscale settings are required');
+      }
+      if (upscale.method === 'ai') {
+        const capability = stage.modelId
+          ? RESTORATION_CAPABILITIES.find((candidate) => candidate.id === stage.modelId)
+          : undefined;
+        const nativeScale = capability?.outputScale ?? 4;
+        const [nativeWidth, nativeHeight] = outputDimensions(
+          currentWidth,
+          currentHeight,
+          nativeScale,
+        );
+        [outputWidth, outputHeight] = outputDimensions(currentWidth, currentHeight, upscale.scale);
+        if (outputWidth !== nativeWidth || outputHeight !== nativeHeight) {
+          warnings.push(
+            `AI ${nativeScale}x inference is followed by a final resize to ${outputWidth}x${outputHeight}.`,
+          );
+          stageStagingBytes = imageBytes(outputWidth, outputHeight);
+          // Keep the native model output in the peak calculation as well.
+          outputWidth = nativeWidth;
+          outputHeight = nativeHeight;
+        }
+      } else {
+        [outputWidth, outputHeight] = outputDimensions(currentWidth, currentHeight, upscale.scale);
+      }
+    }
+
+    const outputBytes = imageBytes(outputWidth, outputHeight);
+    const stageWorkingBytes = inputBytes + outputBytes;
+    workingBytes = Math.max(workingBytes, stageWorkingBytes);
+    stagingBytes = Math.max(stagingBytes, stageStagingBytes);
+    peakBytes = Math.max(
+      peakBytes,
+      sourceBytes + modelBytes + stageWorkingBytes + stageStagingBytes,
+    );
+    currentWidth = outputWidth;
+    currentHeight = outputHeight;
+  }
+
+  // Fixed-scale AI models may be followed by a final resize. The document
+  // output is the requested size even though the native model stage is larger.
+  if (request.upscale?.method === 'ai' && plan.stages.some((stage) => stage.task === 'upscale')) {
+    [currentWidth, currentHeight] = outputDimensions(
+      currentWidth /
+        (RESTORATION_CAPABILITIES.find((c) => c.id === plan.stages.at(-1)?.modelId)?.outputScale ??
+          4),
+      currentHeight /
+        (RESTORATION_CAPABILITIES.find((c) => c.id === plan.stages.at(-1)?.modelId)?.outputScale ??
+          4),
+      request.upscale.scale,
+    );
+  }
+
+  const outputBytes = imageBytes(currentWidth, currentHeight);
+  return {
+    sourceBytes,
+    outputBytes,
+    workingBytes,
+    modelBytes,
+    stagingBytes,
+    peakBytes,
+    outputWidth: currentWidth,
+    outputHeight: currentHeight,
+    warnings,
+  };
 }

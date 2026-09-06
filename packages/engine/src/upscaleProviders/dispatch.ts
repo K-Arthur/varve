@@ -52,6 +52,7 @@ export async function dispatchUpscale(
   options: UpscaleOptions = {},
   signal?: AbortSignal,
   chain: UpscaleProvider[] = UPSCALE_PROVIDER_CHAIN,
+  onProvider?: (providerId: string) => void,
 ): Promise<ImageData> {
   if (signal?.aborted) throw new Error('cancelled');
 
@@ -69,11 +70,13 @@ export async function dispatchUpscale(
     if (!available) continue;
 
     try {
-      return await withTimeout(
+      const result = await withTimeout(
         provider.upscale(imageData, options, signal),
         providerTimeoutMs,
         signal,
       );
+      onProvider?.(provider.id);
+      return result;
     } catch (error) {
       if (signal?.aborted) throw new Error('cancelled');
       // Tauri rejects with a bare string rather than an Error, so normalize

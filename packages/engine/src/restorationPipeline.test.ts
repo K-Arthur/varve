@@ -41,6 +41,19 @@ describe('runRestoration', () => {
     expect(dispatchUpscale).not.toHaveBeenCalled();
     expect(result.stages.map((stage) => stage.status)).toEqual(['completed']);
     expect(result.modelIds).toEqual(['scunet']);
+    expect(result.stages[0]?.provider).toBe('native');
+  });
+
+  it('does not dispatch an explicit None denoise request', async () => {
+    const result = await runRestoration(image(), {
+      operation: 'denoise',
+      denoise: { strength: 'none' },
+    });
+
+    expect(result.imageData).toMatchObject({ width: 2, height: 2 });
+    expect(result.stages).toEqual([]);
+    expect(result.warnings[0]).toMatch(/skipped.*None/i);
+    expect(dispatchDenoise).not.toHaveBeenCalled();
   });
 
   it('executes restoration before super-resolution', async () => {

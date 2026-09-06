@@ -95,10 +95,14 @@ export async function runRestoration(
       if (stage.task === 'denoise') {
         // Faithful policy uses lighter denoise to preserve original detail;
         // balanced uses the user-selected or default strength.
-        const effectiveStrength =
+        const requestedStrength = request.denoise?.strength;
+        if (requestedStrength === 'none') {
+          throw new Error('Denoise was planned as a no-op but still reached execution');
+        }
+        const effectiveStrength: 'light' | 'medium' | 'strong' =
           request.qualityPolicy === 'faithful' && !request.denoise?.strength
             ? 'light'
-            : (request.denoise?.strength ?? 'medium');
+            : (requestedStrength ?? 'medium');
         const strengthValue = { light: 0.3, medium: 0.5, strong: 0.8 }[effectiveStrength];
         const result = await dispatchDenoise(currentImage, {
           strength: strengthValue,
@@ -111,6 +115,7 @@ export async function runRestoration(
           },
         });
         currentImage = result.denoised;
+        stage.provider = result.executionProvider;
         provider = result.executionProvider;
       } else if (stage.task === 'deblur' || stage.task === 'compression-restoration') {
         // Use explicit deblur strength when provided; fall back to the
@@ -137,15 +142,18 @@ export async function runRestoration(
           },
         });
         currentImage = result.imageData;
+        stage.provider = result.executionProvider;
         provider = provider ?? result.executionProvider;
       } else if (stage.task === 'upscale') {
         const upscale = request.upscale;
         if (!upscale) throw new Error('Upscale settings are required');
+        let upscaleProvider: string | undefined;
         if (upscale.method === 'pixel-art') {
           currentImage = scalePixelArt(currentImage, {
             algorithm: upscale.pixelArtAlgorithm ?? 'nearest',
             scale: upscale.scale,
           });
+          upscaleProvider = 'pixel-art';
         } else {
           const beforeUpscaleWidth = currentImage.width;
           const beforeUpscaleHeight = currentImage.height;
@@ -164,6 +172,10 @@ export async function runRestoration(
               },
             },
             options.signal,
+            undefined,
+            (providerId) => {
+              upscaleProvider = providerId;
+            },
           );
           // Real-ESRGAN is a fixed 4× model. An arbitrary requested
           // scale (e.g. 2×) is served as: AI 4× → high-quality downsample
@@ -187,6 +199,7 @@ export async function runRestoration(
             }
           }
         }
+        stage.provider = upscaleProvider ?? (upscale.method === 'ai' ? 'ai' : 'cpu');
         provider = provider ?? (upscale.method === 'ai' ? 'ai' : 'cpu');
         stage.progress = 1;
         options.onProgress?.(stage, 1, 1);
