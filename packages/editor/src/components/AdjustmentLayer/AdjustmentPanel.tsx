@@ -10,8 +10,8 @@ import {
 } from '@varve/engine';
 import type { Adjustment, AdjustmentKind, AdjustmentNode, SceneNode } from '@varve/scene';
 import { cryptoId, makeAdjustment } from '@varve/scene';
-import { Menu, Select, SOLID_CHROME_ICONS, SolidIcon } from '@varve/ui';
-import { type RefObject, useCallback, useEffect, useRef, useState } from 'react';
+import { Dialog, Select, SOLID_CHROME_ICONS, SolidIcon } from '@varve/ui';
+import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { NumberField } from '../Inspector/controls/NumberField';
 import { RangeValueControl } from '../Inspector/controls/RangeValueControl';
@@ -258,6 +258,7 @@ export function AdjustmentPanel() {
 
   const closeAddMenu = useCallback(() => {
     setShowAddMenu(false);
+    addBtnRef.current?.focus();
   }, []);
 
   if (!isAdjustmentNode) return null;
@@ -435,11 +436,7 @@ export function AdjustmentPanel() {
           </button>
 
           {showAddMenu && (
-            <AddAdjustmentMenu
-              triggerRef={addBtnRef}
-              onSelect={handleAddAdjustment}
-              onClose={closeAddMenu}
-            />
+            <AddAdjustmentMenu onSelect={handleAddAdjustment} onClose={closeAddMenu} />
           )}
         </div>
       </div>
@@ -536,25 +533,64 @@ export function AdjustmentPanel() {
 }
 
 function AddAdjustmentMenu({
-  triggerRef,
   onSelect,
   onClose,
 }: {
-  triggerRef: RefObject<HTMLButtonElement | null>;
   onSelect: (kind: AdjustmentKind) => void;
   onClose: () => void;
 }) {
+  const handleMenuKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!['ArrowDown', 'ArrowUp', 'ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) {
+      return;
+    }
+    const items = Array.from(
+      event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'),
+    );
+    const currentIndex = items.indexOf(document.activeElement as HTMLButtonElement);
+    if (currentIndex < 0 || items.length === 0) return;
+
+    const nextIndex =
+      event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? items.length - 1
+          : (currentIndex +
+              (event.key === 'ArrowUp' || event.key === 'ArrowLeft' ? -1 : 1) +
+              items.length) %
+            items.length;
+    event.preventDefault();
+    items[nextIndex]?.focus();
+  };
+
   return (
-    <Menu
-      triggerRef={triggerRef}
+    <Dialog
       open
       onClose={onClose}
-      label="Add adjustment"
-      items={ADJUSTMENT_LAYER_KINDS.map((kind) => ({
-        id: kind,
-        label: filterKindDisplayName(kind),
-        onAction: () => onSelect(kind),
-      }))}
-    />
+      title="Add adjustment"
+      focusFirstControl
+      className="adj-panel__add-dialog"
+    >
+      <div
+        className="adj-panel__add-menu"
+        role="menu"
+        aria-label="Add adjustment"
+        onKeyDown={handleMenuKeyDown}
+      >
+        {ADJUSTMENT_LAYER_KINDS.map((kind) => (
+          <button
+            key={kind}
+            type="button"
+            role="menuitem"
+            className="adj-panel__add-menu-item"
+            onClick={() => {
+              onSelect(kind);
+              onClose();
+            }}
+          >
+            {filterKindDisplayName(kind)}
+          </button>
+        ))}
+      </div>
+    </Dialog>
   );
 }

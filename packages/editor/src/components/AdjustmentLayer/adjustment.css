@@ -315,25 +315,21 @@
 }
 
 .adj-panel__add-menu {
-  position: absolute;
-  z-index: var(--z-dropdown);
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control);
-  box-shadow: var(--shadow-lg);
-  max-height: 260px;
-  overflow-y: auto;
-  min-width: 180px;
-  padding: var(--space-1);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-1);
+  min-width: min(26rem, calc(90vw - 2 * var(--space-dialog)));
 }
 
 .adj-panel__add-menu-item {
-  display: block;
+  display: flex;
+  align-items: center;
   width: 100%;
   text-align: left;
-  padding: var(--space-1) var(--space-2);
-  border: none;
-  background: none;
+  min-height: var(--touch-target-min);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-sunken);
   border-radius: var(--radius-control-compact);
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
@@ -342,6 +338,19 @@
 
 .adj-panel__add-menu-item:hover {
   background-color: var(--color-interactive-hover);
+  border-color: var(--color-interactive-default);
+}
+
+.adj-panel__add-menu-item:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+@media (max-width: 28rem) {
+  .adj-panel__add-menu {
+    grid-template-columns: 1fr;
+    min-width: 0;
+  }
 }
 
 .adj-panel__editor {
