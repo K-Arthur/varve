@@ -208,6 +208,8 @@
     max-width: 1200px;
     margin: 0 auto;
     padding-inline: var(--space-page-inline);
+    box-sizing: border-box;
+    min-width: 0;
   }
 
   .btn {
@@ -504,17 +506,19 @@
   /* Bento grid components */
   .bento-grid {
     display: grid;
-    grid-template-columns: repeat(var(--bento-cols, 3), 1fr);
+    grid-template-columns: repeat(var(--bento-cols, 3), minmax(0, 1fr));
     gap: var(--space-control-group);
   }
 
   .bento-cell {
+    min-width: 0;
     background: var(--surface-card);
     border: 1px solid var(--border-default);
     border-radius: var(--website-radius-card);
     padding: var(--space-card);
     grid-column: span var(--bento-span, 1);
     color: var(--text-secondary);
+    overflow-wrap: break-word;
   }
 
   .bento-cell:hover {
