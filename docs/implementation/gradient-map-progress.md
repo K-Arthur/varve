@@ -1,8 +1,37 @@
 # Gradient Map System — Audit, Design & Progress
 
-Branch: `feat/gradient-map-system`. Base: `master` @ `cf1ef196`.
+Working tree: `master`. This document retains the dated implementation record
+below; the current shipped state is summarized first.
 
 Status legend: `[x]` done, `[~]` in progress, `[ ]` planned.
+
+## Current shipped state (2026-09-06)
+
+The gradient-map system is implemented on `master` as a shared scene, engine,
+editor, import, persistence, and export path. New gradient-map adjustments use
+algorithm version 2: relative luminance linearizes sRGB before applying the
+W3C weights. Algorithm version 1 remains readable for legacy documents and
+keeps its encoded-channel behavior reproducible.
+
+The current implementation includes:
+
+- RGBA-aware mapping with independent opacity stops, source-alpha protection,
+  reverse, intensity mixing, per-channel ramps, midpoint-aware hard stops, and
+  deterministic 4x4/8x8 Bayer dithering with an explicit origin.
+- A bounded LUT-size contract from 64 to 4096, correct tonal-domain rescaling
+  for every size, and a bounded cache keyed by the complete treatment.
+- Thirty built-in editor presets, including six curated treatments added in
+  this pass: Film Noir, Warm Matte, Cool Steel, Split Tone, High Contrast, and
+  Fade. Preset persistence carries treatment settings, not only ramp colours.
+- Source histogram and tonal-distribution diagnostics that reuse the engine
+  sampler for preview strips and thumbnails.
+- A centered Add Adjustment dialog with a viewport-bounded, scrollable list;
+  the previous floating menu could cover and clip the inspector.
+
+Validation completed for this pass includes the focused adjustment-panel suite
+(14/14), the Gradient Map Chromium E2E flow (3/3), and visual artifacts for the
+open picker and rendered Gradient Map editor. Native desktop GUI matrices,
+GPU parity, and full repository gates remain explicit follow-up validation.
 
 ---
 
@@ -27,12 +56,12 @@ Status legend: `[x]` done, `[~]` in progress, `[ ]` planned.
 |---|---|---|
 | `GradientMapStop` (`{position, color: Color, opacity?, midpoint?}`) | `engine/gradientMap.ts:19` and `engine/filters.ts:227` | Duplicate shapes |
 | `GradientMapAdjustment` (`kind:'gradientMap'`, stops, dither, preserveLuminosity, ditherSize, mode, channelStops) | `engine/filters.ts:236-252` | The document adjustment we extend |
-| `buildGradientLUT` (256-entry, smoothstep midpoint) | `engine/gradientMap.ts:91-143` | **sRGB-only; midpoint formula diverges from fills; no opacity** |
-| `applyGradientMapFilter` (Rec.709 luma, Bayer dither) | `engine/gradientMap.ts:157-233` | Alpha preserved; ignores stop opacity |
+| `buildGradientColorLut` / `buildGradientAlphaLut` | `engine/gradientMap.ts` | Versioned luminance, shared interpolation, bounded LUT sizes, and independent alpha |
+| `applyGradientMapFilter` | `engine/gradientMap.ts` | RGBA-aware intensity, source-alpha protection, reverse, channel ramps, and deterministic Bayer dither |
 | `FilterIR.gradientMap` | `engine/types.ts:882-915` | Render contract |
 | `applySoftwareFilter` case | `engine/filterCompositor.ts:402-436` | CPU dispatch |
 | `FILTER_PROPERTIES.gradientMap` | `engine/adjustmentPipeline.ts:317-323` | `software-cpu` + `raster-export`, no GPU path |
-| `GRADIENT_MAP_PRESETS` (12) | `engine/presets.ts:21-148` | Built-in ramp presets |
+| `GRADIENT_BUILTIN_PRESETS` (30) | `editor/src/gradientPresets/builtin.ts` | Built-in ramp and treatment presets |
 | `GradientMapEditor` UI | `editor/src/components/Inspector/controls/GradientMapEditor.tsx` | Mounted at `AdjustmentEditor.tsx:400-420` |
 | Duotone / Tritone / LUT / Curves / Levels / etc. | `engine/duotone.ts`, `tritone.ts`, `lut/`, `adjustment/` | Adjacent tonal systems |
 
@@ -56,11 +85,16 @@ Status legend: `[x]` done, `[~]` in progress, `[ ]` planned.
 ### 1.5 Persistence / migration / assets
 
 - `DocumentCodec.decode/encode` is the single choke point (`scene/documentCodec.ts:662/751`).
-- `version.ts` authoritative: `CURRENT_DOCUMENT_VERSION = '2.10'`, 20 migrations table; `version-migrations.ts` / `version-utils.ts` / `version.ts.partial` are **stale dead siblings** (do not edit).
+- `version.ts` authoritative: `CURRENT_DOCUMENT_VERSION = '2.22'`; the
+  `2.10 → 2.11` migration introduced document-local gradient presets.
+  `version-migrations.ts` / `version-utils.ts` / `version.ts.partial` are
+  stale dead siblings (do not edit).
 - `Document.assets` content-addressed embedded assets (`scene/assets.ts`).
 - `Document.swatches` document-local swatches (`scene/swatches.ts`) — the closest pattern for document-local gradient presets.
-- User-level presets: `editor/presetLibrary.ts` + `shared/presetStore.ts` (`PresetKVStore`, schemaVersion 1). **No gradient preset library exists.**
-- Clipboard: `application/vnd.strata+json` `ClipboardData {nodes, rasterMaskAssets?, assets?}` — adjustment data rides on nodes (self-contained).
+- User-level gradient presets: `editor/src/gradientPresets/library.ts` uses the
+  platform app-setting store with schema version 2; built-ins are composed at
+  read time and are never persisted.
+- Clipboard: `application/vnd.varve+json` `ClipboardData {nodes, rasterMaskAssets?, assets?}` — adjustment data rides on nodes (self-contained); the legacy MIME remains read-compatible.
 - Backup/recovery/autosave all serialize through `DocumentCodec`.
 
 ### 1.6 Import infrastructure
@@ -83,7 +117,7 @@ Status legend: `[x]` done, `[~]` in progress, `[ ]` planned.
 2. **Canonical `GradientPreset` lives in `@varve/scene`** (uses `ManagedColor`); the engine keeps a structural mirror (`GradientMapStop`/engine params with `Color` tuples) for the render/IR path, exactly like `EngineColor` mirrors `ManagedColor`.
 3. **The existing adjustment pipeline is the rendering path** for raster, vector, text, groups, frames, and mixed subtrees (backdrop compositing of scope targets). No new renderer is needed; the new parameters flow through `FilterIR.gradientMap` → `applySoftwareFilter` → `applyGradientMapFilter`.
 4. **LUT evaluation is consolidated onto `@varve/shared/colorInterpolation`** (`sampleGradientColor` + `interpolateManagedColor` + `applyMidpointBias`), unifying the previously-divergent midpoint formula and enabling sRGB/Oklab/Oklch/HSL interpolation for gradient maps.
-5. **`.grd` parser is isolated in `@varve/import/src/gradient/`**, parser-fuzzable, bounded, and produces structured warnings separate from errors. Native `.strata-gradient.json` is the human-inspectable interchange format.
+5. **`.grd` parser is isolated in `@varve/import/src/gradient/`**, parser-fuzzable, bounded, and produces structured warnings separate from errors. Native `.varve-gradient.json` is the human-inspectable interchange format.
 6. **Persistence is additive**: new optional `GradientMapAdjustment` fields (backward compatible), `Document.gradientPresets` (document-local, portability), user-level library in `PresetKVStore`, version bump `2.10 → 2.11`.
 7. **No new panel slot.** The Gradient Map editor + preset browser lives inside the standard AdjustmentPanel per-effect editor (where gradient maps are already configured). Import review uses the shared `Dialog`/`Menu`/`Select` primitives.
 8. **No new canvas GPU backend.** Existing `software-cpu` + `raster-export` path covers Canvas2D, worker-excluded structural scenes, and exports. A WebGPU/WebGL gradient-map compute pass is deferred (see §6.3) — Linux WebKitGTK cannot be assumed to expose either.
@@ -116,10 +150,10 @@ Status legend: `[x]` done, `[~]` in progress, `[ ]` planned.
 
 ## 6. Milestones
 
-All milestones implemented, tested, and committed on `feat/gradient-map-system`
-(based at `master` @ `cf1ef196`). **Pushed to `origin/master` on 2026-08-01**:
-`98f2e892..9f627ece  HEAD -> master` (verified — my HEAD is an ancestor of
-`origin/master`).
+The original milestones were implemented in a feature slice and landed on
+`master`. The current follow-up repair and expansion is also committed directly
+on `master`; see the current shipped-state section at the top of this document
+and the repository log for the exact commit sequence.
 
 | Milestone | Commit | Status |
 |---|---|---|
@@ -311,6 +345,14 @@ Current gradient-map E2E status: **9 passed, 0 skipped** (2026-08-01,
 9.2 min on a loaded dev machine). That is the full import-workflow spec (4) plus
 the full raster/vector spec (5) — raster, vector, text, group, and the
 malformed-`.grd` error path, all asserting real composited canvas pixels.
+
+Follow-up UI validation on 2026-09-06 ran
+`tests/e2e/effects/gradient-map.spec.ts` in Chromium on isolated port 1421:
+3 tests passed. The first test captures `gradient-map-add-dialog.png` and
+asserts that the dialog bounds remain inside the browser viewport; the second
+captures the rendered Gradient Map editor. The picker is now a shared Dialog,
+not an inspector-anchored floating menu, and its arrow-key behavior/focus
+return are covered by `AdjustmentPanel.test.tsx` (14 tests passed).
 
 **Portability unit coverage** (`gradientPresets.portability.test.ts`): embedded
 gradient preferred over legacy `stops`, `stops` fallback for legacy adjustments,

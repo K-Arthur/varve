@@ -12,7 +12,7 @@ masking, persistence, and export; the kernels own only pixel mathematics.
 | Adjustment | Current maturity | Canonical implementation | Main limitation |
 | --- | --- | --- | --- |
 | Threshold | Vertical slice | `threshold.ts` + Adjustment Panel editor | RGBA8/Canvas2D reference path; no GPU kernel |
-| Gradient Map | Vertical slice with preset/import support | `gradientMap.ts` + `GradientMapEditor` | Wide-gamut/HDR/ICC-accurate effect math is deferred |
+| Gradient Map | Implemented reference path with preset/import support | `gradientMap.ts` + `GradientMapEditor` | Wide-gamut/HDR/ICC-accurate effect math is deferred |
 | Color Balance | Vertical slice | `colorBalance.ts` + tonal-range editor | CPU reference path; native/WebGPU acceleration is not claimed |
 
 The catalogue is centralized in `packages/engine/src/filters.ts`:
@@ -62,7 +62,7 @@ This means the following are implemented and tested:
 | Contract | Evidence |
 | --- | --- |
 | One canonical schema and defaults | `filters.ts`, `adjustmentNormalization.ts` |
-| Versioned scalar semantics | `algorithmVersion: 1` on all three adjustments |
+| Versioned scalar semantics | Threshold and Color Balance use v1; Gradient Map supports legacy v1 and corrected v2 (the new default) |
 | Shared opacity/blend ownership | `filterCompositor.ts` and compositing tests |
 | Scope and mask separation | `non-destructive-effects.md`, adjustment-scope tests |
 | Save/reload normalization | `adjustmentNormalization.test.ts`, `DocumentCodec` |
@@ -86,7 +86,12 @@ data has an explicit state rather than inventing a distribution.
 ## Gradient Map
 
 Gradient Map reduces each pixel to a tonal scalar, samples a bounded LUT, and
-mixes the mapped colour by `intensity`. Version 1 provides:
+mixes the mapped colour and alpha by `intensity`. New adjustments use algorithm
+version 2, whose default relative-luminance mode linearizes sRGB before the
+W3C luminance weights. Version 1 remains available for reproducible legacy
+documents and uses the prior encoded-channel luminance behavior.
+
+The adjustment provides:
 
 - stable ids on colour and opacity stops, preserved through presets, embedded
   snapshots, normalization, FilterIR, and editor additions;
@@ -95,15 +100,23 @@ mixes the mapped colour by `intensity`. Version 1 provides:
 - honest interpolation names backed by shared primitives: sRGB, linear RGB,
   OKLab, OKLCH, and HSL;
 - reverse, independent opacity stops, optional source-alpha preservation, and
-  deterministic Bayer 4×4/8×8 dithering;
+  deterministic Bayer 4×4/8×8 dithering with an explicit origin;
 - a LUT bounded to a safe size, with separate colour and alpha channels.
+
+Intensity `0` is an exact RGBA identity. Fully transparent source pixels keep
+their source alpha and do not develop colour fringes when source-alpha
+preservation is enabled. Non-256 LUT sizes map the full tonal domain rather
+than indexing the ramp with an 8-bit value. A bounded cache reuses identical
+LUT treatments without making document state global.
 
 The adjustment editor is keyboard-operable: stops expose slider semantics,
 arrow/Home/End movement, numeric position/opacity fields, deletion guards,
 and pointer drag transactions. Preset conversion retains stable ids; the
 preset library deliberately deduplicates equal-position preset stops, while
 the adjustment/engine representation retains duplicate positions for hard
-stops authored directly in an adjustment.
+stops authored directly in an adjustment. The editor also exposes source
+histogram/tonal-distribution diagnostics and uses the same engine sampler for
+the preview ramp and thumbnails.
 
 ## Color Balance
 
@@ -140,10 +153,10 @@ engine. The colour-management boundary and print limitations are documented in
 
 Focused unit tests cover scalar behavior, alpha/identity boundaries, LUT and
 hard-stop semantics, IR lowering, normalization, preset persistence, and the
-three editor surfaces. Existing E2E suites cover adjustment insertion,
-Gradient Map workflows, raster/vector application, and front-facing
-adjustments. The repository’s affected validation plan remains the final gate
-for cross-package regressions.
+three editor surfaces. The Chromium Gradient Map E2E flow covers adjustment
+insertion, the bounded Add Adjustment dialog, gradient editor rendering, and
+the dither/preserve-luminosity controls. The repository’s affected validation
+plan remains the final gate for cross-package regressions.
 
 Remaining work is explicit: native/WASM/WebGPU parity, ICC-accurate wide-gamut
 and HDR effect math, independent PDF/raster artifact review, and destructive

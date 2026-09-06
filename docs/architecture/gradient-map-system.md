@@ -26,7 +26,8 @@ remain distinct scene concepts.
   Stable stop/preset ids, deterministic content hashing
   (`gradientPresetContentHash`), NaN/Infinity sanitization, deterministic
   merge/dedup (`mergeGradientPresets`).
-- `Document.gradientPresets` — document-local presets (v2.11+). Portability:
+- `Document.gradientPresets` — document-local presets (introduced in v2.11;
+  current document schema is v2.22). Portability:
   effects embed a snapshot (`GradientMapAdjustment.embeddedGradient`), so
   documents render correctly even when the global preset is renamed/deleted.
 - Engine structural mirror — `GradientMapStop`/`GradientMapOpacityStop` use
@@ -38,7 +39,10 @@ remain distinct scene concepts.
 
 - LUT evaluation: `packages/engine/src/gradientMap.ts`
   (`buildGradientColorLut`, `buildGradientAlphaLut`, `applyGradientMapFilter`),
-  algorithm version 1.
+  with versioned algorithm 1 compatibility and algorithm 2 as the default for
+  new adjustments. Version 1 retains the legacy encoded-channel luminance
+  behavior; version 2 uses linear-sRGB relative luminance. Imported legacy
+  documents remain reproducible, while new edits use the corrected contract.
   Color math reuses `@varve/shared` `interpolateManagedColor` so gradient-map
   stops blend identically to fill gradients in the same space. Midpoint
   semantics follow the Photoshop `.grd` convention (a stop's midpoint governs
@@ -46,11 +50,12 @@ remain distinct scene concepts.
 - Luminance modes: `relative-luminance` (default, Rec.709/WCAG),
   `perceptual-lightness` (Oklab L), `average-rgb`, `max-channel`, plus
   `alpha`/`red`/`green`/`blue`/`compatibility` for imported-asset compat.
-- Parameters: `reverse`, `intensity` (mix with source), `dither` (deterministic
-  Bayer 4×4/8×8), `preserveSourceAlpha` (default on — transparent pixels never
-  develop fringes), independent `opacityStops`, stable stop ids, duplicate
-  positions as hard stops (the last stop wins at the exact boundary),
-  `lutSize` (64–4096).
+- Parameters: `reverse`, `intensity` (a zero-intensity map is an exact RGBA
+  identity), `dither` (deterministic Bayer 4×4/8×8 with an explicit origin),
+  `preserveSourceAlpha` (default on — transparent pixels never develop
+  fringes), independent `opacityStops`, stable stop ids, duplicate positions
+  as hard stops (the last stop wins at the exact boundary), `lutSize`
+  (64–4096), and optional per-channel ramps.
 - Pipeline: `AdjustmentNode.adjustments` → `adjustmentsToFilters` →
   `FilterIR.gradientMap` → `applySoftwareFilter` → backdrop compositing of the
   scope targets (raster AND vector — vectors are painted into the effect
@@ -87,9 +92,13 @@ as a successful effect.
 
 - `packages/editor/src/gradientPresets/` — `useGradientPresetLibrary` (user
   presets + favorites + recents, persisted via the platform app-setting store),
-  `builtin.ts` (12 deterministic built-ins), `thumbnail.ts`,
+  `builtin.ts` (30 deterministic built-ins, including Film Noir, Warm Matte,
+  Cool Steel, Split Tone, High Contrast, and Fade), `thumbnail.ts`,
   `importFile.ts`.
 - Scopes: built-in / user-level / document-local (`Document.gradientPresets`).
+- Presets carry map treatment settings as well as ramp stops, so applying one
+  cannot silently discard intensity, alpha, luminance, channel, dither,
+  LUT-size, or algorithm-version choices.
 - Duplicate handling: content-hash merge (never overwrite on name match).
 
 ## UI
@@ -104,14 +113,25 @@ adjustment effects) composes:
   position/opacity numeric inputs, interpolation, luminance source, intensity,
   reverse, dither, keep-alpha, preserve-luminosity, channel mode.
 - `GradientImportDialog` — per-preset selection, thumbnails, warnings,
-  duplicate counts, import scope (library/document/both), immediate apply.
+  duplicate counts, import scope (library/document/both), and an explicit
+  opt-in “apply first imported preset” action.
+- `GradientMapTonalDistribution` — source histogram preview with a canonical
+  gradient strip and textual distribution summary; it is a diagnostic and
+  never a second rendering implementation.
+- The AdjustmentPanel picker is a centered, viewport-bounded dialog with an
+  internally scrollable two-column list, so it cannot cover or clip the
+  inspector.
 
 ## Persistence
 
-- Migration `2.10 → 2.11` stamps `Document.gradientPresets` (version.ts).
+- Migration `2.10 → 2.11` stamps `Document.gradientPresets` (version.ts); the
+  current scene schema is v2.22.
 - Adjustments serialize through the existing document codec; new fields are
   optional and backward-compatible; clipboard/backup/autosave all flow through
   `DocumentCodec`.
+- User-library persistence is schema version 2 and stores complete preset
+  treatments. Document-local presets remain portable when a global preset is
+  renamed or deleted.
 - Undo/redo: all effect edits go through the existing
   `updateAdjustmentInLayer`/transaction system.
 
@@ -127,14 +147,16 @@ adjustment effects) composes:
 
 ## Performance
 
-- LUT generation is O(size × stops), cached per call (callers hold LUTs for the
-  frame); `lutSize` 256 default matches 8-bit input.
+- LUT generation is O(size × stops), with a bounded 32-entry cache keyed by the
+  complete treatment and ramp content; `lutSize` 256 default matches 8-bit
+  input and non-256 LUTs rescale the tonal domain correctly.
 - `perceptual-lightness` is the only per-pixel Oklab cost; the default
   `relative-luminance` path is a single dot product.
 - Vector/group targets share the scope backdrop, so one filter pass covers the
   subtree (no per-node surface explosion).
-- Ordered Bayer dithering is deterministic (visual-regression stable, no
-  tile seams).
+- Ordered Bayer dithering is deterministic (visual-regression stable, no tile
+  seams) and uses an explicit origin so tiled/incremental callers can preserve
+  phase.
 
 ## Test fixtures
 

@@ -1,0 +1,117 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import StatusPill from '../../components/StatusPill.astro';
+import { sitePath } from '../../lib/siteUrl';
+---
+
+<Layout
+  title="Gradient Maps"
+  description="Regrade images, vectors, and scoped content with Varve's editable, non-destructive Gradient Map adjustments."
+>
+  <div class="container-custom">
+    <main class="feature-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/features')}>Features</a> / Gradient Maps
+      </nav>
+
+      <header class="page-hero">
+        <StatusPill status="available" />
+        <h1>Change the mood without flattening the work.</h1>
+        <p>
+          Gradient Maps turn tonal values into a deliberate colour grade. Use an editable ramp on
+          an image, a vector composition, or a scoped adjustment layer while the source remains
+          available underneath.
+        </p>
+      </header>
+
+      <section class="feature-section ramp-story" aria-labelledby="ramp-title">
+        <div>
+          <p class="eyebrow">Tone becomes colour</p>
+          <h2 id="ramp-title">A direct, inspectable grade.</h2>
+          <p>
+            Shadows, midtones, and highlights map to the ramp you choose. Move stops, tune
+            midpoints, preserve source alpha, or lower intensity until the result belongs in the
+            composition.
+          </p>
+        </div>
+        <div class="ramp-card" aria-label="Gradient Map ramp from deep blue through teal to warm gold">
+          <div class="ramp-bar"></div>
+          <div class="ramp-labels"><span>Shadows</span><span>Midtones</span><span>Highlights</span></div>
+          <div class="ramp-stops" aria-hidden="true"><i></i><i></i><i></i></div>
+        </div>
+      </section>
+
+      <section class="feature-section" aria-labelledby="control-title">
+        <p class="eyebrow">Built for iteration</p>
+        <h2 id="control-title">The ramp is only the beginning.</h2>
+        <div class="capability-grid">
+          <article><h3>Thirty starting points</h3><p>Begin with cinematic, monochrome, warm, cool, split-tone, or utility grades, then customize the treatment.</p></article>
+          <article><h3>Bring your own presets</h3><p>Import Photoshop <code>.grd</code> files with multiple gradients, opacity stops, midpoints, and clear compatibility warnings.</p></article>
+          <article><h3>Keep the source honest</h3><p>Adjustments remain editable, scoped, undoable, and portable. Built-in and document-local presets never replace source content.</p></article>
+          <article><h3>See the tonal input</h3><p>A source histogram and tonal-distribution preview show what the grade is receiving without creating a second rendering path.</p></article>
+        </div>
+      </section>
+
+      <section class="feature-section workflow" aria-labelledby="workflow-title">
+        <p class="eyebrow">A consistent workflow</p>
+        <h2 id="workflow-title">Preview, refine, export.</h2>
+        <ol>
+          <li><strong>Add an Adjustment Layer</strong><span>Choose the objects, image, or container the grade should affect.</span></li>
+          <li><strong>Choose or build a ramp</strong><span>Edit colour and opacity stops, interpolation, luminance source, dither, and intensity.</span></li>
+          <li><strong>Save the result</strong><span>Carry the treatment through document save/reload, undo/redo, and raster export.</span></li>
+        </ol>
+      </section>
+
+      <aside class="honesty" aria-labelledby="honesty-title">
+        <h2 id="honesty-title">Clear boundaries.</h2>
+        <p>
+          Browser previews and the current reference compositor operate on RGBA8 surfaces. Raster
+          export uses the same adjustment pipeline; SVG and PDF rasterize the affected subtree and
+          surface a preflight warning because a live gradient-map filter is not part of those vector
+          formats. Wide-gamut, HDR, ICC-accurate effect math, and GPU parity remain active follow-up
+          areas.
+        </p>
+        <a href={sitePath('/docs/tools/color')}>Read the colour workflow guide →</a>
+      </aside>
+
+      <div class="feature-cta">
+        <h2>Make the tone yours.</h2>
+        <a href={sitePath('/download')} class="btn-default">Download Varve</a>
+        <a href={sitePath('/features/color-effects')} class="btn-secondary">See Color &amp; Effects</a>
+      </div>
+    </main>
+  </div>
+</Layout>
+
+<style>
+  .feature-page { max-width: 900px; margin: 0 auto; padding: 3rem 0 5rem; }
+  .breadcrumb { color: var(--text-secondary); font-size: .875rem; margin-bottom: 2.5rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  .page-hero { max-width: 740px; margin-bottom: 4rem; }
+  .page-hero h1 { color: var(--text-primary); font: 700 clamp(2.3rem, 6vw, 4rem)/1.05 var(--font-editorial); letter-spacing: -.025em; margin: 1rem 0; }
+  .page-hero p, .feature-section p, .honesty p { color: var(--text-secondary); font-size: 1.05rem; line-height: 1.75; }
+  .eyebrow { color: var(--accent-primary); font-size: .75rem !important; font-weight: 700; letter-spacing: .12em; line-height: 1.2 !important; text-transform: uppercase; }
+  .feature-section { margin: 0 0 4rem; }
+  .feature-section h2, .honesty h2 { color: var(--text-primary); font-size: clamp(1.6rem, 3vw, 2.3rem); margin: .5rem 0 1rem; }
+  .ramp-story, .workflow, .honesty { background: var(--surface-card); border: 1px solid var(--border-default); border-radius: var(--website-radius-card); padding: clamp(1.5rem, 4vw, 3rem); }
+  .ramp-story { align-items: center; display: grid; gap: 3rem; grid-template-columns: 1fr 1fr; }
+  .ramp-card { background: var(--surface-inset); border: 1px solid var(--border-default); border-radius: var(--website-radius-surface); padding: 1.5rem; }
+  .ramp-bar { background: linear-gradient(90deg, #081b35 0%, #155f6a 38%, #d38e48 72%, #f5e5b5 100%); border-radius: 999px; height: 7rem; }
+  .ramp-labels { color: var(--text-tertiary); display: flex; font-size: .75rem; justify-content: space-between; margin-top: .75rem; }
+  .ramp-stops { display: flex; justify-content: space-between; margin: -5px .35rem 0; }
+  .ramp-stops i { background: var(--text-primary); border: 2px solid var(--surface-inset); border-radius: 50%; height: 10px; outline: 1px solid var(--border-default); width: 10px; }
+  .capability-grid { display: grid; gap: 1rem; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 1.75rem; }
+  .capability-grid article { border-top: 2px solid var(--border-accent); padding-top: 1rem; }
+  .capability-grid h3 { color: var(--text-primary); margin: 0 0 .5rem; }
+  .capability-grid p { font-size: .95rem; margin: 0; }
+  .workflow ol { display: grid; gap: 1rem; list-style: none; margin: 1.75rem 0 0; padding: 0; }
+  .workflow li { border-left: 2px solid var(--border-accent); display: grid; gap: .25rem; padding: .25rem 0 .25rem 1rem; }
+  .workflow li strong { color: var(--text-primary); }
+  .workflow li span { color: var(--text-secondary); line-height: 1.55; }
+  .honesty { margin-bottom: 3rem; }
+  .honesty a { color: var(--text-link); font-weight: 600; }
+  .feature-cta { border-top: 1px solid var(--border-default); padding-top: 2rem; }
+  .feature-cta h2 { color: var(--text-primary); margin: 0 0 1rem; }
+  .btn-secondary { margin-left: .75rem; }
+  @media (max-width: 680px) { .ramp-story, .capability-grid { grid-template-columns: 1fr; } .btn-secondary { display: inline-block; margin-left: 0; margin-top: .75rem; } }
+</style>
