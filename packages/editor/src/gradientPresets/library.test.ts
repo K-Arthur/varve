@@ -8,7 +8,7 @@ import { createMemoryPlatform } from '@varve/platform';
 import type { GradientPreset } from '@varve/scene';
 import { makeGradientPreset } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
-
+import { GRADIENT_BUILTIN_PRESETS } from './builtin';
 import { useGradientPresetLibrary } from './library';
 
 const rgb = (r: number, g = r, b = r) => ({ space: 'rgb' as const, r, g, b, a: 255 });
@@ -25,6 +25,15 @@ function preset(name: string, id: string, color: number): GradientPreset {
 }
 
 describe('useGradientPresetLibrary', () => {
+  it('ships six curated presets with distinct purposes and metadata', () => {
+    const names = ['Film Noir', 'Warm Matte', 'Cool Steel', 'Split Tone', 'High Contrast', 'Fade'];
+    const curated = GRADIENT_BUILTIN_PRESETS.filter((preset) => names.includes(preset.name));
+    expect(curated.map((preset) => preset.name)).toEqual(names);
+    expect(new Set(curated.map((preset) => preset.id)).size).toBe(6);
+    expect(curated.every((preset) => preset.description && preset.category)).toBe(true);
+    expect(curated.every((preset) => (preset.tags?.length ?? 0) > 0)).toBe(true);
+  });
+
   it('composes built-ins plus user presets', async () => {
     const platform = createMemoryPlatform();
     const { result } = renderHook(() => useGradientPresetLibrary(platform));

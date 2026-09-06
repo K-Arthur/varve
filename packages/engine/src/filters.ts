@@ -360,6 +360,25 @@ export interface EmbeddedGradientOpacityStop {
   opacity: number;
 }
 
+/** Portable non-ramp settings captured with an embedded gradient preset. */
+export interface EmbeddedGradientMapSettings {
+  mode?: 'luminance' | 'channel';
+  channelStops?: {
+    r?: EmbeddedGradientColorStop[];
+    g?: EmbeddedGradientColorStop[];
+    b?: EmbeddedGradientColorStop[];
+  };
+  reverse?: boolean;
+  intensity?: number;
+  luminanceMode?: GradientMapLuminanceMode;
+  preserveSourceAlpha?: boolean;
+  preserveLuminosity?: boolean;
+  dither?: boolean;
+  ditherSize?: 4 | 8;
+  lutSize?: number;
+  algorithmVersion?: 1 | 2;
+}
+
 export interface EmbeddedGradientPreset {
   id: string;
   name: string;
@@ -368,6 +387,11 @@ export interface EmbeddedGradientPreset {
   opacityStops: EmbeddedGradientOpacityStop[];
   smoothness?: number;
   interpolation?: import('@varve/shared').GradientInterpolationSpace;
+  settings?: EmbeddedGradientMapSettings;
+  category?: string;
+  tags?: string[];
+  description?: string;
+  limitations?: string[];
   source?: { origin: string; fileName?: string; originalName?: string };
   compatibility?: {
     status: 'ok' | 'approximated' | 'unsupported';

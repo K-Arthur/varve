@@ -20,6 +20,7 @@
 
 import type {
   EmbeddedGradientColorStop,
+  EmbeddedGradientMapSettings,
   EmbeddedGradientOpacityStop,
   EmbeddedGradientPreset,
   GradientMapStop,
@@ -118,12 +119,38 @@ export interface GradientPreset {
   smoothness?: number;
   /** Default interpolation for this preset. Defaults to 'oklab'. */
   interpolation: GradientInterpolation;
+  /** Optional treatment settings captured with the ramp. */
+  mapSettings?: GradientMapPresetSettings;
+  /** Curated browser metadata; it never changes rendered output. */
+  category?: string;
+  tags?: string[];
+  description?: string;
+  limitations?: string[];
   source?: GradientPresetSource;
   /** Original imported metadata for diagnostics / round-tripping. */
   originalMetadata?: Record<string, unknown>;
   compatibility?: GradientCompatibilityInfo;
   /** True when this preset is a snapshot embedded in a document. */
   embedded?: boolean;
+}
+
+/** Complete non-ramp treatment state that can travel with a preset. */
+export interface GradientMapPresetSettings {
+  mode?: 'luminance' | 'channel';
+  channelStops?: {
+    r?: GradientColorStop[];
+    g?: GradientColorStop[];
+    b?: GradientColorStop[];
+  };
+  reverse?: boolean;
+  intensity?: number;
+  luminanceMode?: GradientLuminanceMode;
+  preserveSourceAlpha?: boolean;
+  preserveLuminosity?: boolean;
+  dither?: boolean;
+  ditherSize?: 4 | 8;
+  lutSize?: number;
+  algorithmVersion?: 1 | 2;
 }
 
 export interface GradientPresetLike {
@@ -136,6 +163,11 @@ export interface GradientPresetLike {
   >;
   smoothness?: number;
   interpolation?: GradientInterpolation;
+  mapSettings?: GradientMapPresetSettings;
+  category?: string;
+  tags?: string[];
+  description?: string;
+  limitations?: string[];
   source?: GradientPresetSource;
   originalMetadata?: Record<string, unknown>;
   compatibility?: GradientCompatibilityInfo;
@@ -239,6 +271,11 @@ export function makeGradientPreset(input: GradientPresetLike): GradientPreset {
     opacityStops,
     ...(input.smoothness !== undefined ? { smoothness: clamp01(input.smoothness) } : {}),
     interpolation: input.interpolation ?? 'oklab',
+    ...(input.mapSettings ? { mapSettings: sanitizeMapSettings(input.mapSettings) } : {}),
+    ...(input.category ? { category: input.category } : {}),
+    ...(input.tags ? { tags: [...input.tags] } : {}),
+    ...(input.description ? { description: input.description } : {}),
+    ...(input.limitations ? { limitations: [...input.limitations] } : {}),
     ...(input.source ? { source: input.source } : {}),
     ...(input.originalMetadata ? { originalMetadata: input.originalMetadata } : {}),
     ...(input.compatibility ? { compatibility: input.compatibility } : {}),
@@ -265,6 +302,7 @@ export function gradientPresetContentHash(preset: GradientPresetLike): string {
     preset.smoothness ?? 0,
     colors,
     opacities,
+    mapSettingsFingerprint(preset.mapSettings),
   ];
   const joined = parts.join('|');
   let h1 = 0x811c9dc5;
@@ -275,6 +313,67 @@ export function gradientPresetContentHash(preset: GradientPresetLike): string {
     h2 = Math.imul(h2 ^ ch, 25165843);
   }
   return (h1 >>> 0).toString(16).padStart(8, '0') + (h2 >>> 0).toString(16).padStart(8, '0');
+}
+
+function sanitizeMapSettings(settings: GradientMapPresetSettings): GradientMapPresetSettings {
+  return {
+    ...(settings.mode ? { mode: settings.mode } : {}),
+    ...(settings.channelStops
+      ? {
+          channelStops: {
+            ...(settings.channelStops.r ? { r: normalizeColorStops(settings.channelStops.r) } : {}),
+            ...(settings.channelStops.g ? { g: normalizeColorStops(settings.channelStops.g) } : {}),
+            ...(settings.channelStops.b ? { b: normalizeColorStops(settings.channelStops.b) } : {}),
+          },
+        }
+      : {}),
+    ...(settings.reverse !== undefined ? { reverse: Boolean(settings.reverse) } : {}),
+    ...(settings.intensity !== undefined ? { intensity: clamp01(settings.intensity) } : {}),
+    ...(settings.luminanceMode ? { luminanceMode: settings.luminanceMode } : {}),
+    ...(settings.preserveSourceAlpha !== undefined
+      ? { preserveSourceAlpha: Boolean(settings.preserveSourceAlpha) }
+      : {}),
+    ...(settings.preserveLuminosity !== undefined
+      ? { preserveLuminosity: Boolean(settings.preserveLuminosity) }
+      : {}),
+    ...(settings.dither !== undefined ? { dither: Boolean(settings.dither) } : {}),
+    ...(settings.ditherSize === 4 || settings.ditherSize === 8
+      ? { ditherSize: settings.ditherSize }
+      : {}),
+    ...(settings.lutSize !== undefined && Number.isFinite(settings.lutSize)
+      ? { lutSize: Math.max(2, Math.min(4096, Math.round(settings.lutSize))) }
+      : {}),
+    ...(settings.algorithmVersion === 1 || settings.algorithmVersion === 2
+      ? { algorithmVersion: settings.algorithmVersion }
+      : {}),
+  };
+}
+
+function mapSettingsFingerprint(settings: GradientMapPresetSettings | undefined): string {
+  if (!settings) return '';
+  const channelStops = settings.channelStops
+    ? ['r', 'g', 'b']
+        .map((channel) => {
+          const stops = settings.channelStops?.[channel as 'r' | 'g' | 'b'] ?? [];
+          return `${channel}:${stops
+            .map((s) => `${s.position}:${s.midpoint ?? 0.5}:${managedColorFingerprint(s.color)}`)
+            .join(';')}`;
+        })
+        .join('|')
+    : '';
+  return [
+    settings.mode ?? '',
+    channelStops,
+    settings.reverse ?? '',
+    settings.intensity ?? '',
+    settings.luminanceMode ?? '',
+    settings.preserveSourceAlpha ?? '',
+    settings.preserveLuminosity ?? '',
+    settings.dither ?? '',
+    settings.ditherSize ?? '',
+    settings.lutSize ?? '',
+    settings.algorithmVersion ?? '',
+  ].join(':');
 }
 
 function managedColorFingerprint(c: ManagedColor): string {
@@ -405,6 +504,11 @@ export function gradientPresetToEmbeddedGradient(preset: GradientPreset): Embedd
     })),
     ...(preset.smoothness !== undefined ? { smoothness: preset.smoothness } : {}),
     interpolation: preset.interpolation,
+    ...(preset.mapSettings ? { settings: mapSettingsToEmbedded(preset.mapSettings) } : {}),
+    ...(preset.category ? { category: preset.category } : {}),
+    ...(preset.tags ? { tags: [...preset.tags] } : {}),
+    ...(preset.description ? { description: preset.description } : {}),
+    ...(preset.limitations ? { limitations: [...preset.limitations] } : {}),
     ...(preset.source
       ? {
           source: {
@@ -423,6 +527,43 @@ export function gradientPresetToEmbeddedGradient(preset: GradientPreset): Embedd
           },
         }
       : {}),
+  };
+}
+
+function mapSettingsToEmbedded(settings: GradientMapPresetSettings): EmbeddedGradientMapSettings {
+  const mapStops = (
+    stops: GradientColorStop[] | undefined,
+  ): EmbeddedGradientColorStop[] | undefined =>
+    stops?.map((stop) => ({
+      id: stop.id,
+      position: stop.position,
+      midpoint: stop.midpoint,
+      color: colorToTuple(stop.color),
+    }));
+  return {
+    ...(settings.mode ? { mode: settings.mode } : {}),
+    ...(settings.channelStops
+      ? {
+          channelStops: {
+            ...(settings.channelStops.r ? { r: mapStops(settings.channelStops.r) } : {}),
+            ...(settings.channelStops.g ? { g: mapStops(settings.channelStops.g) } : {}),
+            ...(settings.channelStops.b ? { b: mapStops(settings.channelStops.b) } : {}),
+          },
+        }
+      : {}),
+    ...(settings.reverse !== undefined ? { reverse: settings.reverse } : {}),
+    ...(settings.intensity !== undefined ? { intensity: settings.intensity } : {}),
+    ...(settings.luminanceMode ? { luminanceMode: settings.luminanceMode } : {}),
+    ...(settings.preserveSourceAlpha !== undefined
+      ? { preserveSourceAlpha: settings.preserveSourceAlpha }
+      : {}),
+    ...(settings.preserveLuminosity !== undefined
+      ? { preserveLuminosity: settings.preserveLuminosity }
+      : {}),
+    ...(settings.dither !== undefined ? { dither: settings.dither } : {}),
+    ...(settings.ditherSize ? { ditherSize: settings.ditherSize } : {}),
+    ...(settings.lutSize !== undefined ? { lutSize: settings.lutSize } : {}),
+    ...(settings.algorithmVersion ? { algorithmVersion: settings.algorithmVersion } : {}),
   };
 }
 
@@ -450,6 +591,11 @@ export function embeddedGradientToGradientPreset(eg: EmbeddedGradientPreset): Gr
     })),
     smoothness: eg.smoothness,
     interpolation: eg.interpolation as GradientInterpolation | undefined,
+    mapSettings: eg.settings ? embeddedSettingsToMapSettings(eg.settings) : undefined,
+    category: eg.category,
+    tags: eg.tags,
+    description: eg.description,
+    limitations: eg.limitations,
     source: eg.source
       ? {
           origin: eg.source.origin as GradientPresetSource['origin'],
@@ -459,6 +605,45 @@ export function embeddedGradientToGradientPreset(eg: EmbeddedGradientPreset): Gr
       : undefined,
     compatibility: eg.compatibility,
   });
+}
+
+function embeddedSettingsToMapSettings(
+  settings: EmbeddedGradientMapSettings,
+): GradientMapPresetSettings {
+  const mapStops = (
+    stops: EmbeddedGradientColorStop[] | undefined,
+  ): GradientColorStop[] | undefined =>
+    stops?.map((stop) => ({
+      id: stop.id ?? stableId('cs-', `${stop.position}:${stop.color.join(':')}`),
+      position: stop.position,
+      midpoint: stop.midpoint,
+      color: embeddedStopToColor(stop),
+    }));
+  return {
+    ...(settings.mode ? { mode: settings.mode } : {}),
+    ...(settings.channelStops
+      ? {
+          channelStops: {
+            ...(settings.channelStops.r ? { r: mapStops(settings.channelStops.r) } : {}),
+            ...(settings.channelStops.g ? { g: mapStops(settings.channelStops.g) } : {}),
+            ...(settings.channelStops.b ? { b: mapStops(settings.channelStops.b) } : {}),
+          },
+        }
+      : {}),
+    ...(settings.reverse !== undefined ? { reverse: settings.reverse } : {}),
+    ...(settings.intensity !== undefined ? { intensity: settings.intensity } : {}),
+    ...(settings.luminanceMode ? { luminanceMode: settings.luminanceMode } : {}),
+    ...(settings.preserveSourceAlpha !== undefined
+      ? { preserveSourceAlpha: settings.preserveSourceAlpha }
+      : {}),
+    ...(settings.preserveLuminosity !== undefined
+      ? { preserveLuminosity: settings.preserveLuminosity }
+      : {}),
+    ...(settings.dither !== undefined ? { dither: settings.dither } : {}),
+    ...(settings.ditherSize ? { ditherSize: settings.ditherSize } : {}),
+    ...(settings.lutSize !== undefined ? { lutSize: settings.lutSize } : {}),
+    ...(settings.algorithmVersion ? { algorithmVersion: settings.algorithmVersion } : {}),
+  };
 }
 
 /**

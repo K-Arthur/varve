@@ -19,7 +19,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GRADIENT_BUILTIN_PRESETS } from './builtin';
 
 const GRADIENT_LIBRARY_KEY = 'presets:gradient-map';
-const GRADIENT_LIBRARY_SCHEMA_VERSION = 1;
+const GRADIENT_LIBRARY_SCHEMA_VERSION = 2;
 const MAX_RECENTS = 12;
 
 export interface GradientLibraryState {
@@ -52,7 +52,19 @@ export interface UseGradientPresetLibraryResult {
   updatePreset: (
     id: string,
     patch: Partial<
-      Pick<GradientPreset, 'name' | 'colorStops' | 'opacityStops' | 'interpolation' | 'smoothness'>
+      Pick<
+        GradientPreset,
+        | 'name'
+        | 'colorStops'
+        | 'opacityStops'
+        | 'interpolation'
+        | 'smoothness'
+        | 'mapSettings'
+        | 'category'
+        | 'tags'
+        | 'description'
+        | 'limitations'
+      >
     >,
   ) => void;
   duplicatePreset: (id: string) => string | null;

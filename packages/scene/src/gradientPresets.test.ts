@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { GradientColorStop, GradientOpacityStop, GradientPreset } from './gradientPresets';
 import {
   applySegmentMidpoint,
+  embeddedGradientToGradientPreset,
   gradientPresetContentHash,
   gradientPresetIdFromHash,
   gradientPresetToEmbeddedGradient,
@@ -177,6 +178,47 @@ describe('makeGradientPreset', () => {
       'opacity-shadow',
       'opacity-highlight',
     ]);
+  });
+
+  it('round-trips the complete treatment snapshot through an embedded preset', () => {
+    const p = makeGradientPreset({
+      id: 'complete-treatment',
+      name: 'Channel split',
+      category: 'portrait',
+      tags: ['warm', 'channel'],
+      description: 'A channel-aware treatment.',
+      limitations: ['May amplify noise.'],
+      colorStops: [
+        { id: 'shadow', position: 0, midpoint: 0.25, color: rgb(12, 8, 30) },
+        { id: 'highlight', position: 1, color: rgb(255, 190, 80) },
+      ],
+      mapSettings: {
+        mode: 'channel',
+        channelStops: {
+          r: [
+            { id: 'r0', position: 0, color: rgb(0) },
+            { id: 'r1', position: 1, color: rgb(255, 30, 10) },
+          ],
+        },
+        reverse: true,
+        intensity: 0.72,
+        luminanceMode: 'perceptual-lightness',
+        preserveSourceAlpha: false,
+        preserveLuminosity: true,
+        dither: false,
+        ditherSize: 4,
+        lutSize: 1024,
+        algorithmVersion: 2,
+      },
+    });
+
+    const embedded = gradientPresetToEmbeddedGradient(p);
+    const roundTrip = embeddedGradientToGradientPreset(embedded);
+    expect(roundTrip.mapSettings).toMatchObject(p.mapSettings!);
+    expect(roundTrip.category).toBe('portrait');
+    expect(roundTrip.tags).toEqual(['warm', 'channel']);
+    expect(roundTrip.limitations).toEqual(['May amplify noise.']);
+    expect(gradientPresetContentHash(roundTrip)).toBe(gradientPresetContentHash(p));
   });
 
   it('is deterministic for identical input', () => {

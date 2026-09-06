@@ -20,7 +20,7 @@ export interface GradientImportDialogProps {
   warnings: string[];
   duplicateCount: number;
   onClose: () => void;
-  onImport: (selected: GradientPreset[], scope: GradientImportScope) => void;
+  onImport: (selected: GradientPreset[], scope: GradientImportScope, applyFirst?: boolean) => void;
 }
 
 export function GradientImportDialog({
@@ -34,6 +34,7 @@ export function GradientImportDialog({
 }: GradientImportDialogProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [scope, setScope] = useState<GradientImportScope>('library');
+  const [applyFirst, setApplyFirst] = useState(false);
 
   const selectedList = useMemo(
     () => presets.filter((p) => selected.has(p.id)),
@@ -93,6 +94,11 @@ export function GradientImportDialog({
               { value: 'both', label: 'Both' },
             ]}
           />
+          <Checkbox
+            label="Apply the first selected preset to this adjustment"
+            checked={applyFirst}
+            onChange={(event) => setApplyFirst(event.target.checked)}
+          />
         </div>
         <div className="gmp-import__list-header">
           <Checkbox
@@ -145,7 +151,8 @@ export function GradientImportDialog({
           className="varve-btn varve-btn--primary"
           disabled={selectedList.length === 0}
           onClick={() => {
-            onImport(selectedList, scope);
+            if (applyFirst) onImport(selectedList, scope, true);
+            else onImport(selectedList, scope);
             onClose();
           }}
         >

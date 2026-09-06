@@ -12,11 +12,14 @@ import {
   addGradientPresetsToDocument,
   displayName,
   embeddedGradientToGradientPreset,
+  getDocumentGradientPresets,
   gradientPresetContentHash,
   gradientPresetIsReferenced,
   gradientPresetToEmbeddedGradient,
   gradientPresetToGradientMapStops,
   makeGradientPreset,
+  removeGradientPresetsFromDocument,
+  renameDocumentGradientPreset,
 } from '@varve/scene';
 import { useCallback, useState } from 'react';
 import { useEditor } from '../../../context';
@@ -41,27 +44,77 @@ interface ImportState {
   duplicateCount: number;
 }
 
+function tupleToSceneColor(color: GradientMapAdjustment['stops'][number]['color']) {
+  return { space: 'rgb' as const, r: color[0], g: color[1], b: color[2], a: color[3] };
+}
+
+function sceneStops(stops: GradientMapAdjustment['stops']) {
+  return stops.map((stop, index) => ({
+    id: stop.id ?? `gradient-stop-${index + 1}`,
+    position: stop.position,
+    midpoint: stop.midpoint,
+    color: tupleToSceneColor(stop.color),
+  }));
+}
+
 function derivePreset(adjustment: GradientMapAdjustment): GradientPreset {
-  if (adjustment.embeddedGradient) {
-    return embeddedGradientToGradientPreset(adjustment.embeddedGradient);
-  }
-  return makeGradientPreset({
-    name: 'Gradient map',
-    colorStops: adjustment.stops.map((s) => ({
-      position: s.position,
-      midpoint: s.midpoint,
-      color: { space: 'rgb', r: s.color[0], g: s.color[1], b: s.color[2], a: s.color[3] },
-    })),
-    ...(adjustment.opacityStops
+  const embedded = adjustment.embeddedGradient
+    ? embeddedGradientToGradientPreset(adjustment.embeddedGradient)
+    : undefined;
+  const mapSettings = {
+    ...(embedded?.mapSettings ?? {}),
+    mode: adjustment.mode ?? embedded?.mapSettings?.mode ?? 'luminance',
+    channelStops: adjustment.channelStops
       ? {
-          opacityStops: adjustment.opacityStops.map((o) => ({
-            position: o.position,
-            midpoint: o.midpoint,
-            opacity: o.opacity,
-          })),
+          ...(adjustment.channelStops.r ? { r: sceneStops(adjustment.channelStops.r) } : {}),
+          ...(adjustment.channelStops.g ? { g: sceneStops(adjustment.channelStops.g) } : {}),
+          ...(adjustment.channelStops.b ? { b: sceneStops(adjustment.channelStops.b) } : {}),
         }
-      : {}),
+      : embedded?.mapSettings?.channelStops,
+    reverse: adjustment.reverse ?? embedded?.mapSettings?.reverse ?? false,
+    intensity: adjustment.intensity ?? embedded?.mapSettings?.intensity ?? 1,
+    luminanceMode:
+      adjustment.luminanceMode ?? embedded?.mapSettings?.luminanceMode ?? 'relative-luminance',
+    preserveSourceAlpha:
+      adjustment.preserveSourceAlpha ?? embedded?.mapSettings?.preserveSourceAlpha ?? true,
+    preserveLuminosity:
+      adjustment.preserveLuminosity ?? embedded?.mapSettings?.preserveLuminosity ?? false,
+    dither: adjustment.dither ?? embedded?.mapSettings?.dither ?? true,
+    ditherSize: adjustment.ditherSize ?? embedded?.mapSettings?.ditherSize ?? 8,
+    lutSize: adjustment.lutSize ?? embedded?.mapSettings?.lutSize,
+    algorithmVersion: adjustment.algorithmVersion ?? embedded?.mapSettings?.algorithmVersion ?? 2,
+  } as const;
+  return makeGradientPreset({
+    ...(embedded ?? {}),
+    id: embedded?.id ?? adjustment.presetId,
+    name: embedded?.name ?? 'Gradient map',
+    colorStops: sceneStops(adjustment.stops),
+    opacityStops: adjustment.opacityStops
+      ? adjustment.opacityStops.map((o) => ({
+          id: o.id,
+          position: o.position,
+          midpoint: o.midpoint,
+          opacity: o.opacity,
+        }))
+      : embedded?.opacityStops,
+    interpolation: adjustment.interpolation ?? embedded?.interpolation ?? 'oklab',
+    mapSettings,
   });
+}
+
+function completePresetSettings(preset: GradientPreset) {
+  return {
+    mode: 'luminance' as const,
+    reverse: false,
+    intensity: 1,
+    luminanceMode: 'relative-luminance' as const,
+    preserveSourceAlpha: true,
+    preserveLuminosity: false,
+    dither: true,
+    ditherSize: 8 as const,
+    algorithmVersion: 2 as const,
+    ...(preset.mapSettings ?? {}),
+  };
 }
 
 export function GradientMapAdjustmentSection({
@@ -76,24 +129,108 @@ export function GradientMapAdjustmentSection({
   const [importError, setImportError] = useState<string | null>(null);
 
   const currentPreset = derivePreset(adjustment);
+  const documentPresets = getDocumentGradientPresets(editor.state.document);
+  const presets = [...documentPresets, ...library.presets].filter(
+    (preset, index, all) =>
+      all.findIndex(
+        (candidate) => gradientPresetContentHash(candidate) === gradientPresetContentHash(preset),
+      ) === index,
+  );
+  const selectedLibraryPreset = adjustment.presetId
+    ? presets.find((preset) => preset.id === adjustment.presetId)
+    : undefined;
+  const selectedPresetSnapshot = selectedLibraryPreset
+    ? makeGradientPreset({
+        ...selectedLibraryPreset,
+        mapSettings: completePresetSettings(selectedLibraryPreset),
+      })
+    : undefined;
+  const isCustomized =
+    !!selectedPresetSnapshot &&
+    gradientPresetContentHash(selectedPresetSnapshot) !== gradientPresetContentHash(currentPreset);
+  const browserPresets = isCustomized
+    ? [
+        makeGradientPreset({
+          ...currentPreset,
+          id: `gradient-custom-${gradientPresetContentHash(currentPreset)}`,
+          name: 'Customized',
+          source: { origin: 'manual' },
+        }),
+        ...presets,
+      ]
+    : presets;
 
-  const handleSelectPreset = useCallback(
+  const applyPreset = useCallback(
     (preset: GradientPreset) => {
+      const settings = completePresetSettings(preset);
+      const snapshot = makeGradientPreset({ ...preset, mapSettings: settings });
       onChange({
         presetId: preset.id,
-        embeddedGradient: gradientPresetToEmbeddedGradient(preset),
+        embeddedGradient: gradientPresetToEmbeddedGradient(snapshot),
         stops: gradientPresetToGradientMapStops(preset),
         opacityStops: preset.opacityStops.map((o) => ({
+          id: o.id,
           position: o.position,
           midpoint: o.midpoint,
           opacity: o.opacity,
         })),
         interpolation: preset.interpolation,
+        mode: settings.mode,
+        channelStops: settings.channelStops
+          ? {
+              ...(settings.channelStops.r
+                ? {
+                    r: gradientPresetToGradientMapStops({
+                      ...preset,
+                      colorStops: settings.channelStops.r,
+                    }),
+                  }
+                : {}),
+              ...(settings.channelStops.g
+                ? {
+                    g: gradientPresetToGradientMapStops({
+                      ...preset,
+                      colorStops: settings.channelStops.g,
+                    }),
+                  }
+                : {}),
+              ...(settings.channelStops.b
+                ? {
+                    b: gradientPresetToGradientMapStops({
+                      ...preset,
+                      colorStops: settings.channelStops.b,
+                    }),
+                  }
+                : {}),
+            }
+          : undefined,
+        reverse: settings.reverse,
+        intensity: settings.intensity,
+        luminanceMode: settings.luminanceMode,
+        preserveSourceAlpha: settings.preserveSourceAlpha,
+        preserveLuminosity: settings.preserveLuminosity,
+        dither: settings.dither,
+        ditherSize: settings.ditherSize,
+        lutSize: settings.lutSize,
+        algorithmVersion: settings.algorithmVersion,
       });
       library.recordRecent(preset.id);
     },
     [onChange, library],
   );
+
+  const handleChange = useCallback(
+    (patch: Partial<GradientMapAdjustment>) => {
+      const next = { ...adjustment, ...patch } as GradientMapAdjustment;
+      onChange({
+        ...patch,
+        embeddedGradient: gradientPresetToEmbeddedGradient(derivePreset(next)),
+      });
+    },
+    [adjustment, onChange],
+  );
+
+  const handleSelectPreset = applyPreset;
 
   const handleExport = useCallback((preset: GradientPreset) => {
     const json = encodeGradientPresets([preset]);
@@ -115,7 +252,7 @@ export function GradientMapAdjustmentSection({
     async (id: string) => {
       const doc = editor.state.document;
       if (gradientPresetIsReferenced(doc, id)) {
-        const name = library.presets.find((p) => p.id === id)?.name ?? 'This preset';
+        const name = presets.find((p) => p.id === id)?.name ?? 'This preset';
         if (
           !(await confirmDialog(
             'Delete referenced preset',
@@ -126,9 +263,49 @@ export function GradientMapAdjustmentSection({
           return;
         }
       }
-      library.deletePreset(id);
+      if (documentPresets.some((preset) => preset.id === id)) {
+        editor.updateDoc(
+          (current) => removeGradientPresetsFromDocument(current as Document, [id]) as Document,
+        );
+      } else if (library.userPresets.some((preset) => preset.id === id)) {
+        library.deletePreset(id);
+      }
     },
-    [editor.state.document, library],
+    [documentPresets, editor, library, presets],
+  );
+
+  const handleRenamePreset = useCallback(
+    (id: string, name: string) => {
+      if (documentPresets.some((preset) => preset.id === id)) {
+        editor.updateDoc(
+          (current) => renameDocumentGradientPreset(current as Document, id, name) as Document,
+        );
+      } else if (library.userPresets.some((preset) => preset.id === id)) {
+        library.updatePreset(id, { name });
+      }
+    },
+    [documentPresets, editor, library],
+  );
+
+  const handleDuplicatePreset = useCallback(
+    (id: string) => {
+      const source = presets.find((preset) => preset.id === id);
+      if (!source) return;
+      const copy = makeGradientPreset({
+        ...source,
+        id: undefined,
+        name: `${displayName(source)} copy`,
+        source: { origin: 'manual' },
+      });
+      if (documentPresets.some((preset) => preset.id === id)) {
+        editor.updateDoc(
+          (current) => addGradientPresetsToDocument(current as Document, [copy]).doc as Document,
+        );
+      } else {
+        library.addPresets([copy]);
+      }
+    },
+    [documentPresets, editor, library, presets],
   );
 
   const handleImportClick = useCallback(async () => {
@@ -139,7 +316,9 @@ export function GradientMapAdjustmentSection({
       setImportError(parsed.message);
       return;
     }
-    const existing = new Set(library.userPresets.map((p) => gradientPresetContentHash(p)));
+    const existing = new Set(
+      [...library.presets, ...documentPresets].map((p) => gradientPresetContentHash(p)),
+    );
     const duplicateCount = parsed.result.presets.filter((p) =>
       existing.has(gradientPresetContentHash(p)),
     ).length;
@@ -152,42 +331,52 @@ export function GradientMapAdjustmentSection({
   }, [library.userPresets]);
 
   const handleImport = useCallback(
-    (selected: GradientPreset[], scope: GradientImportScope) => {
+    (selected: GradientPreset[], scope: GradientImportScope, applyFirst = false) => {
       if (scope === 'library' || scope === 'both') {
         library.addPresets(selected);
       }
       if (scope === 'document' || scope === 'both') {
         editor.updateDoc((doc) => addGradientPresetsToDocument(doc, selected).doc as Document);
       }
-      // Apply the first imported preset to the current adjustment for a quick
-      // preview (per the import workflow: "Allow immediate application").
-      if (selected.length > 0) {
+      if (applyFirst && selected.length > 0) {
         handleSelectPreset(selected[0]!);
       }
       setImportState(null);
     },
-    [library, editor, handleSelectPreset],
+    [library, editor, documentPresets, handleSelectPreset],
   );
 
-  const selectedPresetId =
-    adjustment.presetId && library.presets.some((p) => p.id === adjustment.presetId)
+  const selectedPresetId = isCustomized
+    ? `gradient-custom-${gradientPresetContentHash(currentPreset)}`
+    : adjustment.presetId && presets.some((p) => p.id === adjustment.presetId)
       ? adjustment.presetId
       : currentPreset.id;
 
   return (
     <div className="gmp-section">
       <GradientMapPresetBrowser
-        presets={library.presets}
+        presets={browserPresets}
         favoriteIds={library.favoriteIds}
         recentIds={library.recentIds}
         selectedId={selectedPresetId}
         onSelect={handleSelectPreset}
         onToggleFavorite={library.toggleFavorite}
         onImport={handleImportClick}
-        onRename={(id, name) => library.updatePreset(id, { name })}
-        onDuplicate={library.duplicatePreset}
+        onRename={handleRenamePreset}
+        onDuplicate={handleDuplicatePreset}
         onDelete={handleDeletePreset}
         onExport={handleExport}
+        scopeForPreset={(preset) =>
+          documentPresets.some((candidate) => candidate.id === preset.id)
+            ? 'Document'
+            : preset.source?.origin === 'builtin'
+              ? 'Built-in'
+              : 'Library'
+        }
+        canEditPreset={(preset) =>
+          documentPresets.some((candidate) => candidate.id === preset.id) ||
+          library.userPresets.some((candidate) => candidate.id === preset.id)
+        }
       />
       {currentPreset.compatibility?.status !== 'ok' && (
         <p className="gmp-section__compat" role="status">
@@ -209,12 +398,28 @@ export function GradientMapAdjustmentSection({
         luminanceMode={adjustment.luminanceMode}
         preserveSourceAlpha={adjustment.preserveSourceAlpha}
         interpolation={adjustment.interpolation}
-        onChange={(patch) => onChange(patch as unknown as Partial<GradientMapAdjustment>)}
+        onChange={(patch) => handleChange(patch as Partial<GradientMapAdjustment>)}
         onEditStart={onEditStart}
         onEditEnd={onEditEnd}
       />
       <p className="gmp-section__current">
-        Preset: <strong>{displayName(currentPreset)}</strong>
+        Preset: <strong>{isCustomized ? 'Customized' : displayName(currentPreset)}</strong>{' '}
+        <button
+          type="button"
+          className="varve-btn varve-btn--ghost"
+          onClick={() => {
+            const saved = makeGradientPreset({
+              ...currentPreset,
+              id: undefined,
+              name: `${isCustomized ? 'Customized' : displayName(currentPreset)} copy`,
+              source: { origin: 'manual' },
+            });
+            library.addPresets([saved]);
+            handleSelectPreset(saved);
+          }}
+        >
+          Save current preset
+        </button>
       </p>
       {importError && (
         <div className="gmp-section__error" role="alert">

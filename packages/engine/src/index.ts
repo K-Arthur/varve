@@ -391,6 +391,7 @@ export type {
   EdgeFalloffAdjustment,
   EdgeInkAdjustment,
   EmbeddedGradientColorStop,
+  EmbeddedGradientMapSettings,
   EmbeddedGradientOpacityStop,
   EmbeddedGradientPreset,
   ExposureAdjustment,

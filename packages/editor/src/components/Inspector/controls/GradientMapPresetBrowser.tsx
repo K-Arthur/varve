@@ -33,6 +33,8 @@ export interface GradientPresetBrowserProps {
   onDuplicate?: (id: string) => void;
   onDelete?: (id: string) => void;
   onExport?: (preset: GradientPreset) => void;
+  scopeForPreset?: (preset: GradientPreset) => string;
+  canEditPreset?: (preset: GradientPreset) => boolean;
   label?: string;
 }
 
@@ -48,6 +50,8 @@ export function GradientMapPresetBrowser({
   onDuplicate,
   onDelete,
   onExport,
+  scopeForPreset,
+  canEditPreset,
   label = 'Gradient presets',
 }: GradientPresetBrowserProps) {
   const [query, setQuery] = useState('');
@@ -96,7 +100,7 @@ export function GradientMapPresetBrowser({
         onAction: () => onToggleFavorite(id),
       });
     }
-    if (onRename) {
+    if (onRename && (!canEditPreset || canEditPreset(context.preset))) {
       items.push({
         id: 'rename',
         label: 'Rename',
@@ -123,7 +127,7 @@ export function GradientMapPresetBrowser({
         onAction: () => onExport(context.preset),
       });
     }
-    if (onDelete) {
+    if (onDelete && (!canEditPreset || canEditPreset(context.preset))) {
       items.push(
         { id: 'danger-sep', separator: true },
         {
@@ -148,7 +152,16 @@ export function GradientMapPresetBrowser({
       );
     }
     return items;
-  }, [context, favoriteIds, onToggleFavorite, onRename, onDuplicate, onExport, onDelete]);
+  }, [
+    context,
+    favoriteIds,
+    onToggleFavorite,
+    onRename,
+    onDuplicate,
+    onExport,
+    onDelete,
+    canEditPreset,
+  ]);
 
   return (
     <section className="gmp-browser" aria-label={label}>
@@ -238,6 +251,7 @@ export function GradientMapPresetBrowser({
                 aria-hidden="true"
               />
               <span className="gmp-item__name">{displayName(preset)}</span>
+              {scopeForPreset && <span className="gmp-item__scope">{scopeForPreset(preset)}</span>}
               {preset.compatibility?.status === 'unsupported' && (
                 <span
                   className="gmp-item__badge gmp-item__badge--warn"

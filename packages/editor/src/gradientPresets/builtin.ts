@@ -6,10 +6,16 @@
  * across sessions. These are NOT stored in the user library — they are
  * composed in at read time (see `useGradientPresetLibrary`).
  */
-import type { GradientPreset } from '@varve/scene';
+import type { GradientMapPresetSettings, GradientPreset } from '@varve/scene';
 import { makeGradientPreset } from '@varve/scene';
 
 export const GRADIENT_BUILTIN_KEYS = [
+  'film-noir',
+  'warm-matte',
+  'cool-steel',
+  'split-tone',
+  'high-contrast',
+  'fade',
   'black-white',
   'neon',
   'sunset',
@@ -31,7 +37,6 @@ export const GRADIENT_BUILTIN_KEYS = [
   'rose-gold',
   'forest',
   'lavender',
-  'high-contrast',
   'duotone-teal-orange',
   'tri-tone-warm',
   'tri-tone-cool',
@@ -45,9 +50,107 @@ interface BuiltinSpec {
   stops: [number, [number, number, number, number]][];
   opacityStops?: [number, number][];
   smoothness?: number;
+  category?: string;
+  tags?: string[];
+  description?: string;
+  limitations?: string[];
+  mapSettings?: GradientMapPresetSettings;
 }
 
 const BUILTIN_SPECS: BuiltinSpec[] = [
+  {
+    key: 'film-noir',
+    name: 'Film Noir',
+    category: 'Cinematic',
+    tags: ['monochrome', 'portrait', 'dramatic'],
+    description: 'Deep blacks and lifted silver highlights for a cinematic monochrome grade.',
+    limitations: ['Can hide detail in already-underexposed shadows.'],
+    stops: [
+      [0, [3, 4, 7, 255]],
+      [0.28, [24, 27, 32, 255]],
+      [0.68, [132, 137, 140, 255]],
+      [1, [244, 240, 228, 255]],
+    ],
+    mapSettings: { preserveLuminosity: true, intensity: 0.92, dither: true },
+  },
+  {
+    key: 'warm-matte',
+    name: 'Warm Matte',
+    category: 'Cinematic',
+    tags: ['warm', 'matte', 'skin tones'],
+    description: 'A restrained amber-brown curve for soft editorial warmth.',
+    limitations: ['Warm highlights may shift neutral whites.'],
+    stops: [
+      [0, [22, 15, 12, 255]],
+      [0.35, [92, 62, 46, 255]],
+      [0.72, [194, 154, 118, 255]],
+      [1, [244, 225, 190, 255]],
+    ],
+    mapSettings: { preserveLuminosity: true, intensity: 0.86, luminanceMode: 'relative-luminance' },
+  },
+  {
+    key: 'cool-steel',
+    name: 'Cool Steel',
+    category: 'Cinematic',
+    tags: ['cool', 'blue', 'architecture'],
+    description: 'A crisp blue-steel grade that keeps bright areas clean and controlled.',
+    limitations: ['Blue shadows can exaggerate chroma noise.'],
+    stops: [
+      [0, [8, 14, 24, 255]],
+      [0.32, [38, 62, 82, 255]],
+      [0.72, [146, 170, 184, 255]],
+      [1, [238, 244, 246, 255]],
+    ],
+    mapSettings: { preserveLuminosity: true, intensity: 0.88 },
+  },
+  {
+    key: 'split-tone',
+    name: 'Split Tone',
+    category: 'Cinematic',
+    tags: ['teal', 'orange', 'split-toning'],
+    description: 'Teal shadows and warm highlights for a classic split-toned finish.',
+    limitations: ['Strongly saturated source colors may clip sooner.'],
+    stops: [
+      [0, [9, 38, 48, 255]],
+      [0.5, [42, 70, 74, 255]],
+      [1, [245, 166, 76, 255]],
+    ],
+    mapSettings: { preserveLuminosity: false, intensity: 0.9, reverse: false },
+  },
+  {
+    key: 'high-contrast',
+    name: 'High Contrast',
+    category: 'Utility',
+    tags: ['contrast', 'black and white', 'graphic'],
+    description: 'A graphic black-and-white map with a hard tonal separation.',
+    limitations: ['Midtone detail is intentionally compressed.'],
+    stops: [
+      [0, [0, 0, 0, 255]],
+      [0.42, [0, 0, 0, 255]],
+      [0.58, [255, 255, 255, 255]],
+      [1, [255, 255, 255, 255]],
+    ],
+    mapSettings: { dither: false, preserveLuminosity: false, intensity: 1 },
+  },
+  {
+    key: 'fade',
+    name: 'Fade',
+    category: 'Utility',
+    tags: ['soft', 'low contrast', 'film'],
+    description: 'Lifted blacks and gentle highlights for a faded print-like finish.',
+    limitations: ['Does not restore clipped source detail.'],
+    stops: [
+      [0, [35, 30, 26, 255]],
+      [0.38, [112, 100, 88, 255]],
+      [0.72, [198, 188, 172, 255]],
+      [1, [238, 232, 220, 255]],
+    ],
+    opacityStops: [
+      [0, 0.92],
+      [1, 0.82],
+    ],
+    mapSettings: { preserveLuminosity: true, intensity: 0.8, preserveSourceAlpha: true },
+  },
   {
     key: 'black-white',
     name: 'Black & White',
@@ -245,16 +348,6 @@ const BUILTIN_SPECS: BuiltinSpec[] = [
     ],
   },
   {
-    key: 'high-contrast',
-    name: 'High Contrast B&W',
-    stops: [
-      [0, [0, 0, 0, 255]],
-      [0.35, [0, 0, 0, 255]],
-      [0.65, [255, 255, 255, 255]],
-      [1, [255, 255, 255, 255]],
-    ],
-  },
-  {
     key: 'duotone-teal-orange',
     name: 'Teal & Orange',
     stops: [
@@ -292,6 +385,11 @@ function toPreset(spec: BuiltinSpec): GradientPreset {
     })),
     opacityStops: (spec.opacityStops ?? []).map(([position, opacity]) => ({ position, opacity })),
     ...(spec.smoothness !== undefined ? { smoothness: spec.smoothness } : {}),
+    ...(spec.category ? { category: spec.category } : {}),
+    ...(spec.tags ? { tags: spec.tags } : {}),
+    ...(spec.description ? { description: spec.description } : {}),
+    ...(spec.limitations ? { limitations: spec.limitations } : {}),
+    ...(spec.mapSettings ? { mapSettings: spec.mapSettings } : {}),
     interpolation: 'oklab',
     source: { origin: 'builtin' },
   });
