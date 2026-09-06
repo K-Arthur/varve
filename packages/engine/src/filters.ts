@@ -407,7 +407,7 @@ export interface GradientMapAdjustment extends AdjustmentBase {
   /** LUT resolution. Default 256. */
   lutSize?: number;
   /** Version of the documented gradient-map algorithm. */
-  algorithmVersion?: 1;
+  algorithmVersion?: 1 | 2;
   /** Reference to a global preset (for diagnostics). Rendering uses
    *  `embeddedGradient`/`stops`, so a missing global preset never breaks it. */
   presetId?: string;
@@ -1702,7 +1702,7 @@ export function adjustmentDefaults(kind: AdjustmentKind): Omit<Adjustment, 'id' 
         luminanceMode: 'relative-luminance',
         preserveSourceAlpha: true,
         interpolation: 'oklab',
-        algorithmVersion: 1,
+        algorithmVersion: 2,
       } as Omit<Adjustment, 'id' | 'kind'>;
     case 'tritone':
       return {

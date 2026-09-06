@@ -9,6 +9,7 @@ import {
   buildGradientColorLut,
   type GradientMapParams,
   type GradientMapStop,
+  getGradientMapDitherMatrix,
   interpolateGradientMapColor,
 } from './gradientMap';
 
@@ -45,6 +46,20 @@ describe('reverse', () => {
     expect(img.data[4]).toBe(255);
     expect(img.data[6]).toBe(0);
   });
+
+  it('reverses the opacity ramp with the color ramp', () => {
+    const img = createTestImageData(2, 1, [0, 0, 0, 255, 255, 255, 255, 255]);
+    apply(img, {
+      reverse: true,
+      preserveSourceAlpha: false,
+      opacityStops: [
+        { position: 0, opacity: 0 },
+        { position: 1, opacity: 1 },
+      ],
+    });
+    expect(img.data[3]).toBe(255);
+    expect(img.data[7]).toBe(0);
+  });
 });
 
 describe('intensity', () => {
@@ -54,6 +69,19 @@ describe('intensity', () => {
     expect(img.data[0]).toBe(200);
     expect(img.data[1]).toBe(100);
     expect(img.data[2]).toBe(50);
+  });
+
+  it('keeps the complete RGBA state unchanged at intensity 0', () => {
+    const img = createTestImageData(1, 1, [200, 100, 50, 128]);
+    apply(img, {
+      intensity: 0,
+      preserveSourceAlpha: false,
+      opacityStops: [
+        { position: 0, opacity: 0 },
+        { position: 1, opacity: 1 },
+      ],
+    });
+    expect([...img.data]).toEqual([200, 100, 50, 128]);
   });
 
   it('partially mixes at intensity 0.5', () => {
@@ -157,6 +185,56 @@ describe('alpha handling', () => {
       preserveSourceAlpha: false,
     });
     expect(img.data[3]).toBe(0);
+  });
+
+  it('uses the last coincident opacity stop as the hard-stop value', () => {
+    const lut = buildGradientAlphaLut(
+      redBlue,
+      [
+        { position: 0, opacity: 1 },
+        { position: 0.5, opacity: 0 },
+        { position: 0.5, opacity: 1 },
+        { position: 1, opacity: 1 },
+      ],
+      3,
+    );
+    expect(lut[1]).toBe(255);
+  });
+});
+
+describe('dither quality', () => {
+  it('uses every threshold exactly once and has a neutral mean', () => {
+    const matrix = getGradientMapDitherMatrix(8);
+    const values = matrix.flat();
+    expect(values).toHaveLength(64);
+    expect(new Set(values).size).toBe(64);
+    expect(values.reduce((sum, value) => sum + value, 0) / values.length).toBeCloseTo(0.5, 12);
+  });
+});
+
+describe('algorithm versions', () => {
+  it('keeps v1 compatibility luma and uses linear relative luminance in v2', () => {
+    const legacy = createTestImageData(1, 1, [128, 0, 0, 255]);
+    const corrected = createTestImageData(1, 1, [128, 0, 0, 255]);
+    const params = {
+      stops: [
+        { position: 0, color: [0, 0, 0, 255] as const },
+        { position: 1, color: [255, 255, 255, 255] as const },
+      ],
+      dither: false,
+      preserveLuminosity: false,
+      luminanceMode: 'relative-luminance' as const,
+    };
+    applyGradientMapFilter(legacy, { ...params, algorithmVersion: 1 });
+    applyGradientMapFilter(corrected, { ...params, algorithmVersion: 2 });
+    expect(legacy.data[0]).toBeGreaterThan(corrected.data[0]!);
+    expect(corrected.data[0]).toBeGreaterThan(10);
+  });
+
+  it('keeps explicit compatibility mode encoded even under v2', () => {
+    const img = createTestImageData(1, 1, [128, 0, 0, 255]);
+    apply(img, { algorithmVersion: 2, luminanceMode: 'compatibility' });
+    expect(img.data[0]).toBeGreaterThan(50);
   });
 });
 

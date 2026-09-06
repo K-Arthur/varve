@@ -139,7 +139,7 @@ const KIND_NUMERIC_RANGES: Record<string, Record<string, [number, number]>> = {
   gradientMap: {
     intensity: [0, 1],
     ditherSize: [4, 8],
-    algorithmVersion: [1, 1],
+    algorithmVersion: [1, 2],
   },
   threshold: { level: [0, 255], algorithmVersion: [1, 1] },
   lut: { intensity: [0, 1] },
@@ -485,7 +485,7 @@ export function normalizeAdjustmentStack(
       if (raw.ditherSize !== undefined)
         normalized.ditherSize = raw.ditherSize === 4 || raw.ditherSize === 8 ? raw.ditherSize : 8;
       if (raw.algorithmVersion !== undefined)
-        normalized.algorithmVersion = raw.algorithmVersion === 1 ? 1 : 1;
+        normalized.algorithmVersion = raw.algorithmVersion === 2 ? 2 : 1;
       if (raw.reverse !== undefined) normalized.reverse = raw.reverse === true;
       if (raw.preserveSourceAlpha !== undefined)
         normalized.preserveSourceAlpha = raw.preserveSourceAlpha === true;

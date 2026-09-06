@@ -1218,7 +1218,7 @@ export type FilterIR =
       preserveSourceAlpha?: boolean;
       interpolation?: import('@varve/shared').GradientInterpolationSpace;
       lutSize?: number;
-      algorithmVersion?: 1;
+      algorithmVersion?: 1 | 2;
       opacity: number;
       blendMode: string;
     }

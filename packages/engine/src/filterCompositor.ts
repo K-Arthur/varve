@@ -667,7 +667,9 @@ export function applySoftwareFilter(
         preserveSourceAlpha?: boolean;
         interpolation?: import('@varve/shared').GradientInterpolationSpace;
         lutSize?: number;
-        algorithmVersion?: 1;
+        algorithmVersion?: 1 | 2;
+        ditherOriginX?: number;
+        ditherOriginY?: number;
       };
       applyGradientMapFilter(imageData, {
         stops: gf.stops,
@@ -684,6 +686,14 @@ export function applySoftwareFilter(
         interpolation: gf.interpolation,
         lutSize: gf.lutSize,
         algorithmVersion: gf.algorithmVersion,
+        ditherOriginX:
+          options.coordSpace && options.coordSpace.scale > 0
+            ? (options.coordSpace.regionX - options.coordSpace.originX) / options.coordSpace.scale
+            : undefined,
+        ditherOriginY:
+          options.coordSpace && options.coordSpace.scale > 0
+            ? (options.coordSpace.regionY - options.coordSpace.originY) / options.coordSpace.scale
+            : undefined,
       });
       ctx.putImageData(imageData, 0, 0);
       break;

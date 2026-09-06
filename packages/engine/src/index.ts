@@ -509,9 +509,13 @@ export {
   buildGradientAlphaLut,
   buildGradientColorLut,
   buildGradientLUT,
+  clearGradientMapLutCache,
   DEFAULT_GRADIENT_LUT_SIZE,
   GRADIENT_MAP_ALGORITHM_VERSION,
+  getGradientMapDitherMatrix,
   interpolateGradientMapColor,
+  sampleGradientMapAlpha,
+  sampleGradientMapColor,
 } from './gradientMap';
 export type { GrainAnchor, GrainResolution, GrainSampleParams } from './grainSampler';
 export {

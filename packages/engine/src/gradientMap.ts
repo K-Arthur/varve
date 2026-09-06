@@ -95,8 +95,12 @@ export interface GradientMapParams {
   interpolation?: GradientInterpolationSpace;
   /** LUT resolution. Default 256. */
   lutSize?: number;
-  /** Version of the documented gradient-map algorithm. */
-  algorithmVersion?: 1;
+  /** Version of the documented gradient-map algorithm. v1 preserves the
+   * legacy encoded-channel luma; v2 uses linear-sRGB relative luminance. */
+  algorithmVersion?: 1 | 2;
+  /** Stable image-space anchor for ordered dither. Defaults to (0, 0). */
+  ditherOriginX?: number;
+  ditherOriginY?: number;
 }
 
 export interface GradientLut {
@@ -121,17 +125,23 @@ const BAYER_4X4: number[][] = [
   [0.9375, 0.4375, 0.8125, 0.3125],
 ];
 
-/** 8x8 Bayer ordered dither matrix (64 distinct threshold levels). */
+/** Standard 8x8 Bayer ordered dither matrix (64 unique, zero-mean levels). */
 const BAYER_8X8: number[][] = [
-  [0.0156, 0.4531, 0.0469, 0.4844, 0.1406, 0.5781, 0.1719, 0.6094],
-  [0.7656, 0.2969, 0.7969, 0.3281, 0.8906, 0.4219, 0.9219, 0.4531],
-  [0.0469, 0.4844, 0.0156, 0.4531, 0.1719, 0.6094, 0.1406, 0.5781],
-  [0.7969, 0.3281, 0.7656, 0.2969, 0.9219, 0.4531, 0.8906, 0.4219],
-  [0.1406, 0.5781, 0.1719, 0.6094, 0.0156, 0.4531, 0.0469, 0.4844],
-  [0.8906, 0.4219, 0.9219, 0.4531, 0.7656, 0.2969, 0.7969, 0.3281],
-  [0.1719, 0.6094, 0.1406, 0.5781, 0.0469, 0.4844, 0.0156, 0.4531],
-  [0.9219, 0.4531, 0.8906, 0.4219, 0.7969, 0.3281, 0.7656, 0.2969],
+  [0.0078125, 0.5078125, 0.1328125, 0.6328125, 0.0390625, 0.5390625, 0.1640625, 0.6640625],
+  [0.7578125, 0.2578125, 0.8828125, 0.3828125, 0.7890625, 0.2890625, 0.9140625, 0.4140625],
+  [0.1953125, 0.6953125, 0.0703125, 0.5703125, 0.2265625, 0.7265625, 0.1015625, 0.6015625],
+  [0.9453125, 0.4453125, 0.8203125, 0.3203125, 0.9765625, 0.4765625, 0.8515625, 0.3515625],
+  [0.0546875, 0.5546875, 0.1796875, 0.6796875, 0.0234375, 0.5234375, 0.1484375, 0.6484375],
+  [0.8046875, 0.3046875, 0.9296875, 0.4296875, 0.7734375, 0.2734375, 0.8984375, 0.3984375],
+  [0.2421875, 0.7421875, 0.1171875, 0.6171875, 0.2109375, 0.7109375, 0.0859375, 0.5859375],
+  [0.9921875, 0.4921875, 0.8671875, 0.3671875, 0.9609375, 0.4609375, 0.8359375, 0.3359375],
 ];
+
+/** Expose a copy for deterministic quality tests without allowing mutation. */
+export function getGradientMapDitherMatrix(size: 4 | 8 = 8): readonly (readonly number[])[] {
+  const matrix = size === 4 ? BAYER_4X4 : BAYER_8X8;
+  return matrix.map((row) => [...row]);
+}
 
 function clampByte(v: number): number {
   return Math.max(0, Math.min(255, Math.round(v)));
@@ -140,6 +150,10 @@ function clampByte(v: number): number {
 function clamp01(v: number, fallback = 1): number {
   if (!Number.isFinite(v)) return fallback;
   return Math.max(0, Math.min(1, v));
+}
+
+function clampByteWithFallback(v: unknown, fallback: number): number {
+  return typeof v === 'number' && Number.isFinite(v) ? clampByte(v) : fallback;
 }
 
 function normalizeGradientStop(
@@ -154,10 +168,10 @@ function normalizeGradientStop(
       ? Math.max(0, Math.min(1, stop.position))
       : fallbackPosition,
     color: [
-      clampByte(stop.color[0]),
-      clampByte(stop.color[1]),
-      clampByte(stop.color[2]),
-      clampByte(stop.color[3] ?? 255),
+      clampByteWithFallback(stop.color?.[0], 0),
+      clampByteWithFallback(stop.color?.[1], 0),
+      clampByteWithFallback(stop.color?.[2], 0),
+      clampByteWithFallback(stop.color?.[3], 255),
     ],
     ...(stop.opacity === undefined ? {} : { opacity: clamp01(stop.opacity) }),
     ...(stop.midpoint === undefined ? {} : { midpoint: clamp01(stop.midpoint, 0.5) }),
@@ -289,12 +303,29 @@ export function interpolateGradientMapColor(
   return last.color;
 }
 
+/** Sample a gradient-map ramp using the exact engine midpoint/reverse rules. */
+export function sampleGradientMapColor(
+  stops: readonly GradientMapStop[],
+  position: number,
+  opts: Pick<GradientColorLutOptions, 'interpolation' | 'reverse'> = {},
+): Color {
+  if (stops.length < 1) return [0, 0, 0, 255];
+  if (stops.length < 2) return normalizeGradientStop(stops[0]!, 0, 1).color;
+  const p = opts.reverse ? 1 - clamp01(position, 0) : clamp01(position, 0);
+  const c = interpolateGradientMapColor(
+    toInterpolationStops(stops),
+    p,
+    opts.interpolation ?? 'srgb',
+  );
+  return [c.r, c.g, c.b, c.a];
+}
+
 /** Legacy 256-entry sRGB LUT builder (backward-compatible surface). */
 export function buildGradientLUT(stops: readonly GradientMapStop[]): GradientLut {
   return buildGradientColorLut(stops, { size: DEFAULT_GRADIENT_LUT_SIZE, interpolation: 'srgb' });
 }
 
-/** Normalize scalar opacity stops (dedupe by position, first wins). */
+/** Normalize scalar opacity stops while retaining intentional hard stops. */
 function normalizeOpacityStops(
   stops: ReadonlyArray<{ position: number; midpoint?: number; opacity: number }>,
 ): {
@@ -302,17 +333,44 @@ function normalizeOpacityStops(
   midpoint: number;
   opacity: number;
 }[] {
-  const seen = new Map<number, { position: number; midpoint: number; opacity: number }>();
-  for (const s of stops) {
-    const position = clamp01(s.position, 0);
-    if (seen.has(position)) continue;
-    seen.set(position, {
-      position,
+  return stops
+    .map((s, order) => ({
+      position: clamp01(s.position, 0),
       midpoint: clamp01(s.midpoint ?? 0.5, 0.5),
       opacity: clamp01(s.opacity, 1),
-    });
+      order,
+    }))
+    .sort((a, b) => a.position - b.position || a.order - b.order)
+    .map(({ order: _order, ...stop }) => stop);
+}
+
+type ScalarOpacityStop = { position: number; midpoint: number; opacity: number };
+
+/** Evaluate sorted scalar stops with last-wins hard transitions. */
+function sampleOpacityStops(stops: readonly ScalarOpacityStop[], t: number): number {
+  if (stops.length === 0) return 1;
+  if (stops.length === 1) return stops[0]!.opacity;
+  const p = clamp01(t, 0);
+
+  let lastAtPosition: ScalarOpacityStop | undefined;
+  for (const stop of stops) {
+    if (stop.position > p) break;
+    if (stop.position === p) lastAtPosition = stop;
   }
-  return [...seen.values()].sort((a, b) => a.position - b.position);
+  if (lastAtPosition) return lastAtPosition.opacity;
+  if (p <= stops[0]!.position) return stops[0]!.opacity;
+  const last = stops[stops.length - 1]!;
+  if (p >= last.position) return last.opacity;
+
+  for (let i = 0; i < stops.length - 1; i += 1) {
+    const lo = stops[i]!;
+    const hi = stops[i + 1]!;
+    if (p < lo.position || p > hi.position || hi.position === lo.position) continue;
+    const linearT = (p - lo.position) / (hi.position - lo.position);
+    const blendT = applyMidpointBias(linearT, hi.midpoint);
+    return lo.opacity + (hi.opacity - lo.opacity) * blendT;
+  }
+  return last.opacity;
 }
 
 /**
@@ -323,15 +381,53 @@ export function buildGradientAlphaLut(
   stops: readonly GradientMapStop[],
   opacityStops: readonly GradientMapOpacityStop[] | undefined,
   size: number,
+  opts: { reverse?: boolean } = {},
 ): Uint8Array {
   const normalizedSize = normalizeLutSize(size, DEFAULT_GRADIENT_LUT_SIZE);
   const lut = new Uint8Array(normalizedSize);
-  const normalizedColors: { position: number; midpoint: number; opacity: number }[] =
-    toInterpolationStops(stops).map((stop) => ({
+  const normalizedColors: ScalarOpacityStop[] = toInterpolationStops(stops).map((stop) => ({
+    position: stop.position,
+    midpoint: stop.midpoint ?? 0.5,
+    opacity: clamp01(stop.color.a / 255, 1),
+  }));
+  const normalizedExplicit: ScalarOpacityStop[] = normalizeOpacityStops(
+    (opacityStops ?? []).map((stop) => ({
       position: stop.position,
-      midpoint: stop.midpoint ?? 0.5,
-      opacity: clamp01(stop.color.a / 255, 1),
-    }));
+      midpoint: stop.midpoint,
+      opacity: stop.opacity,
+    })),
+  );
+  const normalizedPerStop: ScalarOpacityStop[] = normalizeOpacityStops(
+    stops.map((stop) => ({
+      position: stop.position,
+      midpoint: stop.midpoint,
+      opacity: clamp01(stop.opacity ?? 1),
+    })),
+  );
+
+  for (let i = 0; i < normalizedSize; i++) {
+    const t = normalizedSize > 1 ? i / (normalizedSize - 1) : 0;
+    const sampleT = opts.reverse ? 1 - t : t;
+    const colorAlpha = sampleOpacityStops(normalizedColors, sampleT);
+    const perStopOpacity = sampleOpacityStops(normalizedPerStop, sampleT);
+    const explicitOpacity = sampleOpacityStops(normalizedExplicit, sampleT);
+    lut[i] = clampByte(colorAlpha * perStopOpacity * explicitOpacity * 255);
+  }
+  return lut;
+}
+
+/** Sample the effective gradient alpha using the same evaluator as the LUT. */
+export function sampleGradientMapAlpha(
+  stops: readonly GradientMapStop[],
+  opacityStops: readonly GradientMapOpacityStop[] | undefined,
+  position: number,
+  opts: { reverse?: boolean } = {},
+): number {
+  const normalizedColors: ScalarOpacityStop[] = toInterpolationStops(stops).map((stop) => ({
+    position: stop.position,
+    midpoint: stop.midpoint ?? 0.5,
+    opacity: clamp01(stop.color.a / 255, 1),
+  }));
   const normalizedExplicit = normalizeOpacityStops(
     (opacityStops ?? []).map((stop) => ({
       position: stop.position,
@@ -346,37 +442,114 @@ export function buildGradientAlphaLut(
       opacity: clamp01(stop.opacity ?? 1),
     })),
   );
+  const p = opts.reverse ? 1 - clamp01(position, 0) : clamp01(position, 0);
+  return clamp01(
+    sampleOpacityStops(normalizedColors, p) *
+      sampleOpacityStops(normalizedPerStop, p) *
+      sampleOpacityStops(normalizedExplicit, p),
+  );
+}
 
-  const sample = (
-    scalarStops: readonly { position: number; midpoint: number; opacity: number }[],
-    t: number,
-  ): number => {
-    if (scalarStops.length === 0) return 1;
-    if (scalarStops.length === 1) return scalarStops[0]!.opacity;
-    if (t <= scalarStops[0]!.position) return scalarStops[0]!.opacity;
-    const last = scalarStops[scalarStops.length - 1]!;
-    if (t >= last.position) return last.opacity;
-    for (let i = 0; i < scalarStops.length - 1; i++) {
-      const lo = scalarStops[i]!;
-      const hi = scalarStops[i + 1]!;
-      if (t < lo.position || t > hi.position) continue;
-      if (t === hi.position) return hi.opacity;
-      const span = hi.position - lo.position;
-      const linearT = span === 0 ? 0 : (t - lo.position) / span;
-      const blendT = applyMidpointBias(linearT, hi.midpoint);
-      return lo.opacity + (hi.opacity - lo.opacity) * blendT;
-    }
-    return last.opacity;
+interface CompiledGradientMapLuts {
+  color: GradientLut;
+  alpha: Uint8Array;
+  red?: GradientLut;
+  green?: GradientLut;
+  blue?: GradientLut;
+}
+
+const MAX_GRADIENT_MAP_LUT_CACHE_ENTRIES = 32;
+const gradientMapLutCache = new Map<string, CompiledGradientMapLuts>();
+
+function cacheStop(stop: GradientMapStop): unknown[] {
+  return [
+    stop.id ?? null,
+    stop.position,
+    stop.color?.[0],
+    stop.color?.[1],
+    stop.color?.[2],
+    stop.color?.[3],
+    stop.opacity ?? null,
+    stop.midpoint ?? null,
+  ];
+}
+
+function gradientMapCacheKey(params: GradientMapParams, lutSize: number): string {
+  return JSON.stringify({
+    algorithmVersion: params.algorithmVersion ?? 1,
+    dither: params.dither,
+    ditherSize: params.ditherSize ?? 8,
+    ditherOriginX: params.ditherOriginX ?? 0,
+    ditherOriginY: params.ditherOriginY ?? 0,
+    preserveLuminosity: params.preserveLuminosity,
+    mode: params.mode ?? 'luminance',
+    reverse: params.reverse ?? false,
+    intensity: params.intensity ?? 1,
+    luminanceMode: params.luminanceMode ?? 'relative-luminance',
+    preserveSourceAlpha: params.preserveSourceAlpha ?? true,
+    interpolation: params.interpolation ?? 'srgb',
+    lutSize,
+    stops: params.stops.map(cacheStop),
+    opacityStops: (params.opacityStops ?? []).map((stop) => [
+      stop.id ?? null,
+      stop.position,
+      stop.midpoint ?? null,
+      stop.opacity,
+    ]),
+    channelStops: {
+      r: params.channelStops?.r?.map(cacheStop) ?? null,
+      g: params.channelStops?.g?.map(cacheStop) ?? null,
+      b: params.channelStops?.b?.map(cacheStop) ?? null,
+    },
+  });
+}
+
+function compileGradientMapLuts(
+  params: GradientMapParams,
+  lutSize: number,
+): CompiledGradientMapLuts {
+  const lutOpts: GradientColorLutOptions = {
+    size: lutSize,
+    interpolation: params.interpolation ?? 'srgb',
+    reverse: params.reverse,
   };
+  const color = buildGradientColorLut(params.stops, lutOpts);
+  const alpha = buildGradientAlphaLut(params.stops, params.opacityStops, lutSize, {
+    reverse: params.reverse,
+  });
+  if ((params.mode ?? 'luminance') !== 'channel') return { color, alpha };
+  return {
+    color,
+    alpha,
+    red: buildGradientColorLut(params.channelStops?.r ?? params.stops, lutOpts),
+    green: buildGradientColorLut(params.channelStops?.g ?? params.stops, lutOpts),
+    blue: buildGradientColorLut(params.channelStops?.b ?? params.stops, lutOpts),
+  };
+}
 
-  for (let i = 0; i < normalizedSize; i++) {
-    const t = normalizedSize > 1 ? i / (normalizedSize - 1) : 0;
-    const colorAlpha = sample(normalizedColors, t);
-    const perStopOpacity = sample(normalizedPerStop, t);
-    const explicitOpacity = sample(normalizedExplicit, t);
-    lut[i] = clampByte(colorAlpha * perStopOpacity * explicitOpacity * 255);
+function getCompiledGradientMapLuts(
+  params: GradientMapParams,
+  lutSize: number,
+): CompiledGradientMapLuts {
+  const key = gradientMapCacheKey(params, lutSize);
+  const cached = gradientMapLutCache.get(key);
+  if (cached) {
+    gradientMapLutCache.delete(key);
+    gradientMapLutCache.set(key, cached);
+    return cached;
   }
-  return lut;
+  const compiled = compileGradientMapLuts(params, lutSize);
+  gradientMapLutCache.set(key, compiled);
+  if (gradientMapLutCache.size > MAX_GRADIENT_MAP_LUT_CACHE_ENTRIES) {
+    const oldest = gradientMapLutCache.keys().next().value;
+    if (oldest) gradientMapLutCache.delete(oldest);
+  }
+  return compiled;
+}
+
+/** Clear compiled gradient-map LUTs (used after memory-pressure events/tests). */
+export function clearGradientMapLutCache(): void {
+  gradientMapLutCache.clear();
 }
 
 /**
@@ -421,11 +594,13 @@ function tonalValue(
   g: number,
   b: number,
   a: number,
+  algorithmVersion: 1 | 2 = 1,
 ): number {
   switch (mode) {
     case 'relative-luminance':
+      return relativeLuminance(r, g, b, algorithmVersion);
     case 'compatibility':
-      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      return encodedLuma(r, g, b);
     case 'perceptual-lightness': {
       const lr = SRGB_TO_LINEAR[r]!;
       const lg = SRGB_TO_LINEAR[g]!;
@@ -454,6 +629,21 @@ function tonalValue(
   }
 }
 
+function encodedLuma(r: number, g: number, b: number): number {
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** WCAG/W3C relative luminance, expressed in the engine's 0-255 domain. */
+function relativeLuminance(r: number, g: number, b: number, algorithmVersion: 1 | 2): number {
+  if (algorithmVersion === 1) return encodedLuma(r, g, b);
+  return (
+    (0.2126 * SRGB_TO_LINEAR[Math.round(r)]! +
+      0.7152 * SRGB_TO_LINEAR[Math.round(g)]! +
+      0.0722 * SRGB_TO_LINEAR[Math.round(b)]!) *
+    255
+  );
+}
+
 /**
  * Apply gradient map to ImageData in-place.
  *
@@ -468,7 +658,12 @@ function tonalValue(
 export function applyGradientMapFilter(data: ImageData, params: GradientMapParams): ImageData {
   const { stops, dither, preserveLuminosity, ditherSize } = params;
   const mode = params.mode ?? 'luminance';
-  if (stops.length < 2 && mode === 'luminance') return data;
+  const channelStops = params.channelStops;
+  const hasChannelRamp = [channelStops?.r, channelStops?.g, channelStops?.b].some(
+    (channel) => (channel ?? stops).length >= 2,
+  );
+  if ((mode === 'luminance' && stops.length < 2) || (mode === 'channel' && !hasChannelRamp))
+    return data;
 
   const pixels = data.data;
   const w = data.width;
@@ -477,24 +672,20 @@ export function applyGradientMapFilter(data: ImageData, params: GradientMapParam
   const ditherMask = dSize === 4 ? 3 : 7;
 
   const rawLutSize = params.lutSize ?? DEFAULT_GRADIENT_LUT_SIZE;
-  const lutSize = Math.min(4096, Math.max(64, Math.round(rawLutSize)));
+  const lutSize = Math.min(
+    4096,
+    Math.max(64, normalizeLutSize(rawLutSize, DEFAULT_GRADIENT_LUT_SIZE)),
+  );
   const intensity = clamp01(params.intensity ?? 1);
   const preserveSourceAlpha = params.preserveSourceAlpha ?? true;
   const luminanceMode = params.luminanceMode ?? 'relative-luminance';
 
-  const lutOpts: GradientColorLutOptions = {
-    size: lutSize,
-    interpolation: params.interpolation ?? 'srgb',
-    reverse: params.reverse,
-  };
-  const lut = buildGradientColorLut(stops, lutOpts);
-  const alphaLut = buildGradientAlphaLut(stops, params.opacityStops, lutSize);
+  const compiled = getCompiledGradientMapLuts(params, lutSize);
+  const { color: lut, alpha: alphaLut } = compiled;
 
-  // Channel-mode LUTs: per-channel stops fall back to main stops if not provided
-  const channelStops = params.channelStops;
-  const rLut = mode === 'channel' ? buildGradientColorLut(channelStops?.r ?? stops, lutOpts) : null;
-  const gLut = mode === 'channel' ? buildGradientColorLut(channelStops?.g ?? stops, lutOpts) : null;
-  const bLut = mode === 'channel' ? buildGradientColorLut(channelStops?.b ?? stops, lutOpts) : null;
+  const algorithmVersion = params.algorithmVersion ?? 1;
+  const originX = Number.isFinite(params.ditherOriginX) ? params.ditherOriginX! : 0;
+  const originY = Number.isFinite(params.ditherOriginY) ? params.ditherOriginY! : 0;
 
   for (let i = 0; i < pixels.length; i += 4) {
     const r = pixels[i]!;
@@ -507,20 +698,20 @@ export function applyGradientMapFilter(data: ImageData, params: GradientMapParam
 
     let nr: number, ng: number, nb: number;
 
+    let tonal = tonalValue(luminanceMode, r, g, b, a, algorithmVersion);
     if (mode === 'channel') {
       // Per-channel mapping: each channel value indexes its own LUT independently
-      nr = rLut!.r[rampIndex(r, lutSize)]!;
-      ng = gLut!.g[rampIndex(g, lutSize)]!;
-      nb = bLut!.b[rampIndex(b, lutSize)]!;
+      nr = compiled.red!.r[rampIndex(r, lutSize)]!;
+      ng = compiled.green!.g[rampIndex(g, lutSize)]!;
+      nb = compiled.blue!.b[rampIndex(b, lutSize)]!;
     } else {
-      let tonal = tonalValue(luminanceMode, r, g, b, a);
-
       // Optional ordered dithering for banding reduction (deterministic).
       if (dither) {
-        const x = Math.round((i / 4) % w);
-        const y = Math.floor(i / 4 / w);
+        const pixel = i / 4;
+        const x = Math.floor(originX + (pixel % w));
+        const y = Math.floor(originY + pixel / w);
         const ditherVal = ((ditherMatrix[y & ditherMask]?.[x & ditherMask] ?? 0.5) - 0.5) * 1.5;
-        tonal = clampByte(tonal + ditherVal);
+        tonal = Math.max(0, Math.min(255, tonal + ditherVal));
       }
 
       const idx = rampIndex(tonal, lutSize);
@@ -538,8 +729,8 @@ export function applyGradientMapFilter(data: ImageData, params: GradientMapParam
 
     if (preserveLuminosity) {
       // Scale mapped color to preserve original luminance
-      const origLum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-      const mappedLum = 0.2126 * nr + 0.7152 * ng + 0.0722 * nb;
+      const origLum = relativeLuminance(r, g, b, algorithmVersion);
+      const mappedLum = relativeLuminance(nr, ng, nb, algorithmVersion);
       const scale = mappedLum > 0 ? origLum / mappedLum : 1;
       nr = nr * scale;
       ng = ng * scale;
@@ -550,11 +741,13 @@ export function applyGradientMapFilter(data: ImageData, params: GradientMapParam
     pixels[i + 1] = clampByte(ng);
     pixels[i + 2] = clampByte(nb);
 
-    // Alpha: source alpha by default; gradient opacity ramp when opted out.
+    // Alpha is mixed with the same intensity as RGB. This makes intensity 0
+    // a complete RGBA identity, including when an opacity ramp is present.
     if (!preserveSourceAlpha) {
-      const rampIdx = rampIndex(tonalValue(luminanceMode, r, g, b, a), lutSize);
+      const rampIdx = rampIndex(tonal, lutSize);
       const rampAlpha = alphaLut[rampIdx] ?? 255;
-      pixels[i + 3] = clampByte((a * rampAlpha) / 255);
+      const mappedAlpha = (a * rampAlpha) / 255;
+      pixels[i + 3] = clampByte(a + (mappedAlpha - a) * intensity);
     }
   }
 
