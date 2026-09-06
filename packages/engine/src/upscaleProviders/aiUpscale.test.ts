@@ -1,9 +1,49 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it } from 'vitest';
-import { copyUpscaledTileCore, packRgbChw } from './aiUpscale';
+import { describe, expect, it, vi } from 'vitest';
+
+const { createSession, configureOrtRuntime } = vi.hoisted(() => ({
+  createSession: vi.fn(),
+  configureOrtRuntime: vi.fn(),
+}));
+
+vi.mock('onnxruntime-web', () => ({
+  InferenceSession: { create: createSession },
+  Tensor: class {
+    constructor(
+      readonly type: string,
+      readonly data: Float32Array,
+      readonly dims: number[],
+    ) {}
+  },
+}));
+
+vi.mock('../backgroundRemoval/ortRuntimeAssets', () => ({ configureOrtRuntime }));
+
+import { copyUpscaledTileCore, packRgbChw, upscaleWithRealEsrgan } from './aiUpscale';
 
 describe('Real-ESRGAN worker helpers', () => {
+  it('uses the shared single-threaded ORT runtime configuration', async () => {
+    createSession.mockResolvedValueOnce({
+      inputNames: ['input'],
+      outputNames: ['output'],
+      run: vi.fn(async () => ({
+        output: { data: new Float32Array(4 * 4 * 3).fill(0.5), dims: [1, 3, 4, 4] },
+      })),
+      release: vi.fn(async () => {}),
+    });
+
+    const result = await upscaleWithRealEsrgan(
+      new ImageData(1, 1),
+      '/models/realesr.onnx',
+      () => false,
+    );
+
+    expect(result.width).toBe(4);
+    expect(result.height).toBe(4);
+    expect(configureOrtRuntime).toHaveBeenCalledTimes(1);
+  });
+
   it('packs RGB pixels as normalized NCHW planes', () => {
     const image = new ImageData(new Uint8ClampedArray([255, 128, 0, 17, 0, 64, 255, 255]), 2, 1);
 

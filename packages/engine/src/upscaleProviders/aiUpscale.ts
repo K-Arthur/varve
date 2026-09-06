@@ -112,7 +112,12 @@ function bilinearAlpha(source: ImageData, destination: Uint8ClampedArray): void 
 
 async function createSession(modelPath: string): Promise<InferenceSession> {
   const ort = await import('onnxruntime-web');
-  ort.env.wasm.wasmPaths = '/ort-wasm/';
+  // Keep the standalone enhancement worker on the same runtime policy as the
+  // shared inference worker. In Chromium/headless, ORT's pthread pool can
+  // deadlock during session creation; this worker already provides the
+  // isolation we need, so the runtime should stay single-threaded there.
+  const { configureOrtRuntime } = await import('../backgroundRemoval/ortRuntimeAssets');
+  configureOrtRuntime(ort);
   return ort.InferenceSession.create(modelPath, { executionProviders: ['wasm'] });
 }
 

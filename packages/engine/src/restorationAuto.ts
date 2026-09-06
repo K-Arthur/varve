@@ -317,3 +317,15 @@ export function recommendationLabel(recommendation: RestorationSuggestion[]): st
   if (recommendation.includes('upscale')) parts.push('upscale');
   return parts.join(' + ');
 }
+
+/**
+ * Human-readable strength for the heuristic signal shown in product UI.
+ * The score is intentionally not exposed as a probability: it is a bounded
+ * rule-based indicator, not a calibrated classifier confidence.
+ */
+export function recommendationStrengthLabel(score: number): string {
+  if (!Number.isFinite(score) || score <= 0) return 'No clear signal';
+  if (score < 0.65) return 'Light signal';
+  if (score < 0.8) return 'Moderate signal';
+  return 'Strong signal';
+}

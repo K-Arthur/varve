@@ -3,6 +3,7 @@ import {
   analyzeImageForRestoration,
   type RestorationSuggestion,
   recommendationLabel,
+  recommendationStrengthLabel,
 } from './restorationAuto';
 
 function makeImage(
@@ -139,6 +140,14 @@ describe('analyzeImageForRestoration', () => {
     expect(
       recommendationLabel(['compression-restoration', 'upscale'] as RestorationSuggestion[]),
     ).toBe('clean up compression artifacts + upscale');
+  });
+
+  it('labels heuristic strength without presenting it as probability', () => {
+    expect(recommendationStrengthLabel(0)).toBe('No clear signal');
+    expect(recommendationStrengthLabel(0.64)).toBe('Light signal');
+    expect(recommendationStrengthLabel(0.79)).toBe('Moderate signal');
+    expect(recommendationStrengthLabel(0.8)).toBe('Strong signal');
+    expect(recommendationStrengthLabel(Number.NaN)).toBe('No clear signal');
   });
 
   it('returns finite JPEG blockiness for an 8px-blocky image', () => {

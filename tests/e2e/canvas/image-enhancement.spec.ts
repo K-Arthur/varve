@@ -91,6 +91,54 @@ test('denoises with SCUNet before applying a CPU upscale', async ({ page }) => {
   await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 10000 });
 });
 
+test('keeps explicit no-denoise selection as a no-op', async ({ page }) => {
+  test.setTimeout(60000);
+  await openEnhanceDialog(page);
+  await selectOperation(page, 'Denoise');
+  await page
+    .getByRole('radiogroup', { name: 'Denoise strength' })
+    .getByText('None', { exact: true })
+    .click();
+
+  await expect(
+    page.getByText(/No denoising selected; the source remains unchanged/i),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'No change to apply' })).toBeDisabled();
+  await expect(page.getByRole('dialog', { name: DIALOG })).toBeVisible();
+});
+
+test('runs the bundled Real-ESRGAN model for an AI preview and final output', async ({ page }) => {
+  test.setTimeout(180000);
+  await navigateToEditor(page);
+  await page
+    .locator('#file-import-input')
+    .setInputFiles(path.resolve('apps/desktop/public/icons/favicon-48x48.png'));
+  await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
+  await page
+    .getByRole('button', { name: /^Enhance|^Upscale$/ })
+    .first()
+    .click();
+  await expect(page.getByRole('dialog', { name: DIALOG })).toBeVisible();
+
+  await selectOperation(page, 'Upscale');
+  await page.getByRole('combobox', { name: 'Upscale quality' }).click();
+  await page.getByRole('option', { name: 'AI enhancement', exact: true }).click();
+  const previewButton = page.getByRole('button', { name: 'Generate AI preview' });
+  await expect(previewButton).toBeEnabled({ timeout: 30000 });
+  await previewButton.click();
+  await expect(
+    page.getByAltText('Enhanced preview — same crop and output size as original'),
+  ).toBeVisible({ timeout: 120000 });
+  await expect(page.locator('.upscale-preview__image--upscaled')).toHaveAttribute(
+    'src',
+    /^data:image\/png/,
+  );
+
+  await page.getByRole('button', { name: 'Upscale with AI' }).click();
+  await expect(page.getByRole('dialog', { name: DIALOG })).not.toBeVisible({ timeout: 120000 });
+  await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 10000 });
+});
+
 test('opens the enhance dialog via keyboard shortcut', async ({ page }) => {
   test.setTimeout(60000);
   await navigateToEditor(page);

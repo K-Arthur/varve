@@ -1088,6 +1088,7 @@ export type {
 export {
   analyzeImageForRestoration,
   recommendationLabel,
+  recommendationStrengthLabel,
 } from './restorationAuto';
 export type {
   RestorationExecutionOptions,
