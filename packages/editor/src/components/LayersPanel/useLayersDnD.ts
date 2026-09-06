@@ -514,15 +514,14 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
       return;
     }
 
+    const targetSiblings = siblingsOf(currentDoc, targetParentId, designCanvasId);
     if (
       target.targetId &&
-      (!currentDoc.nodes[target.targetId] ||
-        getParentFast(currentDoc, target.targetId, parentCacheRef.current) !== targetParentId)
+      (!currentDoc.nodes[target.targetId] || !targetSiblings.includes(target.targetId))
     ) {
       return;
     }
 
-    const targetSiblings = siblingsOf(currentDoc, targetParentId, designCanvasId);
     const steps = computeMultiMoveSteps(targetSiblings, moveIds, target.insertionIndex);
     if (isNoOpMove(targetSiblings, steps)) {
       // Releasing a row where it already sits must not spend an undo step.

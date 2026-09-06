@@ -212,6 +212,54 @@ test.describe('Layers Panel — real drag & drop', () => {
     expect(after.slice(-2)).toEqual([top, second]);
   });
 
+  test('multi-selection handoff to the canvas stays owned by the canvas', async ({
+    page,
+  }, testInfo) => {
+    const rows = page.getByRole('treeitem');
+    await expect(rows).toHaveCount(3);
+    const first = rows.nth(0);
+    const second = rows.nth(1);
+    await first.click();
+    await second.click({ modifiers: ['Control'] });
+    await expect(page.locator('[role="treeitem"][aria-selected="true"]')).toHaveCount(2);
+
+    const handle = first.locator('.layers-row__drag-handle');
+    const handleBox = await handle.boundingBox();
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    const canvasBox = await canvas.boundingBox();
+    if (!handleBox || !canvasBox) throw new Error('handoff geometry unavailable');
+
+    const startX = handleBox.x + handleBox.width / 2;
+    const startY = handleBox.y + handleBox.height / 2;
+    const targetX = canvasBox.x + canvasBox.width * 0.72;
+    const targetY = canvasBox.y + canvasBox.height * 0.48;
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.mouse.move(startX, startY - 12);
+    await page.mouse.move(targetX, targetY, { steps: 10 });
+
+    // Read ownership while the pointer is still held. A layer indicator here
+    // means the panel retained the gesture after the pointer crossed the
+    // surface boundary; the canvas drop state is the terminal owner.
+    await expect(page.locator('.editor-canvas--dnd-over')).toBeVisible();
+    await expect(
+      page.locator('.layers-row--drop-before, .layers-row--drop-after, .layers-row--drop-into'),
+    ).toHaveCount(0);
+    await expect(page.locator('.drag-overlay')).toBeVisible();
+    await page.screenshot({
+      path: testInfo.outputPath('layers-to-canvas-dragging.png'),
+      fullPage: false,
+    });
+
+    await page.mouse.up();
+    await expect(page.locator('.drag-overlay')).toHaveCount(0);
+    await expect(page.locator('.editor-canvas--dnd-over')).toHaveCount(0);
+    await expect(page.locator('[role="treeitem"][aria-selected="true"]')).toHaveCount(2);
+    await page.getByTestId('layers-panel').screenshot({
+      path: testInfo.outputPath('layers-to-canvas-after.png'),
+    });
+  });
+
   test('escape-cancelled drag leaves order untouched and no stuck indicator', async ({ page }) => {
     const names = await rowNames(page);
     const firstName = names[0];
