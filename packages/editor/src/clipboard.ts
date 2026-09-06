@@ -13,11 +13,20 @@
  * Research basis: Clipboard API (W3C), custom MIME types for structured data.
  */
 import type { Platform } from '@varve/platform';
-import type { DocumentAsset, DocumentIconAsset, RasterMaskAsset, SceneNode } from '@varve/scene';
+import {
+  type DocumentAsset,
+  type DocumentIconAsset,
+  deserializeTiles,
+  type RasterLayerNode,
+  type RasterMaskAsset,
+  type SceneNode,
+  type SerializableTiles,
+  serializeTiles,
+} from '@varve/scene';
 import type { Affine } from '@varve/shared';
 
-const VARVE_MIME = 'application/vnd.varve+json';
-const LEGACY_MIME = 'application/vnd.strata+json';
+export const VARVE_MIME = 'application/vnd.varve+json';
+export const LEGACY_MIME = 'application/vnd.strata+json';
 /**
  * Chromium refuses a ClipboardItem containing any non-standard MIME type
  * unless it carries the `web ` prefix, and rejects the *whole* write if one
@@ -29,8 +38,12 @@ const LEGACY_MIME = 'application/vnd.strata+json';
  * fallback: WebKitGTK, where the desktop app runs, accepts the plain type and
  * is not guaranteed to accept the prefixed one.
  */
-const WEB_VARVE_MIME = `web ${VARVE_MIME}`;
-const WEB_LEGACY_MIME = `web ${LEGACY_MIME}`;
+export const WEB_VARVE_MIME = `web ${VARVE_MIME}`;
+export const WEB_LEGACY_MIME = `web ${LEGACY_MIME}`;
+const VARVE_CLIPBOARD_FORMAT = 'varve-clipboard';
+const VARVE_CLIPBOARD_VERSION = 1;
+const MAX_CLIPBOARD_JSON_BYTES = 64 * 1024 * 1024;
+const MAX_CLIPBOARD_NODES = 100_000;
 
 /** Every type a Varve payload may arrive under, prefixed or not. */
 function isVarvePayloadType(type: string): boolean {
@@ -43,7 +56,12 @@ function isVarvePayloadType(type: string): boolean {
 }
 
 export interface ClipboardData {
+  /** Versioned fragment envelope. Absent only on legacy pre-envelope copies. */
+  format?: typeof VARVE_CLIPBOARD_FORMAT;
+  version?: typeof VARVE_CLIPBOARD_VERSION;
   nodes: SceneNode[];
+  /** Original selected roots, in user selection order. */
+  rootIds?: string[];
   rasterMaskAssets?: Record<string, RasterMaskAsset>;
   assets?: Record<string, DocumentAsset>;
   iconAssets?: Record<string, DocumentIconAsset>;
@@ -71,111 +89,294 @@ export interface ClipboardImportItem {
 export interface UnifiedClipboardResult {
   varveData: ClipboardData | null;
   importItems: ClipboardImportItem[];
+  /** Plain text that is not an SVG. Text editors remain the native owner. */
+  plainText?: string;
 }
 
+export type ClipboardWriteOutcome =
+  | { status: 'editable'; mimeTypes: string[] }
+  | { status: 'text-only'; reason: 'editable-format-unavailable' }
+  | {
+      status: 'failed';
+      reason: 'clipboard-unavailable' | 'permission-denied' | 'write-failed';
+    };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function serializeClipboardNode(node: SceneNode): SceneNode {
+  if (node.kind !== 'rasterLayer') return node;
+  const raster = node as RasterLayerNode;
+  if (!(raster.tiles instanceof Map)) return node;
+  return { ...raster, tiles: serializeTiles(raster.tiles) } as unknown as SceneNode;
+}
+
+function parseClipboardNode(value: unknown): SceneNode | null {
+  if (!isRecord(value) || typeof value.id !== 'string' || typeof value.kind !== 'string') {
+    return null;
+  }
+  if (value.kind !== 'rasterLayer' || value.tiles instanceof Map) return value as SceneNode;
+  if (!isRecord(value.tiles)) return value as SceneNode;
+  return {
+    ...value,
+    tiles: deserializeTiles(value.tiles as unknown as SerializableTiles),
+  } as unknown as SceneNode;
+}
+
+/** Validate and rehydrate a transport payload before it enters editor state. */
+export function parseClipboardData(text: string): ClipboardData | null {
+  if (text.length > MAX_CLIPBOARD_JSON_BYTES) return null;
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  if (!isRecord(raw) || !Array.isArray(raw.nodes) || raw.nodes.length > MAX_CLIPBOARD_NODES) {
+    return null;
+  }
+  if (
+    raw.format !== undefined &&
+    (raw.format !== VARVE_CLIPBOARD_FORMAT || raw.version !== VARVE_CLIPBOARD_VERSION)
+  ) {
+    return null;
+  }
+  const nodes: SceneNode[] = [];
+  const ids = new Set<string>();
+  for (const value of raw.nodes) {
+    const node = parseClipboardNode(value);
+    if (!node || ids.has(node.id)) return null;
+    ids.add(node.id);
+    nodes.push(node);
+  }
+  const rootIds = raw.rootIds;
+  if (
+    rootIds !== undefined &&
+    (!Array.isArray(rootIds) ||
+      rootIds.some((id) => typeof id !== 'string' || !ids.has(id)) ||
+      new Set(rootIds).size !== rootIds.length)
+  ) {
+    return null;
+  }
+  return {
+    ...(raw.format === VARVE_CLIPBOARD_FORMAT
+      ? { format: VARVE_CLIPBOARD_FORMAT as typeof VARVE_CLIPBOARD_FORMAT, version: 1 as const }
+      : {}),
+    nodes,
+    ...(rootIds ? { rootIds: [...rootIds] } : {}),
+    ...(isRecord(raw.rasterMaskAssets)
+      ? { rasterMaskAssets: raw.rasterMaskAssets as ClipboardData['rasterMaskAssets'] }
+      : {}),
+    ...(isRecord(raw.assets) ? { assets: raw.assets as ClipboardData['assets'] } : {}),
+    ...(isRecord(raw.iconAssets)
+      ? { iconAssets: raw.iconAssets as ClipboardData['iconAssets'] }
+      : {}),
+    ...(isRecord(raw.worldAnchor)
+      ? { worldAnchor: raw.worldAnchor as ClipboardData['worldAnchor'] }
+      : {}),
+  };
+}
+
+function serializeClipboardData(
+  nodes: SceneNode[],
+  rasterMaskAssets?: Record<string, RasterMaskAsset>,
+  assets?: Record<string, DocumentAsset>,
+  iconAssets?: Record<string, DocumentIconAsset>,
+  worldAnchor?: Record<string, Affine>,
+  rootIds?: string[],
+): string {
+  const data: ClipboardData = {
+    format: VARVE_CLIPBOARD_FORMAT,
+    version: VARVE_CLIPBOARD_VERSION,
+    nodes: nodes.map(serializeClipboardNode),
+    ...(rootIds && rootIds.length > 0 ? { rootIds: [...rootIds] } : {}),
+    ...(rasterMaskAssets && Object.keys(rasterMaskAssets).length > 0 ? { rasterMaskAssets } : {}),
+    ...(assets && Object.keys(assets).length > 0 ? { assets } : {}),
+    ...(iconAssets && Object.keys(iconAssets).length > 0 ? { iconAssets } : {}),
+    ...(worldAnchor && Object.keys(worldAnchor).length > 0 ? { worldAnchor } : {}),
+  };
+  return JSON.stringify(data);
+}
+
+function isPermissionError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'NotAllowedError';
+}
+
+export async function writeClipboardOutcome(
+  nodes: SceneNode[],
+  rasterMaskAssets?: Record<string, RasterMaskAsset>,
+  assets?: Record<string, DocumentAsset>,
+  iconAssets?: Record<string, DocumentIconAsset>,
+  worldAnchor?: Record<string, Affine>,
+  rootIds?: string[],
+): Promise<ClipboardWriteOutcome> {
+  if (typeof navigator === 'undefined' || !navigator.clipboard) {
+    return { status: 'failed', reason: 'clipboard-unavailable' };
+  }
+  let json: string;
+  try {
+    json = serializeClipboardData(
+      nodes,
+      rasterMaskAssets,
+      assets,
+      iconAssets,
+      worldAnchor,
+      rootIds,
+    );
+  } catch {
+    return { status: 'failed', reason: 'write-failed' };
+  }
+  const textBlob = new Blob([nodes.map((n) => n.name).join('\n')], { type: 'text/plain' });
+  const clipboardItemCtor = globalThis.ClipboardItem;
+  if (typeof clipboardItemCtor === 'function' && typeof navigator.clipboard.write === 'function') {
+    try {
+      await navigator.clipboard.write([
+        new clipboardItemCtor({
+          [WEB_VARVE_MIME]: new Blob([json], { type: WEB_VARVE_MIME }),
+          [WEB_LEGACY_MIME]: new Blob([json], { type: WEB_LEGACY_MIME }),
+          'text/plain': textBlob,
+        }),
+      ]);
+      return { status: 'editable', mimeTypes: [WEB_VARVE_MIME, WEB_LEGACY_MIME, 'text/plain'] };
+    } catch (firstError) {
+      try {
+        await navigator.clipboard.write([
+          new clipboardItemCtor({
+            [VARVE_MIME]: new Blob([json], { type: VARVE_MIME }),
+            [LEGACY_MIME]: new Blob([json], { type: LEGACY_MIME }),
+            'text/plain': textBlob,
+          }),
+        ]);
+        return { status: 'editable', mimeTypes: [VARVE_MIME, LEGACY_MIME, 'text/plain'] };
+      } catch (secondError) {
+        if (isPermissionError(firstError) || isPermissionError(secondError)) {
+          // Continue to the explicit text-only fallback. It is useful in an
+          // external editor but must never authorize a destructive Cut.
+        }
+      }
+    }
+  }
+  if (typeof navigator.clipboard.writeText !== 'function') {
+    return { status: 'failed', reason: 'clipboard-unavailable' };
+  }
+  try {
+    await navigator.clipboard.writeText(nodes.map((n) => n.name).join('\n'));
+    return { status: 'text-only', reason: 'editable-format-unavailable' };
+  } catch (error) {
+    return {
+      status: 'failed',
+      reason: isPermissionError(error) ? 'permission-denied' : 'write-failed',
+    };
+  }
+}
+
+/**
+ * Backward-compatible boolean for small callers. New destructive workflows
+ * must use writeClipboardOutcome so text-only output cannot look editable.
+ */
 export async function writeClipboard(
   nodes: SceneNode[],
   rasterMaskAssets?: Record<string, RasterMaskAsset>,
   assets?: Record<string, DocumentAsset>,
   iconAssets?: Record<string, DocumentIconAsset>,
   worldAnchor?: Record<string, Affine>,
+  rootIds?: string[],
 ): Promise<boolean> {
-  try {
-    const data: ClipboardData = {
-      nodes,
-      ...(rasterMaskAssets && Object.keys(rasterMaskAssets).length > 0 ? { rasterMaskAssets } : {}),
-      ...(assets && Object.keys(assets).length > 0 ? { assets } : {}),
-      ...(iconAssets && Object.keys(iconAssets).length > 0 ? { iconAssets } : {}),
-      ...(worldAnchor && Object.keys(worldAnchor).length > 0 ? { worldAnchor } : {}),
-    };
-    const json = JSON.stringify(data);
-    const blob = new Blob([json], { type: VARVE_MIME });
-    const textBlob = new Blob([nodes.map((n) => n.name).join('\n')], { type: 'text/plain' });
+  return (
+    (await writeClipboardOutcome(nodes, rasterMaskAssets, assets, iconAssets, worldAnchor, rootIds))
+      .status === 'editable'
+  );
+}
+
+function createClipboardResult(): UnifiedClipboardResult {
+  return { varveData: null, importItems: [] };
+}
+
+function isSvgText(text: string): boolean {
+  return /^(?:\uFEFF|\s|<!--(?:[\s\S]*?)-->)*(?:<\?xml\b[^>]*>\s*)?(?:<!--(?:[\s\S]*?)-->\s*)*<svg(?:\s|>)/i.test(
+    text,
+  );
+}
+
+function hasClipboardContent(result: UnifiedClipboardResult): boolean {
+  return Boolean(result.varveData || result.importItems.length > 0 || result.plainText);
+}
+
+function addImageItem(
+  result: UnifiedClipboardResult,
+  data: string | Uint8Array,
+  mimeType: string,
+  name: string,
+): void {
+  result.importItems.push({
+    data,
+    mimeType,
+    name: name || `clipboard.${mimeType.split('/')[1] ?? 'bin'}`,
+  });
+}
+
+async function readClipboardItem(
+  item: ClipboardItem,
+  result: UnifiedClipboardResult,
+  itemIndex: number,
+): Promise<void> {
+  const varveType = item.types.find(isVarvePayloadType);
+  if (varveType) {
     try {
-      // Each blob's own type must equal its key — Chromium rejects the write
-      // outright when they differ, and rejecting one entry rejects the item.
-      await navigator.clipboard.write([
-        new ClipboardItem({
-          [WEB_VARVE_MIME]: new Blob([json], { type: WEB_VARVE_MIME }),
-          [WEB_LEGACY_MIME]: new Blob([json], { type: WEB_LEGACY_MIME }),
-          'text/plain': textBlob,
-        }),
-      ]);
-      return true;
+      const parsed = parseClipboardData(await (await item.getType(varveType)).text());
+      if (parsed) {
+        result.varveData = parsed;
+        return;
+      }
     } catch {
-      await navigator.clipboard.write([
-        new ClipboardItem({
-          [VARVE_MIME]: blob,
-          [LEGACY_MIME]: new Blob([json], { type: LEGACY_MIME }),
-          'text/plain': textBlob,
-        }),
-      ]);
-      return true;
+      // A malformed custom format must not hide a valid fallback item.
     }
-  } catch {
+  }
+  const svgType = item.types.find((type) => type === 'image/svg+xml' || type === 'text/svg+xml');
+  if (svgType) {
     try {
-      // Last resort only. This carries names, not nodes, so an in-app paste
-      // cannot reconstruct anything from it — it exists so that pasting into
-      // a text editor still yields something meaningful.
-      await navigator.clipboard.writeText(JSON.stringify(nodes.map((n) => n.name)));
-      return true;
+      const text = await (await item.getType(svgType)).text();
+      if (isSvgText(text)) {
+        addImageItem(result, text, 'image/svg+xml', `clipboard-${itemIndex}.svg`);
+        return;
+      }
     } catch {
-      return false;
+      // Try the raster representation below.
+    }
+  }
+  const imageType = item.types.find(
+    (type) => type.startsWith('image/') && type !== 'image/svg+xml',
+  );
+  if (imageType) {
+    try {
+      const bytes = new Uint8Array(await (await item.getType(imageType)).arrayBuffer());
+      addImageItem(
+        result,
+        bytes,
+        imageType,
+        `clipboard-${itemIndex}.${imageType.split('/')[1] ?? 'bin'}`,
+      );
+      return;
+    } catch {
+      // Keep looking for a safe text representation.
+    }
+  }
+  if (item.types.includes('text/plain')) {
+    try {
+      const text = await (await item.getType('text/plain')).text();
+      if (text && !isSvgText(text)) result.plainText ??= text;
+    } catch {
+      // Ignore one unreadable representation.
     }
   }
 }
 
-/**
- * Single clipboard read that returns both Strata JSON data and importable
- * items (SVG text, images) with raw data in the correct format.
- *
- * SVG is returned as raw text (not URL-encoded) so the SVG parser
- * receives valid XML. Images are returned as Uint8Array bytes so
- * importImageAsFile can process them.
- */
 export async function readClipboardUnified(): Promise<UnifiedClipboardResult> {
-  const result: UnifiedClipboardResult = { varveData: null, importItems: [] };
-  // A single logical image is often exposed under more than one ClipboardItem
-  // or MIME type (seen in practice on Linux/Wayland clipboard proxies) —
-  // dedupe by name so one paste doesn't produce duplicate nodes.
-  const seenNames = new Set<string>();
+  const result = createClipboardResult();
   try {
     const items = await navigator.clipboard.read();
-    for (const item of items) {
-      for (const type of item.types) {
-        if (isVarvePayloadType(type)) {
-          const blob = await item.getType(type);
-          const text = await blob.text();
-          const parsed = JSON.parse(text) as ClipboardData;
-          if (parsed.nodes && Array.isArray(parsed.nodes)) {
-            result.varveData = parsed;
-          }
-        } else if (type.startsWith('image/') && type !== 'image/svg+xml') {
-          const name = `clipboard.${type.split('/')[1] ?? 'png'}`;
-          if (seenNames.has(name)) continue;
-          seenNames.add(name);
-          const blob = await item.getType(type);
-          const buffer = await blob.arrayBuffer();
-          result.importItems.push({
-            data: new Uint8Array(buffer),
-            mimeType: type,
-            name,
-          });
-        } else if (type === 'image/svg+xml' || type === 'text/svg+xml' || type === 'text/plain') {
-          if (seenNames.has('clipboard.svg')) continue;
-          const blob = await item.getType(type);
-          const text = await blob.text();
-          if (text.trim().startsWith('<svg') || text.trim().startsWith('<?xml')) {
-            seenNames.add('clipboard.svg');
-            result.importItems.push({
-              data: text,
-              mimeType: 'image/svg+xml',
-              name: 'clipboard.svg',
-            });
-          }
-        }
-      }
-    }
+    for (let i = 0; i < items.length; i++) await readClipboardItem(items[i]!, result, i);
   } catch {
     // Clipboard read failed or permission denied
   }
@@ -195,73 +396,94 @@ export async function readClipboardUnified(): Promise<UnifiedClipboardResult> {
 export async function readFromClipboardEvent(
   event: ClipboardEvent,
 ): Promise<UnifiedClipboardResult> {
-  const result: UnifiedClipboardResult = { varveData: null, importItems: [] };
   const dt = event.clipboardData;
-  if (!dt) return result;
+  if (!dt) return createClipboardResult();
+  return readClipboardSnapshot(snapshotClipboardData(dt));
+}
 
-  // Try reading Varve JSON from clipboard data
+interface ClipboardFileSnapshot {
+  file: File;
+  index: number;
+}
+
+interface ClipboardDataSnapshot {
+  varveData: ClipboardData | null;
+  plainText: string | null;
+  files: ClipboardFileSnapshot[];
+}
+
+function snapshotClipboardData(dt: DataTransfer): ClipboardDataSnapshot {
+  let varveData: ClipboardData | null = null;
+  for (const type of [VARVE_MIME, LEGACY_MIME, WEB_VARVE_MIME, WEB_LEGACY_MIME]) {
+    try {
+      const text = dt.getData(type);
+      if (text) {
+        const parsed = parseClipboardData(text);
+        if (parsed) {
+          varveData = parsed;
+          break;
+        }
+      }
+    } catch {
+      // Continue through compatible representations.
+    }
+  }
+  let plainText: string | null = null;
   try {
-    const varveDataStr = dt.getData('application/vnd.strata+json');
-    if (varveDataStr) {
-      const parsed = JSON.parse(varveDataStr) as ClipboardData;
-      if (parsed.nodes && Array.isArray(parsed.nodes)) {
-        result.varveData = parsed;
-      }
-    }
+    const text = dt.getData('text/plain');
+    if (text && !isSvgText(text)) plainText = text;
   } catch {
-    // ignore parse errors
+    // Text is optional.
   }
-
-  const seenNames = new Set<string>();
-
-  // Helper: process a File from the clipboard into an import item
-  async function processFile(file: File): Promise<void> {
-    const type = file.type;
-    if (!type.startsWith('image/')) return;
-    const name = file.name || `clipboard.${type.split('/')[1] ?? 'png'}`;
-    if (seenNames.has(name)) return;
-    seenNames.add(name);
-
-    if (type === 'image/svg+xml') {
-      try {
-        const text = await file.text();
-        result.importItems.push({ data: text, mimeType: 'image/svg+xml', name });
-      } catch {
-        // skip unreadable SVG
-      }
-    } else {
-      try {
-        const buffer = await file.arrayBuffer();
-        result.importItems.push({
-          data: new Uint8Array(buffer),
-          mimeType: type,
-          name,
-        });
-      } catch {
-        // skip unreadable image
-      }
-    }
-  }
-
-  // Priority 1: clipboardData.files (cross-platform, always available)
-  const filePromises: Promise<void>[] = [];
-  for (let i = 0; i < dt.files.length; i++) {
-    const file = dt.files[i];
-    if (file) filePromises.push(processFile(file));
-  }
-
-  // Priority 2: clipboardData.items (getAsFile for items not in files)
+  const files: ClipboardFileSnapshot[] = [];
+  const seenFiles = new Set<File>();
+  const addFile = (file: File | null, index: number): void => {
+    if (!file || seenFiles.has(file) || !file.type.startsWith('image/')) return;
+    seenFiles.add(file);
+    files.push({ file, index });
+  };
+  for (let i = 0; i < dt.files.length; i++) addFile(dt.files[i] ?? null, i);
   for (let i = 0; i < dt.items.length; i++) {
     const item = dt.items[i];
-    if (item?.kind !== 'file') continue;
-    // Skip if already captured via files
-    const file = item.getAsFile();
-    if (file && !seenNames.has(file.name || `item-${i}`)) {
-      filePromises.push(processFile(file));
-    }
+    if (item?.kind === 'file') addFile(item.getAsFile(), i);
   }
+  return { varveData, plainText, files };
+}
 
-  await Promise.allSettled(filePromises);
+async function readClipboardSnapshot(
+  snapshot: ClipboardDataSnapshot,
+): Promise<UnifiedClipboardResult> {
+  const result = createClipboardResult();
+  result.varveData = snapshot.varveData;
+  if (snapshot.plainText) result.plainText = snapshot.plainText;
+  if (snapshot.varveData) return result;
+  const imported = await Promise.all(
+    snapshot.files.map(async ({ file, index }) => {
+      try {
+        if (file.type === 'image/svg+xml') {
+          const text = await file.text();
+          return isSvgText(text)
+            ? {
+                data: text,
+                mimeType: 'image/svg+xml',
+                name: file.name || `clipboard-${index}.svg`,
+              }
+            : null;
+        }
+        return {
+          data: new Uint8Array(await file.arrayBuffer()),
+          mimeType: file.type,
+          name: file.name || `clipboard-${index}.${file.type.split('/')[1] ?? 'bin'}`,
+        } satisfies ClipboardImportItem;
+      } catch {
+        // Isolate one unreadable item from the rest of the paste.
+        return null;
+      }
+    }),
+  );
+  for (const item of imported) {
+    if (item) addImageItem(result, item.data, item.mimeType, item.name);
+  }
   return result;
 }
 
@@ -270,16 +492,16 @@ export async function readFromClipboardEvent(
  * the native paste listener in Shell. Used as a fallback when
  * `navigator.clipboard.read()` fails (common on Wayland).
  */
-let capturedPasteEvent: ClipboardEvent | null = null;
+let capturedPasteSnapshot: ClipboardDataSnapshot | null = null;
 
-/** Capture a paste event for later use by the paste action. */
+/** Snapshot a paste event while its DataTransfer is live; never retain the event itself. */
 export function captureClipboardEvent(event: ClipboardEvent): void {
-  capturedPasteEvent = event;
+  capturedPasteSnapshot = event.clipboardData ? snapshotClipboardData(event.clipboardData) : null;
 }
 
 /** Clear the captured paste event (e.g. after consuming it). */
 export function clearCapturedClipboardEvent(): void {
-  capturedPasteEvent = null;
+  capturedPasteSnapshot = null;
 }
 
 /**
@@ -326,18 +548,15 @@ export function cancelPasteFallback(): void {
 export async function readClipboardUnifiedWithFallback(
   platform?: Pick<Platform, 'kind' | 'readClipboardImage'>,
 ): Promise<UnifiedClipboardResult> {
-  const apiResult = await readClipboardUnified();
-  if (apiResult.varveData || apiResult.importItems.length > 0) {
-    clearCapturedClipboardEvent();
-    return apiResult;
+  const eventSnapshot = capturedPasteSnapshot;
+  capturedPasteSnapshot = null;
+  if (eventSnapshot) {
+    const eventResult = await readClipboardSnapshot(eventSnapshot);
+    if (hasClipboardContent(eventResult)) return eventResult;
   }
-  if (capturedPasteEvent) {
-    const event = capturedPasteEvent;
-    capturedPasteEvent = null;
-    const eventResult = await readFromClipboardEvent(event);
-    if (eventResult.varveData || eventResult.importItems.length > 0) {
-      return eventResult;
-    }
+  const apiResult = await readClipboardUnified();
+  if (hasClipboardContent(apiResult)) {
+    return apiResult;
   }
   if (platform?.kind === 'tauri') {
     try {

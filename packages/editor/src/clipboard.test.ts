@@ -1,7 +1,14 @@
 import type { DocumentAsset, RasterMaskAsset, SceneNode } from '@varve/scene';
 import type { Affine } from '@varve/shared';
 import { describe, expect, it, vi } from 'vitest';
-import { readFromClipboardEvent, writeClipboard } from './clipboard';
+import {
+  captureClipboardEvent,
+  parseClipboardData,
+  readClipboardUnifiedWithFallback,
+  readFromClipboardEvent,
+  writeClipboard,
+  writeClipboardOutcome,
+} from './clipboard';
 
 // jsdom doesn't implement ClipboardEvent, DataTransfer, or Blob.arrayBuffer.
 // Polyfill what we need for testing.
@@ -146,6 +153,59 @@ describe('readFromClipboardEvent', () => {
     expect(result.varveData).not.toBeNull();
     expect(result.varveData?.nodes).toHaveLength(1);
     expect(result.varveData?.nodes[0]?.id).toBe('n1');
+  });
+
+  it('reads the current Varve MIME from a DOM paste event', async () => {
+    const varveJson = JSON.stringify({
+      format: 'varve-clipboard',
+      version: 1,
+      rootIds: ['n1'],
+      nodes: [{ id: 'n1', kind: 'shape', name: 'Current format' }],
+    });
+    const dt = createDataTransferWithFiles([]);
+    dt.getData = (format: string) => (format === 'application/vnd.varve+json' ? varveJson : '');
+
+    const result = await readFromClipboardEvent({ clipboardData: dt } as ClipboardEvent);
+
+    expect(result.varveData?.format).toBe('varve-clipboard');
+    expect(result.varveData?.rootIds).toEqual(['n1']);
+  });
+
+  it('snapshots a paste event before its DataTransfer becomes unavailable', async () => {
+    const varveJson = JSON.stringify({
+      nodes: [{ id: 'n1', kind: 'shape', name: 'Snapshot' }],
+    });
+    const dt = createDataTransferWithFiles([]);
+    dt.getData = (format: string) => (format === 'application/vnd.varve+json' ? varveJson : '');
+    const event = { clipboardData: dt } as ClipboardEvent;
+
+    captureClipboardEvent(event);
+    dt.getData = () => {
+      throw new Error('DataTransfer was reread after the event');
+    };
+
+    const result = await readClipboardUnifiedWithFallback({
+      kind: 'memory',
+      readClipboardImage: async () => null,
+    });
+
+    expect(result.varveData?.nodes[0]?.name).toBe('Snapshot');
+  });
+
+  it('preserves distinct image files that share a filename', async () => {
+    const first = new File([new Uint8Array([1, 2])], 'same.png', { type: 'image/png' });
+    const second = new File([new Uint8Array([3, 4])], 'same.png', { type: 'image/png' });
+    const result = await readFromClipboardEvent(createClipboardEventWithFiles([first, second]));
+
+    expect(result.importItems).toHaveLength(2);
+    expect(result.importItems.map((item) => item.name)).toEqual(['same.png', 'same.png']);
+  });
+
+  it('does not treat arbitrary XML as SVG', async () => {
+    const file = new File(['<foo><bar /></foo>'], 'not-svg.xml', { type: 'image/svg+xml' });
+    const result = await readFromClipboardEvent(createClipboardEventWithFiles([file]));
+
+    expect(result.importItems).toHaveLength(0);
   });
 
   it('reads clipboard data including raster mask assets', async () => {
@@ -393,6 +453,66 @@ describe('readFromClipboardEvent', () => {
       expect(blob).toBeDefined();
       const payload = JSON.parse(await blob!.text());
       expect(payload.worldAnchor).toEqual(anchor);
+    } finally {
+      Object.defineProperty(globalThis, 'ClipboardItem', {
+        configurable: true,
+        value: originalClipboardItem,
+      });
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: originalClipboard,
+      });
+    }
+  });
+
+  it('round-trips a versioned payload and raster tile codec', () => {
+    const pixels = new Uint8ClampedArray(128 * 128 * 4);
+    pixels[0] = 255;
+    const node = {
+      id: 'raster-1',
+      kind: 'rasterLayer',
+      name: 'Raster',
+      tiles: new Map([['0:0', { pixels, version: 3 }]]),
+    } as unknown as SceneNode;
+
+    const text = JSON.stringify({
+      format: 'varve-clipboard',
+      version: 1,
+      nodes: [
+        JSON.parse(
+          // Exercise the same transport representation as writeClipboard.
+          JSON.stringify({
+            ...node,
+            tiles: { '0:0': { pixels: btoa(String.fromCharCode(...pixels)), version: 3 } },
+          }),
+        ),
+      ],
+    });
+    const parsed = parseClipboardData(text);
+
+    expect(parsed?.format).toBe('varve-clipboard');
+    if (!parsed) throw new Error('Clipboard payload was rejected');
+    const tiles = (parsed.nodes[0] as { tiles: Map<string, { pixels: Uint8ClampedArray }> }).tiles;
+    expect(tiles).toBeInstanceOf(Map);
+    expect(tiles.get('0:0')?.pixels[0]).toBe(255);
+  });
+
+  it('does not call a names-only fallback an editable copy', async () => {
+    const originalClipboard = navigator.clipboard;
+    const originalClipboardItem = globalThis.ClipboardItem;
+    Object.defineProperty(globalThis, 'ClipboardItem', { configurable: true, value: undefined });
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: vi.fn(async () => undefined) },
+    });
+    try {
+      const outcome = await writeClipboardOutcome([
+        { id: 'n1', kind: 'shape', name: 'Fallback' } as unknown as SceneNode,
+      ]);
+      expect(outcome).toEqual({ status: 'text-only', reason: 'editable-format-unavailable' });
+      await expect(
+        writeClipboard([{ id: 'n1', kind: 'shape', name: 'Fallback' } as unknown as SceneNode]),
+      ).resolves.toBe(false);
     } finally {
       Object.defineProperty(globalThis, 'ClipboardItem', {
         configurable: true,
