@@ -477,6 +477,81 @@ describe('Editor native clipboard paste (Varve-format data)', () => {
     // make it paint twice: once via the group, once as a stray root node).
     expect(ctx.state.document.rootChildren).not.toContain(pastedChildId);
   });
+
+  it('cancels a delayed paste when the destination selection changes', async () => {
+    const originalClipboard = navigator.clipboard;
+    let resolveRead: ((items: ClipboardItem[]) => void) | undefined;
+    const read = vi.fn(
+      () =>
+        new Promise<ClipboardItem[]>((resolve) => {
+          resolveRead = resolve;
+        }),
+    );
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { read },
+    });
+
+    const sourceDoc = createDocument('Paste target');
+    const page = sourceDoc.pages?.[0];
+    if (!page) throw new Error('Expected initial page');
+    let initial = addChild(
+      sourceDoc,
+      page.contentRoot,
+      makeFrameNode('paste-target-a', { w: 200, h: 120 }),
+    );
+    initial = addChild(
+      initial,
+      page.contentRoot,
+      makeFrameNode('paste-target-b', { w: 200, h: 120 }),
+    );
+    const pastedShape = makeShapeNode('paste-source', { kind: 'rect', x: 0, y: 0, w: 20, h: 20 });
+    captureClipboardEvent(createClipboardEventWithVarveNodes([pastedShape]));
+
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function Test() {
+      ctx = useEditor();
+      return (
+        <>
+          <button type="button" onClick={() => ctx?.setSelection('paste-target-a')}>
+            target a
+          </button>
+          <button type="button" onClick={() => ctx?.setSelection('paste-target-b')}>
+            target b
+          </button>
+          <button type="button" onClick={() => void ctx?.paste()}>
+            delayed paste
+          </button>
+        </>
+      );
+    }
+
+    try {
+      render(
+        <EditorProvider initialDocumentJson={DocumentCodec.encode(initial)}>
+          <Test />
+        </EditorProvider>,
+      );
+      screen.getByText('target a').click();
+      await waitFor(() => expect(ctx?.state.selection).toEqual(['paste-target-a']));
+      screen.getByText('delayed paste').click();
+      await waitFor(() => expect(read).toHaveBeenCalledTimes(1));
+      screen.getByText('target b').click();
+      await waitFor(() => expect(ctx?.state.selection).toEqual(['paste-target-b']));
+      resolveRead?.([]);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      const targetA = ctx?.state.document.nodes['paste-target-a'];
+      const targetB = ctx?.state.document.nodes['paste-target-b'];
+      expect(targetA?.kind === 'frame' ? targetA.children : undefined).toHaveLength(0);
+      expect(targetB?.kind === 'frame' ? targetB.children : undefined).toHaveLength(0);
+      expect(ctx?.state.selection).toEqual(['paste-target-b']);
+    } finally {
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: originalClipboard,
+      });
+    }
+  });
 });
 
 describe('Editor Cut clipboard safety', () => {

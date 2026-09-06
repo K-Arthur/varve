@@ -63,7 +63,11 @@ export async function writeGuidesToClipboard(guides: Guide[]): Promise<boolean> 
   }
 }
 
-export async function readGuidesFromClipboard(): Promise<Guide[] | null> {
+export async function readGuidesFromClipboard(options?: {
+  /** App-local recovery is explicit; ordinary system Paste leaves it off. */
+  allowMemoryFallback?: boolean;
+}): Promise<Guide[] | null> {
+  const allowMemoryFallback = options?.allowMemoryFallback ?? true;
   try {
     const items = await navigator.clipboard.read();
     for (const item of items) {
@@ -78,7 +82,7 @@ export async function readGuidesFromClipboard(): Promise<Guide[] | null> {
       }
     }
   } catch {
-    // Fall through to memory clipboard.
+    if (!allowMemoryFallback) return null;
   }
-  return getGuideClipboardMemory();
+  return allowMemoryFallback ? getGuideClipboardMemory() : null;
 }

@@ -116,8 +116,10 @@ function parseClipboardNode(value: unknown): SceneNode | null {
   if (!isRecord(value) || typeof value.id !== 'string' || typeof value.kind !== 'string') {
     return null;
   }
-  if (value.kind !== 'rasterLayer' || value.tiles instanceof Map) return value as SceneNode;
-  if (!isRecord(value.tiles)) return value as SceneNode;
+  if (value.kind !== 'rasterLayer' || value.tiles instanceof Map) {
+    return value as unknown as SceneNode;
+  }
+  if (!isRecord(value.tiles)) return value as unknown as SceneNode;
   return {
     ...value,
     tiles: deserializeTiles(value.tiles as unknown as SerializableTiles),

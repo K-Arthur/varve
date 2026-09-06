@@ -676,6 +676,37 @@ function sameNodeIdList(left: readonly NodeId[], right: readonly NodeId[]): bool
   return left.length === right.length && left.every((id, index) => id === right[index]);
 }
 
+type PasteInvocation = Pick<
+  EditorState,
+  'document' | 'activeId' | 'workspaceMode' | 'selection' | 'selectionRevision'
+>;
+
+function pasteTargetFrameId(doc: Document, selection: readonly NodeId[]): NodeId | null {
+  for (const id of selection) {
+    const node = doc.nodes[id];
+    if (
+      node &&
+      !node.locked &&
+      node.visible !== false &&
+      (node.kind === 'frame' || node.kind === 'group')
+    ) {
+      return id;
+    }
+  }
+  return null;
+}
+
+function pasteInvocationIsCurrent(current: PasteInvocation, invocation: PasteInvocation): boolean {
+  return (
+    current.document === invocation.document &&
+    current.activeId === invocation.activeId &&
+    current.workspaceMode === invocation.workspaceMode &&
+    current.document.activePageId === invocation.document.activePageId &&
+    current.selectionRevision === invocation.selectionRevision &&
+    sameNodeIdList(current.selection, invocation.selection)
+  );
+}
+
 function insertImportedSubtree(
   targetDoc: Document,
   sourceDoc: Document,
@@ -7819,9 +7850,25 @@ export function EditorProvider({
       },
 
       paste: async () => {
-        const guideClipboard = await readGuidesFromClipboard();
+        // Capture the destination before any permission prompt, decode, or
+        // import. A delayed paste must never follow a newly selected layer,
+        // page, session, or workspace by accident.
+        const invocation: PasteInvocation = {
+          document: stateRef.current.document,
+          activeId: stateRef.current.activeId,
+          workspaceMode: stateRef.current.workspaceMode,
+          selection: [...stateRef.current.selection],
+          selectionRevision: stateRef.current.selectionRevision,
+        };
+        const targetFrameId = pasteTargetFrameId(invocation.document, invocation.selection);
+        const pasteCenter = viewportCenterWorld(stateRef.current);
+        const guideClipboard = await readGuidesFromClipboard({ allowMemoryFallback: false });
         if (guideClipboard && guideClipboard.length > 0) {
-          const pageId = resolveGuidePageId(stateRef.current.document);
+          if (!pasteInvocationIsCurrent(stateRef.current, invocation)) {
+            announcerRef.current?.announce('Paste cancelled because the document changed');
+            return;
+          }
+          const pageId = resolveGuidePageId(invocation.document);
           const pastedIds: string[] = [];
           updateDoc((doc) =>
             pasteGuidesDoc(
@@ -7883,6 +7930,11 @@ export function EditorProvider({
 
         if (!varveData && importResults.length === 0) return;
 
+        if (!pasteInvocationIsCurrent(stateRef.current, invocation)) {
+          announcerRef.current?.announce('Paste cancelled because the document changed');
+          return;
+        }
+
         runOwnedTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
           setState((s) => {
             let doc = s.document;
@@ -7893,17 +7945,6 @@ export function EditorProvider({
             // group receives pasted content. Pasting converts the source
             // world pose into that parent's local space instead of
             // reinterpreting local coordinates in the destination frame.
-            const targetFrameId: NodeId | null =
-              s.selection
-                .map((id) => s.document.nodes[id])
-                .find(
-                  (n): n is import('@varve/scene').FrameNode =>
-                    n !== undefined &&
-                    !n.locked &&
-                    n.visible !== false &&
-                    (n.kind === 'frame' || n.kind === 'group'),
-                )?.id ?? null;
-
             if (varveData) {
               const tempNodes: Record<string, SceneNode> = {};
               for (const node of varveData.nodes) {
@@ -7943,7 +7984,7 @@ export function EditorProvider({
                   tempDoc,
                   node.id,
                   (n) => n,
-                  s.workspaceMode,
+                  invocation.workspaceMode,
                 );
                 if (!inserted) continue;
                 doc = inserted.doc;
@@ -7987,17 +8028,6 @@ export function EditorProvider({
             // document happened to put it — mirrors the world-center placement
             // used for dropped files (CanvasArea.tsx handleDrop) and new frame
             // presets, via the same editorScreenToWorld/applyDropPosition path.
-            const pasteCanvasEl = document.querySelector<HTMLElement>('.editor-canvas');
-            const pasteVp: Viewport = pasteCanvasEl
-              ? { width: pasteCanvasEl.clientWidth, height: pasteCanvasEl.clientHeight }
-              : { width: window.innerWidth, height: window.innerHeight - 120 };
-            const pasteCamState = { zoom: s.zoom, pan: s.pan, cameraRotation: s.cameraRotation };
-            const pasteCenter = editorScreenToWorld(
-              pasteCamState,
-              pasteVp.width / 2,
-              pasteVp.height / 2,
-              pasteVp,
-            );
             let pasteIndex = 0;
             for (const result of importResults) {
               for (const id of result.nodeIds) {
@@ -8008,10 +8038,10 @@ export function EditorProvider({
                   id,
                   (node) =>
                     applyDropPosition(node, {
-                      x: pasteCenter[0] + offset,
-                      y: pasteCenter[1] + offset,
+                      x: pasteCenter.x + offset,
+                      y: pasteCenter.y + offset,
                     }),
-                  s.workspaceMode,
+                  invocation.workspaceMode,
                 );
                 if (!inserted) continue;
                 doc = inserted.doc;
