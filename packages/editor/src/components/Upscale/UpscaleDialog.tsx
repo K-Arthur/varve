@@ -31,8 +31,8 @@ import {
   UPSCALE_MODES,
   upscalePreviewRegion,
 } from '@varve/engine';
-import { Button, FocusTrap, SegmentedControl, Select } from '@varve/ui';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Button, FocusTrap, IconButton, SegmentedControl, Select } from '@varve/ui';
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { ModelDownloadDialog } from '../BackgroundRemoval/ModelDownloadDialog';
 
@@ -732,6 +732,18 @@ export function UpscaleDialog({
   const previewComparisonLabel = previewBaselineUrl
     ? `same ${Math.round(previewReferenceWidth)}x${Math.round(previewReferenceHeight)}px review crop`
     : 'source crop';
+  const sliderPositionStyle = {
+    left: 0,
+    width: '100%',
+    transform: 'none',
+    '--upscale-slider-position': `${previewPosition}%`,
+  } as CSSProperties & { '--upscale-slider-position': string };
+  const sliderHandleEdgeClass =
+    previewPosition <= 0
+      ? 'upscale-preview__slider-handle--start'
+      : previewPosition >= 100
+        ? 'upscale-preview__slider-handle--end'
+        : '';
 
   if (!open) return null;
 
@@ -764,22 +776,16 @@ export function UpscaleDialog({
             <h2 className="upscale-dialog__title">
               Enhance image{batchCount > 1 ? ` (${batchCount} selected)` : ''}
             </h2>
-            <button
+            <IconButton
+              icon="X"
+              label="Close upscale dialog"
+              size="icon-xs"
+              variant="ghost"
               type="button"
               className="upscale-dialog__close"
               onClick={handleCancel}
-              aria-label="Close upscale dialog"
               disabled={processing}
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                <path
-                  d="M12 4L4 12M4 4l8 8"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </button>
+            />
           </div>
 
           <div className="upscale-dialog__body">
@@ -906,7 +912,7 @@ export function UpscaleDialog({
                   <div
                     ref={previewSliderRef}
                     className="upscale-preview__slider"
-                    style={{ left: `${previewPosition}%` }}
+                    style={sliderPositionStyle}
                     role="slider"
                     aria-label="Before / after comparison"
                     aria-valuemin={0}
@@ -917,7 +923,10 @@ export function UpscaleDialog({
                     onKeyDown={handleSliderKeyDown}
                   >
                     <div className="upscale-preview__slider-line" />
-                    <div className="upscale-preview__slider-handle" aria-hidden="true">
+                    <div
+                      className={`upscale-preview__slider-handle ${sliderHandleEdgeClass}`.trim()}
+                      aria-hidden="true"
+                    >
                       <span aria-hidden="true">&lt;-&gt;</span>
                     </div>
                   </div>

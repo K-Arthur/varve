@@ -17,6 +17,16 @@ async function openDialog(page: import('@playwright/test').Page) {
   await expect(page.getByRole('dialog', { name: 'Enhance image' })).toBeVisible();
 }
 
+async function setEditorTheme(
+  page: import('@playwright/test').Page,
+  theme: 'dark' | 'high-contrast',
+) {
+  await page.evaluate((nextTheme) => {
+    document.documentElement.setAttribute('data-theme', nextTheme);
+  }, theme);
+  await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+}
+
 test('Enhance dialog default (Auto) state', async ({ page }) => {
   await importTestImage(page);
   await openDialog(page);
@@ -73,6 +83,22 @@ test('Enhance dialog default (Auto) state', async ({ page }) => {
   });
 });
 
+for (const theme of ['dark', 'high-contrast'] as const) {
+  test(`Enhance dialog remains legible in ${theme} theme`, async ({ page }) => {
+    await importTestImage(page);
+    await openDialog(page);
+    await setEditorTheme(page, theme);
+
+    await expect(page.getByText(/Low source resolution/i)).toBeVisible({ timeout: 15000 });
+    await expect(
+      page.getByAltText('Enhanced preview — same crop and output size as original'),
+    ).toBeVisible({ timeout: 15000 });
+    await expect(page).toHaveScreenshot(`enhance-dialog-${theme}.png`, {
+      maxDiffPixels: 200,
+    });
+  });
+}
+
 test('Enhance dialog pixel-art mode', async ({ page }) => {
   await importTestImage(page);
   await openDialog(page);
@@ -95,6 +121,28 @@ test('Enhance dialog pixel-art mode', async ({ page }) => {
 test('preview crop and zoom controls update the comparison view', async ({ page }) => {
   await importTestImage(page);
   await openDialog(page);
+
+  const slider = page.getByRole('slider', { name: 'Before / after comparison' });
+  await slider.focus();
+  await expect(slider).toHaveAttribute('aria-valuenow', '50');
+  await page.keyboard.press('ArrowRight');
+  await expect(slider).toHaveAttribute('aria-valuenow', '52');
+  await page.keyboard.press('Home');
+  await expect(slider).toHaveAttribute('aria-valuenow', '0');
+  await expect(page.locator('.upscale-preview__slider-handle')).toHaveClass(/--start/);
+
+  const previewBounds = await page.locator('.upscale-preview__image-container').boundingBox();
+  if (!previewBounds) throw new Error('preview bounds not found');
+  await page.mouse.move(previewBounds.x + previewBounds.width * 0.2, previewBounds.y + 20);
+  await page.mouse.down();
+  await page.mouse.move(previewBounds.x + previewBounds.width * 0.8, previewBounds.y + 20);
+  await page.mouse.up();
+  await expect(slider).toHaveAttribute('aria-valuenow', /^(7[5-9]|8[0-5])$/);
+
+  await slider.focus();
+  await page.keyboard.press('End');
+  await expect(slider).toHaveAttribute('aria-valuenow', '100');
+  await expect(page.locator('.upscale-preview__slider-handle')).toHaveClass(/--end/);
 
   const focusPicker = page.getByRole('group', {
     name: 'Preview region (pick the area to inspect)',
