@@ -1,5 +1,6 @@
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
+import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 import { dragOnCanvas, navigateToEditor } from '../shared';
 
@@ -187,6 +188,37 @@ test.describe('front-facing adjustment and canvas controls', () => {
     }
 
     await page.screenshot({ path: path.join(REVIEW_DIR, '08-narrow-adjustment-panel.png') });
+
+    for (const theme of ['dark', 'high-contrast'] as const) {
+      await page.evaluate((nextTheme) => {
+        document.documentElement.dataset.theme = nextTheme;
+        document.documentElement.dataset.themeMode = nextTheme;
+      }, theme);
+      await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+
+      const themedLayout = await page.locator('.adj-panel').evaluate((element) => ({
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+        right: element.getBoundingClientRect().right,
+        maxRight: Math.max(
+          element.getBoundingClientRect().right,
+          ...Array.from(element.querySelectorAll<HTMLElement>('*')).map(
+            (child) => child.getBoundingClientRect().right,
+          ),
+        ),
+      }));
+      expect(themedLayout.scrollWidth).toBeLessThanOrEqual(themedLayout.clientWidth + 1);
+      expect(themedLayout.maxRight).toBeLessThanOrEqual(themedLayout.right + 1);
+
+      const contrast = await new AxeBuilder({ page })
+        .include('.adj-panel')
+        .withRules(['color-contrast'])
+        .analyze();
+      expect(contrast.violations, `${theme} adjustment panel contrast`).toHaveLength(0);
+      await page.screenshot({
+        path: path.join(REVIEW_DIR, `08-narrow-adjustment-panel-${theme}.png`),
+      });
+    }
   });
 
   test('reorders object filters with drag while keeping keyboard chevrons available', async ({
