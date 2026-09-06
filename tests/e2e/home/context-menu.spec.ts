@@ -115,13 +115,38 @@ test.describe('Home context menu', () => {
     expect(geometry.layer!.right).toBeLessThanOrEqual(geometry.viewport.width);
     expect(geometry.layer!.bottom).toBeLessThanOrEqual(geometry.viewport.height);
     expect(geometry.layer!.clientHeight).toBeGreaterThan(0);
-    expect(geometry.layer!.scrollHeight).toBeGreaterThanOrEqual(geometry.layer!.clientHeight);
+    expect(geometry.layer!.scrollHeight).toBeGreaterThan(geometry.layer!.clientHeight);
     expect(geometry.overflowY).toBe('auto');
 
     await page.screenshot({
       path:
         process.env.VARVE_MENU_REVIEW_PATH ??
         'test-results/visual/home-file-context-menu-readable.png',
+      animations: 'disabled',
+    });
+
+    const finalAction = ctxMenu.getByRole('menuitem', { name: /^Move to Trash/ });
+    await finalAction.scrollIntoViewIfNeeded();
+    const finalActionGeometry = await finalAction.evaluate((item) => {
+      const layer = item.closest('.varve-floating-layer');
+      const itemRect = item.getBoundingClientRect();
+      const layerRect = layer?.getBoundingClientRect();
+      return layerRect
+        ? {
+            itemTop: itemRect.top,
+            itemBottom: itemRect.bottom,
+            layerTop: layerRect.top,
+            layerBottom: layerRect.bottom,
+          }
+        : null;
+    });
+    expect(finalActionGeometry).not.toBeNull();
+    expect(finalActionGeometry!.itemTop).toBeGreaterThanOrEqual(finalActionGeometry!.layerTop);
+    expect(finalActionGeometry!.itemBottom).toBeLessThanOrEqual(finalActionGeometry!.layerBottom);
+    await page.screenshot({
+      path:
+        process.env.VARVE_MENU_SCROLLED_REVIEW_PATH ??
+        'test-results/visual/home-file-context-menu-scrolled-readable.png',
       animations: 'disabled',
     });
   });
@@ -174,6 +199,24 @@ test.describe('Home context menu', () => {
     expect(geometry.menu.left).toBeGreaterThanOrEqual(0);
     expect(geometry.menu.right).toBeLessThanOrEqual(geometry.viewport.width);
     expect(geometry.overflowY).toBe('auto');
+    const finalAction = ctxMenu.getByRole('menuitem', { name: /^Move to Trash/ });
+    await finalAction.scrollIntoViewIfNeeded();
+    const finalActionGeometry = await finalAction.evaluate((item) => {
+      const layer = item.closest('.varve-floating-layer');
+      const itemRect = item.getBoundingClientRect();
+      const layerRect = layer?.getBoundingClientRect();
+      return layerRect
+        ? {
+            itemTop: itemRect.top,
+            itemBottom: itemRect.bottom,
+            layerTop: layerRect.top,
+            layerBottom: layerRect.bottom,
+          }
+        : null;
+    });
+    expect(finalActionGeometry).not.toBeNull();
+    expect(finalActionGeometry!.itemTop).toBeGreaterThanOrEqual(finalActionGeometry!.layerTop);
+    expect(finalActionGeometry!.itemBottom).toBeLessThanOrEqual(finalActionGeometry!.layerBottom);
     await page.screenshot({
       path:
         process.env.VARVE_MENU_EDGE_REVIEW_PATH ??
