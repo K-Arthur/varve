@@ -114,4 +114,7 @@ export function getUpscaleMode(id: UpscaleModeId): UpscaleMode | undefined {
   return UPSCALE_MODES.find((m) => m.id === id);
 }
 
-export const DEFAULT_UPSCALE_MODE: UpscaleModeId = 'balanced';
+// The dialog is a review-first workflow: retain edge contrast by default so
+// the generated half does not look softer than the untouched source. Balanced
+// remains available for smoother photographic resampling.
+export const DEFAULT_UPSCALE_MODE: UpscaleModeId = 'quality';

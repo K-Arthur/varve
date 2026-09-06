@@ -628,8 +628,8 @@ const SCENES = [
     file: 'enhance-dialog-auto.png',
     theme: 'light',
     feature: 'image-enhancement',
-    alt: 'The Varve Enhance dialog in Auto mode showing a real photo import and a recommended enhancement task',
-    caption: 'The Enhance dialog in Auto mode recommends a task from the source image.',
+    alt: 'The Varve Enhance dialog showing a large live before-and-after CPU upscale preview with focus and zoom controls',
+    caption: 'Inspect a generated upscale beside the untouched source before applying it.',
     async run(page) {
       await openCleanEditor(page);
       // A visibly degraded derivative of the same rights-cleared photo (see
@@ -653,6 +653,15 @@ const SCENES = [
           'Enhance Auto analysis produced no "Recommended:" result for the photo fixture',
         );
       }
+      // Keep the deterministic Auto analysis in the scene, then select the
+      // model-free CPU path so the marketing frame demonstrates a real
+      // generated comparison even when optional restoration weights are not
+      // installed on the capture machine.
+      await dialog.getByRole('combobox', { name: 'Enhancement operation' }).click();
+      await page.getByRole('option', { name: 'Upscale', exact: true }).click();
+      await dialog
+        .getByAltText('Enhanced preview — same crop and output size as original')
+        .waitFor({ state: 'visible', timeout: 20000 });
     },
   },
   {

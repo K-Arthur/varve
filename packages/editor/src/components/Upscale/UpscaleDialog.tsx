@@ -149,11 +149,13 @@ export function UpscaleDialog({
   const [previewFocus, setPreviewFocus] = useState({ x: 0.5, y: 0.5 });
   const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
   // The same region as `previewDataUrl`, straight from the source. Comparing
-  // the upscale against this (rather than the whole image) is what makes the
-  // slider meaningful — both halves show the same pixels at the same size.
+  // the upscale against the original (rather than against another bicubic
+  // upscale) is what makes the slider useful — both halves show the same
+  // crop, and the right half is always the actual requested output.
   const [previewBaselineUrl, setPreviewBaselineUrl] = useState<string | null>(null);
   const [previewGenerating, setPreviewGenerating] = useState(false);
   const previewAbortRef = useRef<AbortController | null>(null);
+  const previewRequestIdRef = useRef(0);
   const previewTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const previewSliderRef = useRef<HTMLDivElement>(null);
@@ -283,14 +285,16 @@ export function UpscaleDialog({
       return;
     }
     let cancelled = false;
-    // Keep analysis off the critical path; it samples at most 64 patches.
-    const id = requestIdleCallback(() => {
+    // Keep analysis off the critical path; it samples at most 64 patches. A
+    // plain task-turn timeout is more reliable than waiting indefinitely for
+    // an idle callback while the editor is continuously rendering.
+    const id = window.setTimeout(() => {
       const analysis = analyzeImageForRestoration(sourceImageData, { lowResolutionShortEdge: 900 });
       if (!cancelled) setAutoAnalysis(analysis);
-    });
+    }, 0);
     return () => {
       cancelled = true;
-      cancelIdleCallback(id);
+      window.clearTimeout(id);
     };
   }, [open, operation, sourceImageData]);
 
@@ -349,7 +353,15 @@ export function UpscaleDialog({
   // cancellation flag. A preview landing mid-apply would therefore cancel the
   // user's actual upscale, so previews are suppressed while processing.
   useEffect(() => {
-    if (!open || !sourceImageData || !mode || !operationAvailable || processing) {
+    if (
+      !open ||
+      !sourceImageData ||
+      !mode ||
+      !operationAvailable ||
+      processing ||
+      mode.isAi ||
+      (operation === 'auto' && !effectiveOperation)
+    ) {
       return;
     }
     // Cancel previous preview
@@ -362,9 +374,12 @@ export function UpscaleDialog({
       generatePreview();
     }, 250);
     return () => {
+      previewRequestIdRef.current += 1;
       if (previewTimeoutRef.current) {
         clearTimeout(previewTimeoutRef.current);
+        previewTimeoutRef.current = null;
       }
+      previewAbortRef.current?.abort();
     };
   }, [
     modeId,
@@ -373,7 +388,6 @@ export function UpscaleDialog({
     operationAvailable,
     denoiseStrength,
     deblurStrength,
-    effectiveOperation,
     open,
     sourceImageData,
     mode,
@@ -381,14 +395,18 @@ export function UpscaleDialog({
     previewFocus,
     pixelArtAlgorithm,
     qualityPolicy,
+    effectiveOperation,
   ]);
 
   // Clear preview when the operation changes or becomes unavailable.
   // Stale preview data from a previous operation must not persist while
   // the new preview is generating (250ms debounce + processing).
   useEffect(() => {
+    previewRequestIdRef.current += 1;
+    previewAbortRef.current?.abort();
     setPreviewDataUrl(null);
     setPreviewBaselineUrl(null);
+    setPreviewGenerating(false);
   }, [
     operation,
     operationAvailable,
@@ -399,13 +417,24 @@ export function UpscaleDialog({
     pixelArtAlgorithm,
     qualityPolicy,
     previewFocus,
+    effectiveOperation,
   ]);
 
   async function generatePreview() {
     // Never contend with a running upscale for the native backend's single job
     // slot — registering a preview job there cancels the real one.
-    if (!sourceImageData || !mode || !operationAvailable || processing) return;
+    if (
+      !sourceImageData ||
+      !mode ||
+      !operationAvailable ||
+      processing ||
+      (operation === 'auto' && !effectiveOperation)
+    ) {
+      return;
+    }
     const abort = new AbortController();
+    const requestId = previewRequestIdRef.current + 1;
+    previewRequestIdRef.current = requestId;
     previewAbortRef.current = abort;
     setPreviewGenerating(true);
     try {
@@ -441,47 +470,18 @@ export function UpscaleDialog({
       ctx.putImageData(previewImage, 0, 0);
       const dataUrl = canvas.toDataURL('image/png');
 
-      // Honest baseline: the same focused crop, upscaled with a neutral
-      // high-quality CPU filter to the *same* output dimensions as the
-      // enhanced preview. Both halves are then shown at the same pixel
-      // size, so the slider reveals the method's actual improvement rather
-      // than exaggerating via the browser's default interpolation.
+      // Keep the original crop as the before image. The old implementation
+      // ran a second bicubic upscale for the left half, which made the
+      // default CPU preview pixel-for-pixel identical to the result.
       const cropped = focusedSource;
-      // Baseline uses a faithful classical filter at the same scale so
-      // dimensions match exactly. Pixel-art uses nearest to preserve hard edges.
       let baselineDataUrl: string | null = null;
       try {
-        const { upscaleImageData } = await import('@varve/engine');
-        const baselineMethod =
-          mode?.id === 'pixel-art' ? 'nearest' : usesUpscale ? 'bicubic' : 'nearest';
-        const baselineScale = usesUpscale ? scale : 1;
-        let baselineImage: ImageData;
-        if (baselineScale === 1 && !usesUpscale) {
-          baselineImage = cropped;
-        } else {
-          baselineImage = upscaleImageData(cropped, {
-            method: baselineMethod as 'nearest' | 'bicubic' | 'bilinear' | 'lanczos3',
-            scale: baselineScale,
-          });
-          // If the enhanced preview was AI 4x→downsampled to e.g. 2x,
-          // the baseline must also be the same final size to compare honestly.
-          if (
-            baselineImage.width !== previewImage.width ||
-            baselineImage.height !== previewImage.height
-          ) {
-            baselineImage = upscaleImageData(baselineImage, {
-              method: 'lanczos3',
-              targetWidth: previewImage.width,
-              targetHeight: previewImage.height,
-            });
-          }
-        }
         const bCanvas = document.createElement('canvas');
-        bCanvas.width = baselineImage.width;
-        bCanvas.height = baselineImage.height;
+        bCanvas.width = cropped.width;
+        bCanvas.height = cropped.height;
         const bCtx = bCanvas.getContext('2d');
         if (bCtx) {
-          bCtx.putImageData(baselineImage, 0, 0);
+          bCtx.putImageData(cropped, 0, 0);
           baselineDataUrl = bCanvas.toDataURL('image/png');
         }
       } catch {
@@ -495,7 +495,7 @@ export function UpscaleDialog({
           baselineDataUrl = fallback.toDataURL('image/png');
         }
       }
-      if (abort.signal.aborted) return;
+      if (abort.signal.aborted || previewRequestIdRef.current !== requestId) return;
       setPreviewBaselineUrl(baselineDataUrl);
       setPreviewDataUrl(dataUrl);
     } catch (err) {
@@ -503,7 +503,7 @@ export function UpscaleDialog({
         console.error('Preview generation failed:', err);
       }
     } finally {
-      setPreviewGenerating(false);
+      if (previewRequestIdRef.current === requestId) setPreviewGenerating(false);
     }
   }
 
@@ -691,7 +691,8 @@ export function UpscaleDialog({
   // A tiny source (favicon, icon, glyph) has a tiny intrinsic <img> box, which
   // makes the comparison technically correct but useless to inspect. Fit the
   // source or selected preview crop into a bounded review area while keeping
-  // 100% mode genuinely pixel-sized.
+  // 100% mode genuinely pixel-sized. Use the rendered output dimensions here,
+  // not the source crop dimensions: the preview image is the upscaled result.
   const previewRegion = upscalePreviewRegion(
     { width: Math.max(1, sourceWidth), height: Math.max(1, sourceHeight) },
     {
@@ -700,21 +701,37 @@ export function UpscaleDialog({
       previewFocus,
     },
   );
-  const previewReferenceWidth = previewBaselineUrl ? previewRegion.width : sourceWidth;
-  const previewReferenceHeight = previewBaselineUrl ? previewRegion.height : sourceHeight;
+  const previewReferenceWidth = previewBaselineUrl
+    ? previewRegion.width * (usesUpscale ? scale : 1)
+    : sourceWidth;
+  const previewReferenceHeight = previewBaselineUrl
+    ? previewRegion.height * (usesUpscale ? scale : 1)
+    : sourceHeight;
   const previewFitScale = Math.min(
-    640 / Math.max(1, previewReferenceWidth),
-    180 / Math.max(1, previewReferenceHeight),
+    720 / Math.max(1, previewReferenceWidth),
+    560 / Math.max(1, previewReferenceHeight),
   );
   const previewFitStyle =
     previewZoom === 'fit'
       ? {
           width: `${Math.max(1, Math.round(previewReferenceWidth * previewFitScale))}px`,
           height: `${Math.max(1, Math.round(previewReferenceHeight * previewFitScale))}px`,
-          maxWidth: 'none',
-          maxHeight: 'none',
+          maxWidth: '100%',
+          maxHeight: 'min(58vh, 560px)',
         }
       : undefined;
+  const previewSurfaceStyle =
+    previewZoom === 'fit'
+      ? previewFitStyle
+      : {
+          width: `${Math.max(1, Math.round(previewReferenceWidth))}px`,
+          height: `${Math.max(1, Math.round(previewReferenceHeight))}px`,
+          maxWidth: 'none',
+          maxHeight: 'none',
+        };
+  const previewComparisonLabel = previewBaselineUrl
+    ? `same ${Math.round(previewReferenceWidth)}x${Math.round(previewReferenceHeight)}px review crop`
+    : 'source crop';
 
   if (!open) return null;
 
@@ -769,160 +786,173 @@ export function UpscaleDialog({
             {/* Preview */}
             <div className="upscale-preview">
               <div className="upscale-preview__toolbar">
-                <span className="upscale-preview__toolbar-label">Preview</span>
+                <div className="upscale-preview__toolbar-heading">
+                  <span className="upscale-preview__toolbar-label">Preview</span>
+                  <span className="upscale-preview__toolbar-status">
+                    {previewBaselineUrl ? 'Live comparison' : 'Source image'}
+                  </span>
+                </div>
                 <div className="upscale-preview__toolbar-controls">
-                  <span className="upscale-preview__control-label">Inspect</span>
-                  <fieldset
-                    className="upscale-preview__focus-picker"
-                    aria-label="Preview region (pick the area to inspect)"
-                  >
-                    {([0, 0.5, 1] as const).flatMap((fy) =>
-                      ([0, 0.5, 1] as const).map((fx) => {
-                        const active = previewFocus.x === fx && previewFocus.y === fy;
-                        return (
-                          <button
-                            key={`${fx}-${fy}`}
-                            type="button"
-                            className={`upscale-preview__focus-cell ${active ? 'upscale-preview__focus-cell--active' : ''}`}
-                            aria-pressed={active}
-                            aria-label={`Preview ${fy === 0 ? 'top' : fy === 1 ? 'bottom' : 'middle'} ${fx === 0 ? 'left' : fx === 1 ? 'right' : 'center'}`}
-                            onClick={() => setPreviewFocus({ x: fx, y: fy })}
-                          />
-                        );
-                      }),
-                    )}
-                  </fieldset>
-                  <span className="upscale-preview__control-label">Zoom</span>
-                  <fieldset className="upscale-preview__zoom-toggle" aria-label="Preview zoom">
-                    <button
-                      type="button"
-                      className={`upscale-preview__zoom-btn ${previewZoom === 'fit' ? 'upscale-preview__zoom-btn--active' : ''}`}
-                      aria-pressed={previewZoom === 'fit'}
-                      onClick={() => setPreviewZoom('fit')}
+                  <div className="upscale-preview__control-group">
+                    <span className="upscale-preview__control-label">Inspect</span>
+                    <fieldset
+                      className="upscale-preview__focus-picker"
+                      aria-label="Preview region (pick the area to inspect)"
                     >
-                      Fit
-                    </button>
-                    <button
-                      type="button"
-                      className={`upscale-preview__zoom-btn ${previewZoom === '100%' ? 'upscale-preview__zoom-btn--active' : ''}`}
-                      aria-pressed={previewZoom === '100%'}
-                      onClick={() => setPreviewZoom('100%')}
-                    >
-                      100%
-                    </button>
-                  </fieldset>
+                      {([0, 0.5, 1] as const).flatMap((fy) =>
+                        ([0, 0.5, 1] as const).map((fx) => {
+                          const active = previewFocus.x === fx && previewFocus.y === fy;
+                          return (
+                            <button
+                              key={`${fx}-${fy}`}
+                              type="button"
+                              className={`upscale-preview__focus-cell ${active ? 'upscale-preview__focus-cell--active' : ''}`}
+                              aria-pressed={active}
+                              aria-label={`Preview ${fy === 0 ? 'top' : fy === 1 ? 'bottom' : 'middle'} ${fx === 0 ? 'left' : fx === 1 ? 'right' : 'center'}`}
+                              onClick={() => setPreviewFocus({ x: fx, y: fy })}
+                            />
+                          );
+                        }),
+                      )}
+                    </fieldset>
+                  </div>
+                  <div className="upscale-preview__control-group">
+                    <span className="upscale-preview__control-label">Zoom</span>
+                    <fieldset className="upscale-preview__zoom-toggle" aria-label="Preview zoom">
+                      <button
+                        type="button"
+                        className={`upscale-preview__zoom-btn ${previewZoom === 'fit' ? 'upscale-preview__zoom-btn--active' : ''}`}
+                        aria-pressed={previewZoom === 'fit'}
+                        onClick={() => setPreviewZoom('fit')}
+                      >
+                        Fit
+                      </button>
+                      <button
+                        type="button"
+                        className={`upscale-preview__zoom-btn ${previewZoom === '100%' ? 'upscale-preview__zoom-btn--active' : ''}`}
+                        aria-pressed={previewZoom === '100%'}
+                        onClick={() => setPreviewZoom('100%')}
+                      >
+                        100%
+                      </button>
+                    </fieldset>
+                  </div>
                 </div>
               </div>
               <div
-                ref={previewContainerRef}
-                className={`upscale-preview__image-container ${previewZoom === '100%' ? 'upscale-preview__image-container--zoom100' : ''}`}
-                onPointerDown={handlePointerDown}
-                onPointerMove={handlePointerMove}
-                onPointerUp={handlePointerUp}
+                className={`upscale-preview__viewport ${previewZoom === '100%' ? 'upscale-preview__viewport--zoom100' : ''}`}
               >
-                <img
-                  src={previewBaselineUrl ?? (sourceDataUrl || undefined)}
-                  alt="Baseline (same crop at output size for honest comparison)"
-                  className="upscale-preview__image upscale-preview__image--original"
-                  style={
-                    previewFitStyle
-                      ? { ...previewFitStyle }
-                      : previewZoom === '100%'
-                        ? { imageRendering: 'auto' as const }
-                        : undefined
-                  }
-                />
                 <div
-                  className="upscale-preview__overlay"
-                  style={{ clipPath: `inset(0 ${100 - previewPosition}% 0 0)` }}
+                  ref={previewContainerRef}
+                  className={`upscale-preview__image-container ${previewZoom === '100%' ? 'upscale-preview__image-container--zoom100' : ''}`}
+                  style={previewSurfaceStyle}
+                  onPointerDown={handlePointerDown}
+                  onPointerMove={handlePointerMove}
+                  onPointerUp={handlePointerUp}
                 >
-                  {previewDataUrl ? (
-                    <img
-                      src={previewDataUrl}
-                      alt="Enhanced preview — same crop and output size as original"
-                      className="upscale-preview__image upscale-preview__image--upscaled"
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'contain' as const,
-                        imageRendering:
-                          mode?.id === 'pixel-art' ? ('pixelated' as const) : undefined,
-                      }}
-                    />
-                  ) : mode?.isAi ? (
-                    <img
-                      src={sourceDataUrl || undefined}
-                      alt="AI upscaled preview placeholder"
-                      className="upscale-preview__image upscale-preview__image--upscaled"
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'contain' as const,
-                        opacity: 0.45,
-                      }}
-                    />
-                  ) : (
-                    <img
-                      src={sourceDataUrl || undefined}
-                      alt="Preview placeholder"
-                      className="upscale-preview__image upscale-preview__image--upscaled"
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'contain' as const,
-                        opacity: 0.45,
-                      }}
-                    />
+                  <img
+                    src={previewBaselineUrl ?? (sourceDataUrl || undefined)}
+                    alt="Original preview — same crop as enhanced output"
+                    className="upscale-preview__image upscale-preview__image--original"
+                    style={{
+                      ...previewSurfaceStyle,
+                      imageRendering:
+                        mode?.id === 'pixel-art' ? ('pixelated' as const) : ('auto' as const),
+                    }}
+                  />
+                  <div
+                    className="upscale-preview__overlay"
+                    style={{ clipPath: `inset(0 0 0 ${100 - previewPosition}%)` }}
+                  >
+                    {previewDataUrl ? (
+                      <img
+                        src={previewDataUrl}
+                        alt="Enhanced preview — same crop and output size as original"
+                        className="upscale-preview__image upscale-preview__image--upscaled"
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'fill' as const,
+                          imageRendering:
+                            mode?.id === 'pixel-art' ? ('pixelated' as const) : undefined,
+                        }}
+                      />
+                    ) : mode?.isAi ? (
+                      <img
+                        src={sourceDataUrl || undefined}
+                        alt="AI upscaled preview placeholder"
+                        className="upscale-preview__image upscale-preview__image--upscaled"
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'fill' as const,
+                          opacity: 0.45,
+                        }}
+                      />
+                    ) : (
+                      <img
+                        src={sourceDataUrl || undefined}
+                        alt="Preview placeholder"
+                        className="upscale-preview__image upscale-preview__image--upscaled"
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'fill' as const,
+                          opacity: 0.45,
+                        }}
+                      />
+                    )}
+                  </div>
+                  <div
+                    ref={previewSliderRef}
+                    className="upscale-preview__slider"
+                    style={{ left: `${previewPosition}%` }}
+                    role="slider"
+                    aria-label="Before / after comparison"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={Math.round(previewPosition)}
+                    aria-valuetext={`${Math.round(previewPosition)}% enhanced`}
+                    tabIndex={0}
+                    onKeyDown={handleSliderKeyDown}
+                  >
+                    <div className="upscale-preview__slider-line" />
+                    <div className="upscale-preview__slider-handle" aria-hidden="true">
+                      <span aria-hidden="true">&lt;-&gt;</span>
+                    </div>
+                  </div>
+                  <span className="upscale-preview__label upscale-preview__label--before">
+                    Original
+                  </span>
+                  <span className="upscale-preview__label upscale-preview__label--after">
+                    {operation === 'denoise'
+                      ? 'Denoised'
+                      : operation === 'deblur'
+                        ? 'Deblurred'
+                        : operation === 'compression-restoration'
+                          ? 'Restored'
+                          : operation === 'restore-upscale'
+                            ? 'Restored + enhanced'
+                            : operation === 'deblur-upscale'
+                              ? 'Deblurred + enhanced'
+                              : 'Enhanced'}
+                  </span>
+                  {mode?.isAi && !previewDataUrl && (
+                    <p className="upscale-preview__ai-hint">
+                      AI preview is opt-in — generates a 512 px crop. Tap Generate to see real
+                      output.
+                    </p>
+                  )}
+                  {previewGenerating && (
+                    <div className="upscale-preview__generating" role="status" aria-live="polite">
+                      Generating preview…
+                    </div>
                   )}
                 </div>
-                <div
-                  ref={previewSliderRef}
-                  className="upscale-preview__slider"
-                  style={{ left: `${previewPosition}%` }}
-                  role="slider"
-                  aria-label="Before / after comparison"
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-valuenow={Math.round(previewPosition)}
-                  aria-valuetext={`${Math.round(previewPosition)}% enhanced`}
-                  tabIndex={0}
-                  onKeyDown={handleSliderKeyDown}
-                >
-                  <div className="upscale-preview__slider-line" />
-                  <div className="upscale-preview__slider-handle" aria-hidden="true">
-                    <span aria-hidden="true">&lt;-&gt;</span>
-                  </div>
-                </div>
-                <span className="upscale-preview__label upscale-preview__label--before">
-                  {previewBaselineUrl ? 'Baseline' : 'Original'}
-                </span>
-                <span className="upscale-preview__label upscale-preview__label--after">
-                  {operation === 'denoise'
-                    ? 'Denoised'
-                    : operation === 'deblur'
-                      ? 'Deblurred'
-                      : operation === 'compression-restoration'
-                        ? 'Restored'
-                        : operation === 'restore-upscale'
-                          ? 'Restored + enhanced'
-                          : operation === 'deblur-upscale'
-                            ? 'Deblurred + enhanced'
-                            : 'Enhanced'}
-                </span>
-                {mode?.isAi && !previewDataUrl && (
-                  <p className="upscale-preview__ai-hint">
-                    AI preview is opt-in — generates a 512 px crop. Tap Generate to see real output.
-                  </p>
-                )}
-                {previewGenerating && (
-                  <div className="upscale-preview__generating" role="status" aria-live="polite">
-                    Generating preview…
-                  </div>
-                )}
               </div>
               <p className="upscale-preview__hint">
                 {previewBaselineUrl
-                  ? `Honest comparison — same ${previewDataUrl ? '512 px' : 'center'} crop at same output size (${usesUpscale ? (mode?.isAi ? 'AI' : 'bicubic') : 'source'} baseline vs ${mode?.isAi ? 'AI' : (mode?.label ?? 'enhanced')}). Drag or use left/right keys to compare. ${previewZoom === '100%' ? '100% pixel view.' : 'Fit view.'} Output: ${outW}x${outH}px`
+                  ? `Original crop vs enhanced output — ${previewComparisonLabel} (${usesUpscale ? (mode?.isAi ? 'AI' : (mode?.label ?? 'CPU')) : 'source'}). Drag or use left/right keys to compare. ${previewZoom === '100%' ? '100% pixel view.' : 'Fit view.'} Output: ${outW}x${outH}px`
                   : `Drag or use left/right keys to compare. Output: ${outW}x${outH}px`}
               </p>
             </div>

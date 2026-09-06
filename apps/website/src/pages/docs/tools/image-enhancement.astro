@@ -23,7 +23,14 @@ import { sitePath } from '../../../lib/siteUrl';
 
       <section class="docs-section">
         <h2>Review before applying</h2>
-        <p>The dialog previews a bounded representative crop and provides a draggable before/after comparison. Use the preview at a useful zoom for text, logos, thin lines, transparency, and edge transitions. A preview is not a full-resolution final result.</p>
+        <p>The dialog previews a bounded representative crop and provides a draggable before/after comparison. The left side is the untouched source crop; the right side is the actual generated result for the selected operation and settings. This avoids comparing the output with a second resampled copy of the source.</p>
+        <ul>
+          <li><strong>Inspect</strong> uses a 3×3 picker to move the crop to the center, edges, or corners of the source.</li>
+          <li><strong>Fit</strong> fills the available review area, while <strong>100%</strong> shows output pixels at their native size. Use 100% for text, logos, thin lines, transparency, and edge transitions.</li>
+          <li>The comparison slider supports dragging and the left/right arrow keys. Auto resolves its recommendation before generating a CPU preview; AI modes wait for <strong>Generate AI preview</strong> so model work is explicit.</li>
+        </ul>
+        <p class="docs-callout">A preview is a bounded review crop, not a full-resolution final result. Changing the operation, mode, scale, focus, or quality policy discards the old preview before the new one is generated.</p>
+        <p class="docs-callout">The default CPU mode is <strong>Quality</strong> (Lanczos-3) so edges stay inspectable in the preview. <strong>Balanced</strong> (bicubic) is still available when a smoother photographic result is preferable.</p>
       </section>
 
       <section class="docs-section">
@@ -50,4 +57,5 @@ import { sitePath } from '../../../lib/siteUrl';
   .docs-section p, .docs-section li { color: var(--text-secondary); line-height: 1.8; }
   .docs-section li { margin-bottom: .5rem; }
   .docs-note { border-left: 3px solid var(--accent-primary); padding-left: 1rem; }
+  .docs-callout { border-left: 3px solid var(--border-accent); padding-left: 1rem; }
 </style>

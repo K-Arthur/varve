@@ -99,14 +99,23 @@ tiles complete instead of retaining every padded tile buffer. Model-specific
 adapters still apply their own graph alignment (SCUNet 64, NAFNet 16) after
 any bounded dimension reduction.
 
-Preview is honest: a centered 512 px crop is enhanced with the *same*
-preprocessing, model, and postprocessing as the final job, while the
-baseline is the *same* crop upscaled with a neutral classical filter
-(bicubic, nearest for pixel-art) to the *same* output dimensions. Both
-halves are shown at the same pixel size under the split slider, which is
-keyboard-accessible (← →, Shift+← →, Home/End) and offers Fit / 100%
-pixel view. A 3×3 region picker lets the user choose which part of the
-image to inspect (center by default). No browser-bilinear exaggeration.
+Preview is honest: a focused crop (up to 512 px) is enhanced with the *same*
+preprocessing, model, and postprocessing as the final job. The left side is the
+untouched source crop and the right side is the actual requested output; the
+source is not independently upscaled with a classical filter, which previously
+made CPU previews look identical on some images. The split slider clips the
+enhanced output from the right, is keyboard-accessible (← →, Shift+← →,
+Home/End), and offers Fit / 100% pixel view. Fit uses the output dimensions so
+the review area stays large enough to inspect; 100% preserves output pixel size.
+A 3×3 region picker lets the user choose which part of the image to inspect
+(center by default). The dialog defaults CPU upscale to Lanczos-3 “Quality” so
+edge contrast remains inspectable; Catmull–Rom “Balanced” remains available
+when smoother photographic resampling is preferred. Pixel-art previews use
+nearest-style display treatment.
+AI preview generation is explicit because model work is expensive and can
+otherwise compete with an apply job. Changing preview inputs cancels and
+invalidates the previous request, so stale output cannot overwrite the current
+settings. No browser-bilinear comparison is used.
 
 Alpha is carried separately by both restoration paths, and pixel-art
 scaling stays on its specialized algorithm path rather than entering photo

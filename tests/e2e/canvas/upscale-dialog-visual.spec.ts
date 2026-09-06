@@ -35,6 +35,16 @@ test('Enhance dialog default (Auto) state', async ({ page }) => {
       }),
     )
     .toBeGreaterThan(0);
+  const comparisonSources = await page.locator('.upscale-preview__image').evaluateAll((images) =>
+    images.map((image) => {
+      const element = image as HTMLImageElement;
+      return { src: element.currentSrc, naturalWidth: element.naturalWidth };
+    }),
+  );
+  expect(comparisonSources[0]?.src).not.toBe(comparisonSources[1]?.src);
+  expect(comparisonSources[1]?.naturalWidth).toBeGreaterThan(
+    comparisonSources[0]?.naturalWidth ?? 0,
+  );
   const previewBoxes = await page.locator('.upscale-preview__image').evaluateAll((images) =>
     images.map((image) => {
       const rect = image.getBoundingClientRect();
@@ -45,6 +55,18 @@ test('Enhance dialog default (Auto) state', async ({ page }) => {
   expect(previewBoxes.every(({ width, height }) => width > 100 && height > 100)).toBe(true);
   expect(Math.abs(previewBoxes[0]!.width - previewBoxes[1]!.width)).toBeLessThan(1);
   expect(Math.abs(previewBoxes[0]!.height - previewBoxes[1]!.height)).toBeLessThan(1);
+  await expect(page.locator('.upscale-preview__overlay')).toHaveAttribute(
+    'style',
+    /clip-path: inset\(0px 0px 0px 50%\)/,
+  );
+  const switcherWidths = await page.evaluate(() => {
+    const settings = document.querySelector('.upscale-settings')?.getBoundingClientRect();
+    const quality = document
+      .querySelector('[aria-label="Quality policy"]')
+      ?.getBoundingClientRect();
+    return { settings: settings?.width ?? 0, quality: quality?.width ?? 0 };
+  });
+  expect(switcherWidths.quality).toBeLessThan(switcherWidths.settings);
 
   await expect(page).toHaveScreenshot('enhance-dialog-default.png', {
     maxDiffPixels: 200,
@@ -85,7 +107,42 @@ test('preview crop and zoom controls update the comparison view', async ({ page 
   const zoom100 = page.getByRole('button', { name: '100%' });
   await zoom100.click();
   await expect(previewContainer).toHaveClass(/upscale-preview__image-container--zoom100/);
+  const pixelView = await previewContainer.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    const images = Array.from(element.querySelectorAll('img')) as HTMLImageElement[];
+    return {
+      surface: { width: rect.width, height: rect.height },
+      natural: images.map(({ naturalWidth, naturalHeight }) => ({ naturalWidth, naturalHeight })),
+    };
+  });
+  expect(pixelView.surface.width).toBe(pixelView.natural[1]?.naturalWidth);
+  expect(pixelView.surface.height).toBe(pixelView.natural[1]?.naturalHeight);
 
   await page.getByRole('button', { name: 'Fit', exact: true }).click();
   await expect(previewContainer).not.toHaveClass(/upscale-preview__image-container--zoom100/);
+});
+
+test('Enhance dialog reflows to a usable narrow layout', async ({ page }) => {
+  await page.setViewportSize({ width: 640, height: 800 });
+  await navigateToEditor(page);
+  await page
+    .locator('#file-import-input')
+    .setInputFiles(path.resolve('apps/desktop/public/icons/favicon-16x16.png'));
+  await expect(page.getByRole('button', { name: 'Enhance', exact: true })).toBeVisible({
+    timeout: 10000,
+  });
+  await openDialog(page);
+
+  const dialog = page.getByRole('dialog', { name: 'Enhance image' });
+  const body = dialog.locator('.upscale-dialog__body');
+  const layout = await body.evaluate((element) => {
+    const style = getComputedStyle(element);
+    const rect = element.getBoundingClientRect();
+    return { columns: style.gridTemplateColumns, width: rect.width };
+  });
+
+  expect(layout.columns.split(' ').length).toBe(1);
+  expect(layout.width).toBeLessThanOrEqual(640);
+  await expect(dialog.locator('.upscale-preview__image-container')).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Apply recommended' })).toBeVisible();
 });

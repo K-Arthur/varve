@@ -7,6 +7,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
+  padding: var(--space-5);
   background: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(2px);
 }
@@ -14,9 +16,9 @@
 .upscale-dialog {
   display: flex;
   flex-direction: column;
-  width: 90vw;
-  max-width: 720px;
-  max-height: 90vh;
+  width: min(1120px, 100%);
+  height: min(900px, calc(100vh - 2 * var(--space-5)));
+  max-height: calc(100vh - 2 * var(--space-5));
   background: var(--elevation-surface-default);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-floating);
@@ -28,7 +30,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-3) var(--space-4);
+  flex: 0 0 auto;
+  padding: var(--space-4) var(--space-5);
   border-bottom: 1px solid var(--color-border-subtle);
 }
 
@@ -65,19 +68,22 @@
 }
 
 .upscale-dialog__body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-4);
-  overflow-y: auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.75fr);
+  align-items: stretch;
+  gap: var(--space-5);
+  min-height: 0;
+  padding: var(--space-5);
+  overflow: hidden;
 }
 
 .upscale-dialog__footer {
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  flex: 0 0 auto;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-3) var(--space-5);
   border-top: 1px solid var(--color-border-subtle);
 }
 
@@ -87,6 +93,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  min-width: 0;
+  min-height: 0;
   width: 100%;
 }
 
@@ -94,8 +102,25 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex: 0 0 auto;
   width: 100%;
   margin-bottom: var(--space-2);
+  gap: var(--space-3);
+}
+
+.upscale-preview__toolbar-heading {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.upscale-preview__toolbar-status {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .upscale-preview__toolbar-label {
@@ -109,7 +134,15 @@
 .upscale-preview__toolbar-controls {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.upscale-preview__control-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
 }
 
 .upscale-preview__control-label {
@@ -179,14 +212,36 @@
   outline-offset: -2px;
 }
 
+.upscale-preview__viewport {
+  align-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  max-height: min(58vh, 560px);
+  overflow: hidden;
+}
+
+.upscale-preview__viewport--zoom100 {
+  display: block;
+  width: 100%;
+  overflow: auto;
+  cursor: ew-resize;
+}
+
 .upscale-preview__image-container {
   position: relative;
   display: inline-block;
+  flex: 0 1 auto;
   max-width: 100%;
+  max-height: min(58vh, 560px);
   border-radius: var(--radius-control);
   overflow: hidden;
-  border: 1px solid var(--color-border-subtle);
+  /* An outline keeps the comparison halves exactly the same size. A border
+     would make the absolutely-positioned after image two pixels narrower. */
+  box-shadow: inset 0 0 0 1px var(--color-border-subtle);
   cursor: ew-resize;
+  touch-action: none;
   user-select: none;
   background-image:
     linear-gradient(45deg, var(--color-border-subtle) 25%, transparent 25%),
@@ -202,16 +257,10 @@
 }
 
 .upscale-preview__image-container--zoom100 {
-  display: block;
-  width: 100%;
-  max-height: 360px;
-  overflow: auto;
-  cursor: ew-resize;
-}
-
-.upscale-preview__image-container--zoom100 .upscale-preview__image--original {
+  flex: none;
   max-width: none;
   max-height: none;
+  cursor: ew-resize;
 }
 
 .upscale-preview__generating {
@@ -241,8 +290,6 @@
   z-index: 1;
   width: auto;
   height: auto;
-  max-width: 100%;
-  max-height: min(40vh, 360px);
 }
 
 .upscale-preview__overlay {
@@ -350,6 +397,7 @@
   align-self: stretch;
   margin: var(--space-2) 0 0;
   font-size: var(--font-size-xs);
+  line-height: var(--font-line-label);
   color: var(--color-text-muted);
   text-align: center;
 }
@@ -359,13 +407,23 @@
 .upscale-settings {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  min-height: 0;
   gap: var(--space-3);
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-2);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .upscale-settings__group {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+}
+
+.upscale-settings__group + .upscale-settings__group {
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border-subtle);
 }
 
 .upscale-settings__label {
@@ -378,6 +436,86 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  background: var(--elevation-surface-sunken);
+}
+
+/* The settings rail is intentionally denser than the general inspector. The
+ * modal already has a clear primary action, so its controls should not
+ * compete with the preview for vertical space. Keep coarse-pointer targets
+ * at the shared touch minimum. */
+.upscale-settings .varve-select__trigger {
+  min-height: 36px;
+}
+
+.upscale-settings .varve-segmented {
+  align-self: flex-start;
+  width: fit-content;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: auto;
+}
+
+.upscale-settings .varve-segmented__btn {
+  min-height: 32px;
+  padding: var(--space-1) var(--space-2);
+  white-space: nowrap;
+}
+
+@media (pointer: coarse) {
+  .upscale-settings .varve-select__trigger {
+    min-height: var(--touch-target-min);
+  }
+
+  .upscale-settings .varve-segmented__btn {
+    min-height: var(--touch-target-min);
+  }
+}
+
+@media (max-width: 860px) {
+  .upscale-dialog {
+    height: min(900px, calc(100vh - 2 * var(--space-4)));
+    max-height: calc(100vh - 2 * var(--space-4));
+  }
+
+  .upscale-dialog__body {
+    grid-template-columns: minmax(0, 1fr);
+    overflow-y: auto;
+  }
+
+  .upscale-settings {
+    overflow: visible;
+    padding-inline: 0;
+  }
+}
+
+@media (max-width: 520px) {
+  .upscale-overlay {
+    padding: var(--space-2);
+  }
+
+  .upscale-dialog {
+    height: calc(100vh - 2 * var(--space-2));
+    max-height: calc(100vh - 2 * var(--space-2));
+  }
+
+  .upscale-dialog__header,
+  .upscale-dialog__footer,
+  .upscale-dialog__body {
+    padding-inline: var(--space-3);
+  }
+
+  .upscale-preview__toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .upscale-preview__toolbar-controls {
+    justify-content: space-between;
+    width: 100%;
+  }
 }
 
 /* ── High contrast / forced colors ───────────────────────────────────────── */

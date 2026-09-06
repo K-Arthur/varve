@@ -55,7 +55,7 @@ const INITIAL_STATE: UpscaleDialogState = {
   sourceWidth: 0,
   sourceHeight: 0,
   sourceDataUrl: '',
-  initialMode: 'balanced',
+  initialMode: 'quality',
   initialReplaceSource: false,
 };
 
@@ -69,7 +69,7 @@ export function useUpscaleDialog(): UseUpscaleDialogReturn {
       sourceWidth: 0,
       sourceHeight: 0,
       sourceDataUrl: '',
-      initialMode: options.mode ?? 'balanced',
+      initialMode: options.mode ?? 'quality',
       initialReplaceSource: options.replaceSource ?? false,
     });
   }, []);

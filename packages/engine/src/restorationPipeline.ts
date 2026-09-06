@@ -171,7 +171,6 @@ export async function runRestoration(
           // natively does and avoids claiming variable-scale super-resolution.
           if (
             upscale.method === 'ai' &&
-            !request.preview &&
             upscale.scale !== 4 &&
             currentImage.width === beforeUpscaleWidth * 4 &&
             currentImage.height === beforeUpscaleHeight * 4

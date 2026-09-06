@@ -49,8 +49,7 @@ const enhanceShot = scenes['enhance-dialog-auto']?.status === 'captured' ? scene
               loading="lazy"
             />
             <figcaption>
-              The Enhance dialog in Auto mode — it detected noise on a real photo and
-              recommended a task in plain language.
+              Compare a generated upscale with the untouched source before applying it.
             </figcaption>
           </figure>
         )}
@@ -69,9 +68,26 @@ const enhanceShot = scenes['enhance-dialog-auto']?.status === 'captured' ? scene
         <div class="capability-grid">
           <article><h3>Denoise</h3><p>Reduce sensor noise and grain while preserving the alpha channel and keeping the source available for comparison.</p></article>
           <article><h3>Deblur</h3><p>Reduce motion and defocus blur with a validated local model — preview a bounded crop before committing to full-resolution work.</p></article>
-          <article><h3>Upscale</h3><p>Choose bounded CPU resampling, pixel-art scaling, or the local Real-ESRGAN path for supported image work.</p></article>
+          <article><h3>Upscale</h3><p>Choose edge-retentive Quality CPU resampling by default, smoother Balanced scaling, pixel-art algorithms, or the local Real-ESRGAN path for supported image work.</p></article>
           <article><h3>Restore + Upscale</h3><p>Compose only the stages you selected. Restoration runs before enlargement so noise is not simply made larger.</p></article>
           <article><h3>Auto / Recommended</h3><p>A quick local analysis suggests what your image actually needs, in plain language, with a confidence number you can override.</p></article>
+        </div>
+      </section>
+
+      <section class="review" aria-labelledby="review-title">
+        <div>
+          <p class="eyebrow">Review first</p>
+          <h2 id="review-title">Inspect the pixels before you commit.</h2>
+          <p>
+            The preview gives the result room to breathe instead of shrinking it into a
+            tiny thumbnail. Compare the untouched source crop on the left with the actual
+            generated result on the right, then apply it as a new layer when it looks right.
+          </p>
+        </div>
+        <div class="review-grid">
+          <article><h3>Choose the detail</h3><p>A 3×3 focus picker moves the review crop to corners, edges, or the center where artifacts often hide.</p></article>
+          <article><h3>See it clearly</h3><p>Fit view uses the available preview area; 100% view shows the output at pixel size for text, linework, and transparency.</p></article>
+          <article><h3>Keep the comparison honest</h3><p>CPU previews are generated from the selected settings. AI previews are explicit and start only when you ask for them.</p></article>
         </div>
       </section>
 
@@ -115,6 +131,14 @@ const enhanceShot = scenes['enhance-dialog-auto']?.status === 'captured' ? scene
   .capability-grid article { border-top: 2px solid var(--border-accent); padding-top: 1rem; }
   .capability-grid h3 { color: var(--text-primary); margin: 0 0 .5rem; }
   .capability-grid p { color: var(--text-secondary); line-height: 1.65; margin: 0; }
+  .review { border-top: 1px solid var(--border-default); padding: 4rem 0; }
+  .review > div:first-child { max-width: 680px; }
+  .review h2 { color: var(--text-primary); font-size: clamp(1.6rem, 3vw, 2.3rem); margin: .5rem 0 1rem; }
+  .review p { color: var(--text-secondary); line-height: 1.75; }
+  .review-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 2rem; }
+  .review-grid article { border: 1px solid var(--border-default); border-radius: var(--website-radius-surface); padding: 1rem; }
+  .review-grid h3 { color: var(--text-primary); margin: 0 0 .5rem; }
+  .review-grid p { line-height: 1.65; margin: 0; }
   .honesty a { color: var(--text-link); font-weight: 600; }
-  @media (max-width: 680px) { .pipeline { grid-template-columns: 1fr; } .pipeline-arrow { transform: rotate(90deg); justify-self: center; } .capability-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 680px) { .pipeline { grid-template-columns: 1fr; } .pipeline-arrow { transform: rotate(90deg); justify-self: center; } .capability-grid, .review-grid { grid-template-columns: 1fr; } }
 </style>

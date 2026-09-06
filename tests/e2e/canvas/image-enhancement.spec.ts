@@ -124,7 +124,7 @@ test('changes scale factor in the enhance dialog', async ({ page }) => {
   await openEnhanceDialog(page);
   await selectOperation(page, 'Upscale');
 
-  // Balanced mode (bicubic) is the default; change its scale.
+  // Quality mode (Lanczos-3) is the default; change its scale.
   await page
     .getByRole('radiogroup', { name: 'Scale factor' })
     .getByText('3x', { exact: true })

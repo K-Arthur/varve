@@ -94,6 +94,19 @@ describe('runRestoration', () => {
     expect(snapshots.at(-1)).toEqual([{ id: 'upscale', status: 'completed', progress: 1 }]);
   });
 
+  it('normalizes AI previews to the requested scale', async () => {
+    vi.mocked(dispatchUpscale).mockResolvedValue(image(8, 8));
+
+    const result = await runRestoration(image(), {
+      operation: 'upscale',
+      upscale: { method: 'ai', modelId: 'upscale-realesr-general', scale: 2 },
+      preview: true,
+    });
+
+    expect(result.imageData.width).toBe(4);
+    expect(result.imageData.height).toBe(4);
+  });
+
   it('does not call providers for a no-op', async () => {
     const result = await runRestoration(image(), { operation: 'none' });
     expect(result.imageData.width).toBe(2);
