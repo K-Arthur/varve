@@ -25,12 +25,7 @@ import {
   isDescendantFast,
   type ParentIndexCache,
 } from '../../scene/parentIndexCache';
-import {
-  type LayerDropTarget,
-  type RowGeometry,
-  resolveLayerDropTarget,
-  siblingsOf,
-} from './layerDropResolver';
+import { type LayerDropTarget, resolveLayerDropTarget, siblingsOf } from './layerDropResolver';
 import { computeMultiMoveSteps, isNoOpMove } from './layerMovePlan';
 import type { FlatEntry } from './useFlatTree';
 
@@ -232,24 +227,6 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
   }, []);
 
   /**
-   * Snapshot every row's extent for this pointer sample.
-   *
-   * The virtualizer measures all `count` rows, not just the mounted window,
-   * so a row that has scrolled out of view (or has not scrolled in yet) is
-   * still addressable. That is what keeps the target stable while auto-scroll
-   * mounts and unmounts rows underneath the cursor.
-   */
-  const readGeometry = useCallback((): RowGeometry[] => {
-    const measurements = virtualizer.measurementsCache;
-    const geometry: RowGeometry[] = new Array(measurements.length);
-    for (let i = 0; i < measurements.length; i++) {
-      const m = measurements[i]!;
-      geometry[i] = { start: m.start, end: m.end };
-    }
-    return geometry;
-  }, [virtualizer]);
-
-  /**
    * Resolve — and publish — the one authoritative drop target for the current
    * pointer position. Everything downstream (indicator, auto-expand,
    * announcement, mutation) reads the value this writes.
@@ -272,7 +249,9 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
       doc: currentDoc,
       designCanvasId,
       entries: entriesRef.current ?? [],
-      geometry: readGeometry(),
+      // Virtualizer measurements already have the resolver's {start, end}
+      // shape. Passing the stable array avoids an O(N) copy on every sample.
+      geometry: virtualizer.measurementsCache,
       pointerX: lastPointerRef.current.x,
       pointerY: lastPointerRef.current.y,
       viewport: {
@@ -318,7 +297,7 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
     expandedRef,
     parentCacheRef,
     resolveMoveIds,
-    readGeometry,
+    virtualizer,
     cancelAutoExpand,
     startAutoExpand,
     designCanvasId,
