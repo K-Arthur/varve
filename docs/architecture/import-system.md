@@ -54,6 +54,14 @@ icon insert  ──┘                                        │               
 | Clipboard paste | `context.tsx` |
 | Icon library | `context/useIconAssets.ts` |
 
+HTML5 canvas drops retain their `DataTransfer` snapshot before asynchronous
+parsing. Tauri file drops arrive as window-level path events; the editor only
+accepts a known logical position inside the receiving canvas. A drop over the
+Layers/sidebar, or a native event with no recoverable position, is rejected so
+the import cannot be redirected to an unrelated surface. On Linux WebKitGTK,
+the Tauri path is the expected native transport; packaged desktop and native
+window behavior still require platform-specific GUI validation.
+
 LUT files (`.cube`, `.3dl`, `.clf`, `.ctf`) are the one exception: they carry
 no scene content, so `useFileImport` peels them off and routes them to the
 adjustment handler before calling `ImportService`.

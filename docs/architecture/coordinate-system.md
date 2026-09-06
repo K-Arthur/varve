@@ -94,6 +94,10 @@ never applied a second time.
 - Drag reparent (`reparentNode`), group/ungroup, duplicate, and boolean-op
   placement all convert through world space and write parent-local
   transforms.
+- Layers-to-canvas placement records the drop point in placed world space,
+  translates all canonical moved roots by one shared world delta, and rebases
+  each resulting origin through the active canvas/page content-root transform.
+  It never assigns one cursor position independently to every selected root.
 - Boolean ops clip operands in world space (`shapeNodesInWorldSpace`) and
   re-anchor the result at the first operand's home
   (`booleanAnchorForNode` + `placeBooleanResult`).

@@ -503,6 +503,7 @@ records; check the current code before acting on their findings.
 | `audits/platform-ux-accessibility-responsiveness-audit-2026-09-02.md` | WCAG 2.2 AA, keyboard, touch, responsive, and marketing-site audit with prioritized remediation |
 | `audits/documentation-modernization-audit-2026-09-02.md` | Repository documentation truth, release guidance, architecture orientation, and website claims audit |
 | `audits/minimap-repair-2026-09-05.md` | Minimap geometry, lifecycle, persistence, responsive, and marketing repair record |
+| `audits/drag-drop-repair-2026-09-06.md` | App-wide drag/drop inventory, repaired ownership defects, validation matrix, and known platform limits |
 
 ## Website-specific (current state)
 

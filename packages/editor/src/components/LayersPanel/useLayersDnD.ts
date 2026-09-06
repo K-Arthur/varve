@@ -12,8 +12,9 @@
  *   location and hierarchy produced after release.
  *
  * That holds because exactly one value, the `LayerDropTarget` published by
- * `resolveLayerDropTarget`, drives both the preview and the commit. Drag end
- * recomputes nothing.
+ * `resolveLayerDropTarget`, drives both the preview and the commit. Release
+ * takes one final sample through that same resolver, then commits the
+ * resulting target without a second algorithm.
  */
 
 import type { DragMoveEvent, DragStartEvent } from '@dnd-kit/core';

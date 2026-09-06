@@ -44,7 +44,7 @@ resolveLayerDropTarget(pointer, viewport, contentTop, geometry, entries, doc)
      ▼                    ▼                    ▼
 drop indicator      auto-expand timer    aria announcement
      │
-     ▼  pointer release — the same value, unchanged
+     ▼  pointer release — one final sample through the same resolver
 computeMultiMoveSteps  ──►  reparentNode × N  ──►  one history entry
 ```
 
@@ -73,7 +73,9 @@ a frame was unreachable, and reorder "worked" only because it is edge-driven.
 
 The resolver therefore ignores `over` entirely. `onDragMove`/`onDragOver` are
 still wired, but only as extra ticks; the authoritative signal is a
-`pointermove` listener installed for the life of the drag.
+`pointermove` listener installed for the life of the drag. The tree also checks
+the pointer's X coordinate against its own clip viewport, so an adjacent
+canvas or sidebar cannot claim a vertically aligned drop.
 
 The pointer is read straight from the event rather than reconstructed as
 `activatorEvent.clientY + delta.y`. dnd-kit folds scroll compensation into
@@ -136,6 +138,9 @@ then silently doing nothing on release.
   `.layers-row--drop-invalid`.
 - `locked` — the destination container is locked. `reparentNode` enforces the
   lock model regardless; this only makes the refusal visible in advance.
+- stale destination — the row or parent changed after pickup. The final sample
+  is revalidated against the current document and rejected if the anchor is no
+  longer in the resolved parent.
 
 A `null` return is a different answer from an invalid target: it means the
 cursor is not over the Layers tree at all, and the panel claims nothing.
@@ -146,6 +151,10 @@ Dragging a row that belongs to the current selection moves the whole selection
 (Figma/Sketch/Illustrator convention). `resolveDragMoveIds` drops any selected
 node whose ancestor is also selected — it travels inside its parent's subtree
 and must not be reparented a second time.
+
+The moved roots are snapshotted at pickup. A selected descendant of a selected
+ancestor is removed from that snapshot, and the remaining roots are sorted in
+document paint order rather than incidental selection-array order.
 
 `computeMultiMoveSteps` plans the move as a sequence, because `reparentNode`
 applies one node at a time and each call removes the node before splicing it
@@ -164,6 +173,27 @@ Structural drag stays enabled while the tree is filtered or isolated. Indices
 are computed against the **full** sibling array via `indexOf`, never against
 the filtered row list, so "immediately above the row you can see" resolves to
 the correct slot even when the siblings between are hidden from view.
+
+### Layers to canvas
+
+Layers-to-canvas is a specialized handoff, not a generic sortable move. The
+shell owns one scoped canvas ref and claims the drop only when the final client
+pointer is inside that editor's canvas surface; it does not use the first
+`.editor-canvas` in the document or dnd-kit's overlapping `over` result.
+
+At pickup, the handoff snapshots the same canonical roots used by the Layers
+tree. At release, the first root is the placement anchor. Every other root is
+translated by the same world-space delta, preserving relative spacing,
+rotation, scale, flips, and internal hierarchy. The desired world origins are
+rebased into the active Design Canvas or Print Page content root through its
+full parent transform before the document transaction commits.
+
+The operation is all-or-nothing for a mixed selection: an effectively locked
+source or an unavailable destination rejects the handoff. The Layers gesture
+is then cancelled explicitly so its pointer listener, indicator, auto-scroll,
+auto-expand, click trap, and overlay state cannot survive a canvas commit.
+There is no cross-page drag through this route; page transfer remains an
+explicit page command.
 
 ### Not supported
 
@@ -184,8 +214,10 @@ properties matter:
   indicator would freeze while rows slid past underneath it.
 
 Auto-expand springs a hovered collapsed container open after 500ms. The timer
-is not restarted while it is already pending, so pointer jitter inside the row
-cannot postpone it indefinitely.
+is keyed to both the drag session and the target container: jitter inside one
+row does not postpone it, while moving to another row cancels and rearms it.
+Expansion only occurs when the current document still contains a container at
+that target id.
 
 ## Gesture disambiguation
 
@@ -211,6 +243,8 @@ causes no flicker.
 | --- | --- |
 | Resolver (pointer → target, zones, indices, validity) | `layerDropResolver.test.ts` |
 | Move planning, composed step-by-step application | `dragMove.test.ts` |
+| Layers-to-canvas roots, spacing, transformed-parent rebasing | `Shell/layerCanvasDrop.test.ts` |
+| File-drop surface ownership and descendant dragleave behavior | `dropUtils.test.ts` |
 | Real-pointer invariant: preview read mid-drag vs committed hierarchy | `tests/e2e/layers/layers-dnd-invariant.spec.ts` |
 | Real-pointer reorder/reparent/lock/cycle/auto-scroll | `tests/e2e/layers/layers-drag-drop.spec.ts` |
 

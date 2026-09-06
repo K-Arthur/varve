@@ -41,6 +41,12 @@ and `into` have different hierarchy meanings, raw scene order is opposite the
 visual panel order, and a target may be offscreen. Its resolver is the single
 authority for indicator, auto-expand, announcement, and commit.
 
+The 2026-09-06 repair also makes surface ownership explicit: Layers hit-testing
+requires both X and Y containment, layer roots are snapshotted and
+canonicalized at pickup, virtualizer measurements are passed without a
+per-sample O(N) copy, and a Layers-to-canvas handoff is committed by the scoped
+canvas adapter rather than by a generic sortable destination.
+
 ## Interaction contract
 
 Handles in ordinary collections are quiet at rest, gain contrast on row
@@ -85,6 +91,11 @@ Home grid remains virtualized; the Layers tree remains virtualized and resolves
 offscreen rows through measurements. Panel resizing, canvas movement, marquee
 selection, sliders, file import, effect-stack transfer, and panel docking are
 specialized gestures and do not use this primitive.
+
+External file previews use descendant-aware `dragleave` handling. Native Tauri
+file events are window-level and therefore require an explicit canvas bounds
+check before import; a native drop over a sidebar is rejected rather than
+redirected to the canvas.
 
 ## Persistence and undo
 

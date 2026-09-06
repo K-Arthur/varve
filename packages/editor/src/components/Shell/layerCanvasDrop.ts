@@ -1,4 +1,4 @@
-import type { Document, NodeId } from '@varve/scene';
+import { type Document, designCanvasContentRoot, type NodeId } from '@varve/scene';
 import type { Point } from '@varve/shared';
 import type { ParentIndexCache } from '../../scene/parentIndexCache';
 import { nodeWorldTransform, worldToParent } from '../../scene/world';
@@ -65,10 +65,6 @@ export function computeCanvasDropPositions(
 
 /** Resolve the same effective root used by EditorContext.reparentNode(null). */
 export function resolveCanvasContentRoot(doc: Document, workspaceMode: string): NodeId | null {
-  if (workspaceMode !== 'print') {
-    const canvasId = doc.activeDesignCanvasId;
-    const canvas = doc.designCanvases?.find((candidate) => candidate.id === canvasId);
-    return canvas?.contentRoot ?? null;
-  }
+  if (workspaceMode !== 'print') return designCanvasContentRoot(doc);
   return doc.pages?.find((page) => page.id === doc.activePageId)?.contentRoot ?? null;
 }
