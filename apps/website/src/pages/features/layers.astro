@@ -1,0 +1,156 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import StatusPill from '../../components/StatusPill.astro';
+import { sitePath } from '../../lib/siteUrl';
+---
+
+<Layout
+  title="Layers & Drag and Drop"
+  description="Reorder, reparent, and place selected layers in Varve without losing hierarchy or spacing."
+>
+  <div class="container-custom">
+    <main class="layers-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/features')}>Features</a> / Layers & Drag and Drop
+      </nav>
+
+      <header class="page-hero">
+        <StatusPill status="available" />
+        <h1>Move ideas without losing the structure.</h1>
+        <p>
+          Reorder siblings, reparent into frames, and place a multi-selection on the canvas while
+          Varve keeps the hierarchy, spacing, and document state together.
+        </p>
+      </header>
+
+      <section class="layer-demo" aria-label="Illustration of the Layers panel and canvas handoff">
+        <div class="layer-demo__panel">
+          <div class="layer-demo__heading"><span>Layers</span><span class="layer-demo__dots">•••</span></div>
+          <div class="layer-demo__row layer-demo__row--selected"><span class="layer-demo__grip">⋮⋮</span><span class="layer-demo__chevron">⌄</span><strong>Hero group</strong></div>
+          <div class="layer-demo__row layer-demo__row--child"><span class="layer-demo__indent"></span><span class="layer-demo__chevron">⌄</span><span>Headline</span></div>
+          <div class="layer-demo__row layer-demo__row--child layer-demo__row--selected"><span class="layer-demo__indent"></span><span class="layer-demo__chevron">⌄</span><span>Illustration</span></div>
+          <div class="layer-demo__row"><span class="layer-demo__grip">⋮⋮</span><span class="layer-demo__chevron">·</span><span>Background</span></div>
+          <div class="layer-demo__drop-line" aria-hidden="true"></div>
+        </div>
+        <div class="layer-demo__canvas">
+          <span class="layer-demo__canvas-label">Canvas</span>
+          <div class="layer-demo__art layer-demo__art--back"></div>
+          <div class="layer-demo__art layer-demo__art--front"></div>
+          <span class="layer-demo__cursor" aria-hidden="true"></span>
+        </div>
+      </section>
+
+      <section class="feature-section" aria-labelledby="layers-workflow-title">
+        <p class="eyebrow">A predictable gesture</p>
+        <h2 id="layers-workflow-title">The preview is the promise.</h2>
+        <p>
+          The Layers tree resolves the destination under your pointer, then uses that same target
+          for the insertion indicator, auto-expand, announcement, and document commit. Rows stay
+          virtualized for large files, while the live cursor keeps the target current as the panel
+          scrolls.
+        </p>
+        <div class="feature-grid">
+          <article>
+            <h3>Reorder and reparent</h3>
+            <p>Move above, below, or into a frame or group. Mask-source clipping keeps its special semantics.</p>
+          </article>
+          <article>
+            <h3>Multi-select that stays together</h3>
+            <p>Selected roots travel as one operation. Descendants are not moved twice, and relative canvas spacing is preserved.</p>
+          </article>
+          <article>
+            <h3>One undoable change</h3>
+            <p>Preview work stays transient. A completed hierarchy move becomes one coherent document history step.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="handoff" aria-labelledby="handoff-title">
+        <div>
+          <p class="eyebrow">Layers to canvas</p>
+          <h2 id="handoff-title">Place a selection without flattening it.</h2>
+          <p>
+            Drop existing layers onto the canvas and Varve translates the group through world space
+            into the active canvas or page. The first layer anchors the placement; the rest keep
+            their offsets, transforms, and internal hierarchy.
+          </p>
+        </div>
+        <dl>
+          <div><dt>Destination</dt><dd>Active Design Canvas or Print Page</dd></div>
+          <div><dt>Selection</dt><dd>Canonical roots, ordered by the document</dd></div>
+          <div><dt>Boundary</dt><dd>Cross-page transfer stays an explicit command</dd></div>
+        </dl>
+      </section>
+
+      <section class="feature-section" aria-labelledby="layers-access-title">
+        <p class="eyebrow">When dragging is not the right input</p>
+        <h2 id="layers-access-title">Keyboard-ready and honest about boundaries.</h2>
+        <p>
+          Tree navigation, selection, expand/collapse, and move commands remain available from the
+          keyboard. Locked, cyclic, stale, or unavailable destinations are rejected instead of
+          pretending that a drop succeeded. External files are imported only by their eligible
+          canvas surface, and native desktop drops retain their platform-specific limits.
+        </p>
+      </section>
+
+      <aside class="honesty" aria-labelledby="layers-honesty-title">
+        <h2 id="layers-honesty-title">Designed for documents that have a shape.</h2>
+        <p>
+          Varve keeps hierarchy semantics in the Layers system and ordinary collection ordering in
+          shared sortable controls. That means a frame drop can mean “into,” while a page tab still
+          means “reorder.” Each surface keeps its own persistence and history boundary.
+        </p>
+        <a href="https://github.com/K-Arthur/varve/blob/main/docs/architecture/layers-drag-drop.md">Read the Layers drag-and-drop contract →</a>
+      </aside>
+
+      <div class="feature-cta">
+        <h2>Keep the layer stack working for you.</h2>
+        <a href={sitePath('/download')} class="btn-default">Download Varve</a>
+      </div>
+    </main>
+  </div>
+</Layout>
+
+<style>
+  .layers-page { max-width: 900px; margin: 0 auto; padding: 3rem 0 5rem; }
+  .breadcrumb { font-size: .875rem; margin-bottom: 2.5rem; color: var(--text-secondary); }
+  .breadcrumb a { color: var(--text-secondary); }
+  .page-hero { max-width: 700px; margin-bottom: 3.5rem; }
+  .page-hero h1 { margin: 1rem 0; font: 700 clamp(2.3rem, 6vw, 4rem)/1.05 var(--font-editorial); color: var(--text-primary); letter-spacing: -.025em; }
+  .page-hero p, .feature-section > p, .handoff p, .honesty p { color: var(--text-secondary); font-size: 1.08rem; line-height: 1.75; }
+  .eyebrow { color: var(--accent-primary); font-size: .75rem !important; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+  .layer-demo { display: grid; grid-template-columns: minmax(230px, .8fr) 1.4fr; min-height: 330px; overflow: hidden; border: 1px solid var(--border-default); border-radius: var(--website-radius-card); background: var(--surface-card); box-shadow: var(--elevation-shadow-raised); margin-bottom: 4rem; }
+  .layer-demo__panel { position: relative; padding: 1.25rem .85rem; border-right: 1px solid var(--border-default); background: var(--surface-raised); }
+  .layer-demo__heading { display: flex; justify-content: space-between; padding: .25rem .6rem 1rem; color: var(--text-primary); font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+  .layer-demo__dots { color: var(--text-tertiary); letter-spacing: .16em; }
+  .layer-demo__row { display: flex; align-items: center; gap: .55rem; min-height: 2.1rem; padding: .25rem .6rem; color: var(--text-secondary); font-size: .9rem; border-radius: var(--website-radius-control); }
+  .layer-demo__row--selected { color: var(--text-primary); background: var(--surface-accent-soft); }
+  .layer-demo__row--child { padding-left: 1.65rem; }
+  .layer-demo__grip { color: var(--accent-primary); font-size: .7rem; letter-spacing: -.18em; }
+  .layer-demo__chevron { width: .7rem; color: var(--text-tertiary); }
+  .layer-demo__indent { width: .7rem; }
+  .layer-demo__drop-line { position: absolute; top: 9.8rem; left: 1rem; right: .75rem; height: 2px; background: var(--accent-primary); box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent-primary) 16%, transparent); }
+  .layer-demo__canvas { position: relative; overflow: hidden; background: radial-gradient(circle at 20% 20%, color-mix(in oklab, var(--accent-primary) 12%, transparent) 0 1px, transparent 1.5px) 0 0 / 22px 22px, var(--surface-sunken); }
+  .layer-demo__canvas-label { position: absolute; top: 1.2rem; right: 1.4rem; color: var(--text-tertiary); font-size: .72rem; text-transform: uppercase; letter-spacing: .1em; }
+  .layer-demo__art { position: absolute; border: 1px solid var(--border-accent); border-radius: .4rem; transform: rotate(-7deg); }
+  .layer-demo__art--back { width: 45%; height: 42%; left: 22%; top: 28%; background: color-mix(in oklab, var(--brand-sandstone) 28%, var(--surface-card)); }
+  .layer-demo__art--front { width: 45%; height: 42%; left: 34%; top: 38%; background: color-mix(in oklab, var(--accent-primary) 30%, var(--surface-card)); }
+  .layer-demo__cursor { position: absolute; left: 69%; top: 62%; width: 1rem; height: 1rem; border-left: 2px solid var(--text-primary); border-top: 2px solid var(--text-primary); transform: rotate(-45deg); }
+  .feature-section { margin-bottom: 4rem; }
+  .feature-section h2, .handoff h2, .honesty h2 { margin: .5rem 0 1rem; color: var(--text-primary); font-size: clamp(1.6rem, 3vw, 2.3rem); }
+  .feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 2rem; }
+  .feature-grid article { padding: 1.25rem; border: 1px solid var(--border-default); border-radius: var(--website-radius-surface); }
+  .feature-grid h3 { margin: 0 0 .5rem; color: var(--text-primary); }
+  .feature-grid p { margin: 0; color: var(--text-secondary); line-height: 1.65; }
+  .handoff { display: grid; grid-template-columns: 1.2fr .8fr; gap: 2rem; padding: clamp(1.5rem, 4vw, 3rem); margin-bottom: 4rem; border: 1px solid var(--border-accent); border-radius: var(--website-radius-card); background: var(--surface-accent-soft); }
+  .handoff dl { margin: 0; }
+  .handoff dl div { padding: .85rem 0; border-bottom: 1px solid var(--border-default); }
+  .handoff dl div:last-child { border-bottom: 0; }
+  .handoff dt { color: var(--text-tertiary); font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; }
+  .handoff dd { margin: .25rem 0 0; color: var(--text-primary); line-height: 1.5; }
+  .honesty { padding: clamp(1.5rem, 4vw, 3rem); margin-bottom: 3rem; border: 1px solid var(--border-default); border-radius: var(--website-radius-card); background: var(--surface-card); }
+  .honesty a { color: var(--text-link); font-weight: 600; }
+  .feature-cta { padding: 3rem 0; border-top: 1px solid var(--border-default); text-align: center; }
+  .feature-cta h2 { margin-bottom: 1.5rem; color: var(--text-primary); font-size: 1.75rem; }
+  @media (max-width: 680px) { .layer-demo { grid-template-columns: 1fr; } .layer-demo__panel { border-right: 0; border-bottom: 1px solid var(--border-default); } .layer-demo__canvas { min-height: 240px; } .feature-grid, .handoff { grid-template-columns: 1fr; } }
+</style>
