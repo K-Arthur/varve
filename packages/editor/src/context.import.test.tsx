@@ -478,3 +478,125 @@ describe('Editor native clipboard paste (Varve-format data)', () => {
     expect(ctx.state.document.rootChildren).not.toContain(pastedChildId);
   });
 });
+
+describe('Editor Cut clipboard safety', () => {
+  function installClipboard(write: ReturnType<typeof vi.fn>, writeText = vi.fn()) {
+    const originalClipboard = navigator.clipboard;
+    const originalClipboardItem = globalThis.ClipboardItem;
+    class TestClipboardItem {
+      constructor(readonly entries: Record<string, Blob>) {}
+    }
+    Object.defineProperty(globalThis, 'ClipboardItem', {
+      configurable: true,
+      value: TestClipboardItem,
+    });
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { write, writeText },
+    });
+    return () => {
+      Object.defineProperty(globalThis, 'ClipboardItem', {
+        configurable: true,
+        value: originalClipboardItem,
+      });
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: originalClipboard,
+      });
+    };
+  }
+
+  it('does not delete source layers until editable clipboard output succeeds', async () => {
+    let finishWrite: (() => void) | undefined;
+    const write = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishWrite = resolve;
+        }),
+    );
+    const restoreClipboard = installClipboard(write);
+    const sourceDoc = createDocument('Cut source');
+    const page = sourceDoc.pages?.[0];
+    if (!page) throw new Error('Expected initial page');
+    const source = makeShapeNode('cut-source', { kind: 'rect', x: 20, y: 20, w: 80, h: 40 });
+    const initial = addChild(sourceDoc, page.contentRoot, source);
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function Test() {
+      ctx = useEditor();
+      return (
+        <>
+          <button type="button" onClick={() => ctx?.setSelection('cut-source')}>
+            select cut source
+          </button>
+          <button type="button" onClick={() => ctx?.cutSelected()}>
+            cut source
+          </button>
+        </>
+      );
+    }
+
+    try {
+      render(
+        <EditorProvider initialDocumentJson={DocumentCodec.encode(initial)}>
+          <Test />
+        </EditorProvider>,
+      );
+      screen.getByText('select cut source').click();
+      await waitFor(() => expect(ctx?.state.selection).toEqual(['cut-source']));
+      screen.getByText('cut source').click();
+      await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+      expect(ctx?.state.document.nodes['cut-source']).toBeDefined();
+
+      finishWrite?.();
+      await waitFor(() => expect(ctx?.state.document.nodes['cut-source']).toBeUndefined());
+      expect(ctx?.state.canUndo).toBe(true);
+    } finally {
+      restoreClipboard();
+    }
+  });
+
+  it('keeps source layers when only a names-only fallback can be written', async () => {
+    const write = vi.fn(async () => {
+      throw new DOMException('blocked', 'NotAllowedError');
+    });
+    const writeText = vi.fn(async () => undefined);
+    const restoreClipboard = installClipboard(write, writeText);
+    const doc = createDocument('Fallback cut');
+    const page = doc.pages?.[0];
+    if (!page) throw new Error('Expected initial page');
+    const initial = addChild(
+      doc,
+      page.contentRoot,
+      makeShapeNode('fallback-source', { kind: 'rect', x: 0, y: 0, w: 40, h: 40 }),
+    );
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function Test() {
+      ctx = useEditor();
+      return (
+        <button
+          type="button"
+          onClick={() => {
+            ctx?.setSelection('fallback-source');
+            ctx?.cutSelected();
+          }}
+        >
+          fallback cut
+        </button>
+      );
+    }
+
+    try {
+      render(
+        <EditorProvider initialDocumentJson={DocumentCodec.encode(initial)}>
+          <Test />
+        </EditorProvider>,
+      );
+      screen.getByText('fallback cut').click();
+      await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+      expect(ctx?.state.document.nodes['fallback-source']).toBeDefined();
+      expect(ctx?.state.canUndo).toBe(false);
+    } finally {
+      restoreClipboard();
+    }
+  });
+});

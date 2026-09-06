@@ -371,7 +371,7 @@ import {
   rotateViewAtScreen,
   toCamera,
 } from './canvas/cameraState';
-import { readClipboardUnifiedWithFallback, writeClipboard as writeToClipboard } from './clipboard';
+import { readClipboardUnifiedWithFallback, writeClipboardOutcome } from './clipboard';
 import type { SectionId } from './components/Inspector/sectionRegistry';
 import {
   hideOptionalSections as hideAllOptional,
@@ -670,6 +670,10 @@ function gatherSubtreeNodes(doc: Document, ids: NodeId[]): SceneNode[] {
   };
   for (const id of ids) visit(id);
   return result;
+}
+
+function sameNodeIdList(left: readonly NodeId[], right: readonly NodeId[]): boolean {
+  return left.length === right.length && left.every((id, index) => id === right[index]);
 }
 
 function insertImportedSubtree(
@@ -7701,65 +7705,117 @@ export function EditorProvider({
       },
 
       copySelected: () => {
-        const guideId = stateRef.current.selectedGuideId;
+        const snapshot = stateRef.current;
+        const guideId = snapshot.selectedGuideId;
         if (guideId) {
-          const pageId = resolveGuidePageId(stateRef.current.document);
-          const guide = getGuidesForPage(stateRef.current.document, pageId).find(
-            (g) => g.id === guideId,
-          );
+          const pageId = resolveGuidePageId(snapshot.document);
+          const guide = getGuidesForPage(snapshot.document, pageId).find((g) => g.id === guideId);
           if (guide) {
             void writeGuidesToClipboard([guide]);
             announcerRef.current?.announce('Copied guide');
           }
           return;
         }
-        const sel = state.selection;
+        const sel = snapshot.selection;
         if (sel.length === 0) return;
-        const nodes = gatherSubtreeNodes(state.document, sel);
+        const nodes = gatherSubtreeNodes(snapshot.document, sel);
         if (nodes.length === 0) return;
         const nodeIds = nodes.map((n) => n.id);
-        const closure = DocumentCodec.collectNodeClosure(state.document, nodeIds);
+        const closure = DocumentCodec.collectNodeClosure(snapshot.document, nodeIds);
         // World anchor per selection root (placed world): lets paste rebuild
         // the exact world pose inside a destination frame/artboard.
         const worldAnchor: Record<string, Affine> = {};
         for (const id of sel) {
-          worldAnchor[id] = nodeWorldTransform(state.document, id);
+          worldAnchor[id] = nodeWorldTransform(snapshot.document, id);
         }
-        writeToClipboard(
+        void writeClipboardOutcome(
           nodes,
           closure.rasterMaskAssets,
           closure.assets,
           closure.iconAssets,
           worldAnchor,
+          sel,
+        ).then(
+          (outcome) => {
+            if (outcome.status === 'editable') {
+              announcerRef.current?.announce(
+                `Copied ${sel.length} layer${sel.length > 1 ? 's' : ''}`,
+              );
+            } else if (outcome.status === 'text-only') {
+              announcerRef.current?.announce(
+                `Copied layer names as text — editable layer copy unavailable`,
+              );
+            } else {
+              announcerRef.current?.announce('Copy failed — clipboard unavailable');
+            }
+          },
+          () => announcerRef.current?.announce('Copy failed — clipboard unavailable'),
         );
-        announcerRef.current?.announce(`Copied ${sel.length} layer${sel.length > 1 ? 's' : ''}`);
       },
 
       cutSelected: () => {
-        const sel = state.selection;
+        const snapshot = stateRef.current;
+        const sel = [...snapshot.selection];
         if (sel.length === 0) return;
-        const nodes = gatherSubtreeNodes(state.document, sel);
+        if (sel.some((id) => isNodeEffectivelyLocked(snapshot.document, id))) {
+          announcerRef.current?.announce('Cut unavailable — unlock the selected layers first');
+          return;
+        }
+        const nodes = gatherSubtreeNodes(snapshot.document, sel);
         if (nodes.length === 0) return;
         const nodeIds = nodes.map((n) => n.id);
-        const closure = DocumentCodec.collectNodeClosure(state.document, nodeIds);
+        const closure = DocumentCodec.collectNodeClosure(snapshot.document, nodeIds);
         const worldAnchor: Record<string, Affine> = {};
         for (const id of sel) {
-          worldAnchor[id] = nodeWorldTransform(state.document, id);
+          worldAnchor[id] = nodeWorldTransform(snapshot.document, id);
         }
-        writeToClipboard(
+        const sourceDocument = snapshot.document;
+        const sourceDocumentId = sourceDocument.id;
+        const sourceSessionId = snapshot.activeId;
+        const sourceRevision = snapshot.revision;
+        void writeClipboardOutcome(
           nodes,
           closure.rasterMaskAssets,
           closure.assets,
           closure.iconAssets,
           worldAnchor,
+          sel,
+        ).then(
+          (outcome) => {
+            if (outcome.status !== 'editable') {
+              announcerRef.current?.announce(
+                outcome.status === 'text-only'
+                  ? 'Cut cancelled — only a text fallback was copied'
+                  : 'Cut cancelled — editable clipboard copy failed',
+              );
+              return;
+            }
+            const current = stateRef.current;
+            const sourceStillOwnsSelection =
+              current.document === sourceDocument &&
+              current.document.id === sourceDocumentId &&
+              current.activeId === sourceSessionId &&
+              current.revision === sourceRevision &&
+              sameNodeIdList(current.selection, sel) &&
+              sel.every((id) => current.document.nodes[id] !== undefined);
+            if (!sourceStillOwnsSelection) {
+              announcerRef.current?.announce(
+                'Copied layers; Cut cancelled because the document changed',
+              );
+              return;
+            }
+            groupCompoundOperation('Cut', () => {
+              updateDoc((doc) => {
+                let next = doc;
+                for (const id of sel) next = removeNode(next, id);
+                return next;
+              });
+              patch({ selection: [] });
+            });
+            announcerRef.current?.announce(`Cut ${sel.length} layer${sel.length > 1 ? 's' : ''}`);
+          },
+          () => announcerRef.current?.announce('Cut cancelled — editable clipboard copy failed'),
         );
-        updateDoc((doc) => {
-          let d = doc;
-          for (const id of sel) d = removeNode(d, id);
-          return d;
-        });
-        patch({ selection: [] });
-        announcerRef.current?.announce(`Cut ${sel.length} layer${sel.length > 1 ? 's' : ''}`);
       },
 
       paste: async () => {
