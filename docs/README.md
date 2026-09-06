@@ -215,6 +215,7 @@ Current interface typography and component sizing contracts are documented in
 | `architecture/motion-system.md` | Motion/animation architecture |
 | `architecture/text-pipeline.md` | Multilingual text rendering and layout |
 | `architecture/text-on-path.md` | Text-on-path data, rendering, editing, export, and fidelity limits |
+| `architecture/clipboard-system.md` | System clipboard ownership, fragment fidelity, representation negotiation, placement, and Cut safety |
 | `architecture/loading-system.md` | Loading experience system |
 | `architecture/shine-border-system.md` | Restrained decorative emphasis contract, semantic allowlist, fallbacks, and production ceiling |
 | `architecture/button-action-system.md` | Semantic button taxonomy, canonical action variants, state behavior, and validation contract |

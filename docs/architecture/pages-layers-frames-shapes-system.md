@@ -69,7 +69,7 @@ Shared model behavior should not diverge between desktop and web. The I/O adapte
 - Web target: `@varve/platform/src/web.ts` stores home files in IndexedDB, uses File System Access API when available, and falls back to `<input type=file>` or Blob downloads.
 - Tauri target: `@varve/platform/src/tauri.ts` persists through Tauri IPC into the native SQLite store, uses `tauri-plugin-dialog` for native open/save dialogs, and uses native file writes.
 - Drag and drop: browser code uses HTML5 `DataTransfer`; Tauri config currently does not set `dragDropEnabled`, so Tauri's default native file-drop handling can differ from browser drop behavior.
-- Clipboard: editor clipboard uses browser Clipboard API and DOM paste-event fallbacks. A dedicated Tauri clipboard adapter is not present in this slice.
+- Clipboard: editor clipboard uses a validated Varve fragment, synchronously snapshotted DOM paste events, async browser reads, and a narrow Tauri image fallback. The canonical command, fidelity, and limitation contract is in [`clipboard-system.md`](clipboard-system.md).
 - Multi-document: current product behavior is in-app sessions/tabs in one JS heap. Browser cross-tab and Tauri multi-window shared-state semantics are not yet implemented.
 - Context menus: current editor/page/layer menus are custom in-app UI, not native Tauri menus.
 
@@ -103,7 +103,7 @@ Access date for all links: 2026-07-12.
 High:
 
 - Add a Tauri file-drop adapter or explicitly set `dragDropEnabled` per intended behavior, then test OS file drop on Linux/Wayland, Windows, and macOS.
-- Add browser/Tauri clipboard capability documentation and target-specific tests for custom Varve JSON, SVG, PNG, and permission-denied paths.
+- Exercise the documented browser/Tauri clipboard matrix for custom Varve JSON, SVG, PNG, and permission-denied paths; the transport and editor integration contract is now implemented and covered by focused tests.
 - Extend codec repair to detect duplicate parentage and cycles in untrusted documents before editor state consumes them.
 - Add Playwright page-workflow coverage: create page, switch page, create shape, delete active page, save/reopen, and assert rendered/layer state.
 
