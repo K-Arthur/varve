@@ -672,6 +672,23 @@ function gatherSubtreeNodes(doc: Document, ids: NodeId[]): SceneNode[] {
   return result;
 }
 
+/** Remove selected descendants from transfer roots. */
+function selectionRootIds(doc: Document, ids: readonly NodeId[]): NodeId[] {
+  const selected = new Set(ids);
+  return ids.filter((id) => {
+    const visited = new Set<NodeId>();
+    let current: NodeId | null = id;
+    while (current && !visited.has(current)) {
+      visited.add(current);
+      const parent = getParent(doc, current);
+      if (!parent) return true;
+      if (selected.has(parent)) return false;
+      current = parent;
+    }
+    return true;
+  });
+}
+
 function sameNodeIdList(left: readonly NodeId[], right: readonly NodeId[]): boolean {
   return left.length === right.length && left.every((id, index) => id === right[index]);
 }
@@ -7747,7 +7764,7 @@ export function EditorProvider({
           }
           return;
         }
-        const sel = snapshot.selection;
+        const sel = selectionRootIds(snapshot.document, snapshot.selection);
         if (sel.length === 0) return;
         const nodes = gatherSubtreeNodes(snapshot.document, sel);
         if (nodes.length === 0) return;
@@ -7766,6 +7783,7 @@ export function EditorProvider({
           closure.iconAssets,
           worldAnchor,
           sel,
+          closure.mockupTemplates,
         ).then(
           (outcome) => {
             if (outcome.status === 'editable') {
@@ -7786,7 +7804,8 @@ export function EditorProvider({
 
       cutSelected: () => {
         const snapshot = stateRef.current;
-        const sel = [...snapshot.selection];
+        const selected = [...snapshot.selection];
+        const sel = selectionRootIds(snapshot.document, selected);
         if (sel.length === 0) return;
         if (sel.some((id) => isNodeEffectivelyLocked(snapshot.document, id))) {
           announcerRef.current?.announce('Cut unavailable — unlock the selected layers first');
@@ -7811,6 +7830,7 @@ export function EditorProvider({
           closure.iconAssets,
           worldAnchor,
           sel,
+          closure.mockupTemplates,
         ).then(
           (outcome) => {
             if (outcome.status !== 'editable') {
@@ -7827,7 +7847,7 @@ export function EditorProvider({
               current.document.id === sourceDocumentId &&
               current.activeId === sourceSessionId &&
               current.revision === sourceRevision &&
-              sameNodeIdList(current.selection, sel) &&
+              sameNodeIdList(current.selection, selected) &&
               sel.every((id) => current.document.nodes[id] !== undefined);
             if (!sourceStillOwnsSelection) {
               announcerRef.current?.announce(
@@ -7850,9 +7870,7 @@ export function EditorProvider({
       },
 
       paste: async () => {
-        // Capture the destination before any permission prompt, decode, or
-        // import. A delayed paste must never follow a newly selected layer,
-        // page, session, or workspace by accident.
+        // Capture the destination before asynchronous clipboard work.
         const invocation: PasteInvocation = {
           document: stateRef.current.document,
           activeId: stateRef.current.activeId,
@@ -7897,7 +7915,7 @@ export function EditorProvider({
         const unified = await readClipboardUnifiedWithFallback(platform);
         const varveData = unified.varveData;
 
-        const importInputs = unified.importItems.map((item): ImportFileInput => {
+        const importInputs = (varveData ? [] : unified.importItems).map((item): ImportFileInput => {
           if (typeof item.data === 'string') {
             return {
               name: item.name,
@@ -7958,6 +7976,9 @@ export function EditorProvider({
                   : {}),
                 ...(varveData.assets ? { assets: varveData.assets } : {}),
                 ...(varveData.iconAssets ? { iconAssets: varveData.iconAssets } : {}),
+                ...(varveData.mockupTemplates
+                  ? { mockupTemplates: varveData.mockupTemplates }
+                  : {}),
               };
               // copySelected()/cutSelected() serialize each selected node plus
               // its full descendant subtree (gatherSubtreeNodes), so a node
@@ -7970,9 +7991,14 @@ export function EditorProvider({
                   for (const childId of node.children) childIds.add(childId);
                 }
               }
+              const rootIds =
+                varveData.rootIds && varveData.rootIds.length > 0
+                  ? varveData.rootIds
+                  : varveData.nodes.filter((node) => !childIds.has(node.id)).map((node) => node.id);
               const worldAnchor = varveData.worldAnchor ?? {};
-              for (const node of varveData.nodes) {
-                if (childIds.has(node.id)) continue;
+              for (const rootId of rootIds) {
+                const node = tempNodes[rootId];
+                if (!node) continue;
                 // insertImportedSubtree deep-clones from tempDoc (handling
                 // containers and leaves alike), merges every cloned descendant
                 // into doc.nodes, and hooks only the subtree root into the
@@ -8083,7 +8109,16 @@ export function EditorProvider({
           });
         });
 
-        const totalCount = (varveData?.nodes.length ?? 0) + importResults.length;
+        const totalCount =
+          (varveData
+            ? (varveData.rootIds?.length ??
+              varveData.nodes.filter(
+                (node) =>
+                  !varveData.nodes.some(
+                    (parent) => isContainer(parent) && parent.children.includes(node.id),
+                  ),
+              ).length)
+            : 0) + importResults.length;
         if (totalCount > 0) {
           const failed = importReport?.failureCount ?? 0;
           announcerRef.current?.announce(
@@ -9148,10 +9183,10 @@ export function EditorProvider({
                 denoise:
                   operation === 'denoise' || operation === 'restore-upscale'
                     ? {
-                        strength:
-                          denoiseStrength && denoiseStrength !== 'none'
-                            ? denoiseStrength
-                            : 'medium',
+                        // `none` is an explicit no-op. Preserve it so the
+                        // planner can omit the denoise stage instead of
+                        // silently running a medium-strength model.
+                        strength: denoiseStrength ?? 'medium',
                         modelId: 'scunet',
                       }
                     : undefined,

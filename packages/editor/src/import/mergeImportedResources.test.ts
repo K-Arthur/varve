@@ -1,3 +1,4 @@
+import type { MockupTemplateAsset } from '@varve/scene';
 import {
   createDocument,
   createVariableStore,
@@ -96,5 +97,55 @@ describe('mergeImportedResources', () => {
     expect((interaction?.actions[0] as { targetId?: string } | undefined)?.targetId).toBe(
       clone.idMap.get(master.id),
     );
+  });
+
+  it('remaps mockup templates referenced by imported frame instances', () => {
+    const sourceFrame = makeFrameNode('source-frame', { name: 'Mockup' });
+    const source = {
+      ...createDocument('source-mockup'),
+      rootChildren: [sourceFrame.id],
+      nodes: {
+        [sourceFrame.id]: {
+          ...sourceFrame,
+          mockup: { templateId: 'source-template', surfaceBindings: {} },
+        },
+      },
+      mockupTemplates: {
+        'source-template': {
+          id: 'source-template',
+          schemaVersion: 2,
+          name: 'Source phone',
+          category: 'devices',
+          source: 'community',
+          orientation: 'portrait',
+          outputWidth: 100,
+          outputHeight: 200,
+          backgroundColor: 'transparent',
+          plate: [],
+          surfaces: [],
+          overlays: [],
+          contentHash: 'source-hash',
+        } satisfies MockupTemplateAsset,
+      },
+    };
+    const target = createDocument('target-mockup');
+    const clone = deepCloneSubtree(source.nodes, target.nextId, sourceFrame.id, {
+      dropForeignReferences: true,
+    });
+    const clonedDocument = {
+      ...target,
+      nodes: clone.nodes,
+      rootChildren: [clone.rootId],
+      nextId: clone.nextId,
+    };
+    const merged = mergeImportedResources(clonedDocument, [
+      { sourceDoc: source, idMap: clone.idMap },
+    ]);
+    const clonedFrame = merged.nodes[clone.rootId];
+    const templateId = clonedFrame?.kind === 'frame' ? clonedFrame.mockup?.templateId : undefined;
+
+    expect(templateId).toBeTruthy();
+    expect(templateId).not.toBe('source-template');
+    expect(merged.mockupTemplates?.[templateId!]?.contentHash).toBe('source-hash');
   });
 });

@@ -13,6 +13,7 @@
  * Research basis: Clipboard API (W3C), custom MIME types for structured data.
  */
 import type { Platform } from '@varve/platform';
+import type { MockupTemplateAsset } from '@varve/scene';
 import {
   type DocumentAsset,
   type DocumentIconAsset,
@@ -65,6 +66,7 @@ export interface ClipboardData {
   rasterMaskAssets?: Record<string, RasterMaskAsset>;
   assets?: Record<string, DocumentAsset>;
   iconAssets?: Record<string, DocumentIconAsset>;
+  mockupTemplates?: Record<string, MockupTemplateAsset>;
   /**
    * Placed-world transform of each copied selection root, keyed by the
    * node's ORIGINAL id. Optional and forward-compatible: clipboard payloads
@@ -174,6 +176,9 @@ export function parseClipboardData(text: string): ClipboardData | null {
     ...(isRecord(raw.iconAssets)
       ? { iconAssets: raw.iconAssets as ClipboardData['iconAssets'] }
       : {}),
+    ...(isRecord(raw.mockupTemplates)
+      ? { mockupTemplates: raw.mockupTemplates as ClipboardData['mockupTemplates'] }
+      : {}),
     ...(isRecord(raw.worldAnchor)
       ? { worldAnchor: raw.worldAnchor as ClipboardData['worldAnchor'] }
       : {}),
@@ -187,6 +192,7 @@ function serializeClipboardData(
   iconAssets?: Record<string, DocumentIconAsset>,
   worldAnchor?: Record<string, Affine>,
   rootIds?: string[],
+  mockupTemplates?: Record<string, MockupTemplateAsset>,
 ): string {
   const data: ClipboardData = {
     format: VARVE_CLIPBOARD_FORMAT,
@@ -196,6 +202,7 @@ function serializeClipboardData(
     ...(rasterMaskAssets && Object.keys(rasterMaskAssets).length > 0 ? { rasterMaskAssets } : {}),
     ...(assets && Object.keys(assets).length > 0 ? { assets } : {}),
     ...(iconAssets && Object.keys(iconAssets).length > 0 ? { iconAssets } : {}),
+    ...(mockupTemplates && Object.keys(mockupTemplates).length > 0 ? { mockupTemplates } : {}),
     ...(worldAnchor && Object.keys(worldAnchor).length > 0 ? { worldAnchor } : {}),
   };
   return JSON.stringify(data);
@@ -212,6 +219,7 @@ export async function writeClipboardOutcome(
   iconAssets?: Record<string, DocumentIconAsset>,
   worldAnchor?: Record<string, Affine>,
   rootIds?: string[],
+  mockupTemplates?: Record<string, MockupTemplateAsset>,
 ): Promise<ClipboardWriteOutcome> {
   if (typeof navigator === 'undefined' || !navigator.clipboard) {
     return { status: 'failed', reason: 'clipboard-unavailable' };
@@ -225,6 +233,7 @@ export async function writeClipboardOutcome(
       iconAssets,
       worldAnchor,
       rootIds,
+      mockupTemplates,
     );
   } catch {
     return { status: 'failed', reason: 'write-failed' };
@@ -284,10 +293,20 @@ export async function writeClipboard(
   iconAssets?: Record<string, DocumentIconAsset>,
   worldAnchor?: Record<string, Affine>,
   rootIds?: string[],
+  mockupTemplates?: Record<string, MockupTemplateAsset>,
 ): Promise<boolean> {
   return (
-    (await writeClipboardOutcome(nodes, rasterMaskAssets, assets, iconAssets, worldAnchor, rootIds))
-      .status === 'editable'
+    (
+      await writeClipboardOutcome(
+        nodes,
+        rasterMaskAssets,
+        assets,
+        iconAssets,
+        worldAnchor,
+        rootIds,
+        mockupTemplates,
+      )
+    ).status === 'editable'
   );
 }
 

@@ -1,4 +1,4 @@
-import type { Document, SceneNode } from '@varve/scene';
+import type { Document, MockupTemplateAsset, SceneNode } from '@varve/scene';
 import { nextNodeId } from '@varve/scene';
 
 export interface ImportedResourceSet {
@@ -10,6 +10,7 @@ interface ResourceMaps {
   nodeIds: Map<string, string>;
   componentIds: Map<string, string>;
   styleIds: Map<string, string>;
+  templateIds: Map<string, string>;
   variableIds: Map<string, string>;
   collectionIds: Map<string, string>;
 }
@@ -72,6 +73,7 @@ function mergeGroup(
     nodeIds,
     componentIds: new Map(),
     styleIds: new Map(),
+    templateIds: new Map(),
     variableIds: new Map(),
     collectionIds: new Map(),
   };
@@ -85,6 +87,11 @@ function mergeGroup(
     const allocated = allocateResourceId(doc, occupied);
     doc = allocated.doc;
     maps.styleIds.set(id, allocated.id);
+  }
+  for (const id of Object.keys(sourceDoc.mockupTemplates ?? {})) {
+    const allocated = allocateResourceId(doc, occupied);
+    doc = allocated.doc;
+    maps.templateIds.set(id, allocated.id);
   }
   for (const id of Object.keys(sourceDoc.variableStore?.variables ?? {})) {
     const allocated = allocateResourceId(doc, occupied);
@@ -133,6 +140,13 @@ function mergeGroup(
     const id = maps.styleIds.get(sourceId);
     if (!id) continue;
     styles[id] = { ...source, id };
+  }
+
+  const mockupTemplates = { ...(doc.mockupTemplates ?? {}) };
+  for (const [sourceId, source] of Object.entries(sourceDoc.mockupTemplates ?? {})) {
+    const id = maps.templateIds.get(sourceId);
+    if (!id) continue;
+    mockupTemplates[id] = { ...structuredClone(source), id } as MockupTemplateAsset;
   }
 
   const sourceStore = sourceDoc.variableStore;
@@ -189,6 +203,7 @@ function mergeGroup(
       componentId?: string;
       styleId?: string;
       bindings?: Record<string, { variableId: string }>;
+      mockup?: { templateId?: string };
     };
     if ('componentId' in candidate) {
       const componentId = maps.componentIds.get(candidate.componentId ?? '');
@@ -208,6 +223,11 @@ function mergeGroup(
         (candidate as unknown as { bindings: Record<string, { variableId: string }> }).bindings =
           remappedBindings;
       } else delete (candidate as unknown as { bindings?: unknown }).bindings;
+    }
+    if (candidate.kind === 'frame' && candidate.mockup?.templateId) {
+      const templateId = maps.templateIds.get(candidate.mockup.templateId);
+      if (templateId) candidate.mockup = { ...candidate.mockup, templateId };
+      else delete candidate.mockup;
     }
     nodes[targetId] = candidate;
   }
@@ -231,6 +251,7 @@ function mergeGroup(
       nodes,
       components,
       ...(Object.keys(styles).length > 0 ? { styles } : {}),
+      ...(Object.keys(mockupTemplates).length > 0 ? { mockupTemplates } : {}),
       ...(Object.keys(interactions).length > 0 ? { interactions } : {}),
     },
     maps,
@@ -251,6 +272,7 @@ export function mergeImportedResources(target: Document, imports: ImportedResour
     ...Object.keys(doc.nodes),
     ...Object.keys(doc.components),
     ...Object.keys(doc.styles ?? {}),
+    ...Object.keys(doc.mockupTemplates ?? {}),
     ...Object.keys(doc.variableStore?.variables ?? {}),
     ...Object.keys(doc.variableStore?.collections ?? {}),
   ]);
