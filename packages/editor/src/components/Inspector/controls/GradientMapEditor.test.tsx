@@ -354,6 +354,64 @@ describe('GradientMapEditor', () => {
         />,
       );
       expect(screen.getByLabelText(/stop 1 position/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/stop 1 midpoint/i)).toBeInTheDocument();
+    });
+
+    it('keeps the selected stop attached to its id when positions reorder', () => {
+      const onChange = vi.fn();
+      const { rerender } = render(
+        <GradientMapEditor
+          stops={[
+            { id: 'a', position: 0, color: [0, 0, 0, 255] },
+            { id: 'b', position: 0.5, color: [128, 128, 128, 255] },
+            { id: 'c', position: 1, color: [255, 255, 255, 255] },
+          ]}
+          dither={false}
+          preserveLuminosity={false}
+          onChange={onChange}
+        />,
+      );
+
+      fireEvent.pointerDown(findStop(2), { button: 0 });
+      fireEvent.pointerUp(window);
+      rerender(
+        <GradientMapEditor
+          stops={[
+            { id: 'b', position: 0.2, color: [128, 128, 128, 255] },
+            { id: 'a', position: 0.7, color: [0, 0, 0, 255] },
+            { id: 'c', position: 1, color: [255, 255, 255, 255] },
+          ]}
+          dither={false}
+          preserveLuminosity={false}
+          onChange={onChange}
+        />,
+      );
+
+      fireEvent.keyDown(within(findBar()).getByRole('button', { name: /Stop 1 at 20%/i }), {
+        key: 'ArrowRight',
+      });
+      const changed = onChange.mock.calls[0]![0] as {
+        stops: Array<{ id: string; position: number }>;
+      };
+      expect(changed.stops.find((stop) => stop.id === 'b')?.position).toBeCloseTo(0.21);
+    });
+
+    it('edits the selected stop midpoint as a normalized control', () => {
+      const onChange = vi.fn();
+      render(
+        <GradientMapEditor
+          stops={makeDefaultStops()}
+          dither={false}
+          preserveLuminosity={false}
+          onChange={onChange}
+        />,
+      );
+      fireEvent.change(screen.getByLabelText(/stop 1 midpoint/i), {
+        target: { value: '72.5' },
+      });
+      expect(onChange).toHaveBeenCalledWith({
+        stops: expect.arrayContaining([expect.objectContaining({ midpoint: 0.725 })]),
+      });
     });
   });
 

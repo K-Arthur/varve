@@ -4,12 +4,13 @@ import type {
   GradientMapOpacityStop,
   GradientMapStop,
 } from '@varve/engine';
+import { sampleGradientMapAlpha, sampleGradientMapColor } from '@varve/engine';
 import type { GradientInterpolationSpace, ManagedColor } from '@varve/scene';
 import { cryptoId, rgbFromTuple } from '@varve/scene';
 import { denormalizeChannel, managedColorToRgba, normalizeChannel } from '@varve/shared';
 import { Select, Switch } from '@varve/ui';
 import { ColorPicker } from '@varve/ui/components/ColorPicker';
-import { useCallback, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 
 function colorToManaged(c: Color): ManagedColor {
   return rgbFromTuple(c);
@@ -36,53 +37,18 @@ function stopColorCss(c: Color): string {
   return `rgba(${c[0]},${c[1]},${c[2]},${(c[3] / 255).toFixed(2)})`;
 }
 
-function gradientCss(stops: GradientMapStop[]): string {
-  const sorted = [...stops].sort((a, b) => a.position - b.position);
-  const parts = sorted.map((s) => `${stopColorCss(s.color)} ${(s.position * 100).toFixed(1)}%`);
+function gradientCss(
+  stops: GradientMapStop[],
+  interpolation: GradientInterpolationSpace,
+  reverse: boolean,
+  opacityStops: GradientMapOpacityStop[] | undefined,
+): string {
+  const parts = Array.from({ length: 33 }, (_, index) => index / 32).map((position) => {
+    const color = sampleGradientMapColor(stops, position, { interpolation, reverse });
+    const alpha = sampleGradientMapAlpha(stops, opacityStops, position, { reverse });
+    return `rgba(${color[0]},${color[1]},${color[2]},${alpha.toFixed(3)}) ${(position * 100).toFixed(2)}%`;
+  });
   return `linear-gradient(90deg, ${parts.join(', ')})`;
-}
-
-function interpolateColor(a: Color, b: Color, t: number): Color {
-  return [
-    Math.round(a[0] + (b[0] - a[0]) * t),
-    Math.round(a[1] + (b[1] - a[1]) * t),
-    Math.round(a[2] + (b[2] - a[2]) * t),
-    Math.round(a[3] + (b[3] - a[3]) * t),
-  ] as Color;
-}
-
-function interpolatedColorAt(stops: GradientMapStop[], position: number): Color {
-  const sorted = [...stops].sort((a, b) => a.position - b.position);
-  if (sorted.length === 0) return [0, 0, 0, 255] as Color;
-  if (position <= sorted[0]!.position) return sorted[0]!.color;
-  if (position >= sorted[sorted.length - 1]!.position) return sorted[sorted.length - 1]!.color;
-  for (let i = 0; i < sorted.length - 1; i++) {
-    const lo = sorted[i]!;
-    const hi = sorted[i + 1]!;
-    if (position >= lo.position && position <= hi.position) {
-      const span = hi.position - lo.position;
-      const t = span === 0 ? 0 : (position - lo.position) / span;
-      return interpolateColor(lo.color, hi.color, t);
-    }
-  }
-  return sorted[sorted.length - 1]!.color;
-}
-
-function interpolatedOpacityAt(stops: GradientMapOpacityStop[], position: number): number {
-  const sorted = [...stops].sort((a, b) => a.position - b.position);
-  if (sorted.length === 0) return 1;
-  if (position <= sorted[0]!.position) return sorted[0]!.opacity;
-  if (position >= sorted[sorted.length - 1]!.position) return sorted[sorted.length - 1]!.opacity;
-  for (let i = 0; i < sorted.length - 1; i++) {
-    const lo = sorted[i]!;
-    const hi = sorted[i + 1]!;
-    if (position >= lo.position && position <= hi.position) {
-      const span = hi.position - lo.position;
-      const t = span === 0 ? 0 : (position - lo.position) / span;
-      return lo.opacity + (hi.opacity - lo.opacity) * t;
-    }
-  }
-  return sorted[sorted.length - 1]!.opacity;
 }
 
 export interface GradientMapChannelStops {
@@ -126,6 +92,23 @@ export interface GradientMapEditorProps {
   onEditEnd?: () => void;
 }
 
+type StopIdentityMap = WeakMap<object, string>;
+
+function stableStopId(
+  stop: GradientMapStop | GradientMapOpacityStop,
+  index: number,
+  map: StopIdentityMap,
+  prefix: string,
+): string {
+  if (stop.id) return stop.id;
+  const object = stop as object;
+  const existing = map.get(object);
+  if (existing) return existing;
+  const id = `${prefix}-${index + 1}-${cryptoId()}`;
+  map.set(object, id);
+  return id;
+}
+
 const LUMINANCE_OPTIONS: { value: GradientMapLuminanceMode; label: string }[] = [
   { value: 'relative-luminance', label: 'Relative luminance' },
   { value: 'perceptual-lightness', label: 'Perceptual lightness' },
@@ -152,6 +135,8 @@ function ChannelBars({
   onChange,
   onEditStart,
   onEditEnd,
+  interpolation,
+  reverse,
 }: {
   rStops: GradientMapStop[];
   gStops: GradientMapStop[];
@@ -159,6 +144,8 @@ function ChannelBars({
   onChange: (ch: GradientMapChannelStops) => void;
   onEditStart?: () => void;
   onEditEnd?: () => void;
+  interpolation: GradientInterpolationSpace;
+  reverse: boolean;
 }) {
   const channels: {
     key: 'r' | 'g' | 'b';
@@ -182,6 +169,8 @@ function ChannelBars({
           onChange={(next) => onChange({ [key]: next } as GradientMapChannelStops)}
           onEditStart={onEditStart}
           onEditEnd={onEditEnd}
+          interpolation={interpolation}
+          reverse={reverse}
         />
       ))}
     </div>
@@ -195,6 +184,8 @@ function ChannelBar({
   onChange,
   onEditStart,
   onEditEnd,
+  interpolation,
+  reverse,
 }: {
   label: string;
   accent: string;
@@ -202,10 +193,27 @@ function ChannelBar({
   onChange: (stops: GradientMapStop[]) => void;
   onEditStart?: () => void;
   onEditEnd?: () => void;
+  interpolation: GradientInterpolationSpace;
+  reverse: boolean;
 }) {
   const barRef = useRef<HTMLDivElement>(null);
-  const [selected, setSelected] = useState(0);
-  const sorted = useMemo(() => [...stops].sort((a, b) => a.position - b.position), [stops]);
+  const idsRef = useRef<StopIdentityMap>(new WeakMap());
+  const sorted = useMemo(
+    () =>
+      stops
+        .map((stop, index) => ({
+          ...stop,
+          id: stableStopId(stop, index, idsRef.current, `gradient-${label.toLowerCase()}`),
+        }))
+        .sort((a, b) => a.position - b.position),
+    [stops, label],
+  );
+  const [selectedId, setSelectedId] = useState<string | null>(sorted[0]?.id ?? null);
+
+  useEffect(() => {
+    if (!selectedId || sorted.some((stop) => stop.id === selectedId)) return;
+    setSelectedId(sorted[0]?.id ?? null);
+  }, [selectedId, sorted]);
 
   const handleBarClick = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
@@ -215,25 +223,31 @@ function ChannelBar({
       const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
       const near = sorted.findIndex((s) => Math.abs(s.position - pos) < 0.04);
       if (near >= 0) {
-        setSelected(near);
+        setSelectedId(sorted[near]!.id);
         return;
       }
-      const color = interpolatedColorAt(sorted, pos);
-      onChange([...sorted, { id: cryptoId(), position: pos, color }]);
-      setSelected(sorted.length);
+      const id = cryptoId();
+      const color = sampleGradientMapColor(sorted, pos, { interpolation, reverse });
+      onChange([...sorted, { id, position: pos, color }]);
+      setSelectedId(id);
     },
-    [sorted, onChange],
+    [sorted, onChange, interpolation, reverse],
   );
 
   const updateStop = useCallback(
-    (index: number, partial: Partial<GradientMapStop>) => {
-      const next = sorted.map((s, i) => (i === index ? { ...s, ...partial } : s));
+    (id: string, partial: Partial<GradientMapStop>) => {
+      const next = stops.map((stop, index) =>
+        stableStopId(stop, index, idsRef.current, `gradient-${label.toLowerCase()}`) === id
+          ? { ...stop, id, ...partial }
+          : stop,
+      );
       onChange(next);
     },
-    [sorted, onChange],
+    [stops, onChange, label],
   );
 
-  const current = sorted[selected];
+  const selectedIndex = sorted.findIndex((stop) => stop.id === selectedId);
+  const current = selectedIndex >= 0 ? sorted[selectedIndex] : sorted[0];
 
   return (
     <div className="gm-editor__channel">
@@ -245,7 +259,7 @@ function ChannelBar({
       <div
         ref={barRef}
         className="gm-editor__channel-bar"
-        style={{ background: gradientCss(sorted) }}
+        style={{ background: gradientCss(sorted, interpolation, reverse, undefined) }}
         onPointerDown={handleBarClick}
       >
         {sorted.map((stop, i) => (
@@ -255,11 +269,11 @@ function ChannelBar({
             key={stop.id ?? `ch-${label}-${i}`}
             type="button"
             aria-label={`${label} stop ${i + 1} at ${Math.round(stop.position * 100)}%`}
-            className={`gm-editor__stop${selected === i ? ' gm-editor__stop--selected' : ' gm-editor__stop--idle'}`}
+            className={`gm-editor__stop${selectedId === stop.id ? ' gm-editor__stop--selected' : ' gm-editor__stop--idle'}`}
             style={{ left: `${stop.position * 100}%`, background: stopColorCss(stop.color) }}
             onPointerDown={(e) => {
               e.stopPropagation();
-              setSelected(i);
+              setSelectedId(stop.id);
             }}
           />
         ))}
@@ -268,7 +282,7 @@ function ChannelBar({
         <div className="gm-editor__channel-controls">
           <ColorPicker
             value={colorToManaged(current.color)}
-            onChange={(c) => updateStop(selected, { color: managedToColor(c) })}
+            onChange={(c) => updateStop(current.id, { color: managedToColor(c) })}
             onInteractionStart={onEditStart}
             onInteractionEnd={onEditEnd}
           />
@@ -278,10 +292,19 @@ function ChannelBar({
             disabled={sorted.length <= 2}
             aria-label={`Delete ${label} stop`}
             onClick={() => {
-              if (sorted.length <= 2) return;
-              const next = sorted.filter((_, i) => i !== selected);
+              if (sorted.length <= 2 || !current) return;
+              const next = stops.filter(
+                (stop, index) =>
+                  stableStopId(stop, index, idsRef.current, `gradient-${label.toLowerCase()}`) !==
+                  current.id,
+              );
               onChange(next);
-              setSelected(Math.max(0, Math.min(selected, next.length - 1)));
+              const fallback = next[0];
+              setSelectedId(
+                fallback
+                  ? stableStopId(fallback, 0, idsRef.current, `gradient-${label.toLowerCase()}`)
+                  : null,
+              );
             }}
           >
             Remove
@@ -297,50 +320,78 @@ function ChannelBar({
  * opacity input for the selected stop. Keyboard operable (arrows/Home/End).
  */
 function OpacityStopBar({
+  colorStops,
   opacityStops,
   onChange,
   onEditStart,
   onEditEnd,
+  reverse,
 }: {
+  colorStops: GradientMapStop[];
   opacityStops: GradientMapOpacityStop[];
   onChange: (stops: GradientMapOpacityStop[]) => void;
   onEditStart?: () => void;
   onEditEnd?: () => void;
+  reverse: boolean;
 }) {
-  const [selected, setSelected] = useState(0);
   const barRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef(0);
+  const idsRef = useRef<StopIdentityMap>(new WeakMap());
   const sorted = useMemo(
-    () => [...opacityStops].sort((a, b) => a.position - b.position),
+    () =>
+      opacityStops
+        .map((stop, index) => ({
+          ...stop,
+          id: stableStopId(stop, index, idsRef.current, 'gradient-opacity'),
+        }))
+        .sort((a, b) => a.position - b.position),
     [opacityStops],
   );
+  const [selectedId, setSelectedId] = useState<string | null>(sorted[0]?.id ?? null);
   const autoId = useId();
 
+  useEffect(() => {
+    if (!selectedId || sorted.some((stop) => stop.id === selectedId)) return;
+    setSelectedId(sorted[0]?.id ?? null);
+  }, [selectedId, sorted]);
+
   const updateStop = useCallback(
-    (index: number, partial: Partial<GradientMapOpacityStop>) => {
-      onChange(sorted.map((s, i) => (i === index ? { ...s, ...partial } : s)));
+    (id: string, partial: Partial<GradientMapOpacityStop>) => {
+      onChange(
+        opacityStops.map((stop, index) =>
+          stableStopId(stop, index, idsRef.current, 'gradient-opacity') === id
+            ? { ...stop, id, ...partial }
+            : stop,
+        ),
+      );
     },
-    [sorted, onChange],
+    [opacityStops, onChange],
   );
 
   const addStop = useCallback(
     (position: number) => {
-      const opacity = interpolatedOpacityAt(sorted, position);
-      const next = [...sorted, { id: cryptoId(), position, opacity }];
+      const id = cryptoId();
+      const opacity = sampleGradientMapAlpha(colorStops, opacityStops, position, { reverse });
+      const next = [...opacityStops, { id, position, opacity }];
       onChange(next);
-      setSelected(next.length - 1);
+      setSelectedId(id);
     },
-    [sorted, onChange],
+    [colorStops, opacityStops, onChange, reverse],
   );
 
   const removeStop = useCallback(
-    (index: number) => {
+    (id: string) => {
       if (sorted.length <= 2) return;
-      const next = sorted.filter((_, i) => i !== index);
+      const next = opacityStops.filter(
+        (stop, index) => stableStopId(stop, index, idsRef.current, 'gradient-opacity') !== id,
+      );
       onChange(next);
-      setSelected(Math.max(0, Math.min(selected, next.length - 1)));
+      const fallback = next[0];
+      setSelectedId(
+        fallback ? stableStopId(fallback, 0, idsRef.current, 'gradient-opacity') : null,
+      );
     },
-    [sorted, onChange, selected],
+    [sorted, opacityStops, onChange],
   );
 
   const handleBarPointerDown = useCallback(
@@ -352,7 +403,7 @@ function OpacityStopBar({
       const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
       const near = sorted.findIndex((s) => Math.abs(s.position - pos) < 0.03);
       if (near >= 0) {
-        setSelected(near);
+        setSelectedId(sorted[near]!.id);
         return;
       }
       addStop(pos);
@@ -361,7 +412,7 @@ function OpacityStopBar({
   );
 
   const handleStopDrag = useCallback(
-    (index: number, e: React.PointerEvent<HTMLButtonElement>) => {
+    (id: string, e: React.PointerEvent<HTMLButtonElement>) => {
       if (e.button !== 0) return;
       e.preventDefault();
       onEditStart?.();
@@ -373,7 +424,7 @@ function OpacityStopBar({
         cancelAnimationFrame(rafRef.current);
         rafRef.current = requestAnimationFrame(() => {
           const pos = Math.max(0, Math.min(1, (me.clientX - rect.left) / rect.width));
-          updateStop(index, { position: Math.round(pos * 1000) / 1000 });
+          updateStop(id, { position: Math.round(pos * 1000) / 1000 });
         });
         draggedOff = me.clientY < rect.top - 40 || me.clientY > rect.bottom + 40;
       };
@@ -381,7 +432,7 @@ function OpacityStopBar({
         window.removeEventListener('pointermove', onMove);
         window.removeEventListener('pointerup', onUp);
         document.body.style.userSelect = '';
-        if (draggedOff) removeStop(index);
+        if (draggedOff) removeStop(id);
         onEditEnd?.();
       };
       window.addEventListener('pointermove', onMove);
@@ -391,7 +442,8 @@ function OpacityStopBar({
     [updateStop, removeStop, onEditStart, onEditEnd],
   );
 
-  const current = sorted[selected];
+  const selectedIndex = sorted.findIndex((stop) => stop.id === selectedId);
+  const current = selectedIndex >= 0 ? sorted[selectedIndex] : sorted[0];
 
   return (
     <div className="gm-editor__opacity">
@@ -416,37 +468,37 @@ function OpacityStopBar({
             key={stop.id ?? `os-stop-${i}-${autoId}`}
             type="button"
             aria-label={`Opacity stop ${i + 1} at ${Math.round(stop.position * 100)}%, opacity ${Math.round(stop.opacity * 100)}%`}
-            aria-pressed={selected === i}
+            aria-pressed={selectedId === stop.id}
             onPointerDown={(e) => {
               e.stopPropagation();
-              setSelected(i);
-              handleStopDrag(i, e);
+              setSelectedId(stop.id);
+              handleStopDrag(stop.id, e);
             }}
             onKeyDown={(e) => {
               if (e.key === 'ArrowLeft') {
                 e.preventDefault();
-                updateStop(i, { position: Math.max(0, stop.position - 0.01) });
+                updateStop(stop.id, { position: Math.max(0, stop.position - 0.01) });
               } else if (e.key === 'ArrowRight') {
                 e.preventDefault();
-                updateStop(i, { position: Math.min(1, stop.position + 0.01) });
+                updateStop(stop.id, { position: Math.min(1, stop.position + 0.01) });
               } else if (e.key === 'ArrowUp') {
                 e.preventDefault();
-                updateStop(i, { opacity: Math.min(1, stop.opacity + 0.05) });
+                updateStop(stop.id, { opacity: Math.min(1, stop.opacity + 0.05) });
               } else if (e.key === 'ArrowDown') {
                 e.preventDefault();
-                updateStop(i, { opacity: Math.max(0, stop.opacity - 0.05) });
+                updateStop(stop.id, { opacity: Math.max(0, stop.opacity - 0.05) });
               } else if (e.key === 'Home') {
                 e.preventDefault();
-                updateStop(i, { position: 0 });
+                updateStop(stop.id, { position: 0 });
               } else if (e.key === 'End') {
                 e.preventDefault();
-                updateStop(i, { position: 1 });
+                updateStop(stop.id, { position: 1 });
               } else if (e.key === 'Delete' || e.key === 'Backspace') {
                 e.preventDefault();
-                removeStop(i);
+                removeStop(stop.id);
               }
             }}
-            className={`gm-editor__stop gm-editor__stop--opacity${selected === i ? ' gm-editor__stop--selected' : ' gm-editor__stop--idle'}`}
+            className={`gm-editor__stop gm-editor__stop--opacity${selectedId === stop.id ? ' gm-editor__stop--selected' : ' gm-editor__stop--idle'}`}
             style={{ left: `${stop.position * 100}%` }}
           />
         ))}
@@ -460,12 +512,14 @@ function OpacityStopBar({
             max={100}
             step={1}
             value={Math.round(current.opacity * 100)}
-            aria-label={`Opacity stop ${selected + 1} value`}
-            onChange={(e) =>
-              updateStop(selected, {
-                opacity: Math.max(0, Math.min(1, Number(e.target.value) / 100)),
-              })
-            }
+            aria-label={`Opacity stop ${(selectedIndex >= 0 ? selectedIndex : 0) + 1} value`}
+            onChange={(e) => {
+              if (current) {
+                updateStop(current.id, {
+                  opacity: Math.max(0, Math.min(1, Number(e.target.value) / 100)),
+                });
+              }
+            }}
             className="gm-editor__number"
           />
           <span className="gm-editor__unit">%</span>
@@ -491,14 +545,33 @@ export function GradientMapEditor({
   onEditStart,
   onEditEnd,
 }: GradientMapEditorProps) {
-  const [selectedStop, setSelectedStop] = useState(0);
   const barRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number>(0);
-  const autoId = useId();
+  const idsRef = useRef<StopIdentityMap>(new WeakMap());
+  const sortedStops = useMemo(
+    () =>
+      stops
+        .map((stop, index) => ({
+          ...stop,
+          id: stableStopId(stop, index, idsRef.current, 'gradient-map'),
+        }))
+        .sort((a, b) => a.position - b.position),
+    [stops],
+  );
+  const [selectedId, setSelectedId] = useState<string | null>(sortedStops[0]?.id ?? null);
+
+  useEffect(() => {
+    if (!selectedId || sortedStops.some((stop) => stop.id === selectedId)) return;
+    setSelectedId(sortedStops[0]?.id ?? null);
+  }, [selectedId, sortedStops]);
 
   const updateStop = useCallback(
-    (index: number, partial: Partial<GradientMapStop>) => {
-      const next = stops.map((s, i) => (i === index ? { ...s, ...partial } : s));
+    (id: string, partial: Partial<GradientMapStop>) => {
+      const next = stops.map((stop, index) =>
+        stableStopId(stop, index, idsRef.current, 'gradient-map') === id
+          ? { ...stop, id, ...partial }
+          : stop,
+      );
       onChange({ stops: next });
     },
     [stops, onChange],
@@ -506,22 +579,26 @@ export function GradientMapEditor({
 
   const addStop = useCallback(
     (position: number) => {
-      const color = interpolatedColorAt(stops, position);
-      const newStops = [...stops, { id: cryptoId(), position, color }];
+      const id = cryptoId();
+      const color = sampleGradientMapColor(sortedStops, position, { interpolation, reverse });
+      const newStops = [...stops, { id, position, color }];
       onChange({ stops: newStops });
-      setSelectedStop(newStops.length - 1);
+      setSelectedId(id);
     },
-    [stops, onChange],
+    [stops, sortedStops, onChange, interpolation, reverse],
   );
 
   const removeStop = useCallback(
-    (index: number) => {
-      if (stops.length <= 2) return;
-      const next = stops.filter((_, i) => i !== index);
+    (id: string) => {
+      if (sortedStops.length <= 2) return;
+      const next = stops.filter(
+        (stop, index) => stableStopId(stop, index, idsRef.current, 'gradient-map') !== id,
+      );
       onChange({ stops: next });
-      setSelectedStop(Math.max(0, Math.min(selectedStop, next.length - 1)));
+      const fallback = next[0];
+      setSelectedId(fallback ? stableStopId(fallback, 0, idsRef.current, 'gradient-map') : null);
     },
-    [stops, onChange, selectedStop],
+    [stops, sortedStops, onChange],
   );
 
   const handleBarPointerDown = useCallback(
@@ -531,18 +608,18 @@ export function GradientMapEditor({
       if (!bar) return;
       const rect = bar.getBoundingClientRect();
       const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      const near = stops.findIndex((s) => Math.abs(s.position - pos) < 0.03);
+      const near = sortedStops.findIndex((s) => Math.abs(s.position - pos) < 0.03);
       if (near >= 0) {
-        setSelectedStop(near);
+        setSelectedId(sortedStops[near]!.id);
         return;
       }
       addStop(pos);
     },
-    [stops, addStop],
+    [sortedStops, addStop],
   );
 
   const handleStopDrag = useCallback(
-    (index: number, e: React.PointerEvent<HTMLButtonElement>) => {
+    (id: string, e: React.PointerEvent<HTMLButtonElement>) => {
       if (e.button !== 0) return;
       e.preventDefault();
       onEditStart?.();
@@ -554,7 +631,7 @@ export function GradientMapEditor({
         cancelAnimationFrame(rafRef.current);
         rafRef.current = requestAnimationFrame(() => {
           const pos = Math.max(0, Math.min(1, (me.clientX - rect.left) / rect.width));
-          updateStop(index, { position: Math.round(pos * 1000) / 1000 });
+          updateStop(id, { position: Math.round(pos * 1000) / 1000 });
         });
         const offY = me.clientY;
         draggedOff = offY < rect.top - 40 || offY > rect.bottom + 40;
@@ -564,7 +641,7 @@ export function GradientMapEditor({
         window.removeEventListener('pointerup', onUp);
         document.body.style.userSelect = '';
         if (draggedOff) {
-          removeStop(index);
+          removeStop(id);
         }
         onEditEnd?.();
       };
@@ -575,7 +652,8 @@ export function GradientMapEditor({
     [updateStop, removeStop, onEditStart, onEditEnd],
   );
 
-  const currentStop = stops[selectedStop];
+  const selectedIndex = sortedStops.findIndex((stop) => stop.id === selectedId);
+  const currentStop = selectedIndex >= 0 ? sortedStops[selectedIndex] : sortedStops[0];
 
   const handleBarKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -625,6 +703,8 @@ export function GradientMapEditor({
           onChange={(ch) => onChange({ channelStops: ch })}
           onEditStart={onEditStart}
           onEditEnd={onEditEnd}
+          interpolation={interpolation}
+          reverse={reverse}
         />
       )}
       <div
@@ -639,54 +719,54 @@ export function GradientMapEditor({
         onPointerDown={handleBarPointerDown}
         onKeyDown={handleBarKeyDown}
         className="gm-editor__bar"
-        style={{ background: gradientCss(stops) }}
+        style={{
+          background: gradientCss(sortedStops, interpolation, reverse, effectiveOpacityStops),
+        }}
       >
-        {stops.map((stop, i) => (
+        {sortedStops.map((stop, i) => (
           <button
-            // Legacy callers may omit ids; the index fallback remains stable for
-            // the lifetime of that unnormalized input while editing.
-            key={stop.id ?? `gm-stop-${i}-${autoId}`}
+            key={stop.id}
             type="button"
             aria-label={`Stop ${i + 1} at ${Math.round(stop.position * 100)}%`}
-            aria-pressed={selectedStop === i}
+            aria-pressed={selectedId === stop.id}
             onPointerDown={(e) => {
               e.stopPropagation();
-              setSelectedStop(i);
-              handleStopDrag(i, e);
+              setSelectedId(stop.id);
+              handleStopDrag(stop.id, e);
             }}
             onKeyDown={(e) => {
               if (e.key === 'ArrowLeft') {
                 e.preventDefault();
-                updateStop(i, {
+                updateStop(stop.id, {
                   position: Math.max(0, stop.position - 0.01),
                 });
               } else if (e.key === 'ArrowRight') {
                 e.preventDefault();
-                updateStop(i, {
+                updateStop(stop.id, {
                   position: Math.min(1, stop.position + 0.01),
                 });
               } else if (e.key === 'ArrowDown') {
                 e.preventDefault();
-                updateStop(i, {
+                updateStop(stop.id, {
                   position: Math.max(0, stop.position - 0.05),
                 });
               } else if (e.key === 'ArrowUp') {
                 e.preventDefault();
-                updateStop(i, {
+                updateStop(stop.id, {
                   position: Math.min(1, stop.position + 0.05),
                 });
               } else if (e.key === 'Home') {
                 e.preventDefault();
-                updateStop(i, { position: 0 });
+                updateStop(stop.id, { position: 0 });
               } else if (e.key === 'End') {
                 e.preventDefault();
-                updateStop(i, { position: 1 });
+                updateStop(stop.id, { position: 1 });
               } else if (e.key === 'Delete' || e.key === 'Backspace') {
                 e.preventDefault();
-                removeStop(i);
+                removeStop(stop.id);
               }
             }}
-            className={`gm-editor__stop${selectedStop === i ? ' gm-editor__stop--selected' : ' gm-editor__stop--idle'}`}
+            className={`gm-editor__stop${selectedId === stop.id ? ' gm-editor__stop--selected' : ' gm-editor__stop--idle'}`}
             style={{
               left: `${stop.position * 100}%`,
               background: stopColorCss(stop.color),
@@ -703,21 +783,45 @@ export function GradientMapEditor({
               type="number"
               min={0}
               max={100}
-              step={1}
-              value={Math.round(currentStop.position * 100)}
-              aria-label={`Stop ${selectedStop + 1} position`}
-              onChange={(e) =>
-                updateStop(selectedStop, {
-                  position: Math.max(0, Math.min(1, Number(e.target.value) / 100)),
-                })
-              }
+              step={0.1}
+              value={Number((currentStop.position * 100).toFixed(3))}
+              aria-label={`Stop ${selectedIndex + 1} position`}
+              onChange={(e) => {
+                const value = Number(e.target.value);
+                if (Number.isFinite(value)) {
+                  updateStop(currentStop.id, {
+                    position: Math.max(0, Math.min(1, value / 100)),
+                  });
+                }
+              }}
+              className="gm-editor__number"
+            />
+            <span className="gm-editor__unit">%</span>
+          </div>
+          <div className="gm-editor__row">
+            <span className="gm-editor__label">Midpoint</span>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              step={0.1}
+              value={Number(((currentStop.midpoint ?? 0.5) * 100).toFixed(3))}
+              aria-label={`Stop ${selectedIndex + 1} midpoint`}
+              onChange={(e) => {
+                const value = Number(e.target.value);
+                if (Number.isFinite(value)) {
+                  updateStop(currentStop.id, {
+                    midpoint: Math.max(0, Math.min(1, value / 100)),
+                  });
+                }
+              }}
               className="gm-editor__number"
             />
             <span className="gm-editor__unit">%</span>
           </div>
           <ColorPicker
             value={colorToManaged(currentStop.color)}
-            onChange={(c) => updateStop(selectedStop, { color: managedToColor(c) })}
+            onChange={(c) => updateStop(currentStop.id, { color: managedToColor(c) })}
             onInteractionStart={onEditStart}
             onInteractionEnd={onEditEnd}
           />
@@ -725,6 +829,7 @@ export function GradientMapEditor({
       )}
 
       <OpacityStopBar
+        colorStops={sortedStops}
         opacityStops={
           effectiveOpacityStops ?? [
             { position: 0, opacity: 1 },
@@ -734,6 +839,7 @@ export function GradientMapEditor({
         onChange={(next) => onChange({ opacityStops: next })}
         onEditStart={onEditStart}
         onEditEnd={onEditEnd}
+        reverse={reverse}
       />
 
       <div className="gm-editor__row">
