@@ -18,6 +18,11 @@ after the 2026-08-22 implementation audit.
   model download.
 - Auto mode now presents a qualitative signal label. Its internal score remains
   explicitly uncalibrated and is not shown as a probability.
+- The frontend operation menu was missing the already-supported Deblur + Upscale
+  path, and there were no presets. The menu now exposes the combined path, the
+  preset catalog covers every validated operation family, manual changes mark
+  the selection Custom, and the primary action label follows the selected
+  operation.
 
 ## Live evidence
 

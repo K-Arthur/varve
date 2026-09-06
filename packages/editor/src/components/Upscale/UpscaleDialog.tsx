@@ -36,6 +36,11 @@ import { Button, FocusTrap, IconButton, SegmentedControl, Select } from '@varve/
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { ModelDownloadDialog } from '../BackgroundRemoval/ModelDownloadDialog';
+import {
+  ENHANCEMENT_PRESETS,
+  type EnhancementPresetId,
+  getEnhancementPreset,
+} from './enhancementPresets';
 
 type OutputBehavior = 'new-layer' | 'replace-source' | 'non-destructive';
 
@@ -116,6 +121,29 @@ function errorActionForCode(code: RestorationErrorCode): string | null {
   }
 }
 
+function operationLabel(operation: RestorationOperation): string {
+  switch (operation) {
+    case 'denoise':
+      return 'Denoise';
+    case 'deblur':
+      return 'Deblur';
+    case 'deblur-upscale':
+      return 'Deblur + Upscale';
+    case 'restore-upscale':
+      return 'Restore + Upscale';
+    case 'upscale':
+      return 'Upscale';
+    case 'compression-restoration':
+      return 'Compression cleanup';
+    case 'none':
+      return 'No change';
+    default: {
+      const exhaustive: never = operation;
+      return exhaustive;
+    }
+  }
+}
+
 export function UpscaleDialog({
   sourceWidth,
   sourceHeight,
@@ -129,6 +157,7 @@ export function UpscaleDialog({
   const { announce } = useEditor();
   const [modeId, setModeId] = useState<UpscaleModeId>(DEFAULT_UPSCALE_MODE);
   const [operation, setOperation] = useState<RestorationOperation | 'auto'>('auto');
+  const [presetId, setPresetId] = useState<EnhancementPresetId>('recommended');
   const [scale, setScale] = useState(2);
   const [output, setOutput] = useState<OutputBehavior>('new-layer');
   const [qualityPolicy, setQualityPolicy] = useState<'faithful' | 'balanced'>('faithful');
@@ -161,6 +190,7 @@ export function UpscaleDialog({
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const previewSliderRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const denoiseUserEditedRef = useRef(false);
 
   const mode = useMemo(() => getUpscaleMode(modeId), [modeId]);
 
@@ -177,28 +207,65 @@ export function UpscaleDialog({
     if (!autoAnalysis || autoAnalysis.recommendation[0] === 'none') return { operation: null };
     const { recommendation } = autoAnalysis;
 
+    const notes: string[] = [];
     // Compression restoration has no validated model — drop it from the
-    // recommendation and note the gap only when it was the sole signal.
+    // executable recommendation but keep the limitation visible.
     const hasCompression = recommendation.includes('compression-restoration');
     const filtered = recommendation.filter((r) => r !== 'compression-restoration');
+    if (hasCompression) {
+      notes.push(
+        'Compression-artifact cleanup is not yet available; Auto will apply only the supported part of this recommendation.',
+      );
+    }
     if (filtered.length === 0 && hasCompression) {
       return {
         operation: null,
-        note: 'Compression-artifact cleanup is not yet available. Denoise can reduce some artifacts but is not a dedicated restoration.',
+        note: `${notes[0]} Denoise can reduce some artifacts but is not a dedicated restoration.`,
       };
     }
 
-    const restore = filtered.find((r) => r === 'deblur' || r === 'denoise') ?? null;
-    const upscale = filtered.includes('upscale');
-    if (!restore) return { operation: upscale ? 'upscale' : null };
-    if (upscale) {
-      return { operation: restore === 'deblur' ? 'deblur-upscale' : 'restore-upscale' };
+    const hasDenoise = filtered.includes('denoise');
+    const hasDeblur = filtered.includes('deblur');
+    const restore = hasDeblur ? 'deblur' : hasDenoise ? 'denoise' : null;
+    if (hasDenoise && hasDeblur) {
+      notes.push(
+        'Auto selects deblur before upscale when both blur and noise are detected; run Denoise separately if both repairs are needed.',
+      );
     }
-    return { operation: restore };
+    const upscale = filtered.includes('upscale');
+    if (!restore)
+      return { operation: upscale ? 'upscale' : null, note: notes.join(' ') || undefined };
+    if (upscale) {
+      return {
+        operation: restore === 'deblur' ? 'deblur-upscale' : 'restore-upscale',
+        note: notes.join(' ') || undefined,
+      };
+    }
+    return { operation: restore, note: notes.join(' ') || undefined };
   }, [autoAnalysis]);
 
   const effectiveOperation: RestorationOperation | null =
     operation === 'auto' ? resolveAutoOperation().operation : operation;
+  const autoResolution = operation === 'auto' ? resolveAutoOperation() : null;
+  const autoActionDisabled = operation === 'auto' && (!autoAnalysis || !autoResolution?.operation);
+
+  const markPresetCustom = useCallback(() => {
+    setPresetId('custom');
+  }, []);
+
+  const applyPreset = useCallback((nextPresetId: EnhancementPresetId) => {
+    const preset = getEnhancementPreset(nextPresetId);
+    if (!preset) return;
+    denoiseUserEditedRef.current = false;
+    setPresetId(nextPresetId);
+    setOperation(preset.operation);
+    setModeId(preset.mode);
+    setScale(preset.scale);
+    setQualityPolicy(preset.qualityPolicy);
+    setDenoiseStrength(preset.denoiseStrength);
+    setDeblurStrength(preset.deblurStrength);
+    setPixelArtAlgorithm(preset.pixelArtAlgorithm);
+  }, []);
   // Availability comes from the validated capability registry, not a
   // hardcoded per-operation rule, so a task lights up the moment its
   // checkpoint passes validation and lands in the manifest.
@@ -303,6 +370,21 @@ export function UpscaleDialog({
       window.clearTimeout(id);
     };
   }, [open, operation, sourceImageData]);
+
+  // Auto should not report a denoise recommendation while sending an explicit
+  // None strength to the planner. The first automatic recommendation gets a
+  // real, conservative strength; a user who changes the control keeps that
+  // choice for the rest of the dialog session.
+  useEffect(() => {
+    if (
+      operation !== 'auto' ||
+      denoiseUserEditedRef.current ||
+      !autoAnalysis?.recommendation.includes('denoise')
+    ) {
+      return;
+    }
+    setDenoiseStrength((current) => (current === 'none' ? 'medium' : current));
+  }, [autoAnalysis, operation]);
 
   useEffect(() => {
     if (!open || requiredModelIds.length === 0) {
@@ -1000,6 +1082,37 @@ export function UpscaleDialog({
             {/* Settings */}
             <div className="upscale-settings">
               <div className="upscale-settings__group">
+                <span className="upscale-settings__label">Preset</span>
+                <Select
+                  label="Enhancement preset"
+                  value={presetId}
+                  disabled={processing}
+                  options={[
+                    ...ENHANCEMENT_PRESETS.map((preset) => ({
+                      value: preset.id,
+                      label: preset.label,
+                      description: preset.description,
+                    })),
+                    {
+                      value: 'custom',
+                      label: 'Custom settings',
+                      description: 'Keep the individual settings selected below.',
+                    },
+                  ]}
+                  onChange={(value) => {
+                    const nextPresetId = value as EnhancementPresetId;
+                    if (nextPresetId === 'custom') setPresetId('custom');
+                    else applyPreset(nextPresetId);
+                  }}
+                />
+                <p className="insp-hint">
+                  {presetId === 'custom'
+                    ? 'Individual settings are active. Choosing a preset replaces only processing settings; output behavior stays unchanged.'
+                    : (getEnhancementPreset(presetId)?.description ?? '')}
+                </p>
+              </div>
+
+              <div className="upscale-settings__group">
                 <span className="upscale-settings__label">Enhancement</span>
                 <Select
                   label="Enhancement operation"
@@ -1017,6 +1130,12 @@ export function UpscaleDialog({
                         : 'Deblur (not available)',
                     },
                     {
+                      value: 'deblur-upscale',
+                      label: isRestorationOperationAvailable('deblur-upscale')
+                        ? 'Deblur + Upscale'
+                        : 'Deblur + Upscale (not available)',
+                    },
+                    {
                       value: 'compression-restoration',
                       label: isRestorationOperationAvailable('compression-restoration')
                         ? 'Remove compression artifacts'
@@ -1025,10 +1144,15 @@ export function UpscaleDialog({
                   ]}
                   onChange={(value) => {
                     const next = value as RestorationOperation | 'auto';
+                    denoiseUserEditedRef.current = false;
+                    markPresetCustom();
                     setOperation(next);
                     if (next === 'upscale') setDenoiseStrength('none');
-                    if (next === 'denoise' && denoiseStrength === 'none') {
-                      setDenoiseStrength('medium');
+                    if (next === 'denoise' || next === 'restore-upscale') {
+                      setDenoiseStrength((current) => (current === 'none' ? 'medium' : current));
+                    }
+                    if (next === 'deblur' || next === 'deblur-upscale') {
+                      setDenoiseStrength('none');
                     }
                   }}
                 />
@@ -1048,6 +1172,14 @@ export function UpscaleDialog({
                             {recommendationLabel(autoAnalysis.recommendation)} (
                             {recommendationStrengthLabel(autoAnalysis.confidence)})
                           </p>
+                          {autoResolution?.operation && (
+                            <p className="insp-hint">
+                              <strong>Will run:</strong> {operationLabel(autoResolution.operation)}
+                            </p>
+                          )}
+                          {autoResolution?.note && (
+                            <p className="insp-hint insp-hint--warn">{autoResolution.note}</p>
+                          )}
                         </>
                       )
                     ) : (
@@ -1081,7 +1213,10 @@ export function UpscaleDialog({
                     { value: 'faithful', label: 'Faithful' },
                     { value: 'balanced', label: 'Balanced' },
                   ]}
-                  onChange={(v) => setQualityPolicy(v as 'faithful' | 'balanced')}
+                  onChange={(v) => {
+                    markPresetCustom();
+                    setQualityPolicy(v as 'faithful' | 'balanced');
+                  }}
                 />
                 <p className="insp-hint">
                   {qualityPolicy === 'faithful'
@@ -1098,7 +1233,10 @@ export function UpscaleDialog({
                     value={modeId}
                     disabled={processing}
                     options={modeOptions}
-                    onChange={(v) => setModeId(v as UpscaleModeId)}
+                    onChange={(v) => {
+                      markPresetCustom();
+                      setModeId(v as UpscaleModeId);
+                    }}
                   />
                   {mode && <p className="insp-hint">{mode.description}</p>}
                   {modeId === 'illustration' && (
@@ -1136,7 +1274,11 @@ export function UpscaleDialog({
                       { value: 'medium', label: 'Medium' },
                       { value: 'strong', label: 'Strong' },
                     ]}
-                    onChange={(v) => setDenoiseStrength(v as DenoiseStrength)}
+                    onChange={(v) => {
+                      denoiseUserEditedRef.current = true;
+                      markPresetCustom();
+                      setDenoiseStrength(v as DenoiseStrength);
+                    }}
                   />
                   {operation !== 'upscale' && (
                     <p className="insp-hint">
@@ -1161,7 +1303,10 @@ export function UpscaleDialog({
                       { value: '0.7', label: 'Strong' },
                       { value: '0.9', label: 'Maximum' },
                     ]}
-                    onChange={(v) => setDeblurStrength(Number(v))}
+                    onChange={(v) => {
+                      markPresetCustom();
+                      setDeblurStrength(Number(v));
+                    }}
                   />
                   <p className="insp-hint">
                     {operation === 'deblur-upscale'
@@ -1191,7 +1336,10 @@ export function UpscaleDialog({
                       { value: 'hqx', label: 'hqx (high quality)' },
                       { value: 'xbr', label: 'xBR (pattern aware)' },
                     ]}
-                    onChange={(v) => setPixelArtAlgorithm(v as PixelArtAlgorithm)}
+                    onChange={(v) => {
+                      markPresetCustom();
+                      setPixelArtAlgorithm(v as PixelArtAlgorithm);
+                    }}
                   />
                   <p className="insp-hint">
                     {pixelArtAlgorithm === 'nearest'
@@ -1215,7 +1363,10 @@ export function UpscaleDialog({
                     value={String(scale)}
                     disabled={processing || mode?.lockedScale}
                     options={scaleOptions}
-                    onChange={(v) => setScale(Number(v))}
+                    onChange={(v) => {
+                      markPresetCustom();
+                      setScale(Number(v));
+                    }}
                   />
                 </div>
               )}
@@ -1414,14 +1565,17 @@ export function UpscaleDialog({
                 modelMissing ||
                 !operationAvailable ||
                 noOpRequested ||
-                (operation === 'auto' &&
-                  (!autoAnalysis || autoAnalysis.recommendation[0] === 'none'))
+                autoActionDisabled
               }
               loading={processing}
               onClick={() => void handleApply()}
             >
               {operation === 'auto'
-                ? 'Apply recommended'
+                ? autoActionDisabled
+                  ? autoAnalysis
+                    ? 'No supported action'
+                    : 'Analyzing…'
+                  : 'Apply recommended'
                 : operation === 'denoise'
                   ? noOpRequested
                     ? 'No change to apply'

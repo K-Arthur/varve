@@ -33,7 +33,10 @@ const enhanceShot = scenes['enhance-dialog-auto']?.status === 'captured' ? scene
           <p class="eyebrow">One workflow</p>
           <h2 id="workflow-title">From source pixels to a considered result.</h2>
           <p>
-            Choose the task you actually need. Denoise uses a task-specific local
+            Choose a reviewed starting point or the task you actually need. Presets cover
+            Auto, CPU and AI photo work, illustration, pixel art, denoise, deblur, and
+            combined restoration; changing an individual processing setting switches to
+            Custom without changing your output behavior. Denoise uses a task-specific local
             model; Deblur reduces motion and defocus blur with a validated model;
             Upscale uses the existing CPU or bundled/downloaded AI path; Restore + Upscale runs
             only those selected stages, in order.
@@ -70,6 +73,7 @@ const enhanceShot = scenes['enhance-dialog-auto']?.status === 'captured' ? scene
           <article><h3>Deblur</h3><p>Reduce motion and defocus blur with a validated local model — preview a bounded crop before committing to full-resolution work.</p></article>
           <article><h3>Upscale</h3><p>Choose edge-retentive Quality CPU resampling by default, smoother Balanced scaling, pixel-art algorithms, or bundled Real-ESRGAN x4 for supported image work. AI runs locally and never silently falls back to CPU.</p></article>
           <article><h3>Restore + Upscale</h3><p>Compose only the stages you selected. Restoration runs before enlargement so noise is not simply made larger.</p></article>
+          <article><h3>Presets that stay editable</h3><p>Start with a task-specific recipe, then change mode, scale, quality, denoise, or deblur strength. The action label and visible controls update with the selection.</p></article>
           <article><h3>Auto / Recommended</h3><p>A quick local analysis suggests what your image actually needs, in plain language, with a qualitative signal label you can override. It is a heuristic, not a probability.</p></article>
         </div>
       </section>

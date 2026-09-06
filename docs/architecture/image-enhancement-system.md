@@ -5,7 +5,7 @@ Varve presents image restoration and super-resolution as one user workflow:
 never selected by a marketing label or architecture family alone.
 
 ```text
-Enhance dialog (Auto / Recommended + manual operations)
+Enhance dialog (presets + Auto / Recommended + manual operations)
     ↓
 RestorationRequest
     ↓
@@ -145,6 +145,14 @@ atomic and undoable. The existing persisted derived-output metadata is kept
 for compatibility; it must not be described as re-editable non-destructive
 restoration until the document model can replay the operation across model
 revisions.
+
+The frontend exposes reviewed presets for Auto, fast CPU preview, photo cleanup
+and AI upscale, illustration/anime, pixel art, denoise-only, deblur-only, and
+Deblur + Upscale. Presets set processing controls only; output behavior is
+preserved. Any manual processing change marks the selection as Custom, and the
+primary action label follows the concrete operation (`Denoise image`, `Deblur
+and upscale`, `Upscale with AI`, and so on). This keeps the operation menu,
+visible controls, and commit action synchronized.
 
 ## Model management and supply chain
 

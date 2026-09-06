@@ -12,12 +12,12 @@ import { sitePath } from '../../../lib/siteUrl';
 
       <section class="docs-section">
         <h2>Choose the task</h2>
-        <p>Open the image enhancement command for a selected image and choose the operation that matches the source problem. Auto / Recommended runs a quick local analysis (noise, blur, compression, resolution) and suggests a task with a qualitative signal label — you can always override it. The label is a heuristic, not a calibrated probability.</p>
+        <p>Open the image enhancement command for a selected image and choose a preset or the operation that matches the source problem. Presets cover Auto, CPU and AI photo work, illustration, pixel art, denoise, deblur, and combined restoration. Changing an individual processing setting switches the dialog to Custom; output behavior remains unchanged. Auto / Recommended runs a quick local analysis (noise, blur, compression, resolution) and suggests a task with a qualitative signal label — you can always override it. The label is a heuristic, not a calibrated probability.</p>
         <ul>
           <li><strong>Denoise</strong> reduces sensor noise and grain using the task-specific SCUNet model. The dialog verifies that the graph and external weights are installed before enabling Apply; choose <strong>None</strong> for an explicit no-op.</li>
           <li><strong>Deblur</strong> reduces motion and defocus blur with a validated NAFNet checkpoint. Restoration is bounded: the model runs on a cropped preview first, and full-resolution work tiles adaptively so memory stays within budget.</li>
           <li><strong>Upscale</strong> enlarges with CPU, pixel-art, or the available local AI super-resolution path.</li>
-          <li><strong>Restore + Upscale</strong> (and Deblur + Upscale) compose restoration before enlargement so noise or blur is not simply made larger.</li>
+          <li><strong>Restore + Upscale</strong> and <strong>Deblur + Upscale</strong> compose restoration before enlargement so noise or blur is not simply made larger. The apply action names the selected operation instead of always saying “Apply recommended.”</li>
         </ul>
       </section>
 

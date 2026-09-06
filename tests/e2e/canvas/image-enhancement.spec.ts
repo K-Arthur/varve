@@ -200,3 +200,44 @@ test('switches output behavior in the enhance dialog', async ({ page }) => {
   });
   await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
 });
+
+test('keeps the action label, controls, and presets synchronized', async ({ page }) => {
+  test.setTimeout(60000);
+  await openEnhanceDialog(page);
+
+  await expect(page.getByRole('button', { name: 'Apply recommended' })).toBeVisible();
+  await selectOperation(page, 'Upscale');
+  await expect(page.getByRole('button', { name: 'Upscale image' })).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Upscale quality' })).toBeVisible();
+  await expect(page.getByRole('radiogroup', { name: 'Scale factor' })).toBeVisible();
+
+  await selectOperation(page, 'Denoise');
+  await expect(page.getByRole('button', { name: 'Denoise image' })).toBeVisible();
+  await expect(page.getByRole('radiogroup', { name: 'Denoise strength' })).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Upscale quality' })).not.toBeVisible();
+
+  await selectOperation(page, 'Restore + Upscale');
+  await expect(page.getByRole('button', { name: 'Restore and upscale' })).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Upscale quality' })).toBeVisible();
+  await expect(page.getByRole('radiogroup', { name: 'Denoise strength' })).toBeVisible();
+
+  await selectOperation(page, 'Deblur + Upscale');
+  await expect(page.getByRole('button', { name: 'Deblur and upscale' })).toBeVisible();
+  await expect(page.getByRole('radiogroup', { name: 'Deblur strength' })).toBeVisible();
+
+  await page.getByRole('combobox', { name: 'Enhancement preset' }).click();
+  await page.getByRole('option', { name: /Photo AI upscale/ }).click();
+  await expect(page.getByRole('combobox', { name: 'Enhancement operation' })).toHaveText('Upscale');
+  await expect(page.getByRole('button', { name: 'Upscale with AI' })).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Enhancement preset' })).toHaveText(
+    'Photo AI upscale',
+  );
+
+  await page
+    .getByRole('radiogroup', { name: 'Quality policy' })
+    .getByText('Faithful', { exact: true })
+    .click();
+  await expect(page.getByRole('combobox', { name: 'Enhancement preset' })).toHaveText(
+    'Custom settings',
+  );
+});

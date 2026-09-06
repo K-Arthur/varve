@@ -18,6 +18,10 @@ update, not for someone reading the commit log.
   Ink are available in the ordered Object Filters stack with bounded CPU
   replay, object-local coordinates, transparent-edge handling, expanded bounds,
   save/reload support, and raster export.
+- **Image Enhance frontend completeness** — reviewed presets now cover the
+  supported restoration and upscale paths, Deblur + Upscale is exposed in the
+  operation menu, and manual processing changes mark the dialog Custom while
+  preserving output behavior.
 
 ### Fixed
 
