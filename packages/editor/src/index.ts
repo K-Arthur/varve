@@ -128,6 +128,7 @@ export { useStartup } from './startup/useStartup';
 export type { VisibleSurfaceOptions } from './startup/visibleSurface';
 export { afterFirstVisiblePaint } from './startup/visibleSurface';
 export { TabStrip } from './TabStrip';
+export { renderProjectThumbnailNow } from './thumbnail';
 export {
   findKeyframeSegmentIndex,
   invalidateSamplerCache,

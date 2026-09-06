@@ -12,13 +12,13 @@
  */
 
 import { THUMBNAIL_RENDERER_VERSION } from '@varve/engine';
-import type { FileEntry, Platform } from '@varve/platform';
+import type { FileEntry, Platform, RecentFileRecord } from '@varve/platform';
 import {
   computeThumbnailIdentity,
   THUMBNAIL_VARIANTS,
   type ThumbnailIdentity,
 } from '@varve/shared';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const BATCH_SIZE = 4;
 const MAX_CACHE_SIZE = 100;
@@ -35,6 +35,13 @@ export interface ThumbnailLoader {
   loadBatch: (entries: FileEntry[]) => void;
   prioritize: (entryId: string) => void;
 }
+
+/**
+ * Optional host-owned repair path for a cache miss. Home remains a consumer
+ * of the thumbnail store; the host decides whether it is safe to decode the
+ * document and uses the canonical editor renderer when a preview is absent.
+ */
+export type ThumbnailGenerator = (entry: FileEntry) => Promise<string | null>;
 
 /** Canonical identity for a file's home-card thumbnail. */
 export function fileThumbnailIdentity(entry: FileEntry): ThumbnailIdentity {
@@ -55,6 +62,7 @@ async function loadUrl(
   platform: Platform,
   identity: ThumbnailIdentity,
   entry: FileEntry,
+  generate?: ThumbnailGenerator,
 ): Promise<string | null> {
   try {
     const canonical = await platform.getThumbnail(identity.key);
@@ -62,15 +70,19 @@ async function loadUrl(
     // Legacy warm migration: bare content-hash entries from the
     // pre-canonical system are treated as disposable optimization state.
     if (identity.key !== entry.contentHash) {
-      return (await platform.getThumbnail(entry.contentHash)) ?? null;
+      const legacy = await platform.getThumbnail(entry.contentHash);
+      if (legacy) return legacy;
     }
-    return null;
+    return generate ? await generate(entry) : null;
   } catch {
     return null;
   }
 }
 
-export function useThumbnailLoader(platform: Platform): ThumbnailLoader {
+export function useThumbnailLoader(
+  platform: Platform,
+  generate?: ThumbnailGenerator,
+): ThumbnailLoader {
   const [thumbnails, setThumbnails] = useState<Map<string, string | null>>(new Map());
   const loadingRef = useRef<Set<string>>(new Set());
   const queueRef = useRef<QueueItem[]>([]);
@@ -97,7 +109,7 @@ export function useThumbnailLoader(platform: Platform): ThumbnailLoader {
       loadingRef.current.add(entry.id);
 
       try {
-        const url = await loadUrl(platform, identity, entry);
+        const url = await loadUrl(platform, identity, entry, generate);
         setThumbnails((prev) => {
           const next = new Map(prev);
           next.set(entry.id, url);
@@ -110,7 +122,7 @@ export function useThumbnailLoader(platform: Platform): ThumbnailLoader {
         loadingRef.current.delete(entry.id);
       }
     },
-    [platform, thumbnails, evictIfNeeded],
+    [platform, thumbnails, generate, evictIfNeeded],
   );
 
   const processQueue = useCallback(() => {
@@ -194,4 +206,24 @@ export function useThumbnailLoader(platform: Platform): ThumbnailLoader {
   }, []);
 
   return { thumbnails, load, loadBatch, prioritize };
+}
+
+/** Compose Home's privacy guard with the optional host-owned repair path. */
+export function useHomeThumbnailLoader(
+  platform: Platform,
+  recentRecords: readonly RecentFileRecord[],
+  onGenerateThumbnail?: ThumbnailGenerator,
+): { thumbnails: ThumbnailLoader; encryptedIds: ReadonlySet<string> } {
+  const encryptedIds = useMemo(
+    () => new Set(recentRecords.filter((record) => record.encrypted).map((record) => record.id)),
+    [recentRecords],
+  );
+  const generate = useCallback<ThumbnailGenerator>(
+    async (entry) => {
+      if (encryptedIds.has(entry.id) || !onGenerateThumbnail) return null;
+      return onGenerateThumbnail(entry);
+    },
+    [encryptedIds, onGenerateThumbnail],
+  );
+  return { thumbnails: useThumbnailLoader(platform, generate), encryptedIds };
 }

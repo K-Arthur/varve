@@ -43,7 +43,7 @@ Layering (no cycles, contracts at the lowest appropriate layer):
 | `@varve/engine` | Render service: `generateThumbnail(nodes, revisionId, opts)` — IR build + replay on a raster surface, hard pixel/byte caps, image-fill preload, `THUMBNAIL_RENDERER_VERSION`. |
 | `@varve/platform` | Persistence: `get/put/delete/evictThumbnail` keyed by identity string; `setThumbnailPreference` on the FileEntry; memory / IndexedDB / SQLite backends. |
 | `@varve/editor` | Orchestration: `renderDocThumbnail` (resolution → `flattenSceneToEngine` → engine service), `ThumbnailScheduler`, `thumbnailManager` (save path), `thumbnailCommands`, picker dialog + host, version-history queue, page thumbnails. |
-| `@varve/home` | Consumption: canonical identity load, legacy warm-migration fallback, `<Thumbnail>` display, encrypted placeholder. |
+| `@varve/home` | Consumption: canonical identity load, legacy warm-migration fallback, host-injected cache repair for older files, `<Thumbnail>` display, encrypted placeholder. |
 | `@varve/ui` | `<Thumbnail>` presentation primitive (loading/skeleton/error/empty/encrypted states, object-fit, checkerboard, a11y). |
 
 ## 2. Identity — the cache key
@@ -141,8 +141,11 @@ interaction), priority order visible > current-doc > background > idle,
 deduplication by identity key, cancellation (a newer request for the same
 key aborts the running job), idle-time dispatch, shutdown support. Version
 history reuses it with `idle` priority and its own revision re-check after
-generation. Home's loader uses its own bounded batch queue (canonical
-identity lookups only — generation is editor-owned).
+generation. Home's loader uses its own bounded batch queue. On a miss, the
+application host may inject a bounded repair callback; that callback reads the
+stored document and calls the editor's canonical renderer. The Home package
+itself does not decode or render documents. Encrypted recent files bypass
+repair and continue to show only the content-free placeholder.
 
 ## 7. Invalidation
 
@@ -176,7 +179,10 @@ contents. Cache keys are content hashes — no project names or paths.
   sources, resets to automatic, restores focus, keyboard-operable, no
   native `<select>`.
 - **Home** — `<Thumbnail>` primitive with loading/empty/error/encrypted
-  states; cards never render via DOM mutation.
+  states; cards never render via DOM mutation. A missing cache entry is
+  repaired from the persisted document when the host provides the canonical
+  renderer, so files created before thumbnail generation was available can
+  recover without being opened and saved again.
 
 ## 10. Gaps (intentionally deferred)
 

@@ -38,6 +38,8 @@ export interface RenderDocThumbnailOptions {
   /** Thumbnail source; defaults to automatic. */
   source?: ThumbnailSourceSpec;
   variant: ThumbnailVariant;
+  /** Preserve the platform's original revision when repairing a cache miss. */
+  revisionHash?: string;
   /** Readiness policy for raster/font sources (defaults: bounded waits). */
   waitForFonts?: boolean;
   /** When true, use the legacy plaintext path even for encrypted docs. */
@@ -97,7 +99,9 @@ export async function renderDocThumbnail(
     doc,
     source: effectiveSource,
     variant: options.variant,
+    revisionHash: options.revisionHash,
   });
+  const revisionHash = options.revisionHash ?? documentRevisionHash(doc);
 
   if (options.signal?.aborted) {
     return {
@@ -122,7 +126,7 @@ export async function renderDocThumbnail(
         mimeType: 'image/svg+xml',
         byteSize: EMPTY_DOCUMENT_PLACEHOLDER.length,
         generatedAt: Date.now(),
-        revisionId: documentRevisionHash(doc),
+        revisionId: revisionHash,
         rendererVersion: THUMBNAIL_RENDERER_VERSION,
         isPlaceholder: true,
         isProvisional: false,
@@ -166,7 +170,7 @@ export async function renderDocThumbnail(
         mimeType: 'image/svg+xml',
         byteSize: EMPTY_DOCUMENT_PLACEHOLDER.length,
         generatedAt: Date.now(),
-        revisionId: documentRevisionHash(doc),
+        revisionId: revisionHash,
         rendererVersion: THUMBNAIL_RENDERER_VERSION,
         isPlaceholder: true,
         isProvisional: false,
@@ -178,7 +182,7 @@ export async function renderDocThumbnail(
 
   const result = await generateThumbnail(
     engineNodes.nodes,
-    documentRevisionHash(doc),
+    revisionHash,
     {
       maxWidth: options.variant.width,
       maxHeight: options.variant.height,

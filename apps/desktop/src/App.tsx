@@ -6,6 +6,7 @@ import {
   getDesktopAnalytics,
   installCrashTestHooks,
   type OpenFileRequest,
+  renderProjectThumbnailNow,
   SettingsDialog,
   SettingsProvider,
   Shell,
@@ -409,6 +410,27 @@ export function App() {
     onEditorReady();
   }, [onEditorReady]);
 
+  // Home can repair a missing/discarded thumbnail for an older file without
+  // making the Home package depend on the editor renderer. The original
+  // FileEntry hash is retained as the cache revision because decoding may
+  // normalize a legacy document before rendering it.
+  const handleGenerateThumbnail = useCallback(
+    async (entry: FileEntry): Promise<string | null> => {
+      if (entry.isMissing) return null;
+      const json = await platform.readFile(entry.id);
+      if (!json) return null;
+      const decoded = DocumentCodec.decode(json);
+      if (!decoded.ok) return null;
+      const preview = await renderProjectThumbnailNow(platform, decoded.document, {
+        fileId: entry.id,
+        preference: entry.thumbnailPreference,
+        revisionHash: entry.contentHash,
+      });
+      return preview?.dataUrl ?? null;
+    },
+    [platform],
+  );
+
   const surfaceStyle = (visible: boolean): React.CSSProperties => ({
     display: visible ? 'flex' : 'none',
     flexDirection: 'column',
@@ -473,6 +495,7 @@ export function App() {
               key={retryCount}
               platform={platform}
               onOpenFile={handleOpenFile}
+              onGenerateThumbnail={handleGenerateThumbnail}
               onLocateFile={handleLocateFile}
               onResumeEditing={editorMounted ? handleResumeEditing : undefined}
               onReady={handleHomeReady}

@@ -23,6 +23,12 @@ export interface ThumbnailIdentityOptions {
   doc: Document;
   source: ThumbnailSourceSpec;
   variant: ThumbnailVariant;
+  /**
+   * Persisted file revision, when rendering a document loaded from an older
+   * schema. Decoding can normalize the document, so the original FileEntry
+   * hash must remain the cache identity until the document is saved again.
+   */
+  revisionHash?: string;
 }
 
 /**
@@ -42,7 +48,7 @@ export function documentRevisionHash(doc: Document): string {
 }
 
 export function thumbnailIdentity(opts: ThumbnailIdentityOptions): ThumbnailIdentity {
-  const revisionHash = documentRevisionHash(opts.doc);
+  const revisionHash = opts.revisionHash ?? documentRevisionHash(opts.doc);
   return computeThumbnailIdentity({
     docKey: opts.fileId ?? revisionHash,
     revisionHash,

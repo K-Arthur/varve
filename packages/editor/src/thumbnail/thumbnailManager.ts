@@ -38,6 +38,8 @@ export interface PersistProjectThumbnailOptions {
   preference?: ThumbnailSourcePreference;
   /** Priority of the job (default 'current-doc'). */
   priority?: 'visible' | 'current-doc' | 'background' | 'idle';
+  /** Existing platform revision to preserve during Home cache repair. */
+  revisionHash?: string;
 }
 
 /**
@@ -67,6 +69,7 @@ export function persistProjectThumbnail(
         fileId: options.fileId,
         source,
         variant: THUMBNAIL_VARIANTS['home-card'],
+        revisionHash: options.revisionHash,
         signal,
       });
     },
@@ -92,6 +95,7 @@ export async function renderProjectThumbnailNow(
         fileId: options.fileId,
         source,
         variant: THUMBNAIL_VARIANTS['home-card'],
+        revisionHash: options.revisionHash,
       });
       if (!outcome?.result?.dataUrl) return null;
       return { dataUrl: outcome.result.dataUrl, key: outcome.identity.key };

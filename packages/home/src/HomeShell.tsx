@@ -51,7 +51,7 @@ import { TrashSection } from './TrashSection';
 import { useFileActions } from './useFileActions';
 import { type HomeShortcutHandlers, useHomeShortcuts } from './useHomeShortcuts';
 import { ingestHomeFiles, useHomeImportNotifications, useHomeView } from './useHomeView';
-import { useThumbnailLoader } from './useThumbnailLoader';
+import { type ThumbnailGenerator, useHomeThumbnailLoader } from './useThumbnailLoader';
 import { VersionHistory } from './VersionHistory';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 
@@ -72,6 +72,12 @@ export interface HomeShellProps {
   active?: boolean;
   /** Open the global Settings dialog (used by the toolbar gear button). */
   onOpenSettings?: () => void;
+  /**
+   * Repair a missing cached thumbnail through the host's canonical renderer.
+   * Home supplies this only for non-encrypted entries; standalone Home
+   * consumers can omit it and keep lookup-only behavior.
+   */
+  onGenerateThumbnail?: ThumbnailGenerator;
 }
 
 export function HomeShell(props: HomeShellProps) {
@@ -90,6 +96,7 @@ function HomeShellContent({
   onReady,
   active = true,
   onOpenSettings,
+  onGenerateThumbnail,
 }: HomeShellProps) {
   const view = useHomeView(platform);
   const { finishHomeDrop, notifyImportComplete, startHomeDrop } = useHomeImportNotifications();
@@ -116,17 +123,20 @@ function HomeShellContent({
     }
   }, [active, view.refresh]);
   const actions = useFileActions(platform, view.refresh);
-  const thumbnails = useThumbnailLoader(platform);
+  const { thumbnails, encryptedIds } = useHomeThumbnailLoader(
+    platform,
+    view.recentRecords,
+    onGenerateThumbnail,
+  );
   // Encrypted files never display cached pixels: their cards are forced to
   // the content-free encrypted placeholder regardless of cache state.
   const displayThumbnails = useMemo(() => {
     const map = thumbnails.thumbnails;
-    const encryptedIds = view.recentRecords.filter((r) => r.encrypted).map((r) => r.id);
-    if (encryptedIds.length === 0) return map;
+    if (encryptedIds.size === 0) return map;
     const next = new Map(map);
     for (const id of encryptedIds) next.set(id, ENCRYPTED_PROJECT_PLACEHOLDER);
     return next;
-  }, [thumbnails.thumbnails, view.recentRecords]);
+  }, [encryptedIds, thumbnails.thumbnails]);
   const presetLibrary = usePresetLibrary(platform);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
