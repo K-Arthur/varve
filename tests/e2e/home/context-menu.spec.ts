@@ -65,7 +65,7 @@ test.describe('Home context menu', () => {
     for (const text of [
       'Move earlier in order',
       'Move later in order',
-      'Version History...',
+      'Version History…',
       'Show in Folder',
       'Move to Trash',
     ]) {
@@ -82,10 +82,102 @@ test.describe('Home context menu', () => {
       expect(label.scrollWidth).toBeLessThanOrEqual(label.clientWidth);
     }
 
+    const geometry = await ctxMenu.evaluate((menu) => {
+      const layer = menu.parentElement;
+      const menuRect = menu.getBoundingClientRect();
+      const layerRect = layer?.getBoundingClientRect();
+      const layerStyle = layer ? getComputedStyle(layer) : null;
+      return {
+        viewport: { width: window.innerWidth, height: window.innerHeight },
+        menu: {
+          left: menuRect.left,
+          top: menuRect.top,
+          right: menuRect.right,
+          bottom: menuRect.bottom,
+        },
+        layer: layerRect
+          ? {
+              left: layerRect.left,
+              top: layerRect.top,
+              right: layerRect.right,
+              bottom: layerRect.bottom,
+              clientHeight: layer?.clientHeight ?? 0,
+              scrollHeight: layer?.scrollHeight ?? 0,
+            }
+          : null,
+        overflowY: layerStyle?.overflowY ?? null,
+      };
+    });
+
+    expect(geometry.layer).not.toBeNull();
+    expect(geometry.layer!.left).toBeGreaterThanOrEqual(0);
+    expect(geometry.layer!.top).toBeGreaterThanOrEqual(0);
+    expect(geometry.layer!.right).toBeLessThanOrEqual(geometry.viewport.width);
+    expect(geometry.layer!.bottom).toBeLessThanOrEqual(geometry.viewport.height);
+    expect(geometry.layer!.clientHeight).toBeGreaterThan(0);
+    expect(geometry.layer!.scrollHeight).toBeGreaterThanOrEqual(geometry.layer!.clientHeight);
+    expect(geometry.overflowY).toBe('auto');
+
     await page.screenshot({
       path:
         process.env.VARVE_MENU_REVIEW_PATH ??
         'test-results/visual/home-file-context-menu-readable.png',
+      animations: 'disabled',
+    });
+  });
+
+  test('keeps a lower-right invocation inside the viewport', async ({ page }) => {
+    const card = page.locator('.home-grid[role="grid"] [role="gridcell"]').last();
+    const count = await page.locator('.home-grid[role="grid"] [role="gridcell"]').count();
+    if (count < 1) return;
+
+    const cardBox = await card.boundingBox();
+    expect(cardBox).not.toBeNull();
+    await card.click({
+      button: 'right',
+      position: { x: cardBox!.width - 8, y: cardBox!.height - 8 },
+    });
+
+    const ctxMenu = page.locator('.varve-ctxmenu[role="menu"]');
+    await expect(ctxMenu).toBeVisible();
+    const geometry = await ctxMenu.evaluate((menu) => {
+      const layer = menu.parentElement;
+      const layerRect = layer?.getBoundingClientRect();
+      const menuRect = menu.getBoundingClientRect();
+      return {
+        viewport: { width: window.innerWidth, height: window.innerHeight },
+        menu: {
+          left: menuRect.left,
+          top: menuRect.top,
+          right: menuRect.right,
+          bottom: menuRect.bottom,
+        },
+        layer: layerRect
+          ? {
+              left: layerRect.left,
+              top: layerRect.top,
+              right: layerRect.right,
+              bottom: layerRect.bottom,
+              clientHeight: layer?.clientHeight ?? 0,
+              scrollHeight: layer?.scrollHeight ?? 0,
+            }
+          : null,
+        overflowY: layer ? getComputedStyle(layer).overflowY : null,
+      };
+    });
+
+    expect(geometry.layer).not.toBeNull();
+    expect(geometry.layer!.left).toBeGreaterThanOrEqual(0);
+    expect(geometry.layer!.top).toBeGreaterThanOrEqual(0);
+    expect(geometry.layer!.right).toBeLessThanOrEqual(geometry.viewport.width);
+    expect(geometry.layer!.bottom).toBeLessThanOrEqual(geometry.viewport.height);
+    expect(geometry.menu.left).toBeGreaterThanOrEqual(0);
+    expect(geometry.menu.right).toBeLessThanOrEqual(geometry.viewport.width);
+    expect(geometry.overflowY).toBe('auto');
+    await page.screenshot({
+      path:
+        process.env.VARVE_MENU_EDGE_REVIEW_PATH ??
+        'test-results/visual/home-file-context-menu-edge-readable.png',
       animations: 'disabled',
     });
   });
