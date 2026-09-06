@@ -24,6 +24,8 @@ update, not for someone reading the commit log.
 - Inspector field rows and image colour metadata now keep labels, values, and
   actions separated at narrow panel widths, including long URLs and format
   supplied colour strings.
+- Adjustment panel rows now preserve label/control separation for long effect
+  names, colour labels, select values, and action buttons at narrow widths.
 - Partial-strength normal filters now interpolate premultiplied incoming and
   filtered pixels, so neutral colour adjustments no longer increase the
   coverage of semitransparent artwork.

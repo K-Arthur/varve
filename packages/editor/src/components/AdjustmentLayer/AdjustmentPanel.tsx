@@ -269,7 +269,7 @@ export function AdjustmentPanel() {
   const selectedAdj = adjustments.find((a) => a.id === selectedAdjId) ?? null;
 
   return (
-    <div className="insp-panel">
+    <div className="insp-panel adj-panel">
       <header className="adj-panel__header">
         <SolidIcon name="Faders" size="1em" aria-hidden className="adj-panel__header-icon" />
         <div>

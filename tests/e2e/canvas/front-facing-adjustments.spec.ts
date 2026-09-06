@@ -128,6 +128,67 @@ test.describe('front-facing adjustment and canvas controls', () => {
     await page.screenshot({ path: path.join(REVIEW_DIR, '06-spatial-filter-control.png') });
   });
 
+  test('keeps adjustment labels and controls separated in a narrow inspector', async ({ page }) => {
+    test.setTimeout(120000);
+    mkdirSync(REVIEW_DIR, { recursive: true });
+    await navigateToEditor(page);
+
+    await page.locator('#file-import-input').setInputFiles(IMAGE_FIXTURE);
+    await expect(page.getByRole('treeitem')).toHaveCount(1);
+    await createAdjustmentLayer(page);
+    await page.evaluate(() => {
+      document
+        .querySelector<HTMLElement>('.editor-shell')
+        ?.style.setProperty('--inspector-width', '280px');
+    });
+    await expect(page.locator('.editor-shell')).toHaveCSS('--inspector-width', '280px');
+
+    for (const name of ['Channel Mixer', 'Halftone', 'Color Balance', 'Shadow / Highlight']) {
+      await addAdjustment(page, name);
+      const panel = page.locator('.adj-panel__header').locator('..');
+      await expect(panel).toBeVisible();
+      const layout = await panel.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        let maxRight = rect.right;
+        for (const child of element.querySelectorAll<HTMLElement>('*')) {
+          maxRight = Math.max(maxRight, child.getBoundingClientRect().right);
+        }
+        return {
+          clientWidth: element.clientWidth,
+          scrollWidth: element.scrollWidth,
+          right: rect.right,
+          maxRight,
+        };
+      });
+      expect(layout.scrollWidth).toBeLessThanOrEqual(layout.clientWidth + 1);
+      expect(layout.maxRight).toBeLessThanOrEqual(layout.right + 1);
+      const overlap = await panel.evaluate((panel) => {
+        const issues: string[] = [];
+        const rows = panel.querySelectorAll<HTMLElement>(
+          '.adj-editor__row, .adj-editor__color-row',
+        );
+        for (const row of rows) {
+          const label = row.querySelector<HTMLElement>(':scope > .adj-editor__label');
+          if (!label) continue;
+          const labelRect = label.getBoundingClientRect();
+          for (const control of Array.from(row.children).filter(
+            (child): child is HTMLElement => child instanceof HTMLElement && child !== label,
+          )) {
+            const controlRect = control.getBoundingClientRect();
+            if (controlRect.width === 0 || controlRect.height === 0) continue;
+            if (labelRect.right > controlRect.left + 1) {
+              issues.push(`${label.textContent?.trim() ?? 'label'} overlaps ${control.className}`);
+            }
+          }
+        }
+        return issues;
+      });
+      expect(overlap, `${name} label/control overlap`).toEqual([]);
+    }
+
+    await page.screenshot({ path: path.join(REVIEW_DIR, '08-narrow-adjustment-panel.png') });
+  });
+
   test('reorders object filters with drag while keeping keyboard chevrons available', async ({
     page,
   }) => {

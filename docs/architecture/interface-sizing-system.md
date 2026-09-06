@@ -106,6 +106,12 @@ margins are reset, both columns may shrink, and long values use safe wrapping.
 This is required for image colour metadata, but applies to any dense inspector
 readout that may contain untrusted or format-provided strings.
 
+Adjustment editors follow the same contract for nested rows: the panel root
+must retain a zero-width flex minimum, labels may shrink and wrap within a
+bounded column, and controls must be allowed to shrink inside the remaining
+space. Long adjustment names, colour labels, select values, and effect actions
+must never rely on intrinsic flex widths at the narrow inspector size.
+
 ## Migration map
 
 | Previous pattern | Canonical contract |

@@ -912,6 +912,11 @@
 .insp-field__control > * {
   min-width: 0;
 }
+.insp-field__value {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .insp-field__control--inline {
   width: auto;
   max-width: 100%;
