@@ -515,10 +515,14 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
     }
 
     const targetSiblings = siblingsOf(currentDoc, targetParentId, designCanvasId);
-    if (
-      target.targetId &&
-      (!currentDoc.nodes[target.targetId] || !targetSiblings.includes(target.targetId))
-    ) {
+    const targetNode = target.targetId ? currentDoc.nodes[target.targetId] : undefined;
+    const targetStillInPlace =
+      target.zone === 'into'
+        ? target.clipInto
+          ? targetSiblings.includes(target.targetId!)
+          : !!targetNode && isContainer(targetNode)
+        : targetSiblings.includes(target.targetId!);
+    if (target.targetId && (!targetNode || !targetStillInPlace)) {
       return;
     }
 
