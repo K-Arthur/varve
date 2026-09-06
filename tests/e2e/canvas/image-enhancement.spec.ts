@@ -221,7 +221,8 @@ test('keeps the action label, controls, and presets synchronized', async ({ page
   await expect(page.getByRole('combobox', { name: 'Upscale quality' })).toBeVisible();
   await expect(page.getByRole('radiogroup', { name: 'Denoise strength' })).toBeVisible();
 
-  await selectOperation(page, 'Deblur + Upscale');
+  await page.getByRole('combobox', { name: 'Enhancement operation' }).click();
+  await page.getByRole('option', { name: /Deblur \+ Upscale/ }).click();
   await expect(page.getByRole('button', { name: 'Deblur and upscale' })).toBeVisible();
   await expect(page.getByRole('radiogroup', { name: 'Deblur strength' })).toBeVisible();
 
