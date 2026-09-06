@@ -548,6 +548,7 @@ function LegacyAdjustmentEditor({
           onChange={(patch) => onChange(patch as unknown as Partial<Adjustment>)}
           onEditStart={onEditStart}
           onEditEnd={onEditEnd}
+          sourceHistogram={sourceHistogram}
         />
       );
     }

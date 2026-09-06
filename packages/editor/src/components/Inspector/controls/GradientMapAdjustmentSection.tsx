@@ -25,6 +25,7 @@ import { useCallback, useState } from 'react';
 import { useEditor } from '../../../context';
 import { openGradientFilePicker, parseGradientFile } from '../../../gradientPresets/importFile';
 import { useGradientPresetLibrary } from '../../../gradientPresets/library';
+import { GradientMapTonalDistribution } from '../../AdjustmentLayer/GradientMapTonalDistribution';
 import { confirmDialog } from '../../PromptDialog';
 import { GradientImportDialog, type GradientImportScope } from './GradientImportDialog';
 import { GradientMapEditor } from './GradientMapEditor';
@@ -35,6 +36,7 @@ export interface GradientMapAdjustmentSectionProps {
   onChange: (patch: Partial<GradientMapAdjustment>) => void;
   onEditStart?: () => void;
   onEditEnd?: () => void;
+  sourceHistogram?: import('@varve/engine').Histogram | null;
 }
 
 interface ImportState {
@@ -122,6 +124,7 @@ export function GradientMapAdjustmentSection({
   onChange,
   onEditStart,
   onEditEnd,
+  sourceHistogram,
 }: GradientMapAdjustmentSectionProps) {
   const editor = useEditor();
   const library = useGradientPresetLibrary(editor.platform);
@@ -377,6 +380,12 @@ export function GradientMapAdjustmentSection({
           documentPresets.some((candidate) => candidate.id === preset.id) ||
           library.userPresets.some((candidate) => candidate.id === preset.id)
         }
+      />
+      <GradientMapTonalDistribution
+        histogram={sourceHistogram}
+        stops={adjustment.stops}
+        interpolation={adjustment.interpolation}
+        reverse={adjustment.reverse}
       />
       {currentPreset.compatibility?.status !== 'ok' && (
         <p className="gmp-section__compat" role="status">

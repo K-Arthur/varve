@@ -1111,6 +1111,41 @@
   accent-color: var(--color-interactive-default);
 }
 
+/* ── Gradient map tonal distribution ───────────────────────────────────── */
+
+.gradient-map-tonal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-1) 0;
+}
+
+.gradient-map-tonal__header,
+.gradient-map-tonal__legend {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--font-size-2xs, 10px);
+  color: var(--color-text-muted);
+}
+
+.gradient-map-tonal__header {
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+}
+
+.gradient-map-tonal canvas {
+  display: block;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+}
+
+.gradient-map-tonal__empty {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
 /* ── Gradient preset browser ───────────────────────────────────────────── */
 
 .gmp-section {
@@ -1220,6 +1255,12 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.gmp-item__scope {
+  flex: none;
+  font-size: var(--font-size-2xs, 10px);
+  color: var(--color-text-muted);
 }
 
 .gmp-item__badge {
