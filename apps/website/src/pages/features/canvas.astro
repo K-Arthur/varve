@@ -25,7 +25,7 @@ import { sitePath } from '../../lib/siteUrl';
       <section class="feature-section">
         <h2>Images stay local and editable</h2>
         <p>
-          Embedded images are stored once in the document and shared by every placement. Crops, fit, rotation, flips, masks, and treatments remain per-use edits, while the canvas resolves the same source through its local decode cache on desktop and web. Payload-free asset references are repaired at document and render boundaries, so reopening or switching workspace does not turn an image into a grey placeholder.
+          Embedded images are stored once in the document and shared by every placement. Crops, fit, rotation, flips, masks, and treatments remain per-use edits, while the canvas resolves the same source through its local decode cache on desktop and web. Payload-free asset references are repaired at document and render boundaries, so reopening or switching workspace does not turn an image into a grey placeholder. Home previews use that same canonical scene pipeline and can rebuild their disposable cache from the saved document when an older preview is missing.
         </p>
       </section>
 
