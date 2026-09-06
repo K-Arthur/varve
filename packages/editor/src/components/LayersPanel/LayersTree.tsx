@@ -59,6 +59,7 @@ import { loadSettings } from '../../settings';
 import type { LayerDropTarget } from './layerDropResolver';
 import type { LayerFilterSpec } from './layerFilterTypes';
 import { DEFAULT_FILTER } from './layerFilterTypes';
+import { canonicalizeMoveIds } from './layerMovePlan';
 import {
   createSearchIndex,
   type LayerSearchIndex,
@@ -190,17 +191,7 @@ export function resolveDragMoveIds(
     return [activeId];
   }
 
-  const selectedSet = new Set(selection);
-  const isTopLevel = (id: NodeId): boolean => {
-    let parent = getParentFast(doc, id, parentCache);
-    while (parent) {
-      if (selectedSet.has(parent)) return false;
-      parent = getParentFast(doc, parent, parentCache);
-    }
-    return true;
-  };
-
-  const topLevelSet = new Set(selection.filter(isTopLevel));
+  const topLevelSet = new Set(canonicalizeMoveIds(doc, selection, activeId, parentCache));
   const ordered = entries.filter((e) => topLevelSet.has(e.node.id)).map((e) => e.node.id);
   for (const id of topLevelSet) {
     if (!ordered.includes(id)) ordered.push(id);

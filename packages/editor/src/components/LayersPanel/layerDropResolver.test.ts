@@ -416,3 +416,23 @@ describe('siblingsOf', () => {
     expect(siblingsOf(doc, child)).toEqual([]);
   });
 });
+
+describe('surface ownership', () => {
+  it('does not claim a vertically aligned pointer in an adjacent surface', () => {
+    const { doc } = makeSiblingsDoc();
+    const firstId = doc.rootChildren[0]!;
+    const target = resolveLayerDropTarget({
+      doc,
+      entries: [{ node: doc.nodes[firstId]!, depth: 0, parentId: null }],
+      geometry: [{ start: 0, end: 28 }],
+      pointerX: 420,
+      pointerY: 14,
+      viewport: { left: 0, right: 300, top: 0, bottom: 200 },
+      contentTop: 0,
+      activeIds: ['B'],
+      isDescendant: () => false,
+    });
+
+    expect(target).toBeNull();
+  });
+});

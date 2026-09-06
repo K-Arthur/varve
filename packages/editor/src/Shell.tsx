@@ -545,7 +545,7 @@ function ShellInner({
   }, [leftPanelVisible, rightPanelVisible]);
 
   return (
-    <DnDShell editor={editor} layersDndRef={layersDndRef}>
+    <DnDShell editor={editor} layersDndRef={layersDndRef} canvasRef={canvasContainerRef}>
       <div
         className={`editor-shell${distractionFreeMode ? ' editor-shell--distraction-free' : ''}${
           editor.state.logoPanelVisible ? ' editor-shell--logo-open' : ''

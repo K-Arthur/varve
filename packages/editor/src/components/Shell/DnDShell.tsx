@@ -13,13 +13,21 @@ import { computeFloatingOrigin, screenToWorld } from '@varve/shared';
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import type { EditorContextValue } from '../../context';
 import type { DragData, DragEffectStackData } from '../../dnd-types';
+import { isNodeEffectivelyLocked } from '../../scene/world';
 import type { LayersDnDHandle } from '../LayersPanel/LayersTree';
 import { EffectStackDragContext } from './effectStackDragContext';
+import {
+  computeCanvasDropPositions,
+  resolveCanvasContentRoot,
+  resolveCanvasMoveIds,
+} from './layerCanvasDrop';
 
 export interface DnDShellProps {
   children: ReactNode;
   editor: EditorContextValue;
   layersDndRef: React.RefObject<LayersDnDHandle | null>;
+  /** Scoped canvas surface for this editor instance. */
+  canvasRef: React.RefObject<HTMLDivElement | null>;
 }
 
 function dragUsesAppendMode(event: Event | null): boolean {
@@ -47,9 +55,19 @@ function findEffectStackTarget(sourceId: NodeId, clientX: number, clientY: numbe
   return null;
 }
 
-export function DnDShell({ children, editor, layersDndRef }: DnDShellProps) {
+function isPointerOverElement(element: HTMLElement, clientX: number, clientY: number): boolean {
+  const rect = element.getBoundingClientRect();
+  if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {
+    return false;
+  }
+  const hit = document.elementFromPoint(clientX, clientY);
+  return !hit || element.contains(hit);
+}
+
+export function DnDShell({ children, editor, layersDndRef, canvasRef }: DnDShellProps) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
   const lastPointerPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const layerMoveIdsRef = useRef<NodeId[]>([]);
   const [activeDragNode, setActiveDragNode] = useState<{
     id: NodeId;
     name: string;
@@ -97,17 +115,21 @@ export function DnDShell({ children, editor, layersDndRef }: DnDShellProps) {
     (event: DragStartEvent) => {
       const data = event.active.data.current as DragData | undefined;
       if (data?.type === 'layer') {
+        const moveIds = resolveCanvasMoveIds(
+          editor.state.document,
+          editor.state.selection,
+          data.nodeId,
+        );
+        layerMoveIdsRef.current = moveIds;
         layersDndRef.current?.handleDragStart(event);
         const node = editor.state.document.nodes[data.nodeId];
         if (node) {
           // Dragging one row of a multi-selection moves the whole selection,
           // so a preview showing a single name misrepresents the operation.
-          const selection = editor.state.selection;
-          const movingCount = selection.includes(data.nodeId) ? selection.length : 1;
           setActiveDragNode({
             id: data.nodeId,
             name: node.name,
-            extraCount: Math.max(0, movingCount - 1),
+            extraCount: Math.max(0, moveIds.length - 1),
           });
         }
         return;
@@ -191,7 +213,7 @@ export function DnDShell({ children, editor, layersDndRef }: DnDShellProps) {
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
-      const { active, over } = event;
+      const { active } = event;
       const data = active.data.current as DragData | undefined;
 
       if (data?.type === 'effect-stack') {
@@ -209,20 +231,13 @@ export function DnDShell({ children, editor, layersDndRef }: DnDShellProps) {
         return;
       }
 
-      if (over?.id === 'canvas-drop-zone' && data?.type === 'layer') {
-        const canvasSection = document.querySelector('.editor-canvas');
-        const canvasRect = canvasSection?.getBoundingClientRect();
-        if (!canvasSection || !canvasRect) {
-          layersDndRef.current?.handleDragEnd(event);
-          setActiveDragNode(null);
-          return;
-        }
+      if (data?.type === 'layer') {
+        const moveIds = [...layerMoveIdsRef.current];
+        layerMoveIdsRef.current = [];
+        const canvasSection = canvasRef.current;
         const ptr = lastPointerPos.current;
         const pointerInsideCanvas =
-          ptr.x >= canvasRect.left &&
-          ptr.x <= canvasRect.right &&
-          ptr.y >= canvasRect.top &&
-          ptr.y <= canvasRect.bottom;
+          canvasSection !== null && isPointerOverElement(canvasSection, ptr.x, ptr.y);
 
         if (!pointerInsideCanvas) {
           layersDndRef.current?.handleDragEnd(event);
@@ -230,9 +245,14 @@ export function DnDShell({ children, editor, layersDndRef }: DnDShellProps) {
           return;
         }
 
-        setActiveDragNode(null);
-        const canvasEl = canvasSection.querySelector('canvas');
-        if (!canvasEl) return;
+        const canvasEl = canvasSection?.querySelector<HTMLCanvasElement>(
+          'canvas.editor-canvas__content-layer',
+        );
+        if (!canvasEl) {
+          layersDndRef.current?.handleDragCancel();
+          setActiveDragNode(null);
+          return;
+        }
         const rect = canvasEl.getBoundingClientRect();
         const cam = {
           pan: editor.state.pan,
@@ -243,35 +263,64 @@ export function DnDShell({ children, editor, layersDndRef }: DnDShellProps) {
         const origin = computeFloatingOrigin(cam, viewport);
         const [wx, wy] = screenToWorld(cam, ptr.x - rect.left, ptr.y - rect.top, viewport, origin);
 
-        const selection = editor.state.selection;
-        const moveIds =
-          selection.length > 1 && selection.includes(data.nodeId as NodeId)
-            ? selection
-            : [data.nodeId as NodeId];
-
-        editor.beginTransaction();
-        for (const nodeId of moveIds) {
-          editor.reparentNode(nodeId, null, Number.MAX_SAFE_INTEGER);
-          editor.setNodePosition(nodeId, wx, wy);
-        }
-        editor.setSelection(moveIds[0]!);
-        for (let i = 1; i < moveIds.length; i++) {
-          editor.toggleSelection(moveIds[i]!, true);
-        }
-        editor.commitTransaction();
-        editor.announce(
-          moveIds.length > 1 ? `Moved ${moveIds.length} layers to canvas` : `Moved layer to canvas`,
+        const currentDoc = editor.state.document;
+        const destinationParentId = resolveCanvasContentRoot(
+          currentDoc,
+          editor.state.workspaceMode,
         );
+        const positions = moveIds.every((id) => !isNodeEffectivelyLocked(currentDoc, id))
+          ? computeCanvasDropPositions(currentDoc, moveIds, [wx, wy], destinationParentId)
+          : null;
+
+        if (!positions) {
+          editor.announce('This layer selection cannot be moved to the canvas');
+          layersDndRef.current?.handleDragCancel();
+          setActiveDragNode(null);
+          return;
+        }
+
+        let committed = false;
+        try {
+          editor.beginTransaction();
+          for (const nodeId of moveIds) {
+            editor.reparentNode(nodeId, null, Number.MAX_SAFE_INTEGER);
+          }
+          editor.setNodePositions(positions);
+          editor.setSelection(moveIds[0]!);
+          for (let i = 1; i < moveIds.length; i++) {
+            editor.toggleSelection(moveIds[i]!, true);
+          }
+          editor.commitTransaction();
+          committed = true;
+        } catch (error) {
+          editor.abortTransaction();
+          editor.announce(
+            error instanceof Error ? error.message : 'The layer could not be moved to the canvas',
+          );
+        } finally {
+          // The canvas owns the document commit, but the Layers adapter still
+          // owns pointer tracking/preview cleanup for this gesture.
+          layersDndRef.current?.handleDragCancel();
+          setActiveDragNode(null);
+        }
+        if (committed) {
+          editor.announce(
+            moveIds.length > 1
+              ? `Moved ${moveIds.length} layers to canvas`
+              : 'Moved layer to canvas',
+          );
+        }
         return;
       }
 
       layersDndRef.current?.handleDragEnd(event);
       setActiveDragNode(null);
     },
-    [editor, layersDndRef],
+    [canvasRef, editor, layersDndRef],
   );
 
   const handleDragCancel = useCallback(() => {
+    layerMoveIdsRef.current = [];
     layersDndRef.current?.handleDragCancel();
     setActiveDragNode(null);
     setActiveEffectStack(null);

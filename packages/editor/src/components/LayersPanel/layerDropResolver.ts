@@ -193,9 +193,10 @@ export interface ResolveLayerDropTargetArgs {
   /** Row extents from the virtualizer, indexed identically to `entries`. */
   geometry: RowGeometry[];
   /** Pointer position in client coordinates. */
+  pointerX?: number;
   pointerY: number;
   /** The tree's visible clip bounds, in client coordinates. */
-  viewport: { top: number; bottom: number };
+  viewport: { top: number; bottom: number; left?: number; right?: number };
   /**
    * Client Y of the top edge of the tree's scrollable *content*. Because that
    * element scrolls with the list, reading its rect folds the scroll offset in
@@ -236,6 +237,14 @@ export function resolveLayerDropTarget(args: ResolveLayerDropTargetArgs): LayerD
   // Outside the panel: not our drop. Falling back to dnd-kit's `over` here is
   // exactly how a drag released over the canvas used to land on whichever row
   // the collision detector happened to be holding.
+  if (
+    args.pointerX !== undefined &&
+    args.viewport.left !== undefined &&
+    args.viewport.right !== undefined &&
+    (args.pointerX < args.viewport.left || args.pointerX > args.viewport.right)
+  ) {
+    return null;
+  }
   if (pointerY < viewport.top || pointerY > viewport.bottom) return null;
   if (entries.length === 0 || geometry.length === 0) return null;
 

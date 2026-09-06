@@ -8,7 +8,52 @@
  * are still occupying slots underneath the insertion point.
  */
 
-import type { NodeId } from '@varve/scene';
+import { type Document, getParent, isContainer, type NodeId } from '@varve/scene';
+import { getParentFast, type ParentIndexCache } from '../../scene/parentIndexCache';
+
+/**
+ * Return the selected roots that should travel with a drag. A selected child
+ * of a selected ancestor is carried by that ancestor and must not be moved a
+ * second time. The result is in document paint order (back-to-front), which
+ * makes appending several roots to a new container preserve their stacking
+ * order independently of selection-array order.
+ */
+export function canonicalizeMoveIds(
+  doc: Document,
+  selection: NodeId[],
+  activeId: NodeId,
+  parentCache?: ParentIndexCache | null,
+): NodeId[] {
+  const candidates = selection.length > 1 && selection.includes(activeId) ? selection : [activeId];
+  const selected = new Set(candidates);
+  const parentOf = (id: NodeId): NodeId | null =>
+    parentCache ? getParentFast(doc, id, parentCache) : getParent(doc, id);
+  const roots = candidates.filter((id) => {
+    let parent = parentOf(id);
+    while (parent) {
+      if (selected.has(parent)) return false;
+      parent = parentOf(parent);
+    }
+    return true;
+  });
+  const order = new Map<NodeId, number>();
+  let nextOrder = 0;
+  const visit = (ids: NodeId[]) => {
+    for (const id of ids) {
+      if (order.has(id)) continue;
+      order.set(id, nextOrder++);
+      const node = doc.nodes[id];
+      if (node && isContainer(node)) visit(node.children);
+    }
+  };
+  visit(doc.rootChildren);
+  for (const id of Object.keys(doc.nodes) as NodeId[]) {
+    if (!order.has(id)) visit([id]);
+  }
+  return [...roots].sort(
+    (a, b) => (order.get(a) ?? Number.MAX_SAFE_INTEGER) - (order.get(b) ?? Number.MAX_SAFE_INTEGER),
+  );
+}
 
 /**
  * Compute (id, index) insertion steps for landing a multi-node move

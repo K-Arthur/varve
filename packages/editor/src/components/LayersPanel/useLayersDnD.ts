@@ -18,7 +18,7 @@
 
 import type { DragMoveEvent, DragStartEvent } from '@dnd-kit/core';
 import type { Virtualizer } from '@tanstack/react-virtual';
-import type { Document, NodeId } from '@varve/scene';
+import { type Document, isContainer, type NodeId } from '@varve/scene';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   getParentFast,
@@ -55,6 +55,19 @@ const AUTO_SCROLL_MAX_FRAME_MS = 32;
  * expand it, short enough to feel like a deliberate affordance.
  */
 const AUTO_EXPAND_DELAY_MS = 500;
+
+function isEffectivelyLocked(
+  doc: Document,
+  nodeId: NodeId,
+  parentCache: ParentIndexCache | null,
+): boolean {
+  let current: NodeId | null | undefined = nodeId;
+  while (current) {
+    if (doc.nodes[current]?.locked === true) return true;
+    current = getParentFast(doc, current, parentCache);
+  }
+  return false;
+}
 
 /** Structural equality, so an unchanged target does not re-render the tree. */
 export function sameDropTarget(a: LayerDropTarget | null, b: LayerDropTarget | null): boolean {
@@ -158,6 +171,9 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
   const dropIndicatorRef = useRef<LayerDropTarget | null>(null);
   const activeIdRef = useRef<NodeId | null>(null);
   const autoExpandTimerRef = useRef<number | null>(null);
+  const autoExpandTargetRef = useRef<NodeId | null>(null);
+  const dragSessionRef = useRef(0);
+  const moveIdsRef = useRef<NodeId[]>([]);
   const autoScrollRafRef = useRef<number | null>(null);
   const autoScrollLastTsRef = useRef<number>(0);
   const pointerListenerRef = useRef<((e: PointerEvent) => void) | null>(null);
@@ -171,13 +187,31 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
       clearTimeout(autoExpandTimerRef.current);
       autoExpandTimerRef.current = null;
     }
+    autoExpandTargetRef.current = null;
   }, []);
 
   const startAutoExpand = useCallback(
     (nodeId: NodeId) => {
-      if (autoExpandTimerRef.current !== null) return;
+      if (autoExpandTimerRef.current !== null && autoExpandTargetRef.current === nodeId) {
+        return;
+      }
+      cancelAutoExpand();
+      const session = dragSessionRef.current;
+      autoExpandTargetRef.current = nodeId;
       autoExpandTimerRef.current = window.setTimeout(() => {
         autoExpandTimerRef.current = null;
+        if (
+          dragSessionRef.current !== session ||
+          autoExpandTargetRef.current !== nodeId ||
+          !activeIdRef.current
+        ) {
+          return;
+        }
+        const node = docRef.current.nodes[nodeId];
+        if (!node || !isContainer(node)) {
+          autoExpandTargetRef.current = null;
+          return;
+        }
         setExpanded((prev) => {
           if (prev.has(nodeId)) return prev;
           const next = new Set(prev);
@@ -186,7 +220,7 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
         });
       }, AUTO_EXPAND_DELAY_MS);
     },
-    [setExpanded],
+    [cancelAutoExpand, setExpanded],
   );
 
   const cancelAutoScroll = useCallback(() => {
@@ -227,44 +261,39 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
     if (!activeNodeId || !container || !content) return;
 
     const currentDoc = docRef.current;
-    const moveIds = resolveMoveIds(activeNodeId);
+    const moveIds = moveIdsRef.current;
 
     // Two constant-cost rect reads per sample. The content element scrolls
     // with the list, so its top edge already carries the scroll offset.
     const viewportRect = container.getBoundingClientRect();
     const contentRect = content.getBoundingClientRect();
 
-    // `reparentNode` refuses a move when the node — or any ancestor — is
-    // locked, so the preview has to test the same thing. Testing only the
-    // node's own flag let the panel promise a drop that was then silently
-    // refused on release, which is the failure mode invalid feedback exists
-    // to prevent.
-    const isEffectivelyLocked = (nodeId: NodeId): boolean => {
-      let current: NodeId | null | undefined = nodeId;
-      while (current) {
-        if (currentDoc.nodes[current]?.locked === true) return true;
-        current = getParentFast(currentDoc, current, parentCacheRef.current);
-      }
-      return false;
-    };
-
     let target = resolveLayerDropTarget({
       doc: currentDoc,
       designCanvasId,
       entries: entriesRef.current ?? [],
       geometry: readGeometry(),
+      pointerX: lastPointerRef.current.x,
       pointerY: lastPointerRef.current.y,
-      viewport: { top: viewportRect.top, bottom: viewportRect.bottom },
+      viewport: {
+        top: viewportRect.top,
+        bottom: viewportRect.bottom,
+        left: viewportRect.left,
+        right: viewportRect.right,
+      },
       contentTop: contentRect.top,
       activeIds: moveIds,
       isDescendant: (ancestorId, nodeId) =>
         isDescendantFast(currentDoc, ancestorId, nodeId, parentCacheRef.current),
-      isLocked: isEffectivelyLocked,
+      isLocked: (nodeId) => isEffectivelyLocked(currentDoc, nodeId, parentCacheRef.current),
     });
 
     // A locked *source* is equally unmovable. Keep the resolved location so
     // the user still sees where it would have gone, just marked invalid.
-    if (target?.valid && moveIds.some(isEffectivelyLocked)) {
+    if (
+      target?.valid &&
+      moveIds.some((id) => isEffectivelyLocked(currentDoc, id, parentCacheRef.current))
+    ) {
       target = { ...target, valid: false, reason: 'locked' };
     }
 
@@ -381,6 +410,8 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
     (event: DragStartEvent) => {
       const id = event.active.id as NodeId;
       activeIdRef.current = id;
+      dragSessionRef.current += 1;
+      moveIdsRef.current = resolveMoveIds(id);
       setActiveId(id);
       dropIndicatorRef.current = null;
       setDropIndicator(null);
@@ -395,7 +426,7 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
       window.addEventListener('pointermove', listener, { passive: true });
       refreshDropTargetRef.current();
     },
-    [cancelAutoScroll],
+    [cancelAutoScroll, resolveMoveIds],
   );
 
   // dnd-kit still drives these, but only as an extra tick — the pointer
@@ -450,8 +481,22 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
     }, 0);
   }, []);
 
+  const clearSwallowClick = useCallback(() => {
+    const listener = swallowClickRef.current;
+    if (!listener) return;
+    window.removeEventListener('click', listener, true);
+    swallowClickRef.current = null;
+  }, []);
+
   const handleDragEnd = useCallback(() => {
+    // Re-run the same resolver against the final pointer/layout sample. This
+    // updates a target whose rows moved while the pointer was stationary,
+    // without introducing a separate drag-end targeting algorithm.
+    refreshDropTargetRef.current();
     const activeNodeId = activeIdRef.current;
+    const moveIds = [...moveIdsRef.current];
+    moveIdsRef.current = [];
+    dragSessionRef.current += 1;
     setActiveId(null);
     activeIdRef.current = null;
     cancelAutoExpand();
@@ -470,7 +515,6 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
     const activeNode = currentDoc.nodes[activeNodeId];
     if (!activeNode) return;
 
-    const moveIds = resolveMoveIds(activeNodeId);
     const targetParentId = target.targetParentId;
 
     // Re-check the cycle guard against the document as it stands *now*: a
@@ -478,7 +522,22 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
     // driven rerender) can move the hierarchy under it.
     if (
       targetParentId &&
-      moveIds.some((id) => isDescendantFast(currentDoc, id, targetParentId, parentCacheRef.current))
+      (isEffectivelyLocked(currentDoc, targetParentId, parentCacheRef.current) ||
+        moveIds.some((id) =>
+          isDescendantFast(currentDoc, id, targetParentId, parentCacheRef.current),
+        ))
+    ) {
+      return;
+    }
+
+    if (moveIds.some((id) => isEffectivelyLocked(currentDoc, id, parentCacheRef.current))) {
+      return;
+    }
+
+    if (
+      target.targetId &&
+      (!currentDoc.nodes[target.targetId] ||
+        getParentFast(currentDoc, target.targetId, parentCacheRef.current) !== targetParentId)
     ) {
       return;
     }
@@ -500,7 +559,6 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
     announce(describeDrop(currentDoc, target, moveIds, activeNode.name));
   }, [
     parentCacheRef,
-    resolveMoveIds,
     reparentNode,
     announce,
     cancelAutoExpand,
@@ -513,25 +571,30 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
   ]);
 
   const handleDragCancel = useCallback(() => {
+    dragSessionRef.current += 1;
     setActiveId(null);
     activeIdRef.current = null;
+    moveIdsRef.current = [];
     dropIndicatorRef.current = null;
     setDropIndicator(null);
     cancelAutoExpand();
     cancelAutoScroll();
     detachPointerTracking();
-  }, [cancelAutoExpand, cancelAutoScroll, detachPointerTracking]);
+    clearSwallowClick();
+  }, [cancelAutoExpand, cancelAutoScroll, clearSwallowClick, detachPointerTracking]);
 
   // A drag can end with the component unmounting (panel detach, page switch).
   // Leaving a window-level pointermove listener behind would keep the whole
   // tree closure alive and keep resolving targets for a drag that is over.
   useEffect(
     () => () => {
+      dragSessionRef.current += 1;
       detachPointerTracking();
       cancelAutoExpand();
       cancelAutoScroll();
+      clearSwallowClick();
     },
-    [detachPointerTracking, cancelAutoExpand, cancelAutoScroll],
+    [detachPointerTracking, cancelAutoExpand, cancelAutoScroll, clearSwallowClick],
   );
 
   return {
