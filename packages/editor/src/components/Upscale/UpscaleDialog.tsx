@@ -248,6 +248,7 @@ export function UpscaleDialog({
     operation === 'auto' ? resolveAutoOperation().operation : operation;
   const autoResolution = operation === 'auto' ? resolveAutoOperation() : null;
   const autoActionDisabled = operation === 'auto' && (!autoAnalysis || !autoResolution?.operation);
+  const autoUsesCustomSettings = operation === 'auto' && presetId === 'custom';
 
   const markPresetCustom = useCallback(() => {
     setPresetId('custom');
@@ -1575,7 +1576,9 @@ export function UpscaleDialog({
                   ? autoAnalysis
                     ? 'No supported action'
                     : 'Analyzing…'
-                  : 'Apply recommended'
+                  : autoUsesCustomSettings
+                    ? 'Apply custom settings'
+                    : 'Apply recommended'
                 : operation === 'denoise'
                   ? noOpRequested
                     ? 'No change to apply'

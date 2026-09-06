@@ -206,6 +206,18 @@ test('keeps the action label, controls, and presets synchronized', async ({ page
   await openEnhanceDialog(page);
 
   await expect(page.getByRole('button', { name: 'Apply recommended' })).toBeVisible();
+  await page
+    .getByRole('radiogroup', { name: 'Quality policy' })
+    .getByText('Balanced', { exact: true })
+    .click();
+  await expect(page.getByRole('combobox', { name: 'Enhancement preset' })).toHaveText(
+    'Custom settings',
+  );
+  await expect(page.getByRole('button', { name: 'Apply custom settings' })).toBeVisible();
+  await page.getByRole('combobox', { name: 'Enhancement preset' }).click();
+  await page.getByRole('option', { name: /Recommended \(Auto\)/ }).click();
+  await expect(page.getByRole('button', { name: 'Apply recommended' })).toBeVisible();
+
   await selectOperation(page, 'Upscale');
   await expect(page.getByRole('button', { name: 'Upscale image' })).toBeVisible();
   await expect(page.getByRole('combobox', { name: 'Upscale quality' })).toBeVisible();
