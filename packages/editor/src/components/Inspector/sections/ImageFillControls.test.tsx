@@ -65,6 +65,44 @@ describe('ImageFillControls', () => {
     expect(screen.getByRole('button', { name: /replace image/i })).toBeTruthy();
   });
 
+  it('renders image colour metadata as separated label/value rows', () => {
+    const dataUrl = 'data:image/png;base64,AAAA';
+    const asset = createEmbeddedAsset({
+      dataUrl,
+      mimeType: 'image/png',
+      naturalWidth: 10,
+      naturalHeight: 10,
+      metadata: {
+        colorEncoding: {
+          model: 'rgb',
+          primaries: 'unknown',
+          transfer: 'unknown',
+          bitDepth: 8,
+          provenance: 'format-default',
+        },
+      },
+    });
+
+    render(
+      <ImageFillControls
+        image={{ src: `asset:${asset.id}`, assetId: asset.id, fit: 'fill', x: 0, y: 0, scale: 1 }}
+        asset={asset}
+        onChange={() => {}}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /show colour details/i }));
+    const details = document.querySelector('.insp-image-fill__color-details');
+    expect(details).toBeTruthy();
+    expect(details?.querySelectorAll('.insp-image-fill__color-detail')).toHaveLength(4);
+    expect(details?.querySelector('.insp-image-fill__color-detail dt')).toHaveTextContent(
+      'Profile source',
+    );
+    expect(details?.querySelector('.insp-image-fill__color-detail dd')).toHaveTextContent(
+      'format default',
+    );
+  });
+
   it('loads a local file into onChange as a data URL', async () => {
     const onChange = vi.fn();
     render(

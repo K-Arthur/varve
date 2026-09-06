@@ -21,6 +21,9 @@ update, not for someone reading the commit log.
 
 ### Fixed
 
+- Inspector field rows and image colour metadata now keep labels, values, and
+  actions separated at narrow panel widths, including long URLs and format
+  supplied colour strings.
 - Partial-strength normal filters now interpolate premultiplied incoming and
   filtered pixels, so neutral colour adjustments no longer increase the
   coverage of semitransparent artwork.

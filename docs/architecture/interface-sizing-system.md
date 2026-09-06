@@ -93,6 +93,19 @@ Menus, dialogs, and popovers are viewport-constrained. Dialog titles wrap at
 word boundaries or long unbroken strings instead of hiding content with a
 single-line ellipsis.
 
+### Dense field rows and metadata
+
+Inspector field rows use a stable two-column contract: the label owns a bounded
+label column and the control owns the remaining width. The row itself does not
+wrap into a second, ambiguous line; controls that contain several affordances
+wrap internally instead. This prevents a long value, URL, or action label from
+painting over the next field.
+
+Metadata readouts use an explicit label/value grid. Native definition-list
+margins are reset, both columns may shrink, and long values use safe wrapping.
+This is required for image colour metadata, but applies to any dense inspector
+readout that may contain untrusted or format-provided strings.
+
 ## Migration map
 
 | Previous pattern | Canonical contract |

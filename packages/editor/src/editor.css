@@ -6096,3 +6096,63 @@ dialog.varve-dialog--settings[open] {
   flex-wrap: wrap;
   margin-top: 6px;
 }
+
+/* Keep image colour metadata readable at the inspector's narrowest width.
+ * The summary, disclosure action, and details list are separate flex rows;
+ * native `dl` margins are reset below so labels and values cannot overlap. */
+.editor-inspector .insp-image-fill__color {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  width: 100%;
+  min-width: 0;
+  margin-top: var(--space-1);
+}
+
+.editor-inspector .insp-image-fill__color-summary {
+  display: inline-flex;
+  align-items: flex-start;
+  flex: 1 1 12rem;
+  min-width: 0;
+  gap: var(--space-1);
+  font-family: var(--type-interface-body-family);
+  font-size: var(--type-interface-body-size);
+  line-height: var(--type-interface-body-line-height);
+}
+
+.editor-inspector .insp-image-fill__color-details {
+  display: flex;
+  flex: 1 1 100%;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  font-family: var(--type-interface-caption-family);
+  font-size: var(--type-interface-caption-size);
+  line-height: var(--type-interface-caption-line-height);
+}
+
+.editor-inspector .insp-image-fill__color-detail {
+  display: grid;
+  grid-template-columns: minmax(7rem, 0.8fr) minmax(0, 1.2fr);
+  gap: var(--space-1) var(--space-2);
+  min-width: 0;
+}
+
+.editor-inspector .insp-image-fill__color-detail dt,
+.editor-inspector .insp-image-fill__color-detail dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.editor-inspector .insp-image-fill__color-detail dt {
+  color: var(--color-text-muted);
+}
+
+.editor-inspector .insp-image-fill__color-detail dd {
+  color: var(--color-text-secondary);
+}

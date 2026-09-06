@@ -601,16 +601,25 @@
 
 .insp-field {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  flex-wrap: nowrap;
+  align-items: flex-start;
   gap: var(--space-2);
   min-width: 0;
   min-height: 2rem;
 }
 
 .insp-field__label {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 1 var(--space-10);
+  width: var(--space-10);
+  min-width: var(--space-10);
+  min-height: 2rem;
   color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
+  font-family: var(--type-interface-label-family);
+  font-size: var(--type-interface-label-size);
+  font-weight: var(--type-interface-label-weight);
+  line-height: var(--type-interface-label-line-height);
 }
 
 .insp-empty-message {
@@ -862,9 +871,14 @@
 .insp-field__label {
   display: inline-flex;
   align-items: center;
+  flex: 0 1 var(--space-10);
   width: var(--space-10);
-  flex-shrink: 0;
-  font-size: var(--font-size-xs);
+  min-width: var(--space-10);
+  min-height: 2rem;
+  font-family: var(--type-interface-label-family);
+  font-size: var(--type-interface-label-size);
+  font-weight: var(--type-interface-label-weight);
+  line-height: var(--type-interface-label-line-height);
   color: var(--color-text-muted);
   white-space: nowrap;
   /* Scrub handle — drag on the label to change the value. */
@@ -887,11 +901,20 @@
   cursor: default;
 }
 .insp-field__control {
-  flex: 1;
+  flex: 1 1 0;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-1);
+  width: 0;
   min-width: 0;
+}
+.insp-field__control > * {
+  min-width: 0;
+}
+.insp-field__control--inline {
+  width: auto;
+  max-width: 100%;
 }
 .insp-num__control {
   flex-wrap: wrap;
