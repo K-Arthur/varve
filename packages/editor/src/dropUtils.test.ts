@@ -1,6 +1,12 @@
 import type { SceneNode, ShapeNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
-import { applyDropPosition, isSupportedFile, validateFiles } from './dropUtils';
+import {
+  applyDropPosition,
+  isDragLeaveOutside,
+  isPointInsideRect,
+  isSupportedFile,
+  validateFiles,
+} from './dropUtils';
 
 function makeRectNode(overrides?: Partial<ShapeNode>): SceneNode {
   return {
@@ -122,6 +128,29 @@ describe('isSupportedFile', () => {
   it('is case-insensitive', () => {
     expect(isSupportedFile('PHOTO.PNG')).toBe(true);
     expect(isSupportedFile('Drawing.SVG')).toBe(true);
+  });
+});
+
+describe('isDragLeaveOutside', () => {
+  it('keeps a drag active while moving between descendants', () => {
+    const surface = document.createElement('div');
+    const child = document.createElement('span');
+    surface.append(child);
+
+    expect(isDragLeaveOutside(surface, child)).toBe(false);
+    expect(isDragLeaveOutside(surface, document.createElement('div'))).toBe(true);
+    expect(isDragLeaveOutside(surface, null)).toBe(true);
+  });
+});
+
+describe('isPointInsideRect', () => {
+  const rect = { left: 10, right: 110, top: 20, bottom: 120 };
+
+  it('includes the boundary and rejects adjacent surfaces', () => {
+    expect(isPointInsideRect({ x: 10, y: 20 }, rect)).toBe(true);
+    expect(isPointInsideRect({ x: 110, y: 120 }, rect)).toBe(true);
+    expect(isPointInsideRect({ x: 111, y: 60 }, rect)).toBe(false);
+    expect(isPointInsideRect({ x: 60, y: 121 }, rect)).toBe(false);
   });
 });
 

@@ -16,6 +16,7 @@
 import type { FileRejection } from '@varve/shared';
 import { Button, FileError, FilePickerButton, Select, Tooltip } from '@varve/ui';
 import { useCallback, useState } from 'react';
+import { isDragLeaveOutside } from '../../../dropUtils';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -113,6 +114,7 @@ export function ReferenceImagePicker({
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!isDragLeaveOutside(e.currentTarget, e.relatedTarget)) return;
     setIsDragging(false);
   }, []);
 

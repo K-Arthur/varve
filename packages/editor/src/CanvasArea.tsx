@@ -53,7 +53,7 @@ import { TouchCandidateMenu } from './components/Breadcrumb/TouchCandidateMenu';
 import { CanvasOverlays } from './components/CanvasOverlays';
 import { type EditorState, setStartTextEditingHandler, useEditor } from './context';
 import { LEGACY_FILE_MIME, VARVE_FILE_MIME } from './dnd-types';
-import { collectFilesFromDataTransfer } from './dropUtils';
+import { collectFilesFromDataTransfer, isDragLeaveOutside, isPointInsideRect } from './dropUtils';
 import { useCollabPresence } from './hooks/useCollabPresence';
 import {
   createRenderWorkerHost,
@@ -1018,6 +1018,7 @@ export function CanvasArea({
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
+    if (!isDragLeaveOutside(e.currentTarget, e.relatedTarget)) return;
     setIsDragOver(false);
     maskDropTargetRef.current = null;
     setMaskDropTargetId(null);
@@ -1104,6 +1105,11 @@ export function CanvasArea({
     [computeFileDropWorld],
   );
 
+  const isNativePointInsideCanvas = useCallback((point: { x: number; y: number }): boolean => {
+    const rect = contentCanvasRef.current?.getBoundingClientRect();
+    return rect ? isPointInsideRect(point, rect) : false;
+  }, []);
+
   const handleDrop = useCallback(
     async (e: React.DragEvent) => {
       e.preventDefault();
@@ -1171,16 +1177,26 @@ export function CanvasArea({
     if (platform?.kind !== 'tauri') return;
     let cancelled = false;
     let unlisten: (() => void) | undefined;
+    let lastNativePosition: { x: number; y: number } | null = null;
     void platform
       .onNativeFileDrop(async (event) => {
         if (event.type === 'enter' || event.type === 'over') {
-          setIsDragOver(true);
-          if (event.position.x !== 0 || event.position.y !== 0) {
+          const hasPosition = event.position.x !== 0 || event.position.y !== 0;
+          if (hasPosition) {
+            lastNativePosition = event.position;
+          }
+          if (hasPosition && isNativePointInsideCanvas(event.position)) {
+            setIsDragOver(true);
             updateMaskFileDropTarget(event.position.x, event.position.y);
+          } else {
+            setIsDragOver(false);
+            maskDropTargetRef.current = null;
+            setMaskDropTargetId(null);
           }
           return;
         }
         if (event.type === 'leave') {
+          lastNativePosition = null;
           setIsDragOver(false);
           maskDropTargetRef.current = null;
           setMaskDropTargetId(null);
@@ -1191,22 +1207,14 @@ export function CanvasArea({
         setIsDragOver(false);
         maskDropTargetRef.current = null;
         setMaskDropTargetId(null);
-        // wry's GTK backend reports (0,0) when a drop fires before any
-        // drag-motion event was observed — treat that as "position
-        // unknown" rather than mapping it to the window's top-left. And
-        // whenever no drop position can be mapped, land the import at the
-        // centre of the *current viewport*: the import service has no
-        // placement fallback of its own, so nodes would otherwise keep
-        // their intrinsic (document-origin) position, which is off-screen
-        // whenever the camera is panned away from origin.
         const hasPosition = event.position.x !== 0 || event.position.y !== 0;
-        let dropWorld = hasPosition ? computeDropWorld(event.position.x, event.position.y) : null;
-        if (!dropWorld) {
-          const rect = contentCanvasRef.current?.getBoundingClientRect();
-          if (rect) {
-            dropWorld = computeDropWorld(rect.left + rect.width / 2, rect.top + rect.height / 2);
-          }
-        }
+        const dropPosition = hasPosition ? event.position : lastNativePosition;
+        lastNativePosition = null;
+        // Tauri's window-level event needs position ownership; reject unknown
+        // or sidebar drops instead of silently importing at viewport centre.
+        if (!dropPosition || !isNativePointInsideCanvas(dropPosition)) return;
+        const dropWorld = computeDropWorld(dropPosition.x, dropPosition.y);
+        if (!dropWorld) return;
         const files: { name: string; data: Uint8Array | string }[] = [];
         for (const path of event.paths) {
           try {
@@ -1236,7 +1244,7 @@ export function CanvasArea({
       cancelled = true;
       unlisten?.();
     };
-  }, [computeDropWorld, importDroppedFiles, updateMaskFileDropTarget]);
+  }, [computeDropWorld, importDroppedFiles, isNativePointInsideCanvas, updateMaskFileDropTarget]);
 
   const gridSize = Math.max(4, 24 * state.zoom);
 

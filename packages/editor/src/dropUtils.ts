@@ -3,6 +3,24 @@ import type { SceneNode } from '@varve/scene';
 import { textNodeLocalBounds } from '@varve/scene';
 
 /**
+ * Return true only when a drag actually leaves a surface. Browsers dispatch
+ * dragleave while moving between descendants as well; clearing a preview for
+ * those internal transitions makes file and mask targets flicker or vanish.
+ */
+export function isDragLeaveOutside(surface: Element, relatedTarget: EventTarget | null): boolean {
+  return !(relatedTarget instanceof Node && surface.contains(relatedTarget));
+}
+
+export function isPointInsideRect(
+  point: { x: number; y: number },
+  rect: Pick<DOMRectReadOnly, 'left' | 'right' | 'top' | 'bottom'>,
+): boolean {
+  return (
+    point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom
+  );
+}
+
+/**
  * Collect all files from a DataTransfer, recursively enumerating folders
  * via the File System Entry API.
  */
