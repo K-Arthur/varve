@@ -9,9 +9,12 @@
  *  fill-visuals/06-grad-editor.png      — GradientEditor with stops
  */
 
+import path from 'node:path';
 import { deflateSync } from 'node:zlib';
-import { type Page, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 import { navigateToCleanEditor } from '../helpers/nav';
+
+const PHOTO_FIXTURE = path.resolve('tests/e2e/fixtures/photo-fixture.jpg');
 
 const CRC_TABLE = (() => {
   const table = new Uint32Array(256);
@@ -151,4 +154,66 @@ test('fill visual evidence set', async ({ page }) => {
   });
   await page.waitForTimeout(5000);
   await page.screenshot({ path: 'test-results/fill-visuals/05-pattern-after.png' });
+});
+
+test('image colour metadata stays separated in a narrow inspector', async ({ page }, testInfo) => {
+  test.setTimeout(180000);
+  await navigateToCleanEditor(page);
+  await page.locator('#file-import-input').setInputFiles(PHOTO_FIXTURE);
+  await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 30000 });
+  await page.getByRole('treeitem').first().click();
+  await expect(page.locator('.insp-image-fill__preview-img')).toBeVisible({ timeout: 15000 });
+
+  const fillTrigger = page.getByRole('button', { name: 'Fill', exact: true });
+  if ((await fillTrigger.getAttribute('aria-expanded')) !== 'true') await fillTrigger.click();
+  await expect(page.locator('.insp-image-fill__preview-img')).toBeVisible({ timeout: 15000 });
+
+  const detailsButton = page.getByRole('button', { name: /show colour details/i });
+  await expect(detailsButton).toBeVisible({ timeout: 15000 });
+  await detailsButton.click();
+
+  // Exercise the smallest supported desktop inspector width. The editor shell
+  // remains wide enough for the canvas, while the right panel gets the tight
+  // layout that exposed the original metadata overlap.
+  await page.locator('.editor-shell').evaluate((shell) => {
+    shell.style.setProperty('--inspector-width', '280px');
+  });
+  const inspector = page.locator('.editor__inspector-panel');
+  await expect(inspector).toHaveCSS('width', '280px');
+  await page.waitForTimeout(100);
+
+  const detailRows = inspector.locator('.insp-image-fill__color-detail');
+  const geometry = await detailRows.evaluateAll((rows) =>
+    rows.map((row) => {
+      const label = row.querySelector('dt')?.getBoundingClientRect();
+      const value = row.querySelector('dd')?.getBoundingClientRect();
+      const rowBox = row.getBoundingClientRect();
+      return {
+        row: { top: rowBox.top, bottom: rowBox.bottom },
+        label: label ? { right: label.right, bottom: label.bottom } : null,
+        value: value ? { left: value.left, top: value.top } : null,
+      };
+    }),
+  );
+
+  expect(geometry.length).toBeGreaterThanOrEqual(4);
+  for (const row of geometry) {
+    expect(row.label).not.toBeNull();
+    expect(row.value).not.toBeNull();
+    expect(row.value!.left).toBeGreaterThanOrEqual(row.label!.right - 1);
+    expect(row.value!.top).toBeGreaterThanOrEqual(row.row.top - 1);
+    expect(row.value!.top).toBeLessThanOrEqual(row.row.bottom);
+  }
+  for (let index = 1; index < geometry.length; index += 1) {
+    expect(geometry[index]!.row.top).toBeGreaterThanOrEqual(geometry[index - 1]!.row.bottom - 1);
+  }
+
+  const panelShot = await inspector.screenshot();
+  await testInfo.attach('narrow-image-colour-metadata', {
+    body: panelShot,
+    contentType: 'image/png',
+  });
+  await inspector.screenshot({
+    path: 'test-results/fill-visuals/narrow-image-colour-metadata.png',
+  });
 });
