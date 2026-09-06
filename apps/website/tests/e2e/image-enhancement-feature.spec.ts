@@ -11,6 +11,7 @@ test('image enhancement feature page explains the shipped workflow', async ({ pa
   await expect(page.getByRole('heading', { name: 'Denoise' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Deblur' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Restore + Upscale' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Presets that stay editable' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Auto / Recommended' })).toBeVisible();
   await expect(page.getByText(/qualitative signal label/i)).toBeVisible();
   await expect(
@@ -27,6 +28,7 @@ test('image enhancement documentation is linked and readable', async ({ page }) 
   await expect(page.getByRole('heading', { name: 'Image Enhance' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Honest capabilities' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Choose the task' })).toBeVisible();
+  await expect(page.getByText(/presets cover Auto, CPU and AI photo work/i)).toBeVisible();
   await expect(page.getByText(/untouched source crop/i)).toBeVisible();
   await expect(page.getByText(/Generate AI preview/i)).toBeVisible();
 });
