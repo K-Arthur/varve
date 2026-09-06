@@ -52,6 +52,13 @@ function rowByName(page: Page, name: string): Locator {
   return page.locator('[role="treeitem"]').filter({ hasText: name }).first();
 }
 
+function parseCanvasPosition(labels: string[], name: string): [number, number] {
+  const label = labels.find((candidate) => candidate.trim().includes(`${name},`));
+  const match = label?.match(/at \((-?[\d.]+),\s*(-?[\d.]+)\)/);
+  if (!match) throw new Error(`canvas position for ${name} unavailable`);
+  return [Number(match[1]), Number(match[2])];
+}
+
 /** Drag one row onto another with real pointer events. offsetFraction -0.35
  *  targets the before band, +0.35 the after band, 0 the into (middle) band. */
 async function dragRowToRow(
@@ -219,6 +226,24 @@ test.describe('Layers Panel — real drag & drop', () => {
     await expect(rows).toHaveCount(3);
     const first = rows.nth(0);
     const second = rows.nth(1);
+    const firstName = (await first.locator('.layers-row__name').textContent())?.trim();
+    const secondName = (await second.locator('.layers-row__name').textContent())?.trim();
+    if (!firstName || !secondName) throw new Error('handoff layer names unavailable');
+    const canvasObjects = page.getByRole('list', { name: 'Canvas objects' });
+    await expect.poll(async () => canvasObjects.getByRole('listitem').count()).toBe(3);
+    const readCanvasLabels = () =>
+      canvasObjects
+        .getByRole('listitem')
+        .evaluateAll((items) =>
+          items.map((item) => item.getAttribute('aria-label') ?? item.textContent ?? ''),
+        );
+    const beforeCanvasLabels = await readCanvasLabels();
+    const beforeFirst = parseCanvasPosition(beforeCanvasLabels, firstName);
+    const beforeSecond = parseCanvasPosition(beforeCanvasLabels, secondName);
+    const beforeGap: [number, number] = [
+      beforeSecond[0] - beforeFirst[0],
+      beforeSecond[1] - beforeFirst[1],
+    ];
     await first.click();
     await second.click({ modifiers: ['Control'] });
     await expect(page.locator('[role="treeitem"][aria-selected="true"]')).toHaveCount(2);
@@ -255,6 +280,16 @@ test.describe('Layers Panel — real drag & drop', () => {
     await expect(page.locator('.drag-overlay')).toHaveCount(0);
     await expect(page.locator('.editor-canvas--dnd-over')).toHaveCount(0);
     await expect(page.locator('[role="treeitem"][aria-selected="true"]')).toHaveCount(2);
+    await page.getByRole('button', { name: 'Fit all to viewport' }).click();
+    await expect.poll(async () => canvasObjects.getByRole('listitem').count()).toBe(3);
+    await expect
+      .poll(async () => {
+        const labels = await readCanvasLabels();
+        const afterFirst = parseCanvasPosition(labels, firstName);
+        const afterSecond = parseCanvasPosition(labels, secondName);
+        return [afterSecond[0] - afterFirst[0], afterSecond[1] - afterFirst[1]];
+      })
+      .toEqual(beforeGap);
     await page.getByTestId('layers-panel').screenshot({
       path: testInfo.outputPath('layers-to-canvas-after.png'),
     });
