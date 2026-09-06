@@ -12,9 +12,9 @@ import { sitePath } from '../../../lib/siteUrl';
 
       <section class="docs-section">
         <h2>Choose the task</h2>
-        <p>Open the image enhancement command for a selected image and choose the operation that matches the source problem. Auto / Recommended runs a quick local analysis (noise, blur, compression, resolution) and suggests a task with a confidence number — you can always override it.</p>
+        <p>Open the image enhancement command for a selected image and choose the operation that matches the source problem. Auto / Recommended runs a quick local analysis (noise, blur, compression, resolution) and suggests a task with a qualitative signal label — you can always override it. The label is a heuristic, not a calibrated probability.</p>
         <ul>
-          <li><strong>Denoise</strong> reduces sensor noise and grain using a task-specific local denoising model.</li>
+          <li><strong>Denoise</strong> reduces sensor noise and grain using the task-specific SCUNet model. The dialog verifies that the graph and external weights are installed before enabling Apply; choose <strong>None</strong> for an explicit no-op.</li>
           <li><strong>Deblur</strong> reduces motion and defocus blur with a validated NAFNet checkpoint. Restoration is bounded: the model runs on a cropped preview first, and full-resolution work tiles adaptively so memory stays within budget.</li>
           <li><strong>Upscale</strong> enlarges with CPU, pixel-art, or the available local AI super-resolution path.</li>
           <li><strong>Restore + Upscale</strong> (and Deblur + Upscale) compose restoration before enlargement so noise or blur is not simply made larger.</li>
@@ -36,6 +36,12 @@ import { sitePath } from '../../../lib/siteUrl';
       <section class="docs-section">
         <h2>Output behavior</h2>
         <p><strong>New layer</strong> is the default and preserves the source. <strong>Replace source</strong> commits the derived pixels atomically and remains undoable. Use the output options only when their semantics suit the document; enhancement results are materialized pixels and do not silently become re-editable model operations.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Models and memory</h2>
+        <p>General Real-ESRGAN x4 is bundled for local AI upscaling. SCUNet denoising and NAFNet deblurring are optional, explicit downloads; split models are not considered ready until both the ONNX graph and external weights are present and the graph checksum verifies. Missing models keep Apply disabled and offer Download model.</p>
+        <p>The output panel reports a conservative peak-memory estimate that includes decoded frames, model runtime peaks, AI's fixed 4× intermediate, and any final resize staging. It is an admission estimate rather than a promise about exact allocator usage.</p>
       </section>
 
       <section class="docs-section docs-note">

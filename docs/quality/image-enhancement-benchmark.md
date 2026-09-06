@@ -1,9 +1,14 @@
 # Image enhancement benchmark — measured evidence
 
-Status: **measured 2026-08-13** on the reference runner (`scripts/bench/
+Status: **quality measured 2026-08-13; runtime paths rechecked 2026-09-06** on the reference runner (`scripts/bench/
 restore-reference/`) and the conversion gate (`tools/nafnet-export/`).
 Every number below was produced by a run in this repository's tooling; no
 value is estimated from academic papers.
+
+The 2026-09-06 browser checks validate execution and workflow semantics for
+the bundled Real-ESRGAN model and the downloaded SCUNet graph plus external
+weights. They do not change the quality numbers below or turn the quality
+corpus into a universal claim about every image class.
 
 ## Hardware and software
 

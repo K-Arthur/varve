@@ -12,6 +12,7 @@ test('image enhancement feature page explains the shipped workflow', async ({ pa
   await expect(page.getByRole('heading', { name: 'Deblur' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Restore + Upscale' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Auto / Recommended' })).toBeVisible();
+  await expect(page.getByText(/qualitative signal label/i)).toBeVisible();
   await expect(
     page.getByRole('heading', { name: 'Inspect the pixels before you commit.' }),
   ).toBeVisible();

@@ -21,6 +21,12 @@ update, not for someone reading the commit log.
 
 ### Fixed
 
+- **Image Enhance model execution** — AI upscaling now configures the same
+  single-threaded ONNX WASM runtime as other inference workers, avoiding a
+  Chromium/headless session-creation deadlock. Denoise waits for SCUNet's
+  graph and external weights to be available before preview or Apply, and an
+  explicit None strength is preserved as a no-op instead of silently running
+  medium denoise. Resource warnings now use conservative peak-memory estimates.
 - Inspector field rows and image colour metadata now keep labels, values, and
   actions separated at narrow panel widths, including long URLs and format
   supplied colour strings.

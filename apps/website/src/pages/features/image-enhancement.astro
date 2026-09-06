@@ -35,7 +35,7 @@ const enhanceShot = scenes['enhance-dialog-auto']?.status === 'captured' ? scene
           <p>
             Choose the task you actually need. Denoise uses a task-specific local
             model; Deblur reduces motion and defocus blur with a validated model;
-            Upscale uses the existing CPU or AI path; Restore + Upscale runs
+            Upscale uses the existing CPU or bundled/downloaded AI path; Restore + Upscale runs
             only those selected stages, in order.
           </p>
         </div>
@@ -66,11 +66,11 @@ const enhanceShot = scenes['enhance-dialog-auto']?.status === 'captured' ? scene
         <p class="eyebrow">Available today</p>
         <h2 id="capabilities-title">Useful improvements, with honest boundaries.</h2>
         <div class="capability-grid">
-          <article><h3>Denoise</h3><p>Reduce sensor noise and grain while preserving the alpha channel and keeping the source available for comparison.</p></article>
+          <article><h3>Denoise</h3><p>Reduce sensor noise and grain with SCUNet after its verified model and weights are installed. The dialog checks readiness first and keeps the source available for comparison.</p></article>
           <article><h3>Deblur</h3><p>Reduce motion and defocus blur with a validated local model — preview a bounded crop before committing to full-resolution work.</p></article>
-          <article><h3>Upscale</h3><p>Choose edge-retentive Quality CPU resampling by default, smoother Balanced scaling, pixel-art algorithms, or the local Real-ESRGAN path for supported image work.</p></article>
+          <article><h3>Upscale</h3><p>Choose edge-retentive Quality CPU resampling by default, smoother Balanced scaling, pixel-art algorithms, or bundled Real-ESRGAN x4 for supported image work. AI runs locally and never silently falls back to CPU.</p></article>
           <article><h3>Restore + Upscale</h3><p>Compose only the stages you selected. Restoration runs before enlargement so noise is not simply made larger.</p></article>
-          <article><h3>Auto / Recommended</h3><p>A quick local analysis suggests what your image actually needs, in plain language, with a confidence number you can override.</p></article>
+          <article><h3>Auto / Recommended</h3><p>A quick local analysis suggests what your image actually needs, in plain language, with a qualitative signal label you can override. It is a heuristic, not a probability.</p></article>
         </div>
       </section>
 
@@ -97,7 +97,8 @@ const enhanceShot = scenes['enhance-dialog-auto']?.status === 'captured' ? scene
           JPEG artifact removal is not offered: no model has passed Varve's
           design-content quality checks for that task. Every operation stays
           explicit about what it can and cannot do, and no operation silently
-          substitutes a different task when its model is unavailable.
+          substitutes a different task when its model is unavailable. A Denoise
+          selection with None is a true no-op; it does not download or run SCUNet.
         </p>
         <a href={sitePath('/docs/tools/image-enhancement')}>Read the image enhancement guide →</a>
       </aside>

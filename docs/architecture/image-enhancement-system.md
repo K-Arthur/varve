@@ -33,7 +33,7 @@ The shipped AI capabilities are:
   conversion + parity evidence in `tools/nafnet-export/`; artifact hosted
   on the `varve-models-v1` GitHub release with a pinned SHA-256.
 - `upscale-realesr-general`: Real-ESRGAN general x4 super-resolution, ONNX,
-  using the existing tiled provider (`TILE 64/OVERLAP 16`).
+  using the worker's 256px core / 32px padding tile provider.
 - `upscale-realesrgan-anime`: Real-ESRGAN anime/illustration x4 (6B), with a
   pinned ONNX artifact, checksum, source license, and contract/inference
   validation in the model manifest. It is optional and downloaded on demand;
@@ -150,11 +150,20 @@ revisions.
 
 Model downloads continue to use the verified manifest and existing model
 loader. Models are task-specific and lazy: selecting Denoise requests
-SCUNet; selecting Deblur requests the NAFNet checkpoint; selecting CPU
-Upscale requests nothing. A model is usable only after its declared
-checksum and source policy pass verification. Large weights are not
+SCUNet, selecting Deblur requests the NAFNet checkpoint, and selecting CPU
+Upscale requests nothing. A split model is not ready until both its ONNX
+graph and declared external-weights sidecar are present; the graph checksum
+is verified before it is handed to the runtime. The Enhance dialog waits for
+this asynchronous readiness check before enabling Apply, and an explicit
+Denoise → None skips model readiness entirely. Large weights are not
 committed to Git — the 138 MB deblur artifact ships as a release asset
 with a pinned hash.
+
+The standalone Real-ESRGAN web worker uses the same single-threaded WASM
+runtime policy as the shared inference worker. ORT's pthread pool could leave
+Chromium/headless session creation pending; the worker already provides
+isolation, so forcing one WASM thread avoids that deadlock while preserving
+the local model path.
 
 ## Auto / Recommended mode
 
