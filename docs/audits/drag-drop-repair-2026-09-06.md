@@ -56,6 +56,8 @@ pointer editing or layout gestures, not sortable operations.
 - `65b3d05c2` — `feat(website): explain reliable layer movement`
 - `fa58653d5` — `test(website): cover layers feature page`
 - `e3375fdaf` — `test(dnd): refresh effect stack hover baselines`
+- `89a29c0db` — `fix(website): use semantic drag surface tokens`
+- `7e30d1792` — `docs(dnd): close browser validation ledger`
 
 All repair, test, documentation, and website commits above were created
 directly on `master`. Unrelated dirty changes
@@ -78,13 +80,14 @@ Passed so far:
 - `VARVE_E2E_PORT=1440 npx playwright test tests/e2e/canvas/smart-filters.spec.ts --project=chromium --grep "drag handle reorders filters" --reporter=list` — 1 passed.
 - `VARVE_E2E_PORT=1445 npx playwright test tests/e2e/layers/effect-stack-transfer.spec.ts --project=chromium --reporter=list` — 4 passed after the inspected baseline refresh.
 - Website build/typecheck/page generation and the two-deployment Layers feature E2E — passed; full-page screenshots inspected for both deployments.
+- Final `pnpm verify:affected` reached the affected editor and UI closures: editor passed with 654 files / 6,509 tests (one skipped) and typecheck passed; UI tests passed with 63 files / 607 tests, but its unrelated typecheck failed on existing errors in `Checkbox.test.tsx` and `Disclosure.stories.tsx`.
 - Commit checkpoints for each repair commit: staged Biome, emoji, health,
   impact, secret, contact, boundary, and selected Vitest checks passed.
 
 The required impact planner was run. The dirty worktree’s affected gate was
-not fully green because an unrelated pre-existing edit in
-`tests/e2e/home/context-menu.spec.ts` is not Biome-formatted; the repair files
-themselves pass Biome. The planner selected no full-suite escalation.
+not fully green because unrelated existing UI type errors remain on `master`;
+the repair files themselves pass Biome, typecheck, focused tests, and browser
+validation. The planner selected no full-suite escalation.
 
 Not run or blocked:
 
@@ -95,6 +98,9 @@ Not run or blocked:
   mixed-DPI/Wayland routes, touch/pen, mutation-during-drag races, blur or
   capture-loss/unmount exits, and dedicated 1k/10k drag benchmarks.
 - PageNav browser drag and the full release matrix.
+- `pnpm bench` was started but interrupted after Vitest expanded into four
+  checked-out worktrees and unrelated long-running history/media benchmarks;
+  no drag-specific benchmark result is claimed.
 
 ## Remaining acceptance matrix
 
