@@ -122,6 +122,26 @@ describe('sceneToEngine resource handles', () => {
     expect(resolveImageResourceHandle(`asset:${assetId}`)).toBe(PNG_DATA_URL);
   });
 
+  it('prefers a valid canonical reference when assetId is stale', () => {
+    const { doc, assetId } = assetDocument();
+    const source = doc.nodes.n1!;
+    const node = {
+      ...source,
+      fills: source.fills?.map((fill) =>
+        fill.type === 'image' && fill.image
+          ? {
+              ...fill,
+              image: { ...fill.image, src: `asset:${assetId}`, assetId: 'asset-stale' },
+            }
+          : fill,
+      ),
+    };
+    const engineNode = sceneNodeToEngineNode(node, {}, doc);
+    const fill = engineNode.fills?.find((candidate) => candidate.type === 'image');
+    expect(fill?.image?.src).toBe(assetId);
+    expect(fill?.image?.assetId).toBe(assetId);
+  });
+
   it('resolves shared paints through the same handle path', () => {
     const { doc, assetId } = assetDocument();
     const node = doc.nodes.n1!;

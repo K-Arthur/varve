@@ -45,6 +45,26 @@ describe('ImageFillControls', () => {
     expect(document.querySelector('.insp-image-fill__preview img')).toHaveAttribute('src', dataUrl);
   });
 
+  it('does not expose an unresolved asset reference as an image URL', () => {
+    render(
+      <ImageFillControls
+        image={{
+          src: 'asset:asset-missing',
+          assetId: 'asset-missing',
+          fit: 'fill',
+          x: 0,
+          y: 0,
+          scale: 1,
+        }}
+        onChange={() => {}}
+      />,
+    );
+
+    expect(document.querySelector('.insp-image-fill__preview img')).toBeNull();
+    expect(screen.getByRole('alert')).toHaveTextContent(/data is unavailable/i);
+    expect(screen.getByRole('button', { name: /replace image/i })).toBeTruthy();
+  });
+
   it('loads a local file into onChange as a data URL', async () => {
     const onChange = vi.fn();
     render(

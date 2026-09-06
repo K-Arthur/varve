@@ -17,7 +17,10 @@ import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 
-function paintSwatchBg(paint: Paint): string {
+function paintSwatchBg(
+  paint: Paint,
+  assets?: Record<string, import('@varve/scene').DocumentAsset>,
+): string {
   const fill = paint.fill;
   if (fill.type === 'solid' && fill.color) {
     const [r, g, b, a] = managedColorToRgba(fill.color);
@@ -33,7 +36,15 @@ function paintSwatchBg(paint: Paint): string {
     return `linear-gradient(90deg, ${stops})`;
   }
   if (fill.type === 'image' && fill.image?.src) {
-    return `url(${fill.image.src}) center/cover`;
+    const canonicalAssetId = fill.image.src.startsWith('asset:')
+      ? fill.image.src.slice('asset:'.length)
+      : undefined;
+    const assetId =
+      (canonicalAssetId && assets?.[canonicalAssetId] ? canonicalAssetId : undefined) ??
+      (fill.image.assetId && assets?.[fill.image.assetId] ? fill.image.assetId : undefined);
+    const src = assetId ? assets?.[assetId]?.dataUrl : fill.image.src;
+    if (src && !src.startsWith('asset:')) return `url(${src}) center/cover`;
+    return 'var(--color-surface-sunken)';
   }
   return 'var(--color-surface-sunken)';
 }
@@ -252,7 +263,7 @@ export function PaintLibrarySection() {
               >
                 <div
                   className="insp-paint-library__swatch"
-                  style={{ background: paintSwatchBg(paint) }}
+                  style={{ background: paintSwatchBg(paint, doc.assets) }}
                   aria-hidden
                 />
                 <div className="insp-paint-library__info">

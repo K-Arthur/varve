@@ -145,13 +145,24 @@ export function imageFillSrcsInDocument(doc: Document): string[] {
   for (const node of Object.values(doc.nodes)) {
     if (!node) continue;
     const fills = (
-      node as { fills?: Array<{ type?: string; visible?: boolean; image?: { src?: string } }> }
+      node as {
+        fills?: Array<{
+          type?: string;
+          visible?: boolean;
+          image?: { src?: string; assetId?: string };
+        }>;
+      }
     ).fills;
     if (!fills) continue;
     for (const fill of fills) {
-      if (fill?.type === 'image' && fill.visible !== false && fill.image?.src) {
-        srcs.add(fill.image.src);
-      }
+      if (fill?.type !== 'image' || fill.visible === false || !fill.image?.src) continue;
+      const canonicalAssetId = fill.image.src.startsWith('asset:')
+        ? fill.image.src.slice('asset:'.length)
+        : undefined;
+      const assetId =
+        (canonicalAssetId && doc.assets?.[canonicalAssetId] ? canonicalAssetId : undefined) ??
+        (fill.image.assetId && doc.assets?.[fill.image.assetId] ? fill.image.assetId : undefined);
+      srcs.add(assetId ? (doc.assets?.[assetId]?.dataUrl ?? fill.image.src) : fill.image.src);
     }
   }
   return [...srcs];

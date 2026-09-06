@@ -52,7 +52,17 @@ Inspector image previews follow the same rule: the source field may display
 the canonical token for diagnostics, but an embedded asset preview uses
 `DocumentAsset.dataUrl`, never `asset:<id>` as an `<img src>`. Editing the
 source field preserves the asset link only when the token resolves to the
-current document asset.
+current document asset. Layer thumbnails, fill swatches, worker-readiness
+checks, and the shared image cache apply the same guard.
+
+An asset id is a content address, not the content itself. If
+`Document.assets[id]` is absent or its payload is empty, the pixels cannot be
+reconstructed from `asset:<id>` alone. The cache records a typed `missing`
+failure without assigning the token to `Image.src`, and the Inspector offers
+replacement rather than pretending that a grey placeholder is a loaded image.
+Such pixels are recoverable only from a document version, recovery snapshot,
+backup/archive, or original source that still contains the matching bytes;
+re-pasting or re-importing creates a new asset when those bytes are gone.
 
 ## Representation and ownership
 
@@ -185,7 +195,7 @@ PARTIAL = foundation landed, product surface remains; OPEN = unchanged.
 | Raster masks | Masked fills are collected (alphaMask) and refused by the worker (A-without-M fallback) | Worker resource collection ignored alpha-mask resources | High correctness | `collectImageBitmaps.ts` | DONE |
 | Thumbnail | Canonical `renderDocThumbnail` → `generateThumbnail` pipeline and Layers Panel 28×28 profile use `ImageCache.loadAtSize` at physical output size when supported; persistence rejects provisional results | Remote sources and runtimes without `createImageBitmap` still use full HTML-image decode; legacy callers remain | Medium performance/correctness | `packages/editor/src/thumbnail/thumbnailService.ts`, `packages/engine/src/thumbnail/service.ts`, `packages/editor/src/components/LayersPanel/useThumbnail.ts` | DONE for canonical/node thumbnails — bounded inline previews and settled-only persistence; remote scaled decode remains platform-limited |
 | Export preload | Structural export runs a collect → settle → preflight → render barrier with typed failures, timeout and cancellation | Some structural raster-flatten paths could replay before images load | High correctness | `export/resourceReadiness.ts`, `compositor.ts`, `SpecPanel/export.ts` | DONE |
-| Loading/error UX | Typed failure model; placeholders distinguish loading from permanent failure; recovery hints per code | Loading, corrupt, missing, permission, and CORS failures were indistinguishable | Medium product correctness | `imageErrors.ts`, `imagePlaceholder.ts` | PARTIAL — canvas/export foundation landed; Inspector/relink UI flows remain |
+| Loading/error UX | Typed failure model; placeholders distinguish loading from permanent failure; unresolved canonical references never reach browser URL loaders; Inspector offers replacement | Loading, corrupt, missing, permission, and CORS failures were indistinguishable | Medium product correctness | `imageErrors.ts`, `imagePlaceholder.ts`, `ImageFillControls.tsx` | PARTIAL — relink from external recovery sources remains an explicit user action |
 | Adaptive quality | Profile fields and prefetch helpers exist | Decode quality and prefetch depth have no runtime consumer | Medium performance | `adaptiveProfile.ts`, `viewportPrefetch.ts` | OPEN — connect only after large-image browser benchmarks establish a benefit |
 | Archives | Asset payloads are embedded and also emitted as files | Duplicate archive bytes; restore ignores separate files | Medium storage | archive builder/restorer | OPEN |
 | Codegen URLs | Blob URL raster fallback | No disposer contract | Medium leak | `flattenForCodegen.ts` | OPEN |

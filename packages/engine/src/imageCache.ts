@@ -11,9 +11,10 @@ import {
   classifyInlineImageFailure,
   classifyRemoteImageFailure,
   type ImageErrorCode,
-  type ImageLoadError,
+  ImageLoadError,
   isImageErrorCode,
 } from './imageErrors';
+import { isImageResourceHandle, resolveImageResourceHandle } from './imageResourceRegistry';
 
 export type ImageLoadState = 'idle' | 'loading' | 'loaded' | 'error';
 
@@ -64,6 +65,14 @@ export interface ImageCacheColorVariant {
 
 const DEFAULT_MAX_ENTRIES = 200;
 const DEFAULT_MAX_BYTES = 256 * 1024 * 1024;
+
+function unresolvedAssetError(source: string): ImageLoadError {
+  return new ImageLoadError(
+    source,
+    'missing',
+    'Embedded image data is unavailable for this asset reference',
+  );
+}
 
 function cacheKey(url: string, variant?: ImageCacheColorVariant): string {
   if (!variant?.colorKey) return url;
@@ -244,7 +253,24 @@ export class ImageCache {
    * or resolve immediately if already cached.
    */
   async load(url: string, variant?: ImageCacheColorVariant): Promise<CachedImage> {
+    const loadableUrl = resolveImageResourceHandle(url);
+    if (loadableUrl !== url) url = loadableUrl;
     const key = cacheKey(url, variant);
+
+    // `asset:<id>` is an internal document reference, never a browser URL.
+    // If the document did not carry the matching payload and the render
+    // session did not register one, fail through the normal cache state
+    // without assigning the token to HTMLImageElement.src. That keeps a lost
+    // embedded image visibly identifiable without producing a misleading
+    // browser network/URL error.
+    if (url.startsWith('asset:') && !isImageResourceHandle(url)) {
+      const error = unresolvedAssetError(url);
+      this.misses++;
+      this.cache.set(key, { state: 'error', image: null, error });
+      this.touch(key);
+      this.notifyListeners(key);
+      return Promise.reject(error);
+    }
     // Already loaded
     const existing = this.cache.get(key);
     if (existing?.state === 'loaded' && existing.image) {
@@ -625,6 +651,8 @@ export class ImageCache {
     source?: { width: number; height: number },
     variant?: ImageCacheColorVariant,
   ): Promise<ImageBitmap | CachedImage> {
+    const loadableUrl = resolveImageResourceHandle(url);
+    if (loadableUrl !== url) url = loadableUrl;
     if (!this.isRepresentationCapable(url)) {
       return this.load(url, variant);
     }

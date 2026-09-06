@@ -170,7 +170,7 @@ export const LayersRow = memo(function LayersRow({
   const isContainerNode = isContainer(node);
   const layerPresentation = resolveLayerPresentation(node, doc);
   const typeIcon = layerPresentation.icon;
-  const thumbnailDataUrl = useThumbnail(node, docId);
+  const thumbnailDataUrl = useThumbnail(node, docId, doc);
   // Only show a preview chip for real image content — solid-fill frame
   // thumbnails read as unexplained coloured squares next to the type icon.
   const showThumbnail = isImageShape(node) && thumbnailDataUrl != null;

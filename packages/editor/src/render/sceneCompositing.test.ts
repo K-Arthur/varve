@@ -2,6 +2,7 @@ import {
   addChild,
   addNode,
   createDocument,
+  createEmbeddedAsset,
   imageFill,
   makeAdjustment,
   makeAdjustmentNode,
@@ -256,6 +257,35 @@ describe('sceneCanUseWorkerRenderer', () => {
     doc = addNode(doc, shapeWithFills('img1', [imageFill('test.png')]));
     expect(sceneCanUseWorkerRenderer(doc, () => false)).toBe(false);
     expect(sceneCanUseWorkerRenderer(doc, () => true)).toBe(true);
+  });
+
+  it('checks the embedded payload for canonical asset references', () => {
+    const dataUrl = 'data:image/png;base64,ASSET';
+    const asset = createEmbeddedAsset({
+      dataUrl,
+      mimeType: 'image/png',
+      naturalWidth: 10,
+      naturalHeight: 10,
+    });
+    let doc = createDocument('test');
+    doc = {
+      ...doc,
+      assets: { [asset.id]: asset },
+    };
+    doc = addNode(
+      doc,
+      shapeWithFills('img-asset', [
+        {
+          ...imageFill(`asset:${asset.id}`),
+          image: {
+            ...imageFill(`asset:${asset.id}`).image!,
+            assetId: 'asset-stale',
+          },
+        },
+      ]),
+    );
+
+    expect(sceneCanUseWorkerRenderer(doc, (src) => src === dataUrl)).toBe(true);
   });
 
   it('rejects a visible pattern fill because worker pattern resources are not transferred', () => {

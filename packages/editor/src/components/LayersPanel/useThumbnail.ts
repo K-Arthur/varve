@@ -43,7 +43,7 @@ export const thumbnailImageCache = new ImageCache({
 async function renderNodeToCanvas(
   node: SceneNode,
   canvas: OffscreenCanvas | HTMLCanvasElement,
-  doc?: Pick<Document, 'rasterMaskAssets'>,
+  doc?: Pick<Document, 'assets' | 'rasterMaskAssets'>,
 ) {
   const ctx = canvas.getContext('2d') as OffscreenCanvasRenderingContext2D | null;
   if (!ctx) return null;
@@ -90,8 +90,27 @@ async function renderNodeToCanvas(
     const imgFill = (node as ShapeNode).fills?.find((f) => f.type === 'image' && f.image?.src);
     if (imgFill?.image) {
       try {
+        const canonicalAssetId = imgFill.image.src.startsWith('asset:')
+          ? imgFill.image.src.slice('asset:'.length)
+          : undefined;
+        const assetId =
+          (canonicalAssetId && doc?.assets?.[canonicalAssetId] ? canonicalAssetId : undefined) ??
+          (imgFill.image.assetId && doc?.assets?.[imgFill.image.assetId]
+            ? imgFill.image.assetId
+            : undefined);
+        const source = assetId ? doc?.assets?.[assetId]?.dataUrl : imgFill.image.src;
+        // An asset reference is an internal document identity, not a URL.
+        // When the payload is absent (for example in an old or damaged
+        // document), leave the row as a generated placeholder instead of
+        // asking the browser to load `asset:<id>`.
+        if (!source || source.startsWith('asset:')) {
+          ctx.fillStyle = 'rgba(200,200,200,0.5)';
+          ctx.fillRect(ox, oy, area, area);
+          if (hasRotation) ctx.restore();
+          return canvas;
+        }
         const img = await thumbnailImageCache.loadAtSize(
-          imgFill.image.src,
+          source,
           Math.max(THUMB_W, THUMB_H),
           imgFill.image.imageWidth && imgFill.image.imageHeight
             ? { width: imgFill.image.imageWidth, height: imgFill.image.imageHeight }
@@ -248,7 +267,7 @@ export const sharedThumbnailCache = new ThumbnailCache();
 export function useThumbnail(
   node: SceneNode,
   docId?: string,
-  doc?: Pick<Document, 'rasterMaskAssets'>,
+  doc?: Pick<Document, 'assets' | 'rasterMaskAssets'>,
 ): string | null {
   const cacheKey = thumbnailCacheKey(node, docId);
   const docRef = useRef(doc);

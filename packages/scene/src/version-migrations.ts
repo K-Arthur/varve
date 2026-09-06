@@ -620,12 +620,16 @@ export function rehydrateEmbeddedAssetSrc(raw: Record<string, unknown>): Record<
     // clipboard, and recovery boundaries could accidentally feed the
     // canonical form back into live scene state. Infer the id when needed so
     // the runtime document always carries the real embedded source.
+    const canonicalAssetId =
+      typeof image.src === 'string' && image.src.startsWith('asset:')
+        ? image.src.slice('asset:'.length)
+        : undefined;
+    const linkedAssetId = typeof image.assetId === 'string' ? image.assetId : undefined;
     const assetId =
-      typeof image.assetId === 'string'
-        ? image.assetId
-        : typeof image.src === 'string' && image.src.startsWith('asset:')
-          ? image.src.slice('asset:'.length)
-          : undefined;
+      (canonicalAssetId && assets[canonicalAssetId] ? canonicalAssetId : undefined) ??
+      (linkedAssetId && assets[linkedAssetId] ? linkedAssetId : undefined) ??
+      canonicalAssetId ??
+      linkedAssetId;
     if (!assetId) return fill;
     const asset = assets[assetId];
     if (!asset || typeof asset.dataUrl !== 'string' || image.src === asset.dataUrl) return fill;

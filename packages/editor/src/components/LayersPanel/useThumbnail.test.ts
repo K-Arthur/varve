@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { resetImageCache } from '@varve/engine';
-import type { SceneNode } from '@varve/scene';
+import { createEmbeddedAsset, type SceneNode } from '@varve/scene';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { thumbnailCacheKey } from './thumbnailCache';
 import { sharedThumbnailCache, thumbnailImageCache, useThumbnail } from './useThumbnail';
@@ -139,6 +139,78 @@ describe('useThumbnail caching', () => {
       width: 4000,
       height: 3000,
     });
+    unmount();
+  });
+
+  it('materializes canonical asset references before loading layer thumbnails', async () => {
+    const dataUrl = 'data:image/png;base64,LAYER_ASSET';
+    const asset = createEmbeddedAsset({
+      dataUrl,
+      mimeType: 'image/png',
+      naturalWidth: 40,
+      naturalHeight: 30,
+    });
+    const node = {
+      ...makeShapeNode('thumb-canonical-asset'),
+      fills: [
+        {
+          type: 'image',
+          image: {
+            src: `asset:${asset.id}`,
+            assetId: 'asset-stale',
+            fit: 'fill',
+            x: 0,
+            y: 0,
+            scale: 1,
+          },
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+    } as unknown as SceneNode;
+    const loadAtSize = vi.spyOn(thumbnailImageCache, 'loadAtSize').mockResolvedValue({
+      width: 28,
+      height: 21,
+    } as ImageBitmap);
+
+    const { result, unmount } = renderHook(() =>
+      useThumbnail(node, undefined, { assets: { [asset.id]: asset } }),
+    );
+    await flushRenderTimer();
+
+    expect(result.current).not.toBeNull();
+    expect(loadAtSize).toHaveBeenCalledWith(dataUrl, 28, undefined);
+    unmount();
+  });
+
+  it('does not ask the browser to load an unresolved canonical asset reference', async () => {
+    const node = {
+      ...makeShapeNode('thumb-missing-asset'),
+      fills: [
+        {
+          type: 'image',
+          image: {
+            src: 'asset:asset-missing',
+            fit: 'fill',
+            x: 0,
+            y: 0,
+            scale: 1,
+          },
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+    } as unknown as SceneNode;
+    const loadAtSize = vi.spyOn(thumbnailImageCache, 'loadAtSize');
+    loadAtSize.mockClear();
+
+    const { result, unmount } = renderHook(() => useThumbnail(node));
+    await flushRenderTimer();
+
+    expect(result.current).not.toBeNull();
+    expect(loadAtSize).not.toHaveBeenCalled();
     unmount();
   });
 });

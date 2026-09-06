@@ -101,6 +101,13 @@ recovery state that arrives without codec normalization. The engine registry
 accepts the prefixed form as an alias for a registered handle, so an old
 canonical reference cannot leave an image stuck on the grey placeholder.
 
+If the matching entry is no longer in `Document.assets`, the id alone cannot
+restore the pixels. The shared cache marks that reference as a typed missing
+resource without sending `asset:<id>` to the browser; layer thumbnails and
+Inspector swatches use a neutral missing state, and the Inspector's Replace
+image action is the recovery path. A backup, recovery snapshot, archive, or
+original source containing the bytes is required for the old pixels to return.
+
 ## Invariants / hygiene
 
 - Fill edits must invalidate the affected object bounds; gradient cache

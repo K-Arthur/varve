@@ -361,9 +361,31 @@ test.describe('fill creation and conversion', () => {
     await sourceInput.fill(`asset:${embeddedAssetId(dataUrl)}`);
     await expect(sourceInput).toHaveValue(/^asset:asset-[0-9a-f]{16}$/);
     await expect(page.locator('.insp-image-fill__preview-img')).toHaveAttribute('src', dataUrl);
+    await expect(page.locator('img[src^="asset:"]')).toHaveCount(0);
     await expectPixel(page, { x: box.x + 170, y: box.y + 190 }, [200, 30, 30, 255], 20);
     await expectPixel(page, { x: box.x + 430, y: box.y + 310 }, [30, 60, 200, 255], 20);
     await page.screenshot({ path: 'test-results/fill-visuals/canonical-asset-reference.png' });
+  });
+
+  test('missing canonical asset references stay out of browser image URLs', async ({ page }) => {
+    test.setTimeout(180000);
+    await navigateToCleanEditor(page);
+    const { box } = await createRect(page);
+    await switchFillType(page, 'Image');
+
+    const sourceInput = page.locator('input[aria-label="Image source URL"]').first();
+    await sourceInput.fill('asset:asset-missing-from-document');
+
+    await expect(page.locator('.insp-image-fill__empty-hint[role="alert"]')).toHaveText(
+      /data is unavailable/i,
+    );
+    await expect(page.locator('img[src^="asset:"]')).toHaveCount(0);
+    await page.screenshot({ path: 'test-results/fill-visuals/missing-canonical-asset.png' });
+
+    // The canvas retains the object geometry and shows the failure placeholder;
+    // it must not turn the missing reference into a browser navigation.
+    const [sampled] = await samplePixels(page, [{ x: box.x + 300, y: box.y + 250 }]);
+    expect(sampled?.[3]).toBe(255);
   });
 
   test('choose tile file → repeating pattern pixels appear', async ({ page }) => {

@@ -67,8 +67,13 @@ export function ImageFillControls({
 }) {
   const fileInputId = useId();
   const fileRef = useRef<HTMLInputElement>(null);
-  const previewSrc = asset?.dataUrl ?? image.src;
-  const hasSrc = Boolean(previewSrc);
+  const canonicalAssetId = image.src.startsWith('asset:')
+    ? image.src.slice('asset:'.length)
+    : undefined;
+  const hasMissingEmbeddedPayload = Boolean(canonicalAssetId && !asset?.dataUrl);
+  const previewSrc = hasMissingEmbeddedPayload ? undefined : (asset?.dataUrl ?? image.src);
+  const hasPreview = Boolean(previewSrc);
+  const hasImageReference = Boolean(image.src);
 
   const handleFitChange = useCallback(
     (value: string) => {
@@ -194,7 +199,7 @@ export function ImageFillControls({
 
   return (
     <div className="insp-image-fill">
-      {hasSrc && (
+      {hasPreview && previewSrc && (
         <button
           type="button"
           className="insp-image-fill__preview"
@@ -205,9 +210,14 @@ export function ImageFillControls({
         </button>
       )}
 
-      {!hasSrc && (
+      {!hasPreview && !hasMissingEmbeddedPayload && (
         <p className="insp-hint insp-image-fill__empty-hint" role="note">
           No image selected — the fill is transparent until you choose one.
+        </p>
+      )}
+      {hasMissingEmbeddedPayload && (
+        <p className="insp-hint insp-image-fill__empty-hint" role="alert">
+          Embedded image data is unavailable — replace the image to restore this fill.
         </p>
       )}
 
@@ -229,9 +239,9 @@ export function ImageFillControls({
           onClick={openFilePicker}
         >
           <Icon name="Image" label={undefined} size="0.85em" />
-          <span>{hasSrc ? 'Replace image' : 'Choose image'}</span>
+          <span>{hasImageReference ? 'Replace image' : 'Choose image'}</span>
         </button>
-        {hasSrc && (
+        {hasImageReference && (
           <button
             type="button"
             className="insp-inline-btn"

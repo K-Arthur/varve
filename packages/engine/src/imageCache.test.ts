@@ -102,6 +102,21 @@ describe('ImageCache cross-origin loading', () => {
     // The failure is typed as unavailable (offline), not a generic error.
     expect(cache.failureCode('https://dead.example.com/missing.png')).toBe('unavailable');
   });
+
+  it('does not assign unresolved canonical asset references to Image.src', async () => {
+    const created: MockImage[] = [];
+    MockImage.dispatch = (img) => created.push(img);
+
+    const cache = new ImageCache();
+    await expect(cache.load('asset:asset-missing')).rejects.toMatchObject({
+      code: 'missing',
+      source: 'asset:asset-missing',
+    });
+
+    expect(created).toHaveLength(0);
+    expect(cache.state('asset:asset-missing')).toBe('error');
+    expect(cache.failureCode('asset:asset-missing')).toBe('missing');
+  });
 });
 
 describe('ImageCache memory budget', () => {

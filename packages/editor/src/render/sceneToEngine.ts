@@ -198,9 +198,15 @@ function rewriteImageFillSource(
   options?: SceneNodeConversionOptions,
 ): import('@varve/scene').Fill {
   if (fill.type !== 'image' || !fill.image) return fill;
+  const canonicalAssetId = fill.image.src.startsWith('asset:')
+    ? fill.image.src.slice('asset:'.length)
+    : undefined;
+  const linkedAssetId = fill.image.assetId;
   const assetId =
-    fill.image.assetId ??
-    (fill.image.src.startsWith('asset:') ? fill.image.src.slice('asset:'.length) : undefined);
+    (canonicalAssetId && doc?.assets?.[canonicalAssetId] ? canonicalAssetId : undefined) ??
+    (linkedAssetId && doc?.assets?.[linkedAssetId] ? linkedAssetId : undefined) ??
+    canonicalAssetId ??
+    linkedAssetId;
   if (!assetId || !doc?.assets) return fill;
   const asset = doc.assets[assetId];
   if (asset?.storage !== 'embedded') return fill;

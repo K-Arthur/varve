@@ -186,12 +186,14 @@ function fillSwatchBg(fill: Fill, assets?: Record<string, DocumentAsset>): strin
     return `linear-gradient(90deg, ${stops})`;
   }
   if (fill.type === 'image') {
-    const src =
-      (fill.image?.assetId ? assets?.[fill.image.assetId]?.dataUrl : undefined) ??
-      (fill.image?.src.startsWith('asset:')
-        ? assets?.[fill.image.src.slice('asset:'.length)]?.dataUrl
-        : fill.image?.src);
-    if (src) return `url(${src}) center/cover`;
+    const canonicalAssetId = fill.image?.src.startsWith('asset:')
+      ? fill.image.src.slice('asset:'.length)
+      : undefined;
+    const assetId =
+      (canonicalAssetId && assets?.[canonicalAssetId] ? canonicalAssetId : undefined) ??
+      (fill.image?.assetId && assets?.[fill.image.assetId] ? fill.image.assetId : undefined);
+    const src = assetId ? assets?.[assetId]?.dataUrl : fill.image?.src;
+    if (src && !src.startsWith('asset:')) return `url(${src}) center/cover`;
     return 'var(--color-surface-sunken)';
   }
   return 'var(--color-surface-sunken)';
@@ -449,8 +451,16 @@ function FillRow({
   const visible = isMixed(visibleRaw) ? true : visibleRaw;
   const embeddedAssetId =
     fill.type === 'image' && fill.image
-      ? (fill.image.assetId ??
-        (fill.image.src.startsWith('asset:') ? fill.image.src.slice('asset:'.length) : undefined))
+      ? (() => {
+          const canonicalAssetId = fill.image.src.startsWith('asset:')
+            ? fill.image.src.slice('asset:'.length)
+            : undefined;
+          return (
+            (canonicalAssetId && editor.state.document.assets?.[canonicalAssetId]
+              ? canonicalAssetId
+              : undefined) ?? fill.image.assetId
+          );
+        })()
       : undefined;
   const swatchBg = fillSwatchBg(fill, editor.state.document.assets);
 
