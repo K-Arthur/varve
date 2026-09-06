@@ -16,6 +16,7 @@ const ROUTES = [
   '/features',
   '/features/motion',
   '/features/export',
+  '/features/layers',
   '/download',
   '/docs',
   '/docs/tools/motion',

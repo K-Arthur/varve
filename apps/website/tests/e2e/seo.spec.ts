@@ -42,6 +42,7 @@ const ROUTES = [
   '/support-project',
   '/features/local-first',
   '/features/print-production',
+  '/features/layers',
 ];
 
 /** Routes that must never appear in the sitemap. */
