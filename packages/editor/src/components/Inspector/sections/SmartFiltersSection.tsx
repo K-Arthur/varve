@@ -139,38 +139,57 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
     [commitTransaction],
   );
 
+  // Range gestures own a transaction across updates. Discrete controls (typed
+  // numbers, add/remove, blend, bypass) must capture their own history step.
+  const mutateNode = useCallback<typeof updateNode>(
+    (id, update) => {
+      const ownsTransaction = !editingRef.current;
+      if (ownsTransaction) beginTransaction();
+      try {
+        updateNode(id, update);
+      } catch (error) {
+        if (ownsTransaction) abortTransaction();
+        throw error;
+      }
+      if (ownsTransaction) commitTransaction();
+    },
+    [updateNode, beginTransaction, commitTransaction, abortTransaction],
+  );
+
+  useEffect(() => finishTransaction, [nodeId, finishTransaction]);
+
   const updateFilter = useCallback(
     (filterId: string, patch: Partial<Adjustment>) => {
       if (!nodeId) return;
-      updateNode(nodeId, (current) => ({
+      mutateNode(nodeId, (current) => ({
         ...current,
         smartFilters: markTreatmentCustomized(current.smartFilters ?? [], filterId).map((filter) =>
           filter.id === filterId ? ({ ...filter, ...patch } as Adjustment) : filter,
         ),
       }));
     },
-    [nodeId, updateNode],
+    [nodeId, mutateNode],
   );
 
   const addFilter = useCallback(
     (kind: AdjustmentKind, overrides: Partial<Adjustment> = {}) => {
       if (!nodeId) return;
       const filter = makeSmartFilter(cryptoId(), kind, overrides);
-      updateNode(nodeId, (current) => ({
+      mutateNode(nodeId, (current) => ({
         ...current,
         smartFilters: [...(current.smartFilters ?? []), filter],
       }));
       setSelectedId(filter.id);
       announce(`Added ${filterKindDisplayName(kind)} filter`);
     },
-    [nodeId, updateNode, announce],
+    [nodeId, mutateNode, announce],
   );
 
   const removeFilter = useCallback(
     (filterId: string) => {
       if (!nodeId) return;
       const filter = filters.find((f) => f.id === filterId);
-      updateNode(nodeId, (current) => ({
+      mutateNode(nodeId, (current) => ({
         ...current,
         smartFilters: markTreatmentCustomized(current.smartFilters ?? [], filterId).filter(
           (filter) => filter.id !== filterId,
@@ -179,13 +198,13 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
       setSelectedId((current) => (current === filterId ? null : current));
       if (filter) announce(`Removed ${filterName(filter)} filter`);
     },
-    [nodeId, updateNode, announce, filters],
+    [nodeId, mutateNode, announce, filters],
   );
 
   const reorderFilter = useCallback(
     (filterId: string, nextIndex: number) => {
       if (!nodeId) return;
-      updateNode(nodeId, (current) => {
+      mutateNode(nodeId, (current) => {
         const stack = markTreatmentCustomized(current.smartFilters ?? [], filterId);
         const index = stack.findIndex((filter) => filter.id === filterId);
         if (index < 0) return current;
@@ -195,7 +214,7 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
         return { ...current, smartFilters: stack };
       });
     },
-    [nodeId, updateNode],
+    [nodeId, mutateNode],
   );
 
   const handleFilterReorder = useCallback(
@@ -206,7 +225,7 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
       }
       const orderedIds = items.map(String);
       const activeId = String(event.active.id);
-      updateNode(nodeId, (current) => {
+      mutateNode(nodeId, (current) => {
         const stack = markTreatmentCustomized(current.smartFilters ?? [], activeId);
         const byId = new Map(stack.map((filter) => [filter.id, filter]));
         const reordered = orderedIds
@@ -220,7 +239,7 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
       const moved = filters.find((filter) => filter.id === activeId);
       if (moved) announce(`Moved ${filterName(moved)} filter`);
     },
-    [announce, filters, finishTransaction, nodeId, updateNode],
+    [announce, filters, finishTransaction, nodeId, mutateNode],
   );
 
   const duplicateFilter = useCallback(
@@ -230,7 +249,7 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
       const copy = source ? cloneSmartFilters([source])[0] : undefined;
       if (!copy) return;
       delete copy.studioTreatment;
-      updateNode(nodeId, (current) => {
+      mutateNode(nodeId, (current) => {
         const stack = current.smartFilters ?? [];
         const index = stack.findIndex((filter) => filter.id === filterId);
         if (index < 0) return current;
@@ -240,16 +259,16 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
       });
       setSelectedId(copy.id);
     },
-    [filters, nodeId, updateNode],
+    [filters, nodeId, mutateNode],
   );
 
   const toggleStack = useCallback(() => {
     if (!nodeId) return;
-    updateNode(nodeId, (current) => ({
+    mutateNode(nodeId, (current) => ({
       ...current,
       smartFiltersEnabled: current.smartFiltersEnabled === false,
     }));
-  }, [nodeId, updateNode]);
+  }, [nodeId, mutateNode]);
 
   const selected = useMemo(
     () => filters.find((filter) => filter.id === selectedId) ?? null,

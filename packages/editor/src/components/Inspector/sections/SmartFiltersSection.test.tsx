@@ -134,6 +134,33 @@ describe('SmartFiltersSection — object finishing shortcuts', () => {
 
   afterEach(cleanup);
 
+  it('captures discrete stack changes and numeric edits in history', () => {
+    const node = grainNode();
+    render(<SmartFiltersSection nodes={[node]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Disable all Object Filters' }));
+    expect(beginTransaction).toHaveBeenCalledTimes(1);
+    expect(commitTransaction).toHaveBeenCalledTimes(1);
+    const input = screen.getByRole('spinbutton', { name: /Grain effect opacity value/ });
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: '50' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(beginTransaction).toHaveBeenCalledTimes(2);
+    expect(commitTransaction).toHaveBeenCalledTimes(2);
+    expect(latestUpdatedNode(node).smartFilters?.[0]?.opacity).toBe(0.5);
+  });
+
+  it('keeps a range gesture in one transaction', () => {
+    render(<SmartFiltersSection nodes={[grainNode()]} />);
+    const slider = screen.getByRole('slider', { name: 'Grain effect opacity' });
+    fireEvent.pointerDown(slider);
+    fireEvent.change(slider, { target: { value: '60' } });
+    fireEvent.change(slider, { target: { value: '50' } });
+    expect(beginTransaction).toHaveBeenCalledTimes(1);
+    expect(commitTransaction).not.toHaveBeenCalled();
+    fireEvent.pointerUp(slider);
+    expect(commitTransaction).toHaveBeenCalledTimes(1);
+  });
+
   it('offers labelled object-finishing actions for a non-image vector object', () => {
     render(<SmartFiltersSection nodes={[vectorNode()]} />);
 

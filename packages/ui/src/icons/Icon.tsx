@@ -32,7 +32,18 @@ export const Icon = forwardRef<SVGSVGElement, IconProps>(function Icon(
   { name, label, size = '1em', ...rest },
   ref,
 ) {
-  const Cmp = icons[name] as LucideIcon;
+  const Cmp = icons[name] as LucideIcon | undefined;
+  if (!Cmp) {
+    console.warn(`[Icon] Unknown icon: "${name}"`);
+    return (
+      <span
+        ref={ref as React.Ref<HTMLSpanElement>}
+        role="img"
+        aria-label={label}
+        style={{ display: 'inline-flex', width: size, height: size }}
+      />
+    );
+  }
   if (label) {
     return <Cmp ref={ref} role="img" aria-label={label} size={size} {...rest} />;
   }

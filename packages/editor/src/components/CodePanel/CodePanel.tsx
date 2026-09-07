@@ -79,7 +79,7 @@ const CATEGORY_ICONS: Partial<Record<AuditCategory, string>> = {
   vector: 'Pen',
   raster: 'Image',
   color: 'Palette',
-  performance: 'Faders',
+  performance: 'SlidersHorizontal',
   spacing: 'Ruler',
   codegen: 'Code',
 };

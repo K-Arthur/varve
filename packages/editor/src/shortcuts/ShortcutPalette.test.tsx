@@ -250,9 +250,13 @@ describe('ShortcutPalette focus behavior', () => {
     const user = userEvent.setup();
     renderPalette();
     const input = screen.getByRole('combobox', { name: /search/i });
+    // This scenario tests keyboard remapping, not traversal of the entire
+    // shortcut catalog. Keep one named target so load-sensitive pointer checks
+    // do not dominate the test; catalog filtering is covered separately.
+    fireEvent.change(input, { target: { value: 'Undo' } });
     await user.click(input);
     await user.keyboard('{ArrowDown}');
     await user.keyboard('{Alt>}{Enter}{/Alt}');
-    expect(screen.getByText(/Press new shortcut for/i)).toBeTruthy();
+    expect(screen.getByText(/Press new shortcut for.*Undo/i)).toBeTruthy();
   });
 });

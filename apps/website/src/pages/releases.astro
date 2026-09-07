@@ -1,320 +1,83 @@
 ---
-import release from '../data/release-manifest.json';
+/**
+ * /releases redirects to /changelog.
+ *
+ * The canonical changelog lives at /changelog. This compatibility page
+ * ensures every inbound link to /releases still resolves. The <meta>
+ * refresh provides an immediate redirect for browsers; the link gives
+ * search engines and no-JS users a direct path.
+ */
 import Layout from '../layouts/Layout.astro';
 import { sitePath } from '../lib/siteUrl';
-import { PRODUCT_STATUS, type ProductStatusStage } from '@varve/shared';
-
-// Channel label: a release can be tagged "Stable" on GitHub while the product
-// itself is still in beta — the product stage is the source of truth for how
-// we describe the release, not the manifest's prerelease flag alone. The
-// comparison goes through a union-typed parameter rather than a narrowed
-// const: TypeScript 6 narrows `const x: ProductStatusStage =
-// PRODUCT_STATUS.stage` to the current literal ('beta'), which makes the
-// `=== 'stable'` comparison an unreachable-code error. A parameter keeps the
-// union, so the comparison stays legal the day the stage becomes 'stable'.
-function isStableStage(stage: ProductStatusStage): boolean {
-  return stage === 'stable';
-}
-const channelLabel = release.prerelease ? 'Prerelease' : isStableStage(PRODUCT_STATUS.stage) ? 'Stable' : 'Beta';
-
-// The release facts on this page come from the same generated manifest that
-// drives /download (scripts/release/update-website-manifest.mjs). Nothing
-// about versions, dates, or download availability is hand-typed here — the
-// previous version of this page hardcoded version 0.0.0, a "last updated"
-// date, and a download CTA for builds that do not exist, which contradicted
-// the download page's honest "no release yet" state.
 ---
+
 <Layout
-  title="Releases"
-  description="Current release and version history for Varve. In beta — see what's built, what's limited, and what's next."
+  title="Releases → Changelog"
+  description="Release notes have moved to the Varve changelog."
+  noindex
+  canonicalPath="/changelog"
 >
   <div class="container-custom">
-    <div class="releases-page">
+    <div class="redirect-page">
       <h1>Releases</h1>
-      <p class="releases-intro">
-        Current release and version history for Varve.
+      <p>
+        Release notes have moved to the
+        <a href={sitePath('/changelog')}>Varve changelog</a>.
       </p>
-
-      {!release.hasRelease && (
-        <div class="current-release">
-          <div class="release-header">
-            <h2>Current Release</h2>
-            <span class="version-badge">In development</span>
-          </div>
-          <p class="release-date">
-            No public release has been tagged yet. Varve is in active beta and
-            installers are not published until the first release is ready.
-          </p>
-          <p>
-            <a href={release.releaseUrl} target="_blank" rel="noopener noreferrer">
-              Watch the GitHub releases page
-            </a>{' '}
-            to be notified, or see the{' '}
-            <a href={sitePath('/features')}>features overview</a> for what is already built.
-          </p>
-        </div>
-      )}
-
-      {release.hasRelease && (
-        <div class="current-release">
-          <div class="release-header">
-            <h2>Current Release</h2>
-            <span class="version-badge">{channelLabel}</span>
-          </div>
-          <p class="release-date">
-            Version {release.version} — released {release.releaseDate}
-          </p>
-          <p>
-            <a href={release.releaseUrl} target="_blank" rel="noopener noreferrer">
-              Full release notes on GitHub
-            </a>
-          </p>
-        </div>
-      )}
-
-      <div class="current-release">
-        <div class="release-notes">
-          <h2>What's built today</h2>
-          <p>
-            Varve is in active beta. Core systems are functional and tested, but
-            you may hit rough edges. This is the current state of the
-            development build.
-          </p>
-
-          <h3>What's built</h3>
-          <ul>
-            <li>Canvas: Infinite canvas, viewport culling, sticky snap, rulers, guides, view rotation, zoom range 0.001x-64x</li>
-            <li>Vector tools: Shapes, pen/pencil with bezier handles, boolean operations, node editing, layers, groups, frames</li>
-            <li>Typography: Multi-line text, OpenType features, variable fonts, text-on-path, inline editing, CJK line breaking</li>
-            <li>Color and effects: RGB/CMYK color management, ICC profiles, blend modes, shadows, blur, adjustment layers, halftone</li>
-            <li>Motion: Timeline animation, keyframes, easing, Smart Animate, prototype interactions, CSS/Lottie/video export</li>
-            <li>Export: SVG, React/Tailwind, Flutter, SwiftUI, PDF with CMYK, PDF/X-1a and PDF/X-4, per-node export settings</li>
-            <li>Import: SVG, PDF, PSD, AI, EPS, and common image formats</li>
-            <li>Design systems: Styles, variables, components, variants, libraries</li>
-            <li>Background removal: Fast, Auto, and High quality local masks with bundled U²-NetP, optional IS-Net/BiRefNet, hair refinement, trimap editing, and undoable application</li>
-            <li>Workspace modes: Design, Print, Draw, Photo, Motion with per-mode toolbars and panels</li>
-            <li>Operation feedback: compact, accessible notifications with async lifecycle updates, recovery actions, and burst protection</li>
-          </ul>
-
-          <h3>Known limitations</h3>
-          <ul>
-            <li>Complex-script shaping and mixed-direction layout have engine foundations but are not yet wired through every live renderer, caret, and export consumer</li>
-            <li>Collaboration features are UI scaffolding only</li>
-            <li>Print bleed and trim guides are available, but exported trim and bleed geometry remains the final authority</li>
-            <li>High-quality background removal is hardware/provider dependent; unsafe bare-WASM allocations are blocked and the actual fallback is shown in the editor</li>
-          </ul>
-        </div>
-      </div>
-
-      <div class="previous-releases">
-        <h2>Previous Releases</h2>
-        <p>
-          {release.hasRelease
-            ? 'Older releases are archived on GitHub.'
-            : 'No previous releases yet — this is the initial development period.'}
-        </p>
-      </div>
-
-      <div class="release-info">
-        <h2>Release Information</h2>
-        <ul>
-          <li>
-            <strong>Version:</strong>{' '}
-            {release.hasRelease ? release.version : 'Unreleased (in development)'}
-          </li>
-          <li><strong>License:</strong> FSL-1.1-MIT</li>
-          <li>
-            <strong>Source:</strong> <a href="https://github.com/K-Arthur/varve">GitHub</a>
-          </li>
-          <li>
-            <strong>Downloads:</strong> <a href={sitePath('/download')}>Download page</a>
-          </li>
-        </ul>
-      </div>
-
-      <div class="release-cta">
-        <h2>Download Current Release</h2>
-        <a href={sitePath('/download')} class="btn-default">
-          {release.hasRelease ? `Download Varve ${release.version}` : 'Go to the download page'}
+      <p class="redirect-timer">
+        Redirecting in <span id="countdown">2</span> seconds&hellip;
+      </p>
+      <p>
+        <a href={sitePath('/changelog')} class="btn-secondary">
+          Go to the changelog now
         </a>
-      </div>
+      </p>
     </div>
   </div>
 </Layout>
 
+<script is:inline>
+  (function () {
+    var seconds = 2;
+    var el = document.getElementById('countdown');
+    var timer = setInterval(function () {
+      seconds--;
+      if (el) el.textContent = String(seconds);
+      if (seconds <= 0) {
+        clearInterval(timer);
+        window.location.href = window.location.pathname.replace(/\/releases\/?$/, '/changelog');
+      }
+    }, 1000);
+  })();
+</script>
+
 <style>
-  .releases-page {
-    max-width: 800px;
+  .redirect-page {
+    max-width: 600px;
     margin: 0 auto;
-    padding: 3rem 0;
+    padding: clamp(4rem, 10vh, 8rem) 0;
+    text-align: center;
   }
-  
-  .releases-page h1 {
-    font-size: clamp(2rem, 5vw, 2.75rem);
+
+  .redirect-page h1 {
     font-family: var(--font-editorial);
+    font-size: clamp(2rem, 5vw, 2.75rem);
     font-weight: 700;
     font-variation-settings: 'opsz' 144;
     letter-spacing: -0.02em;
-    margin-bottom: 0.75rem;
-    color: var(--text-primary);
-  }
-  
-  .releases-intro {
-    font-size: 1.125rem;
-    color: var(--text-secondary);
-    margin-bottom: 2.5rem;
-    max-width: 52ch;
-  }
-  
-  .current-release {
-    background: var(--surface-card);
-    border: 1px solid var(--border-default);
-    border-radius: var(--website-radius-card);
-    padding: 2rem;
-    margin-bottom: 2rem;
-  }
-  
-  .release-header {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 0.75rem;
-    flex-wrap: wrap;
-  }
-  
-  .release-header h2 {
-    font-size: 1.35rem;
-    font-family: var(--font-editorial);
-    font-weight: 700;
-    font-variation-settings: 'opsz' 96;
-    letter-spacing: -0.01em;
-    margin: 0;
-    color: var(--text-primary);
-  }
-  
-  .version-badge {
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    background: var(--status-built);
-    color: var(--text-on-status);
-    padding: 0.25rem 0.65rem;
-    border-radius: var(--website-radius-control-compact);
-  }
-  
-  .release-date {
-    color: var(--text-secondary);
-    margin-bottom: 1.25rem;
-    font-size: 0.9375rem;
-  }
-  
-  .release-notes h2 {
-    font-size: 1.35rem;
-    font-weight: 700;
     margin-bottom: 1rem;
     color: var(--text-primary);
   }
-  
-  .release-notes h3 {
+
+  .redirect-page p {
     font-size: 1.05rem;
-    font-weight: 600;
-    margin-bottom: 0.75rem;
-    color: var(--text-primary);
-  }
-  
-  .release-notes ul {
-    list-style: none;
-    margin-bottom: 1.25rem;
-  }
-  
-  .release-notes li {
-    margin-bottom: 0.5rem;
-    padding-left: 1.25rem;
-    position: relative;
     color: var(--text-secondary);
-    line-height: 1.6;
-  }
-  
-  .release-notes li::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0.55em;
-    width: 6px;
-    height: 6px;
-    border: 1.5px solid var(--accent-primary);
-    transform: rotate(45deg);
-  }
-  
-  .release-notes p {
-    color: var(--text-secondary);
-    line-height: 1.65;
     margin-bottom: 1rem;
   }
-  
-  .release-notes a {
-    color: var(--text-link);
-  }
-  
-  .previous-releases {
-    margin-bottom: 2.5rem;
-  }
-  
-  .previous-releases h2 {
-    font-size: 1.35rem;
-    font-weight: 700;
-    margin-bottom: 0.75rem;
-    color: var(--text-primary);
-  }
-  
-  .previous-releases p {
-    color: var(--text-secondary);
-  }
-  
-  .release-info {
-    background: var(--surface-muted);
-    border: 1px solid var(--border-default);
-    border-radius: var(--website-radius-card);
-    padding: 1.5rem;
-    margin-bottom: 2rem;
-  }
-  
-  .release-info h2 {
-    font-size: 1.125rem;
-    font-weight: 600;
-    margin-bottom: 0.75rem;
-    color: var(--text-primary);
-  }
-  
-  .release-info ul {
-    list-style: none;
-  }
-  
-  .release-info li {
-    margin-bottom: 0.4rem;
-    color: var(--text-secondary);
-    font-size: 0.9375rem;
-  }
-  
-  .release-info strong {
-    color: var(--text-primary);
-  }
-  
-  .release-info a {
-    color: var(--text-link);
-  }
-  
-  .release-cta {
-    text-align: center;
-    padding: 2.5rem 0;
-    border-top: 1px solid var(--border-default);
-  }
-  
-  .release-cta h2 {
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin-bottom: 1.25rem;
-    color: var(--text-primary);
+
+  .redirect-timer {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin-bottom: 1.5rem;
   }
 </style>

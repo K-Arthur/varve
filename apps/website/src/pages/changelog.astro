@@ -1,0 +1,794 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { sitePath } from '../lib/siteUrl';
+import { parseChangelogFile } from '../lib/changelog';
+import { PRODUCT_STATUS } from '@varve/shared';
+import release from '../data/release-manifest.json';
+
+const releases = parseChangelogFile();
+const currentVersion = release.hasRelease ? release.version : null;
+
+// Attach release URLs for versions that have corresponding GitHub releases
+const GITHUB_REPO = 'https://github.com/K-Arthur/varve';
+const releaseUrlFor = (v: string) => `${GITHUB_REPO}/releases/tag/v${v}`;
+const latestRelease = releases.find((r) => !r.isUnreleased);
+
+// Show Unreleased section at the top if it has content
+const unreleased = releases.find((r) => r.isUnreleased && r.sections.length > 0);
+// Recent releases: everything except Unreleased (which may or may not have content)
+const versionReleases = releases.filter((r) => !r.isUnreleased);
+// "Recent" = first 3, "older" = the rest
+const RECENT_COUNT = 3;
+const recentReleases = versionReleases.slice(0, RECENT_COUNT);
+const olderReleases = versionReleases.slice(RECENT_COUNT);
+
+// Category icons and colors — theme-aware via CSS variables
+const CATEGORY_META: Record<string, { label: string; cssClass: string }> = {
+  Added: { label: 'Added', cssClass: 'cat-added' },
+  Changed: { label: 'Changed', cssClass: 'cat-changed' },
+  Deprecated: { label: 'Deprecated', cssClass: 'cat-deprecated' },
+  Removed: { label: 'Removed', cssClass: 'cat-removed' },
+  Fixed: { label: 'Fixed', cssClass: 'cat-fixed' },
+  Security: { label: 'Security', cssClass: 'cat-security' },
+};
+
+function formatDate(dateStr: string | null): string {
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T00:00:00Z');
+  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+}
+
+function channelLabel(version: string): string {
+  if (version.includes('-')) return 'Prerelease';
+  if (PRODUCT_STATUS.stage === 'stable') return 'Stable';
+  return 'Beta';
+}
+
+const pageTitle = 'Changelog';
+const pageDescription = 'Version history and release notes for Varve. See what changed in every release — features, fixes, and improvements.';
+---
+
+<Layout title={pageTitle} description={pageDescription} canonicalPath="/changelog">
+  <div class="page-hero changelog-hero">
+    <div class="container-custom">
+      <div class="changelog-hero-content">
+        <div class="changelog-hero-eyebrow">
+          <span class="section-eyebrow">Release history</span>
+          {currentVersion && (
+            <span class="changelog-version-badge">v{currentVersion}</span>
+          )}
+          <span class={`status-pill status-pill-beta`}>Beta</span>
+        </div>
+        <h1 class="page-hero-title">Varve changelog</h1>
+        <p class="page-hero-sub">
+          Every release of Varve, documented. Features, fixes, and improvements
+          drawn from the project's release notes.
+        </p>
+        <div class="changelog-hero-actions">
+          <a href={sitePath('/download')} class="btn-default">Download Varve</a>
+          <a
+            href="https://github.com/K-Arthur/varve/releases"
+            class="btn-secondary"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            GitHub releases
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container-custom changelog-content">
+    <nav class="changelog-skip" aria-label="Jump to release">
+      <a href="#latest" class="changelog-skip-link">Jump to latest release</a>
+    </nav>
+
+    <ol class="changelog-timeline" reversed>
+      {/* Unreleased section */}
+      {unreleased && (
+        <li class="changelog-entry" id={unreleased.anchor}>
+          <article class="changelog-release">
+            <header class="changelog-release-header">
+              <div class="changelog-release-title-row">
+                <h2 class="changelog-release-version">Unreleased</h2>
+                <span class="changelog-badge changelog-badge-unreleased">In development</span>
+              </div>
+            </header>
+            <div class="changelog-release-body">
+              {unreleased.sections.map((section) => {
+                const meta = CATEGORY_META[section.category] ?? { label: section.category, cssClass: 'cat-other' };
+                return (
+                  <div class="changelog-category">
+                    <h3 class={`changelog-category-heading ${meta.cssClass}`}>
+                      {meta.label}
+                    </h3>
+                    <div set:html={section.entries.map((e) => e.html).join('\n')} />
+                  </div>
+                );
+              })}
+            </div>
+          </article>
+        </li>
+      )}
+
+      {/* Recent releases (fully visible) */}
+      {recentReleases.map((rel, i) => {
+        const isLatest = i === 0 && !unreleased;
+        const ghUrl = releaseUrlFor(rel.version);
+        return (
+        <li
+          class="changelog-entry"
+          id={rel.anchor}
+        >
+          {isLatest && <a id="latest" class="sr-only" aria-hidden="true"></a>}
+          <article class="changelog-release">
+            <header class="changelog-release-header">
+              <div class="changelog-release-title-row">
+                <h2 class="changelog-release-version">
+                  <a
+                    href={`#${rel.anchor}`}
+                    class="changelog-anchor-link"
+                    aria-label={`Link to version ${rel.version}`}
+                  >#</a>
+                  {rel.version}
+                </h2>
+                {isLatest && (
+                  <span class="changelog-badge changelog-badge-latest">Latest</span>
+                )}
+                {rel.version.includes('-') && (
+                  <span class="changelog-badge changelog-badge-prerelease">Prerelease</span>
+                )}
+                {!rel.version.includes('-') && (
+                  <span class={`changelog-badge changelog-badge-${PRODUCT_STATUS.stage}`}>
+                    {channelLabel(rel.version)}
+                  </span>
+                )}
+              </div>
+              <time class="changelog-release-date" datetime={rel.date ?? ''}>
+                {formatDate(rel.date)}
+              </time>
+              <a
+                href={ghUrl}
+                class="changelog-release-github"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                View on GitHub
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M3.5 8.5L8.5 3.5M8.5 3.5H4.5M8.5 3.5V7.5" />
+                </svg>
+              </a>
+            </header>
+            <div class="changelog-release-body">
+              {rel.sections.map((section) => {
+                const meta = CATEGORY_META[section.category] ?? { label: section.category, cssClass: 'cat-other' };
+                return (
+                  <div class="changelog-category">
+                    <h3 class={`changelog-category-heading ${meta.cssClass}`}>
+                      {meta.label}
+                    </h3>
+                    <div set:html={section.entries.map((e) => e.html).join('\n')} />
+                  </div>
+                );
+              })}
+            </div>
+          </article>
+        </li>
+        );
+      })}
+
+      {/* Older releases — collapsible via native <details> */}
+      {olderReleases.length > 0 && (
+        <li class="changelog-older-anchor">
+          <details class="changelog-older">
+            <summary class="changelog-older-summary">
+              <span class="changelog-older-icon" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 6l4 4 4-4" />
+                </svg>
+              </span>
+              Show {olderReleases.length} older release{olderReleases.length !== 1 ? 's' : ''}
+            </summary>
+            <ol class="changelog-timeline changelog-timeline-nested" reversed>
+              {olderReleases.map((rel) => {
+                const ghUrl = releaseUrlFor(rel.version);
+                return (
+                <li class="changelog-entry" id={rel.anchor}>
+                  <article class="changelog-release">
+                    <header class="changelog-release-header">
+                      <div class="changelog-release-title-row">
+                        <h2 class="changelog-release-version">
+                          <a
+                            href={`#${rel.anchor}`}
+                            class="changelog-anchor-link"
+                            aria-label={`Link to version ${rel.version}`}
+                          >#</a>
+                          {rel.version}
+                        </h2>
+                        {rel.version.includes('-') && (
+                          <span class="changelog-badge changelog-badge-prerelease">Prerelease</span>
+                        )}
+                        {!rel.version.includes('-') && (
+                          <span class={`changelog-badge changelog-badge-${PRODUCT_STATUS.stage}`}>
+                            {channelLabel(rel.version)}
+                          </span>
+                        )}
+                      </div>
+                      <time class="changelog-release-date" datetime={rel.date ?? ''}>
+                        {formatDate(rel.date)}
+                      </time>
+                      <a
+                        href={ghUrl}
+                        class="changelog-release-github"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        View on GitHub
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                          <path d="M3.5 8.5L8.5 3.5M8.5 3.5H4.5M8.5 3.5V7.5" />
+                        </svg>
+                      </a>
+                    </header>
+                    <div class="changelog-release-body">
+                      {rel.sections.map((section) => {
+                        const meta = CATEGORY_META[section.category] ?? { label: section.category, cssClass: 'cat-other' };
+                        return (
+                          <div class="changelog-category">
+                            <h3 class={`changelog-category-heading ${meta.cssClass}`}>
+                              {meta.label}
+                            </h3>
+                            <div set:html={section.entries.map((e) => e.html).join('\n')} />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </article>
+                </li>
+                );
+              })}
+            </ol>
+          </details>
+        </li>
+      )}
+    </ol>
+
+    <div class="changelog-footer-cta">
+      <p>
+        Varve is in active development. Installers are published for Linux, macOS,
+        and Windows.
+      </p>
+      <div class="changelog-footer-actions">
+        <a href={sitePath('/download')} class="btn-default">Download Varve</a>
+        <a
+          href="https://github.com/K-Arthur/varve/releases"
+          class="btn-secondary"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          All releases on GitHub
+        </a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  /* ---------------------------------------------------------------------- */
+  /* Hero                                                                    */
+  /* ---------------------------------------------------------------------- */
+  .changelog-hero {
+    padding-bottom: clamp(2rem, 5vh, 3.5rem);
+  }
+
+  .changelog-hero-content {
+    max-width: 640px;
+  }
+
+  .changelog-hero-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+  }
+
+  .changelog-version-badge {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    background: var(--surface-accent-soft);
+    color: var(--accent-primary);
+    padding: 0.2rem 0.6rem;
+    border-radius: var(--website-radius-control-compact);
+  }
+
+  .changelog-hero-actions {
+    display: flex;
+    gap: var(--space-3);
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Skip link                                                                */
+  /* ---------------------------------------------------------------------- */
+  .changelog-skip {
+    margin-bottom: 2rem;
+  }
+
+  .changelog-skip-link {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+  }
+
+  .changelog-skip-link:hover {
+    color: var(--text-link);
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Timeline layout                                                          */
+  /* ---------------------------------------------------------------------- */
+  .changelog-timeline {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    position: relative;
+  }
+
+  /* The vertical line — a subtle thread connecting releases. */
+  .changelog-timeline::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 15px;
+    width: 1px;
+    background: var(--border-default);
+  }
+
+  .changelog-entry {
+    position: relative;
+    padding-left: 48px;
+    padding-bottom: clamp(2rem, 4vh, 3rem);
+  }
+
+  /* Timeline node — a small dot at each release. */
+  .changelog-entry::before {
+    content: '';
+    position: absolute;
+    left: 10px;
+    top: 6px;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: var(--surface-card);
+    border: 2px solid var(--accent-primary);
+    z-index: 1;
+  }
+
+  /* Latest release gets a filled node. */
+  .changelog-entry:first-child::before {
+    background: var(--accent-primary);
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Release card                                                             */
+  /* ---------------------------------------------------------------------- */
+  .changelog-release {
+    background: var(--surface-card);
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-card);
+    overflow: hidden;
+    transition:
+      border-color var(--duration-quick) var(--ease-default),
+      box-shadow var(--duration-quick) var(--ease-default);
+  }
+
+  .changelog-release:hover {
+    border-color: var(--border-strong);
+  }
+
+  /* First entry (latest) gets a subtle accent border */
+  .changelog-entry:first-child > .changelog-release {
+    border-color: var(--border-accent);
+  }
+
+  .changelog-release-header {
+    padding: clamp(1.25rem, 2.5vw, 1.75rem) clamp(1.5rem, 3vw, 2rem) 0;
+  }
+
+  .changelog-release-title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.35rem;
+  }
+
+  .changelog-release-version {
+    font-family: var(--font-editorial);
+    font-size: clamp(1.3rem, 2vw + 0.5rem, 1.75rem);
+    font-weight: 700;
+    font-variation-settings: 'opsz' 96;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.4em;
+  }
+
+  .changelog-anchor-link {
+    font-family: var(--font-mono);
+    font-size: 0.65em;
+    color: var(--text-muted);
+    text-decoration: none;
+    opacity: 0;
+    transition: opacity var(--duration-quick) var(--ease-default);
+    padding: 0 0.15em;
+  }
+
+  .changelog-anchor-link:visited {
+    color: var(--text-muted);
+  }
+
+  .changelog-entry:hover .changelog-anchor-link,
+  .changelog-anchor-link:focus-visible {
+    opacity: 1;
+  }
+
+  .changelog-release-date {
+    display: block;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin-bottom: 0;
+    line-height: 1.6;
+  }
+
+  .changelog-release-github {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3em;
+    font-size: 0.8125rem;
+    color: var(--text-link);
+    text-decoration: none;
+    margin-top: 0.4rem;
+  }
+
+  .changelog-release-github:visited {
+    color: var(--text-link-visited);
+  }
+
+  .changelog-release-github:hover {
+    text-decoration: underline;
+  }
+
+  .changelog-release-github svg {
+    flex-shrink: 0;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Badges                                                                   */
+  /* ---------------------------------------------------------------------- */
+  .changelog-badge {
+    display: inline-flex;
+    align-items: center;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    padding: 0.15em 0.55em;
+    border-radius: var(--website-radius-pill);
+    white-space: nowrap;
+    line-height: 1.5;
+  }
+
+  .changelog-badge-latest {
+    background: var(--pill-available-bg);
+    color: var(--pill-available-text);
+    border: 1px solid var(--pill-available-border);
+  }
+
+  .changelog-badge-beta {
+    background: var(--pill-beta-bg);
+    color: var(--pill-beta-text);
+    border: 1px solid var(--pill-beta-border);
+  }
+
+  .changelog-badge-prerelease {
+    background: var(--pill-experimental-bg);
+    color: var(--pill-experimental-text);
+    border: 1px solid var(--pill-experimental-border);
+  }
+
+  .changelog-badge-stable {
+    background: var(--pill-available-bg);
+    color: var(--pill-available-text);
+    border: 1px solid var(--pill-available-border);
+  }
+
+  .changelog-badge-unreleased {
+    background: var(--pill-planned-bg);
+    color: var(--pill-planned-text);
+    border: 1px solid var(--pill-planned-border);
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Release body — changelog content                                         */
+  /* ---------------------------------------------------------------------- */
+  .changelog-release-body {
+    padding: clamp(1rem, 2vw, 1.5rem) clamp(1.5rem, 3vw, 2rem) clamp(1.25rem, 2.5vw, 1.75rem);
+  }
+
+  .changelog-category {
+    margin-bottom: 1.5rem;
+  }
+
+  .changelog-category:last-child {
+    margin-bottom: 0;
+  }
+
+  .changelog-category-heading {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+  }
+
+  /* Category accent colors — subtle left border + muted background tint */
+  .cat-added {
+    border-left: 3px solid oklch(0.65 0.12 156);
+    padding-left: 0.75rem;
+    border-bottom: none;
+    color: oklch(0.5 0.12 156);
+  }
+
+  .cat-changed {
+    border-left: 3px solid oklch(0.65 0.12 60);
+    padding-left: 0.75rem;
+    border-bottom: none;
+    color: oklch(0.5 0.1 60);
+  }
+
+  .cat-deprecated {
+    border-left: 3px solid oklch(0.6 0.1 40);
+    padding-left: 0.75rem;
+    border-bottom: none;
+    color: oklch(0.5 0.1 40);
+  }
+
+  .cat-removed {
+    border-left: 3px solid oklch(0.55 0.14 25);
+    padding-left: 0.75rem;
+    border-bottom: none;
+    color: oklch(0.5 0.12 25);
+  }
+
+  .cat-fixed {
+    border-left: 3px solid oklch(0.55 0.1 250);
+    padding-left: 0.75rem;
+    border-bottom: none;
+    color: oklch(0.5 0.1 250);
+  }
+
+  .cat-security {
+    border-left: 3px solid oklch(0.6 0.08 300);
+    padding-left: 0.75rem;
+    border-bottom: none;
+    color: oklch(0.5 0.08 300);
+  }
+
+  .cat-other {
+    border-left: 3px solid var(--border-default);
+    padding-left: 0.75rem;
+    border-bottom: none;
+  }
+
+  [data-theme="dark"] .cat-added { color: oklch(0.78 0.1 156); border-left-color: oklch(0.78 0.1 156); }
+  [data-theme="dark"] .cat-changed { color: oklch(0.78 0.1 60); border-left-color: oklch(0.78 0.1 60); }
+  [data-theme="dark"] .cat-deprecated { color: oklch(0.75 0.09 40); border-left-color: oklch(0.75 0.09 40); }
+  [data-theme="dark"] .cat-removed { color: oklch(0.75 0.1 25); border-left-color: oklch(0.75 0.1 25); }
+  [data-theme="dark"] .cat-fixed { color: oklch(0.75 0.09 250); border-left-color: oklch(0.75 0.09 250); }
+  [data-theme="dark"] .cat-security { color: oklch(0.75 0.07 300); border-left-color: oklch(0.75 0.07 300); }
+
+  @media (forced-colors: active) {
+    .cat-added, .cat-changed, .cat-deprecated, .cat-removed, .cat-fixed, .cat-security, .cat-other {
+      border-left-color: Highlight;
+      color: CanvasText;
+    }
+  }
+
+  .changelog-release-body :global(ul) {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .changelog-release-body :global(li) {
+    position: relative;
+    padding-left: 1.25rem;
+    margin-bottom: 0.6rem;
+    color: var(--text-secondary);
+    line-height: 1.65;
+    font-size: 0.9375rem;
+  }
+
+  .changelog-release-body :global(li::before) {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.6em;
+    width: 5px;
+    height: 5px;
+    border: 1.5px solid var(--accent-primary);
+    transform: rotate(45deg);
+  }
+
+  .changelog-release-body :global(li strong) {
+    color: var(--text-primary);
+  }
+
+  .changelog-release-body :global(li code) {
+    font-size: 0.85em;
+  }
+
+  .changelog-release-body :global(li a) {
+    color: var(--text-link);
+  }
+
+  .changelog-release-body :global(p) {
+    color: var(--text-secondary);
+    line-height: 1.65;
+    margin-bottom: 0.75rem;
+    font-size: 0.9375rem;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Older releases disclosure                                                */
+  /* ---------------------------------------------------------------------- */
+  .changelog-older-anchor {
+    position: relative;
+    padding-left: 0;
+  }
+
+  .changelog-older-anchor::before {
+    display: none;
+  }
+
+  .changelog-older {
+    border: none;
+  }
+
+  .changelog-older-summary {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.85rem 1.25rem;
+    margin: 0.5rem 0;
+    background: var(--surface-muted);
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-control);
+    color: var(--text-secondary);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    cursor: pointer;
+    list-style: none;
+    transition:
+      background var(--duration-quick) var(--ease-default),
+      color var(--duration-quick) var(--ease-default);
+  }
+
+  .changelog-older-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .changelog-older-summary::marker {
+    content: '';
+  }
+
+  .changelog-older-summary:hover {
+    background: var(--surface-card);
+    color: var(--text-primary);
+  }
+
+  .changelog-older-summary:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: var(--focus-ring-offset);
+  }
+
+  .changelog-older-icon {
+    display: flex;
+    transition: transform var(--duration-quick) var(--ease-default);
+  }
+
+  .changelog-older[open] .changelog-older-icon {
+    transform: rotate(180deg);
+  }
+
+  .changelog-timeline-nested {
+    margin-top: 1rem;
+  }
+
+  .changelog-timeline-nested::before {
+    left: 15px;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Footer CTA                                                               */
+  /* ---------------------------------------------------------------------- */
+  .changelog-footer-cta {
+    margin-top: clamp(2rem, 4vh, 3rem);
+    padding-top: clamp(2rem, 4vh, 3rem);
+    border-top: 1px solid var(--border-default);
+    text-align: center;
+  }
+
+  .changelog-footer-cta p {
+    color: var(--text-secondary);
+    margin-bottom: 1.25rem;
+    max-width: 52ch;
+    margin-inline: auto;
+  }
+
+  .changelog-footer-actions {
+    display: flex;
+    gap: var(--space-3);
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Responsive                                                               */
+  /* ---------------------------------------------------------------------- */
+  @media (max-width: 640px) {
+    .changelog-timeline::before {
+      left: 8px;
+    }
+
+    .changelog-entry {
+      padding-left: 32px;
+    }
+
+    .changelog-entry::before {
+      left: 3px;
+      width: 9px;
+      height: 9px;
+    }
+
+    .changelog-release-header {
+      padding: 1rem 1rem 0;
+    }
+
+    .changelog-release-body {
+      padding: 0.75rem 1rem 1rem;
+    }
+
+    .changelog-release-version {
+      font-size: 1.2rem;
+    }
+
+    .changelog-hero-actions {
+      flex-direction: column;
+    }
+
+    .changelog-hero-actions > * {
+      justify-content: center;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .changelog-older-icon {
+      transition: none;
+    }
+    .changelog-release {
+      transition: none;
+    }
+  }
+</style>

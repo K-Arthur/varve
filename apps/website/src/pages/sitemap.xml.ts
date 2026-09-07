@@ -40,6 +40,7 @@ function priority(route: string): string {
   if (route === '/download') return '0.9';
   // Wedge-relevant pages get elevated priority despite their depth.
   if (route === '/features/local-first') return '0.8';
+  if (route === '/changelog') return '0.7';
   if (route === '/features/print-production') return '0.7';
   if (route === '/compare') return '0.8';
   const depth = route.split('/').filter(Boolean).length;

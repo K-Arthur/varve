@@ -9,25 +9,10 @@
       "displayName": "Brightness",
       "description": "Lift or lower the overall lightness of the selected artwork.",
       "categoryId": "essentials",
-      "surfaces": [
-        "object-filter",
-        "adjustment-layer"
-      ],
-      "tags": [
-        "brightness"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object",
-        "adjustment-layer"
-      ],
+      "surfaces": ["object-filter", "adjustment-layer"],
+      "tags": ["brightness"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object", "adjustment-layer"],
       "parameters": [
         {
           "key": "value",
@@ -66,26 +51,10 @@
       "displayName": "Contrast",
       "description": "Separate light and dark values while keeping the source editable.",
       "categoryId": "essentials",
-      "surfaces": [
-        "object-filter",
-        "image-tuning",
-        "adjustment-layer"
-      ],
-      "tags": [
-        "contrast"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object",
-        "adjustment-layer"
-      ],
+      "surfaces": ["object-filter", "image-tuning", "adjustment-layer"],
+      "tags": ["contrast"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object", "adjustment-layer"],
       "parameters": [
         {
           "key": "value",
@@ -124,26 +93,10 @@
       "displayName": "Exposure",
       "description": "Apply an editable exposure treatment.",
       "categoryId": "light-tone",
-      "surfaces": [
-        "object-filter",
-        "image-tuning",
-        "adjustment-layer"
-      ],
-      "tags": [
-        "exposure"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object",
-        "adjustment-layer"
-      ],
+      "surfaces": ["object-filter", "image-tuning", "adjustment-layer"],
+      "tags": ["exposure"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object", "adjustment-layer"],
       "parameters": [
         {
           "key": "value",
@@ -198,26 +151,10 @@
       "displayName": "Saturation",
       "description": "Apply an editable saturation treatment.",
       "categoryId": "essentials",
-      "surfaces": [
-        "object-filter",
-        "image-tuning",
-        "adjustment-layer"
-      ],
-      "tags": [
-        "saturation"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object",
-        "adjustment-layer"
-      ],
+      "surfaces": ["object-filter", "image-tuning", "adjustment-layer"],
+      "tags": ["saturation"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object", "adjustment-layer"],
       "parameters": [
         {
           "key": "value",
@@ -256,26 +193,10 @@
       "displayName": "Hue / Saturation",
       "description": "Apply an editable hue / saturation treatment.",
       "categoryId": "colour",
-      "surfaces": [
-        "object-filter",
-        "adjustment-layer"
-      ],
-      "tags": [
-        "hueSaturation",
-        "hue / saturation"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object",
-        "adjustment-layer"
-      ],
+      "surfaces": ["object-filter", "adjustment-layer"],
+      "tags": ["hueSaturation", "hue / saturation"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object", "adjustment-layer"],
       "parameters": [
         {
           "key": "ranges",
@@ -347,26 +268,10 @@
       "displayName": "Hue Rotate",
       "description": "Apply an editable hue rotate treatment.",
       "categoryId": "colour",
-      "surfaces": [
-        "object-filter",
-        "adjustment-layer"
-      ],
-      "tags": [
-        "hueRotate",
-        "hue rotate"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object",
-        "adjustment-layer"
-      ],
+      "surfaces": ["object-filter", "adjustment-layer"],
+      "tags": ["hueRotate", "hue rotate"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object", "adjustment-layer"],
       "parameters": [
         {
           "key": "value",
@@ -405,25 +310,10 @@
       "displayName": "Sepia",
       "description": "Apply an editable sepia treatment.",
       "categoryId": "colour",
-      "surfaces": [
-        "object-filter",
-        "adjustment-layer"
-      ],
-      "tags": [
-        "sepia"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object",
-        "adjustment-layer"
-      ],
+      "surfaces": ["object-filter", "adjustment-layer"],
+      "tags": ["sepia"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object", "adjustment-layer"],
       "parameters": [
         {
           "key": "value",
@@ -462,25 +352,10 @@
       "displayName": "Grayscale",
       "description": "Apply an editable grayscale treatment.",
       "categoryId": "colour",
-      "surfaces": [
-        "object-filter",
-        "adjustment-layer"
-      ],
-      "tags": [
-        "grayscale"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object",
-        "adjustment-layer"
-      ],
+      "surfaces": ["object-filter", "adjustment-layer"],
+      "tags": ["grayscale"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object", "adjustment-layer"],
       "parameters": [
         {
           "key": "value",
@@ -519,25 +394,10 @@
       "displayName": "Invert",
       "description": "Apply an editable invert treatment.",
       "categoryId": "colour",
-      "surfaces": [
-        "object-filter",
-        "adjustment-layer"
-      ],
-      "tags": [
-        "invert"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object",
-        "adjustment-layer"
-      ],
+      "surfaces": ["object-filter", "adjustment-layer"],
+      "tags": ["invert"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object", "adjustment-layer"],
       "parameters": [
         {
           "key": "value",
@@ -576,23 +436,10 @@
       "displayName": "Opacity",
       "description": "Apply an editable opacity treatment.",
       "categoryId": "essentials",
-      "surfaces": [
-        "object-filter"
-      ],
-      "tags": [
-        "opacity"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object"
-      ],
+      "surfaces": ["object-filter"],
+      "tags": ["opacity"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object"],
       "parameters": [
         {
           "key": "value",
@@ -631,26 +478,10 @@
       "displayName": "Blur",
       "description": "Soften detail with a bounds-aware blur.",
       "categoryId": "focus-detail",
-      "surfaces": [
-        "object-filter"
-      ],
-      "tags": [
-        "blur",
-        "soften",
-        "focus",
-        "depth"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object"
-      ],
+      "surfaces": ["object-filter"],
+      "tags": ["blur", "soften", "focus", "depth"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object"],
       "parameters": [
         {
           "key": "radius",
@@ -689,25 +520,10 @@
       "displayName": "Sharpen",
       "description": "Restore edge definition without replacing the source pixels.",
       "categoryId": "focus-detail",
-      "surfaces": [
-        "object-filter"
-      ],
-      "tags": [
-        "sharpen",
-        "detail",
-        "clarity"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object"
-      ],
+      "surfaces": ["object-filter"],
+      "tags": ["sharpen", "detail", "clarity"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object"],
       "parameters": [
         {
           "key": "amount",
@@ -768,26 +584,10 @@
       "displayName": "Temperature",
       "description": "Apply an editable temperature treatment.",
       "categoryId": "light-tone",
-      "surfaces": [
-        "object-filter",
-        "image-tuning",
-        "adjustment-layer"
-      ],
-      "tags": [
-        "temperature"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object",
-        "adjustment-layer"
-      ],
+      "surfaces": ["object-filter", "image-tuning", "adjustment-layer"],
+      "tags": ["temperature"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object", "adjustment-layer"],
       "parameters": [
         {
           "key": "value",
@@ -826,26 +626,10 @@
       "displayName": "Tint",
       "description": "Apply an editable tint treatment.",
       "categoryId": "colour",
-      "surfaces": [
-        "object-filter",
-        "image-tuning",
-        "adjustment-layer"
-      ],
-      "tags": [
-        "tint"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object",
-        "adjustment-layer"
-      ],
+      "surfaces": ["object-filter", "image-tuning", "adjustment-layer"],
+      "tags": ["tint"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object", "adjustment-layer"],
       "parameters": [
         {
           "key": "value",
@@ -884,26 +668,10 @@
       "displayName": "Vibrance",
       "description": "Apply an editable vibrance treatment.",
       "categoryId": "colour",
-      "surfaces": [
-        "object-filter",
-        "image-tuning",
-        "adjustment-layer"
-      ],
-      "tags": [
-        "vibrance"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object",
-        "adjustment-layer"
-      ],
+      "surfaces": ["object-filter", "image-tuning", "adjustment-layer"],
+      "tags": ["vibrance"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object", "adjustment-layer"],
       "parameters": [
         {
           "key": "value",
@@ -942,25 +710,10 @@
       "displayName": "Levels",
       "description": "Apply an editable levels treatment.",
       "categoryId": "light-tone",
-      "surfaces": [
-        "object-filter",
-        "adjustment-layer"
-      ],
-      "tags": [
-        "levels"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object",
-        "adjustment-layer"
-      ],
+      "surfaces": ["object-filter", "adjustment-layer"],
+      "tags": ["levels"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object", "adjustment-layer"],
       "parameters": [
         {
           "key": "inputShadows",
@@ -1036,25 +789,10 @@
       "displayName": "Curves",
       "description": "Apply an editable curves treatment.",
       "categoryId": "light-tone",
-      "surfaces": [
-        "object-filter",
-        "adjustment-layer"
-      ],
-      "tags": [
-        "curves"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object",
-        "adjustment-layer"
-      ],
+      "surfaces": ["object-filter", "adjustment-layer"],
+      "tags": ["curves"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object", "adjustment-layer"],
       "parameters": [
         {
           "key": "channel",
@@ -1098,26 +836,10 @@
       "displayName": "Selective Color",
       "description": "Apply an editable selective color treatment.",
       "categoryId": "colour",
-      "surfaces": [
-        "object-filter",
-        "adjustment-layer"
-      ],
-      "tags": [
-        "selectiveColor",
-        "selective color"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object",
-        "adjustment-layer"
-      ],
+      "surfaces": ["object-filter", "adjustment-layer"],
+      "tags": ["selectiveColor", "selective color"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object", "adjustment-layer"],
       "parameters": [
         {
           "key": "colorRange",
@@ -1193,26 +915,10 @@
       "displayName": "Color Balance",
       "description": "Apply an editable color balance treatment.",
       "categoryId": "colour",
-      "surfaces": [
-        "object-filter",
-        "adjustment-layer"
-      ],
-      "tags": [
-        "colorBalance",
-        "color balance"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object",
-        "adjustment-layer"
-      ],
+      "surfaces": ["object-filter", "adjustment-layer"],
+      "tags": ["colorBalance", "color balance"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object", "adjustment-layer"],
       "parameters": [
         {
           "key": "shadows",
@@ -1292,26 +998,10 @@
       "displayName": "Channel Mixer",
       "description": "Apply an editable channel mixer treatment.",
       "categoryId": "colour",
-      "surfaces": [
-        "object-filter",
-        "adjustment-layer"
-      ],
-      "tags": [
-        "channelMixer",
-        "channel mixer"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object",
-        "adjustment-layer"
-      ],
+      "surfaces": ["object-filter", "adjustment-layer"],
+      "tags": ["channelMixer", "channel mixer"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object", "adjustment-layer"],
       "parameters": [
         {
           "key": "outputChannel",
@@ -1387,36 +1077,15 @@
       "displayName": "Photo Filter",
       "description": "Apply an editable photo filter treatment.",
       "categoryId": "colour",
-      "surfaces": [
-        "object-filter",
-        "adjustment-layer"
-      ],
-      "tags": [
-        "photoFilter",
-        "photo filter"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object",
-        "adjustment-layer"
-      ],
+      "surfaces": ["object-filter", "adjustment-layer"],
+      "tags": ["photoFilter", "photo filter"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object", "adjustment-layer"],
       "parameters": [
         {
           "key": "color",
           "type": "colour",
-          "defaultValue": [
-            255,
-            255,
-            0,
-            255
-          ],
+          "defaultValue": [255, 255, 0, 255],
           "animatable": false,
           "changesBounds": false,
           "expensive": false
@@ -1466,27 +1135,10 @@
       "displayName": "Shadow / Highlight",
       "description": "Apply an editable shadow / highlight treatment.",
       "categoryId": "light-tone",
-      "surfaces": [
-        "object-filter",
-        "image-tuning",
-        "adjustment-layer"
-      ],
-      "tags": [
-        "shadowHighlight",
-        "shadow / highlight"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object",
-        "adjustment-layer"
-      ],
+      "surfaces": ["object-filter", "image-tuning", "adjustment-layer"],
+      "tags": ["shadowHighlight", "shadow / highlight"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object", "adjustment-layer"],
       "parameters": [
         {
           "key": "shadows",
@@ -1546,25 +1198,10 @@
       "displayName": "Halftone",
       "description": "Apply an editable halftone treatment.",
       "categoryId": "print-pattern",
-      "surfaces": [
-        "object-filter",
-        "adjustment-layer"
-      ],
-      "tags": [
-        "halftone"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object",
-        "adjustment-layer"
-      ],
+      "surfaces": ["object-filter", "adjustment-layer"],
+      "tags": ["halftone"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object", "adjustment-layer"],
       "parameters": [
         {
           "key": "pattern",
@@ -1658,11 +1295,7 @@
         {
           "key": "foregroundColor",
           "type": "colour",
-          "defaultValue": [
-            0,
-            0,
-            0
-          ],
+          "defaultValue": [0, 0, 0],
           "animatable": false,
           "changesBounds": false,
           "expensive": true
@@ -1670,11 +1303,7 @@
         {
           "key": "backgroundColor",
           "type": "colour",
-          "defaultValue": [
-            255,
-            255,
-            255
-          ],
+          "defaultValue": [255, 255, 255],
           "animatable": false,
           "changesBounds": false,
           "expensive": true
@@ -1705,26 +1334,10 @@
       "displayName": "Gradient Map",
       "description": "Apply an editable gradient map treatment.",
       "categoryId": "colour",
-      "surfaces": [
-        "object-filter",
-        "adjustment-layer"
-      ],
-      "tags": [
-        "gradientMap",
-        "gradient map"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object",
-        "adjustment-layer"
-      ],
+      "surfaces": ["object-filter", "adjustment-layer"],
+      "tags": ["gradientMap", "gradient map"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object", "adjustment-layer"],
       "parameters": [
         {
           "key": "stops",
@@ -1733,22 +1346,12 @@
             {
               "id": "gradient-stop-shadow",
               "position": 0,
-              "color": [
-                0,
-                0,
-                0,
-                255
-              ]
+              "color": [0, 0, 0, 255]
             },
             {
               "id": "gradient-stop-highlight",
               "position": 1,
-              "color": [
-                255,
-                255,
-                255,
-                255
-              ]
+              "color": [255, 255, 255, 255]
             }
           ],
           "animatable": false,
@@ -1865,34 +1468,15 @@
       "description": "Apply an editable tritone treatment.",
       "categoryId": "colour",
       "studioCategoryId": "artistic",
-      "surfaces": [
-        "object-filter",
-        "effect-studio"
-      ],
-      "tags": [
-        "tritone"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object"
-      ],
+      "surfaces": ["object-filter", "effect-studio"],
+      "tags": ["tritone"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object"],
       "parameters": [
         {
           "key": "shadowColor",
           "type": "colour",
-          "defaultValue": [
-            20,
-            30,
-            80,
-            255
-          ],
+          "defaultValue": [20, 30, 80, 255],
           "animatable": false,
           "changesBounds": false,
           "expensive": false
@@ -1900,12 +1484,7 @@
         {
           "key": "midtoneColor",
           "type": "colour",
-          "defaultValue": [
-            180,
-            160,
-            140,
-            255
-          ],
+          "defaultValue": [180, 160, 140, 255],
           "animatable": false,
           "changesBounds": false,
           "expensive": false
@@ -1913,12 +1492,7 @@
         {
           "key": "highlightColor",
           "type": "colour",
-          "defaultValue": [
-            255,
-            245,
-            220,
-            255
-          ],
+          "defaultValue": [255, 245, 220, 255],
           "animatable": false,
           "changesBounds": false,
           "expensive": false
@@ -1985,25 +1559,10 @@
       "description": "Apply an editable color halftone treatment.",
       "categoryId": "print-pattern",
       "studioCategoryId": "brush-ink",
-      "surfaces": [
-        "object-filter",
-        "effect-studio"
-      ],
-      "tags": [
-        "colorHalftone",
-        "color halftone"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object"
-      ],
+      "surfaces": ["object-filter", "effect-studio"],
+      "tags": ["colorHalftone", "color halftone"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object"],
       "parameters": [
         {
           "key": "screenSize",
@@ -2078,34 +1637,15 @@
       "description": "Apply an editable duotone treatment.",
       "categoryId": "colour",
       "studioCategoryId": "artistic",
-      "surfaces": [
-        "object-filter",
-        "effect-studio"
-      ],
-      "tags": [
-        "duotone"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object"
-      ],
+      "surfaces": ["object-filter", "effect-studio"],
+      "tags": ["duotone"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object"],
       "parameters": [
         {
           "key": "shadowColor",
           "type": "colour",
-          "defaultValue": [
-            30,
-            40,
-            100,
-            255
-          ],
+          "defaultValue": [30, 40, 100, 255],
           "animatable": false,
           "changesBounds": false,
           "expensive": false
@@ -2113,12 +1653,7 @@
         {
           "key": "highlightColor",
           "type": "colour",
-          "defaultValue": [
-            255,
-            220,
-            180,
-            255
-          ],
+          "defaultValue": [255, 220, 180, 255],
           "animatable": false,
           "changesBounds": false,
           "expensive": false
@@ -2184,26 +1719,10 @@
       "displayName": "Black & White",
       "description": "Apply an editable black & white treatment.",
       "categoryId": "colour",
-      "surfaces": [
-        "object-filter",
-        "adjustment-layer"
-      ],
-      "tags": [
-        "blackAndWhite",
-        "black & white"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object",
-        "adjustment-layer"
-      ],
+      "surfaces": ["object-filter", "adjustment-layer"],
+      "tags": ["blackAndWhite", "black & white"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object", "adjustment-layer"],
       "parameters": [
         {
           "key": "reds",
@@ -2295,25 +1814,10 @@
       "displayName": "Posterize",
       "description": "Apply an editable posterize treatment.",
       "categoryId": "print-pattern",
-      "surfaces": [
-        "object-filter",
-        "adjustment-layer"
-      ],
-      "tags": [
-        "posterize"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object",
-        "adjustment-layer"
-      ],
+      "surfaces": ["object-filter", "adjustment-layer"],
+      "tags": ["posterize"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object", "adjustment-layer"],
       "parameters": [
         {
           "key": "levels",
@@ -2349,25 +1853,10 @@
       "displayName": "Threshold",
       "description": "Apply an editable threshold treatment.",
       "categoryId": "print-pattern",
-      "surfaces": [
-        "object-filter",
-        "adjustment-layer"
-      ],
-      "tags": [
-        "threshold"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object",
-        "adjustment-layer"
-      ],
+      "surfaces": ["object-filter", "adjustment-layer"],
+      "tags": ["threshold"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object", "adjustment-layer"],
       "parameters": [
         {
           "key": "level",
@@ -2419,25 +1908,10 @@
       "displayName": "LUT",
       "description": "Apply an editable lut treatment.",
       "categoryId": "colour",
-      "surfaces": [
-        "object-filter",
-        "adjustment-layer"
-      ],
-      "tags": [
-        "lut"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object",
-        "adjustment-layer"
-      ],
+      "surfaces": ["object-filter", "adjustment-layer"],
+      "tags": ["lut"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object", "adjustment-layer"],
       "parameters": [
         {
           "key": "lutJson",
@@ -2509,27 +1983,10 @@
       "description": "Reduce tonal steps with a document-stable pattern.",
       "categoryId": "print-pattern",
       "studioCategoryId": "sketch",
-      "surfaces": [
-        "object-filter",
-        "effect-studio"
-      ],
-      "tags": [
-        "dither",
-        "pixel",
-        "poster",
-        "quantize"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object"
-      ],
+      "surfaces": ["object-filter", "effect-studio"],
+      "tags": ["dither", "pixel", "poster", "quantize"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object"],
       "parameters": [
         {
           "key": "algorithm",
@@ -2652,73 +2109,23 @@
       "description": "Bring colours toward a controlled palette.",
       "categoryId": "colour",
       "studioCategoryId": "artistic",
-      "surfaces": [
-        "object-filter",
-        "effect-studio"
-      ],
-      "tags": [
-        "paletteSnap",
-        "palette snap",
-        "palette",
-        "quantize",
-        "colour"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object"
-      ],
+      "surfaces": ["object-filter", "effect-studio"],
+      "tags": ["paletteSnap", "palette snap", "palette", "quantize", "colour"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object"],
       "parameters": [
         {
           "key": "colors",
           "type": "structured",
           "defaultValue": [
-            [
-              0,
-              0,
-              0
-            ],
-            [
-              255,
-              255,
-              255
-            ],
-            [
-              255,
-              0,
-              0
-            ],
-            [
-              0,
-              255,
-              0
-            ],
-            [
-              0,
-              0,
-              255
-            ],
-            [
-              255,
-              255,
-              0
-            ],
-            [
-              0,
-              255,
-              255
-            ],
-            [
-              255,
-              0,
-              255
-            ]
+            [0, 0, 0],
+            [255, 255, 255],
+            [255, 0, 0],
+            [0, 255, 0],
+            [0, 0, 255],
+            [255, 255, 0],
+            [0, 255, 255],
+            [255, 0, 255]
           ],
           "animatable": false,
           "changesBounds": false,
@@ -2813,27 +2220,10 @@
       "description": "Diffuse luminous areas into a soft glow.",
       "categoryId": "atmosphere-light",
       "studioCategoryId": "stylize",
-      "surfaces": [
-        "object-filter",
-        "effect-studio"
-      ],
-      "tags": [
-        "bloom",
-        "glow",
-        "light",
-        "diffusion"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object"
-      ],
+      "surfaces": ["object-filter", "effect-studio"],
+      "tags": ["bloom", "glow", "light", "diffusion"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object"],
       "parameters": [
         {
           "key": "threshold",
@@ -2983,28 +2373,10 @@
       "description": "Separate colour channels for a controlled fringe.",
       "categoryId": "edge-illustration",
       "studioCategoryId": "distort",
-      "surfaces": [
-        "object-filter",
-        "effect-studio"
-      ],
-      "tags": [
-        "rgbSplit",
-        "rgb split",
-        "chromatic",
-        "aberration",
-        "glitch"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object"
-      ],
+      "surfaces": ["object-filter", "effect-studio"],
+      "tags": ["rgbSplit", "rgb split", "chromatic", "aberration", "glitch"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object"],
       "parameters": [
         {
           "key": "mode",
@@ -3151,27 +2523,10 @@
       "description": "Apply an editable crt treatment.",
       "categoryId": "print-pattern",
       "studioCategoryId": "texture",
-      "surfaces": [
-        "object-filter",
-        "effect-studio"
-      ],
-      "tags": [
-        "crt",
-        "screen",
-        "retro",
-        "scanlines"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object"
-      ],
+      "surfaces": ["object-filter", "effect-studio"],
+      "tags": ["crt", "screen", "retro", "scanlines"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object"],
       "parameters": [
         {
           "key": "curvature",
@@ -3320,27 +2675,10 @@
       "description": "Apply an editable vhs treatment.",
       "categoryId": "surface-grain",
       "studioCategoryId": "texture",
-      "surfaces": [
-        "object-filter",
-        "effect-studio"
-      ],
-      "tags": [
-        "vhs",
-        "tape",
-        "retro",
-        "glitch"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object"
-      ],
+      "surfaces": ["object-filter", "effect-studio"],
+      "tags": ["vhs", "tape", "retro", "glitch"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object"],
       "parameters": [
         {
           "key": "lumaNoise",
@@ -3484,25 +2822,10 @@
       "description": "Apply an editable light shafts treatment.",
       "categoryId": "atmosphere-light",
       "studioCategoryId": "stylize",
-      "surfaces": [
-        "object-filter",
-        "effect-studio"
-      ],
-      "tags": [
-        "lightShafts",
-        "light shafts"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object"
-      ],
+      "surfaces": ["object-filter", "effect-studio"],
+      "tags": ["lightShafts", "light shafts"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object"],
       "parameters": [
         {
           "key": "lightX",
@@ -3652,25 +2975,10 @@
       "description": "Apply an editable lens flare treatment.",
       "categoryId": "atmosphere-light",
       "studioCategoryId": "stylize",
-      "surfaces": [
-        "object-filter",
-        "effect-studio"
-      ],
-      "tags": [
-        "lensFlare",
-        "lens flare"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object"
-      ],
+      "surfaces": ["object-filter", "effect-studio"],
+      "tags": ["lensFlare", "lens flare"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object"],
       "parameters": [
         {
           "key": "sourceX",
@@ -3814,25 +3122,10 @@
       "description": "Apply an editable light leak treatment.",
       "categoryId": "atmosphere-light",
       "studioCategoryId": "stylize",
-      "surfaces": [
-        "object-filter",
-        "effect-studio"
-      ],
-      "tags": [
-        "lightLeak",
-        "light leak"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object"
-      ],
+      "surfaces": ["object-filter", "effect-studio"],
+      "tags": ["lightLeak", "light leak"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object"],
       "parameters": [
         {
           "key": "seed",
@@ -3958,24 +3251,10 @@
       "description": "Apply an editable caustics treatment.",
       "categoryId": "atmosphere-light",
       "studioCategoryId": "distort",
-      "surfaces": [
-        "object-filter",
-        "effect-studio"
-      ],
-      "tags": [
-        "caustics"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object"
-      ],
+      "surfaces": ["object-filter", "effect-studio"],
+      "tags": ["caustics"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object"],
       "parameters": [
         {
           "key": "scale",
@@ -4158,25 +3437,10 @@
       "displayName": "Fine Texture",
       "description": "Apply an editable fine texture treatment.",
       "categoryId": "focus-detail",
-      "surfaces": [
-        "object-filter",
-        "image-tuning"
-      ],
-      "tags": [
-        "microDetail",
-        "fine texture"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object"
-      ],
+      "surfaces": ["object-filter", "image-tuning"],
+      "tags": ["microDetail", "fine texture"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object"],
       "parameters": [
         {
           "key": "amount",
@@ -4226,25 +3490,10 @@
       "displayName": "Local Contrast",
       "description": "Apply an editable local contrast treatment.",
       "categoryId": "focus-detail",
-      "surfaces": [
-        "object-filter",
-        "image-tuning"
-      ],
-      "tags": [
-        "definition",
-        "local contrast"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object"
-      ],
+      "surfaces": ["object-filter", "image-tuning"],
+      "tags": ["definition", "local contrast"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object"],
       "parameters": [
         {
           "key": "amount",
@@ -4302,25 +3551,10 @@
       "displayName": "Atmospheric Depth",
       "description": "Apply an editable atmospheric depth treatment.",
       "categoryId": "atmosphere-light",
-      "surfaces": [
-        "object-filter",
-        "image-tuning"
-      ],
-      "tags": [
-        "atmosphere",
-        "atmospheric depth"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object"
-      ],
+      "surfaces": ["object-filter", "image-tuning"],
+      "tags": ["atmosphere", "atmospheric depth"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object"],
       "parameters": [
         {
           "key": "amount",
@@ -4378,24 +3612,10 @@
       "displayName": "Dehaze",
       "description": "Apply an editable dehaze treatment.",
       "categoryId": "atmosphere-light",
-      "surfaces": [
-        "object-filter",
-        "image-tuning"
-      ],
-      "tags": [
-        "dehaze"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object"
-      ],
+      "surfaces": ["object-filter", "image-tuning"],
+      "tags": ["dehaze"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object"],
       "parameters": [
         {
           "key": "amount",
@@ -4453,27 +3673,10 @@
       "displayName": "Vignette",
       "description": "Shape attention toward the centre with an editable falloff.",
       "categoryId": "edge-illustration",
-      "surfaces": [
-        "object-filter",
-        "image-tuning"
-      ],
-      "tags": [
-        "edgeFalloff",
-        "vignette",
-        "focus",
-        "edges"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object"
-      ],
+      "surfaces": ["object-filter", "image-tuning"],
+      "tags": ["edgeFalloff", "vignette", "focus", "edges"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object"],
       "parameters": [
         {
           "key": "strength",
@@ -4560,27 +3763,10 @@
       "displayName": "Grain",
       "description": "Add restrained material texture with a deterministic seed.",
       "categoryId": "surface-grain",
-      "surfaces": [
-        "object-filter",
-        "image-tuning"
-      ],
-      "tags": [
-        "grain",
-        "texture",
-        "film",
-        "noise"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object"
-      ],
+      "surfaces": ["object-filter", "image-tuning"],
+      "tags": ["grain", "texture", "film", "noise"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object"],
       "parameters": [
         {
           "key": "strength",
@@ -4646,25 +3832,10 @@
       "displayName": "Highlight Glow",
       "description": "Diffuse bright and mid-tone areas into a gentle glow.",
       "categoryId": "atmosphere-light",
-      "surfaces": [
-        "object-filter",
-        "image-tuning"
-      ],
-      "tags": [
-        "softBloom",
-        "highlight glow"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object"
-      ],
+      "surfaces": ["object-filter", "image-tuning"],
+      "tags": ["softBloom", "highlight glow"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object"],
       "parameters": [
         {
           "key": "strength",
@@ -4733,25 +3904,10 @@
       "displayName": "Motion Blur",
       "description": "Apply a deterministic directional blur in object space.",
       "categoryId": "blur",
-      "surfaces": [
-        "object-filter"
-      ],
-      "tags": [
-        "blur",
-        "motion",
-        "directional"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object"
-      ],
+      "surfaces": ["object-filter"],
+      "tags": ["blur", "motion", "directional"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object"],
       "parameters": [
         {
           "key": "distance",
@@ -4801,25 +3957,10 @@
       "displayName": "Mosaic",
       "description": "Average opaque and transparent source coverage into object-local blocks.",
       "categoryId": "stylize",
-      "surfaces": [
-        "object-filter"
-      ],
-      "tags": [
-        "mosaic",
-        "blocks",
-        "pixel"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object"
-      ],
+      "surfaces": ["object-filter"],
+      "tags": ["mosaic", "blocks", "pixel"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object"],
       "parameters": [
         {
           "key": "blockSize",
@@ -4880,25 +4021,10 @@
       "displayName": "Surface Smooth",
       "description": "Reduce local tone variation while preserving edges and source alpha.",
       "categoryId": "blur",
-      "surfaces": [
-        "object-filter"
-      ],
-      "tags": [
-        "smooth",
-        "bilateral",
-        "surface"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object"
-      ],
+      "surfaces": ["object-filter"],
+      "tags": ["smooth", "bilateral", "surface"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object"],
       "parameters": [
         {
           "key": "radius",
@@ -4948,25 +4074,10 @@
       "displayName": "Edge Ink",
       "description": "Extract Sobel contours and composite them over a paper or transparent background.",
       "categoryId": "stylize",
-      "surfaces": [
-        "object-filter"
-      ],
-      "tags": [
-        "edges",
-        "ink",
-        "contour"
-      ],
-      "supportedTargets": [
-        "shape",
-        "text",
-        "path",
-        "frame",
-        "group",
-        "rasterLayer"
-      ],
-      "supportedScopes": [
-        "object"
-      ],
+      "surfaces": ["object-filter"],
+      "tags": ["edges", "ink", "contour"],
+      "supportedTargets": ["shape", "text", "path", "frame", "group", "rasterLayer"],
+      "supportedScopes": ["object"],
       "parameters": [
         {
           "key": "radius",
@@ -5004,11 +4115,7 @@
         {
           "key": "foregroundColor",
           "type": "color",
-          "defaultValue": [
-            20,
-            30,
-            40
-          ],
+          "defaultValue": [20, 30, 40],
           "animatable": false,
           "changesBounds": false,
           "expensive": false
@@ -5016,11 +4123,7 @@
         {
           "key": "backgroundColor",
           "type": "color",
-          "defaultValue": [
-            250,
-            248,
-            240
-          ],
+          "defaultValue": [250, 248, 240],
           "animatable": false,
           "changesBounds": false,
           "expensive": false
@@ -5059,12 +4162,7 @@
       "description": "Flatten broad tone into a restrained, poster-like colour composition.",
       "surface": "effect-studio",
       "categoryId": "artistic",
-      "tags": [
-        "cutout",
-        "poster",
-        "flat colour",
-        "illustration"
-      ],
+      "tags": ["cutout", "poster", "flat colour", "illustration"],
       "art": "cutout",
       "featured": true,
       "effects": [
@@ -5078,31 +4176,11 @@
           "kind": "paletteSnap",
           "overrides": {
             "colors": [
-              [
-                21,
-                28,
-                47
-              ],
-              [
-                67,
-                94,
-                118
-              ],
-              [
-                198,
-                132,
-                86
-              ],
-              [
-                241,
-                207,
-                156
-              ],
-              [
-                252,
-                242,
-                214
-              ]
+              [21, 28, 47],
+              [67, 94, 118],
+              [198, 132, 86],
+              [241, 207, 156],
+              [252, 242, 214]
             ],
             "amount": 0.9,
             "dither": true,
@@ -5119,35 +4197,15 @@
       "description": "Layer soft painted colour with a gentle, blooming paper response.",
       "surface": "effect-studio",
       "categoryId": "artistic",
-      "tags": [
-        "watercolour",
-        "paint",
-        "soft",
-        "pigment"
-      ],
+      "tags": ["watercolour", "paint", "soft", "pigment"],
       "art": "wash",
       "effects": [
         {
           "kind": "tritone",
           "overrides": {
-            "shadowColor": [
-              34,
-              57,
-              101,
-              255
-            ],
-            "midtoneColor": [
-              150,
-              176,
-              188,
-              255
-            ],
-            "highlightColor": [
-              247,
-              232,
-              207,
-              255
-            ],
+            "shadowColor": [34, 57, 101, 255],
+            "midtoneColor": [150, 176, 188, 255],
+            "highlightColor": [247, 232, 207, 255],
             "shadowPoint": 0.3,
             "highlightPoint": 0.72,
             "intensity": 0.78
@@ -5179,29 +4237,14 @@
       "description": "Set dark ink against warm stock with a quiet material tooth.",
       "surface": "effect-studio",
       "categoryId": "artistic",
-      "tags": [
-        "ink",
-        "paper",
-        "duotone",
-        "editorial"
-      ],
+      "tags": ["ink", "paper", "duotone", "editorial"],
       "art": "ink",
       "effects": [
         {
           "kind": "duotone",
           "overrides": {
-            "shadowColor": [
-              35,
-              31,
-              34,
-              255
-            ],
-            "highlightColor": [
-              241,
-              226,
-              192,
-              255
-            ],
+            "shadowColor": [35, 31, 34, 255],
+            "highlightColor": [241, 226, 192, 255],
             "shadowPoint": 0.28,
             "highlightPoint": 0.76,
             "intensity": 0.92
@@ -5224,12 +4267,7 @@
       "description": "Build bold colour dots and controlled palette reduction for graphic print.",
       "surface": "effect-studio",
       "categoryId": "artistic",
-      "tags": [
-        "print",
-        "halftone",
-        "poster",
-        "colour dots"
-      ],
+      "tags": ["print", "halftone", "poster", "colour dots"],
       "art": "screen",
       "effects": [
         {
@@ -5260,12 +4298,7 @@
       "description": "Break tone into dry, granular ink marks with visible paper underneath.",
       "surface": "effect-studio",
       "categoryId": "brush-ink",
-      "tags": [
-        "ink",
-        "brush",
-        "dry media",
-        "drawn"
-      ],
+      "tags": ["ink", "brush", "dry media", "drawn"],
       "art": "ink",
       "featured": true,
       "effects": [
@@ -5306,12 +4339,7 @@
       "description": "Turn light and shadow into angled ink lines with a printed-paper ground.",
       "surface": "effect-studio",
       "categoryId": "brush-ink",
-      "tags": [
-        "hatching",
-        "ink",
-        "linework",
-        "sketch"
-      ],
+      "tags": ["hatching", "ink", "linework", "sketch"],
       "art": "hatch",
       "effects": [
         {
@@ -5332,16 +4360,8 @@
             "method": "am",
             "intensity": 0.74,
             "softness": 0.12,
-            "foregroundColor": [
-              35,
-              40,
-              47
-            ],
-            "backgroundColor": [
-              242,
-              237,
-              222
-            ]
+            "foregroundColor": [35, 40, 47],
+            "backgroundColor": [242, 237, 222]
           }
         }
       ]
@@ -5352,35 +4372,15 @@
       "description": "Pool blue-black ink into soft midtones and a lightly textured wash.",
       "surface": "effect-studio",
       "categoryId": "brush-ink",
-      "tags": [
-        "ink wash",
-        "brush",
-        "paint",
-        "soft"
-      ],
+      "tags": ["ink wash", "brush", "paint", "soft"],
       "art": "wash",
       "effects": [
         {
           "kind": "tritone",
           "overrides": {
-            "shadowColor": [
-              19,
-              32,
-              57,
-              255
-            ],
-            "midtoneColor": [
-              112,
-              137,
-              154,
-              255
-            ],
-            "highlightColor": [
-              232,
-              226,
-              209,
-              255
-            ],
+            "shadowColor": [19, 32, 57, 255],
+            "midtoneColor": [112, 137, 154, 255],
+            "highlightColor": [232, 226, 209, 255],
             "shadowPoint": 0.3,
             "highlightPoint": 0.7,
             "intensity": 0.84
@@ -5412,39 +4412,13 @@
       "description": "Make a limited palette feel atomized and loosely sprayed across the surface.",
       "surface": "effect-studio",
       "categoryId": "brush-ink",
-      "tags": [
-        "spray",
-        "stipple",
-        "paint",
-        "marks"
-      ],
+      "tags": ["spray", "stipple", "paint", "marks"],
       "art": "spray",
       "effects": [
         {
           "kind": "paletteSnap",
           "overrides": {
-            "colors": [
-              [
-                29,
-                42,
-                67
-              ],
-              [
-                89,
-                119,
-                136
-              ],
-              [
-                222,
-                158,
-                99
-              ],
-              [
-                244,
-                223,
-                181
-              ]
-            ],
+            "colors": [[29, 42, 67], [89, 119, 136], [222, 158, 99], [244, 223, 181]],
             "amount": 0.68,
             "dither": true,
             "ditherAlgorithm": "blue-noise",
@@ -5473,12 +4447,7 @@
       "description": "Refract the object through shallow glass with a controlled chromatic edge.",
       "surface": "effect-studio",
       "categoryId": "distort",
-      "tags": [
-        "glass",
-        "refraction",
-        "chromatic",
-        "distortion"
-      ],
+      "tags": ["glass", "refraction", "chromatic", "distortion"],
       "art": "glass",
       "featured": true,
       "effects": [
@@ -5516,12 +4485,7 @@
       "description": "Pass moving water-like refraction through the image with a cool edge of light.",
       "surface": "effect-studio",
       "categoryId": "distort",
-      "tags": [
-        "water",
-        "ripple",
-        "wave",
-        "refraction"
-      ],
+      "tags": ["water", "ripple", "wave", "refraction"],
       "art": "ripple",
       "effects": [
         {
@@ -5538,11 +4502,7 @@
             "dispersion": 0.18,
             "distortionAmount": 0.92,
             "output": "combined",
-            "waterTint": [
-              31,
-              91,
-              151
-            ],
+            "waterTint": [31, 91, 151],
             "seed": 8
           }
         },
@@ -5569,12 +4529,7 @@
       "description": "Cast luminous caustics through the surface and soften their atmospheric lift.",
       "surface": "effect-studio",
       "categoryId": "distort",
-      "tags": [
-        "caustics",
-        "light",
-        "glass",
-        "refraction"
-      ],
+      "tags": ["caustics", "light", "glass", "refraction"],
       "art": "glass",
       "effects": [
         {
@@ -5591,11 +4546,7 @@
             "dispersion": 0.12,
             "distortionAmount": 0.64,
             "output": "lighting",
-            "waterTint": [
-              193,
-              228,
-              255
-            ],
+            "waterTint": [193, 228, 255],
             "seed": 15
           }
         },
@@ -5622,12 +4573,7 @@
       "description": "Scatter a controlled lens source into a radial colour fringe.",
       "surface": "effect-studio",
       "categoryId": "distort",
-      "tags": [
-        "prism",
-        "flare",
-        "lens",
-        "chromatic"
-      ],
+      "tags": ["prism", "flare", "lens", "chromatic"],
       "art": "prism",
       "effects": [
         {
@@ -5664,12 +4610,7 @@
       "description": "Compress tone into sharp, carved-looking graphic planes.",
       "surface": "effect-studio",
       "categoryId": "sketch",
-      "tags": [
-        "relief",
-        "embossed",
-        "graphic",
-        "monochrome"
-      ],
+      "tags": ["relief", "embossed", "graphic", "monochrome"],
       "art": "relief",
       "effects": [
         {
@@ -5701,24 +4642,14 @@
       "description": "Lay rough pale grain and broken values over a dark chalkboard-like ground.",
       "surface": "effect-studio",
       "categoryId": "sketch",
-      "tags": [
-        "chalk",
-        "charcoal",
-        "grain",
-        "drawing"
-      ],
+      "tags": ["chalk", "charcoal", "grain", "drawing"],
       "art": "chalk",
       "effects": [
         {
           "kind": "blackAndWhite",
           "overrides": {
             "brightness": -4,
-            "tintColor": [
-              225,
-              231,
-              220,
-              255
-            ],
+            "tintColor": [225, 231, 220, 255],
             "preserveLuminosity": false
           }
         },
@@ -5752,12 +4683,7 @@
       "description": "Reduce colour to hand-made graphite-like marks for a bold graphic object.",
       "surface": "effect-studio",
       "categoryId": "sketch",
-      "tags": [
-        "pencil",
-        "graphite",
-        "poster",
-        "dither"
-      ],
+      "tags": ["pencil", "graphite", "poster", "dither"],
       "art": "graphite",
       "featured": true,
       "effects": [
@@ -5777,18 +4703,8 @@
         {
           "kind": "duotone",
           "overrides": {
-            "shadowColor": [
-              28,
-              31,
-              36,
-              255
-            ],
-            "highlightColor": [
-              232,
-              226,
-              209,
-              255
-            ],
+            "shadowColor": [28, 31, 36, 255],
+            "highlightColor": [232, 226, 209, 255],
             "shadowPoint": 0.3,
             "highlightPoint": 0.7,
             "intensity": 0.72
@@ -5811,12 +4727,7 @@
       "description": "Make a hard-edged two-colour impression with an imperfect printed surface.",
       "surface": "effect-studio",
       "categoryId": "sketch",
-      "tags": [
-        "stamp",
-        "threshold",
-        "print",
-        "high contrast"
-      ],
+      "tags": ["stamp", "threshold", "print", "high contrast"],
       "art": "stamp",
       "effects": [
         {
@@ -5828,18 +4739,8 @@
         {
           "kind": "duotone",
           "overrides": {
-            "shadowColor": [
-              39,
-              32,
-              35,
-              255
-            ],
-            "highlightColor": [
-              238,
-              215,
-              174,
-              255
-            ],
+            "shadowColor": [39, 32, 35, 255],
+            "highlightColor": [238, 215, 174, 255],
             "shadowPoint": 0.32,
             "highlightPoint": 0.68,
             "intensity": 0.9
@@ -5862,12 +4763,7 @@
       "description": "Drive a sharp pen-like contour through simplified black-and-white values.",
       "surface": "effect-studio",
       "categoryId": "sketch",
-      "tags": [
-        "pen",
-        "linework",
-        "ink",
-        "contour"
-      ],
+      "tags": ["pen", "linework", "ink", "contour"],
       "art": "ink",
       "effects": [
         {
@@ -5899,12 +4795,7 @@
       "description": "Translate tone into a compact monochrome dot field with a drawing-like rhythm.",
       "surface": "effect-studio",
       "categoryId": "sketch",
-      "tags": [
-        "dots",
-        "halftone",
-        "stippling",
-        "drawing"
-      ],
+      "tags": ["dots", "halftone", "stippling", "drawing"],
       "art": "screen",
       "effects": [
         {
@@ -5925,16 +4816,8 @@
             "method": "am",
             "intensity": 0.76,
             "softness": 0.1,
-            "foregroundColor": [
-              31,
-              36,
-              43
-            ],
-            "backgroundColor": [
-              242,
-              238,
-              228
-            ]
+            "foregroundColor": [31, 36, 43],
+            "backgroundColor": [242, 238, 228]
           }
         },
         {
@@ -5954,13 +4837,7 @@
       "description": "Build a dense black-and-white dot screen from the object\u2019s rendered tones.",
       "surface": "effect-studio",
       "categoryId": "sketch",
-      "tags": [
-        "halftone pattern",
-        "dot",
-        "screen",
-        "newsprint",
-        "sketch"
-      ],
+      "tags": ["halftone pattern", "dot", "screen", "newsprint", "sketch"],
       "art": "screen",
       "fixedSettings": [
         {
@@ -6041,16 +4918,8 @@
             "threshold": 119,
             "intensity": 0.78,
             "softness": 0.02,
-            "foregroundColor": [
-              20,
-              20,
-              20
-            ],
-            "backgroundColor": [
-              247,
-              247,
-              244
-            ]
+            "foregroundColor": [20, 20, 20],
+            "backgroundColor": [247, 247, 244]
           }
         }
       ]
@@ -6061,12 +4930,7 @@
       "description": "Make a high-contrast copied impression with broken toner and warm paper.",
       "surface": "effect-studio",
       "categoryId": "sketch",
-      "tags": [
-        "photocopy",
-        "paper",
-        "toner",
-        "high contrast"
-      ],
+      "tags": ["photocopy", "paper", "toner", "high contrast"],
       "art": "newsprint",
       "effects": [
         {
@@ -6099,12 +4963,7 @@
       "description": "Keep drawn contours legible while tone steps into fine graphite-like marks.",
       "surface": "effect-studio",
       "categoryId": "sketch",
-      "tags": [
-        "contour",
-        "graphite",
-        "dither",
-        "drawing"
-      ],
+      "tags": ["contour", "graphite", "dither", "drawing"],
       "art": "graphite",
       "effects": [
         {
@@ -6143,12 +5002,7 @@
       "description": "Create a luminous halo with a controlled colour fringe.",
       "surface": "effect-studio",
       "categoryId": "stylize",
-      "tags": [
-        "glow",
-        "colour",
-        "neon",
-        "light"
-      ],
+      "tags": ["glow", "colour", "neon", "light"],
       "art": "glow",
       "featured": true,
       "effects": [
@@ -6180,12 +5034,7 @@
       "description": "Send directional light through an object with a restrained diffusion bloom.",
       "surface": "effect-studio",
       "categoryId": "stylize",
-      "tags": [
-        "light rays",
-        "cinematic",
-        "atmosphere",
-        "glow"
-      ],
+      "tags": ["light rays", "cinematic", "atmosphere", "glow"],
       "art": "shafts",
       "effects": [
         {
@@ -6199,11 +5048,7 @@
             "density": 0.12,
             "weight": 0.8,
             "scattering": 0.46,
-            "tint": [
-              255,
-              244,
-              214
-            ]
+            "tint": [255, 244, 214]
           }
         },
         {
@@ -6223,12 +5068,7 @@
       "description": "Give a bright electronic edge a soft phosphor glow and scanline character.",
       "surface": "effect-studio",
       "categoryId": "stylize",
-      "tags": [
-        "neon",
-        "crt",
-        "phosphor",
-        "screen"
-      ],
+      "tags": ["neon", "crt", "phosphor", "screen"],
       "art": "phosphor",
       "effects": [
         {
@@ -6265,12 +5105,7 @@
       "description": "Brush a soft analogue colour leak through highlights without flattening the source.",
       "surface": "effect-studio",
       "categoryId": "stylize",
-      "tags": [
-        "light leak",
-        "analogue",
-        "warm",
-        "film"
-      ],
+      "tags": ["light leak", "analogue", "warm", "film"],
       "art": "leak",
       "effects": [
         {
@@ -6305,12 +5140,7 @@
       "description": "Create a crisp multi-blade flare with a softly glowing optical halo.",
       "surface": "effect-studio",
       "categoryId": "stylize",
-      "tags": [
-        "aperture",
-        "star",
-        "flare",
-        "light"
-      ],
+      "tags": ["aperture", "star", "flare", "light"],
       "art": "prism",
       "effects": [
         {
@@ -6350,12 +5180,7 @@
       "description": "Stretch bright colour into a narrow cinematic streak with a controlled fringe.",
       "surface": "effect-studio",
       "categoryId": "stylize",
-      "tags": [
-        "streak",
-        "laser",
-        "anamorphic",
-        "neon"
-      ],
+      "tags": ["streak", "laser", "anamorphic", "neon"],
       "art": "shafts",
       "effects": [
         {
@@ -6395,12 +5220,7 @@
       "description": "Partially invert and simplify colour into a bright, surreal graphic response.",
       "surface": "effect-studio",
       "categoryId": "stylize",
-      "tags": [
-        "solar",
-        "invert",
-        "surreal",
-        "colour"
-      ],
+      "tags": ["solar", "invert", "surreal", "colour"],
       "art": "glow",
       "effects": [
         {
@@ -6438,29 +5258,14 @@
       "description": "Render a phosphor-green terminal response with scanlines and gentle emissive glow.",
       "surface": "effect-studio",
       "categoryId": "stylize",
-      "tags": [
-        "terminal",
-        "phosphor",
-        "green screen",
-        "crt"
-      ],
+      "tags": ["terminal", "phosphor", "green screen", "crt"],
       "art": "phosphor",
       "effects": [
         {
           "kind": "duotone",
           "overrides": {
-            "shadowColor": [
-              2,
-              17,
-              8,
-              255
-            ],
-            "highlightColor": [
-              121,
-              255,
-              169,
-              255
-            ],
+            "shadowColor": [2, 17, 8, 255],
+            "highlightColor": [121, 255, 169, 255],
             "shadowPoint": 0.3,
             "highlightPoint": 0.7,
             "intensity": 0.9
@@ -6488,11 +5293,7 @@
             "intensity": 0.56,
             "radius": 14,
             "diffusion": 0.3,
-            "tint": [
-              121,
-              255,
-              169
-            ],
+            "tint": [121, 255, 169],
             "tintAmount": 0.4,
             "composite": "add"
           }
@@ -6505,12 +5306,7 @@
       "description": "Add tape colour, scanline character, and restrained signal drift.",
       "surface": "effect-studio",
       "categoryId": "texture",
-      "tags": [
-        "vhs",
-        "tape",
-        "retro",
-        "signal"
-      ],
+      "tags": ["vhs", "tape", "retro", "signal"],
       "art": "signal",
       "effects": [
         {
@@ -6549,12 +5345,7 @@
       "description": "Print monochrome dots into an absorbent paper-like surface.",
       "surface": "effect-studio",
       "categoryId": "texture",
-      "tags": [
-        "newsprint",
-        "halftone",
-        "paper",
-        "print"
-      ],
+      "tags": ["newsprint", "halftone", "paper", "print"],
       "art": "newsprint",
       "featured": true,
       "effects": [
@@ -6576,16 +5367,8 @@
             "method": "am",
             "intensity": 0.82,
             "softness": 0.08,
-            "foregroundColor": [
-              36,
-              39,
-              43
-            ],
-            "backgroundColor": [
-              236,
-              229,
-              209
-            ]
+            "foregroundColor": [36, 39, 43],
+            "backgroundColor": [236, 229, 209]
           }
         },
         {
@@ -6605,29 +5388,14 @@
       "description": "Overprint a limited ink palette with tactile dots and a small registration wobble.",
       "surface": "effect-studio",
       "categoryId": "texture",
-      "tags": [
-        "riso",
-        "print",
-        "ink",
-        "halftone"
-      ],
+      "tags": ["riso", "print", "ink", "halftone"],
       "art": "riso",
       "effects": [
         {
           "kind": "duotone",
           "overrides": {
-            "shadowColor": [
-              42,
-              67,
-              143,
-              255
-            ],
-            "highlightColor": [
-              248,
-              130,
-              102,
-              255
-            ],
+            "shadowColor": [42, 67, 143, 255],
+            "highlightColor": [248, 130, 102, 255],
             "shadowPoint": 0.3,
             "highlightPoint": 0.7,
             "intensity": 0.82
@@ -6660,35 +5428,15 @@
       "description": "Set watery colour into fibrous stock with diffuse highlights and gentle tooth.",
       "surface": "effect-studio",
       "categoryId": "texture",
-      "tags": [
-        "paper",
-        "watercolour",
-        "grain",
-        "material"
-      ],
+      "tags": ["paper", "watercolour", "grain", "material"],
       "art": "paper",
       "effects": [
         {
           "kind": "tritone",
           "overrides": {
-            "shadowColor": [
-              48,
-              93,
-              133,
-              255
-            ],
-            "midtoneColor": [
-              154,
-              188,
-              192,
-              255
-            ],
-            "highlightColor": [
-              245,
-              236,
-              207,
-              255
-            ],
+            "shadowColor": [48, 93, 133, 255],
+            "midtoneColor": [154, 188, 192, 255],
+            "highlightColor": [245, 236, 207, 255],
             "shadowPoint": 0.28,
             "highlightPoint": 0.74,
             "intensity": 0.7
@@ -6720,12 +5468,7 @@
       "description": "Age the signal with tracking wear, low chroma fidelity, and fine noise.",
       "surface": "effect-studio",
       "categoryId": "texture",
-      "tags": [
-        "tape",
-        "vhs",
-        "worn",
-        "noise"
-      ],
+      "tags": ["tape", "vhs", "worn", "noise"],
       "art": "tape",
       "effects": [
         {
@@ -6761,12 +5504,7 @@
       "description": "Break continuous tone into clustered marks and an irregular material grain.",
       "surface": "effect-studio",
       "categoryId": "texture",
-      "tags": [
-        "reticulation",
-        "texture",
-        "grain",
-        "abstract"
-      ],
+      "tags": ["reticulation", "texture", "grain", "abstract"],
       "art": "reticulation",
       "controls": [
         {
