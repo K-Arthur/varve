@@ -91,7 +91,25 @@ describe('Tauri desktop: Wayland clipboard', () => {
     await copyAndClearSelection();
 
     const canvas = await browser.$('[data-testid="editor-canvas"]');
-    await canvas.click({ button: 'right' });
+    // The embedded WebDriver provider's right-button action does not emit a
+    // DOM contextmenu event on WebKitGTK/Wayland. Dispatch the same browser
+    // event that the real pointer path delivers; Playwright covers the actual
+    // right-click gesture in the browser E2E suite.
+    await canvas.click();
+    await browser.tauri.execute(() => {
+      const target = document.querySelector<HTMLCanvasElement>('[data-testid="editor-canvas"]');
+      if (!target) throw new Error('editor canvas not found');
+      const box = target.getBoundingClientRect();
+      target.dispatchEvent(
+        new MouseEvent('contextmenu', {
+          bubbles: true,
+          cancelable: true,
+          button: 2,
+          clientX: box.left + box.width / 2,
+          clientY: box.top + box.height / 2,
+        }),
+      );
+    });
     const menu = await browser.$('[role="menu"][aria-label="Canvas context menu"]');
     await menu.waitForDisplayed({ timeout: 5000 });
     await menu.$('//button[@role="menuitem" and normalize-space()="Paste"]').click();
