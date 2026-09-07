@@ -111,4 +111,38 @@ test.describe('Layers Panel - Drag & Drop', () => {
     await page.keyboard.press('Control+z');
     await expect.poll(async () => rows.allTextContents()).toEqual(before);
   });
+
+  test('dragging from the layer name reorders without selecting text', async ({
+    page,
+  }, testInfo) => {
+    await seedLayers(page, 3);
+
+    const rows = page.getByRole('treeitem');
+    await expect(rows).toHaveCount(3);
+    const before = await rows.allTextContents();
+    const source = rows.nth(2);
+    const target = rows.nth(0);
+    const sourceName = source.locator('.layers-row__name');
+    const sourceBox = await sourceName.boundingBox();
+    const targetBox = await target.boundingBox();
+    if (!sourceBox || !targetBox) throw new Error('layer row geometry unavailable');
+
+    await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + 2, { steps: 8 });
+
+    await expect(page.locator('.drag-overlay')).toBeVisible();
+    expect(await page.evaluate(() => window.getSelection()?.toString() ?? '')).toBe('');
+    await page.getByTestId('layers-panel').screenshot({
+      path: testInfo.outputPath('layers-row-content-dragging.png'),
+    });
+    await page.screenshot({
+      path: testInfo.outputPath('layers-row-content-dragging-page.png'),
+      fullPage: false,
+    });
+    await page.mouse.up();
+
+    await expect.poll(async () => rows.allTextContents()).not.toEqual(before);
+    expect((await rows.allTextContents())[0]).toBe(before[2]);
+  });
 });

@@ -340,6 +340,7 @@ export const LayersRow = memo(function LayersRow({
     <>
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: keyboard at tree level per APG tree view */}
       <div
+        {...dragAttributes}
         role="treeitem"
         data-node-id={node.id}
         data-layer-type={layerPresentation.dataType}
@@ -357,6 +358,7 @@ export const LayersRow = memo(function LayersRow({
         tabIndex={focused ? 0 : -1}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
+        {...dragListeners}
         style={
           {
             paddingLeft: `calc(var(--space-2) + ${depth} * var(--space-3))`,
@@ -372,9 +374,8 @@ export const LayersRow = memo(function LayersRow({
           type="button"
           className="layers-row__drag-handle"
           aria-label="Drag to reorder"
+          aria-hidden="true"
           tabIndex={-1}
-          {...dragListeners}
-          {...dragAttributes}
         >
           <SolidIcon name={SOLID_CHROME_ICONS.gripVertical} size="0.75em" />
         </button>
@@ -444,6 +445,7 @@ export const LayersRow = memo(function LayersRow({
           type="button"
           className="layers-row__icon-area"
           onDoubleClick={handleIconDoubleClick}
+          onPointerDown={stopDragActivation}
           aria-label={`Zoom to ${node.name} (${layerPresentation.label})`}
           tabIndex={-1}
           onKeyDown={(e) => {
@@ -472,6 +474,7 @@ export const LayersRow = memo(function LayersRow({
               className="layers-row__name-input"
               value={editValue}
               placeholder={ghostName ?? ''}
+              onPointerDown={stopDragActivation}
               onChange={(e) => setEditValue(e.target.value)}
               onBlur={commitRename}
               onKeyDown={handleRenameKeyDown}

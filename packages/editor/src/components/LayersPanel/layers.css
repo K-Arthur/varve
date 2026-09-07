@@ -207,13 +207,17 @@
   gap: var(--density-rows-gap, var(--space-1));
   padding: var(--density-rows-padding, var(--space-1));
   border-radius: var(--radius-control-compact);
-  cursor: default;
+  cursor: grab;
   user-select: none;
   min-height: var(--density-rows-min-height, var(--space-6));
   background: var(--color-tree-row);
   color: var(--color-text-primary);
   transition: background var(--duration-quick) var(--ease-standard);
   position: relative;
+}
+
+.layers-row:active {
+  cursor: grabbing;
 }
 
 /* Type-coded accent bar (persists through all states) */
