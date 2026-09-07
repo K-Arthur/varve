@@ -39,7 +39,10 @@ documented behavior rather than inferred from the screenshots:
 
 Varve intentionally adapts these patterns to its local-first boundary: the
 runtime catalog is shipped locally, installation is explicit and
-version-pinned, and a catalog preview never pretends that a font is loaded.
+version-pinned. A catalog preview may load one exact, temporary browser face
+for truthful inspection, but it never marks the family installed, persists its
+bytes, or changes the document; unavailable browser/network APIs produce an
+explicit fallback state.
 
 ## Implemented contract
 
@@ -50,8 +53,9 @@ version-pinned, and a catalog preview never pretends that a font is loaded.
   requiring a provider request. Result ordering preserves semantic relevance
   while the unfiltered catalog remains alphabetic.
 - **Inspection:** selecting a row updates the selected family without closing
-  the modal or mutating the document. The live specimen uses the actual family
-  only when that family is installed; otherwise the UI labels it preview-only.
+  the modal or mutating the document. The live specimen loads the exact
+  version-pinned catalog artifact into a temporary browser face when needed and
+  reports loading, ready, fallback, or unavailable state.
 - **Specimen containment:** custom preview text is responsive, cannot paint
   outside its card, and scrolls inside a bounded region when a deliberately
   long sample exceeds the available height.

@@ -226,8 +226,12 @@ provenance, and unknown metadata explanations. Search never makes a provider
 metadata request at runtime.
 
 Selecting a family is an inspection state change, not an implicit document
-mutation. Installed families become active through `Use font`; catalog-only
-families become available through `Install font`, after which the registry
+mutation. The inspection specimen resolves and loads one exact, version-pinned
+catalog artifact into a temporary `FontFace`, so its sample reflects the
+selected family even before installation. That face is removed when inspection
+ends and is never persisted, registered in `FontRegistry`, or used by the
+document. Installed families become active through `Use font`; catalog-only
+families become durable through `Install font`, after which the registry
 revision updates all mounted consumers. `FontBrowserDialog` receives the
 current family from Typography and the parent remains responsible for applying
 it to the selected text nodes.
