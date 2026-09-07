@@ -249,6 +249,24 @@ test('features page dark', async ({ page }) => {
   });
 });
 
+test('features page uses the brand icon tone rotation', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
+  await seedTheme(page, 'dark');
+  await page.goto('/features?test-motion=static');
+  await page.locator('.features-grid').waitFor();
+
+  const iconTones = await page
+    .locator('.feature-card .feature-icon')
+    .evaluateAll((elements) => elements.map((element) => getComputedStyle(element).color));
+  const uniqueTones = [...new Set(iconTones)];
+
+  expect(iconTones).toHaveLength(21);
+  expect(uniqueTones).toHaveLength(3);
+  expect(iconTones.every((tone, index) => tone === uniqueTones[index % uniqueTones.length])).toBe(
+    true,
+  );
+});
+
 test('typography page light', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
   await seedTheme(page, 'light');
