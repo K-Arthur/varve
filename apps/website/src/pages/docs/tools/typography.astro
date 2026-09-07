@@ -69,6 +69,19 @@ import { sitePath } from '../../../lib/siteUrl';
           The compact font family selector shows installed fonts only and never starts a download. Open Browse fonts for semantic discovery, coverage and license inspection. The public browser demo keeps search local-first and does not make remote provider requests; desktop installation is a separate explicit action. Missing fonts open a recovery dialog that uses the same shipped catalog and install boundary.
         </p>
 
+        <h3>Browse fonts</h3>
+        <p>
+          Browse fonts keeps the results and inspection panes visible together. Search by family, foundry, style, or design language; use the source tabs for System, Bundled, Project, Recent, or Favorites; and use the semantic filter for categories such as Sans serif, Serif, Variable, or script coverage.
+        </p>
+        <ol>
+          <li><strong>Search:</strong> A plain term such as <code>gothic</code> returns only matching catalog families. Natural-language queries remain ranked and show the interpreted terms.</li>
+          <li><strong>Inspect:</strong> Select a family to keep the list in place while reviewing a custom specimen, source, license, styles, weights, script coverage, tags, and related families.</li>
+          <li><strong>Decide:</strong> Use an installed family explicitly, or install a catalog-only family after reviewing its metadata. Selecting a result alone never changes the document.</li>
+        </ol>
+        <p>
+          Search and inspection are local-first and work with the shipped catalog without provider metadata requests. The browser adapts to compact widths and follows Varve's light, dark, and high-contrast theme tokens. Installed file details are available for local faces when the registry exposes them.
+        </p>
+
         <h3>Semantic discovery</h3>
         <p>
           Queries such as <code>friendly rounded sans for UI</code>, <code>editorial serif with Vietnamese</code>, and <code>similar to Inter</code> are parsed into explainable constraints and preferences. “With” coverage and feature requirements are hard; words such as “friendly” and “editorial” are ranking preferences unless the query is clarified. Results distinguish verified facts, measured metrics, curated observations, and unknown metadata. Similarity, alternatives, and pairings are separate recommendation lanes.

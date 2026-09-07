@@ -181,6 +181,41 @@ face identity are validation concerns at the download boundary.
 WOFF2 metadata decompression has a bounded fallback so an unavailable webview
 decompressor cannot strand installation in a permanent pending state.
 
+## Font browser contract
+
+`FontBrowser` is the full discovery surface used by the Typography inspector,
+missing-font recovery, and the Fonts panel. It has one local search/index path
+and two stable workspaces:
+
+- **Results** lists families, source tabs, semantic refinement, variable/script
+  badges, expandable faces, and explicit install actions.
+- **Inspection** keeps the catalog list mounted while a family is selected. It
+  shows a custom specimen, source and license metadata, styles, weights,
+  script coverage, tags, explainable match reasons, related families, and the
+  explicit `Install font` / `Use font` action.
+
+Search behavior is intentionally split by query shape. A plain family, foundry,
+or style term such as `gothic` is an exact local lexical search: records with no
+matching term are removed rather than used as zero-score filler. A structured
+query such as `friendly rounded sans for UI` continues through the semantic
+parser and ranking pipeline, retaining hard requirements, softer preferences,
+provenance, and unknown metadata explanations. Search never makes a provider
+metadata request at runtime.
+
+Selecting a family is an inspection state change, not an implicit document
+mutation. Installed families become active through `Use font`; catalog-only
+families become available through `Install font`, after which the registry
+revision updates all mounted consumers. `FontBrowserDialog` receives the
+current family from Typography and the parent remains responsible for applying
+it to the selected text nodes.
+
+The browser uses shared color, spacing, focus, and type tokens in light, dark,
+and high-contrast themes. The results and inspection panes own their own
+scrolling, and the responsive layout stacks them at compact widths so neither
+pane is hidden behind the modal viewport. Automated coverage lives in
+`packages/editor/src/components/FontBrowser/FontBrowser.test.tsx` and
+`tests/e2e/canvas/font-selector.spec.ts`.
+
 ## Remaining Limitations
 
 | Limitation | Impact | Timeline |

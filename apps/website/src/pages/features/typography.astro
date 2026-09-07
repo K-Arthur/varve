@@ -38,6 +38,14 @@ const fontReplacementFaq = {
         text: 'It can. Different font metrics may change wrapping, bounds, and export appearance, so Varve labels the match quality and warns you to review reflow before delivery.',
       },
     },
+    {
+      '@type': 'Question',
+      name: 'Can I preview a font before applying or installing it?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Yes. Browse fonts keeps the results list visible while you inspect a family, edit a live specimen, review coverage and licensing, explore related families, and choose whether to install or use it.',
+      },
+    },
   ],
 };
 ---
@@ -95,6 +103,20 @@ const fontReplacementFaq = {
           <div><code>similar to Inter</code><span>similarity lane, not a pairing claim</span></div>
         </div>
         <p class="semantic-discovery__note">Verified coverage and font-table facts are labeled separately from inferred or curated descriptors. Unknown metadata stays unknown.</p>
+      </section>
+
+      <section class="feature-section font-browser-discovery">
+        <p class="feature-callout__eyebrow">Browse before you commit</p>
+        <h2>Inspect the type, then make the decision</h2>
+        <p>
+          Browse fonts keeps search and inspection side by side. Select a family to see a live specimen, source, license, styles, weights, script coverage, personal tags, and related families without losing your place in the catalog. Installed families can be applied explicitly; catalog-only families stay preview-only until you choose to install them.
+        </p>
+        <div class="font-browser-capabilities">
+          <div><strong>Exact name search</strong><span>“gothic” returns Gothic families, not unrelated catalog filler.</span></div>
+          <div><strong>Live specimen</strong><span>Replace the sample text while comparing an installed family.</span></div>
+          <div><strong>Explainable results</strong><span>See why semantic terms, coverage, or similarity affected a result.</span></div>
+          <div><strong>Local-first control</strong><span>Review metadata before an explicit, version-pinned install.</span></div>
+        </div>
       </section>
 
       <div class="feature-visual feature-visual--pair">
@@ -181,6 +203,8 @@ const fontReplacementFaq = {
         <p>No. Core replacement uses Varve's local font catalog and is local-first; it does not require Figma credentials or uploading the document. Optional font providers remain separate and user-controlled.</p>
         <h3>Will replacement alter layout?</h3>
         <p>It can. Font metrics affect wrapping and bounds, so Varve shows the match quality and asks you to review reflow before delivery.</p>
+        <h3>Can I preview a font before applying it?</h3>
+        <p>Yes. Browse fonts keeps the results list visible while you edit a specimen, inspect metadata and licensing, explore related families, and choose whether to install or use the selected family.</p>
       </section>
 
       <div class="feature-cta">
@@ -331,6 +355,41 @@ const fontReplacementFaq = {
     margin: 0 !important;
   }
 
+  .font-browser-discovery {
+    padding: 1.5rem;
+    border: 1px solid var(--border-accent);
+    border-radius: var(--website-radius-card);
+    background: var(--surface-muted);
+  }
+
+  .font-browser-capabilities {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin-top: 1.25rem;
+  }
+
+  .font-browser-capabilities > div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.875rem;
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-control-compact);
+    background: var(--surface-card);
+  }
+
+  .font-browser-capabilities strong {
+    color: var(--text-primary);
+    font-size: 0.9rem;
+  }
+
+  .font-browser-capabilities span {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+
   .feature-faq h3 {
     margin-top: 1.5rem;
     color: var(--text-primary);
@@ -374,6 +433,10 @@ const fontReplacementFaq = {
     }
 
     .semantic-query-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .font-browser-capabilities {
       grid-template-columns: 1fr;
     }
   }
