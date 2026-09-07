@@ -35,9 +35,9 @@ export function effectPadding(effect: {
 
   // Conservative blur-kernel extent. The Canvas2D shadow API and CSS blur
   // filters visibly spread ≈3× the radius, and the replay buffer pads by
-  // `blur * 3 + max(0, spread) / 2`. Export/invalidation bounds must at
+  // `blur * 3 + abs(spread)`. Export/invalidation bounds must at
   // least match that or shadows get clipped at the edge.
-  const kernel = Math.max(0, blur) * 3 + Math.max(0, spread) / 2;
+  const kernel = Math.max(0, blur) * 3 + Math.abs(spread);
   const radiusKernel = Math.max(0, radius) * 3;
 
   switch (effect.type) {
@@ -72,9 +72,29 @@ export function effectPadding(effect: {
       };
     case 'glassMaterial':
       return { left: kernel, top: kernel, right: kernel, bottom: kernel };
-    case 'chromaticAberration':
-    case 'glitch':
-      return { left: 0, top: 0, right: 0, bottom: 0 };
+    case 'chromaticAberration': {
+      const offsets = effect as { offsets?: Record<string, unknown>; intensity?: number };
+      const offsetValues = Object.values(offsets.offsets ?? {}).filter(
+        (value): value is number => typeof value === 'number' && Number.isFinite(value),
+      );
+      const extent =
+        Math.max(0, ...offsetValues.map((value) => Math.abs(value))) *
+        Math.max(1, offsets.intensity ?? 1);
+      return { left: extent, top: extent, right: extent, bottom: extent };
+    }
+    case 'glitch': {
+      const glitch = effect as {
+        strength?: number;
+        blockSize?: number;
+        blockStrength?: number;
+      };
+      const extent = Math.max(
+        0,
+        glitch.strength ?? 0,
+        (glitch.blockSize ?? 0) + (glitch.blockStrength ?? 0),
+      );
+      return { left: extent, top: extent, right: extent, bottom: extent };
+    }
     default:
       return { left: 0, top: 0, right: 0, bottom: 0 };
   }

@@ -1,4 +1,4 @@
-import { isImageShape } from '@varve/scene';
+import { canHaveLayerEffects, isImageShape } from '@varve/scene';
 import { EmptyState } from '@varve/ui';
 import { useEditor } from '../../../context';
 import { EffectsSection } from '../sections/EffectsSection';
@@ -30,9 +30,7 @@ export function AppearancePanel() {
     );
   }
 
-  const effectsCompatible = nodes.every((node) =>
-    ['shape', 'text', 'frame', 'adjustment', 'path'].includes(node.kind),
-  );
+  const effectsCompatible = nodes.every(canHaveLayerEffects);
 
   return (
     <div className="appearance-panel">

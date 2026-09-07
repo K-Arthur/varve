@@ -125,12 +125,12 @@ export function appearancePaddingLocal(appearance: Appearance): number {
       case 'dropShadow':
         padding = Math.max(
           padding,
-          Math.abs(effect.x) + Math.max(0, effect.blur) * 3 + Math.max(0, effect.spread),
-          Math.abs(effect.y) + Math.max(0, effect.blur) * 3 + Math.max(0, effect.spread),
+          Math.abs(effect.x) + Math.max(0, effect.blur) * 3 + Math.abs(effect.spread),
+          Math.abs(effect.y) + Math.max(0, effect.blur) * 3 + Math.abs(effect.spread),
         );
         break;
       case 'outerGlow':
-        padding = Math.max(padding, Math.max(0, effect.blur) * 3 + Math.max(0, effect.spread));
+        padding = Math.max(padding, Math.max(0, effect.blur) * 3 + Math.abs(effect.spread));
         break;
       case 'backgroundBlur':
         padding = Math.max(padding, Math.max(0, effect.radius) * 3);
@@ -140,6 +140,25 @@ export function appearancePaddingLocal(appearance: Appearance): number {
           padding,
           Math.max(0, effect.blur) * 3 + (effect.edgeHighlight ? effect.edgeHighlightWidth : 0),
         );
+        break;
+      case 'depthBlur':
+        padding = Math.max(padding, Math.max(0, effect.blurStrength) * 3);
+        break;
+      case 'chromaticAberration': {
+        const extent =
+          Math.max(
+            Math.abs(effect.offsets.redX),
+            Math.abs(effect.offsets.redY),
+            Math.abs(effect.offsets.greenX),
+            Math.abs(effect.offsets.greenY),
+            Math.abs(effect.offsets.blueX),
+            Math.abs(effect.offsets.blueY),
+          ) * Math.max(1, effect.intensity);
+        padding = Math.max(padding, extent);
+        break;
+      }
+      case 'glitch':
+        padding = Math.max(padding, effect.strength, effect.blockSize + effect.blockStrength);
         break;
       default:
         break;

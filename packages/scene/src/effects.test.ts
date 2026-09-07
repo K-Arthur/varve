@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { createDocument, makeShapeNode } from './document';
-import { normalizeDocumentEffects, normalizeEffectParams } from './effects';
+import { createDocument, makeAdjustmentNode, makeShapeNode } from './document';
+import { layerEffectMoveTarget, layerEffectStage, moveLayerEffect } from './effectStack';
+import {
+  canHaveLayerEffects,
+  createDefaultEffect,
+  normalizeDocumentEffects,
+  normalizeEffectParams,
+} from './effects';
+import { makeRasterLayerNode } from './rasterLayer';
 import type { Effect } from './types';
 
 function shadow(overrides: Partial<Record<string, unknown>> = {}): Effect {
@@ -19,6 +26,63 @@ function shadow(overrides: Partial<Record<string, unknown>> = {}): Effect {
 }
 
 describe('normalizeEffectParams', () => {
+  it('keeps authored defaults in the scene package', () => {
+    const effect = createDefaultEffect('dropShadow', 'default-shadow');
+    expect(effect).toMatchObject({
+      id: 'default-shadow',
+      type: 'dropShadow',
+      blur: 8,
+      visible: true,
+    });
+  });
+
+  it('allows every drawable layer type to own Layer Effects, but not adjustments', () => {
+    const shape = makeShapeNode('shape', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 });
+    const raster = makeRasterLayerNode('raster', { width: 10, height: 10 });
+    const adjustment = makeAdjustmentNode('adjustment', 'levels', {
+      channel: 'rgb',
+      inputBlack: 0,
+      inputWhite: 255,
+      gamma: 1,
+      outputBlack: 0,
+      outputWhite: 255,
+    });
+    expect(canHaveLayerEffects(shape)).toBe(true);
+    expect(canHaveLayerEffects(raster)).toBe(true);
+    expect(canHaveLayerEffects(adjustment)).toBe(false);
+  });
+
+  it('normalizes a legacy raster layer with no effects field', () => {
+    const raster = makeRasterLayerNode('legacy-raster', { width: 10, height: 10 });
+    const legacy = { ...raster, effects: undefined };
+    const doc = {
+      ...createDocument('Doc'),
+      rootChildren: [raster.id],
+      nodes: { [raster.id]: legacy },
+    };
+    const normalized = normalizeDocumentEffects(doc);
+    expect(normalized.nodes[raster.id]).not.toBe(legacy);
+    expect((normalized.nodes[raster.id] as typeof raster).effects).toEqual([]);
+  });
+
+  it('moves only within the renderer stage of a mixed stack', () => {
+    const stack = [
+      createDefaultEffect('backgroundBlur', 'backdrop'),
+      createDefaultEffect('dropShadow', 'shadow-a'),
+      createDefaultEffect('layerBlur', 'content'),
+      createDefaultEffect('dropShadow', 'shadow-b'),
+    ];
+    expect(layerEffectStage(stack[0]!)).toBe('backdrop');
+    expect(layerEffectStage(stack[1]!)).toBe('appearance');
+    expect(layerEffectMoveTarget(stack, 3, -1)).toBe(1);
+    expect(moveLayerEffect(stack, 'shadow-b', -1).map((effect) => effect.id)).toEqual([
+      'backdrop',
+      'shadow-b',
+      'shadow-a',
+      'content',
+    ]);
+  });
+
   it('assigns a stable id to an effect without one', () => {
     const normalized = normalizeEffectParams(shadow());
     expect(normalized.id).toBeTypeOf('string');

@@ -17,6 +17,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { getImageCache, resetImageCache } from './imageCache';
 import type { ReplayTarget } from './replay';
 import { replayIr } from './replay';
+import { applyAlphaSpread, itemNeedsAlphaShadow } from './shadowSource';
 import type { FillIR, RenderItem } from './types';
 
 interface RecorderProxy {
@@ -175,6 +176,50 @@ afterEach(() => {
 });
 
 describe('alpha-aware drop shadow', () => {
+  it('uses the raster layer alpha path even without an image fill', () => {
+    const item = {
+      transform: [1, 0, 0, 1, 0, 0] as const,
+      fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 },
+      primitive: {
+        kind: 'rasterLayer' as const,
+        width: 16,
+        height: 16,
+        pixelMode: false,
+        tiles: {},
+      },
+    } as RenderItem;
+    expect(itemNeedsAlphaShadow(item)).toBe(true);
+  });
+
+  it('dilates and erodes alpha for spread instead of changing blur', () => {
+    const alpha = new Uint8ClampedArray(5 * 4);
+    alpha[2 * 4 + 3] = 255;
+    let result = alpha;
+    const ctx = {
+      getImageData: () => ({ data: alpha, width: 5, height: 1 }) as ImageData,
+      putImageData: (image: ImageData) => {
+        result = image.data;
+      },
+    } as unknown as CanvasRenderingContext2D;
+    applyAlphaSpread(ctx, 5, 1, 1);
+    expect([0, 1, 2, 3, 4].map((x) => result[x * 4 + 3])).toEqual([0, 255, 255, 255, 0]);
+
+    const full = new Uint8ClampedArray(5 * 5 * 4);
+    for (let y = 1; y < 4; y++) {
+      for (let x = 1; x < 4; x++) full[(y * 5 + x) * 4 + 3] = 255;
+    }
+    result = full;
+    const erodeCtx = {
+      getImageData: () => ({ data: full, width: 5, height: 5 }) as ImageData,
+      putImageData: (image: ImageData) => {
+        result = image.data;
+      },
+    } as unknown as CanvasRenderingContext2D;
+    applyAlphaSpread(erodeCtx, 5, 5, -1);
+    expect(result[(2 * 5 + 2) * 4 + 3]).toBe(255);
+    expect(result[(1 * 5 + 2) * 4 + 3]).toBe(0);
+  });
+
   it('never fills the traced outline with the shadow color over a transparent image', () => {
     const rec = recorder();
     const src = 'data:image/png;base64,transparent';

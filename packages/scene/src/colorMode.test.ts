@@ -163,9 +163,9 @@ describe('switchColorMode', () => {
     }
     const result = switchColorMode(doc, 'cmyk');
     const n = result.nodes.n1;
-    if (n && 'effects' in n && n.effects.length > 0) {
-      const effect = n.effects[0]!;
-      if (effect.type === 'dropShadow') {
+    if (n && 'effects' in n && (n.effects ?? []).length > 0) {
+      const effect = n.effects?.[0];
+      if (effect?.type === 'dropShadow') {
         expect(effect.color.space).toBe('cmyk');
       }
     }

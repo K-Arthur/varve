@@ -36,7 +36,7 @@ function documentWith(...nodes: SceneNode[]): Document {
 
 function layerEffects(node: SceneNode): Effect[] {
   if (!('effects' in node)) throw new Error('Expected an effect-capable node');
-  return node.effects;
+  return node.effects ?? [];
 }
 
 describe('effect stack transfer', () => {
@@ -315,7 +315,7 @@ describe('effect stack transfer', () => {
       { effects: [] },
     );
 
-    expect(canReceiveEffectStack(raster, 'layer-effects')).toBe(false);
+    expect(canReceiveEffectStack(raster, 'layer-effects')).toBe(true);
     expect(canReceiveEffectStack(raster, 'object-filters')).toBe(true);
     expect(canReceiveEffectStack(adjustment, 'object-filters')).toBe(false);
   });

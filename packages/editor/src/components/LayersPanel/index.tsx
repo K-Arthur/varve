@@ -80,7 +80,7 @@ function effectStackLabel(kind: EffectStackKind): string {
 
 function effectStackEntryCount(node: SceneNode, kind: EffectStackKind): number {
   return kind === 'layer-effects' && 'effects' in node
-    ? node.effects.length
+    ? (node.effects?.length ?? 0)
     : (node.smartFilters?.length ?? 0);
 }
 
@@ -968,7 +968,7 @@ function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuEntry[] 
   ];
 
   const layerEffectCount =
-    contextMenuNode && 'effects' in contextMenuNode ? contextMenuNode.effects.length : 0;
+    contextMenuNode && 'effects' in contextMenuNode ? (contextMenuNode.effects?.length ?? 0) : 0;
   const objectFilterCount = contextMenuNode?.smartFilters?.length ?? 0;
   if (layerEffectCount > 0 || objectFilterCount > 0 || effectStackClipboard) {
     items.push({ id: 'sep-appearance-stack', separator: true });

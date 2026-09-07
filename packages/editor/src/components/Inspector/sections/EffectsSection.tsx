@@ -114,6 +114,32 @@ function matchingEffectIndex(
   return candidates[ordinal] ? effects.indexOf(candidates[ordinal]!) : -1;
 }
 
+/**
+ * Present one logical row consistently when selected layers have different
+ * serialized orders. Missing effects stay missing; an unrelated effect at the
+ * same array index must never appear as this row's controls.
+ */
+function alignEffectRow(
+  node: EffectNode,
+  rowIndex: number,
+  referenceStack: readonly Effect[],
+): EffectNode {
+  const effects = node.effects ?? [];
+  const targetIndex = matchingEffectIndex(
+    effects,
+    rowIndex,
+    referenceStack[rowIndex],
+    referenceStack,
+  );
+  if (targetIndex < 0) return { ...node, effects: [] };
+  if (targetIndex === rowIndex) return node;
+  const aligned = [...effects];
+  const displaced = aligned[rowIndex] ?? aligned[targetIndex];
+  aligned[rowIndex] = aligned[targetIndex]!;
+  aligned[targetIndex] = displaced!;
+  return { ...node, effects: aligned };
+}
+
 /** Generate a stable per-effect identifier (used as a row key for reordering). */
 function toSwatchBg(color: ManagedColor): string {
   const [r, g, b, a] = managedColorToRgba(color);
@@ -141,6 +167,10 @@ export function EffectsSection({ nodes, sectionId }: EffectsSectionProps) {
   const [lastAddedIndex, setLastAddedIndex] = useState<number | null>(null);
 
   const effectNodes = useMemo(() => nodes.filter(hasEffects), [nodes]);
+  const referenceEffects = useMemo(
+    () => effectNodes.find((node) => (node.effects?.length ?? 0) > 0)?.effects ?? [],
+    [effectNodes],
+  );
 
   const batchUpdate = useCallback(
     (updater: (effects: Effect[]) => Effect[]) => {
@@ -158,22 +188,17 @@ export function EffectsSection({ nodes, sectionId }: EffectsSectionProps) {
 
   const updateEffect = useCallback(
     (index: number, updater: (e: Effect) => Effect) => {
-      const reference = effectNodes[0]?.effects?.[index];
+      const reference = referenceEffects[index];
       batchUpdate((effects) => {
         const next = [...effects];
-        const targetIndex = matchingEffectIndex(
-          effects,
-          index,
-          reference,
-          effectNodes[0]?.effects ?? [],
-        );
+        const targetIndex = matchingEffectIndex(effects, index, reference, referenceEffects);
         if (targetIndex >= 0) {
           next[targetIndex] = updater(next[targetIndex] as Effect);
         }
         return next;
       });
     },
-    [batchUpdate, effectNodes],
+    [batchUpdate, effectNodes, referenceEffects],
   );
 
   const addEffect = useCallback(() => {
@@ -186,32 +211,22 @@ export function EffectsSection({ nodes, sectionId }: EffectsSectionProps) {
 
   const removeEffect = useCallback(
     (index: number) => {
-      const reference = effectNodes[0]?.effects?.[index];
+      const reference = referenceEffects[index];
       batchUpdate((effects) => {
-        const targetIndex = matchingEffectIndex(
-          effects,
-          index,
-          reference,
-          effectNodes[0]?.effects ?? [],
-        );
+        const targetIndex = matchingEffectIndex(effects, index, reference, referenceEffects);
         return targetIndex >= 0 ? effects.filter((_, i) => i !== targetIndex) : effects;
       });
       announce('Effect removed');
     },
-    [batchUpdate, announce, effectNodes],
+    [batchUpdate, announce, effectNodes, referenceEffects],
   );
 
   const duplicateEffect = useCallback(
     (index: number) => {
       setLastAddedIndex(index + 1);
-      const reference = effectNodes[0]?.effects?.[index];
+      const reference = referenceEffects[index];
       batchUpdate((effects) => {
-        const targetIndex = matchingEffectIndex(
-          effects,
-          index,
-          reference,
-          effectNodes[0]?.effects ?? [],
-        );
+        const targetIndex = matchingEffectIndex(effects, index, reference, referenceEffects);
         const source = targetIndex >= 0 ? effects[targetIndex] : undefined;
         if (!source || targetIndex < 0) return effects;
         const next = [...effects];
@@ -222,7 +237,7 @@ export function EffectsSection({ nodes, sectionId }: EffectsSectionProps) {
       });
       announce('Effect duplicated');
     },
-    [batchUpdate, announce, effectNodes],
+    [batchUpdate, announce, effectNodes, referenceEffects],
   );
 
   const resetEffect = useCallback(
@@ -237,17 +252,10 @@ export function EffectsSection({ nodes, sectionId }: EffectsSectionProps) {
   );
 
   const reorderEffect = useCallback(
-    (from: number, to: number) => {
-      if (from === to) return;
-      const reference = effectNodes[0]?.effects?.[from];
+    (from: number, direction: -1 | 1) => {
+      const reference = referenceEffects[from];
       batchUpdate((effects) => {
-        const sourceIndex = matchingEffectIndex(
-          effects,
-          from,
-          reference,
-          effectNodes[0]?.effects ?? [],
-        );
-        const direction = to > from ? 1 : -1;
+        const sourceIndex = matchingEffectIndex(effects, from, reference, referenceEffects);
         const targetIndex = layerEffectMoveTarget(effects, sourceIndex, direction);
         if (sourceIndex < 0 || targetIndex < 0) return effects;
         const next = [...effects];
@@ -256,13 +264,13 @@ export function EffectsSection({ nodes, sectionId }: EffectsSectionProps) {
         return next;
       });
     },
-    [batchUpdate, effectNodes],
+    [batchUpdate, effectNodes, referenceEffects],
   );
 
   if (effectNodes.length === 0) return null;
 
-  const minEffects = Math.min(...effectNodes.map((n) => n.effects?.length ?? 0));
-  const countMixed = !effectNodes.every((n) => (n.effects?.length ?? 0) === minEffects);
+  const rowCount = referenceEffects.length;
+  const countMixed = !effectNodes.every((n) => (n.effects?.length ?? 0) === rowCount);
 
   return (
     <DisclosureSection
@@ -273,8 +281,8 @@ export function EffectsSection({ nodes, sectionId }: EffectsSectionProps) {
       {effectNodes.every((n) => (n.effects?.length ?? 0) === 0) ? (
         <div className="insp-empty-message">No effects</div>
       ) : (
-        Array.from({ length: minEffects }, (_, i) => {
-          const first = effectNodes[0]?.effects?.[i];
+        Array.from({ length: rowCount }, (_, i) => {
+          const first = referenceEffects[i];
           const rowKey = first?.id ?? `${i}-${first?.type ?? 'effect'}`;
           return (
             <EffectRow
@@ -285,15 +293,15 @@ export function EffectsSection({ nodes, sectionId }: EffectsSectionProps) {
               onRemove={() => removeEffect(i)}
               onDuplicate={() => duplicateEffect(i)}
               onReset={() => resetEffect(i)}
-              onReorder={(dir: number) => reorderEffect(i, i + dir)}
-              canMoveUp={layerEffectMoveTarget(effectNodes[0]?.effects ?? [], i, -1) >= 0}
-              canMoveDown={layerEffectMoveTarget(effectNodes[0]?.effects ?? [], i, 1) >= 0}
+              onReorder={(dir: number) => reorderEffect(i, dir as -1 | 1)}
+              canMoveUp={layerEffectMoveTarget(referenceEffects, i, -1) >= 0}
+              canMoveDown={layerEffectMoveTarget(referenceEffects, i, 1) >= 0}
               startExpanded={i === lastAddedIndex}
             />
           );
         })
       )}
-      {countMixed && minEffects > 0 && (
+      {countMixed && rowCount > 0 && (
         <div className="insp-empty-message">Some selected nodes have additional effects</div>
       )}
       <div className="insp-fill-add">
@@ -338,13 +346,17 @@ function EffectRow({
   canMoveDown,
   startExpanded = false,
 }: EffectRowProps) {
-  const typeRaw = commonValue(nodes, (n) => getEffect(n, index)?.type ?? 'dropShadow');
-  const visibleRaw = commonValue(nodes, (n) => getEffect(n, index)?.visible ?? true);
+  const referenceStack = nodes[0]?.effects ?? [];
+  const rowNodes = nodes.map((node) => alignEffectRow(node, index, referenceStack));
+  const hasMissingEffect = rowNodes.some((node) => (node.effects?.length ?? 0) === 0);
+  const typeRaw = commonValue(rowNodes, (n) => getEffect(n, index)?.type ?? 'dropShadow');
+  const visibleRaw = commonValue(rowNodes, (n) => getEffect(n, index)?.visible ?? true);
 
   const type = isMixed(typeRaw) ? null : typeRaw;
   const visibility = isMixed(visibleRaw) ? true : visibleRaw;
 
   const typeLabel = type === 'depthBlur' ? 'Depth Blur' : (type ?? 'Mixed');
+  const rowLabel = hasMissingEffect ? `${typeLabel} · Not on all selected layers` : typeLabel;
 
   // Collapsed by default: with several stacked effects, showing every
   // effect's full parameter set (shadows/glow/blur/glass/etc. can each be a
@@ -365,7 +377,7 @@ function EffectRow({
             style={{ width: 'auto', padding: 0 }}
             aria-expanded={expanded}
             aria-controls={paramsId}
-            aria-label={`${expanded ? 'Collapse' : 'Expand'} ${typeLabel} parameters`}
+            aria-label={`${expanded ? 'Collapse' : 'Expand'} ${rowLabel} parameters`}
             onClick={() => setExpanded((v) => !v)}
           >
             <Icon
@@ -407,15 +419,15 @@ function EffectRow({
           type !== 'chromaticAberration' &&
           type !== 'glitch' &&
           type !== 'depthBlur' && (
-            <EffectColorSwatch nodes={nodes} index={index} onChange={onChange} />
+            <EffectColorSwatch nodes={rowNodes} index={index} onChange={onChange} />
           )}
         {type === 'glassMaterial' && (
-          <GlassTintSwatch nodes={nodes} index={index} onChange={onChange} />
+          <GlassTintSwatch nodes={rowNodes} index={index} onChange={onChange} />
         )}
         <span
           style={{ flex: 1, fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}
         >
-          {typeLabel}
+          {rowLabel}
         </span>
         <button
           type="button"
@@ -455,7 +467,7 @@ function EffectRow({
 
       {type && expanded && (
         <div id={paramsId}>
-          <EffectParams type={type} nodes={nodes} index={index} onChange={onChange} />
+          <EffectParams type={type} nodes={rowNodes} index={index} onChange={onChange} />
         </div>
       )}
     </div>

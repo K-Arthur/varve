@@ -11,7 +11,7 @@
 import type { Adjustment } from '@varve/engine';
 import type { Document } from './document';
 import { detectCompositingCycles, validateEffectMaskBinding } from './effectMasks';
-import { cloneEffects } from './effects';
+import { canHaveLayerEffects, cloneEffects } from './effects';
 import { canHaveSmartFilters, cloneSmartFilters } from './smartFilters';
 import type { Effect, NodeId, SceneNode } from './types';
 
@@ -62,11 +62,7 @@ export interface EffectStackBatchTransferResult {
   convertedBypassedObjectFilterCount: number;
 }
 
-type EffectOwner = Extract<SceneNode, { effects: Effect[] }>;
-
-function canHaveLayerEffects(node: SceneNode): node is EffectOwner {
-  return 'effects' in node && Array.isArray(node.effects);
-}
+type EffectOwner = Exclude<SceneNode, { kind: 'adjustment' }>;
 
 /** Whether a node can receive a particular source stack. */
 export function canReceiveEffectStack(node: SceneNode, kind: EffectStackKind): boolean {
@@ -83,7 +79,12 @@ export function createEffectStackPayload(
   kind: EffectStackKind,
 ): EffectStackPayload | null {
   if (kind === 'layer-effects') {
-    if (!canHaveLayerEffects(source) || source.effects.length === 0) return null;
+    if (
+      !canHaveLayerEffects(source) ||
+      !Array.isArray(source.effects) ||
+      source.effects.length === 0
+    )
+      return null;
     return { kind, effects: cloneEffects(source.effects) };
   }
 
@@ -172,7 +173,7 @@ export function applyEffectStackPayload(
     doc,
     target,
     cloneEffects(payload.effects),
-    mode === 'append' ? target.effects : [],
+    mode === 'append' && Array.isArray(target.effects) ? target.effects : [],
   );
   return {
     node: { ...target, effects },

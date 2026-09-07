@@ -143,7 +143,11 @@ export function clipboardFragmentWorldBounds(
         ...sourceDoc,
         nodes: {
           ...sourceDoc.nodes,
-          [rootId]: { ...sourceRoot, transform: [1, 0, 0, 1, 0, 0], rotation: 0 },
+          [rootId]: {
+            ...sourceRoot,
+            transform: [1, 0, 0, 1, 0, 0] as Affine,
+            rotation: 0,
+          },
         },
       };
       const localBounds = sceneNodeWorldBounds(geometryDoc, rootId);

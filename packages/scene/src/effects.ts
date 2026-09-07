@@ -26,6 +26,138 @@ function effectId(): string {
   return cryptoId();
 }
 
+/**
+ * Nodes whose own rendered result has a meaningful Layer Effects stage.
+ * Adjustment nodes deliberately stay out: their rendered scope is owned by
+ * the adjustment pipeline, not by an invented zero-size silhouette.
+ */
+export function canHaveLayerEffects(
+  node: SceneNode,
+): node is Exclude<SceneNode, { kind: 'adjustment' }> {
+  // Raster layers may still arrive from legacy documents without the field;
+  // normalization supplies the empty array, but capability checks must remain
+  // true before that compatibility pass runs.
+  return node.kind !== 'adjustment' && (node.kind === 'rasterLayer' || 'effects' in node);
+}
+
+/** Canonical authored defaults for a new layer appearance effect. */
+export function createDefaultEffect(type: Effect['type'], id = effectId()): Effect {
+  switch (type) {
+    case 'dropShadow':
+      return {
+        id,
+        type,
+        x: 0,
+        y: 4,
+        blur: 8,
+        spread: 0,
+        color: { space: 'rgb', r: 0, g: 0, b: 0, a: 76 },
+        opacity: 0.3,
+        blendMode: 'normal',
+        visible: true,
+      };
+    case 'innerShadow':
+      return {
+        id,
+        type,
+        x: 0,
+        y: 2,
+        blur: 4,
+        spread: 0,
+        color: { space: 'rgb', r: 0, g: 0, b: 0, a: 38 },
+        opacity: 0.25,
+        blendMode: 'normal',
+        visible: true,
+      };
+    case 'layerBlur':
+      return { id, type, radius: 4, visible: true };
+    case 'backgroundBlur':
+      return { id, type, radius: 8, visible: true };
+    case 'depthBlur':
+      return {
+        id,
+        type,
+        depthMapId: '',
+        focusDepth: 0.5,
+        focusRange: 0.2,
+        blurStrength: 12,
+        falloff: 1,
+        invert: false,
+        edgeProtection: 0.035,
+        visible: true,
+      };
+    case 'outerGlow':
+      return {
+        id,
+        type,
+        blur: 6,
+        spread: 0,
+        color: { space: 'rgb', r: 255, g: 200, b: 100, a: 128 },
+        opacity: 0.6,
+        blendMode: 'screen',
+        visible: true,
+      };
+    case 'innerGlow':
+      return {
+        id,
+        type,
+        blur: 6,
+        spread: 0,
+        color: { space: 'rgb', r: 255, g: 200, b: 100, a: 128 },
+        opacity: 0.6,
+        blendMode: 'screen',
+        visible: true,
+      };
+    case 'glassMaterial':
+      return {
+        id,
+        type,
+        blur: 12,
+        tint: { space: 'rgb', r: 200, g: 220, b: 255, a: 60 },
+        tintOpacity: 0.3,
+        saturation: 1.2,
+        brightness: 1.05,
+        noise: 0.02,
+        edgeHighlight: true,
+        edgeHighlightWidth: 1.5,
+        edgeHighlightColor: { space: 'rgb', r: 255, g: 255, b: 255, a: 120 },
+        edgeHighlightOpacity: 0.4,
+        visible: true,
+      };
+    case 'chromaticAberration':
+      return {
+        id,
+        type,
+        offsets: { redX: 3, redY: 0, greenX: 0, greenY: 0, blueX: -3, blueY: 0 },
+        intensity: 1,
+        blendMode: 'normal',
+        opacity: 1,
+        visible: true,
+      };
+    case 'glitch':
+      return {
+        id,
+        type,
+        seed: 42,
+        strength: 8,
+        density: 0.3,
+        sliceHeight: 8,
+        blockCount: 5,
+        blockSize: 20,
+        blockStrength: 10,
+        noiseIntensity: 0.05,
+        scanlineIntensity: 0.15,
+        scanlineSpacing: 4,
+        direction: 'horizontal',
+        channelShift: { redX: 0, redY: 0, greenX: 0, greenY: 0, blueX: 0, blueY: 0 },
+        channelShiftMode: 'static',
+        blendMode: 'normal',
+        opacity: 1,
+        visible: true,
+      };
+  }
+}
+
 /** Coerce a value to a finite number within [min, max], or `fallback`. */
 function clampNum(v: unknown, fallback: number, min = 0, max = 4096): number {
   if (typeof v !== 'number' || !Number.isFinite(v)) return fallback;
@@ -286,6 +418,12 @@ export function normalizeEffectParams(effect: Effect): Effect {
 
 /** Assign stable IDs to every effect on a node (returns a new node). */
 export function normalizeNodeEffects(node: SceneNode): SceneNode {
+  // Raster layers were introduced before Layer Effects became a first-class
+  // field. Materialise the empty stack while loading so legacy documents and
+  // newly-created raster layers follow the same edit path.
+  if (node.kind === 'rasterLayer' && !Array.isArray(node.effects)) {
+    return { ...node, effects: [] };
+  }
   if (!('effects' in node) || !Array.isArray(node.effects)) return node;
   let changed = false;
   const seenIds = new Set<string>();

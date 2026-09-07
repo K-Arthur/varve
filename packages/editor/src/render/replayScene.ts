@@ -14,6 +14,7 @@
 import {
   acquireMaskSurface,
   adjustmentsToFilters,
+  applyAlphaSpread,
   applyFilterWithCompositing,
   applyLayerBlur,
   applyMaskAlpha,
@@ -163,18 +164,26 @@ function compositeGroupOuterEffect(
   const effectCtx = effectCanvas.getContext('2d');
   if (!effectCtx) return;
 
+  const sourceCanvas = document.createElement('canvas');
+  sourceCanvas.width = w;
+  sourceCanvas.height = h;
+  const sourceCtx = sourceCanvas.getContext('2d');
+  if (!sourceCtx) return;
+  sourceCtx.drawImage(gCanvas.canvas as unknown as CanvasImageSource, 0, 0);
+  applyAlphaSpread(sourceCtx, w, h, effect.spread * renderScale);
+
   const offsetX = effect.type === 'dropShadow' ? (effect.x ?? 0) : 0;
   const offsetY = effect.type === 'dropShadow' ? (effect.y ?? 0) : 0;
 
   effectCtx.save();
   effectCtx.shadowColor = effectColorToCss(effect.color);
-  effectCtx.shadowBlur = (effect.blur + Math.max(0, effect.spread) / 2) * renderScale;
+  effectCtx.shadowBlur = effect.blur * renderScale;
   effectCtx.shadowOffsetX = offsetX * renderScale;
   effectCtx.shadowOffsetY = offsetY * renderScale;
-  effectCtx.drawImage(gCanvas.canvas as unknown as CanvasImageSource, 0, 0);
+  effectCtx.drawImage(sourceCanvas as unknown as CanvasImageSource, 0, 0);
   effectCtx.globalCompositeOperation = 'destination-out';
   effectCtx.shadowColor = 'transparent';
-  effectCtx.drawImage(gCanvas.canvas as unknown as CanvasImageSource, 0, 0);
+  effectCtx.drawImage(sourceCanvas as unknown as CanvasImageSource, 0, 0);
   effectCtx.restore();
 
   target.save();
@@ -211,6 +220,7 @@ function applyGroupInsetEffect(
   const insetCtx = insetCanvas.getContext('2d');
   if (!insetCtx) return;
   insetCtx.putImageData(silhouetteData, 0, 0);
+  applyAlphaSpread(insetCtx, w, h, spread);
 
   const [r, g, b] = managedColorToRgba(effect.color);
 

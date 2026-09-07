@@ -43,7 +43,7 @@ export function makeRasterLayerNode(
   opts: Partial<
     Pick<
       RasterLayerNode,
-      'name' | 'visible' | 'locked' | 'opacity' | 'blendMode' | 'rotation' | 'order'
+      'name' | 'visible' | 'locked' | 'opacity' | 'blendMode' | 'rotation' | 'order' | 'effects'
     >
   > = {},
 ): RasterLayerNode {
@@ -63,6 +63,7 @@ export function makeRasterLayerNode(
     pixelMode: false,
     tiles: new Map(),
     transform: [1, 0, 0, 1, 0, 0] as Affine,
+    effects: opts.effects ?? [],
   };
 }
 
@@ -747,6 +748,7 @@ export function compositeDabOnTiles(
     pixelMode: false,
     tiles,
     transform: [1, 0, 0, 1, 0, 0] as Affine,
+    effects: [],
   };
   return compositeDabOnNode(node, dab, color, options).tiles;
 }

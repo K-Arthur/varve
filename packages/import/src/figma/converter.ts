@@ -1065,7 +1065,7 @@ function buildStyles(
         id,
         type: 'effect',
         name: style.name,
-        effects: 'effects' in sample ? sample.effects : [],
+        effects: 'effects' in sample ? (sample.effects ?? []) : [],
       };
     else if (style.type === 'GRID' && sample.kind === 'frame' && sample.layoutStyle)
       result[id] = { id, type: 'layout', name: style.name, layout: sample.layoutStyle };

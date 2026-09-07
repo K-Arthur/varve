@@ -1,5 +1,60 @@
 import type { Adjustment } from '@varve/engine';
 import { adjustmentDefaults, makeAdjustment } from '@varve/engine';
+import type { Effect } from './types';
+
+/** Execution stage used by the Layer Effects renderer. */
+export type LayerEffectStage = 'backdrop' | 'content' | 'appearance';
+
+/**
+ * Layer Effects are authored as one array, but execution has three stable
+ * stages. Reordering is meaningful only within a stage; keeping that rule in
+ * the scene package prevents the inspector from offering no-op moves.
+ */
+export function layerEffectStage(effect: Pick<Effect, 'type'>): LayerEffectStage {
+  switch (effect.type) {
+    case 'backgroundBlur':
+    case 'glassMaterial':
+      return 'backdrop';
+    case 'layerBlur':
+    case 'depthBlur':
+    case 'chromaticAberration':
+    case 'glitch':
+      return 'content';
+    default:
+      return 'appearance';
+  }
+}
+
+/** Find the nearest same-stage row in the requested direction. */
+export function layerEffectMoveTarget(
+  stack: readonly Effect[],
+  fromIndex: number,
+  direction: -1 | 1,
+): number {
+  const source = stack[fromIndex];
+  if (!source) return -1;
+  const stage = layerEffectStage(source);
+  for (let index = fromIndex + direction; index >= 0 && index < stack.length; index += direction) {
+    if (layerEffectStage(stack[index]!) === stage) return index;
+  }
+  return -1;
+}
+
+/** Move an effect to the nearest meaningful position in its execution stage. */
+export function moveLayerEffect(
+  stack: readonly Effect[],
+  effectId: string,
+  direction: -1 | 1,
+): Effect[] {
+  const next = [...stack];
+  const fromIndex = next.findIndex((effect) => effect.id === effectId);
+  const targetIndex = layerEffectMoveTarget(next, fromIndex, direction);
+  if (fromIndex < 0 || targetIndex < 0) return next;
+  const [effect] = next.splice(fromIndex, 1);
+  if (!effect) return next;
+  next.splice(targetIndex, 0, effect);
+  return next;
+}
 
 /** Pure stack operations shared by Object Filters, Adjustment Layers, and Looks. */
 export function moveEffect(

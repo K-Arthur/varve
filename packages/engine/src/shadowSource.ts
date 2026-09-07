@@ -32,9 +32,81 @@ function finiteOr(v: number | undefined, fallback: number): number {
   return typeof v === 'number' && Number.isFinite(v) ? v : fallback;
 }
 
+/**
+ * Apply true alpha morphology for effect spread. Canvas shadowBlur is a blur
+ * radius, not a dilation/erosion radius; folding spread into it makes a
+ * positive spread softer and a negative spread effectively disappear.
+ *
+ * The two separable passes keep this bounded to O(width × height), which is
+ * important for raster layers whose shadow source can be substantially larger
+ * than a vector primitive.
+ */
+export function applyAlphaSpread(
+  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  width: number,
+  height: number,
+  spread: number,
+): void {
+  const radius = Math.min(MAX_EFFECT_PAD, Math.ceil(Math.abs(finiteOr(spread, 0))));
+  if (radius <= 0 || width <= 0 || height <= 0) return;
+  let image: ImageData;
+  try {
+    image = ctx.getImageData(0, 0, width, height);
+  } catch {
+    return;
+  }
+
+  const pixelCount = width * height;
+  const source = new Uint8ClampedArray(pixelCount);
+  for (let index = 0; index < pixelCount; index++) source[index] = image.data[index * 4 + 3]!;
+  const horizontal = new Uint8ClampedArray(pixelCount);
+  const output = new Uint8ClampedArray(pixelCount);
+  const dilate = spread > 0;
+
+  const morphLine = (
+    input: Uint8ClampedArray,
+    result: Uint8ClampedArray,
+    start: number,
+    stride: number,
+    length: number,
+  ): void => {
+    const deque = new Int32Array(length);
+    let head = 0;
+    let tail = 0;
+    const better = (left: number, right: number) =>
+      dilate
+        ? (input[left] ?? 0) >= (input[right] ?? 0)
+        : (input[left] ?? 0) <= (input[right] ?? 0);
+    for (let cursor = 0; cursor < length + radius; cursor++) {
+      if (cursor < length) {
+        const valueIndex = start + cursor * stride;
+        while (tail > head && better(valueIndex, start + deque[tail - 1]! * stride)) tail--;
+        deque[tail++] = cursor;
+      }
+      const removeBefore = cursor - radius * 2 - 1;
+      if (head < tail && deque[head]! <= removeBefore) head++;
+      const outputIndex = cursor - radius;
+      if (outputIndex >= 0 && outputIndex < length && head < tail) {
+        result[start + outputIndex * stride] = input[start + deque[head]! * stride]!;
+      }
+    }
+  };
+
+  for (let y = 0; y < height; y++) morphLine(source, horizontal, y * width, 1, width);
+  for (let x = 0; x < width; x++) morphLine(horizontal, output, x, width, height);
+  for (let index = 0; index < pixelCount; index++) image.data[index * 4 + 3] = output[index]!;
+  try {
+    ctx.putImageData(image, 0, 0);
+  } catch {
+    // An unavailable readback surface should leave the un-morphed silhouette;
+    // the caller still has a valid shadow source and can render it safely.
+  }
+}
+
 /** Rendering primitives provided by the replay module (dependency injection). */
 export interface ShadowOps {
   traceOutline(target: ReplayTarget, p: RenderItem['primitive']): void;
+  paintFill(target: ReplayTarget, fill: FillIR, item: RenderItem): void;
   paintShapeFill(target: ReplayTarget, item: RenderItem): void;
   paintImageFill(
     target: ReplayTarget,
@@ -64,14 +136,24 @@ export interface ShadowOps {
  *    shapes).
  *  - Stroke-only primitives (lines, arrows) have zero fill area, so a fill
  *    of the outline casts no shadow at all.
+ *  - Gradients, patterns, and translucent solid fills have non-uniform or
+ *    reduced coverage that the geometric outline cannot represent.
  *
  * Solid/gradient/pattern fills on a shape (no image fill, no text) keep the
  * fast path: their visible alpha equals the shape outline.
  */
 export function itemNeedsAlphaShadow(item: RenderItem): boolean {
   const prim = item.primitive;
+  if (prim.kind === 'rasterLayer') return true;
   if (prim.kind === 'text') return true;
-  if (item.fills?.some((f) => f.visible && f.type === 'image')) return true;
+  if ((item.fill.a ?? 255) < 255) return true;
+  if (
+    item.fills?.some(
+      (fill) =>
+        fill.visible && (fill.type !== 'solid' || fill.opacity < 1 || (fill.color?.a ?? 255) < 255),
+    )
+  )
+    return true;
   const hasVisibleFill = item.fills?.some((f) => f.visible) ?? false;
   const hasVisibleStroke = item.strokes?.some((s) => s.visible) ?? false;
   return !hasVisibleFill && hasVisibleStroke;
@@ -100,23 +182,14 @@ export function renderShadowSource(target: ReplayTarget, item: RenderItem, ops: 
   if (fills.length > 0) {
     for (const fill of fills) {
       if (!fill.visible) continue;
-      if (fill.type === 'image') {
-        target.save();
-        target.beginPath();
-        ops.traceOutline(target, item.primitive);
-        target.clip();
-        ops.paintImageFill(target, fill, item);
-        target.restore();
-      } else {
-        target.save();
-        target.fillStyle = 'rgba(0, 0, 0, 1)';
-        ops.paintShapeFill(target, item);
-        target.restore();
-      }
+      target.save();
+      target.globalAlpha = fill.opacity ?? 1;
+      ops.paintFill(target, fill, item);
+      target.restore();
     }
   } else {
     target.save();
-    target.fillStyle = 'rgba(0, 0, 0, 1)';
+    target.fillStyle = ops.rgba(item.fill);
     ops.paintShapeFill(target, item);
     target.restore();
   }
@@ -146,7 +219,7 @@ export function paintGeometricDropShadow(
 ): void {
   target.save();
   target.shadowColor = ops.rgba(effect.color);
-  target.shadowBlur = finiteOr(effect.blur, 0) + Math.max(0, finiteOr(effect.spread, 0)) / 2;
+  target.shadowBlur = finiteOr(effect.blur, 0);
   target.shadowOffsetX = finiteOr(effect.x, 0);
   target.shadowOffsetY = finiteOr(effect.y, 0);
   target.globalAlpha = (item.opacity ?? 1) * (effect.opacity ?? 1);
@@ -210,7 +283,7 @@ export function paintAlphaAwareDropShadow(
     MAX_EFFECT_PAD,
     Math.ceil(
       finiteOr(effect.blur, 0) * 3 +
-        Math.max(0, finiteOr(effect.spread, 0)) / 2 +
+        Math.abs(finiteOr(effect.spread, 0)) +
         Math.max(Math.abs(finiteOr(effect.x, 0)), Math.abs(finiteOr(effect.y, 0))),
     ),
   );
@@ -220,7 +293,9 @@ export function paintAlphaAwareDropShadow(
 
   const buffer = ops.createEffectBuffer(ow, oh);
   if (!buffer) {
-    paintGeometricDropShadow(target, item, effect, ops);
+    // A geometric fallback can expose a raster layer's transparent bounds.
+    // Skipping the optional shadow preserves the artwork and is safer under
+    // memory pressure than painting a visibly wrong rectangle.
     return;
   }
 
@@ -229,13 +304,14 @@ export function paintAlphaAwareDropShadow(
   ctx.translate(pad - bounds.x, pad - bounds.y);
   renderShadowSource(ctx as unknown as ReplayTarget, item, ops);
   ctx.restore();
+  applyAlphaSpread(ctx, ow, oh, effect.spread);
 
   const shadowCanvas = ops.createEffectBuffer(ow, oh);
   if (shadowCanvas) {
     const sctx = shadowCanvas.ctx;
     sctx.save();
     sctx.shadowColor = ops.rgba(effect.color);
-    sctx.shadowBlur = finiteOr(effect.blur, 0) + Math.max(0, finiteOr(effect.spread, 0)) / 2;
+    sctx.shadowBlur = finiteOr(effect.blur, 0);
     sctx.shadowOffsetX = finiteOr(effect.x, 0);
     sctx.shadowOffsetY = finiteOr(effect.y, 0);
     sctx.drawImage(offscreen as unknown as CanvasImageSource, 0, 0);
@@ -255,23 +331,10 @@ export function paintAlphaAwareDropShadow(
     );
     target.restore();
   } else {
-    // Degradation: no second buffer available — composite the silhouette with
-    // the shadow directly (re-draws the item content behind itself).
-    target.save();
-    target.shadowColor = ops.rgba(effect.color);
-    target.shadowBlur = finiteOr(effect.blur, 0) + Math.max(0, finiteOr(effect.spread, 0)) / 2;
-    target.shadowOffsetX = finiteOr(effect.x, 0);
-    target.shadowOffsetY = finiteOr(effect.y, 0);
-    target.globalAlpha = (item.opacity ?? 1) * (effect.opacity ?? 1);
-    target.globalCompositeOperation = 'destination-over';
-    target.drawImage?.(
-      offscreen as unknown as CanvasImageSource,
-      bounds.x - pad,
-      bounds.y - pad,
-      ow,
-      oh,
-    );
-    target.restore();
+    // A second buffer is required to erase the source silhouette. Do not
+    // redraw it behind the item: that fallback double-paints semi-transparent
+    // content and can leak a rectangular raster footprint.
+    return;
   }
 }
 
@@ -301,12 +364,14 @@ export function paintAlphaAwareInsetEffect(
   ops: ShadowOps,
 ): void {
   const bounds = ops.primitiveBounds(item.primitive);
-  const blur = finiteOr(effect.blur, 0) + Math.max(0, finiteOr(effect.spread, 0)) / 2;
+  const blur = finiteOr(effect.blur, 0);
   const offsetX = mode === 'shadow' ? finiteOr(effect.x, 0) : 0;
   const offsetY = mode === 'shadow' ? finiteOr(effect.y, 0) : 0;
   const pad = Math.min(
     MAX_EFFECT_PAD,
-    Math.ceil(blur * 3) + Math.max(Math.abs(offsetX), Math.abs(offsetY)),
+    Math.ceil(blur * 3) +
+      Math.abs(finiteOr(effect.spread, 0)) +
+      Math.max(Math.abs(offsetX), Math.abs(offsetY)),
   );
   const ow = Math.ceil(bounds.w + pad * 2);
   const oh = Math.ceil(bounds.h + pad * 2);
@@ -324,6 +389,7 @@ export function paintAlphaAwareInsetEffect(
   ctx.translate(ox, oy);
   renderShadowSource(ctx as unknown as ReplayTarget, item, ops);
   ctx.restore();
+  applyAlphaSpread(ctx, ow, oh, effect.spread);
 
   // Tint helper: replace buffer content with the effect colour, scaled by the
   // effect's own alpha channel.

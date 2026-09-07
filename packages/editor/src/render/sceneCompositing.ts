@@ -21,7 +21,9 @@ function computeNeedsStructuralCompositing(doc: Document): boolean {
     if ('mask' in node && node.mask?.visible) return true;
     if (
       'effects' in node &&
-      node.effects.some((effect) => effect.visible && effect.mask && effect.mask.visible !== false)
+      (node.effects ?? []).some(
+        (effect) => effect.visible && effect.mask && effect.mask.visible !== false,
+      )
     ) {
       return true;
     }

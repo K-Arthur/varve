@@ -210,6 +210,7 @@ function createEffectBuffer(
  */
 const shadowOps: ShadowOps = {
   traceOutline,
+  paintFill,
   paintShapeFill,
   paintImageFill,
   paintStroke,
@@ -749,8 +750,11 @@ export function replayIr(
   imagePolicy?: ReplayImagePolicy,
   colorOptions?: ReplayColorOptions,
 ): void {
-  // Sweep expired backdrop cache entries (preserves recent entries across frames)
-  sweepBackdropCache();
+  // Backdrop pixels are sampled from the target canvas, so a cache entry is
+  // valid only within this replay. Keeping it across document revisions can
+  // show a stale backdrop for up to the TTL even when the scene is unchanged
+  // at the current camera.
+  backdropCache.clear();
   // Frame-based gradient cache eviction
   advanceGradientCacheFrame();
   const previousImageLookup = imageLookupForCurrentReplay;
@@ -942,26 +946,26 @@ export function replayIr(
               // text glyphs, stroke-only objects) instead of the geometric
               // outline. This makes transparent PNGs cast shadows that follow
               // their visible shape, not their bounding rectangle.
-              if (itemNeedsAlphaShadow(item)) {
+              if (itemNeedsAlphaShadow(item) || effect.spread !== 0) {
                 paintAlphaAwareDropShadow(target, item, effect, shadowOps);
               } else {
                 paintGeometricDropShadow(target, item, effect, shadowOps);
               }
             } else if (effect.type === 'innerShadow') {
-              if (itemNeedsAlphaShadow(item)) {
+              if (itemNeedsAlphaShadow(item) || effect.spread !== 0) {
                 paintAlphaAwareInsetEffect(target, item, effect, 'shadow', shadowOps);
               } else {
                 paintInsetEffect(target, item, effect, 'shadow');
               }
             } else if (effect.type === 'outerGlow') {
               // Outer glow: render a blurred colored shape behind the item (no offset)
-              if (itemNeedsAlphaShadow(item)) {
+              if (itemNeedsAlphaShadow(item) || effect.spread !== 0) {
                 paintAlphaAwareDropShadow(target, item, { ...effect, x: 0, y: 0 }, shadowOps);
               } else {
                 paintGeometricDropShadow(target, item, { ...effect, x: 0, y: 0 }, shadowOps);
               }
             } else if (effect.type === 'innerGlow') {
-              if (itemNeedsAlphaShadow(item)) {
+              if (itemNeedsAlphaShadow(item) || effect.spread !== 0) {
                 paintAlphaAwareInsetEffect(target, item, effect, 'glow', shadowOps);
               } else {
                 paintInsetEffect(target, item, effect, 'glow');
@@ -1632,16 +1636,6 @@ function setBackdropCache(key: string, canvas: HTMLCanvasElement | OffscreenCanv
     if (oldestKey) backdropCache.delete(oldestKey);
   }
   backdropCache.set(key, { canvas, lastAccess: Date.now() });
-}
-
-/** Sweep expired backdrop cache entries. Called at the start of replayIr. */
-function sweepBackdropCache(): void {
-  const now = Date.now();
-  for (const [key, entry] of backdropCache) {
-    if (now - entry.lastAccess > BACKDROP_CACHE_TTL) {
-      backdropCache.delete(key);
-    }
-  }
 }
 
 export function __clearBackdropCache(): void {

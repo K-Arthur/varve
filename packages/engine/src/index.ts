@@ -1108,6 +1108,7 @@ export {
 export * from './richTextLayout';
 export * from './semanticSimilarity';
 export {
+  applyAlphaSpread,
   itemNeedsAlphaShadow,
   paintAlphaAwareDropShadow,
   paintAlphaAwareInsetEffect,
