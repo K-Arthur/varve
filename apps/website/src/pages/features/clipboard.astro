@@ -90,15 +90,15 @@ import { sitePath } from '../../lib/siteUrl';
   .transfer-card h2, .capabilities h2, .honesty h2 { color: var(--text-primary); font-size: clamp(1.6rem, 3vw, 2.3rem); margin: .5rem 0 1rem; }
   .transfer-intro { max-width: 680px; }
   .transfer-intro p:not(.eyebrow), .honesty p:not(.eyebrow) { color: var(--text-secondary); line-height: 1.75; }
-  .transfer-flow { align-items: stretch; display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: .75rem; margin-top: 2rem; }
-  .transfer-flow > div:not(.arrow) { border: 1px solid var(--border-default); border-radius: var(--website-radius-surface); display: flex; flex-direction: column; gap: .45rem; padding: 1rem; }
+  .transfer-flow { align-items: stretch; display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: var(--space-3); margin-top: 2rem; }
+  .transfer-flow > div:not(.arrow) { border: 1px solid var(--border-default); border-radius: var(--website-radius-surface); display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-4); }
   .transfer-flow .accent { background: var(--surface-accent-soft); border-color: var(--border-accent); }
   .transfer-flow span { color: var(--text-tertiary); font-size: .7rem; }
   .transfer-flow strong { color: var(--text-primary); }
   .transfer-flow small { color: var(--text-secondary); line-height: 1.4; }
   .arrow { align-self: center; color: var(--accent-primary); font-size: 1.25rem; }
   .capabilities { padding: 4rem 0; }
-  .capability-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+  .capability-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); }
   .capability-grid article { border-top: 2px solid var(--border-accent); padding-top: 1rem; }
   .capability-grid h3 { color: var(--text-primary); margin: 0 0 .5rem; }
   .capability-grid p { color: var(--text-secondary); line-height: 1.65; margin: 0; }

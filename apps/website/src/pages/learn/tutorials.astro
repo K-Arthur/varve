@@ -18,7 +18,7 @@ import { sitePath } from '../../lib/siteUrl';
       </p>
 
       <h2 class="learn-subheading">Start here</h2>
-      <div class="tutorials-grid">
+      <div class="tutorials-grid site-card-grid">
         <div class="tutorial-card site-card site-card--surface">
           <h3>Getting Started</h3>
           <p>
@@ -60,7 +60,7 @@ import { sitePath } from '../../lib/siteUrl';
         These describe what each tool does and its current status — useful for understanding
         capabilities, not yet written as click-by-click walkthroughs.
       </p>
-      <div class="tutorials-grid">
+      <div class="tutorials-grid site-card-grid">
         <div class="tutorial-card site-card site-card--surface">
           <h3>Vector Tools</h3>
           <p>
@@ -166,7 +166,7 @@ import { sitePath } from '../../lib/siteUrl';
   .tutorials-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
-    gap: 2rem;
+    gap: var(--space-8);
     margin-bottom: 3rem;
   }
 

@@ -23,7 +23,10 @@ export interface FileGridProps {
 
 const COL_WIDTH = 14 * 16 + 24; // 14rem + padding
 const CARD_HEIGHT = 220;
-const GAP = 16;
+// Keep the virtualizer's pixel math in lockstep with --space-4 in home.css.
+// The browser resolves the CSS token; the virtualizer needs the resolved px
+// value synchronously to preserve stable row measurements.
+const GRID_GAP_PX = 16;
 
 export function FileGrid({
   files,
@@ -59,7 +62,7 @@ export function FileGrid({
   const virtualizer = useVirtualizer({
     count: rowCount,
     getScrollElement: () => containerRef.current,
-    estimateSize: () => CARD_HEIGHT + GAP,
+    estimateSize: () => CARD_HEIGHT + GRID_GAP_PX,
     overscan: 2,
   });
 
@@ -67,7 +70,7 @@ export function FileGrid({
     function calc() {
       if (!containerRef.current) return;
       const w = containerRef.current.clientWidth;
-      const n = Math.max(1, Math.floor((w + GAP) / (COL_WIDTH + GAP)));
+      const n = Math.max(1, Math.floor((w + GRID_GAP_PX) / (COL_WIDTH + GRID_GAP_PX)));
       setColumns(n);
     }
     calc();
@@ -260,7 +263,8 @@ export function FileGrid({
                 height: virtualRow.size,
                 transform: `translateY(${virtualRow.start}px)`,
                 display: 'flex',
-                gap: `${GAP}px`,
+                alignItems: 'flex-start',
+                gap: 'var(--space-4)',
               }}
             >
               {Array.from({ length: columns }, (_, colIdx) => {
@@ -288,6 +292,7 @@ export function FileGrid({
                     tabIndex={fileIdx === focusIdx ? 0 : -1}
                     style={{
                       flex: `0 0 ${COL_WIDTH}px`,
+                      height: CARD_HEIGHT,
                     }}
                     onFocus={() => setFocusIdx(fileIdx)}
                     ref={(el) => {

@@ -530,12 +530,24 @@
      domain class for content, but the surface contract stays centralized. */
   .site-card,
   .site-card.site-card--surface {
+    box-sizing: border-box;
     min-width: 0;
     color: var(--text-primary);
     background: var(--surface-card);
     border: 1px solid var(--border-default);
     border-radius: var(--website-radius-card);
     overflow-wrap: break-word;
+  }
+
+  /* Card collections own arrangement; individual cards own their content
+     rhythm. Keep the grid contract explicit so equal-height rows and narrow
+     containers remain predictable across Astro pages. */
+  .site-card-grid {
+    align-items: stretch;
+  }
+
+  .site-card-grid > .site-card {
+    min-width: 0;
   }
 
   a.site-card {

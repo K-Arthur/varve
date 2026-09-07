@@ -376,7 +376,7 @@ export function NewDesignDialog({
       <div className="new-design">
         <div className="new-design__name-row">
           <label htmlFor="new-design-name" className="new-design__name-label">
-            Name
+            Document name
           </label>
           <input
             ref={nameInputRef}

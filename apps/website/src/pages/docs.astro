@@ -12,7 +12,7 @@ import { sitePath } from '../lib/siteUrl';
         file formats, and the rendering architecture behind Varve.
       </p>
 
-      <div class="docs-grid">
+      <div class="docs-grid site-card-grid">
         <div class="docs-card site-card site-card--surface">
           <h2>Getting Started</h2>
           <p>Installation, first steps, and basic workflows</p>
@@ -99,7 +99,7 @@ import { sitePath } from '../lib/siteUrl';
   .docs-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
-    gap: 1.5rem;
+    gap: var(--space-6);
     margin-bottom: 3rem;
   }
   

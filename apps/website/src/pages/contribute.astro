@@ -17,7 +17,7 @@ import { sitePath } from '../lib/siteUrl';
       <section class="contribute-section">
         <h2>Ways to Help Today</h2>
         
-        <div class="contribute-cards">
+        <div class="contribute-cards site-card-grid">
           <div class="contribute-card site-card site-card--surface">
             <div class="cc-head">
               <div class="cc-icon cc-icon-teal" aria-hidden="true">
@@ -174,7 +174,7 @@ import { sitePath } from '../lib/siteUrl';
   .contribute-cards {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
-    gap: 1.5rem;
+    gap: var(--space-6);
     margin-top: 1.5rem;
   }
   

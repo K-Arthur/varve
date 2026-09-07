@@ -105,7 +105,7 @@ const examples: Example[] = candidates
       </p>
 
       {examples.length > 0 && (
-        <div class="examples-grid">
+        <div class="examples-grid site-card-grid">
           {examples.map((example) => (
             <a href={sitePath(example.href)} class="example-card site-card site-card--interactive">
               <figure class="example-visual">
@@ -183,7 +183,7 @@ const examples: Example[] = candidates
   .examples-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
-    gap: 1.5rem;
+    gap: var(--space-6);
     margin-bottom: 3rem;
   }
 

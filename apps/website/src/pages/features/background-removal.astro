@@ -22,7 +22,7 @@ import StatusPill from '../../components/StatusPill.astro';
         edges deserve more time.
       </p>
 
-      <section class="mode-grid" aria-label="Background removal modes">
+      <section class="mode-grid site-card-grid" aria-label="Background removal modes">
         <article class="mode-card site-card site-card--surface">
           <span class="mode-card__number">01</span>
           <h2>Fast</h2>
@@ -105,7 +105,7 @@ import StatusPill from '../../components/StatusPill.astro';
   .feature-kicker { margin-bottom: 1rem; }
   .feature-page h1 { max-width: 760px; font-size: clamp(2.5rem, 6vw, 4.5rem); line-height: 1.02; font-family: var(--font-editorial); color: var(--text-primary); margin-bottom: 1.25rem; }
   .feature-intro { max-width: 700px; font-size: 1.25rem; line-height: 1.7; color: var(--text-secondary); margin-bottom: 3rem; }
-  .mode-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 4rem; }
+  .mode-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); margin-bottom: 4rem; }
   .mode-card { min-height: 220px; padding: 1.5rem; border: 1px solid var(--border-default); border-radius: var(--website-radius-card); background: var(--surface-card); }
   .mode-card--accent { border-color: var(--border-accent); background: var(--surface-accent-soft); }
   .mode-card__number { color: var(--text-tertiary); font: 0.75rem var(--font-mono); letter-spacing: 0.08em; }

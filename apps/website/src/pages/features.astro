@@ -13,7 +13,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
         Vector, layout, typography, motion, and print — all in one application. Honest status for each area. Varve is in beta — features are functional but evolving.
       </p>
 
-      <div class="features-grid">
+      <div class="features-grid site-card-grid">
         <a href={sitePath('/features/background-removal')} class="feature-card site-card site-card--interactive">
           <div class="feature-icon" aria-hidden="true">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12" opacity="0.6"/></svg>
@@ -231,7 +231,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
   .features-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
-    gap: 1.25rem;
+    gap: var(--space-5);
     margin-bottom: 2rem;
   }
   

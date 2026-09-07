@@ -131,7 +131,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
 
       <section class="product-section">
         <h2>Who is Varve for?</h2>
-        <div class="audience-grid">
+        <div class="audience-grid site-card-grid">
           <div class="audience-card site-card site-card--surface audience-card-terracotta">
             <span class="audience-icon" aria-hidden="true">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
@@ -312,7 +312,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
   .audience-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 1.5rem;
+    gap: var(--space-6);
     margin-top: 1.5rem;
   }
   

@@ -12,7 +12,7 @@ import { sitePath } from '../lib/siteUrl';
         learning Varve.
       </p>
 
-      <div class="learn-grid">
+      <div class="learn-grid site-card-grid">
         <a href={sitePath('/learn/tutorials')} class="learn-card site-card site-card--interactive">
           <h2>Tutorials</h2>
           <p>Step-by-step tutorials to get started with Varve</p>
@@ -64,7 +64,7 @@ import { sitePath } from '../lib/siteUrl';
   .learn-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr));
-    gap: 1.5rem;
+    gap: var(--space-6);
     margin-bottom: 3rem;
   }
   

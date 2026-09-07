@@ -47,10 +47,14 @@ actions.
 5. Use stable media aspect ratios, `Thumbnail` where the product has a
    thumbnail contract, meaningful alt text, lazy loading for noncritical
    images, and explicit loading/error/missing states.
-6. Never put an invisible link over independent controls. Stop propagation at
+6. Arrange card collections with tokenized gaps, `auto-fit`/`auto-fill`,
+   `minmax(min(..., 100%), 1fr)`, `min-width: 0`, and stretch alignment where
+   equal row rhythm is useful. Home's virtualized grid keeps its measured
+   16px gap and 220px card footprint synchronized with the CSS token.
+7. Never put an invisible link over independent controls. Stop propagation at
    the actual nested control boundary and give every action an accessible
    name.
-7. Hover is restrained border/surface feedback. Spotlight, glow, 3D, flip,
+8. Hover is restrained border/surface feedback. Spotlight, glow, 3D, flip,
    and entrance effects are opt-in treatments for rare marketing moments only;
    they are not part of `Card`.
 
