@@ -324,6 +324,13 @@ pub struct ChannelOffset {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ChannelColors {
+    pub red: EngineColor,
+    pub green: EngineColor,
+    pub blue: EngineColor,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all_fields = "camelCase")]
 pub enum Effect {
     #[serde(rename = "dropShadow")]
@@ -431,6 +438,8 @@ pub enum Effect {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         id: Option<String>,
         offsets: ChannelOffset,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        channel_colors: Option<ChannelColors>,
         intensity: f64,
         blend_mode: BlendMode,
         opacity: f64,

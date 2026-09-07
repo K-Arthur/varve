@@ -129,6 +129,11 @@ export function createDefaultEffect(type: Effect['type'], id = effectId()): Effe
         id,
         type,
         offsets: { redX: 3, redY: 0, greenX: 0, greenY: 0, blueX: -3, blueY: 0 },
+        channelColors: {
+          red: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
+          green: { space: 'rgb', r: 0, g: 255, b: 0, a: 255 },
+          blue: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 },
+        },
         intensity: 1,
         blendMode: 'normal',
         opacity: 1,

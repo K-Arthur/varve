@@ -377,6 +377,72 @@ function paintFillsAndStrokes(
 }
 
 /**
+ * Backdrop effects use the same visible alpha as shadows for text, raster
+ * layers, and image-filled/translucent objects. A geometric clip would blur
+ * through the empty parts of a text box or transparent PNG.
+ */
+function createBackdropAlphaMask(
+  item: RenderItem,
+  matrix: { a: number; b: number; c: number; d: number; e: number; f: number },
+  screen: { x: number; y: number; w: number; h: number },
+): ReturnType<typeof createEffectBuffer> {
+  if (!itemNeedsAlphaShadow(item)) return null;
+  const mask = createEffectBuffer(screen.w, screen.h);
+  if (!mask) return null;
+  const ctx = mask.ctx;
+  ctx.save();
+  ctx.setTransform(
+    matrix.a,
+    matrix.b,
+    matrix.c,
+    matrix.d,
+    matrix.e - screen.x,
+    matrix.f - screen.y,
+  );
+  renderShadowSource(ctx as unknown as ReplayTarget, item, shadowOps);
+  ctx.restore();
+  return mask;
+}
+
+function compositeBackdropSurface(
+  target: ReplayTarget,
+  source: HTMLCanvasElement | OffscreenCanvas,
+  mask: ReturnType<typeof createEffectBuffer>,
+  item: RenderItem,
+  localRect: { x: number; y: number; w: number; h: number },
+  screen: { w: number; h: number },
+): void {
+  target.save();
+  if (mask) {
+    const masked = createEffectBuffer(screen.w, screen.h);
+    if (masked) {
+      masked.ctx.drawImage(source as unknown as CanvasImageSource, 0, 0);
+      masked.ctx.globalCompositeOperation = 'destination-in';
+      masked.ctx.drawImage(mask.canvas as unknown as CanvasImageSource, 0, 0);
+      target.drawImage?.(
+        masked.canvas as unknown as CanvasImageSource,
+        localRect.x,
+        localRect.y,
+        localRect.w,
+        localRect.h,
+      );
+    }
+  } else {
+    target.beginPath();
+    traceOutline(target, item.primitive);
+    target.clip?.();
+    target.drawImage?.(
+      source as unknown as CanvasImageSource,
+      localRect.x,
+      localRect.y,
+      localRect.w,
+      localRect.h,
+    );
+  }
+  target.restore();
+}
+
+/**
  * Capture the canvas backdrop behind an item, blur it, and composite clipped to the shape.
  * Must run before the item's own fills are painted.
  */
@@ -401,18 +467,21 @@ function paintBackgroundBlur(
   const screen = computeScreenBounds(m, lx, ly, lw, lh);
   const sw = screen.w;
   const sh = screen.h;
+  const alphaMask = createBackdropAlphaMask(item, m, screen);
 
   // ── Backdrop cache lookup ─────────────────────────────────────
   const cacheKeyInput = backdropCacheKey(lx, ly, lw, lh, m, item.transform, effect.radius);
   const cached = getBackdropCache(cacheKeyInput);
   if (cached) {
-    // Cache hit: composite the pre-blurred backdrop clipped to shape
-    target.save();
-    target.beginPath();
-    traceOutline(target, item.primitive);
-    if (target.clip) target.clip();
-    target.drawImage(cached.canvas as CanvasImageSource, lx, ly, lw, lh);
-    target.restore();
+    // Cache hit: composite the pre-blurred backdrop through visible alpha.
+    compositeBackdropSurface(
+      target,
+      cached.canvas,
+      alphaMask,
+      item,
+      { x: lx, y: ly, w: lw, h: lh },
+      screen,
+    );
     return;
   }
 
@@ -423,12 +492,14 @@ function paintBackgroundBlur(
   // ── Store in cache ────────────────────────────────────────────
   setBackdropCache(cacheKeyInput, cc.canvas);
 
-  target.save();
-  target.beginPath();
-  traceOutline(target, item.primitive);
-  if (target.clip) target.clip();
-  target.drawImage(cc.canvas as unknown as CanvasImageSource, lx, ly, lw, lh);
-  target.restore();
+  compositeBackdropSurface(
+    target,
+    cc.canvas,
+    alphaMask,
+    item,
+    { x: lx, y: ly, w: lw, h: lh },
+    screen,
+  );
 }
 
 /**
@@ -463,6 +534,7 @@ function paintGlassMaterial(
   const screen = computeScreenBounds(m, lx, ly, lw, lh);
   const sw = screen.w;
   const sh = screen.h;
+  const alphaMask = createBackdropAlphaMask(item, m, screen);
 
   const cc = new CompositeCanvas({ width: sw, height: sh, devicePixelRatio: 1 });
   cc.captureSource(canvas, screen.x, screen.y, sw, sh, 0, 0);
@@ -473,13 +545,15 @@ function paintGlassMaterial(
   // Steps 2-5: tint, saturation, brightness, noise (shared pipeline)
   applyGlassMaterialBackdrop(cc, sw, sh, effect);
 
-  // Composite the processed backdrop clipped to the shape
-  target.save();
-  target.beginPath();
-  traceOutline(target, item.primitive);
-  if (target.clip) target.clip();
-  target.drawImage(cc.canvas as unknown as CanvasImageSource, lx, ly, lw, lh);
-  target.restore();
+  // Composite the processed backdrop through visible content alpha.
+  compositeBackdropSurface(
+    target,
+    cc.canvas,
+    alphaMask,
+    item,
+    { x: lx, y: ly, w: lw, h: lh },
+    screen,
+  );
 }
 
 /**

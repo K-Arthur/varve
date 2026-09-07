@@ -32,12 +32,25 @@ import StatusPill from '../../components/StatusPill.astro';
       <section class="feature-section">
         <h2>Coverage that follows the pixels</h2>
         <p>
-          Text effects follow shaped glyphs, counters, decorations, and strokes. Raster and image effects follow true alpha, transparent holes, crop placement, sparse tiles, and background-removal masks. Gradient, pattern, translucent, and stroke-only vector content use the painted coverage when a geometric outline would be misleading.
+          Text effects follow shaped glyphs, counters, decorations, and strokes—not the invisible text box. Raster and image effects follow true alpha, transparent holes, crop placement, sparse tiles, and background-removal masks, so a cut-out PNG does not receive a rectangular shadow. Gradient, pattern, translucent, and stroke-only vector content use the painted coverage when a geometric outline would be misleading.
         </p>
         <div class="coverage-grid">
           <article><h3>Editable text</h3><p>Keep the font, rich formatting, transforms, and text content editable while shadows and glows follow the glyphs.</p></article>
           <article><h3>Raster layers</h3><p>Apply appearance effects to sparse tile surfaces without rerunning or replacing the original pixels.</p></article>
           <article><h3>Groups and frames</h3><p>Apply one composited-child silhouette at the container owner, preserving child ownership and clipping.</p></article>
+        </div>
+      </section>
+
+      <section class="feature-section feature-section--highlight">
+        <h2>Controls that match the effect</h2>
+        <p>
+          Each effect has its own vocabulary instead of inheriting a one-size-fits-all panel. Tune the things that define the look, then keep the source editable.
+        </p>
+        <div class="control-grid">
+          <article><h3>Shadows and glows</h3><p>Offset, blur, positive or negative spread, colour, opacity, and blend mode.</p></article>
+          <article><h3>Chromatic aberration</h3><p>Independent channel offsets plus editable red, green, and blue channel colours.</p></article>
+          <article><h3>Glitch</h3><p>Direction, seed, density, slices, blocks, channel shifts, noise, scanlines, and blend mode.</p></article>
+          <article><h3>Glass and depth</h3><p>Tint, saturation, brightness, noise, edge highlight, focus range, falloff, and depth inversion.</p></article>
         </div>
       </section>
 
@@ -98,7 +111,8 @@ import StatusPill from '../../components/StatusPill.astro';
   .feature-section h3 { font-size: 1rem; margin: .5rem 0; color: var(--text-primary); }
   .feature-section p, .feature-section li { color: var(--text-secondary); line-height: 1.7; }
   .stage-grid, .coverage-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1.5rem; }
-  .coverage-grid article, .stage-grid article { padding: 1rem; border: 1px solid var(--border-subtle); border-radius: .75rem; }
+  .control-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-top: 1.5rem; }
+  .coverage-grid article, .stage-grid article, .control-grid article { padding: 1rem; border: 1px solid var(--border-subtle); border-radius: .75rem; }
   .stage-number { color: var(--accent-primary); font-variant-numeric: tabular-nums; font-size: .8rem; }
   .support-table-wrap { overflow-x: auto; border: 1px solid var(--border-subtle); border-radius: .75rem; }
   .support-table { width: 100%; border-collapse: collapse; min-width: 560px; }
@@ -110,5 +124,5 @@ import StatusPill from '../../components/StatusPill.astro';
   .feature-note { font-size: .9rem; }
   .feature-cta { margin-top: 4rem; padding-top: 2rem; border-top: 1px solid var(--border-subtle); text-align: center; }
   .feature-cta h2 { margin-bottom: 1rem; }
-  @media (max-width: 700px) { .stage-grid, .coverage-grid { grid-template-columns: 1fr; } .feature-page { padding: 2rem 0; } }
+  @media (max-width: 700px) { .stage-grid, .coverage-grid, .control-grid { grid-template-columns: 1fr; } .feature-page { padding: 2rem 0; } }
 </style>

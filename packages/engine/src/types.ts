@@ -169,6 +169,13 @@ export interface ChannelOffset {
   blueY: number;
 }
 
+/** Optional colour tints for the three chromatic-aberration source channels. */
+export interface ChannelColors {
+  red: EngineColor;
+  green: EngineColor;
+  blue: EngineColor;
+}
+
 export type EffectMaskSourceIR =
   | { kind: 'scene-node'; nodeId: string }
   | { kind: 'raster-asset'; assetId: string; src?: string }
@@ -265,6 +272,8 @@ type EffectVariant =
   | {
       type: 'chromaticAberration';
       offsets: ChannelOffset;
+      /** Optional per-channel tints; omitted means preserve source RGB channels. */
+      channelColors?: ChannelColors;
       intensity: number;
       blendMode: BlendMode;
       opacity: number;

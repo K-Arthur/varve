@@ -1444,7 +1444,8 @@ describe('effects rendering', () => {
       primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
     };
     replayIr(rec.target, [item]);
-    expect(rec.calls.some((c) => c.startsWith('fill'))).toBe(true);
+    // Content effects render fills into an offscreen surface. The recorder
+    // therefore sees the composited drawImage, not a direct target fill.
     expect(rec.calls.some((c) => c.startsWith('drawImage'))).toBe(true);
     const filterSets = rec.calls.filter((c) => c === 'set filter');
     expect(filterSets.length).toBeGreaterThanOrEqual(1);
@@ -1540,6 +1541,9 @@ describe('effects rendering', () => {
 
   it('two drop shadows are rendered independently', () => {
     const rec = recorder();
+    rec.target.drawImage = (...args: unknown[]) => {
+      rec.calls.push(`drawImage(${args.length})`);
+    };
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
       fill: { space: 'rgb', r: 127, g: 127, b: 127, a: 255 },
@@ -1567,17 +1571,37 @@ describe('effects rendering', () => {
           visible: true,
         },
       ],
-      primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+      primitive: {
+        kind: 'text',
+        text: 'Aa',
+        fontSize: 20,
+        fontFamily: 'Inter',
+        fontWeight: 400,
+        fontStyle: 'normal',
+        textAlign: 'left',
+        textAlignVertical: 'top',
+        letterSpacing: 0,
+        lineHeight: 1.4,
+        paragraphSpacing: 0,
+        textCase: 'none',
+        textDecoration: 'none',
+        textOverflow: 'visible',
+        listStyle: 'none',
+        x: 0,
+        y: 0,
+        w: 50,
+        h: 50,
+      },
     };
     replayIr(rec.target, [item]);
-    // Each shadow creates its own save/restore pair
-    const saves = rec.calls.filter((c) => c.startsWith('save'));
-    const fills = rec.calls.filter((c) => c === 'fill(0)');
-    // 1 for the item + 2 for the shadows = 3 saves
-    expect(saves.length).toBeGreaterThanOrEqual(3);
-    // Effects pass now uses fill() (via traceOutline) instead of fillRect for shadows
-    // 2 fill() calls for shadows via outline trace
-    expect(fills.length).toBeGreaterThanOrEqual(2);
+    // The text source forces the alpha-aware path. The target receives one
+    // independent shadow-only surface per effect; text itself is painted with
+    // fillText rather than drawImage.
+    expect(rec.calls.filter((call) => call.startsWith('drawImage')).length).toBeGreaterThanOrEqual(
+      2,
+    );
+    const blendCalls = rec.calls.filter((call) => call === 'set globalCompositeOperation');
+    expect(blendCalls.length).toBeGreaterThanOrEqual(2);
   });
 });
 
@@ -2097,7 +2121,7 @@ describe('multi-item compositing edge cases', () => {
       expect(__getBackdropCacheSize()).toBe(1);
     });
 
-    it('creates a new cache entry when blur radius changes', async () => {
+    it('replaces the replay-scoped cache entry when blur radius changes', async () => {
       const { __getBackdropCacheSize, __clearBackdropCache: clr } = await import('./replay');
       clr();
 
@@ -2108,11 +2132,12 @@ describe('multi-item compositing edge cases', () => {
       expect(sizeAfterFirst).toBe(1);
 
       replayIr(target, [makeBlurItem({ radius: 8 })]);
-      // Cache miss — a second entry created
-      expect(__getBackdropCacheSize()).toBe(2);
+      // Cache is intentionally scoped to one replay; the second replay starts
+      // clean and stores the new radius rather than retaining stale pixels.
+      expect(__getBackdropCacheSize()).toBe(1);
     });
 
-    it('creates a new cache entry when transform changes', async () => {
+    it('replaces the replay-scoped cache entry when transform changes', async () => {
       const { __getBackdropCacheSize, __clearBackdropCache: clr } = await import('./replay');
       clr();
 
@@ -2123,7 +2148,7 @@ describe('multi-item compositing edge cases', () => {
 
       // Different transform → different screen-space bounds → cache miss
       replayIr(target, [makeBlurItem({ transform: [2, 0, 0, 2, 0, 0] })]);
-      expect(__getBackdropCacheSize()).toBe(2);
+      expect(__getBackdropCacheSize()).toBe(1);
     });
 
     it('limits cache to 20 entries (LRU eviction)', async () => {

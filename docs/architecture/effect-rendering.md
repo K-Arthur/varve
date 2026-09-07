@@ -9,10 +9,9 @@ pass-level implementation.
 ## Pass structure
 
 Every `RenderItem` with effects goes through 5 rendering passes in
-`packages/engine/src/replay.ts`. All passes iterate `item.effects` in
-**array order** — there is no sorting or reordering. Each pass handles
-a specific subset of effect types via `if/else if` dispatch and
-`continue` for already-processed types.
+`packages/engine/src/replay.ts`. The authored array is filtered by effect
+stage; there is no hidden sort. Each stage preserves array order for the
+effects it owns, while the stage order is explicit and deterministic.
 
 ### Effect-local masks (staged)
 
@@ -57,8 +56,11 @@ effected subtree unless the target backend can reproduce the canonical pixels.
 
 Processes: `backgroundBlur`, `glassMaterial` backdrop
 
-Captures the canvas region behind the item **before any fills** are
-painted. Results are composited behind the item's content.
+Captures the canvas region behind the item **before any fills** are painted.
+The processed surface is composited through the item's visible alpha when the
+owner is text, raster, or image-backed content; a geometric clip is used only
+when it is equivalent to the painted coverage. Results are composited behind
+the item's content.
 
 ### Pass 2 — Fills + Strokes (lines 715–754)
 
@@ -76,10 +78,10 @@ Each effect gets its own `save()`/`restore()` scope:
 
 | Effect | Compositing | Visible position |
 |--------|------------|------------------|
-| `dropShadow` | `destination-over` | Behind content |
-| `outerGlow` | `destination-over` | Behind content (zero-offset shadow) |
+| `dropShadow` | shadow-only surface + effect blend mode | Behind content |
+| `outerGlow` | shadow-only surface + effect blend mode | Behind content (zero-offset shadow) |
 | `innerShadow` | `source-over` | On top, clipped to shape |
-| `innerGlow` | `source-over` | On top, clipped to shape |
+| `innerGlow` | effect blend mode | On top, clipped to visible alpha |
 
 ### Pass 4 — Glass material edge highlight (lines 806–813)
 
@@ -96,15 +98,17 @@ via `target.filter`.
 
 ## Verified invariants
 
-1. **Array-order within each pass, no sort.** Every pass iterates
+1. **Array-order within each stage, no sort.** Every stage iterates
    `item.effects` in its original array order. Type filtering means this is
-   not a globally ordered stack across pass categories.
+   not a globally ordered stack across stage categories.
 2. **Cross-pass ordering is correct.** Backdrop → fills → content →
    main effects → edge highlight → post-render filters.
 3. **Per-effect save/restore.** Each main effect renders independently;
    a failing effect never corrupts subsequent effects.
-4. **Compositing modes are correct.** `destination-over` places shadows
-   behind content; `source-over` places inner shadows on top.
+4. **Compositing modes are correct.** Outer effects are rendered as
+   shadow-only surfaces, so effect blend modes can be honoured without
+   repainting the source over an opaque backdrop. Inner effects are clipped to
+   visible alpha and use their authored blend mode.
 5. **Figma/Illustrator semantic parity.** dropShadow = behind content,
    innerShadow = on top. Verified 2026-07-20.
 
@@ -121,6 +125,31 @@ The renderer never sorts the authored array behind the user's back. The array
 remains the persistence and mask-identity contract; stage-aware controls are the
 editing contract that makes the fixed pass order honest.
 
+## Effect-specific controls
+
+The inspector intentionally does not present one generic parameter group for
+every effect:
+
+- shadows expose offset, blur, positive/negative spread, opacity, colour, and
+  blend mode;
+- glows expose blur, spread, opacity, colour, and blend mode;
+- layer/background blur expose radius independently;
+- depth blur exposes focus depth/range, strength, falloff, inversion, and edge
+  protection, and remains neutral when no depth resource is attached;
+- glass exposes blur, tint, tint opacity, saturation, brightness, noise, and
+  configurable edge highlight colour/width/opacity;
+- chromatic aberration exposes independent channel offsets, channel colours,
+  intensity, opacity, and blend mode;
+- glitch exposes displacement direction, deterministic seed, density, slice
+  and block controls, channel shifts, noise, scanlines, opacity, and blend
+  mode.
+
+These semantics follow the effect-specific controls documented by
+[Figma's layer effects guide](https://help.figma.com/hc/en-us/articles/360041488473-Apply-shadow-or-blur-effects),
+[Adobe's layer-style reference](https://helpx.adobe.com/photoshop/desktop/create-manage-layers/apply-layer-effects/layer-style-effects-and-options-overview.html),
+and the alpha/compositing rules in the [W3C Filter Effects specification](https://www.w3.org/TR/filter-effects-1/)
+and [W3C Compositing specification](https://www.w3.org/TR/compositing-1/).
+
 ## Summary
 
 ```
@@ -136,10 +165,10 @@ Pass 4: glassMaterial.edgeHighlight
 Pass 5: post-render filters (complex)
 ```
 
-Each pass iterates `item.effects` in array order. Type dispatch determines which
-pass handles each effect. Cross-pass order is hardcoded by the pass structure; it
-is deterministic, but it is not equivalent to a globally reorderable effect
-stack.
+Each pass filters `item.effects` without sorting it. Type dispatch determines
+which pass handles each effect. Cross-pass order is hardcoded by the pass
+structure; it is deterministic, but it is not equivalent to a globally
+reorderable effect stack.
 
 ## Live effects (2026-08-07)
 

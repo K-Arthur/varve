@@ -9,6 +9,7 @@
  */
 import type {
   BlendMode,
+  ChannelColors,
   ChannelOffset,
   Effect,
   EffectMaskBinding,
@@ -627,6 +628,70 @@ function LinkedChannelOffsets({
   );
 }
 
+const DEFAULT_CHROMATIC_CHANNEL_COLORS: ChannelColors = {
+  red: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
+  green: { space: 'rgb', r: 0, g: 255, b: 0, a: 255 },
+  blue: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 },
+};
+
+function ChromaticChannelColors({
+  nodes,
+  index,
+  onChange,
+}: {
+  nodes: EffectNode[];
+  index: number;
+  onChange: (updater: (e: Effect) => Effect) => void;
+}) {
+  const { documentColorMode, beginTransaction, commitTransaction } = useEditor();
+  const channels = [
+    ['red', 'Red'] as const,
+    ['green', 'Green'] as const,
+    ['blue', 'Blue'] as const,
+  ];
+
+  return (
+    <FieldRow label="Channel colour">
+      <InspectorFieldGroup columns={3}>
+        {channels.map(([key, label]) => {
+          const raw = commonValue(nodes, (n) => {
+            const effect = getEffect(n, index);
+            return effect?.type === 'chromaticAberration'
+              ? (effect.channelColors?.[key] ?? DEFAULT_CHROMATIC_CHANNEL_COLORS[key])
+              : DEFAULT_CHROMATIC_CHANNEL_COLORS[key];
+          });
+          const color = isMixed(raw) ? DEFAULT_CHROMATIC_CHANNEL_COLORS[key] : raw;
+          return (
+            <InspectorColorPopover
+              key={key}
+              label={`${label} channel colour`}
+              tooltipLabel={`${label} channel colour`}
+              value={color}
+              onChange={(next) =>
+                onChange((effect) => {
+                  if (effect.type !== 'chromaticAberration') return effect;
+                  return {
+                    ...effect,
+                    channelColors: {
+                      ...DEFAULT_CHROMATIC_CHANNEL_COLORS,
+                      ...(effect.channelColors ?? {}),
+                      [key]: next,
+                    },
+                  };
+                })
+              }
+              swatchStyle={{ background: toSwatchBg(color) }}
+              documentColorMode={documentColorMode}
+              onEditStart={beginTransaction}
+              onEditEnd={commitTransaction}
+            />
+          );
+        })}
+      </InspectorFieldGroup>
+    </FieldRow>
+  );
+}
+
 function ChromaticAberrationParams({
   nodes,
   index,
@@ -709,6 +774,7 @@ function ChromaticAberrationParams({
           }
         />
       )}
+      <ChromaticChannelColors nodes={nodes} index={index} onChange={onChange} />
     </div>
   );
 }
@@ -849,6 +915,10 @@ function GlitchParams({
     if (e && e.type === 'glitch') return e.direction;
     return 'horizontal';
   });
+  const blendRaw = commonValue(nodes, (n) => {
+    const e = getEffect(n, index);
+    return e?.type === 'glitch' ? e.blendMode : 'normal';
+  });
 
   return (
     <div className="insp-effect-params">
@@ -908,6 +978,23 @@ function GlitchParams({
               e.type === 'glitch'
                 ? { ...e, direction: v as 'horizontal' | 'vertical' | 'both' }
                 : e,
+            );
+          }}
+          placeholder="Mixed"
+        />
+      </FieldRow>
+      <FieldRow label="Blend">
+        <Select
+          label="Glitch blend mode"
+          value={isMixed(blendRaw) ? '' : blendRaw}
+          options={[
+            ...(isMixed(blendRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []),
+            ...BLEND_OPTIONS,
+          ]}
+          onChange={(value) => {
+            if (!value) return;
+            onChange((effect) =>
+              effect.type === 'glitch' ? { ...effect, blendMode: value as BlendMode } : effect,
             );
           }}
           placeholder="Mixed"
@@ -1419,6 +1506,7 @@ function ShadowParams({
           value={isMixed(spreadRaw) ? 0 : spreadRaw}
           mixed={isMixed(spreadRaw)}
           step={1}
+          min={-2048}
           onChange={(v) =>
             onChange((e) =>
               e.type === 'dropShadow' || e.type === 'innerShadow' ? { ...e, spread: v } : e,
@@ -1515,7 +1603,7 @@ function GlowParams({
           value={isMixed(spreadRaw) ? 0 : spreadRaw}
           mixed={isMixed(spreadRaw)}
           step={1}
-          min={0}
+          min={-2048}
           onChange={(v) =>
             onChange((e) => {
               if (e.type === 'outerGlow' || e.type === 'innerGlow') return { ...e, spread: v };
@@ -1620,36 +1708,112 @@ function DepthBlurParams({
     const effect = getEffect(n, index);
     return effect?.type === 'depthBlur' ? effect.blurStrength : 0;
   });
+  const rangeRaw = commonValue(nodes, (n) => {
+    const effect = getEffect(n, index);
+    return effect?.type === 'depthBlur' ? effect.focusRange * 100 : 20;
+  });
+  const falloffRaw = commonValue(nodes, (n) => {
+    const effect = getEffect(n, index);
+    return effect?.type === 'depthBlur' ? effect.falloff * 100 : 100;
+  });
+  const edgeRaw = commonValue(nodes, (n) => {
+    const effect = getEffect(n, index);
+    return effect?.type === 'depthBlur' ? effect.edgeProtection * 100 : 3.5;
+  });
+  const invertRaw = commonValue(nodes, (n) => {
+    const effect = getEffect(n, index);
+    return effect?.type === 'depthBlur' ? effect.invert : false;
+  });
   return (
-    <div style={{ paddingLeft: 'var(--space-2)' }}>
-      <NumberField
-        label="Focus depth"
-        value={isMixed(focusRaw) ? 50 : focusRaw}
-        mixed={isMixed(focusRaw)}
-        min={0}
-        max={100}
-        step={1}
-        unit="%"
-        onChange={(value) =>
-          onChange((effect) =>
-            effect.type === 'depthBlur' ? { ...effect, focusDepth: value / 100 } : effect,
-          )
-        }
-      />
-      <NumberField
-        label="Blur strength"
-        value={isMixed(blurRaw) ? 0 : blurRaw}
-        mixed={isMixed(blurRaw)}
-        min={0}
-        max={4096}
-        step={1}
-        unit="px"
-        onChange={(value) =>
-          onChange((effect) =>
-            effect.type === 'depthBlur' ? { ...effect, blurStrength: value } : effect,
-          )
-        }
-      />
+    <div className="insp-effect-params">
+      <InspectorFieldGroup columns={2}>
+        <NumberField
+          label="Focus depth"
+          value={isMixed(focusRaw) ? 50 : focusRaw}
+          mixed={isMixed(focusRaw)}
+          min={0}
+          max={100}
+          step={1}
+          unit="%"
+          onChange={(value) =>
+            onChange((effect) =>
+              effect.type === 'depthBlur' ? { ...effect, focusDepth: value / 100 } : effect,
+            )
+          }
+        />
+        <NumberField
+          label="Focus range"
+          value={isMixed(rangeRaw) ? 20 : rangeRaw}
+          mixed={isMixed(rangeRaw)}
+          min={0}
+          max={100}
+          step={1}
+          unit="%"
+          onChange={(value) =>
+            onChange((effect) =>
+              effect.type === 'depthBlur' ? { ...effect, focusRange: value / 100 } : effect,
+            )
+          }
+        />
+      </InspectorFieldGroup>
+      <InspectorFieldGroup columns={2}>
+        <NumberField
+          label="Blur strength"
+          value={isMixed(blurRaw) ? 0 : blurRaw}
+          mixed={isMixed(blurRaw)}
+          min={0}
+          max={4096}
+          step={1}
+          unit="px"
+          onChange={(value) =>
+            onChange((effect) =>
+              effect.type === 'depthBlur' ? { ...effect, blurStrength: value } : effect,
+            )
+          }
+        />
+        <NumberField
+          label="Falloff"
+          value={isMixed(falloffRaw) ? 100 : falloffRaw}
+          mixed={isMixed(falloffRaw)}
+          min={0}
+          max={100}
+          step={1}
+          unit="%"
+          onChange={(value) =>
+            onChange((effect) =>
+              effect.type === 'depthBlur' ? { ...effect, falloff: value / 100 } : effect,
+            )
+          }
+        />
+      </InspectorFieldGroup>
+      <InspectorFieldGroup columns={2}>
+        <NumberField
+          label="Edge protection"
+          value={isMixed(edgeRaw) ? 3.5 : edgeRaw}
+          mixed={isMixed(edgeRaw)}
+          min={0}
+          max={100}
+          step={0.5}
+          unit="%"
+          onChange={(value) =>
+            onChange((effect) =>
+              effect.type === 'depthBlur' ? { ...effect, edgeProtection: value / 100 } : effect,
+            )
+          }
+        />
+        <button
+          type="button"
+          className={`insp-toggle-btn${isMixed(invertRaw) || invertRaw ? ' --active' : ''}`}
+          aria-pressed={isMixed(invertRaw) ? 'mixed' : invertRaw}
+          onClick={() =>
+            onChange((effect) =>
+              effect.type === 'depthBlur' ? { ...effect, invert: !effect.invert } : effect,
+            )
+          }
+        >
+          {isMixed(invertRaw) ? 'Mixed depth' : invertRaw ? 'Invert depth' : 'Normal depth'}
+        </button>
+      </InspectorFieldGroup>
     </div>
   );
 }
@@ -1778,6 +1942,45 @@ function GlassMaterialParams({
           />
         ) : null}
       </InspectorFieldGroup>
+      <GlassEdgeHighlightColor nodes={nodes} index={index} onChange={onChange} />
     </div>
+  );
+}
+
+function GlassEdgeHighlightColor({
+  nodes,
+  index,
+  onChange,
+}: {
+  nodes: EffectNode[];
+  index: number;
+  onChange: (updater: (e: Effect) => Effect) => void;
+}) {
+  const { documentColorMode, beginTransaction, commitTransaction } = useEditor();
+  const raw = commonValue(nodes, (n) => {
+    const effect = getEffect(n, index);
+    return effect?.type === 'glassMaterial'
+      ? effect.edgeHighlightColor
+      : ({ space: 'rgb', r: 255, g: 255, b: 255, a: 120 } as ManagedColor);
+  });
+  const color = isMixed(raw)
+    ? ({ space: 'rgb', r: 255, g: 255, b: 255, a: 120 } as ManagedColor)
+    : raw;
+  return (
+    <FieldRow label="Edge colour">
+      <InspectorColorPopover
+        label="Glass edge highlight colour"
+        value={color}
+        onChange={(next) =>
+          onChange((effect) =>
+            effect.type === 'glassMaterial' ? { ...effect, edgeHighlightColor: next } : effect,
+          )
+        }
+        swatchStyle={{ background: toSwatchBg(color) }}
+        documentColorMode={documentColorMode}
+        onEditStart={beginTransaction}
+        onEditEnd={commitTransaction}
+      />
+    </FieldRow>
   );
 }

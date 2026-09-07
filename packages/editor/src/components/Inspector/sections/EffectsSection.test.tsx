@@ -485,6 +485,16 @@ describe('EffectsSection — chromatic aberration', () => {
     );
     expect(screen.getByLabelText('Aberration blend mode')).toBeTruthy();
   });
+
+  it('renders independent colour controls for the red, green, and blue channels', () => {
+    render(<EffectsSection nodes={[nodeWithChromaticAberration('n1')]} />);
+    fireEvent.click(
+      screen.getByRole('button', { name: /expand chromatic aberration parameters/i }),
+    );
+    expect(screen.getByLabelText('Red channel colour')).toBeTruthy();
+    expect(screen.getByLabelText('Green channel colour')).toBeTruthy();
+    expect(screen.getByLabelText('Blue channel colour')).toBeTruthy();
+  });
 });
 
 describe('EffectsSection — glitch', () => {
@@ -523,6 +533,12 @@ describe('EffectsSection — glitch', () => {
     render(<EffectsSection nodes={[nodeWithGlitch('n1')]} />);
     fireEvent.click(screen.getByRole('button', { name: /expand glitch parameters/i }));
     expect(screen.getByLabelText('Glitch direction')).toBeTruthy();
+  });
+
+  it('renders a glitch blend mode selector once expanded', () => {
+    render(<EffectsSection nodes={[nodeWithGlitch('n1')]} />);
+    fireEvent.click(screen.getByRole('button', { name: /expand glitch parameters/i }));
+    expect(screen.getByLabelText('Glitch blend mode')).toBeTruthy();
   });
 
   it('shows advanced section on click', async () => {

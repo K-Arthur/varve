@@ -16,6 +16,7 @@
  * gates).
  */
 
+import { mapBlendMode } from './compositeCanvas';
 import type { ReplayTarget } from './replay';
 import type { EngineColor, FillIR, RenderItem, Stroke } from './types';
 
@@ -26,6 +27,14 @@ export type EffectBuffer = {
 
 /** Maximum per-side effect padding (guards against malformed parameter values). */
 const MAX_EFFECT_PAD = 2048;
+
+function effectCompositeMode(mode: string | undefined): GlobalCompositeOperation {
+  try {
+    return mapBlendMode(mode ?? 'normal') as GlobalCompositeOperation;
+  } catch {
+    return 'source-over';
+  }
+}
 
 /** Return a finite number, falling back to `fallback` for NaN/Infinity/absent. */
 function finiteOr(v: number | undefined, fallback: number): number {
@@ -214,39 +223,73 @@ export function paintGeometricDropShadow(
     y: number;
     color: EngineColor;
     opacity?: number;
+    blendMode?: string;
   },
   ops: ShadowOps,
 ): void {
-  target.save();
-  target.shadowColor = ops.rgba(effect.color);
-  target.shadowBlur = finiteOr(effect.blur, 0);
-  target.shadowOffsetX = finiteOr(effect.x, 0);
-  target.shadowOffsetY = finiteOr(effect.y, 0);
-  target.globalAlpha = (item.opacity ?? 1) * (effect.opacity ?? 1);
-  target.globalCompositeOperation = 'destination-over';
-  target.fillStyle = ops.rgba(effect.color);
-  target.beginPath();
-  ops.traceOutline(target, item.primitive);
-  target.fill();
+  const bounds = ops.primitiveBounds(item.primitive);
+  const pad = Math.min(
+    MAX_EFFECT_PAD,
+    Math.ceil(
+      finiteOr(effect.blur, 0) * 3 +
+        Math.max(Math.abs(finiteOr(effect.x, 0)), Math.abs(finiteOr(effect.y, 0))),
+    ),
+  );
+  const ow = Math.ceil(bounds.w + pad * 2);
+  const oh = Math.ceil(bounds.h + pad * 2);
+  if (ow <= 0 || oh <= 0) return;
 
-  const strokes = item.strokes?.filter((s) => s.visible) ?? [];
-  if (strokes.length > 0) {
-    for (const stroke of strokes) {
-      target.save();
-      target.strokeStyle = ops.rgba(effect.color);
-      target.lineWidth = stroke.weight;
-      target.lineCap = stroke.cap as CanvasLineCap;
-      target.lineJoin = stroke.join as CanvasLineJoin;
-      target.lineDashOffset = stroke.dashOffset ?? 0;
-      if (stroke.dashPattern && stroke.dashPattern.length > 0) {
-        target.setLineDash(stroke.dashPattern);
-      }
-      target.beginPath();
-      ops.traceOutline(target, item.primitive);
-      target.stroke();
-      target.restore();
+  const buffer = ops.createEffectBuffer(ow, oh);
+  if (!buffer) return;
+  const bufferCtx = buffer.ctx;
+  const localTarget = bufferCtx as unknown as ReplayTarget;
+  const drawGeometry = (): void => {
+    localTarget.beginPath();
+    ops.traceOutline(localTarget, item.primitive);
+    localTarget.fill();
+    for (const stroke of item.strokes?.filter((s) => s.visible) ?? []) {
+      localTarget.lineWidth = stroke.weight;
+      localTarget.lineCap = stroke.cap as CanvasLineCap;
+      localTarget.lineJoin = stroke.join as CanvasLineJoin;
+      localTarget.lineDashOffset = stroke.dashOffset ?? 0;
+      localTarget.setLineDash(stroke.dashPattern ?? []);
+      localTarget.beginPath();
+      ops.traceOutline(localTarget, item.primitive);
+      localTarget.stroke();
     }
-  }
+  };
+
+  // Produce a shadow-only surface. A direct destination-over draw disappears
+  // against an opaque backdrop; a direct source-over draw would repaint the
+  // shape with the shadow colour. Erasing the source after the shadow draw
+  // gives source-over the correct visibility without covering the item.
+  bufferCtx.save();
+  bufferCtx.translate(pad - bounds.x, pad - bounds.y);
+  bufferCtx.shadowColor = ops.rgba(effect.color);
+  bufferCtx.shadowBlur = finiteOr(effect.blur, 0);
+  bufferCtx.shadowOffsetX = finiteOr(effect.x, 0);
+  bufferCtx.shadowOffsetY = finiteOr(effect.y, 0);
+  bufferCtx.fillStyle = ops.rgba(effect.color);
+  bufferCtx.strokeStyle = ops.rgba(effect.color);
+  drawGeometry();
+  bufferCtx.globalCompositeOperation = 'destination-out';
+  bufferCtx.shadowColor = 'transparent';
+  bufferCtx.shadowBlur = 0;
+  bufferCtx.shadowOffsetX = 0;
+  bufferCtx.shadowOffsetY = 0;
+  drawGeometry();
+  bufferCtx.restore();
+
+  target.save();
+  target.globalAlpha = (item.opacity ?? 1) * (effect.opacity ?? 1);
+  target.globalCompositeOperation = effectCompositeMode(effect.blendMode);
+  target.drawImage?.(
+    buffer.canvas as unknown as CanvasImageSource,
+    bounds.x - pad,
+    bounds.y - pad,
+    ow,
+    oh,
+  );
   target.restore();
 }
 
@@ -260,7 +303,10 @@ export function paintGeometricDropShadow(
  *  1. Rasterize the alpha silhouette into `buffer` (see `renderShadowSource`).
  *  2. Draw `buffer` with the Canvas shadow API onto a second canvas, then
  *     erase the source pixels (`destination-out`) — leaving only the shadow.
- *  3. Composite that shadow-only canvas behind the item (`destination-over`).
+ *  3. Composite that shadow-only canvas over the existing backdrop using the
+ *     effect blend mode. The source silhouette has already been removed, so
+ *     this remains behind the item's visible pixels even though the target
+ *     operation is source-over.
  *
  * Composing shadow-only keeps semi-transparent items correct: the silhouette
  * is never re-drawn over the item's already-composited pixels.
@@ -275,6 +321,7 @@ export function paintAlphaAwareDropShadow(
     y: number;
     color: EngineColor;
     opacity?: number;
+    blendMode?: string;
   },
   ops: ShadowOps,
 ): void {
@@ -321,7 +368,7 @@ export function paintAlphaAwareDropShadow(
 
     target.save();
     target.globalAlpha = (item.opacity ?? 1) * (effect.opacity ?? 1);
-    target.globalCompositeOperation = 'destination-over';
+    target.globalCompositeOperation = effectCompositeMode(effect.blendMode);
     target.drawImage?.(
       shadowCanvas.canvas as unknown as CanvasImageSource,
       bounds.x - pad,
@@ -359,6 +406,7 @@ export function paintAlphaAwareInsetEffect(
     opacity?: number;
     x?: number;
     y?: number;
+    blendMode?: string;
   },
   mode: 'shadow' | 'glow',
   ops: ShadowOps,
@@ -427,7 +475,7 @@ export function paintAlphaAwareInsetEffect(
     ops.traceOutline(target, item.primitive);
     if (target.clip) target.clip();
     target.globalAlpha = (item.opacity ?? 1) * (effect.opacity ?? 1);
-    target.globalCompositeOperation = 'source-over';
+    target.globalCompositeOperation = effectCompositeMode(effect.blendMode);
     target.drawImage?.(
       ring.canvas as unknown as CanvasImageSource,
       bounds.x - pad,
@@ -464,7 +512,7 @@ export function paintAlphaAwareInsetEffect(
   ops.traceOutline(target, item.primitive);
   if (target.clip) target.clip();
   target.globalAlpha = (item.opacity ?? 1) * (effect.opacity ?? 1);
-  target.globalCompositeOperation = 'source-over';
+  target.globalCompositeOperation = effectCompositeMode(effect.blendMode);
   target.drawImage?.(
     offscreen as unknown as CanvasImageSource,
     bounds.x - pad,

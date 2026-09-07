@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { CompositeCanvas } from './compositeCanvas';
 import {
   applyBackgroundBlurBackdrop,
+  applyChromaticAberration,
   applyGlassMaterialBackdrop,
   clampByte,
   computeScreenBounds,
@@ -249,6 +250,51 @@ describe('effectPipeline', () => {
         seed: 2,
       });
       expect(first).not.toEqual(second);
+    });
+  });
+
+  describe('applyChromaticAberration', () => {
+    function makePixelCanvas(data: number[], width: number, height: number) {
+      let current = new ImageData(Uint8ClampedArray.from(data), width, height);
+      return {
+        devicePixelRatio: 1,
+        getImageData: () => current,
+        putImageData: (next: ImageData) => {
+          current = next;
+        },
+        pixels: () => current.data,
+      } as unknown as CompositeCanvas & { pixels: () => Uint8ClampedArray };
+    }
+
+    it('expands alpha with displaced channels instead of clipping to the source mask', () => {
+      const cc = makePixelCanvas([255, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0], 3, 1);
+      applyChromaticAberration(cc, 3, 1, {
+        type: 'chromaticAberration',
+        offsets: { redX: 1, redY: 0, greenX: 0, greenY: 0, blueX: 0, blueY: 0 },
+        intensity: 1,
+        blendMode: 'normal',
+        opacity: 1,
+        visible: true,
+      });
+      expect(cc.pixels()[7]).toBe(255);
+    });
+
+    it('applies editable per-channel colour tints', () => {
+      const cc = makePixelCanvas([200, 100, 50, 255], 1, 1);
+      applyChromaticAberration(cc, 1, 1, {
+        type: 'chromaticAberration',
+        offsets: { redX: 0, redY: 0, greenX: 0, greenY: 0, blueX: 0, blueY: 0 },
+        channelColors: {
+          red: { space: 'rgb', r: 0, g: 255, b: 0, a: 255 },
+          green: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 },
+          blue: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
+        },
+        intensity: 1,
+        blendMode: 'normal',
+        opacity: 1,
+        visible: true,
+      });
+      expect(Array.from(cc.pixels().slice(0, 4))).toEqual([50, 200, 100, 255]);
     });
   });
 });

@@ -376,6 +376,13 @@ export interface ChannelOffset {
   blueY: number;
 }
 
+/** Optional output tint for each source channel in chromatic aberration. */
+export interface ChannelColors {
+  red: ManagedColor;
+  green: ManagedColor;
+  blue: ManagedColor;
+}
+
 type EffectVariant =
   | {
       type: 'dropShadow';
@@ -478,6 +485,8 @@ type EffectVariant =
       /** Stable identifier for UI state and reordering. */
       id?: string;
       offsets: ChannelOffset;
+      /** Optional per-channel tints; omitted preserves the source RGB channels. */
+      channelColors?: ChannelColors;
       intensity: number;
       blendMode: BlendMode;
       opacity: number;

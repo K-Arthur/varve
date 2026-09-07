@@ -76,7 +76,10 @@ same path without importing the replay hub into the leaf module.
 1. Rasterizes the silhouette into a padded buffer.
 2. Draws that buffer with the Canvas shadow API onto a scratch canvas.
 3. Erases the source pixels (`destination-out`) leaving only the shadow.
-4. Composites the shadow-only canvas behind the item (`destination-over`).
+4. Composites the shadow-only canvas over the existing backdrop with the
+   authored effect blend mode. Because the source silhouette was removed from
+   the scratch surface, this does not repaint the item or disappear behind an
+   opaque backdrop.
 
 Compositing a *shadow-only* canvas (rather than drawing the silhouette with a
 shadow directly) keeps semi-transparent items correct: the silhouette is never
@@ -105,11 +108,12 @@ the tint).
 - any visible image fill → raster alpha
 - stroke-only items → stroke silhouette
 
-Everything else (solid/gradient/pattern fill on a shape) uses the **fast
-geometric path** (`paintGeometricDropShadow`), which now also strokes the
-outline so fill+stroke unions cast a shadow. The geometric path is the
-geometry-based input mode; raster/text are alpha-based. Luminance-based and
-explicit bounds-based modes are future extension points, not silent fallbacks.
+Everything else (solid/gradient/pattern fill on a shape) uses the
+**geometric input path** (`paintGeometricDropShadow`), which is rasterized into
+the same bounded shadow-only surface so it remains visible over opaque
+backdrops and can honour the effect blend mode. Raster/text are alpha-based.
+Luminance-based and explicit bounds-based modes are future extension points,
+not silent fallbacks.
 
 ## Group-level effects
 
@@ -215,14 +219,11 @@ cache-independent).
 
 ## Known limitations
 
-- Per-effect `blendMode` on shadows is applied for group-level shadows; at the
-  leaf level the shadow composites with `destination-over` (blend modes on
-  leaf shadows are not composited into an isolated group). Same as before this
-  work; tracked as a follow-up.
-- Fast-path geometric shadows follow the outline (plus strokes), not a
-  per-pixel silhouette of gradient alpha.
-- Leaf inner glow on alpha content uses the blur-ring approximation; spread
-  erosion is honored for groups, not per-leaf.
+- Geometric vector shadows follow the vector outline (plus strokes), not a
+  per-pixel silhouette of gradient or pattern tile alpha. Content that needs
+  painted coverage uses the alpha-silhouette path.
+- Inner glow uses a bounded blur-ring approximation, which is deterministic and
+  follows visible alpha but does not model a physically based light source.
 - Pattern fills contribute shape geometry (tile alpha is not carried into the
   shadow silhouette).
 - `normalizeEffectParams` clamps extreme values rather than warning the user;
