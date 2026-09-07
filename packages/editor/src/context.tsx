@@ -7784,6 +7784,7 @@ export function EditorProvider({
           worldAnchor,
           sel,
           closure.mockupTemplates,
+          platform,
         ).then(
           (outcome) => {
             if (outcome.status === 'editable') {
@@ -7831,6 +7832,7 @@ export function EditorProvider({
           worldAnchor,
           sel,
           closure.mockupTemplates,
+          platform,
         ).then(
           (outcome) => {
             if (outcome.status !== 'editable') {
@@ -8018,32 +8020,30 @@ export function EditorProvider({
                 // World-pose preservation: the copy records each root's
                 // placed-world transform; rebase it into the destination
                 // frame's local space (or use it directly at the document
-                // top level). Without an anchor (legacy clipboard payloads)
-                // the source local coordinates are kept verbatim.
+                // top level). Without an anchor (legacy clipboard payloads),
+                // keep the source local transform while still adopting it into the selected frame.
                 const anchor = worldAnchor[node.id];
-                if (anchor) {
-                  if (targetFrameId && doc.nodes[targetFrameId]) {
-                    const parentWorld = nodeWorldTransform(doc, targetFrameId);
-                    const local = rebaseWorldTransformToParent(parentWorld, anchor);
-                    if (local) {
-                      const parent = doc.nodes[targetFrameId] as ContainerNode;
-                      doc = reparentNodeDoc(
-                        doc,
-                        inserted.rootId,
-                        targetFrameId,
-                        parent?.children?.length ?? 0,
-                        local,
-                      );
-                    }
-                  } else {
-                    const root = doc.nodes[inserted.rootId];
-                    if (root) {
-                      doc = {
-                        ...doc,
-                        nodes: { ...doc.nodes, [inserted.rootId]: { ...root, transform: anchor } },
-                      };
-                    }
+                const root = doc.nodes[inserted.rootId];
+                if (targetFrameId && root && doc.nodes[targetFrameId]) {
+                  const parentWorld = nodeWorldTransform(doc, targetFrameId);
+                  const local = anchor
+                    ? rebaseWorldTransformToParent(parentWorld, anchor)
+                    : (root.transform as Affine);
+                  if (local) {
+                    const parent = doc.nodes[targetFrameId] as ContainerNode;
+                    doc = reparentNodeDoc(
+                      doc,
+                      inserted.rootId,
+                      targetFrameId,
+                      parent?.children?.length ?? 0,
+                      local,
+                    );
                   }
+                } else if (anchor && root) {
+                  doc = {
+                    ...doc,
+                    nodes: { ...doc.nodes, [inserted.rootId]: { ...root, transform: anchor } },
+                  };
                 }
                 newIds.push(inserted.rootId);
               }

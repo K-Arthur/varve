@@ -3,6 +3,7 @@ import type { Affine } from '@varve/shared';
 import { describe, expect, it, vi } from 'vitest';
 import {
   captureClipboardEvent,
+  clearCapturedClipboardEvent,
   parseClipboardData,
   readClipboardUnifiedWithFallback,
   readFromClipboardEvent,
@@ -186,6 +187,7 @@ describe('readFromClipboardEvent', () => {
 
     const result = await readClipboardUnifiedWithFallback({
       kind: 'memory',
+      readClipboardData: async () => null,
       readClipboardImage: async () => null,
     });
 
@@ -518,6 +520,99 @@ describe('readFromClipboardEvent', () => {
         configurable: true,
         value: originalClipboardItem,
       });
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: originalClipboard,
+      });
+    }
+  });
+
+  it('uses the native rich clipboard when WebKit exposes only text fallback data', async () => {
+    const varveJson = JSON.stringify({
+      format: 'varve-clipboard',
+      version: 1,
+      rootIds: ['native-1'],
+      nodes: [{ id: 'native-1', kind: 'shape', name: 'Wayland copy' }],
+    });
+    const originalClipboard = navigator.clipboard;
+    const readClipboardData = vi.fn(async () => ({
+      mimeType: 'application/vnd.varve+json',
+      data: new TextEncoder().encode(varveJson),
+    }));
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        read: vi.fn(async () => [
+          {
+            types: ['text/plain'],
+            getType: async () => new Blob(['Wayland copy'], { type: 'text/plain' }),
+          },
+        ]),
+      },
+    });
+    try {
+      const result = await readClipboardUnifiedWithFallback({
+        kind: 'tauri',
+        readClipboardData,
+        readClipboardImage: async () => null,
+      });
+      expect(readClipboardData).toHaveBeenCalledWith([
+        'application/vnd.varve+json',
+        'application/vnd.strata+json',
+        'web application/vnd.varve+json',
+        'web application/vnd.strata+json',
+        'image/svg+xml',
+        'text/svg+xml',
+        'image/png',
+        'image/jpeg',
+        'image/webp',
+        'image/gif',
+        'image/bmp',
+        'text/plain',
+      ]);
+      expect(result.varveData?.rootIds).toEqual(['native-1']);
+      expect(result.importItems).toHaveLength(0);
+    } finally {
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: originalClipboard,
+      });
+      clearCapturedClipboardEvent();
+    }
+  });
+
+  it('writes an editable native payload before browser clipboard fallbacks', async () => {
+    const originalClipboard = navigator.clipboard;
+    const writeClipboardData = vi.fn(
+      async (_items: Array<{ mimeType: string; data: Uint8Array }>) => true,
+    );
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: undefined,
+    });
+    try {
+      const outcome = await writeClipboardOutcome(
+        [{ id: 'native-1', kind: 'shape', name: 'Wayland copy' } as unknown as SceneNode],
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        { kind: 'tauri', writeClipboardData },
+      );
+      expect(outcome).toEqual({
+        status: 'editable',
+        mimeTypes: ['application/vnd.varve+json', 'application/vnd.strata+json', 'text/plain'],
+      });
+      expect(writeClipboardData).toHaveBeenCalledOnce();
+      const writtenItems = writeClipboardData.mock.calls[0]?.[0] ?? [];
+      expect(writtenItems.map((item) => item.mimeType)).toEqual([
+        'application/vnd.varve+json',
+        'application/vnd.strata+json',
+        'text/plain',
+      ]);
+    } finally {
       Object.defineProperty(navigator, 'clipboard', {
         configurable: true,
         value: originalClipboard,

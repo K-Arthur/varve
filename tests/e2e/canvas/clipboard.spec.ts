@@ -66,3 +66,49 @@ test('a live browser paste event transfers an editable layer and renders it', as
     path: testInfo.outputPath('clipboard-pasted-canvas.png'),
   });
 });
+
+test('pasting with a frame selected adopts the layer inside that frame', async ({ page }) => {
+  test.setTimeout(300000);
+  await navigateToEditor(page);
+  await seedLayers(page, 1);
+
+  const canvas = page.locator('canvas.editor-canvas__content-layer');
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('canvas not found');
+  await page.keyboard.press('f');
+  await page.mouse.move(box.x + 420, box.y + 120);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 620, box.y + 320);
+  await page.mouse.up();
+  await page.waitForTimeout(150);
+
+  const before = JSON.parse((await editorMethod(page, 'serializeDocument')) as string) as {
+    nodes: Record<string, { id: string; kind: string }>;
+  };
+  const sourceNode = Object.values(before.nodes).find((node) => node.kind === 'shape');
+  const frameNode = Object.values(before.nodes).find((node) => node.kind === 'frame');
+  expect(sourceNode).toBeTruthy();
+  expect(frameNode).toBeTruthy();
+  if (!sourceNode || !frameNode) throw new Error('expected source shape and target frame');
+
+  await editorMethod(page, 'setSelection', frameNode.id);
+  await page.waitForTimeout(50);
+  await page.evaluate((node) => {
+    const transfer = new DataTransfer();
+    transfer.setData(
+      'application/vnd.varve+json',
+      JSON.stringify({ format: 'varve-clipboard', version: 1, nodes: [node] }),
+    );
+    const event = new Event('paste', { bubbles: true, cancelable: true });
+    Object.defineProperty(event, 'clipboardData', { value: transfer });
+    window.dispatchEvent(event);
+  }, sourceNode);
+
+  await expect(page.getByRole('treeitem')).toHaveCount(3);
+  const after = JSON.parse((await editorMethod(page, 'serializeDocument')) as string) as {
+    nodes: Record<string, { id: string; kind: string; children?: string[] }>;
+  };
+  const pastedId = Object.keys(after.nodes).find((id) => !before.nodes[id]);
+  expect(pastedId).toBeTruthy();
+  expect(after.nodes[frameNode.id]?.children).toContain(pastedId);
+});

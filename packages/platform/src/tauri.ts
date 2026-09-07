@@ -14,7 +14,7 @@
  *    works with `withGlobalTauri: true` without bundling the JS plugin.
  */
 
-import type { Platform, PrinterInfo, PrintJobResult } from './platform';
+import type { NativeClipboardItem, Platform, PrinterInfo, PrintJobResult } from './platform';
 import {
   classifyTauriSaveError,
   contentHash,
@@ -795,6 +795,28 @@ export function createTauriPlatform(): Platform {
       const c = core();
       const bytes = (await c.invoke('read_clipboard_image_png')) as number[] | null;
       return bytes ? new Uint8Array(bytes) : null;
+    },
+    async readClipboardData(mimeTypes) {
+      const result = (await core().invoke('read_clipboard_data', { mimeTypes })) as {
+        mimeType: string;
+        data: number[];
+      } | null;
+      if (!result || typeof result.mimeType !== 'string' || !Array.isArray(result.data)) {
+        return null;
+      }
+      return {
+        mimeType: result.mimeType,
+        data: new Uint8Array(result.data),
+      } satisfies NativeClipboardItem;
+    },
+    async writeClipboardData(items) {
+      const result = await core().invoke('write_clipboard_data', {
+        items: items.map((item) => ({
+          mimeType: item.mimeType,
+          data: Array.from(item.data),
+        })),
+      });
+      return result === true;
     },
 
     async onNativeFileDrop(handler) {

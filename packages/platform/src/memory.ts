@@ -1017,6 +1017,12 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
     async readClipboardImage() {
       return null;
     },
+    async readClipboardData() {
+      return null;
+    },
+    async writeClipboardData() {
+      return false;
+    },
     async revealInFileManager() {
       // No-op in memory/web.
     },

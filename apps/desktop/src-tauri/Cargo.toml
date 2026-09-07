@@ -55,6 +55,11 @@ glib = "0.22"
 # registry — a mismatched copy would hand back a foreign, unusable WebView.
 webkit2gtk = { version = "=2.0.2", features = ["v2_38"] }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+# WebKitGTK cannot reliably expose custom clipboard MIME types on Wayland.
+# This is the direct native bridge used by the editor's rich clipboard path.
+wl-clipboard-rs = "0.9"
+
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61.2", features = ["Win32_Storage_FileSystem"] }
 

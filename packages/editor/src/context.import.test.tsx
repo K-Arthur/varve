@@ -3,8 +3,10 @@ import { ImportService } from '@varve/import';
 import {
   activePageNodes,
   addChild,
+  createDesignCanvas,
   createDocument,
   DocumentCodec,
+  designCanvasContentRoot,
   getParent,
   imageFill,
   isImageShape,
@@ -476,6 +478,63 @@ describe('Editor native clipboard paste (Varve-format data)', () => {
     // into doc.rootChildren as a spurious top-level sibling (which would
     // make it paint twice: once via the group, once as a stray root node).
     expect(ctx.state.document.rootChildren).not.toContain(pastedChildId);
+  });
+
+  it('pastes a copied node inside the selected frame instead of above it', async () => {
+    let initial = createDesignCanvas(createDocument('Paste target', true));
+    const contentRoot = designCanvasContentRoot(initial);
+    if (!contentRoot) throw new Error('Expected a design canvas content root');
+    initial = addChild(
+      initial,
+      contentRoot,
+      makeFrameNode('paste-target-frame', {
+        transform: [1, 0, 0, 1, 200, 100],
+        w: 300,
+        h: 200,
+      }),
+    );
+    const pastedShape = makeShapeNode('paste-source', {
+      kind: 'rect',
+      x: 20,
+      y: 30,
+      w: 40,
+      h: 30,
+    });
+    captureClipboardEvent(createClipboardEventWithVarveNodes([pastedShape]));
+
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function Test() {
+      ctx = useEditor();
+      return (
+        <>
+          <button type="button" onClick={() => ctx?.setSelection('paste-target-frame')}>
+            select paste target
+          </button>
+          <button type="button" onClick={() => void ctx?.paste()}>
+            paste into target
+          </button>
+        </>
+      );
+    }
+
+    render(
+      <EditorProvider initialDocumentJson={DocumentCodec.encode(initial)}>
+        <Test />
+      </EditorProvider>,
+    );
+
+    screen.getByText('select paste target').click();
+    await waitFor(() => expect(ctx?.state.selection).toEqual(['paste-target-frame']));
+    expect(ctx?.state.document.nodes['paste-target-frame']?.kind).toBe('frame');
+    screen.getByText('paste into target').click();
+
+    await waitFor(() => expect(ctx?.state.selection).toHaveLength(1));
+    const pastedId = ctx?.state.selection[0];
+    if (!ctx || !pastedId) throw new Error('Expected pasted node selection');
+    expect(getParent(ctx.state.document, pastedId)).toBe('paste-target-frame');
+    const target = ctx.state.document.nodes['paste-target-frame'];
+    expect(target?.kind === 'frame' ? target.children : undefined).toContain(pastedId);
+    expect(ctx.state.document.rootChildren).not.toContain(pastedId);
   });
 
   it('cancels a delayed paste when the destination selection changes', async () => {

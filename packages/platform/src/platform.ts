@@ -326,6 +326,10 @@ export interface Platform {
   fileManagerLabel(): string;
 
   // ─── Native clipboard ──────────────────────────────────────────────────────
+  /** A MIME-tagged native clipboard representation. */
+  readClipboardData(mimeTypes: string[]): Promise<NativeClipboardItem | null>;
+  /** Publish MIME-tagged data directly to the OS clipboard when supported. */
+  writeClipboardData(items: NativeClipboardItem[]): Promise<boolean>;
   // Reads an image off the OS clipboard directly (native Rust, not the
   // browser's Web Clipboard API). Last-resort fallback for platforms/webviews
   // where `navigator.clipboard.read()` and the DOM `paste` event both fail to
@@ -340,6 +344,12 @@ export interface Platform {
   printPdf(data: Uint8Array, jobTitle: string, options: PrintJobOptions): Promise<PrintJobResult>;
   /** Cancel a previously submitted print job. */
   cancelPrintJob(printerName: string, jobId: number): Promise<string>;
+}
+
+/** A clipboard representation exchanged through a native platform bridge. */
+export interface NativeClipboardItem {
+  mimeType: string;
+  data: Uint8Array;
 }
 
 /** A native OS file drag-and-drop event, as reported by Tauri's window-level

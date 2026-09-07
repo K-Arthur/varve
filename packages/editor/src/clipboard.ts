@@ -41,6 +41,20 @@ export const LEGACY_MIME = 'application/vnd.strata+json';
  */
 export const WEB_VARVE_MIME = `web ${VARVE_MIME}`;
 export const WEB_LEGACY_MIME = `web ${LEGACY_MIME}`;
+const NATIVE_CLIPBOARD_READ_TYPES = [
+  VARVE_MIME,
+  LEGACY_MIME,
+  WEB_VARVE_MIME,
+  WEB_LEGACY_MIME,
+  'image/svg+xml',
+  'text/svg+xml',
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
+  'image/bmp',
+  'text/plain',
+];
 const VARVE_CLIPBOARD_FORMAT = 'varve-clipboard';
 const VARVE_CLIPBOARD_VERSION = 1;
 const MAX_CLIPBOARD_JSON_BYTES = 64 * 1024 * 1024;
@@ -220,10 +234,8 @@ export async function writeClipboardOutcome(
   worldAnchor?: Record<string, Affine>,
   rootIds?: string[],
   mockupTemplates?: Record<string, MockupTemplateAsset>,
+  platform?: Pick<Platform, 'kind' | 'writeClipboardData'>,
 ): Promise<ClipboardWriteOutcome> {
-  if (typeof navigator === 'undefined' || !navigator.clipboard) {
-    return { status: 'failed', reason: 'clipboard-unavailable' };
-  }
   let json: string;
   try {
     json = serializeClipboardData(
@@ -238,7 +250,26 @@ export async function writeClipboardOutcome(
   } catch {
     return { status: 'failed', reason: 'write-failed' };
   }
-  const textBlob = new Blob([nodes.map((n) => n.name).join('\n')], { type: 'text/plain' });
+  const text = nodes.map((n) => n.name).join('\n');
+  const textBlob = new Blob([text], { type: 'text/plain' });
+  if (platform?.kind === 'tauri') {
+    try {
+      const written = await platform.writeClipboardData([
+        { mimeType: VARVE_MIME, data: new TextEncoder().encode(json) },
+        { mimeType: LEGACY_MIME, data: new TextEncoder().encode(json) },
+        { mimeType: 'text/plain', data: new TextEncoder().encode(text) },
+      ]);
+      if (written) {
+        return { status: 'editable', mimeTypes: [VARVE_MIME, LEGACY_MIME, 'text/plain'] };
+      }
+    } catch {
+      // Native rich clipboard support is optional; continue through the
+      // browser API and its text-only fallback when it is unavailable.
+    }
+  }
+  if (typeof navigator === 'undefined' || !navigator.clipboard) {
+    return { status: 'failed', reason: 'clipboard-unavailable' };
+  }
   const clipboardItemCtor = globalThis.ClipboardItem;
   if (typeof clipboardItemCtor === 'function' && typeof navigator.clipboard.write === 'function') {
     try {
@@ -294,6 +325,7 @@ export async function writeClipboard(
   worldAnchor?: Record<string, Affine>,
   rootIds?: string[],
   mockupTemplates?: Record<string, MockupTemplateAsset>,
+  platform?: Pick<Platform, 'kind' | 'writeClipboardData'>,
 ): Promise<boolean> {
   return (
     (
@@ -305,6 +337,7 @@ export async function writeClipboard(
         worldAnchor,
         rootIds,
         mockupTemplates,
+        platform,
       )
     ).status === 'editable'
   );
@@ -320,8 +353,8 @@ function isSvgText(text: string): boolean {
   );
 }
 
-function hasClipboardContent(result: UnifiedClipboardResult): boolean {
-  return Boolean(result.varveData || result.importItems.length > 0 || result.plainText);
+function hasCanvasClipboardContent(result: UnifiedClipboardResult): boolean {
+  return Boolean(result.varveData || result.importItems.length > 0);
 }
 
 function addImageItem(
@@ -567,19 +600,57 @@ export function cancelPasteFallback(): void {
  * `navigator.clipboard.read()` frequently can't surface image MIME types.
  */
 export async function readClipboardUnifiedWithFallback(
-  platform?: Pick<Platform, 'kind' | 'readClipboardImage'>,
+  platform?: Pick<Platform, 'kind' | 'readClipboardData' | 'readClipboardImage'>,
 ): Promise<UnifiedClipboardResult> {
   const eventSnapshot = capturedPasteSnapshot;
   capturedPasteSnapshot = null;
+  let eventResult: UnifiedClipboardResult | null = null;
   if (eventSnapshot) {
-    const eventResult = await readClipboardSnapshot(eventSnapshot);
-    if (hasClipboardContent(eventResult)) return eventResult;
+    eventResult = await readClipboardSnapshot(eventSnapshot);
+    if (hasCanvasClipboardContent(eventResult)) return eventResult;
   }
   const apiResult = await readClipboardUnified();
-  if (hasClipboardContent(apiResult)) {
+  if (hasCanvasClipboardContent(apiResult)) {
     return apiResult;
   }
   if (platform?.kind === 'tauri') {
+    try {
+      const nativeItem = await platform.readClipboardData(NATIVE_CLIPBOARD_READ_TYPES);
+      if (nativeItem && nativeItem.data.byteLength <= MAX_CLIPBOARD_JSON_BYTES) {
+        if (isVarvePayloadType(nativeItem.mimeType)) {
+          const parsed = parseClipboardData(new TextDecoder().decode(nativeItem.data));
+          if (parsed) return { varveData: parsed, importItems: [] };
+        } else if (
+          nativeItem.mimeType === 'image/svg+xml' ||
+          nativeItem.mimeType === 'text/svg+xml'
+        ) {
+          const text = new TextDecoder().decode(nativeItem.data);
+          if (isSvgText(text)) {
+            return {
+              varveData: null,
+              importItems: [{ data: text, mimeType: 'image/svg+xml', name: 'clipboard.svg' }],
+            };
+          }
+        } else if (nativeItem.mimeType.startsWith('image/')) {
+          return {
+            varveData: null,
+            importItems: [
+              {
+                data: nativeItem.data,
+                mimeType: nativeItem.mimeType,
+                name: `clipboard.${nativeItem.mimeType.split('/')[1] ?? 'bin'}`,
+              },
+            ],
+          };
+        } else if (nativeItem.mimeType === 'text/plain') {
+          const text = new TextDecoder().decode(nativeItem.data);
+          if (text && !isSvgText(text))
+            return { varveData: null, importItems: [], plainText: text };
+        }
+      }
+    } catch {
+      // Native rich clipboard read failed; retain the image fallback below.
+    }
     try {
       const bytes = await platform.readClipboardImage();
       if (bytes && bytes.length > 0) {
@@ -594,5 +665,5 @@ export async function readClipboardUnifiedWithFallback(
       // empty result rather than rejecting the whole paste() action.
     }
   }
-  return apiResult;
+  return eventResult ?? apiResult;
 }

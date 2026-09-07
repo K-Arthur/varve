@@ -72,8 +72,17 @@ the event is alive. It does not retain the event or reread a dead
 item is not also imported as its image/text alternatives, avoiding duplicate
 objects.
 
-Menu-driven paste first uses `navigator.clipboard.read()` and, on Tauri, has a
-native image-read fallback for WebKitGTK/Wayland. No background clipboard
+Menu-driven paste first uses `navigator.clipboard.read()`. On Tauri under
+Wayland, the native bridge then requests the representations in the same
+order—Varve JSON, SVG, raster image, and text—through the compositor's native
+clipboard protocol. This matters because WebKitGTK may expose only the
+names-only `text/plain` fallback and may not dispatch a DOM `paste` event when
+the canvas is not an editable element. The Ctrl+V fallback and right-click
+Paste therefore converge on the same native rich read. The older native PNG
+reader remains as a final compatibility fallback.
+
+Native writes also publish the unprefixed Varve and legacy MIME types directly
+on Wayland before browser Clipboard API fallbacks. No background clipboard
 polling or automatic app-local recovery is performed. In particular, the
 ordinary object Paste path does not fall back to an old guide buffer; guide
 recovery is explicit to the guide command.
@@ -95,9 +104,10 @@ target.
 Ordinary Varve Paste preserves each root's placed-world pose. When a frame or
 group is selected, that pose is rebased into the destination parent's local
 space using the canonical coordinate helpers. Legacy fragments without an
-anchor retain their historical local-coordinate behavior. External images and
-SVGs are placed at the captured viewport center and then rebased into the
-selected container when legal.
+anchor still adopt the selected frame/group; because they do not carry a
+world pose, their source local transform is retained. External images and SVGs
+are placed at the captured viewport center and then rebased into the selected
+container when legal.
 
 Paste and Cut commit through the existing transaction/history path. Undo Cut
 restores the source document without rewriting the system clipboard. Redo
@@ -113,7 +123,7 @@ replays the committed document result and does not reread the clipboard.
 | SVG → Varve | validated SVG routed through `ImportService` | unsafe/arbitrary XML is not treated as SVG |
 | plain text → native text editor | browser owns insertion, Unicode, caret, and IME behavior | canvas does not steal text-editor focus |
 | guides/properties/effects → their specialist command | separate app-local buffers/formats | these buffers do not replace object clipboard data |
-| browser/Tauri | DOM event, async API, and Tauri image fallback | packaged native GUI matrix and WebKitGTK custom MIME support remain to be exercised |
+| browser/Tauri | DOM event, async API, and native Tauri MIME bridge on Wayland; PNG compatibility fallback | host permissions and compositor clipboard ownership still apply |
 | Figma/Illustrator/Office private formats | not claimed | no undocumented proprietary decoder is emitted |
 
 ## Verification
@@ -121,10 +131,11 @@ replays the committed document result and does not reread the clipboard.
 Focused evidence currently includes clipboard transport tests, current/legacy
 event reads, event snapshot lifetime, repeated same-name image files, SVG
 validation, raster tile round-trip, truthful Cut outcomes, delayed paste
-cancellation, subtree insertion, world-pose conversion, and mockup-template
-ID remapping. Real browser and visual checks belong to the focused Playwright
-clipboard and website feature specs; native desktop and external-application
-interoperability are explicitly separate validation lanes.
+cancellation, subtree insertion, world-pose conversion, mockup-template
+ID remapping, and the Wayland native-rich fallback contract. Real browser and
+visual checks belong to the focused Playwright clipboard and website feature
+specs; native desktop and external-application interoperability are separate
+validation lanes.
 
 Implementation map:
 

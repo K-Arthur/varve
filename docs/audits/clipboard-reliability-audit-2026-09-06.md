@@ -114,6 +114,27 @@ This can leave a pasted mockup referring to a missing template.
    import architecture docs, and publish the verified behavior/limitations on
    the marketing website.
 
+## Wayland follow-up repair
+
+The first repair pass exposed a second WebKitGTK/Wayland-specific gap: the
+browser API could return only the names-only `text/plain` representation, and
+the non-editable canvas might never receive a DOM `paste` event. That made
+both the delayed Ctrl+V shortcut fallback and the right-click Paste command
+reach an image-only native fallback, which could not recover an in-app layer
+fragment.
+
+The Tauri platform now exposes bounded native MIME reads and writes. On
+Wayland these use `wl-clipboard-rs` to publish and request the Varve and
+legacy JSON representations before SVG, raster, and text fallbacks. The
+editor ignores a text-only browser result while a native structured read is
+still available, and both keyboard and context-menu commands share this
+resolver. Focused unit coverage proves the read/write ordering; native
+WebKitGTK smoke coverage confirms the desktop test harness runs under the
+current Wayland session. Paste target resolution also remains stable for
+legacy fragments without a world anchor: a selected frame/group receives the
+new node, while the source local transform is retained when no world pose can
+be rebased.
+
 ## Verification limits at audit time
 
 The baseline was exercised in Vitest/jsdom only. No claim is made here about

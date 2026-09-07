@@ -1206,6 +1206,15 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
       }
       return null;
     },
+    async readClipboardData() {
+      // The browser Web Clipboard API is read by the editor's unified
+      // resolver. This native-only method is intentionally a no-op here.
+      return null;
+    },
+    async writeClipboardData() {
+      // The browser Web Clipboard API is written by the editor's serializer.
+      return false;
+    },
 
     async revealInFileManager() {
       // Browsers cannot shell out to the OS file manager.

@@ -413,6 +413,137 @@ fn write_binary_file_to_folder(
 // used as a last-resort fallback by `readClipboardUnifiedWithFallback` in
 // `packages/editor/src/clipboard.ts`.
 
+const MAX_NATIVE_CLIPBOARD_ITEMS: usize = 16;
+const MAX_NATIVE_CLIPBOARD_BYTES: usize = 64 * 1024 * 1024;
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeClipboardItemInput {
+    mime_type: String,
+    data: Vec<u8>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeClipboardItemOutput {
+    mime_type: String,
+    data: Vec<u8>,
+}
+
+fn supported_native_clipboard_mime(mime_type: &str) -> bool {
+    matches!(
+        mime_type,
+        "application/vnd.varve+json"
+            | "application/vnd.strata+json"
+            | "web application/vnd.varve+json"
+            | "web application/vnd.strata+json"
+            | "image/svg+xml"
+            | "text/svg+xml"
+            | "image/png"
+            | "image/jpeg"
+            | "image/webp"
+            | "image/gif"
+            | "image/bmp"
+            | "text/plain"
+    )
+}
+
+#[cfg(target_os = "linux")]
+fn read_wayland_clipboard_data(
+    mime_types: &[String],
+) -> Result<Option<NativeClipboardItemOutput>, String> {
+    if std::env::var_os("WAYLAND_DISPLAY").is_none() {
+        return Ok(None);
+    }
+
+    use wl_clipboard_rs::paste::{get_contents, ClipboardType, MimeType, Seat};
+
+    for mime_type in mime_types {
+        if !supported_native_clipboard_mime(mime_type) {
+            continue;
+        }
+        let Ok((mut pipe, actual_mime_type)) = get_contents(
+            ClipboardType::Regular,
+            Seat::Unspecified,
+            MimeType::Specific(mime_type),
+        ) else {
+            continue;
+        };
+        let mut data = Vec::new();
+        pipe.read_to_end(&mut data)
+            .map_err(|error| format!("Failed to read Wayland clipboard data: {error}"))?;
+        if data.len() > MAX_NATIVE_CLIPBOARD_BYTES {
+            return Err("Wayland clipboard payload exceeds the 64 MiB limit".into());
+        }
+        return Ok(Some(NativeClipboardItemOutput {
+            mime_type: actual_mime_type,
+            data,
+        }));
+    }
+    Ok(None)
+}
+
+#[cfg(not(target_os = "linux"))]
+fn read_wayland_clipboard_data(
+    _mime_types: &[String],
+) -> Result<Option<NativeClipboardItemOutput>, String> {
+    Ok(None)
+}
+
+#[cfg(target_os = "linux")]
+fn write_wayland_clipboard_data(items: Vec<NativeClipboardItemInput>) -> Result<bool, String> {
+    if std::env::var_os("WAYLAND_DISPLAY").is_none() {
+        return Ok(false);
+    }
+
+    use wl_clipboard_rs::copy::{ClipboardType, MimeSource, MimeType, Options, Source};
+
+    let sources = items
+        .into_iter()
+        .map(|item| MimeSource {
+            source: Source::Bytes(item.data.into_boxed_slice()),
+            mime_type: MimeType::Specific(item.mime_type),
+        })
+        .collect();
+    let mut options = Options::new();
+    options.clipboard(ClipboardType::Regular);
+    options
+        .copy_multi(sources)
+        .map(|()| true)
+        .map_err(|error| format!("Failed to write Wayland clipboard data: {error}"))
+}
+
+#[cfg(not(target_os = "linux"))]
+fn write_wayland_clipboard_data(_items: Vec<NativeClipboardItemInput>) -> Result<bool, String> {
+    Ok(false)
+}
+
+#[tauri::command]
+fn read_clipboard_data(
+    mime_types: Vec<String>,
+) -> Result<Option<NativeClipboardItemOutput>, String> {
+    if mime_types.len() > MAX_NATIVE_CLIPBOARD_ITEMS {
+        return Err("Too many clipboard MIME types requested".into());
+    }
+    read_wayland_clipboard_data(&mime_types)
+}
+
+#[tauri::command]
+fn write_clipboard_data(items: Vec<NativeClipboardItemInput>) -> Result<bool, String> {
+    if items.is_empty() || items.len() > MAX_NATIVE_CLIPBOARD_ITEMS {
+        return Err("Invalid native clipboard item count".into());
+    }
+    let total_bytes = items.iter().map(|item| item.data.len()).sum::<usize>();
+    if total_bytes > MAX_NATIVE_CLIPBOARD_BYTES
+        || items
+            .iter()
+            .any(|item| !supported_native_clipboard_mime(&item.mime_type))
+    {
+        return Err("Invalid native clipboard payload".into());
+    }
+    write_wayland_clipboard_data(items)
+}
+
 // ── Native file drag-and-drop ───────────────────────────────────────────
 //
 // wry's WebKitGTK backend hooks GTK's own drag-and-drop signals on the
@@ -3058,6 +3189,8 @@ pub fn run() {
             write_binary_file_to_folder,
             read_dropped_file,
             read_clipboard_image_png,
+            read_clipboard_data,
+            write_clipboard_data,
             remove_background,
             native_ai_status,
             native_background_removal_model_status,
