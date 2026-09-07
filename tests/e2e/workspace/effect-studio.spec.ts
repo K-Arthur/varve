@@ -245,7 +245,9 @@ test.describe('Effect Studio dialog', () => {
     await expect(applied).toContainText('Halftone Pattern');
   });
 
-  test('shows the complete vector treatment workflow in Adjustments', async ({ page }) => {
+  test('keeps the vector Adjustments surface compact while exposing the full Studio modal', async ({
+    page,
+  }) => {
     await navigateToCleanEditor(page);
     await switchToPhotoWorkspace(page);
     await createSelectedVectorPath(page);
@@ -266,18 +268,23 @@ test.describe('Effect Studio dialog', () => {
     await expect(adjustmentsTab).toBeVisible();
     await adjustmentsTab.click();
     await expect(page.getByText('Image Tuning is raster-only')).not.toBeVisible();
-    await expect(page.getByText('Curated editable treatments')).toBeVisible();
+    await expect(page.getByText('Curated editable treatments')).not.toBeVisible();
+    await expect(page.getByRole('button', { name: 'Open Effect Studio' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Object Filters', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Layer Effects', exact: true })).toBeVisible();
-    await expect(page.getByRole('list', { name: 'Applied treatments' })).toContainText(
-      'Reticulation',
-    );
+    await expect(page.getByText('Applied treatments: Reticulation')).toBeVisible();
     await expect(page.locator('[data-panel="inspector"]')).toHaveScreenshot(
-      'effect-studio-vector-adjustments-inline.png',
-      { maxDiffPixels: 500 },
+      'effect-studio-vector-adjustments-compact.png',
+      { maxDiffPixels: 300 },
     );
     await page.getByRole('button', { name: 'Object Filters', exact: true }).click();
     await expect(page.getByText('Advanced stack editor')).toBeVisible();
     await expect(page.getByText('Raw filters, order, opacity, and blending')).toBeVisible();
+    await page.getByRole('button', { name: 'Open Effect Studio' }).click();
+    const reopenedStudio = page.getByTestId('effect-studio-dialog');
+    await expect(reopenedStudio).toBeVisible();
+    await expect(reopenedStudio.getByRole('list', { name: 'Applied treatments' })).toContainText(
+      'Reticulation',
+    );
   });
 });

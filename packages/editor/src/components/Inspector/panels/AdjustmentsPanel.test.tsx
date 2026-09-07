@@ -17,7 +17,7 @@ describe('AdjustmentsPanel', () => {
     vi.clearAllMocks();
   });
 
-  it('shows the complete editable treatment surface for vector selections', () => {
+  it('shows compact Studio access and editable effect controls for vector selections', () => {
     const path = makePathNode('vector-path', {
       points: [
         { x: 0, y: 0, handleIn: null, handleOut: null },
@@ -55,7 +55,8 @@ describe('AdjustmentsPanel', () => {
     render(<AdjustmentsPanel />);
 
     expect(screen.queryByText('Image Tuning is raster-only')).not.toBeInTheDocument();
-    expect(screen.getByText('Curated editable treatments')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open Effect Studio' })).toBeInTheDocument();
+    expect(screen.queryByText('Curated editable treatments')).not.toBeInTheDocument();
     expect(screen.getByText('Object Filters')).toBeInTheDocument();
     expect(screen.getByText('Layer Effects')).toBeInTheDocument();
   });

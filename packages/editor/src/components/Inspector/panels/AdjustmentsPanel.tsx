@@ -9,7 +9,7 @@ import { BlendImagesSection } from '../sections/BlendImagesSection';
 import { ColorizeSection } from '../sections/ColorizeSection';
 import { ContentAwareFillSection } from '../sections/ContentAwareFillSection';
 import { DetectTextSection } from '../sections/DetectTextSection';
-import { EffectStudioSection } from '../sections/EffectStudioSection';
+import { EffectStudioAccessSection } from '../sections/EffectStudioAccessSection';
 import { EffectsSection } from '../sections/EffectsSection';
 import { FontDetectSection } from '../sections/FontDetectSection';
 import { ImageEnhancementSection } from '../sections/ImageEnhancementSection';
@@ -22,8 +22,9 @@ import { SmartFiltersSection } from '../sections/SmartFiltersSection';
 /**
  * Focused image-processing surface. This module is lazy-loaded so model-aware
  * editors and preview effects do not enter the Properties render path. Object
- * selections use the same tab for the complete editable creative-treatment
- * and Object Filter workflow; the raster-only controls stay image-gated.
+ * selections use the same tab for compact Effect Studio access plus the
+ * complete editable Object Filter and Layer Effects workflow; the raster-only
+ * controls stay image-gated.
  */
 export function AdjustmentsPanel() {
   const { selectedNodes, openCafDialog } = useEditor();
@@ -40,7 +41,7 @@ export function AdjustmentsPanel() {
       return (
         <div className="adjustments-object-panel">
           <AdjustmentLayerAccessSection nodes={nodes} />
-          <EffectStudioSection nodes={nodes} />
+          <EffectStudioAccessSection nodes={nodes} />
           <SmartFiltersSection nodes={nodes} />
           <EffectsSection nodes={nodes} />
         </div>

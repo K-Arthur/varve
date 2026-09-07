@@ -88,11 +88,12 @@ for CSS filter semantics, not a claim of measured CPU/CSS agreement.
 - Engine typecheck reaches an unrelated concurrent fixture error in `src/replay-image-fill.test.ts` (missing image `x`, `y`, and `scale`); no candidate source error is reported. Editor typecheck was previously blocked by the same concurrent registry edit and is rerun after the next checkpoint.
 - `pnpm --filter @varve/editor typecheck` now passes after the concurrent minimap fixture repair. `pnpm --filter @varve/website typecheck` passes with five existing generated/unused-symbol hints and no errors. `pnpm --filter @varve/scene typecheck` passes.
 - Vector Effect Studio coverage now includes the Photo workspace's Adjustments
-  tab: a selected Pen path exposes the inline editable Studio gallery, Object
-  Filter stack, and Layer Effects controls, applies the Reticulation recipe,
-  changes the rendered result, and remains a path after the edit. The focused
-  Playwright run captures the repaired narrow-inspector state in
-  `effect-studio-vector-adjustments-inline-chromium-linux.png`.
+  tab: a selected Pen path exposes compact Studio access and treatment summary,
+  the Object Filter stack, and Layer Effects controls; the full gallery remains
+  in the modal. The workflow applies the Reticulation recipe, changes the
+  rendered result, and remains a path after the edit. The focused Playwright
+  run captures the repaired narrow-inspector state in
+  `effect-studio-vector-adjustments-compact-chromium-linux.png`.
 - Effect Studio now keeps a preview when a different recipe is explicitly
   applied: the preview is committed as one transaction and the new recipe is
   appended. Consecutive recipe application is covered by the real Chromium
