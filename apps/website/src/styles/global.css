@@ -526,6 +526,69 @@
     border-color: var(--border-strong);
   }
 
+  /* Shared marketing-card recipe. Astro pages may compose this with a
+     domain class for content, but the surface contract stays centralized. */
+  .site-card,
+  .site-card.site-card--surface {
+    min-width: 0;
+    color: var(--text-primary);
+    background: var(--surface-card);
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-card);
+    overflow-wrap: break-word;
+  }
+
+  a.site-card {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  a.site-card:visited {
+    color: inherit;
+  }
+
+  .site-card.site-card--outline {
+    background: transparent;
+  }
+
+  .site-card.site-card--subtle,
+  .site-card.site-card--status {
+    background: var(--surface-muted);
+  }
+
+  .site-card.site-card--interactive {
+    transition:
+      background var(--duration-quick) var(--ease-standard),
+      border-color var(--duration-quick) var(--ease-standard);
+  }
+
+  .site-card.site-card--interactive:hover {
+    background: var(--surface-card-hover);
+    border-color: var(--border-strong);
+  }
+
+  .site-card.site-card--interactive:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: var(--focus-ring-offset);
+  }
+
+  .site-card__media {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .site-card.site-card--interactive {
+      transition: none;
+    }
+  }
+
+  @media (forced-colors: active) {
+    .site-card {
+      border-color: CanvasText;
+    }
+  }
+
   /* On narrow screens the fractional 1fr columns round beyond the container
      and overflow by a few px; collapse to a single column (spans become
      irrelevant). */

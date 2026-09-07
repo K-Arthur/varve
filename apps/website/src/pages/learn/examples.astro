@@ -107,7 +107,7 @@ const examples: Example[] = candidates
       {examples.length > 0 && (
         <div class="examples-grid">
           {examples.map((example) => (
-            <a href={sitePath(example.href)} class="example-card">
+            <a href={sitePath(example.href)} class="example-card site-card site-card--interactive">
               <figure class="example-visual">
                 <img
                   src={sitePath(`/screenshots/${example.scene.file}`)}

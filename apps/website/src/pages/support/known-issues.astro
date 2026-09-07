@@ -129,7 +129,7 @@ const categories = [...new Set(issues.map((i) => i.category))];
           <h2 id={`section-${category}`} class="section-title">{category}</h2>
           <div class="issues-list">
             {issues.filter((i) => i.category === category).map((issue) => (
-              <article class="issue-card">
+              <article class="issue-card site-card site-card--status">
                 <div class="issue-card-header">
                   <h3 class="issue-title">{issue.title}</h3>
                   <StatusPill status={issue.status} />
