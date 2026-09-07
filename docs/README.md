@@ -386,6 +386,7 @@ The following dated files were moved from `docs/architecture/` to
 | `design/visual-direction.md` | Visual direction & polish |
 | `design/design-principles.md` | Design principles |
 | `design/component-status.md` | Component implementation status |
+| `design/card-system.md` | Card audit, taxonomy, and beta Card recipe |
 | `design/migration-debt.md` | Design migration debt |
 | `design/icon-system.md` | Semantic icon boundary and Tabler visual-language direction for UI icons |
 | `brand-guide.md` | Brand guide (mark, wordmarks, usage) — current |

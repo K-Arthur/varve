@@ -1,0 +1,147 @@
+/* Beta Card recipe. Product surfaces provide semantics and interaction. */
+.varve-card {
+  --varve-card-inset: var(--space-card);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  color: var(--color-text-primary);
+  background: var(--color-surface-raised);
+  border: var(--border-micro);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+.varve-card[data-density="compact"] {
+  --varve-card-inset: var(--space-3);
+  border-radius: var(--radius-control);
+}
+
+.varve-card[data-orientation="horizontal"] {
+  flex-direction: row;
+}
+
+.varve-card--subtle,
+.varve-card--status {
+  background: var(--color-surface-sunken);
+  border-color: var(--color-border-subtle);
+}
+
+.varve-card--outline {
+  background: transparent;
+  box-shadow: var(--shadow-none);
+}
+
+.varve-card--interactive,
+.varve-card--selectable {
+  transition:
+    background var(--duration-quick) var(--ease-standard),
+    border-color var(--duration-quick) var(--ease-standard),
+    box-shadow var(--duration-quick) var(--ease-standard);
+}
+
+.varve-card--interactive:hover,
+.varve-card--selectable:hover,
+.varve-card--selectable[data-selected="true"] {
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-strong);
+}
+
+.varve-card--selectable[data-selected="true"] {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+.varve-card--prominent {
+  border: var(--border-micro-accent);
+  box-shadow: var(--elevation-shadow-raised);
+}
+
+.varve-card[data-disabled="true"] {
+  color: var(--color-text-disabled);
+  opacity: 0.6;
+}
+
+.varve-card[data-loading="true"] {
+  cursor: progress;
+}
+
+.varve-card[tabindex]:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+
+.varve-card__slot {
+  min-width: 0;
+}
+
+.varve-card__header,
+.varve-card__content,
+.varve-card__footer {
+  padding-inline: var(--varve-card-inset);
+}
+
+.varve-card__header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding-block: var(--varve-card-inset);
+}
+
+.varve-card__title {
+  min-width: 0;
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--font-line-tight);
+}
+
+.varve-card__description {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  line-height: var(--font-line-normal);
+}
+
+.varve-card__content {
+  padding-block: var(--varve-card-inset);
+}
+
+.varve-card__media {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.varve-card__action {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+}
+
+.varve-card__footer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding-block: var(--varve-card-inset);
+  border-top: var(--border-micro);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .varve-card--interactive,
+  .varve-card--selectable {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .varve-card,
+  .varve-card--prominent {
+    border: 1px solid CanvasText;
+    box-shadow: none;
+  }
+
+  .varve-card--selectable[data-selected="true"] {
+    outline-color: Highlight;
+  }
+}

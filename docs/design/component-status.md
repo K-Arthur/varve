@@ -55,6 +55,7 @@
 | Panel | ✅ | ✅ | ✅ | Draggable resize, localStorage |
 | Toolbar | ✅ | — | — | APG roving tabindex |
 | EmptyState | ✅ | ✅ | ✅ | |
+| Card | 🔨 | ✅ | ✅ | Beta composable surface/slot recipe; see [card-system.md](card-system.md) |
 | ShineBorder | 🔨 | ✅ | ✅ | Beta; rare state-driven decoration, not a default Card/Button treatment |
 
 ## Feedback / status

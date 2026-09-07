@@ -7,6 +7,7 @@
  */
 
 import './components/components.css';
+import './components/card.css';
 import './components/radius-system.css';
 import './components/disclosure.css';
 import './components/ColorPicker/color-picker.css';
