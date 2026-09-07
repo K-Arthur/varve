@@ -96,6 +96,31 @@ Comparison split handles and other visual scrubbers may remain slider-only when
 there is no stored parameter to edit. A parameter slider must not be slider-only
 merely because the panel is compact.
 
+### Input groups
+
+`InputGroup` is the shared composition for one editable input with inline context
+or an action. It keeps prefix/suffix text, units, icons, and buttons on the same
+bounded control boundary without nesting controls or making an addon part of the
+input's accessible name:
+
+```tsx
+<InputGroup>
+  <InputGroupAddon>
+    <InputGroupText>https://</InputGroupText>
+  </InputGroupAddon>
+  <InputGroupInput aria-label="Website" />
+  <InputGroupButton aria-label="Apply">Apply</InputGroupButton>
+</InputGroup>
+```
+
+Use `InputGroupAddon align="inline-end"` for units and trailing status, and
+`InputGroupButton size="icon"` for compact actions. Buttons default to
+`type="button"` so an input group cannot accidentally submit a surrounding form.
+The group owns the focus, invalid, disabled, high-contrast, and responsive
+boundary; children must provide `min-width: 0` behavior and must not introduce a
+second full-width border inside the group. Use `Field` or `Input` when helper or
+error copy belongs below the group.
+
 ### Spacing, bounds, and viewport behavior
 
 - Field groups use token gaps and `min-width: 0` at every grid/flex boundary.
@@ -185,6 +210,7 @@ ensuring CSS selectors `[aria-invalid="true"]` work correctly.
 | Surface | Status | Notes |
 |---------|--------|-------|
 | `Input` | ✅ Migrated | Uses `useFieldIds` for ID generation |
+| `InputGroup` | ✅ Added | Shared addon/action boundary with theme and touch-target states |
 | `TextArea` | ✅ Migrated | Uses `useFieldIds` for ID generation |
 | `NativeSelect` | ✅ Migrated | Uses `useFieldIds` for ID generation |
 | `Checkbox` | ✅ Enhanced | Added `description`, `error`, `aria-describedby` |
