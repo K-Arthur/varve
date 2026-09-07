@@ -28,6 +28,7 @@ import {
 import {
   ContextMenu,
   elementAnchor,
+  Menu,
   type MenuEntry,
   type OverlayAnchor,
   pointAnchor,
@@ -541,14 +542,18 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     }
   }, [dndRef, contextMenu, closeMenu]);
 
-  const handleRevealOnCanvas = useCallback(() => {
-    if (state.selection.length > 0) {
-      revealSelection({ fit: true });
-    }
-    closeMenu();
-  }, [state.selection, revealSelection, closeMenu]);
-
   const contextSelection = contextMenu?.selection ?? state.selection;
+  const handleCanvasNavigation = useCallback(
+    (behavior: 'reveal' | 'center' | 'fit') => {
+      const selection = contextMenu?.selection ?? state.selection;
+      if (selection.length > 0) {
+        const singleId = selection.length === 1 ? selection[0] : undefined;
+        revealSelection({ nodeId: singleId, behavior });
+      }
+      closeMenu();
+    },
+    [contextMenu?.selection, state.selection, revealSelection, closeMenu],
+  );
   const canGroup = contextSelection.length >= 2;
   const firstSelId = contextSelection[0];
   const firstSel = firstSelId ? state.document.nodes[firstSelId] : undefined;
@@ -592,10 +597,41 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
   const [layerSettings, setLayerSettings] = useState<LayersSettingsStore>(
     () => loadSettings().layers,
   );
+  const [navigationMenuOpen, setNavigationMenuOpen] = useState(false);
+  const navigationMenuTriggerRef = useRef<HTMLButtonElement>(null);
   const updateLayerSettings = useCallback((patch: Partial<LayersSettingsStore>) => {
     const next = updateSettings({ layers: patch });
     setLayerSettings(next.layers);
   }, []);
+  const navigationMenuItems = useMemo<MenuEntry[]>(
+    () => [
+      { id: 'navigation-label', label: 'When selecting layers', type: 'label' },
+      ...[
+        ['select-only', 'Select only', 'Keep the current camera'] as const,
+        ['reveal', 'Reveal when needed', 'Pan only when the layer is outside the canvas'] as const,
+        ['center', 'Center selection', 'Keep zoom and center the layer'] as const,
+        ['fit', 'Fit selection', 'Center and adjust zoom to show the layer'] as const,
+      ].map(([value, label, description]) => ({
+        id: `selection-navigation-${value}`,
+        label,
+        description,
+        type: 'radio' as const,
+        group: 'layer-selection-navigation',
+        checked: layerSettings.selectionNavigation === value,
+        onToggle: () => updateLayerSettings({ selectionNavigation: value }),
+      })),
+      { id: 'navigation-separator', separator: true },
+      {
+        id: 'tree-auto-reveal',
+        label: 'Reveal canvas selection in Layers panel',
+        description: 'Expand and scroll the tree when selection comes from the canvas',
+        type: 'checkbox',
+        checked: layerSettings.autoReveal,
+        onToggle: () => updateLayerSettings({ autoReveal: !layerSettings.autoReveal }),
+      },
+    ],
+    [layerSettings, updateLayerSettings],
+  );
 
   return (
     <div className="editor-layers layers-panel" data-panel-root="layers">
@@ -609,6 +645,29 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
           <span>Layers</span>
           <TooltipProvider>
             <div className="layers-panel__header-actions">
+              <button
+                ref={navigationMenuTriggerRef}
+                type="button"
+                className="layers-panel__header-btn"
+                aria-haspopup="menu"
+                aria-expanded={navigationMenuOpen}
+                aria-controls="layers-navigation-menu"
+                aria-label="Layer navigation settings"
+                onClick={() => setNavigationMenuOpen((open) => !open)}
+              >
+                <SolidIcon name={SOLID_CHROME_ICONS.settings} size="0.85em" />
+              </button>
+              {navigationMenuOpen && (
+                <Menu
+                  items={navigationMenuItems}
+                  triggerRef={navigationMenuTriggerRef}
+                  open={navigationMenuOpen}
+                  onClose={() => setNavigationMenuOpen(false)}
+                  label="Layer navigation settings"
+                  id="layers-navigation-menu"
+                  size="rich"
+                />
+              )}
               <Tooltip
                 label={
                   layerSettings.autoReveal
@@ -739,7 +798,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
             handleSelectSameLayerColor,
             handleSelectAllOfType,
             handleSoloFromMenu,
-            handleRevealOnCanvas,
+            handleCanvasNavigation,
             enableAutoReveal: () => updateLayerSettings({ autoReveal: true }),
             addMaskToSelected,
             removeMaskFromSelected,
@@ -819,7 +878,7 @@ interface BuildLayerMenuItemsArgs {
   handleSelectSameLayerColor: () => void;
   handleSelectAllOfType: () => void;
   handleSoloFromMenu: () => void;
-  handleRevealOnCanvas: () => void;
+  handleCanvasNavigation: (behavior: 'reveal' | 'center' | 'fit') => void;
   enableAutoReveal: () => void;
   addMaskToSelected: (type: 'alpha' | 'clip' | 'luminance', sourceNodeId?: string) => void;
   removeMaskFromSelected: () => void;
@@ -876,7 +935,7 @@ function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuEntry[] 
     handleSelectSameLayerColor,
     handleSelectAllOfType,
     handleSoloFromMenu,
-    handleRevealOnCanvas,
+    handleCanvasNavigation,
     enableAutoReveal,
     addMaskToSelected,
     removeMaskFromSelected,
@@ -1229,7 +1288,25 @@ function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuEntry[] 
       ],
     },
     { id: 'sep7', separator: true },
-    { id: 'reveal-canvas', label: 'Reveal on Canvas', onAction: handleRevealOnCanvas },
+    {
+      id: 'reveal-canvas',
+      label: 'Reveal on Canvas',
+      description: 'Pan only; keep the current zoom',
+      onAction: () => handleCanvasNavigation('reveal'),
+    },
+    {
+      id: 'center-canvas',
+      label: 'Center Selection',
+      description: 'Center without changing zoom',
+      onAction: () => handleCanvasNavigation('center'),
+    },
+    {
+      id: 'fit-canvas',
+      label: 'Zoom to Selection',
+      description: 'Center and fit the selected layers',
+      badge: 'Shift+2',
+      onAction: () => handleCanvasNavigation('fit'),
+    },
     {
       id: 'reveal-layers',
       label: 'Reveal in Layers panel',

@@ -48,8 +48,8 @@ describe('resolveNavigationBounds', () => {
     );
     const adjustment = makeAdjustmentNode(
       'adjustment',
-      'brightness-contrast',
-      { brightness: 0, contrast: 0 },
+      'curves',
+      { channel: 'rgb', points: [] },
       { scope: { mode: 'explicit-targets', targetNodeIds: [target.id] } },
     );
     doc = addNode(doc, target);
@@ -65,8 +65,8 @@ describe('resolveNavigationBounds', () => {
     let doc = createDocument('navigation', true);
     const adjustment = makeAdjustmentNode(
       'adjustment',
-      'brightness-contrast',
-      { brightness: 0, contrast: 0 },
+      'curves',
+      { channel: 'rgb', points: [] },
       { scope: { mode: 'explicit-targets', targetNodeIds: [] } },
     );
     doc = addNode(doc, adjustment);

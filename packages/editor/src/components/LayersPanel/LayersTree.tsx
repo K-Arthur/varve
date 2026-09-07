@@ -47,6 +47,7 @@ import {
   useState,
 } from 'react';
 import { setInvalidateThumbnailHandler, useEditor } from '../../context';
+import { automaticNavigationForLayerActivation } from '../../navigation/layerNavigationPolicy';
 import {
   getOrCreateParentCache,
   getParentFast,
@@ -678,6 +679,19 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     [state.document],
   );
 
+  const activateLayer = useCallback(
+    (id: NodeId) => {
+      toggleSelection(id, false, 'layers');
+      setAnchorIdx(entries.findIndex((e) => e.node.id === id));
+      const behavior = automaticNavigationForLayerActivation(
+        loadSettings().layers.selectionNavigation,
+        'single',
+      );
+      if (behavior) revealSelection({ nodeId: id, behavior });
+    },
+    [entries, toggleSelection, setAnchorIdx, revealSelection],
+  );
+
   const handleSelect = useCallback(
     (id: NodeId, shift: boolean, ctrl: boolean) => {
       if (shift && anchorIdx >= 0) {
@@ -696,14 +710,10 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
           return;
         }
       }
-      toggleSelection(id, ctrl, 'layers');
-      if (!ctrl) {
-        setAnchorIdx(entries.findIndex((e) => e.node.id === id));
-        // Center and fit the selected node in the canvas viewport.
-        revealSelection({ nodeId: id, fit: true });
-      }
+      if (ctrl) toggleSelection(id, true, 'layers');
+      else activateLayer(id);
     },
-    [anchorIdx, entries, toggleSelection, setAnchorIdx, revealSelection],
+    [anchorIdx, entries, toggleSelection, activateLayer],
   );
 
   const handleRenameStart = useCallback(
@@ -765,11 +775,9 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       setFocusIdx(next);
       const nextEntry = entries[next];
       if (!nextEntry) throw new Error('next entry not found');
-      toggleSelection(nextEntry.node.id, false, 'layers');
-      setAnchorIdx(next);
       virtualizer.scrollToIndex(next, { align: 'auto' });
     },
-    [focusIdx, entries, setFocusIdx, toggleSelection, setAnchorIdx, virtualizer],
+    [focusIdx, entries, setFocusIdx, virtualizer],
   );
 
   const handleRowFocus = useCallback(
@@ -811,8 +819,8 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     doKeyboardMove,
     toggleExpand,
     toggleSelection,
+    activateSelection: activateLayer,
     setFocusIdx,
-    setAnchorIdx,
     jumpToStart,
     jumpToEnd,
     selectAll,

@@ -9,7 +9,15 @@
  */
 import type { Document } from '@varve/scene';
 import { buildParentIndexMap, walkNodes } from '@varve/scene';
-import { clampZoom, fitBoundsCamera, stepZoom, type Viewport, zoomAboutPoint } from '@varve/shared';
+import {
+  animateCamera,
+  type Camera,
+  clampZoom,
+  fitBoundsCamera,
+  stepZoom,
+  type Viewport,
+  zoomAboutPoint,
+} from '@varve/shared';
 import {
   cameraPatch,
   type EditorCameraState,
@@ -19,6 +27,45 @@ import {
 import { nodeWorldBounds } from '../scene/world';
 
 type CameraPatch = Pick<EditorCameraState, 'zoom' | 'pan' | 'cameraRotation'>;
+
+export interface CameraAnimationRef {
+  current: number | null;
+}
+
+export function cancelCameraTransition(animationRef: CameraAnimationRef): void {
+  if (animationRef.current !== null) {
+    cancelAnimationFrame(animationRef.current);
+    animationRef.current = null;
+  }
+}
+
+/** Run one coherent pan/zoom/rotation transition through the shared path. */
+export function animateCameraTo(
+  animationRef: CameraAnimationRef,
+  start: Camera,
+  end: Camera,
+  durationMs: number,
+  reducedMotion: boolean,
+  onFrame: (camera: Camera) => void,
+): void {
+  cancelCameraTransition(animationRef);
+  if (reducedMotion) {
+    onFrame(end);
+    return;
+  }
+
+  const startedAt = performance.now();
+  const tick = (now: number) => {
+    const { camera, done } = animateCamera(start, end, now - startedAt, durationMs);
+    onFrame(camera);
+    if (done) {
+      animationRef.current = null;
+    } else {
+      animationRef.current = requestAnimationFrame(tick);
+    }
+  };
+  animationRef.current = requestAnimationFrame(tick);
+}
 
 function zoomAboutViewportCenter(
   camState: EditorCameraState,
@@ -58,7 +105,10 @@ export function computeZoomTo(
  */
 export function getCanvasViewport(): Viewport {
   const canvasEl =
-    typeof document !== 'undefined' ? document.querySelector<HTMLElement>('.editor-canvas') : null;
+    typeof document !== 'undefined'
+      ? (document.querySelector<HTMLElement>('canvas.editor-canvas__content-layer') ??
+        document.querySelector<HTMLElement>('.editor-canvas'))
+      : null;
   if (canvasEl) return { width: canvasEl.clientWidth, height: canvasEl.clientHeight };
   return {
     width: typeof window !== 'undefined' ? window.innerWidth : 1200,

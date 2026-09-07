@@ -671,6 +671,7 @@ export interface EditorContextValue {
   revealSelection: (opts?: {
     nodeId?: NodeId;
     fit?: boolean;
+    behavior?: 'reveal' | 'center' | 'fit';
     padding?: number;
     viewport?: Viewport;
   }) => void;

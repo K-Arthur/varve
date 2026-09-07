@@ -337,14 +337,14 @@ import {
   worldToPage,
 } from '@varve/scene';
 import {
-  animateCamera,
   type Camera,
+  centerBoundsCameraWithRotation,
   clampCamera,
   clampZoom,
   computeTidyLayout,
   type DistributeMode,
-  fitBoundsCamera,
-  revealBoundsCamera,
+  fitBoundsCameraWithRotation,
+  revealBoundsCameraWithRotation,
   screenDeltaToWorld,
   transformRect,
   tryInvertAffine,
@@ -471,6 +471,8 @@ import {
   useWorkspaceMode,
 } from './context/useWorkspaceMode';
 import {
+  animateCameraTo,
+  cancelCameraTransition,
   computeFitAllCamera,
   computeZoomStep,
   computeZoomTo,
@@ -509,6 +511,7 @@ import { computeCognitiveLoad } from './intelligence/cognitiveLoad';
 import { fromFitSuggestion, suggestFit } from './intelligence/imageFitAdvisor';
 import { type MediaContextValue, MediaProvider } from './media/MediaContext';
 import { applyAutoKeyframes } from './motion/autoKeyframe';
+import { activeSurfaceRootIds, resolveNavigationBounds } from './navigation/navigationBounds';
 import {
   applyPaintProperties,
   extractPaintProperties,
@@ -1010,6 +1013,7 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   revealSelection: (opts?: {
     nodeId?: NodeId;
     fit?: boolean;
+    behavior?: 'reveal' | 'center' | 'fit';
     padding?: number;
     viewport?: Viewport;
   }) => void;
@@ -3435,6 +3439,7 @@ export function EditorProvider({
   );
 
   const setCamera = useCallback((camera: Camera) => {
+    cancelCameraTransition(panAnimRef);
     setState((current) => {
       const viewport = resolveCanvasViewport();
       const candidate: Camera = {
@@ -3570,6 +3575,7 @@ export function EditorProvider({
       setTool: (t) => applyToolChange(t, toolRef, patch),
       setCamera,
       setZoom: (z) => {
+        cancelCameraTransition(panAnimRef);
         setState((current) => {
           const canvasEl = document.querySelector<HTMLElement>(
             'canvas.editor-canvas__content-layer',
@@ -3592,10 +3598,12 @@ export function EditorProvider({
         });
       },
       setPan: (p) => {
+        cancelCameraTransition(panAnimRef);
         setState((current) => applyPanToState(current, p));
       },
       panBy: (dx, dy) => {
         if (dx === 0 && dy === 0) return;
+        cancelCameraTransition(panAnimRef);
         // Advance the imperative snapshot immediately. Auto-pan moves the
         // camera and then re-dispatches the held pointer in the same frame, so
         // tool coordinate conversion must observe this exact camera rather
@@ -3647,12 +3655,7 @@ export function EditorProvider({
       },
       smoothZoomTo: (targetZoom, durationMs = 200) => {
         const s = stateRef.current;
-        if (panAnimRef.current !== null) cancelAnimationFrame(panAnimRef.current);
         const clamped = clampZoom(targetZoom);
-        if (isReducedMotion()) {
-          patch({ zoom: clamped });
-          return;
-        }
         const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
         const vp: Viewport = canvasEl
           ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
@@ -3665,70 +3668,49 @@ export function EditorProvider({
         const startCam = toCamera(startCamState);
         const centre = editorScreenToWorld(startCamState, vp.width / 2, vp.height / 2, vp);
         const endCam = zoomAboutPoint(startCam, centre, clamped, vp);
-        const startTime = performance.now();
-        const tick = (now: number) => {
-          const elapsed = now - startTime;
-          const { camera, done } = animateCamera(startCam, endCam, elapsed, durationMs);
-          patch({ zoom: camera.zoom, pan: camera.pan, cameraRotation: camera.rotation ?? 0 });
-          if (!done) {
-            panAnimRef.current = requestAnimationFrame(tick);
-          } else {
-            panAnimRef.current = null;
-          }
-        };
-        panAnimRef.current = requestAnimationFrame(tick);
+        animateCameraTo(panAnimRef, startCam, endCam, durationMs, isReducedMotion(), (camera) =>
+          patch({ zoom: camera.zoom, pan: camera.pan, cameraRotation: camera.rotation ?? 0 }),
+        );
       },
       smoothPanTo: (target, durationMs = 150) => {
-        if (panAnimRef.current !== null) cancelAnimationFrame(panAnimRef.current);
-        if (isReducedMotion()) {
-          patch({ pan: { x: target.x, y: target.y } });
-          return;
-        }
-        const startCam = { pan: stateRef.current.pan, zoom: stateRef.current.zoom };
+        const current = stateRef.current;
+        const startCam = toCamera({
+          zoom: current.zoom,
+          pan: current.pan,
+          cameraRotation: current.cameraRotation,
+        });
         const endCam = { pan: target, zoom: startCam.zoom };
-        const startTime = performance.now();
-        const tick = (now: number) => {
-          const elapsed = now - startTime;
-          const { camera, done } = animateCamera(startCam, endCam, elapsed, durationMs);
-          patch({ zoom: camera.zoom, pan: camera.pan });
-          if (!done) {
-            panAnimRef.current = requestAnimationFrame(tick);
-          } else {
-            panAnimRef.current = null;
-          }
-        };
-        panAnimRef.current = requestAnimationFrame(tick);
+        animateCameraTo(
+          panAnimRef,
+          startCam,
+          { ...endCam, rotation: startCam.rotation ?? 0 },
+          durationMs,
+          isReducedMotion(),
+          (camera) =>
+            patch({ zoom: camera.zoom, pan: camera.pan, cameraRotation: camera.rotation ?? 0 }),
+        );
       },
       smoothReveal: (bounds, opts) => {
-        if (panAnimRef.current !== null) cancelAnimationFrame(panAnimRef.current);
-        if (isReducedMotion()) {
-          const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
-          const vp: Viewport = canvasEl
-            ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
-            : { width: window.innerWidth, height: window.innerHeight - 120 };
-          const endCam = fitBoundsCamera(bounds, vp, opts?.padding ?? 40);
-          patch({ zoom: endCam.zoom, pan: endCam.pan });
-          return;
-        }
-        const startCam = { pan: stateRef.current.pan, zoom: stateRef.current.zoom };
+        const current = stateRef.current;
+        const startCam = toCamera({
+          zoom: current.zoom,
+          pan: current.pan,
+          cameraRotation: current.cameraRotation,
+        });
         const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
         const vp: Viewport = canvasEl
           ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
           : { width: window.innerWidth, height: window.innerHeight - 120 };
-        const endCam = fitBoundsCamera(bounds, vp, opts?.padding ?? 40);
+        const endCam = fitBoundsCameraWithRotation(
+          bounds,
+          vp,
+          startCam.rotation ?? 0,
+          opts?.padding ?? 40,
+        );
         const durationMs = opts?.durationMs ?? 250;
-        const startTime = performance.now();
-        const tick = (now: number) => {
-          const elapsed = now - startTime;
-          const { camera, done } = animateCamera(startCam, endCam, elapsed, durationMs);
-          patch({ zoom: camera.zoom, pan: camera.pan });
-          if (!done) {
-            panAnimRef.current = requestAnimationFrame(tick);
-          } else {
-            panAnimRef.current = null;
-          }
-        };
-        panAnimRef.current = requestAnimationFrame(tick);
+        animateCameraTo(panAnimRef, startCam, endCam, durationMs, isReducedMotion(), (camera) =>
+          patch({ zoom: camera.zoom, pan: camera.pan, cameraRotation: camera.rotation ?? 0 }),
+        );
       },
       // Each toggle records a per-workspace override so the choice is
       // re-applied the next time this mode is entered, and after a restart.
@@ -3898,32 +3880,55 @@ export function EditorProvider({
         if (cam) patch({ zoom: cam.zoom, pan: cam.pan });
       },
       revealSelection: (opts) => {
-        const id = opts?.nodeId ?? state.selection[0];
-        if (!id) return;
-        // Prefer caller-supplied viewport, then the actual canvas container element
-        // (accurate when panels are open), then fall back to window minus chrome.
-        const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
-        const viewportEst: Viewport =
-          opts?.viewport ??
-          (canvasEl
-            ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
-            : { width: window.innerWidth, height: window.innerHeight - 120 });
-        const bounds = nodeWorldBounds(state.document, id);
-        if (!bounds) return;
+        const current = stateRef.current;
+        const nodeIds = opts?.nodeId ? [opts.nodeId] : current.selection;
+        if (nodeIds.length === 0) return;
+        const resolved = resolveNavigationBounds(current.document, nodeIds, {
+          activeSurfaceRootIds: activeSurfaceRootIds(current.document, current.workspaceMode),
+        });
+        if (!resolved.bounds) return;
+
+        const viewportEst: Viewport = opts?.viewport ?? getCanvasViewport();
         const padding = opts?.padding ?? 40;
-        if (opts?.fit) {
-          const cam = fitBoundsCamera(bounds, viewportEst, padding);
-          patch({ zoom: cam.zoom, pan: cam.pan });
-        } else {
-          const current: import('@varve/shared').Camera = {
-            pan: state.pan,
-            zoom: state.zoom,
-          };
-          const cam = revealBoundsCamera(current, viewportEst, bounds, padding);
-          if (cam.pan.x !== state.pan.x || cam.pan.y !== state.pan.y) {
-            patch({ pan: cam.pan, zoom: cam.zoom });
-          }
+        const behavior = opts?.behavior ?? (opts?.fit ? 'fit' : 'reveal');
+        const start = toCamera({
+          pan: current.pan,
+          zoom: current.zoom,
+          cameraRotation: current.cameraRotation,
+        });
+        const end =
+          behavior === 'fit'
+            ? fitBoundsCameraWithRotation(
+                resolved.bounds,
+                viewportEst,
+                current.cameraRotation,
+                padding,
+              )
+            : behavior === 'center'
+              ? centerBoundsCameraWithRotation(
+                  resolved.bounds,
+                  viewportEst,
+                  current.zoom,
+                  current.cameraRotation,
+                )
+              : revealBoundsCameraWithRotation(start, viewportEst, resolved.bounds, padding);
+        const target = behavior === 'center' ? { ...end, zoom: current.zoom } : end;
+        if (
+          target.zoom === current.zoom &&
+          target.pan.x === current.pan.x &&
+          target.pan.y === current.pan.y
+        ) {
+          return;
         }
+        animateCameraTo(
+          panAnimRef,
+          start,
+          target,
+          behavior === 'fit' ? 300 : 250,
+          isReducedMotion(),
+          (camera) =>
+            patch({ zoom: camera.zoom, pan: camera.pan, cameraRotation: camera.rotation ?? 0 }),
+        );
       },
 
       // F1: single-select replaces the whole set

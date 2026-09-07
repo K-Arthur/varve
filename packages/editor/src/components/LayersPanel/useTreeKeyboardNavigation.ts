@@ -26,8 +26,8 @@ interface UseTreeKeyboardNavigationArgs {
   doKeyboardMove: (delta: number) => void;
   toggleExpand: (id: NodeId) => void;
   toggleSelection: (id: NodeId, additive?: boolean, origin?: SelectionOrigin) => void;
+  activateSelection: (id: NodeId) => void;
   setFocusIdx: (idx: number) => void;
-  setAnchorIdx: (idx: number) => void;
   jumpToStart: () => void;
   jumpToEnd: (length: number) => void;
   selectAll: () => void;
@@ -55,8 +55,8 @@ export function useTreeKeyboardNavigation({
   doKeyboardMove,
   toggleExpand,
   toggleSelection,
+  activateSelection,
   setFocusIdx,
-  setAnchorIdx,
   jumpToStart,
   jumpToEnd,
   selectAll,
@@ -133,8 +133,6 @@ export function useTreeKeyboardNavigation({
               const childIdx = entries.findIndex((e) => e.node.id === childId);
               if (childIdx >= 0) {
                 setFocusIdx(childIdx);
-                toggleSelection(childId, false, 'layers');
-                setAnchorIdx(childIdx);
                 virtualizer.scrollToIndex(childIdx, { align: 'auto' });
               }
             }
@@ -156,8 +154,6 @@ export function useTreeKeyboardNavigation({
             const parentIdx = entries.findIndex((e) => e.node.id === parentId);
             if (parentIdx >= 0) {
               setFocusIdx(parentIdx);
-              toggleSelection(parentId, false, 'layers');
-              setAnchorIdx(parentIdx);
               virtualizer.scrollToIndex(parentIdx, { align: 'auto' });
             }
           }
@@ -171,8 +167,6 @@ export function useTreeKeyboardNavigation({
         jumpToStart();
         const homeEntry = entries[0];
         if (!homeEntry) throw new Error('home entry not found');
-        toggleSelection(homeEntry.node.id, false, 'layers');
-        setAnchorIdx(0);
         virtualizer.scrollToIndex(0, { align: 'start' });
         return;
       }
@@ -181,8 +175,6 @@ export function useTreeKeyboardNavigation({
         jumpToEnd(entries.length);
         const endEntry = entries[entries.length - 1];
         if (!endEntry) throw new Error('end entry not found');
-        toggleSelection(endEntry.node.id, false, 'layers');
-        setAnchorIdx(entries.length - 1);
         virtualizer.scrollToIndex(entries.length - 1, { align: 'end' });
         return;
       }
@@ -191,8 +183,7 @@ export function useTreeKeyboardNavigation({
       if (e.key === 'Enter') {
         e.preventDefault();
         if (focusedNode) {
-          toggleSelection(focusedNode.id, false, 'layers');
-          setAnchorIdx(focusIdx);
+          activateSelection(focusedNode.id);
         }
         return;
       }
@@ -269,8 +260,6 @@ export function useTreeKeyboardNavigation({
           setFocusIdx(matchIdx);
           const matchEntry = entries[matchIdx];
           if (!matchEntry) throw new Error('match entry not found');
-          toggleSelection(matchEntry.node.id, false, 'layers');
-          setAnchorIdx(matchIdx);
           virtualizer.scrollToIndex(matchIdx, { align: 'auto' });
         }
       }
@@ -286,8 +275,8 @@ export function useTreeKeyboardNavigation({
       doKeyboardMove,
       toggleExpand,
       toggleSelection,
+      activateSelection,
       setFocusIdx,
-      setAnchorIdx,
       jumpToStart,
       jumpToEnd,
       selectAll,

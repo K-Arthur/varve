@@ -1,19 +1,26 @@
-import type { NodeId, SceneNode } from '@varve/scene';
+import type { NodeId } from '@varve/scene';
 import {
-  animateCamera,
   type Camera,
+  centerBoundsCameraWithRotation,
   clampZoom,
-  fitBoundsCamera,
-  revealBoundsCamera,
+  fitBoundsCameraWithRotation,
+  revealBoundsCameraWithRotation,
   screenDeltaToWorld,
   type Viewport,
 } from '@varve/shared';
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 import { editorScreenToWorld, editorWorldToScreen, getEditorViewport } from '../canvas/cameraState';
+import { activeSurfaceRootIds, resolveNavigationBounds } from '../navigation/navigationBounds';
 import { isReducedMotion, subscribeReducedMotion } from './reducedMotionManager';
 import type { CanvasMode, EditorState } from './types';
-import { computeZoomStep, computeZoomTo } from './viewportOps';
+import {
+  animateCameraTo,
+  cancelCameraTransition,
+  computeZoomStep,
+  computeZoomTo,
+  getCanvasViewport,
+} from './viewportOps';
 
 export interface ViewportContextValue {
   zoom: number;
@@ -38,6 +45,7 @@ export interface ViewportContextValue {
   revealSelection: (opts?: {
     nodeId?: NodeId;
     fit?: boolean;
+    behavior?: 'reveal' | 'center' | 'fit';
     padding?: number;
     viewport?: Viewport;
   }) => void;
@@ -94,73 +102,67 @@ export function ViewportProvider({
       // Anchor around the viewport center so the point under the canvas
       // center stays put — identical to `useEditor().setZoom` (both go
       // through `computeZoomTo`). A plain `clampZoom` patch would diverge.
+      cancelCameraTransition(animRef);
       const s = stateRef.current;
       const camState = { zoom: s.zoom, pan: s.pan, cameraRotation: s.cameraRotation };
       patch(computeZoomTo(camState, z, getEditorViewport()));
     },
-    [patch, stateRef],
+    [patch, stateRef, animRef],
   );
 
   const setCamera = useCallback(
-    (camera: Camera) =>
+    (camera: Camera) => {
+      cancelCameraTransition(animRef);
       patch({
         zoom: clampZoom(camera.zoom),
         pan: { x: camera.pan.x, y: camera.pan.y },
         cameraRotation: camera.rotation ?? stateRef.current.cameraRotation,
-      }),
-    [patch, stateRef],
+      });
+    },
+    [patch, stateRef, animRef],
   );
 
   const setPan = useCallback(
-    (p: { x: number; y: number }) => patch({ pan: { x: p.x, y: p.y } }),
-    [patch],
+    (p: { x: number; y: number }) => {
+      cancelCameraTransition(animRef);
+      patch({ pan: { x: p.x, y: p.y } });
+    },
+    [patch, animRef],
   );
 
   const zoomIn = useCallback(() => {
+    cancelCameraTransition(animRef);
     const s = stateRef.current;
     const camState = { zoom: s.zoom, pan: s.pan, cameraRotation: s.cameraRotation };
     patch(computeZoomStep(camState, 'in', getEditorViewport()));
-  }, [patch, stateRef]);
+  }, [patch, stateRef, animRef]);
 
   const zoomOut = useCallback(() => {
+    cancelCameraTransition(animRef);
     const s = stateRef.current;
     const camState = { zoom: s.zoom, pan: s.pan, cameraRotation: s.cameraRotation };
     patch(computeZoomStep(camState, 'out', getEditorViewport()));
-  }, [patch, stateRef]);
+  }, [patch, stateRef, animRef]);
 
   const zoomTo = useCallback(
     (level: number) => {
+      cancelCameraTransition(animRef);
       const s = stateRef.current;
       const camState = { zoom: s.zoom, pan: s.pan, cameraRotation: s.cameraRotation };
       patch(computeZoomTo(camState, level, getEditorViewport()));
     },
-    [patch, stateRef],
+    [patch, stateRef, animRef],
   );
 
   const smoothZoomTo = useCallback(
     (targetZoom: number, durationMs = 200) => {
       const s = stateRef.current;
-      if (animRef.current !== null) cancelAnimationFrame(animRef.current);
       const clamped = clampZoom(targetZoom);
-      // Reduced motion: jump instantly, no animation.
-      if (rmRef.current) {
-        patch({ zoom: clamped });
-        return;
-      }
-      const startCam = { zoom: s.zoom, pan: s.pan };
-      const endCam = { zoom: clamped, pan: s.pan };
-      const startTime = performance.now();
-      const frame = () => {
-        const elapsed = performance.now() - startTime;
-        const result = animateCamera(startCam, endCam, elapsed, durationMs);
-        patch({ zoom: result.camera.zoom, pan: result.camera.pan });
-        if (!result.done) {
-          animRef.current = requestAnimationFrame(frame);
-        } else {
-          animRef.current = null;
-        }
-      };
-      animRef.current = requestAnimationFrame(frame);
+      const startCam: Camera = { zoom: s.zoom, pan: s.pan, rotation: s.cameraRotation };
+      const endCam: Camera = { zoom: clamped, pan: s.pan, rotation: s.cameraRotation };
+      animateCameraTo(animRef, startCam, endCam, durationMs, rmRef.current, (camera) =>
+        patch({ zoom: camera.zoom, pan: camera.pan, cameraRotation: camera.rotation ?? 0 }),
+      );
     },
     [patch, stateRef, animRef],
   );
@@ -168,26 +170,11 @@ export function ViewportProvider({
   const smoothPanTo = useCallback(
     (target: { x: number; y: number }, durationMs = 200) => {
       const s = stateRef.current;
-      if (animRef.current !== null) cancelAnimationFrame(animRef.current);
-      // Reduced motion: jump instantly, no animation.
-      if (rmRef.current) {
-        patch({ pan: { x: target.x, y: target.y } });
-        return;
-      }
-      const startCam = { zoom: s.zoom, pan: s.pan };
-      const endCam = { zoom: s.zoom, pan: target };
-      const startTime = performance.now();
-      const frame = () => {
-        const elapsed = performance.now() - startTime;
-        const result = animateCamera(startCam, endCam, elapsed, durationMs);
-        patch({ zoom: result.camera.zoom, pan: result.camera.pan });
-        if (!result.done) {
-          animRef.current = requestAnimationFrame(frame);
-        } else {
-          animRef.current = null;
-        }
-      };
-      animRef.current = requestAnimationFrame(frame);
+      const startCam: Camera = { zoom: s.zoom, pan: s.pan, rotation: s.cameraRotation };
+      const endCam: Camera = { zoom: s.zoom, pan: target, rotation: s.cameraRotation };
+      animateCameraTo(animRef, startCam, endCam, durationMs, rmRef.current, (camera) =>
+        patch({ zoom: camera.zoom, pan: camera.pan, cameraRotation: camera.rotation ?? 0 }),
+      );
     },
     [patch, stateRef, animRef],
   );
@@ -198,12 +185,14 @@ export function ViewportProvider({
       opts?: { padding?: number; durationMs?: number },
     ) => {
       const s = stateRef.current;
-      const vp = { width: window.innerWidth, height: window.innerHeight };
-      const target = revealBoundsCamera(s, vp, bounds, opts?.padding ?? 40);
-      smoothZoomTo(target.zoom, opts?.durationMs ?? 300);
-      smoothPanTo(target.pan, opts?.durationMs ?? 300);
+      const vp = getCanvasViewport();
+      const start: Camera = { pan: s.pan, zoom: s.zoom, rotation: s.cameraRotation };
+      const target = revealBoundsCameraWithRotation(start, vp, bounds, opts?.padding ?? 40);
+      animateCameraTo(animRef, start, target, opts?.durationMs ?? 300, rmRef.current, (camera) =>
+        patch({ zoom: camera.zoom, pan: camera.pan, cameraRotation: camera.rotation ?? 0 }),
+      );
     },
-    [stateRef, smoothZoomTo, smoothPanTo],
+    [stateRef, patch, animRef],
   );
 
   const setCanvasMode = useCallback((mode: CanvasMode) => patch({ canvasMode: mode }), [patch]);
@@ -251,72 +240,41 @@ export function ViewportProvider({
   );
 
   const revealSelection = useCallback(
-    (opts?: { nodeId?: NodeId; fit?: boolean; padding?: number; viewport?: Viewport }) => {
+    (opts?: {
+      nodeId?: NodeId;
+      fit?: boolean;
+      behavior?: 'reveal' | 'center' | 'fit';
+      padding?: number;
+      viewport?: Viewport;
+    }) => {
       const s = stateRef.current;
-      const vp = opts?.viewport ?? { width: window.innerWidth, height: window.innerHeight };
+      const nodeIds = opts?.nodeId ? [opts.nodeId] : s.selection;
+      const resolved = resolveNavigationBounds(s.document, nodeIds, {
+        activeSurfaceRootIds: activeSurfaceRootIds(s.document, s.workspaceMode),
+      });
+      if (!resolved.bounds) return;
+      const vp = opts?.viewport ?? getCanvasViewport();
+      const start: Camera = { pan: s.pan, zoom: s.zoom, rotation: s.cameraRotation };
       const padding = opts?.padding ?? 40;
-
-      if (opts?.nodeId) {
-        const n = s.document.nodes[opts.nodeId];
-        if (!n) return;
-        const b = nodeWorldBoundsInner(n);
-        if (!b) return;
-        const target = opts?.fit
-          ? fitBoundsCamera(b, vp, padding)
-          : revealBoundsCamera(s, vp, b, padding);
-        smoothZoomTo(target.zoom, opts?.fit ? 300 : 250);
-        smoothPanTo(target.pan, opts?.fit ? 300 : 250);
-      } else if (opts?.fit) {
-        let minX = Infinity,
-          minY = Infinity,
-          maxX = -Infinity,
-          maxY = -Infinity;
-        const entries = Object.values(s.document.nodes);
-        if (entries.length === 0) return;
-        for (const n of entries) {
-          if (!n) continue;
-          const b = nodeWorldBoundsInner(n);
-          if (!b) continue;
-          minX = Math.min(minX, b.x);
-          minY = Math.min(minY, b.y);
-          maxX = Math.max(maxX, b.x + b.w);
-          maxY = Math.max(maxY, b.y + b.h);
-        }
-        const target = fitBoundsCamera(
-          { x: minX, y: minY, w: maxX - minX, h: maxY - minY },
-          vp,
-          padding,
-        );
-        smoothZoomTo(target.zoom, 300);
-        smoothPanTo(target.pan, 300);
-      } else {
-        const sel = s.selection;
-        if (sel.length === 0) return;
-        let minX = Infinity,
-          minY = Infinity,
-          maxX = -Infinity,
-          maxY = -Infinity;
-        for (const id of sel) {
-          const n = s.document.nodes[id];
-          if (!n) continue;
-          const b = nodeWorldBoundsInner(n);
-          if (!b) continue;
-          minX = Math.min(minX, b.x);
-          minY = Math.min(minY, b.y);
-          maxX = Math.max(maxX, b.x + b.w);
-          maxY = Math.max(maxY, b.y + b.h);
-        }
-        const target = revealBoundsCamera(
-          s,
-          vp,
-          { x: minX, y: minY, w: maxX - minX, h: maxY - minY },
-          padding,
-        );
-        smoothZoomTo(target.zoom, 250);
-        smoothPanTo(target.pan, 250);
-      }
+      const behavior = opts?.behavior ?? (opts?.fit ? 'fit' : 'reveal');
+      const target =
+        behavior === 'fit'
+          ? fitBoundsCameraWithRotation(resolved.bounds, vp, s.cameraRotation, padding)
+          : behavior === 'center'
+            ? centerBoundsCameraWithRotation(resolved.bounds, vp, s.zoom, s.cameraRotation)
+            : revealBoundsCameraWithRotation(start, vp, resolved.bounds, padding);
+      if (target.zoom === s.zoom && target.pan.x === s.pan.x && target.pan.y === s.pan.y) return;
+      animateCameraTo(
+        animRef,
+        start,
+        target,
+        behavior === 'fit' ? 300 : 250,
+        rmRef.current,
+        (camera) =>
+          patch({ zoom: camera.zoom, pan: camera.pan, cameraRotation: camera.rotation ?? 0 }),
+      );
     },
-    [stateRef, smoothZoomTo, smoothPanTo],
+    [stateRef, patch, animRef],
   );
 
   const fitAll = useCallback(() => revealSelection({ fit: true }), [revealSelection]);
@@ -365,32 +323,4 @@ export function ViewportProvider({
   );
 
   return <ViewportCtx.Provider value={value}>{children}</ViewportCtx.Provider>;
-}
-
-function nodeWorldBoundsInner(n: SceneNode): { x: number; y: number; w: number; h: number } | null {
-  const tx = n.transform[4] ?? 0;
-  const ty = n.transform[5] ?? 0;
-  if (n.kind === 'shape') {
-    const s = (n as import('@varve/scene').ShapeNode).shape;
-    if (s.kind === 'rect') return { x: tx + s.x, y: ty + s.y, w: s.w, h: s.h };
-    if (s.kind === 'ellipse')
-      return { x: tx + s.cx - s.rx, y: ty + s.cy - s.ry, w: s.rx * 2, h: s.ry * 2 };
-    if (s.kind === 'circle')
-      return { x: tx + s.cx - s.r, y: ty + s.cy - s.r, w: s.r * 2, h: s.r * 2 };
-    if (s.kind === 'line') {
-      const minX = Math.min(s.from[0], s.to[0]);
-      const maxX = Math.max(s.from[0], s.to[0]);
-      const minY = Math.min(s.from[1], s.to[1]);
-      const maxY = Math.max(s.from[1], s.to[1]);
-      return { x: tx + minX, y: ty + minY, w: maxX - minX || 1, h: maxY - minY || 1 };
-    }
-  }
-  if (n.kind === 'frame') {
-    const f = n as import('@varve/scene').FrameNode;
-    return { x: tx, y: ty, w: f.w ?? 200, h: f.h ?? 160 };
-  }
-  if (n.kind === 'group') {
-    return null;
-  }
-  return null;
 }
