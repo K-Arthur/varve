@@ -34,7 +34,7 @@ clipboard write, a real text-editing target, or the lifetime of a browser
 | Clipboard write | `writeClipboard` | A custom Varve/legacy multi-format write is attempted, then a plain-text names/JSON fallback reports boolean success even though object paste cannot use it. |
 | Clipboard read | `readClipboardUnifiedWithFallback` | Async API, captured DOM event, then Tauri image-only fallback. Event and async paths do not recognize the same Varve MIME set. |
 | Import | `ImportService.importFiles` | SVG and raster imports share the normal import path and are inserted in one document transaction. |
-| Object insertion | `insertImportedSubtree` + `mergeImportedResources` | IDs are remapped through `deepCloneSubtree`; world anchors are rebased into the current selected frame. The insertion target is resolved after async reads. |
+| Object insertion | `insertImportedSubtree` + `mergeImportedResources` | IDs are remapped through `deepCloneSubtree`; world anchors are rebased into the current selected frame. The insertion target and captured placement center are resolved before async reads. |
 | Specialized buffers | `propertyClipboard`, `guideClipboard`, effect-stack state | These are intentionally app-local and separate from the system object clipboard. Guide paste is currently checked before the system clipboard. |
 
 ## Confirmed risks
@@ -130,10 +130,16 @@ editor ignores a text-only browser result while a native structured read is
 still available, and both keyboard and context-menu commands share this
 resolver. Focused unit coverage proves the read/write ordering; native
 WebKitGTK smoke coverage confirms the desktop test harness runs under the
-current Wayland session. Paste target resolution also remains stable for
-legacy fragments without a world anchor: a selected frame/group receives the
-new node, while the source local transform is retained when no world pose can
-be rebased.
+current Wayland session. Paste placement is now explicit for every
+destination: one visible/unlocked selected frame/group is centered in its
+placed-world bounds; ambiguous or ineligible selection falls back to the
+active page/design-canvas root and the captured visible-canvas center.
+Same-document rich fragments preserve their world anchors when there is no
+explicit container; selecting a frame/group applies one shared translation
+that centers the fragment while retaining relative spacing. Foreign/legacy
+fragments and external images/SVGs use the same center policy. Final
+transforms are rebased into parent-local space, including page placement and
+transformed containers; the camera itself is not changed by Paste.
 
 ## Verification limits at audit time
 

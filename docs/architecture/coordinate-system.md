@@ -101,10 +101,14 @@ never applied a second time.
 - Boolean ops clip operands in world space (`shapeNodesInWorldSpace`) and
   re-anchor the result at the first operand's home
   (`booleanAnchorForNode` + `placeBooleanResult`).
-- Paste/copy: `copySelected` records each root's placed-world transform
-  (`ClipboardData.worldAnchor`); paste rebases it into the destination
-  frame's local space (`newLocal = targetWorld⁻¹ · anchor`). Legacy
-  clipboard payloads without an anchor keep source-local semantics.
+- Paste/copy: `copySelected` records the source document and each root's
+  placed-world transform (`ClipboardData.sourceDocumentId` and
+  `worldAnchor`); same-document paste preserves those transforms when there
+  is no explicit container, or applies one shared world translation when a
+  frame/group is selected, then rebases into the destination parent's local
+  space (`newLocal = targetWorld⁻¹ · translatedAnchor`). Foreign or legacy
+  payloads use the clipboard center-placement fallback because their
+  source-local coordinates are not destination-independent.
 
 ## Keyboard movement
 

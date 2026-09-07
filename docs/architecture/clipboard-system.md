@@ -1,6 +1,6 @@
 # Clipboard System
 
-Status: current (2026-09-06)
+Status: current (2026-09-07)
 
 Varve has one system object clipboard for layer transfer and deliberately
 separate application buffers for properties, effect stacks, guides, tables,
@@ -40,6 +40,8 @@ The fragment contains:
 - explicit `rootIds` in selection order;
 - the full descendant node closure, with a parent and selected child copied
   only once;
+- the source document identity for distinguishing in-document and foreign
+  rich pastes;
 - placed-world `worldAnchor` transforms for each root;
 - referenced image assets, raster-mask assets, icon assets, and mockup
   templates;
@@ -101,13 +103,41 @@ target.
 
 ## Placement and history
 
-Ordinary Varve Paste preserves each root's placed-world pose. When a frame or
-group is selected, that pose is rebased into the destination parent's local
-space using the canonical coordinate helpers. Legacy fragments without an
-anchor still adopt the selected frame/group; because they do not carry a
-world pose, their source local transform is retained. External images and SVGs
-are placed at the captured viewport center and then rebased into the selected
-container when legal.
+Paste has one explicit destination and one explicit placement policy. The
+destination is resolved synchronously, before clipboard reads or image
+decoding can change the editor state:
+
+1. A single visible, unlocked selected frame or group is the destination
+   container. Its world-space bounds center is the placement center. An empty
+   group uses its world transform origin.
+2. Any ambiguous selection (multiple containers, mixed container/content
+   selection, or a locked/hidden container) uses the active page/design-canvas
+   content root and the captured center of the visible `.editor-canvas`.
+
+The center is converted with the live editor camera, including CSS viewport
+size, pan, zoom, rotation, and floating-origin handling. The camera is never
+changed by Paste, so an off-screen world-preserving paste remains discoverable
+through the selected layer and the existing Fit Selection command.
+
+Current same-document Varve copies carry both `sourceDocumentId` and root
+`worldAnchor` transforms. With no explicit selected container, they preserve
+the copied roots' placed-world pose and rebase those transforms into the
+active content root. When a frame/group is explicitly selected, the anchors
+preserve relative spacing and transformed geometry while one shared world
+translation centers the fragment inside that destination.
+
+Foreign Varve fragments, legacy fragments without a source identity/anchor,
+external images, and SVGs have no trustworthy destination-independent pose.
+Their whole imported fragment is translated so its visual bounds center lands
+at the selected container center or viewport center. Multiple external items
+cascade by 40 world units while retaining their individual sizes and
+appearance. No automatic scaling is applied when an item is larger than its
+target frame; the frame's existing clipping setting determines whether
+overflow is visible.
+
+All final positions are translated in placed world space and written as
+parent-local transforms. The selected destination is never chosen merely
+because it appeared first in a multi-selection.
 
 Paste and Cut commit through the existing transaction/history path. Undo Cut
 restores the source document without rewriting the system clipboard. Redo

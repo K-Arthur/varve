@@ -31,8 +31,11 @@ import { sitePath } from '../../lib/siteUrl';
           <p>
             Copying a frame includes its descendants and the supported image,
             mask, icon, and mockup resources it references. Paste allocates fresh
-            identities, adopts layers into a selected frame, and converts the
-            captured world pose into that frame's local space when available.
+            identities, adopts layers into a selected frame, and applies a
+            defined placement policy: same-document copies preserve their
+            world pose unless a frame is explicitly selected, in which case
+            the fragment is centered inside it; foreign or image/SVG content
+            is centered in the selected frame or visible canvas viewport.
           </p>
         </div>
         <div class="transfer-flow" aria-label="Clipboard transfer stages">
@@ -51,6 +54,7 @@ import { sitePath } from '../../lib/siteUrl';
           <article><h3>Editable layer fragments</h3><p>Nested groups and frames remain editable instead of becoming a screenshot or a flat export.</p></article>
           <article><h3>External images and SVG</h3><p>Clipboard files and validated SVG pass through Varve's existing import pipeline, including multiple distinct image items.</p></article>
           <article><h3>Wayland-aware desktop paste</h3><p>On Linux desktop, native MIME transfer keeps editable layer paste available when WebKitGTK cannot expose the rich clipboard to the canvas.</p></article>
+          <article><h3>Predictable placement</h3><p>Paste uses the selected visible frame or group as an explicit destination; otherwise it centers foreign content in the canvas viewport without changing your zoom or pan.</p></article>
           <article><h3>Native text editing</h3><p>Textareas, fields, IME composition, Unicode, and caret behavior remain owned by the browser when you are typing.</p></article>
           <article><h3>Specialist buffers stay separate</h3><p>Copy Properties, effect stacks, and guides do not unexpectedly overwrite the system object clipboard.</p></article>
           <article><h3>Cut waits for truth</h3><p>If only a names-only text fallback is available, Cut leaves the original layers in place.</p></article>
