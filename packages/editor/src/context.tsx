@@ -46,9 +46,8 @@ export function invalidateNodeThumbnail(nodeId: string): void {
 import { getDesktopAnalytics } from './analytics/desktopAnalytics';
 import { getLayerNavigationCommands } from './components/LayersPanel/layerNavigationRegistry';
 import { PaletteExtractDialogHost } from './components/PaletteExtract/PaletteExtractDialogHost';
-import { requestInspectorTab } from './context/inspectorTabBridge';
 import { applySelectedLayoutChildField } from './context/layoutChildSetters';
-import { isCapabilityRestricted, setBumpThemeRevisionHandler } from './context/sessionGlobals';
+import * as sessionGlobals from './context/sessionGlobals';
 import { useAutoBackupServices } from './context/useAutoBackupServices';
 import { type ImportedResourceSet, mergeImportedResources } from './import/mergeImportedResources';
 import {
@@ -255,7 +254,6 @@ import {
   removeSpotFromLibrary as removeSpotFromLibraryDoc,
   removeStateMachine,
   renameLayerState as renameLayerStateDoc,
-  renameNode,
   renameSelectionSet as renameSelectionSetDoc,
   renameSMState,
   renameSpotLibrary as renameSpotLibraryDoc,
@@ -506,7 +504,7 @@ import {
   selectedImageShape,
 } from './imageOperations';
 import { getActionTracker } from './intelligence/actionTracker';
-import { autoName } from './intelligence/autoNamer';
+import * as autoNaming from './intelligence/autoNamer';
 import { computeCognitiveLoad } from './intelligence/cognitiveLoad';
 import { fromFitSuggestion, suggestFit } from './intelligence/imageFitAdvisor';
 import { type MediaContextValue, MediaProvider } from './media/MediaContext';
@@ -590,7 +588,7 @@ function guardInference<A extends unknown[]>(
   action: (...args: A) => Promise<void>,
 ): (...args: A) => Promise<void> {
   return (...args: A) =>
-    isCapabilityRestricted('inference') ? Promise.resolve() : action(...args);
+    sessionGlobals.isCapabilityRestricted('inference') ? Promise.resolve() : action(...args);
 }
 
 function viewportCenterWorld(cam: {
@@ -3001,7 +2999,7 @@ export function EditorProvider({
   // Register the theme-revision bridge so Menubar / SettingsDialog can bump
   // the counter without importing EditorContextValue.
   useEffect(() => {
-    setBumpThemeRevisionHandler(() => {
+    sessionGlobals.setBumpThemeRevisionHandler(() => {
       // Clear the resolved-color cache on theme switch (gridRenderer).
       // Uses global to avoid adding an import to this hub file.
       if (typeof window !== 'undefined') {
@@ -3011,7 +3009,7 @@ export function EditorProvider({
       }
       patch({ themeRevision: stateRef.current.themeRevision + 1 });
     });
-    return () => setBumpThemeRevisionHandler(null);
+    return () => sessionGlobals.setBumpThemeRevisionHandler(null);
   }, [patch]);
 
   // Register the backup service bridge so SettingsDialog's BackupSettingsPanel
@@ -3210,14 +3208,7 @@ export function EditorProvider({
 
   const updateNodeProp = useCallback(
     (id: NodeId, updater: (n: SceneNode) => SceneNode) => {
-      updateDoc((doc) => {
-        const node = doc.nodes[id];
-        if (!node) return doc;
-        return {
-          ...doc,
-          nodes: { ...doc.nodes, [id]: updater(node) },
-        };
-      });
+      updateDoc((doc) => autoNaming.updateNodeWithAutomaticTextName(doc, id, updater));
     },
     [updateDoc],
   );
@@ -4315,7 +4306,7 @@ export function EditorProvider({
 
             // Apply context-aware auto-name now that the node is in the document
             // and any frame children have been captured.
-            const finalName = autoName(newDoc, newDoc.nodes[id]!);
+            const finalName = autoNaming.autoName(newDoc, newDoc.nodes[id]!);
             if (finalName !== newDoc.nodes[id]!.name) {
               newDoc = {
                 ...newDoc,
@@ -4365,6 +4356,7 @@ export function EditorProvider({
 
           const node = makeTextNode(id, text, {
             name: 'Node',
+            nameMode: 'automatic',
             transform,
             fontSize: 16,
             w: size?.w,
@@ -4415,7 +4407,7 @@ export function EditorProvider({
             }
           }
 
-          const finalName = autoName(newDoc, newDoc.nodes[id]!);
+          const finalName = autoNaming.autoName(newDoc, newDoc.nodes[id]!);
           if (finalName !== newDoc.nodes[id]!.name) {
             newDoc = {
               ...newDoc,
@@ -4708,13 +4700,17 @@ export function EditorProvider({
       renameSelected: (name) => {
         const sel = state.selection[0];
         if (!sel || isNodeEffectivelyLocked(state.document, sel)) return;
-        updateDoc((doc) => renameNode(doc, sel, name));
+        updateDoc((doc) => autoNaming.renameCustom(doc, sel, name));
       },
 
       renameNodeById: (id, name) => {
         updateDoc((doc) =>
-          doc.nodes[id] && !isNodeEffectivelyLocked(doc, id) ? renameNode(doc, id, name) : doc,
+          autoNaming.renameIfUnlocked(doc, id, name, isNodeEffectivelyLocked(doc, id)),
         );
+      },
+
+      restoreAutomaticTextName: (id) => {
+        updateDoc((doc) => autoNaming.restoreIfUnlocked(doc, id, isNodeEffectivelyLocked(doc, id)));
       },
 
       moveNode: (id, toIndex) => {
@@ -6500,7 +6496,7 @@ export function EditorProvider({
           patch({ rightPanelVisible: true });
           updateSettings({ panel: { rightPanelVisible: true } });
         }
-        requestInspectorTab(tab, subTab);
+        sessionGlobals.requestInspectorTab(tab, subTab);
       },
 
       openCafDialog: (nodeId) => {
@@ -7456,7 +7452,7 @@ export function EditorProvider({
         // Creation is an editing workflow: reveal the Adjustment tab so the
         // newly-created layer is immediately actionable instead of leaving
         // its controls behind the Properties tab's access summary.
-        requestInspectorTab('adjustments');
+        sessionGlobals.requestInspectorTab('adjustments');
         announcerRef.current?.announce(`Created adjustment layer${scopeLabel}`);
       },
 
@@ -8919,7 +8915,7 @@ export function EditorProvider({
         // inspector sections, the selection quick bar, the command palette and
         // an action handler — gating the affordances one by one leaves whichever
         // route was missed wide open, so refuse here instead.
-        if (isCapabilityRestricted('inference')) return;
+        if (sessionGlobals.isCapabilityRestricted('inference')) return;
         patch({ upscaleDialogOpen: true });
       },
       closeUpscaleDialog: () => {
@@ -10230,6 +10226,7 @@ export function EditorProvider({
       removeSelected: value.removeSelected,
       renameSelected: value.renameSelected,
       renameNodeById: value.renameNodeById,
+      restoreAutomaticTextName: value.restoreAutomaticTextName,
       moveNode: value.moveNode,
       duplicateSelected: value.duplicateSelected,
       repeatDuplicate: value.repeatDuplicate,

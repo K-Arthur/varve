@@ -5,6 +5,7 @@ import {
   imageShapeH,
   imageShapeW,
   isImageShape,
+  renameNode,
   richTextToPlainText,
   shapeHeight,
   shapeWidth,
@@ -74,6 +75,69 @@ export function automaticTextName(node: TextNode): string {
   const content = textContentForNaming(node);
   return `Text: ${truncateText(content || 'Untitled text', 30)}`;
 }
+
+/** Keep an automatic text label coupled to content without touching custom names. */
+export function syncTextName(previous: SceneNode, next: SceneNode): SceneNode {
+  if (
+    previous.kind !== 'text' ||
+    next.kind !== 'text' ||
+    next.nameMode !== 'automatic' ||
+    textContentForNaming(previous) === textContentForNaming(next)
+  ) {
+    return next;
+  }
+  return { ...next, name: automaticTextName(next) };
+}
+
+/** Update one document node while keeping automatic text naming in the same transaction. */
+export function updateNodeWithAutomaticTextName(
+  doc: Document,
+  id: NodeId,
+  updater: (node: SceneNode) => SceneNode,
+): Document {
+  const node = doc.nodes[id];
+  if (!node) return doc;
+  return { ...doc, nodes: { ...doc.nodes, [id]: syncTextName(node, updater(node)) } };
+}
+
+/** Apply a user-visible rename and record that the name is no longer derived. */
+export function renameCustom(doc: Document, id: NodeId, name: string): Document {
+  const renamed = renameNode(doc, id, name);
+  const node = renamed.nodes[id];
+  return node
+    ? { ...renamed, nodes: { ...renamed.nodes, [id]: { ...node, nameMode: 'custom' } } }
+    : renamed;
+}
+
+export function renameCustomIfUnlocked(
+  doc: Document,
+  id: NodeId,
+  name: string,
+  locked: boolean,
+): Document {
+  return doc.nodes[id] && !locked ? renameCustom(doc, id, name) : doc;
+}
+
+export const renameIfUnlocked = renameCustomIfUnlocked;
+
+/** Explicitly opt a text node back into content-derived naming. */
+export function restoreTextName(doc: Document, id: NodeId): Document {
+  const node = doc.nodes[id];
+  if (node?.kind !== 'text') return doc;
+  return {
+    ...doc,
+    nodes: {
+      ...doc.nodes,
+      [id]: { ...node, name: automaticTextName(node), nameMode: 'automatic' },
+    },
+  };
+}
+
+export function restoreTextNameIfUnlocked(doc: Document, id: NodeId, locked: boolean): Document {
+  return locked ? doc : restoreTextName(doc, id);
+}
+
+export const restoreIfUnlocked = restoreTextNameIfUnlocked;
 
 function getNodeWidth(node: SceneNode): number | null {
   switch (node.kind) {

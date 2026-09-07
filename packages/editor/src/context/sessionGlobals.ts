@@ -1,6 +1,7 @@
 import { THEME_CHANGE_EVENT } from '@varve/ui/tokens';
 
 export { isCapabilityRestricted } from '../capabilities/restrictions';
+export { requestInspectorTab } from './inspectorTabBridge';
 
 /** Module-level bridge used by theme and rendering controls to invalidate
  * canvas colour caches without making the editor tree consume a theme object. */

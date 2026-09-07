@@ -813,6 +813,8 @@ export interface EditorContextValue {
    * multi-selection.
    */
   renameNodeById: (id: NodeId, name: string) => void;
+  /** Restore a text layer's content-derived name and follow future edits. */
+  restoreAutomaticTextName: (id: NodeId) => void;
   moveNode: (id: NodeId, toIndex: number) => void;
   duplicateSelected: () => void;
   /** Repeat the last duplicate with the same offset (Cmd/Ctrl+D after initial duplicate). */
