@@ -264,7 +264,18 @@ export function parseFontSemanticQuery(input: string): FontSemanticQuery {
   query.exactTerms = query.exactTerms.filter(
     (term) => !stopwords.has(term) && !referenceTerms.has(term),
   );
-  if (query.exactTerms.length === 0 && lower && !query.similarityTarget)
+  // A structured design-language query should not become one giant lexical
+  // phrase. That phrase can never match a family name and makes a semantic
+  // search look like it has an exact text requirement. Keep the fallback for
+  // plain text searches such as "gothic", where the whole query is the useful
+  // family-name fragment.
+  if (
+    query.exactTerms.length === 0 &&
+    lower &&
+    !query.similarityTarget &&
+    query.required.length === 0 &&
+    query.preferred.length === 0
+  )
     query.exactTerms.push(lower);
   query.intendedRole = [...new Set(query.intendedRole)];
   return query;

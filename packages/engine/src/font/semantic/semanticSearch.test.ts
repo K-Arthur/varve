@@ -71,6 +71,21 @@ describe('font semantic ranking', () => {
     expect(result[0]?.reasons.some((reason) => reason.label === 'Exact family match')).toBe(true);
   });
 
+  it('does not pad a family-name search with unrelated records', () => {
+    const records = [
+      semanticRecordFromFontsource(family({ familyId: 'gothic-a1', familyName: 'Gothic A1' })),
+      semanticRecordFromFontsource(family({ familyId: 'other', familyName: 'Other Sans' })),
+      semanticRecordFromFontsource(family({ familyId: 'display', familyName: 'Display Serif' })),
+    ];
+
+    const results = searchFontSemanticRecords(records, 'gothic', {
+      limit: 50,
+      diversity: true,
+    });
+
+    expect(results.map((result) => result.record.familyName)).toEqual(['Gothic A1']);
+  });
+
   it('treats similarity and same-width references as explicit local relations', () => {
     const target = semanticRecordFromFontsource(
       family({ familyId: 'target', familyName: 'Target' }),

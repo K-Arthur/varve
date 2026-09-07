@@ -16,6 +16,7 @@ describe('parseFontSemanticQuery', () => {
     expect(query.preferred.map((item) => item.id)).toEqual(
       expect.arrayContaining(['tone.friendly', 'morphology.rounded', 'use.dense-data-ui']),
     );
+    expect(query.exactTerms).not.toContain('friendly rounded sans for ui');
   });
 
   it('supports exclusions, synonyms, ranges, and availability', () => {

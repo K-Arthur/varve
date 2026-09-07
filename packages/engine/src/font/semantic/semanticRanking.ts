@@ -352,7 +352,21 @@ export function searchFontSemanticRecords(
         provenance: 'runtime state',
       });
 
-    let score = lexicalScore(record, query, reasons) + preferredScore(record, query, reasons);
+    const lexical = lexicalScore(record, query, reasons);
+    // Plain family-name searches must not be padded with unrelated catalog
+    // records when fewer than `limit` families match. Semantic queries have no
+    // exact terms after parsing, so they continue to rank by their reviewed
+    // constraints and preferences.
+    const isPlainTextSearch =
+      query.exactTerms.length > 0 &&
+      query.required.length === 0 &&
+      query.preferred.length === 0 &&
+      query.excluded.length === 0 &&
+      query.numericRanges.length === 0 &&
+      query.similarityTarget === undefined &&
+      query.availability === undefined;
+    if (isPlainTextSearch && lexical === 0) continue;
+    let score = lexical + preferredScore(record, query, reasons);
     let rejected = false;
     for (const constraint of query.required) {
       const state = constraintMatches(record, constraint);
