@@ -400,7 +400,7 @@ export interface RenderContentDeps {
   displayDpr: number;
   imageCacheStamp: number;
   fontLoadStamp: number;
-  /** Text node painted by the DOM editor overlay instead of the canvas. */
+  /** Text node currently receiving native input through the DOM overlay. */
   editingTextNodeId?: string | null;
   precomputedStyles: ReturnType<typeof resolveAllStyles>;
   precomputedVariantCaches: ReturnType<typeof buildAllVariantCaches>;
@@ -553,7 +553,7 @@ export function renderContent(deps: RenderContentDeps): void {
     // Present-only path: composite the worker bitmap, nothing else. Page
     // decorations are not part of the worker IR, so they repaint through
     // the paintUnderlays hook between the board fill and the bitmap.
-    if (frameDecision.kind === 'present' && !editingTextNodeId) {
+    if (frameDecision.kind === 'present') {
       const presented = tryPresentWorkerFrame({
         ctx,
         canvas,
@@ -715,8 +715,7 @@ export function renderContent(deps: RenderContentDeps): void {
       // declared family would be drawn there in a substituted face — the same
       // wrong typography this whole area is about, arriving by a different
       // route. Decided synchronously, before the frame picks its branch.
-      workerHasFontsForDocument(renderWorkerRef.current, doc) &&
-      !editingTextNodeId;
+      workerHasFontsForDocument(renderWorkerRef.current, doc);
     // One shared surface-validity result per frame: the prune gate and the
     // paint gate must agree, or a pruned replay lands on a fully cleared
     // surface and erases every node outside the dirty region.
@@ -771,7 +770,6 @@ export function renderContent(deps: RenderContentDeps): void {
       const id = entry.nodeId;
       const raw = doc.nodes[id];
       if (!raw) continue;
-      if (editingTextNodeId && id === editingTextNodeId) continue;
       let n = getEffectiveNode(doc, id, variantCaches) ?? raw;
       if (!n.visible) continue;
       if (n.kind === 'group') continue;
@@ -1979,8 +1977,7 @@ export function renderContent(deps: RenderContentDeps): void {
       renderWorkerRef.current &&
       !workerFailedRef.current &&
       workerReady &&
-      profileCanUseWorker &&
-      !editingTextNodeId
+      profileCanUseWorker
     ) {
       const wb = workerBitmapRef.current;
       const cameraMatches =

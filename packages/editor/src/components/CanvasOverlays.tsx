@@ -11,7 +11,14 @@
 import type { CollabUser } from '@varve/collab';
 import type { Adjustment, MeshWarp } from '@varve/engine';
 import type { Document, Fill, IsometricGrid, NodeId, SceneNode } from '@varve/scene';
-import { activePageNodes, resolveAdjustmentScope, walkNodes } from '@varve/scene';
+import {
+  activePageNodes,
+  plainTextToRichText,
+  replaceRichTextContent,
+  resolveAdjustmentScope,
+  richTextToPlainText,
+  walkNodes,
+} from '@varve/scene';
 import type { RulerMode } from '@varve/shared';
 import { isWorldRectInViewport } from '@varve/shared';
 
@@ -375,9 +382,18 @@ export function CanvasOverlays({
           worldY={worldY}
           worldTransform={textWorldMat}
           onCommit={() => setTextEditTargetId(null)}
-          onUpdateText={(text) =>
-            editor.updateNode(textEditTargetId, (node) =>
-              node.kind === 'text' ? { ...node, text } : node,
+          onUpdateText={(text, targetId) =>
+            editor.updateNode(targetId, (node) =>
+              node.kind === 'text'
+                ? (() => {
+                    const rich = node.richText ?? plainTextToRichText(node.text);
+                    const nextRich = replaceRichTextContent(rich, text);
+                    const nextText = richTextToPlainText(nextRich);
+                    return node.richText
+                      ? { ...node, text: nextText, richText: nextRich }
+                      : { ...node, text: nextText };
+                  })()
+                : node,
             )
           }
         />

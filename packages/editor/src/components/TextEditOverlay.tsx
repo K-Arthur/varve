@@ -10,13 +10,13 @@
  */
 
 import type { Affine } from '@varve/engine';
-import { createUnicodeIndexMap, normalizeGraphemeRange, utf16ToGrapheme } from '@varve/engine';
+import { createUnicodeIndexMap, normalizeGraphemeRange, snapUtf16Offset } from '@varve/engine';
 import type { RichSelection, TextNode } from '@varve/scene';
+import { createRichTextIndex, plainTextToRichText, richTextToPlainText } from '@varve/scene';
 import {
   buildWorldToScreenAffine,
   computeFloatingOrigin,
   DEFAULT_ARTWORK_FONT_FAMILY,
-  managedColorToCss,
   multiplyAffine,
 } from '@varve/shared';
 import { useCallback, useEffect, useRef } from 'react';
@@ -45,7 +45,7 @@ interface TextEditOverlayProps {
    */
   onCommit: (finalText: string) => void;
   /** Called when content changes. */
-  onUpdateText: (text: string) => void;
+  onUpdateText: (text: string, targetId: string) => void;
 }
 
 export function TextEditOverlay({
@@ -63,6 +63,13 @@ export function TextEditOverlay({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const composingRef = useRef(false);
   const pendingTextRef = useRef<string | null>(null);
+  // Keep pending timers attached to the target that created them. React may
+  // render a new target before effects flush; routing by this ref prevents a
+  // final keystroke from being applied to the new text node.
+  const sessionNodeIdRef = useRef(node.id);
+  const localTextRef = useRef(node.richText ? richTextToPlainText(node.richText) : node.text);
+  const awaitingModelTextRef = useRef<string | null>(null);
+  const lastNotifiedTextRef = useRef(localTextRef.current);
   const updateTimerRef = useRef<number | null>(null);
   const burstTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasActiveBurstRef = useRef(false);
@@ -73,6 +80,9 @@ export function TextEditOverlay({
   const ctx = useEditor();
   const ctxRef = useRef(ctx);
   ctxRef.current = ctx;
+  const canonicalText = node.richText ? richTextToPlainText(node.richText) : node.text;
+  const canonicalTextRef = useRef(canonicalText);
+  canonicalTextRef.current = canonicalText;
 
   const commitBurst = useCallback(() => {
     if (burstTimerRef.current !== null) {
@@ -119,6 +129,9 @@ export function TextEditOverlay({
   const h = localBounds?.h ?? node.h ?? Math.max((node.fontSize ?? 16) * 1.4, 20);
 
   const notifyUpdate = useCallback((text: string) => {
+    localTextRef.current = text;
+    awaitingModelTextRef.current = text;
+    lastNotifiedTextRef.current = text;
     if (!hasActiveBurstRef.current) {
       hasActiveBurstRef.current = true;
       ctxRef.current.beginTransaction();
@@ -129,7 +142,7 @@ export function TextEditOverlay({
       hasActiveBurstRef.current = false;
       ctxRef.current.commitTransaction();
     }, 500);
-    onUpdateTextRef.current(text);
+    onUpdateTextRef.current(text, sessionNodeIdRef.current);
   }, []);
   const notifyUpdateRef = useRef(notifyUpdate);
   notifyUpdateRef.current = notifyUpdate;
@@ -161,6 +174,7 @@ export function TextEditOverlay({
   const handleInput = useCallback(() => {
     const ta = textareaRef.current;
     if (!ta || composingRef.current) return;
+    localTextRef.current = ta.value;
     scheduleTextUpdate(ta.value);
   }, [scheduleTextUpdate]);
 
@@ -169,6 +183,9 @@ export function TextEditOverlay({
       if (committedRef.current) return;
       committedRef.current = true;
       flushPendingText();
+      if (finalText !== lastNotifiedTextRef.current) {
+        notifyUpdateRef.current(finalText);
+      }
       commitBurst();
       onCommit(finalText);
     },
@@ -178,6 +195,9 @@ export function TextEditOverlay({
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === 'Escape') {
+        // Escape selects/accepts the platform IME candidate. It must not
+        // commit the document while composition is still provisional.
+        if (composingRef.current || e.nativeEvent.isComposing) return;
         e.preventDefault();
         commit(textareaRef.current?.value ?? '');
       }
@@ -201,6 +221,10 @@ export function TextEditOverlay({
 
   const handleBlur = useCallback(() => {
     if (composingRef.current || committedRef.current) return;
+    // Formatting controls may read the canonical document immediately after
+    // receiving focus. Reconcile the last native input before that handoff,
+    // but keep the editing session alive until the focus decision below.
+    flushPendingText();
     if (blurCommitFrameRef.current !== null) {
       cancelAnimationFrame(blurCommitFrameRef.current);
     }
@@ -233,7 +257,9 @@ export function TextEditOverlay({
         cancelAnimationFrame(blurCommitFrameRef.current);
       }
       updateTimerRef.current = null;
+      const pending = pendingTextRef.current;
       pendingTextRef.current = null;
+      if (pending !== null) notifyUpdateRef.current(pending);
       if (burstTimerRef.current !== null) {
         clearTimeout(burstTimerRef.current);
         burstTimerRef.current = null;
@@ -243,7 +269,49 @@ export function TextEditOverlay({
         ctxRef.current.commitTransaction();
       }
     };
-  }, []);
+  }, [notifyUpdateRef]);
+
+  // Keep the native editing surface synchronized with document undo/redo and
+  // external updates without clobbering a value that is still waiting for the
+  // functional document updater to land.
+  useEffect(() => {
+    if (awaitingModelTextRef.current === canonicalText) {
+      awaitingModelTextRef.current = null;
+      localTextRef.current = canonicalText;
+      return;
+    }
+    if (
+      awaitingModelTextRef.current !== null ||
+      pendingTextRef.current !== null ||
+      canonicalText === localTextRef.current
+    ) {
+      return;
+    }
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    ta.value = canonicalText;
+    const nextStart = Math.min(start, canonicalText.length);
+    const nextEnd = Math.min(end, canonicalText.length);
+    ta.setSelectionRange(nextStart, nextEnd);
+    localTextRef.current = canonicalText;
+    lastNotifiedTextRef.current = canonicalText;
+  }, [canonicalText]);
+
+  useEffect(() => {
+    flushPendingText();
+    commitBurst();
+    sessionNodeIdRef.current = node.id;
+    committedRef.current = false;
+    composingRef.current = false;
+    awaitingModelTextRef.current = null;
+    const nextText = canonicalTextRef.current;
+    localTextRef.current = nextText;
+    lastNotifiedTextRef.current = nextText;
+    const ta = textareaRef.current;
+    if (ta && ta.value !== nextText) ta.value = nextText;
+  }, [commitBurst, flushPendingText, node.id]);
 
   // Report grapheme-aware caret position to editor state so the span editor
   // can apply formatting to the selected range. Maps UTF-16 textarea offsets
@@ -256,28 +324,32 @@ export function TextEditOverlay({
     const end = ta.selectionEnd ?? 0;
     const indexMap = createUnicodeIndexMap(text);
     const normalized = normalizeGraphemeRange(indexMap, start, end);
-    const startOffset = utf16ToGrapheme(indexMap, normalized.start);
-    const endOffset = utf16ToGrapheme(indexMap, normalized.end);
+    const rich = node.richText ?? plainTextToRichText(node.text);
+    const richIndex = createRichTextIndex(rich);
+    const startAddress = flatOffsetToRichAddress(richIndex, normalized.start);
+    const endAddress = flatOffsetToRichAddress(richIndex, normalized.end);
     const range: RichSelection = {
-      start: { paragraphIndex: 0, offset: startOffset },
-      end: { paragraphIndex: 0, offset: endOffset },
+      start: startAddress,
+      end: endAddress,
     };
     ctx.setSelectionRange(range);
-  }, [ctx]);
+  }, [ctx, node]);
 
-  // Auto-focus on mount and select all text
+  // Auto-focus on mount without forcing every existing text object into a
+  // select-all state. New text objects are empty; existing text keeps a caret
+  // at the start until the user clicks or uses a keyboard selection command.
   useEffect(() => {
     const ta = textareaRef.current;
     if (ta) {
       ta.focus();
-      ta.select();
+      ta.setSelectionRange(0, 0);
     }
   }, []);
 
   const editor = (
     <textarea
       ref={textareaRef}
-      defaultValue={node.text}
+      defaultValue={canonicalText}
       aria-label={`Editing text: ${node.name}`}
       onInput={handleInput}
       onKeyDown={handleKeyDown}
@@ -309,10 +381,12 @@ export function TextEditOverlay({
         resize: 'none',
         overflow: 'hidden',
         background: 'transparent',
-        // The DOM editor is the immediate-feedback surface. Canvas replay is
-        // intentionally allowed to lag behind input; hiding the textarea's
-        // text made typing look frozen on large documents.
-        color: managedColorToCss(node.fill ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 255 }),
+        // Canvas replay remains authoritative for glyph appearance, including
+        // gradients, strokes, shadows, and glows. The textarea supplies native
+        // input, selection, caret, IME, and clipboard behavior without painting
+        // a second copy of the glyphs.
+        color: 'transparent',
+        WebkitTextFillColor: 'transparent',
         caretColor: 'var(--color-interactive-default, #3b82f6)',
         whiteSpace: 'pre-wrap',
         wordWrap: 'break-word',
@@ -324,4 +398,22 @@ export function TextEditOverlay({
     />
   );
   return createPortal(editor, document.body);
+}
+
+function flatOffsetToRichAddress(
+  index: ReturnType<typeof createRichTextIndex>,
+  offset: number,
+): { paragraphIndex: number; offset: number } {
+  const paragraph =
+    index.paragraphs.find((candidate) => offset >= candidate.start && offset <= candidate.end) ??
+    index.paragraphs[index.paragraphs.length - 1];
+  if (!paragraph) return { paragraphIndex: 0, offset: 0 };
+  const localOffset = Math.max(
+    0,
+    Math.min(offset - paragraph.start, paragraph.end - paragraph.start),
+  );
+  return {
+    paragraphIndex: paragraph.paragraphIndex,
+    offset: snapUtf16Offset(createUnicodeIndexMap(paragraph.text), localOffset, 'nearest'),
+  };
 }

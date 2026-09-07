@@ -72,7 +72,7 @@ describe('TextEditOverlay', () => {
     const ta = screen.getByRole('textbox');
     expect(ta).toBeTruthy();
     expect((ta as HTMLTextAreaElement).value).toBe('Hello');
-    expect((ta as HTMLTextAreaElement).style.color).not.toBe('transparent');
+    expect((ta as HTMLTextAreaElement).style.color).toBe('transparent');
     expect(ta.getAttribute('data-text-edit-surface')).toBe('true');
   });
 
@@ -139,6 +139,82 @@ describe('TextEditOverlay', () => {
     // the textarea remaining functional).
     expect(ta.selectionStart).toBe(1);
     expect(ta.selectionEnd).toBe(3);
+  });
+
+  it('maps a multiline selection to its paragraph and UTF-16 offsets', () => {
+    const setSelectionRange = vi.fn();
+    const node = {
+      ...makeNode('One\nTwo'),
+      richText: {
+        paragraphs: [
+          { runs: [{ text: 'One', format: { fontWeight: 400 } }] },
+          { runs: [{ text: 'Two', format: { fontStyle: 'italic' } }] },
+        ],
+      },
+    } as TextNode;
+    const canvas = document.createElement('canvas');
+    render(
+      <EditorCtx.Provider value={{ setSelectionRange } as unknown as EditorContextValue}>
+        <TextEditOverlay
+          node={node}
+          zoom={1}
+          pan={{ x: 0, y: 0 }}
+          canvasElement={canvas}
+          onCommit={() => {}}
+          onUpdateText={() => {}}
+        />
+      </EditorCtx.Provider>,
+    );
+    const ta = screen.getByRole('textbox') as HTMLTextAreaElement;
+    act(() => {
+      ta.setSelectionRange(4, 7);
+      fireEvent.select(ta);
+    });
+    expect(setSelectionRange).toHaveBeenCalledWith({
+      start: { paragraphIndex: 1, offset: 0 },
+      end: { paragraphIndex: 1, offset: 3 },
+    });
+  });
+
+  it('uses rich text as the editing surface content', () => {
+    const node = {
+      ...makeNode('stale legacy text'),
+      richText: { paragraphs: [{ runs: [{ text: 'Canonical text' }] }] },
+    } as TextNode;
+    renderOverlay(node);
+    expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe('Canonical text');
+  });
+
+  it('syncs an external document update into the native surface', () => {
+    const node = makeNode('Before');
+    const canvas = document.createElement('canvas');
+    const view = render(
+      <EditorProvider>
+        <TextEditOverlay
+          node={node}
+          zoom={1}
+          pan={{ x: 0, y: 0 }}
+          canvasElement={canvas}
+          onCommit={() => {}}
+          onUpdateText={() => {}}
+        />
+      </EditorProvider>,
+    );
+    const ta = screen.getByRole('textbox') as HTMLTextAreaElement;
+    expect(ta.value).toBe('Before');
+    view.rerender(
+      <EditorProvider>
+        <TextEditOverlay
+          node={makeNode('After')}
+          zoom={1}
+          pan={{ x: 0, y: 0 }}
+          canvasElement={canvas}
+          onCommit={() => {}}
+          onUpdateText={() => {}}
+        />
+      </EditorProvider>,
+    );
+    expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe('After');
   });
 
   it('sets dir="auto" on the textarea for BiDi caret movement', () => {

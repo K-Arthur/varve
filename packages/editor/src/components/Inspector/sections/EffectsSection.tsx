@@ -1,13 +1,13 @@
 /**
  * EffectsSection — stacked layer-effect controls (shadows, glows, and blurs).
  *
- * Multi-select: matches effects by index, shows "Mixed" for differing
- * properties. Property edits batch across all selected nodes in one undo step.
+ * Multi-select: matches effects by stable identity when available, with a
+ * type-checked index fallback for legacy stacks. Property edits batch across
+ * all selected nodes in one undo step.
  *
  * Research basis: Figma / Sketch effects panel, APG Disclosure pattern.
  */
 import type {
-  AdjustmentNode,
   BlendMode,
   ChannelOffset,
   Effect,
@@ -15,11 +15,23 @@ import type {
   FrameNode,
   GroupNode,
   ManagedColor,
+  PathNode,
+  RasterLayerNode,
   SceneNode,
   ShapeNode,
+  TableNode,
   TextNode,
 } from '@varve/scene';
-import { canBeMatteSource, removeEffectMask, setEffectMask } from '@varve/scene';
+import {
+  canBeMatteSource,
+  canHaveLayerEffects,
+  cloneEffects,
+  createDefaultEffect,
+  layerEffectMoveTarget,
+  layerEffectStage,
+  removeEffectMask,
+  setEffectMask,
+} from '@varve/scene';
 import { managedColorToRgba } from '@varve/shared';
 import { Icon, Select } from '@varve/ui';
 import { useCallback, useId, useMemo, useState } from 'react';
@@ -36,7 +48,14 @@ export interface EffectsSectionProps {
   sectionId?: 'effects';
 }
 
-type EffectNode = ShapeNode | TextNode | FrameNode | AdjustmentNode | GroupNode;
+type EffectNode =
+  | ShapeNode
+  | TextNode
+  | FrameNode
+  | GroupNode
+  | TableNode
+  | PathNode
+  | RasterLayerNode;
 
 const BLEND_OPTIONS: { value: BlendMode; label: string }[] = [
   { value: 'normal', label: 'Normal' },
@@ -58,14 +77,7 @@ const BLEND_OPTIONS: { value: BlendMode; label: string }[] = [
 ];
 
 function hasEffects(n: SceneNode): n is EffectNode {
-  return (
-    n.kind === 'shape' ||
-    n.kind === 'text' ||
-    n.kind === 'frame' ||
-    n.kind === 'adjustment' ||
-    n.kind === 'path' ||
-    n.kind === 'group'
-  );
+  return canHaveLayerEffects(n);
 }
 
 function getEffect(n: SceneNode, i: number): Effect | undefined {
@@ -73,130 +85,36 @@ function getEffect(n: SceneNode, i: number): Effect | undefined {
   return sn.effects?.[i];
 }
 
-/** Generate a stable per-effect identifier (used as a row key for reordering). */
-function newEffectId(): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
-  return `eff-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function defaultEffect(type: Effect['type']): Effect {
-  const id = newEffectId();
-  switch (type) {
-    case 'dropShadow':
-      return {
-        id,
-        type,
-        x: 0,
-        y: 4,
-        blur: 8,
-        spread: 0,
-        color: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 76 },
-        opacity: 0.3,
-        blendMode: 'normal',
-        visible: true,
-      };
-    case 'innerShadow':
-      return {
-        id,
-        type,
-        x: 0,
-        y: 2,
-        blur: 4,
-        spread: 0,
-        color: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 38 },
-        opacity: 0.25,
-        blendMode: 'normal',
-        visible: true,
-      };
-    case 'layerBlur':
-      return { id, type, radius: 4, visible: true };
-    case 'backgroundBlur':
-      return { id, type, radius: 8, visible: true };
-    case 'depthBlur':
-      return {
-        id,
-        type,
-        depthMapId: '',
-        focusDepth: 0.5,
-        focusRange: 0.2,
-        blurStrength: 12,
-        falloff: 1,
-        invert: false,
-        edgeProtection: 0.035,
-        visible: true,
-      };
-    case 'outerGlow':
-      return {
-        id,
-        type,
-        blur: 6,
-        spread: 0,
-        color: { space: 'rgb' as const, r: 255, g: 200, b: 100, a: 128 },
-        opacity: 0.6,
-        blendMode: 'screen',
-        visible: true,
-      };
-    case 'innerGlow':
-      return {
-        id,
-        type,
-        blur: 6,
-        spread: 0,
-        color: { space: 'rgb' as const, r: 255, g: 200, b: 100, a: 128 },
-        opacity: 0.6,
-        blendMode: 'screen',
-        visible: true,
-      };
-    case 'glassMaterial':
-      return {
-        id,
-        type,
-        blur: 12,
-        tint: { space: 'rgb' as const, r: 200, g: 220, b: 255, a: 60 },
-        tintOpacity: 0.3,
-        saturation: 1.2,
-        brightness: 1.05,
-        noise: 0.02,
-        edgeHighlight: true,
-        edgeHighlightWidth: 1.5,
-        edgeHighlightColor: { space: 'rgb' as const, r: 255, g: 255, b: 255, a: 120 },
-        edgeHighlightOpacity: 0.4,
-        visible: true,
-      };
-    case 'chromaticAberration':
-      return {
-        id,
-        type,
-        offsets: { redX: 3, redY: 0, greenX: 0, greenY: 0, blueX: -3, blueY: 0 },
-        intensity: 1,
-        blendMode: 'normal',
-        opacity: 1,
-        visible: true,
-      };
-    case 'glitch':
-      return {
-        id,
-        type,
-        seed: 42,
-        strength: 8,
-        density: 0.3,
-        sliceHeight: 8,
-        blockCount: 5,
-        blockSize: 20,
-        blockStrength: 10,
-        noiseIntensity: 0.05,
-        scanlineIntensity: 0.15,
-        scanlineSpacing: 4,
-        direction: 'horizontal',
-        channelShift: { redX: 0, redY: 0, greenX: 0, greenY: 0, blueX: 0, blueY: 0 },
-        channelShiftMode: 'static',
-        blendMode: 'normal',
-        opacity: 1,
-        visible: true,
-      };
+/**
+ * Resolve a row's first-node effect in each selected stack without applying a
+ * change to an unrelated effect that merely happens to share its array index.
+ * Older documents may not have effect ids, so the fallback remains guarded by
+ * the effect type.
+ */
+function matchingEffectIndex(
+  effects: Effect[],
+  rowIndex: number,
+  reference: Effect | undefined,
+  referenceStack: readonly Effect[] = effects,
+): number {
+  if (!reference) return -1;
+  if (reference.id) {
+    const byId = effects.findIndex((effect) => effect.id === reference.id);
+    if (byId >= 0) return byId;
   }
+  const stage = layerEffectStage(reference);
+  const ordinal = referenceStack
+    .slice(0, rowIndex)
+    .filter(
+      (effect) => effect.type === reference.type && layerEffectStage(effect) === stage,
+    ).length;
+  const candidates = effects.filter(
+    (effect) => effect.type === reference.type && layerEffectStage(effect) === stage,
+  );
+  return candidates[ordinal] ? effects.indexOf(candidates[ordinal]!) : -1;
 }
 
+/** Generate a stable per-effect identifier (used as a row key for reordering). */
 function toSwatchBg(color: ManagedColor): string {
   const [r, g, b, a] = managedColorToRgba(color);
   return `rgba(${r},${g},${b},${(a / 255).toFixed(2)})`;
@@ -230,8 +148,7 @@ export function EffectsSection({ nodes, sectionId }: EffectsSectionProps) {
       for (const node of effectNodes) {
         updateNode(node.id, (n) => {
           const sn = n as EffectNode;
-          if (!sn.effects) return n;
-          return { ...n, effects: updater(sn.effects) };
+          return { ...n, effects: updater(sn.effects ?? []) };
         });
       }
       commitTransaction();
@@ -241,51 +158,79 @@ export function EffectsSection({ nodes, sectionId }: EffectsSectionProps) {
 
   const updateEffect = useCallback(
     (index: number, updater: (e: Effect) => Effect) => {
+      const reference = effectNodes[0]?.effects?.[index];
       batchUpdate((effects) => {
         const next = [...effects];
-        if (next[index]) {
-          next[index] = updater(next[index] as Effect);
+        const targetIndex = matchingEffectIndex(
+          effects,
+          index,
+          reference,
+          effectNodes[0]?.effects ?? [],
+        );
+        if (targetIndex >= 0) {
+          next[targetIndex] = updater(next[targetIndex] as Effect);
         }
         return next;
       });
     },
-    [batchUpdate],
+    [batchUpdate, effectNodes],
   );
 
   const addEffect = useCallback(() => {
     if (effectNodes.length > 0) {
-      setLastAddedIndex(Math.min(...effectNodes.map((n) => n.effects.length)));
+      setLastAddedIndex(Math.min(...effectNodes.map((n) => n.effects?.length ?? 0)));
     }
-    batchUpdate((effects) => [...effects, defaultEffect(newEffectType)]);
+    batchUpdate((effects) => [...effects, createDefaultEffect(newEffectType)]);
     announce('Effect added');
   }, [newEffectType, batchUpdate, announce, effectNodes]);
 
   const removeEffect = useCallback(
     (index: number) => {
-      batchUpdate((effects) => effects.filter((_, i) => i !== index));
+      const reference = effectNodes[0]?.effects?.[index];
+      batchUpdate((effects) => {
+        const targetIndex = matchingEffectIndex(
+          effects,
+          index,
+          reference,
+          effectNodes[0]?.effects ?? [],
+        );
+        return targetIndex >= 0 ? effects.filter((_, i) => i !== targetIndex) : effects;
+      });
       announce('Effect removed');
     },
-    [batchUpdate, announce],
+    [batchUpdate, announce, effectNodes],
   );
 
   const duplicateEffect = useCallback(
     (index: number) => {
       setLastAddedIndex(index + 1);
+      const reference = effectNodes[0]?.effects?.[index];
       batchUpdate((effects) => {
-        const source = effects[index];
-        if (!source) return effects;
+        const targetIndex = matchingEffectIndex(
+          effects,
+          index,
+          reference,
+          effectNodes[0]?.effects ?? [],
+        );
+        const source = targetIndex >= 0 ? effects[targetIndex] : undefined;
+        if (!source || targetIndex < 0) return effects;
         const next = [...effects];
-        next.splice(index + 1, 0, { ...source, id: newEffectId() });
+        const copied = cloneEffects([source])[0];
+        if (!copied) return effects;
+        next.splice(targetIndex + 1, 0, copied);
         return next;
       });
       announce('Effect duplicated');
     },
-    [batchUpdate, announce],
+    [batchUpdate, announce, effectNodes],
   );
 
   const resetEffect = useCallback(
     (index: number) => {
-      updateEffect(index, (effect) => ({ ...defaultEffect(effect.type), id: effect.id }));
+      updateEffect(index, (effect) => {
+        const reset = createDefaultEffect(effect.type, effect.id);
+        return effect.mask ? { ...reset, mask: effect.mask } : reset;
+      });
       announce('Effect reset');
     },
     [updateEffect, announce],
@@ -294,29 +239,38 @@ export function EffectsSection({ nodes, sectionId }: EffectsSectionProps) {
   const reorderEffect = useCallback(
     (from: number, to: number) => {
       if (from === to) return;
+      const reference = effectNodes[0]?.effects?.[from];
       batchUpdate((effects) => {
-        if (from < 0 || from >= effects.length || to < 0 || to >= effects.length) return effects;
+        const sourceIndex = matchingEffectIndex(
+          effects,
+          from,
+          reference,
+          effectNodes[0]?.effects ?? [],
+        );
+        const direction = to > from ? 1 : -1;
+        const targetIndex = layerEffectMoveTarget(effects, sourceIndex, direction);
+        if (sourceIndex < 0 || targetIndex < 0) return effects;
         const next = [...effects];
-        const [item] = next.splice(from, 1);
-        if (item) next.splice(to, 0, item);
+        const [item] = next.splice(sourceIndex, 1);
+        if (item) next.splice(targetIndex, 0, item);
         return next;
       });
     },
-    [batchUpdate],
+    [batchUpdate, effectNodes],
   );
 
   if (effectNodes.length === 0) return null;
 
-  const minEffects = Math.min(...effectNodes.map((n) => n.effects.length));
-  const countMixed = !effectNodes.every((n) => n.effects.length === minEffects);
+  const minEffects = Math.min(...effectNodes.map((n) => n.effects?.length ?? 0));
+  const countMixed = !effectNodes.every((n) => (n.effects?.length ?? 0) === minEffects);
 
   return (
     <DisclosureSection
       title="Layer Effects"
       sectionId={sectionId}
-      defaultExpanded={effectNodes.some((n) => n.effects.length > 0)}
+      defaultExpanded={effectNodes.some((n) => (n.effects?.length ?? 0) > 0)}
     >
-      {effectNodes.every((n) => n.effects.length === 0) ? (
+      {effectNodes.every((n) => (n.effects?.length ?? 0) === 0) ? (
         <div className="insp-empty-message">No effects</div>
       ) : (
         Array.from({ length: minEffects }, (_, i) => {
@@ -332,8 +286,8 @@ export function EffectsSection({ nodes, sectionId }: EffectsSectionProps) {
               onDuplicate={() => duplicateEffect(i)}
               onReset={() => resetEffect(i)}
               onReorder={(dir: number) => reorderEffect(i, i + dir)}
-              canMoveUp={i > 0}
-              canMoveDown={i < minEffects - 1}
+              canMoveUp={layerEffectMoveTarget(effectNodes[0]?.effects ?? [], i, -1) >= 0}
+              canMoveDown={layerEffectMoveTarget(effectNodes[0]?.effects ?? [], i, 1) >= 0}
               startExpanded={i === lastAddedIndex}
             />
           );
@@ -1207,7 +1161,7 @@ function EffectParams({
 }
 
 function effectIdFor(node: EffectNode, index: number): string {
-  return node.effects[index]?.id ?? `fx-${node.id}-${index + 1}`;
+  return node.effects?.[index]?.id ?? `fx-${node.id}-${index + 1}`;
 }
 
 function EffectMaskControl({ nodes, index }: { nodes: EffectNode[]; index: number }) {
@@ -1230,12 +1184,19 @@ function EffectMaskControl({ nodes, index }: { nodes: EffectNode[]; index: numbe
   const updateBinding = useCallback(
     (next: EffectMaskBinding | null) => {
       if (!document) return;
+      editor.beginTransaction();
       editor.updateDoc((doc) => {
         let nextDoc = doc;
         for (const node of nodes) {
-          const current = getEffect(node, index);
+          const currentIndex = matchingEffectIndex(
+            node.effects ?? [],
+            index,
+            firstEffect,
+            nodes[0]?.effects ?? [],
+          );
+          const current = currentIndex >= 0 ? node.effects?.[currentIndex] : undefined;
           if (!current) continue;
-          const effectId = effectIdFor(node, index);
+          const effectId = effectIdFor(node, currentIndex);
           if (!current.id) {
             nextDoc = {
               ...nextDoc,
@@ -1243,8 +1204,8 @@ function EffectMaskControl({ nodes, index }: { nodes: EffectNode[]; index: numbe
                 ...nextDoc.nodes,
                 [node.id]: {
                   ...nextDoc.nodes[node.id],
-                  effects: node.effects.map((effect, effectIndex) =>
-                    effectIndex === index ? { ...effect, id: effectId } : effect,
+                  effects: (node.effects ?? []).map((effect, effectIndex) =>
+                    effectIndex === currentIndex ? { ...effect, id: effectId } : effect,
                   ),
                 } as EffectNode,
               },
@@ -1256,9 +1217,10 @@ function EffectMaskControl({ nodes, index }: { nodes: EffectNode[]; index: numbe
         }
         return nextDoc;
       });
+      editor.commitTransaction();
       editor.announce(next ? 'Effect mask updated' : 'Effect mask removed');
     },
-    [document, editor, index, nodes],
+    [document, editor, firstEffect, index, nodes],
   );
 
   const selectSource = useCallback(

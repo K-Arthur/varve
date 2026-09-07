@@ -16,7 +16,13 @@
  */
 import { getFontRegistry } from '@varve/engine';
 import type { SceneNode, TextNode } from '@varve/scene';
-import { resolveNodeFills, textNodeGeometry } from '@varve/scene';
+import {
+  plainTextToRichText,
+  replaceRichTextContent,
+  resolveNodeFills,
+  richTextToPlainText,
+  textNodeGeometry,
+} from '@varve/scene';
 import { Select, Switch, Tooltip } from '@varve/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
@@ -229,7 +235,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
   );
 
   const textContent = useMemo(() => {
-    const textVals = textNodes.map((n) => n.text);
+    const textVals = textNodes.map((n) => (n.richText ? richTextToPlainText(n.richText) : n.text));
     return textVals.every((v) => v === textVals[0]) ? textVals[0] : '(Mixed)';
   }, [textNodes]);
 
@@ -239,7 +245,12 @@ export function TypographySection({ nodes }: TypographySectionProps) {
       for (const n of textNodes) {
         updateNode(n.id, (node) => {
           if (node.kind !== 'text') return node;
-          return { ...node, text };
+          const rich = node.richText ?? plainTextToRichText(node.text);
+          const nextRich = replaceRichTextContent(rich, text);
+          const nextText = richTextToPlainText(nextRich);
+          return node.richText
+            ? { ...node, text: nextText, richText: nextRich }
+            : { ...node, text: nextText };
         });
       }
       commitTransaction();
@@ -341,6 +352,18 @@ export function TypographySection({ nodes }: TypographySectionProps) {
                 onChange={(event) => setRichTextEnabled(event.target.checked)}
               />
             </FieldRow>
+            {textNodes.length === 1 && (
+              <FieldRow label="Layer name">
+                <button
+                  type="button"
+                  className="insp-btn-sm"
+                  onClick={() => editor.restoreAutomaticTextName(textNodes[0]!.id)}
+                  aria-label="Use text content as layer name"
+                >
+                  {textNodes[0]!.nameMode === 'automatic' ? 'Following text' : 'Use text as name'}
+                </button>
+              </FieldRow>
+            )}
           </>
         )}
         <FieldRow label="Font">

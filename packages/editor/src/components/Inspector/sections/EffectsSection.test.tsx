@@ -674,6 +674,38 @@ describe('EffectsSection — stack actions', () => {
     });
     expect(announce).toHaveBeenCalledWith('Effect reset');
   });
+
+  it('matches a mixed-selection edit by effect identity instead of array index', () => {
+    const first = nodeWithShadow('n1') as ShapeNode;
+    const sharedShadow = first.effects[0]!;
+    first.effects[0] = { ...sharedShadow, id: 'shared-shadow' };
+    first.effects.push({
+      type: 'layerBlur',
+      id: 'first-blur',
+      radius: 6,
+      visible: true,
+    });
+    const second = nodeWithShadow('n2') as ShapeNode;
+    second.effects[0] = {
+      type: 'layerBlur',
+      id: 'second-blur',
+      radius: 12,
+      visible: true,
+    };
+    second.effects.push({ ...sharedShadow, id: 'shared-shadow' });
+
+    render(<EffectsSection nodes={[first, second]} />);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Reset effect' })[0]!);
+
+    const firstUpdater = updateNode.mock.calls[0]?.[1] as (value: typeof first) => typeof first;
+    const secondUpdater = updateNode.mock.calls[1]?.[1] as (value: typeof second) => typeof second;
+    const firstUpdated = firstUpdater(first);
+    const secondUpdated = secondUpdater(second);
+    expect(firstUpdated.effects[0]?.type).toBe('dropShadow');
+    expect(secondUpdated.effects[0]?.type).toBe('layerBlur');
+    expect((secondUpdated.effects[0] as Extract<Effect, { type: 'layerBlur' }>).radius).toBe(12);
+    expect(secondUpdated.effects[1]).toMatchObject({ id: 'shared-shadow', type: 'dropShadow' });
+  });
 });
 
 describe('EffectsSection — glitch displacement controls', () => {
