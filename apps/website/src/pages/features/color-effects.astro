@@ -97,6 +97,30 @@ const paletteShot = scenes['palette-inspector']?.status === 'captured' ? scenes[
         </p>
       </section>
 
+      <section class="feature-section control-contract">
+        <h2>Precision controls that stay in reach</h2>
+        <p>
+          Continuous effect values have two complementary paths: drag a slider while exploring, or
+          enter an exact value with the keyboard. Paired geometry and channel controls use the same
+          responsive grid, so labels, units, locks, and reset actions keep their breathing room as
+          the Inspector or Effect Studio is resized.
+        </p>
+        <div class="control-contract__grid">
+          <article>
+            <h3>Explore, then specify</h3>
+            <p>Sliders and precision fields stay synchronized, including percentage values stored in normalized document units.</p>
+          </article>
+          <article>
+            <h3>Related values stay together</h3>
+            <p>Offsets, dimensions, and channel pairs share bounded tracks that stack cleanly when space gets tight.</p>
+          </article>
+          <article>
+            <h3>Readable at every size</h3>
+            <p>Effect Studio moves from three columns to two and then one flow column instead of forcing clipped controls or hidden values.</p>
+          </article>
+        </div>
+      </section>
+
       <section class="feature-section">
         <h2>From Image to Working Palette</h2>
         <p>
@@ -149,7 +173,7 @@ const paletteShot = scenes['palette-inspector']?.status === 'captured' ? scenes[
 
       <FeatureVisual
         scene="effects"
-        caption="Effects stack per layer and stay non-destructive — each one keeps its own offset, blur, spread, opacity, and blend mode."
+        caption="Effects stay non-destructive and precise — each stack member keeps its own offset, blur, spread, opacity, blend mode, and editable value controls."
       />
 
       <section class="feature-section">
@@ -291,6 +315,39 @@ const paletteShot = scenes['palette-inspector']?.status === 'captured' ? scenes[
   
   .feature-section strong {
     color: var(--text-primary);
+  }
+
+  .control-contract__grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+
+  .control-contract__grid article {
+    min-width: 0;
+    padding: 1.25rem;
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-card);
+    background: var(--surface-card);
+  }
+
+  .control-contract__grid h3 {
+    margin: 0 0 0.5rem;
+    color: var(--text-primary);
+    font-size: 1rem;
+  }
+
+  .control-contract__grid p {
+    margin: 0;
+    font-size: 0.9375rem;
+    line-height: 1.6;
+  }
+
+  @media (max-width: 52rem) {
+    .control-contract__grid {
+      grid-template-columns: 1fr;
+    }
   }
   
   .limitations {

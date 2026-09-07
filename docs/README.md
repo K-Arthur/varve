@@ -19,6 +19,9 @@ The 2026-08-22 implementation evidence matrix is in
 [`audits/image-enhancement-implementation-2026-08-22.md`](audits/image-enhancement-implementation-2026-08-22.md).
 Current interface typography and component sizing contracts are documented in
 [`architecture/interface-sizing-system.md`](architecture/interface-sizing-system.md).
+Current inspector and form-field composition, spacing, precision-entry, and
+viewport behavior are documented in
+[`architecture/label-field-system.md`](architecture/label-field-system.md).
 
 | Doc | Purpose |
 |-----|---------|
@@ -226,6 +229,7 @@ Current interface typography and component sizing contracts are documented in
 | `architecture/logo-system.md` | Logo workspace system |
 | `architecture/typography-platform.md` | Typography platform |
 | `architecture/spacing-system.md` | Canonical spacing primitives, semantic roles, responsive gutters, and ownership boundaries |
+| `architecture/label-field-system.md` | Label/control composition, responsive inspector groups, precision inputs, and theme behavior |
 | `architecture/font-provider-architecture.md` | Fontsource catalog, explicit installation, persistence, and provider boundaries |
 | `architecture/font-semantic-system.md` | Provider-independent font ontology, provenance, local query/ranking, migration, and model gate |
 | `architecture/font-text-geometry.md` | Font readiness, derived text layout, and interaction bounds |
