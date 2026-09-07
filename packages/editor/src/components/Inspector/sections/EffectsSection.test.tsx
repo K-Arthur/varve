@@ -209,7 +209,7 @@ describe('EffectsSection — glass material tint swatch', () => {
     } as never);
 
     render(<EffectsSection nodes={[target]} />);
-    fireEvent.click(screen.getByRole('button', { name: /expand dropshadow parameters/i }));
+    fireEvent.click(screen.getByRole('button', { name: /expand drop shadow parameters/i }));
     fireEvent.click(screen.getByRole('combobox', { name: 'Effect mask source' }));
     fireEvent.click(await screen.findByRole('option', { name: 'Rect' }));
 
@@ -341,7 +341,7 @@ describe('EffectsSection — per-row collapse/expand', () => {
   it('collapses effect parameters by default', () => {
     render(<EffectsSection nodes={[nodeWithShadow('n1')]} />);
     expect(screen.queryByLabelText('Blur')).toBeNull();
-    expect(screen.getByRole('button', { name: /expand dropShadow parameters/i })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: /expand drop shadow parameters/i })).toHaveAttribute(
       'aria-expanded',
       'false',
     );
@@ -349,20 +349,19 @@ describe('EffectsSection — per-row collapse/expand', () => {
 
   it('reveals effect parameters when the row is expanded', () => {
     render(<EffectsSection nodes={[nodeWithShadow('n1')]} />);
-    fireEvent.click(screen.getByRole('button', { name: /expand dropShadow parameters/i }));
+    fireEvent.click(screen.getByRole('button', { name: /expand drop shadow parameters/i }));
     expect(screen.getByLabelText('Blur')).toBeTruthy();
-    expect(screen.getByRole('button', { name: /collapse dropShadow parameters/i })).toHaveAttribute(
-      'aria-expanded',
-      'true',
-    );
+    expect(
+      screen.getByRole('button', { name: /collapse drop shadow parameters/i }),
+    ).toHaveAttribute('aria-expanded', 'true');
   });
 
   it('collapses parameters again on a second click', () => {
     render(<EffectsSection nodes={[nodeWithShadow('n1')]} />);
-    const toggle = screen.getByRole('button', { name: /expand dropShadow parameters/i });
+    const toggle = screen.getByRole('button', { name: /expand drop shadow parameters/i });
     fireEvent.click(toggle);
     expect(screen.getByLabelText('Blur')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: /collapse dropShadow parameters/i }));
+    fireEvent.click(screen.getByRole('button', { name: /collapse drop shadow parameters/i }));
     expect(screen.queryByLabelText('Blur')).toBeNull();
   });
 
@@ -387,11 +386,11 @@ describe('EffectsSection — per-row collapse/expand', () => {
     fireEvent.click(screen.getByRole('button', { name: /^add$/i }));
 
     // The pre-existing dropShadow row (index 0) stays collapsed…
-    expect(screen.getAllByRole('button', { name: /expand dropShadow parameters/i })).toHaveLength(
+    expect(screen.getAllByRole('button', { name: /expand drop shadow parameters/i })).toHaveLength(
       1,
     );
     // …but the newly added row (index 1, default type: dropShadow) opens expanded.
-    expect(screen.getByRole('button', { name: /collapse dropShadow parameters/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /collapse drop shadow parameters/i })).toBeTruthy();
   });
 });
 
@@ -459,25 +458,31 @@ describe('EffectsSection — chromatic aberration', () => {
 
   it('renders effect row with type label', () => {
     render(<EffectsSection nodes={[nodeWithChromaticAberration('n1')]} />);
-    expect(screen.getByText((c) => c.includes('chromaticAberration'))).toBeTruthy();
+    expect(screen.getByText('Chromatic Aberration')).toBeTruthy();
   });
 
   it('renders intensity control once expanded', () => {
     render(<EffectsSection nodes={[nodeWithChromaticAberration('n1')]} />);
     // Params are collapsed by default (see EffectsSection's per-row disclosure).
-    fireEvent.click(screen.getByRole('button', { name: /expand chromaticAberration parameters/i }));
+    fireEvent.click(
+      screen.getByRole('button', { name: /expand chromatic aberration parameters/i }),
+    );
     expect(screen.getByLabelText('Intensity')).toBeTruthy();
   });
 
   it('renders opacity control once expanded', () => {
     render(<EffectsSection nodes={[nodeWithChromaticAberration('n1')]} />);
-    fireEvent.click(screen.getByRole('button', { name: /expand chromaticAberration parameters/i }));
+    fireEvent.click(
+      screen.getByRole('button', { name: /expand chromatic aberration parameters/i }),
+    );
     expect(screen.getByLabelText('Opacity')).toBeTruthy();
   });
 
   it('renders blend mode selector once expanded', () => {
     render(<EffectsSection nodes={[nodeWithChromaticAberration('n1')]} />);
-    fireEvent.click(screen.getByRole('button', { name: /expand chromaticAberration parameters/i }));
+    fireEvent.click(
+      screen.getByRole('button', { name: /expand chromatic aberration parameters/i }),
+    );
     expect(screen.getByLabelText('Aberration blend mode')).toBeTruthy();
   });
 });
@@ -503,7 +508,7 @@ describe('EffectsSection — glitch', () => {
 
   it('renders effect row with type label', () => {
     render(<EffectsSection nodes={[nodeWithGlitch('n1')]} />);
-    expect(screen.getByText((c) => c.includes('glitch'))).toBeTruthy();
+    expect(screen.getByText('Glitch')).toBeTruthy();
   });
 
   it('renders strength and density controls once expanded', () => {
@@ -605,7 +610,7 @@ describe('EffectsSection — group-level effects', () => {
       ],
     };
     render(<EffectsSection nodes={[group]} />);
-    expect(screen.getByText('Drop Shadow')).toBeTruthy();
+    expect(screen.getAllByText('Drop Shadow').length).toBeGreaterThan(0);
     expect(screen.getByLabelText('Remove effect')).toBeTruthy();
   });
 });

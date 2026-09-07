@@ -1,6 +1,10 @@
 # Effect Rendering Architecture
 
-**Date:** 2026-07-20 | **Status:** Verified
+**Date:** 2026-09-07 | **Status:** Verified
+
+The canonical owner and layer-type contract now lives in
+[layer-effects.md](layer-effects.md). This page documents the renderer's
+pass-level implementation.
 
 ## Pass structure
 
@@ -109,9 +113,13 @@ via `target.filter`.
 Users reorder effects within a node through the Effects inspector. Reordering is
 honoured among effects handled by the same pass. Cross-pass ordering remains
 fixed: for example, `layerBlur` always runs before `dropShadow`, regardless of
-their relative array positions. The model and UI currently present one list even
-though the renderer executes type categories. This is tracked as an architecture
-gap in `docs/audits/adjustment-effects-lut-hardening-2026-07-25.md`.
+their relative array positions. The inspector therefore disables cross-stage
+moves instead of offering controls that cannot change execution. Mixed selection
+rows resolve by stable effect ID, then same-stage/type ordinal for legacy stacks.
+
+The renderer never sorts the authored array behind the user's back. The array
+remains the persistence and mask-identity contract; stage-aware controls are the
+editing contract that makes the fixed pass order honest.
 
 ## Summary
 

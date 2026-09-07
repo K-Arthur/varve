@@ -1,0 +1,114 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+import StatusPill from '../../components/StatusPill.astro';
+---
+
+<Layout title="Layer Effects" description="Non-destructive shadows, blurs, glows, glass, and procedural layer effects for editable vector, text, raster, and grouped content in Varve.">
+  <div class="container-custom">
+    <div class="feature-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/features')}>Features</a> / Layer Effects
+      </nav>
+
+      <div class="eyebrow"><StatusPill status="available" /> <span>Non-destructive appearance</span></div>
+      <h1>Effects that stay attached to the layer</h1>
+      <p class="feature-intro">
+        Add shadows, glows, blur, glass, chromatic aberration, or glitch without flattening the source. Varve keeps the effect stack editable across vector shapes, paths, text, groups, frames, tables, image-filled objects, and raster layers.
+      </p>
+
+      <section class="feature-section feature-section--highlight">
+        <h2>One stack, honest order</h2>
+        <p>
+          Layer Effects execute through explicit stages: backdrop acquisition, content effects, appearance effects, then material highlights and final compositing. Move controls are stage-aware, so every enabled reorder changes a meaningful within-stage order; a control never pretends that a cross-stage move changes the renderer.
+        </p>
+        <div class="stage-grid" aria-label="Layer Effects execution stages">
+          <article><span class="stage-number">01</span><h3>Backdrop</h3><p>Background Blur and Glass Material sample the content behind the layer.</p></article>
+          <article><span class="stage-number">02</span><h3>Content</h3><p>Layer Blur, Depth Blur, Chromatic Aberration, and Glitch transform painted content.</p></article>
+          <article><span class="stage-number">03</span><h3>Appearance</h3><p>Shadows and glows wrap the authored source with stable, reorderable identity.</p></article>
+        </div>
+      </section>
+
+      <section class="feature-section">
+        <h2>Coverage that follows the pixels</h2>
+        <p>
+          Text effects follow shaped glyphs, counters, decorations, and strokes. Raster and image effects follow true alpha, transparent holes, crop placement, sparse tiles, and background-removal masks. Gradient, pattern, translucent, and stroke-only vector content use the painted coverage when a geometric outline would be misleading.
+        </p>
+        <div class="coverage-grid">
+          <article><h3>Editable text</h3><p>Keep the font, rich formatting, transforms, and text content editable while shadows and glows follow the glyphs.</p></article>
+          <article><h3>Raster layers</h3><p>Apply appearance effects to sparse tile surfaces without rerunning or replacing the original pixels.</p></article>
+          <article><h3>Groups and frames</h3><p>Apply one composited-child silhouette at the container owner, preserving child ownership and clipping.</p></article>
+        </div>
+      </section>
+
+      <section class="feature-section">
+        <h2>Layer types at a glance</h2>
+        <div class="support-table-wrap">
+          <table class="support-table">
+            <thead><tr><th scope="col">Owner</th><th scope="col">Supported</th><th scope="col">Effect source</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">Shapes and paths</th><td>Yes</td><td>Vector fills and strokes</td></tr>
+              <tr><th scope="row">Text</th><td>Yes</td><td>Shaped glyph alpha</td></tr>
+              <tr><th scope="row">Image-filled vectors</th><td>Yes</td><td>Placed image alpha and masks</td></tr>
+              <tr><th scope="row">Raster layers</th><td>Yes</td><td>Tile surface alpha</td></tr>
+              <tr><th scope="row">Groups and frames</th><td>Yes</td><td>Composited child surface</td></tr>
+              <tr><th scope="row">Adjustment layers</th><td>Separate</td><td>Adjustment scope, not a drawable silhouette</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="feature-section">
+        <h2>Everyday controls, without destructive surprises</h2>
+        <ul>
+          <li>Add, edit, bypass, duplicate, reset, remove, and reorder effects with one-step history.</li>
+          <li>Stable effect IDs keep masks attached through reorder, reset, duplication, transfer, save, and reload.</li>
+          <li>Positive and negative spread use alpha expansion/contraction; spread is not disguised extra blur.</li>
+          <li>Mixed selections show missing rows and match compatible effects by identity before legacy stage/type order.</li>
+          <li>Copying a stack deep-clones effect parameters and mints independent IDs for each destination.</li>
+        </ul>
+      </section>
+
+      <section class="feature-section">
+        <h2>Export with clear boundaries</h2>
+        <p>
+          The document stores the complete editable effect definition. When SVG, PDF, or another target cannot reproduce a backdrop, alpha, mask, blur, or procedural effect, Varve rasterizes the smallest affected compositing region rather than flattening the whole document. Vector geometry, text, and source assets remain editable in the document.
+        </p>
+        <p class="feature-note">Browser Canvas2D is the current pixel authority for this effect family; native interchange preserves the contract even where a target backend uses software replay.</p>
+      </section>
+
+      <div class="feature-cta">
+        <h2>Build depth without losing editability</h2>
+        <a href={sitePath('/download')} class="btn-default">Download Varve</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .feature-page { max-width: 800px; margin: 0 auto; padding: 3rem 0; }
+  .breadcrumb { font-size: .875rem; margin-bottom: 1.5rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  .eyebrow { display: flex; align-items: center; gap: .65rem; color: var(--text-secondary); font-size: .9rem; margin-bottom: 1rem; }
+  .feature-page h1 { font-size: clamp(2rem, 5vw, 2.7rem); font-family: var(--font-editorial); font-weight: 700; letter-spacing: -.02em; margin-bottom: 1rem; color: var(--text-primary); }
+  .feature-intro { font-size: 1.25rem; color: var(--text-secondary); margin-bottom: 3rem; }
+  .feature-section { margin: 3rem 0; }
+  .feature-section--highlight { padding: 1.5rem; border: 1px solid var(--border-subtle); border-radius: 1rem; background: var(--surface-card); }
+  .feature-section h2 { font-size: 1.5rem; margin-bottom: 1rem; color: var(--text-primary); }
+  .feature-section h3 { font-size: 1rem; margin: .5rem 0; color: var(--text-primary); }
+  .feature-section p, .feature-section li { color: var(--text-secondary); line-height: 1.7; }
+  .stage-grid, .coverage-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1.5rem; }
+  .coverage-grid article, .stage-grid article { padding: 1rem; border: 1px solid var(--border-subtle); border-radius: .75rem; }
+  .stage-number { color: var(--accent-primary); font-variant-numeric: tabular-nums; font-size: .8rem; }
+  .support-table-wrap { overflow-x: auto; border: 1px solid var(--border-subtle); border-radius: .75rem; }
+  .support-table { width: 100%; border-collapse: collapse; min-width: 560px; }
+  .support-table th, .support-table td { text-align: left; padding: .8rem 1rem; border-bottom: 1px solid var(--border-subtle); color: var(--text-secondary); }
+  .support-table thead th { color: var(--text-primary); font-size: .85rem; }
+  .support-table tbody th { color: var(--text-primary); font-weight: 600; }
+  .support-table tr:last-child th, .support-table tr:last-child td { border-bottom: 0; }
+  .feature-section ul { padding-left: 1.3rem; }
+  .feature-note { font-size: .9rem; }
+  .feature-cta { margin-top: 4rem; padding-top: 2rem; border-top: 1px solid var(--border-subtle); text-align: center; }
+  .feature-cta h2 { margin-bottom: 1rem; }
+  @media (max-width: 700px) { .stage-grid, .coverage-grid { grid-template-columns: 1fr; } .feature-page { padding: 2rem 0; } }
+</style>

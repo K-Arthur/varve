@@ -355,7 +355,10 @@ function EffectRow({
   const type = isMixed(typeRaw) ? null : typeRaw;
   const visibility = isMixed(visibleRaw) ? true : visibleRaw;
 
-  const typeLabel = type === 'depthBlur' ? 'Depth Blur' : (type ?? 'Mixed');
+  const typeLabel =
+    type === null
+      ? 'Mixed'
+      : (EFFECT_TYPE_OPTIONS.find((option) => option.value === type)?.label ?? type);
   const rowLabel = hasMissingEffect ? `${typeLabel} · Not on all selected layers` : typeLabel;
 
   // Collapsed by default: with several stacked effects, showing every
