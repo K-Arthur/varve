@@ -11,7 +11,15 @@
 /* The dialog body owns scrolling. Keep the content fluid so the gallery uses
  * the available modal width without creating a second nested scroll region. */
 .effect-studio-panel {
+  container-type: inline-size;
   min-width: 0;
+}
+
+/* The same Studio surface can live in the wide dialog or the narrow
+ * Adjustments inspector. Container queries keep the inspector from forcing
+ * the three-column dialog layout into a horizontal overflow. */
+.insp-disclosure__content:has(.effect-studio) {
+  container-type: inline-size;
 }
 
 .varve-dialog.effect-studio-dialog {
@@ -1330,7 +1338,34 @@
   }
 }
 
+@container (max-width: 64rem) {
+  .effect-studio__workspace {
+    grid-template-areas:
+      "preview inspector"
+      "browser browser";
+    grid-template-columns: minmax(0, 1fr) minmax(17.5rem, 22rem);
+  }
+
+  .effect-studio__browser {
+    grid-column: 1 / -1;
+  }
+}
+
 @media (max-width: 48rem) {
+  .effect-studio__workspace {
+    grid-template-areas:
+      "preview"
+      "inspector"
+      "browser";
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .effect-studio__browser {
+    grid-column: auto;
+  }
+}
+
+@container (max-width: 48rem) {
   .effect-studio__workspace {
     grid-template-areas:
       "preview"

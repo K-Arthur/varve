@@ -245,9 +245,7 @@ test.describe('Effect Studio dialog', () => {
     await expect(applied).toContainText('Halftone Pattern');
   });
 
-  test('keeps Effect Studio reachable from the raster-only Adjustments tab for vectors', async ({
-    page,
-  }) => {
+  test('shows the complete vector treatment workflow in Adjustments', async ({ page }) => {
     await navigateToCleanEditor(page);
     await switchToPhotoWorkspace(page);
     await createSelectedVectorPath(page);
@@ -267,19 +265,19 @@ test.describe('Effect Studio dialog', () => {
       .filter({ hasText: /^Adjustments$/i });
     await expect(adjustmentsTab).toBeVisible();
     await adjustmentsTab.click();
-    await expect(page.getByText('Image Tuning is raster-only')).toBeVisible();
-
-    const launcher = page.getByRole('button', { name: 'Open Effect Studio' });
-    await expect(launcher).toBeVisible();
-    await expect(page.locator('[data-panel="inspector"]')).toHaveScreenshot(
-      'effect-studio-vector-adjustments.png',
-      { maxDiffPixels: 300 },
-    );
-    await launcher.click();
-    const reopenedStudio = page.getByTestId('effect-studio-dialog');
-    await expect(reopenedStudio).toBeVisible();
-    await expect(reopenedStudio.getByRole('list', { name: 'Applied treatments' })).toContainText(
+    await expect(page.getByText('Image Tuning is raster-only')).not.toBeVisible();
+    await expect(page.getByText('Curated editable treatments')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Object Filters', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Layer Effects', exact: true })).toBeVisible();
+    await expect(page.getByRole('list', { name: 'Applied treatments' })).toContainText(
       'Reticulation',
     );
+    await expect(page.locator('[data-panel="inspector"]')).toHaveScreenshot(
+      'effect-studio-vector-adjustments-inline.png',
+      { maxDiffPixels: 500 },
+    );
+    await page.getByRole('button', { name: 'Object Filters', exact: true }).click();
+    await expect(page.getByText('Advanced stack editor')).toBeVisible();
+    await expect(page.getByText('Raw filters, order, opacity, and blending')).toBeVisible();
   });
 });

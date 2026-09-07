@@ -44,9 +44,11 @@ update, not for someone reading the commit log.
   browser reopen.
 - Effect catalog metadata now uses operation-specific ranges and explicit
   colour parameter keys instead of inferring semantics from array shape.
-- Vector selections in the Photo workspace's Adjustments tab now retain a
-  direct **Open Effect Studio** action, and applying a Studio recipe remains a
-  single undoable transaction without flattening the vector.
+- Vector selections in the Photo workspace's Adjustments tab now expose the
+  editable Effect Studio gallery, Object Filter stack, Layer Effects, and
+  scoped Adjustment Layer access alongside the existing raster workflow;
+  applying a Studio recipe remains a single undoable transaction without
+  flattening the vector.
 - Applying a different Effect Studio recipe while another recipe is previewed
   now commits the preview and appends the new recipe instead of replacing the
   earlier effect. Object Filter recipe members expose the full blend-mode set
