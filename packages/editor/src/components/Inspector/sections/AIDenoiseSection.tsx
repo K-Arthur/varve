@@ -15,6 +15,7 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
+import { RangeValueControl } from '../controls/RangeValueControl';
 
 const MODEL_ID = 'scunet';
 
@@ -332,20 +333,21 @@ export function AIDenoiseSection({ nodes }: { nodes: SceneNode[] }) {
           preserving detail. Runs locally in a web worker.
         </p>
 
-        <FieldRow label="Strength" htmlFor={strengthId}>
-          <input
+        <FieldRow label="Strength" htmlFor={`${strengthId}-range`}>
+          <RangeValueControl
             id={strengthId}
-            type="range"
-            className="insp-range"
+            label="Strength"
+            value={strength}
             min={0}
             max={1}
             step={0.05}
-            value={strength}
+            displayScale={100}
+            unit="%"
             disabled={isProcessing}
-            aria-label="Denoise strength"
-            onChange={(e) => setStrength(Number(e.target.value))}
+            rangeClassName="insp-range"
+            rangeAriaLabel="Denoise strength"
+            onChange={setStrength}
           />
-          <output htmlFor={strengthId}>{Math.round(strength * 100)}%</output>
         </FieldRow>
 
         {needsDownload && (

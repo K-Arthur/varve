@@ -21,6 +21,22 @@ function Holder() {
   );
 }
 
+function NormalizedHolder() {
+  const [value, setValue] = useState(0.25);
+  return (
+    <RangeValueControl
+      label="Blend"
+      value={value}
+      min={0}
+      max={1}
+      step={0.05}
+      displayScale={100}
+      unit="%"
+      onChange={setValue}
+    />
+  );
+}
+
 describe('RangeValueControl', () => {
   it('keeps exploratory slider changes and typed precision values in one control', () => {
     render(<Holder />);
@@ -44,5 +60,17 @@ describe('RangeValueControl', () => {
     fireEvent.keyDown(precision, { key: 'Enter' });
 
     expect(screen.getByRole('slider', { name: 'Intensity' })).toHaveValue('100');
+  });
+
+  it('scales normalized model values for percentage precision entry', () => {
+    render(<NormalizedHolder />);
+
+    const slider = screen.getByRole('slider', { name: 'Blend' });
+    const precision = screen.getByRole('spinbutton', { name: 'Blend value (%)' });
+    expect(precision).toHaveValue('25');
+
+    fireEvent.change(precision, { target: { value: '65' } });
+    fireEvent.keyDown(precision, { key: 'Enter' });
+    expect(slider).toHaveValue('0.65');
   });
 });

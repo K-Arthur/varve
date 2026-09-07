@@ -7,6 +7,7 @@ import { isCapabilityRestricted } from '../../../capabilities/restrictions';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
+import { RangeValueControl } from '../controls/RangeValueControl';
 
 export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
   const {
@@ -235,19 +236,19 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
           />
         </FieldRow>
         {traceMode === 'monochrome' ? (
-          <FieldRow label="Threshold" htmlFor={thresholdId}>
-            <input
+          <FieldRow label="Threshold" htmlFor={`${thresholdId}-range`}>
+            <RangeValueControl
               id={thresholdId}
-              type="range"
-              className="insp-range"
+              label="Threshold"
+              value={threshold}
               min={0}
               max={255}
-              value={threshold}
+              unit=""
               disabled={pending !== null}
-              aria-label="Trace threshold"
-              onChange={(event) => setThreshold(Number(event.target.value))}
+              rangeClassName="insp-range"
+              rangeAriaLabel="Trace threshold"
+              onChange={setThreshold}
             />
-            <output htmlFor={thresholdId}>{threshold}</output>
           </FieldRow>
         ) : (
           <FieldRow label="Colors" htmlFor={colorsId}>
@@ -304,19 +305,19 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
                 onChange={(v) => setForeground(v as 'dark' | 'light')}
               />
             </FieldRow>
-            <FieldRow label="Simplify" htmlFor={simplifyId}>
-              <input
+            <FieldRow label="Simplify" htmlFor={`${simplifyId}-range`}>
+              <RangeValueControl
                 id={simplifyId}
-                type="range"
-                className="insp-range"
+                label="Simplify"
+                value={simplifyTolerance}
                 min={0}
                 max={5}
                 step={0.25}
-                value={simplifyTolerance}
-                aria-label="Simplify tolerance"
-                onChange={(event) => setSimplifyTolerance(Number(event.target.value))}
+                disabled={pending !== null}
+                rangeClassName="insp-range"
+                rangeAriaLabel="Simplify tolerance"
+                onChange={setSimplifyTolerance}
               />
-              <output htmlFor={simplifyId}>{simplifyTolerance.toFixed(2)}</output>
             </FieldRow>
             <FieldRow label="Max paths" htmlFor={maxPathsId}>
               <input

@@ -25,6 +25,7 @@ import { useEditor } from '../../../context';
 import { ModelDownloadDialog } from '../../BackgroundRemoval/ModelDownloadDialog';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
+import { RangeValueControl } from '../controls/RangeValueControl';
 
 function normalizeErrorMessage(e: unknown, defaultMessage: string): string {
   const message = e instanceof Error ? e.message : String(e);
@@ -468,7 +469,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     <>
       {eligible && (
         <DisclosureSection title="Object Selection" defaultExpanded={Boolean(objectSelection)}>
-          <div className="insp-field" style={{ flexDirection: 'column', gap: 'var(--space-1)' }}>
+          <div className="insp-field-group">
             <p className="insp-field__hint">
               Select an object on the image, then refine it with more points or a box. The preview
               is temporary until you apply it as a mask.
@@ -1028,36 +1029,33 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                 Edit trimap
               </Button>
             </div>
-            <FieldRow label="Brush size" htmlFor="bg-refine-brush">
-              <input
+            <FieldRow label="Brush size" htmlFor="bg-refine-brush-range">
+              <RangeValueControl
                 id="bg-refine-brush"
-                type="range"
-                className="insp-range"
+                label="Brush size"
+                value={brushSize}
                 min={5}
                 max={100}
-                value={brushSize}
-                aria-label="Brush size"
-                onChange={(e) =>
-                  setRefineMaskOptions({ brushSize: Number(e.target.value), hardness })
-                }
+                unit="px"
+                rangeClassName="insp-range"
+                rangeAriaLabel="Brush size"
+                onChange={(value) => setRefineMaskOptions({ brushSize: value, hardness })}
               />
-              <output htmlFor="bg-refine-brush">{brushSize}px</output>
             </FieldRow>
-            <FieldRow label="Hardness" htmlFor="bg-refine-hardness">
-              <input
+            <FieldRow label="Hardness" htmlFor="bg-refine-hardness-range">
+              <RangeValueControl
                 id="bg-refine-hardness"
-                type="range"
-                className="insp-range"
+                label="Hardness"
+                value={hardness}
                 min={0}
                 max={1}
                 step={0.05}
-                value={hardness}
-                aria-label="Hardness"
-                onChange={(e) =>
-                  setRefineMaskOptions({ brushSize, hardness: Number(e.target.value) })
-                }
+                displayScale={100}
+                unit="%"
+                rangeClassName="insp-range"
+                rangeAriaLabel="Hardness"
+                onChange={(value) => setRefineMaskOptions({ brushSize, hardness: value })}
               />
-              <output htmlFor="bg-refine-hardness">{Math.round(hardness * 100)}%</output>
             </FieldRow>
             <div className="insp-actions">
               <Button type="button" variant="default" size="sm" onClick={handleDoneMaskEditing}>
@@ -1086,16 +1084,17 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                 }
               />
             </FieldRow>
-            <FieldRow label="Brush size" htmlFor="bg-trimap-brush">
-              <input
+            <FieldRow label="Brush size" htmlFor="bg-trimap-brush-range">
+              <RangeValueControl
                 id="bg-trimap-brush"
-                type="range"
-                className="insp-range"
+                label="Trimap brush size"
+                value={trimapOpts.brushSize}
                 min={5}
                 max={100}
-                value={trimapOpts.brushSize}
-                aria-label="Trimap brush size"
-                onChange={(e) => setTrimapEditOptions({ brushSize: Number(e.target.value) })}
+                unit="px"
+                rangeClassName="insp-range"
+                rangeAriaLabel="Trimap brush size"
+                onChange={(value) => setTrimapEditOptions({ brushSize: value })}
               />
             </FieldRow>
             <div className="insp-actions">

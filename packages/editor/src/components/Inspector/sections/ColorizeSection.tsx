@@ -22,6 +22,7 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
+import { RangeValueControl } from '../controls/RangeValueControl';
 import './ColorizeSection.css';
 
 // ---------------------------------------------------------------------------
@@ -374,35 +375,35 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
         {/* Recolor controls */}
         {workflow === 'recolor' && (
           <>
-            <FieldRow label="Hue" htmlFor={hueId}>
-              <input
+            <FieldRow label="Hue" htmlFor={`${hueId}-range`}>
+              <RangeValueControl
                 id={hueId}
-                type="range"
-                className="insp-range"
+                label="Hue"
+                value={targetHue}
                 min={-180}
                 max={180}
                 step={1}
-                value={targetHue}
+                unit="deg"
                 disabled={isProcessing}
-                aria-label="Target hue shift in degrees"
-                onChange={(e) => setTargetHue(Number(e.target.value))}
+                rangeClassName="insp-range"
+                rangeAriaLabel="Target hue shift in degrees"
+                onChange={setTargetHue}
               />
-              <output htmlFor={hueId}>{targetHue}deg</output>
             </FieldRow>
-            <FieldRow label="Saturation" htmlFor={satId}>
-              <input
+            <FieldRow label="Saturation" htmlFor={`${satId}-range`}>
+              <RangeValueControl
                 id={satId}
-                type="range"
-                className="insp-range"
+                label="Saturation"
+                value={saturationScale}
                 min={0}
                 max={3}
                 step={0.05}
-                value={saturationScale}
+                unit="x"
                 disabled={isProcessing}
-                aria-label="Saturation scale"
-                onChange={(e) => setSaturationScale(Number(e.target.value))}
+                rangeClassName="insp-range"
+                rangeAriaLabel="Saturation scale"
+                onChange={setSaturationScale}
               />
-              <output htmlFor={satId}>{Math.round(saturationScale * 100)}%</output>
             </FieldRow>
           </>
         )}
@@ -451,20 +452,20 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
         {/* Photo/recolor controls */}
         {workflow === 'recolor' && (
           <>
-            <FieldRow label="Chroma" htmlFor={`${hueId}-chroma`}>
-              <input
+            <FieldRow label="Chroma" htmlFor={`${hueId}-chroma-range`}>
+              <RangeValueControl
                 id={`${hueId}-chroma`}
-                type="range"
-                className="insp-range"
+                label="Chroma"
+                value={chromaStrength}
                 min={0}
                 max={2}
                 step={0.05}
-                value={chromaStrength}
+                unit="x"
                 disabled={isProcessing}
-                aria-label="Chroma strength"
-                onChange={(e) => setChromaStrength(Number(e.target.value))}
+                rangeClassName="insp-range"
+                rangeAriaLabel="Chroma strength"
+                onChange={setChromaStrength}
               />
-              <output htmlFor={`${hueId}-chroma`}>{Math.round(chromaStrength * 100)}%</output>
             </FieldRow>
             <div className="insp-field-group">
               <Switch
@@ -486,53 +487,56 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
         )}
 
         {/* Shared controls */}
-        <FieldRow label="Luminance" htmlFor={lumId}>
-          <input
+        <FieldRow label="Luminance" htmlFor={`${lumId}-range`}>
+          <RangeValueControl
             id={lumId}
-            type="range"
-            className="insp-range"
+            label="Luminance"
+            value={luminancePreservation}
             min={0}
             max={1}
             step={0.05}
-            value={luminancePreservation}
+            unit="%"
+            displayScale={100}
             disabled={isProcessing}
-            aria-label="Luminance preservation strength"
-            onChange={(e) => setLuminancePreservation(Number(e.target.value))}
+            rangeClassName="insp-range"
+            rangeAriaLabel="Luminance preservation strength"
+            onChange={setLuminancePreservation}
           />
-          <output htmlFor={lumId}>{Math.round(luminancePreservation * 100)}%</output>
         </FieldRow>
 
-        <FieldRow label="Blend" htmlFor={blendId}>
-          <input
+        <FieldRow label="Blend" htmlFor={`${blendId}-range`}>
+          <RangeValueControl
             id={blendId}
-            type="range"
-            className="insp-range"
+            label="Blend"
+            value={blendStrength}
             min={0}
             max={1}
             step={0.05}
-            value={blendStrength}
+            unit="%"
+            displayScale={100}
             disabled={isProcessing}
-            aria-label="Blend strength"
-            onChange={(e) => setBlendStrength(Number(e.target.value))}
+            rangeClassName="insp-range"
+            rangeAriaLabel="Blend strength"
+            onChange={setBlendStrength}
           />
-          <output htmlFor={blendId}>{Math.round(blendStrength * 100)}%</output>
         </FieldRow>
 
         {workflow === 'palette' && (
-          <FieldRow label="Adherence" htmlFor={adherenceId}>
-            <input
+          <FieldRow label="Adherence" htmlFor={`${adherenceId}-range`}>
+            <RangeValueControl
               id={adherenceId}
-              type="range"
-              className="insp-range"
+              label="Adherence"
+              value={adherence}
               min={0}
               max={1}
               step={0.05}
-              value={adherence}
+              unit="%"
+              displayScale={100}
               disabled={isProcessing}
-              aria-label="Palette adherence"
-              onChange={(e) => setAdherence(Number(e.target.value))}
+              rangeClassName="insp-range"
+              rangeAriaLabel="Palette adherence"
+              onChange={setAdherence}
             />
-            <output htmlFor={adherenceId}>{Math.round(adherence * 100)}%</output>
           </FieldRow>
         )}
 

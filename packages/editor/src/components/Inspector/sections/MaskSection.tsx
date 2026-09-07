@@ -10,7 +10,9 @@ import { Select, Tooltip } from '@varve/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
+import { FieldRow } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';
+import { RangeValueControl } from '../controls/RangeValueControl';
 
 export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
   const editor = useEditor();
@@ -188,7 +190,7 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
   return (
     <DisclosureSection title="Mask" defaultExpanded={!!mask}>
       {canAddMask && (
-        <div className="insp-field" style={{ flexDirection: 'column', gap: 'var(--space-1)' }}>
+        <div className="insp-field-group">
           <span className="insp-field__label">Add Mask</span>
           {node.kind === 'adjustment' && sourceCandidates.length > 0 && (
             <Select
@@ -253,7 +255,7 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
       )}
 
       {canPaintRasterMask && (
-        <div className="insp-field" style={{ flexDirection: 'column', gap: 'var(--space-1)' }}>
+        <div className="insp-field-group">
           <span className="insp-field__label">Brush mask</span>
           <button
             type="button"
@@ -272,7 +274,7 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
       )}
 
       {mask && (
-        <div className="insp-field" style={{ flexDirection: 'column', gap: 'var(--space-1)' }}>
+        <div className="insp-field-group">
           <div
             style={{
               display: 'flex',
@@ -464,47 +466,29 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
 
           {
             <>
-              <div className="insp-field">
-                <NumberField
-                  label="Feather"
-                  value={mask.feather ?? 0}
+              <NumberField
+                label="Feather"
+                value={mask.feather ?? 0}
+                min={0}
+                step={0.5}
+                onChange={handleFeather}
+                fieldName="maskFeather"
+              />
+              <FieldRow label="Density" htmlFor="mask-density-range">
+                <RangeValueControl
+                  id="mask-density"
+                  label="Density"
+                  value={mask.density ?? 1}
                   min={0}
-                  step={0.5}
-                  onChange={handleFeather}
-                  fieldName="maskFeather"
+                  max={1}
+                  step={0.05}
+                  displayScale={100}
+                  unit="%"
+                  rangeClassName="insp-range"
+                  rangeAriaLabel="Mask density"
+                  onChange={handleDensity}
                 />
-              </div>
-              <div className="insp-field">
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 'var(--space-2)',
-                    width: '100%',
-                  }}
-                >
-                  <label className="insp-field__label" htmlFor="mask-density">
-                    Density
-                  </label>
-                  <input
-                    id="mask-density"
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    value={mask.density ?? 1}
-                    onChange={(e) => handleDensity(Number(e.target.value))}
-                    aria-label="Mask density"
-                    style={{ flex: 1 }}
-                  />
-                  <span
-                    className="insp-field__value"
-                    style={{ minWidth: '2.5em', textAlign: 'right' }}
-                  >
-                    {Math.round((mask.density ?? 1) * 100)}%
-                  </span>
-                </div>
-              </div>
+              </FieldRow>
             </>
           }
 

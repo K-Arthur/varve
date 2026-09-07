@@ -1,8 +1,11 @@
 .range-value-control {
   align-items: center;
+  box-sizing: border-box;
   display: grid;
   gap: var(--space-2);
   grid-template-columns: minmax(0, 1fr) minmax(4.75rem, 6.25rem);
+  min-inline-size: 0;
+  width: 100%;
 }
 
 .range-value-control > input[type="range"] {

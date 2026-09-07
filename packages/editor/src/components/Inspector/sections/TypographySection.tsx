@@ -29,6 +29,7 @@ import { ContrastIndicator } from '../controls/ContrastIndicator';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';
+import { RangeValueControl } from '../controls/RangeValueControl';
 import { RichTextSpanEditor } from '../controls/RichTextSpanEditor';
 import type { SegmentedOption } from '../controls/SegmentedControl';
 import { SegmentedControl } from '../controls/SegmentedControl';
@@ -299,6 +300,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
       <FontBrowserDialog
         open={fontBrowserOpen}
         onClose={() => setFontBrowserOpen(false)}
+        selectedFamily={isMixed(familyRaw) ? undefined : familyRaw}
         onSelect={(family) => {
           batchUpdate((n) => ({ ...n, fontFamily: family || undefined }));
           setFontBrowserOpen(false);
@@ -667,42 +669,31 @@ function VariableAxesSection({ textNodes, familyRaw, batchUpdate }: VariableAxes
         const span = info.max - info.min;
         const step = span >= 100 ? 1 : span / 100;
         return (
-          <div key={tag} className="insp-field">
-            <label className="insp-field__label" htmlFor={`vf-${tag}`}>
-              {info.name}
-            </label>
-            <div className="insp-field__control">
-              <div className="insp-slider">
-                <input
-                  type="range"
-                  id={`vf-${tag}`}
-                  className="insp-slider__input"
-                  min={info.min}
-                  max={info.max}
-                  step={step}
-                  value={value}
-                  onChange={(e) => setAxis(tag, Number(e.target.value))}
-                  aria-label={`${info.name} (${tag})`}
-                  aria-valuemin={info.min}
-                  aria-valuemax={info.max}
-                  aria-valuenow={value}
-                />
-                <span className="insp-slider__value" data-axis={tag}>
-                  {Number.isInteger(value) ? value : value.toFixed(1)}
-                </span>
-                <button
-                  type="button"
-                  className="insp-slider__reset"
-                  onClick={() => resetAxis(tag)}
-                  disabled={isDefault}
-                  title={`Reset ${info.name} to ${info.default}`}
-                  aria-label={`Reset ${info.name} to default`}
-                >
-                  Reset
-                </button>
-              </div>
+          <FieldRow label={info.name} htmlFor={`vf-${tag}-range`}>
+            <div className="insp-axis-control">
+              <RangeValueControl
+                id={`vf-${tag}`}
+                label={`${info.name} (${tag})`}
+                value={value}
+                min={info.min}
+                max={info.max}
+                step={step}
+                rangeClassName="insp-slider__input"
+                rangeAriaLabel={`${info.name} (${tag})`}
+                onChange={(nextValue) => setAxis(tag, nextValue)}
+              />
+              <button
+                type="button"
+                className="insp-slider__reset"
+                onClick={() => resetAxis(tag)}
+                disabled={isDefault}
+                title={`Reset ${info.name} to ${info.default}`}
+                aria-label={`Reset ${info.name} to default`}
+              >
+                Reset
+              </button>
             </div>
-          </div>
+          </FieldRow>
         );
       })}
     </DisclosureSection>

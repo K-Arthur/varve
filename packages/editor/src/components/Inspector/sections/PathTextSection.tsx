@@ -13,6 +13,7 @@ import { type PointerEvent as ReactPointerEvent, useCallback, useEffect, useRef 
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
+import { RangeValueControl } from '../controls/RangeValueControl';
 import { SegmentedControl } from '../controls/SegmentedControl';
 
 interface PathTextSectionProps {
@@ -122,83 +123,56 @@ export function PathTextSection({ nodes }: PathTextSectionProps) {
       <FieldRow label="Path">
         <span className="insp-hint">{pathNode?.name ?? 'Missing path'}</span>
       </FieldRow>
-      <div className="insp-field">
-        <label className="insp-field__label" htmlFor="path-text-offset">
-          Start
-        </label>
-        <div className="insp-field__control">
-          <div className="insp-slider">
-            <input
-              type="range"
-              id="path-text-offset"
-              className="insp-slider__input"
-              min={0}
-              max={100}
-              step={1}
-              value={offsetPercent}
-              onPointerDown={beginDrag}
-              onPointerUp={commitDrag}
-              onPointerCancel={commitDrag}
-              onChange={(e) => patchSettings({ startOffset: Number(e.target.value) / 100 })}
-              aria-label="Start offset along path"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={offsetPercent}
-            />
-            <span className="insp-slider__value">{offsetPercent}%</span>
-          </div>
-        </div>
-      </div>
-      <div className="insp-field">
-        <label className="insp-field__label" htmlFor="path-text-end">
-          End
-        </label>
-        <div className="insp-field__control">
-          <div className="insp-slider">
-            <input
-              type="range"
-              id="path-text-end"
-              className="insp-slider__input"
-              min={0}
-              max={100}
-              step={1}
-              value={endPercent}
-              onPointerDown={beginDrag}
-              onPointerUp={commitDrag}
-              onPointerCancel={commitDrag}
-              onChange={(e) => patchSettings({ endOffset: Number(e.target.value) / 100 })}
-              aria-label="End offset along path"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={endPercent}
-            />
-            <span className="insp-slider__value">{endPercent}%</span>
-          </div>
-        </div>
-      </div>
-      <FieldRow label="Baseline">
-        <div className="insp-field__control">
-          <div className="insp-slider">
-            <input
-              type="range"
-              id="path-text-baseline"
-              className="insp-slider__input"
-              min={-100}
-              max={100}
-              step={0.5}
-              value={baselinePx}
-              onPointerDown={beginDrag}
-              onPointerUp={commitDrag}
-              onPointerCancel={commitDrag}
-              onChange={(e) => patchSettings({ baselineShift: Number(e.target.value) })}
-              aria-label="Baseline shift in pixels"
-              aria-valuemin={-100}
-              aria-valuemax={100}
-              aria-valuenow={baselinePx}
-            />
-            <span className="insp-slider__value">{baselinePx}px</span>
-          </div>
-        </div>
+      <FieldRow label="Start" htmlFor="path-text-offset-range">
+        <RangeValueControl
+          id="path-text-offset"
+          label="Start offset"
+          value={offsetPercent}
+          min={0}
+          max={100}
+          step={1}
+          unit="%"
+          rangeClassName="insp-slider__input"
+          rangeAriaLabel="Start offset along path"
+          onRangePointerDown={beginDrag}
+          onRangePointerUp={commitDrag}
+          onRangePointerCancel={commitDrag}
+          onChange={(value) => patchSettings({ startOffset: value / 100 })}
+        />
+      </FieldRow>
+      <FieldRow label="End" htmlFor="path-text-end-range">
+        <RangeValueControl
+          id="path-text-end"
+          label="End offset"
+          value={endPercent}
+          min={0}
+          max={100}
+          step={1}
+          unit="%"
+          rangeClassName="insp-slider__input"
+          rangeAriaLabel="End offset along path"
+          onRangePointerDown={beginDrag}
+          onRangePointerUp={commitDrag}
+          onRangePointerCancel={commitDrag}
+          onChange={(value) => patchSettings({ endOffset: value / 100 })}
+        />
+      </FieldRow>
+      <FieldRow label="Baseline" htmlFor="path-text-baseline-range">
+        <RangeValueControl
+          id="path-text-baseline"
+          label="Baseline shift"
+          value={baselinePx}
+          min={-100}
+          max={100}
+          step={0.5}
+          unit="px"
+          rangeClassName="insp-slider__input"
+          rangeAriaLabel="Baseline shift in pixels"
+          onRangePointerDown={beginDrag}
+          onRangePointerUp={commitDrag}
+          onRangePointerCancel={commitDrag}
+          onChange={(value) => patchSettings({ baselineShift: value })}
+        />
       </FieldRow>
       <FieldRow label="Side">
         <SegmentedControl

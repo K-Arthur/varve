@@ -19,6 +19,7 @@ import { useEditor, useViewport } from '../../../context';
 import { worldPointToImageMaskPixel } from '../../../tools/imageMaskCoordinates';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
+import { RangeValueControl } from '../controls/RangeValueControl';
 
 const DEPTH_MODEL_ID = 'depth-anything-v2-small';
 
@@ -805,51 +806,49 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
 
             <p className="insp-subsection__label">Blur Controls</p>
 
-            <FieldRow label="Blur Amount" htmlFor={blurAmountId}>
-              <input
+            <FieldRow label="Blur Amount" htmlFor={`${blurAmountId}-range`}>
+              <RangeValueControl
                 id={blurAmountId}
-                type="range"
-                className="insp-range"
+                label="Blur Amount"
+                value={params.blurAmount}
                 min={0}
                 max={20}
                 step={1}
-                value={params.blurAmount}
-                aria-label="Blur amount"
-                onChange={(e) => setParams((p) => ({ ...p, blurAmount: Number(e.target.value) }))}
+                unit="px"
+                rangeClassName="insp-range"
+                rangeAriaLabel="Blur amount"
+                onChange={(value) => setParams((p) => ({ ...p, blurAmount: value }))}
               />
-              <output htmlFor={blurAmountId}>{params.blurAmount}px</output>
             </FieldRow>
 
-            <FieldRow label="Focal Distance" htmlFor={focalDepthId}>
-              <input
+            <FieldRow label="Focal Distance" htmlFor={`${focalDepthId}-range`}>
+              <RangeValueControl
                 id={focalDepthId}
-                type="range"
-                className="insp-range"
+                label="Focal Distance"
+                value={params.focalDepth}
                 min={0}
                 max={100}
                 step={1}
-                value={params.focalDepth}
-                aria-label="Focal distance"
-                onChange={(e) => setParams((p) => ({ ...p, focalDepth: Number(e.target.value) }))}
+                unit="%"
+                rangeClassName="insp-range"
+                rangeAriaLabel="Focal distance"
+                onChange={(value) => setParams((p) => ({ ...p, focalDepth: value }))}
               />
-              <output htmlFor={focalDepthId}>{params.focalDepth}%</output>
             </FieldRow>
 
-            <FieldRow label="Transition Range" htmlFor={transitionRangeId}>
-              <input
+            <FieldRow label="Transition Range" htmlFor={`${transitionRangeId}-range`}>
+              <RangeValueControl
                 id={transitionRangeId}
-                type="range"
-                className="insp-range"
+                label="Transition Range"
+                value={params.transitionRange}
                 min={0}
                 max={100}
                 step={1}
-                value={params.transitionRange}
-                aria-label="Transition range"
-                onChange={(e) =>
-                  setParams((p) => ({ ...p, transitionRange: Number(e.target.value) }))
-                }
+                unit="%"
+                rangeClassName="insp-range"
+                rangeAriaLabel="Transition range"
+                onChange={(value) => setParams((p) => ({ ...p, transitionRange: value }))}
               />
-              <output htmlFor={transitionRangeId}>{params.transitionRange}%</output>
             </FieldRow>
 
             <Switch
@@ -897,47 +896,47 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
               Converts the DepthMap into a non-destructive layer mask. Useful for foreground or
               background selection; the mask can be used by adjustments and other effects.
             </p>
-            <FieldRow label="Near" htmlFor={maskNearId}>
-              <input
+            <FieldRow label="Near" htmlFor={`${maskNearId}-range`}>
+              <RangeValueControl
                 id={maskNearId}
-                type="range"
-                className="insp-range"
-                min={0}
-                max={100}
-                step={1}
+                label="Near"
                 value={maskParams.near}
-                aria-label="Mask near threshold"
-                onChange={(e) => setMaskParams((p) => ({ ...p, near: Number(e.target.value) }))}
-              />
-              <output htmlFor={maskNearId}>{maskParams.near}%</output>
-            </FieldRow>
-            <FieldRow label="Far" htmlFor={maskFarId}>
-              <input
-                id={maskFarId}
-                type="range"
-                className="insp-range"
                 min={0}
                 max={100}
                 step={1}
-                value={maskParams.far}
-                aria-label="Mask far threshold"
-                onChange={(e) => setMaskParams((p) => ({ ...p, far: Number(e.target.value) }))}
+                unit="%"
+                rangeClassName="insp-range"
+                rangeAriaLabel="Mask near threshold"
+                onChange={(value) => setMaskParams((p) => ({ ...p, near: value }))}
               />
-              <output htmlFor={maskFarId}>{maskParams.far}%</output>
             </FieldRow>
-            <FieldRow label="Feather" htmlFor={maskFeatherId}>
-              <input
+            <FieldRow label="Far" htmlFor={`${maskFarId}-range`}>
+              <RangeValueControl
+                id={maskFarId}
+                label="Far"
+                value={maskParams.far}
+                min={0}
+                max={100}
+                step={1}
+                unit="%"
+                rangeClassName="insp-range"
+                rangeAriaLabel="Mask far threshold"
+                onChange={(value) => setMaskParams((p) => ({ ...p, far: value }))}
+              />
+            </FieldRow>
+            <FieldRow label="Feather" htmlFor={`${maskFeatherId}-range`}>
+              <RangeValueControl
                 id={maskFeatherId}
-                type="range"
-                className="insp-range"
+                label="Feather"
+                value={maskParams.feather}
                 min={0}
                 max={50}
                 step={1}
-                value={maskParams.feather}
-                aria-label="Mask feather"
-                onChange={(e) => setMaskParams((p) => ({ ...p, feather: Number(e.target.value) }))}
+                unit="%"
+                rangeClassName="insp-range"
+                rangeAriaLabel="Mask feather"
+                onChange={(value) => setMaskParams((p) => ({ ...p, feather: value }))}
               />
-              <output htmlFor={maskFeatherId}>{maskParams.feather}%</output>
             </FieldRow>
             <Switch
               className="insp-switch"

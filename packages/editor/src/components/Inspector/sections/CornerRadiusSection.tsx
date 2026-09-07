@@ -15,7 +15,9 @@ import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
 import { BindingMenu } from '../controls/BindingMenu';
 import { DisclosureSection } from '../controls/DisclosureSection';
+import { FieldRow, InspectorFieldGroup } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';
+import { RangeValueControl } from '../controls/RangeValueControl';
 import { commonValue, isMixed } from '../selection/selectionState';
 
 export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
@@ -74,7 +76,7 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
 
   return (
     <DisclosureSection title="Corner Radius" sectionId="corner-radius">
-      <div ref={bindingTriggerRef} className="insp-field" style={{ position: 'relative' }}>
+      <div ref={bindingTriggerRef} className="insp-field-group insp-field-group--binding">
         {!perCorner && !mixed && (
           <NumberField
             label="Radius"
@@ -113,14 +115,14 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
       </div>
       {perCorner && (
         <>
-          <div style={{ display: 'flex', gap: 'var(--space-1)', marginBottom: 'var(--space-1)' }}>
+          <InspectorFieldGroup columns={2}>
             <NumberField label="TL" value={tl} min={0} onChange={(v) => handlePerCorner(0, v)} />
             <NumberField label="TR" value={tr} min={0} onChange={(v) => handlePerCorner(1, v)} />
-          </div>
-          <div style={{ display: 'flex', gap: 'var(--space-1)', marginBottom: 'var(--space-1)' }}>
+          </InspectorFieldGroup>
+          <InspectorFieldGroup columns={2}>
             <NumberField label="BL" value={bl} min={0} onChange={(v) => handlePerCorner(3, v)} />
             <NumberField label="BR" value={br} min={0} onChange={(v) => handlePerCorner(2, v)} />
-          </div>
+          </InspectorFieldGroup>
         </>
       )}
       <button
@@ -148,33 +150,19 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
         {perCorner ? 'Uniform' : 'Individual'}
       </button>
       {/* Corner smoothing slider */}
-      <div
-        className="insp-field"
-        style={{ marginTop: 'var(--space-1)', flexDirection: 'column', gap: 'var(--space-1)' }}
-      >
-        <label className="insp-field__label" htmlFor="corner-smoothing">
-          Smoothing
-        </label>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--space-2)',
-          }}
-        >
-          <input
-            id="corner-smoothing"
-            type="range"
-            min={0}
-            max={100}
-            value={smoothing}
-            onChange={(e) => setSelectedCornerSmoothing(Number(e.target.value))}
-            aria-label="Corner smoothing"
-            style={{ flex: 1 }}
-          />
-          <span className="insp-smoothing-value">{smoothing}%</span>
-        </div>
-      </div>
+      <FieldRow label="Smoothing" htmlFor="corner-smoothing-range">
+        <RangeValueControl
+          id="corner-smoothing"
+          label="Smoothing"
+          value={smoothing}
+          min={0}
+          max={100}
+          unit="%"
+          rangeClassName="insp-range"
+          rangeAriaLabel="Corner smoothing"
+          onChange={setSelectedCornerSmoothing}
+        />
+      </FieldRow>
     </DisclosureSection>
   );
 }

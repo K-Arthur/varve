@@ -922,6 +922,11 @@
   min-width: 0;
 }
 
+.gm-editor__row > .range-value-control {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .gm-editor__label {
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);

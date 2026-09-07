@@ -11,6 +11,7 @@ import { denormalizeChannel, managedColorToRgba, normalizeChannel } from '@varve
 import { Select, Switch } from '@varve/ui';
 import { ColorPicker } from '@varve/ui/components/ColorPicker';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { RangeValueControl } from './RangeValueControl';
 
 function colorToManaged(c: Color): ManagedColor {
   return rgbFromTuple(c);
@@ -864,19 +865,20 @@ export function GradientMapEditor({
 
       <div className="gm-editor__row">
         <span className="gm-editor__label">Intensity</span>
-        <input
-          type="range"
+        <RangeValueControl
+          id="gradient-map-intensity"
+          label="Gradient map intensity"
+          value={intensity * 100}
           min={0}
           max={100}
           step={1}
-          value={Math.round(intensity * 100)}
-          onChange={(e) => onChange({ intensity: Number(e.target.value) / 100 })}
-          aria-label="Gradient map intensity"
-          onPointerDown={onEditStart}
-          onPointerUp={onEditEnd}
-          className="varve-native-range gm-editor__slider"
+          unit="%"
+          rangeClassName="varve-native-range gm-editor__slider"
+          rangeAriaLabel="Gradient map intensity"
+          onRangePointerDown={onEditStart}
+          onRangePointerUp={onEditEnd}
+          onChange={(value) => onChange({ intensity: value / 100 })}
         />
-        <span className="gm-editor__unit">{Math.round(intensity * 100)}%</span>
       </div>
 
       <Switch
