@@ -16,6 +16,7 @@ import './components/select.css';
 import './components/sortable.css';
 import './components/scrollbar.css';
 import './components/interaction-states.css';
+import './components/input-group.css';
 
 export * from './components';
 export type { LoadingLabelProps } from './components/LoadingLabel';

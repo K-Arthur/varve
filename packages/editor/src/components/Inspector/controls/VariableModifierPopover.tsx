@@ -14,7 +14,14 @@
 
 import type { AlphaModifier, AlphaModifierOperation, ManagedColor } from '@varve/scene';
 import { alphaModifierLabel, normalizedAlpha } from '@varve/scene';
-import { FloatingPortal, Icon } from '@varve/ui';
+import {
+  FloatingPortal,
+  Icon,
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  InputGroupText,
+} from '@varve/ui';
 import { useMemo, useState } from 'react';
 
 interface Props {
@@ -163,19 +170,23 @@ export function VariableModifierPopover({
               onChange={(e) => setValue(Number(e.target.value) / 100)}
               style={{ flex: 1 }}
             />
-            <input
-              type="number"
-              aria-label="Modifier value"
-              min={sliderMin}
-              max={sliderMax}
-              step={1}
-              value={Math.round(displayValue * 10) / 10}
-              onChange={(e) => {
-                const n = Number(e.target.value);
-                if (Number.isFinite(n)) setValue(n / 100);
-              }}
-              style={{ width: 64 }}
-            />
+            <InputGroup style={{ flex: '0 1 92px', minWidth: 0 }}>
+              <InputGroupInput
+                type="number"
+                aria-label="Modifier value"
+                min={sliderMin}
+                max={sliderMax}
+                step={1}
+                value={Math.round(displayValue * 10) / 10}
+                onChange={(e) => {
+                  const n = Number(e.target.value);
+                  if (Number.isFinite(n)) setValue(n / 100);
+                }}
+              />
+              <InputGroupAddon align="inline-end">
+                <InputGroupText>%</InputGroupText>
+              </InputGroupAddon>
+            </InputGroup>
           </div>
         </label>
 

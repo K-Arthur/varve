@@ -113,6 +113,22 @@ export { InlineActivityIndicator } from './InlineActivityIndicator';
 export type { InputProps } from './Input';
 export { Input } from './Input';
 export type {
+  InputGroupAddonAlign,
+  InputGroupAddonProps,
+  InputGroupButtonProps,
+  InputGroupInputProps,
+  InputGroupOrientation,
+  InputGroupProps,
+  InputGroupTextProps,
+} from './InputGroup';
+export {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+  InputGroupText,
+} from './InputGroup';
+export type {
   ContextMenuProps,
   MenuButtonProps,
   MenuEntry,
