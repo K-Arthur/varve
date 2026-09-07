@@ -13,7 +13,7 @@
 
 import type { MockupCategory, MockupTemplateAsset, NodeId } from '@varve/scene';
 import { getBuiltinMockupTemplates } from '@varve/scene';
-import { Button, Icon, SearchField } from '@varve/ui';
+import { Button, Card, Icon, SearchField } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useEditor } from '../../context';
 import { applyMockupToSources, templatesForDocument } from '../../mockup/mockupActions';
@@ -209,7 +209,13 @@ export function MockupsPanel(): React.ReactElement {
             const isFavourite = favourites.includes(template.id);
             const isApplied = appliedId === template.id;
             return (
-              <article key={template.id} className="mockups-panel__card">
+              <Card
+                as="article"
+                key={template.id}
+                variant="media"
+                density="compact"
+                className="mockups-panel__card"
+              >
                 <div className="mockups-panel__preview">
                   <MockupTemplatePreview
                     template={template}
@@ -257,7 +263,7 @@ export function MockupsPanel(): React.ReactElement {
                     <p className="mockups-panel__card-source">Custom</p>
                   )}
                 </div>
-              </article>
+              </Card>
             );
           })}
         </div>

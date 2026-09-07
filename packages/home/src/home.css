@@ -584,17 +584,20 @@
   position: relative;
   transition:
     box-shadow var(--duration-quick) var(--ease-standard),
-    border-color var(--duration-quick) var(--ease-standard),
-    transform var(--duration-fast) var(--ease-default);
+    border-color var(--duration-quick) var(--ease-standard);
+}
+.file-card.varve-card {
+  padding: 0;
+  border-radius: var(--radius-card);
+  background: var(--color-surface-raised);
+  border: var(--border-micro);
 }
 .file-card.bento-cell:hover {
   box-shadow: var(--elevation-shadow-overlay);
   border-color: var(--color-border-strong);
-  transform: translateY(-2px);
 }
 .file-card.bento-cell:active {
   box-shadow: var(--elevation-shadow-raised);
-  transform: translateY(0);
 }
 .file-card:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
@@ -1075,7 +1078,7 @@
   gap: 2px;
   padding: 0 0 var(--space-2);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-card);
   overflow: hidden;
   cursor: pointer;
   background: var(--color-surface-raised);
@@ -1087,8 +1090,7 @@
     border-color var(--duration-quick) var(--ease-standard);
 }
 .template-card:hover {
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
+  box-shadow: var(--elevation-shadow-raised);
   border-color: var(--color-border-strong);
 }
 .template-card:focus-visible {
@@ -2283,7 +2285,7 @@
   gap: var(--space-1);
   padding: var(--space-3) var(--space-2);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   background: var(--color-surface-raised);
   cursor: pointer;
   color: var(--color-text-primary);
@@ -2318,7 +2320,7 @@
   display: flex;
   flex-direction: column;
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   overflow: hidden;
   background: var(--color-surface-raised);
   position: relative;

@@ -59,12 +59,13 @@ function createMockPlatform(assets: Asset[] = MOCK_ASSETS): Platform {
 describe('AssetBrowser', () => {
   it('renders assets in a grid', async () => {
     const platform = createMockPlatform();
-    render(<AssetBrowser platform={platform} workspaceId="ws-1" />);
+    const { container } = render(<AssetBrowser platform={platform} workspaceId="ws-1" />);
     await waitFor(() => {
       expect(screen.getByText('logo.png')).toBeDefined();
     });
     expect(screen.getByText('icon.svg')).toBeDefined();
     expect(screen.getByText('font.woff2')).toBeDefined();
+    expect(container.querySelector('.asset-browser__card')).toHaveClass('varve-card');
   });
 
   it('shows asset name and kind', async () => {

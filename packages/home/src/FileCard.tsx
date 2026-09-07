@@ -1,6 +1,7 @@
 import type { FileEntry } from '@varve/platform';
 import { fileKindLabel, formatRelativeTime } from '@varve/platform';
 import {
+  Card,
   SemanticIcon,
   SOLID_CHROME_ICONS,
   SolidIcon,
@@ -130,8 +131,10 @@ export const FileCard = forwardRef<HTMLDivElement, FileCardProps>(function FileC
   };
 
   return (
-    // biome-ignore lint/a11y/useSemanticElements: ARIA gridcell role required for virtualized grid; div used to allow nested interactive children (fav button, rename input)
-    <div
+    <Card
+      variant="selectable"
+      selected={selected}
+      loading={thumbnailLoading && !thumbnail}
       ref={mergedRef}
       aria-label={`${entry.name}, ${fileKindLabel(entry.kind)}, ${formatRelativeTime(entry.updatedAt)}${isMissing ? ', file missing' : ''}`}
       aria-selected={selected}
@@ -207,6 +210,6 @@ export const FileCard = forwardRef<HTMLDivElement, FileCardProps>(function FileC
           <span>{formatRelativeTime(entry.updatedAt)}</span>
         </div>
       </div>
-    </div>
+    </Card>
   );
 });

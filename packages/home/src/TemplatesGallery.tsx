@@ -109,7 +109,7 @@ export function TemplatesGallery({
                 <button
                   key={template.id}
                   type="button"
-                  className="template-card"
+                  className="template-card varve-card varve-card--interactive"
                   onClick={() => onSelect(template)}
                 >
                   <div

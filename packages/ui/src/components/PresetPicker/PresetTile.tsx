@@ -75,7 +75,10 @@ export function PresetTile({
       role="option"
       aria-selected={isSelected}
       data-highlighted={isHighlighted || undefined}
-      className={`preset-tile${isHighlighted ? ' preset-tile--highlighted' : ''}${isSelected ? ' preset-tile--selected' : ''}`}
+      data-variant="selectable"
+      data-density="compact"
+      data-selected={isSelected || undefined}
+      className={`preset-tile varve-card varve-card--selectable${isHighlighted ? ' preset-tile--highlighted' : ''}${isSelected ? ' preset-tile--selected' : ''}`}
       onClick={onSelect}
       onMouseEnter={onMouseEnter}
     >

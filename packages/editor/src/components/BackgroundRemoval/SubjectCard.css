@@ -10,9 +10,9 @@
   width: 100%;
   text-align: left;
   padding: var(--space-2);
-  border: 1px solid var(--color-border-subtle);
+  border: var(--border-micro);
   border-radius: var(--radius-control);
-  background: var(--elevation-surface-default);
+  background: var(--color-surface-raised);
   color: var(--color-text-primary);
   cursor: pointer;
   transition:
@@ -30,7 +30,8 @@
 .subject-card--selected {
   border-color: var(--color-interactive-default);
   background: var(--elevation-surface-raised);
-  box-shadow: 0 0 0 1px var(--color-interactive-default);
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
 }
 
 /* ── Thumbnail area ──────────────────────────────────────────────────────── */
@@ -147,6 +148,7 @@
   align-items: center;
   justify-content: center;
   padding: 3px;
+  min-block-size: 24px;
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
   background: var(--elevation-surface-default);
@@ -156,6 +158,10 @@
   transition:
     background 0.1s,
     color 0.1s;
+}
+.subject-card__mode-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
 }
 .subject-card__mode-btn:hover {
   background: var(--elevation-surface-raised);

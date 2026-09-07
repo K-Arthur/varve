@@ -113,6 +113,7 @@ describe('FileCard sorting affordance', () => {
 
     const card = screen.getByRole('gridcell');
     expect(card).not.toHaveAttribute('draggable');
+    expect(card).toHaveClass('varve-card', 'varve-card--selectable');
     expect(
       screen.getByRole('button', { name: 'Drag Sortable card to reorder' }),
     ).toBeInTheDocument();

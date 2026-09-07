@@ -133,6 +133,7 @@ describe('TemplatesGallery', () => {
       <TemplatesGallery templates={MOCK_TEMPLATES} onSelect={onSelect} />,
     );
     const buttons = container.querySelectorAll('button.template-card');
+    expect(buttons[0]).toHaveClass('varve-card', 'varve-card--interactive');
     fireEvent.click(buttons[0]!);
     expect(onSelect).toHaveBeenCalledWith(MOCK_TEMPLATES[0]);
   });

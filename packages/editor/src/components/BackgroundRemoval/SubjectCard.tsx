@@ -1,4 +1,5 @@
 import type { MaskComponent } from '@varve/engine';
+import { Card } from '@varve/ui';
 import { memo, useCallback } from 'react';
 import type { SubjectThumbnail } from './useSubjectThumbnails';
 
@@ -52,7 +53,10 @@ export const SubjectCard = memo(function SubjectCard({
 
   return (
     <li className="subject-card-wrapper">
-      <div
+      <Card
+        variant="selectable"
+        density="compact"
+        selected={selected}
         className={`subject-card ${selected ? 'subject-card--selected' : ''}`}
         role="option"
         aria-selected={selected}
@@ -123,7 +127,7 @@ export const SubjectCard = memo(function SubjectCard({
             </button>
           ))}
         </div>
-      </div>
+      </Card>
     </li>
   );
 });

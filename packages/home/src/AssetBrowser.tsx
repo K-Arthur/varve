@@ -2,6 +2,7 @@ import type { Asset, AssetFolder, Platform } from '@varve/platform';
 import { searchAssets } from '@varve/platform';
 import type { FileRejection } from '@varve/shared';
 import {
+  Card,
   ContentSkeleton,
   FileDropZone,
   FileError,
@@ -355,7 +356,12 @@ export function AssetBrowser({
 
               <div className="asset-browser__grid">
                 {searchResults.map(({ asset, reasons }) => (
-                  <div key={asset.id} className="asset-browser__card">
+                  <Card
+                    key={asset.id}
+                    variant="media"
+                    density="compact"
+                    className="asset-browser__card"
+                  >
                     <div className="asset-browser__card-thumb">
                       {asset.thumbnailHash ? (
                         <img
@@ -393,7 +399,7 @@ export function AssetBrowser({
                         <Icon name="Plus" label={undefined} size="0.875rem" />
                       </button>
                     )}
-                  </div>
+                  </Card>
                 ))}
               </div>
             </>
