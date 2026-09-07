@@ -50,7 +50,7 @@ import { NodeHashMemo, SubtreeIrCache } from './canvas/subtreeIrCache';
 import { buildToolContext } from './canvas/toolContext';
 import { useDocumentFontReadiness } from './canvas/useDocumentFonts';
 import { TouchCandidateMenu } from './components/Breadcrumb/TouchCandidateMenu';
-import { CanvasOverlays } from './components/CanvasOverlays';
+import { CanvasOverlays, markNewTextEditTarget } from './components/CanvasOverlays';
 import { type EditorState, setStartTextEditingHandler, useEditor } from './context';
 import { LEGACY_FILE_MIME, VARVE_FILE_MIME } from './dnd-types';
 import { collectFilesFromDataTransfer, isDragLeaveOutside, isPointInsideRect } from './dropUtils';
@@ -437,6 +437,7 @@ export function CanvasArea({
     new Set(),
   );
   const [textEditTargetId, setTextEditTargetId] = useState<string | null>(null);
+  const newTextEditTargetIdRef = useRef<NodeId | null>(null);
   // Register module-level bridge so createActionHandlers.editText works
   useEffect(() => {
     setStartTextEditingHandler((nodeId: string) => setTextEditTargetId(nodeId));
@@ -703,9 +704,8 @@ export function CanvasArea({
       pendingAutoTextEditRef.current = false;
       const id = state.selection[0] as NodeId;
       const node = state.document.nodes[id];
-      if (node?.kind === 'text') {
-        setTextEditTargetId(id);
-      }
+      if (node?.kind === 'text')
+        setTextEditTargetId(markNewTextEditTarget(newTextEditTargetIdRef, id));
     }
   }, [state.selection, state.document]);
 
@@ -1366,6 +1366,7 @@ export function CanvasArea({
         nodeEditTargetId={nodeEditTargetId}
         nodeEditSelectedAnchors={nodeEditSelectedAnchors}
         textEditTargetId={textEditTargetId}
+        newTextEditTargetRef={newTextEditTargetIdRef}
         setTextEditTargetId={setTextEditTargetId}
         setNodeEditTargetId={setNodeEditTargetId}
         warpMesh={warpMesh}

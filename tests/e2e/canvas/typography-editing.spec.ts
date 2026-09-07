@@ -41,4 +41,20 @@ test.describe('Typography editing workflow', () => {
     await page.keyboard.press('Escape');
     await expect(editor).toBeHidden();
   });
+
+  test('an untouched newly created text node is not retained on cancel', async ({ page }) => {
+    await navigateToEditor(page);
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    await canvas.waitFor({ state: 'visible', timeout: 15000 });
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('editor canvas has no bounds');
+
+    await page.keyboard.press('t');
+    await page.mouse.click(box.x + 220, box.y + 180);
+    const editor = page.getByRole('textbox', { name: /editing text/i });
+    await expect(editor).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(editor).toBeHidden();
+    await expect(page.getByRole('listitem', { name: /text:/i })).toHaveCount(0);
+  });
 });

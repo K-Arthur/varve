@@ -65,6 +65,14 @@ import { VariantBox } from './VariantBox/VariantBox';
 import { WarpOverlay } from './WarpOverlay';
 import { ZoomIndicator } from './ZoomIndicator';
 
+export function markNewTextEditTarget(
+  ref: React.MutableRefObject<NodeId | null>,
+  id: NodeId,
+): NodeId {
+  ref.current = id;
+  return id;
+}
+
 export interface CanvasOverlaysProps {
   contentCanvasRef: React.RefObject<HTMLCanvasElement | null>;
   announcerRef: React.RefObject<HTMLDivElement | null>;
@@ -89,6 +97,7 @@ export interface CanvasOverlaysProps {
   nodeEditTargetId: string | null;
   nodeEditSelectedAnchors: ReadonlySet<number>;
   textEditTargetId: string | null;
+  newTextEditTargetRef: React.MutableRefObject<NodeId | null>;
   setTextEditTargetId: (id: string | null) => void;
   setNodeEditTargetId: (id: string | null) => void;
   warpMesh: MeshWarp | null;
@@ -129,6 +138,7 @@ export function CanvasOverlays({
   nodeEditTargetId,
   nodeEditSelectedAnchors,
   textEditTargetId,
+  newTextEditTargetRef,
   setTextEditTargetId,
   setNodeEditTargetId,
   warpMesh,
@@ -370,6 +380,15 @@ export function CanvasOverlays({
       w: Math.max(projectedBounds?.w ?? (n.w ?? (n.fontSize ?? 16) * 3) * zoom, 20),
       h: Math.max(projectedBounds?.h ?? (n.h ?? (n.fontSize ?? 16) * 1.4) * zoom, 20),
     };
+    const finishTextEdit = (finalText: string) => {
+      if (newTextEditTargetRef.current === n.id && finalText.length === 0) {
+        editor.beginTransaction();
+        editor.removeSelected([n.id]);
+        editor.commitTransaction();
+      }
+      newTextEditTargetRef.current = null;
+      setTextEditTargetId(null);
+    };
     return (
       <>
         <TextEditOverlay
@@ -381,7 +400,7 @@ export function CanvasOverlays({
           worldX={worldX}
           worldY={worldY}
           worldTransform={textWorldMat}
-          onCommit={() => setTextEditTargetId(null)}
+          onCommit={finishTextEdit}
           onUpdateText={(text, targetId) =>
             editor.updateNode(targetId, (node) =>
               node.kind === 'text'
@@ -403,7 +422,9 @@ export function CanvasOverlays({
           onUpdate={(id, changes) =>
             editor.updateNode(id, (node) => (node.kind === 'text' ? { ...node, ...changes } : node))
           }
-          onClose={() => setTextEditTargetId(null)}
+          onClose={() =>
+            finishTextEdit(richTextToPlainText(n.richText ?? plainTextToRichText(n.text)))
+          }
         />
       </>
     );
