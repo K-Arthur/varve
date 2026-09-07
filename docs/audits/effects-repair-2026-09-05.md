@@ -31,8 +31,9 @@ from this task's commits. All work remains on master.
 The normal-strength repair changes previously incorrect appearance on
 semitransparent inputs at partial strength. Stable IDs and stored values are
 unchanged; opaque normal-filter output is unchanged within Canvas rounding.
-Artistic filter blend modes retain their established source-over semantics
-pending a separate compatibility decision. This is not a global layer-blend
+Per-filter blend modes continue through the same compositor for image fills and
+rendered vector/text objects; they are edited in Object Filters and remain
+separate from the owning layer's blend mode. This is not a global layer-blend
 change. Zero strength bypasses evaluation. The software mix reuses its evaluated
 buffer; the Canvas path uses weighted additive premultiplied compositing without
 readback.
@@ -92,6 +93,13 @@ for CSS filter semantics, not a claim of measured CPU/CSS agreement.
   result, and remains a path after the dialog closes. The focused Playwright
   run also captures the repaired launcher state in
   `effect-studio-vector-adjustments-chromium-linux.png`.
+- Effect Studio now keeps a preview when a different recipe is explicitly
+  applied: the preview is committed as one transaction and the new recipe is
+  appended. Consecutive recipe application is covered by the real Chromium
+  vector workflow and the component transaction test. Object Filters now also
+  expose the missing Color Burn, Color Dodge, Darken, and Lighten member blend
+  modes; component coverage exercises Color Burn on both image and vector
+  owners.
 - `node scripts/audit-architecture.mjs --ci` completed its graph scan but reports existing shared/engine/scene/editor cycles and instability above the committed orientation values; no new hub import was added by these effects changes. It is retained as an integration follow-up while concurrent history/UI work settles.
 - Regression audits and the broad affected closure: pending while concurrent history/background-removal lanes finish.
 - Full suite: not run. No release or platform certification claimed.

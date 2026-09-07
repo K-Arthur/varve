@@ -235,6 +235,24 @@ describe('EffectStudioSection', () => {
     expect(announce).toHaveBeenLastCalledWith('Preview cancelled');
   });
 
+  it('commits an active preview before appending a different applied treatment', () => {
+    const node = effectNode();
+    render(<EffectStudioSection nodes={[node]} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Preview Chromatic Bloom' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Apply Aperture Star' }));
+
+    expect(commitTransaction).toHaveBeenCalledTimes(2);
+    expect(beginTransaction).toHaveBeenCalledTimes(2);
+    const previewed = updatedNode(node);
+    expect(updatedBatchNode(previewed).smartFilters?.map((filter) => filter.kind)).toEqual([
+      'bloom',
+      'rgbSplit',
+      'lensFlare',
+      'bloom',
+    ]);
+  });
+
   it('keeps low-level primitives separate from the curated gallery', () => {
     const node = effectNode();
     render(<EffectStudioSection nodes={[node]} />);

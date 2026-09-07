@@ -47,6 +47,11 @@ update, not for someone reading the commit log.
 - Vector selections in the Photo workspace's Adjustments tab now retain a
   direct **Open Effect Studio** action, and applying a Studio recipe remains a
   single undoable transaction without flattening the vector.
+- Applying a different Effect Studio recipe while another recipe is previewed
+  now commits the preview and appends the new recipe instead of replacing the
+  earlier effect. Object Filter recipe members expose the full blend-mode set
+  on both raster and vector objects, with each member retaining its own blend
+  mode through replay and export.
 
 ## [0.2.1] - 2026-08-24
 

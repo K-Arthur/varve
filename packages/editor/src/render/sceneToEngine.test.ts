@@ -47,6 +47,22 @@ describe('scene raster masks', () => {
     ]);
   });
 
+  it.each([
+    ['vector', makeShapeNode('vector-blend', { kind: 'rect', x: 0, y: 0, w: 20, h: 20 })],
+    ['raster', imageNode('raster-blend')],
+  ] as const)('preserves per-filter blend mode for a %s owner', (_surface, source) => {
+    const node = {
+      ...source,
+      smartFilters: [
+        makeSmartFilter('blend-filter', 'brightness', { value: 20, blendMode: 'colorBurn' }),
+      ],
+    };
+    const converted = sceneNodeToEngineNode(node, {}, createDocument('Filter blend mode'));
+    expect(converted.filters).toEqual([
+      expect.objectContaining({ kind: 'brightness', blendMode: 'colorBurn' }),
+    ]);
+  });
+
   it('omits object-local filters from the IR when their stack is bypassed', () => {
     const node = {
       ...makeShapeNode('filtered-disabled', { kind: 'rect', x: 0, y: 0, w: 20, h: 20 }),

@@ -59,7 +59,8 @@ const paletteShot = scenes['palette-inspector']?.status === 'captured' ? scenes[
           Object Filters also provide directional Motion Blur, block-based Mosaic,
           edge-aware Surface Smooth, and paper-or-transparent Edge Ink. They remain
           editable stack members on images, vectors, and text, with deterministic
-          raster export.
+          raster export. Each recipe member keeps its own opacity and blend mode;
+          changing one member never removes the other members in the stack.
         </p>
       </section>
 
@@ -90,8 +91,9 @@ const paletteShot = scenes['palette-inspector']?.status === 'captured' ? scenes[
           With normal blending, effect opacity mixes the incoming and filtered
           result. A neutral colour correction at partial strength preserves a
           cutout's transparency. Object opacity controls the final object's
-          coverage separately. Original image assets and vector geometry remain
-          editable.
+          coverage separately. Studio and Object Filter blend modes work on
+          raster images and rendered vectors through the same ordered compositor;
+          original image assets and vector geometry remain editable.
         </p>
       </section>
 

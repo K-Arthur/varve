@@ -69,7 +69,9 @@ Each card represents an ordered recipe of two or more editable effects. The
 card art is a category cue rather than a pre-rendered promise: the canvas
 Preview command is the authoritative visual result for the selected object.
 Apply appends the full recipe in one batch update; it does not flatten artwork
-or alter source geometry.
+or alter source geometry. If a different recipe is being previewed when Apply
+is pressed, Varve commits that preview first and then appends the requested
+recipe, so an explicit Apply action cannot silently discard an earlier effect.
 
 The dialog follows a three-zone workflow: a large rendered preview, a compact
 treatment browser, and a focused applied-stack/settings column. The gallery
@@ -144,6 +146,23 @@ escape hatch:
 
 This keeps freeform experimentation possible without silently relabelling a
 user's modified stack as the original treatment.
+
+### Blend modes on raster and vector objects
+
+Every derived recipe member is an ordinary `Adjustment` with its own opacity
+and blend mode. New Studio members start at **Normal**; the advanced Object
+Filters editor exposes the complete effect blend menu, including Darken,
+Multiply, Color Burn, Lighten, Screen, Color Dodge, Overlay, Soft Light, Hard
+Light, Difference, Exclusion, Hue, Saturation, Color, and Luminosity. Changing
+one member marks only that named recipe customized and leaves the other stack
+members intact.
+
+The same ordered `Adjustment → FilterIR → compositor` path is used for image
+fills and rendered vector/text objects. The source image stays embedded and
+the vector geometry stays editable; the temporary surface exists only to
+evaluate the rendered result. The object's own layer blend mode is applied
+after its local filter stack, so local effect blending and layer blending do
+not overwrite one another. CPU replay and raster export share these semantics.
 
 Every continuous effect control uses the same compact precision control: a
 slider for exploratory tuning and a labelled editable numeric value for typed

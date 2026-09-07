@@ -661,10 +661,13 @@ export function EffectStudioSection({
       if (previewRef.current) {
         if (previewRef.current.treatmentId === treatment.id) {
           commitPreview();
-        } else {
-          previewTreatment(treatment, controls);
+          return;
         }
-        return;
+        // Applying a different recipe while a preview is active commits the
+        // preview first, then appends the requested recipe. Apply is an
+        // explicit stack edit; changing the gallery selection must not make a
+        // previously previewed treatment disappear.
+        commitPreview();
       }
       const singleInstanceId = nodes.length === 1 ? cryptoId() : undefined;
       // Applying a recipe is one user-visible edit even when several vectors

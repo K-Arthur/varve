@@ -47,8 +47,12 @@ export interface SmartFiltersSectionProps {
 
 const BLEND_OPTIONS: { value: AdjustmentBlendMode; label: string }[] = [
   { value: 'normal', label: 'Normal' },
+  { value: 'darken', label: 'Darken' },
   { value: 'multiply', label: 'Multiply' },
+  { value: 'colorBurn', label: 'Color Burn' },
+  { value: 'lighten', label: 'Lighten' },
   { value: 'screen', label: 'Screen' },
+  { value: 'colorDodge', label: 'Color Dodge' },
   { value: 'overlay', label: 'Overlay' },
   { value: 'softLight', label: 'Soft Light' },
   { value: 'hardLight', label: 'Hard Light' },

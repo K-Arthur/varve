@@ -236,6 +236,35 @@ describe('SmartFiltersSection — object finishing shortcuts', () => {
     expect(document.querySelector('.smart-filters__meta')).not.toBeInTheDocument();
   });
 
+  it.each([
+    ['vector', treatmentNode()],
+    [
+      'raster',
+      { ...treatmentNode('raster-treatment'), fills: imageNode('raster-treatment').fills },
+    ],
+  ] as const)('edits an individual %s recipe member blend mode', (_surface, node) => {
+    render(<SmartFiltersSection nodes={[node]} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /^BloomChromatic Bloom/ }));
+    const blendMode = screen.getByRole('combobox', { name: 'Bloom effect blend mode' });
+    fireEvent.click(blendMode);
+    fireEvent.keyDown(blendMode, { key: 'ArrowDown' });
+    fireEvent.keyDown(blendMode, { key: 'ArrowDown' });
+    fireEvent.keyDown(blendMode, { key: 'ArrowDown' });
+    fireEvent.keyDown(blendMode, { key: 'Enter' });
+
+    const updated = latestUpdatedNode(node);
+    expect(updated.smartFilters?.[0]).toEqual(
+      expect.objectContaining({
+        blendMode: 'colorBurn',
+        studioTreatment: expect.objectContaining({
+          treatmentId: 'studio-chromatic-bloom',
+          customized: true,
+        }),
+      }),
+    );
+  });
+
   it('keeps unknown future effects visible, reorderable, and explicitly unavailable', () => {
     const node = futureFilterNode();
     render(<SmartFiltersSection nodes={[node]} />);

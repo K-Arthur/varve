@@ -202,6 +202,49 @@ test.describe('Effect Studio dialog', () => {
     await expect(page.getByTestId('open-effect-studio')).toBeVisible();
   });
 
+  test('stacks consecutive applied treatments', async ({ page }) => {
+    await navigateToCleanEditor(page);
+    await createSelectedVectorPath(page);
+
+    await page.getByTestId('open-effect-studio').click();
+    const studio = page.getByTestId('effect-studio-dialog');
+    await expect(studio).toBeVisible({ timeout: 30_000 });
+
+    const search = studio.getByRole('searchbox', { name: 'Search treatments' });
+    await search.fill('reticulation');
+    await studio.getByRole('button', { name: 'Apply Reticulation' }).click();
+    const applied = studio.getByRole('list', { name: 'Applied treatments' });
+    await expect(applied.locator('li')).toHaveCount(1);
+    await expect(applied).toContainText('Reticulation');
+
+    await search.fill('halftone pattern');
+    await studio.getByRole('button', { name: 'Apply Halftone Pattern' }).click();
+    await expect(applied.locator('li')).toHaveCount(2);
+    await expect(applied).toContainText('Reticulation');
+    await expect(applied).toContainText('Halftone Pattern');
+  });
+
+  test('keeps a previewed treatment when applying a different recipe', async ({ page }) => {
+    await navigateToCleanEditor(page);
+    await createSelectedVectorPath(page);
+
+    await page.getByTestId('open-effect-studio').click();
+    const studio = page.getByTestId('effect-studio-dialog');
+    await expect(studio).toBeVisible({ timeout: 30_000 });
+    const search = studio.getByRole('searchbox', { name: 'Search treatments' });
+
+    await search.fill('reticulation');
+    await studio.getByRole('button', { name: 'Preview Reticulation' }).click();
+    await expect(studio.getByRole('button', { name: 'Keep treatment' })).toBeVisible();
+
+    await search.fill('halftone pattern');
+    await studio.getByRole('button', { name: 'Apply Halftone Pattern' }).click();
+    const applied = studio.getByRole('list', { name: 'Applied treatments' });
+    await expect(applied.locator('li')).toHaveCount(2);
+    await expect(applied).toContainText('Reticulation');
+    await expect(applied).toContainText('Halftone Pattern');
+  });
+
   test('keeps Effect Studio reachable from the raster-only Adjustments tab for vectors', async ({
     page,
   }) => {
