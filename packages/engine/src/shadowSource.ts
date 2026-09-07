@@ -17,7 +17,7 @@
  */
 
 import { mapBlendMode } from './compositeCanvas';
-import type { ReplayTarget } from './replay';
+import type { ReplayTarget } from './replayTypes';
 import type { EngineColor, FillIR, RenderItem, Stroke } from './types';
 
 export type EffectBuffer = {
