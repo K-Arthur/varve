@@ -221,12 +221,13 @@ that target id.
 
 ## Gesture disambiguation
 
-The row is draggable from anywhere on it, which means dnd-kit's `pointerdown`
-listener sits above every control nested inside the row. Those controls
-(disclosure triangle, selection checkbox, visibility/lock/solo toggles) stop
+The row is draggable from anywhere on its non-control surface, which means
+dnd-kit's `pointerdown` listener sits on the treeitem above the layer name and
+the grip. Nested controls (disclosure triangle, selection checkbox, type icon,
+visibility/lock/solo toggles, effect badges, and the rename input) stop
 `pointerdown` themselves — stopping `click` is far too late, since the drag has
-already activated by then. The rename input is excluded from drag listeners
-entirely so selecting text is not hijacked into a reorder.
+already activated by then. This preserves control behavior while preventing a
+drag from the layer name from falling through to native text selection.
 
 A completed drag also produces a synthetic `click` on the dropped row, which
 would run the row's ordinary click handler and replace the selection the user

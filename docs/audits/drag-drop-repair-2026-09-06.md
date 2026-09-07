@@ -43,6 +43,7 @@ pointer editing or layout gestures, not sortable operations.
 | J | `useLayersDnD` copied all virtualizer measurements on every pointer sample. | Fixed: resolver reads the virtualizer measurement array directly; no O(N) copy per sample. | Typecheck and resolver tests pass; dedicated 1k/10k benchmark not run |
 | K | Tauri file drops are window-level, so a native drop over a sidebar could be consumed by CanvasArea. | Fixed: known logical position must be inside the receiving canvas; unknown/outside drops are rejected. Descendant `dragleave` no longer clears HTML5 previews. | 17 drop-utils tests pass; packaged native drop not run on this host |
 | L | Terminal paths needed idempotent timer/listener/preview cleanup. | Fixed for the Layers/canvas handoff: session invalidation, click-trap cleanup, source cancellation, and unmount cleanup were tightened. | Escape, no-op, successful-drop selection, and browser cleanup routes pass; blur/capture-loss/unmount not separately run |
+| M | The documented row-level drag surface was implemented as a handle-only listener, so dragging a layer name selected text instead of activating DnD. | Fixed: the sortable listener now sits on the row; structural controls stop pointer activation locally and the row advertises a grab cursor. | Regression reproduces before the fix and passes after it; 19 Chromium Layers DnD tests pass |
 
 ## Implementation commits
 
@@ -58,6 +59,7 @@ pointer editing or layout gestures, not sortable operations.
 - `e3375fdaf` — `test(dnd): refresh effect stack hover baselines`
 - `89a29c0db` — `fix(website): use semantic drag surface tokens`
 - `7e30d1792` — `docs(dnd): close browser validation ledger`
+- `43974cb93` — `fix(dnd): allow dragging from layer rows`
 
 All repair, test, documentation, and website commits above were created
 directly on `master`. Unrelated dirty changes
@@ -81,6 +83,7 @@ Passed so far:
 - `VARVE_E2E_PORT=1445 npx playwright test tests/e2e/layers/effect-stack-transfer.spec.ts --project=chromium --reporter=list` — 4 passed after the inspected baseline refresh.
 - Website build/typecheck/page generation and the two-deployment Layers feature E2E — passed; full-page screenshots inspected for both deployments.
 - Final `pnpm verify:affected` reached the affected editor and UI closures: editor passed with 654 files / 6,509 tests (one skipped) and typecheck passed; UI tests passed with 63 files / 607 tests, but its unrelated typecheck failed on existing errors in `Checkbox.test.tsx` and `Disclosure.stories.tsx`.
+- Follow-up row-surface regression: the pre-fix name-drag E2E failed because `.drag-overlay` never activated; after `43974cb93`, the same real-pointer test passed and its held-pointer panel/page screenshots were inspected.
 - Commit checkpoints for each repair commit: staged Biome, emoji, health,
   impact, secret, contact, boundary, and selected Vitest checks passed.
 
