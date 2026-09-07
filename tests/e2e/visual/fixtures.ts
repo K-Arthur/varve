@@ -43,6 +43,29 @@ const IMAGE_SRC = `data:image/svg+xml,${encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="48" viewBox="0 0 64 48"><rect width="64" height="48" fill="#172033"/><rect width="32" height="48" fill="#e33b52"/><circle cx="48" cy="24" r="14" fill="#39d0c6"/><path d="M4 4h20v8H4z" fill="#fff"/></svg>',
 )}`;
 
+// Transparent artwork is intentional here: a content-aware stroke must hug
+// these visible islands rather than outlining the 160×112 host rectangle.
+const TRANSPARENT_IMAGE_SRC = `data:image/svg+xml,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="64" viewBox="0 0 96 64"><circle cx="24" cy="32" r="18" fill="#e33b52"/><path d="M48 10h36v44H48z" fill="#39d0c6"/><circle cx="66" cy="32" r="11" fill="#172033"/></svg>',
+)}`;
+
+function alphaRasterTile(): { pixels: number[]; version: number } {
+  const pixels = new Array<number>(128 * 128 * 4).fill(0);
+  for (let y = 0; y < 128; y++) {
+    for (let x = 0; x < 128; x++) {
+      const inside =
+        (x - 42) ** 2 + (y - 36) ** 2 < 24 ** 2 || (x > 68 && x < 112 && y > 18 && y < 58);
+      if (!inside) continue;
+      const offset = (y * 128 + x) * 4;
+      pixels[offset] = 57;
+      pixels[offset + 1] = 208;
+      pixels[offset + 2] = 198;
+      pixels[offset + 3] = 255;
+    }
+  }
+  return { pixels, version: 1 };
+}
+
 const CHANNEL_SWAP_LUT = JSON.stringify({
   kind: '1d',
   size: 2,
@@ -257,6 +280,112 @@ export const FIXTURES: VisualFixture[] = [
             align: 'center',
             cap: 'butt',
             join: 'miter',
+            dashPattern: [],
+            dashOffset: 0,
+            miterLimit: 4,
+            visible: true,
+          },
+        ],
+      }),
+    ],
+  },
+  {
+    name: 'content-aware-strokes',
+    width: 420,
+    height: 220,
+    maxDiffPixels: 220,
+    items: [
+      baseItem({
+        fill: WHITE,
+        primitive: { kind: 'rect', x: 0, y: 0, w: 420, h: 220 },
+      }),
+      baseItem({
+        fill: BLACK,
+        primitive: {
+          kind: 'text',
+          text: 'Agp',
+          fontSize: 72,
+          fontFamily: VISUAL_FONT_FAMILY,
+          fontWeight: 700,
+          fontStyle: 'normal',
+          textAlign: 'left',
+          textAlignVertical: 'top',
+          letterSpacing: 0,
+          lineHeight: 1.1,
+          paragraphSpacing: 0,
+          textCase: 'none',
+          textDecoration: 'none',
+          textOverflow: 'visible',
+          listStyle: 'none',
+          textMode: 'point',
+          x: 24,
+          y: 22,
+          w: 172,
+          h: 82,
+        },
+        strokes: [
+          {
+            color: RED,
+            weight: 6,
+            align: 'outside',
+            cap: 'round',
+            join: 'round',
+            dashPattern: [],
+            dashOffset: 0,
+            miterLimit: 4,
+            visible: true,
+          },
+        ],
+      }),
+      baseItem({
+        fill: BLACK,
+        fills: [
+          {
+            type: 'image',
+            src: TRANSPARENT_IMAGE_SRC,
+            fit: 'fill',
+            x: 0,
+            y: 0,
+            scale: 1,
+            imageWidth: 96,
+            imageHeight: 64,
+            opacity: 1,
+            blendMode: 'normal',
+            visible: true,
+          },
+        ],
+        primitive: { kind: 'rect', x: 224, y: 20, w: 168, h: 112 },
+        strokes: [
+          {
+            color: BLUE,
+            weight: 8,
+            align: 'outside',
+            cap: 'round',
+            join: 'round',
+            dashPattern: [],
+            dashOffset: 0,
+            miterLimit: 4,
+            visible: true,
+          },
+        ],
+      }),
+      baseItem({
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 0 },
+        transform: [1, 0, 0, 1, 24, 136],
+        primitive: {
+          kind: 'rasterLayer',
+          width: 128,
+          height: 72,
+          pixelMode: false,
+          tiles: { '0:0': alphaRasterTile() },
+        },
+        strokes: [
+          {
+            color: RED,
+            weight: 6,
+            align: 'outside',
+            cap: 'round',
+            join: 'round',
             dashPattern: [],
             dashOffset: 0,
             miterLimit: 4,

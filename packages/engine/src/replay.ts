@@ -12,6 +12,11 @@
  */
 
 import { type BlendEvaluationSpace, managedColorToRgba } from '@varve/shared';
+import {
+  type AlphaStrokeOps,
+  needsAlphaSilhouetteStroke,
+  paintAlphaSilhouetteStroke,
+} from './alphaStroke';
 import { blendPixels, CompositeCanvas, mapBlendMode } from './compositeCanvas';
 import { deserializeDepthMap, resizeDepthMap } from './depthMap';
 import { compositeMaskedEffectPixels, type PixelImageData } from './effectMaskCompositor';
@@ -67,6 +72,7 @@ import {
   paintAlphaAwareDropShadow,
   paintAlphaAwareInsetEffect,
   paintGeometricDropShadow,
+  renderShadowSource,
   type ShadowOps,
 } from './shadowSource';
 import { shapeText } from './shaping';
@@ -173,11 +179,6 @@ type ChromaticAberrationEffect = Extract<
   { type: 'chromaticAberration' }
 >;
 type GlitchEffect = Extract<NonNullable<RenderItem['effects']>[number], { type: 'glitch' }>;
-type InnerShadowEffect = Extract<
-  NonNullable<RenderItem['effects']>[number],
-  { type: 'innerShadow' }
->;
-type InnerGlowEffect = Extract<NonNullable<RenderItem['effects']>[number], { type: 'innerGlow' }>;
 
 /** Create an offscreen 2D buffer, falling back to HTMLCanvasElement when needed. */
 function createEffectBuffer(
@@ -217,6 +218,17 @@ const shadowOps: ShadowOps = {
   primitiveBounds,
   rgba,
   createEffectBuffer,
+};
+
+/** Rendering primitives injected into the alpha-aware stroke leaf module. */
+const alphaStrokeOps: AlphaStrokeOps = {
+  createEffectBuffer,
+  primitiveBounds,
+  renderSource: (target, item) => renderShadowSource(target, item, shadowOps),
+  strokeStyle: (target, stroke, item, bounds) =>
+    stroke.gradient
+      ? createGradientStyle(target, gradientStrokeToFill(stroke.gradient), item, bounds)
+      : rgba(stroke.color),
 };
 
 /** Maximum padding needed to keep content effects from being cropped. */
@@ -487,98 +499,6 @@ function paintGlassMaterialEdgeHighlight(
   target.beginPath();
   traceOutline(target, item.primitive);
   target.stroke();
-  target.restore();
-}
-
-/**
- * Inset shadow/glow via offscreen silhouette-difference + blur.
- * Composites on top of existing content (source-over), clipped to shape.
- */
-function paintInsetEffect(
-  target: ReplayTarget,
-  item: RenderItem,
-  effect: InnerShadowEffect | InnerGlowEffect,
-  mode: 'shadow' | 'glow',
-): void {
-  const bounds = primitiveBounds(item.primitive);
-  const blur = effect.blur + Math.max(0, effect.spread) / 2;
-  const offsetX = mode === 'shadow' && 'x' in effect ? effect.x : 0;
-  const offsetY = mode === 'shadow' && 'y' in effect ? effect.y : 0;
-  const pad = Math.ceil(blur * 3) + Math.max(Math.abs(offsetX), Math.abs(offsetY));
-  const ow = Math.ceil(bounds.w + pad * 2);
-  const oh = Math.ceil(bounds.h + pad * 2);
-
-  const buffer = createEffectBuffer(ow, oh);
-  if (!buffer) return;
-
-  const { canvas: offscreen, ctx } = buffer;
-
-  const offTarget = ctx as unknown as ReplayTarget;
-  ctx.translate(pad - bounds.x, pad - bounds.y);
-
-  // Full silhouette
-  offTarget.fillStyle = 'rgba(0,0,0,1)';
-  offTarget.beginPath();
-  traceOutline(offTarget, item.primitive);
-  offTarget.fill();
-
-  // Cut hole for directional shadow or symmetric glow ring
-  offTarget.globalCompositeOperation = 'destination-out';
-  offTarget.beginPath();
-  if (mode === 'shadow') {
-    offTarget.save();
-    offTarget.transform(1, 0, 0, 1, -offsetX, -offsetY);
-    traceOutline(offTarget, item.primitive);
-    offTarget.fill();
-    offTarget.restore();
-  } else {
-    const cx = bounds.x + bounds.w / 2;
-    const cy = bounds.y + bounds.h / 2;
-    const maxDim = Math.max(bounds.w, bounds.h, 1);
-    const shrink = Math.max(0.01, 1 - (blur + effect.spread) / maxDim);
-    offTarget.save();
-    offTarget.transform(1, 0, 0, 1, cx, cy);
-    offTarget.transform(shrink, 0, 0, shrink, 0, 0);
-    offTarget.transform(1, 0, 0, 1, -cx, -cy);
-    traceOutline(offTarget, item.primitive);
-    offTarget.fill();
-    offTarget.restore();
-  }
-
-  // Blur the ring
-  if (blur > 0) {
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.filter = `blur(${blur}px)`;
-    ctx.drawImage(offscreen, 0, 0);
-    ctx.restore();
-  }
-
-  // Tint to effect color
-  ctx.save();
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.globalCompositeOperation = 'source-in';
-  ctx.fillStyle = rgba(effect.color);
-  ctx.globalAlpha = effect.opacity ?? 1;
-  ctx.fillRect(0, 0, ow, oh);
-  ctx.restore();
-
-  // Composite onto main target, clipped to shape
-  target.save();
-  target.beginPath();
-  traceOutline(target, item.primitive);
-  if (target.clip) target.clip();
-  target.globalAlpha = effect.opacity ?? 1;
-  target.globalCompositeOperation = 'source-over';
-  if (target.drawImage) {
-    target.drawImage(
-      offscreen as unknown as CanvasImageSource,
-      bounds.x - pad,
-      bounds.y - pad,
-      ow,
-      oh,
-    );
-  }
   target.restore();
 }
 
@@ -952,11 +872,10 @@ export function replayIr(
                 paintGeometricDropShadow(target, item, effect, shadowOps);
               }
             } else if (effect.type === 'innerShadow') {
-              if (itemNeedsAlphaShadow(item) || effect.spread !== 0) {
-                paintAlphaAwareInsetEffect(target, item, effect, 'shadow', shadowOps);
-              } else {
-                paintInsetEffect(target, item, effect, 'shadow');
-              }
+              // Always derive inset effects from rendered alpha so spread and
+              // antialiased/transparent content behave identically for text,
+              // images, raster layers, and vector shapes.
+              paintAlphaAwareInsetEffect(target, item, effect, 'shadow', shadowOps);
             } else if (effect.type === 'outerGlow') {
               // Outer glow: render a blurred colored shape behind the item (no offset)
               if (itemNeedsAlphaShadow(item) || effect.spread !== 0) {
@@ -965,11 +884,7 @@ export function replayIr(
                 paintGeometricDropShadow(target, item, { ...effect, x: 0, y: 0 }, shadowOps);
               }
             } else if (effect.type === 'innerGlow') {
-              if (itemNeedsAlphaShadow(item) || effect.spread !== 0) {
-                paintAlphaAwareInsetEffect(target, item, effect, 'glow', shadowOps);
-              } else {
-                paintInsetEffect(target, item, effect, 'glow');
-              }
+              paintAlphaAwareInsetEffect(target, item, effect, 'glow', shadowOps);
             }
           }
         }
@@ -3118,6 +3033,12 @@ function paintStroke(
 
   if (stroke.dashPattern && stroke.dashPattern.length > 0) {
     target.setLineDash(stroke.dashPattern);
+  }
+
+  if (needsAlphaSilhouetteStroke(item)) {
+    paintAlphaSilhouetteStroke(target, stroke, item, alphaStrokeOps);
+    target.restore();
+    return;
   }
 
   // Handle non-center stroke alignment (Canvas2D only supports center natively)
