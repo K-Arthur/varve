@@ -4705,3 +4705,191 @@
 .email-compat__degraded code {
   font-family: var(--font-family-mono);
 }
+
+/* Theme contract for the shared field primitives. Surfaces and text remain
+ * token-driven in light/dark themes; high contrast adds a visible edge to
+ * controls that are otherwise intentionally borderless. */
+.insp-num__input,
+.insp-select,
+.insp-range,
+.range-value-control input[type="range"] {
+  color-scheme: inherit;
+}
+
+[data-theme="high-contrast"] .range-value-control .insp-num__input,
+[data-theme="high-contrast"] .range-value-control input[type="range"] {
+  border-color: var(--color-border-subtle);
+}
+
+[data-theme="high-contrast"] .range-value-control input[type="range"]:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+
+/* -------------------------------------------------------------------------
+ * Responsive field grammar
+ *
+ * Inspector controls are intentionally composed from two primitives:
+ * `.insp-field` is one label/control row and `.insp-field-group` owns the
+ * layout of related rows. Keeping those responsibilities separate prevents
+ * nested fields from competing for one flex row's width.
+ */
+.insp-field {
+  align-items: center;
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: minmax(0, 38%) minmax(0, 1fr);
+  min-width: 0;
+}
+
+.insp-field__label {
+  flex: none;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: auto;
+}
+
+.insp-field__control {
+  align-items: center;
+  min-width: 0;
+  width: auto;
+}
+
+.insp-field__control > .insp-field {
+  min-width: 0;
+  width: auto;
+}
+
+/* FieldRow is also used for channel pairs (Red X/Y, Green X/Y, etc.). The
+ * control column, rather than the label row, owns that internal grid. */
+.insp-field__control:has(> .insp-field + .insp-field) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+
+.insp-field-group--columns-2,
+.insp-field-group--columns-3,
+.insp-field-group--size,
+.insp-field-group--rotation,
+.insp-field-group--skew {
+  align-items: start;
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.insp-field-group--columns-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.insp-field-group--columns-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.insp-field-group--size {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+
+.insp-field-group--rotation {
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.insp-field-group--skew {
+  align-items: center;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+}
+
+.insp-field-group--binding {
+  position: relative;
+}
+
+.insp-field-group:is(fieldset) {
+  border: 0;
+  min-inline-size: 0;
+  padding: 0;
+}
+
+.insp-field-group--columns-2 > .insp-field,
+.insp-field-group--columns-3 > .insp-field,
+.insp-field-group--size > .insp-field,
+.insp-field-group--rotation > .insp-field,
+.insp-field-group--skew > .insp-field {
+  gap: var(--space-1);
+  grid-template-columns: minmax(0, 32%) minmax(0, 1fr);
+  min-width: 0;
+}
+
+.insp-field-group--size > .insp-proportion-lock,
+.insp-field-group--rotation > .insp-flip-btn,
+.insp-field-group--skew > .insp-flip-btn {
+  align-self: center;
+}
+
+.insp-effect-params {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding-inline-start: var(--space-2);
+}
+
+.insp-effect-row {
+  border-bottom: 1px solid var(--color-border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-1) 0;
+}
+
+.insp-effect-row__header {
+  align-items: center;
+  display: grid;
+  gap: var(--space-1);
+  grid-template-columns: auto auto auto auto minmax(0, 1fr) auto auto auto;
+  min-width: 0;
+  padding: var(--space-1) 0;
+}
+
+.insp-effect-row__header > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A slider and its precision field share the available control column. */
+.insp-field__control > .range-value-control {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  width: 100%;
+}
+
+.insp-axis-control {
+  align-items: center;
+  display: grid;
+  gap: var(--space-1);
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-width: 0;
+  width: 100%;
+}
+
+@container inspector (max-width: 15.5rem) {
+  .insp-field-group--columns-2,
+  .insp-field-group--columns-3,
+  .insp-field-group--size,
+  .insp-field-group--rotation,
+  .insp-field-group--skew {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .insp-field-group--size > .insp-proportion-lock,
+  .insp-field-group--rotation > .insp-flip-btn,
+  .insp-field-group--skew > .insp-flip-btn {
+    justify-self: start;
+  }
+}

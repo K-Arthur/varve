@@ -27,6 +27,7 @@ import { nodeLocalBounds } from '../../../scene/nodeBounds';
 import { deriveNumericBindingPresentation } from '../boundPropertyState';
 import { BindingMenu } from '../controls/BindingMenu';
 import { DisclosureSection } from '../controls/DisclosureSection';
+import { InspectorFieldGroup } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';
 import { classifySelectionProperty } from '../propertyState';
 import { commonValue, isMixed, type MaybeMixed } from '../selection/selectionState';
@@ -277,7 +278,10 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
       {useArtboardCoords && (
         <p className="insp-panel__empty-hint">Coordinates shown relative to active artboard</p>
       )}
-      <div ref={bindingTriggerRef} className="insp-field" style={{ position: 'relative' }}>
+      <div
+        ref={bindingTriggerRef}
+        className="insp-field-group insp-field-group--columns-2 insp-field-group--binding"
+      >
         <NumberField
           label={useArtboardCoords ? 'X (AB)' : 'X'}
           unit="px"
@@ -327,9 +331,9 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
           )}
       </div>
       {allSizable && (
-        <div className="insp-field" style={{ flexDirection: 'column', gap: 'var(--space-1)' }}>
+        <InspectorFieldGroup>
           {isLineOrArrow ? (
-            <div style={{ display: 'flex', gap: 'var(--space-1)', alignItems: 'flex-start' }}>
+            <InspectorFieldGroup columns={2}>
               <NumberField
                 label="L"
                 unit="px"
@@ -347,9 +351,9 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
                 draftKey={draftKey}
                 onChange={handleLineAngle}
               />
-            </div>
+            </InspectorFieldGroup>
           ) : (
-            <div style={{ display: 'flex', gap: 'var(--space-1)', alignItems: 'flex-start' }}>
+            <InspectorFieldGroup className="insp-field-group--size">
               <NumberField
                 label="W"
                 unit="px"
@@ -408,12 +412,12 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
                 fieldName="height"
                 onShiftClick={() => editor.setBindingField('height')}
               />
-            </div>
+            </InspectorFieldGroup>
           )}
-        </div>
+        </InspectorFieldGroup>
       )}
       {/* Rotation + Flip row */}
-      <div style={{ display: 'flex', gap: 'var(--space-1)', alignItems: 'center' }}>
+      <InspectorFieldGroup className="insp-field-group--rotation">
         <NumberField
           label="R"
           unit="°"
@@ -482,9 +486,9 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
             </button>
           </Tooltip>
         </TooltipProvider>
-      </div>
+      </InspectorFieldGroup>
       {/* Skew row */}
-      <div style={{ display: 'flex', gap: 'var(--space-1)', alignItems: 'center' }}>
+      <InspectorFieldGroup className="insp-field-group--skew">
         <NumberField
           label="Skew X"
           unit="°"
@@ -533,7 +537,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
             </button>
           </Tooltip>
         </TooltipProvider>
-      </div>
+      </InspectorFieldGroup>
       {/* Constraint controls — embedded from the former standalone Constraints
           section (ADR-0230). Hidden when the parent frame uses auto-layout
           where constraints are semantically meaningless. */}

@@ -598,6 +598,7 @@
 .effect-studio__tuning-controls {
   display: grid;
   gap: var(--space-2);
+  min-width: 0;
 }
 
 .effect-studio__tuning-controls > label,
@@ -628,6 +629,11 @@
   accent-color: var(--color-accent);
   inline-size: 100%;
   margin: 0;
+}
+
+.effect-studio__tuning-controls .range-value-control {
+  min-width: 0;
+  width: 100%;
 }
 
 .effect-studio__tuning-controls small {

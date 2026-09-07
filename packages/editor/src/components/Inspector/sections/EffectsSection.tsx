@@ -25,7 +25,7 @@ import { Icon, Select } from '@varve/ui';
 import { useCallback, useId, useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
-import { FieldRow } from '../controls/FieldRow';
+import { FieldRow, InspectorFieldGroup } from '../controls/FieldRow';
 import { InspectorColorPopover } from '../controls/InspectorColorPopover';
 import { NumberField } from '../controls/NumberField';
 import { commonValue, isMixed, type MaybeMixed } from '../selection/selectionState';
@@ -402,16 +402,8 @@ function EffectRow({
   const paramsId = useId();
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 'var(--space-1)',
-        padding: 'var(--space-1) 0',
-        borderBottom: '1px solid var(--color-border-subtle)',
-      }}
-    >
-      <div className="insp-field">
+    <div className="insp-effect-row">
+      <div className="insp-effect-row__header">
         {type && (
           <button
             type="button"
@@ -572,14 +564,7 @@ function LinkedChannelOffsets({
     return Math.max(...vals.map(Math.abs));
   }, [value]);
   return (
-    <div
-      style={{
-        paddingLeft: 'var(--space-2)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 'var(--space-1)',
-      }}
-    >
+    <div className="insp-effect-params">
       <button
         type="button"
         className={`insp-toggle-btn${linked ? ' --active' : ''}`}
@@ -705,15 +690,8 @@ function ChromaticAberrationParams({
   const offsets = offsetsRaw && !isMixed(offsetsRaw) ? offsetsRaw : null;
 
   return (
-    <div
-      style={{
-        paddingLeft: 'var(--space-2)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 'var(--space-1)',
-      }}
-    >
-      <div className="insp-field">
+    <div className="insp-effect-params">
+      <InspectorFieldGroup columns={2}>
         <NumberField
           label="Intensity"
           value={isMixed(intensityRaw) ? 1 : intensityRaw}
@@ -736,7 +714,7 @@ function ChromaticAberrationParams({
             onChange((e) => (e.type === 'chromaticAberration' ? { ...e, opacity: v } : e))
           }
         />
-      </div>
+      </InspectorFieldGroup>
       <FieldRow label="Blend">
         <Select
           label="Aberration blend mode"
@@ -904,15 +882,8 @@ function GlitchParams({
   });
 
   return (
-    <div
-      style={{
-        paddingLeft: 'var(--space-2)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 'var(--space-1)',
-      }}
-    >
-      <div className="insp-field">
+    <div className="insp-effect-params">
+      <InspectorFieldGroup columns={2}>
         <NumberField
           label="Strength"
           value={isMixed(strengthRaw) ? 0 : strengthRaw}
@@ -931,8 +902,8 @@ function GlitchParams({
           max={1}
           onChange={(v) => onChange((e) => (e.type === 'glitch' ? { ...e, density: v } : e))}
         />
-      </div>
-      <div className="insp-field">
+      </InspectorFieldGroup>
+      <InspectorFieldGroup columns={2}>
         <NumberField
           label="Seed"
           value={isMixed(seedRaw) ? 42 : seedRaw}
@@ -951,7 +922,7 @@ function GlitchParams({
           max={1}
           onChange={(v) => onChange((e) => (e.type === 'glitch' ? { ...e, opacity: v } : e))}
         />
-      </div>
+      </InspectorFieldGroup>
       <FieldRow label="Direction">
         <Select
           label="Glitch direction"
@@ -982,7 +953,7 @@ function GlitchParams({
         {advancedOpen ? 'Hide advanced' : 'Advanced...'}
       </button>
       {advancedOpen && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+        <div className="insp-effect-params">
           <NumberField
             label="Slice Height"
             value={
@@ -1319,15 +1290,7 @@ function EffectMaskControl({ nodes, index }: { nodes: EffectNode[]; index: numbe
   );
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 'var(--space-1)',
-        padding: 'var(--space-1) 0',
-        borderBottom: '1px solid var(--color-border-subtle)',
-      }}
-    >
+    <div className="insp-effect-params insp-effect-mask">
       <Select
         label="Effect mask source"
         value={sourceId}
@@ -1351,7 +1314,7 @@ function EffectMaskControl({ nodes, index }: { nodes: EffectNode[]; index: numbe
               onChange={(value) => patchBinding({ type: value as EffectMaskBinding['type'] })}
             />
           </FieldRow>
-          <div className="insp-field">
+          <InspectorFieldGroup columns={2}>
             <NumberField
               label="Density"
               value={binding.density ?? 1}
@@ -1367,8 +1330,8 @@ function EffectMaskControl({ nodes, index }: { nodes: EffectNode[]; index: numbe
               step={1}
               onChange={(value) => patchBinding({ feather: value })}
             />
-          </div>
-          <div className="insp-field">
+          </InspectorFieldGroup>
+          <InspectorFieldGroup columns={2}>
             <button
               type="button"
               className={`insp-toggle-btn${binding.inverted ? ' --active' : ''}`}
@@ -1388,7 +1351,7 @@ function EffectMaskControl({ nodes, index }: { nodes: EffectNode[]; index: numbe
                 patchBinding({ coordinateSpace: value as EffectMaskBinding['coordinateSpace'] })
               }
             />
-          </div>
+          </InspectorFieldGroup>
         </>
       )}
     </div>
@@ -1436,15 +1399,8 @@ function ShadowParams({
   });
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 'var(--space-1)',
-        paddingLeft: 'var(--space-2)',
-      }}
-    >
-      <div className="insp-field">
+    <div className="insp-effect-params">
+      <InspectorFieldGroup columns={2}>
         <NumberField
           label="X"
           value={isMixed(xRaw) ? 0 : xRaw}
@@ -1467,8 +1423,8 @@ function ShadowParams({
             )
           }
         />
-      </div>
-      <div className="insp-field">
+      </InspectorFieldGroup>
+      <InspectorFieldGroup columns={2}>
         <NumberField
           label="Blur"
           value={isMixed(blurRaw) ? 0 : blurRaw}
@@ -1492,7 +1448,7 @@ function ShadowParams({
             )
           }
         />
-      </div>
+      </InspectorFieldGroup>
       <NumberField
         label="Opacity"
         value={isMixed(opacityRaw) ? 1 : opacityRaw}
@@ -1560,15 +1516,8 @@ function GlowParams({
     return 'normal';
   });
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 'var(--space-1)',
-        paddingLeft: 'var(--space-2)',
-      }}
-    >
-      <div className="insp-field">
+    <div className="insp-effect-params">
+      <InspectorFieldGroup>
         <NumberField
           label="Blur"
           value={isMixed(blurRaw) ? 0 : blurRaw}
@@ -1582,8 +1531,8 @@ function GlowParams({
             })
           }
         />
-      </div>
-      <div className="insp-field">
+      </InspectorFieldGroup>
+      <InspectorFieldGroup>
         <NumberField
           label="Spread"
           value={isMixed(spreadRaw) ? 0 : spreadRaw}
@@ -1597,8 +1546,8 @@ function GlowParams({
             })
           }
         />
-      </div>
-      <div className="insp-field">
+      </InspectorFieldGroup>
+      <InspectorFieldGroup columns={2}>
         <span className="insp-label" style={{ fontSize: 'var(--font-size-2xs)' }}>
           Opacity
         </span>
@@ -1616,8 +1565,8 @@ function GlowParams({
             })
           }
         />
-      </div>
-      <div className="insp-field">
+      </InspectorFieldGroup>
+      <InspectorFieldGroup columns={2}>
         <span className="insp-label" style={{ fontSize: 'var(--font-size-2xs)' }}>
           Blend
         </span>
@@ -1639,7 +1588,7 @@ function GlowParams({
           }}
           placeholder="Mixed"
         />
-      </div>
+      </InspectorFieldGroup>
     </div>
   );
 }
@@ -1774,14 +1723,7 @@ function GlassMaterialParams({
   });
 
   return (
-    <div
-      style={{
-        paddingLeft: 'var(--space-2)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 'var(--space-1)',
-      }}
-    >
+    <div className="insp-effect-params">
       <NumberField
         label="Blur"
         value={isMixed(blurRaw) ? 0 : blurRaw}
@@ -1832,7 +1774,7 @@ function GlassMaterialParams({
         max={1}
         onChange={(v) => onChange((e) => (e.type === 'glassMaterial' ? { ...e, noise: v } : e))}
       />
-      <div className="insp-field">
+      <InspectorFieldGroup columns={2}>
         <button
           type="button"
           className={`insp-toggle-btn${isMixed(edgeHighlightRaw) ? '' : edgeHighlightRaw ? ' --active' : ''}`}
@@ -1858,7 +1800,7 @@ function GlassMaterialParams({
             }
           />
         ) : null}
-      </div>
+      </InspectorFieldGroup>
     </div>
   );
 }

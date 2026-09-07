@@ -8,6 +8,8 @@
  */
 import type { ReactNode } from 'react';
 
+export type InspectorFieldGroupColumns = 1 | 2 | 3;
+
 export interface FieldRowProps {
   label: string;
   /** When provided, the <label> is associated to the control via htmlFor. */
@@ -15,6 +17,13 @@ export interface FieldRowProps {
   /** Allow the label to wrap to multiple lines instead of overflowing. */
   wrapLabel?: boolean;
   children: ReactNode;
+}
+
+export interface InspectorFieldGroupProps {
+  children: ReactNode;
+  columns?: InspectorFieldGroupColumns;
+  className?: string;
+  as?: 'div' | 'fieldset';
 }
 
 export function FieldRow({ label, htmlFor, wrapLabel, children }: FieldRowProps) {
@@ -29,4 +38,27 @@ export function FieldRow({ label, htmlFor, wrapLabel, children }: FieldRowProps)
       <div className="insp-field__control">{children}</div>
     </div>
   );
+}
+
+/**
+ * Responsive layout primitive for related inspector fields.
+ *
+ * Keep the group separate from FieldRow: a group owns the grid, while each
+ * NumberField/FieldRow remains responsible for its own accessible label.
+ */
+export function InspectorFieldGroup({
+  children,
+  columns = 1,
+  className,
+  as: Element = 'div',
+}: InspectorFieldGroupProps) {
+  const classes = [
+    'insp-field-group',
+    columns > 1 ? `insp-field-group--columns-${columns}` : '',
+    className ?? '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  return <Element className={classes}>{children}</Element>;
 }
