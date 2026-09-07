@@ -11,7 +11,7 @@
  * Research basis: Figma/Sketch right-sidebar inspector; APG Disclosure,
  * Spinbutton, Combobox, Radiogroup, Slider patterns.
  */
-import { isExportRegion, isImageShape, type SceneNode } from '@varve/scene';
+import { canHaveSmartFilters, isExportRegion, isImageShape, type SceneNode } from '@varve/scene';
 import { EmptyState } from '@varve/ui';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { setInspectorTabHandler, useEditor } from '../../context';
@@ -142,7 +142,15 @@ export function PropertiesPanel() {
     // background, Upscale, Vectorize) complete inside this tab, so hiding it
     // outside the Photo workspace made those actions unreachable — the review
     // region could never render and the bg-removal E2E suite went red.
-    if (isAdjustmentSelected || isImageSelected) {
+    // Object Filters are also available for vector/text/container selections.
+    // Keep mixed image/vector selections out: Image Tuning is batch-safe only
+    // when every selected node is an image, while SmartFiltersSection edits a
+    // single object at a time.
+    const isObjectSelection =
+      selNodes.length > 0 &&
+      selNodes.every(canHaveSmartFilters) &&
+      selNodes.every((node) => !isImageShape(node));
+    if (isAdjustmentSelected || isImageSelected || isObjectSelection) {
       addContextualTab('adjustments');
     }
 

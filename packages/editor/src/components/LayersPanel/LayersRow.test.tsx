@@ -239,6 +239,10 @@ describe('LayersRow Object Filter badge', () => {
     });
     const badge = getByRole('button', { name: /1 of 1 Object Filters enabled on Layer 1/i });
 
+    expect(badge).toHaveAttribute(
+      'aria-label',
+      expect.stringContaining('Adjustments > Object Filters'),
+    );
     fireEvent.click(badge);
     expect(onOpenEffectStack).toHaveBeenCalledWith('n1', 'object-filters');
     expect(onCopyEffectStack).not.toHaveBeenCalled();

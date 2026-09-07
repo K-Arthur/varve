@@ -10,6 +10,7 @@ import {
   useRef,
 } from 'react';
 import type { DragEffectStackData } from '../../dnd-types';
+import { getEffectStackInspectorTarget } from './effectStackNavigation';
 
 export interface EffectStackTransferBadgeProps {
   sourceId: string;
@@ -59,6 +60,7 @@ export function EffectStackTransferBadge({
   });
   const { onPointerDown: onDndPointerDown, ...dndListeners } = listeners ?? {};
   const label = stackLabel(kind, count);
+  const destinationLabel = getEffectStackInspectorTarget(kind).destinationLabel;
 
   useEffect(() => {
     if (isDragging) didDragRef.current = true;
@@ -105,7 +107,7 @@ export function EffectStackTransferBadge({
   );
 
   const tooltip = onOpen
-    ? `Click to edit ${kind === 'layer-effects' ? 'Layer Effects' : 'Object Filters'}. Drag to replace the stack on another layer; hold Alt/Option to append. Shift-click to copy to selected layers without dragging.`
+    ? `Click to edit ${kind === 'layer-effects' ? 'Layer Effects' : 'Object Filters'} in ${destinationLabel}. Drag to replace the stack on another layer; hold Alt/Option to append. Shift-click to copy to selected layers without dragging.`
     : `Drag to replace ${kind === 'layer-effects' ? 'Layer Effects' : 'Object Filters'} on another layer. Hold Alt/Option to append instead. Select target layers, then activate to copy without dragging.`;
 
   return (

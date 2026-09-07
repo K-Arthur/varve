@@ -87,6 +87,15 @@ Object Filters with useful starting values, not a parallel effects system: a
 gray vector rectangle at 50% opacity stays an editable, 50%-opacity rectangle
 while its finishing filter is enabled, tuned, bypassed, or removed.
 
+The layer tree uses the persisted owner to choose the navigation destination.
+An Object Filters badge opens the selected node in **Adjustments → Object
+Filters**, where the same `smartFilters` entries that Studio created can be
+reordered, bypassed, blended, masked, or edited. A Layer Effects badge opens
+**Design → Layer Effects**, because `effects` is a separate appearance-stage
+stack for shadows, glows, blur, and material treatments. This keeps a named
+Studio treatment from appearing to be a standalone Layer Effect and keeps
+Layer Effects out of the Object Filter execution order.
+
 An Adjustment Layer resolves one of four serialised scopes:
 
 | Scope | Resolved input |

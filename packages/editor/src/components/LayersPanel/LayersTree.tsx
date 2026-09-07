@@ -56,6 +56,7 @@ import {
 import { isNodeEffectivelyLocked } from '../../scene/world';
 import { resolvePrimarySelectionId } from '../../selection/selectionContext';
 import { loadSettings } from '../../settings';
+import { getEffectStackInspectorTarget } from './effectStackNavigation';
 import type { LayerDropTarget } from './layerDropResolver';
 import type { LayerFilterSpec } from './layerFilterTypes';
 import { DEFAULT_FILTER } from './layerFilterTypes';
@@ -439,14 +440,14 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
   );
   const handleOpenEffectStack = useCallback(
     (id: NodeId, kind: import('@varve/scene').EffectStackKind) => {
-      const sectionId = kind === 'layer-effects' ? 'effects' : 'smart-filters';
+      const target = getEffectStackInspectorTarget(kind);
       setSelection(id, 'layers');
-      setInspectorTab('appearance');
-      const section = state.sectionVisibility[sectionId];
+      setInspectorTab(target.tab);
+      const section = state.sectionVisibility[target.section];
       if (section?.hidden) {
-        showInspectorSection(sectionId);
+        showInspectorSection(target.section);
       } else if (section?.collapsed) {
-        toggleSectionCollapse(sectionId);
+        toggleSectionCollapse(target.section);
       }
     },
     [

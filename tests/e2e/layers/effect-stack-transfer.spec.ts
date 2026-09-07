@@ -29,6 +29,26 @@ async function addObjectFilter(page: Page, row: Locator, label: string): Promise
   await expect(row.locator('[data-effect-stack-kind="object-filters"]')).toBeVisible();
 }
 
+async function addLayerEffect(page: Page, row: Locator, label: string): Promise<void> {
+  await row.click();
+  await page.getByRole('tab', { name: 'Design', exact: true }).click();
+  const section = page.locator('.insp-disclosure').filter({
+    has: page.getByRole('button', { name: 'Layer Effects', exact: true }),
+  });
+  await expect(section).toBeVisible();
+  if (
+    (await section.getByRole('button', { name: 'Layer Effects' }).getAttribute('aria-expanded')) !==
+    'true'
+  ) {
+    await section.getByRole('button', { name: 'Layer Effects' }).click();
+  }
+  const select = section.getByRole('combobox', { name: 'New effect type' });
+  await select.click();
+  await page.getByRole('option', { name: label, exact: true }).click();
+  await section.getByRole('button', { name: 'Add' }).click();
+  await expect(row.locator('[data-effect-stack-kind="layer-effects"]')).toBeVisible();
+}
+
 async function seededSourceAndTarget(page: Page): Promise<{ source: Locator; target: Locator }> {
   await seedLayers(page, 2);
   const rows = page.getByRole('treeitem');
@@ -155,5 +175,41 @@ test.describe('Layers Panel — effect stack transfer', () => {
     await expect(target.locator('[data-effect-stack-kind="object-filters"]')).toBeVisible();
     await target.click();
     await expect(page.locator('.smart-filters__row')).toHaveCount(1);
+  });
+
+  test('opens an Object Filters badge in Adjustments at the owning section', async ({ page }) => {
+    const { source } = await seededSourceAndTarget(page);
+    await addObjectFilter(page, source, 'Invert');
+
+    await source.locator('[data-effect-stack-kind="object-filters"]').click();
+
+    await expect(page.getByRole('tab', { name: 'Adjustments', exact: true })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    const objectFilters = page.getByRole('button', { name: 'Object Filters', exact: true });
+    await expect(objectFilters).toBeVisible();
+    await expect(objectFilters).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByText('Advanced stack editor')).toBeVisible();
+    await expect(page.locator('[data-panel="inspector"]')).toHaveScreenshot(
+      'effect-stack-object-filter-navigation.png',
+      { maxDiffPixels: 250 },
+    );
+  });
+
+  test('opens a Layer Effects badge in Design at the owning section', async ({ page }) => {
+    const { source } = await seededSourceAndTarget(page);
+    await addLayerEffect(page, source, 'Drop Shadow');
+
+    await source.locator('[data-effect-stack-kind="layer-effects"]').click();
+
+    await expect(page.getByRole('tab', { name: 'Design', exact: true })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    const layerEffects = page.getByRole('button', { name: 'Layer Effects', exact: true });
+    await expect(layerEffects).toBeVisible();
+    await expect(layerEffects).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByText('Drop Shadow')).toBeVisible();
   });
 });

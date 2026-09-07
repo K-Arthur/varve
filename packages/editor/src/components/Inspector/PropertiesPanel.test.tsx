@@ -335,6 +335,7 @@ describe('PropertiesPanel section gating for a real single selection', () => {
       await screen.findByRole('button', { name: 'Object Filters' }, { timeout: 15000 }),
     ).toBeTruthy();
     expect(await screen.findByTestId('open-effect-studio', {}, { timeout: 15000 })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Adjustments' })).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Appearance' })).toBeNull();
   });
 

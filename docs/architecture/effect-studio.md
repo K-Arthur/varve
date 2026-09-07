@@ -248,6 +248,23 @@ preview deliberately represents the first object while Apply affects the whole
 selection; direct recipe tuning remains a single-object operation so it cannot
 silently diverge across a mixed selection.
 
+Layer-row stack badges keep their destinations explicit:
+
+- An **Object Filters** badge, including a named Effect Studio treatment such
+  as Reticulation, opens **Adjustments → Object Filters**. Effect Studio and
+  Object Filters are two views over the same node-local `smartFilters` stack;
+  the Studio owns discovery and named-recipe tuning, while Object Filters owns
+  order, entry visibility, opacity, blend, masks, and advanced parameters.
+- A **Layer Effects** badge opens **Design → Layer Effects**. Layer Effects
+  use the separate `effects` array for shadows, glows, blur, and material
+  treatments, so they do not become Studio recipes or Object Filter entries.
+- An Adjustment Layer summary opens **Adjustments** with that scoped layer's
+  editor selected.
+
+The Appearance & Effects surface remains available for direct inspection of
+appearance stacks, but layer-row badges do not route through its legacy tab;
+they take the user directly to the owning editor and section.
+
 ## Raster and vector rules
 
 Effect Studio, Object Filters, and Adjustment Filters operate on rendered

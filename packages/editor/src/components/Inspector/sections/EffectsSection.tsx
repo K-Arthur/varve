@@ -32,6 +32,8 @@ import { commonValue, isMixed, type MaybeMixed } from '../selection/selectionSta
 
 export interface EffectsSectionProps {
   nodes: SceneNode[];
+  /** Link the disclosure to centralized Inspector state when hosted there. */
+  sectionId?: 'effects';
 }
 
 type EffectNode = ShapeNode | TextNode | FrameNode | AdjustmentNode | GroupNode;
@@ -213,7 +215,7 @@ const EFFECT_TYPE_OPTIONS: { value: Effect['type']; label: string }[] = [
   { value: 'glitch', label: 'Glitch' },
 ];
 
-export function EffectsSection({ nodes }: EffectsSectionProps) {
+export function EffectsSection({ nodes, sectionId }: EffectsSectionProps) {
   const { updateNode, beginTransaction, commitTransaction, announce } = useEditor();
   const [newEffectType, setNewEffectType] = useState<Effect['type']>('dropShadow');
   // Effect just added via the picker below — that row should mount expanded
@@ -311,6 +313,7 @@ export function EffectsSection({ nodes }: EffectsSectionProps) {
   return (
     <DisclosureSection
       title="Layer Effects"
+      sectionId={sectionId}
       defaultExpanded={effectNodes.some((n) => n.effects.length > 0)}
     >
       {effectNodes.every((n) => n.effects.length === 0) ? (

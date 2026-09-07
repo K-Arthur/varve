@@ -40,7 +40,7 @@ export function AppearancePanel() {
       <PaintLibrarySection />
       {nodes.length === 1 && isImageShape(nodes[0]!) && <PaletteSection />}
       {nodes.length === 1 && <SmartFiltersSection nodes={nodes} />}
-      {effectsCompatible && <EffectsSection nodes={nodes} />}
+      {effectsCompatible && <EffectsSection nodes={nodes} sectionId="effects" />}
     </div>
   );
 }
