@@ -84,6 +84,8 @@ Passed so far:
 - Website build/typecheck/page generation and the two-deployment Layers feature E2E — passed; full-page screenshots inspected for both deployments.
 - Final `pnpm verify:affected` reached the affected editor and UI closures: editor passed with 654 files / 6,509 tests (one skipped) and typecheck passed; UI tests passed with 63 files / 607 tests, but its unrelated typecheck failed on existing errors in `Checkbox.test.tsx` and `Disclosure.stories.tsx`.
 - Follow-up row-surface regression: the pre-fix name-drag E2E failed because `.drag-overlay` never activated; after `43974cb93`, the same real-pointer test passed and its held-pointer panel/page screenshots were inspected.
+- Extended post-fix matrix: `VARVE_E2E_PORT=1470 npx playwright test tests/e2e/layers/layers-drag-drop.spec.ts tests/e2e/layers/multi-page.spec.ts tests/e2e/home/sortable.spec.ts tests/e2e/canvas/smart-filters.spec.ts tests/e2e/layers/effect-stack-transfer.spec.ts --project=chromium --reporter=list` — 33 passed.
+- `VARVE_E2E_PORT=1471 npx playwright test tests/e2e/layers/layers-dnd.spec.ts --project=firefox --grep "layer name" --reporter=list` — 1 passed.
 - Commit checkpoints for each repair commit: staged Biome, emoji, health,
   impact, secret, contact, boundary, and selected Vitest checks passed.
 
