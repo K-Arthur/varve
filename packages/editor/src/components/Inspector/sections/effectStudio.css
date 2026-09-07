@@ -48,6 +48,16 @@
   min-width: 0;
 }
 
+/* Keep the applied stack and current recipe controls available while the
+ * gallery below is being browsed. The single-column mobile layout remains a
+ * normal document flow so sticky controls never cover the gallery. */
+@media (min-width: 48.01rem) {
+  .effect-studio__inspector {
+    position: sticky;
+    top: var(--space-3);
+  }
+}
+
 .effect-studio-comparison {
   align-self: start;
   background: var(--color-surface-sunken);
@@ -238,6 +248,7 @@
 }
 
 .effect-studio__intro p,
+.effect-studio__selection-note,
 .effect-studio__looks p,
 .effect-studio__stack-note,
 .effect-studio__treatment-group-header p,

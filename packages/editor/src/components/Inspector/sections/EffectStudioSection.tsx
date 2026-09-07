@@ -554,6 +554,7 @@ export function EffectStudioSection({
   const [lookName, setLookName] = useState('My Look');
   const [tuning, setTuning] = useState<TreatmentTuning | null>(null);
   const tuningTransactionRef = useRef(false);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const treatments = useMemo(() => {
     const listed = searchEffectStudioTreatments(query, category);
@@ -907,6 +908,10 @@ export function EffectStudioSection({
     [abortTransaction, commitTransaction],
   );
 
+  useEffect(() => {
+    if (presentation === 'dialog') searchRef.current?.focus();
+  }, [presentation]);
+
   if (!compatible) return null;
 
   const recentTreatments = recents
@@ -916,6 +921,7 @@ export function EffectStudioSection({
   const looks = state.document.effectLooks ?? [];
   const targetLabel =
     nodes.length === 1 ? (node?.name ?? 'selected object') : `${nodes.length} objects`;
+  const hasMultipleTargets = nodes.length > 1;
   const previewing = preview !== null;
   const canPreview = nodeId !== undefined;
   const stackEnabled = node?.smartFiltersEnabled !== false;
@@ -933,6 +939,12 @@ export function EffectStudioSection({
               Browse a creative family, preview the actual result, then tune the named treatment on{' '}
               {targetLabel}. Object Filters is reserved for advanced recipe internals.
             </p>
+            {hasMultipleTargets && (
+              <p className="effect-studio__selection-note">
+                Preview shows the first selected object. Apply adds the treatment to all selected
+                objects; direct tuning is available after selecting one object.
+              </p>
+            )}
             <details className="effect-studio__target-guidance">
               <summary>How this works on raster and vector objects</summary>
               <p>
@@ -1274,6 +1286,7 @@ export function EffectStudioSection({
               <input
                 type="search"
                 value={query}
+                ref={searchRef}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search treatments"
                 aria-label="Search treatments"

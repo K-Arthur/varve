@@ -240,6 +240,14 @@ to workspace preferences. **Object → New Adjustment Layer** (and
 **Alt/Option+N**) creates a scoped Adjustment Layer and then opens
 Adjustments with the new layer selected.
 
+The dialog owns the full gallery, live comparison, direct recipe tuning, raw
+creative primitives, and Looks workflow. Its search field receives focus when
+the dialog opens, and the applied-stack inspector stays visible while the
+gallery is scrolled on wider layouts. With multiple objects selected, the
+preview deliberately represents the first object while Apply affects the whole
+selection; direct recipe tuning remains a single-object operation so it cannot
+silently diverge across a mixed selection.
+
 ## Raster and vector rules
 
 Effect Studio, Object Filters, and Adjustment Filters operate on rendered

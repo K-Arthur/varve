@@ -214,6 +214,14 @@ describe('EffectStudioSection', () => {
     expect(commitTransaction).toHaveBeenCalledTimes(1);
   });
 
+  it('explains representative preview and all-selection apply behavior', () => {
+    render(<EffectStudioSection nodes={[effectNode('shape-a'), effectNode('shape-b')]} />);
+
+    expect(
+      screen.getByText(/Preview shows the first selected object\. Apply adds the treatment to all/),
+    ).toBeInTheDocument();
+  });
+
   it('previews, commits, replaces, and cancels without creating extra stack commands', () => {
     const node = effectNode();
     render(<EffectStudioSection nodes={[node]} />);

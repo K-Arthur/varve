@@ -140,6 +140,8 @@ test.describe('Effect Studio dialog', () => {
     await page.getByTestId('open-effect-studio').click();
     const studio = page.getByTestId('effect-studio-dialog');
     await expect(studio).toBeVisible({ timeout: 30_000 });
+    await expect(studio.getByRole('searchbox', { name: 'Search treatments' })).toBeFocused();
+    await expect(studio.locator('.effect-studio__inspector')).toHaveCSS('position', 'sticky');
     const apply = studio.getByRole('button', { name: /Apply / }).first();
     await expect(apply).toBeVisible();
     const colors = await apply.evaluate((button) => {
