@@ -1109,9 +1109,12 @@ export * from './richTextLayout';
 export * from './semanticSimilarity';
 export {
   applyAlphaSpread,
+  buildInnerGlowImage,
+  buildOuterGlowImage,
   itemNeedsAlphaShadow,
   paintAlphaAwareDropShadow,
   paintAlphaAwareInsetEffect,
+  paintAlphaAwareOuterGlow,
   paintGeometricDropShadow,
   renderShadowSource,
   type ShadowOps,
@@ -1217,6 +1220,7 @@ export type {
   BlendMode,
   Color,
   Effect,
+  EffectGradient,
   EngineColor,
   EngineFill,
   FillIR,

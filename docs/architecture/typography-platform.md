@@ -79,6 +79,12 @@ retargeting, and leaving edit mode still force an authoritative redraw. Blur
 commits only when focus leaves the editor/toolbar surface; moving focus to a
 formatting control is not an accidental commit.
 
+Text effect sources are rebuilt from the current shaped glyph alpha after every
+content, font, rich-text, or geometry change. Drop shadows and glows therefore
+follow glyph counters and transparent backgrounds while editing; the overlay
+never paints a rectangular CSS shadow or a duplicate DOM glyph layer. This is
+also the rule used by raster export and group replay.
+
 The scene remains canonical: the overlay writes through the editor update path,
 and the existing `packages/scene/src/textBounds.ts` / `packages/shared/src/textGeometry.ts`
 geometry is used for node-local bounds, wrapping, and overlay placement. The

@@ -331,6 +331,19 @@ pub struct ChannelColors {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChromaticContribution {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    pub enabled: bool,
+    pub source: String,
+    pub color: EngineColor,
+    pub strength: f64,
+    pub x: f64,
+    pub y: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all_fields = "camelCase")]
 pub enum Effect {
     #[serde(rename = "dropShadow")]
@@ -399,6 +412,14 @@ pub enum Effect {
         id: Option<String>,
         blur: f64,
         spread: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        color_mode: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        gradient: Option<serde_json::Value>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        choke: Option<f64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        contour: Option<String>,
         color: EngineColor,
         opacity: f64,
         #[serde(rename = "blendMode")]
@@ -411,6 +432,16 @@ pub enum Effect {
         id: Option<String>,
         blur: f64,
         spread: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        color_mode: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        gradient: Option<serde_json::Value>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        choke: Option<f64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        contour: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        origin: Option<String>,
         color: EngineColor,
         opacity: f64,
         #[serde(rename = "blendMode")]
@@ -440,7 +471,13 @@ pub enum Effect {
         offsets: ChannelOffset,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         channel_colors: Option<ChannelColors>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        channel_mode: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        custom_channels: Option<Vec<ChromaticContribution>>,
         intensity: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        mix: Option<f64>,
         blend_mode: BlendMode,
         opacity: f64,
         visible: bool,

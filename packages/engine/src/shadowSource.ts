@@ -16,9 +16,11 @@
  * gates).
  */
 
+import { managedColorToNormalized, managedColorToRgba } from '@varve/shared';
+import { gaussianBlurSeparable } from './blur';
 import { mapBlendMode } from './compositeCanvas';
 import type { ReplayTarget } from './replayTypes';
-import type { EngineColor, FillIR, RenderItem, Stroke } from './types';
+import type { EffectGradient, EngineColor, FillIR, RenderItem, Stroke } from './types';
 
 export type EffectBuffer = {
   canvas: HTMLCanvasElement | OffscreenCanvas;
@@ -155,6 +157,10 @@ export function itemNeedsAlphaShadow(item: RenderItem): boolean {
   const prim = item.primitive;
   if (prim.kind === 'rasterLayer') return true;
   if (prim.kind === 'text') return true;
+  // Compound paths may contain holes and non-zero/even-odd fill-rule changes
+  // that a single geometric outline cannot preserve. Rasterise all authored
+  // paths so shadows and inset effects follow the actual coverage.
+  if (prim.kind === 'path') return true;
   if ((item.fill.a ?? 255) < 255) return true;
   if (
     item.fills?.some(
@@ -166,6 +172,135 @@ export function itemNeedsAlphaShadow(item: RenderItem): boolean {
   const hasVisibleFill = item.fills?.some((f) => f.visible) ?? false;
   const hasVisibleStroke = item.strokes?.some((s) => s.visible) ?? false;
   return !hasVisibleFill && hasVisibleStroke;
+}
+
+type InsetContour = 'linear' | 'smooth' | 'sharp';
+type InsetOrigin = 'edge' | 'center';
+
+function applyInsetContour(value: number, contour: InsetContour): number {
+  const v = Math.max(0, Math.min(1, value));
+  if (contour === 'sharp') return Math.sqrt(v);
+  if (contour === 'smooth') return v * v * (3 - 2 * v);
+  return v;
+}
+
+function sampleEffectGradient(
+  gradient: EffectGradient | undefined,
+  position: number,
+  fallback: EngineColor,
+): [number, number, number, number] {
+  const stops = (gradient?.stops ?? [])
+    .filter((stop) => stop?.color)
+    .map((stop) => ({
+      position: Math.max(0, Math.min(1, finiteOr(stop.position, 0))),
+      rgba: managedColorToNormalized(stop.color),
+    }))
+    .sort((left, right) => left.position - right.position);
+  if (stops.length === 0) return managedColorToNormalized(fallback);
+  if (stops.length === 1) return stops[0]!.rgba;
+  const t = Math.max(0, Math.min(1, position));
+  if (t <= stops[0]!.position) return stops[0]!.rgba;
+  for (let index = 1; index < stops.length; index++) {
+    const before = stops[index - 1]!;
+    const after = stops[index]!;
+    if (t <= after.position) {
+      const span = Math.max(1e-6, after.position - before.position);
+      const local = Math.max(0, Math.min(1, (t - before.position) / span));
+      return before.rgba.map(
+        (channel, channelIndex) => channel + (after.rgba[channelIndex]! - channel) * local,
+      ) as [number, number, number, number];
+    }
+  }
+  return stops[stops.length - 1]!.rgba;
+}
+
+/**
+ * Build a colourised inner-glow ring from rendered alpha, not geometry.
+ *
+ * Edge origin is A × (1 − blur(A)); center origin is A × blur(A). The first
+ * term is deliberately multiplicative: it preserves transparent pixels and
+ * antialiased glyph/vector edges while avoiding the old
+ * `R × (1 − A) × A` canvas-composite ordering bug.
+ */
+export function buildInnerGlowImage(
+  source: ImageData,
+  blurred: ImageData,
+  color: EngineColor,
+  origin: InsetOrigin = 'edge',
+  choke = 0,
+  contour: InsetContour = 'smooth',
+  gradient?: EffectGradient,
+): ImageData {
+  const data = new Uint8ClampedArray(source.data.length);
+  const [solidR, solidG, solidB, solidAlpha] = managedColorToRgba(color);
+  const chokeAmount = Math.max(0, Math.min(0.99, finiteOr(choke, 0)));
+  const width = Math.min(source.data.length, blurred.data.length);
+  for (let index = 0; index < width; index += 4) {
+    const sourceAlpha = (source.data[index + 3] ?? 0) / 255;
+    const blurAlpha = (blurred.data[index + 3] ?? 0) / 255;
+    const raw = origin === 'center' ? sourceAlpha * blurAlpha : sourceAlpha * (1 - blurAlpha);
+    const choked = chokeAmount > 0 ? Math.max(0, (raw - chokeAmount) / (1 - chokeAmount)) : raw;
+    const effectAlpha = applyInsetContour(choked, contour);
+    const [r, g, b, colorAlpha] = gradient
+      ? sampleEffectGradient(gradient, raw, color)
+      : [solidR / 255, solidG / 255, solidB / 255, solidAlpha / 255];
+    const alpha = effectAlpha * colorAlpha;
+    data[index] = Math.round(r * 255);
+    data[index + 1] = Math.round(g * 255);
+    data[index + 2] = Math.round(b * 255);
+    data[index + 3] = Math.max(0, Math.min(255, Math.round(alpha * 255)));
+  }
+  return new ImageData(data, source.width, source.height);
+}
+
+/** Build an outside-only glow from the rendered alpha silhouette. */
+export function buildOuterGlowImage(
+  source: ImageData,
+  blurred: ImageData,
+  color: EngineColor,
+  choke = 0,
+  contour: InsetContour = 'smooth',
+  gradient?: EffectGradient,
+): ImageData {
+  const data = new Uint8ClampedArray(source.data.length);
+  const [solidR, solidG, solidB, solidAlpha] = managedColorToRgba(color);
+  const chokeAmount = Math.max(0, Math.min(0.99, finiteOr(choke, 0)));
+  const width = Math.min(source.data.length, blurred.data.length);
+  for (let index = 0; index < width; index += 4) {
+    const sourceAlpha = (source.data[index + 3] ?? 0) / 255;
+    const blurAlpha = (blurred.data[index + 3] ?? 0) / 255;
+    const raw = blurAlpha * (1 - sourceAlpha);
+    const choked = chokeAmount > 0 ? Math.max(0, (raw - chokeAmount) / (1 - chokeAmount)) : raw;
+    const effectAlpha = applyInsetContour(choked, contour);
+    const [r, g, b, colorAlpha] = gradient
+      ? sampleEffectGradient(gradient, raw, color)
+      : [solidR / 255, solidG / 255, solidB / 255, solidAlpha / 255];
+    const alpha = effectAlpha * colorAlpha;
+    data[index] = Math.round(r * 255);
+    data[index + 1] = Math.round(g * 255);
+    data[index + 2] = Math.round(b * 255);
+    data[index + 3] = Math.max(0, Math.min(255, Math.round(alpha * 255)));
+  }
+  return new ImageData(data, source.width, source.height);
+}
+
+/** Multiply an effect surface by the item's original rendered alpha. */
+function clipImageToAlpha(
+  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  mask: ImageData,
+): void {
+  try {
+    const image = ctx.getImageData(0, 0, mask.width, mask.height);
+    for (let index = 0; index < image.data.length; index += 4) {
+      const maskAlpha = (mask.data[index + 3] ?? 0) / 255;
+      image.data[index + 3] = Math.round((image.data[index + 3] ?? 0) * maskAlpha);
+    }
+    ctx.putImageData(image, 0, 0);
+  } catch {
+    // Cross-origin image surfaces can reject readback. The caller still has a
+    // valid effect buffer; skipping the optional alpha refinement is safer
+    // than replacing a visible artwork with a rectangular fallback.
+  }
 }
 
 /**
@@ -407,6 +542,11 @@ export function paintAlphaAwareInsetEffect(
     x?: number;
     y?: number;
     blendMode?: string;
+    choke?: number;
+    contour?: InsetContour;
+    origin?: InsetOrigin;
+    colorMode?: 'solid' | 'gradient';
+    gradient?: EffectGradient;
   },
   mode: 'shadow' | 'glow',
   ops: ShadowOps,
@@ -437,6 +577,12 @@ export function paintAlphaAwareInsetEffect(
   ctx.translate(ox, oy);
   renderShadowSource(ctx as unknown as ReplayTarget, item, ops);
   ctx.restore();
+  let originalSource: ImageData;
+  try {
+    originalSource = ctx.getImageData(0, 0, ow, oh);
+  } catch {
+    return;
+  }
   applyAlphaSpread(ctx, ow, oh, effect.spread);
 
   // Tint helper: replace buffer content with the effect colour, scaled by the
@@ -453,27 +599,25 @@ export function paintAlphaAwareInsetEffect(
   if (mode === 'glow') {
     const ring = ops.createEffectBuffer(ow, oh);
     if (!ring) return;
-    const rctx = ring.ctx;
-    rctx.drawImage(offscreen as unknown as CanvasImageSource, 0, 0);
-    if (blur > 0) {
-      rctx.save();
-      rctx.setTransform(1, 0, 0, 1, 0, 0);
-      rctx.filter = `blur(${blur}px)`;
-      rctx.drawImage(offscreen as unknown as CanvasImageSource, 0, 0);
-      rctx.restore();
+    try {
+      const spreadSource = ctx.getImageData(0, 0, ow, oh);
+      const blurred =
+        blur > 0 ? gaussianBlurSeparable(spreadSource, Math.max(1, Math.ceil(blur))) : spreadSource;
+      const ringImage = buildInnerGlowImage(
+        originalSource,
+        blurred,
+        effect.color,
+        effect.origin,
+        effect.choke,
+        effect.contour,
+        effect.colorMode === 'gradient' ? effect.gradient : undefined,
+      );
+      ring.ctx.putImageData(ringImage, 0, 0);
+    } catch {
+      return;
     }
-    rctx.save();
-    rctx.globalCompositeOperation = 'destination-out';
-    rctx.drawImage(offscreen as unknown as CanvasImageSource, 0, 0);
-    rctx.globalCompositeOperation = 'destination-in';
-    rctx.drawImage(offscreen as unknown as CanvasImageSource, 0, 0);
-    rctx.restore();
-    tint(rctx);
 
     target.save();
-    target.beginPath();
-    ops.traceOutline(target, item.primitive);
-    if (target.clip) target.clip();
     target.globalAlpha = (item.opacity ?? 1) * (effect.opacity ?? 1);
     target.globalCompositeOperation = effectCompositeMode(effect.blendMode);
     target.drawImage?.(
@@ -505,16 +649,95 @@ export function paintAlphaAwareInsetEffect(
   }
 
   tint(ctx);
+  clipImageToAlpha(ctx, originalSource);
 
-  // Composite onto main target, clipped to shape.
+  // Composite onto main target. The rendered alpha mask above handles text
+  // counters, transparent image pixels, and compound vector holes; clipping
+  // to traceOutline would reintroduce rectangular/outline coverage errors.
   target.save();
-  target.beginPath();
-  ops.traceOutline(target, item.primitive);
-  if (target.clip) target.clip();
   target.globalAlpha = (item.opacity ?? 1) * (effect.opacity ?? 1);
   target.globalCompositeOperation = effectCompositeMode(effect.blendMode);
   target.drawImage?.(
     offscreen as unknown as CanvasImageSource,
+    bounds.x - pad,
+    bounds.y - pad,
+    ow,
+    oh,
+  );
+  target.restore();
+}
+
+/**
+ * Paint an outside-only glow from rendered alpha. This is deliberately
+ * separate from drop shadow: the glow has no offset and its alpha is
+ * `blur(A) × (1 − A)`, so it cannot repaint opaque source pixels.
+ */
+export function paintAlphaAwareOuterGlow(
+  target: ReplayTarget,
+  item: RenderItem,
+  effect: {
+    blur: number;
+    spread: number;
+    color: EngineColor;
+    opacity?: number;
+    blendMode?: string;
+    choke?: number;
+    contour?: InsetContour;
+    colorMode?: 'solid' | 'gradient';
+    gradient?: EffectGradient;
+  },
+  ops: ShadowOps,
+): void {
+  const bounds = ops.primitiveBounds(item.primitive);
+  const blur = finiteOr(effect.blur, 0);
+  const pad = Math.min(MAX_EFFECT_PAD, Math.ceil(blur * 3) + Math.abs(finiteOr(effect.spread, 0)));
+  const ow = Math.ceil(bounds.w + pad * 2);
+  const oh = Math.ceil(bounds.h + pad * 2);
+  if (ow <= 0 || oh <= 0) return;
+
+  const buffer = ops.createEffectBuffer(ow, oh);
+  if (!buffer) return;
+  const { ctx } = buffer;
+  ctx.save();
+  ctx.translate(pad - bounds.x, pad - bounds.y);
+  renderShadowSource(ctx as unknown as ReplayTarget, item, ops);
+  ctx.restore();
+
+  let originalSource: ImageData;
+  try {
+    originalSource = ctx.getImageData(0, 0, ow, oh);
+  } catch {
+    return;
+  }
+  applyAlphaSpread(ctx, ow, oh, effect.spread);
+
+  const ring = ops.createEffectBuffer(ow, oh);
+  if (!ring) return;
+  try {
+    const spreadSource = ctx.getImageData(0, 0, ow, oh);
+    const blurred =
+      blur > 0 ? gaussianBlurSeparable(spreadSource, Math.max(1, Math.ceil(blur))) : spreadSource;
+    ring.ctx.putImageData(
+      buildOuterGlowImage(
+        originalSource,
+        blurred,
+        effect.color,
+        effect.choke,
+        effect.contour,
+        effect.colorMode === 'gradient' ? effect.gradient : undefined,
+      ),
+      0,
+      0,
+    );
+  } catch {
+    return;
+  }
+
+  target.save();
+  target.globalAlpha = (item.opacity ?? 1) * (effect.opacity ?? 1);
+  target.globalCompositeOperation = effectCompositeMode(effect.blendMode);
+  target.drawImage?.(
+    ring.canvas as unknown as CanvasImageSource,
     bounds.x - pad,
     bounds.y - pad,
     ow,

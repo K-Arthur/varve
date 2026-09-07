@@ -71,6 +71,7 @@ import {
   itemNeedsAlphaShadow,
   paintAlphaAwareDropShadow,
   paintAlphaAwareInsetEffect,
+  paintAlphaAwareOuterGlow,
   paintGeometricDropShadow,
   renderShadowSource,
   type ShadowOps,
@@ -247,17 +248,27 @@ function contentEffectPadding(
     } else if (e.type === 'depthBlur') {
       padding = Math.max(padding, Math.max(0, e.blurStrength) * 3);
     } else if (e.type === 'chromaticAberration') {
-      const intensity = Math.max(0, e.intensity ?? 1);
-      const o = e.offsets;
-      const maxOff = Math.max(
-        Math.abs(o.redX),
-        Math.abs(o.redY),
-        Math.abs(o.greenX),
-        Math.abs(o.greenY),
-        Math.abs(o.blueX),
-        Math.abs(o.blueY),
-      );
-      padding = Math.max(padding, Math.ceil(maxOff * intensity));
+      const mix = Math.max(0, e.mix ?? 1);
+      const maxOff =
+        e.channelMode === 'custom' && e.customChannels
+          ? Math.max(
+              0,
+              ...e.customChannels.map((channel) =>
+                channel.enabled === false
+                  ? 0
+                  : Math.max(Math.abs(channel.x), Math.abs(channel.y)) *
+                    Math.max(0, channel.strength),
+              ),
+            ) * Math.max(0, e.intensity ?? 1)
+          : Math.max(
+              Math.abs(e.offsets.redX),
+              Math.abs(e.offsets.redY),
+              Math.abs(e.offsets.greenX),
+              Math.abs(e.offsets.greenY),
+              Math.abs(e.offsets.blueX),
+              Math.abs(e.offsets.blueY),
+            ) * Math.max(0, e.intensity ?? 1);
+      padding = Math.max(padding, Math.ceil(maxOff * mix));
     } else if (e.type === 'glitch') {
       const cs = e.channelShift;
       const maxChannel = Math.max(
@@ -851,6 +862,26 @@ export function replayIr(
           }
         }
 
+        // Outer appearance effects belong between the backdrop and the item
+        // content. Painting them after fills lets a displaced shadow/glow
+        // overlap the source pixels and makes stacking depend on blur/offset;
+        // this order keeps the source authoritative while preserving the
+        // shadow's interaction with the existing backdrop.
+        if (item.effects) {
+          for (const effect of item.effects) {
+            if (!effect.visible) continue;
+            if (effect.type === 'dropShadow') {
+              if (itemNeedsAlphaShadow(item) || effect.spread !== 0) {
+                paintAlphaAwareDropShadow(target, item, effect, shadowOps);
+              } else {
+                paintGeometricDropShadow(target, item, effect, shadowOps);
+              }
+            } else if (effect.type === 'outerGlow') {
+              paintAlphaAwareOuterGlow(target, item, effect, shadowOps);
+            }
+          }
+        }
+
         // ── Fills + strokes pass (offscreen when content effects present) ───
         if (contentEffects.length > 0) {
           const bounds = primitiveBounds(item.primitive);
@@ -934,29 +965,11 @@ export function replayIr(
             )
               continue;
             if (effect.type === 'glassMaterial') continue; // backdrop handled before fills
-            if (effect.type === 'dropShadow') {
-              // Alpha-aware shadow: derive the shadow silhouette from the
-              // item's rendered alpha (image fills, background-removal masks,
-              // text glyphs, stroke-only objects) instead of the geometric
-              // outline. This makes transparent PNGs cast shadows that follow
-              // their visible shape, not their bounding rectangle.
-              if (itemNeedsAlphaShadow(item) || effect.spread !== 0) {
-                paintAlphaAwareDropShadow(target, item, effect, shadowOps);
-              } else {
-                paintGeometricDropShadow(target, item, effect, shadowOps);
-              }
-            } else if (effect.type === 'innerShadow') {
+            if (effect.type === 'innerShadow') {
               // Always derive inset effects from rendered alpha so spread and
               // antialiased/transparent content behave identically for text,
               // images, raster layers, and vector shapes.
               paintAlphaAwareInsetEffect(target, item, effect, 'shadow', shadowOps);
-            } else if (effect.type === 'outerGlow') {
-              // Outer glow: render a blurred colored shape behind the item (no offset)
-              if (itemNeedsAlphaShadow(item) || effect.spread !== 0) {
-                paintAlphaAwareDropShadow(target, item, { ...effect, x: 0, y: 0 }, shadowOps);
-              } else {
-                paintGeometricDropShadow(target, item, { ...effect, x: 0, y: 0 }, shadowOps);
-              }
             } else if (effect.type === 'innerGlow') {
               paintAlphaAwareInsetEffect(target, item, effect, 'glow', shadowOps);
             }

@@ -62,7 +62,16 @@ owner is text, raster, or image-backed content; a geometric clip is used only
 when it is equivalent to the painted coverage. Results are composited behind
 the item's content.
 
-### Pass 2 — Fills + Strokes (lines 715–754)
+### Pass 2 — Outer appearance (before source content)
+
+Processes: `dropShadow`, `outerGlow`
+
+Outer effects are rendered from a shadow-only or outside-alpha surface after
+backdrop capture and before the layer's source is painted. This keeps a
+displaced shadow behind opaque source pixels and keeps transparent holes
+transparent.
+
+### Pass 3 — Fills + Strokes (lines 715–754)
 
 Renders all fills (in array order) then all strokes (in array order).
 When content-affecting effects are present (`layerBlur`,
@@ -70,7 +79,7 @@ When content-affecting effects are present (`layerBlur`,
 offscreen `CompositeCanvas` and the content effects are applied in
 sequence. The result is composited back to the main canvas.
 
-### Pass 3 — Main effects (lines 756–804)
+### Pass 4 — Main inset effects (lines 756–804)
 
 Processes: `dropShadow`, `innerShadow`, `outerGlow`, `innerGlow`
 
@@ -78,10 +87,10 @@ Each effect gets its own `save()`/`restore()` scope:
 
 | Effect | Compositing | Visible position |
 |--------|------------|------------------|
-| `dropShadow` | shadow-only surface + effect blend mode | Behind content |
-| `outerGlow` | shadow-only surface + effect blend mode | Behind content (zero-offset shadow) |
-| `innerShadow` | `source-over` | On top, clipped to shape |
-| `innerGlow` | effect blend mode | On top, clipped to visible alpha |
+| `dropShadow` | shadow-only surface + effect blend mode | Before content |
+| `outerGlow` | outside-alpha surface + effect blend mode | Before content |
+| `innerShadow` | alpha-masked inset surface | On top of content |
+| `innerGlow` | alpha-product ring + effect blend mode | On top of visible alpha |
 
 ### Pass 4 — Glass material edge highlight (lines 806–813)
 
@@ -130,16 +139,19 @@ editing contract that makes the fixed pass order honest.
 The inspector intentionally does not present one generic parameter group for
 every effect:
 
-- shadows expose offset, blur, positive/negative spread, opacity, colour, and
-  blend mode;
-- glows expose blur, spread, opacity, colour, and blend mode;
+- shadows expose X/Y plus synchronized angle/distance, blur, positive/negative
+  spread, opacity, colour, and blend mode;
+- glows expose blur, spread, choke, contour, opacity, solid or normalized
+  effect-domain gradient colour treatment, and blend mode; inner glow also
+  exposes edge/center origin;
 - layer/background blur expose radius independently;
 - depth blur exposes focus depth/range, strength, falloff, inversion, and edge
   protection, and remains neutral when no depth resource is attached;
 - glass exposes blur, tint, tint opacity, saturation, brightness, noise, and
   configurable edge highlight colour/width/opacity;
-- chromatic aberration exposes independent channel offsets, channel colours,
-  intensity, opacity, and blend mode;
+- chromatic aberration exposes RGB channel offsets, Mix, intensity, opacity,
+  and blend mode, or a custom contribution list with red/green/blue/luminance/
+  alpha sources, independent offsets, strength, and output colours;
 - glitch exposes displacement direction, deterministic seed, density, slice
   and block controls, channel shifts, noise, scanlines, opacity, and blend
   mode.

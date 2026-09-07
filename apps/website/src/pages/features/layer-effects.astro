@@ -32,12 +32,12 @@ import StatusPill from '../../components/StatusPill.astro';
       <section class="feature-section">
         <h2>Coverage that follows the pixels</h2>
         <p>
-          Text effects follow shaped glyphs, counters, decorations, and strokes—not the invisible text box. Raster and image effects follow true alpha, transparent holes, crop placement, sparse tiles, and background-removal masks, so a cut-out PNG does not receive a rectangular shadow. Gradient, pattern, translucent, and stroke-only vector content use the painted coverage when a geometric outline would be misleading.
+          Text effects follow shaped glyphs, counters, decorations, and strokes—not the invisible text box. Raster and image effects follow true alpha, transparent holes, crop placement, sparse tiles, and background-removal masks, so a cut-out PNG does not receive a rectangular shadow. Compound vector paths preserve curves, fill rules, and authored holes; gradients, translucent fills, and stroke-only content use painted coverage when a geometric outline would be misleading.
         </p>
         <div class="coverage-grid">
           <article><h3>Editable text</h3><p>Keep the font, rich formatting, transforms, and text content editable while shadows and glows follow the glyphs.</p></article>
           <article><h3>Raster layers</h3><p>Apply appearance effects to sparse tile surfaces without rerunning or replacing the original pixels.</p></article>
-          <article><h3>Groups and frames</h3><p>Apply one composited-child silhouette at the container owner, preserving child ownership and clipping.</p></article>
+          <article><h3>Groups and frames</h3><p>Apply one composited-child silhouette at the container owner, preserving child ownership, clipping, and transparent gaps.</p></article>
         </div>
       </section>
 
@@ -47,8 +47,8 @@ import StatusPill from '../../components/StatusPill.astro';
           Each effect has its own vocabulary instead of inheriting a one-size-fits-all panel. Tune the things that define the look, then keep the source editable.
         </p>
         <div class="control-grid">
-          <article><h3>Shadows and glows</h3><p>Offset, blur, positive or negative spread, colour, opacity, and blend mode.</p></article>
-          <article><h3>Chromatic aberration</h3><p>Independent channel offsets plus editable red, green, and blue channel colours.</p></article>
+          <article><h3>Shadows and glows</h3><p>Shadows expose X/Y plus synchronized angle and distance. Glows add choke, contour, edge/center origin, and solid or effect-domain gradient colour treatment.</p></article>
+          <article><h3>Chromatic aberration</h3><p>RGB split includes Mix and fractional offsets; Custom Color Split adds independent red, green, blue, luminance, or alpha contributions with output colours, strength, and offsets.</p></article>
           <article><h3>Glitch</h3><p>Direction, seed, density, slices, blocks, channel shifts, noise, scanlines, and blend mode.</p></article>
           <article><h3>Glass and depth</h3><p>Tint, saturation, brightness, noise, edge highlight, focus range, falloff, and depth inversion.</p></article>
         </div>
@@ -77,6 +77,7 @@ import StatusPill from '../../components/StatusPill.astro';
           <li>Add, edit, bypass, duplicate, reset, remove, and reorder effects with one-step history.</li>
           <li>Stable effect IDs keep masks attached through reorder, reset, duplication, transfer, save, and reload.</li>
           <li>Positive and negative spread use alpha expansion/contraction; spread is not disguised extra blur.</li>
+          <li>Transparent backgrounds, compound paths, vector holes, text counters, and sparse raster pixels remain transparent instead of receiving a bounding-box effect.</li>
           <li>Mixed selections show missing rows and match compatible effects by identity before legacy stage/type order.</li>
           <li>Copying a stack deep-clones effect parameters and mints independent IDs for each destination.</li>
         </ul>

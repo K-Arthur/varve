@@ -45,7 +45,7 @@ import { sitePath } from '../../lib/siteUrl';
           <li>Primitive geometry (rect, ellipse, circle, line, arrow, polygon, star, path, text)</li>
           <li>Fill stack (solid colors, gradients, image fills — each with opacity and blend mode)</li>
           <li>Stroke stack (weight, color, dash, cap, join)</li>
-          <li>Effect list (drop shadows, inner shadows, blurs, glows — each with independent blend mode)</li>
+          <li>Effect list (alpha-aware drop/inner shadows, blur, solid/gradient glows, RGB/custom chromatic split, and independent blend modes)</li>
           <li>Opacity and blend mode</li>
           <li>Corner radius (for rect primitives)</li>
         </ul>
@@ -72,7 +72,7 @@ import { sitePath } from '../../lib/siteUrl';
           <li>Set opacity via <code>globalAlpha</code></li>
           <li>Draw fills (solid: <code>fillRect</code>, <code>arc</code>, <code>roundRect</code>; gradient: <code>createLinearGradient</code>, <code>createRadialGradient</code>, <code>createConicGradient</code>; image: <code>drawImage</code>)</li>
           <li>Draw vector strokes with full dash/cap/join/weight styling</li>
-          <li>For text, image fills, raster layers, and warped images, derive the stroke from rendered alpha so glyphs, transparent holes, masks, crops, and sparse pixels remain accurate</li>
+          <li>For text, image fills, raster layers, compound vectors, and warped images, derive effects from rendered alpha so glyphs, fill-rule holes, masks, crops, transparent backgrounds, and sparse pixels remain accurate</li>
           <li>Render effects (shadows via <code>shadowColor</code>/<code>shadowBlur</code>/<code>shadowOffsetX/Y</code>; blurs via <code>filter</code>)</li>
           <li>Render text via <code>fillText</code> with <code>font</code> and <code>textBaseline</code></li>
           <li>Render path text with per-glyph transform</li>

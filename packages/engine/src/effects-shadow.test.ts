@@ -17,7 +17,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { getImageCache, resetImageCache } from './imageCache';
 import type { ReplayTarget } from './replay';
 import { replayIr } from './replay';
-import { applyAlphaSpread, itemNeedsAlphaShadow } from './shadowSource';
+import { applyAlphaSpread, buildInnerGlowImage, itemNeedsAlphaShadow } from './shadowSource';
 import type { FillIR, RenderItem } from './types';
 
 interface RecorderProxy {
@@ -189,6 +189,93 @@ describe('alpha-aware drop shadow', () => {
       },
     } as RenderItem;
     expect(itemNeedsAlphaShadow(item)).toBe(true);
+  });
+
+  it('uses the alpha path for compound vector paths with holes', () => {
+    const item = {
+      transform: [1, 0, 0, 1, 0, 0] as const,
+      fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
+      primitive: {
+        kind: 'path' as const,
+        points: [
+          { x: 0, y: 0, handleIn: null, handleOut: null },
+          { x: 40, y: 0, handleIn: null, handleOut: null },
+          { x: 40, y: 40, handleIn: null, handleOut: null },
+          { x: 0, y: 40, handleIn: null, handleOut: null },
+        ],
+        contours: [
+          [
+            { x: 0, y: 0, handleIn: null, handleOut: null },
+            { x: 40, y: 0, handleIn: null, handleOut: null },
+            { x: 40, y: 40, handleIn: null, handleOut: null },
+            { x: 0, y: 40, handleIn: null, handleOut: null },
+          ],
+          [
+            { x: 10, y: 10, handleIn: null, handleOut: null },
+            { x: 30, y: 10, handleIn: null, handleOut: null },
+            { x: 30, y: 30, handleIn: null, handleOut: null },
+            { x: 10, y: 30, handleIn: null, handleOut: null },
+          ],
+        ],
+        closed: true,
+        tolerance: 0.1,
+        fillRule: 'evenodd' as const,
+      },
+    } as RenderItem;
+    expect(itemNeedsAlphaShadow(item)).toBe(true);
+  });
+
+  it('builds inner-glow alpha from coverage products without painting transparent pixels', () => {
+    const source = new ImageData(
+      new Uint8ClampedArray([255, 255, 255, 0, 255, 255, 255, 255, 255, 255, 255, 128]),
+      3,
+      1,
+    );
+    const blurred = new ImageData(
+      new Uint8ClampedArray([255, 255, 255, 0, 255, 255, 255, 128, 255, 255, 255, 64]),
+      3,
+      1,
+    );
+    const edge = buildInnerGlowImage(
+      source,
+      blurred,
+      { space: 'rgb', r: 255, g: 32, b: 16, a: 255 },
+      'edge',
+      0,
+      'linear',
+    );
+    const center = buildInnerGlowImage(
+      source,
+      blurred,
+      { space: 'rgb', r: 255, g: 32, b: 16, a: 255 },
+      'center',
+      0,
+      'linear',
+    );
+
+    expect(edge.data[3]).toBe(0);
+    expect(edge.data[7]).toBe(127);
+    expect(edge.data[11]).toBe(96);
+    expect(center.data[3]).toBe(0);
+    expect(center.data[7]).toBe(128);
+    expect(center.data[11]).toBe(32);
+
+    const gradient = buildInnerGlowImage(
+      source,
+      blurred,
+      { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
+      'edge',
+      0,
+      'linear',
+      {
+        stops: [
+          { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+          { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
+        ],
+      },
+    );
+    expect(gradient.data[4]).toBeGreaterThan(0);
+    expect(gradient.data[6]).toBeGreaterThan(0);
   });
 
   it('dilates and erodes alpha for spread instead of changing blur', () => {
@@ -418,8 +505,11 @@ describe('alpha-aware inner shadow', () => {
 
     expect(rec.props.fillStyle).not.toBe(SHADOW_COLOR_RGBA);
     expect(rec.calls.filter((c) => c.startsWith('fill(')).length).toBe(0);
-    // Inner shadow composites a pre-computed ring canvas, clipped to the shape.
+    // Inner shadow composites a pre-computed alpha-masked ring canvas.
     expect(rec.drawImageArgs.length).toBeGreaterThan(0);
-    expect(rec.calls.some((c) => c.startsWith('clip('))).toBe(true);
+    // The image fill itself is clipped to the primitive before the alpha
+    // silhouette is captured; the inset effect no longer adds a second
+    // geometric clip.
+    expect(rec.calls.filter((c) => c.startsWith('clip('))).toHaveLength(1);
   });
 });

@@ -296,5 +296,58 @@ describe('effectPipeline', () => {
       });
       expect(Array.from(cc.pixels().slice(0, 4))).toEqual([50, 200, 100, 255]);
     });
+
+    it('uses alpha coverage to colour black text without tinting transparent borders', () => {
+      const cc = makePixelCanvas([0, 0, 0, 255, 0, 0, 0, 0], 2, 1);
+      applyChromaticAberration(cc, 2, 1, {
+        type: 'chromaticAberration',
+        offsets: { redX: 0, redY: 0, greenX: 0, greenY: 0, blueX: 0, blueY: 0 },
+        channelMode: 'custom',
+        customChannels: [
+          {
+            source: 'alpha',
+            enabled: true,
+            color: { space: 'rgb', r: 255, g: 200, b: 0, a: 255 },
+            strength: 1,
+            x: 0,
+            y: 0,
+          },
+        ],
+        intensity: 1,
+        mix: 1,
+        blendMode: 'normal',
+        opacity: 1,
+        visible: true,
+      });
+      expect(Array.from(cc.pixels().slice(0, 4))).toEqual([255, 200, 0, 255]);
+      expect(Array.from(cc.pixels().slice(4, 8))).toEqual([0, 0, 0, 0]);
+    });
+
+    it('interpolates fractional offsets and keeps Mix 0 exactly identity', () => {
+      const cc = makePixelCanvas([255, 0, 0, 255, 0, 0, 0, 0], 2, 1);
+      applyChromaticAberration(cc, 2, 1, {
+        type: 'chromaticAberration',
+        offsets: { redX: 0.5, redY: 0, greenX: 0, greenY: 0, blueX: 0, blueY: 0 },
+        intensity: 1,
+        mix: 0,
+        blendMode: 'normal',
+        opacity: 1,
+        visible: true,
+      });
+      expect(Array.from(cc.pixels())).toEqual([255, 0, 0, 255, 0, 0, 0, 0]);
+
+      const fractional = makePixelCanvas([255, 0, 0, 255, 0, 0, 0, 0], 2, 1);
+      applyChromaticAberration(fractional, 2, 1, {
+        type: 'chromaticAberration',
+        offsets: { redX: 0.5, redY: 0, greenX: 0, greenY: 0, blueX: 0, blueY: 0 },
+        intensity: 1,
+        mix: 1,
+        blendMode: 'normal',
+        opacity: 1,
+        visible: true,
+      });
+      expect(fractional.pixels()[4]).toBeGreaterThan(0);
+      expect(fractional.pixels()[7]).toBeGreaterThan(0);
+    });
   });
 });

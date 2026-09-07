@@ -383,6 +383,26 @@ export interface ChannelColors {
   blue: ManagedColor;
 }
 
+export type ChromaticChannelSource = 'red' | 'green' | 'blue' | 'luminance' | 'alpha';
+
+/** One independently configurable contribution in Custom Color Split mode. */
+export interface ChromaticContribution {
+  /** Optional stable identity for inspector disclosure and future animation. */
+  id?: string;
+  enabled: boolean;
+  source: ChromaticChannelSource;
+  color: ManagedColor;
+  /** Contribution strength, normally 0..1; values above 1 are bounded on load. */
+  strength: number;
+  x: number;
+  y: number;
+}
+
+/** Two or more colours mapped over an effect's normalized alpha falloff. */
+export interface EffectGradient {
+  stops: Array<{ position: number; color: ManagedColor }>;
+}
+
 type EffectVariant =
   | {
       type: 'dropShadow';
@@ -448,6 +468,12 @@ type EffectVariant =
       id?: string;
       blur: number;
       spread: number;
+      colorMode?: 'solid' | 'gradient';
+      gradient?: EffectGradient;
+      /** Narrows the normalized glow falloff toward its strongest edge. */
+      choke?: number;
+      /** Falloff response in the alpha-distance domain. */
+      contour?: 'linear' | 'smooth' | 'sharp';
       color: ManagedColor;
       opacity: number;
       blendMode: BlendMode;
@@ -459,6 +485,14 @@ type EffectVariant =
       id?: string;
       blur: number;
       spread: number;
+      colorMode?: 'solid' | 'gradient';
+      gradient?: EffectGradient;
+      /** Narrows the normalized glow falloff toward its strongest edge. */
+      choke?: number;
+      /** Falloff response in the alpha-distance domain. */
+      contour?: 'linear' | 'smooth' | 'sharp';
+      /** Whether the glow originates at the contour or through the filled centre. */
+      origin?: 'edge' | 'center';
       color: ManagedColor;
       opacity: number;
       blendMode: BlendMode;
@@ -487,7 +521,13 @@ type EffectVariant =
       offsets: ChannelOffset;
       /** Optional per-channel tints; omitted preserves the source RGB channels. */
       channelColors?: ChannelColors;
+      /** `rgb` is the legacy channel displacement; `custom` uses contributions. */
+      channelMode?: 'rgb' | 'custom';
+      /** Optional creative source-to-output colour contributions. */
+      customChannels?: ChromaticContribution[];
       intensity: number;
+      /** Overall result mix. Zero is an exact identity operation. */
+      mix?: number;
       blendMode: BlendMode;
       opacity: number;
       visible: boolean;

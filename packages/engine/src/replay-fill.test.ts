@@ -1243,7 +1243,7 @@ describe('effects rendering', () => {
     expect(compositeOps).toContain('source-over');
   });
 
-  it('innerShadow uses clip + silhouette compositing', () => {
+  it('innerShadow uses alpha-masked silhouette compositing', () => {
     const rec = recorder();
     let drawImageCalled = false;
     const target: ReplayTarget = {
@@ -1273,7 +1273,7 @@ describe('effects rendering', () => {
     };
     replayIr(target, [item]);
     expect(drawImageCalled).toBe(true);
-    expect(rec.calls.some((c) => c.startsWith('clip'))).toBe(true);
+    expect(rec.calls.some((c) => c.startsWith('clip'))).toBe(false);
   });
 
   it('backgroundBlur captures before fill (fillRect after backdrop drawImage)', () => {

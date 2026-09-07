@@ -83,11 +83,11 @@ describe('effectPadding', () => {
       blur: 10,
       spread: 2,
     });
-    // Kernel = blur*3 + spread/2 = 30 + 1 = 31 per side, plus directional offset.
-    expect(padding.left).toBe(31);
-    expect(padding.right).toBe(36);
-    expect(padding.top).toBe(31);
-    expect(padding.bottom).toBe(34);
+    // Kernel = blur*3 + abs(spread) = 30 + 2 = 32 per side, plus directional offset.
+    expect(padding.left).toBe(32);
+    expect(padding.right).toBe(37);
+    expect(padding.top).toBe(32);
+    expect(padding.bottom).toBe(35);
   });
 
   it('computes drop shadow padding without spread', () => {
@@ -101,11 +101,11 @@ describe('effectPadding', () => {
       blur: 20,
       spread: 5,
     });
-    // Kernel = 20*3 + 2.5 = 62.5
-    expect(padding.left).toBe(62.5);
-    expect(padding.top).toBe(62.5);
-    expect(padding.right).toBe(62.5);
-    expect(padding.bottom).toBe(62.5);
+    // Kernel = 20*3 + abs(spread) = 60 + 5 = 65.
+    expect(padding.left).toBe(65);
+    expect(padding.top).toBe(65);
+    expect(padding.right).toBe(65);
+    expect(padding.bottom).toBe(65);
   });
 
   it('computes layer blur padding from radius', () => {
@@ -133,6 +133,19 @@ describe('effectPadding', () => {
   it('returns zero for unknown effect types with no expansion fields', () => {
     const padding = effectPadding({ type: 'unknown' });
     expect(padding).toEqual({ left: 0, top: 0, right: 0, bottom: 0 });
+  });
+
+  it('includes enabled custom chromatic contributions in visual bounds', () => {
+    const padding = effectPadding({
+      type: 'chromaticAberration',
+      channelMode: 'custom',
+      mix: 0.5,
+      customChannels: [
+        { enabled: true, strength: 2, x: -12, y: 4 },
+        { enabled: false, strength: 2, x: 80, y: 80 },
+      ],
+    });
+    expect(padding).toEqual({ left: 12, top: 12, right: 12, bottom: 12 });
   });
 });
 

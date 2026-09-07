@@ -11,7 +11,7 @@
 import { managedColorToNormalized } from '@varve/shared';
 import { gaussianBlurSeparable } from './blur';
 import { blendPixels, type CompositeCanvas } from './compositeCanvas';
-import type { ChannelColors, EngineColor } from './types';
+import type { ChannelColors, ChromaticContribution, EngineColor } from './types';
 
 type GlassMaterialEffect = Extract<import('./types').Effect, { type: 'glassMaterial' }>;
 type ChromaticAberrationEffect = Extract<import('./types').Effect, { type: 'chromaticAberration' }>;
@@ -225,6 +225,13 @@ export function resolveGlitchChannelShift(effect: GlitchEffect): ChannelOffset {
   };
 }
 
+interface SampledPixel {
+  red: number;
+  green: number;
+  blue: number;
+  alpha: number;
+}
+
 function shiftChannelData(
   src: Uint8ClampedArray,
   out: Uint8ClampedArray,
@@ -237,11 +244,32 @@ function shiftChannelData(
   bX: number,
   bY: number,
   channelColors?: ChannelColors,
+  channelMode: 'rgb' | 'custom' = 'rgb',
+  customChannels?: readonly ChromaticContribution[],
+  intensity = 1,
+  dpr = 1,
 ): void {
-  const sample = (x: number, y: number, channel: 0 | 1 | 2): { value: number; alpha: number } => {
-    if (x < 0 || x >= W || y < 0 || y >= H) return { value: 0, alpha: 0 };
-    const index = (y * W + x) * 4;
-    return { value: src[index + channel] ?? 0, alpha: src[index + 3] ?? 0 };
+  const sample = (x: number, y: number): SampledPixel => {
+    const x0 = Math.floor(x);
+    const y0 = Math.floor(y);
+    const tx = x - x0;
+    const ty = y - y0;
+    const valueAt = (px: number, py: number, channel: 0 | 1 | 2 | 3): number => {
+      if (px < 0 || px >= W || py < 0 || py >= H) return 0;
+      return src[(py * W + px) * 4 + channel] ?? 0;
+    };
+    const interpolate = (channel: 0 | 1 | 2 | 3): number => {
+      const top = valueAt(x0, y0, channel) * (1 - tx) + valueAt(x0 + 1, y0, channel) * tx;
+      const bottom =
+        valueAt(x0, y0 + 1, channel) * (1 - tx) + valueAt(x0 + 1, y0 + 1, channel) * tx;
+      return top * (1 - ty) + bottom * ty;
+    };
+    return {
+      red: interpolate(0),
+      green: interpolate(1),
+      blue: interpolate(2),
+      alpha: interpolate(3),
+    };
   };
   const tint = (
     color: EngineColor,
@@ -264,6 +292,20 @@ function shiftChannelData(
     ? tint(channelColors.blue, [0, 0, 1, 1])
     : [0, 0, 1, 1];
 
+  const custom = channelMode === 'custom' && customChannels && customChannels.length > 0;
+  const sourceSignal = (pixel: SampledPixel, source: ChromaticContribution['source']): number => {
+    const alpha = pixel.alpha / 255;
+    if (source === 'alpha') return alpha;
+    if (source === 'luminance') {
+      return ((0.2126 * pixel.red + 0.7152 * pixel.green + 0.0722 * pixel.blue) / 255) * alpha;
+    }
+    const channel = source === 'red' ? pixel.red : source === 'green' ? pixel.green : pixel.blue;
+    // Ignore RGB hidden under transparent pixels. This is important for
+    // transparent PNG borders and for black text, where alpha is the useful
+    // styling signal rather than the source RGB value.
+    return (channel / 255) * alpha;
+  };
+
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const idx = (y * W + x) * 4;
@@ -273,17 +315,44 @@ function shiftChannelData(
       const syG = y - gY;
       const sxB = x - bX;
       const syB = y - bY;
-      const red = sample(sxR, syR, 0);
-      const green = sample(sxG, syG, 1);
-      const blue = sample(sxB, syB, 2);
-      if (!channelColors) {
-        out[idx] = red.value;
-        out[idx + 1] = green.value;
-        out[idx + 2] = blue.value;
+      const red = sample(sxR, syR);
+      const green = sample(sxG, syG);
+      const blue = sample(sxB, syB);
+      if (custom) {
+        let outAlpha = 0;
+        let outRed = 0;
+        let outGreen = 0;
+        let outBlue = 0;
+        for (const contribution of customChannels) {
+          if (!contribution.enabled) continue;
+          const shifted = sample(
+            x - contribution.x * intensity * dpr,
+            y - contribution.y * intensity * dpr,
+          );
+          const signal = Math.max(0, Math.min(1, sourceSignal(shifted, contribution.source)));
+          const [cr, cg, cb, ca] = tint(contribution.color, [1, 1, 1, 1]);
+          const contributionAlpha = Math.max(
+            0,
+            Math.min(1, signal * Math.max(0, Math.min(2, contribution.strength)) * intensity * ca),
+          );
+          const keep = 1 - contributionAlpha;
+          outRed = outRed * keep + cr * contributionAlpha;
+          outGreen = outGreen * keep + cg * contributionAlpha;
+          outBlue = outBlue * keep + cb * contributionAlpha;
+          outAlpha = outAlpha * keep + contributionAlpha;
+        }
+        out[idx] = clampByte(outRed * 255);
+        out[idx + 1] = clampByte(outGreen * 255);
+        out[idx + 2] = clampByte(outBlue * 255);
+        out[idx + 3] = clampByte(outAlpha * 255);
+      } else if (!channelColors) {
+        out[idx] = red.red;
+        out[idx + 1] = green.green;
+        out[idx + 2] = blue.blue;
       } else {
-        const redSignal = red.value / 255;
-        const greenSignal = green.value / 255;
-        const blueSignal = blue.value / 255;
+        const redSignal = red.red / 255;
+        const greenSignal = green.green / 255;
+        const blueSignal = blue.blue / 255;
         out[idx] = clampByte(
           (redSignal * redTint[0] + greenSignal * greenTint[0] + blueSignal * blueTint[0]) * 255,
         );
@@ -294,11 +363,14 @@ function shiftChannelData(
           (redSignal * redTint[2] + greenSignal * greenTint[2] + blueSignal * blueTint[2]) * 255,
         );
       }
-      out[idx + 3] = Math.max(
-        red.alpha * redTint[3],
-        green.alpha * greenTint[3],
-        blue.alpha * blueTint[3],
-      );
+      if (!custom) {
+        out[idx + 3] = Math.max(
+          out[idx + 3] ?? 0,
+          red.alpha * redTint[3],
+          green.alpha * greenTint[3],
+          blue.alpha * blueTint[3],
+        );
+      }
     }
   }
 }
@@ -311,7 +383,8 @@ export function applyChromaticAberration(
 ): void {
   const intensity = Math.max(0, effect.intensity ?? 1);
   const opacity = Math.max(0, Math.min(1, effect.opacity ?? 1));
-  if (opacity <= 0 || intensity <= 0) return;
+  const mix = Math.max(0, Math.min(1, effect.mix ?? 1));
+  if (opacity <= 0 || intensity <= 0 || mix <= 0) return;
 
   const dpr = cc.devicePixelRatio;
   const src = cc.getImageData(0, 0, w, h);
@@ -321,17 +394,33 @@ export function applyChromaticAberration(
   const s = src.data;
   const o = out.data;
 
-  const rX = Math.round(effect.offsets.redX * intensity * dpr);
-  const rY = Math.round(effect.offsets.redY * intensity * dpr);
-  const gX = Math.round(effect.offsets.greenX * intensity * dpr);
-  const gY = Math.round(effect.offsets.greenY * intensity * dpr);
-  const bX = Math.round(effect.offsets.blueX * intensity * dpr);
-  const bY = Math.round(effect.offsets.blueY * intensity * dpr);
+  const rX = effect.offsets.redX * intensity * dpr;
+  const rY = effect.offsets.redY * intensity * dpr;
+  const gX = effect.offsets.greenX * intensity * dpr;
+  const gY = effect.offsets.greenY * intensity * dpr;
+  const bX = effect.offsets.blueX * intensity * dpr;
+  const bY = effect.offsets.blueY * intensity * dpr;
 
-  shiftChannelData(s, o, W, H, rX, rY, gX, gY, bX, bY, effect.channelColors);
+  shiftChannelData(
+    s,
+    o,
+    W,
+    H,
+    rX,
+    rY,
+    gX,
+    gY,
+    bX,
+    bY,
+    effect.channelMode === 'custom' ? undefined : effect.channelColors,
+    effect.channelMode ?? (effect.customChannels ? 'custom' : 'rgb'),
+    effect.customChannels,
+    intensity,
+    dpr,
+  );
 
-  if (opacity < 1 || effect.blendMode !== 'normal') {
-    const blended = blendPixels(src, out, effect.blendMode, opacity);
+  if (opacity < 1 || mix < 1 || effect.blendMode !== 'normal') {
+    const blended = blendPixels(src, out, effect.blendMode, opacity * mix);
     cc.putImageData(blended, 0, 0);
   } else {
     cc.putImageData(out, 0, 0);

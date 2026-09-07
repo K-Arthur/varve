@@ -146,14 +146,24 @@ export function appearancePaddingLocal(appearance: Appearance): number {
         break;
       case 'chromaticAberration': {
         const extent =
-          Math.max(
-            Math.abs(effect.offsets.redX),
-            Math.abs(effect.offsets.redY),
-            Math.abs(effect.offsets.greenX),
-            Math.abs(effect.offsets.greenY),
-            Math.abs(effect.offsets.blueX),
-            Math.abs(effect.offsets.blueY),
-          ) * Math.max(1, effect.intensity);
+          (effect.channelMode === 'custom' && effect.customChannels
+            ? Math.max(
+                0,
+                ...effect.customChannels.map((channel) =>
+                  channel.enabled === false
+                    ? 0
+                    : Math.max(Math.abs(channel.x), Math.abs(channel.y)) *
+                      Math.max(0, channel.strength),
+                ),
+              ) * Math.max(0, effect.intensity)
+            : Math.max(
+                Math.abs(effect.offsets.redX),
+                Math.abs(effect.offsets.redY),
+                Math.abs(effect.offsets.greenX),
+                Math.abs(effect.offsets.greenY),
+                Math.abs(effect.offsets.blueX),
+                Math.abs(effect.offsets.blueY),
+              ) * Math.max(0, effect.intensity)) * Math.max(0, effect.mix ?? 1);
         padding = Math.max(padding, extent);
         break;
       }

@@ -25,6 +25,15 @@ export function effectPadding(effect: {
   x?: number;
   y?: number;
   radius?: number;
+  channelMode?: 'rgb' | 'custom';
+  mix?: number;
+  intensity?: number;
+  customChannels?: Array<{
+    enabled?: boolean;
+    strength?: number;
+    x?: number;
+    y?: number;
+  }>;
 }): { left: number; top: number; right: number; bottom: number } {
   const blur = effect.blur ?? 0;
   const spread = effect.spread ?? 0;
@@ -73,13 +82,37 @@ export function effectPadding(effect: {
     case 'glassMaterial':
       return { left: kernel, top: kernel, right: kernel, bottom: kernel };
     case 'chromaticAberration': {
-      const offsets = effect as { offsets?: Record<string, unknown>; intensity?: number };
-      const offsetValues = Object.values(offsets.offsets ?? {}).filter(
+      const chromatic = effect as {
+        offsets?: Record<string, unknown>;
+        intensity?: number;
+        mix?: number;
+        channelMode?: 'rgb' | 'custom';
+        customChannels?: Array<{
+          enabled?: boolean;
+          strength?: number;
+          x?: number;
+          y?: number;
+        }>;
+      };
+      const offsetValues = Object.values(chromatic.offsets ?? {}).filter(
         (value): value is number => typeof value === 'number' && Number.isFinite(value),
       );
-      const extent =
+      const rgbExtent =
         Math.max(0, ...offsetValues.map((value) => Math.abs(value))) *
-        Math.max(1, offsets.intensity ?? 1);
+        Math.max(0, chromatic.intensity ?? 1);
+      const customExtent =
+        Math.max(
+          0,
+          ...(chromatic.customChannels ?? []).map((channel) =>
+            channel.enabled === false
+              ? 0
+              : Math.max(Math.abs(channel.x ?? 0), Math.abs(channel.y ?? 0)) *
+                Math.max(0, channel.strength ?? 1),
+          ),
+        ) * Math.max(0, chromatic.intensity ?? 1);
+      const extent =
+        Math.max(0, chromatic.channelMode === 'custom' ? customExtent : rgbExtent) *
+        Math.max(0, chromatic.mix ?? 1);
       return { left: extent, top: extent, right: extent, bottom: extent };
     }
     case 'glitch': {

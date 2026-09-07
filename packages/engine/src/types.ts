@@ -176,6 +176,22 @@ export interface ChannelColors {
   blue: EngineColor;
 }
 
+export type ChromaticChannelSource = 'red' | 'green' | 'blue' | 'luminance' | 'alpha';
+
+export interface ChromaticContribution {
+  id?: string;
+  enabled: boolean;
+  source: ChromaticChannelSource;
+  color: EngineColor;
+  strength: number;
+  x: number;
+  y: number;
+}
+
+export interface EffectGradient {
+  stops: Array<{ position: number; color: EngineColor }>;
+}
+
 export type EffectMaskSourceIR =
   | { kind: 'scene-node'; nodeId: string }
   | { kind: 'raster-asset'; assetId: string; src?: string }
@@ -207,6 +223,8 @@ type EffectVariant =
       y: number;
       blur: number;
       spread: number;
+      colorMode?: 'solid' | 'gradient';
+      gradient?: EffectGradient;
       color: EngineColor;
       opacity: number;
       blendMode: BlendMode;
@@ -218,6 +236,8 @@ type EffectVariant =
       y: number;
       blur: number;
       spread: number;
+      colorMode?: 'solid' | 'gradient';
+      gradient?: EffectGradient;
       color: EngineColor;
       opacity: number;
       blendMode: BlendMode;
@@ -241,6 +261,10 @@ type EffectVariant =
       type: 'outerGlow';
       blur: number;
       spread: number;
+      colorMode?: 'solid' | 'gradient';
+      gradient?: EffectGradient;
+      choke?: number;
+      contour?: 'linear' | 'smooth' | 'sharp';
       color: EngineColor;
       opacity: number;
       blendMode: BlendMode;
@@ -250,6 +274,11 @@ type EffectVariant =
       type: 'innerGlow';
       blur: number;
       spread: number;
+      colorMode?: 'solid' | 'gradient';
+      gradient?: EffectGradient;
+      choke?: number;
+      contour?: 'linear' | 'smooth' | 'sharp';
+      origin?: 'edge' | 'center';
       color: EngineColor;
       opacity: number;
       blendMode: BlendMode;
@@ -274,7 +303,13 @@ type EffectVariant =
       offsets: ChannelOffset;
       /** Optional per-channel tints; omitted means preserve source RGB channels. */
       channelColors?: ChannelColors;
+      /** `rgb` is the legacy channel displacement; `custom` uses contributions. */
+      channelMode?: 'rgb' | 'custom';
+      /** Optional creative source-to-output colour contributions. */
+      customChannels?: ChromaticContribution[];
       intensity: number;
+      /** Overall result mix. Zero is an exact identity operation. */
+      mix?: number;
       blendMode: BlendMode;
       opacity: number;
       visible: boolean;

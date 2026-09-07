@@ -69,7 +69,7 @@ source uses the same image placement, text layout, masks, and raster tiles as
 the visible replay. This keeps live Canvas2D replay and raster export on the
 same path without importing the replay hub into the leaf module.
 
-### Drop shadow / outer glow: shadow-only compositing
+### Drop shadow: shadow-only compositing
 
 `paintAlphaAwareDropShadow`:
 
@@ -85,16 +85,23 @@ Compositing a *shadow-only* canvas (rather than drawing the silhouette with a
 shadow directly) keeps semi-transparent items correct: the silhouette is never
 re-drawn over the item's already-composited pixels.
 
-### Inner shadow / inner glow: silhouette difference
+`outerGlow` uses the same alpha source but a distinct outside-only ring:
+`blur(A) × (1 − A)`. Choke and contour are applied to that normalized
+falloff, preventing the glow from washing over opaque text or vector interiors
+while still following transparent holes and disconnected components.
+
+### Inner shadow / inner glow: alpha products
 
 `paintAlphaAwareInsetEffect`:
 
-- **Inner shadow**: rasterize the silhouette, cut a hole where the *offset*
-  silhouette falls (`destination-out`), blur, tint, composite clipped to the
-  shape.
-- **Inner glow**: `blurred(silhouette) − silhouette`, kept only inside the
-  silhouette — a ring hugging the inner contour of arbitrary alpha (glyph
-  counters, holes, feathered masks) instead of a shrunk bounding rectangle.
+- **Inner shadow**: rasterize the silhouette, subtract the *offset* silhouette
+  at pixel level, blur, tint, then multiply by the original alpha. This avoids
+  relying on `putImageData` composite modes and keeps counters, holes, and
+  antialiased edges correct.
+- **Inner glow**: edge origin is `A × (1 − blur(A))`; center origin is
+  `A × blur(A)`. Choke and contour are applied to that normalized alpha
+  falloff, and solid or effect-domain gradient colour is applied afterward.
+  There is no geometric `traceOutline` clip.
 
 Opacity: shadow alpha = `item.opacity × effect.opacity`, applied once at the
 final composite (the previous implementation multiplied it a second time in
@@ -106,6 +113,7 @@ the tint).
 
 - text primitives → glyph alpha
 - any visible image fill → raster alpha
+- authored path primitives → compound/path alpha, including even-odd holes
 - stroke-only items → stroke silhouette
 
 Everything else (solid/gradient/pattern fill on a shape) uses the
@@ -137,12 +145,13 @@ exports and SpecPanel previews — now does the same:
 
 Per-item pass order (see `effect-rendering.md`):
 
-1. Source content (fills + strokes)
-2. Backdrop effects (`backgroundBlur`, `glassMaterial` backdrop)
-3. Content effects (`layerBlur`, `chromaticAberration`, `glitch`)
-4. Outer effects (`dropShadow`, `outerGlow`) — behind content
-5. Inner effects (`innerShadow`, `innerGlow`) — on top, clipped to shape
-6. Edge highlight, post-render filters
+1. Backdrop effects (`backgroundBlur`, `glassMaterial` backdrop)
+2. Outer effects (`dropShadow`, `outerGlow`) — rendered before source content
+3. Source content (fills + strokes), then content effects (`layerBlur`,
+   `chromaticAberration`, `glitch`)
+4. Inner effects (`innerShadow`, `innerGlow`) — composited over content using
+   the visible alpha mask
+5. Edge highlight, post-render filters
 
 Multiple shadows of the same type execute in array order, each in its own
 `save/restore`. Effects are keyed by stable `id` in the inspector so reorder
@@ -219,9 +228,9 @@ cache-independent).
 
 ## Known limitations
 
-- Geometric vector shadows follow the vector outline (plus strokes), not a
-  per-pixel silhouette of gradient or pattern tile alpha. Content that needs
-  painted coverage uses the alpha-silhouette path.
+- Geometric solid/gradient vector shadows follow the vector outline (plus
+  strokes); authored compound paths use the alpha-silhouette path so holes and
+  fill rules survive. Pattern tile alpha is not yet sampled per pixel.
 - Inner glow uses a bounded blur-ring approximation, which is deterministic and
   follows visible alpha but does not model a physically based light source.
 - Pattern fills contribute shape geometry (tile alpha is not carried into the

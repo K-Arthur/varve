@@ -31,7 +31,7 @@ const paletteShot = scenes['palette-inspector']?.status === 'captured' ? scenes[
       <section class="feature-section">
         <h2>What It Is</h2>
         <p>
-          Varve provides color management across RGB, CMYK, grayscale, and spot color spaces with ICC profile support. CMYK values remain native document values instead of being flattened into display RGB during editing. Select an image and Varve can also build a local, deterministic palette from the visible crop, suggest harmonies, and surface WCAG 2.1 contrast pairs. The effects system includes drop shadows, inner shadows, layer blur, background blur, and glow effects. Adjustment layers provide non-destructive editing with curves, levels, selective color, HSL, and exposure controls. The halftone engine supports AM and FM screening for print production.
+          Varve provides color management across RGB, CMYK, grayscale, and spot color spaces with ICC profile support. CMYK values remain native document values instead of being flattened into display RGB during editing. Select an image and Varve can also build a local, deterministic palette from the visible crop, suggest harmonies, and surface WCAG 2.1 contrast pairs. The effects system includes alpha-aware drop and inner shadows, layer and background blur, solid or gradient glows, RGB/custom chromatic splits, and glitch. Adjustment layers provide non-destructive editing with curves, levels, selective color, HSL, and exposure controls. The halftone engine supports AM and FM screening for print production.
         </p>
       </section>
 
@@ -164,7 +164,7 @@ const paletteShot = scenes['palette-inspector']?.status === 'captured' ? scenes[
           <li><strong>Native CMYK in PDF export:</strong> authored CMYK channels are emitted directly with pure-K preserved — no CMYK→RGB→CMYK round trip turning black into a four-color build</li>
           <li><strong>ICC profiles:</strong> Bundled RGB and CMYK profiles (sRGB, Fogra39, GRACoL, SWOP) with rendering intents</li>
           <li><strong>Blend modes:</strong> 18 CSS blend modes plus 4 non-separable modes (hue, saturation, color, luminosity)</li>
-          <li><strong>Effects:</strong> Drop shadow, inner shadow, layer blur (GPU-accelerated up to 32px, software beyond), background blur, outer and inner glow, glass material, chromatic aberration, and glitch</li>
+          <li><strong>Effects:</strong> Alpha-aware drop/inner shadows, layer blur (GPU-accelerated up to 32px, software beyond), background blur, solid or gradient outer/inner glow, glass material, RGB/custom chromatic split, and glitch</li>
           <li><strong>Image Treatments:</strong> Fine Texture, Local Contrast, Atmospheric Depth, Dehaze, Vignette, Grain, and Highlight Glow with source-preserving Object Filters and Adjustment Layers</li>
           <li><strong>Adjustment layers:</strong> Curves (Catmull-Rom spline), levels, selective color (9 targets), HSL, exposure — with per-target scoping</li>
           <li><strong>Halftone screening:</strong> AM (clustered-dot, 5 dot shapes) and FM (Floyd-Steinberg + Bayer) with standard CMYK angles</li>

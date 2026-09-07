@@ -42,7 +42,7 @@ import { sitePath } from '../../../lib/siteUrl';
       <section class="docs-section">
         <h2>Rich text, selection, and appearance</h2>
         <p>
-          The native editing surface owns typing, caret movement, IME composition, selection, and clipboard input. Varve's canvas remains the appearance authority while you edit, so gradients, strokes, shadows, glows, and other supported text effects do not disappear or get painted twice.
+          The native editing surface owns typing, caret movement, IME composition, selection, and clipboard input. Varve's canvas remains the appearance authority while you edit, so gradients, strokes, shadows, glows, and other supported text effects do not disappear or get painted twice. Their alpha sources are rebuilt from the current glyphs, including counters and transparent backgrounds.
         </p>
         <p>
           When a text node has rich content, its paragraphs and styled runs are canonical; the plain <code>text</code> value is kept as a synchronized projection. Native UTF-16 offsets are mapped to paragraph-local ranges and snapped to grapheme boundaries, so editing across paragraphs preserves unaffected formatting. Use the <strong>Rich Text</strong> switch in Typography to apply character formatting to the current range; ordinary typography controls apply to the selected text objects.

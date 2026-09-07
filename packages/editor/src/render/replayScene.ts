@@ -18,6 +18,8 @@ import {
   applyFilterWithCompositing,
   applyLayerBlur,
   applyMaskAlpha,
+  buildInnerGlowImage,
+  buildOuterGlowImage,
   CompositeCanvas,
   createRasterSurface,
   type EffectMaskResolver,
@@ -170,21 +172,47 @@ function compositeGroupOuterEffect(
   const sourceCtx = sourceCanvas.getContext('2d');
   if (!sourceCtx) return;
   sourceCtx.drawImage(gCanvas.canvas as unknown as CanvasImageSource, 0, 0);
-  applyAlphaSpread(sourceCtx, w, h, effect.spread * renderScale);
+  if (effect.type === 'outerGlow') {
+    try {
+      const original = sourceCtx.getImageData(0, 0, w, h);
+      applyAlphaSpread(sourceCtx, w, h, effect.spread * renderScale);
+      const spread = sourceCtx.getImageData(0, 0, w, h);
+      const blurred =
+        effect.blur > 0
+          ? gaussianBlurSeparable(spread, Math.max(1, Math.ceil(effect.blur * renderScale)))
+          : spread;
+      effectCtx.putImageData(
+        buildOuterGlowImage(
+          original,
+          blurred,
+          effect.color,
+          effect.choke,
+          effect.contour,
+          effect.colorMode === 'gradient' ? effect.gradient : undefined,
+        ),
+        0,
+        0,
+      );
+    } catch {
+      return;
+    }
+  } else {
+    applyAlphaSpread(sourceCtx, w, h, effect.spread * renderScale);
 
-  const offsetX = effect.type === 'dropShadow' ? (effect.x ?? 0) : 0;
-  const offsetY = effect.type === 'dropShadow' ? (effect.y ?? 0) : 0;
+    const offsetX = effect.type === 'dropShadow' ? (effect.x ?? 0) : 0;
+    const offsetY = effect.type === 'dropShadow' ? (effect.y ?? 0) : 0;
 
-  effectCtx.save();
-  effectCtx.shadowColor = effectColorToCss(effect.color);
-  effectCtx.shadowBlur = effect.blur * renderScale;
-  effectCtx.shadowOffsetX = offsetX * renderScale;
-  effectCtx.shadowOffsetY = offsetY * renderScale;
-  effectCtx.drawImage(sourceCanvas as unknown as CanvasImageSource, 0, 0);
-  effectCtx.globalCompositeOperation = 'destination-out';
-  effectCtx.shadowColor = 'transparent';
-  effectCtx.drawImage(sourceCanvas as unknown as CanvasImageSource, 0, 0);
-  effectCtx.restore();
+    effectCtx.save();
+    effectCtx.shadowColor = effectColorToCss(effect.color);
+    effectCtx.shadowBlur = effect.blur * renderScale;
+    effectCtx.shadowOffsetX = offsetX * renderScale;
+    effectCtx.shadowOffsetY = offsetY * renderScale;
+    effectCtx.drawImage(sourceCanvas as unknown as CanvasImageSource, 0, 0);
+    effectCtx.globalCompositeOperation = 'destination-out';
+    effectCtx.shadowColor = 'transparent';
+    effectCtx.drawImage(sourceCanvas as unknown as CanvasImageSource, 0, 0);
+    effectCtx.restore();
+  }
 
   target.save();
   target.globalAlpha = (effect.opacity ?? 1) * groupOpacity;
@@ -222,12 +250,13 @@ function applyGroupInsetEffect(
   insetCtx.putImageData(silhouetteData, 0, 0);
   applyAlphaSpread(insetCtx, w, h, spread);
 
-  const [r, g, b] = managedColorToRgba(effect.color);
-
   if (mode === 'shadow') {
-    // Inner shadow: colour the silhouette, blur, then cut the offset hole.
+    // Inner shadow: colour and blur the expanded alpha silhouette, subtract
+    // the offset source, and mask it back to the original coverage. Pixel
+    // subtraction is required because putImageData ignores composite modes.
     insetCtx.save();
     insetCtx.globalCompositeOperation = 'source-in';
+    const [r, g, b, colorAlpha] = managedColorToRgba(effect.color);
     insetCtx.fillStyle = `rgba(${r},${g},${b},1)`;
     insetCtx.fillRect(0, 0, w, h);
     insetCtx.restore();
@@ -235,19 +264,31 @@ function applyGroupInsetEffect(
       const blurred = gaussianBlurSeparable(insetCtx.getImageData(0, 0, w, h), Math.max(1, blur));
       insetCtx.putImageData(blurred, 0, 0);
     }
-    insetCtx.save();
-    insetCtx.globalCompositeOperation = 'destination-out';
-    insetCtx.translate(
-      -('x' in effect ? (effect.x ?? 0) : 0) * renderScale,
-      -('y' in effect ? (effect.y ?? 0) : 0) * renderScale,
-    );
-    insetCtx.putImageData(silhouetteData, 0, 0);
-    insetCtx.restore();
-    const insetData = insetCtx.getImageData(0, 0, w, h).data;
+    const insetImage = insetCtx.getImageData(0, 0, w, h);
+    const offsetX = Math.round(('x' in effect ? (effect.x ?? 0) : 0) * renderScale);
+    const offsetY = Math.round(('y' in effect ? (effect.y ?? 0) : 0) * renderScale);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const index = (y * w + x) * 4;
+        const holeX = x + offsetX;
+        const holeY = y + offsetY;
+        const holeAlpha =
+          holeX >= 0 && holeX < w && holeY >= 0 && holeY < h
+            ? silhouetteData.data[(holeY * w + holeX) * 4 + 3]! / 255
+            : 0;
+        const sourceAlpha = silhouetteData.data[index + 3]! / 255;
+        insetImage.data[index + 3] = Math.round(
+          insetImage.data[index + 3]! * (1 - holeAlpha) * sourceAlpha * (colorAlpha / 255),
+        );
+      }
+    }
+    insetCtx.putImageData(insetImage, 0, 0);
+    const insetData = insetImage.data;
     const dst = ctx.getImageData(0, 0, w, h);
     const opacity = effect.opacity ?? 1;
     for (let i = 3; i < dst.data.length; i += 4) {
-      const sa = insetData[i]! / 255;
+      const sourceAlpha = silhouetteData.data[i]! / 255;
+      const sa = (insetData[i]! / 255) * sourceAlpha;
       dst.data[i - 3] = dst.data[i - 3]! * (1 - sa * opacity);
       dst.data[i - 2] = dst.data[i - 2]! * (1 - sa * opacity);
       dst.data[i - 1] = dst.data[i - 1]! * (1 - sa * opacity);
@@ -257,36 +298,21 @@ function applyGroupInsetEffect(
     return;
   }
 
-  // Inner glow: erode by spread, colourise, blur, then keep only where the
-  // original silhouette had content.
-  const shrinkPx = Math.max(1, Math.round(spread));
-  if (spread > 0) {
-    const erodeCanvas = document.createElement('canvas');
-    erodeCanvas.width = w;
-    erodeCanvas.height = h;
-    const erodeCtx = erodeCanvas.getContext('2d');
-    if (erodeCtx) {
-      erodeCtx.putImageData(silhouetteData, 0, 0);
-      erodeCtx.filter = `blur(${shrinkPx}px)`;
-      erodeCtx.globalCompositeOperation = 'source-over';
-      erodeCtx.drawImage(insetCanvas, 0, 0);
-      const erodeResult = erodeCtx.getImageData(0, 0, w, h);
-      insetCtx.putImageData(erodeResult, 0, 0);
-    }
-  }
-  insetCtx.save();
-  insetCtx.globalCompositeOperation = 'source-in';
-  insetCtx.fillStyle = `rgba(${r},${g},${b},1)`;
-  insetCtx.fillRect(0, 0, w, h);
-  insetCtx.restore();
-  if (blur > 0) {
-    const blurred = gaussianBlurSeparable(insetCtx.getImageData(0, 0, w, h), Math.max(1, blur));
-    insetCtx.putImageData(blurred, 0, 0);
-  }
-  insetCtx.save();
-  insetCtx.globalCompositeOperation = 'destination-in';
-  insetCtx.putImageData(silhouetteData, 0, 0);
-  insetCtx.restore();
+  const spreadData = insetCtx.getImageData(0, 0, w, h);
+  const blurred = blur > 0 ? gaussianBlurSeparable(spreadData, Math.max(1, blur)) : spreadData;
+  insetCtx.putImageData(
+    buildInnerGlowImage(
+      silhouetteData,
+      blurred,
+      effect.color,
+      effect.type === 'innerGlow' ? effect.origin : undefined,
+      effect.type === 'innerGlow' ? effect.choke : undefined,
+      effect.type === 'innerGlow' ? effect.contour : undefined,
+      effect.type === 'innerGlow' && effect.colorMode === 'gradient' ? effect.gradient : undefined,
+    ),
+    0,
+    0,
+  );
 
   const glowData = insetCtx.getImageData(0, 0, w, h);
   const dst = ctx.getImageData(0, 0, w, h);

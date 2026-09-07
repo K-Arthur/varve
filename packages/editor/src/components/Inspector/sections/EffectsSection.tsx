@@ -11,7 +11,10 @@ import type {
   BlendMode,
   ChannelColors,
   ChannelOffset,
+  ChromaticChannelSource,
+  ChromaticContribution,
   Effect,
+  EffectGradient,
   EffectMaskBinding,
   FrameNode,
   GroupNode,
@@ -35,7 +38,7 @@ import {
 } from '@varve/scene';
 import { managedColorToRgba } from '@varve/shared';
 import { Icon, Select } from '@varve/ui';
-import { useCallback, useId, useMemo, useState } from 'react';
+import { useCallback, useId, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow, InspectorFieldGroup } from '../controls/FieldRow';
@@ -529,6 +532,7 @@ function LinkedChannelOffsets({
   onChange: (v: ChannelOffset) => void;
 }) {
   const [linked, setLinked] = useState(true);
+  const baselineRef = useRef(value);
   const maxOffset = useMemo(() => {
     const vals = [value.redX, value.redY, value.greenX, value.greenY, value.blueX, value.blueY];
     return Math.max(...vals.map(Math.abs));
@@ -540,7 +544,10 @@ function LinkedChannelOffsets({
         className={`insp-toggle-btn${linked ? ' --active' : ''}`}
         aria-label="Link channel offsets"
         aria-pressed={linked}
-        onClick={() => setLinked(!linked)}
+        onClick={() => {
+          if (!linked) baselineRef.current = value;
+          setLinked(!linked);
+        }}
       >
         {linked ? 'Linked' : 'Independent'}
       </button>
@@ -552,17 +559,26 @@ function LinkedChannelOffsets({
           min={0}
           max={100}
           onChange={(v) => {
-            const sign = (orig: number) => (orig < 0 ? -1 : orig > 0 ? 1 : 0);
-            const sR = sign(value.redX || value.redY);
-            const sG = sign(value.greenX || value.greenY);
-            const sB = sign(value.blueX || value.blueY);
+            // Linked mode scales a captured vector instead of replacing X and
+            // Y with one signed scalar. This keeps diagonal direction,
+            // proportions, and zero axes intact, and avoids cumulative drift.
+            const baseline = baselineRef.current;
+            const baselineMax = Math.max(
+              Math.abs(baseline.redX),
+              Math.abs(baseline.redY),
+              Math.abs(baseline.greenX),
+              Math.abs(baseline.greenY),
+              Math.abs(baseline.blueX),
+              Math.abs(baseline.blueY),
+            );
+            const scale = baselineMax > 0 ? v / baselineMax : 0;
             onChange({
-              redX: sR * v,
-              redY: sR * v,
-              greenX: sG * v,
-              greenY: sG * v,
-              blueX: sB * v,
-              blueY: sB * v,
+              redX: baseline.redX * scale,
+              redY: baseline.redY * scale,
+              greenX: baseline.greenX * scale,
+              greenY: baseline.greenY * scale,
+              blueX: baseline.blueX * scale,
+              blueY: baseline.blueY * scale,
             });
           }}
         />
@@ -634,7 +650,49 @@ const DEFAULT_CHROMATIC_CHANNEL_COLORS: ChannelColors = {
   blue: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 },
 };
 
-function ChromaticChannelColors({
+const CHROMATIC_SOURCE_OPTIONS: { value: ChromaticChannelSource; label: string }[] = [
+  { value: 'red', label: 'Red signal' },
+  { value: 'green', label: 'Green signal' },
+  { value: 'blue', label: 'Blue signal' },
+  { value: 'luminance', label: 'Luminance' },
+  { value: 'alpha', label: 'Glyph / alpha coverage' },
+];
+
+function defaultChromaticContributions(
+  effect: Extract<Effect, { type: 'chromaticAberration' }>,
+): ChromaticContribution[] {
+  return [
+    {
+      id: 'red',
+      enabled: true,
+      source: 'red',
+      color: effect.channelColors?.red ?? DEFAULT_CHROMATIC_CHANNEL_COLORS.red,
+      strength: 1,
+      x: effect.offsets.redX,
+      y: effect.offsets.redY,
+    },
+    {
+      id: 'green',
+      enabled: true,
+      source: 'green',
+      color: effect.channelColors?.green ?? DEFAULT_CHROMATIC_CHANNEL_COLORS.green,
+      strength: 1,
+      x: effect.offsets.greenX,
+      y: effect.offsets.greenY,
+    },
+    {
+      id: 'blue',
+      enabled: true,
+      source: 'blue',
+      color: effect.channelColors?.blue ?? DEFAULT_CHROMATIC_CHANNEL_COLORS.blue,
+      strength: 1,
+      x: effect.offsets.blueX,
+      y: effect.offsets.blueY,
+    },
+  ];
+}
+
+function ChromaticCustomChannels({
   nodes,
   index,
   onChange,
@@ -644,51 +702,88 @@ function ChromaticChannelColors({
   onChange: (updater: (e: Effect) => Effect) => void;
 }) {
   const { documentColorMode, beginTransaction, commitTransaction } = useEditor();
-  const channels = [
-    ['red', 'Red'] as const,
-    ['green', 'Green'] as const,
-    ['blue', 'Blue'] as const,
-  ];
+  const firstEffect = getEffect(nodes[0]!, index);
+  const firstChromatic = firstEffect?.type === 'chromaticAberration' ? firstEffect : undefined;
+  const contributions =
+    firstChromatic?.customChannels ??
+    (firstChromatic ? defaultChromaticContributions(firstChromatic) : []);
+  const updateContribution = (contributionIndex: number, patch: Partial<ChromaticContribution>) => {
+    onChange((effect) => {
+      if (effect.type !== 'chromaticAberration') return effect;
+      const current = effect.customChannels ?? defaultChromaticContributions(effect);
+      return {
+        ...effect,
+        channelMode: 'custom',
+        customChannels: current.map((entry, entryIndex) =>
+          entryIndex === contributionIndex ? { ...entry, ...patch } : entry,
+        ),
+      };
+    });
+  };
 
   return (
-    <FieldRow label="Channel colour">
-      <InspectorFieldGroup columns={3}>
-        {channels.map(([key, label]) => {
-          const raw = commonValue(nodes, (n) => {
-            const effect = getEffect(n, index);
-            return effect?.type === 'chromaticAberration'
-              ? (effect.channelColors?.[key] ?? DEFAULT_CHROMATIC_CHANNEL_COLORS[key])
-              : DEFAULT_CHROMATIC_CHANNEL_COLORS[key];
-          });
-          const color = isMixed(raw) ? DEFAULT_CHROMATIC_CHANNEL_COLORS[key] : raw;
-          return (
-            <InspectorColorPopover
-              key={key}
-              label={`${label} channel colour`}
-              tooltipLabel={`${label} channel colour`}
-              value={color}
-              onChange={(next) =>
-                onChange((effect) => {
-                  if (effect.type !== 'chromaticAberration') return effect;
-                  return {
-                    ...effect,
-                    channelColors: {
-                      ...DEFAULT_CHROMATIC_CHANNEL_COLORS,
-                      ...(effect.channelColors ?? {}),
-                      [key]: next,
-                    },
-                  };
-                })
+    <div className="insp-effect-params">
+      <p className="insp-help-text">
+        Each contribution samples a source independently and paints it with its own output colour.
+        Alpha coverage keeps black text and transparent artwork fringes usable.
+      </p>
+      {contributions.map((contribution, contributionIndex) => (
+        <div key={contribution.id ?? contributionIndex} className="insp-effect-params">
+          <FieldRow label={`Contribution ${contributionIndex + 1}`}>
+            <button
+              type="button"
+              className={`insp-toggle-btn${contribution.enabled ? ' --active' : ''}`}
+              aria-pressed={contribution.enabled}
+              onClick={() =>
+                updateContribution(contributionIndex, { enabled: !contribution.enabled })
               }
-              swatchStyle={{ background: toSwatchBg(color) }}
+            >
+              {contribution.enabled ? 'On' : 'Off'}
+            </button>
+            <Select
+              label={`Contribution ${contributionIndex + 1} source`}
+              value={contribution.source}
+              options={CHROMATIC_SOURCE_OPTIONS}
+              onChange={(source) =>
+                updateContribution(contributionIndex, { source: source as ChromaticChannelSource })
+              }
+            />
+            <InspectorColorPopover
+              label={`Contribution ${contributionIndex + 1} output colour`}
+              tooltipLabel={`Contribution ${contributionIndex + 1} output colour`}
+              value={contribution.color}
+              onChange={(color) => updateContribution(contributionIndex, { color })}
+              swatchStyle={{ background: toSwatchBg(contribution.color) }}
               documentColorMode={documentColorMode}
               onEditStart={beginTransaction}
               onEditEnd={commitTransaction}
             />
-          );
-        })}
-      </InspectorFieldGroup>
-    </FieldRow>
+          </FieldRow>
+          <InspectorFieldGroup columns={3}>
+            <NumberField
+              label="Strength"
+              value={contribution.strength}
+              min={0}
+              max={2}
+              step={0.05}
+              onChange={(strength) => updateContribution(contributionIndex, { strength })}
+            />
+            <NumberField
+              label="X"
+              value={contribution.x}
+              step={0.5}
+              onChange={(x) => updateContribution(contributionIndex, { x })}
+            />
+            <NumberField
+              label="Y"
+              value={contribution.y}
+              step={0.5}
+              onChange={(y) => updateContribution(contributionIndex, { y })}
+            />
+          </InspectorFieldGroup>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -710,6 +805,16 @@ function ChromaticAberrationParams({
     const e = getEffect(n, index);
     if (e && e.type === 'chromaticAberration') return e.opacity;
     return 1;
+  });
+  const mixRaw = commonValue(nodes, (n) => {
+    const e = getEffect(n, index);
+    return e?.type === 'chromaticAberration' ? (e.mix ?? 1) : 1;
+  });
+  const modeRaw = commonValue(nodes, (n) => {
+    const e = getEffect(n, index);
+    return e?.type === 'chromaticAberration'
+      ? (e.channelMode ?? (e.customChannels ? 'custom' : 'rgb'))
+      : 'rgb';
   });
   const blendRaw = commonValue(nodes, (n) => {
     const e = getEffect(n, index);
@@ -748,7 +853,44 @@ function ChromaticAberrationParams({
             onChange((e) => (e.type === 'chromaticAberration' ? { ...e, opacity: v } : e))
           }
         />
+        <NumberField
+          label="Mix"
+          value={isMixed(mixRaw) ? 1 : mixRaw}
+          mixed={isMixed(mixRaw)}
+          step={0.05}
+          min={0}
+          max={1}
+          onChange={(v) =>
+            onChange((e) => (e.type === 'chromaticAberration' ? { ...e, mix: v } : e))
+          }
+        />
       </InspectorFieldGroup>
+      <FieldRow label="Channel mode">
+        <Select
+          label="Chromatic channel mode"
+          value={isMixed(modeRaw) ? '' : (modeRaw as string)}
+          options={[
+            ...(isMixed(modeRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []),
+            { value: 'rgb', label: 'RGB split' },
+            { value: 'custom', label: 'Custom colour split' },
+          ]}
+          onChange={(mode) => {
+            if (!mode) return;
+            onChange((effect) => {
+              if (effect.type !== 'chromaticAberration') return effect;
+              if (mode === 'custom') {
+                return {
+                  ...effect,
+                  channelMode: 'custom',
+                  customChannels: effect.customChannels ?? defaultChromaticContributions(effect),
+                };
+              }
+              return { ...effect, channelMode: 'rgb' };
+            });
+          }}
+          placeholder="Mixed"
+        />
+      </FieldRow>
       <FieldRow label="Blend">
         <Select
           label="Aberration blend mode"
@@ -774,7 +916,9 @@ function ChromaticAberrationParams({
           }
         />
       )}
-      <ChromaticChannelColors nodes={nodes} index={index} onChange={onChange} />
+      {modeRaw === 'custom' && (
+        <ChromaticCustomChannels nodes={nodes} index={index} onChange={onChange} />
+      )}
     </div>
   );
 }
@@ -1441,6 +1585,21 @@ function ShadowParams({
     if (e && (e.type === 'dropShadow' || e.type === 'innerShadow')) return e.y;
     return 0;
   });
+  const angleRaw = commonValue(nodes, (n) => {
+    const e = getEffect(n, index);
+    if (e && (e.type === 'dropShadow' || e.type === 'innerShadow')) {
+      if (e.x === 0 && e.y === 0) return 0;
+      return (Math.atan2(e.y, e.x) * 180) / Math.PI;
+    }
+    return 0;
+  });
+  const distanceRaw = commonValue(nodes, (n) => {
+    const e = getEffect(n, index);
+    if (e && (e.type === 'dropShadow' || e.type === 'innerShadow')) {
+      return Math.hypot(e.x, e.y);
+    }
+    return 0;
+  });
   const blurRaw = commonValue(nodes, (n) => {
     const e = getEffect(n, index);
     if (e && (e.type === 'dropShadow' || e.type === 'innerShadow')) return e.blur;
@@ -1485,6 +1644,36 @@ function ShadowParams({
             onChange((e) =>
               e.type === 'dropShadow' || e.type === 'innerShadow' ? { ...e, y: v } : e,
             )
+          }
+        />
+      </InspectorFieldGroup>
+      <InspectorFieldGroup columns={2}>
+        <NumberField
+          label="Angle"
+          value={isMixed(angleRaw) ? 0 : angleRaw}
+          mixed={isMixed(angleRaw)}
+          step={1}
+          onChange={(angle) =>
+            onChange((e) => {
+              if (e.type !== 'dropShadow' && e.type !== 'innerShadow') return e;
+              const distance = Math.hypot(e.x, e.y);
+              const radians = (angle * Math.PI) / 180;
+              return { ...e, x: Math.cos(radians) * distance, y: Math.sin(radians) * distance };
+            })
+          }
+        />
+        <NumberField
+          label="Distance"
+          value={isMixed(distanceRaw) ? 0 : distanceRaw}
+          mixed={isMixed(distanceRaw)}
+          step={1}
+          min={0}
+          onChange={(distance) =>
+            onChange((e) => {
+              if (e.type !== 'dropShadow' && e.type !== 'innerShadow') return e;
+              const angle = e.x === 0 && e.y === 0 ? 0 : Math.atan2(e.y, e.x);
+              return { ...e, x: Math.cos(angle) * distance, y: Math.sin(angle) * distance };
+            })
           }
         />
       </InspectorFieldGroup>
@@ -1551,6 +1740,46 @@ function ShadowParams({
   );
 }
 
+function glowGradientFor(nodes: EffectNode[], index: number): EffectGradient {
+  const effect = getEffect(nodes[0]!, index);
+  if (effect?.type === 'outerGlow' || effect?.type === 'innerGlow') {
+    if (effect.gradient?.stops && effect.gradient.stops.length >= 2) return effect.gradient;
+    return {
+      stops: [
+        { position: 0, color: effect.color },
+        {
+          position: 1,
+          color: effect.color.space === 'rgb' ? { ...effect.color, a: 0 } : effect.color,
+        },
+      ],
+    };
+  }
+  const fallback = { space: 'rgb' as const, r: 255, g: 200, b: 100, a: 255 };
+  return {
+    stops: [
+      { position: 0, color: fallback },
+      { position: 1, color: fallback },
+    ],
+  };
+}
+
+function updateGlowGradientStop(e: Effect, index: number, color: ManagedColor): Effect {
+  if (e.type !== 'outerGlow' && e.type !== 'innerGlow') return e;
+  const gradient = e.gradient ?? {
+    stops: [
+      { position: 0, color: e.color },
+      {
+        position: 1,
+        color: e.color.space === 'rgb' ? { ...e.color, a: 0 } : e.color,
+      },
+    ],
+  };
+  const stops = gradient.stops.map((stop, stopIndex) =>
+    stopIndex === index ? { ...stop, color } : stop,
+  );
+  return { ...e, colorMode: 'gradient', color: stops[0]!.color, gradient: { stops } };
+}
+
 function GlowParams({
   nodes,
   index,
@@ -1560,6 +1789,7 @@ function GlowParams({
   index: number;
   onChange: (updater: (e: Effect) => Effect) => void;
 }) {
+  const { documentColorMode, beginTransaction, commitTransaction } = useEditor();
   const blurRaw = commonValue(nodes, (n) => {
     const e = getEffect(n, index);
     if (e && (e.type === 'outerGlow' || e.type === 'innerGlow')) return e.blur;
@@ -1569,6 +1799,27 @@ function GlowParams({
     const e = getEffect(n, index);
     if (e && (e.type === 'outerGlow' || e.type === 'innerGlow')) return e.spread;
     return 0;
+  });
+  const chokeRaw = commonValue(nodes, (n) => {
+    const e = getEffect(n, index);
+    if (e && (e.type === 'outerGlow' || e.type === 'innerGlow')) return e.choke ?? 0;
+    return 0;
+  });
+  const contourRaw = commonValue(nodes, (n) => {
+    const e = getEffect(n, index);
+    if (e && (e.type === 'outerGlow' || e.type === 'innerGlow')) return e.contour ?? 'smooth';
+    return 'smooth';
+  });
+  const originRaw = commonValue(nodes, (n) => {
+    const e = getEffect(n, index);
+    if (e?.type === 'innerGlow') return e.origin ?? 'edge';
+    return 'edge';
+  });
+  const isInnerGlow = getEffect(nodes[0]!, index)?.type === 'innerGlow';
+  const colorModeRaw = commonValue(nodes, (n) => {
+    const e = getEffect(n, index);
+    if (e?.type === 'outerGlow' || e?.type === 'innerGlow') return e.colorMode ?? 'solid';
+    return 'solid';
   });
   const opacityRaw = commonValue(nodes, (n) => {
     const e = getEffect(n, index);
@@ -1582,6 +1833,62 @@ function GlowParams({
   });
   return (
     <div className="insp-effect-params">
+      <Select
+        label="Glow color treatment"
+        value={isMixed(colorModeRaw) ? '' : (colorModeRaw as string)}
+        options={[
+          ...(isMixed(colorModeRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []),
+          { value: 'solid', label: 'Solid' },
+          { value: 'gradient', label: 'Gradient' },
+        ]}
+        onChange={(value) => {
+          if (!value) return;
+          onChange((e) => {
+            if (e.type !== 'outerGlow' && e.type !== 'innerGlow') return e;
+            if (value !== 'gradient') return { ...e, colorMode: 'solid' };
+            const stops = e.gradient?.stops?.length
+              ? e.gradient.stops
+              : [
+                  { position: 0, color: e.color },
+                  {
+                    position: 1,
+                    color: e.color.space === 'rgb' ? { ...e.color, a: 0 } : e.color,
+                  },
+                ];
+            return {
+              ...e,
+              colorMode: 'gradient',
+              gradient: { stops },
+            };
+          });
+        }}
+      />
+      {colorModeRaw === 'gradient' && (
+        <FieldRow label="Gradient colors">
+          <InspectorColorPopover
+            label="Glow gradient start"
+            value={glowGradientFor(nodes, index).stops[0]!.color}
+            onChange={(color) =>
+              onChange((e) => updateGlowGradientStop(e, 0, color as ManagedColor))
+            }
+            swatchStyle={{ background: toSwatchBg(glowGradientFor(nodes, index).stops[0]!.color) }}
+            documentColorMode={documentColorMode}
+            onEditStart={beginTransaction}
+            onEditEnd={commitTransaction}
+          />
+          <InspectorColorPopover
+            label="Glow gradient end"
+            value={glowGradientFor(nodes, index).stops[1]!.color}
+            onChange={(color) =>
+              onChange((e) => updateGlowGradientStop(e, 1, color as ManagedColor))
+            }
+            swatchStyle={{ background: toSwatchBg(glowGradientFor(nodes, index).stops[1]!.color) }}
+            documentColorMode={documentColorMode}
+            onEditStart={beginTransaction}
+            onEditEnd={commitTransaction}
+          />
+        </FieldRow>
+      )}
       <InspectorFieldGroup>
         <NumberField
           label="Blur"
@@ -1597,6 +1904,56 @@ function GlowParams({
           }
         />
       </InspectorFieldGroup>
+      <InspectorFieldGroup columns={2}>
+        <NumberField
+          label="Choke"
+          value={isMixed(chokeRaw) ? 0 : chokeRaw}
+          mixed={isMixed(chokeRaw)}
+          step={0.01}
+          min={0}
+          max={1}
+          onChange={(v) =>
+            onChange((e) =>
+              e.type === 'outerGlow' || e.type === 'innerGlow' ? { ...e, choke: v } : e,
+            )
+          }
+        />
+        <Select
+          label="Glow contour"
+          value={isMixed(contourRaw) ? '' : (contourRaw as string)}
+          options={[
+            ...(isMixed(contourRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []),
+            { value: 'linear', label: 'Linear' },
+            { value: 'smooth', label: 'Smooth' },
+            { value: 'sharp', label: 'Sharp' },
+          ]}
+          onChange={(v) => {
+            if (!v) return;
+            onChange((e) =>
+              e.type === 'outerGlow' || e.type === 'innerGlow'
+                ? { ...e, contour: v as 'linear' | 'smooth' | 'sharp' }
+                : e,
+            );
+          }}
+        />
+      </InspectorFieldGroup>
+      {isInnerGlow && (
+        <Select
+          label="Inner glow origin"
+          value={isMixed(originRaw) ? '' : (originRaw as string)}
+          options={[
+            ...(isMixed(originRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []),
+            { value: 'edge', label: 'Edge' },
+            { value: 'center', label: 'Center' },
+          ]}
+          onChange={(v) => {
+            if (!v) return;
+            onChange((e) =>
+              e.type === 'innerGlow' ? { ...e, origin: v as 'edge' | 'center' } : e,
+            );
+          }}
+        />
+      )}
       <InspectorFieldGroup>
         <NumberField
           label="Spread"

@@ -223,7 +223,16 @@ describe('EffectsSection — glass material tint swatch', () => {
   });
 });
 
-function nodeWithChromaticAberration(id: string) {
+function nodeWithChromaticAberration(id: string, custom = false) {
+  const effect = {
+    type: 'chromaticAberration' as const,
+    offsets: { redX: 3, redY: 0, greenX: 0, greenY: 0, blueX: -3, blueY: 0 },
+    intensity: 1,
+    blendMode: 'normal' as const,
+    opacity: 1,
+    visible: true,
+  };
+
   return {
     id,
     kind: 'shape' as const,
@@ -239,14 +248,41 @@ function nodeWithChromaticAberration(id: string) {
     fill: { space: 'rgb' as const, r: 200, g: 200, b: 200, a: 255 },
     strokes: [],
     effects: [
-      {
-        type: 'chromaticAberration' as const,
-        offsets: { redX: 3, redY: 0, greenX: 0, greenY: 0, blueX: -3, blueY: 0 },
-        intensity: 1,
-        blendMode: 'normal' as const,
-        opacity: 1,
-        visible: true,
-      },
+      custom
+        ? {
+            ...effect,
+            channelMode: 'custom' as const,
+            customChannels: [
+              {
+                id: 'red',
+                enabled: true,
+                source: 'red' as const,
+                color: { space: 'rgb' as const, r: 255, g: 0, b: 0, a: 255 },
+                strength: 1,
+                x: 3,
+                y: 0,
+              },
+              {
+                id: 'alpha',
+                enabled: true,
+                source: 'alpha' as const,
+                color: { space: 'rgb' as const, r: 0, g: 255, b: 255, a: 255 },
+                strength: 1,
+                x: 0,
+                y: 0,
+              },
+              {
+                id: 'blue',
+                enabled: true,
+                source: 'blue' as const,
+                color: { space: 'rgb' as const, r: 0, g: 0, b: 255, a: 255 },
+                strength: 1,
+                x: -3,
+                y: 0,
+              },
+            ],
+          }
+        : effect,
     ],
   };
 }
@@ -290,7 +326,7 @@ function nodeWithGlitch(id: string) {
   };
 }
 
-function nodeWithOuterGlow(id: string) {
+function nodeWithOuterGlow(id: string, gradient = false) {
   return {
     id,
     kind: 'shape' as const,
@@ -310,6 +346,17 @@ function nodeWithOuterGlow(id: string) {
         type: 'outerGlow' as const,
         blur: 6,
         spread: 0,
+        ...(gradient
+          ? {
+              colorMode: 'gradient' as const,
+              gradient: {
+                stops: [
+                  { position: 0, color: { space: 'rgb' as const, r: 255, g: 120, b: 40, a: 255 } },
+                  { position: 1, color: { space: 'rgb' as const, r: 40, g: 80, b: 255, a: 0 } },
+                ],
+              },
+            }
+          : {}),
         color: { space: 'rgb' as const, r: 255, g: 200, b: 100, a: 128 },
         opacity: 0.6,
         blendMode: 'screen' as const,
@@ -486,14 +533,15 @@ describe('EffectsSection — chromatic aberration', () => {
     expect(screen.getByLabelText('Aberration blend mode')).toBeTruthy();
   });
 
-  it('renders independent colour controls for the red, green, and blue channels', () => {
-    render(<EffectsSection nodes={[nodeWithChromaticAberration('n1')]} />);
+  it('renders the custom colour split controls after selecting custom mode', () => {
+    render(<EffectsSection nodes={[nodeWithChromaticAberration('n1', true)]} />);
     fireEvent.click(
       screen.getByRole('button', { name: /expand chromatic aberration parameters/i }),
     );
-    expect(screen.getByLabelText('Red channel colour')).toBeTruthy();
-    expect(screen.getByLabelText('Green channel colour')).toBeTruthy();
-    expect(screen.getByLabelText('Blue channel colour')).toBeTruthy();
+    expect(screen.getByLabelText('Contribution 1 output colour')).toBeTruthy();
+    expect(screen.getByLabelText('Contribution 2 output colour')).toBeTruthy();
+    expect(screen.getByLabelText('Contribution 3 output colour')).toBeTruthy();
+    expect(screen.getByLabelText('Contribution 1 source')).toBeTruthy();
   });
 });
 
@@ -575,6 +623,14 @@ describe('EffectsSection — outerGlow color swatch', () => {
   it('renders effect color swatch for outer glows', () => {
     render(<EffectsSection nodes={[nodeWithOuterGlow('n1')]} />);
     expect(screen.getByRole('button', { name: /effect colour/i })).toBeTruthy();
+  });
+
+  it('renders editable gradient color treatment controls', () => {
+    render(<EffectsSection nodes={[nodeWithOuterGlow('n1', true)]} />);
+    fireEvent.click(screen.getByRole('button', { name: /expand outer glow parameters/i }));
+    expect(screen.getByLabelText('Glow color treatment')).toBeTruthy();
+    expect(screen.getByLabelText('Glow gradient start')).toBeTruthy();
+    expect(screen.getByLabelText('Glow gradient end')).toBeTruthy();
   });
 });
 

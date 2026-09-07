@@ -19,7 +19,13 @@
 
 import type { Document } from './document';
 import { cryptoId } from './document-utils';
-import type { ChannelOffset, Effect, SceneNode } from './types';
+import type {
+  ChannelOffset,
+  ChromaticChannelSource,
+  ChromaticContribution,
+  Effect,
+  SceneNode,
+} from './types';
 
 /** Deterministic fallback when crypto is unavailable. */
 function effectId(): string {
@@ -92,6 +98,9 @@ export function createDefaultEffect(type: Effect['type'], id = effectId()): Effe
         type,
         blur: 6,
         spread: 0,
+        colorMode: 'solid',
+        choke: 0,
+        contour: 'smooth',
         color: { space: 'rgb', r: 255, g: 200, b: 100, a: 128 },
         opacity: 0.6,
         blendMode: 'screen',
@@ -103,6 +112,10 @@ export function createDefaultEffect(type: Effect['type'], id = effectId()): Effe
         type,
         blur: 6,
         spread: 0,
+        colorMode: 'solid',
+        choke: 0,
+        contour: 'smooth',
+        origin: 'edge',
         color: { space: 'rgb', r: 255, g: 200, b: 100, a: 128 },
         opacity: 0.6,
         blendMode: 'screen',
@@ -134,7 +147,38 @@ export function createDefaultEffect(type: Effect['type'], id = effectId()): Effe
           green: { space: 'rgb', r: 0, g: 255, b: 0, a: 255 },
           blue: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 },
         },
+        channelMode: 'rgb',
+        customChannels: [
+          {
+            id: 'red',
+            enabled: true,
+            source: 'red',
+            color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
+            strength: 1,
+            x: 3,
+            y: 0,
+          },
+          {
+            id: 'green',
+            enabled: true,
+            source: 'green',
+            color: { space: 'rgb', r: 0, g: 255, b: 0, a: 255 },
+            strength: 1,
+            x: 0,
+            y: 0,
+          },
+          {
+            id: 'blue',
+            enabled: true,
+            source: 'blue',
+            color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 },
+            strength: 1,
+            x: -3,
+            y: 0,
+          },
+        ],
         intensity: 1,
+        mix: 1,
         blendMode: 'normal',
         opacity: 1,
         visible: true,
@@ -212,6 +256,59 @@ function normalizeChannelOffset(value: unknown, fallback = ZERO_CHANNEL_OFFSET):
   };
 }
 
+const CHROMATIC_SOURCES: readonly ChromaticChannelSource[] = [
+  'red',
+  'green',
+  'blue',
+  'luminance',
+  'alpha',
+];
+
+function normalizeChromaticChannels(value: unknown): ChromaticContribution[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return value.slice(0, 8).map((entry, index) => {
+    const candidate = entry && typeof entry === 'object' ? (entry as Record<string, unknown>) : {};
+    const source = CHROMATIC_SOURCES.includes(candidate.source as ChromaticChannelSource)
+      ? (candidate.source as ChromaticChannelSource)
+      : 'alpha';
+    return {
+      ...(typeof candidate.id === 'string' && candidate.id.length > 0
+        ? { id: candidate.id }
+        : { id: `contribution-${index + 1}` }),
+      enabled: candidate.enabled !== false,
+      source,
+      color:
+        candidate.color && typeof candidate.color === 'object'
+          ? (candidate.color as ChromaticContribution['color'])
+          : { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
+      strength: clampNum(candidate.strength, 1, 0, 2),
+      x: clampNum(candidate.x, 0, -4096, 4096),
+      y: clampNum(candidate.y, 0, -4096, 4096),
+    };
+  });
+}
+
+function normalizeEffectGradient(
+  value: unknown,
+): { stops: Array<{ position: number; color: ChromaticContribution['color'] }> } | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const stops = (value as { stops?: unknown }).stops;
+  if (!Array.isArray(stops) || stops.length === 0) return undefined;
+  return {
+    stops: stops.slice(0, 8).map((entry, index) => {
+      const candidate =
+        entry && typeof entry === 'object' ? (entry as Record<string, unknown>) : {};
+      return {
+        position: clampNum(candidate.position, index / Math.max(1, stops.length - 1), 0, 1),
+        color:
+          candidate.color && typeof candidate.color === 'object'
+            ? (candidate.color as ChromaticContribution['color'])
+            : { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
+      };
+    }),
+  };
+}
+
 function normalizedId(id: unknown): string {
   return typeof id === 'string' && id.length > 0 ? id : effectId();
 }
@@ -254,11 +351,23 @@ export function normalizeEffectParams(effect: Effect): Effect {
     }
     case 'outerGlow':
     case 'innerGlow': {
+      const gradient = normalizeEffectGradient(e.gradient);
       if (
         isCleanEffect(e, ['blur', 'spread', 'opacity']) &&
         inRange(e.blur, 0, 4096) &&
         inRange(e.spread, -2048, 2048) &&
-        inRange(e.opacity, 0, 1)
+        inRange(e.opacity, 0, 1) &&
+        (e.choke === undefined || inRange(e.choke, 0, 1)) &&
+        (e.contour === undefined ||
+          e.contour === 'linear' ||
+          e.contour === 'smooth' ||
+          e.contour === 'sharp') &&
+        (e.type !== 'innerGlow' ||
+          e.origin === undefined ||
+          e.origin === 'edge' ||
+          e.origin === 'center') &&
+        (e.gradient === undefined || gradient !== undefined) &&
+        (e.colorMode === undefined || e.colorMode === 'solid' || e.colorMode === 'gradient')
       )
         return effect;
       return {
@@ -266,6 +375,11 @@ export function normalizeEffectParams(effect: Effect): Effect {
         id: normalizedId(e.id),
         blur: clampNum(e.blur, 0),
         spread: clampNum(e.spread, 0, -2048, 2048),
+        choke: clampNum(e.choke, 0, 0, 1),
+        contour: e.contour === 'linear' || e.contour === 'sharp' ? e.contour : 'smooth',
+        colorMode: e.colorMode === 'gradient' ? 'gradient' : 'solid',
+        ...(gradient ? { gradient } : {}),
+        ...(e.type === 'innerGlow' ? { origin: e.origin === 'center' ? 'center' : 'edge' } : {}),
         opacity: clampNum(e.opacity, 1, 0, 1),
       } as Effect;
     }
@@ -340,11 +454,16 @@ export function normalizeEffectParams(effect: Effect): Effect {
       } as Effect;
     }
     case 'chromaticAberration': {
+      const channelMode = e.channelMode === 'custom' ? 'custom' : 'rgb';
+      const customChannels = normalizeChromaticChannels(e.customChannels);
       if (
         isCleanEffect(e, ['intensity', 'opacity']) &&
         inRange(e.intensity, 0, 64) &&
         inRange(e.opacity, 0, 1) &&
-        isCleanChannelOffset(e.offsets)
+        isCleanChannelOffset(e.offsets) &&
+        (e.mix === undefined || inRange(e.mix, 0, 1)) &&
+        (e.channelMode === undefined || e.channelMode === 'rgb' || e.channelMode === 'custom') &&
+        (e.customChannels === undefined || customChannels !== undefined)
       ) {
         return effect;
       }
@@ -360,6 +479,9 @@ export function normalizeEffectParams(effect: Effect): Effect {
           blueY: 0,
         }),
         intensity: clampNum(e.intensity, 1, 0, 64),
+        channelMode,
+        ...(customChannels ? { customChannels } : {}),
+        mix: clampNum(e.mix, 1, 0, 1),
         opacity: clampNum(e.opacity, 1, 0, 1),
       } as Effect;
     }

@@ -2,6 +2,7 @@ import type { CompositorBackend, CompositorDiagnostics } from '@varve/compositor
 import {
   acquireMaskSurface,
   adjustmentsToFilters,
+  applyAlphaSpread,
   applyBackgroundBlurBackdrop,
   applyChromaticAberration,
   applyFilterWithCompositing,
@@ -9,6 +10,8 @@ import {
   applyGlitch,
   applyLayerBlur,
   applyStyleOverrides,
+  buildInnerGlowImage,
+  buildOuterGlowImage,
   CompositeCanvas,
   computeScreenBounds,
   type Engine,
@@ -47,6 +50,7 @@ import {
   computeFloatingOrigin,
   isWorldRectInViewport,
   managedColorToCss,
+  managedColorToRgba,
   resolveBlendEvaluationSpace,
   worldToScreen,
 } from '@varve/shared';
@@ -190,21 +194,26 @@ function subtreeEffectPadding(document: Document, rootIds: readonly NodeId[]): n
         } else if (effect.type === 'layerBlur') {
           padding = Math.max(padding, effect.radius * 3);
         } else if (effect.type === 'chromaticAberration') {
-          const intensity = effect.intensity ?? 1;
-          const o = effect.offsets;
-          padding = Math.max(
-            padding,
-            Math.ceil(
-              Math.max(
-                Math.abs(o.redX),
-                Math.abs(o.redY),
-                Math.abs(o.greenX),
-                Math.abs(o.greenY),
-                Math.abs(o.blueX),
-                Math.abs(o.blueY),
-              ) * intensity,
-            ),
-          );
+          const extent =
+            effect.channelMode === 'custom' && effect.customChannels
+              ? Math.max(
+                  0,
+                  ...effect.customChannels.map((channel) =>
+                    channel.enabled === false
+                      ? 0
+                      : Math.max(Math.abs(channel.x), Math.abs(channel.y)) *
+                        Math.max(0, channel.strength),
+                  ),
+                ) * Math.max(0, effect.intensity ?? 1)
+              : Math.max(
+                  Math.abs(effect.offsets.redX),
+                  Math.abs(effect.offsets.redY),
+                  Math.abs(effect.offsets.greenX),
+                  Math.abs(effect.offsets.greenY),
+                  Math.abs(effect.offsets.blueX),
+                  Math.abs(effect.offsets.blueY),
+                ) * Math.max(0, effect.intensity ?? 1);
+          padding = Math.max(padding, Math.ceil(extent * Math.max(0, effect.mix ?? 1)));
         } else if (effect.type === 'glitch') {
           const o = effect.channelShift;
           padding = Math.max(
@@ -238,11 +247,18 @@ function subtreeEffectPadding(document: Document, rootIds: readonly NodeId[]): n
 function renderGroupInsetEffect(
   effect: {
     type: 'innerShadow' | 'innerGlow';
+    x?: number;
+    y?: number;
     blur: number;
     spread: number;
     color: import('@varve/engine').EngineColor;
+    colorMode?: 'solid' | 'gradient';
+    gradient?: import('@varve/engine').EffectGradient;
     opacity: number;
     blendMode: import('@varve/scene').BlendMode;
+    choke?: number;
+    contour?: 'linear' | 'smooth' | 'sharp';
+    origin?: 'edge' | 'center';
   },
   gCanvas: CompositeCanvas,
   renderScale: number,
@@ -267,78 +283,74 @@ function renderGroupInsetEffect(
   if (!insetCtx) return;
 
   if (mode === 'shadow') {
-    // Inner shadow: offset the silhouette and subtract from original
-    // Draw full silhouette first
+    // Inner shadow: blur the alpha silhouette, subtract the offset source,
+    // and mask the result back to the original coverage. putImageData does
+    // not honour globalCompositeOperation, so the subtraction is explicit at
+    // pixel level rather than relying on a geometric clip.
     insetCtx.putImageData(silhouetteData, 0, 0);
-    // Apply shadow color via source-in
+    applyAlphaSpread(insetCtx, w, h, spread);
     insetCtx.globalCompositeOperation = 'source-in';
-    const { r, g, b } = 'r' in effect.color ? effect.color : { r: 0, g: 0, b: 0 };
+    const [r, g, b, colorAlpha] = managedColorToRgba(effect.color);
     insetCtx.fillStyle = `rgba(${r},${g},${b},1)`;
     insetCtx.fillRect(0, 0, w, h);
     insetCtx.globalCompositeOperation = 'source-over';
 
-    // Blur the solid silhouette
     const blurData = insetCtx.getImageData(0, 0, w, h);
     if (blur > 0) {
       const blurred = gaussianBlurSeparable(blurData, Math.max(1, blur));
       insetCtx.putImageData(blurred, 0, 0);
     }
 
-    // Cut hole where original content was
-    insetCtx.globalCompositeOperation = 'destination-out';
-    insetCtx.putImageData(silhouetteData, 0, 0);
-    insetCtx.globalCompositeOperation = 'source-over';
+    const insetImage = insetCtx.getImageData(0, 0, w, h);
+    const offsetX = Math.round(('x' in effect ? (effect.x ?? 0) : 0) * renderScale);
+    const offsetY = Math.round(('y' in effect ? (effect.y ?? 0) : 0) * renderScale);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const index = (y * w + x) * 4;
+        const holeX = x + offsetX;
+        const holeY = y + offsetY;
+        const holeAlpha =
+          holeX >= 0 && holeX < w && holeY >= 0 && holeY < h
+            ? silhouetteData.data[(holeY * w + holeX) * 4 + 3]! / 255
+            : 0;
+        const sourceAlpha = silhouetteData.data[index + 3]! / 255;
+        insetImage.data[index + 3] = Math.round(
+          insetImage.data[index + 3]! * (1 - holeAlpha) * sourceAlpha * (colorAlpha / 255),
+        );
+      }
+    }
+    insetCtx.putImageData(insetImage, 0, 0);
 
     // Composite the inset shadow onto the group canvas with effect opacity
-    const insetImage = insetCtx.getImageData(0, 0, w, h).data;
+    const insetPixels = insetImage.data;
     const dst = ctx.getImageData(0, 0, w, h);
     const opacity = effect.opacity ?? 1;
     for (let i = 3; i < dst.data.length; i += 4) {
-      const sa = insetImage[i]! / 255;
+      const sa = insetPixels[i]! / 255;
       dst.data[i - 3] = dst.data[i - 3]! * (1 - sa * opacity);
       dst.data[i - 2] = dst.data[i - 2]! * (1 - sa * opacity);
       dst.data[i - 1] = dst.data[i - 1]! * (1 - sa * opacity);
-      dst.data[i] = Math.max(dst.data[i]!, insetImage[i]! * opacity);
+      dst.data[i] = Math.max(dst.data[i]!, insetPixels[i]! * opacity);
     }
     ctx.putImageData(dst, 0, 0);
   } else {
-    // Inner glow: shrink silhouette, blur the ring between original and shrunken
-    const shrinkPx = Math.max(1, Math.round(spread));
-    // Draw full silhouette
     insetCtx.putImageData(silhouetteData, 0, 0);
-    // Erode by spread (darken at edges)
-    if (spread > 0) {
-      const erodeCanvas = document.createElement('canvas');
-      erodeCanvas.width = w;
-      erodeCanvas.height = h;
-      const erodeCtx = erodeCanvas.getContext('2d');
-      if (erodeCtx) {
-        erodeCtx.putImageData(silhouetteData, 0, 0);
-        erodeCtx.filter = `blur(${shrinkPx}px)`;
-        erodeCtx.globalCompositeOperation = 'source-over';
-        erodeCtx.drawImage(insetCanvas, 0, 0);
-        const erodeResult = erodeCtx.getImageData(0, 0, w, h);
-        insetCtx.putImageData(erodeResult, 0, 0);
-      }
-    }
-    // Colorize to glow color
-    insetCtx.globalCompositeOperation = 'source-in';
-    const { r: gr, g: gg, b: gb } = 'r' in effect.color ? effect.color : { r: 200, g: 200, b: 255 };
-    insetCtx.fillStyle = `rgba(${gr},${gg},${gb},1)`;
-    insetCtx.fillRect(0, 0, w, h);
-    insetCtx.globalCompositeOperation = 'source-over';
-
-    // Blur
-    const gData = insetCtx.getImageData(0, 0, w, h);
-    if (blur > 0) {
-      const blurred = gaussianBlurSeparable(gData, Math.max(1, blur));
-      insetCtx.putImageData(blurred, 0, 0);
-    }
-
-    // Subtract original silhouette (glow only where content exists)
-    insetCtx.globalCompositeOperation = 'destination-in';
-    insetCtx.putImageData(silhouetteData, 0, 0);
-    insetCtx.globalCompositeOperation = 'source-over';
+    applyAlphaSpread(insetCtx, w, h, spread);
+    const spreadData = insetCtx.getImageData(0, 0, w, h);
+    const blurred = blur > 0 ? gaussianBlurSeparable(spreadData, Math.max(1, blur)) : spreadData;
+    insetCtx.putImageData(
+      buildInnerGlowImage(
+        silhouetteData,
+        blurred,
+        effect.color,
+        effect.origin,
+        effect.choke,
+        effect.contour,
+        effect.colorMode === 'gradient' ? effect.gradient : undefined,
+      ),
+      0,
+      0,
+    );
 
     // Composite
     const glowImage = insetCtx.getImageData(0, 0, w, h);
@@ -1446,14 +1458,44 @@ export function renderContent(deps: RenderContentDeps): void {
                 effectCanvas.height = gCanvas.canvas.height;
                 const effectCtx = effectCanvas.getContext('2d');
                 if (!effectCtx) continue;
-                effectCtx.shadowColor = managedColorToCss(effect.color);
-                effectCtx.shadowBlur = (effect.blur + Math.max(0, effect.spread) / 2) * renderScale;
-                effectCtx.shadowOffsetX = 0;
-                effectCtx.shadowOffsetY = 0;
-                effectCtx.drawImage(gCanvas.canvas as CanvasImageSource, 0, 0);
-                effectCtx.globalCompositeOperation = 'destination-out';
-                effectCtx.shadowColor = 'transparent';
-                effectCtx.drawImage(gCanvas.canvas as CanvasImageSource, 0, 0);
+                try {
+                  const sourceCtx = gCanvas.ctx;
+                  const original = sourceCtx.getImageData(0, 0, gCanvas.width, gCanvas.height);
+                  const sourceCanvas = document.createElement('canvas');
+                  sourceCanvas.width = gCanvas.width;
+                  sourceCanvas.height = gCanvas.height;
+                  const sourceCopy = sourceCanvas.getContext('2d');
+                  if (!sourceCopy) continue;
+                  sourceCopy.putImageData(original, 0, 0);
+                  applyAlphaSpread(
+                    sourceCopy,
+                    gCanvas.width,
+                    gCanvas.height,
+                    effect.spread * renderScale,
+                  );
+                  const spread = sourceCopy.getImageData(0, 0, gCanvas.width, gCanvas.height);
+                  const blurred =
+                    effect.blur > 0
+                      ? gaussianBlurSeparable(
+                          spread,
+                          Math.max(1, Math.ceil(effect.blur * renderScale)),
+                        )
+                      : spread;
+                  effectCtx.putImageData(
+                    buildOuterGlowImage(
+                      original,
+                      blurred,
+                      effect.color,
+                      effect.choke,
+                      effect.contour,
+                      effect.colorMode === 'gradient' ? effect.gradient : undefined,
+                    ),
+                    0,
+                    0,
+                  );
+                } catch {
+                  continue;
+                }
                 targetCtx.save();
                 targetCtx.globalAlpha = effect.opacity * (n.opacity ?? 1);
                 targetCtx.globalCompositeOperation = mapBlendMode(

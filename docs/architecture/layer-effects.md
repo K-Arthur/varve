@@ -46,11 +46,12 @@ The serialized array is not silently sorted behind the user.
 ## Coverage and spread
 
 Geometric replay is used only when it is equivalent to the painted coverage.
-Text, raster layers, image fills, gradients, patterns, translucent fills, and
-stroke-only paths use an alpha-silhouette source. Raster and image sources
-therefore preserve transparent holes, sparse tiles, crop placement, and mask
-alpha. A missing offscreen buffer skips the optional effect rather than
-painting a rectangular fallback over editable content.
+Text, raster layers, image fills, gradients, patterns, translucent fills,
+compound paths, and stroke-only paths use an alpha-silhouette source. Raster
+and image sources therefore preserve transparent holes, sparse tiles, crop
+placement, and mask alpha; path fill rules preserve authored vector holes. A
+missing offscreen buffer skips the optional effect rather than painting a
+rectangular fallback over editable content.
 
 Positive and negative spread are applied as bounded alpha dilation/erosion in
 the alpha-aware path. Spread is not folded into `shadowBlur`; blur remains a
