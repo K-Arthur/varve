@@ -214,6 +214,11 @@ test.describe('Font selector', () => {
     await dialog.locator('.font-browser__select-btn').first().click();
     await expect(dialog.locator('.font-browser__details h3')).toBeVisible();
     await expect(dialog.getByLabel('Preview text')).toBeVisible();
+    await expect(dialog.locator('.font-browser__specimen')).toHaveAttribute(
+      'data-preview-status',
+      'ready',
+      { timeout: 15000 },
+    );
     const specimenGeometry = await dialog.locator('.font-browser__specimen').evaluate((element) => {
       const specimen = element.getBoundingClientRect();
       const nextContent = element.nextElementSibling?.getBoundingClientRect();

@@ -2,8 +2,8 @@
  * Full semantic font browser.
  *
  * FontSemanticCatalog is the discovery source for this surface. FontRegistry
- * remains the runtime face loader, so a downloadable result is still only a
- * preview until the user explicitly installs it.
+ * remains the runtime face loader, so a downloadable result is still only
+ * preview-only for document use until the user explicitly installs it.
  */
 
 import { getFontRegistry } from '@varve/engine';
@@ -18,8 +18,17 @@ import {
   tagLabel,
 } from '@varve/engine/font';
 import { Icon, SearchField, Tooltip } from '@varve/ui';
-import { useCallback, useEffect, useId, useMemo, useState, useSyncExternalStore } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { FontLicenseDetails } from './FontLicenseDetails';
+import { type FontPreviewStatus, loadFontPreview, removeFontPreview } from './fontPreview';
 import { downloadAndApplyOnlineFont } from './useOnlineFontSearch';
 import './FontBrowser.css';
 
@@ -170,6 +179,9 @@ export function FontBrowser({
   const [installError, setInstallError] = useState<string | null>(null);
   const [tagDraft, setTagDraft] = useState('');
   const [previewText, setPreviewText] = useState('The quick brown fox jumps over the lazy dog');
+  const [previewStatus, setPreviewStatus] = useState<FontPreviewStatus>('unavailable');
+  const [previewMessage, setPreviewMessage] = useState<string | undefined>();
+  const previewFaceRef = useRef<FontFace | undefined>(undefined);
   const tagInputId = useId();
 
   useEffect(() => setSelectedFamily(selectedFamilyProp), [selectedFamilyProp]);
@@ -215,6 +227,35 @@ export function FontBrowser({
         diversity: false,
       })[0])
     : undefined;
+
+  useEffect(() => {
+    removeFontPreview(previewFaceRef.current);
+    previewFaceRef.current = undefined;
+    if (!selectedRecord) {
+      setPreviewStatus('unavailable');
+      setPreviewMessage(undefined);
+      return;
+    }
+
+    let cancelled = false;
+    setPreviewStatus('loading');
+    setPreviewMessage(undefined);
+    void loadFontPreview(selectedRecord).then((result) => {
+      if (cancelled) {
+        removeFontPreview(result.face);
+        return;
+      }
+      previewFaceRef.current = result.face;
+      setPreviewStatus(result.status);
+      setPreviewMessage(result.message);
+    });
+
+    return () => {
+      cancelled = true;
+      removeFontPreview(previewFaceRef.current);
+      previewFaceRef.current = undefined;
+    };
+  }, [selectedRecord?.familyId]);
   const recommendations = useMemo(() => {
     if (!selectedRecord) return undefined;
     const candidates = semantic.all();
@@ -508,15 +549,23 @@ export function FontBrowser({
                 />
               </label>
               <div
-                className={`font-browser__specimen${selectedRecord.installed ? '' : ' font-browser__specimen--fallback'}`}
+                className={`font-browser__specimen${previewStatus === 'ready' ? '' : ' font-browser__specimen--fallback'}`}
+                data-preview-status={previewStatus}
                 style={{ fontFamily: fontStack(selectedRecord.familyName) }}
               >
                 {previewText || 'Type a custom specimen…'}
               </div>
-              {!selectedRecord.installed && (
+              {previewStatus === 'loading' && (
+                <p className="font-browser__preview-note">Loading the exact font preview…</p>
+              )}
+              {previewStatus === 'ready' && !selectedRecord.installed && (
                 <p className="font-browser__preview-note">
-                  This family is in the local catalog. Install it to load the actual font and use it
-                  in the document.
+                  Temporary preview loaded. Install the family to keep it available in the document.
+                </p>
+              )}
+              {(previewStatus === 'fallback' || previewStatus === 'unavailable') && (
+                <p className="font-browser__preview-note">
+                  {previewMessage ?? 'Install the family to load the actual font in the document.'}
                 </p>
               )}
 
