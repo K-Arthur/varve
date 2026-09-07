@@ -1,6 +1,6 @@
 # Render Pipeline Architecture
 
-**Updated:** 2026-07-13
+**Updated:** 2026-09-07
 
 > The maintained Canvas 2D lifecycle, coordinate, resource, export, portability, and
 > extension contract is [canvas2d-system.md](canvas2d-system.md). The target model is
@@ -35,7 +35,7 @@ Document (@varve/scene)
 | IR build (TS) | `packages/engine/src/engine.ts` | `stubEngine`, `nativeEngine`, `wasmEngine` |
 | IR build (Rust) | `crates/varve-engine/src/lib.rs` | `build_render_ir` |
 | IPC bridge | `apps/desktop/src-tauri/src/lib.rs` | `build_render_ir`, `hit_test` Tauri commands |
-| Replay | `packages/engine/src/replay.ts` | Canvas2D immediate-mode paint |
+| Replay | `packages/engine/src/replay.ts` | Canvas2D immediate-mode paint, alpha-aware strokes and effects |
 | Blur | `packages/engine/src/blur.ts` | Separable Gaussian/box blur kernels, linear-light conversion, downsample-blur-upsample |
 | Filter compositor | `packages/engine/src/filterCompositor.ts` | Offscreen compositing for non-CSS filters with per-filter opacity/blend |
 | Halftone | `packages/engine/src/halftone.ts` | AM (clustered-dot) + FM (Floyd-Steinberg + Bayer) screening |
@@ -65,6 +65,23 @@ Rust `hit_test` IPC exists but is **not called** from `CanvasArea`. Engine `hitT
 | Tauri desktop | Native Rust IPC (preferred) or TS stub fallback | Compositor -> Canvas2D (Linux) or WebGPU (macOS 26+, Windows WebView2) |
 | Browser dev | TS stub or wasm-pack | Same compositor router |
 | Tests | TS stub | Mock `ReplayTarget` or OffscreenCanvas goldens |
+
+## Content-aware stroke replay
+
+Most vector strokes use Canvas2D's native path stroke with the authored
+weight, dash, cap, join, and alignment handling. Text, image-filled shapes,
+raster layers, and warped images are different: their visible shape is their
+rendered alpha, not their enclosing rectangle.
+
+For those items, `replay.ts` delegates to
+`packages/engine/src/alphaStroke.ts`. The leaf module renders the same source
+content used by the fill pass into a bounded offscreen buffer, constructs the
+inside/center/outside band from alpha expansion and contraction, and composites
+the authored stroke paint. Transparent holes, crops, masks, glyph counters,
+sparse tiles, and disconnected image regions therefore remain transparent in
+both the live canvas and raster export. The visual fixture
+`content-aware-strokes` covers text, a transparent image fill, and a sparse
+raster layer at 1×, 2×, and 3× device scale.
 
 ## Render invariants (Session 45)
 

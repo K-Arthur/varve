@@ -71,7 +71,8 @@ import { sitePath } from '../../lib/siteUrl';
           <li>Apply transform via <code>setTransform()</code></li>
           <li>Set opacity via <code>globalAlpha</code></li>
           <li>Draw fills (solid: <code>fillRect</code>, <code>arc</code>, <code>roundRect</code>; gradient: <code>createLinearGradient</code>, <code>createRadialGradient</code>, <code>createConicGradient</code>; image: <code>drawImage</code>)</li>
-          <li>Draw strokes with full dash/cap/join/weight styling</li>
+          <li>Draw vector strokes with full dash/cap/join/weight styling</li>
+          <li>For text, image fills, raster layers, and warped images, derive the stroke from rendered alpha so glyphs, transparent holes, masks, crops, and sparse pixels remain accurate</li>
           <li>Render effects (shadows via <code>shadowColor</code>/<code>shadowBlur</code>/<code>shadowOffsetX/Y</code>; blurs via <code>filter</code>)</li>
           <li>Render text via <code>fillText</code> with <code>font</code> and <code>textBaseline</code></li>
           <li>Render path text with per-glyph transform</li>

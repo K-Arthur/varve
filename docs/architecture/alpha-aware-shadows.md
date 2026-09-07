@@ -1,6 +1,6 @@
 # Alpha-Aware Shadows and Effects Pipeline
 
-**Date:** 2026-08-02 | **Status:** Implemented
+**Updated:** 2026-09-07 | **Status:** Implemented
 
 Companion to [`effect-rendering.md`](effect-rendering.md) (pass structure and
 canonical schema). This document covers how drop/inner shadows and glows are
@@ -45,6 +45,29 @@ target context in opaque black:
 `createEffectBuffer`) from `replay.ts`. This keeps `shadowSource.ts` a leaf
 module (no import cycle) and keeps `replay.ts` under its cyclomatic-complexity
 ceiling.
+
+## Alpha-aware strokes
+
+Strokes use the same rendered-alpha distinction when the visible content is
+not the primitive outline. `packages/engine/src/alphaStroke.ts` renders the
+source into a bounded offscreen buffer, expands or contracts its alpha, and
+tints the resulting band with the authored stroke paint. This covers:
+
+- text glyphs, including counters and antialiased edges;
+- image fills, including transparent pixels, internal holes, crops, and masks;
+- raster layers and warped images, including sparse or disconnected alpha.
+
+Inside, center, and outside alignment are preserved, and solid or gradient
+stroke paint is applied to the resulting silhouette. Vector primitives keep
+Canvas2D's native dash, cap, join, and miter behavior. An alpha silhouette has
+no single centerline, so those centerline controls do not apply to text or
+raster-backed strokes; their weight, color, alignment, transparency, holes,
+and disconnected components do.
+
+The alpha-stroke module receives its renderer through `AlphaStrokeOps`, so the
+source uses the same image placement, text layout, masks, and raster tiles as
+the visible replay. This keeps live Canvas2D replay and raster export on the
+same path without importing the replay hub into the leaf module.
 
 ### Drop shadow / outer glow: shadow-only compositing
 
@@ -169,8 +192,9 @@ and thumbnails reuse it, so live canvas and exported pixels agree. CSS
 
 - **Raster (PNG/JPEG/WebP)**: uses the same `flattenSceneToEngine` →
   `buildIr` → `replayStructuredScene` pipeline, so alpha-aware shadows are
-  pixel-identical to the live canvas. "Visual" export bounds include effect
-  padding so the blur fringe is not clipped.
+  pixel-identical to the live canvas. Alpha-aware strokes use the same replay
+  path, including text glyphs and transparent image/raster pixels. "Visual"
+  export bounds include effect padding so the blur fringe is not clipped.
 - **SVG / HTML codegen**: `buildEffectSpec` maps scene `x/y/blur` → codegen
   `offsetX/offsetY/radius` (previously read non-existent `offsetX` fields,
   emitting zero-size shadows). SVG does not emit native filters for shadow
@@ -231,8 +255,9 @@ Playwright E2E against the live canvas and by exporting through the same
 
 - Buffer allocations are bounded by content size + `blur*3 + spread/2`
   (≤ 2048px pad). Malformed documents cannot grow allocations.
-- The silhouette path is only taken for raster, text, and stroke-only items;
-  solid/gradient shapes keep the fast geometric path.
+- Alpha-silhouette buffers are used for raster-backed and text strokes, plus
+  alpha-derived shadows. Solid/gradient vector shapes keep the fast geometric
+  stroke and shadow paths.
 - The engine benchmark suite (`packages/engine/src/bench/`) and the canvas
   perf harnesses (see `docs/perf/`) measure replay cost; per-item effect
   compositing is covered by `replay-fill.test.ts` timing expectations.
@@ -242,6 +267,10 @@ Playwright E2E against the live canvas and by exporting through the same
 - **Shadow looks rectangular around a PNG**: confirm the item is an image fill
   (not a solid fill) and the image is loaded in `imageCache`; the silhouette
   path requires the image bitmap.
+- **Stroke looks rectangular around text or a transparent image**: confirm the
+  stroke is visible and the image has loaded. Text, image fills, raster layers,
+  and warped images use the alpha-silhouette stroke path; a rectangular result
+  indicates a replay regression.
 - **Shadow wrong after background removal**: the `alphaMask` on the image fill
   must be resolvable in `getImageCache`; check `renderMaskedImageSample`.
 - **Export differs from canvas**: both use `replayStructuredScene`; differences
