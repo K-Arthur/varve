@@ -214,6 +214,17 @@ test.describe('Font selector', () => {
     await dialog.locator('.font-browser__select-btn').first().click();
     await expect(dialog.locator('.font-browser__details h3')).toBeVisible();
     await expect(dialog.getByLabel('Preview text')).toBeVisible();
+    const specimenGeometry = await dialog.locator('.font-browser__specimen').evaluate((element) => {
+      const specimen = element.getBoundingClientRect();
+      const nextContent = element.nextElementSibling?.getBoundingClientRect();
+      return {
+        specimenBottom: specimen.bottom,
+        nextContentTop: nextContent?.top ?? specimen.bottom,
+      };
+    });
+    expect(specimenGeometry.specimenBottom).toBeLessThanOrEqual(
+      specimenGeometry.nextContentTop + 1,
+    );
     await expect(dialog.locator('.font-browser__list-heading strong')).toBeVisible();
     await expect(dialog.locator('.font-browser__list')).toBeVisible();
     await page.screenshot({

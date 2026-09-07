@@ -519,15 +519,19 @@
 }
 
 .font-browser__specimen {
+  flex: 0 0 auto;
   min-height: 6rem;
+  max-height: 12rem;
   padding: var(--space-3);
-  overflow-wrap: anywhere;
+  overflow: auto;
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control);
   background: var(--color-surface-raised);
   color: var(--color-text-primary);
-  font-size: clamp(1.75rem, 3vw, 2.75rem);
+  font-size: clamp(1.25rem, 3vw, 2.25rem);
   line-height: 1.15;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .font-browser__specimen--fallback {
@@ -536,7 +540,7 @@
 
 .font-browser__preview-note,
 .font-browser__error {
-  margin: calc(var(--space-2) * -1) 0 0;
+  margin: 0;
   color: var(--color-text-muted);
   font-size: var(--font-size-2xs);
   line-height: 1.45;
