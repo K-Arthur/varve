@@ -4,11 +4,13 @@ import {
   animateCamera,
   type Camera,
   centerBoundsCamera,
+  centerBoundsCameraWithRotation,
   clampCamera,
   clampZoom,
   clientToCanvas,
   computeFloatingOrigin,
   fitBoundsCamera,
+  fitBoundsCameraWithRotation,
   fitZoom,
   isRectInView,
   isWorldRectInViewport,
@@ -18,6 +20,7 @@ import {
   MIN_ZOOM,
   resetViewRotation,
   revealBoundsCamera,
+  revealBoundsCameraWithRotation,
   rotateAboutScreenPoint,
   screenDeltaToWorld,
   screenToWorld,
@@ -218,6 +221,62 @@ describe('fitBoundsCamera', () => {
     const screenCentre: [number, number] = [960, 540];
     expect(c.pan.x).toBeCloseTo(screenCentre[0] - worldCentre[0] * expectedZoom, 2);
     expect(c.pan.y).toBeCloseTo(screenCentre[1] - worldCentre[1] * expectedZoom, 2);
+  });
+});
+
+describe('rotation-preserving navigation cameras', () => {
+  it('centers the target at the viewport center without changing rotation', () => {
+    const rotation = Math.PI / 5;
+    const c = centerBoundsCameraWithRotation(
+      { x: 100, y: -80, w: 400, h: 260 },
+      vp,
+      2.25,
+      rotation,
+    );
+    const center = [300, 50] as const;
+    const screen = worldToScreen(c, center[0], center[1], vp);
+    expect(screen[0]).toBeCloseTo(vp.width / 2, 8);
+    expect(screen[1]).toBeCloseTo(vp.height / 2, 8);
+    expect(c.rotation).toBe(rotation);
+    expect(c.zoom).toBe(2.25);
+  });
+
+  it('fits the rotated projected bounds while preserving zoom and rotation semantics', () => {
+    const rotation = Math.PI / 4;
+    const rect = { x: 100, y: 50, w: 400, h: 200 };
+    const c = fitBoundsCameraWithRotation(rect, vp, rotation, 40);
+    const corners = [
+      [rect.x, rect.y],
+      [rect.x + rect.w, rect.y],
+      [rect.x, rect.y + rect.h],
+      [rect.x + rect.w, rect.y + rect.h],
+    ] as const;
+    const projected = corners.map(([x, y]) => worldToScreen(c, x, y, vp));
+    const width = Math.max(...projected.map(([x]) => x)) - Math.min(...projected.map(([x]) => x));
+    const height =
+      Math.max(...projected.map(([, y]) => y)) - Math.min(...projected.map(([, y]) => y));
+    expect(width).toBeLessThanOrEqual(vp.width - 80 + 1e-6);
+    expect(height).toBeLessThanOrEqual(vp.height - 80 + 1e-6);
+    expect(c.rotation).toBe(rotation);
+  });
+
+  it('reveals an off-screen target with a pan only', () => {
+    const rotation = Math.PI / 6;
+    const start = { ...cam(0, 0, 1.5), rotation };
+    const target = { x: 1800, y: 700, w: 120, h: 80 };
+    const end = revealBoundsCameraWithRotation(start, vp, target, 40);
+    expect(end.zoom).toBe(start.zoom);
+    expect(end.rotation).toBe(rotation);
+    expect(end.pan).not.toEqual(start.pan);
+    const points = [
+      [target.x, target.y],
+      [target.x + target.w, target.y],
+      [target.x, target.y + target.h],
+      [target.x + target.w, target.y + target.h],
+    ] as const;
+    const projected = points.map(([x, y]) => worldToScreen(end, x, y, vp));
+    expect(Math.min(...projected.map(([x]) => x))).toBeGreaterThanOrEqual(40 - 1e-6);
+    expect(Math.min(...projected.map(([, y]) => y))).toBeGreaterThanOrEqual(40 - 1e-6);
   });
 });
 

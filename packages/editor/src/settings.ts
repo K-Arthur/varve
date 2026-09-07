@@ -120,8 +120,18 @@ export interface SectionSettingsStore {
 
 export interface LayersSettingsStore {
   autoReveal: boolean;
+  /** Camera behavior after a deliberate, unmodified Layers-row activation. */
+  selectionNavigation: LayerSelectionNavigationMode;
   marqueeContainment: boolean;
 }
+
+/**
+ * How selecting a layer from the Layers panel affects the canvas camera.
+ *
+ * `autoReveal` intentionally remains a separate preference: it controls the
+ * reverse canvas-selection → Layers-tree synchronization only.
+ */
+export type LayerSelectionNavigationMode = 'select-only' | 'reveal' | 'center' | 'fit';
 
 export interface GeneralSettingsStore {
   language: string;
@@ -297,6 +307,7 @@ export const STARTUP_PERFORMANCE_BUDGET = {
 
 export const DEFAULT_LAYERS_SETTINGS: LayersSettingsStore = {
   autoReveal: true,
+  selectionNavigation: 'select-only',
   marqueeContainment: false,
 };
 
@@ -466,7 +477,7 @@ export function loadSettings(): EditorSettings {
         DEFAULT_PERFORMANCE_SETTINGS,
         parsed.performance as Partial<PerformanceSettingsStore>,
       ),
-      layers: mergePartial(DEFAULT_LAYERS_SETTINGS, parsed.layers as Partial<LayersSettingsStore>),
+      layers: normalizeLayersSettings(parsed.layers as Partial<LayersSettingsStore>),
       collab: mergePartial(DEFAULT_COLLAB_SETTINGS, parsed.collab as Partial<CollabSettingsStore>),
       ai: mergePartial(DEFAULT_AI_SETTINGS, parsed.ai as Partial<AiSettingsStore>),
       privacy,
@@ -498,6 +509,21 @@ export function loadSettings(): EditorSettings {
       features: { ...DEFAULT_FEATURES },
     };
   }
+}
+
+function normalizeLayersSettings(
+  partial: Partial<LayersSettingsStore> | undefined,
+): LayersSettingsStore {
+  const layers = mergePartial(DEFAULT_LAYERS_SETTINGS, partial);
+  if (
+    layers.selectionNavigation !== 'select-only' &&
+    layers.selectionNavigation !== 'reveal' &&
+    layers.selectionNavigation !== 'center' &&
+    layers.selectionNavigation !== 'fit'
+  ) {
+    layers.selectionNavigation = DEFAULT_LAYERS_SETTINGS.selectionNavigation;
+  }
+  return layers;
 }
 
 export function saveSettings(settings: EditorSettings): void {

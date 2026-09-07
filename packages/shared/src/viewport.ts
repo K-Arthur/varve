@@ -285,6 +285,88 @@ export function centerBoundsCamera(worldRect: Rect, viewport: Viewport, zoom: nu
   };
 }
 
+/** Center a world AABB while preserving the current view rotation. */
+export function centerBoundsCameraWithRotation(
+  worldRect: Rect,
+  viewport: Viewport,
+  zoom: number,
+  rotation: number,
+): Camera {
+  const cx = worldRect.x + worldRect.w / 2;
+  const cy = worldRect.y + worldRect.h / 2;
+  const viewportCx = viewport.width / 2;
+  const viewportCy = viewport.height / 2;
+  const cos = Math.cos(rotation);
+  const sin = Math.sin(rotation);
+  const rotatedX = cos * (cx * zoom - viewportCx) - sin * (cy * zoom - viewportCy);
+  const rotatedY = sin * (cx * zoom - viewportCx) + cos * (cy * zoom - viewportCy);
+  return {
+    pan: { x: viewportCx - viewportCx - rotatedX, y: viewportCy - viewportCy - rotatedY },
+    zoom,
+    rotation,
+  };
+}
+
+/** Fit a world AABB without resetting the user's non-destructive view rotation. */
+export function fitBoundsCameraWithRotation(
+  worldRect: Rect,
+  viewport: Viewport,
+  rotation: number,
+  padding: number = DEFAULT_REVEAL_PADDING,
+  maxZoom: number = DEFAULT_REVEAL_MAX_ZOOM,
+): Camera {
+  const absCos = Math.abs(Math.cos(rotation));
+  const absSin = Math.abs(Math.sin(rotation));
+  const projected = {
+    x: 0,
+    y: 0,
+    w: worldRect.w * absCos + worldRect.h * absSin,
+    h: worldRect.w * absSin + worldRect.h * absCos,
+  };
+  const zoom = fitZoom(projected, viewport, padding, maxZoom);
+  return centerBoundsCameraWithRotation(worldRect, viewport, zoom, rotation);
+}
+
+/**
+ * Reveal a world AABB with a screen-space pan while preserving zoom/rotation.
+ * Projected corners are used so rotated views do not reveal the wrong edge.
+ */
+export function revealBoundsCameraWithRotation(
+  cam: Camera,
+  viewport: Viewport,
+  worldRect: Rect,
+  padding: number = DEFAULT_REVEAL_PADDING,
+): Camera {
+  const origin = computeFloatingOrigin(cam, viewport);
+  const corners: Point[] = [
+    [worldRect.x, worldRect.y],
+    [worldRect.x + worldRect.w, worldRect.y],
+    [worldRect.x, worldRect.y + worldRect.h],
+    [worldRect.x + worldRect.w, worldRect.y + worldRect.h],
+  ];
+  const projected = corners.map(([x, y]) => worldToScreen(cam, x, y, viewport, origin));
+  const minX = Math.min(...projected.map(([x]) => x));
+  const minY = Math.min(...projected.map(([, y]) => y));
+  const maxX = Math.max(...projected.map(([x]) => x));
+  const maxY = Math.max(...projected.map(([, y]) => y));
+  const usableW = Math.max(1, viewport.width - padding * 2);
+  const usableH = Math.max(1, viewport.height - padding * 2);
+  if (
+    minX >= padding &&
+    minY >= padding &&
+    maxX <= padding + usableW &&
+    maxY <= padding + usableH
+  ) {
+    return cam;
+  }
+
+  const dx =
+    minX < padding ? padding - minX : maxX > padding + usableW ? padding + usableW - maxX : 0;
+  const dy =
+    minY < padding ? padding - minY : maxY > padding + usableH ? padding + usableH - maxY : 0;
+  return { ...cam, pan: { x: cam.pan.x + dx, y: cam.pan.y + dy } };
+}
+
 export function fitBoundsCamera(
   worldRect: Rect,
   viewport: Viewport,

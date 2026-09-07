@@ -21,6 +21,8 @@ describe('loadSettings', () => {
     expect(s.performance.reducedMotionOverride).toBe('system');
     expect(s.performance.showPerformanceDiagnostics).toBe(false);
     expect(s.panel.minimapVisible).toBe(true);
+    expect(s.layers.autoReveal).toBe(true);
+    expect(s.layers.selectionNavigation).toBe('select-only');
     expect(s.privacy.usageAnalytics).toBe('unknown');
     expect(s.privacy.diagnostics).toBe('unknown');
   });
@@ -147,6 +149,26 @@ describe('loadSettings', () => {
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ panel: { leftPanelVisible: false } }));
     expect(loadSettings().panel.minimapVisible).toBe(true);
+  });
+
+  it('normalizes the layer navigation mode and keeps reverse auto-reveal separate', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        layers: { autoReveal: false, selectionNavigation: 'fit' },
+      }),
+    );
+    expect(loadSettings().layers).toMatchObject({
+      autoReveal: false,
+      selectionNavigation: 'fit',
+    });
+
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ layers: { selectionNavigation: 'jump-to-selection' } }),
+    );
+    expect(loadSettings().layers.selectionNavigation).toBe('select-only');
+    expect(loadSettings().layers.autoReveal).toBe(true);
   });
 });
 
