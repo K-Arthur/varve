@@ -86,6 +86,12 @@ for CSS filter semantics, not a claim of measured CPU/CSS agreement.
 - The post-checkpoint `pnpm verify:plan` reports the unrelated checkout closure separately; the effects commits themselves are clean. `VARVE_TEST_WORKERS=1 VARVE_E2E_WORKERS=1 pnpm verify:affected` stopped at Tier 0 because concurrent website/UI files fail formatter/import-order checks (`apps/website/src/lib/changelog.ts`, `apps/website/src/test/changelog.test.ts`, and `packages/ui/src/components/Tabs.tsx`). Those files were not changed by this task.
 - Engine typecheck reaches an unrelated concurrent fixture error in `src/replay-image-fill.test.ts` (missing image `x`, `y`, and `scale`); no candidate source error is reported. Editor typecheck was previously blocked by the same concurrent registry edit and is rerun after the next checkpoint.
 - `pnpm --filter @varve/editor typecheck` now passes after the concurrent minimap fixture repair. `pnpm --filter @varve/website typecheck` passes with five existing generated/unused-symbol hints and no errors. `pnpm --filter @varve/scene typecheck` passes.
+- Vector Effect Studio entry-point coverage now includes the Photo workspace's
+  raster-only Adjustments tab: a selected Pen path keeps an **Open Effect
+  Studio** action, applies the Reticulation recipe, changes the rendered
+  result, and remains a path after the dialog closes. The focused Playwright
+  run also captures the repaired launcher state in
+  `effect-studio-vector-adjustments-chromium-linux.png`.
 - `node scripts/audit-architecture.mjs --ci` completed its graph scan but reports existing shared/engine/scene/editor cycles and instability above the committed orientation values; no new hub import was added by these effects changes. It is retained as an integration follow-up while concurrent history/UI work settles.
 - Regression audits and the broad affected closure: pending while concurrent history/background-removal lanes finish.
 - Full suite: not run. No release or platform certification claimed.

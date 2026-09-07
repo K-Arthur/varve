@@ -1,7 +1,8 @@
-import { isImageShape } from '@varve/scene';
+import { canHaveSmartFilters, isImageShape } from '@varve/scene';
 import { EmptyState } from '@varve/ui';
 import { useEditor } from '../../../context';
 import { AdjustmentPanel } from '../../AdjustmentLayer/AdjustmentPanel';
+import { EffectStudioLauncher } from '../../EffectStudio/EffectStudioLauncher';
 import { AIDenoiseSection } from '../sections/AIDenoiseSection';
 import { BackgroundRemovalSection } from '../sections/BackgroundRemovalSection';
 import { BlendImagesSection } from '../sections/BlendImagesSection';
@@ -40,6 +41,11 @@ export function AdjustmentsPanel() {
           nodes.length === 0
             ? 'Use Image Tuning for a selected raster image. Select an Adjustment Layer to edit a scoped correction, or create one from Properties or Object.'
             : 'Use Effect Studio for object-local creative treatments. For a shared raster-and-vector correction, add an Adjustment Layer from Properties or Object.'
+        }
+        actions={
+          nodes.length > 0 && nodes.every(canHaveSmartFilters) ? (
+            <EffectStudioLauncher label="Open Effect Studio" />
+          ) : undefined
         }
       />
     );

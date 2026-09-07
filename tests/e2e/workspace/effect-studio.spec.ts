@@ -37,6 +37,11 @@ async function createSelectedVectorPath(page: Page) {
   await expect(page.getByTestId('open-effect-studio')).toBeVisible({ timeout: 30_000 });
 }
 
+async function switchToPhotoWorkspace(page: Page) {
+  await page.keyboard.press('Control+Shift+4');
+  await expect(page.getByRole('radio', { name: /^Photo workspace$/ })).toBeChecked();
+}
+
 test.describe('Effect Studio dialog', () => {
   test('keeps the inspector compact and tunes a treatment in the primary editor', async ({
     page,
@@ -165,6 +170,73 @@ test.describe('Effect Studio dialog', () => {
     await expect(studio.getByTestId('effect-studio-preview-stage')).toHaveScreenshot(
       'effect-studio-vector-path-before-after.png',
       { maxDiffPixels: 200 },
+    );
+  });
+
+  test('applies a curated treatment to a Pen vector path without flattening it', async ({
+    page,
+  }) => {
+    await navigateToCleanEditor(page);
+    await createSelectedVectorPath(page);
+
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    const before = await canvas.evaluate((element) => (element as HTMLCanvasElement).toDataURL());
+
+    await page.getByTestId('open-effect-studio').click();
+    const studio = page.getByTestId('effect-studio-dialog');
+    await expect(studio).toBeVisible({ timeout: 30_000 });
+    await studio.getByRole('searchbox', { name: 'Search treatments' }).fill('reticulation');
+    await studio.getByRole('button', { name: 'Apply Reticulation' }).click();
+
+    const applied = studio.getByRole('list', { name: 'Applied treatments' });
+    await expect(applied).toContainText('Reticulation');
+    await expect(applied).toContainText('2 derived effects');
+    await expect(studio.getByText(/raster \+ vector/i)).toBeVisible();
+
+    await page.waitForTimeout(250);
+    const after = await canvas.evaluate((element) => (element as HTMLCanvasElement).toDataURL());
+    expect(after).not.toBe(before);
+
+    await studio.getByRole('button', { name: 'Close dialog' }).click();
+    await expect(page.getByRole('treeitem').first()).toContainText(/path|vector shape/i);
+    await expect(page.getByTestId('open-effect-studio')).toBeVisible();
+  });
+
+  test('keeps Effect Studio reachable from the raster-only Adjustments tab for vectors', async ({
+    page,
+  }) => {
+    await navigateToCleanEditor(page);
+    await switchToPhotoWorkspace(page);
+    await createSelectedVectorPath(page);
+
+    const initialStudio = page.getByTestId('effect-studio-dialog');
+    await page.getByTestId('open-effect-studio').click();
+    await expect(initialStudio).toBeVisible({ timeout: 30_000 });
+    await initialStudio.getByRole('searchbox', { name: 'Search treatments' }).fill('reticulation');
+    await initialStudio.getByRole('button', { name: 'Apply Reticulation' }).click();
+    await expect(initialStudio.getByRole('list', { name: 'Applied treatments' })).toContainText(
+      'Reticulation',
+    );
+    await initialStudio.getByRole('button', { name: 'Close dialog' }).click();
+
+    const adjustmentsTab = page
+      .locator('[role="tablist"] [role="tab"]')
+      .filter({ hasText: /^Adjustments$/i });
+    await expect(adjustmentsTab).toBeVisible();
+    await adjustmentsTab.click();
+    await expect(page.getByText('Image Tuning is raster-only')).toBeVisible();
+
+    const launcher = page.getByRole('button', { name: 'Open Effect Studio' });
+    await expect(launcher).toBeVisible();
+    await expect(page.locator('[data-panel="inspector"]')).toHaveScreenshot(
+      'effect-studio-vector-adjustments.png',
+      { maxDiffPixels: 300 },
+    );
+    await launcher.click();
+    const reopenedStudio = page.getByTestId('effect-studio-dialog');
+    await expect(reopenedStudio).toBeVisible();
+    await expect(reopenedStudio.getByRole('list', { name: 'Applied treatments' })).toContainText(
+      'Reticulation',
     );
   });
 });

@@ -667,6 +667,10 @@ export function EffectStudioSection({
         return;
       }
       const singleInstanceId = nodes.length === 1 ? cryptoId() : undefined;
+      // Applying a recipe is one user-visible edit even when several vectors
+      // are selected. Keep it in the same transaction path as preview/commit
+      // so local undo and persistent history both capture the original stack.
+      beginTransaction();
       updateNodes(
         nodes.map((selectedNode) => ({
           id: selectedNode.id,
@@ -674,6 +678,7 @@ export function EffectStudioSection({
             appendStudioTreatment(current, treatment, controls, singleInstanceId ?? cryptoId()),
         })),
       );
+      commitTransaction();
       if (singleInstanceId) {
         setTuning((active) =>
           active?.treatmentId === treatment.id
@@ -684,7 +689,16 @@ export function EffectStudioSection({
       updateRecents(treatment.id);
       announce(`Applied treatment ${treatment.name}`);
     },
-    [announce, commitPreview, nodes, previewTreatment, updateNodes, updateRecents],
+    [
+      announce,
+      beginTransaction,
+      commitPreview,
+      commitTransaction,
+      nodes,
+      previewTreatment,
+      updateNodes,
+      updateRecents,
+    ],
   );
 
   const openTreatmentTuning = useCallback(

@@ -44,6 +44,9 @@ update, not for someone reading the commit log.
   browser reopen.
 - Effect catalog metadata now uses operation-specific ranges and explicit
   colour parameter keys instead of inferring semantics from array shape.
+- Vector selections in the Photo workspace's Adjustments tab now retain a
+  direct **Open Effect Studio** action, and applying a Studio recipe remains a
+  single undoable transaction without flattening the vector.
 
 ## [0.2.1] - 2026-08-24
 

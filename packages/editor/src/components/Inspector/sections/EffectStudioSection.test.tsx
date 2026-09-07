@@ -210,6 +210,8 @@ describe('EffectStudioSection', () => {
       'blackAndWhite',
       'halftone',
     ]);
+    expect(beginTransaction).toHaveBeenCalledTimes(1);
+    expect(commitTransaction).toHaveBeenCalledTimes(1);
   });
 
   it('previews, commits, replaces, and cancels without creating extra stack commands', () => {
