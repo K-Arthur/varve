@@ -11,12 +11,30 @@ export interface FontBrowserDialogProps {
   open: boolean;
   onClose: () => void;
   onSelect?: (family: string) => void;
+  selectedFamily?: string;
 }
 
-export function FontBrowserDialog({ open, onClose, onSelect }: FontBrowserDialogProps) {
+export function FontBrowserDialog({
+  open,
+  onClose,
+  onSelect,
+  selectedFamily,
+}: FontBrowserDialogProps) {
   return (
-    <Dialog open={open} onClose={onClose} title="Browse fonts">
-      <FontBrowser showDownloadable onSelect={onSelect} />
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Browse fonts"
+      size="lg"
+      focusFirstControl
+      className="font-browser-dialog"
+    >
+      <FontBrowser
+        layout="modal"
+        showDownloadable
+        selectedFamily={selectedFamily}
+        onSelect={onSelect}
+      />
     </Dialog>
   );
 }

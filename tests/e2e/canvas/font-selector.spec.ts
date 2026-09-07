@@ -190,4 +190,66 @@ test.describe('Font selector', () => {
       fullPage: true,
     });
   });
+
+  test('finds gothic families without unrelated filler and keeps inspection stable', async ({
+    page,
+  }) => {
+    await page.keyboard.press('t');
+    await dragOnCanvas(page, 200, 200, 400, 250);
+    await expect(page.getByRole('treeitem').first()).toContainText(/text/i, { timeout: 10000 });
+
+    await page.getByRole('button', { name: 'Browse fonts' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Browse fonts' });
+    const search = dialog.getByRole('searchbox', {
+      name: 'Search fonts by name or design language',
+    });
+    await expect(search).toBeFocused();
+    await search.fill('gothic');
+
+    const names = await dialog.locator('.font-browser__preview').allTextContents();
+    expect(names.length).toBeGreaterThan(0);
+    expect(names.every((name) => /gothic/i.test(name))).toBe(true);
+    await expect(dialog.getByText('Adamina', { exact: true })).toHaveCount(0);
+
+    await dialog.locator('.font-browser__select-btn').first().click();
+    await expect(dialog.locator('.font-browser__details h3')).toBeVisible();
+    await expect(dialog.getByLabel('Preview text')).toBeVisible();
+    await expect(dialog.locator('.font-browser__list-heading strong')).toBeVisible();
+    await expect(dialog.locator('.font-browser__list')).toBeVisible();
+    await page.screenshot({
+      path: test.info().outputPath('font-browser-gothic-inspection.png'),
+      fullPage: true,
+    });
+  });
+
+  test('keeps the browser readable across themes at a compact viewport', async ({ page }) => {
+    await page.keyboard.press('t');
+    await dragOnCanvas(page, 120, 160, 360, 220);
+    await expect(page.getByRole('treeitem').first()).toContainText(/text/i, { timeout: 10000 });
+    await page.getByRole('button', { name: 'Browse fonts' }).click();
+
+    const dialog = page.getByRole('dialog', { name: 'Browse fonts' });
+    await page.setViewportSize({ width: 540, height: 640 });
+    for (const theme of ['light', 'dark', 'high-contrast']) {
+      await page.evaluate((nextTheme) => {
+        document.documentElement.dataset.theme = nextTheme;
+      }, theme);
+
+      await expect(dialog).toBeVisible();
+      const layout = await dialog.locator('.font-browser').evaluate((element) => ({
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+        clientHeight: element.clientHeight,
+        scrollHeight: element.scrollHeight,
+      }));
+      expect(layout.scrollWidth).toBeLessThanOrEqual(layout.clientWidth);
+      expect(layout.scrollHeight).toBeLessThanOrEqual(layout.clientHeight);
+      await expect(dialog.getByRole('searchbox')).toBeVisible();
+      await expect(dialog.getByRole('tablist')).toBeVisible();
+      await page.screenshot({
+        path: test.info().outputPath(`font-browser-${theme}.png`),
+        fullPage: true,
+      });
+    }
+  });
 });

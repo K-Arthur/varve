@@ -437,7 +437,7 @@ export function PropertiesPanel() {
       )}
       {tab === 'fonts' && (
         <LazyTabPanel tab={tab} label={getInspectorTabDefinition(tab, effectiveConfig)?.label}>
-          <FontBrowserPanel onSelect={() => {}} />
+          <FontBrowserPanel />
         </LazyTabPanel>
       )}
       {tab === 'email' && (

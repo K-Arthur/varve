@@ -18,7 +18,8 @@ import {
   tagLabel,
 } from '@varve/engine/font';
 import { Icon, SearchField, Tooltip } from '@varve/ui';
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState, useSyncExternalStore } from 'react';
+import { FontLicenseDetails } from './FontLicenseDetails';
 import { downloadAndApplyOnlineFont } from './useOnlineFontSearch';
 import './FontBrowser.css';
 
@@ -27,6 +28,7 @@ export interface FontBrowserProps {
   selectedFamily?: string;
   showDownloadable?: boolean;
   maxHeight?: number;
+  layout?: 'panel' | 'modal';
 }
 
 type SourceFilter = 'all' | 'system' | 'bundled' | 'project' | 'recent' | 'favorites';
@@ -49,7 +51,7 @@ interface FontFaceEntry {
 
 interface FontDisplayEntry {
   record: FontSemanticRecord;
-  result?: FontSearchResult;
+  result: FontSearchResult;
   faces: FontFaceEntry[];
 }
 
@@ -100,6 +102,18 @@ function sourceBadge(record: FontSemanticRecord): string {
   return 'Get';
 }
 
+function sourceLabel(record: FontSemanticRecord): string {
+  if (record.sourceKinds.includes('system')) return 'System font';
+  if (record.sourceKinds.includes('bundled')) return 'Bundled with Varve';
+  if (record.sourceKinds.includes('user')) return 'Installed by you';
+  if (record.sourceKinds.includes('project')) return 'In this project';
+  return 'Fontsource catalog';
+}
+
+function fontStack(family: string): string {
+  return `"${family.replaceAll('"', '')}", sans-serif`;
+}
+
 function descriptors(record: FontSemanticRecord): string[] {
   return [
     ...new Map(
@@ -139,7 +153,8 @@ export function FontBrowser({
   onSelect,
   selectedFamily: selectedFamilyProp,
   showDownloadable = false,
-  maxHeight = 400,
+  maxHeight,
+  layout = 'panel',
 }: FontBrowserProps) {
   const semantic = useMemo(() => getFontSemanticCatalog(), []);
   const registry = useMemo(() => getFontRegistry(), []);
@@ -154,6 +169,8 @@ export function FontBrowser({
   const [installingFamily, setInstallingFamily] = useState<string | null>(null);
   const [installError, setInstallError] = useState<string | null>(null);
   const [tagDraft, setTagDraft] = useState('');
+  const [previewText, setPreviewText] = useState('The quick brown fox jumps over the lazy dog');
+  const tagInputId = useId();
 
   useEffect(() => setSelectedFamily(selectedFamilyProp), [selectedFamilyProp]);
 
@@ -167,26 +184,36 @@ export function FontBrowser({
     () =>
       semantic.search(interpretation, {
         installedOnly: !showDownloadable,
-        limit: 80,
+        // Source tabs are applied after the semantic search because recent
+        // and favorite are user-state filters. Search the full local index for
+        // those tabs so a system font is never hidden by the first page of
+        // alphabetically-ranked catalog records.
+        limit: activeFilter === 'all' ? (effectiveQuery ? 240 : 200) : semantic.size,
         diversity: true,
       }),
-    [interpretation, semantic, semanticRevision, showDownloadable],
+    [activeFilter, effectiveQuery, interpretation, semantic, semanticRevision, showDownloadable],
   );
   const displayEntries = useMemo<FontDisplayEntry[]>(() => {
-    return searchResults
+    const entries = searchResults
       .filter((result) => showDownloadable || result.record.installed)
       .filter((result) => sourceMatches(result.record, activeFilter))
       .map((result) => ({
         record: result.record,
         result,
         faces: facesFor(result.record, registry),
-      }))
-      .sort((a, b) => a.record.familyName.localeCompare(b.record.familyName));
-  }, [activeFilter, registry, searchResults, showDownloadable]);
+      }));
+    if (effectiveQuery) return entries;
+    return entries.sort((a, b) => a.record.familyName.localeCompare(b.record.familyName));
+  }, [activeFilter, effectiveQuery, registry, searchResults, showDownloadable]);
 
   const selectedRecord = selectedFamily ? semantic.findByFamilyName(selectedFamily) : undefined;
   const selectedResult = selectedRecord
-    ? searchResults.find((result) => result.record.familyId === selectedRecord.familyId)
+    ? (searchResults.find((result) => result.record.familyId === selectedRecord.familyId) ??
+      semantic.search(selectedRecord.familyName, {
+        installedOnly: false,
+        limit: 1,
+        diversity: false,
+      })[0])
     : undefined;
   const recommendations = useMemo(() => {
     if (!selectedRecord) return undefined;
@@ -205,10 +232,13 @@ export function FontBrowser({
     (record: FontSemanticRecord) => {
       setSelectedFamily(record.familyName);
       semantic.markRecentlyUsed(record.familyId);
-      if (record.installed) onSelect?.(record.familyName);
     },
-    [onSelect, semantic],
+    [semantic],
   );
+
+  const applySelected = useCallback(() => {
+    if (selectedRecord?.installed) onSelect?.(selectedRecord.familyName);
+  }, [onSelect, selectedRecord]);
 
   const toggleExpand = useCallback((familyId: string) => {
     setExpandedFamilies((previous) => {
@@ -242,318 +272,447 @@ export function FontBrowser({
     setTagDraft('');
   }, [selectedRecord, semantic, tagDraft]);
 
+  const visibleHeight = maxHeight ?? (layout === 'modal' ? 620 : 400);
+  const resultCountLabel = effectiveQuery
+    ? `${displayEntries.length} ${displayEntries.length === 1 ? 'match' : 'matches'}`
+    : displayEntries.length < semantic.size && activeFilter === 'all'
+      ? `Showing ${displayEntries.length} of ${semantic.size} families`
+      : `${displayEntries.length} ${displayEntries.length === 1 ? 'family' : 'families'}`;
+
   return (
-    <div className="font-browser" style={{ maxHeight }}>
-      <SearchField
-        value={searchQuery}
-        onChange={setSearchQuery}
-        placeholder="Try “friendly rounded sans for UI”…"
-        aria-label="Search fonts by name or design language"
-        resultCount={displayEntries.length}
-      />
+    <div
+      className={`font-browser font-browser--${layout}`}
+      style={{ '--font-browser-max-height': `${visibleHeight}px` } as React.CSSProperties}
+    >
+      <div className="font-browser__toolbar">
+        <SearchField
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search family, foundry, or style…"
+          aria-label="Search fonts by name or design language"
+          data-autofocus
+          resultCount={displayEntries.length}
+        />
 
-      {effectiveQuery && (
-        <div
-          className="font-browser__interpretation"
-          role="status"
-          aria-label="Search interpretation"
-        >
-          <span className="font-browser__interpretation-label">Interpreted as</span>
-          {interpretation.chips.slice(0, 6).map((chip) => (
-            <span
-              key={`${chip.kind}-${chip.label}`}
-              className={`font-browser__chip font-browser__chip--${chip.kind}`}
-            >
-              {chip.label}
-            </span>
-          ))}
-          {interpretation.ambiguities.length > 0 && (
-            <span className="font-browser__ambiguity">Some terms are ambiguous</span>
-          )}
-        </div>
-      )}
-
-      <div className="font-browser__filters" role="radiogroup" aria-label="Font source filter">
-        {SOURCE_FILTERS.map((filter, index) => (
-          <label
-            key={filter.key}
-            className={`font-browser__filter-btn${activeFilter === filter.key ? ' font-browser__filter-btn--active' : ''}`}
+        {effectiveQuery && (
+          <div
+            className="font-browser__interpretation"
+            role="status"
+            aria-label="Search interpretation"
           >
-            <input
-              type="radio"
-              name="font-source-filter"
-              checked={activeFilter === filter.key}
-              aria-label={filter.label}
-              className="sr-only"
-              tabIndex={
-                index ===
-                Math.max(
-                  0,
-                  SOURCE_FILTERS.findIndex((item) => item.key === activeFilter),
-                )
-                  ? 0
-                  : -1
-              }
-              onChange={() => setActiveFilter(filter.key)}
-              onKeyDown={(event) => {
-                let nextIndex: number | undefined;
-                if (event.key === 'ArrowRight') nextIndex = (index + 1) % SOURCE_FILTERS.length;
-                if (event.key === 'ArrowLeft')
-                  nextIndex = (index - 1 + SOURCE_FILTERS.length) % SOURCE_FILTERS.length;
-                if (event.key === 'Home') nextIndex = 0;
-                if (event.key === 'End') nextIndex = SOURCE_FILTERS.length - 1;
-                if (nextIndex === undefined) return;
-                event.preventDefault();
-                const next = SOURCE_FILTERS[nextIndex];
-                if (!next) return;
-                setActiveFilter(next.key);
-                (
-                  event.currentTarget
-                    .closest('[role="radiogroup"]')
-                    ?.querySelectorAll<HTMLInputElement>('input[type="radio"]')[nextIndex] as
-                    | HTMLElement
-                    | undefined
-                )?.focus();
-              }}
-            />
-            <span>{filter.label}</span>
-          </label>
-        ))}
-      </div>
-
-      <label className="font-browser__semantic-filter">
-        <span>Refine</span>
-        <select
-          value={semanticFilter}
-          onChange={(event) => setSemanticFilter(event.target.value as SemanticFilter)}
-          aria-label="Semantic font filter"
-        >
-          {SEMANTIC_FILTERS.map((filter) => (
-            <option key={filter.key} value={filter.key}>
-              {filter.label}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <div className="font-browser__list">
-        {displayEntries.length === 0 && (
-          <div className="font-browser__empty">
-            <strong>No fonts match</strong>
-            <span>Try removing a hard requirement or search the installed catalog.</span>
+            <span className="font-browser__interpretation-label">Interpreted as</span>
+            {interpretation.chips.slice(0, 6).map((chip) => (
+              <span
+                key={`${chip.kind}-${chip.label}`}
+                className={`font-browser__chip font-browser__chip--${chip.kind}`}
+              >
+                {chip.label}
+              </span>
+            ))}
+            {interpretation.ambiguities.length > 0 && (
+              <span className="font-browser__ambiguity">Some terms are ambiguous</span>
+            )}
           </div>
         )}
-        {displayEntries.map(({ record, result, faces }) => {
-          const isSelected = selectedFamily === record.familyName;
-          const isExpanded = expandedFamilies.has(record.familyId);
-          const hasFaces = faces.length > 1;
-          const labels = descriptors(record);
-          return (
-            <div
-              key={record.familyId}
-              className={`font-browser__entry${isSelected ? ' font-browser__entry--selected' : ''}`}
+
+        <div className="font-browser__controls">
+          <div className="font-browser__filters" role="tablist" aria-label="Font source filter">
+            {SOURCE_FILTERS.map((filter) => (
+              <button
+                key={filter.key}
+                type="button"
+                role="tab"
+                aria-selected={activeFilter === filter.key}
+                className={`font-browser__filter-btn${activeFilter === filter.key ? ' font-browser__filter-btn--active' : ''}`}
+                onClick={() => setActiveFilter(filter.key)}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+          <label className="font-browser__semantic-filter">
+            <span>Refine</span>
+            <select
+              value={semanticFilter}
+              onChange={(event) => setSemanticFilter(event.target.value as SemanticFilter)}
+              aria-label="Semantic font filter"
             >
-              <div className="font-browser__row">
-                {hasFaces ? (
-                  <button
-                    type="button"
-                    className="font-browser__expand-btn"
-                    onClick={() => toggleExpand(record.familyId)}
-                    aria-expanded={isExpanded}
-                    aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${record.familyName} faces`}
-                  >
-                    <Icon name={isExpanded ? 'ChevronDown' : 'ChevronRight'} size={12} />
-                  </button>
-                ) : (
-                  <span className="font-browser__expand-placeholder" aria-hidden="true" />
-                )}
-                <button
-                  type="button"
-                  className="font-browser__select-btn"
-                  onClick={() => handleSelect(record)}
-                  aria-pressed={isSelected}
-                >
-                  <span
-                    className="font-browser__preview"
-                    style={{ fontFamily: `"${record.familyName.replaceAll('"', '')}", sans-serif` }}
-                  >
-                    {record.familyName}
-                  </span>
-                  {labels.length > 0 && (
-                    <span className="font-browser__descriptors">{labels.join(' · ')}</span>
-                  )}
-                </button>
-                <span className="font-browser__meta">
-                  <span className="font-browser__badge">{sourceBadge(record)}</span>
-                  {record.variable && (
-                    <span className="font-browser__badge font-browser__badge--var">Variable</span>
-                  )}
-                  {record.scripts.length > 1 && (
-                    <Tooltip label={`${record.scripts.length} writing systems in catalog metadata`}>
-                      <span className="font-browser__badge">{record.scripts.length} scripts</span>
-                    </Tooltip>
-                  )}
-                  {result?.status === 'unknown' && (
-                    <span className="font-browser__badge font-browser__badge--unknown">
-                      Unverified
-                    </span>
-                  )}
+              {SEMANTIC_FILTERS.map((filter) => (
+                <option key={filter.key} value={filter.key}>
+                  {filter.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div className="font-browser__workspace">
+        <section className="font-browser__results" aria-label="Font results">
+          <div className="font-browser__list-heading">
+            <div>
+              <strong>{effectiveQuery ? 'Search results' : 'Font families'}</strong>
+              <span>{resultCountLabel}</span>
+            </div>
+            <span className="font-browser__hint">Select a family to inspect</span>
+          </div>
+          <div className="font-browser__list">
+            {displayEntries.length === 0 && (
+              <div className="font-browser__empty">
+                <strong>
+                  {searchQuery ? `No fonts match “${searchQuery}”` : 'No fonts available'}
+                </strong>
+                <span>
+                  {searchQuery
+                    ? 'Try a different family name, style, or design term.'
+                    : 'Change the source filter or install a local font.'}
                 </span>
-                {record.downloadable && !record.installed && (
+              </div>
+            )}
+            {displayEntries.map(({ record, result, faces }) => {
+              const isSelected = selectedFamily === record.familyName;
+              const isExpanded = expandedFamilies.has(record.familyId);
+              const hasFaces = faces.length > 1;
+              const labels = descriptors(record);
+              return (
+                <div
+                  key={record.familyId}
+                  className={`font-browser__entry${isSelected ? ' font-browser__entry--selected' : ''}`}
+                >
+                  <div className="font-browser__row">
+                    {hasFaces ? (
+                      <button
+                        type="button"
+                        className="font-browser__expand-btn"
+                        onClick={() => toggleExpand(record.familyId)}
+                        aria-expanded={isExpanded}
+                        aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${record.familyName} faces`}
+                      >
+                        <Icon name={isExpanded ? 'ChevronDown' : 'ChevronRight'} size={12} />
+                      </button>
+                    ) : (
+                      <span className="font-browser__expand-placeholder" aria-hidden="true" />
+                    )}
+                    <button
+                      type="button"
+                      className="font-browser__select-btn"
+                      onClick={() => handleSelect(record)}
+                      aria-pressed={isSelected}
+                    >
+                      <span className="font-browser__row-copy">
+                        <span
+                          className="font-browser__preview"
+                          style={{ fontFamily: fontStack(record.familyName) }}
+                        >
+                          {record.familyName}
+                        </span>
+                        {labels.length > 0 && (
+                          <span className="font-browser__descriptors">{labels.join(' · ')}</span>
+                        )}
+                      </span>
+                    </button>
+                    <span className="font-browser__meta">
+                      <Tooltip label={sourceLabel(record)}>
+                        <span className="font-browser__badge">{sourceBadge(record)}</span>
+                      </Tooltip>
+                      {record.variable && (
+                        <span className="font-browser__badge font-browser__badge--var">
+                          Variable
+                        </span>
+                      )}
+                      {record.scripts.length > 1 && (
+                        <Tooltip
+                          label={`${record.scripts.length} writing systems in catalog metadata`}
+                        >
+                          <span className="font-browser__badge">
+                            {record.scripts.length} scripts
+                          </span>
+                        </Tooltip>
+                      )}
+                      {result.status === 'unknown' && (
+                        <span className="font-browser__badge font-browser__badge--unknown">
+                          Unverified
+                        </span>
+                      )}
+                    </span>
+                    {record.downloadable && !record.installed && (
+                      <button
+                        type="button"
+                        className="font-browser__install-btn"
+                        onClick={() => void installFamily(record)}
+                        disabled={installingFamily === record.familyId}
+                        aria-label={`Install ${record.familyName}`}
+                      >
+                        {installingFamily === record.familyId ? 'Installing…' : 'Install'}
+                      </button>
+                    )}
+                  </div>
+                  {isExpanded && hasFaces && (
+                    <div className="font-browser__faces">
+                      {faces.map((face) => (
+                        <button
+                          key={face.postScriptName}
+                          type="button"
+                          className="font-browser__face-row"
+                          onClick={() => handleSelect(record)}
+                        >
+                          <span className="font-browser__face-name">{face.postScriptName}</span>
+                          <span className="font-browser__face-meta">
+                            {face.weight} {face.style}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div className="font-browser__count">
+            {resultCountLabel}
+            {showDownloadable ? ' · local catalog' : ' · installed'}
+          </div>
+        </section>
+
+        <aside
+          className="font-browser__details"
+          aria-label={selectedRecord ? `${selectedRecord.familyName} details` : 'Font details'}
+        >
+          {selectedRecord ? (
+            <>
+              <div className="font-browser__details-header">
+                <div>
+                  <span className="font-browser__eyebrow">Selected family</span>
+                  <h3>{selectedRecord.familyName}</h3>
+                  <span>
+                    {selectedRecord.installed
+                      ? sourceLabel(selectedRecord)
+                      : 'Available to install'}
+                  </span>
+                </div>
+                <span
+                  className={`font-browser__availability${selectedRecord.installed ? ' font-browser__availability--installed' : ''}`}
+                >
+                  {selectedRecord.installed ? 'Ready to use' : 'Preview only'}
+                </span>
+              </div>
+
+              <label className="font-browser__specimen-label" htmlFor={`${tagInputId}-specimen`}>
+                Preview text
+                <input
+                  id={`${tagInputId}-specimen`}
+                  type="text"
+                  value={previewText}
+                  onChange={(event) => setPreviewText(event.target.value)}
+                  placeholder="Type a custom specimen…"
+                />
+              </label>
+              <div
+                className={`font-browser__specimen${selectedRecord.installed ? '' : ' font-browser__specimen--fallback'}`}
+                style={{ fontFamily: fontStack(selectedRecord.familyName) }}
+              >
+                {previewText || 'Type a custom specimen…'}
+              </div>
+              {!selectedRecord.installed && (
+                <p className="font-browser__preview-note">
+                  This family is in the local catalog. Install it to load the actual font and use it
+                  in the document.
+                </p>
+              )}
+
+              <dl className="font-browser__detail-grid">
+                <div>
+                  <dt>Source</dt>
+                  <dd>{sourceLabel(selectedRecord)}</dd>
+                </div>
+                <div>
+                  <dt>License</dt>
+                  <dd>
+                    {selectedRecord.licenseUrl ? (
+                      <a href={selectedRecord.licenseUrl} target="_blank" rel="noreferrer">
+                        {selectedRecord.license ?? 'View license'}
+                      </a>
+                    ) : (
+                      (selectedRecord.license ?? 'Not recorded')
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Styles</dt>
+                  <dd>{selectedRecord.styles.join(', ') || 'Not recorded'}</dd>
+                </div>
+                <div>
+                  <dt>Weights</dt>
+                  <dd>
+                    {selectedRecord.weights.length > 0
+                      ? selectedRecord.weights.join(', ')
+                      : 'Not recorded'}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Coverage</dt>
+                  <dd>
+                    {selectedRecord.scripts.length > 0
+                      ? selectedRecord.scripts.join(', ')
+                      : 'Not recorded'}
+                  </dd>
+                </div>
+                {(selectedRecord.designer || selectedRecord.foundry || selectedRecord.vendor) && (
+                  <div>
+                    <dt>Designer</dt>
+                    <dd>
+                      {selectedRecord.designer ?? selectedRecord.foundry ?? selectedRecord.vendor}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+
+              <div className="font-browser__detail-tags">
+                {descriptors(selectedRecord).map((label) => (
+                  <span key={label} className="font-browser__detail-tag">
+                    {label}
+                  </span>
+                ))}
+                {selectedRecord.userTags.map((tag) => (
+                  <span
+                    key={`user-${tag}`}
+                    className="font-browser__detail-tag font-browser__detail-tag--user"
+                  >
+                    Your tag: {tag}
+                  </span>
+                ))}
+              </div>
+
+              <div className="font-browser__detail-actions">
+                {selectedRecord.downloadable && !selectedRecord.installed && (
                   <button
                     type="button"
-                    className="font-browser__install-btn"
-                    onClick={() => void installFamily(record)}
-                    disabled={installingFamily === record.familyId}
-                    aria-label={`Install ${record.familyName}`}
+                    className="font-browser__install-btn font-browser__install-btn--primary"
+                    onClick={() => void installFamily(selectedRecord)}
+                    disabled={installingFamily === selectedRecord.familyId}
                   >
-                    {installingFamily === record.familyId ? 'Installing…' : 'Install'}
+                    {installingFamily === selectedRecord.familyId ? 'Installing…' : 'Install font'}
+                  </button>
+                )}
+                {onSelect && selectedRecord.installed && (
+                  <button
+                    type="button"
+                    className="font-browser__use-btn"
+                    onClick={applySelected}
+                    aria-label={`Use ${selectedRecord.familyName}`}
+                    disabled={selectedRecord.familyName === selectedFamilyProp}
+                  >
+                    {selectedRecord.familyName === selectedFamilyProp ? 'Current font' : 'Use font'}
                   </button>
                 )}
               </div>
-              {isExpanded && hasFaces && (
-                <div className="font-browser__faces">
-                  {faces.map((face) => (
-                    <button
-                      key={face.postScriptName}
-                      type="button"
-                      className="font-browser__face-row"
-                      onClick={() => handleSelect(record)}
-                    >
-                      <span className="font-browser__face-name">{face.postScriptName}</span>
-                      <span className="font-browser__face-meta">
-                        {face.weight} {face.style}
-                      </span>
-                    </button>
-                  ))}
+
+              {installError && (
+                <div className="font-browser__error" role="alert">
+                  {installError}
                 </div>
               )}
-            </div>
-          );
-        })}
-      </div>
 
-      <div className="font-browser__count">
-        {displayEntries.length} {displayEntries.length === 1 ? 'family' : 'families'}
-        {showDownloadable ? ' · local catalog' : ' · installed'}
-      </div>
-      {installError && (
-        <div className="font-browser__error" role="alert">
-          {installError}
-        </div>
-      )}
+              {selectedResult &&
+                (selectedResult.reasons.length > 0 ||
+                  selectedResult.unknownRequired.length > 0) && (
+                  <details className="font-browser__why">
+                    <summary>Why this result</summary>
+                    <ul>
+                      {selectedResult.reasons.slice(0, 5).map((reason) => (
+                        <li key={`${reason.kind}-${reason.label}`}>
+                          <span>{reason.label}</span>
+                          <small>{reason.provenance}</small>
+                        </li>
+                      ))}
+                      {selectedResult.unknownRequired.map((unknown) => (
+                        <li key={unknown}>
+                          <span>{unknown} not verified</span>
+                          <small>Metadata unavailable</small>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
 
-      {selectedRecord && (
-        <aside
-          className="font-browser__details"
-          aria-label={`${selectedRecord.familyName} details`}
-        >
-          <div className="font-browser__details-header">
-            <div>
-              <strong>{selectedRecord.familyName}</strong>
-              <span>{selectedRecord.installed ? 'Installed locally' : 'Available to install'}</span>
-            </div>
-            {selectedRecord.downloadable && !selectedRecord.installed && (
-              <button
-                type="button"
-                className="font-browser__install-btn"
-                onClick={() => void installFamily(selectedRecord)}
-                disabled={installingFamily === selectedRecord.familyId}
-              >
-                {installingFamily === selectedRecord.familyId ? 'Installing…' : 'Install'}
-              </button>
-            )}
-          </div>
-          <div className="font-browser__detail-tags">
-            {descriptors(selectedRecord).map((label) => (
-              <span key={label} className="font-browser__detail-tag">
-                {label}
-              </span>
-            ))}
-            {selectedRecord.userTags.map((tag) => (
-              <span
-                key={`user-${tag}`}
-                className="font-browser__detail-tag font-browser__detail-tag--user"
-              >
-                Your tag: {tag}
-              </span>
-            ))}
-          </div>
-          {selectedResult && (
-            <details open className="font-browser__why">
-              <summary>Why this result</summary>
-              <ul>
-                {selectedResult.reasons.slice(0, 5).map((reason) => (
-                  <li key={`${reason.kind}-${reason.label}`}>
-                    <span>{reason.label}</span>
-                    <small>{reason.provenance}</small>
-                  </li>
-                ))}
-                {selectedResult.unknownRequired.map((unknown) => (
-                  <li key={unknown}>
-                    <span>{unknown} not verified</span>
-                    <small>Metadata unavailable</small>
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
-          {recommendations && (
-            <section className="font-browser__recommendations" aria-label="Font recommendations">
-              {(
-                [
-                  ['Similar', recommendations.similar],
-                  ['Alternatives', recommendations.alternatives],
-                  ['Pairings', recommendations.pairings],
-                ] as const
-              ).map(
-                ([title, items]) =>
-                  items.length > 0 && (
-                    <div key={title} className="font-browser__recommendation-lane">
-                      <strong>{title}</strong>
-                      <div>
-                        {items.map((item) => (
-                          <button
-                            key={item.record.familyId}
-                            type="button"
-                            onClick={() => handleSelect(item.record)}
-                            title={item.reasons[0]?.label ?? title}
-                          >
-                            {item.record.familyName}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ),
+              {recommendations && (
+                <section
+                  className="font-browser__recommendations"
+                  aria-label="Font recommendations"
+                >
+                  <h4>Explore related families</h4>
+                  {(
+                    [
+                      ['Similar', recommendations.similar],
+                      ['Alternatives', recommendations.alternatives],
+                      ['Pairings', recommendations.pairings],
+                    ] as const
+                  ).map(
+                    ([title, items]) =>
+                      items.length > 0 && (
+                        <div key={title} className="font-browser__recommendation-lane">
+                          <strong>{title}</strong>
+                          <div>
+                            {items.map((item) => (
+                              <button
+                                key={item.record.familyId}
+                                type="button"
+                                onClick={() => handleSelect(item.record)}
+                                title={item.reasons[0]?.label ?? title}
+                              >
+                                {item.record.familyName}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ),
+                  )}
+                </section>
               )}
-            </section>
-          )}
-          <div className="font-browser__detail-meta">
-            <span>
-              {selectedRecord.weights.length} weights · {selectedRecord.styles.join(', ')}
-            </span>
-            {selectedRecord.scripts.length > 0 && (
-              <span>Coverage: {selectedRecord.scripts.join(', ')}</span>
-            )}
-            {selectedRecord.license && <span>{selectedRecord.license}</span>}
-          </div>
-          <div className="font-browser__tag-editor">
-            <label htmlFor="font-browser-user-tag">Personal tag</label>
-            <div>
-              <input
-                id="font-browser-user-tag"
-                value={tagDraft}
-                onChange={(event) => setTagDraft(event.target.value)}
-                maxLength={64}
-                placeholder="e.g. finance UI"
-              />
-              <button type="button" onClick={addTag} disabled={!tagDraft.trim()}>
-                Add
-              </button>
+
+              {selectedRecord.installed && (
+                <details className="font-browser__file-details">
+                  <summary>Installed file details</summary>
+                  <FontLicenseDetails family={selectedRecord.familyName} />
+                </details>
+              )}
+
+              <form
+                className="font-browser__tag-editor"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  addTag();
+                }}
+              >
+                <label htmlFor={`${tagInputId}-tag`}>Personal tag</label>
+                <div>
+                  <input
+                    id={`${tagInputId}-tag`}
+                    value={tagDraft}
+                    onChange={(event) => setTagDraft(event.target.value)}
+                    maxLength={64}
+                    placeholder="e.g. finance UI"
+                  />
+                  <button type="submit" disabled={!tagDraft.trim()}>
+                    Add
+                  </button>
+                </div>
+              </form>
+            </>
+          ) : (
+            <div className="font-browser__details-empty">
+              <span className="font-browser__details-empty-mark" aria-hidden="true">
+                Aa
+              </span>
+              <strong>Select a family to inspect it</strong>
+              <span>
+                Preview the specimen, review coverage and licensing, then choose whether to install
+                or use it.
+              </span>
             </div>
-          </div>
+          )}
         </aside>
-      )}
+      </div>
     </div>
   );
 }

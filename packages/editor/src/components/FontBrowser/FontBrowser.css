@@ -1,74 +1,116 @@
 /**
- * FontBrowser styles — flat, inspector-adjacent panel with search, filter
- * tabs, and scrollable font list. Uses design tokens exclusively.
+ * Font browser surfaces.
+ *
+ * The browser is deliberately split into a results pane and an inspection
+ * pane. This keeps the catalog stable while a family is selected, and lets a
+ * user inspect a downloadable face before making the explicit install choice.
+ * All color and type values come from the shared token contract.
  */
 
 .font-browser {
   display: flex;
   flex-direction: column;
+  width: 100%;
+  max-height: var(--font-browser-max-height);
+  height: var(--font-browser-max-height);
   overflow: hidden;
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control);
   background: var(--color-surface-raised);
+  color: var(--color-text-primary);
 }
 
-/* ---------- Search input ---------- */
+.font-browser--modal {
+  height: min(var(--font-browser-max-height), calc(100dvh - 6rem));
+}
 
-.font-browser__search {
+.font-browser__toolbar {
+  flex-shrink: 0;
   padding: var(--space-2);
   border-bottom: 1px solid var(--color-border-subtle);
-  flex-shrink: 0;
 }
 
-.font-browser__search-input {
+.font-browser .varve-search {
   width: 100%;
-  padding: var(--space-1) var(--space-2);
-  background: var(--color-surface-sunken);
+}
+
+.font-browser__interpretation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+}
+
+.font-browser__interpretation-label,
+.font-browser__eyebrow {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.font-browser__chip,
+.font-browser__detail-tag {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 2px var(--space-1);
+  overflow: hidden;
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.font-browser__chip--required {
+  border-color: var(--color-interactive-default);
   color: var(--color-text-primary);
-  font: inherit;
-  font-size: var(--font-size-xs);
-  outline: none;
-  box-sizing: border-box;
 }
 
-.font-browser__search-input::placeholder {
+.font-browser__chip--excluded {
   color: var(--color-text-muted);
+  text-decoration: line-through;
 }
 
-.font-browser__search-input:focus-visible {
-  border-color: var(--color-interactive-focus-ring);
-  box-shadow: 0 0 0 2px oklch(0.5449 0.0866 189.77 / 0.2);
+.font-browser__chip--ambiguous,
+.font-browser__ambiguity,
+.font-browser__badge--unknown {
+  color: var(--color-feedback-warning-strong);
 }
 
-/* ---------- Filter tabs ---------- */
+.font-browser__controls {
+  display: flex;
+  align-items: end;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
 
 .font-browser__filters {
   display: flex;
-  gap: 0;
-  border-bottom: 1px solid var(--color-border-subtle);
-  flex-shrink: 0;
+  flex: 1 1 auto;
+  min-width: 0;
   overflow-x: auto;
+  scrollbar-width: thin;
 }
 
 .font-browser__filter-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   flex: 0 0 auto;
+  min-height: var(--component-compact-height);
   padding: var(--space-1) var(--space-2);
-  background: none;
-  border: none;
+  border: 0;
   border-bottom: 2px solid transparent;
+  background: none;
   color: var(--color-text-muted);
   font: inherit;
   font-size: var(--font-size-2xs);
-  text-transform: capitalize;
   cursor: pointer;
   white-space: nowrap;
-  min-height: var(--component-compact-height);
-  user-select: none;
 }
 
 .font-browser__filter-btn:hover {
@@ -76,76 +118,116 @@
 }
 
 .font-browser__filter-btn--active {
-  color: var(--color-text-primary);
   border-bottom-color: var(--color-interactive-default);
+  color: var(--color-text-primary);
 }
 
-.font-browser__filter-btn:has(input:focus-visible) {
+.font-browser__filter-btn:focus-visible,
+.font-browser__semantic-filter select:focus-visible,
+.font-browser__specimen-label input:focus-visible,
+.font-browser__tag-editor input:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: -2px;
+  outline-offset: 2px;
 }
 
-/* ---------- Font list ---------- */
+.font-browser__semantic-filter {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  white-space: nowrap;
+}
+
+.font-browser__semantic-filter select {
+  min-height: var(--component-compact-height);
+  max-width: 10rem;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-primary);
+  font: inherit;
+}
+
+.font-browser__workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(19rem, 0.85fr);
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.font-browser__results,
+.font-browser__details {
+  min-width: 0;
+  min-height: 0;
+}
+
+.font-browser__results {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--color-border-subtle);
+}
+
+.font-browser__list-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.font-browser__list-heading > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.font-browser__list-heading strong {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.font-browser__list-heading span,
+.font-browser__hint {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+}
+
+.font-browser__hint {
+  text-align: right;
+}
 
 .font-browser__list {
-  overflow-y: auto;
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
+  overflow-y: auto;
+  scrollbar-color: var(--color-border-strong) transparent;
+  scrollbar-width: thin;
+}
+
+.font-browser__entry {
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--color-border-subtle);
 }
 
 .font-browser__row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-2);
+  min-height: 3.25rem;
   padding: var(--space-1) var(--space-2);
-  cursor: pointer;
   border-left: 3px solid transparent;
-  transition: background 0.1s;
 }
 
 .font-browser__row:hover {
   background: var(--color-interactive-hover);
-}
-
-.font-browser__row:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: -2px;
-}
-
-.font-browser__row--selected {
-  border-left-color: var(--color-interactive-default);
-  background: var(--color-accent-subtle);
-}
-.font-browser__row--selected:hover {
-  background: var(--color-surface-hover);
-}
-
-.font-browser__install-btn {
-  margin: var(--space-1) var(--space-2) var(--space-1) 0;
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control-compact);
-  background: var(--color-surface-raised);
-  color: var(--color-interactive-default);
-  font: inherit;
-  font-size: var(--font-size-2xs);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.font-browser__install-btn:hover:not(:disabled) {
-  background: var(--color-interactive-hover);
-}
-
-.font-browser__install-btn:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 1px;
-}
-
-.font-browser__install-btn:disabled {
-  cursor: wait;
-  opacity: 0.65;
 }
 
 .font-browser__entry--selected .font-browser__row {
@@ -153,13 +235,34 @@
   background: var(--color-accent-subtle);
 }
 
+.font-browser__expand-btn {
+  display: inline-flex;
+  flex: 0 0 1.5rem;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-target-min);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.font-browser__expand-btn:hover {
+  color: var(--color-text-primary);
+}
+
+.font-browser__expand-placeholder {
+  flex: 0 0 1.5rem;
+}
+
 .font-browser__select-btn {
   display: flex;
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
-  align-items: baseline;
-  gap: var(--space-2);
-  padding: 0;
+  min-height: var(--touch-target-min);
+  align-items: center;
+  padding: var(--space-1) 0;
   border: 0;
   background: none;
   color: inherit;
@@ -170,9 +273,29 @@
 
 .font-browser__select-btn:focus-visible,
 .font-browser__expand-btn:focus-visible,
-.font-browser__face-row:focus-visible {
+.font-browser__face-row:focus-visible,
+.font-browser__recommendation-lane button:focus-visible,
+.font-browser__install-btn:focus-visible,
+.font-browser__use-btn:focus-visible,
+.font-browser__tag-editor button:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 1px;
+  outline-offset: 2px;
+}
+
+.font-browser__row-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.font-browser__preview {
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .font-browser__descriptors {
@@ -183,102 +306,159 @@
   white-space: nowrap;
 }
 
-.font-browser__expand-placeholder {
-  width: 20px;
-  flex-shrink: 0;
-}
-
-/* ---------- Semantic interpretation / progressive filters ---------- */
-
-.font-browser__interpretation {
+.font-browser__meta {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
+  flex: 0 0 auto;
   align-items: center;
-  padding: var(--space-1) var(--space-2);
-  border-bottom: 1px solid var(--color-border-subtle);
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-2xs);
+  gap: var(--space-1);
 }
 
-.font-browser__interpretation-label {
-  color: var(--color-text-muted);
-  font-weight: var(--font-weight-medium);
-}
-
-.font-browser__chip,
-.font-browser__detail-tag {
+.font-browser__badge {
   display: inline-flex;
   align-items: center;
-  max-width: 100%;
-  padding: 1px var(--space-1);
-  border: 1px solid var(--color-border-subtle);
+  min-height: 1.25rem;
+  padding: 0 var(--space-1);
   border-radius: var(--radius-control-compact);
-  color: var(--color-text-secondary);
   background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.4;
   white-space: nowrap;
 }
 
-.font-browser__chip--required {
-  border-color: var(--color-interactive-default);
-  color: var(--color-text-primary);
+.font-browser__badge--var {
+  color: var(--color-interactive-default);
+  font-style: italic;
+  font-weight: var(--font-weight-bold);
 }
 
-.font-browser__chip--excluded {
-  text-decoration: line-through;
-}
-
-.font-browser__chip--ambiguous,
-.font-browser__ambiguity,
-.font-browser__badge--unknown {
-  color: var(--color-feedback-warning);
-}
-
-.font-browser__chip--excluded {
-  color: var(--color-text-muted);
-}
-
-.font-browser__semantic-filter {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-2);
-  border-bottom: 1px solid var(--color-border-subtle);
-  color: var(--color-text-muted);
-  font-size: var(--font-size-2xs);
-}
-
-.font-browser__semantic-filter select {
-  min-width: 0;
+.font-browser__install-btn,
+.font-browser__use-btn,
+.font-browser__tag-editor button {
+  min-height: 2rem;
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
-  color: var(--color-text-primary);
-  background: var(--color-surface-sunken);
+  background: var(--color-surface-raised);
+  color: var(--color-interactive-default);
   font: inherit;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  white-space: nowrap;
 }
 
-.font-browser__error {
-  padding: var(--space-2);
-  color: var(--color-status-danger);
+.font-browser__install-btn {
+  flex: 0 0 auto;
+}
+
+.font-browser__install-btn:hover:not(:disabled),
+.font-browser__use-btn:hover:not(:disabled),
+.font-browser__tag-editor button:hover:not(:disabled) {
+  background: var(--color-interactive-hover);
+}
+
+.font-browser__install-btn--primary,
+.font-browser__use-btn {
+  border-color: transparent;
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+}
+
+.font-browser__install-btn--primary:hover:not(:disabled),
+.font-browser__use-btn:hover:not(:disabled) {
+  background: var(--color-interactive-hover);
+  color: var(--color-text-primary);
+}
+
+.font-browser__install-btn:disabled,
+.font-browser__use-btn:disabled,
+.font-browser__tag-editor button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.font-browser__faces {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: 0 var(--space-2) var(--space-2) 3.75rem;
+}
+
+.font-browser__face-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: 2rem;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-2xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+.font-browser__face-row:hover {
+  background: var(--color-surface-hover);
+}
+
+.font-browser__face-name {
+  overflow: hidden;
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.font-browser__face-meta {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+}
+
+.font-browser__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-6) var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  text-align: center;
+}
+
+.font-browser__empty strong {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.font-browser__count {
+  flex-shrink: 0;
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--color-border-subtle);
+  color: var(--color-text-muted);
   font-size: var(--font-size-2xs);
 }
 
-.font-browser__details-header,
-.font-browser__detail-meta,
-.font-browser__detail-tags,
-.font-browser__tag-editor > div,
-.font-browser__why li {
+.font-browser__details {
   display: flex;
-  align-items: center;
-  gap: var(--space-2);
+  flex-direction: column;
+  gap: var(--space-3);
+  overflow-y: auto;
+  padding: var(--space-3);
+  background: var(--color-surface-sunken);
+  scrollbar-color: var(--color-border-strong) transparent;
+  scrollbar-width: thin;
 }
 
 .font-browser__details-header {
+  display: flex;
+  align-items: start;
   justify-content: space-between;
-  padding: var(--space-2);
-  color: var(--color-text-primary);
+  gap: var(--space-2);
 }
 
 .font-browser__details-header > div {
@@ -288,41 +468,144 @@
   min-width: 0;
 }
 
-.font-browser__details-header span,
-.font-browser__detail-meta,
-.font-browser__why small {
+.font-browser__details-header h3 {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--type-interface-title-family);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.15;
+}
+
+.font-browser__details-header > div > span:last-child {
   color: var(--color-text-muted);
   font-size: var(--font-size-2xs);
 }
 
-.font-browser__details-header .font-browser__install-btn {
+.font-browser__availability {
+  flex-shrink: 0;
+  padding: 2px var(--space-1);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  color: var(--color-feedback-warning-strong);
+  font-size: var(--font-size-2xs);
+  white-space: nowrap;
+}
+
+.font-browser__availability--installed {
+  color: var(--color-feedback-success-strong);
+}
+
+.font-browser__specimen-label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.font-browser__specimen-label input,
+.font-browser__tag-editor input {
+  min-width: 0;
+  min-height: 2.25rem;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-xs);
+}
+
+.font-browser__specimen {
+  min-height: 6rem;
+  padding: var(--space-3);
+  overflow-wrap: anywhere;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  font-size: clamp(1.75rem, 3vw, 2.75rem);
+  line-height: 1.15;
+}
+
+.font-browser__specimen--fallback {
+  color: var(--color-text-secondary);
+}
+
+.font-browser__preview-note,
+.font-browser__error {
+  margin: calc(var(--space-2) * -1) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  line-height: 1.45;
+}
+
+.font-browser__error {
+  margin: 0;
+  color: var(--color-feedback-danger);
+}
+
+.font-browser__detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
   margin: 0;
 }
 
+.font-browser__detail-grid > div {
+  min-width: 0;
+}
+
+.font-browser__detail-grid dt {
+  margin-bottom: 2px;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+}
+
+.font-browser__detail-grid dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+}
+
+.font-browser__detail-grid a {
+  color: var(--color-accent-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .font-browser__detail-tags {
+  display: flex;
   flex-wrap: wrap;
-  padding: 0 var(--space-2) var(--space-1);
+  gap: var(--space-1);
 }
 
 .font-browser__detail-tag--user {
   color: var(--color-interactive-default);
 }
 
-.font-browser__detail-meta {
+.font-browser__detail-actions {
+  display: flex;
   flex-wrap: wrap;
-  padding: 0 var(--space-2) var(--space-2);
+  gap: var(--space-2);
 }
 
-.font-browser__why {
-  margin: 0 var(--space-2) var(--space-2);
+.font-browser__why,
+.font-browser__file-details,
+.font-browser__recommendations {
   border-top: 1px solid var(--color-border-subtle);
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-2xs);
 }
 
-.font-browser__why summary {
-  padding: var(--space-1) 0;
+.font-browser__why summary,
+.font-browser__file-details summary {
+  padding-top: var(--space-2);
   color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
   cursor: pointer;
 }
 
@@ -330,203 +613,46 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  margin: 0;
-  padding: 0 0 var(--space-1) var(--space-3);
+  margin: var(--space-2) 0 0;
+  padding: 0 0 0 var(--space-3);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
 }
 
 .font-browser__why li {
-  justify-content: space-between;
-}
-
-.font-browser__tag-editor {
-  padding: 0 var(--space-2) var(--space-2);
-  color: var(--color-text-muted);
-  font-size: var(--font-size-2xs);
-}
-
-.font-browser__tag-editor > div {
-  margin-top: var(--space-1);
-}
-
-.font-browser__tag-editor input {
-  min-width: 0;
-  flex: 1;
-  padding: var(--space-1);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control-compact);
-  color: var(--color-text-primary);
-  background: var(--color-surface-raised);
-  font: inherit;
-  font-size: var(--font-size-2xs);
-}
-
-.font-browser__tag-editor button {
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control-compact);
-  color: var(--color-interactive-default);
-  background: var(--color-surface-raised);
-  font: inherit;
-  font-size: var(--font-size-2xs);
-  cursor: pointer;
-}
-
-.font-browser__tag-editor button:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-/* ---------- Font preview ---------- */
-
-.font-browser__preview {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-primary);
-}
-
-/* ---------- Meta / badges ---------- */
-
-.font-browser__meta {
-  display: flex;
-  gap: var(--space-1);
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.font-browser__badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 0 var(--space-1);
-  border-radius: var(--radius-control-compact);
-  font-size: var(--font-size-2xs);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-muted);
-  background: var(--color-surface-sunken);
-  line-height: 1.4;
-}
-
-.font-browser__badge--var {
-  color: var(--color-interactive-default);
-  font-style: italic;
-  font-weight: var(--font-weight-bold);
-}
-
-.font-browser__badge--color {
-  color: var(--color-text-on-accent);
-  background: var(--color-accent-teal);
-}
-
-.font-browser__badge--license {
-  color: var(--color-text-on-accent);
-  background: var(--color-feedback-warning);
-}
-
-/* ---------- Footer count ---------- */
-
-.font-browser__count {
-  padding: var(--space-1) var(--space-2);
-  font-size: var(--font-size-2xs);
-  color: var(--color-text-muted);
-  border-top: 1px solid var(--color-border-subtle);
-  flex-shrink: 0;
-}
-
-/* ---------- TTC/OTC Collection UI ---------- */
-
-.font-browser__entry {
-  display: flex;
-  flex-direction: column;
-}
-
-.font-browser__expand-btn {
-  background: none;
-  border: none;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 0 var(--space-1);
-  font-size: var(--font-size-xs);
-  transition: transform 0.15s ease;
-}
-
-.font-browser__expand-btn:hover {
-  color: var(--color-text-primary);
-}
-
-.font-browser__badge--faces {
-  background: var(--color-surface-raised);
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-2xs);
-}
-
-.font-browser__faces {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding-left: var(--space-4);
-  margin-top: var(--space-1);
-}
-
-.font-browser__face-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: var(--space-1) var(--space-2);
-  background: var(--color-surface-sunken);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control-compact);
-  cursor: pointer;
-  transition: background 0.15s ease;
-  font-size: var(--font-size-xs);
+  gap: var(--space-2);
 }
 
-.font-browser__face-row:hover {
-  background: var(--color-surface-hover);
-}
-
-.font-browser__face-name {
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-primary);
-}
-
-.font-browser__face-meta {
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-2xs);
-}
-
-/* ---------- Details panel ---------- */
-
-.font-browser__details {
-  border-top: 1px solid var(--color-border-subtle);
-  background: var(--color-surface-sunken);
-  max-height: 320px;
-  overflow-y: auto;
+.font-browser__why small {
   flex-shrink: 0;
+  color: var(--color-text-muted);
 }
 
 .font-browser__recommendations {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  margin: 0 var(--space-2) var(--space-2);
-  padding-top: var(--space-1);
-  border-top: 1px solid var(--color-border-subtle);
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+}
+
+.font-browser__recommendations h4 {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
 }
 
 .font-browser__recommendation-lane {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  align-items: start;
   gap: var(--space-2);
-  min-width: 0;
   font-size: var(--font-size-2xs);
 }
 
 .font-browser__recommendation-lane > strong {
-  width: 5.5rem;
-  flex-shrink: 0;
   color: var(--color-text-muted);
   font-weight: var(--font-weight-medium);
 }
@@ -535,17 +661,16 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1);
-  min-width: 0;
 }
 
 .font-browser__recommendation-lane button {
-  max-width: 10rem;
+  max-width: 100%;
+  padding: 2px var(--space-1);
   overflow: hidden;
-  padding: 1px var(--space-1);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
-  color: var(--color-interactive-default);
   background: var(--color-surface-raised);
+  color: var(--color-interactive-default);
   font: inherit;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -556,29 +681,119 @@
   background: var(--color-interactive-hover);
 }
 
-/* ---------- Empty state ---------- */
-
-.font-browser__empty {
-  padding: var(--space-4) var(--space-2);
-  text-align: center;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
+.font-browser__file-details .font-license-details {
+  margin-top: var(--space-2);
 }
 
-/* ---------- High-contrast / forced-colors ---------- */
+.font-browser__tag-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+}
 
-[data-theme="high-contrast"] .font-browser {
+.font-browser__tag-editor > div {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.font-browser__tag-editor input {
+  flex: 1 1 auto;
+}
+
+.font-browser__details-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: 100%;
+  padding: var(--space-6);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  text-align: center;
+}
+
+.font-browser__details-empty strong {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.font-browser__details-empty-mark {
+  color: var(--color-interactive-default);
+  font-family: var(--type-interface-title-family);
+  font-size: 2.5rem;
+  font-weight: var(--font-weight-semibold);
+}
+
+@media (max-width: 52rem) {
+  .font-browser__workspace {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .font-browser__results {
+    flex: 1 1 50%;
+    min-height: 0;
+    border-right: 0;
+  }
+
+  .font-browser__details {
+    flex: 1 1 50%;
+    max-height: none;
+    border-top: 1px solid var(--color-border-subtle);
+  }
+}
+
+@media (max-width: 34rem) {
+  .font-browser__controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .font-browser__semantic-filter {
+    justify-content: space-between;
+  }
+
+  .font-browser__semantic-filter select {
+    max-width: none;
+  }
+
+  .font-browser__meta {
+    display: none;
+  }
+
+  .font-browser__list-heading {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .font-browser__hint {
+    text-align: left;
+  }
+
+  .font-browser__detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+[data-theme="high-contrast"] .font-browser,
+[data-theme="high-contrast"] .font-browser__specimen-label input,
+[data-theme="high-contrast"] .font-browser__tag-editor input,
+[data-theme="high-contrast"] .font-browser__semantic-filter select {
   border-color: var(--color-border-strong);
 }
 
 @media (forced-colors: active) {
-  .font-browser__row--selected {
+  .font-browser__entry--selected .font-browser__row {
     border-left-color: Highlight;
     background: Highlight;
     color: HighlightText;
   }
 
-  .font-browser__row--selected .font-browser__preview {
+  .font-browser__entry--selected .font-browser__preview,
+  .font-browser__entry--selected .font-browser__descriptors {
     color: HighlightText;
   }
 
@@ -587,7 +802,9 @@
     color: HighlightText;
   }
 
-  .font-browser__badge {
+  .font-browser__badge,
+  .font-browser__chip,
+  .font-browser__detail-tag {
     border: 1px solid ButtonText;
   }
 }
