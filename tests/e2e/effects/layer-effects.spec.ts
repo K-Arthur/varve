@@ -121,6 +121,42 @@ test.describe('Layer Effects — real editor workflow', () => {
     await expect(page.getByRole('treeitem').first()).toContainText(/transparent-cutout/i);
   });
 
+  test('keeps transparent holes in a compound SVG vector when painting effects', async ({
+    page,
+  }, testInfo) => {
+    const compoundSvg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="220" height="180" viewBox="0 0 220 180">
+        <path fill="#2563eb" fill-rule="evenodd"
+          d="M20 20H200V160H20ZM70 55H150V125H70Z" />
+      </svg>`;
+    await page.locator('#file-import-input').setInputFiles({
+      name: 'compound-transparent.svg',
+      mimeType: 'image/svg+xml',
+      buffer: Buffer.from(compoundSvg),
+    });
+    await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 15000 });
+    await page.getByRole('treeitem').first().click();
+
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    const before = await canvas.screenshot({
+      path: testInfo.outputPath('compound-vector-before-effect.png'),
+    });
+    const section = await openEffectsSection(page);
+    await addEffect(page, section, 'Inner Glow');
+    await page.waitForTimeout(750);
+    const after = await canvas.screenshot({
+      path: testInfo.outputPath('compound-vector-after-effect.png'),
+    });
+    expect(Buffer.compare(before, after)).not.toBe(0);
+    await expect(
+      section.locator('.insp-effect-row').filter({ hasText: 'Inner Glow' }),
+    ).toContainText('Inner Glow');
+    await page.screenshot({
+      path: testInfo.outputPath('compound-vector-effect-inspector.png'),
+      fullPage: false,
+    });
+  });
+
   test('exposes Layer Effects for editable text without replacing the text layer', async ({
     page,
   }, testInfo) => {
@@ -205,9 +241,26 @@ test.describe('Layer Effects — real editor workflow', () => {
 
       const row = section.locator('.insp-effect-row').filter({ hasText: label }).last();
       if (label === 'Chromatic Aberration') {
-        await expect(row.getByLabel('Red channel colour')).toBeVisible();
-        await expect(row.getByLabel('Green channel colour')).toBeVisible();
-        await expect(row.getByLabel('Blue channel colour')).toBeVisible();
+        await expect(row.getByLabel('Mix')).toBeVisible();
+        await expect(row.getByLabel('Chromatic channel mode')).toBeVisible();
+        await row.getByLabel('Chromatic channel mode').click();
+        await page.getByRole('option', { name: 'Custom colour split', exact: true }).click();
+        await expect(row.getByLabel('Contribution 1 source')).toBeVisible();
+        await expect(row.getByLabel('Contribution 1 output colour')).toBeVisible();
+        await expect(row.getByLabel('Contribution 2 output colour')).toBeVisible();
+        await expect(row.getByLabel('Contribution 3 output colour')).toBeVisible();
+      }
+      if (label === 'Drop Shadow') {
+        await expect(row.getByLabel('Angle')).toBeVisible();
+        await expect(row.getByLabel('Distance')).toBeVisible();
+      }
+      if (label === 'Outer Glow') {
+        await expect(row.getByLabel('Glow color treatment')).toBeVisible();
+        await expect(row.getByLabel('Choke')).toBeVisible();
+        await expect(row.getByLabel('Glow contour')).toBeVisible();
+      }
+      if (label === 'Inner Glow') {
+        await expect(row.getByLabel('Inner glow origin')).toBeVisible();
       }
       if (label === 'Glitch') await expect(row.getByLabel('Glitch blend mode')).toBeVisible();
       if (label === 'Depth Blur') {
