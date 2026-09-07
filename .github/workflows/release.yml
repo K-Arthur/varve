@@ -422,7 +422,7 @@ jobs:
         if: matrix.enabled
         run: node scripts/release/check-bundled-assets.mjs
 
-      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+      - uses: dtolnay/rust-toolchain@d1031067263f94b142dd6c0ce24c5eb9d02d52a0
         if: matrix.enabled
         with:
           toolchain: 1.97.1
@@ -1278,7 +1278,7 @@ jobs:
           cp staged-final/RELEASE_NOTES.md RELEASE_NOTES.md
 
       - name: Create draft release
-        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64
         with:
           tag_name: ${{ needs.preflight.outputs.tag }}
           name: Varve ${{ needs.preflight.outputs.tag }}
