@@ -1,6 +1,209 @@
 import type { Shape } from '@varve/engine';
-import type { SceneNode } from '@varve/scene';
-import { textNodeLocalBounds } from '@varve/scene';
+import {
+  type Document,
+  isContainer,
+  type NodeId,
+  reparentNode,
+  type SceneNode,
+  nodeWorldBounds as sceneNodeWorldBounds,
+  textNodeLocalBounds,
+} from '@varve/scene';
+import type { Affine } from '@varve/shared';
+import { applyAffine, transformRect, tryInvertAffine } from '@varve/shared';
+import {
+  isNodeEffectivelyLocked,
+  nodeWorldBounds,
+  nodeWorldTransform,
+  rebaseWorldTransformToParent,
+} from './scene/world';
+
+export interface PasteDestination {
+  /** Explicit selected frame/group, or null for the active workspace root. */
+  targetId: NodeId | null;
+  /** World-space center used for viewport/import placement. */
+  center: { x: number; y: number };
+  kind: 'selected-container' | 'viewport';
+}
+
+/**
+ * Resolve the one unambiguous container destination for ordinary Paste.
+ *
+ * A frame/group is an explicit destination only when it is the sole selected
+ * eligible container. Ambiguous multi-selection deliberately falls back to
+ * the captured viewport center instead of silently choosing the first item.
+ */
+export function resolvePasteDestination(
+  doc: Document,
+  selection: readonly NodeId[],
+  viewportCenter: { x: number; y: number },
+): PasteDestination {
+  const containers = selection.filter((id) => {
+    const node = doc.nodes[id];
+    return Boolean(
+      node &&
+        isContainer(node) &&
+        !isNodeEffectivelyLocked(doc, id) &&
+        node.visible !== false &&
+        tryInvertAffine(nodeWorldTransform(doc, id)) !== null,
+    );
+  });
+  const targetId = containers.length === 1 ? containers[0]! : null;
+  if (!targetId) return { targetId: null, center: viewportCenter, kind: 'viewport' };
+
+  const target = doc.nodes[targetId];
+  if (target?.kind === 'frame') {
+    const transform = nodeWorldTransform(doc, targetId);
+    const [x, y] = applyAffine(transform, [target.w / 2, target.h / 2]);
+    return { targetId, center: { x, y }, kind: 'selected-container' };
+  }
+  const bounds = nodeWorldBounds(doc, targetId);
+  if (bounds) {
+    return {
+      targetId,
+      center: { x: bounds.x + bounds.w / 2, y: bounds.y + bounds.h / 2 },
+      kind: 'selected-container',
+    };
+  }
+
+  // Empty groups have no visual bounds. Their world origin is the only
+  // stable container-local placement anchor; this still keeps the paste
+  // inside the selected hierarchy without inventing a size for the group.
+  const transform = nodeWorldTransform(doc, targetId);
+  return {
+    targetId,
+    center: { x: transform[4] ?? 0, y: transform[5] ?? 0 },
+    kind: 'selected-container',
+  };
+}
+
+/** Translate a world transform without changing its rotation, scale, or skew. */
+export function translateWorldTransform(world: Affine, dx: number, dy: number): Affine {
+  return [world[0], world[1], world[2], world[3], (world[4] ?? 0) + dx, (world[5] ?? 0) + dy];
+}
+
+/** Validate a serialized six-number affine before it can affect placement. */
+export function isFiniteAffine(value: unknown): value is Affine {
+  return (
+    Array.isArray(value) &&
+    value.length === 6 &&
+    value.every((entry): entry is number => typeof entry === 'number' && Number.isFinite(entry))
+  );
+}
+
+/** Return the center of a world-space bounds rectangle. */
+export function rectCenter(bounds: { x: number; y: number; w: number; h: number }): {
+  x: number;
+  y: number;
+} {
+  return { x: bounds.x + bounds.w / 2, y: bounds.y + bounds.h / 2 };
+}
+
+/** Union visible geometry bounds for a set of already-inserted roots. */
+export function unionNodeWorldBounds(
+  doc: Document,
+  ids: readonly NodeId[],
+): { x: number; y: number; w: number; h: number } | null {
+  let union: { x: number; y: number; w: number; h: number } | null = null;
+  for (const id of ids) {
+    const bounds = nodeWorldBounds(doc, id);
+    if (!bounds) continue;
+    if (!union) {
+      union = { ...bounds };
+      continue;
+    }
+    const minX = Math.min(union.x, bounds.x);
+    const minY = Math.min(union.y, bounds.y);
+    const maxX = Math.max(union.x + union.w, bounds.x + bounds.w);
+    const maxY = Math.max(union.y + union.h, bounds.y + bounds.h);
+    union = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+  }
+  return union;
+}
+
+/**
+ * Compute a clipboard fragment's visual bounds from its serialized roots.
+ * When anchors exist, each root's own transform is replaced by identity for
+ * the geometry pass because the anchor already maps that root into world
+ * space. This preserves spacing for roots copied from different parents.
+ */
+export function clipboardFragmentWorldBounds(
+  doc: Document,
+  rootIds: readonly NodeId[],
+  worldAnchors: Readonly<Record<string, Affine>>,
+): { x: number; y: number; w: number; h: number } | null {
+  const sourceDoc = { ...doc, rootChildren: [...rootIds] };
+  let union: { x: number; y: number; w: number; h: number } | null = null;
+  for (const rootId of rootIds) {
+    const sourceRoot = doc.nodes[rootId];
+    if (!sourceRoot) continue;
+    const anchor = worldAnchors[rootId];
+    let bounds: { x: number; y: number; w: number; h: number } | null = null;
+    if (isFiniteAffine(anchor)) {
+      const geometryDoc = {
+        ...sourceDoc,
+        nodes: {
+          ...sourceDoc.nodes,
+          [rootId]: { ...sourceRoot, transform: [1, 0, 0, 1, 0, 0], rotation: 0 },
+        },
+      };
+      const localBounds = sceneNodeWorldBounds(geometryDoc, rootId);
+      bounds = localBounds ? transformRect(anchor, localBounds) : null;
+      if (!bounds) {
+        bounds = { x: anchor[4] ?? 0, y: anchor[5] ?? 0, w: 0, h: 0 };
+      }
+    } else {
+      bounds = sceneNodeWorldBounds(sourceDoc, rootId);
+    }
+    if (!bounds) continue;
+    if (!union) {
+      union = { ...bounds };
+      continue;
+    }
+    const minX = Math.min(union.x, bounds.x);
+    const minY = Math.min(union.y, bounds.y);
+    const maxX = Math.max(union.x + union.w, bounds.x + bounds.w);
+    const maxY = Math.max(union.y + union.h, bounds.y + bounds.h);
+    union = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+  }
+  return union;
+}
+
+/** Apply a desired world transform while adopting a pasted root's parent. */
+export function rebasePastedRoot(
+  doc: Document,
+  rootId: NodeId,
+  targetParentId: NodeId | null,
+  desiredWorld: Affine,
+): Document {
+  const root = doc.nodes[rootId];
+  if (!root) return doc;
+  if (!targetParentId) {
+    return { ...doc, nodes: { ...doc.nodes, [rootId]: { ...root, transform: desiredWorld } } };
+  }
+  const parent = doc.nodes[targetParentId];
+  if (!parent || !isContainer(parent)) return doc;
+  const local = rebaseWorldTransformToParent(nodeWorldTransform(doc, targetParentId), desiredWorld);
+  return local ? reparentNode(doc, rootId, targetParentId, parent.children.length, local) : doc;
+}
+
+/** Center one already-inserted root at a placed-world point, then reparent it. */
+export function placePastedRootAtWorldCenter(
+  doc: Document,
+  rootId: NodeId,
+  targetParentId: NodeId | null,
+  center: { x: number; y: number },
+): Document {
+  const bounds = nodeWorldBounds(doc, rootId);
+  if (!bounds) return doc;
+  const currentCenter = rectCenter(bounds);
+  const currentWorld = nodeWorldTransform(doc, rootId);
+  return rebasePastedRoot(
+    doc,
+    rootId,
+    targetParentId,
+    translateWorldTransform(currentWorld, center.x - currentCenter.x, center.y - currentCenter.y),
+  );
+}
 
 /**
  * Return true only when a drag actually leaves a surface. Browsers dispatch

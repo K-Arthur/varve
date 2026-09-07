@@ -83,7 +83,7 @@ test('pasting with a frame selected adopts the layer inside that frame', async (
   await page.waitForTimeout(150);
 
   const before = JSON.parse((await editorMethod(page, 'serializeDocument')) as string) as {
-    nodes: Record<string, { id: string; kind: string }>;
+    nodes: Record<string, { id: string; kind: string; w?: number; h?: number }>;
   };
   const sourceNode = Object.values(before.nodes).find((node) => node.kind === 'shape');
   const frameNode = Object.values(before.nodes).find((node) => node.kind === 'frame');
@@ -111,4 +111,74 @@ test('pasting with a frame selected adopts the layer inside that frame', async (
   const pastedId = Object.keys(after.nodes).find((id) => !before.nodes[id]);
   expect(pastedId).toBeTruthy();
   expect(after.nodes[frameNode.id]?.children).toContain(pastedId);
+  const pastedNode = await editorMethod(page, 'getNode', pastedId);
+  const pastedBounds = await editorMethod(page, 'nodeWorldBounds', pastedNode);
+  const frameBounds = await editorMethod(page, 'nodeWorldBounds', frameNode);
+  expect(pastedBounds).toBeTruthy();
+  expect(frameBounds).toBeTruthy();
+  const pastedRect = pastedBounds as { x: number; y: number; w: number; h: number };
+  const frameRect = frameBounds as { x: number; y: number; w: number; h: number };
+  expect(pastedRect.x + pastedRect.w / 2).toBeCloseTo(frameRect.x + frameRect.w / 2, 3);
+  expect(pastedRect.y + pastedRect.h / 2).toBeCloseTo(frameRect.y + frameRect.h / 2, 3);
+});
+
+test('legacy paste centers on the visible viewport with a rotated, panned camera', async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(300000);
+  await navigateToEditor(page);
+  await seedLayers(page, 1);
+
+  const before = JSON.parse((await editorMethod(page, 'serializeDocument')) as string) as {
+    nodes: Record<string, { id: string; kind: string }>;
+  };
+  const sourceNode = Object.values(before.nodes).find((node) => node.kind === 'shape');
+  expect(sourceNode).toBeTruthy();
+  if (!sourceNode) throw new Error('expected source shape');
+
+  await editorMethod(page, 'setSelection', null);
+  await editorMethod(page, 'setCamera', {
+    zoom: 0.75,
+    pan: { x: 180, y: -120 },
+    rotation: Math.PI / 6,
+  });
+  await page.waitForTimeout(100);
+  const viewport = await page.locator('.editor-canvas').evaluate((element) => ({
+    width: (element as HTMLElement).clientWidth,
+    height: (element as HTMLElement).clientHeight,
+  }));
+  const expectedCenter = await editorMethod(
+    page,
+    'canvasToWorld',
+    viewport.width / 2,
+    viewport.height / 2,
+  );
+
+  await page.evaluate((node) => {
+    const transfer = new DataTransfer();
+    transfer.setData(
+      'application/vnd.varve+json',
+      JSON.stringify({ format: 'varve-clipboard', version: 1, nodes: [node] }),
+    );
+    const event = new Event('paste', { bubbles: true, cancelable: true });
+    Object.defineProperty(event, 'clipboardData', { value: transfer });
+    window.dispatchEvent(event);
+  }, sourceNode);
+
+  await expect(page.getByRole('treeitem')).toHaveCount(2);
+  const after = JSON.parse((await editorMethod(page, 'serializeDocument')) as string) as {
+    nodes: Record<string, { id: string; kind: string }>;
+  };
+  const pastedId = Object.keys(after.nodes).find((id) => !before.nodes[id]);
+  expect(pastedId).toBeTruthy();
+  if (!pastedId) throw new Error('expected a pasted node');
+  const pastedNode = await editorMethod(page, 'getNode', pastedId);
+  const bounds = await editorMethod(page, 'nodeWorldBounds', pastedNode);
+  expect(bounds).toBeTruthy();
+  const pastedBounds = bounds as { x: number; y: number; w: number; h: number };
+  expect(pastedBounds.x + pastedBounds.w / 2).toBeCloseTo(expectedCenter.x, 3);
+  expect(pastedBounds.y + pastedBounds.h / 2).toBeCloseTo(expectedCenter.y, 3);
+  await page.getByTestId('editor-canvas').screenshot({
+    path: testInfo.outputPath('clipboard-viewport-centered.png'),
+  });
 });

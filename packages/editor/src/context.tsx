@@ -476,7 +476,17 @@ import {
   computeZoomTo,
   getCanvasViewport,
 } from './context/viewportOps';
-import { applyDropPosition } from './dropUtils';
+import {
+  applyDropPosition,
+  clipboardFragmentWorldBounds,
+  isFiniteAffine,
+  placePastedRootAtWorldCenter,
+  rebasePastedRoot,
+  rectCenter,
+  resolvePasteDestination,
+  translateWorldTransform,
+  unionNodeWorldBounds,
+} from './dropUtils';
 import { createFlattenOptions } from './flatten/types';
 import { readGuidesFromClipboard, writeGuidesToClipboard } from './guideClipboard';
 import { HitTestEngine } from './hitTest';
@@ -530,7 +540,6 @@ import {
   nodeLocalBounds,
   nodeWorldBounds,
   nodeWorldTransform,
-  rebaseWorldTransformToParent,
   reparentLocalTransform,
   worldToParent,
 } from './scene/world';
@@ -697,21 +706,6 @@ type PasteInvocation = Pick<
   EditorState,
   'document' | 'activeId' | 'workspaceMode' | 'selection' | 'selectionRevision'
 >;
-
-function pasteTargetFrameId(doc: Document, selection: readonly NodeId[]): NodeId | null {
-  for (const id of selection) {
-    const node = doc.nodes[id];
-    if (
-      node &&
-      !node.locked &&
-      node.visible !== false &&
-      (node.kind === 'frame' || node.kind === 'group')
-    ) {
-      return id;
-    }
-  }
-  return null;
-}
 
 function pasteInvocationIsCurrent(current: PasteInvocation, invocation: PasteInvocation): boolean {
   return (
@@ -7770,8 +7764,8 @@ export function EditorProvider({
         if (nodes.length === 0) return;
         const nodeIds = nodes.map((n) => n.id);
         const closure = DocumentCodec.collectNodeClosure(snapshot.document, nodeIds);
-        // World anchor per selection root (placed world): lets paste rebuild
-        // the exact world pose inside a destination frame/artboard.
+        // World anchor per selection root (placed world): lets paste preserve
+        // the source pose or translate the whole fragment into a destination.
         const worldAnchor: Record<string, Affine> = {};
         for (const id of sel) {
           worldAnchor[id] = nodeWorldTransform(snapshot.document, id);
@@ -7785,6 +7779,7 @@ export function EditorProvider({
           sel,
           closure.mockupTemplates,
           platform,
+          snapshot.document.id,
         ).then(
           (outcome) => {
             if (outcome.status === 'editable') {
@@ -7833,6 +7828,7 @@ export function EditorProvider({
           sel,
           closure.mockupTemplates,
           platform,
+          sourceDocumentId,
         ).then(
           (outcome) => {
             if (outcome.status !== 'editable') {
@@ -7880,8 +7876,20 @@ export function EditorProvider({
           selection: [...stateRef.current.selection],
           selectionRevision: stateRef.current.selectionRevision,
         };
-        const targetFrameId = pasteTargetFrameId(invocation.document, invocation.selection);
         const pasteCenter = viewportCenterWorld(stateRef.current);
+        const pasteDestination = resolvePasteDestination(
+          invocation.document,
+          invocation.selection,
+          pasteCenter,
+        );
+        const targetFrameId = pasteDestination.targetId;
+        // The active workspace root is the implicit destination when no
+        // single frame/group is selected. Keeping it explicit lets placement
+        // use the same world→parent conversion for viewport, page, and
+        // design-canvas pastes, including non-zero page placement.
+        const targetParentId =
+          targetFrameId ??
+          activeWorkspaceContentRoot(invocation.document, invocation.workspaceMode);
         const guideClipboard = await readGuidesFromClipboard({ allowMemoryFallback: false });
         if (guideClipboard && guideClipboard.length > 0) {
           if (!pasteInvocationIsCurrent(stateRef.current, invocation)) {
@@ -7961,10 +7969,9 @@ export function EditorProvider({
             const newIds: NodeId[] = [];
             const resourceImports: ImportedResourceSet[] = [];
 
-            // Paste target: the deepest selected unlocked/visible frame or
-            // group receives pasted content. Pasting converts the source
-            // world pose into that parent's local space instead of
-            // reinterpreting local coordinates in the destination frame.
+            // Paste target and placement were resolved before the async
+            // clipboard read. All branches below finish in parent-local
+            // coordinates after their world-space placement is determined.
             if (varveData) {
               const tempNodes: Record<string, SceneNode> = {};
               for (const node of varveData.nodes) {
@@ -7998,6 +8005,7 @@ export function EditorProvider({
                   ? varveData.rootIds
                   : varveData.nodes.filter((node) => !childIds.has(node.id)).map((node) => node.id);
               const worldAnchor = varveData.worldAnchor ?? {};
+              const insertedVarveRoots: Array<{ rootId: NodeId; sourceId: NodeId }> = [];
               for (const rootId of rootIds) {
                 const node = tempNodes[rootId];
                 if (!node) continue;
@@ -8017,43 +8025,55 @@ export function EditorProvider({
                 if (!inserted) continue;
                 doc = inserted.doc;
                 resourceImports.push({ sourceDoc: tempDoc, idMap: inserted.idMap });
-                // World-pose preservation: the copy records each root's
-                // placed-world transform; rebase it into the destination
-                // frame's local space (or use it directly at the document
-                // top level). Without an anchor (legacy clipboard payloads),
-                // keep the source local transform while still adopting it into the selected frame.
-                const anchor = worldAnchor[node.id];
-                const root = doc.nodes[inserted.rootId];
-                if (targetFrameId && root && doc.nodes[targetFrameId]) {
-                  const parentWorld = nodeWorldTransform(doc, targetFrameId);
-                  const local = anchor
-                    ? rebaseWorldTransformToParent(parentWorld, anchor)
-                    : (root.transform as Affine);
-                  if (local) {
-                    const parent = doc.nodes[targetFrameId] as ContainerNode;
-                    doc = reparentNodeDoc(
-                      doc,
-                      inserted.rootId,
-                      targetFrameId,
-                      parent?.children?.length ?? 0,
-                      local,
-                    );
-                  }
-                } else if (anchor && root) {
-                  doc = {
-                    ...doc,
-                    nodes: { ...doc.nodes, [inserted.rootId]: { ...root, transform: anchor } },
-                  };
-                }
-                newIds.push(inserted.rootId);
+                insertedVarveRoots.push({ rootId: inserted.rootId, sourceId: node.id });
+              }
+
+              // A current same-document copy has an authoritative placed-world
+              // anchor. With no explicit container, preserve that pose; an
+              // explicitly selected frame/group instead receives the fragment
+              // centered as a whole while retaining its relative arrangement.
+              // Foreign or legacy payloads lack a trustworthy
+              // destination-independent pose, so they use the same center
+              // policy.
+              const preserveWorldPose =
+                varveData.sourceDocumentId === invocation.document.id &&
+                targetFrameId === null &&
+                insertedVarveRoots.every(({ sourceId }) => isFiniteAffine(worldAnchor[sourceId]));
+              const insertedIds = insertedVarveRoots.map(({ rootId }) => rootId);
+              const sourceBounds =
+                clipboardFragmentWorldBounds(
+                  tempDoc,
+                  insertedVarveRoots.map(({ sourceId }) => sourceId),
+                  worldAnchor,
+                ) ?? unionNodeWorldBounds(doc, insertedIds);
+              const sourceCenter = sourceBounds ? rectCenter(sourceBounds) : null;
+              const placementDelta =
+                !preserveWorldPose && sourceCenter
+                  ? {
+                      x: pasteDestination.center.x - sourceCenter.x,
+                      y: pasteDestination.center.y - sourceCenter.y,
+                    }
+                  : { x: 0, y: 0 };
+
+              for (const { rootId: insertedRootId, sourceId } of insertedVarveRoots) {
+                const root = doc.nodes[insertedRootId];
+                if (!root) continue;
+                const currentWorld = nodeWorldTransform(doc, insertedRootId);
+                const anchor = worldAnchor[sourceId];
+                const desiredWorld =
+                  isFiniteAffine(anchor) && (preserveWorldPose || Boolean(sourceBounds))
+                    ? translateWorldTransform(anchor, placementDelta.x, placementDelta.y)
+                    : translateWorldTransform(currentWorld, placementDelta.x, placementDelta.y);
+                doc = rebasePastedRoot(doc, insertedRootId, targetParentId, desiredWorld);
+                newIds.push(insertedRootId);
               }
             }
 
-            // Place pasted (non-native, e.g. clipboard image) content at the
-            // center of the current viewport, not wherever the importer's
-            // document happened to put it — mirrors the world-center placement
-            // used for dropped files (CanvasArea.tsx handleDrop) and new frame
-            // presets, via the same editorScreenToWorld/applyDropPosition path.
+            // External images/SVGs have no Varve world anchor. Place each
+            // logical item at the selected container's center, or at the
+            // captured viewport center when no container is selected. Apply
+            // the final world translation after insertion so page placement,
+            // rotation, scale, and the active content root are all honored.
             let pasteIndex = 0;
             for (const result of importResults) {
               for (const id of result.nodeIds) {
@@ -8062,39 +8082,16 @@ export function EditorProvider({
                   doc,
                   result.document,
                   id,
-                  (node) =>
-                    applyDropPosition(node, {
-                      x: pasteCenter.x + offset,
-                      y: pasteCenter.y + offset,
-                    }),
+                  (node) => node,
                   invocation.workspaceMode,
                 );
                 if (!inserted) continue;
                 doc = inserted.doc;
                 resourceImports.push({ sourceDoc: result.document, idMap: inserted.idMap });
-                // Paste into the selected frame: rebase the viewport-centred
-                // placement into the frame's local space so the imported
-                // content lands at the intended world point INSIDE the frame.
-                if (targetFrameId && doc.nodes[targetFrameId]) {
-                  const root = doc.nodes[inserted.rootId];
-                  if (root) {
-                    const parentWorld = nodeWorldTransform(doc, targetFrameId);
-                    const local = rebaseWorldTransformToParent(
-                      parentWorld,
-                      root.transform as Affine,
-                    );
-                    if (local) {
-                      const parent = doc.nodes[targetFrameId] as ContainerNode;
-                      doc = reparentNodeDoc(
-                        doc,
-                        inserted.rootId,
-                        targetFrameId,
-                        parent?.children?.length ?? 0,
-                        local,
-                      );
-                    }
-                  }
-                }
+                doc = placePastedRootAtWorldCenter(doc, inserted.rootId, targetParentId, {
+                  x: pasteDestination.center.x + offset,
+                  y: pasteDestination.center.y + offset,
+                });
                 newIds.push(inserted.rootId);
                 pasteIndex += 1;
               }

@@ -74,6 +74,8 @@ export interface ClipboardData {
   /** Versioned fragment envelope. Absent only on legacy pre-envelope copies. */
   format?: typeof VARVE_CLIPBOARD_FORMAT;
   version?: typeof VARVE_CLIPBOARD_VERSION;
+  /** Source document identity, used to distinguish in-document paste from a foreign paste. */
+  sourceDocumentId?: string;
   nodes: SceneNode[];
   /** Original selected roots, in user selection order. */
   rootIds?: string[];
@@ -84,14 +86,16 @@ export interface ClipboardData {
   /**
    * Placed-world transform of each copied selection root, keyed by the
    * node's ORIGINAL id. Optional and forward-compatible: clipboard payloads
-   * without it (old copies, foreign writers) paste with legacy semantics
-   * (source local coordinates preserved verbatim).
+   * without it (old copies, foreign writers) do not claim a destination-
+   * independent world pose and are placed using the fallback center policy.
    *
    * When present, paste converts through world space:
    *   newLocal = targetParentWorld⁻¹ · anchor
    * so a child copied from inside artboard A lands at the same WORLD pose
    * after pasting into artboard B (or at the document top level) instead of
-   * being reinterpreted in the destination's local frame.
+   * being reinterpreted in the destination's local frame. The source document
+   * identity determines whether this is an in-document pose or a foreign
+   * fragment that must be centered for the destination.
    */
   worldAnchor?: Record<string, Affine>;
 }
@@ -181,6 +185,7 @@ export function parseClipboardData(text: string): ClipboardData | null {
     ...(raw.format === VARVE_CLIPBOARD_FORMAT
       ? { format: VARVE_CLIPBOARD_FORMAT as typeof VARVE_CLIPBOARD_FORMAT, version: 1 as const }
       : {}),
+    ...(typeof raw.sourceDocumentId === 'string' ? { sourceDocumentId: raw.sourceDocumentId } : {}),
     nodes,
     ...(rootIds ? { rootIds: [...rootIds] } : {}),
     ...(isRecord(raw.rasterMaskAssets)
@@ -207,10 +212,12 @@ function serializeClipboardData(
   worldAnchor?: Record<string, Affine>,
   rootIds?: string[],
   mockupTemplates?: Record<string, MockupTemplateAsset>,
+  sourceDocumentId?: string,
 ): string {
   const data: ClipboardData = {
     format: VARVE_CLIPBOARD_FORMAT,
     version: VARVE_CLIPBOARD_VERSION,
+    ...(sourceDocumentId ? { sourceDocumentId } : {}),
     nodes: nodes.map(serializeClipboardNode),
     ...(rootIds && rootIds.length > 0 ? { rootIds: [...rootIds] } : {}),
     ...(rasterMaskAssets && Object.keys(rasterMaskAssets).length > 0 ? { rasterMaskAssets } : {}),
@@ -235,6 +242,7 @@ export async function writeClipboardOutcome(
   rootIds?: string[],
   mockupTemplates?: Record<string, MockupTemplateAsset>,
   platform?: Pick<Platform, 'kind' | 'writeClipboardData'>,
+  sourceDocumentId?: string,
 ): Promise<ClipboardWriteOutcome> {
   let json: string;
   try {
@@ -246,6 +254,7 @@ export async function writeClipboardOutcome(
       worldAnchor,
       rootIds,
       mockupTemplates,
+      sourceDocumentId,
     );
   } catch {
     return { status: 'failed', reason: 'write-failed' };
@@ -326,6 +335,7 @@ export async function writeClipboard(
   rootIds?: string[],
   mockupTemplates?: Record<string, MockupTemplateAsset>,
   platform?: Pick<Platform, 'kind' | 'writeClipboardData'>,
+  sourceDocumentId?: string,
 ): Promise<boolean> {
   return (
     (
@@ -338,6 +348,7 @@ export async function writeClipboard(
         rootIds,
         mockupTemplates,
         platform,
+        sourceDocumentId,
       )
     ).status === 'editable'
   );

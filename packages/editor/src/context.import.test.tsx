@@ -17,6 +17,7 @@ import {
 import { describe, expect, it, vi } from 'vitest';
 import { captureClipboardEvent } from './clipboard';
 import { EditorProvider, useEditor } from './context';
+import { nodeWorldBounds, nodeWorldTransform } from './scene/world';
 
 if (typeof Blob !== 'undefined') {
   if (!Blob.prototype.arrayBuffer) {
@@ -122,8 +123,11 @@ function createClipboardEventWithFiles(files: File[]): ClipboardEvent {
   return { type: 'paste', clipboardData: dt } as ClipboardEvent;
 }
 
-function createClipboardEventWithVarveNodes(nodes: unknown[]): ClipboardEvent {
-  const json = JSON.stringify({ nodes });
+function createClipboardEventWithVarveNodes(
+  nodes: unknown[],
+  envelope: Record<string, unknown> = {},
+): ClipboardEvent {
+  const json = JSON.stringify({ ...envelope, nodes });
   const dt = {
     files: createFileList([]),
     items: [] as unknown as DataTransferItemList,
@@ -535,6 +539,164 @@ describe('Editor native clipboard paste (Varve-format data)', () => {
     const target = ctx.state.document.nodes['paste-target-frame'];
     expect(target?.kind === 'frame' ? target.children : undefined).toContain(pastedId);
     expect(ctx.state.document.rootChildren).not.toContain(pastedId);
+    const bounds = nodeWorldBounds(ctx.state.document, pastedId);
+    expect(bounds).not.toBeNull();
+    if (!bounds) throw new Error('Expected pasted node bounds');
+    expect(bounds.x + bounds.w / 2).toBeCloseTo(350, 6);
+    expect(bounds.y + bounds.h / 2).toBeCloseTo(200, 6);
+  });
+
+  it('centers an external clipboard image in the selected frame', async () => {
+    let initial = createDesignCanvas(createDocument('External paste target', true));
+    const contentRoot = designCanvasContentRoot(initial);
+    if (!contentRoot) throw new Error('Expected a design canvas content root');
+    initial = addChild(
+      initial,
+      contentRoot,
+      makeFrameNode('image-paste-target', {
+        transform: [1.5, 0, 0, 1.5, 200, 100],
+        w: 300,
+        h: 200,
+      }),
+    );
+    captureClipboardEvent(
+      createClipboardEventWithFiles([
+        new File([realPngBytes() as unknown as BlobPart], 'clipboard.png', {
+          type: 'image/png',
+        }),
+      ]),
+    );
+
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function Test() {
+      ctx = useEditor();
+      return (
+        <>
+          <button type="button" onClick={() => ctx?.setSelection('image-paste-target')}>
+            select image target
+          </button>
+          <button type="button" onClick={() => void ctx?.paste()}>
+            paste image
+          </button>
+        </>
+      );
+    }
+
+    render(
+      <EditorProvider initialDocumentJson={DocumentCodec.encode(initial)}>
+        <Test />
+      </EditorProvider>,
+    );
+
+    screen.getByText('select image target').click();
+    await waitFor(() => expect(ctx?.state.selection).toEqual(['image-paste-target']));
+    screen.getByText('paste image').click();
+    await waitFor(() => expect(ctx?.state.selection).toHaveLength(1));
+    const pastedId = ctx?.state.selection[0];
+    if (!ctx || !pastedId) throw new Error('Expected pasted image selection');
+    const bounds = nodeWorldBounds(ctx.state.document, pastedId);
+    expect(getParent(ctx.state.document, pastedId)).toBe('image-paste-target');
+    expect(bounds).not.toBeNull();
+    if (!bounds) throw new Error('Expected pasted image bounds');
+    expect(bounds.x + bounds.w / 2).toBeCloseTo(425, 6);
+    expect(bounds.y + bounds.h / 2).toBeCloseTo(250, 6);
+  });
+
+  it('centers a same-document rich paste in an explicitly selected frame', async () => {
+    let initial = createDesignCanvas(createDocument('Same-document paste', true));
+    const contentRoot = designCanvasContentRoot(initial);
+    if (!contentRoot) throw new Error('Expected a design canvas content root');
+    const source = makeShapeNode(
+      'same-document-source',
+      { kind: 'rect', x: 0, y: 0, w: 40, h: 30 },
+      { transform: [1, 0, 0, 1, 20, 30] },
+    );
+    initial = addChild(initial, contentRoot, source);
+    initial = addChild(
+      initial,
+      contentRoot,
+      makeFrameNode('same-document-target', {
+        transform: [1, 0, 0, 1, 200, 100],
+        w: 300,
+        h: 200,
+      }),
+    );
+    const anchor = nodeWorldTransform(initial, source.id);
+    captureClipboardEvent(
+      createClipboardEventWithVarveNodes([source], {
+        format: 'varve-clipboard',
+        version: 1,
+        rootIds: [source.id],
+        sourceDocumentId: initial.id,
+        worldAnchor: { [source.id]: anchor },
+      }),
+    );
+
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function Test() {
+      ctx = useEditor();
+      return (
+        <>
+          <button type="button" onClick={() => ctx?.setSelection('same-document-target')}>
+            select same-document target
+          </button>
+          <button type="button" onClick={() => void ctx?.paste()}>
+            paste same-document copy
+          </button>
+          <button type="button" onClick={() => ctx?.setSelection(null)}>
+            clear same-document target
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              captureClipboardEvent(
+                createClipboardEventWithVarveNodes([source], {
+                  format: 'varve-clipboard',
+                  version: 1,
+                  rootIds: [source.id],
+                  sourceDocumentId: initial.id,
+                  worldAnchor: { [source.id]: anchor },
+                }),
+              );
+              void ctx?.paste();
+            }}
+          >
+            paste same-document copy in place
+          </button>
+        </>
+      );
+    }
+
+    render(
+      <EditorProvider initialDocumentJson={DocumentCodec.encode(initial)}>
+        <Test />
+      </EditorProvider>,
+    );
+    screen.getByText('select same-document target').click();
+    await waitFor(() => expect(ctx?.state.selection).toEqual(['same-document-target']));
+    screen.getByText('paste same-document copy').click();
+    await waitFor(() => expect(ctx?.state.selection).toHaveLength(1));
+    const pastedId = ctx?.state.selection[0];
+    if (!ctx || !pastedId) throw new Error('Expected same-document pasted selection');
+    const bounds = nodeWorldBounds(ctx.state.document, pastedId);
+    expect(getParent(ctx.state.document, pastedId)).toBe('same-document-target');
+    expect(bounds).not.toBeNull();
+    if (!bounds) throw new Error('Expected same-document pasted bounds');
+    expect(bounds.x + bounds.w / 2).toBeCloseTo(350, 6);
+    expect(bounds.y + bounds.h / 2).toBeCloseTo(200, 6);
+
+    screen.getByText('clear same-document target').click();
+    await waitFor(() => expect(ctx?.state.selection).toEqual([]));
+    screen.getByText('paste same-document copy in place').click();
+    await waitFor(() => expect(ctx?.state.selection).toHaveLength(1));
+    const inPlaceId = ctx?.state.selection[0];
+    if (!ctx || !inPlaceId) throw new Error('Expected in-place pasted selection');
+    const inPlaceBounds = nodeWorldBounds(ctx.state.document, inPlaceId);
+    expect(getParent(ctx.state.document, inPlaceId)).toBe(contentRoot);
+    expect(inPlaceBounds).not.toBeNull();
+    if (!inPlaceBounds) throw new Error('Expected in-place pasted bounds');
+    expect(inPlaceBounds.x + inPlaceBounds.w / 2).toBeCloseTo(40, 6);
+    expect(inPlaceBounds.y + inPlaceBounds.h / 2).toBeCloseTo(45, 6);
   });
 
   it('cancels a delayed paste when the destination selection changes', async () => {

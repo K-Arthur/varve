@@ -448,13 +448,24 @@ describe('readFromClipboardEvent', () => {
     });
 
     try {
-      await expect(writeClipboard([node], undefined, undefined, undefined, anchor)).resolves.toBe(
-        true,
-      );
+      await expect(
+        writeClipboard(
+          [node],
+          undefined,
+          undefined,
+          undefined,
+          anchor,
+          undefined,
+          undefined,
+          undefined,
+          'source-document-1',
+        ),
+      ).resolves.toBe(true);
       const blob = await written?.[0]?.getType('web application/vnd.varve+json');
       expect(blob).toBeDefined();
       const payload = JSON.parse(await blob!.text());
       expect(payload.worldAnchor).toEqual(anchor);
+      expect(payload.sourceDocumentId).toBe('source-document-1');
     } finally {
       Object.defineProperty(globalThis, 'ClipboardItem', {
         configurable: true,

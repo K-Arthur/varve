@@ -1,10 +1,12 @@
 import type { SceneNode, ShapeNode } from '@varve/scene';
+import { addNode, createDocument, makeFrameNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
   applyDropPosition,
   isDragLeaveOutside,
   isPointInsideRect,
   isSupportedFile,
+  resolvePasteDestination,
   validateFiles,
 } from './dropUtils';
 
@@ -100,6 +102,56 @@ describe('applyDropPosition', () => {
     // offset from current center to new position
     expect(result.transform[4]).not.toBe(200);
     expect(result.transform[5]).not.toBe(200);
+  });
+});
+
+describe('resolvePasteDestination', () => {
+  it('uses the selected frame center in placed world space', () => {
+    const frame = makeFrameNode('target', {
+      transform: [2, 0, 0, 2, 100, 200],
+      w: 200,
+      h: 100,
+    });
+    const doc = addNode(createDocument('Paste'), frame);
+
+    expect(resolvePasteDestination(doc, ['target'], { x: 10, y: 20 })).toEqual({
+      targetId: 'target',
+      center: { x: 300, y: 300 },
+      kind: 'selected-container',
+    });
+  });
+
+  it('uses the transformed geometric center rather than a rotated AABB center', () => {
+    const frame = makeFrameNode('rotated-target', {
+      transform: [1, 0, 0, 1, 500, 400],
+      rotation: 90,
+      w: 200,
+      h: 100,
+    });
+    const doc = addNode(createDocument('Paste'), frame);
+
+    expect(resolvePasteDestination(doc, ['rotated-target'], { x: 10, y: 20 }).center).toEqual({
+      x: 450,
+      y: 500,
+    });
+  });
+
+  it('uses the viewport center for ambiguous or ineligible selections', () => {
+    const doc = addNode(createDocument('Paste'), makeFrameNode('target'));
+    const center = { x: 410, y: 275 };
+
+    expect(resolvePasteDestination(doc, ['target', 'target'], center)).toEqual({
+      targetId: null,
+      center,
+      kind: 'viewport',
+    });
+    expect(
+      resolvePasteDestination(
+        { ...doc, nodes: { ...doc.nodes, target: { ...doc.nodes.target!, locked: true } } },
+        ['target'],
+        center,
+      ),
+    ).toEqual({ targetId: null, center, kind: 'viewport' });
   });
 });
 
