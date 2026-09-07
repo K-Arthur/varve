@@ -498,6 +498,7 @@ export function PanelDragHandle({
           anchor={contextMenuAnchor}
           onClose={closeContextMenu}
           label={`${title} panel context menu`}
+          size="default"
         />
       </fieldset>
     </DetachControlContext.Provider>

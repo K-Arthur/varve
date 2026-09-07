@@ -236,6 +236,7 @@ export const TimelineRuler: FC<TimelineRulerProps> = ({
         anchor={ctxAnchor}
         onClose={closeContextMenu}
         label="Marker context menu"
+        size="compact"
       />
     </>
   );

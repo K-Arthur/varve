@@ -60,6 +60,7 @@ test.describe('Layers panel overflow fixes', () => {
     // Wait for the context menu to appear
     const ctxMenu = page.locator('.varve-ctxmenu');
     await expect(ctxMenu).toBeVisible({ timeout: 3000 });
+    await expect(ctxMenu).toHaveClass(/varve-menu--default/);
 
     // Verify the context menu is within the viewport (not clipped)
     const menuBox = await ctxMenu.boundingBox();
@@ -71,6 +72,26 @@ test.describe('Layers panel overflow fixes', () => {
       // Menu must have meaningful width (not truncated)
       expect(menuBox.width).toBeGreaterThan(100);
     }
+    const layerGeometry = await ctxMenu.evaluate((menu) => {
+      const layer = menu.parentElement;
+      if (!layer) return null;
+      const rect = layer.getBoundingClientRect();
+      return {
+        left: rect.left,
+        top: rect.top,
+        right: rect.right,
+        bottom: rect.bottom,
+        viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight,
+      };
+    });
+    expect(layerGeometry).not.toBeNull();
+    if (layerGeometry) {
+      expect(layerGeometry.left).toBeGreaterThanOrEqual(0);
+      expect(layerGeometry.top).toBeGreaterThanOrEqual(0);
+      expect(layerGeometry.right).toBeLessThanOrEqual(layerGeometry.viewportWidth);
+      expect(layerGeometry.bottom).toBeLessThanOrEqual(layerGeometry.viewportHeight);
+    }
 
     // Verify key menu items are visible and text is not truncated
     const renameItem = ctxMenu.getByText('Rename');
@@ -80,8 +101,60 @@ test.describe('Layers panel overflow fixes', () => {
     const hideItem = ctxMenu.getByText('Hide');
     await expect(hideItem).toBeVisible();
 
+    for (const label of [/^Bring to Front/, /^Send to Back/, /^Set File Thumbnail…$/]) {
+      await expect(ctxMenu.getByRole('menuitem', { name: label })).toBeVisible();
+    }
+    const menuLabels = await ctxMenu.locator('.varve-menu__item-label').evaluateAll((elements) =>
+      elements.map((element) => {
+        const style = getComputedStyle(element);
+        return {
+          textOverflow: style.textOverflow,
+          clientWidth: element.clientWidth,
+          scrollWidth: element.scrollWidth,
+        };
+      }),
+    );
+    for (const label of menuLabels) {
+      expect(label.textOverflow).not.toBe('ellipsis');
+      expect(label.scrollWidth).toBeLessThanOrEqual(label.clientWidth);
+    }
+
     // Screenshot for visual review
+    await ctxMenu.screenshot({ path: 'reports/layers-ctxmenu.png' });
     await page.screenshot({ path: 'reports/layers-ctxmenu-portal.png', fullPage: false });
+
+    // A long target-relative menu may need a scroll viewport when it opens
+    // above a low layer row. Verify the final action remains reachable instead
+    // of treating the intentionally constrained viewport as clipped content.
+    const finalAction = ctxMenu.getByRole('menuitem', {
+      name: 'Reveal in Layers panel',
+      exact: true,
+    });
+    const scrollMetricsBefore = await ctxMenu.evaluate((element) => {
+      const layer = element.parentElement;
+      return {
+        clientHeight: layer?.clientHeight ?? 0,
+        scrollHeight: layer?.scrollHeight ?? 0,
+        scrollTop: layer?.scrollTop ?? 0,
+      };
+    });
+    if (scrollMetricsBefore.scrollHeight > scrollMetricsBefore.clientHeight) {
+      await finalAction.scrollIntoViewIfNeeded();
+      await expect(finalAction).toBeVisible();
+      const scrollMetricsAfter = await ctxMenu.evaluate((element) => {
+        const layer = element.parentElement;
+        return {
+          clientHeight: layer?.clientHeight ?? 0,
+          scrollHeight: layer?.scrollHeight ?? 0,
+          scrollTop: layer?.scrollTop ?? 0,
+        };
+      });
+      expect(scrollMetricsAfter.scrollHeight).toBeGreaterThan(scrollMetricsAfter.clientHeight);
+      expect(scrollMetricsAfter.scrollTop).toBeGreaterThan(scrollMetricsBefore.scrollTop);
+      await ctxMenu.screenshot({ path: 'reports/layers-ctxmenu-scrolled.png' });
+    } else {
+      await expect(finalAction).toBeVisible();
+    }
 
     // Close the context menu
     await page.keyboard.press('Escape');

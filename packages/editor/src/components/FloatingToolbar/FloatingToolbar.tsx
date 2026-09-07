@@ -533,6 +533,7 @@ export function FloatingToolbar() {
         anchor={(openFlyout || isMoreToolsOpen) && openMenu ? openMenu.anchor : null}
         onClose={() => setOpenMenu(null)}
         label={contextMenuLabel}
+        size="default"
       />
     </>
   );

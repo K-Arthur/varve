@@ -214,6 +214,7 @@ export function SelectionQuickBar({
                 onClose={() => setMoreOpen(false)}
                 label="More actions"
                 items={moreMenuItems}
+                size="compact"
               />
             </div>
           </span>

@@ -198,6 +198,7 @@ function RegistryDisclosure({
           items={[{ id: 'hide-section', label: 'Hide section', onAction: handleHide }]}
           onClose={() => setContextMenu(null)}
           label={`${title} section actions`}
+          size="compact"
         />
       )}
     </section>

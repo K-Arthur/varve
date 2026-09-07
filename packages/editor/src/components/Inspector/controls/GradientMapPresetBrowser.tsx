@@ -287,6 +287,7 @@ export function GradientMapPresetBrowser({
         anchor={context?.anchor}
         onClose={() => setContext(null)}
         label="Gradient preset actions"
+        size="default"
       />
     </section>
   );

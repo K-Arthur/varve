@@ -56,6 +56,7 @@ export function GuideContextMenu({
       position={anchor ? undefined : x !== undefined && y !== undefined ? { x, y } : null}
       onClose={onClose}
       label="Guide context menu"
+      size="compact"
     />
   );
 }

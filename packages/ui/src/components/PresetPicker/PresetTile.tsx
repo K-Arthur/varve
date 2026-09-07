@@ -129,6 +129,7 @@ export function PresetTile({
             onClose={() => setMenuOpen(false)}
             label={`${preset.name} actions`}
             items={menuItems}
+            size="compact"
           />
         </span>
       )}

@@ -262,6 +262,7 @@ export function IntelligencePanel({ initialTab }: { initialTab?: ExtendedTab } =
         onClose={() => setShowMore(false)}
         label="More intelligence tabs"
         items={moreMenuItems}
+        size="default"
       />
 
       <div

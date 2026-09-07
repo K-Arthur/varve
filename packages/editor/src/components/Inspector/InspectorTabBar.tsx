@@ -198,6 +198,7 @@ export function InspectorTabBar({ tabs, activeTab, onActivate, onDetach }: Inspe
             open={overflowOpen}
             onClose={() => setOverflowOpen(false)}
             label="More inspector tabs"
+            size="default"
           />
         </>
       )}

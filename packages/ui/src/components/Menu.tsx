@@ -294,6 +294,7 @@ interface MenuInternalProps {
   closeAll: (reason?: OverlayCloseReason) => void;
   label: string;
   level: number;
+  size: MenuSize;
   triggerRef?: React.RefObject<HTMLElement | null>;
   id?: string;
   menuClassName: string;
@@ -332,6 +333,7 @@ function MenuInternal({
   closeAll,
   label,
   level,
+  size,
   triggerRef,
   id,
   menuClassName,
@@ -836,7 +838,8 @@ function MenuInternal({
                 label={`${itemLabel(entry)} submenu`}
                 level={level + 1}
                 triggerRef={submenuAnchorRef}
-                menuClassName="varve-menu varve-menu--compact varve-menu--portaled"
+                size={size}
+                menuClassName={`varve-menu varve-menu--${size} varve-menu--portaled`}
                 topTabHandler={handleTopTab}
                 cancelParentClose={clearSubmenuClose}
                 focusRestoreSuppressionRef={suppressFocusRestore}
@@ -964,6 +967,7 @@ export function Menu({
         closeAll={onClose}
         label={label}
         level={0}
+        size={size}
         triggerRef={triggerRef}
         id={id}
         menuClassName={`varve-menu varve-menu--${size} varve-menu--portaled`}
@@ -1024,6 +1028,7 @@ export function ContextMenu({
         closeAll={onClose}
         label={label}
         level={0}
+        size={size}
         id={id}
         menuClassName={`varve-menu varve-menu--${size} varve-ctxmenu varve-menu--portaled`}
       />

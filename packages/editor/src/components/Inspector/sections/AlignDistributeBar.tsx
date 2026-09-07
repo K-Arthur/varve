@@ -620,6 +620,7 @@ export function AlignDistributeBar() {
                 label: `${columns} columns`,
                 onAction: () => handleTidyUp(columns),
               }))}
+              size="compact"
             />
           </div>
           <Tooltip label="Toggle oriented bounding box alignment">

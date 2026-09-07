@@ -70,7 +70,12 @@ are painted.
 
 Use `compact` for genuinely short command/overflow menus and `default` for
 target-relative menus whose actions include ordinary descriptive labels. The
-Home file context menu is an example of the latter.
+Home file, editor layer, and canvas context menus are examples of the latter.
+The same rule applies to other dynamic command lists: page and panel actions,
+tool and workspace overflow, inspector/intelligence overflow, breadcrumb paths,
+and preset actions use `default` when their labels can exceed a short command.
+Nested submenus inherit the parent semantic size so a widened menu cannot open
+a narrower child that clips the same command labels.
 
 ## Context menu content guidelines
 

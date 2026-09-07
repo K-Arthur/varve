@@ -338,6 +338,7 @@ export function FillSection({ nodes }: FillSectionProps) {
             onClose={() => setAddMenuOpen(false)}
             label="Add fill"
             items={addMenuItems}
+            size="compact"
           />
         </div>
       </div>

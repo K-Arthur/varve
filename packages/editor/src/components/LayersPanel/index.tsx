@@ -772,6 +772,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
           anchor={contextMenu.anchor}
           onClose={closeMenu}
           label="Layer context menu"
+          size="default"
         />
       )}
 

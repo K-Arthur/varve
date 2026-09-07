@@ -1057,7 +1057,6 @@ function ShellInner({
 
         {/* File Thumbnail picker */}
         <ThumbnailPickerHost />
-
         {/* Document Color Mode (Assign vs Convert) */}
         <ColorConversionHost />
 
@@ -1072,6 +1071,7 @@ function ShellInner({
                 anchor={canvasContextMenu.anchor}
                 onClose={closeMenu}
                 label="Canvas context menu"
+                size="default"
               />
             );
           })()}

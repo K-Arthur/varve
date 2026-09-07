@@ -138,6 +138,7 @@ function BreadcrumbBar({ segments }: BreadcrumbBarProps) {
             onClose={() => setOverflowOpen(false)}
             label="Selection path"
             items={overflowItems}
+            size="default"
           />
         </div>
       )}

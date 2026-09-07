@@ -410,6 +410,7 @@ export function PageNav() {
         anchor={ctxAnchor}
         onClose={closeContextMenu}
         label="Page context menu"
+        size="default"
       />
     </Sortable>
   );

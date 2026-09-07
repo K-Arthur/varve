@@ -463,6 +463,7 @@ export function WorkspaceTabs() {
           open={moreOpen}
           onClose={() => setMoreOpen(false)}
           label="More workspaces"
+          size="default"
           items={[
             ...layout.overflow.map((mode) => ({
               id: mode,

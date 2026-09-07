@@ -60,7 +60,15 @@ function AnchoredMenu({ items, id, size }: { items: MenuEntry[]; id?: string; si
   );
 }
 
-function TestMenuWithSubmenus({ open, onClose }: { open: boolean; onClose: () => void }) {
+function TestMenuWithSubmenus({
+  open,
+  onClose,
+  size,
+}: {
+  open: boolean;
+  onClose: () => void;
+  size?: MenuSize;
+}) {
   const ref = useRef<HTMLButtonElement>(null);
   const subAction = vi.fn();
   const items: MenuEntry[] = [
@@ -82,7 +90,7 @@ function TestMenuWithSubmenus({ open, onClose }: { open: boolean; onClose: () =>
       <button type="button" ref={ref}>
         trigger
       </button>
-      <Menu items={items} triggerRef={ref} open={open} onClose={onClose} label="test" />
+      <Menu items={items} triggerRef={ref} open={open} onClose={onClose} label="test" size={size} />
     </>
   );
 }
@@ -405,6 +413,19 @@ describe('Menu submenus', () => {
 
     await user.keyboard('{ArrowRight}');
     expect(submenuTrigger).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('propagates the semantic width to nested submenus', async () => {
+    const user = userEvent.setup();
+    render(<TestMenuWithSubmenus open onClose={vi.fn()} size="default" />);
+
+    const items = document.body.querySelectorAll('[role="menuitem"]');
+    const firstItem = items[0] as HTMLElement | undefined;
+    firstItem?.focus();
+    await user.keyboard('{ArrowDown}{ArrowRight}');
+
+    const menus = document.body.querySelectorAll('[role="menu"]');
+    expect(menus[1]).toHaveClass('varve-menu--default');
   });
 
   it('calls item action in submenu and closes through closeAll', async () => {
