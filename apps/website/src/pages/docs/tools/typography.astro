@@ -40,6 +40,29 @@ import { sitePath } from '../../../lib/siteUrl';
       </section>
 
       <section class="docs-section">
+        <h2>Rich text, selection, and appearance</h2>
+        <p>
+          The native editing surface owns typing, caret movement, IME composition, selection, and clipboard input. Varve's canvas remains the appearance authority while you edit, so gradients, strokes, shadows, glows, and other supported text effects do not disappear or get painted twice.
+        </p>
+        <p>
+          When a text node has rich content, its paragraphs and styled runs are canonical; the plain <code>text</code> value is kept as a synchronized projection. Native UTF-16 offsets are mapped to paragraph-local ranges and snapped to grapheme boundaries, so editing across paragraphs preserves unaffected formatting. Use the <strong>Rich Text</strong> switch in Typography to apply character formatting to the current range; ordinary typography controls apply to the selected text objects.
+        </p>
+        <p>
+          Layer effects are whole-object appearance. Selecting a word does not make a shadow or glow range-local; use rich-text formatting for range-level styling and the Layer Effects section for the complete text layer.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Text layer names</h2>
+        <p>
+          New text layers receive a content-derived label such as <code>Text: Summer sale</code>. While that label is automatic, accepted content edits keep it in sync with the canonical text, including rich-text paragraphs and Unicode content. Renaming a layer in Layers makes the name custom, so later text, style, and effect changes leave it alone. Choose <strong>Use text as name</strong> in Typography to restore automatic naming explicitly.
+        </p>
+        <p>
+          Older documents without naming metadata are left unchanged until you opt into automatic naming. Labels are display names: line breaks and whitespace are normalized and long names are shortened at safe grapheme boundaries without changing the artwork.
+        </p>
+      </section>
+
+      <section class="docs-section">
         <h2>Unicode and text direction</h2>
         <p>
           Varve keeps document text in logical Unicode order. The engine distinguishes UTF-16 offsets used by browser editing from code-point, grapheme, shaping-cluster, glyph, and visual-caret positions. Rich-text ranges snap to extended grapheme boundaries so combining sequences and joined emoji are not split accidentally.

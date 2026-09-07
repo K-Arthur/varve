@@ -146,7 +146,10 @@ const fontReplacementFaq = {
         <h2>Key Capabilities</h2>
         <ul>
           <li><strong>Text rendering:</strong> Multi-line with line height, paragraph spacing, text decoration (underline, strikethrough), text overflow (clip, ellipsis)</li>
-          <li><strong>Inline editing:</strong> Positioned textarea overlay with IME and RTL support</li>
+          <li><strong>Inline editing:</strong> Native caret, IME, clipboard, and grapheme-safe selection input while the canvas preserves the text's authored appearance</li>
+          <li><strong>Rich text:</strong> Paragraph-aware replacement and range formatting that preserves unaffected runs instead of flattening them</li>
+          <li><strong>Editable appearance:</strong> Gradients, strokes, shadows, glows, and supported layer effects remain visible while text is being edited</li>
+          <li><strong>Predictable layer names:</strong> Content-derived labels follow automatic text layers; manual names persist until you explicitly restore automatic naming</li>
           <li><strong>OpenType features:</strong> 14 common feature toggles (liga, kern, salt, ss01-ss20) with per-font support detection</li>
           <li><strong>Variable fonts:</strong> Per-axis slider control with min/max/default from font metadata</li>
           <li><strong>Text on path:</strong> Place text along any shape path — circle, bezier, rectangle, polygon, star</li>
@@ -195,6 +198,12 @@ const fontReplacementFaq = {
 
       <section class="feature-section feature-faq">
         <h2>Common questions</h2>
+        <h3>Do effects disappear while I edit text?</h3>
+        <p>No. The native input surface captures typing and selection, while the canvas remains the appearance authority for supported fills, strokes, shadows, glows, and other layer effects.</p>
+        <h3>Will editing a rich-text range flatten its formatting?</h3>
+        <p>No. When rich text is present, Varve keeps its paragraphs and runs canonical and replaces only the changed range. Effects remain whole-layer appearance; range styling belongs to rich-text formatting.</p>
+        <h3>What happens to a text layer's name?</h3>
+        <p>New text uses a content-derived automatic label. A manual Layers rename becomes custom and persists through later content or style changes. Typography includes an explicit action to restore automatic naming.</p>
         <h3>What happens when an imported design uses a missing font?</h3>
         <p>Varve identifies the family and checks the shipped catalog for the requested Fontsource face. You can explicitly install an exact match, browse semantic alternatives, or choose an installed replacement. The source family remains available as provenance in the document manifest.</p>
         <h3>Can I replace a font everywhere?</h3>

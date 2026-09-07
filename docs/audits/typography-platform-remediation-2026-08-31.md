@@ -26,14 +26,27 @@ claims stay aligned with runtime behavior.
 
 ## Implemented in this remediation slice
 
-- The DOM editor is visibly rendered with the node's managed fill color and is
-  marked as an editing surface.
+- The DOM editor is a transparent native input surface while the canvas remains
+  authoritative for the active node's fills, strokes, shadows, glows, and
+  other supported effects.
 - Blur commits are deferred one animation frame and ignored when focus moves to
   the editor, formatting overlay, inspector, or another declared overlay.
   Commit is idempotent and cleanup cancels the pending blur task.
 - The redraw coordinator tracks the active text target. Target transitions
-  force a full redraw; the renderer omits the active node and does not reuse a
-  worker bitmap while the DOM surface owns it.
+  force a full redraw; the renderer includes the active node and only reuses a
+  worker bitmap when the synchronous frame-admission checks prove that a fresh
+  authoritative frame is on its way.
+- Rich-text input now updates the canonical `richText` story through the
+  smallest changed UTF-16 range, preserving unaffected run formatting and
+  paragraph structure. Native selections map to paragraph-local grapheme-safe
+  ranges instead of always targeting paragraph zero.
+- Text layer naming distinguishes automatic content-derived labels from custom
+  names. New editor text follows `Text: <content>`; an inline rename persists
+  as custom, and the Typography inspector can explicitly restore automatic
+  naming.
+- Mixed-selection effect edits resolve by effect id when present and require a
+  type match for legacy effects, so controls do not blindly mutate an
+  unrelated operation at the same array index.
 - FontSelector subscribes to `FontRegistry` revisions, uses instance-unique
   combobox/listbox/option IDs, and waits for successful online installation
   before applying a family.

@@ -70,18 +70,41 @@ sources remain distinct.
 ### Editing surface boundary
 
 Text editing uses a DOM `<textarea>` positioned with the same camera transform
-as the canvas. While it owns a text node, the content renderer excludes that
-node and disables worker-bitmap reuse. The redraw coordinator treats entering,
-retargeting, and leaving edit mode as a full authoritative redraw. This keeps
-the browser's native caret, IME, selection, and clipboard behavior responsive
-without painting a second copy of the glyphs underneath it. Blur commits only
-when focus leaves the editor/toolbar surface; moving focus to a formatting
-control is not an accidental commit.
+as the canvas. The textarea is a transparent native input surface: the canvas
+continues to paint the active node, including its real fills, strokes, shadows,
+glows, and other supported effects. This gives the browser's native caret, IME,
+selection, and clipboard behavior a single input owner without hiding the
+authoritative artwork or painting a second copy of the glyphs. Entering,
+retargeting, and leaving edit mode still force an authoritative redraw. Blur
+commits only when focus leaves the editor/toolbar surface; moving focus to a
+formatting control is not an accidental commit.
 
 The scene remains canonical: the overlay writes through the editor update path,
 and the existing `packages/scene/src/textBounds.ts` / `packages/shared/src/textGeometry.ts`
 geometry is used for node-local bounds, wrapping, and overlay placement. The
-overlay is an interaction surface, not a second text model.
+overlay is an interaction surface, not a second text model. When `richText` is
+present it is authoritative and `text` is maintained as its plain-text
+projection. Native UTF-16 selections are snapped to extended grapheme
+boundaries and mapped through `createRichTextIndex` to paragraph-local ranges;
+replacements compute the smallest changed range so unaffected runs and
+paragraph attributes survive typing, paste, and Inspector edits.
+
+### Appearance and layer-name ownership
+
+Layer effects remain whole-object appearance. They operate on the text node's
+paint coverage, not on the selected range; range formatting belongs to
+`richText` runs. Inspector effect rows resolve a stable effect id when one is
+available and otherwise require the legacy row's type to match before applying
+a multi-selection edit. This prevents a drop shadow edit from changing a
+different effect that happens to occupy the same array index.
+
+Text layer names have an explicit optional `nameMode`: editor-created text is
+`automatic` and uses a deterministic `Text: <content excerpt>` label derived
+from canonical rich text. Content edits update that label in the same document
+transaction. A Layers-panel rename changes the mode to `custom`; later content,
+style, and effect edits leave it alone. The Typography inspector exposes an
+explicit restore action. Legacy nodes without the field remain unchanged until
+the user opts into automatic naming.
 
 ## Shaping Contract
 
