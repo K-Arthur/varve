@@ -104,7 +104,10 @@ generic “cardify everything” patterns were rejected.
 The React primitive is not imported by Astro. `apps/website/src/styles/global.css`
 owns a lightweight `site-card` recipe that maps to the same surface, border,
 spacing, radius, focus, forced-colors, and reduced-motion tokens. Astro pages
-remain statically rendered and links remain real links.
+remain statically rendered and links remain real links. Marketing feature grids
+may use the three brand tones (`teal`, `sandstone`, and `terracotta`) for
+decorative icon tiles; the rotation is intentional and uses token-backed
+`color-mix` backgrounds rather than one default accent color.
 
 ## Coverage
 

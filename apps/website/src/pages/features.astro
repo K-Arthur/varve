@@ -264,31 +264,19 @@ import ClosingCTA from '../components/ClosingCTA.astro';
     height: 2.5rem;
     border-radius: var(--website-radius-control);
     margin-bottom: 0.75rem;
-    color: var(--accent-primary);
-    background: var(--surface-accent-soft);
-  }
-
-  .feature-card:nth-child(2) .feature-icon {
-    color: var(--brand-sandstone);
-    background: color-mix(in oklab, var(--brand-sandstone) 12%, var(--surface-card));
-  }
-
-  .feature-card:nth-child(3) .feature-icon {
-    color: var(--brand-terracotta);
-    background: color-mix(in oklab, var(--brand-terracotta) 12%, var(--surface-card));
-  }
-
-  .feature-card:nth-child(4) .feature-icon {
     color: var(--brand-teal);
     background: color-mix(in oklab, var(--brand-teal) 12%, var(--surface-card));
   }
 
-  .feature-card:nth-child(5) .feature-icon {
+  /* Keep the feature catalogue visually varied without introducing ad-hoc
+     colors. The three brand tones repeat by item position so every icon tile
+     participates in the same deliberate rhythm. */
+  .feature-card:nth-child(3n + 2) .feature-icon {
     color: var(--brand-sandstone);
     background: color-mix(in oklab, var(--brand-sandstone) 12%, var(--surface-card));
   }
 
-  .feature-card:nth-child(6) .feature-icon {
+  .feature-card:nth-child(3n) .feature-icon {
     color: var(--brand-terracotta);
     background: color-mix(in oklab, var(--brand-terracotta) 12%, var(--surface-card));
   }
