@@ -4823,6 +4823,10 @@
   min-width: 0;
 }
 
+.insp-field-group--skew > .insp-field {
+  grid-template-columns: max-content minmax(0, 1fr);
+}
+
 .insp-field-group--size > .insp-proportion-lock,
 .insp-field-group--rotation > .insp-flip-btn,
 .insp-field-group--skew > .insp-flip-btn {
