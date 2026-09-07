@@ -284,6 +284,7 @@ viewport behavior are documented in
 | `architecture/new-design-creation.md` | New Design / document creation contract |
 | `architecture/pages-layers-frames-shapes-system.md` | Pages, layers, frames, shapes model |
 | `architecture/layers-drag-drop.md` | Layers panel drag and drop: canonical drop resolver, virtualized hit testing, hierarchy semantics |
+| `architecture/layers-navigation.md` | Layers selection, tree focus, camera navigation modes, canonical bounds, and validation contract |
 | `architecture/pen-pencil-tools.md` | Pen/pencil tool architecture |
 | `architecture/polygonal-lasso.md` | Polygonal lasso |
 | `architecture/skew-transforms.md` | Skew transform contract |

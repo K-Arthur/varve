@@ -23,6 +23,37 @@ import { sitePath } from '../../lib/siteUrl';
         </p>
       </header>
 
+      <section class="feature-section" aria-labelledby="layers-navigation-title">
+        <p class="eyebrow">Selection without surprises</p>
+        <h2 id="layers-navigation-title">Choose what a layer click does to the canvas.</h2>
+        <p>
+          Selecting a layer should not steal the view. In Varve's Layers options, choose
+          <strong>Select only</strong>, <strong>Reveal when needed</strong>,
+          <strong>Center selection</strong>, or <strong>Fit selection</strong>. The first keeps
+          pan, zoom, and rotation exactly where they are; the others move the camera only as much
+          as their names promise.
+        </p>
+        <div class="feature-grid">
+          <article>
+            <h3>Select only</h3>
+            <p>Keep your working view while the selection and Inspector update.</p>
+          </article>
+          <article>
+            <h3>Reveal or center</h3>
+            <p>Keep zoom and rotation, then pan only when needed or center the resolved layer.</p>
+          </article>
+          <article>
+            <h3>Fit selection</h3>
+            <p>Frame the selected content with a predictable padded view, including multi-selection.</p>
+          </article>
+        </div>
+        <p>
+          Tree focus, range selection, and modifier selection stay independent from camera motion.
+          Explicit <strong>Reveal on Canvas</strong>, <strong>Center Selection</strong>, and
+          <strong>Zoom to Selection</strong> commands remain available from the Layers context menu.
+        </p>
+      </section>
+
       <section class="layer-demo" aria-label="Illustration of the Layers panel and canvas handoff">
         <div class="layer-demo__panel">
           <div class="layer-demo__heading"><span>Layers</span><span class="layer-demo__dots">•••</span></div>
@@ -100,7 +131,7 @@ import { sitePath } from '../../lib/siteUrl';
           shared sortable controls. That means a frame drop can mean “into,” while a page tab still
           means “reorder.” Each surface keeps its own persistence and history boundary.
         </p>
-        <a href="https://github.com/K-Arthur/varve/blob/main/docs/architecture/layers-drag-drop.md">Read the Layers drag-and-drop contract →</a>
+        <a href="https://github.com/K-Arthur/varve/blob/main/docs/architecture/layers-navigation.md">Read the Layers navigation contract →</a>
       </aside>
 
       <div class="feature-cta">
