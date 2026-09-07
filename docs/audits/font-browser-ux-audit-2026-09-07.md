@@ -18,6 +18,7 @@ default and compact modal sizes.
 | Downloadable families were difficult to evaluate | The old row exposed only descriptors and `Install` | The inspection pane includes a custom specimen, source, license, styles, weights, scripts, tags, reasons, recommendations, and install/use actions |
 | The modal did not start at its primary task | The dialog's first focusable control was the close button | The dialog opts into first-control focus and marks the search input as the autofocus target |
 | Narrow and themed surfaces needed direct validation | The supplied modal was narrow and only showed the light treatment | Shared tokens, explicit high-contrast/forced-colors rules, stacked compact layout, and real-browser screenshots now cover light, dark, and high contrast |
+| Long specimen lines painted beyond their flex item | A multi-line fallback specimen could extend into the explanatory note and metadata | The specimen no longer shrinks below its content, uses responsive type with a bounded scroll region, and keeps following content in normal flow |
 
 ## Research used
 
@@ -51,6 +52,9 @@ version-pinned, and a catalog preview never pretends that a font is loaded.
 - **Inspection:** selecting a row updates the selected family without closing
   the modal or mutating the document. The live specimen uses the actual family
   only when that family is installed; otherwise the UI labels it preview-only.
+- **Specimen containment:** custom preview text is responsive, cannot paint
+  outside its card, and scrolls inside a bounded region when a deliberately
+  long sample exceeds the available height.
 - **Actions:** `Install font` owns the download boundary. `Use font` is the only
   action that invokes the parent document update callback.
 - **Accessibility:** source controls use tab semantics, the search has an
@@ -65,6 +69,7 @@ version-pinned, and a catalog preview never pretends that a font is loaded.
 - `pnpm exec vitest run packages/engine/src/font/semantic/semanticQuery.test.ts packages/engine/src/font/semantic/semanticSearch.test.ts packages/editor/src/components/FontBrowser/FontBrowser.test.tsx packages/editor/src/components/FontBrowser/FontSelector.test.tsx`
 - `VARVE_E2E_PORT=1421 npx playwright test tests/e2e/canvas/font-selector.spec.ts --project=chromium --reporter=list`
 - `VARVE_E2E_PORT=1424 npx playwright test tests/e2e/canvas/font-selector.spec.ts --project=chromium --grep "keeps the browser" --reporter=list`
+- `VARVE_E2E_PORT=1430 npx playwright test tests/e2e/canvas/font-selector.spec.ts --project=chromium --grep "finds gothic" --reporter=list`
 
 The full font selector E2E file passed after the assertion correction. The
 compact run passed all three theme screenshots and verified that the browser
