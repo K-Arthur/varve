@@ -105,6 +105,7 @@ const NODE_BASE_KEY_ORDER: readonly string[] = [
   'id',
   'kind',
   'name',
+  'nameMode',
   'layerColor',
   'order',
   'visible',
@@ -203,7 +204,7 @@ const NODE_KIND_KEY_ORDER: Record<string, readonly string[]> = {
     'effects',
   ],
   path: ['points', 'closed', 'transform', 'strokes', 'effects'],
-  rasterLayer: ['width', 'height', 'pixelMode', 'tiles', 'transform'],
+  rasterLayer: ['width', 'height', 'pixelMode', 'tiles', 'transform', 'effects'],
 };
 
 const FILL_KEY_ORDER: readonly string[] = [

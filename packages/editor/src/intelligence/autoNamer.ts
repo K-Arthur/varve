@@ -1,9 +1,11 @@
-import type { Document, NodeId, SceneNode } from '@varve/scene';
+import { createUnicodeIndexMap } from '@varve/engine';
+import type { Document, NodeId, SceneNode, TextNode } from '@varve/scene';
 import {
   getParent,
   imageShapeH,
   imageShapeW,
   isImageShape,
+  richTextToPlainText,
   shapeHeight,
   shapeWidth,
 } from '@varve/scene';
@@ -55,8 +57,22 @@ function isLinkLikeText(text: string): boolean {
 }
 
 function truncateText(text: string, maxLen: number = 30): string {
-  if (text.length <= maxLen) return text;
-  return `${text.slice(0, maxLen - 1)}\u2026`;
+  const map = createUnicodeIndexMap(text);
+  if (map.graphemes.length <= maxLen) return text;
+  const end = map.graphemes[maxLen]?.index ?? text.length;
+  return `${text.slice(0, end)}\u2026`;
+}
+
+export function textContentForNaming(node: TextNode): string {
+  return (node.richText ? richTextToPlainText(node.richText) : node.text)
+    .replace(/\s+/gu, ' ')
+    .trim();
+}
+
+/** Content-only naming is deliberately separate from optional role suggestions. */
+export function automaticTextName(node: TextNode): string {
+  const content = textContentForNaming(node);
+  return `Text: ${truncateText(content || 'Untitled text', 30)}`;
 }
 
 function getNodeWidth(node: SceneNode): number | null {
@@ -418,6 +434,9 @@ export function autoName(
   index?: number,
   imageLabels?: Map<NodeId, string>,
 ): string {
+  if (node.kind === 'text') {
+    return uniqueName(automaticTextName(node), doc, node.id);
+  }
   const suggestion = suggestName(node, doc, index, imageLabels);
   const base = suggestion.name;
 
@@ -448,7 +467,11 @@ export function renameSelected(
         ...newDoc,
         nodes: {
           ...newDoc.nodes,
-          [id]: { ...node, name } as SceneNode,
+          [id]: {
+            ...node,
+            name,
+            ...(node.kind === 'text' ? { nameMode: 'custom' as const } : {}),
+          } as SceneNode,
         },
       };
     }

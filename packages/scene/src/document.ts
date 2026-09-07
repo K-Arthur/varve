@@ -583,6 +583,7 @@ export function makeTextNode(
     Pick<
       TextNode,
       | 'name'
+      | 'nameMode'
       | 'layerColor'
       | 'transform'
       | 'fill'
@@ -622,6 +623,7 @@ export function makeTextNode(
     id,
     kind: 'text',
     name: opts.name ?? 'Text',
+    nameMode: opts.nameMode,
     layerColor: opts.layerColor ?? null,
     order: opts.order ?? 'a0',
     visible: true,

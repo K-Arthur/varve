@@ -1156,6 +1156,8 @@ export type AdjustmentScope =
 export interface NodeBase {
   id: NodeId;
   name: string;
+  /** Automatic names follow authored content; custom names are user-owned. */
+  nameMode?: 'automatic' | 'custom';
   /** Optional 7-color layer tag (Photoshop/Affinity-style). Null = no tag. */
   layerColor?: LayerColor;
   fill: ManagedColor;
@@ -1764,6 +1766,8 @@ export interface RasterLayerNode extends NodeBase {
   tiles: Map<string, RasterTile>;
   /** Local transform for positioning/rotation/scale. */
   transform: Affine;
+  /** Non-destructive appearance effects applied to the composited raster. */
+  effects?: Effect[];
 }
 
 export type SceneNode =

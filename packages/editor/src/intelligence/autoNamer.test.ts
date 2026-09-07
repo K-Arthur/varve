@@ -12,7 +12,7 @@ import {
   makeTextNode,
 } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
-import { autoName, renameSelected, suggestName } from './autoNamer';
+import { automaticTextName, autoName, renameSelected, suggestName } from './autoNamer';
 
 function createTestDoc() {
   return createDocument('test');
@@ -368,16 +368,33 @@ describe('autoName', () => {
     let doc = createTestDoc();
     const text = makeTextNode('t1', 'Submit', { name: 'Text 1' });
     doc = addNode(doc, text);
-    expect(autoName(doc, doc.nodes.t1!)).toBe('Button: Submit');
+    expect(autoName(doc, doc.nodes.t1!)).toBe('Text: Submit');
   });
 
   it('appends counter for duplicate suggestion names', () => {
     let doc = createTestDoc();
-    const text1 = makeTextNode('t1', 'Submit', { name: 'Button: Submit' });
+    const text1 = makeTextNode('t1', 'Submit', { name: 'Text: Submit' });
     const text2 = makeTextNode('t2', 'Submit', { name: 'Text 2' });
     doc = addNode(doc, text1);
     doc = addNode(doc, text2);
-    expect(autoName(doc, doc.nodes.t2!)).toBe('Button: Submit 2');
+    expect(autoName(doc, doc.nodes.t2!)).toBe('Text: Submit 2');
+  });
+
+  it('names from canonical rich text and does not infer a semantic role', () => {
+    const text = makeTextNode('t1', 'legacy', {
+      richText: {
+        paragraphs: [{ runs: [{ text: 'Welcome', format: { fontWeight: 700 } }] }],
+      },
+      fontSize: 48,
+    });
+    expect(automaticTextName(text)).toBe('Text: Welcome');
+    expect(autoName(createTestDoc(), text)).toBe('Text: Welcome');
+  });
+
+  it('truncates automatic names at grapheme boundaries', () => {
+    const mark = '\u{1f642}';
+    const text = makeTextNode('t1', `${mark.repeat(31)}!`);
+    expect(automaticTextName(text)).toBe(`Text: ${mark.repeat(30)}…`);
   });
 
   it('finds next sequential number for default fallback', () => {
