@@ -8,6 +8,7 @@
 
 import { createUnicodeIndexMap, normalizeGraphemeRange, snapUtf16Offset } from '@varve/engine';
 import type { CharacterFormat, Paragraph, RichText, TextRun } from './typography';
+import { richTextToPlainText } from './typography';
 
 // ── Run splitting ───────────────────────────────────────────────────────────
 
@@ -181,6 +182,94 @@ export function replaceTextInParagraph(
   return { paragraphs };
 }
 
+/**
+ * Replace a flat UTF-16 range in a rich-text story while retaining the
+ * formatting on unaffected text. Paragraph separators are part of the flat
+ * editing surface but are not stored in runs, so a replacement may have to
+ * join or create paragraphs rather than deleting characters from paragraph 0.
+ */
+export function replaceRichTextRange(
+  rich: RichText,
+  start: number,
+  end: number,
+  replacement: string,
+): RichText {
+  const source = richTextToPlainText(rich);
+  const normalized = normalizeGraphemeRange(createUnicodeIndexMap(source), start, end);
+  const safeStart = normalized.start;
+  const safeEnd = normalized.end;
+  const startAddress = flatOffsetToAddress(rich, safeStart);
+  const endAddress = flatOffsetToAddress(rich, safeEnd);
+  const startParagraph = rich.paragraphs[startAddress.paragraphIndex];
+  const endParagraph = rich.paragraphs[endAddress.paragraphIndex];
+  if (!startParagraph || !endParagraph) return rich;
+
+  const prefixRuns = sliceRuns(startParagraph.runs, 0, startAddress.offset);
+  const suffixRuns = sliceRuns(endParagraph.runs, endAddress.offset, paragraphLength(endParagraph));
+  const insertionFormat = formatAtOffset(startParagraph, startAddress.offset);
+  const replacementLines = replacement.split('\n');
+  const before = rich.paragraphs.slice(0, startAddress.paragraphIndex).map(cloneParagraph);
+  const after = rich.paragraphs.slice(endAddress.paragraphIndex + 1).map(cloneParagraph);
+  const created: Paragraph[] = [];
+
+  for (let index = 0; index < replacementLines.length; index++) {
+    const line = replacementLines[index] ?? '';
+    const isFirst = index === 0;
+    const isLast = index === replacementLines.length - 1;
+    const runs: TextRun[] = [];
+    if (isFirst) runs.push(...prefixRuns);
+    if (line) runs.push({ text: line, format: insertionFormat });
+    if (isLast) runs.push(...suffixRuns);
+    created.push({
+      ...(isLast && startAddress.paragraphIndex !== endAddress.paragraphIndex
+        ? cloneParagraph(endParagraph)
+        : cloneParagraph(startParagraph)),
+      runs: ensureRuns(mergeAdjacentRuns({ runs }).runs, insertionFormat),
+    });
+  }
+
+  return { paragraphs: [...before, ...created, ...after] };
+}
+
+/** Replace the smallest changed range between the current and next text. */
+export function replaceRichTextContent(rich: RichText, nextText: string): RichText {
+  const currentText = richTextToPlainText(rich);
+  if (currentText === nextText) return rich;
+
+  let prefix = 0;
+  while (
+    prefix < currentText.length &&
+    prefix < nextText.length &&
+    currentText.charCodeAt(prefix) === nextText.charCodeAt(prefix)
+  ) {
+    prefix++;
+  }
+
+  let currentEnd = currentText.length;
+  let nextEnd = nextText.length;
+  while (
+    currentEnd > prefix &&
+    nextEnd > prefix &&
+    currentText.charCodeAt(currentEnd - 1) === nextText.charCodeAt(nextEnd - 1)
+  ) {
+    currentEnd--;
+    nextEnd--;
+  }
+
+  const currentRange = normalizeGraphemeRange(
+    createUnicodeIndexMap(currentText),
+    prefix,
+    currentEnd,
+  );
+  const nextRange = normalizeGraphemeRange(createUnicodeIndexMap(nextText), prefix, nextEnd);
+  return replaceRichTextRange(
+    rich,
+    currentRange.start,
+    currentRange.end,
+    nextText.slice(nextRange.start, nextRange.end),
+  );
+}
+
 function rewriteCharacterFormat(
   rich: RichText,
   selection: RichSelection,
@@ -245,6 +334,49 @@ function formatAtOffset(para: Paragraph, offset: number): CharacterFormat | unde
     cursor += run.text.length;
   }
   return para.runs[para.runs.length - 1]?.format;
+}
+
+function cloneParagraph(para: Paragraph): Paragraph {
+  return { ...para, runs: para.runs.map((run) => ({ ...run })) };
+}
+
+function ensureRuns(runs: TextRun[], format: CharacterFormat | undefined): TextRun[] {
+  return runs.length > 0 ? runs : [{ text: '', format }];
+}
+
+function sliceRuns(runs: readonly TextRun[], start: number, end: number): TextRun[] {
+  const result: TextRun[] = [];
+  let cursor = 0;
+  for (const run of runs) {
+    const runStart = cursor;
+    const runEnd = cursor + run.text.length;
+    cursor = runEnd;
+    const sliceStart = Math.max(start, runStart);
+    const sliceEnd = Math.min(end, runEnd);
+    if (sliceStart >= sliceEnd) continue;
+    result.push({
+      ...run,
+      text: run.text.slice(sliceStart - runStart, sliceEnd - runStart),
+    });
+  }
+  return result;
+}
+
+function flatOffsetToAddress(
+  rich: RichText,
+  offset: number,
+): { paragraphIndex: number; offset: number } {
+  let cursor = 0;
+  for (let paragraphIndex = 0; paragraphIndex < rich.paragraphs.length; paragraphIndex++) {
+    const paragraph = rich.paragraphs[paragraphIndex]!;
+    const length = paragraphLength(paragraph);
+    if (offset <= cursor + length) return { paragraphIndex, offset: offset - cursor };
+    cursor += length;
+    if (paragraphIndex < rich.paragraphs.length - 1) cursor += 1;
+  }
+  const lastIndex = Math.max(0, rich.paragraphs.length - 1);
+  const last = rich.paragraphs[lastIndex];
+  return { paragraphIndex: lastIndex, offset: last ? paragraphLength(last) : 0 };
 }
 
 function normalizeSelection(sel: RichSelection): RichSelection {

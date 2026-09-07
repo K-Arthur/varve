@@ -5,6 +5,8 @@ import {
   mergeAdjacentRuns,
   promoteToRichText,
   removeCharacterFormat,
+  replaceRichTextContent,
+  replaceRichTextRange,
   replaceTextInParagraph,
   splitRunAt,
 } from './richTextOps';
@@ -178,5 +180,45 @@ describe('richTextOps', () => {
     const rich = { paragraphs: [{ runs: [{ text: 'a\u0301b', format: { fontSize: 20 } }] }] };
     const next = replaceTextInParagraph(rich, 0, 1, 2, 'X');
     expect(next.paragraphs[0]?.runs).toEqual([{ text: 'Xb', format: { fontSize: 20 } }]);
+  });
+
+  it('replaces across paragraphs without flattening unaffected run styles', () => {
+    const source: RichText = {
+      paragraphs: [
+        {
+          runs: [
+            { text: 'Hello ', format: { fontWeight: 400 } },
+            { text: 'world', format: { fontWeight: 700 } },
+          ],
+        },
+        { runs: [{ text: 'Second line', format: { fontStyle: 'italic' } }] },
+      ],
+    };
+    const next = replaceRichTextRange(source, 3, 12, 'new\n');
+    expect(next.paragraphs.map((p) => p.runs.map((r) => r.text).join(''))).toEqual([
+      'Helnew',
+      'Second line',
+    ]);
+    expect(next.paragraphs[0]?.runs[0]).toEqual({ text: 'Helnew', format: { fontWeight: 400 } });
+    expect(next.paragraphs[1]?.runs[0]).toEqual({
+      text: 'Second line',
+      format: { fontStyle: 'italic' },
+    });
+  });
+
+  it('updates the smallest changed content range and preserves a trailing paragraph', () => {
+    const source: RichText = {
+      paragraphs: [
+        { runs: [{ text: 'One', format: { fontWeight: 700 } }] },
+        { runs: [{ text: 'Two', format: { fontStyle: 'italic' } }] },
+      ],
+    };
+    const next = replaceRichTextContent(source, 'One\nThree');
+    expect(next.paragraphs.map((p) => p.runs.map((r) => r.text).join(''))).toEqual([
+      'One',
+      'Three',
+    ]);
+    expect(next.paragraphs[0]?.runs[0]?.format).toEqual({ fontWeight: 700 });
+    expect(next.paragraphs[1]?.runs[0]?.format).toEqual({ fontStyle: 'italic' });
   });
 });
