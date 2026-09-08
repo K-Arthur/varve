@@ -3,7 +3,8 @@
 **Date:** 2026-08-29
 **Status:** implementation follow-through recorded in `e13d39248`, the
 follow-up preview transaction change, and the curated Studio catalog in
-`cdcff9556` / `be5257604`
+`cdcff9556` / `be5257604`. Preview identity, baseline semantics, and
+transaction reconciliation were rechecked on 2026-09-08.
 
 ## Scope
 
@@ -124,8 +125,18 @@ The editor transaction API now accepts `beginTransaction('preview')`.
 Preview updates still enter React document state so the canvas can respond,
 but they do not mark the document dirty, increment the document revision,
 publish a mutation, or add an undo snapshot. Commit performs those actions once;
-abort restores the exact snapshot. Effect Studio uses this for both effect
-previews and Compare View.
+abort reconciles only the preview-owned entries against the current document,
+so unrelated edits made during the session survive and deleted or retargeted
+objects are not resurrected. Effect Studio uses this for effect previews.
+
+The 2026-09-08 follow-up also gives every preview a stable session identity
+(document, editor owner, targets, treatment/instance, baseline revision,
+generation, and renderer profile), uses the accepted document as the honest
+comparison baseline, and rejects stale or provisional results as final output.
+The focused Effect Studio Playwright workflow now covers the real dialog,
+vector rendering, Apply/Cancel, explicit duplication, stack preservation, and
+dark-mode visuals; the marketing feature and documentation routes are linked
+and mobile-checked separately.
 
 ## Research basis
 

@@ -1,6 +1,6 @@
 # Effect Studio
 
-**Status:** current architecture · **Date:** 2026-08-30
+**Status:** current architecture · **Date:** 2026-09-08
 
 Effect Studio is Varve's discovery surface for object-local creative effects.
 It is a Filter Gallery-style way to explore, preview, and apply designed
@@ -76,8 +76,8 @@ recipe, so an explicit Apply action cannot silently discard an earlier effect.
 The dialog follows a three-zone workflow: a large rendered preview, a compact
 treatment browser, and a focused applied-stack/settings column. The gallery
 has search, category filters, saved treatments, recent treatments, and
-preview/keep/cancel. The preview offers Original, Effects, and a
-keyboard-accessible split comparison; its two images are canonical rendered
+preview/keep/cancel. The preview offers Before this edit, Current candidate,
+and a keyboard-accessible split comparison; its two images are canonical rendered
 variants of the selected object rather than card art. A collapsed **Individual creative
 effects** section retains the thirteen raw Studio primitives for users who
 already know the operator they want. It explicitly directs parameter editing,
