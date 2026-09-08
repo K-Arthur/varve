@@ -50,7 +50,9 @@ test.describe('Effect Studio marketing surface', () => {
     await expect(
       page.getByText(/removes only filters owned by the active preview session/i),
     ).toBeVisible();
-    await expect(page.getByText(/preview bitmap/i)).toBeVisible();
+    await expect(
+      page.getByText(/Fit contains the complete rendered preview bitmap/i),
+    ).toBeVisible();
 
     await page.goto('/features');
     await expect(page.getByRole('link', { name: /Effect Studio/i })).toBeVisible();
