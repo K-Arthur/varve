@@ -10,7 +10,7 @@ import '@fontsource-variable/ibm-plex-sans/index.css';
 // packages/ui/src/tokens/tokens.css.
 import '@fontsource-variable/fraunces/opsz.css';
 
-import { ErrorBoundary } from '@varve/editor';
+import { ErrorBoundary, restoreStoredFonts } from '@varve/editor';
 import { AuxiliaryRoot } from '@varve/editor/auxiliary';
 import { initializeThemeLifecycle } from '@varve/ui/tokens';
 import { StrictMode } from 'react';
@@ -58,6 +58,19 @@ async function bootstrap() {
   // It must load before React so WDIO can inspect a genuinely interactive window.
   const buildMode = (import.meta as ImportMeta & { env?: { MODE?: string } }).env?.MODE;
   if (buildMode === 'wdio') await import('@wdio/tauri-plugin');
+
+  // Restore durable font artifacts before the editor can scan a document for
+  // missing families. Otherwise a font installed in an earlier session is
+  // still in IndexedDB but absent from the fresh runtime registry, producing a
+  // false missing-font dialog on the first render.
+  try {
+    await restoreStoredFonts();
+  } catch (error) {
+    // Font persistence must never prevent the app from opening. Individual
+    // corrupt records are already isolated by restoreStoredFonts; this catch
+    // covers storage access failures such as blocked IndexedDB.
+    console.warn('[fonts] Could not restore stored fonts:', error);
+  }
 
   // Remove the pre-JS boot fallback before React paints (browser target).
   dismissBootFallback();

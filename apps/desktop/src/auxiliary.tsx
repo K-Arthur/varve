@@ -13,7 +13,7 @@ import '@varve/ui/tokens.css';
 import '@fontsource-variable/geist/index.css';
 import '@fontsource-variable/ibm-plex-sans/index.css';
 
-import { ErrorBoundary } from '@varve/editor';
+import { ErrorBoundary, restoreStoredFonts } from '@varve/editor';
 import { AuxiliaryRoot } from '@varve/editor/auxiliary';
 import { initializeThemeLifecycle } from '@varve/ui/tokens';
 import { StrictMode } from 'react';
@@ -23,6 +23,15 @@ import { dismissBootFallback } from './startup/revealMainWindow';
 initializeThemeLifecycle();
 
 async function bootstrapAuxiliary() {
+  // Keep auxiliary panels in the same font-ready state as the main window.
+  // Missing-font scans must not run before persisted Fontsource faces are
+  // re-registered in this webview.
+  try {
+    await restoreStoredFonts();
+  } catch (error) {
+    console.warn('[fonts] Could not restore stored fonts:', error);
+  }
+
   dismissBootFallback();
 
   const root = document.getElementById('root');

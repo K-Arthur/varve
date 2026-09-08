@@ -91,6 +91,9 @@ import { sitePath } from '../../../lib/siteUrl';
         <p>
           The compact font family selector shows installed fonts only and never starts a download. Open Browse fonts for semantic discovery, coverage and license inspection. The public browser demo keeps search local-first and does not make remote provider requests; desktop installation is a separate explicit action. Missing fonts open a recovery dialog that uses the same shipped catalog and install boundary.
         </p>
+        <p>
+          Downloaded faces are stored locally and restored before the editor scans an opened document, including in a later desktop session. A successfully restored face is registered with its original Fontsource weight and style, so an installed family is not reported as missing just because the runtime was restarted.
+        </p>
 
         <h3>Browse fonts</h3>
         <p>

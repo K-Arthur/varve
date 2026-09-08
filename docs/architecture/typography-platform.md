@@ -155,6 +155,12 @@ export interface ShapingCapabilities {
 - Previous `varve-font-storage`, `varve-fonts`, and `strata-fonts` records are
   migrated on first access and receive a content hash.
 
+At desktop/browser startup, the bootstrap restores these records and registers
+their validated faces before React mounts. This keeps the missing-font scan,
+font selector, canvas measurement, and export path aligned with fonts installed
+in a previous session. A storage failure is non-fatal; the application opens,
+while only records that load successfully are exposed to the runtime registry.
+
 ### Filesystem (Tauri only)
 - Location: `$APPDATA/fonts/<sha256-prefix>/`
 - Format: `font.{ttf,otf,woff,woff2}` + `meta.json`

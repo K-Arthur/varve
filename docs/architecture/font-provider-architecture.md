@@ -51,6 +51,12 @@ provider, weight, and style in `FontRegistry` and marks the matching local
 catalog record installed; a reopened project therefore does not regress to a
 generic user-font label or offer the same download again.
 
+The desktop/browser bootstrap awaits this restoration before mounting React in
+both the main and auxiliary windows. The missing-font controller therefore
+never performs its first document scan against an empty post-reload registry.
+Storage failures are isolated and do not prevent the application from opening;
+only successfully validated and loaded records become available faces.
+
 ## Capability and UI contract
 
 Search results are preview-only until installation succeeds. Installation is

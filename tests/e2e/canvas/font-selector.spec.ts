@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { dragOnCanvas, navigateToEditor } from '../shared';
 
@@ -267,5 +269,84 @@ test.describe('Font selector', () => {
         fullPage: true,
       });
     }
+  });
+});
+
+test.describe('downloaded font restoration', () => {
+  test('restores a persisted face before the editor checks document fonts', async ({
+    page,
+  }, testInfo) => {
+    const fontPath = resolve(
+      process.cwd(),
+      'apps/desktop/node_modules/@fontsource-variable/geist/files/geist-latin-wght-normal.woff2',
+    );
+    const fontBytes = await readFile(fontPath);
+
+    // Use a same-origin static page as the seed surface. The app has not
+    // mounted yet, so startup restoration cannot race the record insertion.
+    await page.goto('/icons/favicon.svg', {
+      timeout: 300000,
+      waitUntil: 'domcontentloaded',
+    });
+    await page.evaluate(async (bytes) => {
+      const dbName = 'varve-font-storage-v2';
+      await new Promise<void>((resolve, reject) => {
+        const request = indexedDB.deleteDatabase(dbName);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+        request.onblocked = () => resolve();
+      });
+      await new Promise<void>((resolve, reject) => {
+        const request = indexedDB.open(dbName, 1);
+        request.onupgradeneeded = () => {
+          request.result.createObjectStore('artifacts', { keyPath: 'key' });
+        };
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          const db = request.result;
+          const transaction = db.transaction('artifacts', 'readwrite');
+          transaction.objectStore('artifacts').put({
+            key: 'e2e-fontsource-carrois-gothic',
+            familyName: 'Carrois Gothic',
+            data: new Uint8Array(bytes).buffer,
+            metadata: {
+              providerId: 'fontsource',
+              familyId: 'carrois-gothic',
+              packageVersion: '5.3.0',
+              upstreamVersion: 'v1.0.0',
+              weight: 400,
+              style: 'normal',
+              subset: 'latin',
+              variable: true,
+            },
+            storedAt: Date.now(),
+          });
+          transaction.oncomplete = () => {
+            db.close();
+            resolve();
+          };
+          transaction.onerror = () => reject(transaction.error);
+        };
+      });
+    }, Array.from(fontBytes));
+
+    await navigateToEditor(page);
+    await page.getByRole('button', { name: 'Text', exact: true }).click();
+    await dragOnCanvas(page, 200, 200, 400, 250);
+    await expect(page.getByRole('treeitem').first()).toContainText(/text/i, { timeout: 10000 });
+
+    const fontSelector = page.locator('.font-selector').first();
+    await fontSelector.waitFor({ state: 'visible', timeout: 10000 });
+    await fontSelector.locator('input').click();
+    await fontSelector.locator('input').fill('Carrois Gothic');
+    await expect(
+      page.locator('.font-selector__option-name', { hasText: 'Carrois Gothic' }),
+    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Missing Fonts/i })).toHaveCount(0);
+
+    await page.screenshot({
+      path: testInfo.outputPath('downloaded-font-restored.png'),
+      fullPage: true,
+    });
   });
 });

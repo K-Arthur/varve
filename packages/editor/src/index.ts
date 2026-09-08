@@ -32,6 +32,7 @@ export {
   setCapabilityRestrictions,
 } from './capabilities/restrictions';
 export { ErrorBoundary } from './components/ErrorBoundary';
+export { restoreStoredFonts } from './components/FontBrowser/restoreStoredFonts';
 export { SettingsProvider } from './components/Settings/SettingsContext';
 export type { SettingsDialogProps } from './components/Settings/SettingsDialog';
 export { SettingsDialog } from './components/Settings/SettingsDialog';
