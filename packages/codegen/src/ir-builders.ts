@@ -192,6 +192,8 @@ function buildTypographySpec(node: SceneNode): TypographySpec {
     if (tn.textCase) base.textTransform = tn.textCase;
     if (tn.textDecoration) base.decoration = tn.textDecoration;
     if (tn.direction && tn.direction !== 'auto') base.direction = tn.direction;
+    if (tn.writingMode) base.writingMode = tn.writingMode;
+    if (tn.textOrientation) base.textOrientation = tn.textOrientation;
     if (tn.variableAxes && Object.keys(tn.variableAxes).length > 0) {
       base.variableAxes = tn.variableAxes;
     }

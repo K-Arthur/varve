@@ -807,6 +807,9 @@ function buildTextContent(node: TextNode, indent: string): string {
       if (format.color) runAttrs.push(`fill="${rgba(format.color)}"`);
 
       const runStyleParts: string[] = [];
+      if (format.textCombineUpright === true) {
+        runStyleParts.push('text-combine-upright: all;');
+      }
       if (format.variableFontSettings && Object.keys(format.variableFontSettings).length > 0) {
         const settings = Object.entries(format.variableFontSettings)
           .map(([tag, value]) => `"${tag}" ${value}`)
@@ -1050,6 +1053,15 @@ ${shapeInner}`
         );
       if (textNode.direction === 'rtl') {
         attrs.push('direction="rtl"', 'unicode-bidi="bidi-override"');
+      }
+      const paragraphFormat = textNode.richText?.paragraphs[0]?.format;
+      const writingMode = textNode.writingMode ?? paragraphFormat?.writingMode;
+      const textOrientation = textNode.textOrientation ?? paragraphFormat?.textOrientation;
+      if (writingMode && writingMode !== 'horizontal-tb') {
+        attrs.push(`writing-mode="${writingMode}"`);
+      }
+      if (textOrientation && textOrientation !== 'mixed') {
+        attrs.push(`text-orientation="${textOrientation}"`);
       }
       if (textNode.letterSpacing) attrs.push(`letter-spacing="${textNode.letterSpacing}"`);
       if (textNode.lineHeight) attrs.push(`line-height="${textNode.lineHeight}"`);

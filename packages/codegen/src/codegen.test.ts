@@ -242,6 +242,38 @@ describe('exportNodeToSvg', () => {
     expect(out).not.toContain('unicode-bidi=');
   });
 
+  it('preserves vertical writing semantics in SVG and HTML exports', () => {
+    const base = createDocument('Vertical text');
+    const node = makeTextNode('t1', 'AあB', {
+      fontSize: 16,
+      fontFamily: 'Inter',
+      writingMode: 'vertical-rl',
+      textOrientation: 'mixed',
+      richText: {
+        paragraphs: [
+          {
+            format: { writingMode: 'vertical-rl', textOrientation: 'mixed' },
+            runs: [{ text: 'AあB', format: { textCombineUpright: true } }],
+          },
+        ],
+      },
+    });
+    const doc = addNode(base, node);
+    const svg = exportNodeToSvg(node, doc);
+    expect(svg).toContain('writing-mode="vertical-rl"');
+    expect(svg).toContain('text-combine-upright: all;');
+
+    const ir = sceneToIR(doc);
+    const irText = Object.values(ir.nodes).find(
+      (candidate) => candidate.metadata.sourceNodeId === 't1',
+    );
+    expect(irText?.appearance.typography.writingMode).toBe('vertical-rl');
+    expect(irText?.appearance.typography.textOrientation).toBe('mixed');
+    const html = exportIrToHtml(ir);
+    expect(html.css).toContain('writing-mode: vertical-rl;');
+    expect(html.css).toContain('text-orientation: mixed;');
+  });
+
   it('preserves opacity and extended blend modes', () => {
     const doc = createDocument('Blend SVG');
     const node = makeShapeNode(

@@ -321,6 +321,9 @@ function typographyToCss(typo: TypographySpec, unit: string, base: number): Reco
   if (typo.writingMode) {
     props['writing-mode'] = typo.writingMode;
   }
+  if (typo.textOrientation) {
+    props['text-orientation'] = typo.textOrientation;
+  }
   if (typo.whiteSpace) {
     props['white-space'] = typo.whiteSpace;
   }

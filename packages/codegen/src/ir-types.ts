@@ -255,6 +255,7 @@ export interface TypographySpec {
   decorationStyle?: 'solid' | 'double' | 'dotted' | 'dashed' | 'wavy';
   direction?: 'ltr' | 'rtl';
   writingMode?: 'horizontal-tb' | 'vertical-lr' | 'vertical-rl';
+  textOrientation?: 'mixed' | 'upright' | 'sideways';
   variableAxes?: Record<string, number>;
   openTypeFeatures?: Record<string, boolean>;
   textIndent?: number;
