@@ -277,6 +277,7 @@ viewport behavior are documented in
 | `architecture/live-effects-system.md` | Live-effect kind registry and non-destructive adjustment model |
 | `architecture/non-destructive-effects.md` | Object Filters, Adjustment Layer scope, mask replay, alpha, and Smart Content decision |
 | `architecture/effect-studio.md` | Effect Studio catalog, preview, stack, and rendering boundaries |
+| `architecture/effect-preview-workflow.md` | Effect preview session ownership, comparison baselines, and acceptance matrix |
 | `architecture/gradient-map-system.md` | Gradient map adjustment system |
 | `architecture/tonal-adjustments.md` | Current-state architecture and capability boundaries for Threshold, Gradient Map, and Color Balance |
 | `architecture/warp-system.md` | Persistent geometry modifier (warp) model (ADRs 0155–0169) |

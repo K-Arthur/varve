@@ -199,14 +199,58 @@ not sample frame time or viewport pixels.
 Effect previews use a preview transaction. The document state can render the
 candidate effect immediately, but preview updates do not mark the document
 dirty, publish a remote mutation, or create undo history. Add/Enter commits one
-undoable document edit; Cancel/Escape restores the exact pre-preview state.
+undoable document edit; Cancel/Escape removes only the preview-owned entries
+and restores the pre-preview stack without overwriting unrelated edits.
 
-The Studio's Original / Effects / Compare control renders two selection-scoped
-documents through the canonical thumbnail renderer: one has
-`smartFiltersEnabled` disabled for the selected object and the other enabled.
-It never mutates the live canvas object or creates an undo entry. If one
-variant fails, the successful variant remains visible with an explicit status
-instead of silently pretending the two states are the same.
+The Studio comparison has an explicit baseline and candidate. **Before this
+edit** is the accepted document captured when a draft starts; **Current
+candidate** is the live draft document after the selected recipe has been
+inserted. This is deliberately different from the persistent stack bypass:
+the baseline does not disable every Object Filter and does not change the
+document's saved `smartFiltersEnabled` value. For an already-applied treatment,
+the Studio uses the accepted document at the moment live tuning opens as its
+comparison baseline.
+
+Both variants use the `effect-studio-preview` canonical renderer profile and
+the same selection source, coordinate frame, and renderer version. The result
+remains typed until the UI has inspected its identity, bounds, quality,
+provisional/placeholder state, warnings, and failure status. A provisional
+same-target frame may remain visible while a bounded retry runs, but it is
+labelled; placeholders and failed results are never presented as a successful
+comparison. A late result cannot replace a newer target or generation.
+
+The preview is representative for multi-selection: it renders the first
+selected object and says so beside the target count. Apply explicitly affects
+all compatible selected objects. The canvas and export remain the appearance
+authorities; preview buffers are not persisted as document assets.
+
+## Decision record — 2026-09-08
+
+Research was used as interaction evidence, not as a copy target. Figma's
+effects guide demonstrates lightweight hover discovery, explicit effect
+settings, and a distinction between layer blur, background blur, shadows, and
+glass. Adobe's Filter Gallery documents a central preview, settings, an
+applied-filter list, reorderable creative filters, and non-destructive Smart
+Filters. The W3C Filter Effects and Compositing specifications support Varve's
+rendering boundary: filters process an element buffer before parent
+compositing, and each comparison side must preserve the same backdrop/source
+contract.
+
+Varve therefore keeps these decisions:
+
+- Effect Studio is a draft exploration surface; Object Filters and Layer
+  Effects remain the precise applied-stack editors.
+- “Before this edit” means the accepted state at session start, not “all
+  effects off” and not original source pixels.
+- live tuning of an existing treatment is accepted on deliberate gestures;
+  closing the panel does not roll it back. New treatment exploration uses
+  Preview / Apply / Cancel labels.
+- a selected target, document, treatment instance, parameter generation, and
+  renderer profile form one preview identity; only the latest matching result
+  may display or commit.
+- canonical renderer metadata is preferred over thumbnail data URLs. A
+  thumbnail policy is not sufficient evidence for an interactive editing
+  preview.
 
 ## Looks
 
