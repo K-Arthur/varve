@@ -290,6 +290,8 @@ test.describe('downloaded font restoration', () => {
     });
     await page.evaluate(async (bytes) => {
       const dbName = 'varve-font-storage-v2';
+      localStorage.removeItem('varve:safe-mode');
+      localStorage.removeItem('varve:crash-loop');
       await new Promise<void>((resolve, reject) => {
         const request = indexedDB.deleteDatabase(dbName);
         request.onsuccess = () => resolve();
