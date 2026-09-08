@@ -137,6 +137,7 @@ export * from './state-machine-types';
 export * from './state-machine-validation';
 export * from './storyOps';
 export * from './strokeEngine';
+export * from './strokeIdentity';
 export * from './styles';
 export * from './suppressions';
 export * from './surfaceModel';

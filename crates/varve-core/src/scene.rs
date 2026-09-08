@@ -276,8 +276,10 @@ pub enum FillIR {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
+#[serde(default, rename_all = "camelCase")]
 pub struct Stroke {
+    /// Stable identity for an authored stroke instance.
+    pub id: Option<String>,
     pub color: EngineColor,
     pub weight: f64,
     pub align: String, // "inside", "center", "outside"
@@ -287,11 +289,18 @@ pub struct Stroke {
     pub join: String, // "miter", "round", "bevel"
     pub miter_limit: f64,
     pub visible: bool,
+    /// Optional rectangular border weights in top/right/bottom/left order.
+    pub per_side_weights: Option<[f64; 4]>,
+    pub arrow_start: Option<String>,
+    pub arrow_end: Option<String>,
+    /// Preserved gradient payload; the webview owns gradient evaluation.
+    pub gradient: Option<serde_json::Value>,
 }
 
 impl Default for Stroke {
     fn default() -> Self {
         Self {
+            id: None,
             color: EngineColor::Rgb {
                 r: 0.0,
                 g: 0.0,
@@ -308,6 +317,10 @@ impl Default for Stroke {
             join: "miter".into(),
             miter_limit: 4.0,
             visible: true,
+            per_side_weights: None,
+            arrow_start: None,
+            arrow_end: None,
+            gradient: None,
         }
     }
 }

@@ -11,10 +11,12 @@ interface RecorderProxy {
   target: ReplayTarget;
   calls: string[];
   props: Record<string, unknown>;
+  lineWidthValues: number[];
 }
 
 function recorder(): RecorderProxy {
   const calls: string[] = [];
+  const lineWidthValues: number[] = [];
   const props: Record<string, unknown> = {};
   const mk =
     (k: string) =>
@@ -56,6 +58,7 @@ function recorder(): RecorderProxy {
     },
     set lineWidth(v) {
       props.lineWidth = v;
+      lineWidthValues.push(v as number);
       calls.push('set lineWidth');
     },
     get lineCap() {
@@ -157,12 +160,13 @@ function recorder(): RecorderProxy {
       calls.push('set textBaseline');
     },
   };
-  return { target: target as unknown as ReplayTarget, calls, props };
+  return { target: target as unknown as ReplayTarget, calls, props, lineWidthValues };
 }
 
 /** Class-based recorder for text-focused tests — tracks actual values. */
 class Recorder implements ReplayTarget {
   public calls: string[] = [];
+  public lineWidthValues: number[] = [];
   save() {
     this.calls.push('save');
   }
@@ -215,13 +219,24 @@ class Recorder implements ReplayTarget {
     this.calls.push('closePath');
   }
   fillStyle: string = '';
-  lineWidth: number = 1;
+  private _lineWidth = 1;
+  get lineWidth(): number {
+    return this._lineWidth;
+  }
+  set lineWidth(value: number) {
+    this._lineWidth = value;
+    this.lineWidthValues.push(value);
+    this.calls.push(`set lineWidth(${value})`);
+  }
   lineCap: CanvasLineCap = 'round';
   font: string = '';
   textAlign: CanvasTextAlign = 'left';
   textBaseline: CanvasTextBaseline = 'alphabetic';
   fillText(text: string, x: number, y: number) {
     this.calls.push(`fillText("${text}",${x},${y})`);
+  }
+  strokeText(text: string, x: number, y: number) {
+    this.calls.push(`strokeText("${text}",${x},${y})`);
   }
   // Stubs for required ReplayTarget members
   strokeRect() {}
@@ -1279,6 +1294,52 @@ describe('replayIr', () => {
     expect(rec.calls.some((c) => c === 'stroke')).toBe(true);
   });
 
+  it('renders editable text strokes through glyph outlines instead of the text box', () => {
+    const rec = new Recorder();
+    replayIr(rec, [
+      {
+        transform: [1, 0, 0, 1, 0, 0] as const,
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } as const,
+        strokes: [
+          {
+            color: { space: 'rgb', r: 0, g: 120, b: 255, a: 255 } as const,
+            weight: 2,
+            align: 'center' as const,
+            dashPattern: [],
+            dashOffset: 0,
+            cap: 'round' as const,
+            join: 'round' as const,
+            miterLimit: 4,
+            visible: true,
+          },
+        ],
+        primitive: {
+          kind: 'text',
+          text: 'Outlined',
+          fontSize: 18,
+          fontFamily: 'Inter',
+          fontWeight: 500,
+          fontStyle: 'normal' as const,
+          textAlign: 'left' as const,
+          textAlignVertical: 'top' as const,
+          letterSpacing: 0,
+          lineHeight: 1.4,
+          paragraphSpacing: 0,
+          textCase: 'none' as const,
+          textDecoration: 'none' as const,
+          textOverflow: 'visible' as const,
+          listStyle: 'none' as const,
+          x: 12,
+          y: 8,
+          w: 180,
+          h: 30,
+        },
+      },
+    ]);
+    expect(rec.calls.some((call) => call.startsWith('strokeText("Outlined"'))).toBe(true);
+    expect(rec.calls.some((call) => call.startsWith('rect('))).toBe(false);
+  });
+
   // ── Bezier path rendering: single-handle transitions ───────────────
 
   /** Create a minimal ReplayTarget mock with spy-able methods. */
@@ -1526,6 +1587,26 @@ describe('replayIr', () => {
     expect(m.bezierCurveTo).toHaveBeenCalledWith(40, 60, 100, 200, 100, 200);
   });
 
+  it('preserves a curved closing segment instead of replacing it with closePath', () => {
+    const m = mockTarget();
+    replayIr(m.target, [
+      {
+        transform: [1, 0, 0, 1, 0, 0],
+        fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
+        primitive: {
+          kind: 'path',
+          points: [
+            { x: 0, y: 0, handleIn: [0, -20], handleOut: [20, 0] },
+            { x: 100, y: 0, handleIn: [-20, 0], handleOut: [0, 20] },
+          ],
+          closed: true,
+          tolerance: 1,
+        },
+      },
+    ]);
+    expect(m.bezierCurveTo).toHaveBeenCalledTimes(2);
+  });
+
   it('variable-width path stroke uses pressure to modulate width', () => {
     const m = recorder();
     replayIr(m.target, [
@@ -1562,8 +1643,7 @@ describe('replayIr', () => {
     const lineWidthCalls = m.calls.filter((c) => c.startsWith('set lineWidth'));
     expect(lineWidthCalls.length).toBeGreaterThan(1);
     // At least some segments have lineWidth < 8 (from 0.2 pressure) and > 0
-    const lineWidthValues = lineWidthCalls.map((_c) => m.props.lineWidth as number);
-    expect(lineWidthValues.some((w) => w < 8)).toBe(true);
+    expect(m.lineWidthValues.some((w) => w < 8)).toBe(true);
   });
 
   it('variable-width path stroke with uniform pressure falls back to uniform stroke', () => {

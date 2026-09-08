@@ -29,7 +29,7 @@ export interface ReplayTarget {
   fill(fillRule?: CanvasFillRule): void;
   stroke(): void;
   closePath(): void;
-  clip(): void;
+  clip(fillRule?: CanvasFillRule): void;
   fillText(text: string, x: number, y: number): void;
   /** Optional measurement hook used to derive a canonical browser snapshot. */
   measureText?(text: string): TextMetrics;
@@ -41,6 +41,10 @@ export interface ReplayTarget {
   textAlign: CanvasTextAlign;
   lineJoin: CanvasLineJoin;
   strokeStyle: string | CanvasGradient | CanvasPattern;
+  /** Canvas text outline API; optional so structural test targets can omit it. */
+  strokeText?(text: string, x: number, y: number, maxWidth?: number): void;
+  /** Canvas miter ratio; optional for lightweight replay targets. */
+  miterLimit?: number;
   /** F6: opacity for the item layer. */
   globalAlpha: number;
   /** F6: blend mode compositing. */

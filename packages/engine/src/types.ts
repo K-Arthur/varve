@@ -154,6 +154,8 @@ export interface Stroke {
   visible: boolean;
   /** Optional spatial gradient; takes precedence over `color` when present. */
   gradient?: EngineGradientFill;
+  /** Per-side weights for rectangular/frame borders. */
+  perSideWeights?: readonly [number, number, number, number];
   /** Arrowhead at the start of a line/arrow/path. */
   arrowStart?: ArrowheadStyle;
   /** Arrowhead at the end of a line/arrow/path. */

@@ -12,11 +12,7 @@
  */
 
 import { type BlendEvaluationSpace, managedColorToRgba } from '@varve/shared';
-import {
-  type AlphaStrokeOps,
-  needsAlphaSilhouetteStroke,
-  paintAlphaSilhouetteStroke,
-} from './alphaStroke';
+import type { AlphaStrokeOps } from './alphaStroke';
 import { blendPixels, CompositeCanvas, mapBlendMode } from './compositeCanvas';
 import { deserializeDepthMap, resizeDepthMap } from './depthMap';
 import { compositeMaskedEffectPixels, type PixelImageData } from './effectMaskCompositor';
@@ -77,9 +73,14 @@ import {
   type ShadowOps,
 } from './shadowSource';
 import { shapeText } from './shaping';
+import {
+  gradientStrokeToFill,
+  paintStroke as replayPaintStroke,
+  tracePathRing,
+} from './strokeReplay';
 import { layoutRichText } from './textLayout';
 import { buildTextLayoutSnapshot, type TextLayoutSnapshot } from './textLayoutSnapshot';
-import type { ArrowheadStyle, EngineColor, FillIR, Primitive, RenderItem, Stroke } from './types';
+import type { EngineColor, FillIR, Primitive, RenderItem, Stroke } from './types';
 import { splitGraphemes } from './unicode/grapheme';
 
 export { resetGradientCacheForTest } from './replayGradient';
@@ -215,7 +216,7 @@ const shadowOps: ShadowOps = {
   paintFill,
   paintShapeFill,
   paintImageFill,
-  paintStroke,
+  paintStroke: replayPaintStrokeWithDependencies,
   primitiveBounds,
   rgba,
   createEffectBuffer,
@@ -231,6 +232,22 @@ const alphaStrokeOps: AlphaStrokeOps = {
       ? createGradientStyle(target, gradientStrokeToFill(stroke.gradient), item, bounds)
       : rgba(stroke.color),
 };
+
+function replayPaintStrokeWithDependencies(
+  target: ReplayTarget,
+  stroke: Stroke,
+  item: RenderItem,
+): void {
+  replayPaintStroke(target, stroke, item, {
+    traceOutline,
+    primitiveBounds,
+    alphaStrokeOps,
+    applyTextCase,
+    effectiveTextWeight: effectiveWeight,
+    measureTextAdvance,
+    paintTextOnPath: paintPathText,
+  });
+}
 
 /** Maximum padding needed to keep content effects from being cropped. */
 function contentEffectPadding(
@@ -366,7 +383,7 @@ function paintFillsAndStrokes(
   const visibleStrokes = item.strokes?.filter((s) => s.visible) ?? [];
   if (visibleStrokes.length > 0) {
     for (const stroke of visibleStrokes) {
-      paintStroke(target, stroke, item);
+      replayPaintStrokeWithDependencies(target, stroke, item);
     }
   } else if (item.primitive.kind === 'line' || item.primitive.kind === 'arrow') {
     // Backward-compat fallback: lines/arrows with no visible stroke still render
@@ -383,7 +400,7 @@ function paintFillsAndStrokes(
       visible: true,
       ...(item.primitive.kind === 'arrow' ? { arrowEnd: 'arrow' as const } : {}),
     };
-    paintStroke(target, fallback, item);
+    replayPaintStrokeWithDependencies(target, fallback, item);
   }
 }
 
@@ -2539,6 +2556,7 @@ function isComplexScriptRun(script: string): boolean {
 function paintPathText(
   target: ReplayTarget,
   p: Extract<RenderItem['primitive'], { kind: 'text' }>,
+  stroke?: Stroke,
 ): void {
   const settings = p.pathTextSettings;
   if (!settings) return;
@@ -2607,7 +2625,8 @@ function paintPathText(
     const c = Math.cos(glyph.angle);
     const s = Math.sin(glyph.angle);
     target.transform(c, s, -s, c, 0, 0);
-    target.fillText(glyph.char, 0, 0);
+    if (stroke && target.strokeText) target.strokeText(glyph.char, 0, 0);
+    else if (!stroke) target.fillText(glyph.char, 0, 0);
     target.restore();
   }
 
@@ -3064,448 +3083,11 @@ function paintPathFill(
   if (rings.length === 0) return;
   target.beginPath();
   for (const ring of rings) {
-    const first = ring[0];
-    if (!first) continue;
-    target.moveTo(first.x, first.y);
-    for (let i = 1; i < ring.length; i++) {
-      const pt = ring[i];
-      const prev = ring[i - 1];
-      if (!pt || !prev) continue;
-      if (prev.handleOut || pt.handleIn) {
-        const cp1x = prev.handleOut ? prev.x + prev.handleOut[0] : prev.x;
-        const cp1y = prev.handleOut ? prev.y + prev.handleOut[1] : prev.y;
-        const cp2x = pt.handleIn ? pt.x + pt.handleIn[0] : pt.x;
-        const cp2y = pt.handleIn ? pt.y + pt.handleIn[1] : pt.y;
-        target.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, pt.x, pt.y);
-      } else {
-        target.lineTo(pt.x, pt.y);
-      }
-    }
-    target.closePath();
+    tracePathRing(target, ring, true);
   }
   const fillRule = pathFillRule(shape);
   if (fillRule === 'evenodd') target.fill(fillRule);
   else target.fill();
-}
-
-/**
- * Paint a single stroke over the primitive path.
- *
- * Canvas2D natively supports only `'center'` stroke alignment (`lineWidth`
- * straddles the path equally on both sides). `'inside'` stroke alignment is
- * approximated by clipping to the shape interior before stroking (the part
- * of the stroke outside the shape is clipped away). `'outside'` alignment
- * cannot be approximated with Canvas2D's clip API (no "inverse clip"
- * primitive) and falls back to `'center'` with a console.warn on first use.
- */
-let _strokeAlignWarned = false;
-function paintStroke(
-  target: ReplayTarget,
-  stroke: import('./types').Stroke,
-  item: RenderItem,
-): void {
-  target.save();
-  target.strokeStyle = stroke.gradient
-    ? createGradientStyle(
-        target,
-        gradientStrokeToFill(stroke.gradient),
-        item,
-        primitiveBounds(item.primitive),
-      )
-    : rgba(stroke.color);
-  target.lineWidth = stroke.weight;
-  target.lineCap = stroke.cap as CanvasLineCap;
-  target.lineJoin = stroke.join as CanvasLineJoin;
-  target.lineDashOffset = stroke.dashOffset ?? 0;
-
-  if (stroke.dashPattern && stroke.dashPattern.length > 0) {
-    target.setLineDash(stroke.dashPattern);
-  }
-
-  if (needsAlphaSilhouetteStroke(item)) {
-    paintAlphaSilhouetteStroke(target, stroke, item, alphaStrokeOps);
-    target.restore();
-    return;
-  }
-
-  // Handle non-center stroke alignment (Canvas2D only supports center natively)
-  if (stroke.align === 'inside') {
-    // Inside stroke: clip to shape interior, then stroke centered.
-    // The outer half of the stroke is clipped away, leaving only the inside half.
-    target.beginPath();
-    traceOutline(target, item.primitive);
-    if (target.clip) target.clip();
-  } else if (stroke.align === 'outside') {
-    // Outside stroke: render a double-width stroke, then composite the shape
-    // interior on top with destination-out to remove the inner half.
-    // This leaves only the portion of the stroke outside the shape boundary.
-    if (typeof OffscreenCanvas !== 'undefined' && typeof document !== 'undefined') {
-      try {
-        const strokePad = stroke.weight * 2 + 2;
-        const b = primitiveBounds(item.primitive);
-        const sw = Math.ceil((b.w || 1) + strokePad * 2);
-        const sh = Math.ceil((b.h || 1) + strokePad * 2);
-        const oc = new OffscreenCanvas(sw, sh);
-        const octx = oc.getContext('2d');
-        if (octx) {
-          const ox = (b.x || 0) - strokePad;
-          const oy = (b.y || 0) - strokePad;
-          octx.translate(-ox, -oy);
-          octx.beginPath();
-          traceOutline(octx, item.primitive);
-          octx.fillStyle = 'white';
-          octx.fill();
-          target.lineWidth = stroke.weight * 2;
-          target.beginPath();
-          traceOutline(target, item.primitive);
-          target.stroke();
-          target.globalCompositeOperation = 'destination-out';
-          target.drawImage!(oc as unknown as CanvasImageSource, 0, 0);
-          target.globalCompositeOperation = 'source-over';
-          target.restore();
-          return;
-        }
-      } catch {
-        // fall through to center fallback
-      }
-    }
-    if (!_strokeAlignWarned) {
-      console.warn('Canvas2D does not support outside stroke alignment; falling back to center');
-      _strokeAlignWarned = true;
-    }
-  }
-
-  const p = item.primitive;
-  switch (p.kind) {
-    case 'rect':
-      if (p.cornerRadius && p.cornerSmoothing && p.cornerSmoothing > 0) {
-        traceSquirclePath(target, p.x, p.y, p.w, p.h, p.cornerRadius, p.cornerSmoothing);
-        target.stroke();
-      } else if (p.cornerRadius && target.roundRect) {
-        target.beginPath();
-        target.roundRect(p.x, p.y, p.w, p.h, p.cornerRadius);
-        target.stroke();
-      } else {
-        target.strokeRect(p.x, p.y, p.w, p.h);
-      }
-      break;
-    case 'ellipse':
-    case 'circle':
-    case 'polygon':
-    case 'star': {
-      target.beginPath();
-      traceOutline(target, p);
-      target.stroke();
-      break;
-    }
-    case 'line': {
-      // Lines can also have arrowheads via stroke.arrowStart/arrowEnd.
-      const arrowStart = stroke.arrowStart ?? 'none';
-      const arrowEnd = stroke.arrowEnd ?? 'none';
-      const hasArrowheads = arrowStart !== 'none' || arrowEnd !== 'none';
-      if (hasArrowheads) {
-        target.lineCap = 'butt';
-      }
-      target.beginPath();
-      target.moveTo(p.from[0], p.from[1]);
-      target.lineTo(p.to[0], p.to[1]);
-      target.stroke();
-      if (hasArrowheads) {
-        const headSize = arrowheadSize(undefined, stroke.weight);
-        target.fillStyle = target.strokeStyle;
-        if (arrowStart !== 'none') {
-          drawArrowhead(target, p.from, p.to, headSize, arrowStart, true);
-        }
-        if (arrowEnd !== 'none') {
-          drawArrowhead(target, p.from, p.to, headSize, arrowEnd, false);
-        }
-      }
-      break;
-    }
-    case 'arrow': {
-      // When arrowheads are present, use butt cap so the stroke doesn't
-      // extend past the arrowhead base (round cap creates a visible bump).
-      const arrowStart = stroke.arrowStart ?? 'none';
-      const arrowEnd = stroke.arrowEnd ?? 'arrow';
-      const hasArrowheads = arrowStart !== 'none' || arrowEnd !== 'none';
-      if (hasArrowheads) {
-        target.lineCap = 'butt';
-      }
-      target.beginPath();
-      target.moveTo(p.from[0], p.from[1]);
-      target.lineTo(p.to[0], p.to[1]);
-      target.stroke();
-      // Draw arrowheads using stroke color, respecting per-stroke arrowStart/arrowEnd.
-      // Default: arrow tool produces an end arrowhead.
-      const headSize = arrowheadSize(p.arrowheadSize, stroke.weight);
-      target.fillStyle = target.strokeStyle;
-      if (arrowStart !== 'none') {
-        drawArrowhead(target, p.from, p.to, headSize, arrowStart, true);
-      }
-      if (arrowEnd !== 'none') {
-        drawArrowhead(target, p.from, p.to, headSize, arrowEnd, false);
-      }
-      break;
-    }
-    case 'path': {
-      const hasPressure = p.points.some((pp) => pp.pressure !== undefined && pp.pressure !== 0.5);
-      if (hasPressure && stroke.weight > 0) {
-        paintVariableWidthPathStroke(
-          target,
-          p.points,
-          p.closed,
-          stroke.weight,
-          stroke.cap,
-          stroke.join,
-        );
-      } else {
-        target.beginPath();
-        target.moveTo(p.points[0]?.x ?? 0, p.points[0]?.y ?? 0);
-        for (let i = 1; i < p.points.length; i++) {
-          const pt = p.points[i];
-          if (!pt) continue;
-          const prev = p.points[i - 1];
-          if (prev && (prev.handleOut || pt.handleIn)) {
-            const cp1x = prev.handleOut ? prev.x + prev.handleOut[0] : prev.x;
-            const cp1y = prev.handleOut ? prev.y + prev.handleOut[1] : prev.y;
-            const cp2x = pt.handleIn ? pt.x + pt.handleIn[0] : pt.x;
-            const cp2y = pt.handleIn ? pt.y + pt.handleIn[1] : pt.y;
-            target.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, pt.x, pt.y);
-          } else {
-            target.lineTo(pt.x, pt.y);
-          }
-        }
-        if (p.closed) target.closePath();
-        target.stroke();
-      }
-      break;
-    }
-    default:
-      break;
-  }
-
-  target.restore();
-}
-
-/** Convert a stroke's spatial gradient to the one canonical replay fill form. */
-function gradientStrokeToFill(
-  gradient: NonNullable<Stroke['gradient']>,
-): Extract<FillIR, { type: 'gradient' }> {
-  return {
-    type: 'gradient',
-    gradientType: gradient.type,
-    stops: gradient.stops,
-    rotation: gradient.rotation ?? 0,
-    interpolationSpace: gradient.interpolationSpace,
-    hueInterpolation: gradient.hueInterpolation,
-    transform: gradient.transform,
-    tilingMode: gradient.tilingMode,
-    opacity: 1,
-    blendMode: 'normal',
-    visible: true,
-  };
-}
-
-/**
- * Paint a variable-width stroke for a path primitive.
- * Uses per-point pressure to modulate stroke width along the path.
- * Segments the path into small sub-paths, each drawn with interpolated width.
- */
-function paintVariableWidthPathStroke(
-  target: ReplayTarget,
-  points: import('./types').PathPoint[],
-  closed: boolean,
-  baseWeight: number,
-  cap: import('./types').StrokeCap,
-  join: import('./types').StrokeJoin,
-): void {
-  if (points.length < 2) return;
-
-  // Determine if we have genuine pressure variation
-  const hasPressure = points.some((p) => p.pressure !== undefined && p.pressure !== 0.5);
-  if (!hasPressure) return;
-
-  target.save();
-  target.lineCap = (cap || 'round') as CanvasLineCap;
-  target.lineJoin = (join || 'round') as CanvasLineJoin;
-
-  const SEGMENTS_PER_BEZIER = 12;
-  const samples: { x: number; y: number; width: number }[] = [];
-
-  // Walk through each segment and sample at regular intervals for width interpolation
-  for (let i = 0; i < points.length; i++) {
-    const pt = points[i]!;
-    const prev = i > 0 ? points[i - 1] : null;
-
-    if (!prev) {
-      const w = baseWeight * (pt.pressure ?? 0.5);
-      samples.push({ x: pt.x, y: pt.y, width: Math.max(0.5, w) });
-      continue;
-    }
-
-    const isBezier = !!(prev.handleOut || pt.handleIn);
-
-    if (isBezier) {
-      const p0x = prev.x;
-      const p0y = prev.y;
-      const p3x = pt.x;
-      const p3y = pt.y;
-      const cp1x = prev.handleOut ? prev.x + prev.handleOut[0] : prev.x;
-      const cp1y = prev.handleOut ? prev.y + prev.handleOut[1] : prev.y;
-      const cp2x = pt.handleIn ? pt.x + pt.handleIn[0] : pt.x;
-      const cp2y = pt.handleIn ? pt.y + pt.handleIn[1] : pt.y;
-      const pStart = prev.pressure ?? 0.5;
-      const pEnd = pt.pressure ?? 0.5;
-      const steps = SEGMENTS_PER_BEZIER;
-
-      for (let s = 1; s <= steps; s++) {
-        const t = s / steps;
-        const oneMinusT = 1 - t;
-        const x =
-          oneMinusT * oneMinusT * oneMinusT * p0x +
-          3 * oneMinusT * oneMinusT * t * cp1x +
-          3 * oneMinusT * t * t * cp2x +
-          t * t * t * p3x;
-        const y =
-          oneMinusT * oneMinusT * oneMinusT * p0y +
-          3 * oneMinusT * oneMinusT * t * cp1y +
-          3 * oneMinusT * t * t * cp2y +
-          t * t * t * p3y;
-        const pressure = pStart + (pEnd - pStart) * t;
-        const w = baseWeight * pressure;
-        samples.push({ x, y, width: Math.max(0.5, w) });
-      }
-    } else {
-      // Linear segment
-      const pStart = prev.pressure ?? 0.5;
-      const pEnd = pt.pressure ?? 0.5;
-      const dist = Math.hypot(pt.x - prev.x, pt.y - prev.y);
-      const steps = Math.max(1, Math.ceil(dist / 3));
-      for (let s = 1; s <= steps; s++) {
-        const t = s / steps;
-        const x = prev.x + (pt.x - prev.x) * t;
-        const y = prev.y + (pt.y - prev.y) * t;
-        const pressure = pStart + (pEnd - pStart) * t;
-        const w = baseWeight * pressure;
-        samples.push({ x, y, width: Math.max(0.5, w) });
-      }
-    }
-  }
-
-  if (samples.length < 2) {
-    target.restore();
-    return;
-  }
-
-  // Draw each short segment with interpolated width
-  // Use round caps on each segment for smooth appearance
-  target.lineCap = 'round';
-  target.lineJoin = 'round';
-
-  for (let i = 1; i < samples.length; i++) {
-    const s0 = samples[i - 1]!;
-    const s1 = samples[i]!;
-    const avgWidth = (s0.width + s1.width) / 2;
-    target.lineWidth = avgWidth;
-    target.beginPath();
-    target.moveTo(s0.x, s0.y);
-    target.lineTo(s1.x, s1.y);
-    target.stroke();
-  }
-
-  // If closed, connect last to first with interpolated width
-  if (closed && samples.length > 2) {
-    const last = samples[samples.length - 1]!;
-    const first = samples[0]!;
-    const avgWidth = (last.width + first.width) / 2;
-    target.lineWidth = avgWidth;
-    target.beginPath();
-    target.moveTo(last.x, last.y);
-    target.lineTo(first.x, first.y);
-    target.stroke();
-  }
-
-  target.restore();
-}
-
-/** Compute effective arrowhead size, respecting both the primitive's arrowheadSize
- * and the stroke weight. Ensure a minimum visible size. */
-function arrowheadSize(primitiveSize: number | undefined, strokeWeight: number): number {
-  const fromWeight = Math.max(strokeWeight * 3, 4);
-  if (primitiveSize && primitiveSize > 0) {
-    return Math.min(Math.max(primitiveSize, fromWeight), Math.max(strokeWeight * 6, fromWeight));
-  }
-  return fromWeight;
-}
-
-/** Draw a filled arrowhead oriented along the from→to direction.
- * Handles degenerate (zero-length) segments by skipping rendering. */
-function drawArrowhead(
-  target: ReplayTarget,
-  from: readonly [number, number],
-  to: readonly [number, number],
-  size: number,
-  style: ArrowheadStyle,
-  isStart: boolean,
-): void {
-  if (style === 'none') return;
-  // Guard against degenerate segments: skip if endpoints coincide.
-  const dx = to[0] - from[0];
-  const dy = to[1] - from[1];
-  if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) return;
-
-  // For start arrowheads, the direction is reversed (pointing away from `to`).
-  const tip = isStart ? from : to;
-  const tail = isStart ? to : from;
-  const angle = Math.atan2(tip[1] - tail[1], tip[0] - tail[0]);
-  const spread = Math.PI / 9;
-  const safeSize = Math.max(size, 1);
-
-  target.save();
-  target.translate(tip[0], tip[1]);
-  target.rotate(angle);
-
-  switch (style) {
-    case 'arrow': {
-      // Elongated arrowhead: tip at origin, base set back by the full size.
-      // The base width is controlled by spread (narrower = more elongated).
-      const baseX = -safeSize;
-      const halfW = safeSize * Math.sin(spread);
-      target.beginPath();
-      target.moveTo(0, 0);
-      target.lineTo(baseX, -halfW);
-      target.lineTo(baseX, halfW);
-      target.closePath();
-      target.fill();
-      break;
-    }
-    case 'circle': {
-      const r = safeSize * 0.5;
-      target.beginPath();
-      target.arc(-r, 0, r, 0, TAU);
-      target.fill();
-      break;
-    }
-    case 'square': {
-      const s = safeSize * 0.7;
-      target.beginPath();
-      target.rect(-s, -s * 0.5, s, s);
-      target.fill();
-      break;
-    }
-    case 'diamond': {
-      const s = safeSize * 0.6;
-      target.beginPath();
-      target.moveTo(0, 0);
-      target.lineTo(-s, -s * 0.5);
-      target.lineTo(-s * 2, 0);
-      target.lineTo(-s, s * 0.5);
-      target.closePath();
-      target.fill();
-      break;
-    }
-  }
-  target.restore();
 }
 
 /** Trace the outline of a primitive without filling. Covers all shape types
@@ -3559,23 +3141,9 @@ function traceOutline(target: ReplayTarget, p: RenderItem['primitive']): void {
       target.closePath();
       break;
     case 'path':
-      if (p.points.length > 0) {
-        target.moveTo(p.points[0]?.x ?? 0, p.points[0]?.y ?? 0);
-        for (let i = 1; i < p.points.length; i++) {
-          const pt = p.points[i];
-          const prev = p.points[i - 1];
-          if (!pt || !prev) continue;
-          if (prev.handleOut || pt.handleIn) {
-            const cp1x = prev.handleOut ? prev.x + prev.handleOut[0] : prev.x;
-            const cp1y = prev.handleOut ? prev.y + prev.handleOut[1] : prev.y;
-            const cp2x = pt.handleIn ? pt.x + pt.handleIn[0] : pt.x;
-            const cp2y = pt.handleIn ? pt.y + pt.handleIn[1] : pt.y;
-            target.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, pt.x, pt.y);
-          } else {
-            target.lineTo(pt.x, pt.y);
-          }
-        }
-        if (p.closed) target.closePath();
+      tracePathRing(target, p.points, p.closed);
+      for (const contour of p.contours?.slice(1) ?? p.holes ?? []) {
+        tracePathRing(target, contour, true);
       }
       break;
     case 'text': {

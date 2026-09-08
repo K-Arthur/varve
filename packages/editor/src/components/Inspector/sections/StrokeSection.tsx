@@ -21,10 +21,10 @@ import type {
   StrokeJoin,
   TextNode,
 } from '@varve/scene';
-import { defaultStroke } from '@varve/scene';
+import { createStrokeId, defaultStroke } from '@varve/scene';
 import { managedColorToRgba } from '@varve/shared';
 import { Icon, Select } from '@varve/ui';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
 import { GradientEditor } from '../color/GradientEditor';
 import {
@@ -94,6 +94,28 @@ function getStroke(n: SceneNode, i: number): Stroke | undefined {
   return sn.strokes?.[i];
 }
 
+function strokeRowId(n: StrokeNode, index: number): string {
+  return n.strokes[index]?.id ?? `legacy-stroke-${index}`;
+}
+
+function formatDashPattern(pattern: number[]): string {
+  return pattern.join(', ');
+}
+
+/** Strictly parse the documented comma/space-separated dash syntax. */
+function parseDashPattern(value: string): number[] | null {
+  const trimmed = value.trim();
+  if (trimmed === '') return [];
+  const tokens = trimmed.split(/[\s,]+/);
+  if (tokens.length > 64 || tokens.some((token) => token === '')) return null;
+  const values = tokens.map((token) => Number(token));
+  if (values.some((number) => !Number.isFinite(number) || number < 0)) return null;
+  // Canvas treats an all-zero dash list as a degenerate pattern. Treating it
+  // as solid gives the field a useful, reversible meaning and avoids a
+  // renderer-specific fallback.
+  return values.some((number) => number > 0) ? values : [];
+}
+
 function toSwatchBg(color: ManagedColor): string {
   const [r, g, b, a] = managedColorToRgba(color);
   return `rgba(${r},${g},${b},${(a / 255).toFixed(2)})`;
@@ -101,15 +123,15 @@ function toSwatchBg(color: ManagedColor): string {
 
 export function StrokeSection({ nodes }: StrokeSectionProps) {
   const { updateNode, beginTransaction, commitTransaction, announce } = useEditor();
-  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
   const strokeNodes = useMemo(() => nodes.filter(hasStrokes), [nodes]);
 
-  const toggleRow = useCallback((i: number) => {
+  const toggleRow = useCallback((rowId: string) => {
     setExpandedRows((prev) => {
       const next = new Set(prev);
-      if (next.has(i)) next.delete(i);
-      else next.add(i);
+      if (next.has(rowId)) next.delete(rowId);
+      else next.add(rowId);
       return next;
     });
   }, []);
@@ -143,7 +165,7 @@ export function StrokeSection({ nodes }: StrokeSectionProps) {
   );
 
   const addStroke = useCallback(() => {
-    batchUpdate((strokes) => [...strokes, defaultStroke()]);
+    batchUpdate((strokes) => [...strokes, { ...defaultStroke(), id: createStrokeId() }]);
     announce('Stroke added');
   }, [batchUpdate, announce]);
 
@@ -182,12 +204,12 @@ export function StrokeSection({ nodes }: StrokeSectionProps) {
       ) : (
         Array.from({ length: minStrokes }, (_, i) => (
           <StrokeRow
-            // biome-ignore lint/suspicious/noArrayIndexKey: stroke rows have no stable id in the document model; index identifies the slot
-            key={i}
+            key={strokeRowId(strokeNodes[0]!, i)}
+            rowId={strokeRowId(strokeNodes[0]!, i)}
             index={i}
             nodes={strokeNodes}
-            expanded={expandedRows.has(i)}
-            onToggle={() => toggleRow(i)}
+            expanded={expandedRows.has(strokeRowId(strokeNodes[0]!, i))}
+            onToggle={() => toggleRow(strokeRowId(strokeNodes[0]!, i))}
             onChange={(updater) => updateStroke(i, updater)}
             onRemove={() => removeStroke(i)}
             onReorder={(dir) => reorderStroke(i, i + dir)}
@@ -208,6 +230,7 @@ export function StrokeSection({ nodes }: StrokeSectionProps) {
 }
 
 interface StrokeRowProps {
+  rowId: string;
   index: number;
   nodes: StrokeNode[];
   expanded: boolean;
@@ -220,6 +243,7 @@ interface StrokeRowProps {
 }
 
 function StrokeRow({
+  rowId,
   index,
   nodes,
   expanded,
@@ -262,6 +286,11 @@ function StrokeRow({
   const perSideRaw = commonValue(nodes, (n) => getStroke(n, index)?.perSideWeights);
   const arrowStartRaw = commonValue(nodes, (n) => getStroke(n, index)?.arrowStart ?? 'none');
   const arrowEndRaw = commonValue(nodes, (n) => getStroke(n, index)?.arrowEnd ?? 'none');
+  const dashInputValue = isMixed(dashPatternRaw)
+    ? ''
+    : formatDashPattern(dashPatternRaw as number[]);
+  const [dashDraft, setDashDraft] = useState(dashInputValue);
+  useEffect(() => setDashDraft(dashInputValue), [dashInputValue]);
 
   const hasLineOrPath = nodes.some(isLineOrPath);
   const hasRectLike = nodes.some(isRectLike);
@@ -313,8 +342,8 @@ function StrokeRow({
           mixed={isMixed(weightRaw)}
           step={1}
           min={0}
-          fieldName={`strokeWeight${index}`}
-          onShiftClick={() => editor.setBindingField(`strokeWeight${index}`)}
+          fieldName={`strokeWeight:${rowId}`}
+          onShiftClick={() => editor.setBindingField(`strokeWeight:${rowId}`)}
           onChange={(v) => onChange((s) => ({ ...s, weight: v }))}
         />
         <SegmentedControl
@@ -509,7 +538,7 @@ function StrokeRow({
             value={isMixed(miterLimitRaw) ? 4 : miterLimitRaw}
             mixed={isMixed(miterLimitRaw)}
             step={0.5}
-            min={0}
+            min={1}
             onChange={(v) => onChange((s) => ({ ...s, miterLimit: v }))}
           />
           <FieldRow label="Dash pattern">
@@ -517,11 +546,16 @@ function StrokeRow({
               type="text"
               className="insp-num__input"
               aria-label={`${label} dash pattern`}
-              defaultValue={isMixed(dashPatternRaw) ? '' : dashPatternRaw.join(', ')}
+              value={dashDraft}
+              onChange={(e) => setDashDraft(e.target.value)}
               onBlur={(e) => {
-                const parts = e.target.value.split(',').map((s) => Number.parseFloat(s.trim()));
-                const valid = parts.every((n) => Number.isFinite(n) && n >= 0);
-                if (valid) onChange((s) => ({ ...s, dashPattern: parts }));
+                const pattern = parseDashPattern(e.target.value);
+                if (pattern) {
+                  onChange((s) => ({ ...s, dashPattern: pattern }));
+                  setDashDraft(formatDashPattern(pattern));
+                } else {
+                  setDashDraft(dashInputValue);
+                }
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') e.currentTarget.blur();

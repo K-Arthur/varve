@@ -38,6 +38,7 @@ import { resolveNodePaints } from './paint';
 import { deserializeTiles, type SerializableTiles } from './rasterLayer';
 import { normalizeSavedAreaSelections } from './savedAreaSelection';
 import { createEmptySelectionSetsData } from './selectionSet';
+import { normalizeStrokeIds } from './strokeIdentity';
 import { emptyTableModel } from './table';
 import { normalizeTableModelDefensively } from './tableOps';
 import { type NodeId, normalizeImageFillData, type Page, type SceneNode } from './types';
@@ -627,9 +628,20 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
       );
     }
 
-    if (isContainer(node)) {
+    const nodeWithStrokeIds =
+      'strokes' in node
+        ? ({
+            ...node,
+            strokes: normalizeStrokeIds(
+              id,
+              (node as SceneNode & { strokes?: import('./types').Stroke[] }).strokes,
+            ),
+          } as SceneNode)
+        : node;
+
+    if (isContainer(nodeWithStrokeIds)) {
       const children: NodeId[] = [];
-      for (const childId of node.children) {
+      for (const childId of nodeWithStrokeIds.children) {
         if (doc.nodes[childId]) {
           children.push(childId);
         } else {
@@ -643,11 +655,11 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
           );
         }
       }
-      nodes[id] = { ...node, id, children } as SceneNode;
-    } else if (node.kind === 'table') {
+      nodes[id] = { ...nodeWithStrokeIds, id, children } as SceneNode;
+    } else if (nodeWithStrokeIds.kind === 'table') {
       // Tables carry embedded models that must satisfy span invariants on
       // load; repair defensively instead of trusting serialized data.
-      const tableNode = node as unknown as Record<string, unknown>;
+      const tableNode = nodeWithStrokeIds as unknown as Record<string, unknown>;
       const tableRaw = tableNode.table;
       const { model, issues } = normalizeTableModelDefensively(tableRaw);
       if (!model) {
@@ -659,7 +671,7 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
             id,
           ),
         );
-        nodes[id] = { ...node, id, table: emptyTableModel() } as SceneNode;
+        nodes[id] = { ...nodeWithStrokeIds, id, table: emptyTableModel() } as SceneNode;
       } else {
         if (issues.length > 0) {
           warnings.push(
@@ -671,10 +683,10 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
             ),
           );
         }
-        nodes[id] = { ...node, id, table: model } as SceneNode;
+        nodes[id] = { ...nodeWithStrokeIds, id, table: model } as SceneNode;
       }
     } else {
-      nodes[id] = normalizeRasterTiles(id, { ...node, id } as SceneNode, warnings);
+      nodes[id] = normalizeRasterTiles(id, { ...nodeWithStrokeIds, id } as SceneNode, warnings);
     }
   }
 

@@ -9,6 +9,9 @@
 >
 > Raster ingestion, asset identity, decode-cache ownership, and worker bitmap
 > lifecycle are maintained in [image-lifecycle.md](image-lifecycle.md).
+>
+> Stroke semantics, target support, and export limitations are maintained in
+> [stroke-system.md](stroke-system.md).
 
 ## Overview
 
@@ -82,6 +85,12 @@ sparse tiles, and disconnected image regions therefore remain transparent in
 both the live canvas and raster export. The visual fixture
 `content-aware-strokes` covers text, a transparent image fill, and a sparse
 raster layer at 1×, 2×, and 3× device scale.
+
+Closed vector paths use the authored final cubic segment when the closing
+anchors carry handles. Outside-aligned vector strokes are isolated before
+interior removal, so the fill and backdrop behind a stroke are not erased.
+Canvas dash state is reset per stroke entry, and stroke IDs are normalized at
+the document boundary so row identity is not coupled to stack index.
 
 ## Render invariants (Session 45)
 

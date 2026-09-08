@@ -334,6 +334,8 @@ export type StrokeJoin = 'miter' | 'round' | 'bevel';
 export type ArrowheadStyle = 'none' | 'arrow' | 'circle' | 'square' | 'diamond';
 
 export interface Stroke {
+  /** Stable identity for this stroke instance within its owning node. */
+  id?: string;
   color: ManagedColor;
   weight: number;
   align: StrokeAlign;

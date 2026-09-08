@@ -10,7 +10,7 @@
  * The clipboard is in-memory per session (like most design tools). It never
  * touches the OS clipboard, so it cannot collide with asset copy/paste.
  */
-import type { SceneNode } from '@varve/scene';
+import { cloneStrokesWithFreshIds, type SceneNode, type Stroke } from '@varve/scene';
 
 /** The in-memory style clipboard. Session-scoped, never serialized. */
 let propertyClipboard: PaintProperties | null = null;
@@ -48,7 +48,21 @@ export interface PaintProperties {
 }
 
 function clone<T>(value: T): T {
-  return value === undefined ? value : (JSON.parse(JSON.stringify(value)) as T);
+  if (value === undefined || value === null) return value;
+  const structuredClone = (
+    globalThis as typeof globalThis & { structuredClone?: <V>(source: V) => V }
+  ).structuredClone;
+  if (structuredClone) return structuredClone(value);
+
+  if (Array.isArray(value)) return value.map((entry) => clone(entry)) as T;
+  if (typeof value === 'object') {
+    const copy: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+      copy[key] = clone(entry);
+    }
+    return copy as T;
+  }
+  return value;
 }
 
 /** Pull the copyable visual properties off a node. */
@@ -98,7 +112,10 @@ export function applyPaintProperties(
   const patch: Record<string, unknown> = {};
   if (props.fills !== undefined) patch.fills = clone(props.fills);
   if (props.fill !== undefined) patch.fill = clone(props.fill);
-  if (props.strokes !== undefined && 'strokes' in node) patch.strokes = clone(props.strokes);
+  if (props.strokes !== undefined && 'strokes' in node) {
+    const strokes = clone(props.strokes as Stroke[]);
+    patch.strokes = cloneStrokesWithFreshIds(strokes);
+  }
   if (props.effects !== undefined && 'effects' in node) patch.effects = clone(props.effects);
   if (props.opacity !== undefined) patch.opacity = props.opacity;
   if (props.blendMode !== undefined) patch.blendMode = props.blendMode;

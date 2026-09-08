@@ -270,6 +270,7 @@ viewport behavior are documented in
 | `architecture/page-export-selection.md` | Ordered page export selection, exclusions, ranges, and spread units |
 | `architecture/master-pages.md` | Master source ownership, projection, assignments, and sparse overrides |
 | `architecture/paint-system.md` | Paint subsystem: stroke-to-pixels pipeline, brush library, invariants |
+| `architecture/stroke-system.md` | Live vector stroke model, geometry semantics, target matrix, and export limits |
 | `architecture/animated-image-media-system.md` | GIF/APNG/WebP media pipeline |
 | `architecture/effect-rendering.md` | Effect pass structure in `replay.ts` and render-parity contract |
 | `architecture/email-template-system.md` | Email template authoring, preview, and export system |

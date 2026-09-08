@@ -71,6 +71,47 @@ describe('DocumentCodec', () => {
     expect(result.document.nodes.tagged?.layerColor).toBeNull();
   });
 
+  it('adds stable stroke identities at the persistence boundary', () => {
+    const shape = makeShapeNode(
+      'stroked',
+      { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
+      {
+        strokes: [
+          {
+            color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+            weight: 2,
+            align: 'center',
+            dashPattern: [],
+            dashOffset: 0,
+            cap: 'round',
+            join: 'miter',
+            miterLimit: 4,
+            visible: true,
+          },
+        ],
+      },
+    );
+    const doc = addNode(createDocument('Stroke identities', true), shape);
+
+    const first = DocumentCodec.decode(DocumentCodec.encode(doc));
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    const firstId =
+      first.document.nodes.stroked?.kind === 'shape'
+        ? first.document.nodes.stroked.strokes[0]?.id
+        : undefined;
+    expect(firstId).toBe('stroke-stroked-0');
+
+    const second = DocumentCodec.decode(DocumentCodec.encode(first.document));
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    const secondId =
+      second.document.nodes.stroked?.kind === 'shape'
+        ? second.document.nodes.stroked.strokes[0]?.id
+        : undefined;
+    expect(secondId).toBe(firstId);
+  });
+
   it('decodes, migrates, and validates serialized documents', () => {
     const legacy = {
       id: 'doc-legacy',
