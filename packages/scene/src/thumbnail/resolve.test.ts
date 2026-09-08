@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { Document } from '../document';
-import { createDocument } from '../document';
+import { createDocument, makeImageShapeNode } from '../document';
 import { removePage } from '../document-pages';
+import { imageFill } from '../fills';
 import type { SceneNode } from '../types';
+import { makePaint } from '../types';
 import { hasRenderableContent, resolveThumbnailSource, validateThumbnailSource } from './resolve';
 
 function shapeNode(id: string, x: number, y: number, w: number, h: number): SceneNode {
@@ -198,6 +200,35 @@ describe('resolveThumbnailSource — selection', () => {
     const doc = flatDocWithFrames();
     const sel = resolveThumbnailSource(doc, { type: 'selection', nodeIds: ['gone1', 'gone2'] });
     expect(sel.validity).toBe('missing-source');
+  });
+
+  it('uses effective paint dimensions for shapeless image selections', () => {
+    const doc = createDocument('flat', true);
+    const image = makeImageShapeNode('image', {
+      src: 'data:image/png;base64,stale',
+      w: 32,
+      h: 32,
+      imageWidth: 32,
+      imageHeight: 32,
+      shapeless: true,
+    });
+    image.paintRefs = ['paint-image'];
+    image.fills = [];
+    doc.nodes[image.id] = image;
+    doc.rootChildren = [image.id];
+    doc.paints = {
+      'paint-image': makePaint(
+        'paint-image',
+        'Wide source',
+        imageFill('data:image/png;base64,wide', {
+          imageWidth: 640,
+          imageHeight: 360,
+        }),
+      ),
+    };
+
+    const sel = resolveThumbnailSource(doc, { type: 'selection', nodeIds: [image.id] });
+    expect(sel.worldFrame).toEqual({ x: 0, y: 0, w: 640, h: 360 });
   });
 });
 

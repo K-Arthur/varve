@@ -8,7 +8,13 @@
  */
 import type { Document, SceneNode } from '@varve/scene';
 import { THUMBNAIL_VARIANTS } from '@varve/shared';
-import { type CSSProperties, useEffect, useRef, useState } from 'react';
+import {
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { documentRevisionHash, thumbnailIdentity } from '../../thumbnail/identity';
 import type { RenderDocThumbnailOutcome } from '../../thumbnail/thumbnailService';
 import { renderDocThumbnail } from '../../thumbnail/thumbnailService';
@@ -30,6 +36,20 @@ interface ComparisonImages {
   effects?: PreviewImage;
   targetKey: string;
   stale: boolean;
+}
+
+interface PreviewImageLayerProps {
+  dataUrl: string;
+  alt: string;
+  className?: string;
+}
+
+function PreviewImageLayer({ dataUrl, alt, className }: PreviewImageLayerProps) {
+  return (
+    <div className={`effect-studio-comparison__image-layer${className ? ` ${className}` : ''}`}>
+      <img alt={alt} src={dataUrl} />
+    </div>
+  );
 }
 
 export interface EffectStudioComparisonProps {
@@ -120,9 +140,17 @@ export function EffectStudioComparison({
   const [view, setView] = useState<ComparisonView>('compare');
   const [split, setSplit] = useState(50);
   const [viewport, setViewport] = useState<ViewportMode>('fit');
+  const [pan, setPan] = useState({ x: 0, y: 0 });
   const [retryNonce, setRetryNonce] = useState(0);
   const [settledCache] = useState(() => new Map<string, RenderDocThumbnailOutcome>());
   const retryScopeRef = useRef('');
+  const panStartRef = useRef<{
+    pointerId: number;
+    clientX: number;
+    clientY: number;
+    originX: number;
+    originY: number;
+  } | null>(null);
 
   useEffect(() => {
     if (!node) {
@@ -223,9 +251,47 @@ export function EffectStudioComparison({
     resultMessage(images?.original, beforeLabel),
     hasEffects ? resultMessage(images?.effects, afterLabel) : undefined,
   ].filter((message): message is string => Boolean(message));
+
+  const selectViewport = (mode: ViewportMode) => {
+    setViewport(mode);
+    setPan({ x: 0, y: 0 });
+  };
+
+  const handlePreviewPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (viewport === 'fit' || event.button !== 0) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    panStartRef.current = {
+      pointerId: event.pointerId,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      originX: pan.x,
+      originY: pan.y,
+    };
+  };
+
+  const handlePreviewPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const start = panStartRef.current;
+    if (!start || start.pointerId !== event.pointerId) return;
+    setPan({
+      x: start.originX + event.clientX - start.clientX,
+      y: start.originY + event.clientY - start.clientY,
+    });
+  };
+
+  const stopPreviewPan = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const start = panStartRef.current;
+    if (!start || start.pointerId !== event.pointerId) return;
+    panStartRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+
   const stageStyle = {
     '--effect-studio-split': `${split}%`,
     '--effect-studio-zoom': viewport === '200%' ? '2' : '1',
+    '--effect-studio-pan-x': `${pan.x}px`,
+    '--effect-studio-pan-y': `${pan.y}px`,
   } as CSSProperties;
 
   return (
@@ -284,11 +350,25 @@ export function EffectStudioComparison({
             type="button"
             key={mode}
             aria-pressed={viewport === mode}
-            onClick={() => setViewport(mode)}
+            onClick={() => selectViewport(mode)}
+            title={
+              mode === 'fit'
+                ? 'Fit the complete preview bitmap in the viewport'
+                : `${mode} uses the preview bitmap at ${mode === '100%' ? '1:1' : '2:1'} pixel scale`
+            }
           >
             {mode === 'fit' ? 'Fit' : mode}
           </button>
         ))}
+        <button
+          type="button"
+          aria-label="Center preview"
+          disabled={viewport === 'fit' || (pan.x === 0 && pan.y === 0)}
+          onClick={() => setPan({ x: 0, y: 0 })}
+          title="Center the zoomed preview"
+        >
+          Center
+        </button>
       </fieldset>
 
       {images ? (
@@ -298,28 +378,37 @@ export function EffectStudioComparison({
             data-testid="effect-studio-preview-stage"
             data-view={activeView}
             data-zoom={viewport}
+            data-pan-x={pan.x}
+            data-pan-y={pan.y}
             style={stageStyle}
+            onPointerDown={handlePreviewPointerDown}
+            onPointerMove={handlePreviewPointerMove}
+            onPointerUp={stopPreviewPan}
+            onPointerCancel={stopPreviewPan}
           >
             {activeView === 'original' && images.original?.dataUrl && (
-              <img
+              <PreviewImageLayer
                 alt="Original selected object without Object Filters"
-                src={images.original.dataUrl}
+                dataUrl={images.original.dataUrl}
               />
             )}
             {activeView === 'effects' && images.effects?.dataUrl && (
-              <img alt="Selected object with its Object Filters" src={images.effects.dataUrl} />
+              <PreviewImageLayer
+                alt="Selected object with its Object Filters"
+                dataUrl={images.effects.dataUrl}
+              />
             )}
             {activeView === 'compare' && images.original?.dataUrl && images.effects?.dataUrl && (
               <>
-                <img
+                <PreviewImageLayer
                   alt="Selected object with its Object Filters"
-                  className="effect-studio-comparison__effects-image"
-                  src={images.effects.dataUrl}
+                  className="effect-studio-comparison__effects-layer"
+                  dataUrl={images.effects.dataUrl}
                 />
-                <img
+                <PreviewImageLayer
                   alt="Original selected object without Object Filters"
-                  className="effect-studio-comparison__original-image"
-                  src={images.original.dataUrl}
+                  className="effect-studio-comparison__original-layer"
+                  dataUrl={images.original.dataUrl}
                 />
                 <span className="effect-studio-comparison__divider" aria-hidden="true" />
                 <span className="effect-studio-comparison__label effect-studio-comparison__label--before">

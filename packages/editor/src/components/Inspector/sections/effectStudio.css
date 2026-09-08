@@ -179,29 +179,58 @@
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
   border-radius: calc(var(--radius-control-compact) - 1px);
-  display: grid;
+  display: block;
   isolation: isolate;
   min-height: 14rem;
   overflow: hidden;
   position: relative;
+  touch-action: none;
   width: 100%;
 }
 
-.effect-studio-comparison__stage > img {
+.effect-studio-comparison__stage[data-zoom="100%"],
+.effect-studio-comparison__stage[data-zoom="200%"] {
+  cursor: grab;
+}
+
+.effect-studio-comparison__stage[data-zoom="100%"]:active,
+.effect-studio-comparison__stage[data-zoom="200%"]:active {
+  cursor: grabbing;
+}
+
+.effect-studio-comparison__image-layer {
+  align-items: center;
+  display: grid;
+  inset: 0;
+  overflow: hidden;
+  justify-items: center;
+  position: absolute;
+}
+
+.effect-studio-comparison__image-layer > img {
   background: var(--color-surface-raised);
-  grid-area: 1 / 1;
   height: 100%;
   object-fit: contain;
-  transform: scale(var(--effect-studio-zoom, 1));
+  transform: translate(var(--effect-studio-pan-x, 0px), var(--effect-studio-pan-y, 0px))
+    scale(var(--effect-studio-zoom, 1));
   transform-origin: center;
   width: 100%;
 }
 
-.effect-studio-comparison__effects-image {
+.effect-studio-comparison__stage[data-zoom="100%"] .effect-studio-comparison__image-layer > img,
+.effect-studio-comparison__stage[data-zoom="200%"] .effect-studio-comparison__image-layer > img {
+  height: auto;
+  max-height: none;
+  max-width: none;
+  object-fit: initial;
+  width: auto;
+}
+
+.effect-studio-comparison__effects-layer {
   z-index: 0;
 }
 
-.effect-studio-comparison__original-image {
+.effect-studio-comparison__original-layer {
   clip-path: inset(0 calc(100% - var(--effect-studio-split)) 0 0);
   z-index: 1;
 }

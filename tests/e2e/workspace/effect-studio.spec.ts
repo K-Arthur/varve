@@ -5,6 +5,7 @@
  * and direct numeric treatment tuning against the live editor selection.
  */
 
+import { Buffer } from 'node:buffer';
 import { expect, type Page, test } from '@playwright/test';
 import { navigateToCleanEditor } from '../helpers/nav';
 import { dragOnCanvas } from '../shared';
@@ -35,6 +36,36 @@ async function createSelectedVectorPath(page: Page) {
   await expect(pathRow).toContainText(/path|vector shape/i, { timeout: 30_000 });
   await pathRow.click();
   await expect(page.getByTestId('open-effect-studio')).toBeVisible({ timeout: 30_000 });
+}
+
+async function importSelectedWideImage(page: Page) {
+  const source = await page.evaluate(() => {
+    const image = document.createElement('canvas');
+    image.width = 640;
+    image.height = 360;
+    const context = image.getContext('2d');
+    if (!context) throw new Error('Could not create the image fixture canvas');
+    context.fillStyle = '#172033';
+    context.fillRect(0, 0, image.width, image.height);
+    context.fillStyle = '#e33b52';
+    context.fillRect(0, 0, 160, image.height);
+    context.fillStyle = '#39d0c6';
+    context.fillRect(image.width - 160, 0, 160, image.height);
+    context.fillStyle = '#ffffff';
+    context.fillRect(280, 24, 80, 48);
+    context.fillStyle = '#f5c451';
+    context.fillRect(280, image.height - 72, 80, 48);
+    return image.toDataURL('image/png').split(',')[1]!;
+  });
+
+  await page.locator('#file-import-input').setInputFiles({
+    name: 'effect-studio-fit-regression.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(source, 'base64'),
+  });
+  await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 15000 });
+  await page.getByRole('treeitem').first().click();
+  await expect(page.getByTestId('open-effect-studio')).toBeVisible({ timeout: 15000 });
 }
 
 async function switchToPhotoWorkspace(page: Page) {
@@ -175,6 +206,78 @@ test.describe('Effect Studio dialog', () => {
       'effect-studio-vector-path-before-after.png',
       { maxDiffPixels: 200 },
     );
+  });
+
+  test('fits imported image previews and keeps 100% distinct from Fit', async ({ page }) => {
+    await navigateToCleanEditor(page);
+    await importSelectedWideImage(page);
+
+    await page.getByTestId('open-effect-studio').click();
+    const studio = page.getByTestId('effect-studio-dialog');
+    await expect(studio).toBeVisible({ timeout: 30_000 });
+    const stage = studio.getByTestId('effect-studio-preview-stage');
+    const image = stage.getByRole('img', {
+      name: 'Original selected object without Object Filters',
+    });
+    await expect(image).toBeVisible({ timeout: 30_000 });
+    await expect
+      .poll(async () => image.evaluate((element) => (element as HTMLImageElement).complete))
+      .toBe(true);
+
+    const fitGeometry = await image.evaluate((element) => {
+      const image = element as HTMLImageElement;
+      const stage = element.closest('[data-testid="effect-studio-preview-stage"]')!;
+      const stageRect = stage.getBoundingClientRect();
+      const imageRect = image.getBoundingClientRect();
+      return {
+        naturalWidth: image.naturalWidth,
+        naturalHeight: image.naturalHeight,
+        stageWidth: stageRect.width,
+        stageHeight: stageRect.height,
+        imageWidth: imageRect.width,
+        imageHeight: imageRect.height,
+        transform: getComputedStyle(image).transform,
+      };
+    });
+    expect(fitGeometry.naturalWidth).toBeGreaterThan(fitGeometry.naturalHeight);
+    expect(fitGeometry.imageWidth).toBeGreaterThan(fitGeometry.stageWidth - 3);
+    expect(fitGeometry.imageWidth).toBeLessThanOrEqual(fitGeometry.stageWidth + 0.5);
+    expect(fitGeometry.imageHeight).toBeGreaterThan(fitGeometry.stageHeight - 3);
+    expect(fitGeometry.imageHeight).toBeLessThanOrEqual(fitGeometry.stageHeight + 0.5);
+    await expect(stage).toHaveScreenshot('effect-studio-image-fit.png', {
+      maxDiffPixels: 100,
+    });
+
+    await studio.getByRole('button', { name: '100%', exact: true }).click();
+    const nativeGeometry = await image.evaluate((element) => {
+      const image = element as HTMLImageElement;
+      const imageRect = image.getBoundingClientRect();
+      return {
+        imageWidth: imageRect.width,
+        imageHeight: imageRect.height,
+        transform: getComputedStyle(image).transform,
+      };
+    });
+    expect(nativeGeometry.imageWidth).toBeGreaterThan(fitGeometry.imageWidth);
+    expect(nativeGeometry.imageHeight).toBeGreaterThan(fitGeometry.imageHeight);
+    await expect(stage).toHaveScreenshot('effect-studio-image-100.png', {
+      maxDiffPixels: 100,
+    });
+
+    const stageBox = await stage.boundingBox();
+    if (!stageBox) throw new Error('preview stage is not laid out for panning');
+    await page.mouse.move(stageBox.x + stageBox.width / 2, stageBox.y + stageBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(
+      stageBox.x + stageBox.width / 2 + 48,
+      stageBox.y + stageBox.height / 2 + 24,
+    );
+    await page.mouse.up();
+    await expect(stage).toHaveAttribute('data-pan-x', '48');
+    await expect(stage).toHaveAttribute('data-pan-y', '24');
+    await studio.getByRole('button', { name: 'Center preview' }).click();
+    await expect(stage).toHaveAttribute('data-pan-x', '0');
+    await expect(stage).toHaveAttribute('data-pan-y', '0');
   });
 
   test('applies a curated treatment to a Pen vector path without flattening it', async ({

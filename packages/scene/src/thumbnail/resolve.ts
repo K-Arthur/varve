@@ -84,7 +84,11 @@ function nodeWorldBounds(doc: Document, id: NodeId): Rect | null {
   const visit = (nid: NodeId, world: Affine): void => {
     const n = doc.nodes[nid];
     if (!n || n.visible === false) return;
-    const local = nodeLocalBounds(n);
+    // Shapeless image/paint nodes derive their geometry from the effective
+    // paint. Passing the document is essential here: a paintRef can have
+    // dimensions that differ from the node's one-time shape snapshot, and a
+    // stale frame makes a fitted thumbnail crop the selected image.
+    const local = nodeLocalBounds(n, doc);
     const rotate = n.rotation ?? 0;
     const transform: Affine =
       rotate !== 0
