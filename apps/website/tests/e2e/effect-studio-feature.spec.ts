@@ -51,7 +51,10 @@ test.describe('Effect Studio marketing surface', () => {
       page.getByText(/removes only filters owned by the active preview session/i),
     ).toBeVisible();
     await expect(
-      page.getByText(/Fit contains the complete rendered preview bitmap/i),
+      page
+        .locator('.docs-section')
+        .filter({ hasText: 'Fit and inspection scale' })
+        .getByText(/complete encoded editing preview/i),
     ).toBeVisible();
 
     await page.goto('/features');
