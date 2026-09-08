@@ -12,6 +12,7 @@
  */
 
 import { type BlendEvaluationSpace, managedColorToRgba } from '@varve/shared';
+import { isVerticalWritingMode } from '@varve/shared/verticalText';
 import type { AlphaStrokeOps } from './alphaStroke';
 import { blendPixels, CompositeCanvas, mapBlendMode } from './compositeCanvas';
 import { deserializeDepthMap, resizeDepthMap } from './depthMap';
@@ -82,6 +83,7 @@ import { layoutRichText } from './textLayout';
 import { buildTextLayoutSnapshot, type TextLayoutSnapshot } from './textLayoutSnapshot';
 import type { EngineColor, FillIR, Primitive, RenderItem, Stroke } from './types';
 import { splitGraphemes } from './unicode/grapheme';
+import { paintVerticalCanonicalRichText, paintVerticalCanonicalText } from './verticalTextReplay';
 
 export { resetGradientCacheForTest } from './replayGradient';
 
@@ -2206,7 +2208,7 @@ function paintRichText(
       const format = paragraph.format;
       return format?.maxLines !== undefined || format?.textOverflow !== undefined;
     });
-    if (!hasAdvancedParagraphFormatting) {
+    if (!hasAdvancedParagraphFormatting || isVerticalWritingMode(p.writingMode)) {
       const snapshot = layoutRichTextSnapshot(
         richText,
         {
@@ -2219,13 +2221,17 @@ function paintRichText(
           lineHeight: p.lineHeight,
           direction: p.direction,
           language: p.language,
+          writingMode: p.writingMode,
+          textOrientation: p.textOrientation,
         },
         target as import('./richTextLayout').RichTextMeasureContext,
         {
-          maxWidth: p.textMode === 'area' ? p.w : 0,
+          maxWidth: p.textMode === 'area' ? (isVerticalWritingMode(p.writingMode) ? p.h : p.w) : 0,
           lineHeight: p.fontSize * p.lineHeight,
           paragraphSpacing: p.paragraphSpacing,
           language: p.language,
+          writingMode: p.writingMode,
+          textOrientation: p.textOrientation,
         },
       );
       paintCanonicalRichText(target, p, richText, snapshot);
@@ -2346,6 +2352,10 @@ function paintCanonicalRichText(
   richText: import('./types').RichText,
   snapshot: TextLayoutSnapshot,
 ): void {
+  if (isVerticalWritingMode(p.writingMode)) {
+    paintVerticalCanonicalRichText(target, p, richText, snapshot);
+    return;
+  }
   const verticalOffset =
     p.textAlignVertical === 'middle'
       ? (p.h - snapshot.height) / 2
@@ -2409,7 +2419,7 @@ function canUseCanonicalTextLayout(p: TextPrimitive): boolean {
 function canonicalTextSnapshot(target: ReplayTarget, p: TextPrimitive): TextLayoutSnapshot | null {
   if (!canUseCanonicalTextLayout(p)) return null;
 
-  const maxWidth = p.textMode === 'area' ? p.w : 0;
+  const maxWidth = p.textMode === 'area' ? (isVerticalWritingMode(p.writingMode) ? p.h : p.w) : 0;
   const shaping =
     p.shaping ??
     (() => {
@@ -2433,6 +2443,7 @@ function canonicalTextSnapshot(target: ReplayTarget, p: TextPrimitive): TextLayo
           tracking: p.tracking,
           direction,
           language,
+          writingMode: p.writingMode,
         },
       );
     })();
@@ -2442,6 +2453,8 @@ function canonicalTextSnapshot(target: ReplayTarget, p: TextPrimitive): TextLayo
     maxWidth,
     lineHeight: p.fontSize * p.lineHeight,
     language: p.language,
+    writingMode: p.writingMode,
+    textOrientation: p.textOrientation,
   });
 }
 
@@ -2450,6 +2463,10 @@ function paintCanonicalText(
   p: TextPrimitive,
   snapshot: TextLayoutSnapshot,
 ): void {
+  if (isVerticalWritingMode(p.writingMode)) {
+    paintVerticalCanonicalText(target, p, snapshot);
+    return;
+  }
   const verticalOffset =
     p.textAlignVertical === 'middle'
       ? (p.h - snapshot.height) / 2

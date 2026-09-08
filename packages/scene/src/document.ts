@@ -609,6 +609,8 @@ export function makeTextNode(
       | 'textMode'
       | 'pathTextSettings'
       | 'direction'
+      | 'writingMode'
+      | 'textOrientation'
       | 'language'
       | 'opacity'
       | 'blendMode'
@@ -656,6 +658,8 @@ export function makeTextNode(
     textMode: opts.textMode,
     pathTextSettings: opts.pathTextSettings,
     direction: opts.direction,
+    writingMode: opts.writingMode,
+    textOrientation: opts.textOrientation,
     language: opts.language,
     strokes: opts.strokes ?? [],
     effects: opts.effects ?? [],

@@ -126,4 +126,39 @@ describe('TextLayoutSnapshot', () => {
     expect(cache.get('second')).toBeUndefined();
     expect(cache.size).toBe(2);
   });
+
+  it('lays out vertical text on the logical inline axis and keeps source offsets', () => {
+    const snapshot = buildTextLayoutSnapshot('AあBC', makeShaping('AあBC'), {
+      maxWidth: 32,
+      lineHeight: 16,
+      writingMode: 'vertical-rl',
+      textOrientation: 'mixed',
+    });
+
+    expect(snapshot.text).toBe('AあBC');
+    expect(snapshot.lines).toHaveLength(2);
+    expect(snapshot.lines[0]?.x).toBeGreaterThan(snapshot.lines[1]?.x ?? 0);
+    expect(snapshot.lines[0]?.height).toBe(32);
+    expect(snapshot.lines[0]?.sourceStart).toBe(0);
+    expect(snapshot.lines[1]?.sourceStart).toBe(2);
+    expect(snapshot.lines[0]?.runs[0]?.glyphs[0]?.orientation).toBe('sideways');
+    expect(snapshot.lines[0]?.runs[0]?.glyphs[1]?.orientation).toBe('upright');
+
+    const caret = hitTestTextLayout(snapshot, snapshot.lines[0]!.x ?? 0, 24);
+    expect(caret.offset).toBe(2);
+    expect(selectionRects(snapshot, 0, 1)[0]).toMatchObject({
+      width: snapshot.lines[0]?.width,
+      height: 16,
+    });
+  });
+
+  it('includes vertical semantics in the snapshot cache identity', () => {
+    const horizontal = buildTextLayoutSnapshot('a', makeShaping('a'), { maxWidth: 100 });
+    const vertical = buildTextLayoutSnapshot('a', makeShaping('a'), {
+      maxWidth: 100,
+      writingMode: 'vertical-lr',
+    });
+    expect(horizontal.identity.writingMode).not.toBe(vertical.identity.writingMode);
+    expect(horizontal.identity.textOrientation).toBe('mixed');
+  });
 });

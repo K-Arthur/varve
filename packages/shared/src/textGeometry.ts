@@ -34,6 +34,7 @@
  */
 
 import { type MeasuredLine, measureAdvanceWidth, type TextMeasureOptions } from './textMeasure';
+import { isVerticalWritingMode, type TextOrientation, type WritingMode } from './verticalText';
 
 const DEFAULT_FONT_SIZE = 16;
 const DEFAULT_LINE_HEIGHT = 1.4;
@@ -50,6 +51,8 @@ export type TextGeometryMode = 'autoWidth' | 'autoHeight' | 'fixed' | 'path';
 export interface TextLineBox extends MeasuredLine {
   /** Offset of this line's box from the top of the layout, in px. */
   y: number;
+  /** Physical x offset for a vertical column. Horizontal lines omit it. */
+  x?: number;
 }
 
 /** Rich-text shape as the scene stores it, narrowed to what layout reads. */
@@ -84,6 +87,8 @@ export interface TextGeometryInput {
   textMode?: 'point' | 'area' | 'auto' | 'path' | string | undefined;
   textResizing?: 'autoWidth' | 'autoHeight' | 'fixed' | undefined;
   variableAxes?: Record<string, number> | undefined;
+  writingMode?: WritingMode | undefined;
+  textOrientation?: TextOrientation | undefined;
 }
 
 export interface TextGeometry {
@@ -363,6 +368,100 @@ function layoutParagraph(
   return lines;
 }
 
+interface VerticalCluster {
+  text: string;
+  start: number;
+  end: number;
+  advance: number;
+  columnWidth: number;
+}
+
+function graphemeClusters(text: string): Array<{ text: string; start: number; end: number }> {
+  if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+    return [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text)].map(
+      ({ segment, index }, i, all) => ({
+        text: segment,
+        start: index,
+        end: all[i + 1]?.index ?? text.length,
+      }),
+    );
+  }
+  const result: Array<{ text: string; start: number; end: number }> = [];
+  let start = 0;
+  for (const cluster of Array.from(text)) {
+    result.push({ text: cluster, start, end: start + cluster.length });
+    start += cluster.length;
+  }
+  return result;
+}
+
+/**
+ * Vertical inline layout. The physical height is the inline constraint and
+ * each returned line is a block-axis column. This intentionally keeps the
+ * source in logical order; only the column x position changes for rl/lr.
+ */
+function layoutVerticalParagraph(
+  paragraph: TextGeometryRichParagraph,
+  base: TextMeasureOptions,
+  maxInline: number | null,
+): { lines: MeasuredLine[]; columnWidth: number } {
+  const source = paragraph.runs.map((run) => run.text).join('');
+  const clusters = graphemeClusters(source);
+  const pieces: VerticalCluster[] = [];
+  let runStart = 0;
+  for (const run of paragraph.runs) {
+    const opts = runOptions(base, run);
+    const runEnd = runStart + run.text.length;
+    for (const cluster of clusters) {
+      if (cluster.start < runStart || cluster.start >= runEnd) continue;
+      const text = applyTextCase(cluster.text, opts.textCase);
+      pieces.push({
+        text,
+        start: cluster.start,
+        end: cluster.end,
+        // A vertical glyph occupies one em on the inline axis in the
+        // Canvas2D fallback. Native ttb shaping can replace this with its
+        // yAdvance in the engine snapshot.
+        advance: Math.max(0, opts.fontSize ?? DEFAULT_FONT_SIZE),
+        columnWidth: pieceHeight(opts),
+      });
+    }
+    runStart = runEnd;
+  }
+  if (pieces.length === 0) {
+    return {
+      lines: [{ text: '', width: pieceHeight(base), height: 0 }],
+      columnWidth: pieceHeight(base),
+    };
+  }
+
+  const lines: MeasuredLine[] = [];
+  let current: VerticalCluster[] = [];
+  let currentHeight = 0;
+  const flush = (): void => {
+    if (current.length === 0) return;
+    lines.push({
+      text: current.map((piece) => piece.text).join(''),
+      width: current.reduce((width, piece) => Math.max(width, piece.columnWidth), 0),
+      height: currentHeight,
+    });
+    current = [];
+    currentHeight = 0;
+  };
+  for (const piece of pieces) {
+    if (maxInline !== null && current.length > 0 && currentHeight + piece.advance > maxInline) {
+      flush();
+    }
+    current.push(piece);
+    currentHeight += piece.advance;
+  }
+  flush();
+  return {
+    lines,
+    columnWidth: lines.reduce((width, line) => Math.max(width, line.width), pieceHeight(base)),
+  };
+}
+
 /**
  * Resolve the container, layout, and selection rectangles for a text node.
  *
@@ -377,24 +476,53 @@ export function resolveTextGeometry(node: TextGeometryInput): TextGeometry {
   const fontSize = base.fontSize ?? DEFAULT_FONT_SIZE;
   const paragraphSpacing = node.paragraphSpacing ?? 0;
 
-  // Only a width *constraint* wraps. `autoWidth` never wraps, so a stale `w`
-  // on such a node must not silently start folding its lines.
+  const vertical = isVerticalWritingMode(node.writingMode);
+  // Only a logical inline constraint wraps. `autoWidth`/auto-size never wraps,
+  // so a stale physical dimension must not silently start folding its lines.
   const constraintWidth =
-    mode === 'autoHeight' || mode === 'fixed' ? Math.max(0, node.w ?? 0) || null : null;
+    mode === 'autoHeight' || mode === 'fixed'
+      ? Math.max(0, (vertical ? node.h : node.w) ?? 0) || null
+      : null;
 
   const paragraphs = sourceParagraphs(node);
   const lines: TextLineBox[] = [];
   let layoutWidth = 0;
-  let y = 0;
-  for (let p = 0; p < paragraphs.length; p++) {
-    if (p > 0) y += paragraphSpacing;
-    for (const line of layoutParagraph(paragraphs[p]!, base, constraintWidth)) {
-      lines.push({ ...line, y });
-      layoutWidth = Math.max(layoutWidth, line.width);
-      y += line.height;
+  let layoutHeight = 0;
+  if (vertical) {
+    let blockOffset = 0;
+    for (let p = 0; p < paragraphs.length; p++) {
+      const result = layoutVerticalParagraph(paragraphs[p]!, base, constraintWidth);
+      const paragraphWidth = result.lines.length * result.columnWidth;
+      if (p > 0) blockOffset += paragraphSpacing;
+      result.lines.forEach((line, index) => {
+        const x =
+          blockOffset +
+          (node.writingMode === 'vertical-rl'
+            ? paragraphWidth - (index + 1) * result.columnWidth
+            : index * result.columnWidth);
+        lines.push({
+          ...line,
+          x,
+          y: 0,
+          width: result.columnWidth,
+        });
+        layoutWidth = Math.max(layoutWidth, x + result.columnWidth);
+        layoutHeight = Math.max(layoutHeight, line.height);
+      });
+      blockOffset += paragraphWidth;
     }
+  } else {
+    let y = 0;
+    for (let p = 0; p < paragraphs.length; p++) {
+      if (p > 0) y += paragraphSpacing;
+      for (const line of layoutParagraph(paragraphs[p]!, base, constraintWidth)) {
+        lines.push({ ...line, y });
+        layoutWidth = Math.max(layoutWidth, line.width);
+        y += line.height;
+      }
+    }
+    layoutHeight = y;
   }
-  const layoutHeight = y;
 
   const container =
     node.w !== undefined || node.h !== undefined
@@ -405,7 +533,9 @@ export function resolveTextGeometry(node: TextGeometryInput): TextGeometry {
   // caret. Applying it to text that has content would hand a one-letter node a
   // box several times wider than its ink, so the selection rectangle would
   // stop describing the text it encloses.
-  const emptyMinWidth = layoutWidth > 0 ? 0 : fontSize * EMPTY_TEXT_MIN_WIDTH_EM;
+  const emptyMinWidth =
+    layoutWidth > 0 ? 0 : vertical ? fontSize : fontSize * EMPTY_TEXT_MIN_WIDTH_EM;
+  const emptyMinHeight = layoutHeight > 0 ? 0 : fontSize * (base.lineHeight ?? DEFAULT_LINE_HEIGHT);
   const layout = { w: layoutWidth, h: layoutHeight };
 
   let bounds: { x: number; y: number; w: number; h: number };
@@ -415,7 +545,7 @@ export function resolveTextGeometry(node: TextGeometryInput): TextGeometry {
         x: 0,
         y: 0,
         w: node.w ?? Math.max(layoutWidth, emptyMinWidth),
-        h: node.h ?? Math.max(layoutHeight, fontSize * (base.lineHeight ?? DEFAULT_LINE_HEIGHT)),
+        h: node.h ?? Math.max(layoutHeight, emptyMinHeight),
       };
       break;
     case 'autoHeight':
@@ -423,7 +553,7 @@ export function resolveTextGeometry(node: TextGeometryInput): TextGeometry {
         x: 0,
         y: 0,
         w: node.w ?? Math.max(layoutWidth, emptyMinWidth),
-        h: Math.max(layoutHeight, fontSize * (base.lineHeight ?? DEFAULT_LINE_HEIGHT)),
+        h: Math.max(layoutHeight, emptyMinHeight),
       };
       break;
     // Path text's rectangle comes from the path, not from a text box; the
@@ -434,7 +564,7 @@ export function resolveTextGeometry(node: TextGeometryInput): TextGeometry {
         x: 0,
         y: 0,
         w: node.w ?? Math.max(layoutWidth, emptyMinWidth),
-        h: node.h ?? Math.max(layoutHeight, fontSize * (base.lineHeight ?? DEFAULT_LINE_HEIGHT)),
+        h: node.h ?? Math.max(layoutHeight, emptyMinHeight),
       };
       break;
     // autoWidth: both dimensions follow the content, and any `w`/`h` the node
@@ -444,7 +574,7 @@ export function resolveTextGeometry(node: TextGeometryInput): TextGeometry {
         x: 0,
         y: 0,
         w: Math.max(layoutWidth, emptyMinWidth),
-        h: Math.max(layoutHeight, fontSize * (base.lineHeight ?? DEFAULT_LINE_HEIGHT)),
+        h: Math.max(layoutHeight, emptyMinHeight),
       };
       break;
   }

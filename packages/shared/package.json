@@ -8,6 +8,10 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./verticalText": {
+      "types": "./src/verticalText.ts",
+      "default": "./src/verticalText.ts"
     }
   },
   "scripts": {

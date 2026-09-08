@@ -12,7 +12,7 @@ import { scriptCodeToTag, shapeRun } from './shaping';
 import { type ItemizedParagraph, itemizeParagraph, type ParagraphRange } from './text/paragraphs';
 import type { TextLayoutSnapshot } from './textLayoutSnapshot';
 import { type LayoutParagraphInput, layoutText } from './textLayoutSnapshot';
-import type { RichText, ShapedRun, TextRun } from './types';
+import type { RichText, ShapedRun, TextOrientation, TextRun, WritingMode } from './types';
 
 export interface RichTextMeasureContext {
   font: string;
@@ -29,6 +29,8 @@ export interface RichTextLayoutDefaults {
   lineHeight?: number;
   direction?: 'ltr' | 'rtl' | 'auto';
   language?: string;
+  writingMode?: WritingMode;
+  textOrientation?: TextOrientation;
 }
 
 export interface RichTextLayoutOptions {
@@ -38,6 +40,8 @@ export interface RichTextLayoutOptions {
   sourceRevision?: string;
   fontRevision?: string;
   language?: string;
+  writingMode?: WritingMode;
+  textOrientation?: TextOrientation;
 }
 
 interface SpanRange {
@@ -159,5 +163,7 @@ export function layoutRichTextSnapshot(
     sourceRevision: options.sourceRevision,
     fontRevision: options.fontRevision,
     language: options.language ?? defaults.language,
+    writingMode: options.writingMode ?? defaults.writingMode,
+    textOrientation: options.textOrientation ?? defaults.textOrientation,
   });
 }

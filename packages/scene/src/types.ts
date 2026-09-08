@@ -1044,7 +1044,12 @@ export interface CharacterFormat {
   kerning?: 'auto' | 'manual' | 'none';
   tracking?: number;
   language?: string;
+  /** Keep this grapheme cluster in a compact horizontal-in-vertical span. */
+  textCombineUpright?: boolean;
 }
+
+export type WritingMode = 'horizontal-tb' | 'vertical-rl' | 'vertical-lr';
+export type TextOrientation = 'mixed' | 'upright' | 'sideways';
 
 export type TabStopAlignment = 'left' | 'center' | 'right' | 'decimal';
 
@@ -1077,7 +1082,9 @@ export interface ParagraphFormat {
   dropCapLines?: number;
   dropCapChars?: number;
   direction?: 'ltr' | 'rtl';
-  writingMode?: 'horizontal-tb' | 'vertical-rl' | 'vertical-lr';
+  writingMode?: WritingMode;
+  /** Orientation of grapheme clusters when the paragraph is vertical. */
+  textOrientation?: TextOrientation;
   columnCount?: number;
   columnGap?: number;
   columnRuleWidth?: number;
@@ -1415,6 +1422,10 @@ export interface TextNode extends NodeBase {
   pathTextSettings?: PathTextSettings;
   /** Text direction: 'ltr', 'rtl', or 'auto' (auto-detect from content). */
   direction?: 'ltr' | 'rtl' | 'auto';
+  /** Logical writing mode; omitted means the legacy horizontal default. */
+  writingMode?: WritingMode;
+  /** Cluster orientation in vertical writing; omitted means mixed. */
+  textOrientation?: TextOrientation;
   /** ISO language tag for language-specific shaping (e.g. 'ar', 'hi', 'th'). */
   language?: string;
   /** F6: stacked strokes on text. */

@@ -13,6 +13,12 @@
  * entry point for consumers that already hold a `TextShaping` result.
  */
 
+import {
+  isVerticalWritingMode,
+  type TextOrientation,
+  verticalOrientationForCluster,
+  type WritingMode,
+} from '@varve/shared/verticalText';
 import { type BreakUnit, graphemeBreakUnits, segmentBreakUnits } from './text/lineBreak';
 import type { ItemizedParagraph } from './text/paragraphs';
 import { itemizeParagraph, splitParagraphs } from './text/paragraphs';
@@ -37,6 +43,8 @@ export interface TextLayoutIdentity {
   language: string;
   featureKey: string;
   variationKey: string;
+  writingMode: WritingMode;
+  textOrientation: TextOrientation;
 }
 
 export interface PositionedGlyph extends ShapedGlyph {
@@ -46,6 +54,10 @@ export interface PositionedGlyph extends ShapedGlyph {
   x: number;
   /** Baseline-relative y offset in CSS pixels. */
   y: number;
+  /** Physical advance along the vertical inline axis. */
+  verticalAdvance?: number;
+  /** UAX #50/CSS orientation used by the vertical painter. */
+  orientation?: 'upright' | 'sideways';
 }
 
 export interface TextLayoutRun {
@@ -74,6 +86,8 @@ export interface TextLayoutLine {
   baseline: number;
   height: number;
   width: number;
+  /** Physical x offset for a vertical column. */
+  x?: number;
   /** Runs in visual (left-to-right) order. */
   runs: readonly TextLayoutRun[];
   /** Document-local cluster starts in the line's visual traversal order. */
@@ -85,6 +99,8 @@ export interface CaretStop {
   offset: number;
   lineIndex: number;
   x: number;
+  /** Inline-axis coordinate for vertical writing. */
+  y?: number;
   affinity: CaretAffinity;
   direction: 'ltr' | 'rtl';
 }
@@ -130,6 +146,8 @@ export interface BuildTextLayoutSnapshotOptions {
   language?: string;
   featureKey?: string;
   variationKey?: string;
+  writingMode?: WritingMode;
+  textOrientation?: TextOrientation;
 }
 
 /** One paragraph's logical-order shaped runs for `layoutText`. */
@@ -152,6 +170,8 @@ export interface LayoutTextInput {
   variationKey?: string;
   /** Paragraph direction override ('auto' = first-strong). */
   direction?: 'auto' | 'ltr' | 'rtl';
+  writingMode?: WritingMode;
+  textOrientation?: TextOrientation;
 }
 
 /** Logical-order glyph record with paragraph-local cluster bounds. */
@@ -195,8 +215,14 @@ export function layoutText(input: LayoutTextInput): TextLayoutSnapshot {
     language: input.language ?? '',
     featureKey: input.featureKey ?? '',
     variationKey: input.variationKey ?? '',
+    writingMode: input.writingMode ?? 'horizontal-tb',
+    textOrientation: input.textOrientation ?? 'mixed',
   };
   const diagnostics: string[] = [];
+
+  if (isVerticalWritingMode(identity.writingMode)) {
+    return layoutVerticalText(input, sourceMap, identity, diagnostics, baseDirection);
+  }
 
   for (const { paragraph, runs } of input.paragraphs) {
     const records = buildGlyphRecords(runs, paragraph.text.length);
@@ -254,6 +280,75 @@ export function layoutText(input: LayoutTextInput): TextLayoutSnapshot {
   };
 }
 
+function layoutVerticalText(
+  input: LayoutTextInput,
+  sourceMap: UnicodeIndexMap,
+  identity: TextLayoutIdentity,
+  diagnostics: string[],
+  baseDirection: 'ltr' | 'rtl',
+): TextLayoutSnapshot {
+  const lines: TextLayoutLine[] = [];
+  const paragraphInfos: TextLayoutParagraphInfo[] = [];
+  const caretStops: CaretStop[] = [];
+  const maxInline = Math.max(0, input.maxWidth);
+  let blockOffset = 0;
+  let layoutWidth = 0;
+  let layoutHeight = 0;
+
+  for (const { paragraph, runs } of input.paragraphs) {
+    const records = buildGlyphRecords(runs, paragraph.text.length);
+    if (records.some((record) => record.glyph.glyphId === 0)) {
+      diagnostics.push('shaping contains unknown glyph IDs; geometry may be approximate');
+    }
+    const paragraphMap = createUnicodeIndexMap(paragraph.text);
+    const paragraphLineStart = lines.length;
+    const paragraphLines = layoutVerticalParagraphLines(
+      paragraph,
+      records,
+      maxInline,
+      input.lineHeight ?? null,
+      paragraphMap,
+      identity.textOrientation,
+      identity.writingMode,
+    );
+    const paragraphWidth = paragraphLines.reduce(
+      (width, line) => Math.max(width, (line.x ?? 0) + line.width),
+      0,
+    );
+    if (paragraphLineStart > 0) blockOffset += identity.paragraphSpacing;
+    const shifted = paragraphLines.map((line) => shiftVerticalLine(line, blockOffset, 0));
+    lines.push(...shifted);
+    layoutWidth = Math.max(layoutWidth, blockOffset + paragraphWidth);
+    layoutHeight = Math.max(layoutHeight, ...shifted.map((line) => line.top + line.height));
+    paragraphInfos.push({
+      index: paragraph.index,
+      sourceStart: paragraph.sourceStart,
+      sourceEnd: paragraph.sourceEnd,
+      baseDirection: paragraph.baseDirection,
+      baseLevel: paragraph.baseLevel,
+      lineStart: paragraphLineStart,
+      lineEnd: lines.length,
+    });
+    caretStops.push(
+      ...buildVerticalCaretStops(paragraph, shifted, paragraphLineStart, paragraphMap),
+    );
+    blockOffset += paragraphWidth;
+  }
+
+  return {
+    text: input.text,
+    sourceMap,
+    identity,
+    paragraphs: paragraphInfos,
+    lines,
+    caretStops: dedupeCaretStops(caretStops),
+    width: layoutWidth,
+    height: layoutHeight,
+    baseDirection,
+    diagnostics,
+  };
+}
+
 function shiftLine(line: TextLayoutLine, yOffset: number): TextLayoutLine {
   if (yOffset === 0) return line;
   return {
@@ -263,6 +358,24 @@ function shiftLine(line: TextLayoutLine, yOffset: number): TextLayoutLine {
     runs: line.runs.map((run) => ({
       ...run,
       glyphs: run.glyphs.map((glyph) => ({ ...glyph, y: glyph.y + yOffset })),
+    })),
+  };
+}
+
+function shiftVerticalLine(line: TextLayoutLine, xOffset: number, yOffset: number): TextLayoutLine {
+  return {
+    ...line,
+    x: (line.x ?? 0) + xOffset,
+    top: line.top + yOffset,
+    baseline: line.baseline + yOffset,
+    runs: line.runs.map((run) => ({
+      ...run,
+      x: run.x + xOffset,
+      glyphs: run.glyphs.map((glyph) => ({
+        ...glyph,
+        x: glyph.x + xOffset,
+        y: glyph.y + yOffset,
+      })),
     })),
   };
 }
@@ -592,6 +705,177 @@ function positionRunGlyphs(
   return positioned;
 }
 
+interface VerticalClusterRecord {
+  text: string;
+  start: number;
+  end: number;
+  records: readonly GlyphRecord[];
+  advance: number;
+}
+
+/** Position logical grapheme clusters into vertical columns. */
+function layoutVerticalParagraphLines(
+  paragraph: ItemizedParagraph,
+  records: readonly GlyphRecord[],
+  maxInline: number,
+  lineHeightOverride: number | null,
+  sourceMap: UnicodeIndexMap,
+  textOrientation: TextOrientation,
+  writingMode: WritingMode,
+): TextLayoutLine[] {
+  const byCluster = recordsByCluster(records);
+  const clusters: VerticalClusterRecord[] = [];
+  let boundaryIndex = 0;
+  while (boundaryIndex < sourceMap.graphemes.length) {
+    const grapheme = sourceMap.graphemes[boundaryIndex]!;
+    const attached = byCluster.get(grapheme.index) ?? [];
+    let end = grapheme.index + grapheme.segment.length;
+    for (const record of attached) end = Math.max(end, record.clusterEnd);
+    while (
+      boundaryIndex + 1 < sourceMap.graphemes.length &&
+      sourceMap.graphemes[boundaryIndex + 1]!.index < end
+    ) {
+      boundaryIndex++;
+      end = Math.max(
+        end,
+        sourceMap.graphemes[boundaryIndex]!.index +
+          sourceMap.graphemes[boundaryIndex]!.segment.length,
+      );
+    }
+    const clusterText = sourceMap.text.slice(grapheme.index, end);
+    const clusterRecords = attached.length > 0 ? attached : [];
+    const fontSize = clusterRecords.reduce(
+      (size, record) => Math.max(size, record.run.fontSize),
+      0,
+    );
+    const nativeAdvance = clusterRecords.reduce(
+      (advance, record) => Math.max(advance, Math.abs(record.glyph.yAdvance)),
+      0,
+    );
+    clusters.push({
+      text: clusterText,
+      start: grapheme.index,
+      end,
+      records: clusterRecords,
+      // Canvas fallback has no ttb advance, so one em is the stable logical
+      // cell. Native vertical shaping can supply a more precise yAdvance.
+      advance: Math.max(nativeAdvance, fontSize || lineHeightOverride || 16),
+    });
+    boundaryIndex++;
+  }
+
+  if (clusters.length === 0) {
+    const width = Math.max(lineHeightOverride ?? 16, 1);
+    return [
+      {
+        paragraphIndex: paragraph.index,
+        sourceStart: paragraph.sourceStart,
+        sourceEnd: paragraph.sourceEnd,
+        top: 0,
+        baseline: width / 2,
+        height: 0,
+        width,
+        x: 0,
+        runs: [],
+        visualClusters: [],
+      },
+    ];
+  }
+
+  const columnWidth = Math.max(
+    lineHeightOverride ?? 0,
+    ...clusters.flatMap((cluster) =>
+      cluster.records.map((record) => record.run.lineHeight ?? record.run.fontSize * 1.2),
+    ),
+    1,
+  );
+  const columns: VerticalClusterRecord[][] = [];
+  let current: VerticalClusterRecord[] = [];
+  let currentHeight = 0;
+  const flush = (): void => {
+    if (current.length > 0) columns.push(current);
+    current = [];
+    currentHeight = 0;
+  };
+  for (const cluster of clusters) {
+    if (maxInline > 0 && current.length > 0 && currentHeight + cluster.advance > maxInline) {
+      flush();
+    }
+    current.push(cluster);
+    currentHeight += cluster.advance;
+  }
+  flush();
+
+  return columns.map((column, index) => {
+    const top = 0;
+    const height = column.reduce((sum, cluster) => sum + cluster.advance, 0);
+    const x =
+      writingMode === 'vertical-rl'
+        ? (columns.length - index - 1) * columnWidth
+        : index * columnWidth;
+    const first = column[0]!;
+    const last = column[column.length - 1]!;
+    const lineRecords = column.flatMap((cluster) => cluster.records);
+    const inlineOffsetByCluster = new Map<number, number>();
+    let inlineOffset = 0;
+    for (const cluster of column) {
+      inlineOffsetByCluster.set(cluster.start, inlineOffset);
+      inlineOffset += cluster.advance;
+    }
+    const groups: Array<{ sourceRun: ShapedRun; records: GlyphRecord[] }> = [];
+    for (const record of lineRecords) {
+      const previous = groups[groups.length - 1];
+      if (previous?.sourceRun === record.run) previous.records.push(record);
+      else groups.push({ sourceRun: record.run, records: [record] });
+    }
+    const lineRuns: TextLayoutRun[] = [];
+    const positioned: PositionedGlyph[] = [];
+    for (const group of groups) {
+      const glyphs = group.records.map((record) => {
+        const cluster = sourceMap.text.slice(record.clusterStart, record.clusterEnd);
+        const fontSize = record.run.fontSize;
+        const glyph: PositionedGlyph = {
+          ...record.glyph,
+          clusterUtf16: paragraph.sourceStart + record.clusterStart,
+          sourceEnd: paragraph.sourceStart + record.clusterEnd,
+          x: x + columnWidth / 2 + record.glyph.xOffset,
+          y:
+            (inlineOffsetByCluster.get(record.clusterStart) ?? 0) +
+            Math.max(fontSize, Math.abs(record.glyph.yAdvance)) / 2,
+          verticalAdvance: Math.max(fontSize, Math.abs(record.glyph.yAdvance)),
+          orientation: verticalOrientationForCluster(cluster, textOrientation),
+        };
+        return glyph;
+      });
+      const sourceStart = Math.min(...glyphs.map((glyph) => glyph.clusterUtf16));
+      const sourceEnd = Math.max(...glyphs.map((glyph) => glyph.sourceEnd));
+      lineRuns.push({
+        sourceStart,
+        sourceEnd,
+        x,
+        width: columnWidth,
+        direction: group.sourceRun.direction,
+        level: group.sourceRun.level,
+        glyphs,
+        sourceRun: group.sourceRun,
+      });
+      positioned.push(...glyphs);
+    }
+    return {
+      paragraphIndex: paragraph.index,
+      sourceStart: paragraph.sourceStart + first.start,
+      sourceEnd: paragraph.sourceStart + last.end,
+      top,
+      baseline: columnWidth / 2,
+      height,
+      width: columnWidth,
+      x,
+      runs: lineRuns,
+      visualClusters: distinctClusterStarts(positioned),
+    };
+  });
+}
+
 function distinctClusterStarts(glyphs: readonly PositionedGlyph[]): number[] {
   const seen = new Set<number>();
   const result: number[] = [];
@@ -666,13 +950,74 @@ function buildCaretStops(
   return dedupeCaretStops(stops);
 }
 
+function buildVerticalCaretStops(
+  paragraph: ItemizedParagraph,
+  lines: readonly TextLayoutLine[],
+  lineIndexOffset: number,
+  sourceMap: UnicodeIndexMap,
+): CaretStop[] {
+  const snap = (paragraphLocal: number, bias: 'floor' | 'ceil'): number =>
+    paragraph.sourceStart + snapUtf16Offset(sourceMap, paragraphLocal, bias);
+  const stops: CaretStop[] = [];
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index]!;
+    const lineIndex = index + lineIndexOffset;
+    const x = line.x ?? 0;
+    stops.push({
+      offset: line.sourceStart,
+      lineIndex,
+      x,
+      y: line.top,
+      affinity: 'leading',
+      direction: paragraph.baseDirection,
+    });
+    stops.push({
+      offset: line.sourceEnd,
+      lineIndex,
+      x,
+      y: line.top + line.height,
+      affinity: 'trailing',
+      direction: paragraph.baseDirection,
+    });
+    for (const run of line.runs) {
+      let previousCluster = -1;
+      for (const glyph of run.glyphs) {
+        const clusterStart = snap(glyph.clusterUtf16 - paragraph.sourceStart, 'floor');
+        if (clusterStart === previousCluster) continue;
+        previousCluster = clusterStart;
+        const clusterEnd = snap(glyph.sourceEnd - paragraph.sourceStart, 'ceil');
+        const advance = glyph.verticalAdvance ?? Math.max(0, glyph.yAdvance);
+        const before = glyph.y - advance / 2;
+        const after = glyph.y + advance / 2;
+        stops.push({
+          offset: clusterStart,
+          lineIndex,
+          x,
+          y: before,
+          affinity: 'leading',
+          direction: run.direction,
+        });
+        stops.push({
+          offset: clusterEnd,
+          lineIndex,
+          x,
+          y: after,
+          affinity: 'trailing',
+          direction: run.direction,
+        });
+      }
+    }
+  }
+  return stops;
+}
+
 function dedupeCaretStops(stops: readonly CaretStop[]): CaretStop[] {
   const seen = new Set<string>();
   return stops.filter((stop) => {
     // Same line, offset, affinity, AND x: a line-edge stop and a cluster
     // boundary can share an offset with different x (RTL line ends); both
     // positions are legal caret locations and must be kept.
-    const key = `${stop.lineIndex}:${stop.offset}:${stop.affinity}:${Math.round(stop.x * 100)}`;
+    const key = `${stop.lineIndex}:${stop.offset}:${stop.affinity}:${Math.round(stop.x * 100)}:${Math.round((stop.y ?? 0) * 100)}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -712,6 +1057,8 @@ export function buildTextLayoutSnapshot(
     language: options.language,
     featureKey: options.featureKey,
     variationKey: options.variationKey,
+    writingMode: options.writingMode,
+    textOrientation: options.textOrientation,
   });
 }
 
@@ -759,6 +1106,40 @@ function emptyItemizedParagraph(direction: 'ltr' | 'rtl'): ItemizedParagraph {
 
 /** Map a snapshot's line/width coordinates onto the object layout (kept). */
 export function hitTestTextLayout(snapshot: TextLayoutSnapshot, x: number, y: number): CaretStop {
+  if (isVerticalWritingMode(snapshot.identity.writingMode)) {
+    const lineIndex = snapshot.lines.reduce((best, line, index) => {
+      const bestLine = snapshot.lines[best]!;
+      const bestDistance = distanceToVerticalLine(bestLine, x);
+      const distance = distanceToVerticalLine(line, x);
+      return distance < bestDistance ? index : best;
+    }, 0);
+    const line = snapshot.lines[lineIndex];
+    if (!line) {
+      return {
+        offset: 0,
+        lineIndex: 0,
+        x: 0,
+        y: 0,
+        affinity: 'leading',
+        direction: snapshot.baseDirection,
+      };
+    }
+    const candidates = snapshot.caretStops.filter((stop) => stop.lineIndex === lineIndex);
+    return candidates.reduce(
+      (best, candidate) =>
+        Math.abs((candidate.y ?? line.top) - y) < Math.abs((best.y ?? line.top) - y)
+          ? candidate
+          : best,
+      candidates[0] ?? {
+        offset: line.sourceStart,
+        lineIndex,
+        x: line.x ?? 0,
+        y: line.top,
+        affinity: 'leading' as const,
+        direction: snapshot.baseDirection,
+      },
+    );
+  }
   const lineIndex = snapshot.lines.reduce((best, line, index) => {
     const bestLine = snapshot.lines[best]!;
     const bestDistance = distanceToLine(bestLine, y);
@@ -794,6 +1175,13 @@ function distanceToLine(line: TextLayoutLine, y: number): number {
   return 0;
 }
 
+function distanceToVerticalLine(line: TextLayoutLine, x: number): number {
+  const left = line.x ?? 0;
+  if (x < left) return left - x;
+  if (x > left + line.width) return x - (left + line.width);
+  return 0;
+}
+
 export function textLayoutSnapshotCacheKey(text: string, identity: TextLayoutIdentity): string {
   return JSON.stringify([
     text,
@@ -802,6 +1190,8 @@ export function textLayoutSnapshotCacheKey(text: string, identity: TextLayoutIde
     identity.maxWidth,
     identity.lineHeight,
     identity.direction,
+    identity.writingMode,
+    identity.textOrientation,
     identity.language,
     identity.featureKey,
     identity.variationKey,
@@ -819,6 +1209,9 @@ export function selectionRects(
   end: number,
 ): SelectionRect[] {
   const range = normalizeGraphemeRange(snapshot.sourceMap, start, end);
+  if (isVerticalWritingMode(snapshot.identity.writingMode)) {
+    return verticalSelectionRects(snapshot, range.start, range.end);
+  }
   const rects: SelectionRect[] = [];
   for (let lineIndex = 0; lineIndex < snapshot.lines.length; lineIndex++) {
     const line = snapshot.lines[lineIndex]!;
@@ -845,6 +1238,45 @@ export function selectionRects(
       fragment.push(glyph);
     }
     flush();
+  }
+  return rects;
+}
+
+function verticalSelectionRects(
+  snapshot: TextLayoutSnapshot,
+  start: number,
+  end: number,
+): SelectionRect[] {
+  const rects: SelectionRect[] = [];
+  for (let lineIndex = 0; lineIndex < snapshot.lines.length; lineIndex++) {
+    const line = snapshot.lines[lineIndex]!;
+    if (start <= line.sourceStart && end >= line.sourceEnd) {
+      rects.push({
+        lineIndex,
+        x: line.x ?? 0,
+        y: line.top,
+        width: line.width,
+        height: line.height,
+      });
+      continue;
+    }
+    const selected = line.runs.flatMap((run) =>
+      run.glyphs.filter((glyph) => glyph.clusterUtf16 < end && glyph.sourceEnd > start),
+    );
+    if (selected.length === 0) continue;
+    const top = Math.min(
+      ...selected.map((glyph) => glyph.y - (glyph.verticalAdvance ?? Math.abs(glyph.yAdvance)) / 2),
+    );
+    const bottom = Math.max(
+      ...selected.map((glyph) => glyph.y + (glyph.verticalAdvance ?? Math.abs(glyph.yAdvance)) / 2),
+    );
+    rects.push({
+      lineIndex,
+      x: line.x ?? 0,
+      y: top,
+      width: line.width,
+      height: bottom - top,
+    });
   }
   return rects;
 }

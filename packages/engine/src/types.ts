@@ -23,6 +23,8 @@ export type OpenTypeFeatureMap = Record<string, boolean | Record<string, boolean
 export type VariableFontSettings = Record<string, number>;
 
 export type TextMode = 'point' | 'area' | 'path' | 'auto';
+export type WritingMode = 'horizontal-tb' | 'vertical-rl' | 'vertical-lr';
+export type TextOrientation = 'mixed' | 'upright' | 'sideways';
 
 /**
  * Per-cluster glyph adjustment in render IR (mirrors @varve/scene
@@ -64,6 +66,8 @@ export interface CharacterFormat {
   openTypeFeatures?: OpenTypeFeatureMap;
   variableFontSettings?: VariableFontSettings;
   baselineShift?: number;
+  /** Compact horizontal-in-vertical span for a rich-text run. */
+  textCombineUpright?: boolean;
 }
 
 export interface ParagraphFormat {
@@ -73,6 +77,8 @@ export interface ParagraphFormat {
   maxLines?: number;
   textOverflow?: 'clip' | 'ellipsis' | 'visible';
   listStyle?: 'none' | 'disc' | 'decimal' | 'circle' | 'square';
+  writingMode?: WritingMode;
+  textOrientation?: TextOrientation;
 }
 
 export interface TextRun {
@@ -410,6 +416,10 @@ export interface SceneNode {
   textAlign?: 'left' | 'center' | 'right' | 'justify';
   /** Vertical text alignment. */
   textAlignVertical?: 'top' | 'middle' | 'bottom';
+  /** Logical writing mode. */
+  writingMode?: WritingMode;
+  /** Orientation of vertical grapheme clusters. */
+  textOrientation?: TextOrientation;
   /** Letter spacing in px. */
   letterSpacing?: number;
   /** Typographic tracking in 1/1000 em units, added between glyphs. */
@@ -676,6 +686,10 @@ export type Primitive =
       tabSize?: number;
       /** Paragraph text direction (LTR, RTL, or auto). */
       direction?: 'ltr' | 'rtl' | 'auto';
+      /** Logical writing mode for the text primitive. */
+      writingMode?: WritingMode;
+      /** Orientation of vertical grapheme clusters. */
+      textOrientation?: TextOrientation;
       /** ISO language tag for language-specific shaping (e.g. 'ar', 'hi', 'th'). */
       language?: string;
       /** Pre-computed shaping result (set by engine/wasm). */
@@ -929,8 +943,8 @@ export interface NativeShapeRequest {
   language?: string;
   /** ISO 15924 script code (e.g. "Latn", "Arab"). */
   script?: string;
-  /** Text direction. */
-  direction?: 'ltr' | 'rtl';
+  /** Text direction, including the vertical inline-axis directions. */
+  direction?: 'ltr' | 'rtl' | 'ttb' | 'btt';
   /** OpenType feature tags to enable (e.g. ["liga", "kern", "dlig"]). */
   features?: string[];
   /** OpenType feature tags to disable. */

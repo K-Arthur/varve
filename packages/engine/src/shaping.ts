@@ -24,7 +24,7 @@
  */
 
 import type { ItemizedParagraph } from './text/paragraphs';
-import type { ShapedGlyph, ShapedRun, TextShaping } from './types';
+import type { ShapedGlyph, ShapedRun, TextOrientation, TextShaping, WritingMode } from './types';
 import type { BidiParagraph } from './unicode/bidi';
 import { analyzeParagraph } from './unicode/bidi';
 import { splitGraphemes } from './unicode/grapheme';
@@ -49,6 +49,9 @@ export interface ShapeRunInput {
   direction?: 'ltr' | 'rtl' | 'auto';
   /** ISO language tag. */
   language?: string;
+  /** Vertical intent is carried for native shaping; Canvas2D remains fallback. */
+  writingMode?: WritingMode;
+  textOrientation?: TextOrientation;
   /** Canvas2D context for measurement (required). */
   ctx: CanvasRenderingContext2D;
 }
@@ -65,6 +68,8 @@ export interface ShapeRichTextInput {
     tracking?: number;
     direction?: 'ltr' | 'rtl' | 'auto';
     language?: string;
+    writingMode?: WritingMode;
+    textOrientation?: TextOrientation;
     textAlign?: 'left' | 'center' | 'right' | 'justify';
   }>;
   ctx: CanvasRenderingContext2D;
@@ -398,6 +403,8 @@ export function shapeText(
     tracking?: number;
     direction?: 'ltr' | 'rtl' | 'auto';
     language?: string;
+    writingMode?: WritingMode;
+    textOrientation?: TextOrientation;
   },
 ): TextShaping {
   const runs = shapeRun({
@@ -409,6 +416,9 @@ export function shapeText(
     letterSpacing: opts?.letterSpacing,
     tracking: opts?.tracking,
     direction: opts?.direction ?? 'auto',
+    language: opts?.language,
+    writingMode: opts?.writingMode,
+    textOrientation: opts?.textOrientation,
     ctx,
   });
 

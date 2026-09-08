@@ -39,6 +39,8 @@ export function textGeometryInput(node: TextNodeLike): TextGeometryInput {
     textMode: node.textMode,
     textResizing: node.textResizing,
     variableAxes: node.variableAxes,
+    writingMode: node.writingMode,
+    textOrientation: node.textOrientation,
   };
 }
 

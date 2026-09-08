@@ -154,6 +154,8 @@ const NODE_KIND_KEY_ORDER: Record<string, readonly string[]> = {
     'letterSpacing',
     'textAlign',
     'textAlignVertical',
+    'writingMode',
+    'textOrientation',
     'textCase',
     'textDecoration',
     'listStyle',

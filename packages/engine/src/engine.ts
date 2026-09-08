@@ -28,6 +28,8 @@ import type {
   Scene,
   SceneNode,
   TextMode,
+  TextOrientation,
+  WritingMode,
 } from './types';
 import type { WasmEngineModule } from './wasmLoader';
 import { loadWasmEngineModule } from './wasmLoader';
@@ -98,6 +100,8 @@ function shapeToPrimitive(
             w?: number;
             h?: number;
             textMode?: TextMode;
+            writingMode?: WritingMode;
+            textOrientation?: TextOrientation;
           })
         : null;
     const fontSize = node.fontSize ?? textShape?.fontSize ?? 14;
@@ -121,6 +125,8 @@ function shapeToPrimitive(
       textResizing: node.textResizing,
       richText: node.richText as never,
       variableAxes: node.variableAxes,
+      writingMode: node.writingMode ?? textShape?.writingMode,
+      textOrientation: node.textOrientation ?? textShape?.textOrientation,
     });
     const geometryMode = resolveTextGeometryMode({
       text,
@@ -159,6 +165,10 @@ function shapeToPrimitive(
       variableAxes: node.variableAxes,
       openTypeFeatures: node.openTypeFeatures,
       textMode,
+      writingMode: (node.writingMode ?? textShape?.writingMode) as WritingMode | undefined,
+      textOrientation: (node.textOrientation ?? textShape?.textOrientation) as
+        | TextOrientation
+        | undefined,
       pathTextSettings: node.pathTextSettings,
       pathShape: resolvePathShape(node, nodeMap),
       direction: (node.direction as 'ltr' | 'rtl' | 'auto' | undefined) ?? 'auto',
