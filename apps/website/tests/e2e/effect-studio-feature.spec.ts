@@ -16,6 +16,8 @@ test.describe('Effect Studio marketing surface', () => {
     ).toBeVisible();
     await expect(page.getByText(/accepted state and current candidate/i)).toBeVisible();
     await expect(page.getByText(/explicit duplication/i)).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Inspect at scale' })).toBeVisible();
+    await expect(page.getByText(/100% and 200% show its encoded pixels/i)).toBeVisible();
     await expect(page.getByRole('link', { name: 'Read the Effect Studio guide' })).toHaveAttribute(
       'href',
       /\/docs\/tools\/effect-studio$/,
@@ -44,6 +46,7 @@ test.describe('Effect Studio marketing surface', () => {
     await expect(
       page.getByRole('heading', { name: 'Accepted state versus current candidate' }),
     ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Fit and inspection scale' })).toBeVisible();
     await expect(
       page.getByText(/removes only filters owned by the active preview session/i),
     ).toBeVisible();
