@@ -133,10 +133,17 @@ The 2026-09-08 follow-up also gives every preview a stable session identity
 (document, editor owner, targets, treatment/instance, baseline revision,
 generation, and renderer profile), uses the accepted document as the honest
 comparison baseline, and rejects stale or provisional results as final output.
+The Effect Studio viewport now separates Fit from 1:1 and 2:1 inspection:
+Fit contains the encoded preview bitmap, while 100% and 200% use its actual
+pixel dimensions and share a draggable pan across both comparison sides. The
+selection-frame resolver also passes the document into shapeless paint-bound
+calculation, preventing shared image paints from being cropped by stale node
+geometry.
 The focused Effect Studio Playwright workflow now covers the real dialog,
 vector rendering, Apply/Cancel, explicit duplication, stack preservation, and
 dark-mode visuals; the marketing feature and documentation routes are linked
-and mobile-checked separately.
+and mobile-checked separately. The imported-image viewport regression now
+covers Fit, 1:1 sizing, and panning in the real browser.
 
 ## Research basis
 

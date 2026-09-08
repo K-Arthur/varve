@@ -26,12 +26,29 @@ import { sitePath } from '../../../lib/siteUrl';
           <li>Select one compatible object, or select several objects when you want to apply the same treatment to all of them.</li>
           <li>Open <strong>Effect Studio</strong>, search the Treatment Gallery, and choose <strong>Adjust</strong> to expose the recipe controls.</li>
           <li>Choose <strong>Preview</strong>. The comparison renders the accepted state as Before and the current candidate as After.</li>
-          <li>Use the split slider or Before, After, and Compare modes. Fit, 100%, and 200% change only the preview viewport.</li>
+          <li>Use the split slider or Before, After, and Compare modes. Fit, 100%, and 200% change only the preview viewport; drag a zoomed image to inspect its edges and choose Center to restore the origin.</li>
         </ol>
         <p>
           With a multi-selection, the comparison shows the first selected object as a representative
           preview. Applying still affects every selected object; direct tuning is available after
           selecting one object.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Fit and inspection scale</h2>
+        <p>
+          <strong>Fit</strong> contains the complete encoded editing preview in the stage. <strong>100%</strong>
+          is a true 1:1 view of that preview bitmap—one CSS pixel per encoded preview pixel—and
+          <strong>200%</strong> doubles that scale. These controls never reposition the document or
+          change the main canvas camera. At 100% and 200%, drag the preview to pan both comparison
+          sides together, or choose <strong>Center</strong> to return to the middle.
+        </p>
+        <p>
+          The Effect Studio bitmap is a bounded editing preview, not a full-resolution export. Use
+          the canvas or an exported proof when every source pixel matters. Shared image paints and
+          shapeless image geometry are resolved before the preview frame is fitted, so a current
+          wide image is not cropped to an older node size.
         </p>
       </section>
 

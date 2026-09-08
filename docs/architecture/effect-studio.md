@@ -224,6 +224,30 @@ selected object and says so beside the target count. Apply explicitly affects
 all compatible selected objects. The canvas and export remain the appearance
 authorities; preview buffers are not persisted as document assets.
 
+### Preview viewport contract
+
+The comparison viewport has three display modes with deliberately different
+semantics:
+
+- **Fit** contains the complete rendered preview bitmap in the available
+  stage. It is the initial mode and never changes the document or the main
+  canvas camera.
+- **100%** displays the preview bitmap at one CSS pixel per encoded preview
+  pixel. It is 1:1 with the editing-preview result, not a second automatic
+  fit of the stage. **200%** doubles that display scale.
+- At 100% and 200%, dragging the stage pans both comparison sides through the
+  same transform. **Center** restores the inspection origin; changing the
+  zoom mode also resets the preview-only pan. The split divider clips at the
+  stage boundary, so it remains aligned while a large image is panned.
+
+The scale is defined against the bounded `effect-studio-preview` render
+result, whose metadata remains available to the UI. It is not a claim that a
+fixed-size preview bitmap contains every source pixel of a large image. The
+canvas and export paths remain the authorities for full-resolution judgment.
+Shared paint-reference and shapeless-image geometry must be resolved before
+the thumbnail frame is computed; otherwise Fit can crop a current wide image
+to a stale node snapshot.
+
 ## Decision record — 2026-09-08
 
 Research was used as interaction evidence, not as a copy target. Figma's
