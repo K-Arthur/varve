@@ -1443,6 +1443,9 @@ export function EffectStudioSection({
                     {group.treatments.map((treatment) => {
                       const isFavorite = favorites.includes(treatment.id);
                       const isPreview = preview?.treatmentId === treatment.id;
+                      const isApplied = appliedTreatments.some(
+                        (instance) => instance.treatment.id === treatment.id,
+                      );
                       return (
                         <li className={isPreview ? 'is-previewing' : ''} key={treatment.id}>
                           <div
@@ -1482,25 +1485,21 @@ export function EffectStudioSection({
                               type="button"
                               className="effect-studio__add"
                               onClick={() =>
-                                applyTreatment(treatment, {}, { allowDuplicate: isPreview })
+                                applyTreatment(
+                                  treatment,
+                                  {},
+                                  { allowDuplicate: isPreview || isApplied },
+                                )
                               }
                               aria-label={
                                 isPreview
                                   ? `Keep ${treatment.name}`
-                                  : appliedTreatments.some(
-                                        (instance) => instance.treatment.id === treatment.id,
-                                      )
+                                  : isApplied
                                     ? `Add another ${treatment.name}`
                                     : `Apply ${treatment.name}`
                               }
                             >
-                              {isPreview
-                                ? 'Keep'
-                                : appliedTreatments.some(
-                                      (instance) => instance.treatment.id === treatment.id,
-                                    )
-                                  ? 'Add another'
-                                  : 'Apply'}
+                              {isPreview ? 'Keep' : isApplied ? 'Add another' : 'Apply'}
                             </button>
                             <button
                               type="button"
