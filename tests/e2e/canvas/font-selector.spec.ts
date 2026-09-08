@@ -335,6 +335,11 @@ test.describe('downloaded font restoration', () => {
 
     await navigateToEditor(page);
     const editorShell = page.locator('.editor-shell');
+    const safeModeExit = page.getByRole('button', { name: /continue normal startup/i });
+    if (await safeModeExit.isVisible({ timeout: 1000 }).catch(() => false)) {
+      await safeModeExit.click({ timeout: 5000 });
+      await page.waitForTimeout(500);
+    }
     if (!(await editorShell.isVisible({ timeout: 5000 }).catch(() => false))) {
       // The shared helper can land back on Home when its storage-race
       // recovery uses a single click. Double-click the visible card to open
