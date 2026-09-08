@@ -72,6 +72,9 @@ const fontReplacementFaq = {
           Varve's typography system provides multi-line layout, text decoration, overflow handling, list styles, letter spacing, vertical alignment, and text case transforms. It supports OpenType feature toggles, variable font axis control, text placed along arbitrary paths, and a logical Unicode source model designed to keep shaping, editing, and export aligned.
         </p>
         <p>
+          Vertical writing is a real text-flow setting, not a rotated layer. Choose <code>vertical-rl</code> or <code>vertical-lr</code> for column progression, then choose Mixed, Upright, or Sideways character orientation. The logical text, rich runs, transform, and text-frame geometry stay intact while the content reflows on the vertical inline axis.
+        </p>
+        <p>
           For native Figma <code>.fig</code>, REST, or plugin-export JSON imports, Varve also treats fonts as document dependencies. It detects missing families in ordinary text, rich-text runs, and reusable text styles; checks the shipped Fontsource catalog for the requested face; ranks installed candidates; and keeps the original family reference in the saved document manifest. You can continue editing locally without keeping Figma open.
         </p>
         <p>
@@ -146,6 +149,7 @@ const fontReplacementFaq = {
         <h2>Key Capabilities</h2>
         <ul>
           <li><strong>Text rendering:</strong> Multi-line with line height, paragraph spacing, text decoration (underline, strikethrough), text overflow (clip, ellipsis)</li>
+          <li><strong>Vertical writing:</strong> Editable vertical-rl and vertical-lr flows with Mixed, Upright, and Sideways orientation policies; vertical columns remain distinct from object rotation and vertical alignment</li>
           <li><strong>Inline editing:</strong> Native caret, IME, clipboard, and grapheme-safe selection input while the canvas preserves the text's authored appearance</li>
           <li><strong>Rich text:</strong> Paragraph-aware replacement and range formatting that preserves unaffected runs instead of flattening them</li>
           <li><strong>Editable appearance:</strong> Gradients, strokes, shadows, glows, and supported layer effects remain visible while text is being edited; alpha-aware effects follow glyph counters and transparent backgrounds</li>
@@ -168,7 +172,7 @@ const fontReplacementFaq = {
       <section class="feature-section">
         <h2>Technical Depth</h2>
         <p>
-          The FontRegistry manages font loading, CSS fallback chains, font revisions, and variable font axis discovery. The engine has a typed HarfBuzz-compatible shaping seam, a canonical derived layout snapshot, bounded cache identity, and explicit Unicode source maps. A paragraph-aware layout pipeline resolves UAX #9 base direction and embedding levels per paragraph, itemizes script and language runs, breaks lines at word boundaries without ever splitting an extended grapheme cluster, and derives line-level visual run order after wrapping — so wrapped RTL paragraphs reorder correctly. Cluster-safe caret stops, hit testing, and selection geometry come from the same snapshot. The browser renderer still uses Canvas2D measurement as a clearly-labeled fallback while font-byte shaping is integrated.
+          The FontRegistry manages font loading, CSS fallback chains, font revisions, and variable font axis discovery. The engine has a typed HarfBuzz-compatible shaping seam, a canonical derived layout snapshot, bounded cache identity, and explicit Unicode source maps. A paragraph-aware layout pipeline resolves UAX #9 base direction and embedding levels per paragraph, itemizes script and language runs, breaks lines at word boundaries without ever splitting an extended grapheme cluster, and derives line-level visual run order after wrapping — so wrapped RTL paragraphs reorder correctly. Vertical writing uses the same snapshot with a physical-height inline constraint, right-to-left or left-to-right column progression, and grapheme-cluster orientation policy. Cluster-safe caret stops, hit testing, and selection geometry come from the same snapshot. The browser renderer still uses Canvas2D measurement as a clearly-labeled fallback while font-byte shaping is integrated.
         </p>
         <p>
           SVG export includes multi-line and rich text support. Typography preflight checks font availability and CSS generation.
@@ -181,7 +185,8 @@ const fontReplacementFaq = {
           <p><strong>Current limitations:</strong></p>
           <ul>
             <li>Complex-script shaping (Arabic, Devanagari, Thai, and similar scripts) is not yet guaranteed in the live Canvas2D and export paths — the engine shapes contextually only when font bytes are available</li>
-            <li>The canonical paragraph layout pipeline (BiDi, line breaking, caret/selection geometry) is engine-complete, but the inline editor and pointer tools still use the legacy textarea/canvas path</li>
+            <li>The canonical paragraph layout pipeline (BiDi, line breaking, vertical columns, caret/selection geometry) is engine-complete, but full font-byte shaping and complex mixed-direction inline editing remain under integration</li>
+            <li>Native PDF vertical text and exact vertical font-table/vertical-alternate fidelity are not yet proven end to end; HTML/CSS and SVG retain semantic writing-mode data, while unsupported targets require an explicit outline or raster fallback</li>
             <li>Text-to-outlines produces placeholder bounding boxes (real glyph path extraction deferred)</li>
             <li>Rich-text transactions and mixed inspector state exist, but insertion-style state, composition transactions, and complete shaped per-span rendering remain in development</li>
             <li>Font substitution preserves editability and provenance, but a compatible or category fallback can change text metrics; explicit restore-to-original-font actions are planned</li>
@@ -193,7 +198,7 @@ const fontReplacementFaq = {
         <h2>Status</h2>
         <div class="status-badge built">
           <span class="badge-text">Built</span>
-          <p>Core text controls, OpenType settings, variable fonts, text-on-path, inline editing, Unicode indexing, UAX #9 BiDi, canonical paragraph layout with cluster-safe caret geometry, rich-text transactions, and local-first missing-font replacement are functional in the beta. Font-byte shaping in the live canvas and full complex-script editing remain in development.</p>
+          <p>Core text controls, OpenType settings, variable fonts, text-on-path, inline editing, horizontal and vertical writing modes, Mixed/Upright/Sideways orientation, Unicode indexing, UAX #9 BiDi, canonical paragraph layout with cluster-safe caret geometry, rich-text transactions, and local-first missing-font replacement are functional in the beta. Font-byte shaping in the live canvas, native PDF vertical text, and full complex-script editing remain in development.</p>
         </div>
       </section>
 
@@ -215,6 +220,8 @@ const fontReplacementFaq = {
         <p>It can. Font metrics affect wrapping and bounds, so Varve shows the match quality and asks you to review reflow before delivery.</p>
         <h3>Can I preview a font before applying it?</h3>
         <p>Yes. Browse fonts keeps the results list visible while you edit a specimen, inspect metadata and licensing, explore related families, and choose whether to install or use the selected family.</p>
+        <h3>Is vertical text just rotated text?</h3>
+        <p>No. Vertical-rl and vertical-lr are logical writing modes with their own column progression and grapheme orientation. Rotation remains an independent object transform, and vertical alignment remains a text-frame alignment setting.</p>
       </section>
 
       <div class="feature-cta">

@@ -73,6 +73,19 @@ import { sitePath } from '../../../lib/siteUrl';
       </section>
 
       <section class="docs-section">
+        <h2>Vertical writing</h2>
+        <p>
+          Vertical text is a logical writing mode, not a rotated text layer. Select the Text tool, open <strong>Tool options</strong>, and choose <strong>Vertical — right to left</strong> or <strong>Vertical — left to right</strong> before creating the next text layer. To convert existing text, select it and use <strong>Writing mode</strong> in Typography. The operation keeps the logical string, rich-text runs, object transform, and fixed frame geometry intact.
+        </p>
+        <p>
+          <strong>Mixed</strong> follows Unicode vertical orientation conventions at grapheme boundaries: CJK and pictographic clusters stay upright while Latin-like clusters are sideways. <strong>Upright</strong> and <strong>Sideways</strong> are explicit presentation choices. These controls are separate from Text direction, Vertical alignment, and object rotation.
+        </p>
+        <p>
+          In a fixed area, wrapping consumes the physical height of the frame as the vertical inline extent. New columns progress leftward for vertical-rl and rightward for vertical-lr; authored line breaks remain authored breaks. The browser renderer uses a stable measured fallback when font bytes are unavailable, and native ttb shaping remains a separate runtime capability. HTML/CSS and SVG exports preserve writing-mode semantics; native PDF vertical text is currently reported as a target limitation rather than silently rotated.
+        </p>
+      </section>
+
+      <section class="docs-section">
         <h2>Text Properties</h2>
         <p>
           The Typography section in the Inspector provides controls for every text property:

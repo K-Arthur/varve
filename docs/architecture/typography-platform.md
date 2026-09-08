@@ -60,6 +60,49 @@ The typography system spans TypeScript (browser/web) and Rust (native/Tauri) lay
 | Downloaded font storage | ✓ (IndexedDB) | — | ✓ (filesystem + IDB) |
 | Provider search | ✓ (shipped Fontsource catalog) | — | — |
 
+### Vertical writing contract
+
+Vertical text is a property of the text flow, not a node rotation or a
+vertical-alignment value. The scene uses the CSS Writing Modes values
+`horizontal-tb`, `vertical-rl`, and `vertical-lr`; `textOrientation` is a
+separate `mixed`, `upright`, or `sideways` policy. The object transform remains
+unchanged when a mode is switched.
+
+The authoritative source remains the logical string and rich-text runs. The
+derived `TextLayoutSnapshot` carries the mode and orientation in its cache
+identity, positions grapheme-safe source ranges on an inline/block axis, and
+provides the same source ranges to hit testing, caret stops, selection
+rectangles, and Canvas2D replay. Vertical area wrapping consumes the physical
+height as its inline constraint; it does not reuse the newspaper-style
+`columnCount` feature. `vertical-rl` starts its next column to the left, while
+`vertical-lr` starts it to the right.
+
+`mixed` uses Unicode vertical-orientation data at grapheme-cluster boundaries:
+CJK and pictographic clusters remain upright while Latin-like clusters are
+painted sideways. `upright` and `sideways` are explicit presentation choices,
+not permission to split a joining script into isolated characters. A rich-text
+run can opt into `textCombineUpright` for a short horizontal-in-vertical span;
+the source characters remain editable and are not replaced by a private-use
+glyph or a new layer.
+
+| Vertical concern | Browser/editor route | Native/WASM route | Export route |
+|------------------|----------------------|-------------------|--------------|
+| Mode and orientation persistence | ✓ scene + canonical snapshot | ✓ wire-compatible fields | ✓ HTML/CSS and SVG semantics |
+| Vertical columns and bounds | ✓ logical-axis Canvas2D replay | ✓ snapshot accepts native `yAdvance` | ✓ HTML reflow; SVG attributes |
+| Cluster-safe editing geometry | ✓ snapshot hit/caret/selection helpers | ✓ UTF-16 cluster contract | — (source text preserved) |
+| Mixed upright/sideways clusters | ✓ UAX #50-style cluster policy | seam ready for shaped glyphs | ✓ `text-orientation` semantics |
+| Glyph strokes | ✓ canonical cluster replay | — | ✓ SVG stroke attributes |
+| Vertical font-byte shaping | measured Canvas2D fallback | `ttb`/`btt` accepted by rustybuzz seam | target-dependent |
+| PDF native vertical text | — | not yet proven end to end | outline/raster fallback required |
+
+The current browser route intentionally reports its boundary: Canvas2D
+measurement supplies stable one-em vertical advances when font bytes are not
+available, while the native shaping contract preserves `ttb`/`btt`, vertical
+advances, offsets, and UTF-16 clusters for the native/WASM integration. This
+is not evidence that every installed font has complete `vmtx`/`VORG` or
+vertical-alternate coverage. Native PDF vertical text and exact vertical
+outlining remain separate validation targets.
+
 The editor's authoritative runtime family list is `FontRegistry`. `FontSelector`
 and `FontBrowser` subscribe to its revision, so a system-font discovery or a
 completed installation updates every mounted consumer without requiring an

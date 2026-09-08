@@ -55,7 +55,7 @@ import { sitePath } from '../../lib/siteUrl';
           <article><h3>External images and SVG</h3><p>Clipboard files and validated SVG pass through Varve's existing import pipeline, including multiple distinct image items.</p></article>
           <article><h3>Wayland-aware desktop paste</h3><p>On Linux desktop, native MIME transfer keeps editable layer paste available when WebKitGTK cannot expose the rich clipboard to the canvas.</p></article>
           <article><h3>Predictable placement</h3><p>Paste uses the selected visible frame or group as an explicit destination; otherwise it centers foreign content in the canvas viewport without changing your zoom or pan.</p></article>
-          <article><h3>Native text editing</h3><p>Textareas, fields, IME composition, Unicode, and caret behavior remain owned by the browser when you are typing.</p></article>
+          <article><h3>Native text editing</h3><p>Textareas, fields, IME composition, Unicode, and caret behavior remain owned by the browser when you are typing. Internal transfers also preserve logical vertical-writing intent and orientation instead of inserting visual column breaks.</p></article>
           <article><h3>Specialist buffers stay separate</h3><p>Copy Properties, effect stacks, and guides do not unexpectedly overwrite the system object clipboard.</p></article>
           <article><h3>Cut waits for truth</h3><p>If only a names-only text fallback is available, Cut leaves the original layers in place.</p></article>
           <article><h3>Undo stays local</h3><p>Undo restores a Cut or Paste from document history without rereading or rewriting the system clipboard.</p></article>
