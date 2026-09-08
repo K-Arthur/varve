@@ -92,6 +92,12 @@ interior removal, so the fill and backdrop behind a stroke are not erased.
 Canvas dash state is reset per stroke entry, and stroke IDs are normalized at
 the document boundary so row identity is not coupled to stack index.
 
+Open-path endpoint markers use endpoint tangents, including Bézier handles,
+rather than the path's first-to-last chord. Pressure-variable paths are
+painted as one filled outline; dashed pressure paths split that outline by
+measured path length before filling so translucent tessellation segments do
+not darken one another.
+
 ## Render invariants (Session 45)
 
 Two invariants are load-bearing; violating either blanks part or all of the scene.

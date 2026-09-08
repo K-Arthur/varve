@@ -38,6 +38,115 @@ describe('exportNodeToSvg', () => {
     expect(out).toContain('rect');
   });
 
+  it('exports stroke miter limits and editable text glyph strokes', () => {
+    const doc = createDocument('Stroke attributes');
+    const rect = makeShapeNode(
+      'rect-stroke',
+      { kind: 'rect', x: 0, y: 0, w: 200, h: 100 },
+      {
+        strokes: [
+          {
+            color: { space: 'rgb', r: 10, g: 20, b: 30, a: 255 },
+            weight: 6,
+            align: 'center',
+            dashPattern: [8, 3],
+            dashOffset: -2,
+            cap: 'square',
+            join: 'miter',
+            miterLimit: 2.5,
+            visible: true,
+          },
+        ],
+      },
+    );
+    const text = makeTextNode('text-stroke', 'Outlined', {
+      strokes: [
+        {
+          color: { space: 'rgb', r: 200, g: 40, b: 40, a: 255 },
+          weight: 3,
+          align: 'center',
+          dashPattern: [],
+          dashOffset: 0,
+          cap: 'round',
+          join: 'round',
+          miterLimit: 4,
+          visible: true,
+        },
+      ],
+    });
+    const rectSvg = exportNodeToSvg(rect, doc);
+    const textSvg = exportNodeToSvg(text, doc);
+    expect(rectSvg).toContain('stroke-miterlimit="2.5"');
+    expect(rectSvg).toContain('stroke-dasharray="8 3"');
+    expect(textSvg).toContain('stroke-width="3"');
+    expect(textSvg).toContain('stroke-linejoin="round"');
+  });
+
+  it('keeps curved closing segments and path endpoint markers in SVG', () => {
+    const doc = createDocument('Curved path stroke');
+    const node = makeShapeNode(
+      'curved-path',
+      {
+        kind: 'path',
+        points: [
+          { x: 0, y: 0, handleIn: [0, -20], handleOut: [20, 0] },
+          { x: 100, y: 0, handleIn: [-20, 0], handleOut: [0, 20] },
+        ],
+        closed: true,
+        tolerance: 1,
+      },
+      {
+        strokes: [
+          {
+            color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+            weight: 2,
+            align: 'center',
+            dashPattern: [],
+            dashOffset: 0,
+            cap: 'round',
+            join: 'round',
+            miterLimit: 4,
+            visible: true,
+          },
+        ],
+      },
+    );
+    const curved = exportNodeToSvg(node, doc);
+    expect(curved).toContain('C 100 20 0 -20 0 0');
+
+    const open = makeShapeNode(
+      'open-path',
+      {
+        kind: 'path',
+        points: [
+          { x: 0, y: 0, handleIn: null, handleOut: [20, 40] },
+          { x: 100, y: 50, handleIn: [-30, -10], handleOut: null },
+        ],
+        closed: false,
+        tolerance: 1,
+      },
+      {
+        strokes: [
+          {
+            color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+            weight: 4,
+            align: 'center',
+            dashPattern: [],
+            dashOffset: 0,
+            cap: 'butt',
+            join: 'round',
+            miterLimit: 4,
+            visible: true,
+            arrowStart: 'circle',
+            arrowEnd: 'diamond',
+          },
+        ],
+      },
+    );
+    const openSvg = exportNodeToSvg(open, doc);
+    expect(openSvg.match(/<path d=/g)?.length).toBeGreaterThan(2);
+  });
+
   it('minifies output when requested, preserving structure', () => {
     const doc = createDocument('Test');
     const node = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 }, { name: 'Box' });

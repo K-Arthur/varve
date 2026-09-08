@@ -530,6 +530,56 @@ describe('assessNodeCapability', () => {
       expect(assessNodeCapability(node, doc, 'raster')).toBe(true);
       expect(assessNodeCapability(node, doc, 'pdf')).toBe(false);
     });
+
+    it('rasterizes stroke features SVG and PDF cannot represent faithfully', () => {
+      const baseStroke = {
+        color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+        weight: 4,
+        align: 'center',
+        dashPattern: [],
+        dashOffset: 0,
+        cap: 'round',
+        join: 'miter',
+        miterLimit: 4,
+        visible: true,
+      } as any;
+      const inside = makeShapeNode(
+        'inside',
+        { kind: 'rect' },
+        {
+          strokes: [{ ...baseStroke, align: 'inside' }],
+        },
+      );
+      const perSide = makeShapeNode(
+        'per-side',
+        { kind: 'rect' },
+        {
+          strokes: [{ ...baseStroke, perSideWeights: [1, 2, 3, 4] }],
+        },
+      );
+      const pressured = makeShapeNode(
+        'pressured',
+        { kind: 'path' },
+        {
+          shape: {
+            kind: 'path',
+            points: [
+              { x: 0, y: 0, pressure: 0.2 },
+              { x: 100, y: 40, pressure: 0.8 },
+            ],
+            closed: false,
+            tolerance: 2,
+          },
+          strokes: [baseStroke],
+        },
+      );
+      const doc = makeDoc({ inside, perSide, pressured });
+      for (const node of [inside, perSide, pressured]) {
+        expect(assessNodeCapability(node, doc, 'svg')).toBe(false);
+        expect(assessNodeCapability(node, doc, 'pdf')).toBe(false);
+        expect(assessNodeCapability(node, doc, 'raster')).toBe(true);
+      }
+    });
   });
 
   describe('stacked fills', () => {

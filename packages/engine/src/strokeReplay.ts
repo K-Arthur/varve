@@ -194,95 +194,234 @@ function pressureScale(pressure: number): number {
   return Math.min(1, Math.max(0, Number.isFinite(pressure) ? pressure : 0.5)) * 2;
 }
 
+type WidthSample = { x: number; y: number; width: number };
+
+function pointAtDistance(
+  samples: WidthSample[],
+  distances: number[],
+  distance: number,
+): WidthSample {
+  if (distance <= 0) return samples[0]!;
+  const total = distances[distances.length - 1] ?? 0;
+  if (distance >= total) return samples[samples.length - 1]!;
+  for (let index = 1; index < distances.length; index++) {
+    const end = distances[index]!;
+    if (distance > end) continue;
+    const start = distances[index - 1]!;
+    const span = end - start;
+    const t = span > 0 ? (distance - start) / span : 0;
+    const previous = samples[index - 1]!;
+    const current = samples[index]!;
+    return {
+      x: previous.x + (current.x - previous.x) * t,
+      y: previous.y + (current.y - previous.y) * t,
+      width: previous.width + (current.width - previous.width) * t,
+    };
+  }
+  return samples[samples.length - 1]!;
+}
+
+function splitDashedWidthSamples(
+  samples: WidthSample[],
+  dashPattern: number[],
+  dashOffset: number,
+  closed: boolean,
+): Array<{ samples: WidthSample[]; closed: boolean }> {
+  const positivePattern = dashPattern.filter((value) => Number.isFinite(value) && value >= 0);
+  if (positivePattern.length === 0 || !positivePattern.some((value) => value > 0)) {
+    return [{ samples, closed }];
+  }
+  const pattern =
+    positivePattern.length % 2 === 1 ? [...positivePattern, ...positivePattern] : positivePattern;
+  const totalPattern = pattern.reduce((sum, value) => sum + value, 0);
+  if (totalPattern <= 0) return [{ samples, closed }];
+
+  const distances = [0];
+  for (let index = 1; index < samples.length; index++) {
+    const previous = samples[index - 1]!;
+    const current = samples[index]!;
+    distances.push(
+      distances[index - 1]! + Math.hypot(current.x - previous.x, current.y - previous.y),
+    );
+  }
+  const totalLength = distances[distances.length - 1] ?? 0;
+  if (totalLength <= 0) return [];
+
+  const phase = ((-dashOffset % totalPattern) + totalPattern) % totalPattern;
+  const stateAt = (distance: number) => {
+    let remainingPhase = (phase + distance) % totalPattern;
+    for (let index = 0; index < pattern.length; index++) {
+      const length = pattern[index]!;
+      if (length <= 0) continue;
+      if (remainingPhase < length) {
+        return { index, remaining: length - remainingPhase };
+      }
+      remainingPhase -= length;
+    }
+    return { index: 0, remaining: pattern[0] || totalPattern };
+  };
+
+  const runs: Array<{ samples: WidthSample[]; closed: boolean }> = [];
+  let distance = 0;
+  while (distance < totalLength - 0.0001) {
+    const state = stateAt(distance);
+    const end = Math.min(totalLength, distance + Math.max(state.remaining, 0.0001));
+    if (state.index % 2 === 0 && end - distance > 0.0001) {
+      const runSamples = [pointAtDistance(samples, distances, distance)];
+      for (let index = 1; index < distances.length - 1; index++) {
+        if (distances[index]! > distance && distances[index]! < end) {
+          runSamples.push(samples[index]!);
+        }
+      }
+      runSamples.push(pointAtDistance(samples, distances, end));
+      if (runSamples.length > 1) runs.push({ samples: runSamples, closed: false });
+    }
+    distance = end;
+  }
+  return runs;
+}
+
+function appendWidthOutline(
+  target: ReplayTarget,
+  samples: WidthSample[],
+  cap: Stroke['cap'],
+  closed: boolean,
+): void {
+  if (samples.length < 2) return;
+  const left: Array<readonly [number, number]> = [];
+  const right: Array<readonly [number, number]> = [];
+  for (let index = 0; index < samples.length; index++) {
+    const sample = samples[index]!;
+    const previous = samples[Math.max(0, index - 1)]!;
+    const next = samples[Math.min(samples.length - 1, index + 1)]!;
+    let dx = next.x - previous.x;
+    let dy = next.y - previous.y;
+    if (Math.hypot(dx, dy) <= 0.001) {
+      dx = 1;
+      dy = 0;
+    }
+    const length = Math.hypot(dx, dy);
+    const radius = sample.width / 2;
+    left.push([sample.x - (dy / length) * radius, sample.y + (dx / length) * radius]);
+    right.push([sample.x + (dy / length) * radius, sample.y - (dx / length) * radius]);
+  }
+
+  target.moveTo(left[0]![0], left[0]![1]);
+  for (let index = 1; index < left.length; index++) {
+    target.lineTo(left[index]![0], left[index]![1]);
+  }
+
+  if (!closed) {
+    const end = samples[samples.length - 1]!;
+    const beforeEnd = samples[samples.length - 2]!;
+    let dx = end.x - beforeEnd.x;
+    let dy = end.y - beforeEnd.y;
+    const length = Math.hypot(dx, dy) || 1;
+    dx /= length;
+    dy /= length;
+    const radius = end.width / 2;
+    if (cap === 'square') {
+      target.lineTo(right.at(-1)![0] + dx * radius, right.at(-1)![1] + dy * radius);
+      target.lineTo(left.at(-1)![0] + dx * radius, left.at(-1)![1] + dy * radius);
+    } else if (cap === 'round') {
+      const angle = Math.atan2(dy, dx);
+      target.arc(end.x, end.y, radius, angle + Math.PI / 2, angle - Math.PI / 2);
+    } else {
+      target.lineTo(right.at(-1)![0], right.at(-1)![1]);
+    }
+  }
+
+  for (let index = right.length - 1; index >= 0; index--) {
+    target.lineTo(right[index]![0], right[index]![1]);
+  }
+
+  if (!closed) {
+    const start = samples[0]!;
+    const afterStart = samples[1]!;
+    let dx = afterStart.x - start.x;
+    let dy = afterStart.y - start.y;
+    const length = Math.hypot(dx, dy) || 1;
+    dx /= length;
+    dy /= length;
+    const radius = start.width / 2;
+    if (cap === 'square') {
+      target.lineTo(right[0]![0] - dx * radius, right[0]![1] - dy * radius);
+      target.lineTo(left[0]![0] - dx * radius, left[0]![1] - dy * radius);
+    } else if (cap === 'round') {
+      const angle = Math.atan2(dy, dx);
+      target.arc(start.x, start.y, radius, angle - Math.PI / 2, angle + Math.PI / 2);
+    }
+  }
+  target.closePath();
+}
+
 function paintVariableWidthPathStroke(
   target: ReplayTarget,
   points: PathPoint[],
   closed: boolean,
   baseWeight: number,
   cap: Stroke['cap'],
-  join: Stroke['join'],
+  _join: Stroke['join'],
+  dashPattern: number[],
+  dashOffset: number,
 ): void {
   if (points.length < 2) return;
-  target.save();
-  target.lineCap = (cap || 'round') as CanvasLineCap;
-  target.lineJoin = (join || 'round') as CanvasLineJoin;
+  const samples: WidthSample[] = [
+    {
+      x: points[0]!.x,
+      y: points[0]!.y,
+      width: Math.max(0, baseWeight * pressureScale(points[0]!.pressure ?? 0.5)),
+    },
+  ];
 
-  const samples: { x: number; y: number; width: number }[] = [];
-  for (let i = 0; i < points.length; i++) {
-    const point = points[i]!;
-    const previous = i > 0 ? points[i - 1] : null;
-    if (!previous) {
-      samples.push({
-        x: point.x,
-        y: point.y,
-        width: Math.max(0, baseWeight * pressureScale(point.pressure ?? 0.5)),
-      });
-      continue;
-    }
-    const isBezier = !!(previous.handleOut || point.handleIn);
-    const p0x = previous.x;
-    const p0y = previous.y;
-    const p3x = point.x;
-    const p3y = point.y;
-    const cp1x = previous.handleOut ? previous.x + previous.handleOut[0] : previous.x;
-    const cp1y = previous.handleOut ? previous.y + previous.handleOut[1] : previous.y;
-    const cp2x = point.handleIn ? point.x + point.handleIn[0] : point.x;
-    const cp2y = point.handleIn ? point.y + point.handleIn[1] : point.y;
-    const pStart = previous.pressure ?? 0.5;
-    const pEnd = point.pressure ?? 0.5;
-    const steps = isBezier ? 12 : Math.max(1, Math.ceil(Math.hypot(p3x - p0x, p3y - p0y) / 3));
+  const appendSegment = (from: PathPoint, to: PathPoint) => {
+    const isBezier = !!(from.handleOut || to.handleIn);
+    const cp1x = from.x + (from.handleOut?.[0] ?? 0);
+    const cp1y = from.y + (from.handleOut?.[1] ?? 0);
+    const cp2x = to.x + (to.handleIn?.[0] ?? 0);
+    const cp2y = to.y + (to.handleIn?.[1] ?? 0);
+    const pStart = from.pressure ?? 0.5;
+    const pEnd = to.pressure ?? 0.5;
+    const steps = isBezier
+      ? 12
+      : Math.max(1, Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / 3));
     for (let step = 1; step <= steps; step++) {
       const t = step / steps;
       const oneMinusT = 1 - t;
       const x = isBezier
-        ? oneMinusT * oneMinusT * oneMinusT * p0x +
+        ? oneMinusT * oneMinusT * oneMinusT * from.x +
           3 * oneMinusT * oneMinusT * t * cp1x +
           3 * oneMinusT * t * t * cp2x +
-          t * t * t * p3x
-        : p0x + (p3x - p0x) * t;
+          t * t * t * to.x
+        : from.x + (to.x - from.x) * t;
       const y = isBezier
-        ? oneMinusT * oneMinusT * oneMinusT * p0y +
+        ? oneMinusT * oneMinusT * oneMinusT * from.y +
           3 * oneMinusT * oneMinusT * t * cp1y +
           3 * oneMinusT * t * t * cp2y +
-          t * t * t * p3y
-        : p0y + (p3y - p0y) * t;
+          t * t * t * to.y
+        : from.y + (to.y - from.y) * t;
       const pressure = pStart + (pEnd - pStart) * t;
       samples.push({ x, y, width: Math.max(0, baseWeight * pressureScale(pressure)) });
     }
-  }
+  };
 
-  if (samples.length < 2) {
-    target.restore();
-    return;
+  for (let index = 1; index < points.length; index++) {
+    appendSegment(points[index - 1]!, points[index]!);
   }
-  target.lineCap = 'round';
-  target.lineJoin = 'round';
-  for (let i = 1; i < samples.length; i++) {
-    const previous = samples[i - 1]!;
-    const point = samples[i]!;
-    const width = (previous.width + point.width) / 2;
-    if (width <= 0) continue;
-    target.lineWidth = width;
-    target.beginPath();
-    target.moveTo(previous.x, previous.y);
-    target.lineTo(point.x, point.y);
-    target.stroke();
-  }
-  if (closed && samples.length > 2) {
-    const last = samples[samples.length - 1]!;
-    const first = samples[0]!;
-    const width = (last.width + first.width) / 2;
-    if (width > 0) {
-      target.lineWidth = width;
-      target.beginPath();
-      target.moveTo(last.x, last.y);
-      target.lineTo(first.x, first.y);
-      target.stroke();
-    }
-  }
+  if (closed) appendSegment(points[points.length - 1]!, points[0]!);
+  if (samples.length < 2) return;
+
+  const runs =
+    dashPattern.length > 0
+      ? splitDashedWidthSamples(samples, dashPattern, dashOffset, closed)
+      : [{ samples, closed }];
+  target.save();
+  target.fillStyle = target.strokeStyle;
+  target.beginPath();
+  for (const run of runs) appendWidthOutline(target, run.samples, cap, run.closed);
+  target.fill();
   target.restore();
 }
-
 function arrowheadSize(primitiveSize: number | undefined, strokeWeight: number): number {
   const fromWeight = Math.max(strokeWeight * 3, 4);
   if (primitiveSize && primitiveSize > 0) {
@@ -350,6 +489,71 @@ function drawArrowhead(
     }
   }
   target.restore();
+}
+
+function pathEndpointTangent(
+  points: PathPoint[],
+  fromStart: boolean,
+): readonly [number, number] | null {
+  if (points.length < 2) return null;
+  const endpoint = fromStart ? points[0]! : points[points.length - 1]!;
+  const neighbor = fromStart ? points[1]! : points[points.length - 2]!;
+  const handle = fromStart ? endpoint.handleOut : endpoint.handleIn;
+  const handleVector: readonly [number, number] = fromStart
+    ? (handle ?? [0, 0])
+    : ([-(handle?.[0] ?? 0), -(handle?.[1] ?? 0)] as const);
+  if (Math.hypot(handleVector[0], handleVector[1]) > 0.001) return handleVector;
+
+  const direction: readonly [number, number] = fromStart
+    ? [neighbor.x - endpoint.x, neighbor.y - endpoint.y]
+    : [endpoint.x - neighbor.x, endpoint.y - neighbor.y];
+  if (Math.hypot(direction[0], direction[1]) > 0.001) return direction;
+
+  for (
+    let index = fromStart ? 1 : points.length - 2;
+    fromStart ? index < points.length : index >= 0;
+    index += fromStart ? 1 : -1
+  ) {
+    const candidate = points[index]!;
+    const delta: readonly [number, number] = fromStart
+      ? [candidate.x - endpoint.x, candidate.y - endpoint.y]
+      : [endpoint.x - candidate.x, endpoint.y - candidate.y];
+    if (Math.hypot(delta[0], delta[1]) > 0.001) return delta;
+  }
+  return null;
+}
+
+function paintPathEndpointMarkers(target: ReplayTarget, points: PathPoint[], stroke: Stroke): void {
+  if (points.length < 2) return;
+  const start = stroke.arrowStart ?? 'none';
+  const end = stroke.arrowEnd ?? 'none';
+  if (start === 'none' && end === 'none') return;
+  const size = arrowheadSize(undefined, stroke.weight);
+  target.fillStyle = target.strokeStyle;
+  const startTangent = pathEndpointTangent(points, true);
+  if (start !== 'none' && startTangent) {
+    const first = points[0]!;
+    drawArrowhead(
+      target,
+      [first.x, first.y],
+      [first.x + startTangent[0], first.y + startTangent[1]],
+      size,
+      start,
+      true,
+    );
+  }
+  const endTangent = pathEndpointTangent(points, false);
+  if (end !== 'none' && endTangent) {
+    const last = points[points.length - 1]!;
+    drawArrowhead(
+      target,
+      [last.x - endTangent[0], last.y - endTangent[1]],
+      [last.x, last.y],
+      size,
+      end,
+      false,
+    );
+  }
 }
 
 function paintTextStroke(
@@ -509,13 +713,17 @@ export function paintStroke(
       break;
     }
     case 'path': {
+      const hasPathMarkers =
+        !primitive.closed &&
+        ((stroke.arrowStart ?? 'none') !== 'none' || (stroke.arrowEnd ?? 'none') !== 'none');
+      if (hasPathMarkers) target.lineCap = 'butt';
       const pressures = primitive.points
         .map((point) => point.pressure)
         .filter(
           (pressure): pressure is number => pressure !== undefined && Number.isFinite(pressure),
         );
       const hasPressureVariation =
-        pressures.length > 1 && Math.max(...pressures) - Math.min(...pressures) > 0.001;
+        pressures.length > 1 && Math.max(...pressures) - Math.min(...pressures) > Number.EPSILON;
       if (hasPressureVariation && stroke.weight > 0) {
         paintVariableWidthPathStroke(
           target,
@@ -524,6 +732,8 @@ export function paintStroke(
           stroke.weight,
           stroke.cap,
           stroke.join,
+          stroke.dashPattern,
+          stroke.dashOffset,
         );
       } else {
         if (pressures.length > 0 && Math.abs(pressures[0]! - 0.5) > 0.001) {
@@ -535,6 +745,7 @@ export function paintStroke(
           target.stroke();
         }
       }
+      if (hasPathMarkers) paintPathEndpointMarkers(target, primitive.points, stroke);
       break;
     }
     case 'text':

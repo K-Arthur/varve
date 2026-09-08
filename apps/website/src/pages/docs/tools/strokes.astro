@@ -1,0 +1,87 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { sitePath } from '../../../lib/siteUrl';
+---
+
+<Layout title="Strokes — Varve Docs" description="How to edit, transfer, render, and export strokes in Varve.">
+  <div class="container-custom">
+    <div class="docs-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/docs')}>Documentation</a> / Tools / Strokes
+      </nav>
+
+      <h1>Strokes</h1>
+      <p class="docs-intro">
+        A stroke is an ordered, editable outline attached to a shape, path, text, frame, table, or image-bearing shape. It owns its paint and geometry settings and remains separate from raster brush marks, selection outlines, and guides.
+      </p>
+
+      <section class="docs-section">
+        <h2>Inspector workflow</h2>
+        <ol>
+          <li>Select a supported layer and open <strong>Stroke</strong> in the Inspector.</li>
+          <li>Set paint, width, visibility, and alignment in the compact row.</li>
+          <li>Open <strong>Advanced</strong> for gradient paint, per-side rectangle widths, endpoint markers, caps, joins, miter limits, dashes, and dash phase.</li>
+          <li>Use the up/down controls to change stroke paint order. Reordering keeps each stroke instance's identity.</li>
+        </ol>
+        <p>Dash input accepts comma- or space-separated non-negative numbers. Clear the field to return to a solid stroke; malformed values are rejected instead of partially applied.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Alignment and geometry</h2>
+        <p>Center strokes straddle the authored path. Inside and outside alignment are defined against an enclosed region and fill rule, not against whether a fill happens to be opaque. Open paths and lines keep centered behavior because “inside” and “outside” have no unambiguous region meaning there.</p>
+        <p>Closed Bézier paths retain their final curved segment. Compound path contours and holes are included in the outline and use the path fill rule.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Layer and runtime support</h2>
+        <table>
+          <thead><tr><th>Target</th><th>Live Canvas2D / WASM IR</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td>Shape and path</td><td>Full live stroke replay</td><td>Center/inside/outside for regions, caps, joins, dashes, gradients, pressure profiles, markers</td></tr>
+            <tr><td>Editable text</td><td>Glyph stroke in Canvas2D</td><td>Text remains editable; text-on-path uses the existing path layout route</td></tr>
+            <tr><td>Image-bearing shape</td><td>Frame border and alpha-aware stroke paths</td><td>Does not silently turn an image border into a subject silhouette</td></tr>
+            <tr><td>Frame/table</td><td>Supported in live replay</td><td>Export support depends on the target and may rasterize the boundary</td></tr>
+            <tr><td>Native desktop</td><td>Same camelCase wire fields</td><td>Native scene mirror preserves stroke identity, alignment, per-side weights, markers, and gradients</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="docs-section">
+        <h2>Export behavior</h2>
+        <ul>
+          <li><strong>PNG/raster:</strong> uses the full Canvas2D replay path.</li>
+          <li><strong>SVG:</strong> supported center strokes, spatial linear/radial gradients, dashes, caps/joins/miter limits, endpoint markers, and editable text strokes remain native. Unsupported alignment, per-side, pressure-variable, image-border, frame, or complex stack cases use a local raster fallback.</li>
+          <li><strong>PDF/print:</strong> native path output covers the basic center-stroke contract; unsupported stroke features are routed through the export compositor so a PDF does not silently lose them.</li>
+        </ul>
+        <p>Raster fallback is bounded to the smallest affected export boundary. It preserves the live appearance while keeping unrelated siblings vector-editable where the format allows it.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>History and transfer</h2>
+        <p>Stroke edits use the existing editor transaction coordinator. Copy/paste and style transfer clone the stroke payload and mint independent destination IDs, so later edits do not mutate the source or collide with its bindings. Legacy documents without IDs receive deterministic IDs at codec normalization.</p>
+      </section>
+
+      <div class="docs-cta">
+        <h2>Related guides</h2>
+        <p>See <a href={sitePath('/docs/tools/vector')}>Vector Tools</a>, <a href={sitePath('/docs/tools/typography')}>Typography</a>, and <a href={sitePath('/features/export')}>Export &amp; Code Generation</a>.</p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .docs-page { max-width: 800px; margin: 0 auto; padding: 3rem 0; }
+  .breadcrumb { font-size: 0.875rem; margin-bottom: 1.5rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  .docs-page h1 { font-family: var(--font-editorial); font-size: clamp(2rem, 5vw, 2.5rem); margin-bottom: 1rem; }
+  .docs-intro { color: var(--text-secondary); font-size: 1.125rem; line-height: 1.8; margin-bottom: 3rem; }
+  .docs-section { margin-bottom: 3rem; }
+  .docs-section h2 { border-bottom: 2px solid var(--border-accent); color: var(--text-primary); font-size: 1.5rem; margin-bottom: 1rem; padding-bottom: 0.5rem; }
+  .docs-section p, .docs-section li { color: var(--text-secondary); line-height: 1.8; }
+  .docs-section li { margin-bottom: 0.5rem; }
+  table { border-collapse: collapse; display: block; max-width: 100%; overflow-x: auto; width: 100%; }
+  th, td { border: 1px solid var(--border-default); padding: 0.7rem; text-align: left; vertical-align: top; }
+  th { background: var(--surface-muted); color: var(--text-primary); }
+  td { color: var(--text-secondary); }
+  .docs-cta { border-top: 1px solid var(--border-default); padding-top: 2rem; }
+</style>

@@ -63,6 +63,16 @@ export interface FlattenCapability {
   supportsGradientStrokes: boolean;
   /** Whether the target preserves more than one visible stroke per shape. */
   supportsMultipleStrokes: boolean;
+  /** Whether the target can represent inside/outside stroke alignment faithfully. */
+  supportsStrokeAlignment: boolean;
+  /** Whether the target can represent asymmetric rectangle/frame borders. */
+  supportsPerSideStrokes: boolean;
+  /** Whether the target can represent pressure-variable stroke width. */
+  supportsPressureStrokes: boolean;
+  /** Whether the target can represent stroke endpoint markers. */
+  supportsStrokeMarkers: boolean;
+  /** Whether the target emits strokes on editable text nodes. */
+  supportsTextStrokes: boolean;
   /** Whether the target supports text nodes with font fallback. */
   supportsText: boolean;
   /** Whether the target supports groups/frames with clipping. */
@@ -223,6 +233,11 @@ export const CAPABILITY: Record<ExportTarget, FlattenCapability> = {
     nativeGradientTypes: SVG_NATIVE_GRADIENTS,
     supportsGradientStrokes: true,
     supportsMultipleStrokes: false,
+    supportsStrokeAlignment: false,
+    supportsPerSideStrokes: false,
+    supportsPressureStrokes: false,
+    supportsStrokeMarkers: true,
+    supportsTextStrokes: true,
     supportsText: true,
     supportsGroups: true,
     supportsImages: true,
@@ -241,6 +256,11 @@ export const CAPABILITY: Record<ExportTarget, FlattenCapability> = {
     nativeGradientTypes: PDF_NATIVE_GRADIENTS,
     supportsGradientStrokes: false,
     supportsMultipleStrokes: true,
+    supportsStrokeAlignment: false,
+    supportsPerSideStrokes: false,
+    supportsPressureStrokes: false,
+    supportsStrokeMarkers: false,
+    supportsTextStrokes: false,
     supportsText: true, // native PDF text via strata-print (WinAnsi + subset + outline fallback)
     supportsGroups: true,
     supportsImages: true,
@@ -259,6 +279,11 @@ export const CAPABILITY: Record<ExportTarget, FlattenCapability> = {
     nativeGradientTypes: RASTER_NATIVE_GRADIENTS,
     supportsGradientStrokes: true,
     supportsMultipleStrokes: true,
+    supportsStrokeAlignment: true,
+    supportsPerSideStrokes: true,
+    supportsPressureStrokes: true,
+    supportsStrokeMarkers: true,
+    supportsTextStrokes: true,
     supportsText: true,
     supportsGroups: true,
     supportsImages: true,
@@ -367,6 +392,39 @@ function hasPatternFills(node: SceneNode, cap: FlattenCapability): boolean {
   return false;
 }
 
+function visibleStrokes(node: SceneNode): readonly import('@varve/scene').Stroke[] {
+  return 'strokes' in node ? node.strokes.filter((stroke) => stroke.visible) : [];
+}
+
+function hasPressureVariation(node: SceneNode): boolean {
+  if (node.kind !== 'shape' || node.shape.kind !== 'path') return false;
+  const pressures = node.shape.points
+    .map((point) => point.pressure)
+    .filter((pressure): pressure is number => pressure !== undefined && Number.isFinite(pressure));
+  return pressures.length > 1 && Math.max(...pressures) - Math.min(...pressures) > Number.EPSILON;
+}
+
+/** Check stroke features that the native export target cannot preserve. */
+function hasUnsupportedStrokeFeatures(node: SceneNode, cap: FlattenCapability): boolean {
+  const strokes = visibleStrokes(node);
+  if (strokes.length === 0) return false;
+  if (node.kind === 'frame' || node.kind === 'table') return true;
+  if (node.kind === 'shape' && node.fills?.some((fill) => fill.type === 'image')) return true;
+  if (node.kind === 'text' && !cap.supportsTextStrokes) return true;
+  if (hasPressureVariation(node) && !cap.supportsPressureStrokes) return true;
+  for (const stroke of strokes) {
+    if (stroke.align !== 'center' && !cap.supportsStrokeAlignment) return true;
+    if (stroke.perSideWeights && !cap.supportsPerSideStrokes) return true;
+    if (
+      (stroke.arrowStart && stroke.arrowStart !== 'none') ||
+      (stroke.arrowEnd && stroke.arrowEnd !== 'none')
+    ) {
+      if (!cap.supportsStrokeMarkers) return true;
+    }
+  }
+  return false;
+}
+
 /**
  * Check whether a node has non-normal blend modes on groups with effects.
  */
@@ -432,6 +490,8 @@ export function assessNodeCapability(
       if (visibleStrokes.length > 1) return false;
     }
   }
+
+  if (hasUnsupportedStrokeFeatures(node, cap)) return false;
 
   // Text nodes
   if (node.kind === 'text') {

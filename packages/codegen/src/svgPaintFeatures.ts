@@ -1,4 +1,4 @@
-import type { GradientFill, Document as SceneDocument, SceneNode } from '@varve/scene';
+import type { GradientFill, Document as SceneDocument, SceneNode, Stroke } from '@varve/scene';
 import { expandGradientStops, managedColorToRgba } from '@varve/shared';
 import { affineToSvg, getChildren, rgba } from './shared';
 
@@ -10,8 +10,8 @@ export function collectGradientDefs(node: SceneNode, nodeId: string, doc: SceneD
       defs.push(...gradientDefElements(fill.gradient, `grad-${nodeId}-${index}`, doc));
     }
   }
-  if (node.kind === 'shape') {
-    for (const [index, stroke] of (node.strokes ?? []).entries()) {
+  if ('strokes' in node) {
+    for (const [index, stroke] of node.strokes.entries()) {
       if (stroke.gradient) {
         defs.push(...gradientDefElements(stroke.gradient, `grad-${nodeId}-stroke-${index}`, doc));
       }
@@ -112,11 +112,32 @@ function gradientDefElements(gradient: GradientFill, gradId: string, doc: SceneD
 
 type ShapeNode = Extract<SceneNode, { kind: 'shape' }>;
 
+function strokePaintToSvgAt(nodeId: string, stroke: Stroke, index: number): string {
+  return stroke.gradient ? `url(#grad-${nodeId}-stroke-${index})` : rgba(stroke.color);
+}
+
 export function strokePaintToSvg(node: ShapeNode, nodeId: string): string {
   const index = node.strokes?.findIndex((stroke) => stroke.visible) ?? -1;
   if (index < 0) return '';
   const stroke = node.strokes![index]!;
-  return stroke.gradient ? `url(#grad-${nodeId}-stroke-${index})` : rgba(stroke.color);
+  return strokePaintToSvgAt(nodeId, stroke, index);
+}
+
+/** Return SVG stroke attributes for the first visible stroke on any strokable node. */
+export function strokeAttrsForNode(node: SceneNode, nodeId: string): string {
+  if (!('strokes' in node)) return '';
+  const index = node.strokes.findIndex((stroke) => stroke.visible);
+  if (index < 0) return '';
+  const stroke = node.strokes[index]!;
+  return strokeAttrsForStroke(stroke, strokePaintToSvgAt(nodeId, stroke, index));
+}
+
+function strokeAttrsForStroke(stroke: Stroke, paint: string): string {
+  const dash =
+    stroke.dashPattern.length > 0
+      ? ` stroke-dasharray="${stroke.dashPattern.join(' ')}" stroke-dashoffset="${stroke.dashOffset}"`
+      : '';
+  return ` stroke="${paint}" stroke-width="${stroke.weight}" stroke-linecap="${stroke.cap}" stroke-linejoin="${stroke.join}" stroke-miterlimit="${Math.max(1, stroke.miterLimit ?? 4)}"${dash}`;
 }
 
 export function strokeAttrs(
@@ -132,9 +153,5 @@ export function strokeAttrs(
       : ` stroke="${fallbackPaint ?? 'none'}" stroke-width="${fallbackWidth}"`;
   }
   const stroke = node.strokes![index]!;
-  const dash =
-    stroke.dashPattern.length > 0
-      ? ` stroke-dasharray="${stroke.dashPattern.join(' ')}" stroke-dashoffset="${stroke.dashOffset}"`
-      : '';
-  return ` stroke="${strokePaintToSvg(node, nodeId)}" stroke-width="${stroke.weight}" stroke-linecap="${stroke.cap}" stroke-linejoin="${stroke.join}"${dash}`;
+  return strokeAttrsForStroke(stroke, strokePaintToSvgAt(nodeId, stroke, index));
 }

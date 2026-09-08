@@ -1,6 +1,6 @@
 # Stroke system
 
-**Updated:** 2026-09-07
+**Updated:** 2026-09-08
 
 This document is the capability contract for live strokes. It separates the
 authored document model from the Canvas2D replay path and from export
@@ -43,7 +43,9 @@ fallback hairline.
   reaching Canvas2D.
 - Pressure `0.5` is neutral base width, `0` is a deliberate taper to zero,
   and `1` is twice the base width. Uniform pressure uses the uniform path
-  route; only genuine pressure variation uses the variable-width path route.
+  route; any genuine pressure variation uses one filled variable-width
+  outline. Dashed variable-width paths split that outline by measured path
+  length before filling, so segment overlap cannot darken translucent paint.
 
 Stroke gradients use the same canonical spatial gradient evaluator as fills.
 The renderer resets Canvas2D dash state for every entry, so a solid stroke
@@ -60,16 +62,21 @@ solid, while malformed input is rejected without mutating the document.
 | Center alignment | yes | yes | content-aware | yes | yes | yes | yes | yes |
 | Inside/outside | closed geometry | alpha-aware; open/text center fallback | alpha-aware silhouette | yes | yes with bounded surface | field preserved | simplified/baked when target lacks it | bake/raster fallback |
 | Caps/joins/miter | yes | glyph outline route | not a centerline property | yes | yes | fields mirrored | yes where SVG supports it | yes where vector path remains |
-| Dashes/phase | yes | supported for direct glyph stroke only where browser accepts it | not meaningful for alpha silhouettes | yes | yes | basic pattern/phase | yes for emitted center strokes | export path decides |
+| Dashes/phase | yes, including pressure paths | supported for direct glyph stroke only where browser accepts it | not meaningful for alpha silhouettes | yes | yes | basic pattern/phase | yes for emitted center strokes | export path decides |
 | Per-side weights | rect/path owner only | no | rectangular border only | yes | yes for square rectangles | mirrored | requires per-edge expansion | requires expansion |
 | Markers | open line/path | no | no | no | direct line/arrow/path | endpoint fields mirrored | emitter-specific | expansion required |
-| Pressure / variable width | open/closed paths | no | no | no | continuous bounded route | source points preserved in IR | outline required for fidelity | outline/raster fallback |
+| Pressure / variable width | open/closed paths | no | no | no | one filled, bounded outline; dash distance uses sampled arc length | source points preserved in IR | outline required for fidelity | outline/raster fallback |
 | Multiple entries / order | yes | yes | yes | yes | ordered replay | ordered vector | one direct stroke; complex stacks preflight | ordered compositor |
 
 “Native IPC” means transport and preservation, not that every field is
 evaluated inside Rust. The browser/Tauri webview replay is the current visual
-authority for these fields; unsupported native or export capabilities must
-remain visible as a preflight limitation rather than being silently dropped.
+authority for these fields. SVG keeps basic center strokes, gradients, dashes,
+markers, miter limits, and text strokes native; the export compositor routes
+alignment, per-side, pressure-variable, image-border, frame, and unsupported
+stack cases through a bounded raster fallback. PDF uses the same rule for
+features its native path writer cannot represent. Unsupported capabilities
+must remain visible as a preflight limitation rather than being silently
+dropped.
 
 ## Compatibility
 

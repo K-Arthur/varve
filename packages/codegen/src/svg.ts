@@ -42,7 +42,13 @@ import {
   shapeVerticesToPoints,
   svgCompositing,
 } from './shared';
-import { collectGradientDefs, strokeAttrs, strokePaintToSvg } from './svgPaintFeatures';
+import {
+  collectGradientDefs,
+  strokeAttrs,
+  strokeAttrsForNode,
+  strokePaintToSvg,
+} from './svgPaintFeatures';
+import { lineArrowheadSvgTags, pathArrowheadSvgTags, pathToData } from './svgStrokeGeometry';
 import type { TargetGap } from './types';
 import { exportShapeOf, unbakeableWarpKind } from './warpBake';
 
@@ -188,43 +194,6 @@ export function imageContentTransform(placement: ImagePlacement): string {
 
 export function svgRect(rect: ImagePlacementRect): string {
   return `x="${rect.x.toFixed(4)}" y="${rect.y.toFixed(4)}" width="${rect.w.toFixed(4)}" height="${rect.h.toFixed(4)}"`;
-}
-
-function pathToData(shape: Extract<import('@varve/engine').Shape, { kind: 'path' }>): string {
-  const ringToCommands = (
-    points: import('@varve/engine').PathPoint[],
-    closed: boolean,
-  ): string[] => {
-    const first = points[0];
-    if (!first) return [];
-    // Coordinates are rounded to 0.01px. Warp baking subdivides curves into
-    // many points, and emitting each at full float precision both bloats the
-    // file and leaks arithmetic noise (`4.6e-15` for an exact zero).
-    const commands = [`M ${fmt(first.x)} ${fmt(first.y)}`];
-    for (let index = 1; index < points.length; index += 1) {
-      const previous = points[index - 1] as import('@varve/engine').PathPoint;
-      const current = points[index] as import('@varve/engine').PathPoint;
-      if (previous.handleOut || current.handleIn) {
-        const c1x = previous.x + (previous.handleOut?.[0] ?? 0);
-        const c1y = previous.y + (previous.handleOut?.[1] ?? 0);
-        const c2x = current.x + (current.handleIn?.[0] ?? 0);
-        const c2y = current.y + (current.handleIn?.[1] ?? 0);
-        commands.push(
-          `C ${fmt(c1x)} ${fmt(c1y)} ${fmt(c2x)} ${fmt(c2y)} ${fmt(current.x)} ${fmt(current.y)}`,
-        );
-      } else {
-        commands.push(`L ${fmt(current.x)} ${fmt(current.y)}`);
-      }
-    }
-    if (closed) commands.push('Z');
-    return commands;
-  };
-
-  const commands = ringToCommands(shape.points, shape.closed);
-  for (const hole of shape.holes ?? []) {
-    commands.push(...ringToCommands(hole, true));
-  }
-  return commands.join(' ');
 }
 
 /** Stable, XML-safe id used by native SVG textPath references. */
@@ -873,78 +842,6 @@ function buildTextContent(node: TextNode, indent: string): string {
   return spans.join('\n');
 }
 
-const ARROW_SPREAD = Math.PI / 7;
-
-function arrowheadSvgPath(
-  from: readonly [number, number],
-  to: readonly [number, number],
-  size: number,
-  style: 'arrow' | 'circle' | 'square' | 'diamond',
-  isStart: boolean,
-): string {
-  const tip = isStart ? from : to;
-  const tail = isStart ? to : from;
-  const angle = Math.atan2(tip[1] - tail[1], tip[0] - tail[0]);
-  const cos = Math.cos(angle);
-  const sin = Math.sin(angle);
-  const transform = (lx: number, ly: number): string => {
-    const x = tip[0] + lx * cos - ly * sin;
-    const y = tip[1] + lx * sin + ly * cos;
-    return `${x.toFixed(2)} ${y.toFixed(2)}`;
-  };
-
-  switch (style) {
-    case 'arrow': {
-      const x1 = -size * Math.cos(-ARROW_SPREAD);
-      const y1 = -size * Math.sin(-ARROW_SPREAD);
-      const x2 = -size * Math.cos(ARROW_SPREAD);
-      const y2 = -size * Math.sin(ARROW_SPREAD);
-      return `M ${transform(0, 0)} L ${transform(x1, y1)} L ${transform(x2, y2)} Z`;
-    }
-    case 'circle': {
-      const r = size * 0.5;
-      return `M ${transform(-r, 0)} A ${r} ${r} 0 1 0 ${transform(r, 0)} A ${r} ${r} 0 1 0 ${transform(-r, 0)} Z`;
-    }
-    case 'square': {
-      const s = size * 0.7;
-      return `M ${transform(-s, -s * 0.5)} L ${transform(0, -s * 0.5)} L ${transform(0, s * 0.5)} L ${transform(-s, s * 0.5)} Z`;
-    }
-    case 'diamond': {
-      const s = size * 0.6;
-      return `M ${transform(0, 0)} L ${transform(-s, -s * 0.5)} L ${transform(-s * 2, 0)} L ${transform(-s, s * 0.5)} Z`;
-    }
-  }
-}
-
-function lineArrowheadSvgTags(
-  node: SceneNode,
-  nodeId: string,
-  indent: string,
-  withTransform: string,
-): string[] {
-  if (node.kind !== 'shape') return [];
-  const s = node.shape;
-  if (s.kind !== 'line' && s.kind !== 'arrow') return [];
-  const strokes = node.strokes ?? [];
-  if (strokes.length === 0) return [];
-  const stroke = strokes[0]!;
-  const weight = stroke.weight || 1;
-  const strokeColor = strokePaintToSvg(node, nodeId) || 'black';
-  const headSize = s.kind === 'arrow' ? Math.max(s.arrowheadSize, weight * 3) : weight * 3;
-  const arrowStart = stroke.arrowStart ?? (s.kind === 'arrow' ? 'none' : 'none');
-  const arrowEnd = stroke.arrowEnd ?? (s.kind === 'arrow' ? 'arrow' : 'none');
-  const tags: string[] = [];
-  if (arrowStart !== 'none') {
-    const d = arrowheadSvgPath(s.from, s.to, headSize, arrowStart, true);
-    tags.push(`${indent}<path d="${d}" fill="${strokeColor}"${withTransform} />`);
-  }
-  if (arrowEnd !== 'none') {
-    const d = arrowheadSvgPath(s.from, s.to, headSize, arrowEnd, false);
-    tags.push(`${indent}<path d="${d}" fill="${strokeColor}"${withTransform} />`);
-  }
-  return tags;
-}
-
 /**
  * Build an SVG tag with optional mask wrapper for any node type.
  */
@@ -1109,7 +1006,12 @@ ${shapeInner}`
           // emitter in index.ts.
           const fillRule = s.fillRule ?? (s.holes && s.holes.length > 0 ? 'evenodd' : undefined);
           const fillRuleAttr = fillRule ? ` fill-rule="${fillRule}"` : '';
-          shapeInner = `${indent}<path d="${pathToData(s)}" fill="${fillAttr}"${fillRuleAttr}${strokeAttrs(node, node.id)}${withTransform}${compositingSuffix} />`;
+          const pathTag = `${indent}<path d="${pathToData(s)}" fill="${fillAttr}"${fillRuleAttr}${strokeAttrs(node, node.id)}${withTransform} />`;
+          const headTags = pathArrowheadSvgTags(node, node.id, `${indent}  `, withTransform);
+          shapeInner =
+            headTags.length > 0
+              ? `${indent}<g${compositingSuffix}>\n${pathTag}\n${headTags.join('\n')}\n${indent}</g>`
+              : pathTag.replace(' />', `${compositingSuffix} />`);
           break;
         }
         default:
@@ -1137,6 +1039,8 @@ ${shapeInner}`
         `fill="${fillAttr}"`,
         `font-size="${textNode.fontSize}"`,
       ];
+      const textStrokeAttrs = strokeAttrsForNode(textNode, textNode.id);
+      if (textStrokeAttrs) attrs.push(textStrokeAttrs.trim());
       if (textNode.fontFamily) attrs.push(`font-family="${escapeXml(textNode.fontFamily)}"`);
       if (textNode.fontWeight) attrs.push(`font-weight="${textNode.fontWeight}"`);
       if (textNode.fontStyle === 'italic') attrs.push(`font-style="italic"`);

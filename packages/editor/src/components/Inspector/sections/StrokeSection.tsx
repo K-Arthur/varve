@@ -75,14 +75,18 @@ function hasStrokes(n: SceneNode): n is StrokeNode {
   return n.kind === 'shape' || n.kind === 'text' || n.kind === 'frame';
 }
 
-/** True if any selected node is a line, arrow, or open path (supports arrowheads). */
+/** True if every selected node is a line, arrow, or open path (supports arrowheads). */
 function isLineOrPath(n: SceneNode): boolean {
   if (n.kind !== 'shape') return false;
   const s = n.shape;
-  return s.kind === 'line' || s.kind === 'arrow' || s.kind === 'path';
+  return (
+    s.kind === 'line' ||
+    s.kind === 'arrow' ||
+    (s.kind === 'path' && !s.closed && s.points.length > 1)
+  );
 }
 
-/** True if any selected node is a rect or frame (supports per-side weights). */
+/** True if every selected node is a rect or frame (supports per-side weights). */
 function isRectLike(n: SceneNode): boolean {
   if (n.kind === 'frame') return true;
   if (n.kind === 'shape') return n.shape.kind === 'rect';
@@ -292,8 +296,8 @@ function StrokeRow({
   const [dashDraft, setDashDraft] = useState(dashInputValue);
   useEffect(() => setDashDraft(dashInputValue), [dashInputValue]);
 
-  const hasLineOrPath = nodes.some(isLineOrPath);
-  const hasRectLike = nodes.some(isRectLike);
+  const hasLineOrPath = nodes.every(isLineOrPath);
+  const hasRectLike = nodes.every(isRectLike);
 
   const color = isMixed(colorRaw) ? null : colorRaw;
   const swatchBg = color ? toSwatchBg(color) : 'transparent';

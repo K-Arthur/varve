@@ -1004,6 +1004,42 @@ describe('replayIr', () => {
     expect(rec.calls).toContain('stroke(0)');
   });
 
+  it('renders endpoint markers on open paths using endpoint tangents', () => {
+    const m = mockTarget();
+    replayIr(m.target, [
+      {
+        transform: [1, 0, 0, 1, 0, 0],
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+        strokes: [
+          {
+            color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+            weight: 4,
+            align: 'center',
+            dashPattern: [],
+            dashOffset: 0,
+            cap: 'butt',
+            join: 'round',
+            miterLimit: 4,
+            visible: true,
+            arrowStart: 'circle',
+            arrowEnd: 'diamond',
+          },
+        ],
+        primitive: {
+          kind: 'path',
+          points: [
+            { x: 0, y: 0, handleIn: null, handleOut: [20, 40] },
+            { x: 100, y: 50, handleIn: [-30, -10], handleOut: null },
+          ],
+          closed: false,
+          tolerance: 1,
+        },
+      },
+    ]);
+    expect(m.target.fill).toHaveBeenCalled();
+    expect(m.rotate).toHaveBeenCalledTimes(2);
+  });
+
   it('renders a path primitive via bezierCurveTo + fill', () => {
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
@@ -1349,11 +1385,17 @@ describe('replayIr', () => {
     lineTo: ReturnType<typeof vi.fn>;
     drawImage: ReturnType<typeof vi.fn>;
     fillRect: ReturnType<typeof vi.fn>;
+    fill: ReturnType<typeof vi.fn>;
+    stroke: ReturnType<typeof vi.fn>;
+    rotate: ReturnType<typeof vi.fn>;
   } {
     const bezierCurveTo = vi.fn();
     const lineTo = vi.fn();
     const drawImage = vi.fn();
     const fillRect = vi.fn();
+    const fill = vi.fn();
+    const stroke = vi.fn();
+    const rotate = vi.fn();
     return {
       target: {
         save: vi.fn(),
@@ -1361,7 +1403,7 @@ describe('replayIr', () => {
         clip: vi.fn(),
         transform: vi.fn(),
         translate: vi.fn(),
-        rotate: vi.fn(),
+        rotate,
         scale: vi.fn(),
         fillRect: vi.fn(),
         strokeRect: vi.fn(),
@@ -1373,8 +1415,8 @@ describe('replayIr', () => {
         lineTo,
         bezierCurveTo,
         roundRect: vi.fn(),
-        fill: vi.fn(),
-        stroke: vi.fn(),
+        fill,
+        stroke,
         closePath: vi.fn(),
         fillText: vi.fn(),
         setLineDash: vi.fn(),
@@ -1396,6 +1438,9 @@ describe('replayIr', () => {
       lineTo,
       drawImage,
       fillRect,
+      fill,
+      stroke,
+      rotate,
     };
   }
 
@@ -1639,11 +1684,10 @@ describe('replayIr', () => {
         },
       },
     ]);
-    // Variable width sets lineWidth multiple times (one per segment)
-    const lineWidthCalls = m.calls.filter((c) => c.startsWith('set lineWidth'));
-    expect(lineWidthCalls.length).toBeGreaterThan(1);
-    // At least some segments have lineWidth < 8 (from 0.2 pressure) and > 0
-    expect(m.lineWidthValues.some((w) => w < 8)).toBe(true);
+    // Variable width is emitted as one filled outline, so translucent samples
+    // cannot darken one another at segment overlaps.
+    expect(m.calls).toContain('fill(0)');
+    expect(m.calls).not.toContain('stroke(0)');
   });
 
   it('variable-width path stroke with uniform pressure falls back to uniform stroke', () => {
@@ -1681,6 +1725,41 @@ describe('replayIr', () => {
     // Uniform pressure: only one lineWidth set (not per-segment variable)
     const lineWidthCalls = m.calls.filter((c) => c.startsWith('set lineWidth'));
     expect(lineWidthCalls.length).toBe(1);
+  });
+
+  it('keeps dash phase on a variable-width path without segment overpainting', () => {
+    const m = recorder();
+    replayIr(m.target, [
+      {
+        transform: [1, 0, 0, 1, 0, 0] as const,
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } as const,
+        strokes: [
+          {
+            color: { space: 'rgb', r: 255, g: 0, b: 0, a: 180 } as const,
+            weight: 8,
+            align: 'center' as const,
+            dashPattern: [12, 6],
+            dashOffset: -3,
+            cap: 'round' as const,
+            join: 'round' as const,
+            miterLimit: 4,
+            visible: true,
+          },
+        ],
+        primitive: {
+          kind: 'path',
+          points: [
+            { x: 10, y: 20, handleIn: null, handleOut: null, pressure: 0.1 },
+            { x: 100, y: 80, handleIn: null, handleOut: null, pressure: 0.9 },
+          ],
+          closed: false,
+          tolerance: 1,
+        },
+      },
+    ]);
+    expect(m.calls).toContain('setLineDash(1)');
+    expect(m.calls).toContain('fill(0)');
+    expect(m.calls).not.toContain('stroke(0)');
   });
 
   it('renders bulleted list with disc prefix', () => {
