@@ -260,7 +260,7 @@ test('features page uses the brand icon tone rotation', async ({ page }) => {
     .evaluateAll((elements) => elements.map((element) => getComputedStyle(element).color));
   const uniqueTones = [...new Set(iconTones)];
 
-  expect(iconTones).toHaveLength(21);
+  expect(iconTones).toHaveLength(24);
   expect(uniqueTones).toHaveLength(3);
   expect(iconTones.every((tone, index) => tone === uniqueTones[index % uniqueTones.length])).toBe(
     true,

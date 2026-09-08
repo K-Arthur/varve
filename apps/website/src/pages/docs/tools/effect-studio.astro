@@ -1,0 +1,112 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { sitePath } from '../../../lib/siteUrl';
+---
+
+<Layout
+  title="Effect Studio — Varve Docs"
+  description="Use Effect Studio to preview, tune, apply, cancel, and manage named editable Object Filter treatments in Varve."
+>
+  <div class="container-custom">
+    <article class="docs-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/docs')}>Documentation</a> / Tools / Effect Studio
+      </nav>
+
+      <h1>Effect Studio</h1>
+      <p class="docs-intro">
+        Effect Studio is the creative discovery surface for object-local effects. It previews a
+        candidate against the accepted document state, then commits the named recipe through the
+        normal document transaction and history systems.
+      </p>
+
+      <section class="docs-section">
+        <h2>Browse, adjust, preview</h2>
+        <ol>
+          <li>Select one compatible object, or select several objects when you want to apply the same treatment to all of them.</li>
+          <li>Open <strong>Effect Studio</strong>, search the Treatment Gallery, and choose <strong>Adjust</strong> to expose the recipe controls.</li>
+          <li>Choose <strong>Preview</strong>. The comparison renders the accepted state as Before and the current candidate as After.</li>
+          <li>Use the split slider or Before, After, and Compare modes. Fit, 100%, and 200% change only the preview viewport.</li>
+        </ol>
+        <p>
+          With a multi-selection, the comparison shows the first selected object as a representative
+          preview. Applying still affects every selected object; direct tuning is available after
+          selecting one object.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Accepted state versus current candidate</h2>
+        <p>
+          Before is the accepted document captured when the draft or applied-treatment edit began.
+          After is the current candidate, including only the preview-owned or live-edited changes.
+          The comparison never disables the whole Object Filter stack to manufacture an original
+          image, because that would also hide unrelated accepted effects.
+        </p>
+        <dl class="state-list">
+          <div><dt>Draft preview</dt><dd>Preview changes are provisional until Keep treatment or Add to stack is chosen.</dd></div>
+          <div><dt>Live tuning</dt><dd>Editing an applied recipe updates that recipe in place while the accepted baseline remains available for comparison.</dd></div>
+          <div><dt>Cancel</dt><dd>Removes only filters owned by the active preview session and keeps unrelated edits made during the session.</dd></div>
+          <div><dt>Apply</dt><dd>Creates one normal undoable document edit. Reapplying an existing treatment requires the explicit Add another action.</dd></div>
+        </dl>
+      </section>
+
+      <section class="docs-section">
+        <h2>Read the preview status</h2>
+        <p>
+          A preview image carries its source, variant, revision identity, renderer, quality tier,
+          warnings, and fallback state. A provisional result means a bounded render completed while
+          a font or raster resource was still settling; the UI discloses that state and retries the
+          latest matching request. Empty, canceled, missing, and failed results remain distinct from
+          a successful authoritative frame.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Where advanced editing lives</h2>
+        <p>
+          Effect Studio owns named treatment intent. Open <strong>Appearance → Object Filters</strong>
+          when you need per-effect visibility, order, opacity, blend mode, or a raw parameter.
+          Editing a derived member preserves the named treatment and marks it Customized. Use
+          <a href={sitePath('/docs/tools/image-treatments')}>Image Treatments</a> for photo-local
+          correction and Adjustment Layers for effects that intentionally cross object boundaries.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Export and persistence</h2>
+        <p>
+          Applying a treatment stores its editable Object Filter recipe and provenance, not a
+          preview bitmap. The canvas and export compositor consume the document stack. If an export
+          target cannot represent a local effect, follow the export report and verify the smallest
+          affected region rather than assuming the document was flattened.
+        </p>
+      </section>
+
+      <div class="docs-cta">
+        <h2>Related guides</h2>
+        <p><a href={sitePath('/features/effect-studio')}>Effect Studio feature overview</a> · <a href={sitePath('/features/layer-effects')}>Layer Effects</a> · <a href={sitePath('/docs/tools/color')}>Color and Effects</a></p>
+      </div>
+    </article>
+  </div>
+</Layout>
+
+<style>
+  .docs-page { max-width: 800px; margin: 0 auto; padding: 3rem 0 5rem; }
+  .breadcrumb { color: var(--text-secondary); font-size: .875rem; margin-bottom: 1.5rem; }
+  .breadcrumb a, .docs-section a, .docs-cta a { color: var(--text-link); }
+  h1 { color: var(--text-primary); font: 700 clamp(2rem, 5vw, 2.8rem)/1.1 var(--font-editorial); margin-bottom: 1rem; }
+  .docs-intro { color: var(--text-secondary); font-size: 1.15rem; line-height: 1.7; margin-bottom: 3rem; }
+  .docs-section { margin-bottom: 2.75rem; }
+  .docs-section h2 { border-bottom: 2px solid var(--border-accent); color: var(--text-primary); font-size: 1.45rem; margin-bottom: 1rem; padding-bottom: .5rem; }
+  .docs-section p, .docs-section li, .state-list dd { color: var(--text-secondary); line-height: 1.8; }
+  .docs-section li { margin-bottom: .5rem; }
+  .docs-section strong, .state-list dt { color: var(--text-primary); }
+  .state-list { display: grid; gap: .85rem; margin: 1.25rem 0 0; }
+  .state-list div { border-left: 2px solid var(--border-accent); padding-left: 1rem; }
+  .state-list dt { font-weight: 700; }
+  .state-list dd { margin: .25rem 0 0; }
+  .docs-cta { border-top: 1px solid var(--border-default); padding-top: 2.5rem; text-align: center; }
+  .docs-cta h2 { color: var(--text-primary); font-size: 1.25rem; }
+  .docs-cta p { color: var(--text-secondary); }
+</style>

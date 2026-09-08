@@ -1,0 +1,103 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+import StatusPill from '../../components/StatusPill.astro';
+---
+
+<Layout
+  title="Effect Studio"
+  description="Browse, compare, tune, and apply curated editable effects in Varve without flattening vector or raster source content."
+>
+  <div class="container-custom">
+    <main class="feature-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/features')}>Features</a> / Effect Studio
+      </nav>
+
+      <header class="page-hero">
+        <div class="eyebrow"><StatusPill status="available" /> <span>Curated editable effects</span></div>
+        <h1>Preview the treatment. Keep the source.</h1>
+        <p>
+          Effect Studio turns a creative direction into an editable Object Filter recipe. Browse
+          named treatments, compare the accepted state with the current candidate, adjust the
+          controls, and decide when the result belongs in the document.
+        </p>
+      </header>
+
+      <section class="feature-section feature-section--highlight" aria-labelledby="workflow-title">
+        <p class="eyebrow">A deliberate workflow</p>
+        <h2 id="workflow-title">See what will change before it becomes history.</h2>
+        <div class="workflow-grid">
+          <article><span>01</span><h3>Browse</h3><p>Search by creative family: mark making, optics, print, light, and more.</p></article>
+          <article><span>02</span><h3>Compare</h3><p>Use Before, After, or a draggable split between the accepted state and current candidate.</p></article>
+          <article><span>03</span><h3>Keep or cancel</h3><p>Keep adds one coherent recipe to the local undo history. Cancel removes only the preview-owned edits.</p></article>
+        </div>
+      </section>
+
+      <section class="feature-section" aria-labelledby="treatments-title">
+        <h2 id="treatments-title">Named treatments, editable internals.</h2>
+        <p>
+          A treatment is a discoverable recipe, not a flattened image. Reticulation, Halftone
+          Pattern, Grain, Chromatic Bloom, and other recipes expose meaningful controls while
+          preserving their derived Object Filter entries, order, masks, and blend behavior.
+        </p>
+        <div class="card-grid">
+          <article><h3>Vector and raster</h3><p>Preview the rendered result for shapes, paths, text, groups, frames, and images while the original source remains editable.</p></article>
+          <article><h3>One history step</h3><p>Apply, keep, cancel, and multi-selection application use the existing document transaction and undo system.</p></article>
+          <article><h3>Explicit duplication</h3><p>Reapplying a treatment is an intentional Add another action, so an accidental second click does not silently duplicate the stack.</p></article>
+        </div>
+      </section>
+
+      <section class="feature-section feature-section--highlight" aria-labelledby="boundaries-title">
+        <h2 id="boundaries-title">The right surface for the job.</h2>
+        <dl class="surface-list">
+          <div><dt>Effect Studio</dt><dd>Creative discovery and named, editable object-local recipes.</dd></div>
+          <div><dt>Object Filters</dt><dd>Advanced per-effect order, opacity, blend, mask, and parameter editing.</dd></div>
+          <div><dt>Image Tuning</dt><dd>Focused photographic corrections for selected image content.</dd></div>
+          <div><dt>Adjustment Layers</dt><dd>Scoped corrections that intentionally cross object boundaries.</dd></div>
+        </dl>
+      </section>
+
+      <section class="feature-section">
+        <h2>Honest previews, local-first documents.</h2>
+        <p>
+          Studio previews use Varve's canonical rendering path and carry their identity, quality,
+          warnings, and fallback state with the image. A provisional frame is disclosed while
+          fonts or raster resources settle; it is never treated as the final accepted result.
+          Documents store the editable recipe, not a preview bitmap.
+        </p>
+        <p><a href={sitePath('/docs/tools/effect-studio')}>Read the Effect Studio guide</a> or <a href={sitePath('/features/layer-effects')}>explore Layer Effects</a>.</p>
+      </section>
+
+      <div class="feature-cta">
+        <h2>Make the look yours, then keep editing.</h2>
+        <a href={sitePath('/download')} class="btn-default">Download Varve</a>
+      </div>
+    </main>
+  </div>
+</Layout>
+
+<style>
+  .feature-page { max-width: 860px; margin: 0 auto; padding: 3rem 0 5rem; }
+  .breadcrumb { color: var(--text-secondary); font-size: .875rem; margin-bottom: 2.5rem; }
+  .breadcrumb a, .feature-section a { color: var(--text-link); }
+  .page-hero { max-width: 720px; margin-bottom: 4rem; }
+  .eyebrow { align-items: center; color: var(--accent-primary); display: flex; font-size: .75rem; font-weight: 700; gap: .65rem; letter-spacing: .12em; text-transform: uppercase; }
+  .page-hero h1 { color: var(--text-primary); font: 700 clamp(2.3rem, 6vw, 4rem)/1.05 var(--font-editorial); letter-spacing: -.025em; margin: 1rem 0; }
+  .page-hero p, .feature-section p, .surface-list dd { color: var(--text-secondary); font-size: 1.05rem; line-height: 1.75; }
+  .feature-section { margin: 0 0 4rem; }
+  .feature-section h2 { color: var(--text-primary); font-size: clamp(1.6rem, 3vw, 2.3rem); margin: .5rem 0 1rem; }
+  .feature-section h3 { color: var(--text-primary); margin: .65rem 0 .45rem; }
+  .feature-section--highlight { background: var(--surface-card); border: 1px solid var(--border-default); border-radius: var(--website-radius-card); padding: clamp(1.5rem, 4vw, 3rem); }
+  .workflow-grid, .card-grid { display: grid; gap: 1rem; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 1.75rem; }
+  .workflow-grid article, .card-grid article { border: 1px solid var(--border-default); border-radius: var(--website-radius-surface); padding: 1rem; }
+  .workflow-grid span { color: var(--accent-primary); font-size: .75rem; font-variant-numeric: tabular-nums; }
+  .workflow-grid p, .card-grid p { font-size: .95rem; margin: 0; }
+  .surface-list { display: grid; gap: .8rem; margin: 1.5rem 0 0; }
+  .surface-list div { border-left: 2px solid var(--border-accent); padding-left: 1rem; }
+  .surface-list dt { color: var(--text-primary); font-weight: 700; }
+  .surface-list dd { margin: .2rem 0 0; }
+  .feature-cta { border-top: 1px solid var(--border-default); padding-top: 2.5rem; text-align: center; }
+  .feature-cta h2 { color: var(--text-primary); font-size: 1.35rem; margin-bottom: 1rem; }
+  @media (max-width: 680px) { .workflow-grid, .card-grid { grid-template-columns: 1fr; } .feature-page { padding-top: 2rem; } }
+</style>
