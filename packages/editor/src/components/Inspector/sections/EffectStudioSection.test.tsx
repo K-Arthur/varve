@@ -234,7 +234,7 @@ describe('EffectStudioSection', () => {
     ]);
     expect(screen.getByRole('status')).toHaveTextContent(/Chromatic Bloom/);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Apply Chromatic Bloom' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Keep Chromatic Bloom' }));
     expect(commitTransaction).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByRole('button', { name: 'Preview Aperture Star' }));

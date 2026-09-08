@@ -933,7 +933,7 @@ export interface EditorContextValue {
   /** Start an undo-coalesced edit; preview transactions stay clean until commit. */
   beginTransaction: (mode?: 'edit' | 'preview') => void;
   commitTransaction: () => void;
-  abortTransaction: () => void;
+  abortTransaction: (reconcile?: (snapshot: Document, current: Document) => Document) => void;
   /** Run a named collection of mutations as one undoable history step. */
   groupCompoundOperation: (label: string, action: () => void) => void;
   undo: () => void;

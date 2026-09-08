@@ -134,6 +134,46 @@
   opacity: 0.45;
 }
 
+.effect-studio-comparison__zoom {
+  align-items: center;
+  border: 0;
+  display: flex;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+}
+
+.effect-studio-comparison__zoom legend {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  margin-right: auto;
+  padding: 0;
+}
+
+.effect-studio-comparison__zoom button {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control-compact);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--font-size-2xs);
+  min-height: 1.625rem;
+  min-width: 2.25rem;
+  padding: 0 var(--space-1);
+}
+
+.effect-studio-comparison__zoom button[aria-pressed="true"] {
+  background: var(--color-surface-selected);
+  border-color: var(--color-accent);
+  color: var(--color-text-primary);
+}
+
+.effect-studio-comparison__zoom button:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
 .effect-studio-comparison__stage {
   aspect-ratio: 4 / 3;
   background: var(--color-surface-raised);
@@ -152,6 +192,8 @@
   grid-area: 1 / 1;
   height: 100%;
   object-fit: contain;
+  transform: scale(var(--effect-studio-zoom, 1));
+  transform-origin: center;
   width: 100%;
 }
 

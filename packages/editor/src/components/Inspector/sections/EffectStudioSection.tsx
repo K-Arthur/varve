@@ -18,6 +18,7 @@ import {
   canHaveSmartFilters,
   createEffectLook,
   cryptoId,
+  type Document,
   type EffectLook,
   makeSmartFilter,
   type SceneNode,
@@ -26,6 +27,10 @@ import { SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { EffectStudioComparison } from '../../EffectStudio/EffectStudioComparison';
+import {
+  createEffectPreviewSession,
+  reconcileEffectPreviewCancel,
+} from '../../EffectStudio/effectPreviewSession';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { RangeValueControl } from '../controls/RangeValueControl';
 import './effectStudio.css';
@@ -58,6 +63,7 @@ interface StudioPreview {
   effectIds: string[];
   values: Record<string, number>;
   name: string;
+  session: ReturnType<typeof createEffectPreviewSession>;
 }
 
 interface TreatmentTuning {
@@ -540,7 +546,7 @@ export function EffectStudioSection({
     updateNodes,
     announce,
   } = useEditor();
-  const node = nodes.length === 1 ? nodes[0] : undefined;
+  const node = nodes[0];
   const compatible = nodes.length > 0 && nodes.every(canHaveSmartFilters);
   const nodeId = node?.id;
   const filters = node?.smartFilters ?? [];
@@ -551,6 +557,11 @@ export function EffectStudioSection({
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [preview, setPreview] = useState<StudioPreview | null>(null);
   const previewRef = useRef<StudioPreview | null>(null);
+  const [previewBaselineDocument, setPreviewBaselineDocument] = useState<Document | null>(null);
+  const previewBaselineRef = useRef<Document | null>(null);
+  const [liveBaselineDocument, setLiveBaselineDocument] = useState<Document | null>(null);
+  const liveBaselineRef = useRef<Document | null>(null);
+  const previewGenerationRef = useRef(0);
   const [lookName, setLookName] = useState('My Look');
   const [tuning, setTuning] = useState<TreatmentTuning | null>(null);
   const tuningTransactionRef = useRef(false);
@@ -593,8 +604,13 @@ export function EffectStudioSection({
   const cancelPreview = useCallback(
     (message = 'Preview cancelled') => {
       if (!previewRef.current) return;
-      abortTransaction();
+      const active = previewRef.current;
+      abortTransaction((snapshot, current) =>
+        reconcileEffectPreviewCancel(snapshot, current, active.session),
+      );
       previewRef.current = null;
+      previewBaselineRef.current = null;
+      setPreviewBaselineDocument(null);
       setPreview(null);
       announce(message);
     },
@@ -606,13 +622,18 @@ export function EffectStudioSection({
       if (!nodeId) return;
       const current = previewRef.current;
       if (current && current.nodeId !== nodeId) return;
+      if (current && current.treatmentId !== treatment.id) return;
       const controls = treatmentControlValues(treatment, values);
       const effectIds =
         current?.treatmentId === treatment.id
           ? current.effectIds
           : treatment.effects.map(() => cryptoId());
       const instanceId = current?.treatmentId === treatment.id ? current.instanceId : cryptoId();
-      if (!current) beginTransaction('preview');
+      if (!current) {
+        previewBaselineRef.current = state.document;
+        setPreviewBaselineDocument(state.document);
+        beginTransaction('preview');
+      }
       updateNode(nodeId, (owner) => {
         const withoutPreview = (owner.smartFilters ?? []).filter(
           (effect) => !current?.effectIds.includes(effect.id),
@@ -626,6 +647,17 @@ export function EffectStudioSection({
           ],
         };
       });
+      previewGenerationRef.current += 1;
+      const session = createEffectPreviewSession({
+        sessionId: current?.session.sessionId ?? cryptoId(),
+        document: previewBaselineRef.current ?? state.document,
+        targetIds: [nodeId],
+        treatmentId: treatment.id,
+        instanceId,
+        baselineRevision: state.revision,
+        generation: previewGenerationRef.current,
+        ownedFilterIds: effectIds,
+      });
       const next: StudioPreview = {
         nodeId,
         treatmentId: treatment.id,
@@ -633,13 +665,14 @@ export function EffectStudioSection({
         effectIds,
         values: controls,
         name: treatment.name,
+        session,
       };
       previewRef.current = next;
       setPreview(next);
       updateRecents(treatment.id);
       announce(`${treatment.name} previewed`);
     },
-    [announce, beginTransaction, nodeId, updateNode, updateRecents],
+    [announce, beginTransaction, nodeId, state.document, state.revision, updateNode, updateRecents],
   );
 
   const commitPreview = useCallback(() => {
@@ -647,6 +680,8 @@ export function EffectStudioSection({
     if (!current) return;
     commitTransaction();
     previewRef.current = null;
+    previewBaselineRef.current = null;
+    setPreviewBaselineDocument(null);
     setPreview(null);
     setTuning((active) =>
       active?.treatmentId === current.treatmentId
@@ -657,7 +692,11 @@ export function EffectStudioSection({
   }, [announce, commitTransaction]);
 
   const applyTreatment = useCallback(
-    (treatment: StudioTreatment, values: Readonly<Record<string, number>> = {}) => {
+    (
+      treatment: StudioTreatment,
+      values: Readonly<Record<string, number>> = {},
+      options: { allowDuplicate?: boolean } = {},
+    ) => {
       const controls = treatmentControlValues(treatment, values);
       if (previewRef.current) {
         if (previewRef.current.treatmentId === treatment.id) {
@@ -669,6 +708,14 @@ export function EffectStudioSection({
         // explicit stack edit; changing the gallery selection must not make a
         // previously previewed treatment disappear.
         commitPreview();
+      }
+      if (
+        !options.allowDuplicate &&
+        nodes.length === 1 &&
+        appliedTreatments.some((instance) => instance.treatment.id === treatment.id)
+      ) {
+        announce(`${treatment.name} is already applied; choose Add another to duplicate it`);
+        return;
       }
       const singleInstanceId = nodes.length === 1 ? cryptoId() : undefined;
       // Applying a recipe is one user-visible edit even when several vectors
@@ -699,7 +746,7 @@ export function EffectStudioSection({
       commitPreview,
       commitTransaction,
       nodes,
-      previewTreatment,
+      appliedTreatments,
       updateNodes,
       updateRecents,
     ],
@@ -718,7 +765,13 @@ export function EffectStudioSection({
 
   const openAppliedTreatmentTuning = useCallback(
     (instance: AppliedStudioTreatment) => {
+      if (nodes.length !== 1) {
+        announce('Select one object to tune an applied treatment');
+        return;
+      }
       if (previewRef.current) cancelPreview('Preview cancelled');
+      liveBaselineRef.current = state.document;
+      setLiveBaselineDocument(state.document);
       setTuning({
         treatmentId: instance.treatment.id,
         instanceId: instance.instanceId,
@@ -726,7 +779,7 @@ export function EffectStudioSection({
         customized: instance.customized,
       });
     },
-    [cancelPreview],
+    [announce, cancelPreview, nodes.length, state.document],
   );
 
   const beginTuningTransaction = useCallback(() => {
@@ -779,6 +832,10 @@ export function EffectStudioSection({
     if (!tuning) return;
     if (!tuning.instanceId && previewRef.current?.treatmentId === tuning.treatmentId) {
       cancelPreview('Preview cancelled');
+    }
+    if (tuning.instanceId) {
+      liveBaselineRef.current = null;
+      setLiveBaselineDocument(null);
     }
     setTuning(null);
   }, [cancelPreview, tuning]);
@@ -885,7 +942,12 @@ export function EffectStudioSection({
   );
 
   useEffect(() => {
-    if (preview && preview.nodeId !== nodeId) cancelPreview('Preview cancelled: target changed');
+    if (
+      preview &&
+      (preview.nodeId !== nodeId || preview.session.documentId !== state.document.id)
+    ) {
+      cancelPreview('Preview cancelled: target changed');
+    }
     if (
       tuning?.instanceId &&
       !appliedTreatments.some(
@@ -893,9 +955,11 @@ export function EffectStudioSection({
           instance.treatment.id === tuning.treatmentId && instance.instanceId === tuning.instanceId,
       )
     ) {
+      liveBaselineRef.current = null;
+      setLiveBaselineDocument(null);
       setTuning(null);
     }
-  }, [appliedTreatments, cancelPreview, nodeId, preview, tuning?.instanceId]);
+  }, [appliedTreatments, cancelPreview, nodeId, preview, state.document.id, tuning?.instanceId]);
 
   useEffect(
     () => () => {
@@ -903,7 +967,12 @@ export function EffectStudioSection({
         tuningTransactionRef.current = false;
         commitTransaction();
       }
-      if (previewRef.current) abortTransaction();
+      if (previewRef.current) {
+        const active = previewRef.current;
+        abortTransaction((snapshot, current) =>
+          reconcileEffectPreviewCancel(snapshot, current, active.session),
+        );
+      }
     },
     [abortTransaction, commitTransaction],
   );
@@ -960,8 +1029,18 @@ export function EffectStudioSection({
         <div className="effect-studio__workspace">
           <EffectStudioComparison
             document={state.document}
+            baselineDocument={
+              previewing
+                ? previewBaselineDocument
+                : tuning?.instanceId
+                  ? liveBaselineDocument
+                  : null
+            }
             node={node}
             hasEffects={filters.length > 0}
+            targetCount={nodes.length}
+            targetLabel={targetLabel}
+            isDraftPreview={previewing}
           />
           <aside className="effect-studio__inspector" aria-label="Effect stack and settings">
             <section className="effect-studio__applied" aria-label="Applied effect stack">
@@ -1402,10 +1481,26 @@ export function EffectStudioSection({
                             <button
                               type="button"
                               className="effect-studio__add"
-                              onClick={() => applyTreatment(treatment)}
-                              aria-label={`Apply ${treatment.name}`}
+                              onClick={() =>
+                                applyTreatment(treatment, {}, { allowDuplicate: isPreview })
+                              }
+                              aria-label={
+                                isPreview
+                                  ? `Keep ${treatment.name}`
+                                  : appliedTreatments.some(
+                                        (instance) => instance.treatment.id === treatment.id,
+                                      )
+                                    ? `Add another ${treatment.name}`
+                                    : `Apply ${treatment.name}`
+                              }
                             >
-                              {isPreview ? 'Keep' : 'Apply'}
+                              {isPreview
+                                ? 'Keep'
+                                : appliedTreatments.some(
+                                      (instance) => instance.treatment.id === treatment.id,
+                                    )
+                                  ? 'Add another'
+                                  : 'Apply'}
                             </button>
                             <button
                               type="button"

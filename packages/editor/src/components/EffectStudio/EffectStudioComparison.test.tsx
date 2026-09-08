@@ -48,22 +48,50 @@ function testDocument(node: SceneNode) {
   };
 }
 
+function outcome(dataUrl: string, metadata: Record<string, unknown> = {}) {
+  return {
+    result: { dataUrl, metadata },
+    status: 'ready',
+    qualityTier: 'editing-preview',
+    renderer: 'canonical-engine',
+    warnings: [],
+    fallbackApplied: false,
+  } as unknown as Awaited<ReturnType<typeof renderDocThumbnail>>;
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((finish) => {
+    resolve = finish;
+  });
+  return { promise, resolve };
+}
+
 describe('EffectStudioComparison', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it('renders canonical original and effect variants in a real split preview', async () => {
-    const node = effectNode();
+    const node = { ...effectNode(), smartFiltersEnabled: true };
+    const acceptedNode = {
+      ...node,
+      smartFilters: [makeAdjustment('accepted-1', 'grain')],
+      smartFiltersEnabled: undefined,
+    };
     mockedRenderDocThumbnail
-      .mockResolvedValueOnce({
-        result: { dataUrl: 'data:image/png;base64,b3JpZ2luYWw=' },
-      } as Awaited<ReturnType<typeof renderDocThumbnail>>)
-      .mockResolvedValueOnce({
-        result: { dataUrl: 'data:image/png;base64,ZWZmZWN0cw==' },
-      } as Awaited<ReturnType<typeof renderDocThumbnail>>);
+      .mockResolvedValueOnce(outcome('data:image/png;base64,b3JpZ2luYWw='))
+      .mockResolvedValueOnce(outcome('data:image/png;base64,ZWZmZWN0cw=='));
 
-    render(<EffectStudioComparison document={testDocument(node)} node={node} hasEffects />);
+    render(
+      <EffectStudioComparison
+        document={testDocument(node)}
+        baselineDocument={testDocument(acceptedNode)}
+        node={node}
+        hasEffects
+        isDraftPreview
+      />,
+    );
 
     expect(
       await screen.findByAltText('Original selected object without Object Filters'),
@@ -80,13 +108,17 @@ describe('EffectStudioComparison', () => {
     fireEvent.change(screen.getByRole('slider', { name: 'Before and after split' }), {
       target: { value: '72' },
     });
-    expect(screen.getByText('72% original')).toBeInTheDocument();
+    expect(screen.getByText('72% before')).toBeInTheDocument();
 
     const [originalDocument, effectsDocument] = mockedRenderDocThumbnail.mock.calls.map(
       ([rendered]) => rendered,
     );
-    expect(originalDocument?.nodes[node.id]?.smartFiltersEnabled).toBe(false);
+    expect(originalDocument?.nodes[node.id]?.smartFiltersEnabled).toBeUndefined();
+    expect(originalDocument?.nodes[node.id]?.smartFilters).toHaveLength(1);
     expect(effectsDocument?.nodes[node.id]?.smartFiltersEnabled).toBe(true);
+    expect(effectsDocument?.nodes[node.id]?.smartFilters).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Before this edit' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Current candidate' })).toBeEnabled();
   });
 
   it('keeps the original preview available when no treatment is applied yet', async () => {
@@ -100,16 +132,14 @@ describe('EffectStudioComparison', () => {
     expect(
       await screen.findByAltText('Original selected object without Object Filters'),
     ).toHaveAttribute('src', 'data:image/png;base64,b3JpZ2luYWw=');
-    expect(screen.getByRole('button', { name: 'Effects' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Accepted result' })).toBeDisabled();
     expect(mockedRenderDocThumbnail).toHaveBeenCalledTimes(1);
   });
 
   it('does not discard the original when the effects variant fails to render', async () => {
     const node = effectNode();
     mockedRenderDocThumbnail
-      .mockResolvedValueOnce({
-        result: { dataUrl: 'data:image/png;base64,b3JpZ2luYWw=' },
-      } as Awaited<ReturnType<typeof renderDocThumbnail>>)
+      .mockResolvedValueOnce(outcome('data:image/png;base64,b3JpZ2luYWw='))
       .mockRejectedValueOnce(new Error('effects renderer unavailable'));
 
     render(<EffectStudioComparison document={testDocument(node)} node={node} hasEffects />);
@@ -117,39 +147,95 @@ describe('EffectStudioComparison', () => {
     expect(
       await screen.findByAltText('Original selected object without Object Filters'),
     ).toBeInTheDocument();
-    expect(screen.getByText(/effects render could not be generated/i)).toBeInTheDocument();
+    expect(screen.getByText(/accepted result preview failed/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Compare before and after' })).toBeDisabled();
   });
 
   it('keeps a legacy vector path intact in both thumbnail-rendered variants', async () => {
     const node = effectPathNode();
+    const acceptedNode = makePathNode('path-1', {
+      closed: true,
+      points: node.points,
+    });
     mockedRenderDocThumbnail
-      .mockResolvedValueOnce({
-        result: { dataUrl: 'data:image/png;base64,cGF0aC1vcmlnaW5hbA==' },
-      } as Awaited<ReturnType<typeof renderDocThumbnail>>)
-      .mockResolvedValueOnce({
-        result: { dataUrl: 'data:image/png;base64,cGF0aC1lZmZlY3Rz' },
-      } as Awaited<ReturnType<typeof renderDocThumbnail>>);
+      .mockResolvedValueOnce(outcome('data:image/png;base64,cGF0aC1vcmlnaW5hbA=='))
+      .mockResolvedValueOnce(outcome('data:image/png;base64,cGF0aC1lZmZlY3M'));
 
-    render(<EffectStudioComparison document={testDocument(node)} node={node} hasEffects />);
+    render(
+      <EffectStudioComparison
+        document={testDocument(node)}
+        baselineDocument={testDocument(acceptedNode)}
+        node={node}
+        hasEffects
+        isDraftPreview
+      />,
+    );
 
     await screen.findByAltText('Original selected object without Object Filters');
     const [originalDocument, originalOptions] = mockedRenderDocThumbnail.mock.calls[0]!;
     const [effectsDocument, effectsOptions] = mockedRenderDocThumbnail.mock.calls[1]!;
-    const originalPath = originalDocument.nodes[node.id];
-    const effectsPath = effectsDocument.nodes[node.id];
+    const originalPath = originalDocument.nodes[node.id]!;
+    const effectsPath = effectsDocument.nodes[node.id]!;
 
     expect(originalPath).toMatchObject({
       kind: 'path',
       points: node.points,
-      smartFiltersEnabled: false,
     });
     expect(effectsPath).toMatchObject({
       kind: 'path',
       points: node.points,
-      smartFiltersEnabled: true,
     });
+    expect(effectsPath.smartFilters).toHaveLength(1);
     expect(originalOptions.source).toEqual({ type: 'selection', nodeIds: [node.id] });
     expect(effectsOptions.source).toEqual({ type: 'selection', nodeIds: [node.id] });
+  });
+
+  it('discloses provisional results without treating them as authoritative', async () => {
+    const node = effectNode();
+    mockedRenderDocThumbnail.mockResolvedValueOnce({
+      ...outcome('data:image/png;base64,cHJvdmlzaW9uYWw=', {
+        isProvisional: true,
+        warnings: ['font-pending'],
+      }),
+      status: 'provisional',
+      warnings: ['font-pending'],
+    });
+
+    render(<EffectStudioComparison document={testDocument(node)} node={node} hasEffects={false} />);
+
+    expect(
+      await screen.findByAltText('Original selected object without Object Filters'),
+    ).toHaveAttribute('src', 'data:image/png;base64,cHJvdmlzaW9uYWw=');
+    expect(screen.getByText(/accepted state preview is provisional/i)).toBeInTheDocument();
+  });
+
+  it('shows the latest matching render when an older request resolves later', async () => {
+    const firstNode = effectNode();
+    const nextNode = { ...firstNode, name: 'Updated shape' };
+    const firstDocument = testDocument(firstNode);
+    const nextDocument = testDocument(nextNode);
+    const first = deferred<Awaited<ReturnType<typeof renderDocThumbnail>>>();
+    const next = deferred<Awaited<ReturnType<typeof renderDocThumbnail>>>();
+    mockedRenderDocThumbnail.mockImplementation((document) =>
+      Promise.resolve(document === firstDocument ? first.promise : next.promise),
+    );
+
+    const view = render(
+      <EffectStudioComparison document={firstDocument} node={firstNode} hasEffects={false} />,
+    );
+    view.rerender(
+      <EffectStudioComparison document={nextDocument} node={nextNode} hasEffects={false} />,
+    );
+
+    next.resolve(outcome('data:image/png;base64,bmV3'));
+    expect(
+      await screen.findByAltText('Original selected object without Object Filters'),
+    ).toHaveAttribute('src', 'data:image/png;base64,bmV3');
+    first.resolve(outcome('data:image/png;base64,b2xk'));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    expect(screen.getByAltText('Original selected object without Object Filters')).toHaveAttribute(
+      'src',
+      'data:image/png;base64,bmV3',
+    );
   });
 });

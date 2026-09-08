@@ -57,6 +57,7 @@ export type ThumbnailRole =
   | 'page-panel'
   | 'version-history'
   | 'picker-preview'
+  | 'effect-studio-preview'
   | 'export-preview';
 
 export type ThumbnailFit = 'contain' | 'cover' | 'fill';
@@ -132,6 +133,15 @@ export const THUMBNAIL_VARIANTS: Record<ThumbnailRole, ThumbnailVariant> = {
     role: 'picker-preview',
     width: 256,
     height: 192,
+    fit: 'contain',
+    background: { type: 'checkerboard' },
+    format: 'png',
+    devicePixelRatio: 1,
+  },
+  'effect-studio-preview': {
+    role: 'effect-studio-preview',
+    width: 768,
+    height: 576,
     fit: 'contain',
     background: { type: 'checkerboard' },
     format: 'png',

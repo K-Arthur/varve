@@ -91,7 +91,7 @@ export interface DocumentContextValue {
   /** Start an undo-coalesced edit; preview transactions stay clean until commit. */
   beginTransaction: (mode?: 'edit' | 'preview') => void;
   commitTransaction: () => void;
-  abortTransaction: () => void;
+  abortTransaction: (reconcile?: (snapshot: Document, current: Document) => Document) => void;
   undo: () => void;
   redo: () => void;
   newDocument: () => void;

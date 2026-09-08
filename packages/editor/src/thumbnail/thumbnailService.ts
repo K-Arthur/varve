@@ -49,6 +49,14 @@ export interface RenderDocThumbnailOptions {
 
 export interface RenderDocThumbnailOutcome {
   result: ThumbnailResult | null;
+  /** Lifecycle state kept alongside the result until the UI has inspected it. */
+  status: 'ready' | 'provisional' | 'empty' | 'cancelled' | 'error';
+  /** Quality/backend contract for callers that need more than a data URL. */
+  qualityTier: 'thumbnail' | 'editing-preview';
+  renderer: 'canonical-engine';
+  /** Warnings are copied from the engine result for status and accessibility UI. */
+  warnings: readonly string[];
+  error?: string;
   /** The identity the result was rendered under (cache key). */
   identity: ReturnType<typeof thumbnailIdentity>;
   /** Source validity: 'valid' | 'missing-source' | 'empty'. */
@@ -102,15 +110,28 @@ export async function renderDocThumbnail(
     revisionHash: options.revisionHash,
   });
   const revisionHash = options.revisionHash ?? documentRevisionHash(doc);
+  const qualityTier =
+    options.variant.role === 'effect-studio-preview' ? 'editing-preview' : 'thumbnail';
+
+  const outcome = (
+    result: ThumbnailResult | null,
+    status: RenderDocThumbnailOutcome['status'],
+    error?: string,
+  ): RenderDocThumbnailOutcome => ({
+    result,
+    status,
+    qualityTier,
+    renderer: 'canonical-engine',
+    warnings: result?.metadata.warnings ?? [],
+    ...(error ? { error } : {}),
+    identity,
+    validity: selection.validity,
+    fallbackApplied,
+    effectiveSource,
+  });
 
   if (options.signal?.aborted) {
-    return {
-      result: null,
-      identity,
-      validity: selection.validity,
-      fallbackApplied,
-      effectiveSource,
-    };
+    return outcome(null, 'cancelled');
   }
 
   // Empty documents get a proper placeholder instead of transparent pixels.
@@ -133,20 +154,14 @@ export async function renderDocThumbnail(
         warnings: ['empty-document'],
       },
     };
-    return { result, identity, validity: selection.validity, fallbackApplied, effectiveSource };
+    return outcome(result, 'empty');
   }
 
   if (options.waitForFonts !== false) {
     await waitForFonts();
   }
   if (options.signal?.aborted) {
-    return {
-      result: null,
-      identity,
-      validity: selection.validity,
-      fallbackApplied,
-      effectiveSource,
-    };
+    return outcome(null, 'cancelled');
   }
 
   if (selection.ids.length > MAX_THUMBNAIL_NODES) {
@@ -177,26 +192,37 @@ export async function renderDocThumbnail(
         warnings: ['no-renderable-nodes'],
       },
     };
-    return { result, identity, validity: selection.validity, fallbackApplied, effectiveSource };
+    return outcome(result, 'empty');
   }
 
-  const result = await generateThumbnail(
-    engineNodes.nodes,
-    revisionHash,
-    {
-      maxWidth: options.variant.width,
-      maxHeight: options.variant.height,
-      fit: options.variant.fit,
-      background: options.variant.background,
-      format: options.variant.format,
-      devicePixelRatio: options.variant.devicePixelRatio,
-      frame: selection.worldFrame ?? undefined,
-      sourceLabel: sourceDisplayLabel(effectiveSource),
-    },
-    options.signal,
-  );
-
-  return { result, identity, validity: selection.validity, fallbackApplied, effectiveSource };
+  try {
+    const result = await generateThumbnail(
+      engineNodes.nodes,
+      revisionHash,
+      {
+        maxWidth: options.variant.width,
+        maxHeight: options.variant.height,
+        fit: options.variant.fit,
+        background: options.variant.background,
+        format: options.variant.format,
+        devicePixelRatio: options.variant.devicePixelRatio,
+        frame: selection.worldFrame ?? undefined,
+        sourceLabel: sourceDisplayLabel(effectiveSource),
+      },
+      options.signal,
+    );
+    if (options.signal?.aborted) return outcome(null, 'cancelled');
+    if (!result?.dataUrl) return outcome(result, 'error', 'The renderer returned no image.');
+    if (result.metadata.isPlaceholder) return outcome(result, 'empty');
+    if (result.metadata.isProvisional) return outcome(result, 'provisional');
+    return outcome(result, 'ready');
+  } catch (error) {
+    return outcome(
+      null,
+      'error',
+      error instanceof Error ? error.message : 'The renderer failed to produce an image.',
+    );
+  }
 }
 
 function sourceDisplayLabel(source: ThumbnailSourceSpec): string {

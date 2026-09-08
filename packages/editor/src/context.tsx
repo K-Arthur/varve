@@ -1169,7 +1169,7 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   /** Start an undo-coalesced edit; preview transactions stay clean until commit. */
   beginTransaction: (mode?: 'edit' | 'preview') => void;
   commitTransaction: () => void;
-  abortTransaction: () => void;
+  abortTransaction: (reconcile?: (snapshot: Document, current: Document) => Document) => void;
   /** Typography: Create a text chain for linked text frames. */
   createTextChain: (name: string, frameIds: NodeId[]) => void;
   /** Typography: Delete a text chain. */
@@ -3310,22 +3310,23 @@ export function EditorProvider({
     });
   }, []);
 
-  const abortTransaction = useCallback(() => {
-    if (inTransactionRef.current) {
+  const abortTransaction = useCallback(
+    (reconcile?: (snapshot: Document, current: Document) => Document) => {
+      if (!inTransactionRef.current) return;
       inTransactionRef.current = false;
       txDepthRef.current = 0;
-      if (txSnapshotRef.current !== null) {
-        patch({ document: txSnapshotRef.current, selection: txSelRef.current ?? [] });
-      }
-      txSnapshotRef.current = null;
-      txSelRef.current = null;
-      txBaseDocumentRevisionRef.current = null;
+      patch({
+        document:
+          reconcile?.(txSnapshotRef.current!, stateRef.current.document) ?? txSnapshotRef.current!,
+        ...(reconcile ? {} : { selection: txSelRef.current ?? [] }),
+      });
+      txSnapshotRef.current = txSelRef.current = txBaseDocumentRevisionRef.current = null;
       transactionModeRef.current = 'edit';
       txLabelRef.current = 'Edit';
       getTransactionHooks().onAbortTransaction();
-    }
-  }, [patch]);
-
+    },
+    [patch],
+  );
   /** Run related mutations as one user-visible history step without overwriting an outer label. */
   const groupCompoundOperation = useCallback(
     (label: string, action: () => void) =>

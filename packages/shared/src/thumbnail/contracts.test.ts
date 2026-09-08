@@ -180,6 +180,14 @@ describe('thumbnail variants', () => {
     const keys = Object.values(THUMBNAIL_VARIANTS).map(thumbnailVariantKey);
     expect(new Set(keys).size).toBe(keys.length);
   });
+
+  it('provides a larger editing profile separate from picker thumbnails', () => {
+    const editing = THUMBNAIL_VARIANTS['effect-studio-preview'];
+    const picker = THUMBNAIL_VARIANTS['picker-preview'];
+    expect(editing.role).toBe('effect-studio-preview');
+    expect(editing.width).toBeGreaterThan(picker.width);
+    expect(editing.height).toBeGreaterThan(picker.height);
+  });
 });
 
 describe('thumbnail policy', () => {

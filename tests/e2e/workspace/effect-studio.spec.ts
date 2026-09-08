@@ -85,6 +85,8 @@ test.describe('Effect Studio dialog', () => {
       'data-view',
       'compare',
     );
+    await expect(studio.getByRole('button', { name: 'Before this edit' })).toBeEnabled();
+    await expect(studio.getByRole('button', { name: 'Current candidate' })).toBeEnabled();
     expect(await original.getAttribute('src')).not.toBe(await effects.getAttribute('src'));
     await expect(studio.getByTestId('effect-studio-preview-stage')).toHaveScreenshot(
       'effect-studio-before-after.png',
@@ -93,7 +95,7 @@ test.describe('Effect Studio dialog', () => {
     const split = studio.getByRole('slider', { name: 'Before and after split' });
     await split.focus();
     await split.press('ArrowRight');
-    await expect(studio.getByText('51% original')).toBeVisible();
+    await expect(studio.getByText('51% before')).toBeVisible();
 
     await studio.getByRole('button', { name: 'Keep treatment' }).click();
     await expect(studio.getByRole('button', { name: 'Reset controls' })).toBeVisible();
@@ -224,6 +226,35 @@ test.describe('Effect Studio dialog', () => {
     await expect(applied.locator('li')).toHaveCount(2);
     await expect(applied).toContainText('Reticulation');
     await expect(applied).toContainText('Halftone Pattern');
+  });
+
+  test('cancels a draft without removing the accepted stack and makes duplication explicit', async ({
+    page,
+  }) => {
+    await navigateToCleanEditor(page);
+    await createSelectedVectorPath(page);
+
+    await page.getByTestId('open-effect-studio').click();
+    const studio = page.getByTestId('effect-studio-dialog');
+    await expect(studio).toBeVisible({ timeout: 30_000 });
+    const search = studio.getByRole('searchbox', { name: 'Search treatments' });
+    const applied = studio.getByRole('list', { name: 'Applied treatments' });
+
+    await search.fill('reticulation');
+    await studio.getByRole('button', { name: 'Apply Reticulation' }).click();
+    await expect(applied.locator('li')).toHaveCount(1);
+
+    await search.fill('halftone pattern');
+    await studio.getByRole('button', { name: 'Preview Halftone Pattern' }).click();
+    await studio.getByRole('button', { name: 'Cancel preview' }).click();
+    await expect(applied.locator('li')).toHaveCount(1);
+    await expect(applied).toContainText('Reticulation');
+    await expect(applied).not.toContainText('Halftone Pattern');
+
+    await search.fill('reticulation');
+    await expect(studio.getByRole('button', { name: 'Add another Reticulation' })).toBeVisible();
+    await studio.getByRole('button', { name: 'Add another Reticulation' }).click();
+    await expect(applied.locator('li')).toHaveCount(2);
   });
 
   test('keeps a previewed treatment when applying a different recipe', async ({ page }) => {

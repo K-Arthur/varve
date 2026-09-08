@@ -1,79 +1,128 @@
 /**
- * An honest Original / Effects preview for Effect Studio.
+ * Canonical before/after viewport for Effect Studio.
  *
- * Effect Studio is object-local, so the comparison deliberately renders only
- * the current selection. Both variants pass through the canonical thumbnail
- * renderer: scene conversion, the engine IR, and live Object Filters. The
- * Studio therefore previews the result it will actually place on the canvas,
- * rather than a decorative gallery thumbnail.
+ * The comparison receives an explicit accepted baseline and a current
+ * candidate. It never toggles the persisted filter bypass to manufacture an
+ * "Original" image: that would remove unrelated effects and could disagree
+ * with what Cancel is going to restore.
  */
 import type { Document, SceneNode } from '@varve/scene';
 import { THUMBNAIL_VARIANTS } from '@varve/shared';
-import { type CSSProperties, useEffect, useState } from 'react';
-
-interface ComparisonImages {
-  original?: string;
-  effects?: string;
-}
+import { type CSSProperties, useEffect, useRef, useState } from 'react';
+import { documentRevisionHash, thumbnailIdentity } from '../../thumbnail/identity';
+import type { RenderDocThumbnailOutcome } from '../../thumbnail/thumbnailService';
+import { renderDocThumbnail } from '../../thumbnail/thumbnailService';
 
 type ComparisonView = 'original' | 'effects' | 'compare';
+type ViewportMode = 'fit' | '100%' | '200%';
+type OutcomeStatus = RenderDocThumbnailOutcome['status'];
+
+interface PreviewImage {
+  dataUrl?: string;
+  status: OutcomeStatus;
+  warnings: readonly string[];
+  fallbackApplied: boolean;
+  error?: string;
+}
+
+interface ComparisonImages {
+  original?: PreviewImage;
+  effects?: PreviewImage;
+  targetKey: string;
+  stale: boolean;
+}
 
 export interface EffectStudioComparisonProps {
+  /** Current candidate document. During a draft this contains preview-owned entries. */
   document: Document;
+  /** Accepted document captured at draft/live-edit start, when one exists. */
+  baselineDocument?: Document | null;
   node: SceneNode | undefined;
   hasEffects: boolean;
+  /** A multi-selection is represented by the first target and disclosed here. */
+  targetCount?: number;
+  targetLabel?: string;
+  isDraftPreview?: boolean;
 }
 
-function documentWithNode(document: Document, node: SceneNode): Document {
+const VARIANT = THUMBNAIL_VARIANTS['effect-studio-preview'];
+
+function targetKey(document: Document, node: SceneNode): string {
+  return `${document.id}:${node.id}`;
+}
+
+function inferStatus(outcome: RenderDocThumbnailOutcome): OutcomeStatus {
+  if (outcome.status) return outcome.status;
+  const result = outcome.result;
+  if (!result?.dataUrl) return 'error';
+  if (result.metadata?.isPlaceholder) return 'empty';
+  if (result.metadata?.isProvisional) return 'provisional';
+  return 'ready';
+}
+
+function imageFromOutcome(outcome: RenderDocThumbnailOutcome): PreviewImage {
+  const status = inferStatus(outcome);
   return {
-    ...document,
-    nodes: {
-      ...document.nodes,
-      [node.id]: node,
-    },
+    dataUrl: status === 'ready' || status === 'provisional' ? outcome.result?.dataUrl : undefined,
+    status,
+    warnings: outcome.warnings ?? outcome.result?.metadata?.warnings ?? [],
+    fallbackApplied: outcome.fallbackApplied,
+    error: outcome.error,
   };
 }
 
-/**
- * The two variants differ only in the selected object's Object Filter stack.
- * Parent and adjustment-layer compositing are deliberately outside this small
- * object-local comparison; they remain visible and editable on the canvas.
- */
-function comparisonDocuments(
-  document: Document,
-  node: SceneNode,
-): {
-  original: Document;
-  effects: Document;
-} {
+function failedImage(error: unknown): PreviewImage {
   return {
-    original: documentWithNode(document, { ...node, smartFiltersEnabled: false }),
-    effects: documentWithNode(document, { ...node, smartFiltersEnabled: true }),
+    status: 'error',
+    warnings: [],
+    fallbackApplied: false,
+    error: error instanceof Error ? error.message : 'The preview renderer failed.',
   };
 }
 
-function previewError(images: ComparisonImages, hasEffects: boolean): string | undefined {
-  if (!images.original && !images.effects) {
-    return 'The selected object cannot be rendered in this preview yet. Its live result remains available on the canvas.';
-  }
-  if (!images.original) {
-    return 'The original could not be rendered for comparison. The effects render is still shown.';
-  }
-  if (hasEffects && !images.effects) {
-    return 'The effects render could not be generated yet. The original is still shown.';
-  }
+function isCacheable(outcome: RenderDocThumbnailOutcome): boolean {
+  return inferStatus(outcome) === 'ready' && Boolean(outcome.result?.dataUrl);
+}
+
+function cacheKey(document: Document, node: SceneNode): string {
+  return thumbnailIdentity({
+    doc: document,
+    source: { type: 'selection', nodeIds: [node.id] },
+    variant: VARIANT,
+  }).key;
+}
+
+function resultMessage(slot: PreviewImage | undefined, side: string): string | undefined {
+  if (!slot) return undefined;
+  if (slot.status === 'error')
+    return `${side} preview failed${slot.error ? `: ${slot.error}` : '.'}`;
+  if (slot.status === 'empty') return `${side} preview is empty or unavailable.`;
+  if (slot.status === 'cancelled') return `${side} preview was cancelled.`;
+  if (slot.status === 'provisional')
+    return `${side} preview is provisional while resources settle.`;
+  if (slot.fallbackApplied)
+    return `${side} preview used its automatic source because the requested source was missing.`;
+  if (slot.warnings.length > 0) return `${side} preview warning: ${slot.warnings.join(', ')}.`;
   return undefined;
 }
 
 export function EffectStudioComparison({
   document,
+  baselineDocument,
   node,
   hasEffects,
+  targetCount = 1,
+  targetLabel = 'selected object',
+  isDraftPreview = false,
 }: EffectStudioComparisonProps) {
   const [images, setImages] = useState<ComparisonImages | null>(null);
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState<ComparisonView>('compare');
   const [split, setSplit] = useState(50);
+  const [viewport, setViewport] = useState<ViewportMode>('fit');
+  const [retryNonce, setRetryNonce] = useState(0);
+  const [settledCache] = useState(() => new Map<string, RenderDocThumbnailOutcome>());
+  const retryScopeRef = useRef('');
 
   useEffect(() => {
     if (!node) {
@@ -84,47 +133,83 @@ export function EffectStudioComparison({
 
     let cancelled = false;
     const controller = new AbortController();
-    setImages(null);
+    const currentTargetKey = targetKey(document, node);
+    const acceptedDocument = baselineDocument ?? document;
+    const acceptedNode = acceptedDocument.nodes[node.id] as SceneNode | undefined;
+    const candidateNode = document.nodes[node.id] as SceneNode | undefined;
+    const nextRetryScope = `${currentTargetKey}:${documentRevisionHash(acceptedDocument)}`;
+    const source = { type: 'selection' as const, nodeIds: [node.id] };
+
+    setImages((previous) =>
+      previous?.targetKey === currentTargetKey ? { ...previous, stale: true } : null,
+    );
     setLoading(true);
 
-    void (async () => {
-      const { renderDocThumbnail } = await import('../../thumbnail/thumbnailService');
-      const documents = comparisonDocuments(document, node);
-      const source = { type: 'selection' as const, nodeIds: [node.id] };
-      const options = {
+    const render = (sourceDocument: Document, sourceNode: SceneNode) => {
+      const key = cacheKey(sourceDocument, sourceNode);
+      const settled = settledCache.get(key);
+      if (settled) return Promise.resolve(settled);
+      return renderDocThumbnail(sourceDocument, {
         source,
-        variant: THUMBNAIL_VARIANTS['picker-preview'],
+        variant: VARIANT,
         signal: controller.signal,
-      };
-      const results = await Promise.allSettled([
-        renderDocThumbnail(documents.original, options),
-        ...(hasEffects ? [renderDocThumbnail(documents.effects, options)] : []),
-      ]);
-      if (cancelled) return;
+      }).then((outcome) => {
+        if (isCacheable(outcome)) {
+          settledCache.set(key, outcome);
+          while (settledCache.size > 8) {
+            const first = settledCache.keys().next().value as string | undefined;
+            if (first === undefined) break;
+            settledCache.delete(first);
+          }
+        }
+        return outcome;
+      });
+    };
 
-      const original = results[0];
-      const effects = results[1];
-      const nextImages: ComparisonImages = {
-        original: original?.status === 'fulfilled' ? original.value.result?.dataUrl : undefined,
-        effects: effects?.status === 'fulfilled' ? effects.value.result?.dataUrl : undefined,
-      };
-      setImages(nextImages.original || nextImages.effects ? nextImages : null);
-      setLoading(false);
-    })().catch(() => {
-      if (!cancelled) {
-        setImages(null);
+    const originalPromise = acceptedNode
+      ? render(acceptedDocument, acceptedNode)
+      : Promise.reject(new Error('The accepted target is no longer available.'));
+    const effectsPromise = hasEffects
+      ? candidateNode
+        ? render(document, candidateNode)
+        : Promise.reject(new Error('The current target is no longer available.'))
+      : null;
+
+    void Promise.allSettled([originalPromise, ...(effectsPromise ? [effectsPromise] : [])]).then(
+      (results) => {
+        if (cancelled) return;
+        const originalResult = results[0];
+        const effectsResult = results[1];
+        const original =
+          originalResult?.status === 'fulfilled'
+            ? imageFromOutcome(originalResult.value)
+            : failedImage(originalResult?.reason);
+        const effects = effectsPromise
+          ? effectsResult?.status === 'fulfilled'
+            ? imageFromOutcome(effectsResult.value)
+            : failedImage(effectsResult?.reason)
+          : undefined;
+        setImages({ original, effects, targetKey: currentTargetKey, stale: false });
         setLoading(false);
-      }
-    });
+
+        const provisional = original.status === 'provisional' || effects?.status === 'provisional';
+        if (provisional && retryScopeRef.current !== nextRetryScope) {
+          retryScopeRef.current = nextRetryScope;
+          window.setTimeout(() => {
+            if (!cancelled) setRetryNonce((value) => value + 1);
+          }, 600);
+        }
+      },
+    );
 
     return () => {
       cancelled = true;
       controller.abort();
     };
-  }, [document, hasEffects, node]);
+  }, [baselineDocument, document, hasEffects, node, retryNonce, settledCache]);
 
-  const canShowOriginal = Boolean(images?.original);
-  const canShowEffects = hasEffects && Boolean(images?.effects);
+  const canShowOriginal = Boolean(images?.original?.dataUrl);
+  const canShowEffects = hasEffects && Boolean(images?.effects?.dataUrl);
   const activeView: ComparisonView = !canShowEffects
     ? canShowOriginal
       ? 'original'
@@ -132,21 +217,33 @@ export function EffectStudioComparison({
     : !canShowOriginal
       ? 'effects'
       : view;
-  const error = images ? previewError(images, hasEffects) : undefined;
-  const stageStyle = { '--effect-studio-split': `${split}%` } as CSSProperties;
+  const beforeLabel = isDraftPreview ? 'Before this edit' : 'Accepted state';
+  const afterLabel = isDraftPreview ? 'Current candidate' : 'Accepted result';
+  const errorMessages = [
+    resultMessage(images?.original, beforeLabel),
+    hasEffects ? resultMessage(images?.effects, afterLabel) : undefined,
+  ].filter((message): message is string => Boolean(message));
+  const stageStyle = {
+    '--effect-studio-split': `${split}%`,
+    '--effect-studio-zoom': viewport === '200%' ? '2' : '1',
+  } as CSSProperties;
 
   return (
     <section
       className="effect-studio-comparison"
-      aria-label="With and without object effects"
+      aria-label={`${beforeLabel} and ${afterLabel}`}
       data-testid="effect-studio-comparison"
     >
       <div className="effect-studio-comparison__header">
         <div>
-          <h3>Live preview</h3>
-          <p>Rendered from the selected object’s actual Object Filter stack.</p>
+          <h3>{isDraftPreview ? 'Draft preview' : 'Effect preview'}</h3>
+          <p>
+            {beforeLabel} versus {afterLabel} for {targetLabel}.
+            {targetCount > 1 &&
+              ` Representative preview · Apply affects all ${targetCount} selected objects.`}
+          </p>
         </div>
-        {loading && <span role="status">Rendering preview</span>}
+        {loading && <span role="status">Updating preview</span>}
       </div>
 
       <fieldset className="effect-studio-comparison__modes">
@@ -156,16 +253,18 @@ export function EffectStudioComparison({
           aria-pressed={activeView === 'original'}
           disabled={!canShowOriginal}
           onClick={() => setView('original')}
+          aria-label={beforeLabel}
         >
-          Original
+          Before
         </button>
         <button
           type="button"
           aria-pressed={activeView === 'effects'}
           disabled={!canShowEffects}
           onClick={() => setView('effects')}
+          aria-label={afterLabel}
         >
-          Effects
+          After
         </button>
         <button
           type="button"
@@ -178,38 +277,56 @@ export function EffectStudioComparison({
         </button>
       </fieldset>
 
+      <fieldset className="effect-studio-comparison__zoom">
+        <legend>Preview zoom</legend>
+        {(['fit', '100%', '200%'] as const).map((mode) => (
+          <button
+            type="button"
+            key={mode}
+            aria-pressed={viewport === mode}
+            onClick={() => setViewport(mode)}
+          >
+            {mode === 'fit' ? 'Fit' : mode}
+          </button>
+        ))}
+      </fieldset>
+
       {images ? (
         <>
           <div
             className="effect-studio-comparison__stage"
             data-testid="effect-studio-preview-stage"
             data-view={activeView}
+            data-zoom={viewport}
             style={stageStyle}
           >
-            {activeView === 'original' && images.original && (
-              <img alt="Original selected object without Object Filters" src={images.original} />
+            {activeView === 'original' && images.original?.dataUrl && (
+              <img
+                alt="Original selected object without Object Filters"
+                src={images.original.dataUrl}
+              />
             )}
-            {activeView === 'effects' && images.effects && (
-              <img alt="Selected object with its Object Filters" src={images.effects} />
+            {activeView === 'effects' && images.effects?.dataUrl && (
+              <img alt="Selected object with its Object Filters" src={images.effects.dataUrl} />
             )}
-            {activeView === 'compare' && images.original && images.effects && (
+            {activeView === 'compare' && images.original?.dataUrl && images.effects?.dataUrl && (
               <>
                 <img
                   alt="Selected object with its Object Filters"
                   className="effect-studio-comparison__effects-image"
-                  src={images.effects}
+                  src={images.effects.dataUrl}
                 />
                 <img
                   alt="Original selected object without Object Filters"
                   className="effect-studio-comparison__original-image"
-                  src={images.original}
+                  src={images.original.dataUrl}
                 />
                 <span className="effect-studio-comparison__divider" aria-hidden="true" />
                 <span className="effect-studio-comparison__label effect-studio-comparison__label--before">
-                  Original
+                  {beforeLabel}
                 </span>
                 <span className="effect-studio-comparison__label effect-studio-comparison__label--after">
-                  Effects
+                  {afterLabel}
                 </span>
               </>
             )}
@@ -226,16 +343,25 @@ export function EffectStudioComparison({
                 onChange={(event) => setSplit(Number(event.target.value))}
                 aria-label="Before and after split"
               />
-              <output>{split}% original</output>
+              <output>{split}% before</output>
             </label>
           )}
-          {error && <p className="effect-studio-comparison__notice">{error}</p>}
+          {images.stale && (
+            <p className="effect-studio-comparison__notice">
+              Updating current candidate; showing the last valid frame for this target.
+            </p>
+          )}
+          {errorMessages.map((message) => (
+            <p className="effect-studio-comparison__notice" key={message} role="status">
+              {message}
+            </p>
+          ))}
         </>
       ) : (
         <p className="effect-studio-comparison__empty">
           {loading
             ? 'Rendering the selected object…'
-            : 'Select an object to render its original and effect result here.'}
+            : 'Select an object to render its accepted and candidate states here.'}
         </p>
       )}
     </section>

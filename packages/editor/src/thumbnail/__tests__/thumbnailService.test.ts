@@ -97,6 +97,16 @@ describe('renderDocThumbnail — cancellation', () => {
     controller.abort();
     const outcome = await renderDocThumbnail(doc, { variant: VARIANT, signal: controller.signal });
     expect(outcome.result).toBeNull();
+    expect(outcome.status).toBe('cancelled');
+  });
+
+  it('returns an editing quality contract and keeps warnings beside the image', async () => {
+    const outcome = await renderDocThumbnail(docWithPageContent(), {
+      variant: THUMBNAIL_VARIANTS['effect-studio-preview'],
+    });
+    expect(outcome.qualityTier).toBe('editing-preview');
+    expect(outcome.renderer).toBe('canonical-engine');
+    expect(outcome.warnings).toEqual(outcome.result?.metadata.warnings ?? []);
   });
 
   it('renders page sources in page-local coordinates', async () => {
