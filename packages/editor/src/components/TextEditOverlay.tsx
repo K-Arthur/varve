@@ -368,6 +368,8 @@ export function TextEditOverlay({
         fontSize: node.fontSize ?? 16,
         fontFamily: node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY,
         fontWeight: node.fontWeight ?? 400,
+        writingMode: node.writingMode ?? 'horizontal-tb',
+        textOrientation: node.textOrientation ?? 'mixed',
         // Keep the editing surface on the same fallback as shared text
         // geometry and the canvas renderer. Imported nodes may omit the
         // optional line-height field; using 1.2 here made their caret and
@@ -395,6 +397,8 @@ export function TextEditOverlay({
         zIndex: 1000,
       }}
       data-text-edit-surface="true"
+      data-writing-mode={node.writingMode ?? 'horizontal-tb'}
+      data-text-orientation={node.textOrientation ?? 'mixed'}
     />
   );
   return createPortal(editor, document.body);

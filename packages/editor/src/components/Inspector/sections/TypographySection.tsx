@@ -88,6 +88,24 @@ const DIRECTION_OPTIONS: readonly SegmentedOption<'auto' | 'ltr' | 'rtl'>[] = [
   { value: 'rtl', label: 'RTL' },
 ] as const;
 
+const WRITING_MODE_OPTIONS: readonly {
+  value: NonNullable<TextNode['writingMode']>;
+  label: string;
+}[] = [
+  { value: 'horizontal-tb', label: 'Horizontal' },
+  { value: 'vertical-rl', label: 'Vertical RL' },
+  { value: 'vertical-lr', label: 'Vertical LR' },
+];
+
+const TEXT_ORIENTATION_OPTIONS: readonly {
+  value: NonNullable<TextNode['textOrientation']>;
+  label: string;
+}[] = [
+  { value: 'mixed', label: 'Mixed' },
+  { value: 'upright', label: 'Upright' },
+  { value: 'sideways', label: 'Sideways' },
+];
+
 const TEXT_ALIGN_OPTIONS: readonly SegmentedOption<'left' | 'center' | 'right' | 'justify'>[] = [
   { value: 'left', label: 'L' },
   { value: 'center', label: 'C' },
@@ -291,6 +309,12 @@ export function TypographySection({ nodes }: TypographySectionProps) {
   );
   const alignRaw = commonValue(textNodes, (n) => getTextValue(n, (t) => t.textAlign ?? 'left'));
   const directionRaw = commonValue(textNodes, (n) => getTextValue(n, (t) => t.direction ?? 'auto'));
+  const writingModeRaw = commonValue(textNodes, (n) =>
+    getTextValue(n, (t) => t.writingMode ?? 'horizontal-tb'),
+  );
+  const textOrientationRaw = commonValue(textNodes, (n) =>
+    getTextValue(n, (t) => t.textOrientation ?? 'mixed'),
+  );
   const alignVRaw = commonValue(textNodes, (n) =>
     getTextValue(n, (t) => t.textAlignVertical ?? 'top'),
   );
@@ -474,6 +498,38 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             value={isMixed(directionRaw) ? 'auto' : directionRaw}
             options={DIRECTION_OPTIONS}
             onChange={(v) => batchUpdate((n) => ({ ...n, direction: v }))}
+          />
+        </FieldRow>
+        <FieldRow label="Writing mode">
+          <Select
+            label="Writing mode (not rotation)"
+            value={isMixed(writingModeRaw) ? 'horizontal-tb' : writingModeRaw}
+            options={WRITING_MODE_OPTIONS.map((option) => ({
+              value: option.value,
+              label: option.label,
+            }))}
+            onChange={(value) =>
+              batchUpdate((n) => ({
+                ...n,
+                writingMode: value as TextNode['writingMode'],
+              }))
+            }
+          />
+        </FieldRow>
+        <FieldRow label="Orientation">
+          <Select
+            label="Vertical text orientation"
+            value={isMixed(textOrientationRaw) ? 'mixed' : textOrientationRaw}
+            options={TEXT_ORIENTATION_OPTIONS.map((option) => ({
+              value: option.value,
+              label: option.label,
+            }))}
+            onChange={(value) =>
+              batchUpdate((n) => ({
+                ...n,
+                textOrientation: value as TextNode['textOrientation'],
+              }))
+            }
           />
         </FieldRow>
         <FieldRow label="V Align">

@@ -45,6 +45,8 @@ export interface PaintProperties {
   tracking?: number;
   textAlign?: 'left' | 'center' | 'right' | 'justify';
   textAlignVertical?: 'top' | 'middle' | 'bottom';
+  writingMode?: import('@varve/scene').WritingMode;
+  textOrientation?: import('@varve/scene').TextOrientation;
 }
 
 function clone<T>(value: T): T {
@@ -91,6 +93,8 @@ export function extractPaintProperties(node: SceneNode): PaintProperties {
     if (t.tracking !== undefined) props.tracking = t.tracking;
     if (t.textAlign !== undefined) props.textAlign = t.textAlign;
     if (t.textAlignVertical !== undefined) props.textAlignVertical = t.textAlignVertical;
+    if (t.writingMode !== undefined) props.writingMode = t.writingMode;
+    if (t.textOrientation !== undefined) props.textOrientation = t.textOrientation;
   }
   return props;
 }
@@ -139,6 +143,8 @@ export function applyPaintProperties(
       'tracking',
       'textAlign',
       'textAlignVertical',
+      'writingMode',
+      'textOrientation',
     ] as const) {
       if (props[key] !== undefined) patch[key] = props[key];
     }
