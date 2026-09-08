@@ -57,6 +57,38 @@ function derivePrimitiveFromPaints(node: SceneNode): import('./types').Primitive
 
 export type { Engine };
 
+/**
+ * Keep typography semantics alive across the native/WASM IR boundary.
+ *
+ * Older Rust IR producers understand the text shape but do not yet serialize
+ * the editor-only writing-mode fields. The TS replay path owns the final
+ * orientation policy, so restore these optional fields from the ordered scene
+ * nodes until the wire schema carries them natively.
+ */
+function restoreTextWritingMetadata(
+  nodes: readonly SceneNode[],
+  items: readonly RenderItem[],
+): RenderItem[] {
+  return items.map((item, index) => {
+    const node = nodes[index];
+    if (item.primitive.kind !== 'text' || node?.kind !== 'text') return item;
+    const textShape = node.shape as
+      | { writingMode?: WritingMode; textOrientation?: TextOrientation }
+      | undefined;
+    const writingMode = node.writingMode ?? textShape?.writingMode;
+    const textOrientation = node.textOrientation ?? textShape?.textOrientation;
+    if (!writingMode && !textOrientation) return item;
+    return {
+      ...item,
+      primitive: {
+        ...item.primitive,
+        ...(writingMode ? { writingMode } : {}),
+        ...(textOrientation ? { textOrientation } : {}),
+      },
+    };
+  });
+}
+
 /** Resolve the path shape for a text node in path text mode. */
 function resolvePathShape(
   node: SceneNode,
@@ -366,7 +398,7 @@ async function nativeEngine(): Promise<Engine> {
     backend: 'native',
     async buildIr(scene) {
       const items = await tauri.core.invoke('build_render_ir', { nodes: scene.nodes });
-      return items as RenderItem[];
+      return restoreTextWritingMetadata(scene.nodes, items as RenderItem[]);
     },
     async hitTest(scene, world) {
       const idx = await tauri.core.invoke('hit_test', {
@@ -449,7 +481,7 @@ export function createWasmEngineFromModule(mod: WasmEngineModule): Engine {
     backend: 'wasm',
     async buildIr(scene) {
       const json = mod.build_ir_json(JSON.stringify(scene.nodes));
-      return JSON.parse(json) as RenderItem[];
+      return restoreTextWritingMetadata(scene.nodes, JSON.parse(json) as RenderItem[]);
     },
     async hitTest(scene, world) {
       const idx = mod.hit_test_json(JSON.stringify(scene.nodes), world[0], world[1]);

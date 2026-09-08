@@ -49,6 +49,43 @@ describe('wasmLoader', () => {
     expect(ir).toHaveLength(1);
   });
 
+  it('restores vertical text metadata until the native IR schema carries it', async () => {
+    const mod = {
+      build_ir_json: () =>
+        JSON.stringify([
+          {
+            transform: [1, 0, 0, 1, 0, 0],
+            fill: [0, 0, 0, 255],
+            primitive: { kind: 'text', text: '縦', x: 0, y: 0, w: 20, h: 40 },
+            opacity: 1,
+            blendMode: 'normal',
+          },
+        ]),
+      hit_test_json: () => 0,
+      wasm_engine_version: () => '0.0.0',
+    };
+    const eng = createWasmEngineFromModule(mod);
+    const ir = await eng.buildIr({
+      nodes: [
+        {
+          id: 'vertical',
+          name: 'Vertical',
+          transform: [1, 0, 0, 1, 0, 0],
+          kind: 'text',
+          shape: { kind: 'rect', x: 0, y: 0, w: 20, h: 40 },
+          text: '縦',
+          writingMode: 'vertical-rl',
+          textOrientation: 'mixed',
+        },
+      ],
+    });
+    expect(ir[0]?.primitive).toMatchObject({
+      kind: 'text',
+      writingMode: 'vertical-rl',
+      textOrientation: 'mixed',
+    });
+  });
+
   it('wasmHitTestFallback delegates to stub geometry', () => {
     const idx = wasmHitTestFallback(
       [
