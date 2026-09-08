@@ -1376,6 +1376,56 @@ describe('replayIr', () => {
     expect(rec.calls.some((call) => call.startsWith('rect('))).toBe(false);
   });
 
+  it('strokes vertical text at canonical cluster positions and orientations', () => {
+    const rec = new MeasuredRecorder();
+    replayIr(rec, [
+      {
+        transform: [1, 0, 0, 1, 0, 0] as const,
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } as const,
+        strokes: [
+          {
+            color: { space: 'rgb', r: 0, g: 120, b: 255, a: 255 } as const,
+            weight: 2,
+            align: 'center' as const,
+            dashPattern: [],
+            dashOffset: 0,
+            cap: 'round' as const,
+            join: 'round' as const,
+            miterLimit: 4,
+            visible: true,
+          },
+        ],
+        primitive: {
+          kind: 'text',
+          text: 'Aあ',
+          fontSize: 18,
+          fontFamily: 'Inter',
+          fontWeight: 500,
+          fontStyle: 'normal' as const,
+          textAlign: 'left' as const,
+          textAlignVertical: 'top' as const,
+          writingMode: 'vertical-rl' as const,
+          textOrientation: 'mixed' as const,
+          letterSpacing: 0,
+          lineHeight: 1.4,
+          paragraphSpacing: 0,
+          textCase: 'none' as const,
+          textDecoration: 'none' as const,
+          textOverflow: 'visible' as const,
+          listStyle: 'none' as const,
+          x: 12,
+          y: 8,
+          w: 80,
+          h: 80,
+        },
+      },
+    ]);
+    expect(rec.calls.filter((call) => call.startsWith('strokeText'))).toHaveLength(2);
+    expect(rec.calls.filter((call) => call.startsWith('rotate('))).toHaveLength(2);
+    expect(rec.calls.some((call) => call === 'strokeText("A",0,0)')).toBe(true);
+    expect(rec.calls.some((call) => call === 'strokeText("あ",0,0)')).toBe(true);
+  });
+
   // ── Bezier path rendering: single-handle transitions ───────────────
 
   /** Create a minimal ReplayTarget mock with spy-able methods. */

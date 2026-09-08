@@ -8,7 +8,8 @@
 
 import { managedColorToRgba } from '@varve/shared';
 import type { ReplayTarget } from './replayTypes';
-import type { TextLayoutSnapshot } from './textLayoutSnapshot';
+import { shapeText } from './shaping';
+import { buildTextLayoutSnapshot, type TextLayoutSnapshot } from './textLayoutSnapshot';
 import type { CharacterFormat, EngineColor, RenderItem, RichText } from './types';
 
 type TextPrimitive = Extract<RenderItem['primitive'], { kind: 'text' }>;
@@ -64,14 +65,44 @@ function paintCluster(
   x: number,
   y: number,
   orientation: 'upright' | 'sideways',
+  drawText: (cluster: string) => void,
   combined = false,
 ): void {
   target.save();
   target.translate(x, y);
   if (orientation === 'sideways') target.rotate(Math.PI / 2);
   if (combined) target.scale(0.72, 0.72);
-  target.fillText(cluster, 0, 0);
+  drawText(cluster);
   target.restore();
+}
+
+/** Build the same canonical vertical snapshot used by fill replay. */
+export function buildVerticalTextSnapshot(
+  target: ReplayTarget,
+  p: TextPrimitive,
+): TextLayoutSnapshot | null {
+  const shaping =
+    p.shaping ??
+    (target.measureText
+      ? shapeText(p.text, p.fontFamily, p.fontSize, target as unknown as CanvasRenderingContext2D, {
+          fontWeight: effectiveWeight(p),
+          fontStyle: p.fontStyle,
+          letterSpacing: p.letterSpacing,
+          tracking: p.tracking,
+          direction: p.direction ?? 'auto',
+          language: p.language,
+          writingMode: p.writingMode,
+          textOrientation: p.textOrientation,
+        })
+      : undefined);
+  if (!shaping) return null;
+  return buildTextLayoutSnapshot(p.text, shaping, {
+    maxWidth: p.textMode === 'area' ? p.h : 0,
+    lineHeight: p.fontSize * (p.lineHeight ?? 1.4),
+    language: p.language,
+    writingMode: p.writingMode,
+    textOrientation: p.textOrientation,
+  });
 }
 
 export function paintVerticalCanonicalRichText(
@@ -106,6 +137,7 @@ export function paintVerticalCanonicalRichText(
           p.x + offset.x + glyph.x + glyph.xOffset,
           p.y + offset.y + glyph.y + glyph.yOffset,
           glyph.orientation ?? 'sideways',
+          (value) => target.fillText(value, 0, 0),
           format.textCombineUpright === true,
         );
         target.fillStyle = originalFillStyle;
@@ -144,6 +176,7 @@ export function paintVerticalCanonicalText(
           p.x + offset.x + glyph.x + glyph.xOffset,
           p.y + offset.y + glyph.y + glyph.yOffset,
           glyph.orientation ?? 'sideways',
+          (value) => target.fillText(value, 0, 0),
         );
       }
     }
@@ -163,4 +196,39 @@ export function paintVerticalCanonicalText(
     }
   }
   target.fillStyle = originalFillStyle;
+}
+
+/** Paint a vertical text stroke from canonical cluster positions. */
+export function paintVerticalCanonicalTextStroke(
+  target: ReplayTarget,
+  p: TextPrimitive,
+  snapshot: TextLayoutSnapshot,
+): void {
+  if (!target.strokeText) return;
+  const offset = verticalBoxOffset(p, snapshot);
+  target.textAlign = 'center';
+  target.textBaseline = 'middle';
+  const painted = new Set<string>();
+  for (const line of snapshot.lines) {
+    const style = line.runs[0]?.sourceRun.fontStyle === 'italic' ? 'italic ' : '';
+    const weight = effectiveWeight(p);
+    target.font = `${style}${weight} ${p.fontSize}px "${p.fontFamily}"`;
+    for (const run of line.runs) {
+      for (const glyph of run.glyphs) {
+        const key = `${line.paragraphIndex}:${glyph.clusterUtf16}`;
+        if (painted.has(key)) continue;
+        painted.add(key);
+        const cluster = snapshot.text.slice(glyph.clusterUtf16, glyph.sourceEnd);
+        if (cluster.length === 0 || cluster.includes('\n')) continue;
+        paintCluster(
+          target,
+          cluster,
+          p.x + offset.x + glyph.x + glyph.xOffset,
+          p.y + offset.y + glyph.y + glyph.yOffset,
+          glyph.orientation ?? 'sideways',
+          (value) => target.strokeText?.(value, 0, 0),
+        );
+      }
+    }
+  }
 }

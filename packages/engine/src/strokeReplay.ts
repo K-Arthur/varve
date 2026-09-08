@@ -1,4 +1,5 @@
 import { managedColorToRgba } from '@varve/shared';
+import { isVerticalWritingMode } from '@varve/shared/verticalText';
 import {
   type AlphaStrokeOps,
   needsAlphaSilhouetteStroke,
@@ -8,6 +9,7 @@ import { pathFillRule } from './pathCompound';
 import { createGradientStyle } from './replayGradient';
 import type { ReplayTarget } from './replayTypes';
 import type { EngineColor, FillIR, PathPoint, RenderItem, Stroke } from './types';
+import { buildVerticalTextSnapshot, paintVerticalCanonicalTextStroke } from './verticalTextReplay';
 
 export interface StrokeReplayDependencies {
   traceOutline(target: ReplayTarget, primitive: RenderItem['primitive']): void;
@@ -566,6 +568,20 @@ function paintTextStroke(
   if (primitive.textMode === 'path' && primitive.pathTextSettings && deps.paintTextOnPath) {
     deps.paintTextOnPath(target, primitive, stroke);
     return;
+  }
+  if (
+    isVerticalWritingMode(primitive.writingMode) &&
+    primitive.textCase === 'none' &&
+    primitive.listStyle === 'none' &&
+    primitive.paragraphSpacing === 0 &&
+    primitive.firstLineIndent === undefined &&
+    !primitive.richText
+  ) {
+    const snapshot = buildVerticalTextSnapshot(target, primitive);
+    if (snapshot) {
+      paintVerticalCanonicalTextStroke(target, primitive, snapshot);
+      return;
+    }
   }
   const style = primitive.fontStyle === 'italic' ? 'italic ' : '';
   const weight = deps.effectiveTextWeight?.(primitive) ?? primitive.fontWeight;
