@@ -331,7 +331,15 @@ test.describe('downloaded font restoration', () => {
     }, Array.from(fontBytes));
 
     await navigateToEditor(page);
-    await page.getByRole('button', { name: 'Text', exact: true }).click();
+    const editorShell = page.locator('.editor-shell');
+    if (!(await editorShell.isVisible({ timeout: 5000 }).catch(() => false))) {
+      // The shared helper can land back on Home when its storage-race
+      // recovery uses a single click. Double-click the visible card to open
+      // the document before exercising the font workflow.
+      await page.getByRole('gridcell').first().dblclick({ timeout: 30000 });
+      await editorShell.waitFor({ state: 'visible', timeout: 30000 });
+    }
+    await page.keyboard.press('t');
     await dragOnCanvas(page, 200, 200, 400, 250);
     await expect(page.getByRole('treeitem').first()).toContainText(/text/i, { timeout: 10000 });
 
