@@ -4354,7 +4354,6 @@ export function EditorProvider({
 
           const { id, doc: d2 } = nextNodeId(s.document);
           const transform: Affine = [1, 0, 0, 1, world.x, world.y];
-
           const node = makeTextNode(id, text, {
             name: 'Node',
             nameMode: 'automatic',
@@ -4364,6 +4363,7 @@ export function EditorProvider({
             h: size?.h,
             textMode: size ? 'area' : 'point',
             textResizing: size ? 'fixed' : 'autoWidth',
+            ...s.textCreationSettings,
           });
 
           const effectiveParentId =

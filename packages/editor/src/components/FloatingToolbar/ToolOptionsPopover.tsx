@@ -28,6 +28,10 @@ const ImageCropSection = lazy(() =>
 const BRUSH_TOOLS = new Set<ToolId>(['paint', 'eraser', 'pencil', 'smudge']);
 const MARQUEE_TOOLS = new Set<ToolId>(['marquee', 'ellipseMarquee', 'pixelLasso']);
 const MAGIC_WAND_TOOLS = new Set<ToolId>(['magicWand']);
+const DEFAULT_TEXT_CREATION_SETTINGS = {
+  writingMode: 'horizontal-tb' as const,
+  textOrientation: 'mixed' as const,
+};
 
 function AreaSelectionOptions({
   tool,
@@ -240,8 +244,54 @@ function MagicWandOptions({
   );
 }
 
+function TextToolOptions({
+  settings,
+  onChange,
+}: {
+  settings: {
+    writingMode: 'horizontal-tb' | 'vertical-rl' | 'vertical-lr';
+    textOrientation: 'mixed' | 'upright' | 'sideways';
+  };
+  onChange: (patch: Partial<typeof settings>) => void;
+}) {
+  return (
+    <div className="tool-options__selection" data-testid="text-options">
+      <div className="tool-options__heading">New text</div>
+      <NativeSelect
+        className="tool-options__field tool-options__native-select"
+        label="Writing mode"
+        value={settings.writingMode}
+        onValueChange={(value) => onChange({ writingMode: value as typeof settings.writingMode })}
+        options={[
+          { value: 'horizontal-tb', label: 'Horizontal' },
+          { value: 'vertical-rl', label: 'Vertical — right to left' },
+          { value: 'vertical-lr', label: 'Vertical — left to right' },
+        ]}
+      />
+      <NativeSelect
+        className="tool-options__field tool-options__native-select"
+        label="Character orientation"
+        value={settings.textOrientation}
+        onValueChange={(value) =>
+          onChange({ textOrientation: value as typeof settings.textOrientation })
+        }
+        options={[
+          { value: 'mixed', label: 'Mixed (standard vertical)' },
+          { value: 'upright', label: 'Upright' },
+          { value: 'sideways', label: 'Sideways' },
+        ]}
+      />
+      <p className="tool-options__hint">
+        These defaults apply to the next text layer. Object rotation and vertical alignment stay
+        separate.
+      </p>
+    </div>
+  );
+}
+
 export function ToolOptionsPopover() {
-  const { state, selectedNodes, setAreaSelectionSettings, setMagicWandSettings } = useEditor();
+  const { state, selectedNodes, setAreaSelectionSettings, setMagicWandSettings, patch } =
+    useEditor();
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -250,13 +300,15 @@ export function ToolOptionsPopover() {
     MARQUEE_TOOLS.has(state.tool) ||
     MAGIC_WAND_TOOLS.has(state.tool) ||
     state.tool === 'frame' ||
-    state.tool === 'crop';
+    state.tool === 'crop' ||
+    state.tool === 'text';
 
   useEffect(() => {
     setOpen(
       BRUSH_TOOLS.has(state.tool) ||
         MARQUEE_TOOLS.has(state.tool) ||
-        MAGIC_WAND_TOOLS.has(state.tool),
+        MAGIC_WAND_TOOLS.has(state.tool) ||
+        state.tool === 'text',
     );
   }, [state.tool]);
 
@@ -362,6 +414,20 @@ export function ToolOptionsPopover() {
               <MagicWandOptions
                 settings={state.magicWandSettings}
                 onChange={setMagicWandSettings}
+              />
+            )}
+            {state.tool === 'text' && (
+              <TextToolOptions
+                settings={state.textCreationSettings ?? DEFAULT_TEXT_CREATION_SETTINGS}
+                onChange={(settings) =>
+                  patch({
+                    textCreationSettings: {
+                      ...DEFAULT_TEXT_CREATION_SETTINGS,
+                      ...state.textCreationSettings,
+                      ...settings,
+                    },
+                  })
+                }
               />
             )}
             {state.tool === 'crop' && (

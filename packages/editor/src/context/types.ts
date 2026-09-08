@@ -24,7 +24,9 @@ import type {
   LayoutStyle,
   NodeId,
   SceneNode,
+  TextOrientation,
   VariableValue,
+  WritingMode,
 } from '@varve/scene';
 import { createDefaultDocumentGrid } from '@varve/scene';
 import type { Camera, DistributeMode, DocumentUnit, Viewport } from '@varve/shared';
@@ -338,8 +340,15 @@ export function newSessionId(): string {
   return `session-${crypto.randomUUID()}`;
 }
 
+export type TextCreationSettings = {
+  writingMode: WritingMode;
+  textOrientation: TextOrientation;
+};
+
 export interface EditorState {
   tool: ToolId;
+  /** Defaults used when the Text tool creates its next node. */
+  textCreationSettings?: TextCreationSettings;
   zoom: number;
   pan: { x: number; y: number };
   selection: NodeId[];
