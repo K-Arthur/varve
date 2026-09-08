@@ -296,6 +296,11 @@ export function useCanvasInputs({
         ? documentComplexityBucket(Object.keys(stateRef.current.document.nodes).length)
         : 'unknown';
       const ne = e.nativeEvent as PointerEvent;
+      // Refresh before registering this event as an active anchor. A canvas
+      // may have moved since the observer's last frame; the new pointerdown
+      // is not an in-progress gesture that should rebase the camera around a
+      // stale client position.
+      refreshCanvasRect?.();
       setViewportAnchor(e.clientX, e.clientY);
       activeDragPointer.current = snapshotHeldPointer(ne);
       const tmInst = tmRef.current;
@@ -350,7 +355,15 @@ export function useCanvasInputs({
         tmInst.handlePointerDown(ne, ctx);
       });
     },
-    [tmRef, buildToolCtx, snapSessionForPointer, snapIndexForPointer, stateRef, dispatchAttributes],
+    [
+      tmRef,
+      buildToolCtx,
+      refreshCanvasRect,
+      snapSessionForPointer,
+      snapIndexForPointer,
+      stateRef,
+      dispatchAttributes,
+    ],
   );
 
   const handlePointerMove = useCallback(
@@ -682,8 +695,11 @@ export function useCanvasInputs({
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      setViewportAnchor(e.clientX, e.clientY);
+      // The first wheel event after a layout shift is a new gesture. Refresh
+      // before storing its anchor so a position-only move is not interpreted
+      // as an already-active gesture that needs camera rebasing.
       refreshCanvasRect?.();
+      setViewportAnchor(e.clientX, e.clientY);
       const started = performance.now();
       const activeTrace = isInteractionTracingEnabled() ? getActiveInteractionIdentity() : null;
       if (
@@ -786,11 +802,11 @@ export function useCanvasInputs({
     let gestureBaseZoom = 1;
     const onGestureStart = (e: Event) => {
       e.preventDefault();
+      refreshCanvasRect?.();
       const ge = e as Partial<WebKitGestureEvent>;
       if (typeof ge.clientX === 'number' && typeof ge.clientY === 'number') {
         setViewportAnchor(ge.clientX, ge.clientY);
       }
-      refreshCanvasRect?.();
       gestureBaseZoom = stateRef.current.zoom;
       if (isInteractionTracingEnabled()) beginInteraction('pinch');
     };

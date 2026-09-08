@@ -12,13 +12,37 @@ import { sitePath } from '../../lib/siteUrl';
 
       <h1>Canvas & Rendering</h1>
       <p class="feature-intro">
-        86fps IR-replay rendering with infinite canvas, precision tools, and native Rust performance.
+        Responsive IR-replay rendering with an infinite canvas, precision tools, and native Rust performance.
       </p>
 
       <section class="feature-section">
         <h2>What It Is</h2>
         <p>
-          Varve's canvas system uses IR-replay architecture: the Rust engine computes the scene and emits a compact intermediate representation (~42 KB/frame for 600 shapes), which the webview replays to canvas2D. This separation enables 86fps rendering on Wayland compared to 8.5fps with pixel-pushing approaches.
+          Varve's canvas system uses IR-replay architecture: the Rust engine computes the scene and emits a compact intermediate representation (~42 KB/frame for 600 shapes), which the webview replays to canvas2D. A historical Wayland fixture measured 86fps with this approach, compared with 8.5fps for the pixel-pushing comparison; actual performance depends on the document, renderer, and device.
+        </p>
+      </section>
+
+      <section class="feature-section responsive-contract" data-testid="canvas-responsiveness-contract">
+        <h2>Responsive under the hand</h2>
+        <p>
+          Panels opening, windows resizing, browser chrome moving, and display scale changes update the drawable canvas geometry without changing the document. The camera preserves the world point under the viewport centre, or under the user's active pointer when a gesture is in progress, so the artwork does not jump away from the hand.
+        </p>
+        <div class="responsive-contract__grid">
+          <article>
+            <h3>Stable coordinates</h3>
+            <p>Pointer and wheel input use the latest client-space canvas position before converting to world space.</p>
+          </article>
+          <article>
+            <h3>Continuous interaction</h3>
+            <p>Resize observation is coalesced, while pointer capture, blur, and cancellation paths clear stale gesture state.</p>
+          </article>
+          <article>
+            <h3>Honest rendering</h3>
+            <p>Fast paths remain optional. If a fresh worker frame is not available, the authoritative replay path is used instead of showing stale pixels.</p>
+          </article>
+        </div>
+        <p class="responsive-contract__evidence">
+          This contract is exercised by the canvas browser regressions and documented in the <a href="https://github.com/K-Arthur/varve/blob/main/docs/audits/canvas-responsiveness-2026-09-08.md">canvas responsiveness audit</a>. Performance figures remain fixture-specific rather than a promise for every document or device.
         </p>
       </section>
 
@@ -61,7 +85,7 @@ import { sitePath } from '../../lib/siteUrl';
           The rendering pipeline is built on IR-replay (ADR-0001), validated empirically on Wayland Linux. The engine uses viewport culling, dirty-rect redraw, and spatial indexing for fast hit testing. The SubtreeReplayCache optimizes repeated rendering of unchanged subtrees. The minimap reuses the same world bounds, page placement, camera rotation, and live canvas dimensions as the main surface, so navigation remains an honest overview rather than a second approximation of the document.
         </p>
         <p>
-          Current benchmarks show 86fps canvas2D replay with the IR-replay architecture. The same facade works on desktop (native Rust via Tauri IPC) and web (WASM) with zero functional compromise.
+          The same facade works on desktop (native Rust via Tauri IPC) and web (WASM), with the browser-side renderer retaining an authoritative replay fallback when an accelerated or worker path cannot provide a fresh frame.
         </p>
       </section>
 
@@ -72,6 +96,7 @@ import { sitePath } from '../../lib/siteUrl';
           <ul>
             <li>Some legacy integrations still expose world-space values; use the artboard-local conversion helpers for page-aware tools and exports</li>
             <li>Collaboration features are UI scaffolding only (no transport or wire protocol)</li>
+            <li>Responsive behavior is validated in automated Chromium viewports; physical display scaling, compositor scheduling, and unusually large documents can change the observed frame time</li>
           </ul>
         </div>
       </section>
@@ -164,6 +189,45 @@ import { sitePath } from '../../lib/siteUrl';
     color: var(--text-primary);
   }
 
+  .responsive-contract {
+    padding: 1.5rem;
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-card);
+    background: var(--surface-muted);
+  }
+
+  .responsive-contract__grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+
+  .responsive-contract__grid article {
+    min-width: 0;
+    padding: 1rem;
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-card);
+    background: var(--surface-default);
+  }
+
+  .responsive-contract__grid h3 {
+    margin-bottom: 0.5rem;
+    color: var(--text-primary);
+    font-size: 1rem;
+  }
+
+  .responsive-contract__grid p {
+    margin-bottom: 0;
+    font-size: 0.9375rem;
+    line-height: 1.6;
+  }
+
+  .responsive-contract__evidence {
+    margin-bottom: 0;
+    font-size: 0.9375rem;
+  }
+
   .feature-visual {
     margin: -1rem 0 3rem;
   }
@@ -207,5 +271,19 @@ import { sitePath } from '../../lib/siteUrl';
     font-weight: 700;
     margin-bottom: 1.5rem;
     color: var(--text-primary);
+  }
+
+  @media (max-width: 640px) {
+    .feature-page {
+      padding: 2rem 0;
+    }
+
+    .responsive-contract {
+      padding: 1rem;
+    }
+
+    .responsive-contract__grid {
+      grid-template-columns: 1fr;
+    }
   }
 </style>
