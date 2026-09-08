@@ -1,6 +1,6 @@
 # Canvas 2D Rendering System
 
-**Updated:** 2026-08-13
+**Updated:** 2026-09-08
 
 This document is the maintained contract for Varve's Canvas 2D path. It supersedes
 older implementation details in `docs/audits/canvas-system-audit.md`.
@@ -74,6 +74,23 @@ World transforms compose parent before child. The camera composes pan, rotation 
 the viewport center, and zoom. DPR is applied outside the camera. Backing dimensions
 are rounded to integers, and DPR is observed for monitor/zoom changes rather than
 sampled only at startup.
+
+`CanvasArea` observes the actual drawable canvas geometry, not window dimensions or
+sidebar constants. `ResizeObserver` covers size while captured scroll and visual
+viewport changes cover position-only movement; `readCanvasGeometry` is also called
+synchronously at pointer-down, wheel, and native pinch boundaries so an observer
+frame cannot leave client-to-world conversion stale. Pointer samples remain free of
+unconditional layout reads. Geometry is represented as `{ left, top, width, height }`
+in browser CSS pixels, while the cached tool rect only carries the position needed by
+the hot conversion path.
+
+When the drawable size or position changes, `preserveCameraAnchorOnResize` keeps the
+world point at the old viewport centre under the new centre. During an active pointer
+or navigation gesture it keeps the latest client-space anchor instead. This is a
+view-state patch only: it does not mutate the document, mark artwork dirty, add
+history, or auto-fit a manually positioned camera. Zero-sized measurements update the
+geometry cache but defer camera anchoring and backing-store allocation until a
+non-zero measurement arrives.
 
 Zoom, pan, and rotation are committed through one `setCamera` transaction. Wheel and
 pinch handlers also advance an interaction-local camera reference immediately because

@@ -21,8 +21,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getDesktopAnalytics } from './analytics/desktopAnalytics';
 import { resetProfile } from './canvas/adaptiveProfile';
 import {
+  type CanvasGeometry,
+  type CanvasViewportAnchor,
+  commitCameraAnchorOnResize,
   subscribeToCanvasContextLifecycle,
   subscribeToDevicePixelRatio,
+  useCanvasGeometry,
 } from './canvas/canvasSurface';
 import { DirtyRegionRecorder, type PaintedSurfaceIdentity } from './canvas/dirtyRegion';
 import { EngineNodeMemo } from './canvas/engineNodeMemo';
@@ -249,7 +253,16 @@ export function CanvasArea({
   // Updated by ResizeObserver and refreshed on pointerdown for safety.
   // Avoids getBoundingClientRect() on every pointer-move (the single
   // highest-frequency DOM layout read in the application).
-  const canvasRectRef = useRef({ left: 0, top: 0 });
+  const handleCanvasGeometryChange = useCallback(
+    (previous: CanvasGeometry, next: CanvasGeometry, anchor: CanvasViewportAnchor | null) => {
+      commitCameraAnchorOnResize(stateRef, editorRef.current.setCamera, previous, next, anchor);
+    },
+    [],
+  );
+  const { canvasSize, canvasRectRef, viewportAnchorRef, refreshCanvasRect } = useCanvasGeometry(
+    contentCanvasRef,
+    handleCanvasGeometryChange,
+  );
 
   // Diagnostics HUD is off by default; driven by the persisted Settings >
   // Performance > Diagnostics toggle. The toggle also calls
@@ -446,7 +459,6 @@ export function CanvasArea({
   const pendingAutoTextEditRef = useRef(false);
   const [hoveredNode, setHoveredNode] = useState<SceneNode | null>(null);
   const [warpMesh, setWarpMesh] = useState<import('@varve/engine').MeshWarp | null>(null);
-  const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
   const [displayDpr, setDisplayDpr] = useState(() =>
     typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1,
   );
@@ -466,24 +478,6 @@ export function CanvasArea({
       depth: number;
     }>;
   } | null>(null);
-
-  useEffect(() => {
-    const el = contentCanvasRef.current?.parentElement;
-    if (!el) return;
-    const updateSize = () => {
-      setCanvasSize({ width: el.clientWidth, height: el.clientHeight });
-      // Cache the canvas element's screen position for pointer→world conversion.
-      const canvas = contentCanvasRef.current;
-      if (canvas) {
-        const r = canvas.getBoundingClientRect();
-        canvasRectRef.current = { left: r.left, top: r.top };
-      }
-    };
-    updateSize();
-    const ro = new ResizeObserver(updateSize);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
 
   useEffect(() => subscribeToDevicePixelRatio(setDisplayDpr), []);
 
@@ -721,13 +715,9 @@ export function CanvasArea({
     sourceEvents: ReturnType<typeof collectSourceEvents> = [],
   ): ToolContext {
     // Refresh the cached canvas rect at gesture start for safety.
-    // The ResizeObserver keeps it current, but a pointerdown is a
-    // definitive sync point.
-    const canvas = contentCanvasRef.current;
-    if (canvas) {
-      const r = canvas.getBoundingClientRect();
-      canvasRectRef.current = { left: r.left, top: r.top };
-    }
+    // The geometry observer keeps it current, but a pointerdown is a
+    // definitive sync point before tools convert client coordinates.
+    refreshCanvasRect();
     return buildToolContext(
       {
         stateRef,
@@ -921,6 +911,8 @@ export function CanvasArea({
   const input = useCanvasInputs({
     contentCanvasRef,
     canvasRectRef,
+    viewportAnchorRef,
+    refreshCanvasRect,
     onContextMenu,
     editor,
     stateRef,

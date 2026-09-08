@@ -52,6 +52,7 @@ import {
 } from '../tools/navigationPhysics';
 import type { SnapGuide } from '../tools/snapping';
 import { createSnapSession } from '../tools/snapping';
+import type { CanvasViewportAnchor } from './canvasSurface';
 import { recordInputDiagnostic } from './inputDiagnostics';
 import {
   type NavigationGestureEvent,
@@ -71,6 +72,10 @@ export interface UseCanvasInputsOptions {
   }) => void;
   /** Cached canvas screen position (updated by ResizeObserver + pointerdown). */
   canvasRectRef: MutableRefObject<{ left: number; top: number }>;
+  /** Synchronous refresh for input types that can arrive before an observer RAF. */
+  refreshCanvasRect?: () => void;
+  /** Latest client-space anchor used while a navigation/editing gesture is active. */
+  viewportAnchorRef?: MutableRefObject<CanvasViewportAnchor | null>;
   editor: {
     setCursorPos: (pos: { x: number; y: number } | null) => void;
     setPan: (pan: { x: number; y: number }) => void;
@@ -159,6 +164,8 @@ function snapshotHeldPointer(ev: PointerEvent): PointerEvent {
 
 export function useCanvasInputs({
   canvasRectRef,
+  refreshCanvasRect,
+  viewportAnchorRef,
   contentCanvasRef,
   onContextMenu,
   editor,
@@ -200,6 +207,7 @@ export function useCanvasInputs({
     wheelInteractionEndTimer.current = setTimeout(() => {
       wheelInteractionEndTimer.current = null;
       endEditorInteraction();
+      clearViewportAnchor();
     }, 150);
   }
 
@@ -263,6 +271,15 @@ export function useCanvasInputs({
   // than recomputed per pointermove.
   const gestureComplexity = useRef('unknown');
 
+  function setViewportAnchor(clientX: number, clientY: number): void {
+    if (!viewportAnchorRef || !Number.isFinite(clientX) || !Number.isFinite(clientY)) return;
+    viewportAnchorRef.current = { clientX, clientY };
+  }
+
+  function clearViewportAnchor(): void {
+    if (viewportAnchorRef) viewportAnchorRef.current = null;
+  }
+
   const dispatchAttributes = useCallback(
     () => ({
       tool: stateRef.current.tool,
@@ -279,9 +296,15 @@ export function useCanvasInputs({
         ? documentComplexityBucket(Object.keys(stateRef.current.document.nodes).length)
         : 'unknown';
       const ne = e.nativeEvent as PointerEvent;
+      setViewportAnchor(e.clientX, e.clientY);
       activeDragPointer.current = snapshotHeldPointer(ne);
       const tmInst = tmRef.current;
-      if (!tmInst) return;
+      if (!tmInst) {
+        activeDragPointer.current = null;
+        clearViewportAnchor();
+        endInteraction();
+        return;
+      }
       const ctx = buildToolCtx(ne);
 
       e.currentTarget.focus({ preventScroll: true });
@@ -301,7 +324,10 @@ export function useCanvasInputs({
         if (touchPointers.current.size === 2) {
           tmInst.handlePointerCancel(ne, ctx);
           const geo = pinchGeometry();
-          if (geo) pinchRef.current = { lastDist: geo.dist, lastCentroid: geo.centroid };
+          if (geo) {
+            pinchRef.current = { lastDist: geo.dist, lastCentroid: geo.centroid };
+            setViewportAnchor(geo.centroid.x, geo.centroid.y);
+          }
           if (isInteractionTracingEnabled()) beginInteraction('pinch');
           return;
         }
@@ -331,7 +357,10 @@ export function useCanvasInputs({
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       const ne = e.nativeEvent as PointerEvent;
       const ctx = buildToolCtx(ne, collectSourceEvents(ne, true));
-      if (e.buttons !== 0) activeDragPointer.current = snapshotHeldPointer(ne);
+      if (e.buttons !== 0) {
+        activeDragPointer.current = snapshotHeldPointer(ne);
+        setViewportAnchor(e.clientX, e.clientY);
+      }
 
       if (e.pointerType === 'touch' && touchPointers.current.has(e.pointerId)) {
         touchPointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -343,6 +372,7 @@ export function useCanvasInputs({
         const pinch = pinchRef.current;
         const geo = pinchGeometry();
         if (pinch && geo) {
+          setViewportAnchor(geo.centroid.x, geo.centroid.y);
           const s = stateRef.current;
           const canvasRect = canvasRectRef.current;
           const el = contentCanvasRef.current;
@@ -521,6 +551,7 @@ export function useCanvasInputs({
       const wasAutoPanning = autoPanActive.current;
       stopAutoPan();
       activeDragPointer.current = null;
+      clearViewportAnchor();
       setSnapGuides([]);
       if (e.pointerType === 'touch') {
         const wasPinching = pinchRef.current !== null;
@@ -564,6 +595,7 @@ export function useCanvasInputs({
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       stopAutoPan();
       activeDragPointer.current = null;
+      clearViewportAnchor();
       if (e.pointerType === 'touch') {
         touchPointers.current.delete(e.pointerId);
         if (touchPointers.current.size < 2) pinchRef.current = null;
@@ -650,6 +682,8 @@ export function useCanvasInputs({
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
+      setViewportAnchor(e.clientX, e.clientY);
+      refreshCanvasRect?.();
       const started = performance.now();
       const activeTrace = isInteractionTracingEnabled() ? getActiveInteractionIdentity() : null;
       if (
@@ -752,17 +786,25 @@ export function useCanvasInputs({
     let gestureBaseZoom = 1;
     const onGestureStart = (e: Event) => {
       e.preventDefault();
+      const ge = e as Partial<WebKitGestureEvent>;
+      if (typeof ge.clientX === 'number' && typeof ge.clientY === 'number') {
+        setViewportAnchor(ge.clientX, ge.clientY);
+      }
+      refreshCanvasRect?.();
       gestureBaseZoom = stateRef.current.zoom;
       if (isInteractionTracingEnabled()) beginInteraction('pinch');
     };
     const onGestureChange = (e: Event) => {
       e.preventDefault();
       const ge = e as WebKitGestureEvent;
+      setViewportAnchor(ge.clientX, ge.clientY);
+      refreshCanvasRect?.();
       zoomAboutClientPoint(ge.clientX, ge.clientY, gestureBaseZoom * ge.scale);
     };
     const onGestureEnd = (e: Event) => {
       e.preventDefault();
       endInteractionIfKind('pinch');
+      clearViewportAnchor();
     };
 
     // Anchor for gestures that carry no coordinates of their own.
@@ -800,10 +842,12 @@ export function useCanvasInputs({
             // Pinching over a panel should not move the artwork. The page zoom
             // has already been reverted natively, so swallowing it is enough.
             if (pointerInside === false) return;
+            refreshCanvasRect?.();
             const rect = canvasRectRef.current;
             const canvasEl = contentCanvasRef.current;
             const x = lastPointer?.x ?? rect.left + (canvasEl?.clientWidth ?? 0) / 2;
             const y = lastPointer?.y ?? rect.top + (canvasEl?.clientHeight ?? 0) / 2;
+            setViewportAnchor(x, y);
             zoomAboutClientPoint(x, y, stateRef.current.zoom * factor);
           }).then((unlisten) => {
             if (pinchBridgeCancelled) unlisten();
@@ -837,8 +881,18 @@ export function useCanvasInputs({
       // still tracked as an active drag.
       if (activeDragPointer.current?.pointerId !== e.pointerId) return;
       const tmInst = tmRef.current;
-      if (!tmInst) return;
-      tmInst.handlePointerCancel(e, buildToolCtx(e));
+      activeDragPointer.current = null;
+      clearViewportAnchor();
+      stopAutoPan();
+      if (e.pointerType === 'touch') {
+        touchPointers.current.delete(e.pointerId);
+        if (touchPointers.current.size < 2) pinchRef.current = null;
+      }
+      advanceNavigation({ type: 'pointer-cancel' });
+      if (tmInst) tmInst.handlePointerCancel(e, buildToolCtx(e));
+      setSnapGuides([]);
+      endInteraction();
+      endEditorInteraction();
     };
     el.addEventListener('lostpointercapture', onLostPointerCapture);
 
@@ -866,10 +920,20 @@ export function useCanvasInputs({
       endInteractionIfKind('wheel');
       endInteractionIfKind('pinch');
       endInteractionIfKind('hover');
+      clearViewportAnchor();
       pinchBridgeCancelled = true;
       disposePinchBridge?.();
     };
-  }, [contentCanvasRef, stateRef, editor, commitCamera, tmRef, buildToolCtx]);
+  }, [
+    contentCanvasRef,
+    stateRef,
+    editor,
+    commitCamera,
+    tmRef,
+    buildToolCtx,
+    refreshCanvasRect,
+    viewportAnchorRef,
+  ]);
 
   // Crop is a modal editing state. It can be entered from a Layers row or an
   // Inspector button, both of which legitimately keep focus outside the
@@ -1255,6 +1319,10 @@ export function useCanvasInputs({
 
   const onBlur = useCallback(() => {
     stopAutoPan();
+    activeDragPointer.current = null;
+    touchPointers.current.clear();
+    pinchRef.current = null;
+    clearViewportAnchor();
     if (hoverTraceEndTimer.current !== null) {
       clearTimeout(hoverTraceEndTimer.current);
       hoverTraceEndTimer.current = null;
@@ -1281,6 +1349,10 @@ export function useCanvasInputs({
       tmRef.current?.resetModifiers();
       interactionSession.reset();
       stopAutoPan();
+      activeDragPointer.current = null;
+      touchPointers.current.clear();
+      pinchRef.current = null;
+      clearViewportAnchor();
       advanceNavigation({ type: 'reset' });
       // Force-close any open interaction depth (a lost pointerup must never
       // leave background work permanently deferred).
