@@ -339,7 +339,7 @@ test.describe('downloaded font restoration', () => {
       await page.getByRole('gridcell').first().dblclick({ timeout: 30000 });
       await editorShell.waitFor({ state: 'visible', timeout: 30000 });
     }
-    await page.keyboard.press('t');
+    await page.locator('[data-tool="text"]:visible').first().click();
     await dragOnCanvas(page, 200, 200, 400, 250);
     await expect(page.getByRole('treeitem').first()).toContainText(/text/i, { timeout: 10000 });
 
