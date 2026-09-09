@@ -29,11 +29,19 @@
   align-items: center;
   gap: var(--space-1);
   min-width: 0;
+  overflow: hidden;
 }
 
+/* Without this, a heading squeezed toward zero width (e.g. the header-actions
+ * row alone exceeding the panel's minimum width once "Exit Solo" is present)
+ * doesn't clip — text has no intrinsic box, so it renders past the heading's
+ * allotted space and visually overlaps the icon buttons beside it. */
 .layers-panel__title {
   font-weight: var(--font-weight-semibold);
   letter-spacing: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .layers-panel__count {
@@ -57,6 +65,24 @@
   align-items: center;
   gap: var(--space-05);
   flex-shrink: 0;
+}
+
+/* Narrow rail: header-actions (settings, auto-reveal, collapse-all, the
+ * conditional Exit Solo text button, detach) can alone exceed the panel's
+ * minimum width once Exit Solo is present. Neither side shrinks or wraps by
+ * default, so the heading and the trailing actions overlapped instead of
+ * cleanly reflowing. Wrapping onto its own row keeps every action reachable
+ * instead of overlapping the title or being clipped past the panel's edge. */
+@container layers (max-width: 340px) {
+  .layers-panel__header {
+    flex-wrap: wrap;
+    row-gap: var(--space-05);
+  }
+
+  .layers-panel__header-actions {
+    flex: 1 1 100%;
+    justify-content: flex-end;
+  }
 }
 
 /* Unified header icon button — one size, one transition, one focus ring. */

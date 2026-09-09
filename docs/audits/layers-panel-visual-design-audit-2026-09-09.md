@@ -175,6 +175,31 @@ would still improve the worst case. Not attempted here, to keep this fix
 narrowly scoped to restoring control reachability rather than redesigning
 row anatomy.
 
+### Second finding — header title/actions overlap during Solo at minimum width
+
+The same audit pass checked the panel header under the same minimum-width
+condition and found a related, separate defect: the header's title/count
+group and its action-button row (settings, auto-reveal, collapse-all,
+detach, plus a conditional "Exit Solo" text-and-icon button) never shrank or
+wrapped. "Exit Solo" is the one action-row item that carries a text label,
+not just an icon — with it present, the action row's own natural width can
+alone exceed the panel's 180px minimum. `.layers-panel__title` had no
+overflow containment, so instead of clipping, the word "Layers" rendered
+past its allotted box and visually overlapped the first icon button — a
+plainly broken, not just tight, composition.
+
+Fixed by giving `.layers-panel__title` standard ellipsis truncation and
+adding a container query (matching the bulk bar's own established pattern in
+this file) that wraps the header onto two rows once the rail narrows past
+340px, so the action row gets its own line instead of colliding with the
+title. `tests/e2e/layers/layers-header-solo-overflow.spec.ts` solos a node
+via `EditorContext.setNodeSolo`, drives the panel to minimum width, and
+asserts the title's box and the first action button's box are disjoint, and
+that every header action (including Exit Solo and the detach button) stays
+within the panel's own bounds. Confirmed failing pre-fix (title and first
+icon overlapping) and passing post-fix, with the rest of the suite above
+(320 unit tests, the other three layers e2e specs) unaffected.
+
 Two unrelated e2e failures were observed while validating this pass —
 `layer-workflows.spec.ts`'s "narrow panel usability" test (reproduces
 identically with these two files reverted to `HEAD`, so it is caused by
