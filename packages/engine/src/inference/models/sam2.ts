@@ -339,7 +339,7 @@ function validateSam2DecoderOutput(
   ) {
     throw new Error('Invalid SAM2 decoder output: masks dimensions');
   }
-  const [batch, numMasks, maskH, maskW] = outputDims;
+  const [batch = 0, numMasks = 0, maskH = 0, maskW = 0] = outputDims;
   if (batch !== 1 || numMasks > 3 || maskH * maskW > MAX_DECODER_MASK_PIXELS) {
     throw new Error('Invalid SAM2 decoder output: unsupported masks shape');
   }
