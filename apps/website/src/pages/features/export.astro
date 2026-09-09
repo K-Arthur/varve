@@ -48,6 +48,7 @@ const exportShot = scenes.export?.status === 'captured' ? scenes.export : null;
       <section class="feature-section">
         <h2>Key Capabilities</h2>
         <ul>
+          <li><strong>Quick Convert:</strong> Convert local PNG, JPEG, WebP, AVIF, GIF, BMP, and first-IFD TIFF assets to PNG, JPEG, WebP, or AVIF with visible alpha, animation, metadata, and runtime-codec boundaries</li>
           <li><strong>SVG export:</strong> Full SVG export with shapes, paths, text, and transforms</li>
           <li><strong>React/Tailwind:</strong> Export to React components with Tailwind CSS utility classes</li>
           <li><strong>React/CSS-Modules:</strong> Export to React components with CSS Modules</li>
@@ -58,6 +59,16 @@ const exportShot = scenes.export?.status === 'captured' ? scenes.export : null;
           <li><strong>Print production:</strong> Bleed config, safe area, slug, swatches, spot colors</li>
           <li><strong>Export settings:</strong> Per-node export settings for different output formats</li>
         </ul>
+      </section>
+
+      <section class="feature-section">
+        <h2>Local raster preparation</h2>
+        <p>
+          File &gt; Quick Convert is a focused asset-preparation workflow for raster images. It processes a bounded batch locally, checks the file signature and pixel budget before decoding, and saves one output per source. JPEG conversion asks for an explicit background when transparency may be present; animated sources disclose that only the first frame is being exported.
+        </p>
+        <p>
+          Quick Convert is intentionally separate from vector/document export. Read the <a href={sitePath('/docs/tools/image-conversion')}>Image Conversion guide</a> for the format matrix and the <a href={sitePath('/docs/file-formats')}>File Formats guide</a> for import boundaries.
+        </p>
       </section>
 
       <section class="feature-section">

@@ -162,7 +162,10 @@ const figmaImportFaq = {
 
         <h3>Raster Images</h3>
         <p>
-          Direct import of PNG, JPG, WebP, and GIF files. Images are loaded into the ImageCache and can be used as image fills on shapes or imported as ImageNodes.
+          Direct import of PNG, JPG, WebP, AVIF, GIF, BMP, and TIFF files where the active runtime and normalization path support them. Images are loaded into the ImageCache and can be used as image fills on shapes or imported as ImageNodes. GIF and other animated containers are inspected for media metadata, while editor placement is currently first-frame.
+        </p>
+        <p>
+          For local raster transcoding, use <a href={sitePath('/docs/tools/image-conversion')}>Image Conversion</a>. It is a normalized canvas workflow and does not promise metadata-preserving or layered round trips.
         </p>
       </section>
 

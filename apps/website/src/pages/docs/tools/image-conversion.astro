@@ -1,0 +1,100 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { sitePath } from '../../../lib/siteUrl';
+---
+
+<Layout title="Image Conversion — Varve Docs" description="Convert local raster images in Varve with honest format support, alpha handling, animation warnings, and browser codec limits.">
+  <div class="container-custom">
+    <div class="docs-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/docs')}>Documentation</a> / Tools / Image Conversion
+      </nav>
+
+      <h1>Image Conversion</h1>
+      <p class="docs-intro">
+        File &gt; Quick Convert turns a bounded batch of local raster files into PNG, JPEG, WebP, or AVIF. Conversion runs in the active browser or desktop webview; files are not uploaded.
+      </p>
+
+      <section class="docs-section">
+        <h2>Quick Convert workflow</h2>
+        <ol>
+          <li>Open <strong>File &gt; Quick Convert…</strong> and choose one or more local raster files.</li>
+          <li>Review content-detected source formats, dimensions, and warnings.</li>
+          <li>Choose an output format and quality. JPEG exposes an explicit background color for alpha flattening.</li>
+          <li>Convert and save. Files are decoded and encoded one at a time, with each result shown in the queue.</li>
+        </ol>
+        <p>
+          The queue accepts up to 25 files. Each file is checked before decode for encoded size, dimensions, and decoded pixel budget. A corrupt or unsupported file does not silently become a different format.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Supported conversion boundary</h2>
+        <div class="format-table-wrap">
+          <table class="format-table">
+            <thead>
+              <tr><th>Source</th><th>Output</th><th>What to expect</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>PNG</td><td>PNG, JPEG, WebP, AVIF</td><td>Alpha may be present; JPEG requires the chosen matte.</td></tr>
+              <tr><td>JPEG/JPG</td><td>PNG, JPEG, WebP, AVIF</td><td>Opaque source; lossy output uses the selected quality.</td></tr>
+              <tr><td>WebP</td><td>PNG, JPEG, WebP, AVIF</td><td>Animated input is exported as the first decoded frame.</td></tr>
+              <tr><td>AVIF</td><td>PNG, JPEG, WebP, AVIF</td><td>Both decode and encode depend on the active runtime.</td></tr>
+              <tr><td>GIF</td><td>PNG, JPEG, WebP, AVIF</td><td>Palette/transparency is inspected; animated input is first-frame only.</td></tr>
+              <tr><td>BMP/TIFF</td><td>Supported outputs</td><td>TIFF uses the first IFD and is flattened; there is no TIFF/BMP encoder.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          SVG, PDF, PSD, Figma, Sketch, and other design/document formats keep their own import and export workflows. HEIF/HEIC, JPEG XL, and QOI are not advertised as locally convertible without a bundled decoder.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Metadata and color behavior</h2>
+        <p>
+          The conversion surface is a normalized RGBA8 canvas boundary. It applies EXIF orientation when the runtime supports the orientation-aware decoder, but it does not promise to copy ICC, EXIF, DPI, XMP, PNG ancillary chunks, animation timing, or source bit depth. Varve shows that loss as a warning before conversion.
+        </p>
+        <p>
+          For ICC-aware document color work, use the document color controls and the advanced <a href={sitePath('/docs/tools/export')}>Export</a> workflow. Quick Convert is intended for practical local asset preparation, not archival transcoding.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>When to use another path</h2>
+        <ul>
+          <li><strong>Need editable vectors?</strong> Import SVG or use the vector/document workflow.</li>
+          <li><strong>Need scene-scale PNG/SVG/PDF output?</strong> Use File &gt; Export.</li>
+          <li><strong>Need to resize a placed image?</strong> Use the image resize controls so the node geometry and pixel dimensions stay explicit.</li>
+          <li><strong>Need animation preservation?</strong> Keep the original media and use a dedicated animation workflow; Quick Convert intentionally emits one frame.</li>
+        </ul>
+      </section>
+
+      <div class="docs-cta">
+        <h2>Related guides</h2>
+        <p><a href={sitePath('/docs/file-formats')}>File Formats</a> · <a href={sitePath('/docs/tools/export')}>Export &amp; Code Generation</a> · <a href={sitePath('/features/export')}>Export feature overview</a></p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .docs-page { max-width: 800px; margin: 0 auto; padding: 3rem 0; }
+  .breadcrumb { font-size: 0.875rem; margin-bottom: 1.5rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  .docs-page h1 { font-size: clamp(2rem, 5vw, 2.5rem); font-family: var(--font-editorial); font-weight: 700; font-variation-settings: 'opsz' 144; letter-spacing: -0.015em; margin-bottom: 1rem; color: var(--text-primary); }
+  .docs-intro { font-size: 1.125rem; color: var(--text-secondary); margin-bottom: 3rem; }
+  .docs-section { margin-bottom: 3rem; }
+  .docs-section h2 { font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem; color: var(--text-primary); }
+  .docs-section p, .docs-section li { color: var(--text-secondary); line-height: 1.8; }
+  .docs-section ul, .docs-section ol { padding-left: 1.5rem; }
+  .docs-section li { margin-bottom: 0.5rem; }
+  .docs-section strong { color: var(--text-primary); }
+  .format-table-wrap { overflow-x: auto; }
+  .format-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  .format-table th, .format-table td { padding: 0.75rem; border-bottom: 1px solid var(--border-default); text-align: left; vertical-align: top; color: var(--text-secondary); }
+  .format-table th { color: var(--text-primary); font-weight: 700; }
+  .docs-cta { padding: 2rem 0; border-top: 1px solid var(--border-default); }
+  .docs-cta h2 { color: var(--text-primary); }
+  .docs-cta a { color: var(--text-link); }
+</style>
