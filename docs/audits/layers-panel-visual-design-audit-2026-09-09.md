@@ -209,6 +209,56 @@ only inside the full sequential suite, passes in isolation — consistent with
 this machine's known contention under concurrent load). Neither was
 introduced by, or fixed by, this pass.
 
+## Follow-up audit — sibling section and marketing drift (same day, second pass)
+
+A third pass re-scanned the same surface end to end rather than only the
+classes touched above, on the premise that a redesign pass that quiets one
+header can leave an adjacent, structurally-identical one behind. Two real
+gaps turned up, both outside the `layers-panel__*`/`layers-row__*` class
+families the first two passes touched:
+
+1. **`SelectionSetsSection` still carried the pre-redesign look.** It
+   renders as a direct child of the Layers panel's own root
+   (`<div className="editor-layers layers-panel">`), stacked right below the
+   tree — not a sibling owned by some other rail shell, and therefore in
+   scope for this same slice. Its header title was still all-caps and
+   letter-spaced, the exact pattern removed from `.layers-panel__title`;
+   its action buttons (`.selection-sets__create-btn`,
+   `.selection-sets__action-btn`) were hardcoded to `18px` instead of the
+   `--space-5` token the row toggles and bulk-bar buttons already share; and
+   its hover-revealed action row had no `(hover: none), (pointer: coarse)`
+   fallback, unlike the equivalent fallback already added to
+   `.layers-row__toggle--solo-off`. Checked against the other sidebar
+   sections in the same family (Master pages, Spreads, Minimap): those
+   already use the quiet, sentence-case title convention — Selection Sets
+   was the outlier, not a case of "consistent siblings, different from
+   Layers." Fixed by matching `.layers-panel__title`'s treatment, moving
+   both button classes onto `var(--space-5)`, and adding the same touch
+   fallback. `tests/e2e/layers/layers-selection-sets-visual.spec.ts` seeds a
+   two-item selection, saves a set, and asserts the title text/casing and
+   that the action buttons render at the same size as the bulk bar's own
+   buttons. Confirmed failing pre-fix (exact text mismatch reproduces with
+   only these two files reverted) and passing post-fix; the existing 320
+   `LayersPanel` unit tests and the three prior layers e2e specs
+   (`layers-panel-visual`, `layers-header-solo-overflow`,
+   `layers-row-badge-overflow`) still pass unchanged.
+2. **The `/features/layers` marketing illustration had drifted from the
+   real header.** Its own mock "Layers" heading (`.layer-demo__heading`)
+   still used `text-transform: uppercase; letter-spacing: .08em` — the
+   prior marketing update explicitly scoped itself to the filter/count
+   treatment and never touched the heading, so the illustration kept
+   claiming a header style the product no longer has. Matched to the real
+   `.layers-panel__title` treatment (semibold, sentence case, no
+   letter-spacing). Verified against the built site:
+   `apps/website/tests/e2e/layers-feature.spec.ts` passes on both
+   `ghpages` and `custom-domain` projects, and the rendered
+   `.layer-demo__panel` was captured and reviewed directly post-fix.
+
+Not touched: `.variant-box__title` (`VariantBox.tsx`, outside
+`components/LayersPanel/`) has the same all-caps debt and is a real
+candidate for the same fix, but sits in a different component owned by a
+different part of the rail — left for a pass explicitly scoped there.
+
 ## Validation record
 
 Changed scope: Layers panel CSS/markup, Layers panel unit/E2E coverage, the
