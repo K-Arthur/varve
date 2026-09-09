@@ -98,7 +98,9 @@ The candidate workflow requires the SHA to be reachable from `master`. A
 prerequisite and produces a bounded, non-certifying failure report so it can
 help diagnose a red integration run. A `final` dispatch runs the prior exact-
 SHA `CI / certification` check and policy-bound integration artifact, then runs
-the extended matrix once and records `POLICY_VERSION` plus the policy hash.
+the extended matrix once. Each candidate matrix cell uploads an exact-source
+execution receipt; final aggregation requires every promised lane, platform,
+and browser shard before it records `POLICY_VERSION` plus the policy hash.
 The final evidence artifact is named
 `varve-release-candidate-<sha>-<policy-hash>`. A candidate from any other SHA
 or policy is invalid, even when its tests were green.

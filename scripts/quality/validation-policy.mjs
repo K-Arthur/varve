@@ -36,6 +36,7 @@ export const POLICY_FILES = [
   'scripts/quality/validation-snapshot.mjs',
   'scripts/quality/ci-plan.mjs',
   'scripts/quality/ci-run-lanes.mjs',
+  'scripts/quality/ci-execution-report.mjs',
   'scripts/quality/aggregate-ci.mjs',
   'scripts/quality/ci-preflight.mjs',
   'scripts/quality/verify.mjs',

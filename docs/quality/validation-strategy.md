@@ -298,6 +298,16 @@ rejects failures, cancellations, timeouts, and missing evidence. Its name is
 stable even when the selected job graph changes, so it is the required-check
 candidate for `master`.
 
+Each applicable job also uploads a versioned execution receipt. The receipt
+records the checked-out commit and tree, plan/policy hashes, category, actual
+lane, matrix identity, browser shard, runner, workflow run/attempt, command
+outcome, and duration. Certification reconciles those receipts with the plan:
+all required lanes and platform cells must be present for the exact source;
+missing, duplicate, stale, cancelled, failed, or unexpected receipts block the
+check. The parent job conclusion remains a separate required signal. These
+receipts are CI evidence only; local validation receipts remain caches and
+cannot satisfy protected checks or release provenance.
+
 `release-candidate.yml` freezes one SHA and emits
 `varve-release-candidate-<sha>-<policy-hash>` plus a stable
 `Release Candidate / certification` check. Its `triage` mode is explicitly

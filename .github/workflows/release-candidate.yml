@@ -28,6 +28,7 @@ concurrency:
 env:
   PNPM_VERSION: '11.9.0'
   NODE_VERSION: '26'
+  VARVE_CI_CANDIDATE_MODE: ${{ inputs.mode }}
 
 jobs:
   changes:
@@ -36,6 +37,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       commit_sha: ${{ steps.plan.outputs.commit_sha }}
+      plan_hash: ${{ steps.plan.outputs.plan_hash }}
       policy_hash: ${{ steps.plan.outputs.policy_hash }}
       full: ${{ steps.plan.outputs.full }}
       mode: ${{ steps.plan.outputs.candidate_mode }}
@@ -122,6 +124,22 @@ jobs:
         run: pnpm test:ci:tools
       - name: Validation policy regression tests
         run: pnpm exec vitest run tests/unit/validationPolicy.test.ts --maxWorkers=1
+      - name: Write pipeline execution receipt
+        if: always()
+        env:
+          VARVE_CI_COMMIT_SHA: ${{ needs.changes.outputs.commit_sha }}
+          VARVE_CI_PLAN_HASH: ${{ needs.changes.outputs.plan_hash }}
+          VARVE_CI_POLICY_HASH: ${{ needs.changes.outputs.policy_hash }}
+          VARVE_CI_STATUS: ${{ job.status }}
+          VARVE_VALIDATION_PROFILE: candidate
+        run: node scripts/quality/ci-execution-report.mjs --category pipeline --lanes pipeline-validate,ci-tools,policy --matrix ubuntu-latest --status "${{ job.status }}" --output ci-execution/pipeline.json
+      - name: Upload pipeline execution receipt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-ci-execution-${{ github.run_id }}-pipeline
+          path: ci-execution/
+          if-no-files-found: ignore
 
   js:
     name: Candidate JS and unit certification
@@ -145,6 +163,22 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
+      - name: Write JavaScript execution receipt
+        if: always()
+        env:
+          VARVE_CI_COMMIT_SHA: ${{ needs.changes.outputs.commit_sha }}
+          VARVE_CI_PLAN_HASH: ${{ needs.changes.outputs.plan_hash }}
+          VARVE_CI_POLICY_HASH: ${{ needs.changes.outputs.policy_hash }}
+          VARVE_CI_STATUS: ${{ job.status }}
+          VARVE_VALIDATION_PROFILE: candidate
+        run: node scripts/quality/ci-execution-report.mjs --category js --lanes js-unit:all,typecheck:all,lint:all --matrix ubuntu-latest --status "${{ job.status }}" --output ci-execution/js.json
+      - name: Upload JavaScript execution receipt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-ci-execution-${{ github.run_id }}-js
+          path: ci-execution/
+          if-no-files-found: ignore
 
   rust:
     name: Candidate Rust (${{ matrix.os }})
@@ -169,6 +203,22 @@ jobs:
       - run: cargo fmt --all -- --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace --all-targets
+      - name: Write Rust execution receipt
+        if: always()
+        env:
+          VARVE_CI_COMMIT_SHA: ${{ needs.changes.outputs.commit_sha }}
+          VARVE_CI_PLAN_HASH: ${{ needs.changes.outputs.plan_hash }}
+          VARVE_CI_POLICY_HASH: ${{ needs.changes.outputs.policy_hash }}
+          VARVE_CI_STATUS: ${{ job.status }}
+          VARVE_VALIDATION_PROFILE: candidate
+        run: node scripts/quality/ci-execution-report.mjs --category rust --lanes rust-test:all,rust-clippy:all,cargo-fmt --matrix "${{ matrix.os }}" --status "${{ job.status }}" --output "ci-execution/rust-${{ matrix.os }}.json"
+      - name: Upload Rust execution receipt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-ci-execution-${{ github.run_id }}-rust-${{ matrix.os }}
+          path: ci-execution/
+          if-no-files-found: ignore
 
   wasm:
     name: Candidate WASM
@@ -205,6 +255,22 @@ jobs:
         with:
           name: varve-candidate-wasm-${{ inputs.sha }}
           path: apps/desktop/public/wasm/
+      - name: Write WASM execution receipt
+        if: always()
+        env:
+          VARVE_CI_COMMIT_SHA: ${{ needs.changes.outputs.commit_sha }}
+          VARVE_CI_PLAN_HASH: ${{ needs.changes.outputs.plan_hash }}
+          VARVE_CI_POLICY_HASH: ${{ needs.changes.outputs.policy_hash }}
+          VARVE_CI_STATUS: ${{ job.status }}
+          VARVE_VALIDATION_PROFILE: candidate
+        run: node scripts/quality/ci-execution-report.mjs --category wasm --lanes wasm --matrix ubuntu-latest --status "${{ job.status }}" --output ci-execution/wasm.json
+      - name: Upload WASM execution receipt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-ci-execution-${{ github.run_id }}-wasm
+          path: ci-execution/
+          if-no-files-found: ignore
 
   website-e2e:
     name: Candidate website functional and accessibility
@@ -246,6 +312,22 @@ jobs:
           path: |
             playwright-report/
             test-results/
+          if-no-files-found: ignore
+      - name: Write website execution receipt
+        if: always()
+        env:
+          VARVE_CI_COMMIT_SHA: ${{ needs.changes.outputs.commit_sha }}
+          VARVE_CI_PLAN_HASH: ${{ needs.changes.outputs.plan_hash }}
+          VARVE_CI_POLICY_HASH: ${{ needs.changes.outputs.policy_hash }}
+          VARVE_CI_STATUS: ${{ job.status }}
+          VARVE_VALIDATION_PROFILE: candidate
+        run: node scripts/quality/ci-execution-report.mjs --category website --lanes website-unit,website-e2e --matrix ubuntu-latest --status "${{ job.status }}" --output ci-execution/website.json
+      - name: Upload website execution receipt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-ci-execution-${{ github.run_id }}-website
+          path: ci-execution/
           if-no-files-found: ignore
 
   e2e:
@@ -293,6 +375,22 @@ jobs:
             playwright-report/
             test-results/
           if-no-files-found: ignore
+      - name: Write browser execution receipt
+        if: always()
+        env:
+          VARVE_CI_COMMIT_SHA: ${{ needs.changes.outputs.commit_sha }}
+          VARVE_CI_PLAN_HASH: ${{ needs.changes.outputs.plan_hash }}
+          VARVE_CI_POLICY_HASH: ${{ needs.changes.outputs.policy_hash }}
+          VARVE_CI_STATUS: ${{ job.status }}
+          VARVE_VALIDATION_PROFILE: candidate
+        run: node scripts/quality/ci-execution-report.mjs --category e2e --lanes e2e:all --matrix ubuntu-latest --shard "${{ matrix.shard }}/8" --status "${{ job.status }}" --output "ci-execution/e2e-${{ matrix.shard }}.json"
+      - name: Upload browser execution receipt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-ci-execution-${{ github.run_id }}-e2e-${{ matrix.shard }}
+          path: ci-execution/
+          if-no-files-found: ignore
 
   e2e-visual:
     name: Candidate visual regression
@@ -336,6 +434,22 @@ jobs:
             test-results/
             visual-diff-report/
           if-no-files-found: ignore
+      - name: Write visual execution receipt
+        if: always()
+        env:
+          VARVE_CI_COMMIT_SHA: ${{ needs.changes.outputs.commit_sha }}
+          VARVE_CI_PLAN_HASH: ${{ needs.changes.outputs.plan_hash }}
+          VARVE_CI_POLICY_HASH: ${{ needs.changes.outputs.policy_hash }}
+          VARVE_CI_STATUS: ${{ job.status }}
+          VARVE_VALIDATION_PROFILE: candidate
+        run: node scripts/quality/ci-execution-report.mjs --category visual --lanes e2e:visual --matrix ubuntu-latest --status "${{ job.status }}" --output ci-execution/visual.json
+      - name: Upload visual execution receipt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-ci-execution-${{ github.run_id }}-visual
+          path: ci-execution/
+          if-no-files-found: ignore
 
   desktop-e2e:
     name: Candidate native desktop (${{ matrix.name }})
@@ -374,6 +488,22 @@ jobs:
           path: apps/desktop/public/wasm/
       - name: Native desktop smoke
         run: pnpm test:desktop:native
+      - name: Write desktop execution receipt
+        if: always()
+        env:
+          VARVE_CI_COMMIT_SHA: ${{ needs.changes.outputs.commit_sha }}
+          VARVE_CI_PLAN_HASH: ${{ needs.changes.outputs.plan_hash }}
+          VARVE_CI_POLICY_HASH: ${{ needs.changes.outputs.policy_hash }}
+          VARVE_CI_STATUS: ${{ job.status }}
+          VARVE_VALIDATION_PROFILE: candidate
+        run: node scripts/quality/ci-execution-report.mjs --category desktop --lanes desktop-native --matrix "${{ matrix.name }}" --status "${{ job.status }}" --output "ci-execution/desktop-${{ matrix.name }}.json"
+      - name: Upload desktop execution receipt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-ci-execution-${{ github.run_id }}-desktop-${{ matrix.name }}
+          path: ci-execution/
+          if-no-files-found: ignore
 
   models:
     name: Candidate model policy
@@ -386,6 +516,22 @@ jobs:
           ref: ${{ needs.changes.outputs.commit_sha }}
           persist-credentials: false
       - run: node scripts/models/validate-manifest.mjs
+      - name: Write model execution receipt
+        if: always()
+        env:
+          VARVE_CI_COMMIT_SHA: ${{ needs.changes.outputs.commit_sha }}
+          VARVE_CI_PLAN_HASH: ${{ needs.changes.outputs.plan_hash }}
+          VARVE_CI_POLICY_HASH: ${{ needs.changes.outputs.policy_hash }}
+          VARVE_CI_STATUS: ${{ job.status }}
+          VARVE_VALIDATION_PROFILE: candidate
+        run: node scripts/quality/ci-execution-report.mjs --category models --lanes models --matrix ubuntu-latest --status "${{ job.status }}" --output ci-execution/models.json
+      - name: Upload model execution receipt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-ci-execution-${{ github.run_id }}-models
+          path: ci-execution/
+          if-no-files-found: ignore
 
   bench:
     name: Candidate benchmark corpus
@@ -408,6 +554,22 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Candidate benchmark corpus
         run: pnpm bench
+      - name: Write benchmark execution receipt
+        if: always()
+        env:
+          VARVE_CI_COMMIT_SHA: ${{ needs.changes.outputs.commit_sha }}
+          VARVE_CI_PLAN_HASH: ${{ needs.changes.outputs.plan_hash }}
+          VARVE_CI_POLICY_HASH: ${{ needs.changes.outputs.policy_hash }}
+          VARVE_CI_STATUS: ${{ job.status }}
+          VARVE_VALIDATION_PROFILE: candidate
+        run: node scripts/quality/ci-execution-report.mjs --category bench --lanes bench:render --matrix ubuntu-latest --status "${{ job.status }}" --output ci-execution/bench.json
+      - name: Upload benchmark execution receipt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-ci-execution-${{ github.run_id }}-bench
+          path: ci-execution/
+          if-no-files-found: ignore
       - name: Upload benchmark diagnostics
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -433,6 +595,12 @@ jobs:
         with:
           name: varve-candidate-plan-${{ inputs.sha }}
           path: candidate-plan
+      - name: Download execution receipts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: varve-ci-execution-${{ github.run_id }}-*
+          path: ci-execution
+          merge-multiple: true
       - name: Aggregate frozen candidate evidence
         id: aggregate
         if: always()
@@ -442,7 +610,8 @@ jobs:
           set -euo pipefail
           printf '%s' "$NEEDS_JSON" > ci-needs.json
           if node scripts/quality/aggregate-ci.mjs --needs ci-needs.json \
-            --plan candidate-plan/ci-plan.json --output ci-certification.json; then
+            --plan candidate-plan/ci-plan.json --execution-dir ci-execution \
+            --output ci-certification.json; then
             aggregate_status=0
           else
             aggregate_status=$?

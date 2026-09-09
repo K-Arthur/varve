@@ -169,7 +169,14 @@ jobs:
           name: varve-ci-plan-${{ github.run_id }}
           path: ci-plan-artifact
       - name: Run selected Rust crate lanes
-        run: node scripts/quality/ci-run-lanes.mjs --plan ci-plan-artifact/ci-plan.json --category rust --profile integration
+        run: node scripts/quality/ci-run-lanes.mjs --plan ci-plan-artifact/ci-plan.json --category rust --profile integration --matrix "${{ matrix.os }}" --report "ci-execution/rust-${{ matrix.os }}.json"
+      - name: Upload Rust execution receipt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-ci-execution-${{ github.run_id }}-rust-${{ matrix.os }}
+          path: ci-execution/
+          if-no-files-found: ignore
       # One-shot diagnosis for STATUS_ENTRYPOINT_NOT_FOUND (0xc0000139) on the
       # Windows test harness: compares imports against runner DLL exports.
       - name: Diagnose Windows entry-point failure
@@ -240,6 +247,21 @@ jobs:
         with:
           name: varve-wasm
           path: apps/desktop/public/wasm/
+      - name: Write WASM execution receipt
+        if: always()
+        env:
+          VARVE_CI_COMMIT_SHA: ${{ needs.changes.outputs.commit_sha }}
+          VARVE_CI_PLAN_HASH: ${{ needs.changes.outputs.plan_hash }}
+          VARVE_CI_POLICY_HASH: ${{ needs.changes.outputs.policy_hash }}
+          VARVE_CI_STATUS: ${{ job.status }}
+        run: node scripts/quality/ci-execution-report.mjs --category wasm --lanes wasm --matrix ubuntu-latest --status "${{ job.status }}" --output ci-execution/wasm.json
+      - name: Upload WASM execution receipt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-ci-execution-${{ github.run_id }}-wasm
+          path: ci-execution/
+          if-no-files-found: ignore
       - name: Automated failure debug
         if: failure()
         env:
@@ -354,6 +376,21 @@ jobs:
           node scripts/security/validate-client-env.mjs --app desktop
       - name: Import-boundary audit
         run: node scripts/security/import-boundaries.mjs
+      - name: Write pipeline execution receipt
+        if: always()
+        env:
+          VARVE_CI_COMMIT_SHA: ${{ needs.changes.outputs.commit_sha }}
+          VARVE_CI_PLAN_HASH: ${{ needs.changes.outputs.plan_hash }}
+          VARVE_CI_POLICY_HASH: ${{ needs.changes.outputs.policy_hash }}
+          VARVE_CI_STATUS: ${{ job.status }}
+        run: node scripts/quality/ci-execution-report.mjs --category pipeline --lanes pipeline-validate,ci-tools,policy --matrix ubuntu-latest --status "${{ job.status }}" --output ci-execution/pipeline.json
+      - name: Upload pipeline execution receipt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-ci-execution-${{ github.run_id }}-pipeline
+          path: ci-execution/
+          if-no-files-found: ignore
 
   js:
     permissions:
@@ -383,7 +420,14 @@ jobs:
           name: varve-ci-plan-${{ github.run_id }}
           path: ci-plan-artifact
       - name: Run selected JavaScript package lanes
-        run: node scripts/quality/ci-run-lanes.mjs --plan ci-plan-artifact/ci-plan.json --category js --profile integration
+        run: node scripts/quality/ci-run-lanes.mjs --plan ci-plan-artifact/ci-plan.json --category js --profile integration --matrix ubuntu-latest --report ci-execution/js.json
+      - name: Upload JavaScript execution receipt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-ci-execution-${{ github.run_id }}-js
+          path: ci-execution/
+          if-no-files-found: ignore
       - name: Automated failure debug
         if: failure()
         env:
@@ -439,6 +483,21 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
       - name: Website E2E (both modes)
         run: pnpm exec playwright test -c playwright.website.config.ts
+      - name: Write website execution receipt
+        if: always()
+        env:
+          VARVE_CI_COMMIT_SHA: ${{ needs.changes.outputs.commit_sha }}
+          VARVE_CI_PLAN_HASH: ${{ needs.changes.outputs.plan_hash }}
+          VARVE_CI_POLICY_HASH: ${{ needs.changes.outputs.policy_hash }}
+          VARVE_CI_STATUS: ${{ job.status }}
+        run: node scripts/quality/ci-execution-report.mjs --category website --lanes website-unit,website-e2e --matrix ubuntu-latest --status "${{ job.status }}" --output ci-execution/website.json
+      - name: Upload website execution receipt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-ci-execution-${{ github.run_id }}-website
+          path: ci-execution/
+          if-no-files-found: ignore
 
   e2e:
     permissions:
@@ -499,7 +558,14 @@ jobs:
           name: varve-ci-plan-${{ github.run_id }}
           path: ci-plan-artifact
       - name: E2E (chromium)
-        run: node scripts/quality/ci-run-lanes.mjs --plan ci-plan-artifact/ci-plan.json --category e2e --profile integration --shard "${{ matrix.shard }}/${{ needs.changes.outputs.e2e_shard_count }}"
+        run: node scripts/quality/ci-run-lanes.mjs --plan ci-plan-artifact/ci-plan.json --category e2e --profile integration --shard "${{ matrix.shard }}/${{ needs.changes.outputs.e2e_shard_count }}" --matrix ubuntu-latest --report "ci-execution/e2e-${{ matrix.shard }}.json"
+      - name: Upload E2E execution receipt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-ci-execution-${{ github.run_id }}-e2e-${{ matrix.shard }}
+          path: ci-execution/
+          if-no-files-found: ignore
       # always(): a job that exceeds timeout-minutes is cancelled, not failed,
       # so `if: failure()` steps are skipped and a timed-out run used to leave
       # nothing at all behind to diagnose.
@@ -586,6 +652,21 @@ jobs:
             test-results/
           retention-days: 7
           if-no-files-found: ignore
+      - name: Write visual execution receipt
+        if: always()
+        env:
+          VARVE_CI_COMMIT_SHA: ${{ needs.changes.outputs.commit_sha }}
+          VARVE_CI_PLAN_HASH: ${{ needs.changes.outputs.plan_hash }}
+          VARVE_CI_POLICY_HASH: ${{ needs.changes.outputs.policy_hash }}
+          VARVE_CI_STATUS: ${{ job.status }}
+        run: node scripts/quality/ci-execution-report.mjs --category visual --lanes e2e:visual --matrix ubuntu-latest --status "${{ job.status }}" --output ci-execution/visual.json
+      - name: Upload visual execution receipt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-ci-execution-${{ github.run_id }}-visual
+          path: ci-execution/
+          if-no-files-found: ignore
       - name: Automated failure debug
         if: failure()
         env:
@@ -659,6 +740,21 @@ jobs:
       - name: Run native desktop E2E (Windows/macOS)
         if: ${{ !matrix.xvfb }}
         run: pnpm test:desktop:native
+      - name: Write desktop execution receipt
+        if: always()
+        env:
+          VARVE_CI_COMMIT_SHA: ${{ needs.changes.outputs.commit_sha }}
+          VARVE_CI_PLAN_HASH: ${{ needs.changes.outputs.plan_hash }}
+          VARVE_CI_POLICY_HASH: ${{ needs.changes.outputs.policy_hash }}
+          VARVE_CI_STATUS: ${{ job.status }}
+        run: node scripts/quality/ci-execution-report.mjs --category desktop --lanes desktop-native --matrix "${{ matrix.name }}" --status "${{ job.status }}" --output "ci-execution/desktop-${{ matrix.name }}.json"
+      - name: Upload desktop execution receipt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-ci-execution-${{ github.run_id }}-desktop-${{ matrix.name }}
+          path: ci-execution/
+          if-no-files-found: ignore
       - name: Automated failure debug
         if: failure()
         env:
@@ -699,6 +795,21 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Render benchmark gate
         run: pnpm bench:canvas
+      - name: Write benchmark execution receipt
+        if: always()
+        env:
+          VARVE_CI_COMMIT_SHA: ${{ needs.changes.outputs.commit_sha }}
+          VARVE_CI_PLAN_HASH: ${{ needs.changes.outputs.plan_hash }}
+          VARVE_CI_POLICY_HASH: ${{ needs.changes.outputs.policy_hash }}
+          VARVE_CI_STATUS: ${{ job.status }}
+        run: node scripts/quality/ci-execution-report.mjs --category bench --lanes bench:render --matrix ubuntu-latest --status "${{ job.status }}" --output ci-execution/bench.json
+      - name: Upload benchmark execution receipt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-ci-execution-${{ github.run_id }}-bench
+          path: ci-execution/
+          if-no-files-found: ignore
       - name: Upload benchmark diagnostics
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -719,6 +830,21 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Validate model manifest and checksums
         run: node scripts/models/validate-manifest.mjs
+      - name: Write model execution receipt
+        if: always()
+        env:
+          VARVE_CI_COMMIT_SHA: ${{ needs.changes.outputs.commit_sha }}
+          VARVE_CI_PLAN_HASH: ${{ needs.changes.outputs.plan_hash }}
+          VARVE_CI_POLICY_HASH: ${{ needs.changes.outputs.policy_hash }}
+          VARVE_CI_STATUS: ${{ job.status }}
+        run: node scripts/quality/ci-execution-report.mjs --category models --lanes models --matrix ubuntu-latest --status "${{ job.status }}" --output ci-execution/models.json
+      - name: Upload model execution receipt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-ci-execution-${{ github.run_id }}-models
+          path: ci-execution/
+          if-no-files-found: ignore
 
   # This is the only required integration status. Dynamic jobs may be
   # deliberately skipped by the canonical plan, but a selected job that is
@@ -750,6 +876,12 @@ jobs:
         with:
           name: varve-ci-plan-${{ github.run_id }}
           path: ci-plan-artifact
+      - name: Download execution receipts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: varve-ci-execution-${{ github.run_id }}-*
+          path: ci-execution
+          merge-multiple: true
       - name: Aggregate certification evidence
         env:
           NEEDS_JSON: ${{ toJson(needs) }}
@@ -759,6 +891,7 @@ jobs:
           node scripts/quality/aggregate-ci.mjs \
             --needs ci-needs.json \
             --plan ci-plan-artifact/ci-plan.json \
+            --execution-dir ci-execution \
             --output ci-certification.json
       - name: Upload certification summary
         if: always()

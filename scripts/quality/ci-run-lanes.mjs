@@ -9,6 +9,7 @@ import { delimiter, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { IMPACT_CONFIG } from '../../validation-impact.config.mjs';
 import { loadPackages } from './affected-plan.mjs';
+import { createExecutionReport, writeExecutionReport } from './ci-execution-report.mjs';
 import { validateCiPlan } from './ci-plan.mjs';
 import { laneArgv, packageDirs } from './validation-lanes.mjs';
 import { CI_CATEGORIES, computePolicyHash } from './validation-policy.mjs';
@@ -18,12 +19,22 @@ for (const [name, packageInfo] of Object.entries(loadPackages()))
   packageDirs[name] = packageInfo.dir;
 
 function parseArgs(args) {
-  const flags = { plan: null, category: null, profile: 'integration', dryRun: false, shard: null };
+  const flags = {
+    plan: null,
+    category: null,
+    profile: 'integration',
+    dryRun: false,
+    shard: null,
+    report: null,
+    matrix: null,
+  };
   for (let index = 0; index < args.length; index += 1) {
     if (args[index] === '--plan') flags.plan = args[++index];
     else if (args[index] === '--category') flags.category = args[++index];
     else if (args[index] === '--profile') flags.profile = args[++index];
     else if (args[index] === '--shard') flags.shard = args[++index];
+    else if (args[index] === '--report') flags.report = args[++index];
+    else if (args[index] === '--matrix') flags.matrix = args[++index];
     else if (args[index] === '--dry-run') flags.dryRun = true;
   }
   return flags;
@@ -138,13 +149,32 @@ export function runCategory(
   category,
   { execute = runCommand, shard = null, dryRun = false } = {},
 ) {
+  return runCategoryDetailed(plan, category, { execute, shard, dryRun }).status;
+}
+
+export function runCategoryDetailed(
+  plan,
+  category,
+  { execute = runCommand, shard = null, dryRun = false } = {},
+) {
+  const outcomes = [];
   for (const { lane, argv } of commandsForCategory(plan, category, { shard })) {
     console.log(`CI ${category}: ${lane}`);
+    const startedAt = Date.now();
     const status = execute(argv, { dryRun, timeoutMs: 45 * 60 * 1000 });
     const code = typeof status === 'number' ? status : (status?.status ?? 1);
-    if (code !== 0) return code;
+    outcomes.push({
+      lane,
+      argv,
+      status: code === 0 ? 'success' : 'failure',
+      exitCode: typeof status === 'number' ? code : (status?.status ?? code),
+      signal: typeof status === 'number' ? null : (status?.signal ?? null),
+      timedOut: typeof status === 'number' ? false : status?.timedOut === true,
+      durationMs: Date.now() - startedAt,
+    });
+    if (code !== 0) return { status: code, outcomes };
   }
-  return 0;
+  return { status: 0, outcomes };
 }
 
 function runCommand(argv, { dryRun = false, timeoutMs = 45 * 60 * 1000 } = {}) {
@@ -163,10 +193,10 @@ function runCommand(argv, { dryRun = false, timeoutMs = 45 * 60 * 1000 } = {}) {
     console.error(
       `    command failed: ${reason}; resources: ${availableParallelism()} CPUs, ${Math.round(freemem() / 1024 / 1024)} MiB free / ${Math.round(totalmem() / 1024 / 1024)} MiB total`,
     );
-    return 1;
+    return { status: 1, timedOut: result.error.code === 'ETIMEDOUT' };
   }
-  if (result.signal) return 1;
-  return result.status ?? 1;
+  if (result.signal) return { status: 1, signal: result.signal };
+  return { status: result.status ?? 1 };
 }
 
 function main() {
@@ -184,11 +214,25 @@ function main() {
     throw new Error(`CI plan identity check failed: ${identityErrors.join('; ')}`);
   if (plan.profile && flags.profile !== plan.profile && flags.profile !== 'integration')
     throw new Error(`plan profile ${plan.profile} does not match requested ${flags.profile}`);
-  const status = runCategory(plan, flags.category, {
+  const startedAt = Date.now();
+  const result = runCategoryDetailed(plan, flags.category, {
     shard: flags.shard,
     dryRun: flags.dryRun,
   });
-  process.exitCode = status;
+  if (flags.report) {
+    const report = createExecutionReport({
+      plan,
+      category: flags.category,
+      profile: flags.profile,
+      status: result.status === 0 ? 'success' : 'failure',
+      laneOutcomes: result.outcomes,
+      shard: flags.shard,
+      matrix: flags.matrix,
+      durationMs: Date.now() - startedAt,
+    });
+    writeExecutionReport(report, flags.report);
+  }
+  process.exitCode = result.status;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

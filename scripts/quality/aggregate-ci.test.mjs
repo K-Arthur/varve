@@ -4,7 +4,11 @@
 
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { aggregateCertification, REQUIRED_CI_JOBS } from './aggregate-ci.mjs';
+import {
+  aggregateCertification,
+  REQUIRED_CI_JOBS,
+  validateExecutionEvidence,
+} from './aggregate-ci.mjs';
 import {
   CI_CATEGORIES,
   CI_CATEGORY_LANES,
@@ -28,6 +32,101 @@ assert.equal(passed.passed, true, 'all selected jobs plus deliberate attribution
 assert.equal(passed.commitSha, 'a'.repeat(40));
 assert.equal(passed.policyHash, 'b'.repeat(64));
 assert.equal(passed.certifiable, true, 'integration evidence is certifiable');
+
+const strictPlan = {
+  profile: 'integration',
+  categories: {
+    pipeline: true,
+    js: false,
+    rust: false,
+    wasm: false,
+    website: false,
+    e2e: false,
+    visual: false,
+    desktop: false,
+    models: false,
+    bench: false,
+  },
+  selectedLanes: ['pipeline-validate', 'ci-tools', 'policy'],
+  commitSha: 'c'.repeat(40),
+  treeSha: 'd'.repeat(40),
+  planHash: 'e'.repeat(64),
+  policyHash: 'f'.repeat(64),
+  e2eShardCount: 1,
+};
+const pipelineExecution = {
+  schema: 1,
+  category: 'pipeline',
+  profile: 'integration',
+  candidateMode: null,
+  status: 'success',
+  source: {
+    commitSha: strictPlan.commitSha,
+    treeSha: strictPlan.treeSha,
+    plannedCommitSha: strictPlan.commitSha,
+    plannedTreeSha: strictPlan.treeSha,
+    planHash: strictPlan.planHash,
+    policyHash: strictPlan.policyHash,
+  },
+  workflow: { repository: 'K-Arthur/varve', runId: '42' },
+  matrix: 'ubuntu-latest',
+  shard: null,
+  executedLanes: ['pipeline-validate', 'ci-tools', 'policy'],
+};
+const strictNeeds = Object.fromEntries(
+  Object.keys(REQUIRED_CI_JOBS).map((job) => [
+    job,
+    { result: job === 'changes' || job === 'pipeline-validate' ? 'success' : 'skipped' },
+  ]),
+);
+const strictPassed = aggregateCertification({
+  needs: strictNeeds,
+  ...strictPlan,
+  executionReports: [pipelineExecution],
+  workflow: { repository: 'K-Arthur/varve', runId: '42' },
+});
+assert.equal(strictPassed.passed, true, 'exact successful execution evidence certifies the plan');
+assert.equal(strictPassed.execution.deferred, undefined);
+const missingExecution = aggregateCertification({
+  needs: strictNeeds,
+  ...strictPlan,
+  executionReports: [],
+});
+assert.equal(missingExecution.passed, false, 'missing execution evidence blocks certification');
+const wrongTree = validateExecutionEvidence({
+  reports: [
+    { ...pipelineExecution, source: { ...pipelineExecution.source, treeSha: '0'.repeat(40) } },
+  ],
+  plan: strictPlan,
+});
+assert.equal(wrongTree.passed, false, 'a report from another tree cannot certify the plan');
+const e2ePlan = {
+  ...strictPlan,
+  categories: { ...strictPlan.categories, pipeline: false, e2e: true },
+  selectedLanes: ['e2e:all'],
+  e2eShardCount: 2,
+};
+const e2eReports = [1, 2].map((shard) => ({
+  ...pipelineExecution,
+  category: 'e2e',
+  source: pipelineExecution.source,
+  matrix: 'ubuntu-latest',
+  shard: `${shard}/2`,
+  executedLanes: ['e2e:all'],
+}));
+assert.equal(
+  validateExecutionEvidence({ reports: [pipelineExecution, ...e2eReports], plan: e2ePlan }).passed,
+  true,
+  'all promised browser shards are required and accepted',
+);
+assert.equal(
+  validateExecutionEvidence({
+    reports: [pipelineExecution, ...e2eReports.slice(0, 1)],
+    plan: e2ePlan,
+  }).passed,
+  false,
+  'a missing browser shard is incomplete evidence',
+);
 
 const triage = aggregateCertification({
   needs: { ...allSuccess, js: { result: 'failure' } },

@@ -91,6 +91,7 @@ export function buildCiPlan({
   if (candidateMode && !['triage', 'final'].includes(candidateMode))
     throw new Error(`invalid candidate mode '${candidateMode}'; expected triage or final`);
   const resolvedHead = git(['rev-parse', '--verify', `${head}^{commit}`], root).trim();
+  const treeSha = git(['rev-parse', '--verify', `${resolvedHead}^{tree}`], root).trim();
   const resolvedBase = base
     ? git(['rev-parse', '--verify', `${base}^{commit}`], root).trim()
     : null;
@@ -121,6 +122,7 @@ export function buildCiPlan({
     profile,
     candidateMode,
     commitSha: resolvedHead,
+    treeSha,
     baseSha: resolvedBase,
     files,
     fileHash: sha256(files.join('\0')),
