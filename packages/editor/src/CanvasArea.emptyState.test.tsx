@@ -1,9 +1,17 @@
 // @vitest-environment jsdom
 
 import { render, screen } from '@testing-library/react';
+import type { SceneNode } from '@varve/scene';
 import { EmptyState } from '@varve/ui';
 import { describe, expect, it } from 'vitest';
-import { getEmptyStateContent } from './CanvasArea';
+import { getEmptyStateContent, isCanvasEmpty } from './CanvasArea';
+
+describe('isCanvasEmpty', () => {
+  it('uses the active canvas root scope rather than document container nodes', () => {
+    expect(isCanvasEmpty([])).toBe(true);
+    expect(isCanvasEmpty([{} as SceneNode])).toBe(false);
+  });
+});
 
 describe('getEmptyStateContent', () => {
   it('returns design mode defaults for unknown mode', () => {

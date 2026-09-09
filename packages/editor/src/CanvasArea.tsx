@@ -196,6 +196,11 @@ export interface CanvasContextMenuRequest {
   contextElement: HTMLElement;
 }
 
+/** Whether the currently scoped design canvas has any authored root artwork. */
+export function isCanvasEmpty(nodes: readonly SceneNode[]): boolean {
+  return nodes.length === 0;
+}
+
 export function CanvasArea({
   canvasContainerRef,
   onContextMenu,
@@ -1267,6 +1272,7 @@ export function CanvasArea({
   const artboardRect = activePage
     ? { x: 0, y: 0, w: activePage.width, h: activePage.height }
     : null;
+  const canvasIsEmpty = isCanvasEmpty(rootNodes());
 
   const stubRemoteCursors = collab.users.slice(0, 2).map((u, i) => ({
     userId: u.id,
@@ -1398,7 +1404,7 @@ export function CanvasArea({
         />
       )}
       {/* Empty canvas guidance — shown only when document has no content */}
-      {state.document.rootChildren.length === 0 &&
+      {canvasIsEmpty &&
         !isDragOver &&
         (() => {
           const empty = getEmptyStateContent(state.workspaceMode);
@@ -1407,7 +1413,7 @@ export function CanvasArea({
               <p className="editor-canvas__empty-state-title">{empty.title}</p>
               <div className="editor-canvas__empty-state-shortcuts">
                 {empty.shortcuts.map((s) => (
-                  <span key={s.key}>
+                  <span className="editor-canvas__empty-state-shortcut" key={s.key}>
                     <span className="editor-canvas__empty-state-key">{s.key}</span>
                     {s.label}
                   </span>
