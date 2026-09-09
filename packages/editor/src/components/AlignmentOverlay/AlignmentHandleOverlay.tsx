@@ -186,7 +186,7 @@ export function AlignmentHandleOverlay() {
       const decrease = axis === 'horizontal' ? 'ArrowLeft' : 'ArrowUp';
       const increase = axis === 'horizontal' ? 'ArrowRight' : 'ArrowDown';
 
-      if (e.key === decrease) nextGap = Math.max(0, currentValue - step);
+      if (e.key === decrease) nextGap = currentValue - step;
       else if (e.key === increase) nextGap = currentValue + step;
       else if (e.key === 'Home') nextGap = 0;
       else return;
@@ -293,9 +293,21 @@ export function AlignmentHandleOverlay() {
             onKeyDown={handleGapKeyDown('horizontal', i)}
             role="slider"
             aria-label={`Horizontal gap handle ${i + 1}`}
-            aria-valuenow={gapsH[i]}
-            aria-valuemin={0}
-            aria-valuetext={`${gapsH[i]} pixels`}
+            aria-valuenow={
+              currentGap !== null &&
+              dragState?.activeIndex === i &&
+              dragState?.axis === 'horizontal'
+                ? currentGap
+                : gapsH[i]
+            }
+            aria-valuemin={-Number.MAX_SAFE_INTEGER}
+            aria-valuetext={`${
+              currentGap !== null &&
+              dragState?.activeIndex === i &&
+              dragState?.axis === 'horizontal'
+                ? currentGap
+                : gapsH[i]
+            } pixels`}
             tabIndex={0}
           />
           <text
@@ -366,9 +378,17 @@ export function AlignmentHandleOverlay() {
             onKeyDown={handleGapKeyDown('vertical', i)}
             role="slider"
             aria-label={`Vertical gap handle ${i + 1}`}
-            aria-valuenow={gapsV[i]}
-            aria-valuemin={0}
-            aria-valuetext={`${gapsV[i]} pixels`}
+            aria-valuenow={
+              currentGap !== null && dragState?.activeIndex === i && dragState?.axis === 'vertical'
+                ? currentGap
+                : gapsV[i]
+            }
+            aria-valuemin={-Number.MAX_SAFE_INTEGER}
+            aria-valuetext={`${
+              currentGap !== null && dragState?.activeIndex === i && dragState?.axis === 'vertical'
+                ? currentGap
+                : gapsV[i]
+            } pixels`}
             tabIndex={0}
           />
           <text

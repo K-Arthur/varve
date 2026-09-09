@@ -197,4 +197,47 @@ test.describe('Alignment and arrangement workflow', () => {
       contentType: 'image/png',
     });
   });
+
+  test('previews and cancels a canvas gap drag before committing one undoable edit', async ({
+    page,
+  }) => {
+    await navigateToStableEditor(page);
+    await seedLayers(page, 2);
+
+    const layers = page.getByRole('treeitem');
+    await layers.nth(0).click();
+    await layers.nth(1).click({ modifiers: ['Control'] });
+
+    // The two handles share a hit point for this diagonal fixture. The
+    // vertical-gap dot is painted last, so select it and move on its axis.
+    const handle = page.locator('.alignment-handle__dot--horizontal').first();
+    const label = page.locator('.alignment-handle__label').nth(1);
+    await expect(handle).toBeVisible();
+    await expect(label).toBeVisible();
+    const initialLabel = await label.textContent();
+    const handleBox = await handle.boundingBox();
+    if (!handleBox) throw new Error('Gap handle must have a browser hit target');
+
+    const centerX = handleBox.x + handleBox.width / 2;
+    const centerY = handleBox.y + handleBox.height / 2;
+    await page.mouse.move(centerX, centerY);
+    await page.mouse.down();
+    await page.waitForTimeout(50);
+    await page.mouse.move(centerX, centerY + 40, { steps: 6 });
+    await expect.poll(() => label.textContent()).not.toBe(initialLabel);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    await expect(label).toHaveText(initialLabel ?? '');
+
+    await page.mouse.move(centerX, centerY);
+    await page.mouse.down();
+    await page.waitForTimeout(50);
+    await page.mouse.move(centerX, centerY + 40, { steps: 6 });
+    await expect.poll(() => label.textContent()).not.toBe(initialLabel);
+    await page.mouse.up();
+    await expect.poll(() => label.textContent()).not.toBe(initialLabel);
+
+    await page.keyboard.press('Control+z');
+    await expect.poll(() => label.textContent()).toBe(initialLabel);
+  });
 });
