@@ -82,6 +82,15 @@ The bulk bar is visible in all three states. The first post-change run failed
 the new geometry assertion as expected, proving the baseline clipping defect;
 the rerun passed after the flex sizing correction.
 
+The final post-change capture was also reviewed directly:
+
+- `test-results/run-155024-1476/layers-layers-panel-visual-bfd3d-lated-multi-selection-panel-chromium/layers-panel-populated-light.png`
+- `test-results/run-155024-1476/layers-layers-panel-visual-bfd3d-lated-multi-selection-panel-chromium/layers-panel-populated-dark.png`
+- `test-results/run-155024-1476/layers-layers-panel-visual-bfd3d-lated-multi-selection-panel-chromium/layers-panel-populated-high-contrast.png`
+
+The matching marketing-page capture was reviewed at:
+`test-results/layers-feature-Layers-feat-39ce0-d-stays-within-the-viewport-custom-domain/layers-feature-light.png`.
+
 ## Remaining design debt
 
 - The outer left rail still contains minimap and surface-navigation owners
@@ -96,6 +105,30 @@ the rerun passed after the flex sizing correction.
 
 ## Validation record
 
-Commands for this slice are recorded in the session handoff. The repository
-planner still sees concurrent unrelated changes in the worktree; no full-suite
-escalation was warranted for these CSS/markup changes.
+Changed scope: Layers panel CSS/markup, Layers panel unit/E2E coverage, the
+Layers architecture audit, and `/features/layers` marketing copy/illustration.
+
+Passed:
+
+- `pnpm verify:plan` — no full-suite escalation; Rust and full visual suites
+  were deliberately skipped as unrelated.
+- `pnpm exec vitest run packages/editor/src/components/LayersPanel --exclude '**/__benchmarks__/**' --reporter=dot` — 26 files, 320 tests.
+- `VARVE_E2E_PORT=1476 pnpm exec playwright test tests/e2e/layers/layers-panel-visual.spec.ts --project=chromium --reporter=list` — 1 visual scenario.
+- `VARVE_E2E_PORT=1475 pnpm exec playwright test tests/e2e/layers/layers.spec.ts --project=chromium --grep "colour labels" --reporter=list` — 1 scenario across three themes.
+- `pnpm --filter @varve/website typecheck` — 0 errors, 0 warnings, 5 existing hints.
+- `pnpm build:website` and `pnpm build:website:pages` — 81 pages built by each command.
+- `VARVE_WEBSITE_E2E_PORT=4327 VARVE_WEBSITE_E2E_PORT_ROOT=4328 pnpm exec playwright test -c playwright.website.config.ts apps/website/tests/e2e/layers-feature.spec.ts --project=ghpages --project=custom-domain --reporter=list` — 2 scenarios.
+- `pnpm audit:docs`, `pnpm audit:emoji`, and `pnpm audit:tokens` — clean; all 153 token pairs pass across three themes.
+- `pnpm exec biome check tests/e2e/layers/layers.spec.ts` and `git diff --check` — clean.
+
+The initial combined Layers browser command (`VARVE_E2E_PORT=1470` with
+`axe.spec.ts`, `layers.spec.ts`, and `layers-panel-visual.spec.ts`) reached 9
+passing scenarios, then exposed a transition-timing failure in the existing
+colour-label assertion. The focused follow-up above passed after making that
+assertion wait for the settled computed color.
+
+The repository-wide `pnpm verify:affected` plan was not allowed to reach the
+Layers checks because the already-dirty worktree stopped Tier 0 on unrelated
+Biome formatting in `apps/website/tests/e2e/visibility.spec.ts`; the affected
+editor typecheck likewise reported unrelated arrangement-test diagnostics.
+Those files were left untouched. No full suite was run.
