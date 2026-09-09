@@ -13,6 +13,10 @@ test.describe('canvas feature page', () => {
     await expect(contract).toContainText('Stable coordinates');
     await expect(contract).toContainText('Honest rendering');
     await expect(contract.locator('article')).toHaveCount(3);
+    const emptySurface = page.getByTestId('canvas-empty-surface-contract');
+    await expect(emptySurface).toBeVisible();
+    await expect(emptySurface).toContainText('A clear first frame');
+    await expect(emptySurface).toContainText('Pointer-transparent guidance');
     const labels = page.getByTestId('canvas-label-scope');
     await expect(labels).toBeVisible();
     await expect(labels).toContainText('Labels follow the surface');
@@ -41,6 +45,8 @@ test.describe('canvas feature page', () => {
     const mobileArrangement = page.getByTestId('canvas-arrangement-contract');
     await expect(mobileArrangement).toBeVisible();
     await expect(mobileArrangement.locator('article')).toHaveCount(3);
+    await expect(emptySurface).toBeVisible();
+    await expect(emptySurface.locator('.surface-state-contract__facts span')).toHaveCount(3);
     await page.screenshot({
       path: testInfo.outputPath('canvas-feature-mobile.png'),
       fullPage: true,

@@ -12,7 +12,7 @@ import { sitePath } from '../../lib/siteUrl';
 
       <h1>Canvas & Rendering</h1>
       <p class="feature-intro">
-        Responsive IR-replay rendering with an infinite canvas, precision tools, and native Rust performance.
+        Responsive IR-replay rendering with an infinite canvas, a clear starting surface, precision tools, and native Rust performance.
       </p>
 
       <section class="feature-section">
@@ -44,6 +44,22 @@ import { sitePath } from '../../lib/siteUrl';
         <p class="responsive-contract__evidence">
           This contract is exercised by the canvas browser regressions and documented in the <a href="https://github.com/K-Arthur/varve/blob/main/docs/audits/canvas-responsiveness-2026-09-08.md">canvas responsiveness audit</a>. Performance figures remain fixture-specific rather than a promise for every document or device.
         </p>
+      </section>
+
+      <section class="feature-section surface-state-contract" data-testid="canvas-empty-surface-contract">
+        <p class="eyebrow">Surface states</p>
+        <h2>A clear first frame</h2>
+        <p>
+          A new Design Canvas is not an unexplained blank viewport. When it has no authored
+          artwork, the editor keeps the work surface calm and shows a compact, keyboard-first
+          starting guide in the active canvas. The guide is scoped to that canvas and disappears
+          as soon as artwork exists, so it never competes with the design itself.
+        </p>
+        <div class="surface-state-contract__facts" aria-label="Empty canvas behavior">
+          <span>Scoped to the active canvas</span>
+          <span>Keyboard shortcuts stay visible</span>
+          <span>Pointer-transparent guidance</span>
+        </div>
       </section>
 
       <section class="feature-section" data-testid="canvas-label-scope">
@@ -127,6 +143,7 @@ import { sitePath } from '../../lib/siteUrl';
         <h2>Key Capabilities</h2>
         <ul>
           <li><strong>Infinite canvas:</strong> Floating origin camera system for unlimited workspace</li>
+          <li><strong>Canvas guidance:</strong> A scoped empty-surface guide explains the first useful actions without covering the work area</li>
           <li><strong>Viewport culling:</strong> Only render what's visible for performance at scale</li>
           <li><strong>Dirty-rect redraw:</strong> Minimize redraws to changed regions</li>
           <li><strong>Precision tools:</strong> Sticky snap, numerical precision, sub-pixel accuracy</li>
@@ -217,6 +234,27 @@ import { sitePath } from '../../lib/siteUrl';
   
   .feature-section {
     margin-bottom: 3rem;
+  }
+
+  .surface-state-contract {
+    padding-top: 2rem;
+    border-top: 1px solid var(--border-default);
+  }
+
+  .surface-state-contract__facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+  }
+
+  .surface-state-contract__facts span {
+    padding: 0.45rem 0.7rem;
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-surface);
+    background: var(--surface-card);
+    color: var(--text-secondary);
+    font-size: 0.875rem;
   }
 
   .arrangement-contract {

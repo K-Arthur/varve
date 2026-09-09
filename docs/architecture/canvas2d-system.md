@@ -33,6 +33,23 @@ optional render worker, resource caches, and frame scheduling. Editor-only selec
 guides, rulers, text editing, collaboration cursors, and accessibility representation
 are separate DOM/SVG/canvas layers and are never replayed into artwork export.
 
+### Canvas surface state contract
+
+The CanvasArea surface has a small, state-aware visual contract in addition to its
+rendering contract. Empty-state guidance is derived from `rootNodes()`, the active
+Design Canvas scope, rather than `document.rootChildren` (which also contains the
+canvas container). This keeps a newly created canvas from appearing to be broken or
+unresponsive while still hiding the guide as soon as authored artwork exists.
+
+The guide is deliberately editor chrome: a compact token-based surface with the
+active workspace's keyboard hints, `pointer-events: none`, and a stacking level above
+the opaque content/overlay canvases. It does not add document nodes, alter camera or
+history state, or create a second command path. Its light, dark, and high-contrast
+visual contract is covered by `tests/e2e/canvas/canvas-area-visual.spec.ts` and the
+full-editor visual scenarios in `tests/e2e/workspace/visual.spec.ts`. The scoped audit
+and design direction are recorded in
+`docs/audits/canvas-area-visual-design-audit-2026-09-09.md`.
+
 The frame path is:
 
 ```text
