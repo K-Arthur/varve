@@ -23,6 +23,10 @@ test('Layers feature page communicates the supported handoff and stays within th
   await expect(arrangement).toBeVisible();
   await expect(arrangement).toContainText('Space objects and stack layers as different operations');
   await expect(arrangement.locator('article')).toHaveCount(3);
+  const visualContract = page.getByTestId('layers-visual-contract');
+  await expect(visualContract).toBeVisible();
+  await expect(visualContract).toContainText('Read the stack before you touch it');
+  await expect(page.locator('.layer-demo__toolbar')).toContainText('Filter layers');
 
   const bounds = await page.evaluate(() => ({
     documentWidth: document.documentElement.scrollWidth,

@@ -113,9 +113,23 @@ import { sitePath } from '../../lib/siteUrl';
         </div>
       </section>
 
+      <section class="feature-section layers-visual-contract" aria-labelledby="layers-visual-title" data-testid="layers-visual-contract">
+        <p class="eyebrow">Quiet structure, strong state</p>
+        <h2 id="layers-visual-title">Read the stack before you touch it.</h2>
+        <p>
+          The panel keeps hierarchy in the foreground, uses compact type and status cues for context,
+          and reserves stronger color for selection, focus, and an active destination. Search and
+          multi-selection actions stay attached to the tree instead of disappearing below the rail.
+        </p>
+      </section>
+
       <section class="layer-demo" aria-label="Illustration of the Layers panel and canvas handoff">
         <div class="layer-demo__panel">
           <div class="layer-demo__heading"><span>Layers</span><span class="layer-demo__dots">•••</span></div>
+          <div class="layer-demo__toolbar">
+            <span class="layer-demo__search"><span aria-hidden="true">⌕</span> Filter layers…</span>
+            <span class="layer-demo__count">5</span>
+          </div>
           <div class="layer-demo__row layer-demo__row--selected"><span class="layer-demo__grip">⋮⋮</span><span class="layer-demo__chevron">⌄</span><strong>Hero group</strong></div>
           <div class="layer-demo__row layer-demo__row--child"><span class="layer-demo__indent"></span><span class="layer-demo__chevron">⌄</span><span>Headline</span></div>
           <div class="layer-demo__row layer-demo__row--child layer-demo__row--selected"><span class="layer-demo__indent"></span><span class="layer-demo__chevron">⌄</span><span>Illustration</span></div>
@@ -213,6 +227,9 @@ import { sitePath } from '../../lib/siteUrl';
   .layer-demo__panel { position: relative; padding: 1.25rem .85rem; border-right: 1px solid var(--border-default); background: var(--surface-card); }
   .layer-demo__heading { display: flex; justify-content: space-between; padding: .25rem .6rem 1rem; color: var(--text-primary); font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
   .layer-demo__dots { color: var(--text-tertiary); letter-spacing: .16em; }
+  .layer-demo__toolbar { display: flex; align-items: center; gap: .5rem; margin: 0 .35rem .7rem; padding: .35rem .55rem; border: 1px solid var(--border-default); border-radius: var(--website-radius-control); background: var(--surface-sunken); color: var(--text-tertiary); font-size: .78rem; }
+  .layer-demo__search { display: flex; align-items: center; gap: .35rem; min-width: 0; flex: 1; }
+  .layer-demo__count { display: inline-flex; align-items: center; justify-content: center; min-width: 1.25rem; height: 1.25rem; border: 1px solid var(--border-default); border-radius: 999px; color: var(--text-secondary); font-size: .68rem; }
   .layer-demo__row { display: flex; align-items: center; gap: .55rem; min-height: 2.1rem; padding: .25rem .6rem; color: var(--text-secondary); font-size: .9rem; border-radius: var(--website-radius-control); }
   .layer-demo__row--selected { color: var(--text-primary); background: var(--surface-accent-soft); }
   .layer-demo__row--child { padding-left: 1.65rem; }
