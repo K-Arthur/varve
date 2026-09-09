@@ -351,4 +351,36 @@ test.describe('Image Tuning', () => {
       path: path.join(REVIEW_DIR, `object-finishing-grain-${testInfo.project.name}.png`),
     });
   });
+
+  test('identifies RIFE as experimental Frame Interpolation rather than layer blending', async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(120000);
+    await navigateToEditor(page);
+
+    await page.locator('#file-import-input').setInputFiles(PHOTO_FIXTURE);
+    await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 30000 });
+    await page.getByRole('treeitem').first().click();
+    await page.keyboard.press('Control+d');
+    await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 30000 });
+    await page.getByRole('treeitem').first().click();
+
+    const inspector = page.locator('.editor__inspector-panel');
+    await inspector.getByRole('tab', { name: 'Adjustments', exact: true }).click();
+    const trigger = inspector.getByRole('button', {
+      name: 'Frame Interpolation',
+      exact: true,
+    });
+    await expect(trigger).toBeVisible();
+    if ((await trigger.getAttribute('aria-expanded')) !== 'true') await trigger.click();
+
+    const semantics = inspector.getByText(/RIFE frame interpolation, not layer compositing/i);
+    await expect(semantics).toBeVisible();
+    await expect(
+      inspector.getByRole('button', { name: 'Generate frame interpolation preview', exact: true }),
+    ).toBeVisible();
+    await inspector.screenshot({
+      path: path.join(REVIEW_DIR, `frame-interpolation-panel-${testInfo.project.name}.png`),
+    });
+  });
 });
