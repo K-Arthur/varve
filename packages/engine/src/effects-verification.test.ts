@@ -178,9 +178,11 @@ describe('gradient map pixel verification', () => {
   });
 
   it('8x8 dither vs 4x4 dither produce different patterns', () => {
-    const base = Array.from({ length: 64 }, (_, i) =>
-      i % 4 === 3 ? 255 : Math.round((i / 60) * 255),
-    );
+    // Use a fractional-luminance colour rather than grayscale integer values.
+    // The two Bayer matrices intentionally share the same checkerboard sign
+    // pattern for integer tones, so a grayscale ramp can legitimately produce
+    // identical rounded bytes even though the thresholds differ.
+    const base = Array.from({ length: 64 }, (_, i) => [128, 130, 128, 255][i % 4]!);
     const img4 = createImageData(16, 1, [...base]);
     const img8 = createImageData(16, 1, [...base]);
     const stops: GradientMapStop[] = [
