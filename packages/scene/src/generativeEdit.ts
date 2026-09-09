@@ -65,6 +65,7 @@ export interface GenerativeEditRecord {
   variations: GenerativeEditVariation[];
   activeVariationId?: string;
   acceptedVariationId?: string;
+  resultNodeId?: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -106,22 +107,25 @@ function validSettings(value: unknown): value is GenerativeEditSettings {
     finiteNonNegative(settings.feather) &&
     (settings.prompt === undefined || typeof settings.prompt === 'string') &&
     (settings.negativePrompt === undefined || typeof settings.negativePrompt === 'string') &&
-    (settings.seed === undefined || (typeof settings.seed === 'number' && Number.isFinite(settings.seed)))
+    (settings.seed === undefined ||
+      (typeof settings.seed === 'number' && Number.isFinite(settings.seed)))
   );
 }
 
 function validVariation(value: unknown): value is GenerativeEditVariation {
   if (!value || typeof value !== 'object') return false;
   const variation = value as Partial<GenerativeEditVariation>;
+  const width = variation.width;
+  const height = variation.height;
   return (
     typeof variation.id === 'string' &&
     variation.id.length > 0 &&
     typeof variation.assetId === 'string' &&
     variation.assetId.length > 0 &&
-    Number.isSafeInteger(variation.width) &&
-    variation.width > 0 &&
-    Number.isSafeInteger(variation.height) &&
-    variation.height > 0 &&
+    Number.isSafeInteger(width) &&
+    (width ?? 0) > 0 &&
+    Number.isSafeInteger(height) &&
+    (height ?? 0) > 0 &&
     finiteNonNegative(variation.createdAt) &&
     (variation.provider === undefined || validProvider(variation.provider))
   );
@@ -131,6 +135,9 @@ function validVariation(value: unknown): value is GenerativeEditVariation {
 export function validateGenerativeEdit(value: unknown): string | null {
   if (!value || typeof value !== 'object') return 'Generative edit must be an object';
   const edit = value as Partial<GenerativeEditRecord>;
+  const sourceRevision = edit.sourceRevision;
+  const maskWidth = edit.maskWidth;
+  const maskHeight = edit.maskHeight;
   if (edit.schemaVersion !== GENERATIVE_EDIT_SCHEMA_VERSION) {
     return `Unsupported generative edit schema version: ${String(edit.schemaVersion)}`;
   }
@@ -140,7 +147,7 @@ export function validateGenerativeEdit(value: unknown): string | null {
     return 'Generative edit sourceNodeId is required';
   }
   if (typeof edit.sourceLocator !== 'string') return 'Generative edit sourceLocator is invalid';
-  if (!Number.isSafeInteger(edit.sourceRevision) || edit.sourceRevision < 0) {
+  if (!Number.isSafeInteger(sourceRevision) || (sourceRevision ?? -1) < 0) {
     return 'Generative edit sourceRevision is invalid';
   }
   if (typeof edit.placementRevision !== 'string' || edit.placementRevision.length === 0) {
@@ -149,8 +156,10 @@ export function validateGenerativeEdit(value: unknown): string | null {
   if (typeof edit.maskAssetId !== 'string' || edit.maskAssetId.length === 0) {
     return 'Generative edit maskAssetId is required';
   }
-  if (!Number.isSafeInteger(edit.maskWidth) || edit.maskWidth <= 0) return 'Generative edit maskWidth is invalid';
-  if (!Number.isSafeInteger(edit.maskHeight) || edit.maskHeight <= 0) return 'Generative edit maskHeight is invalid';
+  if (!Number.isSafeInteger(maskWidth) || (maskWidth ?? 0) <= 0)
+    return 'Generative edit maskWidth is invalid';
+  if (!Number.isSafeInteger(maskHeight) || (maskHeight ?? 0) <= 0)
+    return 'Generative edit maskHeight is invalid';
   if (edit.maskCoordinateSpace !== 'source-image-pixels') {
     return 'Generative edit maskCoordinateSpace must be source-image-pixels';
   }
@@ -173,7 +182,9 @@ export function validateGenerativeEdit(value: unknown): string | null {
 }
 
 /** Keep only well-formed persisted records; malformed records cannot block a document load. */
-export function normalizeGenerativeEdits(value: unknown): Record<string, GenerativeEditRecord> | undefined {
+export function normalizeGenerativeEdits(
+  value: unknown,
+): Record<string, GenerativeEditRecord> | undefined {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
   const valid = Object.fromEntries(
     Object.entries(value).filter(([id, edit]) => {

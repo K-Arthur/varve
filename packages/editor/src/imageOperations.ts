@@ -82,6 +82,10 @@ export interface DerivedImageInput {
    * uncover the removed background across part of the image.
    */
   maskBakedIn?: boolean;
+  /** Reuse a document asset created by the caller instead of duplicating bytes. */
+  assetId?: string;
+  /** Link an accepted derived raster to its persisted edit recipe. */
+  generativeEditId?: string;
 }
 
 function placeBeside(
@@ -128,14 +132,20 @@ export function insertDerivedImageShape(
   const allocated = nextNodeId(doc);
   const sourceWidth = source.shape.kind === 'rect' ? source.shape.w : input.width;
   const sourceHeight = source.shape.kind === 'rect' ? source.shape.h : input.height;
+  const fill = imageFill(input.dataUrl, { fit: 'fill' });
   const derived: ShapeNode = {
     ...source,
     id: allocated.id,
     name: `${source.name} ${input.suffix}`,
     shape: { kind: 'rect', x: 0, y: 0, w: input.width, h: input.height },
     transform: placeBeside(source.transform, sourceWidth, sourceHeight, input.width, input.height),
-    fills: [imageFill(input.dataUrl, { fit: 'fill' })],
+    fills: [
+      input.assetId && fill.image
+        ? { ...fill, image: { ...fill.image, assetId: input.assetId } }
+        : fill,
+    ],
     backgroundRemoval: undefined,
+    ...(input.generativeEditId ? { generativeEditId: input.generativeEditId } : {}),
     ...(input.maskBakedIn ? { mask: undefined } : {}),
   };
   return { doc: insertAfter(allocated.doc, sourceId, derived), nodeId: allocated.id };

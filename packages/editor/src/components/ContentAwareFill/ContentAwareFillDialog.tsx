@@ -1,12 +1,21 @@
 import {
   type ContentAwareFillQuality,
-  type ContentAwareFillResult,
+  GenerativeEditError,
+  type GenerativeEditMode,
+  type GenerativeEditResult,
+  GenerativeJobController,
   getModelLoader,
   QUALITY_DESCRIPTIONS,
   QUALITY_LABELS,
-  runContentAwareFillPipeline,
+  runGenerativeEdit,
 } from '@varve/engine';
-import { imageShapeSrc, isImageShape } from '@varve/scene';
+import {
+  createEmbeddedAsset,
+  decodedDataUrlByteLength,
+  hashContent,
+  imageShapeSrc,
+  isImageShape,
+} from '@varve/scene';
 import { Button, Switch } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
@@ -52,15 +61,23 @@ export function ContentAwareFillDialog({
 }: ContentAwareFillDialogProps) {
   const { state, updateDoc, announce } = useEditor();
   const dialogRef = useRef<HTMLDialogElement | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
+  const jobControllerRef = useRef(new GenerativeJobController());
   const downloadAbortRef = useRef<AbortController | null>(null);
   const isPaintingRef = useRef(false);
+  const generationRef = useRef<{
+    sourceSignature: string;
+    maskDataUrl: string;
+    result: GenerativeEditResult;
+  } | null>(null);
+  const variationSequenceRef = useRef(0);
 
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const previewAreaRef = useRef<HTMLDivElement | null>(null);
 
   const [quality, setQuality] = useState<ContentAwareFillQuality>('fast');
+  const [mode, setMode] = useState<GenerativeEditMode>('remove');
+  const [prompt, setPrompt] = useState('');
   const [brushSize, setBrushSize] = useState(DEFAULT_BRUSH_SIZE);
   const [modelAvailable, setModelAvailable] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
@@ -69,8 +86,12 @@ export function ContentAwareFillDialog({
   type DialogStatus = 'idle' | 'downloading' | 'generating' | 'applying' | 'error';
   const [status, setStatus] = useState<DialogStatus>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [result, setResult] = useState<ContentAwareFillResult | null>(null);
+  const [result, setResult] = useState<GenerativeEditResult | null>(null);
   const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
+  const [variations, setVariations] = useState<
+    Array<{ id: string; dataUrl: string; result: GenerativeEditResult }>
+  >([]);
+  const [activeVariationId, setActiveVariationId] = useState<string | null>(null);
   const [hasMaskStrokes, setHasMaskStrokes] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false);
   const [previewZoom, setPreviewZoom] = useState<'fit' | 'custom'>('fit');
@@ -78,15 +99,29 @@ export function ContentAwareFillDialog({
   const [zoomPercent, setZoomPercent] = useState(100);
   const [maskVisible, setMaskVisible] = useState(true);
   const [previewViewport, setPreviewViewport] = useState({ width: 0, height: 0 });
+  const [generationProgress, setGenerationProgress] = useState(0);
+  const [generationStage, setGenerationStage] = useState('Preparing');
+  const currentRevisionRef = useRef(state.revision);
+  currentRevisionRef.current = state.revision;
 
   const isProcessing = status === 'generating' || status === 'applying';
   const hasResult = previewDataUrl != null && result != null;
   const modeMissingModel = quality === 'ai' && !modelAvailable;
+  const modeAvailable = mode === 'fill' || mode === 'remove';
 
   const node = nodeId ? state.document.nodes[nodeId] : undefined;
   const isImage = Boolean(node && isImageShape(node));
   const typedNode = isImage ? (node as import('@varve/scene').ShapeNode) : null;
   const imageSrc = typedNode ? imageShapeSrc(typedNode) : '';
+
+  const sourceSignature = typedNode
+    ? JSON.stringify({
+        src: imageSrc,
+        assetId: typedNode.fills?.find((fill) => fill.type === 'image')?.image?.assetId,
+        shape: typedNode.shape,
+        transform: typedNode.transform,
+      })
+    : '';
 
   useEffect(() => {
     if (!isOpen) return;
@@ -116,12 +151,18 @@ export function ContentAwareFillDialog({
 
   useEffect(() => {
     if (!isOpen) return;
+    jobControllerRef.current.cancel();
     setQuality('fast');
+    setMode('remove');
+    setPrompt('');
     setBrushSize(DEFAULT_BRUSH_SIZE);
     setStatus('idle');
     setErrorMessage(null);
     setResult(null);
     setPreviewDataUrl(null);
+    setVariations([]);
+    setActiveVariationId(null);
+    generationRef.current = null;
     setHasMaskStrokes(false);
     setShowOriginal(false);
     setPreviewZoom('fit');
@@ -129,8 +170,14 @@ export function ContentAwareFillDialog({
     setZoomPercent(100);
     setMaskVisible(true);
     setDownloadProgress(0);
+    setGenerationProgress(0);
+    setGenerationStage('Preparing');
     setNaturalSize({ w: 0, h: 0 });
   }, [isOpen]);
+
+  useEffect(() => {
+    return () => jobControllerRef.current.cancel();
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -325,19 +372,22 @@ export function ContentAwareFillDialog({
   }, []);
 
   const handleGenerate = useCallback(async () => {
-    if (!imageSrc) return;
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
+    if (!imageSrc || !modeAvailable) return;
+    const sourceRevision = currentRevisionRef.current;
+    const token = jobControllerRef.current.start(sourceRevision);
     setStatus('generating');
     setErrorMessage(null);
+    setGenerationProgress(0);
+    setGenerationStage('Preparing');
 
     try {
       const fullData = await loadImageToImageData(imageSrc);
-      if (controller.signal.aborted) throw new Error('cancelled');
+      if (!jobControllerRef.current.isCurrent(token, currentRevisionRef.current)) {
+        throw new GenerativeEditError('stale', 'The source changed before generation completed.');
+      }
 
       const maskCanvas = maskCanvasRef.current;
-      if (!maskCanvas) throw new Error('Paint an area to remove first');
+      if (!maskCanvas) throw new GenerativeEditError('invalid-mask', 'The mask is unavailable.');
 
       const fullMaskCanvas = new OffscreenCanvas(fullData.width, fullData.height);
       const fullMaskCtx = fullMaskCanvas.getContext('2d');
@@ -349,58 +399,72 @@ export function ContentAwareFillDialog({
       for (let i = 0; i < mask.length; i++) {
         mask[i] = maskImageData.data[i * 4]!;
       }
-
+      const maskDataUrl = maskCanvas.toDataURL('image/png');
       let modelPath: string | undefined;
-      let modelId: string | undefined;
       if (quality === 'ai') {
         const loader = getModelLoader();
-        modelPath = (await loader.getModelPath(MODEL_ID, controller.signal)) ?? undefined;
-        modelId = MODEL_ID;
-        if (!modelPath) throw new Error('AI model not found. Download it first.');
+        modelPath = (await loader.getModelPath(MODEL_ID, token.signal)) ?? undefined;
+        if (!modelPath) {
+          throw new GenerativeEditError(
+            'missing-model',
+            'AI model not found. Download it or choose Draft quality.',
+          );
+        }
       }
 
-      const fillResult = await runContentAwareFillPipeline({
+      const generated = await runGenerativeEdit({
+        mode,
         imageData: fullData,
         mask,
         maskWidth: fullData.width,
         maskHeight: fullData.height,
-        maskOffsetX: 0,
-        maskOffsetY: 0,
-        quality,
-        outputMode: 'new-layer',
-        signal: controller.signal,
-        onProgress: undefined,
+        quality: quality === 'fast' ? 'draft' : 'quality',
+        prompt,
+        seed: sourceRevision,
+        signal: token.signal,
+        isCurrent: () => jobControllerRef.current.isCurrent(token, currentRevisionRef.current),
+        onProgress: ({ stage, progress }) => {
+          jobControllerRef.current.update(progress, stage);
+          setGenerationProgress(progress);
+          setGenerationStage(stage[0]?.toUpperCase() + stage.slice(1));
+        },
         modelPath,
-        modelId,
       });
-
-      if (controller.signal.aborted) throw new Error('cancelled');
+      if (!jobControllerRef.current.complete(token, currentRevisionRef.current)) {
+        throw new GenerativeEditError('stale', 'The source changed while generation was running.');
+      }
 
       const outCanvas = document.createElement('canvas');
-      outCanvas.width = fillResult.imageData.width;
-      outCanvas.height = fillResult.imageData.height;
+      outCanvas.width = generated.imageData.width;
+      outCanvas.height = generated.imageData.height;
       const rctx = outCanvas.getContext('2d');
       if (!rctx) throw new Error('Canvas unavailable');
-      rctx.putImageData(fillResult.imageData, 0, 0);
+      rctx.putImageData(generated.imageData, 0, 0);
       const dataUrl = outCanvas.toDataURL('image/png');
+      const variationId = `variation-${++variationSequenceRef.current}`;
 
-      setResult(fillResult);
+      generationRef.current = { sourceSignature, maskDataUrl, result: generated };
+      setVariations((current) =>
+        [...current, { id: variationId, dataUrl, result: generated }].slice(-4),
+      );
+      setActiveVariationId(variationId);
+      setResult(generated);
       setPreviewDataUrl(dataUrl);
       setShowOriginal(false);
       setStatus('idle');
     } catch (err) {
-      if (controller.signal.aborted) return;
-      const msg = err instanceof Error ? err.message : 'Fill generation failed';
+      if (token.signal.aborted) {
+        setStatus('idle');
+        return;
+      }
+      const msg = err instanceof Error ? err.message : 'Generative edit failed';
       setStatus('error');
       setErrorMessage(msg);
     }
-  }, [imageSrc, quality]);
+  }, [imageSrc, modeAvailable, quality, mode, prompt, sourceSignature]);
 
   const handleApply = useCallback(async () => {
     if (!nodeId || !previewDataUrl || !result) return;
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
     setStatus('applying');
     setErrorMessage(null);
 
@@ -408,24 +472,129 @@ export function ContentAwareFillDialog({
       const currentDoc = state.document;
       const sourceNode = currentDoc.nodes[nodeId];
       if (!sourceNode) throw new Error('Source node no longer exists');
+      if (!generationRef.current || generationRef.current.sourceSignature !== sourceSignature) {
+        throw new GenerativeEditError(
+          'stale',
+          'The source changed. Generate a fresh result first.',
+        );
+      }
 
-      const inserted = insertDerivedImageShape(currentDoc, nodeId, {
+      const sourceFill =
+        sourceNode.kind === 'shape'
+          ? sourceNode.fills?.find((fill) => fill.type === 'image')?.image
+          : undefined;
+      const editId = `generative-edit-${Date.now()}-${++variationSequenceRef.current}`;
+      const maskAssetId = `generative-mask-${editId}`;
+      const maskDataUrl = generationRef.current.maskDataUrl;
+      const maskAsset = {
+        id: maskAssetId,
+        mimeType: 'image/png' as const,
+        dataUrl: maskDataUrl,
+        width: result.width,
+        height: result.height,
+        byteLength: decodedDataUrlByteLength(maskDataUrl),
+        checksum: hashContent(maskDataUrl),
+      };
+      const variationEntries =
+        variations.length > 0
+          ? variations
+          : [{ id: 'variation-1', dataUrl: previewDataUrl, result }];
+      const variationAssets = variationEntries.map((variation) =>
+        createEmbeddedAsset({
+          dataUrl: variation.dataUrl,
+          mimeType: 'image/png',
+          naturalWidth: variation.result.width,
+          naturalHeight: variation.result.height,
+        }),
+      );
+      const activeVariation =
+        variationEntries.find((variation) => variation.id === activeVariationId) ??
+        variationEntries[variationEntries.length - 1]!;
+      const activeAsset = variationAssets[variationEntries.indexOf(activeVariation)]!;
+      const now = Date.now();
+      const recordBase = {
+        schemaVersion: 1 as const,
+        id: editId,
+        mode,
+        sourceNodeId: nodeId,
+        ...(sourceFill?.assetId ? { sourceAssetId: sourceFill.assetId } : {}),
+        sourceLocator: sourceFill?.assetId
+          ? `asset:${sourceFill.assetId}`
+          : `inline:${hashContent(imageSrc)}`,
+        sourceRevision: state.revision,
+        placementRevision: sourceSignature,
+        maskAssetId,
+        maskWidth: result.width,
+        maskHeight: result.height,
+        maskCoordinateSpace: 'source-image-pixels' as const,
+        settings: {
+          quality: result.quality,
+          contextPadding: 32,
+          maskExpansion: 0,
+          feather: 0,
+        },
+        provider: result.provider,
+        variations: variationEntries.map((variation, index) => ({
+          id: variation.id,
+          assetId: variationAssets[index]!.id,
+          width: variation.result.width,
+          height: variation.result.height,
+          createdAt: now,
+          provider: variation.result.provider,
+        })),
+        activeVariationId: activeVariation.id,
+        acceptedVariationId: activeVariation.id,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      const docWithAssets = {
+        ...currentDoc,
+        assets: {
+          ...currentDoc.assets,
+          ...Object.fromEntries(variationAssets.map((asset) => [asset.id, asset])),
+        },
+        rasterMaskAssets: { ...currentDoc.rasterMaskAssets, [maskAsset.id]: maskAsset },
+      };
+      const inserted = insertDerivedImageShape(docWithAssets, nodeId, {
         dataUrl: previewDataUrl,
         width: result.width,
         height: result.height,
         suffix: 'filled',
+        assetId: activeAsset.id,
+        generativeEditId: editId,
       });
-      updateDoc(() => inserted.doc);
-      announce(`Content-aware fill created (${result.width} x ${result.height})`);
+      const record = { ...recordBase, resultNodeId: inserted.nodeId };
+      updateDoc(() => ({
+        ...inserted.doc,
+        generativeEdits: { ...inserted.doc.generativeEdits, [editId]: record },
+      }));
+      announce(
+        `${mode[0]?.toUpperCase()}${mode.slice(1)} created (${result.width} x ${result.height})`,
+      );
       onApplied?.();
       onClose();
     } catch (err) {
-      if (controller.signal.aborted) return;
       const msg = err instanceof Error ? err.message : 'Apply failed';
       setStatus('error');
       setErrorMessage(msg);
     }
-  }, [nodeId, previewDataUrl, result, state.document, updateDoc, announce, onApplied, onClose]);
+  }, [
+    nodeId,
+    previewDataUrl,
+    result,
+    variations,
+    activeVariationId,
+    mode,
+    sourceSignature,
+    imageSrc,
+    state.document,
+    state.revision,
+    updateDoc,
+    announce,
+    onApplied,
+    onClose,
+  ]);
 
   if (!isOpen && !dialogRef.current?.open) return null;
 
@@ -482,6 +651,68 @@ export function ContentAwareFillDialog({
         <div className="caf-dialog__left">
           <div className="caf-dialog__section">
             <span className="caf-dialog__label">Mode</span>
+            <div
+              className="caf-dialog__mode-options"
+              role="tablist"
+              aria-label="Generative edit mode"
+            >
+              {(['fill', 'remove', 'replace', 'expand'] as const).map((candidate) => (
+                <button
+                  key={candidate}
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === candidate}
+                  className={`caf-dialog__mode-btn${mode === candidate ? ' caf-dialog__mode-btn--active' : ''}`}
+                  onClick={() => {
+                    setMode(candidate);
+                    setResult(null);
+                    setPreviewDataUrl(null);
+                    setVariations([]);
+                    setActiveVariationId(null);
+                    generationRef.current = null;
+                  }}
+                >
+                  {candidate[0]?.toUpperCase()}
+                  {candidate.slice(1)}
+                </button>
+              ))}
+            </div>
+            <p className="caf-dialog__hint">
+              {modeAvailable
+                ? 'Paint the pixels to regenerate. The source layer stays untouched.'
+                : 'This mode is staged in the workflow, but needs a verified prompt-capable provider.'}
+            </p>
+          </div>
+
+          {(mode === 'fill' || mode === 'replace') && (
+            <div className="caf-dialog__section">
+              <label className="caf-dialog__label" htmlFor="caf-dialog-prompt">
+                Prompt <span className="caf-dialog__optional">optional</span>
+              </label>
+              <textarea
+                id="caf-dialog-prompt"
+                className="caf-dialog__prompt"
+                value={prompt}
+                onChange={(event) => setPrompt(event.target.value)}
+                placeholder="Describe what should appear here"
+                rows={3}
+                aria-describedby="caf-dialog-provider-note"
+              />
+            </div>
+          )}
+
+          <div className="caf-dialog__provider" id="caf-dialog-provider-note">
+            <span className="caf-dialog__provider-dot" aria-hidden="true" />
+            <span>
+              <strong>Local processing</strong>
+              <small>
+                {quality === 'fast' ? 'PatchMatch · no download' : 'LaMa · stored on this device'}
+              </small>
+            </span>
+          </div>
+
+          <div className="caf-dialog__section">
+            <span className="caf-dialog__label">Quality</span>
             <div className="caf-dialog__quality-options">
               {(['fast', 'ai'] as const).map((q) => (
                 <label
@@ -577,14 +808,16 @@ export function ContentAwareFillDialog({
             {isProcessing ? (
               <div className="caf-dialog__status">
                 <span aria-live="polite">
-                  {status === 'generating' ? 'Removing & filling…' : 'Applying…'}
+                  {status === 'generating'
+                    ? `${generationStage}… ${Math.round(generationProgress * 100)}%`
+                    : 'Applying…'}
                 </span>
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    abortRef.current?.abort();
+                    jobControllerRef.current.cancel();
                     setStatus('idle');
                   }}
                 >
@@ -596,10 +829,14 @@ export function ContentAwareFillDialog({
                 type="button"
                 variant="secondary"
                 size="sm"
-                disabled={modeMissingModel || !hasMaskStrokes}
+                disabled={!modeAvailable || modeMissingModel || !hasMaskStrokes}
                 onClick={handleGenerate}
               >
-                {hasResult ? 'Regenerate' : 'Remove && Fill'}
+                {hasResult
+                  ? 'Regenerate'
+                  : mode === 'remove'
+                    ? 'Remove && Fill'
+                    : `${mode[0]?.toUpperCase()}${mode.slice(1)}`}
               </Button>
             )}
           </div>
@@ -608,6 +845,32 @@ export function ContentAwareFillDialog({
             <p className="caf-dialog__error" role="alert">
               {errorMessage}
             </p>
+          )}
+
+          {variations.length > 0 && (
+            <fieldset className="caf-dialog__section caf-dialog__variations-fieldset">
+              <legend className="caf-dialog__label">Variations</legend>
+              <div className="caf-dialog__variations">
+                {variations.map((variation, index) => (
+                  <button
+                    type="button"
+                    key={variation.id}
+                    className={`caf-dialog__variation${activeVariationId === variation.id ? ' caf-dialog__variation--active' : ''}`}
+                    onClick={() => {
+                      setActiveVariationId(variation.id);
+                      setResult(variation.result);
+                      setPreviewDataUrl(variation.dataUrl);
+                      if (generationRef.current) generationRef.current.result = variation.result;
+                    }}
+                    aria-label={`Variation ${index + 1}`}
+                    aria-pressed={activeVariationId === variation.id}
+                  >
+                    <img src={variation.dataUrl} alt="" />
+                    <span>{index + 1}</span>
+                  </button>
+                ))}
+              </div>
+            </fieldset>
           )}
         </div>
 
@@ -733,6 +996,12 @@ export function ContentAwareFillDialog({
           {status === 'error' && errorMessage && (
             <span className="caf-dialog__footer-text caf-dialog__footer-text--error" role="alert">
               {errorMessage}
+            </span>
+          )}
+          {status === 'idle' && hasResult && result?.warnings[0] && (
+            <span className="caf-dialog__footer-text" title={result.warnings.join(' ')}>
+              {result.provider.kind === 'local' ? 'Local result' : 'Provider result'} ·{' '}
+              {result.warnings[0]}
             </span>
           )}
         </div>

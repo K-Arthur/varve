@@ -74,6 +74,89 @@
   gap: var(--space-2);
 }
 
+.caf-dialog__mode-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-1);
+}
+
+.caf-dialog__mode-btn {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  padding: var(--space-2);
+  background: var(--color-surface-raised);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.caf-dialog__mode-btn:hover {
+  border-color: var(--color-border-strong);
+  color: var(--color-text-primary);
+}
+
+.caf-dialog__mode-btn--active {
+  border-color: var(--color-interactive-default);
+  background: var(--color-accent-subtle);
+  color: var(--color-interactive-default);
+  font-weight: var(--font-weight-semibold);
+}
+
+.caf-dialog__optional {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+}
+
+.caf-dialog__prompt {
+  width: 100%;
+  resize: vertical;
+  min-height: 58px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  padding: var(--space-2);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  box-sizing: border-box;
+}
+
+.caf-dialog__prompt:focus {
+  outline: 2px solid var(--color-interactive-default);
+  outline-offset: 1px;
+}
+
+.caf-dialog__provider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.caf-dialog__provider span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.caf-dialog__provider small {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.caf-dialog__provider-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--color-feedback-success);
+}
+
 .caf-dialog__quality-btn {
   display: flex;
   flex-direction: column;
@@ -309,4 +392,53 @@
   display: flex;
   gap: var(--space-2);
   flex-shrink: 0;
+}
+
+.caf-dialog__variations {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.caf-dialog__variations-fieldset {
+  border: 0;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.caf-dialog__variation {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  padding: 2px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-sunken);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.caf-dialog__variation img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.caf-dialog__variation span {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  min-width: 13px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-overlay);
+  color: var(--color-text-primary);
+  font-size: 9px;
+  line-height: 13px;
+  text-align: center;
+}
+
+.caf-dialog__variation--active {
+  border-color: var(--color-interactive-default);
+  box-shadow: 0 0 0 1px var(--color-interactive-default);
 }

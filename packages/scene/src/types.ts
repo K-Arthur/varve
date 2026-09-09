@@ -1352,6 +1352,8 @@ export interface ShapeNode extends NodeBase {
   backgroundRemoval?: BackgroundRemovalState;
   /** Live trace state for nondestructive raster-to-vector workflow. */
   liveTrace?: LiveTraceState;
+  /** Accepted non-destructive generative edit that produced this raster. */
+  generativeEditId?: string;
 }
 
 export interface TextNode extends NodeBase {

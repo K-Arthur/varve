@@ -21,10 +21,10 @@ export function ContentAwareFillSection({ nodes, onOpenDialog }: ContentAwareFil
   const imageHeight = typedNode.shape?.kind === 'rect' ? typedNode.shape.h : 0;
 
   return (
-    <DisclosureSection title="Content-Aware Fill" sectionId="content-aware-fill">
+    <DisclosureSection title="Generative Edit" sectionId="content-aware-fill">
       <div className="insp-field-group">
         <p className="insp-hint">
-          Remove unwanted objects or blemishes. Paint the area and let the AI fill it.
+          Fill or remove selected pixels with local processing. The source layer stays editable.
         </p>
         {imageSrc && (
           <div className="caf-entry-thumb">
@@ -49,9 +49,9 @@ export function ContentAwareFillSection({ nodes, onOpenDialog }: ContentAwareFil
             type="button"
             className="caf-entry-button"
             onClick={() => onOpenDialog?.(node!.id)}
-            aria-label="Open Content-Aware Fill dialog"
+            aria-label="Open Generative Edit dialog"
           >
-            Open Content-Aware Fill
+            Open Generative Edit
           </button>
         </div>
       </div>
