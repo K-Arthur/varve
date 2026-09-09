@@ -1018,7 +1018,19 @@ export function renderContent(deps: RenderContentDeps): void {
       buildIrMs = performance.now() - t0c;
     }
     const needsStructural = sceneNeedsStructuralCompositing(doc);
-    const cameraMoving = isEditorInteractionActive();
+    // A slow or contended render can start after the wheel/pointer interaction
+    // has quieted. Keep the frame classified as interaction work when the
+    // captured camera differs from the last painted camera; otherwise a late
+    // camera frame is treated as settled, selects lower-priority image work,
+    // and hides the actual input-to-render cost from diagnostics.
+    const previousCamera = prevCameraForRedrawRef.current;
+    const cameraChanged =
+      previousCamera !== null &&
+      (previousCamera.zoom !== s.zoom ||
+        previousCamera.pan.x !== s.pan.x ||
+        previousCamera.pan.y !== s.pan.y ||
+        previousCamera.rotation !== (s.cameraRotation ?? 0));
+    const cameraMoving = isEditorInteractionActive() || cameraChanged;
     const imageIntent: 'interactive' | 'settled-preview' = cameraMoving
       ? 'interactive'
       : 'settled-preview';
@@ -1798,7 +1810,15 @@ export function renderContent(deps: RenderContentDeps): void {
           // that rectangle, which made explicit A+C targets affect B whenever
           // their bounds overlapped.
           const camera = targetCtx.getTransform();
-          const targetSurface = acquireMaskSurface(cw, ch);
+          // The adjustment result is cropped to the scoped target bounds. Do
+          // the source replay in that same projected region instead of first
+          // allocating a full viewport surface (which made every adjustment
+          // layer pay for unrelated pixels on large/low-end canvases).
+          const captureOriginX = bx;
+          const captureOriginY = by;
+          const captureWidth = Math.max(1, Math.ceil(bw));
+          const captureHeight = Math.max(1, Math.ceil(bh));
+          const targetSurface = acquireMaskSurface(captureWidth, captureHeight);
           try {
             const targetSurfaceCtx = targetSurface.getContext('2d');
             if (!targetSurfaceCtx) return;
@@ -1807,19 +1827,26 @@ export function renderContent(deps: RenderContentDeps): void {
               camera.b,
               camera.c,
               camera.d,
-              camera.e,
-              camera.f,
+              camera.e - captureOriginX,
+              camera.f - captureOriginY,
             );
             replayForceAll = true;
             for (const targetId of targetIds) {
               replaySubtreeToCtx(targetId, targetSurfaceCtx, instancePrefix, masterPlacement);
             }
             const actual = alphaBounds(targetSurfaceCtx, targetSurface.width, targetSurface.height);
+            let sourceX = 0;
+            let sourceY = 0;
             if (actual) {
-              bx = actual.x - effectPad;
-              by = actual.y - effectPad;
-              bw = actual.w + effectPad * 2;
-              bh = actual.h + effectPad * 2;
+              // alphaBounds is local to the cropped target surface. Keep the
+              // treatment region in device coordinates while deriving the
+              // source crop in local coordinates.
+              sourceX = Math.max(0, actual.x - effectPad);
+              sourceY = Math.max(0, actual.y - effectPad);
+              bx = captureOriginX + sourceX;
+              by = captureOriginY + sourceY;
+              bw = Math.max(1, Math.min(actual.w + effectPad * 2, targetSurface.width - sourceX));
+              bh = Math.max(1, Math.min(actual.h + effectPad * 2, targetSurface.height - sourceY));
               if (coordSpace) {
                 coordSpace.regionX = bx;
                 coordSpace.regionY = by;
@@ -1831,8 +1858,17 @@ export function renderContent(deps: RenderContentDeps): void {
             const bCtx = backdrop.getContext('2d');
             if (!bCtx) return;
             bCtx.setTransform(1, 0, 0, 1, 0, 0);
-            bCtx.translate(-bx, -by);
-            bCtx.drawImage(targetSurface, 0, 0);
+            bCtx.drawImage(
+              targetSurface,
+              sourceX,
+              sourceY,
+              Math.max(1, Math.min(bw, targetSurface.width - sourceX)),
+              Math.max(1, Math.min(bh, targetSurface.height - sourceY)),
+              0,
+              0,
+              backdrop.width,
+              backdrop.height,
+            );
           } finally {
             releaseMaskSurface(targetSurface);
           }
@@ -2149,13 +2185,6 @@ export function renderContent(deps: RenderContentDeps): void {
     engineNodeMemoRef.current.setMaxEntries(adaptiveCacheLimits.engineNodeMemoEntries);
     // Redraw attribution: why is this frame being drawn at all, and (when a
     // dirty frame fell back to full redraw) why was partial redraw skipped?
-    const prevCamera = prevCameraForRedrawRef.current;
-    const cameraChanged =
-      prevCamera !== null &&
-      (prevCamera.zoom !== s.zoom ||
-        prevCamera.pan.x !== s.pan.x ||
-        prevCamera.pan.y !== s.pan.y ||
-        prevCamera.rotation !== (s.cameraRotation ?? 0));
     const redrawReason: RedrawReason = resolveRedrawReason({
       docChanged: lastRenderedDocRef.current !== doc,
       dirtyKind: dirty.kind,
