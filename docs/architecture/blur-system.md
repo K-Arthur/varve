@@ -1,7 +1,7 @@
 # Varve blur system
 
-**Status:** canonical CPU reference implemented; spatial Inspector controls and
-Canvas2D replay wired (2026-09-08)
+**Status:** canonical CPU reference implemented; spatial Inspector controls,
+Canvas2D/WASM replay, and transform-safe authoring overlays wired (2026-09-08)
 
 This document is the product and renderer contract for blur. It is intentionally
 Varve-specific; Photoshop Blur Gallery is a behavioural reference, not a pixel
@@ -83,11 +83,15 @@ available; it must not change authored meaning.
 
 ## Current limits and verification
 
-The spatial blur family is currently authored through the Effects Inspector's
-numeric controls and rendered through the CPU reference. Direct on-canvas pins,
-ellipse/band/path/pivot handles, low-cost proxy scheduling, bokeh, and restored
-grain are not yet release claims. Depth Blur remains the only blur with a full
-model-acquisition workflow; spatial controls do not imply a downloaded model.
+The spatial blur family is authored through the Effects Inspector and direct
+on-canvas controls. Field pins, Iris center/radius/rotation handles,
+Tilt-Shift center/angle/feather handles, Path points, and Spin center/pivot/
+radius/angle handles all use the same owner-local transform contract. Handles
+are keyboard-nudgable and one pointer gesture is one history transaction.
+Low-cost proxy scheduling, bokeh, restored grain, adaptive motion quality,
+multi-path blending, and depth-map refinement remain future work. Depth Blur
+remains the only blur with a full model-acquisition workflow; spatial controls
+do not imply a downloaded model.
 
 Focused mathematical coverage lives in
 `packages/engine/src/spatialBlur.test.ts`; Gaussian threshold, fractional,

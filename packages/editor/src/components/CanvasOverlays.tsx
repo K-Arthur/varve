@@ -9,9 +9,10 @@
  */
 
 import type { CollabUser } from '@varve/collab';
-import type { Adjustment, MeshWarp } from '@varve/engine';
+import type { Adjustment, MeshWarp, SpatialBlurEffect } from '@varve/engine';
 import type { Document, Fill, IsometricGrid, NodeId, SceneNode } from '@varve/scene';
 import {
+  nodeLocalBounds,
   plainTextToRichText,
   replaceRichTextContent,
   resolveAdjustmentScope,
@@ -34,6 +35,7 @@ import type { CropTool } from '../tools/CropTool';
 import type { PerspectiveTool } from '../tools/PerspectiveTool';
 import type { SnapGuide } from '../tools/snapping';
 import { AlignmentGuideOverlay, AlignmentHandleOverlay } from './AlignmentOverlay';
+import { BlurGalleryOverlay } from './BlurGalleryOverlay';
 import { CanvasAccessibilityTree } from './CanvasAccessibilityTree';
 import { CollabCursorOverlay, type RemoteCursor } from './CollabCursorOverlay/CollabCursorOverlay';
 import { ColorBlindnessOverlay, type ColorBlindnessView } from './ColorBlindnessOverlay';
@@ -316,6 +318,46 @@ export function CanvasOverlays({
             };
           });
         }}
+      />
+    );
+  })();
+
+  const renderBlurGallery = (() => {
+    if (!showOverlays || selection.length !== 1) return null;
+    const nodeId = selection[0] as NodeId;
+    const node = doc.nodes[nodeId];
+    if (!node || !('effects' in node)) return null;
+    const effect = (node.effects ?? []).find(
+      (candidate): candidate is Exclude<SpatialBlurEffect, { type: 'gaussianBlur' }> =>
+        candidate.type !== 'gaussianBlur' &&
+        ['fieldBlur', 'irisBlur', 'tiltShiftBlur', 'pathBlur', 'spinBlur'].includes(candidate.type),
+    );
+    if (!effect?.visible) return null;
+    const bounds = nodeLocalBounds(node, doc);
+    const worldTransform = editor.getWorldTransform(nodeId);
+    if (!bounds || !worldTransform) return null;
+    return (
+      <BlurGalleryOverlay
+        nodeId={nodeId}
+        effect={effect}
+        bounds={bounds}
+        worldTransform={worldTransform}
+        canvasToWorld={editor.canvasToWorld}
+        worldToCanvas={editor.worldToCanvas}
+        onChange={(next) => {
+          editor.updateNode(nodeId, (current) => {
+            if (!('effects' in current)) return current;
+            return {
+              ...current,
+              effects: (current.effects ?? []).map((candidate) =>
+                candidate.id === effect.id ? next : candidate,
+              ),
+            };
+          });
+        }}
+        onEditStart={editor.beginTransaction}
+        onEditEnd={editor.commitTransaction}
+        onEditCancel={editor.abortTransaction}
       />
     );
   })();
@@ -606,6 +648,7 @@ export function CanvasOverlays({
         )}
       <SelectionOverlay canvasRef={contentCanvasRef} />
       {renderSpatialFilter}
+      {renderBlurGallery}
       {pixelProbe && (
         <div
           data-testid="pixel-probe-overlay"

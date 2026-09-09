@@ -89,7 +89,7 @@ import StatusPill from '../../components/StatusPill.astro';
         <p>
           Gaussian, Field, Iris, Tilt-Shift, Path, and Spin Blur are editable effect-stack entries rather than destructive filters. Their controls use owner-local geometry, source-pixel blur distances, stable control IDs, and a linear-light premultiplied CPU reference so a saved document keeps the same meaning across Canvas2D fallbacks and reopen.
         </p>
-        <p class="feature-note">The current release exposes numeric Inspector controls for these variants. Direct on-canvas pin, ellipse, band, path, and pivot handles are still in active implementation and are not presented as shipped marketing capabilities.</p>
+        <p class="feature-note">Field pins, Iris regions, Tilt-Shift bands, Path points, and Spin pivots can be edited directly on the canvas or from the Inspector. The current CPU reference keeps the saved result deterministic; adaptive motion quality, bokeh, and restored grain remain deliberately scoped follow-ups.</p>
       </section>
 
       <section class="feature-section">
