@@ -22,6 +22,11 @@ Current interface typography and component sizing contracts are documented in
 Current inspector and form-field composition, spacing, precision-entry, and
 viewport behavior are documented in
 [`architecture/label-field-system.md`](architecture/label-field-system.md).
+Current export accessibility boundaries and format-specific author guidance
+are documented in
+[`architecture/output-accessibility-guidance.md`](architecture/output-accessibility-guidance.md).
+The current automated and manual accessibility evidence matrix is in
+[`quality/accessibility-validation-matrix.md`](quality/accessibility-validation-matrix.md).
 
 | Doc | Purpose |
 |-----|---------|
@@ -246,6 +251,7 @@ viewport behavior are documented in
 | `architecture/image-treatments.md` | Non-destructive Fine Texture, Local Contrast, Atmospheric Depth, Dehaze, Vignette, Grain, and Highlight Glow workflow |
 | `architecture/raster-assets.md` | Canonical raster asset architecture: metadata, resource handles, worker residency, export barrier |
 | `architecture/export-resolution.md` | Geometry, physical sizing, output PPI, effective raster PPI, and batch export semantics |
+| `architecture/output-accessibility-guidance.md` | Format-specific accessibility boundaries and post-export author checklist |
 | `architecture/knife-and-export-regions.md` | Knife object slicing and Export Regions: why they are separate, the split algorithm, supported node types, tolerances |
 | `architecture/image-trace-system.md` | Native raster-to-vector tracing (silhouette/centerline/pixel-art) |
 | `architecture/image-vector-enhancement.md` | Image/vector enhancement and AI upscaling dispatch |
@@ -425,6 +431,7 @@ The following dated files were moved from `docs/architecture/` to
 | Doc | Purpose |
 |-----|---------|
 | `quality/test-reality.md` | What tests actually cover |
+| `quality/accessibility-validation-matrix.md` | Current website/editor accessibility evidence, manual AT task script, and validation boundaries |
 | `quality/tauri-command-audit.md` | Tauri command surface audit |
 | `quality/editorprovider-surface.md` | EditorProvider surface |
 | `quality/validation-strategy.md` | **Canonical validation policy** — impact-aware planning, tiers, escalation rules |
