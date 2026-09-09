@@ -14,7 +14,7 @@ import {
 
 describe('Document Versioning', () => {
   it('uses the native raster-mask schema version', () => {
-    expect(CURRENT_DOCUMENT_VERSION).toBe('2.22');
+    expect(CURRENT_DOCUMENT_VERSION).toBe('2.23');
     expect(SUPPORTED_VERSIONS).toContain('2.4');
   });
   it('migrates email metadata without changing ordinary documents', () => {
@@ -27,7 +27,7 @@ describe('Document Versioning', () => {
       components: {},
       nextId: 1,
     });
-    expect(migrated?.formatVersion).toBe('2.22');
+    expect(migrated?.formatVersion).toBe('2.23');
     expect(migrated?.emailProfile).toBeUndefined();
     expect(migrated?.emailSemantics).toBeUndefined();
   });
@@ -109,6 +109,19 @@ describe('Document Versioning', () => {
 
   it('reports supported versions list', () => {
     expect(SUPPORTED_VERSIONS).toContain(CURRENT_DOCUMENT_VERSION);
+  });
+  it('migrates v2.22 documents without inventing generative edits', () => {
+    const migrated = migrateDocument({
+      id: 'gen-v222',
+      name: 'Generative edit fixture',
+      formatVersion: '2.22',
+      rootChildren: [],
+      nodes: {},
+      components: {},
+      nextId: 1,
+    });
+    expect(migrated?.formatVersion).toBe('2.23');
+    expect(migrated?.generativeEdits).toBeUndefined();
   });
 });
 

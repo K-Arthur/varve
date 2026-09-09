@@ -322,6 +322,9 @@ export interface Document {
   /** Persisted continuous depth fields keyed by resource id (resource v1). */
   depthMaps?: Record<string, import('./types').DepthMapAsset>;
 
+  /** Non-destructive generative editing recipes and accepted variations (v2.23+). */
+  generativeEdits?: Record<string, import('./generativeEdit').GenerativeEditRecord>;
+
   /**
    * Content-addressed ICC profile registry (v2.19+). Referenced from
    * `DocumentAsset.metadata.iccProfileId`; identical profiles share one

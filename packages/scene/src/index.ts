@@ -75,6 +75,7 @@ export * from './flatten';
 export * from './fontDefaults';
 export * from './governance';
 export * from './gradientPresets';
+export * from './generativeEdit';
 export * from './gridTypes';
 export * from './iconAsset';
 export * from './iconAttribution';

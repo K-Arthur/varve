@@ -276,6 +276,8 @@ export function AlignDistributeBar() {
       : alignmentReference === 'container'
         ? capabilities.canAlignToContainer
         : capabilities.canAlign;
+  const canRunDistribution =
+    capabilities.canDistribute || (distributionMode === 'fixedGap' && capabilities.canSetGap);
 
   useEffect(() => {
     if (alignToPage) setAlignmentReference('page');
@@ -428,7 +430,7 @@ export function AlignDistributeBar() {
               className="pill-group__btn"
               aria-label="Distribute horizontal spacing"
               onClick={() => handleDistribute('horizontal')}
-              disabled={!capabilities.canDistribute}
+              disabled={!canRunDistribution}
             >
               <DistributeIcon type="horizontal" />
             </button>
@@ -439,7 +441,7 @@ export function AlignDistributeBar() {
               className="pill-group__btn"
               aria-label="Distribute vertical spacing"
               onClick={() => handleDistribute('vertical')}
-              disabled={!capabilities.canDistribute}
+              disabled={!canRunDistribution}
             >
               <DistributeIcon type="vertical" />
             </button>
@@ -453,7 +455,7 @@ export function AlignDistributeBar() {
                 aria-label="Distribution options"
                 aria-expanded={showDistributionMenu}
                 onClick={() => setShowDistributionMenu((open) => !open)}
-                disabled={!capabilities.canDistribute}
+                disabled={!capabilities.canSetGap}
               >
                 Gap
               </button>

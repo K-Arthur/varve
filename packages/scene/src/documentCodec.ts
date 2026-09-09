@@ -23,6 +23,7 @@ import type { Document } from './document';
 import { isContainer, makeGroupNode } from './document';
 import { type DocumentLike, findParentCycle, validateAndRepairDocument } from './document-utils';
 import { normalizeEffectLooks } from './effectLooks';
+import { normalizeGenerativeEdits } from './generativeEdit';
 import { normalizeDocumentEffects } from './effects';
 import { isIconAssetReferenced, validateIconAsset } from './iconAsset';
 import { normalizeLogoProject } from './logo/logoProject';
@@ -134,6 +135,9 @@ function validateRuntimeCollections(raw: Record<string, unknown>): string | null
     for (const [profileId, entry] of Object.entries(raw.iccProfiles)) {
       if (!isRecord(entry)) return `ICC profile ${profileId} must be an object`;
     }
+  }
+  if (raw.generativeEdits !== undefined) {
+    if (!isRecord(raw.generativeEdits)) return 'Document generativeEdits must be an object';
   }
   if (raw.iconAssets !== undefined) {
     if (!isRecord(raw.iconAssets)) return 'Document iconAssets must be an object';
@@ -791,6 +795,7 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
   document = sanitizeIconAssetState(document, warnings);
   document = sanitizeMockupState(document, warnings);
   document = normalizeDocumentEffects(document);
+  document = { ...document, generativeEdits: normalizeGenerativeEdits(document.generativeEdits) };
 
   const savedSelections = normalizeSavedAreaSelections(document.savedAreaSelections);
   document = { ...document, savedAreaSelections: savedSelections.selections };

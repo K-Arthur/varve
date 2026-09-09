@@ -119,6 +119,23 @@ describe('AlignDistributeBar', () => {
     expect(editor.distributeWithGap).toHaveBeenCalledWith('horizontal', -12);
   });
 
+  it('offers explicit gap entry for two selected objects while disabling distribution modes', () => {
+    const editor = editorForSelection(['a', 'b']);
+    mocks.useEditor.mockReturnValue(editor);
+    render(<AlignDistributeBar />);
+
+    expect(screen.getByRole('button', { name: 'Distribution options' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Distribute horizontal spacing' })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Distribution options' }));
+    fireEvent.click(screen.getByLabelText('Fixed gap'));
+    fireEvent.change(screen.getByLabelText('Gap (px)'), { target: { value: '24' } });
+    fireEvent.blur(screen.getByLabelText('Gap (px)'));
+    fireEvent.click(screen.getByRole('button', { name: 'Distribute horizontal spacing' }));
+
+    expect(editor.distributeWithGap).toHaveBeenCalledWith('horizontal', 24);
+  });
+
   it('does not show manual alignment for a wholly ineligible selection', () => {
     mocks.useEditor.mockReturnValue(editorForSelection(['a'], false, true));
     render(<AlignDistributeBar />);

@@ -42,6 +42,8 @@ export interface AlignmentCapabilities {
   /** Alignment against the nearest common frame ancestor. */
   canAlignToContainer: boolean;
   canDistribute: boolean;
+  /** Explicit numeric edge gaps have a deterministic two-item policy. */
+  canSetGap: boolean;
   canTidy: boolean;
   hasLockedOrHiddenSelection: boolean;
   hasLayoutManagedSelection: boolean;
@@ -134,6 +136,7 @@ export function getAlignmentCapabilities(
     canAlignToPage: collected.items.length >= 1,
     canAlignToContainer: collected.items.length >= 1 && containerBounds !== null,
     canDistribute: collected.items.length >= 3,
+    canSetGap: collected.items.length >= 2,
     canTidy: collected.items.length >= 2,
     hasLockedOrHiddenSelection: collected.hasLockedOrHiddenSelection,
     hasLayoutManagedSelection: collected.hasLayoutManagedSelection,
