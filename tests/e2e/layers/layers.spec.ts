@@ -148,10 +148,11 @@ test.describe('Layers Panel - APG Tree View', () => {
         .evaluate((element) => getComputedStyle(element).backgroundColor);
       expect(taggedBackground).not.toBe(neutralBackground);
       await firstItem.hover();
-      const taggedHoverBackground = await firstItem.evaluate(
-        (element) => getComputedStyle(element).backgroundColor,
-      );
-      expect(taggedHoverBackground, `${theme} tagged row hover`).not.toBe(taggedBackground);
+      await expect
+        .poll(() => firstItem.evaluate((element) => getComputedStyle(element).backgroundColor), {
+          message: `${theme} tagged row hover should settle`,
+        })
+        .not.toBe(taggedBackground);
       await page.getByTestId('layers-panel').screenshot({
         path: `test-results/layers-colour-label-${theme}.png`,
       });
