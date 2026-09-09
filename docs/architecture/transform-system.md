@@ -112,6 +112,9 @@ that produced its corrected box.
 
 ## Alignment and distribution
 
+The complete arrangement boundary, capability matrix, and explicit spacing
+interaction contract live in [the spatial arrangement system](arrangement-system.md).
+
 Alignment and distribution use `@varve/shared/align` for pure bounding-box
 math. The editor obtains world bounds, calculates the target in world space,
 then converts every resulting bound origin back into its node's parent-local
@@ -143,6 +146,14 @@ alignment, distribution, oriented-bounds alignment, and their capability
 checks. The Inspector, menu/command paths, and the browser and desktop shells
 all call it through `EditorContext`; a surface must not implement a second
 coordinate conversion.
+
+An explicit numeric gap is also meaningful for a two-object selection: the
+spatially leading object remains fixed and the other object is placed after it.
+Center distribution and inferred equal gaps still require at least three
+eligible roots. Canvas gap handles preview from the pointer-down document and
+commit one history entry on release; Escape, blur, or pointer cancellation
+restores the exact starting geometry. Tidy-up is a one-time anchored grid
+transform and never creates auto-layout metadata.
 
 The Inspector exposes **Align & distribute** only when at least one selected
 root has finite, independently movable geometry. This includes frames, groups,

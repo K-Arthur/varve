@@ -89,6 +89,30 @@ import { sitePath } from '../../lib/siteUrl';
         </p>
       </section>
 
+      <section class="feature-section" aria-labelledby="layers-arrangement-title" data-testid="layers-arrangement-contract">
+        <p class="eyebrow">Arrangement without ambiguity</p>
+        <h2 id="layers-arrangement-title">Space objects and stack layers as different operations.</h2>
+        <p>
+          Use Align, Equal gaps, Equal centers, Fixed gap, or Tidy Up for spatial geometry. Use
+          Bring Forward, Send Backward, Bring to Front, or Send to Back for sibling paint order.
+          Neither workflow silently reparents a node or turns a one-time tidy into persistent auto layout.
+        </p>
+        <div class="feature-grid">
+          <article>
+            <h3>Deterministic selection</h3>
+            <p>Commands sort by world position, not click order, and keep the outer anchor or key object explicit.</p>
+          </article>
+          <article>
+            <h3>Transformed parents</h3>
+            <p>Nested, rotated, and scaled containers are converted through each node's direct parent space.</p>
+          </article>
+          <article>
+            <h3>One undoable gesture</h3>
+            <p>Spacing drag previews are transient, then commit once; Escape cancels without leaving a partial edit.</p>
+          </article>
+        </div>
+      </section>
+
       <section class="layer-demo" aria-label="Illustration of the Layers panel and canvas handoff">
         <div class="layer-demo__panel">
           <div class="layer-demo__heading"><span>Layers</span><span class="layer-demo__dots">•••</span></div>

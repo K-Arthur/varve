@@ -17,6 +17,10 @@ test.describe('canvas feature page', () => {
     await expect(labels).toBeVisible();
     await expect(labels).toContainText('Labels follow the surface');
     await expect(labels).toContainText('do not become document nodes');
+    const arrangement = page.getByTestId('canvas-arrangement-contract');
+    await expect(arrangement).toBeVisible();
+    await expect(arrangement).toContainText('Make spacing intentional');
+    await expect(arrangement.locator('article')).toHaveCount(3);
     await page.screenshot({
       path: testInfo.outputPath('canvas-feature-desktop.png'),
       fullPage: false,
@@ -34,6 +38,9 @@ test.describe('canvas feature page', () => {
     }));
     expect(mobileMetrics.documentWidth).toBeLessThanOrEqual(mobileMetrics.viewportWidth);
     expect(mobileMetrics.cards[0]).toBeGreaterThan(250);
+    const mobileArrangement = page.getByTestId('canvas-arrangement-contract');
+    await expect(mobileArrangement).toBeVisible();
+    await expect(mobileArrangement.locator('article')).toHaveCount(3);
     await page.screenshot({
       path: testInfo.outputPath('canvas-feature-mobile.png'),
       fullPage: true,

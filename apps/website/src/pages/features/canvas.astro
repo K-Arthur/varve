@@ -77,6 +77,34 @@ import { sitePath } from '../../lib/siteUrl';
         </p>
       </section>
 
+      <section class="feature-section arrangement-contract" data-testid="canvas-arrangement-contract">
+        <p class="eyebrow">Spatial arrangement</p>
+        <h2>Make spacing intentional without flattening the document.</h2>
+        <p>
+          Align edges or centers against the selection, a shared frame, or the active page. Set an
+          exact visible gap between two objects, equalize edge gaps across a sequence, or distribute
+          reference points when object sizes differ. Every command keeps parent transforms and
+          hierarchy intact.
+        </p>
+        <div class="arrangement-contract__grid">
+          <article>
+            <h3>One-time geometry</h3>
+            <p>Align, distribute, and Tidy Up are undoable transforms. Tidy Up preserves the selection anchor and never creates auto layout.</p>
+          </article>
+          <article>
+            <h3>Live spacing handles</h3>
+            <p>Gap handles preview from the original geometry, accept keyboard input, and restore the exact document on Escape.</p>
+          </article>
+          <article>
+            <h3>Order stays separate</h3>
+            <p>Bring Forward and Send Back change sibling paint order only; they never masquerade as spatial distribution.</p>
+          </article>
+        </div>
+        <p class="arrangement-contract__evidence">
+          Read the <a href="https://github.com/K-Arthur/varve/blob/main/docs/architecture/arrangement-system.md">spatial arrangement contract</a> for bounds, transforms, eligibility, and supported boundaries.
+        </p>
+      </section>
+
       <section class="feature-section">
         <h2>Images stay local and editable</h2>
         <p>
@@ -103,6 +131,9 @@ import { sitePath } from '../../lib/siteUrl';
           <li><strong>Dirty-rect redraw:</strong> Minimize redraws to changed regions</li>
           <li><strong>Precision tools:</strong> Sticky snap, numerical precision, sub-pixel accuracy</li>
           <li><strong>Keyboard nudging:</strong> Configurable small/big movement amounts with world-axis semantics and active-tool fallback</li>
+          <li><strong>Spatial arrangement:</strong> Align to selection, frame, or page; equalize visible gaps or centers; and Tidy Up without reparenting</li>
+          <li><strong>Interactive spacing:</strong> Canvas gap handles with numeric entry, keyboard access, preview, and Escape cancellation</li>
+          <li><strong>Independent paint order:</strong> Bring forward, send backward, front, and back preserve sibling semantics</li>
           <li><strong>Multi-page support:</strong> Work with multiple artboards/pages in one document</li>
           <li><strong>Live minimap:</strong> See the active design canvas or publishing pasteboard, then click or drag to navigate without changing your artwork</li>
           <li><strong>Surface-aware labels:</strong> Keep frame names readable and local to the active canvas, with accessible names and safe long-name handling</li>
@@ -187,6 +218,33 @@ import { sitePath } from '../../lib/siteUrl';
   .feature-section {
     margin-bottom: 3rem;
   }
+
+  .arrangement-contract {
+    padding: clamp(1.5rem, 4vw, 3rem);
+    border: 1px solid var(--border-accent);
+    border-radius: var(--website-radius-card);
+    background: var(--surface-accent-soft);
+  }
+
+  .arrangement-contract__grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    margin: 2rem 0;
+  }
+
+  .arrangement-contract__grid article {
+    min-width: 0;
+    padding: 1.25rem;
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-surface);
+    background: var(--surface-card);
+  }
+
+  .arrangement-contract__grid h3 { margin: 0 0 .5rem; color: var(--text-primary); }
+  .arrangement-contract__grid p { margin: 0; color: var(--text-secondary); line-height: 1.65; }
+  .arrangement-contract__evidence { margin-bottom: 0; font-size: .9375rem; }
+  .arrangement-contract a { color: var(--text-link); font-weight: 600; }
   
   .feature-section h2 {
     font-size: 1.5rem;
@@ -317,6 +375,10 @@ import { sitePath } from '../../lib/siteUrl';
     }
 
     .responsive-contract__grid {
+      grid-template-columns: 1fr;
+    }
+
+    .arrangement-contract__grid {
       grid-template-columns: 1fr;
     }
   }

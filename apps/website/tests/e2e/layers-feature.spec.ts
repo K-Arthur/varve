@@ -19,6 +19,10 @@ test('Layers feature page communicates the supported handoff and stays within th
   await expect(
     page.getByRole('link', { name: /Read the Layers navigation contract/ }),
   ).toHaveAttribute('href', /layers-navigation\.md$/);
+  const arrangement = page.getByTestId('layers-arrangement-contract');
+  await expect(arrangement).toBeVisible();
+  await expect(arrangement).toContainText('Space objects and stack layers as different operations');
+  await expect(arrangement.locator('article')).toHaveCount(3);
 
   const bounds = await page.evaluate(() => ({
     documentWidth: document.documentElement.scrollWidth,
