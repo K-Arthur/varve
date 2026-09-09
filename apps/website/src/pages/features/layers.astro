@@ -54,6 +54,41 @@ import { sitePath } from '../../lib/siteUrl';
         </p>
       </section>
 
+      <section class="feature-section" aria-labelledby="layers-range-title">
+        <p class="eyebrow">Two gestures, two jobs</p>
+        <h2 id="layers-range-title">Scrub a selection without touching the hierarchy.</h2>
+        <p>
+          Press in the body of a Layers row and move through the visible stack to preview a
+          contiguous range. Release commits it once, even when the list is virtualized or you
+          reverse direction. The dedicated grip is reserved for structural reorder and reparent,
+          so selecting a run never quietly changes document order.
+        </p>
+        <div class="feature-grid">
+          <article>
+            <h3>Stable range</h3>
+            <p>Shift-click, Shift+Arrow, and row scrub share the same anchor and extent behavior.</p>
+          </article>
+          <article>
+            <h3>Live but reversible</h3>
+            <p>Rows preview before release; Escape, blur, or a cancelled pointer leaves the committed selection alone.</p>
+          </article>
+          <article>
+            <h3>Handle-only structure</h3>
+            <p>Use the grip when you mean reorder or reparent. The row body remains a selection surface.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="feature-section" aria-labelledby="layers-marquee-title">
+        <p class="eyebrow">Canvas object selection</p>
+        <h2 id="layers-marquee-title">Marquee objects without confusing pixels and layers.</h2>
+        <p>
+          Drag empty canvas space with the Select tool to preview eligible objects on the active
+          Design Canvas or page. The rectangle stays in screen space under camera rotation, while
+          the pixel Marquee tool remains a separate raster-coverage workflow.
+        </p>
+      </section>
+
       <section class="layer-demo" aria-label="Illustration of the Layers panel and canvas handoff">
         <div class="layer-demo__panel">
           <div class="layer-demo__heading"><span>Layers</span><span class="layer-demo__dots">•••</span></div>
