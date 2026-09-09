@@ -343,6 +343,7 @@ import {
   fitBoundsCameraWithRotation,
   revealBoundsCameraWithRotation,
   screenDeltaToWorld,
+  type TidyLayoutOptions,
   transformRect,
   tryInvertAffine,
   type Viewport,
@@ -1130,7 +1131,7 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   /** P0*: toggle align-to-page mode. */
   setAlignToPage: (value: boolean) => void;
   /** P0*: auto-arrange selected nodes into a tidy grid layout. */
-  tidySelected: (maxCols?: number) => void;
+  tidySelected: (maxCols?: number, options?: TidyLayoutOptions) => void;
   /** P0*: OBB-aware alignment for rotated nodes (preserves visual orientation). */
   obbAlignSelected: (
     axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom',
@@ -5825,10 +5826,10 @@ export function EditorProvider({
       },
 
       // P0*: auto-arrange selected nodes into a tidy grid layout
-      tidySelected: (maxCols) => {
+      tidySelected: (maxCols, options) => {
         const sel = state.selection;
         if (sel.length < 2) return;
-        updateDoc((doc) => tidySelectionInDocument(doc, sel, maxCols ?? 4));
+        updateDoc((doc) => tidySelectionInDocument(doc, sel, maxCols ?? 4, options));
       },
 
       // F6: batch-set variable binding on all selected nodes

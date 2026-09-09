@@ -691,6 +691,20 @@ describe('computeTidyLayout', () => {
     expect(result.colWidth).toBe(100);
     expect(result.rowHeight).toBe(50);
   });
+
+  it('accepts explicit cell spacing without changing the inferred grid', () => {
+    const boxes: BBox[] = [
+      { x: 0, y: 0, w: 20, h: 10 },
+      { x: 30, y: 0, w: 20, h: 10 },
+      { x: 0, y: 30, w: 20, h: 10 },
+    ];
+    const result = computeTidyLayout(boxes, 2, { rowGap: 24, columnGap: 16 });
+
+    expect(result.rows).toBe(2);
+    expect(result.cols).toBe(2);
+    expect(result.colWidth).toBe(20);
+    expect(result.rowHeight).toBe(10);
+  });
 });
 
 // ─── distributeToPosition ─────────────────────────────────────────────────

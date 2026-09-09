@@ -184,8 +184,28 @@ describe('selectionArrangement', () => {
     expectClose(nextA.y, -30);
     expectClose(nextB.x, -80);
     expectClose(nextB.y, -20);
-    expect(next.nodes[a.id]?.layoutStyle).toBeUndefined();
-    expect(next.nodes[b.id]?.layoutStyle).toBeUndefined();
+    expect(next.nodes[a.id]).not.toHaveProperty('layoutStyle');
+    expect(next.nodes[b.id]).not.toHaveProperty('layoutStyle');
+  });
+
+  it('uses explicit row and column gaps while preserving the anchor', () => {
+    let doc = createDocument('spaced tidy');
+    const a = rect('a', -80, -30, 20, 10);
+    const b = rect('b', 20, -30, 30, 10);
+    const c = rect('c', -80, 50, 20, 20);
+    doc = addNode(addNode(addNode(doc, a), b), c);
+
+    const next = tidySelectionInDocument(doc, [c.id, b.id, a.id], 2, {
+      rowGap: 12,
+      columnGap: 16,
+    });
+
+    expectClose(bounds(next, a.id).x, -80);
+    expectClose(bounds(next, a.id).y, -30);
+    expectClose(bounds(next, b.id).x, -80 + 30 + 16);
+    expectClose(bounds(next, b.id).y, -30);
+    expectClose(bounds(next, c.id).x, -80);
+    expectClose(bounds(next, c.id).y, -30 + 20 + 12);
   });
 
   it('does not mutate locked or flow-managed children and exposes that capability state', () => {

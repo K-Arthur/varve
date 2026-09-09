@@ -30,6 +30,7 @@ export type {
   DistributeAxis,
   DistributeMode,
   OBB,
+  TidyLayoutOptions,
   TidyLayoutResult,
 } from './align';
 export {

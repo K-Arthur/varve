@@ -24,6 +24,7 @@ import {
   type DistributeMode,
   type OBB,
   obbAlignmentTarget,
+  type TidyLayoutOptions,
   tryInvertAffine,
 } from '@varve/shared';
 import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from './world';
@@ -328,6 +329,7 @@ export function tidySelectionInDocument(
   doc: Document,
   selection: readonly NodeId[],
   maxCols = 4,
+  options: TidyLayoutOptions = {},
 ): Document {
   const collected = collectSelection(doc, selection);
   const { items } = collected;
@@ -338,6 +340,7 @@ export function tidySelectionInDocument(
   const layout = computeTidyLayout(
     items.map((item) => item.bounds),
     columns,
+    options,
   );
   if (layout.assignments.length === 0) return doc;
 
@@ -349,8 +352,8 @@ export function tidySelectionInDocument(
     const [row, col] = assignment;
     return {
       id: item.id,
-      x: originX + col * layout.colWidth - item.bounds.x,
-      y: originY + row * layout.rowHeight - item.bounds.y,
+      x: originX + col * (layout.colWidth + layout.columnGap) - item.bounds.x,
+      y: originY + row * (layout.rowHeight + layout.rowGap) - item.bounds.y,
     };
   });
   return applyWorldTranslations(doc, items, collected.parentIndex, deltas);

@@ -21,7 +21,7 @@ import type {
   Variable,
   VariableValue,
 } from '@varve/scene';
-import type { DistributeMode } from '@varve/shared';
+import type { DistributeMode, TidyLayoutOptions } from '@varve/shared';
 import type { ReactNode } from 'react';
 import { createContext, useContext } from 'react';
 
@@ -83,7 +83,7 @@ export interface DocumentContextValue {
   keyObjectId: string | null;
   alignToPage: boolean;
   setAlignToPage: (value: boolean) => void;
-  tidySelected: (maxCols?: number) => void;
+  tidySelected: (maxCols?: number, options?: TidyLayoutOptions) => void;
   obbAlignSelected: (
     axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom',
     reference?: 'selection' | 'container' | 'page',

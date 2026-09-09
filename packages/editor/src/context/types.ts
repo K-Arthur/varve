@@ -29,7 +29,13 @@ import type {
   WritingMode,
 } from '@varve/scene';
 import { createDefaultDocumentGrid } from '@varve/scene';
-import type { Camera, DistributeMode, DocumentUnit, Viewport } from '@varve/shared';
+import type {
+  Camera,
+  DistributeMode,
+  DocumentUnit,
+  TidyLayoutOptions,
+  Viewport,
+} from '@varve/shared';
 import { createContext } from 'react';
 import type { SectionVisibilityState } from '../components/Inspector/sectionState';
 import type { LayerNavigationCommands } from '../components/LayersPanel/layerNavigationCommands';
@@ -912,7 +918,7 @@ export interface EditorContextValue {
   keyObjectId: string | null;
   alignToPage: boolean;
   setAlignToPage: (value: boolean) => void;
-  tidySelected: (maxCols?: number) => void;
+  tidySelected: (maxCols?: number, options?: TidyLayoutOptions) => void;
   obbAlignSelected: (
     axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom',
     reference?: 'selection' | 'container' | 'page',

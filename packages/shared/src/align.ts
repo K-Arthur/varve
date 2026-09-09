@@ -37,6 +37,14 @@ export interface TidyLayoutResult {
   assignments: Array<[number, number]>;
   colWidth: number;
   rowHeight: number;
+  rowGap: number;
+  columnGap: number;
+}
+
+/** Optional non-negative spacing between the cells produced by Tidy Up. */
+export interface TidyLayoutOptions {
+  rowGap?: number;
+  columnGap?: number;
 }
 
 // ─── Core functions ───────────────────────────────────────────────────────
@@ -339,10 +347,25 @@ export function obbAlignmentTarget(axis: AlignAxis, obbs: OBB[]): number | null 
  * - Assign grid positions, respecting maxCols
  * - Compute uniform cell size from max item in each cell
  */
-export function computeTidyLayout(items: BBox[], maxCols: number): TidyLayoutResult {
+export function computeTidyLayout(
+  items: BBox[],
+  maxCols: number,
+  options: TidyLayoutOptions = {},
+): TidyLayoutResult {
   if (items.length === 0) {
-    return { rows: 0, cols: 0, assignments: [], colWidth: 0, rowHeight: 0 };
+    return {
+      rows: 0,
+      cols: 0,
+      assignments: [],
+      colWidth: 0,
+      rowHeight: 0,
+      rowGap: 0,
+      columnGap: 0,
+    };
   }
+
+  const rowGap = Number.isFinite(options.rowGap) ? Math.max(0, options.rowGap ?? 0) : 0;
+  const columnGap = Number.isFinite(options.columnGap) ? Math.max(0, options.columnGap ?? 0) : 0;
 
   // Compute centers
   const centers = items.map((b) => ({
@@ -422,6 +445,8 @@ export function computeTidyLayout(items: BBox[], maxCols: number): TidyLayoutRes
     assignments,
     colWidth: maxW,
     rowHeight: maxH,
+    rowGap,
+    columnGap,
   };
 }
 
