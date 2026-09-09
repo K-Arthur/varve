@@ -5071,3 +5071,131 @@
     grid-column: auto;
   }
 }
+
+/* ---------- Inspector control containment contract -----------------------
+ * Every control surface must be able to shrink with the panel. The inspector
+ * is a resizable rail, so intrinsic input widths are never allowed to define
+ * the rail or create a second horizontal scroll context. Longer labels and
+ * values get an intentional ellipsis or a responsive second row instead. */
+.editor-inspector
+:where(
+  .insp-field,
+  .insp-field-group,
+  .insp-field__control,
+  .insp-num,
+  .insp-slider,
+  .range-value-control,
+  .varve-select,
+  .varve-native-select,
+  .gradient-editor,
+  .insp-selection-sources,
+  .insp-selection-sources__actions,
+  .insp-selection-sources__saved-row,
+  .insp-interaction-row__header,
+  .insp-interaction-row__field
+) {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.editor-inspector
+  :where(
+    .insp-num__input,
+    .varve-number-input,
+    .insp-select,
+    .insp-per-side,
+    .insp-stepper__input,
+    .insp-paint-library__search-input,
+    .binding-menu__input,
+    .gradient-editor__select,
+    .gradient-editor__position-input,
+    .insp-interaction-row__name-input,
+    .insp-interaction-row__field select,
+    .insp-sm__input-text,
+    .email-code-editor__search input,
+    .varve-select__trigger,
+    .varve-native-select__control
+  ) {
+  box-sizing: border-box;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.editor-inspector
+  .insp-field__control
+  > :where(
+    input:not([type="checkbox"]):not([type="radio"]),
+    select,
+    .varve-select,
+    .varve-native-select,
+    .varve-number-input
+  ) {
+  flex: 1 1 0;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.editor-inspector :where(.insp-select, .gradient-editor__select, .varve-select__trigger) {
+  inline-size: 100%;
+  max-inline-size: 100%;
+}
+
+.editor-inspector .insp-field__control > .insp-segmented {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(4.5rem, 100%), 1fr));
+  inline-size: 100%;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.editor-inspector .insp-segmented__btn {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-inspector .insp-field__control > div:has(> .insp-per-side),
+.editor-inspector .insp-field__control > .insp-per-side-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-1);
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.editor-inspector .insp-field__control > div:has(> .insp-per-side) .insp-per-side {
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.editor-inspector
+  :where(
+    .insp-selection-sources__button,
+    .insp-selection-sources__saved-name,
+    .insp-selection-sources__saved-action,
+    .insp-selection-sources__name-field input,
+    .insp-selection-sources__rename-input
+  ) {
+  box-sizing: border-box;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.editor-inspector .insp-selection-sources__button,
+.editor-inspector .insp-selection-sources__saved-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@container inspector (max-width: 15.5rem) {
+  .editor-inspector .insp-field__control > .insp-segmented {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .editor-inspector .insp-field__control > div:has(> .insp-per-side) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

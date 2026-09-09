@@ -24,6 +24,11 @@ interface ColorFillTarget {
   color: ManagedColor;
 }
 
+function formatQuickValue(value: number): string {
+  if (!Number.isFinite(value)) return '—';
+  return String(Math.round(value * 100) / 100);
+}
+
 function findColorFill(fills: Fill[]): ColorFillTarget | null {
   for (let index = fills.length - 1; index >= 0; index -= 1) {
     const fill = fills[index];
@@ -205,6 +210,7 @@ export function InspectorQuickBar({ node }: { node: SceneNode }) {
           displayLabel="X"
           unit="px"
           value={toDisplayX}
+          formatValue={formatQuickValue}
           propertyState={xState}
           readOnly={xBinding?.readOnly ?? false}
           bindingLabel={xBinding?.sourceLabel}
@@ -219,6 +225,7 @@ export function InspectorQuickBar({ node }: { node: SceneNode }) {
           displayLabel="Y"
           unit="px"
           value={toDisplayY}
+          formatValue={formatQuickValue}
           propertyState={yState}
           readOnly={yBinding?.readOnly ?? false}
           bindingLabel={yBinding?.sourceLabel}
@@ -233,6 +240,7 @@ export function InspectorQuickBar({ node }: { node: SceneNode }) {
           displayLabel="W"
           unit="px"
           value={widthBinding?.value ?? widthRaw}
+          formatValue={formatQuickValue}
           disabled={!bounds}
           propertyState={widthState}
           readOnly={widthBinding?.readOnly ?? false}
@@ -248,6 +256,7 @@ export function InspectorQuickBar({ node }: { node: SceneNode }) {
           displayLabel="H"
           unit="px"
           value={heightBinding?.value ?? heightRaw}
+          formatValue={formatQuickValue}
           disabled={!bounds}
           propertyState={heightState}
           readOnly={heightBinding?.readOnly ?? false}
@@ -262,6 +271,7 @@ export function InspectorQuickBar({ node }: { node: SceneNode }) {
           label="Opacity"
           displayLabel="Opacity"
           value={opacityBinding?.value ?? opacityRaw}
+          formatValue={formatQuickValue}
           min={0}
           max={1}
           step={0.01}

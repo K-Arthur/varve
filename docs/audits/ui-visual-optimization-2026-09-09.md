@@ -62,7 +62,7 @@ not treated as proof merely because the browser completed the capture.
 | UI-02 | Home active navigation, `packages/home/src/home.css` | Active Recent row carries a high-saturation filled treatment that competes with the primary empty-state action | P2 | Selection treatment was inherited from an accent-filled navigation pattern | Fixed in this pass with a quieter wash plus a persistent accent rail |
 | UI-03 | Home file thumbnail controls, `packages/home/src/home.css` | Drag handle and type badge use translucency/blur while the adopted application surface model is opaque | P2 | Legacy “glass” treatment survived the opaque-surface migration | Fixed in this pass with opaque token-backed surfaces |
 | UI-04 | Marketing product screenshot frame, `apps/website/src/components/ProductShowcase.astro` | Generic desktop-window dots make the real application capture feel like a mockup | P2 | Showcase wrapper predates the current product-chrome direction | Fixed in this pass with a Varve workspace frame and status treatment |
-| UI-05 | Editor domain controls, `packages/editor/src/components/Inspector/` and Layers | Inline/domain controls remain a known migration area even though the visual language is mostly coherent | P2 | Specialized editor widgets predate some shared primitives | Partially addressed: the high-frequency single-selection path now has a polished Quick properties surface; Tree/Combobox ownership work remains deferred |
+| UI-05 | Editor domain controls, `packages/editor/src/components/Inspector/` and Layers | Inline/domain controls remain a known migration area even though the visual language is mostly coherent | P2 | Specialized editor widgets predate some shared primitives | Partially addressed: Inspector field containment, responsive control sizing, and the single-selection Quick properties surface are covered; Tree/Combobox ownership work remains deferred |
 | UI-06 | Website feature page composition | Feature pages are visually consistent but have no shared product-frame primitive for domain screenshots | P3 | Each page owns its screenshot framing locally | Deferred; candidate for a later Astro component extraction |
 
 ## D. Design direction adopted
@@ -115,8 +115,9 @@ single-selection edits.
 
 Evidence: `tests/e2e/inspector/quick-properties.spec.ts` verifies the real
 browser flow, canonical X synchronization, empty/mixed-selection behavior, and
-the focused visual snapshot. The focused run used Chromium at the standard
-inspector width; the repository-wide visual gate remains an integration check.
+the focused visual snapshot. `tests/e2e/inspector/control-layout.spec.ts`
+audits inputs and dropdowns at 240, 320, 480, and 640px rail widths. The
+repository-wide visual gate remains an integration check.
 
 Important existing commands retain their current access paths:
 

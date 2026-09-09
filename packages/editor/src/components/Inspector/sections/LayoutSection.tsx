@@ -254,7 +254,7 @@ export function LayoutSection({ node }: { node: FrameNode }) {
             </>
           )}
           <FieldRow label="Padding">
-            <div style={{ display: 'flex', gap: 'var(--space-1)', flex: 1 }}>
+            <div className="insp-per-side-grid" style={{ gap: 'var(--space-1)', flex: 1 }}>
               {(['T', 'R', 'B', 'L'] as const).map((side, i) => (
                 <input
                   key={side}

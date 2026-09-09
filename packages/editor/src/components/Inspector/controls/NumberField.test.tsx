@@ -30,6 +30,22 @@ describe('NumberField', () => {
     expect(screen.getByLabelText('Width (px)')).toBeTruthy();
   });
 
+  it('formats the resting display without changing the numeric value', () => {
+    const onChange = vi.fn();
+    render(
+      <NumberField
+        label="Width"
+        value={42.123456}
+        formatValue={(value) => value.toFixed(2)}
+        onChange={onChange}
+      />,
+    );
+    const input = screen.getByLabelText('Width') as HTMLInputElement;
+    expect(input.value).toBe('42.12');
+    fireEvent.keyDown(input, { key: 'ArrowUp' });
+    expect(onChange).toHaveBeenCalledWith(43.123456);
+  });
+
   it('increments by step on ArrowUp', () => {
     let val = 50;
     render(<NumberField label="X" value={val} onChange={(v) => (val = v)} />);

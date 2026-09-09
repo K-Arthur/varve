@@ -33,6 +33,8 @@ export interface NumberFieldProps {
   unit?: string;
   /** Optional compact visual label while preserving the full accessible name. */
   displayLabel?: string;
+  /** Optional display formatter; editing and stored values remain full precision. */
+  formatValue?: (value: number) => string;
   /** Keep the associated label available to assistive technology but hide it visually. */
   hideLabel?: boolean;
   /** Resolved numeric variable aliases for `{name}` math expressions. */
@@ -86,6 +88,7 @@ export function NumberField({
   max = Infinity,
   unit,
   displayLabel,
+  formatValue,
   hideLabel = false,
   aliases = {},
   disabled = false,
@@ -146,7 +149,9 @@ export function NumberField({
   const visualMixed =
     mixed || propertyState?.kind === 'mixed' || propertyState?.kind === 'partially-applicable';
   const isReadOnly = readOnly || propertyState?.kind === 'bound';
-  const displayed = visualMixed ? 'Mixed' : (dirty ?? String(value));
+  const displayed = visualMixed
+    ? 'Mixed'
+    : (dirty ?? (formatValue ? formatValue(value) : String(value)));
   const name = unit ? `${label} (${unit})` : label;
 
   const finishArrowTransaction = useCallback((cancel: boolean) => {

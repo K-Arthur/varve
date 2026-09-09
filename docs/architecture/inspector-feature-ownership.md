@@ -14,6 +14,14 @@ property model. It is intentionally absent for empty and multi-selection
 contexts, where mixed-value semantics and batch editing remain in the full
 sections.
 
+All Inspector field surfaces follow one containment contract in
+`components/Inspector/inspector.css`: controls may shrink with the resizable
+rail, dropdown values ellipsize instead of widening it, segmented choices
+reflow, and fixed per-side groups become responsive grids. Numeric controls may
+format the resting display without changing stored precision. The contract is
+covered by `tests/e2e/inspector/control-layout.spec.ts` at 240, 320, 480, and
+640px rail widths.
+
 ## Placement decision
 
 Answer these questions in order before choosing a surface:
