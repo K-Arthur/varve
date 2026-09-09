@@ -1,18 +1,20 @@
 import type { WorkerInferResult } from '@varve/engine';
 import {
+  cachedImageDims,
   decodeSam2DecoderOutput,
   EmbeddingCache,
   getImageCache,
   getInferenceWorkerHost,
   getModelLoader,
 } from '@varve/engine';
-import type { Document, NodeId } from '@varve/scene';
+import { type Document, imageShapeSrc, type NodeId } from '@varve/scene';
 import { useCallback, useEffect, useRef } from 'react';
 import { commitRasterMask } from '../backgroundRemoval/commitRasterMask';
 import type { CanvasAnnouncer } from '../canvas/CanvasAnnouncer';
 import { setCollapsed } from '../components/Inspector/sectionState';
 import { prepareImageMaskMapper } from '../tools/imageMaskCoordinates';
 import { normalizeSam2Prompts } from '../tools/sam2PromptCoordinates';
+import { fingerprintImageData } from './imageFingerprint';
 import type { EditorState, ObjectSelectionSession } from './types';
 
 type WorkerTensor = { data: Float32Array; dims: number[] };
@@ -56,6 +58,7 @@ export function useSam2Segmentation(
     letterbox: { offsetX: number; offsetY: number };
     naturalW: number;
     naturalH: number;
+    sourceFingerprint: string;
   }> | null>(null);
   if (enabled && !embeddingCacheRef.current) {
     embeddingCacheRef.current = new EmbeddingCache<{
@@ -70,6 +73,7 @@ export function useSam2Segmentation(
       letterbox: { offsetX: number; offsetY: number };
       naturalW: number;
       naturalH: number;
+      sourceFingerprint: string;
     }>({
       maxEntries: 2,
       maxBytes: 512 * 1024 * 1024,
@@ -125,11 +129,13 @@ export function useSam2Segmentation(
     if (
       (session.documentId && session.documentId !== state.document.id) ||
       selected.length !== 1 ||
-      selected[0] !== session.nodeId
+      selected[0] !== session.nodeId ||
+      (session.sourceLocator &&
+        currentNodeSource(state.document.nodes[session.nodeId]) !== session.sourceLocator)
     ) {
       cancelSam2Segmentation();
     }
-  }, [cancelSam2Segmentation, state.document.id, state.selection, stateRef]);
+  }, [cancelSam2Segmentation, state.document, state.document.id, state.selection, stateRef]);
 
   useEffect(() => {
     return () => {
@@ -188,7 +194,8 @@ export function useSam2Segmentation(
       const previousSession = stateRef.current.objectSelectionSession;
       const sameSessionTarget =
         previousSession?.nodeId === nodeId &&
-        (!previousSession.documentId || previousSession.documentId === currentDoc.id);
+        (!previousSession.documentId || previousSession.documentId === currentDoc.id) &&
+        (!previousSession.sourceLocator || previousSession.sourceLocator === src);
 
       // Applying a visible candidate must be a commit, not a second model
       // run. This makes Apply/Enter deterministic and keeps the mask the user
@@ -197,12 +204,42 @@ export function useSam2Segmentation(
         operation === 'mask' &&
         sameSessionTarget &&
         previousSession.status === 'ready' &&
+        previousSession.sourceFingerprint &&
         previousSession.width > 0 &&
         previousSession.height > 0
       ) {
         const selectedCandidate = candidateIndex ?? previousSession.selectedCandidate;
         const candidate = previousSession.candidates[selectedCandidate];
         if (candidate) {
+          const freshSource = await readImageSourceIdentity(src);
+          if (generation !== generationRef.current || externalSignal?.aborted) return null;
+          if (
+            !freshSource ||
+            freshSource.width !== previousSession.width ||
+            freshSource.height !== previousSession.height ||
+            freshSource.fingerprint !== previousSession.sourceFingerprint
+          ) {
+            const live = stateRef.current.objectSelectionSession;
+            if (generation === generationRef.current && live?.nodeId === nodeId) {
+              writeTransientSession({
+                ...live,
+                width: 0,
+                height: 0,
+                candidates: [],
+                status: 'error',
+                error: {
+                  code: 'source_changed',
+                  message:
+                    'The image changed after the preview. Create a new preview before applying it.',
+                  retryable: true,
+                },
+              });
+            }
+            announcerRef.current?.announce(
+              'The image changed after the preview. Create a new preview before applying it.',
+            );
+            return null;
+          }
           abortRef.current?.abort();
           abortRef.current = null;
           generationRef.current += 1;
@@ -276,9 +313,9 @@ export function useSam2Segmentation(
         ...(sameSessionTarget ? previousSession : null),
         nodeId,
         documentId: currentDoc.id,
-        width: sameSessionTarget ? (previousSession?.width ?? 0) : 0,
-        height: sameSessionTarget ? (previousSession?.height ?? 0) : 0,
-        candidates: sameSessionTarget ? (previousSession?.candidates ?? []) : [],
+        width: 0,
+        height: 0,
+        candidates: [],
         selectedCandidate: sameSessionTarget ? (previousSession?.selectedCandidate ?? 0) : 0,
         points: prompts.points ?? [],
         box: prompts.box ?? null,
@@ -290,6 +327,7 @@ export function useSam2Segmentation(
           ? (previousSession?.modelId ?? 'sam2-hiera-tiny')
           : 'sam2-hiera-tiny',
         sourceLocator: src,
+        sourceFingerprint: undefined,
         startedAt: Date.now(),
         slow: false,
         stageTimingsMs: {},
@@ -331,6 +369,10 @@ export function useSam2Segmentation(
 
       let img: HTMLImageElement | ImageBitmap | null = null;
       try {
+        // A locator is not a content identity. Evict it before reading so a
+        // document asset replaced behind the same handle cannot be hashed or
+        // embedded from stale decoded pixels.
+        getImageCache().evict(src);
         img = await getImageCache().load(src);
       } catch {
         markFailure({
@@ -385,6 +427,9 @@ export function useSam2Segmentation(
 
       if (combinedSignal.aborted) return null;
 
+      const sourceFingerprint = await fingerprintImageData(imageData);
+      if (combinedSignal.aborted) return null;
+
       const imageMapper = prepareImageMaskMapper({
         document: currentDoc,
         node,
@@ -436,6 +481,7 @@ export function useSam2Segmentation(
           src,
           naturalW,
           naturalH,
+          sourceFingerprint,
           encoderId,
           'preprocess-v1',
         ]
@@ -479,6 +525,7 @@ export function useSam2Segmentation(
             letterbox: encOutputs.letterbox ?? { offsetX: 0, offsetY: 0 },
             naturalW,
             naturalH,
+            sourceFingerprint,
           };
           embeddingCache.set(cacheKey, cached);
         }
@@ -566,6 +613,7 @@ export function useSam2Segmentation(
                 modelId: 'sam2-hiera-tiny',
                 executionProvider: decOutputs.executionProvider,
                 sourceLocator: src,
+                sourceFingerprint,
                 startedAt: promptSession.startedAt,
                 slow: false,
                 stageTimingsMs: {
@@ -589,6 +637,20 @@ export function useSam2Segmentation(
               stateRef.current.selection[0] !== nodeId ||
               liveBeforeCommit !== node
             ) {
+              return null;
+            }
+            const freshSource = await readImageSourceIdentity(src);
+            if (
+              !freshSource ||
+              freshSource.width !== naturalW ||
+              freshSource.height !== naturalH ||
+              freshSource.fingerprint !== sourceFingerprint
+            ) {
+              markFailure({
+                code: 'source_changed',
+                message: 'The image changed while processing. Create a new preview and try again.',
+                retryable: true,
+              });
               return null;
             }
             const maskDataUrl = await maskToDataUrl(bestMask.mask, naturalW, naturalH);
@@ -639,6 +701,7 @@ export function useSam2Segmentation(
                 modelId: 'sam2-hiera-tiny',
                 executionProvider: decOutputs.executionProvider,
                 sourceLocator: src,
+                sourceFingerprint,
                 startedAt: promptSession.startedAt,
                 slow: false,
                 stageTimingsMs: {
@@ -716,6 +779,40 @@ function combineAbortSignals(...signals: AbortSignal[]): AbortSignal {
     s.addEventListener('abort', () => controller.abort(s.reason), { once: true });
   }
   return controller.signal;
+}
+
+function currentNodeSource(node: import('@varve/scene').SceneNode | undefined): string {
+  return node?.kind === 'shape' ? imageShapeSrc(node) : '';
+}
+
+async function readImageSourceIdentity(
+  src: string,
+): Promise<{ width: number; height: number; fingerprint: string } | null> {
+  if (typeof document === 'undefined') return null;
+  try {
+    const cache = getImageCache();
+    cache.evict(src);
+    const image = await cache.load(src);
+    const { width, height } = cachedImageDims(image);
+    if (
+      !Number.isSafeInteger(width) ||
+      !Number.isSafeInteger(height) ||
+      width <= 0 ||
+      height <= 0
+    ) {
+      return null;
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context) return null;
+    context.drawImage(image, 0, 0, width, height);
+    const imageData = context.getImageData(0, 0, width, height);
+    return { width, height, fingerprint: await fingerprintImageData(imageData) };
+  } catch {
+    return null;
+  }
 }
 
 /**

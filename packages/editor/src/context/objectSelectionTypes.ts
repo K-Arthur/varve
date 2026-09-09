@@ -15,6 +15,8 @@ export interface ObjectSelectionSession {
   points: Array<{ x: number; y: number; label: 0 | 1 }>;
   box: { x1: number; y1: number; x2: number; y2: number } | null;
   sourceLocator?: string;
+  /** SHA-256 (or deterministic fallback) of the decoded source RGBA pixels. */
+  sourceFingerprint?: string;
   /** Point/box currently being drawn; never sent to the model until pointer-up. */
   draftPoint?: { x: number; y: number; label: 0 | 1 } | null;
   draftBox?: { x1: number; y1: number; x2: number; y2: number } | null;
