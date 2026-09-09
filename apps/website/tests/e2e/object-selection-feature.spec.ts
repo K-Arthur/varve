@@ -6,6 +6,7 @@ test.describe('Object Selection marketing surface', () => {
     await page.goto('/features/object-selection');
     await expect(page.getByRole('heading', { name: 'Object Selection', level: 1 })).toBeVisible();
     await expect(page.getByText(/From object to editable mask/i)).toBeVisible();
+    await expect(page.getByText(/temporary pixel selection/i)).toBeVisible();
     await expect(page.getByText(/verified before use/i)).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Set the right expectation' })).toBeVisible();
 
