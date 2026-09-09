@@ -863,7 +863,7 @@ export function ContentAwareFillDialog({
             </p>
           </div>
 
-          {(mode === 'fill' || mode === 'replace') && (
+          {(mode === 'fill' || mode === 'replace' || mode === 'expand') && (
             <div className="caf-dialog__section">
               <label className="caf-dialog__label" htmlFor="caf-dialog-prompt">
                 Prompt <span className="caf-dialog__optional">optional</span>

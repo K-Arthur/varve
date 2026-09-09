@@ -333,6 +333,9 @@ test.describe('Content-Aware Fill dialog', () => {
       await dialog.getByRole('tab', { name: 'Replace' }).click();
       await expect(dialog.locator('#caf-dialog-prompt')).toBeVisible();
       await expect(dialog.getByRole('button', { name: /^replace$/i })).toBeDisabled();
+      await dialog.getByRole('tab', { name: 'Expand' }).click();
+      await expect(dialog.locator('#caf-dialog-prompt')).toBeVisible();
+      await expect(dialog.getByRole('button', { name: /^expand$/i })).toBeDisabled();
       await expect(dialog).toHaveScreenshot(`generative-edit-${fixture.slug}.png`, {
         animations: 'disabled',
       });

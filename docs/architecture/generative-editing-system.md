@@ -47,7 +47,7 @@ The dialog accepts three mask sources: a painted source mask, the current
 document pixel selection, or the selected image's raster layer mask. All three
 are normalized into source-image pixel space before inference. Invert,
 Clear Paint, Show Mask Overlay, brush size, mask expansion, feather, context
-padding, quality/model choice, Fit, 1:1, Original/Result, variation
+  padding, quality/model choice, prompt (where the staged mode needs it), Fit, 1:1, Original/Result, variation
 selection, cancellation, and Apply are exposed in the same session. Changing
 the source, mask, or generation settings invalidates the preview rather than
 silently applying a candidate made for an earlier state.

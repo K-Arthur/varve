@@ -45,7 +45,7 @@ import { sitePath } from '../../../lib/siteUrl';
         <ul>
           <li><strong>Fast</strong> uses the offline PatchMatch heuristic and needs no model download.</li>
           <li><strong>AI</strong> uses the optional LaMa inpainting model. Download it explicitly; the model is kept in local model storage.</li>
-          <li>LaMa is image-conditioned, not text-conditioned. The prompt field is shown for the shared Fill/Replace workflow contract but is not used by the current local provider, and prompt text is not stored in the local edit record.</li>
+          <li>LaMa is image-conditioned, not text-conditioned. The prompt field is shown for the shared Fill/Replace/Expand workflow contract but is not used by the current local provider, and prompt text is not stored in the local edit record.</li>
           <li>There is no silent remote fallback. A future remote provider must state what it uploads and ask for consent immediately before transmission.</li>
         </ul>
       </section>
