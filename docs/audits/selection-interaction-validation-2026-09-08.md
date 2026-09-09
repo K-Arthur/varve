@@ -61,7 +61,7 @@ and object-marquee ownership are reproducible.
 | Canvas browser | Real pointer marquee, mid-drag preview, release commit, empty click release-only behavior | `tests/e2e/canvas/object-marquee-selection.spec.ts` |
 | Layers browser | Real pointer row scrub, preview, reverse-safe commit, unchanged structure | `tests/e2e/layers/layers-dnd.spec.ts` |
 | Structural DnD | Grip remains the only reorder/reparent activator | `tests/e2e/layers/layers-dnd.spec.ts` |
-| Website | Selection-vs-structure messaging and active-surface boundary | `/features/layers` Astro route |
+| Website browser | Selection-vs-structure messaging, contract link, and no horizontal overflow on both site base paths | `apps/website/tests/e2e/layers-feature.spec.ts` |
 
 Visual screenshots are emitted by Playwright into its ignored test-results
 directory with the names `canvas-object-marquee-preview.png`,
@@ -70,6 +70,10 @@ directory with the names `canvas-object-marquee-preview.png`,
 Review both the canvas and
 Layers panel in each state; a final selection-only assertion cannot prove that
 the preview was correct.
+
+The website screenshot is emitted as `layers-feature-light.png` by the marketing
+page spec and was reviewed at full-page size for hierarchy, handoff, and marquee
+messaging.
 
 ## Product evidence and boundaries
 
