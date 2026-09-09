@@ -76,8 +76,8 @@ describe('Checkbox', () => {
     const checkbox = screen.getByRole('checkbox');
     const ids = checkbox.getAttribute('aria-describedby')?.split(' ') ?? [];
     expect(ids).toHaveLength(2);
-    expect(document.getElementById(ids[0])).toHaveTextContent('You must accept.');
-    expect(document.getElementById(ids[1])).toHaveTextContent('Required for signup.');
+    expect(document.getElementById(ids[0]!)).toHaveTextContent('You must accept.');
+    expect(document.getElementById(ids[1]!)).toHaveTextContent('Required for signup.');
   });
 
   it('displays description text visually', () => {

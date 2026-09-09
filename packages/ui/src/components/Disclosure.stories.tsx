@@ -114,11 +114,10 @@ export const Controlled: Story = {
 
 export const WithKeepMounted: Story = {
   args: {
-    keepMounted: true,
     children: (
       <>
         <DisclosureTrigger>Keep Mounted Section</DisclosureTrigger>
-        <DisclosureContent>
+        <DisclosureContent keepMounted>
           <div style={{ padding: 'var(--space-2) 0', color: 'var(--color-text-secondary)' }}>
             This content stays in the DOM when closed (hidden via the hidden attribute). Useful for
             preserving form state or expensive components.
