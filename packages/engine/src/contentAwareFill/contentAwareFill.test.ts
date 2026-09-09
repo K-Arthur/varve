@@ -345,4 +345,24 @@ describe('compositeFillResult', () => {
     expect(result.height).toBe(7);
     expect(result.data).not.toBe(img.data);
   });
+
+  it('preserves every pixel outside an explicit mask', () => {
+    const img = makeCheckerboard(4, 4);
+    const fill = new ImageData(4, 4);
+    fill.data.fill(200);
+    for (let i = 0; i < 16; i++) fill.data[i * 4 + 3] = 255;
+    const mask = new Uint8Array(16);
+    mask[5] = 255;
+    mask[6] = 255;
+
+    const result = compositeFillResult(img, fill, 0, 0, mask);
+    for (let i = 0; i < 16; i++) {
+      const offset = i * 4;
+      if (i === 5 || i === 6) expect(result.data[offset]).toBe(200);
+      else
+        expect(Array.from(result.data.slice(offset, offset + 4))).toEqual(
+          Array.from(img.data.slice(offset, offset + 4)),
+        );
+    }
+  });
 });

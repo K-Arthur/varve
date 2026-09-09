@@ -151,6 +151,7 @@ export async function runContentAwareFillPipeline(
       0,
       0,
       signal,
+      options.seed,
     );
 
     fillResult = {
@@ -214,6 +215,7 @@ export async function runContentAwareFillPipeline(
     fillResult.imageData,
     boundedCtx.offsetX,
     boundedCtx.offsetY,
+    boundedCtx.mask,
   );
 
   onProgress?.(1);

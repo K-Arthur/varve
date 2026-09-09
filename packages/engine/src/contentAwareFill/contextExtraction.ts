@@ -102,6 +102,7 @@ export function compositeFillResult(
   fillResult: ImageData,
   fillOffsetX: number,
   fillOffsetY: number,
+  mask?: Uint8Array,
 ): ImageData {
   const result = new ImageData(
     new Uint8ClampedArray(imageData.data),
@@ -118,7 +119,8 @@ export function compositeFillResult(
 
       const si = (y * fillResult.width + x) * 4;
       const di = (dstY * imageData.width + dstX) * 4;
-      const sa = fillResult.data[si + 3] ?? 0;
+      const maskCoverage = mask ? (mask[y * fillResult.width + x] ?? 0) / 255 : 1;
+      const sa = (fillResult.data[si + 3] ?? 0) * maskCoverage;
 
       if (sa >= 255) {
         rd[di] = fillResult.data[si]!;

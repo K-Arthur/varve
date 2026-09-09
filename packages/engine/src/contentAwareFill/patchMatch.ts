@@ -37,6 +37,7 @@ export function patchMatchFill(
   maskOffsetX: number,
   maskOffsetY: number,
   signal?: AbortSignal,
+  seed?: number,
 ): PatchMatchResult {
   const w = imageData.width;
   const h = imageData.height;
@@ -49,6 +50,12 @@ export function patchMatchFill(
   const PAD = PATCH_RADIUS;
 
   const searchRadius = Math.max(w, h);
+  let randomState = (seed ?? 0x9e3779b9) >>> 0;
+  const random = () => {
+    randomState = Math.imul(randomState ^ (randomState >>> 15), 1 | randomState);
+    randomState ^= randomState + Math.imul(randomState ^ (randomState >>> 7), 61 | randomState);
+    return ((randomState ^ (randomState >>> 14)) >>> 0) / 4294967296;
+  };
 
   const fillPixels: Array<{ x: number; y: number }> = [];
   for (let y = 0; y < h; y++) {
@@ -113,8 +120,8 @@ export function patchMatchFill(
 
       const r = searchRadius >> iter;
       for (let attempt = 0; attempt < 8; attempt++) {
-        const rx = x + Math.round((Math.random() * 2 - 1) * r);
-        const ry = y + Math.round((Math.random() * 2 - 1) * r);
+        const rx = x + Math.round((random() * 2 - 1) * r);
+        const ry = y + Math.round((random() * 2 - 1) * r);
         if (rx < PAD || rx >= w - PAD || ry < PAD || ry >= h - PAD) continue;
         const ps = ssd(src, rd, rx, ry, x, y, PATCH_SIZE, PATCH_SIZE, w, PAD);
         if (ps < bestScore) {
