@@ -124,6 +124,10 @@ export function InspectorQuickBar({ node }: { node: SceneNode }) {
   const widthState = widthBinding?.state ?? classifySelectionProperty([widthRaw]);
   const heightState = heightBinding?.state ?? classifySelectionProperty([heightRaw]);
   const opacityState = opacityBinding?.state ?? classifySelectionProperty([opacityRaw]);
+  const preserveAspectRatio =
+    node.kind === 'shape' &&
+    node.fills?.some((fill) => fill.type === 'image' || fill.type === 'pattern');
+  const aspectRatio = bounds && bounds.h !== 0 ? bounds.w / bounds.h : null;
 
   const toDisplayX = useArtboardCoords
     ? formatCoordForRuler(
@@ -161,6 +165,28 @@ export function InspectorQuickBar({ node }: { node: SceneNode }) {
       editor.updateSelectedFillAt(fillTarget.index, updateGradientFirstStop(fill, next));
     },
     [editor, fill, fillTarget],
+  );
+  const handleWidthChange = useCallback(
+    (width: number) => {
+      editor.beginTransaction();
+      editor.setSelectedW(width);
+      if (preserveAspectRatio && aspectRatio !== null) {
+        editor.setSelectedH(width / aspectRatio);
+      }
+      editor.commitTransaction();
+    },
+    [aspectRatio, editor, preserveAspectRatio],
+  );
+  const handleHeightChange = useCallback(
+    (height: number) => {
+      editor.beginTransaction();
+      editor.setSelectedH(height);
+      if (preserveAspectRatio && aspectRatio !== null) {
+        editor.setSelectedW(height * aspectRatio);
+      }
+      editor.commitTransaction();
+    },
+    [aspectRatio, editor, preserveAspectRatio],
   );
 
   return (
@@ -215,7 +241,7 @@ export function InspectorQuickBar({ node }: { node: SceneNode }) {
           draftKey={draftKey}
           fieldName="width"
           onShiftClick={() => editor.setBindingField('width')}
-          onChange={editor.setSelectedW}
+          onChange={handleWidthChange}
         />
         <NumberField
           label="Height"
@@ -230,7 +256,7 @@ export function InspectorQuickBar({ node }: { node: SceneNode }) {
           draftKey={draftKey}
           fieldName="height"
           onShiftClick={() => editor.setBindingField('height')}
-          onChange={editor.setSelectedH}
+          onChange={handleHeightChange}
         />
         <NumberField
           label="Opacity"
@@ -248,7 +274,7 @@ export function InspectorQuickBar({ node }: { node: SceneNode }) {
           onShiftClick={() => editor.setBindingField('opacity')}
           onChange={editor.setSelectedOpacity}
         />
-        <div className="insp-quick-bar__fill">
+        <div className="insp-quick-bar__fill insp-quick-bar__fill--wide">
           <span className="insp-quick-bar__label">Fill</span>
           {color ? (
             <InspectorColorPopover
