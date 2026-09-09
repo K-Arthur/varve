@@ -40,8 +40,10 @@ human publishes draft ──> release-data-only website deploy ──> live smok
    branch and open a PR. Do not squash solely to make validation manageable:
    the push driver accepts the complete range and CI certifies the exact PR
    SHA.
-   A direct `master` push with 50 or more outgoing commits is refused with the
-   exact integration-branch command; no commits are rewritten or discarded.
+   Commit count is a workload signal only. The push driver accepts a large
+   complete range, scans its history once, and validates each distinct target
+   tree from a clean snapshot; it does not require squashing or redirecting
+   the push solely because of its size.
 4. Repair the exact failing lane reported by CI. Use the failure manifest and
    target rerun rather than an empty commit. Merge only after the stable
    `CI / certification` check passes.
@@ -91,10 +93,12 @@ pnpm release:certify -- --sha "$SHA" --mode final
 gh workflow run release-candidate.yml -f sha="$SHA" -f mode=final
 ```
 
-The candidate workflow requires the SHA to be reachable from `master`, runs
-the prior exact-SHA `CI / certification` check and policy-bound integration
-artifact, then runs the extended matrix once and records `POLICY_VERSION` plus
-the policy hash.
+The candidate workflow requires the SHA to be reachable from `master`. A
+`triage` dispatch deliberately skips the prior integration-certification
+prerequisite and produces a bounded, non-certifying failure report so it can
+help diagnose a red integration run. A `final` dispatch runs the prior exact-
+SHA `CI / certification` check and policy-bound integration artifact, then runs
+the extended matrix once and records `POLICY_VERSION` plus the policy hash.
 The final evidence artifact is named
 `varve-release-candidate-<sha>-<policy-hash>`. A candidate from any other SHA
 or policy is invalid, even when its tests were green.

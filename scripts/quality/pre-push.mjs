@@ -298,7 +298,7 @@ export function runPushCheckpoint({
     );
   }
 
-  const artifactPath = writePlanArtifact(plan, commonDir);
+  let artifactPath = writePlanArtifact(plan, commonDir);
   if (flags.json) console.log(formatPushPlan(plan, { json: true }));
   else console.log(formatPushPlan(plan));
 
@@ -345,6 +345,12 @@ export function runPushCheckpoint({
       dryRun: flags.dryRun,
     };
   }
+  // Persist the exact snapshot targets after they are resolved. The first
+  // artifact is useful for early plan display; this rewrite makes the durable
+  // artifact describe the tree actually validated, including its worktree
+  // paths and dry-run status.
+  const exactArtifactPath = writePlanArtifact(plan, commonDir);
+  if (exactArtifactPath) artifactPath = exactArtifactPath;
 
   const lanes = overrideReason
     ? plan.localBlockingLanes.filter((lane) =>

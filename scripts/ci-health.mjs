@@ -48,6 +48,8 @@ const RUNNER_UNAVAILABLE_PATTERN = /was not acquired by Runner of type hosted/i;
 // no runner is coming — flag it as infrastructure, not code.
 const STUCK_QUEUED_THRESHOLD_MIN = 30;
 const STUCK_QUEUED_THRESHOLD_MS = STUCK_QUEUED_THRESHOLD_MIN * 60 * 1000;
+export const HEALTH_COMMAND_TIMEOUT_MS = 5000;
+export const HEALTH_API_TIMEOUT_MS = 15000;
 
 function parseArgs() {
   const args = process.argv.slice(2);
@@ -111,7 +113,12 @@ function getAuthToken() {
 
 function runQuiet(cmd, args) {
   try {
-    const result = spawnSync(cmd, args, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+    const result = spawnSync(cmd, args, {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      timeout: HEALTH_COMMAND_TIMEOUT_MS,
+      killSignal: 'SIGTERM',
+    });
     if (result.status === 0) return result.stdout.trim();
   } catch {
     // command not found
@@ -121,20 +128,27 @@ function runQuiet(cmd, args) {
 
 async function githubJson(path, token) {
   const url = path.startsWith('http') ? path : `${API_BASE}${path}`;
-  const res = await fetch(url, {
-    headers: {
-      Accept: 'application/vnd.github+json',
-      'X-GitHub-Api-Version': '2022-11-28',
-      Authorization: token ? `Bearer ${token}` : undefined,
-    },
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(
-      `GitHub API ${url} failed: ${res.status} ${res.statusText}\n${body.slice(0, 300)}`,
-    );
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), HEALTH_API_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, {
+      headers: {
+        Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        Authorization: token ? `Bearer ${token}` : undefined,
+      },
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(
+        `GitHub API ${url} failed: ${res.status} ${res.statusText}\n${body.slice(0, 300)}`,
+      );
+    }
+    return res.json();
+  } finally {
+    clearTimeout(timer);
   }
-  return res.json();
 }
 
 /**
@@ -260,8 +274,12 @@ function formatRow(run, classification) {
  * @returns {Promise<{name: string, status: string, description: string} | null>}
  */
 async function githubActionsStatus() {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), HEALTH_API_TIMEOUT_MS);
   try {
-    const res = await fetch('https://www.githubstatus.com/api/v2/components.json');
+    const res = await fetch('https://www.githubstatus.com/api/v2/components.json', {
+      signal: controller.signal,
+    });
     if (!res.ok) return null;
     const data = await res.json();
     const actions = (data.components || []).find((c) => c.name === 'Actions');
@@ -273,6 +291,8 @@ async function githubActionsStatus() {
     };
   } catch {
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -346,6 +366,8 @@ async function runRerunStuck(flags, owner, name, token) {
     const result = spawnSync('gh', ['run', 'rerun', String(r.id)], {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
+      timeout: HEALTH_COMMAND_TIMEOUT_MS,
+      killSignal: 'SIGTERM',
     });
     if (result.status === 0) {
       console.log(`  reran ${r.id}`);

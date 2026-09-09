@@ -37,12 +37,16 @@ export function aggregateCertification({
   needs = {},
   categories = {},
   profile = 'integration',
+  candidateMode = null,
   selectedLanes = [],
   deferredLanes = [],
   commitSha = null,
   policyVersion = null,
   policyHash = null,
 } = {}) {
+  if (profile === 'candidate' && !['triage', 'final'].includes(candidateMode)) {
+    throw new Error('candidate aggregation requires mode triage or final');
+  }
   const jobs = [];
   const failures = [];
   for (const [job, category] of Object.entries(REQUIRED_CI_JOBS)) {
@@ -69,10 +73,12 @@ export function aggregateCertification({
   return {
     schema: 1,
     profile,
+    candidateMode,
     commitSha,
     policyVersion,
     policyHash,
     passed: failures.length === 0,
+    certifiable: profile !== 'candidate' || candidateMode === 'final',
     jobs,
     failures,
     selectedLanes: [...selectedLanes],
@@ -84,6 +90,8 @@ export function formatSummary(result) {
   const lines = [
     `CI / certification: ${result.passed ? 'PASS' : 'FAIL'}`,
     `Profile: ${result.profile}`,
+    result.candidateMode ? `Mode: ${result.candidateMode}` : '',
+    `Certifiable: ${result.certifiable ? 'yes' : 'no'}`,
     '',
     'Jobs:',
     ...result.jobs.map(
@@ -115,6 +123,7 @@ function main() {
     needs,
     categories: plan.categories,
     profile: plan.profile ?? 'integration',
+    candidateMode: plan.candidateMode ?? null,
     selectedLanes: plan.selectedLanes ?? [],
     deferredLanes: plan.deferredLanes ?? [],
     commitSha: plan.commitSha ?? null,

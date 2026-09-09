@@ -37,10 +37,10 @@ permissions:
   contents: read
 
 concurrency:
-  # Never cancel a deployment halfway through — a half-published site is worse
-  # than a slow one. The deploy job inherits the build's group via `needs`.
+  # Superseded source pushes may be cancelled before deployment; release/manual
+  # runs are frozen and must finish so an exact published SHA cannot be lost.
   group: "pages"
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'push' }}
 
 env:
   PNPM_VERSION: '11.9.0'
@@ -67,8 +67,11 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ github.event.repository.default_branch }}
+          ref: ${{ github.sha }}
           persist-credentials: false
+
+      - name: Verify exact event source
+        run: test "$(git rev-parse --verify 'HEAD^{commit}')" = "${{ github.sha }}"
 
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
         with:
@@ -141,8 +144,11 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ github.event.repository.default_branch }}
+          ref: ${{ github.sha }}
           persist-credentials: false
+
+      - name: Verify release-data workflow source
+        run: test "$(git rev-parse --verify 'HEAD^{commit}')" = "${{ github.sha }}"
 
       - name: Verify the release is actually published
         id: release-state
@@ -184,6 +190,8 @@ jobs:
   # ── 3. Build + upload ──────────────────────────────────────────────────────
   build:
     name: Build and upload Pages artifact
+    outputs:
+      source_sha: ${{ steps.source.outputs.source_sha }}
     needs: [test, release-data]
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -200,13 +208,22 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          # The site always builds from master: the release data comes from the
-          # GitHub API, not the checkout, and workflow_run events run on the
-          # default branch so the deploy passes the github-pages environment
-          # protection.
-          ref: ${{ github.event.repository.default_branch }}
+          # Source pushes build the event SHA. Release publications build the
+          # exact published tag SHA returned by release-data; the two paths
+          # cannot silently borrow a newer default-branch checkout.
+          ref: ${{ (github.event_name == 'workflow_run' || github.event_name == 'repository_dispatch') && needs.release-data.outputs.published_sha || github.sha }}
           # Nothing in this workflow pushes; never persist the token.
           persist-credentials: false
+
+      - name: Verify and record exact build source
+        id: source
+        env:
+          EXPECTED_SOURCE_SHA: ${{ (github.event_name == 'workflow_run' || github.event_name == 'repository_dispatch') && needs.release-data.outputs.published_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          ACTUAL_SOURCE_SHA="$(git rev-parse --verify 'HEAD^{commit}')"
+          test "$ACTUAL_SOURCE_SHA" = "$EXPECTED_SOURCE_SHA"
+          echo "source_sha=$ACTUAL_SOURCE_SHA" >> "$GITHUB_OUTPUT"
 
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
         with:
@@ -304,8 +321,11 @@ jobs:
         with:
           # The smoke check only reads scripts/website/smoke-pages.mjs; the
           # checkout exists for that script. No push capability needed.
-          ref: ${{ github.event.repository.default_branch }}
+          ref: ${{ needs.build.outputs.source_sha }}
           persist-credentials: false
+
+      - name: Verify exact deployed source
+        run: test "$(git rev-parse --verify 'HEAD^{commit}')" = "${{ needs.build.outputs.source_sha }}"
 
       - name: Deploy to GitHub Pages
         id: deployment

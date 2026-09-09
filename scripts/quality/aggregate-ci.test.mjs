@@ -27,6 +27,22 @@ const passed = aggregateCertification({
 assert.equal(passed.passed, true, 'all selected jobs plus deliberate attribution skip pass');
 assert.equal(passed.commitSha, 'a'.repeat(40));
 assert.equal(passed.policyHash, 'b'.repeat(64));
+assert.equal(passed.certifiable, true, 'integration evidence is certifiable');
+
+const triage = aggregateCertification({
+  needs: { ...allSuccess, js: { result: 'failure' } },
+  categories: allCategories,
+  profile: 'candidate',
+  candidateMode: 'triage',
+});
+assert.equal(triage.passed, false, 'triage still reports lane failures');
+assert.equal(triage.certifiable, false, 'triage evidence is never certifiable');
+
+assert.throws(
+  () => aggregateCertification({ profile: 'candidate' }),
+  /candidate aggregation requires mode/,
+  'candidate aggregation requires an explicit mode',
+);
 
 const deliberateSkips = aggregateCertification({
   needs: Object.fromEntries(
@@ -150,6 +166,13 @@ for (const [category, output] of Object.entries(dynamicConditions)) {
 assert.match(ci, /name: CI \/ certification/);
 assert.match(ci, /if: \$\{\{ always\(\) \}\}/);
 assert.match(candidate, /- run: pnpm lint/, 'candidate full JS profile must execute lint');
+assert.match(
+  candidate,
+  /Verify prior exact-SHA integration certification\n\s+if: \$\{\{ inputs\.mode == 'final' \}\}/,
+  'triage does not inherit the final integration prerequisite',
+);
+assert.match(candidate, /candidateMode|--mode "\$\{\{ inputs\.mode \}\}"/);
+assert.match(candidate, /CONCLUSION=neutral/);
 for (const job of Object.keys(REQUIRED_CI_JOBS))
   assert.match(ci, new RegExp(`- ${job}(?:\n|\r)`), `${job} missing from CI aggregation needs`);
 

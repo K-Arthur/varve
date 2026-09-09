@@ -79,6 +79,8 @@ const evidence = buildCandidateEvidence({
   generatedAt: '2026-08-31T00:00:00Z',
 });
 assert.equal(evidence.status, 'passed');
+assert.equal(evidence.mode, 'final');
+assert.equal(evidence.certifiable, true);
 assert.deepEqual(validateLocalCandidateEvidence(evidence, { commitSha: sha, policyHash }), []);
 assert.ok(
   validateLocalCandidateEvidence(evidence, { commitSha: otherSha, policyHash }).some((error) =>
@@ -93,6 +95,20 @@ assert.ok(
 );
 assert.equal(evidence.policyVersion, POLICY_VERSION);
 assert.equal(parseCertificationArgs(['--integration-only']).integrationOnly, true);
+
+const triageEvidence = buildCandidateEvidence({
+  commitSha: sha,
+  policyHash,
+  mode: 'triage',
+  aggregate: { passed: true, selectedLanes: [], deferredLanes: [], jobs: [], failures: [] },
+});
+assert.equal(triageEvidence.status, 'triage-passed');
+assert.equal(triageEvidence.certifiable, false);
+assert.ok(
+  validateLocalCandidateEvidence(triageEvidence, { commitSha: sha, policyHash }).some((error) =>
+    error.includes('not final mode'),
+  ),
+);
 
 // Exercise the release-facing API gate without network access: a wrong-SHA or
 // missing candidate is a hard failure, while integration-only mode accepts
@@ -152,6 +168,15 @@ const bundle = release.indexOf('name: Bundle', cert);
 assert.ok(
   cert >= 0 && install > cert && bundle > cert,
   'exact certification gate precedes release setup/builds',
+);
+const websiteWorkflow = readFileSync('.github/workflows/website-deploy.yml', 'utf8');
+assert.match(websiteWorkflow, /source_sha: \$\{\{ steps\.source\.outputs\.source_sha \}\}/);
+assert.match(websiteWorkflow, /ref: \$\{\{ needs\.build\.outputs\.source_sha \}\}/);
+assert.match(websiteWorkflow, /Verify exact deployed source/);
+assert.doesNotMatch(
+  websiteWorkflow,
+  /ref: \$\{\{ github\.event\.repository\.default_branch \}\}/,
+  'website build/deploy must not silently use the moving default branch',
 );
 
 console.log('release certification tests passed');

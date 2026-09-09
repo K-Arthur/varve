@@ -15,15 +15,17 @@ function main() {
   const aggregate = JSON.parse(
     readFileSync(value(args, '--aggregate') ?? 'ci-certification.json', 'utf8'),
   );
+  const mode = plan.candidateMode ?? 'final';
   const evidence = buildCandidateEvidence({
     commitSha: plan.commitSha,
     policyHash: plan.policyHash,
     aggregate,
+    mode,
   });
   const output = value(args, '--output') ?? 'candidate-certification.json';
   writeFileSync(output, `${JSON.stringify(evidence, null, 2)}\n`);
   console.log(`${evidence.status}: ${output} (${evidence.commitSha}, ${evidence.policyHash})`);
-  if (evidence.status !== 'passed') process.exitCode = 1;
+  if (mode === 'final' && evidence.status !== 'passed') process.exitCode = 1;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

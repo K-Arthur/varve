@@ -33,6 +33,7 @@ function parseArgs(args) {
     base: null,
     head: 'HEAD',
     profile: 'integration',
+    mode: null,
     output: null,
     githubOutput: process.env.GITHUB_OUTPUT ?? null,
     validateOutput: args.includes('--validate-output'),
@@ -43,6 +44,7 @@ function parseArgs(args) {
     if (args[i] === '--base') flags.base = args[++i];
     else if (args[i] === '--head') flags.head = args[++i];
     else if (args[i] === '--profile') flags.profile = args[++i];
+    else if (args[i] === '--mode') flags.mode = args[++i];
     else if (args[i] === '--output') flags.output = args[++i];
     else if (args[i] === '--github-output') flags.githubOutput = args[++i];
     else if (args[i] === '--plan-file') flags.planFile = args[++i];
@@ -80,10 +82,14 @@ export function buildCiPlan({
   base,
   head = 'HEAD',
   profile = 'integration',
+  mode = null,
   root = process.cwd(),
   planner = buildPlan,
   forceFull = false,
 } = {}) {
+  const candidateMode = profile === 'candidate' ? (mode ?? 'final') : null;
+  if (candidateMode && !['triage', 'final'].includes(candidateMode))
+    throw new Error(`invalid candidate mode '${candidateMode}'; expected triage or final`);
   const resolvedHead = git(['rev-parse', '--verify', `${head}^{commit}`], root).trim();
   const resolvedBase = base
     ? git(['rev-parse', '--verify', `${base}^{commit}`], root).trim()
@@ -113,6 +119,7 @@ export function buildCiPlan({
   const result = {
     schema: 1,
     profile,
+    candidateMode,
     commitSha: resolvedHead,
     baseSha: resolvedBase,
     files,
@@ -140,6 +147,7 @@ export function buildCiPlan({
       fileHash: result.fileHash,
       categories: result.categories,
       selectedLanes: result.selectedLanes,
+      candidateMode: result.candidateMode,
       policyHash,
     }),
   );
@@ -154,6 +162,8 @@ export function validateCiPlan(value, { expectedHead = null, expectedPolicyHash 
     errors.push('commitSha does not match the checked-out SHA');
   if (expectedPolicyHash && value?.policyHash !== expectedPolicyHash)
     errors.push('policy hash mismatch');
+  if (value?.profile === 'candidate' && !['triage', 'final'].includes(value?.candidateMode))
+    errors.push('candidateMode must be triage or final for candidate plans');
   for (const category of CI_CATEGORIES) {
     if (typeof value?.categories?.[category] !== 'boolean')
       errors.push(`category ${category} is not boolean`);
@@ -194,6 +204,7 @@ function main() {
     plan_hash: plan.planHash,
     policy_hash: plan.policyHash,
     commit_sha: plan.commitSha,
+    candidate_mode: plan.candidateMode ?? '',
   });
   console.log(JSON.stringify(plan, null, 2));
 }

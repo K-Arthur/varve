@@ -2,7 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    # Integration work is pushed to an immutable, short-lived ref before it
+    # is fast-forwarded to master. Run the same planner on that route so the
+    # bootstrap path is exercised by CI rather than only documented.
+    branches: [master, 'varve/integration-*']
   pull_request:
   workflow_dispatch:
   schedule:

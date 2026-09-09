@@ -516,6 +516,20 @@ jobs:
 
   const persisted = safe.replace('persist-credentials: false', 'persist-credentials: true');
   expectViolation(persisted, 'workflow_run checkout must set persist-credentials: false');
+
+  const exactPublishedRelease = safe
+    .replace('name: Workflow Run Consumer', 'name: Website Deploy')
+    .replace(
+      'ref: ' + '$' + '{{ github.event.repository.default_branch }}',
+      'ref: ' + '$' + '{{ needs.release-data.outputs.published_sha }}',
+    );
+  const exactReleaseViolations = auditWorkflowYaml(exactPublishedRelease, 'website-deploy.yml');
+  assert.ok(
+    !exactReleaseViolations.some((violation) =>
+      violation.includes('workflow_run checkout must pin ref'),
+    ),
+    `the reviewed immutable release ref should be trusted, got: ${JSON.stringify(exactReleaseViolations)}`,
+  );
 }
 
 testPullRequestTargetRejected();

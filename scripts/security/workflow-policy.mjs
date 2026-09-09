@@ -37,8 +37,9 @@
  *       backend-deploy workflow must extend the explicit allowlist, never
  *       the deny rule).
  *   17. `permissions: write-all` is never acceptable.
- *   18. Every `workflow_run` checkout pins the trusted default branch and
- *       disables credential persistence.
+ *   18. Every `workflow_run` checkout pins the trusted default branch (or the
+ *       verified immutable release SHA on the Pages consumer) and disables
+ *       credential persistence.
  */
 
 import { load } from 'js-yaml';
@@ -302,10 +303,23 @@ export function auditWorkflow(doc, filename) {
   // to the event's ref, and persisted credentials would leave a token in the
   // workspace for later steps. Keep the allowlist intentionally narrow: the
   // repository's default branch is `master`, while the expression keeps this
-  // safe if the branch is renamed in repository settings.
+  // safe if the branch is renamed in repository settings. The Pages workflow
+  // has one additional reviewed path: release-data first verifies a published
+  // tag and its commit through the GitHub API, then passes that immutable SHA
+  // to the build/deploy jobs. This prevents a moving default branch from being
+  // built while preserving the privileged workflow_run trust boundary.
   if (workflowRunCapable) {
     const trustedDefaultRef = '$' + '{{ github.event.repository.default_branch }}';
     const trustedRefs = new Set(['master', 'refs/heads/master', trustedDefaultRef]);
+    if (base === 'website-deploy.yml') {
+      trustedRefs.add('$' + '{{ github.sha }}');
+      trustedRefs.add('$' + '{{ needs.release-data.outputs.published_sha }}');
+      trustedRefs.add('$' + '{{ needs.build.outputs.source_sha }}');
+      trustedRefs.add(
+        '$' +
+          "{{ (github.event_name == 'workflow_run' || github.event_name == 'repository_dispatch') && needs.release-data.outputs.published_sha || github.sha }}",
+      );
+    }
     for (const [name, job] of jobEntries(doc)) {
       if (typeof job !== 'object' || job === null) continue;
       for (const step of walkSteps(job)) {

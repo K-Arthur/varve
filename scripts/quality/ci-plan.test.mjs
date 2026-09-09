@@ -26,9 +26,22 @@ assert.deepEqual(
   CI_CATEGORIES.map(() => true),
 );
 assert.deepEqual(full.selectedLanes, promisedLanesForCategories(full.categories, 'candidate'));
+assert.equal(full.candidateMode, 'final');
 assert.deepEqual(
   validateCiPlan(full, { expectedHead: actualHead, expectedPolicyHash: full.policyHash }),
   [],
+);
+const triagePlan = buildCiPlan({
+  base: actualHead,
+  head: actualHead,
+  profile: 'candidate',
+  mode: 'triage',
+  forceFull: true,
+});
+assert.equal(triagePlan.candidateMode, 'triage');
+assert.throws(
+  () => buildCiPlan({ base: actualHead, head: actualHead, profile: 'candidate', mode: 'unknown' }),
+  /invalid candidate mode/,
 );
 
 const browserSpec = buildCiPlan({

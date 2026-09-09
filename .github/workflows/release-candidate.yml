@@ -38,6 +38,7 @@ jobs:
       commit_sha: ${{ steps.plan.outputs.commit_sha }}
       policy_hash: ${{ steps.plan.outputs.policy_hash }}
       full: ${{ steps.plan.outputs.full }}
+      mode: ${{ steps.plan.outputs.candidate_mode }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -53,8 +54,10 @@ jobs:
           test "$ACTUAL_SHA" = "$EXPECTED_SHA"
           git merge-base --is-ancestor "$ACTUAL_SHA" origin/master
           node scripts/quality/ci-plan.mjs --base "$ACTUAL_SHA" --head "$ACTUAL_SHA" \
-            --force-full --profile candidate --output ci-plan.json --github-output "$GITHUB_OUTPUT"
+            --force-full --profile candidate --mode "${{ inputs.mode }}" \
+            --output ci-plan.json --github-output "$GITHUB_OUTPUT"
       - name: Verify prior exact-SHA integration certification
+        if: ${{ inputs.mode == 'final' }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -438,8 +441,18 @@ jobs:
         run: |
           set -euo pipefail
           printf '%s' "$NEEDS_JSON" > ci-needs.json
-          node scripts/quality/aggregate-ci.mjs --needs ci-needs.json \
-            --plan candidate-plan/ci-plan.json --output ci-certification.json
+          if node scripts/quality/aggregate-ci.mjs --needs ci-needs.json \
+            --plan candidate-plan/ci-plan.json --output ci-certification.json; then
+            aggregate_status=0
+          else
+            aggregate_status=$?
+          fi
+          # Triage is a bounded diagnostic run. Preserve its failure set and
+          # publish a neutral check, but reserve a red job for final mode.
+          if [[ '${{ inputs.mode }}' == 'triage' ]]; then
+            exit 0
+          fi
+          exit "$aggregate_status"
       - name: Write exact-SHA candidate evidence
         id: evidence
         if: always()
@@ -464,8 +477,11 @@ jobs:
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
-          CONCLUSION=failure
-          if [[ "${{ steps.aggregate.outcome }}" == "success" && "${{ steps.evidence.outcome }}" == "success" && "${{ steps.upload-evidence.outcome }}" == "success" ]]; then CONCLUSION=success; fi
+          CONCLUSION=neutral
+          if [[ '${{ inputs.mode }}' == 'final' ]]; then
+            CONCLUSION=failure
+            if [[ "${{ steps.aggregate.outcome }}" == "success" && "${{ steps.evidence.outcome }}" == "success" && "${{ steps.upload-evidence.outcome }}" == "success" ]]; then CONCLUSION=success; fi
+          fi
           gh api --method POST "repos/${REPOSITORY}/check-runs" \
             -f name='Release Candidate / certification' \
             -f head_sha="${CANDIDATE_SHA}" \
@@ -476,6 +492,7 @@ jobs:
       - name: Fail candidate certification when any required evidence failed
         if: >-
           always() &&
+          '${{ inputs.mode }}' == 'final' &&
           (steps.aggregate.outcome != 'success' ||
            steps.evidence.outcome != 'success' ||
            steps.upload-evidence.outcome != 'success')

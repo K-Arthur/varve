@@ -84,6 +84,10 @@ The frozen candidate check is the extended release evidence for one SHA.
 | `pnpm verify:triage` | Tiers 0–4, but Playwright stops after five failures by default; still runs when a final full gate is required | First discovery pass after a large integration or merge batch |
 | `pnpm verify:affected` | Tiers 0–4, risk-aware | **Default inner loop for agents** |
 | `pnpm verify:push` | Exact outgoing-ref push checkpoint; accepts `--pre-push`, `--since <ref>`, `--strict`, `--json`, and `--dry-run` | Normal pre-push hook |
+| `pnpm workflow:status` | Read-only branch/upstream state, hook diagnosis, and recent operation summary | Before synchronization |
+| `pnpm workflow:doctor` | Read-only repository workflow and hook diagnostics | Setup/troubleshooting |
+| `pnpm workflow:history -- --json` | Durable local operation attempts, failures, and incomplete work | After an interrupted operation |
+| `pnpm workflow:report` | Export the sanitized operation journal as JSON | Attach to review/incident evidence |
 | `pnpm verify:commit` | Staged format/lint, cheap policy audits, changed unit tests, and E2E typechecking when staged | Normal pre-commit hook |
 | `pnpm verify:full` | Full repository gate (Tier 5) | Release checkpoints, explicit request, high-risk changes |
 | `pnpm release:prepare <version>` | Validate clean release state, set canonical version, verify changelog, and print the proposed tag | Before a release commit |
@@ -130,11 +134,19 @@ hook prints them as `remoteRequired`/`deferred` and still succeeds when local
 blocking checks pass. `--strict` is an explicit human request to run the
 selected lanes locally.
 
-A direct push to `master` containing 50 or more outgoing commits is refused by
-the local policy with the exact command for pushing the same HEAD to a named
-integration branch. This preserves every commit while making the required
-integration certification unavoidable; ordinary small fast-forward pushes are
-not redirected by this local threshold.
+Commit count is a workload signal, not a correctness gate. A direct push to
+`master` is no longer refused merely because it contains 50 or more outgoing
+commits. The hook scans the complete outgoing history once, validates each
+distinct target tree in a clean disposable snapshot, and reports the exact
+integration/candidate lanes that remain remote-owned. If repository rules or
+the maintainer's review process require an integration branch, use one for
+that policy decision—not as a workaround for a local count threshold.
+
+Actual validation never uses dirty or partially staged files as evidence for a
+committed target. The driver creates a clean detached worktree for every
+distinct pushed head SHA, runs its local lanes there, and removes it after the
+attempt. Dry runs remain non-mutating. A failure to create or clean a snapshot
+is incomplete evidence and returns an error; it cannot become a pass.
 
 Successful push receipts live in the common Git directory at
 `.git/varve-validation/receipts/` (the common directory is used for linked
@@ -143,6 +155,16 @@ net-file hash, outgoing-commit hash, lockfile hash, tool versions, policy
 version/hash, and a maximum six-hour age. They are a local cache only and
 cannot satisfy `CI / certification`, candidate certification, signing, or
 provenance. A dry run never writes a receipt.
+
+Push operation history is separate from receipts and lives at
+`.git/varve-validation/operations/`. Each attempt gets a unique versioned
+record; completion, failure, cancellation, and recovery are terminal states,
+and stale `running` records can be marked `incomplete` with
+`pnpm workflow:history -- --recover`. Records contain sanitized destinations,
+ref/tree identities, selected and deferred work, per-lane outcomes, and the
+fact that remote acceptance is `unobserved-pre-push`. Credentials and whole
+environment dumps are never stored. History is local diagnostic evidence: it
+does not pretend that a successful pre-push hook proves a remote update.
 
 ## Full-suite escalation rules
 
@@ -270,8 +292,11 @@ candidate for `master`.
 
 `release-candidate.yml` freezes one SHA and emits
 `varve-release-candidate-<sha>-<policy-hash>` plus a stable
-`Release Candidate / certification` check. `release.yml` verifies both exact-
-SHA checks and the policy hash before installing large release dependencies.
+`Release Candidate / certification` check. Its `triage` mode is explicitly
+non-certifying and may run without a successful prior integration check so it
+can collect bounded failures; only `final` produces passed candidate evidence.
+`release.yml` verifies both exact-SHA checks and the policy hash before
+installing large release dependencies.
 CI is authoritative; local affected validation is only the unmerged feedback
 loop.
 

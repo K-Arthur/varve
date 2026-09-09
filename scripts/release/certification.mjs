@@ -63,6 +63,7 @@ export function validateLocalCandidateEvidence(evidence, { commitSha, policyHash
   if (evidence?.policyHash !== policyHash) errors.push('candidate evidence policy hash mismatch');
   if (evidence?.policyVersion !== POLICY_VERSION)
     errors.push('candidate evidence policy version mismatch');
+  if (evidence?.mode !== 'final') errors.push('candidate evidence is not final mode');
   if (evidence?.status !== 'passed') errors.push('candidate evidence is not passed');
   return errors;
 }
@@ -71,10 +72,19 @@ export function buildCandidateEvidence({
   commitSha,
   policyHash,
   aggregate,
+  mode = 'final',
   runId = process.env.GITHUB_RUN_ID ?? null,
   generatedAt = new Date().toISOString(),
 } = {}) {
-  const status = aggregate?.passed ? 'passed' : 'failed';
+  if (!['triage', 'final'].includes(mode)) throw new Error(`invalid candidate mode '${mode}'`);
+  const status =
+    mode === 'triage'
+      ? aggregate?.passed
+        ? 'triage-passed'
+        : 'triage-failed'
+      : aggregate?.passed
+        ? 'passed'
+        : 'failed';
   const evidence = {
     schema: 1,
     status,
@@ -83,6 +93,8 @@ export function buildCandidateEvidence({
     policyHash,
     runId,
     profile: 'candidate',
+    mode,
+    certifiable: mode === 'final' && status === 'passed',
     selectedLanes: aggregate?.selectedLanes ?? [],
     deferredLanes: aggregate?.deferredLanes ?? [],
     jobs: aggregate?.jobs ?? [],

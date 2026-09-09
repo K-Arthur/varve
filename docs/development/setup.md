@@ -86,6 +86,12 @@ pnpm verify:commit
 # Exact refs leaving this machine; CI deferrals are explicit
 pnpm verify:push
 
+# Read-only workflow state and durable local operation records
+pnpm workflow:status
+pnpm workflow:doctor
+pnpm workflow:history -- --json
+pnpm workflow:report
+
 # Tier 0 + 1 only (format/lint on touched files + directly related tests)
 pnpm verify:quick
 
