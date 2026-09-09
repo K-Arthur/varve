@@ -1503,6 +1503,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: codegen e
         "shortcut": "Ctrl+I",
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "quickConvert",
+        "label": "Quick Convert…",
+        "onAction": [Function],
+      },
+      {
         "ariaKeyshortcuts": "Control+Shift+Alt+I",
         "badge": undefined,
         "disabled": false,
@@ -3102,6 +3109,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: codegen w
         "shortcut": "Ctrl+I",
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "quickConvert",
+        "label": "Quick Convert…",
+        "onAction": [Function],
+      },
+      {
         "ariaKeyshortcuts": "Control+Shift+Alt+I",
         "badge": undefined,
         "disabled": false,
@@ -4699,6 +4713,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design em
         "label": "Import…",
         "onAction": [Function],
         "shortcut": "Ctrl+I",
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "quickConvert",
+        "label": "Quick Convert…",
+        "onAction": [Function],
       },
       {
         "ariaKeyshortcuts": "Control+Shift+Alt+I",
@@ -6812,6 +6833,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design wi
         "shortcut": "Ctrl+I",
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "quickConvert",
+        "label": "Quick Convert…",
+        "onAction": [Function],
+      },
+      {
         "ariaKeyshortcuts": "Control+Shift+Alt+I",
         "badge": undefined,
         "disabled": false,
@@ -8923,6 +8951,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing e
         "shortcut": "Ctrl+I",
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "quickConvert",
+        "label": "Quick Convert…",
+        "onAction": [Function],
+      },
+      {
         "ariaKeyshortcuts": "Control+Shift+Alt+I",
         "badge": undefined,
         "disabled": false,
@@ -10911,6 +10946,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing w
         "label": "Import…",
         "onAction": [Function],
         "shortcut": "Ctrl+I",
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "quickConvert",
+        "label": "Quick Convert…",
+        "onAction": [Function],
       },
       {
         "ariaKeyshortcuts": "Control+Shift+Alt+I",
@@ -12903,6 +12945,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: image emp
         "shortcut": "Ctrl+I",
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "quickConvert",
+        "label": "Quick Convert…",
+        "onAction": [Function],
+      },
+      {
         "ariaKeyshortcuts": "Control+Shift+Alt+I",
         "badge": undefined,
         "disabled": false,
@@ -14785,6 +14834,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: image wit
         "label": "Import…",
         "onAction": [Function],
         "shortcut": "Ctrl+I",
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "quickConvert",
+        "label": "Quick Convert…",
+        "onAction": [Function],
       },
       {
         "ariaKeyshortcuts": "Control+Shift+Alt+I",
@@ -16671,6 +16727,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: motion em
         "shortcut": "Ctrl+I",
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "quickConvert",
+        "label": "Quick Convert…",
+        "onAction": [Function],
+      },
+      {
         "ariaKeyshortcuts": "Control+Shift+Alt+I",
         "badge": undefined,
         "disabled": false,
@@ -18392,6 +18455,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: motion wi
         "shortcut": "Ctrl+I",
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "quickConvert",
+        "label": "Quick Convert…",
+        "onAction": [Function],
+      },
+      {
         "ariaKeyshortcuts": "Control+Shift+Alt+I",
         "badge": undefined,
         "disabled": false,
@@ -20111,6 +20181,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print emp
         "label": "Import…",
         "onAction": [Function],
         "shortcut": "Ctrl+I",
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "quickConvert",
+        "label": "Quick Convert…",
+        "onAction": [Function],
       },
       {
         "ariaKeyshortcuts": "Control+Shift+Alt+I",
@@ -22201,6 +22278,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print wit
         "shortcut": "Ctrl+I",
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "quickConvert",
+        "label": "Quick Convert…",
+        "onAction": [Function],
+      },
+      {
         "ariaKeyshortcuts": "Control+Shift+Alt+I",
         "badge": undefined,
         "disabled": false,
@@ -24289,6 +24373,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: codegen emp
         "shortcut": "Ctrl+I",
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "quickConvert",
+        "label": "Quick Convert…",
+        "onAction": [Function],
+      },
+      {
         "ariaKeyshortcuts": "Control+Shift+Alt+I",
         "badge": undefined,
         "disabled": false,
@@ -25888,6 +25979,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: codegen wit
         "shortcut": "Ctrl+I",
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "quickConvert",
+        "label": "Quick Convert…",
+        "onAction": [Function],
+      },
+      {
         "ariaKeyshortcuts": "Control+Shift+Alt+I",
         "badge": undefined,
         "disabled": false,
@@ -27485,6 +27583,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: design empt
         "label": "Import…",
         "onAction": [Function],
         "shortcut": "Ctrl+I",
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "quickConvert",
+        "label": "Quick Convert…",
+        "onAction": [Function],
       },
       {
         "ariaKeyshortcuts": "Control+Shift+Alt+I",
@@ -29598,6 +29703,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: design with
         "shortcut": "Ctrl+I",
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "quickConvert",
+        "label": "Quick Convert…",
+        "onAction": [Function],
+      },
+      {
         "ariaKeyshortcuts": "Control+Shift+Alt+I",
         "badge": undefined,
         "disabled": false,
@@ -31709,6 +31821,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: drawing emp
         "shortcut": "Ctrl+I",
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "quickConvert",
+        "label": "Quick Convert…",
+        "onAction": [Function],
+      },
+      {
         "ariaKeyshortcuts": "Control+Shift+Alt+I",
         "badge": undefined,
         "disabled": false,
@@ -33697,6 +33816,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: drawing wit
         "label": "Import…",
         "onAction": [Function],
         "shortcut": "Ctrl+I",
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "quickConvert",
+        "label": "Quick Convert…",
+        "onAction": [Function],
       },
       {
         "ariaKeyshortcuts": "Control+Shift+Alt+I",
@@ -35689,6 +35815,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: image empty
         "shortcut": "Ctrl+I",
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "quickConvert",
+        "label": "Quick Convert…",
+        "onAction": [Function],
+      },
+      {
         "ariaKeyshortcuts": "Control+Shift+Alt+I",
         "badge": undefined,
         "disabled": false,
@@ -37571,6 +37704,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: image with 
         "label": "Import…",
         "onAction": [Function],
         "shortcut": "Ctrl+I",
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "quickConvert",
+        "label": "Quick Convert…",
+        "onAction": [Function],
       },
       {
         "ariaKeyshortcuts": "Control+Shift+Alt+I",
@@ -39457,6 +39597,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: motion empt
         "shortcut": "Ctrl+I",
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "quickConvert",
+        "label": "Quick Convert…",
+        "onAction": [Function],
+      },
+      {
         "ariaKeyshortcuts": "Control+Shift+Alt+I",
         "badge": undefined,
         "disabled": false,
@@ -41178,6 +41325,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: motion with
         "shortcut": "Ctrl+I",
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "quickConvert",
+        "label": "Quick Convert…",
+        "onAction": [Function],
+      },
+      {
         "ariaKeyshortcuts": "Control+Shift+Alt+I",
         "badge": undefined,
         "disabled": false,
@@ -42897,6 +43051,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: print empty
         "label": "Import…",
         "onAction": [Function],
         "shortcut": "Ctrl+I",
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "quickConvert",
+        "label": "Quick Convert…",
+        "onAction": [Function],
       },
       {
         "ariaKeyshortcuts": "Control+Shift+Alt+I",
@@ -44985,6 +45146,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: print with 
         "label": "Import…",
         "onAction": [Function],
         "shortcut": "Ctrl+I",
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "quickConvert",
+        "label": "Quick Convert…",
+        "onAction": [Function],
       },
       {
         "ariaKeyshortcuts": "Control+Shift+Alt+I",

@@ -187,7 +187,7 @@ export function planRasterConversion(
 
   const source = getFormatCapability(inputFormat);
   const target = outputCapability(options.outputFormat);
-  if (!source || source.kind !== 'raster' || source.import.level === 'unsupported') {
+  if (source?.kind !== 'raster' || source.import.level === 'unsupported') {
     throw new RasterConversionError(
       'unsupported-input',
       `${inputFormat.toUpperCase()} is not an accepted raster conversion input`,
