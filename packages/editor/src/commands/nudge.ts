@@ -4,7 +4,17 @@ import { planManualWorldTranslation } from '../scene/selectionArrangement';
 import { nodeWorldTransform } from '../scene/world';
 
 export type NudgeDirection = 'up' | 'down' | 'left' | 'right';
-export type NudgeMode = 'standard' | 'large' | 'fine';
+export type NudgeMode = 'standard' | 'large';
+
+export interface NudgeAmounts {
+  small: number;
+  big: number;
+}
+
+export const DEFAULT_NUDGE_AMOUNTS: NudgeAmounts = {
+  small: 1,
+  big: 10,
+};
 
 export interface NudgeContext {
   document: Document;
@@ -59,14 +69,15 @@ export interface NudgeGestureSession {
   readonly total: number;
 }
 
-const NUDGE_STEPS: Record<NudgeMode, number> = {
-  standard: 1,
-  large: 10,
-  fine: 0.5,
-};
-
-export function getNudgeStep(mode: NudgeMode): number {
-  return NUDGE_STEPS[mode];
+export function getNudgeStep(
+  mode: NudgeMode,
+  amounts: NudgeAmounts = DEFAULT_NUDGE_AMOUNTS,
+): number {
+  const value = mode === 'standard' ? amounts.small : amounts.big;
+  if (!Number.isFinite(value) || value <= 0) {
+    return DEFAULT_NUDGE_AMOUNTS[mode === 'standard' ? 'small' : 'big'];
+  }
+  return value;
 }
 
 export function canNudge(selection: NodeId[]): boolean {

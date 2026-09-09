@@ -39,7 +39,8 @@ import {
   planNudge,
   planNudgeRepeat,
 } from '../commands/nudge';
-import { nodeWorldBounds, nodeWorldTransform, worldToParent } from '../scene/world';
+import { planManualWorldTranslationFromOrigins } from '../scene/selectionArrangement';
+import { nodeWorldBounds, nodeWorldTransform } from '../scene/world';
 import { loadSettings } from '../settings';
 import { BaseTool } from './BaseTool';
 import { interactionSession } from './InteractionContext';
@@ -500,32 +501,11 @@ export class SelectTool extends BaseTool {
         }
       }
 
-      const positions: Array<{ id: string; x: number; y: number }> = [];
-      for (const id of sel) {
-        const node = ctx.getNode(id);
-        if (!node) continue;
-        // Compute target world position from stored initial world origin + total delta.
-        const initWorld = this.initialPositions.get(id);
-        if (!initWorld) continue;
-        const newWorldX = initWorld.x + totalDelta.dx + snapAdjust.x;
-        const newWorldY = initWorld.y + totalDelta.dy + snapAdjust.y;
-
-        // Convert world target position to the node's parent local space.
-        const parentId = getParent(ctx.document, id);
-        const toLocal = (wx: number, wy: number): { x: number; y: number } => {
-          if (!parentId) return { x: wx, y: wy };
-          const parentWorld = ctx.getWorldTransform?.(parentId);
-          const parentInverse = parentWorld ? invertAffine(parentWorld) : null;
-          const local = parentInverse
-            ? applyAffine(parentInverse, [wx, wy])
-            : worldToParent(ctx.document, parentId, [wx, wy]);
-          if (!local) return { x: wx, y: wy };
-          return { x: local[0], y: local[1] };
-        };
-
-        const local = toLocal(newWorldX, newWorldY);
-        positions.push({ id, x: local.x, y: local.y });
-      }
+      const plan = planManualWorldTranslationFromOrigins(ctx.document, sel, this.initialPositions, {
+        x: totalDelta.dx + snapAdjust.x,
+        y: totalDelta.dy + snapAdjust.y,
+      });
+      const positions = plan.positions;
       // One document update per sample instead of one per node: an N-node
       // selection previously issued N setNodePosition calls, each spreading
       // the whole nodes map (N*O(N) key copies per pointermove).
@@ -593,27 +573,42 @@ export class SelectTool extends BaseTool {
           .filter((n): n is import('@varve/scene').SceneNode => Boolean(n)),
       );
     } else {
-      // After move, re-parent if inside a frame.
-      // Hold Ctrl to bypass auto-reparent (Space is used for Hand tool spring).
+      // After move, re-parent if inside a frame. Ctrl/Cmd bypasses snapping;
+      // Ctrl/Cmd+Shift preserves the current parent while Shift also locks
+      // the drag axis.
       const endInteraction = interactionSession.freeze();
-      if (!endInteraction.bypassSnap) {
+      if (!endInteraction.preserveParent) {
         const sel = ctx.selection;
         if (sel.length >= 1) {
+          const reparentableRootIds = new Set(
+            planManualWorldTranslationFromOrigins(ctx.document, sel, this.initialPositions, {
+              x: 0,
+              y: 0,
+            }).reparentableRootIds,
+          );
           // Track insertion index per parent so batch inserts into the same
           // target frame use incrementing indices (Fix 4).
           const insertIndexByParent = new Map<string | null, number>();
           for (const selId of sel) {
             if (!selId) continue;
+            if (!reparentableRootIds.has(selId)) continue;
             const node = ctx.getNode(selId);
             if (!node || node.locked || !node.visible) continue;
+            const currentParent = getParent(ctx.document, selId);
+            const parentNode = currentParent ? ctx.getNode(currentParent) : null;
+            const flowManaged = Boolean(
+              parentNode?.kind === 'frame' &&
+                parentNode.layoutStyle &&
+                node.layoutPosition !== 'absolute',
+            );
             // Use world-space center (accounts for parent transforms) for reparent.
             const worldBounds = ctx.masterEditId
               ? ctx.nodeWorldBounds(node)
               : nodeWorldBounds(ctx.document, selId);
             const center = worldCenterOf(ctx.document, selId, worldBounds, ctx.getWorldTransform);
             const frameId = ctx.findContainingFrame(center);
+            if (flowManaged && frameId !== currentParent) continue;
             if (frameId) {
-              const currentParent = getParent(ctx.document, selId);
               if (currentParent === frameId && sel.length === 1) {
                 // A flow child dropped inside its existing layout parent is a
                 // reorder, not a no-op move. The scene child array is the
@@ -702,7 +697,7 @@ export class SelectTool extends BaseTool {
       // opening another transaction lets React queue the two updates against
       // the same stale document, so redo restores the moved local transform
       // without restoring the destination parent.
-      if (this.isMoveGesture && (endInteraction.bypassSnap || ctx.selection.length === 0)) {
+      if (this.isMoveGesture && (endInteraction.preserveParent || ctx.selection.length === 0)) {
         ctx.commitTransaction();
       }
     }
@@ -761,7 +756,8 @@ export class SelectTool extends BaseTool {
         return false;
       }
 
-      const step = getNudgeStep(e.shiftKey ? 'large' : 'standard');
+      const nudgeSettings = loadSettings().nudge;
+      const step = getNudgeStep(e.shiftKey ? 'large' : 'standard', nudgeSettings);
       let plan = this.nudgeSession
         ? planNudgeRepeat(this.nudgeSession, direction, step, ctx.document, ctx.selection)
         : null;

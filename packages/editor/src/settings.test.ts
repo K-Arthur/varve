@@ -23,6 +23,7 @@ describe('loadSettings', () => {
     expect(s.panel.minimapVisible).toBe(true);
     expect(s.layers.autoReveal).toBe(true);
     expect(s.layers.selectionNavigation).toBe('select-only');
+    expect(s.nudge).toEqual({ small: 1, big: 10 });
     expect(s.privacy.usageAnalytics).toBe('unknown');
     expect(s.privacy.diagnostics).toBe('unknown');
   });
@@ -170,6 +171,14 @@ describe('loadSettings', () => {
     expect(loadSettings().layers.selectionNavigation).toBe('select-only');
     expect(loadSettings().layers.autoReveal).toBe(true);
   });
+
+  it('recovers missing, fractional, out-of-range, and corrupt nudge values', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ nudge: { small: 0.25, big: 100000 } }));
+    expect(loadSettings().nudge).toEqual({ small: 0.25, big: 10000 });
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ nudge: { small: 'bad', big: null } }));
+    expect(loadSettings().nudge).toEqual({ small: 1, big: 10 });
+  });
 });
 
 describe('updateSettings', () => {
@@ -225,5 +234,11 @@ describe('resetSettings', () => {
     const r = resetSettings();
     expect(r.render.memoryBudget).toBe('medium');
     expect(r.performance.reducedMotionOverride).toBe('system');
+  });
+
+  it('restores nudge amounts to factory defaults', () => {
+    updateSettings({ nudge: { small: 0.5, big: 20 } });
+    expect(loadSettings().nudge).toEqual({ small: 0.5, big: 20 });
+    expect(resetSettings().nudge).toEqual({ small: 1, big: 10 });
   });
 });

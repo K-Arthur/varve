@@ -83,6 +83,8 @@ interface CollectedSelection {
 
 interface CollectedManualPositionRoots {
   items: ManualPositionItem[];
+  eligibleRootIds: NodeId[];
+  reparentableRootIds: NodeId[];
   parentIndex: Map<NodeId, NodeId>;
   rootCount: number;
   lockedCount: number;
@@ -99,6 +101,10 @@ interface CollectedManualPositionRoots {
  */
 export interface ManualWorldTranslationPlan {
   positions: ReadonlyArray<{ id: NodeId; x: number; y: number }>;
+  /** Eligible transform roots, including roots whose requested delta is zero. */
+  eligibleRootIds: ReadonlyArray<NodeId>;
+  /** Roots that may participate in pointer reparent/reorder decisions. */
+  reparentableRootIds: ReadonlyArray<NodeId>;
   rootCount: number;
   locked: number;
   skipped: number;
@@ -175,6 +181,27 @@ export function planManualWorldTranslation(
   selection: readonly NodeId[],
   delta: { x: number; y: number },
 ): ManualWorldTranslationPlan {
+  const origins = new Map<NodeId, { x: number; y: number }>();
+  const parentIndex = buildParentIndexMap(doc);
+  for (const id of selection) {
+    if (!doc.nodes[id]) continue;
+    const world = nodeWorldTransform(doc, id, parentIndex);
+    origins.set(id, { x: world[4], y: world[5] });
+  }
+  return planManualWorldTranslationFromOrigins(doc, selection, origins, delta);
+}
+
+/**
+ * Plan a drag from the world-space origins captured at pointer-down. The
+ * shared root/eligibility pass prevents selected descendants from moving twice
+ * and keeps pointer movement aligned with keyboard and arrange operations.
+ */
+export function planManualWorldTranslationFromOrigins(
+  doc: Document,
+  selection: readonly NodeId[],
+  origins: ReadonlyMap<NodeId, { x: number; y: number }>,
+  delta: { x: number; y: number },
+): ManualWorldTranslationPlan {
   const collected = collectManualPositionRoots(doc, selection);
   let skipped = collected.skippedCount;
   const positions: Array<{ id: NodeId; x: number; y: number }> = [];
@@ -182,6 +209,8 @@ export function planManualWorldTranslation(
   if (!Number.isFinite(delta.x) || !Number.isFinite(delta.y)) {
     return {
       positions,
+      eligibleRootIds: collected.eligibleRootIds,
+      reparentableRootIds: collected.reparentableRootIds,
       rootCount: collected.rootCount,
       locked: collected.lockedCount,
       skipped: skipped + collected.items.length,
@@ -189,7 +218,18 @@ export function planManualWorldTranslation(
   }
 
   for (const item of collected.items) {
-    const transform = translatedLocalTransform(doc, item, collected.parentIndex, delta.x, delta.y);
+    const origin = origins.get(item.id);
+    if (!origin || !Number.isFinite(origin.x) || !Number.isFinite(origin.y)) {
+      skipped++;
+      continue;
+    }
+    const transform = translatedLocalTransformToWorldOrigin(
+      doc,
+      item,
+      collected.parentIndex,
+      origin.x + delta.x,
+      origin.y + delta.y,
+    );
     if (!transform) {
       skipped++;
       continue;
@@ -206,6 +246,8 @@ export function planManualWorldTranslation(
 
   return {
     positions,
+    eligibleRootIds: collected.eligibleRootIds,
+    reparentableRootIds: collected.reparentableRootIds,
     rootCount: collected.rootCount,
     locked: collected.lockedCount,
     skipped,
@@ -347,6 +389,8 @@ function collectManualPositionRoots(
   const roots = [...requested].filter((id) => !hasSelectedAncestor(id, requested, parentIndex));
   skippedCount += requested.size - roots.length;
   const items: ManualPositionItem[] = [];
+  const eligibleRootIds: NodeId[] = [];
+  const reparentableRootIds: NodeId[] = [];
   let lockedCount = 0;
   let hasLockedOrHiddenSelection = false;
   let hasLayoutManagedSelection = false;
@@ -367,6 +411,7 @@ function collectManualPositionRoots(
     if (eligibility === 'layout-managed') {
       skippedCount++;
       hasLayoutManagedSelection = true;
+      reparentableRootIds.push(id);
       continue;
     }
     if (eligibility !== 'eligible') {
@@ -374,10 +419,14 @@ function collectManualPositionRoots(
       continue;
     }
     items.push({ id, node, parentId });
+    eligibleRootIds.push(id);
+    reparentableRootIds.push(id);
   }
 
   return {
     items,
+    eligibleRootIds,
+    reparentableRootIds,
     parentIndex,
     rootCount: roots.length,
     lockedCount,
@@ -496,23 +545,38 @@ function translatedLocalTransform(
   const current = item.node.transform as Affine;
   if (!isFiniteAffine(current)) return null;
 
+  const worldTransform = nodeWorldTransform(doc, item.id, parentIndex);
+  if (!isFiniteAffine(worldTransform)) return null;
+  return translatedLocalTransformToWorldOrigin(
+    doc,
+    item,
+    parentIndex,
+    worldTransform[4] + deltaX,
+    worldTransform[5] + deltaY,
+  );
+}
+
+function translatedLocalTransformToWorldOrigin(
+  doc: Document,
+  item: ManualPositionItem,
+  parentIndex: Map<NodeId, NodeId>,
+  targetWorldX: number,
+  targetWorldY: number,
+): Affine | null {
+  const current = item.node.transform as Affine;
+  if (!isFiniteAffine(current)) return null;
+
   if (!item.parentId) {
-    const x = current[4] + deltaX;
-    const y = current[5] + deltaY;
-    return Number.isFinite(x) && Number.isFinite(y)
-      ? [current[0], current[1], current[2], current[3], x, y]
+    return Number.isFinite(targetWorldX) && Number.isFinite(targetWorldY)
+      ? [current[0], current[1], current[2], current[3], targetWorldX, targetWorldY]
       : null;
   }
 
   const parentWorld = nodeWorldTransform(doc, item.parentId, parentIndex);
   const parentInverse = tryInvertAffine(parentWorld);
-  const worldTransform = nodeWorldTransform(doc, item.id, parentIndex);
-  if (!parentInverse || !isFiniteAffine(worldTransform)) return null;
+  if (!parentInverse) return null;
 
-  const targetLocal = applyAffine(parentInverse, [
-    worldTransform[4] + deltaX,
-    worldTransform[5] + deltaY,
-  ]);
+  const targetLocal = applyAffine(parentInverse, [targetWorldX, targetWorldY]);
   if (!Number.isFinite(targetLocal[0]) || !Number.isFinite(targetLocal[1])) return null;
   return [current[0], current[1], current[2], current[3], targetLocal[0], targetLocal[1]];
 }

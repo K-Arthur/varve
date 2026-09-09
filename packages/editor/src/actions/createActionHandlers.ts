@@ -68,7 +68,6 @@ function announceToolChange(toolId: string): void {
 export interface ActionHandlerCallbacks {
   onOpenFile?: () => void;
   onImportFile?: () => void;
-  onQuickConvert?: () => void;
   onInsertIcon?: () => void;
   onBackToHome?: () => void;
   onOpenSettings?: () => void;
@@ -103,7 +102,12 @@ export function createActionHandlers(
   const runNudge = (direction: NudgeDirection) => {
     const selection = e.state.selection;
     if (selection.length === 0) return;
-    const plan = planNudge(direction, getNudgeStep('standard'), e.state.document, selection);
+    const plan = planNudge(
+      direction,
+      getNudgeStep('standard', loadSettings().nudge),
+      e.state.document,
+      selection,
+    );
     if (plan.moved === 0) return;
     e.beginTransaction();
     applyNudgePlan(plan, {
@@ -637,7 +641,6 @@ export function createActionHandlers(
     saveCopy: () => e.saveCopy(),
     archiveBackup: () => e.setShowArchiveDialog(true, 'backup'),
     archiveRestore: () => e.setShowArchiveDialog(true, 'restore'),
-    quickConvert: () => cb.onQuickConvert?.(),
     // Snapshot names are retained as compatibility aliases for older menu
     // ids and saved shortcuts; both aliases execute the canonical archive
     // operation above.

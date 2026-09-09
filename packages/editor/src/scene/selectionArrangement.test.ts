@@ -15,6 +15,7 @@ import {
   commonAlignmentContainerBounds,
   distributeSelectionInDocument,
   getAlignmentCapabilities,
+  planManualWorldTranslationFromOrigins,
 } from './selectionArrangement';
 import { nodeWorldBounds } from './world';
 
@@ -39,6 +40,33 @@ function expectClose(actual: number, expected: number) {
 }
 
 describe('selectionArrangement', () => {
+  it('plans pointer movement from captured world origins using the same roots as keyboard nudge', () => {
+    let doc = createDocument('pointer movement roots');
+    const frame = makeFrameNode('frame', {
+      w: 200,
+      h: 120,
+      transform: [0.8660254038, 0.5, -0.5, 0.8660254038, 120, 80],
+    });
+    const child = rect('child', 25, 10, 20, 20);
+    doc = addNode(doc, frame);
+    doc = addChild(doc, frame.id, child);
+
+    const origins = new Map([
+      [frame.id, { x: 120, y: 80 }],
+      [child.id, { x: 136.650635, y: 101.160254 }],
+    ]);
+    const plan = planManualWorldTranslationFromOrigins(doc, [frame.id, child.id], origins, {
+      x: 15,
+      y: -7,
+    });
+
+    expect(plan.eligibleRootIds).toEqual([frame.id]);
+    expect(plan.positions).toHaveLength(1);
+    expect(plan.positions[0]?.id).toBe(frame.id);
+    expect(plan.positions[0]?.x).toBeCloseTo(135);
+    expect(plan.positions[0]?.y).toBeCloseTo(73);
+  });
+
   it('aligns across transformed containers in world space without changing parentage or linear transforms', () => {
     let doc = createDocument('cross-container alignment');
     const frameA = makeFrameNode('frame-a', {

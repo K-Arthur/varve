@@ -96,6 +96,47 @@ test.describe('Nudge transaction resilience', () => {
     expect(after.y).toBe(before.y);
   });
 
+  test('arrow key nudges a frame while the idle Frame tool remains active', async ({
+    page,
+  }, testInfo) => {
+    await page.keyboard.press('f');
+    await dragOnCanvas(page, 200, 200, 500, 400);
+    await page.waitForTimeout(200);
+    // Creation returns to Select in Varve. Re-activate Frame so this covers
+    // the reported idle-creation-tool routing failure with the frame selected.
+    await page.keyboard.press('f');
+
+    const frame = page.getByRole('treeitem').filter({ hasText: /frame/i }).last();
+    await expect(frame).toBeVisible();
+    await expect(page.locator('[data-tool="frame"].floating-toolbar__btn--active')).toBeVisible();
+    const before = await getSelectedPosition(page);
+
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    await canvas.focus();
+    await page.keyboard.press('ArrowRight');
+    await page.waitForTimeout(100);
+
+    const after = await getSelectedPosition(page);
+    expect(after.x - before.x).toBe(1);
+    expect(after.y).toBe(before.y);
+
+    const liveHash = await surfaceHash(page);
+    const screenshotPath = testInfo.outputPath('idle-frame-nudge.png');
+    await canvas.screenshot({ path: screenshotPath });
+    await testInfo.attach('idle-frame-nudge', {
+      path: screenshotPath,
+    });
+    await page.evaluate(() => {
+      (
+        window as unknown as { __varvePerf?: { forceFullRedraw?: () => void } }
+      ).__varvePerf?.forceFullRedraw?.();
+    });
+    await page.waitForTimeout(700);
+    expect(await surfaceHash(page), 'idle-tool nudge must match an authoritative redraw').toBe(
+      liveHash,
+    );
+  });
+
   test('Shift+Arrow produces a larger nudge', async ({ page }) => {
     await createRect(page);
     const before = await getSelectedPosition(page);

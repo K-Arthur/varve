@@ -72,8 +72,8 @@ zoom, and the input diagnostics surface.
 | `1`–`6` (no modifiers) | Zoom presets 50/75/100/150/200/400%. |
 | `Shift+1` / `Shift+2` / `Shift+3` / `Shift+4` | Fit all / fit selection / fit active page / fit active frame. |
 | Numpad digits (NumLock off) | Navigation keys (arrows/End/Insert), NOT zoom presets. |
-| Arrow | Move each eligible selected transform root by 1 document unit in the requested world direction. |
-| `Shift+Arrow` | Move each eligible selected transform root by 10 document units in the requested world direction. |
+| Arrow | Move each eligible selected transform root by the configured small nudge amount in the requested world direction. |
+| `Shift+Arrow` | Move each eligible selected transform root by the configured big nudge amount in the requested world direction. |
 | `Space` | Spring-loaded Hand tool. |
 | `Escape` | Cancel active drag, then clear selection / exit isolation. |
 | `Tab` | Cycle selection. |
@@ -95,10 +95,14 @@ and numpad works under any NumLock state (see `input/physicalKey.ts`).
 
 Arrow movement belongs only to the active canvas object-editing context. It
 does not claim a key from an input, `contenteditable`, modal/dialog, or active
-IME composition; specialized tools (for example direct-node and crop editing)
-receive the event before generic object movement. A movable selection prevents
+IME composition; focused composite widgets and specialized tools (for example
+the Layers tree, direct-node, and crop editing) receive the event before generic
+object movement. An idle creation or navigation tool that declines Arrow lets
+the canvas fallback handle a movable selection. A movable selection prevents
 browser page scrolling. A selected locked/hidden or flow-layout-managed root
-does not move; in a mixed selection, eligible roots still move.
+does not move; in a mixed selection, eligible roots still move. See
+[Nudge and movement](nudge-and-movement.md) for the complete contract and
+Settings > Nudging & Movement for the local small/big amounts.
 
 ## 3. Zoom model
 

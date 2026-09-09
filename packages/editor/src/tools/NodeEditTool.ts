@@ -11,6 +11,7 @@ import type { ShapeNode } from '@varve/scene';
 import { tryInvertAffine } from '@varve/shared';
 import { getNudgeStep, type NudgeDirection } from '../commands/nudge';
 import { nodeWorldTransform } from '../scene/world';
+import { loadSettings } from '../settings';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
@@ -316,7 +317,7 @@ export class NodeEditTool extends BaseTool {
     const node = ctx.getNode(targetId);
     if (node?.kind !== 'shape' || node.shape.kind !== 'path') return false;
 
-    const step = getNudgeStep(mode);
+    const step = getNudgeStep(mode, loadSettings().nudge);
     const worldDelta = nudgeDelta(direction, step);
     const inverseWorld = tryInvertAffine(nodeWorldTransform(ctx.document, targetId));
     if (!inverseWorld?.every(Number.isFinite)) return false;

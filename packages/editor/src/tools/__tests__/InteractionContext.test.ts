@@ -16,6 +16,7 @@ describe('InteractionSession', () => {
     expect(snap.isDuplicate).toBe(false);
     expect(snap.snapEnabled).toBe(true);
     expect(snap.bypassSnap).toBe(false);
+    expect(snap.preserveParent).toBe(false);
   });
 
   it('updates modifiers live and snapshots reflect latest state', () => {
@@ -25,6 +26,11 @@ describe('InteractionSession', () => {
     const snap1 = s.freeze();
     expect(snap1.ctrlKey).toBe(true);
     expect(snap1.bypassSnap).toBe(true);
+    expect(snap1.preserveParent).toBe(false);
+    s.updateModifiers(true, false, true, false);
+    const snapPreserve = s.freeze();
+    expect(snapPreserve.bypassSnap).toBe(false);
+    expect(snapPreserve.preserveParent).toBe(true);
     s.updateModifiers(false, false, false, false);
     const snap2 = s.freeze();
     expect(snap2.ctrlKey).toBe(false);

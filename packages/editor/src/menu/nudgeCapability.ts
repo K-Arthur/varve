@@ -1,5 +1,6 @@
 import type { Document, NodeId } from '@varve/scene';
 import { getNudgeStep, planNudge } from '../commands/nudge';
+import { loadSettings } from '../settings';
 
 /** One precomputed capability shared by every menu representation of nudge. */
 export interface NudgeCapability {
@@ -19,7 +20,12 @@ export function getNudgeCapability(
     return { canNudge: false, reason: 'Select a layer first' };
   }
 
-  const plan = planNudge('right', getNudgeStep('standard'), document, selection);
+  const plan = planNudge(
+    'right',
+    getNudgeStep('standard', loadSettings().nudge),
+    document,
+    selection,
+  );
   if (plan.moved > 0) return { canNudge: true, reason: null };
   if (plan.locked > 0) {
     return { canNudge: false, reason: 'Selected layers are locked or hidden' };

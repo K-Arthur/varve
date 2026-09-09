@@ -125,6 +125,12 @@ export interface LayersSettingsStore {
   marqueeContainment: boolean;
 }
 
+/** Local movement preferences. Values are stored in canonical document units. */
+export interface NudgeSettingsStore {
+  small: number;
+  big: number;
+}
+
 /**
  * How selecting a layer from the Layers panel affects the canvas camera.
  *
@@ -178,6 +184,7 @@ export interface EditorSettings {
   sections: SectionSettingsStore;
   performance: PerformanceSettingsStore;
   layers: LayersSettingsStore;
+  nudge: NudgeSettingsStore;
   collab: CollabSettingsStore;
   ai: AiSettingsStore;
   privacy: PrivacySettingsStore;
@@ -311,6 +318,14 @@ export const DEFAULT_LAYERS_SETTINGS: LayersSettingsStore = {
   marqueeContainment: false,
 };
 
+export const DEFAULT_NUDGE_SETTINGS: NudgeSettingsStore = {
+  small: 1,
+  big: 10,
+};
+
+export const NUDGE_MIN = 0.01;
+export const NUDGE_MAX = 10000;
+
 export const DEFAULT_FEATURES = {
   findingsNavigation: false,
   findingsOverlay: false,
@@ -330,6 +345,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   sections: { ...DEFAULT_SECTION_SETTINGS },
   performance: { ...DEFAULT_PERFORMANCE_SETTINGS },
   layers: { ...DEFAULT_LAYERS_SETTINGS },
+  nudge: { ...DEFAULT_NUDGE_SETTINGS },
   collab: { ...DEFAULT_COLLAB_SETTINGS },
   ai: { ...DEFAULT_AI_SETTINGS },
   privacy: { ...DEFAULT_PRIVACY_SETTINGS },
@@ -345,6 +361,20 @@ function mergePartial<T extends object>(defaults: T, partial: Partial<T> | undef
     result[key] = val !== undefined ? val : defaults[key];
   }
   return result;
+}
+
+function normalizeNudgeAmount(value: unknown, fallback: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
+  return Math.min(NUDGE_MAX, Math.max(NUDGE_MIN, value));
+}
+
+function normalizeNudgeSettings(
+  partial: Partial<NudgeSettingsStore> | undefined,
+): NudgeSettingsStore {
+  return {
+    small: normalizeNudgeAmount(partial?.small, DEFAULT_NUDGE_SETTINGS.small),
+    big: normalizeNudgeAmount(partial?.big, DEFAULT_NUDGE_SETTINGS.big),
+  };
 }
 
 function normalizeAnalyticsConsent(value: unknown): AnalyticsConsentState {
@@ -370,6 +400,7 @@ export function loadSettings(): EditorSettings {
         sections: { ...DEFAULT_SECTION_SETTINGS },
         performance: { ...DEFAULT_PERFORMANCE_SETTINGS },
         layers: { ...DEFAULT_LAYERS_SETTINGS },
+        nudge: { ...DEFAULT_NUDGE_SETTINGS },
         collab: { ...DEFAULT_COLLAB_SETTINGS },
         ai: { ...DEFAULT_AI_SETTINGS },
         privacy: { ...DEFAULT_PRIVACY_SETTINGS },
@@ -478,6 +509,7 @@ export function loadSettings(): EditorSettings {
         parsed.performance as Partial<PerformanceSettingsStore>,
       ),
       layers: normalizeLayersSettings(parsed.layers as Partial<LayersSettingsStore>),
+      nudge: normalizeNudgeSettings(parsed.nudge as Partial<NudgeSettingsStore>),
       collab: mergePartial(DEFAULT_COLLAB_SETTINGS, parsed.collab as Partial<CollabSettingsStore>),
       ai: mergePartial(DEFAULT_AI_SETTINGS, parsed.ai as Partial<AiSettingsStore>),
       privacy,
@@ -502,6 +534,7 @@ export function loadSettings(): EditorSettings {
       sections: { ...DEFAULT_SECTION_SETTINGS },
       performance: { ...DEFAULT_PERFORMANCE_SETTINGS },
       layers: { ...DEFAULT_LAYERS_SETTINGS },
+      nudge: { ...DEFAULT_NUDGE_SETTINGS },
       collab: { ...DEFAULT_COLLAB_SETTINGS },
       ai: { ...DEFAULT_AI_SETTINGS },
       privacy: { ...DEFAULT_PRIVACY_SETTINGS },
@@ -541,6 +574,7 @@ export interface EditorSettingsPatch {
   sections?: Partial<SectionSettingsStore>;
   performance?: Partial<PerformanceSettingsStore>;
   layers?: Partial<LayersSettingsStore>;
+  nudge?: Partial<NudgeSettingsStore>;
   collab?: Partial<CollabSettingsStore>;
   ai?: Partial<AiSettingsStore>;
   privacy?: Partial<PrivacySettingsStore>;
@@ -564,6 +598,7 @@ export function updateSettings(patch: EditorSettingsPatch): EditorSettings {
     },
     performance: { ...current.performance, ...patch.performance },
     layers: { ...current.layers, ...patch.layers },
+    nudge: normalizeNudgeSettings({ ...current.nudge, ...patch.nudge }),
     collab: { ...current.collab, ...patch.collab },
     ai: { ...current.ai, ...patch.ai },
     privacy: { ...current.privacy, ...patch.privacy },
@@ -586,6 +621,7 @@ export function resetSettings(): EditorSettings {
     sections: { ...DEFAULT_SECTION_SETTINGS },
     performance: { ...DEFAULT_PERFORMANCE_SETTINGS },
     layers: { ...DEFAULT_LAYERS_SETTINGS },
+    nudge: { ...DEFAULT_NUDGE_SETTINGS },
     collab: { ...DEFAULT_COLLAB_SETTINGS },
     ai: { ...DEFAULT_AI_SETTINGS },
     privacy: { ...DEFAULT_PRIVACY_SETTINGS },

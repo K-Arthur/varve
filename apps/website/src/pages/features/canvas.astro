@@ -62,6 +62,21 @@ import { sitePath } from '../../lib/siteUrl';
         </p>
       </section>
 
+      <section class="feature-section" data-testid="canvas-precision-movement">
+        <h2>Precision movement</h2>
+        <p>
+          Nudge frames and objects from the keyboard without changing tools: once the canvas has
+          focus, Arrow and Shift+Arrow use your configured small and big document-unit amounts.
+          Movement stays aligned to world axes through zoom, camera rotation, and transformed
+          parents, while focused fields and editing widgets keep their own Arrow-key behavior.
+        </p>
+        <p>
+          Pointer dragging shares the same hierarchy-safe movement roots, keeps multi-selection
+          rigid, and retains snapping and intentional drag reparenting as separate behaviors.
+          Use Ctrl/Cmd to bypass snapping or Ctrl/Cmd+Shift to preserve the current parent.
+        </p>
+      </section>
+
       <section class="feature-section">
         <h2>Images stay local and editable</h2>
         <p>
@@ -87,6 +102,7 @@ import { sitePath } from '../../lib/siteUrl';
           <li><strong>Viewport culling:</strong> Only render what's visible for performance at scale</li>
           <li><strong>Dirty-rect redraw:</strong> Minimize redraws to changed regions</li>
           <li><strong>Precision tools:</strong> Sticky snap, numerical precision, sub-pixel accuracy</li>
+          <li><strong>Keyboard nudging:</strong> Configurable small/big movement amounts with world-axis semantics and active-tool fallback</li>
           <li><strong>Multi-page support:</strong> Work with multiple artboards/pages in one document</li>
           <li><strong>Live minimap:</strong> See the active design canvas or publishing pasteboard, then click or drag to navigate without changing your artwork</li>
           <li><strong>Surface-aware labels:</strong> Keep frame names readable and local to the active canvas, with accessible names and safe long-name handling</li>
@@ -123,6 +139,7 @@ import { sitePath } from '../../lib/siteUrl';
         <ul>
           <li><a href={sitePath('/docs/architecture')}>Architecture Overview</a> - IR-replay architecture details</li>
           <li><a href={sitePath('/docs/rendering')}>Rendering Pipeline</a> - Canvas system internals</li>
+          <li><a href={sitePath('/docs/tools/vector')}>Vector Tools</a> - Selection and movement controls</li>
           <li><a href="https://github.com/K-Arthur/varve/blob/main/docs/architecture/render-pipeline.md">Render Pipeline Documentation</a></li>
         </ul>
       </section>

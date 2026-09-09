@@ -9,6 +9,7 @@
  *                 Spring-loaded tools: holding a key activates the tool
  *                 temporarily, reverting on release (Space=Hand pattern).
  */
+import { CanvasNudgeController } from './nudgeController';
 import type { GestureResult, Tool, ToolContext, ToolCursorState, ToolId } from './types';
 
 export type ToolFactory = () => Tool;
@@ -33,6 +34,7 @@ export class ToolManager {
   private _altKey = false;
   private _ctrlKey = false;
   private _metaKey = false;
+  private genericNudge = new CanvasNudgeController();
 
   constructor(defaultTool: ToolId = 'select') {
     this.activeId = defaultTool;
@@ -68,6 +70,7 @@ export class ToolManager {
 
   setTool(id: ToolId, ctx?: ToolContext): void {
     if (id === this.activeId) return;
+    if (ctx) this.genericNudge.finish(ctx);
     const prev = this.activeTool;
     const previousToolId = this.activeId;
     this.activeId = id;
@@ -88,6 +91,7 @@ export class ToolManager {
     if (this.spring?.key === e.key) return;
     if (this.spring) this.releaseSpring(ctx);
     if (this.activeId === id) return;
+    this.genericNudge.finish(ctx);
     const prevId = this.activeId;
     const prevTool = this.activeTool;
     const timer = setTimeout(() => {
@@ -214,18 +218,23 @@ export class ToolManager {
     const consumed = this.activeTool.onKeyDown?.(e, ctx) ?? false;
     if (consumed) return true;
 
-    return false;
+    // Idle creation/navigation tools deliberately decline object arrows. The
+    // generic controller is the canvas fallback after specialized tools have
+    // had first refusal, so creation-tool focus no longer disables nudging.
+    return this.genericNudge.handleKeyDown(e, ctx);
   }
 
   handleKeyUp(e: KeyboardEvent, base: ToolContext): void {
     const ctx = this.buildContext(e, base);
     this.activeTool.onKeyUp?.(e, ctx);
+    this.genericNudge.handleKeyUp(e, ctx);
   }
 
   /** Let the active tool finish keyboard-owned gestures after focus loss. */
   handleFocusLoss(base: ToolContext): void {
     this.cursorState = 'idle';
     this.activeTool.onFocusLoss?.(base);
+    this.genericNudge.finish(base);
   }
 
   handleDoubleClick(e: PointerEvent, base: ToolContext): void {

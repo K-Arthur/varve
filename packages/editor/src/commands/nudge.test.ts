@@ -80,7 +80,8 @@ describe('getNudgeStep', () => {
   it('returns the canonical document-space increments', () => {
     expect(getNudgeStep('standard')).toBe(1);
     expect(getNudgeStep('large')).toBe(10);
-    expect(getNudgeStep('fine')).toBe(0.5);
+    expect(getNudgeStep('standard', { small: 0.25, big: 7.5 })).toBe(0.25);
+    expect(getNudgeStep('large', { small: 0.25, big: 7.5 })).toBe(7.5);
   });
 });
 

@@ -15,6 +15,8 @@ export interface InteractionSnapshot {
   readonly isDuplicate: boolean;
   readonly snapEnabled: boolean;
   readonly bypassSnap: boolean;
+  /** Ctrl/Cmd+Shift preserves the current parent while dragging. */
+  readonly preserveParent: boolean;
   readonly preferences: Readonly<SnapPreferences>;
 }
 
@@ -97,7 +99,11 @@ export class InteractionSession {
       axisLock: this._axisLock,
       isDuplicate: this._isDuplicate,
       snapEnabled: this._snapEnabled,
-      bypassSnap: this.cmdKey,
+      // Ctrl/Cmd is the snap bypass. Adding Shift changes the intent to
+      // preserve-parent, so snap bypass and reparent suppression are no
+      // longer coupled to one opaque flag.
+      bypassSnap: this.cmdKey && !this._shiftKey,
+      preserveParent: this.cmdKey && this._shiftKey,
       preferences: Object.freeze({ ...this._preferences }),
     });
     return this._frozen;

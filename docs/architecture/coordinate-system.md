@@ -113,9 +113,12 @@ never applied a second time.
 ## Keyboard movement
 
 Object nudging is a document-space translation, not a viewport operation.
-Bare Arrow moves a selected object by one document unit and Shift+Arrow moves
-it by ten. Camera pan, zoom, rotation, device-pixel ratio, and the selected
-object's own rotation never change that requested world-space delta.
+Bare Arrow moves a selected object by the configured small nudge amount and
+Shift+Arrow moves it by the configured big amount. The defaults are one and
+ten document units. Camera pan, zoom, rotation, device-pixel ratio, and the
+selected object's own rotation never change that requested world-space delta.
+The amounts are local preferences, displayed through the current General unit
+preference in Settings > Nudging & Movement, and are not document history.
 
 `planManualWorldTranslation` resolves the selected nodes into independent
 transform roots before mutation. A selected descendant of another selected
@@ -136,7 +139,15 @@ ineligible selection produces no mutation or history entry.
 A held Arrow key is one interaction transaction: repeat events reuse the
 validated parent-space conversion and commit on keyup, blur, visibility loss,
 or tool deactivation. Separate key taps remain separate undo units. Direct
-node/crop/editor tools receive keyboard input before generic object nudging.
+node/crop/editor tools receive keyboard input before generic object nudging;
+when an idle creation or navigation tool declines the event, the canvas-level
+fallback still nudges the selected object. Keyboard movement never reparents.
+
+Pointer movement uses the same root and eligibility planner from the captured
+world-space drag origins, so a selected parent and child cannot be translated
+twice and transformed parents receive a safe parent-local update. Pointer
+dragging retains its intentional reparent behavior. Ctrl/Cmd bypasses snapping;
+Ctrl/Cmd+Shift preserves the current parent while retaining Shift axis lock.
 
 ## Migration
 

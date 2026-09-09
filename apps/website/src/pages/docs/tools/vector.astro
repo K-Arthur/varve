@@ -122,11 +122,31 @@ import { sitePath } from '../../../lib/siteUrl';
           <li><strong>Move</strong> — Drag selected node(s) to reposition</li>
           <li><strong>Resize</strong> — Drag corner or edge handles</li>
           <li><strong>Rotate</strong> — Drag outside a corner handle</li>
-          <li><strong>Nudge</strong> — Arrow keys for 1px, Shift+arrow for 10px</li>
+          <li><strong>Nudge</strong> — Arrow keys use the configurable small amount; Shift+Arrow uses the configurable big amount</li>
           <li><strong>Multi-select</strong> — Shift+click or marquee drag</li>
           <li><strong>Auto-reparent</strong> — Dragging a node into a container's bounds automatically reparents it</li>
           <li><strong>Ctrl-bypass</strong> — Hold Ctrl during drag to suppress auto-reparenting</li>
         </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Precise movement</h2>
+        <p>
+          With the canvas focused, Arrow keys move the selected object or frame in document axes,
+          even when an idle creation tool remains active. Open Settings &gt; Nudging &amp; Movement
+          to choose the small and big amounts; values are stored locally and displayed using your
+          current unit preference. Keyboard movement never reparents an object.
+        </p>
+        <ul>
+          <li><strong>Arrow</strong> — Small nudge</li>
+          <li><strong>Shift+Arrow</strong> — Big nudge</li>
+          <li><strong>Pointer drag</strong> — Uses snapping and may reparent according to the drop target</li>
+          <li><strong>Ctrl/Cmd+Shift while dragging</strong> — Preserve the current parent</li>
+        </ul>
+        <p>
+          Text fields, the Layers tree, vector editing, and other focused controls keep ownership
+          of Arrow keys for their own navigation.
+        </p>
       </section>
 
       <section class="docs-section">

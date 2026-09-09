@@ -1,4 +1,10 @@
-import { managedColorToCss, PRODUCT_STATUS, VARVE_URLS } from '@varve/shared';
+import {
+  convertDocumentUnit,
+  type DocumentUnit,
+  managedColorToCss,
+  PRODUCT_STATUS,
+  VARVE_URLS,
+} from '@varve/shared';
 import {
   Button,
   Dialog,
@@ -24,6 +30,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getBackupService, useOptionalEditor } from '../../context';
 import { PrivacyDiagnosticsSection } from '../../crash';
 import type { ThemeMode, UnitType } from '../../settings';
+import { DEFAULT_NUDGE_SETTINGS, NUDGE_MAX, NUDGE_MIN } from '../../settings';
 import { ShortcutPalette } from '../../shortcuts';
 import { getReservedShortcutsForTarget } from '../../shortcuts/reservedShortcuts';
 import { useOptionalUpdateCoordinator } from '../../updates';
@@ -46,6 +53,7 @@ const SECTIONS: { id: SettingsSection; label: string }[] = [
   { id: 'shortcuts', label: 'Keyboard Shortcuts' },
   { id: 'export', label: 'Export' },
   { id: 'performance', label: 'Performance' },
+  { id: 'nudge', label: 'Nudging & Movement' },
   { id: 'models', label: 'Offline Models' },
   { id: 'collab', label: 'Collab' },
   { id: 'ai', label: 'On-device Assistants' },
@@ -201,6 +209,7 @@ export function SettingsDialog({
             )}
             {activeSection === 'export' && <ExportSettingsTab />}
             {activeSection === 'performance' && <PerformanceSettingsTab />}
+            {activeSection === 'nudge' && <NudgeSection />}
             {activeSection === 'models' && (
               <>
                 <BgRemovalModelsTab />
@@ -347,6 +356,140 @@ function GeneralSection({ onOnboardingReset }: { onOnboardingReset?: () => void 
       />
     </div>
   );
+}
+
+function NudgeSection() {
+  const { settings, updateSettings } = useSettings();
+  const unit = settings.general.units as DocumentUnit;
+  const [resetToken, setResetToken] = useState(0);
+  const commitSmall = useCallback(
+    (small: number) => updateSettings({ nudge: { small } }),
+    [updateSettings],
+  );
+  const commitBig = useCallback(
+    (big: number) => updateSettings({ nudge: { big } }),
+    [updateSettings],
+  );
+  const resetNudge = useCallback(() => {
+    updateSettings({ nudge: { ...DEFAULT_NUDGE_SETTINGS } });
+    setResetToken((token) => token + 1);
+  }, [updateSettings]);
+
+  return (
+    <div className="settings-section">
+      <h3 className="settings-section__title">Nudging &amp; Movement</h3>
+      <p className="settings-section__hint">
+        Arrow keys move selected objects in document/world axes, independent of zoom, camera
+        rotation, and object rotation. Values are stored in canonical document units and displayed
+        here using your General unit preference.
+      </p>
+      <NudgeAmountField
+        key={`small-${resetToken}`}
+        label="Small nudge"
+        value={settings.nudge.small}
+        unit={unit}
+        onCommit={commitSmall}
+      />
+      <NudgeAmountField
+        key={`big-${resetToken}`}
+        label="Big nudge"
+        value={settings.nudge.big}
+        unit={unit}
+        onCommit={commitBig}
+      />
+      <p className="settings-hint">
+        Arrow moves by the small amount. Shift+Arrow moves by the big amount. Keyboard nudges do not
+        reparent objects.
+      </p>
+      <Button variant="secondary" size="sm" onClick={resetNudge}>
+        Reset nudge values
+      </Button>
+    </div>
+  );
+}
+
+function NudgeAmountField({
+  label,
+  value,
+  unit,
+  onCommit,
+}: {
+  label: string;
+  value: number;
+  unit: DocumentUnit;
+  onCommit: (value: number) => void;
+}) {
+  const inputId = `settings-nudge-${label.toLowerCase().replace(/\s+/g, '-')}`;
+  const [draft, setDraft] = useState(() => formatNudgeAmount(value, unit));
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDraft(formatNudgeAmount(value, unit));
+    setError(null);
+  }, [unit, value]);
+
+  const commit = () => {
+    const entered = Number(draft);
+    const canonical = convertDocumentUnit(entered, unit, 'px');
+    if (
+      !Number.isFinite(entered) ||
+      !Number.isFinite(canonical) ||
+      canonical < NUDGE_MIN ||
+      canonical > NUDGE_MAX
+    ) {
+      setError(
+        `Enter a finite value between ${formatNudgeAmount(NUDGE_MIN, unit)} and ${formatNudgeAmount(NUDGE_MAX, unit)} ${unit}.`,
+      );
+      return;
+    }
+    setError(null);
+    onCommit(canonical);
+  };
+
+  return (
+    <div className="settings-nudge-field">
+      <label className="settings-field-row__label" htmlFor={inputId}>
+        {label}
+      </label>
+      <div className="settings-nudge-field__control">
+        <div className="settings-nudge-field__input-wrap">
+          <input
+            id={inputId}
+            className="settings-text-input"
+            type="number"
+            inputMode="decimal"
+            min={convertDocumentUnit(NUDGE_MIN, 'px', unit)}
+            max={convertDocumentUnit(NUDGE_MAX, 'px', unit)}
+            step="any"
+            value={draft}
+            aria-invalid={error ? 'true' : 'false'}
+            aria-describedby={error ? `${inputId}-error` : undefined}
+            onChange={(event) => setDraft(event.target.value)}
+            onBlur={commit}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                commit();
+              }
+            }}
+          />
+          <span className="settings-nudge-field__unit" aria-hidden="true">
+            {unit}
+          </span>
+        </div>
+        {error && (
+          <p id={`${inputId}-error`} className="settings-nudge-field__error" role="alert">
+            {error}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function formatNudgeAmount(value: number, unit: DocumentUnit): string {
+  const display = convertDocumentUnit(value, 'px', unit);
+  return Number.isInteger(display) ? String(display) : String(Number(display.toFixed(4)));
 }
 
 function AppearanceSection({ onThemeChange }: { onThemeChange: (theme: string) => void }) {

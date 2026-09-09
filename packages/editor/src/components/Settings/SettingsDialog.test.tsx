@@ -52,6 +52,27 @@ describe('SettingsDialog', () => {
     expect(screen.getByLabelText('Diagnostics telemetry consent')).toBeTruthy();
     expect(screen.getByText('Crash reporting')).toBeTruthy();
   });
+
+  it('validates, persists, and resets nudge amounts', () => {
+    renderWithProvider(<SettingsDialog open={true} onClose={() => {}} initialSection="nudge" />);
+
+    const small = screen.getByLabelText('Small nudge') as HTMLInputElement;
+    const big = screen.getByLabelText('Big nudge') as HTMLInputElement;
+    expect(small.value).toBe('1');
+    expect(big.value).toBe('10');
+
+    fireEvent.change(small, { target: { value: '0.25' } });
+    fireEvent.blur(small);
+    expect(JSON.parse(localStorage.getItem('varve-editor-settings')!).nudge.small).toBe(0.25);
+
+    fireEvent.change(big, { target: { value: '0' } });
+    fireEvent.blur(big);
+    expect(screen.getByText(/finite value between/i)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reset nudge values' }));
+    expect((screen.getByLabelText('Small nudge') as HTMLInputElement).value).toBe('1');
+    expect((screen.getByLabelText('Big nudge') as HTMLInputElement).value).toBe('10');
+  });
 });
 
 describe('GeneralSection canvas background', () => {

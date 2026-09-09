@@ -3371,6 +3371,33 @@ dialog.varve-dialog--settings[open] {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
+.settings-nudge-field {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+.settings-nudge-field__control {
+  flex: 1;
+  min-width: 0;
+}
+.settings-nudge-field__input-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.settings-nudge-field__unit {
+  min-width: 2rem;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.settings-nudge-field__error {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-danger);
+  font-size: var(--font-size-xs);
+}
+.settings-nudge-field .settings-text-input {
+  flex: 1;
+}
 .settings-about {
   display: flex;
   flex-direction: column;
