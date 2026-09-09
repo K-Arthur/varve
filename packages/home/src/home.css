@@ -345,6 +345,11 @@
   background: var(--color-accent-subtle);
   color: var(--color-accent-on-subtle);
   font-weight: var(--font-weight-medium);
+  border-inline-start: 2px solid var(--color-interactive-default);
+  padding-inline-start: calc(var(--space-3) - 2px);
+}
+.sidebar-item--active:hover {
+  background: var(--color-interactive-selected-surface-hover);
 }
 .sidebar-item-row {
   display: flex;
@@ -651,8 +656,7 @@
   z-index: 2;
   min-width: 2.25rem;
   min-height: 2.25rem;
-  background: color-mix(in oklch, var(--color-surface-app) 88%, transparent);
-  backdrop-filter: blur(4px);
+  background: var(--color-surface-overlay);
   opacity: 0;
   transition: opacity var(--duration-quick) var(--ease-standard);
 }
@@ -677,8 +681,7 @@
   align-items: center;
   padding: 1px var(--space-1);
   height: calc(var(--space-3) + 4px);
-  background: color-mix(in oklch, var(--color-surface-app) 85%, transparent);
-  backdrop-filter: blur(4px);
+  background: var(--color-surface-overlay);
   border-radius: var(--radius-sm);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
@@ -970,8 +973,8 @@
 }
 .new-design__advanced-toggle {
   display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
+  align-items: center;
+  gap: var(--space-3);
   width: 100%;
   padding: var(--space-2);
   background: none;
@@ -993,11 +996,19 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
 }
+.new-design__advanced-toggle .varve-disclosure__label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
+}
 .new-design__advanced-toggle-hint {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
-  flex: 1;
   min-width: 0;
+  padding-inline-start: var(--space-3);
+  border-inline-start: 1px solid var(--color-border-subtle);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1009,6 +1020,18 @@
 }
 .new-design__advanced-chevron--open {
   transform: rotate(180deg);
+}
+
+@media (max-width: 640px) {
+  .new-design__advanced-toggle .varve-disclosure__label {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .new-design__advanced-toggle-hint {
+    grid-column: 1 / -1;
+    padding-inline-start: 0;
+    border-inline-start: 0;
+  }
 }
 .new-design__advanced-panel {
   display: flex;
