@@ -122,6 +122,20 @@ export function appearancePaddingLocal(appearance: Appearance): number {
       case 'layerBlur':
         padding = Math.max(padding, Math.max(0, effect.radius) * 3);
         break;
+      case 'gaussianBlur':
+        padding = Math.max(padding, Math.max(0, effect.sigmaX, effect.sigmaY) * 3);
+        break;
+      case 'fieldBlur':
+        padding = Math.max(padding, ...effect.pins.map((pin) => Math.max(0, pin.radius)));
+        break;
+      case 'irisBlur':
+      case 'tiltShiftBlur':
+        padding = Math.max(padding, ...effect.regions.map((region) => Math.max(0, region.amount)));
+        break;
+      case 'pathBlur':
+      case 'spinBlur':
+        padding = Math.max(padding, Math.max(0, effect.amount));
+        break;
       case 'dropShadow':
         padding = Math.max(
           padding,

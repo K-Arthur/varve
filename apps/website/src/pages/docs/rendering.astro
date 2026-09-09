@@ -137,10 +137,10 @@ import { sitePath } from '../../lib/siteUrl';
           The effects engine uses a single-pass approach with per-effect save/restore isolation:
         </p>
         <ul>
-          <li>Each shadow/glow/blur effect renders independently with its own save/restore scope</li>
+          <li>Backdrop, content, and appearance effects render in explicit stages; content blur variants are applied in authored within-stage order</li>
           <li>Per-effect blend mode and opacity are applied during compositing</li>
           <li>Inner shadows use clip + blur technique (not canvas shadow API, which doesn't support inner shadows)</li>
-          <li>Multiple blurs use the maximum radius rather than compositing independently</li>
+          <li>Gaussian, Field, Iris, Tilt-Shift, Path, and Spin use the shared CPU blur contract; spatial support is included in the padded render surface</li>
           <li>The filter compositor handles non-CSS filters (exposure, sharpen, temperature, tint, color balance, channel mixer, photo filter, vibrance) via offscreen canvas pixel manipulation</li>
         </ul>
       </section>

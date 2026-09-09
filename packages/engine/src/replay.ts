@@ -74,6 +74,7 @@ import {
   type ShadowOps,
 } from './shadowSource';
 import { shapeText } from './shaping';
+import { applySpatialBlur, type SpatialBlurEffect, spatialBlurSupport } from './spatialBlur';
 import {
   gradientStrokeToFill,
   paintStroke as replayPaintStroke,
@@ -178,6 +179,10 @@ type BackgroundBlurEffect = Extract<
 >;
 type LayerBlurEffect = Extract<NonNullable<RenderItem['effects']>[number], { type: 'layerBlur' }>;
 type DepthBlurEffect = Extract<NonNullable<RenderItem['effects']>[number], { type: 'depthBlur' }>;
+type SpatialContentBlurEffect = Extract<
+  NonNullable<RenderItem['effects']>[number],
+  { type: 'gaussianBlur' | 'fieldBlur' | 'irisBlur' | 'tiltShiftBlur' | 'pathBlur' | 'spinBlur' }
+>;
 type ChromaticAberrationEffect = Extract<
   NonNullable<RenderItem['effects']>[number],
   { type: 'chromaticAberration' }
@@ -256,6 +261,7 @@ function contentEffectPadding(
   effects: readonly (
     | LayerBlurEffect
     | DepthBlurEffect
+    | SpatialContentBlurEffect
     | ChromaticAberrationEffect
     | GlitchEffect
   )[],
@@ -266,6 +272,15 @@ function contentEffectPadding(
       padding = Math.max(padding, Math.max(0, e.radius) * 3);
     } else if (e.type === 'depthBlur') {
       padding = Math.max(padding, Math.max(0, e.blurStrength) * 3);
+    } else if (
+      e.type === 'gaussianBlur' ||
+      e.type === 'fieldBlur' ||
+      e.type === 'irisBlur' ||
+      e.type === 'tiltShiftBlur' ||
+      e.type === 'pathBlur' ||
+      e.type === 'spinBlur'
+    ) {
+      padding = Math.max(padding, spatialBlurSupport(e as SpatialBlurEffect));
     } else if (e.type === 'chromaticAberration') {
       const mix = Math.max(0, e.mix ?? 1);
       const maxOff =
@@ -859,10 +874,21 @@ export function replayIr(
           item.effects?.filter(
             (
               e,
-            ): e is LayerBlurEffect | DepthBlurEffect | ChromaticAberrationEffect | GlitchEffect =>
+            ): e is
+              | LayerBlurEffect
+              | DepthBlurEffect
+              | SpatialContentBlurEffect
+              | ChromaticAberrationEffect
+              | GlitchEffect =>
               e.visible &&
               (e.type === 'layerBlur' ||
                 e.type === 'depthBlur' ||
+                e.type === 'gaussianBlur' ||
+                e.type === 'fieldBlur' ||
+                e.type === 'irisBlur' ||
+                e.type === 'tiltShiftBlur' ||
+                e.type === 'pathBlur' ||
+                e.type === 'spinBlur' ||
                 e.type === 'chromaticAberration' ||
                 e.type === 'glitch'),
           ) ?? [];
@@ -941,6 +967,15 @@ export function replayIr(
                     // document; keeping the input is the safe render fallback.
                   }
                 }
+              } else if (
+                effect.type === 'gaussianBlur' ||
+                effect.type === 'fieldBlur' ||
+                effect.type === 'irisBlur' ||
+                effect.type === 'tiltShiftBlur' ||
+                effect.type === 'pathBlur' ||
+                effect.type === 'spinBlur'
+              ) {
+                cc.putImageData(applySpatialBlur(input, effect as SpatialBlurEffect), 0, 0);
               } else if (effect.type === 'chromaticAberration') {
                 applyChromaticAberration(cc, cc.width, cc.height, effect);
               } else if (effect.type === 'glitch') {
@@ -978,6 +1013,12 @@ export function replayIr(
             if (
               effect.type === 'layerBlur' ||
               effect.type === 'depthBlur' ||
+              effect.type === 'gaussianBlur' ||
+              effect.type === 'fieldBlur' ||
+              effect.type === 'irisBlur' ||
+              effect.type === 'tiltShiftBlur' ||
+              effect.type === 'pathBlur' ||
+              effect.type === 'spinBlur' ||
               effect.type === 'backgroundBlur' ||
               effect.type === 'chromaticAberration' ||
               effect.type === 'glitch'

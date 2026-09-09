@@ -164,7 +164,7 @@ const paletteShot = scenes['palette-inspector']?.status === 'captured' ? scenes[
           <li><strong>Native CMYK in PDF export:</strong> authored CMYK channels are emitted directly with pure-K preserved — no CMYK→RGB→CMYK round trip turning black into a four-color build</li>
           <li><strong>ICC profiles:</strong> Bundled RGB and CMYK profiles (sRGB, Fogra39, GRACoL, SWOP) with rendering intents</li>
           <li><strong>Blend modes:</strong> 18 CSS blend modes plus 4 non-separable modes (hue, saturation, color, luminosity)</li>
-          <li><strong>Effects:</strong> Alpha-aware drop/inner shadows, layer blur (GPU-accelerated up to 32px, software beyond), background blur, solid or gradient outer/inner glow, glass material, RGB/custom chromatic split, and glitch</li>
+          <li><strong>Effects:</strong> Alpha-aware drop/inner shadows, canonical Gaussian and Layer Blur, Field/Iris/Tilt-Shift/Path/Spin spatial blur, background blur, Depth Blur, solid or gradient outer/inner glow, glass material, RGB/custom chromatic split, and glitch</li>
           <li><strong>Image Treatments:</strong> Fine Texture, Local Contrast, Atmospheric Depth, Dehaze, Vignette, Grain, and Highlight Glow with source-preserving Object Filters and Adjustment Layers</li>
           <li><strong>Adjustment layers:</strong> Curves (Catmull-Rom spline), levels, selective color (9 targets), HSL, exposure — with per-target scoping</li>
           <li><strong>Halftone screening:</strong> AM (clustered-dot, 5 dot shapes) and FM (Floyd-Steinberg + Bayer) with standard CMYK angles</li>
@@ -192,7 +192,7 @@ const paletteShot = scenes['palette-inspector']?.status === 'captured' ? scenes[
       <section class="feature-section">
         <h2>Technical Depth</h2>
         <p>
-          Color management uses a ManagedColor discriminated union (RGB/CMYK/Gray/Spot) with bit-depth-aware channels and analytical sRGB-to-CMYK conversion via OKLab. The blur engine uses separable Gaussian kernels with premultiplied alpha and linear-light compositing for radii above 32px. Adjustment layers support 5 scoping modes for targeting specific layers.
+          Color management uses a ManagedColor discriminated union (RGB/CMYK/Gray/Spot) with bit-depth-aware channels and analytical sRGB-to-CMYK conversion via OKLab. The blur engine uses normalized separable Gaussian and spatial reference kernels with premultiplied alpha and linear-light accumulation; backend choice does not redefine an authored radius. Adjustment layers support 5 scoping modes for targeting specific layers.
         </p>
         <p>
           The halftone engine implements ISO 12647-2 standard CMYK screen angles. Background removal runs locally through an ONNX Runtime pipeline: the browser worker handles the compatible path, while native desktop execution is preferred for heavier models.

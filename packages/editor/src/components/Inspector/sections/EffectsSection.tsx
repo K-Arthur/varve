@@ -156,6 +156,12 @@ const EFFECT_TYPE_OPTIONS: { value: Effect['type']; label: string }[] = [
   { value: 'outerGlow', label: 'Outer Glow' },
   { value: 'innerGlow', label: 'Inner Glow' },
   { value: 'layerBlur', label: 'Layer Blur' },
+  { value: 'gaussianBlur', label: 'Gaussian Blur' },
+  { value: 'fieldBlur', label: 'Field Blur' },
+  { value: 'irisBlur', label: 'Iris Blur' },
+  { value: 'tiltShiftBlur', label: 'Tilt-Shift Blur' },
+  { value: 'pathBlur', label: 'Path Blur' },
+  { value: 'spinBlur', label: 'Spin Blur' },
   { value: 'backgroundBlur', label: 'Background Blur' },
   { value: 'depthBlur', label: 'Depth Blur' },
   { value: 'glassMaterial', label: 'Glass Material' },
@@ -421,6 +427,12 @@ function EffectRow({
         </button>
         {type &&
           type !== 'layerBlur' &&
+          type !== 'gaussianBlur' &&
+          type !== 'fieldBlur' &&
+          type !== 'irisBlur' &&
+          type !== 'tiltShiftBlur' &&
+          type !== 'pathBlur' &&
+          type !== 'spinBlur' &&
           type !== 'backgroundBlur' &&
           type !== 'glassMaterial' &&
           type !== 'chromaticAberration' &&
@@ -1375,6 +1387,18 @@ function EffectParams({
           <SingleBlurParam nodes={nodes} index={index} onChange={onChange} />
         </>
       );
+    case 'gaussianBlur':
+    case 'fieldBlur':
+    case 'irisBlur':
+    case 'tiltShiftBlur':
+    case 'pathBlur':
+    case 'spinBlur':
+      return (
+        <>
+          {maskControl}
+          <SpatialBlurParams type={type} nodes={nodes} index={index} onChange={onChange} />
+        </>
+      );
     case 'depthBlur':
       return (
         <>
@@ -2044,6 +2068,273 @@ function SingleBlurParam({
           )
         }
       />
+    </div>
+  );
+}
+
+type SpatialBlurType =
+  | 'gaussianBlur'
+  | 'fieldBlur'
+  | 'irisBlur'
+  | 'tiltShiftBlur'
+  | 'pathBlur'
+  | 'spinBlur';
+
+function SpatialBlurParams({
+  type,
+  nodes,
+  index,
+  onChange,
+}: {
+  type: SpatialBlurType;
+  nodes: EffectNode[];
+  index: number;
+  onChange: (updater: (e: Effect) => Effect) => void;
+}) {
+  const effect = getEffect(nodes[0]!, index);
+  const numeric = (fallback: number, read: (candidate: Effect) => number): number => {
+    const value = effect ? read(effect) : fallback;
+    return Number.isFinite(value) ? value : fallback;
+  };
+
+  if (type === 'gaussianBlur') {
+    const sigmaX = numeric(4, (candidate) => (candidate.type === type ? candidate.sigmaX : 4));
+    const sigmaY = numeric(4, (candidate) => (candidate.type === type ? candidate.sigmaY : 4));
+    return (
+      <div className="insp-effect-params">
+        <InspectorFieldGroup columns={2}>
+          <NumberField
+            label="Sigma X"
+            value={sigmaX}
+            min={0}
+            max={4096}
+            step={0.5}
+            unit="px"
+            onChange={(value) =>
+              onChange((candidate) =>
+                candidate.type === type
+                  ? {
+                      ...candidate,
+                      sigmaX: value,
+                      ...(candidate.linkedAxes ? { sigmaY: value } : {}),
+                    }
+                  : candidate,
+              )
+            }
+          />
+          <NumberField
+            label="Sigma Y"
+            value={sigmaY}
+            min={0}
+            max={4096}
+            step={0.5}
+            unit="px"
+            onChange={(value) =>
+              onChange((candidate) =>
+                candidate.type === type ? { ...candidate, sigmaY: value } : candidate,
+              )
+            }
+          />
+        </InspectorFieldGroup>
+        <p className="insp-help-text">
+          Linear-light, premultiplied Gaussian reference blur. Radius is 3σ.
+        </p>
+      </div>
+    );
+  }
+
+  if (type === 'fieldBlur') {
+    const radius = numeric(12, (candidate) =>
+      candidate.type === type ? Math.max(0, ...candidate.pins.map((pin) => pin.radius)) : 12,
+    );
+    return (
+      <div className="insp-effect-params">
+        <NumberField
+          label="Maximum pin blur"
+          value={radius}
+          min={0}
+          max={4096}
+          step={1}
+          unit="px"
+          onChange={(value) =>
+            onChange((candidate) =>
+              candidate.type === type
+                ? {
+                    ...candidate,
+                    maxRadius: value,
+                    pins: candidate.pins.map((pin) => ({ ...pin, radius: value })),
+                  }
+                : candidate,
+            )
+          }
+        />
+        <p className="insp-help-text">
+          Add and move value pins on canvas when the spatial editor is active. Pin interpolation is
+          inverse-distance and bounded.
+        </p>
+      </div>
+    );
+  }
+
+  if (type === 'irisBlur' || type === 'tiltShiftBlur') {
+    const amount = numeric(24, (candidate) =>
+      type === 'irisBlur' && candidate.type === 'irisBlur'
+        ? Math.max(0, ...candidate.regions.map((region) => region.amount))
+        : type === 'tiltShiftBlur' && candidate.type === 'tiltShiftBlur'
+          ? Math.max(0, ...candidate.regions.map((region) => region.amount))
+          : 24,
+    );
+    const feather = numeric(35, (candidate) =>
+      type === 'irisBlur' && candidate.type === 'irisBlur'
+        ? Math.max(0, ...candidate.regions.map((region) => region.feather)) * 100
+        : type === 'tiltShiftBlur' && candidate.type === 'tiltShiftBlur'
+          ? Math.max(0, ...candidate.regions.map((region) => region.feather))
+          : 35,
+    );
+    return (
+      <div className="insp-effect-params">
+        <InspectorFieldGroup columns={2}>
+          <NumberField
+            label="Maximum blur"
+            value={amount}
+            min={0}
+            max={4096}
+            step={1}
+            unit="px"
+            onChange={(value) =>
+              onChange((candidate) => {
+                if (type === 'irisBlur' && candidate.type === 'irisBlur') {
+                  return {
+                    ...candidate,
+                    regions: candidate.regions.map((region) => ({ ...region, amount: value })),
+                  };
+                }
+                if (type === 'tiltShiftBlur' && candidate.type === 'tiltShiftBlur') {
+                  return {
+                    ...candidate,
+                    regions: candidate.regions.map((region) => ({ ...region, amount: value })),
+                  };
+                }
+                return candidate;
+              })
+            }
+          />
+          <NumberField
+            label="Feather"
+            value={feather}
+            min={0}
+            max={type === 'irisBlur' ? 100 : 4096}
+            step={1}
+            unit={type === 'irisBlur' ? '%' : 'px'}
+            onChange={(value) =>
+              onChange((candidate) => {
+                if (type === 'irisBlur' && candidate.type === 'irisBlur') {
+                  return {
+                    ...candidate,
+                    regions: candidate.regions.map((region) => ({
+                      ...region,
+                      feather: value / 100,
+                    })),
+                  };
+                }
+                return type === 'tiltShiftBlur' && candidate.type === 'tiltShiftBlur'
+                  ? {
+                      ...candidate,
+                      regions: candidate.regions.map((region) => ({ ...region, feather: value })),
+                    }
+                  : candidate;
+              })
+            }
+          />
+        </InspectorFieldGroup>
+        <p className="insp-help-text">
+          {type === 'irisBlur'
+            ? 'A rotated elliptical focus region with a smooth outer falloff.'
+            : 'An oriented sharp band with independent outer fade distance.'}
+        </p>
+      </div>
+    );
+  }
+
+  if (type === 'pathBlur') {
+    const amount = numeric(1, (candidate) => (candidate.type === type ? candidate.amount : 1));
+    const samples = numeric(16, (candidate) => (candidate.type === type ? candidate.samples : 16));
+    return (
+      <div className="insp-effect-params">
+        <InspectorFieldGroup columns={2}>
+          <NumberField
+            label="Motion amount"
+            value={amount}
+            min={0}
+            max={4096}
+            step={0.1}
+            unit="x"
+            onChange={(value) =>
+              onChange((candidate) =>
+                candidate.type === type ? { ...candidate, amount: value } : candidate,
+              )
+            }
+          />
+          <NumberField
+            label="Samples"
+            value={samples}
+            min={1}
+            max={64}
+            step={1}
+            onChange={(value) =>
+              onChange((candidate) =>
+                candidate.type === type ? { ...candidate, samples: value } : candidate,
+              )
+            }
+          />
+        </InspectorFieldGroup>
+        <p className="insp-help-text">
+          Samples the authored path by arc length; curved paths are not reduced to one directional
+          vector.
+        </p>
+      </div>
+    );
+  }
+
+  const angle = numeric(22.5, (candidate) =>
+    candidate.type === type ? (candidate.angle * 180) / Math.PI : 22.5,
+  );
+  const amount = numeric(1, (candidate) => (candidate.type === type ? candidate.amount : 1));
+  return (
+    <div className="insp-effect-params">
+      <InspectorFieldGroup columns={2}>
+        <NumberField
+          label="Angle"
+          value={angle}
+          min={-360}
+          max={360}
+          step={1}
+          unit="°"
+          onChange={(value) =>
+            onChange((candidate) =>
+              candidate.type === type
+                ? { ...candidate, angle: (value * Math.PI) / 180 }
+                : candidate,
+            )
+          }
+        />
+        <NumberField
+          label="Motion amount"
+          value={amount}
+          min={0}
+          max={4096}
+          step={0.1}
+          unit="x"
+          onChange={(value) =>
+            onChange((candidate) =>
+              candidate.type === type ? { ...candidate, amount: value } : candidate,
+            )
+          }
+        />
+      </InspectorFieldGroup>
+      <p className="insp-help-text">
+        Angular samples are integrated around the saved pivot and clipped by the feathered ellipse.
+      </p>
     </div>
   );
 }

@@ -36,6 +36,34 @@ describe('normalizeEffectParams', () => {
     });
   });
 
+  it('creates and normalizes the complete spatial blur family', () => {
+    const types = [
+      'gaussianBlur',
+      'fieldBlur',
+      'irisBlur',
+      'tiltShiftBlur',
+      'pathBlur',
+      'spinBlur',
+    ] as const;
+    for (const type of types) {
+      const created = createDefaultEffect(type, `fx-${type}`);
+      expect(created.id).toBe(`fx-${type}`);
+      expect(created.visible).toBe(true);
+      expect(normalizeEffectParams(created)).toMatchObject({ type, id: `fx-${type}` });
+    }
+    const gaussian = createDefaultEffect('gaussianBlur', 'bad');
+    if (gaussian.type !== 'gaussianBlur') throw new Error('gaussian default missing');
+    const malformed = normalizeEffectParams({
+      ...gaussian,
+      sigmaX: Number.NaN,
+      sigmaY: Number.POSITIVE_INFINITY,
+    });
+    if (malformed.type === 'gaussianBlur') {
+      expect(malformed.sigmaX).toBe(0);
+      expect(malformed.sigmaY).toBe(0);
+    }
+  });
+
   it('allows every drawable layer type to own Layer Effects, but not adjustments', () => {
     const shape = makeShapeNode('shape', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 });
     const raster = makeRasterLayerNode('raster', { width: 10, height: 10 });

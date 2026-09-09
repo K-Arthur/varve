@@ -12,6 +12,8 @@
  * for the canvas renderer.
  */
 
+import type { SpatialBlurEffect } from './spatialBlur';
+
 export type Point = readonly [number, number];
 
 // ── Local typography IR types (mirrors @varve/scene without the dependency) ──
@@ -225,6 +227,7 @@ export interface EffectMaskBindingIR {
 }
 
 type EffectVariant =
+  | SpatialBlurEffect
   | {
       type: 'dropShadow';
       x: number;

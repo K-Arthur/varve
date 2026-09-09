@@ -17,6 +17,7 @@
  * defensive normalisation of third-party or version-migrated documents.
  */
 
+import { normalizeSpatialBlurEffect, type SpatialBlurEffect } from '@varve/engine';
 import type { Document } from './document';
 import { cryptoId } from './document-utils';
 import type {
@@ -90,6 +91,113 @@ export function createDefaultEffect(type: Effect['type'], id = effectId()): Effe
         falloff: 1,
         invert: false,
         edgeProtection: 0.035,
+        visible: true,
+      };
+    case 'gaussianBlur':
+      return {
+        id,
+        type,
+        sigmaX: 4,
+        sigmaY: 4,
+        linkedAxes: true,
+        edgeMode: 'clamp',
+        algorithmVersion: 1,
+        coordinateSpace: 'owner-normalized',
+        visible: true,
+      };
+    case 'fieldBlur':
+      return {
+        id,
+        type,
+        pins: [{ id: `${id}-pin-1`, x: 0.5, y: 0.5, radius: 12 }],
+        outsideHull: 'nearest',
+        interpolation: 'inverse-distance-v1',
+        maxRadius: 128,
+        edgeMode: 'clamp',
+        algorithmVersion: 1,
+        coordinateSpace: 'owner-normalized',
+        visible: true,
+      };
+    case 'irisBlur':
+      return {
+        id,
+        type,
+        regions: [
+          {
+            id: `${id}-region-1`,
+            center: { x: 0.5, y: 0.5 },
+            radii: { x: 0.3, y: 0.2 },
+            rotation: 0,
+            innerRatio: 0.45,
+            feather: 0.35,
+            amount: 24,
+          },
+        ],
+        edgeMode: 'clamp',
+        algorithmVersion: 1,
+        coordinateSpace: 'owner-normalized',
+        visible: true,
+      };
+    case 'tiltShiftBlur':
+      return {
+        id,
+        type,
+        regions: [
+          {
+            id: `${id}-region-1`,
+            center: { x: 0.5, y: 0.5 },
+            angle: 0,
+            sharpHalfWidth: 48,
+            feather: 96,
+            amount: 24,
+          },
+        ],
+        edgeMode: 'clamp',
+        algorithmVersion: 1,
+        coordinateSpace: 'owner-normalized',
+        visible: true,
+      };
+    case 'pathBlur':
+      return {
+        id,
+        type,
+        paths: [
+          {
+            id: `${id}-path-1`,
+            points: [
+              { id: `${id}-point-1`, x: 0.25, y: 0.5 },
+              { id: `${id}-point-2`, x: 0.75, y: 0.5 },
+            ],
+          },
+        ],
+        amount: 1,
+        startAmount: 1,
+        endAmount: 1,
+        centered: true,
+        taper: 0,
+        strobe: 0,
+        samples: 16,
+        edgeMode: 'clamp',
+        algorithmVersion: 1,
+        coordinateSpace: 'owner-normalized',
+        visible: true,
+      };
+    case 'spinBlur':
+      return {
+        id,
+        type,
+        center: { x: 0.5, y: 0.5 },
+        pivot: { x: 0.5, y: 0.5 },
+        radii: { x: 0.45, y: 0.35 },
+        rotation: 0,
+        angle: Math.PI / 8,
+        amount: 1,
+        feather: 0.2,
+        strobe: 0,
+        samples: 16,
+        edgeMode: 'clamp',
+        algorithmVersion: 1,
+        coordinateSpace: 'owner-normalized',
         visible: true,
       };
     case 'outerGlow':
@@ -392,6 +500,13 @@ export function normalizeEffectParams(effect: Effect): Effect {
         radius: clampNum(e.radius, 0),
       } as Effect;
     }
+    case 'gaussianBlur':
+    case 'fieldBlur':
+    case 'irisBlur':
+    case 'tiltShiftBlur':
+    case 'pathBlur':
+    case 'spinBlur':
+      return normalizeSpatialBlurEffect(e as unknown as SpatialBlurEffect) as Effect;
     case 'depthBlur': {
       if (
         typeof e.depthMapId === 'string' &&

@@ -19,6 +19,7 @@ import type {
   DepthMapResource,
   PathPoint,
   Shape,
+  SpatialBlurEffect,
   WarpModifier,
   WarpSettings,
 } from '@varve/engine';
@@ -406,6 +407,7 @@ export interface EffectGradient {
 }
 
 type EffectVariant =
+  | SpatialBlurEffect
   | {
       type: 'dropShadow';
       /** Stable identifier for UI state and reordering. */

@@ -24,7 +24,7 @@ import StatusPill from '../../components/StatusPill.astro';
         </p>
         <div class="stage-grid" aria-label="Layer Effects execution stages">
           <article><span class="stage-number">01</span><h3>Backdrop</h3><p>Background Blur and Glass Material sample the content behind the layer.</p></article>
-          <article><span class="stage-number">02</span><h3>Content</h3><p>Layer Blur, Depth Blur, Chromatic Aberration, and Glitch transform painted content.</p></article>
+          <article><span class="stage-number">02</span><h3>Content</h3><p>Gaussian, Layer, Field, Iris, Tilt-Shift, Path, Spin, Depth Blur, Chromatic Aberration, and Glitch transform painted content.</p></article>
           <article><span class="stage-number">03</span><h3>Appearance</h3><p>Shadows and glows wrap the authored source with stable, reorderable identity.</p></article>
         </div>
       </section>
@@ -51,6 +51,7 @@ import StatusPill from '../../components/StatusPill.astro';
           <article><h3>Chromatic aberration</h3><p>RGB split includes Mix and fractional offsets; Custom Color Split adds independent red, green, blue, luminance, or alpha contributions with output colours, strength, and offsets.</p></article>
           <article><h3>Glitch</h3><p>Direction, seed, density, slices, blocks, channel shifts, noise, scanlines, and blend mode.</p></article>
           <article><h3>Glass and depth</h3><p>Tint, saturation, brightness, noise, edge highlight, focus range, falloff, and depth inversion.</p></article>
+          <article><h3>Spatial blur family</h3><p>Gaussian stays uniform; Field, Iris, Tilt-Shift, Path, and Spin expose their authored geometry and deterministic CPU reference rendering.</p></article>
         </div>
       </section>
 
@@ -81,6 +82,14 @@ import StatusPill from '../../components/StatusPill.astro';
           <li>Mixed selections show missing rows and match compatible effects by identity before legacy stage/type order.</li>
           <li>Copying a stack deep-clones effect parameters and mints independent IDs for each destination.</li>
         </ul>
+      </section>
+
+      <section class="feature-section">
+        <h2>Blur Gallery vocabulary, with Varve semantics</h2>
+        <p>
+          Gaussian, Field, Iris, Tilt-Shift, Path, and Spin Blur are editable effect-stack entries rather than destructive filters. Their controls use owner-local geometry, source-pixel blur distances, stable control IDs, and a linear-light premultiplied CPU reference so a saved document keeps the same meaning across Canvas2D fallbacks and reopen.
+        </p>
+        <p class="feature-note">The current release exposes numeric Inspector controls for these variants. Direct on-canvas pin, ellipse, band, path, and pivot handles are still in active implementation and are not presented as shipped marketing capabilities.</p>
       </section>
 
       <section class="feature-section">

@@ -17,6 +17,12 @@ export function layerEffectStage(effect: Pick<Effect, 'type'>): LayerEffectStage
       return 'backdrop';
     case 'layerBlur':
     case 'depthBlur':
+    case 'gaussianBlur':
+    case 'fieldBlur':
+    case 'irisBlur':
+    case 'tiltShiftBlur':
+    case 'pathBlur':
+    case 'spinBlur':
     case 'chromaticAberration':
     case 'glitch':
       return 'content';

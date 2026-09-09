@@ -394,6 +394,114 @@ pub enum Effect {
         radius: f64,
         visible: bool,
     },
+    /// Versioned spatial blur payloads are kept as JSON geometry at the Rust
+    /// scene boundary. The Canvas2D/WASM reference executor owns the math,
+    /// while native serde/bridge paths retain the authored document data.
+    #[serde(rename = "gaussianBlur")]
+    GaussianBlur {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
+        #[serde(rename = "sigmaX")]
+        sigma_x: f64,
+        #[serde(rename = "sigmaY")]
+        sigma_y: f64,
+        #[serde(rename = "linkedAxes")]
+        linked_axes: bool,
+        #[serde(rename = "edgeMode")]
+        edge_mode: String,
+        #[serde(rename = "algorithmVersion")]
+        algorithm_version: u32,
+        #[serde(rename = "coordinateSpace")]
+        coordinate_space: String,
+        visible: bool,
+    },
+    #[serde(rename = "fieldBlur")]
+    FieldBlur {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
+        pins: Vec<serde_json::Value>,
+        #[serde(rename = "outsideHull")]
+        outside_hull: String,
+        interpolation: String,
+        #[serde(rename = "maxRadius")]
+        max_radius: f64,
+        #[serde(rename = "edgeMode")]
+        edge_mode: String,
+        #[serde(rename = "algorithmVersion")]
+        algorithm_version: u32,
+        #[serde(rename = "coordinateSpace")]
+        coordinate_space: String,
+        visible: bool,
+    },
+    #[serde(rename = "irisBlur")]
+    IrisBlur {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
+        regions: Vec<serde_json::Value>,
+        #[serde(rename = "edgeMode")]
+        edge_mode: String,
+        #[serde(rename = "algorithmVersion")]
+        algorithm_version: u32,
+        #[serde(rename = "coordinateSpace")]
+        coordinate_space: String,
+        visible: bool,
+    },
+    #[serde(rename = "tiltShiftBlur")]
+    TiltShiftBlur {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
+        regions: Vec<serde_json::Value>,
+        #[serde(rename = "edgeMode")]
+        edge_mode: String,
+        #[serde(rename = "algorithmVersion")]
+        algorithm_version: u32,
+        #[serde(rename = "coordinateSpace")]
+        coordinate_space: String,
+        visible: bool,
+    },
+    #[serde(rename = "pathBlur")]
+    PathBlur {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
+        paths: Vec<serde_json::Value>,
+        amount: f64,
+        #[serde(rename = "startAmount")]
+        start_amount: f64,
+        #[serde(rename = "endAmount")]
+        end_amount: f64,
+        centered: bool,
+        taper: f64,
+        strobe: f64,
+        samples: u32,
+        #[serde(rename = "edgeMode")]
+        edge_mode: String,
+        #[serde(rename = "algorithmVersion")]
+        algorithm_version: u32,
+        #[serde(rename = "coordinateSpace")]
+        coordinate_space: String,
+        visible: bool,
+    },
+    #[serde(rename = "spinBlur")]
+    SpinBlur {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
+        center: serde_json::Value,
+        pivot: serde_json::Value,
+        radii: serde_json::Value,
+        rotation: f64,
+        angle: f64,
+        amount: f64,
+        feather: f64,
+        strobe: f64,
+        samples: u32,
+        #[serde(rename = "edgeMode")]
+        edge_mode: String,
+        #[serde(rename = "algorithmVersion")]
+        algorithm_version: u32,
+        #[serde(rename = "coordinateSpace")]
+        coordinate_space: String,
+        visible: bool,
+    },
     #[serde(rename = "backgroundBlur")]
     BackgroundBlur {
         #[serde(default, skip_serializing_if = "Option::is_none")]

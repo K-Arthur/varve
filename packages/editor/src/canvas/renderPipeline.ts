@@ -9,6 +9,7 @@ import {
   applyGlassMaterialBackdrop,
   applyGlitch,
   applyLayerBlur,
+  applySpatialBlur,
   applyStyleOverrides,
   buildInnerGlowImage,
   buildOuterGlowImage,
@@ -193,6 +194,17 @@ function subtreeEffectPadding(document: Document, rootIds: readonly NodeId[]): n
           padding = Math.max(padding, effect.blur * 3 + effect.spread);
         } else if (effect.type === 'layerBlur') {
           padding = Math.max(padding, effect.radius * 3);
+        } else if (effect.type === 'gaussianBlur') {
+          padding = Math.max(padding, Math.max(effect.sigmaX, effect.sigmaY) * 3);
+        } else if (effect.type === 'fieldBlur') {
+          padding = Math.max(padding, ...effect.pins.map((pin) => Math.max(0, pin.radius)));
+        } else if (effect.type === 'irisBlur' || effect.type === 'tiltShiftBlur') {
+          padding = Math.max(
+            padding,
+            ...effect.regions.map((region) => Math.max(0, region.amount)),
+          );
+        } else if (effect.type === 'pathBlur' || effect.type === 'spinBlur') {
+          padding = Math.max(padding, Math.max(0, effect.amount));
         } else if (effect.type === 'chromaticAberration') {
           const extent =
             effect.channelMode === 'custom' && effect.customChannels
@@ -1649,6 +1661,21 @@ export function renderContent(deps: RenderContentDeps): void {
                     groupHeight + blurPad * 2,
                   );
                   targetCtx.restore();
+                }
+              } else if (
+                effect.type === 'gaussianBlur' ||
+                effect.type === 'fieldBlur' ||
+                effect.type === 'irisBlur' ||
+                effect.type === 'tiltShiftBlur' ||
+                effect.type === 'pathBlur' ||
+                effect.type === 'spinBlur'
+              ) {
+                try {
+                  const input = gCanvas.getImageData(0, 0, gCanvas.width, gCanvas.height);
+                  gCanvas.putImageData(applySpatialBlur(input, effect), 0, 0);
+                } catch {
+                  // Keep the unmodified group when a constrained canvas cannot
+                  // allocate a temporary pixel buffer.
                 }
               } else if (effect.type === 'chromaticAberration') {
                 applyChromaticAberration(gCanvas, groupWidth, groupHeight, effect);

@@ -25,6 +25,11 @@ export function effectPadding(effect: {
   x?: number;
   y?: number;
   radius?: number;
+  sigmaX?: number;
+  sigmaY?: number;
+  amount?: number;
+  pins?: Array<{ radius?: number }>;
+  regions?: Array<{ amount?: number }>;
   channelMode?: 'rgb' | 'custom';
   mix?: number;
   intensity?: number;
@@ -79,6 +84,25 @@ export function effectPadding(effect: {
         right: depthBlurRadius * 3,
         bottom: depthBlurRadius * 3,
       };
+    case 'gaussianBlur': {
+      const extent = Math.max(0, effect.sigmaX ?? 0, effect.sigmaY ?? 0) * 3;
+      return { left: extent, top: extent, right: extent, bottom: extent };
+    }
+    case 'fieldBlur':
+    case 'irisBlur':
+    case 'tiltShiftBlur': {
+      const extent = Math.max(
+        0,
+        ...(effect.regions ?? []).map((region) => region.amount ?? 0),
+        ...(effect.pins ?? []).map((pin) => pin.radius ?? 0),
+      );
+      return { left: extent, top: extent, right: extent, bottom: extent };
+    }
+    case 'pathBlur':
+    case 'spinBlur': {
+      const extent = Math.max(0, Math.abs(effect.amount ?? 0));
+      return { left: extent, top: extent, right: extent, bottom: extent };
+    }
     case 'glassMaterial':
       return { left: kernel, top: kernel, right: kernel, bottom: kernel };
     case 'chromaticAberration': {

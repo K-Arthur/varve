@@ -43,9 +43,11 @@ effect rather than making the owner transparent.
 The document-level `Effect` discriminated union is owned by `@varve/scene`.
 Each effect may carry a stable `id`; document normalization assigns missing IDs
 and repairs duplicates without changing valid IDs. The Rust `varve-core::Effect`
-wire representation mirrors all nine TypeScript variants, retains optional IDs,
-and uses the same camelCase field names. Older documents without IDs remain
-valid and omit the field when serialized through Rust.
+wire representation mirrors the TypeScript variants, including the versioned
+spatial blur family, retains optional IDs, and uses the same camelCase field
+names. Spatial geometry is retained as JSON at the native scene boundary until
+a native parity executor is verified. Older documents without IDs remain valid
+and omit the field when serialized through Rust.
 
 Rust currently stores and transports every effect, but Canvas2D/software replay
 remains the authoritative renderer for chromatic aberration, glitch, blur, glow,
@@ -74,7 +76,8 @@ transparent.
 ### Pass 3 — Fills + Strokes (lines 715–754)
 
 Renders all fills (in array order) then all strokes (in array order).
-When content-affecting effects are present (`layerBlur`,
+When content-affecting effects are present (`layerBlur`, `gaussianBlur`,
+`fieldBlur`, `irisBlur`, `tiltShiftBlur`, `pathBlur`, `spinBlur`,
 `chromaticAberration`, `glitch`), fills and strokes are painted to an
 offscreen `CompositeCanvas` and the content effects are applied in
 sequence. The result is composited back to the main canvas.

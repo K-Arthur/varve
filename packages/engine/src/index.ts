@@ -1134,6 +1134,23 @@ export {
 } from './shapingBackend';
 export type { ShapingCacheKeyOptions } from './shapingCache';
 export { ShapingCache, shapingCache } from './shapingCache';
+export type {
+  BlurCoordinate,
+  BlurEdgeMode,
+  FieldBlurPin,
+  IrisBlurRegion,
+  MotionPathPoint,
+  PathBlurPath,
+  SpatialBlurEffect,
+  TiltShiftBlurRegion,
+} from './spatialBlur';
+export {
+  applySpatialBlur,
+  normalizeSpatialBlurEffect,
+  SPATIAL_BLUR_ALGORITHM_VERSION,
+  spatialBlurRadiusAt,
+  spatialBlurSupport,
+} from './spatialBlur';
 export * from './storyComposition';
 export type {
   StudioTreatment,

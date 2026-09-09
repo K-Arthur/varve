@@ -2019,6 +2019,18 @@ fn render_effects(
                     buf.extend(format!("% backgroundBlur radius={radius:.2}\n").as_bytes());
                 }
             }
+            Effect::GaussianBlur { visible, .. }
+            | Effect::FieldBlur { visible, .. }
+            | Effect::IrisBlur { visible, .. }
+            | Effect::TiltShiftBlur { visible, .. }
+            | Effect::PathBlur { visible, .. }
+            | Effect::SpinBlur { visible, .. } => {
+                if *visible {
+                    buf.extend_from_slice(
+                        b"% spatial blur rasterization required by basic PDF export\n",
+                    );
+                }
+            }
             Effect::DepthBlur {
                 depth_map_id,
                 blur_strength,
