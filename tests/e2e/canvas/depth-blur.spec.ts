@@ -231,10 +231,10 @@ test.describe('Depth Blur workflow', () => {
     await preview.waitFor({ state: 'visible' });
     const box = (await preview.boundingBox())!;
     await page.mouse.click(box.x + box.width * 0.9, box.y + box.height * 0.5);
-    const focalOutput = section.locator('output').first();
+    const focalInput = section.getByRole('slider', { name: 'Focal distance' });
     // The right side is far in the stub gradient, so focus must shift upward
     // from the default 50%.
-    await expect(focalOutput).not.toHaveText(/^50%$/, { timeout: 10000 });
+    await expect(focalInput).not.toHaveValue('50', { timeout: 10000 });
 
     await section.getByRole('button', { name: /save depth blur/i }).click();
     await expect(section.getByRole('button', { name: /remove depth blur/i })).toBeVisible({
