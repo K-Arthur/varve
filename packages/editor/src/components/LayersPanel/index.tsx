@@ -642,7 +642,10 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
         title="Layers"
       >
         <div className="layers-panel__header">
-          <span>Layers</span>
+          <div className="layers-panel__heading">
+            <span className="layers-panel__title">Layers</span>
+            <span className="layers-panel__count">{totalCount}</span>
+          </div>
           <TooltipProvider>
             <div className="layers-panel__header-actions">
               <button

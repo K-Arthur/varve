@@ -118,13 +118,13 @@ export function LayerFilterBar({ filter, onChange, matchCount, totalCount }: Lay
           ref={filterRef}
           value={filter.search}
           onChange={(v) => onChange({ ...filter, search: v })}
-          placeholder="Filter by name..."
+          placeholder="Filter layers…"
           aria-label="Filter layers by name"
           resultCount={matchCount}
         />
         <button
           type="button"
-          className="layers-filter-bar__toggle-advanced"
+          className={`layers-filter-bar__toggle-advanced${expanded || hasActiveFilter ? ' layers-filter-bar__toggle-advanced--active' : ''}`}
           onClick={() => setExpanded((v) => !v)}
           aria-expanded={expanded}
           aria-label={expanded ? 'Hide filter options' : 'Show filter options'}
@@ -247,11 +247,11 @@ export function LayerFilterBar({ filter, onChange, matchCount, totalCount }: Lay
         </fieldset>
       )}
 
-      <div className="layers-filter-bar__count" aria-live="polite">
-        {hasActiveFilter
-          ? `${matchCount} of ${totalCount} layer${totalCount !== 1 ? 's' : ''}`
-          : `${totalCount} layer${totalCount !== 1 ? 's' : ''}`}
-      </div>
+      {hasActiveFilter && (
+        <div className="layers-filter-bar__count" aria-live="polite">
+          {matchCount} of {totalCount} layer{totalCount !== 1 ? 's' : ''}
+        </div>
+      )}
     </search>
   );
 }

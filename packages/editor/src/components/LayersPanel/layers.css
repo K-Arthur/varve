@@ -2,33 +2,61 @@
 
 /* ─── Container — density-aware ──────────────────────────────── */
 .layers-panel {
-  height: 100%;
+  flex: 1 1 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
 }
 
-/* Neo-Bento panel header: accent top strip + density-aware sizing */
+/* Panel header: a quiet title row with a compact document count. */
 .layers-panel__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: calc(6px + var(--density-rows-padding, var(--space-2))) var(--space-3);
-  font-size: var(--density-font-size, var(--font-size-xs));
-  font-weight: var(--font-weight-semibold);
+  gap: var(--space-2);
+  min-height: calc(var(--space-7) + var(--space-1));
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--density-font-size, var(--font-size-sm));
   color: var(--color-text-primary);
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
   border-bottom: 1px solid var(--color-border-subtle);
   flex-shrink: 0;
-  border-top: 3px solid var(--color-interactive-default);
+  background: var(--color-surface-raised);
+}
+
+.layers-panel__heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.layers-panel__title {
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: normal;
+}
+
+.layers-panel__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--space-4);
+  height: var(--space-4);
+  padding: 0 var(--space-05);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
 }
 
 .layers-panel__header-actions {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--space-05);
+  flex-shrink: 0;
 }
 
 /* Unified header icon button — one size, one transition, one focus ring. */
@@ -36,9 +64,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: var(--space-5);
-  height: var(--space-5);
-  border: none;
+  width: var(--space-6);
+  height: var(--space-6);
+  border: 1px solid transparent;
   background: none;
   color: var(--color-text-muted);
   cursor: pointer;
@@ -56,6 +84,8 @@
 
 .layers-panel__header-btn--active {
   color: var(--color-interactive-default);
+  border-color: color-mix(in oklab, var(--color-interactive-default) 30%, transparent);
+  background: var(--color-accent-subtle);
 }
 
 .layers-panel__header-btn--active:hover {
@@ -67,15 +97,23 @@
   outline-offset: -1px;
 }
 
+.layers-panel__header-actions > .panel-detach-btn {
+  width: var(--space-6);
+  height: var(--space-6);
+  min-width: var(--space-6);
+  min-height: var(--space-6);
+}
+
 .layers-panel__isolation-breadcrumb {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
+  padding: var(--space-1) var(--space-2);
   font-size: var(--font-size-xs);
   color: var(--color-text-primary);
   background: var(--color-accent-subtle, var(--color-surface-raised));
+  border-left: 3px solid var(--color-interactive-default);
   border-bottom: 1px solid var(--color-border-subtle);
   flex-shrink: 0;
 }
@@ -184,15 +222,16 @@
  * which is bounded and scrolls internally. The previous 80px floor let those
  * sections squeeze it to roughly two rows. */
 .layers-panel__tree {
-  flex: 1 1 auto;
-  min-height: 160px;
+  flex: 1 1 0;
+  min-height: clamp(96px, 18vh, 160px);
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
   scrollbar-color: var(--color-border-strong) transparent;
   scrollbar-width: thin;
   outline: none;
-  padding: var(--space-1) var(--space-1);
+  padding: var(--space-1) var(--space-1) var(--space-2);
+  background: var(--color-surface-app);
 }
 
 .layers-panel__tree:focus-visible {
@@ -205,7 +244,7 @@
   display: flex;
   align-items: center;
   gap: var(--density-rows-gap, var(--space-1));
-  padding: var(--density-rows-padding, var(--space-1));
+  padding: var(--density-rows-padding, var(--space-1)) var(--space-1);
   border-radius: var(--radius-control-compact);
   cursor: default;
   user-select: none;
@@ -214,6 +253,7 @@
   color: var(--color-text-primary);
   transition: background var(--duration-quick) var(--ease-standard);
   position: relative;
+  border: 1px solid transparent;
 }
 
 .layers-row:active {
@@ -383,6 +423,10 @@
   background: var(--color-interactive-hover-surface);
 }
 
+.layers-row + .layers-row {
+  margin-top: 1px;
+}
+
 .layers-row--selected {
   background: var(--color-interactive-selected-surface);
   color: var(--color-text-primary);
@@ -497,7 +541,7 @@
      buttonface background and chiseled border render as an unstyled gray box
      that looks broken against the design system. */
   border: none;
-  background: var(--color-surface-sunken);
+  background: transparent;
   border-radius: var(--radius-control-compact);
   color: var(--color-text-secondary);
   transition:
@@ -926,8 +970,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: var(--space-4);
-  height: var(--space-4);
+  width: var(--space-5);
+  height: var(--space-5);
   flex-shrink: 0;
   border: none;
   background: none;
@@ -1012,16 +1056,20 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  margin: 0 var(--space-2) var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-2) var(--space-1);
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-raised);
 }
 
 .layers-filter-bar__search-row {
   display: flex;
   align-items: center;
   gap: var(--space-1);
-  padding: 0 var(--space-2);
+  min-height: var(--space-7);
+  padding: 0 var(--space-1) 0 var(--space-2);
   background: var(--color-surface-sunken);
-  border: 1px solid transparent;
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
   transition: border-color var(--duration-quick) var(--ease-standard);
 }
@@ -1072,9 +1120,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: var(--space-5);
-  height: var(--space-5);
-  border: none;
+  width: var(--space-6);
+  height: var(--space-6);
+  border: 1px solid transparent;
   background: none;
   color: var(--color-text-muted);
   cursor: pointer;
@@ -1085,6 +1133,12 @@
 .layers-filter-bar__toggle-advanced:hover {
   color: var(--color-text-primary);
   background: var(--color-surface-hover);
+}
+
+.layers-filter-bar__toggle-advanced--active {
+  color: var(--color-interactive-default);
+  border-color: color-mix(in oklab, var(--color-interactive-default) 30%, transparent);
+  background: var(--color-accent-subtle);
 }
 
 .layers-filter-bar__clear-all {
@@ -1170,8 +1224,8 @@
 .layers-filter-bar__count {
   font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
-  text-align: right;
   padding: 0 var(--space-1);
+  letter-spacing: 0.01em;
 }
 
 .layer-color-tag-picker {
@@ -1564,10 +1618,11 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  min-height: calc(var(--space-7) + var(--space-1));
   padding: var(--space-1) var(--space-2);
-  background: var(--color-surface-overlay);
-  border-top: var(--border-micro);
-  border-top-color: var(--color-border-subtle);
+  background: var(--color-surface-raised);
+  border-top: 1px solid var(--color-border-subtle);
+  box-shadow: 0 -4px 12px color-mix(in oklab, var(--color-text-primary) 8%, transparent);
   flex-shrink: 0;
   animation: layers-bulk-bar-slide-in var(--duration-base) var(--ease-standard);
   overflow-x: auto;
@@ -1592,7 +1647,8 @@
 
 .layers-bulk-bar__count {
   font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -1602,6 +1658,8 @@
   align-items: center;
   gap: var(--space-05);
   flex-wrap: nowrap;
+  margin-left: auto;
+  min-width: 0;
 }
 
 .layers-bulk-bar__btn {
@@ -1636,4 +1694,31 @@
   border-left: 1px solid var(--color-border-subtle);
   border-right: 1px solid var(--color-border-subtle);
   padding: 0 var(--space-05);
+}
+
+/* The editor rail is intentionally narrow. Keep selection feedback and its
+ * actions attached to the tree, while giving the action row its own scroll
+ * lane instead of clipping the toolbar below the panel. */
+@container layers (max-width: 340px) {
+  .layers-bulk-bar {
+    flex-wrap: wrap;
+    gap: var(--space-05) var(--space-2);
+  }
+
+  .layers-bulk-bar__count {
+    flex-basis: 100%;
+  }
+
+  .layers-bulk-bar__actions {
+    flex: 1 1 100%;
+    justify-content: flex-end;
+    margin-left: 0;
+    overflow-x: auto;
+    padding-bottom: 1px;
+    scrollbar-width: none;
+  }
+
+  .layers-bulk-bar__actions::-webkit-scrollbar {
+    display: none;
+  }
 }
