@@ -473,6 +473,12 @@ test.describe('Content-Aware Fill dialog', () => {
   });
 
   test('Apply button creates a new image layer after fill (fast mode)', async ({ page }) => {
+    const historyWarnings: string[] = [];
+    page.on('console', (message) => {
+      if (message.text().includes('updateDoc called outside transaction')) {
+        historyWarnings.push(message.text());
+      }
+    });
     await triggerCafDialog(page, nodeId);
     await paintMaskStroke(page);
 
@@ -511,6 +517,10 @@ test.describe('Content-Aware Fill dialog', () => {
     // A new "filled" image node should appear in the layers panel
     await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 10_000 });
     await expect(page.getByRole('treeitem').filter({ hasText: /filled/i })).toHaveCount(1);
+    await expect(
+      page.locator('[role="treeitem"][aria-selected="true"]').filter({ hasText: /filled/i }),
+    ).toHaveCount(1);
+    expect(historyWarnings).toEqual([]);
   });
 
   test('undo reverts the CAF apply operation', async ({ page }) => {
