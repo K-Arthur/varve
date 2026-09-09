@@ -362,7 +362,9 @@ export function QuickConvertDialog({ open, onClose, platform }: QuickConvertDial
                 <div>
                   <strong>{item.file.name}</strong>
                   <span>
-                    {displayFormat(item.plan)} · {formatBytes(item.file.size)}
+                    {displayFormat(item.plan)}
+                    {item.plan ? ` · ${item.plan.width} x ${item.plan.height}` : ''} ·{' '}
+                    {formatBytes(item.file.size)}
                   </span>
                 </div>
                 <span className="quick-convert__file-status">{statusLabel(item)}</span>
