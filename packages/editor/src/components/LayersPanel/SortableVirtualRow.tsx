@@ -17,6 +17,7 @@ export interface SortableVirtualRowProps {
   node: SceneNode;
   depth: number;
   selected: boolean;
+  selectionPreview?: boolean;
   focused: boolean;
   expanded: boolean;
   editing: boolean;
@@ -36,6 +37,8 @@ export interface SortableVirtualRowProps {
   onCollapseSubtree: (id: NodeId) => void;
   onExpandToDepth1: (id: NodeId) => void;
   onSelect: (id: NodeId, shift: boolean, ctrl: boolean) => void;
+  onSelectionPointerDown?: (event: React.PointerEvent<HTMLDivElement>) => void;
+  onSelectionClick?: () => boolean;
   onRename: (id: NodeId, name: string) => void;
   onRenameStart: (id: NodeId) => void;
   onRenameCommit: () => void;
@@ -66,6 +69,7 @@ export function SortableVirtualRow({
   node,
   depth,
   selected,
+  selectionPreview,
   focused,
   expanded,
   editing,
@@ -82,6 +86,8 @@ export function SortableVirtualRow({
   onCollapseSubtree,
   onExpandToDepth1,
   onSelect,
+  onSelectionPointerDown,
+  onSelectionClick,
   onRename,
   onRenameStart,
   onRenameCommit,
@@ -108,6 +114,7 @@ export function SortableVirtualRow({
   const {
     attributes,
     listeners,
+    setActivatorNodeRef,
     setNodeRef: setSortableRef,
     isDragging,
   } = useSortable({
@@ -189,6 +196,7 @@ export function SortableVirtualRow({
         node={node}
         depth={depth}
         selected={selected}
+        selectionPreview={selectionPreview}
         focused={focused}
         expanded={expanded}
         editing={editing}
@@ -198,6 +206,8 @@ export function SortableVirtualRow({
         onCollapseSubtree={onCollapseSubtree}
         onExpandToDepth1={onExpandToDepth1}
         onSelect={onSelect}
+        onSelectionPointerDown={onSelectionPointerDown}
+        onSelectionClick={onSelectionClick}
         onRename={onRename}
         onRenameCommit={onRenameCommit}
         onRenameCancel={onRenameCancel}
@@ -211,8 +221,9 @@ export function SortableVirtualRow({
         totalRows={totalRows}
         siblingIndex={siblingIndex}
         siblingCount={siblingCount}
-        dragListeners={isDragging ? undefined : listeners}
-        dragAttributes={isDragging ? undefined : attributes}
+        dragHandleRef={setActivatorNodeRef}
+        dragHandleListeners={isDragging ? undefined : listeners}
+        dragHandleAttributes={isDragging ? undefined : attributes}
         variantName={variantName}
         hasMotion={hasMotion}
         keyframeCount={keyframeCount}

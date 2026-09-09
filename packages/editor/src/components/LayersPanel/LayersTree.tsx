@@ -56,6 +56,7 @@ import {
 } from '../../scene/parentIndexCache';
 import { isNodeEffectivelyLocked } from '../../scene/world';
 import { resolvePrimarySelectionId } from '../../selection/selectionContext';
+import { applySelectionRange, selectionRangeBetween } from '../../selection/selectionRange';
 import { loadSettings } from '../../settings';
 import { getEffectStackInspectorTarget } from './effectStackNavigation';
 import type { LayerDropTarget } from './layerDropResolver';
@@ -73,6 +74,7 @@ import { SortableVirtualRow } from './SortableVirtualRow';
 import { computeDocumentDiff, type FlatEntry, useFlatTree } from './useFlatTree';
 import { useLayerNavigation } from './useLayerNavigation';
 import { useLayersDnD } from './useLayersDnD';
+import { useLayersSelectionScrub } from './useLayersSelectionScrub';
 import { sharedThumbnailCache } from './useThumbnail';
 import { useTreeFocus } from './useTreeFocus';
 import { useTreeKeyboardNavigation } from './useTreeKeyboardNavigation';
@@ -326,6 +328,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     state,
     isSelected,
     toggleSelection,
+    setSelectionRefs,
     renameNodeById,
     setNodeVisible,
     setNodeLocked,
@@ -493,7 +496,8 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
   }
 
   const treeRef = useRef<HTMLDivElement>(null);
-  const { focusIdx, anchorIdx, setFocusIdx, setAnchorIdx, jumpToStart, jumpToEnd } = useTreeFocus(
+  const anchorIdRef = useRef<NodeId | null>(null);
+  const { focusIdx, setFocusIdx, setAnchorIdx, jumpToStart, jumpToEnd } = useTreeFocus(
     entries.length,
   );
   const { handleTypeAhead } = useTypeAhead();
@@ -565,6 +569,17 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
   };
   const focusIdxRef = useRef(focusIdx);
   focusIdxRef.current = focusIdx;
+
+  const { previewIds, onSelectionPointerDown, consumeSelectionClick } = useLayersSelectionScrub({
+    entriesRef,
+    treeRef,
+    virtualizer,
+    selection: state.selection,
+    anchorIdRef,
+    setFocusIdx,
+    setSelectionRefs,
+    announce,
+  });
 
   useLayerNavigation({
     expanded,
@@ -681,7 +696,8 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
 
   const activateLayer = useCallback(
     (id: NodeId) => {
-      toggleSelection(id, false, 'layers');
+      setSelectionRefs([id], { primary: id, origin: 'layers' });
+      anchorIdRef.current = id;
       setAnchorIdx(entries.findIndex((e) => e.node.id === id));
       const behavior = automaticNavigationForLayerActivation(
         loadSettings().layers.selectionNavigation,
@@ -689,31 +705,37 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       );
       if (behavior) revealSelection({ nodeId: id, behavior });
     },
-    [entries, toggleSelection, setAnchorIdx, revealSelection],
+    [entries, setAnchorIdx, revealSelection, setSelectionRefs],
   );
 
   const handleSelect = useCallback(
     (id: NodeId, shift: boolean, ctrl: boolean) => {
-      if (shift && anchorIdx >= 0) {
-        const clickIdx = entries.findIndex((e) => e.node.id === id);
-        if (clickIdx >= 0) {
-          const start = Math.min(anchorIdx, clickIdx);
-          const end = Math.max(anchorIdx, clickIdx);
-          const startEntry = entries[start];
-          if (!startEntry) throw new Error('start entry not found');
-          toggleSelection(startEntry.node.id, false, 'layers');
-          for (let i = start + 1; i <= end; i++) {
-            const entry = entries[i];
-            if (!entry) throw new Error('entry not found');
-            toggleSelection(entry.node.id, true, 'layers');
-          }
-          return;
-        }
+      const clickIdx = entries.findIndex((entry) => entry.node.id === id);
+      if (clickIdx < 0) return;
+      if (shift) {
+        const anchorId = anchorIdRef.current ?? id;
+        const range = selectionRangeBetween(
+          entries.map((entry) => entry.node),
+          anchorId,
+          id,
+        );
+        const next = applySelectionRange(state.selection, range, ctrl ? 'add' : 'replace');
+        setSelectionRefs(next, { primary: id, origin: 'layers' });
+        setFocusIdx(clickIdx);
+        return;
       }
-      if (ctrl) toggleSelection(id, true, 'layers');
-      else activateLayer(id);
+      if (ctrl) {
+        const next = state.selection.includes(id)
+          ? state.selection.filter((selectedId) => selectedId !== id)
+          : [...state.selection, id];
+        setSelectionRefs(next, { primary: id, origin: 'layers' });
+        anchorIdRef.current = id;
+        setFocusIdx(clickIdx);
+        return;
+      }
+      activateLayer(id);
     },
-    [anchorIdx, entries, toggleSelection, activateLayer],
+    [activateLayer, entries, setFocusIdx, setSelectionRefs, state.selection],
   );
 
   const handleRenameStart = useCallback(
@@ -759,15 +781,45 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
 
   const selectAll = useCallback(() => {
     if (entries.length === 0) return;
-    const firstEntry = entries[0];
-    if (!firstEntry) throw new Error('first entry not found');
-    toggleSelection(firstEntry.node.id, false, 'layers');
-    for (let i = 1; i < entries.length; i++) {
-      const entry = entries[i];
-      if (!entry) throw new Error('entry not found');
-      toggleSelection(entry.node.id, true, 'layers');
-    }
-  }, [entries, toggleSelection]);
+    const ids = entries.map((entry) => entry.node.id);
+    const lastId = ids.at(-1) ?? null;
+    setSelectionRefs(ids, { primary: lastId, origin: 'layers' });
+    anchorIdRef.current = ids[0] ?? null;
+  }, [entries, setSelectionRefs]);
+
+  const toggleLayerSelection = useCallback(
+    (
+      id: NodeId,
+      additive?: boolean,
+      origin?: import('../../context/selectionState').SelectionOrigin,
+    ) => {
+      toggleSelection(id, additive, origin ?? 'layers');
+      anchorIdRef.current = id;
+    },
+    [toggleSelection],
+  );
+
+  const selectRange = useCallback(
+    (id: NodeId, withAdditiveModifier: boolean) => {
+      const index = entries.findIndex((entry) => entry.node.id === id);
+      if (index < 0) return;
+      const anchorId = anchorIdRef.current ?? id;
+      const range = selectionRangeBetween(
+        entries.map((entry) => entry.node),
+        anchorId,
+        id,
+      );
+      const next = applySelectionRange(
+        withAdditiveModifier ? state.selection : [],
+        range,
+        withAdditiveModifier ? 'add' : 'replace',
+      );
+      setSelectionRefs(next, { primary: id, origin: 'layers' });
+      if (!withAdditiveModifier) anchorIdRef.current = anchorId;
+      setFocusIdx(index);
+    },
+    [entries, setFocusIdx, setSelectionRefs, state.selection],
+  );
 
   const doKeyboardMove = useCallback(
     (delta: number) => {
@@ -818,7 +870,8 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     exitIsolation,
     doKeyboardMove,
     toggleExpand,
-    toggleSelection,
+    toggleSelection: toggleLayerSelection,
+    selectRange,
     activateSelection: activateLayer,
     setFocusIdx,
     jumpToStart,
@@ -1061,6 +1114,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
                 node={node}
                 depth={depth}
                 selected={selected}
+                selectionPreview={previewIds.has(node.id)}
                 focused={focused}
                 expanded={isExpanded}
                 editing={renamingId === node.id}
@@ -1077,6 +1131,8 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
                 onCollapseSubtree={handleCollapseSubtree}
                 onExpandToDepth1={handleExpandToDepth1}
                 onSelect={handleSelect}
+                onSelectionPointerDown={onSelectionPointerDown}
+                onSelectionClick={consumeSelectionClick}
                 onRename={handleRename}
                 onRenameStart={handleRenameStart}
                 onRenameCommit={handleRenameCommit}
@@ -1103,7 +1159,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
                   for (const sid of ids) setNodeLocked(sid, !anyLocked);
                 }}
                 onToggleSelectionCheckbox={(id) => {
-                  toggleSelection(id, true, 'layers');
+                  toggleLayerSelection(id, true, 'layers');
                 }}
                 onFocus={handleRowFocus}
                 idx={virtualItem.index}
