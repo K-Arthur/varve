@@ -438,6 +438,10 @@ function buildMenus(
           ariaKeyshortcut: ks('import'),
           action: 'import',
         },
+        {
+          label: 'Quick Convert\u2026',
+          action: 'quickConvert',
+        },
         { label: '---' },
         // ── Close ──
         {

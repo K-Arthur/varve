@@ -134,6 +134,7 @@ export function registerEditorActions(
     ['new', 'New Document', 'file'],
     ['findReplace', 'Find and Replace', 'edit'],
     ['insertIcon', 'Insert Icon…', 'insert'],
+    ['quickConvert', 'Quick Convert…', 'file'],
     ['textBold', 'Bold', 'text'],
     ['textItalic', 'Italic', 'text'],
     ['textUnderline', 'Underline', 'text'],

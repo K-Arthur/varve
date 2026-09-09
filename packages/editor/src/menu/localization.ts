@@ -53,6 +53,7 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
   'menu.file.closeWindow': 'Close Window',
   'menu.file.quit': 'Quit Varve',
   'menu.file.import': 'Import\u2026',
+  'menu.file.quickConvert': 'Quick Convert\u2026',
   'menu.file.insertIcon': 'Insert Icon\u2026',
   'menu.file.exportSvg': 'Export SVG\u2026',
   'menu.file.export': 'Export\u2026',

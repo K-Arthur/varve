@@ -249,7 +249,6 @@ function ShellInner({
   }, [editor.state.tool]);
 
   // ── Lifecycle event handlers ─────────────────────────────────────────────
-
   // Native paste event listener (cross-platform, works on Wayland).
   // Captures clipboard data from the DOM event directly, bypassing
   // the permission-gated `navigator.clipboard.read()` Web API.
@@ -383,6 +382,7 @@ function ShellInner({
       onInsertIcon: () => setIconBrowserOpen(true),
       onOpenFile: () => fileRef.current?.click(),
       onImportFile: fileImport.openPicker,
+      onQuickConvert: () => window.dispatchEvent(new Event('varve:open-quick-convert')),
       onCustomizeWorkspace: () => setWorkspaceCustomizeOpen(true),
       onResizeImage: editor.openImageResizeDialog,
       onBringAllPanelsToCurrentDisplay: bringAllPanelsToCurrentDisplay,

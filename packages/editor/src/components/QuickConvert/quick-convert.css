@@ -1,0 +1,216 @@
+.quick-convert-dialog {
+  width: min(760px, calc(100vw - 32px));
+}
+
+.quick-convert {
+  display: grid;
+  gap: 16px;
+}
+
+.quick-convert__intro p {
+  margin: 0;
+}
+
+.quick-convert__intro .quick-convert__fine-print {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+.quick-convert__file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.quick-convert__dropzone {
+  display: grid;
+  gap: 5px;
+  width: 100%;
+  padding: 22px 18px;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: 10px;
+  background: var(--color-surface-subtle);
+  color: var(--color-text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.quick-convert__dropzone:hover,
+.quick-convert__dropzone:focus-visible {
+  border-color: var(--color-accent);
+  background: var(--color-accent-subtle);
+}
+
+.quick-convert__dropzone:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.quick-convert__dropzone-title {
+  font-weight: 650;
+}
+
+.quick-convert__dropzone-copy,
+.quick-convert__file span,
+.quick-convert__status,
+.quick-convert__empty {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.quick-convert__controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.quick-convert__controls label {
+  display: grid;
+  gap: 6px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.quick-convert__controls select,
+.quick-convert__controls input[type="range"] {
+  min-width: 0;
+}
+
+.quick-convert__controls select {
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+}
+
+.quick-convert__controls output {
+  float: right;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.quick-convert__notice,
+.quick-convert__warnings {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 7px;
+  background: var(--color-warning-subtle);
+  color: var(--color-text-primary);
+  font-size: 12px;
+}
+
+.quick-convert__warnings ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.quick-convert__files {
+  display: grid;
+  gap: 7px;
+  max-height: 190px;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.quick-convert__file {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 10px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 7px;
+  background: var(--color-surface-subtle);
+}
+
+.quick-convert__file > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.quick-convert__file strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quick-convert__file-status {
+  flex: 0 0 auto;
+  max-width: 45%;
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quick-convert__file--failed .quick-convert__file-status {
+  color: var(--color-danger);
+}
+
+.quick-convert__file--saved .quick-convert__file-status {
+  color: var(--color-success);
+}
+
+.quick-convert__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.quick-convert__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.quick-convert__button {
+  min-height: 32px;
+  padding: 0 13px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.quick-convert__button--quiet {
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+}
+
+.quick-convert__button--primary {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+.quick-convert__button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+@media (max-width: 620px) {
+  .quick-convert__controls {
+    grid-template-columns: 1fr;
+  }
+
+  .quick-convert__footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .quick-convert__actions {
+    justify-content: flex-end;
+  }
+}

@@ -188,6 +188,13 @@ export function getFileMenu(runAction: (id: string) => void): MenuItemDef[] {
       run: () => runAction('import'),
     },
     {
+      id: 'quickConvert',
+      labelKey: 'menu.file.quickConvert',
+      kind: 'command',
+      group: 'open',
+      run: () => runAction('quickConvert'),
+    },
+    {
       id: 'insertIcon',
       labelKey: 'menu.file.insertIcon',
       accelerator: a('i', true, true, true),

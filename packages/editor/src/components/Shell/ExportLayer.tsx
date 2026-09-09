@@ -21,6 +21,7 @@ import { type ExportProgressEvent, ExportService } from '../../exportService';
 import { buildPackageExport } from '../../packageExport';
 import { BatchBgRemoveDialog } from '../BatchBgRemoveDialog';
 import { ExportDialog } from '../Export/ExportDialog';
+import { QuickConvertDialogHost } from './QuickConvertDialogHost';
 
 function isRasterExport(format: ExportFormat): boolean {
   return format === 'png' || format === 'jpg' || format === 'webp';
@@ -220,6 +221,7 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
           .filter((n): n is ShapeNode => n?.kind === 'shape')}
         onNodeUpdate={applyPreparedCutout}
       />
+      <QuickConvertDialogHost platform={platform} />
     </>
   );
 });
