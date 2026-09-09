@@ -3,7 +3,7 @@
  * selected image and a second image you pick, using RIFE frame interpolation.
  *
  * Scoped as a standalone two-image interpolation tool rather than a Motion-mode
- * "keyframe" feature: Strata's Motion mode keyframes are numeric property
+ * "keyframe" feature: Varve's Motion mode keyframes are numeric property
  * tweens (opacity, rotation, position), not raster frames — there is no
  * "sequence of bitmap frames" concept anywhere in the scene model for RIFE
  * to plug into. This is an honest scoping of what RIFE actually does
