@@ -20,8 +20,10 @@ test.describe('Canvas name labels', () => {
     await zoom.press('Enter');
 
     const labels = page.locator('.canvas-name-labels');
-    await expect(labels.getByText('Frame 1', { exact: true })).toBeVisible();
-    await expect(labels.getByText(/Page 1 content/i)).toHaveCount(0);
+    await expect(labels.locator('text[data-node-id]', { hasText: 'Frame 1' })).toBeVisible();
+    await expect(labels.locator('text[data-node-id]', { hasText: /Page 1 content/i })).toHaveCount(
+      0,
+    );
     await expect(page.locator('.selection-info-bar').getByText(/Page 1 content/i)).toHaveCount(0);
   });
 
