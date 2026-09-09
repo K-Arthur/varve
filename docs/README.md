@@ -198,6 +198,7 @@ viewport behavior are documented in
 | `adr/0220-object-selection-runtime.md` | Model-independent Object Selection runtime boundary |
 | `adr/0221-local-asset-search-ranking-and-model-gate.md` | Hybrid local asset search and checkpoint gate |
 | `adr/0222-vision-runtime-selection.md` | Capability-driven visual-awareness runtime boundary |
+| `adr/0232-generative-editing-semantics.md` | Non-destructive generative editing semantics and provider boundary |
 | `adr/0223-palette-extraction-derived-analysis.md` | Palette extraction as derived, versioned analysis (see `architecture/palette-extraction-system.md`) |
 | `adr/0224-non-destructive-effect-attachments.md` | Separate node-local Object Filters from scoped Adjustment Layers |
 | `adr/0225-effect-studio.md` | Integrate Effect Studio with the existing effect pipeline |
@@ -250,6 +251,7 @@ viewport behavior are documented in
 | `architecture/image-vector-enhancement.md` | Image/vector enhancement and AI upscaling dispatch |
 | `architecture/palette-extraction-system.md` | Deterministic local image palette, harmony, and WCAG pair analysis |
 | `architecture/thumbnail-system.md` | Unified thumbnail system (ADR-0218) |
+| `architecture/generative-editing-system.md` | Generative editing, provider, mask, history, and persistence contract (ADR-0232) |
 | `architecture/coordinate-system.md` | Coordinate-space contract: spaces, storage, composition, reparenting, migration (ADR-0219) |
 | `architecture/transform-system.md` | Canonical transform-session, geometry-baking, snapping, alignment, and precision contract |
 | `architecture/asset-search-system.md` | Asset Browser retrieval lanes, vector identity, model/runtime gate, and degradation contract |
