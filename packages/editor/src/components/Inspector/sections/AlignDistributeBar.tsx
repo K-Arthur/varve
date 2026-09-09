@@ -7,7 +7,8 @@
  * Research basis: Figma/Sketch align toolbar; APG Toolbar pattern; pill-chip pattern.
  */
 
-import { FloatingPortal, Menu, NumberInput, Tooltip, TooltipProvider } from '@varve/ui';
+import type { TidyLayoutOptions } from '@varve/shared';
+import { FloatingPortal, NumberInput, Tooltip, TooltipProvider } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import {
@@ -242,6 +243,82 @@ function OBBIcon() {
   );
 }
 
+function TidyUpPopover({
+  onApply,
+  onClose,
+}: {
+  onApply: (columns: number, options: TidyLayoutOptions) => void;
+  onClose: () => void;
+}) {
+  const [columns, setColumns] = useState(4);
+  const [rowGap, setRowGap] = useState(0);
+  const [columnGap, setColumnGap] = useState(0);
+
+  return (
+    <div
+      className="insp-align-popover insp-tidy-popover"
+      role="dialog"
+      aria-label="Tidy up options"
+      style={{ position: 'static' }}
+    >
+      <div className="insp-align-popover__header">
+        <span>Tidy up options</span>
+        <button
+          type="button"
+          className="insp-align-popover__close"
+          aria-label="Close Tidy up options"
+          onClick={onClose}
+        >
+          <CloseIcon />
+        </button>
+      </div>
+      <p className="insp-tidy-popover__description">
+        One-time grid arrangement; spacing does not create auto layout.
+      </p>
+      <div className="insp-tidy-popover__field">
+        <span>Columns</span>
+        <NumberInput
+          label="Columns"
+          value={columns}
+          min={1}
+          max={12}
+          step={1}
+          onChange={setColumns}
+        />
+      </div>
+      <div className="insp-tidy-popover__field">
+        <span>Column gap</span>
+        <NumberInput
+          label="Column gap (px)"
+          value={columnGap}
+          min={0}
+          max={99999}
+          step={1}
+          onChange={setColumnGap}
+        />
+      </div>
+      <div className="insp-tidy-popover__field">
+        <span>Row gap</span>
+        <NumberInput
+          label="Row gap (px)"
+          value={rowGap}
+          min={0}
+          max={99999}
+          step={1}
+          onChange={setRowGap}
+        />
+      </div>
+      <button
+        type="button"
+        className="insp-tidy-popover__apply"
+        onClick={() => onApply(columns, { rowGap, columnGap })}
+      >
+        Apply Tidy Up
+      </button>
+    </div>
+  );
+}
+
 export function AlignDistributeBar() {
   const {
     alignSelected,
@@ -337,9 +414,13 @@ export function AlignDistributeBar() {
   }, [keyObjectId, setKeyObject, state.primaryId, state.selection]);
 
   const handleTidyUp = useCallback(
-    (maxCols: number) => {
+    (columns: number, options: TidyLayoutOptions) => {
+      if (columns === 0) {
+        setShowTidyMenu(false);
+        return;
+      }
+      tidySelected(columns, options);
       setShowTidyMenu(false);
-      tidySelected(maxCols);
     },
     [tidySelected],
   );
@@ -600,30 +681,29 @@ export function AlignDistributeBar() {
           </div>
           <div className="insp-separator" />
           <div style={{ position: 'relative' }}>
-            <Tooltip label="Tidy up — arrange in grid">
-              <button
-                ref={tidyBtnRef}
-                type="button"
-                className="pill-group__btn"
-                aria-label="Tidy up grid"
-                onClick={() => setShowTidyMenu(!showTidyMenu)}
-                disabled={!capabilities.canTidy}
-              >
-                <GridIcon />
-              </button>
-            </Tooltip>
-            <Menu
-              triggerRef={tidyBtnRef}
+            <button
+              ref={tidyBtnRef}
+              type="button"
+              className="pill-group__btn"
+              aria-label="Tidy up grid"
+              title="Tidy up — arrange in grid"
+              onClick={() => setShowTidyMenu(!showTidyMenu)}
+              disabled={!capabilities.canTidy}
+            >
+              <GridIcon />
+            </button>
+            <FloatingPortal
+              anchorRef={tidyBtnRef}
               open={showTidyMenu}
+              kind="popover"
+              placement="bottom-end"
+              fallbackPlacements={['top-end', 'bottom-start', 'top-start']}
               onClose={() => setShowTidyMenu(false)}
-              label="Tidy up columns"
-              items={[4, 6, 8].map((columns) => ({
-                id: `tidy-${columns}`,
-                label: `${columns} columns`,
-                onAction: () => handleTidyUp(columns),
-              }))}
-              size="compact"
-            />
+              dismissOnEscape
+              className="varve-floating-layer"
+            >
+              <TidyUpPopover onApply={handleTidyUp} onClose={() => setShowTidyMenu(false)} />
+            </FloatingPortal>
           </div>
           <Tooltip label="Toggle oriented bounding box alignment">
             <button

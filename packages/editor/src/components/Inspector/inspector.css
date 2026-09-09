@@ -1410,6 +1410,44 @@
   color: var(--color-text-muted);
   font-size: var(--font-size-2xs);
 }
+.insp-tidy-popover {
+  width: 220px;
+}
+.insp-tidy-popover__description {
+  margin: 0 0 var(--space-2);
+  line-height: 1.4;
+}
+.insp-align-popover .insp-tidy-popover__field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 92px;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 28px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+.insp-tidy-popover__field .varve-number-input {
+  width: 100%;
+  box-sizing: border-box;
+  text-align: right;
+}
+.insp-tidy-popover__apply {
+  width: 100%;
+  margin-top: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+.insp-tidy-popover__apply:hover,
+.insp-tidy-popover__apply:focus-visible {
+  background: var(--color-interactive-hover);
+}
 .insp-align-section {
   padding: var(--space-2) var(--space-3);
   border-bottom: 1px solid var(--color-border-subtle);
@@ -4935,7 +4973,7 @@
 
 .insp-quick-bar__grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(7rem, 100%), 1fr));
   gap: var(--space-2) var(--space-1);
 }
 
@@ -4944,6 +4982,7 @@
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: max-content var(--space-6);
   gap: 2px;
+  min-width: 0;
   min-height: 0;
 }
 
@@ -4964,6 +5003,12 @@
   width: auto;
   height: var(--space-6);
   min-height: 0;
+  min-width: 0;
+}
+
+.insp-quick-bar .insp-num {
+  width: 100%;
+  min-width: 0;
 }
 
 .insp-quick-bar .insp-num__input {
@@ -5019,4 +5064,10 @@
   color: var(--color-text-muted);
   font-size: var(--font-size-2xs);
   line-height: 1.35;
+}
+
+@container inspector (max-width: 15rem) {
+  .insp-quick-bar__fill--wide {
+    grid-column: auto;
+  }
 }

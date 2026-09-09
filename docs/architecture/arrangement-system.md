@@ -15,7 +15,7 @@ result in each node's direct parent space.
 | Equal visible edge gaps | `computeDistribution` / `distributeSelectionInDocument` | Distribution options | Gap handles | One mutation; outer items retained | Complete |
 | Equal reference-point centers | `computeDistributionCenters` | Distribution options | Not a gap handle operation | One mutation; outer centers retained | Complete |
 | Numeric gap, including two objects | Fixed-gap distribution | Distribution options | Gap handles and keyboard sliders | One mutation; first spatial item anchors | Complete |
-| Tidy-up grid | `tidySelectionInDocument` + `computeTidyLayout` | Tidy-up menu | Not persistent layout | One mutation; selection top-left anchor retained | Complete |
+| Tidy-up grid | `tidySelectionInDocument` + `computeTidyLayout` | Tidy-up options: columns, row gap, column gap | Not persistent layout | One mutation; selection top-left anchor retained | Complete |
 | Persistent flex / grid auto layout | `@varve/layout` reflow pipeline | Layout inspector | Flow-child reorder is supported | Scene layout metadata | Complete for documented subset |
 | Paint-order arrangement | `@varve/scene.arrangeNodes` | Arrange menu and Layers actions | No spatial movement | One mutation; sibling order retained | Complete |
 | Canvas gap preview / cancellation | Preview transaction around canonical fixed-gap command | Gap handle | Live preview, Escape / blur cancel | One undo entry on release | Complete |

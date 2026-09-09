@@ -240,4 +240,50 @@ test.describe('Alignment and arrangement workflow', () => {
     await page.keyboard.press('Control+z');
     await expect.poll(() => label.textContent()).toBe(initialLabel);
   });
+
+  test('applies explicit Tidy Up columns and row/column gaps from the Inspector', async ({
+    page,
+  }, testInfo) => {
+    await navigateToStableEditor(page);
+    await seedLayers(page, 4);
+
+    const layers = page.getByRole('treeitem');
+    await layers.nth(0).click();
+    await layers.nth(1).click({ modifiers: ['Control'] });
+    await layers.nth(2).click({ modifiers: ['Control'] });
+    await layers.nth(3).click({ modifiers: ['Control'] });
+
+    const tidyButton = page.getByRole('button', { name: 'Tidy up grid' });
+    await expect(tidyButton).toBeEnabled();
+    await tidyButton.click();
+    const tidyDialog = page.getByRole('dialog', { name: 'Tidy up options' });
+    await expect(tidyDialog).toBeVisible();
+
+    const columns = page.getByLabel('Columns');
+    await columns.fill('2');
+    await columns.press('Enter');
+    const columnGap = page.getByLabel('Column gap (px)');
+    await columnGap.fill('24');
+    await columnGap.press('Enter');
+    const rowGap = page.getByLabel('Row gap (px)');
+    await rowGap.fill('32');
+    await rowGap.press('Enter');
+    await page.screenshot({ path: 'test-results/tidy-up-controls.png' });
+    await testInfo.attach('tidy-up-controls', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
+    await tidyDialog.getByRole('button', { name: 'Apply Tidy Up' }).click();
+    await expect(tidyDialog).toBeHidden();
+
+    const canvas = page.getByTestId('editor-canvas');
+    await page.waitForTimeout(500);
+    const screenshot = await canvas.screenshot();
+    await canvas.screenshot({ path: 'test-results/tidy-up-explicit-spacing.png' });
+    await testInfo.attach('tidy-up-explicit-spacing', {
+      body: screenshot,
+      contentType: 'image/png',
+    });
+    await expect(page.locator('.insp-panel__multi-count')).toContainText('4');
+  });
 });

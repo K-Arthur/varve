@@ -24,6 +24,7 @@ test.describe('canvas feature page', () => {
     const arrangement = page.getByTestId('canvas-arrangement-contract');
     await expect(arrangement).toBeVisible();
     await expect(arrangement).toContainText('Make spacing intentional');
+    await expect(arrangement).toContainText('independent row and column gaps');
     await expect(arrangement.locator('article')).toHaveCount(3);
     await page.screenshot({
       path: testInfo.outputPath('canvas-feature-desktop.png'),

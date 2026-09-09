@@ -317,6 +317,40 @@ describe('PropertiesPanel section gating for a real single selection', () => {
     await waitFor(() => expect(alignLeft).toBeEnabled());
   });
 
+  it('surfaces child layout controls for multiple flow children in one auto-layout frame', async () => {
+    const { addChild, createDocument, makeFrameNode, makeShapeNode } = await import('@varve/scene');
+    let doc = createDocument('multi-layout-child-test');
+    const rootId = doc.pages?.[0]?.contentRoot as string;
+    const frame = makeFrameNode('frame', {
+      name: 'Auto Layout Frame',
+      w: 300,
+      h: 120,
+      layoutStyle: {
+        mode: 'flex',
+        direction: 'row',
+        gap: 16,
+        wrap: false,
+        padding: [8, 8, 8, 8],
+        grow: 0,
+        shrink: 1,
+      },
+    });
+    const first = makeShapeNode('first', { kind: 'rect', x: 0, y: 0, w: 40, h: 40 });
+    const second = makeShapeNode('second', { kind: 'rect', x: 0, y: 0, w: 40, h: 40 });
+    doc = addChild(doc, rootId, frame);
+    doc = addChild(doc, frame.id, first);
+    doc = addChild(doc, frame.id, second);
+
+    await renderPanelWithSelectedNodes(JSON.stringify(doc), [first.id, second.id]);
+
+    expect(screen.getByRole('button', { name: 'Layout child' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Layout position' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Child width sizing' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('combobox', { name: 'Child cross-axis alignment override' }),
+    ).toBeInTheDocument();
+  });
+
   it('does not mount image-only AI sections for a non-image rect selection', async () => {
     await renderPanelWithSelectedRect();
     for (const title of ['AI Denoise', 'Lens Blur', 'Line Art', 'Frame Interpolation']) {

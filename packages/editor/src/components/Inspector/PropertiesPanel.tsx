@@ -707,6 +707,7 @@ function MultiSelectionPanel({
     };
 
     add('position-size', <PositionSizeSection nodes={nodes} />);
+    add('layout-child', <LayoutChildSection nodes={nodes} />);
     add('appearance', <AppearanceSection nodes={nodes} />);
     add('adjustment-layer-access', <AdjustmentLayerAccessSection nodes={nodes} />);
     add('selection-colors', <SelectionColorsSection nodes={nodes} />);

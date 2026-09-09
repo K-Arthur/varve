@@ -136,6 +136,30 @@ describe('AlignDistributeBar', () => {
     expect(editor.distributeWithGap).toHaveBeenCalledWith('horizontal', 24);
   });
 
+  it('offers explicit row and column spacing for one-time Tidy Up', async () => {
+    const editor = editorForSelection(['a', 'b', 'c']);
+    mocks.useEditor.mockReturnValue(editor);
+    render(<AlignDistributeBar />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tidy up grid' }));
+    expect(await screen.findByRole('dialog', { name: 'Tidy up options' })).toBeVisible();
+    expect(screen.getByText('Columns')).toBeVisible();
+    expect(screen.getByText('Column gap')).toBeVisible();
+    expect(screen.getByText('Row gap')).toBeVisible();
+    const columns = screen.getByLabelText('Columns');
+    fireEvent.change(columns, { target: { value: '3' } });
+    fireEvent.keyDown(columns, { key: 'Enter' });
+    const columnGap = screen.getByLabelText('Column gap (px)');
+    fireEvent.change(columnGap, { target: { value: '16' } });
+    fireEvent.keyDown(columnGap, { key: 'Enter' });
+    const rowGap = screen.getByLabelText('Row gap (px)');
+    fireEvent.change(rowGap, { target: { value: '24' } });
+    fireEvent.keyDown(rowGap, { key: 'Enter' });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply Tidy Up' }));
+
+    expect(editor.tidySelected).toHaveBeenCalledWith(3, { rowGap: 24, columnGap: 16 });
+  });
+
   it('does not show manual alignment for a wholly ineligible selection', () => {
     mocks.useEditor.mockReturnValue(editorForSelection(['a'], false, true));
     render(<AlignDistributeBar />);
