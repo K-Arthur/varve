@@ -15,12 +15,13 @@ round-trip-preserving image codec.
 Quick Convert accepts a bounded batch of local raster files and processes them
 one at a time through the active browser/webview codecs. The current output
 choices are PNG, JPEG, WebP, and AVIF. Each row reports source detection,
-encoded size, warnings, and save status.
+encoded size, color/alpha facts, profile/bit-depth facts where available,
+warnings, and save status.
 
-The queue is capped at 25 files. Encoded input is checked against the shared
-128 MiB limit, decoded dimensions against 65,535 pixels per axis and 64
-megapixels, and conversion is sequential so a batch cannot create an
-unbounded collection of decoded canvases.
+The queue is capped at 25 files and 512 MiB of encoded input. Each file is
+checked against the shared 128 MiB limit, decoded dimensions against 65,535
+pixels per axis and 64 megapixels, and conversion is sequential so a batch
+cannot create an unbounded collection of decoded canvases.
 
 ### File > Export
 

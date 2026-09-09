@@ -96,6 +96,51 @@
   font-variant-numeric: tabular-nums;
 }
 
+.quick-convert__advanced {
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: 12px;
+}
+
+.quick-convert__advanced summary {
+  color: var(--color-text-primary);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.quick-convert__advanced-body {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.quick-convert__advanced-body label:not(.quick-convert__check) {
+  display: grid;
+  gap: 6px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.quick-convert__advanced-body input[type="number"],
+.quick-convert__advanced-body select {
+  min-height: 30px;
+  min-width: 0;
+  padding: 0 7px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+}
+
+.quick-convert__check {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--color-text-primary);
+  font-size: 12px;
+}
+
 .quick-convert__notice,
 .quick-convert__warnings {
   margin: 0;
@@ -201,7 +246,8 @@
 }
 
 @media (max-width: 620px) {
-  .quick-convert__controls {
+  .quick-convert__controls,
+  .quick-convert__advanced-body {
     grid-template-columns: 1fr;
   }
 

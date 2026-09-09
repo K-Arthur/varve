@@ -19,12 +19,13 @@ import { sitePath } from '../../../lib/siteUrl';
         <h2>Quick Convert workflow</h2>
         <ol>
           <li>Open <strong>File &gt; Quick Convert…</strong> and choose one or more local raster files.</li>
-          <li>Review content-detected source formats, dimensions, and warnings.</li>
+          <li>Review content-detected source formats, dimensions, color/alpha facts, and warnings.</li>
           <li>Choose an output format and quality. JPEG exposes an explicit background color for alpha flattening.</li>
+          <li>Expand Advanced output controls when you need output dimensions, aspect-ratio locking, or nearest-neighbor resampling.</li>
           <li>Convert and save. Files are decoded and encoded one at a time, with each result shown in the queue.</li>
         </ol>
         <p>
-          The queue accepts up to 25 files. Each file is checked before decode for encoded size, dimensions, and decoded pixel budget. A corrupt or unsupported file does not silently become a different format.
+          The queue accepts up to 25 files and 512 MiB of encoded input. Each file is checked before decode for encoded size, dimensions, and decoded pixel budget. A corrupt or unsupported file does not silently become a different format.
         </p>
       </section>
 

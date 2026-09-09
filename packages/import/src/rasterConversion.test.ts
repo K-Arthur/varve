@@ -57,6 +57,25 @@ describe('raster conversion planning', () => {
     expect(plan.warnings.join(' ')).toMatch(/first decoded frame/i);
   });
 
+  it('derives a locked output dimension and keeps source metadata visible', () => {
+    const plan = planRasterConversion(pngHeader(12, 8), {
+      outputFormat: 'png',
+      width: 6,
+    });
+
+    expect(plan).toMatchObject({
+      width: 12,
+      height: 8,
+      outputWidth: 6,
+      outputHeight: 4,
+      sourceColorModel: 'rgb',
+      sourceBitDepth: '8',
+      sourceProfile: 'not embedded',
+      sourceOrientation: 'none',
+    });
+    expect(plan.warnings.join(' ')).toMatch(/resized from 12 x 8 to 6 x 4/i);
+  });
+
   it('rejects unsupported output formats with a typed error', () => {
     expect(() =>
       planRasterConversion(pngHeader(1, 1), {

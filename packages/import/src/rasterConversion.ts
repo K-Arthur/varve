@@ -15,7 +15,12 @@ import {
   mimeForFormat,
 } from './formatCapabilities';
 import { inspectImageSource, normalizeRasterBytes } from './image';
-import { inspectRasterBytes, type RasterInspection } from './rasterInspection';
+import {
+  inspectRasterBytes,
+  MAX_RASTER_DIMENSION,
+  MAX_RASTER_PIXELS,
+  type RasterInspection,
+} from './rasterInspection';
 
 export const RASTER_CONVERSION_FORMATS = ['png', 'jpeg', 'webp', 'avif'] as const;
 export type RasterConversionFormat = (typeof RASTER_CONVERSION_FORMATS)[number];
@@ -26,6 +31,12 @@ export interface RasterConversionOptions {
   quality?: number;
   /** CSS color used when an alpha-capable source is flattened to JPEG. */
   background?: string;
+  /** Optional output width. Height is derived when omitted. */
+  width?: number;
+  /** Optional output height. Width is derived when omitted. */
+  height?: number;
+  /** Browser canvas resampling policy for resized output. */
+  resampling?: 'smooth' | 'nearest';
   signal?: AbortSignal;
 }
 
@@ -59,6 +70,13 @@ export interface RasterConversionPlan {
   width: number;
   height: number;
   animation: RasterInspection['animation'];
+  outputWidth: number;
+  outputHeight: number;
+  sourceColorModel: string;
+  sourceAlphaMode: string;
+  sourceBitDepth: string;
+  sourceProfile: string;
+  sourceOrientation: string;
   warnings: readonly string[];
   blockingIssues: readonly string[];
   /** True when a JPEG output needs a caller-selected matte color. */
@@ -117,12 +135,41 @@ function validateCssColor(color: string): boolean {
   return context.fillStyle !== '#000000' || color.trim().toLowerCase() === '#000000';
 }
 
+function resolveOutputDimensions(
+  width: number,
+  height: number,
+  options: Pick<RasterConversionOptions, 'width' | 'height'>,
+): { width: number; height: number } {
+  if (options.width === undefined && options.height === undefined) return { width, height };
+  if (options.width !== undefined && (!Number.isFinite(options.width) || options.width < 1)) {
+    throw new RasterConversionError('invalid-options', 'Output width must be a positive number');
+  }
+  if (options.height !== undefined && (!Number.isFinite(options.height) || options.height < 1)) {
+    throw new RasterConversionError('invalid-options', 'Output height must be a positive number');
+  }
+  const outputWidth = Math.round(options.width ?? (width * options.height!) / height);
+  const outputHeight = Math.round(options.height ?? (height * options.width!) / width);
+  if (
+    outputWidth > MAX_RASTER_DIMENSION ||
+    outputHeight > MAX_RASTER_DIMENSION ||
+    outputWidth > Math.floor(MAX_RASTER_PIXELS / outputHeight)
+  ) {
+    throw new RasterConversionError(
+      'invalid-options',
+      `Output exceeds the ${MAX_RASTER_DIMENSION}-pixel or ${MAX_RASTER_PIXELS}-pixel budget`,
+    );
+  }
+  return { width: outputWidth, height: outputHeight };
+}
+
 /** Build the user-visible conversion contract without touching the decoder. */
 export function planRasterConversion(
   bytes: Uint8Array,
-  options: Pick<RasterConversionOptions, 'outputFormat' | 'background'>,
+  options: Pick<RasterConversionOptions, 'outputFormat' | 'background' | 'width' | 'height'>,
 ): RasterConversionPlan {
   const inspection = inspectRasterBytes(bytes);
+  const sourceMetadata = inspectImageSource(bytes).metadata;
+  const outputDimensions = resolveOutputDimensions(inspection.width, inspection.height, options);
   const inputFormat = formatForMime(inspection.mimeType);
   if (!inputFormat) {
     throw new RasterConversionError(
@@ -176,6 +223,14 @@ export function planRasterConversion(
   if (options.outputFormat === 'jpeg' && options.background) {
     warnings.push(`Transparency is flattened against ${options.background}.`);
   }
+  if (
+    outputDimensions.width !== inspection.width ||
+    outputDimensions.height !== inspection.height
+  ) {
+    warnings.push(
+      `Output is resized from ${inspection.width} x ${inspection.height} to ${outputDimensions.width} x ${outputDimensions.height}.`,
+    );
+  }
 
   return {
     inputFormat,
@@ -184,7 +239,24 @@ export function planRasterConversion(
     outputMimeType: OUTPUT_MIME[options.outputFormat],
     width: inspection.width,
     height: inspection.height,
+    outputWidth: outputDimensions.width,
+    outputHeight: outputDimensions.height,
     animation: inspection.animation,
+    sourceColorModel: sourceMetadata.encoding.model,
+    sourceAlphaMode: sourceMetadata.encoding.alphaMode ?? 'unknown',
+    sourceBitDepth: sourceMetadata.encoding.bitDepth
+      ? String(sourceMetadata.encoding.bitDepth)
+      : 'unknown',
+    sourceProfile:
+      sourceMetadata.icc.kind === 'valid'
+        ? (sourceMetadata.icc.profile.description ?? 'embedded ICC')
+        : sourceMetadata.icc.kind === 'invalid'
+          ? 'invalid ICC'
+          : 'not embedded',
+    sourceOrientation:
+      sourceMetadata.orientation.kind === 'oriented'
+        ? `EXIF ${sourceMetadata.orientation.orientation}`
+        : 'none',
     warnings,
     blockingIssues,
     requiresBackground,
@@ -295,8 +367,8 @@ export async function convertRasterBytes(
 
   const decoded = await decodeBitmap(bytes, options.signal);
   const canvas = document.createElement('canvas');
-  canvas.width = decoded.displayedWidth;
-  canvas.height = decoded.displayedHeight;
+  canvas.width = plan.outputWidth;
+  canvas.height = plan.outputHeight;
   const context = canvas.getContext('2d', { alpha: options.outputFormat !== 'jpeg' });
   if (!context) {
     decoded.bitmap.close();
@@ -308,6 +380,8 @@ export async function convertRasterBytes(
       context.fillStyle = options.background!;
       context.fillRect(0, 0, canvas.width, canvas.height);
     }
+    context.imageSmoothingEnabled = options.resampling !== 'nearest';
+    if (options.resampling !== 'nearest') context.imageSmoothingQuality = 'high';
     context.drawImage(decoded.bitmap, 0, 0, canvas.width, canvas.height);
     const blob = await canvasToBlob(canvas, plan.outputMimeType, quality, options.signal);
     const output = new Uint8Array(await blob.arrayBuffer());
