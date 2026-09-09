@@ -33,43 +33,6 @@ each other. Selection Sets (named node-ID groups) and Saved Area Selections
 (named coverage snapshots) are separate persistence mechanisms; do not
 conflate "saved node group" with "saved pixel selection."
 
-## Node-selection interaction contract
-
-The Select tool owns the object-selection domain. Its empty-canvas marquee is
-not the pixel `MarqueeTool`: it selects eligible scene objects, while the
-pixel tool produces an `AreaSelection` for raster coverage. A canvas marquee
-is defined in viewport CSS pixels, so its visible rectangle remains faithful
-when the camera is rotated; the four screen corners are projected back to
-world space for candidate testing. Exact containment is an explicit policy,
-and ordinary intersection is the default.
-
-Canvas selection is scoped to the active editable surface (Design Canvas,
-active publishing page, master source, or legacy flat pasteboard) and to the
-current isolation subtree. Hidden, locked, and non-selectable nodes are
-excluded. If a matching ancestor and descendant are both found, the result
-keeps the canonical transform root so one gesture cannot move a descendant
-twice. The selection preview is transient; the ordered `NodeId[]` is written
-once on pointer release. Escape, pointer cancellation, tool switching, blur,
-or an editable-surface change clears the preview and leaves the committed
-selection/document untouched.
-
-Click selection is also release-only. A sub-threshold press does not clear or
-replace the selection until it resolves as a click on release; crossing the
-CSS-pixel drag threshold resolves the same press as a move or object marquee.
-Holding the unassigned `X` chord while the Select tool is active forces the
-object marquee even when the press begins over an object. It is tool-local and
-does not replace `Ctrl/Cmd+X` Cut.
-
-The Layers tree has a separate contiguous-range gesture. Pressing and moving
-through the row body previews a visible flattened range using stable anchor
-and extent IDs; reversing direction is deterministic, virtualized rows use
-the virtualizer's authoritative measurements, and edge auto-scroll continues
-to resolve the range. Release commits one selection/history update. The
-dedicated grip is reserved for structural reorder/reparent DnD, and controls
-such as disclosure, visibility, lock, checkbox, and rename input do not start
-either gesture. Shift-click, Shift+Arrow, and row scrub all call the same
-stable-ID range algorithm.
-
 ## Area selection tools
 
 | Tool | Produces | Notes |

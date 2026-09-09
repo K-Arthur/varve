@@ -207,7 +207,7 @@
   gap: var(--density-rows-gap, var(--space-1));
   padding: var(--density-rows-padding, var(--space-1));
   border-radius: var(--radius-control-compact);
-  cursor: default;
+  cursor: grab;
   user-select: none;
   min-height: var(--density-rows-min-height, var(--space-6));
   background: var(--color-tree-row);
@@ -412,19 +412,6 @@
 .layers-row--focused {
   outline: 2px solid var(--color-tree-row-focus);
   outline-offset: -2px;
-}
-
-/* A scrub preview is intentionally distinct from committed selection. It
- * follows the pointer during a row-body drag and becomes the normal selected
- * treatment only on pointer-up. */
-.layers-row--selection-preview {
-  background: var(--color-interactive-hover-surface);
-  box-shadow: inset 0 0 0 1px var(--color-interactive-focus-ring);
-}
-
-.layers-row--selection-preview:not(.layers-row--selected) {
-  outline: 1px dashed var(--color-interactive-focus-ring);
-  outline-offset: -1px;
 }
 
 .layers-row--hidden {

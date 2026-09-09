@@ -423,6 +423,7 @@ import {
   runOwnedTransaction,
   shapeForTool,
 } from './context/sceneNodeGeometry';
+// The geometry module also owns the knife command used by the editor actions.
 import type {
   EditorContextValue as CanonicalEditorContextValue,
   CanvasMode,
@@ -460,7 +461,7 @@ import { resolveFontManifest, usePersistence } from './context/usePersistence';
 import { usePersistentHistory } from './context/usePersistentHistory';
 import { useRasterLod } from './context/useRasterLod';
 import { useSam2Segmentation } from './context/useSam2Segmentation';
-import { makeSetRefs, useSelectionCommands } from './context/useSelectionCommands';
+import { useSelectionCommands } from './context/useSelectionCommands';
 import {
   BOOT_WORKSPACE_MODE,
   initialPanelVisibility,
@@ -3940,8 +3941,7 @@ export function EditorProvider({
           onSelectionChangeRef.current(newSelection);
         }
       },
-      setSelectionRefs: makeSetRefs(stateRef, setState, selectionHistory, onSelectionChangeRef),
-      setSelectionPreview: (preview) => patch({ selectionPreview: preview }),
+
       // ADR-0016: table edit session + undoable table model ops.
       setTableEdit: (tableEdit: import('./context/types').TableEditState | null) => {
         patch({ tableEdit });

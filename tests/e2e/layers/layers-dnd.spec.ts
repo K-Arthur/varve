@@ -112,7 +112,7 @@ test.describe('Layers Panel - Drag & Drop', () => {
     await expect.poll(async () => rows.allTextContents()).toEqual(before);
   });
 
-  test('dragging from the layer name scrubs selection without starting structural DnD', async ({
+  test('dragging from the layer name reorders without selecting text', async ({
     page,
   }, testInfo) => {
     await seedLayers(page, 3);
@@ -120,35 +120,29 @@ test.describe('Layers Panel - Drag & Drop', () => {
     const rows = page.getByRole('treeitem');
     await expect(rows).toHaveCount(3);
     const before = await rows.allTextContents();
-    await rows.nth(0).click();
-    const sourceName = rows.nth(0).locator('.layers-row__name');
-    const targetName = rows.nth(2).locator('.layers-row__name');
+    const source = rows.nth(2);
+    const target = rows.nth(0);
+    const sourceName = source.locator('.layers-row__name');
     const sourceBox = await sourceName.boundingBox();
-    const targetBox = await targetName.boundingBox();
+    const targetBox = await target.boundingBox();
     if (!sourceBox || !targetBox) throw new Error('layer row geometry unavailable');
 
     await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2);
     await page.mouse.down();
-    await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, {
-      steps: 8,
-    });
+    await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + 2, { steps: 8 });
 
-    await expect(page.locator('.drag-overlay')).toBeHidden();
-    await expect(rows.nth(1)).toHaveAttribute('data-selection-preview', 'true');
-    await expect(rows.nth(2)).toHaveAttribute('data-selection-preview', 'true');
-    await page.getByTestId('layers-panel').screenshot({
-      path: testInfo.outputPath('layers-row-selection-scrub-preview.png'),
-    });
+    await expect(page.locator('.drag-overlay')).toBeVisible();
     expect(await page.evaluate(() => window.getSelection()?.toString() ?? '')).toBe('');
-    await page.mouse.up();
-
-    await expect
-      .poll(async () => page.locator('[role="treeitem"][aria-selected="true"]').count())
-      .toBe(3);
-    expect(await rows.allTextContents()).toEqual(before);
+    await page.getByTestId('layers-panel').screenshot({
+      path: testInfo.outputPath('layers-row-content-dragging.png'),
+    });
     await page.screenshot({
-      path: testInfo.outputPath('layers-row-selection-scrub-committed.png'),
+      path: testInfo.outputPath('layers-row-content-dragging-page.png'),
       fullPage: false,
     });
+    await page.mouse.up();
+
+    await expect.poll(async () => rows.allTextContents()).not.toEqual(before);
+    expect((await rows.allTextContents())[0]).toBe(before[2]);
   });
 });

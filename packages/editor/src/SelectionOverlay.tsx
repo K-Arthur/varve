@@ -407,32 +407,6 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
     return computeSelectionBox(candidates);
   }, [state.document, state.selection]);
 
-  const previewRects = useMemo(() => {
-    if (state.selectionPreview?.source !== 'canvas-object-marquee') return [];
-    return state.selectionPreview.ids.flatMap((id) => {
-      const bounds = nodeWorldBounds(state.document, id, parentIndex);
-      if (!bounds) return [];
-      const corners = [
-        overlayWorldToScreen(bounds.x, bounds.y),
-        overlayWorldToScreen(bounds.x + bounds.w, bounds.y),
-        overlayWorldToScreen(bounds.x + bounds.w, bounds.y + bounds.h),
-        overlayWorldToScreen(bounds.x, bounds.y + bounds.h),
-      ];
-      const xs = corners.map(([x]) => x);
-      const ys = corners.map(([, y]) => y);
-      const x = Math.min(...xs);
-      const y = Math.min(...ys);
-      return [{ id, x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y }];
-    });
-  }, [
-    parentIndex,
-    state.cameraRotation,
-    state.document,
-    state.pan,
-    state.selectionPreview,
-    state.zoom,
-  ]);
-
   const isSingle = sel.length === 1;
   const node = sel[0];
   const isShape = node?.kind === 'shape';
@@ -850,41 +824,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
     releaseSnapOptions();
   }, [updateDoc, commitTransaction, releaseSnapOptions]);
 
-  const previewRectElements = previewRects.map((rect) => (
-    <rect
-      key={`selection-preview-${rect.id}`}
-      x={rect.x}
-      y={rect.y}
-      width={rect.w}
-      height={rect.h}
-      fill="var(--color-interactive-default)"
-      fillOpacity={0.08}
-      stroke="var(--color-interactive-default)"
-      strokeWidth={1}
-      strokeDasharray="3 3"
-      pointerEvents="none"
-    />
-  ));
-
-  if (!box || box.w === 0 || box.h === 0) {
-    if (previewRectElements.length === 0) return null;
-    return (
-      <svg
-        role="presentation"
-        style={{
-          position: 'absolute',
-          inset: 0,
-          pointerEvents: 'none',
-          overflow: 'visible',
-          width: '100%',
-          height: '100%',
-          zIndex: CANVAS_INTERACTIVE_OVERLAY_Z_INDEX,
-        }}
-      >
-        {previewRectElements}
-      </svg>
-    );
-  }
+  if (!box || box.w === 0 || box.h === 0) return null;
 
   const handles = handlePositions(box);
   const topCenter = handles.n;
@@ -963,7 +903,6 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
           <feComposite in="SourceGraphic" in2="blur" operator="over" />
         </filter>
       </defs>
-      {previewRectElements}
       <rect
         x={topLeftScreen[0]}
         y={topLeftScreen[1]}

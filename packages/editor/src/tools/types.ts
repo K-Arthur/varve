@@ -70,8 +70,6 @@ export interface GestureResult {
 
 export type DraftShape =
   | { kind: 'rect'; x: number; y: number; w: number; h: number; label?: string }
-  /** Screen-space rectangle used by object marquee selection. */
-  | { kind: 'screen-rect'; x: number; y: number; w: number; h: number }
   | { kind: 'ellipse'; x: number; y: number; w: number; h: number; label?: string }
   | { kind: 'polygon'; x: number; y: number; w: number; h: number; sides: number; label?: string }
   | { kind: 'star'; x: number; y: number; w: number; h: number; points: number; label?: string }
@@ -187,8 +185,6 @@ export interface ToolContext {
   snapGrid: number;
   /** Isolation/focus view: when set, only nodes in this subtree are selectable. */
   isolatedNodeId?: import('@varve/scene').NodeId | null;
-  /** Stable editable-surface identity used to cancel cross-surface gestures. */
-  selectionSurfaceKey?: string;
   /** Enter or exit subtree isolation without coupling tools to editor context. */
   enterIsolation?: (nodeId: NodeId) => void;
   exitIsolation?: () => void;
@@ -220,13 +216,6 @@ export interface ToolContext {
       primary?: NodeId | null;
       origin?: import('../context/selectionState').SelectionOrigin;
     },
-  ) => void;
-  /** Update ephemeral canvas marquee candidates without changing selection. */
-  setSelectionPreview?: (
-    preview: {
-      source: 'canvas-object-marquee';
-      ids: readonly NodeId[];
-    } | null,
   ) => void;
   isSelected: (id: NodeId) => boolean;
   setNodePosition: (id: NodeId, x: number, y: number) => void;
@@ -273,8 +262,6 @@ export interface ToolContext {
   getNode: (id: NodeId) => SceneNode | undefined;
 
   canvasToWorld: (cx: number, cy: number) => { x: number; y: number };
-  /** Convert client coordinates to the canvas's viewport-local screen space. */
-  pointerToCanvas?: (clientX: number, clientY: number) => { x: number; y: number };
   worldToCanvas: (wx: number, wy: number) => { x: number; y: number };
   canvasDeltaToWorld: (dx: number, dy: number) => { dx: number; dy: number };
   /** World transform for a node, including parent transforms and page placement. */

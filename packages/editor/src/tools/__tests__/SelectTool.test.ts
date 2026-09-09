@@ -133,15 +133,6 @@ function makeNudgeCtx(
   return ctx;
 }
 
-function documentWithRootNodes(ids: readonly string[]) {
-  let doc = createDocument('selection test');
-  const contentRoot = doc.pages![0]!.contentRoot;
-  for (const id of ids) {
-    doc = addChild(doc, contentRoot, makeShapeNode(id, { kind: 'rect', x: 0, y: 0, w: 40, h: 40 }));
-  }
-  return doc;
-}
-
 // A hand-picked contentRoot id, distinct from the `n0`/`n1`/`n2` test-shape
 // ids below — `createDocument()`'s own auto-generated contentRoot id would
 // otherwise collide with `n1` (both come from the same `n${count}` scheme),
@@ -178,7 +169,6 @@ describe('SelectTool', () => {
       hitTest: vi.fn().mockReturnValue({ nodeId: 'n1', node: hitNode }),
     });
     tool.onPointerDown({ clientX: 50, clientY: 50, pointerId: 1, button: 0 } as any, ctx);
-    tool.onPointerUp({ clientX: 50, clientY: 50, pointerId: 1 } as any, ctx);
     expect(ctx.setSelection).toHaveBeenCalledWith('n1');
     expect(ctx.announceSelection).toHaveBeenCalled();
   });
@@ -187,34 +177,7 @@ describe('SelectTool', () => {
     const tool = new SelectTool();
     const ctx = makeCtx({ hitTest: vi.fn().mockReturnValue(null) });
     tool.onPointerDown({ clientX: 50, clientY: 50, pointerId: 1, button: 0 } as any, ctx);
-    tool.onPointerUp({ clientX: 50, clientY: 50, pointerId: 1 } as any, ctx);
     expect(ctx.setSelection).toHaveBeenCalledWith(null);
-  });
-
-  it('uses the unassigned X chord to force an object marquee over a hit node', () => {
-    const tool = new SelectTool();
-    const doc = makeDocWithNodes(1);
-    const node = doc.nodes.n0;
-    const ctx = makeCtx({
-      document: doc,
-      hitTest: vi.fn().mockReturnValue(node ? { nodeId: node.id, node } : null),
-      getNode: vi.fn((id: string) => doc.nodes[id]),
-    });
-
-    expect(
-      tool.onKeyDown({ key: 'x', ctrlKey: false, altKey: false, metaKey: false } as any, ctx),
-    ).toBe(true);
-    tool.onPointerDown({ clientX: 10, clientY: 10, pointerId: 1, button: 0 } as any, ctx);
-    (tool as any).onDragStart?.(ctx);
-    (tool as any).drag.currentCanvas = { x: 100, y: 100 };
-    (tool as any).drag.currentWorld = { x: 100, y: 100 };
-    (tool as any).onDragMove?.(ctx);
-
-    expect(ctx.beginTransaction).not.toHaveBeenCalled();
-    expect(ctx.setDraft).toHaveBeenCalledWith(
-      expect.objectContaining({ kind: 'screen-rect', x: 10, y: 10, w: 90, h: 90 }),
-    );
-    tool.onKeyUp({ key: 'x' } as any, ctx);
   });
 
   it('shift-click toggles selection without deselecting others', () => {
@@ -228,7 +191,6 @@ describe('SelectTool', () => {
       { clientX: 50, clientY: 50, pointerId: 1, button: 0, shiftKey: true } as any,
       ctx,
     );
-    tool.onPointerUp({ clientX: 50, clientY: 50, pointerId: 1 } as any, ctx);
     expect(ctx.toggleSelection).toHaveBeenCalledWith('n2', true);
   });
 
@@ -299,7 +261,6 @@ describe('SelectTool', () => {
       getNode: vi.fn((id: string) => doc.nodes[id]),
     });
     tool.onPointerDown({ clientX: 0, clientY: 0, pointerId: 1, button: 0 } as any, ctx);
-    (tool as any).onDragStart?.(ctx);
     (tool as any).drag.currentCanvas = { x: 90, y: 50 };
     (tool as any).drag.currentWorld = { x: 90, y: 50 };
     (tool as any).onDragMove?.(ctx);
@@ -328,7 +289,6 @@ describe('SelectTool', () => {
       { clientX: 0, clientY: 0, pointerId: 1, button: 0, shiftKey: true, altKey: true } as any,
       ctx,
     );
-    (tool as any).onDragStart?.(ctx);
     (tool as any).drag.currentCanvas = { x: 200, y: 50 };
     (tool as any).drag.currentWorld = { x: 200, y: 50 };
     (tool as any).onDragMove?.(ctx);
@@ -391,7 +351,6 @@ describe('SelectTool', () => {
       getNode: vi.fn().mockReturnValue({ id: 'n1', transform: [1, 0, 0, 1, 100, 100] }),
     });
     tool.onPointerDown({ clientX: 50, clientY: 50, pointerId: 1, button: 0 } as any, ctx);
-    (tool as any).onDragStart?.(ctx);
     expect(ctx.beginTransaction).toHaveBeenCalled();
     tool.onDeactivate(ctx);
     expect(ctx.abortTransaction).toHaveBeenCalled();
@@ -448,7 +407,6 @@ describe('SelectTool — depth-based click cycling', () => {
     });
 
     tool.onPointerDown({ clientX: 50, clientY: 50, pointerId: 1, button: 0 } as any, ctx);
-    tool.onPointerUp({ clientX: 50, clientY: 50, pointerId: 1 } as any, ctx);
 
     // n0 is middle node, n1 (bottom) is below it — should cycle to n1
     expect(ctx.setSelection).toHaveBeenCalledWith('n1');
@@ -502,7 +460,6 @@ describe('SelectTool — transparent fill click-through', () => {
     });
 
     tool.onPointerDown({ clientX: 50, clientY: 50, pointerId: 1, button: 0 } as any, ctx);
-    tool.onPointerUp({ clientX: 50, clientY: 50, pointerId: 1 } as any, ctx);
     expect(setSelection).toHaveBeenCalledWith('n1');
   });
 });
@@ -720,7 +677,6 @@ describe('SelectTool — isolation mode', () => {
     });
 
     const result = tool.onPointerDown(ev, ctx);
-    tool.onPointerUp({ pointerId: 1 } as any, ctx);
     // Should deselect (setSelection(null)) since hit was filtered out
     expect(ctx.setSelection).toHaveBeenCalledWith(null);
     expect(result).toEqual({ consumed: true, captured: true });
@@ -749,7 +705,6 @@ describe('SelectTool — isolation mode', () => {
     });
 
     tool.onPointerDown(ev, ctx);
-    tool.onPointerUp({ pointerId: 1 } as any, ctx);
     expect(ctx.setSelection).toHaveBeenCalledWith('frame1');
   });
 
@@ -773,7 +728,6 @@ describe('SelectTool — isolation mode', () => {
       pointerId: 1,
     });
     tool.onPointerDown(ev, ctx);
-    (tool as any).onDragStart?.(ctx);
 
     // End drag (marquee selection)
     tool.onDragEnd(ctx);
@@ -789,7 +743,6 @@ describe('SelectTool — drop target frame highlighting', () => {
     const tool = new SelectTool();
     const setNodePositions = vi.fn();
     const ctx = makeCtx({
-      document: documentWithRootNodes(['n1']),
       selection: ['n1'],
       setNodePositions,
       getNode: vi.fn().mockReturnValue({ id: 'n1', transform: [1, 0, 0, 1, 10, 20] }),
@@ -887,7 +840,6 @@ describe('SelectTool — drop target frame highlighting', () => {
     const nodeWorldBounds = vi.fn().mockReturnValue({ x: 0, y: 0, w: 40, h: 40 });
     const setNodePositions = vi.fn();
     const ctx = makeCtx({
-      document: documentWithRootNodes(['n1', 'n2']),
       selection: ['n1', 'n2'],
       snapEnabled: true,
       snapPosition,
@@ -928,9 +880,7 @@ describe('SelectTool Alt-drag duplication', () => {
   }
 
   function movingCtx(overrides?: Record<string, unknown>) {
-    const document = documentWithRootNodes(['n1', 'n2', 'a', 'b', 'n1-copy', 'a-copy', 'b-copy']);
     return makeCtx({
-      document,
       getNode: vi.fn((id: string) => ({ id, transform: [1, 0, 0, 1, 0, 0] })),
       nodeWorldBounds: vi.fn().mockReturnValue({ x: 0, y: 0, w: 40, h: 40 }),
       ...overrides,
@@ -1230,7 +1180,6 @@ describe('SelectTool deep selection (Ctrl+click)', () => {
       } as any,
       ctx,
     );
-    tool.onPointerUp({ pointerId: 1 } as any, ctx);
     // Should select the child, not the frame
     expect(ctx.setSelection).toHaveBeenCalledWith('c1');
   });
@@ -1268,7 +1217,6 @@ describe('SelectTool deep selection (Ctrl+click)', () => {
       } as any,
       ctx,
     );
-    tool.onPointerUp({ pointerId: 1 } as any, ctx);
     expect(ctx.toggleSelection).toHaveBeenCalledWith('c1', true);
   });
 
@@ -1316,7 +1264,6 @@ describe('SelectTool deep selection (Ctrl+click)', () => {
       } as any,
       ctx,
     );
-    tool.onPointerUp({ pointerId: 1 } as any, ctx);
 
     expect(ctx.setSelection).toHaveBeenCalledWith('c1');
     expect(ctx.setSelection).not.toHaveBeenCalledWith('f1');
@@ -1365,7 +1312,6 @@ describe('SelectTool deep selection (Ctrl+click)', () => {
       } as any,
       ctx,
     );
-    (tool as any).onDragStart?.(ctx);
 
     expect(ctx.hitTest).toHaveBeenCalledOnce();
     expect(ctx.setSelection).not.toHaveBeenCalledWith('f1');
@@ -1510,7 +1456,6 @@ describe('SelectTool — M6 page interactions', () => {
     const ctx = makeCtx({ document: doc, hitTest: vi.fn().mockReturnValue(null), setActivePage });
     // Click on page 2's trim (world 2550, 100).
     tool.onPointerDown({ clientX: 2550, clientY: 100, pointerId: 1, button: 0 } as any, ctx);
-    tool.onPointerUp({ clientX: 2550, clientY: 100, pointerId: 1 } as any, ctx);
     expect(ctx.setSelection).toHaveBeenCalledWith(null);
     expect(setActivePage).toHaveBeenCalledWith(page2.id);
   });

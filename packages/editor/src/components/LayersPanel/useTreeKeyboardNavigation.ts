@@ -26,7 +26,6 @@ interface UseTreeKeyboardNavigationArgs {
   doKeyboardMove: (delta: number) => void;
   toggleExpand: (id: NodeId) => void;
   toggleSelection: (id: NodeId, additive?: boolean, origin?: SelectionOrigin) => void;
-  selectRange: (id: NodeId, additive: boolean) => void;
   activateSelection: (id: NodeId) => void;
   setFocusIdx: (idx: number) => void;
   jumpToStart: () => void;
@@ -56,7 +55,6 @@ export function useTreeKeyboardNavigation({
   doKeyboardMove,
   toggleExpand,
   toggleSelection,
-  selectRange,
   activateSelection,
   setFocusIdx,
   jumpToStart,
@@ -107,7 +105,7 @@ export function useTreeKeyboardNavigation({
         setFocusIdx(next);
         const nextEntry = entries[next];
         if (!nextEntry) throw new Error('next entry not found');
-        selectRange(nextEntry.node.id, e.ctrlKey || e.metaKey);
+        toggleSelection(nextEntry.node.id, true, 'layers');
         virtualizer.scrollToIndex(next, { align: 'auto' });
         return;
       }
@@ -277,7 +275,6 @@ export function useTreeKeyboardNavigation({
       doKeyboardMove,
       toggleExpand,
       toggleSelection,
-      selectRange,
       activateSelection,
       setFocusIdx,
       jumpToStart,

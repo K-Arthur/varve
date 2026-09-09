@@ -68,6 +68,7 @@ function announceToolChange(toolId: string): void {
 export interface ActionHandlerCallbacks {
   onOpenFile?: () => void;
   onImportFile?: () => void;
+  onQuickConvert?: () => void;
   onInsertIcon?: () => void;
   onBackToHome?: () => void;
   onOpenSettings?: () => void;
@@ -636,6 +637,7 @@ export function createActionHandlers(
     newDocument: () => e.newDocument(),
     open: () => cb.onOpenFile?.(),
     import: () => cb.onImportFile?.(),
+    quickConvert: () => cb.onQuickConvert?.(),
     save: () => e.save(),
     saveAs: () => e.saveAs(),
     saveCopy: () => e.saveCopy(),

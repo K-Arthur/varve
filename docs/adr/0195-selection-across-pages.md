@@ -11,13 +11,6 @@ impossible today.
 
 ## Decision
 
-The current editor deliberately implements the pre-migration boundary: canvas
-marquee and Layers range selection are restricted to the active editable
-surface, and a page change cancels an in-progress gesture. No cross-page
-selection or cross-page Layers range is implied by the interfaces below. The
-discriminated, page-owned model remains the follow-up required before D1–D5
-can be considered implemented.
-
 D1 — Selection set extends to a discriminated union: nodes (with owning page
 context), pages, spreads, master items (inherited), and stories. Selection
 state carries the owning page/spread so operations resolve the right

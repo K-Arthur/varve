@@ -9,8 +9,6 @@ export interface MarqueeRect {
   h: number;
 }
 
-export type CanvasPoint = { x: number; y: number };
-
 /** Normalize a drag rectangle without rounding document-space coordinates. */
 export function normalizeMarqueeRect(
   start: { x: number; y: number },
@@ -96,27 +94,6 @@ function pointInPolygon(point: Point, polygon: readonly Point[]): boolean {
   return inside;
 }
 
-function polygonIntersectsRect(polygon: readonly Point[], marquee: MarqueeRect): boolean {
-  if (polygon.some((point) => pointInRect(point, marquee))) return true;
-  const marqueeCorners: Point[] = [
-    [marquee.x, marquee.y],
-    [marquee.x + marquee.w, marquee.y],
-    [marquee.x + marquee.w, marquee.y + marquee.h],
-    [marquee.x, marquee.y + marquee.h],
-  ];
-  if (marqueeCorners.some((point) => pointInPolygon(point, polygon))) return true;
-  for (let i = 0; i < polygon.length; i++) {
-    const a = polygon[i]!;
-    const b = polygon[(i + 1) % polygon.length]!;
-    for (let j = 0; j < marqueeCorners.length; j++) {
-      const c = marqueeCorners[j]!;
-      const d = marqueeCorners[(j + 1) % marqueeCorners.length]!;
-      if (segmentsIntersect(a, b, c, d)) return true;
-    }
-  }
-  return false;
-}
-
 function primitivePolygon(
   doc: Document,
   node: SceneNode,
@@ -179,40 +156,24 @@ export function marqueeGeometryHit(
       : marqueeRectsIntersect(marquee, bounds);
   }
   if (containment) return polygon.every((point) => pointInRect(point, marquee));
-  return polygonIntersectsRect(polygon, marquee);
-}
-
-/**
- * Apply the same object geometry policy after projecting both the object and
- * the pointer rectangle into canvas space. This is the rotation-safe path:
- * the pointer rectangle is always axis-aligned in the user's screen, while a
- * world-space AABB would become the wrong quadrilateral under camera rotation.
- */
-export function marqueeGeometryHitInCanvasSpace(
-  doc: Document,
-  nodeId: NodeId,
-  marquee: MarqueeRect,
-  containment: boolean,
-  worldToCanvas: (point: { x: number; y: number }) => CanvasPoint,
-  parentIndex?: Map<NodeId, NodeId>,
-  getWorldTransform: (nodeId: NodeId) => Affine = (id) => nodeWorldTransform(doc, id, parentIndex),
-  getWorldBounds: (nodeId: NodeId) => Rect | null = (id) => nodeWorldBounds(doc, id, parentIndex),
-): boolean {
-  const node = doc.nodes[nodeId];
-  const bounds = getWorldBounds(nodeId);
-  if (!node || !bounds) return false;
-  const worldPolygon = primitivePolygon(doc, node, nodeId, parentIndex, getWorldTransform) ?? [
-    [bounds.x, bounds.y],
-    [bounds.x + bounds.w, bounds.y],
-    [bounds.x + bounds.w, bounds.y + bounds.h],
-    [bounds.x, bounds.y + bounds.h],
+  if (polygon.some((point) => pointInRect(point, marquee))) return true;
+  const marqueeCorners: Point[] = [
+    [marquee.x, marquee.y],
+    [marquee.x + marquee.w, marquee.y],
+    [marquee.x + marquee.w, marquee.y + marquee.h],
+    [marquee.x, marquee.y + marquee.h],
   ];
-  const canvasPolygon = worldPolygon.map(([x, y]) => {
-    const point = worldToCanvas({ x, y });
-    return [point.x, point.y] as Point;
-  });
-  if (containment) return canvasPolygon.every((point) => pointInRect(point, marquee));
-  return polygonIntersectsRect(canvasPolygon, marquee);
+  if (marqueeCorners.some((point) => pointInPolygon(point, polygon))) return true;
+  for (let i = 0; i < polygon.length; i++) {
+    const a = polygon[i]!;
+    const b = polygon[(i + 1) % polygon.length]!;
+    for (let j = 0; j < marqueeCorners.length; j++) {
+      const c = marqueeCorners[j]!;
+      const d = marqueeCorners[(j + 1) % marqueeCorners.length]!;
+      if (segmentsIntersect(a, b, c, d)) return true;
+    }
+  }
+  return false;
 }
 
 /**

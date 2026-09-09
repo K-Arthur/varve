@@ -221,19 +221,13 @@ that target id.
 
 ## Gesture disambiguation
 
-Structural DnD is activated by the dedicated grip only. The row body belongs
-to the Layers selection gesture: a press that crosses the small CSS-pixel
-threshold previews and then commits a contiguous visible range. This keeps
-selection and hierarchy mutation from competing for the same pointerdown.
-Nested controls (disclosure triangle, selection checkbox, type icon,
-visibility/lock/solo toggles, effect badges, and the rename input) are excluded
-from row selection scrub as well as structural DnD.
-
-The row body intentionally does not receive dnd-kit's sortable activator. The
-grip owns the activator ref/listeners/attributes and carries the accessible
-"Drag to reorder" affordance, while the treeitem remains the keyboard
-selection target. A row-body drag therefore cannot reorder text by accident;
-it selects the visible range and never changes structural order.
+The row is draggable from anywhere on its non-control surface, which means
+dnd-kit's `pointerdown` listener sits on the treeitem above the layer name and
+the grip. Nested controls (disclosure triangle, selection checkbox, type icon,
+visibility/lock/solo toggles, effect badges, and the rename input) stop
+`pointerdown` themselves — stopping `click` is far too late, since the drag has
+already activated by then. This preserves control behavior while preventing a
+drag from the layer name from falling through to native text selection.
 
 A completed drag also produces a synthetic `click` on the dropped row, which
 would run the row's ordinary click handler and replace the selection the user
