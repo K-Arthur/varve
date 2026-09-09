@@ -1,7 +1,11 @@
 import { computeFloatingOrigin } from '@varve/shared';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getEditorViewport } from '../../canvas/cameraState';
 import { useEditor } from '../../context';
+import {
+  distributeSelectionInDocument,
+  getAlignmentCapabilities,
+} from '../../scene/selectionArrangement';
 import { nodeWorldBounds } from '../../scene/world';
 import './alignment-overlay.css';
 
@@ -24,6 +28,10 @@ interface SessionData {
   axis: 'horizontal' | 'vertical';
   sorted: Bounds[];
   gaps: number[];
+  baselineDocument: import('@varve/scene').Document;
+  selection: string[];
+  pointerId: number;
+  target: SVGElement;
 }
 
 // Must match the transform the canvas actually paints with
@@ -39,7 +47,14 @@ function worldToScreenY(wy: number, zoom: number, panY: number, originY: number)
 }
 
 export function AlignmentHandleOverlay() {
-  const { state, distributeWithGap } = useEditor();
+  const {
+    state,
+    distributeWithGap,
+    updateDoc,
+    beginTransaction,
+    commitTransaction,
+    abortTransaction,
+  } = useEditor();
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [currentGap, setCurrentGap] = useState<number | null>(null);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
@@ -55,10 +70,13 @@ export function AlignmentHandleOverlay() {
   );
 
   const computeData = useCallback(() => {
-    if (sel.length < 2) return null;
+    const capabilities = getAlignmentCapabilities(doc, sel);
+    if (capabilities.movableRootCount < 2) return null;
+    const eligible = new Set(capabilities.eligibleRootIds);
 
     const items: Bounds[] = [];
     for (const id of sel) {
+      if (!eligible.has(id)) continue;
       const b = nodeWorldBounds(doc, id);
       if (b) items.push({ id, x: b.x, y: b.y, w: b.w, h: b.h });
     }
@@ -97,7 +115,17 @@ export function AlignmentHandleOverlay() {
       const gaps = axis === 'horizontal' ? gapsH : gapsV;
       const sorted = axis === 'horizontal' ? sortedH : sortedV;
       const initialGap = gaps[index] ?? 0;
-      sessionRef.current = { axis, sorted, gaps };
+      const target = e.currentTarget as SVGElement;
+      sessionRef.current = {
+        axis,
+        sorted,
+        gaps,
+        baselineDocument: state.document,
+        selection: [...state.selection],
+        pointerId: e.pointerId,
+        target,
+      };
+      beginTransaction('preview');
       setDragState({
         axis,
         activeIndex: index,
@@ -105,21 +133,41 @@ export function AlignmentHandleOverlay() {
         initialGap,
       });
       setCurrentGap(initialGap);
-      const el = e.currentTarget as SVGElement;
-      el.setPointerCapture(e.pointerId);
+      target.setPointerCapture(e.pointerId);
     };
+
+  const previewGap = useCallback(
+    (gap: number) => {
+      const session = sessionRef.current;
+      if (!session) return;
+      updateDoc(() =>
+        distributeSelectionInDocument(session.baselineDocument, session.selection, session.axis, {
+          gap,
+        }),
+      );
+    },
+    [updateDoc],
+  );
+
+  const gapFromPointer = useCallback(
+    (e: React.PointerEvent, session: SessionData, drag: DragState) => {
+      const mousePos = session.axis === 'horizontal' ? e.clientX : e.clientY;
+      const deltaWorld = (mousePos - drag.startMouse) / zoom;
+      return Math.round(drag.initialGap + deltaWorld);
+    },
+    [zoom],
+  );
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
       const ds = dragState;
-      if (!ds || !sessionRef.current) return;
-      const mousePos = ds.axis === 'horizontal' ? e.clientX : e.clientY;
-      const delta = mousePos - ds.startMouse;
-      const deltaWorld = delta / zoom;
-      const newGap = Math.max(0, ds.initialGap + deltaWorld);
+      const session = sessionRef.current;
+      if (!ds || !session) return;
+      const newGap = gapFromPointer(e, session, ds);
       setCurrentGap(Math.round(newGap));
+      previewGap(newGap);
     },
-    [dragState, zoom],
+    [dragState, gapFromPointer, previewGap],
   );
 
   /**
@@ -148,23 +196,48 @@ export function AlignmentHandleOverlay() {
       distributeWithGap(axis, Math.round(nextGap));
     };
 
+  const finishDrag = useCallback(
+    (cancelled: boolean, event?: React.PointerEvent) => {
+      const session = sessionRef.current;
+      if (!session) return;
+      if (cancelled) abortTransaction();
+      else commitTransaction();
+      if (event && session.target.hasPointerCapture(session.pointerId)) {
+        session.target.releasePointerCapture(session.pointerId);
+      }
+      sessionRef.current = null;
+      setDragState(null);
+      setCurrentGap(null);
+    },
+    [abortTransaction, commitTransaction],
+  );
+
   const handlePointerUp = useCallback(
     (e: React.PointerEvent) => {
       const ds = dragState;
-      if (!ds || !sessionRef.current) return;
-      const mousePos = ds.axis === 'horizontal' ? e.clientX : e.clientY;
-      const delta = mousePos - ds.startMouse;
-      const deltaWorld = delta / zoom;
-      const newGap = Math.max(0, ds.initialGap + deltaWorld);
-      distributeWithGap(ds.axis, Math.round(newGap));
-      setDragState(null);
-      setCurrentGap(null);
-      sessionRef.current = null;
-      const el = e.currentTarget as SVGElement;
-      el.releasePointerCapture(e.pointerId);
+      const session = sessionRef.current;
+      if (!ds || !session) return;
+      previewGap(gapFromPointer(e, session, ds));
+      finishDrag(false, e);
     },
-    [dragState, zoom, distributeWithGap],
+    [dragState, finishDrag, gapFromPointer, previewGap],
   );
+
+  useEffect(() => {
+    if (!dragState) return;
+    const cancel = () => finishDrag(true);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      cancel();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('blur', cancel);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('blur', cancel);
+    };
+  }, [dragState, finishDrag]);
 
   const renderHorizontalBars = () => {
     if (sortedH.length < 2) return null;
@@ -213,6 +286,7 @@ export function AlignmentHandleOverlay() {
             onPointerDown={handlePointerDown('horizontal', i)}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
+            onPointerCancel={() => finishDrag(true)}
             onMouseEnter={() => setHoveredIndex(i)}
             onMouseLeave={() => setHoveredIndex(null)}
             style={{ cursor: 'ew-resize' }}
@@ -285,6 +359,7 @@ export function AlignmentHandleOverlay() {
             onPointerDown={handlePointerDown('vertical', i)}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
+            onPointerCancel={() => finishDrag(true)}
             onMouseEnter={() => setHoveredIndex(sortedH.length + i)}
             onMouseLeave={() => setHoveredIndex(null)}
             style={{ cursor: 'ns-resize' }}

@@ -4,7 +4,7 @@
  * Research basis: TDD for interaction overlay completeness.
  */
 
-import { render } from '@testing-library/react';
+import { fireEvent, render } from '@testing-library/react';
 import type { Document, SceneNode } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { useEditor } from '../../context';
@@ -17,6 +17,10 @@ vi.mock('../../context', () => ({
 
 vi.mock('../../scene/world', () => ({
   nodeWorldBounds: vi.fn(),
+  nodeWorldTransform: vi.fn((_doc: Document, id: string) => {
+    const transform = (_doc.nodes[id] as SceneNode | undefined)?.transform;
+    return transform ?? [1, 0, 0, 1, 0, 0];
+  }),
 }));
 
 function makeState(overrides: Record<string, unknown> = {}) {
@@ -141,5 +145,49 @@ describe('AlignmentHandleOverlay', () => {
     const textContents = Array.from(labels).map((el) => el.textContent);
     expect(textContents).toContain('50px');
     expect(textContents).toContain('100px');
+  });
+
+  it('keeps a two-item explicit gap handle connected to the preview transaction', () => {
+    vi.mocked(nodeWorldBounds).mockImplementation((_doc: Document, id: string) => {
+      if (id === 'a') return { x: 0, y: 0, w: 20, h: 20 };
+      if (id === 'b') return { x: 60, y: 0, w: 30, h: 20 };
+      return null;
+    });
+
+    const doc = {
+      nodes: { a: makeNode('a', 0, 0, 20, 20), b: makeNode('b', 60, 0, 30, 20) },
+      pages: [],
+      version: '1.0',
+    } as unknown as Document;
+    const updateDoc = vi.fn((fn: (current: Document) => Document) => fn(doc));
+    const beginTransaction = vi.fn();
+    const commitTransaction = vi.fn();
+    const abortTransaction = vi.fn();
+    vi.mocked(useEditor).mockReturnValue({
+      state: makeState({ selection: ['a', 'b'], document: doc }),
+      distributeWithGap: vi.fn(),
+      updateDoc,
+      beginTransaction,
+      commitTransaction,
+      abortTransaction,
+    } as unknown as ReturnType<typeof useEditor>);
+
+    const { container } = render(<AlignmentHandleOverlay />);
+    const dot = container.querySelector('.alignment-handle__dot');
+    if (!dot) throw new Error('Expected an explicit-gap handle');
+
+    const setPointerCapture = vi.fn();
+    const hasPointerCapture = vi.fn(() => true);
+    const releasePointerCapture = vi.fn();
+    Object.assign(dot, { setPointerCapture, hasPointerCapture, releasePointerCapture });
+    fireEvent.pointerDown(dot, { pointerId: 7, clientX: 50, clientY: 10 });
+    fireEvent.pointerMove(dot, { pointerId: 7, clientX: 70, clientY: 10 });
+
+    expect(beginTransaction).toHaveBeenCalledWith('preview');
+    expect(updateDoc).toHaveBeenCalled();
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(abortTransaction).toHaveBeenCalledTimes(1);
+    expect(commitTransaction).not.toHaveBeenCalled();
   });
 });

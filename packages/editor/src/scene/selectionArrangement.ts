@@ -32,6 +32,8 @@ const POSITION_EPSILON = 1e-9;
 export interface AlignmentCapabilities {
   rootCount: number;
   movableRootCount: number;
+  /** Transform roots that survived hierarchy and manual-position eligibility. */
+  eligibleRootIds: ReadonlyArray<NodeId>;
   /** Alignment against the collective selection or a key object. */
   canAlign: boolean;
   /** Alignment against explicit page/canvas bounds. */
@@ -126,6 +128,7 @@ export function getAlignmentCapabilities(
   return {
     rootCount: collected.rootCount,
     movableRootCount: collected.items.length,
+    eligibleRootIds: collected.items.map((item) => item.id),
     canAlign: collected.items.length >= 2,
     canAlignToPage: collected.items.length >= 1,
     canAlignToContainer: collected.items.length >= 1 && containerBounds !== null,
