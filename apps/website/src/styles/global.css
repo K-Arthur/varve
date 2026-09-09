@@ -65,6 +65,7 @@
     font-family: var(--font-interface);
     color: var(--text-primary);
     line-height: var(--font-line-tight);
+    overflow-wrap: anywhere;
   }
 
   a {
@@ -339,6 +340,19 @@
     background: transparent;
     color: var(--text-secondary);
     border: 1px solid transparent;
+  }
+
+  /* Resize Text at a narrow viewport can make a single-line control wider
+     than its content column. Let the label wrap and cap shared buttons before
+     they create page-level horizontal scrolling. */
+  @media (max-width: 330px) {
+    .btn-default,
+    .btn-secondary,
+    .btn-outline {
+      max-width: 100%;
+      box-sizing: border-box;
+      white-space: normal;
+    }
   }
 
   .btn-ghost:hover,

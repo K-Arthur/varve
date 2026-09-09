@@ -83,8 +83,10 @@ Used for: Settings, Export, Batch operations, Dialogs, Confirmations.
 
 ### Canvas focusability
 
-The `<canvas>` element has `tabIndex={0}` and `role="img"` with
-`aria-roledescription="Design canvas"`. It is one Tab stop.
+The `<canvas>` element has `tabIndex={0}`, an accessible name of
+`aria-label="Design canvas"`, and `aria-roledescription="Design canvas"`. It is
+one Tab stop and retains the browser's native canvas accessibility semantics;
+the implementation does not add a redundant explicit `role` attribute.
 
 ### Shortcut suppression
 

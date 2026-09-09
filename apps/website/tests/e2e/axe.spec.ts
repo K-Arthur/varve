@@ -16,6 +16,8 @@ const SCANS = [
   { route: '/docs', name: 'docs' },
   { route: '/docs/workspaces', name: 'workspaces' },
   { route: '/features', name: 'features' },
+  { route: '/features/export', name: 'export-feature' },
+  { route: '/docs/tools/export', name: 'export-docs' },
   { route: '/support/faq', name: 'faq' },
   { route: '/compare', name: 'compare' },
   { route: '/learn/examples', name: 'learn-examples' },

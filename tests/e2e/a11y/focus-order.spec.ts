@@ -174,6 +174,23 @@ test.describe('Focus-order baseline trace', () => {
     expect(next[0]).toBeDefined();
     expect(next[0]?.tag).not.toBe('body');
   });
+
+  test('canvas exposes its accessible name and live announcement relationship', async ({
+    page,
+  }) => {
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    await expect(canvas).toHaveAttribute('aria-label', 'Design canvas');
+    await expect(canvas).toHaveAttribute('aria-roledescription', 'Design canvas');
+
+    const describedBy = await canvas.getAttribute('aria-describedby');
+    expect(describedBy).toContain('strata-canvas-announcer-polite');
+    const polite = page.locator('#strata-canvas-announcer-polite');
+    const assertive = page.locator('#strata-canvas-announcer-assertive');
+    await expect(polite).toHaveAttribute('role', 'status');
+    await expect(polite).toHaveAttribute('aria-live', 'polite');
+    await expect(assertive).toHaveAttribute('role', 'alert');
+    await expect(assertive).toHaveAttribute('aria-live', 'assertive');
+  });
 });
 
 test.describe('Focus-order regression guard', () => {

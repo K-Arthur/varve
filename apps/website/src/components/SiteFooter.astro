@@ -468,4 +468,30 @@ const statusLabel = release.hasRelease && release.version
       grid-template-columns: 1fr;
     }
   }
+
+  /* At 200% text enlargement a beta badge and a single-line CTA can be
+     wider than a phone's content column. Keep the action usable and let the
+     label wrap inside the available width. */
+  @media (max-width: 330px) {
+    .footer-download-actions {
+      align-self: stretch;
+      width: 100%;
+    }
+
+    .footer-download-actions :global(.download-cta-large) {
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      white-space: normal;
+    }
+
+    .footer-download-actions :global(.download-cta-label) {
+      min-width: 0;
+      white-space: normal;
+    }
+
+    .footer-download-actions :global(.download-cta-beta) {
+      display: none;
+    }
+  }
 </style>

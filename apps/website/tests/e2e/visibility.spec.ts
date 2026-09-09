@@ -216,6 +216,52 @@ test.describe('structural visibility hazards', () => {
     }
   });
 
+  test('main content remains usable when text is enlarged to 200%', async ({ page }) => {
+    for (const route of ['/features/export', '/docs/tools/export', '/accessibility']) {
+      await page.setViewportSize({ width: 320, height: 900 });
+      await page.goto(route);
+      const result = await page.evaluate(() => {
+        const main = document.querySelector<HTMLElement>('#main-content');
+        const paragraph = main?.querySelector<HTMLElement>('p');
+        if (!main || !paragraph) return null;
+        const before = parseFloat(getComputedStyle(paragraph).fontSize);
+        document.documentElement.style.fontSize = '200%';
+        const after = parseFloat(getComputedStyle(paragraph).fontSize);
+        const rect = main.getBoundingClientRect();
+        return {
+          before,
+          after,
+          mainScrollWidth: main.scrollWidth,
+          mainClientWidth: main.clientWidth,
+          mainLeft: rect.left,
+          mainRight: rect.right,
+          viewport: document.documentElement.clientWidth,
+          pageScrollWidth: document.documentElement.scrollWidth,
+        };
+      });
+
+      expect(result, `${route} must expose text content`).not.toBeNull();
+      if (!result) continue;
+      expect(result.after, `${route} text did not reach 200%`).toBeGreaterThanOrEqual(
+        result.before * 1.9,
+      );
+      expect(result.mainScrollWidth, `${route} main content overflows`).toBeLessThanOrEqual(
+        result.mainClientWidth + 1,
+      );
+      expect(
+        result.mainLeft,
+        `${route} main content starts outside the viewport`,
+      ).toBeGreaterThanOrEqual(-1);
+      expect(
+        result.mainRight,
+        `${route} main content ends outside the viewport`,
+      ).toBeLessThanOrEqual(result.viewport + 1);
+      expect(result.pageScrollWidth, `${route} page overflows at 200% text`).toBeLessThanOrEqual(
+        result.viewport + 1,
+      );
+    }
+  });
+
   test('code blocks keep dark surfaces with light text in every theme', async ({ page }) => {
     await page.goto('/download');
     for (const t of THEMES) {

@@ -94,6 +94,23 @@ import { sitePath } from '../../../lib/siteUrl';
         </p>
       </section>
 
+      <section class="docs-section" id="output-accessibility">
+        <h2>Accessibility of exported output</h2>
+        <p>
+          Export preserves the semantic intent that the target format can carry, but it does not certify the final experience. The host application, email client, document viewer, and the content you add after export all affect accessibility. Use the following review boundary before publishing.
+        </p>
+        <ul>
+          <li><strong>Web code:</strong> inspect generated headings, landmarks, labels, roles, focus order, image alternatives, contrast, responsive reflow, and reduced-motion behavior in the integrated page. Run an automated scan and a keyboard plus screen-reader pass.</li>
+          <li><strong>Email:</strong> resolve preflight warnings for missing image alternatives, decorative images, invalid or nested links, and compatibility fallbacks. Review the plain-text version and test the delivery clients used by your audience.</li>
+          <li><strong>SVG:</strong> treat standalone artwork as visual content unless the consuming document supplies an accessible name, appropriate role, and interaction semantics where needed.</li>
+          <li><strong>PDF/PDF-X:</strong> print fidelity and colour management do not imply tagged-PDF reading order. If accessibility is required, check language, tags, headings, reading order, alternate text, and outlined text with a PDF accessibility checker.</li>
+          <li><strong>Raster:</strong> PNG, JPEG, WebP, AVIF, and similar files contain pixels only. Add alt text, a caption, or a nearby text alternative where the asset is used, and mark decorative use in the consuming content system.</li>
+        </ul>
+        <p class="output-accessibility-note">
+          See the public <a href={sitePath('/accessibility')}>accessibility information statement</a> for Varve's authoring-tool evidence and limitations. Generated output still requires an author or integrator review.
+        </p>
+      </section>
+
       <section class="docs-section">
         <h2>Spec Export</h2>
         <p>
@@ -180,6 +197,7 @@ import { sitePath } from '../../../lib/siteUrl';
     color: var(--text-secondary);
     line-height: 1.8;
     margin-bottom: 1rem;
+    overflow-wrap: anywhere;
   }
   .docs-section ul {
     list-style: none;
@@ -203,9 +221,15 @@ import { sitePath } from '../../../lib/siteUrl';
     border-radius: var(--website-radius-control-compact);
     font-family: monospace;
     font-size: 0.875rem;
+    overflow-wrap: anywhere;
   }
   .docs-section a {
     color: var(--text-link);
+  }
+  .output-accessibility-note {
+    padding: 1rem 1.25rem;
+    border-left: 3px solid var(--border-accent);
+    background: var(--surface-muted);
   }
   .docs-cta {
     text-align: center;

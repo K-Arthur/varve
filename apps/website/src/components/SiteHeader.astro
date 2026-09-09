@@ -784,6 +784,7 @@ const versionLabel = release.hasRelease && release.version
          transition starts, so the animation is unaffected. */
       visibility: hidden;
       overflow: hidden;
+      overflow: clip;
     }
 
     .mobile-nav-panel[aria-hidden='false'] {
@@ -824,6 +825,7 @@ const versionLabel = release.hasRelease && release.version
       transform: translateX(100%);
       transition: transform 0.3s var(--ease-default);
       box-shadow: -8px 0 24px oklch(0 0 0 / 0.15);
+      overflow: clip;
     }
 
     .mobile-nav-panel[aria-hidden='false'] .mobile-nav-sheet {
@@ -955,6 +957,30 @@ const versionLabel = release.hasRelease && release.version
      Download, so remove only this duplicate entry from the persistent row. */
   @media (max-width: 480px) {
     :global(.nav-download-cta) {
+      display: none;
+    }
+
+    /* Text enlargement scales the logo lockup as well as the controls. Let
+       the brand give up its optional version badge and share the narrow row
+       with the theme/menu controls instead of creating page overflow. */
+    .site-nav {
+      gap: var(--space-2);
+      padding-inline: var(--space-4);
+    }
+
+    .site-logo {
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+
+    .site-logo-text {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .site-version {
       display: none;
     }
   }
