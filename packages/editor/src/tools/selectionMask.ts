@@ -318,6 +318,21 @@ export function areaSelectionFromMaskPixels(
   };
 }
 
+/** Convert a one-channel Object Selection mask into an analytical selection. */
+export function areaSelectionFromMaskCoverage(
+  doc: Document,
+  nodeId: NodeId,
+  coverage: Uint8Array,
+  width: number,
+  height: number,
+  coordinateSpace: 'source-image-pixels' | 'container-local-pixels',
+): AreaSelection | null {
+  if (!dimensionsAllowed(width, height) || coverage.length !== width * height) return null;
+  const rgba = new Uint8ClampedArray(coverage.length * 4);
+  for (let index = 0; index < coverage.length; index++) rgba[index * 4 + 3] = coverage[index]!;
+  return areaSelectionFromMaskPixels(doc, nodeId, { data: rgba, width, height }, coordinateSpace);
+}
+
 export function decodeRasterMaskDataUrl(dataUrl: string): Promise<DecodedMaskPixels | null> {
   if (typeof Image === 'undefined' || typeof document === 'undefined') return Promise.resolve(null);
   return new Promise((resolve) => {

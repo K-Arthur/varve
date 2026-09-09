@@ -3463,6 +3463,37 @@ export function EditorProvider({
   /** Raster LOD pyramid: viewport + budget wiring for the engine seam (ADR-0214). */
   const rasterLodSettings = loadSettings();
   useRasterLod(rasterLodSettings.render.memoryBudget, undefined, !projectionMode);
+  const setAreaSelection = useCallback((selection: AreaSelection | null) => {
+    // Non-paint selection changes establish a new ephemeral history branch.
+    areaUndoStackRef.current = [];
+    areaRedoStackRef.current = [];
+    setState((s) => {
+      const nextGeneration =
+        selection === null
+          ? (s.areaSelection?.generation ?? 0) + 1
+          : Math.max(selection.generation, (s.areaSelection?.generation ?? 0) + 1);
+      return {
+        ...s,
+        areaSelection: selection === null ? null : { ...selection, generation: nextGeneration },
+      };
+    });
+  }, []);
+
+  const commitAreaSelection = useCallback((selection: AreaSelection) => {
+    setState((s) => {
+      const nextGeneration = Math.max(selection.generation, (s.areaSelection?.generation ?? 0) + 1);
+      areaUndoStackRef.current = [...areaUndoStackRef.current.slice(-49), s.areaSelection ?? null];
+      areaRedoStackRef.current = [];
+      return {
+        ...s,
+        areaSelection: { ...selection, generation: nextGeneration },
+        canUndo: true,
+        canRedo: false,
+        undoLabel: 'Paint Selection',
+        redoLabel: 'Redo',
+      };
+    });
+  }, []);
   const bgRemoval = useBackgroundRemoval(
     state,
     patch,
@@ -3483,6 +3514,7 @@ export function EditorProvider({
     updateDoc,
     announcerRef,
     !projectionMode,
+    setAreaSelection,
   );
 
   const logoGeometry = useLogoGeometry(
@@ -3519,38 +3551,6 @@ export function EditorProvider({
   });
   /** Ref to the persistent-history API for use inside stable callbacks. */
   persistentHistoryRef.current = persistentHistory;
-
-  const setAreaSelection = useCallback((selection: AreaSelection | null) => {
-    // Non-paint selection changes establish a new ephemeral history branch.
-    areaUndoStackRef.current = [];
-    areaRedoStackRef.current = [];
-    setState((s) => {
-      const nextGeneration =
-        selection === null
-          ? (s.areaSelection?.generation ?? 0) + 1
-          : Math.max(selection.generation, (s.areaSelection?.generation ?? 0) + 1);
-      return {
-        ...s,
-        areaSelection: selection === null ? null : { ...selection, generation: nextGeneration },
-      };
-    });
-  }, []);
-
-  const commitAreaSelection = useCallback((selection: AreaSelection) => {
-    setState((s) => {
-      const nextGeneration = Math.max(selection.generation, (s.areaSelection?.generation ?? 0) + 1);
-      areaUndoStackRef.current = [...areaUndoStackRef.current.slice(-49), s.areaSelection ?? null];
-      areaRedoStackRef.current = [];
-      return {
-        ...s,
-        areaSelection: { ...selection, generation: nextGeneration },
-        canUndo: true,
-        canRedo: false,
-        undoLabel: 'Paint Selection',
-        redoLabel: 'Redo',
-      };
-    });
-  }, []);
 
   const value = useMemo<EditorContextValue>(
     () => ({

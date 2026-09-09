@@ -3,7 +3,7 @@
  * pressure sensitivity, and edge-case handling.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { TrimapEditTool } from '../TrimapEditTool';
+import { rasterMaskAlphaPlane, TrimapEditTool } from '../TrimapEditTool';
 
 function makeMockImageNode(overrides?: Record<string, unknown>) {
   const assetId = 'mask-img-1';
@@ -48,6 +48,13 @@ function createTestTrimap(w = 50, h = 50, value = 128): Uint8Array {
 }
 
 describe('TrimapEditTool', () => {
+  it('reads coverage from alpha instead of the white RGB carrier', () => {
+    const source = new ImageData(2, 1);
+    source.data.set([255, 255, 255, 32, 255, 255, 255, 224]);
+
+    expect([...rasterMaskAlphaPlane(source)]).toEqual([32, 224]);
+  });
+
   function makeMinimalCtx(overrides?: Record<string, unknown>) {
     return {
       selection: ['img-1'],

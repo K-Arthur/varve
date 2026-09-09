@@ -1,7 +1,11 @@
 import { areaSelectionCoverageAt, createAreaSelection } from '@varve/engine';
 import { addNode, createDocument, imageFill, makeFrameNode, makeShapeNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
-import { areaSelectionFromMaskPixels, rasterizeAreaSelectionForNode } from './selectionMask';
+import {
+  areaSelectionFromMaskCoverage,
+  areaSelectionFromMaskPixels,
+  rasterizeAreaSelectionForNode,
+} from './selectionMask';
 
 function frameDocument() {
   let document = createDocument('selection-mask', true);
@@ -74,6 +78,21 @@ describe('selection mask bridge', () => {
     expect(areaSelectionCoverageAt(selection!, { x: 10, y: 20 })).toBe(1);
     expect(areaSelectionCoverageAt(selection!, { x: 11, y: 21 })).toBeCloseTo(0.5, 2);
     expect(areaSelectionCoverageAt(selection!, { x: 12, y: 22 })).toBeCloseTo(0.25, 2);
+  });
+
+  it('loads a one-channel candidate mask without treating RGB as coverage', () => {
+    const coverage = new Uint8Array([255, 0, 0, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    const selection = areaSelectionFromMaskCoverage(
+      frameDocument(),
+      'frame',
+      coverage,
+      4,
+      4,
+      'container-local-pixels',
+    );
+    expect(selection).not.toBeNull();
+    expect(areaSelectionCoverageAt(selection!, { x: 10, y: 20 })).toBe(1);
+    expect(areaSelectionCoverageAt(selection!, { x: 11, y: 20 })).toBe(0);
   });
 
   it('does not leak selection into contain-fit image margins', () => {

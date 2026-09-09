@@ -230,6 +230,19 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     });
   }, [applySam2Segmentation, node, objectSelection]);
 
+  const applyObjectSelectionAsSelection = useCallback(() => {
+    if (!node || !objectSelection) return;
+    void applySam2Segmentation({
+      nodeId: node.id,
+      prompts: {
+        points: objectSelection.points,
+        box: objectSelection.box ?? undefined,
+      },
+      operation: 'selection',
+      candidateIndex: objectSelection.selectedCandidate,
+    });
+  }, [applySam2Segmentation, node, objectSelection]);
+
   const retryObjectSelection = useCallback(() => {
     if (!node || !objectSelection) return;
     void applySam2Segmentation({
@@ -600,6 +613,16 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                     }
                   >
                     Apply as mask
+                  </button>
+                  <button
+                    type="button"
+                    className="insp-btn-sm"
+                    onClick={applyObjectSelectionAsSelection}
+                    disabled={
+                      objectSelection.status !== 'ready' || objectSelection.candidates.length === 0
+                    }
+                  >
+                    Use as selection
                   </button>
                   {objectSelection.status === 'error' && (
                     <button type="button" className="insp-btn-sm" onClick={retryObjectSelection}>

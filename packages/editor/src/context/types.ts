@@ -1256,7 +1256,7 @@ export interface EditorContextValue {
       box?: { x1: number; y1: number; x2: number; y2: number };
     };
     signal?: AbortSignal;
-    operation: 'preview' | 'mask' | 'selection' | 'layer';
+    operation: 'preview' | 'mask' | 'selection';
     candidateIndex?: number;
   }) => Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null>;
   cancelSam2Segmentation: () => void;

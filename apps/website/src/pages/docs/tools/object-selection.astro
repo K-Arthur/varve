@@ -10,7 +10,7 @@ import { sitePath } from '../../../lib/siteUrl';
         <a href={sitePath('/docs')}>Documentation</a> / Tools / Object Selection
       </nav>
       <h1>Object Selection</h1>
-      <p class="docs-intro">Create an editable image mask from a canvas prompt, then reuse it for background removal, adjustments, effects, extraction, or export.</p>
+      <p class="docs-intro">Create an editable image mask from a canvas prompt, or use the result as a temporary pixel selection for downstream edits and export.</p>
 
       <section class="docs-section">
         <h2>Workflow</h2>
@@ -19,7 +19,7 @@ import { sitePath } from '../../../lib/siteUrl';
           <li>Click an object to add a positive prompt. Hold <strong>Shift</strong> while clicking to subtract a region.</li>
           <li>Drag a box when a coarse region is easier to identify than a point.</li>
           <li>Add more prompts to refine the temporary preview. Press <strong>Escape</strong> to discard it.</li>
-          <li>Choose <strong>Apply as mask</strong> when the preview is ready. Apply is one undoable document operation.</li>
+          <li>Choose <strong>Apply as mask</strong> for an editable document mask, or <strong>Use as selection</strong> for a temporary pixel-area selection.</li>
         </ol>
       </section>
 
@@ -31,7 +31,7 @@ import { sitePath } from '../../../lib/siteUrl';
 
       <section class="docs-section">
         <h2>For a tighter frame</h2>
-        <p><strong>Trim to Subject</strong> is a separate Crop &amp; Bounds workflow. Its optional DETR model returns object rectangles only. Review the suggested bounds, choose a candidate when there is more than one, and apply them as a non-destructive crop. Use Object Selection when you need editable pixels or a mask.</p>
+        <p><strong>Trim to Subject</strong> is a separate Crop &amp; Bounds workflow. Its optional DETR model returns object rectangles only. Review the suggested bounds, choose a candidate when there is more than one, and apply them as a non-destructive crop. Use Object Selection when you need an editable mask or a temporary pixel selection.</p>
       </section>
 
       <section class="docs-section">

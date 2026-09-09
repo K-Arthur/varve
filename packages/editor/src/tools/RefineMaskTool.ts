@@ -47,6 +47,18 @@ function cloneImageData(src: ImageData): ImageData {
   return copy;
 }
 
+/** Normalize a decoded mask to the editor's grayscale-alpha representation. */
+export function normalizeMaskImageData(src: ImageData): ImageData {
+  const normalized = cloneImageData(src);
+  for (let offset = 0; offset < normalized.data.length; offset += 4) {
+    const alpha = normalized.data[offset + 3] ?? 0;
+    normalized.data[offset] = alpha;
+    normalized.data[offset + 1] = alpha;
+    normalized.data[offset + 2] = alpha;
+  }
+  return normalized;
+}
+
 /** A fresh fully-transparent mask — painting reveals, Alt+painting hides. */
 function transparentImageData(width: number, height: number): ImageData {
   const data = new ImageData(Math.max(1, width), Math.max(1, height));
@@ -371,7 +383,7 @@ export class RefineMaskTool extends BaseTool {
         const ctx2d = canvas.getContext('2d');
         if (!ctx2d) return;
         ctx2d.drawImage(img, 0, 0);
-        this.maskData = ctx2d.getImageData(0, 0, img.width, img.height);
+        this.maskData = normalizeMaskImageData(ctx2d.getImageData(0, 0, img.width, img.height));
       } catch {
         this.maskData = null;
       }

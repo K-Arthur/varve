@@ -39,6 +39,13 @@ function penValue(mode: TrimapPenMode): number {
   }
 }
 
+/** Extract mask coverage from the alpha channel of a decoded RGBA mask. */
+export function rasterMaskAlphaPlane(imageData: ImageData): Uint8Array {
+  const mask = new Uint8Array(imageData.width * imageData.height);
+  for (let i = 0; i < mask.length; i++) mask[i] = imageData.data[i * 4 + 3] ?? 0;
+  return mask;
+}
+
 export class TrimapEditTool extends BaseTool {
   id = 'trimapEdit' as const;
 
@@ -220,10 +227,9 @@ export class TrimapEditTool extends BaseTool {
       if (!ctx2d) return;
       ctx2d.drawImage(img, 0, 0);
       const maskData = ctx2d.getImageData(0, 0, img.width, img.height);
-      const mask = new Uint8Array(img.width * img.height);
-      for (let i = 0; i < mask.length; i++) {
-        mask[i] = maskData.data[i * 4] ?? 0;
-      }
+      // RasterMaskAsset encodes coverage in alpha; RGB is intentionally white
+      // so a partially transparent mask must not become foreground.
+      const mask = rasterMaskAlphaPlane(maskData);
       import('@varve/engine').then(({ trimapFromMask }) => {
         this.trimap = trimapFromMask(mask, img.width, img.height, 4);
         this.width = img.width;

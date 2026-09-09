@@ -5,7 +5,7 @@
 
 import { createAreaSelection } from '@varve/engine';
 import { describe, expect, it, vi } from 'vitest';
-import { RefineMaskTool } from '../RefineMaskTool';
+import { normalizeMaskImageData, RefineMaskTool } from '../RefineMaskTool';
 
 function createWhiteMaskImageData(w = 50, h = 50): ImageData {
   const canvas = document.createElement('canvas');
@@ -62,6 +62,15 @@ function makeMockImageNode(overrides?: Record<string, unknown>) {
 }
 
 describe('RefineMaskTool', () => {
+  it('uses mask alpha as coverage when decoded RGB is the white mask carrier', () => {
+    const source = new ImageData(1, 1);
+    source.data.set([255, 255, 255, 64]);
+
+    const normalized = normalizeMaskImageData(source);
+
+    expect([...normalized.data]).toEqual([64, 64, 64, 64]);
+  });
+
   function makeMinimalCtx(overrides?: Record<string, unknown>) {
     return {
       selection: ['img-1'],

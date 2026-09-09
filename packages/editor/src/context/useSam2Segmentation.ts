@@ -1,4 +1,4 @@
-import type { WorkerInferResult } from '@varve/engine';
+import type { AreaSelection, WorkerInferResult } from '@varve/engine';
 import {
   cachedImageDims,
   decodeSam2DecoderOutput,
@@ -14,6 +14,7 @@ import type { CanvasAnnouncer } from '../canvas/CanvasAnnouncer';
 import { setCollapsed } from '../components/Inspector/sectionState';
 import { prepareImageMaskMapper } from '../tools/imageMaskCoordinates';
 import { normalizeSam2Prompts } from '../tools/sam2PromptCoordinates';
+import { areaSelectionFromMaskCoverage } from '../tools/selectionMask';
 import { fingerprintImageData } from './imageFingerprint';
 import type { EditorState, ObjectSelectionSession } from './types';
 
@@ -28,7 +29,7 @@ export interface Sam2SegmentationAPI {
       box?: { x1: number; y1: number; x2: number; y2: number };
     };
     signal?: AbortSignal;
-    operation: 'preview' | 'mask' | 'selection' | 'layer';
+    operation: 'preview' | 'mask' | 'selection';
     candidateIndex?: number;
   }) => Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null>;
   cancelSam2Segmentation: () => void;
@@ -42,6 +43,7 @@ export function useSam2Segmentation(
   updateDoc: (fn: (doc: Document) => Document) => void,
   announcerRef: React.MutableRefObject<CanvasAnnouncer | null>,
   enabled = true,
+  setAreaSelection?: (selection: AreaSelection | null) => void,
 ): Sam2SegmentationAPI {
   const abortRef = useRef<AbortController | null>(null);
   const softDeadlineRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -163,7 +165,7 @@ export function useSam2Segmentation(
         box?: { x1: number; y1: number; x2: number; y2: number };
       };
       signal?: AbortSignal;
-      operation: 'preview' | 'mask' | 'selection' | 'layer';
+      operation: 'preview' | 'mask' | 'selection';
       candidateIndex?: number;
     }): Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null> => {
       if (!enabled) {
@@ -682,69 +684,36 @@ export function useSam2Segmentation(
             return maskResult;
           }
 
-          case 'selection':
-            writeTransientSession(
-              {
-                ...promptSession,
-                nodeId,
-                width: naturalW,
-                height: naturalH,
-                candidates: decoded.masks.map((candidate) => ({
-                  mask: candidate.mask,
-                  confidence: candidate.iouScore,
-                })),
-                selectedCandidate,
-                points: prompts.points ?? [],
-                box: prompts.box ?? null,
-                draftPoint: null,
-                draftBox: null,
-                confidence: selectedConfidence,
-                confidenceSource: decoded.confidenceSource,
-                status: 'ready' as const,
-                modelId: 'sam2-hiera-tiny',
-                executionProvider: decOutputs.executionProvider,
-                sourceLocator: src,
-                sourceFingerprint,
-                startedAt: promptSession.startedAt,
-                slow: false,
-                stageTimingsMs: {
-                  ...promptSession.stageTimingsMs,
-                  ready: promptSession.startedAt ? Date.now() - promptSession.startedAt : undefined,
-                },
-                error: undefined,
-              },
-              { selection: [nodeId], maskPreviewMode: 'overlay' },
+          case 'selection': {
+            if (!setAreaSelection) {
+              markFailure({
+                code: 'selection_output_unavailable',
+                message: 'Pixel selection output is unavailable in this editor surface.',
+                retryable: false,
+              });
+              return null;
+            }
+            const areaSelection = areaSelectionFromMaskCoverage(
+              currentDoc,
+              nodeId,
+              bestMask.mask,
+              naturalW,
+              naturalH,
+              'source-image-pixels',
             );
+            if (!areaSelection) {
+              markFailure({
+                code: 'selection_output_unavailable',
+                message: 'The subject mask could not be converted into a pixel selection.',
+                retryable: true,
+              });
+              return null;
+            }
+            setAreaSelection(areaSelection);
+            writeTransientSession(null, { maskPreviewMode: 'none' });
             announcerRef.current?.announce(
               `Selected subject (${Math.round(selectedConfidence * 100)}% confidence)`,
             );
-            return maskResult;
-
-          case 'layer': {
-            const maskDataUrlLayer = await maskToDataUrl(bestMask.mask, naturalW, naturalH);
-            let committed = false;
-            updateDoc((doc) => {
-              const liveNode = doc.nodes[nodeId];
-              if (doc.id !== currentDoc.id || liveNode !== node) return doc;
-              const updated = commitRasterMask(doc, nodeId, {
-                dataUrl: maskDataUrlLayer,
-                width: naturalW,
-                height: naturalH,
-                method: 'ai-quality',
-                modelId: 'sam2-hiera-tiny',
-                confidence: selectedConfidence,
-                generatedAt: Date.now(),
-                sourceLocator: src,
-              });
-              committed = updated !== doc;
-              return updated;
-            });
-            if (committed) {
-              writeTransientSession(null, { selection: [nodeId], maskPreviewMode: 'none' });
-              announcerRef.current?.announce(
-                `Selection created as a new mask layer (${Math.round(selectedConfidence * 100)}% confidence)`,
-              );
-            }
             return maskResult;
           }
         }
@@ -766,7 +735,7 @@ export function useSam2Segmentation(
 
       return null;
     },
-    [enabled, stateRef, setState, updateDoc, announcerRef, writeTransientSession],
+    [enabled, stateRef, setState, updateDoc, announcerRef, setAreaSelection, writeTransientSession],
   );
 
   return { applySam2Segmentation, cancelSam2Segmentation, selectSam2Candidate };

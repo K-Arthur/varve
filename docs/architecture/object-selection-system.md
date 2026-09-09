@@ -10,7 +10,7 @@ users select an object, refine the result, and apply an editable mask.
 Object Selection tool / Inspector
         │ world → source-image coordinate adapter
         ▼
-SegmentationBackend contract (@varve/engine)
+Model-independent SegmentationBackend contract (@varve/engine)
         │ load / prepareImage / predict / unload
         ▼
 Worker-backed runtime (current adapter: split ONNX encoder + decoder)
@@ -20,12 +20,20 @@ Worker-backed runtime (current adapter: split ONNX encoder + decoder)
         ▼
 Transient ObjectSelectionSession
         │ point/box markers, candidate list, preview mask
-        ▼ Apply (one document update)
-Document Mask.rasterMask → RasterMaskAsset
+        ├── Apply as mask (one document update)
+        │   Document Mask.rasterMask → RasterMaskAsset
+        └── Use as selection
+            transient analytical AreaSelection
 ```
 
-The editor does not import an ONNX session or a tensor type. Backend-specific
-preprocessing and execution-provider selection stay in `@varve/engine`.
+The current editor path calls the generic worker bridge and uses the verified
+split ONNX encoder/decoder adapter in `@varve/engine`; it does not instantiate
+`SegmentationBackend` directly yet. The contract remains the provider-neutral
+seam for a future adapter, while backend-specific preprocessing and
+execution-provider selection stay in `@varve/engine`. This distinction is
+intentional: the current implementation is integrated and tested, but the
+provider-neutral interface is not being claimed as a completed runtime
+abstraction.
 
 ## Live session lifecycle
 
@@ -47,7 +55,10 @@ decoder. A failed commit leaves the prompts and candidate available for retry.
 - A click creates one positive point.
 - Shift-click creates one negative point.
 - A drag creates a box prompt and does not inject a point at the drag origin.
-- Prompt edits remain transient until Apply as mask.
+- Prompt edits remain transient until an output is chosen.
+- Apply as mask creates an editable document mask; Use as selection creates
+  an ephemeral pixel-area selection without changing artwork or document
+  history.
 - Escape cancels the session; stale async generations cannot replace a newer
   result.
 - The preview labels the score according to its provenance: verified decoder
