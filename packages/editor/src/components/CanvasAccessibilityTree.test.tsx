@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { cleanup, render } from '@testing-library/react';
-import type { Document, SceneNode } from '@varve/scene';
+import type { Document, ResolvedEditorSceneScope, SceneNode } from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CanvasAccessibilityTree } from './CanvasAccessibilityTree';
 
@@ -240,6 +240,51 @@ describe('CanvasAccessibilityTree', () => {
     expect(label).toContain('shape');
     expect(label).toContain('20');
     expect(label).toContain('60');
+  });
+
+  it('uses only occurrences from the resolved surface', () => {
+    const doc = makeDoc([
+      makeNode({ id: 'a', name: 'A_ONLY_FRAME', kind: 'frame', children: [] }),
+      makeNode({ id: 'b', name: 'B_ONLY_FRAME', kind: 'frame', children: [] }),
+    ]);
+    const scope = {
+      surfaceKey: 'designCanvas:canvas-b',
+      context: {
+        base: { kind: 'designCanvas', designCanvasId: 'canvas-b' },
+        isolationRoot: null,
+        workspaceMode: 'design',
+      },
+      occurrences: [
+        {
+          instanceId: 'b',
+          nodeId: 'b',
+          node: doc.nodes.b!,
+          parentId: null,
+          depth: 0,
+        },
+      ],
+      interactiveOccurrenceIds: new Set(['b']),
+      authoredNodeIds: new Set(['b']),
+    } as unknown as ResolvedEditorSceneScope;
+    const nodeWorldBounds = vi.fn(() => ({ x: 10, y: 20, w: 100, h: 80 }));
+    const isWorldRectInViewport = vi.fn(() => true);
+
+    const { container } = render(
+      <CanvasAccessibilityTree
+        doc={doc}
+        camera={{ zoom: 1, pan: { x: 0, y: 0 } }}
+        viewport={{ width: 800, height: 600 }}
+        scope={scope}
+        nodeWorldBounds={nodeWorldBounds}
+        isWorldRectInViewport={isWorldRectInViewport}
+      />,
+    );
+
+    const items = container.querySelectorAll('li');
+    expect(items).toHaveLength(1);
+    expect(items[0]).toHaveAttribute('data-surface-key', 'designCanvas:canvas-b');
+    expect(items[0]?.getAttribute('aria-label')).toContain('B_ONLY_FRAME');
+    expect(items[0]?.getAttribute('aria-label')).not.toContain('A_ONLY_FRAME');
   });
 
   it('performance: 500 visible nodes render quickly', () => {

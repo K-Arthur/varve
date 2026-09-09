@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   NAME_LABEL_ZOOM_THRESHOLD,
   type NameLabelCandidate,
+  oneLineLabelName,
   pickNameLabelCandidates,
   shouldShowNameLabel,
 } from './nameLabelPolicy';
@@ -68,6 +69,34 @@ describe('shouldShowNameLabel', () => {
         name: 'Icon',
       }),
     ).toBe(true);
+  });
+
+  it('keeps nested frame names transient unless they are active', () => {
+    expect(
+      shouldShowNameLabel({
+        kind: 'frame',
+        zoom: 1,
+        screenW: 400,
+        screenH: 300,
+        name: 'Nested',
+        insideContainer: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowNameLabel({
+        kind: 'frame',
+        zoom: 1,
+        screenW: 400,
+        screenH: 300,
+        name: 'Nested',
+        insideContainer: true,
+        forceShow: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('normalizes unsafe names without changing Unicode content', () => {
+    expect(oneLineLabelName('  שלום\n世界\t\u2728\u0000  ')).toBe('שלום 世界 \u2728');
   });
 });
 

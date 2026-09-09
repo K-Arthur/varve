@@ -1,7 +1,15 @@
 // @ts-nocheck
 
 import type { Document, NodeId } from '@varve/scene';
-import { addPage, createDocument } from '@varve/scene';
+import {
+  addChild,
+  addPage,
+  createDesignCanvas,
+  createDocument,
+  designCanvasContentRoot,
+  nextNodeId,
+  resolveEditorSceneScope,
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
   buildMinimapScene,
@@ -278,6 +286,30 @@ describe('buildMinimapScene', () => {
     expect(scene.pages[1]!.bounds.x).toBe(420);
     expect(scene.contentBounds.x).toBe(0);
     expect(scene.contentBounds.w).toBeGreaterThanOrEqual(740);
+  });
+
+  it('uses the resolved Design Canvas occurrence set', () => {
+    let doc = createDesignCanvas(createDocument('canvases', false), { name: 'A' });
+    const firstCanvasId = doc.activeDesignCanvasId!;
+    const firstRoot = designCanvasContentRoot(doc, firstCanvasId)!;
+    const first = nextNodeId(doc);
+    doc = addChild(first.doc, firstRoot, makeFrame(first.id, 0, 0, 120, 80, []));
+
+    doc = createDesignCanvas(doc, { name: 'B' });
+    const secondCanvasId = doc.activeDesignCanvasId!;
+    const secondRoot = designCanvasContentRoot(doc, secondCanvasId)!;
+    const second = nextNodeId(doc);
+    doc = addChild(second.doc, secondRoot, makeFrame(second.id, 0, 0, 120, 80, []));
+
+    const scope = resolveEditorSceneScope(doc, {
+      workspaceMode: 'design',
+      activeDesignCanvasId: firstCanvasId,
+    });
+    const scene = buildMinimapScene(doc, new Set(), { sceneScope: scope });
+
+    expect(scene.surfaceKey).toBe(`designCanvas:${firstCanvasId}`);
+    expect(scene.entries.map((entry) => entry.nodeId)).toEqual([first.id]);
+    expect(scene.entries.some((entry) => entry.nodeId === second.id)).toBe(false);
   });
 
   it('keeps a degenerate line discoverable without producing invalid bounds', () => {

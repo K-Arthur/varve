@@ -1,5 +1,6 @@
 /**
- * Page decorations for the shared multipage canvas (ADR-0144/0145):
+ * Page decorations for the shared multipage canvas (ADR-0144/0145), used by
+ * the Print workspace only:
  * per-page drop shadow, trim fill, active-page accent ring, and the label
  * band (display page number / page name) below each page.
  *
@@ -89,8 +90,9 @@ export interface PageDecorationOptions {
 
 /**
  * Draw page decorations (shadow, trim fill, accent ring, labels) for every
- * page visible in the viewport. The context must have the camera transform
- * applied. Pure drawing: never reads editor state, never mutates the doc.
+ * page visible in the viewport. The caller is responsible for enforcing the
+ * Print-only policy. The context must have the camera transform applied.
+ * Pure drawing: never reads editor state, never mutates the doc.
  */
 export function drawPageDecorations(
   ctx: CanvasRenderingContext2D,

@@ -10,22 +10,25 @@
  * and Figma's undocumented accessibility tree (inferred behaviour).
  */
 
-import type { Document, NodeId } from '@varve/scene';
-import { buildParentIndexMap } from '@varve/scene';
+import type { Document, NodeId, ResolvedEditorSceneScope } from '@varve/scene';
+import { assertOccurrencesInScope, buildParentIndexMap } from '@varve/scene';
 import { useMemo } from 'react';
 
 interface CanvasAccessibilityTreeProps {
   doc: Document;
-  camera: { zoom: number; pan: { x: number; y: number } };
+  camera: { zoom: number; pan: { x: number; y: number }; rotation?: number };
   viewport: { width: number; height: number };
-  walkNodes: (doc: Document) => Map<string, { depth: number; parentId: string | null }>;
+  /** Preferred current-surface projection. */
+  scope?: ResolvedEditorSceneScope;
+  /** Legacy test/consumer seam; current editor wiring passes `scope`. */
+  walkNodes?: (doc: Document) => Map<string, { depth: number; parentId: string | null }>;
   nodeWorldBounds: (
     doc: Document,
     id: string,
     parentIndex?: Map<NodeId, NodeId>,
   ) => { x: number; y: number; w: number; h: number } | null;
   isWorldRectInViewport: (
-    cam: { zoom: number; pan: { x: number; y: number } },
+    cam: { zoom: number; pan: { x: number; y: number }; rotation?: number },
     vp: { width: number; height: number },
     rect: { x: number; y: number; w: number; h: number },
   ) => boolean;
@@ -35,18 +38,29 @@ export function CanvasAccessibilityTree({
   doc,
   camera,
   viewport,
+  scope,
   walkNodes,
   nodeWorldBounds,
   isWorldRectInViewport,
 }: CanvasAccessibilityTreeProps) {
   const visibleNodes = useMemo(() => {
-    const entries = walkNodes(doc);
+    const entries = scope
+      ? new Map(
+          scope.occurrences.map((entry) => [
+            entry.instanceId,
+            { nodeId: entry.nodeId, depth: entry.depth, parentId: entry.parentId, entry },
+          ]),
+        )
+      : new Map([...(walkNodes?.(doc) ?? [])].map(([id, info]) => [id, { ...info, nodeId: id }]));
     // nodeWorldBounds falls back to an O(n) linear scan (getParent) per call
     // when no parentIndex is passed. Called once per node here, that made
     // this memo O(n^2) in node count on every doc/camera/viewport change.
     const parentIndex = buildParentIndexMap(doc);
     const result: Array<{
       id: string;
+      nodeId: string;
+      surfaceKey?: string;
+      instanceId: string;
       name: string;
       kind: string;
       depth: number;
@@ -59,9 +73,18 @@ export function CanvasAccessibilityTree({
     }> = [];
 
     for (const [id, info] of entries) {
-      const n = doc.nodes[id];
+      const occurrence = 'entry' in info ? info.entry : undefined;
+      const nodeId = info.nodeId;
+      const n = doc.nodes[nodeId];
       if (!n || n.visible === false) continue;
-      const bounds = nodeWorldBounds(doc, id, parentIndex);
+      let bounds = nodeWorldBounds(doc, nodeId, parentIndex);
+      if (bounds && occurrence?.masterPlacement) {
+        bounds = {
+          ...bounds,
+          x: bounds.x + occurrence.masterPlacement.x,
+          y: bounds.y + occurrence.masterPlacement.y,
+        };
+      }
       if (!bounds) continue;
       if (!isWorldRectInViewport(camera, viewport, bounds)) continue;
       const bgRemoval =
@@ -70,6 +93,9 @@ export function CanvasAccessibilityTree({
           : null;
       result.push({
         id,
+        nodeId,
+        surfaceKey: scope?.surfaceKey,
+        instanceId: id,
         name: n.name ?? 'Untitled',
         kind: n.kind,
         depth: info?.depth ?? 0,
@@ -82,8 +108,14 @@ export function CanvasAccessibilityTree({
       });
     }
 
+    if (scope)
+      assertOccurrencesInScope(
+        scope,
+        result.map((node) => node.instanceId),
+      );
+
     return result;
-  }, [doc, camera, viewport, walkNodes, nodeWorldBounds, isWorldRectInViewport]);
+  }, [camera, doc, isWorldRectInViewport, nodeWorldBounds, scope, viewport, walkNodes]);
 
   if (visibleNodes.length === 0) {
     return <div aria-hidden="false" className="sr-only" />;
@@ -94,7 +126,10 @@ export function CanvasAccessibilityTree({
       <ul aria-label="Canvas objects">
         {visibleNodes.map((node) => (
           <li
-            key={node.id}
+            key={node.instanceId}
+            data-node-id={node.nodeId}
+            data-instance-id={node.instanceId}
+            data-surface-key={node.surfaceKey}
             aria-label={`${node.name}, ${node.kind}, at (${node.x}, ${node.y}), ${node.w} x ${node.h}${
               node.backgroundRemoved
                 ? `, background removed (${node.bgRemovalMethod === 'quick' ? 'quick' : 'AI'})`

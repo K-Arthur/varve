@@ -66,8 +66,8 @@ describe('resolveEditorSceneScope', () => {
       activeDesignCanvasId: 'deleted-canvas',
     });
 
-    expect(scope.surfaceKey).toBe(`designCanvas:${fixture.secondCanvasId}`);
-    expect([...scope.authoredNodeIds]).toEqual([fixture.secondNodeId]);
+    expect(scope.surfaceKey).toBe(`designCanvas:${fixture.firstCanvasId}`);
+    expect([...scope.authoredNodeIds]).toEqual([fixture.firstNodeId]);
   });
 
   it('uses all placed publishing pages in Print without leaking canvas content', () => {

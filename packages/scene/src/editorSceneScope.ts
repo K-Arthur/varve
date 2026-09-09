@@ -67,6 +67,10 @@ function firstCanvasId(doc: Document, requested: NodeId | null | undefined): Nod
   const requestedCanvas = requested ? getDesignCanvas(doc, requested) : null;
   if (requestedCanvas) return requestedCanvas.id;
 
+  // A supplied id is stale or malformed: choose the first persisted canvas,
+  // rather than allowing an unrelated active id to decide the recovery target.
+  if (requested !== undefined) return doc.designCanvases?.[0]?.id ?? null;
+
   const active = getActiveDesignCanvas(doc);
   if (active) return active.id;
 

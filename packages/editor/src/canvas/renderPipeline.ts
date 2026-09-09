@@ -40,10 +40,10 @@ import {
   isAnimatedMediaNode,
   isContainer,
   isWarpedContainer,
-  multipageNodeInstances,
   type NodeId,
   resolveAdjustmentScope,
   resolveAllStyles,
+  resolveEditorSceneScope,
   type SceneNode,
 } from '@varve/scene';
 import {
@@ -593,17 +593,21 @@ export function renderContent(deps: RenderContentDeps): void {
         decision: frameDecision,
         snapshot: frameSnapshot,
         cacheDiag: subtreeIrCacheRef.current.diagnostics(),
-        paintUnderlays: (decorCtx) =>
-          drawPageDecorations(
-            decorCtx,
-            doc,
-            s,
-            { width: cssW, height: cssH },
-            {
-              themeRevision: s.themeRevision,
-              activePageId: doc.activePageId ?? null,
-            },
-          ),
+        ...(s.workspaceMode === 'print'
+          ? {
+              paintUnderlays: (decorCtx: CanvasRenderingContext2D) =>
+                drawPageDecorations(
+                  decorCtx,
+                  doc,
+                  s,
+                  { width: cssW, height: cssH },
+                  {
+                    themeRevision: s.themeRevision,
+                    activePageId: doc.activePageId ?? null,
+                  },
+                ),
+            }
+          : {}),
       });
       if (presented) {
         pendingPresentRef.current = false;
@@ -633,11 +637,15 @@ export function renderContent(deps: RenderContentDeps): void {
     // per-node loop. The world rect is the AABB of the viewport corners
     // (over-inclusive under camera rotation — safe for culling).
     const viewportWorld = viewportWorldRect(s, { width: cssW, height: cssH });
-    const entries = multipageNodeInstances(doc, {
-      viewportWorldRect: viewportWorld,
+    const sceneScope = resolveEditorSceneScope(doc, {
+      workspaceMode: s.workspaceMode,
+      activePageId: doc.activePageId ?? null,
+      activeDesignCanvasId: doc.activeDesignCanvasId ?? null,
       masterEditId: s.masterEditId,
-      designCanvasId: s.workspaceMode === 'print' ? null : doc.activeDesignCanvasId,
+      isolatedNodeId: s.isolatedNodeId,
+      viewportWorldRect: viewportWorld,
     });
+    const entries = sceneScope.occurrences;
     // A node-id map cannot represent one master source projected onto more
     // than one page. The occurrence walk keeps those instances in paint
     // order and carries the placement needed by the renderer.
@@ -1215,16 +1223,18 @@ export function renderContent(deps: RenderContentDeps): void {
     // board fill and before content replay, so the trim fill sits under
     // authored content; placement/size-driven dirty regions already cover
     // the decoration band (see computeDocumentDirtyRegion).
-    drawPageDecorations(
-      ctxNN,
-      doc,
-      s,
-      { width: cssW, height: cssH },
-      {
-        themeRevision: s.themeRevision,
-        activePageId: doc.activePageId ?? null,
-      },
-    );
+    if (s.workspaceMode === 'print') {
+      drawPageDecorations(
+        ctxNN,
+        doc,
+        s,
+        { width: cssW, height: cssH },
+        {
+          themeRevision: s.themeRevision,
+          activePageId: doc.activePageId ?? null,
+        },
+      );
+    }
 
     dirtyRectRef.current = null;
 

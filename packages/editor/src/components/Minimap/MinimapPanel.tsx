@@ -8,6 +8,7 @@
  * mutated by minimap interaction.
  */
 
+import { resolveEditorSceneScope } from '@varve/scene';
 import { Tooltip } from '@varve/ui';
 import {
   type KeyboardEvent as ReactKeyboardEvent,
@@ -166,17 +167,29 @@ export function MinimapPanel({ canvasOwnerRef }: MinimapPanelProps) {
   }, [canvasOwnerRef, collapsed, measure]);
 
   const selectedIds = useMemo(() => new Set(editor.state.selection), [editor.state.selection]);
-  const designCanvasId =
-    editor.state.workspaceMode === 'print'
-      ? null
-      : (editor.state.document.activeDesignCanvasId ?? null);
+  const sceneScope = useMemo(
+    () =>
+      resolveEditorSceneScope(editor.state.document, {
+        workspaceMode: editor.state.workspaceMode,
+        activePageId: editor.state.document.activePageId ?? null,
+        activeDesignCanvasId: editor.state.document.activeDesignCanvasId ?? null,
+        masterEditId: editor.state.masterEditId,
+        isolatedNodeId: editor.state.isolatedNodeId,
+      }),
+    [
+      editor.state.document,
+      editor.state.isolatedNodeId,
+      editor.state.masterEditId,
+      editor.state.workspaceMode,
+    ],
+  );
   const scene = useMemo(
     () =>
       buildMinimapScene(editor.state.document, selectedIds, {
         scope: 'canvas',
-        designCanvasId,
+        sceneScope,
       }),
-    [editor.state.document, selectedIds, designCanvasId],
+    [editor.state.document, sceneScope, selectedIds],
   );
 
   const maxWidth =
@@ -387,6 +400,7 @@ export function MinimapPanel({ canvasOwnerRef }: MinimapPanelProps) {
       ref={containerRef}
       className="minimap-panel"
       data-testid="minimap-panel"
+      data-surface-key={scene.surfaceKey}
       aria-label={`Minimap: ${nodeCount} objects${pageCount ? `, ${pageCount} pages` : ''}`}
     >
       <div className="minimap-panel__header">

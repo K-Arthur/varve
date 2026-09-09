@@ -13,10 +13,15 @@
  *
  * Research basis: Figma slice overlays, Sketch export-slice chrome.
  */
-import { activePageNodes, type Document, isContainer, isExportRegion } from '@varve/scene';
-import { applyAffine } from '@varve/shared';
+import {
+  assertOccurrencesInScope,
+  type Document,
+  isExportRegion,
+  type ResolvedEditorSceneScope,
+} from '@varve/scene';
+import { applyAffine, type Viewport } from '@varve/shared';
 import { useMemo } from 'react';
-import { editorWorldToScreen, getEditorViewport } from '../canvas/cameraState';
+import { editorWorldToScreen } from '../canvas/cameraState';
 import { nodeWorldTransform } from '../scene/world';
 
 export interface ExportRegionOverlayProps {
@@ -25,6 +30,8 @@ export interface ExportRegionOverlayProps {
   pan: { x: number; y: number };
   cameraRotation: number;
   selection: readonly string[];
+  scope: ResolvedEditorSceneScope;
+  viewport: Viewport;
 }
 
 interface RegionOutline {
@@ -36,41 +43,25 @@ interface RegionOutline {
   selected: boolean;
 }
 
-/** Every Export Region reachable on the active page, deepest last. */
-function collectExportRegions(doc: Document): string[] {
-  const out: string[] = [];
-  const seen = new Set<string>();
-  const visit = (id: string) => {
-    if (seen.has(id)) return;
-    seen.add(id);
-    const node = doc.nodes[id];
-    if (!node || node.visible === false) return;
-    if (isExportRegion(node)) {
-      out.push(id);
-      return;
-    }
-    if (isContainer(node)) for (const childId of node.children) visit(childId);
-  };
-  for (const id of activePageNodes(doc)) visit(id);
-  return out;
-}
-
 export function ExportRegionOverlay({
   doc,
   zoom,
   pan,
   cameraRotation,
   selection,
+  scope,
+  viewport,
 }: ExportRegionOverlayProps) {
-  const viewport = getEditorViewport();
   const selected = useMemo(() => new Set(selection), [selection]);
 
   const outlines = useMemo<RegionOutline[]>(() => {
     const camState = { zoom, pan, cameraRotation };
     const result: RegionOutline[] = [];
-    for (const id of collectExportRegions(doc)) {
+    for (const occurrence of scope.occurrences) {
+      const id = occurrence.nodeId;
       const node = doc.nodes[id];
-      if (!node || node.kind !== 'frame') continue;
+      if (node?.kind !== 'frame') continue;
+      if (!isExportRegion(node)) continue;
       const world = nodeWorldTransform(doc, id);
       const corners: Array<[number, number]> = [
         [0, 0],
@@ -79,13 +70,17 @@ export function ExportRegionOverlay({
         [0, node.h],
       ];
       const screen = corners.map((corner) => {
-        const [wx, wy] = applyAffine(world, corner);
+        let [wx, wy] = applyAffine(world, corner);
+        if (occurrence.masterPlacement) {
+          wx += occurrence.masterPlacement.x;
+          wy += occurrence.masterPlacement.y;
+        }
         return editorWorldToScreen(camState, wx, wy, viewport);
       });
       if (screen.some(([x, y]) => !Number.isFinite(x) || !Number.isFinite(y))) continue;
       const topLeft = screen[0] ?? [0, 0];
       result.push({
-        id,
+        id: occurrence.instanceId,
         name: node.name,
         points: screen.map(([x, y]) => `${x},${y}`).join(' '),
         labelX: topLeft[0],
@@ -93,8 +88,12 @@ export function ExportRegionOverlay({
         selected: selected.has(id),
       });
     }
+    assertOccurrencesInScope(
+      scope,
+      result.map((outline) => outline.id),
+    );
     return result;
-  }, [doc, zoom, pan, cameraRotation, viewport.width, viewport.height, selected]);
+  }, [cameraRotation, doc, pan, scope, selected, viewport, zoom]);
 
   if (outlines.length === 0) return null;
 
@@ -114,7 +113,7 @@ export function ExportRegionOverlay({
       }}
     >
       {outlines.map((outline) => (
-        <g key={outline.id}>
+        <g key={outline.id} data-instance-id={outline.id} data-surface-key={scope.surfaceKey}>
           <polygon
             points={outline.points}
             fill="none"

@@ -17,11 +17,13 @@
  */
 
 import {
+  assertOccurrencesInScope,
   buildParentIndexMap,
   buildPlacedScene,
   type Document,
   multipageRootNodes,
   type NodeId,
+  type ResolvedEditorSceneScope,
   type SceneNode,
 } from '@varve/scene';
 import {
@@ -41,7 +43,10 @@ import { nodeWorldBounds } from '../../scene/world';
 
 /** A single entry in the minimap scene — the simplified representation of one node. */
 export interface MinimapEntry {
+  /** Qualified occurrence id. */
   id: NodeId;
+  /** Authored node id, used for selection state and commands. */
+  nodeId?: NodeId;
   kind: SceneNode['kind'];
   /** World-space axis-aligned bounding box. */
   bounds: Rect;
@@ -73,6 +78,8 @@ export interface MinimapScene {
   pages: MinimapPage[];
   /** Number of total nodes traversed. */
   totalNodes: number;
+  /** Current editor surface represented by this scene, when resolved. */
+  surfaceKey?: string;
 }
 
 /** A publishing page outline. Pages are not selectable scene objects. */
@@ -97,7 +104,13 @@ export interface MinimapLayoutOptions {
   scope?: 'canvas' | 'activePage' | 'pasteboard';
   /** Active design canvas, or null to force publishing-pasteboard traversal. */
   designCanvasId?: NodeId | null;
+  /** Shared current-surface projection. Preferred for editor minimaps. */
+  sceneScope?: ResolvedEditorSceneScope;
 }
+
+type ResolvedMinimapLayoutOptions = Omit<Required<MinimapLayoutOptions>, 'sceneScope'> & {
+  sceneScope?: ResolvedEditorSceneScope;
+};
 
 /** The minimap's transform state: maps world coords to minimap-local coords. */
 export interface MinimapTransform {
@@ -146,7 +159,7 @@ function collectEntries(
   selectedIds: Set<NodeId>,
   entries: MinimapEntry[],
   depth: number,
-  opts: Required<MinimapLayoutOptions>,
+  opts: ResolvedMinimapLayoutOptions,
   parentIndex: Map<NodeId, NodeId>,
 ): void {
   for (const id of nodeIds) {
@@ -203,6 +216,54 @@ function collectEntries(
   }
 }
 
+/** Collect minimap entries from the renderer's qualified occurrence snapshot. */
+function collectOccurrenceEntries(
+  doc: Document,
+  occurrences: ResolvedEditorSceneScope['occurrences'],
+  selectedIds: Set<NodeId>,
+  entries: MinimapEntry[],
+  opts: ResolvedMinimapLayoutOptions,
+  parentIndex: Map<NodeId, NodeId>,
+): void {
+  for (const occurrence of occurrences) {
+    if (occurrence.depth > opts.maxDepth) continue;
+    const node = doc.nodes[occurrence.nodeId];
+    if (!node) continue;
+    const isVisible = node.visible !== false;
+    const isLocked = node.locked === true;
+    if (!isVisible && !opts.includeHidden) continue;
+    if (isLocked && !opts.includeLocked) continue;
+
+    let rawBounds = nodeWorldBounds(doc, occurrence.nodeId, parentIndex);
+    if (rawBounds && occurrence.masterPlacement) {
+      rawBounds = {
+        ...rawBounds,
+        x: rawBounds.x + occurrence.masterPlacement.x,
+        y: rawBounds.y + occurrence.masterPlacement.y,
+      };
+    }
+    if (!rawBounds && node.kind !== 'frame' && node.kind !== 'group') continue;
+    const bounds = normalizeBounds(rawBounds);
+    if (!bounds) continue;
+
+    const isFrame = node.kind === 'frame';
+    const isContainer = isFrame || node.kind === 'group';
+    entries.push({
+      id: occurrence.instanceId,
+      nodeId: occurrence.nodeId,
+      kind: node.kind,
+      bounds,
+      visible: isVisible,
+      locked: isLocked,
+      isFrame,
+      isContainer,
+      selected: selectedIds.has(occurrence.nodeId),
+      name: node.name || '',
+      depth: occurrence.depth,
+    });
+  }
+}
+
 /** Keep lines and point-like paths discoverable without distorting normal
  * geometry. The one-unit minimum is a display affordance in world units; it
  * is never used for navigation or document bounds outside the minimap. */
@@ -243,7 +304,7 @@ export function buildMinimapScene(
   selectedIds: Set<NodeId>,
   opts: MinimapLayoutOptions = {},
 ): MinimapScene {
-  const options: Required<MinimapLayoutOptions> = {
+  const options: ResolvedMinimapLayoutOptions = {
     includeHidden: false,
     includeLocked: true,
     maxDepth: Infinity,
@@ -253,27 +314,41 @@ export function buildMinimapScene(
     ...opts,
   };
 
-  // The editor renderer uses the shared multipage scene. Traversing the same
-  // roots keeps the minimap and canvas in agreement about page placement,
-  // pasteboard objects, globals, and design-canvas ownership.
+  // The editor renderer uses the shared occurrence snapshot. Traversing the
+  // same snapshot keeps the minimap and canvas in agreement about page
+  // placement, Design Canvas ownership, visibility, isolation, and masters.
   const placedScene = buildPlacedScene(doc);
   const resolvedDesignCanvasId =
     options.scope === 'activePage' || options.scope === 'pasteboard'
       ? null
       : options.designCanvasId;
-  let rootIds: NodeId[];
-  if (options.scope === 'activePage' && doc.pages?.length && doc.activePageId) {
-    const activePage = doc.pages.find((p) => p.id === doc.activePageId);
-    rootIds = activePage
-      ? [...(doc.globalChildren ?? []), activePage.contentRoot]
-      : multipageRootNodes(doc, { designCanvasId: null });
-  } else {
-    rootIds = multipageRootNodes(doc, { designCanvasId: resolvedDesignCanvasId });
-  }
-
   const entries: MinimapEntry[] = [];
   const parentIndex = buildParentIndexMap(doc);
-  collectEntries(doc, rootIds, selectedIds, entries, 0, options, parentIndex);
+  if (options.sceneScope) {
+    collectOccurrenceEntries(
+      doc,
+      options.sceneScope.occurrences,
+      selectedIds,
+      entries,
+      options,
+      parentIndex,
+    );
+    assertOccurrencesInScope(
+      options.sceneScope,
+      entries.map((entry) => entry.id),
+    );
+  } else {
+    let rootIds: NodeId[];
+    if (options.scope === 'activePage' && doc.pages?.length && doc.activePageId) {
+      const activePage = doc.pages.find((p) => p.id === doc.activePageId);
+      rootIds = activePage
+        ? [...(doc.globalChildren ?? []), activePage.contentRoot]
+        : multipageRootNodes(doc, { designCanvasId: null });
+    } else {
+      rootIds = multipageRootNodes(doc, { designCanvasId: resolvedDesignCanvasId });
+    }
+    collectEntries(doc, rootIds, selectedIds, entries, 0, options, parentIndex);
+  }
 
   // Compute content bounds and detect exceptional scale. Outlier detection is
   // informational only: excluding a legitimate large frame made a distant
@@ -309,8 +384,11 @@ export function buildMinimapScene(
 
   // A page itself is visible even when it has no content. Add placed trim
   // boxes to the overview so empty pages and page gaps remain honest.
-  const placedPages =
-    options.scope === 'activePage'
+  const placedPages = options.sceneScope
+    ? options.sceneScope.context.base.kind === 'publishing'
+      ? placedScene.pages
+      : []
+    : options.scope === 'activePage'
       ? placedScene.pages.filter((page) => page.page.id === doc.activePageId)
       : resolvedDesignCanvasId === null
         ? placedScene.pages
@@ -341,6 +419,7 @@ export function buildMinimapScene(
       active: page.page.id === doc.activePageId,
     })),
     totalNodes: Object.keys(doc.nodes).length,
+    ...(options.sceneScope ? { surfaceKey: options.sceneScope.surfaceKey } : {}),
   };
 }
 

@@ -12,17 +12,18 @@ import type { CollabUser } from '@varve/collab';
 import type { Adjustment, MeshWarp } from '@varve/engine';
 import type { Document, Fill, IsometricGrid, NodeId, SceneNode } from '@varve/scene';
 import {
-  activePageNodes,
   plainTextToRichText,
   replaceRichTextContent,
   resolveAdjustmentScope,
+  resolveEditorSceneScope,
   richTextToPlainText,
-  walkNodes,
 } from '@varve/scene';
 import type { RulerMode } from '@varve/shared';
 import { isWorldRectInViewport } from '@varve/shared';
+import { useMemo } from 'react';
 
 import { CanvasNameLabels } from '../canvas/CanvasNameLabels';
+import { viewportWorldRect } from '../canvas/cameraState';
 import { useEditor } from '../context';
 import type { GridOverlayMode } from '../context/types';
 import { DebugOverlayHost } from '../debug/DebugOverlayHost';
@@ -157,6 +158,37 @@ export function CanvasOverlays({
 }: CanvasOverlaysProps) {
   const editor = useEditor();
   const showOverlays = canvasMode !== 'preview';
+  const sceneScope = useMemo(
+    () =>
+      resolveEditorSceneScope(doc, {
+        workspaceMode: editor.state.workspaceMode,
+        activePageId: doc.activePageId ?? null,
+        activeDesignCanvasId: doc.activeDesignCanvasId ?? null,
+        masterEditId: editor.state.masterEditId,
+        isolatedNodeId: editor.state.isolatedNodeId,
+        viewportWorldRect: viewportWorldRect(
+          { zoom, pan, cameraRotation },
+          { width: canvasSize.width, height: canvasSize.height },
+        ),
+      }),
+    [
+      cameraRotation,
+      canvasSize.height,
+      canvasSize.width,
+      doc,
+      editor.state.isolatedNodeId,
+      editor.state.masterEditId,
+      editor.state.workspaceMode,
+      pan,
+      zoom,
+    ],
+  );
+  const scopedHoveredNode =
+    hoveredNode && sceneScope.authoredNodeIds.has(hoveredNode.id) ? hoveredNode : null;
+  const scopedNodeEditTargetId =
+    nodeEditTargetId && sceneScope.authoredNodeIds.has(nodeEditTargetId) ? nodeEditTargetId : null;
+  const scopedTextEditTargetId =
+    textEditTargetId && sceneScope.authoredNodeIds.has(textEditTargetId) ? textEditTargetId : null;
 
   const baselineGrid = doc.gridSettings?.baselineGrids
     ? Object.values(doc.gridSettings.baselineGrids)[0]
@@ -173,10 +205,11 @@ export function CanvasOverlays({
 
   const showColorBlindness = colorBlindnessView !== 'none';
 
-  const nodeEditNode = tool === 'nodeEdit' && nodeEditTargetId ? doc.nodes[nodeEditTargetId] : null;
+  const nodeEditNode =
+    tool === 'nodeEdit' && scopedNodeEditTargetId ? doc.nodes[scopedNodeEditTargetId] : null;
   const nodeEditWorldMat =
-    nodeEditNode?.kind === 'shape' && nodeEditNode.shape.kind === 'path' && nodeEditTargetId
-      ? editor.getWorldTransform(nodeEditTargetId)
+    nodeEditNode?.kind === 'shape' && nodeEditNode.shape.kind === 'path' && scopedNodeEditTargetId
+      ? editor.getWorldTransform(scopedNodeEditTargetId)
       : null;
 
   const showGradientHandles = selection.length >= 1;
@@ -356,13 +389,13 @@ export function CanvasOverlays({
   })();
 
   const renderTextEdit = (() => {
-    if (!textEditTargetId) return null;
-    const n = doc.nodes[textEditTargetId];
+    if (!scopedTextEditTargetId) return null;
+    const n = doc.nodes[scopedTextEditTargetId];
     if (n?.kind !== 'text') return null;
     const canvasRect = contentCanvasRef.current?.getBoundingClientRect();
     const canvasLeft = canvasRect?.left ?? 0;
     const canvasTop = canvasRect?.top ?? 0;
-    const textWorldMat = editor.getWorldTransform(textEditTargetId);
+    const textWorldMat = editor.getWorldTransform(scopedTextEditTargetId);
     const worldX = textWorldMat[4];
     const worldY = textWorldMat[5];
     const textCam = { zoom, pan, rotation: cameraRotation ?? 0 };
@@ -370,7 +403,7 @@ export function CanvasOverlays({
       width: canvasRect?.width ?? 1920,
       height: canvasRect?.height ?? 1080,
     };
-    const textBounds = nodeWorldBounds(doc, textEditTargetId);
+    const textBounds = nodeWorldBounds(doc, scopedTextEditTargetId);
     const projectedBounds = textBounds
       ? worldRectToScreenAabb(textBounds, textCam, textViewport)
       : null;
@@ -561,7 +594,7 @@ export function CanvasOverlays({
       )}
       {nodeEditNode?.kind === 'shape' &&
         nodeEditNode.shape.kind === 'path' &&
-        nodeEditTargetId &&
+        scopedNodeEditTargetId &&
         nodeEditWorldMat && (
           <NodeEditOverlay
             node={nodeEditNode}
@@ -614,24 +647,34 @@ export function CanvasOverlays({
           <div>Alpha {pixelProbe.alpha}</div>
         </div>
       )}
-      <CanvasNameLabels
-        doc={doc}
-        zoom={zoom}
-        pan={pan}
-        cameraRotation={cameraRotation}
-        selection={[...selection]}
-      />
-      <ExportRegionOverlay
-        doc={doc}
-        zoom={zoom}
-        pan={pan}
-        cameraRotation={cameraRotation}
-        selection={selection}
-      />
+      {showOverlays && (
+        <CanvasNameLabels
+          doc={doc}
+          zoom={zoom}
+          pan={pan}
+          cameraRotation={cameraRotation}
+          selection={selection}
+          scope={sceneScope}
+          viewport={{ width: canvasSize.width, height: canvasSize.height }}
+          hoveredNodeId={scopedHoveredNode?.id}
+          editingNodeId={scopedTextEditTargetId ?? scopedNodeEditTargetId}
+        />
+      )}
+      {showOverlays && (
+        <ExportRegionOverlay
+          doc={doc}
+          zoom={zoom}
+          pan={pan}
+          cameraRotation={cameraRotation}
+          selection={selection}
+          scope={sceneScope}
+          viewport={{ width: canvasSize.width, height: canvasSize.height }}
+        />
+      )}
       {tool === 'knife' && (
         <KnifeHoverOverlay
           doc={doc}
-          hoveredNode={hoveredNode}
+          hoveredNode={scopedHoveredNode}
           zoom={zoom}
           pan={pan}
           cameraRotation={cameraRotation}
@@ -639,7 +682,7 @@ export function CanvasOverlays({
       )}
       {renderVariantBox}
       <SelectionQuickBarHost
-        textEditTargetId={textEditTargetId}
+        textEditTargetId={scopedTextEditTargetId}
         setTextEditTargetId={setTextEditTargetId}
         setNodeEditTargetId={setNodeEditTargetId}
         containerHeight={canvasSize.height}
@@ -678,7 +721,7 @@ export function CanvasOverlays({
           pan={pan}
           selectedNodes={editor.selectedNodes()}
           doc={doc}
-          hoveredNode={hoveredNode}
+          hoveredNode={scopedHoveredNode}
         />
       )}
       <ZoomIndicator zoom={zoom} />
@@ -717,9 +760,9 @@ export function CanvasOverlays({
       />
       <CanvasAccessibilityTree
         doc={doc}
-        camera={{ zoom, pan }}
+        camera={{ zoom, pan, rotation: cameraRotation }}
         viewport={canvasSize}
-        walkNodes={(d) => walkNodes(d, activePageNodes(d))}
+        scope={sceneScope}
         nodeWorldBounds={nodeWorldBounds}
         isWorldRectInViewport={isWorldRectInViewport}
       />
