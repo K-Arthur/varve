@@ -265,6 +265,7 @@ viewport behavior are documented in
 | `architecture/auto-layout-system.md` | Auto-layout (flex/grid) engine — canonical doc |
 | `architecture/blend-spaces.md` | Blend-space model from the 2026-08-17 blend-space landing |
 | `architecture/surface-model.md` | Page-layout surfaces, design frames, artboards, export markers, and workspace disclosure |
+| `architecture/editor-surface-scope.md` | Shared current-surface occurrence contract for rendering, labels, accessibility, minimap, hit testing, and editor overlays |
 | `architecture/minimap-system.md` | Live canvas minimap geometry, navigation, scope, persistence, lifecycle, and validation |
 | `architecture/page-layout-guides.md` | Publishing page margins, columns, inheritance, and view-only guides |
 | `architecture/page-export-selection.md` | Ordered page export selection, exclusions, ranges, and spread units |

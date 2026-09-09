@@ -69,6 +69,12 @@ over both persisted Design Canvas metadata and authored frame/page nodes. Use
 `surfaceKey({ kind, id })` when page, canvas, and node ids might otherwise
 collide.
 
+For current editor rendering and derived chrome, use the tagged occurrence
+projection in [Editor surface scope](editor-surface-scope.md). It resolves the
+active Design Canvas, Print publishing pasteboard, master source, or legacy
+flat pasteboard and keeps labels, accessibility, minimap, hit testing, and
+overlays on the same occurrence set.
+
 ## Coordinate and ownership contract
 
 ```mermaid

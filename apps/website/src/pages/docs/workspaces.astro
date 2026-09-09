@@ -49,12 +49,29 @@ import { sitePath } from '../../lib/siteUrl';
         <p>Workspace switching is deliberately low-cost. All eight modes share:</p>
         <ul>
           <li><strong>One document model</strong> — a mode never forks the scene; there is no "Photo copy" of your file</li>
-          <li><strong>State preservation</strong> — document, selection, viewport, and undo history carry across switches</li>
+          <li><strong>State preservation</strong> — document, viewport, and undo history carry across switches; selections and edit targets are revalidated when a surface changes</li>
           <li><strong>Shared fundamentals</strong> — selection, transform, colour, layers, undo/redo, and copy/paste behave identically in every mode</li>
         </ul>
         <p>
           This means you can sketch in Draw, refine in Design, check print colour in
           Print, and animate in Motion — all in the same session, with one history.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Surface-aware canvas labels</h2>
+        <p>
+          A Design Canvas is an unbounded editing surface. Its frame and object labels, minimap,
+          accessibility tree, hit testing, and selection all use the same resolved occurrence set,
+          so content from another canvas is not shown merely because it shares a world coordinate
+          or name. The transparent storage root for a canvas is structural and never appears as an
+          artwork label.
+        </p>
+        <p>
+          Print follows the publishing pasteboard: page decorations can identify placed pages,
+          while Design Canvas artwork remains separate. Labels are editor-only derived UI and are
+          excluded from saved scene content and exports. When a user changes surfaces, transient
+          selection and edit targets are cleared or revalidated before the new surface is acted on.
         </p>
       </section>
 

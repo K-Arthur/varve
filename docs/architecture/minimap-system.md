@@ -41,6 +41,11 @@ indicator and ignores navigation input.
 
 ## Scene and surface scope
 
+The minimap consumes the shared `ResolvedEditorSceneScope` contract described
+in [Editor surface scope](editor-surface-scope.md). It must not reconstruct a
+surface by walking `rootChildren` or the full node map independently of the
+main renderer.
+
 The default `canvas` scope follows `multipageRootNodes`:
 
 - a design workspace follows `Document.activeDesignCanvasId` when present;

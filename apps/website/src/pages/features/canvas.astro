@@ -46,6 +46,22 @@ import { sitePath } from '../../lib/siteUrl';
         </p>
       </section>
 
+      <section class="feature-section" data-testid="canvas-label-scope">
+        <h2>Labels follow the surface</h2>
+        <p>
+          Canvas names and object labels belong to the Design Canvas you are viewing. Switch
+          canvases and the labels, accessibility names, minimap, selection, and hit targets switch
+          with the artwork — a nearby canvas with the same coordinates or a duplicate name cannot
+          leak into the current view.
+        </p>
+        <p>
+          Print uses a separate publishing-scene policy: page number and name bands describe
+          placed pages, while Design Canvas content stays out of the print pasteboard. These
+          editing labels are derived interface chrome, so they do not become document nodes or
+          appear in PNG, SVG, PDF, video, clipboard, or other exports.
+        </p>
+      </section>
+
       <section class="feature-section">
         <h2>Images stay local and editable</h2>
         <p>
@@ -73,6 +89,7 @@ import { sitePath } from '../../lib/siteUrl';
           <li><strong>Precision tools:</strong> Sticky snap, numerical precision, sub-pixel accuracy</li>
           <li><strong>Multi-page support:</strong> Work with multiple artboards/pages in one document</li>
           <li><strong>Live minimap:</strong> See the active design canvas or publishing pasteboard, then click or drag to navigate without changing your artwork</li>
+          <li><strong>Surface-aware labels:</strong> Keep frame names readable and local to the active canvas, with accessible names and safe long-name handling</li>
           <li><strong>Rulers and guides:</strong> Visual guides for alignment and measurement</li>
           <li><strong>Grid overlays:</strong> Configurable grid patterns for precision work</li>
           <li><strong>Local image assets:</strong> Embedded image sources stay in the document, decode progressively, and remain editable through crop, fit, masks, and treatments</li>

@@ -13,6 +13,10 @@ test.describe('canvas feature page', () => {
     await expect(contract).toContainText('Stable coordinates');
     await expect(contract).toContainText('Honest rendering');
     await expect(contract.locator('article')).toHaveCount(3);
+    const labels = page.getByTestId('canvas-label-scope');
+    await expect(labels).toBeVisible();
+    await expect(labels).toContainText('Labels follow the surface');
+    await expect(labels).toContainText('do not become document nodes');
     await page.screenshot({
       path: testInfo.outputPath('canvas-feature-desktop.png'),
       fullPage: false,
