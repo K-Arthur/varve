@@ -128,6 +128,23 @@ describe('spatial blur contract', () => {
     expect([...applySpatialBlur(image(), moving).data]).not.toEqual([...image().data]);
   });
 
+  it('keeps the zero-outside field policy outside the pins convex hull', () => {
+    const effect: SpatialBlurEffect = {
+      ...shared,
+      type: 'fieldBlur',
+      pins: [
+        { id: 'a', x: 0.1, y: 0.1, radius: 10 },
+        { id: 'b', x: 0.9, y: 0.1, radius: 10 },
+        { id: 'c', x: 0.1, y: 0.9, radius: 10 },
+      ],
+      outsideHull: 'zero',
+      interpolation: 'inverse-distance-v1',
+      maxRadius: 20,
+    };
+    expect(spatialBlurRadiusAt(effect, 2, 2, 10, 10)).toBeGreaterThan(0);
+    expect(spatialBlurRadiusAt(effect, 9, 9, 10, 10)).toBe(0);
+  });
+
   it('keeps spin outside its feathered region unchanged and normalizes bad values', () => {
     const effect: SpatialBlurEffect = {
       ...shared,
@@ -154,5 +171,25 @@ describe('spatial blur contract', () => {
       expect(normalized.amount).toBe(0);
       expect(normalized.samples).toBe(64);
     }
+  });
+
+  it('treats zero spin motion amount as identity and scales the support footprint', () => {
+    const effect: SpatialBlurEffect = {
+      ...shared,
+      type: 'spinBlur',
+      center: { x: 0.5, y: 0.5 },
+      pivot: { x: 0.5, y: 0.5 },
+      radii: { x: 0.4, y: 0.3 },
+      rotation: 0,
+      angle: Math.PI / 2,
+      amount: 0,
+      feather: 0.2,
+      strobe: 0,
+      samples: 8,
+    };
+    expect(spatialBlurSupport(effect)).toBe(0);
+    expect([...applySpatialBlur(image(), effect).data]).toEqual([...image().data]);
+    const moving = normalizeSpatialBlurEffect({ ...effect, amount: 2 });
+    expect(spatialBlurSupport(moving)).toBeGreaterThan(1);
   });
 });

@@ -123,6 +123,48 @@ function normalizedPoint(point: BlurCoordinate, width: number, height: number): 
   return { x: point.x * width, y: point.y * height };
 }
 
+function pointInConvexHull(points: readonly BlurCoordinate[], point: BlurCoordinate): boolean {
+  if (points.length === 0) return false;
+  const sorted = [...points].sort((a, b) => a.x - b.x || a.y - b.y);
+  const cross = (a: BlurCoordinate, b: BlurCoordinate, c: BlurCoordinate) =>
+    (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+  const lower: BlurCoordinate[] = [];
+  for (const candidate of sorted) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2]!, lower.at(-1)!, candidate) <= 0)
+      lower.pop();
+    lower.push(candidate);
+  }
+  const upper: BlurCoordinate[] = [];
+  for (const candidate of [...sorted].reverse()) {
+    while (upper.length >= 2 && cross(upper[upper.length - 2]!, upper.at(-1)!, candidate) <= 0)
+      upper.pop();
+    upper.push(candidate);
+  }
+  const hull = [...lower.slice(0, -1), ...upper.slice(0, -1)];
+  if (hull.length === 1) return distance(hull[0]!, point) < 1e-6;
+  if (hull.length === 2) {
+    const minX = Math.min(hull[0]!.x, hull[1]!.x) - 1e-6;
+    const maxX = Math.max(hull[0]!.x, hull[1]!.x) + 1e-6;
+    const minY = Math.min(hull[0]!.y, hull[1]!.y) - 1e-6;
+    const maxY = Math.max(hull[0]!.y, hull[1]!.y) + 1e-6;
+    return (
+      Math.abs(cross(hull[0]!, hull[1]!, point)) < 1e-6 &&
+      point.x >= minX &&
+      point.x <= maxX &&
+      point.y >= minY &&
+      point.y <= maxY
+    );
+  }
+  let orientation = 0;
+  for (let index = 0; index < hull.length; index++) {
+    const sign = Math.sign(cross(hull[index]!, hull[(index + 1) % hull.length]!, point));
+    if (sign === 0) continue;
+    if (orientation === 0) orientation = sign;
+    else if (orientation !== sign) return false;
+  }
+  return true;
+}
+
 function evalFieldRadius(
   effect: Extract<SpatialBlurEffect, { type: 'fieldBlur' }>,
   point: BlurCoordinate,
@@ -149,9 +191,9 @@ function evalFieldRadius(
   if (total <= 0) return 0;
   if (
     effect.outsideHull === 'zero' &&
-    !values.some(
-      (pin) =>
-        pin.point.x >= 0 && pin.point.x <= width && pin.point.y >= 0 && pin.point.y <= height,
+    !pointInConvexHull(
+      values.map((pin) => pin.point),
+      point,
     )
   )
     return 0;
@@ -520,7 +562,11 @@ export function spatialBlurSupport(effect: SpatialBlurEffect): number {
         Math.abs(effect.endAmount),
       );
     case 'spinBlur':
-      return Math.max(0, clampRadius(effect.amount));
+      return Math.max(
+        0,
+        Math.max(Math.abs(effect.radii.x), Math.abs(effect.radii.y)) *
+          Math.abs(finite(effect.angle, 0) * clampRadius(effect.amount)),
+      );
   }
 }
 
@@ -585,7 +631,7 @@ export function applySpatialBlur(data: ImageData, effect: SpatialBlurEffect): Im
       const offsets: BlurCoordinate[] = [];
       for (let index = 0; index < sampleCount; index++) {
         const t = sampleCount === 1 ? 0.5 : index / (sampleCount - 1);
-        const angle = (t - 0.5) * finite(effect.angle, 0);
+        const angle = (t - 0.5) * finite(effect.angle, 0) * clampRadius(effect.amount);
         const probe = rotateAround({ x: center.x + rx, y: center.y }, pivot, angle);
         offsets.push({ x: probe.x - (center.x + rx), y: probe.y - center.y });
       }

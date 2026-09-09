@@ -55,16 +55,17 @@ values are clamped before kernel creation.
 
 Field Blur uses deterministic inverse-distance-squared interpolation. A pin is
 exact at its authored position, results stay within the authored pin range and
-`maxRadius`, and coincident pins resolve by the first exact stable sample. Iris
+`maxRadius`, and the `zero` outside-hull policy uses the pins' convex hull;
+coincident pins resolve by the first exact stable sample. Iris
 and Tilt-Shift evaluate smooth scalar fields; overlapping regions use the
 maximum applicable radius, so the result is order-independent.
 
 Path Blur samples the first non-empty path by arc length, not point index. Spin
-Blur samples rotations around the authored pivot and blends only inside the
-feathered ellipse. Both use deterministic sample counts and return identity at
-zero motion. The current CPU reference uses bounded nearest-source samples for
-motion integration; adaptive quality tiers and restored grain remain future
-work.
+Blur samples rotations around the authored pivot, scales the sweep by its
+motion amount, and blends only inside the feathered ellipse. Both use
+deterministic sample counts and return identity at zero motion. The current CPU
+reference uses bounded nearest-source samples for motion integration; adaptive
+quality tiers, multi-path blending, and restored grain remain future work.
 
 ## Footprints and execution
 
