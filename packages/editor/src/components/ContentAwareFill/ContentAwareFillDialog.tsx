@@ -15,11 +15,19 @@ import {
   hashContent,
   imageShapeSrc,
   isImageShape,
+  resolveRasterMaskAsset,
 } from '@varve/scene';
 import { Button, Switch } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { insertDerivedImageShape } from '../../imageOperations';
+import { decodeRasterMaskDataUrl, rasterizeAreaSelectionForNode } from '../../tools/selectionMask';
+import {
+  maskCoverageFromRgba,
+  putMaskCoverage,
+  refineGenerativeMask,
+  resizeMaskCoverage,
+} from './maskOperations';
 import './ContentAwareFillDialog.css';
 
 const MODEL_ID = 'lama-inpainting';
@@ -59,7 +67,15 @@ export function ContentAwareFillDialog({
   onClose,
   onApplied,
 }: ContentAwareFillDialogProps) {
-  const { state, updateDoc, announce } = useEditor();
+  const {
+    state,
+    updateDoc,
+    announce,
+    beginTransaction,
+    commitTransaction,
+    abortTransaction,
+    setSelection,
+  } = useEditor();
   const dialogRef = useRef<HTMLDialogElement | null>(null);
   const jobControllerRef = useRef(new GenerativeJobController());
   const downloadAbortRef = useRef<AbortController | null>(null);
@@ -68,7 +84,9 @@ export function ContentAwareFillDialog({
     sourceSignature: string;
     maskDataUrl: string;
     result: GenerativeEditResult;
+    seed: number;
   } | null>(null);
+  const sessionSourceSignatureRef = useRef<string | null>(null);
   const variationSequenceRef = useRef(0);
 
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -79,6 +97,10 @@ export function ContentAwareFillDialog({
   const [mode, setMode] = useState<GenerativeEditMode>('remove');
   const [prompt, setPrompt] = useState('');
   const [brushSize, setBrushSize] = useState(DEFAULT_BRUSH_SIZE);
+  const [maskExpansion, setMaskExpansion] = useState(0);
+  const [maskFeather, setMaskFeather] = useState(0);
+  const [contextPadding, setContextPadding] = useState(32);
+  const [maskOrigin, setMaskOrigin] = useState<'brush' | 'pixel-selection' | 'layer-mask'>('brush');
   const [modelAvailable, setModelAvailable] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [naturalSize, setNaturalSize] = useState({ w: 0, h: 0 });
@@ -89,7 +111,7 @@ export function ContentAwareFillDialog({
   const [result, setResult] = useState<GenerativeEditResult | null>(null);
   const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
   const [variations, setVariations] = useState<
-    Array<{ id: string; dataUrl: string; result: GenerativeEditResult }>
+    Array<{ id: string; dataUrl: string; result: GenerativeEditResult; seed: number }>
   >([]);
   const [activeVariationId, setActiveVariationId] = useState<string | null>(null);
   const [hasMaskStrokes, setHasMaskStrokes] = useState(false);
@@ -113,6 +135,8 @@ export function ContentAwareFillDialog({
   const isImage = Boolean(node && isImageShape(node));
   const typedNode = isImage ? (node as import('@varve/scene').ShapeNode) : null;
   const imageSrc = typedNode ? imageShapeSrc(typedNode) : '';
+  const areaSelection = state.areaSelection;
+  const layerMaskAsset = typedNode ? resolveRasterMaskAsset(state.document, typedNode) : null;
 
   const sourceSignature = typedNode
     ? JSON.stringify({
@@ -122,6 +146,16 @@ export function ContentAwareFillDialog({
         transform: typedNode.transform,
       })
     : '';
+
+  const invalidatePreview = useCallback(() => {
+    jobControllerRef.current.cancel();
+    generationRef.current = null;
+    setResult(null);
+    setPreviewDataUrl(null);
+    setVariations([]);
+    setActiveVariationId(null);
+    setStatus('idle');
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -152,10 +186,15 @@ export function ContentAwareFillDialog({
   useEffect(() => {
     if (!isOpen) return;
     jobControllerRef.current.cancel();
+    sessionSourceSignatureRef.current = sourceSignature;
     setQuality('fast');
     setMode('remove');
     setPrompt('');
     setBrushSize(DEFAULT_BRUSH_SIZE);
+    setMaskExpansion(0);
+    setMaskFeather(0);
+    setContextPadding(32);
+    setMaskOrigin('brush');
     setStatus('idle');
     setErrorMessage(null);
     setResult(null);
@@ -174,6 +213,22 @@ export function ContentAwareFillDialog({
     setGenerationStage('Preparing');
     setNaturalSize({ w: 0, h: 0 });
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!typedNode || !imageSrc) {
+      invalidatePreview();
+      announce('Generative Edit closed because its source image is no longer available');
+      onClose();
+      return;
+    }
+    const previous = sessionSourceSignatureRef.current;
+    if (previous && previous !== sourceSignature) {
+      invalidatePreview();
+      setErrorMessage('The source image changed. Review the mask and generate again.');
+      sessionSourceSignatureRef.current = sourceSignature;
+    }
+  }, [announce, imageSrc, invalidatePreview, isOpen, onClose, sourceSignature, typedNode]);
 
   useEffect(() => {
     return () => jobControllerRef.current.cancel();
@@ -310,6 +365,7 @@ export function ContentAwareFillDialog({
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       isPaintingRef.current = true;
+      setMaskOrigin('brush');
       e.currentTarget.setPointerCapture(e.pointerId);
       paintAt(e.clientX, e.clientY);
     },
@@ -337,7 +393,85 @@ export function ContentAwareFillDialog({
     ctx.fillStyle = 'black';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     setHasMaskStrokes(false);
-  }, []);
+    setMaskOrigin('brush');
+    invalidatePreview();
+  }, [invalidatePreview]);
+
+  const applyMaskCoverage = useCallback(
+    (
+      coverage: Uint8Array,
+      width: number,
+      height: number,
+      origin: 'pixel-selection' | 'layer-mask',
+    ) => {
+      const canvas = maskCanvasRef.current;
+      if (!canvas || naturalSize.w <= 0 || naturalSize.h <= 0) {
+        announce('The source image is still loading; try again in a moment');
+        return;
+      }
+      try {
+        const resized = resizeMaskCoverage(
+          coverage,
+          { width, height },
+          { width: naturalSize.w, height: naturalSize.h },
+        );
+        const context = canvas.getContext('2d');
+        if (!context) throw new Error('Mask canvas unavailable');
+        putMaskCoverage(context, resized, { width: naturalSize.w, height: naturalSize.h });
+        setHasMaskStrokes(resized.some((value) => value > 0));
+        setMaskOrigin(origin);
+        invalidatePreview();
+        setErrorMessage(null);
+      } catch (err) {
+        announce(err instanceof Error ? err.message : 'The mask could not be loaded');
+      }
+    },
+    [announce, invalidatePreview, naturalSize.h, naturalSize.w],
+  );
+
+  const handleUsePixelSelection = useCallback(() => {
+    if (!nodeId || !areaSelection) {
+      announce('Create a pixel selection before using it as the edit mask');
+      return;
+    }
+    const raster = rasterizeAreaSelectionForNode(state.document, nodeId, areaSelection);
+    if (!raster) {
+      announce('The current pixel selection cannot be mapped to this image');
+      return;
+    }
+    applyMaskCoverage(raster.data, raster.width, raster.height, 'pixel-selection');
+  }, [announce, applyMaskCoverage, areaSelection, nodeId, state.document]);
+
+  const handleUseLayerMask = useCallback(async () => {
+    if (!layerMaskAsset) {
+      announce('This image has no raster layer mask to use');
+      return;
+    }
+    const decoded = await decodeRasterMaskDataUrl(layerMaskAsset.dataUrl);
+    if (!decoded) {
+      announce('The layer mask could not be decoded');
+      return;
+    }
+    applyMaskCoverage(
+      maskCoverageFromRgba(decoded.data),
+      decoded.width,
+      decoded.height,
+      'layer-mask',
+    );
+  }, [announce, applyMaskCoverage, layerMaskAsset]);
+
+  const handleInvertMask = useCallback(() => {
+    const canvas = maskCanvasRef.current;
+    if (!canvas || !hasMaskStrokes) return;
+    const context = canvas.getContext('2d');
+    if (!context) return;
+    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+    const coverage = maskCoverageFromRgba(imageData.data);
+    for (let i = 0; i < coverage.length; i += 1) coverage[i] = 255 - coverage[i]!;
+    putMaskCoverage(context, coverage, { width: canvas.width, height: canvas.height });
+    setHasMaskStrokes(coverage.some((value) => value > 0));
+    invalidatePreview();
+  }, [hasMaskStrokes, invalidatePreview]);
 
   const handleDownload = useCallback(async () => {
     setStatus('downloading');
@@ -395,11 +529,17 @@ export function ContentAwareFillDialog({
       fullMaskCtx.imageSmoothingEnabled = false;
       fullMaskCtx.drawImage(maskCanvas, 0, 0, fullData.width, fullData.height);
       const maskImageData = fullMaskCtx.getImageData(0, 0, fullData.width, fullData.height);
-      const mask = new Uint8Array(fullData.width * fullData.height);
-      for (let i = 0; i < mask.length; i++) {
-        mask[i] = maskImageData.data[i * 4]!;
+      const rawMask = new Uint8Array(fullData.width * fullData.height);
+      for (let i = 0; i < rawMask.length; i++) {
+        rawMask[i] = maskImageData.data[i * 4]!;
       }
       const maskDataUrl = maskCanvas.toDataURL('image/png');
+      const mask = refineGenerativeMask(
+        rawMask,
+        { width: fullData.width, height: fullData.height },
+        { expansion: maskExpansion, feather: maskFeather },
+      );
+      const generationSeed = sourceRevision + variationSequenceRef.current;
       let modelPath: string | undefined;
       if (quality === 'ai') {
         const loader = getModelLoader();
@@ -420,7 +560,8 @@ export function ContentAwareFillDialog({
         maskHeight: fullData.height,
         quality: quality === 'fast' ? 'draft' : 'quality',
         prompt,
-        seed: sourceRevision,
+        seed: generationSeed,
+        contextPadding,
         signal: token.signal,
         isCurrent: () => jobControllerRef.current.isCurrent(token, currentRevisionRef.current),
         onProgress: ({ stage, progress }) => {
@@ -443,9 +584,16 @@ export function ContentAwareFillDialog({
       const dataUrl = outCanvas.toDataURL('image/png');
       const variationId = `variation-${++variationSequenceRef.current}`;
 
-      generationRef.current = { sourceSignature, maskDataUrl, result: generated };
+      generationRef.current = {
+        sourceSignature,
+        maskDataUrl,
+        result: generated,
+        seed: generationSeed,
+      };
       setVariations((current) =>
-        [...current, { id: variationId, dataUrl, result: generated }].slice(-4),
+        [...current, { id: variationId, dataUrl, result: generated, seed: generationSeed }].slice(
+          -4,
+        ),
       );
       setActiveVariationId(variationId);
       setResult(generated);
@@ -461,7 +609,17 @@ export function ContentAwareFillDialog({
       setStatus('error');
       setErrorMessage(msg);
     }
-  }, [imageSrc, modeAvailable, quality, mode, prompt, sourceSignature]);
+  }, [
+    contextPadding,
+    imageSrc,
+    maskExpansion,
+    maskFeather,
+    mode,
+    modeAvailable,
+    prompt,
+    quality,
+    sourceSignature,
+  ]);
 
   const handleApply = useCallback(async () => {
     if (!nodeId || !previewDataUrl || !result) return;
@@ -471,7 +629,9 @@ export function ContentAwareFillDialog({
     try {
       const currentDoc = state.document;
       const sourceNode = currentDoc.nodes[nodeId];
-      if (!sourceNode) throw new Error('Source node no longer exists');
+      if (sourceNode?.kind !== 'shape' || !isImageShape(sourceNode)) {
+        throw new GenerativeEditError('stale', 'The source image no longer exists.');
+      }
       if (!generationRef.current || generationRef.current.sourceSignature !== sourceSignature) {
         throw new GenerativeEditError(
           'stale',
@@ -498,7 +658,14 @@ export function ContentAwareFillDialog({
       const variationEntries =
         variations.length > 0
           ? variations
-          : [{ id: 'variation-1', dataUrl: previewDataUrl, result }];
+          : [
+              {
+                id: 'variation-1',
+                dataUrl: previewDataUrl,
+                result,
+                seed: generationRef.current.seed,
+              },
+            ];
       const variationAssets = variationEntries.map((variation) =>
         createEmbeddedAsset({
           dataUrl: variation.dataUrl,
@@ -528,10 +695,11 @@ export function ContentAwareFillDialog({
         maskHeight: result.height,
         maskCoordinateSpace: 'source-image-pixels' as const,
         settings: {
+          ...(generationRef.current.seed !== undefined ? { seed: generationRef.current.seed } : {}),
           quality: result.quality,
-          contextPadding: 32,
-          maskExpansion: 0,
-          feather: 0,
+          contextPadding,
+          maskExpansion,
+          feather: maskFeather,
         },
         provider: result.provider,
         variations: variationEntries.map((variation, index) => ({
@@ -565,10 +733,18 @@ export function ContentAwareFillDialog({
         generativeEditId: editId,
       });
       const record = { ...recordBase, resultNodeId: inserted.nodeId };
-      updateDoc(() => ({
-        ...inserted.doc,
-        generativeEdits: { ...inserted.doc.generativeEdits, [editId]: record },
-      }));
+      beginTransaction();
+      try {
+        updateDoc(() => ({
+          ...inserted.doc,
+          generativeEdits: { ...inserted.doc.generativeEdits, [editId]: record },
+        }));
+        commitTransaction();
+      } catch (error) {
+        abortTransaction();
+        throw error;
+      }
+      setSelection(inserted.nodeId);
       announce(
         `${mode[0]?.toUpperCase()}${mode.slice(1)} created (${result.width} x ${result.height})`,
       );
@@ -583,6 +759,10 @@ export function ContentAwareFillDialog({
     nodeId,
     previewDataUrl,
     result,
+    abortTransaction,
+    beginTransaction,
+    commitTransaction,
+    contextPadding,
     variations,
     activeVariationId,
     mode,
@@ -590,6 +770,9 @@ export function ContentAwareFillDialog({
     imageSrc,
     state.document,
     state.revision,
+    maskExpansion,
+    maskFeather,
+    setSelection,
     updateDoc,
     announce,
     onApplied,
@@ -665,11 +848,7 @@ export function ContentAwareFillDialog({
                   className={`caf-dialog__mode-btn${mode === candidate ? ' caf-dialog__mode-btn--active' : ''}`}
                   onClick={() => {
                     setMode(candidate);
-                    setResult(null);
-                    setPreviewDataUrl(null);
-                    setVariations([]);
-                    setActiveVariationId(null);
-                    generationRef.current = null;
+                    invalidatePreview();
                   }}
                 >
                   {candidate[0]?.toUpperCase()}
@@ -696,8 +875,12 @@ export function ContentAwareFillDialog({
                 onChange={(event) => setPrompt(event.target.value)}
                 placeholder="Describe what should appear here"
                 rows={3}
-                aria-describedby="caf-dialog-provider-note"
+                aria-describedby="caf-dialog-prompt-note caf-dialog-provider-note"
               />
+              <p id="caf-dialog-prompt-note" className="caf-dialog__hint">
+                The local provider uses the source and mask, not prompt conditioning; this text is
+                not sent or retained.
+              </p>
             </div>
           )}
 
@@ -709,6 +892,46 @@ export function ContentAwareFillDialog({
                 {quality === 'fast' ? 'PatchMatch · no download' : 'LaMa · stored on this device'}
               </small>
             </span>
+          </div>
+
+          <div className="caf-dialog__section">
+            <span className="caf-dialog__label">Mask source</span>
+            <div className="caf-dialog__mask-actions">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleUsePixelSelection}
+                disabled={!areaSelection || hasResult || isProcessing}
+              >
+                Use Pixel Selection
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => void handleUseLayerMask()}
+                disabled={!layerMaskAsset || hasResult || isProcessing}
+              >
+                Use Layer Mask
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleInvertMask}
+                disabled={!hasMaskStrokes || hasResult || isProcessing}
+              >
+                Invert
+              </Button>
+            </div>
+            <p className="caf-dialog__hint" aria-live="polite">
+              {maskOrigin === 'pixel-selection'
+                ? 'Using the current document pixel selection.'
+                : maskOrigin === 'layer-mask'
+                  ? 'Using the selected image layer mask.'
+                  : 'Paint directly on the source to define the edit region.'}
+            </p>
           </div>
 
           <div className="caf-dialog__section">
@@ -781,6 +1004,63 @@ export function ContentAwareFillDialog({
             />
           </div>
 
+          <div className="caf-dialog__refinement-grid">
+            <div className="caf-dialog__section">
+              <label className="caf-dialog__label" htmlFor="caf-dialog-mask-expansion">
+                Expand mask: {maskExpansion}px
+              </label>
+              <input
+                id="caf-dialog-mask-expansion"
+                type="range"
+                className="varve-native-range caf-dialog__range"
+                min={0}
+                max={64}
+                step={1}
+                value={maskExpansion}
+                onChange={(event) => {
+                  setMaskExpansion(Number(event.target.value));
+                  invalidatePreview();
+                }}
+              />
+            </div>
+            <div className="caf-dialog__section">
+              <label className="caf-dialog__label" htmlFor="caf-dialog-mask-feather">
+                Feather: {maskFeather}px
+              </label>
+              <input
+                id="caf-dialog-mask-feather"
+                type="range"
+                className="varve-native-range caf-dialog__range"
+                min={0}
+                max={64}
+                step={1}
+                value={maskFeather}
+                onChange={(event) => {
+                  setMaskFeather(Number(event.target.value));
+                  invalidatePreview();
+                }}
+              />
+            </div>
+            <div className="caf-dialog__section">
+              <label className="caf-dialog__label" htmlFor="caf-dialog-context-padding">
+                Context: {contextPadding}px
+              </label>
+              <input
+                id="caf-dialog-context-padding"
+                type="range"
+                className="varve-native-range caf-dialog__range"
+                min={8}
+                max={256}
+                step={8}
+                value={contextPadding}
+                onChange={(event) => {
+                  setContextPadding(Number(event.target.value));
+                  invalidatePreview();
+                }}
+              />
+            </div>
+          </div>
+
           {!hasResult && (
             <div className="caf-dialog__section">
               <Switch
@@ -798,7 +1078,7 @@ export function ContentAwareFillDialog({
               variant="ghost"
               size="sm"
               onClick={handleClearMask}
-              disabled={!hasMaskStrokes || isProcessing}
+              disabled={!hasMaskStrokes || hasResult || isProcessing}
             >
               Clear Paint
             </Button>
@@ -860,7 +1140,10 @@ export function ContentAwareFillDialog({
                       setActiveVariationId(variation.id);
                       setResult(variation.result);
                       setPreviewDataUrl(variation.dataUrl);
-                      if (generationRef.current) generationRef.current.result = variation.result;
+                      if (generationRef.current) {
+                        generationRef.current.result = variation.result;
+                        generationRef.current.seed = variation.seed;
+                      }
                     }}
                     aria-label={`Variation ${index + 1}`}
                     aria-pressed={activeVariationId === variation.id}

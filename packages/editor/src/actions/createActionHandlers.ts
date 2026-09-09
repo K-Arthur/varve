@@ -1273,6 +1273,19 @@ export function createActionHandlers(
     },
 
     // ── Other ──
+    contentAwareFill: () => {
+      const selectedImages = e.state.selection
+        .map((id) => e.state.document.nodes[id])
+        .filter((node): node is import('@varve/scene').ShapeNode =>
+          Boolean(node && isImageShape(node)),
+        );
+      if (selectedImages.length !== 1 || e.state.selection.length !== 1) {
+        e.announce?.('Select one image layer to open Generative Edit');
+        return;
+      }
+      e.setInspectorTab('adjustments');
+      e.openCafDialog(selectedImages[0]!.id);
+    },
     batchBgRemove: () => cb.onBatchBgRemove?.(),
     extractPalette: () => {
       const selected = e.state.selection;

@@ -157,6 +157,7 @@ export function registerEditorActions(
     ['resetWorkspace', 'Reset Workspace', 'view'],
     ['resetAllWorkspaces', 'Reset All Workspaces', 'view'],
     ['customizeWorkspace', 'Customize Workspace', 'view'],
+    ['contentAwareFill', 'Generative Edit…', 'object'],
     ['batchBgRemove', 'Batch Background Removal', 'object'],
     ['resizeImage', 'Resize Image…', 'object'],
     ['extractPalette', 'Extract Color Palette', 'object'],
@@ -187,6 +188,10 @@ export function registerEditorActions(
     if (INFERENCE_COMMANDS.has(id) && isCapabilityRestricted('inference')) continue;
     const handler = handlers[id];
     if (handler) reg(id, label, category, handler);
+  }
+  const generativeEdit = r.get('contentAwareFill');
+  if (generativeEdit) {
+    generativeEdit.keywords = ['generative', 'inpainting', 'fill', 'remove object', 'heal'];
   }
 
   // toggleBleedGuides must NOT go through the guarded path: its handler

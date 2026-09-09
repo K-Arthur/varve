@@ -109,6 +109,24 @@ describe('registerEditorActions — intelligence commands', () => {
     expect(onFindReplace).toHaveBeenCalledOnce();
   });
 
+  it('registers Generative Edit as a searchable object action', () => {
+    const editor = makeEditorMock({
+      state: {
+        selection: [],
+        pixelGridEnabled: false,
+        document: {},
+      } as unknown as EditorContextValue['state'],
+      openCafDialog: vi.fn(),
+    });
+    registerEditorActions(editor);
+    const registry = getActionRegistry();
+
+    expect(registry.has('contentAwareFill')).toBe(true);
+    expect(registry.search('inpainting')).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: 'contentAwareFill' })]),
+    );
+  });
+
   it('keeps panel-window recovery commands searchable and refreshes their callbacks', () => {
     const firstBring = vi.fn();
     const firstReset = vi.fn();

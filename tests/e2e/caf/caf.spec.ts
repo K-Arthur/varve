@@ -319,6 +319,12 @@ test.describe('Content-Aware Fill dialog', () => {
         'aria-selected',
         'true',
       );
+      await expect(dialog.getByRole('button', { name: 'Use Pixel Selection' })).toBeVisible();
+      await expect(dialog.getByRole('button', { name: 'Use Layer Mask' })).toBeVisible();
+      await expect(dialog.getByRole('button', { name: 'Invert' })).toBeVisible();
+      await expect(dialog.locator('#caf-dialog-mask-expansion')).toHaveValue('0');
+      await expect(dialog.locator('#caf-dialog-mask-feather')).toHaveValue('0');
+      await expect(dialog.locator('#caf-dialog-context-padding')).toHaveValue('32');
 
       await dialog.getByRole('tab', { name: 'Fill' }).click();
       await expect(dialog.locator('#caf-dialog-prompt')).toBeVisible();

@@ -300,6 +300,8 @@ function buildMenus(
         return !hasSelection;
       case 'resizeImage':
         return !hasSelectedImage;
+      case 'contentAwareFill':
+        return !hasSelectedImage || state.selection.length !== 1;
       case 'attachTextToPath':
         return !canAttachTextToPath;
       case 'detachTextFromPath':
@@ -1133,6 +1135,11 @@ function buildMenus(
           disabled: dis('releaseClippingMask'),
         },
         { label: '---' },
+        {
+          label: 'Generative Edit…',
+          action: 'contentAwareFill',
+          disabled: dis('contentAwareFill'),
+        },
         { label: 'Remove Background...', action: 'batchBgRemove', disabled: dis('batchBgRemove') },
         {
           label: 'Crop Image',
@@ -1626,6 +1633,7 @@ const WORKSPACE_ITEM_FILTER: Record<string, WorkspaceMode[]> = {
   createClippingMask: ['design', 'print', 'drawing', 'image', 'logo'],
   releaseClippingMask: ['design', 'print', 'drawing', 'image', 'logo'],
   batchBgRemove: ['design', 'image'],
+  contentAwareFill: ['design', 'drawing', 'image'],
   toolCrop: ['design', 'print', 'image'],
   toolPerspective: ['design', 'print', 'image'],
   extractPalette: ['design', 'drawing', 'image'],

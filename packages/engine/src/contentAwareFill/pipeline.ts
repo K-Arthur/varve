@@ -115,6 +115,7 @@ export async function runContentAwareFillPipeline(
     maskOffsetX,
     maskOffsetY,
     quality,
+    contextPadding,
     signal,
     onProgress,
     modelPath,
@@ -137,7 +138,7 @@ export async function runContentAwareFillPipeline(
       maskHeight,
       maskOffsetX,
       maskOffsetY,
-      32,
+      contextPadding,
     );
 
     if (signal?.aborted) throw new Error('cancelled');
@@ -177,6 +178,7 @@ export async function runContentAwareFillPipeline(
       maskHeight,
       maskOffsetX,
       maskOffsetY,
+      contextPadding,
     );
 
     if (signal?.aborted) throw new Error('cancelled');

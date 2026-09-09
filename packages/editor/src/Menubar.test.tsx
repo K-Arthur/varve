@@ -451,6 +451,7 @@ describe('Menubar menu structure', () => {
     expect(within(menu).getByRole('menuitem', { name: /Add Alpha Mask/ })).toBeTruthy();
     expect(within(menu).getByRole('menuitem', { name: /Open Effect Studio/ })).toBeTruthy();
     expect(within(menu).getByRole('menuitem', { name: /New Adjustment Layer/ })).toBeTruthy();
+    expect(within(menu).getByRole('menuitem', { name: /Generative Edit/ })).toBeTruthy();
   });
 
   it('Help menu contains Contextual Help, Help Center, About', async () => {

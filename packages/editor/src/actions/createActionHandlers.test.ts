@@ -1,5 +1,12 @@
 import { areaSelectionCoverageAt, createAreaSelection } from '@varve/engine';
-import { addChild, addNode, createDocument, makeFrameNode, makeShapeNode } from '@varve/scene';
+import {
+  addChild,
+  addNode,
+  createDocument,
+  imageFill,
+  makeFrameNode,
+  makeShapeNode,
+} from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import type { EditorContextValue } from '../context';
 import { setStartTextEditingHandler } from '../context';
@@ -95,6 +102,43 @@ describe('createActionHandlers — object nudge actions', () => {
     expect(commitTransaction).not.toHaveBeenCalled();
     expect(setNodePosition).not.toHaveBeenCalled();
     expect(setNodePositions).not.toHaveBeenCalled();
+  });
+});
+
+describe('createActionHandlers — generative editing', () => {
+  it('opens Generative Edit for exactly one selected image and routes to Adjustments', () => {
+    const image = {
+      ...makeShapeNode('image', { kind: 'rect', x: 0, y: 0, w: 20, h: 20 }),
+      fills: [imageFill('data:image/png;base64,AA==')],
+    };
+    const document = addNode(createDocument('generative-edit'), image);
+    const openCafDialog = vi.fn();
+    const setInspectorTab = vi.fn();
+    const editor = makeEditorMock({
+      state: { selection: [image.id], document } as EditorContextValue['state'],
+      openCafDialog,
+      setInspectorTab,
+    });
+
+    createActionHandlers(editor).contentAwareFill?.();
+
+    expect(setInspectorTab).toHaveBeenCalledWith('adjustments');
+    expect(openCafDialog).toHaveBeenCalledWith(image.id);
+  });
+
+  it('does not open Generative Edit for a mixed or multi-selection', () => {
+    const editor = makeEditorMock({
+      state: {
+        selection: ['shape-a', 'shape-b'],
+        document: createDocument('generative-edit'),
+      } as EditorContextValue['state'],
+      openCafDialog: vi.fn(),
+    });
+
+    createActionHandlers(editor).contentAwareFill?.();
+
+    expect(editor.openCafDialog).not.toHaveBeenCalled();
+    expect(editor.announce).toHaveBeenCalledWith('Select one image layer to open Generative Edit');
   });
 });
 
