@@ -63,10 +63,14 @@ const DETAILS = ['vector', 'typography', 'layers', 'motion']
       {PRIMARY ? (
         <figure class="showcase-window">
           <div class="window-chrome" aria-hidden="true">
-            <span class="window-dot"></span>
-            <span class="window-dot"></span>
-            <span class="window-dot"></span>
-            <span class="window-title">Varve &mdash; {PRODUCT_STATUS.label}</span>
+            <span class="window-brand" aria-hidden="true">
+              <span class="window-brand__bar window-brand__bar--top"></span>
+              <span class="window-brand__bar window-brand__bar--middle"></span>
+              <span class="window-brand__bar window-brand__bar--bottom"></span>
+            </span>
+            <span class="window-title">Varve workspace</span>
+            <span class="window-separator" aria-hidden="true"></span>
+            <span class="window-context">Real interface &middot; {PRODUCT_STATUS.label}</span>
           </div>
           <img
             src={sitePath(`/screenshots/${PRIMARY.file}`)}
@@ -171,23 +175,63 @@ const DETAILS = ['vector', 'typography', 'layers', 'motion']
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.6rem 1rem;
+    min-height: 2.25rem;
+    padding: 0.45rem 0.8rem;
     background: var(--surface-muted);
     border-bottom: 1px solid var(--border-default);
   }
 
-  .window-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: var(--border-strong);
-    opacity: 0.5;
+  .window-brand {
+    display: grid;
+    gap: 2px;
+    width: 1rem;
+    flex: 0 0 1rem;
+  }
+
+  .window-brand__bar {
+    display: block;
+    height: 3px;
+    border-radius: 1px;
+    transform: skewX(-18deg);
+  }
+
+  .window-brand__bar--top {
+    width: 0.78rem;
+    margin-inline-start: 0.08rem;
+    background: var(--brand-teal);
+  }
+
+  .window-brand__bar--middle {
+    width: 0.86rem;
+    margin-inline-start: 0.12rem;
+    background: var(--brand-sandstone);
+  }
+
+  .window-brand__bar--bottom {
+    width: 0.92rem;
+    margin-inline-start: 0.16rem;
+    background: var(--brand-terracotta);
   }
 
   .window-title {
-    margin-left: 0.5rem;
-    font-size: 0.75rem;
+    color: var(--text-primary);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+
+  .window-separator {
+    width: 1px;
+    height: 1rem;
+    background: var(--border-default);
+  }
+
+  .window-context {
+    overflow: hidden;
     color: var(--text-muted);
+    font-size: 0.68rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font-family: var(--font-mono);
     letter-spacing: 0.01em;
   }
