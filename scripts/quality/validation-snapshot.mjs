@@ -83,7 +83,11 @@ export function createValidationSnapshot({ sha, root = process.cwd() } = {}) {
     cleanup() {
       if (cleaned) return;
       cleaned = true;
-      runGit(['worktree', 'remove', '--force', path], root);
+      const remove = runGit(['worktree', 'remove', '--force', path], root);
+      if (remove.status !== 0) {
+        cleaned = false;
+        throw new Error(remove.stderr.trim() || `could not clean validation worktree for ${sha}`);
+      }
       rmSync(parent, { recursive: true, force: true });
     },
   };

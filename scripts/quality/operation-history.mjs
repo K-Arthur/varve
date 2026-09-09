@@ -39,6 +39,80 @@ function gitText(git, args, cwd = process.cwd()) {
   return String(result.stdout ?? '').trim();
 }
 
+export function classifySyncState({
+  detached = false,
+  upstream = null,
+  ahead = null,
+  behind = null,
+} = {}) {
+  if (detached) return 'detached';
+  if (!upstream) return 'missing-upstream';
+  if (ahead === 0 && behind === 0) return 'up-to-date';
+  if (ahead > 0 && behind === 0) return 'ahead-only';
+  if (ahead === 0 && behind > 0) return 'behind-only';
+  if (ahead > 0 && behind > 0) return 'diverged';
+  return 'unknown';
+}
+
+export function classifyWorktreeStatus(rawStatus = '') {
+  const entries = String(rawStatus).split('\0').filter(Boolean);
+  let indexDirty = false;
+  let worktreeDirty = false;
+  let untracked = false;
+  for (const entry of entries) {
+    const indexCode = entry[0] ?? ' ';
+    const worktreeCode = entry[1] ?? ' ';
+    if (indexCode === '?' && worktreeCode === '?') {
+      untracked = true;
+      worktreeDirty = true;
+      continue;
+    }
+    indexDirty ||= indexCode !== ' ';
+    worktreeDirty ||= worktreeCode !== ' ';
+  }
+  return {
+    dirty: entries.length > 0,
+    indexDirty,
+    worktreeDirty,
+    untracked,
+    entryCount: entries.length,
+  };
+}
+
+export function gitOperationState({ git = createGitAdapter(), cwd = process.cwd() } = {}) {
+  const gitDirValue = gitText(git, ['rev-parse', '--git-dir'], cwd);
+  const gitDir = gitDirValue
+    ? gitDirValue.startsWith('/')
+      ? gitDirValue
+      : resolve(cwd, gitDirValue)
+    : resolve(cwd, '.git');
+  const markers = {
+    merge: 'MERGE_HEAD',
+    cherryPick: 'CHERRY_PICK_HEAD',
+    revert: 'REVERT_HEAD',
+    bisect: 'BISECT_LOG',
+    rebaseMerge: 'rebase-merge',
+    rebaseApply: 'rebase-apply',
+  };
+  const active = Object.fromEntries(
+    Object.entries(markers).map(([name, marker]) => [name, existsSync(join(gitDir, marker))]),
+  );
+  const kinds = [
+    active.merge && 'merge',
+    active.rebaseMerge && 'rebase',
+    active.rebaseApply && 'rebase',
+    active.cherryPick && 'cherry-pick',
+    active.revert && 'revert',
+    active.bisect && 'bisect',
+  ].filter(Boolean);
+  return {
+    ...active,
+    inProgress: kinds.length > 0,
+    kinds: [...new Set(kinds)],
+    gitDir,
+  };
+}
+
 export function commonGitDirectory({ git = createGitAdapter(), cwd = process.cwd() } = {}) {
   const value = gitText(git, ['rev-parse', '--git-common-dir'], cwd);
   return value ? (value.startsWith('/') ? value : resolve(cwd, value)) : resolve(cwd, '.git');
@@ -243,14 +317,26 @@ function main() {
     const counts = upstream
       ? gitText(git, ['rev-list', '--left-right', '--count', `${upstream}...HEAD`]).split(/\s+/)
       : [];
-    const status = gitText(git, ['status', '--porcelain=v1']);
+    const branch = gitText(git, ['branch', '--show-current']);
+    const detached = !branch;
+    const rawStatus = git.run(['status', '--porcelain=v1', '-z']).stdout ?? '';
+    const worktree = classifyWorktreeStatus(rawStatus);
+    const operation = gitOperationState({ git });
+    const syncState = classifySyncState({
+      detached,
+      upstream: upstream || null,
+      ahead: counts[1] ? Number(counts[1]) : null,
+      behind: counts[0] ? Number(counts[0]) : null,
+    });
     const result = {
-      branch: gitText(git, ['branch', '--show-current']) || '(detached HEAD)',
+      branch: branch || '(detached HEAD)',
       headSha: gitText(git, ['rev-parse', '--verify', 'HEAD^{commit}']) || null,
       upstream: upstream || null,
       behind: counts[0] ? Number(counts[0]) : null,
       ahead: counts[1] ? Number(counts[1]) : null,
-      dirty: Boolean(status),
+      syncState,
+      worktree,
+      operation,
       hooksPath: gitText(git, ['config', '--get', 'core.hooksPath']) || null,
       remote: sanitizeRemoteUrl(gitText(git, ['remote', 'get-url', 'origin'])),
       operations: listOperations({ git }).map((entry) => ({
@@ -276,11 +362,29 @@ function main() {
     const git = createGitAdapter();
     const hooksPath = gitText(git, ['config', '--get', 'core.hooksPath']);
     const remote = gitText(git, ['remote', 'get-url', 'origin']);
+    const branch = gitText(git, ['branch', '--show-current']);
+    const upstream = gitText(git, [
+      'rev-parse',
+      '--abbrev-ref',
+      '--symbolic-full-name',
+      '@{upstream}',
+    ]);
+    const counts = upstream
+      ? gitText(git, ['rev-list', '--left-right', '--count', `${upstream}...HEAD`]).split(/\s+/)
+      : [];
+    const operation = gitOperationState({ git });
     const result = {
       hooksPath: hooksPath || null,
       expectedHooksPath: '.githooks',
       hooksActive: hooksPath === '.githooks',
       remote: sanitizeRemoteUrl(remote),
+      syncState: classifySyncState({
+        detached: !branch,
+        upstream: upstream || null,
+        ahead: counts[1] ? Number(counts[1]) : null,
+        behind: counts[0] ? Number(counts[0]) : null,
+      }),
+      operation,
       operations: listOperations(options).length,
     };
     console.log(JSON.stringify(result, null, 2));

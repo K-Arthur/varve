@@ -308,6 +308,8 @@ cleanup tooling, codemods).
 - `pnpm verify:quick` — Tier 0 + Tier 1: format/lint on touched files + directly related tests
 - `pnpm verify:affected` — Tiers 0–4, dependency-aware affected validation. **Default inner loop — use this instead of `pnpm test`.**
 - `pnpm verify:push` — exact outgoing-ref bounded push checkpoint; reports CI deferrals and never invokes the full suite automatically
+- `pnpm workflow:status` / `pnpm workflow:doctor` — inspect synchronization, worktree, hook, and in-progress-operation state without mutating Git
+- `pnpm workflow:history` / `pnpm workflow:report` — inspect or export durable local workflow attempts and sanitized evidence
 - `pnpm verify:full` — explicit full repository gate (Tier 5). Requires `VARVE_FULL_GATE_REASON` or `VARVE_FULL_GATE=1`
 - `just check-plan` / `just check-quick` / `just check-affected` — just wrappers for the verify commands
 - `just gate-full` — human-facing full gate (requires `VARVE_FULL_GATE_REASON`)

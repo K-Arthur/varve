@@ -7,6 +7,8 @@ import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
+  classifySyncState,
+  classifyWorktreeStatus,
   finishOperation,
   formatOperation,
   listOperations,
@@ -25,6 +27,22 @@ try {
     sanitizeRemoteUrl('git@example.test:team/varve.git'),
     'git@example.test:team/varve.git',
   );
+  assert.equal(classifySyncState({ upstream: 'origin/master', ahead: 0, behind: 0 }), 'up-to-date');
+  assert.equal(classifySyncState({ upstream: 'origin/master', ahead: 3, behind: 0 }), 'ahead-only');
+  assert.equal(
+    classifySyncState({ upstream: 'origin/master', ahead: 0, behind: 2 }),
+    'behind-only',
+  );
+  assert.equal(classifySyncState({ upstream: 'origin/master', ahead: 3, behind: 2 }), 'diverged');
+  assert.equal(classifySyncState({ detached: true }), 'detached');
+  assert.equal(classifySyncState(), 'missing-upstream');
+  assert.deepEqual(classifyWorktreeStatus(' M changed.txt\0A  staged.txt\0?? new.txt\0'), {
+    dirty: true,
+    indexDirty: true,
+    worktreeDirty: true,
+    untracked: true,
+    entryCount: 3,
+  });
 
   const started = startOperation({
     type: 'push-checkpoint',
@@ -59,6 +77,7 @@ try {
   assert.equal(finished.result.exitCode, 1);
   assert.equal(finished.durationMs, 3000);
   assert.equal(finished.destination.url, 'https://example.test/team/varve.git');
+  assert.deepEqual(finished.refs[0].treeSha, 'c'.repeat(40));
 
   // A retry is a separate immutable operation file, not a rewrite of the
   // failed attempt.

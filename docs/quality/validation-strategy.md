@@ -98,6 +98,14 @@ The frozen candidate check is the extended release evidence for one SHA.
 | `just gate-full` | Same as `verify:full`, requires `VARVE_FULL_GATE_REASON` | Human-facing full gate |
 | `just check-quick` / `just check-affected` | just wrappers for verify:quick/affected | just users |
 
+`pnpm workflow:status` is read-only. Its structured output distinguishes
+`up-to-date`, `ahead-only`, `behind-only`, `diverged`, `missing-upstream`, and
+`detached` synchronization states, then separately reports staged/index work,
+unstaged work, untracked files, and in-progress merge/rebase/cherry-pick/
+revert/bisect state. Use that information before choosing plain Git `fetch`,
+`pull --ff-only`, an explicit merge/rebase, or a conflict abort. The workflow
+tooling does not auto-stash, rewrite, pull, reset, or delete locks.
+
 Environment overrides:
 
 - `VARVE_TEST_WORKERS` — vitest `--maxWorkers` bound

@@ -192,6 +192,8 @@ try {
       commitSha: tagHead,
       policyVersion: POLICY_VERSION,
       policyHash,
+      mode: 'final',
+      certifiable: true,
       status: 'passed',
     }),
   );
@@ -448,6 +450,8 @@ try {
       commitSha: historyHead,
       policyVersion: POLICY_VERSION,
       policyHash,
+      mode: 'final',
+      certifiable: true,
       status: 'passed',
     }),
   );

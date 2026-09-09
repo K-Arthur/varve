@@ -365,6 +365,7 @@ export function runPushCheckpoint({
   }
   const outcomes = [];
   let failed = null;
+  const cleanupErrors = [];
   const executionTargets = snapshots.length ? snapshots : [{ sha: null, path: ROOT }];
   try {
     for (const target of executionTargets) {
@@ -383,7 +384,28 @@ export function runPushCheckpoint({
       if (failed) break;
     }
   } finally {
-    for (const snapshot of snapshots) snapshot.cleanup();
+    for (const snapshot of snapshots) {
+      try {
+        snapshot.cleanup();
+      } catch (error) {
+        cleanupErrors.push({ targetSha: snapshot.sha, message: error.message });
+      }
+    }
+  }
+  if (cleanupErrors.length > 0) {
+    const message = `Push blocked: validation snapshot cleanup failed for ${cleanupErrors.map(({ targetSha }) => targetSha).join(', ')}.`;
+    console.error(message);
+    return closeOperation(
+      {
+        status: 2,
+        plan,
+        outcomes,
+        artifactPath,
+        message,
+        cleanupErrors,
+      },
+      'cleanup',
+    );
   }
   if (failed && !overrideReason) {
     console.error(`Push blocked: ${failed.lane} failed.`);

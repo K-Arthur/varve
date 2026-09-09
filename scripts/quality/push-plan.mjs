@@ -242,6 +242,8 @@ function findCandidateEvidence(sha, policyHash, explicitPath, commonGitDir) {
         evidence.policyHash === policyHash &&
         evidence.policyVersion === POLICY_VERSION &&
         evidence.schema === 1 &&
+        evidence.mode === 'final' &&
+        evidence.certifiable === true &&
         (evidence.conclusion === 'success' || evidence.status === 'passed')
       ) {
         return { path, evidence };
