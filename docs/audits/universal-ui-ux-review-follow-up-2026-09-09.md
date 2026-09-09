@@ -141,7 +141,7 @@ output; behavior and conversion claims without research are hypotheses.
 | Criterion/guidance | Status | Evidence and boundary |
 |---|---|---|
 | WCAG 1.4.10 Reflow | Pass for tested website corpus | Nine widths from 320 through 1920 CSS pixels are covered on representative routes; arbitrary editor content and every dense table are not covered here. |
-| WCAG 1.4.4 Resize Text | Partial / not fully testable | Responsive CSS and readable type are reviewed, but a dedicated browser text-only 200% corpus is not part of this follow-up. |
+| WCAG 1.4.4 Resize Text | Bounded pass for the website corpus | A deterministic 200% text-size fixture now verifies text enlargement and page-level reflow on representative feature, export-documentation, and accessibility routes. It does not replace browser zoom, editor, localization, or native AT testing. |
 | WCAG 2.1.1 Keyboard | Pass for tested paths | Website navigation and prior editor focus paths are covered; every tool and native window needs broader AT validation. |
 | WCAG 2.1.2 No Keyboard Trap | Pass for tested paths | Mobile menu and responsive drawer focus flows include Escape and restoration; platform screen-reader interaction remains open. |
 | WCAG 2.4.3 Focus Order | Pass for tested paths | Skip link, menu, drawer, and representative editor focus order are covered by existing tests. |
@@ -194,8 +194,8 @@ content/website change.
 | Native and real-device screen-reader behavior is not certified. | High uncertainty / accepted open risk | Desktop app, browser editor | Run NVDA/VoiceOver/TalkBack and physical iOS/Android pass before a regulated/procurement claim. |
 | RTL and translated-length behavior are not validated. | Medium | Website/editor copy and layouts | Add locale/RTL fixtures when localization becomes an active product requirement. |
 | Full editor tool-by-tool status-message inventory is incomplete. | Medium | Editor tools and canvas-adjacent UI | Extend the accessibility E2E corpus by workflow and tool family. |
-| 200% text-only reflow has not been independently measured. | Low | Marketing and dense editor surfaces | Add browser text scaling/zoom checks to the next accessibility cycle. |
-| Accessibility of user-authored/exported output is not guaranteed by the tool statement. | Medium | Exported documents/assets | Publish format-specific output guidance and test representative exports. |
+| 200% text-only reflow was not independently measured. | Low | Marketing and dense editor surfaces | Website representative routes now have a deterministic 200% text-size regression; browser zoom and dense editor surfaces remain open. |
+| Accessibility of user-authored/exported output is not guaranteed by the tool statement. | Medium | Exported documents/assets | Format-specific output guidance is now published; representative final exports still need target-runtime/client review. |
 | Broader user research is absent. | Medium | All navigation/content hypotheses | Run moderated keyboard, touch, and screen-reader usability sessions. |
 
 ## 7. Cross-lens conflicts and resolutions
@@ -228,12 +228,15 @@ content/website change.
 2. **Expand editor workflow coverage — Medium, medium effort.** Inventory
    remaining tool families, status messages, canvas alternatives, zoom/overflow,
    and focus restoration; add focused Playwright/AT evidence.
-3. **Add 200% text and localization fixtures — Medium, medium effort.** Test
-   text-only zoom, long translations, RTL, and localized route/page metadata
-   when those product requirements are funded.
-4. **Publish output accessibility guidance — Medium, medium effort.** Define
-   what Varve can preserve or expose in representative export formats and give
-   authors a practical review checklist.
+3. **Add 200% text and localization fixtures — Medium, medium effort.** The
+   website now has a representative 200% text-size fixture. Add browser-zoom,
+   long-translation, RTL, and localized route/page metadata fixtures when
+   those product requirements are funded.
+4. **Publish output accessibility guidance — Medium, medium effort.** **Done
+   for the guidance deliverable.** `docs/architecture/output-accessibility-guidance.md`
+   defines the preservation boundary and author checklist for web code, email,
+   SVG, PDF/PDF-X, and raster output. Representative final exports still
+   require target-runtime/client verification.
 5. **Repeat user research — Medium, medium effort.** Validate navigation labels,
    support discoverability, and the accessibility page with keyboard, touch,
    and assistive-technology users. These are hypotheses until tested.
@@ -268,8 +271,9 @@ This review is an AI-assisted engineering review and is not a WCAG, ADA,
 Section 508, EN 301 549, procurement, or legal compliance certification. A
 named decision-maker must approve any external claim that requires that level
 of assurance. The remaining uncertainties are native screen readers, physical
-mobile devices, RTL/localized content, 200% text-only behavior, full editor
-workflow coverage, and the accessibility of user-authored output.
+mobile devices, RTL/localized content, browser-zoom/editor text-only behavior,
+full editor workflow coverage, final target-runtime export behavior, and user
+research.
 
 ## 12. Validation report
 
@@ -359,3 +363,62 @@ If yes, reason: not applicable.
 The affected-gate failures above are retained as evidence, not silently
 reclassified as passes. They must not be read as a claim that the unavailable
 native/AT surfaces were tested.
+
+## 13. Actions taken after the audit findings
+
+The two actionable content and measurement items from the residual register
+are now implemented:
+
+- `docs/architecture/output-accessibility-guidance.md` publishes the
+  preservation boundary and post-export review checklist for web code, native
+  UI code, email, SVG, PDF/PDF-X, and raster output. The export feature page
+  and export documentation link to that boundary in user-facing language.
+- The website now has an explicit 200% text-size fixture covering the export
+  feature, export documentation, and accessibility statement. It exposed and
+  fixed narrow-layout overflow in the header lockup, closed mobile sheet,
+  shared buttons, long technical identifiers, and the footer beta CTA.
+- `tests/e2e/a11y/focus-order.spec.ts` now checks the real canvas accessible
+  name, role description, and polite/assertive live-region relationship. The
+  focus-navigation architecture doc now matches the native canvas contract.
+- `docs/quality/accessibility-validation-matrix.md` records the current
+  website/editor browser evidence, remaining workflow inventory, and a
+  repeatable manual AT task script.
+
+Additional validation for this implementation:
+
+```text
+Commands actually run:
+- pnpm verify:plan (full-suite escalation: NO)
+- pnpm build:website
+- pnpm build:website:pages
+- pnpm --filter @varve/website typecheck
+- pnpm typecheck:e2e
+- pnpm audit:tokens
+- pnpm audit:docs
+- pnpm audit:emoji
+- VARVE_WEBSITE_E2E_PORT=4505 VARVE_WEBSITE_E2E_PORT_ROOT=4506 pnpm exec playwright test apps/website/tests/e2e/visibility.spec.ts --config=playwright.website.config.ts --project=ghpages --workers=1 --grep "main content remains" --reporter=list
+- VARVE_WEBSITE_E2E_PORT=4515 VARVE_WEBSITE_E2E_PORT_ROOT=4516 pnpm exec playwright test apps/website/tests/e2e/axe.spec.ts --config=playwright.website.config.ts --project=ghpages --workers=1 --grep "export|accessibility" --reporter=list
+- VARVE_WEBSITE_E2E_PORT=4525 VARVE_WEBSITE_E2E_PORT_ROOT=4526 pnpm exec playwright test apps/website/tests/e2e/reflow.spec.ts --config=playwright.website.config.ts --project=ghpages --workers=1 --reporter=list
+- VARVE_E2E_PORT=1540 VARVE_E2E_WORKERS=1 pnpm exec playwright test tests/e2e/a11y/focus-order.spec.ts --project=chromium --workers=1 --grep "accessible name and live" --reporter=list
+
+Passed:
+- Both website static builds: 81 pages, zero Astro errors and zero warnings;
+  five existing hints remain.
+- Website typecheck, E2E typecheck, token, documentation, and emoji gates.
+- 200% text-size route fixture: 1 test passed.
+- Export/accessibility axe checks: 6 tests passed.
+- Nine-width website reflow corpus: 1 test passed.
+- Editor canvas accessibility relationship: 1 Chromium test passed.
+- Light and dark 1280px full-page export-documentation screenshots were
+  captured and visually inspected; hierarchy, callout contrast, wrapping,
+  and footer composition were coherent.
+
+Skipped as unrelated or unavailable:
+- Concurrent editor/scene/generative-editing worktree changes were not staged
+  or altered.
+- Native Orca/NVDA/VoiceOver/TalkBack, physical mobile devices, RTL/localized
+  content, broad user research, and final target-runtime export review remain
+  open and are covered by the manual matrix.
+- Full repository suite and full visual suite: no escalation required for this
+  bounded website/editor accessibility change.
+```
