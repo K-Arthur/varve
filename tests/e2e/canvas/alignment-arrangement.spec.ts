@@ -107,8 +107,10 @@ test.describe('Alignment and arrangement workflow', () => {
     const before = await layerOrder(page);
     expect(before).toHaveLength(4);
     const selectedIds = [before[1]!, before[2]!];
-    await page.locator(`[data-node-id="${selectedIds[0]}"]`).click();
-    await page.locator(`[data-node-id="${selectedIds[1]}"]`).click({ modifiers: ['Control'] });
+    await page.locator(`[role="treeitem"][data-node-id="${selectedIds[0]}"]`).click();
+    await page
+      .locator(`[role="treeitem"][data-node-id="${selectedIds[1]}"]`)
+      .click({ modifiers: ['Control'] });
     await page.getByRole('menuitem', { name: 'Arrange' }).click();
     await page.getByRole('menuitem', { name: 'Bring Forward' }).click();
 
