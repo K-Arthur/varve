@@ -15,7 +15,7 @@ import { type BlendEvaluationSpace, managedColorToRgba } from '@varve/shared';
 import { isVerticalWritingMode } from '@varve/shared/verticalText';
 import type { AlphaStrokeOps } from './alphaStroke';
 import { blendPixels, CompositeCanvas, mapBlendMode } from './compositeCanvas';
-import { deserializeDepthMap, resizeDepthMap } from './depthMap';
+import { DepthMapCache, deserializeDepthMap, resizeDepthMap } from './depthMap';
 import { compositeMaskedEffectPixels, type PixelImageData } from './effectMaskCompositor';
 import {
   applyChromaticAberration,
@@ -87,6 +87,18 @@ import { splitGraphemes } from './unicode/grapheme';
 import { paintVerticalCanonicalRichText, paintVerticalCanonicalText } from './verticalTextReplay';
 
 export { resetGradientCacheForTest } from './replayGradient';
+
+const decodedDepthMapCache = new DepthMapCache(3, 32 * 1024 * 1024);
+
+function depthMapCacheKey(resource: NonNullable<DepthBlurEffect['depthMap']>): string {
+  return [
+    resource.id,
+    resource.byteLength,
+    resource.sourceHash ?? '',
+    resource.sourceRevision ?? '',
+    resource.generatedAt ?? '',
+  ].join(':');
+}
 
 type GlassMaterialEffect = Extract<import('./types').Effect, { type: 'glassMaterial' }>;
 
@@ -949,11 +961,12 @@ export function replayIr(
               } else if (effect.type === 'depthBlur') {
                 if (effect.depthMap) {
                   try {
-                    const depthMap = resizeDepthMap(
-                      deserializeDepthMap(effect.depthMap),
-                      cc.width,
-                      cc.height,
-                    );
+                    const resource = effect.depthMap;
+                    const cacheKey = depthMapCacheKey(resource);
+                    const decoded =
+                      decodedDepthMapCache.get(cacheKey) ?? deserializeDepthMap(resource);
+                    decodedDepthMapCache.set(cacheKey, decoded);
+                    const depthMap = resizeDepthMap(decoded, cc.width, cc.height);
                     const blurred = applyDepthBlur(input, depthMap, {
                       blurAmount: effect.blurStrength,
                       focalDepth: effect.focusDepth,

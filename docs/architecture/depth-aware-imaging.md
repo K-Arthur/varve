@@ -128,6 +128,9 @@ substitute for occlusion handling.
   legacy 8-bit lens-blur API. Model-space letterbox padding is removed before
   the map is aligned to the source image. The focus picker uses a robust local
   median, not a single potentially noisy model pixel.
+- Replay decodes persisted maps through a small LRU bounded by both entry count
+  and decoded byte size; resource identity includes payload metadata so a
+  regenerated map cannot reuse stale decoded samples.
 - Depth Range → Mask is implemented as a non-destructive layer mask: the
   Inspector converts a depth range (near/far/feather/invert) into a
   `RasterMaskAsset` through the same `commitRasterMask` path used by
@@ -137,6 +140,10 @@ substitute for occlusion handling.
   referenced by any node effect. Updates and removal target the stable effect
   identifier when one is present; legacy effects without an identifier are
   migrated in place on the next save.
+- The compact generic Effects picker does not create an empty `depthBlur`
+  placeholder. Depth Blur is entered through the image workflow, where a
+  validated DepthMap resource is generated or loaded before the effect is
+  saved.
 
 ## Model verification (2026-08-13)
 

@@ -130,4 +130,16 @@ describe('DepthMap', () => {
     expect(cache.size).toBe(2);
     expect(cache.get('a')).toBeUndefined();
   });
+
+  it('evicts decoded maps by byte budget as well as entry count', () => {
+    const cache = new DepthMapCache(10, 20);
+    const map = normalizeDepthPrediction(new Float32Array([0, 1, 0, 1]), 2, 2);
+    expect(map.values.byteLength + map.valid.byteLength).toBe(20);
+    cache.set('a', map);
+    cache.set('b', map);
+    expect(cache.size).toBe(1);
+    expect(cache.get('a')).toBeUndefined();
+    expect(cache.get('b')).toBe(map);
+    expect(cache.bytes).toBe(20);
+  });
 });

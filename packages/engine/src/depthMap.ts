@@ -435,8 +435,12 @@ export function depthCacheKey(input: DepthCacheKeyInput): string {
 /** Small bounded LRU for decoded maps; persisted resources remain authoritative. */
 export class DepthMapCache {
   private readonly entries = new Map<string, DepthMap>();
+  private totalBytes = 0;
 
-  constructor(private readonly maxEntries = 3) {}
+  constructor(
+    private readonly maxEntries = 3,
+    private readonly maxBytes = 32 * 1024 * 1024,
+  ) {}
 
   get(key: string): DepthMap | undefined {
     const value = this.entries.get(key);
@@ -447,24 +451,41 @@ export class DepthMapCache {
   }
 
   set(key: string, value: DepthMap): void {
+    const valueBytes = value.values.byteLength + value.valid.byteLength;
+    const previous = this.entries.get(key);
+    if (previous) this.totalBytes -= previous.values.byteLength + previous.valid.byteLength;
     this.entries.delete(key);
+    if (valueBytes > Math.max(1, this.maxBytes)) return;
     this.entries.set(key, value);
-    while (this.entries.size > Math.max(1, this.maxEntries)) {
+    this.totalBytes += valueBytes;
+    while (
+      this.entries.size > Math.max(1, this.maxEntries) ||
+      this.totalBytes > Math.max(1, this.maxBytes)
+    ) {
       const oldest = this.entries.keys().next().value as string | undefined;
       if (!oldest) break;
+      const evicted = this.entries.get(oldest);
       this.entries.delete(oldest);
+      if (evicted) this.totalBytes -= evicted.values.byteLength + evicted.valid.byteLength;
     }
   }
 
   delete(key: string): void {
+    const value = this.entries.get(key);
     this.entries.delete(key);
+    if (value) this.totalBytes -= value.values.byteLength + value.valid.byteLength;
   }
 
   clear(): void {
     this.entries.clear();
+    this.totalBytes = 0;
   }
 
   get size(): number {
     return this.entries.size;
+  }
+
+  get bytes(): number {
+    return this.totalBytes;
   }
 }

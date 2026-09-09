@@ -212,6 +212,10 @@ export function EffectsSection({ nodes, sectionId }: EffectsSectionProps) {
   );
 
   const addEffect = useCallback(() => {
+    if (newEffectType === 'depthBlur') {
+      announce('Generate a DepthMap in the image Depth Blur section before adding Depth Blur');
+      return;
+    }
     if (effectNodes.length > 0) {
       setLastAddedIndex(Math.min(...effectNodes.map((n) => n.effects?.length ?? 0)));
     }
@@ -321,7 +325,17 @@ export function EffectsSection({ nodes, sectionId }: EffectsSectionProps) {
           options={EFFECT_TYPE_OPTIONS}
           onChange={(v) => setNewEffectType(v as Effect['type'])}
         />
-        <button type="button" className="insp-add-btn" onClick={addEffect}>
+        <button
+          type="button"
+          className="insp-add-btn"
+          onClick={addEffect}
+          disabled={newEffectType === 'depthBlur'}
+          title={
+            newEffectType === 'depthBlur'
+              ? 'Generate a DepthMap in the image Depth Blur section first'
+              : undefined
+          }
+        >
           <Icon name="Plus" label={undefined} size="0.85em" />
           <span>Add</span>
         </button>
