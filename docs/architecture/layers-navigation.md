@@ -40,6 +40,24 @@ This keeps the focused tree item, primary selection, range anchor, and camera
 as distinct state. Camera transitions are cancelled by direct pan/zoom/camera
 input, and successive automatic requests replace the previous transition.
 
+## Range selection and row scrub
+
+The visible tree is a flattened projection of the active surface. Its range
+anchor and extent are stable `NodeId`s, not row indexes, because virtualization
+can mount, unmount, filter, expand, or collapse rows during a gesture. The
+same `selectionRangeBetween()` and `applySelectionRange()` helpers serve
+Shift-click, Shift+Arrow, and the row-body pointer scrub. Replace/add behavior
+is computed from the pointer-down selection snapshot, so reversing direction
+does not shrink or reinterpret the range.
+
+Row scrub uses measured virtualizer geometry and a bounded edge auto-scroll
+loop. It previews rows without mutating committed selection or history, then
+calls the bulk selection setter once on release (or clears the preview on
+cancel/blur). The dedicated row grip is the only structural DnD activator;
+disclosure, visibility, lock, checkbox, effect, and rename controls remain
+control-owned. The active surface is the only range scope; cross-page ranges
+remain the ADR-0195 follow-up.
+
 ## Bounds and active surfaces
 
 Navigation resolves through the editor's canonical `nodeWorldBounds` service;

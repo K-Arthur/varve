@@ -17,8 +17,8 @@ test('Layers feature page communicates the supported handoff and stays within th
     page.getByRole('heading', { name: 'Place a selection without flattening it.' }),
   ).toBeVisible();
   await expect(
-    page.getByRole('link', { name: /Read the Layers drag-and-drop contract/ }),
-  ).toHaveAttribute('href', /layers-drag-drop\.md$/);
+    page.getByRole('link', { name: /Read the Layers navigation contract/ }),
+  ).toHaveAttribute('href', /layers-navigation\.md$/);
 
   const bounds = await page.evaluate(() => ({
     documentWidth: document.documentElement.scrollWidth,

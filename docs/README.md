@@ -505,8 +505,10 @@ records; check the current code before acting on their findings.
 | `audits/font-semantic-implementation-audit-2026-09-01.md` | Evidence, benchmark, visual validation, model gate, and known gaps for semantic font discovery |
 | `audits/selection-system-audit-2026-08-23.md` | Pixel/node selection gap analysis preceding the selection-system work — see `architecture/selection-system.md` for current state |
 | `audits/selection-validation-report-2026-08-23.md` | Selection-system delivery and validation record, including the UI wiring landed after the implementation plan's "pending" notes |
+| `audits/selection-interaction-validation-2026-09-08.md` | Canvas object marquee, Layers row-scrub, structural-DnD separation, deterministic fixtures, and visual validation |
 | `audits/object-selection-repair-validation-2026-09-02.md` | Object Selection prompt/overlay, inference recovery, automatic bounds trim, and marketing validation record |
 | `audits/effects-surfaces-audit-2026-08-29.md` | Research-backed separation of Effect Studio, Image Tuning, Object Filters, and Adjustment Filters, including raster/vector behavior |
+| `audits/photo-editing-compositing-audit-2026-09-08.md` | Current photo editing/compositing capability map, ownership boundaries, RIFE truth, and remaining validation limits |
 | `audits/pages-master-layout-audit-2026-08-29.md` | Current page, parent/master, spread, frame, workspace, I/O, and validation capability audit |
 | `audits/shine-border-opportunity-audit-2026-08-31.md` | Repository-wide Shine Border candidate ranking, explicit rejects, and approved production ceiling |
 | `audits/platform-ux-accessibility-responsiveness-audit-2026-09-02.md` | WCAG 2.2 AA, keyboard, touch, responsive, and marketing-site audit with prioritized remediation |
