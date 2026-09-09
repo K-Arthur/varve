@@ -786,6 +786,17 @@ export function useOverlayDraw({
             accentColor,
           );
           break;
+        case 'screen-rect':
+          // The object marquee is defined by the user's CSS-pixel pointer
+          // rectangle. Reset the world camera for this one draft so a rotated
+          // camera cannot turn the preview into a world-space AABB.
+          ctx.save();
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          ctx.lineWidth = 1;
+          ctx.setLineDash([4, 4]);
+          ctx.strokeRect(d.x, d.y, d.w, d.h);
+          ctx.restore();
+          break;
         case 'rect':
         case 'frame':
           ctx.strokeRect(d.x, d.y, d.w, d.h);
@@ -888,7 +899,11 @@ export function useOverlayDraw({
           ctx.fillStyle = accentColor;
           ctx.fillText(d.label ?? `${d.pts.length} pts`, sx2 + 4, sy2 + 14);
         }
-      } else if (d.kind !== 'bezier-path' && d.kind !== 'predicted-stroke') {
+      } else if (
+        d.kind !== 'bezier-path' &&
+        d.kind !== 'predicted-stroke' &&
+        d.kind !== 'screen-rect'
+      ) {
         const worldX = d.kind === 'line' || d.kind === 'arrow' ? Math.min(d.x1, d.x2) : d.x;
         const worldY = d.kind === 'line' || d.kind === 'arrow' ? Math.min(d.y1, d.y2) : d.y;
         const sx2 = (worldX - s.pan.x) * s.zoom + cssW / 2;

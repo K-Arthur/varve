@@ -6,7 +6,8 @@
  * ceiling. Follows the context/useX.ts pattern: pure logic, no JSX.
  */
 
-import { useCallback } from 'react';
+import type { NodeId } from '@varve/scene';
+import { type Dispatch, type MutableRefObject, type SetStateAction, useCallback } from 'react';
 import type { SelectionResult } from '../commands/selectionCommands';
 import {
   invertSelectionCmd,
@@ -22,6 +23,7 @@ import {
   selectPreviousSiblingCmd,
   selectSiblingsCmd,
 } from '../commands/selectionCommands';
+import { DEFAULT_SELECTION_ORIGIN, type EditorState, type SelectionOrigin } from './types';
 
 interface SelectionCommandDeps {
   document: Parameters<typeof selectParentCmd>[0];
@@ -158,3 +160,53 @@ export function useSelectionCommands({
 
 export type SelectionCommands = ReturnType<typeof useSelectionCommands>;
 export type { SelectionResult };
+
+interface SelectionHistoryLike {
+  push(selection: string[]): void;
+}
+
+interface SelectionChangeRef {
+  current: ((selection: NodeId[]) => void) | undefined;
+}
+
+/** Build the one-shot selection setter used by canvas and panel gestures. */
+export function makeSetRefs(
+  stateRef: MutableRefObject<EditorState>,
+  setState: Dispatch<SetStateAction<EditorState>>,
+  selectionHistory: SelectionHistoryLike,
+  onSelectionChangeRef: SelectionChangeRef,
+): (
+  selection: readonly NodeId[],
+  options?: { primary?: NodeId | null; origin?: SelectionOrigin },
+) => void {
+  return (selection, options) => {
+    const current = stateRef.current;
+    const nextSelection = [...new Set(selection)].filter((id) =>
+      Boolean(current.document.nodes[id]),
+    );
+    if (JSON.stringify(current.selection) === JSON.stringify(nextSelection)) return;
+    const primaryId =
+      options?.primary && nextSelection.includes(options.primary)
+        ? options.primary
+        : (nextSelection[0] ?? null);
+    const resolvedOrigin = options?.origin ?? DEFAULT_SELECTION_ORIGIN;
+    if (resolvedOrigin !== 'api') selectionHistory.push(nextSelection);
+    stateRef.current = {
+      ...current,
+      selection: nextSelection,
+      primaryId,
+      focusedNodeId: primaryId,
+      selectionRevision: current.selectionRevision + 1,
+      selectionOrigin: resolvedOrigin,
+    };
+    setState((state) => ({
+      ...state,
+      selection: nextSelection,
+      primaryId,
+      focusedNodeId: primaryId,
+      selectionRevision: state.selectionRevision + 1,
+      selectionOrigin: resolvedOrigin,
+    }));
+    onSelectionChangeRef.current?.(nextSelection);
+  };
+}

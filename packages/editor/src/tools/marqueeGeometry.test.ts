@@ -2,6 +2,7 @@ import { createDocument, makeShapeNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
   marqueeGeometryHit,
+  marqueeGeometryHitInCanvasSpace,
   marqueeRectContainsRect,
   marqueeRectsIntersect,
   normalizeMarqueeRect,
@@ -89,5 +90,42 @@ describe('marquee geometry', () => {
         () => placed,
       ),
     ).toBe(true);
+  });
+
+  it('keeps the marquee axis-aligned in screen space under camera rotation', () => {
+    const doc = createDocument('rotated-camera');
+    const node = makeShapeNode('rect', { kind: 'rect', x: 0, y: 0, w: 10, h: 2 });
+    const withNode = { ...doc, nodes: { ...doc.nodes, rect: node } };
+    const quarterTurn = (point: { x: number; y: number }) => ({
+      x: -point.y,
+      y: point.x,
+    });
+    const worldTransform = () => [1, 0, 0, 1, 0, 0] as const;
+    const worldBounds = () => ({ x: 0, y: 0, w: 10, h: 2 });
+
+    expect(
+      marqueeGeometryHitInCanvasSpace(
+        withNode,
+        node.id,
+        { x: -2, y: 8, w: 1, h: 1 },
+        false,
+        quarterTurn,
+        undefined,
+        worldTransform,
+        worldBounds,
+      ),
+    ).toBe(true);
+    expect(
+      marqueeGeometryHitInCanvasSpace(
+        withNode,
+        node.id,
+        { x: 0.1, y: 5, w: 1, h: 1 },
+        false,
+        quarterTurn,
+        undefined,
+        worldTransform,
+        worldBounds,
+      ),
+    ).toBe(false);
   });
 });

@@ -22,6 +22,10 @@ export interface SelectionContextValue {
   selectionOrigin: SelectionOrigin;
   selectionRevision: number;
   setSelection: (id: NodeId | null, origin?: SelectionOrigin) => void;
+  setSelectionRefs: (
+    selection: readonly NodeId[],
+    options?: { primary?: NodeId | null; origin?: SelectionOrigin },
+  ) => void;
   toggleSelection: (id: NodeId, additive?: boolean, origin?: SelectionOrigin) => void;
   isSelected: (id: NodeId) => boolean;
   selectedNodes: () => SceneNode[];
@@ -81,6 +85,31 @@ export function SelectionProvider({ children, state, setState }: SelectionProvid
           selection: nextSelection,
           primaryId: newPrimaryId,
           selectionOrigin: origin ?? DEFAULT_SELECTION_ORIGIN,
+          selectionRevision: s.selectionRevision + 1,
+        };
+      });
+    },
+    [setState],
+  );
+
+  const setSelectionRefs = useCallback(
+    (
+      selection: readonly NodeId[],
+      options?: { primary?: NodeId | null; origin?: SelectionOrigin },
+    ) => {
+      setState((s) => {
+        const nextSelection = [...new Set(selection)].filter((id) => Boolean(s.document.nodes[id]));
+        if (JSON.stringify(s.selection) === JSON.stringify(nextSelection)) return s;
+        const primaryId =
+          options?.primary && nextSelection.includes(options.primary)
+            ? options.primary
+            : (nextSelection[0] ?? null);
+        return {
+          ...s,
+          selection: nextSelection,
+          primaryId,
+          focusedNodeId: primaryId,
+          selectionOrigin: options?.origin ?? DEFAULT_SELECTION_ORIGIN,
           selectionRevision: s.selectionRevision + 1,
         };
       });
@@ -191,6 +220,7 @@ export function SelectionProvider({ children, state, setState }: SelectionProvid
       selectionOrigin: state.selectionOrigin,
       selectionRevision: state.selectionRevision,
       setSelection,
+      setSelectionRefs,
       toggleSelection,
       isSelected,
       selectedNodes,
@@ -208,6 +238,7 @@ export function SelectionProvider({ children, state, setState }: SelectionProvid
       state.selectionOrigin,
       state.selectionRevision,
       setSelection,
+      setSelectionRefs,
       toggleSelection,
       isSelected,
       selectedNodes,

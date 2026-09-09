@@ -21,6 +21,7 @@ import {
   isInIsolatedSubtree,
   multipageRootNodes,
   type NodeId,
+  type SceneNode,
   walkNodes,
   worldToPageAtPoint,
 } from '@varve/scene';
@@ -47,10 +48,11 @@ import { interactionSession } from './InteractionContext';
 import { layoutDropInsertionIndex } from './layoutDrop';
 import {
   isMarqueeSelectableNode,
-  marqueeGeometryHit,
+  marqueeGeometryHitInCanvasSpace,
   normalizeMarqueeRect,
 } from './marqueeGeometry';
 import {
+  applyNodeSelectionOperation,
   commitNodeSelectionOperation,
   marqueeUsesContainment,
   type SelectionOperation,
@@ -63,6 +65,8 @@ const LONG_PRESS_MS = 500;
 
 /** Movement tolerance (px) for long-press to not be cancelled as a drag. */
 const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
+
+type HitTarget = { nodeId: NodeId; node: SceneNode };
 
 function nudgeDirectionForKey(key: string): NudgeDirection | null {
   switch (key) {
@@ -130,6 +134,23 @@ export class SelectTool extends BaseTool {
   private longPressStart: { x: number; y: number } | null = null;
   /** Whether this pointer down already fired a long-press action. */
   private longPressFired = false;
+  /** Selection is deferred until the press resolves as a click or drag. */
+  private pointerDownHit: HitTarget | null = null;
+  private pointerDownLocked = false;
+  private pointerDownSelection: NodeId[] = [];
+  private pointerDownSelectedLeafOverridesHit = false;
+  private pointerDownShift = false;
+  private pointerDownCtrl = false;
+  private pointerDownMeta = false;
+  private pointerDownTouchMulti = false;
+  private pointerDownSurfaceKey: string | null = null;
+  private pointerDownSurfaceChanged = false;
+  private pointerDownForceMarquee = false;
+  private forceMarqueeHeld = false;
+  /** Stable selection snapshot used by the current object marquee. */
+  private marqueeBaseSelection: NodeId[] = [];
+  /** IDs addressed by a move, independent of React's commit timing. */
+  private gestureSelectionIds: NodeId[] = [];
 
   override onActivate(ctx: ToolContext): void {
     // Returning to the object-selection domain removes any raster boundary so
@@ -141,6 +162,8 @@ export class SelectTool extends BaseTool {
 
   override onDeactivate(ctx: ToolContext): void {
     this.finishNudgeGesture(ctx);
+    this.forceMarqueeHeld = false;
+    ctx.setSelectionPreview?.(null);
     // Cancel any active drag when switching tools
     if (this.drag.kind === 'dragging') {
       interactionSession.reset();
@@ -157,6 +180,18 @@ export class SelectTool extends BaseTool {
       };
       this.marqueeActive = false;
       this.isMoveGesture = false;
+      this.pointerDownHit = null;
+      this.pointerDownLocked = false;
+      this.pointerDownSelection = [];
+      this.gestureSelectionIds = [];
+      this.pointerDownShift = false;
+      this.pointerDownCtrl = false;
+      this.pointerDownMeta = false;
+      this.pointerDownTouchMulti = false;
+      this.pointerDownSurfaceKey = null;
+      this.pointerDownSurfaceChanged = false;
+      this.pointerDownForceMarquee = false;
+      this.forceMarqueeHeld = false;
       this.initialPositions.clear();
       this.hasDuplicated = false;
     }
@@ -164,6 +199,7 @@ export class SelectTool extends BaseTool {
 
   override onFocusLoss(ctx: ToolContext): void {
     this.finishNudgeGesture(ctx);
+    this.forceMarqueeHeld = false;
   }
 
   private finishNudgeGesture(ctx: ToolContext): void {
@@ -230,127 +266,111 @@ export class SelectTool extends BaseTool {
         this.isNestedInEditableContainer(selectedLeafHit.nodeId, ctx));
     const hit = selectedLeafOverridesHit ? selectedLeafHit : normalHit;
 
-    if (hit) {
-      const docNode = ctx.document.nodes[hit.nodeId];
-      if (docNode?.locked) {
-        // Clicking a locked node: don't start a move gesture or transaction
-        this.marqueeActive = false;
-        this.isMoveGesture = false;
-        this.initialPositions.clear();
-        this.hasDuplicated = false;
-        return { consumed: true };
-      }
-
-      // B1: Depth-based cycling — if clicking an already-selected single node,
-      // cycle to the next overlapping node below
-      if (
-        !e.shiftKey &&
-        !e.ctrlKey &&
-        !e.metaKey &&
-        !selectedLeafOverridesHit &&
-        ctx.isSelected(hit.nodeId) &&
-        ctx.selection.length === 1
-      ) {
-        const allAtPoint = this.findNodesAtPoint(world, ctx);
-        const currentIdx = allAtPoint.findIndex((n) => n.nodeId === hit.nodeId);
-        if (currentIdx >= 0 && currentIdx < allAtPoint.length - 1) {
-          const nextNode = allAtPoint[currentIdx + 1]!;
-          ctx.setSelection(nextNode.nodeId);
-          ctx.announceSelection([nextNode.node]);
-          this.marqueeActive = false;
-          this.isMoveGesture = true;
-          ctx.beginTransaction();
-          this.initialPositions.clear();
-          // ctx.selection is a stale snapshot; use the newly-selected id directly.
-          const worldMat =
-            ctx.getWorldTransform?.(nextNode.nodeId) ??
-            nodeWorldTransform(ctx.document, nextNode.nodeId);
-          this.initialPositions.set(nextNode.nodeId, { x: worldMat[4], y: worldMat[5] });
-          return { consumed: true, captured: true };
-        }
-      }
-
-      // C3: Ctrl/Cmd+Click deep-selects through containers.
-      // When held, select the deepest non-container child at the hit point
-      // instead of the topmost container.
-      if (e.ctrlKey || e.metaKey) {
-        const allAtPoint = this.findNodesAtPoint(world, ctx);
-        // `findNodesAtPoint` returns candidates in paint order (topmost
-        // first), while the normal hit-test may return the containing frame.
-        // Do not start at the normal hit index: that would skip a child that
-        // appears before its parent and make Ctrl+Click select the frame.
-        // The first non-container candidate is the deepest visible leaf at
-        // this point under the established paint ordering.
-        let deepTarget: { nodeId: string } | null = null;
-        for (const candidate of allAtPoint) {
-          const n = ctx.document.nodes[candidate.nodeId];
-          if (n && n.kind !== 'frame' && n.kind !== 'group') {
-            deepTarget = candidate;
-            break;
-          }
-        }
-        const target = deepTarget ?? hit;
-        if (e.shiftKey) {
-          ctx.toggleSelection(target.nodeId, true);
-        } else if (
-          !ctx.isSelected(target.nodeId) ||
-          // When multi-selecting, Ctrl+drag should move the whole selection,
-          // not replace it. Only re-select when single-selecting to keep the
-          // selection authoritative (fixes container-hit layers-panel stale).
-          ctx.selection.length <= 1
-        ) {
-          ctx.setSelection(target.nodeId);
-        }
-      } else if (ctx.touchMultiSelect.active) {
-        // Touch multi-select: tap toggles nodes in/out of selection
-        if (ctx.isSelected(hit.nodeId)) {
-          ctx.toggleSelection(hit.nodeId, false);
-        } else {
-          ctx.toggleSelection(hit.nodeId, true);
-        }
-      } else if (e.shiftKey) {
-        ctx.toggleSelection(hit.nodeId, true);
-      } else if (!ctx.isSelected(hit.nodeId)) {
-        ctx.setSelection(hit.nodeId);
-      }
-      const effectiveNodes = ctx.selection.map((id) => ctx.getNode(id)).filter(Boolean);
-      ctx.announceSelection(effectiveNodes as import('@varve/scene').SceneNode[]);
-      this.marqueeActive = false;
-      this.isMoveGesture = true;
-      // Begin transaction for move gesture (undo coherence)
-      ctx.beginTransaction();
-      // Store initial world-space origin for each selected node so onDragMove
-      // can compute newLocalPos = parentInverse * (initWorldPos + totalDelta).
-      // ctx.selection is a closure snapshot captured before setSelection/toggleSelection;
-      // build the effective post-call set from what we know the new state will be.
-      const effectiveIds: string[] = e.shiftKey
-        ? ctx.isSelected(hit.nodeId)
-          ? ctx.selection.filter((id) => id !== hit.nodeId) // toggle off: removed
-          : [...ctx.selection, hit.nodeId] // toggle on: added
-        : ctx.isSelected(hit.nodeId)
-          ? [...ctx.selection] // already selected: unchanged
-          : [hit.nodeId]; // replaced: only the new node
-      this.initialPositions.clear();
-      for (const id of effectiveIds) {
-        const worldMat = ctx.getWorldTransform?.(id) ?? nodeWorldTransform(ctx.document, id);
-        this.initialPositions.set(id, { x: worldMat[4], y: worldMat[5] });
-      }
-    } else {
-      if (!e.shiftKey && !ctx.touchMultiSelect.active) {
-        ctx.setSelection(null);
-        ctx.announceSelection([]);
-      }
-      // M6: clicking a page's trim background activates that page (page
-      // navigation and page-scoped commands follow the active page).
-      const pageAt = worldToPageAtPoint(ctx.document, world);
-      if (pageAt && pageAt.pageId !== ctx.document.activePageId) {
-        ctx.setActivePage?.(pageAt.pageId);
-      }
-      this.marqueeActive = !ctx.touchMultiSelect.active;
-      this.isMoveGesture = false;
-    }
+    this.pointerDownForceMarquee = this.forceMarqueeHeld;
+    this.pointerDownHit = this.pointerDownForceMarquee ? null : hit;
+    this.pointerDownLocked =
+      !this.pointerDownForceMarquee && Boolean(hit && ctx.document.nodes[hit.nodeId]?.locked);
+    this.pointerDownSelection = [...ctx.selection];
+    this.pointerDownSelectedLeafOverridesHit = selectedLeafOverridesHit;
+    this.pointerDownShift = e.shiftKey;
+    this.pointerDownCtrl = e.ctrlKey;
+    this.pointerDownMeta = e.metaKey;
+    this.pointerDownTouchMulti = ctx.touchMultiSelect.active;
+    this.pointerDownSurfaceKey = ctx.selectionSurfaceKey ?? null;
+    this.pointerDownSurfaceChanged = false;
+    this.marqueeBaseSelection = [...ctx.selection];
+    this.marqueeActive = false;
+    this.isMoveGesture = false;
+    this.gestureSelectionIds = [];
 
     return { consumed: true, captured: true };
+  }
+
+  /** Cross the threshold: now resolve the press as either a move or marquee. */
+  override onDragStart(ctx: ToolContext): void {
+    if (this.hasSelectionSurfaceChanged(ctx)) return;
+    if (this.pointerDownLocked) return;
+    if (this.pointerDownHit) {
+      this.beginMoveGesture(ctx, this.pointerDownHit);
+      return;
+    }
+    this.marqueeActive = !this.pointerDownTouchMulti;
+    this.marqueeBaseSelection = [...this.pointerDownSelection];
+  }
+
+  private beginMoveGesture(ctx: ToolContext, hit: HitTarget): void {
+    const selection = this.applyHitSelection(ctx, hit);
+    this.gestureSelectionIds = selection;
+    this.marqueeActive = false;
+    this.isMoveGesture = true;
+    ctx.beginTransaction();
+    this.initialPositions.clear();
+    for (const id of selection) {
+      const worldMat = ctx.getWorldTransform?.(id) ?? nodeWorldTransform(ctx.document, id);
+      this.initialPositions.set(id, { x: worldMat[4], y: worldMat[5] });
+    }
+  }
+
+  /** Apply the deferred click semantics and return the effective move set. */
+  private applyHitSelection(ctx: ToolContext, hit: HitTarget): NodeId[] {
+    const base = this.pointerDownSelection;
+    const baseSet = new Set(base);
+    const shift = this.pointerDownShift;
+    const deepSelect = this.pointerDownCtrl || this.pointerDownMeta;
+    let target = hit;
+
+    if (
+      !shift &&
+      !deepSelect &&
+      !this.pointerDownSelectedLeafOverridesHit &&
+      base.length === 1 &&
+      baseSet.has(hit.nodeId)
+    ) {
+      const allAtPoint = this.findNodesAtPoint(this.drag.startWorld, ctx);
+      const currentIdx = allAtPoint.findIndex((node) => node.nodeId === hit.nodeId);
+      const nextNode = currentIdx >= 0 ? allAtPoint[currentIdx + 1] : undefined;
+      if (nextNode) target = nextNode;
+    } else if (deepSelect) {
+      const allAtPoint = this.findNodesAtPoint(this.drag.startWorld, ctx);
+      const deepTarget = allAtPoint.find((candidate) => {
+        const node = ctx.document.nodes[candidate.nodeId];
+        return node && node.kind !== 'frame' && node.kind !== 'group';
+      });
+      if (deepTarget) target = deepTarget;
+    }
+
+    let next = base;
+    if (deepSelect && shift) {
+      next = baseSet.has(target.nodeId)
+        ? base.filter((id) => id !== target.nodeId)
+        : [...base, target.nodeId];
+      ctx.toggleSelection(target.nodeId, true);
+    } else if (this.pointerDownTouchMulti) {
+      next = baseSet.has(target.nodeId)
+        ? base.filter((id) => id !== target.nodeId)
+        : [...base, target.nodeId];
+      ctx.toggleSelection(target.nodeId, !baseSet.has(target.nodeId));
+    } else if (shift) {
+      next = baseSet.has(target.nodeId)
+        ? base.filter((id) => id !== target.nodeId)
+        : [...base, target.nodeId];
+      ctx.toggleSelection(target.nodeId, true);
+    } else if (deepSelect && (!baseSet.has(target.nodeId) || base.length <= 1)) {
+      next = [target.nodeId];
+      ctx.setSelection(target.nodeId);
+    } else if (!deepSelect && !baseSet.has(target.nodeId)) {
+      next = [target.nodeId];
+      ctx.setSelection(target.nodeId);
+    } else if (target.nodeId !== hit.nodeId) {
+      next = [target.nodeId];
+      ctx.setSelection(target.nodeId);
+    }
+
+    const nodes = next
+      .map((id) => ctx.getNode(id))
+      .filter((node): node is SceneNode => Boolean(node));
+    ctx.announceSelection(nodes);
+    return next;
   }
 
   private cancelLongPress(): void {
@@ -395,6 +415,7 @@ export class SelectTool extends BaseTool {
   }
 
   override onDragMove(ctx: ToolContext): void {
+    if (this.hasSelectionSurfaceChanged(ctx)) return;
     // Cancel long-press if pointer moves beyond tolerance
     if (this.longPressStart && !this.longPressFired && ctx.lastPointerEvent) {
       const dx = ctx.lastPointerEvent.clientX - this.longPressStart.x;
@@ -409,8 +430,24 @@ export class SelectTool extends BaseTool {
     const interaction = interactionSession.freeze();
 
     if (this.marqueeActive) {
-      const rect = this.computeMarqueeRect();
-      ctx.setDraft({ kind: 'rect', x: rect.x, y: rect.y, w: rect.w, h: rect.h });
+      const canvasRect = this.computeMarqueeCanvasRect(ctx);
+      const worldRect = this.computeMarqueeWorldBounds(ctx);
+      ctx.setDraft({
+        kind: 'screen-rect',
+        x: canvasRect.x,
+        y: canvasRect.y,
+        w: canvasRect.w,
+        h: canvasRect.h,
+      });
+      const marqueeIds = this.resolveMarqueeIds(ctx, worldRect, canvasRect);
+      ctx.setSelectionPreview?.({
+        source: 'canvas-object-marquee',
+        ids: applyNodeSelectionOperation(
+          this.marqueeBaseSelection,
+          marqueeIds,
+          this.marqueeOperation,
+        ),
+      });
     } else {
       if (interaction.altKey && !this.hasDuplicated) {
         this.duplicateSourceIds = [...ctx.selection];
@@ -448,10 +485,11 @@ export class SelectTool extends BaseTool {
             if (origin) this.initialPositions.set(cloneId, origin);
           }
           this.awaitingDuplicateHandoff = false;
+          this.gestureSelectionIds = [...cloneIds];
         }
       }
 
-      const sel = ctx.selection;
+      const sel = this.gestureSelectionIds.length > 0 ? this.gestureSelectionIds : ctx.selection;
       if (sel.length === 0) return;
       // Total world-space delta from drag origin.
       const totalDelta = this.worldDragDelta(ctx);
@@ -514,71 +552,48 @@ export class SelectTool extends BaseTool {
   }
 
   override onDragEnd(ctx: ToolContext): void {
+    if (this.hasSelectionSurfaceChanged(ctx)) {
+      ctx.setDropTargetFrame(null);
+      this.onDragCancel(ctx);
+      return;
+    }
     ctx.setDropTargetFrame(null);
     if (this.marqueeActive) {
       ctx.setDraft(null);
-      const rect = this.computeMarqueeRect();
+      ctx.setSelectionPreview?.(null);
+      const canvasRect = this.computeMarqueeCanvasRect(ctx);
+      const rect = this.computeMarqueeWorldBounds(ctx);
       // Marquee modifier modes:
       //   No modifier: replace selection based on containment preference
       //   Shift: additive (add to selection)
       //   Alt: subtract (remove from selection)
       //   Shift+Alt: intersect (keep only nodes in both selection and marquee)
       //   Ctrl/Cmd: temporarily toggle containment, independently of the op
-      const useContainment = this.marqueeContainment;
       const operation = this.marqueeOperation;
-      const entries = walkNodes(
-        ctx.document,
-        ctx.masterEditId
-          ? multipageRootNodes(ctx.document, { masterEditId: ctx.masterEditId })
-          : ctx.designCanvasId
-            ? multipageRootNodes(ctx.document, { designCanvasId: ctx.designCanvasId })
-            : activePageNodes(ctx.document),
+      const marqueeIds = this.resolveMarqueeIds(ctx, rect, canvasRect);
+      const nextSelection = commitNodeSelectionOperation(
+        { ...ctx, selection: this.marqueeBaseSelection },
+        marqueeIds,
+        operation,
       );
-      const ordered = [...entries.values()].reverse();
-      const marqueeIds: string[] = [];
-      const parentIndex = buildParentIndexMap(ctx.document);
-      const broadPhase = ctx.queryMarqueeCandidates?.(rect);
-      for (const entry of rect.w > 0 && rect.h > 0 ? ordered : []) {
-        if (!entry) continue;
-        if (!isMarqueeSelectableNode(ctx.document, entry.nodeId, parentIndex)) continue;
-        if (
-          ctx.isolatedNodeId !== undefined &&
-          !isInIsolatedSubtree(entry.nodeId, ctx.isolatedNodeId, ctx.document)
-        )
-          continue;
-        if (broadPhase && !broadPhase.has(entry.nodeId)) continue;
-        if (
-          marqueeGeometryHit(
-            ctx.document,
-            entry.nodeId,
-            rect,
-            useContainment,
-            parentIndex,
-            ctx.masterEditId ? ctx.getWorldTransform : undefined,
-            ctx.masterEditId
-              ? (id) => {
-                  const node = ctx.document.nodes[id];
-                  return node ? ctx.nodeWorldBounds(node) : null;
-                }
-              : undefined,
-          )
-        ) {
-          marqueeIds.push(entry.nodeId);
-        }
-      }
-      const nextSelection = commitNodeSelectionOperation(ctx, marqueeIds, operation);
       ctx.announceSelection(
         nextSelection
           .map((id) => ctx.getNode(id))
           .filter((n): n is import('@varve/scene').SceneNode => Boolean(n)),
       );
+    } else if (!this.isMoveGesture && (this.isBelowThreshold(ctx) || this.pointerDownTouchMulti)) {
+      this.commitClick(ctx);
+    } else if (this.pointerDownLocked) {
+      // A locked hit is inert for both clicks and drags. In particular, do not
+      // let a pre-existing selection enter the move/reparent path when the
+      // pointer happened to travel past the drag threshold.
     } else {
       // After move, re-parent if inside a frame. Ctrl/Cmd bypasses snapping;
       // Ctrl/Cmd+Shift preserves the current parent while Shift also locks
       // the drag axis.
       const endInteraction = interactionSession.freeze();
+      const sel = this.gestureSelectionIds.length > 0 ? this.gestureSelectionIds : ctx.selection;
       if (!endInteraction.preserveParent) {
-        const sel = ctx.selection;
         if (sel.length >= 1) {
           const reparentableRootIds = new Set(
             planManualWorldTranslationFromOrigins(ctx.document, sel, this.initialPositions, {
@@ -697,15 +712,60 @@ export class SelectTool extends BaseTool {
       // opening another transaction lets React queue the two updates against
       // the same stale document, so redo restores the moved local transform
       // without restoring the destination parent.
-      if (this.isMoveGesture && (endInteraction.preserveParent || ctx.selection.length === 0)) {
+      if (this.isMoveGesture && (endInteraction.preserveParent || sel.length === 0)) {
         ctx.commitTransaction();
       }
     }
     this.marqueeActive = false;
+    ctx.setSelectionPreview?.(null);
     this.isMoveGesture = false;
+    this.pointerDownHit = null;
+    this.pointerDownLocked = false;
+    this.pointerDownSelection = [];
+    this.pointerDownSelectedLeafOverridesHit = false;
+    this.pointerDownShift = false;
+    this.pointerDownCtrl = false;
+    this.pointerDownMeta = false;
+    this.pointerDownTouchMulti = false;
+    this.pointerDownSurfaceKey = null;
+    this.pointerDownSurfaceChanged = false;
+    this.pointerDownForceMarquee = false;
+    this.gestureSelectionIds = [];
+    this.marqueeBaseSelection = [];
     this.initialPositions.clear();
     this.hasDuplicated = false;
+    this.cancelLongPress();
     interactionSession.reset();
+  }
+
+  private commitClick(ctx: ToolContext): void {
+    if (this.pointerDownLocked) return;
+    if (this.pointerDownHit) {
+      this.applyHitSelection(ctx, this.pointerDownHit);
+      return;
+    }
+    if (!this.pointerDownShift && !this.pointerDownTouchMulti) {
+      ctx.setSelection(null);
+      ctx.announceSelection([]);
+    }
+    const pageAt = worldToPageAtPoint(ctx.document, this.drag.startWorld);
+    if (pageAt && pageAt.pageId !== ctx.document.activePageId) {
+      ctx.setActivePage?.(pageAt.pageId);
+    }
+  }
+
+  private hasSelectionSurfaceChanged(ctx: ToolContext): boolean {
+    const changed =
+      this.pointerDownSurfaceChanged ||
+      (this.pointerDownSurfaceKey !== null &&
+        ctx.selectionSurfaceKey !== undefined &&
+        this.pointerDownSurfaceKey !== ctx.selectionSurfaceKey);
+    if (changed) {
+      this.pointerDownSurfaceChanged = true;
+      ctx.setDraft(null);
+      ctx.setSelectionPreview?.(null);
+    }
+    return changed;
   }
 
   /**
@@ -714,30 +774,135 @@ export class SelectTool extends BaseTool {
    * Alt draw from centre, colliding with add/subtract semantics. Geometry is
    * therefore always the normalized pointer-to-pointer rectangle.
    */
-  private computeMarqueeRect(): { x: number; y: number; w: number; h: number } {
-    return (
-      normalizeMarqueeRect(this.drag.startWorld, this.drag.currentWorld) ?? {
-        x: 0,
-        y: 0,
-        w: 0,
-        h: 0,
-      }
+  private computeMarqueeCanvasRect(ctx: ToolContext): {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  } {
+    const start = ctx.pointerToCanvas
+      ? ctx.pointerToCanvas(this.drag.startCanvas.x, this.drag.startCanvas.y)
+      : ctx.worldToCanvas(this.drag.startWorld.x, this.drag.startWorld.y);
+    const end = ctx.pointerToCanvas
+      ? ctx.pointerToCanvas(this.drag.currentCanvas.x, this.drag.currentCanvas.y)
+      : ctx.worldToCanvas(this.drag.currentWorld.x, this.drag.currentWorld.y);
+    return normalizeMarqueeRect(start, end) ?? { x: 0, y: 0, w: 0, h: 0 };
+  }
+
+  private computeMarqueeWorldBounds(ctx: ToolContext): {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  } {
+    const canvasPoints: Array<[number, number]> = [
+      [this.drag.startCanvas.x, this.drag.startCanvas.y],
+      [this.drag.currentCanvas.x, this.drag.startCanvas.y],
+      [this.drag.currentCanvas.x, this.drag.currentCanvas.y],
+      [this.drag.startCanvas.x, this.drag.currentCanvas.y],
+    ];
+    const points = canvasPoints.map(([x, y]) => ctx.canvasToWorld(x, y));
+    const xs = points.map((point) => point.x);
+    const ys = points.map((point) => point.y);
+    const x = Math.min(...xs);
+    const y = Math.min(...ys);
+    return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+  }
+
+  private resolveMarqueeIds(
+    ctx: ToolContext,
+    worldRect: { x: number; y: number; w: number; h: number },
+    canvasRect: { x: number; y: number; w: number; h: number },
+  ): NodeId[] {
+    if (worldRect.w <= 0 || worldRect.h <= 0) return [];
+    const entries = walkNodes(
+      ctx.document,
+      ctx.masterEditId
+        ? multipageRootNodes(ctx.document, { masterEditId: ctx.masterEditId })
+        : ctx.designCanvasId
+          ? multipageRootNodes(ctx.document, { designCanvasId: ctx.designCanvasId })
+          : activePageNodes(ctx.document),
     );
+    const ordered = [...entries.values()].reverse();
+    const parentIndex = buildParentIndexMap(ctx.document);
+    const broadPhase = ctx.queryMarqueeCandidates?.(worldRect);
+    const candidates: NodeId[] = [];
+    for (const entry of ordered) {
+      if (!isMarqueeSelectableNode(ctx.document, entry.nodeId, parentIndex)) continue;
+      if (
+        ctx.isolatedNodeId !== undefined &&
+        !isInIsolatedSubtree(entry.nodeId, ctx.isolatedNodeId, ctx.document)
+      )
+        continue;
+      if (broadPhase && !broadPhase.has(entry.nodeId)) continue;
+      if (
+        marqueeGeometryHitInCanvasSpace(
+          ctx.document,
+          entry.nodeId,
+          canvasRect,
+          this.marqueeContainment,
+          (point) => ctx.worldToCanvas(point.x, point.y),
+          parentIndex,
+          ctx.masterEditId ? ctx.getWorldTransform : undefined,
+          ctx.masterEditId
+            ? (id) => {
+                const node = ctx.document.nodes[id];
+                return node ? ctx.nodeWorldBounds(node) : null;
+              }
+            : undefined,
+        )
+      ) {
+        candidates.push(entry.nodeId);
+      }
+    }
+
+    // Default canvas selection is a transform-root selection. If a container
+    // and one of its descendants both match, keep only the ancestor so later
+    // movement cannot apply one gesture twice.
+    const candidateSet = new Set(candidates);
+    return candidates.filter((id) => {
+      let parent = parentIndex.get(id);
+      while (parent) {
+        if (candidateSet.has(parent)) return false;
+        parent = parentIndex.get(parent);
+      }
+      return true;
+    });
   }
 
   override onDragCancel(ctx: ToolContext): void {
     ctx.setDraft(null);
+    ctx.setSelectionPreview?.(null);
+    this.cancelLongPress();
     // Abort transaction to revert move
     if (this.isMoveGesture) {
       ctx.abortTransaction();
     }
     this.marqueeActive = false;
     this.isMoveGesture = false;
+    this.pointerDownHit = null;
+    this.pointerDownLocked = false;
+    this.pointerDownSelection = [];
+    this.pointerDownSelectedLeafOverridesHit = false;
+    this.pointerDownShift = false;
+    this.pointerDownCtrl = false;
+    this.pointerDownMeta = false;
+    this.pointerDownTouchMulti = false;
+    this.pointerDownSurfaceKey = null;
+    this.pointerDownSurfaceChanged = false;
+    this.pointerDownForceMarquee = false;
+    this.gestureSelectionIds = [];
+    this.marqueeBaseSelection = [];
     this.initialPositions.clear();
     this.hasDuplicated = false;
+    interactionSession.reset();
   }
 
   override onKeyDown(e: KeyboardEvent, ctx: ToolContext): boolean {
+    if (e.key.toLowerCase() === 'x' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      this.forceMarqueeHeld = true;
+      return true;
+    }
     // Tab cycling is handled at the CanvasArea level (DFS paint order).
     // SelectTool does not consume Tab — lets it fall through to the global handler.
     // Research basis: Figma uses sibling-level Tab cycling, but we use DFS
@@ -804,9 +969,11 @@ export class SelectTool extends BaseTool {
         this.finishNudgeGesture(ctx);
         return true;
       }
-      // If mid-drag, abort transaction to revert
-      if (this.drag.kind === 'dragging' && this.isMoveGesture) {
-        ctx.abortTransaction();
+      // If mid-drag, abort the move or discard the marquee without changing
+      // the committed selection. The latter is important because marquee
+      // selection is intentionally deferred until pointer-up.
+      if (this.drag.kind === 'dragging' && (this.isMoveGesture || this.marqueeActive)) {
+        this.onDragCancel(ctx);
         this.drag = {
           kind: 'idle',
           pointerId: -1,
@@ -815,10 +982,6 @@ export class SelectTool extends BaseTool {
           currentCanvas: { x: 0, y: 0 },
           currentWorld: { x: 0, y: 0 },
         };
-        this.marqueeActive = false;
-        this.isMoveGesture = false;
-        this.initialPositions.clear();
-        this.hasDuplicated = false;
         return true;
       }
       if (ctx.isolatedNodeId) {
@@ -836,6 +999,7 @@ export class SelectTool extends BaseTool {
   }
 
   override onKeyUp(e: KeyboardEvent, ctx: ToolContext): void {
+    if (e.key.toLowerCase() === 'x') this.forceMarqueeHeld = false;
     const direction = nudgeDirectionForKey(e.key);
     if (direction && this.heldNudgeKeys.delete(direction) && this.heldNudgeKeys.size === 0) {
       this.nudgeSession = null;
