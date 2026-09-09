@@ -1,14 +1,16 @@
 import type { DepthMap, DepthMapResource } from '@varve/engine';
 import {
-  applyLensBlur,
+  applyDepthBlur,
   depthRangeToMask,
   depthToHeatmapImageData,
   deserializeDepthMap,
   getInferenceWorkerHost,
   getModelLoader,
   normalizeDepthPrediction,
+  resizeDepthMap,
   sampleDepth,
   serializeDepthMap,
+  unletterboxDepthMap,
 } from '@varve/engine';
 import type { Effect, SceneNode, ShapeNode } from '@varve/scene';
 import { imageShapeSrc, isImageShape } from '@varve/scene';
@@ -128,54 +130,6 @@ async function checkDepthModelCached(): Promise<boolean> {
   return await loader.isModelAvailable(DEPTH_MODEL_ID);
 }
 
-function resizeDepthMapForPreview(map: DepthMap, width: number, height: number): DepthMap {
-  if (map.width === width && map.height === height) return map;
-  const values = new Float32Array(width * height);
-  const valid = new Uint8Array(width * height);
-  const xScale = map.width / width;
-  const yScale = map.height / height;
-  for (let y = 0; y < height; y++) {
-    const sy = Math.min(map.height - 1, Math.max(0, (y + 0.5) * yScale - 0.5));
-    const y0 = Math.floor(sy);
-    const y1 = Math.min(map.height - 1, y0 + 1);
-    const ty = sy - y0;
-    for (let x = 0; x < width; x++) {
-      const sx = Math.min(map.width - 1, Math.max(0, (x + 0.5) * xScale - 0.5));
-      const x0 = Math.floor(sx);
-      const x1 = Math.min(map.width - 1, x0 + 1);
-      const tx = sx - x0;
-      const i00 = y0 * map.width + x0;
-      const i10 = y0 * map.width + x1;
-      const i01 = y1 * map.width + x0;
-      const i11 = y1 * map.width + x1;
-      const out = y * width + x;
-      const count =
-        Number(map.valid[i00]) +
-        Number(map.valid[i10]) +
-        Number(map.valid[i01]) +
-        Number(map.valid[i11]);
-      if (count === 0) {
-        values[out] = 0.5;
-        continue;
-      }
-      values[out] =
-        map.values[i00]! * (1 - tx) * (1 - ty) +
-        map.values[i10]! * tx * (1 - ty) +
-        map.values[i01]! * (1 - tx) * ty +
-        map.values[i11]! * tx * ty;
-      valid[out] = 1;
-    }
-  }
-  return { ...map, width, height, values, valid };
-}
-
-function resizeDepthForPreview(map: DepthMap, width: number, height: number): Uint8Array {
-  const resized = resizeDepthMapForPreview(map, width, height);
-  const result = new Uint8Array(width * height);
-  for (let i = 0; i < result.length; i++) result[i] = Math.round((1 - resized.values[i]!) * 255);
-  return result;
-}
-
 interface DepthBlurParams {
   blurAmount: number;
   focalDepth: number;
@@ -293,12 +247,13 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-      const depthResized = resizeDepthForPreview(depthData, canvas.width, canvas.height);
-      const result = applyLensBlur(imageData, depthResized, {
+      const depthResized = resizeDepthMap(depthData, canvas.width, canvas.height);
+      const result = applyDepthBlur(imageData, depthResized, {
         blurAmount: params.blurAmount,
         focalDepth: params.focalDepth / 100,
         transitionRange: params.transitionRange / 100,
         invert: params.invert,
+        edgeProtection: 0.035,
       });
       ctx.putImageData(result, 0, 0);
     };
@@ -445,7 +400,12 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
           generatedAt: Date.now(),
         },
       });
-      const aligned = resizeDepthMapForPreview(normalized, imageData.width, imageData.height);
+      const letterbox = result.outputs.letterbox as
+        | { offsetX: number; offsetY: number }
+        | undefined;
+      const aligned = letterbox
+        ? unletterboxDepthMap(normalized, imageData.width, imageData.height, letterbox)
+        : resizeDepthMap(normalized, imageData.width, imageData.height);
       const resourceId = `depth-${nodeAtStart?.id ?? 'image'}-${sourceAssetIdAtStart ?? 'source'}`;
       const resource = serializeDepthMap(aligned, resourceId);
       setDepthData(aligned);
@@ -507,7 +467,12 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
         const current = doc.nodes[node.id];
         if (!current || !('effects' in current)) return doc;
         const effects = current.effects ?? [];
-        const index = effects.findIndex((candidate) => candidate.type === 'depthBlur');
+        const index = existingDepthEffect?.id
+          ? effects.findIndex(
+              (candidate) =>
+                candidate.type === 'depthBlur' && candidate.id === existingDepthEffect.id,
+            )
+          : effects.findIndex((candidate) => candidate.type === 'depthBlur');
         const nextEffects = [...effects];
         if (index >= 0) nextEffects[index] = effect;
         else nextEffects.push(effect);
@@ -650,7 +615,14 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
     updateDoc((doc) => {
       const current = doc.nodes[node.id];
       if (!current || !('effects' in current)) return doc;
-      const effects = (current.effects ?? []).filter((effect) => effect.type !== 'depthBlur');
+      let removed = false;
+      const effects = (current.effects ?? []).filter((effect) => {
+        if (effect.type !== 'depthBlur') return true;
+        if (depthEffectId && effect.id !== depthEffectId) return true;
+        if (removed) return true;
+        removed = true;
+        return false;
+      });
       const next: typeof doc = {
         ...doc,
         nodes: { ...doc.nodes, [node.id]: { ...current, effects } },

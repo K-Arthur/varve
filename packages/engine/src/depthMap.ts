@@ -151,12 +151,14 @@ export function normalizeDepthPrediction(
   };
 }
 
-/** Bilinear sample in source-map coordinates. Invalid samples are skipped. */
+/**
+ * Robust local sample in source-map coordinates. Invalid samples are skipped
+ * and the median keeps a single bad/outlier prediction from moving focus.
+ */
 export function sampleDepth(map: DepthMap, x: number, y: number, radius = 1): number | null {
   const cx = Math.round(x);
   const cy = Math.round(y);
-  let sum = 0;
-  let count = 0;
+  const samples: number[] = [];
   const r = Math.max(0, Math.floor(radius));
   for (let oy = -r; oy <= r; oy++) {
     for (let ox = -r; ox <= r; ox++) {
@@ -165,15 +167,23 @@ export function sampleDepth(map: DepthMap, x: number, y: number, radius = 1): nu
       if (sx < 0 || sy < 0 || sx >= map.width || sy >= map.height) continue;
       const index = sy * map.width + sx;
       if (!map.valid[index]) continue;
-      sum += map.values[index]!;
-      count++;
+      const value = map.values[index]!;
+      if (Number.isFinite(value)) samples.push(value);
     }
   }
-  return count > 0 ? sum / count : null;
+  if (samples.length === 0) return null;
+  samples.sort((a, b) => a - b);
+  const middle = Math.floor(samples.length / 2);
+  return samples.length % 2 === 1
+    ? samples[middle]!
+    : (samples[middle - 1]! + samples[middle]!) / 2;
 }
 
 /** Resize a depth field with bilinear interpolation while preserving validity. */
 export function resizeDepthMap(map: DepthMap, width: number, height: number): DepthMap {
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0) {
+    throw new Error('DepthMap dimensions must be positive integers');
+  }
   if (map.width === width && map.height === height) return map;
   const values = new Float32Array(width * height);
   const valid = new Uint8Array(width * height);
@@ -194,22 +204,98 @@ export function resizeDepthMap(map: DepthMap, width: number, height: number): De
       const i01 = y1 * map.width + x0;
       const i11 = y1 * map.width + x1;
       const out = y * width + x;
-      const count =
-        Number(map.valid[i00]) +
-        Number(map.valid[i10]) +
-        Number(map.valid[i01]) +
-        Number(map.valid[i11]);
-      if (count === 0) {
+      const weightedSamples = [
+        [i00, (1 - tx) * (1 - ty)],
+        [i10, tx * (1 - ty)],
+        [i01, (1 - tx) * ty],
+        [i11, tx * ty],
+      ] as const;
+      let weightedValue = 0;
+      let weight = 0;
+      for (const [index, sampleWeight] of weightedSamples) {
+        if (!map.valid[index] || sampleWeight <= 0) continue;
+        weightedValue += map.values[index]! * sampleWeight;
+        weight += sampleWeight;
+      }
+      if (weight <= 0) {
         values[out] = 0.5;
         valid[out] = 0;
         continue;
       }
-      values[out] =
-        map.values[i00]! * (1 - tx) * (1 - ty) +
-        map.values[i10]! * tx * (1 - ty) +
-        map.values[i01]! * (1 - tx) * ty +
-        map.values[i11]! * tx * ty;
+      values[out] = weightedValue / weight;
       valid[out] = 1;
+    }
+  }
+  return { ...map, width, height, values, valid };
+}
+
+export interface DepthLetterboxTransform {
+  /** Padding offset in the model-output coordinate space. */
+  offsetX: number;
+  offsetY: number;
+}
+
+function sampleDepthBilinear(map: DepthMap, x: number, y: number): number | null {
+  const sx = Math.min(map.width - 1, Math.max(0, x));
+  const sy = Math.min(map.height - 1, Math.max(0, y));
+  const x0 = Math.floor(sx);
+  const x1 = Math.min(map.width - 1, x0 + 1);
+  const y0 = Math.floor(sy);
+  const y1 = Math.min(map.height - 1, y0 + 1);
+  const tx = sx - x0;
+  const ty = sy - y0;
+  const weightedSamples = [
+    [y0 * map.width + x0, (1 - tx) * (1 - ty)],
+    [y0 * map.width + x1, tx * (1 - ty)],
+    [y1 * map.width + x0, (1 - tx) * ty],
+    [y1 * map.width + x1, tx * ty],
+  ] as const;
+  let value = 0;
+  let weight = 0;
+  for (const [index, sampleWeight] of weightedSamples) {
+    if (!map.valid[index] || sampleWeight <= 0) continue;
+    value += map.values[index]! * sampleWeight;
+    weight += sampleWeight;
+  }
+  return weight > 0 ? value / weight : null;
+}
+
+/** Remove model-space letterbox padding before mapping depth to source pixels. */
+export function unletterboxDepthMap(
+  map: DepthMap,
+  width: number,
+  height: number,
+  transform: DepthLetterboxTransform,
+): DepthMap {
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0) {
+    throw new Error('DepthMap dimensions must be positive integers');
+  }
+  if (
+    !Number.isFinite(transform.offsetX) ||
+    !Number.isFinite(transform.offsetY) ||
+    transform.offsetX < 0 ||
+    transform.offsetY < 0
+  ) {
+    return resizeDepthMap(map, width, height);
+  }
+  const scale = Math.min(map.width / width, map.height / height);
+  if (!Number.isFinite(scale) || scale <= 0) return resizeDepthMap(map, width, height);
+  const values = new Float32Array(width * height);
+  const valid = new Uint8Array(width * height);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const sample = sampleDepthBilinear(
+        map,
+        transform.offsetX + (x + 0.5) * scale - 0.5,
+        transform.offsetY + (y + 0.5) * scale - 0.5,
+      );
+      const index = y * width + x;
+      if (sample === null) {
+        values[index] = 0.5;
+        continue;
+      }
+      values[index] = sample;
+      valid[index] = 1;
     }
   }
   return { ...map, width, height, values, valid };

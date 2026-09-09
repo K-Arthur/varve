@@ -273,6 +273,7 @@ export type {
 // ── Denoise (SCUNet) ─────────────────────────────────────────────────
 export { dispatchDenoise, nativeDenoiseProvider, workerDenoiseProvider } from './denoiseProviders';
 export type {
+  DepthLetterboxTransform,
   DepthMap,
   DepthMapMetadata,
   DepthMapResource,
@@ -289,6 +290,7 @@ export {
   resizeDepthMap,
   sampleDepth,
   serializeDepthMap,
+  unletterboxDepthMap,
 } from './depthMap';
 export { applyDuotone, type DuotoneParams } from './duotone';
 export type { EffectContractEntry, QualityTier, WorkingSpace } from './effectContract';

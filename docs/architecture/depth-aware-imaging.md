@@ -123,16 +123,20 @@ substitute for occlusion handling.
   document resource only when it is present.
 - The Canvas2D replay path resizes the resource to the compositor surface and
   applies a premultiplied-alpha depth-aware gather with explicit occlusion
-  rules (see below). The Inspector preview remains a bounded image preview.
-  The focus picker is intentionally explicit about sampling the depth
-  preview, not promising a camera-space 3D measurement.
+  rules (see below). The Inspector preview calls the same canonical gather
+  with the same near-is-low map and options, rather than adapting through the
+  legacy 8-bit lens-blur API. Model-space letterbox padding is removed before
+  the map is aligned to the source image. The focus picker uses a robust local
+  median, not a single potentially noisy model pixel.
 - Depth Range → Mask is implemented as a non-destructive layer mask: the
   Inspector converts a depth range (near/far/feather/invert) into a
   `RasterMaskAsset` through the same `commitRasterMask` path used by
   background removal, so masks participate in the document's existing
   immutable-asset and undo semantics.
 - Removing the Depth Blur effect drops depth resources that are no longer
-  referenced by any node effect.
+  referenced by any node effect. Updates and removal target the stable effect
+  identifier when one is present; legacy effects without an identifier are
+  migrated in place on the next save.
 
 ## Model verification (2026-08-13)
 
@@ -194,6 +198,12 @@ with two occlusion rules at depth discontinuities:
 
 The gather is premultiplied-alpha; transparent samples never contribute
 colour, and alpha edges interpolate in premultiplied space to avoid fringes.
+
+Depth resampling renormalizes only valid neighbours, so missing model samples
+cannot pull the field toward an arbitrary zero or mid-plane. Letterboxed model
+outputs are unpadded using the worker's returned transform before source-space
+resampling; stretching the padded square over a portrait or landscape image
+would shift every focus boundary.
 
 Sources above ~0.5 MP are gathered at a reduced scale (premultiplied bilinear
 round trip) so full-resolution renders stay bounded: the occlusion rules are

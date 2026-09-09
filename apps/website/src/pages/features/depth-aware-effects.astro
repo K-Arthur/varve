@@ -31,7 +31,7 @@ import { sitePath } from '../../lib/siteUrl';
           <li><strong>Non-destructive:</strong> Depth Blur is an effect referencing a persisted DepthMap, not a derived replacement image.</li>
           <li><strong>Focus control:</strong> choose focal depth, transition range, blur strength, and inversion; sample a point from the depth preview.</li>
           <li><strong>Depth masks:</strong> convert any depth range into a non-destructive layer mask for adjustments and other effects.</li>
-          <li><strong>Stable rendering:</strong> saved documents render the effect from the stored map without requiring the model at display time.</li>
+          <li><strong>Stable rendering:</strong> saved documents render the effect from the stored map without requiring the model at display time; the preview and replay use the same depth-aware compositor.</li>
         </ul>
       </section>
 
@@ -40,8 +40,9 @@ import { sitePath } from '../../lib/siteUrl';
         <p>
           The first workflow produces relative depth, not calibrated camera distance or a full 3D
           reconstruction. Reflections, transparent materials, heavy occlusion, and unusual camera
-          viewpoints can produce uncertain predictions. Treat the depth preview as an editable guide,
-          and regenerate it when the source asset changes.
+          viewpoints can produce uncertain predictions. Model letterboxing is accounted for when the
+          field is aligned to the source image, but the result remains an editable guide; regenerate
+          it when the source asset changes.
         </p>
       </section>
 
