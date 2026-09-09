@@ -209,6 +209,14 @@ export interface ToolContext {
   ) => void;
   setSelection: (id: NodeId | null) => void;
   toggleSelection: (id: NodeId, additive?: boolean) => void;
+  /** Optional for lightweight tool test contexts; production contexts provide it. */
+  setSelectionRefs?: (
+    selection: readonly NodeId[],
+    options?: {
+      primary?: NodeId | null;
+      origin?: import('../context/selectionState').SelectionOrigin;
+    },
+  ) => void;
   isSelected: (id: NodeId) => boolean;
   setNodePosition: (id: NodeId, x: number, y: number) => void;
   /**

@@ -68,11 +68,27 @@ export function applyNodeSelectionOperation(
 
 /** Apply the pure result through the existing single-id/toggle editor API. */
 export function commitNodeSelectionOperation(
-  ctx: Pick<ToolContext, 'selection' | 'setSelection' | 'toggleSelection' | 'isSelected'>,
+  ctx: Pick<ToolContext, 'selection' | 'setSelection' | 'toggleSelection' | 'isSelected'> & {
+    setSelectionRefs?: (
+      selection: readonly NodeId[],
+      options?: {
+        primary?: NodeId | null;
+        origin?: import('../context/selectionState').SelectionOrigin;
+      },
+    ) => void;
+  },
   candidates: readonly NodeId[],
   operation: SelectionOperation,
 ): NodeId[] {
   const next = applyNodeSelectionOperation(ctx.selection, candidates, operation);
+
+  if (ctx.setSelectionRefs) {
+    ctx.setSelectionRefs(next, {
+      primary: next.at(-1) ?? null,
+      origin: 'canvas',
+    });
+    return next;
+  }
 
   switch (operation) {
     case 'replace': {
