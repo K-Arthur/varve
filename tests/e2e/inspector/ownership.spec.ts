@@ -113,16 +113,28 @@ test.describe('Inspector feature ownership', () => {
 
     await expect(page.locator('.editor-inspector')).toHaveCount(1);
     const inspector = page.locator('.editor-inspector');
+    const quickBar = page.getByRole('region', { name: 'Quick properties' });
+    await expect(quickBar).toBeVisible();
     for (const label of [
       /^X(?: \(AB\))? \(px\)$/,
       /^Y(?: \(AB\))? \(px\)$/,
       /^W \(px\)$/,
       /^H \(px\)$/,
     ]) {
-      await expect(inspector.getByRole('spinbutton', { name: label })).toHaveCount(1);
+      await expect(quickBar.getByRole('spinbutton', { name: label })).toHaveCount(1);
+    }
+    await expect(quickBar.getByRole('spinbutton', { name: 'Opacity', exact: true })).toHaveCount(1);
+    const layout = inspector.getByRole('group', { name: 'Layout' });
+    for (const label of [
+      /^X(?: \(AB\))? \(px\)$/,
+      /^Y(?: \(AB\))? \(px\)$/,
+      /^W \(px\)$/,
+      /^H \(px\)$/,
+    ]) {
+      await expect(layout.getByRole('spinbutton', { name: label })).toHaveCount(1);
     }
     await expect(inspector.getByRole('spinbutton', { name: 'Opacity', exact: true })).toHaveCount(
-      1,
+      2,
     );
     for (const label of ['Min W (px)', 'Max W (px)', 'Min H (px)', 'Max H (px)']) {
       await expect(inspector.getByRole('spinbutton', { name: label })).toHaveCount(0);
@@ -166,7 +178,9 @@ test.describe('Inspector feature ownership', () => {
     await shapes.nth(1).click({ modifiers: ['Control'] });
     await page.getByRole('tab', { name: 'Design' }).click();
 
-    const x = page.getByRole('spinbutton', { name: /^X(?: \(AB\))? \(px\)$/ });
+    const x = page.getByRole('group', { name: 'Layout' }).getByRole('spinbutton', {
+      name: /^X(?: \(AB\))? \(px\)$/,
+    });
     await expect(x).toHaveValue('Mixed');
     await expect(x).toHaveAttribute('aria-valuetext', 'Mixed values');
     await expect(page.locator('.editor-inspector')).toHaveScreenshot('mixed-properties.png', {
@@ -299,7 +313,9 @@ test.describe('Inspector feature ownership', () => {
     }, variableId);
     expect(bound).toBe(true);
 
-    const x = page.getByRole('spinbutton', { name: /^X(?: \(AB\))? \(px\)$/ });
+    const x = page.getByRole('group', { name: 'Layout' }).getByRole('spinbutton', {
+      name: /^X(?: \(AB\))? \(px\)$/,
+    });
     await expect(x).toHaveValue('48');
     await expect(x).toHaveAttribute('aria-readonly', 'true');
     await expect(
