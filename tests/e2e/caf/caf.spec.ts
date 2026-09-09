@@ -6,6 +6,11 @@ import { expect, test } from '@playwright/test';
 const FIXTURES_DIR = path.resolve(__dirname, '..', 'fixtures');
 const CAF_PNG = path.join(FIXTURES_DIR, 'caf-test.png');
 const CAF_4K_PNG = path.join(FIXTURES_DIR, 'caf-4k.png');
+const REAL_LIFE_FIXTURES = [
+  { path: path.join(FIXTURES_DIR, 'real-life-landscape.jpg'), slug: 'landscape' },
+  { path: path.join(FIXTURES_DIR, 'real-life-portrait.jpg'), slug: 'portrait' },
+  { path: path.join(FIXTURES_DIR, 'real-life-still-life.jpg'), slug: 'still-life' },
+] as const;
 
 // ── Minimal PNG generator (no pngjs required) ──────────────────────────────
 
@@ -133,21 +138,28 @@ async function triggerCafDialog(
  * Drop a PNG onto the canvas, then wait for the shape to appear in the
  * layers panel and click it to ensure it is selected.  Returns the node ID.
  */
-async function dropImageAndSelect(page: import('@playwright/test').Page): Promise<string> {
-  const pngBuffer = readFileSync(CAF_PNG);
-  const base64 = pngBuffer.toString('base64');
+async function dropImageAndSelect(
+  page: import('@playwright/test').Page,
+  imagePath = CAF_PNG,
+): Promise<string> {
+  const imageBuffer = readFileSync(imagePath);
+  const base64 = imageBuffer.toString('base64');
+  const imageType = path.extname(imagePath).toLowerCase() === '.jpg' ? 'image/jpeg' : 'image/png';
+  const imageName = path.basename(imagePath);
   const canvas = page.locator('canvas.editor-canvas__content-layer');
   await canvas.waitFor({ state: 'attached', timeout: 15_000 });
   const box = await canvas.boundingBox();
   if (!box) throw new Error('canvas not found');
+  const treeItems = page.getByRole('treeitem');
+  const countBefore = await treeItems.count();
 
   await page.evaluate(
-    ({ cX, cY, b64 }) => {
+    ({ cX, cY, b64, name, type }) => {
       const binaryStr = atob(b64);
       const bytes = new Uint8Array(binaryStr.length);
       for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
       const transfer = new DataTransfer();
-      transfer.items.add(new File([bytes], 'caf-test.png', { type: 'image/png' }));
+      transfer.items.add(new File([bytes], name, { type }));
       const target = document.querySelector('canvas.editor-canvas__content-layer');
       if (!target) throw new Error('content canvas not found');
       target.dispatchEvent(
@@ -169,10 +181,10 @@ async function dropImageAndSelect(page: import('@playwright/test').Page): Promis
         }),
       );
     },
-    { cX: box.x + 150, cY: box.y + 150, b64: base64 },
+    { cX: box.x + 150, cY: box.y + 150, b64: base64, name: imageName, type: imageType },
   );
 
-  await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10_000 });
+  await expect.poll(() => treeItems.count(), { timeout: 60_000 }).toBeGreaterThan(countBefore);
   await page.mouse.click(box.x + 175, box.y + 175);
   await page.waitForTimeout(300);
 
@@ -191,7 +203,7 @@ async function dropImageAndSelect(page: import('@playwright/test').Page): Promis
         if (hook.queue) {
           const st = hook.queue.lastRenderedState;
           if (st && typeof st === 'object' && st.document?.nodes) {
-            for (const id of Object.keys(st.document.nodes)) {
+            for (const id of Object.keys(st.document.nodes).reverse()) {
               const n = st.document.nodes[id];
               if (n?.kind === 'shape' && n.fills?.some((fi: any) => fi.type === 'image')) {
                 found = id;
@@ -297,23 +309,31 @@ test.describe('Content-Aware Fill dialog', () => {
     await expect(dialog.locator('canvas.caf-dialog__preview-canvas')).toBeVisible();
   });
 
-  test('generative mode surface exposes local capability boundaries', async ({ page }) => {
-    await triggerCafDialog(page, nodeId);
-    const dialog = page.locator('dialog.varve-dialog--caf[open]');
-    await expect(dialog.getByRole('tab')).toHaveCount(4);
-    await expect(dialog.getByRole('tab', { name: 'Remove' })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
+  test('generative mode surface holds up on real photographic sources', async ({ page }) => {
+    for (const fixture of REAL_LIFE_FIXTURES) {
+      const photographicNodeId = await dropImageAndSelect(page, fixture.path);
+      await triggerCafDialog(page, photographicNodeId);
+      const dialog = page.locator('dialog.varve-dialog--caf[open]');
+      await expect(dialog.getByRole('tab')).toHaveCount(4);
+      await expect(dialog.getByRole('tab', { name: 'Remove' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      );
 
-    await dialog.getByRole('tab', { name: 'Fill' }).click();
-    await expect(dialog.locator('#caf-dialog-prompt')).toBeVisible();
-    await expect(dialog.locator('#caf-dialog-provider-note')).toContainText('Local processing');
+      await dialog.getByRole('tab', { name: 'Fill' }).click();
+      await expect(dialog.locator('#caf-dialog-prompt')).toBeVisible();
+      await expect(dialog.locator('#caf-dialog-provider-note')).toContainText('Local processing');
 
-    await dialog.getByRole('tab', { name: 'Replace' }).click();
-    await expect(dialog.locator('#caf-dialog-prompt')).toBeVisible();
-    await expect(dialog.getByRole('button', { name: /^replace$/i })).toBeDisabled();
-    await expect(dialog).toHaveScreenshot('generative-edit-dialog.png', { animations: 'disabled' });
+      await dialog.getByRole('tab', { name: 'Replace' }).click();
+      await expect(dialog.locator('#caf-dialog-prompt')).toBeVisible();
+      await expect(dialog.getByRole('button', { name: /^replace$/i })).toBeDisabled();
+      await expect(dialog).toHaveScreenshot(`generative-edit-${fixture.slug}.png`, {
+        animations: 'disabled',
+      });
+
+      await dialog.getByRole('button', { name: /^cancel$/i }).click();
+      await expect(dialog).not.toBeVisible();
+    }
   });
 
   test('mask painting canvas is interactive', async ({ page }) => {
