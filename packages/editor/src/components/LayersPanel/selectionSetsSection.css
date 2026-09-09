@@ -10,20 +10,23 @@
   margin-bottom: var(--space-1);
 }
 
+/* Matches .layers-panel__title and .master-panel__title: this section is a
+ * peer of Layers in the same rail, not a subordinate facet label, so it
+ * uses the same quiet, sentence-case treatment rather than the all-caps
+ * eyebrow style the panel header moved away from. */
 .selection-sets__title {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
+  color: var(--color-text-primary);
+  letter-spacing: normal;
 }
 
 .selection-sets__create-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: var(--space-5);
+  height: var(--space-5);
   padding: 0;
   color: var(--color-text-muted);
   background: transparent;
@@ -105,12 +108,20 @@
   opacity: 1;
 }
 
+/* Pointer and touch routes remain available without requiring hover, matching
+ * .layers-row__toggle--solo-off and .layers-row__drag-handle. */
+@media (hover: none), (pointer: coarse) {
+  .selection-sets__actions {
+    opacity: 1;
+  }
+}
+
 .selection-sets__action-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: var(--space-5);
+  height: var(--space-5);
   padding: 0;
   color: var(--color-text-muted);
   background: transparent;

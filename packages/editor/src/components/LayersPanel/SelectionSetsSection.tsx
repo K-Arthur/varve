@@ -83,7 +83,7 @@ export function SelectionSetsSection() {
           onToggle={() => setCollapsed((value) => !value)}
           label="selection sets"
         />
-        <span className="selection-sets__title">Selection Sets</span>
+        <span className="selection-sets__title">Selection sets</span>
         {selCount > 0 && (
           <Tooltip label={`Save current selection (${selCount})`}>
             <button
