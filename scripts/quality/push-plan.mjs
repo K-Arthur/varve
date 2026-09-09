@@ -15,11 +15,11 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildPlan } from './affected-plan.mjs';
 import { createGitAdapter, parseNameStatusZ, scanOutgoingHistory } from './history-policy.mjs';
+import { sanitizeRemoteUrl } from './operation-history.mjs';
 import {
   computePolicyHash,
   LANE_COST_SECONDS,
   POLICY_VERSION,
-  PUSH_LIMITS,
   selectPushValidation,
   sha256,
 } from './validation-policy.mjs';
@@ -302,6 +302,7 @@ export function buildPushPlan(input, options = {}) {
       baseSha: update.remoteSha === ZERO_SHA ? null : update.remoteSha,
       headSha: update.localSha === ZERO_SHA ? null : update.localSha,
       comparisonBaseSha: null,
+      treeSha: null,
       comparisonBaseRef: null,
       netChangedFiles: [],
       outgoingCommits: [],
@@ -406,21 +407,6 @@ export function buildPushPlan(input, options = {}) {
       try {
         refResult.netChangedFiles = stableRecords(diffRecords(git, comparisonBase, head));
         refResult.outgoingCommits = outgoingCommits(git, comparisonBase, head);
-        if (
-          update.remoteRef === PROTECTED_BRANCH &&
-          refResult.outgoingCommits.length >= PUSH_LIMITS.directMasterCommitThreshold
-        ) {
-          const integrationRef = `refs/heads/varve/integration-${head.slice(0, 12)}`;
-          errors.push({
-            kind: 'large-direct-master',
-            ref: update.remoteRef,
-            message:
-              `direct master push contains ${refResult.outgoingCommits.length} outgoing commits; ` +
-              `push the same HEAD through integration certification with: ` +
-              `git push ${remote} ${update.localRef}:${integrationRef}`,
-          });
-          policyRefusal = true;
-        }
         for (const commit of refResult.outgoingCommits) unionCommits.add(commit);
         for (const record of refResult.netChangedFiles) {
           unionRecords.set(`${record.status}\0${record.path}\0${record.oldPath ?? ''}`, record);
@@ -428,6 +414,17 @@ export function buildPushPlan(input, options = {}) {
       } catch (error) {
         errors.push({ kind: 'comparison-failure', ref: update.remoteRef, message: error.message });
       }
+    }
+
+    const tree = gitResult(git, ['rev-parse', '--verify', `${head}^{tree}`]);
+    if (tree.status !== 0 || !SHA.test(tree.stdout.trim())) {
+      errors.push({
+        kind: 'missing-tree',
+        ref: update.remoteRef,
+        message: `cannot resolve the exact target tree for ${update.remoteRef}; retry with the object present`,
+      });
+    } else {
+      refResult.treeSha = tree.stdout.trim();
     }
 
     if (releaseTag(update.remoteRef)) {
@@ -510,7 +507,7 @@ export function buildPushPlan(input, options = {}) {
   return {
     schema: 1,
     generatedAt: new Date().toISOString(),
-    remote: { name: remote, url: remoteUrl },
+    remote: { name: remote, url: sanitizeRemoteUrl(remoteUrl) },
     refs,
     baseSha: refs.length === 1 ? refs[0].comparisonBaseSha : null,
     headSha: refs.length === 1 ? refs[0].headSha : null,

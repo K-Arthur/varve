@@ -7,7 +7,7 @@ import { isAbsolute, join, resolve } from 'node:path';
 import { createGitAdapter } from './history-policy.mjs';
 import { PUSH_LIMITS, sha256, toolVersions } from './validation-policy.mjs';
 
-const RECEIPT_SCHEMA = 1;
+const RECEIPT_SCHEMA = 2;
 
 function stable(value) {
   if (Array.isArray(value)) return `[${value.map(stable).join(',')}]`;
@@ -45,6 +45,7 @@ export function receiptIdentity(plan, { tools = toolVersions(), now = Date.now()
       remoteSha: ref.remoteSha,
       baseSha: ref.baseSha,
       headSha: ref.headSha,
+      treeSha: ref.treeSha ?? null,
       comparisonBaseSha: ref.comparisonBaseSha,
       deleted: ref.deleted,
     }))
@@ -58,6 +59,17 @@ export function receiptIdentity(plan, { tools = toolVersions(), now = Date.now()
     lockfileHash: plan.lockfileHash,
     policyVersion: plan.policyVersion,
     policyHash: plan.policyHash,
+    requested: {
+      profile: plan.validation?.profile ?? 'push',
+      strict: Boolean(plan.validation?.strict),
+      localBlocking: [...(plan.localBlockingLanes ?? plan.validation?.localBlocking ?? [])].sort(),
+      remoteRequired: [
+        ...(plan.remotelyRequiredLanes ?? plan.validation?.remoteRequired ?? []),
+      ].sort(),
+      deferred: [...(plan.deferredLanes ?? plan.validation?.deferred ?? [])].sort(),
+      promisedIntegration: [...(plan.validation?.promisedIntegrationLanes ?? [])].sort(),
+      promisedCandidate: [...(plan.validation?.promisedCandidateLanes ?? [])].sort(),
+    },
     tools,
   };
   return {
@@ -89,7 +101,13 @@ export function readReceipt(
   try {
     receipt = JSON.parse(readFileSync(path, 'utf8'));
   } catch {
-    return { reusable: false, path, reason: 'missing' };
+    return { reusable: false, path, reason: 'missing-or-corrupt' };
+  }
+  if (
+    receipt.schema !== RECEIPT_SCHEMA ||
+    receipt.identity?.identityHash !== identity.identityHash
+  ) {
+    return { reusable: false, path, reason: 'corrupt-or-schema-mismatch', receipt };
   }
   const timestamp = Date.parse(receipt.timestamp ?? receipt.createdAt ?? '');
   if (!Number.isFinite(timestamp) || now < timestamp || now - timestamp > maxAgeMs) {
@@ -104,7 +122,7 @@ export function readReceipt(
   if (stable(storedIdentity) !== stable(expectedIdentity)) {
     return { reusable: false, path, reason: 'identity-mismatch', receipt };
   }
-  if (receipt.outcome !== 'passed') {
+  if (receipt.outcome !== 'passed' || receipt.incomplete === true) {
     return { reusable: false, path, reason: 'not-passed', receipt };
   }
   return { reusable: true, path, reason: 'exact-match', receipt };

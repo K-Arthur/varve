@@ -19,7 +19,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-export const POLICY_VERSION = '2026-08-31.validation-profiles.v1';
+export const POLICY_VERSION = '2026-09-08.validation-profiles.v2';
 
 /** Files whose contents define lane selection or execution semantics. */
 export const POLICY_FILES = [
@@ -32,6 +32,8 @@ export const POLICY_FILES = [
   'scripts/quality/commit-checkpoint.mjs',
   'scripts/quality/history-policy.mjs',
   'scripts/quality/validation-receipts.mjs',
+  'scripts/quality/operation-history.mjs',
+  'scripts/quality/validation-snapshot.mjs',
   'scripts/quality/ci-plan.mjs',
   'scripts/quality/ci-run-lanes.mjs',
   'scripts/quality/aggregate-ci.mjs',
@@ -130,7 +132,6 @@ export const PUSH_LIMITS = Object.freeze({
   maxPackageTests: 3,
   maxPackageTypechecks: 6,
   maxRustCrates: 2,
-  directMasterCommitThreshold: 50,
   maxLocalEstimatedSeconds: 12 * 60,
   receiptMaxAgeMs: 6 * 60 * 60 * 1000,
   maxBinaryAdditionBytes: 10 * 1024 * 1024,
@@ -568,6 +569,7 @@ export function selectPushValidation(plan, { files = pathList(plan), strict = fa
 
   return {
     profile: 'push',
+    strict: Boolean(strict),
     flags,
     categories,
     localBlocking: [...new Set(localBlocking)],

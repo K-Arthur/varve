@@ -85,9 +85,13 @@ function gitChangedFiles({ base, staged }) {
   }
   if (base) {
     const resolvedBase = resolvedCommit(base);
-    const out = resolvedBase
-      ? gitPaths(['diff', '--name-only', '--diff-filter=ACDMRTUXB', `${resolvedBase}...HEAD`])
-      : [];
+    if (!resolvedBase) throw new Error(`cannot resolve comparison base '${base}'`);
+    const out = gitPaths([
+      'diff',
+      '--name-only',
+      '--diff-filter=ACDMRTUXB',
+      `${resolvedBase}...HEAD`,
+    ]);
     const untracked = gitPaths(['ls-files', '--others', '--exclude-standard']);
     return [...new Set([...out, ...untracked])];
   }
@@ -300,7 +304,7 @@ function classifyFile(path, pkgs, crates) {
     for (const [name, c] of Object.entries(crates)) {
       if (c.dir === dir) return { kind: 'rust', name, dir };
     }
-    return { kind: 'crate', name: dir };
+    return { kind: 'other', name: null, unresolvedRust: dir };
   }
   return { kind: 'other', name: null };
 }
@@ -375,6 +379,7 @@ function buildPlan(files, { includeReverse = true } = {}) {
     changed: { js: [], rust: [], other: [], app: [] },
     directTestFiles: [],
     directE2eFiles: [],
+    unresolvedRustPaths: [],
   };
 
   const changedPkgs = new Set();
@@ -401,6 +406,7 @@ function buildPlan(files, { includeReverse = true } = {}) {
     if (f.startsWith('.worktrees/')) continue;
     const c = classifyFile(f, pkgs, crates);
     plan.changed[c.kind].push(f);
+    if (c.unresolvedRust) plan.unresolvedRustPaths.push(f);
     const isTestFile = /\.(test|spec)\.(ts|tsx)$/.test(f);
     if (c.kind === 'js' && !isTestFile) changedPkgs.add(c.name);
     if (c.kind === 'rust') changedCrates.add(c.name);
@@ -577,6 +583,13 @@ function buildPlan(files, { includeReverse = true } = {}) {
       kept.push(lane);
     }
     plan.tiers[t] = kept;
+  }
+
+  if (plan.unresolvedRustPaths.length) {
+    plan.full = true;
+    plan.reasons.push(
+      `unrecognized Rust path(s) require conservative workspace validation: ${plan.unresolvedRustPaths.join(', ')}`,
+    );
   }
 
   // full escalation

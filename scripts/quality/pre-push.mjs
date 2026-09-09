@@ -16,6 +16,7 @@ import { availableParallelism, freemem, totalmem } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { loadPackages } from './affected-plan.mjs';
+import { finishOperation, startOperation } from './operation-history.mjs';
 import {
   buildPushPlan,
   createGitAdapter,
@@ -32,6 +33,7 @@ import {
   recordOverride,
   writeReceipt,
 } from './validation-receipts.mjs';
+import { createValidationSnapshots } from './validation-snapshot.mjs';
 
 const ROOT = process.cwd();
 
@@ -64,9 +66,9 @@ function parseArgs(args) {
   return result;
 }
 
-function commandArgs() {
+function commandArgs(cwd = ROOT) {
   const envPath = [
-    join(ROOT, 'node_modules', '.bin'),
+    join(cwd, 'node_modules', '.bin'),
     process.env.PNPM_HOME ? join(process.env.PNPM_HOME, 'bin') : null,
     join(process.env.HOME ?? '', '.local', 'share', 'pnpm', 'bin'),
     process.env.PATH ?? '',
@@ -74,18 +76,21 @@ function commandArgs() {
     .filter(Boolean)
     .join(delimiter);
   return {
-    cwd: ROOT,
+    cwd,
     shell: false,
     env: { ...process.env, PATH: envPath },
     stdio: 'inherit',
   };
 }
 
-function execute(argv, { dryRun = false, timeoutMs = PUSH_LANE_TIMEOUT_MS.default } = {}) {
+function execute(
+  argv,
+  { dryRun = false, timeoutMs = PUSH_LANE_TIMEOUT_MS.default, cwd = ROOT } = {},
+) {
   console.log(`    $ ${argv.map((part) => JSON.stringify(part)).join(' ')}`);
   if (dryRun) return 0;
   const result = spawnSync(argv[0], argv.slice(1), {
-    ...commandArgs(),
+    ...commandArgs(cwd),
     timeout: timeoutMs,
   });
   if (result.error) {
@@ -116,13 +121,13 @@ function chunk(values, size) {
   return chunks;
 }
 
-function existingBiomeFiles(paths) {
+function existingBiomeFiles(paths, cwd = ROOT) {
   // Do not pass deleted paths to Biome; the deletion is still present in the
   // Git diff and is covered by the history/net-diff policy.
   return paths.filter(
     (path) =>
       /\.(ts|tsx|js|jsx|mjs|cjs|json)$/.test(path) &&
-      existsSync(join(ROOT, path)) &&
+      existsSync(join(cwd, path)) &&
       !path.startsWith('.worktrees/'),
   );
 }
@@ -136,7 +141,7 @@ function runLane(lane, plan, options = {}) {
   }
   if (lane === 'format:changed' || lane === 'lint:changed') {
     const command = lane === 'format:changed' ? 'format' : 'check';
-    const biomeFiles = existingBiomeFiles(files);
+    const biomeFiles = existingBiomeFiles(files, options.cwd ?? ROOT);
     if (biomeFiles.length === 0) {
       console.log(`    [PASS] ${lane} (no processable net-changed files)`);
       return { status: 0, durationMs: 0, command: ['biome', command] };
@@ -162,6 +167,7 @@ function runLane(lane, plan, options = {}) {
   const started = Date.now();
   const status = executeCommand(argv, {
     ...options,
+    cwd: options.cwd ?? ROOT,
     timeoutMs: PUSH_LANE_TIMEOUT_MS[lane] ?? PUSH_LANE_TIMEOUT_MS.default,
   });
   return { status, durationMs: Date.now() - started, command: argv };
@@ -211,17 +217,66 @@ export function runPushCheckpoint({
   executeCommand,
 } = {}) {
   const flags = parseArgs(args);
-  let updates;
-  try {
-    updates = flags.since ? syntheticSinceUpdate(git, flags.since) : parsePrePushInput(input);
-  } catch (error) {
-    return { status: error.code ?? 2, message: error.message, plan: null, outcomes: [] };
-  }
   let commonDir;
   try {
     commonDir = commonGitDirectory({ git, cwd: ROOT });
   } catch {
     commonDir = join(ROOT, '.git');
+  }
+  let operation;
+  try {
+    operation = startOperation({
+      type: 'push-checkpoint',
+      cwd: ROOT,
+      commonDir,
+      destination: { name: flags.remote ?? 'origin', url: flags.remoteUrl },
+      requested: {
+        profile: 'push',
+        strict: flags.strict,
+        dryRun: flags.dryRun,
+        input: flags.since ? 'since-ref' : flags.prePush ? 'pre-push-stream' : 'stdin',
+      },
+    });
+  } catch (error) {
+    console.warn(`Push operation history unavailable: ${error.message}`);
+  }
+  const closeOperation = (result, phase = 'complete') => {
+    if (!operation) return result;
+    try {
+      const terminalStatus =
+        result.status === 0 ? 'completed' : result.status === 4 ? 'blocked' : 'failed';
+      finishOperation(operation.path, {
+        status: terminalStatus,
+        exitCode: result.status,
+        phase,
+        refs: result.plan?.refs ?? [],
+        result: {
+          category: terminalStatus === 'completed' ? 'validation-passed' : 'validation-failed',
+          planStatus: result.plan?.status ?? null,
+          exactTargets: result.plan?.execution?.targets?.map(({ sha }) => sha) ?? [],
+          reused: Boolean(result.reused),
+          outcomes: result.outcomes ?? [],
+          errors: result.plan?.errors ?? [],
+          historyFindings: result.plan?.historyFindings ?? [],
+          remoteAcceptance: 'unobserved-pre-push',
+        },
+      });
+    } catch (error) {
+      // The journal is diagnostic evidence. A persistence failure must not
+      // change the validation result or cause a successful Git operation to
+      // be reported as failed.
+      console.warn(`Push operation history could not be finalized: ${error.message}`);
+    }
+    return result;
+  };
+  let updates;
+  try {
+    updates = flags.since ? syntheticSinceUpdate(git, flags.since) : parsePrePushInput(input);
+  } catch (error) {
+    return closeOperation(
+      { status: error.code ?? 2, message: error.message, plan: null, outcomes: [] },
+      'parse',
+    );
   }
   let plan;
   try {
@@ -237,7 +292,10 @@ export function runPushCheckpoint({
       planBuilder,
     });
   } catch (error) {
-    return { status: error.code ?? 2, message: error.message, plan: null, outcomes: [] };
+    return closeOperation(
+      { status: error.code ?? 2, message: error.message, plan: null, outcomes: [] },
+      'plan',
+    );
   }
 
   const artifactPath = writePlanArtifact(plan, commonDir);
@@ -246,7 +304,7 @@ export function runPushCheckpoint({
 
   const immediateCode = planExitCode(plan);
   if (immediateCode !== 0) {
-    return { status: immediateCode, plan, outcomes: [], artifactPath };
+    return closeOperation({ status: immediateCode, plan, outcomes: [], artifactPath }, 'plan');
   }
 
   const overrideReason = String(process.env.VARVE_PUSH_OVERRIDE_REASON ?? '').trim();
@@ -258,7 +316,34 @@ export function runPushCheckpoint({
     console.log(
       'Remote certification remains authoritative; a local receipt never satisfies CI or release candidate checks.',
     );
-    return { status: 0, plan, outcomes: [], reused: true, artifactPath };
+    return closeOperation(
+      { status: 0, plan, outcomes: [], reused: true, artifactPath },
+      'receipt-reuse',
+    );
+  }
+
+  const targetShas = [...new Set(plan.refs.map((ref) => ref.headSha).filter(Boolean))];
+  let snapshots = [];
+  if (!flags.dryRun && targetShas.length > 0) {
+    try {
+      snapshots = createValidationSnapshots(targetShas, { root: ROOT });
+      plan.execution = {
+        exactTree: true,
+        targets: snapshots.map(({ sha, path }) => ({ sha, path })),
+      };
+    } catch (error) {
+      console.error(`Push blocked: exact target tree could not be prepared: ${error.message}`);
+      return closeOperation(
+        { status: 2, plan, outcomes: [], artifactPath, message: error.message },
+        'snapshot',
+      );
+    }
+  } else {
+    plan.execution = {
+      exactTree: targetShas.length === 0,
+      targets: targetShas.map((sha) => ({ sha, path: null })),
+      dryRun: flags.dryRun,
+    };
   }
 
   const lanes = overrideReason
@@ -274,23 +359,32 @@ export function runPushCheckpoint({
   }
   const outcomes = [];
   let failed = null;
-  for (const lane of lanes) {
-    const outcome = runLane(lane, plan, {
-      dryRun: flags.dryRun,
-      executeCommand,
-    });
-    outcomes.push({ lane, ...outcome });
-    if (outcome.status !== 0) {
-      failed = { lane, ...outcome };
-      break;
+  const executionTargets = snapshots.length ? snapshots : [{ sha: null, path: ROOT }];
+  try {
+    for (const target of executionTargets) {
+      for (const lane of lanes) {
+        const outcome = runLane(lane, plan, {
+          dryRun: flags.dryRun,
+          executeCommand,
+          cwd: target.path,
+        });
+        outcomes.push({ lane, targetSha: target.sha, ...outcome });
+        if (outcome.status !== 0) {
+          failed = { lane, targetSha: target.sha, ...outcome };
+          break;
+        }
+      }
+      if (failed) break;
     }
+  } finally {
+    for (const snapshot of snapshots) snapshot.cleanup();
   }
   if (failed && !overrideReason) {
     console.error(`Push blocked: ${failed.lane} failed.`);
     console.error(
       `Reproduce with the command printed above. Diagnostics: ${artifactPath ?? 'local plan artifact unavailable'}`,
     );
-    return { status: 1, plan, outcomes, artifactPath };
+    return closeOperation({ status: 1, plan, outcomes, artifactPath }, 'lane');
   }
   if (overrideReason) {
     let entry = null;
@@ -303,7 +397,7 @@ export function runPushCheckpoint({
         entry = recordOverride(overrideReason, plan, { commonDir, git, cwd: ROOT, now });
       } catch (error) {
         console.error(`Push blocked: could not record the override locally: ${error.message}`);
-        return { status: 1, plan, outcomes, artifactPath };
+        return closeOperation({ status: 1, plan, outcomes, artifactPath }, 'override-record');
       }
     }
     plan.override = { reason: overrideReason, recorded: Boolean(entry), entry };
@@ -332,7 +426,7 @@ export function runPushCheckpoint({
     'Push checkpoint passed. Remote certification is required where the plan says so; deferred lanes are not local failures.',
   );
   if (plan.deferredLanes.length) console.log(`Deferred to CI: ${plan.deferredLanes.join(', ')}`);
-  return { status: 0, plan, outcomes, artifactPath };
+  return closeOperation({ status: 0, plan, outcomes, artifactPath }, 'complete');
 }
 
 async function main() {

@@ -124,11 +124,15 @@ try {
       remoteSha: bulkBase,
     },
   ]);
-  assert.equal(largeDirectMaster.errorCode, PUSH_EXIT_CODES.policyRefusal);
-  assert.ok(largeDirectMaster.errors.some((error) => error.kind === 'large-direct-master'));
-  assert.match(
-    largeDirectMaster.errors.find((error) => error.kind === 'large-direct-master').message,
-    /git push origin/,
+  assert.equal(
+    largeDirectMaster.errorCode,
+    PUSH_EXIT_CODES.ok,
+    'a large outgoing history is a workload signal, not a correctness refusal',
+  );
+  assert.equal(largeDirectMaster.refs[0].treeSha, git(['rev-parse', `${bulkHead}^{tree}`]));
+  assert.equal(
+    largeDirectMaster.errors.some((error) => error.kind === 'large-direct-master'),
+    false,
   );
   writeFileSync(join(repo, 'untracked outside push.txt'), 'not pushed\n');
   writeFileSync(join(repo, 'staged outside push.txt'), 'not pushed\n');

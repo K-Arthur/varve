@@ -3,7 +3,7 @@
 /** Exact identity and common-Git-directory receipt regression tests. */
 
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readReceipt, receiptPath, recordOverride, writeReceipt } from './validation-receipts.mjs';
@@ -47,6 +47,27 @@ try {
   assert.ok(existsSync(written.path));
   assert.equal(written.path, receiptPath(basePlan, { commonDir, tools, now }));
   assert.equal(readReceipt(basePlan, { commonDir, tools, now: now + 1000 }).reusable, true);
+
+  const strictPlan = {
+    ...structuredClone(basePlan),
+    validation: {
+      profile: 'push',
+      strict: true,
+      localBlocking: ['js-unit:all'],
+      remoteRequired: ['pipeline-validate'],
+      deferred: [],
+      promisedIntegrationLanes: ['js-unit:all'],
+      promisedCandidateLanes: ['js-unit:all'],
+    },
+    localBlockingLanes: ['js-unit:all'],
+    remotelyRequiredLanes: ['pipeline-validate'],
+    deferredLanes: [],
+  };
+  assert.equal(
+    readReceipt(strictPlan, { commonDir, tools, now: now + 1000 }).reusable,
+    false,
+    'ordinary push evidence cannot satisfy strict push coverage',
+  );
 
   // The same identity is reusable from another worktree sharing the common
   // Git directory; a different ref/base/head never aliases the receipt.
@@ -97,6 +118,17 @@ try {
   );
   writeReceipt(basePlan, { commonDir, tools, now: now + 60_000 });
   assert.equal(readReceipt(basePlan, { commonDir, tools, now }).reason, 'expired');
+
+  writeReceipt(basePlan, { commonDir, tools, now: now + 120_000 });
+  const currentPath = receiptPath(basePlan, { commonDir, tools, now: now + 120_000 });
+  const current = JSON.parse(readFileSync(currentPath, 'utf8'));
+  current.identity.identityHash = '0'.repeat(64);
+  writeFileSync(currentPath, `${JSON.stringify(current)}\n`);
+  assert.equal(
+    readReceipt(basePlan, { commonDir, tools, now: now + 120_001 }).reason,
+    'corrupt-or-schema-mismatch',
+    'corrupt receipt identity is not reusable',
+  );
 
   const override = recordOverride('network outage while pushing integration branch', basePlan, {
     commonDir,
