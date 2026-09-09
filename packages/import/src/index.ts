@@ -5,6 +5,20 @@ export { bytesToDataUrl, dataUrlToBytes, detectImageMime, getImageDimensions } f
 export * from './delimited';
 export { createEpsParser } from './eps';
 export { createFigmaParser, type FigmaSourceDocument } from './figma';
+export type {
+  FormatCapability,
+  FormatDetection,
+  FormatDetectionSource,
+  FormatDetectionWarning,
+  ImageFormatId,
+  ImportCapability,
+} from './formatCapabilities';
+export {
+  detectFileFormat,
+  formatForExtension,
+  getFormatCapability,
+  listFormatCapabilities,
+} from './formatCapabilities';
 export * from './gradient';
 export { getBitmapInfo, importImageAsFill } from './image';
 export { importFile, importImageFile, importSvgString } from './import';
@@ -22,6 +36,7 @@ export {
   getParser,
   getParserForData,
   getParserForExtension,
+  getParserForFile,
   listSupportedExtensions,
   listSupportedFormats,
   registerParser,

@@ -1,3 +1,12 @@
+import {
+  detectFileFormat,
+  type FormatCapability,
+  formatForExtension,
+  getFormatCapability,
+  type ImageFormatId,
+  listFormatCapabilities,
+  listImportableRasterExtensions,
+} from './formatCapabilities';
 import type { ImportParser } from './types';
 
 /**
@@ -6,17 +15,7 @@ import type { ImportParser } from './types';
  * `importImageAsFill`. Kept here as the single source of truth so the file
  * picker `accept` string and the service's fallback detection cannot drift.
  */
-export const RASTER_IMPORT_EXTENSIONS = [
-  'png',
-  'jpg',
-  'jpeg',
-  'webp',
-  'gif',
-  'bmp',
-  'tif',
-  'tiff',
-  'avif',
-] as const;
+export const RASTER_IMPORT_EXTENSIONS = listImportableRasterExtensions();
 
 /**
  * Colour-lookup-table formats. These are not handled by `ImportService`
@@ -86,7 +85,8 @@ function buildExtensionIndex(): void {
 }
 
 export function getParserForExtension(ext: string): ImportParser | undefined {
-  const format = extToFormat.get(ext.toLowerCase().replace(/^\./, ''));
+  const normalized = ext.toLowerCase().replace(/^\./, '');
+  const format = extToFormat.get(normalized);
   return format ? parsers.get(format) : undefined;
 }
 
@@ -99,6 +99,27 @@ export function getParserForData(data: string | Uint8Array): ImportParser | unde
   return undefined;
 }
 
+/**
+ * Resolve a parser without allowing ambiguous container signatures to steal a
+ * format-specific extension. ZIP-backed formats (Sketch and native Figma) all
+ * begin with `PK`; when the extension-selected parser accepts the bytes it is
+ * the more useful discriminator. Clear signatures such as PNG, SVG, or PDF
+ * still override a misleading filename.
+ */
+export function getParserForFile(
+  filename: string,
+  data: string | Uint8Array,
+): ImportParser | undefined {
+  const extension = filename.split('.').pop() ?? '';
+  const byExtension = getParserForExtension(extension);
+  const byData = getParserForData(data);
+  const detection = detectFileFormat({ filename, data });
+  if (detection.source === 'signature') {
+    return byData ?? (byExtension?.canParse(data) ? byExtension : undefined);
+  }
+  return byExtension?.canParse(data) ? byExtension : byData;
+}
+
 export function listSupportedFormats(): string[] {
   return [...parsers.keys()];
 }
@@ -107,3 +128,6 @@ export function resetRegistry(): void {
   parsers.clear();
   extToFormat.clear();
 }
+
+export type { FormatCapability, ImageFormatId };
+export { detectFileFormat, formatForExtension, getFormatCapability, listFormatCapabilities };

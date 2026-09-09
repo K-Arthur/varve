@@ -1,3 +1,5 @@
+import { detectFileFormat, mimeForFormat } from './formatCapabilities';
+
 const PNG_HEADER = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 const JPEG_HEADER = [0xff, 0xd8, 0xff];
 const WEBP_HEADER = [0x52, 0x49, 0x46, 0x46];
@@ -264,28 +266,6 @@ function readAvifDimensions(data: Uint8Array): ImageDimensions {
 }
 
 export function detectImageMime(data: Uint8Array): string | null {
-  const header = Array.from(data.slice(0, 12));
-
-  if (startsWith(header, PNG_HEADER)) return 'image/png';
-  if (startsWith(header, JPEG_HEADER)) return 'image/jpeg';
-  if (startsWith(header, GIF_HEADER)) return 'image/gif';
-  if (startsWith(header, TIFF_LE_HEADER) || startsWith(header, TIFF_BE_HEADER)) return 'image/tiff';
-
-  if (startsWith(header, WEBP_HEADER) && data.length >= 12) {
-    const magic = Array.from(data.slice(8, 12));
-    if (arraysEqual(magic, WEBP_MAGIC)) return 'image/webp';
-  }
-
-  if (data.length >= 12 && startsWith(header, AVIF_HEADER)) {
-    const ftyp = Array.from(data.slice(4, 12));
-    if (arraysEqual(ftyp, [0x66, 0x74, 0x79, 0x70, 0x61, 0x76, 0x69, 0x66])) return 'image/avif';
-  }
-
-  if (data.length >= 2) {
-    const b0 = data[0] ?? 0;
-    const b1 = data[1] ?? 0;
-    if (b0 === 0x42 && b1 === 0x4d) return 'image/bmp';
-  }
-
-  return null;
+  const detected = detectFileFormat({ data });
+  return detected.format ? (mimeForFormat(detected.format) ?? null) : null;
 }

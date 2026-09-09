@@ -9,7 +9,7 @@ import {
 } from '@varve/scene';
 import { detectImageMime } from './bitmap';
 import { importImageAsFill, inspectImageSource } from './image';
-import { getParser, getParserForData, getParserForExtension } from './registry';
+import { getParser, getParserForFile } from './registry';
 import type { ImportOptions, ImportResult } from './types';
 
 export function importFile(
@@ -18,7 +18,7 @@ export function importFile(
   options?: Partial<ImportOptions>,
 ): ImportResult {
   const ext = filename.split('.').pop() ?? '';
-  const parser = getParserForExtension(ext) ?? getParserForData(data);
+  const parser = getParserForFile(filename, data);
 
   if (parser) {
     return parser.parse(data, options);

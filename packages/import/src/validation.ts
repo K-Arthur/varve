@@ -1,6 +1,8 @@
 import type { ColorConfig, ManagedColor } from '@varve/scene';
 import { isCmykColor, isRgbColor, isSpotColor } from '@varve/scene';
-import { getParserForData, getParserForExtension } from './registry';
+import { detectFileFormat, getFormatCapability } from './formatCapabilities';
+import { inspectRasterBytes } from './rasterInspection';
+import { getParserForFile } from './registry';
 
 /** Colors that carry channel data (not spot references) can have bitDepth/profile. */
 function hasChannelMeta(
@@ -94,15 +96,62 @@ export async function validateImport(
   filename: string,
 ): Promise<ImportValidation> {
   const ext = filename.split('.').pop() ?? '';
-  const parser = getParserForExtension(ext) ?? getParserForData(data);
+  const detection = detectFileFormat({ filename, data });
+  const detectedFormat = detection.format;
+  const parser = getParserForFile(filename, data);
   const sizeBytes = typeof data === 'string' ? new TextEncoder().encode(data).length : data.length;
   const unsupportedFeatures: string[] = [];
-  const warnings: string[] = [];
+  const warnings: string[] = detection.warnings.map((warning) => warning.message);
+
+  const detectedCapability = detectedFormat ? getFormatCapability(detectedFormat) : undefined;
+  if (
+    detectedFormat &&
+    detectedCapability?.kind === 'raster' &&
+    detectedCapability.import.level !== 'unsupported'
+  ) {
+    try {
+      const inspection = inspectRasterBytes(
+        data instanceof Uint8Array ? data : new TextEncoder().encode(data),
+      );
+      return {
+        valid: true,
+        format: detectedFormat,
+        estimatedNodeCount: 1,
+        unsupportedFeatures:
+          detectedCapability.import.level === 'first-frame'
+            ? ['animation is inspected but imported placement uses the first frame']
+            : detectedCapability.import.level === 'flattened-raster'
+              ? ['source container is normalized to a flattened raster for browser rendering']
+              : [],
+        warnings: deduplicateWarnings([
+          ...warnings,
+          ...(inspection.animated
+            ? ['animated container metadata is preserved; timeline editing is not']
+            : []),
+        ]),
+        pageCount: 1,
+        sizeBytes,
+      };
+    } catch (error) {
+      return {
+        valid: false,
+        format: detectedFormat,
+        estimatedNodeCount: 0,
+        unsupportedFeatures: [],
+        warnings: deduplicateWarnings([
+          ...warnings,
+          error instanceof Error ? error.message : 'Raster inspection failed',
+        ]),
+        pageCount: 0,
+        sizeBytes,
+      };
+    }
+  }
 
   if (!parser) {
     return {
       valid: false,
-      format: ext || 'unknown',
+      format: detection.format ?? (ext || 'unknown'),
       estimatedNodeCount: 0,
       unsupportedFeatures,
       warnings: [`No parser found for format: ${ext || 'unknown'}`],

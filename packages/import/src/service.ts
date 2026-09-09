@@ -17,8 +17,9 @@ import { createPdfParser } from './pdf';
 import { createPsdParser } from './psd';
 import { inspectRasterBytes } from './rasterInspection';
 import {
-  getParserForData,
-  getParserForExtension,
+  detectFileFormat,
+  getParser,
+  getParserForFile,
   RASTER_IMPORT_EXTENSIONS,
   registerParser,
 } from './registry';
@@ -91,7 +92,10 @@ export interface ImportServiceOptions extends Partial<ImportOptions> {
 let builtInsRegistered = false;
 
 function ensureBuiltInsRegistered(): void {
-  if (builtInsRegistered) return;
+  // Tests and embedders may reset the parser registry between sessions. The
+  // boolean alone is not sufficient state: restore built-ins when the map was
+  // cleared instead of turning valid files into "no importer" reports.
+  if (builtInsRegistered && getParser('svg') && getParser('sketch')) return;
   registerParser(createSvgParser());
   registerParser(createPdfParser());
   registerParser(createPsdParser());
@@ -191,11 +195,13 @@ async function importOne(
   const data = dataFor(input);
   const format = extension(input.name);
   ensureBuiltInsRegistered();
-  const parser = getParserForExtension(format) ?? getParserForData(data);
-  const reportFormat = parser?.format ?? format;
+  const detection = detectFileFormat({ filename: input.name, data });
+  const parser = getParserForFile(input.name, data);
+  const reportFormat = parser?.format ?? detection.format ?? format;
   const rasterCandidate =
     data instanceof Uint8Array &&
-    (isRasterFallbackFormat(format) || detectImageMime(data) !== null);
+    (isRasterFallbackFormat(format) ||
+      (detection.format !== null && detectImageMime(data) !== null));
 
   if (looksLikeVarveDocument(data)) {
     return {
@@ -207,7 +213,7 @@ async function importOne(
       durationMs: performance.now() - started,
       nodeCount: 0,
       artifacts: [],
-      warnings: [],
+      warnings: detection.warnings.map((item) => warning(item.message)),
       unsupportedFeatures: [
         {
           code: 'format.varve-document',
@@ -228,7 +234,7 @@ async function importOne(
       durationMs: performance.now() - started,
       nodeCount: 0,
       artifacts: [],
-      warnings: [],
+      warnings: detection.warnings.map((item) => warning(item.message)),
       unsupportedFeatures: [
         {
           code: 'format.unsupported',
@@ -241,7 +247,7 @@ async function importOne(
 
   try {
     if (!parser && data instanceof Uint8Array) inspectRasterBytes(data);
-    const validation = parser ? await validateImport(data, input.name) : null;
+    const validation = await validateImport(data, input.name);
     assertNotAborted(signal);
     const result = importFile(input.name, data, options);
     assertNotAborted(signal);
@@ -254,6 +260,7 @@ async function importOne(
       ...(result.unsupportedFeatures?.map(unsupportedFeature) ?? []),
     ]);
     const warnings = dedupeWarnings([
+      ...detection.warnings.map((item) => warning(item.message)),
       ...(validation?.warnings.map(warning) ?? []),
       ...result.warnings.map(warning),
       ...normalized.warnings.map((w) => ({
