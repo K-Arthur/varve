@@ -140,3 +140,53 @@ The final implementation record is maintained below as commits land. Every
 meaningful UI change must include the affected-package planner, targeted tests,
 and a fresh browser screenshot that is visually inspected in light/dark and at
 the relevant constrained width where the surface supports it.
+
+### Implementation and evidence
+
+The scoped changes were delivered as three commits on `master`:
+
+- `579caf25` — documented the repository UI map, baseline evidence, direction,
+  access map, audit priorities, and residual debt.
+- `0c32bedfc` — clarified home navigation, thumbnail controls, and the New
+  Design advanced-settings summary.
+- `5c3dc1c29` — reframed the marketing product screenshot as a Varve workspace
+  surface while preserving the real manifest-driven capture.
+
+Commands run for this pass:
+
+```text
+pnpm verify:plan
+pnpm exec vitest run packages/home/src/NewDesignDialog.test.tsx --reporter=verbose
+pnpm exec stylelint packages/home/src/home.css
+pnpm --filter @varve/website typecheck
+pnpm build:website
+pnpm verify:affected
+pnpm audit:docs
+pnpm audit:emoji
+```
+
+Passed evidence:
+
+- New Design dialog tests: 14/14.
+- Website Astro check/typecheck: 0 errors, 0 warnings, 5 hints.
+- Website static build: 79 pages built successfully.
+- Docs audit: clean; emoji audit: clean.
+- The staged commit checkpoints passed format, lint/health, impact-config,
+  secret, contact, emoji, and docs checks.
+- Fresh Playwright captures were visually inspected at desktop and narrow
+  widths for the home/dialog surfaces, and at desktop, narrow, light, and dark
+  themes for the marketing product frame. Evidence is retained in
+  `/tmp/varve-ui-after/` during this session, including
+  `new-design-dialog-light.png`, `new-design-dialog-narrow-2.png`,
+  `home-empty-light.png`, `website-showcase-2.png`,
+  `website-showcase-mobile-2.png`, and `website-showcase-dark-2.png`.
+
+`pnpm verify:affected` selected the website/shared affected closure and
+reported 188/192 website tests passing. Its four failures are pre-existing
+fixture drift from concurrent schema work in the shared worktree: the committed
+website demo `.varve` fixtures remain at format `2.22` while the concurrent
+scene changes emit `2.23`. Those fixtures were not regenerated or staged as
+part of this visual pass. Native desktop GUI, full visual regression, Rust
+workspace, benchmark, packaging, and release lanes were deferred by the commit
+checkpoint because they are outside the changed UI slice; the concurrent
+worktree changes should receive their own affected validation once stabilized.
