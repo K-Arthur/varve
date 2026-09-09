@@ -68,6 +68,7 @@ function announceToolChange(toolId: string): void {
 export interface ActionHandlerCallbacks {
   onOpenFile?: () => void;
   onImportFile?: () => void;
+  onQuickConvert?: () => void;
   onInsertIcon?: () => void;
   onBackToHome?: () => void;
   onOpenSettings?: () => void;
@@ -636,6 +637,7 @@ export function createActionHandlers(
     saveCopy: () => e.saveCopy(),
     archiveBackup: () => e.setShowArchiveDialog(true, 'backup'),
     archiveRestore: () => e.setShowArchiveDialog(true, 'restore'),
+    quickConvert: () => cb.onQuickConvert?.(),
     // Snapshot names are retained as compatibility aliases for older menu
     // ids and saved shortcuts; both aliases execute the canonical archive
     // operation above.
