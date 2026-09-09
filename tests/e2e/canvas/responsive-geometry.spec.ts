@@ -131,4 +131,57 @@ test.describe('responsive canvas geometry', () => {
     expect(Math.abs(afterAnchor.x - anchor.x)).toBeLessThanOrEqual(4);
     expect(Math.abs(afterAnchor.y - anchor.y)).toBeLessThanOrEqual(4);
   });
+
+  test('lost pointer capture cancels the draft and leaves the next gesture usable', async ({
+    page,
+  }) => {
+    test.setTimeout(300000);
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('canvas not found');
+
+    await page.evaluate(() => {
+      const surface = document.querySelector('canvas.editor-canvas__content-layer');
+      if (!surface) throw new Error('content canvas not found');
+      (window as Window & { __varveTestPointerId?: number }).__varveTestPointerId = undefined;
+      surface.addEventListener(
+        'pointerdown',
+        (event) => {
+          (window as Window & { __varveTestPointerId?: number }).__varveTestPointerId = (
+            event as PointerEvent
+          ).pointerId;
+        },
+        { capture: true, once: true },
+      );
+    });
+
+    await page.keyboard.press('r');
+    await page.mouse.move(box.x + 180, box.y + 160);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 280, box.y + 240);
+    const pointerId = await page.evaluate(
+      () => (window as Window & { __varveTestPointerId?: number }).__varveTestPointerId,
+    );
+    expect(pointerId).toEqual(expect.any(Number));
+    await page.evaluate((id) => {
+      const surface = document.querySelector('canvas.editor-canvas__content-layer');
+      if (!surface) throw new Error('content canvas not found');
+      surface.dispatchEvent(
+        new PointerEvent('lostpointercapture', {
+          bubbles: false,
+          pointerId: id as number,
+          pointerType: 'mouse',
+        }),
+      );
+    }, pointerId);
+    await page.mouse.up();
+    await expect(page.getByRole('treeitem')).toHaveCount(0);
+
+    await page.keyboard.press('r');
+    await page.mouse.move(box.x + 180, box.y + 160);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 280, box.y + 240);
+    await page.mouse.up();
+    await expect(page.getByRole('treeitem')).toHaveCount(1);
+  });
 });

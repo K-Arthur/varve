@@ -114,7 +114,16 @@ latest-wins scheduler continues to defer that lane until interaction settles.
 At runtime, the scheduler derives the same windows from the reported display
 refresh interval: canvas/UI admission is limited to the interaction window,
 and background work begins only when a separate background slice remains
-inside the authoritative window.
+inside the authoritative window. A camera frame whose captured camera differs
+from the last painted camera remains classified as interaction work even if
+the input quiet-period timer has already elapsed; this keeps delayed renders
+visible in the correct diagnostic class.
+
+Scoped adjustment layers render their source targets into a projected,
+device-space crop rather than a full viewport-sized scratch surface. The
+cropped surface is translated back through the same camera and treatment-space
+origin before filtering, so this bounds Canvas2D CPU/memory work without
+changing document data, export quality, or mask alignment.
 
 ## Measurement protocol
 

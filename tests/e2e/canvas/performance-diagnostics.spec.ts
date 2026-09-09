@@ -43,7 +43,7 @@ interface PerformanceDiagnosticsHandle {
 test.describe('Canvas performance diagnostics', () => {
   test('captures a real drag with bounded spans and an inspectable dirty region', async ({
     page,
-  }) => {
+  }, testInfo) => {
     await navigateToEditor(page, '/?perf=1');
     await seedLayers(page, 1);
     const canvas = page.locator('canvas.editor-canvas__content-layer');
@@ -91,6 +91,11 @@ test.describe('Canvas performance diagnostics', () => {
         summary: handle.interactions.summary(),
         frozen: handle.isFrozen(),
       };
+    });
+
+    await testInfo.attach('canvas-interaction-diagnostics.json', {
+      body: JSON.stringify(diagnostics, null, 2),
+      contentType: 'application/json',
     });
 
     expect(diagnostics).not.toBeNull();
@@ -173,10 +178,23 @@ test.describe('Canvas performance diagnostics', () => {
 
   test('reports interaction, authoritative, and background budgets from the display interval', async ({
     page,
-  }) => {
+  }, testInfo) => {
     await navigateToEditor(page, '/?perf=1');
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     await canvas.focus();
+
+    // Shell/canvas readiness can precede the first real content frame on a
+    // cold Vite/WebView start. Wait for that baseline so this probe measures
+    // the wheel interaction window rather than racing the initial draw.
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const handle = (window as unknown as { __varvePerf?: PerformanceDiagnosticsHandle })
+            .__varvePerf;
+          return handle?.getFrames(120).length ?? 0;
+        }),
+      )
+      .toBeGreaterThan(0);
 
     await canvas.evaluate((element) => {
       const bounds = element.getBoundingClientRect();
@@ -205,6 +223,11 @@ test.describe('Canvas performance diagnostics', () => {
       const handle = (window as unknown as { __varvePerf?: PerformanceDiagnosticsHandle })
         .__varvePerf;
       return handle?.frameBudget.summary() ?? null;
+    });
+    console.log('canvas frame budget summary', JSON.stringify(summary));
+    await testInfo.attach('canvas-frame-budget-summary.json', {
+      body: JSON.stringify(summary, null, 2),
+      contentType: 'application/json',
     });
     expect(summary).not.toBeNull();
     expect(summary!.classes.interaction.budgetMs).toBeCloseTo(summary!.intervalMs * 0.5);
