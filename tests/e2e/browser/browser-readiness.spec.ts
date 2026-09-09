@@ -176,12 +176,15 @@ test.describe('browser build readiness', () => {
     await navigateToEditor(page);
 
     // Draw something so the document is non-trivial. dragOnCanvas uses the
-    // same coordinates as the WASM-load test (which passes).
+    // same stable interior coordinates as the other frame workflows; keeping
+    // the gesture away from the canvas ruler prevents a lost tool activation
+    // from being mistaken for a persistence failure.
     const before = await page.getByRole('treeitem').count();
     await page.keyboard.press('f');
-    await dragOnCanvas(page, 20, 20, 320, 220);
+    await dragOnCanvas(page, 180, 160, 480, 440);
+    await expect(page.getByRole('treeitem')).toHaveCount(before + 1, { timeout: 15000 });
     await page.keyboard.press('r');
-    await dragOnCanvas(page, 40, 40, 200, 140);
+    await dragOnCanvas(page, 250, 230, 340, 320);
     await page.keyboard.press('v');
     await expect(page.getByRole('treeitem')).toHaveCount(before + 2, { timeout: 15000 });
 
