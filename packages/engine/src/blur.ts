@@ -31,18 +31,34 @@ function unpremultiply(data: Uint8ClampedArray): void {
   }
 }
 
+const MAX_BLUR_RADIUS = 4096;
+
 function clampEdge(x: number, size: number): number {
   return x < 0 ? 0 : x >= size ? size - 1 : x;
 }
 
+/**
+ * Normalize the authored blur radius before it reaches an allocation or loop.
+ *
+ * Varve's legacy layer-blur value is a three-sigma support radius. Keeping that
+ * meaning is important for old documents, but the value is allowed to be
+ * fractional. The kernel support is therefore rounded independently from the
+ * authored value; fractional radii never become fractional array lengths.
+ */
+export function normalizeBlurRadius(radius: number): number {
+  return Number.isFinite(radius) ? Math.max(0, Math.min(MAX_BLUR_RADIUS, radius)) : 0;
+}
+
 export function gaussianKernel(radius: number): number[] {
-  if (radius === 0) return [1];
-  const sigma = radius / 3;
-  const size = 2 * radius + 1;
+  const normalizedRadius = normalizeBlurRadius(radius);
+  if (normalizedRadius === 0) return [1];
+  const support = Math.max(1, Math.ceil(normalizedRadius));
+  const sigma = Math.max(Number.EPSILON, normalizedRadius / 3);
+  const size = 2 * support + 1;
   const kernel = new Array<number>(size);
   let sum = 0;
   for (let i = 0; i < size; i++) {
-    const x = i - radius;
+    const x = i - support;
     const v = Math.exp(-(x * x) / (2 * sigma * sigma));
     kernel[i] = v;
     sum += v;
@@ -55,7 +71,9 @@ export function gaussianKernel(radius: number): number[] {
 }
 
 export function boxBlurSeparable(data: ImageData, radius: number): ImageData {
-  if (radius <= 0) return new ImageData(new Uint8ClampedArray(data.data), data.width, data.height);
+  const normalizedRadius = Math.floor(normalizeBlurRadius(radius));
+  if (normalizedRadius <= 0)
+    return new ImageData(new Uint8ClampedArray(data.data), data.width, data.height);
   const w = data.width;
   const h = data.height;
   const pixels = new Uint8ClampedArray(data.data);
@@ -63,13 +81,13 @@ export function boxBlurSeparable(data: ImageData, radius: number): ImageData {
   const tmp = new Uint8ClampedArray(pixels.length);
 
   // Horizontal pass: sliding-window accumulator
-  const diameter = 2 * radius + 1;
+  const diameter = 2 * normalizedRadius + 1;
   for (let y = 0; y < h; y++) {
     let ar = 0;
     let ag = 0;
     let ab = 0;
     let aa = 0;
-    for (let dx = -radius; dx <= radius; dx++) {
+    for (let dx = -normalizedRadius; dx <= normalizedRadius; dx++) {
       const sx = clampEdge(dx, w);
       const idx = (y * w + sx) * 4;
       ar += pixels[idx]!;
@@ -85,8 +103,8 @@ export function boxBlurSeparable(data: ImageData, radius: number): ImageData {
       tmp[idx + 3] = clampByte(aa / diameter);
 
       // Slide window: subtract leftmost, add rightmost (+1)
-      const leftX = x - radius;
-      const rightX = x + radius + 1;
+      const leftX = x - normalizedRadius;
+      const rightX = x + normalizedRadius + 1;
       const leftIdx = (y * w + clampEdge(leftX, w)) * 4;
       const rightIdx = (y * w + clampEdge(rightX, w)) * 4;
       ar -= pixels[leftIdx]!;
@@ -107,7 +125,7 @@ export function boxBlurSeparable(data: ImageData, radius: number): ImageData {
     let ag = 0;
     let ab = 0;
     let aa = 0;
-    for (let dy = -radius; dy <= radius; dy++) {
+    for (let dy = -normalizedRadius; dy <= normalizedRadius; dy++) {
       const sy = clampEdge(dy, h);
       const idx = (sy * w + x) * 4;
       ar += tmp[idx]!;
@@ -122,8 +140,8 @@ export function boxBlurSeparable(data: ImageData, radius: number): ImageData {
       out[idx + 2] = clampByte(ab / diameter);
       out[idx + 3] = clampByte(aa / diameter);
 
-      const topY = y - radius;
-      const bottomY = y + radius + 1;
+      const topY = y - normalizedRadius;
+      const bottomY = y + normalizedRadius + 1;
       const topIdx = (clampEdge(topY, h) * w + x) * 4;
       const bottomIdx = (clampEdge(bottomY, h) * w + x) * 4;
       ar -= tmp[topIdx]!;
@@ -200,15 +218,17 @@ function convolve1D(
 }
 
 export function gaussianBlurSeparable(data: ImageData, radius: number): ImageData {
-  if (radius <= 0) return new ImageData(new Uint8ClampedArray(data.data), data.width, data.height);
+  const normalizedRadius = normalizeBlurRadius(radius);
+  if (normalizedRadius <= 0)
+    return new ImageData(new Uint8ClampedArray(data.data), data.width, data.height);
   const w = data.width;
   const h = data.height;
 
-  if (radius > 100) {
-    const factor = Math.min(Math.ceil(radius / 100), 4);
+  if (normalizedRadius > 100) {
+    const factor = Math.min(Math.ceil(normalizedRadius / 100), 4);
     const smallW = Math.max(1, Math.round(w / factor));
     const smallH = Math.max(1, Math.round(h / factor));
-    const smallRadius = Math.max(1, Math.round(radius / factor));
+    const smallRadius = Math.max(1, normalizedRadius / factor);
 
     const smallData = downsample(data, smallW, smallH);
     const kernel = gaussianKernel(smallRadius);
@@ -225,7 +245,7 @@ export function gaussianBlurSeparable(data: ImageData, radius: number): ImageDat
 
   const pixels = new Uint8ClampedArray(data.data);
   premultiply(pixels);
-  const kernel = gaussianKernel(radius);
+  const kernel = gaussianKernel(normalizedRadius);
   const tmp = new Uint8ClampedArray(pixels.length);
   convolve1D(pixels, tmp, w, h, kernel, true);
   convolve1D(tmp, pixels, w, h, kernel, false);
@@ -302,9 +322,24 @@ function convolve1DFloat(
  * low alpha (no `255/a` rounding amplification).
  */
 export function gaussianBlurLinearLight(data: ImageData, radius: number): ImageData {
-  if (radius <= 0) return new ImageData(new Uint8ClampedArray(data.data), data.width, data.height);
+  const normalizedRadius = normalizeBlurRadius(radius);
+  if (normalizedRadius <= 0)
+    return new ImageData(new Uint8ClampedArray(data.data), data.width, data.height);
   const w = data.width;
   const h = data.height;
+
+  // A full-resolution kernel is needlessly expensive for very large authored
+  // values. Use a bounded linear-light proxy and scale the authored support
+  // with it. The recursive call stays below the threshold, so a malformed
+  // document cannot turn into an unbounded allocation or loop.
+  if (normalizedRadius > 64 && (w > 1 || h > 1)) {
+    const factor = Math.min(16, Math.max(2, Math.ceil(normalizedRadius / 64)));
+    const smallW = Math.max(1, Math.round(w / factor));
+    const smallH = Math.max(1, Math.round(h / factor));
+    const small = downsample(data, smallW, smallH);
+    const blurred = gaussianBlurLinearLight(small, normalizedRadius / factor);
+    return upsample(blurred, w, h);
+  }
   const src = data.data;
 
   // Encode → linear, straight → premultiplied, byte → float.
@@ -317,7 +352,7 @@ export function gaussianBlurLinearLight(data: ImageData, radius: number): ImageD
     px[i + 3] = a;
   }
 
-  const kernel = gaussianKernel(radius);
+  const kernel = gaussianKernel(normalizedRadius);
   const tmp = new Float32Array(px.length);
   convolve1DFloat(px, tmp, w, h, kernel, true);
   convolve1DFloat(tmp, px, w, h, kernel, false);

@@ -130,6 +130,25 @@ describe('CompositeCanvas', () => {
     expect(() => cc.applyBlur(50)).not.toThrow();
   });
 
+  it('uses the same canonical read/blur/write path below the former CSS threshold', () => {
+    const canvas = document.createElement('canvas');
+    const cc = new CompositeCanvas({ width: 10, height: 10, testCanvas: canvas });
+    const read = vi.spyOn(cc, 'getImageData');
+    const write = vi.spyOn(cc, 'putImageData');
+    cc.applyBlur(2.5);
+    expect(read).toHaveBeenCalledWith(0, 0, 10, 10);
+    expect(write).toHaveBeenCalledOnce();
+  });
+
+  it('treats non-finite authored radii as an identity', () => {
+    const canvas = document.createElement('canvas');
+    const cc = new CompositeCanvas({ width: 10, height: 10, testCanvas: canvas });
+    const read = vi.spyOn(cc, 'getImageData');
+    cc.applyBlur(Number.NaN);
+    cc.applyBlur(Number.POSITIVE_INFINITY);
+    expect(read).not.toHaveBeenCalled();
+  });
+
   it('applyBlur with very large radius uses downsample path', () => {
     const canvas = document.createElement('canvas');
     const cc = new CompositeCanvas({ width: 100, height: 100, testCanvas: canvas });

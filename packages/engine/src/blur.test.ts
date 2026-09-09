@@ -4,6 +4,7 @@ import {
   gaussianBlurLinearLight,
   gaussianBlurSeparable,
   gaussianKernel,
+  normalizeBlurRadius,
 } from './blur';
 
 function makeGradient(w: number, h: number): ImageData {
@@ -81,6 +82,15 @@ describe('gaussianKernel', () => {
       if (i !== 5) expect(kernel[i]).toBeLessThan(center);
     }
   });
+
+  it('supports fractional radii without fractional allocations', () => {
+    const kernel = gaussianKernel(2.5);
+    expect(kernel.length).toBe(7);
+    expect(kernel.reduce((sum, weight) => sum + weight, 0)).toBeCloseTo(1, 6);
+    expect(gaussianKernel(Number.NaN)).toEqual([1]);
+    expect(normalizeBlurRadius(Number.POSITIVE_INFINITY)).toBe(0);
+    expect(normalizeBlurRadius(99999)).toBe(4096);
+  });
 });
 
 describe('boxBlurSeparable', () => {
@@ -135,6 +145,13 @@ describe('gaussianBlurSeparable', () => {
         }
       }
     }
+  });
+
+  it('keeps fractional and oversized input finite', () => {
+    const src = makeGradient(8, 8);
+    expect(() => gaussianBlurSeparable(src, 2.5)).not.toThrow();
+    expect(() => gaussianBlurSeparable(src, 99999)).not.toThrow();
+    expect(() => gaussianBlurSeparable(src, Number.NaN)).not.toThrow();
   });
 });
 
@@ -235,5 +252,13 @@ describe('gaussianBlurLinearLight precision', () => {
       expect(v).toBeLessThanOrEqual(255);
       expect(Number.isFinite(v)).toBe(true);
     }
+  });
+
+  it('bounds very large radii with a finite approximation', () => {
+    const src = makeGradient(64, 64);
+    const out = gaussianBlurLinearLight(src, 4096);
+    expect(out.width).toBe(64);
+    expect(out.height).toBe(64);
+    expect([...out.data].every(Number.isFinite)).toBe(true);
   });
 });

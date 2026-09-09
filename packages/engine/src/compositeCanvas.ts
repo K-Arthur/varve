@@ -191,26 +191,15 @@ export class CompositeCanvas {
   }
 
   applyBlur(radius: number): void {
-    if (radius <= 0) return;
-    const ctx = this.ctx;
-    if (radius <= 32) {
-      // CSS filter path (GPU-accelerated, fast for small radii)
-      ctx.save();
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.filter = `blur(${radius}px)`;
-      ctx.drawImage(this.canvas as CanvasImageSource, 0, 0);
-      ctx.restore();
-    } else {
-      // Software separable blur for large radii (>32px):
-      // CSS filter does full 2D convolution and becomes slower than
-      // separable blur beyond ~32px radius.
-      const imageData = this.getImageData(0, 0, this.width, this.height);
-      const result = gaussianBlurLinearLight(imageData, radius);
-      ctx.save();
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      this.putImageData(result, 0, 0);
-      ctx.restore();
-    }
+    // The authored unit is logical/source pixels. CompositeCanvas stores a
+    // DPR-scaled backing surface, so convert exactly once before the canonical
+    // linear-light executor. Reading first also avoids the old in-place
+    // source-over CSS path, which could retain/double the sharp source.
+    const logicalRadius = Number.isFinite(radius) ? Math.max(0, radius) : 0;
+    if (logicalRadius <= 0) return;
+    const imageData = this.getImageData(0, 0, this.width, this.height);
+    const result = gaussianBlurLinearLight(imageData, logicalRadius * this._dpr);
+    this.putImageData(result, 0, 0);
   }
 }
 
