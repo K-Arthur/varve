@@ -402,6 +402,49 @@ describe('computeVisibleContentBounds', () => {
     // Intersection of [50,50,200,100] and [0,0,150,80] = [50,50,100,30]
     expect(bounds!.local).toEqual({ x: 50, y: 50, w: 100, h: 30 });
   });
+
+  it('maps raster alpha through crop, rotation, and flips', async () => {
+    const { doc, nodeId } = makeImageDoc();
+    const node = doc.nodes[nodeId] as ShapeNode;
+    node.fills![0]!.image!.fit = 'fill';
+    node.fills![0]!.image!.crop = { x: 100, y: 50, w: 200, h: 200 };
+    node.fills![0]!.image!.rotation = 90;
+    node.fills![0]!.image!.flipH = true;
+    node.fills![0]!.image!.flipV = true;
+    node.mask = {
+      type: 'alpha',
+      visible: true,
+      rasterMask: {
+        assetId: 'mask-1',
+        coordinateSpace: 'source-image-pixels',
+        sourceIdentity: { src: 'source' },
+      },
+    };
+    const data = new Uint8ClampedArray(400 * 300 * 4);
+    for (let y = 100; y < 200; y++) {
+      for (let x = 150; x < 250; x++) data[(y * 400 + x) * 4 + 3] = 255;
+    }
+
+    const bounds = await computeVisibleContentBounds(doc, nodeId, {
+      rasterImageData: { data, width: 400, height: 300, colorSpace: 'srgb' },
+      rasterMaskAsset: {
+        id: 'mask-1',
+        mimeType: 'image/png',
+        dataUrl: 'data:image/png;base64,mask',
+        width: 400,
+        height: 300,
+        byteLength: 1,
+      },
+    });
+
+    expect(bounds?.method).toBe('raster-alpha');
+    // The source alpha rectangle is transformed by the same placement as the
+    // renderer; it is not the old x + sourcePixel * scale approximation.
+    expect(bounds?.local.x).toBeCloseTo(75);
+    expect(bounds?.local.y).toBeCloseTo(25);
+    expect(bounds?.local.w).toBeCloseTo(50);
+    expect(bounds?.local.h).toBeCloseTo(50);
+  });
 });
 
 // ---------------------------------------------------------------------------

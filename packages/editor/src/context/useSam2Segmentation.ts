@@ -12,6 +12,7 @@ import { commitRasterMask } from '../backgroundRemoval/commitRasterMask';
 import type { CanvasAnnouncer } from '../canvas/CanvasAnnouncer';
 import { setCollapsed } from '../components/Inspector/sectionState';
 import { prepareImageMaskMapper } from '../tools/imageMaskCoordinates';
+import { normalizeSam2Prompts } from '../tools/sam2PromptCoordinates';
 import type { EditorState, ObjectSelectionSession } from './types';
 
 type WorkerTensor = { data: Float32Array; dims: number[] };
@@ -399,7 +400,7 @@ export function useSam2Segmentation(
         });
         return null;
       }
-      const normPrompts = normalizePromptsTo01(prompts, imageMapper, naturalW, naturalH);
+      const normPrompts = normalizeSam2Prompts(prompts, imageMapper, naturalW, naturalH);
 
       const encoderId = 'sam2-hiera-tiny-encoder';
       const decoderId = 'sam2-hiera-tiny-decoder';
@@ -703,50 +704,6 @@ export function useSam2Segmentation(
   );
 
   return { applySam2Segmentation, cancelSam2Segmentation, selectSam2Candidate };
-}
-
-function normalizePromptsTo01(
-  prompts: {
-    points?: Array<{ x: number; y: number; label: 0 | 1 }>;
-    box?: { x1: number; y1: number; x2: number; y2: number };
-  },
-  imageMapper: ReturnType<typeof prepareImageMaskMapper>,
-  naturalW: number,
-  naturalH: number,
-): {
-  points?: Array<{ x: number; y: number; label: 0 | 1 }>;
-  box?: { x1: number; y1: number; x2: number; y2: number };
-} {
-  const result: typeof prompts = {};
-
-  if (prompts.points) {
-    result.points = prompts.points.flatMap((p) => {
-      const pixel = imageMapper?.mapWorldPoint({ x: p.x, y: p.y });
-      if (!pixel) return [];
-      return [
-        {
-          x: Math.max(0, Math.min(1, pixel.x / naturalW)),
-          y: Math.max(0, Math.min(1, pixel.y / naturalH)),
-          label: p.label,
-        },
-      ];
-    });
-  }
-
-  if (prompts.box) {
-    const first = imageMapper?.mapWorldPoint({ x: prompts.box.x1, y: prompts.box.y1 });
-    const second = imageMapper?.mapWorldPoint({ x: prompts.box.x2, y: prompts.box.y2 });
-    if (first && second) {
-      result.box = {
-        x1: Math.max(0, Math.min(1, Math.min(first.x, second.x) / naturalW)),
-        y1: Math.max(0, Math.min(1, Math.min(first.y, second.y) / naturalH)),
-        x2: Math.max(0, Math.min(1, Math.max(first.x, second.x) / naturalW)),
-        y2: Math.max(0, Math.min(1, Math.max(first.y, second.y) / naturalH)),
-      };
-    }
-  }
-
-  return result;
 }
 
 function combineAbortSignals(...signals: AbortSignal[]): AbortSignal {

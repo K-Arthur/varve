@@ -13,9 +13,14 @@
  * Research basis: Figma trim-to-subject, Photoshop alpha bounds,
  * Illustrator clipping mask bounds, SVG clipPath geometry.
  */
-import type { Affine, PathPoint } from '@varve/engine';
+import {
+  type Affine,
+  computeImagePlacement,
+  type PathPoint,
+  sourcePixelToLocal,
+} from '@varve/engine';
 import type { Document, NodeId, RasterMaskAsset, ShapeNode } from '@varve/scene';
-import { getImageFill, isImageShape } from '@varve/scene';
+import { getImageFill, isImageShape, nodeLocalBounds } from '@varve/scene';
 import { cubicBezierBBox, transformRect } from '@varve/shared';
 
 // ---------------------------------------------------------------------------
@@ -79,6 +84,76 @@ export interface VisibleBoundsOptions {
    * mask, uses the asset's checksum for cache keying.
    */
   rasterMaskAsset?: RasterMaskAsset;
+}
+
+/**
+ * Map a source-image alpha rectangle through the exact image placement used by
+ * rendering. A simple `image.x + pixel * scale` conversion is wrong for crop,
+ * fit, rotation, and flips, and made Trim Subject disagree with the canvas.
+ */
+function sourceAlphaBoundsToLocal(
+  doc: Document,
+  node: ShapeNode,
+  source: AlphaBounds,
+): LocalBounds | null {
+  const image = getImageFill(node)?.image;
+  const bounds = nodeLocalBounds(node, doc);
+  if (!image || !bounds || bounds.w <= 0 || bounds.h <= 0) return null;
+
+  const sourceWidth = image.imageWidth ?? Math.ceil(source.maxX);
+  const sourceHeight = image.imageHeight ?? Math.ceil(source.maxY);
+  if (sourceWidth <= 0 || sourceHeight <= 0) return null;
+  const placement = computeImagePlacement({
+    fit: image.fit ?? 'fill',
+    sourceWidth,
+    sourceHeight,
+    bounds,
+    x: image.x,
+    y: image.y,
+    scale: image.scale,
+    sourceCrop: image.crop,
+    rotation: image.rotation,
+    flipH: image.flipH,
+    flipV: image.flipV,
+  });
+  if (!placement) return null;
+
+  const left = Math.max(placement.sourceRect.x, source.minX);
+  const top = Math.max(placement.sourceRect.y, source.minY);
+  const right = Math.min(placement.sourceRect.x + placement.sourceRect.w, source.maxX);
+  const bottom = Math.min(placement.sourceRect.y + placement.sourceRect.h, source.maxY);
+  if (!(right > left && bottom > top)) return null;
+
+  // sourcePixelToLocal treats source coordinates as pixel centres inside a
+  // half-open rectangle. Keep the far edge just inside that rectangle.
+  const epsilon = 1e-6;
+  const points = [
+    { x: left, y: top },
+    { x: Math.max(left, right - epsilon), y: top },
+    { x: Math.max(left, right - epsilon), y: Math.max(top, bottom - epsilon) },
+    { x: left, y: Math.max(top, bottom - epsilon) },
+  ]
+    .map((point) => sourcePixelToLocal(placement, point))
+    .filter((point): point is { x: number; y: number } => point !== null);
+  if (points.length === 0) return null;
+
+  const minX = Math.max(
+    0,
+    Math.min(bounds.w, Math.min(...points.map((point) => point.x)) - bounds.x),
+  );
+  const minY = Math.max(
+    0,
+    Math.min(bounds.h, Math.min(...points.map((point) => point.y)) - bounds.y),
+  );
+  const maxX = Math.max(
+    minX,
+    Math.min(bounds.w, Math.max(...points.map((point) => point.x)) - bounds.x),
+  );
+  const maxY = Math.max(
+    minY,
+    Math.min(bounds.h, Math.max(...points.map((point) => point.y)) - bounds.y),
+  );
+  return maxX > minX && maxY > minY ? { x: minX, y: minY, w: maxX - minX, h: maxY - minY } : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -559,18 +634,11 @@ export async function computeVisibleContentBounds(
       }
 
       if (source) {
-        // Convert source pixel bounds to node-local space
-        const img = getImageFill(shapeNode)?.image;
-        if (img) {
-          const fillScale = img.scale ?? 1;
-          local = {
-            x: img.x + source.minX * fillScale,
-            y: img.y + source.minY * fillScale,
-            w: (source.maxX - source.minX) * fillScale,
-            h: (source.maxY - source.minY) * fillScale,
-          };
-          method = 'raster-alpha';
-        }
+        // Convert source pixel bounds through the renderer's canonical image
+        // placement. This keeps trim aligned with rotated/cropped/flipped
+        // images instead of treating the fill as an untransformed rectangle.
+        local = sourceAlphaBoundsToLocal(doc, shapeNode, source);
+        if (local) method = 'raster-alpha';
       }
     }
   }

@@ -406,6 +406,11 @@ export class ImageCache {
 
   /** Remove an entry from the cache. */
   evict(url: string, variant?: ImageCacheColorVariant): void {
+    // Scene image fills may use asset handles. `load()` resolves those handles
+    // before keying the cache, so eviction must resolve them too; otherwise a
+    // source whose bytes changed behind a stable locator remains stale.
+    const loadableUrl = resolveImageResourceHandle(url);
+    if (loadableUrl !== url) url = loadableUrl;
     const key = cacheKey(url, variant);
     this.pending.delete(key);
     this.loadTokens.delete(key);

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getImageCache, ImageCache, resetImageCache } from './imageCache';
 import { ImageLoadError } from './imageErrors';
+import { registerImageResourceHandle, resetImageResourceRegistry } from './imageResourceRegistry';
 
 class MockImage {
   crossOrigin: string | null = null;
@@ -38,6 +39,7 @@ describe('ImageCache cross-origin loading', () => {
 
   afterEach(() => {
     globalThis.Image = originalImage;
+    resetImageResourceRegistry();
   });
 
   it('requests data: URLs without crossOrigin (always same-origin, no CORS dance needed)', async () => {
@@ -171,6 +173,18 @@ describe('ImageCache memory budget', () => {
     cache.setLoaded('two', image(10, 10));
     cache.clear();
     expect(cache.stats).toMatchObject({ entries: 0, bytes: 0 });
+  });
+
+  it('evicts the resolved source when given an embedded asset handle', () => {
+    const cache = new ImageCache({ maxBytes: 10_000 });
+    const source = 'data:image/png;base64,AAAA';
+    registerImageResourceHandle('asset:photo', source);
+    cache.setLoaded(source, image(10, 10));
+
+    cache.evict('asset:photo');
+
+    expect(cache.has(source)).toBe(false);
+    expect(cache.stats.bytes).toBe(0);
   });
 
   it('notifies subscribers before rejecting an oversized decoded image', () => {
