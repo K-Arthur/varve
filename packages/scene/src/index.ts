@@ -58,6 +58,7 @@ export {
   toggleFacingPages,
 } from './document';
 export * from './documentCodec';
+export * from './editorSceneScope';
 export * from './effectLooks';
 export * from './effectMasks';
 export * from './effectStack';
