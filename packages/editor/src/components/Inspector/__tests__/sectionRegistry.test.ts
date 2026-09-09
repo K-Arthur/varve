@@ -392,6 +392,12 @@ describe('Section availability predicates', () => {
     }
   });
 
+  it('labels the RIFE section as frame interpolation rather than layer blending', () => {
+    expect(getSectionDefinition('blend-images')).toMatchObject({
+      title: 'Frame Interpolation',
+    });
+  });
+
   it('ai-tools-hint is the mirror image of the cluster it points at', () => {
     const def = getSectionDefinition('ai-tools-hint')!;
     expect(

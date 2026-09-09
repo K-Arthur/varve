@@ -5,7 +5,7 @@ import { AdjustmentPanel } from '../../AdjustmentLayer/AdjustmentPanel';
 import { AdjustmentLayerAccessSection } from '../sections/AdjustmentLayerAccessSection';
 import { AIDenoiseSection } from '../sections/AIDenoiseSection';
 import { BackgroundRemovalSection } from '../sections/BackgroundRemovalSection';
-import { BlendImagesSection } from '../sections/BlendImagesSection';
+import { FrameInterpolationSection } from '../sections/BlendImagesSection';
 import { ColorizeSection } from '../sections/ColorizeSection';
 import { ContentAwareFillSection } from '../sections/ContentAwareFillSection';
 import { DetectTextSection } from '../sections/DetectTextSection';
@@ -78,7 +78,7 @@ export function AdjustmentsPanel() {
           <DetectTextSection nodes={nodes} />
           <OcrSection nodes={nodes} />
           <FontDetectSection nodes={nodes} />
-          <BlendImagesSection nodes={nodes} />
+          <FrameInterpolationSection nodes={nodes} />
         </>
       )}
     </>

@@ -1,14 +1,18 @@
 /**
- * BlendImagesSection — "Blend Images": generates a new in-between image
- * from the selected image and a second image you pick, using RIFE frame
- * interpolation.
+ * FrameInterpolationSection — generates a new in-between image from the
+ * selected image and a second image you pick, using RIFE frame interpolation.
  *
- * Scoped as a standalone two-image blend tool rather than a Motion-mode
+ * Scoped as a standalone two-image interpolation tool rather than a Motion-mode
  * "keyframe" feature: Strata's Motion mode keyframes are numeric property
  * tweens (opacity, rotation, position), not raster frames — there is no
  * "sequence of bitmap frames" concept anywhere in the scene model for RIFE
  * to plug into. This is an honest scoping of what RIFE actually does
- * (blend two real bitmaps) rather than a forced Motion-mode tie-in.
+ * (interpolate two real bitmaps) rather than a forced Motion-mode tie-in.
+ *
+ * The filename and stable section id retain their historical names so saved
+ * inspector preferences and integrations continue to resolve. The user-facing
+ * label deliberately does not call this layer compositing: it creates a new
+ * derived raster result and does not blend scene siblings.
  */
 import { decodeRifeOutput, getInferenceWorkerHost, getModelLoader } from '@varve/engine';
 import type { NodeId, SceneNode, ShapeNode } from '@varve/scene';
@@ -49,7 +53,7 @@ function loadImageToImageData(src: string): Promise<ImageData> {
   });
 }
 
-export function BlendImagesSection({ nodes }: { nodes: SceneNode[] }) {
+export function FrameInterpolationSection({ nodes }: { nodes: SceneNode[] }) {
   const { state, updateDoc, announce } = useEditor();
   const node = nodes[0];
   const abortRef = useRef<AbortController | null>(null);
@@ -116,7 +120,7 @@ export function BlendImagesSection({ nodes }: { nodes: SceneNode[] }) {
         controller.signal,
       );
       setBlend((prev) => ({ ...prev, status: 'idle', modelAvailable: true }));
-      announce('Blend Images model downloaded');
+      announce('Frame Interpolation model downloaded');
     } catch (err) {
       if (controller.signal.aborted) {
         setBlend((prev) => ({ ...prev, status: 'idle' }));
@@ -152,7 +156,7 @@ export function BlendImagesSection({ nodes }: { nodes: SceneNode[] }) {
 
       const loader = getModelLoader();
       const modelPath = await loader.getModelPath(MODEL_ID, signal);
-      if (!modelPath) throw new Error('Blend Images model not downloaded');
+      if (!modelPath) throw new Error('Frame Interpolation model not downloaded');
 
       const host = getInferenceWorkerHost();
       const result = await host.infer(
@@ -203,10 +207,10 @@ export function BlendImagesSection({ nodes }: { nodes: SceneNode[] }) {
       ctx.putImageData(imageData, 0, 0);
       const dataUrl = canvas.toDataURL('image/png');
       setBlend((prev) => ({ ...prev, status: 'idle', previewDataUrl: dataUrl }));
-      announce('Blend preview ready');
+      announce('Frame interpolation preview ready');
     } catch (err) {
       if (controller.signal.aborted) return;
-      const message = err instanceof Error ? err.message : 'Blend generation failed';
+      const message = err instanceof Error ? err.message : 'Frame interpolation failed';
       setBlend((prev) => ({ ...prev, status: 'error', errorMessage: message }));
     }
   }, [runBlend, announce]);
@@ -238,14 +242,14 @@ export function BlendImagesSection({ nodes }: { nodes: SceneNode[] }) {
         dataUrl,
         width,
         height,
-        suffix: 'blended',
+        suffix: 'interpolated',
       });
       updateDoc(() => inserted.doc);
-      announce(`Blended image created (${width} x ${height})`);
+      announce(`Interpolated image created (${width} x ${height})`);
       setBlend((prev) => ({ ...prev, status: 'idle', previewDataUrl: null }));
     } catch (err) {
       if (controller.signal.aborted) return;
-      const message = err instanceof Error ? err.message : 'Apply failed';
+      const message = err instanceof Error ? err.message : 'Frame interpolation apply failed';
       setBlend((prev) => ({ ...prev, status: 'error', errorMessage: message }));
     }
   }, [runBlend, state.document, state.selection, updateDoc, announce]);
@@ -267,12 +271,13 @@ export function BlendImagesSection({ nodes }: { nodes: SceneNode[] }) {
   const needsDownload = !blend.modelAvailable && blend.status !== 'downloading';
 
   return (
-    <DisclosureSection title="Blend Images" sectionId="blend-images">
+    <DisclosureSection title="Frame Interpolation" sectionId="blend-images">
       <div className="insp-field-group">
         <p className="insp-hint">
-          Generates a new in-between image from this photo and another image in the document.
-          Channel convention is unverified against a reference runtime — treat results as
-          experimental. Runs locally in a web worker.
+          Generates a new in-between raster image from this photo and another image in the document.
+          This is RIFE frame interpolation, not layer compositing: it creates a new derived image
+          and does not change either source layer. Channel convention is unverified against a
+          reference runtime, so treat results as experimental. Runs locally in a web worker.
         </p>
 
         <div className="insp-field">
@@ -292,7 +297,7 @@ export function BlendImagesSection({ nodes }: { nodes: SceneNode[] }) {
               variant="default"
               size="sm"
               onClick={handleDownload}
-              aria-label="Download Blend Images model (~21.6 MB)"
+              aria-label="Download Frame Interpolation model (~21.6 MB)"
             >
               Download AI Model
             </Button>
@@ -323,15 +328,15 @@ export function BlendImagesSection({ nodes }: { nodes: SceneNode[] }) {
         )}
 
         {showPreview && (
-          <section className="insp-nested-panel" aria-label="Blend preview">
+          <section className="insp-nested-panel" aria-label="Frame interpolation preview">
             <p className="insp-subsection__label">Preview</p>
             <img
               src={blend.previewDataUrl ?? undefined}
-              alt="Blend preview"
+              alt="Frame interpolation preview"
               style={{ display: 'block', width: '100%', maxHeight: 180, objectFit: 'contain' }}
             />
             <p className="insp-hint" role="status">
-              Preview generated. Apply to create a full-resolution blended layer.
+              Preview generated. Apply to create a full-resolution derived image layer.
             </p>
             <div className="insp-actions">
               <Button
@@ -341,7 +346,7 @@ export function BlendImagesSection({ nodes }: { nodes: SceneNode[] }) {
                 onClick={handleApply}
                 disabled={isProcessing}
                 loading={blend.status === 'applying'}
-                aria-label="Apply blend at full resolution"
+                aria-label="Apply frame interpolation at full resolution"
               >
                 Apply
               </Button>
@@ -362,7 +367,7 @@ export function BlendImagesSection({ nodes }: { nodes: SceneNode[] }) {
           {isProcessing ? (
             <>
               <span className="insp-hint" aria-live="polite">
-                {blend.status === 'generating' ? 'Blending…' : 'Applying…'}
+                {blend.status === 'generating' ? 'Interpolating…' : 'Applying…'}
               </span>
               <Button type="button" variant="ghost" size="sm" onClick={handleCancel}>
                 Cancel
@@ -375,9 +380,9 @@ export function BlendImagesSection({ nodes }: { nodes: SceneNode[] }) {
               size="sm"
               disabled={needsDownload || !secondNodeId}
               onClick={handleGenerate}
-              aria-label="Generate blended image preview"
+              aria-label="Generate frame interpolation preview"
             >
-              Blend
+              Interpolate
             </Button>
           )}
         </div>

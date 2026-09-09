@@ -319,7 +319,7 @@ describe('PropertiesPanel section gating for a real single selection', () => {
 
   it('does not mount image-only AI sections for a non-image rect selection', async () => {
     await renderPanelWithSelectedRect();
-    for (const title of ['AI Denoise', 'Lens Blur', 'Line Art', 'Blend Images']) {
+    for (const title of ['AI Denoise', 'Lens Blur', 'Line Art', 'Frame Interpolation']) {
       expect(screen.queryByRole('button', { name: title })).toBeNull();
     }
   });

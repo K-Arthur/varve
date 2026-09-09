@@ -691,7 +691,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   },
   {
     id: 'blend-images',
-    title: 'Blend Images',
+    title: 'Frame Interpolation',
     defaultExpanded: false,
     canHide: true,
     essential: false,

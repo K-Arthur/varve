@@ -405,7 +405,8 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     frequency: 'rare',
     complexity: 'large-editor',
     status: 'incomplete',
-    rationale: 'Multi-image blending is a focused compositing workflow.',
+    rationale:
+      'RIFE frame interpolation creates a derived in-between raster; it is not layer compositing and remains experimental until its model output is reference-validated.',
   },
   palette: {
     surface: 'appearance',

@@ -52,6 +52,17 @@ import { sitePath } from '../../lib/siteUrl';
       </section>
 
       <section class="feature-section">
+        <h2>Experimental frame interpolation</h2>
+        <p>
+          The Photo workspace can optionally run a local RIFE model to generate a derived in-between
+          image from two photographs. This utility is separate from the Motion timeline: it does not
+          create keyframes or a video sequence, and it is not a replacement for layer compositing.
+          Read the <a href={sitePath('/docs/tools/frame-interpolation')}>Frame Interpolation guide</a>
+          for the model, memory, and output limitations.
+        </p>
+      </section>
+
+      <section class="feature-section">
         <h2>Technical Depth</h2>
         <p>
           The motion system is implemented with MotionFacade for playback, TimelinePanel in Shell, and Document.interactions v1.6. The TimelineSampler provides sampling capabilities, and the prototype renderer handles prototype screen views. Smart animate is implemented in packages/editor/src/motion/smartAnimate.ts.

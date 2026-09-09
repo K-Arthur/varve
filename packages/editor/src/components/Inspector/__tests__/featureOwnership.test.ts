@@ -75,6 +75,13 @@ describe('Inspector feature ownership', () => {
     ]);
   });
 
+  it('describes the RIFE tool as experimental derived-image interpolation', () => {
+    expect(FEATURE_OWNERSHIP['blend-images']).toMatchObject({
+      status: 'incomplete',
+      rationale: expect.stringContaining('RIFE frame interpolation'),
+    });
+  });
+
   it('keeps selected-image palette work beside reusable appearance resources', () => {
     expect(getFeaturesForSurface('appearance')).toContain('palette');
   });

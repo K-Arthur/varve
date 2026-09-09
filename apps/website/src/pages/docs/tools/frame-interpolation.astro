@@ -1,0 +1,74 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import StatusPill from '../../../components/StatusPill.astro';
+import { sitePath } from '../../../lib/siteUrl';
+---
+
+<Layout
+  title="Frame Interpolation — Varve Docs"
+  description="Use Varve's experimental local RIFE workflow to generate a derived in-between image from two photographs."
+>
+  <div class="container-custom">
+    <article class="doc-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/docs')}>Docs</a> / Frame Interpolation
+      </nav>
+
+      <StatusPill status="experimental" />
+      <h1>Frame Interpolation</h1>
+      <p class="lead">
+        Generate a new in-between raster image from two selected photographs with the optional local
+        RIFE model. This is an image-generation utility, not a layer-compositing or blend-mode tool.
+      </p>
+
+      <h2>When to use it</h2>
+      <p>
+        Choose Frame Interpolation when two images are consecutive or closely related frames and you
+        need a derived midpoint for a motion study, transition, or retiming experiment. It does not
+        merge the source layers, preserve their separate masks, or add a blend mode between siblings.
+      </p>
+
+      <h2>Workflow</h2>
+      <ol>
+        <li>Select one image-filled shape in the Photo workspace.</li>
+        <li>Open <strong>Adjustments → Frame Interpolation</strong> and choose the second image.</li>
+        <li>Download the optional model when prompted. The model is stored locally on this device.</li>
+        <li>Select <strong>Interpolate</strong> to generate a preview, then choose <strong>Apply</strong> to create a new derived image layer.</li>
+      </ol>
+
+      <h2>Source and result behavior</h2>
+      <p>
+        The two source images remain unchanged and undoable. Applying the operation inserts a new
+        PNG-backed image node; it does not replace either source, attach an Object Filter, or create
+        a timeline keyframe. Canceling a generation leaves the document untouched.
+      </p>
+
+      <h2>Limitations</h2>
+      <p>
+        This workflow is experimental. RIFE output quality depends on the relationship between the
+        two images, and the shipped channel convention has not been validated against a reference
+        runtime. Large images can require substantial memory. Saved documents contain the derived
+        result and do not require the model to display it later, but regenerating the result requires
+        the model and an available local inference provider.
+      </p>
+
+      <p>
+        For photographic corrections use <a href={sitePath('/docs/tools/image-treatments')}>Image Treatments</a>.
+        For actual layer compositing use Object Filters, masks, and Adjustment Layers.
+      </p>
+    </article>
+  </div>
+</Layout>
+
+<style>
+  .doc-page { max-width: 760px; margin: 0 auto; padding: 3rem 0 5rem; }
+  .breadcrumb { font-size: 0.875rem; margin-bottom: 1.5rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  h1 { color: var(--text-primary); font: 700 clamp(2rem, 5vw, 2.75rem)/1.1 var(--font-editorial); margin: 1rem 0; }
+  .lead { color: var(--text-secondary); font-size: 1.2rem; line-height: 1.75; margin-bottom: 2.5rem; }
+  h2 { color: var(--text-primary); margin-top: 2.5rem; }
+  p, li { color: var(--text-secondary); line-height: 1.75; }
+  li + li { margin-top: 0.65rem; }
+  strong { color: var(--text-primary); }
+  a { color: var(--text-link); }
+</style>
