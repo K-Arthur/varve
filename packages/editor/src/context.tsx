@@ -339,7 +339,6 @@ import {
   centerBoundsCameraWithRotation,
   clampCamera,
   clampZoom,
-  computeTidyLayout,
   type DistributeMode,
   fitBoundsCameraWithRotation,
   revealBoundsCameraWithRotation,
@@ -422,6 +421,7 @@ import {
   runKnifeCut,
   runOwnedTransaction,
   shapeForTool,
+  tidySelectionInDocument,
 } from './context/sceneNodeGeometry';
 import type {
   EditorContextValue as CanonicalEditorContextValue,
@@ -5828,54 +5828,7 @@ export function EditorProvider({
       tidySelected: (maxCols) => {
         const sel = state.selection;
         if (sel.length < 2) return;
-        const doc = state.document;
-        const items = getValidItemsWithBounds(sel, doc);
-        if (items.length < 2) return;
-
-        const layout = computeTidyLayout(
-          items.map((i) => i.bounds),
-          maxCols ?? 4,
-        );
-        if (layout.assignments.length === 0) return;
-
-        updateDoc((newDoc) => {
-          const nodes = { ...newDoc.nodes };
-          for (let i = 0; i < items.length; i++) {
-            const { id, node, bounds: b } = items[i]!;
-            if (!nodes[id]) continue;
-            const asgn = layout.assignments[i];
-            if (!asgn) continue;
-            const [row, col] = asgn;
-            const targetWorldX = col * layout.colWidth;
-            const targetWorldY = row * layout.rowHeight;
-            const wm = nodeWorldTransform(doc, id);
-            const bOffX = b.x - wm[4];
-            const bOffY = b.y - wm[5];
-            const nodeOriginWorldX = targetWorldX - bOffX;
-            const nodeOriginWorldY = targetWorldY - bOffY;
-            const parentId = getParentFast(doc, id, parentCacheRef.current);
-            let newLocalX = nodeOriginWorldX;
-            let newLocalY = nodeOriginWorldY;
-            if (parentId) {
-              const pInv = invertAffine(nodeWorldTransform(doc, parentId));
-              const local = applyAffine(pInv, [nodeOriginWorldX, nodeOriginWorldY]);
-              newLocalX = local[0];
-              newLocalY = local[1];
-            }
-            nodes[id] = {
-              ...node,
-              transform: [
-                node.transform[0],
-                node.transform[1],
-                node.transform[2],
-                node.transform[3],
-                newLocalX,
-                newLocalY,
-              ] as Affine,
-            } as SceneNode;
-          }
-          return { ...newDoc, nodes };
-        });
+        updateDoc((doc) => tidySelectionInDocument(doc, sel, maxCols ?? 4));
       },
 
       // F6: batch-set variable binding on all selected nodes
@@ -10529,25 +10482,4 @@ function colorsEqual(a: unknown, b: unknown): boolean {
   if (!Array.isArray(a) || !Array.isArray(b)) return false;
   if (a.length !== b.length) return false;
   return a.every((v, i) => v === (b as number[])[i]);
-}
-
-// ─── Alignment helpers ─────────────────────────────────────────────────────
-
-interface ValidItem {
-  id: NodeId;
-  node: SceneNode;
-  bounds: { x: number; y: number; w: number; h: number };
-}
-
-/** Extract valid items with world bounds from a selection. */
-function getValidItemsWithBounds(sel: NodeId[], doc: Document): ValidItem[] {
-  return sel
-    .map((id) => {
-      const node = doc.nodes[id];
-      if (!node) return null;
-      const bounds = nodeWorldBounds(doc, id);
-      if (!bounds) return null;
-      return { id, node, bounds };
-    })
-    .filter((x): x is ValidItem => x !== null);
 }

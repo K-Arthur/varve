@@ -19,6 +19,7 @@ import {
   computeAlignmentTarget,
   computeDistribution,
   computeDistributionCenters,
+  computeTidyLayout,
   type DistributeAxis,
   type DistributeMode,
   type OBB,
@@ -311,6 +312,43 @@ export function distributeSelectionInDocument(
     return axis === 'horizontal'
       ? { id: item.id, x: targetEdge - item.bounds.x, y: 0 }
       : { id: item.id, x: 0, y: targetEdge - item.bounds.y };
+  });
+  return applyWorldTranslations(doc, items, collected.parentIndex, deltas);
+}
+
+/**
+ * Arrange eligible selection roots into a deterministic grid while preserving
+ * the selection's top-left world anchor. This is a one-time transform: it
+ * never writes layout metadata or changes scene hierarchy.
+ */
+export function tidySelectionInDocument(
+  doc: Document,
+  selection: readonly NodeId[],
+  maxCols = 4,
+): Document {
+  const collected = collectSelection(doc, selection);
+  const { items } = collected;
+  if (items.length < 2) return doc;
+
+  const columns = Number.isFinite(maxCols) ? Math.max(1, Math.floor(maxCols)) : 4;
+
+  const layout = computeTidyLayout(
+    items.map((item) => item.bounds),
+    columns,
+  );
+  if (layout.assignments.length === 0) return doc;
+
+  const originX = Math.min(...items.map((item) => item.bounds.x));
+  const originY = Math.min(...items.map((item) => item.bounds.y));
+  const deltas = items.map((item, index) => {
+    const assignment = layout.assignments[index];
+    if (!assignment) return { id: item.id, x: 0, y: 0 };
+    const [row, col] = assignment;
+    return {
+      id: item.id,
+      x: originX + col * layout.colWidth - item.bounds.x,
+      y: originY + row * layout.rowHeight - item.bounds.y,
+    };
   });
   return applyWorldTranslations(doc, items, collected.parentIndex, deltas);
 }

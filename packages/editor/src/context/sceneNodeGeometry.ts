@@ -21,6 +21,7 @@ export {
   alignSelectionWithObbInDocument,
   commonAlignmentContainerBounds,
   distributeSelectionInDocument,
+  tidySelectionInDocument,
 } from '../scene/selectionArrangement';
 export type { KnifeCutOutcome, KnifeCutState, KnifeSelectionPatch } from './knifeCommand';
 export { runKnifeCut } from './knifeCommand';

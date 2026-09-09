@@ -16,6 +16,7 @@ import {
   distributeSelectionInDocument,
   getAlignmentCapabilities,
   planManualWorldTranslationFromOrigins,
+  tidySelectionInDocument,
 } from './selectionArrangement';
 import { nodeWorldBounds } from './world';
 
@@ -166,6 +167,25 @@ describe('selectionArrangement', () => {
     expect(
       distributeSelectionInDocument(doc, [b.id, a.id], 'horizontal', { mode: 'equalCenter' }),
     ).toBe(doc);
+  });
+
+  it('tidies into a one-time grid anchored at the selection bounds', () => {
+    let doc = createDocument('anchored tidy');
+    const a = rect('a', -80, -30, 20, 10);
+    const b = rect('b', 20, 50, 30, 10);
+    doc = addNode(doc, a);
+    doc = addNode(doc, b);
+
+    const next = tidySelectionInDocument(doc, [b.id, a.id], 2);
+    const nextA = bounds(next, a.id);
+    const nextB = bounds(next, b.id);
+
+    expectClose(nextA.x, -80);
+    expectClose(nextA.y, -30);
+    expectClose(nextB.x, -80);
+    expectClose(nextB.y, -20);
+    expect(next.nodes[a.id]?.layoutStyle).toBeUndefined();
+    expect(next.nodes[b.id]?.layoutStyle).toBeUndefined();
   });
 
   it('does not mutate locked or flow-managed children and exposes that capability state', () => {
