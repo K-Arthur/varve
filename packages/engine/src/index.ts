@@ -489,6 +489,28 @@ export {
   getFontRegistry,
   resetFontRegistry,
 } from './fontRegistry';
+export type {
+  GenerativeEditCapabilities,
+  GenerativeEditErrorCode,
+  GenerativeEditMode,
+  GenerativeEditProgress,
+  GenerativeEditProvider,
+  GenerativeEditProviderKind,
+  GenerativeEditQuality,
+  GenerativeEditRequest,
+  GenerativeEditResult,
+  GenerativeEditRuntime,
+  GenerativeJobState,
+  GenerativeJobStatus,
+  GenerativeJobToken,
+} from './generativeEdit';
+export {
+  createGenerativeJobState,
+  GenerativeEditError,
+  GenerativeJobController,
+  getGenerativeEditCapabilities,
+  runGenerativeEdit,
+} from './generativeEdit';
 export * from './geometry';
 export type {
   GifExportOptions,
