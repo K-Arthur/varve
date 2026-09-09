@@ -589,8 +589,8 @@ const SCENES = [
       await importImage(page, 'earth.jpg');
       await selectImageNode(page);
       await fitContent(page);
-      await page.getByRole('tab', { name: /^Appearance/i }).click();
-      // The Appearance panel re-renders on tab switch; querying the
+      await page.getByRole('tab', { name: /^Design/i }).click();
+      // The Design/Properties surface re-renders on tab switch; querying the
       // disclosure immediately after the click can catch it mid-render.
       await page.waitForTimeout(400);
       const paletteSection = page.locator('.insp-disclosure').filter({ hasText: /^Palette/ });
@@ -750,11 +750,11 @@ const SCENES = [
       // canvas — where a drop shadow is off-screen rather than demonstrated.
       await selectLayer(page, /disc/i);
       await fitContent(page);
-      const appearance = page.getByRole('tab', { name: /^Appearance/i });
-      if (!(await appearance.isVisible({ timeout: 5000 }).catch(() => false))) {
-        throw new Error('Appearance tab unavailable for the selected shape');
+      const design = page.getByRole('tab', { name: /^Design/i });
+      if (!(await design.isVisible({ timeout: 5000 }).catch(() => false))) {
+        throw new Error('Design/Properties tab unavailable for the selected shape');
       }
-      await appearance.click();
+      await design.click();
       await page.waitForTimeout(500);
       const effects = page.locator('.insp-disclosure').filter({ hasText: /^Effects/ });
       if (!(await effects.isVisible({ timeout: 8000 }).catch(() => false))) {

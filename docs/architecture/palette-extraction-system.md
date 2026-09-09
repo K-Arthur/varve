@@ -83,7 +83,7 @@ AA, 4.5:1 body-text AA, and the corresponding AAA thresholds.
 
 ## Inspector workflow
 
-For one selected image, the Appearance tab shows Palette beside Paint Library. The user can:
+For one selected image, the Design/Properties surface shows Palette beside Paint Library. The user can:
 
 - choose between three and twelve requested colours and re-run analysis;
 - copy an extracted or harmony colour as HEX;

@@ -62,7 +62,7 @@ not treated as proof merely because the browser completed the capture.
 | UI-02 | Home active navigation, `packages/home/src/home.css` | Active Recent row carries a high-saturation filled treatment that competes with the primary empty-state action | P2 | Selection treatment was inherited from an accent-filled navigation pattern | Fixed in this pass with a quieter wash plus a persistent accent rail |
 | UI-03 | Home file thumbnail controls, `packages/home/src/home.css` | Drag handle and type badge use translucency/blur while the adopted application surface model is opaque | P2 | Legacy “glass” treatment survived the opaque-surface migration | Fixed in this pass with opaque token-backed surfaces |
 | UI-04 | Marketing product screenshot frame, `apps/website/src/components/ProductShowcase.astro` | Generic desktop-window dots make the real application capture feel like a mockup | P2 | Showcase wrapper predates the current product-chrome direction | Fixed in this pass with a Varve workspace frame and status treatment |
-| UI-05 | Editor domain controls, `packages/editor/src/components/Inspector/` and Layers | Inline/domain controls remain a known migration area even though the visual language is mostly coherent | P2 | Specialized editor widgets predate some shared primitives | Deferred; requires Tree/Combobox ownership decisions, not safe to flatten in this pass |
+| UI-05 | Editor domain controls, `packages/editor/src/components/Inspector/` and Layers | Inline/domain controls remain a known migration area even though the visual language is mostly coherent | P2 | Specialized editor widgets predate some shared primitives | Partially addressed: the high-frequency single-selection path now has a polished Quick properties surface; Tree/Combobox ownership work remains deferred |
 | UI-06 | Website feature page composition | Feature pages are visually consistent but have no shared product-frame primitive for domain screenshots | P3 | Each page owns its screenshot framing locally | Deferred; candidate for a later Astro component extraction |
 
 ## D. Design direction adopted
@@ -97,6 +97,26 @@ framework or visual skin.
 | Panel/layout surfaces | `@varve/ui` `Panel` plus editor panel CSS | Layers/Inspector need domain-specific tree/forms | Keep domain composition; use shared tokens for chrome |
 | Home file cards | `@varve/home` file card recipe + `.bento-cell` | No new card variant introduced | Keep card visual hierarchy, remove translucent legacy surface treatment |
 | Marketing product screenshots | `ProductShowcase.astro` | Feature-page screenshot blocks are separate and intentionally deferred | Improve the homepage frame now; extract later when requirements converge |
+
+## Inspector follow-up — 2026-09-09
+
+The deferred inspector slice now has a bounded implementation. A single selected
+node exposes X, Y, W, H, Opacity, and Fill at the top of the Design/Properties
+surface. The strip reuses the canonical setters and binding presentation, keeps
+image dimensions proportional like the full Layout section, and disappears for
+empty or mixed selections. Its controls use the existing token and input-field
+grammar: explicit borders, restrained sunken grouping, keyboard focus rings,
+and a wider Fill control for the color-popover affordance.
+
+The implementation deliberately leaves the full Layout and Appearance sections
+in place as the authoritative editing surfaces. This avoids introducing a
+second state model while reducing repeated navigation for the six most common
+single-selection edits.
+
+Evidence: `tests/e2e/inspector/quick-properties.spec.ts` verifies the real
+browser flow, canonical X synchronization, empty/mixed-selection behavior, and
+the focused visual snapshot. The focused run used Chromium at the standard
+inspector width; the repository-wide visual gate remains an integration check.
 
 Important existing commands retain their current access paths:
 

@@ -1,11 +1,18 @@
 # Inspector feature ownership
 
-The Properties panel is a contextual inspector, not a default container for
-new editor features. Every section registered in
+The Design tab is the contextual Properties surface; it is not a default
+container for new editor features. Every section registered in
 `components/Inspector/sectionRegistry.ts` must also have an exhaustive entry in
 `components/Inspector/featureOwnership.ts`. The ownership contract is checked
 by `featureOwnership.test.ts`; adding a section without classifying it fails the
 test suite.
+
+The single-selection surface also includes a Quick properties access strip for
+X, Y, W, H, Opacity, and Fill. It is a presentation layer over the existing
+editor setters, bindings, transactions, and canonical sections—not a second
+property model. It is intentionally absent for empty and multi-selection
+contexts, where mixed-value semantics and batch editing remain in the full
+sections.
 
 ## Placement decision
 
@@ -77,4 +84,3 @@ A new Properties entry should be rejected when any of these are true:
 - it needs nested disclosures to fit;
 - it starts model, network, analysis, or long-running processing work;
 - it cannot support undo, focus restoration, or current-selection changes safely.
-

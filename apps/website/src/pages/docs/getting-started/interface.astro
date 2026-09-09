@@ -145,16 +145,22 @@ import { sitePath } from '../../../lib/siteUrl';
       <section class="docs-section">
         <h2>Inspector Panel</h2>
         <p>
-          The inspector panel (right sidebar, bottom) shows detailed properties for the selected node. It is organized into tabs:
+          The inspector panel (right sidebar, bottom) is a contextual workspace for the current
+          selection. The Design tab is the everyday Properties surface, with a Quick properties
+          strip for the values edited most often on a single selected node.
         </p>
         <ul>
-          <li><strong>Properties</strong> — Position, size, rotation, corner radius, flip. Adapts to the selected node type</li>
-          <li><strong>Export</strong> — Per-node export presets and options</li>
-          <li><strong>Spec</strong> — Measurement and specification readouts for developer handoff</li>
-          <li><strong>Intelligence</strong> — Design audit, spacing harmonization, and auto-naming tools</li>
+          <li><strong>Quick properties</strong> — X, Y, W, H, Opacity, and Fill without opening a disclosure; image dimensions preserve their aspect ratio</li>
+          <li><strong>Design</strong> — Position, size, rotation, corner radius, layout, fills, stroke, effects, and selection-aware content controls</li>
+          <li><strong>Adjustments</strong> — Image and object treatment workflows when the selection supports them</li>
+          <li><strong>Prototype</strong> — Interaction authoring for supported design and motion workflows</li>
+          <li><strong>Export</strong> — Per-node export presets, format options, and code output</li>
         </ul>
         <p>
-          The inspector includes specialized sections that appear based on selection context: fill editor, stroke settings, effects (shadows, blurs, glows), typography controls, frame presets, and more.
+          Tabs and sections are contextual. The Quick properties strip is shown for a single
+          selection and stays out of empty or mixed-selection states, where the full sections
+          communicate mixed values and batch-edit behavior explicitly. Specialized sections appear
+          only when their owning node or workflow supports them.
         </p>
       </section>
 
