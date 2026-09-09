@@ -22,6 +22,34 @@ The default for new or unset settings is **Select only**. The existing
 it controls whether a canvas-originated selection expands and scrolls the
 Layers tree. Changing either preference does not move the current camera.
 
+## Layers panel visual anatomy
+
+The Layers section is a child of the left editor rail, below the minimap and
+surface-navigation owners. It must participate in that rail's flex layout as
+the remaining space; it must not claim the rail's full height. The visual order
+inside the section is stable:
+
+```text
+Layers + document count + panel actions
+filter / advanced filter
+hierarchy tree
+contextual bulk actions (when two or more rows are selected)
+selection sets (when present)
+```
+
+The hierarchy tree owns the flexible middle region. It may scroll or yield
+height to the contextual bulk actions, but those actions must remain inside
+the owning Layers rail. Narrow rails wrap the bulk count above its action row
+and give the actions their own horizontal scroll lane. This is a layout
+contract, not a second selection or command model.
+
+The header count is a compact summary of the active surface's layer count. The
+filter bar reports a live `n of m` result only while a filter is active; the
+semantic `searchbox`, tree projection, and existing ARIA state remain
+authoritative. Selection, type, color, mask, effects, motion, lock, and
+visibility cues continue to use the row presentation contract documented in
+`docs/audits/layers-panel-organization-audit-2026-08-31.md`.
+
 ## Activation and focus contract
 
 Automatic camera movement is attached to deliberate, unmodified row
