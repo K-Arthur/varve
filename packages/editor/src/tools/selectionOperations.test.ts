@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   applyNodeSelectionOperation,
+  commitNodeSelectionOperation,
   marqueeUsesContainment,
   selectionOperationFromModifiers,
 } from './selectionOperations';
@@ -40,5 +41,31 @@ describe('selection operation algebra', () => {
     expect(applyNodeSelectionOperation(['a'], ['a'], 'subtract')).toEqual([]);
     expect(applyNodeSelectionOperation(['a'], ['a'], 'intersect')).toEqual(['a']);
     expect(applyNodeSelectionOperation(['a'], ['b'], 'intersect')).toEqual([]);
+  });
+
+  it('commits a marquee result through one bulk selection call', () => {
+    const setSelectionRefs = vi.fn();
+    const setSelection = vi.fn();
+    const toggleSelection = vi.fn();
+    const next = commitNodeSelectionOperation(
+      {
+        selection: ['a'],
+        setSelection,
+        toggleSelection,
+        isSelected: (id) => id === 'a',
+        setSelectionRefs,
+      },
+      ['b', 'c'],
+      'replace',
+    );
+
+    expect(next).toEqual(['b', 'c']);
+    expect(setSelectionRefs).toHaveBeenCalledOnce();
+    expect(setSelectionRefs).toHaveBeenCalledWith(['b', 'c'], {
+      primary: 'c',
+      origin: 'canvas',
+    });
+    expect(setSelection).not.toHaveBeenCalled();
+    expect(toggleSelection).not.toHaveBeenCalled();
   });
 });

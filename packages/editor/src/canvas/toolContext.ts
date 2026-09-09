@@ -1,14 +1,15 @@
 import type { Engine } from '@varve/engine';
 import {
+  activePageNodes,
   addChild,
   addNode,
   buildParentIndexMap,
   designCanvasContentRoot,
   getGuidesForPage,
   makeRasterLayerNode,
-  multipageRootNodes,
   type NodeId,
   nextNodeId,
+  resolveEditorSceneScope,
   type SceneNode,
   walkNodes,
 } from '@varve/scene';
@@ -104,6 +105,8 @@ export function buildToolContext(
   const s = deps.stateRef.current;
   const e = deps.editorRef.current;
   const eng = deps.engineRef.current;
+  const effectiveDesignCanvasId =
+    s.document.activeDesignCanvasId ?? s.document.designCanvases?.[0]?.id ?? null;
   return {
     document: s.document,
     selection: s.selection,
@@ -145,8 +148,20 @@ export function buildToolContext(
     snapEnabled: s.snapEnabled,
     snapGrid: s.snapGrid,
     isolatedNodeId: s.isolatedNodeId,
+    selectionSurfaceKey: [
+      s.masterEditId ? `master:${s.masterEditId}` : null,
+      !s.masterEditId && s.workspaceMode !== 'print' && effectiveDesignCanvasId
+        ? `designCanvas:${effectiveDesignCanvasId}`
+        : null,
+      !s.masterEditId && (s.workspaceMode === 'print' || !s.document.designCanvases?.length)
+        ? `page:${s.document.activePageId ?? ''}`
+        : null,
+      `isolation:${s.isolatedNodeId ?? ''}`,
+    ]
+      .filter((part): part is string => part !== null)
+      .join('|'),
     masterEditId: s.masterEditId,
-    designCanvasId: s.workspaceMode === 'print' ? null : s.document.activeDesignCanvasId,
+    designCanvasId: s.workspaceMode === 'print' ? null : effectiveDesignCanvasId,
     enterIsolation: (nodeId) => e.enterIsolation(nodeId),
     exitIsolation: () => e.exitIsolation(),
 
@@ -159,6 +174,8 @@ export function buildToolContext(
     },
     setSelection: (id) => e.setSelection(id),
     toggleSelection: (id, additive) => e.toggleSelection(id, additive),
+    setSelectionRefs: (selection, options) => e.setSelectionRefs(selection, options),
+    setSelectionPreview: (preview) => e.setSelectionPreview(preview),
     isSelected: (id) => e.isSelected(id),
     setNodePosition: (id, x, y) => e.setNodePosition(id, x, y),
     setNodePositions: (positions) => e.setNodePositions(positions),
@@ -191,33 +208,38 @@ export function buildToolContext(
       const rect = deps.canvasRectRef.current;
       return e.canvasToWorld(cx - rect.left, cy - rect.top);
     },
+    pointerToCanvas: (clientX, clientY) => {
+      const rect = deps.canvasRectRef.current;
+      return { x: clientX - rect.left, y: clientY - rect.top };
+    },
     worldToCanvas: (wx, wy) => e.worldToCanvas(wx, wy),
     canvasDeltaToWorld: (dx, dy) => e.canvasDeltaToWorld(dx, dy),
     getWorldTransform: (id) => e.getWorldTransform(id),
     queryMarqueeCandidates: (rect) => {
-      if (s.masterEditId) {
-        return new Set(
-          walkNodes(
-            s.document,
-            multipageRootNodes(s.document, { masterEditId: s.masterEditId }),
-          ).keys(),
-        );
-      }
-      if (s.workspaceMode !== 'print' && s.document.activeDesignCanvasId) {
-        return new Set(
-          walkNodes(
-            s.document,
-            multipageRootNodes(s.document, {
-              designCanvasId: s.document.activeDesignCanvasId,
-            }),
-          ).keys(),
-        );
+      const sceneScope = resolveEditorSceneScope(s.document, {
+        workspaceMode: s.workspaceMode,
+        activePageId: s.document.activePageId ?? null,
+        activeDesignCanvasId: s.document.activeDesignCanvasId ?? null,
+        masterEditId: s.masterEditId,
+        isolatedNodeId: s.isolatedNodeId,
+      });
+      const activeIds =
+        sceneScope.context.base.kind === 'designCanvas' ||
+        sceneScope.context.base.kind === 'masterSource'
+          ? sceneScope.authoredNodeIds
+          : new Set(walkNodes(s.document, activePageNodes(s.document)).keys());
+
+      if (
+        sceneScope.context.base.kind === 'designCanvas' ||
+        sceneScope.context.base.kind === 'masterSource'
+      ) {
+        return new Set(activeIds);
       }
       const cached = deps.marqueeIndexRef.current;
       const index =
         cached && cached.docRef === s.document ? cached : getOrCreateSpatialIndex(s.document, null);
       deps.marqueeIndexRef.current = index;
-      return queryRect(index, rect);
+      return new Set([...queryRect(index, rect)].filter((id) => activeIds.has(id)));
     },
 
     setPointerCapture: (pointerId) => {

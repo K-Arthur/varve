@@ -345,6 +345,11 @@ export type TextCreationSettings = {
   textOrientation: TextOrientation;
 };
 
+export type SelectionPreview = {
+  source: 'canvas-object-marquee';
+  ids: readonly NodeId[];
+} | null;
+
 export interface EditorState {
   tool: ToolId;
   /** Defaults used when the Text tool creates its next node. */
@@ -375,6 +380,8 @@ export interface EditorState {
   /** Monotonic revision that increments on every selection change, enabling
    *  cheap change detection without deep-equal on the full selection array. */
   selectionRevision: number;
+  /** Ephemeral candidate highlight for an in-progress canvas object marquee. */
+  selectionPreview?: SelectionPreview;
   /** Ephemeral document-space pixel selection; never serialized into artwork. */
   areaSelection?: AreaSelection | null;
   /** Ephemeral controls shared by the rectangular and elliptical marquee tools. */
@@ -735,6 +742,12 @@ export interface EditorContextValue {
   resetSectionOrder: () => void;
   // Selection
   setSelection: (id: NodeId | null, origin?: SelectionOrigin) => void;
+  /** Replace a complete selection in one state/history/announcement update. */
+  setSelectionRefs: (
+    selection: readonly NodeId[],
+    options?: { primary?: NodeId | null; origin?: SelectionOrigin },
+  ) => void;
+  setSelectionPreview: (preview: SelectionPreview) => void;
   /** ADR-0016: enter/exit table edit mode (cell selection + navigation). */
   setTableEdit: (state: TableEditState | null) => void;
   /** ADR-0016: commit cell text through the normal undoable doc path. */

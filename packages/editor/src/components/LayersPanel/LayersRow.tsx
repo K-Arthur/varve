@@ -45,6 +45,7 @@ export interface LayersRowProps {
   node: SceneNode;
   depth: number;
   selected: boolean;
+  selectionPreview?: boolean;
   focused: boolean;
   expanded: boolean;
   editing: boolean;
@@ -75,8 +76,11 @@ export interface LayersRowProps {
   /** Number of logical siblings represented by the current filter/tree view. */
   siblingCount?: number;
   style?: React.CSSProperties;
-  dragListeners?: DraggableSyntheticListeners;
-  dragAttributes?: DraggableAttributes;
+  dragHandleRef?: (element: HTMLElement | null) => void;
+  dragHandleListeners?: DraggableSyntheticListeners;
+  dragHandleAttributes?: DraggableAttributes;
+  onSelectionPointerDown?: (event: React.PointerEvent<HTMLDivElement>) => void;
+  onSelectionClick?: () => boolean;
   /** Optional resolved variant name for component instances. */
   variantName?: string;
   /** Whether this node has animation keyframes in any timeline. */
@@ -121,6 +125,7 @@ export const LayersRow = memo(function LayersRow({
   node,
   depth,
   selected,
+  selectionPreview = false,
   focused,
   expanded,
   editing,
@@ -145,8 +150,11 @@ export const LayersRow = memo(function LayersRow({
   siblingIndex,
   siblingCount,
   style,
-  dragListeners,
-  dragAttributes,
+  dragHandleRef,
+  dragHandleListeners,
+  dragHandleAttributes,
+  onSelectionPointerDown,
+  onSelectionClick,
   variantName,
   hasMotion,
   keyframeCount,
@@ -251,10 +259,11 @@ export const LayersRow = memo(function LayersRow({
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
+      if (onSelectionClick?.()) return;
       onSelect(node.id, e.shiftKey, e.ctrlKey || e.metaKey);
       onFocus(idx);
     },
-    [node.id, idx, onSelect, onFocus],
+    [node.id, idx, onSelect, onFocus, onSelectionClick],
   );
 
   const handleDoubleClick = useCallback(() => {
@@ -322,6 +331,7 @@ export const LayersRow = memo(function LayersRow({
   const rowClass = [
     'layers-row',
     selected ? 'layers-row--selected' : '',
+    selectionPreview ? 'layers-row--selection-preview' : '',
     focused ? 'layers-row--focused' : '',
     !node.visible ? 'layers-row--hidden' : '',
     isEffectivelyLocked ? 'layers-row--locked' : '',
@@ -340,7 +350,6 @@ export const LayersRow = memo(function LayersRow({
     <>
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: keyboard at tree level per APG tree view */}
       <div
-        {...dragAttributes}
         role="treeitem"
         data-node-id={node.id}
         data-layer-type={layerPresentation.dataType}
@@ -348,6 +357,7 @@ export const LayersRow = memo(function LayersRow({
         data-layer-subtype={layerPresentation.subtype}
         data-layer-color={node.layerColor ?? undefined}
         data-search-match={searchMatch || undefined}
+        data-selection-preview={selectionPreview || undefined}
         aria-selected={selected}
         aria-expanded={container ? expanded : undefined}
         aria-level={depth + 1}
@@ -357,8 +367,8 @@ export const LayersRow = memo(function LayersRow({
         className={rowClass}
         tabIndex={focused ? 0 : -1}
         onClick={handleClick}
+        onPointerDown={onSelectionPointerDown}
         onDoubleClick={handleDoubleClick}
-        {...dragListeners}
         style={
           {
             paddingLeft: `calc(var(--space-2) + ${depth} * var(--space-3))`,
@@ -371,11 +381,15 @@ export const LayersRow = memo(function LayersRow({
       >
         {/* Drag handle */}
         <button
+          {...dragHandleAttributes}
+          ref={dragHandleRef}
+          {...dragHandleListeners}
           type="button"
           className="layers-row__drag-handle"
           aria-label="Drag to reorder"
           aria-hidden="true"
           tabIndex={-1}
+          onClick={(event) => event.stopPropagation()}
         >
           <SolidIcon name={SOLID_CHROME_ICONS.gripVertical} size="0.75em" />
         </button>
