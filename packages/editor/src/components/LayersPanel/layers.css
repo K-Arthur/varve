@@ -736,6 +736,21 @@
   color: var(--color-text-on-accent);
 }
 
+/* ─── Secondary badge cluster ─────────────────────────────────
+ * Every type/state badge between the name and the toggles lives here. Name
+ * keeps default shrink priority (flex: 1 1 auto) so it stays readable; this
+ * cluster's very high shrink factor makes it give up its own width first and
+ * clip internally (overflow: hidden) once space runs out, instead of pushing
+ * the always-needed visibility/lock/solo toggles past the row's right edge. */
+.layers-row__badges {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--density-rows-gap, var(--space-1));
+  overflow: hidden;
+  flex: 0 9999 auto;
+  min-width: 0;
+}
+
 /* ─── Instance badge ────────────────────────────────────────── */
 .layers-row__instance-badge {
   font-size: var(--font-size-xs);

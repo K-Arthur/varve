@@ -121,6 +121,10 @@ export interface LayersRowProps {
   searchMatch?: boolean;
 }
 
+/** Deeper rows keep their real ARIA depth but stop indenting further, so the
+ * row's content stays reachable at the panel's minimum width. */
+const MAX_VISUAL_INDENT_DEPTH = 8;
+
 export const LayersRow = memo(function LayersRow({
   node,
   depth,
@@ -317,6 +321,15 @@ export const LayersRow = memo(function LayersRow({
 
   const container = isFrame || isGroup;
 
+  // Indentation grows with real hierarchy depth, which is unbounded — an
+  // imported file or a deeply nested auto-layout stack can easily reach 15+
+  // levels. Left unclamped, indentation alone can consume the entire row at
+  // the panel's minimum width (180px), pushing the icon, name, and toggles
+  // off-screen before any of them render. The tree's real depth is preserved
+  // for ARIA (`aria-level`) and drag/reparent logic; only the visual indent
+  // flattens past this depth so the row stays usable.
+  const visualDepth = Math.min(depth, MAX_VISUAL_INDENT_DEPTH);
+
   // Sync edit value when editing state changes
   useEffect(() => {
     if (editing) {
@@ -371,7 +384,7 @@ export const LayersRow = memo(function LayersRow({
         onDoubleClick={handleDoubleClick}
         style={
           {
-            paddingLeft: `calc(var(--space-2) + ${depth} * var(--space-3))`,
+            paddingLeft: `calc(var(--space-2) + ${visualDepth} * var(--space-3))`,
             '--layers-row-color': node.layerColor
               ? `var(--color-layer-tag-${node.layerColor})`
               : undefined,
@@ -523,181 +536,187 @@ export const LayersRow = memo(function LayersRow({
           )}
         </span>
 
-        {/* Animated-media badge (subtle, rows without animation unchanged) */}
-        {!editing && doc && isAnimatedMediaNode(node, doc) && (
-          <Tooltip label={`Animated media: ${animatedFrameCount(doc, node)} frames`}>
-            <span
-              className="layers-row__media-badge"
-              role="status"
-              aria-label={`Animated: ${animatedFrameCount(doc, node)} frames`}
-            >
-              Animated · {animatedFrameCount(doc, node)}
-            </span>
-          </Tooltip>
-        )}
-
-        {/* Grid layout indicator */}
-        {node.kind === 'frame' &&
-          (node as { layoutStyle?: { mode?: string } }).layoutStyle?.mode === 'grid' &&
-          !editing && (
-            <Tooltip label="Grid layout">
-              <span className="layers-row__grid-indicator" role="img" aria-label="Grid layout">
-                <SolidIcon name={SOLID_CHROME_ICONS.layoutGrid} size="0.75em" />
+        {/* Secondary badge cluster — type/state metadata that is useful but
+            not essential to operating the row. Wrapped so it absorbs and
+            clips overflow at narrow panel widths instead of pushing the
+            always-needed visibility/lock/solo toggles off-screen. */}
+        <span className="layers-row__badges">
+          {/* Animated-media badge (subtle, rows without animation unchanged) */}
+          {!editing && doc && isAnimatedMediaNode(node, doc) && (
+            <Tooltip label={`Animated media: ${animatedFrameCount(doc, node)} frames`}>
+              <span
+                className="layers-row__media-badge"
+                role="status"
+                aria-label={`Animated: ${animatedFrameCount(doc, node)} frames`}
+              >
+                Animated · {animatedFrameCount(doc, node)}
               </span>
             </Tooltip>
           )}
 
-        {/* Style indicator */}
-        {nodeHasStyle(node) && !editing && (
-          <Tooltip label="Linked to style">
-            <span className="layers-row__style-indicator" role="img" aria-label="Linked to style">
-              <SolidIcon name={SOLID_CHROME_ICONS.palette} size="0.75em" />
-            </span>
-          </Tooltip>
-        )}
+          {/* Grid layout indicator */}
+          {node.kind === 'frame' &&
+            (node as { layoutStyle?: { mode?: string } }).layoutStyle?.mode === 'grid' &&
+            !editing && (
+              <Tooltip label="Grid layout">
+                <span className="layers-row__grid-indicator" role="img" aria-label="Grid layout">
+                  <SolidIcon name={SOLID_CHROME_ICONS.layoutGrid} size="0.75em" />
+                </span>
+              </Tooltip>
+            )}
 
-        {/* Instance badge */}
-        {isInstance && !editing && <span className="layers-row__instance-badge">instance</span>}
-        {/* Sync status indicator for component instances */}
-        {isInstance && !editing && syncStatus && syncStatus !== 'synced' && (
-          <Tooltip
-            label={
-              syncStatus === 'overridden'
-                ? 'Has local overrides'
-                : 'Broken — master component not found'
-            }
-          >
-            <span className={`layers-row__sync-badge layers-row__sync-badge--${syncStatus}`}>
-              {syncStatus === 'overridden' ? 'modified' : 'broken'}
-            </span>
-          </Tooltip>
-        )}
-        {/* Variant badge */}
-        {isInstance && !editing && variantName && (
-          <span className="layers-row__variant-badge">{variantName}</span>
-        )}
-
-        {/* Adjustment type badge */}
-        {node.kind === 'adjustment' && !editing && (
-          <span
-            className="layers-row__adjustment-badge"
-            role="img"
-            aria-label={
-              adjustmentSummary && adjustmentSummary.totalCount > 0
-                ? `${adjustmentSummary.activeCount} of ${adjustmentSummary.totalCount} adjustments active`
-                : `Legacy adjustment type: ${(node as AdjustmentNode).adjustmentType}`
-            }
-          >
-            {adjustmentBadgeText}
-          </span>
-        )}
-        {/* Adjustment scope badge */}
-        {node.kind === 'adjustment' &&
-          !editing &&
-          (() => {
-            const adjNode = node as AdjustmentNode;
-            const s = adjNode.scope;
-            if (!s) return null;
-            const label =
-              s.mode === 'image-local'
-                ? 'I'
-                : s.mode === 'explicit-targets'
-                  ? `T${s.targetNodeIds.length}`
-                  : s.mode === 'container-descendant'
-                    ? 'C'
-                    : 'G';
-            const title =
-              s.mode === 'image-local'
-                ? 'Targets one image'
-                : s.mode === 'explicit-targets'
-                  ? `Targets ${s.targetNodeIds.length} nodes`
-                  : s.mode === 'container-descendant'
-                    ? 'Container descendants'
-                    : 'Document-wide';
-            return (
-              <span className="layers-row__scope-badge" role="img" aria-label={title}>
-                {label}
+          {/* Style indicator */}
+          {nodeHasStyle(node) && !editing && (
+            <Tooltip label="Linked to style">
+              <span className="layers-row__style-indicator" role="img" aria-label="Linked to style">
+                <SolidIcon name={SOLID_CHROME_ICONS.palette} size="0.75em" />
               </span>
-            );
-          })()}
+            </Tooltip>
+          )}
 
-        {/* Motion indicator dot */}
-        {hasMotion && !editing && (
-          <span className="layers-row__motion-dot" role="img" aria-label="Has animation" />
-        )}
+          {/* Instance badge */}
+          {isInstance && !editing && <span className="layers-row__instance-badge">instance</span>}
+          {/* Sync status indicator for component instances */}
+          {isInstance && !editing && syncStatus && syncStatus !== 'synced' && (
+            <Tooltip
+              label={
+                syncStatus === 'overridden'
+                  ? 'Has local overrides'
+                  : 'Broken — master component not found'
+              }
+            >
+              <span className={`layers-row__sync-badge layers-row__sync-badge--${syncStatus}`}>
+                {syncStatus === 'overridden' ? 'modified' : 'broken'}
+              </span>
+            </Tooltip>
+          )}
+          {/* Variant badge */}
+          {isInstance && !editing && variantName && (
+            <span className="layers-row__variant-badge">{variantName}</span>
+          )}
 
-        {/* Keyframe count badge */}
-        {keyframeCount != null && keyframeCount > 0 && !editing && (
-          <span className="layers-row__keyframe-badge">{keyframeCount}</span>
-        )}
+          {/* Adjustment type badge */}
+          {node.kind === 'adjustment' && !editing && (
+            <span
+              className="layers-row__adjustment-badge"
+              role="img"
+              aria-label={
+                adjustmentSummary && adjustmentSummary.totalCount > 0
+                  ? `${adjustmentSummary.activeCount} of ${adjustmentSummary.totalCount} adjustments active`
+                  : `Legacy adjustment type: ${(node as AdjustmentNode).adjustmentType}`
+              }
+            >
+              {adjustmentBadgeText}
+            </span>
+          )}
+          {/* Adjustment scope badge */}
+          {node.kind === 'adjustment' &&
+            !editing &&
+            (() => {
+              const adjNode = node as AdjustmentNode;
+              const s = adjNode.scope;
+              if (!s) return null;
+              const label =
+                s.mode === 'image-local'
+                  ? 'I'
+                  : s.mode === 'explicit-targets'
+                    ? `T${s.targetNodeIds.length}`
+                    : s.mode === 'container-descendant'
+                      ? 'C'
+                      : 'G';
+              const title =
+                s.mode === 'image-local'
+                  ? 'Targets one image'
+                  : s.mode === 'explicit-targets'
+                    ? `Targets ${s.targetNodeIds.length} nodes`
+                    : s.mode === 'container-descendant'
+                      ? 'Container descendants'
+                      : 'Document-wide';
+              return (
+                <span className="layers-row__scope-badge" role="img" aria-label={title}>
+                  {label}
+                </span>
+              );
+            })()}
 
-        {/* Mask indicator badge — inactive masks remain visible so the row
+          {/* Motion indicator dot */}
+          {hasMotion && !editing && (
+            <span className="layers-row__motion-dot" role="img" aria-label="Has animation" />
+          )}
+
+          {/* Keyframe count badge */}
+          {keyframeCount != null && keyframeCount > 0 && !editing && (
+            <span className="layers-row__keyframe-badge">{keyframeCount}</span>
+          )}
+
+          {/* Mask indicator badge — inactive masks remain visible so the row
             explains the document structure instead of disappearing when the
             mask is toggled off. */}
-        {maskLabel && !editing && (
-          <Tooltip label={maskLabel}>
-            <span
-              className={`layers-row__mask-badge layers-row__mask-badge--${node.mask?.type ?? 'clip'}${node.mask?.visible === false ? ' layers-row__mask-badge--disabled' : ''}`}
-              role="img"
-              aria-label={maskLabel}
+          {maskLabel && !editing && (
+            <Tooltip label={maskLabel}>
+              <span
+                className={`layers-row__mask-badge layers-row__mask-badge--${node.mask?.type ?? 'clip'}${node.mask?.visible === false ? ' layers-row__mask-badge--disabled' : ''}`}
+                role="img"
+                aria-label={maskLabel}
+              >
+                {node.mask?.type === 'clip' ? 'clip mask' : `${node.mask?.type} mask`}
+              </span>
+            </Tooltip>
+          )}
+
+          {maskRole && !editing && (
+            <Tooltip label={maskRole === 'source' ? 'Clipping mask source' : 'Clipped content'}>
+              <span
+                className={`layers-row__mask-role layers-row__mask-role--${maskRole}`}
+                role="img"
+                aria-label={maskRole === 'source' ? 'Clipping mask source' : 'Clipped content'}
+                data-mask-role={maskRole}
+              >
+                {maskRole === 'source' ? 'mask' : 'clipped'}
+              </span>
+            </Tooltip>
+          )}
+
+          {/* Blend mode / opacity badge */}
+          {badgeText && !editing && <span className="layers-row__badge">{badgeText}</span>}
+
+          {/* Effects badge — drop shadow, blur, glow, etc. */}
+          {'effects' in node && node.effects && node.effects.length > 0 && !editing && (
+            <EffectStackTransferBadge
+              sourceId={node.id}
+              sourceName={node.name}
+              kind="layer-effects"
+              count={node.effects.length}
+              onCopyToSelected={() => onCopyEffectStack?.(node.id, 'layer-effects')}
+              onOpen={
+                onOpenEffectStack ? () => onOpenEffectStack(node.id, 'layer-effects') : undefined
+              }
             >
-              {node.mask?.type === 'clip' ? 'clip mask' : `${node.mask?.type} mask`}
-            </span>
-          </Tooltip>
-        )}
+              {node.effects.length}fx
+            </EffectStackTransferBadge>
+          )}
 
-        {maskRole && !editing && (
-          <Tooltip label={maskRole === 'source' ? 'Clipping mask source' : 'Clipped content'}>
-            <span
-              className={`layers-row__mask-role layers-row__mask-role--${maskRole}`}
-              role="img"
-              aria-label={maskRole === 'source' ? 'Clipping mask source' : 'Clipped content'}
-              data-mask-role={maskRole}
-            >
-              {maskRole === 'source' ? 'mask' : 'clipped'}
-            </span>
-          </Tooltip>
-        )}
-
-        {/* Blend mode / opacity badge */}
-        {badgeText && !editing && <span className="layers-row__badge">{badgeText}</span>}
-
-        {/* Effects badge — drop shadow, blur, glow, etc. */}
-        {'effects' in node && node.effects && node.effects.length > 0 && !editing && (
-          <EffectStackTransferBadge
-            sourceId={node.id}
-            sourceName={node.name}
-            kind="layer-effects"
-            count={node.effects.length}
-            onCopyToSelected={() => onCopyEffectStack?.(node.id, 'layer-effects')}
-            onOpen={
-              onOpenEffectStack ? () => onOpenEffectStack(node.id, 'layer-effects') : undefined
-            }
-          >
-            {node.effects.length}fx
-          </EffectStackTransferBadge>
-        )}
-
-        {/* Object Filter indicator — filters are node-local, so keep their
+          {/* Object Filter indicator — filters are node-local, so keep their
             presence discoverable in the layer tree without pretending they
             are separate scene nodes. */}
-        {objectFilterCount > 0 && !editing && (
-          <EffectStackTransferBadge
-            sourceId={node.id}
-            sourceName={node.name}
-            kind="object-filters"
-            count={objectFilterCount}
-            statusLabel={`${enabledObjectFilterCount} of ${objectFilterCount} Object Filters enabled on ${node.name}: ${objectFilterSummary?.tooltip ?? ''}`}
-            onCopyToSelected={() => onCopyEffectStack?.(node.id, 'object-filters')}
-            onOpen={
-              onOpenEffectStack ? () => onOpenEffectStack(node.id, 'object-filters') : undefined
-            }
-          >
-            {objectFilterSummary?.label}
-            {enabledObjectFilterCount !== objectFilterCount &&
-              ` · ${enabledObjectFilterCount}/${objectFilterCount}`}
-          </EffectStackTransferBadge>
-        )}
+          {objectFilterCount > 0 && !editing && (
+            <EffectStackTransferBadge
+              sourceId={node.id}
+              sourceName={node.name}
+              kind="object-filters"
+              count={objectFilterCount}
+              statusLabel={`${enabledObjectFilterCount} of ${objectFilterCount} Object Filters enabled on ${node.name}: ${objectFilterSummary?.tooltip ?? ''}`}
+              onCopyToSelected={() => onCopyEffectStack?.(node.id, 'object-filters')}
+              onOpen={
+                onOpenEffectStack ? () => onOpenEffectStack(node.id, 'object-filters') : undefined
+              }
+            >
+              {objectFilterSummary?.label}
+              {enabledObjectFilterCount !== objectFilterCount &&
+                ` · ${enabledObjectFilterCount}/${objectFilterCount}`}
+            </EffectStackTransferBadge>
+          )}
+        </span>
 
         {effectStackDrop && !editing && (
           <span className="layers-row__effect-stack-drop-hint" role="status">

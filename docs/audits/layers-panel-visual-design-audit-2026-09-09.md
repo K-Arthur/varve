@@ -98,10 +98,91 @@ The matching marketing-page capture was reviewed at:
 - Rows with many specialist badges can still become information-dense at very
   narrow widths. A future progressive-disclosure pass should preserve all
   current labels while moving lower-frequency detail into a row popover or
-  Inspector deep link.
+  Inspector deep link. **Partially addressed below** — the failure mode where
+  this pushed essential controls off-screen entirely is fixed; the polish
+  question of how the badges themselves look when clipped is still open.
 - The visual evidence is Linux Chromium only. Tauri/WebKitGTK, physical touch
   hardware, and native assistive-technology walkthroughs remain separate
   validation work.
+
+## Follow-up audit — row overflow at extreme density (same day)
+
+A second pass re-audited this same surface specifically to check the two
+caveats above, rather than assume "could become dense" was the full story.
+Both turned out to be reproducible defects, not just theoretical risk:
+
+1. **Visibility/lock/solo toggles were reachable off-screen.** Every badge in
+   a row (`layers-row__badge`, `layers-row__mask-badge`,
+   `EffectStackTransferBadge` for effects/filters, the sync/variant/instance/
+   adjustment/scope badges, the motion dot, the keyframe badge) was
+   `flex-shrink: 0` inside a row that never wraps. A layer that is simply a
+   treated hero image — a color tag, a non-default blend mode with reduced
+   opacity, one Layer Effect, one Object Filter, and a mask — is an ordinary
+   real combination, not a stress test. At the Layers panel's own documented
+   minimum width (180px, `PANEL_LIMITS.layers.min` in
+   `PanelResizeHandle.tsx`), that combination pushed the toggles roughly
+   139px past the panel's right edge, where the tree's `overflow-x: hidden`
+   clipped them entirely — the layer could no longer be hidden, locked, or
+   soloed from the panel at all.
+2. **Indentation was unbounded.** `LayersRow`'s `paddingLeft` grows with raw
+   hierarchy depth with no ceiling. Real files — imported PSD/Figma documents
+   especially — regularly nest 10+ levels deep; at the same 180px minimum
+   width, indentation alone could consume the row before the type icon, name,
+   or toggles ever got space to lay out.
+
+### Fixes
+
+- Every secondary badge is now wrapped in one `.layers-row__badges` flex item
+  with a very high shrink factor (`flex: 0 9999 auto`) and its own
+  `overflow: hidden`. It gives up its own width — clipping its own badges —
+  before the always-needed toggles are displaced. The row name keeps normal
+  shrink priority ahead of it, so the common case (few or no badges) is
+  visually unchanged.
+- Visual indent now caps at 8 levels (`MAX_VISUAL_INDENT_DEPTH` in
+  `LayersRow.tsx`). `aria-level` and every structural/drag/reparent behavior
+  still use the real, uncapped depth — only how far a deep row visually
+  indents changes.
+
+### Verification
+
+`tests/e2e/layers/layers-row-badge-overflow.spec.ts` seeds a rectangle,
+decorates it directly through `EditorContext.updateNode` with a color tag,
+blend mode + reduced opacity, one Layer Effect, one Object Filter, and a
+mask, drives the panel to its minimum width via the resize splitter's `Home`
+key (the APG window-splitter pattern's documented min-jump), and asserts the
+visibility/lock/solo toggles stay inside the panel's own bounding box.
+Confirmed failing pre-fix (toggle right edge at 318.95px against a ~181px
+panel — reverting only these two files reproduces the failure even with the
+rest of the working tree unchanged) and passing post-fix.
+`packages/editor/src/components/LayersPanel/LayersRow.test.tsx` (29 tests),
+the full `LayersPanel` suite (320 tests), and the pre-existing
+`layers-panel-overflow.spec.ts` and `layers-panel-visual.spec.ts` e2e specs
+all still pass unchanged.
+
+### Residual limitation
+
+At the same minimum width with this full badge combination, the row name
+itself still degrades to a single truncated character before badges are the
+limiting factor — the row's fixed-cost chrome (drag handle, selection
+checkbox, disclosure, type icon, three toggles) alone approaches the space
+budget before any name or badge width exists. The existing name tooltip
+(`Tooltip label={node.name} truncationOnly`) still surfaces the full name on
+hover, so the layer stays identifiable, but a further pass that moves some
+of this fixed chrome (e.g. the selection checkbox, which reserves its width
+even while invisible at rest) out of the row's default layout, or moves
+badges into a row popover as this audit's original note above proposed,
+would still improve the worst case. Not attempted here, to keep this fix
+narrowly scoped to restoring control reachability rather than redesigning
+row anatomy.
+
+Two unrelated e2e failures were observed while validating this pass —
+`layer-workflows.spec.ts`'s "narrow panel usability" test (reproduces
+identically with these two files reverted to `HEAD`, so it is caused by
+other in-progress, uncommitted work elsewhere in this shared working tree,
+not by this change) and its "soloing a node dims..." canvas-hash test (fails
+only inside the full sequential suite, passes in isolation — consistent with
+this machine's known contention under concurrent load). Neither was
+introduced by, or fixed by, this pass.
 
 ## Validation record
 
