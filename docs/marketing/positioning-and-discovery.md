@@ -1,7 +1,7 @@
 # Varve positioning and discovery brief
 
 **Status:** Current operating brief
-**Last verified:** 2026-09-02
+**Last verified:** 2026-09-09
 **Owner:** Varve project maintainer
 
 This is the source of truth for public-facing positioning, audience priorities,
@@ -81,7 +81,7 @@ Do not create location pages, competitor doorway pages, or thin keyword pages.
 | Evaluating a beta | Is Varve ready for my workflow? | Varve beta, Varve alternative | `/compare`, `/releases`, `/support/known-issues` | Test with backups |
 
 The primary conversion path is `homepage → product/features → download`. The
-trust path is `homepage → privacy/license/security/release notes`. Documentation
+trust path is `homepage → privacy/license/security/accessibility/release notes`. Documentation
 and feature pages should link into one of those paths rather than ending in an
 orphaned article.
 
@@ -115,7 +115,7 @@ The website implements the following technical contract:
 | Decision | `/compare` | verifiable differences and honest non-fit cases |
 | Transaction | `/download` | published artifacts, requirements, checksums, signing state |
 | Answers | `/support/faq` and `/docs/*` | direct questions, current behavior, limitations |
-| Trust | `/about/privacy`, `/about/license`, `/security`, `/releases` | data, license, disclosure, release provenance |
+| Trust | `/about/privacy`, `/about/license`, `/security`, `/accessibility`, `/releases` | data, license, disclosure, accessibility status/limits, release provenance |
 
 ## Claim register
 
