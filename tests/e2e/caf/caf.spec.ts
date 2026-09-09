@@ -297,6 +297,25 @@ test.describe('Content-Aware Fill dialog', () => {
     await expect(dialog.locator('canvas.caf-dialog__preview-canvas')).toBeVisible();
   });
 
+  test('generative mode surface exposes local capability boundaries', async ({ page }) => {
+    await triggerCafDialog(page, nodeId);
+    const dialog = page.locator('dialog.varve-dialog--caf[open]');
+    await expect(dialog.getByRole('tab')).toHaveCount(4);
+    await expect(dialog.getByRole('tab', { name: 'Remove' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+
+    await dialog.getByRole('tab', { name: 'Fill' }).click();
+    await expect(dialog.locator('#caf-dialog-prompt')).toBeVisible();
+    await expect(dialog.locator('#caf-dialog-provider-note')).toContainText('Local processing');
+
+    await dialog.getByRole('tab', { name: 'Replace' }).click();
+    await expect(dialog.locator('#caf-dialog-prompt')).toBeVisible();
+    await expect(dialog.getByRole('button', { name: /^replace$/i })).toBeDisabled();
+    await expect(dialog).toHaveScreenshot('generative-edit-dialog.png', { animations: 'disabled' });
+  });
+
   test('mask painting canvas is interactive', async ({ page }) => {
     await triggerCafDialog(page, nodeId);
     const generateBtn = page.getByRole('button', { name: /remove && fill/i });
