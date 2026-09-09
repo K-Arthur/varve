@@ -23,6 +23,15 @@ import ClosingCTA from '../components/ClosingCTA.astro';
           <p>Fast, Auto, and High quality subject cutouts that keep the mask local and undoable</p>
         </a>
 
+        <a href={sitePath('/features/generative-editing')} class="feature-card site-card site-card--interactive">
+          <div class="feature-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4z" opacity=".45"/><path d="M7 12h4M9 10v4M15 9v6M13 12h4"/><circle cx="18" cy="7" r="2"/></svg>
+          </div>
+          <StatusPill status="experimental" label="Local preview" class="feature-card-pill" />
+          <h2>Generative Editing</h2>
+          <p>Paint a region to fill or remove it locally, review the result, and accept it as a new editable layer</p>
+        </a>
+
         <a href={sitePath('/features/image-enhancement')} class="feature-card site-card site-card--interactive">
           <div class="feature-icon" aria-hidden="true">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16.5 9 11l3.5 3.5L16 11l4 5.5"/><path d="M5 5h14v14H5z" opacity=".45"/><path d="M8 8h.01"/></svg>

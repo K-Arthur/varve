@@ -1,6 +1,6 @@
 # ADR-0232: Non-destructive generative editing semantics
 
-- **Status:** Accepted boundary; local provider implementation in progress
+- **Status:** Accepted boundary; Fill/Remove local slice implemented
 - Date: 2026-09-09
 - Owners: Varve scene, engine, and editor
 
@@ -8,11 +8,11 @@
 
 Varve already has an editable selection system, source-pixel raster masks,
 content-addressed image assets, local ONNX/native inference, and a small
-Content-Aware Fill workflow. The existing workflow is not yet a general
-generative editor: it paints a modal mask, runs either PatchMatch or LaMa, and
-inserts a flattened sibling image. It does not preserve the edit recipe,
-support variations, distinguish fill/remove/replace/expand, or protect the
-apply step with the normal editor transaction boundary.
+Content-Aware Fill workflow. The generative-editing slice must extend that
+workflow without creating a parallel selection, asset, history, or command
+system. Its first verified provider boundary is still mask-guided Fill/Remove;
+prompt-conditioned Replace and outpainting Expand need different provider
+capabilities.
 
 Generative editing must remain useful offline and must not make a document
 depend on a model, a worker, a temporary object URL, or a provider retaining a
@@ -60,14 +60,25 @@ and bounded; no rectangular selection is stretched to a square. The final
 composite copies source pixels outside the final mask exactly, subject to the
 document's existing 8-bit raster representation.
 
+The user-facing entry points are intentionally unified. Inspector Adjustments,
+Object → Generative Edit…, and the command palette all dispatch the same
+single-image action. The dialog can import the current pixel selection or a
+layer mask, refine a painted/imported mask with expansion and feather controls,
+and tune bounded context padding. Applying a candidate embeds its result and
+mask assets, links the result node to the edit record, selects that node after
+the transaction, and leaves the source layer untouched. Source, placement,
+document-revision, and session checks invalidate candidates before they can
+cross the transaction boundary.
+
 ## Consequences
 
 Positive:
 
 - Fill and Remove can reuse existing local inference and mask infrastructure.
 - Accepted results survive save/reopen, copy/paste, export, and model removal.
-- Prompts and provenance remain inspectable without claiming unsupported model
-  capabilities.
+- Provider provenance remains inspectable without claiming unsupported model
+  capabilities. Prompt text is session-only until a verified provider consumes
+  it, avoiding misleading document history.
 - Replace and Expand have stable document semantics before their providers are
   available.
 - Source edits, transforms, crops, and rotations can be detected as stale

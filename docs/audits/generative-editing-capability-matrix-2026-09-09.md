@@ -2,13 +2,14 @@
 
 ## Evidence-based root-cause report
 
-The repository contains a partial Content-Aware Fill implementation rather
-than a general Generative Fill system. The useful pieces are real and tested:
+At the start of this implementation slice, the repository contained a partial
+Content-Aware Fill implementation rather than a general Generative Fill
+system. The useful pieces were real and tested:
 PatchMatch is deterministic and offline; LaMa has a verified optional model
 path and native desktop adapter; context extraction is bounded; image assets,
 raster masks, history, save/reopen, and export already have canonical owners.
 
-The incomplete behavior comes from four boundaries:
+The initial incomplete behavior came from four boundaries:
 
 1. The modal owns a painted mask and result only in React state. It does not
    derive or persist the user's canonical selection/mask recipe.
@@ -20,23 +21,23 @@ The incomplete behavior comes from four boundaries:
 4. LaMa is image-conditioned, not text-conditioned. Treating its output as
    prompt-driven Replace would be misleading; Expand has no provider at all.
 
-## Capability matrix
+## Current capability matrix
 
 | Capability | Existing implementation | Model/provider | Engine | Frontend | Mask behavior | Undo/redo | Serialization | Offline | Browser | Tauri | Export | Tests | Risk | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Raster selection to mask | Area selection, painted selection, source-pixel mapping | None | `selectionMask`, area-selection algebra | Selection tools and quick mask | 0 preserve / 255 selected | Selection history | Saved selections; derived masks | Yes | Yes | Yes | Existing raster paths | Unit + E2E | Large masks | partial, reusable |
-| Object removal | Painted CAF mask + bounded context | PatchMatch or LaMa | `contentAwareFill` | CAF dialog | User-painted edit region | Apply is currently outside transaction | Output layer only; no recipe | Fast yes; LaMa after download | Worker path | Native LaMa | Ordinary image asset | 31 unit + 13 E2E | Mask fidelity, memory | partial |
-| Generative Fill | Same as removal, no prompt mode | LaMa does not consume prompt | No generative edit record | Labeled Content-Aware Fill | Painted mask only | New layer, history warning | No provenance/session record | Fast yes | Yes | Yes | Yes | Existing CAF tests | Misleading product semantics | disconnected |
-| Generative Replace | No provider | None verified | No | None | — | — | — | — | — | — | — | None | Licensing/model gap | missing |
-| Generative Expand | Crop/bounds and image resize exist independently | None | No outpaint adapter | Crop/resizes only | No exposed-region generation mask | Existing crop history | Crop persisted | Yes | Yes | Yes | Existing export | Crop tests | Spatial semantics | missing |
-| Variations | Single result preview | Provider result only | No variation contract | No gallery | One transient mask | Preview should not write history | Not persisted | N/A | N/A | N/A | N/A | None | Memory/cache | missing |
-| Job orchestration | AbortController per dialog action | Worker/native calls | No shared generative job state | Generating/error only | No stale mask revision | Cancel leaves modal state | No recovery record | Local only | Yes | Yes | N/A | Provider cancellation tests | Stale results | partial |
+| Object removal | Painted, selection, or layer-mask source + bounded context | PatchMatch or LaMa | `GenerativeEdit` job + source-safe composite | Generative Edit dialog, inspector/action/menu/palette | Source-pixel mask; invert, expansion, feather, context | One transaction; accepted layer selected | Result/mask assets + provenance record | Fast yes; LaMa after download | Worker path | Native LaMa | Ordinary image asset | Unit + real-photo E2E | Mask fidelity, memory | implemented locally |
+| Generative Fill | Same mask workflow; prompt visibly marked non-conditioning locally | PatchMatch or LaMa | Mode-aware generative job | Fill/Remove/Replace/Expand tabs with capability gating | Painted, pixel-selection, or layer-mask input | One transaction; source untouched | Edit record links source, mask, variations, result | Fast yes; LaMa after download | Yes | Yes | Yes | Unit + real-photo visual E2E | Semantic quality | implemented locally |
+| Generative Replace | Contract and disabled UI state | No verified prompt provider | Mode is represented; Generate gated | Prompt control plus honest provider note | Shared mask contract ready | No apply until provider capability | Schema supports mode/provenance | No provider | N/A | N/A | N/A | Gating assertions | Licensing/model gap | staged |
+| Generative Expand | Contract and disabled UI state | No verified outpaint provider | Mode is represented; bounds adapter not shipped | Expand tab only | Shared mask contract ready | No apply until provider capability | Schema supports mode/provenance | No provider | N/A | N/A | N/A | Gating assertions | Spatial semantics | staged |
+| Variations | Up to four transient candidates; deterministic seed advances per generation | Current local provider returns one candidate per job | Variation identity and accepted id recorded | Gallery, active candidate, Original/Result review | Same source mask/settings | Preview does not write history; selected candidate applies once | Accepted/all generated candidates embedded on apply | Yes | Yes | Yes | Yes | E2E apply/selection checks | Asset bloat | implemented locally |
+| Job orchestration | Cancellable controller with source/session freshness checks | Worker/native calls | Typed error and capability contract | Generating, progress, cancel, stale/error states | Mask/settings changes invalidate candidate | Cancel/stale leave document unchanged | Accepted result is recoverable data | Local only | Yes | Yes | N/A | Unit + E2E | Stale results | implemented locally |
 | Model lifecycle | Verified manifest + IndexedDB partials | ONNX models | Background-removal model store | Download dialog | N/A | N/A | Model not document data | Explicit download | Yes | Yes | N/A | Manifest/store tests | Quota/large model | complete for existing models |
-| Source preservation | Derived image insertion | N/A | Existing asset dedup | Apply creates sibling | Existing source untouched | Current apply needs transaction repair | Asset survives codec | Yes | Yes | Yes | Existing image export | Image/codec tests | Asset bloat | partial |
+| Source preservation | Derived image insertion | N/A | Existing asset dedup | Apply creates sibling and selects it | Existing source untouched | Apply is one editor transaction | Asset + edit record survive codec | Yes | Yes | Yes | Existing image export | Image/codec + Apply E2E | Asset bloat | implemented locally |
 | Color/alpha | Existing ICC and alpha pipelines | Models are sRGB-like | CAF uses ImageData | No generative-specific status | Alpha convention implicit | N/A | Source metadata persists | Yes | Yes | Yes | Existing export | Color/alpha tests | Halos/profile mismatch | partial |
 | Privacy | Local-first model policy | No remote generative provider | No upload path | AI model download copy | N/A | N/A | No credentials in docs | Yes | Yes | Yes | N/A | Offline/model tests | Future provider consent | complete boundary |
 
-## Baseline evidence
+## Baseline evidence before the implementation slice
 
 - `pnpm verify:plan` — no changed files detected.
 - `pnpm verify:affected` — no changed files detected.
@@ -49,7 +50,26 @@ The incomplete behavior comes from four boundaries:
   passed. The run emitted the existing `updateDoc called outside transaction`
   warning on Apply/Undo flows.
 
-No real model-quality corpus or peak-memory measurement was claimed in this
-baseline: the existing browser path exercises the deterministic Fast provider,
-and no licensed prompt-conditioned Replace/Expand model is installed or
-verified in this environment.
+No real model-quality corpus or peak-memory measurement was claimed in that
+baseline: the existing browser path exercised the deterministic Fast provider,
+and no licensed prompt-conditioned Replace/Expand model was installed or
+verified in that environment.
+
+## Implementation evidence — 2026-09-09
+
+- Three public-domain photographic fixtures are used by the focused browser
+  coverage: landscape, portrait, and still life. Their source URLs, licenses,
+  dimensions, and checksums are recorded in
+  `tests/e2e/fixtures/PROVENANCE.md`.
+- The dialog E2E checks all four modes, mask-source controls, refinement
+  controls, provider honesty, and photographic screenshots.
+- The Apply E2E checks that the accepted generated layer is selected, that the
+  source remains present, and that no outside-transaction history warning is
+  emitted.
+- Unit coverage exercises mask import, resize, dilation, feathering, invert,
+  action registration, and the local engine paths.
+
+Replace and Expand remain intentionally unavailable until the provider and
+quality evidence described by ADR-0232 exist. The UI exposes their contract
+and explains the boundary rather than presenting a non-functional prompt or
+outpainting claim as shipped capability.

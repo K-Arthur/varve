@@ -23,10 +23,41 @@ selection / painted mask
 ```
 
 LaMa is an image-conditioned inpainting model. It does not consume natural
-language, so a prompt is preserved as user metadata but is not presented as
-prompt conditioning. Replace and Expand use the same session and job contract,
-but remain capability-gated until a verified prompt-conditioned/outpainting
-provider exists.
+language, so the shared prompt control is explicitly advisory in the current
+local provider and is not persisted as if it conditioned the result. Replace
+and Expand use the same session and job contract, but remain capability-gated
+until a verified prompt-conditioned/outpainting provider exists.
+
+## Tool surface and synchronization
+
+Generative Edit is available from all of the image-oriented entry points that
+can safely provide one raster source:
+
+- the image inspector's Adjustments section;
+- Object → Generative Edit…;
+- the command palette, under the same action id, with `generative`,
+  `inpainting`, `fill`, `remove object`, and `heal` search terms.
+
+The action requires exactly one image layer. It changes the inspector to
+Adjustments and opens the same dialog, so menu, palette, and inspector entry
+points cannot drift into separate workflows. If the selection is mixed or
+multi-layer, the action announces the requirement and does not open a modal.
+
+The dialog accepts three mask sources: a painted source mask, the current
+document pixel selection, or the selected image's raster layer mask. All three
+are normalized into source-image pixel space before inference. Invert,
+Clear Paint, Show Mask Overlay, brush size, mask expansion, feather, context
+padding, quality/model choice, Fit, 1:1, Original/Result, variation
+selection, cancellation, and Apply are exposed in the same session. Changing
+the source, mask, or generation settings invalidates the preview rather than
+silently applying a candidate made for an earlier state.
+
+On Apply, the source is revalidated, the accepted result and mask assets are
+embedded, and the generated sibling layer plus `Document.generativeEdits`
+record are written in one editor transaction. The new layer is selected after
+the transaction commits, so the Layers panel, inspector, selection state,
+undo/redo, save/reopen, clipboard, and export all see the same accepted
+result. Undo and redo replay document data; they never invoke inference.
 
 ## Document model
 
@@ -36,8 +67,9 @@ provider exists.
 - source revision and placement fingerprint;
 - a source-pixel mask asset and its dimensions;
 - operation (`fill`, `remove`, `replace`, or `expand`);
-- prompt, optional negative prompt, seed, quality, context padding, and mask
-  refinement settings;
+- optional provider-consumed prompt, negative prompt, seed, quality, context
+  padding, and mask refinement settings. The current local provider does not
+  consume prompts, so the editor does not persist prompt text for these runs;
 - provider/model/runtime provenance and creation time;
 - variation records, accepted variation id, and compatibility version.
 
@@ -48,8 +80,8 @@ accepted result.
 
 ## Freshness and history
 
-Every job captures document id, target id, source revision, mask revision, and
-an edit-session id. Applying a result rechecks all keys synchronously before
+Every job captures document id, target id, source revision, a source-placement
+fingerprint, and an edit-session id. Applying a result rechecks all keys synchronously before
 starting the editor transaction. A stale, cancelled, deleted-target, or
 closed-document result is discarded. Previewing or changing the active
 variation is transient. Accepting is one undoable transaction; redo reuses the
