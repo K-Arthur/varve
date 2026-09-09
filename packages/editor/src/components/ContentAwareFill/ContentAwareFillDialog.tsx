@@ -872,7 +872,10 @@ export function ContentAwareFillDialog({
                 id="caf-dialog-prompt"
                 className="caf-dialog__prompt"
                 value={prompt}
-                onChange={(event) => setPrompt(event.target.value)}
+                onChange={(event) => {
+                  setPrompt(event.target.value);
+                  invalidatePreview();
+                }}
                 placeholder="Describe what should appear here"
                 rows={3}
                 aria-describedby="caf-dialog-prompt-note caf-dialog-provider-note"
@@ -947,7 +950,10 @@ export function ContentAwareFillDialog({
                     name="caf-quality"
                     value={q}
                     checked={quality === q}
-                    onChange={() => setQuality(q)}
+                    onChange={() => {
+                      setQuality(q);
+                      invalidatePreview();
+                    }}
                     className="caf-dialog__quality-input"
                   />
                   <span className="caf-dialog__quality-label">{QUALITY_LABELS[q]}</span>
