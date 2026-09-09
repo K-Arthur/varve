@@ -137,6 +137,37 @@ describe('selectionArrangement', () => {
     expect(bBounds.x - (aBounds.x + aBounds.w)).toBeLessThan(0);
   });
 
+  it('sets an explicit gap for two objects without depending on selection order', () => {
+    let doc = createDocument('two item explicit gap');
+    const leading = rect('leading', 100, 0, 20, 10);
+    const trailing = rect('trailing', 10, 40, 40, 10);
+    doc = addNode(doc, leading);
+    doc = addNode(doc, trailing);
+
+    const next = distributeSelectionInDocument(doc, [leading.id, trailing.id], 'horizontal', {
+      gap: 16,
+    });
+    const nextLeading = bounds(next, leading.id);
+    const nextTrailing = bounds(next, trailing.id);
+
+    expectClose(nextTrailing.x, 10);
+    expectClose(nextLeading.x - (nextTrailing.x + nextTrailing.w), 16);
+    expectClose(nextLeading.y, leading.transform[5]);
+    expectClose(nextTrailing.y, trailing.transform[5]);
+  });
+
+  it('keeps two-item center distribution unavailable', () => {
+    let doc = createDocument('two item center distribution');
+    const a = rect('a', 0, 0, 20, 10);
+    const b = rect('b', 100, 0, 20, 10);
+    doc = addNode(doc, a);
+    doc = addNode(doc, b);
+
+    expect(
+      distributeSelectionInDocument(doc, [b.id, a.id], 'horizontal', { mode: 'equalCenter' }),
+    ).toBe(doc);
+  });
+
   it('does not mutate locked or flow-managed children and exposes that capability state', () => {
     let doc = createDocument('manual positioning eligibility');
     const layoutFrame = makeFrameNode('layout', {

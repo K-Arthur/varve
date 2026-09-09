@@ -377,6 +377,34 @@ describe('computeDistribution — negative gap handling', () => {
   });
 });
 
+describe('computeDistribution — explicit two-item gaps', () => {
+  it('keeps the leading edge fixed and places the second item at the requested gap', () => {
+    const result = computeDistribution(
+      'horizontal',
+      [
+        { x: 80, y: 0, w: 30, h: 10 },
+        { x: 0, y: 0, w: 20, h: 10 },
+      ],
+      12,
+    );
+
+    expect(result).toEqual([0, 32]);
+  });
+
+  it('supports a negative two-item gap for intentional overlap', () => {
+    const result = computeDistribution(
+      'vertical',
+      [
+        { x: 0, y: 40, w: 10, h: 30 },
+        { x: 0, y: 0, w: 10, h: 20 },
+      ],
+      -8,
+    );
+
+    expect(result).toEqual([0, 12]);
+  });
+});
+
 // ─── Tidy Up determinism ─────────────────────────────────────────────────
 
 describe('computeTidyLayout — determinism', () => {

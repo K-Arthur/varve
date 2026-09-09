@@ -119,7 +119,8 @@ export function alignBBox(
 }
 
 /**
- * Compute evenly-spaced distribution positions for ≥3 bounding boxes.
+ * Compute evenly-spaced distribution positions for ≥3 bounding boxes, or an
+ * explicit edge-gap placement for ≥2 bounding boxes.
  *
  * If `fixedGap` is provided, items are placed with that exact gap between adjacent edges.
  * A negative `fixedGap` deliberately overlaps adjacent items. This makes the
@@ -131,14 +132,19 @@ export function alignBBox(
  * selection.
  *
  * Returns array of positions (X for horizontal, Y for vertical) in sorted order,
- * or `null` if <3 items.
+ * or `null` when the requested operation has too few items.
  */
 export function computeDistribution(
   axis: DistributeAxis,
   bounds: BBox[],
   fixedGap?: number,
 ): number[] | null {
-  if (bounds.length < 3) return null;
+  // A numeric gap has a deterministic two-item policy: sort spatially, keep
+  // the leading item's edge fixed, and place the trailing item after it. The
+  // caller can therefore offer an explicit gap for two objects without
+  // pretending that center distribution has a meaningful result.
+  if (bounds.length < 2) return null;
+  if (bounds.length === 2 && fixedGap === undefined) return null;
 
   const sorted = [...bounds].sort((a, b) => {
     const posA = axis === 'horizontal' ? a.x : a.y;

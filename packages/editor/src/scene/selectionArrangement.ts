@@ -286,9 +286,10 @@ export function distributeSelectionInDocument(
 ): Document {
   const collected = collectSelection(doc, selection);
   const { items } = collected;
-  if (items.length < 3) return doc;
-
   const mode = options.mode ?? 'equalGap';
+  const hasExplicitGap = options.gap !== undefined;
+  if (items.length < (hasExplicitGap ? 2 : 3)) return doc;
+
   const sorted = [...items].sort((a, b) => compareItems(axis, mode, a, b));
   const bounds = sorted.map((item) => item.bounds);
   const positions =
