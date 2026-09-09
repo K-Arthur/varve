@@ -259,6 +259,46 @@ Not touched: `.variant-box__title` (`VariantBox.tsx`, outside
 candidate for the same fix, but sits in a different component owned by a
 different part of the rail — left for a pass explicitly scoped there.
 
+## Follow-up audit — empty layer names read as "effects blocking the name"
+
+Reported directly against a real, populated document: a layer with several
+Object Filters looked like the badges had overwritten its name — the row
+went straight from its type icon to `1fx` and a filter summary
+(`Highlight Glow + Grain + 1 more`) with no name text before them at all.
+
+Reproduced in isolation: `node.name` was an empty string (a real document
+state — a cleared rename, or certain import paths leave it unset). `.layers-
+row__name` rendered that as literally nothing — an empty, zero-width span —
+so the row was never actually squeezed or overlapping; it simply had no
+name to show, and the badges immediately after it read as having taken the
+name's place. This is independent of the row-overflow fix earlier in this
+document (that fix is about space allocation under pressure; this is about
+a row that had plenty of space and a genuinely empty label).
+
+The rename input already computes a reliable, always-non-empty fallback —
+`autoName(doc, node)` — and uses it as its placeholder while editing. That
+fallback was not used for the row's non-editing display at all. Extended it
+to three places that all describe the same node identity and must not
+diverge on whether a name exists: the visible `layers-row__name` text (now
+styled muted/italic via a new `.layers-row__name--ghost` class so it never
+reads as a real user-given name), the name tooltip, and the row's
+`aria-label` (previously `layerAccessibleDescription` interpolated
+`node.name` directly, so an empty name produced a leading ", " with no
+identifying name for assistive technology either — the same root gap, fixed
+the same way).
+
+`LayersRow.test.tsx` gained a unit test rendering a node with `name: ''` and
+a real `Document` (so `autoName` has something to derive from): asserts the
+rendered name carries `.layers-row__name--ghost` and non-empty text, and
+that the row's `aria-label` does not start with a bare comma. Reproduced the
+original defect directly in the running app first (a text node with
+`name: ''` plus one Layer Effect and three Object Filters renders exactly
+the reported pattern — icon, `1fx`, filter summary, nothing else) and
+confirmed the fix resolves it before writing the regression test. The full
+321-test `LayersPanel` suite and all four layers e2e specs above
+(`layers-panel-visual`, `layers-panel-overflow`, `layers-header-solo-
+overflow`, `layers-row-badge-overflow`) pass unchanged.
+
 ## Validation record
 
 Changed scope: Layers panel CSS/markup, Layers panel unit/E2E coverage, the

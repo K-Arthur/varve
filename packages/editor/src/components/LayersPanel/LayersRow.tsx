@@ -187,6 +187,15 @@ export const LayersRow = memo(function LayersRow({
   // thumbnails read as unexplained coloured squares next to the type icon.
   const showThumbnail = isImageShape(node) && thumbnailDataUrl != null;
   const isInstance = layerPresentation.category === 'instance';
+  // An empty name (a real, if uncommon, document state — e.g. a cleared
+  // rename, or certain import paths) previously rendered as literally
+  // nothing: the row jumped straight from its type icon to badges, which
+  // read as the badges having overwritten the name rather than there never
+  // having been visible text at all. Fall back to the same auto-generated
+  // name already used as the rename input's placeholder, so the row always
+  // carries a visible, distinguishable identity.
+  const hasRealName = node.name.trim() !== '';
+  const displayName = hasRealName ? node.name : (ghostName ?? node.name);
   const maskLabel = maskTypeLabel(node.mask);
   const isEffectivelyLocked = doc ? isNodeEffectivelyLocked(doc, node.id) : node.locked;
   const canReceiveDroppedStack =
@@ -237,10 +246,17 @@ export const LayersRow = memo(function LayersRow({
     node.kind === 'adjustment'
       ? summarizeAdjustmentStack((node as AdjustmentNode).adjustments ?? [])
       : null;
-  const accessibleDescription = layerAccessibleDescription(node, layerPresentation, {
-    maskRole,
-    detail: adjustmentSummary?.tooltip,
-  });
+  // An empty node.name would otherwise produce a leading ", " with no actual
+  // identifying name for assistive technology — the same gap as the visible
+  // label, so it gets the same auto-name fallback.
+  const accessibleDescription = layerAccessibleDescription(
+    hasRealName ? node : { ...node, name: displayName },
+    layerPresentation,
+    {
+      maskRole,
+      detail: adjustmentSummary?.tooltip,
+    },
+  );
   const adjustmentBadgeText =
     adjustmentSummary && adjustmentSummary.totalCount > 0
       ? `${adjustmentSummary.activeCount}/${adjustmentSummary.totalCount}`
@@ -505,14 +521,14 @@ export const LayersRow = memo(function LayersRow({
               onChange={(e) => setEditValue(e.target.value)}
               onBlur={commitRename}
               onKeyDown={handleRenameKeyDown}
-              aria-label={`Rename ${node.name}`}
+              aria-label={`Rename ${displayName}`}
             />
           ) : (
-            <Tooltip label={node.name} truncationOnly>
+            <Tooltip label={displayName} truncationOnly>
               <span
-                className={`layers-row__name${isInstance ? ' layers-row__name--instance' : ''}${searchMatch ? ' layers-row__name--match' : ''}`}
+                className={`layers-row__name${isInstance ? ' layers-row__name--instance' : ''}${searchMatch ? ' layers-row__name--match' : ''}${!hasRealName ? ' layers-row__name--ghost' : ''}`}
               >
-                {node.name}
+                {displayName}
               </span>
             </Tooltip>
           )}

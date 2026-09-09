@@ -700,6 +700,14 @@
   opacity: 0.7;
 }
 
+/* An auto-generated stand-in name for a layer with no real name set — same
+ * muted, italic treatment as the empty adjustment-stack summary, so it never
+ * reads as an ordinary user-given name. */
+.layers-row__name--ghost {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
 .layers-row__name-input {
   align-self: stretch;
   border: 1px solid var(--color-interactive-focus-ring);

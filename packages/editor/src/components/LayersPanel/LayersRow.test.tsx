@@ -414,6 +414,21 @@ describe('LayersRow visual differentiation', () => {
     expect(row?.getAttribute('style')).toContain('--layers-row-color');
   });
 
+  it('falls back to an auto-generated name instead of rendering nothing when the layer has no name', () => {
+    const node = makeNode('n1', '');
+    const base = createDocument('empty-name-doc');
+    const doc: Document = { ...base, rootChildren: ['n1'], nodes: { n1: node } };
+    const { container } = renderRow({ node, doc });
+
+    const nameEl = container.querySelector('.layers-row__name');
+    expect(nameEl).toHaveClass('layers-row__name--ghost');
+    expect(nameEl?.textContent?.trim()).not.toBe('');
+    const row = container.querySelector('[role="treeitem"]');
+    // The row's own accessible name must not start with an empty name
+    // fragment (a bare leading comma) either.
+    expect(row?.getAttribute('aria-label')).not.toMatch(/^,/);
+  });
+
   it('keeps inactive masks visible and explains their source form', () => {
     const { container } = renderRow({
       node: makeNode('n1', 'Masked artwork', 'shape', {
