@@ -36,6 +36,7 @@ const NUM_LABELS = 1;
 const MASK_INPUT_SIZE = 256;
 
 export const SAM2_INPUT_SIZE = 1024;
+const MAX_DECODER_MASK_PIXELS = 16_777_216;
 
 export const SAM2_TENSOR_SPEC: TensorSpec = {
   inputWidth: SAM2_INPUT_SIZE,
@@ -50,6 +51,7 @@ export type Sam2MaskCandidate = {
   width: number;
   height: number;
   iouScore: number;
+  confidenceSource: 'model-iou' | 'activation-heuristic';
 };
 
 export interface Sam2Prompt {
@@ -85,6 +87,7 @@ export interface Sam2DecoderOutput {
   masks: Sam2MaskCandidate[];
   selectedIndex: number;
   confidence: number;
+  confidenceSource: 'model-iou' | 'activation-heuristic';
   /** Low-res mask logits for next iteration */
   lowResMask?: { data: Float32Array; width: number; height: number };
 }
@@ -228,6 +231,7 @@ export interface DecodedMaskResult {
   masks: Sam2MaskCandidate[];
   selectedIndex: number;
   confidence: number;
+  confidenceSource: 'model-iou' | 'activation-heuristic';
   lowResMask?: { data: Float32Array; width: number; height: number };
 }
 
@@ -247,10 +251,12 @@ export function decodeSam2DecoderOutput(
    * If only one output tensor, it is the masks with IoU
    * derived from mean activation per mask.
    */
-  const numMasks = outputDims.length >= 4 ? Math.min(outputDims[1] ?? 1, 3) : 1;
-  const maskH = outputDims.length >= 4 ? outputDims[2]! : 256;
-  const maskW = outputDims.length >= 4 ? outputDims[3]! : 256;
+  validateSam2DecoderOutput(outputData, outputDims, iouData, iouDims, targetWidth, targetHeight);
+  const numMasks = outputDims[1]!;
+  const maskH = outputDims[2]!;
+  const maskW = outputDims[3]!;
   const maskPixels = maskH * maskW;
+  const confidenceSource = iouData ? 'model-iou' : 'activation-heuristic';
 
   const masks: Sam2MaskCandidate[] = [];
   let bestIndex = 0;
@@ -263,19 +269,17 @@ export function decodeSam2DecoderOutput(
       rawMask[i] = outputData[offset + i] ?? 0;
     }
 
-    const iou = iouData && m < (iouDims?.[1] ?? 0) ? iouData[m]! : computeIoU(rawMask, maskPixels);
+    const iou = iouData ? iouData[m]! : computeIoU(rawMask, maskPixels);
     // resizeMaskBilinear takes (srcH, srcW, dstH, dstW) — passing
     // (targetWidth, targetHeight) here would transpose non-square images.
     const upscaled = resizeMaskBilinear(rawMask, maskH, maskW, targetHeight, targetWidth);
 
-    let binaryMask: Uint8Array;
-    if (iouData) {
-      binaryMask = upscaled;
-    } else {
-      binaryMask = new Uint8Array(targetWidth * targetHeight);
-      for (let i = 0; i < upscaled.length; i++) {
-        binaryMask[i] = upscaled[i]! > 0 ? 255 : 0;
-      }
+    const binaryMask = new Uint8Array(targetWidth * targetHeight);
+    for (let i = 0; i < upscaled.length; i++) {
+      // The decoder emits logits/probabilities while the document mask
+      // contract is 0/255 alpha. Keeping the intermediate Uint8 value (often
+      // 1 for a positive logit) creates a nearly transparent applied mask.
+      binaryMask[i] = upscaled[i]! > 0 ? 255 : 0;
     }
 
     masks.push({
@@ -283,6 +287,7 @@ export function decodeSam2DecoderOutput(
       width: targetWidth,
       height: targetHeight,
       iouScore: iou,
+      confidenceSource,
     });
 
     if (iou > bestScore) {
@@ -303,6 +308,7 @@ export function decodeSam2DecoderOutput(
     masks,
     selectedIndex: bestIndex,
     confidence,
+    confidenceSource,
     lowResMask: { data: lowResData, width: maskH, height: maskW },
   };
 }
@@ -310,9 +316,70 @@ export function decodeSam2DecoderOutput(
 function computeIoU(rawMask: Float32Array, pixelCount: number): number {
   let sum = 0;
   for (let i = 0; i < pixelCount; i++) {
-    sum += Math.max(0, rawMask[i]!);
+    sum += Math.min(1, Math.max(0, rawMask[i]!));
   }
   return sum / pixelCount;
+}
+
+function validateSam2DecoderOutput(
+  outputData: Float32Array,
+  outputDims: number[],
+  iouData: Float32Array | null,
+  iouDims: number[] | null,
+  targetWidth: number,
+  targetHeight: number,
+): void {
+  if (!(outputData instanceof Float32Array)) {
+    throw new Error('Invalid SAM2 decoder output: masks data is not Float32Array');
+  }
+  if (
+    !Array.isArray(outputDims) ||
+    outputDims.length !== 4 ||
+    outputDims.some((dimension) => !Number.isSafeInteger(dimension) || dimension <= 0)
+  ) {
+    throw new Error('Invalid SAM2 decoder output: masks dimensions');
+  }
+  const [batch, numMasks, maskH, maskW] = outputDims;
+  if (batch !== 1 || numMasks > 3 || maskH * maskW > MAX_DECODER_MASK_PIXELS) {
+    throw new Error('Invalid SAM2 decoder output: unsupported masks shape');
+  }
+  const maskValueCount = batch * numMasks * maskH * maskW;
+  if (outputData.length !== maskValueCount) {
+    throw new Error('Invalid SAM2 decoder output: masks data length');
+  }
+  for (const value of outputData) {
+    if (!Number.isFinite(value)) {
+      throw new Error('Invalid SAM2 decoder output: masks contain a non-finite value');
+    }
+  }
+  if (
+    !Number.isSafeInteger(targetWidth) ||
+    !Number.isSafeInteger(targetHeight) ||
+    targetWidth <= 0 ||
+    targetHeight <= 0 ||
+    targetWidth * targetHeight > MAX_DECODER_MASK_PIXELS
+  ) {
+    throw new Error('Invalid SAM2 decoder output: target dimensions');
+  }
+
+  if ((iouData === null) !== (iouDims === null)) {
+    throw new Error('Invalid SAM2 decoder output: IoU data and dimensions must be paired');
+  }
+  if (iouData && iouDims) {
+    if (
+      iouDims.length !== 2 ||
+      iouDims[0] !== 1 ||
+      iouDims[1] !== numMasks ||
+      iouData.length !== numMasks
+    ) {
+      throw new Error('Invalid SAM2 decoder output: IoU dimensions');
+    }
+    for (const score of iouData) {
+      if (!Number.isFinite(score) || score < 0 || score > 1) {
+        throw new Error('Invalid SAM2 decoder output: IoU score');
+      }
+    }
+  }
 }
 
 export function resizeMaskBilinear(

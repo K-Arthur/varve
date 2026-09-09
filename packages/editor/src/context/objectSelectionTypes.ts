@@ -21,6 +21,7 @@ export interface ObjectSelectionSession {
   draftPoint?: { x: number; y: number; label: 0 | 1 } | null;
   draftBox?: { x1: number; y1: number; x2: number; y2: number } | null;
   confidence: number;
+  confidenceSource?: 'model-iou' | 'activation-heuristic';
   status: 'drawing' | 'previewing' | 'preparing' | 'encoding' | 'decoding' | 'ready' | 'error';
   error?: {
     code: string;

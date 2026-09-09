@@ -584,11 +584,12 @@ export function useSam2Segmentation(
           Math.min(decoded.masks.length - 1, candidateIndex ?? decoded.selectedIndex),
         );
         const bestMask = decoded.masks[selectedCandidate]!;
+        const selectedConfidence = bestMask.iouScore;
         const maskResult = {
           mask: bestMask.mask,
           width: naturalW,
           height: naturalH,
-          confidence: decoded.confidence,
+          confidence: selectedConfidence,
         };
 
         switch (operation) {
@@ -608,7 +609,8 @@ export function useSam2Segmentation(
                 box: prompts.box ?? null,
                 draftPoint: null,
                 draftBox: null,
-                confidence: decoded.confidence,
+                confidence: selectedConfidence,
+                confidenceSource: decoded.confidenceSource,
                 status: 'ready' as const,
                 modelId: 'sam2-hiera-tiny',
                 executionProvider: decOutputs.executionProvider,
@@ -625,7 +627,7 @@ export function useSam2Segmentation(
               { maskPreviewMode: 'overlay' },
             );
             announcerRef.current?.announce(
-              `Subject preview ready (${Math.round(decoded.confidence * 100)}% confidence). Press Enter to apply, Escape to cancel.`,
+              `Subject preview ready (${Math.round(selectedConfidence * 100)}% confidence). Press Enter to apply, Escape to cancel.`,
             );
             return maskResult;
 
@@ -664,7 +666,7 @@ export function useSam2Segmentation(
                 height: naturalH,
                 method: 'ai-quality',
                 modelId: 'sam2-hiera-tiny',
-                confidence: decoded.confidence,
+                confidence: selectedConfidence,
                 generatedAt: Date.now(),
                 sourceLocator: src,
               });
@@ -674,7 +676,7 @@ export function useSam2Segmentation(
             if (committed) {
               writeTransientSession(null, { maskPreviewMode: 'none' });
               announcerRef.current?.announce(
-                `Selection applied as a mask (${Math.round(decoded.confidence * 100)}% confidence)`,
+                `Selection applied as a mask (${Math.round(selectedConfidence * 100)}% confidence)`,
               );
             }
             return maskResult;
@@ -696,7 +698,8 @@ export function useSam2Segmentation(
                 box: prompts.box ?? null,
                 draftPoint: null,
                 draftBox: null,
-                confidence: decoded.confidence,
+                confidence: selectedConfidence,
+                confidenceSource: decoded.confidenceSource,
                 status: 'ready' as const,
                 modelId: 'sam2-hiera-tiny',
                 executionProvider: decOutputs.executionProvider,
@@ -713,7 +716,7 @@ export function useSam2Segmentation(
               { selection: [nodeId], maskPreviewMode: 'overlay' },
             );
             announcerRef.current?.announce(
-              `Selected subject (${Math.round(decoded.confidence * 100)}% confidence)`,
+              `Selected subject (${Math.round(selectedConfidence * 100)}% confidence)`,
             );
             return maskResult;
 
@@ -729,7 +732,7 @@ export function useSam2Segmentation(
                 height: naturalH,
                 method: 'ai-quality',
                 modelId: 'sam2-hiera-tiny',
-                confidence: decoded.confidence,
+                confidence: selectedConfidence,
                 generatedAt: Date.now(),
                 sourceLocator: src,
               });
@@ -739,7 +742,7 @@ export function useSam2Segmentation(
             if (committed) {
               writeTransientSession(null, { selection: [nodeId], maskPreviewMode: 'none' });
               announcerRef.current?.announce(
-                `Selection created as a new mask layer (${Math.round(decoded.confidence * 100)}% confidence)`,
+                `Selection created as a new mask layer (${Math.round(selectedConfidence * 100)}% confidence)`,
               );
             }
             return maskResult;

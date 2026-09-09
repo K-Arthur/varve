@@ -68,6 +68,16 @@ function normalizeObjectSelectionDownloadError(error: unknown): string {
   return 'The Object Selection model could not be installed. Try again from Settings > Offline Models.';
 }
 
+function objectSelectionScoreLabel(
+  source: 'model-iou' | 'activation-heuristic' | undefined,
+): string {
+  return source === 'model-iou'
+    ? 'model score'
+    : source === 'activation-heuristic'
+      ? 'heuristic score'
+      : 'score';
+}
+
 const METHOD_GUIDANCE: Record<
   RemovalMethod,
   { title: string; description: string; bestFor: string; tradeoff: string }
@@ -528,7 +538,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                   {objectSelection.slow
                     ? 'Taking longer than expected… Cancel remains available.'
                     : objectSelection.status === 'ready'
-                      ? `Preview ready · ${Math.round(objectSelection.confidence * 100)}% model confidence · ${objectSelection.candidates.length} candidate mask${objectSelection.candidates.length === 1 ? '' : 's'}`
+                      ? `Preview ready · ${Math.round(objectSelection.confidence * 100)}% ${objectSelectionScoreLabel(objectSelection.confidenceSource)} · ${objectSelection.candidates.length} candidate mask${objectSelection.candidates.length === 1 ? '' : 's'}`
                       : objectSelection.status === 'error'
                         ? 'Object selection failed — your prompts are still available.'
                         : objectSelection.status === 'drawing'

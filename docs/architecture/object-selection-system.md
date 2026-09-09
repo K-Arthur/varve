@@ -50,8 +50,9 @@ decoder. A failed commit leaves the prompts and candidate available for retry.
 - Prompt edits remain transient until Apply as mask.
 - Escape cancels the session; stale async generations cannot replace a newer
   result.
-- The preview displays candidate confidence but does not describe it as a
-  semantic understanding score.
+- The preview labels the score according to its provenance: verified decoder
+  IoU output is a model score; the single-output fallback is explicitly a
+  heuristic score. Neither is a semantic understanding score.
 - Candidate cycling changes only the transient candidate pointer; it does not
   modify the document until Apply.
 
@@ -98,6 +99,13 @@ Mask combination is shared through the pure `combineAlphaMasks` service:
 `replace`, `add`, `subtract`, and `intersect`. Downstream effects and
 adjustment masks must consume the document mask rather than inventing a
 selection-specific representation.
+
+The transient session also stores a fingerprint of the exact decoded RGBA
+source pixels. Embedding cache entries are keyed by that fingerprint, and
+Apply re-reads the source before committing. A changed image therefore clears
+the old candidate instead of attaching a mask produced from different pixels.
+Malformed decoder dimensions, lengths, non-finite logits, and invalid IoU
+scores are rejected before resizing or persistence.
 
 ## Model lifecycle and privacy
 

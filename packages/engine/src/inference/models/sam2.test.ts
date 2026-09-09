@@ -135,13 +135,16 @@ describe('sam2', () => {
 
       expect(decoded.selectedIndex).toBe(1);
       expect(decoded.confidence).toBeCloseTo(0.95);
+      expect(decoded.confidenceSource).toBe('model-iou');
       expect(decoded.masks.length).toBe(3);
+      expect(decoded.masks[1]?.mask).toEqual(new Uint8Array([255, 255, 255, 255]));
     });
 
     it('falls back to mean-activation confidence when no iou_predictions are given', () => {
       const raw = new Float32Array([0.5, 0.5, 0.5, 0.5]);
       const decoded = decodeSam2DecoderOutput(raw, [1, 1, 2, 2], null, null, 2, 2);
       expect(decoded.confidence).toBeCloseTo(0.5, 5);
+      expect(decoded.confidenceSource).toBe('activation-heuristic');
     });
 
     it('upscales masks to the target width/height without transposing non-square images', () => {
@@ -151,6 +154,26 @@ describe('sam2', () => {
       expect(best.width).toBe(8);
       expect(best.height).toBe(4);
       expect(best.mask.length).toBe(32);
+    });
+
+    it.each([
+      ['empty candidate dimension', new Float32Array(), [1, 0, 2, 2]],
+      ['truncated mask data', new Float32Array(3), [1, 1, 2, 2]],
+      ['non-finite mask data', new Float32Array([0, Number.NaN, 0, 0]), [1, 1, 2, 2]],
+    ])('rejects %s', (_label, data, dims) => {
+      expect(() => decodeSam2DecoderOutput(data, dims, null, null, 2, 2)).toThrow(
+        /Invalid SAM2 decoder output/,
+      );
+    });
+
+    it('rejects malformed or non-finite IoU scores', () => {
+      const raw = new Float32Array([0, 0, 0, 0]);
+      expect(() =>
+        decodeSam2DecoderOutput(raw, [1, 1, 2, 2], new Float32Array([0.5]), [1, 2], 2, 2),
+      ).toThrow(/Invalid SAM2 decoder output/);
+      expect(() =>
+        decodeSam2DecoderOutput(raw, [1, 1, 2, 2], new Float32Array([1.2]), [1, 1], 2, 2),
+      ).toThrow(/Invalid SAM2 decoder output/);
     });
   });
 
