@@ -10,7 +10,12 @@
  * and Figma's undocumented accessibility tree (inferred behaviour).
  */
 
-import type { Document, NodeId, ResolvedEditorSceneScope } from '@varve/scene';
+import type {
+  Document,
+  MultipageNodeInstance,
+  NodeId,
+  ResolvedEditorSceneScope,
+} from '@varve/scene';
 import { assertOccurrencesInScope, buildParentIndexMap } from '@varve/scene';
 import { useMemo } from 'react';
 
@@ -44,14 +49,22 @@ export function CanvasAccessibilityTree({
   isWorldRectInViewport,
 }: CanvasAccessibilityTreeProps) {
   const visibleNodes = useMemo(() => {
+    type AccessibilityEntry = {
+      nodeId: string;
+      depth: number;
+      parentId: string | null;
+      entry?: MultipageNodeInstance;
+    };
     const entries = scope
-      ? new Map(
+      ? new Map<string, AccessibilityEntry>(
           scope.occurrences.map((entry) => [
             entry.instanceId,
             { nodeId: entry.nodeId, depth: entry.depth, parentId: entry.parentId, entry },
           ]),
         )
-      : new Map([...(walkNodes?.(doc) ?? [])].map(([id, info]) => [id, { ...info, nodeId: id }]));
+      : new Map<string, AccessibilityEntry>(
+          [...(walkNodes?.(doc) ?? [])].map(([id, info]) => [id, { ...info, nodeId: id }]),
+        );
     // nodeWorldBounds falls back to an O(n) linear scan (getParent) per call
     // when no parentIndex is passed. Called once per node here, that made
     // this memo O(n^2) in node count on every doc/camera/viewport change.
