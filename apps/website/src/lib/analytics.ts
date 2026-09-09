@@ -79,9 +79,11 @@ function normalizedRoute(
   | '/contribute'
   | '/support'
   | '/about/privacy'
+  | '/accessibility'
   | '/try' {
   const path = pathname.toLowerCase();
   if (path.includes('/about/privacy')) return '/about/privacy';
+  if (path.includes('/accessibility')) return '/accessibility';
   if (path === '/try' || path.startsWith('/try/')) return '/try';
   if (path.includes('/download')) return '/download';
   if (path.includes('/releases')) return '/releases';

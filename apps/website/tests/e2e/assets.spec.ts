@@ -8,7 +8,17 @@ import { expect, test } from '@playwright/test';
  * path shows up as a color/typography failure, so it is asserted directly.
  */
 
-const ROUTES = ['/', '/product', '/download', '/docs', '/features', '/releases', '/about', '/404'];
+const ROUTES = [
+  '/',
+  '/product',
+  '/download',
+  '/docs',
+  '/features',
+  '/releases',
+  '/about',
+  '/accessibility',
+  '/404',
+];
 
 test('all local assets referenced by pages resolve without 404', async ({ page, request }) => {
   for (const route of ROUTES) {
@@ -44,6 +54,7 @@ test('known routes return 200 and unknown routes return the 404 page', async ({
     '/contribute',
     '/learn',
     '/about',
+    '/accessibility',
   ]) {
     const res = await request.get(route);
     expect(res.status(), `${route}`).toBe(200);

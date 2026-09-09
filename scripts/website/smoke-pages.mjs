@@ -32,6 +32,7 @@ const ROUTES = [
   '/docs/',
   '/docs/tools/color/',
   '/releases/',
+  '/accessibility/',
   '/sitemap.xml',
   '/robots.txt',
   '/favicon.svg',

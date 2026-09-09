@@ -84,6 +84,7 @@ const VALUE_SETS: Record<string, readonly string[]> = {
     '/contribute',
     '/support',
     '/about/privacy',
+    '/accessibility',
     '/try',
   ],
   platform: ['linux', 'windows', 'macos', 'unknown'],

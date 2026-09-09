@@ -7,7 +7,7 @@ import { expect, test } from '@playwright/test';
  * internally, but the document itself must not widen past the viewport.
  */
 const WIDTHS = [320, 375, 430, 480, 600, 768, 900, 1280, 1920];
-const ROUTES = ['/', '/download', '/docs', '/features', '/support/faq'];
+const ROUTES = ['/', '/download', '/docs', '/features', '/support/faq', '/accessibility'];
 
 test('main content reflows without page-level horizontal overflow', async ({ page }) => {
   for (const width of WIDTHS) {

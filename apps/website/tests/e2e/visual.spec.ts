@@ -301,6 +301,32 @@ test('legal page (license) light', async ({ page }) => {
   });
 });
 
+test('accessibility page light', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
+  await seedTheme(page, 'light');
+  await page.goto('/accessibility?test-motion=static');
+  await waitForImages(page);
+  await expect(page.getByRole('heading', { name: 'Accessibility at Varve' })).toBeVisible();
+  await warmFullPage(page);
+  await expect(page).toHaveScreenshot('accessibility-light.png', {
+    fullPage: true,
+    maxDiffPixelRatio: 0.02,
+  });
+});
+
+test('accessibility page dark', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
+  await seedTheme(page, 'dark');
+  await page.goto('/accessibility?test-motion=static');
+  await waitForImages(page);
+  await expect(page.getByRole('heading', { name: 'Accessibility at Varve' })).toBeVisible();
+  await warmFullPage(page);
+  await expect(page).toHaveScreenshot('accessibility-dark.png', {
+    fullPage: true,
+    maxDiffPixelRatio: 0.02,
+  });
+});
+
 // Keep the theme matrix handy for regressions beyond the fixed baselines.
 test.describe('theme matrix screenshots', () => {
   for (const t of THEMES) {

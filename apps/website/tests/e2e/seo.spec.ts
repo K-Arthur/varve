@@ -39,6 +39,7 @@ const ROUTES = [
   '/releases',
   '/compare',
   '/security',
+  '/accessibility',
   '/support-project',
   '/features/local-first',
   '/features/print-production',

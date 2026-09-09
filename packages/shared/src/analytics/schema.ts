@@ -73,6 +73,7 @@ export type AnalyticsWebsiteRoute =
   | '/contribute'
   | '/support'
   | '/about/privacy'
+  | '/accessibility'
   | '/try';
 export type AnalyticsWebsitePlatform = 'linux' | 'windows' | 'macos' | 'unknown';
 export type AnalyticsPackageType = 'appimage' | 'deb' | 'rpm' | 'dmg' | 'nsis' | 'unknown';

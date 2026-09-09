@@ -33,6 +33,7 @@ const ROUTES = [
   '/about/license',
   '/about/privacy',
   '/about/security',
+  '/accessibility',
   '/releases',
   '/learn',
   '/learn/tutorials',

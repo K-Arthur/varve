@@ -27,6 +27,7 @@ const SCANS = [
   { route: '/security', name: 'security' },
   { route: '/press', name: 'press' },
   { route: '/about/privacy', name: 'privacy' },
+  { route: '/accessibility', name: 'accessibility' },
   { route: '/404', name: '404' },
 ];
 
