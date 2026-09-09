@@ -20,10 +20,24 @@ export {
   listFormatCapabilities,
 } from './formatCapabilities';
 export * from './gradient';
-export { getBitmapInfo, importImageAsFill } from './image';
+export { getBitmapInfo, importImageAsFill, normalizeRasterBytes } from './image';
 export { importFile, importImageFile, importSvgString } from './import';
 export { createPdfParser } from './pdf';
 export { createPsdParser } from './psd';
+export type {
+  RasterConversionErrorCode,
+  RasterConversionFormat,
+  RasterConversionOptions,
+  RasterConversionPlan,
+  RasterConversionResult,
+} from './rasterConversion';
+export {
+  convertRasterBytes,
+  mimeForRasterConversionFormat,
+  planRasterConversion,
+  RASTER_CONVERSION_FORMATS,
+  RasterConversionError,
+} from './rasterConversion';
 export type { RasterInspection, RasterInspectionLimits } from './rasterInspection';
 export {
   inspectRasterBytes,

@@ -97,7 +97,7 @@ export function importImageAsFill(
 }
 
 /** Convert TIFF to PNG because browser image elements do not decode TIFF. */
-function normalizeRasterBytes(data: Uint8Array): Uint8Array {
+export function normalizeRasterBytes(data: Uint8Array): Uint8Array {
   if (detectImageMime(data) !== 'image/tiff') return data;
   const buffer = new Uint8Array(data).buffer;
   const ifds = UTIF.decode(buffer);
