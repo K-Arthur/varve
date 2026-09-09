@@ -163,6 +163,7 @@ test.describe('Artboard-local coordinates', () => {
     await expect(frame2Row).toBeFocused();
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
     await page.waitForTimeout(350);
     await expect(childRow).toHaveAttribute('aria-selected', 'true');
 
