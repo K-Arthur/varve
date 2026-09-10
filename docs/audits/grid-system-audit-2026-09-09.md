@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-09  
 **Scope:** scene model, migrations, Figma import, editor rendering, snapping, inspector, and website documentation  
-**Status:** implementation slices complete; browser validation in progress
+**Status:** implementation complete; marketing browser validation complete; editor browser validation in progress
 
 This is a new audit against the current `master` tree. The earlier grid audit
 (`grid-system-audit-2026-07-27.md`) correctly identified missing layout-guide rendering,
@@ -22,6 +22,7 @@ but its remaining-state tables are historical and should not be treated as curre
 | Grid inspector could show state that the document setter rejected | UI patched unsanitized values after scene validation | Context handlers patch only the accepted sanitized document grid |
 | Viewport preference could overwrite document-authored grid visibility | Restore merged legacy `gridVisible` into the document grid | Document grid geometry and visibility now win; view preferences remain display-only |
 | Baseline/isometric geometry duplicated camera math and ignored configured origins | SVG overlay used fixed extents and a local transform | Overlay uses shared camera projection, viewport bounds, baseline offset, isometric origin, axes, and rotation |
+| Marketing guide presented correct content as a dense, unstyled text column | The first docs pass had no page-local composition or visual explanation | Grid Systems now has a visual hero, system map, control mockups, responsive cards, and a dedicated Canvas feature showcase |
 
 ## Capability map
 
@@ -55,7 +56,8 @@ but its remaining-state tables are historical and should not be treated as curre
 | Figma multi-guide import | Done | `figma.test.ts` |
 | Frame guide geometry/rendering | Done | `layoutGridGeometry.test.ts` + editor typecheck |
 | Inspector controls and state precedence | Done | `LayoutSection.test.tsx` and editor typecheck |
-| Website documentation and feature copy | Done | website typecheck + grid-docs browser spec |
+| Website documentation and feature copy | Done | website typecheck + 6 grid-docs browser tests across both site builds |
+| Marketing visual hierarchy and responsive composition | Done | inspected desktop/mobile docs and Canvas feature captures; no overflow |
 | Editor browser interaction/visual validation | In progress | Playwright canvas spec and screenshot/oracle evidence |
 
 ## External reference check

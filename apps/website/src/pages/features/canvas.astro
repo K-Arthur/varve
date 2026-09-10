@@ -94,18 +94,38 @@ import { sitePath } from '../../lib/siteUrl';
       </section>
 
       <section class="feature-section" data-testid="canvas-grid-systems">
-        <p class="eyebrow">Grid systems</p>
-        <h2>Guidance that stays distinct.</h2>
-        <p>
-          The persisted document grid handles alignment and snapping with independent X/Y spacing,
-          subdivisions, offsets, and rotation. Pixel inspection and snap-to-pixel remain separate
-          high-zoom controls. Frame-owned layout guides can show multiple column, row, or uniform
-          boundaries without changing how Auto layout arranges children.
+        <div class="grid-systems__header">
+          <div>
+            <p class="eyebrow">Grid systems</p>
+            <h2>Guidance that stays distinct.</h2>
+          </div>
+          <a class="grid-systems__link" href={sitePath('/docs/tools/grids')}>Read the Grid Systems guide <span aria-hidden="true">→</span></a>
+        </div>
+        <p class="grid-systems__lede">
+          The canvas gives alignment, inspection, typography, and composition each their own
+          language. Turn on the right guide for the decision in front of you, then turn it off when
+          the work is ready to judge.
         </p>
-        <p>
-          Read the <a href={sitePath('/docs/tools/grids')}>Grid Systems guide</a> for the control
-          model, troubleshooting, and the distinction between visual guides and layout algorithms.
-        </p>
+        <div class="grid-systems__showcase" aria-label="Grid systems overview">
+          <div class="grid-systems__canvas">
+            <span class="grid-systems__canvas-label">Canvas 1 / 100%</span>
+            <div class="grid-systems__document-grid"></div>
+            <div class="grid-systems__frame">
+              <i></i><i></i><i></i><i></i>
+              <span>Frame layout guide</span>
+            </div>
+          </div>
+          <div class="grid-systems__legend">
+            <div><span class="grid-systems__marker grid-systems__marker--document"></span><div><strong>Document grid</strong><small>Saved alignment lattice</small></div></div>
+            <div><span class="grid-systems__marker grid-systems__marker--pixel"></span><div><strong>Pixel grid</strong><small>High-zoom inspection</small></div></div>
+            <div><span class="grid-systems__marker grid-systems__marker--guide"></span><div><strong>Frame guides</strong><small>Composition boundaries</small></div></div>
+          </div>
+        </div>
+        <div class="grid-systems__principles">
+          <article><span>01</span><h3>Align</h3><p>Independent X/Y spacing, subdivisions, offsets, and rotation.</p></article>
+          <article><span>02</span><h3>Inspect</h3><p>Pixel display and snap-to-pixel stay separate at high zoom.</p></article>
+          <article><span>03</span><h3>Compose</h3><p>Multiple frame guides show structure without arranging children.</p></article>
+        </div>
       </section>
 
       <section class="feature-section arrangement-contract" data-testid="canvas-arrangement-contract">
@@ -373,6 +393,111 @@ import { sitePath } from '../../lib/siteUrl';
     font-size: 0.9375rem;
   }
 
+  .grid-systems {
+    padding: clamp(1.5rem, 4vw, 3rem);
+    border: 1px solid var(--border-accent);
+    border-radius: var(--website-radius-card);
+    background: linear-gradient(135deg, var(--surface-accent-soft), var(--surface-card));
+  }
+
+  .grid-systems__header {
+    align-items: end;
+    display: flex;
+    gap: 1.5rem;
+    justify-content: space-between;
+  }
+
+  .grid-systems__header h2 { margin-bottom: 0; }
+
+  .grid-systems__link {
+    color: var(--text-link);
+    flex-shrink: 0;
+    font-size: 0.875rem;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .grid-systems__link span { display: inline-block; margin-left: .2rem; transition: transform .2s ease; }
+  .grid-systems__link:hover span { transform: translateX(3px); }
+
+  .grid-systems__lede {
+    color: var(--text-secondary);
+    line-height: 1.75;
+    margin: 1.25rem 0 2rem;
+    max-width: 680px;
+  }
+
+  .grid-systems__showcase {
+    align-items: stretch;
+    background: #172126;
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-surface);
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: minmax(0, 1fr) minmax(150px, .48fr);
+    overflow: hidden;
+    padding: 1rem;
+  }
+
+  .grid-systems__canvas {
+    background: #e6edf0;
+    border-radius: .35rem;
+    min-height: 220px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .grid-systems__canvas-label {
+    color: #66777c;
+    font: 700 .6rem/1 var(--font-ui);
+    left: 1rem;
+    position: absolute;
+    top: .85rem;
+    z-index: 2;
+  }
+
+  .grid-systems__document-grid {
+    background-image: linear-gradient(to right, rgba(19, 103, 101, .2) 1px, transparent 1px), linear-gradient(to bottom, rgba(19, 103, 101, .2) 1px, transparent 1px);
+    background-size: 24px 24px;
+    inset: 1.75rem .75rem .75rem;
+    position: absolute;
+    transform: rotate(-3deg) scale(1.08);
+  }
+
+  .grid-systems__frame {
+    background: #fff;
+    box-shadow: 0 12px 24px rgba(20, 50, 58, .2);
+    height: 145px;
+    left: 22%;
+    position: absolute;
+    top: 26%;
+    transform: rotate(2deg);
+    width: 58%;
+  }
+
+  .grid-systems__frame i { border-left: 2px solid #e27c63; bottom: 0; position: absolute; top: 0; }
+  .grid-systems__frame i:nth-child(1) { left: 20%; }
+  .grid-systems__frame i:nth-child(2) { left: 40%; }
+  .grid-systems__frame i:nth-child(3) { left: 60%; }
+  .grid-systems__frame i:nth-child(4) { left: 80%; }
+  .grid-systems__frame span { bottom: .5rem; color: #de765d; font: 700 .55rem/1 var(--font-ui); position: absolute; right: .5rem; }
+
+  .grid-systems__legend { display: grid; gap: 1rem; padding: .5rem; }
+  .grid-systems__legend > div { align-items: flex-start; display: flex; gap: .65rem; }
+  .grid-systems__legend strong, .grid-systems__legend small { display: block; }
+  .grid-systems__legend strong { color: #eef8f8; font-size: .8rem; margin-bottom: .25rem; }
+  .grid-systems__legend small { color: #aebfc2; font-size: .7rem; line-height: 1.45; }
+  .grid-systems__marker { border-radius: 50%; flex-shrink: 0; height: .65rem; margin-top: .15rem; width: .65rem; }
+  .grid-systems__marker--document { background: #4dc8bd; }
+  .grid-systems__marker--pixel { background: #e99c63; }
+  .grid-systems__marker--guide { background: #dd6d62; }
+
+  .grid-systems__principles { display: grid; gap: 1rem; grid-template-columns: repeat(3, 1fr); margin-top: 1rem; }
+  .grid-systems__principles article { border-top: 2px solid var(--border-accent); padding-top: .9rem; }
+  .grid-systems__principles span { color: var(--accent-primary); font: 700 .68rem/1 monospace; }
+  .grid-systems__principles h3 { color: var(--text-primary); font-size: 1rem; margin: .5rem 0 .35rem; }
+  .grid-systems__principles p { color: var(--text-secondary); font-size: .875rem; line-height: 1.55; margin: 0; }
+
   .feature-visual {
     margin: -1rem 0 3rem;
   }
@@ -431,8 +556,28 @@ import { sitePath } from '../../lib/siteUrl';
       grid-template-columns: 1fr;
     }
 
+    .grid-systems__header {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: .75rem;
+    }
+
+    .grid-systems__showcase {
+      grid-template-columns: 1fr;
+    }
+
+    .grid-systems__legend { grid-template-columns: repeat(3, 1fr); }
+
     .arrangement-contract__grid {
       grid-template-columns: 1fr;
     }
+  }
+
+  @media (max-width: 440px) {
+    .grid-systems { padding: 1rem; }
+    .grid-systems__canvas { min-height: 175px; }
+    .grid-systems__frame { height: 110px; }
+    .grid-systems__legend { grid-template-columns: 1fr; }
+    .grid-systems__principles { grid-template-columns: 1fr; }
   }
 </style>
