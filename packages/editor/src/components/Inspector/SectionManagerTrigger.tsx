@@ -198,9 +198,11 @@ export function SectionManagerTrigger({ surface = 'properties' }: { surface?: In
                     }}
                     className="insp-section-manager__checkbox"
                   />
-                  <label htmlFor={checkboxId} className="insp-section-manager__label">
-                    {title}
-                  </label>
+                  <Tooltip label={title} truncationOnly>
+                    <label htmlFor={checkboxId} className="insp-section-manager__label">
+                      {title}
+                    </label>
+                  </Tooltip>
                   <span className="insp-section-manager__category">{category}</span>
                   {def.essential && (
                     <span className="insp-section-manager__essential">required</span>
