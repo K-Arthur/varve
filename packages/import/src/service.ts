@@ -340,19 +340,29 @@ export const ImportService = {
     assertNotAborted(signal);
     const startedAt = Date.now();
     const perfStarted = performance.now();
-    const files: ImportFileReport[] = [];
-
-    for (const input of inputs) {
-      const fileReport = await importOne(input, options, signal);
-      files.push(fileReport);
-      options.onProgress?.(files.length, inputs.length, fileReport);
-    }
+    const files = new Array<ImportFileReport>(inputs.length);
+    let nextIndex = 0;
+    let completed = 0;
+    const worker = async (): Promise<void> => {
+      while (true) {
+        assertNotAborted(signal);
+        const index = nextIndex++;
+        const input = inputs[index];
+        if (!input) return;
+        const fileReport = await importOne(input, options, signal);
+        files[index] = fileReport;
+        completed += 1;
+        options.onProgress?.(completed, inputs.length, fileReport);
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(2, inputs.length) }, () => worker()));
+    const orderedFiles = files.filter((file): file is ImportFileReport => Boolean(file));
 
     const completedAt = Date.now();
-    const successCount = files.filter((f) => f.status === 'success').length;
-    const partialCount = files.filter((f) => f.status === 'partial').length;
-    const unsupportedCount = files.filter((f) => f.status === 'unsupported').length;
-    const failureCount = files.filter(
+    const successCount = orderedFiles.filter((f) => f.status === 'success').length;
+    const partialCount = orderedFiles.filter((f) => f.status === 'partial').length;
+    const unsupportedCount = orderedFiles.filter((f) => f.status === 'unsupported').length;
+    const failureCount = orderedFiles.filter(
       (f) => f.status === 'failed' || f.status === 'unsupported',
     ).length;
 
@@ -365,8 +375,8 @@ export const ImportService = {
       partialCount,
       failureCount,
       unsupportedCount,
-      files,
-      warnings: files.flatMap((f) => f.warnings),
+      files: orderedFiles,
+      warnings: orderedFiles.flatMap((f) => f.warnings),
     };
   },
 };

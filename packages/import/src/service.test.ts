@@ -128,6 +128,22 @@ describe('ImportService', () => {
     expect(report.files[1]?.unsupportedFeatures[0]?.code).toBe('format.unsupported');
   });
 
+  it('preserves input order while progress follows completed work', async () => {
+    const progress: string[] = [];
+    const report = await ImportService.importFiles(
+      [
+        { name: 'first.svg', text: '<svg><rect width="2" height="2"/></svg>', source: 'drop' },
+        { name: 'second.xyz', text: 'unsupported', source: 'drop' },
+        { name: 'third.svg', text: '<svg><circle r="1"/></svg>', source: 'drop' },
+      ],
+      { onProgress: (_completed, _total, file) => progress.push(file.name) },
+    );
+
+    expect(report.files.map((file) => file.name)).toEqual(['first.svg', 'second.xyz', 'third.svg']);
+    expect(progress).toHaveLength(3);
+    expect(report.totalFiles).toBe(3);
+  });
+
   it('honors an already-aborted signal before parsing files', async () => {
     const controller = new AbortController();
     controller.abort();
