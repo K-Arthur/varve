@@ -226,6 +226,34 @@ export function placePastedRootAtWorldCenter(
   );
 }
 
+/** Center several imported roots as one fragment while preserving their
+ * source order, spacing, transforms, and existing group hierarchy. */
+export function placePastedRootsAtWorldCenter(
+  doc: Document,
+  rootIds: readonly NodeId[],
+  targetParentId: NodeId | null,
+  center: { x: number; y: number },
+): Document {
+  const bounds = unionNodeWorldBounds(doc, rootIds);
+  if (!bounds) return doc;
+  const delta = {
+    x: center.x - (bounds.x + bounds.w / 2),
+    y: center.y - (bounds.y + bounds.h / 2),
+  };
+  let next = doc;
+  for (const rootId of rootIds) {
+    const current = next.nodes[rootId];
+    if (!current) continue;
+    next = rebasePastedRoot(
+      next,
+      rootId,
+      targetParentId,
+      translateWorldTransform(nodeWorldTransform(next, rootId), delta.x, delta.y),
+    );
+  }
+  return next;
+}
+
 /**
  * Return true only when a drag actually leaves a surface. Browsers dispatch
  * dragleave while moving between descendants as well; clearing a preview for

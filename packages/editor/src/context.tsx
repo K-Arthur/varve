@@ -493,7 +493,7 @@ import {
   applyDropPosition,
   clipboardFragmentWorldBounds,
   isFiniteAffine,
-  placePastedRootAtWorldCenter,
+  placePastedRootsAtWorldCenter,
   rebasePastedRoot,
   rectCenter,
   resolvePasteDestination,
@@ -8116,25 +8116,25 @@ export function EditorProvider({
             // rotation, scale, and the active content root are all honored.
             let pasteIndex = 0;
             for (const result of importResults) {
-              for (const id of result.nodeIds) {
-                const offset = pasteIndex * 40;
-                const inserted = insertImportedSubtree(
-                  doc,
-                  result.document,
-                  id,
-                  (node) => node,
-                  invocation.workspaceMode,
-                );
-                if (!inserted) continue;
-                doc = inserted.doc;
-                resourceImports.push({ sourceDoc: result.document, idMap: inserted.idMap });
-                doc = placePastedRootAtWorldCenter(doc, inserted.rootId, targetParentId, {
-                  x: pasteDestination.center.x + offset,
-                  y: pasteDestination.center.y + offset,
-                });
-                newIds.push(inserted.rootId);
-                pasteIndex += 1;
-              }
+              const firstId = result.nodeIds[0];
+              if (!firstId) continue;
+              const inserted = insertImportedSubtree(
+                doc,
+                result.document,
+                firstId,
+                (node) => node,
+                invocation.workspaceMode,
+                result.nodeIds.slice(1),
+              );
+              if (!inserted) continue;
+              doc = inserted.doc;
+              resourceImports.push({ sourceDoc: result.document, idMap: inserted.idMap });
+              doc = placePastedRootsAtWorldCenter(doc, inserted.rootIds, targetParentId, {
+                x: pasteDestination.center.x + pasteIndex * 40,
+                y: pasteDestination.center.y + pasteIndex * 40,
+              });
+              newIds.push(...inserted.rootIds);
+              pasteIndex += 1;
             }
 
             if (newIds.length === 0) return s;

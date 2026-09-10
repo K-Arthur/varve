@@ -137,6 +137,15 @@ function createClipboardEventWithVarveNodes(
   return { type: 'paste', clipboardData: dt } as ClipboardEvent;
 }
 
+function createClipboardEventWithSvg(svg: string): ClipboardEvent {
+  const dt = {
+    files: createFileList([]),
+    items: [] as unknown as DataTransferItemList,
+    getData: (type: string) => (type === 'image/svg+xml' ? svg : ''),
+  } as unknown as DataTransfer;
+  return { type: 'paste', clipboardData: dt } as ClipboardEvent;
+}
+
 describe('Editor import insertion', () => {
   it('deep-clones imported container subtrees into editor state', async () => {
     const child = makeShapeNode('s1', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 });
@@ -218,6 +227,59 @@ describe('Editor import insertion', () => {
     expect(options).toMatchObject({ center: true, embedImages: true });
     await waitFor(() => expect(ctx?.state.selection).toHaveLength(1));
     spy.mockRestore();
+  });
+
+  it('keeps SVG root order and relative spacing when several roots are pasted', async () => {
+    const svg =
+      '<svg viewBox="0 0 220 40"><g><rect x="0" y="0" width="20" height="20"/>' +
+      '<rect x="40" y="0" width="20" height="20"/></g>' +
+      '<rect x="120" y="0" width="20" height="20"/></svg>';
+    captureClipboardEvent(createClipboardEventWithSvg(svg));
+
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function Test() {
+      ctx = useEditor();
+      return (
+        <button type="button" onClick={() => void ctx?.paste()}>
+          paste svg
+        </button>
+      );
+    }
+
+    try {
+      render(
+        <EditorProvider>
+          <Test />
+        </EditorProvider>,
+      );
+      screen.getByText('paste svg').click();
+
+      await waitFor(() => expect(ctx?.state.selection).toHaveLength(2));
+      const [firstId, secondId] = ctx?.state.selection ?? [];
+      if (!ctx || !firstId || !secondId) throw new Error('Expected two pasted SVG roots');
+      const first = nodeWorldBounds(ctx.state.document, firstId);
+      const second = nodeWorldBounds(ctx.state.document, secondId);
+      if (!first || !second) throw new Error('Expected pasted SVG bounds');
+      const firstCenter = first.x + first.w / 2;
+      const secondCenter = second.x + second.w / 2;
+      expect(secondCenter - firstCenter).toBeCloseTo(100, 4);
+      const parentId = getParent(ctx.state.document, firstId);
+      expect(parentId).toBe(getParent(ctx.state.document, secondId));
+      const children = parentId ? ctx.state.document.nodes[parentId] : undefined;
+      expect(
+        children?.kind === 'group' || children?.kind === 'frame' ? children.children : [],
+      ).toEqual(expect.arrayContaining([firstId, secondId]));
+      if (children?.kind === 'group' || children?.kind === 'frame') {
+        expect(children.children.indexOf(firstId)).toBeLessThan(
+          children.children.indexOf(secondId),
+        );
+      }
+      const group = ctx.state.document.nodes[firstId];
+      expect(group?.kind).toBe('frame');
+      if (group?.kind === 'frame') expect(group.children).toHaveLength(2);
+    } finally {
+      clearCapturedClipboardEvent();
+    }
   });
 
   it('imports file-picker nodes into the selected frame without changing world pose', async () => {
