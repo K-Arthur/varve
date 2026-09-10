@@ -1,11 +1,13 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { deflateSync } from 'node:zlib';
 import { expect, test } from '@playwright/test';
 
 const FIXTURES_DIR = path.resolve(__dirname, '..', 'fixtures');
-const CAF_PNG = path.join(FIXTURES_DIR, 'caf-test.png');
-const CAF_4K_PNG = path.join(FIXTURES_DIR, 'caf-4k.png');
+const GENERATED_FIXTURES_DIR = path.join(tmpdir(), `varve-caf-${process.pid}`);
+const CAF_PNG = path.join(GENERATED_FIXTURES_DIR, 'caf-test.png');
+const CAF_4K_PNG = path.join(GENERATED_FIXTURES_DIR, 'caf-4k.png');
 const REAL_LIFE_FIXTURES = [
   { path: path.join(FIXTURES_DIR, 'real-life-landscape.jpg'), slug: 'landscape' },
   { path: path.join(FIXTURES_DIR, 'real-life-portrait.jpg'), slug: 'portrait' },
@@ -76,7 +78,7 @@ function createPngBuffer(
 // ── Fixture setup ──────────────────────────────────────────────────────────
 
 test.beforeAll(() => {
-  if (!existsSync(FIXTURES_DIR)) mkdirSync(FIXTURES_DIR, { recursive: true });
+  if (!existsSync(GENERATED_FIXTURES_DIR)) mkdirSync(GENERATED_FIXTURES_DIR, { recursive: true });
   const cx = 32,
     cy = 32,
     r = 21;
@@ -94,6 +96,10 @@ test.beforeAll(() => {
       return isDark ? [80, 120, 200, 255] : [200, 180, 100, 255];
     }),
   );
+});
+
+test.afterAll(() => {
+  rmSync(GENERATED_FIXTURES_DIR, { recursive: true, force: true });
 });
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -493,22 +499,7 @@ test.describe('Content-Aware Fill dialog', () => {
     // After success the button text changes to "Regenerate" and Apply is enabled.
     const applyBtn = page.getByRole('button', { name: /^apply$/i });
 
-    try {
-      await expect(applyBtn).toBeEnabled({ timeout: 10_000 });
-    } catch {
-      // Pipeline may have errored (e.g. ImageData constraints in the test
-      // environment).
-      const errorEl = page.locator('.caf-dialog__error[role="alert"]');
-      if (await errorEl.isVisible().catch(() => false)) {
-        const errText = await errorEl.textContent();
-        test.info().annotations.push({
-          type: 'info',
-          description: `Pipeline fast-path error: ${errText}`,
-        });
-      }
-      // If neither Apply-enabled nor error visible, re-check pipeline status.
-      return;
-    }
+    await expect(applyBtn).toBeEnabled({ timeout: 10_000 });
 
     // Apply the result
     await applyBtn.click();
@@ -534,12 +525,7 @@ test.describe('Content-Aware Fill dialog', () => {
     await generateBtn.click();
 
     const applyBtn = page.getByRole('button', { name: /^apply$/i });
-    try {
-      await expect(applyBtn).toBeEnabled({ timeout: 10_000 });
-    } catch {
-      test.skip(true, 'Pipeline did not produce a result — undo requires successful generation');
-      return;
-    }
+    await expect(applyBtn).toBeEnabled({ timeout: 10_000 });
 
     const layerCountBefore = await page.getByRole('treeitem').count();
     await applyBtn.click();
