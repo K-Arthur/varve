@@ -127,6 +127,22 @@ describe('readFromClipboardEvent', () => {
     expect(textResult.plainText).toBe('שלום\nDesign');
   });
 
+  it('suppresses only the byte-identical SVG file representation', async () => {
+    const preferred = '<svg><rect width="10" height="10"/></svg>';
+    const second = '<svg><circle r="5"/></svg>';
+    const first = new File([preferred], 'same.svg', { type: 'image/svg+xml' });
+    const other = new File([second], 'same.svg', { type: 'image/svg+xml' });
+    const dt = createDataTransferWithFiles([first, other]);
+    dt.getData = (format: string) => (format === 'image/svg+xml' ? preferred : '');
+
+    const result = await readFromClipboardEvent({ clipboardData: dt } as ClipboardEvent);
+
+    expect(result.importItems).toEqual([
+      { data: preferred, mimeType: 'image/svg+xml', name: 'clipboard.svg' },
+      { data: second, mimeType: 'image/svg+xml', name: 'same.svg' },
+    ]);
+  });
+
   it('returns empty when clipboardData is null', async () => {
     const event = { type: 'paste', clipboardData: null } as unknown as ClipboardEvent;
     const result = await readFromClipboardEvent(event);

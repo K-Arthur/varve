@@ -735,13 +735,13 @@ async function readClipboardSnapshot(
   if (snapshot.varveData) return result;
   const imported = await Promise.all(
     snapshot.files.map(async ({ file, index }) => {
-      // A clipboard commonly exposes the same SVG as both a string MIME and
-      // a File. Prefer the string snapshot so one logical item cannot paste
-      // twice through two equivalent representations.
-      if (snapshot.svgText && file.type === 'image/svg+xml') return null;
       try {
         if (file.type === 'image/svg+xml') {
           const text = await file.text();
+          // A clipboard commonly exposes the same SVG as both a string MIME
+          // and a File. Suppress only the byte-identical representation; a
+          // second SVG file remains a distinct logical item.
+          if (snapshot.svgText && text === snapshot.svgText) return null;
           return isSvgText(text)
             ? {
                 data: text,
