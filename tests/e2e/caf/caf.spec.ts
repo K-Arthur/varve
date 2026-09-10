@@ -575,6 +575,30 @@ test.describe('Content-Aware Fill dialog', () => {
     expect(historyWarnings).toEqual([]);
   });
 
+  test('duplicates an accepted generative result as a separate layer', async ({ page }) => {
+    await triggerCafDialog(page, nodeId);
+    await paintMaskStroke(page);
+    await page.getByRole('button', { name: /remove && fill/i }).click();
+    await page
+      .getByRole('button', { name: /^apply$/i })
+      .waitFor({ state: 'visible', timeout: 10_000 });
+    await page.getByRole('button', { name: /^apply$/i }).click();
+    await page
+      .locator('dialog.varve-dialog--caf[open]')
+      .waitFor({ state: 'hidden', timeout: 5000 });
+
+    await page.getByRole('tab', { name: 'Adjustments' }).click();
+    await page.getByRole('button', { name: 'Generative Edit' }).click();
+    const duplicateButton = page.getByRole('button', {
+      name: 'Duplicate generative result as layer',
+    });
+    await expect(duplicateButton).toBeVisible();
+    await duplicateButton.click();
+
+    await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 5000 });
+    await expect(page.getByRole('treeitem', { name: /Generative Edit Copy/i })).toBeVisible();
+  });
+
   test('applies a real photographic edit in place and retains its source recipe', async ({
     page,
   }, testInfo) => {

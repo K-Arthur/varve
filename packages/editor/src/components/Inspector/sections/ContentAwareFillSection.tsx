@@ -1,7 +1,7 @@
 import type { SceneNode } from '@varve/scene';
 import { imageShapeSrc, isImageShape } from '@varve/scene';
 import { useEditor } from '../../../context';
-import { restoreImageShapeContent } from '../../../imageOperations';
+import { insertDerivedImageShape, restoreImageShapeContent } from '../../../imageOperations';
 import { DisclosureSection } from '../controls/DisclosureSection';
 
 interface ContentAwareFillSectionProps {
@@ -10,8 +10,15 @@ interface ContentAwareFillSectionProps {
 }
 
 export function ContentAwareFillSection({ nodes, onOpenDialog }: ContentAwareFillSectionProps) {
-  const { state, updateDoc, beginTransaction, commitTransaction, abortTransaction, announce } =
-    useEditor();
+  const {
+    state,
+    updateDoc,
+    beginTransaction,
+    commitTransaction,
+    abortTransaction,
+    announce,
+    setSelection,
+  } = useEditor();
   const node = nodes[0];
   const isImage = Boolean(node && isImageShape(node));
   const typedNode = isImage ? (node as import('@varve/scene').ShapeNode) : null;
@@ -26,6 +33,14 @@ export function ContentAwareFillSection({ nodes, onOpenDialog }: ContentAwareFil
     : undefined;
   const sourceAssetId = acceptedEdit?.sourceSnapshotAssetId ?? acceptedEdit?.sourceAssetId;
   const sourceAsset = sourceAssetId ? state.document.assets?.[sourceAssetId] : undefined;
+  const acceptedVariationId = acceptedEdit?.acceptedVariationId ?? acceptedEdit?.activeVariationId;
+  const acceptedVariation = acceptedEdit?.variations.find(
+    (variation) => variation.id === acceptedVariationId,
+  );
+  const resultAssetId =
+    acceptedVariation?.assetId ??
+    typedNode.fills?.find((fill) => fill.type === 'image')?.image?.assetId;
+  const resultAsset = resultAssetId ? state.document.assets?.[resultAssetId] : undefined;
 
   const restoreOriginal = () => {
     if (!sourceAsset) return;
@@ -42,6 +57,31 @@ export function ContentAwareFillSection({ nodes, onOpenDialog }: ContentAwareFil
     } catch (error) {
       abortTransaction();
       announce(error instanceof Error ? error.message : 'Could not restore the original image');
+    }
+  };
+
+  const duplicateAsLayer = () => {
+    if (!acceptedEdit || !resultAsset) {
+      announce('The accepted generative result is no longer available to duplicate');
+      return;
+    }
+    beginTransaction();
+    try {
+      const duplicated = insertDerivedImageShape(state.document, typedNode.id, {
+        dataUrl: resultAsset.dataUrl,
+        assetId: resultAsset.id,
+        width: resultAsset.naturalWidth,
+        height: resultAsset.naturalHeight,
+        suffix: 'Generative Edit Copy',
+        generativeEditId: acceptedEdit.id,
+      });
+      updateDoc(() => duplicated.doc);
+      commitTransaction();
+      setSelection(duplicated.nodeId);
+      announce('Duplicated the accepted generative result as a new layer');
+    } catch (error) {
+      abortTransaction();
+      announce(error instanceof Error ? error.message : 'Could not duplicate the result');
     }
   };
 
@@ -86,6 +126,16 @@ export function ContentAwareFillSection({ nodes, onOpenDialog }: ContentAwareFil
               aria-label="Restore original image"
             >
               Restore Original
+            </button>
+          )}
+          {acceptedEdit && resultAsset && (
+            <button
+              type="button"
+              className="caf-entry-button"
+              onClick={duplicateAsLayer}
+              aria-label="Duplicate generative result as layer"
+            >
+              Duplicate as Layer
             </button>
           )}
         </div>
