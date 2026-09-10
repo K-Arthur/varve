@@ -33,6 +33,13 @@ interface ImportProgressState {
 
 /** The slice of the editor context this module needs. Keeps the seam narrow. */
 export interface FileImportEditor {
+  /** Snapshot used to reject a picker result that outlived its destination. */
+  state: {
+    document: { id: string };
+    activeId: string;
+    revision: number;
+    selectionRevision: number;
+  };
   announce: (message: string) => void;
   addLutAdjustment: (adjustment: Adjustment) => void;
   batchImportNodes: (items: { node: SceneNode; sourceDoc: Document }[]) => void;
@@ -52,9 +59,14 @@ export interface FileImportController {
   dismissReport: () => void;
 }
 
-async function importLutFiles(files: File[], editor: FileImportEditor): Promise<void> {
+async function importLutFiles(
+  files: File[],
+  editor: FileImportEditor,
+  isCurrent: () => boolean,
+): Promise<void> {
   const { parseCubeData, parse3dlData, makeAdjustment } = await import('@varve/engine');
   for (const file of files) {
+    if (!isCurrent()) return;
     const text = await file.text();
     const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
     try {
@@ -74,6 +86,7 @@ async function importLutFiles(files: File[], editor: FileImportEditor): Promise<
           opacity: 1,
         },
       );
+      if (!isCurrent()) return;
       editor.addLutAdjustment(lutAdj);
       editor.announce(`Imported LUT: ${file.name}`);
     } catch (err) {
@@ -118,9 +131,18 @@ export function useFileImport(editor: FileImportEditor): FileImportController {
         revision: editor.state.revision,
         selectionRevision: editor.state.selectionRevision,
       };
+      const isCurrent = (): boolean => {
+        const current = editorRef.current.state;
+        return (
+          current.document.id === expected.documentId &&
+          current.activeId === expected.activeId &&
+          current.revision === expected.revision &&
+          current.selectionRevision === expected.selectionRevision
+        );
+      };
       try {
         const lutFiles = files.filter((f) => LUT_PATTERN.test(f.name));
-        if (lutFiles.length > 0) await importLutFiles(lutFiles, editor);
+        if (lutFiles.length > 0) await importLutFiles(lutFiles, editorRef.current, isCurrent);
 
         const artwork = files.filter((f) => !LUT_PATTERN.test(f.name));
         if (artwork.length === 0) return;
@@ -157,13 +179,7 @@ export function useFileImport(editor: FileImportEditor): FileImportController {
             }
           }
         }
-        const current = editorRef.current.state;
-        if (
-          current.document.id !== expected.documentId ||
-          current.activeId !== expected.activeId ||
-          current.revision !== expected.revision ||
-          current.selectionRevision !== expected.selectionRevision
-        ) {
+        if (!isCurrent()) {
           editor.announce('Import cancelled because the document changed while it was loading');
           return;
         }

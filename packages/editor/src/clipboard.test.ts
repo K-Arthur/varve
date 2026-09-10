@@ -529,6 +529,36 @@ describe('readFromClipboardEvent', () => {
     expect(tiles.get('0:0')?.pixels[0]).toBe(255);
   });
 
+  it('rejects unknown node kinds and cyclic container graphs before paste', () => {
+    const unknown = parseClipboardData(
+      JSON.stringify({
+        format: 'varve-clipboard',
+        version: 1,
+        nodes: [{ id: 'n1', kind: 'plugin-node' }],
+      }),
+    );
+    expect(unknown).toBeNull();
+
+    const cyclic = parseClipboardData(
+      JSON.stringify({
+        format: 'varve-clipboard',
+        version: 1,
+        nodes: [
+          { id: 'g1', kind: 'group', children: ['g2'] },
+          { id: 'g2', kind: 'group', children: ['g1'] },
+        ],
+      }),
+    );
+    expect(cyclic).toBeNull();
+  });
+
+  it('does not report an invalid fragment as an editable clipboard write', async () => {
+    const outcome = await writeClipboardOutcome([
+      { id: 'g1', kind: 'group', children: ['missing'] } as unknown as SceneNode,
+    ]);
+    expect(outcome).toEqual({ status: 'failed', reason: 'write-failed' });
+  });
+
   it('does not call a names-only fallback an editable copy', async () => {
     const originalClipboard = navigator.clipboard;
     const originalClipboardItem = globalThis.ClipboardItem;

@@ -204,3 +204,44 @@ Firefox external-application lane were not silently treated as passing; they
 remain explicit validation work. The next milestone records their exact
 commands and any environment or permission failures separately from parser
 and application results.
+
+### Validation update — 2026-09-09
+
+The follow-up implementation also validates the serialized fragment graph
+before a clipboard write: unknown node kinds, missing container children,
+cyclic ownership, malformed raster tiles, invalid resource maps, non-finite
+transforms, and UTF-8 payloads over the byte budget are rejected. Paste
+announcements now use the number of roots that the commit transaction actually
+landed and include partial-fidelity counts. The picker guard's editor seam now
+declares the revision state it snapshots, so the affected package typecheck
+cannot silently drift from the runtime contract.
+
+Commands and evidence from this checkout:
+
+```text
+VARVE_TEST_WORKERS=1 pnpm exec vitest run packages/editor/src/clipboard.test.ts --maxWorkers=1 --reporter=verbose
+21 tests passed
+VARVE_TEST_WORKERS=1 pnpm exec vitest run packages/editor/src/context.import.test.tsx packages/import/src/svg.test.ts --maxWorkers=1 --reporter=dot
+36 tests passed
+./node_modules/.bin/tsc -p packages/editor/tsconfig.json --noEmit
+passed (the concurrent workspace build still reports unrelated generative/codegen errors)
+./node_modules/.bin/tsc -p packages/import/tsconfig.json --noEmit
+passed
+pnpm build:website
+pnpm build:website:pages
+both passed; 82 pages generated for each deployment base
+VARVE_WEBSITE_E2E_PORT=4341 VARVE_WEBSITE_E2E_PORT_ROOT=4342 pnpm exec playwright test -c playwright.website.config.ts apps/website/tests/e2e/clipboard-feature.spec.ts --project=ghpages --project=custom-domain --workers=1 --reporter=list
+8 passed; desktop light/dark and mobile screenshots inspected
+VARVE_E2E_PORT=1551 VARVE_E2E_WORKERS=1 VARVE_E2E_OUTPUT_DIR=clipboard-audit-2026-09-09 pnpm exec playwright test tests/e2e/canvas/clipboard.spec.ts tests/e2e/canvas/figma-import.spec.ts --project=chromium --reporter=list
+clipboard rendering and editor-load cases passed; import-report dismissal is now covered; the run was stopped after concurrent HMR failures from a missing generative-edit module
+VARVE_WDIO_SPECS=./tests/wdio/clipboard-wayland.e2e.ts pnpm test:desktop:native
+preflight passed; build stopped before the native spec on concurrent TypeScript errors in codegen, scene, and ContentAwareFill
+```
+
+Inspected browser evidence includes a pasted vector rectangle with selection
+handles, centered rotated placement, and website clipboard capability tables in
+light, dark, and mobile layouts. Native `.fig` screenshots show the imported
+layers and the expected Import Results report; the report is intentionally
+dismissed by the integration spec before canvas assertions. The full native
+transport, Firefox-owned Figma captures, rich-text formatting, and paste/drop
+Import Results wiring remain open and are not claimed as complete.

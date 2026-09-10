@@ -11,6 +11,13 @@ import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
 
+async function dismissImportReport(page: import('@playwright/test').Page): Promise<void> {
+  const report = page.locator('.import-results-overlay');
+  if (!(await report.isVisible({ timeout: 1000 }).catch(() => false))) return;
+  await report.getByRole('button', { name: /close/i }).click();
+  await expect(report).toHaveCount(0);
+}
+
 test.describe('Figma import integration', () => {
   test('editor loads with Figma parser registered and file input accepts .fig', async ({
     page,
@@ -97,7 +104,7 @@ test.describe('Figma import integration', () => {
     await expect(page.locator('.layers-panel')).toContainText('Auto Layout card', {
       timeout: 30000,
     });
-    await expect(page.locator('.import-results-overlay')).toHaveCount(0);
+    await dismissImportReport(page);
     await expect(page.locator('.editor-canvas canvas, canvas').first()).toBeVisible();
     const testResultsDir = process.env.PLAYWRIGHT_TEST_RESULT_DIR ?? 'test-results';
     await page.screenshot({
@@ -116,7 +123,7 @@ test.describe('Figma import integration', () => {
     await expect(page.locator('.layers-panel')).toContainText('WhiteOpenFigOutlinedIcon', {
       timeout: 30000,
     });
-    await expect(page.locator('.import-results-overlay')).toHaveCount(0);
+    await dismissImportReport(page);
     await expect(page.locator('.editor-canvas canvas, canvas').first()).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath('native-fig-import.png') });
   });
@@ -210,6 +217,7 @@ test.describe('Figma import integration', () => {
     await expect(dialog).toBeVisible({ timeout: 30000 });
     await expect(dialog).toContainText('Missing Display');
     await expect(dialog).toContainText('rich-text runs');
+    await dismissImportReport(page);
     await page.screenshot({ path: testInfo.outputPath('font-replacement-dialog.png') });
     await expect(dialog.getByRole('button', { name: 'Replace All' })).toBeEnabled();
     await dialog.getByRole('button', { name: 'Replace All' }).click();
@@ -264,6 +272,7 @@ test.describe('Figma import integration', () => {
     await expect(dialog).toContainText('Exact family available from Fontsource');
     await expect(dialog).toContainText('700');
     await expect(dialog).toContainText('SIL Open Font License');
+    await dismissImportReport(page);
     await page.screenshot({ path: testInfo.outputPath('fontsource-recovery-dialog.png') });
 
     await dialog.getByRole('button', { name: 'Browse fonts' }).click();

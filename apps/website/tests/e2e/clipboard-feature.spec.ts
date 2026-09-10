@@ -11,6 +11,22 @@ test('clipboard feature page describes structure-preserving transfer', async ({ 
   await expect(page.getByText(/does not claim Figma, Illustrator, or Office/i)).toBeVisible();
 });
 
+for (const colorScheme of ['light', 'dark'] as const) {
+  test(`clipboard feature desktop ${colorScheme} layout`, async ({ page }, testInfo) => {
+    await page.emulateMedia({ colorScheme, reducedMotion: 'reduce' });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/features/clipboard');
+    await expect(
+      page.getByRole('heading', { name: /what travels, and what stays honest/i }),
+    ).toBeVisible();
+    await expect(page.getByRole('table')).toBeVisible();
+    await page.screenshot({
+      path: testInfo.outputPath(`clipboard-feature-desktop-${colorScheme}.png`),
+      fullPage: true,
+    });
+  });
+}
+
 test('clipboard feature page remains usable at mobile width', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 375, height: 800 });
   await page.goto('/features/clipboard');
