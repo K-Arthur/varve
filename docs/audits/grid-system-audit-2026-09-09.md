@@ -58,7 +58,7 @@ but its remaining-state tables are historical and should not be treated as curre
 | Inspector controls and state precedence | Done | `LayoutSection.test.tsx` and editor typecheck |
 | Website documentation and feature copy | Done | website typecheck + 6 grid-docs browser tests across both site builds |
 | Marketing visual hierarchy and responsive composition | Done | inspected desktop/mobile docs and Canvas feature captures; no overflow |
-| Editor browser interaction/visual validation | Blocked in shared worktree | Playwright reaches the editor, then the app enters its safe-mode crash screen before the layout-guide assertion; rerun after concurrent editor changes settle |
+| Editor browser interaction/visual validation | Blocked in shared worktree | Playwright reaches the editor, then the shared build enters a Vite error overlay/safe-mode screen for unrelated unresolved imports (`generativeEdit/nativeModel`, `@tauri-apps/plugin-dialog`) before the layout-guide assertion; rerun after concurrent editor changes settle |
 
 ## External reference check
 
