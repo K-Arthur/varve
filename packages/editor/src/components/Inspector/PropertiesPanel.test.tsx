@@ -248,7 +248,7 @@ describe('PropertiesPanel section gating for a real single selection', () => {
     await renderPanelWithSelectedRect(true);
 
     expect(screen.getByText(/selection is locked/i)).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Layout' }).closest('[inert]')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Position & Size' }).closest('[inert]')).toBeTruthy();
   });
 
   it('explains the full scope when a mixed selection contains a locked node', async () => {
@@ -272,7 +272,7 @@ describe('PropertiesPanel section gating for a real single selection', () => {
 
     expect(screen.getByText(/1 of 2 selected layers are locked/i)).toBeTruthy();
     expect(screen.getByText(/disabled until all selected layers are unlocked/i)).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Layout' }).closest('[inert]')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Position & Size' }).closest('[inert]')).toBeTruthy();
   });
 
   it('keeps a hidden selection inspectable and explains the missing canvas feedback', async () => {
@@ -280,7 +280,7 @@ describe('PropertiesPanel section gating for a real single selection', () => {
 
     expect(screen.getByText(/selection is hidden by Rect1/i)).toBeTruthy();
     expect(screen.getByText(/canvas feedback is unavailable/i)).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Layout' }).closest('[inert]')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Position & Size' }).closest('[inert]')).toBeNull();
   });
 
   it('honors section-manager visibility for optional Properties sections', async () => {

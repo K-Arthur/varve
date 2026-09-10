@@ -210,7 +210,7 @@ describe('EffectsSection — glass material tint swatch', () => {
 
     render(<EffectsSection nodes={[target]} />);
     fireEvent.click(screen.getByRole('button', { name: /expand drop shadow parameters/i }));
-    fireEvent.click(screen.getByRole('combobox', { name: 'Effect mask source' }));
+    fireEvent.click(await screen.findByRole('combobox', { name: 'Effect mask source' }));
     fireEvent.click(await screen.findByRole('option', { name: 'Rect' }));
 
     expect(updateDoc).toHaveBeenCalledWith(expect.any(Function));
@@ -394,22 +394,22 @@ describe('EffectsSection — per-row collapse/expand', () => {
     );
   });
 
-  it('reveals effect parameters when the row is expanded', () => {
+  it('reveals effect parameters when the row is expanded', async () => {
     render(<EffectsSection nodes={[nodeWithShadow('n1')]} />);
     fireEvent.click(screen.getByRole('button', { name: /expand drop shadow parameters/i }));
-    expect(screen.getByLabelText('Blur')).toBeTruthy();
+    expect(await screen.findByLabelText('Blur')).toBeTruthy();
     expect(
       screen.getByRole('button', { name: /collapse drop shadow parameters/i }),
     ).toHaveAttribute('aria-expanded', 'true');
   });
 
-  it('collapses parameters again on a second click', () => {
+  it('collapses parameters again on a second click', async () => {
     render(<EffectsSection nodes={[nodeWithShadow('n1')]} />);
     const toggle = screen.getByRole('button', { name: /expand drop shadow parameters/i });
     fireEvent.click(toggle);
-    expect(screen.getByLabelText('Blur')).toBeTruthy();
+    expect(await screen.findByLabelText('Blur')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /collapse drop shadow parameters/i }));
-    expect(screen.queryByLabelText('Blur')).toBeNull();
+    await waitFor(() => expect(screen.queryByLabelText('Blur')).toBeNull());
   });
 
   it('mounts a newly added effect already expanded', () => {
@@ -569,35 +569,35 @@ describe('EffectsSection — glitch', () => {
     expect(screen.getByText('Glitch')).toBeTruthy();
   });
 
-  it('renders strength and density controls once expanded', () => {
+  it('renders strength and density controls once expanded', async () => {
     render(<EffectsSection nodes={[nodeWithGlitch('n1')]} />);
     // Params are collapsed by default (see EffectsSection's per-row disclosure).
     fireEvent.click(screen.getByRole('button', { name: /expand glitch parameters/i }));
-    expect(screen.getByLabelText('Strength')).toBeTruthy();
+    expect(await screen.findByLabelText('Strength')).toBeTruthy();
     expect(screen.getByLabelText('Density')).toBeTruthy();
   });
 
-  it('renders direction selector once expanded', () => {
+  it('renders direction selector once expanded', async () => {
     render(<EffectsSection nodes={[nodeWithGlitch('n1')]} />);
     fireEvent.click(screen.getByRole('button', { name: /expand glitch parameters/i }));
-    expect(screen.getByLabelText('Glitch direction')).toBeTruthy();
+    expect(await screen.findByLabelText('Glitch direction')).toBeTruthy();
   });
 
-  it('renders a glitch blend mode selector once expanded', () => {
+  it('renders a glitch blend mode selector once expanded', async () => {
     render(<EffectsSection nodes={[nodeWithGlitch('n1')]} />);
     fireEvent.click(screen.getByRole('button', { name: /expand glitch parameters/i }));
-    expect(screen.getByLabelText('Glitch blend mode')).toBeTruthy();
+    expect(await screen.findByLabelText('Glitch blend mode')).toBeTruthy();
   });
 
   it('shows advanced section on click', async () => {
     render(<EffectsSection nodes={[nodeWithGlitch('n1')]} />);
     fireEvent.click(screen.getByRole('button', { name: /expand glitch parameters/i }));
-    const advancedBtn = screen.getByText('Advanced...');
+    const advancedBtn = await screen.findByText('Advanced...');
     fireEvent.click(advancedBtn);
     await waitFor(() => {
       expect(screen.getByText('Hide advanced')).toBeTruthy();
     });
-    expect(screen.getByLabelText('Slice Height')).toBeTruthy();
+    expect(await screen.findByLabelText('Slice Height')).toBeTruthy();
   });
 });
 
@@ -625,10 +625,10 @@ describe('EffectsSection — outerGlow color swatch', () => {
     expect(screen.getByRole('button', { name: /effect colour/i })).toBeTruthy();
   });
 
-  it('renders editable gradient color treatment controls', () => {
+  it('renders editable gradient color treatment controls', async () => {
     render(<EffectsSection nodes={[nodeWithOuterGlow('n1', true)]} />);
     fireEvent.click(screen.getByRole('button', { name: /expand outer glow parameters/i }));
-    expect(screen.getByLabelText('Glow color treatment')).toBeTruthy();
+    expect(await screen.findByLabelText('Glow color treatment')).toBeTruthy();
     expect(screen.getByLabelText('Glow gradient start')).toBeTruthy();
     expect(screen.getByLabelText('Glow gradient end')).toBeTruthy();
   });
@@ -683,7 +683,7 @@ describe('EffectsSection — group-level effects', () => {
     };
     render(<EffectsSection nodes={[group]} />);
     expect(screen.getAllByText('Drop Shadow').length).toBeGreaterThan(0);
-    expect(screen.getByLabelText('Remove effect')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Effect actions' })).toBeTruthy();
   });
 });
 
@@ -706,12 +706,13 @@ describe('EffectsSection — stack actions', () => {
 
   afterEach(cleanup);
 
-  it('duplicates an effect next to its source with a fresh stable id', () => {
+  it('duplicates an effect next to its source with a fresh stable id', async () => {
     const node = nodeWithShadow('n1');
     node.effects[0] = { ...node.effects[0], id: 'source-effect' };
     render(<EffectsSection nodes={[node]} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Duplicate effect' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Effect actions' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Duplicate effect' }));
 
     const updater = updateNode.mock.calls[0]?.[1] as (value: typeof node) => typeof node;
     const updated = updater(node);
@@ -723,7 +724,7 @@ describe('EffectsSection — stack actions', () => {
     expect(announce).toHaveBeenCalledWith('Effect duplicated');
   });
 
-  it('resets parameters while preserving the effect identity', () => {
+  it('resets parameters while preserving the effect identity', async () => {
     const node = nodeWithShadow('n1');
     node.effects[0] = {
       ...node.effects[0],
@@ -736,7 +737,8 @@ describe('EffectsSection — stack actions', () => {
     };
     render(<EffectsSection nodes={[node]} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Reset effect' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Effect actions' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Reset effect' }));
 
     const updater = updateNode.mock.calls[0]?.[1] as (value: typeof node) => typeof node;
     const updated = updater(node);
@@ -752,7 +754,7 @@ describe('EffectsSection — stack actions', () => {
     expect(announce).toHaveBeenCalledWith('Effect reset');
   });
 
-  it('matches a mixed-selection edit by effect identity instead of array index', () => {
+  it('matches a mixed-selection edit by effect identity instead of array index', async () => {
     const first = nodeWithShadow('n1') as ShapeNode;
     const sharedShadow = first.effects[0]!;
     first.effects[0] = { ...sharedShadow, id: 'shared-shadow' };
@@ -772,7 +774,8 @@ describe('EffectsSection — stack actions', () => {
     second.effects.push({ ...sharedShadow, id: 'shared-shadow' });
 
     render(<EffectsSection nodes={[first, second]} />);
-    fireEvent.click(screen.getAllByRole('button', { name: 'Reset effect' })[0]!);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Effect actions' })[0]!);
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Reset effect' }));
 
     const firstUpdater = updateNode.mock.calls[0]?.[1] as (value: typeof first) => typeof first;
     const secondUpdater = updateNode.mock.calls[1]?.[1] as (value: typeof second) => typeof second;
@@ -804,24 +807,24 @@ describe('EffectsSection — glitch displacement controls', () => {
 
   afterEach(cleanup);
 
-  it('exposes block strength, channel mode, and per-channel offsets', () => {
+  it('exposes block strength, channel mode, and per-channel offsets', async () => {
     render(<EffectsSection nodes={[nodeWithGlitch('n1')]} />);
     fireEvent.click(screen.getByRole('button', { name: /expand glitch parameters/i }));
-    fireEvent.click(screen.getByRole('button', { name: /advanced/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /advanced/i }));
 
-    expect(screen.getByLabelText('Block Strength')).toBeTruthy();
+    expect(await screen.findByLabelText('Block Strength')).toBeTruthy();
     expect(screen.getByLabelText('Channel shift mode')).toBeTruthy();
     expect(screen.getByLabelText('Red X')).toBeTruthy();
     expect(screen.getByLabelText('Green Y')).toBeTruthy();
     expect(screen.getByLabelText('Blue X')).toBeTruthy();
   });
 
-  it('updates a channel offset through one undo transaction', () => {
+  it('updates a channel offset through one undo transaction', async () => {
     const node = nodeWithGlitch('n1');
     render(<EffectsSection nodes={[node]} />);
     fireEvent.click(screen.getByRole('button', { name: /expand glitch parameters/i }));
-    fireEvent.click(screen.getByRole('button', { name: /advanced/i }));
-    const redX = screen.getByLabelText('Red X');
+    fireEvent.click(await screen.findByRole('button', { name: /advanced/i }));
+    const redX = await screen.findByLabelText('Red X');
     fireEvent.change(redX, { target: { value: '12' } });
     fireEvent.blur(redX);
 

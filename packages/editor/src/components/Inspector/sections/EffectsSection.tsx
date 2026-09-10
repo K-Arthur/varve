@@ -37,13 +37,14 @@ import {
   setEffectMask,
 } from '@varve/scene';
 import { managedColorToRgba } from '@varve/shared';
-import { Icon, type IconName, Select, Switch } from '@varve/ui';
+import { Icon, type IconName, Menu, type MenuEntry, Select, Switch } from '@varve/ui';
 import { useCallback, useId, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { groupBlendOptions } from '../controls/blendModeOptionGroups';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow, InspectorFieldGroup } from '../controls/FieldRow';
 import { InspectorColorPopover } from '../controls/InspectorColorPopover';
+import { InspectorFocusedEditor } from '../controls/InspectorFocusedEditor';
 import { NumberField } from '../controls/NumberField';
 import { commonValue, isMixed, type MaybeMixed } from '../selection/selectionState';
 
@@ -376,6 +377,7 @@ function EffectRow({
   canMoveDown,
   startExpanded = false,
 }: EffectRowProps) {
+  const editor = useEditor();
   const referenceStack = nodes[0]?.effects ?? [];
   const rowNodes = nodes.map((node) => alignEffectRow(node, index, referenceStack));
   const hasMissingEffect = rowNodes.some((node) => (node.effects?.length ?? 0) === 0);
@@ -398,7 +400,40 @@ function EffectRow({
   // effect stacks behave. `startExpanded` (lazy initializer) opens the row
   // that was just added instead of requiring an extra click to configure it.
   const [expanded, setExpanded] = useState(startExpanded);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const paramsId = useId();
+  const ownerKey = `${editor.state?.document?.id ?? 'document'}:${nodes.map((node) => node.id).join(',')}:${index}:${type ?? 'mixed'}`;
+  const actionItems = useMemo<readonly MenuEntry[]>(
+    () => [
+      { id: 'reset', label: 'Reset effect', onAction: onReset, icon: 'RotateCcw' },
+      { id: 'duplicate', label: 'Duplicate effect', onAction: onDuplicate, icon: 'Copy' },
+      { id: 'separator-before-order', separator: true },
+      {
+        id: 'move-up',
+        label: 'Move effect up',
+        onAction: () => onReorder(-1),
+        disabled: !canMoveUp,
+        icon: 'ChevronUp',
+      },
+      {
+        id: 'move-down',
+        label: 'Move effect down',
+        onAction: () => onReorder(1),
+        disabled: !canMoveDown,
+        icon: 'ChevronDown',
+      },
+      { id: 'separator-before-remove', separator: true },
+      {
+        id: 'remove',
+        label: 'Remove effect',
+        onAction: onRemove,
+        destructive: true,
+        icon: 'X',
+      },
+    ],
+    [canMoveDown, canMoveUp, onDuplicate, onRemove, onReset, onReorder],
+  );
 
   return (
     <div className="insp-effect-row">
@@ -421,22 +456,6 @@ function EffectRow({
             />
           </button>
         )}
-        <button
-          type="button"
-          className="insp-inline-btn"
-          aria-label="Reset effect"
-          onClick={onReset}
-        >
-          <Icon name="RotateCcw" label={undefined} size="0.85em" />
-        </button>
-        <button
-          type="button"
-          className="insp-inline-btn"
-          aria-label="Duplicate effect"
-          onClick={onDuplicate}
-        >
-          <Icon name="Copy" label={undefined} size="0.85em" />
-        </button>
         <Switch
           className="insp-switch"
           aria-label={`${visibility ? 'Hide' : 'Show'} effect`}
@@ -468,51 +487,40 @@ function EffectRow({
             size="0.85em"
           />
         )}
-        <span
-          style={{ flex: 1, fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}
-        >
-          {rowLabel}
-        </span>
+        <span className="insp-effect-row__name">{rowLabel}</span>
         <button
           type="button"
-          aria-label="Move effect up"
-          disabled={!canMoveUp}
-          onClick={() => onReorder(-1)}
-          className="insp-inline-btn"
-          style={{
-            opacity: canMoveUp ? 1 : 0.3,
-            cursor: canMoveUp ? 'pointer' : 'not-allowed',
-          }}
+          ref={triggerRef}
+          className="insp-inline-btn insp-effect-row__menu-trigger"
+          aria-label="Effect actions"
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen((value) => !value)}
         >
-          <Icon name="ChevronUp" label={undefined} size="0.85em" />
+          <Icon name="Ellipsis" label={undefined} size="0.85em" />
         </button>
-        <button
-          type="button"
-          aria-label="Move effect down"
-          disabled={!canMoveDown}
-          onClick={() => onReorder(1)}
-          className="insp-inline-btn"
-          style={{
-            opacity: canMoveDown ? 1 : 0.3,
-            cursor: canMoveDown ? 'pointer' : 'not-allowed',
-          }}
-        >
-          <Icon name="ChevronDown" label={undefined} size="0.85em" />
-        </button>
-        <button
-          type="button"
-          className="insp-inline-btn"
-          aria-label="Remove effect"
-          onClick={onRemove}
-        >
-          <Icon name="X" label={undefined} size="0.85em" />
-        </button>
+        <Menu
+          triggerRef={triggerRef}
+          open={menuOpen}
+          onClose={() => setMenuOpen(false)}
+          label={`${rowLabel} actions`}
+          items={actionItems}
+          size="compact"
+        />
       </div>
 
       {type && expanded && (
-        <div id={paramsId} key={`${nodes.map((node) => node.id).join(',')}:${index}`}>
-          <EffectParams type={type} nodes={rowNodes} index={index} onChange={onChange} />
-        </div>
+        <InspectorFocusedEditor
+          anchorRef={triggerRef}
+          open={expanded}
+          title={`${rowLabel} parameters`}
+          ownerKey={ownerKey}
+          onClose={() => setExpanded(false)}
+        >
+          <div id={paramsId} key={ownerKey}>
+            <EffectParams type={type} nodes={rowNodes} index={index} onChange={onChange} />
+          </div>
+        </InspectorFocusedEditor>
       )}
     </div>
   );

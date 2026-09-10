@@ -1,7 +1,7 @@
 /**
  * Appearance section — opacity, blend mode for the current selection.
  *
- * F6 (Inspector): opacity via NumberField (0-1, step 0.01), blend mode via
+ * F6 (Inspector): opacity via NumberField (0-100%, step 1), blend mode via
  * themed Select (portaled listbox — never native OS dark menus).
  *
  * Research basis: Figma/Sketch opacity slider + blend mode dropdown;
@@ -57,21 +57,23 @@ export function AppearanceSection({ nodes }: { nodes: SceneNode[] }) {
   const opacityState = opacityBinding?.state ?? classifySelectionProperty(opacityValues);
   const blendRaw = commonValue(nodes, (n) => n.blendMode ?? 'normal');
   const bindingTriggerRef = useRef<HTMLDivElement>(null);
+  const opacityValue = opacityBinding?.value ?? (isMixed(opacityRaw) ? 1 : opacityRaw);
 
   return (
     <DisclosureSection title="Appearance" sectionId="appearance">
       <NumberField
         label="Opacity"
-        value={opacityBinding?.value ?? (isMixed(opacityRaw) ? 1 : opacityRaw)}
+        value={opacityValue * 100}
         mixed={opacityState.kind === 'mixed'}
         propertyState={opacityState}
         readOnly={opacityBinding?.readOnly ?? false}
         bindingLabel={opacityBinding?.sourceLabel}
         onUnbind={opacityBinding ? () => editor.setSelectedBinding('opacity', null) : undefined}
-        step={0.01}
+        unit="%"
+        step={1}
         min={0}
-        max={1}
-        onChange={setSelectedOpacity}
+        max={100}
+        onChange={(value) => setSelectedOpacity(value / 100)}
         fieldName="opacity"
         onShiftClick={() => editor.setBindingField('opacity')}
         containerRef={bindingTriggerRef}

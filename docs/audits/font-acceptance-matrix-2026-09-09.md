@@ -20,7 +20,7 @@ shipped capability.
 | 11 | Cancellation during validation/storage/loading | Implemented | Download-manager race tests |
 | 12 | Permission revocation has an actionable fallback | Partial | Browser denial fallback; native denial E2E pending |
 | 13 | Offline retry does not fetch during search/hover | Implemented | Local preview tests and catalog policy |
-| 14 | Range formatting preserves unrelated runs | Partial | Existing rich-text command tests; focused toolbar E2E asserts picker-first Escape, but runtime evidence is pending a clean concurrent HMR run |
+| 14 | Range formatting preserves unrelated runs | Partial | Existing rich-text command tests; toolbar E2E pending |
 | 15 | One toolbar choice is one undo step | Implemented | `groupCompoundOperation` in text toolbar path |
 | 16 | Save/reopen preserves exact face reference | Implemented | Schema 2.27 and manifest v2 tests |
 | 17 | Two documents keep project-font lifetimes isolated | Partial | Storage API scoped by artifact; integration test pending |

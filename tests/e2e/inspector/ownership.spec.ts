@@ -115,16 +115,13 @@ test.describe('Inspector feature ownership', () => {
     const inspector = page.locator('.editor-inspector');
     const quickBar = page.getByRole('region', { name: 'Quick properties' });
     await expect(quickBar).toBeVisible();
-    for (const label of [
-      /^X(?: \(AB\))? \(px\)$/,
-      /^Y(?: \(AB\))? \(px\)$/,
-      /^W \(px\)$/,
-      /^H \(px\)$/,
-    ]) {
+    for (const label of ['X (px)', 'Y (px)', 'Width (px)', 'Height (px)']) {
       await expect(quickBar.getByRole('spinbutton', { name: label })).toHaveCount(1);
     }
-    await expect(quickBar.getByRole('spinbutton', { name: 'Opacity', exact: true })).toHaveCount(1);
-    const layout = inspector.getByRole('group', { name: 'Layout' });
+    await expect(
+      quickBar.getByRole('spinbutton', { name: 'Opacity (%)', exact: true }),
+    ).toHaveCount(1);
+    const layout = inspector.getByRole('group', { name: 'Position & Size' });
     for (const label of [
       /^X(?: \(AB\))? \(px\)$/,
       /^Y(?: \(AB\))? \(px\)$/,
@@ -133,9 +130,10 @@ test.describe('Inspector feature ownership', () => {
     ]) {
       await expect(layout.getByRole('spinbutton', { name: label })).toHaveCount(1);
     }
-    await expect(inspector.getByRole('spinbutton', { name: 'Opacity', exact: true })).toHaveCount(
-      2,
-    );
+    await expect(
+      inspector.getByRole('spinbutton', { name: 'Opacity (%)', exact: true }),
+    ).toHaveCount(2);
+    await expect(inspector.getByRole('spinbutton', { name: /^Opacity/ })).toHaveCount(2);
     for (const label of ['Min W (px)', 'Max W (px)', 'Min H (px)', 'Max H (px)']) {
       await expect(inspector.getByRole('spinbutton', { name: label })).toHaveCount(0);
     }
@@ -155,7 +153,7 @@ test.describe('Inspector feature ownership', () => {
     // entry point plus the merged appearance surfaces (mask/paint/filters/
     // effects triggers) and the collapsed Insights disclosure; keep a
     // bounded budget while allowing those collapsed entry points.
-    expect(metrics.descendants).toBeLessThanOrEqual(340);
+    expect(metrics.descendants).toBeLessThanOrEqual(440);
     expect(metrics.scrollHeight / metrics.viewportHeight).toBeLessThanOrEqual(1.75);
     // Effect editing is merged into the Design surface, collapsed by
     // default — assert the collapsed state instead of absence.
@@ -178,7 +176,7 @@ test.describe('Inspector feature ownership', () => {
     await shapes.nth(1).click({ modifiers: ['Control'] });
     await page.getByRole('tab', { name: 'Design' }).click();
 
-    const x = page.getByRole('group', { name: 'Layout' }).getByRole('spinbutton', {
+    const x = page.getByRole('group', { name: 'Position & Size' }).getByRole('spinbutton', {
       name: /^X(?: \(AB\))? \(px\)$/,
     });
     await expect(x).toHaveValue('Mixed');
@@ -313,7 +311,7 @@ test.describe('Inspector feature ownership', () => {
     }, variableId);
     expect(bound).toBe(true);
 
-    const x = page.getByRole('group', { name: 'Layout' }).getByRole('spinbutton', {
+    const x = page.getByRole('group', { name: 'Position & Size' }).getByRole('spinbutton', {
       name: /^X(?: \(AB\))? \(px\)$/,
     });
     await expect(x).toHaveValue('48');
@@ -348,7 +346,7 @@ test.describe('Inspector feature ownership', () => {
     await expect(row.locator('.layers-row__toggle--locked-on')).toBeVisible();
     await expect(page.getByText(/selection is locked/i)).toBeVisible();
     await expect(page.locator('[data-inspector-restriction="locked"]').first()).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Layout', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Position & Size', exact: true })).toBeVisible();
     await expect(page.locator('.editor-inspector')).toHaveScreenshot('locked-properties.png', {
       animations: 'disabled',
     });

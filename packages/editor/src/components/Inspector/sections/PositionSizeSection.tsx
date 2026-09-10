@@ -274,7 +274,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
   );
 
   return (
-    <DisclosureSection title="Layout" sectionId="position-size">
+    <DisclosureSection title="Position & Size" sectionId="position-size">
       {useArtboardCoords && (
         <p className="insp-panel__empty-hint">Coordinates shown relative to active artboard</p>
       )}

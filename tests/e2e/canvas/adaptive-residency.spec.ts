@@ -82,7 +82,7 @@ test('selected-frame image import remains nested, clipped, and pixel-stable', as
 
   const layout = page
     .getByRole('region', { name: 'Inspector' })
-    .getByRole('button', { name: 'Layout', exact: true })
+    .getByRole('button', { name: 'Stack / Grid', exact: true })
     .first();
   if ((await layout.getAttribute('aria-expanded')) !== 'true') await layout.click();
   await expect(page.getByRole('switch', { name: /^clip content$/i })).toBeChecked();

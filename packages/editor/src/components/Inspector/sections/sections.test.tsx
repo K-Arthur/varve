@@ -149,7 +149,7 @@ describe('AppearanceSection', () => {
   it('renders opacity and blend mode controls', () => {
     const node = createRectNode('n1');
     renderWithProvider(<AppearanceSection nodes={[node]} />);
-    expect(screen.getByLabelText('Opacity')).toBeTruthy();
+    expect(screen.getByLabelText('Opacity (%)')).toHaveValue('100');
     expect(screen.getByLabelText('Blend mode')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Open Effect Studio' })).toBeTruthy();
   });
@@ -158,7 +158,7 @@ describe('AppearanceSection', () => {
     const nodeA = createRectNode('n1', { opacity: 0.5 });
     const nodeB = createRectNode('n2', { opacity: 1 });
     renderWithProvider(<AppearanceSection nodes={[nodeA, nodeB]} />);
-    const input = screen.getByLabelText('Opacity') as HTMLInputElement;
+    const input = screen.getByLabelText('Opacity (%)') as HTMLInputElement;
     expect(input.getAttribute('aria-valuetext')).toBe('Mixed values');
   });
 
@@ -170,8 +170,8 @@ describe('AppearanceSection', () => {
       </EditorProvider>,
     );
 
-    const input = screen.getByLabelText('Opacity') as HTMLInputElement;
-    expect(input).toHaveValue('0.4');
+    const input = screen.getByLabelText('Opacity (%)') as HTMLInputElement;
+    expect(input).toHaveValue('40');
     expect(input).toHaveAttribute('aria-readonly', 'true');
     expect(screen.getByRole('status', { name: /bound to variable: card opacity/i })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Unbind variable Card opacity' })).toBeTruthy();

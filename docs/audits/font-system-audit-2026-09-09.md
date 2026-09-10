@@ -34,11 +34,8 @@ depend on host-installed fonts.
 The existing compact-picker E2E was also inspected visually. The empty-text
 scenario loses the picker surface after the text interaction; the non-empty
 scenario keeps it alive but constrains the family field and clips the menu.
-The toolbar menu-boundary and picker-first Escape repairs are now covered by
-the focused E2E contract; a fresh runtime capture remains dependent on the
-concurrent InspectorQuickBar worktree being HMR-clean. Those observations are
-tracked as editor UX acceptance tests rather than being hidden by screenshot
-updates.
+Those observations are tracked as editor UX acceptance tests rather than
+being hidden by screenshot updates.
 
 ## Original hypothesis disposition
 
@@ -61,7 +58,7 @@ unit test cannot be mistaken for end-to-end completion.
 | 12 | Package manifests claim fonts without payloads | Fixed: `bundled` follows a written `fonts/` entry |
 | 13 | Export readiness can silently time out | Raster readiness reports timeouts; font-specific preflight remains |
 | 14 | Rich-text outlining reuses one face for all runs | Remains open; run-level outlining is required |
-| 15 | Image identification ignores target regions/dependencies | Remains open; crop, explicit target selection, classifier/local-comparison wiring, and optional local OCR remain follow-up work |
+| 15 | Image identification ignores target regions/dependencies | Remains open; crop/target/OCR slice is required |
 | 16 | Catalog previews can fetch artifacts implicitly | Fixed: browsing and hover are metadata-only |
 
 The acceptance scenarios and their current evidence ownership are tracked in

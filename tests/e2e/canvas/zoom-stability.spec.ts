@@ -193,7 +193,7 @@ test.describe('Zoom camera stability', () => {
     // this is the state that makes off-frame descendants valid visible content.
     const layoutDisclosure = page
       .getByRole('region', { name: 'Inspector' })
-      .getByRole('button', { name: 'Layout', exact: true })
+      .getByRole('button', { name: 'Stack / Grid', exact: true })
       .first();
     if ((await layoutDisclosure.getAttribute('aria-expanded')) !== 'true') {
       await layoutDisclosure.click();

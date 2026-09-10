@@ -68,10 +68,12 @@ test.describe('Inspector — Effects/Shadow row and Corner Radius redesign', () 
 
     // Shadow quad: X/Y/Blur/Spread grouped in one boxed grid with icons,
     // and "Distance" no longer truncates.
-    const quad = row.locator('.insp-quad-grid');
+    const quad = page.locator('.insp-focused-editor .insp-quad-grid');
     await expect(quad).toBeVisible();
     await expect(quad.locator('.insp-icon-field')).toHaveCount(4);
-    const distanceLabel = row.locator('.insp-field__label', { hasText: 'Dist' });
+    const distanceLabel = page.locator('.insp-focused-editor .insp-field__label', {
+      hasText: 'Dist',
+    });
     await expect(distanceLabel).toBeVisible();
     const distanceBox = await distanceLabel.boundingBox();
     expect(distanceBox).not.toBeNull();
@@ -79,7 +81,7 @@ test.describe('Inspector — Effects/Shadow row and Corner Radius redesign', () 
 
     // Opacity reads as a percentage, not a raw 0-1 decimal (default new
     // dropShadow opacity is 0.3).
-    const opacityInput = row.locator('input[aria-label*="Opacity" i]');
+    const opacityInput = page.locator('.insp-focused-editor input[aria-label*="Opacity" i]');
     await expect(opacityInput).toHaveValue('30');
   });
 

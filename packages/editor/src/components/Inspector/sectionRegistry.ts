@@ -247,7 +247,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   // -- Geometry group --
   {
     id: 'position-size',
-    title: 'Layout',
+    title: 'Position & Size',
     defaultExpanded: true,
     canHide: false,
     essential: true,
@@ -268,7 +268,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   },
   {
     id: 'layout',
-    title: 'Layout',
+    title: 'Stack / Grid',
     defaultExpanded: true,
     canHide: true,
     essential: false,

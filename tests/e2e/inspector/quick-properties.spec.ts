@@ -1,10 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { navigateToEditor, seedLayers } from '../shared';
 
-test.describe('Inspector quick properties', () => {
-  test('keeps common selection edits visible and connected to the canonical sections', async ({
-    page,
-  }) => {
+test.describe('Inspector canonical properties', () => {
+  test('keeps common selection edits in their canonical sections', async ({ page }) => {
     await navigateToEditor(page);
 
     const canvas = page.locator('canvas.editor-canvas__content-layer');
@@ -20,28 +18,29 @@ test.describe('Inspector quick properties', () => {
 
     const quickBar = page.getByRole('region', { name: 'Quick properties' });
     await expect(quickBar).toBeVisible();
-    await expect(quickBar.getByRole('spinbutton', { name: 'X (px)' })).toHaveCount(1);
-    await expect(quickBar.getByRole('spinbutton', { name: 'Y (px)' })).toHaveCount(1);
-    await expect(quickBar.getByRole('spinbutton', { name: 'Width (px)' })).toHaveCount(1);
-    await expect(quickBar.getByRole('spinbutton', { name: 'Height (px)' })).toHaveCount(1);
-    await expect(quickBar.getByRole('spinbutton', { name: 'Opacity' })).toHaveCount(1);
-    await expect(quickBar.getByRole('button', { name: 'Primary fill colour' })).toBeVisible();
+    await expect(quickBar.getByText('Position', { exact: true })).toBeVisible();
+    await expect(quickBar.getByText('Size', { exact: true })).toBeVisible();
+    await expect(quickBar.getByText('Appearance', { exact: true })).toBeVisible();
+    await expect(quickBar.getByRole('spinbutton', { name: 'Opacity (%)' })).toHaveCount(1);
+    const position = page.getByRole('group', { name: 'Position & Size' });
+    await expect(position.getByRole('spinbutton', { name: 'X (px)' })).toHaveCount(1);
+    await expect(position.getByRole('spinbutton', { name: 'Y (px)' })).toHaveCount(1);
+    await expect(position.getByRole('spinbutton', { name: 'W (px)' })).toHaveCount(1);
+    await expect(position.getByRole('spinbutton', { name: 'H (px)' })).toHaveCount(1);
+    await expect(page.getByRole('spinbutton', { name: 'Opacity (%)' })).toHaveCount(2);
+    await expect(page.getByRole('button', { name: 'Primary fill colour' })).toBeVisible();
 
-    const quickX = quickBar.getByRole('spinbutton', { name: 'X (px)' });
-    await quickX.fill('300');
-    await quickX.press('Enter');
-    await expect(
-      page.getByRole('group', { name: 'Layout' }).getByRole('spinbutton', { name: 'X (px)' }),
-    ).toHaveValue('300');
+    const x = position.getByRole('spinbutton', { name: 'X (px)' });
+    await x.fill('300');
+    await x.press('Enter');
+    await expect(x).toHaveValue('300');
 
-    await expect(quickBar).toHaveScreenshot('quick-properties.png', {
+    await expect(page.locator('.editor-inspector')).toHaveScreenshot('canonical-properties.png', {
       animations: 'disabled',
     });
   });
 
-  test('does not add a single-selection bar to empty or mixed selection states', async ({
-    page,
-  }) => {
+  test('does not add a duplicate bar to empty or mixed selection states', async ({ page }) => {
     await navigateToEditor(page);
     await expect(page.getByRole('region', { name: 'Quick properties' })).toHaveCount(0);
 

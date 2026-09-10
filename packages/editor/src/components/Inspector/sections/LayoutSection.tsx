@@ -97,7 +97,7 @@ export function LayoutSection({ node }: { node: FrameNode }) {
 
   return (
     <>
-      <DisclosureSection title="Layout" sectionId="layout">
+      <DisclosureSection title="Stack / Grid" sectionId="layout">
         <FieldRow label="Clip content" htmlFor={`frame-clip-content-${node.id}`}>
           <Switch
             id={`frame-clip-content-${node.id}`}

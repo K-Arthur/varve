@@ -11,7 +11,13 @@
  * Research basis: Figma/Sketch right-sidebar inspector; APG Disclosure,
  * Spinbutton, Combobox, Radiogroup, Slider patterns.
  */
-import { canHaveSmartFilters, isExportRegion, isImageShape, type SceneNode } from '@varve/scene';
+import {
+  canHaveLayerEffects,
+  canHaveSmartFilters,
+  isExportRegion,
+  isImageShape,
+  type SceneNode,
+} from '@varve/scene';
 import { EmptyState } from '@varve/ui';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { setInspectorTabHandler, useEditor } from '../../context';
@@ -32,7 +38,6 @@ import { AssetExportControls } from '../SpecPanel/AssetExportControls';
 import { CodeGenView } from '../SpecPanel/CodeGenView';
 import { DisclosureSection } from './controls/DisclosureSection';
 import { InspectorContextHeader } from './InspectorContextHeader';
-import { InspectorQuickBar } from './InspectorQuickBar';
 import { InspectorTabBar } from './InspectorTabBar';
 import { deriveInspectorContext, type InspectorContext } from './inspectorContext';
 import { VariablesPanelDialog } from './panels/VariablesPanelDialog';
@@ -51,6 +56,7 @@ import { AppearanceSection } from './sections/AppearanceSection';
 import { BooleanSection } from './sections/BooleanSection';
 import { ComponentSection } from './sections/ComponentSection';
 import { CornerRadiusSection } from './sections/CornerRadiusSection';
+import { EffectsSection } from './sections/EffectsSection';
 import { FillSection } from './sections/FillSection';
 import { IconSection } from './sections/IconSection';
 import { ImageCropSection } from './sections/ImageCropSection';
@@ -58,11 +64,15 @@ import { ImagePlacementSection } from './sections/ImagePlacementSection';
 import { ImageResolutionSection } from './sections/ImageResolutionSection';
 import { LayoutChildSection } from './sections/LayoutChildSection';
 import { LayoutSection } from './sections/LayoutSection';
+import { MaskSection } from './sections/MaskSection';
 import { MockupsSection } from './sections/MockupsSection';
+import { PaintLibrarySection } from './sections/PaintLibrarySection';
+import { PaletteSection } from './sections/PaletteSection';
 import { PathTextSection } from './sections/PathTextSection';
 import { PerspectiveSection } from './sections/PerspectiveSection';
 import { PositionSizeSection } from './sections/PositionSizeSection';
 import { SelectionColorsSection } from './sections/SelectionColorsSection';
+import { SmartFiltersSection } from './sections/SmartFiltersSection';
 import { StrokeSection } from './sections/StrokeSection';
 import { TableCellsSection, TableTracksSection } from './sections/TableCellsSection';
 import { TableSection } from './sections/TableSection';
@@ -311,22 +321,10 @@ export function PropertiesPanel() {
             {summary.kind === 'single' && <SingleSelectionPanel nodes={selNodes} />}
             {summary.kind === 'multi' && <MultiSelectionPanel nodes={selNodes} summary={summary} />}
           </SelectionLockGuard>
-          {/* Merged from the Appearance and Audit tabs. Both panels are lazy,
-              so they must render inside a Suspense boundary — at HEAD they
-              only ever mounted inside LazyTabPanel. Hidden on empty selection:
-              the DocumentPanel above is the empty-selection surface. */}
+          {/* Insights remains document-level and last in the Design composition.
+              It is lazy because the audit panel is also reachable from the
+              legacy tab/deep-link path. */}
           <Suspense fallback={null}>
-            {summary.kind !== 'empty' && (
-              <SelectionLockGuard restriction={restrictionNotice}>
-                <AppearancePanel />
-              </SelectionLockGuard>
-            )}
-            {/* Merged from the Audit tab. Unlike the appearance surfaces,
-                intelligence is a document-level analysis reachable with no
-                selection (audit page/document menu actions), so it renders
-                regardless of selection, collapsed by default. Deep-link
-                requests (openAuditPanel) still reach IntelligencePanel
-                through the request prop. */}
             <SelectionLockGuard restriction={restrictionNotice}>
               <DisclosureSection title="Insights" defaultExpanded={false}>
                 <AuditPanel request={intelRequest} />
@@ -635,9 +633,16 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
     if (isRect || isFrame) add('corner-radius', <CornerRadiusSection nodes={nodes} />);
     if (isFrame) add('layout', <LayoutSection node={node as import('@varve/scene').FrameNode} />);
     add('appearance', <AppearanceSection nodes={nodes} />);
+    if (nodes.length === 1) add('mask', <MaskSection nodes={nodes} />);
     add('adjustment-layer-access', <AdjustmentLayerAccessSection nodes={nodes} />);
     add('selection-colors', <SelectionColorsSection nodes={nodes} />);
     add('fills', <FillSection nodes={nodes} />);
+    add('paint-library', <PaintLibrarySection />);
+    if (isImageShape(node)) add('palette', <PaletteSection />);
+    if (canHaveSmartFilters(node)) add('smart-filters', <SmartFiltersSection nodes={nodes} />);
+    if (canHaveLayerEffects(node)) {
+      add('effects', <EffectsSection nodes={nodes} sectionId="effects" />);
+    }
     add('animation', <AnimationSection nodes={nodes} />);
     add('image-placement', <ImagePlacementSection nodes={nodes} />);
     add('image-perspective', <PerspectiveSection nodes={nodes} sectionId="image-perspective" />);
@@ -665,7 +670,6 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
           </span>
         </p>
       </header>
-      <InspectorQuickBar node={node} />
       <AlignDistributeBar />
       {node.kind === 'group' && <BooleanSection node={node} />}
       {sectionEntries.map((entry) => (
@@ -707,10 +711,14 @@ function MultiSelectionPanel({
     add('position-size', <PositionSizeSection nodes={nodes} />);
     add('layout-child', <LayoutChildSection nodes={nodes} />);
     add('appearance', <AppearanceSection nodes={nodes} />);
+    add('paint-library', <PaintLibrarySection />);
     add('adjustment-layer-access', <AdjustmentLayerAccessSection nodes={nodes} />);
     add('selection-colors', <SelectionColorsSection nodes={nodes} />);
     add('fills', <FillSection nodes={nodes} />);
     add('stroke', <StrokeSection nodes={nodes} />);
+    if (nodes.every(canHaveLayerEffects)) {
+      add('effects', <EffectsSection nodes={nodes} sectionId="effects" />);
+    }
     add('typography', <TypographySection nodes={nodes} />);
     if (nodes.some((n) => 'warps' in n) || state.tool === 'warp') {
       add('warp', <WarpSection nodes={nodes} node={nodes[0]} />);

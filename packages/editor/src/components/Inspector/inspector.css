@@ -4993,184 +4993,86 @@
   align-items: center;
   display: grid;
   gap: var(--space-1);
-  grid-template-columns: auto auto auto auto minmax(0, 1fr) auto auto auto;
+  grid-template-columns: auto auto auto auto minmax(0, 1fr) auto;
   min-width: 0;
   padding: var(--space-1) 0;
 }
 
-.insp-effect-row__header > span {
+.insp-effect-row__name {
   min-width: 0;
   overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* A slider and its precision field share the available control column. */
-.insp-field__control > .range-value-control {
-  flex: 1 1 auto;
-  min-inline-size: 0;
-  width: 100%;
+.insp-effect-row__menu-trigger {
+  justify-self: end;
 }
 
-.insp-axis-control {
-  align-items: center;
-  display: grid;
-  gap: var(--space-1);
-  grid-template-columns: minmax(0, 1fr) auto;
-  min-width: 0;
-  width: 100%;
+.insp-focused-editor__portal {
+  z-index: var(--z-overlay);
 }
 
-@container inspector (max-width: 15.5rem) {
-  .insp-field-group--columns-2,
-  .insp-field-group--columns-3,
-  .insp-field-group--size,
-  .insp-field-group--rotation,
-  .insp-field-group--skew {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .insp-field-group--size > .insp-proportion-lock,
-  .insp-field-group--rotation > .insp-flip-btn,
-  .insp-field-group--skew > .insp-flip-btn {
-    justify-self: start;
-  }
-}
-
-/* ---------- Quick properties — high-frequency selection edits ---------- */
-.insp-quick-bar {
+.insp-focused-editor {
+  box-sizing: border-box;
+  width: min(22rem, calc(100vw - var(--space-6)));
+  max-height: min(35rem, calc(100vh - var(--space-6)));
+  overflow: auto;
   padding: var(--space-3);
-  background: var(--color-surface-sunken);
-  border-block: 1px solid var(--color-border-subtle);
-  box-shadow: var(--shadow-xs);
-}
-
-.insp-quick-bar__heading {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-2);
-  margin-bottom: var(--space-2);
-}
-
-.insp-quick-bar__heading h2 {
-  margin: 0;
   color: var(--color-text-primary);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.01em;
-}
-
-.insp-quick-bar__heading span {
-  padding: 1px var(--space-1);
-  color: var(--color-text-muted);
-  background: var(--color-surface-default);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-pill);
-  font-size: var(--font-size-2xs);
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
-}
-
-.insp-quick-bar__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(7rem, 100%), 1fr));
-  gap: var(--space-2) var(--space-1);
-}
-
-.insp-quick-bar .insp-field {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: max-content var(--space-6);
-  gap: 2px;
-  min-width: 0;
-  min-height: 0;
-}
-
-.insp-quick-bar .insp-field__label,
-.insp-quick-bar__label {
-  width: auto;
-  min-width: 0;
-  min-height: 0;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  letter-spacing: 0.02em;
-  line-height: 1.2;
-}
-
-.insp-quick-bar .insp-field__control {
-  position: relative;
-  width: auto;
-  height: var(--space-6);
-  min-height: 0;
-  min-width: 0;
-}
-
-.insp-quick-bar .insp-num {
-  width: 100%;
-  min-width: 0;
-}
-
-.insp-quick-bar .insp-num__input {
-  min-width: 0;
-  height: var(--space-6);
-  padding-inline: var(--space-1);
-  background: var(--color-surface-default);
-  border-color: var(--color-border-subtle);
-  box-shadow: var(--shadow-xs);
-  font-size: var(--font-size-xs);
-  text-align: right;
-}
-.insp-quick-bar .insp-num__input:hover {
-  border-color: var(--color-border-strong);
-}
-
-.insp-quick-bar .insp-num__state,
-.insp-quick-bar .insp-num__error {
-  position: absolute;
-  z-index: var(--z-raised);
-  max-width: 12rem;
-  padding: var(--space-1);
   background: var(--color-surface-overlay);
-  border: var(--border-micro);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-floating);
   box-shadow: var(--elevation-shadow-overlay);
 }
 
-.insp-quick-bar__fill {
+.insp-focused-editor__header {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  min-width: 0;
-}
-.insp-quick-bar__fill--wide {
-  grid-column: span 2;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-block-end: var(--space-2);
+  border-block-end: 1px solid var(--color-border-subtle);
 }
 
-.insp-quick-bar__fill .insp-swatch,
-.insp-quick-bar__fill-swatch {
-  width: 100%;
+.insp-focused-editor__title {
   min-width: 0;
-  height: var(--space-6);
-  min-height: var(--space-6);
-  background: var(--color-surface-default);
-  border: 1px solid var(--color-border-strong);
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.insp-focused-editor__close {
+  flex: 0 0 auto;
+  min-height: var(--component-compact-height);
+  padding-inline: var(--space-2);
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
   border-radius: var(--radius-control-compact);
-  box-shadow: var(--shadow-xs);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
 }
 
-.insp-quick-bar__hint {
-  margin: var(--space-2) 0 0;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-2xs);
-  line-height: 1.35;
+.insp-focused-editor__close:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-subtle);
 }
 
-@container inspector (max-width: 15rem) {
-  .insp-quick-bar__fill--wide {
-    grid-column: auto;
-  }
+.insp-focused-editor__close:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+.insp-focused-editor__body {
+  padding-block-start: var(--space-3);
 }
 
 /* ---------- Inspector control containment contract -----------------------
