@@ -278,3 +278,28 @@ Wayland/WebKitGTK transport and cancellation cleanup.
 
 The final focused rerun covered `clipboard.test.ts`, `context.import.test.tsx`,
 `dropUtils.test.ts`, and `svg.test.ts`: 82 tests passed in 21.39 seconds.
+
+### Follow-up implementation update — 2026-09-09
+
+The current `master` tip for this update is `8b9734fbe`. The concurrent
+Inspector, grid, generative-edit, and website snapshot work remains in the
+shared working tree. The request and import milestones were built in isolated
+worktrees and attached to `master` without restoring the shared index.
+
+The new stable findings are:
+
+| ID | Boundary | Finding and status | Evidence |
+| --- | --- | --- | --- |
+| CLIP-16 | Transport / request ownership | **Resolved for browser acquisition.** Typed `TransferRequest`, `ClipboardSnapshot`, capability, and outcome contracts key captured snapshots and fallback timers by operation/gesture identity; repeated keyboard gestures no longer share one timer or global event slot. | `packages/editor/src/clipboard.ts`, `packages/editor/src/clipboard.test.ts`, commit `ed3ee32b3` |
+| CLIP-17 | Transport / item identity | **Resolved.** An SVG string suppresses only a byte-identical file representation; distinct same-name SVG files remain separate logical items. | `packages/editor/src/clipboard.test.ts`, commit `da45957af` |
+| CLIP-18 | Parser / rich text | **Resolved for the bounded subset.** HTML is snapshotted synchronously and converted into editable canvas paragraphs, line breaks, bold/italic/decoration, font, and RGB color runs. Unsafe embeds and unsupported formatting produce warnings; plain text remains the fallback. | `packages/editor/src/clipboardRichText.test.ts`, commit `b84ef71ad` |
+| CLIP-19 | Import / throughput | **Resolved for batch decoding.** Import workers are capped at two, preserve input order in the final report, and report progress as individual files complete. | `packages/import/src/service.test.ts`, commit `8b9734fbe` |
+| CLIP-20 | Application / shared insertion | **Open.** Paste, file import, and canvas drop still have route-specific preparation and commit code; a shared `PreparedFragment` transaction remains to be extracted. | `context.tsx`, `CanvasArea.tsx`, `useFileImport.ts` |
+| CLIP-21 | Native transport / deadline | **Open.** Tauri clipboard reads remain synchronous command paths without operation cancellation or a five-second deadline. | `apps/desktop/src-tauri/src/lib.rs`, `docs/quality/tauri-command-audit.md` |
+| CLIP-22 | Native decode / CSP | **Open.** Packaged `.fig` decoding still requires a production CSP run proving the schema interpreter/decompression path does not reach dynamic code. | `packages/import/src/figma/native.ts`, desktop validation lane |
+
+The capability boundary remains explicit: ordinary Figma Copy is unsupported
+until a synthetic design is captured from Firefox with provenance and a bounded
+envelope is demonstrated. Copy as SVG, Copy as PNG, and REST/plugin JSON remain
+the documented interoperability routes. No external Figma account or private
+clipboard payload was inferred from parser tests.

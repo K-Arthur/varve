@@ -13,9 +13,11 @@ The canvas owns Copy, Cut, and Paste only when the active target is not a
 native text/input editing surface. `TextEditOverlay`, table editors, search
 fields, inspector fields, and dialogs retain browser/native text semantics.
 The global paste listener snapshots a live `ClipboardEvent` and then invokes
-the editor command. The shortcut fallback is delayed only for engines that do
-not deliver a paste event to a non-editable canvas; arrival of the real event
-cancels that fallback, so one gesture has one owner.
+the editor command. Each gesture receives a typed `TransferRequest`; its
+snapshot and delayed fallback are keyed by operation and gesture identity.
+The shortcut fallback is delayed only for engines that do not deliver a paste
+event to a non-editable canvas; arrival of the real event cancels that
+request's fallback, so repeated gestures remain distinct.
 
 The command and context-menu routes use the same editor actions:
 
@@ -49,7 +51,8 @@ The fragment contains:
   a live `Map` surviving JSON serialization.
 
 Clipboard JSON is bounded and validated before it reaches editor state. The
-current limits are 64 MiB encoded JSON and 100,000 nodes. Malformed or
+current limits are 64 MiB encoded JSON, 100,000 nodes, and 256 levels of
+nested ownership. Malformed or
 unsupported fragments are ignored without suppressing a valid SVG, image, or
 plain-text representation.
 
@@ -68,11 +71,14 @@ One logical clipboard item is resolved in this order:
 1. validated Varve data;
 2. validated SVG text through the existing import service;
 3. one raster image representation;
-4. plain text for a native text editor or the canvas text importer.
+4. bounded HTML rich text (paragraphs, breaks, and supported inline formatting);
+5. plain text for a native text editor or the canvas text importer.
 
-The DOM paste path snapshots strings and `File` references synchronously while
+The DOM paste path snapshots strings, HTML, and `File` references synchronously while
 the event is alive. It does not retain the event or reread a dead
-`DataTransfer`. Files with the same filename remain separate items. A Varve
+`DataTransfer`. Files with the same filename remain separate items. An SVG
+string suppresses only a byte-identical SVG file representation; distinct SVG
+files remain separate items. A Varve
 item is not also imported as its image/text alternatives, avoiding duplicate
 objects.
 
@@ -144,7 +150,8 @@ because it appeared first in a multi-selection.
 Paste and Cut commit through the existing transaction/history path. File-picker
 and canvas-drop imports capture the initiating document/session/revision and
 selection revision and cancel before their single batch commit if that context
-has changed. Undo Cut
+has changed. Import batches decode with at most two workers and restore input
+order in their reports while progress reflects completed files. Undo Cut
 restores the source document without rewriting the system clipboard. Redo
 replays the committed document result and does not reread the clipboard.
 
@@ -157,6 +164,7 @@ replays the committed document result and does not reread the clipboard.
 | PNG/JPEG/WebP and clipboard image files → Varve | routed through `ImportService` as image nodes | decoder/import fidelity follows the existing importer |
 | SVG → Varve | validated SVG routed through `ImportService` | unsafe/arbitrary XML is not treated as SVG |
 | plain text → native text editor | browser owns insertion, Unicode, caret, and IME behavior | canvas does not steal text-editor focus |
+| bounded HTML → canvas text | editable paragraphs and supported bold/italic/decoration/font/color runs | unsupported embeds and formatting are omitted with warnings |
 | guides/properties/effects → their specialist command | separate app-local buffers/formats | these buffers do not replace object clipboard data |
 | browser/Tauri | DOM event, async API, and native Tauri MIME bridge on Wayland; PNG compatibility fallback | host permissions and compositor clipboard ownership still apply |
 | Figma/Illustrator/Office private formats | not claimed | no undocumented proprietary decoder is emitted |
@@ -176,8 +184,8 @@ Firefox evidence are separate lanes and are not implied by those tests.
 
 Implementation map:
 
-- `packages/editor/src/clipboard.ts` — transport, validation, snapshots, and
-  representation negotiation;
+- `packages/editor/src/clipboard.ts` — transport, validation, typed transfer
+  requests, request-bound snapshots, and representation negotiation;
 - `packages/editor/src/context.tsx` — command ownership, target binding,
   insertion, placement, and history;
 - `packages/editor/src/import/mergeImportedResources.ts` — fresh resource IDs

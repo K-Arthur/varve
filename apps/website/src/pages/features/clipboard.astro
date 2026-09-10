@@ -55,7 +55,7 @@ import { sitePath } from '../../lib/siteUrl';
           <article><h3>External images and SVG</h3><p>Clipboard files and a bounded SVG subset pass through Varve's existing import pipeline, including multiple distinct image items.</p></article>
           <article><h3>Wayland-aware desktop paste</h3><p>On Linux desktop, native MIME transfer keeps editable layer paste available when WebKitGTK cannot expose the rich clipboard to the canvas.</p></article>
           <article><h3>Predictable placement</h3><p>Paste uses the selected visible frame or group as an explicit destination; otherwise it centers foreign content in the canvas viewport without changing your zoom or pan.</p></article>
-          <article><h3>Native text editing</h3><p>Textareas, fields, IME composition, Unicode, and caret behavior remain owned by the browser when you are typing. Internal transfers also preserve logical vertical-writing intent and orientation instead of inserting visual column breaks.</p></article>
+          <article><h3>Native text editing</h3><p>Textareas, fields, IME composition, Unicode, and caret behavior remain owned by the browser when you are typing. Bounded HTML clipboard content can become editable canvas paragraphs with supported bold, italic, decoration, font, and color runs; unsupported formatting is reported. Internal transfers also preserve logical vertical-writing intent and orientation instead of inserting visual column breaks.</p></article>
           <article><h3>Specialist buffers stay separate</h3><p>Copy Properties, effect stacks, and guides do not unexpectedly overwrite the system object clipboard.</p></article>
           <article><h3>Cut waits for truth</h3><p>If only a names-only text fallback is available, Cut leaves the original layers in place.</p></article>
           <article><h3>Undo stays local</h3><p>Undo restores a Cut or Paste from document history without rereading or rewriting the system clipboard.</p></article>
@@ -87,7 +87,7 @@ import { sitePath } from '../../lib/siteUrl';
               <tr><th scope="row">Varve fragment</th><td>Copy / Cut / Paste</td><td>Editable layers and supported assets</td><td>Advanced component, style, variable, and motion closure is not yet carried</td><td>Vitest; browser/native lanes pending</td></tr>
               <tr><th scope="row">SVG</th><td>External SVG / paste</td><td>Editable supported subset</td><td>Unsupported XML, effects, and semantics are reported</td><td>Chromium/Firefox parser fixtures; visual lane pending</td></tr>
               <tr><th scope="row">PNG/JPEG/WebP</th><td>External image / paste</td><td>Raster image with alpha where supplied</td><td>Pixels are not editable vectors</td><td>Browser importer; native transport pending</td></tr>
-              <tr><th scope="row">Plain text</th><td>System text / paste</td><td>Editable canvas text or native caret insertion</td><td>Rich formatting is not yet promised</td><td>Unit coverage; keyboard lane pending</td></tr>
+              <tr><th scope="row">Plain text / bounded HTML</th><td>System text or rich clipboard / paste</td><td>Editable canvas text with a supported rich-text subset, or native caret insertion</td><td>Embedded media and unsupported formatting are omitted with warnings</td><td>Vitest parser coverage; keyboard lane pending</td></tr>
               <tr><th scope="row">Figma ordinary Copy</th><td>Private clipboard envelope</td><td>Unsupported / filtered</td><td>No undocumented decoder is enabled</td><td>Unverified until owned Firefox capture</td></tr>
             </tbody>
           </table>

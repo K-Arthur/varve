@@ -108,7 +108,7 @@ const figmaImportFaq = {
 
         <h3>Figma design data</h3>
         <p>
-          Varve accepts supported native Figma <code>.fig</code> archives, official Figma REST file JSON, and compatible plugin-export JSON for semantic, editable conversion. Native archives are decoded locally and are format-version dependent; the importer then normalizes source data before building a native Varve document. REST/plugin JSON is the documented high-fidelity route. Ordinary Figma Copy uses a private clipboard envelope and is not claimed; use Figma's Copy as SVG route for clipboard interoperability.
+          Varve accepts supported native Figma <code>.fig</code> archives, official Figma REST file JSON, and compatible plugin-export JSON for semantic, editable conversion. Native archives are decoded locally when the runtime decoder supports their schema; packaged desktop CSP verification remains a separate validation lane. REST/plugin JSON is the documented high-fidelity route. Ordinary Figma Copy uses a private clipboard envelope and is not claimed; use Figma's Copy as SVG route for clipboard interoperability.
         </p>
         <ul>
           <li><strong>Editable text:</strong> Text remains text, including mixed rich-text runs where the source data provides them</li>
@@ -206,7 +206,7 @@ const figmaImportFaq = {
           <li>Drag SVG, PNG, JPG, WebP, or GIF files from your file manager</li>
           <li>Files are placed at the drop position with proper world-coordinate conversion</li>
           <li>Multiple files are tiled with spacing</li>
-          <li>Batch import processes files sequentially with progress indication</li>
+          <li>Batch import decodes at most two files concurrently, restores selection order, and reports progress per completed file</li>
         </ul>
       </section>
 

@@ -16,9 +16,11 @@ evidence.
 ## Decision
 
 1. **Acquire synchronously, commit deliberately.** Clipboard events are
-   snapshotted during dispatch. Async reads may provide alternatives, but the
-   initiating document, session, revision, selection revision, and canvas
-   geometry are captured and checked before an import or drop commits.
+   snapshotted during dispatch under a typed `TransferRequest`. Async reads
+   may provide alternatives, but the initiating document, session, revision,
+   selection revision, and canvas geometry are captured and checked before an
+   import or drop commits. Fallback timers and event snapshots are keyed by the
+   operation and gesture identity.
 2. **Use one versioned Varve fragment envelope.** It carries ordered roots,
    world anchors, node closure, and only the resource classes the transport can
    validate and remap. The serialized bytes are parsed against the reader's
@@ -42,8 +44,10 @@ evidence.
 
 ## Consequences
 
-The editor has one prepared-fragment insertion path while acquisition and
-placement remain route-specific. Native Wayland and packaged Tauri behavior
+The editor currently shares validation and import reporting, while Paste,
+Import, and Drop still retain route-specific preparation and commit code; a
+shared `PreparedFragment` transaction is the next application milestone.
+Native Wayland and packaged Tauri behavior
 require explicit desktop validation; browser unit tests do not stand in for
 that evidence. Unsupported component/style/variable/motion closure is
 reported rather than reconstructed from destination state. Marketing and help
