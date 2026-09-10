@@ -193,7 +193,13 @@ export function CanvasOverlays({
     textEditTargetId && sceneScope.authoredNodeIds.has(textEditTargetId) ? textEditTargetId : null;
 
   const baselineGrid = doc.gridSettings?.baselineGrids
-    ? Object.values(doc.gridSettings.baselineGrids)[0]
+    ? Object.values(doc.gridSettings.baselineGrids).find(
+        (grid) =>
+          grid.visible !== false &&
+          (grid.scope === 'document' ||
+            grid.pageId === undefined ||
+            grid.pageId === doc.activePageId),
+      )
     : undefined;
 
   const showGridOverlay = gridOverlayMode !== 'none';
@@ -202,7 +208,15 @@ export function CanvasOverlays({
     const grids = doc.gridSettings?.isometricGrids;
     if (!grids) return null;
     const entries = Object.values(grids);
-    return entries[0] ?? null;
+    return (
+      entries.find(
+        (grid) =>
+          grid.visible !== false &&
+          (grid.scope === 'document' ||
+            grid.pageId === undefined ||
+            grid.pageId === doc.activePageId),
+      ) ?? null
+    );
   })();
 
   const showColorBlindness = colorBlindnessView !== 'none';
@@ -526,6 +540,11 @@ export function CanvasOverlays({
           cameraRotation={cameraRotation}
           width={canvasSize.width}
           height={canvasSize.height}
+          visible={
+            gridOverlayMode === 'baseline'
+              ? (baselineGrid?.visible ?? false)
+              : (isometricGrid?.visible ?? false)
+          }
           baselineStep={baselineGrid?.baselineStep}
           offset={baselineGrid?.offset}
           isometricGrid={isometricGrid}

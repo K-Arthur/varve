@@ -395,6 +395,35 @@ export function useOverlayDraw({
       ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
 
+    const pixelGrid = doc.gridSettings?.pixelGrid;
+    if (
+      s.pixelGridEnabled &&
+      s.zoom >= (pixelGrid?.zoomThreshold ?? 4) &&
+      Number.isFinite(s.zoom)
+    ) {
+      const lines = computeGridLines(
+        {
+          visible: true,
+          spacingX: 1,
+          spacingY: 1,
+          subdivisions: 1,
+          offsetX: 0,
+          offsetY: 0,
+          rotation: 0,
+        },
+        s.zoom,
+        s.pan.x,
+        s.pan.y,
+        cssW,
+        cssH,
+        s.cameraRotation,
+      );
+      const color = pixelGrid?.color ?? 'var(--color-border-subtle)';
+      const opacity = pixelGrid?.opacity ?? 0.5;
+      renderGridOnCtx(ctx, lines, dpr, color, color, opacity, opacity);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+    }
+
     applyEditorCameraToCtx(ctx, camState, dpr, vp);
 
     // ── Mask preview overlay ─────────────────────────────────────────────

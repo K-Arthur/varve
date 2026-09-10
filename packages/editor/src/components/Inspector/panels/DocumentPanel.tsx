@@ -49,8 +49,11 @@ export function DocumentPanel() {
     setDocumentGradientInterpolation,
     setDocumentWorkingSpace,
     setDocumentGrid,
+    setLayoutGridVisible,
+    setPixelGridEnabled,
     setPixelGridSnapEnabled,
     resetGridOrigin,
+    setSnapEnabled,
     beginTransaction,
     commitTransaction,
     proofConfig,
@@ -308,12 +311,29 @@ export function DocumentPanel() {
             </div>
           </div>
           <div className="insp-field">
+            <span className="insp-field__label">Snapping</span>
+            <div className="insp-field__control insp-field__control--inline">
+              <Switch
+                label="Snap to document grid"
+                checked={state.documentGrid.snapEnabled}
+                onChange={(e) =>
+                  setDocumentGrid({ ...state.documentGrid, snapEnabled: e.target.checked })
+                }
+              />
+              <Switch
+                label="Enable snapping globally"
+                checked={state.snapEnabled}
+                onChange={(e) => setSnapEnabled(e.target.checked)}
+              />
+            </div>
+          </div>
+          <div className="insp-field">
             <span className="insp-field__label">Spacing X</span>
             <div className="insp-field__control">
               <input
                 type="number"
                 min="1"
-                max="200"
+                max="10000"
                 value={state.documentGrid.spacingX}
                 onChange={(e) => {
                   const value = parseFloat(e.target.value);
@@ -335,7 +355,7 @@ export function DocumentPanel() {
               <input
                 type="number"
                 min="1"
-                max="200"
+                max="10000"
                 value={state.documentGrid.spacingY}
                 onChange={(e) => {
                   const value = parseFloat(e.target.value);
@@ -357,7 +377,7 @@ export function DocumentPanel() {
               <input
                 type="number"
                 min="1"
-                max="10"
+                max="100"
                 value={state.documentGrid.subdivisions}
                 onChange={(e) => {
                   const value = parseInt(e.target.value, 10);
@@ -454,8 +474,13 @@ export function DocumentPanel() {
             </div>
           </div>
           <div className="insp-field">
-            <span className="insp-field__label">Snap to Pixels</span>
+            <span className="insp-field__label">Pixel grid</span>
             <div className="insp-field__control insp-field__control--inline">
+              <Switch
+                label="Show pixel grid at high zoom"
+                checked={state.pixelGridEnabled}
+                onChange={(e) => setPixelGridEnabled(e.target.checked)}
+              />
               <Switch
                 label="Snap to integer pixels"
                 checked={state.pixelGridSnapEnabled}
@@ -463,6 +488,20 @@ export function DocumentPanel() {
               />
             </div>
           </div>
+          <div className="insp-field">
+            <span className="insp-field__label">Layout guides</span>
+            <div className="insp-field__control insp-field__control--inline">
+              <Switch
+                label="Show layout guides"
+                checked={state.layoutGridVisible}
+                onChange={(e) => setLayoutGridVisible(e.target.checked)}
+              />
+            </div>
+          </div>
+          <p className="insp-panel__color-mode-note" role="note">
+            Document-grid visibility and snapping are independent. Layout guides are authored on
+            frames and never change child arrangement; Auto layout below is the arrangement system.
+          </p>
           <div className="insp-field">
             <span className="insp-field__label">Grid Origin</span>
             <div className="insp-field__control insp-field__control--inline">

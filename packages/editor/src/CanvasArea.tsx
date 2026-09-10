@@ -1292,29 +1292,17 @@ export function CanvasArea({
       onDrop={handleDrop}
       onContextMenu={handleContextMenu}
     >
-      {/* Zoom-aware dot grid layer */}
-      <div
-        className="editor-canvas__grid-layer"
-        style={{
-          backgroundImage: `radial-gradient(circle, var(--color-border-subtle) ${Math.max(0.5, 1 * state.zoom)}px, transparent ${Math.max(0.5, 1 * state.zoom)}px)`,
-          backgroundSize: `${gridSize}px ${gridSize}px`,
-        }}
-      />
-      {/* Pixel grid overlay (1px lines at 1:1 zoom) */}
-      {state.pixelGridEnabled &&
-        state.zoom >= (state.document.gridSettings?.pixelGrid?.zoomThreshold ?? 4) && (
-          <div
-            className="editor-canvas__pixel-grid"
-            style={{
-              backgroundImage: [
-                'linear-gradient(var(--color-border-subtle) 1px, transparent 1px)',
-                'linear-gradient(90deg, var(--color-border-subtle) 1px, transparent 1px)',
-              ].join(', '),
-              backgroundSize: `${state.zoom}px ${state.zoom}px`,
-              opacity: 0.5,
-            }}
-          />
-        )}
+      {/* The dot grid is a visual canvas preference; document-grid rendering
+       * and snapping use the persisted grid model in the overlay canvas. */}
+      {state.dotGridEnabled && (
+        <div
+          className="editor-canvas__grid-layer"
+          style={{
+            backgroundImage: `radial-gradient(circle, var(--color-border-subtle) ${Math.max(0.5, 1 * state.zoom)}px, transparent ${Math.max(0.5, 1 * state.zoom)}px)`,
+            backgroundSize: `${gridSize}px ${gridSize}px`,
+          }}
+        />
+      )}
       <canvas
         ref={contentCanvasRef}
         tabIndex={0}

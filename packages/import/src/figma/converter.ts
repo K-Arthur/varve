@@ -6,6 +6,7 @@ import {
   type Effect,
   type ExportPreset,
   type Fill,
+  type LayoutGrid,
   type LayoutStyle,
   type ManagedColor,
   makeFrameNode,
@@ -1129,6 +1130,16 @@ function buildLayoutGrids(
         addUnsupported(state, `layout grid pattern ${pattern}`);
         return [];
       }
+      const layoutMode: LayoutGrid['layoutMode'] =
+        pattern === 'COLUMNS' ? 'columns' : pattern === 'ROWS' ? 'rows' : 'uniform';
+      const alignment: LayoutGrid['alignment'] =
+        grid.alignment === 'MIN'
+          ? 'left'
+          : grid.alignment === 'MAX'
+            ? 'right'
+            : grid.alignment === 'CENTER'
+              ? 'center'
+              : 'stretch';
       return [
         {
           type: 'layout' as const,
@@ -1140,7 +1151,7 @@ function buildLayoutGrids(
           opacity: Math.max(0, Math.min(1, grid.color?.a ?? 0.3)),
           scope: 'frame' as const,
           frameId: nodeId,
-          layoutMode: pattern === 'COLUMNS' ? 'columns' : pattern === 'ROWS' ? 'rows' : 'uniform',
+          layoutMode,
           ...(pattern === 'COLUMNS'
             ? { columnCount: Math.max(1, grid.count ?? 1), columnWidth: grid.sectionSize }
             : {}),
@@ -1154,14 +1165,7 @@ function buildLayoutGrids(
             number,
             number,
           ],
-          alignment:
-            grid.alignment === 'MIN'
-              ? 'left'
-              : grid.alignment === 'MAX'
-                ? 'right'
-                : grid.alignment === 'CENTER'
-                  ? 'center'
-                  : 'stretch',
+          alignment,
         },
       ];
     });

@@ -1,5 +1,6 @@
 import type { IsometricAxis, IsometricGrid } from '@varve/scene';
 import { normaliseAngle } from '@varve/scene';
+import { screenToWorld, worldToScreen } from '@varve/shared';
 import { useMemo } from 'react';
 import type { GridOverlayMode } from '../../context/types';
 import './DocumentGridOverlay.css';
@@ -11,6 +12,7 @@ interface DocumentGridOverlayProps {
   cameraRotation: number;
   width: number;
   height: number;
+  visible?: boolean;
   baselineStep?: number;
   offset?: number;
   isometricGrid?: IsometricGrid | null;
@@ -40,33 +42,35 @@ export function DocumentGridOverlay({
   cameraRotation,
   width,
   height,
+  visible = true,
   baselineStep = 24,
   offset = 0,
   isometricGrid,
 }: DocumentGridOverlayProps) {
   const lines = useMemo(() => {
-    if (mode === 'none' || width <= 0 || height <= 0) return [];
+    if (!visible || mode === 'none' || width <= 0 || height <= 0) return [];
     const result: Array<{ x1: number; y1: number; x2: number; y2: number; kind: string }> = [];
-    const cos = Math.cos(cameraRotation);
-    const sin = Math.sin(cameraRotation);
-    const cx = width / 2;
-    const cy = height / 2;
-
-    const toScreen = (wx: number, wy: number): [number, number] => {
-      const dx = wx * zoom;
-      const dy = wy * zoom;
-      const rx = dx * cos - dy * sin;
-      const ry = dx * sin + dy * cos;
-      return [rx + pan.x + cx * (1 - cos) + cy * sin, ry + pan.y + cy * (1 - cos) - cx * sin];
-    };
+    const camera = { zoom, pan, rotation: cameraRotation };
+    const viewport = { width, height };
+    const corners = [
+      screenToWorld(camera, 0, 0, viewport),
+      screenToWorld(camera, width, 0, viewport),
+      screenToWorld(camera, 0, height, viewport),
+      screenToWorld(camera, width, height, viewport),
+    ];
+    const minX = Math.min(...corners.map(([x]) => x));
+    const maxX = Math.max(...corners.map(([x]) => x));
+    const minY = Math.min(...corners.map(([, y]) => y));
+    const maxY = Math.max(...corners.map(([, y]) => y));
+    const toScreen = (wx: number, wy: number) => worldToScreen(camera, wx, wy, viewport);
 
     if (mode === 'baseline' && baselineStep > 0) {
-      const firstLine = Math.floor((-pan.y / zoom - offset) / baselineStep) * baselineStep + offset;
+      const firstLine = Math.floor((minY - offset) / baselineStep) * baselineStep + offset;
       const startY = firstLine - baselineStep * 2;
-      const endY = firstLine + height / zoom + baselineStep * 4;
+      const endY = maxY + baselineStep * 2;
       for (let y = startY; y <= endY; y += baselineStep) {
-        const [x1, y1] = toScreen(-10000, y);
-        const [x2, y2] = toScreen(10000, y);
+        const [x1, y1] = toScreen(minX - baselineStep * 2, y);
+        const [x2, y2] = toScreen(maxX + baselineStep * 2, y);
         result.push({ x1, y1, x2, y2, kind: 'baseline' });
       }
     }
@@ -77,19 +81,28 @@ export function DocumentGridOverlay({
         effectiveSpacing,
         effectiveSpacing * Math.ceil(6 / (effectiveSpacing * zoom)),
       );
-      const extent = 2000;
-      const perpSpan = 5000;
-      const angles = getIsometricAngles(isometricGrid);
+      const span = Math.hypot(maxX - minX, maxY - minY) * 2 + effectiveSpacing * 4;
+      const originX = isometricGrid?.originX ?? 0;
+      const originY = isometricGrid?.originY ?? 0;
+      const gridRotation = ((isometricGrid?.rotation ?? 0) * Math.PI) / 180;
+      const angles = getIsometricAngles(isometricGrid).map(
+        (deg) => (deg * Math.PI) / 180 + gridRotation,
+      );
 
-      for (const deg of angles) {
-        const rad = (deg * Math.PI) / 180;
-        const nx = Math.cos(rad);
-        const ny = Math.sin(rad);
-        for (let d = -extent; d <= extent; d += step) {
-          const ox = nx * d;
-          const oy = ny * d;
-          const [x1, y1] = toScreen(ox - ny * perpSpan, oy + nx * perpSpan);
-          const [x2, y2] = toScreen(ox + ny * perpSpan, oy - nx * perpSpan);
+      for (const rad of angles) {
+        const ux = Math.cos(rad);
+        const uy = Math.sin(rad);
+        const nx = -uy;
+        const ny = ux;
+        const projections = corners.map(([x, y]) => (x - originX) * nx + (y - originY) * ny);
+        const start = Math.floor((Math.min(...projections) - step * 2) / step) * step;
+        const end = Math.ceil((Math.max(...projections) + step * 2) / step) * step;
+        let count = 0;
+        for (let d = start; d <= end && count < 2048; d += step, count += 1) {
+          const ox = originX + nx * d;
+          const oy = originY + ny * d;
+          const [x1, y1] = toScreen(ox - ux * span, oy - uy * span);
+          const [x2, y2] = toScreen(ox + ux * span, oy + uy * span);
           result.push({ x1, y1, x2, y2, kind: 'isometric' });
         }
       }
@@ -98,6 +111,7 @@ export function DocumentGridOverlay({
     return result;
   }, [
     mode,
+    visible,
     zoom,
     pan.x,
     pan.y,
