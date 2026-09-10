@@ -72,13 +72,13 @@ wasm-check-colour:
 # --- Tests (TDD-first) ---
 test: test-rust test-js
 test-rust:
-    cargo test --workspace --all-targets
+    node scripts/cargo-with-generative-bindgen.mjs test --workspace --all-targets
 test-js:
     pnpm test
 
 # --- Quality gates ---
 lint:
-    cargo clippy --workspace --all-targets -- -D warnings
+    node scripts/cargo-with-generative-bindgen.mjs clippy --workspace --all-targets -- -D warnings
     pnpm lint
 format:
     cargo fmt --all

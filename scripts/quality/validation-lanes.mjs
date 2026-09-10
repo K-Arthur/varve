@@ -60,8 +60,8 @@ export const LANES = {
   // ── Tier 2/3: package-scoped (filled in dynamically per package) ─────
   // js-unit:<pkg>        -> vitest run packages/<dir>
   // typecheck:<pkg>      -> pnpm --filter <name> typecheck
-  // rust-test:<crate>    -> cargo test -p <crate>
-  // rust-clippy:<crate>  -> cargo clippy -p <crate> --all-targets -- -D warnings
+  // rust-test:<crate>    -> native-helper-aware cargo test -p <crate>
+  // rust-clippy:<crate>  -> native-helper-aware cargo clippy -p <crate> --all-targets -- -D warnings
 
   // ── Tier 4: domain integration ───────────────────────────────────────
   'e2e:visual': 'pnpm e2e:visual',
@@ -114,10 +114,10 @@ export function laneCommand(lane, pkgDir) {
     return `pnpm --filter ${name} typecheck`;
   }
   if (lane.startsWith('rust-test:') && !lane.endsWith(':all')) {
-    return `cargo test -p ${lane.slice('rust-test:'.length)}`;
+    return `node scripts/cargo-with-generative-bindgen.mjs test -p ${lane.slice('rust-test:'.length)}`;
   }
   if (lane.startsWith('rust-clippy:') && !lane.endsWith(':all')) {
-    return `cargo clippy -p ${lane.slice('rust-clippy:'.length)} --all-targets -- -D warnings`;
+    return `node scripts/cargo-with-generative-bindgen.mjs clippy -p ${lane.slice('rust-clippy:'.length)} --all-targets -- -D warnings`;
   }
   return LANES[lane];
 }
@@ -160,11 +160,18 @@ export function laneArgv(lane, { files = [], pkgDir } = {}) {
     return ['pnpm', '--filter', name, 'typecheck'];
   }
   if (lane.startsWith('rust-test:') && !lane.endsWith(':all')) {
-    return ['cargo', 'test', '-p', lane.slice('rust-test:'.length)];
+    return [
+      'node',
+      'scripts/cargo-with-generative-bindgen.mjs',
+      'test',
+      '-p',
+      lane.slice('rust-test:'.length),
+    ];
   }
   if (lane.startsWith('rust-clippy:') && !lane.endsWith(':all')) {
     return [
-      'cargo',
+      'node',
+      'scripts/cargo-with-generative-bindgen.mjs',
       'clippy',
       '-p',
       lane.slice('rust-clippy:'.length),
@@ -179,8 +186,23 @@ export function laneArgv(lane, { files = [], pkgDir } = {}) {
     'typecheck:e2e': ['pnpm', 'typecheck:e2e'],
     'js-unit:all': ['pnpm', 'exec', 'vitest', 'run'],
     'typecheck:all': ['pnpm', 'typecheck'],
-    'rust-test:all': ['cargo', 'test', '--workspace', '--all-targets'],
-    'rust-clippy:all': ['cargo', 'clippy', '--workspace', '--all-targets', '--', '-D', 'warnings'],
+    'rust-test:all': [
+      'node',
+      'scripts/cargo-with-generative-bindgen.mjs',
+      'test',
+      '--workspace',
+      '--all-targets',
+    ],
+    'rust-clippy:all': [
+      'node',
+      'scripts/cargo-with-generative-bindgen.mjs',
+      'clippy',
+      '--workspace',
+      '--all-targets',
+      '--',
+      '-D',
+      'warnings',
+    ],
     'cargo-fmt': ['cargo', 'fmt', '--all', '--', '--check'],
     'workflow-validate': ['node', 'scripts/validate-workflows.mjs'],
     'action-pins': ['node', 'scripts/pin-github-actions.mjs', '--check'],

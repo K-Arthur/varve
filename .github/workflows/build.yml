@@ -131,13 +131,13 @@ jobs:
         run: pnpm lint
 
       - name: Lint (Rust)
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: node scripts/cargo-with-generative-bindgen.mjs clippy --workspace --all-targets -- -D warnings
 
       - name: JS tests
         run: pnpm test
 
       - name: Rust tests
-        run: cargo test --workspace --all-targets
+        run: node scripts/cargo-with-generative-bindgen.mjs test --workspace --all-targets
 
       - name: Token gate
         if: runner.os == 'Linux'
@@ -169,7 +169,7 @@ jobs:
       # runners for that reason. It went unnoticed because earlier steps in the
       # job errored first, so the ordering was never actually exercised.
       - name: Rust tests (desktop)
-        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features custom-protocol
+        run: node scripts/cargo-with-generative-bindgen.mjs test --manifest-path apps/desktop/src-tauri/Cargo.toml --features custom-protocol
 
       # Compile-and-link check, not a packaging run. `--no-bundle` skips the
       # installer generation (AppImage tooling download, WiX, DMG staging),
