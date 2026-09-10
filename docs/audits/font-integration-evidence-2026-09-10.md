@@ -6,6 +6,7 @@ It records a bounded improvement, not completion of the font program.
 
 ## Changes and evidence ownership
 
+The inspector/website capture slice landed in `db6d0d572`.
 The toolbar density and overlay repair landed in `e4508d4e7`. Rich-run style
 preservation and stale current-schema test expectations landed in `747d120d4`.
 Validation used the shared working tree based on `40f330b26`, with concurrent
@@ -185,3 +186,11 @@ pnpm --filter @varve/desktop typecheck
 pnpm exec vitest run apps/website
 pnpm --filter @varve/website typecheck
 ```
+
+## Website test typing follow-up
+
+The final website compiler check found that Playwright's generic image locator
+inferred `HTMLElement | SVGElement` in the new lazy-image setup. An explicit
+`HTMLImageElement` cast fixes that TypeScript error without changing runtime
+behavior. `pnpm --filter @varve/website exec tsc -p tests/e2e/tsconfig.json
+--noEmit` then passed. The reviewed typography visual test remains passing.

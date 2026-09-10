@@ -274,7 +274,7 @@ test('typography page light', async ({ page }) => {
   // The toolbar/browser scenes are below the fold. Start their requests before
   // waiting for all images, otherwise the full-page capture can never begin.
   await page.locator('img').evaluateAll((images) => {
-    for (const image of images) image.loading = 'eager';
+    for (const image of images) (image as HTMLImageElement).loading = 'eager';
   });
   await waitForImages(page);
   await expect(page.getByRole('heading', { name: 'Typography', exact: true })).toBeVisible();
