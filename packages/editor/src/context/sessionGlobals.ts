@@ -1,3 +1,4 @@
+import type { ImportReport } from '@varve/import';
 import { THEME_CHANGE_EVENT } from '@varve/ui/tokens';
 
 export { isCapabilityRestricted } from '../capabilities/restrictions';
@@ -38,4 +39,25 @@ export function setStartTextEditingHandler(fn: ((nodeId: string) => void) | null
 
 export function startTextEditing(nodeId: string): void {
   startTextEditingHandler?.(nodeId);
+}
+
+/** Report produced by a clipboard/drop import, enriched with the number of
+ * roots that actually reached the document. The report bridge keeps the
+ * ingestion paths independent from Shell while still presenting one result
+ * surface for material losses and failures. */
+export type ImportResultReport = ImportReport & {
+  insertedCount?: number;
+  route?: 'paste' | 'drop';
+};
+
+let importReportHandler: ((report: ImportResultReport | null) => void) | null = null;
+
+export function setImportReportHandler(
+  fn: ((report: ImportResultReport | null) => void) | null,
+): void {
+  importReportHandler = fn;
+}
+
+export function publishImportReport(report: ImportResultReport): void {
+  importReportHandler?.(report);
 }

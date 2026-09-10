@@ -4,9 +4,14 @@ import { type KeyboardEvent, useCallback, useState } from 'react';
 import './ImportResults.css';
 
 export interface ImportResultsProps {
-  result: BatchImportResult | ImportReport;
+  result: BatchImportResult | ImportResultReport;
   onClose: () => void;
 }
+
+export type ImportResultReport = ImportReport & {
+  insertedCount?: number;
+  route?: 'paste' | 'drop';
+};
 
 interface ImportResultRow {
   name: string;
@@ -14,11 +19,13 @@ interface ImportResultRow {
   warnings: string[];
 }
 
-function isServiceReport(result: BatchImportResult | ImportReport): result is ImportReport {
+function isServiceReport(
+  result: BatchImportResult | ImportResultReport,
+): result is ImportResultReport {
   return 'files' in result;
 }
 
-function rowsFor(result: BatchImportResult | ImportReport): ImportResultRow[] {
+function rowsFor(result: BatchImportResult | ImportResultReport): ImportResultRow[] {
   if (!isServiceReport(result)) {
     return result.results.map((file) => ({
       name: file.name,
@@ -45,6 +52,7 @@ export function ImportResults({ result, onClose }: ImportResultsProps) {
   const partialCount = serviceReport ? result.partialCount : 0;
   const failCount = serviceReport ? result.failureCount : result.failCount;
   const unsupportedCount = serviceReport ? result.unsupportedCount : 0;
+  const insertedCount = serviceReport ? result.insertedCount : undefined;
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -96,6 +104,11 @@ export function ImportResults({ result, onClose }: ImportResultsProps) {
         </div>
 
         <div className="import-results__summary">
+          {insertedCount !== undefined && (
+            <p className="import-results__stat import-results__stat--success">
+              {insertedCount} layer{insertedCount !== 1 ? 's' : ''} inserted
+            </p>
+          )}
           {successCount > 0 && (
             <p className="import-results__stat import-results__stat--success">
               {successCount} file{successCount !== 1 ? 's' : ''} imported successfully

@@ -29,6 +29,11 @@ export function setToastHandler(fn: ((opts: EditorToastOptions) => void) | null)
 }
 
 export { requestInspectorTab, setInspectorTabHandler } from './context/inspectorTabBridge';
+export {
+  type ImportResultReport,
+  publishImportReport,
+  setImportReportHandler,
+} from './context/sessionGlobals';
 
 /** Module-level bridge: invalidate a specific node's layer thumbnail
  *  after the node's fill, shape, or dimensions change. Registered by
@@ -8155,6 +8160,21 @@ export function EditorProvider({
               failed > 0 ? `; ${failed} failed` : ''
             }${partial > 0 ? `; ${partial} with fidelity changes` : ''}${clipboardRichTextWarning(richText)}`,
           );
+          if (
+            importReport &&
+            (importReport.partialCount > 0 ||
+              importReport.failureCount > 0 ||
+              importReport.warnings.length > 0 ||
+              importReport.files.some(
+                (file) => file.unsupportedFeatures.length > 0 || file.warnings.length > 0,
+              ))
+          ) {
+            sessionGlobals.publishImportReport({
+              ...importReport,
+              insertedCount: committedPasteCount,
+              route: 'paste',
+            });
+          }
         }
       },
 

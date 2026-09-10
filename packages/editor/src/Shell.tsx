@@ -78,7 +78,13 @@ import { SoftProofOverlay } from './components/SoftProofOverlay';
 import { SpreadSettings } from './components/SpreadSettings/SpreadSettings';
 import { StateMachinePanel } from './components/StateMachinePanel';
 import { WorkspaceCustomizeDialog } from './components/WorkspaceCustomizeDialog';
-import { EditorProvider, setToastHandler, useEditor } from './context';
+import {
+  EditorProvider,
+  type ImportResultReport,
+  setImportReportHandler,
+  setToastHandler,
+  useEditor,
+} from './context';
 import { useCollabPresence } from './hooks/useCollabPresence';
 import { useFileImport } from './importing/useFileImport';
 import { type LayersDnDHandle, LayersPanel } from './LayersPanel';
@@ -314,6 +320,11 @@ function ShellInner({
   }, [openFile, editor]);
   const fileRef = useRef<HTMLInputElement>(null);
   const fileImport = useFileImport(editor);
+  const [transferReport, setTransferReport] = useState<ImportResultReport | null>(null);
+  useEffect(() => {
+    setImportReportHandler((report) => setTransferReport(report));
+    return () => setImportReportHandler(null);
+  }, []);
   const responsivePanelTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [layersVisible, setLayersVisible] = useState(false);
   const [inspectorVisible, setInspectorVisible] = useState(false);
@@ -618,6 +629,9 @@ function ShellInner({
         )}
         {fileImport.report && (
           <ImportResults result={fileImport.report} onClose={fileImport.dismissReport} />
+        )}
+        {transferReport && (
+          <ImportResults result={transferReport} onClose={() => setTransferReport(null)} />
         )}
         <ImageCompareOverlay
           active={editor.state.beforeAfterCompare}

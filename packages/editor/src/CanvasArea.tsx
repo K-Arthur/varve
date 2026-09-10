@@ -55,7 +55,12 @@ import { buildToolContext } from './canvas/toolContext';
 import { useDocumentFontReadiness } from './canvas/useDocumentFonts';
 import { TouchCandidateMenu } from './components/Breadcrumb/TouchCandidateMenu';
 import { CanvasOverlays, markNewTextEditTarget } from './components/CanvasOverlays';
-import { type EditorState, setStartTextEditingHandler, useEditor } from './context';
+import {
+  type EditorState,
+  publishImportReport,
+  setStartTextEditingHandler,
+  useEditor,
+} from './context';
 import { LEGACY_FILE_MIME, VARVE_FILE_MIME } from './dnd-types';
 import {
   collectFilesFromDataTransfer,
@@ -1103,6 +1108,21 @@ export function CanvasArea({
           parsedItems,
           maskTargetId && allImages ? { maskTargetId } : undefined,
         );
+      }
+      if (
+        parsedItems.length > 0 &&
+        (report.partialCount > 0 ||
+          report.failureCount > 0 ||
+          report.warnings.length > 0 ||
+          report.files.some(
+            (file) => file.unsupportedFeatures.length > 0 || file.warnings.length > 0,
+          ))
+      ) {
+        publishImportReport({
+          ...report,
+          insertedCount: parsedItems.length,
+          route: 'drop',
+        });
       }
       reader.announce(
         `Imported ${report.successCount + report.partialCount} file${report.successCount + report.partialCount === 1 ? '' : 's'}; ${report.failureCount} failed`,

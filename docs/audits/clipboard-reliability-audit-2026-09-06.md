@@ -173,7 +173,7 @@ mistaken for a parser or placement failure:
 | CLIP-07 | Transport / ownership | Composed focus paths retain input, textarea, select, dialog, contenteditable, textbox, and embedded editor ownership. Canvas paste prevents the browser default only after it claims the event. **Resolved in unit coverage; native Firefox/WebKit evidence open.** | `isNativeClipboardTarget`; Shell listener |
 | CLIP-08 | Parser / SVG | XML declaration/BOM/comment handling, repeated path tuples, Q/T conversion, bounded arcs, and malformed-tag progress are covered. **Resolved for the reported hangs and regressions; root-transform/viewBox visual evidence open.** | `packages/import/src/svg.test.ts` |
 | CLIP-09 | Application / lifetime | File-picker and drop imports capture document/session/revision/selection identity and cancel before commit when it changes. **Resolved in the guard and focused regression; real picker/drop cancellation remains platform evidence.** | `isSessionCurrent`; `dropUtils.test.ts` |
-| CLIP-10 | Application / feedback | Partial and failed import reporting is available in the Import Report path. **Open for paste/drop UI wiring and actual committed-root counts.** | `useFileImport.ts`; Import Report follow-up |
+| CLIP-10 | Application / feedback | Partial and failed import reporting now reaches the shared Import Results surface for paste and drop, with the committed layer count attached to each report. **Resolved in the browser/application path; picker/drop cancellation and native transport evidence remain separate.** | `context.tsx`, `CanvasArea.tsx`, `ImportResults.tsx`; `ImportResults.test.tsx` |
 | CLIP-11 | Parser / rich text | Canvas plain text and bounded HTML now insert editable text nodes. Paragraphs, line breaks, whitespace, bold/italic/decoration, font family, and CSS color are supported; unsafe or omitted content produces warnings. **Resolved for the supported subset.** | `clipboardRichText.test.ts`; `context.import.test.tsx` |
 | CLIP-12 | Transport / item identity | File objects are deduplicated by object identity; an SVG string and equivalent SVG file no longer create two logical items. **Resolved for the DOM snapshot route; same-name external application coverage open.** | `clipboard.ts` snapshot tests |
 | CLIP-13 | Figma transport | Ordinary Figma Copy envelope is **unsupported/unverified**. Copy as SVG remains the documented interoperability route until a bounded Firefox fixture proves a safe adapter. | `figma-import-system.md`; fixture lane open |
@@ -275,8 +275,36 @@ cd /tmp/varve-rich && VARVE_TEST_WORKERS=1 \
 passed
 ```
 
-Native browser ownership, rich-text shaping across every font/script, and
-paste/drop Import Results remain separate validation or product-surface work.
+Native browser ownership and rich-text shaping across every font/script remain
+separate validation work. Paste and drop now publish material import losses and
+failures through the same Import Results dialog used by the file picker; the
+dialog includes the number of layers committed by the route.
+
+### Paste/drop reporting follow-up — 2026-09-10
+
+The shared report bridge is registered by `Shell` and is fed by both the
+clipboard paste transaction and canvas drop import. Reports are only surfaced
+for warnings, partial conversion, unsupported content, or failures, so a clean
+transfer keeps the established announcement-only feedback. The report is
+published after the atomic commit and carries `route` plus `insertedCount`;
+stale sessions publish nothing and therefore cannot claim layers that were not
+inserted.
+
+Evidence:
+
+```text
+cd /tmp/varve-report && \
+  /home/kevina/CodingProjects/varve/node_modules/.bin/biome check \
+  packages/editor/src/context/sessionGlobals.ts \
+  packages/editor/src/context.tsx packages/editor/src/CanvasArea.tsx \
+  packages/editor/src/Shell.tsx packages/editor/src/components/ImportResults.tsx \
+  packages/editor/src/components/ImportResults.test.tsx
+passed
+cd /tmp/varve-report && VARVE_TEST_WORKERS=1 \
+  /home/kevina/CodingProjects/varve/node_modules/.bin/vitest run \
+  packages/editor/src/components/ImportResults.test.tsx --maxWorkers=1 --reporter=dot
+10 tests passed
+```
 
 ### Final validation record — 2026-09-09
 

@@ -166,6 +166,14 @@ order in their reports while progress reflects completed files. Undo Cut
 restores the source document without rewriting the system clipboard. Redo
 replays the committed document result and does not reread the clipboard.
 
+Import feedback uses one report bridge for the three ingestion routes. File
+picker imports keep their existing report state; clipboard paste and canvas
+drop publish a report only when conversion has warnings, unsupported content,
+partial output, or failures. Publication happens after the atomic scene commit
+and includes the route and the number of committed roots, so the Import Results
+dialog reports what reached the document rather than only what the transport
+offered. Stale or cancelled sessions do not publish a success count.
+
 ## Fidelity and limitations
 
 | Source or destination | Current behavior | Evidence / limitation |
