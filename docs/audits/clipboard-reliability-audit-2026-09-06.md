@@ -627,3 +627,27 @@ The inspected artifact is
 It shows the grouped root and its sibling selected together on the canvas; the
 test also asserts their serialized order, editable group children, and world
 spacing. Wayland ownership and packaged Tauri transport remain open.
+
+### Validation checkpoint — 2026-09-10
+
+The required impact planner selected the full closure because the shared
+checkout contains concurrent workspace and validation changes. The targeted
+checks for this follow-up passed: `pnpm audit:docs`, `pnpm audit:emoji`,
+`pnpm audit:tokens`, the platform typecheck, the Tauri wrapper/dialog tests,
+the 26-test editor context/report run, and the 47-test Figma/SVG/import run.
+The architecture audit completed with the repository's existing cycle,
+instability, and hub-budget baseline findings.
+
+The recorded full-gate command was:
+
+```text
+VARVE_FULL_GATE_REASON="clipboard/import reliability follow-up: paste-drop Import Results, native clipboard cancellation, and concurrent workspace validation escalation" pnpm verify:full
+```
+
+It reached all workspace package typechecks and `tests/e2e/tsconfig.json`,
+then exited 1 on concurrent lint/health diagnostics in the website changelog,
+Inspector/Crop/Table surfaces, generated Inspector captures, and the existing
+`packages/editor/src/context.tsx` line ceiling (`10569 > 10554`). No
+clipboard/import typecheck failure was reported. The native Wayland/WebKitGTK
+WDIO lane, packaged `.fig` CSP smoke, and owned Firefox Figma captures remain
+external evidence blockers and are intentionally not marked complete.
