@@ -1070,6 +1070,13 @@ fn remove_background_impl(
 }
 
 // ── Native image denoise (SCUNet) ──────────────────────────────────────
+/// Cancellation is recorded separately from the child registry because a
+/// renderer can cancel after invoking the command but before the helper has
+/// finished spawning. Keeping the tombstone until the worker observes it
+/// closes that start-up race and also prevents a just-exited child from
+/// publishing a late result.
+static GENERATIVE_CANCELLATIONS: LazyLock<Mutex<HashSet<String>>> =
+    LazyLock::new(|| Mutex::new(HashSet::new()));
 
 /// Options for native denoise.
 #[derive(Debug, serde::Deserialize)]
@@ -1729,6 +1736,26 @@ fn qualification_request(model_handle: &str, request_id: String) -> GenerativeEd
 
 fn resolve_generative_model_for_run(
     app: &tauri::AppHandle,
+fn generation_cancel_requested(request_id: &str) -> bool {
+    GENERATIVE_CANCELLATIONS
+        .lock()
+        .map(|requests| requests.contains(request_id))
+        .unwrap_or(true)
+}
+
+fn clear_generation_cancellation(request_id: &str) {
+    if let Ok(mut requests) = GENERATIVE_CANCELLATIONS.lock() {
+        requests.remove(request_id);
+    }
+}
+
+fn take_generation_cancellation(request_id: &str) -> bool {
+    GENERATIVE_CANCELLATIONS
+        .lock()
+        .map(|mut requests| requests.remove(request_id))
+        .unwrap_or(true)
+}
+
     require_qualified: bool,
 ) -> Result<std::path::PathBuf, String> {
     let status = model_status_blocking(app)?;
@@ -1803,6 +1830,9 @@ async fn qualify_generative_edit_model(
             for x in 20..44 {
                 let pixel = output.get_pixel(x, y);
                 if pixel[0] != 238 || pixel[1] != 238 || pixel[2] != 238 {
+    if take_generation_cancellation(&options.request_id) {
+        return Err("Generation was cancelled".into());
+    }
                     changed_pixels += 1;
                 }
             }
@@ -1860,7 +1890,31 @@ fn valid_generation_request_id(request_id: &str) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
 }
 
+    // The cancel command may have run between the initial check and child
+    // registration. Re-check after registration and terminate before the
+    // helper gets an opportunity to publish output.
+    if generation_cancel_requested(&request_id) {
+        if let Ok(mut processes) = GENERATIVE_CHILDREN.lock() {
+            if let Some(mut process) = processes.remove(&request_id) {
+                let _ = process.kill();
+                let _ = process.wait();
+            }
+        }
+        clear_generation_cancellation(&request_id);
+        return Err("Generation was cancelled".into());
+    }
+
 fn resolve_generative_helper(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+        if generation_cancel_requested(&request_id) {
+            if let Ok(mut processes) = GENERATIVE_CHILDREN.lock() {
+                if let Some(mut process) = processes.remove(&request_id) {
+                    let _ = process.kill();
+                    let _ = process.wait();
+                }
+            }
+            clear_generation_cancellation(&request_id);
+            return Err("Generation was cancelled".into());
+        }
     if let Some(path) = std::env::var_os("VARVE_GENERATIVE_HELPER") {
         let path = std::path::PathBuf::from(path);
         if path.is_file() {
@@ -1881,6 +1935,7 @@ fn resolve_generative_helper(app: &tauri::AppHandle) -> Result<std::path::PathBu
     }
     let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     let profile = if cfg!(debug_assertions) { "debug" } else { "release" };
+            clear_generation_cancellation(&request_id);
     let dev_path = manifest_dir.join("../../../target").join(profile).join(file_name);
     if dev_path.is_file() {
         return Ok(dev_path);
@@ -1897,11 +1952,18 @@ fn write_generation_inputs(
         .ok_or_else(|| "Generation source dimensions overflow".to_string())?;
     if image_pixels == 0 || image_pixels > 64 * 1024 * 1024 || options.image_data.len() as u64 != image_pixels * 4 {
         return Err("Generation source pixels do not match the declared dimensions".into());
+    if take_generation_cancellation(&request_id) {
+        let mut process = process;
+        let _ = process.kill();
+        let _ = process.wait();
+        return Err("Generation was cancelled".into());
+    }
     }
     let mask_pixels = u64::from(options.mask_w)
         .checked_mul(u64::from(options.mask_h))
         .ok_or_else(|| "Generation mask dimensions overflow".to_string())?;
     if mask_pixels == 0 || mask_pixels > 64 * 1024 * 1024 || options.mask.len() as u64 != mask_pixels {
+        clear_generation_cancellation(&request_id);
         return Err("Generation mask pixels do not match the declared dimensions".into());
     }
     let rgba = image::RgbaImage::from_raw(options.image_w, options.image_h, options.image_data.clone())
@@ -1912,6 +1974,7 @@ fn write_generation_inputs(
     let mask_path = work_dir.join("mask.png");
     image::DynamicImage::ImageRgba8(rgba)
         .save(&image_path)
+    clear_generation_cancellation(&request_id);
         .map_err(|error| format!("Could not write generation source: {error}"))?;
     image::DynamicImage::ImageLuma8(mask)
         .save(&mask_path)
@@ -2019,9 +2082,14 @@ fn generative_edit_blocking_with_requirement(
     let mut processes = GENERATIVE_CHILDREN
         .lock()
         .map_err(|_| "Generation process registry is unavailable".to_string())?;
-    let process = processes
-        .remove(&request_id)
-        .ok_or_else(|| "Generation was cancelled".to_string())?;
+    let process = match processes.remove(&request_id) {
+        Some(process) => process,
+        None => {
+            drop(processes);
+            clear_generation_cancellation(&request_id);
+            return Err("Generation was cancelled".into());
+        }
+    };
     drop(processes);
     let output = process
         .wait_with_output()
