@@ -2,6 +2,9 @@ import type { AreaSelectionSettings, AreaSelectionStyle } from '@varve/engine';
 import { FloatingPortal, NativeSelect, Switch, ToggleButton } from '@varve/ui';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { type ToolId, useEditor } from '../../context';
+import { setToolOptionsHandler } from '../../context/toolOptionsBridge';
+import { toolLabel } from '../../tools/toolRegistry';
+import { hasToolOptions } from '../Inspector/toolContext';
 import './ToolOptionsPopover.css';
 
 const BrushLibraryPanel = lazy(() =>
@@ -12,11 +15,6 @@ const BrushLibraryPanel = lazy(() =>
 const BrushSection = lazy(() =>
   import('../Inspector/sections/BrushSection').then((module) => ({
     default: module.BrushSection,
-  })),
-);
-const FramePresetsSection = lazy(() =>
-  import('../Inspector/sections/FramePresetsSection').then((module) => ({
-    default: module.FramePresetsSection,
   })),
 );
 const ImageCropSection = lazy(() =>
@@ -295,13 +293,15 @@ export function ToolOptionsPopover() {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
-  const supportsOptions =
-    BRUSH_TOOLS.has(state.tool) ||
-    MARQUEE_TOOLS.has(state.tool) ||
-    MAGIC_WAND_TOOLS.has(state.tool) ||
-    state.tool === 'frame' ||
-    state.tool === 'crop' ||
-    state.tool === 'text';
+  // One map decides which tools have options here; the Inspector reads the
+  // same map, so it only offers "Show … options" when this popover has content.
+  const supportsOptions = hasToolOptions(state.tool);
+
+  useEffect(() => {
+    if (!supportsOptions) return;
+    setToolOptionsHandler(() => setOpen(true));
+    return () => setToolOptionsHandler(null);
+  }, [supportsOptions]);
 
   useEffect(() => {
     setOpen(
@@ -380,7 +380,7 @@ export function ToolOptionsPopover() {
           ref={popoverRef}
           className="tool-options__content insp-panel"
           role="dialog"
-          aria-label={`${state.tool} tool options`}
+          aria-label={`${toolLabel(state.tool)} tool options`}
         >
           <Suspense
             fallback={
@@ -406,9 +406,6 @@ export function ToolOptionsPopover() {
                 settings={state.areaSelectionSettings}
                 onChange={setAreaSelectionSettings}
               />
-            )}
-            {state.tool === 'frame' && (
-              <FramePresetsSection mode="create" sectionId="frame-presets" />
             )}
             {MAGIC_WAND_TOOLS.has(state.tool) && (
               <MagicWandOptions

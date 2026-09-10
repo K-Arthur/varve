@@ -223,12 +223,22 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     rationale: 'Adjustment stacks are a persistent image-editing workflow.',
   },
   'frame-presets': {
-    surface: 'tool-options',
+    surface: 'properties',
     scope: 'active-tool',
     frequency: 'occasional',
     complexity: 'compact',
     status: 'functional',
-    rationale: 'Presets configure frame creation or resizing, not document appearance.',
+    rationale:
+      'With the Frame tool active and nothing selected, preset sizes are the only relevant choice, so the Inspector shows them in place of object properties.',
+  },
+  'frame-resize': {
+    surface: 'properties',
+    scope: 'selection',
+    frequency: 'occasional',
+    complexity: 'compact',
+    status: 'functional',
+    rationale:
+      'Snapping a selected frame to a preset size (and saving its size as a preset) edits that frame; it stays one collapsed row beside Position & Size.',
   },
   icon: {
     surface: 'properties',

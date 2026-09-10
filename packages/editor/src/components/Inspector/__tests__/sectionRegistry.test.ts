@@ -431,10 +431,24 @@ describe('Section availability predicates', () => {
     expect(def.isAvailable(baseCtx({ activeTool: 'rect' }))).toBe(false);
   });
 
-  it('frame-presets only available when frame tool is active', () => {
+  it('frame-presets only available when the frame tool is active with nothing selected', () => {
     const def = getSectionDefinition('frame-presets')!;
-    expect(def.isAvailable(baseCtx({ activeTool: 'frame' }))).toBe(true);
-    expect(def.isAvailable(baseCtx({ activeTool: 'select' }))).toBe(false);
+    expect(def.isAvailable(baseCtx({ activeTool: 'frame', selectionKind: 'empty' }))).toBe(true);
+    expect(def.isAvailable(baseCtx({ activeTool: 'select', selectionKind: 'empty' }))).toBe(false);
+    expect(def.isAvailable(baseCtx({ activeTool: 'frame', selectionKind: 'single' }))).toBe(false);
+  });
+
+  it('frame-resize only available for a single non-component frame, under any tool', () => {
+    const def = getSectionDefinition('frame-resize')!;
+    const frame = { id: 'f', kind: 'frame' } as unknown as SceneNode;
+    const instance = { id: 'i', kind: 'frame', componentId: 'c' } as unknown as SceneNode;
+    const rect = { id: 'r', kind: 'shape', shape: { kind: 'rect' } } as unknown as SceneNode;
+    const single = (node: SceneNode, activeTool = 'select') =>
+      baseCtx({ selectionKind: 'single', selectedNodes: [node], activeTool });
+    expect(def.isAvailable(single(frame))).toBe(true);
+    expect(def.isAvailable(single(frame, 'frame'))).toBe(true);
+    expect(def.isAvailable(single(instance))).toBe(false);
+    expect(def.isAvailable(single(rect))).toBe(false);
   });
 
   it('interaction is available for any single selection, independent of prototypeMode', () => {

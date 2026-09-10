@@ -1,8 +1,10 @@
 /**
  * Frame Presets section — the Figma model for sizing artboards.
  *
- * Shown when the Frame tool is active (create a new preset-sized frame) or a
- * single frame is selected (resize it to the preset). Presets come from the
+ * Two Inspector compositions mount it: `create` while the Frame tool is active
+ * with nothing selected (section `frame-presets`, placing a new preset-sized
+ * frame), and `resize` for a single non-component frame under any tool
+ * (section `frame-resize`, one collapsed row). Presets come from the
  * shared, data-driven registry (@varve/shared) rendered via the shared
  * PresetPicker (@varve/ui) — searchable, grouped, with favorites/recents and
  * a user-created "Custom" section backed by usePresetLibrary.
@@ -11,7 +13,13 @@
  * width/height/unit ever reach applyFramePreset, since frames have no color
  * mode (only documents do).
  */
-import { BUILTIN_PRESET_GROUPS, type CustomPreset, type Preset, physicalToPx } from '@varve/shared';
+import {
+  BUILTIN_PRESET_GROUPS,
+  type CustomPreset,
+  type Preset,
+  type PresetGroup,
+  physicalToPx,
+} from '@varve/shared';
 import { Button, PresetPicker } from '@varve/ui';
 import { useCallback } from 'react';
 import { useEditor } from '../../../context';
@@ -19,6 +27,33 @@ import { usePresetLibrary } from '../../../presetLibrary';
 import { promptDialog } from '../../PromptDialog';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import type { SectionId } from '../sectionRegistry';
+
+/**
+ * Frames are mostly screens, so device groups lead (as in Figma and Penpot);
+ * print and photo sizes stay available further down. Unlisted groups keep
+ * their registry order at the end.
+ */
+const FRAME_GROUP_ORDER: readonly PresetGroup['category'][] = [
+  'mobile-tablet',
+  'desktop',
+  'web',
+  'presentation',
+  'social',
+  'video-motion',
+  'icon-asset',
+  'logo',
+  'print',
+  'paper',
+  'photo',
+];
+
+const FRAME_PRESET_GROUPS: PresetGroup[] = [...BUILTIN_PRESET_GROUPS].sort((a, b) => {
+  const rank = (group: PresetGroup) => {
+    const index = FRAME_GROUP_ORDER.indexOf(group.category);
+    return index === -1 ? FRAME_GROUP_ORDER.length : index;
+  };
+  return rank(a) - rank(b);
+});
 
 export function FramePresetsSection({
   mode,
@@ -79,12 +114,13 @@ export function FramePresetsSection({
     [lib.updateCustomPreset],
   );
 
-  const label = mode === 'resize' ? 'Resize to preset' : 'Frame presets';
+  const label = mode === 'resize' ? 'Resize to Preset' : 'Frame Presets';
 
   return (
     <DisclosureSection title={label} sectionId={sectionId} defaultExpanded={mode === 'create'}>
       <PresetPicker
-        groups={BUILTIN_PRESET_GROUPS}
+        groups={FRAME_PRESET_GROUPS}
+        density="compact"
         customPresets={lib.customPresets}
         recentIds={lib.recentIds}
         favoriteIds={lib.favoriteIds}

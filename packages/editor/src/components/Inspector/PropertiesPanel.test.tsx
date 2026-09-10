@@ -358,17 +358,18 @@ describe('PropertiesPanel section gating for a real single selection', () => {
     }
   });
 
-  it('hosts Object Filter editing in the merged Design surface and exposes the Studio launcher', async () => {
+  it('hosts Object Filter editing in the merged Design surface without the Studio gallery', async () => {
     await renderPanelWithSelectedRect();
 
     // Appearance content — including Object Filters — is merged into the
-    // single context-adaptive Design tab; the Effect Studio dialog remains
-    // the focused surface for browsing curated treatment stacks. The merged
-    // panels are lazy-loaded; the generous timeout absorbs slow CI workers.
+    // single context-adaptive Design tab. The Effect Studio gallery opens from
+    // Object → Open Effect Studio or the Adjustments entry, not Properties
+    // (docs/architecture/effect-studio.md). The merged panels are
+    // lazy-loaded; the generous timeout absorbs slow CI workers.
     expect(
       await screen.findByRole('button', { name: 'Object Filters' }, { timeout: 15000 }),
     ).toBeTruthy();
-    expect(await screen.findByTestId('open-effect-studio', {}, { timeout: 15000 })).toBeTruthy();
+    expect(screen.queryByTestId('open-effect-studio')).toBeNull();
     expect(screen.getByRole('tab', { name: 'Adjustments' })).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Appearance' })).toBeNull();
   });
@@ -462,9 +463,92 @@ describe('PropertiesPanel empty selection', () => {
     );
 
     await waitFor(() => expect(ctx?.state.tool).toBe('paint'));
-    expect(screen.getByLabelText('Inspector context: Tool options')).toBeInTheDocument();
-    expect(screen.getByText(/tool controls stay with the active tool/i)).toBeInTheDocument();
+    expect(screen.getByLabelText('Inspector context: Active tool')).toBeInTheDocument();
+    expect(screen.getByText(/paint brush settings open beside the toolbar/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show paint brush options' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Canvas' })).toBeNull();
+  });
+
+  it('shows frame presets in place of object properties while the Frame tool is active', async () => {
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function ToolSelector() {
+      ctx = useEditor();
+      React.useEffect(() => {
+        ctx?.setTool('frame');
+      }, []);
+      return null;
+    }
+
+    render(
+      <EditorProvider>
+        <ToolSelector />
+        <PropertiesPanel />
+      </EditorProvider>,
+    );
+
+    await waitFor(() => expect(ctx?.state.tool).toBe('frame'));
+    expect(screen.getByLabelText('Inspector context: Active tool')).toHaveTextContent('Frame');
+    expect(screen.getByRole('button', { name: 'Frame Presets' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    expect(screen.queryByText(/no selection/i)).toBeNull();
+    expect(screen.queryByRole('button', { name: /show .* options/i })).toBeNull();
+  });
+
+  it('shows Page Print above document settings while the Page tool is active', async () => {
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function ToolSelector() {
+      ctx = useEditor();
+      React.useEffect(() => {
+        ctx?.setTool('page');
+      }, []);
+      return null;
+    }
+
+    const { createDocument } = await import('@varve/scene');
+    const paged = createDocument('Paged', {
+      physicalWidth: 210,
+      physicalHeight: 297,
+      documentUnit: 'mm',
+    });
+    render(
+      <EditorProvider initialDocumentJson={JSON.stringify(paged)}>
+        <ToolSelector />
+        <PropertiesPanel />
+      </EditorProvider>,
+    );
+
+    await waitFor(() => expect(ctx?.state.tool).toBe('page'));
+    // DocumentPanel is lazy-loaded; the generous timeout absorbs slow workers.
+    expect(
+      await screen.findByRole('button', { name: 'Page Print' }, { timeout: 15000 }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Canvas' })).toBeInTheDocument();
+  });
+
+  it('keeps document settings for tools without settings of their own', async () => {
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function ToolSelector() {
+      ctx = useEditor();
+      React.useEffect(() => {
+        ctx?.setTool('rect');
+      }, []);
+      return null;
+    }
+
+    render(
+      <EditorProvider>
+        <ToolSelector />
+        <PropertiesPanel />
+      </EditorProvider>,
+    );
+
+    await waitFor(() => expect(ctx?.state.tool).toBe('rect'));
+    expect(screen.queryByLabelText('Inspector context: Active tool')).toBeNull();
+    expect(
+      await screen.findByRole('button', { name: 'Canvas' }, { timeout: 15000 }),
+    ).toBeInTheDocument();
   });
 
   it('does not render the State Machine section inline', () => {

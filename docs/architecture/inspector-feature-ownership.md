@@ -51,13 +51,39 @@ format the resting display without changing stored precision. The contract is
 covered by `tests/e2e/inspector/control-layout.spec.ts` at 240, 320, 480, and
 640px rail widths.
 
+## Tool context
+
+With nothing selected, the Design tab adapts to the active tool. One map,
+`components/Inspector/toolContext.ts`, classifies every tool, and both the
+Inspector and the floating Tool Options popover read it, so neither surface
+can point at controls the other does not render:
+
+| Tool class | Examples | Empty Inspector shows |
+|---|---|---|
+| Inspector tool content | Frame | `Active tool · Frame` header, then the tool's own sections (Frame Presets, expanded). Choosing a preset places a frame of that size and selects it. |
+| Tool Options | Paint Brush, Eraser, Pencil, Smudge, marquees, Magic Wand, Text, Crop | `Active tool · <registry label>` header, one line of guidance, and **Show … options**, which opens the popover beside the toolbar through `context/toolOptionsBridge.ts`. |
+| No settings of its own | Select, Rectangle, Ellipse, Pen, Line, Page, navigation | The page/canvas/document settings, exactly as with the Select tool. Page's print overrides render at the top of those settings while the Page tool is active. |
+
+Tool names always come from the tool registry (`toolLabel`), never the raw
+tool id. Selection always wins over tool context: once something is selected,
+the Inspector shows that selection's properties under any tool.
+
+A selected, non-component frame also gets **Resize to Preset** (`frame-resize`),
+one collapsed row directly beneath Position & Size. It is a separate section
+from `frame-presets` so creation (expanded) and resizing (collapsed) keep their
+own disclosure state. Its **Save current size as preset** action adds the
+frame's size to the custom presets used by both.
+
 ## Placement decision
 
 Answer these questions in order before choosing a surface:
 
 1. Does the control configure the active tool or a temporary interaction?
-   Place it in Tool Options. Examples: brush behavior, frame creation presets,
-   crop, mask refinement, and temporary selection modes.
+   Place it in Tool Options. Examples: brush behavior, crop, mask refinement,
+   and temporary selection modes. The exception is a compact, persistent
+   choice that would otherwise leave the empty Inspector with nothing to show
+   (Frame presets); register that tool as `inspector` in `toolContext.ts`
+   instead of adding a second copy to Tool Options.
 2. Is the setting document-wide, page-wide, export-specific, application-wide,
    or diagnostic? Place it in Document, Export, Settings, or Audit respectively.
 3. Does the feature require previews, model downloads, a long reorderable

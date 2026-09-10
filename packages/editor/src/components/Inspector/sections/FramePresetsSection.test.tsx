@@ -53,12 +53,12 @@ function setup(mode: 'create' | 'resize') {
 }
 
 describe('FramePresetsSection', () => {
-  it('shows "Frame presets" in create mode and "Resize to preset" in resize mode', () => {
+  it('shows "Frame Presets" in create mode and "Resize to Preset" in resize mode', () => {
     setup('create');
-    expect(screen.getByRole('button', { name: 'Frame presets' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Frame Presets' })).toBeInTheDocument();
     cleanup();
     setup('resize');
-    expect(screen.getByRole('button', { name: 'Resize to preset' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Resize to Preset' })).toBeInTheDocument();
   });
 
   it('renders built-in preset categories', () => {
@@ -102,7 +102,7 @@ describe('FramePresetsSection', () => {
   it('does not show "Save current size as preset" with no selection', async () => {
     const user = userEvent.setup();
     setup('resize');
-    await expandDisclosure(user, 'Resize to preset');
+    await expandDisclosure(user, 'Resize to Preset');
     expect(screen.queryByText('Save current size as preset')).not.toBeInTheDocument();
   });
 
@@ -125,7 +125,7 @@ describe('FramePresetsSection', () => {
     await waitFor(() => {
       expect(getCtx().state.selection).toHaveLength(1);
     });
-    await expandDisclosure(user, 'Resize to preset');
+    await expandDisclosure(user, 'Resize to Preset');
 
     const saveButton = await screen.findByText('Save current size as preset');
     await user.click(saveButton);

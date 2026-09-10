@@ -9,7 +9,7 @@ const SCOPE_LABELS: Record<InspectorScope, string> = {
   'table-cell': 'Table cell',
   'pixel-selection': 'Pixel selection',
   'temporary-workflow': 'Workflow',
-  tool: 'Tool options',
+  tool: 'Active tool',
 };
 
 function shouldShowContextHeader(scope: InspectorScope): boolean {

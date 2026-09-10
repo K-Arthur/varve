@@ -18,11 +18,13 @@ import {
   isImageShape,
   type SceneNode,
 } from '@varve/scene';
-import { EmptyState } from '@varve/ui';
+import { Button, EmptyState, Icon } from '@varve/ui';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { setInspectorTabHandler, useEditor } from '../../context';
-import type { InspectorTab, IntelligenceTab } from '../../context/types';
+import { requestToolOptions } from '../../context/toolOptionsBridge';
+import type { EditorState, InspectorTab, IntelligenceTab } from '../../context/types';
 import { docVariableStore } from '../../docVariableStore';
+import { toolIconName } from '../../tools/toolRegistry';
 import { usePanelLocalState } from '../../workspace/panelLocalState';
 import { useEffectiveWorkspaceConfig } from '../../workspace/useWorkspaceConfig';
 import {
@@ -58,6 +60,7 @@ import { ComponentSection } from './sections/ComponentSection';
 import { CornerRadiusSection } from './sections/CornerRadiusSection';
 import { EffectsSection } from './sections/EffectsSection';
 import { FillSection } from './sections/FillSection';
+import { FramePresetsSection } from './sections/FramePresetsSection';
 import { IconSection } from './sections/IconSection';
 import { ImageCropSection } from './sections/ImageCropSection';
 import { ImagePlacementSection } from './sections/ImagePlacementSection';
@@ -79,6 +82,7 @@ import { TableSection } from './sections/TableSection';
 import { TypographySection } from './sections/TypographySection';
 import { WarpSection } from './sections/WarpSection';
 import { type SelectionSummary, summarize } from './selection/selectionState';
+import { toolContextSurface } from './toolContext';
 
 import './inspector.css';
 
@@ -516,15 +520,84 @@ function SelectionLockGuard({
   );
 }
 
+/**
+ * Collects registry-gated sections for one Inspector composition. Availability
+ * and user hide/order preferences come from the section registry, so every
+ * composition (empty, single, multi) applies the same rules.
+ */
+function composeSections(state: EditorState, availability: SectionAvailabilityContext) {
+  const entries: { id: SectionId; order: number; el: React.ReactNode }[] = [];
+  const add = (id: SectionId, el: React.ReactNode) => {
+    const def = getSectionDefinition(id);
+    if (def && !def.isAvailable(availability)) return;
+    if (state.sectionVisibility[id]?.hidden && def?.canHide) return;
+    const o = state.sectionVisibility[id]?.order;
+    entries.push({ id, order: o ?? def?.order ?? 500, el });
+  };
+  const sorted = () => entries.sort((a, b) => a.order - b.order);
+  return { add, sorted };
+}
+
+/**
+ * The empty Inspector while a tool with settings of its own is active. Tools
+ * that own Inspector sections (Frame presets) render them here; tools whose
+ * settings live beside the toolbar get a button that opens that popover.
+ */
+function ToolContextState({ context }: { context: InspectorContext }) {
+  const { state } = useEditor();
+  const tool = context.activeTool;
+  const label = context.target.label;
+
+  if (toolContextSurface(tool) === 'inspector') {
+    const { add, sorted } = composeSections(state, {
+      selectionKind: 'empty',
+      selectedNodes: [],
+      workspaceMode: state.workspaceMode,
+      activeTool: tool,
+      prototypeMode: state.prototypeMode,
+      tableEdit: state.tableEdit,
+      document: state.document,
+    });
+    add('frame-presets', <FramePresetsSection mode="create" sectionId="frame-presets" />);
+    const entries = sorted();
+    return (
+      <div className="insp-tool-context" data-tool-context={tool}>
+        <p className="insp-tool-context__hint">
+          Drag on the canvas to draw a {label.toLowerCase()}, or pick a size to place one.
+        </p>
+        {entries.map((entry) => (
+          <div key={entry.id}>{entry.el}</div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="insp-tool-context" data-tool-context={tool}>
+      <p className="insp-tool-context__hint">
+        {label} settings open beside the toolbar and apply to what you create next.
+      </p>
+      <Button
+        variant="secondary"
+        size="sm"
+        className="insp-tool-context__action"
+        onClick={requestToolOptions}
+      >
+        <Icon name={toolIconName(tool)} size={14} />
+        Show {label.toLowerCase()} options
+      </Button>
+    </div>
+  );
+}
+
 function EmptySelectionState({ context }: { context: InspectorContext }) {
+  if (context.scope === 'tool') return <ToolContextState context={context} />;
   const showsDocumentSettings =
     context.scope === 'document' || context.scope === 'canvas' || context.scope === 'page';
   const scopeDescription =
-    context.scope === 'tool'
-      ? `Inspecting ${context.target.label}. Tool controls stay with the active tool. Select a layer to return to object properties.`
-      : context.scope === 'pixel-selection'
-        ? `Inspecting ${context.target.label}. Select a layer to return to object properties.`
-        : `Inspecting ${context.target.label} settings. Select a layer to edit its properties.`;
+    context.scope === 'pixel-selection'
+      ? `Inspecting ${context.target.label}. Select a layer to return to object properties.`
+      : `Inspecting ${context.target.label} settings. Select a layer to edit its properties.`;
   return (
     <div className="insp-panel__empty">
       <EmptyState
@@ -567,9 +640,7 @@ function EmptySelectionState({ context }: { context: InspectorContext }) {
         </Suspense>
       ) : (
         <p className="insp-panel__empty-hint" role="status">
-          {context.scope === 'tool'
-            ? 'Open the active tool controls to adjust its options.'
-            : 'Choose a layer or return to the originating workflow to continue.'}
+          Choose a layer or return to the originating workflow to continue.
         </p>
       )}
     </div>
@@ -599,19 +670,12 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
       tableEdit: state.tableEdit,
       document: state.document,
     };
-    const entries: { id: SectionId; order: number; el: React.ReactNode }[] = [];
-    const add = (id: SectionId, el: React.ReactNode) => {
-      const def = getSectionDefinition(id);
-      if (def && !def.isAvailable(availabilityCtx)) return;
-      if (state.sectionVisibility[id]?.hidden && def?.canHide) return;
-      const o = state.sectionVisibility[id]?.order;
-      entries.push({ id, order: o ?? def?.order ?? 500, el });
-    };
+    const { add, sorted } = composeSections(state, availabilityCtx);
 
     // AdjustmentPanel is the canonical editor for adjustment nodes. Generic
     // fill/stroke/legacy-effects sections expose unrelated NodeBase fields and
     // create a second, conflicting effects pipeline.
-    if (node.kind === 'adjustment') return entries;
+    if (node.kind === 'adjustment') return sorted();
 
     if (node.kind === 'table') {
       add('table', <TableSection node={node as import('@varve/scene').TableNode} />);
@@ -619,7 +683,7 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
       add('table-columns', <TableTracksSection tableId={node.id} />);
       add('appearance', <AppearanceSection nodes={nodes} />);
       add('adjustment-layer-access', <AdjustmentLayerAccessSection nodes={nodes} />);
-      return entries.sort((a, b) => a.order - b.order);
+      return sorted();
     }
 
     if (isComponentInstance)
@@ -629,6 +693,9 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
       add('mockups', <MockupsSection node={node as import('@varve/scene').FrameNode} />);
     }
     add('position-size', <PositionSizeSection nodes={nodes} />);
+    if (isFrame && !isComponentInstance) {
+      add('frame-resize', <FramePresetsSection mode="resize" sectionId="frame-resize" />);
+    }
     if (!isFrame) add('layout-child', <LayoutChildSection nodes={nodes} />);
     if (isRect || isFrame) add('corner-radius', <CornerRadiusSection nodes={nodes} />);
     if (isFrame) add('layout', <LayoutSection node={node as import('@varve/scene').FrameNode} />);
@@ -657,7 +724,7 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
 
     add('layer-states', <LayerStatesSection />);
 
-    return entries.sort((a, b) => a.order - b.order);
+    return sorted();
   }, [nodes, node, isFrame, isExportRegionNode, isComponentInstance, isRect, state]);
 
   return (
@@ -699,14 +766,7 @@ function MultiSelectionPanel({
       tableEdit: state.tableEdit,
       document: state.document,
     };
-    const entries: { id: SectionId; order: number; el: React.ReactNode }[] = [];
-    const add = (id: SectionId, el: React.ReactNode) => {
-      const def = getSectionDefinition(id);
-      if (def && !def.isAvailable(availabilityCtx)) return;
-      if (state.sectionVisibility[id]?.hidden && def?.canHide) return;
-      const o = state.sectionVisibility[id]?.order;
-      entries.push({ id, order: o ?? def?.order ?? 500, el });
-    };
+    const { add, sorted } = composeSections(state, availabilityCtx);
 
     add('position-size', <PositionSizeSection nodes={nodes} />);
     add('layout-child', <LayoutChildSection nodes={nodes} />);
@@ -726,7 +786,7 @@ function MultiSelectionPanel({
 
     add('layer-states', <LayerStatesSection />);
 
-    return entries.sort((a, b) => a.order - b.order);
+    return sorted();
   }, [nodes, state, summary.sharedKind]);
 
   return (

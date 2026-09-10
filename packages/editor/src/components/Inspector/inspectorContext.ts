@@ -1,7 +1,9 @@
 import { buildParentIndexMap, type Document, type NodeId, type SceneNode } from '@varve/scene';
 import type { EditorState } from '../../context/types';
+import { toolLabel } from '../../tools/toolRegistry';
 import type { ToolId } from '../../tools/types';
 import type { WorkspaceMode } from '../../workspace/workspaceTypes';
+import { toolContextSurface } from './toolContext';
 
 export type InspectorScope =
   | 'document'
@@ -76,7 +78,6 @@ export type InspectorContextInput = Pick<
   selectedNodes?: readonly SceneNode[];
 };
 
-const NON_WORKFLOW_TOOLS = new Set<ToolId>(['select', 'hand', 'zoom']);
 const TEMPORARY_WORKFLOW_TOOLS = new Set<ToolId>(['crop', 'warp', 'selectionPaint']);
 
 function nodeIdsWithRestriction(
@@ -218,8 +219,11 @@ function targetFor(
     };
   }
 
-  if (NON_WORKFLOW_TOOLS.has(state.tool) === false) {
-    return { scope: 'tool', id: state.tool, label: `${state.tool} options` };
+  // Only tools with settings of their own claim the empty Inspector. Shape,
+  // pen, navigation, and Page tools fall through to page/canvas/document
+  // settings rather than a message about controls that do not exist.
+  if (toolContextSurface(state.tool)) {
+    return { scope: 'tool', id: state.tool, label: toolLabel(state.tool) };
   }
 
   return (

@@ -51,6 +51,7 @@ export type SectionId =
   | 'component'
   | 'icon'
   | 'frame-presets'
+  | 'frame-resize'
   | 'adjustment'
   | 'align-distribute'
   | 'cognitive-load'
@@ -477,15 +478,27 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     canHide: true,
     essential: false,
     order: 125,
-    category: 'content',
-    // Two call sites share this id: the empty-selection "create" form (frame
-    // tool active, nothing selected yet) and the single-selection "resize"
-    // form (an existing, non-component frame selected, any tool).
+    category: 'tool',
+    // The Frame tool's own Inspector content: with nothing selected, choosing
+    // a preset places a new frame of that size.
+    isAvailable: (ctx) => ctx.activeTool === 'frame' && ctx.selectionKind === 'empty',
+  },
+  {
+    id: 'frame-resize',
+    title: 'Resize to Preset',
+    defaultExpanded: false,
+    canHide: true,
+    essential: false,
+    // Directly beneath Position & Size, whose W/H it sets.
+    order: 102,
+    category: 'geometry',
+    // A selected, non-component frame can snap to a preset size (under any
+    // tool). Separate from frame-presets so the two keep their own collapse
+    // state: creation opens expanded, resizing stays one collapsed row.
     isAvailable: (ctx) =>
-      ctx.activeTool === 'frame' ||
-      (isSingleSelection(ctx) &&
-        isFrameNode(ctx.selectedNodes) &&
-        !isComponentInstance(ctx.selectedNodes)),
+      isSingleSelection(ctx) &&
+      isFrameNode(ctx.selectedNodes) &&
+      !isComponentInstance(ctx.selectedNodes),
   },
 
   // -- Image-specific --

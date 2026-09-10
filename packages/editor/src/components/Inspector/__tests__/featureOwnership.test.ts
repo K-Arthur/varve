@@ -18,6 +18,7 @@ describe('Inspector feature ownership', () => {
     expect(getFeaturesForSurface('properties')).toEqual([
       'align-distribute',
       'position-size',
+      'frame-resize',
       'component',
       'icon',
       'corner-radius',
@@ -25,6 +26,7 @@ describe('Inspector feature ownership', () => {
       'table-cells',
       'layout',
       'layout-child',
+      'frame-presets',
       'appearance',
       'selection-colors',
       'fills',
@@ -49,11 +51,7 @@ describe('Inspector feature ownership', () => {
   });
 
   it('moves temporary tool configuration out of selection properties', () => {
-    expect(getFeaturesForSurface('tool-options')).toEqual([
-      'brush-settings',
-      'frame-presets',
-      'image-crop',
-    ]);
+    expect(getFeaturesForSurface('tool-options')).toEqual(['brush-settings', 'image-crop']);
   });
 
   it('keeps complex image processing on one workflow surface', () => {

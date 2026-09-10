@@ -349,7 +349,7 @@ test.describe('Inspector feature ownership', () => {
     await page.getByRole('radio', { name: 'Draw workspace' }).click();
     await page.locator('canvas.editor-canvas__content-layer').focus();
     await page.keyboard.press('b');
-    const dialog = page.getByRole('dialog', { name: 'paint tool options' });
+    const dialog = page.getByRole('dialog', { name: 'Paint Brush tool options' });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByRole('button', { name: 'Brush', exact: true })).toBeFocused();
   });

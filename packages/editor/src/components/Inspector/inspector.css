@@ -194,6 +194,29 @@
   white-space: nowrap;
 }
 
+/* ---------- Active-tool context (empty selection) ---------- */
+.insp-tool-context {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding-block: var(--space-2);
+}
+.insp-tool-context__hint {
+  margin: 0;
+  padding-inline: var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  line-height: var(--type-interface-body-line-height);
+}
+.insp-tool-context__action {
+  margin-inline: var(--space-3);
+  gap: var(--space-1);
+}
+.insp-tool-context > div {
+  align-self: stretch;
+}
+
 /* ---------- Export empty state ---------- */
 .insp-panel__empty-hint {
   padding: var(--space-2) var(--space-3);
@@ -740,7 +763,7 @@
   margin: 0;
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
-  line-height: var(--line-height-normal);
+  line-height: var(--type-interface-body-line-height);
 }
 
 /* Compact Select inside dense inspector rows (defaults are 44px for forms). */

@@ -64,11 +64,25 @@ describe('deriveInspectorContext', () => {
     expect(context.primaryNodeId).toBeNull();
   });
 
-  it('uses an explicit tool scope when no object is selected', () => {
+  it('uses an explicit tool scope, named from the tool registry, when no object is selected', () => {
     const context = deriveInspectorContext(baseInput({ tool: 'paint' }));
 
     expect(context.scope).toBe('tool');
-    expect(context.target).toMatchObject({ id: 'paint', label: 'paint options' });
+    expect(context.target).toMatchObject({ id: 'paint', label: 'Paint Brush' });
+    expect(deriveInspectorContext(baseInput({ tool: 'frame' })).target).toMatchObject({
+      scope: 'tool',
+      label: 'Frame',
+    });
+    expect(deriveInspectorContext(baseInput({ tool: 'ellipseMarquee' })).target.label).toBe(
+      'Elliptical Marquee',
+    );
+  });
+
+  it('falls back to document settings for tools without settings of their own', () => {
+    for (const tool of ['rect', 'ellipse', 'pen', 'line', 'nodeEdit', 'page'] as const) {
+      const context = deriveInspectorContext(baseInput({ tool }));
+      expect(context.scope, tool).not.toBe('tool');
+    }
   });
 
   it('keeps a temporary crop workflow distinct from object selection', () => {
