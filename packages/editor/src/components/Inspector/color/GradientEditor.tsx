@@ -29,9 +29,9 @@ import {
   normalizeChannel,
   setGradientRotation,
 } from '@varve/shared';
-import { Icon, Select } from '@varve/ui';
+import { Disclosure, DisclosureContent, DisclosureTrigger, Icon, Select } from '@varve/ui';
 import { ColorPicker, rgbToHex } from '@varve/ui/components/ColorPicker';
-import { useCallback, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 
 export interface GradientEditorProps {
   gradient: GradientFill;
@@ -51,6 +51,13 @@ export interface GradientEditorProps {
   mixedHue?: boolean;
   /** Bounds of the single node being edited, for affine geometry controls. */
   gradientBounds?: Rect;
+  documentColors?: ManagedColor[];
+  recentColors?: ManagedColor[];
+  cmykProfile?: import('@varve/scene').ColorProfileRef | null;
+  previousColor?: import('@varve/ui/components/ColorPicker').Color;
+  proofConfig?: import('@varve/shared').ProofTransformConfig | null;
+  proofEnabled?: boolean;
+  onProofToggle?: (enabled: boolean) => void;
 }
 
 const INTERPOLATION_SPACES: { value: GradientInterpolationSpace; label: string }[] = [
@@ -138,6 +145,13 @@ export function GradientEditor({
   mixedInterpolationSpace = false,
   mixedHue = false,
   gradientBounds,
+  documentColors,
+  recentColors,
+  cmykProfile,
+  previousColor,
+  proofConfig,
+  proofEnabled = false,
+  onProofToggle,
 }: GradientEditorProps) {
   const [selectedStop, setSelectedStop] = useState(0);
   const effectiveInterpolationSpace: GradientInterpolationSpace =
@@ -146,6 +160,7 @@ export function GradientEditor({
       : (gradient.interpolationSpace ?? 'srgb');
   const barRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number>(0);
+  const gestureActiveRef = useRef(false);
   const autoId = useId();
 
   const updateStop = useCallback(
@@ -248,29 +263,57 @@ export function GradientEditor({
     (index: number, e: React.PointerEvent<HTMLButtonElement>) => {
       if (e.button !== 0) return;
       e.preventDefault();
-      onEditStart?.();
+      if (!gestureActiveRef.current) {
+        gestureActiveRef.current = true;
+        onEditStart?.();
+      }
       const bar = barRef.current;
       if (!bar) return;
       const rect = bar.getBoundingClientRect();
+      let pendingPosition: number | null = null;
       const onMove = (me: PointerEvent) => {
+        pendingPosition = Math.max(0, Math.min(1, (me.clientX - rect.left) / rect.width));
         cancelAnimationFrame(rafRef.current);
         rafRef.current = requestAnimationFrame(() => {
-          const pos = Math.max(0, Math.min(1, (me.clientX - rect.left) / rect.width));
-          updateStop(index, { position: Math.round(pos * 1000) / 1000 });
+          if (pendingPosition == null) return;
+          updateStop(index, { position: Math.round(pendingPosition * 1000) / 1000 });
+          pendingPosition = null;
         });
       };
-      const onUp = () => {
+      const onEnd = () => {
         window.removeEventListener('pointermove', onMove);
         window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onUp);
+        if (pendingPosition != null) {
+          updateStop(index, { position: Math.round(pendingPosition * 1000) / 1000 });
+          pendingPosition = null;
+        }
+        cancelAnimationFrame(rafRef.current);
         document.body.style.userSelect = '';
-        onEditEnd?.();
+        if (gestureActiveRef.current) {
+          gestureActiveRef.current = false;
+          onEditEnd?.();
+        }
       };
+      const onUp = onEnd;
       window.addEventListener('pointermove', onMove);
       window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onUp);
       document.body.style.userSelect = 'none';
     },
     [updateStop, onEditStart, onEditEnd],
   );
+
+  useEffect(() => {
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      document.body.style.userSelect = '';
+      if (gestureActiveRef.current) {
+        gestureActiveRef.current = false;
+        onEditEnd?.();
+      }
+    };
+  }, [onEditEnd]);
 
   const currentStop = gradient.stops[selectedStop];
   const linearGradientBounds = gradient.type === 'linear' ? gradientBounds : undefined;
@@ -299,85 +342,6 @@ export function GradientEditor({
             value={gradient.type}
             options={GRADIENT_TYPES.map((t) => ({ value: t.value, label: t.label }))}
             onChange={(v) => onChange({ ...gradient, type: v as GradientType })}
-          />
-        </div>
-      </div>
-
-      <div className="insp-field">
-        <span className="insp-field__label">Interpolation</span>
-        <div className="insp-field__control">
-          <Select
-            label="Gradient interpolation space"
-            value={
-              mixedInterpolationSpace
-                ? ''
-                : gradient.interpolationSource === 'document'
-                  ? 'document'
-                  : (gradient.interpolationSpace ?? 'srgb')
-            }
-            options={[
-              ...(mixedInterpolationSpace ? [{ value: '', label: 'Mixed', disabled: true }] : []),
-              {
-                value: 'document',
-                label: `Document default (${documentGradientInterpolationLabel(documentGradientInterpolation)})`,
-              },
-              ...INTERPOLATION_SPACES,
-            ]}
-            onChange={(v) => {
-              if (v === 'document') {
-                const { interpolationSpace: _space, ...rest } = gradient;
-                onChange({ ...rest, interpolationSource: 'document' });
-                return;
-              }
-              const { interpolationSource: _source, ...rest } = gradient;
-              onChange({
-                ...rest,
-                interpolationSpace: v as GradientInterpolationSpace,
-              });
-            }}
-          />
-        </div>
-        <span className="insp-field__hint" role="note">
-          Stop colours interpolate separately from the document working profile. Alpha uses
-          premultiplied colour to avoid transparent-stop halos.
-        </span>
-      </div>
-
-      {(effectiveInterpolationSpace === 'oklch' || effectiveInterpolationSpace === 'hsl') && (
-        <div className="insp-field">
-          <span className="insp-field__label">Hue</span>
-          <div className="insp-field__control">
-            <Select
-              label="Hue interpolation direction"
-              value={mixedHue ? '' : (gradient.hueInterpolation ?? 'shorter')}
-              options={[
-                ...(mixedHue ? [{ value: '', label: 'Mixed', disabled: true }] : []),
-                ...HUE_INTERPOLATION_OPTIONS,
-              ]}
-              onChange={(v) =>
-                onChange({
-                  ...gradient,
-                  hueInterpolation: v as HueInterpolation,
-                })
-              }
-            />
-          </div>
-        </div>
-      )}
-
-      <div className="insp-field">
-        <span className="insp-field__label">Tiling</span>
-        <div className="insp-field__control">
-          <Select
-            label="Gradient tiling mode"
-            value={gradient.tilingMode ?? 'none'}
-            options={TILING_MODES.map((m) => ({ value: m.value, label: m.label }))}
-            onChange={(v) =>
-              onChange({
-                ...gradient,
-                tilingMode: v as GradientTilingMode,
-              })
-            }
           />
         </div>
       </div>
@@ -477,59 +441,139 @@ export function GradientEditor({
               </button>
             </div>
           </div>
-          <div className="insp-field">
-            <span className="insp-field__label">Midpoint</span>
-            <div className="insp-field__control">
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.05}
-                value={currentStop.midpoint ?? 0.5}
-                aria-label={`Stop ${selectedStop + 1} midpoint`}
-                onChange={(e) => updateStop(selectedStop, { midpoint: Number(e.target.value) })}
-                className="varve-native-range gradient-editor__slider"
-              />
-              <span className="gradient-editor__unit">
-                {Math.round((currentStop.midpoint ?? 0.5) * 100)}%
-              </span>
-            </div>
-          </div>
           <ColorPicker
             value={currentStop.color}
             onChange={(c) => updateStop(selectedStop, { color: c as ManagedColor })}
             documentColorMode={documentColorMode}
+            documentColors={documentColors}
+            recentColors={recentColors}
+            cmykProfile={cmykProfile}
+            previousColor={previousColor}
+            proofConfig={proofConfig}
+            proofEnabled={proofEnabled}
+            onProofToggle={onProofToggle}
             onInteractionStart={onEditStart}
             onInteractionEnd={onEditEnd}
           />
         </div>
       )}
-
-      {(gradient.type === 'linear' || gradient.type === 'angular') && (
-        <div className="insp-field">
-          <span className="insp-field__label">Rotation</span>
-          <div className="insp-field__control">
-            <input
-              type="number"
-              min={0}
-              max={360}
-              step={1}
-              value={displayRotation}
-              aria-label="Gradient rotation"
-              onChange={(e) => {
-                const rotation = Number(e.target.value);
-                onChange(
-                  linearGradientBounds
-                    ? setGradientRotation(gradient, linearGradientBounds, rotation)
-                    : { ...gradient, rotation },
-                );
-              }}
-              className="insp-num__input gradient-editor__position-input"
-            />
-            <span className="gradient-editor__unit">deg</span>
+      <Disclosure variant="compact" className="gradient-editor__options">
+        <DisclosureTrigger>Gradient options</DisclosureTrigger>
+        <DisclosureContent>
+          <div className="insp-field">
+            <span className="insp-field__label">Interpolation</span>
+            <div className="insp-field__control">
+              <Select
+                label="Gradient interpolation space"
+                value={
+                  mixedInterpolationSpace
+                    ? ''
+                    : gradient.interpolationSource === 'document'
+                      ? 'document'
+                      : (gradient.interpolationSpace ?? 'srgb')
+                }
+                options={[
+                  ...(mixedInterpolationSpace
+                    ? [{ value: '', label: 'Mixed', disabled: true }]
+                    : []),
+                  {
+                    value: 'document',
+                    label: `Document default (${documentGradientInterpolationLabel(documentGradientInterpolation)})`,
+                  },
+                  ...INTERPOLATION_SPACES,
+                ]}
+                onChange={(v) => {
+                  if (v === 'document') {
+                    const { interpolationSpace: _space, ...rest } = gradient;
+                    onChange({ ...rest, interpolationSource: 'document' });
+                    return;
+                  }
+                  const { interpolationSource: _source, ...rest } = gradient;
+                  onChange({ ...rest, interpolationSpace: v as GradientInterpolationSpace });
+                }}
+              />
+            </div>
+            <span className="insp-field__hint" role="note">
+              Stop colours interpolate separately from the document working profile. Alpha uses
+              premultiplied colour to avoid transparent-stop halos.
+            </span>
           </div>
-        </div>
-      )}
+          {(effectiveInterpolationSpace === 'oklch' || effectiveInterpolationSpace === 'hsl') && (
+            <div className="insp-field">
+              <span className="insp-field__label">Hue</span>
+              <div className="insp-field__control">
+                <Select
+                  label="Hue interpolation direction"
+                  value={mixedHue ? '' : (gradient.hueInterpolation ?? 'shorter')}
+                  options={[
+                    ...(mixedHue ? [{ value: '', label: 'Mixed', disabled: true }] : []),
+                    ...HUE_INTERPOLATION_OPTIONS,
+                  ]}
+                  onChange={(v) =>
+                    onChange({ ...gradient, hueInterpolation: v as HueInterpolation })
+                  }
+                />
+              </div>
+            </div>
+          )}
+          <div className="insp-field">
+            <span className="insp-field__label">Tiling</span>
+            <div className="insp-field__control">
+              <Select
+                label="Gradient tiling mode"
+                value={gradient.tilingMode ?? 'none'}
+                options={TILING_MODES.map((m) => ({ value: m.value, label: m.label }))}
+                onChange={(v) => onChange({ ...gradient, tilingMode: v as GradientTilingMode })}
+              />
+            </div>
+          </div>
+          {currentStop && (
+            <div className="insp-field">
+              <span className="insp-field__label">Midpoint</span>
+              <div className="insp-field__control">
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={currentStop.midpoint ?? 0.5}
+                  aria-label={`Stop ${selectedStop + 1} midpoint`}
+                  onChange={(e) => updateStop(selectedStop, { midpoint: Number(e.target.value) })}
+                  className="varve-native-range gradient-editor__slider"
+                />
+                <span className="gradient-editor__unit">
+                  {Math.round((currentStop.midpoint ?? 0.5) * 100)}%
+                </span>
+              </div>
+            </div>
+          )}
+          {(gradient.type === 'linear' || gradient.type === 'angular') && (
+            <div className="insp-field">
+              <span className="insp-field__label">Rotation</span>
+              <div className="insp-field__control">
+                <input
+                  type="number"
+                  min={0}
+                  max={360}
+                  step={1}
+                  value={displayRotation}
+                  aria-label="Gradient rotation"
+                  onChange={(e) => {
+                    const rotation = Number(e.target.value);
+                    onChange(
+                      linearGradientBounds
+                        ? setGradientRotation(gradient, linearGradientBounds, rotation)
+                        : { ...gradient, rotation },
+                    );
+                  }}
+                  className="insp-num__input gradient-editor__position-input"
+                />
+                <span className="gradient-editor__unit">deg</span>
+              </div>
+            </div>
+          )}
+        </DisclosureContent>
+      </Disclosure>
     </div>
   );
 }

@@ -327,6 +327,8 @@ describe('gradient interpolation semantics', () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole('button', { name: 'Gradient options' }));
+
     expect(
       screen.getByRole('combobox', { name: 'Gradient interpolation space' }),
     ).toHaveTextContent('Document default (OKLCH)');
@@ -336,6 +338,7 @@ describe('gradient interpolation semantics', () => {
   it('treats missing metadata as historical sRGB and allows a concrete override', async () => {
     const onChange = vi.fn();
     render(<GradientEditor gradient={makeGradient()} onChange={onChange} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Gradient options' }));
     const select = screen.getByRole('combobox', { name: 'Gradient interpolation space' });
     expect(select).toHaveTextContent('sRGB');
 
@@ -356,6 +359,8 @@ describe('affine gradient geometry controls', () => {
         onChange={onChange}
       />,
     );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Gradient options' }));
 
     fireEvent.change(screen.getByRole('spinbutton', { name: 'Gradient rotation' }), {
       target: { value: '90' },

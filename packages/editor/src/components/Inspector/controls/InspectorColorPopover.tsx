@@ -6,7 +6,7 @@
  *
  * Research basis: APG Dialog (Modal); Floating UI placement; WCAG 2.2 target size.
  */
-import type { ColorMode, Document, ManagedColor } from '@varve/scene';
+import type { ColorMode, Document, GradientFill, ManagedColor } from '@varve/scene';
 import { managedColorKey, managedColorToRgba } from '@varve/shared';
 import { FloatingPortal, FocusTrap, Icon, Tooltip } from '@varve/ui';
 import type { Color } from '@varve/ui/components/ColorPicker';
@@ -14,6 +14,7 @@ import { ColorPicker } from '@varve/ui/components/ColorPicker';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { addRecentColor, extractDocumentColors, getRecentColors } from '../color/colorCollections';
+import { GradientEditor } from '../color/GradientEditor';
 
 /**
  * Current document, when rendered inside EditorProvider. Standalone renders
@@ -57,6 +58,15 @@ export interface InspectorColorPopoverProps {
   label: string;
   value: ManagedColor;
   onChange: (color: ManagedColor) => void;
+  /** Optional shared gradient surface rendered in the same floating panel. */
+  gradient?: {
+    value: GradientFill;
+    onChange: (gradient: GradientFill) => void;
+    documentGradientInterpolation?: import('@varve/scene').GradientInterpolationSpace;
+    mixedInterpolationSpace?: boolean;
+    mixedHue?: boolean;
+    gradientBounds?: import('@varve/shared').Rect;
+  };
   /** Swatch face styles (background / gradient). */
   swatchStyle?: React.CSSProperties;
   /** Optional class on the trigger button. */
@@ -90,6 +100,7 @@ export function InspectorColorPopover({
   documentColorMode,
   onEditStart,
   onEditEnd,
+  gradient,
 }: InspectorColorPopoverProps) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -126,6 +137,10 @@ export function InspectorColorPopover({
     [open],
   );
   const [recentColorsState, setRecentColorsState] = useState<ManagedColor[]>(() => recentColors);
+
+  useEffect(() => {
+    if (open) setRecentColorsState(recentColors);
+  }, [open, recentColors]);
 
   const gestureActiveRef = useRef(false);
   const openValueRef = useRef<ManagedColor | null>(null);
@@ -230,9 +245,9 @@ export function InspectorColorPopover({
             aria-labelledby={titleId}
             data-insp-color-dialog=""
             className="insp-picker-dialog"
-            onPointerDownCapture={handlePointerDownCapture}
-            onPointerUpCapture={handlePointerUpCapture}
-            onPointerCancelCapture={handlePointerUpCapture}
+            onPointerDownCapture={gradient ? undefined : handlePointerDownCapture}
+            onPointerUpCapture={gradient ? undefined : handlePointerUpCapture}
+            onPointerCancelCapture={gradient ? undefined : handlePointerUpCapture}
           >
             <div className="insp-picker-dialog__header">
               <h2 id={titleId} className="insp-picker-dialog__title">
@@ -247,22 +262,49 @@ export function InspectorColorPopover({
                 <Icon name="X" label={undefined} size="0.85em" />
               </button>
             </div>
-            <ColorPicker
-              value={value}
-              onChange={handleChange}
-              documentColorMode={documentColorMode}
-              cmykProfile={cmykProfile}
-              documentColors={documentColors}
-              recentColors={recentColorsState}
-              previousColor={
-                openValueRef.current
-                  ? (managedColorToRgba(openValueRef.current) as Color)
-                  : undefined
-              }
-              proofConfig={proof?.config ?? null}
-              proofEnabled={proof?.enabled ?? false}
-              onProofToggle={proof?.toggle}
-            />
+            <div className="insp-picker-dialog__body">
+              {gradient ? (
+                <GradientEditor
+                  gradient={gradient.value}
+                  onChange={gradient.onChange}
+                  onEditStart={onEditStart}
+                  onEditEnd={onEditEnd}
+                  documentColorMode={documentColorMode}
+                  documentGradientInterpolation={gradient.documentGradientInterpolation}
+                  mixedInterpolationSpace={gradient.mixedInterpolationSpace}
+                  mixedHue={gradient.mixedHue}
+                  gradientBounds={gradient.gradientBounds}
+                  documentColors={documentColors}
+                  recentColors={recentColorsState}
+                  cmykProfile={cmykProfile}
+                  previousColor={
+                    openValueRef.current
+                      ? (managedColorToRgba(openValueRef.current) as Color)
+                      : undefined
+                  }
+                  proofConfig={proof?.config ?? null}
+                  proofEnabled={proof?.enabled ?? false}
+                  onProofToggle={proof?.toggle}
+                />
+              ) : (
+                <ColorPicker
+                  value={value}
+                  onChange={handleChange}
+                  documentColorMode={documentColorMode}
+                  cmykProfile={cmykProfile}
+                  documentColors={documentColors}
+                  recentColors={recentColorsState}
+                  previousColor={
+                    openValueRef.current
+                      ? (managedColorToRgba(openValueRef.current) as Color)
+                      : undefined
+                  }
+                  proofConfig={proof?.config ?? null}
+                  proofEnabled={proof?.enabled ?? false}
+                  onProofToggle={proof?.toggle}
+                />
+              )}
+            </div>
             <button type="button" onClick={close} className="insp-picker-done">
               Done
             </button>

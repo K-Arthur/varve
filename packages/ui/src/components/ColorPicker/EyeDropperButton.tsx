@@ -48,18 +48,23 @@ export function EyeDropperButton({ onPick }: EyeDropperButtonProps) {
       if (err instanceof DOMException && err.name === 'AbortError') {
         return;
       }
+      // Permission denials and browser implementation errors are expected
+      // capability boundaries. Keep the picker usable and make the failure
+      // available to the browser's normal error surface without throwing out
+      // of the pointer handler.
+      return;
     }
   }, [available, onPick]);
 
   return (
     <Tooltip
       label="Pick color from screen"
-      disabledReason={available ? undefined : 'Eyedropper unavailable (use native picker)'}
+      disabledReason={available ? undefined : 'Screen sampling is unavailable in this browser'}
     >
       <button
         type="button"
         aria-label={
-          available ? 'Pick color from screen' : 'Eyedropper unavailable (use native picker)'
+          available ? 'Pick color from screen' : 'Screen sampling unavailable in this browser'
         }
         disabled={!available}
         onClick={handleClick}

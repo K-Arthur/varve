@@ -107,9 +107,6 @@ export function ColorSlider({
       <div
         ref={trackRef}
         className="insp-slider__track"
-        style={{
-          overflow: 'hidden',
-        }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
       >
@@ -129,15 +126,6 @@ export function ColorSlider({
         <div
           className="color-slider__gradient"
           style={{ background: channel === 'hue' ? HUE_GRADIENT : alphaGradient(baseColor) }}
-        />
-        <div
-          className="insp-slider__fill"
-          style={{
-            width: `${pct}%`,
-            // The hue spectrum is the track's indicator; alpha retains the
-            // standard fill so its current opacity remains obvious.
-            background: channel === 'hue' ? 'transparent' : 'var(--color-interactive-default)',
-          }}
         />
         <div
           className="insp-slider__thumb"

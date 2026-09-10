@@ -1,4 +1,4 @@
-import { useCallback, useId } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 
 export interface SpinbuttonRowProps {
   label: string;
@@ -42,7 +42,35 @@ export function SpinbuttonRow({
     [clamp, min, max, wrap],
   );
 
-  const display = Number.isFinite(value) ? value.toFixed(decimals) : String(value);
+  const format = useCallback(
+    (next: number) => (Number.isFinite(next) ? next.toFixed(decimals) : String(next)),
+    [decimals],
+  );
+  const [draft, setDraft] = useState(() => format(value));
+  const editingRef = useRef(false);
+
+  useEffect(() => {
+    if (!editingRef.current) setDraft(format(value));
+  }, [format, value]);
+
+  const commitDraft = useCallback(() => {
+    const raw = draft.trim();
+    const pattern = signed ? /^-?(?:\d+(?:\.\d*)?|\.\d+)$/ : /^(?:\d+(?:\.\d*)?|\.\d+)$/;
+    if (!pattern.test(raw)) {
+      setDraft(format(value));
+      editingRef.current = false;
+      return;
+    }
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) {
+      setDraft(format(value));
+      editingRef.current = false;
+      return;
+    }
+    onChange(wrapValue(parsed));
+    editingRef.current = false;
+    setDraft(format(wrapValue(parsed)));
+  }, [draft, format, onChange, signed, value, wrapValue]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     const delta = e.shiftKey ? step * 10 : step;
@@ -65,16 +93,41 @@ export function SpinbuttonRow({
     }
     e.preventDefault();
     onChange(newValue);
+    editingRef.current = false;
+    setDraft(format(newValue));
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.trim();
     const pattern = signed ? /^-?\d*\.?\d*$/ : /^\d*\.?\d*$/;
-    if (!pattern.test(raw) || raw === '' || raw === '-' || raw === '.') return;
+    if (!pattern.test(raw)) return;
+    editingRef.current = true;
+    setDraft(raw);
+    // Preserve the existing immediate-update contract for complete values,
+    // while allowing empty, signed, and decimal intermediate drafts.
+    if (raw === '' || raw === '-' || raw === '.') return;
     const parsed = Number(raw);
-    if (Number.isNaN(parsed)) return;
-    onChange(wrapValue(parsed));
+    if (!Number.isNaN(parsed)) onChange(wrapValue(parsed));
   };
+
+  const handleBlur = () => commitDraft();
+
+  const handleKeyDownWithCommit = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      commitDraft();
+      return;
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      editingRef.current = false;
+      setDraft(format(value));
+      return;
+    }
+    handleKeyDown(e);
+  };
+
+  const display = draft;
 
   const valueText = unit ? `${display}${unit}` : display;
 
@@ -97,7 +150,8 @@ export function SpinbuttonRow({
           aria-valuetext={valueText}
           aria-label={label}
           onChange={handleChange}
-          onKeyDown={handleKeyDown}
+          onKeyDown={handleKeyDownWithCommit}
+          onBlur={handleBlur}
         />
       </div>
     </div>

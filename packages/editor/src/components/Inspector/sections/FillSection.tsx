@@ -17,7 +17,6 @@ import type {
   DocumentAsset,
   Fill,
   FillType,
-  GradientFill,
   GradientStop,
   ImageFillData,
   ManagedColor,
@@ -40,7 +39,6 @@ import { Icon, Menu, Select, Tooltip } from '@varve/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
-import { GradientEditor } from '../color/GradientEditor';
 import {
   resolvedGradientHueInterpolation,
   resolvedGradientInterpolationSpace,
@@ -426,6 +424,10 @@ function FillRow({
   const blendRaw = commonValue(nodes, (n) => resolveNodeFills(n)[index]?.blendMode ?? 'normal');
   const documentGradientInterpolation =
     editor.state.document.colorConfig?.defaultGradientInterpolation ?? 'oklab';
+  const draftKey = `${nodes
+    .map((node) => node.id)
+    .sort()
+    .join(',')}:fill:${index}`;
 
   // Gradient interpolation/hue are sub-fields; surface "Mixed" across the
   // selection using resolved semantics. A legacy gradient (missing metadata)
@@ -446,7 +448,6 @@ function FillRow({
   const gradientHueMixed = isMixed(hueRaw);
   const representativeGradient =
     fill?.gradient ?? (nodes[0] ? resolveNodeFills(nodes[0])[index]?.gradient : undefined);
-  const allGradients = !isMixed(typeRaw) && typeRaw === 'gradient';
   const gradientBounds =
     nodes.length === 1 && nodes[0] ? nodeLocalBounds(nodes[0], editor.state.document) : undefined;
 
@@ -526,6 +527,29 @@ function FillRow({
             label={`${label} colour`}
             value={fill.color}
             onChange={(c) => patch({ color: c })}
+            swatchStyle={{
+              background: swatchBg,
+              border: '2px solid var(--color-border-strong)',
+            }}
+            documentColorMode={editor.documentColorMode}
+            onEditStart={onEditStart}
+            onEditEnd={onEditEnd}
+          />
+        ) : fill.type === 'gradient' && representativeGradient ? (
+          <InspectorColorPopover
+            label={`${label} gradient`}
+            value={
+              representativeGradient.stops[0]?.color ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 255 }
+            }
+            onChange={() => undefined}
+            gradient={{
+              value: representativeGradient,
+              onChange: (g) => editor.updateSelectedFillGradientAt(index, g),
+              documentGradientInterpolation,
+              mixedInterpolationSpace: gradientInterpMixed,
+              mixedHue: gradientHueMixed,
+              gradientBounds: gradientBounds ?? undefined,
+            }}
             swatchStyle={{
               background: swatchBg,
               border: '2px solid var(--color-border-strong)',
@@ -690,20 +714,6 @@ function FillRow({
         </button>
       </div>
 
-      {allGradients && representativeGradient && (
-        <GradientEditor
-          gradient={representativeGradient}
-          onChange={(g: GradientFill) => editor.updateSelectedFillGradientAt(index, g)}
-          onEditStart={onEditStart}
-          onEditEnd={onEditEnd}
-          documentColorMode={editor.documentColorMode}
-          documentGradientInterpolation={documentGradientInterpolation}
-          mixedInterpolationSpace={gradientInterpMixed}
-          mixedHue={gradientHueMixed}
-          gradientBounds={gradientBounds ?? undefined}
-        />
-      )}
-
       {fill.type === 'image' && fill.image && (
         <ImageFillControls
           image={fill.image}
@@ -766,6 +776,7 @@ function FillRow({
           step={0.01}
           min={0}
           max={1}
+          draftKey={`${draftKey}:opacity`}
           onChange={(v) => patch({ opacity: v })}
         />
         <FieldRow label="Blend mode">

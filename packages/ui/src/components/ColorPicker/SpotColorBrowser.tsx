@@ -1,4 +1,5 @@
 import type { ManagedColor } from '@varve/scene';
+import { managedColorToRgba } from '@varve/shared';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { SearchField } from '../SearchField';
 import { Tooltip } from '../Tooltip';
@@ -118,9 +119,16 @@ export function SpotColorBrowser({ onSelect }: SpotColorBrowserProps) {
             >
               <span
                 className="spot-color-browser__swatch"
-                style={{
-                  background: `rgb(${255 - spot.c / 1}, ${255 - spot.m / 1}, ${255 - spot.y / 1})`,
-                }}
+                style={(() => {
+                  const [r, g, b] = managedColorToRgba({
+                    space: 'spot',
+                    name: spot.name,
+                    tint: 100,
+                    a: 255,
+                    processFallback: { c: spot.c, m: spot.m, y: spot.y, k: spot.k },
+                  });
+                  return { background: `rgb(${r}, ${g}, ${b})` };
+                })()}
               />
               <span className="spot-color-browser__name">{spot.name}</span>
             </button>

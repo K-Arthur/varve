@@ -237,6 +237,11 @@ export function ColorPicker({
   const bitDepthEffective =
     bitDepth ?? ('bitDepth' in value ? value.bitDepth : undefined) ?? 'uint8';
 
+  const alphaNormalized =
+    value.space === 'spot'
+      ? normalizeChannel(value.a, 'uint8')
+      : normalizeChannel(value.a, 'bitDepth' in value ? (value.bitDepth ?? 'uint8') : 'uint8');
+
   const rgbTuple = useMemo(() => managedColorToRgbTuple(value), [value]);
 
   // Canonical normalized (0-1) channels of the value — used as the source
@@ -342,7 +347,7 @@ export function ColorPicker({
   // (no sRGB round trip) so external edits do not accumulate drift.
   useEffect(() => {
     if (lastEmittedRef.current === valueKey) return;
-    const [nr, ng, nb, na] = rgbTuple;
+    const [nr, ng, nb] = rgbTuple;
     let labSeed: [number, number, number];
     if (isLabColor(value)) {
       labSeed = [value.l, value.av, value.b];
@@ -351,11 +356,11 @@ export function ColorPicker({
     } else {
       labSeed = rgbToLab(nr, ng, nb);
     }
-    const alpha = normalizeChannel(na, 'uint8') * 100;
+    const alpha = alphaNormalized * 100;
     setDraftLab({ l: labSeed[0], av: labSeed[1], b: labSeed[2], alpha });
     const [cl, cc, ch] = labToLch(labSeed);
     setDraftLch({ l: cl, c: cc, h: ch, alpha });
-  }, [valueKey, rgbTuple, value]);
+  }, [valueKey, rgbTuple, value, alphaNormalized]);
 
   const emit = useCallback(
     (c: ManagedColor) => {
@@ -427,17 +432,17 @@ export function ColorPicker({
     (newSat: number, newVal: number) => {
       setDraftSat(newSat);
       setDraftVal(newVal);
-      applyColor(hue, newSat, newVal, normalizeChannel(rgbTuple[3], 'uint8'));
+      applyColor(hue, newSat, newVal, alphaNormalized);
     },
-    [hue, rgbTuple, applyColor],
+    [hue, alphaNormalized, applyColor],
   );
 
   const handleHueChange = useCallback(
     (newHue: number) => {
       setDraftHue(newHue);
-      applyColor(newHue, sat, val, normalizeChannel(rgbTuple[3], 'uint8'));
+      applyColor(newHue, sat, val, alphaNormalized);
     },
-    [sat, val, rgbTuple, applyColor],
+    [sat, val, alphaNormalized, applyColor],
   );
 
   const handleFieldsChange = useCallback(
@@ -537,6 +542,9 @@ export function ColorPicker({
   // the preview clips.
   const handleLabChange = useCallback(
     (next: LabChannelValues) => {
+      setDraftLab(next);
+      const [l, c, h] = labToLch([next.l, next.av, next.b]);
+      setDraftLch((current) => ({ ...current, l, c, h }));
       const alpha = denormalizeChannel(next.alpha / 100, bitDepthEffective);
       const bitDepth = bitDepthEffective !== 'uint8' ? bitDepthEffective : undefined;
       emit({
@@ -557,6 +565,9 @@ export function ColorPicker({
   // but the serialized value is valid at any chroma.
   const handleLchChange = useCallback(
     (next: LchChannelValues) => {
+      setDraftLch(next);
+      const [l, av, b] = lchToLab([next.l, next.c, next.h]);
+      setDraftLab((current) => ({ ...current, l, av, b }));
       const alpha = denormalizeChannel(next.alpha / 100, bitDepthEffective);
       const bitDepth = bitDepthEffective !== 'uint8' ? bitDepthEffective : undefined;
       emit({
@@ -582,10 +593,39 @@ export function ColorPicker({
         handleLchChange({ ...draftLch, alpha: newAlpha * 100 });
         return;
       }
+      // Opacity is orthogonal to a native color representation. Preserve
+      // spot identity, CMYK separations, gray values, profile and storage
+      // precision when the user edits only the alpha slider.
+      if (value.space === 'spot') {
+        emit({ ...value, a: Math.round(newAlpha * 255) });
+        return;
+      }
+      if (value.space === 'cmyk' || value.space === 'gray' || value.space === 'rgb') {
+        emit({
+          ...value,
+          a: denormalizeChannel(
+            newAlpha,
+            'bitDepth' in value ? (value.bitDepth ?? 'uint8') : 'uint8',
+          ),
+        });
+        return;
+      }
       const [r, g, b] = hsvToRgbNormalized(hue, sat, val);
       emitRgbNormalized(r, g, b, newAlpha);
     },
-    [space, draftLab, draftLch, hue, sat, val, handleLabChange, handleLchChange, emitRgbNormalized],
+    [
+      space,
+      draftLab,
+      draftLch,
+      value,
+      hue,
+      sat,
+      val,
+      handleLabChange,
+      handleLchChange,
+      emit,
+      emitRgbNormalized,
+    ],
   );
 
   const handleSpotSelect = useCallback(
@@ -775,8 +815,12 @@ export function ColorPicker({
           role="img"
           aria-label="Current and previous color"
         >
+          <span className="sr-only color-picker__hex">
+            {rgbToHex(rgbTuple[0], rgbTuple[1], rgbTuple[2])}
+          </span>
           <div
             className="color-picker__preview color-picker__preview--current"
+            title="Current color"
             style={{
               background: `rgba(${rgbTuple[0]},${rgbTuple[1]},${rgbTuple[2]},${alphaVal.toFixed(2)})`,
             }}
@@ -796,12 +840,6 @@ export function ColorPicker({
                 }}
               />
             )}
-        </div>
-        <div style={{ flex: 1 }}>
-          <span className="color-picker__hex">
-            {rgbToHex(rgbTuple[0], rgbTuple[1], rgbTuple[2])}
-            {alphaVal < 1 ? ` (${Math.round(alphaVal * 100)}%)` : ''}
-          </span>
         </div>
         {proofResult && (
           <div

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import type { ManagedColor } from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CmykColorFields } from './CmykColorFields';
@@ -134,7 +134,7 @@ describe('ColorFields', () => {
   it('renders HSB mode with H/S/B inputs', () => {
     const color: Color = [100, 150, 200, 255];
     const { container } = render(<ColorFields color={color} onChange={() => {}} />);
-    const hsbButton = screen.getByRole('button', { name: 'HSB' });
+    const hsbButton = screen.getByRole('radio', { name: 'HSB' });
     act(() => hsbButton.click());
     const spinbuttons = container.querySelectorAll('[role="spinbutton"]');
     expect(spinbuttons.length).toBe(4);
@@ -210,8 +210,8 @@ describe('ColorFields — hex input forms', () => {
     const onChange = vi.fn();
     render(<ColorFields color={[10, 20, 30, 255]} onChange={onChange} />);
     commitWith('xyz');
-    // The field falls back to the canonical display value.
-    expect(hexInput()).toHaveValue('#0a141e');
+    // Invalid text remains visible so the user can correct it.
+    expect(hexInput()).toHaveValue('xyz');
   });
 });
 
@@ -220,7 +220,7 @@ describe('EyeDropperButton', () => {
     render(<EyeDropperButton onPick={() => {}} />);
     const btn = screen.getByRole('button', { name: /unavailable/ });
     expect(btn).toBeTruthy();
-    expect(btn).toHaveAttribute('aria-label', 'Eyedropper unavailable (use native picker)');
+    expect(btn).toHaveAttribute('aria-label', 'Screen sampling unavailable in this browser');
   });
 });
 
@@ -563,7 +563,10 @@ describe('ColorPicker — draft sync on external value change', () => {
     const { rerender } = render(
       <ColorPicker value={{ space: 'rgb', r: 100, g: 150, b: 200, a: 255 }} onChange={() => {}} />,
     );
-    expect(screen.getByRole('radio', { name: 'RGB' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getAllByRole('radio', { name: 'RGB' })[0]).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
 
     rerender(
       <ColorPicker value={{ space: 'lab', l: 55, av: 20, b: 30, a: 255 }} onChange={() => {}} />,
@@ -630,7 +633,12 @@ describe('ColorPicker — high-precision channel editing', () => {
     const onChange = vi.fn();
     render(<ColorPicker value={color} onChange={onChange} />);
     act(() => {
-      const btn = screen.getByRole('button', { name: 'RGB' });
+      const btn = within(screen.getByRole('radiogroup', { name: 'Color format' })).getByRole(
+        'radio',
+        {
+          name: 'RGB',
+        },
+      );
       btn.click();
     });
     // uint16 fields are 0-65535 scale.
@@ -664,7 +672,12 @@ describe('ColorPicker — high-precision channel editing', () => {
     const onChange = vi.fn();
     render(<ColorPicker value={color} onChange={onChange} />);
     act(() => {
-      const btn = screen.getByRole('button', { name: 'RGB' });
+      const btn = within(screen.getByRole('radiogroup', { name: 'Color format' })).getByRole(
+        'radio',
+        {
+          name: 'RGB',
+        },
+      );
       btn.click();
     });
     // float fields are 0-1 with decimals.

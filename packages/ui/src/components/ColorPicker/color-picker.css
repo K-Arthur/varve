@@ -114,8 +114,9 @@
 .color-area__gradient {
   position: absolute;
   inset: 0;
+  /* Black is the top layer so the lower-left corner reaches true black. */
   background-image:
-    linear-gradient(to right, white, transparent), linear-gradient(to top, black, transparent);
+    linear-gradient(to top, black, transparent), linear-gradient(to right, white, transparent);
 }
 .color-area__thumb {
   position: absolute;
@@ -146,12 +147,41 @@
   inset: 0;
   border-radius: inherit;
 }
+.color-slider--alpha .color-slider__gradient {
+  /* The gradient itself is the opacity indicator over the checkerboard. */
+  z-index: 1;
+}
+.color-slider--hue .color-slider__gradient {
+  z-index: 1;
+}
+.color-slider--alpha .color-slider__checkerboard {
+  z-index: 0;
+}
+.color-slider--alpha .insp-slider__thumb,
+.color-slider--hue .insp-slider__thumb {
+  z-index: 2;
+}
 
 /* ColorFields — mode toggle + spinbutton rows */
 .color-fields {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+}
+.color-fields__channel-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-1);
+}
+.color-fields__channel-row .insp-field {
+  min-width: 0;
+}
+.color-fields__channel-row .insp-field__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.color-fields__channel-row .insp-field__control {
+  min-width: 0;
 }
 .color-fields__mode-group {
   display: inline-flex;
@@ -355,6 +385,10 @@
   outline-offset: 2px;
 }
 
+.color-picker .insp-slider__track {
+  overflow: visible;
+}
+
 /* Forced-colors mode: ensure swatches and thumbs stay distinguishable when
    the OS overrides colors (forced-colors / high-contrast on Windows). */
 @media (forced-colors: active) {
@@ -385,6 +419,60 @@
   border-radius: var(--radius-control-compact);
   padding: 1px;
   flex-shrink: 0;
+}
+.color-picker__preview-pair::before,
+.color-picker__preview-pair::after {
+  font-size: var(--font-size-2xs, 0.625rem);
+  color: var(--color-text-muted);
+}
+.color-picker__preview-pair:has(.color-picker__preview--previous)::before {
+  content: "Before";
+}
+.color-picker__preview-pair::after {
+  content: "Current";
+}
+.color-picker__proof {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  flex: 1;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+.color-picker__proof-swatch {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 1rem;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+}
+.color-picker__proof-label {
+  min-width: 0;
+  max-width: 13rem;
+  overflow-wrap: anywhere;
+}
+.color-picker__proof-toggle {
+  flex: 0 0 auto;
+  min-height: 1.5rem;
+  padding-inline: var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-xs);
+}
+.color-picker__proof-toggle--active {
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+}
+.color-picker__proof-gamut,
+.color-picker__gamut-note {
+  color: var(--color-feedback-warning);
+  font-size: var(--font-size-xs);
 }
 .color-picker__preview--previous {
   border-left: 1px solid var(--color-border-subtle);

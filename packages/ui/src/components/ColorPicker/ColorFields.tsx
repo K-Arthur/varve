@@ -51,7 +51,7 @@ export function ColorFields({
   canonicalNormalized,
 }: ColorFieldsProps) {
   const [mode, setMode] = useState<ColorMode>('hex');
-  const [hexDraft, setHexDraft] = useState('');
+  const [hexDraft, setHexDraft] = useState<string | null>(null);
   const [hexError, setHexError] = useState(false);
   const hexId = useId();
 
@@ -97,7 +97,7 @@ export function ColorFields({
     [onChange, onChangeNormalized],
   );
 
-  const alphaPct = Math.round((color[3] / 255) * 100);
+  const alphaPct = Math.round(canonical[3] * 100);
 
   const commitHex = useCallback(
     (raw: string) => {
@@ -105,7 +105,7 @@ export function ColorFields({
       if (trimmed === '') {
         // Focusing then leaving with no edit is not an error — keep the
         // previous valid color.
-        setHexDraft('');
+        setHexDraft(null);
         setHexError(false);
         return;
       }
@@ -114,14 +114,19 @@ export function ColorFields({
         // 8-/4-digit forms carry alpha; 6-/3-digit forms keep the current
         // alpha so entering a plain hex value never silently resets opacity.
         const [, , , hexAlpha] = parsed;
-        emit(parsed[0] / 255, parsed[1] / 255, parsed[2] / 255, (hexAlpha ?? color[3]) / 255);
+        emit(
+          parsed[0] / 255,
+          parsed[1] / 255,
+          parsed[2] / 255,
+          hexAlpha === null ? canonical[3] : hexAlpha / 255,
+        );
         setHexError(false);
       } else {
         setHexError(true);
       }
-      setHexDraft('');
+      if (parsed) setHexDraft(null);
     },
-    [color, emit],
+    [canonical, emit],
   );
 
   const handleHexChange = useCallback(
@@ -139,9 +144,9 @@ export function ColorFields({
     (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'Enter') {
         e.preventDefault();
-        commitHex(hexDraft);
+        commitHex(hexDraft ?? '');
       } else if (e.key === 'Escape') {
-        setHexDraft('');
+        setHexDraft(null);
         setHexError(false);
       }
     },
@@ -231,28 +236,60 @@ export function ColorFields({
 
   const rgbFieldValue = (v: number): number =>
     displayScale === 'uint16'
-      ? Math.round((v / 255) * 65535)
+      ? Math.round(v * 65535)
       : displayScale === 'float'
-        ? v / 255
-        : v;
+        ? v
+        : Math.round(v * 255);
 
   return (
     <div className="color-fields">
       <div className="color-fields__mode-group" role="radiogroup" aria-label="Color format">
-        {MODES.map((m) => (
+        {MODES.map((m, index) => (
+          // biome-ignore lint/a11y/useSemanticElements: APG radiogroup pattern uses role="radio" on buttons for a compact format selector
           <button
             type="button"
             key={m.key}
+            role="radio"
             className={`color-fields__mode-btn${mode === m.key ? ' color-fields__mode-btn--active' : ''}`}
-            aria-pressed={mode === m.key}
+            aria-checked={mode === m.key}
+            tabIndex={mode === m.key ? 0 : -1}
             onClick={() => setMode(m.key)}
+            onKeyDown={(e) => {
+              if (
+                e.key !== 'ArrowLeft' &&
+                e.key !== 'ArrowRight' &&
+                e.key !== 'Home' &&
+                e.key !== 'End'
+              )
+                return;
+              e.preventDefault();
+              const delta =
+                e.key === 'ArrowLeft'
+                  ? -1
+                  : e.key === 'ArrowRight'
+                    ? 1
+                    : e.key === 'Home'
+                      ? -index
+                      : MODES.length - 1 - index;
+              const next = MODES[(index + delta + MODES.length) % MODES.length];
+              if (next) {
+                setMode(next.key);
+                requestAnimationFrame(() =>
+                  document
+                    .querySelector<HTMLButtonElement>(
+                      `.color-fields__mode-btn[aria-checked="true"]`,
+                    )
+                    ?.focus(),
+                );
+              }
+            }}
           >
             {m.label}
           </button>
         ))}
       </div>
 
-      {mode === 'hex' && (
+      {
         <div className="insp-field">
           <label className="insp-field__label" htmlFor={hexId}>
             HEX
@@ -264,14 +301,14 @@ export function ColorFields({
               className={`insp-num__input color-fields__input-full${
                 hexError ? ' color-fields__input--invalid' : ''
               }`}
-              value={hexDraft || currentHex}
+              value={hexDraft ?? currentHex}
               aria-label="Hex color"
               aria-invalid={hexError}
               aria-describedby={hexError ? `${hexId}-error` : undefined}
               spellCheck={false}
               autoComplete="off"
               onChange={handleHexChange}
-              onBlur={() => commitHex(hexDraft)}
+              onBlur={() => commitHex(hexDraft ?? '')}
               onKeyDown={handleHexKeyDown}
             />
           </div>
@@ -281,13 +318,17 @@ export function ColorFields({
             </span>
           )}
         </div>
+      }
+
+      {mode === 'hex' && (
+        <SpinbuttonRow label="A" value={alphaPct} min={0} max={100} onChange={setAlpha} unit="%" />
       )}
 
       {mode === 'rgb' && (
-        <>
+        <div className="color-fields__channel-row">
           <SpinbuttonRow
             label="R"
-            value={rgbFieldValue(color[0])}
+            value={rgbFieldValue(canonical[0])}
             min={rgbFieldRange.min}
             max={rgbFieldRange.max}
             step={rgbFieldRange.step}
@@ -296,7 +337,7 @@ export function ColorFields({
           />
           <SpinbuttonRow
             label="G"
-            value={rgbFieldValue(color[1])}
+            value={rgbFieldValue(canonical[1])}
             min={rgbFieldRange.min}
             max={rgbFieldRange.max}
             step={rgbFieldRange.step}
@@ -305,7 +346,7 @@ export function ColorFields({
           />
           <SpinbuttonRow
             label="B"
-            value={rgbFieldValue(color[2])}
+            value={rgbFieldValue(canonical[2])}
             min={rgbFieldRange.min}
             max={rgbFieldRange.max}
             step={rgbFieldRange.step}
@@ -320,11 +361,11 @@ export function ColorFields({
             onChange={setAlpha}
             unit="%"
           />
-        </>
+        </div>
       )}
 
       {mode === 'hsl' && (
-        <>
+        <div className="color-fields__channel-row">
           <SpinbuttonRow label="H" value={hslH} min={0} max={360} onChange={setH} unit="°" />
           <SpinbuttonRow label="S" value={hslS} min={0} max={100} onChange={setS} unit="%" />
           <SpinbuttonRow label="L" value={hslL} min={0} max={100} onChange={setL} unit="%" />
@@ -336,11 +377,11 @@ export function ColorFields({
             onChange={setAlpha}
             unit="%"
           />
-        </>
+        </div>
       )}
 
       {mode === 'hsb' && (
-        <>
+        <div className="color-fields__channel-row">
           <SpinbuttonRow label="H" value={hsbH} min={0} max={360} onChange={setHsbH} unit="°" />
           <SpinbuttonRow label="S" value={hsbS} min={0} max={100} onChange={setHsbS} unit="%" />
           <SpinbuttonRow label="B" value={hsbB} min={0} max={100} onChange={setHsbB} unit="%" />
@@ -352,7 +393,7 @@ export function ColorFields({
             onChange={setAlpha}
             unit="%"
           />
-        </>
+        </div>
       )}
     </div>
   );

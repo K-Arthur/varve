@@ -11,7 +11,6 @@
 import type {
   ArrowheadStyle,
   FrameNode,
-  GradientFill,
   ManagedColor,
   SceneNode,
   ShapeNode,
@@ -26,7 +25,6 @@ import { managedColorToRgba } from '@varve/shared';
 import { Icon, Select } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
-import { GradientEditor } from '../color/GradientEditor';
 import {
   resolvedGradientHueInterpolation,
   resolvedGradientInterpolationSpace,
@@ -123,6 +121,16 @@ function parseDashPattern(value: string): number[] | null {
 function toSwatchBg(color: ManagedColor): string {
   const [r, g, b, a] = managedColorToRgba(color);
   return `rgba(${r},${g},${b},${(a / 255).toFixed(2)})`;
+}
+
+function gradientSwatchBg(gradient: import('@varve/scene').GradientFill): string {
+  const stops = gradient.stops
+    .map((stop) => {
+      const [r, g, b, a] = managedColorToRgba(stop.color);
+      return `rgba(${r},${g},${b},${(a / 255).toFixed(2)}) ${(stop.position * 100).toFixed(0)}%`;
+    })
+    .join(', ');
+  return `linear-gradient(90deg, ${stops})`;
 }
 
 export function StrokeSection({ nodes }: StrokeSectionProps) {
@@ -301,6 +309,8 @@ function StrokeRow({
 
   const color = isMixed(colorRaw) ? null : colorRaw;
   const swatchBg = color ? toSwatchBg(color) : 'transparent';
+  const gradient = isMixed(gradientRaw) ? null : gradientRaw;
+  const swatchBackground = gradient ? gradientSwatchBg(gradient) : swatchBg;
 
   const visibility = isMixed(visibleRaw) ? true : visibleRaw;
 
@@ -325,15 +335,23 @@ function StrokeRow({
         </button>
         <InspectorColorPopover
           label={`${label} colour`}
-          value={color ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 255 }}
+          value={gradient?.stops[0]?.color ?? color ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 255 }}
           onChange={(c) =>
-            onChange((s) => ({
-              ...s,
-              color: c as ManagedColor,
-            }))
+            onChange((s) => (gradient ? { ...s } : { ...s, color: c as ManagedColor }))
+          }
+          gradient={
+            gradient
+              ? {
+                  value: gradient,
+                  onChange: (g) => onChange((s) => ({ ...s, gradient: g })),
+                  documentGradientInterpolation,
+                  mixedInterpolationSpace: strokeInterpMixed,
+                  mixedHue: strokeHueMixed,
+                }
+              : undefined
           }
           swatchStyle={{
-            background: swatchBg,
+            background: swatchBackground,
             borderColor: isMixed(colorRaw) ? 'var(--color-border-strong)' : undefined,
           }}
           documentColorMode={editor.documentColorMode}
@@ -450,16 +468,6 @@ function StrokeRow({
               }}
             />
           </FieldRow>
-          {!isMixed(gradientRaw) && gradientRaw && (
-            <GradientEditor
-              gradient={gradientRaw as GradientFill}
-              onChange={(g: GradientFill) => onChange((s) => ({ ...s, gradient: g }))}
-              documentColorMode={editor.documentColorMode}
-              documentGradientInterpolation={documentGradientInterpolation}
-              mixedInterpolationSpace={strokeInterpMixed}
-              mixedHue={strokeHueMixed}
-            />
-          )}
           {/* Per-side weights for rects/frames */}
           {hasRectLike && (
             <FieldRow label="Per-side">

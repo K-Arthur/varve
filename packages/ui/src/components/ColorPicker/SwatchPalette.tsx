@@ -1,5 +1,5 @@
 import type { ManagedColor } from '@varve/scene';
-import { managedColorToRgba } from '@varve/shared';
+import { managedColorKey, managedColorToRgba } from '@varve/shared';
 import { useCallback, useRef, useState } from 'react';
 import { Tooltip } from '../Tooltip';
 import type { Color } from './color-utils';
@@ -31,6 +31,42 @@ const THEME_PALETTE: { name: string; color: Color }[] = [
 ];
 
 const SWATCH_SIZE = 24;
+
+interface SwatchSectionProps {
+  title: string;
+  colors: { name: string; display: Color; value: ManagedColor }[];
+  selectedKey: string | null;
+  onSelect: (value: ManagedColor, key: string) => void;
+}
+
+function SwatchSection({ title, colors, selectedKey, onSelect }: SwatchSectionProps) {
+  return (
+    <div>
+      <div className="swatch-palette__section-title">{title}</div>
+      <div className="swatch-palette__grid">
+        {colors.map(({ name, display, value }) => {
+          const key = `${name}-${managedColorKey(value)}`;
+          return (
+            <Tooltip key={key} label={name}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={selectedKey === key}
+                aria-label={name}
+                className="swatch-palette__swatch"
+                onClick={() => onSelect(value, key)}
+                style={{
+                  background: `rgba(${display[0]},${display[1]},${display[2]},${(display[3] / 255).toFixed(2)})`,
+                  border: swatchBorder(display),
+                }}
+              />
+            </Tooltip>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function luminance(c: Color): number {
   return c[0] * 0.299 + c[1] * 0.587 + c[2] * 0.114;
@@ -93,42 +129,13 @@ export function SwatchPalette({
     items[nextIdx]?.focus();
   }, []);
 
-  interface SwatchSectionProps {
-    title: string;
-    colors: { name: string; display: Color; value: ManagedColor }[];
-  }
-
-  function SwatchSection({ title, colors }: SwatchSectionProps) {
-    return (
-      <div>
-        <div className="swatch-palette__section-title">{title}</div>
-        <div className="swatch-palette__grid">
-          {colors.map(({ name, display, value }) => {
-            const key = `${name}-${display.join(',')}`;
-            return (
-              <Tooltip key={key} label={name}>
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={selectedKey === key}
-                  aria-label={name}
-                  className="swatch-palette__swatch"
-                  onClick={() => {
-                    setSelectedKey(key);
-                    onSelect(value);
-                  }}
-                  style={{
-                    background: `rgba(${display[0]},${display[1]},${display[2]},${(display[3] / 255).toFixed(2)})`,
-                    border: swatchBorder(display),
-                  }}
-                />
-              </Tooltip>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
+  const selectSwatch = useCallback(
+    (value: ManagedColor, key: string) => {
+      setSelectedKey(key);
+      onSelect(value);
+    },
+    [onSelect],
+  );
 
   const recentSwatches = (recentColors ?? []).map((c) => {
     const display = displayTuple(c);
@@ -162,9 +169,28 @@ export function SwatchPalette({
       aria-label={label}
       onKeyDown={handleKeyDown}
     >
-      {docSwatches.length > 0 && <SwatchSection title="Document Colors" colors={docSwatches} />}
-      {recentSwatches.length > 0 && <SwatchSection title="Recent Colors" colors={recentSwatches} />}
-      <SwatchSection title="Theme Palette" colors={themeSwatches} />
+      {docSwatches.length > 0 && (
+        <SwatchSection
+          title="Document Colors"
+          colors={docSwatches}
+          selectedKey={selectedKey}
+          onSelect={selectSwatch}
+        />
+      )}
+      {recentSwatches.length > 0 && (
+        <SwatchSection
+          title="Recent Colors"
+          colors={recentSwatches}
+          selectedKey={selectedKey}
+          onSelect={selectSwatch}
+        />
+      )}
+      <SwatchSection
+        title="Theme Palette"
+        colors={themeSwatches}
+        selectedKey={selectedKey}
+        onSelect={selectSwatch}
+      />
     </div>
   );
 }

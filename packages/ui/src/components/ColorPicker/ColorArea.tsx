@@ -1,4 +1,4 @@
-import { useCallback, useId, useRef } from 'react';
+import { useCallback, useRef } from 'react';
 
 export interface ColorAreaProps {
   hue: number;
@@ -9,9 +9,6 @@ export interface ColorAreaProps {
 }
 
 export function ColorArea({ hue, saturation, value, onChange, label = 'Color' }: ColorAreaProps) {
-  const autoId = useId();
-  const satId = `colorarea-sat-${autoId}`;
-  const valId = `colorarea-val-${autoId}`;
   const areaRef = useRef<HTMLDivElement>(null);
 
   const clamp = useCallback((v: number) => Math.max(0, Math.min(100, v)), []);
@@ -110,30 +107,6 @@ export function ColorArea({ hue, saturation, value, onChange, label = 'Color' }:
       <div
         className="color-area__thumb"
         style={{ left: `${saturation}%`, top: `${100 - value}%` }}
-      />
-      <input
-        id={satId}
-        type="range"
-        className="sr-only"
-        tabIndex={-1}
-        aria-roledescription="2D Slider"
-        aria-valuetext={`Saturation ${Math.round(saturation)}%, Value ${Math.round(value)}%`}
-        value={saturation}
-        min={0}
-        max={100}
-        readOnly
-      />
-      <input
-        id={valId}
-        type="range"
-        className="sr-only"
-        tabIndex={-1}
-        aria-roledescription="2D Slider"
-        aria-valuetext={`Saturation ${Math.round(saturation)}%, Value ${Math.round(value)}%`}
-        value={value}
-        min={0}
-        max={100}
-        readOnly
       />
     </div>
   );
