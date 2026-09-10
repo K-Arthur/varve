@@ -302,6 +302,34 @@ tests for the helper and a live capture of the grouped dropdown (`Normal`,
 `Darken`, `Lighten`, `Contrast`, `Comparative`, `Component` headers,
 matching the reference's clustering).
 
+### Effect-type picker: category icons
+
+`EFFECT_TYPE_OPTIONS` (the "new effect" picker in `EffectsSection`) gained
+`icon` fields, matching the reference's icon-per-type add menu — but
+category-level, not one glyph per exact effect. The curated `SolidIconName`
+set has no literal "blur" or "shadow" glyph, and Varve's model has 16
+effect types where the reference examples show far fewer, so inventing a
+distinct icon for each of the 9 blur variants would mean picking glyphs a
+reader has no prior reason to associate with "Tilt-Shift Blur" specifically
+vs. "Path Blur." Instead, effects that share a rendering family share one
+icon (all 9 blur types get `CloudFog`; `dropShadow`/`innerShadow` share
+`StackSimple`; `outerGlow`/`innerGlow` share `Sparkle`) and the label text
+still names the specific variant. `chromaticAberration` gets `Rainbow` and
+`glitch` gets `Lightning` (both literal, unambiguous fits); `glassMaterial`
+is left without an icon rather than force a misleading pick.
+
+While picking these, the first choice for the shadow icon
+(`'SquareOffset'`, present in the curated `SolidIconName` type) turned out
+not to exist in the installed `@phosphor-icons/react` version at all — a
+pre-existing stale entry in that type union, not something introduced
+here. `SolidIcon`'s own runtime fallback caught it (console warning +
+empty placeholder rather than a crash), which is how it surfaced: the
+EffectsSection test suite's stderr output. Replaced with `StackSimple`
+(verified against the installed package's actual exports) and added it to
+the curated `SolidIconName` union in `packages/ui/src/icons/SolidIcon.tsx`
+— a stacked-square glyph is also a reasonable icon for other
+"layered/offset" UI beyond this one picker.
+
 ### Explicitly deferred (not attempted this pass)
 
 - Pairing Weight+Size into one row in `TypographySection` (per the latest
@@ -316,8 +344,6 @@ matching the reference's clustering).
   path too and updating those tests deliberately, not as a byproduct of an
   unrelated change. `ShadowParams`' Opacity (no binding support) was the
   validated, lower-risk instance of this pattern.
-- An icon per effect type in the "new effect" picker (`EFFECT_TYPE_OPTIONS`
-  in `EffectsSection`), matching the reference's icon-per-type add menu.
 - `VariantBox`'s all-caps section title (noted in the Layers pass) remains
   the same kind of debt as the Selection Sets fix already applied there,
   in a different component outside this pass's scope.
