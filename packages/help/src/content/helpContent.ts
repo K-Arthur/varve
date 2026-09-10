@@ -1,3 +1,4 @@
+import { CLIPBOARD } from './clipboard';
 import { EXPORT } from './export';
 import { FAQ } from './faq';
 import { GETTING_STARTED } from './getting-started';
@@ -9,6 +10,7 @@ import { TROUBLESHOOTING } from './troubleshooting';
 
 export const HELP_CONTENT: Record<string, HelpArticle> = {
   ...GETTING_STARTED,
+  ...CLIPBOARD,
   ...TOOLS,
   ...PANELS,
   ...EXPORT,

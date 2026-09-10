@@ -1,6 +1,6 @@
 # Clipboard System
 
-Status: current (2026-09-07)
+Status: current (2026-09-09)
 
 Varve has one system object clipboard for layer transfer and deliberately
 separate application buffers for properties, effect stacks, guides, tables,
@@ -44,7 +44,7 @@ The fragment contains:
   rich pastes;
 - placed-world `worldAnchor` transforms for each root;
 - referenced image assets, raster-mask assets, icon assets, and mockup
-  templates;
+  templates when the supported closure can carry them;
 - raster tile data encoded through the scene tile codec rather than relying on
   a live `Map` surviving JSON serialization.
 
@@ -53,11 +53,13 @@ current limits are 64 MiB encoded JSON and 100,000 nodes. Malformed or
 unsupported fragments are ignored without suppressing a valid SVG, image, or
 plain-text representation.
 
-On insertion, node and resource IDs are freshly allocated through the existing
-document allocator. Components, styles, variables, interactions, and mockup
-templates are remapped by identity, not by display name. Imported assets are
-merged through `mergeImportedResources`; the source document is never used as
-mutable destination state.
+On insertion, node and supported resource IDs are freshly allocated through the
+existing document allocator. Component definitions, styles, variables,
+interactions, and motion data are not currently part of the clipboard envelope;
+they must be reported or deliberately degraded rather than resolved from the
+destination by display name. Imported assets are merged through
+`mergeImportedResources`; the source document is never used as mutable
+destination state.
 
 ## Representation selection
 
@@ -139,7 +141,10 @@ All final positions are translated in placed world space and written as
 parent-local transforms. The selected destination is never chosen merely
 because it appeared first in a multi-selection.
 
-Paste and Cut commit through the existing transaction/history path. Undo Cut
+Paste and Cut commit through the existing transaction/history path. File-picker
+and canvas-drop imports capture the initiating document/session/revision and
+selection revision and cancel before their single batch commit if that context
+has changed. Undo Cut
 restores the source document without rewriting the system clipboard. Redo
 replays the committed document result and does not reread the clipboard.
 
@@ -147,7 +152,7 @@ replays the committed document result and does not reread the clipboard.
 
 | Source or destination | Current behavior | Evidence / limitation |
 | --- | --- | --- |
-| Varve layer → Varve layer | editable hierarchy, transforms, supported resources, masks, and templates | editor integration tests; browser workflow validation is separate |
+| Varve layer → Varve layer | editable hierarchy, transforms, supported resources, masks, and templates | editor integration tests; component/style/variable/motion closure is not yet carried |
 | Varve layer → text editor | names-only `text/plain` representation | intentionally not an editable Varve transfer |
 | PNG/JPEG/WebP and clipboard image files → Varve | routed through `ImportService` as image nodes | decoder/import fidelity follows the existing importer |
 | SVG → Varve | validated SVG routed through `ImportService` | unsafe/arbitrary XML is not treated as SVG |
@@ -165,7 +170,9 @@ cancellation, subtree insertion, world-pose conversion, mockup-template
 ID remapping, and the Wayland native-rich fallback contract. Real browser and
 visual checks belong to the focused Playwright clipboard and website feature
 specs; native desktop and external-application interoperability are separate
-validation lanes.
+validation lanes. The 2026-09-09 focused milestone ran 55 editor/import
+tests; browser, WebKitGTK/Tauri, Wayland native transport, and external
+Firefox evidence are separate lanes and are not implied by those tests.
 
 Implementation map:
 

@@ -1,3 +1,4 @@
+export { CLIPBOARD } from './clipboard';
 export { EXPORT } from './export';
 export { FAQ } from './faq';
 export { GETTING_STARTED } from './getting-started';

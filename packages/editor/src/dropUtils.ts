@@ -25,6 +25,23 @@ export interface PasteDestination {
   kind: 'selected-container' | 'viewport';
 }
 
+export function isImportSessionCurrent(
+  current: {
+    document: { id: string };
+    activeId: string;
+    revision: number;
+    selectionRevision: number;
+  },
+  expected: { documentId: string; activeId: string; revision: number; selectionRevision: number },
+): boolean {
+  return (
+    current.document.id === expected.documentId &&
+    current.activeId === expected.activeId &&
+    current.revision === expected.revision &&
+    current.selectionRevision === expected.selectionRevision
+  );
+}
+
 /**
  * Resolve the one unambiguous container destination for ordinary Paste.
  *

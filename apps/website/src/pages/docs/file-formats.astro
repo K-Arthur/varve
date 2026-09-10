@@ -11,7 +11,7 @@ const figmaImportFaq = {
       name: 'Can Varve import a native Figma .fig file?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Yes. Varve decodes supported native .fig archives locally, then converts their pages, frames, vectors, paints, text, and layout data into editable native Varve nodes. REST and plugin-export JSON remain available when a Figma file contains resource metadata not exposed by the native archive decoder.',
+        text: 'Supported native .fig archives are decoded locally, then converted into editable native Varve nodes. Conversion depends on the archive schema and runtime; REST and plugin-export JSON remain the documented high-fidelity routes when a file contains resource metadata not exposed by the native decoder.',
       },
     },
     {
@@ -19,7 +19,7 @@ const figmaImportFaq = {
       name: 'Does importing a Figma file require Figma or an upload?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'No for a local .fig file. Native .fig conversion runs locally and does not store Figma credentials. API-backed JSON acquisition is a separate authenticated workflow.',
+        text: 'A local .fig conversion does not require Figma credentials or an upload. Native archive support is format-version dependent, and API-backed JSON acquisition is a separate authenticated workflow.',
       },
     },
     {
@@ -87,12 +87,12 @@ const figmaImportFaq = {
       <section class="docs-section">
         <h2>Import Formats</h2>
         <p>
-          Varve can import designs from a variety of formats through the <strong>File &gt; Import</strong> dialog (<code>Ctrl+I</code>). The import pipeline validates each file, estimates node count, detects unsupported features, and provides a preview before import.
+          Varve can import designs from a variety of formats through the <strong>File &gt; Import</strong> dialog (<code>Ctrl+I</code>). The import pipeline validates each file, estimates node count, detects unsupported features, and reports material losses during import.
         </p>
 
         <h3>SVG</h3>
         <p>
-          Full SVG import via recursive descent parser. Supports:
+          SVG import via a bounded recursive descent parser. The supported editable subset includes:
         </p>
         <ul>
           <li>Primitive shapes: <code>&lt;rect&gt;</code>, <code>&lt;circle&gt;</code>, <code>&lt;ellipse&gt;</code>, <code>&lt;line&gt;</code>, <code>&lt;polygon&gt;</code>, <code>&lt;polyline&gt;</code></li>
@@ -107,7 +107,7 @@ const figmaImportFaq = {
 
         <h3>Figma design data</h3>
         <p>
-          Varve accepts native Figma <code>.fig</code> archives, official Figma REST file JSON, and compatible plugin-export JSON for semantic, editable conversion. Native archives are decoded locally; the importer then normalizes source data before building a native Varve document, preserving pages, frames, vectors, text, rich-text runs, components, styles, variables, layout metadata, and prototype references wherever the source and Varve expose an equivalent representation.
+          Varve accepts supported native Figma <code>.fig</code> archives, official Figma REST file JSON, and compatible plugin-export JSON for semantic, editable conversion. Native archives are decoded locally and are format-version dependent; the importer then normalizes source data before building a native Varve document. REST/plugin JSON is the documented high-fidelity route. Ordinary Figma Copy uses a private clipboard envelope and is not claimed; use Figma's Copy as SVG route for clipboard interoperability.
         </p>
         <ul>
           <li><strong>Editable text:</strong> Text remains text, including mixed rich-text runs where the source data provides them</li>
@@ -116,7 +116,7 @@ const figmaImportFaq = {
           <li><strong>Safe degradation:</strong> Unsupported effects, missing dependencies, and approximations appear in the structured Import Report</li>
         </ul>
         <p>
-          Native <code>.fig</code> conversion is local-first and does not require Figma credentials. Source schema versions and resource maps evolve, so Varve reports unsupported effects, missing dependencies, and degraded semantics in its Import Report. When maximum documented Figma resource fidelity is required, use an authorized REST or plugin export; SVG and PDF remain useful visual fallbacks but cannot preserve Figma-specific components, variables, Auto Layout, or prototype semantics. Read the <a href={sitePath('/features/typography')}>missing-font replacement workflow</a> and <a href={sitePath('/docs/tools/typography')}>typography documentation</a> for details.
+          Native <code>.fig</code> conversion is local-first and does not require Figma credentials. Source schema versions and resource maps evolve, so Varve reports unsupported effects, missing dependencies, and degraded semantics in its Import Report. Packaged desktop CSP verification for the native decoder remains a separate validation lane. When maximum documented Figma resource fidelity is required, use an authorized REST or plugin export; SVG and PDF remain useful visual fallbacks but cannot preserve Figma-specific components, variables, Auto Layout, or prototype semantics. Read the <a href={sitePath('/features/typography')}>missing-font replacement workflow</a> and <a href={sitePath('/docs/tools/typography')}>typography documentation</a> for details.
         </p>
 
         <h3>PDF</h3>
@@ -176,7 +176,7 @@ const figmaImportFaq = {
         </p>
         <ul>
           <li><strong>PNG</strong> — Configurable scale (1x-3x)</li>
-          <li><strong>SVG</strong> — Full vector preservation</li>
+          <li><strong>SVG</strong> — Editable supported subset; fidelity warnings are reported</li>
           <li><strong>PDF, PDF/X-1a, PDF/X-4</strong> — Print-ready with CMYK, marks, profiles</li>
           <li><strong>CSS @keyframes</strong> — Animation as CSS keyframes</li>
           <li><strong>SVG animate</strong> — Animation as SMIL SVG</li>

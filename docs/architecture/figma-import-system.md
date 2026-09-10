@@ -9,7 +9,11 @@ plugin-export JSON, and local native `.fig` archives. JSON remains the richest
 documented acquisition path; native archives are decoded locally through the
 MIT-licensed `openfig-core` adapter and then enter the same normalized source IR
 and native Varve converter. Varve does not embed an API client or persist Figma
-credentials.
+credentials. This file-import pipeline is separate from clipboard acquisition:
+ordinary Figma Copy uses a private, undocumented envelope and is explicitly
+unsupported until an owned Firefox capture proves a bounded adapter. Copy as
+SVG is the supported interoperability route when a visual/vector transfer is
+needed.
 
 ## Acquisition paths
 
@@ -17,7 +21,9 @@ credentials.
 |--------|----------|----------|-------|
 | REST API JSON | Yes | High | Requires Figma access token; export via `GET /v1/files/:key` |
 | Plugin export JSON | Yes | High | Plugin must emit the same `{ document, components, styles, variables, images }` envelope |
-| Native `.fig` archive | Yes | Converted/format-version dependent | Parsed locally with `openfig-core`; no Figma credentials or network required |
+| Native `.fig` archive | Yes, format-version dependent | Converted/format-version dependent | Parsed locally with `openfig-core`; no Figma credentials or network required; packaged Tauri CSP verification remains open |
+| Ordinary Figma Copy clipboard | No claim | Unknown/private | No adapter is enabled without a captured, bounded envelope and external-application evidence |
+| Figma Copy as SVG | Yes, SVG subset | Editable supported subset | Uses the shared bounded SVG parser and Import Report |
 | SVG/PDF fallback | Yes | Low | Handled by existing SVG/PDF parsers; not Figma-specific |
 
 ## Architecture
@@ -205,6 +211,13 @@ Run with:
 ```bash
 pnpm exec vitest run packages/import/src/figma.test.ts
 ```
+
+These are parser and converter fixtures, not proof of clipboard or packaged
+desktop behavior. Firefox captures for ordinary Copy, Copy as SVG, and Copy as
+PNG must be retained as owned fixtures before any ordinary-copy adapter is
+enabled. The desktop `.fig` route also requires a Tauri CSP smoke run because
+the native decoder's decompression dependencies may have runtime restrictions
+that are invisible in Vitest.
 
 ## Known limitations
 

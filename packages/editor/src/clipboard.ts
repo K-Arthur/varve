@@ -551,6 +551,10 @@ async function readClipboardSnapshot(
   if (snapshot.varveData) return result;
   const imported = await Promise.all(
     snapshot.files.map(async ({ file, index }) => {
+      // A clipboard commonly exposes the same SVG as both a string MIME and
+      // a File. Prefer the string snapshot so one logical item cannot paste
+      // twice through two equivalent representations.
+      if (snapshot.svgText && file.type === 'image/svg+xml') return null;
       try {
         if (file.type === 'image/svg+xml') {
           const text = await file.text();
@@ -600,7 +604,7 @@ export function clearCapturedClipboardEvent(): void {
 export function isNativeClipboardTarget(event: Event): boolean {
   const path = typeof event.composedPath === 'function' ? event.composedPath() : [event.target];
   return path.some((entry) => {
-    if (!(entry instanceof HTMLElement)) return false;
+    if (typeof HTMLElement === 'undefined' || !(entry instanceof HTMLElement)) return false;
     const tag = entry.tagName.toLowerCase();
     return (
       tag === 'input' ||

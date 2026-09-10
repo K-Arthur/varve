@@ -94,6 +94,8 @@ function reportHasIssues(report: ImportReport): boolean {
 
 export function useFileImport(editor: FileImportEditor): FileImportController {
   const inputRef = useRef<HTMLInputElement>(null);
+  const editorRef = useRef(editor);
+  editorRef.current = editor;
   const abortRef = useRef<AbortController | null>(null);
   const [progress, setProgress] = useState<ImportProgressState | null>(null);
   const [report, setReport] = useState<ImportReport | null>(null);
@@ -110,6 +112,12 @@ export function useFileImport(editor: FileImportEditor): FileImportController {
       const input = event.target;
       const files = Array.from(input.files ?? []);
       if (files.length === 0) return;
+      const expected = {
+        documentId: editor.state.document.id,
+        activeId: editor.state.activeId,
+        revision: editor.state.revision,
+        selectionRevision: editor.state.selectionRevision,
+      };
       try {
         const lutFiles = files.filter((f) => LUT_PATTERN.test(f.name));
         if (lutFiles.length > 0) await importLutFiles(lutFiles, editor);
@@ -148,6 +156,16 @@ export function useFileImport(editor: FileImportEditor): FileImportController {
               if (node) parsedItems.push({ node, sourceDoc: artifact.document });
             }
           }
+        }
+        const current = editorRef.current.state;
+        if (
+          current.document.id !== expected.documentId ||
+          current.activeId !== expected.activeId ||
+          current.revision !== expected.revision ||
+          current.selectionRevision !== expected.selectionRevision
+        ) {
+          editor.announce('Import cancelled because the document changed while it was loading');
+          return;
         }
         // One batch, so the whole import is a single undo step.
         if (parsedItems.length > 0) editor.batchImportNodes(parsedItems);

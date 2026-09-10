@@ -147,3 +147,60 @@ The baseline was exercised in Vitest/jsdom only. No claim is made here about
 Firefox, WebKitGTK/Tauri, Wayland PRIMARY selection, a clipboard manager, or
 cross-application fidelity. Those routes require serialized browser/native
 validation after the repairs.
+
+## Fresh follow-up audit — 2026-09-09
+
+This follow-up was performed on `master` at `0e9b637af` (the first repair
+milestone), with the concurrent Inspector, grid, generative-edit, and visual
+snapshot changes left in the working tree. The checkout is
+`/home/kevina/CodingProjects/varve`. The host is Linux/KDE/Wayland
+(`WAYLAND_DISPLAY=wayland-0`, `DISPLAY=:0`), with Firefox, Chromium, WebKit
+MiniBrowser, and the Tauri desktop preflight available. No private Figma
+fixture was found in the checkout and no claim is made about ordinary Figma
+Copy until an owned Firefox capture is retained.
+
+The audit separates the failure boundary so a transport failure is not
+mistaken for a parser or placement failure:
+
+| ID | Boundary | Finding and status | Evidence |
+| --- | --- | --- | --- |
+| CLIP-01 | Application / Cut | Exact serialized bytes are parsed against the reader limits before an editable write is published. **Resolved.** | `packages/editor/src/clipboard.test.ts`; commit `0e9b637af` |
+| CLIP-02 | Transport / event lifetime | Paste events are synchronously snapshotted; delayed reads never retain `ClipboardEvent` or `DataTransfer`. **Resolved.** | `clipboard.test.ts`; `Shell.tsx` ownership guard |
+| CLIP-03 | Transport / MIME negotiation | Current, legacy, and web-prefixed Varve MIME types are read from DOM snapshots and async string items. SVG string MIME and SVG `text/plain` fallbacks are retained. **Resolved for strings; native desktop bridge still unverified.** | `clipboard.ts`; focused 55-test run |
+| CLIP-04 | Application / Cut | Names-only text fallback is not treated as an editable transfer. **Resolved in the write contract; end-to-end OS denial coverage remains open.** | `ClipboardWriteOutcome`; Cut tests |
+| CLIP-05 | Application / graph | All ordered roots share one ID map during clone, preserving supported sibling references. **Resolved for node graph references; full component/style/variable/motion closure remains open.** | `scene/clone.ts`; `context.import.test.tsx` |
+| CLIP-06 | Application / destination | Clipboard fragments no longer construct a temporary document by spreading the destination document. **Resolved for destination-resource leakage.** | `context.tsx`; import tests |
+| CLIP-07 | Transport / ownership | Composed focus paths retain input, textarea, select, dialog, contenteditable, textbox, and embedded editor ownership. Canvas paste prevents the browser default only after it claims the event. **Resolved in unit coverage; native Firefox/WebKit evidence open.** | `isNativeClipboardTarget`; Shell listener |
+| CLIP-08 | Parser / SVG | XML declaration/BOM/comment handling, repeated path tuples, Q/T conversion, bounded arcs, and malformed-tag progress are covered. **Resolved for the reported hangs and regressions; root-transform/viewBox visual evidence open.** | `packages/import/src/svg.test.ts` |
+| CLIP-09 | Application / lifetime | File-picker and drop imports capture document/session/revision/selection identity and cancel before commit when it changes. **Implemented; focused stale-import regression is still to be added.** | `isSessionCurrent`; picker/drop call sites |
+| CLIP-10 | Application / feedback | Partial and failed import reporting is available in the Import Report path. **Open for paste/drop UI wiring and actual committed-root counts.** | `useFileImport.ts`; Import Report follow-up |
+| CLIP-11 | Parser / rich text | Canvas plain text now inserts an editable text node. Paragraph/line-break and rich-text subset conversion is **open**. | `context.tsx`; no rich-text fixture yet |
+| CLIP-12 | Transport / item identity | File objects are deduplicated by object identity; an SVG string and equivalent SVG file no longer create two logical items. **Resolved for the DOM snapshot route; same-name external application coverage open.** | `clipboard.ts` snapshot tests |
+| CLIP-13 | Figma transport | Ordinary Figma Copy envelope is **unsupported/unverified**. Copy as SVG remains the documented interoperability route until a bounded Firefox fixture proves a safe adapter. | `figma-import-system.md`; fixture lane open |
+| CLIP-14 | Native decode / permission | Native `.fig` decoding and dynamic decompression behavior under the packaged Tauri CSP are **open**. The browser converter and local file route are separate from clipboard. | `docs/architecture/figma-import-system.md`; desktop lane open |
+| CLIP-15 | Native transport / lifetime | Bounded streaming reads, image dimension checks, cancellation cleanup, and deadline behavior are **open** for the desktop command path. | `docs/quality/tauri-command-audit.md`; WDIO lane open |
+
+### Requirement-to-test mapping
+
+| Requirement | Current evidence | Remaining evidence |
+| --- | --- | --- |
+| Recoverable Cut and exact payload validation | `clipboard.test.ts`, 55 focused editor/import tests | Native permission-denied Cut; actual undo/reopen capture |
+| One operation per gesture and fresh event data | Shell ownership code and snapshot tests | Chromium + Firefox keyboard/menu workflow; WebKitGTK native event |
+| Editable text/SVG and bounded malformed parsing | `context.import.test.tsx`, `svg.test.ts` | Rich-text formatting, large SVG timing, visual geometry screenshots |
+| Cross-root references and resource closure | clone/import tests | components/styles/variables/interactions/motion fixtures |
+| Import lifetime and cancellation | `isSessionCurrent` checks | stale picker/drop regression and native cancellation cleanup |
+| Figma interoperability boundary | qualified docs only | owned Firefox captures for Copy, Copy as SVG, Copy as PNG |
+| Marketing claims and help | website/help changes in the documentation milestone | desktop light/dark/mobile captures on both deployment bases |
+
+The exact focused command for the first repair milestone was:
+
+```text
+pnpm exec vitest run packages/editor/src/clipboard.test.ts packages/editor/src/context.import.test.tsx packages/import/src/svg.test.ts --maxWorkers=1
+55 tests passed
+```
+
+The native Wayland WDIO spec (`tests/wdio/clipboard-wayland.e2e.ts`) and the
+Firefox external-application lane were not silently treated as passing; they
+remain explicit validation work. The next milestone records their exact
+commands and any environment or permission failures separately from parser
+and application results.

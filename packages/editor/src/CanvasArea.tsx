@@ -57,7 +57,12 @@ import { TouchCandidateMenu } from './components/Breadcrumb/TouchCandidateMenu';
 import { CanvasOverlays, markNewTextEditTarget } from './components/CanvasOverlays';
 import { type EditorState, setStartTextEditingHandler, useEditor } from './context';
 import { LEGACY_FILE_MIME, VARVE_FILE_MIME } from './dnd-types';
-import { collectFilesFromDataTransfer, isDragLeaveOutside, isPointInsideRect } from './dropUtils';
+import {
+  collectFilesFromDataTransfer,
+  isDragLeaveOutside,
+  isImportSessionCurrent,
+  isPointInsideRect,
+} from './dropUtils';
 import { useCollabPresence } from './hooks/useCollabPresence';
 import {
   createRenderWorkerHost,
@@ -1032,7 +1037,12 @@ export function CanvasArea({
     ) => {
       if (files.length === 0) return;
       const reader = editorRef.current;
-
+      const expected = {
+        documentId: reader.state.document.id,
+        activeId: reader.state.activeId,
+        revision: reader.state.revision,
+        selectionRevision: reader.state.selectionRevision,
+      };
       // Parse all files FIRST (expensive SVG parsing) before any setState
       const parsedItems: {
         node: SceneNode;
@@ -1083,6 +1093,10 @@ export function CanvasArea({
       }
 
       // Single batched setState for all imported nodes
+      if (!isImportSessionCurrent(editorRef.current.state, expected)) {
+        reader.announce('Import cancelled because the document changed while it was loading');
+        return;
+      }
       if (parsedItems.length > 0) {
         const allImages = parsedItems.every(({ node }) => isImageShape(node));
         reader.batchImportNodes(

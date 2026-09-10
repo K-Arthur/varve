@@ -204,6 +204,7 @@ The current automated and manual accessibility evidence matrix is in
 | `adr/0221-local-asset-search-ranking-and-model-gate.md` | Hybrid local asset search and checkpoint gate |
 | `adr/0222-vision-runtime-selection.md` | Capability-driven visual-awareness runtime boundary |
 | `adr/0232-generative-editing-semantics.md` | Non-destructive generative editing semantics and provider boundary |
+| `adr/0233-clipboard-import-boundary.md` | Shared clipboard/import ownership, validation, and interoperability boundary |
 | `adr/0223-palette-extraction-derived-analysis.md` | Palette extraction as derived, versioned analysis (see `architecture/palette-extraction-system.md`) |
 | `adr/0224-non-destructive-effect-attachments.md` | Separate node-local Object Filters from scoped Adjustment Layers |
 | `adr/0225-effect-studio.md` | Integrate Effect Studio with the existing effect pipeline |

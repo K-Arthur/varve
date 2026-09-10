@@ -6,7 +6,7 @@ import { sitePath } from '../../lib/siteUrl';
 
 <Layout
   title="Reliable Clipboard"
-  description="Move editable Varve layers, images, SVG, and text with predictable placement and honest recovery when a clipboard format is unavailable."
+  description="Move editable Varve layers, validated SVG, images, and text with predictable placement and honest recovery when a clipboard format is unavailable."
 >
   <div class="container-custom">
     <main class="clipboard-page">
@@ -19,8 +19,8 @@ import { sitePath } from '../../lib/siteUrl';
         <h1>Copy should mean more than “something was written.”</h1>
         <p>
           Varve treats clipboard transfer as a document workflow: preserve the
-          editable structure, carry the resources that make it look right, and
-          tell you when a fallback is only text.
+          editable structure, carry the supported resources that make it look
+          right, and tell you when a fallback is only text.
         </p>
       </header>
 
@@ -52,7 +52,7 @@ import { sitePath } from '../../lib/siteUrl';
         <h2 id="capabilities-title">Useful across the ways designers work.</h2>
         <div class="capability-grid">
           <article><h3>Editable layer fragments</h3><p>Nested groups and frames remain editable instead of becoming a screenshot or a flat export.</p></article>
-          <article><h3>External images and SVG</h3><p>Clipboard files and validated SVG pass through Varve's existing import pipeline, including multiple distinct image items.</p></article>
+          <article><h3>External images and SVG</h3><p>Clipboard files and a bounded SVG subset pass through Varve's existing import pipeline, including multiple distinct image items.</p></article>
           <article><h3>Wayland-aware desktop paste</h3><p>On Linux desktop, native MIME transfer keeps editable layer paste available when WebKitGTK cannot expose the rich clipboard to the canvas.</p></article>
           <article><h3>Predictable placement</h3><p>Paste uses the selected visible frame or group as an explicit destination; otherwise it centers foreign content in the canvas viewport without changing your zoom or pan.</p></article>
           <article><h3>Native text editing</h3><p>Textareas, fields, IME composition, Unicode, and caret behavior remain owned by the browser when you are typing. Internal transfers also preserve logical vertical-writing intent and orientation instead of inserting visual column breaks.</p></article>
@@ -66,14 +66,33 @@ import { sitePath } from '../../lib/siteUrl';
         <p class="eyebrow">Honest boundaries</p>
         <h2 id="honesty-title">Portable does not mean proprietary.</h2>
         <p>
-          Varve supports its own validated fragment plus common text, SVG, and
-          image representations. It does not claim Figma, Illustrator, or
-          Office private clipboard formats without a decoder and evidence.
+          Varve supports its own validated fragment plus plain text, a bounded
+          editable SVG subset, and common image representations. It does not
+          claim Figma, Illustrator, or Office private clipboard formats without
+          a decoder and evidence. Figma Copy as SVG is the documented
+          interoperability route; ordinary Figma Copy remains unverified.
           Browser and packaged-desktop behavior still depends on the host's
           clipboard permissions and MIME support.
         </p>
-        <a href="https://github.com/K-Arthur/varve/blob/main/docs/architecture/clipboard-system.md">Read the clipboard architecture →</a>
+        <a href="https://github.com/K-Arthur/varve/blob/master/docs/architecture/clipboard-system.md">Read the clipboard architecture →</a>
       </aside>
+
+      <section class="capability-matrix" aria-labelledby="matrix-title">
+        <p class="eyebrow">Capability matrix</p>
+        <h2 id="matrix-title">What travels, and what stays honest.</h2>
+        <div class="matrix-scroll">
+          <table>
+            <thead><tr><th scope="col">Representation</th><th scope="col">Route</th><th scope="col">Result</th><th scope="col">Known loss</th><th scope="col">Tested platform</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">Varve fragment</th><td>Copy / Cut / Paste</td><td>Editable layers and supported assets</td><td>Advanced component, style, variable, and motion closure is not yet carried</td><td>Vitest; browser/native lanes pending</td></tr>
+              <tr><th scope="row">SVG</th><td>Copy as SVG / Paste SVG</td><td>Editable supported subset</td><td>Unsupported XML, effects, and semantics are reported</td><td>Chromium/Firefox parser fixtures; visual lane pending</td></tr>
+              <tr><th scope="row">PNG/JPEG/WebP</th><td>Copy as PNG / image paste</td><td>Raster image with alpha where supplied</td><td>Pixels are not editable vectors</td><td>Browser importer; native transport pending</td></tr>
+              <tr><th scope="row">Plain text</th><td>Copy text / Paste text</td><td>Editable canvas text or native caret insertion</td><td>Rich formatting is not yet promised</td><td>Unit coverage; keyboard lane pending</td></tr>
+              <tr><th scope="row">Figma ordinary Copy</th><td>Private clipboard envelope</td><td>Unsupported / filtered</td><td>No undocumented decoder is enabled</td><td>Unverified until owned Firefox capture</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
     </main>
   </div>
 </Layout>
@@ -103,5 +122,12 @@ import { sitePath } from '../../lib/siteUrl';
   .capability-grid h3 { color: var(--text-primary); margin: 0 0 .5rem; }
   .capability-grid p { color: var(--text-secondary); line-height: 1.65; margin: 0; }
   .honesty a { color: var(--text-link); font-weight: 600; }
+  .capability-matrix { padding: 1rem 0 2rem; }
+  .capability-matrix h2 { color: var(--text-primary); font-size: clamp(1.6rem, 3vw, 2.3rem); margin: .5rem 0 1rem; }
+  .matrix-scroll { overflow-x: auto; }
+  .matrix-scroll table { border-collapse: collapse; color: var(--text-secondary); min-width: 760px; width: 100%; }
+  .matrix-scroll th, .matrix-scroll td { border-bottom: 1px solid var(--border-default); padding: .85rem .7rem; text-align: left; vertical-align: top; }
+  .matrix-scroll thead th { color: var(--text-primary); font-size: .8rem; letter-spacing: .04em; text-transform: uppercase; }
+  .matrix-scroll tbody th { color: var(--text-primary); font-weight: 600; }
   @media (max-width: 680px) { .transfer-flow { grid-template-columns: 1fr; } .arrow { justify-self: center; transform: rotate(90deg); } .capability-grid { grid-template-columns: 1fr; } }
 </style>

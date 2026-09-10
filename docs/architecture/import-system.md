@@ -111,7 +111,7 @@ server (`tests/e2e/canvas/file-import.spec.ts`, snapshots inspected).
 | AI | Partial | PDF-compatible AI only |
 | EPS | Partial | Basic paths |
 | Sketch | Partial | Symbols, shared styles and constraints not preserved |
-| Figma | Partial | REST/plugin JSON only. Native `.fig` binary reports unsupported |
+| Figma | Partial | REST/plugin JSON is the documented high-fidelity route; local native `.fig` decoding is format-version dependent and desktop CSP verification remains open |
 
 Animated GIF and WebP are not flattened on import. `inspectRasterBytes`
 probes the container, persists `AnimatedAssetMetadata` on the asset, and the
