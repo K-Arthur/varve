@@ -7,7 +7,7 @@ import {
   makeFrameNode,
   makeShapeNode,
 } from '@varve/scene';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { promptDialog } from '../components/PromptDialog';
 import type { EditorContextValue } from '../context';
 import { setStartTextEditingHandler } from '../context';
@@ -49,17 +49,21 @@ describe('createActionHandlers — tool actions', () => {
 });
 
 describe('createActionHandlers — clipboard dialogs', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('uses the accessible prompt dialog for PNG scale selection', async () => {
     vi.mocked(promptDialog).mockResolvedValue('3');
     const onCopyAsPng = vi.fn();
     const editor = makeEditorMock();
 
     createActionHandlers(editor, { onCopyAsPng }).copyAsPng?.();
-    await Promise.resolve();
-    await Promise.resolve();
 
-    expect(promptDialog).toHaveBeenCalledWith('PNG scale (1, 2, or 3)', '1');
-    expect(onCopyAsPng).toHaveBeenCalledWith(3);
+    await vi.waitFor(() => {
+      expect(promptDialog).toHaveBeenCalledWith('PNG scale (1, 2, or 3)', '1');
+      expect(onCopyAsPng).toHaveBeenCalledWith(3);
+    });
   });
 
   it('does not import cancelled SVG markup', async () => {
@@ -68,10 +72,8 @@ describe('createActionHandlers — clipboard dialogs', () => {
     const editor = makeEditorMock({ batchImportNodes });
 
     createActionHandlers(editor).pasteSvgMarkup?.();
-    await Promise.resolve();
-    await Promise.resolve();
 
-    expect(promptDialog).toHaveBeenCalledWith('Paste SVG markup');
+    await vi.waitFor(() => expect(promptDialog).toHaveBeenCalledWith('Paste SVG markup'));
     expect(batchImportNodes).not.toHaveBeenCalled();
   });
 });
