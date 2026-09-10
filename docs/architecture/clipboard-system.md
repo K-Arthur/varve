@@ -47,6 +47,9 @@ The fragment contains:
 - placed-world `worldAnchor` transforms for each root;
 - referenced image assets, raster-mask assets, icon assets, and mockup
   templates when the supported closure can carry them;
+- referenced components and masters, styles, shared paints, variable
+  collections and aliases, prototype interactions, linked text stories, and
+  supported motion timelines/extensions;
 - raster tile data encoded through the scene tile codec rather than relying on
   a live `Map` surviving JSON serialization.
 
@@ -57,10 +60,11 @@ unsupported fragments are ignored without suppressing a valid SVG, image, or
 plain-text representation.
 
 On insertion, node and supported resource IDs are freshly allocated through the
-existing document allocator. Component definitions, styles, variables,
-interactions, and motion data are not currently part of the clipboard envelope;
-they must be reported or deliberately degraded rather than resolved from the
-destination by display name. Imported assets are merged through
+existing document allocator. Each carried reference is remapped from the
+complete source map; dependency-only nodes remain hidden from the paste roots.
+External references that are outside the supported closure are dropped and
+reported as fidelity loss rather than resolved from the destination by display
+name. Imported assets and document resources are merged through
 `mergeImportedResources`; the source document is never used as mutable
 destination state.
 
@@ -159,7 +163,7 @@ replays the committed document result and does not reread the clipboard.
 
 | Source or destination | Current behavior | Evidence / limitation |
 | --- | --- | --- |
-| Varve layer → Varve layer | editable hierarchy, transforms, supported resources, masks, and templates | editor integration tests; component/style/variable/motion closure is not yet carried |
+| Varve layer → Varve layer | editable hierarchy, transforms, supported resources, masks, templates, components, styles, paints, variables, interactions, linked stories, and supported motion tracks | editor/scene closure and remapping tests; unsupported external references are dropped with fidelity loss |
 | Varve layer → text editor | names-only `text/plain` representation | intentionally not an editable Varve transfer |
 | PNG/JPEG/WebP and clipboard image files → Varve | routed through `ImportService` as image nodes | decoder/import fidelity follows the existing importer |
 | SVG → Varve | validated SVG routed through `ImportService` | unsafe/arbitrary XML is not treated as SVG |

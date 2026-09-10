@@ -22,10 +22,11 @@ evidence.
    import or drop commits. Fallback timers and event snapshots are keyed by the
    operation and gesture identity.
 2. **Use one versioned Varve fragment envelope.** It carries ordered roots,
-   world anchors, node closure, and only the resource classes the transport can
-   validate and remap. The serialized bytes are parsed against the reader's
-   limits before an editable write is published. Older version-1 and legacy
-   payloads remain readable.
+  world anchors, node closure, and resource classes the transport can validate
+  and remap, including component masters, styles, paints, variable aliases,
+  interactions, linked stories, and supported motion data. The serialized
+  bytes are parsed against the reader's limits before an editable write is
+  published. Older version-1 and legacy payloads remain readable.
 3. **Resolve one logical item from alternatives.** A validated Varve item wins,
    followed by bounded SVG, one raster representation, and plain text. An SVG
    string and equivalent SVG file do not become two pasted objects. Unsupported
@@ -47,12 +48,12 @@ evidence.
 The editor currently shares validation and import reporting, while Paste,
 Import, and Drop still retain route-specific preparation and commit code; a
 shared `PreparedFragment` transaction is the next application milestone.
-Native Wayland and packaged Tauri behavior
-require explicit desktop validation; browser unit tests do not stand in for
-that evidence. Unsupported component/style/variable/motion closure is
-reported rather than reconstructed from destination state. Marketing and help
-pages must use the capability matrix and may not claim full SVG, ordinary Figma
-Copy, or preview behavior without a passing fixture.
+Native Wayland and packaged Tauri behavior require explicit desktop
+validation; browser unit tests do not stand in for that evidence. References
+outside the supported closure are reported as fidelity loss rather than
+reconstructed from destination state. Marketing and help pages must use the
+capability matrix and may not claim full SVG, ordinary Figma Copy, or preview
+behavior without a passing fixture.
 
 ## Evidence
 

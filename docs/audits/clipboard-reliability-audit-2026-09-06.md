@@ -465,3 +465,40 @@ the workspace's direct dependency links; the focused action-handler suite
 passed after supplying those existing links. Package typechecks and the
 repository affected/full-gate results remain recorded above. External
 Firefox/Figma, Wayland, and packaged Tauri CSP lanes are unchanged.
+
+### Supported dependency closure follow-up — 2026-09-10
+
+CLIP-26 is resolved for the supported document closure. Clipboard version-2
+fragments now carry referenced component masters, styles, shared paints,
+variable collections and aliases, interactions, linked text stories, motion
+timelines, and node-owned motion extensions/presets. Dependency nodes are
+serialized for remapping but remain excluded from the ordered paste roots.
+The existing merge path allocates one resource map before cloning and remaps
+node, story, interaction, variable, paint, component, and timeline references;
+missing external references are omitted rather than resolved by destination
+name or coincident id.
+
+Evidence:
+
+```text
+cd /tmp/varve-current && VARVE_TEST_WORKERS=1 \
+  /home/kevina/CodingProjects/varve/node_modules/.bin/vitest run \
+  packages/scene/src/documentCodec.test.ts \
+  packages/editor/src/import/mergeImportedResources.test.ts \
+  packages/editor/src/clipboard.test.ts --maxWorkers=1 --reporter=dot
+50 tests passed
+/home/kevina/CodingProjects/varve/node_modules/.bin/biome check \
+  packages/scene/src/documentCodec.ts \
+  packages/scene/src/documentCodec.test.ts \
+  packages/editor/src/clipboard.ts \
+  packages/editor/src/context.tsx \
+  packages/editor/src/import/mergeImportedResources.ts \
+  packages/editor/src/import/mergeImportedResources.test.ts
+passed
+```
+
+The isolated editor typecheck still reports unrelated concurrent codegen,
+engine, and missing optional type-declaration diagnostics; the new closure
+files produced no diagnostics. The affected planner continues to escalate
+because the shared checkout contains workspace and validation changes.
+Firefox/Figma captures, Wayland ownership, and packaged Tauri CSP remain open.
