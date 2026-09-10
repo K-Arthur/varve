@@ -66,3 +66,22 @@ component slot clearing, and explicit mixed-selection export scope. The visual
 matrix also needs light, dark, high-contrast, narrow/wide rails, fractional
 zoom, camera rotation, and DPR 1/2 captures. Windows/macOS and 4GB hardware
 results are verification gaps, not inferred support.
+
+## Inspector visual refinement — 2026-09-09
+
+The follow-up visual pass keeps the accepted ownership contract and removes the
+duplicate single-selection Quick properties strip. Position & Size is the sole
+owner of geometry; Appearance displays opacity as a percentage while storing
+the existing 0–1 value; Stack / Grid is the visible frame-flow owner.
+
+Paint and effect sections are composed through the section registry instead of
+being appended as a second appearance surface. Effect rows now reserve stable
+slots for visibility, preview, identity, and an action menu. Detailed effect
+parameters open in a focused editor anchored to the row, with owner identity
+including the document, selection, effect index, and type.
+
+The unchanged baseline could not be recaptured before implementation because a
+cold Chromium startup stopped at the existing generative-edit export boundary;
+the current dirty engine entry point contains the required export. Updated
+captures and the selected-state visual matrix remain required evidence before
+approving new website baselines.

@@ -146,27 +146,28 @@ import { sitePath } from '../../../lib/siteUrl';
         <h2>Inspector Panel</h2>
         <p>
           The inspector panel (right sidebar, bottom) is a contextual workspace for the current
-          selection. The Design tab is the everyday Properties surface, with a Quick properties
-          strip for the values edited most often on a single selected node.
+          selection. The Design tab is the everyday Properties surface, organized around one
+          canonical owner for each property group.
         </p>
         <ul>
-          <li><strong>Quick properties</strong> — X, Y, W, H, Opacity, and Fill without opening a disclosure; image dimensions preserve their aspect ratio</li>
-          <li><strong>Design</strong> — Position, size, rotation, corner radius, layout, fills, stroke, effects, and selection-aware content controls</li>
+          <li><strong>Position &amp; Size</strong> — X, Y, W, H, rotation, bounds, and aspect-ratio editing with mixed-selection support</li>
+          <li><strong>Design</strong> — Stack / Grid, Appearance, fills, stroke, effects, and selection-aware content controls</li>
           <li><strong>Adjustments</strong> — Image and object treatment workflows when the selection supports them</li>
           <li><strong>Prototype</strong> — Interaction authoring for supported design and motion workflows</li>
           <li><strong>Export</strong> — Per-node export presets, format options, and code output</li>
         </ul>
         <p>
-          Tabs and sections are contextual. The Quick properties strip is shown for a single
-          selection and stays out of empty or mixed-selection states, where the full sections
-          communicate mixed values and batch-edit behavior explicitly. Specialized sections appear
-          only when their owning node or workflow supports them.
+          Tabs and sections are contextual. Each property is edited in one canonical section, so
+          empty and mixed-selection states can communicate unavailable and mixed values directly.
+          Specialized sections appear only when their owning node or workflow supports them.
         </p>
         <p>
           In Design, <strong>Position &amp; Size</strong> owns geometry and bounds while
           <strong>Stack / Grid</strong> owns the relationship between children. Fixed bounds remain
           visible but inactive; Relative fields show their authored percentage and reference. Fills,
           strokes, effects, typography, images, components, tables, and export each have one owner.
+          Effect details open in a focused editor beside the rail while row actions stay available
+          from an overflow menu.
           See the <a href={sitePath('/docs/tools/auto-layout')}>Auto Layout guide</a> for the sizing
           explanations and examples.
         </p>

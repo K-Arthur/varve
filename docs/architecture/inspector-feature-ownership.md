@@ -7,12 +7,12 @@ container for new editor features. Every section registered in
 by `featureOwnership.test.ts`; adding a section without classifying it fails the
 test suite.
 
-The single-selection surface also includes a Quick properties access strip for
-X, Y, W, H, Opacity, and Fill. It is a presentation layer over the existing
-editor setters, bindings, transactions, and canonical sections—not a second
-property model. It is intentionally absent for empty and multi-selection
-contexts, where mixed-value semantics and batch editing remain in the full
-sections.
+Single selection uses the canonical sections directly. Position & Size owns
+X, Y, W, H, rotation, and sizing controls; Appearance owns opacity and blend
+mode; Fills owns paint rows and the primary color editor. There is no second
+Quick properties strip, so each commonly edited value has one visible owner
+and one undo/binding path. Empty and mixed selections retain their existing
+selection-aware section semantics.
 
 ## Canonical Design composition
 
@@ -21,13 +21,16 @@ alignment, X/Y, rotation/flip, the single W/H pair, per-axis mode, ratio lock,
 and min/max bounds. Stack / Grid owns container flow, wrap, alignment,
 distribution, signed flex gaps, padding, and grid track/placement controls.
 Layout Child is mounted only for a selected flow child and is never mounted a
-second time under the frame section. The quick-properties strip is a compact
-view of Position & Size and never writes a separate model.
+second time under the frame section. Stack / Grid is the sole owner of frame
+flow and track controls; it is visually distinct from Position & Size while
+using the same compact field grammar.
 
 Fills, Strokes, Effects, Typography, Images, Components, Tables, Selection
 Colors, and Export each have one persistent owner. Advanced paint, effect,
 image, table, and typography editors open as focused surfaces and return focus
-to the owning row when dismissed. Mixed selections patch only the edited field;
+to the owning row when dismissed. Layer effect parameters open in an anchored
+focused editor beside the rail; reset, duplicate, reorder, and remove live in
+the effect row's overflow menu. Mixed selections patch only the edited field;
 unsupported values remain visibly mixed or unavailable.
 
 The layout sizing modes are **Fixed**, **Hug**, **Fill**, and **Relative**.

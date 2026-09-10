@@ -18,6 +18,10 @@ contains container flow, signed flex spacing, padding, distribution, and grid
 tracks. Fills, strokes, effects, typography, images, components, tables, and
 export each have one owner and one stable row identity.
 
+The inspector has no duplicate Quick properties strip. Appearance owns opacity
+and blend mode, Fills owns paint rows, and effect parameters open in a focused
+anchored editor while secondary effect actions live in the row menu.
+
 The scene model retains authored sizing mode and percentage fields. Fixed
 constraints remain serialised but inactive; Hug measures occupied content;
 Fill receives residual space; Relative resolves a literal percentage of its
@@ -47,6 +51,6 @@ and specialised editors own complex operations.
 ## Validation
 
 The contract is covered by layout, scene migration, paint-order, and focused
-inspector tests. Chromium quick-properties/containment tests pass on the
-refreshed master checkout; the full browser and native matrix remains a final
-gate because this change crosses schema, layout, rendering, and codegen.
+inspector tests. The browser baseline must be recaptured after the current
+dirty engine export prerequisite is loaded; the full browser and native matrix
+remains a final gate because this change crosses layout, rendering, and codegen.

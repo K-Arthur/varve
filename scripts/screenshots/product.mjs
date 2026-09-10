@@ -802,23 +802,22 @@ const SCENES = [
       }
       await design.click();
       await page.waitForTimeout(500);
-      const effects = page.locator('.insp-disclosure').filter({ hasText: /^Effects/ });
-      if (!(await effects.isVisible({ timeout: 8000 }).catch(() => false))) {
-        throw new Error('Effects section not present for the selected shape');
-      }
-      await effects.evaluate((el) => el.scrollIntoView({ block: 'start' }));
-      await page.waitForTimeout(400);
+      const effects = await expandSection(page, /^Layer Effects/);
       // Add a real drop shadow rather than screenshotting an empty section:
       // 'dropShadow' is the default in the "New effect type" select, and the
       // newly added row starts expanded so its controls are on screen.
-      const addBtn = effects.locator('.insp-fill-add button').first();
+      const addBtn = effects.getByRole('button', { name: /^Add$/ });
       await addBtn.click({ timeout: 5000 });
       await page.waitForTimeout(1200);
       await effects.evaluate((el) => el.scrollIntoView({ block: 'start' }));
       await page.waitForTimeout(600);
-      const removeBtn = effects.getByRole('button', { name: /remove effect/i });
-      if ((await removeBtn.count()) === 0) {
+      const effectRow = effects.locator('.insp-effect-row').first();
+      if ((await effectRow.count()) === 0) {
         throw new Error('no effect row after Add — the section would show an empty state');
+      }
+      const focusedEditor = page.locator('.insp-focused-editor').first();
+      if (!(await focusedEditor.isVisible({ timeout: 5000 }).catch(() => false))) {
+        throw new Error('effect parameters did not open in the focused editor');
       }
       // The default 0/4/8 shadow is invisible on an A3 poster viewed whole.
       // Scale it to the artwork so the canvas actually shows the effect the
@@ -827,7 +826,7 @@ const SCENES = [
         [/^Y$/, '28'],
         [/^Blur$/, '48'],
       ]) {
-        const field = effects.getByLabel(label).first();
+        const field = focusedEditor.getByLabel(label).first();
         if (!(await field.isVisible({ timeout: 4000 }).catch(() => false))) {
           throw new Error(`drop shadow field ${label} not available`);
         }
