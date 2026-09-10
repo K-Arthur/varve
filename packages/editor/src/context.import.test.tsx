@@ -15,7 +15,7 @@ import {
   makeShapeNode,
 } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
-import { captureClipboardEvent } from './clipboard';
+import { captureClipboardEvent, clearCapturedClipboardEvent } from './clipboard';
 import { EditorProvider, useEditor } from './context';
 import { nodeWorldBounds, nodeWorldTransform } from './scene/world';
 
@@ -728,6 +728,9 @@ describe('Editor native clipboard paste (Varve-format data)', () => {
     );
     const pastedShape = makeShapeNode('paste-source', { kind: 'rect', x: 0, y: 0, w: 20, h: 20 });
     captureClipboardEvent(createClipboardEventWithVarveNodes([pastedShape]));
+    // This case specifically exercises the asynchronous menu/API route; the
+    // captured event belongs to a different gesture and must not be reused.
+    clearCapturedClipboardEvent();
 
     let ctx: ReturnType<typeof useEditor> | undefined;
     function Test() {

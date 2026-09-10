@@ -108,6 +108,25 @@ describe('readFromClipboardEvent', () => {
     expect(svgItem?.data).toBe(svgContent);
   });
 
+  it('keeps SVG and plain text supplied as string clipboard representations', async () => {
+    const svgContent = '<svg xmlns="http://www.w3.org/2000/svg"><circle r="5"/></svg>';
+    const dt = createDataTransferWithFiles([]);
+    dt.getData = (format: string) => {
+      if (format === 'image/svg+xml') return svgContent;
+      if (format === 'text/plain') return svgContent;
+      return '';
+    };
+    const svgResult = await readFromClipboardEvent({ clipboardData: dt } as ClipboardEvent);
+    expect(svgResult.importItems).toEqual([
+      { data: svgContent, mimeType: 'image/svg+xml', name: 'clipboard.svg' },
+    ]);
+    expect(svgResult.plainText).toBeUndefined();
+
+    dt.getData = (format: string) => (format === 'text/plain' ? 'שלום\nDesign' : '');
+    const textResult = await readFromClipboardEvent({ clipboardData: dt } as ClipboardEvent);
+    expect(textResult.plainText).toBe('שלום\nDesign');
+  });
+
   it('returns empty when clipboardData is null', async () => {
     const event = { type: 'paste', clipboardData: null } as unknown as ClipboardEvent;
     const result = await readFromClipboardEvent(event);

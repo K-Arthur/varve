@@ -39,6 +39,9 @@ export interface CloneOptions {
    * remain valid and are preserved.
    */
   dropForeignReferences?: boolean;
+  /** Additional roots to clone in the same id map. This preserves references
+   * between separately selected roots during cross-document paste. */
+  additionalRootIds?: readonly NodeId[];
 }
 
 /**
@@ -256,6 +259,9 @@ export function deepCloneSubtree(
   }
 
   const newRootId = walkNode(rootId);
+  for (const additionalRootId of options?.additionalRootIds ?? []) {
+    if (additionalRootId !== rootId) walkNode(additionalRootId);
+  }
 
   if (!newRootId) {
     return { nodes: {}, idMap, rootId, nextId: currentDoc.nextId };

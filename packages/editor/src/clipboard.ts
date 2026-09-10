@@ -259,6 +259,14 @@ export async function writeClipboardOutcome(
   } catch {
     return { status: 'failed', reason: 'write-failed' };
   }
+  // A browser/native clipboard write can succeed even when the payload is
+  // larger than the reader's budget or cannot be rehydrated.  Cut must never
+  // delete its source on the strength of such a write.  Validate the exact
+  // bytes that will be offered before publishing them.
+  const encodedJson = new TextEncoder().encode(json);
+  if (encodedJson.byteLength > MAX_CLIPBOARD_JSON_BYTES || !parseClipboardData(json)) {
+    return { status: 'failed', reason: 'write-failed' };
+  }
   const text = nodes.map((n) => n.name).join('\n');
   const textBlob = new Blob([text], { type: 'text/plain' });
   if (platform?.kind === 'tauri') {
@@ -364,7 +372,7 @@ function isSvgText(text: string): boolean {
   );
 }
 
-function hasCanvasClipboardContent(result: UnifiedClipboardResult): boolean {
+function hasRichClipboardContent(result: UnifiedClipboardResult): boolean {
   return Boolean(result.varveData || result.importItems.length > 0);
 }
 
@@ -430,7 +438,11 @@ async function readClipboardItem(
   if (item.types.includes('text/plain')) {
     try {
       const text = await (await item.getType('text/plain')).text();
-      if (text && !isSvgText(text)) result.plainText ??= text;
+      if (isSvgText(text)) {
+        addImageItem(result, text, 'image/svg+xml', `clipboard-${itemIndex}.svg`);
+      } else if (text) {
+        result.plainText ??= text;
+      }
     } catch {
       // Ignore one unreadable representation.
     }
@@ -474,6 +486,7 @@ interface ClipboardFileSnapshot {
 interface ClipboardDataSnapshot {
   varveData: ClipboardData | null;
   plainText: string | null;
+  svgText: string | null;
   files: ClipboardFileSnapshot[];
 }
 
@@ -493,10 +506,23 @@ function snapshotClipboardData(dt: DataTransfer): ClipboardDataSnapshot {
       // Continue through compatible representations.
     }
   }
+  let svgText: string | null = null;
+  for (const type of ['image/svg+xml', 'text/svg+xml']) {
+    try {
+      const text = dt.getData(type);
+      if (text && isSvgText(text)) {
+        svgText = text;
+        break;
+      }
+    } catch {
+      // Continue through the text fallback.
+    }
+  }
   let plainText: string | null = null;
   try {
     const text = dt.getData('text/plain');
-    if (text && !isSvgText(text)) plainText = text;
+    if (text && isSvgText(text)) svgText ??= text;
+    else if (text) plainText = text;
   } catch {
     // Text is optional.
   }
@@ -512,7 +538,7 @@ function snapshotClipboardData(dt: DataTransfer): ClipboardDataSnapshot {
     const item = dt.items[i];
     if (item?.kind === 'file') addFile(item.getAsFile(), i);
   }
-  return { varveData, plainText, files };
+  return { varveData, plainText, svgText, files };
 }
 
 async function readClipboardSnapshot(
@@ -521,6 +547,7 @@ async function readClipboardSnapshot(
   const result = createClipboardResult();
   result.varveData = snapshot.varveData;
   if (snapshot.plainText) result.plainText = snapshot.plainText;
+  if (snapshot.svgText) addImageItem(result, snapshot.svgText, 'image/svg+xml', 'clipboard.svg');
   if (snapshot.varveData) return result;
   const imported = await Promise.all(
     snapshot.files.map(async ({ file, index }) => {
@@ -567,6 +594,25 @@ export function captureClipboardEvent(event: ClipboardEvent): void {
 /** Clear the captured paste event (e.g. after consuming it). */
 export function clearCapturedClipboardEvent(): void {
   capturedPasteSnapshot = null;
+}
+
+/** Whether a clipboard event belongs to a browser-owned editing surface. */
+export function isNativeClipboardTarget(event: Event): boolean {
+  const path = typeof event.composedPath === 'function' ? event.composedPath() : [event.target];
+  return path.some((entry) => {
+    if (!(entry instanceof HTMLElement)) return false;
+    const tag = entry.tagName.toLowerCase();
+    return (
+      tag === 'input' ||
+      tag === 'textarea' ||
+      tag === 'select' ||
+      tag === 'dialog' ||
+      entry.isContentEditable ||
+      entry.getAttribute('contenteditable') === '' ||
+      entry.getAttribute('role') === 'textbox' ||
+      entry.hasAttribute('data-clipboard-native')
+    );
+  });
 }
 
 /**
@@ -618,10 +664,10 @@ export async function readClipboardUnifiedWithFallback(
   let eventResult: UnifiedClipboardResult | null = null;
   if (eventSnapshot) {
     eventResult = await readClipboardSnapshot(eventSnapshot);
-    if (hasCanvasClipboardContent(eventResult)) return eventResult;
+    if (hasRichClipboardContent(eventResult)) return eventResult;
   }
   const apiResult = await readClipboardUnified();
-  if (hasCanvasClipboardContent(apiResult)) {
+  if (hasRichClipboardContent(apiResult)) {
     return apiResult;
   }
   if (platform?.kind === 'tauri') {
@@ -655,8 +701,13 @@ export async function readClipboardUnifiedWithFallback(
           };
         } else if (nativeItem.mimeType === 'text/plain') {
           const text = new TextDecoder().decode(nativeItem.data);
-          if (text && !isSvgText(text))
-            return { varveData: null, importItems: [], plainText: text };
+          if (isSvgText(text)) {
+            return {
+              varveData: null,
+              importItems: [{ data: text, mimeType: 'image/svg+xml', name: 'clipboard.svg' }],
+            };
+          }
+          if (text) return { varveData: null, importItems: [], plainText: text };
         }
       }
     } catch {

@@ -727,17 +727,22 @@ function insertImportedSubtree(
   rootId: NodeId,
   adjustRoot: (node: SceneNode) => SceneNode,
   workspaceMode: string = 'print',
-): { doc: Document; rootId: NodeId; idMap: Map<string, string> } | null {
+  additionalRootIds: readonly NodeId[] = [],
+): { doc: Document; rootId: NodeId; rootIds: NodeId[]; idMap: Map<string, string> } | null {
   // Cross-document import/clipboard paste: mask and scope references that
   // point outside the pasted subtree must not leak source-document IDs —
   // foreign mattes/targets are dropped (the item is pasted unclipped) rather
   // than left dangling.
   const cloned = deepCloneSubtree(sourceDoc.nodes, targetDoc.nextId, rootId, {
     dropForeignReferences: true,
+    additionalRootIds,
   });
   const root = cloned.nodes[cloned.rootId];
   if (!root || Object.keys(cloned.nodes).length === 0) return null;
 
+  const clonedRootIds = [rootId, ...additionalRootIds]
+    .map((id) => cloned.idMap.get(id))
+    .filter((id): id is NodeId => Boolean(id));
   const nodes = { ...cloned.nodes, [cloned.rootId]: adjustRoot(root) };
 
   // Merge both asset tables from the source document into the target.
@@ -766,10 +771,11 @@ function insertImportedSubtree(
     const children = contentRoot.children ?? [];
     const updatedContentRoot = {
       ...contentRoot,
-      children: [...children, cloned.rootId],
+      children: [...children, ...clonedRootIds],
     } as ContainerNode;
     return {
       rootId: cloned.rootId,
+      rootIds: clonedRootIds,
       idMap: cloned.idMap,
       doc: {
         ...targetDoc,
@@ -791,11 +797,12 @@ function insertImportedSubtree(
 
   return {
     rootId: cloned.rootId,
+    rootIds: clonedRootIds,
     idMap: cloned.idMap,
     doc: {
       ...targetDoc,
       nextId: cloned.nextId,
-      rootChildren: [...targetDoc.rootChildren, cloned.rootId],
+      rootChildren: [...targetDoc.rootChildren, ...clonedRootIds],
       nodes: { ...targetDoc.nodes, ...nodes },
       ...(mergedRasterAssets !== targetDoc.rasterMaskAssets
         ? { rasterMaskAssets: mergedRasterAssets }
@@ -7855,34 +7862,6 @@ export function EditorProvider({
         const targetParentId =
           targetFrameId ??
           activeWorkspaceContentRoot(invocation.document, invocation.workspaceMode);
-        const guideClipboard = await readGuidesFromClipboard({ allowMemoryFallback: false });
-        if (guideClipboard && guideClipboard.length > 0) {
-          if (!pasteInvocationIsCurrent(stateRef.current, invocation)) {
-            announcerRef.current?.announce('Paste cancelled because the document changed');
-            return;
-          }
-          const pageId = resolveGuidePageId(invocation.document);
-          const pastedIds: string[] = [];
-          updateDoc((doc) =>
-            pasteGuidesDoc(
-              doc,
-              guideClipboard,
-              pageId,
-              () => {
-                const id = createGuideId();
-                pastedIds.push(id);
-                return id;
-              },
-              10,
-            ),
-          );
-          patch({ selectedGuideId: pastedIds[pastedIds.length - 1] ?? null });
-          announcerRef.current?.announce(
-            `Pasted ${guideClipboard.length} guide${guideClipboard.length > 1 ? 's' : ''}`,
-          );
-          return;
-        }
-
         // Single clipboard read — uses DOM ClipboardEvent when available
         // (cross-platform, no Wayland permission issues), falls back to
         // navigator.clipboard.read() for menu-triggered pastes, then to a
@@ -7921,7 +7900,12 @@ export function EditorProvider({
             })),
           ) ?? [];
 
-        if (!varveData && importResults.length === 0) return;
+        const plainText =
+          !varveData && importResults.length === 0 ? unified.plainText?.slice(0, 2_000_000) : null;
+        if (!varveData && importResults.length === 0 && !plainText) {
+          announcerRef.current?.announce('Paste did not contain supported artwork or text');
+          return;
+        }
 
         if (!pasteInvocationIsCurrent(stateRef.current, invocation)) {
           announcerRef.current?.announce('Paste cancelled because the document changed');
@@ -7934,6 +7918,29 @@ export function EditorProvider({
             const newIds: NodeId[] = [];
             const resourceImports: ImportedResourceSet[] = [];
 
+            if (plainText) {
+              const next = nextNodeId(doc);
+              const parentWorld = targetParentId ? nodeWorldTransform(doc, targetParentId) : null;
+              const local = parentWorld
+                ? applyAffine(invertAffine(parentWorld), [
+                    pasteDestination.center.x,
+                    pasteDestination.center.y,
+                  ])
+                : [pasteDestination.center.x, pasteDestination.center.y];
+              const textNode = makeTextNode(next.id, plainText, {
+                name: 'Pasted text',
+                nameMode: 'automatic',
+                transform: [1, 0, 0, 1, local[0], local[1]],
+                fontSize: 16,
+                textMode: 'point',
+                textResizing: 'autoWidth',
+              });
+              doc = targetParentId
+                ? addChild(next.doc, targetParentId, textNode)
+                : addNode(next.doc, textNode);
+              newIds.push(textNode.id);
+            }
+
             // Paste target and placement were resolved before the async
             // clipboard read. All branches below finish in parent-local
             // coordinates after their world-space placement is determined.
@@ -7942,8 +7949,10 @@ export function EditorProvider({
               for (const node of varveData.nodes) {
                 tempNodes[node.id] = node;
               }
+              // Keep the source fragment independent of destination resources.
+              const fragmentBase = createDocument('Clipboard fragment', true);
               const tempDoc: Document = {
-                ...doc,
+                ...fragmentBase,
                 nodes: tempNodes,
                 ...(varveData.rasterMaskAssets
                   ? { rasterMaskAssets: varveData.rasterMaskAssets }
@@ -7971,26 +7980,30 @@ export function EditorProvider({
                   : varveData.nodes.filter((node) => !childIds.has(node.id)).map((node) => node.id);
               const worldAnchor = varveData.worldAnchor ?? {};
               const insertedVarveRoots: Array<{ rootId: NodeId; sourceId: NodeId }> = [];
-              for (const rootId of rootIds) {
-                const node = tempNodes[rootId];
-                if (!node) continue;
-                // insertImportedSubtree deep-clones from tempDoc (handling
-                // containers and leaves alike), merges every cloned descendant
-                // into doc.nodes, and hooks only the subtree root into the
-                // active page's contentRoot (or doc.rootChildren for flat
-                // documents) — the same page-scoping every other insertion
-                // path (importNode, drag-and-drop) already relies on.
+              const validRootIds = rootIds.filter((id) => Boolean(tempNodes[id]));
+              const firstRootId = validRootIds[0];
+              if (firstRootId) {
+                // Clone every selected root in one pass. The shared id map
+                // keeps masks, scopes, effects, and path-text references
+                // between sibling roots instead of treating them as foreign.
                 const inserted = insertImportedSubtree(
                   doc,
                   tempDoc,
-                  node.id,
+                  firstRootId,
                   (n) => n,
                   invocation.workspaceMode,
+                  validRootIds.slice(1),
                 );
-                if (!inserted) continue;
-                doc = inserted.doc;
-                resourceImports.push({ sourceDoc: tempDoc, idMap: inserted.idMap });
-                insertedVarveRoots.push({ rootId: inserted.rootId, sourceId: node.id });
+                if (inserted) {
+                  doc = inserted.doc;
+                  resourceImports.push({ sourceDoc: tempDoc, idMap: inserted.idMap });
+                  insertedVarveRoots.push(
+                    ...inserted.rootIds.map((rootId, index) => ({
+                      rootId,
+                      sourceId: validRootIds[index]!,
+                    })),
+                  );
+                }
               }
 
               // A current same-document copy has an authoritative placed-world

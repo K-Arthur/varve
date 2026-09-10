@@ -1,7 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import { parseSvg } from './svg';
+import { parsePathData, parseSingleElement } from './svg/shared';
 
 describe('parseSvg', () => {
+  it('accepts XML declarations, BOMs, comments, repeated path tuples, and curves', () => {
+    const parsed = parsePathData('M0 0 10 0 10 10 Q 5 15 0 10 T -10 0 A 5 5 0 0 1 0 0 Z', 1);
+    expect(parsed.contours[0]?.points.length).toBeGreaterThan(5);
+    expect(parsed.contours[0]?.closed).toBe(true);
+    expect(parsed.contours[0]?.points.some((point) => point.handleIn || point.handleOut)).toBe(
+      true,
+    );
+
+    const root = parseSingleElement(
+      '\uFEFF<?xml version="1.0"?>\n<!-- owned -->\n<svg><rect /></svg>',
+    );
+    expect(root?.tag).toBe('svg');
+  });
+
+  it('terminates on malformed clipboard markup', () => {
+    expect(parseSingleElement('<svg><?bad?></svg>')?.tag).toBe('svg');
+  });
+
   it('parses a rect element', () => {
     const result = parseSvg('<svg><rect x="10" y="20" width="100" height="50" fill="red" /></svg>');
     expect(result.nodeIds.length).toBe(1);

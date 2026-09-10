@@ -21,7 +21,7 @@ import {
 } from './actions/registerAll';
 import { AuditOverlayHost } from './audit/overlay/AuditOverlayHost';
 import { CanvasArea, type CanvasContextMenuRequest } from './CanvasArea';
-import { cancelPasteFallback, captureClipboardEvent } from './clipboard';
+import { cancelPasteFallback, captureClipboardEvent, isNativeClipboardTarget } from './clipboard';
 import { SubjectPickerOverlay } from './components/BackgroundRemoval/SubjectPickerOverlay';
 import { SelectionBreadcrumb } from './components/Breadcrumb/SelectionBreadcrumb';
 import { CodePanel } from './components/CodePanel/CodePanel';
@@ -255,14 +255,14 @@ function ShellInner({
   useEffect(() => {
     const handler = (e: Event) => {
       const ce = e as ClipboardEvent;
-      // Skip if the event target is an input/textarea (browser default is fine)
-      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
-      if (tag === 'input' || tag === 'textarea') return;
+      // Browser-owned editors retain clipboard ownership via composed path.
+      if (e.defaultPrevented || isNativeClipboardTarget(e)) return;
 
       // The real ClipboardEvent arrived — the keydown-scheduled fallback
       // (useShortcuts) must not also run the paste action.
       cancelPasteFallback();
       captureClipboardEvent(ce);
+      e.preventDefault();
       // Let the editor paste handler process the captured event data
       editor.paste();
     };

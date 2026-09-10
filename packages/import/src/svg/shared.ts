@@ -20,33 +20,96 @@ interface PathCommand {
 export function tokenizePath(d: string): PathCommand[] {
   const commands: PathCommand[] = [];
   const re = /([MLHVCSQTAZmlhvcsqtaz])([^MLHVCSQTAZmlhvcsqtaz]*)/g;
+  const arity: Record<string, number> = {
+    M: 2,
+    L: 2,
+    H: 1,
+    V: 1,
+    C: 6,
+    S: 4,
+    Q: 4,
+    T: 2,
+    A: 7,
+    Z: 0,
+  };
+  const numberPattern = /[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?/g;
   let m: RegExpExecArray | null;
   m = re.exec(d);
   while (m !== null) {
     const cmd = m[1]!;
-    const params = (m[2] ?? '')
-      .trim()
-      .split(/[\s,]+/)
-      .filter((s) => s.length > 0)
-      .map(Number);
-    commands.push({ command: cmd, params });
+    const rawParams = m[2] ?? '';
+    const params = Array.from(rawParams.matchAll(numberPattern), (match) => Number(match[0]));
+    const size = arity[cmd.toUpperCase()] ?? 0;
+    if (size === 0) commands.push({ command: cmd, params: [] });
+    else {
+      for (let offset = 0; offset + size <= params.length; offset += size) {
+        let segmentCommand = cmd;
+        // SVG treats coordinate pairs after M/m as implicit L/l commands.
+        if (offset > 0 && cmd === 'M') segmentCommand = 'L';
+        if (offset > 0 && cmd === 'm') segmentCommand = 'l';
+        commands.push({ command: segmentCommand, params: params.slice(offset, offset + size) });
+      }
+    }
     m = re.exec(d);
   }
   return commands;
 }
 
 export function approximateArc(
-  _cx: number,
-  _cy: number,
-  _rx: number,
-  _ry: number,
-  _xAxisRot: number,
-  _largeArc: boolean,
-  _sweep: boolean,
+  sx: number,
+  sy: number,
+  rxInput: number,
+  ryInput: number,
+  xAxisRot: number,
+  largeArc: boolean,
+  sweep: boolean,
   ex: number,
   ey: number,
 ): Array<{ x: number; y: number }> {
-  return [{ x: ex, y: ey }];
+  let rx = Math.abs(rxInput);
+  let ry = Math.abs(ryInput);
+  if (rx === 0 || ry === 0 || (Math.abs(sx - ex) < 1e-9 && Math.abs(sy - ey) < 1e-9)) {
+    return [{ x: ex, y: ey }];
+  }
+  const phi = (xAxisRot * Math.PI) / 180;
+  const cosPhi = Math.cos(phi);
+  const sinPhi = Math.sin(phi);
+  const dx = (sx - ex) / 2;
+  const dy = (sy - ey) / 2;
+  const x1p = cosPhi * dx + sinPhi * dy;
+  const y1p = -sinPhi * dx + cosPhi * dy;
+  const lambda = (x1p * x1p) / (rx * rx) + (y1p * y1p) / (ry * ry);
+  if (lambda > 1) {
+    const scale = Math.sqrt(lambda);
+    rx *= scale;
+    ry *= scale;
+  }
+  const numerator = rx * rx * ry * ry - rx * rx * y1p * y1p - ry * ry * x1p * x1p;
+  const denominator = rx * rx * y1p * y1p + ry * ry * x1p * x1p;
+  const coefficient =
+    (largeArc === sweep ? -1 : 1) *
+    Math.sqrt(Math.max(0, numerator / Math.max(denominator, 1e-12)));
+  const cxp = coefficient * ((rx * y1p) / ry);
+  const cyp = coefficient * (-(ry * x1p) / rx);
+  const centerX = cosPhi * cxp - sinPhi * cyp + (sx + ex) / 2;
+  const centerY = sinPhi * cxp + cosPhi * cyp + (sy + ey) / 2;
+  const angle = (ux: number, uy: number, vx: number, vy: number): number => {
+    const cross = ux * vy - uy * vx;
+    const dot = ux * vx + uy * vy;
+    return Math.atan2(cross, dot);
+  };
+  const theta = angle(1, 0, (x1p - cxp) / rx, (y1p - cyp) / ry);
+  let delta = angle((x1p - cxp) / rx, (y1p - cyp) / ry, (-x1p - cxp) / rx, (-y1p - cyp) / ry);
+  if (!sweep && delta > 0) delta -= 2 * Math.PI;
+  if (sweep && delta < 0) delta += 2 * Math.PI;
+  const count = Math.min(64, Math.max(1, Math.ceil(Math.abs(delta) / (Math.PI / 8))));
+  return Array.from({ length: count }, (_, index) => {
+    const t = theta + (delta * (index + 1)) / count;
+    return {
+      x: centerX + rx * cosPhi * Math.cos(t) - ry * sinPhi * Math.sin(t),
+      y: centerY + rx * sinPhi * Math.cos(t) + ry * cosPhi * Math.sin(t),
+    };
+  });
 }
 
 export interface ParsedPathData {
@@ -174,27 +237,85 @@ export function parsePathData(d: string, scale: number): ParsedPathData {
     } else if (c === 'Q' && p.length >= 4) {
       const qx = p[0]! * scale,
         qy = p[1]! * scale;
+      const startX = cx;
+      const startY = cy;
       cx = p[2]! * scale;
       cy = p[3]! * scale;
-      points.push({ x: cx, y: cy, handleIn: null, handleOut: null });
+      const last = points[points.length - 1];
+      if (last)
+        last.handleOut = [
+          startX + (2 * (qx - startX)) / 3 - startX,
+          startY + (2 * (qy - startY)) / 3 - startY,
+        ];
+      points.push({
+        x: cx,
+        y: cy,
+        handleIn: [qx + (2 * (cx - qx)) / 3 - cx, qy + (2 * (cy - qy)) / 3 - cy],
+        handleOut: null,
+      });
       prevControl = { x: qx, y: qy };
     } else if (c === 'q' && p.length >= 4) {
       const qx = cx + p[0]! * scale,
         qy = cy + p[1]! * scale;
+      const startX = cx;
+      const startY = cy;
       cx += p[2]! * scale;
       cy += p[3]! * scale;
-      points.push({ x: cx, y: cy, handleIn: null, handleOut: null });
+      const last = points[points.length - 1];
+      if (last)
+        last.handleOut = [
+          startX + (2 * (qx - startX)) / 3 - startX,
+          startY + (2 * (qy - startY)) / 3 - startY,
+        ];
+      points.push({
+        x: cx,
+        y: cy,
+        handleIn: [qx + (2 * (cx - qx)) / 3 - cx, qy + (2 * (cy - qy)) / 3 - cy],
+        handleOut: null,
+      });
       prevControl = { x: qx, y: qy };
     } else if (c === 'T' && p.length >= 2) {
+      const startX = cx;
+      const startY = cy;
+      const previousControl = prevControl;
+      const qx: number = previousControl ? 2 * startX - previousControl.x : startX;
+      const qy: number = previousControl ? 2 * startY - previousControl.y : startY;
       cx = p[0]! * scale;
       cy = p[1]! * scale;
-      points.push({ x: cx, y: cy, handleIn: null, handleOut: null });
-      prevControl = null;
+      const last = points[points.length - 1];
+      if (last)
+        last.handleOut = [
+          startX + (2 * (qx - startX)) / 3 - startX,
+          startY + (2 * (qy - startY)) / 3 - startY,
+        ];
+      points.push({
+        x: cx,
+        y: cy,
+        handleIn: [qx + (2 * (cx - qx)) / 3 - cx, qy + (2 * (cy - qy)) / 3 - cy],
+        handleOut: null,
+      });
+      prevControl = { x: qx, y: qy };
     } else if (c === 't' && p.length >= 2) {
+      const startX = cx;
+      const startY = cy;
+      const previousControl = prevControl;
+      const qx: number = previousControl ? 2 * startX - previousControl.x : startX;
+      const qy: number = previousControl ? 2 * startY - previousControl.y : startY;
       cx += p[0]! * scale;
       cy += p[1]! * scale;
-      points.push({ x: cx, y: cy, handleIn: null, handleOut: null });
-      prevControl = null;
+      const last = points[points.length - 1];
+      if (last)
+        last.handleOut = [
+          startX + (2 * (qx - startX)) / 3 - startX,
+          startY + (2 * (qy - startY)) / 3 - startY,
+        ];
+      points.push({
+        x: cx,
+        y: cy,
+        handleIn: [qx + (2 * (cx - qx)) / 3 - cx, qy + (2 * (cy - qy)) / 3 - cy],
+        handleOut: null,
+      });
+      prevControl = { x: qx, y: qy };
     } else if (c === 'A' || c === 'a') {
       if (p.length >= 7) {
         const isRel = c === 'a';
@@ -677,7 +798,7 @@ function nextTagInfo(
   endPos: number;
 } | null {
   let pos = start;
-  while (pos < xml.length && xml[pos] === ' ') pos++;
+  while (pos < xml.length && /\s/.test(xml[pos]!)) pos++;
   if (pos >= xml.length || xml[pos] !== '<') return null;
 
   if (xml.startsWith('<!--', pos)) {
@@ -749,7 +870,9 @@ function parseElement(xml: string, start: number): { el: ParsedElement; endPos: 
     if (!childInfo) {
       const nextTag = xml.indexOf('<', pos);
       if (nextTag < 0) break;
-      pos = nextTag;
+      // Always advance after malformed markup. Retrying at the same '<'
+      // previously made malformed clipboard SVG hang the editor forever.
+      pos = nextTag === pos ? pos + 1 : nextTag;
       continue;
     }
 
@@ -779,8 +902,33 @@ function parseElement(xml: string, start: number): { el: ParsedElement; endPos: 
 }
 
 export function parseSingleElement(xml: string): ParsedElement | null {
-  const trimmed = xml.trim();
-  const result = parseElement(trimmed, 0);
+  const trimmed = xml.replace(/^\uFEFF/u, '').trim();
+  let start = 0;
+  while (start < trimmed.length && trimmed[start] === '<') {
+    if (trimmed.startsWith('<!--', start)) {
+      const end = trimmed.indexOf('-->', start + 4);
+      if (end < 0) return null;
+      start = end + 3;
+      while (/\s/.test(trimmed[start] ?? '')) start++;
+      continue;
+    }
+    if (trimmed.startsWith('<?', start)) {
+      const end = trimmed.indexOf('?>', start + 2);
+      if (end < 0) return null;
+      start = end + 2;
+      while (/\s/.test(trimmed[start] ?? '')) start++;
+      continue;
+    }
+    if (/^<!doctype\b/iu.test(trimmed.slice(start))) {
+      const end = trimmed.indexOf('>', start + 2);
+      if (end < 0) return null;
+      start = end + 1;
+      while (/\s/.test(trimmed[start] ?? '')) start++;
+      continue;
+    }
+    break;
+  }
+  const result = parseElement(trimmed, start);
   return result?.el ?? null;
 }
 
