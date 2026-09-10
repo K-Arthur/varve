@@ -42,6 +42,10 @@ evidence.
 6. **Report the result that landed.** Import Results carries partial losses,
    missing resources, and per-item failures. Cut does not delete when the
    editable transfer is unavailable or the source context changed.
+7. **Place each artifact as one ordered fragment.** An import result's ordered
+   roots are cloned with one mapping and translated by one union-bounds delta.
+   The source sibling order and nested group hierarchy are therefore retained;
+   cascade spacing applies only between distinct logical artifacts.
 
 ## Consequences
 

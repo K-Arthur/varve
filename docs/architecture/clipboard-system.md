@@ -147,6 +147,13 @@ appearance. No automatic scaling is applied when an item is larger than its
 target frame; the frame's existing clipping setting determines whether
 overflow is visible.
 
+An external import artifact is inserted as one ordered root batch. The importer
+supplies `nodeIds` in source display order; the batch receives one shared
+translation based on the union of its visual bounds, so sibling spacing and
+transforms survive placement. The 40-unit cascade is applied only between
+separate files or other logical artifacts. Existing SVG groups remain groups,
+with their child order and hierarchy intact.
+
 All final positions are translated in placed world space and written as
 parent-local transforms. The selected destination is never chosen merely
 because it appeared first in a multi-selection.

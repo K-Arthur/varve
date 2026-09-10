@@ -502,3 +502,31 @@ engine, and missing optional type-declaration diagnostics; the new closure
 files produced no diagnostics. The affected planner continues to escalate
 because the shared checkout contains workspace and validation changes.
 Firefox/Figma captures, Wayland ownership, and packaged Tauri CSP remain open.
+
+### SVG artifact order and grouping follow-up — 2026-09-10
+
+CLIP-27 is resolved for the editor's clipboard SVG route. A single import
+artifact now clones all of its ordered roots through one complete id mapping
+and places the union of those roots with one world-space translation. Separate
+files still receive the established cascade. This prevents the old per-root
+40-unit cascade from changing SVG spacing or display order, while preserving
+existing `<g>` frames and their child order.
+
+Evidence:
+
+```text
+cd /tmp/varve-svg && VARVE_TEST_WORKERS=1 \
+  /home/kevina/CodingProjects/varve/node_modules/.bin/vitest run \
+  packages/editor/src/context.import.test.tsx --maxWorkers=1 --reporter=dot
+14 tests passed
+/home/kevina/CodingProjects/varve/node_modules/.bin/biome check \
+  packages/editor/src/dropUtils.ts \
+  packages/editor/src/context.tsx \
+  packages/editor/src/context.import.test.tsx
+passed
+```
+
+The regression pastes an SVG containing a nested group and a second root,
+asserting source root order, shared parent placement, preserved sibling
+spacing, and the group's two editable children. Browser and desktop clipboard
+ownership evidence remains separate from this parser/insertion regression.
