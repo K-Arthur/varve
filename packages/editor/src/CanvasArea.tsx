@@ -1110,13 +1110,10 @@ export function CanvasArea({
         );
       }
       if (
-        parsedItems.length > 0 &&
-        (report.partialCount > 0 ||
-          report.failureCount > 0 ||
-          report.warnings.length > 0 ||
-          report.files.some(
-            (file) => file.unsupportedFeatures.length > 0 || file.warnings.length > 0,
-          ))
+        report.partialCount > 0 ||
+        report.failureCount > 0 ||
+        report.warnings.length > 0 ||
+        report.files.some((file) => file.unsupportedFeatures.length > 0 || file.warnings.length > 0)
       ) {
         publishImportReport({
           ...report,

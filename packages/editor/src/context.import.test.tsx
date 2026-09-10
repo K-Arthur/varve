@@ -16,7 +16,7 @@ import {
 } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { captureClipboardEvent, clearCapturedClipboardEvent } from './clipboard';
-import { EditorProvider, useEditor } from './context';
+import { EditorProvider, setImportReportHandler, useEditor } from './context';
 import { nodeWorldBounds, nodeWorldTransform } from './scene/world';
 
 if (typeof Blob !== 'undefined') {
@@ -237,6 +237,68 @@ describe('Editor import insertion', () => {
     expect(options).toMatchObject({ center: true, embedImages: true });
     await waitFor(() => expect(ctx?.state.selection).toHaveLength(1));
     spy.mockRestore();
+  });
+
+  it('publishes a zero-insert Import Results report for a failed clipboard item', async () => {
+    captureClipboardEvent(createClipboardEventWithSvg('<svg><'));
+    const report = {
+      startedAt: 0,
+      completedAt: 1,
+      durationMs: 1,
+      totalFiles: 1,
+      successCount: 0,
+      partialCount: 0,
+      failureCount: 1,
+      unsupportedCount: 1,
+      files: [
+        {
+          name: 'clipboard.svg',
+          source: 'clipboard' as const,
+          format: 'svg',
+          status: 'unsupported' as const,
+          byteCount: 3,
+          durationMs: 1,
+          nodeCount: 0,
+          artifacts: [],
+          warnings: [],
+          unsupportedFeatures: [
+            { code: 'unsupported', feature: 'invalid SVG', message: 'invalid SVG' },
+          ],
+          error: 'invalid SVG',
+        },
+      ],
+      warnings: [],
+    };
+    const importSpy = vi.spyOn(ImportService, 'importFiles').mockResolvedValue(report);
+    const onReport = vi.fn();
+    setImportReportHandler(onReport);
+    try {
+      let ctx: ReturnType<typeof useEditor> | undefined;
+      function Test() {
+        ctx = useEditor();
+        return (
+          <button type="button" onClick={() => void ctx?.paste()}>
+            paste broken
+          </button>
+        );
+      }
+
+      render(
+        <EditorProvider>
+          <Test />
+        </EditorProvider>,
+      );
+      screen.getByText('paste broken').click();
+      await waitFor(() => expect(importSpy).toHaveBeenCalled());
+      await waitFor(() => expect(onReport).toHaveBeenCalledTimes(1));
+      expect(onReport).toHaveBeenCalledWith(
+        expect.objectContaining({ insertedCount: 0, route: 'paste' }),
+      );
+    } finally {
+      setImportReportHandler(null);
+      importSpy.mockRestore();
+      clearCapturedClipboardEvent();
+    }
   });
 
   it('keeps SVG root order and relative spacing when several roots are pasted', async () => {

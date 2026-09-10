@@ -7954,6 +7954,21 @@ export function EditorProvider({
             ? (richText?.plainText ?? unified.plainText?.slice(0, 2_000_000))
             : null;
         if (!varveData && importResults.length === 0 && !plainText) {
+          if (
+            importReport &&
+            (importReport.partialCount > 0 ||
+              importReport.failureCount > 0 ||
+              importReport.warnings.length > 0 ||
+              importReport.files.some(
+                (file) => file.unsupportedFeatures.length > 0 || file.warnings.length > 0,
+              ))
+          ) {
+            sessionGlobals.publishImportReport({
+              ...importReport,
+              insertedCount: 0,
+              route: 'paste',
+            });
+          }
           announcerRef.current?.announce('Paste did not contain supported artwork or text');
           return;
         }

@@ -287,8 +287,8 @@ clipboard paste transaction and canvas drop import. Reports are only surfaced
 for warnings, partial conversion, unsupported content, or failures, so a clean
 transfer keeps the established announcement-only feedback. The report is
 published after the atomic commit and carries `route` plus `insertedCount`;
-stale sessions publish nothing and therefore cannot claim layers that were not
-inserted.
+complete failures publish with `insertedCount: 0`, and stale sessions publish
+nothing, so the dialog cannot claim layers that were not inserted.
 
 Evidence:
 
@@ -305,6 +305,10 @@ cd /tmp/varve-report && VARVE_TEST_WORKERS=1 \
   packages/editor/src/components/ImportResults.test.tsx --maxWorkers=1 --reporter=dot
 10 tests passed
 ```
+
+The editor integration regression also covers a malformed clipboard SVG with no
+inserted artifacts; it publishes the report with a zero inserted count. The
+combined context and dialog run passed 26 tests.
 
 ### Native transport cancellation follow-up — 2026-09-10
 
