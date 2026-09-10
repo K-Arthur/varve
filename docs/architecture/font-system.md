@@ -75,6 +75,15 @@ remains authoritative. Package export sets `bundled` only after writing
 verified bytes into `fonts/`. Layout caches include face revision, axes,
 features, language, and rich runs.
 
+## Compact editing surfaces
+
+The inspector and floating text toolbar use the same family picker model. The
+toolbar keeps the family field readable at compact widths, leaves its anchored
+menu visible outside the overlay bounds, and uses icon-only alignment controls
+when space is tight. Escape has an explicit precedence: an open family picker
+closes first and restores the prior preview; a subsequent Escape exits text
+editing. Formatting changes from the toolbar are grouped into one undo step.
+
 ## Evidence and open platform work
 
 The parser and identity corrections are recorded in
