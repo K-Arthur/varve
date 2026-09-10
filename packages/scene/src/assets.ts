@@ -21,6 +21,14 @@ interface AssetDoc {
 interface AssetNodeMap {
   nodes: Record<string, { fills?: Array<{ type: string; image?: { assetId?: string } }> }>;
   paints?: Record<string, { fill: { type: string; image?: { assetId?: string } } }>;
+  generativeEdits?: Record<
+    string,
+    {
+      sourceAssetId?: string;
+      sourceSnapshotAssetId?: string;
+      variations?: Array<{ assetId?: string; contextAssetId?: string }>;
+    }
+  >;
 }
 
 /**
@@ -369,7 +377,7 @@ export function findOrCreateEmbeddedAsset<T extends AssetDoc>(
   return { document: upsertAsset(doc, asset), assetId: asset.id };
 }
 
-/** True if any node's fills or any shared Paint references `assetId`. */
+/** True if any node, paint, or retained generative recipe references `assetId`. */
 export function isAssetReferenced(doc: AssetNodeMap, assetId: string): boolean {
   for (const node of Object.values(doc.nodes)) {
     if (node.fills?.some((fill) => fill.type === 'image' && fill.image?.assetId === assetId)) {
@@ -379,6 +387,16 @@ export function isAssetReferenced(doc: AssetNodeMap, assetId: string): boolean {
   if (doc.paints) {
     for (const paint of Object.values(doc.paints)) {
       if (paint.fill.type === 'image' && paint.fill.image?.assetId === assetId) return true;
+    }
+  }
+  for (const edit of Object.values(doc.generativeEdits ?? {})) {
+    if (edit.sourceAssetId === assetId || edit.sourceSnapshotAssetId === assetId) return true;
+    if (
+      edit.variations?.some(
+        (variation) => variation.assetId === assetId || variation.contextAssetId === assetId,
+      )
+    ) {
+      return true;
     }
   }
   return false;

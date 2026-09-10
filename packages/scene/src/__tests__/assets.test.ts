@@ -171,6 +171,43 @@ describe('findOrCreateEmbeddedAsset', () => {
 });
 
 describe('isAssetReferenced / pruneUnusedAssets', () => {
+  it('retains source snapshots and candidates referenced by generative edits', () => {
+    const source = createEmbeddedAsset({
+      dataUrl: DATA_URL_A,
+      mimeType: 'image/png',
+      naturalWidth: 10,
+      naturalHeight: 10,
+    });
+    const candidate = createEmbeddedAsset({
+      dataUrl: DATA_URL_B,
+      mimeType: 'image/png',
+      naturalWidth: 10,
+      naturalHeight: 10,
+    });
+    const unused = createEmbeddedAsset({
+      dataUrl: 'data:image/png;base64,QQ==',
+      mimeType: 'image/png',
+      naturalWidth: 10,
+      naturalHeight: 10,
+    });
+    const doc = {
+      nodes: {},
+      assets: { [source.id]: source, [candidate.id]: candidate, [unused.id]: unused },
+      generativeEdits: {
+        edit: {
+          sourceSnapshotAssetId: source.id,
+          variations: [{ assetId: candidate.id }],
+        },
+      },
+    };
+    expect(isAssetReferenced(doc, source.id)).toBe(true);
+    expect(isAssetReferenced(doc, candidate.id)).toBe(true);
+    expect(pruneUnusedAssets(doc).assets).toEqual({
+      [source.id]: source,
+      [candidate.id]: candidate,
+    });
+  });
+
   it('detects references from node fills and shared paints', () => {
     const doc0 = createDocument('Test', true);
     const { document: doc1, assetId } = findOrCreateEmbeddedAsset(doc0, {

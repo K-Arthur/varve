@@ -23,8 +23,8 @@ import type { Document } from './document';
 import { isContainer, makeGroupNode } from './document';
 import { type DocumentLike, findParentCycle, validateAndRepairDocument } from './document-utils';
 import { normalizeEffectLooks } from './effectLooks';
-import { normalizeGenerativeEdits } from './generativeEdit';
 import { normalizeDocumentEffects } from './effects';
+import { normalizeGenerativeEdits } from './generativeEdit';
 import { isIconAssetReferenced, validateIconAsset } from './iconAsset';
 import { normalizeLogoProject } from './logo/logoProject';
 import { isVisualMaskTarget } from './maskCapability';
@@ -78,6 +78,8 @@ export interface DocumentClosure {
   iconAssets?: Document['iconAssets'];
   /** Mockup template assets referenced by the closure's nodes (v2.16+). */
   mockupTemplates?: Document['mockupTemplates'];
+  /** Generative recipes owned by a node in the closure, including candidates. */
+  generativeEdits?: Document['generativeEdits'];
 }
 
 function warning(
@@ -936,6 +938,36 @@ function collectNodeClosure(doc: Document, rootIds: NodeId[]): DocumentClosure {
       : undefined;
     if (template) mockupTemplates[template.id] = template;
   }
+  const generativeEdits: NonNullable<Document['generativeEdits']> = {};
+  for (const [editId, edit] of Object.entries(doc.generativeEdits ?? {})) {
+    if (nodeIds.has(edit.sourceNodeId) || (edit.resultNodeId && nodeIds.has(edit.resultNodeId))) {
+      generativeEdits[editId] = edit;
+      for (const variation of edit.variations) {
+        const asset = doc.assets?.[variation.assetId];
+        if (asset) assets[asset.id] = asset;
+        if (variation.contextAssetId) {
+          const context = doc.assets?.[variation.contextAssetId];
+          if (context) assets[context.id] = context;
+        }
+      }
+      const maskIds = [
+        edit.maskAssetId,
+        edit.masks.userMaskAssetId,
+        edit.masks.inferenceMaskAssetId,
+        edit.masks.compositeMaskAssetId,
+      ];
+      for (const maskId of maskIds) {
+        if (maskId) {
+          const mask = getOwnRasterMaskAsset(doc, maskId);
+          if (mask) rasterMaskAssets[mask.id] = mask;
+        }
+      }
+      for (const sourceAssetId of [edit.sourceAssetId, edit.sourceSnapshotAssetId]) {
+        const sourceAsset = sourceAssetId ? doc.assets?.[sourceAssetId] : undefined;
+        if (sourceAsset) assets[sourceAsset.id] = sourceAsset;
+      }
+    }
+  }
   return {
     nodeIds,
     nodes,
@@ -943,6 +975,7 @@ function collectNodeClosure(doc: Document, rootIds: NodeId[]): DocumentClosure {
     assets: Object.keys(assets).length > 0 ? assets : undefined,
     iconAssets: Object.keys(iconAssets).length > 0 ? iconAssets : undefined,
     mockupTemplates: Object.keys(mockupTemplates).length > 0 ? mockupTemplates : undefined,
+    generativeEdits: Object.keys(generativeEdits).length > 0 ? generativeEdits : undefined,
   };
 }
 

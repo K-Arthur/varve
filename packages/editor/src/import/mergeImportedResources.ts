@@ -196,6 +196,27 @@ function mergeGroup(
   }
 
   const nodes = { ...doc.nodes };
+  const generativeEdits = { ...(doc.generativeEdits ?? {}) };
+  const generativeIdMap = new Map<string, string>();
+  for (const [sourceEditId, sourceEdit] of Object.entries(sourceDoc.generativeEdits ?? {})) {
+    const sourceNodeId = maps.nodeIds.get(sourceEdit.sourceNodeId);
+    if (!sourceNodeId) continue;
+    let editId = sourceEditId;
+    if (generativeEdits[editId]) {
+      editId = `${sourceEditId}-${sourceNodeId}`;
+      let suffix = 2;
+      while (generativeEdits[editId]) editId = `${sourceEditId}-${sourceNodeId}-${suffix++}`;
+    }
+    generativeIdMap.set(sourceEditId, editId);
+    generativeEdits[editId] = {
+      ...sourceEdit,
+      id: editId,
+      sourceNodeId,
+      ...(sourceEdit.resultNodeId
+        ? { resultNodeId: maps.nodeIds.get(sourceEdit.resultNodeId) ?? sourceEdit.resultNodeId }
+        : {}),
+    };
+  }
   for (const targetId of nodeIds.values()) {
     const node = nodes[targetId];
     if (!node) continue;
@@ -204,6 +225,7 @@ function mergeGroup(
       styleId?: string;
       bindings?: Record<string, { variableId: string }>;
       mockup?: { templateId?: string };
+      generativeEditId?: string;
     };
     if ('componentId' in candidate) {
       const componentId = maps.componentIds.get(candidate.componentId ?? '');
@@ -229,6 +251,11 @@ function mergeGroup(
       if (templateId) candidate.mockup = { ...candidate.mockup, templateId };
       else delete candidate.mockup;
     }
+    if (candidate.generativeEditId) {
+      const editId = generativeIdMap.get(candidate.generativeEditId);
+      if (editId) candidate.generativeEditId = editId;
+      else delete candidate.generativeEditId;
+    }
     nodes[targetId] = candidate;
   }
 
@@ -253,6 +280,7 @@ function mergeGroup(
       ...(Object.keys(styles).length > 0 ? { styles } : {}),
       ...(Object.keys(mockupTemplates).length > 0 ? { mockupTemplates } : {}),
       ...(Object.keys(interactions).length > 0 ? { interactions } : {}),
+      ...(Object.keys(generativeEdits).length > 0 ? { generativeEdits } : {}),
     },
     maps,
   };

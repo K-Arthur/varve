@@ -481,7 +481,7 @@ test.describe('Content-Aware Fill dialog', () => {
     await expect(generateBtn).toBeDisabled();
   });
 
-  test('Apply button creates a new image layer after fill (fast mode)', async ({ page }) => {
+  test('Apply button replaces the image in place after fill (fast mode)', async ({ page }) => {
     const historyWarnings: string[] = [];
     page.on('console', (message) => {
       if (message.text().includes('updateDoc called outside transaction')) {
@@ -508,12 +508,9 @@ test.describe('Content-Aware Fill dialog', () => {
       timeout: 5000,
     });
 
-    // A new "filled" image node should appear in the layers panel
-    await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 10_000 });
-    await expect(page.getByRole('treeitem').filter({ hasText: /filled/i })).toHaveCount(1);
-    await expect(
-      page.locator('[role="treeitem"][aria-selected="true"]').filter({ hasText: /filled/i }),
-    ).toHaveCount(1);
+    // Generative acceptance preserves the existing layer identity and layout.
+    await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10_000 });
+    await expect(page.locator('[role="treeitem"][aria-selected="true"]')).toHaveCount(1);
     expect(historyWarnings).toEqual([]);
   });
 
@@ -533,7 +530,7 @@ test.describe('Content-Aware Fill dialog', () => {
       state: 'hidden',
       timeout: 5000,
     });
-    await expect(page.getByRole('treeitem')).toHaveCount(layerCountBefore + 1, { timeout: 10_000 });
+    await expect(page.getByRole('treeitem')).toHaveCount(layerCountBefore, { timeout: 10_000 });
 
     // Undo (Ctrl+Z)
     await page.keyboard.press('Control+z');

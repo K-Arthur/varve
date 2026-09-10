@@ -1,6 +1,11 @@
 import { createDocument, makeImageShapeNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
-import { insertDerivedImageShape, insertTraceGroup, selectedImageShape } from './imageOperations';
+import {
+  insertDerivedImageShape,
+  insertTraceGroup,
+  replaceImageShapeContent,
+  selectedImageShape,
+} from './imageOperations';
 
 function imageDoc() {
   let doc = createDocument('Images', true);
@@ -20,6 +25,30 @@ describe('selectedImageShape', () => {
     const doc = imageDoc();
 
     expect(selectedImageShape(doc, ['missing', 'img1'])?.id).toBe('img1');
+  });
+});
+
+describe('replaceImageShapeContent', () => {
+  it('keeps the image node and its presentation properties in place', () => {
+    const doc = imageDoc();
+    const source = doc.nodes.img1!;
+    const next = replaceImageShapeContent(doc, 'img1', {
+      dataUrl: 'data:image/png;base64,BBBB',
+      assetId: 'asset-output',
+      width: 20,
+      height: 10,
+      generativeEditId: 'edit-1',
+    });
+    const updated = next.nodes.img1;
+    expect(updated?.id).toBe('img1');
+    expect(updated?.transform).toEqual(source.transform);
+    expect(updated?.name).toBe(source.name);
+    if (updated?.kind !== 'shape') throw new Error('expected shape');
+    expect(updated.generativeEditId).toBe('edit-1');
+    expect(updated.fills?.[0]).toMatchObject({
+      type: 'image',
+      image: { src: 'data:image/png;base64,BBBB', assetId: 'asset-output' },
+    });
   });
 });
 

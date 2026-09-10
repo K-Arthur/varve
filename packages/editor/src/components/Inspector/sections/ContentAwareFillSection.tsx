@@ -9,7 +9,8 @@ interface ContentAwareFillSectionProps {
 }
 
 export function ContentAwareFillSection({ nodes, onOpenDialog }: ContentAwareFillSectionProps) {
-  useEditor();
+  const { state, updateDoc, beginTransaction, commitTransaction, abortTransaction, announce } =
+    useEditor();
   const node = nodes[0];
   const isImage = Boolean(node && isImageShape(node));
   const typedNode = isImage ? (node as import('@varve/scene').ShapeNode) : null;
@@ -19,6 +20,43 @@ export function ContentAwareFillSection({ nodes, onOpenDialog }: ContentAwareFil
 
   const imageWidth = typedNode.shape?.kind === 'rect' ? typedNode.shape.w : 0;
   const imageHeight = typedNode.shape?.kind === 'rect' ? typedNode.shape.h : 0;
+  const acceptedEdit = typedNode.generativeEditId
+    ? state.document.generativeEdits?.[typedNode.generativeEditId]
+    : undefined;
+  const sourceAssetId = acceptedEdit?.sourceSnapshotAssetId ?? acceptedEdit?.sourceAssetId;
+  const sourceAsset = sourceAssetId ? state.document.assets?.[sourceAssetId] : undefined;
+
+  const restoreOriginal = () => {
+    if (!sourceAsset) return;
+    const fills = (typedNode.fills ?? []).map((fill, index) => {
+      if (index !== 0 || fill.type !== 'image' || !fill.image) return fill;
+      return {
+        ...fill,
+        image: {
+          ...fill.image,
+          src: sourceAsset.dataUrl,
+          assetId: sourceAsset.id,
+          imageWidth: sourceAsset.naturalWidth,
+          imageHeight: sourceAsset.naturalHeight,
+        },
+      };
+    });
+    beginTransaction();
+    try {
+      updateDoc((doc) => ({
+        ...doc,
+        nodes: {
+          ...doc.nodes,
+          [typedNode.id]: { ...typedNode, fills, generativeEditId: undefined },
+        },
+      }));
+      commitTransaction();
+      announce('Restored the original image');
+    } catch (error) {
+      abortTransaction();
+      announce(error instanceof Error ? error.message : 'Could not restore the original image');
+    }
+  };
 
   return (
     <DisclosureSection title="Generative Edit" sectionId="content-aware-fill">
@@ -53,6 +91,16 @@ export function ContentAwareFillSection({ nodes, onOpenDialog }: ContentAwareFil
           >
             Open Generative Edit
           </button>
+          {sourceAsset && (
+            <button
+              type="button"
+              className="caf-entry-button"
+              onClick={restoreOriginal}
+              aria-label="Restore original image"
+            >
+              Restore Original
+            </button>
+          )}
         </div>
       </div>
     </DisclosureSection>

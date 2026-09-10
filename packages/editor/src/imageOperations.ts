@@ -88,6 +88,61 @@ export interface DerivedImageInput {
   generativeEditId?: string;
 }
 
+export interface InPlaceImageInput {
+  /** The already-composited output pixels. */
+  dataUrl: string;
+  /** Canonical document asset containing `dataUrl`. */
+  assetId: string;
+  width: number;
+  height: number;
+  /** Link the displayed source node to its accepted generative recipe. */
+  generativeEditId?: string;
+}
+
+/**
+ * Replace the image content of an existing shape without changing its node
+ * identity, geometry, ordering, effects, masks, or relationships. This is the
+ * acceptance primitive for nondestructive generative edits: the original
+ * asset remains in the document and the provenance record points at it.
+ */
+export function replaceImageShapeContent(
+  doc: Document,
+  nodeId: NodeId,
+  input: InPlaceImageInput,
+): Document {
+  const source = doc.nodes[nodeId];
+  if (source?.kind !== 'shape' || !isImageShape(source)) {
+    throw new Error('Source must be an image-filled shape');
+  }
+  let replaced = false;
+  const fills = (source.fills ?? []).map((fill) => {
+    if (replaced || fill.type !== 'image' || !fill.image) return fill;
+    replaced = true;
+    return {
+      ...fill,
+      image: {
+        ...fill.image,
+        src: input.dataUrl,
+        assetId: input.assetId,
+        imageWidth: input.width,
+        imageHeight: input.height,
+      },
+    };
+  });
+  if (!replaced) throw new Error('Source does not contain an image fill');
+  return {
+    ...doc,
+    nodes: {
+      ...doc.nodes,
+      [nodeId]: {
+        ...source,
+        fills,
+        ...(input.generativeEditId ? { generativeEditId: input.generativeEditId } : {}),
+      },
+    },
+  };
+}
+
 function placeBeside(
   transform: ShapeNode['transform'],
   sourceWidth: number,

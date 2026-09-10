@@ -20,7 +20,7 @@ import {
 import { Button, Switch } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
-import { insertDerivedImageShape } from '../../imageOperations';
+import { replaceImageShapeContent } from '../../imageOperations';
 import { decodeRasterMaskDataUrl, rasterizeAreaSelectionForNode } from '../../tools/selectionMask';
 import {
   maskCoverageFromRgba,
@@ -32,6 +32,16 @@ import './ContentAwareFillDialog.css';
 
 const MODEL_ID = 'lama-inpainting';
 const DEFAULT_BRUSH_SIZE = 28;
+
+function maskCoverageDataUrl(coverage: Uint8Array, width: number, height: number): string {
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Canvas unavailable');
+  putMaskCoverage(context, coverage, { width, height });
+  return canvas.toDataURL('image/png');
+}
 
 function loadImageToImageData(src: string): Promise<ImageData> {
   return new Promise((resolve, reject) => {
@@ -82,7 +92,8 @@ export function ContentAwareFillDialog({
   const isPaintingRef = useRef(false);
   const generationRef = useRef<{
     sourceSignature: string;
-    maskDataUrl: string;
+    userMaskDataUrl: string;
+    inferenceMaskDataUrl: string;
     result: GenerativeEditResult;
     seed: number;
   } | null>(null);
@@ -533,12 +544,13 @@ export function ContentAwareFillDialog({
       for (let i = 0; i < rawMask.length; i++) {
         rawMask[i] = maskImageData.data[i * 4]!;
       }
-      const maskDataUrl = maskCanvas.toDataURL('image/png');
+      const userMaskDataUrl = maskCanvas.toDataURL('image/png');
       const mask = refineGenerativeMask(
         rawMask,
         { width: fullData.width, height: fullData.height },
         { expansion: maskExpansion, feather: maskFeather },
       );
+      const inferenceMaskDataUrl = maskCoverageDataUrl(mask, fullData.width, fullData.height);
       const generationSeed = sourceRevision + variationSequenceRef.current;
       let modelPath: string | undefined;
       if (quality === 'ai') {
@@ -560,6 +572,7 @@ export function ContentAwareFillDialog({
         maskHeight: fullData.height,
         quality: quality === 'fast' ? 'draft' : 'quality',
         prompt,
+        negativePrompt: '',
         seed: generationSeed,
         contextPadding,
         signal: token.signal,
@@ -586,7 +599,8 @@ export function ContentAwareFillDialog({
 
       generationRef.current = {
         sourceSignature,
-        maskDataUrl,
+        userMaskDataUrl,
+        inferenceMaskDataUrl,
         result: generated,
         seed: generationSeed,
       };
@@ -644,17 +658,38 @@ export function ContentAwareFillDialog({
           ? sourceNode.fills?.find((fill) => fill.type === 'image')?.image
           : undefined;
       const editId = `generative-edit-${Date.now()}-${++variationSequenceRef.current}`;
-      const maskAssetId = `generative-mask-${editId}`;
-      const maskDataUrl = generationRef.current.maskDataUrl;
-      const maskAsset = {
-        id: maskAssetId,
+      const sourceWidth = naturalSize.w || result.width;
+      const sourceHeight = naturalSize.h || result.height;
+      const sourceAsset = sourceFill?.assetId ? currentDoc.assets?.[sourceFill.assetId] : undefined;
+      const sourceSnapshot =
+        sourceAsset ??
+        createEmbeddedAsset({
+          dataUrl: imageSrc,
+          mimeType: 'image/png',
+          naturalWidth: sourceWidth,
+          naturalHeight: sourceHeight,
+        });
+      const makeMaskAsset = (suffix: string, dataUrl: string) => ({
+        id: `generative-mask-${editId}-${suffix}`,
         mimeType: 'image/png' as const,
-        dataUrl: maskDataUrl,
-        width: result.width,
-        height: result.height,
-        byteLength: decodedDataUrlByteLength(maskDataUrl),
-        checksum: hashContent(maskDataUrl),
-      };
+        dataUrl,
+        width: sourceWidth,
+        height: sourceHeight,
+        byteLength: decodedDataUrlByteLength(dataUrl),
+        checksum: hashContent(dataUrl),
+      });
+      const userMaskAsset = makeMaskAsset('user', generationRef.current.userMaskDataUrl);
+      const inferenceMaskAsset = makeMaskAsset(
+        'inference',
+        generationRef.current.inferenceMaskDataUrl,
+      );
+      // The current compositing path uses the refined coverage. Keep a named
+      // reference even when it is byte-identical so future providers can
+      // distinguish the mask used for synthesis from the mask used for blend.
+      const compositeMaskAsset = makeMaskAsset(
+        'composite',
+        generationRef.current.inferenceMaskDataUrl,
+      );
       const variationEntries =
         variations.length > 0
           ? variations
@@ -679,28 +714,49 @@ export function ContentAwareFillDialog({
         variationEntries[variationEntries.length - 1]!;
       const activeAsset = variationAssets[variationEntries.indexOf(activeVariation)]!;
       const now = Date.now();
+      const settings = {
+        ...(generationRef.current.seed !== undefined ? { seed: generationRef.current.seed } : {}),
+        ...(prompt.trim() ? { prompt } : {}),
+        quality: result.quality,
+        contextPadding,
+        maskExpansion,
+        feather: maskFeather,
+      };
+      const outputFrame = {
+        x: 0,
+        y: 0,
+        width: result.width,
+        height: result.height,
+        sourceWidth,
+        sourceHeight,
+        coordinateSpace: 'source-image-pixels' as const,
+      };
       const recordBase = {
-        schemaVersion: 1 as const,
+        schemaVersion: 2 as const,
         id: editId,
         mode,
         sourceNodeId: nodeId,
-        ...(sourceFill?.assetId ? { sourceAssetId: sourceFill.assetId } : {}),
-        sourceLocator: sourceFill?.assetId
-          ? `asset:${sourceFill.assetId}`
-          : `inline:${hashContent(imageSrc)}`,
+        sourceAssetId: sourceSnapshot.id,
+        sourceSnapshotAssetId: sourceSnapshot.id,
+        sourceLocator: `asset:${sourceSnapshot.id}`,
         sourceRevision: state.revision,
         placementRevision: sourceSignature,
-        maskAssetId,
-        maskWidth: result.width,
-        maskHeight: result.height,
-        maskCoordinateSpace: 'source-image-pixels' as const,
-        settings: {
-          ...(generationRef.current.seed !== undefined ? { seed: generationRef.current.seed } : {}),
-          quality: result.quality,
-          contextPadding,
-          maskExpansion,
-          feather: maskFeather,
+        masks: {
+          userMaskAssetId: userMaskAsset.id,
+          inferenceMaskAssetId: inferenceMaskAsset.id,
+          compositeMaskAssetId: compositeMaskAsset.id,
+          width: sourceWidth,
+          height: sourceHeight,
+          offsetX: 0,
+          offsetY: 0,
+          coordinateSpace: 'source-image-pixels' as const,
         },
+        outputFrame,
+        maskAssetId: userMaskAsset.id,
+        maskWidth: sourceWidth,
+        maskHeight: sourceHeight,
+        maskCoordinateSpace: 'source-image-pixels' as const,
+        settings,
         provider: result.provider,
         variations: variationEntries.map((variation, index) => ({
           id: variation.id,
@@ -708,6 +764,13 @@ export function ContentAwareFillDialog({
           width: variation.result.width,
           height: variation.result.height,
           createdAt: now,
+          seed: variation.seed,
+          settings: { ...settings, seed: variation.seed },
+          outputFrame: {
+            ...outputFrame,
+            width: variation.result.width,
+            height: variation.result.height,
+          },
           provider: variation.result.provider,
         })),
         activeVariationId: activeVariation.id,
@@ -720,33 +783,38 @@ export function ContentAwareFillDialog({
         ...currentDoc,
         assets: {
           ...currentDoc.assets,
+          [sourceSnapshot.id]: sourceSnapshot,
           ...Object.fromEntries(variationAssets.map((asset) => [asset.id, asset])),
         },
-        rasterMaskAssets: { ...currentDoc.rasterMaskAssets, [maskAsset.id]: maskAsset },
+        rasterMaskAssets: {
+          ...currentDoc.rasterMaskAssets,
+          [userMaskAsset.id]: userMaskAsset,
+          [inferenceMaskAsset.id]: inferenceMaskAsset,
+          [compositeMaskAsset.id]: compositeMaskAsset,
+        },
       };
-      const inserted = insertDerivedImageShape(docWithAssets, nodeId, {
-        dataUrl: previewDataUrl,
-        width: result.width,
-        height: result.height,
-        suffix: 'filled',
+      const accepted = replaceImageShapeContent(docWithAssets, nodeId, {
+        dataUrl: activeAsset.dataUrl,
         assetId: activeAsset.id,
         generativeEditId: editId,
+        width: result.width,
+        height: result.height,
       });
-      const record = { ...recordBase, resultNodeId: inserted.nodeId };
+      const record = { ...recordBase, resultNodeId: nodeId };
       beginTransaction();
       try {
         updateDoc(() => ({
-          ...inserted.doc,
-          generativeEdits: { ...inserted.doc.generativeEdits, [editId]: record },
+          ...accepted,
+          generativeEdits: { ...accepted.generativeEdits, [editId]: record },
         }));
         commitTransaction();
       } catch (error) {
         abortTransaction();
         throw error;
       }
-      setSelection(inserted.nodeId);
+      setSelection(nodeId);
       announce(
-        `${mode[0]?.toUpperCase()}${mode.slice(1)} created (${result.width} x ${result.height})`,
+        `${mode[0]?.toUpperCase()}${mode.slice(1)} applied in place (${result.width} x ${result.height})`,
       );
       onApplied?.();
       onClose();
