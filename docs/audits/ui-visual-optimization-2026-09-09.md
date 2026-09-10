@@ -280,6 +280,28 @@ own capability, not fall short of it:
 Changing either to imitate the simpler reference would have been a
 regression, not an improvement, so neither was touched.
 
+### Blend-mode dropdown: consolidated and grouped
+
+Checking every `BLEND_OPTIONS` call site (the reference shows a
+Darken/Lighten/Contrast/Component-clustered dropdown; Varve's rendered as
+one flat list) surfaced that `BLEND_OPTIONS` was independently declared
+four times — `AppearanceSection`, `FillSection`, `EffectsSection`,
+`SmartFiltersSection` — and had drifted: `FillSection`'s copy includes
+Plus Darker/Plus Lighter that the other three lack, and
+`SmartFiltersSection` uses a narrower `AdjustmentBlendMode` type. Merging
+the option *lists* would require verifying each render path actually
+supports every mode (a correctness question this pass could not safely
+answer), so each site keeps its own list unchanged. What's shared instead
+is a new `groupBlendOptions()` helper (`controls/blendModeOptionGroups.ts`)
+that clusters any such list into the standard families and feeds
+`Select`'s existing `groups` prop — already a proven, tested path (used
+elsewhere by `NewFileDialog`/`NewDesignDialog`) that every call site had
+available but none was using. An unrecognized value lands in a trailing
+"Other" group instead of being silently dropped. Verified with 4 unit
+tests for the helper and a live capture of the grouped dropdown (`Normal`,
+`Darken`, `Lighten`, `Contrast`, `Comparative`, `Component` headers,
+matching the reference's clustering).
+
 ### Explicitly deferred (not attempted this pass)
 
 - Pairing Weight+Size into one row in `TypographySection` (per the latest
@@ -294,12 +316,6 @@ regression, not an improvement, so neither was touched.
   path too and updating those tests deliberately, not as a byproduct of an
   unrelated change. `ShadowParams`' Opacity (no binding support) was the
   validated, lower-risk instance of this pattern.
-- Grouped/sectioned blend-mode dropdown options (the reference shows
-  Darken/Lighten/Contrast/Component clusters with a checkmark for the
-  active mode; Varve's `BLEND_OPTIONS` renders as one flat list wherever
-  it's used — `AppearanceSection`, `ShadowParams`, `GlowParams`,
-  `GlitchParams`, `ChromaticAberrationParams`). Worth doing once, in the
-  shared list, not per call site.
 - An icon per effect type in the "new effect" picker (`EFFECT_TYPE_OPTIONS`
   in `EffectsSection`), matching the reference's icon-per-type add menu.
 - `VariantBox`'s all-caps section title (noted in the Layers pass) remains
