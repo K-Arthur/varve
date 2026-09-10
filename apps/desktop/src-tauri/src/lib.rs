@@ -1778,9 +1778,10 @@ async fn qualify_generative_edit_model(
 ) -> Result<GenerativeModelStatus, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let model_path = resolve_generative_model_for_run(&app, false)?;
-        let result = generative_edit_blocking(
+        let result = generative_edit_blocking_with_requirement(
             app.clone(),
             qualification_request(GENERATIVE_MODEL_HANDLE, format!("qualification-{}", uuid())),
+            false,
         )?;
         if result.width != 64 || result.height != 64 {
             return Err(format!(
@@ -1797,10 +1798,15 @@ async fn qualify_generative_edit_model(
             return Err("Qualification output dimensions could not be verified".into());
         }
         let output = decoded.to_rgb8();
-        let changed_pixels = output
-            .pixels()
-            .filter(|pixel| pixel[0] != 238 || pixel[1] != 238 || pixel[2] != 238)
-            .count();
+        let mut changed_pixels = 0;
+        for y in 20..44 {
+            for x in 20..44 {
+                let pixel = output.get_pixel(x, y);
+                if pixel[0] != 238 || pixel[1] != 238 || pixel[2] != 238 {
+                    changed_pixels += 1;
+                }
+            }
+        }
         if changed_pixels == 0 {
             return Err("The masked qualification output was unchanged; model compatibility was not proven".into());
         }
@@ -1917,6 +1923,14 @@ fn generative_edit_blocking(
     app: tauri::AppHandle,
     options: GenerativeEditOptions,
 ) -> Result<GenerativeEditResult, String> {
+    generative_edit_blocking_with_requirement(app, options, true)
+}
+
+fn generative_edit_blocking_with_requirement(
+    app: tauri::AppHandle,
+    options: GenerativeEditOptions,
+    require_qualified: bool,
+) -> Result<GenerativeEditResult, String> {
     if !valid_generation_request_id(&options.request_id) {
         return Err("Invalid generative edit request id".into());
     }
@@ -1933,7 +1947,7 @@ fn generative_edit_blocking(
         return Err("Generation output dimensions must be between 1 and 2048 pixels".into());
     }
     let helper = resolve_generative_helper(&app)?;
-    let model_path = resolve_generative_model_for_run(&app, true)?;
+    let model_path = resolve_generative_model_for_run(&app, require_qualified)?;
     let root = app
         .path()
         .app_cache_dir()
