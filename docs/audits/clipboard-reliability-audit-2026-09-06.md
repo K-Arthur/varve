@@ -255,7 +255,7 @@ platform-dependent.
 ### Final validation record — 2026-09-09
 
 The final task commit sequence is on `master` (`0e9b637af` through
-`4c4ddd583`), with the concurrent Inspector, grid, generative-edit, and
+`cf8fc0105`, including the final audit and website-claim commits), with the concurrent Inspector, grid, generative-edit, and
 snapshot work left uncommitted or in its own commits. `pnpm verify:plan`
 selected the full closure and reported `FULL-SUITE ESCALATION: YES` because the
 worktree includes workspace/toolchain changes. `pnpm verify:affected` therefore
