@@ -552,6 +552,32 @@ describe('readFromClipboardEvent', () => {
     expect(cyclic).toBeNull();
   });
 
+  it('accepts v2 fragments and rejects nesting deeper than the transport bound', () => {
+    const shallow = parseClipboardData(
+      JSON.stringify({
+        format: 'varve-clipboard',
+        version: 2,
+        nodes: [{ id: 'shape-1', kind: 'shape' }],
+        rootIds: ['shape-1'],
+      }),
+    );
+    expect(shallow?.version).toBe(2);
+
+    const nodes: Array<{ id: string; kind: 'group'; children: string[] }> = [];
+    for (let index = 0; index < 258; index += 1) {
+      nodes.push({
+        id: `g-${index}`,
+        kind: 'group',
+        children: index === 257 ? [] : [`g-${index + 1}`],
+      });
+    }
+    expect(
+      parseClipboardData(
+        JSON.stringify({ format: 'varve-clipboard', version: 2, nodes, rootIds: ['g-0'] }),
+      ),
+    ).toBeNull();
+  });
+
   it('does not report an invalid fragment as an editable clipboard write', async () => {
     const outcome = await writeClipboardOutcome([
       { id: 'g1', kind: 'group', children: ['missing'] } as unknown as SceneNode,

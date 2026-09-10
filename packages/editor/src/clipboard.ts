@@ -56,9 +56,12 @@ const NATIVE_CLIPBOARD_READ_TYPES = [
   'text/plain',
 ];
 const VARVE_CLIPBOARD_FORMAT = 'varve-clipboard';
-const VARVE_CLIPBOARD_VERSION = 1;
+/** Version 1 is read for existing system clipboard contents; new writes use v2. */
+const VARVE_CLIPBOARD_VERSION = 2 as const;
+const LEGACY_CLIPBOARD_VERSION = 1 as const;
 const MAX_CLIPBOARD_JSON_BYTES = 64 * 1024 * 1024;
 const MAX_CLIPBOARD_NODES = 100_000;
+const MAX_CLIPBOARD_DEPTH = 256;
 
 /** Every type a Varve payload may arrive under, prefixed or not. */
 function isVarvePayloadType(type: string): boolean {
@@ -73,7 +76,7 @@ function isVarvePayloadType(type: string): boolean {
 export interface ClipboardData {
   /** Versioned fragment envelope. Absent only on legacy pre-envelope copies. */
   format?: typeof VARVE_CLIPBOARD_FORMAT;
-  version?: typeof VARVE_CLIPBOARD_VERSION;
+  version?: typeof LEGACY_CLIPBOARD_VERSION | typeof VARVE_CLIPBOARD_VERSION;
   /** Source document identity, used to distinguish in-document paste from a foreign paste. */
   sourceDocumentId?: string;
   nodes: SceneNode[];
@@ -177,26 +180,61 @@ function parseClipboardNode(value: unknown): SceneNode | null {
 
 function validateNodeGraph(nodes: SceneNode[]): boolean {
   const byId = new Map(nodes.map((node) => [node.id, node]));
-  const visiting = new Set<string>();
-  const visited = new Set<string>();
-  const visit = (id: string): boolean => {
-    if (visiting.has(id)) return false;
-    if (visited.has(id)) return true;
-    const node = byId.get(id);
-    if (!node) return false;
-    visiting.add(id);
-    if ((node.kind === 'group' || node.kind === 'frame') && !node.children.every(visit)) {
-      return false;
+  const state = new Map<string, 0 | 1 | 2>();
+  for (const root of nodes) {
+    if (state.get(root.id) === 2) continue;
+    const stack: Array<{ id: string; depth: number; exit: boolean }> = [
+      { id: root.id, depth: 0, exit: false },
+    ];
+    while (stack.length > 0) {
+      const current = stack.pop()!;
+      const node = byId.get(current.id);
+      if (!node || current.depth > MAX_CLIPBOARD_DEPTH) return false;
+      if (current.exit) {
+        state.set(current.id, 2);
+        continue;
+      }
+      if (state.get(current.id) === 1) return false;
+      if (state.get(current.id) === 2) continue;
+      state.set(current.id, 1);
+      stack.push({ id: current.id, depth: current.depth, exit: true });
+      if (node.kind === 'group' || node.kind === 'frame') {
+        for (let index = node.children.length - 1; index >= 0; index -= 1) {
+          stack.push({ id: node.children[index]!, depth: current.depth + 1, exit: false });
+        }
+      }
     }
-    visiting.delete(id);
-    visited.add(id);
-    return true;
-  };
-  return nodes.every((node) => visit(node.id));
+  }
+  return true;
 }
 
 function validResourceMap(value: unknown): boolean {
-  return !value || (isRecord(value) && Object.values(value).every(isRecord));
+  if (!value) return true;
+  if (!isRecord(value) || Object.keys(value).length > MAX_CLIPBOARD_NODES) return false;
+  return Object.values(value).every((entry) => isRecord(entry) && finitePayload(entry));
+}
+
+/** Reject NaN/Infinity anywhere in a transported fragment without recursive stack growth. */
+function finitePayload(value: unknown): boolean {
+  const stack: Array<{ value: unknown; depth: number }> = [{ value, depth: 0 }];
+  while (stack.length > 0) {
+    const current = stack.pop()!;
+    if (current.depth > MAX_CLIPBOARD_DEPTH) return false;
+    if (typeof current.value === 'number') {
+      if (!Number.isFinite(current.value)) return false;
+      continue;
+    }
+    if (Array.isArray(current.value)) {
+      for (const child of current.value) stack.push({ value: child, depth: current.depth + 1 });
+      continue;
+    }
+    if (isRecord(current.value)) {
+      for (const child of Object.values(current.value)) {
+        stack.push({ value: child, depth: current.depth + 1 });
+      }
+    }
+  }
+  return true;
 }
 
 /** Validate and rehydrate a transport payload before it enters editor state. */
@@ -213,7 +251,8 @@ export function parseClipboardData(text: string): ClipboardData | null {
   }
   if (
     raw.format !== undefined &&
-    (raw.format !== VARVE_CLIPBOARD_FORMAT || raw.version !== VARVE_CLIPBOARD_VERSION)
+    (raw.format !== VARVE_CLIPBOARD_FORMAT ||
+      (raw.version !== LEGACY_CLIPBOARD_VERSION && raw.version !== VARVE_CLIPBOARD_VERSION))
   ) {
     return null;
   }
@@ -225,7 +264,7 @@ export function parseClipboardData(text: string): ClipboardData | null {
     ids.add(node.id);
     nodes.push(node);
   }
-  if (!validateNodeGraph(nodes)) return null;
+  if (!validateNodeGraph(nodes) || !finitePayload(nodes)) return null;
   const rootIds = raw.rootIds;
   if (
     rootIds !== undefined &&
@@ -258,7 +297,13 @@ export function parseClipboardData(text: string): ClipboardData | null {
   }
   return {
     ...(raw.format === VARVE_CLIPBOARD_FORMAT
-      ? { format: VARVE_CLIPBOARD_FORMAT as typeof VARVE_CLIPBOARD_FORMAT, version: 1 as const }
+      ? {
+          format: VARVE_CLIPBOARD_FORMAT as typeof VARVE_CLIPBOARD_FORMAT,
+          version:
+            raw.version === VARVE_CLIPBOARD_VERSION
+              ? VARVE_CLIPBOARD_VERSION
+              : LEGACY_CLIPBOARD_VERSION,
+        }
       : {}),
     ...(typeof raw.sourceDocumentId === 'string' ? { sourceDocumentId: raw.sourceDocumentId } : {}),
     nodes,
@@ -308,7 +353,11 @@ function isPermissionError(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'NotAllowedError';
 }
 
-export async function writeClipboardOutcome(
+let clipboardWriteTail: Promise<void> = Promise.resolve();
+let latestClipboardWrite = 0;
+
+/** Serialize clipboard writes and suppress late fallbacks from superseded requests. */
+export function writeClipboardOutcome(
   nodes: SceneNode[],
   rasterMaskAssets?: Record<string, RasterMaskAsset>,
   assets?: Record<string, DocumentAsset>,
@@ -319,6 +368,43 @@ export async function writeClipboardOutcome(
   platform?: Pick<Platform, 'kind' | 'writeClipboardData'>,
   sourceDocumentId?: string,
 ): Promise<ClipboardWriteOutcome> {
+  const generation = ++latestClipboardWrite;
+  const run = clipboardWriteTail.then(() =>
+    writeClipboardOutcomeNow(
+      nodes,
+      rasterMaskAssets,
+      assets,
+      iconAssets,
+      worldAnchor,
+      rootIds,
+      mockupTemplates,
+      platform,
+      sourceDocumentId,
+      generation,
+    ),
+  );
+  clipboardWriteTail = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
+async function writeClipboardOutcomeNow(
+  nodes: SceneNode[],
+  rasterMaskAssets?: Record<string, RasterMaskAsset>,
+  assets?: Record<string, DocumentAsset>,
+  iconAssets?: Record<string, DocumentIconAsset>,
+  worldAnchor?: Record<string, Affine>,
+  rootIds?: string[],
+  mockupTemplates?: Record<string, MockupTemplateAsset>,
+  platform?: Pick<Platform, 'kind' | 'writeClipboardData'>,
+  sourceDocumentId?: string,
+  generation?: number,
+): Promise<ClipboardWriteOutcome> {
+  const isCurrentWrite = (): boolean =>
+    generation === undefined || generation === latestClipboardWrite;
+  if (!isCurrentWrite()) return { status: 'failed', reason: 'write-failed' };
   let json: string;
   try {
     json = serializeClipboardData(
@@ -351,7 +437,7 @@ export async function writeClipboardOutcome(
         { mimeType: LEGACY_MIME, data: new TextEncoder().encode(json) },
         { mimeType: 'text/plain', data: new TextEncoder().encode(text) },
       ]);
-      if (written) {
+      if (written && isCurrentWrite()) {
         return { status: 'editable', mimeTypes: [VARVE_MIME, LEGACY_MIME, 'text/plain'] };
       }
     } catch {
@@ -359,6 +445,7 @@ export async function writeClipboardOutcome(
       // browser API and its text-only fallback when it is unavailable.
     }
   }
+  if (!isCurrentWrite()) return { status: 'failed', reason: 'write-failed' };
   if (typeof navigator === 'undefined' || !navigator.clipboard) {
     return { status: 'failed', reason: 'clipboard-unavailable' };
   }
@@ -391,6 +478,7 @@ export async function writeClipboardOutcome(
       }
     }
   }
+  if (!isCurrentWrite()) return { status: 'failed', reason: 'write-failed' };
   if (typeof navigator.clipboard.writeText !== 'function') {
     return { status: 'failed', reason: 'clipboard-unavailable' };
   }
