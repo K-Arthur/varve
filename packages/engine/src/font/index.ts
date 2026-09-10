@@ -1,0 +1,214 @@
+/**
+ * Font management subsystem — barrel export.
+ *
+ * Provides the complete font architecture: identity, catalog, parsing,
+ * providers, downloading, loading, resolution, caching, licensing,
+ * and usage tracking.
+ *
+ * Usage:
+ *   import { FontCatalog, FontResolver, FontLoader } from '@varve/engine/font';
+ */
+
+export type { UnifiedFontInfo } from './fontBridge';
+// Bridge between FontRegistry and FontCatalog
+export { FontBridge } from './fontBridge';
+export type { FontCacheConfig, FontCacheEntry } from './fontCache';
+// Caching
+export { FontBinaryCache, FontMetadataCache } from './fontCache';
+export type {
+  FontCatalogEntry,
+  FontCatalogFilter,
+  FontCatalogSort,
+} from './fontCatalog';
+// Searchable catalog
+export { diffCatalogs, FontCatalog } from './fontCatalog';
+// Font data collector (binary retrieval for export)
+export type { FontCollectOptions, FontDataRecord } from './fontDataCollector';
+export { collectAllStoredFonts, collectFontData } from './fontDataCollector';
+export type {
+  DownloadJob,
+  DownloadManagerConfig,
+  DownloadManagerEvents,
+} from './fontDownloadManager';
+// Download manager
+export { FontDownloadManager } from './fontDownloadManager';
+// Identity and types
+export type {
+  EmbeddingRights,
+  FontCategory,
+  FontFormat,
+  FontIdentity,
+  FontReference,
+  FontSourceKind,
+  ParsedAxis,
+  ParsedFontMetadata,
+  ParsedNamedInstance,
+} from './fontIdentity';
+export {
+  detectFontFormat,
+  fontIdentityKey,
+  fontReferenceFromIdentity,
+  sameFontFace,
+} from './fontIdentity';
+export type {
+  FontLicenseInfo,
+  FontOperation,
+  FontPermissions,
+  PolicyDecision,
+} from './fontLicensePolicy';
+// License policy
+export {
+  FontLicensePolicy,
+  getLicenseFromEmbeddingRights,
+  KNOWN_LICENSES,
+} from './fontLicensePolicy';
+// Loading and registration
+export type { FontLoaderConfig, LoadResult, SystemFontFace } from './fontLoader';
+export {
+  detectSystemFonts,
+  enumerateSystemFonts,
+  FontLoader,
+  getCachedLocalFontMetadata,
+  hasQueryLocalFonts,
+  resetSystemFontCache,
+} from './fontLoader';
+export type {
+  BuildManifestOptions,
+  FontManifest,
+  FontManifestStatus,
+} from './fontManifest';
+// Document font manifest
+export {
+  buildDocumentFontManifest,
+  resolveManifestAgainstCatalog,
+} from './fontManifest';
+// Font file parsing
+export { parseFontData } from './fontParser';
+export type { FontPersistenceResult } from './fontPersistence';
+// Document font manifest persistence (save/load integration)
+export {
+  attachFontManifestToDocument,
+  resolveFontManifestForLoadedDocument,
+} from './fontPersistence';
+export type {
+  FontLicense,
+  FontProvider,
+  FontProviderDownload,
+  FontProviderFamily,
+  FontProviderResult,
+  FontProviderSearchOptions,
+} from './fontProviders';
+// Provider system
+export { FontProviderRegistry, FontsourceProvider, GoogleFontsProvider } from './fontProviders';
+export type {
+  FontReplacement,
+  FontSubstitute,
+  MissingFontInfo,
+  ResolverDocument,
+} from './fontResolver';
+// Missing font resolution
+export { FONT_COMPAT_MAP, FontResolver } from './fontResolver';
+export type { FontStorageMetadata, StoredFontRecord } from './fontStorage';
+export {
+  getStoredFont,
+  getStoredFontCount,
+  listStoredFonts,
+  loadStoredFont,
+  removeStoredFont,
+  storeFont,
+} from './fontStorage';
+// Tauri filesystem font storage adapter
+export type { FontStorageFsMeta } from './fontStorageFs';
+export {
+  getFilesystemFontStorageUsage,
+  isFilesystemFontStorageAvailable,
+  listFilesystemFonts,
+  loadFontFromFilesystem,
+  removeFontFromFilesystem,
+  storeFontOnFilesystem,
+} from './fontStorageFs';
+export type {
+  CatalogAxis,
+  CatalogLicense,
+  CatalogSearchOptions,
+  CatalogSearchResult,
+  FontArtifactDescriptor,
+  FontArtifactRequest,
+  FontsourceCatalogRecord,
+  FontsourceCatalogSnapshot,
+} from './fontsourceCatalog';
+export {
+  FontsourceCatalogStore,
+  getFontsourceCatalog,
+  resetFontsourceCatalog,
+} from './fontsourceCatalog';
+export type { FontUsage } from './fontUsageIndex';
+// Document font usage tracking
+export { FontUsageIndex, migrateLegacyFontRefs } from './fontUsageIndex';
+export {
+  FontSemanticCatalog,
+  getFontSemanticCatalog,
+  migrateLegacyFontCatalogTags,
+  resetFontSemanticCatalog,
+} from './semantic/semanticCatalog';
+export {
+  createFontSemanticProfile,
+  mergeFontSemanticInput,
+  profileFromParsedFontMetadata,
+  semanticInputFromParsedFont,
+  semanticRecordFromFontsource,
+} from './semantic/semanticEnrichment';
+export type { FontSemanticTagDefinition } from './semantic/semanticOntology';
+export {
+  allSemanticSynonyms,
+  FONT_SEMANTIC_TAGS,
+  tagDefinition,
+  tagIdForTerm,
+  tagLabel,
+  validateFontSemanticOntology,
+} from './semantic/semanticOntology';
+export {
+  normalizeFontSemanticText,
+  parseFontSemanticQuery,
+  semanticQueryLabel,
+} from './semantic/semanticQuery';
+export { searchFontSemanticRecords } from './semantic/semanticRanking';
+export type {
+  FontAlternativeMode,
+  FontPairingIntent,
+  FontRecommendation,
+  FontSimilarityIntent,
+} from './semantic/semanticRecommendations';
+export {
+  findFontAlternatives,
+  findFontPairings,
+  findSimilarFonts,
+} from './semantic/semanticRecommendations';
+// Provider-independent semantic discovery. This is a deterministic local lane;
+// optional model embeddings have a separate contract in semanticSimilarity.
+export type {
+  EvidenceStrength,
+  FontAvailabilityConstraint,
+  FontSearchReason,
+  FontSearchResult,
+  FontSemanticAssignment,
+  FontSemanticConflict,
+  FontSemanticFacet,
+  FontSemanticInput,
+  FontSemanticProfile,
+  FontSemanticQuery,
+  FontSemanticRecord,
+  FontSemanticScope,
+  FontSemanticSearchOptions,
+  FontSemanticSource,
+  FontSemanticUserState,
+  FontVisualFeatureVector,
+  NumericConstraint,
+  SemanticConstraint,
+  SemanticPreference,
+} from './semantic/semanticTypes';
+export {
+  FONT_ONTOLOGY_VERSION,
+  FONT_SEMANTIC_ANALYZER_VERSION,
+  FONT_SEMANTIC_SCHEMA_VERSION,
+} from './semantic/semanticTypes';

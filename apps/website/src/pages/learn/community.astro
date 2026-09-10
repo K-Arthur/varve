@@ -1,0 +1,163 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+---
+
+<Layout title="Community" description="Connect with the Varve community through GitHub Discussions, issue reports, cross-platform testing, documentation, and workflow feedback.">
+  <div class="container-custom">
+    <div class="learn-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/learn')}>Learn</a> / Community
+      </nav>
+
+      <h1>Community</h1>
+      <p class="learn-intro">
+        Connect with the Varve community, learn from other makers, and help
+        shape a local-first design tool in public.
+      </p>
+
+      <p class="community-note">
+        External code contributions are temporarily paused while Varve’s build,
+        release, and documentation foundations settle. Feedback, testing,
+        reproducible bug reports, documentation, and workflow proposals are
+        actively welcome today.
+      </p>
+
+      <section class="community-section">
+        <h2>GitHub</h2>
+        <ul>
+          <li><a href="https://github.com/K-Arthur/varve">Repository</a> - Source code and issues</li>
+          <li><a href="https://github.com/K-Arthur/varve/discussions">Discussions</a> - Ask questions and share ideas</li>
+          <li><a href="https://github.com/K-Arthur/varve/issues">Issues</a> - Report bugs and request features</li>
+        </ul>
+      </section>
+
+      <section class="community-section">
+        <h2>How to help now</h2>
+        <p>Choose the channel that gives your contribution the clearest context:</p>
+        <ul>
+          <li><strong>Bug reports:</strong> Use <a href="https://github.com/K-Arthur/varve/issues">Issues</a> with exact steps, expected and actual results, platform, release, screenshots, and logs.</li>
+          <li><strong>Workflows and ideas:</strong> Use <a href="https://github.com/K-Arthur/varve/discussions">Discussions</a> for feature proposals, architecture questions, and design feedback.</li>
+          <li><strong>Cross-platform testing:</strong> Try the same action on Linux, macOS, or Windows and record the OS, architecture, Varve version, and outcome.</li>
+          <li><strong>Docs and examples:</strong> Point out confusing guidance or share a tutorial, example, translation, or accessibility improvement.</li>
+          <li><strong>Community support:</strong> Help answer questions and connect people with the right documentation.</li>
+        </ul>
+        <a href={sitePath('/contribute')} class="btn-secondary">Read the contributor guide</a>
+      </section>
+
+      <section class="community-section">
+        <h2>Support</h2>
+        <p>Support the project financially or through practical non-financial contributions:</p>
+        <ul>
+          <li><a href={sitePath('/support-project')}>Financial Support</a> - GitHub Sponsors</li>
+          <li><a href={sitePath('/contribute')}>Non-Financial Contribution</a> - Bugs, testing, docs, workflows, and design feedback</li>
+        </ul>
+      </section>
+
+      <div class="learn-cta">
+        <h2>Join the community</h2>
+        <a href="https://github.com/K-Arthur/varve/discussions" class="btn-default">Join GitHub Discussions</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .learn-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .breadcrumb a {
+    color: var(--text-secondary);
+  }
+  
+  .learn-page h1 {
+    font-size: clamp(2rem, 5vw, 2.5rem);
+    font-family: var(--font-editorial);
+    font-weight: 700;
+    font-variation-settings: 'opsz' 144;
+    letter-spacing: -0.015em;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+  }
+  
+  .learn-intro {
+    font-size: 1.125rem;
+    color: var(--text-secondary);
+    margin-bottom: 3rem;
+  }
+
+  .community-note {
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-surface);
+    background: var(--surface-card);
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin-bottom: 3rem;
+  }
+  
+  .community-section {
+    margin-bottom: 3rem;
+  }
+  
+  .community-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+  }
+  
+  .community-section p {
+    color: var(--text-secondary);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+  
+  .community-section ul {
+    list-style: none;
+    margin-bottom: 1.5rem;
+  }
+  
+  .community-section li {
+    margin-bottom: 0.5rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--text-secondary);
+  }
+  
+  .community-section li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--text-link-hover);
+  }
+  
+  .community-section strong {
+    color: var(--text-primary);
+  }
+  
+  .community-section a {
+    color: var(--text-link);
+  }
+  
+  .learn-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--border-default);
+  }
+  
+  .learn-cta h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    color: var(--text-primary);
+  }
+</style>

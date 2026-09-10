@@ -1,0 +1,104 @@
+{
+  "workflow": "Design → SVG",
+  "slug": "export-svg",
+  "purpose": "Exporting real artwork to SVG and validating the file that comes out.",
+  "gitCommit": "58458f8c5b62d527da486fab6a84c1c7c6c898ec",
+  "capturedAt": "2026-08-22T13:52:22.441Z",
+  "viewport": "1440x900",
+  "dpr": 1,
+  "fixture": null,
+  "captureRuntime": "chromium 151.0.7922.34 / node v26.7.0",
+  "sourceDuration": 75.46,
+  "deliveredDuration": 17.3,
+  "fps": 30,
+  "outputs": {
+    "webm": "docs/screenshots/workflows/export-svg.webm",
+    "mp4": "docs/screenshots/workflows/export-svg.mp4",
+    "poster": "docs/screenshots/workflows/export-svg-poster.png"
+  },
+  "metadata": {},
+  "artifacts": [],
+  "productAssertions": [
+    "source artwork is 5 real nodes: primitives, a Bézier and type",
+    "the Export tab is opened on a real selection",
+    "SVG is chosen as the export format in the export controls",
+    "export produced Text.svg (491 bytes)",
+    "exported SVG parses, carries viewBox \"66.56 638.29 153.6 19.2\" and 2 drawable elements, with no NaN or undefined tokens",
+    "the exported file renders at 154x19 in a browser context that never loaded Varve"
+  ],
+  "verification": {
+    "findings": [],
+    "clips": {
+      "webm": {
+        "pass": true,
+        "findings": [],
+        "info": {
+          "codec": "vp9",
+          "width": 1440,
+          "height": 900,
+          "fps": 30,
+          "frames": 518,
+          "duration": 17.3,
+          "bytes": 562050
+        }
+      },
+      "mp4": {
+        "pass": true,
+        "findings": [],
+        "info": {
+          "codec": "h264",
+          "width": 1440,
+          "height": 900,
+          "fps": 30,
+          "frames": 518,
+          "duration": 17.266667,
+          "bytes": 565529
+        }
+      }
+    },
+    "frames": [
+      {
+        "label": "start",
+        "at": 0.15,
+        "luma": 227,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "q1",
+        "at": 4.33,
+        "luma": 225.9,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "mid",
+        "at": 8.65,
+        "luma": 225.8,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "q3",
+        "at": 12.98,
+        "luma": 225.9,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "final",
+        "at": 17.05,
+        "luma": 225.9,
+        "black": false,
+        "blank": false,
+        "exists": true
+      }
+    ],
+    "privacy": [],
+    "pass": true
+  }
+}

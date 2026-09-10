@@ -1,0 +1,218 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+---
+
+<Layout title="Troubleshooting" description="Troubleshooting common Varve issues: installation, launch, rendering, export, and performance problems on Linux, macOS, and Windows.">
+  <div class="container-custom">
+    <div class="support-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/support')}>Support</a> / Troubleshooting
+      </nav>
+
+      <h1>Troubleshooting</h1>
+      <p class="support-intro">
+        Common issues and solutions for Varve.
+      </p>
+
+      <div class="troubleshooting-section">
+        <h2>Installation Issues</h2>
+        
+        <div class="troubleshoot-item">
+          <h3>AppImage won't run on Linux</h3>
+          <p><strong>Solution:</strong> Make the AppImage executable:</p>
+          <code class="code-block">chmod +x Varve-*.AppImage</code>
+          <p>Then run it directly:</p>
+          <code class="code-block">./Varve-*.AppImage</code>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>Missing dependencies on Linux</h3>
+          <p><strong>Solution:</strong> Install required dependencies:</p>
+          <code class="code-block">sudo apt install libwebkit2gtk-4.1-0 libgtk-3-0 librsvg2-2</code>
+          <p>For Arch/CachyOS:</p>
+          <code class="code-block">sudo pacman -S webkit2gtk gtk3 librsvg</code>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>macOS says "app is damaged" on launch</h3>
+          <p><strong>Solution:</strong> This is a macOS security gate for unsigned apps. Right-click the app and select "Open", then click "Open" in the dialog. This only needs to be done once.</p>
+        </div>
+      </div>
+
+      <div class="troubleshooting-section">
+        <h2>Performance Issues</h2>
+        
+        <div class="troubleshoot-item">
+          <h3>Varve is slow or laggy</h3>
+          <p><strong>Solution:</strong></p>
+          <ul>
+            <li>Check if you have many objects on canvas (viewport culling helps, but extreme counts may slow down)</li>
+            <li>Ensure your GPU drivers are up to date</li>
+            <li>Close other applications to free memory</li>
+            <li>Check if you're running on Wayland (primary dev environment) vs X11</li>
+          </ul>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>Canvas rendering is slow</h3>
+          <p><strong>Solution:</strong> If you're experiencing slow rendering, check if you're using the WASM backend (web) vs native backend (desktop). The native Rust engine is significantly faster. Try switching to the desktop app for best performance.</p>
+        </div>
+      </div>
+
+      <div class="troubleshooting-section">
+        <h2>Feature Issues</h2>
+        
+        <div class="troubleshoot-item">
+          <h3>Rich text not rendering correctly</h3>
+          <p><strong>Solution:</strong> Rich-text source indexing, grapheme-safe transactions, and selected mixed formatting controls are available, but the canonical shaped layout is still being connected to every renderer and export path. Keep complex per-span compositions short while testing and verify the final export. See the <a href={sitePath('/support/known-issues')}>Known Issues</a> and <a href={sitePath('/features/typography')}>Typography</a> pages for current status.</p>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>Collaboration features not working</h3>
+          <p><strong>Solution:</strong> Collaboration features are UI scaffolding only with no transport or wire protocol. Real-time collaboration is planned for future development.</p>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>Print export not showing bleed</h3>
+          <p><strong>Solution:</strong> Print bleed and trim guides are available in the current print workflow, but exported trim/bleed geometry remains the final authority. If guides appear stale after changing page settings, reopen the page or export again and verify the PDF.</p>
+        </div>
+      </div>
+
+      <div class="troubleshooting-section">
+        <h2>Crashes and Errors</h2>
+        
+        <div class="troubleshoot-item">
+          <h3>Varve crashes on startup</h3>
+          <p><strong>Solution:</strong></p>
+          <ul>
+            <li>Check system requirements (4GB RAM minimum, 8GB recommended)</li>
+            <li>Ensure you're using a supported OS version</li>
+            <li>Check if other applications are using excessive memory</li>
+            <li>Report the issue with your OS, version, and crash logs</li>
+          </ul>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>Specific tool crashes</h3>
+          <p><strong>Solution:</strong> Report the issue with steps to reproduce, your OS, and Varve version. Include any error messages or crash logs if available.</p>
+        </div>
+      </div>
+
+      <div class="troubleshoot-cta">
+        <h2>Still need help?</h2>
+        <p>If your issue isn't covered here, <a href={sitePath('/support/report-issue')}>report an issue</a> or ask in <a href="https://github.com/K-Arthur/varve/discussions">GitHub Discussions</a>.</p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .support-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .breadcrumb a {
+    color: var(--text-secondary);
+  }
+  
+  .support-page h1 {
+    font-size: clamp(2rem, 5vw, 2.5rem);
+    font-family: var(--font-editorial);
+    font-weight: 700;
+    font-variation-settings: 'opsz' 144;
+    letter-spacing: -0.015em;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+  }
+  
+  .support-intro {
+    font-size: 1.125rem;
+    color: var(--text-secondary);
+    margin-bottom: 3rem;
+  }
+  
+  .troubleshooting-section {
+    margin-bottom: 3rem;
+  }
+  
+  .troubleshooting-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    color: var(--text-primary);
+  }
+  
+  .troubleshoot-item {
+    background: var(--surface-card);
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-surface);
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  
+  .troubleshoot-item h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
+  }
+  
+  .troubleshoot-item p {
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 0.75rem;
+  }
+  
+  .troubleshoot-item ul {
+    list-style: none;
+    margin-bottom: 0.75rem;
+  }
+  
+  .troubleshoot-item li {
+    margin-bottom: 0.5rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--text-secondary);
+  }
+  
+  .troubleshoot-item li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--text-link-hover);
+  }
+  
+  .troubleshoot-item strong {
+    color: var(--text-primary);
+  }
+  
+  .troubleshoot-item a {
+    color: var(--text-link);
+  }
+  
+  
+  .troubleshoot-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--border-default);
+  }
+  
+  .troubleshoot-cta h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
+  }
+  
+  .troubleshoot-cta p {
+    color: var(--text-secondary);
+  }
+</style>

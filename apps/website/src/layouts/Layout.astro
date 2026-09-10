@@ -1,0 +1,527 @@
+---
+import '../styles/global.css';
+import SiteHeader from '../components/SiteHeader.astro';
+import SiteFooter from '../components/SiteFooter.astro';
+import { CONTACTS } from '@varve/shared';
+import { canonicalUrl as canonicalUrlOf, ogImageUrl as ogImageUrlOf, siteOrigin as siteOriginOf, sitePath, siteUrl } from '../lib/siteUrl';
+
+interface Props {
+  title: string;
+  description?: string;
+  image?: string;
+  /** Optional JSON-LD object(s) injected on this page only (e.g. FAQPage, SoftwareApplication). */
+  structuredData?: object | object[];
+  /** Set true for pages that must not appear in search results (e.g. 404). */
+  noindex?: boolean;
+  /** Optional canonical route for a compatibility alias. */
+  canonicalPath?: string;
+}
+
+const {
+  title,
+  description = "Varve is a local-first design tool for vector, layout, typography, motion, prototyping, and print. Cross-platform design suite — no subscription.",
+  image = "/og-image.png",
+  structuredData,
+  noindex = false,
+  canonicalPath,
+} = Astro.props;
+
+// The base path is part of the deployed URL (GitHub Pages serves under /varve),
+// so absolute URLs must join site + base rather than assume the root. The
+// helpers in lib/siteUrl.ts are the one place this joining lives.
+const canonicalUrl = canonicalPath ? siteUrl(canonicalPath) : canonicalUrlOf(Astro.url.pathname);
+const ogImageUrl = ogImageUrlOf(image);
+const brandMarkUrl = siteUrl('/brand/varve-icon.svg');
+
+// Avoid "Features - Varve | Varve" duplication: only append the brand when the
+// page title does not already carry it.
+const pageTitle = /\bVarve\b/.test(title) ? title : `${title} | Varve`;
+
+const sitewideStructuredData: object[] = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    '@id': `${siteOriginOf()}#organization`,
+    name: 'Varve',
+    url: siteOriginOf(),
+    // Organization.logo should identify the entity, not reuse the wide social
+    // card. Keep the social card in `image` where it belongs.
+    logo: brandMarkUrl,
+    image: ogImageUrl,
+    sameAs: [
+      'https://github.com/K-Arthur/varve',
+      'https://github.com/K-Arthur/varve/discussions',
+    ],
+    contactPoint: [
+      {
+        '@type': 'ContactPoint',
+        contactType: 'customer support',
+        email: CONTACTS.support,
+        url: siteUrl('/support'),
+      },
+      {
+        '@type': 'ContactPoint',
+        contactType: 'media inquiries',
+        email: CONTACTS.press,
+        url: siteUrl('/contact'),
+      },
+      {
+        '@type': 'ContactPoint',
+        contactType: 'privacy',
+        email: CONTACTS.privacy,
+        url: siteUrl('/about/privacy'),
+      },
+      {
+        '@type': 'ContactPoint',
+        contactType: 'security',
+        email: CONTACTS.security,
+        url: siteUrl('/security'),
+      },
+    ],
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    '@id': `${siteOriginOf()}#website`,
+    url: siteOriginOf(),
+    name: 'Varve',
+    description:
+      'Varve is a local-first, cross-platform design suite for vector, layout, typography, motion, prototyping, and print. Free and source-available under FSL-1.1-MIT.',
+    publisher: { '@id': `${siteOriginOf()}#organization` },
+    inLanguage: 'en',
+  },
+];
+
+/**
+ * BreadcrumbList derived from the rendered path, so every nested page
+ * (docs/features/support/learn/...) exposes its hierarchy to search engines
+ * without hand-maintaining per-page schema. Known sections get their
+ * navigation label; deeper segments are humanized ("getting-started" ->
+ * "Getting Started"). Skipped on noindex pages (404, redirect aliases),
+ * which must not present themselves as locatable hierarchy nodes.
+ */
+const SECTION_LABELS: Record<string, string> = {
+  about: 'About',
+  accessibility: 'Accessibility',
+  compare: 'Compare',
+  contact: 'Contact',
+  changelog: 'Changelog',
+  contribute: 'Contribute',
+  docs: 'Documentation',
+  download: 'Download',
+  faq: 'FAQ',
+  features: 'Features',
+  learn: 'Learn',
+  press: 'Press',
+  product: 'Product',
+  releases: 'Releases',
+  security: 'Security',
+  support: 'Support',
+};
+
+function segmentLabel(segment: string): string {
+  return (
+    SECTION_LABELS[segment] ??
+    segment
+      .split('-')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
+  );
+}
+
+// Strip the deploy base (e.g. /varve on the Pages build) before splitting.
+const basePrefix =
+  import.meta.env.BASE_URL && import.meta.env.BASE_URL !== '/'
+    ? import.meta.env.BASE_URL.replace(/\/+$/, '')
+    : '';
+const routePath = basePrefix && Astro.url.pathname.startsWith(basePrefix)
+  ? Astro.url.pathname.slice(basePrefix.length)
+  : Astro.url.pathname;
+const routeSegments = routePath.split('/').filter(Boolean);
+
+if (!noindex) {
+  sitewideStructuredData.push({
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    '@id': `${canonicalUrl}#webpage`,
+    url: canonicalUrl,
+    name: pageTitle,
+    description,
+    inLanguage: 'en',
+    isPartOf: { '@id': `${siteOriginOf()}#website` },
+  });
+
+  if (routeSegments.length > 0) {
+    sitewideStructuredData.push({
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: routeSegments.map((segment, index) => ({
+        '@type': 'ListItem',
+        position: index + 1,
+        name: segmentLabel(segment),
+        item: siteUrl(`/${routeSegments.slice(0, index + 1).join('/')}`),
+      })),
+    });
+  }
+}
+
+// Empty unless deliberately configured at build time. The default build makes
+// no analytics requests and renders no consent prompt.
+const analyticsDomain = import.meta.env.ANALYTICS_DOMAIN ?? '';
+
+const csp = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline'${analyticsDomain ? ' https://plausible.io' : ''}`,
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data:",
+  `connect-src 'self'${analyticsDomain ? ' https://plausible.io' : ''}`,
+  "font-src 'self'",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join('; ');
+---
+
+<!doctype html>
+<html
+  lang="en"
+  data-analytics-domain={analyticsDomain}
+  data-analytics-enabled={import.meta.env.PROD && analyticsDomain ? 'true' : 'false'}
+>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="description" content={description} />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href={sitePath('/favicon.svg')} />
+    <link rel="icon" type="image/png" sizes="32x32" href={sitePath('/favicon-32x32.png')} />
+    <link
+      rel="alternate"
+      type="text/plain"
+      title="Varve project summary for language models"
+      href={sitePath('/llms.txt')}
+    />
+    <meta name="generator" content={Astro.generator} />
+    {noindex ? (
+      <meta name="robots" content="noindex, nofollow" />
+    ) : (
+      <meta name="robots" content="index, follow" />
+    )}
+    {/* A noindex page (e.g. 404) must not also declare itself canonical. */}
+    {!noindex && <link rel="canonical" href={canonicalUrl} />}
+    <meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+
+    {/*
+      Theme detection script (runs before paint).
+      One canonical state on <html data-theme-mode="system|light|dark"
+      data-theme="light|dark">. The mode records the user's preference while
+      the concrete theme is the palette consumed by CSS.
+
+      Precedence:
+        1. An explicit persisted choice (localStorage "varve-theme":
+           "light" | "dark").
+        2. Otherwise the OS drives (prefers-color-scheme), tracked live so a
+           first-time visitor follows OS switches until they choose.
+      The first explicit click converts the automatic state into a persisted
+      choice. Legacy values ("system", "high-contrast", anything invalid)
+      resolve to the OS preference and are replaced by the next explicit
+      choice — never rendered as a theme.
+
+      The tokens.css + theme.css media fallbacks keep JS-disabled rendering
+      readable. Native OS forced-colors (Windows High Contrast etc.) are
+      handled by the @media (forced-colors: active) rules in theme.css and
+      are independent of the site's two selectable themes. */}
+    <script is:inline>
+      (function () {
+        var root = document.documentElement;
+        var KEY = 'varve-theme';
+        var prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
+        function readChoice() {
+          try {
+            return localStorage.getItem(KEY);
+          } catch (e) {
+            return null;
+          }
+        }
+        function isExplicit(choice) {
+          return choice === 'light' || choice === 'dark';
+        }
+        function preference() {
+          var choice = readChoice();
+          return isExplicit(choice) ? choice : 'system';
+        }
+        function systemTheme() {
+          return prefersDark.matches ? 'dark' : 'light';
+        }
+        // Legacy "system" / "high-contrast" / invalid values never render as
+        // themes; they fall back to the OS and migrate on the next click.
+        function resolve(mode) {
+          return isExplicit(mode) ? mode : systemTheme();
+        }
+        function apply() {
+          var previousMode = root.getAttribute('data-theme-mode');
+          var previousTheme = root.getAttribute('data-theme');
+          var mode = preference();
+          var theme = resolve(mode);
+          root.setAttribute('data-theme-mode', mode);
+          root.setAttribute('data-theme', theme);
+          if (previousMode !== mode || previousTheme !== theme) {
+            window.dispatchEvent(new CustomEvent('varve:theme-change', {
+              detail: {
+                preference: mode,
+                resolvedTheme: theme,
+                previousPreference: previousMode,
+                previousResolvedTheme: previousTheme,
+              },
+            }));
+          }
+        }
+        window.__varveTheme = {
+          read: readChoice,
+          write: function (value) {
+            try {
+              localStorage.setItem(KEY, isExplicit(value) ? value : systemTheme());
+            } catch (e) {}
+          },
+          resolve: function () { return resolve(preference()); },
+          apply: apply,
+          state: function () {
+            var mode = preference();
+            return { preference: mode, theme: resolve(mode), explicit: isExplicit(mode) };
+          },
+        };
+        apply();
+        prefersDark.addEventListener('change', function () {
+          if (preference() === 'system') apply();
+        });
+        window.addEventListener('storage', function (event) {
+          if (event.key === KEY) apply();
+        });
+      })();
+    </script>
+
+    {/*
+      Deterministic motion override for visual tests: ?test-motion=static
+      renders every animated system in its final static state, matching
+      prefers-reduced-motion behaviour without touching the emulation.
+    */}
+    <script is:inline>
+      (function () {
+        if (new URLSearchParams(window.location.search).get('test-motion') === 'static') {
+          document.documentElement.dataset.motion = 'static';
+        }
+
+        /*
+         * Scroll-reveal safety net.
+         *
+         * The hidden initial state for [data-reveal] is CSS, but only JS ever
+         * adds `.revealed`. Gating the hidden state on this pre-paint flag
+         * means a visitor with JavaScript disabled sees every section
+         * immediately (the attribute is never set) rather than a page of
+         * invisible content — and setting it before first paint avoids the
+         * flash a module-set flag would cause.
+         *
+         * The flag alone does not cover the case where this script runs but
+         * the reveal module fails to load or throws, so a timer reveals
+         * everything unless the module reported readiness. Content must never
+         * depend on an animation succeeding.
+         */
+        var root = document.documentElement;
+        root.dataset.reveal = 'js';
+        window.setTimeout(function () {
+          if (root.dataset.revealReady === 'true') return;
+          var pending = document.querySelectorAll('[data-reveal]:not(.revealed)');
+          for (var i = 0; i < pending.length; i++) pending[i].classList.add('revealed');
+        }, 2500);
+      })();
+    </script>
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Varve" />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={ogImageUrl} />
+    {/*
+      The social card is a single regenerable 1200x630 asset
+      (scripts/screenshots/og-image.mjs). Any per-page image passed via the
+      `image` prop must keep the same dimensions and carry a matching alt.
+    */}
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:alt" content="Varve — local-first design suite for vector, layout, typography, motion, prototyping, and print" />
+    <meta property="og:locale" content="en_US" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImageUrl} />
+    <meta name="twitter:image:alt" content="Varve — local-first design suite for vector, layout, typography, motion, prototyping, and print" />
+
+    <!-- Structured data: Organization + WebSite on every page; page-specific
+      schemas (FAQPage, SoftwareApplication, ...) via the structuredData prop. -->
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(sitewideStructuredData)} />
+    {structuredData && (
+      <script
+        type="application/ld+json"
+        is:inline
+        set:html={JSON.stringify(structuredData)}
+      />
+    )}
+
+    {/*
+      CSP allows the analytics host only when analytics are actually enabled, so
+      the default build permits no third-party script or connection at all.
+    */}
+    <meta http-equiv="Content-Security-Policy" content={csp} />
+
+    <title>{pageTitle}</title>
+  </head>
+  <body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <aside
+      id="website-analytics-consent"
+      class="website-analytics-consent"
+      aria-label="Website analytics choice"
+      hidden
+    >
+      <div>
+        <strong>Optional website analytics</strong>
+        <p>
+          Help us understand which pages and download paths are useful. We send only aggregate
+          page routes and a few enumerated download properties. No cookies, fingerprinting, full
+          URLs, or design data are used.
+        </p>
+      </div>
+      <div class="website-analytics-consent__actions">
+        <button type="button" data-analytics-choice="denied">Not now</button>
+        <button type="button" data-analytics-choice="granted">Allow website analytics</button>
+      </div>
+    </aside>
+    <SiteHeader />
+
+    <main id="main-content" class="site-main" tabindex="-1">
+      <slot />
+    </main>
+
+    <SiteFooter />
+  </body>
+</html>
+
+<script>
+  import { initWebsiteAnalytics } from '../lib/analytics';
+  import { initReveals } from '../lib/motion';
+
+  // One shared reveal observer for the whole site. Runs on every page;
+  // elements without [data-reveal] are ignored, and the observer guards
+  // against double registration.
+  initReveals();
+  initWebsiteAnalytics({
+    domain: document.documentElement.dataset.analyticsDomain ?? '',
+    enabled: document.documentElement.dataset.analyticsEnabled === 'true',
+  });
+</script>
+
+<style is:global>
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  .site-main {
+    min-height: calc(100vh - 400px);
+  }
+
+  /* Skip link for accessibility */
+  .skip-link {
+    position: absolute;
+    top: -100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent-primary);
+    color: var(--text-on-accent);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--website-radius-control-compact);
+    z-index: 9999;
+    text-decoration: none;
+    font-weight: 600;
+  }
+
+  .skip-link:visited {
+    color: var(--text-on-accent);
+  }
+
+  .skip-link:focus {
+    inset-block-start: var(--space-2);
+  }
+
+  .website-analytics-consent {
+    position: fixed;
+    inset-inline-end: var(--space-page-inline);
+    inset-block-end: var(--space-page-inline);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: var(--space-control-group);
+    max-width: min(42rem, calc(100vw - (2 * var(--space-page-inline))));
+    padding: var(--space-panel);
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-control);
+    background: var(--surface-card);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .website-analytics-consent[hidden] {
+    display: none;
+  }
+
+  .website-analytics-consent p {
+    max-width: 58ch;
+    margin-block-start: var(--space-label-control);
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  .website-analytics-consent__actions {
+    display: flex;
+    flex-shrink: 0;
+    gap: var(--space-icon-label);
+  }
+
+  .website-analytics-consent__actions button {
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-control-compact);
+    background: var(--surface-muted);
+    color: var(--text-primary);
+    cursor: pointer;
+    font: inherit;
+    white-space: nowrap;
+  }
+
+  .website-analytics-consent__actions button:last-child {
+    border-color: var(--accent-primary);
+    background: var(--accent-primary);
+    color: var(--text-on-accent);
+  }
+
+  .website-analytics-consent__actions button:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+  }
+
+  @media (max-width: 700px) {
+    .website-analytics-consent {
+      display: block;
+    }
+
+    .website-analytics-consent__actions {
+      margin-top: 0.75rem;
+    }
+  }
+</style>

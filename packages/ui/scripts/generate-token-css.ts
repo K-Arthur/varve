@@ -1,0 +1,392 @@
+/**
+ * Generates packages/ui/src/tokens/tokens.css from the audited TS source.
+ *
+ * Single sources of truth: color.ts, spacing.ts, sizing.ts, typography.ts,
+ * and iconTokens.ts (audited) → this script → tokens.css. Run
+ * `tsx scripts/generate-token-css.ts` after any source changes.
+ *
+ * Uses OKLCH color space — all color values emitted as `oklch(L C H)`.
+ *
+ * Emits:
+ *   - :root                      → light defaults (the default theme)
+ *   - [data-theme="dark"]        → dark overrides (explicit in-app choice wins)
+ *   - [data-theme="high-contrast"]
+ *   - @media prefers-color-scheme: dark  → dark when no explicit [data-theme]
+ *   - @media prefers-reduced-motion      → durations collapse to 0
+ *   - @media forced-colors: active       → high-contrast honoring system colors
+ */
+import { writeFileSync } from 'node:fs';
+import { SEMANTIC, type THEMES } from '../src/tokens/color';
+import { oklchToCss } from '../src/tokens/contrast';
+import { ICON_CSS_CUSTOM_PROPERTIES } from '../src/tokens/iconTokens';
+import { COMPONENT_DIMENSIONS, COMPONENT_SIZES } from '../src/tokens/sizing';
+import { SPACING_LAYOUT, SPACING_PRIMITIVES, SPACING_SEMANTIC } from '../src/tokens/spacing';
+import { FONT_LINE_HEIGHTS, FONT_SIZES, TYPOGRAPHY_ROLES } from '../src/tokens/typography';
+
+const kebab = (s: string) => s.replace(/_/g, '-');
+
+function colorBlock(theme: string): string {
+  const palette = SEMANTIC[theme as (typeof THEMES)[number]];
+  const lines = Object.entries(palette).map(
+    ([token, oklch]) => `  --color-${kebab(token)}: ${oklchToCss(oklch)};`,
+  );
+  return lines.join('\n');
+}
+
+const spacingBlock = `
+  /* --- Interface spacing: generated from src/tokens/spacing.ts --- */
+${Object.entries(SPACING_PRIMITIVES)
+  .map(([token, value]) => `  --space-${token}: ${value};`)
+  .join('\n')}
+  /* Semantic roles keep ownership legible across editor and website surfaces. */
+${Object.entries(SPACING_SEMANTIC)
+  .map(([token, value]) => `  --space-${token}: ${value};`)
+  .join('\n')}
+  /* Compatibility aliases for existing shell geometry. */
+${Object.entries(SPACING_LAYOUT)
+  .map(([token, value]) => `  --${token}: ${value};`)
+  .join('\n')}
+  /* --- Separator recipes --- */
+  --separator-thickness: 1px;
+  --separator-content-gap: var(--space-3);
+  --separator-inset: var(--space-4);
+  --separator-min-length: var(--space-4);
+`;
+
+const sizingBlock = `
+  /* --- Component sizing: generated from src/tokens/sizing.ts --- */
+${Object.entries(COMPONENT_SIZES)
+  .map(
+    ([size, values]) =>
+      `  --component-${size}-height: ${values.controlHeight};\n  --component-${size}-icon-size: ${values.iconSize};\n  --component-${size}-padding-inline: ${values.paddingInline};`,
+  )
+  .join('\n')}
+${Object.entries(COMPONENT_DIMENSIONS)
+  .map(([token, value]) => `  --${token}: ${value};`)
+  .join('\n')}
+${Object.entries(ICON_CSS_CUSTOM_PROPERTIES)
+  .map(([token, value]) => `  ${token}: ${value};`)
+  .join('\n')}
+`;
+
+const typographyBlock = `
+  /* --- Semantic typography: generated from src/tokens/typography.ts --- */
+${Object.entries(FONT_LINE_HEIGHTS)
+  .map(([token, value]) => `  --font-line-${token}: ${value};`)
+  .join('\n')}
+${Object.entries(FONT_SIZES)
+  .map(([token, value]) => `  --font-size-${token}: ${value};`)
+  .join('\n')}
+  --font-interface: var(--font-display);
+${Object.entries(TYPOGRAPHY_ROLES)
+  .map(
+    ([role, values]) =>
+      `  --type-${role}-size: ${values.size};\n  --type-${role}-line-height: ${values.lineHeight};\n  --type-${role}-weight: ${values.weight};\n  --type-${role}-family: ${values.family};`,
+  )
+  .join('\n')}
+`;
+
+const NON_COLOR = `
+  /* --- Typography --- */
+  --font-display: "Geist Variable", "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-body: "IBM Plex Sans Variable", "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* --- Type system -------------------------------------------------------
+   *
+   * One rule, shared by the website and the application. Which face is used
+   * is decided by the *role* of the text, never by the surface it sits on:
+   *
+   *   --font-editorial  Brand and display only: the Varve wordmark, marketing
+   *                     headlines, section titles, the welcome screen, the
+   *                     footer signature. Never interface chrome.
+   *   --font-display    Interface chrome: navigation, buttons, menus, panel
+   *                     and dialog headings, labels.
+   *   --font-body       Reading text: paragraphs, descriptions, help copy.
+   *   --font-mono       Code, coordinates, measurements, numeric readouts.
+   *
+   * Editorial weights: 600 at wordmark/small sizes, 700 at display sizes.
+   * Set \`font-variation-settings: 'opsz' N\` alongside it — roughly 24 for
+   * wordmark sizes and 144 for display — because Fraunces' hairlines go
+   * spindly if the display cut is used small. Consumers import the face
+   * themselves (\`@fontsource-variable/fraunces/opsz.css\`); the fallback chain
+   * degrades to a system serif if they do not.
+   */
+  --font-editorial: "Fraunces Variable", "Fraunces", ui-serif, Georgia, "Times New Roman", serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --tracking-tight: -0.025em;
+  --tracking-base: 0;
+  --tracking-wide: 0.05em;
+${typographyBlock}
+${sizingBlock}
+
+  /* --- Radius --- */
+  /* Semantic geometry API. Components should consume these names instead of
+   * choosing a raw radius or a generic scale value at each callsite. */
+  --radius-none: 0;
+  --radius-control-compact: 6px;
+  --radius-control: 8px;
+  --radius-floating: 14px;
+  --radius-surface: 14px;
+  --radius-card: 18px;
+  --radius-device: 40px;
+  --radius-full: var(--radius-pill);
+  /* Compatibility names resolve to the semantic scale so older components
+   * participate in the system while they are migrated at their owner. */
+  --radius-sm: var(--radius-control-compact);
+  --radius-md: var(--radius-control);
+  --radius-lg: var(--radius-floating);
+  --radius-xl: var(--radius-card);
+  --radius-2xl: var(--radius-device);
+  --radius-pill: 9999px;
+
+  /* --- Elevation surfaces (100% opaque, hierarchical) --- */
+  --elevation-surface-sunken: oklch(0.95 0.008 260);
+  --elevation-surface-default: oklch(0.97 0.008 260);
+  --elevation-surface-raised: oklch(0.99 0.006 260);
+  --elevation-surface-overlay: oklch(1 0 0);
+
+  /* --- Elevation shadows (dark-theme adaptive) --- */
+  --elevation-shadow-raised: 0 4px 12px oklch(0 0 0 / 0.14);
+  --elevation-shadow-overlay: 0 12px 32px oklch(0 0 0 / 0.20);
+
+  /* --- Elevation z-index --- */
+  --elevation-z-sunken: 0;
+  --elevation-z-default: 1;
+  --elevation-z-raised: 100;
+  --elevation-z-overlay: 1000;
+
+  /* --- Micro-borders (Linear-style 1px edges) --- */
+  --border-micro: 1px solid oklch(0 0 0 / 0.08);
+  --border-micro-accent: 1px solid oklch(0.779 0.1229 188.31 / 0.25);
+
+  /* --- Legacy shadows (kept for backward compat, prefer elevation-*) --- */
+  --shadow-none: none;
+  --shadow-xs: 0 1px 2px oklch(0 0 0 / 0.06);
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.10);
+  --shadow-md: 0 4px 12px oklch(0 0 0 / 0.14);
+  --shadow-lg: 0 12px 32px oklch(0 0 0 / 0.20);
+  --shadow-xl: 0 24px 48px oklch(0 0 0 / 0.25);
+
+  /* --- Motion --- */
+  --duration-instant: 50ms;
+  --duration-quick: 100ms;
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --duration-slow: 400ms;
+  --duration-slower: 600ms;
+  --duration-emphasis: 1600ms;
+  --duration-emphasis-loop: 4800ms;
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+
+  /* --- Legacy z-index (kept for backward compat, prefer elevation-z-*) --- */
+  --z-base: 0;
+  --z-raised: 10;
+  --z-sticky: 50;
+  --z-dropdown: 100;
+  --z-popover: 200;
+  --z-overlay: 1000;
+  --z-dialog: 1100;
+  --z-modal: 1150;
+  --z-toast: 1200;
+  --z-tooltip: 1300;
+
+  /* --- Breakpoints (reference values; used in @media, not as custom props) --- */
+  --bp-sm: 640px;
+  --bp-md: 768px;
+  --bp-lg: 1024px;
+  --bp-xl: 1280px;
+  --bp-2xl: 1536px;
+
+  /* --- Scrim overlay (semi-transparent backdrop behind dialogs/popovers) --- */
+  --elevation-scrim: oklch(0 0 0 / 0.55);
+
+  /* --- Compatibility aliases (canonical name → alias) --- */
+  --color-surface-default: var(--color-surface-base);
+  --color-on-accent: var(--color-text-on-accent);
+  --color-accent-hover: var(--color-interactive-hover);
+`;
+
+const DARK_ELEVATION = `
+  /* Elevation surfaces (dark mode — front-lit: higher = brighter). */
+  --elevation-surface-sunken: oklch(0.12 0.008 260);
+  --elevation-surface-default: oklch(0.18 0.008 260);
+  --elevation-surface-raised: oklch(0.22 0.006 260);
+  --elevation-surface-overlay: oklch(0.27 0.005 260);
+
+  /* Elevation shadows (dark mode — more visible on dark bg). */
+  --elevation-shadow-raised: 0 4px 12px oklch(0 0 0 / 0.30);
+  --elevation-shadow-overlay: 0 12px 32px oklch(0 0 0 / 0.45);
+
+  /* Micro-borders (dark mode — more visible). */
+  --border-micro: 1px solid oklch(1 0 0 / 0.08);
+  --border-micro-accent: 1px solid oklch(0.779 0.1229 188.31 / 0.30);
+
+  /* Scrim overlay (dark mode — slightly more opaque for contrast). */
+  --elevation-scrim: oklch(0 0 0 / 0.65);
+`;
+
+const HC_ELEVATION = `
+  /* Elevation surfaces (high-contrast — maximum separation). */
+  --elevation-surface-sunken: oklch(0 0 0);
+  --elevation-surface-default: oklch(0 0 0);
+  --elevation-surface-raised: oklch(0.15 0 0);
+  --elevation-surface-overlay: oklch(0.2 0 0);
+
+  /* Elevation shadows (HC — outline-style depth cues). */
+  --elevation-shadow-raised: 0 0 0 2px oklch(1 0 0);
+  --elevation-shadow-overlay: 0 0 0 3px oklch(1 0 0);
+
+  /* Micro-borders (HC — thicker, full-contrast edges). */
+  --border-micro: 2px solid oklch(1 0 0);
+  --border-micro-accent: 2px solid oklch(0.95 0.2 188);
+
+  /* Scrim overlay (HC — near-opaque for maximum separation). */
+  --elevation-scrim: oklch(0 0 0 / 0.7);
+`;
+
+/** Map legacy --color-surface-* to canonical elevation tokens (overrides color.ts values). */
+const SURFACE_ALIASES = `
+  /* Surface aliases — single elevation system (Neo-Bento redesign). */
+  --color-surface-app: var(--elevation-surface-default);
+  --color-surface-base: var(--elevation-surface-default);
+  --color-surface-raised: var(--elevation-surface-raised);
+  --color-surface-sunken: var(--elevation-surface-sunken);
+  --color-surface-overlay: var(--elevation-surface-overlay);
+`;
+
+const css = `/* AUTO-GENERATED by packages/ui/scripts/generate-token-css.ts.
+ * Do not edit by hand — edit color.ts, spacing.ts, or this script, then re-run.
+ * Varve design tokens. Sources of truth: src/tokens/color.ts, spacing.ts,
+ * sizing.ts, typography.ts, and iconTokens.ts.
+ * Colors emitted as OKLCH (perceptually uniform color space).
+ */
+
+:root {
+${colorBlock('light')}
+${spacingBlock}
+${NON_COLOR}
+${SURFACE_ALIASES}
+}
+
+[data-theme="dark"] {
+${colorBlock('dark')}
+${spacingBlock}
+${DARK_ELEVATION}
+${SURFACE_ALIASES}
+}
+
+[data-theme="high-contrast"] {
+${colorBlock('high-contrast')}
+${spacingBlock}
+${HC_ELEVATION}
+${SURFACE_ALIASES}
+}
+
+/* Dark via system preference ONLY when no explicit in-app [data-theme] choice. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+${colorBlock('dark')}
+${spacingBlock}
+${DARK_ELEVATION}
+${SURFACE_ALIASES}
+  }
+}
+
+/* High-contrast via system preference (prefers-contrast) when no explicit
+ * in-app [data-theme] choice. Declared after the dark block so it wins when
+ * both preferences apply. */
+@media (prefers-contrast: more) {
+  :root:not([data-theme]) {
+${colorBlock('high-contrast')}
+${spacingBlock}
+${HC_ELEVATION}
+${SURFACE_ALIASES}
+  }
+}
+
+/* High-contrast honors the OS forced-colors mode using system color keywords. */
+@media (forced-colors: active) {
+  :root:not([data-theme="high-contrast"]) {
+    --color-surface-app: Canvas;
+    --color-surface-base: Canvas;
+    --color-surface-raised: Canvas;
+    --color-surface-sunken: Canvas;
+    --color-surface-overlay: Canvas;
+    --color-text-primary: CanvasText;
+    --color-text-secondary: CanvasText;
+    --color-text-subtle: GrayText;
+    --color-text-muted: GrayText;
+    --color-text-disabled: GrayText;
+    --color-text-on-accent: ButtonText;
+    --color-text-on-danger: ButtonText;
+    --color-border-subtle: ButtonBorder;
+    --color-border-strong: ButtonBorder;
+    --color-border-focus: Highlight;
+    --color-interactive-default: ButtonFace;
+    --color-interactive-hover: ButtonFace;
+    --color-interactive-active: ButtonFace;
+    --color-interactive-disabled: ButtonFace;
+    --color-interactive-focus-ring: Highlight;
+    --color-feedback-success: CanvasText;
+    --color-feedback-warning: CanvasText;
+    --color-feedback-danger: CanvasText;
+    --color-feedback-info: CanvasText;
+    --color-tree-row: Canvas;
+    --color-tree-row-hover: Canvas;
+    --color-tree-row-selected: Highlight;
+    --color-tree-row-focus: Highlight;
+    --color-tree-indent-guide: CanvasText;
+    --color-layer-accent-frame: Highlight;
+    --color-layer-wash-frame: Canvas;
+    --color-layer-accent-group: Highlight;
+    --color-layer-wash-group: Canvas;
+    --color-layer-accent-text: Highlight;
+    --color-layer-wash-text: Canvas;
+    --color-layer-accent-shape: Highlight;
+    --color-layer-wash-shape: Canvas;
+    --color-layer-accent-component: Highlight;
+    --color-layer-wash-component: Canvas;
+    --color-text-muted-on-default: GrayText;
+    --color-text-muted-on-raised: GrayText;
+    --color-text-muted-on-sunken: GrayText;
+    --color-text-muted-on-overlay: GrayText;
+    --color-text-subtle-on-default: GrayText;
+    --color-text-subtle-on-raised: GrayText;
+    --color-text-subtle-on-sunken: GrayText;
+    --color-text-subtle-on-overlay: GrayText;
+    --color-hero-glow: transparent;
+    --elevation-surface-sunken: Canvas;
+    --elevation-surface-default: Canvas;
+    --elevation-surface-raised: Canvas;
+    --elevation-surface-overlay: Canvas;
+    --elevation-shadow-raised: none;
+    --elevation-shadow-overlay: none;
+    --border-micro: 1px solid ButtonBorder;
+    --border-micro-accent: 2px solid Highlight;
+  }
+}
+
+/* Reduced motion: collapse all motion durations to 0 (Strata plan §4.1). */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-instant: 0ms;
+    --duration-quick: 0ms;
+    --duration-fast: 0ms;
+    --duration-base: 0ms;
+    --duration-slow: 0ms;
+    --duration-slower: 0ms;
+    --duration-emphasis: 0ms;
+    --duration-emphasis-loop: 0ms;
+  }
+}
+`;
+
+writeFileSync(new URL('../src/tokens/tokens.css', import.meta.url), css);
+console.log(`tokens.css generated (${css.length} bytes, OKLCH).`);

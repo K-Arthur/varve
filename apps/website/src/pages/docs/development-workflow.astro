@@ -1,0 +1,269 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+---
+
+<Layout
+  title="Development Workflow — Varve Docs"
+  description="How Varve preserves work, validates exact Git trees, certifies integration, and publishes releases with honest evidence."
+>
+  <div class="container-custom">
+    <article class="workflow-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/docs')}>Documentation</a> / Development Workflow
+      </nav>
+
+      <header class="workflow-hero">
+        <p class="eyebrow">For contributors and maintainers</p>
+        <h1>Evidence that follows the work</h1>
+        <p class="lead">
+          Varve keeps development feedback fast while making integration and release decisions
+          traceable. Every stage has a clear owner, an exact source identity, and an honest status.
+        </p>
+      </header>
+
+      <section class="workflow-card workflow-card--accent" aria-labelledby="path-heading">
+        <p class="workflow-kicker">The path</p>
+        <h2 id="path-heading">Commit locally. Certify remotely. Publish deliberately.</h2>
+        <div class="path-grid">
+          <div class="path-step">
+            <span class="path-number">01</span>
+            <h3>Shape the change</h3>
+            <p>Keep commits focused and preserve unrelated work in the checkout.</p>
+          </div>
+          <div class="path-step">
+            <span class="path-number">02</span>
+            <h3>Check the impact</h3>
+            <p>The planner selects the narrowest useful local and remote lanes.</p>
+          </div>
+          <div class="path-step">
+            <span class="path-number">03</span>
+            <h3>Freeze the source</h3>
+            <p>CI, candidate checks, and Pages deployments carry the exact commit they ran.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="workflow-section" aria-labelledby="commands-heading">
+        <p class="workflow-kicker">A practical start</p>
+        <h2 id="commands-heading">Run the smallest useful check first</h2>
+        <p>
+          From the repository root, inspect the plan before starting a broader gate. The full
+          suite is reserved for changes whose risk or release stage actually requires it.
+        </p>
+        <pre><code>pnpm verify:plan
+pnpm verify:affected
+pnpm verify:push</code></pre>
+        <p>
+          For a read-only view of synchronization and prior attempts, use
+          <code>pnpm workflow:status</code>, <code>pnpm workflow:doctor</code>, and
+          <code>pnpm workflow:history -- --json</code>.
+        </p>
+      </section>
+
+      <section class="workflow-section" aria-labelledby="honesty-heading">
+        <p class="workflow-kicker">What the checks prove</p>
+        <h2 id="honesty-heading">A green local hook is not a published release</h2>
+        <div class="honesty-grid">
+          <div>
+            <h3>Local checkpoint</h3>
+            <p>
+              Git supplies the refs being pushed. Local lanes run against clean snapshots of those
+              committed trees, while expensive browser, native, visual, and release work remains
+              visible as CI responsibility.
+            </p>
+          </div>
+          <div>
+            <h3>Integration certification</h3>
+            <p>
+              The stable CI check reconciles selected jobs and deliberate skips against one exact
+              commit. Missing, cancelled, timed-out, or unexpectedly skipped work is incomplete.
+            </p>
+          </div>
+          <div>
+            <h3>Release candidate</h3>
+            <p>
+              Triage can collect bounded failures without certifying anything. Only final mode can
+              produce passed candidate evidence for the exact source and policy hash.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <aside class="workflow-note">
+        <strong>Contributions are currently paused.</strong>
+        <span>
+          Bug reports, workflow proposals, documentation corrections, and cross-platform testing
+          are welcome through the <a href={sitePath('/contribute')}>contribution guide</a>.
+        </span>
+      </aside>
+    </article>
+  </div>
+</Layout>
+
+<style>
+  .workflow-page {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 3rem 0 5rem;
+  }
+
+  .workflow-hero {
+    max-width: 700px;
+    padding: 3rem 0 2.5rem;
+  }
+
+  .eyebrow,
+  .workflow-kicker {
+    color: var(--text-link);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .workflow-hero h1 {
+    color: var(--text-primary);
+    font-family: var(--font-editorial);
+    font-size: clamp(2.4rem, 7vw, 4.4rem);
+    letter-spacing: -0.04em;
+    line-height: 0.98;
+    margin: 0.8rem 0 1.25rem;
+  }
+
+  .lead,
+  .workflow-section > p:not(.workflow-kicker),
+  .path-step p,
+  .honesty-grid p,
+  .workflow-note {
+    color: var(--text-secondary);
+    line-height: 1.75;
+  }
+
+  .lead {
+    font-size: 1.15rem;
+    max-width: 650px;
+  }
+
+  .workflow-card,
+  .workflow-section,
+  .workflow-note {
+    border-radius: var(--website-radius-card);
+  }
+
+  .workflow-card {
+    padding: clamp(1.5rem, 4vw, 2.5rem);
+  }
+
+  .workflow-card--accent {
+    background: var(--surface-card);
+    border: 1px solid var(--border-default);
+    box-shadow: 0 1.5rem 4rem rgb(15 23 42 / 0.08);
+  }
+
+  .workflow-card h2,
+  .workflow-section h2 {
+    color: var(--text-primary);
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    letter-spacing: -0.025em;
+    margin: 0.55rem 0 1.5rem;
+  }
+
+  .path-grid,
+  .honesty-grid {
+    display: grid;
+    gap: 1.25rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .path-step {
+    border-top: 2px solid var(--border-default);
+    padding-top: 1rem;
+  }
+
+  .path-number {
+    color: var(--text-link);
+    font-size: 0.8rem;
+    font-weight: 700;
+  }
+
+  .path-step h3,
+  .honesty-grid h3 {
+    color: var(--text-primary);
+    font-size: 1rem;
+    margin: 0.65rem 0 0.35rem;
+  }
+
+  .path-step p,
+  .honesty-grid p {
+    font-size: 0.94rem;
+    margin: 0;
+  }
+
+  .workflow-section {
+    padding: 3.5rem 0 0;
+  }
+
+  .workflow-section > p:not(.workflow-kicker) {
+    max-width: 700px;
+  }
+
+  pre {
+    background: var(--surface-code);
+    border: 1px solid var(--border-default);
+    border-radius: 0.75rem;
+    color: var(--text-code);
+    margin: 1.5rem 0;
+    overflow-x: auto;
+    padding: 1.25rem 1.5rem;
+  }
+
+  code {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.9em;
+  }
+
+  .honesty-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .honesty-grid > div {
+    background: var(--surface-muted);
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+  }
+
+  .workflow-note {
+    align-items: baseline;
+    background: var(--surface-muted);
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 3rem;
+    padding: 1.25rem 1.5rem;
+  }
+
+  .workflow-note strong {
+    color: var(--text-primary);
+    white-space: nowrap;
+  }
+
+  .workflow-note a {
+    color: var(--text-link);
+  }
+
+  @media (max-width: 700px) {
+    .path-grid,
+    .honesty-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .workflow-note {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .workflow-note strong {
+      white-space: normal;
+    }
+  }
+</style>

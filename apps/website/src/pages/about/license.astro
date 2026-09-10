@@ -1,0 +1,303 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+---
+
+<Layout title="License" description="Varve uses a mixed-license model: the app is FSL-1.1-MIT, and several engine crates are MIT OR Apache-2.0.">
+  <div class="container-custom">
+    <div class="license-page">
+      <h1>License</h1>
+
+      <section class="license-section">
+        <h2>Functional Source License, Version 1.1, MIT Future License</h2>
+        <p>
+          Varve is licensed under the <strong>Functional Source License, Version 1.1,
+          MIT Future License</strong> (FSL-1.1-MIT). This is a source-available license
+          that balances open access with the ability to sustain continued development,
+          using fixed, predictable terms rather than a custom grant.
+        </p>
+      </section>
+
+      <section class="license-section">
+        <h2>What FSL-1.1-MIT Means</h2>
+        <p>
+          You may use, copy, modify, create derivative works, publicly perform, publicly
+          display, and redistribute Varve for any <strong>Permitted Purpose</strong> —
+          which is any purpose other than a <strong>Competing Use</strong>. A Competing Use
+          means making Varve available to others in a commercial product or service that
+          substitutes for Varve, substitutes for another product or service we offer using
+          Varve, or offers substantially similar functionality. Permitted Purposes
+          specifically include:
+        </p>
+        <ul>
+          <li><strong>Use</strong> Varve for any purpose — personal, commercial, or educational</li>
+          <li><strong>Modify</strong> the source code</li>
+          <li><strong>Share</strong> copies of the software with others</li>
+          <li><strong>Study</strong> how the software works</li>
+          <li><strong>Develop</strong> plugins and extensions</li>
+          <li><strong>Redistribute</strong> your modifications, provided you keep the license notices intact</li>
+        </ul>
+        <p>
+          Competing uses — offering Varve (or a substitute for it) as a commercial product
+          or hosted service to others — require a separate commercial license.
+        </p>
+      </section>
+
+      <section class="license-section">
+        <h2>Two-Year Conversion to MIT</h2>
+        <p>
+          Each release of Varve automatically converts to the <strong>MIT license</strong>
+          on the second anniversary of its first public availability. This means:
+        </p>
+        <ul>
+          <li>All code eventually becomes fully open-source under the permissive MIT license</li>
+          <li>If development stops, previously released versions become MIT-licensed over time</li>
+          <li>The community can freely fork and continue development on MIT-licensed code</li>
+        </ul>
+      </section>
+
+      <section class="license-section">
+        <h2>Open-Source Engine Crates</h2>
+        <p>
+          Several reusable engine crates are published separately under
+          <strong>MIT OR Apache-2.0</strong> — genuine OSI-approved open source
+          licenses. These include the geometry core, colour science, auto-tracing,
+          layout, media decoding, effect kernels, upscaling, and background
+          removal crates.
+        </p>
+        <p>
+          The open crates are building blocks, not the product. The editor,
+          document model, UI, AI features, and all application-specific code
+          remain under FSL-1.1-MIT. See the
+          <a href="https://github.com/K-Arthur/varve/blob/main/docs/licensing/mixed-license-model.md">
+          mixed-license model</a> for the full picture.
+        </p>
+      </section>
+
+      <section class="license-section">
+        <h2 id="user-rights-summary">User Rights Summary</h2>
+        <table class="license-table" aria-labelledby="user-rights-summary">
+          <caption class="sr-only">Summary of permitted and restricted uses under FSL-1.1-MIT</caption>
+          <tr>
+            <th scope="row">Use for personal projects</th>
+            <td class="allowed">Allowed</td>
+          </tr>
+          <tr>
+            <th scope="row">Use for commercial work (client designs)</th>
+            <td class="allowed">Allowed</td>
+          </tr>
+          <tr>
+            <th scope="row">Use within your organisation</th>
+            <td class="allowed">Allowed</td>
+          </tr>
+          <tr>
+            <th scope="row">Modify source code</th>
+            <td class="allowed">Allowed</td>
+          </tr>
+          <tr>
+            <th scope="row">Distribute official binaries</th>
+            <td class="allowed">Allowed</td>
+          </tr>
+          <tr>
+            <th scope="row">Distribute modified source code</th>
+            <td class="allowed">Allowed</td>
+          </tr>
+          <tr>
+            <th scope="row">Develop and sell plugins</th>
+            <td class="allowed">Allowed</td>
+          </tr>
+          <tr>
+            <th scope="row">Competing use (substitute product or service)</th>
+            <td class="restricted">Requires license</td>
+          </tr>
+          <tr>
+            <th scope="row">Offering as a competing hosted service</th>
+            <td class="restricted">Requires license</td>
+          </tr>
+          <tr>
+            <th scope="row">Removing Varve branding</th>
+            <td class="restricted">Requires license</td>
+          </tr>
+        </table>
+      </section>
+
+      <section class="license-section">
+        <h2>Contributions</h2>
+        <p>
+          Contributions to Varve are accepted under FSL-1.1-MIT (and subsequently the
+          MIT change license after two years). Contributors retain copyright to their work.
+          See the <a href={sitePath('/contribute/guidelines')}>contribution guidelines</a> for the
+          project's current status on external contributions.
+        </p>
+      </section>
+
+      <section class="license-section">
+        <h2>Third-Party Components</h2>
+        <p>
+          Varve includes third-party software under its own license terms. Full attribution
+          is provided in the <code>THIRD_PARTY_NOTICES</code> file in the repository.
+          Key components:
+        </p>
+        <ul>
+          <li>Lucide icons — ISC License</li>
+          <li>Tabler icons — MIT License</li>
+          <li>Phosphor icons — MIT License</li>
+          <li>Geist font — SIL Open Font License 1.1</li>
+          <li>IBM Plex Sans font — SIL Open Font License 1.1</li>
+          <li>ONNX Runtime — MIT License</li>
+          <li>ONNX AI models (u2netp, Real-ESRGAN) — MIT and BSD-3-Clause</li>
+        </ul>
+      </section>
+
+      <section class="license-section">
+        <h2>Copyright</h2>
+        <p>
+          Copyright 2024-2026 K-Arthur (Varve Founder).
+        </p>
+        <p>
+          "Varve" is a trademark of K-Arthur. See the
+          <a href="https://github.com/K-Arthur/varve/blob/main/TRADEMARKS.md">Trademark Policy</a>{' '}
+          for usage guidelines.
+        </p>
+      </section>
+
+      <div class="license-cta">
+        <a href="https://github.com/K-Arthur/varve/blob/main/LICENSE" class="btn-default" target="_blank" rel="noopener noreferrer">
+          View the LICENSE File on GitHub
+        </a>
+        <a href="https://fsl.software/" class="btn-secondary" target="_blank" rel="noopener noreferrer">
+          Official FSL-1.1-MIT Text
+        </a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .license-page {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+
+  .license-page h1 {
+    font-size: clamp(2rem, 5vw, 2.5rem);
+    font-family: var(--font-editorial);
+    font-weight: 700;
+    font-variation-settings: 'opsz' 144;
+    letter-spacing: -0.015em;
+    margin-bottom: 2rem;
+    color: var(--text-primary);
+  }
+
+  .license-section {
+    margin-bottom: 3rem;
+  }
+
+  .license-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+  }
+
+  .license-section p {
+    color: var(--text-secondary);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+
+  .license-section ul {
+    list-style: none;
+    margin-bottom: 1rem;
+  }
+
+  .license-section li {
+    color: var(--text-secondary);
+    line-height: 1.8;
+    margin-bottom: 0.75rem;
+    padding-left: 1.5rem;
+    position: relative;
+  }
+
+  .license-section li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--text-link-hover);
+    font-weight: bold;
+  }
+
+  .license-section strong {
+    color: var(--text-primary);
+  }
+
+  .license-section code:not(.code-block) {
+    background: var(--surface-muted);
+    padding: 0.125rem 0.375rem;
+    border-radius: var(--website-radius-control-compact);
+    font-size: 0.875rem;
+  }
+
+  .license-note {
+    background: var(--surface-sunken);
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-surface);
+    padding: 1.5rem;
+  }
+
+  .license-note p {
+    margin-bottom: 0;
+  }
+
+  .license-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1rem;
+  }
+
+  .license-table tr {
+    border-bottom: 1px solid var(--border-default);
+  }
+
+  .license-table td {
+    padding: 0.75rem 0;
+    color: var(--text-secondary);
+  }
+
+  .license-table td:first-child,
+  .license-table th:first-child {
+    font-weight: 500;
+    color: var(--text-primary);
+    text-align: left;
+  }
+
+  .license-table td.allowed {
+    color: var(--text-success);
+    font-weight: 600;
+    text-align: right;
+  }
+
+  .license-table td.restricted {
+    color: var(--text-danger);
+    font-weight: 600;
+    text-align: right;
+  }
+
+  .license-cta {
+    display: flex;
+    gap: 1rem;
+    padding: 2rem 0;
+    border-top: 1px solid var(--border-default);
+  }
+
+  @media (max-width: 768px) {
+    .license-page h1 {
+      font-size: 2rem;
+    }
+
+    .license-cta {
+      flex-direction: column;
+    }
+  }
+</style>

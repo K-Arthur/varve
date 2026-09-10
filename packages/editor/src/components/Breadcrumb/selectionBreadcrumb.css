@@ -1,0 +1,146 @@
+.selection-breadcrumb {
+  /* The breadcrumb is a direct child of the editor grid. Without an explicit
+   * area it is auto-placed beneath the menubar/tab strip, which leaves the
+   * visible control covered by editor chrome and impossible to click. */
+  grid-area: canvas;
+  align-self: start;
+  z-index: var(--z-raised);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  white-space: nowrap;
+  min-height: 22px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--elevation-surface-default);
+  flex-shrink: 0;
+}
+
+.selection-breadcrumb__segment-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.selection-breadcrumb__separator {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.selection-breadcrumb__segment {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 4px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-control-compact);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+  max-width: 140px;
+  transition:
+    background 0.1s,
+    color 0.1s;
+}
+
+.selection-breadcrumb__segment:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.selection-breadcrumb__segment:focus-visible {
+  outline: 2px solid var(--color-interactive-default);
+  outline-offset: 1px;
+}
+
+.selection-breadcrumb__segment-kind {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+  text-transform: lowercase;
+  font-size: 0.85em;
+}
+
+.selection-breadcrumb__segment-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.selection-breadcrumb__overflow-wrapper {
+  position: relative;
+}
+
+.selection-breadcrumb__overflow-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-control-compact);
+  padding: 0;
+}
+
+.selection-breadcrumb__overflow-btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.selection-breadcrumb__overflow-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-default);
+  outline-offset: 1px;
+}
+
+.selection-breadcrumb__overflow-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: var(--z-popover);
+  background: var(--elevation-surface-default);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-1);
+  min-width: 160px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.selection-breadcrumb__overflow-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  border-radius: var(--radius-control-compact);
+  font-size: var(--font-size-xs);
+  text-align: left;
+}
+
+.selection-breadcrumb__overflow-item:hover {
+  background: var(--color-surface-hover);
+}
+
+.selection-breadcrumb__overflow-item-kind {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.selection-breadcrumb__overflow-item-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Touch candidate menu — now uses shared .varve-menu classes */

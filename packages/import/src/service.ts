@@ -1,0 +1,382 @@
+/**
+ * ImportService — unified import orchestration and compatibility reporting.
+ *
+ * This sits above individual parsers. It never claims fidelity that a parser
+ * cannot provide: every file receives structured warnings, unsupported feature
+ * records, timing, size, and artifact metadata for UI/reporting surfaces.
+ */
+
+import type { Document } from '@varve/scene';
+import { DocumentCodec } from '@varve/scene';
+import { createAiParser } from './ai';
+import { detectImageMime } from './bitmap';
+import { createEpsParser } from './eps';
+import { createFigmaParser } from './figma';
+import { importFile } from './import';
+import { createPdfParser } from './pdf';
+import { createPsdParser } from './psd';
+import { inspectRasterBytes } from './rasterInspection';
+import {
+  detectFileFormat,
+  getParser,
+  getParserForFile,
+  RASTER_IMPORT_EXTENSIONS,
+  registerParser,
+} from './registry';
+import { createSketchParser } from './sketch';
+import { createSvgParser } from './svg';
+import type { ImportOptions } from './types';
+import { validateImport } from './validation';
+
+export type ImportSource = 'file-picker' | 'drop' | 'clipboard' | 'home' | 'asset-library' | 'api';
+
+export interface ImportFileInput {
+  name: string;
+  source: ImportSource;
+  size?: number;
+  relativePath?: string;
+  text?: string;
+  bytes?: Uint8Array;
+}
+
+export interface FidelityIssue {
+  code: string;
+  message: string;
+  severity: 'info' | 'warning' | 'error';
+  path?: string;
+}
+
+export interface UnsupportedFeature {
+  code: string;
+  feature: string;
+  message: string;
+}
+
+export interface ImportArtifact {
+  kind: 'document-fragment';
+  document: Document;
+  nodeIds: string[];
+}
+
+export interface ImportFileReport {
+  name: string;
+  source: ImportSource;
+  format: string;
+  status: 'success' | 'partial' | 'failed' | 'unsupported';
+  byteCount: number;
+  durationMs: number;
+  nodeCount: number;
+  artifacts: ImportArtifact[];
+  warnings: FidelityIssue[];
+  unsupportedFeatures: UnsupportedFeature[];
+  error?: string;
+}
+
+export interface ImportReport {
+  startedAt: number;
+  completedAt: number;
+  durationMs: number;
+  totalFiles: number;
+  successCount: number;
+  partialCount: number;
+  failureCount: number;
+  unsupportedCount: number;
+  files: ImportFileReport[];
+  warnings: FidelityIssue[];
+}
+
+export interface ImportServiceOptions extends Partial<ImportOptions> {
+  onProgress?: (completed: number, total: number, file: ImportFileReport) => void;
+}
+
+let builtInsRegistered = false;
+
+function ensureBuiltInsRegistered(): void {
+  // Tests and embedders may reset the parser registry between sessions. The
+  // boolean alone is not sufficient state: restore built-ins when the map was
+  // cleared instead of turning valid files into "no importer" reports.
+  if (builtInsRegistered && getParser('svg') && getParser('sketch')) return;
+  registerParser(createSvgParser());
+  registerParser(createPdfParser());
+  registerParser(createPsdParser());
+  registerParser(createAiParser());
+  registerParser(createEpsParser());
+  registerParser(createFigmaParser());
+  registerParser(createSketchParser());
+  builtInsRegistered = true;
+}
+
+function abortError(): Error {
+  const err = new Error('Import aborted');
+  err.name = 'AbortError';
+  return err;
+}
+
+function assertNotAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) throw abortError();
+}
+
+function extension(name: string): string {
+  const ext = name.split('.').pop()?.toLowerCase();
+  return ext && ext !== name.toLowerCase() ? ext : 'unknown';
+}
+
+function byteCount(input: ImportFileInput): number {
+  if (typeof input.size === 'number') return input.size;
+  if (input.bytes) return input.bytes.byteLength;
+  if (typeof input.text === 'string') return new TextEncoder().encode(input.text).byteLength;
+  return 0;
+}
+
+function dataFor(input: ImportFileInput): string | Uint8Array {
+  if (input.bytes) return input.bytes;
+  return input.text ?? '';
+}
+
+function isRasterFallbackFormat(format: string): boolean {
+  return (RASTER_IMPORT_EXTENSIONS as readonly string[]).includes(format);
+}
+
+/**
+ * A Varve document that arrived through Import rather than Open.
+ *
+ * `.varve`, `.strata` and `.json` documents belong to File > Open, which
+ * loads them into their own tab. Reaching Import means the user picked the
+ * wrong command — and because the Figma parser also claims `.json`, the
+ * failure they would otherwise see is an opaque Figma decode error. Detect
+ * it by the version stamp `serializeDocument` writes, plus the scene shape.
+ */
+function looksLikeVarveDocument(data: string | Uint8Array): boolean {
+  const text = typeof data === 'string' ? data : new TextDecoder().decode(data.slice(0, 4096));
+  if (!text.trimStart().startsWith('{')) return false;
+  return (
+    text.includes('"formatVersion"') && text.includes('"nodes"') && text.includes('"rootChildren"')
+  );
+}
+
+function warning(message: string): FidelityIssue {
+  return { code: 'parser.warning', message, severity: 'warning' };
+}
+
+function featureCode(feature: string): string {
+  return `feature.${feature
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '.')
+    .replace(/^\.+|\.+$/g, '')}`;
+}
+
+function unsupportedFeature(feature: string): UnsupportedFeature {
+  return {
+    code: featureCode(feature),
+    feature,
+    message: feature,
+  };
+}
+
+function dedupeWarnings(warnings: FidelityIssue[]): FidelityIssue[] {
+  const seen = new Set<string>();
+  const result: FidelityIssue[] = [];
+  for (const item of warnings) {
+    const key = `${item.code}:${item.path ?? ''}:${item.message}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(item);
+  }
+  return result;
+}
+
+async function importOne(
+  input: ImportFileInput,
+  options: ImportServiceOptions,
+  signal?: AbortSignal,
+): Promise<ImportFileReport> {
+  assertNotAborted(signal);
+  const started = performance.now();
+  const data = dataFor(input);
+  const format = extension(input.name);
+  ensureBuiltInsRegistered();
+  const detection = detectFileFormat({ filename: input.name, data });
+  const parser = getParserForFile(input.name, data);
+  const reportFormat = parser?.format ?? detection.format ?? format;
+  const rasterCandidate =
+    data instanceof Uint8Array &&
+    (isRasterFallbackFormat(format) ||
+      (detection.format !== null && detectImageMime(data) !== null));
+
+  if (looksLikeVarveDocument(data)) {
+    return {
+      name: input.name,
+      source: input.source,
+      format: 'varve-document',
+      status: 'unsupported',
+      byteCount: byteCount(input),
+      durationMs: performance.now() - started,
+      nodeCount: 0,
+      artifacts: [],
+      warnings: detection.warnings.map((item) => warning(item.message)),
+      unsupportedFeatures: [
+        {
+          code: 'format.varve-document',
+          feature: 'Varve document',
+          message: `"${input.name}" is a Varve document. Use File > Open to open it in its own tab; Import is for adding images, SVGs and other external artwork to the document you already have open.`,
+        },
+      ],
+    };
+  }
+
+  if (!parser && !rasterCandidate) {
+    return {
+      name: input.name,
+      source: input.source,
+      format,
+      status: 'unsupported',
+      byteCount: byteCount(input),
+      durationMs: performance.now() - started,
+      nodeCount: 0,
+      artifacts: [],
+      warnings: detection.warnings.map((item) => warning(item.message)),
+      unsupportedFeatures: [
+        {
+          code: 'format.unsupported',
+          feature: format,
+          message: `No importer is registered for ${format}`,
+        },
+      ],
+    };
+  }
+
+  try {
+    if (!parser && data instanceof Uint8Array) inspectRasterBytes(data);
+    const validation = await validateImport(data, input.name);
+    assertNotAborted(signal);
+    const result = importFile(input.name, data, options);
+    assertNotAborted(signal);
+    const normalized = DocumentCodec.normalize(result.document);
+    // Parser-level degradation is more precise than the cheap preflight
+    // heuristic.  Keep both: validation catches format-level risks while the
+    // parser reports what this particular document actually lost.
+    const unsupportedFeatures = dedupeUnsupportedFeatures([
+      ...(validation?.unsupportedFeatures.map(unsupportedFeature) ?? []),
+      ...(result.unsupportedFeatures?.map(unsupportedFeature) ?? []),
+    ]);
+    const warnings = dedupeWarnings([
+      ...detection.warnings.map((item) => warning(item.message)),
+      ...(validation?.warnings.map(warning) ?? []),
+      ...result.warnings.map(warning),
+      ...normalized.warnings.map((w) => ({
+        code: w.code,
+        message: w.message,
+        severity: w.severity,
+        path: w.path,
+      })),
+    ]);
+    const opaqueBinary = unsupportedFeatures.some(
+      (feature) =>
+        feature.feature === 'opaque native .fig binary' ||
+        feature.feature === 'native .fig decoding',
+    );
+    const status = opaqueBinary
+      ? 'unsupported'
+      : result.nodeIds.length === 0
+        ? unsupportedFeatures.length > 0
+          ? 'partial'
+          : 'failed'
+        : unsupportedFeatures.length === 0
+          ? 'success'
+          : 'partial';
+    return {
+      name: input.name,
+      source: input.source,
+      format: reportFormat,
+      status,
+      byteCount: byteCount(input),
+      durationMs: performance.now() - started,
+      nodeCount: result.nodeIds.length,
+      artifacts: [
+        {
+          kind: 'document-fragment',
+          document: normalized.document,
+          nodeIds: result.nodeIds,
+        },
+      ],
+      warnings,
+      unsupportedFeatures,
+    };
+  } catch (err) {
+    return {
+      name: input.name,
+      source: input.source,
+      format,
+      status: 'failed',
+      byteCount: byteCount(input),
+      durationMs: performance.now() - started,
+      nodeCount: 0,
+      artifacts: [],
+      warnings: [],
+      unsupportedFeatures: [],
+      error: err instanceof Error ? err.message : 'Unknown import error',
+    };
+  }
+}
+
+function dedupeUnsupportedFeatures(features: UnsupportedFeature[]): UnsupportedFeature[] {
+  const seen = new Set<string>();
+  const result: UnsupportedFeature[] = [];
+  for (const feature of features) {
+    const key = `${feature.code}:${feature.feature}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(feature);
+  }
+  return result;
+}
+
+export const ImportService = {
+  async importFiles(
+    inputs: ImportFileInput[],
+    options: ImportServiceOptions = {},
+    signal?: AbortSignal,
+  ): Promise<ImportReport> {
+    assertNotAborted(signal);
+    const startedAt = Date.now();
+    const perfStarted = performance.now();
+    const files = new Array<ImportFileReport>(inputs.length);
+    let nextIndex = 0;
+    let completed = 0;
+    const worker = async (): Promise<void> => {
+      while (true) {
+        assertNotAborted(signal);
+        const index = nextIndex++;
+        const input = inputs[index];
+        if (!input) return;
+        const fileReport = await importOne(input, options, signal);
+        files[index] = fileReport;
+        completed += 1;
+        options.onProgress?.(completed, inputs.length, fileReport);
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(2, inputs.length) }, () => worker()));
+    const orderedFiles = files.filter((file): file is ImportFileReport => Boolean(file));
+
+    const completedAt = Date.now();
+    const successCount = orderedFiles.filter((f) => f.status === 'success').length;
+    const partialCount = orderedFiles.filter((f) => f.status === 'partial').length;
+    const unsupportedCount = orderedFiles.filter((f) => f.status === 'unsupported').length;
+    const failureCount = orderedFiles.filter(
+      (f) => f.status === 'failed' || f.status === 'unsupported',
+    ).length;
+
+    return {
+      startedAt,
+      completedAt,
+      durationMs: performance.now() - perfStarted,
+      totalFiles: inputs.length,
+      successCount,
+      partialCount,
+      failureCount,
+      unsupportedCount,
+      files: orderedFiles,
+      warnings: orderedFiles.flatMap((f) => f.warnings),
+    };
+  },
+};

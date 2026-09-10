@@ -1,0 +1,596 @@
+import {
+  ADJUSTMENT_LAYER_KINDS,
+  ADJUSTMENT_LAYER_PRESETS,
+  type AdjustmentBlendMode,
+  autoWhiteBalanceParams,
+  type BlendMode,
+  EFFECT_SURFACE_GUIDANCE,
+  filterKindDisplayName,
+  type SurfacePreset,
+} from '@varve/engine';
+import type { Adjustment, AdjustmentKind, AdjustmentNode, SceneNode } from '@varve/scene';
+import { cryptoId, makeAdjustment } from '@varve/scene';
+import { Dialog, Select, SOLID_CHROME_ICONS, SolidIcon } from '@varve/ui';
+import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { useEditor } from '../../context';
+import { NumberField } from '../Inspector/controls/NumberField';
+import { RangeValueControl } from '../Inspector/controls/RangeValueControl';
+import { AdjustmentScopeSection } from '../Inspector/sections/AdjustmentScopeSection';
+import { AdjustmentEditor } from './AdjustmentEditor';
+import { useAdjustmentHistogram } from './useAdjustmentHistogram';
+import './adjustment.css';
+
+const ADJUSTMENT_BLEND_OPTIONS: { value: AdjustmentBlendMode; label: string }[] = [
+  { value: 'normal', label: 'Normal' },
+  { value: 'multiply', label: 'Multiply' },
+  { value: 'screen', label: 'Screen' },
+  { value: 'overlay', label: 'Overlay' },
+  { value: 'softLight', label: 'Soft Light' },
+  { value: 'hardLight', label: 'Hard Light' },
+  { value: 'colorDodge', label: 'Color Dodge' },
+  { value: 'colorBurn', label: 'Color Burn' },
+  { value: 'darken', label: 'Darken' },
+  { value: 'lighten', label: 'Lighten' },
+  { value: 'difference', label: 'Difference' },
+  { value: 'exclusion', label: 'Exclusion' },
+  { value: 'hue', label: 'Hue' },
+  { value: 'saturation', label: 'Saturation' },
+  { value: 'color', label: 'Color' },
+  { value: 'luminosity', label: 'Luminosity' },
+  { value: 'passThrough', label: 'Pass Through' },
+];
+
+function presetAdjustments(preset: SurfacePreset): Adjustment[] {
+  if (preset.surface !== 'adjustment-layer') return [];
+  return preset.effects.map((effect) => makeAdjustment(cryptoId(), effect.kind, effect.overrides));
+}
+
+/**
+ * AdjustmentPanel — flat layout for adjustment layer controls.
+ *
+ * Architecture decision (2026-07-20): intentionally NOT a DisclosureSection.
+ * The panel is compact, scrollable, and the filter stack is inherently linear.
+ * There are no subsections to collapse. The entire panel is controlled at the
+ * tab level (it renders within SingleSelectionPanel before all section entries).
+ *
+ * Do NOT convert to DisclosureSection unless the control count exceeds ~30
+ * or the scroll length exceeds 3 viewports.
+ */
+export function AdjustmentPanel() {
+  const {
+    state,
+    updateNode,
+    beginTransaction,
+    abortTransaction,
+    commitTransaction,
+    reorderAdjustmentInLayer,
+    setSelectedOpacity,
+    setSelectedBlendMode,
+    announce,
+  } = useEditor();
+  const selId = state.selection.length === 1 ? state.selection[0] : undefined;
+  const selNode = selId ? state.document.nodes[selId] : undefined;
+  const isAdjustmentNode = selNode?.kind === 'adjustment';
+  // nodeId is only meaningful when isAdjustmentNode is true; the callbacks
+  // below are unreachable otherwise since the component returns null before
+  // any of them can be invoked. Hooks themselves must still run on every
+  // render regardless (Rules of Hooks), so they cannot sit behind the
+  // `if (!isAdjustmentNode) return null` early return.
+  const nodeId = isAdjustmentNode ? selNode.id : undefined;
+  // Derive the adjustment node for the histogram hook (must be before early return).
+  const adjNodeRef = isAdjustmentNode ? (selNode as AdjustmentNode) : undefined;
+
+  // Source histogram for the adjustment layer's scope targets.
+  // The histogram shows the INPUT pixels (before this adjustment is applied).
+  const { histogram: sourceHistogram } = useAdjustmentHistogram(state.document, adjNodeRef);
+
+  const [selectedAdjId, setSelectedAdjId] = useState<string | null>(null);
+  const [showAddMenu, setShowAddMenu] = useState(false);
+  const addBtnRef = useRef<HTMLButtonElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
+  const editTransactionRef = useRef(false);
+
+  const startEditTransaction = useCallback(() => {
+    if (editTransactionRef.current) return;
+    editTransactionRef.current = true;
+    beginTransaction();
+  }, [beginTransaction]);
+
+  const finishEditTransaction = useCallback(() => {
+    if (!editTransactionRef.current) return;
+    editTransactionRef.current = false;
+    commitTransaction();
+  }, [commitTransaction]);
+
+  // Range controls keep one gesture transaction open. Discrete actions and
+  // typed values own a short transaction so every edit is undoable and saved.
+  const mutateNode = useCallback<typeof updateNode>(
+    (id, update) => {
+      const ownsTransaction = !editTransactionRef.current;
+      if (ownsTransaction) beginTransaction();
+      try {
+        updateNode(id, update);
+      } catch (error) {
+        if (ownsTransaction) abortTransaction();
+        throw error;
+      }
+      if (ownsTransaction) commitTransaction();
+    },
+    [abortTransaction, beginTransaction, commitTransaction, updateNode],
+  );
+
+  useEffect(
+    () => () => {
+      if (editTransactionRef.current) {
+        editTransactionRef.current = false;
+        commitTransaction();
+      }
+    },
+    [commitTransaction],
+  );
+
+  useEffect(() => {
+    if (!isAdjustmentNode || !selectedAdjId) return;
+    requestAnimationFrame(() => {
+      editorRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+  }, [isAdjustmentNode, selectedAdjId]);
+
+  const handleAddAdjustment = useCallback(
+    (kind: AdjustmentKind) => {
+      if (!nodeId) return;
+      const newId = cryptoId();
+      const adj = makeAdjustment(newId, kind);
+      mutateNode(nodeId, (n) => {
+        const an = n as AdjustmentNode;
+        return { ...an, adjustments: [...(an.adjustments ?? []), adj] } as SceneNode;
+      });
+      setSelectedAdjId(newId);
+      setShowAddMenu(false);
+    },
+    [mutateNode, nodeId],
+  );
+
+  const handleAutoWhiteBalance = useCallback(() => {
+    if (!nodeId || !sourceHistogram) return;
+    const correction = autoWhiteBalanceParams(sourceHistogram);
+    const id = cryptoId();
+    const auto = makeAdjustment(id, 'colorBalance', {
+      shadows: correction,
+      midtones: correction,
+      highlights: correction,
+      preserveLuminosity: true,
+    } as Partial<Adjustment>);
+    mutateNode(nodeId, (n) => {
+      if (n.kind !== 'adjustment') return n;
+      return { ...n, adjustments: [...(n.adjustments ?? []), auto] } as SceneNode;
+    });
+    setSelectedAdjId(id);
+  }, [mutateNode, nodeId, sourceHistogram]);
+
+  const applyPreset = useCallback(
+    (preset: SurfacePreset) => {
+      if (!nodeId) return;
+      const additions = presetAdjustments(preset);
+      if (additions.length === 0) return;
+      mutateNode(nodeId, (n) => {
+        if (n.kind !== 'adjustment') return n;
+        return { ...n, adjustments: [...(n.adjustments ?? []), ...additions] } as SceneNode;
+      });
+      setSelectedAdjId(additions[0]?.id ?? null);
+      announce(`Applied correction preset ${preset.name}`);
+    },
+    [announce, mutateNode, nodeId],
+  );
+
+  const handleRemoveAdjustment = useCallback(
+    (adjId: string) => {
+      if (!nodeId) return;
+      mutateNode(nodeId, (n) => {
+        const an = n as AdjustmentNode;
+        return {
+          ...an,
+          adjustments: (an.adjustments ?? []).filter((a) => a.id !== adjId),
+        } as SceneNode;
+      });
+      setSelectedAdjId((cur) => (cur === adjId ? null : cur));
+    },
+    [mutateNode, nodeId],
+  );
+
+  const handleUpdateAdjustment = useCallback(
+    (adjId: string) => (patch: Partial<Adjustment>) => {
+      if (!nodeId) return;
+      mutateNode(nodeId, (n) => {
+        const an = n as AdjustmentNode;
+        return {
+          ...an,
+          adjustments: (an.adjustments ?? []).map((a) =>
+            a.id === adjId ? ({ ...a, ...patch } as Adjustment) : a,
+          ),
+        } as SceneNode;
+      });
+    },
+    [mutateNode, nodeId],
+  );
+
+  const handleToggleVis = useCallback(
+    (adjId: string, current: boolean) => {
+      handleUpdateAdjustment(adjId)({ visible: !current } as Partial<Adjustment>);
+    },
+    [handleUpdateAdjustment],
+  );
+
+  const handleResetAdjustment = useCallback(
+    (adjId: string, kind: AdjustmentKind) => {
+      if (!nodeId) return;
+      mutateNode(nodeId, (n) => {
+        if (n.kind !== 'adjustment') return n;
+        return {
+          ...n,
+          adjustments: (n.adjustments ?? []).map((adjustment) =>
+            adjustment.id === adjId ? makeAdjustment(adjId, kind) : adjustment,
+          ),
+        };
+      });
+    },
+    [mutateNode, nodeId],
+  );
+
+  const handleDuplicateAdjustment = useCallback(
+    (adjId: string) => {
+      if (!nodeId) return;
+      const duplicateId = cryptoId();
+      mutateNode(nodeId, (n) => {
+        if (n.kind !== 'adjustment') return n;
+        const adjustments = n.adjustments ?? [];
+        const sourceIndex = adjustments.findIndex((adjustment) => adjustment.id === adjId);
+        if (sourceIndex < 0) return n;
+        const duplicate = { ...adjustments[sourceIndex]!, id: duplicateId };
+        const next = [...adjustments];
+        next.splice(sourceIndex + 1, 0, duplicate);
+        return { ...n, adjustments: next };
+      });
+      setSelectedAdjId(duplicateId);
+    },
+    [mutateNode, nodeId],
+  );
+
+  const closeAddMenu = useCallback(() => {
+    setShowAddMenu(false);
+    addBtnRef.current?.focus();
+  }, []);
+
+  if (!isAdjustmentNode) return null;
+
+  const adjNode = selNode as AdjustmentNode;
+  const { opacity, blendMode } = adjNode;
+  const adjustments = adjNode.adjustments ?? [];
+  const selectedAdj = adjustments.find((a) => a.id === selectedAdjId) ?? null;
+
+  return (
+    <div className="insp-panel adj-panel">
+      <header className="adj-panel__header">
+        <SolidIcon name="Faders" size="1em" aria-hidden className="adj-panel__header-icon" />
+        <div>
+          <span className="adj-panel__header-name">Adjustment Filters</span>
+          <span className="adj-panel__header-context">Adjustment Layer</span>
+          <p className="adj-panel__header-hint">
+            {EFFECT_SURFACE_GUIDANCE['adjustment-layer'].scope}. It affects raster and vector
+            content below this layer; source objects remain editable.
+          </p>
+        </div>
+      </header>
+
+      <div className="adj-panel__opacity">
+        <NumberField
+          label="Opacity"
+          value={opacity}
+          onChange={setSelectedOpacity}
+          step={0.01}
+          min={0}
+          max={1}
+        />
+      </div>
+
+      <div className="adj-panel__blend">
+        <div className="insp-field">
+          <span className="insp-field__label">Blend</span>
+          <div className="insp-field__control">
+            <Select
+              label="Blend mode"
+              value={blendMode}
+              options={ADJUSTMENT_BLEND_OPTIONS}
+              onChange={(v) => setSelectedBlendMode(v as BlendMode)}
+            />
+          </div>
+        </div>
+      </div>
+
+      <AdjustmentScopeSection
+        nodeId={nodeId!}
+        doc={state.document}
+        scope={adjNode.scope}
+        onChangeScope={(s) => {
+          mutateNode(nodeId!, (n) => {
+            if (n.kind !== 'adjustment') return n;
+            return { ...n, scope: s } as SceneNode;
+          });
+        }}
+      />
+
+      <fieldset className="adj-panel__presets">
+        <legend>Correction presets</legend>
+        <div className="adj-panel__preset-grid">
+          {ADJUSTMENT_LAYER_PRESETS.map((preset) => (
+            <button
+              type="button"
+              key={preset.id}
+              className="adj-panel__preset"
+              onClick={() => applyPreset(preset)}
+              aria-label={`Apply correction preset ${preset.name}`}
+            >
+              <strong>{preset.name}</strong>
+              <span>{preset.description}</span>
+            </button>
+          ))}
+        </div>
+      </fieldset>
+
+      <div className="adj-panel__stack">
+        <div className="adj-panel__stack-header">
+          <span className="adj-panel__stack-title">Filter Stack</span>
+          <button
+            type="button"
+            className="adj-panel__auto-btn"
+            onClick={handleAutoWhiteBalance}
+            disabled={!sourceHistogram}
+            aria-label="Auto White Balance"
+          >
+            Auto WB
+          </button>
+        </div>
+
+        {adjustments.map((adj, index) => (
+          <div
+            key={adj.id}
+            className={`adj-panel__item${selectedAdjId === adj.id ? ' adj-panel__item--selected' : ''}`}
+          >
+            <span className="adj-panel__item-reorder">
+              <button
+                type="button"
+                className="adj-panel__item-reorder-btn"
+                disabled={index === 0}
+                onClick={() => reorderAdjustmentInLayer(nodeId!, adj.id, index - 1)}
+                aria-label={`Move ${filterKindDisplayName(adj.kind)} up`}
+              >
+                <SolidIcon name={SOLID_CHROME_ICONS.chevronUp} size="0.65em" />
+              </button>
+              <button
+                type="button"
+                className="adj-panel__item-reorder-btn"
+                disabled={index === adjustments.length - 1}
+                onClick={() => reorderAdjustmentInLayer(nodeId!, adj.id, index + 1)}
+                aria-label={`Move ${filterKindDisplayName(adj.kind)} down`}
+              >
+                <SolidIcon name={SOLID_CHROME_ICONS.chevronDown} size="0.65em" />
+              </button>
+            </span>
+
+            <span className="adj-panel__item-vis">
+              <button
+                type="button"
+                className="adj-panel__item-vis-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleToggleVis(adj.id, adj.visible);
+                }}
+                aria-label={adj.visible ? `Disable ${adj.kind}` : `Enable ${adj.kind}`}
+              >
+                <SolidIcon
+                  name={
+                    adj.visible ? SOLID_CHROME_ICONS.visibility : SOLID_CHROME_ICONS.visibilityOff
+                  }
+                  size="0.75em"
+                />
+              </button>
+            </span>
+
+            <button
+              type="button"
+              className="adj-panel__item-select"
+              aria-expanded={selectedAdjId === adj.id}
+              onClick={() => setSelectedAdjId(adj.id === selectedAdjId ? null : adj.id)}
+            >
+              <span className="adj-panel__item-name">{filterKindDisplayName(adj.kind)}</span>
+              {adj.opacity < 1 && (
+                <span className="adj-panel__item-opacity">{Math.round(adj.opacity * 100)}%</span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              className="adj-panel__item-remove"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRemoveAdjustment(adj.id);
+              }}
+              aria-label={`Remove ${adj.kind}`}
+            >
+              <SolidIcon name={SOLID_CHROME_ICONS.close} size="0.7em" />
+            </button>
+          </div>
+        ))}
+
+        <div style={{ position: 'relative' }}>
+          <button
+            ref={addBtnRef}
+            type="button"
+            className="adj-panel__add-btn"
+            onClick={() => setShowAddMenu(!showAddMenu)}
+            aria-haspopup="menu"
+            aria-expanded={showAddMenu}
+          >
+            <SolidIcon name={SOLID_CHROME_ICONS.plus} size="0.75em" />
+            Add adjustment
+          </button>
+
+          {showAddMenu && (
+            <AddAdjustmentMenu onSelect={handleAddAdjustment} onClose={closeAddMenu} />
+          )}
+        </div>
+      </div>
+
+      {selectedAdj && (
+        <div
+          ref={editorRef}
+          className="adj-panel__editor"
+          onPointerDownCapture={(event) => {
+            if ((event.target as Element).matches('input[type="range"]')) {
+              startEditTransaction();
+            }
+          }}
+          onPointerUpCapture={finishEditTransaction}
+          onPointerCancelCapture={finishEditTransaction}
+          onKeyDownCapture={(event) => {
+            if ((event.target as Element).matches('input[type="range"]')) {
+              startEditTransaction();
+            }
+          }}
+          onKeyUpCapture={finishEditTransaction}
+        >
+          <div className="adj-panel__editor-header">
+            <span className="adj-panel__editor-title">
+              {filterKindDisplayName(selectedAdj.kind)}
+            </span>
+            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
+              {Math.round(selectedAdj.opacity * 100)}%
+            </span>
+          </div>
+          <AdjustmentEditor
+            adjustment={selectedAdj}
+            onChange={handleUpdateAdjustment(selectedAdj.id)}
+            onEditStart={startEditTransaction}
+            onEditEnd={finishEditTransaction}
+            doc={state.document}
+            sourceHistogram={sourceHistogram}
+          />
+          <div className="adj-panel__effect-controls">
+            <div className="adj-editor__slider-row">
+              <span className="adj-editor__slider-label">
+                <span>Effect Opacity</span>
+                <span>{Math.round(selectedAdj.opacity * 100)}%</span>
+              </span>
+              <RangeValueControl
+                label={`${filterKindDisplayName(selectedAdj.kind)} effect opacity`}
+                rangeClassName="adj-editor__slider"
+                min={0}
+                max={100}
+                step={1}
+                value={Math.round(selectedAdj.opacity * 100)}
+                unit="%"
+                onChange={(next) =>
+                  handleUpdateAdjustment(selectedAdj.id)({
+                    opacity: next / 100,
+                  })
+                }
+              />
+            </div>
+            <div className="adj-editor__row">
+              <span className="adj-editor__label">Effect Blend</span>
+              <Select
+                label={`${filterKindDisplayName(selectedAdj.kind)} effect blend mode`}
+                value={selectedAdj.blendMode}
+                options={ADJUSTMENT_BLEND_OPTIONS}
+                onChange={(value) =>
+                  handleUpdateAdjustment(selectedAdj.id)({
+                    blendMode: value as AdjustmentBlendMode,
+                  })
+                }
+              />
+            </div>
+            <div className="adj-panel__effect-actions">
+              <button
+                type="button"
+                className="adj-panel__effect-action"
+                onClick={() => handleResetAdjustment(selectedAdj.id, selectedAdj.kind)}
+              >
+                Reset
+              </button>
+              <button
+                type="button"
+                className="adj-panel__effect-action"
+                onClick={() => handleDuplicateAdjustment(selectedAdj.id)}
+              >
+                Duplicate
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AddAdjustmentMenu({
+  onSelect,
+  onClose,
+}: {
+  onSelect: (kind: AdjustmentKind) => void;
+  onClose: () => void;
+}) {
+  const handleMenuKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!['ArrowDown', 'ArrowUp', 'ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) {
+      return;
+    }
+    const items = Array.from(
+      event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'),
+    );
+    const currentIndex = items.indexOf(document.activeElement as HTMLButtonElement);
+    if (currentIndex < 0 || items.length === 0) return;
+
+    const nextIndex =
+      event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? items.length - 1
+          : (currentIndex +
+              (event.key === 'ArrowUp' || event.key === 'ArrowLeft' ? -1 : 1) +
+              items.length) %
+            items.length;
+    event.preventDefault();
+    items[nextIndex]?.focus();
+  };
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title="Add adjustment"
+      focusFirstControl
+      className="adj-panel__add-dialog"
+    >
+      <div
+        className="adj-panel__add-menu"
+        role="menu"
+        aria-label="Add adjustment"
+        onKeyDown={handleMenuKeyDown}
+      >
+        {ADJUSTMENT_LAYER_KINDS.map((kind) => (
+          <button
+            key={kind}
+            type="button"
+            role="menuitem"
+            className="adj-panel__add-menu-item"
+            onClick={() => {
+              onSelect(kind);
+              onClose();
+            }}
+          >
+            {filterKindDisplayName(kind)}
+          </button>
+        ))}
+      </div>
+    </Dialog>
+  );
+}

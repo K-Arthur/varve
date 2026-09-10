@@ -1,0 +1,60 @@
+# Varve Rust workspace.
+# The native engine is compiled per-OS for the Tauri desktop build, and the
+# same crates compile to wasm32 for the web fallback behind one TS facade.
+[workspace]
+resolver = "2"
+members = [
+    "crates/varve-core",
+    "crates/varve-engine",
+    "crates/varve-layout",
+    "crates/varve-media",
+    "crates/varve-sync",
+    "crates/varve-trace",
+    "crates/varve-print",
+    "crates/varve-upscale",
+    "crates/varve-bgremove",
+    "crates/varve-bridge",
+    "crates/varve-colour",
+    "crates/varve-effects",
+    "crates/varve-wasm",
+    "crates/varve-generative-helper",
+]
+
+[workspace.package]
+version = "0.2.1"
+edition = "2021"
+rust-version = "1.82"
+license = "FSL-1.1-MIT"
+authors = ["Varve"]
+repository = "https://github.com/K-Arthur/varve"
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+rust_2024_compatibility = { level = "warn", priority = -1 }
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+# Pedantic is intentionally NOT workspace-wide during scaffolding; each crate
+# opts in once it has stable public APIs. Prevents noise during foundation work.
+
+# Shared profile tuning: fast dev iteration, lean release binaries.
+[profile.dev]
+opt-level = 0
+debug = 1
+
+# Third-party dependencies rarely change between dev builds, so optimizing
+# them doesn't cost incremental-rebuild time the way optimizing our own
+# workspace crates (left at opt-level 0 above) would. This mainly speeds up
+# native-heavy paths that lean on deps — image decode, ONNX inference, PDF
+# export, geometry/matrix math — which otherwise run at debug speed in
+# `tauri dev`, several times slower than a release build. First `cargo build`
+# after this change is slower (deps compile at -O2 instead of -O0); every
+# build after that is unaffected, since deps are cached until they change.
+[profile.dev.package."*"]
+opt-level = 2
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true

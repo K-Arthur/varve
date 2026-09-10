@@ -1,0 +1,9 @@
+#!/bin/sh
+# Varve's staged-work adapter. Keep policy in the tested Node driver so the
+# same checkpoint is usable from Linux, macOS, Windows/Git Bash, and CI tools.
+
+if [ -n "$CI" ]; then
+  exit 0
+fi
+
+exec pnpm verify:commit "$@"

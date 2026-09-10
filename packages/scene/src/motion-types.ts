@@ -1,0 +1,198 @@
+/**
+ * Motion type definitions for the timeline/keyframe system.
+ *
+ * These types define the document-level animation model: timelines with
+ * per-node property tracks, keyframes with easing, and playback control
+ * parameters. Designed for integration with the existing @varve/prototype
+ * animation engine and @varve/shared easing module.
+ *
+ * Research basis: W3C Web Animations API timing model (§4), Lottie/Bodymovin
+ * v5.5 schema, GSAP Timeline architecture, After Effects layer/track model,
+ * and CSS @keyframes fill/direction/iteration semantics.
+ */
+import type { EasingDefinition } from '@varve/shared';
+import type { NodeId } from './types';
+
+/** Fill mode: what values to show before/after the active interval. */
+export type FillMode = 'none' | 'forwards' | 'backwards' | 'both';
+
+/** Playback direction for timeline iterations. */
+export type PlaybackDirection = 'normal' | 'reverse' | 'alternate' | 'alternate-reverse';
+
+/** How multiple animations on the same property combine. */
+export type CompositeOperation = 'replace' | 'add' | 'accumulate';
+
+/** Interpolation strategy for a track. */
+export type InterpolationStrategy = 'linear' | 'discrete' | 'bezier' | 'path';
+
+/** Timeline marker for organization. */
+export interface TimelineMarker {
+  id: string;
+  name: string;
+  /** Position as progress 0–1 within timeline duration. */
+  progress: number;
+  color?: string;
+}
+
+/**
+ * A single keyframe on an animation track.
+ * `progress` is 0–1 within the track's parent timeline duration.
+ */
+export interface AnimationKeyframe {
+  progress: number;
+  /** The property value at this keyframe. Type depends on the property being animated. */
+  value: unknown;
+  /** Easing TO this keyframe (from the previous keyframe). */
+  easing?: EasingDefinition;
+  /**
+   * Spatial tangents for position/path properties (After Effects-style).
+   * ti = tangent in, to = tangent out. Only used when interpolation is 'bezier'.
+   */
+  spatialTangents?: {
+    ti: [number, number];
+    to: [number, number];
+  };
+}
+
+/**
+ * A single property track within a timeline.
+ * Targets one node's property using dot-notation property paths.
+ */
+export interface AnimationTrack {
+  id: string;
+  /** The node being animated. */
+  nodeId: NodeId;
+  /**
+   * Dot-notation property path to the animated property.
+   * Examples: "opacity", "rotation", "transform[4]", "fills[0].color",
+   * "shape.w", "cornerRadius", "fontSize", "letterSpacing"
+   */
+  property: string;
+  /** Keyframes sorted by progress. */
+  keyframes: AnimationKeyframe[];
+  /** Composite operation when multiple tracks target the same property. */
+  composite?: CompositeOperation;
+  /** Interpolation strategy. Defaults to 'linear'. */
+  interpolation?: InterpolationStrategy;
+  /** Whether this track is currently active. */
+  enabled?: boolean;
+  /** Muted tracks are evaluated but their output is suppressed. */
+  muted?: boolean;
+  /** Solo tracks suppress all other non-solo tracks in the timeline. */
+  solo?: boolean;
+  /** Nested pre-comp timeline id (Phase E slice). When set, keyframes on this track are ignored. */
+  nestedTimelineId?: string;
+  /** Parent progress (0–1) where the nested timeline begins. Defaults to 0. */
+  nestedStartProgress?: number;
+}
+
+/**
+ * A named timeline containing property tracks.
+ * Timelines are stored on the Document and serialized with it.
+ */
+export interface Timeline {
+  id: string;
+  name: string;
+  /** Total duration in milliseconds. */
+  duration: number;
+  /** Default easing for tracks that don't specify per-keyframe easing. */
+  defaultEasing: EasingDefinition;
+  /** Property tracks in this timeline. */
+  tracks: AnimationTrack[];
+
+  // ── Playback defaults ──────────────────────────────────────────────────
+  /** Default fill mode. */
+  defaultFillMode?: FillMode;
+  /** Default playback direction. */
+  defaultPlaybackDirection?: PlaybackDirection;
+  /** Default iterations (1 = play once, Infinity = loop forever). */
+  defaultIterations?: number;
+  /** Whether to reverse direction on alternating iterations. */
+  autoReverse?: boolean;
+  /** Named markers along the timeline. */
+  markers?: TimelineMarker[];
+}
+
+/** Phase 5+ extension kinds — reserved, not yet implemented. */
+export type MotionExtensionKind =
+  | 'skeleton'
+  | 'bone'
+  | 'ikConstraint'
+  | 'meshDeform'
+  | 'pathConstraint';
+
+/** Future rigging/deformation extension slot (Phase 5+). */
+export interface MotionExtension {
+  kind: MotionExtensionKind;
+  id: string;
+  nodeId: NodeId;
+  data: Record<string, unknown>;
+}
+
+/** Reusable motion preset (parallel to TextStyle / EffectStyle). */
+export interface MotionPreset {
+  id: string;
+  name: string;
+  /** Source timeline id this preset was captured from. */
+  timelineId: string;
+  duration: number;
+  description?: string;
+}
+
+/** Nested timeline reference (Lottie pre-comp pattern, Phase 5+). */
+export interface NestedTimelineRef {
+  id: string;
+  timelineId: string;
+  /** Parent timeline that references this nested timeline. */
+  parentTimelineId: string;
+  startProgress: number;
+}
+
+/** Audio sync track for timeline alignment (Phase 5+). */
+export interface AudioSyncTrack {
+  id: string;
+  timelineId: string;
+  src: string;
+  offsetMs: number;
+  volume?: number;
+}
+
+/** Collaborative keyframe lock stub (Phase 5+). */
+export interface CollaborativeKeyframeLock {
+  keyframeId: string;
+  userId: string;
+  lockedAt: number;
+}
+
+/**
+ * Create a new timeline object with the given parameters (does not add to Document).
+ */
+export function makeTimelineObject(
+  id: string,
+  name: string,
+  duration: number,
+  defaultEasing?: EasingDefinition,
+): Timeline {
+  return {
+    id,
+    name,
+    duration,
+    defaultEasing: defaultEasing ?? { kind: 'linear' },
+    tracks: [],
+    defaultFillMode: 'none',
+    defaultPlaybackDirection: 'normal',
+    defaultIterations: 1,
+    autoReverse: false,
+  };
+}
+
+/**
+ * Create a keyframe at the given progress point.
+ */
+export function createKeyframe(
+  progress: number,
+  value: unknown,
+  easing?: EasingDefinition,
+): AnimationKeyframe {
+  return { progress, value, easing };
+}

@@ -1,0 +1,1 @@
+export { LogoPanel } from './LogoPanel';

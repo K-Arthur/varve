@@ -1,0 +1,24 @@
+{
+  "name": "@varve/prototype",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Varve prototype engine: interactions, animations, state, presentation.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "cd ../.. && vitest run packages/prototype"
+  },
+  "dependencies": {
+    "@varve/engine": "workspace:*",
+    "@varve/scene": "workspace:*",
+    "@varve/shared": "workspace:*"
+  },
+  "license": "FSL-1.1-MIT"
+}

@@ -1,0 +1,36 @@
+---
+interface Props {
+  /** Mirrors the product action vocabulary. Pills remain marketing-only classes. */
+  variant?: 'default' | 'secondary' | 'outline' | 'ghost' | 'destructive' | 'link';
+  size?: 'xs' | 'sm' | 'md' | 'lg';
+  href?: string;
+  type?: 'button' | 'submit' | 'reset';
+  disabled?: boolean;
+  class?: string;
+}
+
+const {
+  variant = 'default',
+  size = 'md',
+  href,
+  type = 'button',
+  disabled = false,
+  class: className,
+} = Astro.props;
+const classes = ['btn', `btn-${variant}`, `btn-${size}`, className];
+---
+
+{href ? (
+  <a
+    href={disabled ? undefined : href}
+    class:list={classes}
+    aria-disabled={disabled || undefined}
+    tabindex={disabled ? -1 : undefined}
+  >
+    <slot />
+  </a>
+) : (
+  <button type={type} class:list={classes} disabled={disabled}>
+    <slot />
+  </button>
+)}

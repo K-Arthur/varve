@@ -1,0 +1,323 @@
+.floating-toolbar {
+  /* Stack in the canvas grid cell so the tool palette sits above page chrome
+   * without viewport-fixed math fighting SelectionInfoBar / status / page-nav. */
+  grid-area: canvas;
+  position: absolute;
+  bottom: var(--space-3);
+  left: 50%;
+  transform: translateX(-50%);
+  /* Workflow panels such as Codegen occupy the canvas grid area at the
+   * raised layer. The toolbar is editor chrome and must remain the reachable
+   * command surface above those panels. */
+  z-index: calc(var(--elevation-z-raised) + 1);
+  pointer-events: none;
+  width: max-content;
+  /* The canvas grid area is narrower than the whole shell when side panels
+   * are open. Keep the palette inside that cell; the inner row scrolls when
+   * the workspace has more tools than the available canvas width. */
+  max-width: calc(100% - var(--space-4));
+  height: max-content;
+  margin: 0;
+}
+
+.floating-toolbar--modal-options {
+  pointer-events: auto;
+}
+
+.floating-toolbar [role="toolbar"] {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  background: var(--elevation-surface-raised);
+  border-radius: var(--radius-floating);
+  border: 1px solid var(--color-border-subtle);
+  box-shadow: var(--shadow-lg);
+  pointer-events: auto;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Keep the option and touch actions outside the scrollable tool row. When the
+ * canvas is narrowed by side panels, those actions must remain visible so a
+ * portal can never mistake their clipped trigger for a detached anchor. */
+.floating-toolbar__row {
+  display: flex;
+  align-items: center;
+  width: max-content;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-floating);
+  background: var(--elevation-surface-raised);
+  box-shadow: var(--shadow-lg);
+  pointer-events: auto;
+}
+
+.floating-toolbar__row [role="toolbar"] {
+  min-width: 0;
+  flex: 1 1 auto;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.floating-toolbar__actions {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border-left: 1px solid var(--color-border-subtle);
+  background: var(--elevation-surface-raised);
+}
+
+.floating-toolbar__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-control-compact);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.floating-toolbar__btn:hover {
+  background: var(--color-interactive-hover-surface);
+  color: var(--color-text-primary);
+}
+.floating-toolbar__btn:active:not(:disabled):not([aria-disabled="true"]):not(
+  .floating-toolbar__btn--active
+) {
+  background: var(--color-interactive-pressed-surface);
+  color: var(--color-text-on-accent);
+}
+.floating-toolbar__btn:focus-visible,
+.floating-toolbar__chevron:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+}
+
+.floating-toolbar__btn--active {
+  background: var(--color-interactive-checked-surface);
+  color: var(--color-text-on-accent);
+}
+.floating-toolbar__btn--active:hover {
+  background: var(--color-interactive-hover);
+  color: var(--color-text-on-accent);
+}
+.floating-toolbar__btn--active:active:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--color-interactive-pressed-surface);
+  color: var(--color-text-on-accent);
+}
+
+.floating-toolbar__btn:disabled,
+.floating-toolbar__chevron:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.floating-toolbar__btn--group-start {
+  border-left: 1px solid var(--color-border-subtle);
+  margin-left: var(--space-1);
+  padding-left: var(--space-1);
+}
+
+.floating-toolbar__chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-control-compact);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 0;
+  margin-right: var(--space-1);
+  flex: 0 0 auto;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+/* L2 (2026-08-10): at <=640px the 19-tool row is wider than the viewport
+ * (728px measured at 430px) and the edges were clipped with no way to reach
+ * them. The palette becomes a horizontally scrollable strip within the
+ * canvas instead — every tool stays reachable on touch and via Tab. */
+@media (max-width: 640px) {
+  .floating-toolbar {
+    left: var(--space-2);
+    right: var(--space-2);
+    transform: none;
+    width: auto;
+  }
+  .floating-toolbar [role="toolbar"] {
+    max-width: 100%;
+  }
+}
+
+.floating-toolbar__chevron:hover {
+  background: var(--color-interactive-hover-surface);
+  color: var(--color-text-primary);
+}
+.floating-toolbar__chevron:active:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--color-interactive-pressed-surface);
+  color: var(--color-text-on-accent);
+}
+
+[data-theme="high-contrast"] .floating-toolbar [role="toolbar"] {
+  border-color: var(--color-border-subtle);
+  outline: 1px solid var(--color-border-subtle);
+}
+
+.floating-toolbar__touch-multi {
+  border-left: 1px solid var(--color-border-subtle);
+  margin-left: var(--space-2);
+  padding-left: var(--space-2);
+}
+
+.floating-toolbar__touch-multi:hover {
+  background: var(--color-interactive-hover-surface);
+  color: var(--color-text-primary);
+}
+
+.floating-toolbar__touch-multi--active {
+  color: var(--color-text-on-accent);
+  background: var(--color-interactive-checked-surface);
+}
+.floating-toolbar__touch-multi--active:hover {
+  background: var(--color-interactive-hover);
+  color: var(--color-text-on-accent);
+}
+
+/* ─── Drawing mode controls (brush size / opacity / colors) ─── */
+.floating-toolbar__drawing {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  background: var(--elevation-surface-raised);
+  border-radius: var(--radius-floating);
+  border: 1px solid var(--color-border-subtle);
+  box-shadow: var(--shadow-lg);
+  pointer-events: auto;
+  width: max-content;
+}
+.floating-toolbar__drawing-label {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+.floating-toolbar__drawing-slider {
+  width: 5.5rem;
+  accent-color: var(--color-interactive-default);
+  cursor: pointer;
+}
+.floating-toolbar__drawing-slider:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-control-compact);
+}
+.floating-toolbar__colors {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: var(--space-1);
+  padding-left: var(--space-2);
+  border-left: 1px solid var(--color-border-subtle);
+}
+.floating-toolbar__color-swatch {
+  position: relative;
+  display: block;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.floating-toolbar__color-swatch:focus-within {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+.floating-toolbar__color-swap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-control-compact);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 0;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+.floating-toolbar__color-swap:hover {
+  color: var(--color-text-primary);
+  background: var(--color-interactive-hover-surface);
+}
+.floating-toolbar__color-swap:active:not(:disabled):not([aria-disabled="true"]) {
+  color: var(--color-text-on-accent);
+  background: var(--color-interactive-pressed-surface);
+}
+.floating-toolbar__color-swap:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .floating-toolbar__btn {
+    width: var(--touch-target-min);
+    height: var(--touch-target-min);
+  }
+  .floating-toolbar__btn:hover {
+    background: transparent;
+    color: var(--color-text-secondary);
+  }
+  .floating-toolbar__btn--active:hover {
+    background: var(--color-interactive-checked-surface);
+    color: var(--color-text-on-accent);
+  }
+  .floating-toolbar__chevron {
+    width: var(--touch-target-min);
+    height: var(--touch-target-min);
+  }
+  .floating-toolbar__chevron:hover {
+    background: transparent;
+    color: var(--color-text-muted);
+  }
+  .floating-toolbar__touch-multi:hover {
+    background: transparent;
+    color: var(--color-text-secondary);
+  }
+  .floating-toolbar__touch-multi--active:hover {
+    background: var(--color-interactive-checked-surface);
+    color: var(--color-text-on-accent);
+  }
+  .floating-toolbar__color-swap {
+    width: var(--touch-target-min);
+    height: var(--touch-target-min);
+  }
+  .floating-toolbar__color-swap:hover {
+    background: transparent;
+    color: var(--color-text-muted);
+  }
+}

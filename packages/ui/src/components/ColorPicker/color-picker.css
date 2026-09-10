@@ -1,0 +1,493 @@
+/* ColorPicker — popover colour picker surface (APG Slider + Listbox). */
+.color-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-surface-overlay);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-floating);
+  box-shadow: var(--elevation-shadow-overlay);
+  min-width: 240px;
+  color: var(--color-text-primary);
+}
+.color-picker__format-bar {
+  display: flex;
+  justify-content: center;
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.insp-picker-dialog .color-picker {
+  min-width: 0;
+  gap: var(--space-2);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.color-picker__area-frame {
+  overflow: hidden;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+  box-shadow: inset 0 0 0 1px var(--color-surface-sunken);
+}
+.color-picker__control-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.color-picker__sliders {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: 52px;
+}
+.color-picker__sliders .insp-slider {
+  min-height: 24px;
+  flex-shrink: 0;
+}
+.color-picker__sliders .insp-slider__track {
+  height: 20px;
+  min-height: 20px;
+  border-radius: var(--radius-control-compact);
+}
+.color-picker__sliders .insp-slider__thumb {
+  width: 4px;
+  height: 24px;
+  margin-left: -2px;
+  border-radius: var(--radius-control-compact);
+  border: 1px solid var(--color-border-strong);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+/* Hide the fill overlay on hue sliders — the rainbow gradient IS the
+ * visual indicator. A solid fill obscures the spectrum.  The fill is
+ * only meaningful on the alpha slider (shows opacity level). */
+.color-picker__sliders .insp-slider__fill {
+  background: transparent;
+}
+.color-picker__preview-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 2rem;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-sunken);
+}
+.color-picker__preview {
+  width: var(--space-5);
+  height: var(--space-5);
+  border-radius: var(--radius-control-compact);
+  border: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
+}
+.color-picker__hex {
+  display: block;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+}
+.color-picker__swatch-section {
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--space-3);
+}
+.color-picker__contrast {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  padding-top: var(--space-1);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+/* ColorArea — 2D saturation/value picker.
+ * 60% aspect ratio keeps the area large enough for precise picking while
+ * leaving room for the hue+alpha sliders below within the inspector panel. */
+.color-area {
+  position: relative;
+  width: 100%;
+  padding-bottom: 60%;
+  border-radius: var(--radius-control-compact);
+  cursor: crosshair;
+  overflow: hidden;
+}
+.color-area__gradient {
+  position: absolute;
+  inset: 0;
+  /* Black is the top layer so the lower-left corner reaches true black. */
+  background-image:
+    linear-gradient(to top, black, transparent), linear-gradient(to right, white, transparent);
+}
+.color-area__thumb {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  margin-left: -9px;
+  margin-top: -9px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid rgba(0, 0, 0, 0.5);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.4),
+    0 2px 6px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+  transform: translateZ(0);
+}
+
+/* ColorSlider — gradient track overlay elements */
+.color-slider__checkerboard {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+}
+.color-slider__gradient {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+.color-slider--alpha .color-slider__gradient {
+  /* The gradient itself is the opacity indicator over the checkerboard. */
+  z-index: 1;
+}
+.color-slider--hue .color-slider__gradient {
+  z-index: 1;
+}
+.color-slider--alpha .color-slider__checkerboard {
+  z-index: 0;
+}
+.color-slider--alpha .insp-slider__thumb,
+.color-slider--hue .insp-slider__thumb {
+  z-index: 2;
+}
+
+/* ColorFields — mode toggle + spinbutton rows */
+.color-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.color-fields__channel-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-1);
+}
+.color-fields__channel-row .insp-field {
+  min-width: 0;
+}
+.color-fields__channel-row .insp-field__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.color-fields__channel-row .insp-field__control {
+  min-width: 0;
+}
+.color-fields__mode-group {
+  display: inline-flex;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  overflow: hidden;
+  align-self: flex-start;
+  background: var(--color-surface-sunken);
+  padding: 2px;
+}
+.color-fields__mode-btn {
+  padding: 0 var(--space-2);
+  min-height: 1.5rem;
+  height: auto;
+  border: none;
+  border-right: 1px solid var(--color-border-subtle);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  background: transparent;
+  color: var(--color-text-secondary);
+  border-radius: calc(var(--radius-control-compact) - 2px);
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+.color-fields__mode-btn:last-child {
+  border-right: none;
+}
+.color-fields__mode-btn--active {
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+  box-shadow: var(--elevation-shadow-raised);
+}
+.color-picker__format-bar .color-fields__mode-group {
+  width: 100%;
+}
+.color-picker__format-bar .color-fields__mode-btn {
+  flex: 1;
+  min-width: 0;
+  padding-inline: var(--space-1);
+  font-weight: var(--font-weight-medium);
+}
+.color-fields__input-full {
+  width: 100%;
+}
+
+/* EyeDropperButton */
+.eye-dropper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+  padding: 0;
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+.eye-dropper:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+.eye-dropper:disabled {
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.color-picker__control-row .eye-dropper {
+  align-self: stretch;
+  width: 2rem;
+  height: auto;
+  min-width: 2rem;
+  border-radius: var(--radius-control);
+  background: var(--color-surface-sunken);
+}
+.color-picker__control-row .color-picker__sliders {
+  flex: 1;
+}
+
+/* SwatchPalette — listbox of colour swatches */
+.swatch-palette {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.swatch-palette__section-title {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-1);
+}
+.swatch-palette__grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.swatch-palette__swatch {
+  width: 1.5rem;
+  height: 1.5rem;
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+  border-radius: var(--radius-control-compact);
+  cursor: pointer;
+  padding: 0;
+  outline: none;
+}
+.swatch-palette__swatch:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+
+/* GamutWarning */
+.gamut-warning {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-feedback-warning);
+}
+
+/* SpotColorBrowser */
+.spot-color-browser {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.spot-color-browser__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.spot-color-browser__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: var(--radius-control-compact);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  text-align: left;
+  width: 100%;
+}
+.spot-color-browser__item:hover {
+  background: var(--color-interactive-hover);
+}
+.spot-color-browser__item:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+}
+.spot-color-browser__swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
+}
+.spot-color-browser__name {
+  flex: 1;
+}
+.spot-color-browser__empty {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  padding: var(--space-2);
+}
+
+/* Invalid hex input */
+.color-fields__input--invalid {
+  border-color: var(--color-feedback-danger);
+}
+.color-fields__error {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--color-feedback-danger);
+  margin-top: var(--space-1);
+}
+
+/* CMYK profile context note */
+.color-picker__profile-note {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin-top: var(--space-1);
+}
+
+/* Focus visibility: every interactive picker control needs a :focus-visible
+   ring in all themes (WCAG 2.4.7, 2.4.11, 2.4.13). */
+.color-picker .color-fields__mode-btn:focus-visible,
+.color-picker .insp-slider__thumb:focus-visible,
+.color-picker .color-area:focus-visible,
+.color-picker .insp-num__input:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+
+.color-picker .insp-slider__track {
+  overflow: visible;
+}
+
+/* Forced-colors mode: ensure swatches and thumbs stay distinguishable when
+   the OS overrides colors (forced-colors / high-contrast on Windows). */
+@media (forced-colors: active) {
+  .color-picker .color-picker__preview,
+  .color-picker .swatch-palette__swatch,
+  .color-picker .insp-slider__thumb,
+  .color-picker .color-area__thumb {
+    border: 1px solid CanvasText;
+  }
+  .color-picker .color-area__gradient,
+  .color-picker .color-slider__gradient {
+    forced-color-adjust: none;
+  }
+}
+
+/* Current + previous color preview */
+.color-picker__preview-pair {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background-image: conic-gradient(
+    var(--color-surface-sunken) 0 25%,
+    var(--color-surface-overlay) 0 50%,
+    var(--color-surface-sunken) 0 75%,
+    var(--color-surface-overlay) 0
+  );
+  background-size: 8px 8px;
+  border-radius: var(--radius-control-compact);
+  padding: 1px;
+  flex-shrink: 0;
+}
+.color-picker__preview-pair::before,
+.color-picker__preview-pair::after {
+  font-size: var(--font-size-2xs, 0.625rem);
+  color: var(--color-text-muted);
+}
+.color-picker__preview-pair:has(.color-picker__preview--previous)::before {
+  content: "Before";
+}
+.color-picker__preview-pair::after {
+  content: "Current";
+}
+.color-picker__proof {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  flex: 1;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+.color-picker__proof-swatch {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 1rem;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+}
+.color-picker__proof-label {
+  min-width: 0;
+  max-width: 13rem;
+  overflow-wrap: anywhere;
+}
+.color-picker__proof-toggle {
+  flex: 0 0 auto;
+  min-height: 1.5rem;
+  padding-inline: var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-xs);
+}
+.color-picker__proof-toggle--active {
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+}
+.color-picker__proof-gamut,
+.color-picker__gamut-note {
+  color: var(--color-feedback-warning);
+  font-size: var(--font-size-xs);
+}
+.color-picker__preview--previous {
+  border-left: 1px solid var(--color-border-subtle);
+}
+.insp-picker-dialog .color-area {
+  padding-bottom: 50%;
+}
+
+@media (max-width: 360px) {
+  .color-picker {
+    min-width: 0;
+    padding: var(--space-3);
+  }
+
+  .color-picker__format-bar .color-fields__mode-btn {
+    font-size: 0.6875rem;
+  }
+}

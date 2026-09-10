@@ -1,0 +1,311 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+
+const figmaImportFaq = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: [
+    {
+      '@type': 'Question',
+      name: 'Can Varve import a native Figma .fig file?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Supported native .fig archives are decoded locally, then converted into editable native Varve nodes. Conversion depends on the archive schema and runtime; REST and plugin-export JSON remain the documented high-fidelity routes when a file contains resource metadata not exposed by the native decoder.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Does importing a Figma file require Figma or an upload?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'A local .fig conversion does not require Figma credentials or an upload. Native archive support is format-version dependent, and API-backed JSON acquisition is a separate authenticated workflow.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Does Varve flatten imported Figma designs to images?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'No. Varve prioritizes native editable nodes. Supported vector regions become editable paths, text remains text, and unsupported or degraded semantics are reported instead of being silently presented as full-fidelity import.',
+      },
+    },
+  ],
+};
+---
+
+<Layout title="File Formats & Figma Import — Varve Docs" description="Import native Figma .fig files locally into editable Varve documents, with REST/plugin JSON support, semantic conversion, and honest fidelity reporting." structuredData={figmaImportFaq}>
+  <div class="container-custom">
+    <div class="docs-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/docs')}>Documentation</a> / File Formats
+      </nav>
+
+      <h1>File Formats</h1>
+      <p class="docs-intro">
+        Varve supports a wide range of file formats for import and export. The native .varve format preserves the full document model including layers, effects, variables, and prototypes.
+      </p>
+
+      <section class="docs-section">
+        <h2>Open, import, place, and install</h2>
+        <p>
+          Varve uses precise actions for local files. <strong>Open</strong> makes a Varve document the active document. <strong>Import</strong> converts artwork into the active document. <strong>Place</strong> positions an image or reference on the canvas. <strong>Install</strong> adds a reusable resource such as an icon pack or brush. These core actions read local files; they do not require an account or a file upload.
+        </p>
+        <ul>
+          <li><strong>Desktop:</strong> native file dialogs and operating-system drops preserve the path boundary where a path is needed.</li>
+          <li><strong>Browser:</strong> file pickers and canvas drops use browser file APIs and keep the working copy in local browser storage.</li>
+          <li><strong>Drag and drop:</strong> empty, oversized, unsupported, or over-limit selections are reported before format-specific parsing.</li>
+          <li><strong>Batch selection:</strong> files stay in selection order, duplicate names are allowed, and one failed file does not discard successful files.</li>
+        </ul>
+        <p>
+          “Upload” is reserved for an explicit, consented remote service such as diagnostic reporting. It is not the mechanism used by core document or artwork import.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Native Format: .varve</h2>
+        <p>
+          The Varve native file format (<code>.varve</code>) is a JSON-based document that stores the complete design state. Each file contains:
+        </p>
+        <ul>
+          <li><strong>Format version</strong> — Semver string for forward compatibility with document migration (<code>migrateDocument()</code> supports version upgrades)</li>
+          <li><strong>Document metadata</strong> — Name, creation date, last modified date</li>
+          <li><strong>Pages</strong> — Array of Page objects with dimensions, bleed, safe area, and content root</li>
+          <li><strong>Node tree</strong> — Recursive tree of scene nodes (shape, text, frame, group, image, adjustment)</li>
+          <li><strong>Styles</strong> — Reusable color, text, effect, and layout style definitions</li>
+          <li><strong>Typography dependencies</strong> — Font manifest v2 records exact SHA-256 face/member references when known, requested settings, and missing/substituted status; legacy family-only requests remain recoverable</li>
+          <li><strong>Variable store</strong> — Variable collections with modes and groups</li>
+          <li><strong>Component definitions</strong> — Reusable components with slots and property definitions</li>
+          <li><strong>Installed libraries</strong> — References to shared library packages</li>
+          <li><strong>Prototype data</strong> — Interactions, triggers, actions, and flow graph</li>
+          <li><strong>Color mode</strong> — RGB, CMYK, or Grayscale with profile metadata</li>
+        </ul>
+        <p>
+          The .varve format is versioned (current document schema 2.27). When opening an older file, Varve automatically migrates it to the current format version. The font migration preserves unknown metadata and does not invent an exact face for legacy family-only text. The <code>Document.variableStore</code> field is the sole source of truth for all variable data. Documents saved by pre-release builds with the legacy <code>.strata</code> extension (from before the project's rename from Strata to Varve) remain openable through the same migration pipeline.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Import Formats</h2>
+        <p>
+          Varve can import designs from a variety of formats through the <strong>File &gt; Import</strong> dialog (<code>Ctrl+I</code>). The import pipeline validates each file, estimates node count, detects unsupported features, and reports material losses during import.
+        </p>
+
+        <h3>SVG</h3>
+        <p>
+          SVG import via a bounded recursive descent parser. The supported editable subset includes:
+        </p>
+        <ul>
+          <li>Primitive shapes: <code>&lt;rect&gt;</code>, <code>&lt;circle&gt;</code>, <code>&lt;ellipse&gt;</code>, <code>&lt;line&gt;</code>, <code>&lt;polygon&gt;</code>, <code>&lt;polyline&gt;</code></li>
+          <li><code>&lt;path&gt;</code> with M, L, C, S, Q, T, A, Z commands</li>
+          <li><code>&lt;g&gt;</code> groups with transforms</li>
+          <li><code>&lt;text&gt;</code> elements</li>
+          <li><code>&lt;image&gt;</code> embedded images</li>
+          <li><code>&lt;use&gt;</code> and <code>&lt;defs&gt;</code> references</li>
+          <li>Transform attributes (matrix, translate, rotate, scale, skew)</li>
+          <li>Fill, stroke, opacity, and style attributes</li>
+        </ul>
+
+        <h3>Figma design data</h3>
+        <p>
+          Varve accepts supported native Figma <code>.fig</code> archives, official Figma REST file JSON, and compatible plugin-export JSON for semantic, editable conversion. Native archives are decoded locally when the runtime decoder supports their schema; packaged desktop CSP verification remains a separate validation lane. REST/plugin JSON is the documented high-fidelity route. Ordinary Figma Copy uses a private clipboard envelope and is not claimed; use Figma's Copy as SVG route for clipboard interoperability.
+        </p>
+        <ul>
+          <li><strong>Editable text:</strong> Text remains text, including mixed rich-text runs where the source data provides them</li>
+          <li><strong>Font recovery:</strong> Missing families are reviewed through ranked local replacement candidates; the original family and replacement remain in the document manifest</li>
+          <li><strong>Native semantics:</strong> Auto Layout, components, variants, variables, and interactions are converted only when the target model can preserve their meaning</li>
+          <li><strong>Safe degradation:</strong> Unsupported effects, missing dependencies, and approximations appear in the structured Import Report</li>
+        </ul>
+        <p>
+          Native <code>.fig</code> conversion is local-first and does not require Figma credentials. Source schema versions and resource maps evolve, so Varve reports unsupported effects, missing dependencies, and degraded semantics in its Import Report. Packaged desktop CSP verification for the native decoder remains a separate validation lane. When maximum documented Figma resource fidelity is required, use an authorized REST or plugin export; SVG and PDF remain useful visual fallbacks but cannot preserve Figma-specific components, variables, Auto Layout, or prototype semantics. Read the <a href={sitePath('/features/typography')}>missing-font replacement workflow</a> and <a href={sitePath('/docs/tools/typography')}>typography documentation</a> for details.
+        </p>
+        <p>
+          Figma Auto Layout maps to Varve's responsive stack model when the source exposes a
+          verified direction, padding, gap, wrapping, alignment, and sizing value. Literal zero
+          bounds and the grow axis are preserved. Unsupported grid functions or target-specific
+          constraints stay in the report instead of being rewritten as a misleading fixed size;
+          see the <a href={sitePath('/docs/tools/auto-layout')}>Auto Layout guide</a> for the target
+          behavior.
+        </p>
+
+        <h3>PDF</h3>
+        <p>
+          PDF import via pdf.js with <code>%PDF-</code> header detection. Extracts:
+        </p>
+        <ul>
+          <li>Text content from BT...ET blocks</li>
+          <li>Rectangle path operators</li>
+          <li>Multi-page conversion (each page becomes a Varve frame)</li>
+        </ul>
+
+        <h3>PSD (Photoshop)</h3>
+        <p>
+          PSD import via <code>@webtoon/psd</code> with <code>8BPS</code> header detection. Supports:
+        </p>
+        <ul>
+          <li>Layer tree extraction (groups, text layers, image layers)</li>
+          <li>Text layer content and styling</li>
+          <li>Image layer pixel data</li>
+        </ul>
+
+        <h3>AI (Adobe Illustrator)</h3>
+        <p>
+          Adobe Illustrator files use a PDF wrapper with embedded SVG content. The importer:
+        </p>
+        <ul>
+          <li>Detects the PDF wrapper via header</li>
+          <li>Extracts embedded SVG content where available</li>
+          <li>Falls back to EPS header parsing for legacy files</li>
+          <li>Reports fidelity warnings for AI-specific features</li>
+        </ul>
+
+        <h3>EPS</h3>
+        <p>
+          Encapsulated PostScript import with:
+        </p>
+        <ul>
+          <li>BoundingBox extraction</li>
+          <li>Basic rectangle and text conversion</li>
+          <li>Unsupported feature warnings</li>
+        </ul>
+
+        <h3>Raster Images</h3>
+        <p>
+          Direct import of PNG, JPG, WebP, AVIF, GIF, BMP, and TIFF files where the active runtime and normalization path support them. Images are loaded into the ImageCache and can be used as image fills on shapes or imported as ImageNodes. GIF and other animated containers are inspected for media metadata, while editor placement is currently first-frame.
+        </p>
+        <p>
+          For local raster transcoding, use <a href={sitePath('/docs/tools/image-conversion')}>Image Conversion</a>. It is a normalized canvas workflow and does not promise metadata-preserving or layered round trips.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Export Formats</h2>
+        <p>
+          See the full <a href={sitePath('/docs/tools/export')}>Export & Code Generation</a> guide for complete details. Quick summary:
+        </p>
+        <ul>
+          <li><strong>PNG</strong> — Configurable scale (1x-3x)</li>
+          <li><strong>SVG</strong> — Editable supported subset; fidelity warnings are reported</li>
+          <li><strong>PDF, PDF/X-1a, PDF/X-4</strong> — Print-ready with CMYK, marks, profiles</li>
+          <li><strong>CSS @keyframes</strong> — Animation as CSS keyframes</li>
+          <li><strong>SVG animate</strong> — Animation as SMIL SVG</li>
+          <li><strong>Lottie</strong> — Animation as Lottie JSON</li>
+          <li><strong>React + Tailwind</strong> — React component with Tailwind classes</li>
+          <li><strong>CSS Modules</strong> — Modular CSS with BEM naming</li>
+          <li><strong>Flutter</strong> — Flutter widget tree (Container, Text, Stack, Row/Column)</li>
+          <li><strong>SwiftUI</strong> — SwiftUI views (ZStack, HStack, VStack)</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Drag and Drop Import</h2>
+        <p>
+          You can also import files by dragging them directly onto the canvas:
+        </p>
+        <ul>
+          <li>Drag SVG, PNG, JPG, WebP, or GIF files from your file manager</li>
+          <li>Files are placed at the drop position with proper world-coordinate conversion</li>
+          <li>Multiple files are tiled with spacing</li>
+          <li>Batch import decodes at most two files concurrently, restores selection order, and reports progress per completed file</li>
+        </ul>
+      </section>
+
+      <div class="docs-cta">
+        <h2>Related Guides</h2>
+        <p>See <a href={sitePath('/docs/tools/export')}>Export & Code Generation</a> for detailed export instructions.</p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .docs-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  .breadcrumb a {
+    color: var(--text-secondary);
+  }
+  .docs-page h1 {
+    font-size: clamp(2rem, 5vw, 2.5rem);
+    font-family: var(--font-editorial);
+    font-weight: 700;
+    font-variation-settings: 'opsz' 144;
+    letter-spacing: -0.015em;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+  }
+  .docs-intro {
+    font-size: 1.125rem;
+    color: var(--text-secondary);
+    margin-bottom: 3rem;
+  }
+  .docs-section {
+    margin-bottom: 3rem;
+  }
+  .docs-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+    border-bottom: 2px solid var(--border-accent);
+    padding-bottom: 0.5rem;
+  }
+  .docs-section h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
+  }
+  .docs-section p {
+    color: var(--text-secondary);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+  .docs-section ul {
+    list-style: none;
+    margin-bottom: 1rem;
+  }
+  .docs-section li {
+    margin-bottom: 0.5rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--text-secondary);
+  }
+  .docs-section ul li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--text-link-hover);
+  }
+  .docs-section code:not(.code-block) {
+    background: var(--surface-muted);
+    padding: 0.125rem 0.375rem;
+    border-radius: var(--website-radius-control-compact);
+    font-family: monospace;
+    font-size: 0.875rem;
+  }
+  .docs-section a {
+    color: var(--text-link);
+  }
+  .docs-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--border-default);
+  }
+  .docs-cta h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
+  }
+  .docs-cta p {
+    color: var(--text-secondary);
+  }
+</style>

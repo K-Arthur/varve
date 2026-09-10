@@ -1,0 +1,108 @@
+{
+  "workflow": "60 seconds inside Varve",
+  "slug": "60-seconds-inside-varve",
+  "purpose": "A paced mini brand launch kit tour across Varve’s real workspaces.",
+  "gitCommit": "65bff48c122229cae17cf004d27dcdd717a8eabf",
+  "capturedAt": "2026-08-22T08:20:55.044Z",
+  "viewport": "1440x900",
+  "dpr": 1,
+  "fixture": "tests/e2e/fixtures/photo-fixture.jpg",
+  "captureRuntime": "chromium 151.0.7922.34 / node v26.7.0",
+  "sourceDuration": 184.53,
+  "deliveredDuration": 60,
+  "fps": 30,
+  "outputs": {
+    "webm": "docs/screenshots/workflows/60-seconds-inside-varve.webm",
+    "mp4": "docs/screenshots/workflows/60-seconds-inside-varve.mp4",
+    "poster": "docs/screenshots/workflows/60-seconds-inside-varve-poster.png"
+  },
+  "metadata": {
+    "project": "Kite / 01 — Mini brand launch kit",
+    "visualDirection": "Full-bleed mountain photograph, teal identity card, editorial grid.",
+    "pacing": "58–62 seconds; each segment is a real application state.",
+    "motionHandling": "Reduced-motion capture shows the real prototype surface; provider-gated motion is disclosed in current-limitations."
+  },
+  "artifacts": [],
+  "productAssertions": [
+    "vector path created and selected through the real path tool surface",
+    "typography layer selected in the production inspector",
+    "a launch-kit element is duplicated through the editor command path",
+    "the kit contains a real raster layer alongside vector and type",
+    "Prototype workspace opened from the finished kit"
+  ],
+  "verification": {
+    "findings": [],
+    "clips": {
+      "webm": {
+        "pass": true,
+        "findings": [],
+        "info": {
+          "codec": "vp9",
+          "width": 1440,
+          "height": 900,
+          "fps": 30,
+          "frames": 1799,
+          "duration": 60,
+          "bytes": 2870614
+        }
+      },
+      "mp4": {
+        "pass": true,
+        "findings": [],
+        "info": {
+          "codec": "h264",
+          "width": 1440,
+          "height": 900,
+          "fps": 30,
+          "frames": 1799,
+          "duration": 59.966667,
+          "bytes": 4026518
+        }
+      }
+    },
+    "frames": [
+      {
+        "label": "start",
+        "at": 0.15,
+        "luma": 179.6,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "q1",
+        "at": 15,
+        "luma": 179.1,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "mid",
+        "at": 30,
+        "luma": 197.7,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "q3",
+        "at": 45,
+        "luma": 195.3,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "final",
+        "at": 59.75,
+        "luma": 195.3,
+        "black": false,
+        "blank": false,
+        "exists": true
+      }
+    ],
+    "privacy": [],
+    "pass": true
+  }
+}

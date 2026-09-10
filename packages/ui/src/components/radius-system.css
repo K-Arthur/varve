@@ -1,0 +1,190 @@
+/*
+ * Varve corner-radius ownership layer.
+ *
+ * This file intentionally follows the legacy component sheet. It provides a
+ * single semantic geometry contract for shared primitives. The component
+ * that paints a surface owns its radius; nested content and connected
+ * controls do not invent another bubble.
+ */
+
+/* Core controls share one geometry family. Small controls are tighter, but
+ * remain rounded squares rather than becoming circular by default. */
+.varve-btn {
+  border-radius: var(--radius-control);
+}
+
+.varve-btn--xs,
+.varve-btn--sm,
+.varve-btn--icon-xs,
+.varve-btn--icon-sm,
+.varve-btn--toolbar {
+  border-radius: var(--radius-control-compact);
+}
+
+.varve-btn--md,
+.varve-btn--icon {
+  border-radius: var(--radius-control);
+}
+
+.varve-input__wrapper,
+.varve-select__trigger,
+.varve-search__input {
+  border-radius: var(--radius-control);
+}
+
+.varve-input__field,
+.varve-input__field {
+  border-radius: var(--radius-none);
+}
+
+/* Elevated surfaces sit one step above controls. */
+.varve-dialog,
+.varve-dialog--lg,
+.varve-menu,
+.varve-ctxmenu,
+.varve-menu__submenu,
+.varve-popover,
+.varve-toast,
+.varve-select__listbox,
+.varve-tooltip {
+  border-radius: var(--radius-surface);
+}
+
+.varve-dialog__close,
+.varve-search__clear {
+  border-radius: var(--radius-control-compact);
+}
+
+/* Menu and select rows are part of their parent surface. A compact control
+ * radius keeps keyboard/hover states readable without making each row read
+ * as a separate card. */
+.varve-menu__item,
+.varve-select__option {
+  border-radius: var(--radius-control-compact);
+}
+
+/* One connected segmented control: the shell owns clipping and the members
+ * stay square so internal boundaries do not read as separate cards. */
+.varve-segmented {
+  border-radius: var(--radius-control);
+}
+
+.varve-segmented__btn {
+  border-radius: var(--radius-none);
+}
+
+.varve-toolbar {
+  border-radius: var(--radius-floating);
+}
+
+/* A toolbar's own overflow policy belongs to its composition. This selector
+ * keeps the shared primitive from clipping focus rings or popovers. */
+.varve-toolbar > .varve-btn,
+.varve-toolbar > .varve-iconbtn {
+  border-radius: var(--radius-control-compact);
+}
+
+/* Other shared primitives use the same ownership rules even when they are
+ * rendered outside a toolbar. */
+.varve-checkbox__box,
+.varve-number-input,
+.varve-slider__input,
+.varve-slider__reset,
+.varve-select__search-input {
+  border-radius: var(--radius-control-compact);
+}
+
+.varve-slider__track,
+.varve-slider__fill,
+.varve-slider__thumb,
+.varve-native-range::-webkit-slider-runnable-track,
+.varve-native-range::-moz-range-track,
+.varve-native-range::-webkit-slider-thumb,
+.varve-native-range::-moz-range-thumb {
+  border-radius: var(--radius-pill);
+}
+
+/* Semantic pills remain explicit exceptions for badges and view switchers;
+ * ordinary action Buttons never receive pill geometry. */
+.varve-view-mode-switcher,
+.varve-view-mode-switcher__btn {
+  border-radius: var(--radius-pill);
+}
+
+/* Storybook gallery: a small visual fixture for checking the hierarchy in
+ * both themes without coupling production layout to the fixture. */
+.radius-gallery {
+  display: grid;
+  gap: 24px;
+  padding: 24px;
+  background: var(--color-surface-app);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+}
+
+.radius-gallery__section {
+  display: grid;
+  gap: 12px;
+  max-width: 720px;
+}
+
+.radius-gallery__section h2 {
+  margin: 0;
+  font-size: var(--font-size-md);
+}
+
+.radius-gallery__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.radius-gallery__row > .varve-input,
+.radius-gallery__row > .varve-select {
+  min-width: 160px;
+  flex: 1 1 160px;
+}
+
+.radius-gallery__surface {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--color-border-subtle);
+}
+
+.radius-gallery__surface--floating {
+  border-radius: var(--radius-floating);
+  background: var(--color-surface-raised);
+}
+
+.radius-gallery__surface--card {
+  border-radius: var(--radius-card);
+  background: var(--color-surface-raised);
+}
+
+.radius-gallery__group {
+  display: inline-flex;
+  width: max-content;
+  overflow: hidden;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+}
+
+.radius-gallery__group > .varve-btn {
+  border-radius: var(--radius-none);
+}
+
+.radius-gallery__menu {
+  position: static;
+  width: max-content;
+}
+
+.radius-gallery__menu .varve-menu__item {
+  width: 180px;
+}
+
+.radius-gallery__dark {
+  min-height: 100vh;
+  background: var(--color-surface-app);
+}

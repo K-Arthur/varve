@@ -1,0 +1,141 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+import StatusPill from '../../components/StatusPill.astro';
+---
+
+<Layout title="Stroke System" description="Varve's editable stroke system for shapes, paths, text, frames, and image borders — with gradients, alignment, dashes, markers, and pressure-aware paths.">
+  <div class="container-custom">
+    <div class="feature-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/features')}>Features</a> / Stroke System
+      </nav>
+
+      <div class="feature-heading">
+        <StatusPill status="available" />
+        <h1>Stroke System</h1>
+        <p class="feature-intro">
+          Keep outlines editable while you refine geometry, paint, and export. Strokes are ordered document data — not pixels painted over the artwork.
+        </p>
+      </div>
+
+      <section class="feature-section">
+        <h2>What you can edit</h2>
+        <div class="capability-grid">
+          <article>
+            <h3>Geometry-aware outlines</h3>
+            <p>Center, inside, and outside alignment for enclosed shapes; open paths keep a truthful centered stroke. Curved closing segments and compound contours stay in the replay path.</p>
+          </article>
+          <article>
+            <h3>Paint and stack</h3>
+            <p>Use solid or spatial gradient paint, multiple ordered stroke entries, width, visibility, caps, joins, miter limits, dash phase, and custom dash patterns.</p>
+          </article>
+          <article>
+            <h3>Paths and markers</h3>
+            <p>Open paths can carry independent start and end markers. Curved endpoints use their local tangent, so markers follow the path rather than its overall chord.</p>
+          </article>
+          <article>
+            <h3>Text and image borders</h3>
+            <p>Editable text uses glyph strokes in the live Canvas2D route. Image strokes remain frame borders; transparent-subject silhouettes are a separate explicit operation.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="feature-section">
+        <h2>Variable width without segment darkening</h2>
+        <p>
+          Pen and pencil paths can retain per-point pressure. The renderer evaluates that profile as one filled outline so translucent widths do not darken where tessellated segments overlap. Pressure 0.5 is neutral, 0 tapers to zero, and missing samples use the neutral profile.
+        </p>
+      </section>
+
+      <section class="feature-section limitations">
+        <h2>Export boundaries</h2>
+        <p>
+          PNG/raster export uses the full Canvas2D replay. SVG keeps supported center strokes, gradients, dashes, miter limits, markers, and editable text strokes native; alignment, asymmetric borders, pressure-variable paths, image borders, frames, and stacked stroke cases use a bounded raster fallback when required for fidelity. PDF applies the same honest fallback for features its native path writer cannot represent.
+        </p>
+        <p>
+          Read the <a href={sitePath('/docs/tools/strokes')}>Stroke guide</a> for the target matrix and the <a href={sitePath('/features/export')}>Export &amp; Code Generation</a> guide for broader format behavior.
+        </p>
+      </section>
+
+      <div class="feature-cta">
+        <a href={sitePath('/docs/tools/strokes')} class="btn-default">Read the stroke guide</a>
+        <a href={sitePath('/features/vector-tools')} class="btn-secondary">Explore vector tools</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .feature-page {
+    max-width: 832px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 2rem;
+  }
+
+  .breadcrumb a { color: var(--text-secondary); }
+
+  .feature-heading { margin-bottom: 3rem; }
+
+  .feature-heading h1 {
+    margin: 0.75rem 0 1rem;
+    font-family: var(--font-editorial);
+    font-size: clamp(2.5rem, 6vw, 4rem);
+    font-weight: 700;
+    letter-spacing: -0.025em;
+  }
+
+  .feature-intro {
+    max-width: 680px;
+    color: var(--text-secondary);
+    font-size: 1.2rem;
+    line-height: 1.7;
+  }
+
+  .feature-section { margin-bottom: 3rem; }
+
+  .feature-section h2 {
+    margin-bottom: 1rem;
+    border-bottom: 2px solid var(--border-accent);
+    padding-bottom: 0.5rem;
+    font-size: 1.6rem;
+  }
+
+  .feature-section p, .capability-grid p {
+    color: var(--text-secondary);
+    line-height: 1.75;
+  }
+
+  .capability-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: var(--space-5);
+  }
+
+  .capability-grid article {
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-card);
+    padding: 1.25rem;
+    background: var(--surface-card);
+  }
+
+  .capability-grid h3 { margin-bottom: 0.5rem; }
+
+  .limitations {
+    border-left: 3px solid var(--border-accent);
+    padding-left: 1.25rem;
+  }
+
+  .feature-cta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    border-top: 1px solid var(--border-default);
+    padding-top: 2rem;
+  }
+</style>

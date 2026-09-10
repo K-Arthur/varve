@@ -1,0 +1,72 @@
+# Dependabot version-update configuration for Varve.
+#
+# Ecosystem coverage:
+#   - npm/pnpm monorepo (root + apps + packages; pnpm-lock.yaml drives it)
+#   - Cargo workspace (crates/ + apps/desktop/src-tauri)
+#   - GitHub Actions (version bumps land as full-SHA pin updates; reviewers
+#     must re-run `just pin-actions-fix`-style verification — the CI pin
+#     validator enforces the SHA format on every PR)
+#
+# All updates are grouped and weekly to keep noise low. Security updates
+# (Dependabot alerts / security updates) arrive separately from the
+# automated-security-fixes setting and are never auto-merged: every change
+# passes the repo's CI gates (typecheck, lint, tests, audits) first.
+#
+# See SECURITY.md and docs/security/security-hardening.md for the update
+# policy.
+
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: UTC
+    versioning-strategy: increase-if-necessary
+    groups:
+      dev-tooling:
+        patterns:
+          - 'biomejs'
+          - 'typescript'
+          - 'vitest'
+          - 'playwright'
+          - 'vite'
+          - 'eslint'
+          - 'stylelint'
+      runtime-minor:
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+    open-pull-requests-limit: 8
+    labels:
+      - dependencies
+
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: UTC
+    open-pull-requests-limit: 8
+    labels:
+      - dependencies
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: UTC
+    groups:
+      actions-all:
+        patterns:
+          - '*'
+    open-pull-requests-limit: 4
+    labels:
+      - dependencies

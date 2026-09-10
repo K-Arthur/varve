@@ -1,0 +1,86 @@
+.rasterize-dialog {
+  display: grid;
+  gap: 1rem;
+  min-width: min(28rem, 75vw);
+}
+
+.rasterize-dialog__summary,
+.rasterize-dialog__hint {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}
+
+.rasterize-dialog__fieldset {
+  display: grid;
+  gap: 0.625rem;
+  min-inline-size: 0;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+}
+
+.rasterize-dialog__fieldset legend {
+  padding-inline: 0.25rem;
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.rasterize-dialog__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.rasterize-dialog__preset {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 0.375rem;
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  padding: 0.375rem 0.5rem;
+  cursor: pointer;
+}
+
+.rasterize-dialog__preset[aria-pressed="true"] {
+  border-color: var(--color-accent);
+  background: var(--color-accent-subtle);
+}
+
+.rasterize-dialog__input-label,
+.rasterize-dialog__check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--color-text-primary);
+  font-size: 0.875rem;
+}
+
+.rasterize-dialog__input-label {
+  justify-content: space-between;
+}
+
+.rasterize-dialog__input-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.rasterize-dialog__input-row input,
+.rasterize-dialog__input-label select {
+  min-inline-size: 5rem;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 0.375rem;
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  padding: 0.375rem 0.5rem;
+}
+
+.rasterize-dialog__keep {
+  padding-block: 0.25rem;
+}
+
+.rasterize-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}

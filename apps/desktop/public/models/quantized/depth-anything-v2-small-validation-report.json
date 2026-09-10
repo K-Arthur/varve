@@ -1,0 +1,156 @@
+{
+  "model_id": "depth-anything-v2-small",
+  "model_file": "depth_anything_v2_small_int8.onnx",
+  "model_path": "/home/kevina/CodingProjects/varve/apps/desktop/public/models/depth_anything_v2_small_int8.onnx",
+  "sha256": "01aa7a23de3f4a0ee1a2bb9997e6918104c85a9f95dea46d27b9b3fb0c6b9001",
+  "pinned_sha256": "01aa7a23de3f4a0ee1a2bb9997e6918104c85a9f95dea46d27b9b3fb0c6b9001",
+  "ort_version": "unknown",
+  "runtime": "onnxruntime-node cpu",
+  "preprocessing": "letterbox 518x518, ImageNet normalize, NCHW, zero pad",
+  "output_contract": {
+    "input_name": "pixel_values",
+    "output_name": "predicted_depth",
+    "dims": [1, 518, 518]
+  },
+  "raw_convention": "nearIsHigh",
+  "per_fixture_conventions": [
+    {
+      "fixture": "two_plane",
+      "nearIsHigh": true,
+      "rawNearMean": 2.59617780095421,
+      "rawFarMean": 1.4243449494053215
+    },
+    {
+      "fixture": "corridor",
+      "nearIsHigh": false,
+      "rawNearMean": 1.2322848363306669,
+      "rawFarMean": 1.631205923589722
+    },
+    {
+      "fixture": "portrait",
+      "nearIsHigh": true,
+      "rawNearMean": 3.148153596364944,
+      "rawFarMean": 1.1719682339884847
+    },
+    {
+      "fixture": "flat_uniform",
+      "nearIsHigh": false,
+      "rawNearMean": 0,
+      "rawFarMean": 0
+    }
+  ],
+  "flip_consistency": [
+    {
+      "fixture": "two_plane",
+      "flipAgreesWithMeasured": true
+    },
+    {
+      "fixture": "corridor",
+      "flipAgreesWithMeasured": true
+    },
+    {
+      "fixture": "portrait",
+      "flipAgreesWithMeasured": true
+    },
+    {
+      "fixture": "flat_uniform",
+      "flipAgreesWithMeasured": null
+    }
+  ],
+  "canonical_convention": "0 = near, 1 = far",
+  "latency_ms": {
+    "cold_first_pass": 264582.037887,
+    "warm_p50": 279403.72151199996,
+    "warm_p95": 361144.173081
+  },
+  "checks": {
+    "integrity": {
+      "passed": true,
+      "message": "SHA-256 matches pinned"
+    },
+    "contract": {
+      "passed": true,
+      "message": "inputs pixel_values, outputs predicted_depth, output dims [1,518,518]"
+    },
+    "nan_free": {
+      "passed": true,
+      "message": "no NaN/Inf in any fixture output"
+    },
+    "two_plane_ordering": {
+      "passed": true,
+      "message": "two-plane rho 0.310, separation 0.344"
+    },
+    "corridor_ordering": {
+      "passed": true,
+      "message": "corridor rho 0.267"
+    },
+    "portrait_ordering": {
+      "passed": true,
+      "message": "portrait rho 0.720"
+    },
+    "sign_consistency": {
+      "passed": true,
+      "message": "flip self-consistency agrees with the measured per-fixture sign on all non-uniform fixtures (evidence an app-side flip disambiguator can pick the correct convention without ground truth)"
+    },
+    "edge_alignment": {
+      "passed": true,
+      "message": "two-plane edge agreement 0.626"
+    }
+  },
+  "metrics": [
+    {
+      "fixture": "two_plane",
+      "output_dims": [1, 518, 518],
+      "nan_fraction": 0,
+      "inf_fraction": 0,
+      "spearman_rho": 0.31029096926025523,
+      "plane_separation": 0.3436360396932445,
+      "edge_alignment": 0.6256127450980392,
+      "normalization_range": [0.5894789695739746, 4.009373664855957],
+      "raw_convention": "nearIsHigh",
+      "raw_near_mean": 2.59617780095421,
+      "raw_far_mean": 1.4243449494053215
+    },
+    {
+      "fixture": "corridor",
+      "output_dims": [1, 518, 518],
+      "nan_fraction": 0,
+      "inf_fraction": 0,
+      "spearman_rho": 0.2670546550766231,
+      "plane_separation": 0.0749682630424423,
+      "edge_alignment": 0.3935617860851506,
+      "normalization_range": [0, 5.329357624053955],
+      "raw_convention": "nearIsLow",
+      "raw_near_mean": 1.2322848363306669,
+      "raw_far_mean": 1.631205923589722
+    },
+    {
+      "fixture": "portrait",
+      "output_dims": [1, 518, 518],
+      "nan_fraction": 0,
+      "inf_fraction": 0,
+      "spearman_rho": 0.7201043736360805,
+      "plane_separation": 0.6357050069391607,
+      "edge_alignment": 0.5301204819277109,
+      "normalization_range": [0.42075932025909424, 3.525616407394409],
+      "raw_convention": "nearIsHigh",
+      "raw_near_mean": 3.148153596364944,
+      "raw_far_mean": 1.1719682339884847
+    },
+    {
+      "fixture": "flat_uniform",
+      "output_dims": [1, 518, 518],
+      "nan_fraction": 0,
+      "inf_fraction": 0,
+      "spearman_rho": 0,
+      "plane_separation": 0,
+      "edge_alignment": 0,
+      "normalization_range": [1.1196143627166748, 3.6541929244995117],
+      "raw_convention": "nearIsLow",
+      "raw_near_mean": 0,
+      "raw_far_mean": 0
+    }
+  ],
+  "overall_passed": true,
+  "generation_timestamp": "2026-08-14T02:41:38.531Z"
+}

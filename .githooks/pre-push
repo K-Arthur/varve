@@ -1,0 +1,22 @@
+#!/bin/sh
+# Varve pre-push hook.  Git supplies the remote name/URL as hook arguments
+# and the exact ref update stream on stdin; the Node driver consumes both.
+# Keep policy, Git parsing, receipts, and command execution out of this shell
+# so the same implementation works in Git Bash, macOS, Linux, and CI tests.
+# Deliberate emergency overrides use VARVE_PUSH_OVERRIDE_REASON and are
+# recorded by the Node driver; they are not a normal workflow.
+
+if [ -n "$CI" ]; then
+  exit 0
+fi
+
+pnpm verify:push --pre-push "$@"
+status=$?
+
+# Pipeline health is informational only.  Preserve the validation status from
+# the driver and never turn a GitHub outage into a local product failure.
+node scripts/ci-health.mjs --quiet || echo "(ci-health unavailable; push result unchanged)"
+node scripts/ci-health.mjs --status --quiet || \
+  node scripts/ci-health.mjs --status || echo "(GitHub incident check unavailable; push result unchanged)"
+
+exit "$status"

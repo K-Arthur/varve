@@ -1,0 +1,339 @@
+name: Website Deploy
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'apps/website/**'
+      - 'apps/desktop/**'
+      - 'packages/editor/**'
+      - 'packages/engine/**'
+      - 'packages/scene/**'
+      - 'packages/platform/**'
+      - 'packages/home/**'
+      - 'packages/ui/**'
+      - 'packages/shared/**'
+      - 'tests/e2e/browser/**'
+      - '.github/workflows/website-deploy.yml'
+      - 'scripts/release/**'
+      - 'scripts/website/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+  # A human-published release dispatches a repository event so the download
+  # page is rebuilt from the exact published assets (see
+  # scripts/release/fetch-website-release.mjs — drafts never appear).
+  # workflow_run remains as a protected-default-branch fallback, but its
+  # release-data job verifies that a published release exists before building;
+  # a draft-producing run therefore cannot deploy.
+  workflow_run:
+    workflows: ['Release']
+    types: [completed]
+  repository_dispatch:
+    types: [varve-release-published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Superseded source pushes may be cancelled before deployment; release/manual
+  # runs are frozen and must finish so an exact published SHA cannot be lost.
+  group: "pages"
+  cancel-in-progress: ${{ github.event_name == 'push' }}
+
+env:
+  PNPM_VERSION: '11.9.0'
+  NODE_VERSION: '26'
+  # Public build-time configuration. Consent is still required in-browser;
+  # this only enables the consent UI and Plausible transport for varve.studio.
+  ANALYTICS_DOMAIN: 'varve.studio'
+
+jobs:
+  # ── 1. Website-source certification (source changes only) ────────────────
+  test:
+    name: Website quality gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # A release publication does not change website source. Its release-data
+    # path is checked separately below, so do not repeat the complete website
+    # functional/a11y/visual corpus for every successful Release run.
+    if: github.event_name != 'workflow_run' && github.event_name != 'repository_dispatch'
+    env:
+      # Trust-boundary canary: present on the build steps, then asserted
+      # absent from the artifacts (docs/security/trust-boundaries.md
+      # §Canary tests).
+      VARVE_PRIVATE_TEST_CANARY: VARVE_PRIVATE_TEST_CANARY_DO_NOT_SHIP
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact event source
+        run: test "$(git rev-parse --verify 'HEAD^{commit}')" = "${{ github.sha }}"
+
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies (frozen)
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check + unit tests (incl. release-data states)
+        run: pnpm test:website
+
+      # Both deployment modes must build from the same source: the production
+      # custom-domain build (base /, built from the astro.config.mjs defaults)
+      # and the legacy /varve project-site mode. The e2e suite (link crawl,
+      # asset existence, axe-core, canonical/sitemap/robots/404, mobile nav)
+      # runs against both builds, served beneath the real /varve path.
+      - name: Build production (custom-domain) mode
+        run: pnpm build:website
+
+      - name: Build legacy project-site mode
+        run: pnpm build:website:pages
+
+      # The website is an untrusted public client: its output must never
+      # contain private configuration. The canary proves the build embeds
+      # nothing it is not told to.
+      - name: Scan website artifacts (secret + canary)
+        run: |
+          node scripts/secret-scan.mjs --dir apps/website/dist --canary "$VARVE_PRIVATE_TEST_CANARY"
+          node scripts/secret-scan.mjs --dir apps/website/dist-pages --canary "$VARVE_PRIVATE_TEST_CANARY"
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: E2E in both modes
+        run: pnpm exec playwright test -c playwright.website.config.ts
+
+      # Preserve screenshots, diffs, and Playwright's HTML report on every
+      # outcome. This makes a remote visual regression actionable without
+      # copying thousands of lines from the Actions log.
+      - name: Upload website E2E diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: website-e2e-diagnostics-${{ github.run_id }}
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # ── 2. Release-data validation (release publication only) ─────────────────
+  release-data:
+    name: Release-data validation
+    outputs:
+      published: ${{ steps.release-state.outputs.published }}
+      tag: ${{ steps.release-state.outputs.tag }}
+      published_sha: ${{ steps.release-state.outputs.published_sha }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: >-
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event != 'workflow_dispatch') ||
+      github.event_name == 'repository_dispatch'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Verify release-data workflow source
+        run: test "$(git rev-parse --verify 'HEAD^{commit}')" = "${{ github.sha }}"
+
+      - name: Verify the release is actually published
+        id: release-state
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.tag || github.event.workflow_run.head_branch }}
+          RELEASE_SHA: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.sha || '' }}
+        run: |
+          set -euo pipefail
+          if [[ ! "${RELEASE_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "published=false" >> "$GITHUB_OUTPUT"
+            echo "No published release tag was supplied; this was not a publication event."
+            exit 0
+          fi
+          RELEASE_JSON="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}")"
+          if [[ "$(jq -r '.draft' <<<"${RELEASE_JSON}")" != "false" ]]; then
+            echo "published=false" >> "$GITHUB_OUTPUT"
+            echo "Release ${RELEASE_TAG} is still a draft; Pages deployment is not started."
+            exit 0
+          fi
+          PUBLISHED_SHA="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${RELEASE_TAG}" --jq '.sha')"
+          if [[ -n "${RELEASE_SHA}" && "${PUBLISHED_SHA}" != "${RELEASE_SHA}" ]]; then
+            echo "::error::Publication payload SHA ${RELEASE_SHA} does not match ${RELEASE_TAG} at ${PUBLISHED_SHA}."
+            exit 1
+          fi
+          echo "published=true" >> "$GITHUB_OUTPUT"
+          echo "tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "published_sha=${PUBLISHED_SHA}" >> "$GITHUB_OUTPUT"
+          echo "Release ${RELEASE_TAG} is published; release-data deployment may proceed."
+
+      # This validates the committed no-release/published-release shape. The
+      # build job subsequently fetches and verifies the exact published GitHub
+      # release before replacing this data; drafts never become download cards.
+      - name: Validate committed release-data state
+        if: steps.release-state.outputs.published == 'true'
+        run: node scripts/release/website-release-data-check.mjs
+
+  # ── 3. Build + upload ──────────────────────────────────────────────────────
+  build:
+    name: Build and upload Pages artifact
+    outputs:
+      source_sha: ${{ steps.source.outputs.source_sha }}
+    needs: [test, release-data]
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    # On normal source changes, test must pass and release-data is deliberately
+    # skipped. On a verified release publication, only the small release-data
+    # job must pass; the website source suite has already been certified.
+    if: >-
+      always() &&
+      (((github.event_name == 'workflow_run' || github.event_name == 'repository_dispatch') &&
+        needs.release-data.result == 'success' &&
+        needs.release-data.outputs.published == 'true') ||
+       (github.event_name != 'workflow_run' && github.event_name != 'repository_dispatch' &&
+        needs.test.result == 'success'))
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          # Source pushes build the event SHA. Release publications build the
+          # exact published tag SHA returned by release-data; the two paths
+          # cannot silently borrow a newer default-branch checkout.
+          ref: ${{ (github.event_name == 'workflow_run' || github.event_name == 'repository_dispatch') && needs.release-data.outputs.published_sha || github.sha }}
+          # Nothing in this workflow pushes; never persist the token.
+          persist-credentials: false
+
+      - name: Verify and record exact build source
+        id: source
+        env:
+          EXPECTED_SOURCE_SHA: ${{ (github.event_name == 'workflow_run' || github.event_name == 'repository_dispatch') && needs.release-data.outputs.published_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          ACTUAL_SOURCE_SHA="$(git rev-parse --verify 'HEAD^{commit}')"
+          test "$ACTUAL_SOURCE_SHA" = "$EXPECTED_SOURCE_SHA"
+          echo "source_sha=$ACTUAL_SOURCE_SHA" >> "$GITHUB_OUTPUT"
+
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies (frozen)
+        run: pnpm install --frozen-lockfile
+
+      # ── WASM engine build (for the browser demo at /try/) ──────────────
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.97.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+      - name: Install just
+        uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026
+        with:
+          tool: just@1.54.0
+      - name: Install wasm-pack
+        run: |
+          if ! command -v wasm-pack >/dev/null 2>&1; then
+            curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+          fi
+      - name: wasm build (base + simd + colour)
+        run: just wasm-build-all
+
+      # The download page is rebuilt from the published release (channel
+      # policy: latest stable, else latest published prerelease; drafts never
+      # appear). When a Release run only produced a draft, this rewrites the
+      # no-release state — an idempotent rebuild of identical content.
+      - name: Fetch release data from GitHub
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.release-data.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if [[ -n "${RELEASE_TAG}" ]]; then
+            node scripts/release/fetch-website-release.mjs --tag "${RELEASE_TAG}"
+          else
+            node scripts/release/fetch-website-release.mjs
+          fi
+
+      - name: Build website
+        run: pnpm --filter @varve/website build
+
+      # The uploaded artifact must be clean of private configuration; the
+      # guard inside the build already rejected forbidden env vars.
+      - name: Scan built website artifact
+        run: node scripts/secret-scan.mjs --dir apps/website/dist
+
+      # ── Browser demo (/try/) build + staging ────────────────────────────
+      # The demo counts launches only for visitors who opt in — the analytics
+      # client drops any event whose category is not 'granted', and the demo
+      # default is 'unknown'. Without this domain the bundle stays entirely
+      # network-silent (no-op provider), which is what a local build gets.
+      - name: Build browser demo
+        run: pnpm --filter @varve/desktop build:try
+        env:
+          VITE_VARVE_ANALYTICS_DOMAIN: ${{ env.ANALYTICS_DOMAIN }}
+
+      - name: Stage demo into website dist
+        run: node scripts/website/stage-demo.mjs
+
+      - name: Scan demo artifact (secret + canary)
+        run: |
+          node scripts/secret-scan.mjs --dir apps/website/dist/try
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9
+        with:
+          path: apps/website/dist
+
+  # ── 4. Deploy + post-deployment smoke check ───────────────────────────────
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 15
+    # Pages deployment needs exactly: read the repo, write Pages, and an OIDC
+    # token for actions/deploy-pages. Nothing else — no contents write, no
+    # secrets beyond the default token.
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          # The smoke check only reads scripts/website/smoke-pages.mjs; the
+          # checkout exists for that script. No push capability needed.
+          ref: ${{ needs.build.outputs.source_sha }}
+          persist-credentials: false
+
+      - name: Verify exact deployed source
+        run: test "$(git rev-parse --verify 'HEAD^{commit}')" = "${{ needs.build.outputs.source_sha }}"
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128
+
+      # Bounded-retry smoke check against the live URL: homepage, download,
+      # docs, releases, sitemap, robots, favicons, 404 behaviour and the
+      # canonical origin (https://varve.studio). A deployment that 404s or
+      # canonicalizes to the wrong host is a failed deploy.
+      - name: Smoke check the live deployment
+        run: node scripts/website/smoke-pages.mjs "${{ steps.deployment.outputs.page_url }}" --expect-origin https://varve.studio

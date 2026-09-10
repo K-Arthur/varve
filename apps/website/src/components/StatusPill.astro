@@ -1,0 +1,52 @@
+---
+/**
+ * StatusPill — compact status indicator for features, issues, and releases.
+ *
+ * Semantic states with icon + text (not color alone). Positioned at card
+ * corners or inline in headers. Uses the design-tool annotation vocabulary:
+ * a small dot indicator beside a concise label.
+ */
+interface Props {
+  status: 'available' | 'partial' | 'beta' | 'experimental' | 'planned';
+  label?: string;
+  class?: string;
+}
+
+const { status, label, class: className } = Astro.props;
+
+const LABELS: Record<string, string> = {
+  available: 'Available',
+  partial: 'Partial',
+  beta: 'Beta',
+  experimental: 'Experimental',
+  planned: 'Planned',
+};
+
+const ICONS: Record<string, string> = {
+  available: 'M20 6 9 17l-5-5',
+  partial: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Z',
+  beta: 'M12 2L2 7l10 5 10-5-10-5Z',
+  experimental: 'M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z',
+  planned: 'M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83',
+};
+
+const displayLabel = label ?? LABELS[status];
+const iconPath = ICONS[status];
+---
+
+<span class:list={['status-pill', `status-pill-${status}`, className]}>
+  <svg class="status-pill-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d={iconPath}></path>
+    {status === 'partial' && <path d="M12 2a10 10 0 0 1 0 20" fill="currentColor" stroke="none"></path>}
+  </svg>
+  <span class="sr-only">{displayLabel}</span>
+  <span aria-hidden="true">{displayLabel}</span>
+</span>
+
+<style>
+  .status-pill-icon {
+    flex: 0 0 auto;
+    width: 0.85em;
+    height: 0.85em;
+  }
+</style>

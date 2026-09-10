@@ -1,0 +1,37 @@
+# Varve — Authorship Record
+#
+# Canonical identity for the project maintainer and sole code owner.
+# This file documents who is authorised to relicense the project and
+# under what conditions external contributions may be accepted.
+
+## Maintainer
+
+  Kevin Arthur <hello@kevinarthur.design>
+  (also commits as: Strata Founder, K-Arthur)
+
+## AI-Assisted Development
+
+Commits authored by Cascade Agent <agent@strata.dev> (and similar AI
+coding tools) are produced under the maintainer's direction and reviewed
+before merge. They are not separate legal contributions — the maintainer
+is the sole author for copyright and licensing purposes.
+
+## Identity History
+
+| Identity | Email | Commits | Period |
+|----------|-------|---------|--------|
+| Kevin Arthur | hello@kevinarthur.design | 1638 | 2024–present (canonical) |
+| Strata Founder | founder@strata.local | 583 | 2024–2026 (early alias) |
+| K-Arthur | 58142087+K-Arthur@users.noreply.github.com | 10 | 2024–2025 (GitHub web) |
+| Cascade Agent | agent@strata.dev | 189 | 2024–present (AI tooling) |
+
+All four identities map to a single human. See `.mailmap` for display
+mapping and `docs/development/provenance.md` for the full audit trail.
+
+## External Contributions
+
+External human contributions are not yet accepted. When they open,
+all contributors must sign a DCO or ICLA/CCLA (see `CONTRIBUTING.md`).
+At that point, relicensing authority requires either:
+- a CLA granting the maintainer broad relicense rights, or
+- per-contribution author confirmation.

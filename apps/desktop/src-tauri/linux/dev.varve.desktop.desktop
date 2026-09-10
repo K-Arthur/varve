@@ -1,0 +1,13 @@
+[Desktop Entry]
+Categories={{categories}}
+Comment={{comment}}
+Exec={{exec}} %F
+GenericName=Design Tool
+Icon=dev.varve.desktop
+Keywords=design;vector;illustration;layout;typography;motion;print;raster;
+Name={{name}}
+StartupNotify=true
+StartupWMClass=dev.varve.desktop
+Terminal=false
+Type=Application
+MimeType=application/x-varve;application/x-strata;

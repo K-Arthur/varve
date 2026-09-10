@@ -1,0 +1,283 @@
+/* ── Master Panel ────────────────────────────────────── */
+/* Neo-Bento: collapsible list with Linear-esque chips.  */
+
+/* Bounded: this shares a fixed-height sidebar column with the layers tree, and
+ * the list grows with the document. Without a ceiling a page carrying many
+ * masters starves the tree of every row. */
+.master-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  max-height: 28vh;
+  overflow-y: auto;
+  flex: 0 1 auto;
+}
+
+.master-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.master-panel__title {
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.master-panel__add-btn {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--color-text-on-accent);
+  background: var(--color-interactive-default);
+  border: none;
+  border-radius: var(--radius-control-compact);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-default);
+}
+
+.master-panel__add-btn:hover {
+  background: var(--color-interactive-hover);
+}
+
+.master-panel__add-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
+/* Compact: this sits above the layers tree in a shared sidebar column, and the
+ * tree is what the user is usually reading. A tall empty state pushed the tree
+ * down to its min-height, leaving most of its rows unreachable. */
+.master-panel__empty {
+  padding: var(--space-2) var(--space-1);
+  text-align: center;
+}
+
+.master-panel__empty-text {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.master-panel__edit-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  color: var(--color-interactive-default);
+  background: var(--color-surface-selected);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  font-size: var(--font-size-xs);
+}
+
+.master-panel__edit-btn,
+.master-panel__return-btn {
+  font: inherit;
+  padding: 1px 6px;
+  background: none;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.master-panel__edit-btn:hover,
+.master-panel__return-btn:hover,
+.master-panel__edit-btn[aria-pressed="true"] {
+  color: var(--color-interactive-default);
+  border-color: var(--color-interactive-default);
+}
+
+.master-panel__edit-btn:focus-visible,
+.master-panel__return-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
+.master-panel__hint {
+  margin-top: var(--space-1);
+  font-size: var(--font-size-xs);
+  line-height: 1.3;
+  color: var(--color-text-subtle);
+}
+
+.master-panel__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.master-panel__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+}
+
+.master-panel__name {
+  flex: 1;
+  text-align: left;
+  font: inherit;
+  color: var(--color-text-primary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.master-panel__name:hover {
+  color: var(--color-interactive-default);
+}
+
+.master-panel__name:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
+.master-panel__rename-input {
+  flex: 1;
+  font: inherit;
+  padding: 2px 4px;
+  border: 1px solid var(--color-interactive-default);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-app);
+  color: var(--color-text-primary);
+}
+
+.master-panel__rename-input:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
+.master-panel__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.master-panel__apply-btn,
+.master-panel__reset-overrides-btn {
+  font: inherit;
+  padding: 1px 6px;
+  background: none;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.master-panel__apply-btn:hover,
+.master-panel__reset-overrides-btn:hover {
+  color: var(--color-interactive-default);
+  border-color: var(--color-interactive-default);
+}
+
+.master-panel__apply-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.master-panel__apply-btn:focus-visible,
+.master-panel__reset-overrides-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
+.master-panel__applies-select {
+  font: inherit;
+  padding: 2px 4px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-app);
+  color: var(--color-text-muted);
+}
+
+.master-panel__applies-select:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
+.master-panel__action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-control-compact);
+  cursor: pointer;
+  color: var(--color-text-muted);
+  padding: 0;
+}
+
+.master-panel__action-btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.master-panel__action-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
+.master-panel__action-btn--danger:hover {
+  color: var(--color-feedback-danger);
+}
+
+.master-panel__page-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  font-size: var(--font-size-xs);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.master-panel__page-label {
+  font-weight: 500;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.master-panel__active-master,
+.master-panel__no-master {
+  color: var(--color-text-subtle);
+}
+
+.master-panel__override-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-interactive-default);
+  font-size: var(--font-size-xs);
+}
+
+.master-panel__detach-btn {
+  margin-left: var(--space-1);
+  font: inherit;
+  padding: 1px 6px;
+  background: none;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.master-panel__detach-btn:hover {
+  color: var(--color-feedback-danger);
+  border-color: var(--color-feedback-danger);
+}
+
+.master-panel__detach-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}

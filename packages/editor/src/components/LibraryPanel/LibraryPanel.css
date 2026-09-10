@@ -1,0 +1,115 @@
+.library-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--elevation-surface-raised);
+  border-left: 1px solid var(--color-border-subtle);
+}
+
+.library-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.library-panel__title {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.library-panel__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.library-panel__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  text-align: center;
+  flex: 1;
+}
+
+.library-panel__empty-title {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text-primary);
+  margin: 0 0 8px 0;
+}
+
+.library-panel__empty-desc {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.library-panel__list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-2);
+}
+
+.library-panel__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.library-panel__item:hover {
+  background-color: var(--color-surface-hover);
+}
+
+.library-panel__item--selected {
+  background-color: var(--color-accent-subtle);
+}
+
+.library-panel__item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.library-panel__item-name {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.library-panel__item-version {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-secondary);
+}
+
+.library-panel__item-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.library-panel__details {
+  padding: var(--space-4);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.library-panel__details-title {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0 0 8px 0;
+}
+
+.library-panel__details-version,
+.library-panel__details-installed {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin: var(--space-1) 0;
+}

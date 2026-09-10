@@ -1,0 +1,27 @@
+{
+  "model_id": "realesr-general-x4v3",
+  "source_filename": "realesr-general-x4v3.onnx",
+  "output_filename": "realesr-general-x4v3-int8.onnx",
+  "source_sha256": "856e1f4d77f553e8871302f1782b58e315a12dac52bb0b856dde2dde149b96f7",
+  "output_sha256": "357ebd6732007dbb0d663931e8a7f923baaf9f20a4ca38511fbcd90a1fa06711",
+  "source_size_bytes": 4866438,
+  "output_size_bytes": 1283015,
+  "compression_ratio": 3.793,
+  "weight_type": "QInt8",
+  "per_channel": true,
+  "reduce_range": false,
+  "ort_version": "1.27.0",
+  "onnx_version": "1.22.0",
+  "opset_version": 17,
+  "ir_version": 8,
+  "quantized_node_count": 0,
+  "excluded_nodes": [],
+  "validation_passed": true,
+  "validation_details": {
+    "output_graph_valid": true,
+    "node_count": 275,
+    "initializer_count": 203
+  },
+  "generation_timestamp": "2026-07-21T06:44:37Z",
+  "duration_seconds": 0.33
+}
