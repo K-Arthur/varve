@@ -4,14 +4,64 @@ import { NATIVE_GENERATIVE_MODEL_PROFILE } from './nativeModel';
 import { nativeGenerativeProvider } from './nativeProvider';
 import {
   type GenerativeEditCapabilities,
+  type GenerativeEditCapabilityParameter,
   GenerativeEditError,
+  type GenerativeEditModeCapabilities,
   type GenerativeEditProvider,
   type GenerativeEditRequest,
   type GenerativeEditResult,
 } from './types';
 
+const BROWSER_LIMITS = {
+  maxWidth: 16_384,
+  maxHeight: 16_384,
+  maxVariations: 1,
+} as const;
+
+const NATIVE_LIMITS = {
+  maxWidth: 2_048,
+  maxHeight: 2_048,
+  maxVariations: 4,
+  maxSteps: 100,
+} as const;
+
+function modeCapabilities(
+  input: Omit<GenerativeEditModeCapabilities, 'limits'> & {
+    limits?: Partial<GenerativeEditModeCapabilities['limits']>;
+  },
+): GenerativeEditModeCapabilities {
+  return {
+    ...input,
+    limits: {
+      ...BROWSER_LIMITS,
+      ...input.limits,
+    },
+  };
+}
+
 function localCapabilities(): GenerativeEditCapabilities {
   const promptCapable = nativeGenerativeProvider.isAvailable();
+  const reconstructionParameters: readonly GenerativeEditCapabilityParameter[] = [
+    'seed',
+    'contextPadding',
+    'maskExpansion',
+    'feather',
+  ];
+  const diffusionParameters: readonly GenerativeEditCapabilityParameter[] = [
+    'prompt',
+    'negativePrompt',
+    'seed',
+    'strength',
+    'steps',
+    'guidanceScale',
+    'variations',
+    'contextPadding',
+    'maskExpansion',
+    'feather',
+  ];
+  const unavailablePromptReason = promptCapable
+    ? 'Install and validate the local diffusion model before generating.'
+    : 'Prompt-conditioned generation requires the packaged desktop diffusion provider.';
   return {
     fill: true,
     remove: true,
@@ -19,9 +69,44 @@ function localCapabilities(): GenerativeEditCapabilities {
     expand: promptCapable,
     prompt: promptCapable,
     variations: promptCapable,
-    ...(promptCapable
-      ? {}
-      : { reason: 'Replace and Expand require the packaged desktop diffusion provider.' }),
+    modes: {
+      fill: modeCapabilities({
+        available: true,
+        ready: true,
+        prompt: promptCapable,
+        variations: promptCapable,
+        supportedParameters: promptCapable ? diffusionParameters : reconstructionParameters,
+        limits: promptCapable ? NATIVE_LIMITS : BROWSER_LIMITS,
+      }),
+      remove: modeCapabilities({
+        available: true,
+        ready: true,
+        prompt: false,
+        variations: false,
+        supportedParameters: reconstructionParameters,
+      }),
+      replace: modeCapabilities({
+        available: promptCapable,
+        ready: false,
+        prompt: promptCapable,
+        variations: promptCapable,
+        supportedParameters: promptCapable ? diffusionParameters : [],
+        limits: promptCapable ? NATIVE_LIMITS : BROWSER_LIMITS,
+        reasonCode: promptCapable ? 'model-required' : 'runtime-unavailable',
+        reason: unavailablePromptReason,
+      }),
+      expand: modeCapabilities({
+        available: promptCapable,
+        ready: false,
+        prompt: promptCapable,
+        variations: promptCapable,
+        supportedParameters: promptCapable ? diffusionParameters : [],
+        limits: promptCapable ? NATIVE_LIMITS : BROWSER_LIMITS,
+        reasonCode: promptCapable ? 'model-required' : 'runtime-unavailable',
+        reason: unavailablePromptReason,
+      }),
+    },
+    ...(promptCapable ? {} : { reason: unavailablePromptReason }),
   };
 }
 

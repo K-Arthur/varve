@@ -10,6 +10,12 @@ Last updated: 2026-09-10.
 
 ## Provider and platform status
 
+The engine-level capability object records `available`, `ready`, supported
+parameters, limits, and a stable `reasonCode` for every mode. “Available” means
+the selected runtime has an implementation; “ready” additionally requires all
+local model prerequisites. This distinction is reflected in the dialog before
+the user starts a job.
+
 | Capability | Browser | Desktop Linux CPU | Desktop Vulkan/Metal | Qualification evidence |
 |---|---|---|---|---|
 | Fill without a prompt | Implemented; automatically verified with deterministic tests | Implemented through the shared pipeline | Not separately qualified | `packages/engine/src/generativeEdit/generativeEdit.test.ts`, `tests/e2e/caf/caf.spec.ts` |

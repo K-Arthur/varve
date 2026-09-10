@@ -19,9 +19,12 @@ export {
 export { getGenerativeEditCapabilities, runGenerativeEdit } from './pipeline';
 export {
   type GenerativeEditCapabilities,
+  type GenerativeEditCapabilityParameter,
+  type GenerativeEditCapabilityReasonCode,
   GenerativeEditError,
   type GenerativeEditErrorCode,
   type GenerativeEditMode,
+  type GenerativeEditModeCapabilities,
   type GenerativeEditProgress,
   type GenerativeEditProvider,
   type GenerativeEditProviderKind,

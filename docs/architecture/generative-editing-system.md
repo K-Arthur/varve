@@ -111,14 +111,23 @@ mask; transparent source RGB is never treated as meaningful context.
 
 Providers declare capabilities, locality (`local` or `remote`), model id and
 version, required model bytes, supported operation modes, maximum dimensions,
-and cancellation behavior. The native diffusion provider runs in a supervised
-helper process. The renderer receives an opaque qualified model handle, never a
-model filesystem path or model bytes. Imported safe-format artifacts are
-hashed and must pass an actual masked helper run before prompt modes are
-enabled. The desktop workflow supports an explicit, allowlisted download or
-user import, then validation; downloads resume through a native partial file,
-verify the pinned SHA-256, and install atomically. There is no silent model
-download.
+accepted parameters, readiness, stable reason codes, and cancellation
+behavior. The engine exposes this per mode rather than leaving callers to infer
+support from a handful of global booleans: a browser reconstruction provider
+advertises Fill/Remove with one variation and no prompt parameters, while the
+desktop diffusion provider advertises prompt/negative-prompt, seed, strength,
+steps, guidance, and up to four variations only for modes it can execute. A
+mode can be executable in principle but not ready until its local model has
+passed qualification; the UI combines both signals and reports the actual
+setup action or blocker.
+
+The native diffusion provider runs in a supervised helper process. The renderer
+receives an opaque qualified model handle, never a model filesystem path or
+model bytes. Imported safe-format artifacts are hashed and must pass an actual
+masked helper run before prompt modes are enabled. The desktop workflow
+supports an explicit, allowlisted download or user import, then validation;
+downloads resume through a native partial file, verify the pinned SHA-256, and
+install atomically. There is no silent model download.
 
 There is no silent remote fallback. A future remote provider must request
 consent immediately before upload, state the provider and transmitted data,

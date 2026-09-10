@@ -201,13 +201,14 @@ export function ContentAwareFillDialog({
     status === 'applying';
   const hasResult = previewDataUrl != null && result != null;
   const capabilities = getGenerativeEditCapabilities();
+  const modeCapability = capabilities.modes[mode];
   const promptNeedsDiffusion =
     (mode === 'replace' || mode === 'expand' || mode === 'fill') && prompt.trim().length > 0;
   const usesDiffusion = mode === 'replace' || mode === 'expand' || promptNeedsDiffusion;
   const modeMissingModel =
     (!usesDiffusion && quality === 'ai' && !modelAvailable) ||
     (usesDiffusion && !diffusionModelHandle);
-  const modeAvailable = capabilities[mode] && !modeMissingModel;
+  const modeAvailable = modeCapability.available && !modeMissingModel;
   const hasExpandPadding = Object.values(expandPadding).some((value) => value > 0);
   const canGenerate =
     (hasMaskStrokes || (mode === 'expand' && hasExpandPadding)) &&
@@ -878,13 +879,14 @@ export function ContentAwareFillDialog({
         }
       }
 
+      const effectiveVariationCount = Math.min(variationCount, modeCapability.limits.maxVariations);
       const generatedVariations: Array<{
         id: string;
         dataUrl: string;
         result: GenerativeEditResult;
         seed: number;
       }> = [];
-      for (let index = 0; index < variationCount; index += 1) {
+      for (let index = 0; index < effectiveVariationCount; index += 1) {
         const variationSeed = generationSeed + index;
         const generated = await runGenerativeEdit({
           mode,
@@ -908,9 +910,9 @@ export function ContentAwareFillDialog({
           isCurrent: isCurrentJob,
           onProgress: ({ stage, progress }) => {
             jobControllerRef.current.update(progress, stage);
-            setGenerationProgress((index + progress) / variationCount);
+            setGenerationProgress((index + progress) / effectiveVariationCount);
             setGenerationStage(
-              `${stage[0]?.toUpperCase() + stage.slice(1)} · variation ${index + 1}/${variationCount}`,
+              `${stage[0]?.toUpperCase() + stage.slice(1)} · variation ${index + 1}/${effectiveVariationCount}`,
             );
           },
           modelPath,
@@ -981,6 +983,7 @@ export function ContentAwareFillDialog({
     imageSrc,
     maskExpansion,
     maskFeather,
+    modeCapability,
     mode,
     modeAvailable,
     prompt,
@@ -1344,13 +1347,14 @@ export function ContentAwareFillDialog({
                 placeholder="Describe what should appear here"
                 rows={3}
                 aria-describedby="caf-dialog-prompt-note caf-dialog-provider-note"
+                disabled={!modeCapability.prompt || isProcessing}
               />
               <p id="caf-dialog-prompt-note" className="caf-dialog__hint">
-                {capabilities.prompt
+                {modeCapability.prompt
                   ? 'Sent only to the locally installed diffusion model; it never leaves this device.'
                   : 'Prompt conditioning is unavailable in the browser. Install the desktop diffusion model to use it.'}
               </p>
-              {capabilities.prompt && (
+              {modeCapability.prompt && (
                 <>
                   <label className="caf-dialog__label" htmlFor="caf-dialog-negative-prompt">
                     Negative prompt <span className="caf-dialog__optional">optional</span>
@@ -1413,7 +1417,7 @@ export function ContentAwareFillDialog({
                 variant="default"
                 size="sm"
                 onClick={() => void handleImportDiffusionModel()}
-                disabled={!capabilities.prompt || isProcessing}
+                disabled={!modeCapability.prompt || isProcessing}
               >
                 {diffusionModelInstalled ? 'Replace Diffusion Model' : 'Install Diffusion Model'}
               </Button>
@@ -1738,15 +1742,18 @@ export function ContentAwareFillDialog({
               id="caf-dialog-variation-count"
               type="number"
               min={1}
-              max={MAX_VARIATIONS}
+              max={modeCapability.limits.maxVariations}
               step={1}
               value={variationCount}
               onChange={(event) =>
                 setVariationCount(
-                  Math.max(1, Math.min(MAX_VARIATIONS, Number(event.target.value) || 1)),
+                  Math.max(
+                    1,
+                    Math.min(modeCapability.limits.maxVariations, Number(event.target.value) || 1),
+                  ),
                 )
               }
-              disabled={!capabilities.variations || hasResult || isProcessing}
+              disabled={!modeCapability.variations || hasResult || isProcessing}
             />
             <label className="caf-dialog__label" htmlFor="caf-dialog-seed">
               Seed <span className="caf-dialog__optional">optional</span>

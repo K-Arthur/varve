@@ -34,13 +34,29 @@ function request(overrides: Partial<Parameters<typeof runGenerativeEdit>[0]> = {
 
 describe('generative edit capabilities', () => {
   it('exposes the honest local provider boundary', () => {
-    expect(getGenerativeEditCapabilities()).toMatchObject({
+    const capabilities = getGenerativeEditCapabilities();
+    expect(capabilities).toMatchObject({
       fill: true,
       remove: true,
       replace: false,
       expand: false,
       prompt: false,
     });
+    expect(capabilities.modes.remove).toMatchObject({
+      available: true,
+      ready: true,
+      prompt: false,
+      variations: false,
+    });
+    expect(capabilities.modes.replace).toMatchObject({
+      available: false,
+      ready: false,
+      reasonCode: 'runtime-unavailable',
+    });
+    expect(capabilities.modes.remove.supportedParameters).toEqual(
+      expect.arrayContaining(['contextPadding', 'maskExpansion', 'feather']),
+    );
+    expect(capabilities.modes.remove.limits.maxVariations).toBe(1);
   });
 
   it('rejects prompt-only modes until a verified provider exists', async () => {

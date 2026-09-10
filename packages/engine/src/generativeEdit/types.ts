@@ -20,6 +20,43 @@ export interface GenerativeEditProvider {
   runtime: GenerativeEditRuntime;
 }
 
+export type GenerativeEditCapabilityParameter =
+  | 'prompt'
+  | 'negativePrompt'
+  | 'seed'
+  | 'strength'
+  | 'steps'
+  | 'guidanceScale'
+  | 'variations'
+  | 'contextPadding'
+  | 'maskExpansion'
+  | 'feather';
+
+export type GenerativeEditCapabilityReasonCode =
+  | 'runtime-unavailable'
+  | 'model-required'
+  | 'model-unqualified'
+  | 'prompt-unavailable'
+  | 'remote-unconfigured';
+
+export interface GenerativeEditModeCapabilities {
+  /** The provider knows how to execute this operation in this runtime. */
+  available: boolean;
+  /** All prerequisites, including a qualified model, are currently ready. */
+  ready: boolean;
+  prompt: boolean;
+  variations: boolean;
+  supportedParameters: readonly GenerativeEditCapabilityParameter[];
+  limits: {
+    maxWidth: number;
+    maxHeight: number;
+    maxVariations: number;
+    maxSteps?: number;
+  };
+  reasonCode?: GenerativeEditCapabilityReasonCode;
+  reason?: string;
+}
+
 export interface GenerativeEditCapabilities {
   fill: boolean;
   remove: boolean;
@@ -27,6 +64,7 @@ export interface GenerativeEditCapabilities {
   expand: boolean;
   prompt: boolean;
   variations: boolean;
+  modes: Record<GenerativeEditMode, GenerativeEditModeCapabilities>;
   reason?: string;
 }
 
