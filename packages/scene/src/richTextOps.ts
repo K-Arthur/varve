@@ -16,18 +16,13 @@ import { richTextToPlainText } from './typography';
  * Split a run at a UTF-16 offset, returning the two resulting runs. The
  * offset is snapped to an extended grapheme boundary so a run can never
  * split a surrogate pair, combining sequence, or ZWJ sequence. The `format`
- * is preserved on both halves; only `characterStyleId` stays with the left
- * half (the right half carries no explicit style link).
+ * and inherited character style link are preserved on both halves.
  */
 export function splitRunAt(run: TextRun, offset: number): [TextRun, TextRun] {
   const safeOffset = snapUtf16Offset(createUnicodeIndexMap(run.text), offset);
   return [
-    {
-      text: run.text.slice(0, safeOffset),
-      format: run.format,
-      characterStyleId: run.characterStyleId,
-    },
-    { text: run.text.slice(safeOffset), format: run.format },
+    { ...run, text: run.text.slice(0, safeOffset) },
+    { ...run, text: run.text.slice(safeOffset) },
   ];
 }
 
@@ -169,15 +164,17 @@ export function replaceTextInParagraph(
   if (!paragraph) return rich;
   const text = paragraph.runs.map((run) => run.text).join('');
   const safe = normalizeGraphemeRange(createUnicodeIndexMap(text), start, end);
-  const inherited = format ?? formatAtOffset(paragraph, safe.start);
-  const before = text.slice(0, safe.start);
-  const after = text.slice(safe.end);
-  const runs: TextRun[] = [];
-  if (before) runs.push({ text: before, format: formatAtOffset(paragraph, 0) });
-  if (replacement) runs.push({ text: replacement, format: inherited });
-  if (after) runs.push({ text: after, format: formatAtOffset(paragraph, safe.end) });
+  const inheritedRun = runAtOffset(paragraph, safe.start);
+  const insertion = { ...inheritedRun, text: replacement, format: format ?? inheritedRun?.format };
+  const runs = [
+    ...sliceRuns(paragraph.runs, 0, safe.start),
+    ...(replacement ? [insertion] : []),
+    ...sliceRuns(paragraph.runs, safe.end, text.length),
+  ];
   const paragraphs = rich.paragraphs.map((candidate, index) =>
-    index === paragraphIndex ? mergeAdjacentRuns({ ...candidate, runs }) : candidate,
+    index === paragraphIndex
+      ? mergeAdjacentRuns({ ...candidate, runs: ensureRuns(runs, insertion) })
+      : candidate,
   );
   return { paragraphs };
 }
@@ -206,7 +203,7 @@ export function replaceRichTextRange(
 
   const prefixRuns = sliceRuns(startParagraph.runs, 0, startAddress.offset);
   const suffixRuns = sliceRuns(endParagraph.runs, endAddress.offset, paragraphLength(endParagraph));
-  const insertionFormat = formatAtOffset(startParagraph, startAddress.offset);
+  const insertionRun = runAtOffset(startParagraph, startAddress.offset);
   const replacementLines = replacement.split('\n');
   const before = rich.paragraphs.slice(0, startAddress.paragraphIndex).map(cloneParagraph);
   const after = rich.paragraphs.slice(endAddress.paragraphIndex + 1).map(cloneParagraph);
@@ -218,13 +215,13 @@ export function replaceRichTextRange(
     const isLast = index === replacementLines.length - 1;
     const runs: TextRun[] = [];
     if (isFirst) runs.push(...prefixRuns);
-    if (line) runs.push({ text: line, format: insertionFormat });
+    if (line) runs.push({ ...insertionRun, text: line });
     if (isLast) runs.push(...suffixRuns);
     created.push({
       ...(isLast && startAddress.paragraphIndex !== endAddress.paragraphIndex
         ? cloneParagraph(endParagraph)
         : cloneParagraph(startParagraph)),
-      runs: ensureRuns(mergeAdjacentRuns({ runs }).runs, insertionFormat),
+      runs: ensureRuns(mergeAdjacentRuns({ runs }).runs, insertionRun),
     });
   }
 
@@ -312,9 +309,9 @@ function rewriteCharacterFormat(
         newRuns.push(left);
       }
       newRuns.push({
+        ...run,
         text: run.text.slice(selStart, selEnd),
         format: rewrite(run.format),
-        characterStyleId: run.characterStyleId,
       });
       if (selEnd < run.text.length) {
         const [, right] = splitRunAt(run, selEnd);
@@ -327,21 +324,21 @@ function rewriteCharacterFormat(
   return { paragraphs: paras.map(mergeAdjacentRuns) };
 }
 
-function formatAtOffset(para: Paragraph, offset: number): CharacterFormat | undefined {
+function runAtOffset(para: Paragraph, offset: number): TextRun | undefined {
   let cursor = 0;
   for (const run of para.runs) {
-    if (offset <= cursor + run.text.length) return run.format;
+    if (offset <= cursor + run.text.length) return run;
     cursor += run.text.length;
   }
-  return para.runs[para.runs.length - 1]?.format;
+  return para.runs[para.runs.length - 1];
 }
 
 function cloneParagraph(para: Paragraph): Paragraph {
   return { ...para, runs: para.runs.map((run) => ({ ...run })) };
 }
 
-function ensureRuns(runs: TextRun[], format: CharacterFormat | undefined): TextRun[] {
-  return runs.length > 0 ? runs : [{ text: '', format }];
+function ensureRuns(runs: TextRun[], inherited: TextRun | undefined): TextRun[] {
+  return runs.length > 0 ? runs : [{ ...inherited, text: '' }];
 }
 
 function sliceRuns(runs: readonly TextRun[], start: number, end: number): TextRun[] {

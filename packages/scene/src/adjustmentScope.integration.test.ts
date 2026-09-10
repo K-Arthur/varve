@@ -12,7 +12,7 @@ import {
 import type { Document } from './document';
 import { createDocument, makeAdjustmentNode } from './document';
 import type { NodeId } from './types';
-import { migrateDocument } from './version';
+import { CURRENT_DOCUMENT_VERSION, migrateDocument } from './version';
 
 function makeTestDoc(): Document {
   return createDocument('scope-test', true) as Document;
@@ -192,7 +192,7 @@ describe('AdjustmentScope - Migration v2.2 to v2.3', () => {
     };
 
     const migrated = migrateDocument(v22Doc) as Record<string, unknown>;
-    expect(migrated.formatVersion).toBe('2.23');
+    expect(migrated.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
     const adj = (migrated.nodes as Record<string, Record<string, unknown>>).adj1!;
     expect(adj.scope).toBeDefined();
     expect((adj.scope as Record<string, unknown>).mode).toBe('image-local');

@@ -17,6 +17,61 @@ function rich(...runs: TextRun[]): RichText {
 }
 
 describe('richTextOps', () => {
+  it('keeps inherited style links on both sides of a range formatting change', () => {
+    const source = rich({
+      text: 'Headline',
+      characterStyleId: 'heading-style',
+      format: { fontSize: 24, language: 'en' },
+    });
+    const next = applyFormatToSelection(
+      source,
+      { start: { paragraphIndex: 0, offset: 2 }, end: { paragraphIndex: 0, offset: 5 } },
+      { fontWeight: 700 },
+    );
+    expect(next.paragraphs[0]?.runs).toEqual([
+      { text: 'He', characterStyleId: 'heading-style', format: { fontSize: 24, language: 'en' } },
+      {
+        text: 'adl',
+        characterStyleId: 'heading-style',
+        format: { fontSize: 24, language: 'en', fontWeight: 700 },
+      },
+      { text: 'ine', characterStyleId: 'heading-style', format: { fontSize: 24, language: 'en' } },
+    ]);
+    expect(source.paragraphs[0]?.runs).toHaveLength(1);
+  });
+
+  it('preserves unrelated runs when replacing within a styled paragraph', () => {
+    const source = rich(
+      { text: 'One ', characterStyleId: 'first', format: { fontWeight: 700 } },
+      { text: 'two ', characterStyleId: 'middle', format: { fontStyle: 'italic' } },
+      { text: 'three', characterStyleId: 'last', format: { fontSize: 32 } },
+    );
+    const next = replaceTextInParagraph(source, 0, 5, 6, 'W', { fontStyle: 'normal' });
+    expect(next.paragraphs[0]?.runs).toEqual([
+      source.paragraphs[0]?.runs[0],
+      { text: 't', characterStyleId: 'middle', format: { fontStyle: 'italic' } },
+      { text: 'W', characterStyleId: 'middle', format: { fontStyle: 'normal' } },
+      { text: 'o ', characterStyleId: 'middle', format: { fontStyle: 'italic' } },
+      source.paragraphs[0]?.runs[2],
+    ]);
+  });
+
+  it('inherits character styles through typing, paragraph insertion and empty text', () => {
+    const run = { text: 'Hi', characterStyleId: 'body', format: { fontSize: 20 } };
+    const source = rich(run);
+    const typed = replaceRichTextContent(source, 'Hi!');
+    expect(typed.paragraphs[0]?.runs).toEqual([{ ...run, text: 'Hi!' }]);
+    const split = replaceRichTextRange(typed, 2, 2, '\n');
+    expect(split.paragraphs.map((p) => p.runs)).toEqual([
+      [{ ...run, text: 'Hi' }],
+      [{ ...run, text: '!' }],
+    ]);
+    const cleared = replaceRichTextContent(source, '');
+    expect(cleared.paragraphs[0]?.runs).toEqual([{ ...run, text: '' }]);
+    const resumed = replaceRichTextContent(cleared, 'Again');
+    expect(resumed.paragraphs[0]?.runs).toEqual([{ ...run, text: 'Again' }]);
+  });
+
   describe('splitRunAt', () => {
     it('splits a run at the given offset', () => {
       const [a, b] = splitRunAt({ text: 'Hello', format: { fontWeight: 400 } }, 2);

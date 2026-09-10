@@ -109,3 +109,52 @@ moved onto the placement layer after visual inspection found clipped corners.
 Exact measurements, failed iterations and passing commands are in the
 [toolbar evidence log](./font-toolbar-evidence-2026-09-10.md). This verifies the
 local toolbar repair, not completion of the broader font acceptance matrix.
+
+Further range-editing review found that `splitRunAt` intentionally discarded the
+right half's `characterStyleId`. `replaceTextInParagraph` also reconstructed the
+whole prefix/suffix using one format, flattening unrelated runs. The repair
+preserves run metadata on both split halves and retains the insertion style
+through typing, paragraph creation and an empty paragraph. Direct regressions
+cover those behaviors. The scene suite passes 2,873 tests, and the affected
+consumer tests and type checks pass through desktop. One editor shortcut-test
+timeout passed its isolated rerun (18 tests). Website validation still reports
+two existing token checks in the unchanged canvas, grids and auto-layout pages;
+these are not rich-text failures. This does not yet wire the floating toolbar
+to the active range.
+
+
+The range dependency check exposed stale schema assertions in seven scene test
+files: current documents use 2.27 but those expectations and canonical goldens
+still encoded 2.23. The reviewed canonical JSON diff changes only the version;
+its SHA-256 is now `c3a4f50c56cd3ad10a6c667eeb7ce988cb98f16a5361699e8f1b25e7019dbdb9`.
+Migration behavior tests now compare the exported current-version constant,
+while their historical input fixtures retain their original versions.
+
+A follow-up OS/2 review found another synthetic-fixture/parser agreement bug:
+`xHeight` and `capHeight` are read/written two bytes late (86/88 instead of
+84/86), without checking the table version. Short version-0 OS/2 tables are
+also rejected using a whole-file bound rather than their actual table span.
+The embedding classifier replaces a restricted base permission with
+`no-subsetting`, while bitmap-only is lost. Versions 0/1 must ignore the later
+restriction bits; versions 0–2 permit least-restrictive interpretation of
+multiple base bits. These are pending parser repairs, confirmed against the
+[OpenType OS/2 specification](https://learn.microsoft.com/en-us/typography/opentype/spec/os2).
+
+
+Range-repair validation commands (shared working tree based on `40f330b26`):
+
+```sh
+GIT_INDEX_FILE=/tmp/varve-font-range-v2.index pnpm verify:plan --staged
+GIT_INDEX_FILE=/tmp/varve-font-range-v2.index pnpm verify:affected --staged
+node /tmp/varve-font-resume-validation.mjs
+pnpm audit:tokens
+node scripts/audit-architecture.mjs --ci
+```
+
+The temporary resume driver ran the one timed-out shortcut spec and every
+remaining planner lane, preserving already-green lanes. Its exact command
+sequence is recorded in `reports/font-integration-2026-09-10/range-commands.txt`.
+The token audit passed 153 pairs across three themes; the architecture audit
+passed with existing hub-budget warnings. No render dispatch, schema, or public
+API was changed by this run-metadata repair, so no new full-gate escalation
+was selected. The earlier schema integration still requires its final gate.

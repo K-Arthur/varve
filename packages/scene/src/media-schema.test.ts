@@ -11,7 +11,7 @@ import {
   validateAnimatedAssetMetadata,
 } from './assets';
 import { createDocument } from './document';
-import { migrateDocument } from './version';
+import { CURRENT_DOCUMENT_VERSION, migrateDocument } from './version';
 
 const animated: AnimatedAssetMetadata = {
   kind: 'gif',
@@ -74,7 +74,7 @@ describe('migration 2.19 → 2.20', () => {
       },
     };
     const migrated = migrateDocument(raw);
-    expect(migrated?.formatVersion).toBe('2.23');
+    expect(migrated?.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
     // static asset unchanged — no animated structures fabricated
     expect(
       (migrated?.assets as Record<string, { animated?: unknown }> | undefined)?.['asset-1']

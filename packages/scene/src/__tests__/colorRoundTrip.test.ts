@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { migrateDocument, serializeDocument } from '../version';
+import { CURRENT_DOCUMENT_VERSION, migrateDocument, serializeDocument } from '../version';
 
 describe('color round-trip', () => {
   it('preserves float32 CMYK bit depth through serialize → deserialize', () => {
@@ -175,7 +175,7 @@ describe('color round-trip', () => {
 
     const migrated = migrateDocument(v23Fixture as unknown as Record<string, unknown>);
     expect(migrated).not.toBeNull();
-    expect(migrated!.formatVersion).toBe('2.23');
+    expect(migrated!.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
 
     const config = migrated!.colorConfig as Record<string, unknown> | undefined;
     expect(config).toBeDefined();

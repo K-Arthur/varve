@@ -4,7 +4,7 @@ import {
   legacyColorTupleToManaged,
   migrateLegacyTextColorTuples,
 } from './colorMigration';
-import { migrateDocumentDetailed } from './version';
+import { CURRENT_DOCUMENT_VERSION, migrateDocumentDetailed } from './version';
 
 /** Minimal legacy 2.13 document with a text node carrying tuple colors. */
 function legacyDoc(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -148,7 +148,7 @@ describe('migration integration (2.13 → 2.14)', () => {
   it('migrates through migrateDocumentDetailed', () => {
     const result = migrateDocumentDetailed(legacyDoc());
     expect(result).not.toBeNull();
-    expect(result!.toVersion).toBe('2.23');
+    expect(result!.toVersion).toBe(CURRENT_DOCUMENT_VERSION);
     const docNodes = (result!.document as Record<string, unknown>).nodes as Record<
       string,
       Record<string, unknown>
@@ -207,7 +207,7 @@ describe('migration integration (2.13 → 2.14)', () => {
     // unprofiled rgb values (document working space applies at read time).
     const doc = legacyDoc({ formatVersion: '1.1' });
     const result = migrateDocumentDetailed(doc);
-    expect(result!.toVersion).toBe('2.23');
+    expect(result!.toVersion).toBe(CURRENT_DOCUMENT_VERSION);
     const docNodes = (result!.document as Record<string, unknown>).nodes as Record<
       string,
       Record<string, unknown>
