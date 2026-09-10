@@ -245,3 +245,9 @@ layers and the expected Import Results report; the report is intentionally
 dismissed by the integration spec before canvas assertions. The full native
 transport, Firefox-owned Figma captures, rich-text formatting, and paste/drop
 Import Results wiring remain open and are not claimed as complete.
+
+The stale destination guard now has a dedicated `dropUtils.test.ts` regression
+covering unchanged sessions and document, tab, document-revision, and
+selection-revision changes. Its focused run passed 25 tests; this closes the
+unit-test gap in CLIP-09 while the delayed real picker/drop browser lane remains
+platform-dependent.
