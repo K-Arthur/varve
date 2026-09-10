@@ -294,8 +294,8 @@ full-sized editors:
 
 | Surface | What is shown there | What is deliberately not duplicated |
 | --- | --- | --- |
-| **Properties** | Normal opacity/blend controls, **Open Effect Studio**, and **Add adjustment layer** for eligible selection | The Object Filter stack and Studio gallery |
-| **Appearance & Effects** | A compact Studio launch card, advanced Object Filters, and Layer Effects | The Studio gallery and its applied-treatment manager |
+| **Properties** | Normal opacity/blend controls and **Add adjustment layer** for eligible selection | The Object Filter stack and Studio gallery |
+| **Appearance & Effects** | Advanced Object Filters and Layer Effects | The Studio gallery and its applied-treatment manager |
 | **Effect Studio dialog** | Curated gallery, preview/compare, Applied treatments, direct recipe tuning, raw creative primitives, and Looks | Inspector tabs and the raw Object Filter stack editor |
 | **Adjustments** | Image Tuning for raster selection; eligible vector/object selections get compact Effect Studio access and summary, the object-local raw stack, Layer Effects, and scoped Adjustment Layer access; adjustment nodes get the complete Adjustment Layer editor | Image-only tuning, enhancement, cleanup, recognition, and compositing controls on vector selections |
 

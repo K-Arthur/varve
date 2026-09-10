@@ -108,7 +108,7 @@ on the photographic or material result you want:
 | Add a soft halo around bright parts | Highlight Glow | Glow Amount | Lower **Highlight Threshold** for mid-tone material; increase **Glow Size** before raising amount for a gentler result. |
 
 For a 50%-opacity gray vector rectangle, select the rectangle and use
-**Properties → Creative effects → Open Effect Studio** for a curated treatment.
+**Object → Open Effect Studio** (or the Effect Studio entry in Adjustments) for a curated treatment.
 For a raw finishing operator instead, open **Design/Properties → Object Filters →
 Object Finishing → Grain**. This adds a node-local filter; it does not flatten
 the rectangle or change its fill or object opacity. Tune Grain Amount first,

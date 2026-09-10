@@ -328,11 +328,11 @@ descendants of a shared container. The scope inspector exposes the same model
 for later changes and preserves a current image-local target when switching
 modes.
 
-Properties keeps compact entry points: **Open Effect Studio** and **Add
-adjustment layer**. Open Effect Studio is a controlled primary-editor dialog
-for the curated gallery and named-treatment tuning; Appearance & Effects keeps
-the raw Object Filter stack and Layer Effects as compact advanced surfaces. The
-Object menu and shortcuts open the same Studio dialog, including
+Properties keeps compact opacity and blend controls plus **Add adjustment
+layer**. Open Effect Studio is a controlled primary-editor dialog reached from
+the Object menu, command palette, shortcut, or Adjustments workflow; Appearance
+& Effects keeps the raw Object Filter stack and Layer Effects as compact
+advanced surfaces. The Object menu and shortcuts open the same Studio dialog, including
 **Open Effect Studio** and **New Adjustment Layer**. SVG/PDF export treats
 visible Object Filters as replay features and rasterizes the smallest affected
 boundary; raster export keeps the shared replay path so vector and raster
