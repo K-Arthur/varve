@@ -22,11 +22,11 @@ import { sitePath } from '../../../lib/siteUrl';
         </p>
         <ul>
           <li><strong>Menubar</strong> — the top bar with File, Edit, View, Object, and other menus</li>
-          <li><strong>Toolbar</strong> — the vertical strip on the left with all drawing and selection tools</li>
+          <li><strong>Toolbar</strong> — the floating bar at the bottom of the canvas with drawing and selection tools, plus <strong>Tool options</strong> for tools that have settings</li>
           <li><strong>Design Canvas navigator</strong> — the surface list above Layers for creating, naming, and switching open-ended design canvases</li>
           <li><strong>Design canvas</strong> — the central workspace where you create and edit your design</li>
           <li><strong>Layers Panel</strong> — the sidebar showing artwork on the active canvas</li>
-          <li><strong>Inspector Panel</strong> — the right sidebar below layers for editing properties of the selected node</li>
+          <li><strong>Inspector Panel</strong> — the right sidebar for editing the selection, or the active tool and document when nothing is selected</li>
           <li><strong>Status Bar</strong> — the bottom strip showing zoom level, canvas info, and toggle controls</li>
         </ul>
       </section>
@@ -145,9 +145,19 @@ import { sitePath } from '../../../lib/siteUrl';
       <section class="docs-section">
         <h2>Inspector Panel</h2>
         <p>
-          The inspector panel (right sidebar, bottom) is a contextual workspace for the current
+          The inspector panel (right sidebar) is a contextual workspace for the current
           selection. The Design tab is the everyday Properties surface, organized around one
           canonical owner for each property group.
+        </p>
+        <p>
+          With nothing selected, the Design tab follows the active tool. The <strong>Frame</strong>
+          tool lists searchable size presets (devices first, with favorites and recents); picking
+          one places a frame of that size and selects it. Tools with settings of their own, such as
+          the brushes, marquees, magic wand, text, and crop, show a <strong>Show … options</strong>
+          button that opens their Tool options beside the toolbar. Every other tool keeps the
+          canvas and document settings in view, and the Page tool adds the page's print geometry at
+          the top. A selected frame offers <strong>Resize to Preset</strong> directly below
+          Position &amp; Size, including <strong>Save current size as preset</strong>.
         </p>
         <ul>
           <li><strong>Position &amp; Size</strong> — X, Y, W, H, rotation, bounds, and aspect-ratio editing with mixed-selection support</li>
