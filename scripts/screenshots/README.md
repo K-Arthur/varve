@@ -17,6 +17,18 @@ deterministic states.
 Targeted capture: `pnpm screenshots:product -- --scenes workspace,vector`
 Strict mode: `pnpm screenshots:product -- --strict` (exit non-zero on any skip)
 
+To inspect captures before changing published screenshots, use a review directory:
+
+```bash
+pnpm screenshots:product -- --scenes typography,typography-panel,font-toolbar,font-browser --strict --review-dir reports/font-capture-review
+# Inspect each PNG, then sync exactly the approved scenes:
+pnpm screenshots:product -- --scenes typography,typography-panel,font-toolbar,font-browser --review-dir reports/font-capture-review --sync-reviewed
+```
+
+Review captures do not change website images or its manifest. Sync checks each
+capture's recorded SHA-256 and preserves all other scene entries. It does not
+rerun the editor or approve an image automatically.
+
 Every run prints `this run: N scene(s) attempted` and fails when `N` is zero.
 The manifest totals printed beside it describe stored state, not the run — a
 run that captured nothing still reports a manifest full of captured scenes,
@@ -67,6 +79,8 @@ modes and a real type hierarchy.
 | `vector` | light | canvas | Path in node-edit mode — anchors and Bézier handles |
 | `typography` | light | canvas | Type specimen: display, character set, subhead, body |
 | `typography-panel` | light | inspector | Font family, weight, size, line height, tracking |
+| `font-toolbar` | light | full | Compact text toolbar with font picker open |
+| `font-browser` | light | full | Family browser with editable local specimen |
 | `layers` | light | layers | Named layers with blend-mode and opacity badges |
 | `layout` | light | full | Two-page editorial spread |
 | `motion` | dark | timeline | Timeline panel with a real position keyframe |

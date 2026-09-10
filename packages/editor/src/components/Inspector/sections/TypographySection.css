@@ -1,0 +1,40 @@
+/* Match the shared inspector field rhythm while giving family names room. */
+.typography__family-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--component-compact-height);
+  align-items: end;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.typography__family-field .font-selector {
+  min-width: 0;
+}
+
+.typography__family-field .font-selector__label {
+  font-family: var(--type-interface-label-family);
+  font-size: var(--type-interface-label-size);
+  font-weight: var(--type-interface-label-weight);
+  line-height: var(--type-interface-label-line-height);
+}
+
+.typography__family-field .typography__browse-fonts {
+  width: var(--component-compact-height);
+  height: var(--component-compact-height);
+}
+
+.editor-inspector .typography-controls .insp-field__control > .insp-segmented {
+  display: flex;
+  flex-wrap: nowrap;
+}
+
+.typography-controls .insp-segmented__btn {
+  min-width: 0;
+  flex: 1 1 0;
+}
+
+.editor-inspector .typography-controls > .insp-field > .insp-field__label {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}

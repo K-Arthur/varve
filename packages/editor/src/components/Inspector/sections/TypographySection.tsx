@@ -40,6 +40,7 @@ import { RichTextSpanEditor } from '../controls/RichTextSpanEditor';
 import type { SegmentedOption } from '../controls/SegmentedControl';
 import { SegmentedControl } from '../controls/SegmentedControl';
 import { commonValue, isMixed, type MaybeMixed } from '../selection/selectionState';
+import './TypographySection.css';
 
 /**
  * Switch a text node's resizing contract, keeping `w`/`h` meaning what the new
@@ -345,7 +346,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
           setFontBrowserOpen(false);
         }}
       />
-      <div ref={bindingTriggerRef} className="insp-field-group">
+      <div ref={bindingTriggerRef} className="insp-field-group typography-controls">
         {textContent !== null && (
           <>
             <FieldRow label="Content">
@@ -394,7 +395,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             )}
           </>
         )}
-        <FieldRow label="Font">
+        <div className="typography__family-field">
           <FontSelector
             value={isMixed(familyRaw) ? '' : familyRaw}
             onChange={(v) => batchUpdate((n) => ({ ...n, fontFamily: v || undefined }))}
@@ -406,10 +407,10 @@ export function TypographySection({ nodes }: TypographySectionProps) {
               onClick={() => setFontBrowserOpen(true)}
               aria-label="Browse fonts"
             >
-              …
+              <Icon name="Ellipsis" size={16} />
             </button>
           </Tooltip>
-        </FieldRow>
+        </div>
         <FieldRow label="Weight">
           <Select
             label="Font weight"
@@ -447,51 +448,29 @@ export function TypographySection({ nodes }: TypographySectionProps) {
           onShiftClick={() => setBindingField('fontSize')}
           onChange={(v) => batchUpdate((n) => ({ ...n, fontSize: v }))}
         />
-        {/* Paired as one boxed row — Figma/Sketch present line height and
-            letter spacing as a matched pair, not two stacked full-width
-            fields. */}
-        <div className="insp-quad-grid">
-          <div className="insp-icon-field">
-            <Icon
-              name="AlignVerticalSpaceAround"
-              label={undefined}
-              size="0.85em"
-              className="insp-icon-field__icon"
-            />
-            <NumberField
-              label="Line height"
-              unit="%"
-              value={isMixed(lineHeightRaw) ? 120 : lineHeightRaw * 100}
-              mixed={isMixed(lineHeightRaw)}
-              step={1}
-              min={0}
-              fieldName="lineHeight"
-              draftKey={`${typographyDraftKey}:line-height`}
-              onShiftClick={() => setBindingField('lineHeight')}
-              onChange={(v) => batchUpdate((n) => ({ ...n, lineHeight: v / 100 }))}
-            />
-          </div>
-          <div className="insp-icon-field">
-            <Icon
-              name="AlignHorizontalSpaceAround"
-              label={undefined}
-              size="0.85em"
-              className="insp-icon-field__icon"
-            />
-            <NumberField
-              label="Letter spacing"
-              displayLabel="Letter sp."
-              unit="px"
-              value={isMixed(letterSpacingRaw) ? 0 : letterSpacingRaw}
-              mixed={isMixed(letterSpacingRaw)}
-              step={0.1}
-              fieldName="letterSpacing"
-              draftKey={`${typographyDraftKey}:letter-spacing`}
-              onShiftClick={() => setBindingField('letterSpacing')}
-              onChange={(v) => batchUpdate((n) => ({ ...n, letterSpacing: v }))}
-            />
-          </div>
-        </div>
+        <NumberField
+          label="Line height"
+          unit="%"
+          value={isMixed(lineHeightRaw) ? 120 : lineHeightRaw * 100}
+          mixed={isMixed(lineHeightRaw)}
+          step={1}
+          min={0}
+          fieldName="lineHeight"
+          draftKey={`${typographyDraftKey}:line-height`}
+          onShiftClick={() => setBindingField('lineHeight')}
+          onChange={(v) => batchUpdate((n) => ({ ...n, lineHeight: v / 100 }))}
+        />
+        <NumberField
+          label="Letter spacing"
+          unit="px"
+          value={isMixed(letterSpacingRaw) ? 0 : letterSpacingRaw}
+          mixed={isMixed(letterSpacingRaw)}
+          step={0.1}
+          fieldName="letterSpacing"
+          draftKey={`${typographyDraftKey}:letter-spacing`}
+          onShiftClick={() => setBindingField('letterSpacing')}
+          onChange={(v) => batchUpdate((n) => ({ ...n, letterSpacing: v }))}
+        />
         <NumberField
           label="Tracking"
           unit="‰"
@@ -779,7 +758,7 @@ function VariableAxesSection({ textNodes, familyRaw, batchUpdate }: VariableAxes
         const span = info.max - info.min;
         const step = span >= 100 ? 1 : span / 100;
         return (
-          <FieldRow label={info.name} htmlFor={`vf-${tag}-range`}>
+          <FieldRow key={tag} label={info.name} htmlFor={`vf-${tag}-range`}>
             <div className="insp-axis-control">
               <RangeValueControl
                 id={`vf-${tag}`}

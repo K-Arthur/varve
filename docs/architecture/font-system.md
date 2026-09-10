@@ -88,6 +88,14 @@ unfinished draft. Range/caret targeting still requires the shared typography
 command adapter.
 Presentation-only hover preview is not integrated yet.
 
+The inspector gives the family picker a full-width row with one label and a
+32px Browse button. Line height and letter spacing use separate shared numeric
+rows so their names and units remain visible at minimum panel width. Alignment
+choices stay on one row. These scoped styles do not change other inspector
+sections. Rich-text operations preserve inherited character-style links when
+splitting, replacing and clearing runs; the ordinary toolbar still needs the
+range/caret command adapter.
+
 ## Evidence and open platform work
 
 The parser and identity corrections are recorded in

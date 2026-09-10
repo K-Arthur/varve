@@ -12,7 +12,7 @@ import { sitePath } from '../../../lib/siteUrl';
 
       <h1>Typography</h1>
       <p class="docs-intro">
-        Varve's text system provides typography controls with support for variable fonts, OpenType features, multi-line text, text on path, CJK line breaking, and Unicode-aware editing foundations. Canvas2D remains the current browser rasterization fallback; it is not the sole canonical source for complex-script glyph layout.
+        Create and edit text, choose fonts, adjust spacing, and format individual words with Rich Text. This guide covers the available controls and the current font-access and export limitations.
       </p>
 
       <section class="docs-section">
@@ -21,7 +21,7 @@ import { sitePath } from '../../../lib/siteUrl';
           Press <code>T</code> to select the Text tool. Click anywhere on the canvas to create a text node at that position. Start typing immediately — the text appears on canvas as you type. Press <code>Escape</code> or click elsewhere to finish editing.
         </p>
         <p>
-          Varve automatically sizes the text box based on your content using <code>measureText()</code> from the canvas API. The box expands as you type, or you can create a fixed-width text area by clicking and dragging to define a bounding box.
+          The text box expands as you type. To create a fixed-width text area, click and drag to define its bounds.
         </p>
       </section>
 
@@ -31,11 +31,20 @@ import { sitePath } from '../../../lib/siteUrl';
           There are two ways to edit existing text:
         </p>
         <ul>
-          <li><strong>Double-click</strong> the text node with the Select tool to enter inline editing. A positioned <code>&lt;textarea&gt;</code> overlay appears at the text's location on canvas, with composition-aware input and grapheme-safe selection mapping. Mixed-direction caret behavior remains under active integration.</li>
+          <li><strong>Double-click</strong> the text with the Select tool to edit it directly on the canvas. Mixed-direction caret behavior remains under active integration.</li>
           <li><strong>Edit in Inspector</strong> — Select a text node and find the text content field in the Typography section of the Inspector. This is useful for longer text passages.</li>
         </ul>
         <p>
-          Press <code>Escape</code> or click away to exit edit mode.
+          Press <code>Escape</code> or click away to exit edit mode. If the
+          compact font picker is open, the first <code>Escape</code> closes the
+          picker; press it again to leave text editing.
+        </p>
+        <p>
+          The floating text toolbar provides font family, weight, bold, italic,
+          size, and color controls. Open <strong>More text formatting</strong>
+          for alignment and lists. Font size changes apply when you press
+          <code>Enter</code> or leave the size field; <code>Escape</code> discards
+          an unfinished size edit.
         </p>
       </section>
 
@@ -96,7 +105,7 @@ import { sitePath } from '../../../lib/siteUrl';
           Varve's Font Registry manages font loading and fallback chains. You can use:
         </p>
         <ul>
-          <li><strong>System fonts</strong> — Fonts installed on your operating system</li>
+          <li><strong>System fonts</strong> — Availability depends on the operating system and browser; a family name alone does not confirm that its file is accessible</li>
           <li><strong>Bundled fonts</strong> — Open-source fonts included with Varve via @fontsource packages</li>
           <li><strong>Shipped semantic catalog</strong> — Search family names, design language, coverage, features, availability, and personal tags offline</li>
           <li><strong>Explicit desktop installs</strong> — When enabled, retrieve one exact, version-pinned Fontsource artifact after reviewing the result and its license metadata</li>
@@ -105,7 +114,7 @@ import { sitePath } from '../../../lib/siteUrl';
           The compact font family selector shows installed fonts only and never starts a download. Open Browse fonts for semantic discovery, coverage and license inspection. The public browser demo keeps search local-first and does not make remote provider requests; desktop installation is a separate explicit action. Missing fonts open a recovery dialog that uses the same shipped catalog and install boundary.
         </p>
         <p>
-          Downloaded faces are stored locally and restored before the editor scans an opened document, including in a later desktop session. A successfully restored face is registered with its original Fontsource weight and style, so an installed family is not reported as missing just because the runtime was restarted.
+          Downloads are stored locally. If a font is still reported missing after reopening, review the requested family and face before choosing a replacement. Collection members and different files with the same family name are still being integrated into storage and recovery; a family match does not prove that the original file was restored.
         </p>
 
         <h3>Browse fonts</h3>
@@ -114,11 +123,11 @@ import { sitePath } from '../../../lib/siteUrl';
         </p>
         <ol>
           <li><strong>Search:</strong> A plain term such as <code>gothic</code> returns only matching catalog families. Natural-language queries remain ranked and show the interpreted terms.</li>
-          <li><strong>Inspect:</strong> Select a family to keep the list in place while reviewing a custom specimen rendered with the exact available face, source, license, styles, weights, script coverage, tags, and related families.</li>
+          <li><strong>Inspect:</strong> Select a family to keep the list in place while reviewing a custom specimen rendered with the available family, source, license, styles, weights, script coverage, tags, and related families.</li>
           <li><strong>Decide:</strong> Use an installed family explicitly, or install a catalog-only family after reviewing its metadata. Selecting a result alone never changes the document.</li>
         </ol>
         <p>
-          Search and inspection are local-first and work with the shipped catalog without provider metadata requests. Exact specimens render only for installed or bundled faces; catalog-only families show metadata until an explicit desktop install. The browser adapts to compact widths and follows Varve's light, dark, and high-contrast theme tokens. Installed file details are available for local faces when the registry exposes them.
+          Search and inspection are local-first and work with the shipped catalog without provider metadata requests. Specimens render for installed or bundled families; catalog-only families show metadata until an explicit desktop install. The browser adapts to compact widths and follows Varve's light, dark, and high-contrast theme tokens. Installed file details are available for local faces when the registry exposes them.
         </p>
 
         <h3>Semantic discovery</h3>
@@ -135,7 +144,7 @@ import { sitePath } from '../../../lib/siteUrl';
         </p>
         <ol>
           <li><strong>Review the source:</strong> See the original family, affected text count, and candidate match quality.</li>
-          <li><strong>Recover the requested face:</strong> When the shipped catalog has an exact identity, review its resolved weight, style, and license, then explicitly install the version-pinned artifact.</li>
+          <li><strong>Recover the requested face:</strong> When the shipped catalog has a matching family and style, review the offered weight, style, and license, then explicitly install the version-pinned artifact. An imported family name cannot identify the original font file or revision.</li>
           <li><strong>Browse alternatives:</strong> Open the full semantic font browser when there is no exact catalog match or the design calls for a different direction.</li>
           <li><strong>Choose a local candidate:</strong> Select an installed or bundled font that fits the design and script.</li>
           <li><strong>Apply once:</strong> Replace All updates matching nodes, rich-text runs, and shared styles in one undoable transaction.</li>
@@ -148,15 +157,15 @@ import { sitePath } from '../../../lib/siteUrl';
         <h3>Size and Weight</h3>
         <ul>
           <li><strong>Font Size</strong> — Numeric input with drag-to-scrub</li>
-          <li><strong>Font Weight</strong> — Numeric value (100-900) or named weight selector (Thin through Black)</li>
-          <li><strong>Font Style</strong> — Normal, Italic, or Oblique</li>
+          <li><strong>Font Weight</strong> — Numeric request from 100 to 900; availability depends on the selected font</li>
+          <li><strong>Font Style</strong> — Normal or Italic</li>
         </ul>
 
         <h3>Alignment and Spacing</h3>
         <ul>
           <li><strong>Text Align</strong> — Left, Center, Right, Justify</li>
           <li><strong>Text Align Vertical</strong> — Top, Middle, Bottom</li>
-          <li><strong>Line Height</strong> — Multiplier (e.g., 1.5) or absolute value</li>
+          <li><strong>Line Height</strong> — Percentage of the font size (for example, 150%)</li>
           <li><strong>Letter Spacing</strong> — Per-glyph spacing in pixels</li>
           <li><strong>Paragraph Spacing</strong> — Additional space between paragraphs</li>
         </ul>
@@ -191,7 +200,28 @@ import { sitePath } from '../../../lib/siteUrl';
       <section class="docs-section">
         <h2>Variable Fonts</h2>
         <p>
-          Varve supports variable fonts with full axis control. When a variable font is selected, the Typography section shows a <strong>Variable Axes</strong> panel with range sliders for each registered axis (e.g., weight, width, optical size, slant). The available axes are determined by the font's <code>fvar</code> table.
+          Varve exposes registered variable-font axes. When a variable font is selected, the Typography section shows a <strong>Variable Axes</strong> panel with range sliders for each registered axis (e.g., weight, width, optical size, slant). The available axes are determined by the font's <code>fvar</code> table.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Font access and licensing</h2>
+        <p>
+          The browser demo does not download catalog fonts. Browsers may also
+          limit access to fonts installed on your computer. An explicit local
+          font permission and collection-import workflow is still in progress;
+          use the bundled families when the requested font is unavailable.
+        </p>
+        <p>
+          Font names and technical embedding flags do not establish the full
+          license terms. Review the source license before sharing font files.
+          Missing license metadata means the terms are unknown. Keep the
+          original font source so recipients can obtain the appropriate file.
+        </p>
+        <p>
+          Document Fonts, Select by Font, and the image crop-to-font workflow
+          are still being integrated. The current image identification panel
+          does not yet provide a complete crop, identify, and apply workflow.
         </p>
       </section>
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 /**
  * Product screenshot capture pipeline.
  *
@@ -27,18 +28,27 @@ import { spawn } from 'node:child_process';
  * never silently replaced by an older screenshot. --strict fails the run.
  */
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, expect } from '@playwright/test';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const OUT_DIR = join(ROOT, 'docs', 'screenshots', 'product');
+const args = process.argv.slice(2);
+const reviewFlag = args.indexOf('--review-dir');
+const reviewDir = reviewFlag < 0 ? undefined : args[reviewFlag + 1];
+if (reviewFlag >= 0 && (!reviewDir || reviewDir.startsWith('--'))) {
+  throw new Error('--review-dir requires an output directory');
+}
+const CANONICAL_DIR = join(ROOT, 'docs', 'screenshots', 'product');
+const OUT_DIR = reviewDir ? resolve(reviewDir) : CANONICAL_DIR;
 const PUBLIC_DIR = join(ROOT, 'apps', 'website', 'public', 'screenshots');
 const MANIFEST_PATH = join(ROOT, 'apps', 'website', 'src', 'data', 'screenshot-manifest.json');
 const PORT = Number(process.env.VARVE_SHOT_PORT ?? 1430);
 const BASE = `http://localhost:${PORT}`;
 
-const args = process.argv.slice(2);
+const OUTPUT_DIRS = reviewDir ? [OUT_DIR] : [OUT_DIR, PUBLIC_DIR];
+const OUTPUT_MANIFEST = reviewDir ? join(OUT_DIR, 'manifest.json') : MANIFEST_PATH;
+
 // indexOf returns -1 when --scenes is absent, so reading args[index + 1]
 // unguarded picks up args[0] — turning `--strict` into a scene filter that
 // matches nothing and silently capturing zero scenes.
@@ -50,6 +60,34 @@ const onlyScenes = new Set(
     .filter(Boolean),
 );
 const strict = args.includes('--strict');
+
+if (args.includes('--sync-reviewed')) {
+  if (!reviewDir || onlyScenes.size === 0) {
+    throw new Error('--sync-reviewed requires --review-dir and explicit --scenes');
+  }
+  const reviewed = JSON.parse(readFileSync(OUTPUT_MANIFEST, 'utf8'));
+  const current = JSON.parse(readFileSync(MANIFEST_PATH, 'utf8'));
+  const approved = [...onlyScenes].map((id) => {
+    const entry = reviewed.scenes[id];
+    if (entry?.status !== 'captured' || basename(entry.file) !== entry.file) {
+      throw new Error(`No successful reviewed capture for ${id}`);
+    }
+    const bytes = readFileSync(join(OUT_DIR, entry.file));
+    if (createHash('sha256').update(bytes).digest('hex') !== entry.sha256) {
+      throw new Error(`Reviewed capture changed after capture: ${id}`);
+    }
+    return { id, entry, bytes };
+  });
+  for (const { id, entry, bytes } of approved) {
+    writeFileSync(join(CANONICAL_DIR, entry.file), bytes);
+    writeFileSync(join(PUBLIC_DIR, entry.file), bytes);
+    current.scenes[id] = entry;
+  }
+  current.generatedAt = new Date().toISOString();
+  writeFileSync(MANIFEST_PATH, `${JSON.stringify(current, null, 2)}\n`);
+  console.log(`Synced ${approved.length} reviewed captures; other scenes preserved.`);
+  process.exit(0);
+}
 
 mkdirSync(OUT_DIR, { recursive: true });
 mkdirSync(PUBLIC_DIR, { recursive: true });
@@ -337,19 +375,19 @@ async function waitForInferenceResult(success, section, timeout) {
   }
 }
 
-async function parkMouse(page) {
+async function parkMouse(page, preserveFocus = false) {
   await page.mouse.move(4, 4);
-  await page.evaluate(() => document.activeElement?.blur?.());
+  if (!preserveFocus) await page.evaluate(() => document.activeElement?.blur?.());
 }
 
 /** Wait for rendering to settle: fonts + two frames + replay pass. */
-async function settle(page) {
+async function settle(page, preserveFocus = false) {
   await page.evaluate(() => document.fonts.ready);
   await page.evaluate(
     () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))),
   );
   await page.waitForTimeout(700);
-  await parkMouse(page);
+  await parkMouse(page, preserveFocus);
   await page.waitForTimeout(300);
 }
 
@@ -458,8 +496,8 @@ const SCENES = [
       // (bottom-centre). The document's own top-left corner is not empty —
       // clicking there just selects the frame and keeps the bar up.
       for (const [dx, dy] of [
-        [canvasBox.width - 18, canvasBox.height - 18],
-        [18, canvasBox.height - 18],
+        [18, 24],
+        [canvasBox.width - 18, 24],
       ]) {
         await page.mouse.click(canvasBox.x + dx, canvasBox.y + dy);
         await page.waitForTimeout(600);
@@ -495,12 +533,64 @@ const SCENES = [
       // Assert the controls the alt text promises are really on screen.
       // NumberField renders its label with the unit appended ("Size (px)"),
       // so these match on prefix rather than exact text.
-      for (const label of [/^Font$/, /^Weight$/, /^Size \(/, /^Line height/, /^Letter spacing/]) {
+      for (const label of [
+        /^Font family$/,
+        /^Weight$/,
+        /^Size \(/,
+        /^Line height/,
+        /^Letter spacing/,
+      ]) {
         const row = typography.getByText(label).first();
         if (!(await row.isVisible({ timeout: 3000 }).catch(() => false))) {
           throw new Error(`Typography control ${label} not visible in the captured crop`);
         }
       }
+    },
+  },
+  {
+    id: 'font-toolbar',
+    preserveFocus: true,
+    async verify(page) {
+      await expect(page.getByRole('listbox', { name: 'Font families' })).toBeVisible();
+    },
+    file: 'font-toolbar-light.png',
+    theme: 'light',
+    feature: 'typography',
+    alt: 'The compact text toolbar with its font family menu open above editable text',
+    caption: 'Choose a font while editing text',
+    async run(page) {
+      await openCleanEditor(page);
+      const box = await page.locator('canvas.editor-canvas__content-layer').boundingBox();
+      if (!box) throw new Error('Canvas has no bounds');
+      await page.keyboard.press('t');
+      await page.mouse.click(box.x + 180, box.y + 220);
+      await expect(page.getByRole('textbox', { name: /editing text/i })).toBeFocused();
+      await page.keyboard.insertText('Make room for good type.');
+      const toolbar = page.getByRole('toolbar', { name: 'Text formatting' });
+      await page.locator('.micro-hint').waitFor({ state: 'hidden' });
+      await toolbar.getByRole('combobox', { name: 'Font family' }).click();
+      await expect(page.getByRole('listbox', { name: 'Font families' })).toBeVisible();
+      await expect(page.getByRole('option', { name: /IBM Plex Sans/ })).toBeVisible();
+    },
+  },
+  {
+    id: 'font-browser',
+    file: 'font-browser-light.png',
+    theme: 'light',
+    feature: 'typography',
+    alt: 'Browse fonts with a family list and a local specimen alongside font details',
+    caption: 'Browse families and inspect a local specimen',
+    async run(page) {
+      await openCleanEditor(page);
+      await openDemoDocument(page, 'type');
+      await selectLayer(page, /subhead/i);
+      await page.getByRole('button', { name: 'Browse fonts', exact: true }).click();
+      const dialog = page.getByRole('dialog', { name: 'Browse fonts', exact: true });
+      await expect(dialog).toBeVisible();
+      await dialog.getByLabel('Preview text').fill('Make room for good type.');
+      await expect(dialog.locator('.font-browser__specimen')).toHaveText(
+        'Make room for good type.',
+      );
     },
   },
   {
@@ -1141,7 +1231,7 @@ try {
       if (manifest.scenes[scene.id]) {
         const stale = manifest.scenes[scene.id];
         if (stale.file) {
-          for (const dir of [OUT_DIR, PUBLIC_DIR]) rmSync(join(dir, stale.file), { force: true });
+          for (const dir of OUTPUT_DIRS) rmSync(join(dir, stale.file), { force: true });
         }
         delete manifest.scenes[scene.id];
       }
@@ -1186,7 +1276,8 @@ try {
         forcedColors: 'none',
       });
       await scene.run(page);
-      await settle(page);
+      await settle(page, scene.preserveFocus);
+      await scene.verify?.(page);
       // Detail scenes are cropped at capture time so the website can show
       // them small without scaling a full window down to an unreadable smear.
       const shot = await page.screenshot(scene.clip ? { clip: scene.clip } : undefined);
@@ -1199,8 +1290,8 @@ try {
           `screenshot malformed: got ${JSON.stringify(dims)}, expected ${expected.width}x${expected.height}`,
         );
       }
-      writeFileSync(join(OUT_DIR, scene.file), shot);
-      writeFileSync(join(PUBLIC_DIR, scene.file), shot);
+      for (const dir of OUTPUT_DIRS) writeFileSync(join(dir, scene.file), shot);
+      entry.sha256 = createHash('sha256').update(shot).digest('hex');
       entry.file = scene.file;
       entry.alt = scene.alt;
       entry.caption = scene.caption;
@@ -1231,7 +1322,7 @@ try {
       // Delete any previous output for this scene. A skipped scene must not
       // leave a stale screenshot behind for the site to keep serving — that
       // is exactly the silent substitution this pipeline exists to prevent.
-      for (const dir of [OUT_DIR, PUBLIC_DIR]) {
+      for (const dir of OUTPUT_DIRS) {
         rmSync(join(dir, scene.file), { force: true });
       }
       console.error(`SKIPPED ${scene.id}: ${entry.reason}`);
@@ -1258,15 +1349,15 @@ try {
       if (live.has(id)) continue;
       const stale = manifest.scenes[id];
       if (stale?.file) {
-        for (const dir of [OUT_DIR, PUBLIC_DIR]) rmSync(join(dir, stale.file), { force: true });
+        for (const dir of OUTPUT_DIRS) rmSync(join(dir, stale.file), { force: true });
       }
       delete manifest.scenes[id];
       console.log(`pruned removed scene ${id}`);
     }
   }
   manifest.generatedAt = new Date().toISOString();
-  writeFileSync(MANIFEST_PATH, `${JSON.stringify(manifest, null, 2)}\n`);
-  console.log(`manifest written: ${MANIFEST_PATH}`);
+  writeFileSync(OUTPUT_MANIFEST, `${JSON.stringify(manifest, null, 2)}\n`);
+  console.log(`manifest written: ${OUTPUT_MANIFEST}`);
 } finally {
   await stopServer(server);
   await browser.close();

@@ -1,0 +1,209 @@
+{
+  "date": "2026-09-10",
+  "archiveHead": "747d120d4211c2637f5dc28800b39da564199895",
+  "evidenceKind": "Shared working-tree observations, not a frozen release certificate",
+  "captures": [
+    {
+      "file": "inspector-dark-expanded-alignment.png",
+      "source": "test-results/run-851773-1619/inspector-typography-layou-6641a-ntrols-at-both-panel-widths-chromium/dark-expanded-alignment.png",
+      "sha256": "9b3abeb0d0a5c361167e8fdf71a8eda1410c05484070175dc33630af300bdf40"
+    },
+    {
+      "file": "inspector-dark-expanded.png",
+      "source": "test-results/run-851773-1619/inspector-typography-layou-6641a-ntrols-at-both-panel-widths-chromium/dark-expanded.png",
+      "sha256": "0e1f6d110bc0e231f99e600a86b4e88a5c917ff507dd99a617a01e4917464a5f"
+    },
+    {
+      "file": "inspector-dark-minimum-alignment.png",
+      "source": "test-results/run-851773-1619/inspector-typography-layou-6641a-ntrols-at-both-panel-widths-chromium/dark-minimum-alignment.png",
+      "sha256": "8cff01f45b0afc3c83dddfb88f416860454edc0c3da2ce2f8c23d95a8b9c6237"
+    },
+    {
+      "file": "inspector-dark-minimum.png",
+      "source": "test-results/run-851773-1619/inspector-typography-layou-6641a-ntrols-at-both-panel-widths-chromium/dark-minimum.png",
+      "sha256": "349a038a30af488855165e16f91ad744cd8e2e5bfd8286d79f65c573b7de831d"
+    },
+    {
+      "file": "inspector-high-contrast-expanded-alignment.png",
+      "source": "test-results/run-851773-1619/inspector-typography-layou-6641a-ntrols-at-both-panel-widths-chromium/high-contrast-expanded-alignment.png",
+      "sha256": "f5aa2b9a2e5fb19a5390fb0a888bea5030db781d393fbe8fda1c87e300f56498"
+    },
+    {
+      "file": "inspector-high-contrast-expanded.png",
+      "source": "test-results/run-851773-1619/inspector-typography-layou-6641a-ntrols-at-both-panel-widths-chromium/high-contrast-expanded.png",
+      "sha256": "1867fd2cdc472983a34b34b3c1ea87cc83c3f1e8a2d79579c710659db0729ad9"
+    },
+    {
+      "file": "inspector-high-contrast-minimum-alignment.png",
+      "source": "test-results/run-851773-1619/inspector-typography-layou-6641a-ntrols-at-both-panel-widths-chromium/high-contrast-minimum-alignment.png",
+      "sha256": "ae8baf44494463179fed25ad31d7eadd82861c30da3c19186ddec0cdc246cb10"
+    },
+    {
+      "file": "inspector-high-contrast-minimum.png",
+      "source": "test-results/run-851773-1619/inspector-typography-layou-6641a-ntrols-at-both-panel-widths-chromium/high-contrast-minimum.png",
+      "sha256": "52d945e6b6cbe68bf2a82ce93457ff85ee222206abce15b894272a62f4e8814a"
+    },
+    {
+      "file": "inspector-light-expanded-alignment.png",
+      "source": "test-results/run-851773-1619/inspector-typography-layou-6641a-ntrols-at-both-panel-widths-chromium/light-expanded-alignment.png",
+      "sha256": "64b3fc5234b517d5155cf7f7a2a3b13ed2fae8fc57dcde6bebcb11f8e849264a"
+    },
+    {
+      "file": "inspector-light-expanded.png",
+      "source": "test-results/run-851773-1619/inspector-typography-layou-6641a-ntrols-at-both-panel-widths-chromium/light-expanded.png",
+      "sha256": "e6edcc946973faddb778a84feb06c97d258f28a13fdcea49aea1318e15aebaf1"
+    },
+    {
+      "file": "inspector-light-minimum-alignment.png",
+      "source": "test-results/run-851773-1619/inspector-typography-layou-6641a-ntrols-at-both-panel-widths-chromium/light-minimum-alignment.png",
+      "sha256": "11f2fb1c69996b531e44d0d33dfe88c3f6aa6d4e31c7fceaa1baf373b9b8f79f"
+    },
+    {
+      "file": "inspector-light-minimum.png",
+      "source": "test-results/run-851773-1619/inspector-typography-layou-6641a-ntrols-at-both-panel-widths-chromium/light-minimum.png",
+      "sha256": "3604b61530e050f2fb769f2aca346e7472df3799a9d0ff858f630f12a8b8136a"
+    },
+    {
+      "file": "feature-light-browser-scene.png",
+      "source": "reports/font-website-final/typography-workflow--featu-2f05e-ypography-guidance-readable-custom-domain/typography-browser-scene.png",
+      "sha256": "bd1a9d305fa517be1d632ac850fe6d08e154f8616d09814cb507602fbd6208e9",
+      "basePathCapture": "reports/font-website-final/typography-workflow--featu-2f05e-ypography-guidance-readable-ghpages/typography-browser-scene.png",
+      "byteIdenticalAcrossBasePaths": true
+    },
+    {
+      "file": "feature-light-font-access.png",
+      "source": "reports/font-website-final/typography-workflow--featu-2f05e-ypography-guidance-readable-custom-domain/typography-font-access.png",
+      "sha256": "dcdf9b1dbe85bdf5756f660b8120138555bab4c4b7920ead991079ba1224bbe5",
+      "basePathCapture": "reports/font-website-final/typography-workflow--featu-2f05e-ypography-guidance-readable-ghpages/typography-font-access.png",
+      "byteIdenticalAcrossBasePaths": false
+    },
+    {
+      "file": "feature-light-intro.png",
+      "source": "reports/font-website-final/typography-workflow--featu-2f05e-ypography-guidance-readable-custom-domain/typography-intro.png",
+      "sha256": "19134327f40c39d5cdf7042aebaa46a3bca378f39bacae50d06a23c35f33ac82",
+      "basePathCapture": "reports/font-website-final/typography-workflow--featu-2f05e-ypography-guidance-readable-ghpages/typography-intro.png",
+      "byteIdenticalAcrossBasePaths": true
+    },
+    {
+      "file": "feature-light-toolbar-scene.png",
+      "source": "reports/font-website-final/typography-workflow--featu-2f05e-ypography-guidance-readable-custom-domain/typography-toolbar-scene.png",
+      "sha256": "a5ce97abe64f7fdb3ad004aeb247550fdba1a5fd5c0ae5b4475a4a017e3533ae",
+      "basePathCapture": "reports/font-website-final/typography-workflow--featu-2f05e-ypography-guidance-readable-ghpages/typography-toolbar-scene.png",
+      "byteIdenticalAcrossBasePaths": true
+    },
+    {
+      "file": "feature-dark-browser-scene.png",
+      "source": "reports/font-website-final/typography-workflow--featu-18558-ypography-guidance-readable-custom-domain/typography-browser-scene.png",
+      "sha256": "b69678591eff91d0f484e605e34d90a028e3c669e2f559ec93a10c4a9b01b240",
+      "basePathCapture": "reports/font-website-final/typography-workflow--featu-18558-ypography-guidance-readable-ghpages/typography-browser-scene.png",
+      "byteIdenticalAcrossBasePaths": true
+    },
+    {
+      "file": "feature-dark-font-access.png",
+      "source": "reports/font-website-final/typography-workflow--featu-18558-ypography-guidance-readable-custom-domain/typography-font-access.png",
+      "sha256": "a502a39d04c0e391216731d14ef97996265ddfee56d7a3cbaee66854042235b1",
+      "basePathCapture": "reports/font-website-final/typography-workflow--featu-18558-ypography-guidance-readable-ghpages/typography-font-access.png",
+      "byteIdenticalAcrossBasePaths": false
+    },
+    {
+      "file": "feature-dark-intro.png",
+      "source": "reports/font-website-final/typography-workflow--featu-18558-ypography-guidance-readable-custom-domain/typography-intro.png",
+      "sha256": "6e93ee5e6e09520b98c0471b8c141edb346fc0ccec510f56937e70a72b7d5623",
+      "basePathCapture": "reports/font-website-final/typography-workflow--featu-18558-ypography-guidance-readable-ghpages/typography-intro.png",
+      "byteIdenticalAcrossBasePaths": true
+    },
+    {
+      "file": "feature-dark-toolbar-scene.png",
+      "source": "reports/font-website-final/typography-workflow--featu-18558-ypography-guidance-readable-custom-domain/typography-toolbar-scene.png",
+      "sha256": "f8d9e629f8ffc899e016003768c970443bf66096e0d1fa1299d343570a4993d7",
+      "basePathCapture": "reports/font-website-final/typography-workflow--featu-18558-ypography-guidance-readable-ghpages/typography-toolbar-scene.png",
+      "byteIdenticalAcrossBasePaths": true
+    },
+    {
+      "file": "feature-narrow-browser-scene.png",
+      "source": "reports/font-website-final/typography-workflow--featu-7bebd-ypography-guidance-readable-custom-domain/typography-browser-scene.png",
+      "sha256": "329db11a77730051ddb639bc7d2eb37dfa89ba41d35ffceadf35fe0fc72e850f",
+      "basePathCapture": "reports/font-website-final/typography-workflow--featu-7bebd-ypography-guidance-readable-ghpages/typography-browser-scene.png",
+      "byteIdenticalAcrossBasePaths": true
+    },
+    {
+      "file": "feature-narrow-font-access.png",
+      "source": "reports/font-website-final/typography-workflow--featu-7bebd-ypography-guidance-readable-custom-domain/typography-font-access.png",
+      "sha256": "b71376f783689da221f2ec49d09275c9a249386831e6b893e1e86dcbc16540b1",
+      "basePathCapture": "reports/font-website-final/typography-workflow--featu-7bebd-ypography-guidance-readable-ghpages/typography-font-access.png",
+      "byteIdenticalAcrossBasePaths": true
+    },
+    {
+      "file": "feature-narrow-intro.png",
+      "source": "reports/font-website-final/typography-workflow--featu-7bebd-ypography-guidance-readable-custom-domain/typography-intro.png",
+      "sha256": "b72db93229041b6439817b38da944278ad585df4bbdc9ea3c4be86fa58578c0c",
+      "basePathCapture": "reports/font-website-final/typography-workflow--featu-7bebd-ypography-guidance-readable-ghpages/typography-intro.png",
+      "byteIdenticalAcrossBasePaths": true
+    },
+    {
+      "file": "feature-narrow-toolbar-scene.png",
+      "source": "reports/font-website-final/typography-workflow--featu-7bebd-ypography-guidance-readable-custom-domain/typography-toolbar-scene.png",
+      "sha256": "d451f71d5c466bf1f3a44df2a6e4ce31e39842c7a10e7090742085a72228510d",
+      "basePathCapture": "reports/font-website-final/typography-workflow--featu-7bebd-ypography-guidance-readable-ghpages/typography-toolbar-scene.png",
+      "byteIdenticalAcrossBasePaths": true
+    },
+    {
+      "file": "guide-light-font-access.png",
+      "source": "reports/font-website-final/typography-workflow--docs--a100a-ypography-guidance-readable-custom-domain/typography-font-access.png",
+      "sha256": "cbf35dd68af62a2b3a14831065ec2748eeb6935df6f7ef69d8f3afc0b5ffa6e4",
+      "basePathCapture": "reports/font-website-final/typography-workflow--docs--a100a-ypography-guidance-readable-ghpages/typography-font-access.png",
+      "byteIdenticalAcrossBasePaths": true
+    },
+    {
+      "file": "guide-light-intro.png",
+      "source": "reports/font-website-final/typography-workflow--docs--a100a-ypography-guidance-readable-custom-domain/typography-intro.png",
+      "sha256": "78bba8707342d5a6187cf88030821a214de0db4bf8f6ce2a5ec0dc185242333b",
+      "basePathCapture": "reports/font-website-final/typography-workflow--docs--a100a-ypography-guidance-readable-ghpages/typography-intro.png",
+      "byteIdenticalAcrossBasePaths": true
+    },
+    {
+      "file": "guide-dark-font-access.png",
+      "source": "reports/font-website-final/typography-workflow--docs--fe896-ypography-guidance-readable-custom-domain/typography-font-access.png",
+      "sha256": "7db83a851ed85b40606ec5f201d40c26aef736465640d4f6945cb15c36a387d1",
+      "basePathCapture": "reports/font-website-final/typography-workflow--docs--fe896-ypography-guidance-readable-ghpages/typography-font-access.png",
+      "byteIdenticalAcrossBasePaths": true
+    },
+    {
+      "file": "guide-dark-intro.png",
+      "source": "reports/font-website-final/typography-workflow--docs--fe896-ypography-guidance-readable-custom-domain/typography-intro.png",
+      "sha256": "c3a9ebffa57fa72d2a5bd2ba5b33d660f4a5564f7ece30d8077f96cb6ce81452",
+      "basePathCapture": "reports/font-website-final/typography-workflow--docs--fe896-ypography-guidance-readable-ghpages/typography-intro.png",
+      "byteIdenticalAcrossBasePaths": true
+    },
+    {
+      "file": "guide-narrow-font-access.png",
+      "source": "reports/font-website-final/typography-workflow--docs--1fff3-ypography-guidance-readable-custom-domain/typography-font-access.png",
+      "sha256": "a352d4ed4bdd2dde3abef2273b27ee21469932be163991dddc9412ba52cf818b",
+      "basePathCapture": "reports/font-website-final/typography-workflow--docs--1fff3-ypography-guidance-readable-ghpages/typography-font-access.png",
+      "byteIdenticalAcrossBasePaths": true
+    },
+    {
+      "file": "guide-narrow-intro.png",
+      "source": "reports/font-website-final/typography-workflow--docs--1fff3-ypography-guidance-readable-custom-domain/typography-intro.png",
+      "sha256": "745c214b2e068372de33af40dbe37266356f668dfdd1dee5b52492cb8f47a49d",
+      "basePathCapture": "reports/font-website-final/typography-workflow--docs--1fff3-ypography-guidance-readable-ghpages/typography-intro.png",
+      "byteIdenticalAcrossBasePaths": true
+    },
+    {
+      "file": "before-inspector-product.png",
+      "source": "747d120d4211c2637f5dc28800b39da564199895:docs/screenshots/product/typography-panel-light.png",
+      "sha256": "40ccc7c40f808d6c6b357088c74f93d421ec6d205e3c81d434f6ec8264ec9bf8",
+      "note": "Previous committed product asset, not a new baseline capture."
+    },
+    {
+      "file": "feature-light-font-access-ghpages.png",
+      "source": "reports/font-website-final/typography-workflow--featu-2f05e-ypography-guidance-readable-ghpages/typography-font-access.png",
+      "sha256": "e9334cfd3488a50e805239954a4cc4bd03dea5479685f7c8bdcf08622383bca9"
+    },
+    {
+      "file": "feature-dark-font-access-ghpages.png",
+      "source": "reports/font-website-final/typography-workflow--featu-18558-ypography-guidance-readable-ghpages/typography-font-access.png",
+      "sha256": "e5ecf35da12cbd938de6ec20abfd6643b7340b02ee3c1ff18695934525ee75a1"
+    }
+  ]
+}

@@ -394,7 +394,7 @@ export function createTypeSpecimenDocument(): Document {
       name: 'Display — 168',
       transform: translate(48, 56),
       fontSize: 168,
-      fontWeight: 800,
+      fontWeight: 700,
       letterSpacing: -6,
       fill: INK,
       order: 'a2',
@@ -450,7 +450,7 @@ export function createTypeSpecimenDocument(): Document {
   doc = addChild(
     doc,
     frame.id,
-    makeTextNode('type-caption', 'IBM PLEX SANS · VARIABLE · 400 / 500 / 700 / 800', {
+    makeTextNode('type-caption', 'IBM PLEX SANS · VARIABLE · 400 / 600 / 700', {
       name: 'Caption',
       transform: translate(48, 620),
       fontSize: 20,

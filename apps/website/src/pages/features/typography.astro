@@ -11,7 +11,7 @@ const fontReplacementFaq = {
       name: 'What happens when an imported design uses a missing font?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Varve identifies the missing family, offers an exact Fontsource face when the shipped catalog has one, and ranks installed replacements. Nothing downloads until you approve it. The text stays editable, and the original family is retained in the document font manifest.',
+        text: 'Varve identifies the missing family, offers a matching Fontsource family and style when the shipped catalog has one, and ranks installed replacements. Nothing downloads until you approve it. The text stays editable, and the original family is retained in the document font manifest.',
       },
     },
     {
@@ -43,7 +43,7 @@ const fontReplacementFaq = {
       name: 'Can I preview a font before applying or installing it?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'You can inspect catalog metadata and installed faces without a network request. An exact specimen becomes available after you explicitly install the face on desktop; choosing a result alone never downloads or changes the document.',
+        text: 'You can inspect catalog metadata and installed faces without a network request. A family specimen becomes available after you explicitly install the font on desktop; choosing a result alone never downloads or changes the document.',
       },
     },
   ],
@@ -78,7 +78,7 @@ const fontReplacementFaq = {
           For native Figma <code>.fig</code>, REST, or plugin-export JSON imports, Varve also treats fonts as document dependencies. It detects missing families in ordinary text, rich-text runs, and reusable text styles; checks the shipped Fontsource catalog for the requested face; ranks installed candidates; and keeps the original family reference in the saved document manifest. You can continue editing locally without keeping Figma open.
         </p>
         <p>
-          The catalog ships with Varve, so font discovery works offline and does not require a Google Fonts key or runtime metadata request. On desktop, installing a result is an explicit action that retrieves one exact, version-pinned Fontsource artifact, stores it locally, and only then makes it available to the document. Installed faces are restored before the editor opens in a later session, so a downloaded font does not reappear as a false missing-font warning. The browser demo can browse the catalog but does not download additional font files.
+          The catalog ships with Varve, so font discovery works offline and does not require a Google Fonts key or runtime metadata request. On desktop, installing a result is an explicit action that retrieves one exact, version-pinned Fontsource artifact, stores it locally, and only then makes it available to the document. If a font is still unavailable after reopening, the missing-font workflow helps you review a replacement. Same-name files and collection-member recovery remain under integration. The browser demo can browse the catalog but does not download additional font files.
         </p>
       </section>
 
@@ -86,7 +86,7 @@ const fontReplacementFaq = {
         <p class="feature-callout__eyebrow">Import with confidence</p>
         <h2>Missing fonts are a reviewable decision, not silent damage</h2>
         <p>
-          Install the requested Fontsource face when an exact catalog identity exists, or choose a substitute and apply it across the document in one undoable action. Varve shows the requested weight, style, and license before installation; labels compatible and fallback replacements; updates rich text without flattening it; and warns when new metrics may reflow the design.
+          Install a matching Fontsource face when the catalog offers the requested family and style, or choose a substitute and apply it across the document in one undoable action. Varve shows the requested weight, style, and license before installation; labels compatible and fallback replacements; updates rich text without flattening it; and warns when new metrics may reflow the design.
         </p>
         <div class="feature-callout__links">
           <a href={sitePath('/docs/tools/typography')}>Read the typography workflow</a>
@@ -112,11 +112,11 @@ const fontReplacementFaq = {
         <p class="feature-callout__eyebrow">Browse before you commit</p>
         <h2>Inspect the type, then make the decision</h2>
         <p>
-          Browse fonts keeps search and inspection side by side. Select a family to review its source, license, styles, weights, script coverage, personal tags, and related families without losing your place in the catalog. Installed and bundled faces can render an exact specimen; catalog-only families remain metadata-only until an explicit desktop install.
+          Browse fonts keeps search and inspection side by side. Select a family to review its source, license, styles, weights, script coverage, personal tags, and related families without losing your place in the catalog. Installed and bundled families can render a specimen; catalog-only families remain metadata-only until an explicit desktop install.
         </p>
         <div class="font-browser-capabilities">
           <div><strong>Exact name search</strong><span>“gothic” returns Gothic families, not unrelated catalog filler.</span></div>
-          <div><strong>Live specimen</strong><span>Replace the sample text while comparing an exact installed or bundled face.</span></div>
+          <div><strong>Live specimen</strong><span>Replace the sample text while inspecting an installed or bundled family.</span></div>
           <div><strong>Explainable results</strong><span>See why semantic terms, coverage, or similarity affected a result.</span></div>
           <div><strong>Local-first control</strong><span>Review metadata before an explicit, version-pinned install.</span></div>
         </div>
@@ -165,6 +165,7 @@ const fontReplacementFaq = {
           <li><strong>Font system:</strong> Offline semantic catalog, local-first search, @fontsource runtime loading, CSS fallback chains, and explicit version-pinned desktop installs</li>
           <li><strong>Font discovery:</strong> Natural-language intent, coverage and feature constraints, personal tags, similarity, alternatives, pairings, and explainable result reasons</li>
           <li><strong>Missing-font replacement:</strong> Ranked local candidates, rich-text-aware Replace All, and manifest provenance across save/reopen</li>
+          <li><strong>Quick text toolbar:</strong> Compact font, size, and color controls; alignment and lists in More text formatting; keyboard dismissal for the font picker</li>
           <li><strong>Typography inspector:</strong> Font family, weight, style, size, line height, letter spacing, alignment, OpenType features</li>
         </ul>
       </section>
@@ -202,6 +203,49 @@ const fontReplacementFaq = {
         </div>
       </section>
 
+      <section class="feature-section">
+        <h2>Current font workflow limits</h2>
+        <p>
+          The compact toolbar and ordinary inspector controls currently format
+          selected text objects. Use the Rich Text editor for range formatting.
+          Browser local-font permission/import, exact collection-face recovery,
+          Document Fonts, Select by Font, and image crop-to-font application are
+          still being integrated.
+        </p>
+        <p>
+          Review the source license before distributing a font file. Technical
+          embedding flags do not describe every license term, and absent
+          metadata remains unknown. See the{' '}
+          <a href={sitePath('/docs/tools/typography')}>typography guide</a>{' '}
+          for the available controls and current limitations.
+        </p>
+      </section>
+
+      <div class="feature-visual">
+        <figure>
+          <img
+            src={sitePath('/screenshots/font-toolbar-light.png')}
+            alt="The compact text toolbar with the font family menu open while editing text"
+            width="1440"
+            height="900"
+            loading="lazy"
+          />
+          <figcaption>Choose a family from the compact text toolbar</figcaption>
+        </figure>
+      </div>
+      <div class="feature-visual">
+        <figure>
+          <img
+            src={sitePath('/screenshots/font-browser-light.png')}
+            alt="Browse fonts with a family list, editable specimen, and source details"
+            width="1440"
+            height="900"
+            loading="lazy"
+          />
+          <figcaption>Inspect a local family specimen before applying it</figcaption>
+        </figure>
+      </div>
+
       <section class="feature-section feature-faq">
         <h2>Common questions</h2>
         <h3>Do effects disappear while I edit text?</h3>
@@ -211,7 +255,7 @@ const fontReplacementFaq = {
         <h3>What happens to a text layer's name?</h3>
         <p>New text uses a content-derived automatic label. A manual Layers rename becomes custom and persists through later content or style changes. Typography includes an explicit action to restore automatic naming.</p>
         <h3>What happens when an imported design uses a missing font?</h3>
-        <p>Varve identifies the family and checks the shipped catalog for the requested Fontsource face. You can explicitly install an exact match, browse semantic alternatives, or choose an installed replacement. The source family remains available as provenance in the document manifest.</p>
+        <p>Varve identifies the family and checks the shipped catalog for the requested Fontsource face. You can explicitly install a matching catalog family and style, browse semantic alternatives, or choose an installed replacement. A family name alone cannot identify the original font file or revision. The source family remains available as provenance in the document manifest.</p>
         <h3>Can I replace a font everywhere?</h3>
         <p>Yes. Replace All covers node-level text, mixed rich-text runs, and shared text styles as one undoable operation.</p>
         <h3>Does replacement upload my document or fonts?</h3>

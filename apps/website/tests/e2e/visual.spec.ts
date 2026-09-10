@@ -271,6 +271,11 @@ test('typography page light', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
   await seedTheme(page, 'light');
   await page.goto('/features/typography');
+  // The toolbar/browser scenes are below the fold. Start their requests before
+  // waiting for all images, otherwise the full-page capture can never begin.
+  await page.locator('img').evaluateAll((images) => {
+    for (const image of images) image.loading = 'eager';
+  });
   await waitForImages(page);
   await expect(page.getByRole('heading', { name: 'Typography', exact: true })).toBeVisible();
   await warmFullPage(page);
