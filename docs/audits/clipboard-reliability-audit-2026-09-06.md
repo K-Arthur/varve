@@ -303,3 +303,25 @@ until a synthetic design is captured from Firefox with provenance and a bounded
 envelope is demonstrated. Copy as SVG, Copy as PNG, and REST/plugin JSON remain
 the documented interoperability routes. No external Figma account or private
 clipboard payload was inferred from parser tests.
+
+### Native transport follow-up — 2026-09-09
+
+CLIP-21 is now **resolved for the Wayland native bridge**. Tauri clipboard
+commands accept an operation ID, run blocking transfer work outside command
+processing, enforce a five-second deadline, cap payloads at 64 MiB, and expose
+cancellation. Linux pipe reads use nonblocking polling so cancellation and the
+deadline terminate a stalled owner transfer instead of abandoning a blocked
+promise. The frontend bridge supplies an ID for every native read/write.
+
+Evidence from the isolated desktop crate:
+
+```text
+cargo check --lib                         passed (after supplying the existing local native model/helper fixtures)
+cargo test --lib native_clipboard_pipe     2 passed
+```
+
+The native Wayland test fixture covers bounded reads and cancellation. The
+explicit `tests/wdio/clipboard-wayland.e2e.ts` lane and real Firefox ownership
+transfer remain environment-dependent and were not inferred from these unit
+tests. CLIP-22 remains open until packaged `.fig` decoding is verified under
+the production Tauri CSP without dynamic schema compilation.

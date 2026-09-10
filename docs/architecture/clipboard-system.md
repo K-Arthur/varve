@@ -192,3 +192,15 @@ Implementation map:
   and reference remapping;
 - `packages/editor/src/propertyClipboard.ts` and `guideClipboard.ts` —
   deliberately separate specialist buffers.
+
+## Native transport lifetime
+
+The Tauri clipboard bridge keeps the webview command queue responsive. Each
+read or write carries an operation ID, moves the blocking Wayland transfer to
+a worker, bounds payloads at 64 MiB, and returns after five seconds at most.
+Linux reads poll a nonblocking pipe in short intervals, checking cancellation
+between chunks; a canceled or stalled owner therefore closes its pipe on the
+terminal path. The frontend bridge creates an ID per native gesture and can
+send `cancel_clipboard_operation` for an in-flight operation. This transport
+contract does not claim that browser permission prompts or an unavailable
+compositor provide content; those outcomes remain explicit capability results.
