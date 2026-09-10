@@ -415,6 +415,7 @@ fn write_binary_file_to_folder(
 
 const MAX_NATIVE_CLIPBOARD_ITEMS: usize = 16;
 const MAX_NATIVE_CLIPBOARD_BYTES: usize = 64 * 1024 * 1024;
+const MAX_NATIVE_CLIPBOARD_IMAGE_PIXELS: usize = 64 * 1024 * 1024;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -470,7 +471,8 @@ fn read_wayland_clipboard_data(
             continue;
         };
         let mut data = Vec::new();
-        pipe.read_to_end(&mut data)
+        pipe.take((MAX_NATIVE_CLIPBOARD_BYTES + 1) as u64)
+            .read_to_end(&mut data)
             .map_err(|error| format!("Failed to read Wayland clipboard data: {error}"))?;
         if data.len() > MAX_NATIVE_CLIPBOARD_BYTES {
             return Err("Wayland clipboard payload exceeds the 64 MiB limit".into());
@@ -571,8 +573,15 @@ fn read_clipboard_image_png() -> Result<Option<Vec<u8>>, String> {
         Err(arboard::Error::ContentNotAvailable) => return Ok(None),
         Err(e) => return Err(e.to_string()),
     };
-    let width = img.width as u32;
-    let height = img.height as u32;
+    let pixels = img
+        .width
+        .checked_mul(img.height)
+        .ok_or_else(|| "clipboard image dimensions overflowed".to_string())?;
+    if img.width == 0 || img.height == 0 || pixels > MAX_NATIVE_CLIPBOARD_IMAGE_PIXELS {
+        return Err("clipboard image dimensions exceed the native limit".into());
+    }
+    let width = u32::try_from(img.width).map_err(|_| "clipboard image width is too large")?;
+    let height = u32::try_from(img.height).map_err(|_| "clipboard image height is too large")?;
     let rgba = image::RgbaImage::from_raw(width, height, img.bytes.into_owned())
         .ok_or_else(|| "clipboard image buffer size did not match its dimensions".to_string())?;
     let mut png_bytes: Vec<u8> = Vec::new();
