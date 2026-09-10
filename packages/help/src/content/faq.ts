@@ -14,7 +14,7 @@ export const FAQ: Record<string, HelpArticle> = {
     id: 'faq:color',
     title: "How do I change a shape's color?",
     summary: 'Apply and modify fill colors for any shape.',
-    body: 'Select the shape on the canvas, then look at the Inspector panel on the right. Find the Fill section. Click the color swatch to open the color picker. Choose a color from the picker, or type a hex value directly. You can also use the eyedropper to pick a color from anywhere on the screen. Add multiple fills by clicking the plus button, and reorder them by dragging. Each fill can have its own blend mode and opacity.',
+    body: 'Select the shape on the canvas, then look at the Inspector panel on the right. Find the Fill section and click its swatch to open the color picker. Choose one of the six editing views, enter a HEX value, or adjust the channel fields. Screen sampling is available only when the browser exposes the EyeDropper API; otherwise the picker explains that sampling is unavailable. Gradient fills open the same panel for stop editing and advanced gradient options. Add multiple fills with the plus button; each fill keeps its own blend mode and opacity.',
     keywords: ['color', 'fill', 'paint', 'change', 'shape', 'how'],
     category: 'FAQ',
     related: ['tool:select', 'panel:inspector', 'faq:rectangle'],

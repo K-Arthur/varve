@@ -14,6 +14,8 @@ type ScreenshotScene = {
 };
 const scenes = (manifest as { scenes: Record<string, ScreenshotScene> }).scenes;
 const paletteShot = scenes['palette-inspector']?.status === 'captured' ? scenes['palette-inspector'] : null;
+const solidPickerShot = scenes['solid-picker']?.status === 'captured' ? scenes['solid-picker'] : null;
+const gradientPickerShot = scenes['gradient-picker']?.status === 'captured' ? scenes['gradient-picker'] : null;
 ---
 
 <Layout title="Color & Effects" description="Varve's color workflow: local palette extraction, native CMYK document colors, ICC profiles, soft proofing, effects, and print-ready export.">
@@ -34,6 +36,48 @@ const paletteShot = scenes['palette-inspector']?.status === 'captured' ? scenes[
           Varve provides color management across RGB, CMYK, grayscale, and spot color spaces with ICC profile support. CMYK values remain native document values instead of being flattened into display RGB during editing. Select an image and Varve can also build a local, deterministic palette from the visible crop, suggest harmonies, and surface WCAG 2.1 contrast pairs. The effects system includes alpha-aware drop and inner shadows, layer and background blur, solid or gradient glows, RGB/custom chromatic splits, and glitch. Adjustment layers provide non-destructive editing with curves, levels, selective color, HSL, and exposure controls. The halftone engine supports AM and FM screening for print production.
         </p>
       </section>
+
+      <section class="feature-section">
+        <h2>A shared color surface</h2>
+        <p>
+          The 400px color panel keeps the editing hierarchy visible: a large color area, slim hue and opacity ramps, precise fields, and before/current previews. RGB, CMYK, grayscale, Lab, LCH, and Spot views preserve the document's native values, profile, spot identity, and precision while you edit.
+        </p>
+        <p>
+          Gradient fills and strokes use the same floating panel. Pick a stop, edit its color, and open the collapsed Gradient options for interpolation, hue direction, tiling, midpoint, and rotation. A stop drag creates one undo step, and opening the panel or selecting a stop is history-neutral.
+        </p>
+        <p>
+          Proofing and screen sampling are capability-qualified: proof status is separate from the authored color, and the eyedropper is enabled only when the browser exposes the EyeDropper contract. Unsupported runtimes state that limitation instead of suggesting a native fallback that is not present.
+        </p>
+      </section>
+
+      {(solidPickerShot || gradientPickerShot) && (
+        <div class="feature-picker-visuals">
+          {solidPickerShot && (
+            <figure class="feature-visual">
+              <img
+                src={sitePath(`/screenshots/${solidPickerShot.file}`)}
+                alt={solidPickerShot.alt}
+                width={solidPickerShot.width ?? 1440}
+                height={solidPickerShot.height ?? 900}
+                loading="lazy"
+              />
+              <figcaption>{solidPickerShot.caption}</figcaption>
+            </figure>
+          )}
+          {gradientPickerShot && (
+            <figure class="feature-visual">
+              <img
+                src={sitePath(`/screenshots/${gradientPickerShot.file}`)}
+                alt={gradientPickerShot.alt}
+                width={gradientPickerShot.width ?? 1440}
+                height={gradientPickerShot.height ?? 900}
+                loading="lazy"
+              />
+              <figcaption>{gradientPickerShot.caption}</figcaption>
+            </figure>
+          )}
+        </div>
+      )}
 
       <section class="feature-section">
         <h2>Image Treatments</h2>
@@ -156,7 +200,7 @@ const paletteShot = scenes['palette-inspector']?.status === 'captured' ? scenes[
       <section class="feature-section">
         <h2>Key Capabilities</h2>
         <ul>
-          <li><strong>Color spaces:</strong> RGB, CMYK, grayscale, and spot colors with analytical conversion</li>
+          <li><strong>Picker views:</strong> RGB with RGB/HSL/HSB formats, CMYK, grayscale, Lab, LCH, and Spot, with canonical values preserved during edits</li>
           <li><strong>Native document color:</strong> CMYK channels stay tagged as CMYK in the document model, ready for print-oriented editing and export</li>
           <li><strong>Precision-aware working:</strong> 16-bit integer and floating-point channel values stay distinct through supported conversions, gradients, effects, and proof transforms; quantization is explicit at a display or codec boundary</li>
           <li><strong>Document color settings:</strong> Inspector controls for precision (8-bit, 16-bit, 16f, 32f) and blend space (sRGB or linear-light), plus an explicit Assign vs Convert dialog for mode changes — assign keeps values, convert rewrites them in one undoable step</li>
@@ -168,7 +212,7 @@ const paletteShot = scenes['palette-inspector']?.status === 'captured' ? scenes[
           <li><strong>Image Treatments:</strong> Fine Texture, Local Contrast, Atmospheric Depth, Dehaze, Vignette, Grain, and Highlight Glow with source-preserving Object Filters and Adjustment Layers</li>
           <li><strong>Adjustment layers:</strong> Curves (Catmull-Rom spline), levels, selective color (9 targets), HSL, exposure — with per-target scoping</li>
           <li><strong>Halftone screening:</strong> AM (clustered-dot, 5 dot shapes) and FM (Floyd-Steinberg + Bayer) with standard CMYK angles</li>
-          <li><strong>Soft proofing:</strong> CMYK simulation overlay for previewing print output on screen</li>
+          <li><strong>Soft proofing:</strong> qualified CMYK simulation and gamut status when a profile converter is registered; browser display remains an sRGB preview</li>
           <li><strong>Background removal:</strong> Fast, Auto, and High quality local cutouts with optional IS-Net/BiRefNet models, hair-edge refinement, subject picker, and an undoable mask workflow</li>
           <li><strong>Retouching tools:</strong> Clone stamp, healing brush, spot heal, patch tool</li>
         </ul>

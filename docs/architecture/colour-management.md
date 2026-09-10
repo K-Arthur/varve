@@ -238,14 +238,14 @@ Wired into the editor context at `context.tsx` with undo/redo support.
 | Soft proofing | Profile provider when registered; display-only | Source remains unchanged unless a profile provider is registered |
 | UI disclosure | N/A | PDF export shows "Requires desktop app" |
 
-## Picker Workflow (2026-08-02 decisions)
+## Picker Workflow (2026-09-09 composition)
 
 The color picker (`packages/ui/src/components/ColorPicker/`) is a display layer
 over the canonical `ManagedColor` model. The following rules keep the picker,
 scene, renderer, undo history, and export pipeline synchronized:
 
 ### Authoring space — display mode never changes storage
-Switching the picker between RGB/CMYK/Gray/Spot views is **display-only**:
+Switching the picker between RGB/CMYK/Gray/Lab/LCH/Spot views is **display-only**:
 no `onChange` is emitted and the stored color is untouched. Edits are stored
 in the color's **native space** (a CMYK value stays CMYK when edited in RGB
 view), except RGB values in CMYK/grayscale documents, which are authored in
@@ -272,6 +272,21 @@ the user looked at CMYK fields.
 - Draft HSV state resyncs when the value changes externally (undo, redo,
   selection change, gradient-stop switch) but never fights the user's own
   drags (self-echo detection via `managedColorKey`).
+- The RGB view uses one shared format selector for RGB/HSL/HSB and keeps HEX and
+  opacity visible below the channel row. Numeric drafts accept empty, signed, and
+  decimal intermediates; Enter/blur commits valid values, Escape cancels, and
+  invalid HEX remains visible until corrected.
+
+### Shared gradient surface
+
+`InspectorColorPopover` owns one 400px constrained floating panel for solid
+colors and gradient stops. Gradient type, stop bar, selected-stop position and
+remove controls precede the picker. Interpolation, hue direction, tiling,
+midpoint, and rotation are in a collapsed **Gradient options** disclosure.
+`GradientEditor` remains the transaction owner for stop drags and flushes its
+pending frame on pointer release, cancellation, dismissal, and unmount. Fill
+and stroke gradient swatches edit their actual gradient; opening or selecting a
+stop is history-neutral.
 
 ### Undo grouping
 A continuous pointer gesture inside the picker (2D area, hue, alpha slider)
@@ -288,6 +303,9 @@ produce no history. Empty transactions are suppressed by reference identity.
   recorded on dismissal of a committed edit only — never per preview event.
 - Swatch selection re-enters the authoring-space rule, so native space
   identity is re-established on selection.
+- Swatch faces are display previews rendered through the color converter; the
+  canonical swatch identity (including profile, precision, and spot metadata)
+  is the selection key. Recent colors refresh when any picker opens.
 
 ### Hex input
 Supports `#RGB`, `#RGBA`, `#RRGGBB`, `#RRGGBBAA`, with or without the leading

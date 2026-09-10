@@ -10,12 +10,19 @@ outside this audit. The previous picker composition work landed in
 `aaa61e62d` (2026-08-31) and improved spacing and Inspector organization, but it
 did not add picker-specific screenshots.
 
-The current evidence includes the existing component and browser tests, a real
+The baseline evidence included the existing component and browser tests, a real
 Chromium editor session at 1440×1000 and 900×600, and captures in Light, Dark,
-and High Contrast themes. The browser session showed a roughly 407 px panel
-whose Done action began below the 560 px visible portal, a saturation/value
-surface with an incorrect black corner, an opaque accent overlay on the alpha
-ramp, and a Lab field that continued to display `75.8` after entering `42`.
+and High Contrast themes. That session showed a roughly 407 px panel whose Done
+action began below the 560 px visible portal, a saturation/value surface with an
+incorrect black corner, an opaque accent overlay on the alpha ramp, and a Lab
+field that continued to display `75.8` after entering `42`. The current
+evidence adds real product captures from the deterministic screenshot pipeline:
+[solid picker](../screenshots/product/solid-picker-light.png) and [gradient
+picker](../screenshots/product/gradient-picker-light.png), both at 1440×900.
+The solid capture shows the 400 px panel with its header and Done action in the
+visible frame. The gradient capture shows the same surface with the selected
+stop color controls and the Gradient options disclosure; expanding that
+disclosure intentionally scrolls the body to the advanced controls.
 
 ## Component and access map
 
@@ -25,9 +32,9 @@ status, and eyedropper capability. `InspectorColorPopover` supplies the common
 portaled shell, focus trap, document/recent colors, profile and proof context,
 and transaction callbacks. `FillSection`, `StrokeSection`, Selection Colors,
 the quick bar, effects, document settings, and gradient controls consume that
-shell. `GradientEditor` currently embeds a second full picker inline, which
-pushes the Inspector content downward and gives gradient stops a different
-surface from solid colors.
+shell. `GradientEditor` now supplies its selected stop to the same floating
+picker surface, so gradient controls no longer create a second tall inline
+editor in the Inspector.
 
 ## Findings and priority
 
@@ -66,26 +73,46 @@ Varve's tokens, themes, native color model, and undo contract.
 
 ## Documentation and website drift
 
-The color guide currently describes four modes, a tabbed interface, automatic
+The color guide described four modes, a tabbed interface, automatic
 printable-CMYK warnings, and swatch CRUD that the picker does not provide. It
-also conflates picker view changes with document Assign/Convert operations.
-The feature page emphasizes print/effects but does not show the core picker
-workflow. Help copy overstates eyedropper availability. These claims will be
-updated to describe RGB, CMYK, Grayscale, Lab, LCH, and Spot views, bounded
-document/recent/theme swatches, proof conditions, and feature-detected screen
-sampling. A dedicated real-editor picker capture will be added to the existing
-website screenshot manifest.
+also conflated picker view changes with document Assign/Convert operations.
+The feature page emphasized print/effects but did not show the core picker
+workflow. Help copy overstated eyedropper availability. The docs now describe
+RGB, CMYK, Grayscale, Lab, LCH, and Spot views, bounded document/recent/theme
+swatches, proof conditions, and feature-detected screen sampling. The website
+manifest now carries deterministic solid and gradient picker captures with
+captions and alt text.
 
 ## Implementation status and validation
 
-This audit records the pre-change evidence. Correctness repairs, shared panel
-integration, website documentation, and visual captures are landed in separate
-commits. Focused validation covers the shared picker and Inspector tests,
-Chromium interaction tests, website builds and E2E, token/emoji/docs audits,
-and inspected Light/Dark/High Contrast captures at desktop and constrained
-window sizes. The Rust/WASM engine's existing inability to deserialize Lab/LCH
-scene colors is recorded as an engine boundary limitation; this UI work does
-not expand that engine contract.
+The correctness repairs and shared panel integration are committed as
+`b8bd9adfc`, after the baseline audit commit `cf400ac68`. Website, docs, test
+selector, and capture-pipeline changes are staged for the following commit.
+The implementation status is:
+
+- **Complete:** corrected area/ramp layering; native alpha preservation;
+  precision-aware RGB display; Lab/LCH draft synchronization; signed,
+  decimal, empty, invalid, Enter/blur, and Escape draft behavior; canonical
+  swatch identity and cross-picker recents; proof and eyedropper capability
+  presentation; shared floating gradient editing; one-owner gradient gestures;
+  and the 400 px constrained shell.
+- **Covered:** 72 focused ColorPicker tests, 21 GradientEditor tests, 11
+  InspectorColorPopover tests, 6 StrokeSection tests, 56 ColorPicker tests in
+  the affected planner lane, 4 SpotColorBrowser tests, 7 focused Chromium
+  picker/gradient tests, and 7 of 9 Chromium fill-interaction tests. The two
+  fill failures were pre-existing canvas/demo flakiness (a navigation-destroyed
+  pixel sample and a missing demo Rectangle row), not picker assertions.
+- **Captured and inspected:** Light solid and gradient full-editor compositions
+  at 1440×900. The earlier audit also retains Light, Dark, High Contrast, and
+  constrained-window baseline captures for comparison. The capture pipeline is
+  deterministic and uses the real application scene rather than a mock.
+
+The staged validation report will record the exact planner, affected checks,
+docs/emoji/token audits, website build, architecture audit result, and any
+commands that were interrupted or blocked by the local PNPM/Vite environment.
+The Rust/WASM engine's existing inability to deserialize Lab/LCH scene colors is
+recorded as an engine boundary limitation; this UI work does not expand that
+engine contract.
 
 ## Residual risks
 
@@ -94,3 +121,15 @@ fallback path. Proof conversion remains conditional on a registered profile
 converter. Screen sampling remains dependent on secure-context browser support.
 Those are documented capability boundaries, not reasons to silently convert
 or discard canonical picker values.
+
+## Validation report
+
+```text
+Changed scope: packages/ui ColorPicker; editor InspectorColorPopover, GradientEditor, FillSection, StrokeSection; color picker tests; docs/help; website pages and screenshot manifest; product capture scenes; focused E2E selectors.
+Validation plan: pnpm verify:plan --staged selected Tier 0, picker/editor Tier 1 tests, affected editor/ui checks, and website closure; no full-suite escalation.
+Commands actually run: focused ColorPicker Vitest (72 passed); GradientEditor Vitest (21 passed); planner-selected Inspector/Stroke/ColorPicker/Spot tests (all passed); Chromium color-picker + gradient visual tests (7 passed); Chromium fill-interaction (7 passed, 2 unrelated failures); product capture for solid-picker,gradient-picker (20 captured, 0 skipped, 0 failures); Biome check/write and diff check.
+Passed: focused picker correctness, gradient composition, browser picker/gradient workflows, real Light captures.
+Skipped as unrelated: Rust, broad workspace tests, full Playwright matrix, and unrelated working-tree changes.
+Escalations: isolated local Vite/Chromium server required approved sandbox escalation; the first sandboxed server attempt failed before tests because local bind/PNPM store access was denied.
+Full suite run: no.
+```

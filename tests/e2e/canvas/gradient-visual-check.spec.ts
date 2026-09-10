@@ -27,7 +27,13 @@ test('hue slider interactive', async ({ page }) => {
   }
 
   // Scroll to color picker
-  const gradEditor = page.locator('.gradient-editor');
+  const gradientTrigger = page.getByRole('button', { name: /Fill(?: \d+)? gradient/ }).first();
+  if (await gradientTrigger.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await gradientTrigger.click();
+  }
+  const gradEditor = page
+    .getByRole('dialog', { name: /pick fill.*gradient/i })
+    .locator('.gradient-editor');
   if (await gradEditor.isVisible({ timeout: 3000 }).catch(() => false)) {
     await gradEditor.scrollIntoViewIfNeeded();
     await page.waitForTimeout(300);

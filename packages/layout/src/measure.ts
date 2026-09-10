@@ -6,7 +6,7 @@
  * Kept in one place so flex/grid/hug measurement never diverge — a node's
  * "natural" size must mean the same thing everywhere it's measured.
  */
-import type { LayoutSizing, SceneNode } from '@varve/scene';
+import type { LayoutSizing, SceneNode, Stroke } from '@varve/scene';
 import { DEFAULT_ARTWORK_FONT_FAMILY, measureText, measureWrappedText } from '@varve/shared';
 
 export interface Size {
@@ -15,7 +15,14 @@ export interface Size {
 }
 
 /** A node's own natural (unresolved) size — does not recurse into a frame's children. */
-export function measureNodeSize(n: SceneNode): Size {
+export function measureNodeSize(n: SceneNode, includeBorders = false): Size {
+  const base = measureNodeSizeRaw(n);
+  if (!includeBorders) return base;
+  const [top, right, bottom, left] = strokeOutsets(n);
+  return { w: base.w + left + right, h: base.h + top + bottom };
+}
+
+function measureNodeSizeRaw(n: SceneNode): Size {
   if (n.kind === 'shape') {
     const s = n.shape;
     if (s.kind === 'rect') return { w: s.w, h: s.h };
@@ -50,6 +57,38 @@ export function measureNodeSize(n: SceneNode): Size {
     return { w: n.w, h };
   }
   return { w: 0, h: 0 };
+}
+
+/** Conservative visible-stroke footprint for border-aware layout. Effects
+ * such as shadows and blur are deliberately excluded. */
+function strokeOutsets(n: SceneNode): [number, number, number, number] {
+  const strokes =
+    ('strokes' in n ? n.strokes : undefined)?.filter(
+      (stroke) => stroke.visible !== false && stroke.weight > 0,
+    ) ?? [];
+  if (strokes.length === 0) return [0, 0, 0, 0];
+  const outset = (stroke: Stroke, weight = stroke.weight): number =>
+    stroke.align === 'outside' ? weight : stroke.align === 'center' ? weight / 2 : 0;
+  let top = 0;
+  let right = 0;
+  let bottom = 0;
+  let left = 0;
+  for (const stroke of strokes) {
+    const sides = stroke.perSideWeights;
+    if (sides) {
+      top = Math.max(top, outset(stroke, sides[0]));
+      right = Math.max(right, outset(stroke, sides[1]));
+      bottom = Math.max(bottom, outset(stroke, sides[2]));
+      left = Math.max(left, outset(stroke, sides[3]));
+    } else {
+      const edge = outset(stroke);
+      top = Math.max(top, edge);
+      right = Math.max(right, edge);
+      bottom = Math.max(bottom, edge);
+      left = Math.max(left, edge);
+    }
+  }
+  return [top, right, bottom, left];
 }
 
 /** Whether a child participates in its parent's flow layout (not hidden, not absolute). */

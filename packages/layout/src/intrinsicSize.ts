@@ -39,7 +39,7 @@ function computeFrameContentSize(nodes: Record<NodeId, SceneNode>, frame: FrameN
   let mainMax = 0;
   let crossMax = 0;
   for (const [index, child] of flowChildren.entries()) {
-    const sz = measureNodeSize(child);
+    const sz = measureNodeSize(child, style.includeBordersInLayout === true);
     const mainNatural = row ? sz.w : sz.h;
     const crossNatural = row ? sz.h : sz.w;
     const mainSize = axisContribution(child, row ? 'width' : 'height', mainNatural);

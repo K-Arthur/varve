@@ -238,8 +238,13 @@ test.describe('fill creation and conversion', () => {
     await addFill(page, 'Linear gradient');
 
     expect(await fillRowCount(page)).toBe(2);
-    const gradEditor = page.locator('.gradient-editor');
+    const gradientSwatch = page.getByRole('button', { name: 'Fill 2 gradient', exact: true });
+    await gradientSwatch.click();
+    const gradEditor = page
+      .getByRole('dialog', { name: /pick fill 2 gradient/i })
+      .locator('.gradient-editor');
     await gradEditor.waitFor({ state: 'visible', timeout: 5000 });
+    await page.getByRole('button', { name: /^done$/i }).click();
 
     const sample = await samplePixels(page, [left, right]);
     // Stop 0 is seeded from the user's solid: the gradient's source end is
@@ -273,7 +278,10 @@ test.describe('fill creation and conversion', () => {
     expect(pixelCloseTo(before[0]!, TEAL)).toBe(true);
 
     await switchFillType(page, 'Gradient');
-    const gradientEditor = page.locator('.gradient-editor');
+    await page.getByRole('button', { name: 'Fill gradient', exact: true }).click();
+    const gradientEditor = page
+      .getByRole('dialog', { name: /pick fill gradient/i })
+      .locator('.gradient-editor');
     await gradientEditor.waitFor({ state: 'visible', timeout: 5000 });
     const sample = await samplePixels(page, [left, right]);
     expect(pixelDist(sample[1]!, TEAL)).toBeGreaterThan(60);
@@ -525,7 +533,15 @@ test.describe('/try demo parity', () => {
     // spatially (the demo's default fill colour is template-specific, so
     // assert against the pre-conversion sample, not a fixed colour).
     await switchFillType(page, 'Gradient');
-    await page.locator('.gradient-editor').waitFor({ state: 'visible', timeout: 5000 });
+    await page
+      .getByRole('button', { name: /Fill \d+ gradient|Fill gradient/ })
+      .first()
+      .click();
+    await page
+      .getByRole('dialog', { name: /pick fill.*gradient/i })
+      .locator('.gradient-editor')
+      .waitFor({ state: 'visible', timeout: 5000 });
+    await page.getByRole('button', { name: /^done$/i }).click();
     const grad = await samplePixels(page, [p1, p2]);
     expect(pixelDist(grad[0]!, grad[1]!)).toBeGreaterThan(30);
     const changedDist = pixelDist(grad[0]!, before[0]!);

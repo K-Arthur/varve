@@ -8,7 +8,6 @@
  * Research basis: CSS Grid Layout Module Level 1, Figma auto-layout grid.
  */
 import type { Document, LayoutStyle, NodeId, SceneNode } from '@varve/scene';
-import { DEFAULT_ARTWORK_FONT_FAMILY, measureText } from '@varve/shared';
 import { axisSizing, isFlowParticipant, measureNodeSize } from './measure';
 import { resizeNodeGeometry } from './resizeGeometry';
 
@@ -78,33 +77,8 @@ export function parseGridTracks(template: string, availableSize: number, gap: nu
   });
 }
 
-function childSize(n: SceneNode): { w: number; h: number } {
-  if (n.kind === 'shape') {
-    const s = n.shape;
-    if (s.kind === 'rect') return { w: s.w, h: s.h };
-    if (s.kind === 'ellipse') return { w: s.rx * 2, h: s.ry * 2 };
-    if (s.kind === 'circle') return { w: s.r * 2, h: s.r * 2 };
-    if (s.kind === 'path') {
-      const xs = s.points.map((p) => p.x);
-      const ys = s.points.map((p) => p.y);
-      if (xs.length === 0) return { w: 0, h: 0 };
-      return { w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
-    }
-  }
-  if (n.kind === 'frame') return { w: n.w, h: n.h };
-  if (n.kind === 'text') {
-    const fs = n.fontSize ?? 16;
-    const measured = measureText(n.text ?? '', {
-      fontSize: fs,
-      fontFamily: n.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY,
-      fontWeight: n.fontWeight ?? 400,
-      fontStyle: n.fontStyle ?? 'normal',
-      letterSpacing: n.letterSpacing ?? 0,
-      lineHeight: n.lineHeight ?? 1.4,
-    });
-    return { w: Math.max(measured.width, 20), h: measured.height };
-  }
-  return { w: 0, h: 0 };
+function childSize(n: SceneNode, includeBorders = false): { w: number; h: number } {
+  return measureNodeSize(n, includeBorders);
 }
 
 function resolveAutoTracks(
@@ -112,6 +86,7 @@ function resolveAutoTracks(
   children: SceneNode[],
   cellMapping: number[],
   isColumn: boolean,
+  includeBorders: boolean,
 ): number[] {
   return tracks.map((size, idx) => {
     if (size !== -1) return size;
@@ -125,7 +100,7 @@ function resolveAutoTracks(
     let maxSize = 0;
     for (const ci of childIndices) {
       if (children[ci]) {
-        const sz = childSize(children[ci]);
+        const sz = childSize(children[ci], includeBorders);
         maxSize = Math.max(maxSize, isColumn ? sz.h : sz.w);
       }
     }
@@ -316,8 +291,20 @@ export function computeGridLayout(
     columnMap[a.childIndex] = a.col;
     rowMap[a.childIndex] = a.row;
   }
-  const resolvedColSizes = resolveAutoTracks(resolvedCols, childNodes, columnMap, false);
-  const resolvedRowSizes = resolveAutoTracks(resolvedRows, childNodes, rowMap, true);
+  const resolvedColSizes = resolveAutoTracks(
+    resolvedCols,
+    childNodes,
+    columnMap,
+    false,
+    layoutStyle.includeBordersInLayout === true,
+  );
+  const resolvedRowSizes = resolveAutoTracks(
+    resolvedRows,
+    childNodes,
+    rowMap,
+    true,
+    layoutStyle.includeBordersInLayout === true,
+  );
 
   const colPositions: number[] = [pl];
   for (let c = 0; c < resolvedColSizes.length; c++) {

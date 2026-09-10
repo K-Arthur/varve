@@ -493,4 +493,36 @@ describe('computeFlexLayout', () => {
     expect(results[0]?.x).toBeCloseTo(100);
     expect(results[1]?.x).toBeCloseTo(250);
   });
+
+  it('includes visible outside borders in occupied layout footprints when enabled', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 10,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+      includeBordersInLayout: true,
+    });
+    const bordered = makeChild('c1', 0, 0, 100, 40);
+    if (bordered.kind === 'shape') {
+      bordered.strokes = [
+        {
+          color: { space: 'rgb', r: 0, g: 0, b: 0, a: 1 },
+          weight: 4,
+          align: 'outside',
+          dashPattern: [],
+          dashOffset: 0,
+          cap: 'butt',
+          join: 'miter',
+          miterLimit: 4,
+          visible: true,
+        },
+      ];
+    }
+    const results = computeFlexLayout(frame, [bordered, makeChild('c2', 0, 0, 20, 40)]);
+    expect(results[0]).toMatchObject({ w: 108 });
+    expect(results[1]).toMatchObject({ x: 118 });
+  });
 });

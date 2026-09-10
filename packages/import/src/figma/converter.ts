@@ -595,8 +595,14 @@ function applyCommon<T extends SceneNode>(
     bindings: bindings(state, source),
     layoutSizingWidth:
       sizing(source.layoutSizingHorizontal) ??
-      (source.layoutGrow && source.layoutGrow > 0 ? 'fill' : undefined),
-    layoutSizingHeight: sizing(source.layoutSizingVertical),
+      (source.layoutMode !== 'VERTICAL' && source.layoutGrow && source.layoutGrow > 0
+        ? 'fill'
+        : undefined),
+    layoutSizingHeight:
+      sizing(source.layoutSizingVertical) ??
+      (source.layoutMode === 'VERTICAL' && source.layoutGrow && source.layoutGrow > 0
+        ? 'fill'
+        : undefined),
     layoutSizing: sizing(source.layoutSizingHorizontal) ?? sizing(source.layoutSizingVertical),
     layoutPosition: source.layoutPositioning === 'ABSOLUTE' ? 'absolute' : 'flow',
     layoutAlign:
@@ -608,10 +614,26 @@ function applyCommon<T extends SceneNode>(
             ? 'end'
             : undefined,
     styleId: sourceStyle ? state.styleIds.get(sourceStyle) : undefined,
-    ...(source.minWidth && source.minWidth > 0 ? { minWidth: source.minWidth } : {}),
-    ...(source.maxWidth && source.maxWidth > 0 ? { maxWidth: source.maxWidth } : {}),
-    ...(source.minHeight && source.minHeight > 0 ? { minHeight: source.minHeight } : {}),
-    ...(source.maxHeight && source.maxHeight > 0 ? { maxHeight: source.maxHeight } : {}),
+    ...(typeof source.minWidth === 'number' &&
+    Number.isFinite(source.minWidth) &&
+    source.minWidth >= 0
+      ? { minWidth: source.minWidth }
+      : {}),
+    ...(typeof source.maxWidth === 'number' &&
+    Number.isFinite(source.maxWidth) &&
+    source.maxWidth >= 0
+      ? { maxWidth: source.maxWidth }
+      : {}),
+    ...(typeof source.minHeight === 'number' &&
+    Number.isFinite(source.minHeight) &&
+    source.minHeight >= 0
+      ? { minHeight: source.minHeight }
+      : {}),
+    ...(typeof source.maxHeight === 'number' &&
+    Number.isFinite(source.maxHeight) &&
+    source.maxHeight >= 0
+      ? { maxHeight: source.maxHeight }
+      : {}),
     ...(presets ? { presets } : {}),
   } as T;
 }

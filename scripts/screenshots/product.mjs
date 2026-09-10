@@ -624,6 +624,52 @@ const SCENES = [
     },
   },
   {
+    id: 'solid-picker',
+    file: 'solid-picker-light.png',
+    theme: 'light',
+    feature: 'color-effects',
+    alt: 'Varve showing the shared solid color picker beside the selected headline, with the color area, hue and opacity ramps, aligned fields, and swatches visible',
+    caption: 'A precise solid-color workflow with the full picker hierarchy in reach.',
+    async run(page) {
+      await openCleanEditor(page);
+      await openDemoDocument(page, 'poster');
+      await selectLayer(page, /display headline/i);
+      await fitContent(page);
+      const swatch = page.getByRole('button', { name: 'Fill colour', exact: true });
+      await swatch.waitFor({ state: 'visible', timeout: 8000 });
+      await swatch.click();
+      await page.getByRole('dialog', { name: /pick fill colour/i }).waitFor({
+        state: 'visible',
+        timeout: 8000,
+      });
+    },
+  },
+  {
+    id: 'gradient-picker',
+    file: 'gradient-picker-light.png',
+    theme: 'light',
+    feature: 'color-effects',
+    alt: 'Varve showing the shared gradient picker with a selected gradient stop, stop bar, color controls, and expanded Gradient options',
+    caption:
+      'Edit a gradient stop in the same floating panel, then reveal interpolation and geometry options.',
+    async run(page) {
+      await openCleanEditor(page);
+      await openDemoDocument(page, 'poster');
+      await selectLayer(page, /display headline/i);
+      await fitContent(page);
+      const fillType = page.getByRole('combobox', { name: 'Fill type', exact: true });
+      await fillType.waitFor({ state: 'visible', timeout: 8000 });
+      await fillType.click();
+      await page.getByRole('option', { name: 'Gradient', exact: true }).click();
+      const swatch = page.getByRole('button', { name: 'Fill gradient', exact: true });
+      await swatch.waitFor({ state: 'visible', timeout: 8000 });
+      await swatch.click();
+      const dialog = page.getByRole('dialog', { name: /pick fill gradient/i });
+      await dialog.waitFor({ state: 'visible', timeout: 8000 });
+      await dialog.getByRole('button', { name: 'Gradient options', exact: true }).click();
+    },
+  },
+  {
     id: 'enhance-dialog-auto',
     file: 'enhance-dialog-auto.png',
     theme: 'light',

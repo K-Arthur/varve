@@ -105,7 +105,7 @@ test.describe('Color picker workflow', () => {
 
     // RGB fields (scoped to the dialog — the inspector has other R/G/B fields)
     const dialog = page.getByRole('dialog', { name: /pick fill colour/i });
-    await dialog.getByRole('button', { name: 'RGB', exact: true }).click();
+    await dialog.getByRole('radio', { name: 'RGB', exact: true }).last().click();
     await expect(dialog.getByRole('spinbutton', { name: 'R', exact: true })).toHaveValue('100');
     await expect(dialog.getByRole('spinbutton', { name: 'G', exact: true })).toHaveValue('150');
     await expect(dialog.getByRole('spinbutton', { name: 'B', exact: true })).toHaveValue('200');
@@ -117,7 +117,7 @@ test.describe('Color picker workflow', () => {
 
     // Back to RGB — still open, hex value unchanged (no drift).
     await dialog.getByRole('radio', { name: 'RGB' }).click();
-    await dialog.getByRole('button', { name: 'HEX', exact: true }).click();
+    await dialog.getByRole('radio', { name: 'HEX', exact: true }).click();
     await expect(dialog.getByRole('textbox', { name: 'Hex color' })).toHaveValue('#6496c8');
     await expect(page.getByRole('dialog', { name: /pick fill colour/i })).toBeVisible();
   });

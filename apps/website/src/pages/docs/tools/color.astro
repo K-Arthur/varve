@@ -12,22 +12,34 @@ import { sitePath } from '../../../lib/siteUrl';
 
       <h1>Color & Effects</h1>
       <p class="docs-intro">
-        Varve provides a professional fill system with support for solid colors, gradients, and image fills, plus a comprehensive effects engine for shadows, blurs, and glows. The color system uses <strong>ManagedColor</strong> as its canonical type, supporting RGB, CMYK, Grayscale, and Spot color modes.
+        Varve provides a professional fill system with support for solid colors, gradients, and image fills, plus a comprehensive effects engine for shadows, blurs, and glows. The color system uses <strong>ManagedColor</strong> as its canonical type, supporting RGB, CMYK, Grayscale, Lab, LCH, and Spot color modes.
       </p>
 
       <section class="docs-section">
         <h2>Color Model</h2>
         <p>
-          All colors in Varve are represented as <strong>ManagedColor</strong>, a discriminated union that supports four color modes:
+          All colors in Varve are represented as <strong>ManagedColor</strong>, a discriminated union. The picker exposes six editing views:
         </p>
         <ul>
-          <li><strong>RGB</strong> — sRGB color with bit-depth-aware channels (8-bit 0-255, 16-bit 0-65535, or float 0-1)</li>
+          <li><strong>RGB</strong> — sRGB color with a shared RGB/HSL/HSB format selector and bit-depth-aware channels (8-bit 0-255, 16-bit 0-65535, or float 0-1)</li>
           <li><strong>CMYK</strong> — Cyan, Magenta, Yellow, Key (black) percentages for print production</li>
           <li><strong>Grayscale</strong> — Single channel grayscale</li>
+          <li><strong>Lab</strong> — perceptual lightness and signed a/b channels</li>
+          <li><strong>LCH</strong> — perceptual lightness, chroma, and hue</li>
           <li><strong>Spot</strong> — Named spot color (e.g., Pantone) for specialized print output</li>
         </ul>
         <p>
-          The ColorPicker supports all four modes with a tabbed interface. You can switch between RGB, CMYK, Grayscale, and Spot color selection at any time. A <strong>Gamut Warning</strong> indicator alerts you when a color falls outside the printable CMYK gamut. Numeric fields adapt to the document's precision: 0-255 for 8-bit documents, 0-65535 for 16-bit, and 0-1 with decimals for float documents. Editing one channel carries the untouched channels at full precision, and 16-bit/float values survive save and reopen exactly.
+          RGB uses a prominent saturation/value area, hue and opacity ramps, aligned channel fields, and always-visible HEX and opacity controls. Numeric fields accept signed and decimal drafts, commit on Enter or blur, retain invalid HEX text for correction, and cancel an active draft with Escape. A <strong>Gamut Warning</strong> is a qualified display hint; soft proof status is shown separately when a registered profile converter is available. Screen sampling follows browser feature detection and the EyeDropper API, so unsupported browsers expose a disabled control with an honest explanation.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Picker workflow</h2>
+        <p>
+          Document Colors, Recent Colors, and the built-in palette sit below the editing controls. Swatches carry their canonical color space, profile, spot identity, and precision; the face is only a display preview. Recent colors are shared across picker instances and deduplicated by canonical identity.
+        </p>
+        <p>
+          Gradient fills and strokes open the same floating panel. Choose a gradient type, select or add a stop on the bar, edit its color in the shared picker, then expand <strong>Gradient options</strong> for interpolation space, hue direction, tiling, midpoint, and rotation. Selecting a stop or opening options does not create an undo entry; a drag is committed as one gesture.
         </p>
       </section>
 
@@ -194,7 +206,7 @@ import { sitePath } from '../../../lib/siteUrl';
       <section class="docs-section">
         <h2>Color Swatches</h2>
         <p>
-          Save frequently used colors as swatches for quick access. Swatches are stored in the document and persist across sessions. You can add, remove, update, and apply swatches through the Inspector's color picker.
+          Document colors are collected from the current scene and Recent Colors are session-backed. The picker applies these canonical colors but does not expose unsupported swatch-library management claims; document variables remain the durable token workflow.
         </p>
       </section>
 

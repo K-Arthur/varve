@@ -79,7 +79,8 @@ function resolvePrimarySizes(
     .filter((index) => index >= 0);
   const growSet = new Set(growIndices);
   const definiteTotal = children.reduce(
-    (sum, _child, index) => sum + (growSet.has(index) ? 0 : values[index]!),
+    (sum, child, index) =>
+      sum + (growSet.has(index) || axisSizing(child, axis) === 'relative' ? 0 : values[index]!),
     0,
   );
   const relativeIndices = children
@@ -192,7 +193,9 @@ export function computeFlexLayout(frame: FrameNode, allChildren: SceneNode[]): L
   const crossAvail = row ? availH : availW;
 
   // ── Measure intrinsic sizes and resolve primary-axis constraints ──
-  const naturalSizes = children.map(measureNodeSize);
+  const naturalSizes = children.map((child) =>
+    measureNodeSize(child, style.includeBordersInLayout === true),
+  );
   const sizes = resolvePrimarySizes(children, naturalSizes, primaryAxis, avail, gap, row);
   const contentTotal = sizes.reduce((s, sz) => s + (row ? sz.w : sz.h), 0);
   const gapsTotal = Math.max(0, children.length - 1) * gap;

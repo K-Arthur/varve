@@ -67,7 +67,16 @@ export function reflowLayoutChildren(doc: Document, parentId: NodeId | null | un
         if (!child) continue;
         let updated: SceneNode = {
           ...child,
-          transform: [1, 0, 0, 1, r.x, r.y] as Affine,
+          // Layout owns translation and dimensions; preserve authored scale,
+          // skew, and rotation components when a child is reflowed.
+          transform: [
+            child.transform[0],
+            child.transform[1],
+            child.transform[2],
+            child.transform[3],
+            r.x,
+            r.y,
+          ] as Affine,
         } as SceneNode;
         const cur = nodeSize(updated);
         const wantW = axisSizing(child, 'width') === 'fixed' ? cur.w : r.w;
