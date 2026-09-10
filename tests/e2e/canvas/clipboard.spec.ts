@@ -67,6 +67,53 @@ test('a live browser paste event transfers an editable layer and renders it', as
   });
 });
 
+test('SVG paste preserves root order, spacing, and nested groups', async ({ page }, testInfo) => {
+  test.setTimeout(300000);
+  await navigateToEditor(page);
+
+  const before = JSON.parse((await editorMethod(page, 'serializeDocument')) as string) as {
+    nodes: Record<string, { id: string }>;
+    pages?: Array<{ id: string; contentRoot: string }>;
+    activePageId?: string;
+  };
+  const beforeIds = new Set(Object.keys(before.nodes));
+  const svg =
+    '<svg viewBox="0 0 220 40"><g><rect x="0" y="0" width="20" height="20"/>' +
+    '<rect x="40" y="0" width="20" height="20"/></g>' +
+    '<rect x="120" y="0" width="20" height="20"/></svg>';
+
+  await page.evaluate((markup) => {
+    const transfer = new DataTransfer();
+    transfer.setData('image/svg+xml', markup);
+    const event = new Event('paste', { bubbles: true, cancelable: true });
+    Object.defineProperty(event, 'clipboardData', { value: transfer });
+    window.dispatchEvent(event);
+  }, svg);
+
+  await expect(page.locator('[role="treeitem"].layers-row--selected')).toHaveCount(2);
+  const after = JSON.parse((await editorMethod(page, 'serializeDocument')) as string) as {
+    nodes: Record<string, { id: string; kind: string; children?: string[] }>;
+  };
+  const visibleRoots = (await editorMethod(page, 'rootNodes')) as Array<{ id: string }>;
+  const rootIds = visibleRoots.map((node) => node.id).filter((id) => !beforeIds.has(id));
+  expect(rootIds).toHaveLength(2);
+  const first = after.nodes[rootIds[0]!];
+  expect(first?.kind).toBe('frame');
+  expect(first?.children).toHaveLength(2);
+  const second = after.nodes[rootIds[1]!];
+  expect(second?.kind).toBe('shape');
+  const firstBounds = await editorMethod(page, 'nodeWorldBounds', first);
+  const secondBounds = await editorMethod(page, 'nodeWorldBounds', second);
+  expect(firstBounds).toBeTruthy();
+  expect(secondBounds).toBeTruthy();
+  const firstRect = firstBounds as { x: number; w: number };
+  const secondRect = secondBounds as { x: number; w: number };
+  expect(secondRect.x + secondRect.w / 2 - (firstRect.x + firstRect.w / 2)).toBeCloseTo(100, 3);
+  await page.getByTestId('editor-canvas').screenshot({
+    path: testInfo.outputPath('clipboard-svg-order-and-groups.png'),
+  });
+});
+
 test('pasting with a frame selected adopts the layer inside that frame', async ({ page }) => {
   test.setTimeout(300000);
   await navigateToEditor(page);
