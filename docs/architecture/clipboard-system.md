@@ -204,3 +204,16 @@ terminal path. The frontend bridge creates an ID per native gesture and can
 send `cancel_clipboard_operation` for an in-flight operation. This transport
 contract does not claim that browser permission prompts or an unavailable
 compositor provide content; those outcomes remain explicit capability results.
+
+## Command surfaces
+
+The Edit menu, canvas context menu, and action palette expose Copy Text, Copy
+as SVG, Copy as PNG, Paste as Plain Text, and Paste SVG Markup. These commands
+have no default keyboard bindings, so existing shortcuts remain unchanged.
+Copy Text uses the selected nodes' text or names. Copy as SVG serializes a
+selection snapshot with a transparent backdrop and falls back to plain text
+when the browser denies a rich write. Paste SVG Markup sends bounded source
+text through `ImportService` and commits the resulting artifacts through the
+same batch insertion API as file import. PNG scale selection is delegated to
+the renderer callback (1× by default, with 2× and 3× choices); the renderer
+owns transparent output and actual pixel encoding.

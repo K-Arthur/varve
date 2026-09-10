@@ -304,6 +304,35 @@ envelope is demonstrated. Copy as SVG, Copy as PNG, and REST/plugin JSON remain
 the documented interoperability routes. No external Figma account or private
 clipboard payload was inferred from parser tests.
 
+### Command and closure follow-up — 2026-09-09
+
+CLIP-23 is **resolved for supported closure records**. Version-2 fragments
+retain generative edit records whose source or result nodes are in the copied
+closure; the existing resource merge path allocates destination identities and
+remaps those records on paste. A regression covers round-trip preservation.
+
+CLIP-24 is **resolved for command registration and supported routes**. Copy
+Text, Copy as SVG, Copy as PNG, Paste as Plain Text, and Paste SVG Markup are
+registered in the Edit menu, canvas context menu where applicable, and the
+palette registry. They remain unassigned in shortcut customization. SVG
+markup is size-bounded and passes through `ImportService`; plain text creates
+an editable text node through the editor import path. PNG rendering remains a
+renderer callback because the action layer does not own a render engine.
+
+Evidence:
+
+```text
+VARVE_TEST_WORKERS=1 pnpm exec vitest run packages/editor/src/clipboard.test.ts --maxWorkers=1 --reporter=dot
+25 tests passed
+/home/kevina/CodingProjects/varve/node_modules/.bin/biome check <changed editor/codegen files>
+passed
+```
+
+The isolated editor typecheck exceeded its 60-second validation budget and was
+not treated as a pass. The repository affected planner is the authoritative
+next check after this commit. CLIP-22 (packaged `.fig` CSP/decompression) and
+owned Firefox Figma captures remain open.
+
 ### Native transport follow-up — 2026-09-09
 
 CLIP-21 is now **resolved for the Wayland native bridge**. Tauri clipboard
