@@ -29,7 +29,7 @@ export function formatPresetSize(preset: Preset): string {
   return preset.unit === 'px' ? size : `${size} ${preset.unit}`;
 }
 
-/** True when the name already states the size ("4 × 6 in"), so a caption would repeat it. */
+/** True when the name already states the size ("4 x 6 in"), so a caption would repeat it. */
 export function presetNameRepeatsSize(preset: Preset): boolean {
   const compact = (value: string) =>
     value.toLowerCase().replace(new RegExp(DIMENSION_SEPARATOR, 'g'), 'x').replace(/\s+/g, '');
