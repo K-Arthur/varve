@@ -15,6 +15,14 @@
   pointer-events: auto;
 }
 
+/* FloatingPortal constrains its layer for ordinary popovers. The font
+   combobox owns a second anchored menu and must be allowed to paint outside
+   the toolbar bounds. */
+.floating-text-bar__layer {
+  overflow: visible !important;
+  overflow-y: visible !important;
+}
+
 .floating-text-bar__select {
   font-size: var(--font-size-xs);
   padding: 2px 4px;

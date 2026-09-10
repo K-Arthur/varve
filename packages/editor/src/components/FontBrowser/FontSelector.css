@@ -77,9 +77,9 @@
 
 .font-selector__dropdown {
   position: absolute;
-  /* The floating text toolbar can sit against the viewport bottom. Open
-     upward so the catalog is never rendered below the canvas viewport. */
-  bottom: calc(100% + var(--space-1));
+  /* Keep the menu attached to the control; the portal chooses a toolbar
+     placement that leaves room in the viewport. */
+  top: calc(100% + var(--space-1));
   left: 0;
   right: auto;
   width: max(100%, 260px);
