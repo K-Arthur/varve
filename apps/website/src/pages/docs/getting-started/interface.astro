@@ -162,6 +162,14 @@ import { sitePath } from '../../../lib/siteUrl';
           communicate mixed values and batch-edit behavior explicitly. Specialized sections appear
           only when their owning node or workflow supports them.
         </p>
+        <p>
+          In Design, <strong>Position &amp; Size</strong> owns geometry and bounds while
+          <strong>Stack / Grid</strong> owns the relationship between children. Fixed bounds remain
+          visible but inactive; Relative fields show their authored percentage and reference. Fills,
+          strokes, effects, typography, images, components, tables, and export each have one owner.
+          See the <a href={sitePath('/docs/tools/auto-layout')}>Auto Layout guide</a> for the sizing
+          explanations and examples.
+        </p>
       </section>
 
       <section class="docs-section">

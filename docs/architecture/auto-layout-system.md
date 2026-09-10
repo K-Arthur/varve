@@ -2,7 +2,7 @@
 
 **Canonical doc** — audit status, model, engine, and known limitations.
 
-## 1. Current State (2026-08-29)
+## 1. Current State (2026-09-09)
 
 | Capability | Scene Model | Engine | Inspector | Canvas | Tests | Status |
 |---|---|---|---|---|---|---|
@@ -20,16 +20,17 @@
 | Per-axis sizing (width ≠ height mode) | ✓ | ✓ | ✓ | ✓ | ✓ | **Working (new)** |
 | Absolute-positioned children | ✓ | ✓ | ✓ | ✓ | ✓ | **Working (new)** — filtered from flow, hug, gap |
 | Hidden children | ✓ | ✓ | N/A | N/A | ✓ | **Working (new)** — filtered from flow, hug, gap |
-| Min/max constraints | ✓ | ✓ | ✓ | ✓ | ✓ | **Working (new)** — was modeled, never enforced |
+| Min/max constraints | ✓ | ✓ | ✓ | ✓ | ✓ | **Working** — Fixed bounds remain visible but inactive |
+| Relative sizing | ✓ | ✓ | ✓ | ✓ | ✓ | **Working (new)** — literal percentages retain their authored reference |
 | Nested layout (multi-level, hug + fill mixed) | ✓ | ✓ | N/A | ✓ | ✓ | **Working (new)** — was single-level only |
 | Cycle handling (fill inside hug) | ✓ | ✓ | N/A | N/A | ✓ | **Working (new)** — broken by construction (min-size contribution), diagnostic in cycleDetection.ts is available but not yet wired into the inspector as a user-facing warning |
-| Grid layout | ✓ | ✓ | ✓ | ✓ | ✓ | **Working (basic)** — unchanged this pass |
+| Grid layout | ✓ | ✓ | ✓ | ✓ | ✓ | **Working** — repeat tracks, occupant mapping, spans, and constrained application |
 | Grid hug/intrinsic sizing | ✓ | ✓ | — | — | ✓ | **Working** — px/auto tracks measure through the shared grid resolver; fractional tracks contribute no unconstrained size |
 | Grid hidden/absolute filtering | ✓ | ✓ | — | — | — | **Working (new)** — parity fix, not deeply tested |
 | Components/instances | ✓ | ✓ | ✓ | N/A | — | **Unverified this pass** — structurally frames, so the generic frame path applies, but no dedicated instance/override test was run |
 | Text intrinsic sizing | ✓ | ✓ | N/A | ✓ | ✓ | **Working** (measureText), confirmed visually |
-| Codegen | ✓ | N/A | N/A | N/A | — | **Untouched this pass** — basic flex mapping pre-existing, not re-audited |
-| Save/reopen | ✓ | N/A | N/A | N/A | — | **Untouched this pass** — schema is additive/optional, no migration needed, not re-verified end-to-end |
+| Codegen | ✓ | N/A | N/A | N/A | ✓ | **Working with target diagnostics** — authored sizing survives intermediate conversion |
+| Save/reopen | ✓ | N/A | N/A | N/A | ✓ | **Working** — schema 2.26 migration normalises optional sizing fields |
 | Undo/redo | ✓ | N/A | N/A | N/A | — | **Untouched this pass** — goes through the existing updateDoc/history path, not independently re-verified |
 
 ## 2. Architecture
@@ -48,12 +49,12 @@ Scene Model (persistent, packages/scene/src/types.ts)
     ▼
 Layout Engine (@varve/layout — pure TS, no DOM)
     │
-    ├── measure.ts            → shared: node natural size, flow-participation filter, min/max clamp
+    ├── measure.ts            → shared: node natural size, optional visible-border footprint, flow filter, min/max clamp
     ├── computeFlexLayout()   → row/column/reverse, wrap, gap, padding, align/justify, fill-after-fixed, per-axis sizing, min/max
     ├── computeGridLayout()   → explicit tracks, auto-flow, placement overrides (unchanged this pass)
     ├── intrinsicSize.ts      → resolveIntrinsicSizes(): bottom-up hug resolution across a subtree
     ├── reflow.ts             → reflowLayoutChildren(): the single entry point (see phases below)
-    └── cycleDetection.ts     → checkLayoutCycle(): diagnostic, not yet wired into any mutation path
+    └── cycleDetection.ts     → checkLayoutCycle(): deterministic diagnostic (inspector wiring remains queued)
     │
     ▼
 Resolved Geometry (transform + w/h written back onto each node)
@@ -74,6 +75,25 @@ Called with the frame whose children (and, transitively, descendants) need layin
 ### Cross-axis hug vs. stretch
 
 A child whose cross-axis sizing is `hug` never stretches, even under `alignItems: stretch` or an explicit `layoutAlign: 'stretch'` override sourced from the parent. Without this rule, a hug *frame* child would get stretched by its parent's alignment pass, then immediately shrink back to its intrinsic size on the next reflow (step 1 of the child's own recursive call) — visibly fighting itself. Hug is treated as the more authoritative signal: "sized by my own content," full stop.
+
+### Authored sizing and occupied geometry
+
+`layoutSizingWidth` and `layoutSizingHeight` are independent. A Relative axis
+stores `layoutRelativeWidth` or `layoutRelativeHeight` as a finite percentage
+of the parent content budget; values above 100% remain literal and may
+overflow. Switching to Relative derives a percentage from the current finite
+reference, while a zero reference stores 100% and leaves an explanation for
+the inspector. Switching to Fixed captures the current resolved geometry.
+
+Min/max values remain serialised when an axis is Fixed so a later mode switch
+does not lose authored intent, but the inspector renders those bounds inactive.
+A Hug frame measures the union of its children, including overlaps from signed
+flex gaps. `includeBordersInLayout` is opt-in and adds the maximum visible
+stroke protrusion per edge; shadows, blur, and other effects do not contribute.
+
+The resolved layout result is the source for canvas handles, hit testing,
+thumbnails, and exports. Target emitters may provide a resolved snapshot when
+their runtime cannot represent the authored responsive behavior.
 
 ## 3. Files Changed
 
@@ -106,4 +126,4 @@ A child whose cross-axis sizing is `hug` never stretches, even under `alignItems
 - **Canvas reordering**: dragging a single flow child within its existing flex frame now updates scene child order and reflows in the same undo transaction. A visual insertion indicator, multi-child reordering, and gap/padding drag handles remain future work.
 - **Real typographic baseline alignment** is not implemented; `alignItems` has no `baseline` option, which is correct per the "don't expose a fake option" principle rather than an oversight.
 - **RTL/logical direction** (`start`/`end` independent of `left`/`right`) is not modeled — `row`/`column` are physical, not logical.
-- Components/instances, save/reopen round-trip, undo/redo, and codegen fidelity were not independently re-verified this pass (pre-existing behavior, structurally unaffected by the engine changes, but not proven).
+- Component overrides, full save/reopen and undo/redo browser workflows, and native target output still need the final matrix; the pure scene migration and codegen intermediate tests cover their contracts.

@@ -118,6 +118,14 @@ const figmaImportFaq = {
         <p>
           Native <code>.fig</code> conversion is local-first and does not require Figma credentials. Source schema versions and resource maps evolve, so Varve reports unsupported effects, missing dependencies, and degraded semantics in its Import Report. Packaged desktop CSP verification for the native decoder remains a separate validation lane. When maximum documented Figma resource fidelity is required, use an authorized REST or plugin export; SVG and PDF remain useful visual fallbacks but cannot preserve Figma-specific components, variables, Auto Layout, or prototype semantics. Read the <a href={sitePath('/features/typography')}>missing-font replacement workflow</a> and <a href={sitePath('/docs/tools/typography')}>typography documentation</a> for details.
         </p>
+        <p>
+          Figma Auto Layout maps to Varve's responsive stack model when the source exposes a
+          verified direction, padding, gap, wrapping, alignment, and sizing value. Literal zero
+          bounds and the grow axis are preserved. Unsupported grid functions or target-specific
+          constraints stay in the report instead of being rewritten as a misleading fixed size;
+          see the <a href={sitePath('/docs/tools/auto-layout')}>Auto Layout guide</a> for the target
+          behavior.
+        </p>
 
         <h3>PDF</h3>
         <p>

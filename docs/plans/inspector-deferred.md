@@ -1,6 +1,13 @@
 # Properties/Inspector Panel — Deferred Work
 
-> **Status:** Deferred beyond MVP. These require scene model extensions, renderer work, or Phase 2 infrastructure.
+> **Status:** Historical backlog. The 2026-09-09 inspector/stack-layout checkpoint
+> shipped the sizing, mixed-paint, typography, effects, component-slot, and
+> duplicate-section repairs described below. Remaining entries are still
+> deferred unless marked **landed**.
+
+See the [inspector and stack-layout audit](../audits/inspector-stack-layout-audit-2026-09-09.md)
+and [ADR-0234](../adr/0234-inspector-stack-layout-contract.md) for the current
+ownership and sizing contract.
 
 ## P0 — shipped (this session)
 - Model extensions (Stroke, Effect, BlendMode, opacity, rotation)
@@ -57,7 +64,9 @@
 ### Grid track definitions
 - `gridTemplateColumns`/`gridTemplateRows`: `fr`, fixed, `minmax`, `auto` controls
 - Per-child grid placement (column/row start/end)
-- Requires `LayoutStyle` extension + Taffy grid support
+- **Partially landed:** `LayoutStyle` tracks, repeat parsing, occupant mapping,
+  spans, and constrained child application are native in the pure-TS grid
+  engine. Rich `minmax()` editing and dedicated browser coverage remain open.
 
 ### `clamp()` fluid sizing + breakpoint binding
 - Min/preferred/max size controls per axis
@@ -67,7 +76,9 @@
 ## P4 — component/instance section
 
 ### Slot fill controls
-- Expose slot content UI from `ComponentDefinition.slots` in Inspector
+- **Partially landed:** the Inspector now exposes a working Empty action that
+  clears the slot subtree. Candidate filtering, source navigation, and reset
+  affordances remain open.
 - Fill slot from node picker (drag from layers or selector)
 - Swap instance component, reset overrides, detach
 - Show which props are overridden vs inherited
