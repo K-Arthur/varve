@@ -797,7 +797,8 @@ export function createTauriPlatform(): Platform {
       return bytes ? new Uint8Array(bytes) : null;
     },
     async readClipboardData(mimeTypes) {
-      const result = (await core().invoke('read_clipboard_data', { mimeTypes })) as {
+      const operationId = uuid();
+      const result = (await core().invoke('read_clipboard_data', { mimeTypes, operationId })) as {
         mimeType: string;
         data: number[];
       } | null;
@@ -810,13 +811,18 @@ export function createTauriPlatform(): Platform {
       } satisfies NativeClipboardItem;
     },
     async writeClipboardData(items) {
+      const operationId = uuid();
       const result = await core().invoke('write_clipboard_data', {
+        operationId,
         items: items.map((item) => ({
           mimeType: item.mimeType,
           data: Array.from(item.data),
         })),
       });
       return result === true;
+    },
+    async cancelClipboardOperation(operationId) {
+      await core().invoke('cancel_clipboard_operation', { operationId });
     },
 
     async onNativeFileDrop(handler) {

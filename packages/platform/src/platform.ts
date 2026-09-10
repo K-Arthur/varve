@@ -330,6 +330,8 @@ export interface Platform {
   readClipboardData(mimeTypes: string[]): Promise<NativeClipboardItem | null>;
   /** Publish MIME-tagged data directly to the OS clipboard when supported. */
   writeClipboardData(items: NativeClipboardItem[]): Promise<boolean>;
+  /** Cancel a native clipboard operation that is still transferring. */
+  cancelClipboardOperation?(operationId: string): Promise<void>;
   // Reads an image off the OS clipboard directly (native Rust, not the
   // browser's Web Clipboard API). Last-resort fallback for platforms/webviews
   // where `navigator.clipboard.read()` and the DOM `paste` event both fail to

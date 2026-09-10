@@ -418,6 +418,10 @@ fn write_binary_file_to_folder(
 
 const MAX_NATIVE_CLIPBOARD_ITEMS: usize = 16;
 const MAX_NATIVE_CLIPBOARD_BYTES: usize = 64 * 1024 * 1024;
+const NATIVE_CLIPBOARD_DEADLINE: Duration = Duration::from_secs(5);
+
+static NATIVE_CLIPBOARD_CANCELLATIONS: LazyLock<Mutex<HashSet<String>>> =
+    LazyLock::new(|| Mutex::new(HashSet::new()));
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -452,8 +456,86 @@ fn supported_native_clipboard_mime(mime_type: &str) -> bool {
 }
 
 #[cfg(target_os = "linux")]
+fn native_clipboard_cancelled(operation_id: &str) -> bool {
+    NATIVE_CLIPBOARD_CANCELLATIONS
+        .lock()
+        .map(|cancelled| cancelled.contains(operation_id))
+        .unwrap_or(true)
+}
+
+#[cfg(target_os = "linux")]
+fn read_wayland_pipe_bounded(
+    mut pipe: impl Read + std::os::fd::AsRawFd,
+    operation_id: &str,
+) -> Result<Vec<u8>, String> {
+    use std::io::ErrorKind;
+
+    let fd = pipe.as_raw_fd();
+    // A non-blocking descriptor lets cancellation and the deadline interrupt a
+    // transfer even when the clipboard owner stops producing bytes.
+    let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+    if flags < 0 {
+        return Err(format!(
+            "Failed to inspect Wayland clipboard pipe: {}",
+            std::io::Error::last_os_error()
+        ));
+    }
+    if unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } < 0 {
+        return Err(format!(
+            "Failed to bound Wayland clipboard pipe: {}",
+            std::io::Error::last_os_error()
+        ));
+    }
+
+    let started = Instant::now();
+    let mut data = Vec::new();
+    let mut chunk = [0u8; 64 * 1024];
+    loop {
+        if native_clipboard_cancelled(operation_id) {
+            return Err("Clipboard read was cancelled".into());
+        }
+        let elapsed = started.elapsed();
+        if elapsed >= NATIVE_CLIPBOARD_DEADLINE {
+            return Err("Clipboard read exceeded the 5 second deadline".into());
+        }
+        let remaining = NATIVE_CLIPBOARD_DEADLINE.saturating_sub(elapsed);
+        let timeout_ms = remaining.as_millis().clamp(1, 100) as i32;
+        let mut poll_fd = libc::pollfd {
+            fd,
+            events: libc::POLLIN,
+            revents: 0,
+        };
+        let ready = unsafe { libc::poll(&mut poll_fd, 1, timeout_ms) };
+        if ready < 0 {
+            let error = std::io::Error::last_os_error();
+            if error.kind() == ErrorKind::Interrupted {
+                continue;
+            }
+            return Err(format!("Failed waiting for Wayland clipboard data: {error}"));
+        }
+        if ready == 0 {
+            continue;
+        }
+        match pipe.read(&mut chunk) {
+            Ok(0) => break,
+            Ok(read) => {
+                data.extend_from_slice(&chunk[..read]);
+                if data.len() > MAX_NATIVE_CLIPBOARD_BYTES {
+                    return Err("Wayland clipboard payload exceeds the 64 MiB limit".into());
+                }
+            }
+            Err(error) if error.kind() == ErrorKind::WouldBlock => continue,
+            Err(error) if error.kind() == ErrorKind::Interrupted => continue,
+            Err(error) => return Err(format!("Failed to read Wayland clipboard data: {error}")),
+        }
+    }
+    Ok(data)
+}
+
+#[cfg(target_os = "linux")]
 fn read_wayland_clipboard_data(
     mime_types: &[String],
+    operation_id: &str,
 ) -> Result<Option<NativeClipboardItemOutput>, String> {
     if std::env::var_os("WAYLAND_DISPLAY").is_none() {
         return Ok(None);
@@ -472,12 +554,7 @@ fn read_wayland_clipboard_data(
         ) else {
             continue;
         };
-        let mut data = Vec::new();
-        pipe.read_to_end(&mut data)
-            .map_err(|error| format!("Failed to read Wayland clipboard data: {error}"))?;
-        if data.len() > MAX_NATIVE_CLIPBOARD_BYTES {
-            return Err("Wayland clipboard payload exceeds the 64 MiB limit".into());
-        }
+        let data = read_wayland_pipe_bounded(pipe, operation_id)?;
         return Ok(Some(NativeClipboardItemOutput {
             mime_type: actual_mime_type,
             data,
@@ -489,6 +566,7 @@ fn read_wayland_clipboard_data(
 #[cfg(not(target_os = "linux"))]
 fn read_wayland_clipboard_data(
     _mime_types: &[String],
+    _operation_id: &str,
 ) -> Result<Option<NativeClipboardItemOutput>, String> {
     Ok(None)
 }
@@ -522,17 +600,45 @@ fn write_wayland_clipboard_data(_items: Vec<NativeClipboardItemInput>) -> Result
 }
 
 #[tauri::command]
-fn read_clipboard_data(
+async fn read_clipboard_data(
     mime_types: Vec<String>,
+    operation_id: Option<String>,
 ) -> Result<Option<NativeClipboardItemOutput>, String> {
     if mime_types.len() > MAX_NATIVE_CLIPBOARD_ITEMS {
         return Err("Too many clipboard MIME types requested".into());
     }
-    read_wayland_clipboard_data(&mime_types)
+    let request_id = operation_id.unwrap_or_else(uuid);
+    if request_id.is_empty() || request_id.len() > 128 {
+        return Err("Invalid clipboard operation id".into());
+    }
+    if let Ok(mut cancelled) = NATIVE_CLIPBOARD_CANCELLATIONS.lock() {
+        if cancelled.remove(&request_id) {
+            return Err("Clipboard read was cancelled".into());
+        }
+    }
+    let (sender, receiver) = std::sync::mpsc::sync_channel(1);
+    let worker_id = request_id.clone();
+    std::thread::spawn(move || {
+        let result = read_wayland_clipboard_data(&mime_types, &worker_id);
+        let _ = sender.send((worker_id, result));
+    });
+    let waited = tauri::async_runtime::spawn_blocking(move || {
+        receiver.recv_timeout(NATIVE_CLIPBOARD_DEADLINE)
+    })
+    .await
+    .map_err(|_| "Clipboard read worker stopped unexpectedly".to_string())?
+    .map_err(|_| "Clipboard read exceeded the 5 second deadline".to_string())?;
+    if let Ok(mut cancelled) = NATIVE_CLIPBOARD_CANCELLATIONS.lock() {
+        cancelled.remove(&waited.0);
+    }
+    waited.1
 }
 
 #[tauri::command]
-fn write_clipboard_data(items: Vec<NativeClipboardItemInput>) -> Result<bool, String> {
+async fn write_clipboard_data(
+    items: Vec<NativeClipboardItemInput>,
+    operation_id: Option<String>,
+) -> Result<bool, String> {
     if items.is_empty() || items.len() > MAX_NATIVE_CLIPBOARD_ITEMS {
         return Err("Invalid native clipboard item count".into());
     }
@@ -544,7 +650,41 @@ fn write_clipboard_data(items: Vec<NativeClipboardItemInput>) -> Result<bool, St
     {
         return Err("Invalid native clipboard payload".into());
     }
-    write_wayland_clipboard_data(items)
+    let request_id = operation_id.unwrap_or_else(uuid);
+    if request_id.is_empty() || request_id.len() > 128 {
+        return Err("Invalid clipboard operation id".into());
+    }
+    if let Ok(mut cancelled) = NATIVE_CLIPBOARD_CANCELLATIONS.lock() {
+        if cancelled.remove(&request_id) {
+            return Err("Clipboard write was cancelled".into());
+        }
+    }
+    let (sender, receiver) = std::sync::mpsc::sync_channel(1);
+    std::thread::spawn(move || {
+        let _ = sender.send((request_id, write_wayland_clipboard_data(items)));
+    });
+    let waited = tauri::async_runtime::spawn_blocking(move || {
+        receiver.recv_timeout(NATIVE_CLIPBOARD_DEADLINE)
+    })
+    .await
+    .map_err(|_| "Clipboard write worker stopped unexpectedly".to_string())?
+    .map_err(|_| "Clipboard write exceeded the 5 second deadline".to_string())?;
+    if let Ok(mut cancelled) = NATIVE_CLIPBOARD_CANCELLATIONS.lock() {
+        cancelled.remove(&waited.0);
+    }
+    waited.1
+}
+
+#[tauri::command]
+fn cancel_clipboard_operation(operation_id: String) -> Result<(), String> {
+    if operation_id.is_empty() || operation_id.len() > 128 {
+        return Err("Invalid clipboard operation id".into());
+    }
+    NATIVE_CLIPBOARD_CANCELLATIONS
+        .lock()
+        .map_err(|_| "Native clipboard cancellation state is unavailable".to_string())?
+        .insert(operation_id);
+    Ok(())
 }
 
 // ── Native file drag-and-drop ───────────────────────────────────────────
@@ -3754,6 +3894,7 @@ pub fn run() {
             read_clipboard_image_png,
             read_clipboard_data,
             write_clipboard_data,
+            cancel_clipboard_operation,
             remove_background,
             native_ai_status,
             native_background_removal_model_status,
@@ -3916,6 +4057,48 @@ fn cancel_print_job(printer_name: String, job_id: u32) -> Result<String, String>
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn native_clipboard_pipe_reads_with_a_bounded_buffer() {
+        use std::os::fd::FromRawFd;
+
+        let mut fds = [0; 2];
+        assert_eq!(unsafe { libc::pipe(fds.as_mut_ptr()) }, 0);
+        let reader = unsafe { std::fs::File::from_raw_fd(fds[0]) };
+        let mut writer = unsafe { std::fs::File::from_raw_fd(fds[1]) };
+        writer.write_all(b"clipboard").expect("write fixture");
+        drop(writer);
+
+        let result = read_wayland_pipe_bounded(reader, "native-clipboard-test")
+            .expect("bounded pipe read");
+        assert_eq!(result, b"clipboard");
+
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn native_clipboard_pipe_honours_cancellation() {
+        use std::os::fd::FromRawFd;
+
+        let operation_id = "native-clipboard-cancel-test".to_string();
+        NATIVE_CLIPBOARD_CANCELLATIONS
+            .lock()
+            .expect("cancellation state")
+            .insert(operation_id.clone());
+        let mut fds = [0; 2];
+        assert_eq!(unsafe { libc::pipe(fds.as_mut_ptr()) }, 0);
+        let reader = unsafe { std::fs::File::from_raw_fd(fds[0]) };
+        let writer = unsafe { std::fs::File::from_raw_fd(fds[1]) };
+        drop(writer);
+
+        let result = read_wayland_pipe_bounded(reader, &operation_id);
+        assert_eq!(result, Err("Clipboard read was cancelled".to_string()));
+        NATIVE_CLIPBOARD_CANCELLATIONS
+            .lock()
+            .expect("cancellation state")
+            .remove(&operation_id);
+    }
     use varve_core::EngineColor;
 
     fn ts_wire_json() -> serde_json::Value {

@@ -6693,6 +6693,7 @@ dependencies = [
  "font-enumeration",
  "glib 0.22.8",
  "image",
+ "libc",
  "notify",
  "reqwest",
  "serde",
