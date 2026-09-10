@@ -78,6 +78,7 @@ export type SolidIconName =
   | 'Printer'
   | 'Play'
   | 'Square'
+  | 'StackSimple'
   | 'PuzzlePiece'
   | 'Palette'
   | 'Code'
