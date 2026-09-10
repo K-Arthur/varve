@@ -15,7 +15,7 @@ import { migrateV222ToV223 } from './version-migrations-v223';
 import { migrateV223ToV224 } from './version-migrations-v224';
 import { migrateV224ToV225 } from './version-migrations-v225';
 
-export const CURRENT_DOCUMENT_VERSION = '2.26';
+export const CURRENT_DOCUMENT_VERSION = '2.27';
 
 function normalizeLayoutSizingFields(raw: Record<string, unknown>): Record<string, unknown> {
   const rawNodes = raw.nodes;
@@ -74,6 +74,42 @@ function normalizeLayoutSizingFields(raw: Record<string, unknown>): Record<strin
   return { ...raw, formatVersion: '2.26', nodes };
 }
 
+function normalizeFontReferences(raw: Record<string, unknown>): Record<string, unknown> {
+  const visit = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(visit);
+    if (!value || typeof value !== 'object') return value;
+
+    const result: Record<string, unknown> = {};
+    for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+      if (key !== 'fontReference') {
+        result[key] = visit(child);
+        continue;
+      }
+
+      if (!child || typeof child !== 'object' || Array.isArray(child)) continue;
+      const reference = child as Record<string, unknown>;
+      const artifactHash = reference.artifactHash;
+      if (typeof artifactHash !== 'string' || !/^[0-9a-f]{64}$/i.test(artifactHash)) continue;
+      const normalized: Record<string, unknown> = { artifactHash: artifactHash.toLowerCase() };
+      if (
+        typeof reference.collectionIndex === 'number' &&
+        Number.isInteger(reference.collectionIndex) &&
+        reference.collectionIndex >= 0
+      ) {
+        normalized.collectionIndex = reference.collectionIndex;
+      }
+      if (typeof reference.postScriptName === 'string' && reference.postScriptName.length > 0) {
+        normalized.postScriptName = reference.postScriptName;
+      }
+      result[key] = normalized;
+    }
+    return result;
+  };
+
+  const normalized = visit(raw);
+  return { ...(normalized as Record<string, unknown>), formatVersion: '2.27' };
+}
+
 export const SUPPORTED_VERSIONS = [
   '1.0',
   '1.1',
@@ -113,6 +149,7 @@ export const SUPPORTED_VERSIONS = [
   '2.24',
   '2.25',
   '2.26',
+  '2.27',
 ];
 
 export interface DocumentMigration {
@@ -894,6 +931,11 @@ const migrations: DocumentMigration[] = [
     from: '2.25',
     to: '2.26',
     migrate: (raw) => normalizeLayoutSizingFields(raw),
+  },
+  {
+    from: '2.26',
+    to: '2.27',
+    migrate: (raw) => normalizeFontReferences(raw),
   },
 ];
 

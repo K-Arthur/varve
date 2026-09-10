@@ -12,7 +12,11 @@
 
 import type { FontCatalog } from './fontCatalog';
 import type { FontManifest } from './fontManifest';
-import { buildDocumentFontManifest, resolveManifestAgainstCatalog } from './fontManifest';
+import {
+  buildDocumentFontManifest,
+  migrateFontManifest,
+  resolveManifestAgainstCatalog,
+} from './fontManifest';
 import type { UsageDocument } from './fontUsageIndex';
 
 export interface FontPersistenceResult {
@@ -58,7 +62,7 @@ export function resolveFontManifestForLoadedDocument(
   resolved: FontManifest;
   warnings: string[];
 } {
-  const resolved = resolveManifestAgainstCatalog(manifest, catalog);
+  const resolved = resolveManifestAgainstCatalog(migrateFontManifest(manifest), catalog);
   const warnings: string[] = [];
 
   for (const entry of resolved.fonts) {

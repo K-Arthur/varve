@@ -14,8 +14,38 @@ import {
 
 describe('Document Versioning', () => {
   it('uses the native raster-mask schema version', () => {
-    expect(CURRENT_DOCUMENT_VERSION).toBe('2.26');
+    expect(CURRENT_DOCUMENT_VERSION).toBe('2.27');
     expect(SUPPORTED_VERSIONS).toContain('2.4');
+  });
+
+  it('normalizes exact font references and drops malformed identities', () => {
+    const migrated = migrateDocument({
+      formatVersion: '2.26',
+      nodes: {
+        good: {
+          id: 'good',
+          kind: 'text',
+          fontReference: {
+            artifactHash: 'AB'.repeat(32),
+            collectionIndex: 1,
+            postScriptName: 'Example-Regular',
+          },
+        },
+        bad: {
+          id: 'bad',
+          kind: 'text',
+          fontReference: { artifactHash: 'family-only' },
+        },
+      },
+    } as Record<string, unknown>);
+
+    const nodes = migrated!.nodes as Record<string, Record<string, unknown>>;
+    expect(nodes.good!.fontReference).toEqual({
+      artifactHash: 'ab'.repeat(32),
+      collectionIndex: 1,
+      postScriptName: 'Example-Regular',
+    });
+    expect(nodes.bad!.fontReference).toBeUndefined();
   });
   it('migrates email metadata without changing ordinary documents', () => {
     const migrated = migrateDocument({
@@ -27,7 +57,7 @@ describe('Document Versioning', () => {
       components: {},
       nextId: 1,
     });
-    expect(migrated?.formatVersion).toBe('2.26');
+    expect(migrated?.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
     expect(migrated?.emailProfile).toBeUndefined();
     expect(migrated?.emailSemantics).toBeUndefined();
   });
@@ -120,7 +150,7 @@ describe('Document Versioning', () => {
       components: {},
       nextId: 1,
     });
-    expect(migrated?.formatVersion).toBe('2.26');
+    expect(migrated?.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
     expect(migrated?.generativeEdits).toBeUndefined();
   });
 
@@ -150,7 +180,7 @@ describe('Document Versioning', () => {
       },
     });
 
-    expect(migrated?.formatVersion).toBe('2.26');
+    expect(migrated?.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
     expect(migrated?.gridSettings).toMatchObject({
       layoutGrids: { frame1: [{ id: 'legacy-guide' }] },
     });
@@ -183,8 +213,8 @@ describe('Generative edit schema migration', () => {
         },
       },
     }) as Record<string, unknown>;
-    const edit = (migrated.generativeEdits as Record<string, Record<string, unknown>>).legacy;
-    expect(migrated.formatVersion).toBe('2.26');
+    const edit = (migrated.generativeEdits as Record<string, Record<string, unknown>>).legacy!;
+    expect(migrated.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
     expect(edit.schemaVersion).toBe(2);
     expect(edit.sourceSnapshotAssetId).toBe('source-1');
     expect(edit.masks).toMatchObject({

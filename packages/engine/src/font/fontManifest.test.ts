@@ -4,6 +4,7 @@ import type { FontIdentity, ParsedFontMetadata } from './fontIdentity';
 import {
   buildDocumentFontManifest,
   type FontManifest,
+  migrateFontManifest,
   resolveManifestAgainstCatalog,
 } from './fontManifest';
 import type { UsageDocument } from './fontUsageIndex';
@@ -141,6 +142,51 @@ describe('buildDocumentFontManifest', () => {
       substituteFor: 'Missing Display',
     });
     expect(manifest.replacements).toHaveLength(1);
+  });
+});
+
+describe('font manifest v2 migration', () => {
+  it('adds an exact reference only when legacy bytes identify a face', () => {
+    const hash = 'A'.repeat(64);
+    const migrated = migrateFontManifest({
+      version: 1,
+      fonts: [
+        {
+          familyName: 'Inter',
+          identity: {
+            contentHash: hash,
+            hashAlgorithm: 'sha256',
+            postScriptName: 'Inter-Regular',
+            familyName: 'Inter',
+            subfamilyName: 'Regular',
+            fullName: 'Inter Regular',
+          },
+          source: 'project',
+          embeddingRights: 'installable',
+          status: 'available',
+        },
+        {
+          familyName: 'Legacy Family',
+          identity: {
+            contentHash: '',
+            postScriptName: '',
+            familyName: 'Legacy Family',
+            subfamilyName: 'Regular',
+            fullName: 'Legacy Family',
+          },
+          source: 'missing',
+          embeddingRights: 'unknown',
+          status: 'missing',
+        },
+      ],
+    });
+
+    expect(migrated.version).toBe(2);
+    expect(migrated.fonts[0]!.fontReference).toEqual({
+      artifactHash: hash.toLowerCase(),
+      postScriptName: 'Inter-Regular',
+    });
+    expect(migrated.fonts[1]!.fontReference).toBeUndefined();
   });
 });
 

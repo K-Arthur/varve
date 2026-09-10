@@ -13,8 +13,8 @@
  */
 
 import type { FontCatalog, FontCatalogEntry } from './fontCatalog';
-import type { EmbeddingRights, FontIdentity, FontSourceKind } from './fontIdentity';
-import { fontIdentityKey } from './fontIdentity';
+import type { EmbeddingRights, FontIdentity, FontReference, FontSourceKind } from './fontIdentity';
+import { fontIdentityKey, fontReferenceFromIdentity } from './fontIdentity';
 import type { FontReplacement, MissingFontInfo } from './fontResolver';
 import { FontResolver } from './fontResolver';
 import { FontUsageIndex, type UsageDocument } from './fontUsageIndex';
@@ -38,6 +38,8 @@ export interface FontManifestEntry {
   requestedStyle?: string;
   /** Canonical identity of the resolved font (or identity stub when missing). */
   identity: FontIdentity;
+  /** Exact portable face identity when the original artifact hash is known. */
+  fontReference?: FontReference;
   /** Where this font came from when the manifest was built. */
   source: FontSourceKind;
   /** Embedding permission from the OS/2 table or license policy. */
@@ -52,7 +54,7 @@ export interface FontManifestEntry {
 
 export interface FontManifest {
   /** Manifest schema version. */
-  version: 1;
+  version: 1 | 2;
   /** Ordered list of unique font references in the document. */
   fonts: FontManifestEntry[];
   /** Substitutions applied when the manifest was built. */
@@ -76,6 +78,26 @@ export interface BuildManifestOptions {
    * what keeps the original family recoverable in the manifest.
    */
   previousReplacements?: FontReplacement[];
+}
+
+/** Upgrade a persisted manifest without inventing identities for old records. */
+export function migrateFontManifest(input: unknown): FontManifest {
+  const raw = input && typeof input === 'object' ? (input as Partial<FontManifest>) : {};
+  const fonts = Array.isArray(raw.fonts) ? raw.fonts : [];
+  return {
+    version: 2,
+    fonts: fonts.map((entry) => {
+      const candidate = entry as FontManifestEntry;
+      const reference =
+        candidate.fontReference ??
+        (candidate.identity ? fontReferenceFromIdentity(candidate.identity) : undefined);
+      return {
+        ...candidate,
+        ...(reference ? { fontReference: reference } : {}),
+      };
+    }),
+    ...(Array.isArray(raw.replacements) ? { replacements: raw.replacements } : {}),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -192,7 +214,7 @@ export function buildDocumentFontManifest(
   }
 
   return {
-    version: 1,
+    version: 2,
     fonts: entries,
     replacements: replacements.length > 0 ? replacements : undefined,
   };
@@ -350,11 +372,13 @@ function catalogEntryToManifest(
     substituteFor?: string;
   },
 ): FontManifestEntry {
+  const fontReference = fontReferenceFromIdentity(entry.identity);
   return {
     familyName: entry.identity.familyName,
     requestedWeight: overrides.requestedWeight,
     requestedStyle: overrides.requestedStyle,
     identity: entry.identity,
+    ...(fontReference ? { fontReference } : {}),
     source: entry.source,
     embeddingRights: entry.embeddingRights,
     status: overrides.status,

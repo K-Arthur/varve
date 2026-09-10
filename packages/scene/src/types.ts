@@ -17,6 +17,7 @@ import type {
   Adjustment,
   Affine,
   DepthMapResource,
+  FontReference,
   PathPoint,
   Shape,
   SpatialBlurEffect,
@@ -1025,6 +1026,8 @@ export type VariableFontSettings = Record<string, number>;
 
 export interface CharacterFormat {
   fontFamily?: string;
+  /** Exact artifact/member identity; absent on legacy family-only documents. */
+  fontReference?: FontReference;
   fontWeight?: number;
   fontStyle?: 'normal' | 'italic';
   fontSize?: number;
@@ -1372,6 +1375,8 @@ export interface TextNode extends NodeBase {
   fontSize: number;
   /** F6: font family — CSS-safe name or exact font. */
   fontFamily?: string;
+  /** Exact artifact/member identity; absent on legacy family-only documents. */
+  fontReference?: FontReference;
   /** F6: font weight as CSS numeric or keyword. */
   fontWeight?: number;
   /** F6: font style (normal/italic). */
@@ -2276,6 +2281,8 @@ export interface TextStyle {
   type: 'text';
   name: string;
   fontFamily?: string;
+  /** Exact artifact/member identity; absent on legacy family-only documents. */
+  fontReference?: FontReference;
   fontWeight?: number;
   fontStyle?: 'normal' | 'italic';
   fontSize: number;

@@ -38,12 +38,18 @@ export type {
   FontCategory,
   FontFormat,
   FontIdentity,
+  FontReference,
   FontSourceKind,
   ParsedAxis,
   ParsedFontMetadata,
   ParsedNamedInstance,
 } from './fontIdentity';
-export { detectFontFormat, fontIdentityKey, sameFontFace } from './fontIdentity';
+export {
+  detectFontFormat,
+  fontIdentityKey,
+  fontReferenceFromIdentity,
+  sameFontFace,
+} from './fontIdentity';
 export type {
   FontLicenseInfo,
   FontOperation,

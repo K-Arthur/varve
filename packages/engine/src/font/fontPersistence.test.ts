@@ -98,7 +98,7 @@ describe('attachFontManifestToDocument', () => {
     const catalog = makeStubCatalog();
     const { manifest, document: updated } = attachFontManifestToDocument(doc, catalog);
 
-    expect(manifest.version).toBe(1);
+    expect(manifest.version).toBe(2);
     expect(manifest.fonts).toHaveLength(1); // Inter appears twice but deduped
     expect(manifest.fonts[0]!.familyName).toBe('Inter');
     expect(manifest.fonts[0]!.status).toBe('available');

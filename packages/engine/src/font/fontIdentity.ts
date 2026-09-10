@@ -75,6 +75,31 @@ export interface FontIdentity {
   collectionIndex?: number;
 }
 
+/**
+ * Portable face identity stored alongside authored typography.
+ *
+ * `artifactHash` is the SHA-256 of the original font artifact (before WOFF
+ * reconstruction); `collectionIndex` selects a face inside a TTC/OTC. A
+ * family name is intentionally absent so legacy display metadata cannot make
+ * two different files appear identical.
+ */
+export interface FontReference {
+  artifactHash: string;
+  collectionIndex?: number;
+  postScriptName?: string;
+}
+
+export function fontReferenceFromIdentity(identity: FontIdentity): FontReference | undefined {
+  if (!identity.contentHash || identity.hashAlgorithm !== 'sha256') return undefined;
+  return {
+    artifactHash: identity.contentHash.toLowerCase(),
+    ...(identity.collectionIndex === undefined
+      ? {}
+      : { collectionIndex: identity.collectionIndex }),
+    ...(identity.postScriptName ? { postScriptName: identity.postScriptName } : {}),
+  };
+}
+
 /** Complete metadata parsed from a font file. */
 export interface ParsedFontMetadata {
   identity: FontIdentity;
