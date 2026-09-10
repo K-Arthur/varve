@@ -185,7 +185,7 @@ offered. Stale or cancelled sessions do not publish a success count.
 | plain text → native text editor | browser owns insertion, Unicode, caret, and IME behavior | canvas does not steal text-editor focus |
 | bounded HTML → canvas text | editable paragraphs and supported bold/italic/decoration/font/color runs | unsupported embeds and formatting are omitted with warnings |
 | guides/properties/effects → their specialist command | separate app-local buffers/formats | these buffers do not replace object clipboard data |
-| browser/Tauri | DOM event, async API, and native Tauri MIME bridge on Wayland; PNG compatibility fallback | host permissions and compositor clipboard ownership still apply |
+| browser/Tauri | DOM event, async API, and native Tauri MIME bridge on Wayland; PNG compatibility fallback | host permissions and compositor clipboard ownership still apply; native reads are bounded and cancellable, with packaged ownership covered by the desktop lane |
 | Figma/Illustrator/Office private formats | not claimed | no undocumented proprietary decoder is emitted |
 
 ## Verification

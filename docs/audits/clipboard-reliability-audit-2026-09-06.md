@@ -178,7 +178,7 @@ mistaken for a parser or placement failure:
 | CLIP-12 | Transport / item identity | File objects are deduplicated by object identity; an SVG string and equivalent SVG file no longer create two logical items. **Resolved for the DOM snapshot route; same-name external application coverage open.** | `clipboard.ts` snapshot tests |
 | CLIP-13 | Figma transport | Ordinary Figma Copy envelope is **unsupported/unverified**. Copy as SVG remains the documented interoperability route until a bounded Firefox fixture proves a safe adapter. | `figma-import-system.md`; fixture lane open |
 | CLIP-14 | Native decode / permission | Native `.fig` decoding and dynamic decompression behavior under the packaged Tauri CSP are **open**. The browser converter and local file route are separate from clipboard. | `docs/architecture/figma-import-system.md`; desktop lane open |
-| CLIP-15 | Native transport / lifetime | Bounded streaming reads, image dimension checks, cancellation cleanup, and deadline behavior are **open** for the desktop command path. | `docs/quality/tauri-command-audit.md`; WDIO lane open |
+| CLIP-15 | Native transport / lifetime | Bounded streaming reads, operation IDs, cancellation cleanup, and a five-second deadline are implemented in the native command and frontend wrapper; the focused Tauri wrapper tests pass. **Packaged Wayland/WebKitGTK ownership and the explicit WDIO lane remain open.** | `apps/desktop/src-tauri/src/lib.rs`; `packages/platform/src/tauri.ts`, `tauri.test.ts`; WDIO lane open |
 
 ### Requirement-to-test mapping
 
@@ -304,6 +304,30 @@ cd /tmp/varve-report && VARVE_TEST_WORKERS=1 \
   /home/kevina/CodingProjects/varve/node_modules/.bin/vitest run \
   packages/editor/src/components/ImportResults.test.tsx --maxWorkers=1 --reporter=dot
 10 tests passed
+```
+
+### Native transport cancellation follow-up — 2026-09-10
+
+The Tauri platform wrapper now gives native reads the same five-second deadline
+as the Rust command. A timed-out or aborted read sends its operation ID to
+`cancel_clipboard_operation` before returning, while the Rust pipe reader polls
+in bounded chunks and checks cancellation between polls. This prevents a
+blocked compositor transfer from being left as an untracked frontend promise.
+The native image reader and packaged desktop ownership still require the
+Wayland/WebKitGTK run; this change does not claim that external platform lane.
+
+Evidence:
+
+```text
+cd /tmp/varve-native && \
+  /home/kevina/CodingProjects/varve/node_modules/.bin/biome check \
+  packages/platform/src/platform.ts packages/platform/src/tauri.ts \
+  packages/platform/src/tauri.test.ts
+passed
+cd /tmp/varve-native && VARVE_TEST_WORKERS=1 \
+  /home/kevina/CodingProjects/varve/node_modules/.bin/vitest run \
+  packages/platform/src/tauri.test.ts --maxWorkers=1 --reporter=dot
+6 tests passed
 ```
 
 ### Final validation record — 2026-09-09

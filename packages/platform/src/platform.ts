@@ -327,7 +327,7 @@ export interface Platform {
 
   // ─── Native clipboard ──────────────────────────────────────────────────────
   /** A MIME-tagged native clipboard representation. */
-  readClipboardData(mimeTypes: string[]): Promise<NativeClipboardItem | null>;
+  readClipboardData(mimeTypes: string[], signal?: AbortSignal): Promise<NativeClipboardItem | null>;
   /** Publish MIME-tagged data directly to the OS clipboard when supported. */
   writeClipboardData(items: NativeClipboardItem[]): Promise<boolean>;
   /** Cancel a native clipboard operation that is still transferring. */
