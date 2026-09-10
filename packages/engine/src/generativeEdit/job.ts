@@ -18,8 +18,22 @@ export interface GenerativeJobState {
   error: GenerativeEditError | Error | null;
 }
 
+/** Immutable identity captured when a generation request is admitted. */
+export interface GenerativeJobSnapshot {
+  documentId: string;
+  targetId: string;
+  sourceRevision: number;
+  sourceAssetId: string | null;
+  sourceHash: string;
+  placementFingerprint: string;
+  maskRevision: number;
+  settingsFingerprint: string;
+  outputFrameFingerprint: string;
+}
+
 export interface GenerativeJobToken {
   id: string;
+  snapshot: GenerativeJobSnapshot;
   sourceRevision: number;
   signal: AbortSignal;
 }
@@ -45,19 +59,21 @@ export class GenerativeJobController {
     return this.state;
   }
 
-  start(sourceRevision: number): GenerativeJobToken {
+  start(source: GenerativeJobSnapshot | number): GenerativeJobToken {
     this.cancel();
     const controller = new AbortController();
+    const snapshot = normalizeSnapshot(source);
     const token = {
       id: `generative-job-${++this.sequence}`,
-      sourceRevision,
+      snapshot,
+      sourceRevision: snapshot.sourceRevision,
       signal: controller.signal,
     };
     this.active = { token, controller };
     this.state = {
       status: 'queued',
       jobId: token.id,
-      sourceRevision,
+      sourceRevision: snapshot.sourceRevision,
       progress: 0,
       error: null,
     };
@@ -72,17 +88,18 @@ export class GenerativeJobController {
     this.state = { ...this.state, status, progress: Math.max(0, Math.min(1, progress)) };
   }
 
-  isCurrent(token: GenerativeJobToken, currentSourceRevision: number): boolean {
+  isCurrent(token: GenerativeJobToken, current: GenerativeJobSnapshot | number): boolean {
+    const currentSnapshot = normalizeSnapshot(current);
     return (
       this.active?.token.id === token.id &&
       this.active.token.sourceRevision === token.sourceRevision &&
-      token.sourceRevision === currentSourceRevision &&
+      snapshotsEqual(token.snapshot, currentSnapshot) &&
       !token.signal.aborted
     );
   }
 
-  complete(token: GenerativeJobToken, currentSourceRevision: number): boolean {
-    if (!this.isCurrent(token, currentSourceRevision)) return false;
+  complete(token: GenerativeJobToken, current: GenerativeJobSnapshot | number): boolean {
+    if (!this.isCurrent(token, current)) return false;
     this.state = { ...this.state, status: 'completed', progress: 1 };
     this.active = null;
     return true;
@@ -105,6 +122,35 @@ export class GenerativeJobController {
     this.state = { ...this.state, status: 'cancelled' };
     this.active = null;
   }
+}
+
+function normalizeSnapshot(source: GenerativeJobSnapshot | number): GenerativeJobSnapshot {
+  if (typeof source !== 'number') return source;
+  return {
+    documentId: '',
+    targetId: '',
+    sourceRevision: source,
+    sourceAssetId: null,
+    sourceHash: '',
+    placementFingerprint: '',
+    maskRevision: 0,
+    settingsFingerprint: '',
+    outputFrameFingerprint: '',
+  };
+}
+
+function snapshotsEqual(left: GenerativeJobSnapshot, right: GenerativeJobSnapshot): boolean {
+  return (
+    left.documentId === right.documentId &&
+    left.targetId === right.targetId &&
+    left.sourceRevision === right.sourceRevision &&
+    left.sourceAssetId === right.sourceAssetId &&
+    left.sourceHash === right.sourceHash &&
+    left.placementFingerprint === right.placementFingerprint &&
+    left.maskRevision === right.maskRevision &&
+    left.settingsFingerprint === right.settingsFingerprint &&
+    left.outputFrameFingerprint === right.outputFrameFingerprint
+  );
 }
 
 export function createGenerativeJobState(): GenerativeJobState {

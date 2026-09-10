@@ -4,6 +4,7 @@ import {
   type GenerativeEditMode,
   type GenerativeEditResult,
   GenerativeJobController,
+  type GenerativeJobSnapshot,
   getGenerativeEditCapabilities,
   getModelLoader,
   getNativeGenerativeModelStatus,
@@ -120,6 +121,8 @@ export function ContentAwareFillDialog({
   } | null>(null);
   const sessionSourceSignatureRef = useRef<string | null>(null);
   const variationSequenceRef = useRef(0);
+  const maskRevisionRef = useRef(0);
+  const currentJobSnapshotRef = useRef<GenerativeJobSnapshot | null>(null);
 
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -200,10 +203,43 @@ export function ContentAwareFillDialog({
     ? JSON.stringify({
         src: imageSrc,
         assetId: typedNode.fills?.find((fill) => fill.type === 'image')?.image?.assetId,
+        imagePlacement: typedNode.fills?.find((fill) => fill.type === 'image')?.image,
         shape: typedNode.shape,
         transform: typedNode.transform,
       })
     : '';
+  const sourceImage = typedNode?.fills?.find((fill) => fill.type === 'image')?.image;
+  const sourceAssetId = sourceImage?.assetId ?? null;
+  const sourceHash = sourceAssetId
+    ? (state.document.assets?.[sourceAssetId]?.hash ?? hashContent(imageSrc))
+    : hashContent(imageSrc);
+  const settingsFingerprint = JSON.stringify({
+    mode,
+    quality,
+    prompt,
+    negativePrompt,
+    seed,
+    variationCount,
+    strength,
+    steps,
+    guidanceScale,
+    maskExpansion,
+    maskFeather,
+    contextPadding,
+  });
+  currentJobSnapshotRef.current = typedNode
+    ? {
+        documentId: state.document.id,
+        targetId: nodeId ?? '',
+        sourceRevision: state.revision,
+        sourceAssetId,
+        sourceHash,
+        placementFingerprint: sourceSignature,
+        maskRevision: maskRevisionRef.current,
+        settingsFingerprint,
+        outputFrameFingerprint: JSON.stringify(mode === 'expand' ? expandPadding : null),
+      }
+    : null;
 
   const invalidatePreview = useCallback(() => {
     jobControllerRef.current.cancel();
@@ -260,6 +296,7 @@ export function ContentAwareFillDialog({
     setContextPadding(32);
     setMaskOrigin('brush');
     setMaskOperation('replace');
+    maskRevisionRef.current = 0;
     setModelAvailable(false);
     setDiffusionModelPath(null);
     setDiffusionModelSize(0);
@@ -461,18 +498,20 @@ export function ContentAwareFillDialog({
       if (hasMaskStrokes !== combined.some((value) => value > 0)) {
         setHasMaskStrokes(combined.some((value) => value > 0));
       }
+      maskRevisionRef.current += 1;
     },
     [brushSize, hasMaskStrokes, maskOperation],
   );
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
+      if (isProcessing) return;
       isPaintingRef.current = true;
       setMaskOrigin('brush');
       e.currentTarget.setPointerCapture(e.pointerId);
       paintAt(e.clientX, e.clientY);
     },
-    [paintAt],
+    [isProcessing, paintAt],
   );
 
   const handlePointerMove = useCallback(
@@ -497,6 +536,7 @@ export function ContentAwareFillDialog({
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     setHasMaskStrokes(false);
     setMaskOrigin('brush');
+    maskRevisionRef.current += 1;
     invalidatePreview();
   }, [invalidatePreview]);
 
@@ -527,6 +567,7 @@ export function ContentAwareFillDialog({
         putMaskCoverage(context, combined, { width: naturalSize.w, height: naturalSize.h });
         setHasMaskStrokes(combined.some((value) => value > 0));
         setMaskOrigin(origin);
+        maskRevisionRef.current += 1;
         invalidatePreview();
         setErrorMessage(null);
       } catch (err) {
@@ -577,6 +618,7 @@ export function ContentAwareFillDialog({
     for (let i = 0; i < coverage.length; i += 1) coverage[i] = 255 - coverage[i]!;
     putMaskCoverage(context, coverage, { width: canvas.width, height: canvas.height });
     setHasMaskStrokes(coverage.some((value) => value > 0));
+    maskRevisionRef.current += 1;
     invalidatePreview();
   }, [hasMaskStrokes, invalidatePreview]);
 
@@ -650,7 +692,18 @@ export function ContentAwareFillDialog({
   const handleGenerate = useCallback(async () => {
     if (!imageSrc || !modeAvailable || !canGenerate) return;
     const sourceRevision = currentRevisionRef.current;
-    const token = jobControllerRef.current.start(sourceRevision);
+    const jobSnapshot = currentJobSnapshotRef.current;
+    if (!jobSnapshot) return;
+    const token = jobControllerRef.current.start(jobSnapshot);
+    const isCurrentJob = () => {
+      const currentSnapshot = currentJobSnapshotRef.current;
+      return currentSnapshot
+        ? jobControllerRef.current.isCurrent(token, {
+            ...currentSnapshot,
+            maskRevision: maskRevisionRef.current,
+          })
+        : false;
+    };
     setStatus('generating');
     setErrorMessage(null);
     setGenerationProgress(0);
@@ -658,7 +711,7 @@ export function ContentAwareFillDialog({
 
     try {
       const fullData = await loadImageToImageData(imageSrc);
-      if (!jobControllerRef.current.isCurrent(token, currentRevisionRef.current)) {
+      if (!isCurrentJob()) {
         throw new GenerativeEditError('stale', 'The source changed before generation completed.');
       }
 
@@ -750,7 +803,7 @@ export function ContentAwareFillDialog({
           outputWidth: generationImage.width,
           outputHeight: generationImage.height,
           signal: token.signal,
-          isCurrent: () => jobControllerRef.current.isCurrent(token, currentRevisionRef.current),
+          isCurrent: isCurrentJob,
           onProgress: ({ stage, progress }) => {
             jobControllerRef.current.update(progress, stage);
             setGenerationProgress((index + progress) / variationCount);
@@ -774,7 +827,15 @@ export function ContentAwareFillDialog({
         });
       }
       const generated = generatedVariations[generatedVariations.length - 1];
-      if (!generated || !jobControllerRef.current.complete(token, currentRevisionRef.current)) {
+      const currentSnapshot = currentJobSnapshotRef.current;
+      if (
+        !generated ||
+        !currentSnapshot ||
+        !jobControllerRef.current.complete(token, {
+          ...currentSnapshot,
+          maskRevision: maskRevisionRef.current,
+        })
+      ) {
         throw new GenerativeEditError('stale', 'The source changed while generation was running.');
       }
       generationRef.current = {
