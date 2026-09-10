@@ -421,6 +421,7 @@ starts a fresh operation instead of reusing a completed gesture's state.
 
 The existing request-isolation regression in
 `packages/editor/src/clipboard.test.ts` covers two same-session snapshots and
-distinct operation IDs. Real Chromium/Firefox repeated-keyboard and native
+distinct operation IDs; the ordered-claim regression now also verifies that
+queued DOM events consume those requests in gesture order. Real Chromium/Firefox repeated-keyboard and native
 Wayland ownership runs remain external validation lanes; no browser result is
 claimed from this contract-level repair.
