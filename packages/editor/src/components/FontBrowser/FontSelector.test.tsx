@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FontSelector } from './FontSelector';
 
 afterEach(cleanup);
@@ -29,5 +29,21 @@ describe('FontSelector', () => {
     fireEvent.focus(inputs[1]!);
     await screen.findAllByRole('listbox', { name: 'Font families' });
     expect(document.getElementById(controls[1]!)).toHaveAttribute('role', 'listbox');
+  });
+
+  it('dismisses the open picker without bubbling Escape to the toolbar', () => {
+    const onDocumentKeyDown = vi.fn();
+    document.addEventListener('keydown', onDocumentKeyDown);
+    render(<FontSelector value="Inter" onChange={() => {}} />);
+
+    const input = screen.getByRole('combobox');
+    fireEvent.focus(input);
+    expect(screen.getByRole('listbox', { name: 'Font families' })).toBeInTheDocument();
+
+    fireEvent.keyDown(input, { key: 'Escape' });
+
+    expect(screen.queryByRole('listbox', { name: 'Font families' })).not.toBeInTheDocument();
+    expect(onDocumentKeyDown).not.toHaveBeenCalled();
+    document.removeEventListener('keydown', onDocumentKeyDown);
   });
 });

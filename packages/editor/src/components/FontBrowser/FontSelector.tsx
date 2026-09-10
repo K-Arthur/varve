@@ -240,6 +240,10 @@ export function FontSelector({
           break;
         case 'Escape':
           event.preventDefault();
+          // The floating text toolbar also listens for Escape to finish text
+          // editing. Dismiss this nested combobox first and keep the event
+          // inside the picker; a second Escape can then close the toolbar.
+          event.stopPropagation();
           setIsOpen(false);
           setQuery(value);
           setHighlightedIndex(-1);
