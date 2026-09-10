@@ -93,6 +93,21 @@ import { sitePath } from '../../lib/siteUrl';
         </p>
       </section>
 
+      <section class="feature-section" data-testid="canvas-grid-systems">
+        <p class="eyebrow">Grid systems</p>
+        <h2>Guidance that stays distinct.</h2>
+        <p>
+          The persisted document grid handles alignment and snapping with independent X/Y spacing,
+          subdivisions, offsets, and rotation. Pixel inspection and snap-to-pixel remain separate
+          high-zoom controls. Frame-owned layout guides can show multiple column, row, or uniform
+          boundaries without changing how Auto layout arranges children.
+        </p>
+        <p>
+          Read the <a href={sitePath('/docs/tools/grids')}>Grid Systems guide</a> for the control
+          model, troubleshooting, and the distinction between visual guides and layout algorithms.
+        </p>
+      </section>
+
       <section class="feature-section arrangement-contract" data-testid="canvas-arrangement-contract">
         <p class="eyebrow">Spatial arrangement</p>
         <h2>Make spacing intentional without flattening the document.</h2>
@@ -155,7 +170,7 @@ import { sitePath } from '../../lib/siteUrl';
           <li><strong>Live minimap:</strong> See the active design canvas or publishing pasteboard, then click or drag to navigate without changing your artwork</li>
           <li><strong>Surface-aware labels:</strong> Keep frame names readable and local to the active canvas, with accessible names and safe long-name handling</li>
           <li><strong>Rulers and guides:</strong> Visual guides for alignment and measurement</li>
-          <li><strong>Grid overlays:</strong> Configurable grid patterns for precision work</li>
+          <li><strong>Grid systems:</strong> Document, pixel, baseline, isometric, and multi-guide frame overlays with explicit visibility and snapping controls</li>
           <li><strong>Local image assets:</strong> Embedded image sources stay in the document, decode progressively, and remain editable through crop, fit, masks, and treatments</li>
         </ul>
       </section>

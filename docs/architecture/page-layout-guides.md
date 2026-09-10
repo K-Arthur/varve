@@ -30,3 +30,7 @@ This distinction keeps page-layout publishing workflows separate from
 Figma-style frame organization. Full text reflow, column snapping, parent-page
 editing, and PDF spread consumption are later vertical slices and must use
 this resolver rather than introducing parallel arithmetic.
+
+For frame-attached visual columns and rows, use the separate grid contract in
+[`grid-system.md`](grid-system.md). Those authored layout guides do not arrange
+children; `FrameNode.layoutStyle` remains the auto-layout authority.

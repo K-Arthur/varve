@@ -1,0 +1,92 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { sitePath } from '../../../lib/siteUrl';
+---
+
+<Layout
+  title="Grid Systems — Varve Docs"
+  description="Use Varve's document grids, pixel grid, baseline and isometric overlays, and frame-owned layout guides."
+>
+  <div class="container-custom">
+    <div class="docs-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/docs')}>Documentation</a> / Grid systems
+      </nav>
+      <h1 class="page-hero-title">Grid systems</h1>
+      <p class="page-hero-sub">
+        Varve keeps document alignment, pixel inspection, typography overlays, and frame layout
+        guides separate so each grid says exactly what it does.
+      </p>
+
+      <section class="docs-section">
+        <h2>Document grid</h2>
+        <p>
+          Open the Document Grid section in the document inspector. Its visibility, snapping,
+          spacing X/Y, subdivisions, offsets, color, opacity, and rotation are independent controls.
+          The document grid is saved with the document, so reopening or switching tabs does not
+          silently replace its geometry with a local viewport preference.
+        </p>
+        <ul>
+          <li><strong>Show grid</strong> controls the lines.</li>
+          <li><strong>Snap to document grid</strong> controls object movement against the lattice.</li>
+          <li><strong>Enable snapping globally</strong> is the master switch for all snap sources.</li>
+          <li><strong>Grid origin</strong> uses the X/Y offsets; Reset Origin returns both to zero.</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Pixel, baseline, and isometric overlays</h2>
+        <p>
+          Pixel-grid display is a high-zoom view preference and pixel snapping is a separate
+          option. Pixel lines use the same camera projection as the document grid, including pan,
+          zoom, and view rotation. Baseline and isometric overlays are document-authored settings;
+          their configured step, origin, axes, and visibility are respected by the overlay.
+        </p>
+        <p>
+          These overlays are inspection aids. They do not become scene nodes and are excluded from
+          exports unless an export workflow explicitly adds grid artwork.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Frame layout guides</h2>
+        <p>
+          Select a frame and open <strong>Layout guides</strong> below Auto layout. Add one or more
+          authored guides, then choose columns, rows, or uniform guides, with count, fixed size,
+          gutter, margins, alignment, color, opacity, visibility, and snapping.
+        </p>
+        <p>
+          Layout guides draw boundaries over their owning frame and can provide snap targets for
+          its children. They never arrange or resize children. Auto layout's Grid mode, grid
+          templates, gaps, and auto-flow remain the separate child-arrangement system.
+        </p>
+        <ul>
+          <li>The document inspector's <strong>Show layout guides</strong> switch is the global view switch.</li>
+          <li>Each guide's <strong>Show</strong> switch controls only that authored guide.</li>
+          <li>Each guide's <strong>Snap</strong> switch controls only its snap targets.</li>
+          <li>Guides outside the active page, canvas, master, or isolation scope are not drawn or offered as snap targets.</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>When a guide is not visible</h2>
+        <ol>
+          <li>Confirm the global Show layout guides switch is on.</li>
+          <li>Confirm the frame and the individual guide are visible.</li>
+          <li>Check that the frame is on the active canvas/page and is not inside a hidden ancestor.</li>
+          <li>Check the guide's margins, count, fixed size, and gutter; a geometry that cannot fit its frame is rejected.</li>
+          <li>For snapping, enable both global snapping and the relevant guide's Snap switch.</li>
+        </ol>
+      </section>
+
+      <div class="docs-cta">
+        <h2>Related guides</h2>
+        <p>
+          See <a href={sitePath('/features/canvas')}>Canvas & Rendering</a> for the rendering and
+          camera model, and <a href={sitePath('/docs/getting-started/interface')}>Interface Overview</a>
+          for inspector navigation.
+        </p>
+      </div>
+    </div>
+  </div>
+</Layout>
