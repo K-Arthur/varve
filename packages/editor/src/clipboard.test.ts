@@ -3,6 +3,7 @@ import type { Affine } from '@varve/shared';
 import { describe, expect, it, vi } from 'vitest';
 import {
   captureClipboardEvent,
+  claimPendingTransferRequest,
   clearCapturedClipboardEvent,
   createTransferRequest,
   getClipboardSnapshot,
@@ -247,6 +248,32 @@ describe('readFromClipboardEvent', () => {
     const secondResult = await readClipboardUnifiedWithFallback(undefined, secondRequest);
     expect(firstResult.importItems[0]?.name).toBe('first.png');
     expect(secondResult.importItems[0]?.name).toBe('second.png');
+  });
+
+  it('claims queued DOM events in gesture order', async () => {
+    clearCapturedClipboardEvent();
+    const firstRequest = createTransferRequest('paste', 'session-b');
+    const secondRequest = createTransferRequest('paste', 'session-b');
+    expect(claimPendingTransferRequest().operationId).toBe(firstRequest.operationId);
+    captureClipboardEvent(
+      createClipboardEventWithFiles([
+        new File([new Uint8Array([5])], 'queued-first.png', { type: 'image/png' }),
+      ]),
+      firstRequest,
+    );
+    expect(claimPendingTransferRequest().operationId).toBe(secondRequest.operationId);
+    captureClipboardEvent(
+      createClipboardEventWithFiles([
+        new File([new Uint8Array([6])], 'queued-second.png', { type: 'image/png' }),
+      ]),
+      secondRequest,
+    );
+
+    const firstResult = await readClipboardUnifiedWithFallback(undefined, firstRequest);
+    const secondResult = await readClipboardUnifiedWithFallback(undefined, secondRequest);
+    expect(firstResult.importItems[0]?.name).toBe('queued-first.png');
+    expect(secondResult.importItems[0]?.name).toBe('queued-second.png');
+    clearCapturedClipboardEvent();
   });
 
   it('preserves distinct image files that share a filename', async () => {
