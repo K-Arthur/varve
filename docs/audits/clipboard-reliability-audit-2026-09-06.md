@@ -171,7 +171,7 @@ mistaken for a parser or placement failure:
 | CLIP-05 | Application / graph | All ordered roots share one ID map during clone, preserving supported sibling references. **Resolved for the supported document closure; unsupported external references remain fidelity losses.** | `scene/clone.ts`; `documentCodec.test.ts`; `mergeImportedResources.test.ts` |
 | CLIP-06 | Application / destination | Clipboard fragments no longer construct a temporary document by spreading the destination document. **Resolved for destination-resource leakage.** | `context.tsx`; import tests |
 | CLIP-07 | Transport / ownership | Composed focus paths retain input, textarea, select, dialog, contenteditable, textbox, and embedded editor ownership. Canvas paste prevents the browser default only after it claims the event. **Resolved in unit coverage; native Firefox/WebKit evidence open.** | `isNativeClipboardTarget`; Shell listener |
-| CLIP-08 | Parser / SVG | XML declaration/BOM/comment handling, repeated path tuples, Q/T conversion, bounded arcs, and malformed-tag progress are covered. **Resolved for the reported hangs and regressions; root-transform/viewBox visual evidence open.** | `packages/import/src/svg.test.ts` |
+| CLIP-08 | Parser / SVG | XML declaration/BOM/comment handling, repeated path tuples, Q/T conversion, bounded arcs, malformed-tag progress, root transforms, and non-zero viewBox mapping are covered. **Resolved in the parser; a packaged visual screenshot for root-transform/viewBox output remains evidence work.** | `packages/import/src/svg.test.ts`; SVG browser evidence |
 | CLIP-09 | Application / lifetime | File-picker and drop imports capture document/session/revision/selection identity and cancel before commit when it changes. **Resolved in the guard and focused regression; real picker/drop cancellation remains platform evidence.** | `isSessionCurrent`; `dropUtils.test.ts` |
 | CLIP-10 | Application / feedback | Partial and failed import reporting now reaches the shared Import Results surface for paste and drop, with the committed layer count attached to each report. **Resolved in the browser/application path; picker/drop cancellation and native transport evidence remain separate.** | `context.tsx`, `CanvasArea.tsx`, `ImportResults.tsx`; `ImportResults.test.tsx` |
 | CLIP-11 | Parser / rich text | Canvas plain text and bounded HTML now insert editable text nodes. Paragraphs, line breaks, whitespace, bold/italic/decoration, font family, and CSS color are supported; unsafe or omitted content produces warnings. **Resolved for the supported subset.** | `clipboardRichText.test.ts`; `context.import.test.tsx` |
@@ -634,7 +634,7 @@ The required impact planner selected the full closure because the shared
 checkout contains concurrent workspace and validation changes. The targeted
 checks for this follow-up passed: `pnpm audit:docs`, `pnpm audit:emoji`,
 `pnpm audit:tokens`, the platform typecheck, the Tauri wrapper/dialog tests,
-the 26-test editor context/report run, and the 47-test Figma/SVG/import run.
+the 26-test editor context/report run, and the 49-test Figma/SVG/import run.
 The architecture audit completed with the repository's existing cycle,
 instability, and hub-budget baseline findings.
 
@@ -651,3 +651,24 @@ Inspector/Crop/Table surfaces, generated Inspector captures, and the existing
 clipboard/import typecheck failure was reported. The native Wayland/WebKitGTK
 WDIO lane, packaged `.fig` CSP smoke, and owned Firefox Figma captures remain
 external evidence blockers and are intentionally not marked complete.
+
+### SVG viewport mapping follow-up — 2026-09-10
+
+The SVG entry point now carries a validated root transform into every child and
+maps a non-zero `viewBox` origin into the declared viewport. It honors the
+default `xMidYMid meet`, `slice`, and `none` alignment modes, keeps output page
+dimensions in viewport units, and rejects non-finite root matrices before
+conversion. Existing group ordering and shared-root placement are unchanged.
+
+Evidence:
+
+```text
+cd /tmp/varve-figma && VARVE_TEST_WORKERS=1 \
+  /home/kevina/CodingProjects/varve/node_modules/.bin/vitest run \
+  packages/import/src/figma.test.ts packages/import/src/svg.test.ts \
+  packages/import/src/service.test.ts --maxWorkers=1 --reporter=dot
+49 tests passed
+/home/kevina/CodingProjects/varve/node_modules/.bin/biome check \
+  packages/import/src/svg.ts packages/import/src/svg.test.ts
+passed
+```

@@ -147,6 +147,25 @@ describe('parseSvg', () => {
     expect(node?.transform[5]).toBeCloseTo(40);
   });
 
+  it('maps a non-zero viewBox origin and viewport size into imported geometry', () => {
+    const result = parseSvg(
+      '<svg width="200" height="100" viewBox="10 20 100 50"><rect x="10" y="20" width="20" height="10" /></svg>',
+    );
+    const node = result.document.nodes[result.nodeIds[0]!];
+    expect(result.document.canvasWidth).toBe(200);
+    expect(result.document.canvasHeight).toBe(100);
+    expect(node?.kind).toBe('shape');
+    expect(node?.transform).toEqual([2, 0, 0, 2, 0, 0]);
+  });
+
+  it('applies a root SVG transform to every imported child', () => {
+    const result = parseSvg(
+      '<svg transform="translate(5,7)"><rect x="0" y="0" width="20" height="10" /></svg>',
+    );
+    const node = result.document.nodes[result.nodeIds[0]!];
+    expect(node?.transform).toEqual([1, 0, 0, 1, 5, 7]);
+  });
+
   it('parses fill and stroke attributes', () => {
     const result = parseSvg(
       '<svg><rect x="0" y="0" width="100" height="50" fill="#ff0000" stroke="#00ff00" stroke-width="2" /></svg>',
