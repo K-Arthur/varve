@@ -23,6 +23,11 @@ The solid capture shows the 400 px panel with its header and Done action in the
 visible frame. The gradient capture shows the same surface with the selected
 stop color controls and the Gradient options disclosure; expanding that
 disclosure intentionally scrolls the body to the advanced controls.
+The repaired picker was also captured and inspected in Light, Dark, and High
+Contrast at 1440×1000 and 900×600, plus a Light DPR 2 pass. The temporary
+matrix (`/tmp/varve-picker-*.png` and `/tmp/varve-picker-crop-*.png`) confirmed
+that the panel stays within the viewport, retains keyboard-visible focus rings,
+and keeps Done reachable at the 900×600 minimum.
 
 ## Component and access map
 
