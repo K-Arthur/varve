@@ -504,15 +504,18 @@ export type {
   GenerativeJobState,
   GenerativeJobStatus,
   GenerativeJobToken,
+  NativeGenerativeModelDownloadProgress,
   NativeGenerativeModelStatus,
 } from './generativeEdit';
 export {
   createGenerativeJobState,
+  downloadNativeGenerativeModel,
   GenerativeEditError,
   GenerativeJobController,
   getGenerativeEditCapabilities,
   getNativeGenerativeModelStatus,
   importNativeGenerativeModel,
+  NATIVE_GENERATIVE_MODEL_PROFILE,
   qualifyNativeGenerativeModel,
   runGenerativeEdit,
 } from './generativeEdit';

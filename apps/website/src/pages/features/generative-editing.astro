@@ -57,10 +57,26 @@ import StatusPill from '../../components/StatusPill.astro';
         <h2>Paint, preview, accept.</h2>
         <div class="workflow-grid">
           <article><span>01</span><h3>Mark the edit</h3><p>Use a source-pixel mask. Black preserves the source; white identifies the region to regenerate.</p></article>
-          <article><span>02</span><h3>Choose the local path</h3><p>Draft uses the fast PatchMatch path. Higher quality uses the optional LaMa model stored locally after an explicit download.</p></article>
+          <article><span>02</span><h3>Choose the local path</h3><p>Draft uses the fast PatchMatch path. Higher quality uses the optional LaMa model; prompt-conditioned desktop modes use an explicitly downloaded and validated local diffusion profile.</p></article>
           <article><span>03</span><h3>Review before committing</h3><p>Compare Original and Result, inspect at Fit or 1:1, and keep a generated variation only when it looks right.</p></article>
           <article><span>04</span><h3>Keep the source recoverable</h3><p>Accepting updates the existing image layer in one undoable transaction while retaining an immutable source snapshot and the mask/provider record.</p></article>
         </div>
+      </section>
+
+      <section class="feature-section proof-section" aria-labelledby="proof-title">
+        <p class="eyebrow">Reviewed local proof</p>
+        <h2 id="proof-title">A real photograph, kept in context.</h2>
+        <div class="proof-grid">
+          <figure>
+            <img src={sitePath('/samples/generative-editing/landscape-before.png')} alt="Landscape photograph before the masked local edit" loading="lazy" />
+            <figcaption>Original photographic source</figcaption>
+          </figure>
+          <figure>
+            <img src={sitePath('/samples/generative-editing/landscape-after.png')} alt="The same landscape after a masked local replacement" loading="lazy" />
+            <figcaption>Masked composite after local inference</figcaption>
+          </figure>
+        </div>
+        <p class="proof-note">Reviewed on a public-domain Wikimedia Commons landscape using Varve's local CPU helper, with the accepted pixels composited only inside the user mask. This single proof demonstrates a genuine local result; it is not a claim that every prompt or platform has passed release qualification.</p>
       </section>
 
       <section class="feature-section integration-section" aria-labelledby="integration-title">
@@ -116,11 +132,17 @@ import StatusPill from '../../components/StatusPill.astro';
   .feature-section h2, .honesty h2 { color: var(--text-primary); font-size: 1.8rem; margin: .5rem 0 1.5rem; }
   .workflow-grid article { padding: 1.25rem; border-top: 2px solid var(--border-accent); }
   .workflow-grid h3 { color: var(--text-primary); margin: 1.5rem 0 .5rem; }
+  .proof-section { border-top: 1px solid var(--border-default); padding-top: 3rem; }
+  .proof-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-4); }
+  .proof-grid figure { margin: 0; }
+  .proof-grid img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: var(--website-radius-card); border: 1px solid var(--border-default); }
+  .proof-grid figcaption { color: var(--text-tertiary); font-size: .8rem; margin-top: .65rem; }
+  .proof-note { color: var(--text-secondary); line-height: 1.7; margin: 1.25rem 0 0; }
   .honesty { margin: 2rem 0 3rem; border-left: 3px solid var(--accent-primary); padding: 1rem 0 1rem 1.25rem; }
   .honesty p { color: var(--text-secondary); line-height: 1.8; }
   .honesty a { color: var(--text-link); }
   .feature-cta { display: flex; flex-wrap: wrap; gap: .75rem; border-top: 1px solid var(--border-default); padding-top: 2rem; }
   .btn-secondary { display: inline-flex; align-items: center; padding: .7rem 1.1rem; border: 1px solid var(--border-default); border-radius: var(--website-radius-control); color: var(--text-primary); text-decoration: none; }
   @media (max-width: 860px) { .integration-grid { grid-template-columns: 1fr; } }
-  @media (max-width: 680px) { .mode-grid, .workflow-grid { grid-template-columns: 1fr; } .mode-card { min-height: auto; } .mode-card h2 { margin-top: 1.5rem; } }
+  @media (max-width: 680px) { .mode-grid, .workflow-grid, .proof-grid { grid-template-columns: 1fr; } .mode-card { min-height: auto; } .mode-card h2 { margin-top: 1.5rem; } }
 </style>

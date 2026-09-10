@@ -115,8 +115,10 @@ and cancellation behavior. The native diffusion provider runs in a supervised
 helper process. The renderer receives an opaque qualified model handle, never a
 model filesystem path or model bytes. Imported safe-format artifacts are
 hashed and must pass an actual masked helper run before prompt modes are
-enabled. The current desktop workflow is explicit-import/explicit-validation;
-there is no automatic model download yet.
+enabled. The desktop workflow supports an explicit, allowlisted download or
+user import, then validation; downloads resume through a native partial file,
+verify the pinned SHA-256, and install atomically. There is no silent model
+download.
 
 There is no silent remote fallback. A future remote provider must request
 consent immediately before upload, state the provider and transmitted data,
@@ -133,9 +135,11 @@ after reload when the model is missing; the accepted result remains available.
 
 ## Qualification status and remaining work
 
-The adapter/build integration and deterministic qualification gate are present,
-but a release-quality profile still requires a pinned artifact, model license
-notice, cross-platform backend qualification, real-photograph task corpus, and
+The adapter/build integration and deterministic qualification gate are present.
+The desktop download profile is Stable Diffusion 1.5 Inpainting Q4_0, pinned to
+the upstream revision and SHA-256 recorded in the capability matrix, and is
+licensed under CreativeML OpenRAIL-M. A release-quality profile still requires
+cross-platform backend qualification, the real-photograph task corpus, and
 reviewed Fill/Remove/Replace/Expand results. Until that evidence is recorded,
 the product must keep prompt-conditioned modes unavailable and must not use
 their interface presence as marketing evidence.

@@ -56,6 +56,11 @@ export interface GenerativeEditMaskSet {
   offsetX: number;
   offsetY: number;
   coordinateSpace: 'source-image-pixels';
+  /** Dimensions/origin of the editable mask when it differs from inference. */
+  userWidth?: number;
+  userHeight?: number;
+  userOffsetX?: number;
+  userOffsetY?: number;
 }
 
 export interface GenerativeEditOutputFrame {
@@ -181,7 +186,13 @@ function validMaskSet(value: unknown): value is GenerativeEditMaskSet {
     (masks.height ?? 0) > 0 &&
     Number.isSafeInteger(masks.offsetX) &&
     Number.isSafeInteger(masks.offsetY) &&
-    masks.coordinateSpace === 'source-image-pixels'
+    masks.coordinateSpace === 'source-image-pixels' &&
+    (masks.userWidth === undefined ||
+      (Number.isSafeInteger(masks.userWidth) && (masks.userWidth ?? 0) > 0)) &&
+    (masks.userHeight === undefined ||
+      (Number.isSafeInteger(masks.userHeight) && (masks.userHeight ?? 0) > 0)) &&
+    (masks.userOffsetX === undefined || Number.isSafeInteger(masks.userOffsetX)) &&
+    (masks.userOffsetY === undefined || Number.isSafeInteger(masks.userOffsetY))
   );
 }
 

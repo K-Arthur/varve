@@ -1201,6 +1201,10 @@ async fn content_aware_fill(
 
 static GENERATIVE_CHILDREN: LazyLock<Mutex<HashMap<String, Child>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
+static GENERATIVE_MODEL_DOWNLOADS: LazyLock<Mutex<HashSet<String>>> =
+    LazyLock::new(|| Mutex::new(HashSet::new()));
+static GENERATIVE_MODEL_DOWNLOAD_CANCELLATIONS: LazyLock<Mutex<HashSet<String>>> =
+    LazyLock::new(|| Mutex::new(HashSet::new()));
 
 #[derive(Debug, serde::Deserialize)]
 pub struct GenerativeEditOptions {
@@ -1225,8 +1229,21 @@ pub struct GenerativeEditOptions {
 
 const GENERATIVE_MODEL_STEM: &str = "varve-diffusion-inpainting";
 const GENERATIVE_MODEL_HANDLE: &str = "varve-diffusion-inpainting";
-const GENERATIVE_MODEL_PROFILE: &str = "sd-inpainting-generic-v1";
+const GENERATIVE_MODEL_PROFILE: &str = "sd15-inpainting-q4_0-v1";
+const GENERATIVE_MODEL_CUSTOM_PROFILE: &str = "custom-safe-inpainting-v1";
 const GENERATIVE_MODEL_METADATA_SUFFIX: &str = ".metadata.json";
+const GENERATIVE_MODEL_FILENAME: &str = "varve-diffusion-inpainting.gguf";
+const GENERATIVE_MODEL_DOWNLOAD_URL: &str = "https://huggingface.co/gpustack/stable-diffusion-v1-5-inpainting-GGUF/resolve/21491e4/stable-diffusion-v1-5-inpainting-Q4_0.gguf?download=true";
+const GENERATIVE_MODEL_DOWNLOAD_SIZE: u64 = 1_747_219_584;
+const GENERATIVE_MODEL_DOWNLOAD_SHA256: &str = "d157ce24483f0c999062da140eacebe8f3ed015e652723e31f6d39119b800c16";
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct GenerativeModelDownloadProgress {
+    request_id: String,
+    loaded: u64,
+    total: u64,
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 struct GenerativeModelMetadata {
@@ -1248,6 +1265,7 @@ struct GenerativeModelStatus {
     profile_id: Option<String>,
     checksum_sha256: Option<String>,
     size_bytes: u64,
+    partial_bytes: u64,
     reason: Option<String>,
 }
 
@@ -1284,15 +1302,19 @@ fn unix_timestamp_seconds() -> u64 {
 fn model_status_blocking(
     app: &tauri::AppHandle,
 ) -> Result<GenerativeModelStatus, String> {
-    for path in managed_generative_model_paths(&app)? {
+    let paths = managed_generative_model_paths(app)?;
+    for path in &paths {
         if let Ok(metadata) = path.metadata() {
             if metadata.is_file() && metadata.len() > 0 {
                 let (size_bytes, checksum_sha256) = sha256_file(&path)?;
                 let record = read_generative_model_metadata(&path);
                 let ready = record.as_ref().is_some_and(|record| {
-                    record.schema_version == 1
+                        record.schema_version == 1
                         && record.model_handle == GENERATIVE_MODEL_HANDLE
-                        && record.profile_id == GENERATIVE_MODEL_PROFILE
+                        && matches!(
+                            record.profile_id.as_str(),
+                            GENERATIVE_MODEL_PROFILE | GENERATIVE_MODEL_CUSTOM_PROFILE
+                        )
                         && record.size_bytes == size_bytes
                         && record.checksum_sha256 == checksum_sha256
                         && record.qualified
@@ -1307,15 +1329,26 @@ fn model_status_blocking(
                 return Ok(GenerativeModelStatus {
                     installed: true,
                     ready,
-                    model_handle: Some(GENERATIVE_MODEL_HANDLE.into()),
-                    profile_id: Some(GENERATIVE_MODEL_PROFILE.into()),
+                    model_handle: record
+                        .as_ref()
+                        .filter(|record| record.model_handle == GENERATIVE_MODEL_HANDLE)
+                        .map(|_| GENERATIVE_MODEL_HANDLE.into()),
+                    profile_id: record.as_ref().map(|record| record.profile_id.clone()),
                     checksum_sha256: Some(checksum_sha256),
                     size_bytes,
+                    partial_bytes: 0,
                     reason,
                 });
             }
         }
     }
+    let partial_bytes = paths
+        .iter()
+        .find(|path| path.file_name().and_then(|name| name.to_str()) == Some(GENERATIVE_MODEL_FILENAME))
+        .map(|path| path.with_extension("gguf.part"))
+        .and_then(|path| path.metadata().ok())
+        .map(|metadata| metadata.len().min(GENERATIVE_MODEL_DOWNLOAD_SIZE))
+        .unwrap_or(0);
     Ok(GenerativeModelStatus {
         installed: false,
         ready: false,
@@ -1323,8 +1356,9 @@ fn model_status_blocking(
         profile_id: None,
         checksum_sha256: None,
         size_bytes: 0,
+        partial_bytes,
         reason: Some(
-            "Import a safe-format SD 1.5 or SDXL inpainting model. Model weights are not downloaded automatically."
+            "Download or import a safe-format SD 1.5 inpainting model, then validate it before generation."
                 .into(),
         ),
     })
@@ -1337,6 +1371,268 @@ async fn generative_edit_model_status(
     tauri::async_runtime::spawn_blocking(move || model_status_blocking(&app))
         .await
         .map_err(|error| format!("Generative model status task failed: {error}"))?
+}
+
+fn generative_model_download_cancelled(request_id: &str) -> bool {
+    GENERATIVE_MODEL_DOWNLOAD_CANCELLATIONS
+        .lock()
+        .map(|requests| requests.contains(request_id))
+        .unwrap_or(true)
+}
+
+fn available_disk_space(path: &std::path::Path) -> Option<u64> {
+    #[cfg(unix)]
+    {
+        use std::ffi::CString;
+        use std::os::unix::ffi::OsStrExt;
+        let path = CString::new(path.as_os_str().as_bytes()).ok()?;
+        let mut stats = std::mem::MaybeUninit::<libc::statvfs>::uninit();
+        // SAFETY: `path` is NUL-terminated and `stats` points to writable
+        // storage for the platform call to initialize.
+        let result = unsafe { libc::statvfs(path.as_ptr(), stats.as_mut_ptr()) };
+        if result != 0 {
+            return None;
+        }
+        // SAFETY: statvfs returned success, so the structure is initialized.
+        let stats = unsafe { stats.assume_init() };
+        return u64::try_from(stats.f_bavail)
+            .ok()
+            .and_then(|blocks| u64::try_from(stats.f_frsize).ok()?.checked_mul(blocks));
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::ffi::OsStrExt;
+        use windows_sys::Win32::Storage::FileSystem::GetDiskFreeSpaceExW;
+        let mut wide: Vec<u16> = path.as_os_str().encode_wide().collect();
+        wide.push(0);
+        let mut free = 0u64;
+        // SAFETY: `wide` is a valid NUL-terminated UTF-16 path and `free`
+        // points to writable storage for the OS result.
+        let ok = unsafe {
+            GetDiskFreeSpaceExW(wide.as_ptr(), &mut free, std::ptr::null_mut(), std::ptr::null_mut())
+        };
+        return (ok != 0).then_some(free);
+    }
+    #[allow(unreachable_code)]
+    None
+}
+
+async fn download_generative_model_attempt(
+    app: &tauri::AppHandle,
+    request_id: &str,
+    destination: &std::path::Path,
+    client: &reqwest::Client,
+) -> Result<(), String> {
+    let partial = destination.with_extension("gguf.part");
+    let mut loaded = partial.metadata().map(|metadata| metadata.len()).unwrap_or(0);
+    if loaded > GENERATIVE_MODEL_DOWNLOAD_SIZE {
+        std::fs::remove_file(&partial)
+            .map_err(|error| format!("Could not discard oversized model partial: {error}"))?;
+        loaded = 0;
+    }
+    if generative_model_download_cancelled(request_id) {
+        return Err("Download cancelled".into());
+    }
+
+    let mut request = client.get(GENERATIVE_MODEL_DOWNLOAD_URL);
+    if loaded > 0 {
+        request = request.header(reqwest::header::RANGE, format!("bytes={loaded}-"));
+    }
+    let mut response = request
+        .send()
+        .await
+        .map_err(|error| format!("Generative model download failed: {error}"))?;
+    if loaded > 0 && response.status() == reqwest::StatusCode::OK {
+        // The server ignored Range. Restart from a clean partial rather than
+        // appending the full response to an existing prefix.
+        std::fs::remove_file(&partial)
+            .map_err(|error| format!("Could not restart model download: {error}"))?;
+        loaded = 0;
+        response = client
+            .get(GENERATIVE_MODEL_DOWNLOAD_URL)
+            .send()
+            .await
+            .map_err(|error| format!("Generative model download failed: {error}"))?;
+    }
+    if loaded > 0 && response.status() != reqwest::StatusCode::PARTIAL_CONTENT {
+        return Err(format!(
+            "The model server did not honor resume (HTTP {})",
+            response.status()
+        ));
+    }
+    response = response
+        .error_for_status()
+        .map_err(|error| format!("Generative model download failed: {error}"))?;
+
+    let response_total = response.content_length().unwrap_or(0);
+    if response_total > 0 && loaded + response_total != GENERATIVE_MODEL_DOWNLOAD_SIZE {
+        return Err(format!(
+            "Model download size changed: expected {}, received {}",
+            GENERATIVE_MODEL_DOWNLOAD_SIZE,
+            loaded + response_total
+        ));
+    }
+    if let Some(parent) = partial.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|error| format!("Could not create model directory: {error}"))?;
+    }
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(loaded > 0)
+        .write(true)
+        .open(&partial)
+        .map_err(|error| format!("Could not open model partial: {error}"))?;
+    let total = GENERATIVE_MODEL_DOWNLOAD_SIZE;
+    let _ = app.emit(
+        "generative-edit-model-progress",
+        GenerativeModelDownloadProgress {
+            request_id: request_id.into(),
+            loaded,
+            total,
+        },
+    );
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|error| format!("Generative model download interrupted: {error}"))?
+    {
+        if generative_model_download_cancelled(request_id) {
+            return Err("Download cancelled".into());
+        }
+        file.write_all(&chunk)
+            .map_err(|error| format!("Could not write model partial: {error}"))?;
+        loaded += chunk.len() as u64;
+        if loaded > total {
+            return Err("Generative model download exceeded its pinned size".into());
+        }
+        let _ = app.emit(
+            "generative-edit-model-progress",
+            GenerativeModelDownloadProgress {
+                request_id: request_id.into(),
+                loaded,
+                total,
+            },
+        );
+    }
+    file.sync_all()
+        .map_err(|error| format!("Could not flush model partial: {error}"))?;
+    if loaded != total {
+        return Err(format!(
+            "Generative model download ended at {loaded} bytes; expected {total}"
+        ));
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn download_generative_edit_model(
+    app: tauri::AppHandle,
+    request_id: String,
+) -> Result<GenerativeModelStatus, String> {
+    if !valid_download_request_id(&request_id) {
+        return Err("Invalid model-download request id".into());
+    }
+    {
+        let _ = GENERATIVE_MODEL_DOWNLOAD_CANCELLATIONS
+            .lock()
+            .map(|mut requests| requests.remove(&request_id));
+        let mut requests = GENERATIVE_MODEL_DOWNLOADS
+            .lock()
+            .map_err(|_| "Generative model download state is unavailable".to_string())?;
+        if !requests.insert(request_id.clone()) {
+            return Err("A generative model download is already active".into());
+        }
+    }
+
+    let result = async {
+        let destination = model_dir(&app)?.join(GENERATIVE_MODEL_FILENAME);
+        if let Ok((size, checksum)) = sha256_file(&destination) {
+            if size == GENERATIVE_MODEL_DOWNLOAD_SIZE && checksum == GENERATIVE_MODEL_DOWNLOAD_SHA256 {
+                return model_status_blocking(&app);
+            }
+        }
+        let partial_path = destination.with_extension("gguf.part");
+        let partial_bytes = partial_path.metadata().map(|metadata| metadata.len()).unwrap_or(0);
+        let required_bytes = GENERATIVE_MODEL_DOWNLOAD_SIZE
+            .saturating_sub(partial_bytes)
+            .saturating_add(256 * 1024 * 1024);
+        if let Some(available) = available_disk_space(&destination) {
+            if available < required_bytes {
+                return Err(format!(
+                    "Not enough free disk space for the diffusion model: {available} bytes available, {required_bytes} required"
+                ));
+            }
+        }
+        let client = reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::custom(|attempt| {
+                if attempt.url().scheme() == "https" {
+                    attempt.follow()
+                } else {
+                    attempt.stop()
+                }
+            }))
+            .build()
+            .map_err(|error| format!("Could not create model downloader: {error}"))?;
+        let mut last_error = String::from("Generative model download failed");
+        for attempt in 0..4 {
+            if generative_model_download_cancelled(&request_id) {
+                return Err("Download cancelled".into());
+            }
+            match download_generative_model_attempt(&app, &request_id, &destination, &client).await {
+                Ok(()) => {
+                    last_error.clear();
+                    break;
+                }
+                Err(error) if error == "Download cancelled" => return Err(error),
+                Err(error) => {
+                    last_error = error;
+                    if attempt < 3 {
+                        std::thread::sleep(Duration::from_millis(250 * (1 << attempt)));
+                    }
+                }
+            }
+        }
+        if !last_error.is_empty() {
+            return Err(last_error);
+        }
+        let (size, checksum) = sha256_file(&destination.with_extension("gguf.part"))?;
+        if size != GENERATIVE_MODEL_DOWNLOAD_SIZE || checksum != GENERATIVE_MODEL_DOWNLOAD_SHA256 {
+            let _ = std::fs::remove_file(destination.with_extension("gguf.part"));
+            return Err(format!(
+                "Model SHA-256 mismatch: expected {}, received {checksum}",
+                GENERATIVE_MODEL_DOWNLOAD_SHA256
+            ));
+        }
+        let partial = destination.with_extension("gguf.part");
+        if destination.exists() {
+            std::fs::remove_file(&destination)
+                .map_err(|error| format!("Could not replace old diffusion model: {error}"))?;
+        }
+        std::fs::rename(&partial, &destination)
+            .map_err(|error| format!("Could not atomically install diffusion model: {error}"))?;
+        write_generative_model_metadata(&destination, false)?;
+        model_status_blocking(&app)
+    }
+    .await;
+    if let Ok(mut requests) = GENERATIVE_MODEL_DOWNLOADS.lock() {
+        requests.remove(&request_id);
+    }
+    if let Ok(mut requests) = GENERATIVE_MODEL_DOWNLOAD_CANCELLATIONS.lock() {
+        requests.remove(&request_id);
+    }
+    result
+}
+
+#[tauri::command]
+fn cancel_generative_edit_model_download(request_id: String) -> Result<(), String> {
+    if !valid_download_request_id(&request_id) {
+        return Err("Invalid model-download request id".into());
+    }
+    GENERATIVE_MODEL_DOWNLOAD_CANCELLATIONS
+        .lock()
+        .map_err(|_| "Generative model download state is unavailable".to_string())?
+        .insert(request_id);
+    Ok(())
 }
 
 #[tauri::command]
@@ -1455,10 +1751,17 @@ fn write_generative_model_metadata(
     qualified: bool,
 ) -> Result<(), String> {
     let (size_bytes, checksum_sha256) = sha256_file(model_path)?;
+    let profile_id = if size_bytes == GENERATIVE_MODEL_DOWNLOAD_SIZE
+        && checksum_sha256 == GENERATIVE_MODEL_DOWNLOAD_SHA256
+    {
+        GENERATIVE_MODEL_PROFILE
+    } else {
+        GENERATIVE_MODEL_CUSTOM_PROFILE
+    };
     let metadata = GenerativeModelMetadata {
         schema_version: 1,
         model_handle: GENERATIVE_MODEL_HANDLE.into(),
-        profile_id: GENERATIVE_MODEL_PROFILE.into(),
+        profile_id: profile_id.into(),
         size_bytes,
         checksum_sha256,
         qualified,
@@ -3906,6 +4209,8 @@ pub fn run() {
             generative_edit,
             cancel_generative_edit,
             generative_edit_model_status,
+            download_generative_edit_model,
+            cancel_generative_edit_model_download,
             import_generative_edit_model,
             qualify_generative_edit_model,
             trace_image,

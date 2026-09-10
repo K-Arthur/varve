@@ -1,7 +1,9 @@
 import {
   createDocument,
   type Document,
+  type DocumentAsset,
   type Fill,
+  type GenerativeEditRecord,
   makeShapeNode,
   makeTextNode,
   type RasterMaskAsset,
@@ -99,5 +101,98 @@ describe('buildPackageExport', () => {
     expect(maskEntry!.mimeType).toBe('image/png');
     expect(maskEntry!.status).toBe('embedded');
     expect(maskEntry!.fillIndex).toBe(-1);
+  });
+
+  it('packages retained generative sources, candidates, and contexts', async () => {
+    const makeAsset = (id: string, payload: string): DocumentAsset => ({
+      id,
+      storage: 'embedded',
+      mimeType: 'image/png',
+      dataUrl: `data:image/png;base64,${payload}`,
+      naturalWidth: 1,
+      naturalHeight: 1,
+      byteLength: 3,
+      hash: id,
+    });
+    const source = makeAsset('gen-source', 'AQID');
+    const variation = makeAsset('gen-variation', 'BAUG');
+    const context = makeAsset('gen-context', 'BwgJ');
+    const edit: GenerativeEditRecord = {
+      schemaVersion: 2,
+      id: 'gen-edit-1',
+      mode: 'replace',
+      sourceNodeId: 'n1',
+      sourceAssetId: source.id,
+      sourceSnapshotAssetId: source.id,
+      sourceLocator: 'asset:gen-source',
+      sourceRevision: 1,
+      placementRevision: 'placement-1',
+      masks: {
+        userMaskAssetId: 'mask-img-1',
+        width: 1,
+        height: 1,
+        offsetX: 0,
+        offsetY: 0,
+        coordinateSpace: 'source-image-pixels',
+      },
+      outputFrame: {
+        x: 0,
+        y: 0,
+        width: 1,
+        height: 1,
+        sourceWidth: 1,
+        sourceHeight: 1,
+        coordinateSpace: 'source-image-pixels',
+      },
+      maskAssetId: 'mask-img-1',
+      maskWidth: 1,
+      maskHeight: 1,
+      maskCoordinateSpace: 'source-image-pixels',
+      settings: {
+        quality: 'quality',
+        contextPadding: 32,
+        maskExpansion: 0,
+        feather: 0,
+        prompt: 'a red apple',
+      },
+      provider: { kind: 'local', id: 'test', runtime: 'native-cpu' },
+      variations: [
+        {
+          id: 'variation-1',
+          assetId: variation.id,
+          contextAssetId: context.id,
+          width: 1,
+          height: 1,
+          createdAt: 1,
+        },
+      ],
+      activeVariationId: 'variation-1',
+      acceptedVariationId: 'variation-1',
+      resultNodeId: 'n1',
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    const doc: Document = {
+      ...createDocument('GenerativePackage', true),
+      rootChildren: ['n1'],
+      nodes: { n1: docWithAssetsAndFonts().nodes.n1! },
+      assets: { [source.id]: source, [variation.id]: variation, [context.id]: context },
+      generativeEdits: { [edit.id]: edit },
+    };
+
+    const result = await buildPackageExport(doc);
+    const entries = unzipSync(result.bytes);
+    expect(entries['generative/gen-source.png']).toBeDefined();
+    expect(entries['generative/gen-variation.png']).toBeDefined();
+    expect(entries['generative/gen-context.png']).toBeDefined();
+    expect(
+      result.manifest.assets.filter((asset) => asset.purpose?.startsWith('generative-')),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ assetId: source.id, purpose: 'generative-source' }),
+        expect.objectContaining({ assetId: variation.id, purpose: 'generative-variation' }),
+        expect.objectContaining({ assetId: context.id, purpose: 'generative-context' }),
+      ]),
+    );
   });
 });

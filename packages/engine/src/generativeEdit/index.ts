@@ -5,10 +5,15 @@ export type {
   GenerativeJobToken,
 } from './job';
 export { createGenerativeJobState, GenerativeJobController } from './job';
-export type { NativeGenerativeModelStatus } from './nativeModel';
+export type {
+  NativeGenerativeModelDownloadProgress,
+  NativeGenerativeModelStatus,
+} from './nativeModel';
 export {
+  downloadNativeGenerativeModel,
   getNativeGenerativeModelStatus,
   importNativeGenerativeModel,
+  NATIVE_GENERATIVE_MODEL_PROFILE,
   qualifyNativeGenerativeModel,
 } from './nativeModel';
 export { getGenerativeEditCapabilities, runGenerativeEdit } from './pipeline';

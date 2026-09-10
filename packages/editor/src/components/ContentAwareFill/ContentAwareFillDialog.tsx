@@ -1,5 +1,7 @@
 import {
   type ContentAwareFillQuality,
+  downloadNativeGenerativeModel,
+  extractBoundedContext,
   GenerativeEditError,
   type GenerativeEditMode,
   type GenerativeEditResult,
@@ -9,6 +11,7 @@ import {
   getModelLoader,
   getNativeGenerativeModelStatus,
   importNativeGenerativeModel,
+  NATIVE_GENERATIVE_MODEL_PROFILE,
   QUALITY_DESCRIPTIONS,
   QUALITY_LABELS,
   qualifyNativeGenerativeModel,
@@ -49,6 +52,16 @@ function maskCoverageDataUrl(coverage: Uint8Array, width: number, height: number
   const context = canvas.getContext('2d');
   if (!context) throw new Error('Canvas unavailable');
   putMaskCoverage(context, coverage, { width, height });
+  return canvas.toDataURL('image/png');
+}
+
+function imageDataDataUrl(imageData: ImageData): string {
+  const canvas = document.createElement('canvas');
+  canvas.width = imageData.width;
+  canvas.height = imageData.height;
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Canvas unavailable');
+  context.putImageData(imageData, 0, 0);
   return canvas.toDataURL('image/png');
 }
 
@@ -98,6 +111,7 @@ export function ContentAwareFillDialog({
   const dialogRef = useRef<HTMLDialogElement | null>(null);
   const jobControllerRef = useRef(new GenerativeJobController());
   const downloadAbortRef = useRef<AbortController | null>(null);
+  const diffusionDownloadAbortRef = useRef<AbortController | null>(null);
   const isPaintingRef = useRef(false);
   const generationRef = useRef<{
     sourceSignature: string;
@@ -109,6 +123,9 @@ export function ContentAwareFillDialog({
     inferenceMaskHeight: number;
     inferenceMaskOffsetX: number;
     inferenceMaskOffsetY: number;
+    contextDataUrl: string;
+    contextWidth: number;
+    contextHeight: number;
     outputFrame: {
       x: number;
       y: number;
@@ -176,7 +193,11 @@ export function ContentAwareFillDialog({
   const [previewViewport, setPreviewViewport] = useState({ width: 0, height: 0 });
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generationStage, setGenerationStage] = useState('Preparing');
-  const isProcessing = status === 'qualifying' || status === 'generating' || status === 'applying';
+  const isProcessing =
+    status === 'downloading' ||
+    status === 'qualifying' ||
+    status === 'generating' ||
+    status === 'applying';
   const hasResult = previewDataUrl != null && result != null;
   const capabilities = getGenerativeEditCapabilities();
   const promptNeedsDiffusion =
@@ -343,7 +364,11 @@ export function ContentAwareFillDialog({
   }, [announce, imageSrc, invalidatePreview, isOpen, onClose, sourceSignature, typedNode]);
 
   useEffect(() => {
-    return () => jobControllerRef.current.cancel();
+    return () => {
+      jobControllerRef.current.cancel();
+      downloadAbortRef.current?.abort();
+      diffusionDownloadAbortRef.current?.abort();
+    };
   }, []);
 
   useEffect(() => {
@@ -658,6 +683,40 @@ export function ContentAwareFillDialog({
 
   const handleCancelDownload = useCallback(() => {
     downloadAbortRef.current?.abort();
+    diffusionDownloadAbortRef.current?.abort();
+  }, []);
+
+  const handleDownloadDiffusionModel = useCallback(async () => {
+    setStatus('downloading');
+    setErrorMessage(null);
+    setDownloadProgress(0);
+    const controller = new AbortController();
+    diffusionDownloadAbortRef.current = controller;
+    try {
+      const downloaded = await downloadNativeGenerativeModel(({ loaded, total }) => {
+        setDownloadProgress(
+          total > 0
+            ? Math.round((loaded / total) * 100)
+            : Math.round((loaded / NATIVE_GENERATIVE_MODEL_PROFILE.sizeBytes) * 100),
+        );
+      }, controller.signal);
+      setDiffusionModelInstalled(downloaded.installed);
+      setDiffusionModelHandle(downloaded.ready ? downloaded.modelHandle : null);
+      setDiffusionModelSize(downloaded.sizeBytes);
+      setDiffusionModelReason(downloaded.reason);
+      setStatus('idle');
+    } catch (err) {
+      if (controller.signal.aborted) {
+        setStatus('idle');
+        return;
+      }
+      setStatus('error');
+      setErrorMessage(
+        err instanceof Error ? err.message : 'The diffusion model could not be downloaded.',
+      );
+    } finally {
+      diffusionDownloadAbortRef.current = null;
+    }
   }, []);
 
   const handleImportDiffusionModel = useCallback(async () => {
@@ -770,6 +829,16 @@ export function ContentAwareFillDialog({
       const sourceOffsetX = expanded?.sourceOffsetX ?? 0;
       const sourceOffsetY = expanded?.sourceOffsetY ?? 0;
       const inferenceMaskDataUrl = maskCoverageDataUrl(mask, maskWidth, maskHeight);
+      const preparedContext = extractBoundedContext(
+        generationImage,
+        mask,
+        maskWidth,
+        maskHeight,
+        0,
+        0,
+        contextPadding,
+      );
+      const contextDataUrl = imageDataDataUrl(preparedContext.imageData);
       const outputFrame = {
         x: -sourceOffsetX,
         y: -sourceOffsetY,
@@ -875,6 +944,9 @@ export function ContentAwareFillDialog({
         inferenceMaskHeight: maskHeight,
         inferenceMaskOffsetX: -sourceOffsetX,
         inferenceMaskOffsetY: -sourceOffsetY,
+        contextDataUrl,
+        contextWidth: preparedContext.width,
+        contextHeight: preparedContext.height,
         outputFrame,
         result: generated.result,
         seed: generated.seed,
@@ -980,6 +1052,12 @@ export function ContentAwareFillDialog({
         generationRef.current.inferenceMaskWidth,
         generationRef.current.inferenceMaskHeight,
       );
+      const contextAsset = createEmbeddedAsset({
+        dataUrl: generationRef.current.contextDataUrl,
+        mimeType: 'image/png',
+        naturalWidth: generationRef.current.contextWidth,
+        naturalHeight: generationRef.current.contextHeight,
+      });
       const variationEntries =
         variations.length > 0
           ? variations
@@ -1061,6 +1139,7 @@ export function ContentAwareFillDialog({
           settings: { ...settings, seed: variation.seed },
           outputFrame: { ...outputFrame },
           provider: variation.result.provider,
+          contextAssetId: contextAsset.id,
         })),
         activeVariationId: activeVariation.id,
         acceptedVariationId: activeVariation.id,
@@ -1074,6 +1153,7 @@ export function ContentAwareFillDialog({
           ...currentDoc.assets,
           [sourceSnapshot.id]: sourceSnapshot,
           ...Object.fromEntries(variationAssets.map((asset) => [asset.id, asset])),
+          [contextAsset.id]: contextAsset,
         },
         rasterMaskAssets: {
           ...currentDoc.rasterMaskAssets,
@@ -1304,6 +1384,23 @@ export function ContentAwareFillDialog({
 
           {(mode === 'replace' || mode === 'expand' || promptNeedsDiffusion) && (
             <div className="caf-dialog__section">
+              {!diffusionModelInstalled && capabilities.prompt && status !== 'downloading' && (
+                <Button
+                  type="button"
+                  variant="default"
+                  size="sm"
+                  onClick={() => void handleDownloadDiffusionModel()}
+                  disabled={isProcessing}
+                >
+                  Download {Math.round(NATIVE_GENERATIVE_MODEL_PROFILE.sizeBytes / 1_000_000)} MB
+                  model
+                </Button>
+              )}
+              {status === 'downloading' && (
+                <Button type="button" variant="ghost" size="sm" onClick={handleCancelDownload}>
+                  Cancel download
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="default"
@@ -1313,6 +1410,11 @@ export function ContentAwareFillDialog({
               >
                 {diffusionModelInstalled ? 'Replace Diffusion Model' : 'Install Diffusion Model'}
               </Button>
+              {status === 'downloading' && (
+                <p className="caf-dialog__hint" aria-live="polite">
+                  Downloading local model… {downloadProgress}%
+                </p>
+              )}
               {diffusionModelInstalled && !diffusionModelHandle && (
                 <Button
                   type="button"

@@ -46,7 +46,8 @@ import { sitePath } from '../../../lib/siteUrl';
           <li><strong>Fast</strong> uses the offline PatchMatch heuristic and needs no model download.</li>
           <li><strong>AI</strong> uses the optional LaMa inpainting model. Download it explicitly; the model is kept in local model storage.</li>
           <li>LaMa is image-conditioned, not text-conditioned. Prompt-conditioned Fill, Replace, and Expand require an explicitly imported safe-format model that passes the desktop validation run. The browser has no silent remote fallback.</li>
-          <li>Desktop model setup is deliberately two-step: import the local artifact, then choose <strong>Validate Model</strong>. A non-empty model file is not treated as compatible until the production helper completes a masked test.</li>
+          <li>Desktop model setup is deliberately two-step: download the allowlisted Stable Diffusion 1.5 Inpainting Q4_0 profile or import a safe-format artifact, then choose <strong>Validate Model</strong>. A non-empty model file is not treated as compatible until the production helper completes a masked test.</li>
+          <li>The packaged profile is about 1.75 GB, needs about 6 GB of available memory, and is licensed CreativeML OpenRAIL-M. Its exact revision and checksum are recorded in the <a href={sitePath('/docs/quality/generative-editing-capability-matrix')}>capability matrix</a>.</li>
           <li>There is no silent remote fallback. A future remote provider must state what it uploads and ask for consent immediately before transmission.</li>
         </ul>
       </section>

@@ -1,4 +1,7 @@
 import { type ContentAwareFillQuality, runContentAwareFillPipeline } from '../contentAwareFill';
+import { compositeFillResult, extractBoundedContext } from '../contentAwareFill/contextExtraction';
+import { NATIVE_GENERATIVE_MODEL_PROFILE } from './nativeModel';
+import { nativeGenerativeProvider } from './nativeProvider';
 import {
   type GenerativeEditCapabilities,
   GenerativeEditError,
@@ -7,24 +10,29 @@ import {
   type GenerativeEditResult,
 } from './types';
 
-const LOCAL_CAPABILITIES: GenerativeEditCapabilities = {
-  fill: true,
-  remove: true,
-  replace: false,
-  expand: false,
-  prompt: false,
-  variations: false,
-  reason: 'Replace and Expand require a verified prompt-capable provider.',
-};
+function localCapabilities(): GenerativeEditCapabilities {
+  const promptCapable = nativeGenerativeProvider.isAvailable();
+  return {
+    fill: true,
+    remove: true,
+    replace: promptCapable,
+    expand: promptCapable,
+    prompt: promptCapable,
+    variations: promptCapable,
+    ...(promptCapable
+      ? {}
+      : { reason: 'Replace and Expand require the packaged desktop diffusion provider.' }),
+  };
+}
 
 export function getGenerativeEditCapabilities(provider: 'local' | 'remote' = 'local') {
   if (provider === 'remote') {
     return {
-      ...LOCAL_CAPABILITIES,
+      ...localCapabilities(),
       reason: 'No remote provider is configured for this local-first build.',
     };
   }
-  return LOCAL_CAPABILITIES;
+  return localCapabilities();
 }
 
 function assertUsableRequest(request: GenerativeEditRequest): void {
@@ -97,12 +105,95 @@ export async function runGenerativeEdit(
   }
 
   const warnings: string[] = [];
-  if (request.prompt?.trim()) {
-    warnings.push(
-      'The local provider does not use prompts; the source and painted mask determine this result.',
+  request.onProgress?.({ stage: 'preparing', progress: 0.05 });
+  const promptRequested =
+    (request.mode === 'fill' || request.mode === 'replace' || request.mode === 'expand') &&
+    Boolean(request.prompt?.trim());
+  if (request.mode === 'replace' && !request.prompt?.trim()) {
+    throw new GenerativeEditError(
+      'prompt-unavailable',
+      'Replace requires a prompt describing the replacement content.',
     );
   }
-  request.onProgress?.({ stage: 'preparing', progress: 0.05 });
+  if (request.mode === 'remove' && request.prompt?.trim()) {
+    warnings.push('Remove is reconstruction-based and does not use prompts.');
+  }
+  if (
+    (request.mode === 'replace' || request.mode === 'expand' || promptRequested) &&
+    nativeGenerativeProvider.isAvailable()
+  ) {
+    const context = extractBoundedContext(
+      request.imageData,
+      request.mask,
+      request.maskWidth,
+      request.maskHeight,
+      request.maskOffsetX ?? 0,
+      request.maskOffsetY ?? 0,
+      request.contextPadding,
+    );
+    const nativeResult = await nativeGenerativeProvider.infer({
+      ...request,
+      imageData: context.imageData,
+      mask: context.mask,
+      maskWidth: context.width,
+      maskHeight: context.height,
+      maskOffsetX: 0,
+      maskOffsetY: 0,
+      outputWidth: context.width,
+      outputHeight: context.height,
+    });
+    if (request.signal?.aborted) throw new GenerativeEditError('cancelled', 'cancelled');
+    if (request.isCurrent && !request.isCurrent()) {
+      throw new GenerativeEditError('stale', 'The source changed while generation was running.');
+    }
+    const composited = compositeFillResult(
+      request.imageData,
+      nativeResult.imageData,
+      context.offsetX,
+      context.offsetY,
+      context.mask,
+    );
+    request.onProgress?.({ stage: 'compositing', progress: 1 });
+    warnings.push(...nativeResult.warnings);
+    return {
+      imageData: composited,
+      width: composited.width,
+      height: composited.height,
+      filledBounds: {
+        x: context.offsetX,
+        y: context.offsetY,
+        w: context.width,
+        h: context.height,
+      },
+      mode: request.mode,
+      quality: request.quality,
+      provider: {
+        kind: 'local',
+        id: 'varve-diffusion-inpainting',
+        runtime:
+          nativeResult.executionProvider === 'native-cpu' ? 'native-cpu' : 'native-accelerated',
+        ...(request.modelHandle
+          ? { modelId: request.modelHandle }
+          : request.modelId
+            ? { modelId: request.modelId }
+            : {}),
+        ...(request.modelHandle
+          ? {
+              modelVersion: NATIVE_GENERATIVE_MODEL_PROFILE.revision,
+              modelChecksum: NATIVE_GENERATIVE_MODEL_PROFILE.sha256,
+            }
+          : {}),
+      },
+      processingTimeMs: performance.now() - startTime,
+      warnings,
+    };
+  }
+  if (promptRequested) {
+    throw new GenerativeEditError(
+      'prompt-unavailable',
+      'Prompt conditioning requires the packaged desktop diffusion provider.',
+    );
+  }
   if (mapQuality(request.quality) === 'ai' && !request.modelPath) {
     throw new GenerativeEditError(
       'missing-model',

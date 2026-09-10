@@ -8,7 +8,14 @@
 
 import { collectFontData, type FontCatalog } from '@varve/engine/font';
 import { dataUrlToBytes } from '@varve/import';
-import { type Document, DocumentCodec, type Fill, type NodeId, type SceneNode } from '@varve/scene';
+import {
+  type Document,
+  type DocumentAsset,
+  DocumentCodec,
+  type Fill,
+  type NodeId,
+  type SceneNode,
+} from '@varve/scene';
 import { dtcgExport } from '@varve/ui/tokens';
 import { strToU8, zipSync } from 'fflate';
 import type { ExportReport } from './exportService';
@@ -77,6 +84,8 @@ export interface PackageAssetEntry {
   fillIndex: number;
   source: string;
   status: 'embedded' | 'external';
+  assetId?: string;
+  purpose?: string;
   path?: string;
   mimeType?: string;
   byteCount?: number;
@@ -224,7 +233,57 @@ function collectAssets(doc: Document, pkg: MutablePackage): PackageAssetEntry[] 
     }
   }
 
+  // Generative candidates and immutable sources are not necessarily attached
+  // to a node fill. Include their embedded payloads in the package manifest so
+  // an accepted edit can be reopened, restored, or regenerated after the
+  // original source layer/model is unavailable.
+  for (const edit of Object.values(doc.generativeEdits ?? {})) {
+    const references: Array<{ assetId?: string; purpose: string }> = [
+      { assetId: edit.sourceAssetId, purpose: 'generative-source' },
+      { assetId: edit.sourceSnapshotAssetId, purpose: 'generative-source-snapshot' },
+      ...edit.variations.flatMap((variation) => [
+        { assetId: variation.assetId, purpose: 'generative-variation' },
+        { assetId: variation.contextAssetId, purpose: 'generative-context' },
+      ]),
+    ];
+    for (const reference of references) {
+      if (!reference.assetId) continue;
+      const asset = doc.assets?.[reference.assetId];
+      if (asset) addGenerativeAsset(pkg, assets, seen, edit.sourceNodeId, asset, reference.purpose);
+    }
+  }
+
   return assets;
+}
+
+function addGenerativeAsset(
+  pkg: MutablePackage,
+  assets: PackageAssetEntry[],
+  seen: Map<string, string>,
+  nodeId: NodeId,
+  asset: DocumentAsset,
+  purpose: string,
+): void {
+  const embedded = dataUrlAsset(asset.dataUrl);
+  if (!embedded) return;
+  const existingPath = seen.get(asset.dataUrl);
+  const path =
+    existingPath ?? `generative/${safeAssetName(asset.id)}.${extensionForMime(embedded.mimeType)}`;
+  if (!existingPath) {
+    seen.set(asset.dataUrl, path);
+    addBytes(pkg, path, 'asset', embedded.bytes);
+  }
+  assets.push({
+    nodeId,
+    fillIndex: -1,
+    source: `asset:${asset.id}`,
+    status: 'embedded',
+    assetId: asset.id,
+    purpose,
+    path,
+    mimeType: embedded.mimeType,
+    byteCount: embedded.bytes.byteLength,
+  });
 }
 
 async function collectFonts(
@@ -383,4 +442,8 @@ function safePackageName(name: string): string {
 
 function safeFontName(name: string): string {
   return name.replace(/[^a-zA-Z0-9-_]/g, '_').trim() || 'font';
+}
+
+function safeAssetName(name: string): string {
+  return name.replace(/[^a-zA-Z0-9-_]/g, '_').trim() || 'asset';
 }

@@ -14,6 +14,15 @@
 | `real-life-portrait.jpg` | 5171×6402 | JPEG | [Full-length portrait of a man](https://commons.wikimedia.org/wiki/File:Full-length_portrait_of_a_man_LCCN2006689630.jpg), Library of Congress | Public domain | High-resolution grayscale portrait used for large photographic source coverage. |
 | `real-life-still-life.jpg` | 1280×960 | JPEG | [Flower still life](https://commons.wikimedia.org/wiki/File:Flower_still_life.jpg), Jon Sullivan | Public domain | Color still life used for texture and object-composition coverage. |
 
+## Reviewed generative evidence
+
+`generative-evidence/sd15-q4_0-landscape-replace/` contains the first reviewed
+production-helper run on a photographic source: the prepared source, explicit
+source-pixel mask, raw model candidate, final masked composite, difference map,
+and [run manifest](generative-evidence/sd15-q4_0-landscape-replace/manifest.json).
+It is evidence that the pinned helper/model pair produces a genuine
+prompt-conditioned result; it is not a release qualification of the profile.
+
 Project-generated images remain marked above. The three `real-life-*.jpg`
 fixtures were downloaded from Wikimedia Commons on 2026-09-09 from files
 marked public domain on their source pages. They are included only as local
