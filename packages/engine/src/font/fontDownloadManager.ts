@@ -259,6 +259,13 @@ export class FontDownloadManager {
 
     const workers = queued.map((job) => this.executeJob(job));
     await Promise.allSettled(workers);
+
+    // A queue with more jobs than the concurrency limit must continue after
+    // the first batch settles. The previous implementation only drained on
+    // addJob/resume/retry, leaving later jobs permanently queued.
+    if (this.getAllJobs().some((job) => job.status === 'queued')) {
+      this.processQueue();
+    }
   }
 
   private async executeJob(job: DownloadJob): Promise<void> {
@@ -279,6 +286,10 @@ export class FontDownloadManager {
       }
 
       // Success
+      // Cancellation can happen while validation is running (the fetch
+      // controller is already gone by then). Never let that late completion
+      // turn a cancelled job back into a successful download.
+      if (job.status === 'cancelled' || job.status === 'paused') return;
       job.status = 'complete';
       job.data = data;
       job.metadata = metadata;

@@ -506,7 +506,9 @@ export async function enumerateSystemFonts(): Promise<string[]> {
   if (isTauri()) {
     try {
       const { invoke } = await import('@tauri-apps/api/core');
-      const faces = await invoke<SystemFontFace[]>('enumerate_system_fonts', {});
+      const faces = await invoke<SystemFontFace[]>('enumerate_system_fonts', {
+        request: { family: null },
+      });
       const registry = getFontRegistry();
       const familySet = new Set<string>();
 

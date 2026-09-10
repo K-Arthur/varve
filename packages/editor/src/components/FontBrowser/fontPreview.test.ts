@@ -22,7 +22,7 @@ afterEach(() => {
 });
 
 describe('font preview loader', () => {
-  it('loads the exact catalog artifact without marking the family installed', async () => {
+  it('does not fetch catalog artifacts during browse-only preview', async () => {
     const record = getFontSemanticCatalog().findByFamilyName('Gothic A1');
     expect(record?.providerId).toBe('fontsource');
 
@@ -58,14 +58,13 @@ describe('font preview loader', () => {
 
     const result = await loadFontPreview(record!);
 
-    expect(result.status).toBe('ready');
-    expect(PreviewFace.last?.family).toBe('Gothic A1');
-    expect(PreviewFace.last?.source).toContain('https://cdn.jsdelivr.net/fontsource/fonts/');
-    expect(PreviewFace.last?.source).toContain('gothic-a1@');
-    expect(fontSet.add).toHaveBeenCalledWith(PreviewFace.last);
+    expect(result.status).toBe('unavailable');
+    expect(result.message).toContain('Install');
+    expect(PreviewFace.last).toBeUndefined();
+    expect(fontSet.add).not.toHaveBeenCalled();
     expect(record?.installed).toBe(false);
 
     removeFontPreview(result.face);
-    expect(fontSet.delete).toHaveBeenCalledWith(PreviewFace.last);
+    expect(fontSet.delete).not.toHaveBeenCalled();
   });
 });

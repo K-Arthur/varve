@@ -1,5 +1,4 @@
 import type { FontSemanticRecord } from '@varve/engine/font';
-import { getFontsourceCatalog } from '@varve/engine/font';
 
 export type FontPreviewStatus = 'ready' | 'loading' | 'fallback' | 'unavailable';
 
@@ -13,10 +12,6 @@ const PREVIEW_SAMPLE = 'Hamburgefonstiv 0123456789';
 
 function cssFamily(family: string): string {
   return family.replaceAll('"', '\\"');
-}
-
-function previewWeight(record: FontSemanticRecord): number {
-  return record.weights.includes(400) ? 400 : (record.weights[0] ?? 400);
 }
 
 function isLoaded(descriptor: string, sample: string, faces: readonly FontFace[]): boolean {
@@ -56,40 +51,13 @@ export async function loadFontPreview(record: FontSemanticRecord): Promise<FontP
     }
   }
 
-  if (record.providerId !== 'fontsource') {
-    return { status: 'unavailable', message: 'No preview artifact is available for this family.' };
-  }
-  if (typeof FontFace === 'undefined') {
-    return { status: 'unavailable', message: 'This browser cannot load a temporary font preview.' };
-  }
-
-  let loadedFace: FontFace | undefined;
-  try {
-    const artifact = getFontsourceCatalog().resolve({
-      familyId: record.familyId,
-      style: record.styles.includes('normal') ? 'normal' : (record.styles[0] ?? 'normal'),
-      ...(record.variable ? { variable: true } : { weight: previewWeight(record) }),
-    });
-    const face = new FontFace(record.familyName, `url("${artifact.url}")`, {
-      style: artifact.style,
-      weight: artifact.variable ? '100 900' : String(artifact.weight ?? previewWeight(record)),
-    });
-    loadedFace = await face.load();
-    document.fonts.add(loadedFace);
-    const faces = await document.fonts.load(descriptor, PREVIEW_SAMPLE);
-    const ready = isLoaded(descriptor, PREVIEW_SAMPLE, faces);
-    if (!ready) {
-      document.fonts.delete(loadedFace);
-      return { status: 'fallback', message: 'The preview artifact loaded but was not selectable.' };
-    }
-    return { status: 'ready', face: loadedFace };
-  } catch {
-    if (loadedFace) document.fonts.delete(loadedFace);
-    return {
-      status: 'fallback',
-      message: 'The exact preview could not be loaded. Install the family to try again.',
-    };
-  }
+  // Catalog browsing is deliberately network-free. A catalog record is only
+  // previewable after its exact bytes have been explicitly installed by the
+  // user; the download manager owns all remote fetches and integrity checks.
+  return {
+    status: 'unavailable',
+    message: 'Install this font to preview its exact face locally.',
+  };
 }
 
 export function removeFontPreview(face: FontFace | undefined): void {

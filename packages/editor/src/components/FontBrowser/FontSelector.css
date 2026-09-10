@@ -10,6 +10,13 @@
   gap: var(--space-1);
 }
 
+/* The floating toolbar is a constrained flex row. Keep the family control
+   readable instead of allowing flex-shrink to collapse it to a few pixels. */
+.floating-text-bar .font-selector {
+  flex: 1 1 180px;
+  min-width: 140px;
+}
+
 /* ---------- Label ---------- */
 
 .font-selector__label {
@@ -74,7 +81,9 @@
      upward so the catalog is never rendered below the canvas viewport. */
   bottom: calc(100% + var(--space-1));
   left: 0;
-  right: 0;
+  right: auto;
+  width: max(100%, 260px);
+  max-width: min(360px, calc(100vw - 16px));
   z-index: var(--z-dropdown);
   max-height: 280px;
   overflow-y: auto;
