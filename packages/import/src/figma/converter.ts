@@ -1123,41 +1123,49 @@ function buildLayoutGrids(
   for (const node of sourceNodes(source.pages)) {
     const nodeId = state.sourceToVarve.get(node.sourceId);
     if (!nodeId || !node.layoutGrids || node.layoutGrids.length === 0) continue;
-    const grid = node.layoutGrids.find((entry) => entry.visible) ?? node.layoutGrids[0];
-    if (!grid) continue;
-    const pattern = grid.pattern;
-    if (pattern !== 'COLUMNS' && pattern !== 'ROWS' && pattern !== 'GRID') {
-      addUnsupported(state, `layout grid pattern ${pattern}`);
-      continue;
-    }
-    result[nodeId] = {
-      type: 'layout',
-      id: `figma-layout-grid-${nodeId}`,
-      name: `${node.name} layout grid`,
-      visible: grid.visible,
-      snapEnabled: false,
-      color: rgbaCss(grid.color),
-      opacity: Math.max(0, Math.min(1, grid.color?.a ?? 0.3)),
-      scope: 'frame',
-      frameId: nodeId,
-      layoutMode: pattern === 'COLUMNS' ? 'columns' : pattern === 'ROWS' ? 'rows' : 'uniform',
-      ...(pattern === 'COLUMNS'
-        ? { columnCount: Math.max(1, grid.count ?? 1), columnWidth: grid.sectionSize }
-        : {}),
-      ...(pattern === 'ROWS'
-        ? { rowCount: Math.max(1, grid.count ?? 1), rowHeight: grid.sectionSize }
-        : {}),
-      gutter: Math.max(0, grid.gutterSize ?? 0),
-      margin: [grid.offset ?? 0, grid.offset ?? 0, grid.offset ?? 0, grid.offset ?? 0],
-      alignment:
-        grid.alignment === 'MIN'
-          ? 'left'
-          : grid.alignment === 'MAX'
-            ? 'right'
-            : grid.alignment === 'CENTER'
-              ? 'center'
-              : 'stretch',
-    };
+    const converted = node.layoutGrids.flatMap((grid, index) => {
+      const pattern = grid.pattern;
+      if (pattern !== 'COLUMNS' && pattern !== 'ROWS' && pattern !== 'GRID') {
+        addUnsupported(state, `layout grid pattern ${pattern}`);
+        return [];
+      }
+      return [
+        {
+          type: 'layout' as const,
+          id: `figma-layout-grid-${nodeId}-${index + 1}`,
+          name: `${node.name} layout guide ${index + 1}`,
+          visible: grid.visible,
+          snapEnabled: false,
+          color: rgbaCss(grid.color),
+          opacity: Math.max(0, Math.min(1, grid.color?.a ?? 0.3)),
+          scope: 'frame' as const,
+          frameId: nodeId,
+          layoutMode: pattern === 'COLUMNS' ? 'columns' : pattern === 'ROWS' ? 'rows' : 'uniform',
+          ...(pattern === 'COLUMNS'
+            ? { columnCount: Math.max(1, grid.count ?? 1), columnWidth: grid.sectionSize }
+            : {}),
+          ...(pattern === 'ROWS'
+            ? { rowCount: Math.max(1, grid.count ?? 1), rowHeight: grid.sectionSize }
+            : {}),
+          gutter: Math.max(0, grid.gutterSize ?? 0),
+          margin: [grid.offset ?? 0, grid.offset ?? 0, grid.offset ?? 0, grid.offset ?? 0] as [
+            number,
+            number,
+            number,
+            number,
+          ],
+          alignment:
+            grid.alignment === 'MIN'
+              ? 'left'
+              : grid.alignment === 'MAX'
+                ? 'right'
+                : grid.alignment === 'CENTER'
+                  ? 'center'
+                  : 'stretch',
+        },
+      ];
+    });
+    if (converted.length > 0) result[nodeId] = converted;
   }
   return Object.keys(result).length > 0 ? result : undefined;
 }

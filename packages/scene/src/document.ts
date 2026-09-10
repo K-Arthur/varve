@@ -1304,17 +1304,23 @@ export function removeDocumentGrid(doc: Document): Document {
  * Set a layout grid for a specific frame.
  */
 export function setLayoutGrid(doc: Document, frameId: string, grid: LayoutGrid): Document {
-  const sanitized = sanitizeGrid(grid) as LayoutGrid;
+  const sanitized = sanitizeGrid({ ...grid, frameId, scope: 'frame' }) as LayoutGrid;
   if (!validateGrid(sanitized)) {
     return doc; // Invalid grid, return unchanged
   }
+  const existing = getOrCreateGridSettings(doc).layoutGrids?.[frameId] ?? [];
+  const index = existing.findIndex((entry) => entry.id === sanitized.id);
+  const next =
+    index < 0
+      ? [...existing, sanitized]
+      : existing.map((entry, i) => (i === index ? sanitized : entry));
   return {
     ...doc,
     gridSettings: {
       ...getOrCreateGridSettings(doc),
       layoutGrids: {
         ...getOrCreateGridSettings(doc).layoutGrids,
-        [frameId]: sanitized,
+        [frameId]: next,
       },
     },
   };
@@ -1323,16 +1329,20 @@ export function setLayoutGrid(doc: Document, frameId: string, grid: LayoutGrid):
 /**
  * Remove a layout grid for a specific frame.
  */
-export function removeLayoutGrid(doc: Document, frameId: string): Document {
+export function removeLayoutGrid(doc: Document, frameId: string, gridId?: string): Document {
   if (!doc.gridSettings?.layoutGrids || !(frameId in doc.gridSettings.layoutGrids)) {
     return doc;
   }
-  const { [frameId]: _, ...rest } = doc.gridSettings.layoutGrids;
+  const existing = doc.gridSettings.layoutGrids[frameId] ?? [];
+  const next = gridId === undefined ? [] : existing.filter((grid) => grid.id !== gridId);
+  const layoutGrids = { ...doc.gridSettings.layoutGrids };
+  if (next.length > 0) layoutGrids[frameId] = next;
+  else delete layoutGrids[frameId];
   return {
     ...doc,
     gridSettings: {
       ...doc.gridSettings,
-      layoutGrids: Object.keys(rest).length > 0 ? rest : undefined,
+      layoutGrids: Object.keys(layoutGrids).length > 0 ? layoutGrids : undefined,
     },
   };
 }

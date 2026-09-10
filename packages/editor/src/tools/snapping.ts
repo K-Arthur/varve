@@ -6,7 +6,15 @@ export interface SnapGuide {
   position: number;
   label?: string;
   distance?: number;
-  type?: 'guide' | 'edge' | 'center' | 'midpoint' | 'spacing' | 'rotation' | 'size-match';
+  type?:
+    | 'guide'
+    | 'layout-grid'
+    | 'edge'
+    | 'center'
+    | 'midpoint'
+    | 'spacing'
+    | 'rotation'
+    | 'size-match';
 }
 
 export interface GridSnapConfig {
@@ -14,6 +22,8 @@ export interface GridSnapConfig {
   spacingY: number;
   offsetX?: number;
   offsetY?: number;
+  /** Rotation in radians around the configured grid origin. */
+  rotation?: number;
 }
 
 export interface SnapBoxOptions {
@@ -51,6 +61,8 @@ export interface SnapOptions {
   guideTargets?: Array<{ axis: 'horizontal' | 'vertical'; position: number }>;
   /** Layout grid cell size for frame grid snapping (world units). */
   layoutGridStep?: number;
+  /** Authored frame layout-guide line targets in world coordinates. */
+  layoutGridTargets?: Array<{ axis: 'horizontal' | 'vertical'; position: number }>;
   /** Pixel grid snapping (snaps to integer pixel coordinates). */
   pixelGridSnap?: boolean;
 }
@@ -247,6 +259,77 @@ function snapCoordToGrid(value: number, spacing: number, offset = 0): number {
   return Math.round((value - offset) / spacing) * spacing + offset;
 }
 
+function snapPointToRotatedGrid(x: number, y: number, grid: GridSnapConfig): [number, number] {
+  const rotation = Number.isFinite(grid.rotation) ? (grid.rotation ?? 0) : 0;
+  if (rotation === 0) {
+    return [
+      snapCoordToGrid(x, grid.spacingX, grid.offsetX ?? 0),
+      snapCoordToGrid(y, grid.spacingY, grid.offsetY ?? 0),
+    ];
+  }
+  const originX = grid.offsetX ?? 0;
+  const originY = grid.offsetY ?? 0;
+  const cos = Math.cos(rotation);
+  const sin = Math.sin(rotation);
+  const dx = x - originX;
+  const dy = y - originY;
+  const localX = dx * cos + dy * sin + originX;
+  const localY = -dx * sin + dy * cos + originY;
+  const snappedLocalX = snapCoordToGrid(localX, grid.spacingX, originX);
+  const snappedLocalY = snapCoordToGrid(localY, grid.spacingY, originY);
+  return [
+    originX + (snappedLocalX - originX) * cos - (snappedLocalY - originY) * sin,
+    originY + (snappedLocalX - originX) * sin + (snappedLocalY - originY) * cos,
+  ];
+}
+
+interface LineSnapCandidate {
+  axis: 'horizontal' | 'vertical';
+  position: number;
+  distance: number;
+  snapped: number;
+  guide: SnapGuide;
+}
+
+function closestLineSnapCandidate(
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  target: { axis: 'horizontal' | 'vertical'; position: number },
+  threshold: number,
+  type: SnapGuide['type'],
+  label: string,
+): LineSnapCandidate | null {
+  const values = target.axis === 'vertical' ? [x, x + w / 2, x + w] : [y, y + h / 2, y + h];
+  let bestValue = values[0]!;
+  let bestDistance = Math.abs(bestValue - target.position);
+  for (const value of values.slice(1)) {
+    const distance = Math.abs(value - target.position);
+    if (distance < bestDistance) {
+      bestValue = value;
+      bestDistance = distance;
+    }
+  }
+  if (bestDistance >= threshold) return null;
+  return {
+    axis: target.axis,
+    position: target.position,
+    distance: bestDistance,
+    snapped:
+      target.axis === 'vertical'
+        ? x - (bestValue - target.position)
+        : y - (bestValue - target.position),
+    guide: {
+      axis: target.axis,
+      position: target.position,
+      distance: bestDistance,
+      type,
+      label,
+    },
+  };
+}
+
 export function snapPosition(
   x: number,
   y: number,
@@ -289,10 +372,7 @@ export function snapPosition(
   if (grid !== undefined && grid !== null) {
     const gridConfig = typeof grid === 'number' ? { spacingX: grid, spacingY: grid } : grid;
     if (gridConfig.spacingX > 0 && gridConfig.spacingY > 0) {
-      const offsetX = gridConfig.offsetX ?? 0;
-      const offsetY = gridConfig.offsetY ?? 0;
-      const gx = snapCoordToGrid(x, gridConfig.spacingX, offsetX);
-      const gy = snapCoordToGrid(y, gridConfig.spacingY, offsetY);
+      const [gx, gy] = snapPointToRotatedGrid(x, y, gridConfig);
       const dx = Math.abs(gx - x);
       const dy = Math.abs(gy - y);
       const prio = SNAP_PRIORITY.grid;
@@ -329,6 +409,45 @@ export function snapPosition(
       bestYDiff = dy;
       bestYSnap = ly;
       bestYGuide = { axis: 'horizontal', position: ly, type: 'edge' };
+      bestYPriority = prio;
+    }
+  }
+
+  // Authored frame layout guides are line targets, not an auto-layout cell
+  // step. Their lower priority preserves document-grid, ruler-guide, and
+  // object-edge snaps when several candidates are close together.
+  if (options.layoutGridTargets && options.layoutGridTargets.length > 0) {
+    const prio = SNAP_PRIORITY.layoutGrid;
+    let bestLayoutX: LineSnapCandidate | null = null;
+    let bestLayoutY: LineSnapCandidate | null = null;
+    for (const target of options.layoutGridTargets) {
+      const candidate = closestLineSnapCandidate(
+        x,
+        y,
+        w,
+        h,
+        target,
+        thresh,
+        'layout-grid',
+        'layout guide',
+      );
+      if (!candidate) continue;
+      if (candidate.axis === 'vertical') {
+        if (!bestLayoutX || candidate.distance < bestLayoutX.distance) bestLayoutX = candidate;
+      } else if (!bestLayoutY || candidate.distance < bestLayoutY.distance) {
+        bestLayoutY = candidate;
+      }
+    }
+    if (bestLayoutX && compete(prio, bestLayoutX.distance, bestXPriority, bestXDiff)) {
+      bestXDiff = bestLayoutX.distance;
+      bestXSnap = bestLayoutX.snapped;
+      bestXGuide = bestLayoutX.guide;
+      bestXPriority = prio;
+    }
+    if (bestLayoutY && compete(prio, bestLayoutY.distance, bestYPriority, bestYDiff)) {
+      bestYDiff = bestLayoutY.distance;
+      bestYSnap = bestLayoutY.snapped;
+      bestYGuide = bestLayoutY.guide;
       bestYPriority = prio;
     }
   }

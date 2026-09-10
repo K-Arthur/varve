@@ -395,7 +395,10 @@ describe('Figma JSON importer', () => {
       type: 'FRAME',
       name: 'Grid frame',
       layoutMode: 'GRID',
-      layoutGrids: [{ pattern: 'COLUMNS', count: 4, gutterSize: 16, sectionSize: 80 }],
+      layoutGrids: [
+        { pattern: 'COLUMNS', count: 4, gutterSize: 16, sectionSize: 80 },
+        { pattern: 'ROWS', count: 3, gutterSize: 12, sectionSize: 48, visible: false },
+      ],
       exportSettings: [{ format: 'PNG', suffix: '@2x', constraint: { type: 'SCALE', value: 2 } }],
       absoluteBoundingBox: { x: 20, y: 320, width: 360, height: 200 },
       children: [],
@@ -451,7 +454,14 @@ describe('Figma JSON importer', () => {
       layoutStyle: { mode: 'grid', gridTemplateColumns: 'repeat(4, 1fr)' },
       presets: [{ format: 'png', scale: { type: 'factor', value: 2 } }],
     });
-    expect(result.document.gridSettings?.layoutGrids).toBeDefined();
+    const importedGuides = Object.values(result.document.gridSettings?.layoutGrids ?? {});
+    expect(importedGuides).toHaveLength(1);
+    expect(importedGuides[0]).toHaveLength(2);
+    expect(importedGuides[0]?.[1]).toMatchObject({
+      layoutMode: 'rows',
+      rowCount: 3,
+      visible: false,
+    });
     expect(mask).toMatchObject({ mask: { hideMaskSource: true, type: 'alpha' } });
     expect(future).toMatchObject({ kind: 'group', children: [expect.any(String)] });
     expect(Object.values(result.document.components)[0]?.variants).toEqual([

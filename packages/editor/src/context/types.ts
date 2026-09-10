@@ -20,6 +20,7 @@ import type {
   ImageFillData,
   IsometricGrid,
   LayerColor,
+  LayoutGrid,
   LayoutSizing,
   LayoutStyle,
   NodeId,
@@ -1075,6 +1076,8 @@ export interface EditorContextValue {
 
   // Layout
   setNodeLayout: (id: NodeId, layout: LayoutStyle | undefined) => void;
+  setLayoutGrid: (frameId: NodeId, grid: LayoutGrid) => void;
+  removeLayoutGrid: (frameId: NodeId, gridId?: string) => void;
 
   // Variables
   resolveVariable: (nameOrId: string) => VariableValue;

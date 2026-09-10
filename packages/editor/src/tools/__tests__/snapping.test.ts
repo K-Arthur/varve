@@ -152,6 +152,33 @@ describe('snapPosition — ruler guide targets', () => {
     expect(result.x).toBe(100);
     expect(result.guides.find((g) => g.axis === 'vertical')?.type).toBe('edge');
   });
+
+  it('snaps to authored layout-guide lines below ruler-guide priority', () => {
+    const result = snapPosition(97, 240, 80, 60, [], undefined, undefined, {
+      layoutGridTargets: [{ axis: 'vertical', position: 100 }],
+      zoom: 1,
+    });
+
+    expect(result.x).toBe(100);
+    expect(result.guides).toContainEqual({
+      axis: 'vertical',
+      position: 100,
+      type: 'layout-grid',
+      label: 'layout guide',
+      distance: 3,
+    });
+  });
+
+  it('snaps a document point to a rotated grid lattice', () => {
+    const result = snapPosition(7, 0, 10, 10, [], {
+      spacingX: 10,
+      spacingY: 10,
+      rotation: Math.PI / 2,
+    });
+
+    expect(result.x).toBeCloseTo(10);
+    expect(result.y).toBeCloseTo(0);
+  });
 });
 
 describe('snapPosition — mid-point snapping', () => {

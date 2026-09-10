@@ -22,6 +22,7 @@ import {
   canBeClipMaskSource,
   type Document,
   type NodeId,
+  resolveEditorSceneScope,
   resolveNodePaints,
   type ShapeNode,
 } from '@varve/scene';
@@ -38,6 +39,7 @@ import type { PenConstructionDraft, PredictedStrokeDraft } from '../tools/types'
 import { applyEditorCameraToCtx } from './cameraState';
 import { resizeCanvasBackingStore } from './canvasSurface';
 import { computeGridLines, renderGridOnCtx, resolveCanvasColor } from './gridRenderer';
+import { resolveLayoutGuideGeometry } from './layoutGridGeometry';
 import { drawPenConstructionPreview } from './penConstructionPreview';
 import {
   cancelCanvasFrame,
@@ -654,76 +656,48 @@ export function useOverlayDraw({
 
     // ── Layout grid overlay ────────────────────────────────────────────
     const layoutGrids = doc.gridSettings?.layoutGrids;
-    if (layoutGrids) {
-      for (const [frameId, layoutGrid] of Object.entries(layoutGrids)) {
-        if (!layoutGrid.visible) continue;
+    if (s.layoutGridVisible && layoutGrids) {
+      const sceneScope = resolveEditorSceneScope(doc, {
+        workspaceMode: s.workspaceMode,
+        activePageId: doc.activePageId,
+        activeDesignCanvasId: doc.activeDesignCanvasId,
+        masterEditId: s.masterEditId,
+        isolatedNodeId: s.isolatedNodeId,
+      });
+      for (const [frameId, frameGuides] of Object.entries(layoutGrids)) {
+        if (!sceneScope.authoredNodeIds.has(frameId)) continue;
         const frame = doc.nodes[frameId];
         if (frame?.kind !== 'frame') continue;
 
         const world = getCachedWorldTransform(cache, doc, frameId);
-        const [a, b, c, d, e, f] = world;
-        const fw = frame.w;
-        const fh = frame.h;
-        const [marginTop, marginRight, marginBottom, marginLeft] = layoutGrid.margin;
-
-        ctx.save();
-        ctx.strokeStyle = resolveCanvasColor(layoutGrid.color);
-        ctx.globalAlpha = layoutGrid.opacity;
-        ctx.lineWidth = 1 / s.zoom;
-        ctx.setLineDash([0]);
-
-        const contentWidth = fw - marginLeft - marginRight;
-        const contentHeight = fh - marginTop - marginBottom;
-
-        if (layoutGrid.layoutMode === 'columns' || layoutGrid.layoutMode === 'uniform') {
-          // Render column grid
-          const columnCount = layoutGrid.columnCount || 1;
-          const columnWidth = layoutGrid.columnWidth ?? contentWidth / columnCount;
-          const totalGutterWidth = (columnCount - 1) * layoutGrid.gutter;
-          const totalColumnWidth = columnCount * columnWidth + totalGutterWidth;
-          const scale = contentWidth / totalColumnWidth;
-          const scaledColumnWidth = columnWidth * scale;
-          const scaledGutter = layoutGrid.gutter * scale;
-
-          let xPos = marginLeft;
-          for (let i = 0; i < columnCount; i++) {
-            const wx = a * xPos + c * marginTop + e;
-            const wy = b * xPos + d * marginTop + f;
-            const wx2 = a * xPos + c * (marginTop + contentHeight) + e;
-            const wy2 = b * xPos + d * (marginTop + contentHeight) + f;
+        const guides = Array.isArray(frameGuides) ? frameGuides : [frameGuides];
+        for (const layoutGrid of guides) {
+          if (!layoutGrid.visible) continue;
+          const geometry = resolveLayoutGuideGeometry(layoutGrid, frame.w, frame.h);
+          if (!geometry.valid) continue;
+          ctx.save();
+          ctx.strokeStyle = resolveCanvasColor(layoutGrid.color);
+          ctx.globalAlpha = layoutGrid.opacity;
+          ctx.lineWidth = 1 / s.zoom;
+          ctx.setLineDash([]);
+          for (const x of geometry.vertical) {
+            const start = applyAffine(world, [x, 0]);
+            const end = applyAffine(world, [x, frame.h]);
             ctx.beginPath();
-            ctx.moveTo(wx, wy);
-            ctx.lineTo(wx2, wy2);
+            ctx.moveTo(start[0], start[1]);
+            ctx.lineTo(end[0], end[1]);
             ctx.stroke();
-            xPos += scaledColumnWidth + scaledGutter;
           }
-        }
-
-        if (layoutGrid.layoutMode === 'rows' || layoutGrid.layoutMode === 'uniform') {
-          // Render row grid
-          const rowCount = layoutGrid.rowCount || 1;
-          const rowHeight = layoutGrid.rowHeight ?? contentHeight / rowCount;
-          const totalGutterHeight = (rowCount - 1) * layoutGrid.gutter;
-          const totalRowHeight = rowCount * rowHeight + totalGutterHeight;
-          const scale = contentHeight / totalRowHeight;
-          const scaledRowHeight = rowHeight * scale;
-          const scaledGutter = layoutGrid.gutter * scale;
-
-          let yPos = marginTop;
-          for (let i = 0; i < rowCount; i++) {
-            const wx = a * marginLeft + c * yPos + e;
-            const wy = b * marginLeft + d * yPos + f;
-            const wx2 = a * (marginLeft + contentWidth) + c * yPos + e;
-            const wy2 = b * (marginLeft + contentWidth) + d * yPos + f;
+          for (const y of geometry.horizontal) {
+            const start = applyAffine(world, [0, y]);
+            const end = applyAffine(world, [frame.w, y]);
             ctx.beginPath();
-            ctx.moveTo(wx, wy);
-            ctx.lineTo(wx2, wy2);
+            ctx.moveTo(start[0], start[1]);
+            ctx.lineTo(end[0], end[1]);
             ctx.stroke();
-            yPos += scaledRowHeight + scaledGutter;
           }
+          ctx.restore();
         }
-
-        ctx.restore();
       }
     }
 

@@ -14,6 +14,7 @@ import {
   walkNodes,
 } from '@varve/scene';
 import type { Camera } from '@varve/shared';
+import { applyAffine } from '@varve/shared';
 import type { EditorContextValue, EditorState } from '../context';
 import { HitTestEngine } from '../hitTest/HitTestEngine';
 import {
@@ -24,6 +25,7 @@ import {
 } from '../scene/spatialIndex';
 import {
   getWorldBounds as getCachedWorldBounds,
+  getWorldTransform as getCachedWorldTransform,
   type TransformCache,
 } from '../scene/transformCache';
 import { nodeWorldBounds } from '../scene/world';
@@ -39,7 +41,7 @@ import {
   snapTargetSearchRect,
 } from '../tools/snapping';
 import { applyWarpToSelection } from '../warp/warpActions';
-import { parseGridTemplate } from './gridTemplate';
+import { resolveLayoutGuideGeometry } from './layoutGridGeometry';
 import { beginInteractionSpan, isSnapMetricsEnabled, recordSnapMetrics } from './perfRuntime';
 
 /** Stable empty-guides identity: most drag samples snap to nothing, and a
@@ -303,6 +305,13 @@ export function buildToolContext(
 
       // D-02: Spatial + hierarchical filtering of snap targets
       const doc = deps.stateRef.current.document;
+      const sceneScope = resolveEditorSceneScope(doc, {
+        workspaceMode: s.workspaceMode,
+        activePageId: doc.activePageId,
+        activeDesignCanvasId: doc.activeDesignCanvasId,
+        masterEditId: s.masterEditId,
+        isolatedNodeId: s.isolatedNodeId,
+      });
       let snapIndex = deps.snapIndexRef.current;
       if (!snapIndex || snapIndex.documentId !== doc.id) {
         snapIndex = {
@@ -323,6 +332,7 @@ export function buildToolContext(
       for (const nodeId of nearbyIds) {
         const node = doc.nodes[nodeId];
         if (!node) continue;
+        if (!sceneScope.authoredNodeIds.has(nodeId)) continue;
         // Semantic filter: hidden nodes are not visible, so snapping to their
         // edges would produce invisible feedback — exclude them as candidates.
         if (node.visible === false) continue;
@@ -385,19 +395,38 @@ export function buildToolContext(
         }
       }
 
-      let layoutGridStep: number | undefined;
+      const layoutGridTargets: Array<{ axis: 'horizontal' | 'vertical'; position: number }> = [];
       if (draggedId) {
         const parentId = parentIdx.get(draggedId);
         if (parentId) {
           const parentNode = doc.nodes[parentId];
-          if (parentNode?.kind === 'frame' && parentNode.layoutStyle) {
-            const cols = parseGridTemplate(
-              parentNode.layoutStyle.gridTemplateColumns ?? '',
-              parentNode.w,
+          if (parentNode?.kind === 'frame' && sceneScope.authoredNodeIds.has(parentId)) {
+            const parentWorld = getCachedWorldTransform(
+              deps.transformCacheRef.current,
+              doc,
+              parentId,
             );
-            if (cols.length > 0) {
-              layoutGridStep =
-                cols[0]! + (parentNode.layoutStyle.columnGap ?? parentNode.layoutStyle.gap ?? 0);
+            const axisAligned = Math.abs(parentWorld[1]) < 1e-8 && Math.abs(parentWorld[2]) < 1e-8;
+            if (axisAligned) {
+              const authoredGuides = doc.gridSettings?.layoutGrids?.[parentId] ?? [];
+              const guides = Array.isArray(authoredGuides) ? authoredGuides : [authoredGuides];
+              for (const layoutGrid of guides) {
+                if (!layoutGrid.snapEnabled) continue;
+                const geometry = resolveLayoutGuideGeometry(layoutGrid, parentNode.w, parentNode.h);
+                if (!geometry.valid) continue;
+                for (const x of geometry.vertical) {
+                  layoutGridTargets.push({
+                    axis: 'vertical',
+                    position: applyAffine(parentWorld, [x, 0])[0],
+                  });
+                }
+                for (const y of geometry.horizontal) {
+                  layoutGridTargets.push({
+                    axis: 'horizontal',
+                    position: applyAffine(parentWorld, [0, y])[1],
+                  });
+                }
+              }
             }
           }
         }
@@ -423,7 +452,7 @@ export function buildToolContext(
           zoom: s.zoom,
           session: deps.snapSessionRef.current,
           guideTargets,
-          layoutGridStep,
+          layoutGridTargets,
           pixelGridSnap: s.snapEnabled && s.pixelGridSnapEnabled,
         },
       );

@@ -14,7 +14,7 @@ import {
 
 describe('Document Versioning', () => {
   it('uses the native raster-mask schema version', () => {
-    expect(CURRENT_DOCUMENT_VERSION).toBe('2.23');
+    expect(CURRENT_DOCUMENT_VERSION).toBe('2.24');
     expect(SUPPORTED_VERSIONS).toContain('2.4');
   });
   it('migrates email metadata without changing ordinary documents', () => {
@@ -27,7 +27,7 @@ describe('Document Versioning', () => {
       components: {},
       nextId: 1,
     });
-    expect(migrated?.formatVersion).toBe('2.23');
+    expect(migrated?.formatVersion).toBe('2.24');
     expect(migrated?.emailProfile).toBeUndefined();
     expect(migrated?.emailSemantics).toBeUndefined();
   });
@@ -120,8 +120,40 @@ describe('Document Versioning', () => {
       components: {},
       nextId: 1,
     });
-    expect(migrated?.formatVersion).toBe('2.23');
+    expect(migrated?.formatVersion).toBe('2.24');
     expect(migrated?.generativeEdits).toBeUndefined();
+  });
+
+  it('migrates a legacy single layout guide into a per-frame guide array', () => {
+    const migrated = migrateDocument({
+      id: 'layout-v223',
+      name: 'Layout guide fixture',
+      formatVersion: '2.23',
+      gridSettings: {
+        layoutGrids: {
+          frame1: {
+            id: 'legacy-guide',
+            type: 'layout',
+            visible: true,
+            snapEnabled: true,
+            color: '#999',
+            opacity: 0.3,
+            scope: 'frame',
+            frameId: 'frame1',
+            layoutMode: 'columns',
+            columnCount: 4,
+            gutter: 16,
+            margin: [0, 0, 0, 0],
+            alignment: 'stretch',
+          },
+        },
+      },
+    });
+
+    expect(migrated?.formatVersion).toBe('2.24');
+    expect(migrated?.gridSettings).toMatchObject({
+      layoutGrids: { frame1: [{ id: 'legacy-guide' }] },
+    });
   });
 });
 

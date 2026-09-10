@@ -273,8 +273,10 @@ import {
   type SMRuntime,
   type SyncResult,
   initializeDefaultGridSettings as sceneInitializeGridSettings,
+  removeLayoutGrid as sceneRemoveLayoutGrid,
   setDocumentGrid as sceneSetDocumentGrid,
   setIsometricGrid as sceneSetIsometricGrid,
+  setLayoutGrid as sceneSetLayoutGrid,
   scopeForTargets,
   setActivePage as setActivePageDoc,
   setActiveTimeline as setActiveTimelineDoc,
@@ -1306,6 +1308,10 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   bulkSetLayerColor: (ids: NodeId[], color: import('@varve/scene').LayerColor) => void;
   /** B2: set or update the layout style on a frame node. */
   setNodeLayout: (id: NodeId, layout: import('@varve/scene').LayoutStyle | undefined) => void;
+  /** Set or update one authored visual layout guide on a frame. */
+  setLayoutGrid: (frameId: NodeId, grid: import('@varve/scene').LayoutGrid) => void;
+  /** Remove one authored visual layout guide, or all guides on a frame. */
+  removeLayoutGrid: (frameId: NodeId, gridId?: string) => void;
   /** B1: resolve a variable to its current value (throws on missing/cycle). */
   resolveVariable: (nameOrId: string) => VariableValue;
   /** B1: add a new variable to the active session's store. */
@@ -2126,8 +2132,10 @@ function restoreViewportFields(
     gridOverlayMode: v.gridOverlayMode,
     unitType: v.unitType,
     guidesVisible: v.guidesVisible,
-    snapGrid: v.snapGrid,
-    documentGrid: { ...grid, visible: v.gridVisible ?? grid.visible },
+    // Grid geometry and its document-authored visibility come from the
+    // document. View preferences only control transient display modes.
+    snapGrid: grid.spacingX,
+    documentGrid: grid,
     isometricGrid: isoGrid,
   };
 }
@@ -2577,7 +2585,7 @@ export function EditorProvider({
       undoLabel: 'Undo',
       redoLabel: 'Redo',
       snapEnabled: vpDefaults.snapEnabled,
-      snapGrid: vpDefaults.snapGrid,
+      snapGrid: docGrid.spacingX,
       documentGrid: docGrid,
       isometricGrid: isoGrid,
       saveState: 'idle' as const,
@@ -2815,12 +2823,13 @@ export function EditorProvider({
         pixelGridEnabled: vpDefaults.pixelGridEnabled,
         pixelGridSnapEnabled: false,
         dotGridEnabled: vpDefaults.dotGridEnabled ?? false,
-        snapGrid: vpDefaults.snapGrid,
+        snapGrid: newDocGrid.spacingX,
         rulerMode: vpDefaults.rulerMode,
         gridOverlayMode: vpDefaults.gridOverlayMode,
+        layoutGridVisible: vpDefaults.layoutGridVisible ?? false,
         unitType: vpDefaults.unitType,
         guidesVisible: vpDefaults.guidesVisible,
-        documentGrid: { ...newDocGrid, visible: vpDefaults.gridVisible ?? newDocGrid.visible },
+        documentGrid: newDocGrid,
         isometricGrid: createDefaultIsometricGrid(),
         dirty: false,
         // Identity comes only from `meta`; it is never inherited from the
@@ -8309,8 +8318,22 @@ export function EditorProvider({
         persistViewportPrefs({ ...stateRef.current, pixelGridSnapEnabled: v });
       },
       resetGridOrigin: () => {
-        const dg = stateRef.current.documentGrid;
-        updateDoc((doc) => sceneSetDocumentGrid(doc, { ...dg, offsetX: 0, offsetY: 0 }));
+        const current = stateRef.current;
+        const next = sceneSetDocumentGrid(current.document, {
+          ...current.documentGrid,
+          offsetX: 0,
+          offsetY: 0,
+        });
+        if (next === current.document) return;
+        const acceptedGrid = next.gridSettings?.documentGrid;
+        if (!acceptedGrid) return;
+        updateDoc(() => next);
+        patch({ documentGrid: acceptedGrid, snapGrid: acceptedGrid.spacingX });
+        persistViewportPrefs({
+          ...current,
+          documentGrid: acceptedGrid,
+          snapGrid: acceptedGrid.spacingX,
+        });
       },
       setSnapEnabled: (v) => {
         patch({ snapEnabled: v });
@@ -8318,10 +8341,22 @@ export function EditorProvider({
       },
       setSnapGrid: (v) => {
         const clamped = Math.max(1, Math.min(256, Math.round(v)));
-        const nextGrid = { ...stateRef.current.documentGrid, spacingX: clamped, spacingY: clamped };
-        updateDoc((doc) => sceneSetDocumentGrid(doc, nextGrid));
-        patch({ snapGrid: clamped, documentGrid: nextGrid });
-        persistViewportPrefs({ ...stateRef.current, snapGrid: clamped, documentGrid: nextGrid });
+        const current = stateRef.current;
+        const next = sceneSetDocumentGrid(current.document, {
+          ...current.documentGrid,
+          spacingX: clamped,
+          spacingY: clamped,
+        });
+        if (next === current.document) return;
+        const acceptedGrid = next.gridSettings?.documentGrid;
+        if (!acceptedGrid) return;
+        updateDoc(() => next);
+        patch({ snapGrid: acceptedGrid.spacingX, documentGrid: acceptedGrid });
+        persistViewportPrefs({
+          ...current,
+          snapGrid: acceptedGrid.spacingX,
+          documentGrid: acceptedGrid,
+        });
       },
       setDotGridEnabled: (v: boolean) => {
         patch({ dotGridEnabled: v });
@@ -8332,6 +8367,7 @@ export function EditorProvider({
       },
       setLayoutGridVisible: (v: boolean) => {
         patch({ layoutGridVisible: v });
+        persistViewportPrefs({ ...stateRef.current, layoutGridVisible: v });
       },
       setDocumentGrid: (settings) => {
         const grid = {
@@ -8339,9 +8375,18 @@ export function EditorProvider({
           id: settings.id ?? 'grid-document-default',
           type: 'document' as const,
         };
-        updateDoc((doc) => sceneSetDocumentGrid(doc, grid));
-        patch({ documentGrid: grid });
-        persistViewportPrefs({ ...stateRef.current, documentGrid: grid });
+        const current = stateRef.current;
+        const next = sceneSetDocumentGrid(current.document, grid);
+        if (next === current.document) return;
+        const acceptedGrid = next.gridSettings?.documentGrid;
+        if (!acceptedGrid) return;
+        updateDoc(() => next);
+        patch({ documentGrid: acceptedGrid, snapGrid: acceptedGrid.spacingX });
+        persistViewportPrefs({
+          ...current,
+          documentGrid: acceptedGrid,
+          snapGrid: acceptedGrid.spacingX,
+        });
       },
       setIsometricGrid: (grid: import('@varve/scene').IsometricGrid) => {
         const g = { ...grid, id: grid.id ?? 'grid-isometric-default', type: 'isometric' as const };
@@ -8441,6 +8486,15 @@ export function EditorProvider({
           };
           return layout ? reflowLayoutChildren(updated, id) : updated;
         });
+      },
+
+      setLayoutGrid: (frameId, grid) => {
+        if (stateRef.current.document.nodes[frameId]?.kind !== 'frame') return;
+        updateDoc((doc) => sceneSetLayoutGrid(doc, frameId, grid));
+      },
+
+      removeLayoutGrid: (frameId, gridId) => {
+        updateDoc((doc) => sceneRemoveLayoutGrid(doc, frameId, gridId));
       },
 
       setSelectedMinWidth: (value) => {

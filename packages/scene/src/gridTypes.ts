@@ -226,8 +226,8 @@ export type GridDefinition = DocumentGrid | LayoutGrid | BaselineGrid | PixelGri
 export interface DocumentGridSettings {
   /** Active document grid (if any). */
   documentGrid?: DocumentGrid;
-  /** Layout grids keyed by frame ID. */
-  layoutGrids?: Record<string, LayoutGrid>;
+  /** Layout guides keyed by frame ID; each frame may own multiple guides. */
+  layoutGrids?: Record<string, LayoutGrid[]>;
   /** Baseline grids keyed by ID. */
   baselineGrids?: Record<string, BaselineGrid>;
   /** Pixel grid settings (singleton). */
@@ -346,6 +346,7 @@ export function validateDocumentGrid(grid: DocumentGrid): boolean {
     validateGridSubdivisions(grid.subdivisions) &&
     Number.isFinite(grid.offsetX) &&
     Number.isFinite(grid.offsetY) &&
+    (grid.rotation === undefined || Number.isFinite(grid.rotation)) &&
     validateGridOpacity(grid.opacity)
   );
 }
@@ -354,10 +355,20 @@ export function validateDocumentGrid(grid: DocumentGrid): boolean {
  * Validate a layout grid definition.
  */
 export function validateLayoutGrid(grid: LayoutGrid): boolean {
+  const validCount = (value: number | undefined) =>
+    value === undefined || (Number.isInteger(value) && value >= 1 && value <= 100);
+  const validSize = (value: number | undefined) =>
+    value === undefined || (Number.isFinite(value) && value > 0 && value <= 100000);
   return (
+    Number.isFinite(grid.gutter) &&
     grid.gutter >= 0 &&
     grid.gutter <= 1000 &&
-    grid.margin.every((m) => m >= 0 && m <= 1000) &&
+    grid.margin.length === 4 &&
+    grid.margin.every((m) => Number.isFinite(m) && m >= 0 && m <= 1000) &&
+    validCount(grid.columnCount) &&
+    validCount(grid.rowCount) &&
+    validSize(grid.columnWidth) &&
+    validSize(grid.rowHeight) &&
     validateGridOpacity(grid.opacity)
   );
 }
@@ -435,6 +446,18 @@ export function sanitizeGrid(grid: GridDefinition): GridDefinition {
       number,
       number,
     ];
+    if (sanitized.columnCount !== undefined) {
+      sanitized.columnCount = Math.max(1, Math.min(100, Math.round(sanitized.columnCount)));
+    }
+    if (sanitized.rowCount !== undefined) {
+      sanitized.rowCount = Math.max(1, Math.min(100, Math.round(sanitized.rowCount)));
+    }
+    if (sanitized.columnWidth !== undefined) {
+      sanitized.columnWidth = Math.max(1, Math.min(100000, sanitized.columnWidth));
+    }
+    if (sanitized.rowHeight !== undefined) {
+      sanitized.rowHeight = Math.max(1, Math.min(100000, sanitized.rowHeight));
+    }
   } else if (sanitized.type === 'baseline') {
     sanitized.baselineStep = Math.max(1, Math.min(10000, sanitized.baselineStep));
     sanitized.offset = Math.max(-10000, Math.min(10000, sanitized.offset));
