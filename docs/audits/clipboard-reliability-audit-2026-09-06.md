@@ -275,3 +275,6 @@ custom-domain base (8 Playwright tests); inspected evidence is retained under
 Firefox Figma captures, packaged Tauri `.fig` CSP/decompression verification,
 rich-text formatting, paste/drop Import Results UI wiring, and native
 Wayland/WebKitGTK transport and cancellation cleanup.
+
+The final focused rerun covered `clipboard.test.ts`, `context.import.test.tsx`,
+`dropUtils.test.ts`, and `svg.test.ts`: 82 tests passed in 21.39 seconds.
