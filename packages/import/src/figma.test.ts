@@ -215,6 +215,19 @@ describe('Figma JSON importer', () => {
     expect(validateDocument(result.document).valid).toBe(true);
   });
 
+  it('decodes the native archive when dynamic Function construction is unavailable', () => {
+    const originalFunction = globalThis.Function;
+    globalThis.Function = (() => {
+      throw new Error('dynamic code generation is disabled by CSP');
+    }) as unknown as typeof Function;
+    try {
+      const source = decodeFigmaNativeSource(nativeFixture());
+      expect(source.pages[0]?.children[0]?.type).toBe('FRAME');
+    } finally {
+      globalThis.Function = originalFunction;
+    }
+  });
+
   it('reports malformed native archives as a failed import without nodes', () => {
     const data = nativeFixture();
     const endSignature = [0x50, 0x4b, 0x05, 0x06];

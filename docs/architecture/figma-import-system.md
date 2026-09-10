@@ -21,7 +21,7 @@ needed.
 |--------|----------|----------|-------|
 | REST API JSON | Yes | High | Requires Figma access token; export via `GET /v1/files/:key` |
 | Plugin export JSON | Yes | High | Plugin must emit the same `{ document, components, styles, variables, images }` envelope |
-| Native `.fig` archive | Yes, format-version dependent | Converted/format-version dependent | Parsed locally with `openfig-core`; no Figma credentials or network required; packaged Tauri CSP verification remains open |
+| Native `.fig` archive | Yes, format-version dependent | Converted/format-version dependent | Parsed locally with the bounded Kiwi interpreter and `openfig-core` geometry helpers; no Figma credentials or network required; packaged desktop smoke verification remains open |
 | Ordinary Figma Copy clipboard | No claim | Unknown/private | No adapter is enabled without a captured, bounded envelope and external-application evidence |
 | Figma Copy as SVG | Yes, SVG subset | Editable supported subset | Uses the shared bounded SVG parser and Import Report |
 | SVG/PDF fallback | Yes | Low | Handled by existing SVG/PDF parsers; not Figma-specific |
@@ -55,10 +55,12 @@ ImportService / Editor        -- validation, merge, undo
   entry count, declared uncompressed size, entry size, compression ratio, and
   ZIP64 input are bounded or rejected. Parsed node count and graph depth are
   bounded again after decoding.
-- `openfig-core` exposes Figma's decoded flat node graph, child map, paints,
-  effects, text fields, images, and vector geometry. This adapter maps those
-  source concepts into the same IR; it does not make `FigNode` a live Varve
-  document model.
+- The adapter uses `openfig-core`'s node and geometry types, but decodes the
+  schema and message chunks with a bounded Kiwi interpreter. It does not call
+  `kiwi-schema.compileSchema` or generate JavaScript at runtime, so the
+  production Tauri CSP does not need `unsafe-eval`. The resulting flat node
+  graph, child map, paints, effects, text fields, images, and vector geometry
+  enter the same IR; `FigNode` is never treated as a live Varve document model.
 - Limits: 64 MB, 100k nodes, 256 depth, 2M text length.
 - Preserves Figma source IDs as provenance only — never as Varve node IDs.
 - Reports unsupported features (boolean operations, missing image bytes,
@@ -215,9 +217,9 @@ pnpm exec vitest run packages/import/src/figma.test.ts
 These are parser and converter fixtures, not proof of clipboard or packaged
 desktop behavior. Firefox captures for ordinary Copy, Copy as SVG, and Copy as
 PNG must be retained as owned fixtures before any ordinary-copy adapter is
-enabled. The desktop `.fig` route also requires a Tauri CSP smoke run because
-the native decoder's decompression dependencies may have runtime restrictions
-that are invisible in Vitest.
+enabled. The decoder no longer relies on dynamic code generation; a packaged
+Tauri smoke run is still required to verify the WebView's decompression and
+resource limits.
 
 ## Known limitations
 

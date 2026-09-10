@@ -2,14 +2,16 @@
 // normalizes the source's broad node property surface. Keep extraction of field
 // mappers on the backlog if support for additional native schema fields grows.
 
+import { inflateSync, unzipSync } from 'fflate';
+import { decompress as zstdDecompress } from 'fzstd';
 import {
-  type FigDocument,
-  type FigNode,
-  nodeId,
-  parseFig,
-  parseFigBinary,
-  resolveVectorNodePaths,
-} from 'openfig-core';
+  ByteBuffer,
+  type Definition,
+  decodeBinarySchema,
+  type Field,
+  type Schema,
+} from 'kiwi-schema';
+import { type FigDocument, type FigNode, nodeId, resolveVectorNodePaths } from 'openfig-core';
 import type {
   FigmaBounds,
   FigmaEffect,
@@ -26,8 +28,229 @@ const MAX_ARCHIVE_ENTRIES = 4096;
 const MAX_ARCHIVE_UNCOMPRESSED_BYTES = 256 * 1024 * 1024;
 const MAX_ARCHIVE_ENTRY_BYTES = 128 * 1024 * 1024;
 const MAX_ARCHIVE_COMPRESSION_RATIO = 2000;
+const MAX_KIWI_DEPTH = 256;
 
 type RecordValue = Record<string, unknown>;
+
+/**
+ * Decode a Kiwi message without `kiwi-schema.compileSchema`.
+ *
+ * The upstream helper generates a decoder with `new Function`, which is not
+ * available under the production Tauri CSP. The wire format is small and
+ * regular enough to interpret directly from its bounded schema. Keeping this
+ * interpreter here also makes the native decoder independent of dynamic code
+ * generation in browsers and WebKitGTK.
+ */
+function createBoundedKiwiDecoder(schema: Schema): (data: Uint8Array) => RecordValue {
+  const definitions = new Map(
+    schema.definitions.map((definition) => [definition.name, definition]),
+  );
+  const enumValues = new Map<string, Map<number, string>>();
+  for (const definition of schema.definitions) {
+    if (definition.kind === 'ENUM') {
+      enumValues.set(
+        definition.name,
+        new Map(definition.fields.map((field) => [field.value, field.name])),
+      );
+    }
+  }
+
+  const decodePrimitive = (type: string, reader: ByteBuffer): unknown => {
+    switch (type) {
+      case 'bool':
+        return reader.readByte() !== 0;
+      case 'byte':
+        return reader.readByte();
+      case 'int':
+        return reader.readVarInt();
+      case 'uint':
+        return reader.readVarUint();
+      case 'float':
+        return reader.readVarFloat();
+      case 'string':
+        return reader.readString();
+      case 'int64':
+        return reader.readVarInt64();
+      case 'uint64':
+        return reader.readVarUint64();
+      default:
+        return undefined;
+    }
+  };
+
+  const decodeDefinition = (definition: Definition, reader: ByteBuffer, depth: number): unknown => {
+    if (depth > MAX_KIWI_DEPTH)
+      throw new Error(`Native .fig schema nesting exceeds ${MAX_KIWI_DEPTH}`);
+    const result: RecordValue = {};
+    const fields = new Map(definition.fields.map((field) => [field.value, field]));
+    const readField = (field: Field): unknown => {
+      if (field.isArray && field.type === 'byte') return reader.readByteArray();
+      if (field.isArray) {
+        const length = reader.readVarUint();
+        const values = new Array<unknown>(length);
+        for (let index = 0; index < length; index += 1) {
+          values[index] = decodeFieldValue(
+            field,
+            reader,
+            decodePrimitive,
+            enumValues,
+            definitions,
+            decodeDefinition,
+            depth,
+          );
+        }
+        return values;
+      }
+      return decodeFieldValue(
+        field,
+        reader,
+        decodePrimitive,
+        enumValues,
+        definitions,
+        decodeDefinition,
+        depth,
+      );
+    };
+    if (definition.kind === 'MESSAGE') {
+      while (true) {
+        const tag = reader.readVarUint();
+        if (tag === 0) return result;
+        const field = fields.get(tag);
+        if (!field) throw new Error(`Native .fig message contains unknown field ${tag}`);
+        const value = readField(field);
+        if (!field.isDeprecated) result[field.name] = value;
+      }
+    }
+    for (const field of definition.fields) {
+      const value = readField(field);
+      if (!field.isDeprecated) result[field.name] = value;
+    }
+    return result;
+  };
+
+  const messageDefinition =
+    schema.definitions.find(
+      (definition) => definition.kind === 'MESSAGE' && definition.name === 'Message',
+    ) ??
+    schema.definitions.find(
+      (definition) =>
+        definition.kind === 'MESSAGE' && definition.name.toLowerCase().includes('document'),
+    );
+  return (data: Uint8Array): RecordValue => {
+    if (!messageDefinition || messageDefinition.kind !== 'MESSAGE') {
+      throw new Error('Native .fig schema does not contain a document message');
+    }
+    const reader = new ByteBuffer(data);
+    return decodeDefinition(messageDefinition, reader, 0) as RecordValue;
+  };
+}
+
+function decodeFieldValue(
+  field: Field,
+  reader: ByteBuffer,
+  decodePrimitive: (type: string, reader: ByteBuffer) => unknown,
+  enumValues: Map<string, Map<number, string>>,
+  definitions: Map<string, Definition>,
+  decodeDefinition: (definition: Definition, reader: ByteBuffer, depth: number) => unknown,
+  depth: number,
+): unknown {
+  if (!field.type) throw new Error(`Native .fig schema field ${field.name} has no type`);
+  const primitive = decodePrimitive(field.type, reader);
+  if (
+    primitive !== undefined ||
+    ['bool', 'byte', 'int', 'uint', 'float', 'string', 'int64', 'uint64'].includes(field.type)
+  )
+    return primitive;
+  const enumMap = enumValues.get(field.type);
+  if (enumMap) return enumMap.get(reader.readVarUint());
+  const nested = definitions.get(field.type);
+  if (!nested || nested.kind === 'ENUM')
+    throw new Error(`Native .fig schema type ${field.type} is invalid`);
+  return decodeDefinition(nested, reader, depth + 1);
+}
+
+function parseBoundedFigBinary(data: Uint8Array): FigDocument {
+  if (data.byteLength < 12) throw new Error('Native .fig binary is truncated');
+  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  const prelude = String.fromCharCode(...data.subarray(0, 8));
+  if (!prelude.startsWith('fig-')) throw new Error(`Unknown prelude: ${prelude}`);
+  const version = view.getUint32(8, true);
+  const chunks: Uint8Array[] = [];
+  let offset = 12;
+  while (offset < data.byteLength) {
+    if (offset + 4 > data.byteLength)
+      throw new Error('Native .fig binary has a truncated chunk header');
+    const length = view.getUint32(offset, true);
+    offset += 4;
+    if (length > data.byteLength - offset)
+      throw new Error('Native .fig binary chunk exceeds the input');
+    chunks.push(data.subarray(offset, offset + length));
+    offset += length;
+  }
+  if (chunks.length < 2)
+    throw new Error('Native .fig binary is missing its schema or message chunk');
+  const schema = decodeBinarySchema(inflateSync(chunks[0]!)) as Schema;
+  const decodeMessage = createBoundedKiwiDecoder(schema);
+  const messageBytes =
+    chunks[1]![0] === 0x28 &&
+    chunks[1]![1] === 0xb5 &&
+    chunks[1]![2] === 0x2f &&
+    chunks[1]![3] === 0xfd
+      ? zstdDecompress(chunks[1]!)
+      : inflateSync(chunks[1]!);
+  const message = decodeMessage(messageBytes);
+  const nodes = Array.isArray(message.nodeChanges) ? (message.nodeChanges as FigNode[]) : [];
+  const nodeMap = new Map<string, FigNode>();
+  const childrenMap = new Map<string, FigNode[]>();
+  for (const node of nodes) {
+    const id = nodeId(node);
+    if (id) nodeMap.set(id, node);
+  }
+  for (const node of nodes) {
+    const parent = asRecord(node.parentIndex).guid;
+    const parentId =
+      parent && typeof parent === 'object' ? nodeId({ guid: parent } as unknown as FigNode) : null;
+    if (!parentId) continue;
+    const children = childrenMap.get(parentId) ?? [];
+    children.push(node);
+    childrenMap.set(parentId, children);
+  }
+  return {
+    header: { prelude: prelude.trim(), version },
+    nodes,
+    nodeMap,
+    childrenMap,
+    schema,
+    compiledSchema: { decodeMessage },
+    rawChunks: chunks,
+    message,
+    images: new Map(),
+  };
+}
+
+function parseBoundedFig(data: Uint8Array): FigDocument {
+  if (data[0] === 0x66) return parseBoundedFigBinary(data);
+  assertSafeArchive(data);
+  const unzipped = unzipSync(data);
+  const canvasKey = Object.keys(unzipped).find((key) => key.endsWith('canvas.fig'));
+  if (!canvasKey) throw new Error('Native .fig archive does not contain canvas.fig');
+  const document = parseBoundedFigBinary(unzipped[canvasKey]!);
+  const metaKey = Object.keys(unzipped).find((key) => key.endsWith('meta.json'));
+  if (metaKey) {
+    try {
+      document.meta = JSON.parse(new TextDecoder().decode(unzipped[metaKey]));
+    } catch {
+      /* optional metadata */
+    }
+  }
+  const thumbnailKey = Object.keys(unzipped).find((key) => key.endsWith('thumbnail.png'));
+  if (thumbnailKey) document.thumbnail = unzipped[thumbnailKey];
+  for (const [key, bytes] of Object.entries(unzipped)) {
+    if (key.includes('images/') && key !== 'images/')
+      document.images.set(key.split('/').pop()!, bytes);
+  }
+  return document;
+}
 
 function asRecord(value: unknown): RecordValue {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -663,7 +886,7 @@ export function decodeFigmaNativeSource(data: Uint8Array): FigmaSourceDocument {
     throw new Error(`Native .fig file exceeds the ${FIGMA_IMPORT_LIMITS.maxBytes} byte limit`);
   if (!isFigmaNativeSource(data)) throw new Error('Source is not a native .fig binary');
   if (data[0] === 0x50) assertSafeArchive(data);
-  const document = data[0] === 0x66 ? parseFigBinary(data) : parseFig(data);
+  const document = parseBoundedFig(data);
   if (document.nodes.length > FIGMA_IMPORT_LIMITS.maxNodes)
     throw new Error(`Native .fig file exceeds the ${FIGMA_IMPORT_LIMITS.maxNodes} node limit`);
 

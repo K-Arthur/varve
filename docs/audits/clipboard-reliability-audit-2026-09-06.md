@@ -354,3 +354,33 @@ explicit `tests/wdio/clipboard-wayland.e2e.ts` lane and real Firefox ownership
 transfer remain environment-dependent and were not inferred from these unit
 tests. CLIP-22 remains open until packaged `.fig` decoding is verified under
 the production Tauri CSP without dynamic schema compilation.
+
+
+### Native decoder update — 2026-09-10
+
+CLIP-14 is resolved for the browser/native decoder implementation. The
+previous path delegated Kiwi schema decoding to `kiwi-schema.compileSchema`,
+which constructs a decoder with `new Function` and is incompatible with the
+production Tauri CSP. `packages/import/src/figma/native.ts` now bounds schema
+nesting and interprets the schema/message wire format directly, while keeping
+`openfig-core` only for node identifiers and reusable vector geometry helpers.
+The checked-in `OpenFigs.fig` fixture still converts to editable nodes, and a
+regression disables `globalThis.Function` during decoding to prove the route
+does not depend on dynamic code generation.
+
+Evidence:
+
+```text
+./node_modules/.bin/tsc -p packages/import/tsconfig.json --noEmit --pretty false
+passed
+VARVE_TEST_WORKERS=1 ./node_modules/.bin/vitest run packages/import/src/figma.test.ts packages/import/src/service.test.ts --maxWorkers=1 --reporter=dot
+22 tests passed
+pnpm build:website
+84 pages built
+```
+
+CLIP-14 remains externally unverified only for the packaged Tauri WebView's
+actual decompression/resource behavior. CLIP-13 (owned Firefox Figma clipboard
+captures) and CLIP-15 (Wayland native transport/cancellation lane) remain open;
+ordinary Figma Copy is still unsupported and no private envelope is inferred
+from the native file fixture.

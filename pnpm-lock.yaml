@@ -471,6 +471,12 @@ importers:
       fflate:
         specifier: ^0.8.3
         version: 0.8.3
+      fzstd:
+        specifier: ^0.1.1
+        version: 0.1.1
+      kiwi-schema:
+        specifier: ^0.5.0
+        version: 0.5.0
       openfig-core:
         specifier: 0.4.1
         version: 0.4.1
