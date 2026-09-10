@@ -5202,3 +5202,154 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Quick properties -------------------------------------------------------
+ * A compact, semantic summary for the properties people adjust most often.
+ * The groups are separated by quiet rules and reuse the same FieldRow and
+ * NumberField primitives as the canonical sections; no decorative cards or
+ * duplicate input implementation is needed. */
+.insp-quick-bar {
+  container-type: inline-size;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-default);
+}
+
+.insp-quick-bar__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-width: 0;
+  margin-block-end: var(--space-2);
+}
+
+.insp-quick-bar__title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  color: var(--color-text-primary);
+}
+
+.insp-quick-bar__heading h2 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.insp-quick-bar__meta {
+  flex: 0 0 auto;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.insp-quick-bar__groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.insp-quick-bar__group {
+  min-inline-size: 0;
+  margin: 0;
+  padding: var(--space-2) 0 0;
+  border: 0;
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.insp-quick-bar__group legend {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-1) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.insp-quick-bar__fields {
+  min-width: 0;
+  margin-block-start: var(--space-1);
+}
+
+.insp-quick-bar__fields > .insp-field {
+  min-width: 0;
+  grid-template-columns: minmax(0, 2.4rem) minmax(0, 1fr);
+}
+
+.insp-quick-bar__fields .insp-field__label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.insp-quick-bar__fields .insp-num__input {
+  height: var(--space-6);
+  padding-inline: 0;
+  border-color: transparent;
+  border-bottom-color: var(--color-border-subtle);
+  border-radius: 0;
+  background: transparent;
+}
+
+.insp-quick-bar__fields .insp-num__input:hover {
+  border-bottom-color: var(--color-border-strong);
+}
+
+.insp-quick-bar__fields .insp-num__input:focus-visible {
+  border-color: var(--color-border-focus);
+  border-radius: var(--radius-control-compact);
+}
+
+.insp-quick-bar__fill-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.insp-quick-bar__fill-control .insp-swatch {
+  flex: 0 0 auto;
+  width: var(--space-6);
+  height: var(--space-6);
+  min-width: var(--space-6);
+  min-height: var(--space-6);
+}
+
+.insp-quick-bar__fill-summary {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.insp-quick-bar__hint {
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+}
+
+@container (max-width: 15rem) {
+  .insp-quick-bar {
+    padding-inline: var(--space-2);
+  }
+
+  .insp-quick-bar__fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .insp-quick-bar__fields > .insp-field {
+    grid-template-columns: minmax(0, 2.8rem) minmax(0, 1fr);
+  }
+}
