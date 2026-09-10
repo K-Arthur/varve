@@ -18,9 +18,11 @@ contains container flow, signed flex spacing, padding, distribution, and grid
 tracks. Fills, strokes, effects, typography, images, components, tables, and
 export each have one owner and one stable row identity.
 
-The inspector has no duplicate Quick properties strip. Appearance owns opacity
-and blend mode, Fills owns paint rows, and effect parameters open in a focused
-anchored editor while secondary effect actions live in the row menu.
+Quick properties is a compact, non-owning summary for single selection. It
+routes edits through the same commands as Position & Size, Appearance, and
+Fills, which remain the canonical owners for persistence, bindings, and
+history. Effect parameters open in a focused anchored editor while secondary
+effect actions live in the row menu.
 
 The scene model retains authored sizing mode and percentage fields. Fixed
 constraints remain serialised but inactive; Hug measures occupied content;

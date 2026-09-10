@@ -69,10 +69,11 @@ results are verification gaps, not inferred support.
 
 ## Inspector visual refinement — 2026-09-09
 
-The follow-up visual pass keeps the accepted ownership contract and removes the
-duplicate single-selection Quick properties strip. Position & Size is the sole
-owner of geometry; Appearance displays opacity as a percentage while storing
-the existing 0–1 value; Stack / Grid is the visible frame-flow owner.
+The follow-up visual pass keeps the accepted ownership contract and refines the
+single-selection Quick properties strip as a non-owning summary. Position & Size
+remains the canonical owner of geometry; Appearance displays opacity as a
+percentage while storing the existing 0–1 value; Stack / Grid is the visible
+frame-flow owner.
 
 Paint and effect sections are composed through the section registry instead of
 being appended as a second appearance surface. Effect rows now reserve stable

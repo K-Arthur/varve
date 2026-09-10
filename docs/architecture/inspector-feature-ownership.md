@@ -9,10 +9,10 @@ test suite.
 
 Single selection uses the canonical sections directly. Position & Size owns
 X, Y, W, H, rotation, and sizing controls; Appearance owns opacity and blend
-mode; Fills owns paint rows and the primary color editor. There is no second
-Quick properties strip, so each commonly edited value has one visible owner
-and one undo/binding path. Empty and mixed selections retain their existing
-selection-aware section semantics.
+mode; Fills owns paint rows and the primary color editor. Quick properties is
+a compact summary for high-frequency edits, with every field routed to those
+same owners and undo/binding paths. Empty and mixed selections retain their
+existing selection-aware section semantics.
 
 ## Canonical Design composition
 
