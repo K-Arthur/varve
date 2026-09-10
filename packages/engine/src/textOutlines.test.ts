@@ -1,34 +1,14 @@
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { glyphOutlineToSvgPath, textOutlinesToSvg, textToOutlines } from './textOutlines';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const wawoff2: { decompress: (data: Uint8Array) => Promise<Uint8Array> } = require('wawoff2');
 
-const PROJECT_ROOT = process.cwd();
-
-/**
- * Resolve the Geist variable font from the installed store instead of
- * hardcoding a version in the .pnpm path: the lockfile moves between
- * releases (5.2.9 -> 5.3.0) and a hardcoded version breaks the release
- * gate's fresh `pnpm install --frozen-lockfile` while passing on a dev
- * machine with a stale leftover directory.
- */
-function resolveGeistPath(): string {
-  const { execSync } = require('node:child_process') as typeof import('node:child_process');
-  const resolved = execSync(
-    'node -e "console.log(require.resolve(\'@fontsource-variable/geist/package.json\'))"',
-    {
-      encoding: 'utf8',
-      cwd: PROJECT_ROOT,
-    },
-  ).trim();
-  const pkgDir = join(resolved, '..');
-  return join(pkgDir, 'files', 'geist-latin-wght-normal.woff2');
-}
-
-const GEIST_PATH = resolveGeistPath();
+const GEIST_PATH = new URL(
+  './font/__fixtures__/geist/geist-latin-wght-normal.woff2',
+  import.meta.url,
+);
 
 async function loadFontData(): Promise<ArrayBuffer> {
   const woff2 = readFileSync(GEIST_PATH);
@@ -36,6 +16,36 @@ async function loadFontData(): Promise<ArrayBuffer> {
   const copy = new Uint8Array(decompressed.length);
   copy.set(decompressed);
   return copy.buffer;
+}
+
+/** Synthetic policy variants of the licensed fixture; original bytes stay unchanged. */
+function withEmbeddingFlags(original: ArrayBuffer, fsType: number, version: number): ArrayBuffer {
+  const data = original.slice(0);
+  const view = new DataView(data);
+  let headOffset = 0;
+  for (let i = 0; i < view.getUint16(4); i++) {
+    const record = 12 + i * 16;
+    const tag = view.getUint32(record);
+    const offset = view.getUint32(record + 8);
+    const length = view.getUint32(record + 12);
+    if (tag === 0x68656164) headOffset = offset;
+    if (tag !== 0x4f532f32) continue;
+    view.setUint16(offset, version);
+    view.setUint16(offset + 8, fsType);
+    view.setUint32(record + 4, checksum(data.slice(offset, offset + length)));
+  }
+  view.setUint32(headOffset + 8, 0);
+  view.setUint32(headOffset + 8, (0xb1b0afba - checksum(data)) >>> 0);
+  return data;
+}
+
+function checksum(data: ArrayBuffer): number {
+  const padded = new Uint8Array((data.byteLength + 3) & ~3);
+  padded.set(new Uint8Array(data));
+  const view = new DataView(padded.buffer);
+  let value = 0;
+  for (let i = 0; i < padded.byteLength; i += 4) value = (value + view.getUint32(i)) >>> 0;
+  return value;
 }
 
 describe('textToOutlines — placeholder path (no fontData)', () => {
@@ -243,6 +253,49 @@ describe('textToOutlines — compound paths (rings)', () => {
 });
 
 describe('textToOutlines — warnings and metadata', () => {
+  it('reports bitmap-only and restricted base flags independently', async () => {
+    const fontData = withEmbeddingFlags(await loadFontData(), 0x0302, 4);
+    const result = textToOutlines('A', { fontSize: 16, fontFamily: 'Geist', fontData });
+    expect(result.restrictedEmbedding).toBe(true);
+    expect(result.warnings).toContain(
+      'Font metadata has bitmap-only embedding set. Check the source license before outlining.',
+    );
+    expect(result.warnings).toContain(
+      'Font metadata declares restricted embedding. Check the source license before outlining.',
+    );
+  });
+
+  it.each([0x000e, 0x0001, 0x0040])(
+    'reports malformed modern fsType=%i as unknown',
+    async (flags) => {
+      const fontData = withEmbeddingFlags(await loadFontData(), flags, 4);
+      const result = textToOutlines('A', { fontSize: 16, fontFamily: 'Geist', fontData });
+      expect(result.warnings).toContain(
+        'Font embedding permissions could not be determined. Check the source license before outlining.',
+      );
+    },
+  );
+
+  it.each([
+    [4, 0x0002, true],
+    [4, 0x0102, true],
+    [4, 0x0004, true],
+    [4, 0x0108, false],
+    [4, 0x0208, true],
+    [0, 0x0208, false],
+    [1, 0x0208, false],
+    [2, 0x000e, false],
+  ] as const)(
+    'reads OS/2 v%i fsType=%i without losing base restrictions',
+    async (version, flags, restricted) => {
+      const fontData = withEmbeddingFlags(await loadFontData(), flags, version);
+      const result = textToOutlines('A', { fontSize: 16, fontFamily: 'Geist', fontData });
+      expect(result.isPlaceholder).toBe(false);
+      expect(result.restrictedEmbedding).toBe(restricted);
+      expect(result.warnings.length > 0).toBe(restricted);
+    },
+  );
+
   it('returns warnings array for placeholder outlines', () => {
     const result = textToOutlines('A', {
       fontSize: 16,

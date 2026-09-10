@@ -72,6 +72,14 @@ change invalidates the appropriate paragraph/story scope.
 
 ## Backend strategy
 
+The legacy `textOutlines` adapter reads embedding diagnostics from opentype.js's
+`tables.os2` metadata. It preserves the base restriction when no-subsetting is
+set, reports bitmap-only separately, and treats malformed modern flags as
+unknown. These flags do not establish source-license permission, and the
+adapter's warnings are not yet a shared export enforcement policy. Its tests
+use the checked-in licensed Geist artifact; synthetic flag variants are
+created only in memory. See the [diagnostic repair evidence](../audits/font-outlining-policy-evidence-2026-09-10.md).
+
 * Native desktop shaping uses the existing `rustybuzz` implementation over
   validated font bytes.
 * Web/WASM shaping uses the existing `harfbuzzjs` dependency behind the same

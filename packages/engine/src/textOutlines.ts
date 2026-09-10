@@ -236,12 +236,26 @@ function extractWithOpentype(
 
   // Check embedding rights
   const embeddingRights = getEmbeddingRights(font);
+  const os2 = font.tables.os2;
+  const bitmapOnly =
+    os2?.version !== undefined &&
+    os2.version >= 2 &&
+    os2.version <= 5 &&
+    ((os2.fsType ?? 0) & 0x0200) !== 0;
   const restrictedEmbedding =
-    embeddingRights === 'restricted' || embeddingRights === 'preview-and-print';
-  if (restrictedEmbedding) {
+    bitmapOnly || embeddingRights === 'restricted' || embeddingRights === 'preview-and-print';
+  if (bitmapOnly) {
     warnings.push(
-      `Font embedding rights (fsType=${embeddingRights}) may restrict outlining. ` +
-        'Proceed with caution; redistribution may require a license.',
+      'Font metadata has bitmap-only embedding set. Check the source license before outlining.',
+    );
+  }
+  if (embeddingRights === 'restricted' || embeddingRights === 'preview-and-print') {
+    warnings.push(
+      `Font metadata declares ${embeddingRights} embedding. Check the source license before outlining.`,
+    );
+  } else if (embeddingRights === 'unknown') {
+    warnings.push(
+      'Font embedding permissions could not be determined. Check the source license before outlining.',
     );
   }
 
@@ -331,7 +345,7 @@ function parseOpentypeFont(data: ArrayBuffer) {
       get: () => Record<string, number>;
     };
     tables: {
-      OS2?: { fsType?: number };
+      os2?: { fsType?: number; version?: number };
       COLR?: unknown;
       CPAL?: unknown;
       SVG?: unknown;
@@ -354,15 +368,19 @@ function isVariableFont(font: ReturnType<typeof parseOpentypeFont>): boolean {
 
 /** Extract fsType embedding rights from the OS/2 table. */
 function getEmbeddingRights(font: ReturnType<typeof parseOpentypeFont>): EmbeddingRestriction {
-  const fsType = font.tables.OS2?.fsType;
-  if (fsType === undefined) return 'unknown';
-  const embeddingBits = fsType & 0x000c;
-  const noSubsetting = (fsType & 0x0100) !== 0;
-  if (noSubsetting) return 'no-subsetting';
-  if (embeddingBits === 0) return 'installable';
-  if (embeddingBits === 0x0004) return 'preview-and-print';
-  if (embeddingBits === 0x0008) return 'editable';
-  return 'restricted';
+  const { fsType, version } = font.tables.os2 ?? {};
+  if (fsType === undefined || version === undefined || version > 5 || (fsType & 0x0001) !== 0) {
+    return 'unknown';
+  }
+  const embeddingBits = fsType & 0x000e;
+  // Versions 0–2 permit least-restrictive precedence. Later versions require
+  // mutually exclusive base bits. No-subsetting is independent of this base.
+  if (version >= 3 && (embeddingBits & (embeddingBits - 1)) !== 0) return 'unknown';
+  if (version >= 2 && (fsType & 0xfcf0) !== 0) return 'unknown';
+  if ((embeddingBits & 0x0008) !== 0) return 'editable';
+  if ((embeddingBits & 0x0004) !== 0) return 'preview-and-print';
+  if ((embeddingBits & 0x0002) !== 0) return 'restricted';
+  return 'installable';
 }
 
 /**
