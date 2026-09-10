@@ -25,6 +25,7 @@ function defaultPrompt(mode: GenerativeEditMode): string {
 }
 
 function nativeFailure(error: unknown): GenerativeEditError {
+  if (error instanceof GenerativeEditError) return error;
   const message = error instanceof Error ? error.message : String(error);
   const normalized = message.toLowerCase();
   if (normalized.includes('cancel')) return new GenerativeEditError('cancelled', message);
@@ -69,28 +70,40 @@ export const nativeGenerativeProvider = {
     const cancel = () => {
       void invoke('cancel_generative_edit', { requestId });
     };
-    request.signal?.addEventListener('abort', cancel, { once: true });
+    let rejectOnAbort: ((reason: GenerativeEditError) => void) | null = null;
+    const abort = () => {
+      cancel();
+      rejectOnAbort?.(new GenerativeEditError('cancelled', 'cancelled'));
+    };
+    request.signal?.addEventListener('abort', abort, { once: true });
     try {
-      const raw = await invoke<NativeGenerativeResponse>('generative_edit', {
-        options: {
-          request_id: requestId,
-          model_handle: request.modelHandle,
-          image_data: Array.from(request.imageData.data),
-          image_w: request.imageData.width,
-          image_h: request.imageData.height,
-          mask: Array.from(request.mask),
-          mask_w: request.maskWidth,
-          mask_h: request.maskHeight,
-          mode: request.mode,
-          prompt: request.prompt?.trim() || defaultPrompt(request.mode),
-          negative_prompt: request.negativePrompt ?? '',
-          output_w: request.outputWidth ?? request.imageData.width,
-          output_h: request.outputHeight ?? request.imageData.height,
-          steps: request.steps ?? (request.quality === 'draft' ? 12 : 24),
-          guidance_scale: request.guidanceScale ?? 7,
-          seed: request.seed ?? -1,
-          strength: request.strength ?? (request.mode === 'replace' ? 0.85 : 0.75),
-        },
+      const raw = await new Promise<NativeGenerativeResponse>((resolve, reject) => {
+        rejectOnAbort = reject;
+        if (request.signal?.aborted) {
+          abort();
+          return;
+        }
+        void invoke<NativeGenerativeResponse>('generative_edit', {
+          options: {
+            request_id: requestId,
+            model_handle: request.modelHandle,
+            image_data: Array.from(request.imageData.data),
+            image_w: request.imageData.width,
+            image_h: request.imageData.height,
+            mask: Array.from(request.mask),
+            mask_w: request.maskWidth,
+            mask_h: request.maskHeight,
+            mode: request.mode,
+            prompt: request.prompt?.trim() || defaultPrompt(request.mode),
+            negative_prompt: request.negativePrompt ?? '',
+            output_w: request.outputWidth ?? request.imageData.width,
+            output_h: request.outputHeight ?? request.imageData.height,
+            steps: request.steps ?? (request.quality === 'draft' ? 12 : 24),
+            guidance_scale: request.guidanceScale ?? 7,
+            seed: request.seed ?? -1,
+            strength: request.strength ?? (request.mode === 'replace' ? 0.85 : 0.75),
+          },
+        }).then(resolve, reject);
       });
       if (request.signal?.aborted) throw new Error('cancelled');
       if (!raw?.png_base64) throw new Error('Native generation returned no image');
@@ -114,7 +127,8 @@ export const nativeGenerativeProvider = {
       if (request.signal?.aborted) throw new GenerativeEditError('cancelled', 'cancelled');
       throw nativeFailure(error);
     } finally {
-      request.signal?.removeEventListener('abort', cancel);
+      rejectOnAbort = null;
+      request.signal?.removeEventListener('abort', abort);
     }
   },
 };

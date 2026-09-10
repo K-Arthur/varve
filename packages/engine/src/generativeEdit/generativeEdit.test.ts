@@ -128,4 +128,13 @@ describe('GenerativeJobController', () => {
     expect(error).toBeInstanceOf(Error);
     expect(error.code).toBe('unsupported-mode');
   });
+
+  it('records explanatory cancellation errors as cancelled state', () => {
+    const jobs = new GenerativeJobController();
+    const token = jobs.start(1);
+    expect(
+      jobs.fail(token, new GenerativeEditError('cancelled', 'The native helper was stopped.')),
+    ).toBe(true);
+    expect(jobs.getState()).toMatchObject({ status: 'cancelled', error: expect.any(Error) });
+  });
 });

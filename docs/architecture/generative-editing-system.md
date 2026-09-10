@@ -99,6 +99,13 @@ deleted-target, or closed-document result is discarded. Previewing or changing
 the active variation is transient. Accepting is one undoable transaction; redo
 reuses the embedded result asset.
 
+Native cancellation has two coordinated parts. The renderer races the native
+invocation against its `AbortSignal`, so the dialog acknowledges cancellation
+immediately even if an IPC future has not resolved. The desktop command keeps a
+cancellation tombstone, kills the supervised helper, and checks that tombstone
+before and after process registration and before reading output. Consequently a
+late helper response cannot turn a cancelled request into an accepted candidate.
+
 ## Mask and coordinate contract
 
 The analytical selection is document-space and camera-aware. The model mask is

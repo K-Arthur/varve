@@ -63,5 +63,10 @@ Weights are not stored in the repository or in portable documents.
   warm timings, cancellation latency, and package-level reopening evidence
   remain outstanding.
 
+The renderer-side cancellation race is covered by the native-provider unit
+lane: abort rejects the active request immediately and forwards the opaque
+request id to the desktop cancellation command. Desktop helper termination and
+cross-platform latency measurements still require native package evidence.
+
 This ledger deliberately records gaps rather than converting an enabled
 control or a passing mock into a capability claim.
