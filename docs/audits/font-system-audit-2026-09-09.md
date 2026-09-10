@@ -17,8 +17,8 @@ files as well as the repository fixtures.
 | Coverage | Format-4 `endCode`/`startCode` and reserved padding were confused; format 12 was absent. | Corrected in the parser slice. |
 | OpenType features | GSUB/GPOS parsed layout-header bytes as feature records. | Corrected in the parser slice; real feature tags now appear. |
 | Face identity | Family, weight, and style projections could collapse collection members. | Collection index is now part of the canonical key and equality check. |
-| Worker rendering | Dynamically registered bytes were not transferred to the render worker. | Follow-up rendering slice: brokered asset snapshots and synchronous admission. |
-| Package export | A manifest could report a bundled font without a corresponding package entry. | Follow-up export slice: report success only after verified bytes are written. |
+| Worker rendering | Dynamically registered bytes were not transferred to the render worker. | Byte-backed loads now publish a local blob-backed `@font-face` bridge for stylesheet harvesting; synchronous family admission remains the fallback when adoption is pending. |
+| Package export | A manifest could report a bundled font without a corresponding package entry. | Package export now resolves exact bytes before setting `bundled` and writes the corresponding `fonts/` entry; unavailable bytes are reported explicitly. |
 | Image identification | The UI analyzed the complete image and applied candidates to the current text selection even when the selected node was an image. | Follow-up crop/target slice, with optional local OCR. |
 
 The parser work follows the OpenType [name table](https://learn.microsoft.com/en-us/typography/opentype/spec/name), [font-file and collection](https://learn.microsoft.com/en-us/typography/opentype/spec/otff#ttc-header), and [cmap](https://learn.microsoft.com/en-us/typography/opentype/spec/cmap) structures. Embedding permissions remain a separate policy concern; `fsType` does not establish a complete license grant.

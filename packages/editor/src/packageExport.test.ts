@@ -45,8 +45,8 @@ function readJson<T>(entries: Record<string, Uint8Array>, path: string): T {
 }
 
 describe('buildPackageExport', () => {
-  it('creates a ZIP package with document, manifest, tokens, report, assets, and font notes', () => {
-    const result = buildPackageExport(docWithAssetsAndFonts());
+  it('creates a ZIP package with document, manifest, tokens, report, assets, and font notes', async () => {
+    const result = await buildPackageExport(docWithAssetsAndFonts());
     const entries = unzipSync(result.bytes);
 
     expect(result.fileName).toBe('Package Doc.varve-package.zip');
@@ -71,7 +71,7 @@ describe('buildPackageExport', () => {
     });
   });
 
-  it('includes raster mask assets in the package', () => {
+  it('includes raster mask assets in the package', async () => {
     const maskDataUrl =
       'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPj/HwADBwIAMCbHYQAAAABJRU5ErkJggg==';
     const maskAsset: RasterMaskAsset = {
@@ -86,7 +86,7 @@ describe('buildPackageExport', () => {
       ...createDocument('MaskDoc', true),
       rasterMaskAssets: { 'mask-img-1': maskAsset },
     };
-    const result = buildPackageExport(doc);
+    const result = await buildPackageExport(doc);
     const entries = unzipSync(result.bytes);
 
     // The mask asset should be stored in the masks/ directory

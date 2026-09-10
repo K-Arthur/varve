@@ -102,6 +102,7 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
 
         <Select
           label="Font weight"
+          className="floating-text-bar__weight-select"
           value={String(node.fontWeight ?? 400)}
           options={FONT_WEIGHTS.map((w) => ({ value: String(w), label: String(w) }))}
           onChange={(v) => handleFontWeightChange(v)}
@@ -144,17 +145,19 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
 
         <div className="floating-text-bar__separator" />
 
-        <SegmentedControl
-          label="Text alignment"
-          value={textAlign}
-          options={[
-            { value: 'left', label: 'Left', icon: 'TextAlignStart' },
-            { value: 'center', label: 'Center', icon: 'TextAlignCenter' },
-            { value: 'right', label: 'Right', icon: 'TextAlignEnd' },
-            { value: 'justify', label: 'Justify', icon: 'TextAlignJustify' },
-          ]}
-          onChange={handleAlignChange}
-        />
+        <div className="floating-text-bar__alignment">
+          <SegmentedControl
+            label="Text alignment"
+            value={textAlign}
+            options={[
+              { value: 'left', label: 'Left', icon: 'TextAlignStart' },
+              { value: 'center', label: 'Center', icon: 'TextAlignCenter' },
+              { value: 'right', label: 'Right', icon: 'TextAlignEnd' },
+              { value: 'justify', label: 'Justify', icon: 'TextAlignJustify' },
+            ]}
+            onChange={handleAlignChange}
+          />
+        </div>
 
         <div className="floating-text-bar__separator" />
 

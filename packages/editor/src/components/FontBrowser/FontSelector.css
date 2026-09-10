@@ -13,8 +13,8 @@
 /* The floating toolbar is a constrained flex row. Keep the family control
    readable instead of allowing flex-shrink to collapse it to a few pixels. */
 .floating-text-bar .font-selector {
-  flex: 1 1 180px;
-  min-width: 140px;
+  flex: 0 1 220px;
+  min-width: min(220px, 100%);
 }
 
 /* ---------- Label ---------- */
@@ -223,6 +223,33 @@
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
+}
+
+/* ---------- Floating text toolbar compact mode ---------- */
+
+.floating-text-bar .font-selector__label {
+  display: none;
+}
+
+.floating-text-bar .font-selector__input {
+  min-height: var(--component-default-height);
+  padding-block: var(--space-1);
+}
+
+.floating-text-bar .font-selector__dropdown {
+  min-width: 240px;
+}
+
+.floating-text-bar .floating-text-bar__weight-select {
+  flex: 0 1 86px;
+  width: 86px;
+  min-width: 72px;
+}
+
+.floating-text-bar .varve-select__trigger {
+  min-height: var(--component-default-height);
+  padding-inline: var(--space-2);
+  gap: var(--space-1);
 }
 
 .font-selector__install-button:hover:not(:disabled) {

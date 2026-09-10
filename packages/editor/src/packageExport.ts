@@ -6,7 +6,7 @@
  * APIs favor binary ZIP payloads over many loose writes for portability.
  */
 
-import type { FontCatalog } from '@varve/engine/font';
+import { collectFontData, type FontCatalog } from '@varve/engine/font';
 import { dataUrlToBytes } from '@varve/import';
 import { type Document, DocumentCodec, type Fill, type NodeId, type SceneNode } from '@varve/scene';
 import { dtcgExport } from '@varve/ui/tokens';
@@ -67,6 +67,7 @@ export interface PackageContentEntry {
     | 'tokens'
     | 'asset-manifest'
     | 'font-manifest'
+    | 'font'
     | 'asset';
   byteCount: number;
 }
@@ -102,14 +103,14 @@ interface MutablePackage {
   contents: PackageContentEntry[];
 }
 
-export function buildPackageExport(
+export async function buildPackageExport(
   doc: Document,
   exportReport?: ExportReport,
   catalog?: FontCatalog,
-): PackageExportResult {
+): Promise<PackageExportResult> {
   const pkg: MutablePackage = { files: {}, contents: [] };
   const assets = collectAssets(doc, pkg);
-  const fonts = collectFonts(doc, catalog);
+  const fonts = await collectFonts(doc, catalog, pkg);
 
   addJson(pkg, 'document.varve', 'document', DocumentCodec.encode(doc));
   addJson(pkg, 'tokens/tokens.dtcg.json', 'tokens', dtcgExport());
@@ -226,21 +227,46 @@ function collectAssets(doc: Document, pkg: MutablePackage): PackageAssetEntry[] 
   return assets;
 }
 
-function collectFonts(doc: Document, catalog?: FontCatalog): PackageFontEntry[] {
+async function collectFonts(
+  doc: Document,
+  catalog: FontCatalog | undefined,
+  pkg: MutablePackage,
+): Promise<PackageFontEntry[]> {
   const families = new Set<string>();
   for (const node of Object.values(doc.nodes)) {
-    if (node.kind === 'text' && node.fontFamily) families.add(node.fontFamily);
+    if (node.kind !== 'text') continue;
+    if (node.fontFamily) families.add(node.fontFamily);
+    for (const paragraph of node.richText?.paragraphs ?? []) {
+      for (const run of paragraph.runs ?? []) {
+        if (run.format?.fontFamily) families.add(run.format.fontFamily);
+      }
+    }
   }
+
+  // Package export is an explicit user action, so bundled assets may be
+  // resolved from the shipped registry. The manifest must still be honest:
+  // a permitted license without bytes is listed as unavailable rather than
+  // claiming a font that the ZIP does not contain.
+  const records = await collectFontData([...families], { fetchBundled: true });
+  const recordByFamily = new Map(records.map((record) => [record.family.toLowerCase(), record]));
 
   return [...families].sort().map((family) => {
     const embeddingStatus = resolveEmbeddingStatus(family, catalog);
     const canBundle = canBundleFont(embeddingStatus);
+    const record = recordByFamily.get(family.toLowerCase());
+    const bundled = canBundle && record !== undefined;
+    let filePath: string | undefined;
+    if (bundled && record) {
+      filePath = `fonts/${safeFontName(family)}.font`;
+      addBytes(pkg, filePath, 'font', record.data);
+    }
 
     return {
       family,
-      bundled: canBundle,
+      bundled,
       embeddingStatus,
-      reason: embeddingReason(embeddingStatus, canBundle),
+      reason: embeddingReason(embeddingStatus, bundled, record !== undefined),
+      ...(filePath ? { filePath, byteCount: record?.data.byteLength } : {}),
     };
   });
 }
@@ -271,9 +297,16 @@ function resolveEmbeddingStatus(
   }
 }
 
-function embeddingReason(status: PackageFontEntry['embeddingStatus'], canBundle: boolean): string {
-  if (canBundle) {
-    return 'Font embedding is permitted by the font license';
+function embeddingReason(
+  status: PackageFontEntry['embeddingStatus'],
+  bundled: boolean,
+  bytesAvailable: boolean,
+): string {
+  if (bundled) {
+    return 'Font bytes were verified and included because embedding is permitted by the font license';
+  }
+  if (canBundleFont(status) && !bytesAvailable) {
+    return 'Embedding is permitted, but the exact font bytes are unavailable on this device';
   }
   switch (status) {
     case 'restricted':
@@ -346,4 +379,8 @@ function extensionForMime(mimeType: string): string {
 
 function safePackageName(name: string): string {
   return name.replace(/[^a-zA-Z0-9-_\s]/g, '').trim() || 'varve-package';
+}
+
+function safeFontName(name: string): string {
+  return name.replace(/[^a-zA-Z0-9-_]/g, '_').trim() || 'font';
 }

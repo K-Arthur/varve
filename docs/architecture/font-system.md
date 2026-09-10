@@ -67,10 +67,13 @@ bundled faces, but additional artifacts require an explicit desktop install.
 The useful capabilities are distinct: catalog presence, stored bytes, a
 validated face, main-thread readiness, worker adoption, shaping/export
 support, and operation permission. A face is not “ready” merely because its
-family name is present. Worker font assets need a revision-specific
-acknowledgement before worker rendering can reuse them; otherwise the main
-thread replay remains authoritative. Layout caches include face revision,
-axes, features, language, and rich runs.
+family name is present. Byte-backed loads publish a local blob-backed
+`@font-face` rule so the worker can harvest the exact payload without a
+network request. Worker font assets still need an adoption acknowledgement
+before worker rendering can reuse them; otherwise the main-thread replay
+remains authoritative. Package export sets `bundled` only after writing
+verified bytes into `fonts/`. Layout caches include face revision, axes,
+features, language, and rich runs.
 
 ## Evidence and open platform work
 

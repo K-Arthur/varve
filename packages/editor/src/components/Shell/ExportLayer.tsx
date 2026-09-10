@@ -183,7 +183,7 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
 
   const handlePackageExport = useCallback(async () => {
     const catalog = buildCatalogFromRegistry();
-    const pkg = buildPackageExport(editor.state.document, undefined, catalog);
+    const pkg = await buildPackageExport(editor.state.document, undefined, catalog);
     await saveExportBytes(platform, pkg.fileName, pkg.bytes, pkg.mimeType, '.zip');
   }, [editor.state.document, platform]);
 

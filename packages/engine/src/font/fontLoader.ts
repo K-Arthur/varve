@@ -106,6 +106,9 @@ export class FontLoader {
   private loaded = new Map<string, LoadResult>();
   private inFlight = new Map<string, Promise<LoadResult>>();
   private listeners = new Set<Listener>();
+  /** CSS bridges for byte-backed faces so the render worker can adopt them. */
+  private workerStyles = new Map<string, HTMLStyleElement[]>();
+  private workerObjectUrls = new Map<string, string[]>();
 
   constructor(config?: FontLoaderConfig, registry?: FontRegistry) {
     this.config = {
@@ -289,6 +292,11 @@ export class FontLoader {
       }
     }
 
+    for (const style of this.workerStyles.get(family) ?? []) style.remove();
+    this.workerStyles.delete(family);
+    for (const url of this.workerObjectUrls.get(family) ?? []) URL.revokeObjectURL(url);
+    this.workerObjectUrls.delete(family);
+
     if (removed) {
       this.loaded.delete(family);
       this.notify();
@@ -362,6 +370,7 @@ export class FontLoader {
     }
 
     document.fonts.add(face);
+    this.exposeByteBackedFaceToWorkers(family, data, weight, style);
     await document.fonts.ready;
 
     const result: LoadResult = { success: true, family, loadedFrom: source };
@@ -399,6 +408,37 @@ export class FontLoader {
 
     this.notify();
     return result;
+  }
+
+  /**
+   * A FontFace constructed from bytes is visible only to this realm. Mirror
+   * the exact bytes through a local blob URL in an @font-face rule so the
+   * render worker's stylesheet harvester can adopt the same face. This bridge
+   * never fetches or publishes a font artifact.
+   */
+  private exposeByteBackedFaceToWorkers(
+    family: string,
+    data: ArrayBuffer,
+    weight: number,
+    style: 'normal' | 'italic',
+  ): void {
+    if (typeof document === 'undefined' || !document.head) return;
+    if (typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') return;
+    if (typeof Blob === 'undefined') return;
+
+    try {
+      const url = URL.createObjectURL(new Blob([data], { type: 'font/woff2' }));
+      const cssFamily = family.replaceAll('\\', '\\\\').replaceAll('"', '\\"');
+      const styleElement = document.createElement('style');
+      styleElement.dataset.varveFontLoader = family;
+      styleElement.textContent = `@font-face{font-family:"${cssFamily}";src:url("${url}");font-weight:${weight};font-style:${style};}`;
+      document.head.append(styleElement);
+      this.workerStyles.set(family, [...(this.workerStyles.get(family) ?? []), styleElement]);
+      this.workerObjectUrls.set(family, [...(this.workerObjectUrls.get(family) ?? []), url]);
+    } catch {
+      // The CSS Font Loading API remains authoritative when the bridge is
+      // unavailable (for example in a restricted embedded document).
+    }
   }
 
   private async loadLocalFont(family: string): Promise<LoadResult> {
