@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { EditorContextValue } from '../../../context/types';
 import { EditorCtx } from '../../../context/types';
-import { NumberField } from './NumberField';
+import { formatRestingValue, NumberField } from './NumberField';
 
 afterEach(cleanup);
 
@@ -16,7 +16,38 @@ function Holder({
   return <NumberField {...rest} value={v} onChange={setV} />;
 }
 
+describe('formatRestingValue', () => {
+  it('hides float residue without changing whole or short values', () => {
+    expect(formatRestingValue(270.40000000000003)).toBe('270.4');
+    expect(formatRestingValue(880.4000000001, 1)).toBe('880.4');
+    expect(formatRestingValue(100)).toBe('100');
+    expect(formatRestingValue(12.345)).toBe('12.35');
+    expect(formatRestingValue(-0.0000001)).toBe('0');
+  });
+
+  it('keeps extra decimals when the field steps finer than 0.01', () => {
+    expect(formatRestingValue(0.12345, 0.001)).toBe('0.123');
+  });
+});
+
 describe('NumberField', () => {
+  it('shows a rounded resting value without writing it back', () => {
+    const onChange = vi.fn();
+    render(<NumberField label="Width" value={270.40000000000003} onChange={onChange} />);
+    const input = screen.getByLabelText('Width') as HTMLInputElement;
+    expect(input.value).toBe('270.4');
+    fireEvent.focus(input);
+    fireEvent.blur(input);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('gives a hidden-label field the full row instead of the label column', () => {
+    const { container } = render(
+      <NumberField label="Opacity" hideLabel value={50} unit="%" onChange={() => {}} />,
+    );
+    expect(container.querySelector('.insp-field--label-hidden')).not.toBeNull();
+  });
+
   it('renders a real associated label and the value', () => {
     render(<NumberField label="Width" value={42} onChange={() => {}} />);
     const input = screen.getByLabelText('Width') as HTMLInputElement;

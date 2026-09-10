@@ -22,8 +22,8 @@ import type {
 } from '@varve/scene';
 import { createStrokeId, defaultStroke } from '@varve/scene';
 import { managedColorToRgba } from '@varve/shared';
-import { Icon, Select } from '@varve/ui';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Icon, Menu, type MenuEntry, Select, Switch } from '@varve/ui';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import {
   resolvedGradientHueInterpolation,
@@ -43,10 +43,10 @@ export interface StrokeSectionProps {
 
 type StrokeNode = ShapeNode | TextNode | FrameNode;
 
-const ALIGN_OPTIONS: readonly SegmentedOption<StrokeAlign>[] = [
-  { value: 'inside', label: 'In' },
-  { value: 'center', label: 'Ct' },
-  { value: 'outside', label: 'Out' },
+const ALIGN_OPTIONS: readonly { value: StrokeAlign; label: string }[] = [
+  { value: 'inside', label: 'Inside' },
+  { value: 'center', label: 'Center' },
+  { value: 'outside', label: 'Outside' },
 ] as const;
 
 const CAP_OPTIONS: readonly SegmentedOption<StrokeCap>[] = [
@@ -318,26 +318,45 @@ function StrokeRow({
   const swatchBackground = gradient ? gradientSwatchBg(gradient) : swatchBg;
 
   const visibility = isMixed(visibleRaw) ? true : visibleRaw;
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const actionsTriggerRef = useRef<HTMLButtonElement>(null);
+  const actionItems = useMemo<readonly MenuEntry[]>(
+    () => [
+      {
+        id: 'move-up',
+        label: `Move ${label.toLowerCase()} up`,
+        onAction: () => onReorder(-1),
+        disabled: !canMoveUp,
+        icon: 'ChevronUp',
+      },
+      {
+        id: 'move-down',
+        label: `Move ${label.toLowerCase()} down`,
+        onAction: () => onReorder(1),
+        disabled: !canMoveDown,
+        icon: 'ChevronDown',
+      },
+      { id: 'separator-before-remove', separator: true },
+      {
+        id: 'remove',
+        label: `Remove ${label.toLowerCase()}`,
+        onAction: onRemove,
+        destructive: true,
+        icon: 'X',
+      },
+    ],
+    [canMoveDown, canMoveUp, label, onRemove, onReorder],
+  );
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 'var(--space-1)',
-        padding: 'var(--space-1) 0',
-        borderBottom: '1px solid var(--color-border-subtle)',
-      }}
-    >
-      <div className="insp-field">
-        <button
-          type="button"
-          className="insp-inline-btn"
+    <div className="insp-stroke-row">
+      <div className="insp-paint-row">
+        <Switch
+          className="insp-switch"
           aria-label={`${visibility ? 'Hide' : 'Show'} ${label}`}
-          onClick={() => onChange((s) => ({ ...s, visible: !s.visible }))}
-        >
-          <Icon name={visibility ? 'Eye' : 'EyeOff'} label={undefined} size="0.85em" />
-        </button>
+          checked={visibility}
+          onChange={() => onChange((s) => ({ ...s, visible: !s.visible }))}
+        />
         <InspectorColorPopover
           label={`${label} colour`}
           value={gradient?.stops[0]?.color ?? color ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 255 }}
@@ -363,56 +382,53 @@ function StrokeRow({
           onEditStart={editor.beginTransaction}
           onEditEnd={editor.commitTransaction}
         />
-        <NumberField
-          label={label}
-          value={isMixed(weightRaw) ? 0 : weightRaw}
-          mixed={isMixed(weightRaw)}
-          step={1}
-          min={0}
-          fieldName={`strokeWeight:${rowId}`}
-          onShiftClick={() => editor.setBindingField(`strokeWeight:${rowId}`)}
-          onChange={(v) => onChange((s) => ({ ...s, weight: v }))}
+        <div className="insp-paint-row__weight">
+          <NumberField
+            label={`${label} weight`}
+            hideLabel
+            value={isMixed(weightRaw) ? 0 : weightRaw}
+            mixed={isMixed(weightRaw)}
+            unit="px"
+            step={1}
+            min={0}
+            fieldName={`strokeWeight:${rowId}`}
+            onShiftClick={() => editor.setBindingField(`strokeWeight:${rowId}`)}
+            onChange={(v) => onChange((s) => ({ ...s, weight: v }))}
+          />
+        </div>
+        <div className="insp-paint-row__type">
+          <Select
+            label={`${label} position`}
+            value={isMixed(alignRaw) ? '' : alignRaw}
+            options={[
+              ...(isMixed(alignRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []),
+              ...ALIGN_OPTIONS,
+            ]}
+            onChange={(v) => {
+              if (v) onChange((s) => ({ ...s, align: v as StrokeAlign }));
+            }}
+            placeholder="Mixed"
+          />
+        </div>
+        <button
+          type="button"
+          ref={actionsTriggerRef}
+          className="insp-inline-btn insp-paint-row__menu-trigger"
+          aria-label={`${label} actions`}
+          aria-haspopup="menu"
+          aria-expanded={actionsOpen}
+          onClick={() => setActionsOpen((open) => !open)}
+        >
+          <Icon name="Ellipsis" label={undefined} size="0.85em" />
+        </button>
+        <Menu
+          triggerRef={actionsTriggerRef}
+          open={actionsOpen}
+          onClose={() => setActionsOpen(false)}
+          label={`${label} actions`}
+          items={actionItems}
+          size="compact"
         />
-        <SegmentedControl
-          label={`${label} align`}
-          value={isMixed(alignRaw) ? 'center' : alignRaw}
-          options={ALIGN_OPTIONS}
-          onChange={(v) => onChange((s) => ({ ...s, align: v }))}
-        />
-        <button
-          type="button"
-          aria-label={`Move ${label} up`}
-          disabled={!canMoveUp}
-          onClick={() => onReorder(-1)}
-          className="insp-inline-btn"
-          style={{
-            opacity: canMoveUp ? 1 : 0.3,
-            cursor: canMoveUp ? 'pointer' : 'not-allowed',
-          }}
-        >
-          <Icon name="ChevronUp" label={undefined} size="0.85em" />
-        </button>
-        <button
-          type="button"
-          aria-label={`Move ${label} down`}
-          disabled={!canMoveDown}
-          onClick={() => onReorder(1)}
-          className="insp-inline-btn"
-          style={{
-            opacity: canMoveDown ? 1 : 0.3,
-            cursor: canMoveDown ? 'pointer' : 'not-allowed',
-          }}
-        >
-          <Icon name="ChevronDown" label={undefined} size="0.85em" />
-        </button>
-        <button
-          type="button"
-          className="insp-inline-btn"
-          aria-label={`Remove ${label}`}
-          onClick={onRemove}
-        >
-          <Icon name="X" label={undefined} size="0.85em" />
-        </button>
       </div>
       <button type="button" className="insp-advanced-btn" onClick={onToggle}>
         <Icon

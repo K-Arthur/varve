@@ -77,6 +77,21 @@ export function parseField(raw: string, aliases: Record<string, number>): number
   }
 }
 
+/**
+ * Resting display for a stored number: at most two decimals (more when the
+ * field steps finer), trailing zeros trimmed, never "-0". Pointer and
+ * arithmetic edits leave float residue (270.40000000000003) in the document;
+ * that precision is kept in storage and only hidden here.
+ */
+export function formatRestingValue(value: number, step?: number): string {
+  if (!Number.isFinite(value)) return String(value);
+  const stepDecimals =
+    step && Number.isFinite(step) && step > 0 ? Math.max(0, -Math.floor(Math.log10(step))) : 0;
+  const decimals = Math.min(6, Math.max(2, stepDecimals));
+  const rounded = Number(value.toFixed(decimals));
+  return String(Object.is(rounded, -0) ? 0 : rounded);
+}
+
 export function NumberField({
   label,
   value,
@@ -151,7 +166,7 @@ export function NumberField({
   const isReadOnly = readOnly || propertyState?.kind === 'bound';
   const displayed = visualMixed
     ? 'Mixed'
-    : (dirty ?? (formatValue ? formatValue(value) : String(value)));
+    : (dirty ?? (formatValue ? formatValue(value) : formatRestingValue(value, step)));
   const name = unit ? `${label} (${unit})` : label;
 
   const finishArrowTransaction = useCallback((cancel: boolean) => {
@@ -423,7 +438,10 @@ export function NumberField({
     stateText ?? (visualMixed ? 'Mixed values' : unit ? `${value}${unit}` : String(value));
 
   return (
-    <div ref={containerRef} className="insp-field">
+    <div
+      ref={containerRef}
+      className={hideLabel ? 'insp-field insp-field--label-hidden' : 'insp-field'}
+    >
       <label
         htmlFor={inputId}
         className={
@@ -472,6 +490,13 @@ export function NumberField({
           }}
           onWheel={onWheel}
         />
+        {/* With the label hidden, the unit would otherwise be invisible; the
+            accessible name already carries it. */}
+        {hideLabel && unit && (
+          <span className="insp-num__unit" aria-hidden="true">
+            {unit}
+          </span>
+        )}
         {bindingLabel && onUnbind && (
           <TokenBindIndicator variableName={bindingLabel} onUnbind={onUnbind} />
         )}

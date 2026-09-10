@@ -1,11 +1,13 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { addChild, createDocument, makeShapeNode, type VariableStore } from '@varve/scene';
+import * as React from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { EditorProvider } from '../../../context';
+import { EditorProvider, useEditor } from '../../../context';
 import { AppearanceSection } from './AppearanceSection';
 import { FillSection } from './FillSection';
 import { ImagePlacementSection } from './ImagePlacementSection';
 import { PositionSizeSection } from './PositionSizeSection';
+import { StrokeSection } from './StrokeSection';
 
 afterEach(cleanup);
 
@@ -179,6 +181,87 @@ describe('AppearanceSection', () => {
 });
 
 // ── FillSection ──────────────────────────────────────────────────────────
+
+/** Renders a section against the live editor selection so edits round-trip. */
+function renderSelectedSection(
+  makeSection: (nodes: import('@varve/scene').SceneNode[]) => React.ReactElement,
+  nodeOverrides: Record<string, unknown>,
+) {
+  const document = createDocument('paint rows');
+  const rootId = document.pages?.[0]?.contentRoot as string;
+  const node = {
+    ...makeShapeNode('paint-rect', { kind: 'rect', x: 0, y: 0, w: 100, h: 80 }),
+    ...nodeOverrides,
+  };
+  const withNode = addChild(document, rootId, node as import('@varve/scene').SceneNode);
+  let ctx: ReturnType<typeof useEditor> | undefined;
+  function Harness() {
+    ctx = useEditor();
+    // biome-ignore lint/correctness/useExhaustiveDependencies: select once on mount
+    React.useEffect(() => {
+      ctx?.setSelection(node.id);
+    }, []);
+    const nodes = ctx.selectedNodes();
+    return nodes.length > 0 ? makeSection(nodes) : null;
+  }
+  render(
+    <EditorProvider initialDocumentJson={JSON.stringify(withNode)}>
+      <Harness />
+    </EditorProvider>,
+  );
+  return { nodeId: node.id, getCtx: () => ctx };
+}
+
+describe('Paint rows', () => {
+  const solid = { space: 'rgb' as const, r: 20, g: 120, b: 220, a: 255 };
+
+  it('shows fill opacity as a percentage and stores it as a 0–1 fraction', async () => {
+    const { nodeId, getCtx } = renderSelectedSection((nodes) => <FillSection nodes={nodes} />, {
+      fills: [{ type: 'solid', color: solid, opacity: 0.35, blendMode: 'normal', visible: true }],
+    });
+    const input = await screen.findByLabelText('Fill opacity (%)');
+    expect(input).toHaveValue('35');
+
+    fireEvent.change(input, { target: { value: '25' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => {
+      const stored = getCtx()?.state.document.nodes[nodeId] as { fills?: { opacity: number }[] };
+      expect(stored.fills?.[0]?.opacity).toBeCloseTo(0.25, 5);
+    });
+  });
+
+  it('keeps each paint row on one line with its row commands in a labelled menu', async () => {
+    renderSelectedSection((nodes) => <FillSection nodes={nodes} />, {
+      fills: [{ type: 'solid', color: solid, opacity: 1, blendMode: 'normal', visible: true }],
+    });
+    const visibility = await screen.findByRole('switch', { name: 'Hide Fill' });
+    const row = visibility.closest('.insp-paint-row');
+    expect(row).not.toBeNull();
+    expect(row?.querySelector('[aria-label="Fill actions"]')).not.toBeNull();
+    // Reorder/remove moved into the menu instead of an unlabelled icon strip.
+    expect(screen.queryByRole('button', { name: 'Move Fill up' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Fill actions' }));
+    expect(await screen.findByRole('menuitem', { name: /remove fill/i })).toBeTruthy();
+  });
+
+  it('names stroke position in full words and weight with its unit', async () => {
+    renderSelectedSection((nodes) => <StrokeSection nodes={nodes} />, {
+      strokes: [
+        {
+          id: 'stroke-a',
+          color: solid,
+          weight: 2,
+          align: 'inside',
+          visible: true,
+          opacity: 1,
+          blendMode: 'normal',
+        },
+      ],
+    });
+    expect(await screen.findByLabelText('Stroke weight (px)')).toHaveValue('2');
+    expect(screen.getByRole('combobox', { name: 'Stroke position' })).toHaveTextContent('Inside');
+  });
+});
 
 describe('FillSection', () => {
   it('renders exactly one contrast indicator for a text node with a solid fill', () => {

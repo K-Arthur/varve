@@ -35,7 +35,7 @@ import {
   solidFill,
 } from '@varve/scene';
 import { managedColorToRgba } from '@varve/shared';
-import { Icon, Menu, Select, Tooltip } from '@varve/ui';
+import { Icon, Menu, type MenuEntry, Select, Switch } from '@varve/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
@@ -514,17 +514,72 @@ function FillRow({
     [fill, patch],
   );
 
+  // Low-frequency row commands live in one labelled menu (the same grammar as
+  // effect rows) instead of a strip of unlabelled icons beside the swatch.
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const actionsTriggerRef = useRef<HTMLButtonElement>(null);
+  const harmonySource = fill.type === 'solid' && fill.color?.space === 'rgb' ? fill.color : null;
+  const actionItems = useMemo<readonly MenuEntry[]>(
+    () => [
+      ...(!binding
+        ? [
+            {
+              id: 'link-variable',
+              label: 'Link to variable',
+              onAction: () => editor.setBindingField('fill'),
+              icon: 'Link' as const,
+            },
+          ]
+        : []),
+      ...(harmonySource
+        ? [
+            {
+              id: 'harmony',
+              label: 'Use complementary color',
+              onAction: () => {
+                const harmonyColor = complementaryHarmony(harmonySource).colors[0];
+                if (harmonyColor && 'space' in harmonyColor) patch({ color: harmonyColor });
+              },
+              icon: 'Palette' as const,
+            },
+          ]
+        : []),
+      { id: 'separator-before-order', separator: true },
+      {
+        id: 'move-up',
+        label: `Move ${label.toLowerCase()} up`,
+        onAction: () => onReorder(-1),
+        disabled: !canMoveUp,
+        icon: 'ChevronUp',
+      },
+      {
+        id: 'move-down',
+        label: `Move ${label.toLowerCase()} down`,
+        onAction: () => onReorder(1),
+        disabled: !canMoveDown,
+        icon: 'ChevronDown',
+      },
+      { id: 'separator-before-remove', separator: true },
+      {
+        id: 'remove',
+        label: `Remove ${label.toLowerCase()}`,
+        onAction: onRemove,
+        destructive: true,
+        icon: 'X',
+      },
+    ],
+    [binding, canMoveDown, canMoveUp, editor, harmonySource, label, onRemove, onReorder, patch],
+  );
+
   return (
     <div className="insp-fill-row">
-      <div className="insp-field">
-        <button
-          type="button"
-          className="insp-inline-btn"
+      <div className="insp-paint-row">
+        <Switch
+          className="insp-switch"
           aria-label={`${visible ? 'Hide' : 'Show'} ${label}`}
-          onClick={() => patch({ visible: !visible })}
-        >
-          <Icon name={visible ? 'Eye' : 'EyeOff'} label={undefined} size="0.85em" />
-        </button>
+          checked={visible}
+          onChange={() => patch({ visible: !visible })}
+        />
         {fill.type === 'solid' && fill.color ? (
           <InspectorColorPopover
             label={`${label} colour`}
@@ -589,18 +644,6 @@ function FillRow({
             }
           />
         )}
-        {!binding && (
-          <Tooltip label="Link fill to a variable">
-            <button
-              type="button"
-              className="insp-inline-btn"
-              aria-label="Link fill to a variable"
-              onClick={() => editor.setBindingField('fill')}
-            >
-              <Icon name="Link" label={undefined} size="0.9em" />
-            </button>
-          </Tooltip>
-        )}
         {binding && onOpenModifier && (
           <button
             type="button"
@@ -647,27 +690,7 @@ function FillRow({
             {!bindingValid && <span>(invalid)</span>}
           </button>
         )}
-        {fill.type === 'solid' && fill.color && fill.color.space === 'rgb' && (
-          <Tooltip label="Generate harmony colors">
-            <button
-              type="button"
-              className="insp-inline-btn"
-              aria-label="Generate harmony colors"
-              onClick={() => {
-                const pal = complementaryHarmony(fill.color!);
-                if (pal.colors.length > 0) {
-                  const harmonyColor = pal.colors[0];
-                  if (harmonyColor && 'space' in harmonyColor) {
-                    patch({ color: harmonyColor });
-                  }
-                }
-              }}
-            >
-              <Icon name="Palette" label={undefined} size="0.85em" />
-            </button>
-          </Tooltip>
-        )}
-        <div className="insp-field__control">
+        <div className="insp-paint-row__type">
           <Select
             label={`${label} type`}
             value={isMixed(typeRaw) ? '' : typeRaw}
@@ -681,40 +704,41 @@ function FillRow({
             placeholder="Mixed"
           />
         </div>
+        <div className="insp-paint-row__opacity">
+          {/* Stored as 0–1 like every paint in the engine; shown as a
+              percentage like layer opacity. Convert only at this boundary. */}
+          <NumberField
+            label={`${label} opacity`}
+            hideLabel
+            value={isMixed(opacityRaw) ? 100 : Math.round(opacityRaw * 1000) / 10}
+            mixed={isMixed(opacityRaw)}
+            unit="%"
+            step={1}
+            min={0}
+            max={100}
+            draftKey={`${draftKey}:opacity`}
+            onChange={(v) => patch({ opacity: Math.min(1, Math.max(0, v / 100)) })}
+          />
+        </div>
         <button
           type="button"
-          aria-label={`Move ${label} up`}
-          disabled={!canMoveUp}
-          onClick={() => onReorder(-1)}
-          className="insp-inline-btn"
-          style={{
-            opacity: canMoveUp ? 1 : 0.3,
-            cursor: canMoveUp ? 'pointer' : 'not-allowed',
-          }}
+          ref={actionsTriggerRef}
+          className="insp-inline-btn insp-paint-row__menu-trigger"
+          aria-label={`${label} actions`}
+          aria-haspopup="menu"
+          aria-expanded={actionsOpen}
+          onClick={() => setActionsOpen((open) => !open)}
         >
-          <Icon name="ChevronUp" label={undefined} size="0.85em" />
+          <Icon name="Ellipsis" label={undefined} size="0.85em" />
         </button>
-        <button
-          type="button"
-          aria-label={`Move ${label} down`}
-          disabled={!canMoveDown}
-          onClick={() => onReorder(1)}
-          className="insp-inline-btn"
-          style={{
-            opacity: canMoveDown ? 1 : 0.3,
-            cursor: canMoveDown ? 'pointer' : 'not-allowed',
-          }}
-        >
-          <Icon name="ChevronDown" label={undefined} size="0.85em" />
-        </button>
-        <button
-          type="button"
-          className="insp-inline-btn"
-          aria-label={`Remove ${label}`}
-          onClick={onRemove}
-        >
-          <Icon name="X" label={undefined} size="0.85em" />
-        </button>
+        <Menu
+          triggerRef={actionsTriggerRef}
+          open={actionsOpen}
+          onClose={() => setActionsOpen(false)}
+          label={`${label} actions`}
+          items={actionItems}
+          size="compact"
+        />
       </div>
 
       {fill.type === 'image' && fill.image && (
@@ -772,16 +796,6 @@ function FillRow({
       )}
 
       <div className="insp-fill-row__properties">
-        <NumberField
-          label="Fill opacity"
-          value={isMixed(opacityRaw) ? 1 : opacityRaw}
-          mixed={isMixed(opacityRaw)}
-          step={0.01}
-          min={0}
-          max={1}
-          draftKey={`${draftKey}:opacity`}
-          onChange={(v) => patch({ opacity: v })}
-        />
         <FieldRow label="Blend mode">
           <Select
             label="Fill blend mode"
