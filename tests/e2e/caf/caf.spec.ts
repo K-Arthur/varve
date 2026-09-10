@@ -13,6 +13,19 @@ const REAL_LIFE_FIXTURES = [
   { path: path.join(FIXTURES_DIR, 'real-life-portrait.jpg'), slug: 'portrait' },
   { path: path.join(FIXTURES_DIR, 'real-life-still-life.jpg'), slug: 'still-life' },
 ] as const;
+const ADDITIONAL_REAL_LIFE_FIXTURES = [
+  { path: path.join(FIXTURES_DIR, 'real-life-architecture.jpg'), slug: 'architecture' },
+  { path: path.join(FIXTURES_DIR, 'real-life-interior-room.jpg'), slug: 'interior-room' },
+  { path: path.join(FIXTURES_DIR, 'real-life-glass-reflection.jpg'), slug: 'glass-reflection' },
+  { path: path.join(FIXTURES_DIR, 'real-life-glasses-reflection.jpg'), slug: 'glasses-reflection' },
+  { path: path.join(FIXTURES_DIR, 'real-life-braided-portrait.jpg'), slug: 'braided-portrait' },
+  { path: path.join(FIXTURES_DIR, 'real-life-smithsonian.jpg'), slug: 'smithsonian' },
+  {
+    path: path.join(FIXTURES_DIR, 'real-life-wainwright-building.jpg'),
+    slug: 'wainwright-building',
+  },
+  { path: path.join(FIXTURES_DIR, 'real-life-brookings-hall.jpg'), slug: 'brookings-hall' },
+] as const;
 
 // ── Minimal PNG generator (no pngjs required) ──────────────────────────────
 
@@ -367,7 +380,9 @@ test.describe('Content-Aware Fill dialog', () => {
 
       await dialog.getByRole('tab', { name: 'Replace' }).click();
       await expect(dialog.locator('#caf-dialog-prompt')).toBeVisible();
-      await expect(dialog.getByRole('button', { name: /^replace$/i })).toBeDisabled();
+      await expect(
+        dialog.locator('button.varve-btn--secondary').filter({ hasText: /^replace$/i }),
+      ).toBeDisabled();
       await dialog.getByRole('tab', { name: 'Expand' }).click();
       await expect(dialog.locator('#caf-dialog-prompt')).toBeVisible();
       await expect(dialog.getByRole('button', { name: /^expand$/i })).toBeDisabled();
@@ -375,6 +390,23 @@ test.describe('Content-Aware Fill dialog', () => {
         animations: 'disabled',
       });
 
+      await dialog.getByRole('button', { name: /^cancel$/i }).click();
+      await expect(dialog).not.toBeVisible();
+    }
+  });
+
+  test('additional real photographic sources remain usable', async ({ page }) => {
+    for (const fixture of ADDITIONAL_REAL_LIFE_FIXTURES) {
+      const photographicNodeId = await dropImageAndSelect(page, fixture.path);
+      await triggerCafDialog(page, photographicNodeId);
+      const dialog = page.locator('dialog.varve-dialog--caf[open]');
+      await expect(dialog.getByRole('tab')).toHaveCount(4);
+      await expect(dialog.getByRole('button', { name: 'Use Pixel Selection' })).toBeVisible();
+      await expect(dialog.getByRole('button', { name: 'Use Layer Mask' })).toBeVisible();
+      await expect(dialog.locator('canvas.caf-dialog__mask-canvas')).toBeVisible();
+      await expect(dialog).toHaveScreenshot(`generative-edit-${fixture.slug}.png`, {
+        animations: 'disabled',
+      });
       await dialog.getByRole('button', { name: /^cancel$/i }).click();
       await expect(dialog).not.toBeVisible();
     }

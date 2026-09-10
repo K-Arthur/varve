@@ -6,7 +6,7 @@ verified” means a repeatable repository check passed. “Visually reviewed” 
 reserved for an inspected output from the production provider; interface
 screenshots and mocks do not qualify.
 
-Last updated: 2026-09-09.
+Last updated: 2026-09-10.
 
 ## Provider and platform status
 
@@ -44,10 +44,10 @@ Weights are not stored in the repository or in portable documents.
 
 ## Evidence state
 
-- The repository currently contains three attributed photographic fixtures:
+- The repository currently contains eleven attributed photographic fixtures:
   [fixture provenance](../../tests/e2e/fixtures/PROVENANCE.md). They are
-  suitable for interface and deterministic image-path checks, not the planned
-  24-photo/32-task release corpus.
+  used by the browser surface lane for interface and image-path checks, not
+  the planned 24-photo/32-task release corpus.
 - The downloaded Q4_0 artifact was verified against the pinned hash in a
   temporary test location. A real masked CPU inference run completed and was
   visually inspected; this proves one genuine result and is retained under
