@@ -9,10 +9,9 @@ test suite.
 
 Single selection uses the canonical sections directly. Position & Size owns
 X, Y, W, H, rotation, and sizing controls; Appearance owns opacity and blend
-mode; Fills owns paint rows and the primary color editor. Quick properties is
-a compact summary for high-frequency edits, with every field routed to those
-same owners and undo/binding paths. Empty and mixed selections retain their
-existing selection-aware section semantics.
+mode; Fills owns paint rows and the primary color editor. There is no duplicate
+Quick properties surface. Empty and mixed selections retain their existing
+selection-aware section semantics.
 
 ## Canonical Design composition
 
@@ -103,8 +102,8 @@ For every panel-affecting session:
 1. Update `featureOwnership.ts` before composing UI.
 2. Run the ownership and section-registry tests.
 3. Verify the feature has one canonical editing surface.
-4. If a compact summary remains in Properties, ensure it links directly to the
-   canonical surface and does not introduce a second state path.
+4. Keep common properties in their canonical section; do not add a duplicate
+   summary surface or second state path.
 5. Test no selection, supported single selection, unsupported selection,
    compatible mixed selection, and incompatible mixed selection.
 6. Verify keyboard discovery through the action registry.
