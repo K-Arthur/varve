@@ -1,7 +1,7 @@
 # Font system architecture
 
-This is the current authority for font identity, discovery, persistence, and
-typography readiness. It complements the shaping and geometry details in
+This records the intended font contract and the current integration gaps.
+The acceptance matrix, rather than this contract alone, determines completion. It complements the shaping and geometry details in
 [`text-pipeline.md`](./text-pipeline.md) and the provider boundary in
 [`font-provider-architecture.md`](./font-provider-architecture.md).
 
@@ -24,27 +24,27 @@ stored artifacts ──┘              │
 
 ## Portable identity
 
-An exact face is identified by the SHA-256 of the original artifact, an
-optional collection member, and the PostScript name. The runtime key is
-`sha256:<digest>:<member>` plus the PostScript face discriminator. Display
+The target exact-face key is `sha256:<digest>:<member>`: original artifact
+bytes and collection member. PostScript names are metadata. The current
+`fontIdentityKey` still includes the PostScript name; compatibility adapters
+and runtime aliases remain to be integrated. Display
 family, version, source, and license are metadata and never replace the hash.
 WOFF reconstruction keeps the original artifact hash. A text node,
 character format, text style, and v2 font manifest entry may carry
 `fontReference`; legacy `fontFamily`, weight, and style fields remain readable.
 
 Variation axes and OpenType features remain authored presentation settings.
-Changing the ordinary weight control updates `wght` when that axis exists;
-custom axes and mandatory shaping features are preserved separately.
+The ordinary weight control must update `wght` when supported and preserve
+custom axes and mandatory shaping features. Existing hardcoded weight controls
+still need this integration.
 
 ## Persistence and recovery
 
-Browser artifacts use the versioned IndexedDB store. Desktop startup prefers
-the native filesystem store, verifies the recorded hash before registration,
-and falls back to IndexedDB when the native directory is unavailable. A
-failed or corrupt record is counted and skipped; it cannot block opening the
-document. Legacy stores are rehashed into content-addressed records, while
-unknown metadata remains unknown. Removal is exact-face work and must not
-re-import a deleted family during migration.
+Browser artifacts currently use IndexedDB database `varve-font-storage-v2`,
+version 1. Its legacy migration lacks a durable journal and removal tombstones;
+it can reimport removed fonts on restart. Native storage is still keyed by
+family and can overwrite another face. Both require artifact/face records,
+original-byte integrity checks, atomic migration recovery and exact removal.
 
 Document format 2.27 introduces a recovery-safe font-reference migration and
 font manifest v2. The migration lowercases valid SHA-256 references, bounds
@@ -72,15 +72,33 @@ family name is present. Byte-backed loads publish a local blob-backed
 network request. Worker font assets still need an adoption acknowledgement
 before worker rendering can reuse them; otherwise the main-thread replay
 remains authoritative. Package export sets `bundled` only after writing
-verified bytes into `fonts/`. Layout caches include face revision, axes,
-features, language, and rich runs.
+verified bytes into `fonts/`. Full cache identity across face revision, axes, features, language and rich
+runs remains an integration requirement, not established by the family bridge.
+
+## Compact editing surfaces
+
+The inspector and floating text toolbar use the same family picker model. The
+toolbar uses the main floating palette's spacing, surface and shadow tokens,
+with 32px compact controls, consistent field typography and a separate More
+panel for alignment and lists. Its independently anchored font menu remains
+inside the viewport. Escape has an explicit precedence: an open family picker
+closes first without committing the search; a subsequent Escape exits text
+editing. The size field commits its draft on blur or Enter; Escape discards an
+unfinished draft. Range/caret targeting still requires the shared typography
+command adapter.
+Presentation-only hover preview is not integrated yet.
 
 ## Evidence and open platform work
 
 The parser and identity corrections are recorded in
 [`font-system-audit-2026-09-09.md`](../audits/font-system-audit-2026-09-09.md).
-Focused Chromium captures verify the compact toolbar menu is visible after a
-font field click and that an untouched text node is removed on Escape. Linux
+Focused Chromium interactions verify nested Escape and empty-layer cleanup.
+Intermediate screenshot inspection caught an empty portaled virtual list and
+overflowing toolbar controls. The subsequent density review found mismatched
+40px fields and 32px buttons; cross-component browser measurements now guard
+control alignment, field typography, outer padding, gaps and surface styling.
+See the [toolbar evidence log](../audits/font-toolbar-evidence-2026-09-10.md)
+for inspected captures and the precise validation scope. Linux
 native/WebKitGTK evidence is still pending for the embedded desktop lane;
 Windows WebView2 and macOS WKWebView require their platform environments.
 Collaboration currently has portable asset descriptors only; live font

@@ -31,19 +31,30 @@ describe('FontSelector', () => {
     expect(document.getElementById(controls[1]!)).toHaveAttribute('role', 'listbox');
   });
 
-  it('dismisses the open picker without bubbling Escape to the toolbar', () => {
+  it('leaves Home and End available for editing the query', () => {
+    render(<FontSelector value="Inter" onChange={() => {}} />);
+    const input = screen.getByRole('combobox');
+    fireEvent.focus(input);
+    expect(fireEvent.keyDown(input, { key: 'Home' })).toBe(true);
+    expect(fireEvent.keyDown(input, { key: 'End' })).toBe(true);
+  });
+
+  it('dismisses the open picker without bubbling Escape to the toolbar', async () => {
     const onDocumentKeyDown = vi.fn();
     document.addEventListener('keydown', onDocumentKeyDown);
     render(<FontSelector value="Inter" onChange={() => {}} />);
 
     const input = screen.getByRole('combobox');
     fireEvent.focus(input);
-    expect(screen.getByRole('listbox', { name: 'Font families' })).toBeInTheDocument();
+    expect(await screen.findByRole('listbox', { name: 'Font families' })).toBeInTheDocument();
 
     fireEvent.keyDown(input, { key: 'Escape' });
 
     expect(screen.queryByRole('listbox', { name: 'Font families' })).not.toBeInTheDocument();
     expect(onDocumentKeyDown).not.toHaveBeenCalled();
+    expect(input).not.toHaveAttribute('aria-activedescendant');
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(onDocumentKeyDown).toHaveBeenCalledOnce();
     document.removeEventListener('keydown', onDocumentKeyDown);
   });
 });

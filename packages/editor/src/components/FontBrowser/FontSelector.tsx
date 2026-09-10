@@ -6,10 +6,10 @@
  * browser so changing a document never starts a network request implicitly.
  */
 
-import { useVirtualizer } from '@tanstack/react-virtual';
+import { defaultRangeExtractor, useVirtualizer } from '@tanstack/react-virtual';
 import { getFontRegistry, getFontSemanticCatalog } from '@varve/engine';
 import { type FontSemanticRecord, parseFontSemanticQuery, tagLabel } from '@varve/engine/font';
-import { Tooltip } from '@varve/ui';
+import { FloatingPortal, Tooltip } from '@varve/ui';
 import {
   useCallback,
   useEffect,
@@ -31,6 +31,8 @@ export interface FontSelectorProps {
 type FontRow =
   | { kind: 'section'; key: string; title: string }
   | { kind: 'font'; key: string; family: string; index: number; record: FontSemanticRecord };
+
+const MENU_FALLBACKS: Array<'top-start'> = ['top-start'];
 
 function normalize(value: string): string {
   return value
@@ -68,7 +70,9 @@ export function FontSelector({
   const inputId = useId();
   const listboxId = `${inputId}-listbox`;
   const inputRef = useRef<HTMLInputElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
+  // A portal mounts after this component's effects. Store its scroll element
+  // in state so the virtualizer observes the real viewport once attached.
+  const [listElement, setListElement] = useState<HTMLDivElement | null>(null);
   const registrySubscribe = useCallback(
     (listener: () => void) => registry.subscribe(listener),
     [registry],
@@ -89,14 +93,14 @@ export function FontSelector({
   );
 
   const [isOpen, setIsOpen] = useState(false);
-  const [query, setQuery] = useState(value);
+  const [query, setQuery] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
   const results = useMemo(
     () =>
       semantic.search(parseFontSemanticQuery(query), {
         installedOnly: true,
-        limit: 120,
+        limit: Number.MAX_SAFE_INTEGER,
         diversity: false,
       }),
     [query, semantic, semanticRevision],
@@ -107,7 +111,6 @@ export function FontSelector({
     return [...byName.values()];
   }, [results]);
 
-  const hasMatch = records.some((record) => normalize(record.familyName) === normalize(query));
   const allInstalled = useMemo(() => {
     const byName = new Map<string, FontSemanticRecord>();
     for (const record of semantic.all()) {
@@ -115,6 +118,7 @@ export function FontSelector({
     }
     return [...byName.values()].sort((a, b) => a.familyName.localeCompare(b.familyName));
   }, [semantic, semanticRevision, registryRevision]);
+  const hasMatch = allInstalled.some((record) => normalize(record.familyName) === normalize(value));
 
   const sections = useMemo(() => {
     const sections: Array<{ title: string; records: FontSemanticRecord[] }> = [];
@@ -163,10 +167,17 @@ export function FontSelector({
 
   const virtualizer = useVirtualizer({
     count: rows.length,
-    getScrollElement: () => listRef.current,
-    estimateSize: (index) => (rows[index]?.kind === 'section' ? 24 : 28),
+    getScrollElement: () => listElement,
+    estimateSize: (index) => (rows[index]?.kind === 'section' ? 24 : 32),
     getItemKey: (index) => rows[index]?.key ?? index,
     overscan: 8,
+    // aria-activedescendant must continue to name a mounted option even
+    // when the user scrolls away from the keyboard selection.
+    rangeExtractor: (range) => {
+      const visible = defaultRangeExtractor(range);
+      const active = rows.findIndex((row) => row.kind === 'font' && row.index === highlightedIndex);
+      return active < 0 ? visible : [...new Set([...visible, active])].sort((a, b) => a - b);
+    },
   });
 
   const scrollToFontIndex = useCallback(
@@ -193,14 +204,14 @@ export function FontSelector({
   const select = useCallback(
     (family: string) => {
       onChange(family);
-      setQuery(family);
       setIsOpen(false);
-      inputRef.current?.blur();
+      setHighlightedIndex(-1);
     },
     [onChange],
   );
 
   const handleInputFocus = useCallback(() => {
+    setQuery('');
     setIsOpen(true);
     setHighlightedIndex(-1);
   }, []);
@@ -211,57 +222,50 @@ export function FontSelector({
     setHighlightedIndex(0);
   }, []);
 
-  const handleInputBlur = useCallback(() => {
-    setTimeout(() => {
-      setIsOpen(false);
-      setQuery(value);
-      setHighlightedIndex(-1);
-    }, 150);
-  }, [value]);
+  const dismiss = useCallback(() => {
+    setIsOpen(false);
+    setHighlightedIndex(-1);
+  }, []);
 
   const handleInputKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
+      if (event.nativeEvent.isComposing) return;
       switch (event.key) {
         case 'ArrowDown':
           event.preventDefault();
           if (!isOpen) {
+            setQuery('');
             setIsOpen(true);
             highlight(0);
           } else highlight(highlightedIndex + 1);
           break;
         case 'ArrowUp':
           event.preventDefault();
-          highlight(highlightedIndex - 1);
+          if (!isOpen) {
+            setQuery('');
+            setIsOpen(true);
+          }
+          highlight(highlightedIndex <= 0 ? flatList.length - 1 : highlightedIndex - 1);
           break;
         case 'Enter':
+          if (!isOpen) break;
           event.preventDefault();
           if (highlightedIndex >= 0 && flatList[highlightedIndex])
             select(flatList[highlightedIndex]!.familyName);
           break;
         case 'Escape':
+          if (!isOpen) break;
           event.preventDefault();
           // The floating text toolbar also listens for Escape to finish text
           // editing. Dismiss this nested combobox first and keep the event
           // inside the picker; a second Escape can then close the toolbar.
           event.stopPropagation();
-          setIsOpen(false);
-          setQuery(value);
-          setHighlightedIndex(-1);
-          break;
-        case 'Home':
-          event.preventDefault();
-          highlight(0);
-          break;
-        case 'End':
-          event.preventDefault();
-          highlight(flatList.length - 1);
+          dismiss();
           break;
       }
     },
-    [flatList, highlight, highlightedIndex, isOpen, select, value],
+    [dismiss, flatList, highlight, highlightedIndex, isOpen, select],
   );
-
-  useEffect(() => setQuery(value), [value]);
 
   return (
     <div className={className ? `font-selector ${className}` : 'font-selector'}>
@@ -274,21 +278,28 @@ export function FontSelector({
           id={inputId}
           type="text"
           className="font-selector__input"
-          value={query}
+          value={isOpen ? query : value}
+          placeholder={value || 'Search installed fonts'}
+          aria-label={label}
           onChange={handleInputChange}
           onFocus={handleInputFocus}
-          onBlur={handleInputBlur}
+          onClick={() => {
+            if (!isOpen) handleInputFocus();
+          }}
+          onBlur={dismiss}
           onKeyDown={handleInputKeyDown}
           role="combobox"
           aria-expanded={isOpen}
           aria-autocomplete="list"
           aria-controls={listboxId}
           aria-activedescendant={
-            highlightedIndex >= 0 ? `${listboxId}-option-${highlightedIndex}` : undefined
+            isOpen && flatList[highlightedIndex]
+              ? `${listboxId}-option-${highlightedIndex}`
+              : undefined
           }
           autoComplete="off"
         />
-        {!hasMatch && query.trim() && (
+        {!hasMatch && !isOpen && value.trim() && (
           <Tooltip label="Font is not installed">
             <span className="font-selector__warning" role="img" aria-label="Font is not installed">
               !
@@ -297,104 +308,120 @@ export function FontSelector({
         )}
       </div>
       {isOpen && (
-        <div
-          ref={listRef}
-          id={listboxId}
-          className="font-selector__dropdown"
-          role="listbox"
-          aria-label="Font families"
+        <FloatingPortal
+          anchorRef={inputRef}
+          open
+          placement="bottom-start"
+          fallbackPlacements={MENU_FALLBACKS}
+          offsetDistance={4}
+          maxHeight={280}
+          kind="listbox"
+          className="font-selector__menu-layer"
+          onClose={dismiss}
+          dismissOnPointerDown
         >
-          {flatList.length > 0 && (
-            <div
-              className="font-selector__virtual-content"
-              style={{ height: virtualizer.getTotalSize() }}
-            >
-              {virtualizer.getVirtualItems().map((virtualRow) => {
-                const row = rows[virtualRow.index];
-                if (!row) return null;
-                const rowStyle = {
-                  position: 'absolute' as const,
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  transform: `translateY(${virtualRow.start}px)`,
-                };
-                if (row.kind === 'section') {
+          <div
+            ref={setListElement}
+            id={listboxId}
+            className="font-selector__dropdown"
+            role="listbox"
+            aria-label="Font families"
+          >
+            {flatList.length > 0 && (
+              <div
+                className="font-selector__virtual-content"
+                style={{ height: virtualizer.getTotalSize() }}
+              >
+                {virtualizer.getVirtualItems().map((virtualRow) => {
+                  const row = rows[virtualRow.index];
+                  if (!row) return null;
+                  const rowStyle = {
+                    position: 'absolute' as const,
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${virtualRow.start}px)`,
+                  };
+                  if (row.kind === 'section') {
+                    return (
+                      <div
+                        key={virtualRow.key}
+                        ref={virtualizer.measureElement}
+                        data-index={virtualRow.index}
+                        className="font-selector__virtual-row"
+                        style={rowStyle}
+                      >
+                        <div className="font-selector__section-header" role="presentation">
+                          {row.title}
+                        </div>
+                      </div>
+                    );
+                  }
+                  const { family, index: idx, record } = row;
+                  const isHighlighted = idx === highlightedIndex;
+                  const isSelected = normalize(family) === normalize(value);
+                  const labels = recordLabels(record);
                   return (
                     <div
                       key={virtualRow.key}
                       ref={virtualizer.measureElement}
                       data-index={virtualRow.index}
-                      className="font-selector__virtual-row"
+                      id={`${listboxId}-option-${idx}`}
+                      className={`font-selector__virtual-row font-selector__option${isSelected ? ' font-selector__option--selected' : ''}${isHighlighted ? ' font-selector__option--highlighted' : ''}`}
+                      role="option"
+                      tabIndex={-1}
+                      aria-selected={isSelected}
                       style={rowStyle}
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        select(family);
+                      }}
+                      onMouseEnter={() => highlight(idx)}
                     >
-                      <div className="font-selector__section-header" role="presentation">
-                        {row.title}
-                      </div>
+                      <span
+                        className="font-selector__option-name"
+                        style={{ fontFamily: `"${family.replaceAll('"', '')}", sans-serif` }}
+                      >
+                        {family}
+                      </span>
+                      <span className="font-selector__option-meta">
+                        {labels.map((label) => (
+                          <span
+                            key={label}
+                            className="font-selector__badge font-selector__badge--label"
+                            title={label}
+                          >
+                            {label.slice(0, 1)}
+                          </span>
+                        ))}
+                        <span
+                          className="font-selector__badge"
+                          title={record.sourceKinds.join(', ')}
+                        >
+                          {sourceBadge(record)}
+                        </span>
+                        {record.variable && (
+                          <span
+                            className="font-selector__badge font-selector__badge--var"
+                            role="img"
+                            aria-label="Variable font"
+                          >
+                            w
+                          </span>
+                        )}
+                      </span>
                     </div>
                   );
-                }
-                const { family, index: idx, record } = row;
-                const isHighlighted = idx === highlightedIndex;
-                const isSelected = normalize(family) === normalize(value);
-                const labels = recordLabels(record);
-                return (
-                  <div
-                    key={virtualRow.key}
-                    ref={virtualizer.measureElement}
-                    data-index={virtualRow.index}
-                    id={`${listboxId}-option-${idx}`}
-                    className={`font-selector__virtual-row font-selector__option${isSelected ? ' font-selector__option--selected' : ''}${isHighlighted ? ' font-selector__option--highlighted' : ''}`}
-                    role="option"
-                    tabIndex={-1}
-                    aria-selected={isSelected}
-                    style={rowStyle}
-                    onMouseDown={(event) => {
-                      event.preventDefault();
-                      select(family);
-                    }}
-                    onMouseEnter={() => highlight(idx)}
-                  >
-                    <span
-                      className="font-selector__option-name"
-                      style={{ fontFamily: `"${family.replaceAll('"', '')}", sans-serif` }}
-                    >
-                      {family}
-                    </span>
-                    <span className="font-selector__option-meta">
-                      {labels.map((label) => (
-                        <span
-                          key={label}
-                          className="font-selector__badge font-selector__badge--label"
-                          title={label}
-                        >
-                          {label.slice(0, 1)}
-                        </span>
-                      ))}
-                      <span className="font-selector__badge" title={record.sourceKinds.join(', ')}>
-                        {sourceBadge(record)}
-                      </span>
-                      {record.variable && (
-                        <span
-                          className="font-selector__badge font-selector__badge--var"
-                          role="img"
-                          aria-label="Variable font"
-                        >
-                          w
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          {flatList.length === 0 && (
-            <div className="font-selector__option font-selector__option--empty">
-              No installed fonts match
-            </div>
-          )}
-        </div>
+                })}
+              </div>
+            )}
+            {flatList.length === 0 && (
+              <div className="font-selector__option font-selector__option--empty">
+                No installed fonts match
+              </div>
+            )}
+          </div>
+        </FloatingPortal>
       )}
     </div>
   );

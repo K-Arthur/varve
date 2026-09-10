@@ -3,6 +3,7 @@ import { DEFAULT_ARTWORK_FONT_FAMILY, managedColorToRgba } from '@varve/shared';
 import {
   ColorPicker,
   FloatingPortal,
+  Icon,
   Popover,
   pointAnchor,
   SegmentedControl,
@@ -10,7 +11,7 @@ import {
   ToggleButton,
   viewportPoint,
 } from '@varve/ui';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FontSelector } from '../FontBrowser/FontSelector';
 import './FloatingTextBar.css';
 
@@ -22,9 +23,16 @@ export interface FloatingTextBarProps {
 }
 
 const FONT_WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800, 900];
+const TOOLBAR_FALLBACKS: Array<'bottom-start' | 'right-start' | 'left-start'> = [
+  'bottom-start',
+  'right-start',
+  'left-start',
+];
 
 export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: FloatingTextBarProps) {
   const [colorOpen, setColorOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLButtonElement>(null);
   const textAnchor = useMemo(
     () => pointAnchor(viewportPoint(textScreenRect.x, textScreenRect.y), document),
     [textScreenRect.x, textScreenRect.y],
@@ -85,10 +93,10 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
       anchor={textAnchor}
       open
       placement="top-start"
-      fallbackPlacements={['bottom-start', 'right-start', 'left-start']}
+      fallbackPlacements={TOOLBAR_FALLBACKS}
       offsetDistance={8}
       kind="popover"
-      dismissOnEscape
+      dismissOnEscape={!colorOpen}
       onClose={() => onClose()}
       className="floating-text-bar__layer"
     >
@@ -128,46 +136,10 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
 
         <div className="floating-text-bar__separator" />
 
-        <input
-          type="number"
-          className="floating-text-bar__size-input"
+        <FontSizeInput
+          key={node.id}
           value={node.fontSize ?? 16}
-          onChange={(e) => {
-            const v = Number(e.target.value);
-            if (!Number.isNaN(v) && v > 0) {
-              onUpdate(node.id, { fontSize: v });
-            }
-          }}
-          aria-label="Font size"
-          min={1}
-          step={1}
-        />
-
-        <div className="floating-text-bar__separator" />
-
-        <div className="floating-text-bar__alignment">
-          <SegmentedControl
-            label="Text alignment"
-            value={textAlign}
-            options={[
-              { value: 'left', label: 'Left', icon: 'TextAlignStart' },
-              { value: 'center', label: 'Center', icon: 'TextAlignCenter' },
-              { value: 'right', label: 'Right', icon: 'TextAlignEnd' },
-              { value: 'justify', label: 'Justify', icon: 'TextAlignJustify' },
-            ]}
-            onChange={handleAlignChange}
-          />
-        </div>
-
-        <div className="floating-text-bar__separator" />
-
-        <ToggleButton
-          size="sm"
-          icon="List"
-          pressed={isList}
-          onPressedChange={handleListToggle}
-          label="List"
-          className={`floating-text-bar__btn${isList ? ' floating-text-bar__btn--active' : ''}`}
+          onCommit={(fontSize) => onUpdate(node.id, { fontSize })}
         />
 
         <div className="floating-text-bar__separator" />
@@ -179,16 +151,103 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
           label="Text color picker"
           popover={<ColorPicker value={fillColor} onChange={handleColorChange} />}
         >
-          <button
-            type="button"
-            className="floating-text-bar__swatch"
-            aria-label="Text color"
-            style={{
-              background: `rgba(${fillColorRgba[0]}, ${fillColorRgba[1]}, ${fillColorRgba[2]}, ${fillColorRgba[3] / 255})`,
-            }}
-          />
+          <button type="button" className="floating-text-bar__swatch" aria-label="Text color">
+            <span
+              className="floating-text-bar__swatch-color"
+              aria-hidden="true"
+              style={{
+                background: `rgba(${fillColorRgba[0]}, ${fillColorRgba[1]}, ${fillColorRgba[2]}, ${fillColorRgba[3] / 255})`,
+              }}
+            />
+          </button>
         </Popover>
+        <button
+          ref={moreRef}
+          type="button"
+          className="floating-text-bar__btn"
+          aria-label="More text formatting"
+          aria-haspopup="dialog"
+          aria-expanded={moreOpen}
+          onClick={() => setMoreOpen(!moreOpen)}
+        >
+          <Icon name="Ellipsis" size={16} />
+        </button>
+        <FloatingPortal
+          anchorRef={moreRef}
+          open={moreOpen}
+          placement="bottom-end"
+          kind="popover"
+          className="floating-text-bar__more-layer"
+          dismissOnEscape
+          dismissOnPointerDown
+          onClose={(reason) => {
+            setMoreOpen(false);
+            if (reason === 'escape') moreRef.current?.focus();
+          }}
+        >
+          <div className="floating-text-bar__more" role="dialog" aria-label="More text formatting">
+            <div className="floating-text-bar__alignment">
+              <SegmentedControl
+                label="Text alignment"
+                value={textAlign}
+                options={[
+                  { value: 'left', label: 'Left', icon: 'TextAlignStart' },
+                  { value: 'center', label: 'Center', icon: 'TextAlignCenter' },
+                  { value: 'right', label: 'Right', icon: 'TextAlignEnd' },
+                  { value: 'justify', label: 'Justify', icon: 'TextAlignJustify' },
+                ]}
+                onChange={handleAlignChange}
+              />
+            </div>
+
+            <div className="floating-text-bar__separator" />
+
+            <ToggleButton
+              size="sm"
+              icon="List"
+              pressed={isList}
+              onPressedChange={handleListToggle}
+              label="List"
+              className={`floating-text-bar__btn${isList ? ' floating-text-bar__btn--active' : ''}`}
+            />
+          </div>
+        </FloatingPortal>
       </div>
     </FloatingPortal>
+  );
+}
+
+/** Editing digits is a draft; blur or Enter commits one authored size. */
+function FontSizeInput({ value, onCommit }: { value: number; onCommit: (value: number) => void }) {
+  const [draft, setDraft] = useState(String(value));
+  useEffect(() => setDraft(String(value)), [value]);
+  const commit = () => {
+    const next = Number(draft);
+    if (Number.isFinite(next) && next > 0 && next <= 10000) {
+      if (next !== value) onCommit(next);
+    } else setDraft(String(value));
+  };
+  return (
+    <input
+      type="number"
+      className="floating-text-bar__size-input"
+      value={draft}
+      aria-label="Font size"
+      min={1}
+      max={10000}
+      step={1}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={commit}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          event.currentTarget.blur();
+        } else if (event.key === 'Escape' && draft !== String(value)) {
+          event.preventDefault();
+          event.stopPropagation();
+          setDraft(String(value));
+        }
+      }}
+    />
   );
 }

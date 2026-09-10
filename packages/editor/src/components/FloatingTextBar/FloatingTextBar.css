@@ -1,147 +1,107 @@
-.floating-text-bar {
-  position: static;
-  z-index: auto;
+/* Match the main floating palette: compact controls, shared spacing and chrome. */
+.floating-text-bar,
+.floating-text-bar__more {
+  --text-toolbar-control-height: var(--component-compact-height);
   display: flex;
-  flex-direction: row;
   align-items: center;
-  flex-wrap: nowrap;
-  gap: var(--space-05);
-  padding: var(--space-1);
+  gap: var(--space-toolbar-item);
+  padding: var(--space-toolbar) var(--space-3);
   background: var(--elevation-surface-raised);
-  border: var(--border-micro);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-floating);
-  box-shadow: var(--elevation-shadow-raised);
-  font-size: var(--font-size-sm);
-  white-space: nowrap;
+  font-family: var(--type-interface-control-family);
+  font-size: var(--type-interface-control-size);
+  line-height: var(--type-interface-control-line-height);
+  box-sizing: border-box;
   pointer-events: auto;
 }
 
-/* FloatingPortal constrains its layer for ordinary popovers. The font
-   combobox owns a second anchored menu and must be allowed to paint outside
-   the toolbar bounds. */
-.floating-text-bar__layer {
-  overflow: visible !important;
-  overflow-y: visible !important;
+/* The placement layer scrolls at viewport limits. It owns the shadow so the
+ * scroll box does not clip it into a square behind the rounded surface. */
+.floating-text-bar__layer,
+.floating-text-bar__more-layer {
+  border-radius: var(--radius-floating);
+  box-shadow: var(--shadow-lg);
 }
 
-.floating-text-bar__select {
-  font-size: var(--font-size-xs);
-  padding: 2px 4px;
-  border: var(--border-micro);
-  border-radius: var(--radius-control-compact);
-  background: var(--elevation-surface-sunken);
-  color: var(--color-text-primary);
-  cursor: pointer;
-  max-width: 110px;
-  min-width: 60px;
-  font-family: inherit;
-}
-
-.floating-text-bar__select:focus-visible {
-  outline: 2px solid var(--color-interactive-default);
-  outline-offset: 1px;
+.floating-text-bar {
+  position: static;
+  width: max-content;
+  /* The main palette's toolbar-height sits inside its two 1px outer borders. */
+  min-block-size: calc(var(--toolbar-height) + 2px);
+  max-width: calc(100vw - 24px);
+  white-space: nowrap;
 }
 
 .floating-text-bar__separator {
   width: 1px;
   height: 20px;
+  margin-inline: var(--space-1);
   background: var(--color-border-subtle);
   flex-shrink: 0;
 }
 
-.floating-text-bar__btn {
+.floating-text-bar__btn,
+.floating-text-bar__swatch {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: var(--text-toolbar-control-height);
+  height: var(--text-toolbar-control-height);
+  box-sizing: border-box;
   padding: 0;
   border: 1px solid transparent;
   border-radius: var(--radius-control-compact);
   background: transparent;
   color: var(--color-text-secondary);
   cursor: pointer;
-  font-size: var(--font-size-xs);
   flex-shrink: 0;
 }
 
-.floating-text-bar__btn:hover {
-  background: var(--color-interactive-hover);
+.floating-text-bar__btn:hover,
+.floating-text-bar__swatch:hover {
+  background: var(--color-interactive-hover-surface);
   color: var(--color-text-primary);
 }
 
-.floating-text-bar__btn:focus-visible {
-  outline: 2px solid var(--color-interactive-default);
-  outline-offset: 1px;
+.floating-text-bar__btn:focus-visible,
+.floating-text-bar__swatch:focus-visible,
+.floating-text-bar__size-input:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
 }
 
 .floating-text-bar__btn--active {
-  background: var(--color-interactive-default);
+  background: var(--color-interactive-checked-surface);
   color: var(--color-text-on-accent);
 }
+
 .floating-text-bar__btn--active:hover {
-  background: var(--color-interactive-hover);
+  background: var(--color-interactive-selected-surface-hover);
+  color: var(--color-text-on-accent);
 }
 
-.floating-text-bar__swatch {
-  display: block;
+.floating-text-bar__swatch-color {
   width: 20px;
   height: 20px;
+  box-sizing: border-box;
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-control-compact);
-  border: var(--border-micro);
-  cursor: pointer;
-  padding: 0;
-  flex-shrink: 0;
-}
-
-.floating-text-bar__swatch:hover {
-  border-color: var(--color-interactive-default);
-}
-
-.floating-text-bar__swatch:focus-visible {
-  outline: 2px solid var(--color-interactive-default);
-  outline-offset: 1px;
 }
 
 .floating-text-bar__size-input {
-  width: 52px;
-  font-size: var(--font-size-xs);
-  padding: 2px 4px;
-  border: var(--border-micro);
+  width: 56px;
+  height: var(--text-toolbar-control-height);
+  flex: 0 0 56px;
+  box-sizing: border-box;
+  font: inherit;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
-  background: var(--elevation-surface-sunken);
+  background: var(--color-surface-sunken);
   color: var(--color-text-primary);
   text-align: center;
-  font-family: inherit;
-}
-
-.floating-text-bar__alignment {
-  flex: 0 0 auto;
-}
-
-.floating-text-bar .varve-segmented__btn {
-  width: 28px;
-  justify-content: center;
-  padding-inline: 4px;
-  font-size: 0;
-}
-
-.floating-text-bar .varve-segmented__btn svg {
-  width: 14px;
-  height: 14px;
-}
-
-@media (max-width: 760px) {
-  .floating-text-bar {
-    flex-wrap: wrap;
-    max-width: calc(100vw - 24px);
-    white-space: normal;
-  }
-}
-
-.floating-text-bar__size-input:focus-visible {
-  outline: 2px solid var(--color-interactive-default);
-  outline-offset: 1px;
+  font-variant-numeric: tabular-nums;
 }
 
 .floating-text-bar__size-input::-webkit-inner-spin-button,
@@ -154,32 +114,42 @@
   -moz-appearance: textfield;
 }
 
-/* High-contrast theme overrides */
-[data-theme="high-contrast"] .floating-text-bar {
-  border: 2px solid var(--color-border-strong);
-  background: var(--color-surface-raised);
+.floating-text-bar__alignment {
+  flex: 0 0 auto;
 }
 
-[data-theme="high-contrast"] .floating-text-bar__btn:hover {
-  outline: 1px solid var(--color-border-strong);
+.floating-text-bar__more .varve-segmented__btn {
+  min-width: var(--text-toolbar-control-height);
+  height: var(--text-toolbar-control-height);
+  justify-content: center;
+  padding-inline: var(--space-2);
+}
+
+.floating-text-bar__more .varve-segmented__btn svg {
+  width: var(--component-compact-icon-size);
+  height: var(--component-compact-icon-size);
+}
+
+@media (max-width: 760px) {
+  .floating-text-bar {
+    flex-wrap: wrap;
+    white-space: normal;
+  }
+}
+
+@media (pointer: coarse) {
+  .floating-text-bar,
+  .floating-text-bar__more {
+    --text-toolbar-control-height: var(--touch-target-min);
+  }
+}
+
+[data-theme="high-contrast"] .floating-text-bar__layer,
+[data-theme="high-contrast"] .floating-text-bar__more-layer {
+  outline: 1px solid var(--color-border-subtle);
 }
 
 [data-theme="high-contrast"] .floating-text-bar__btn--active {
   outline: 2px solid var(--color-border-strong);
   outline-offset: 1px;
-}
-
-[data-theme="high-contrast"] .floating-text-bar__select,
-[data-theme="high-contrast"] .floating-text-bar__size-input {
-  border: 2px solid var(--color-border-strong);
-  background: var(--color-surface-sunken);
-}
-
-[data-theme="high-contrast"] .floating-text-bar__swatch {
-  border: 2px solid var(--color-border-strong);
-}
-
-[data-theme="high-contrast"] .floating-text-bar__separator {
-  background: var(--color-border-strong);
-  width: 2px;
 }

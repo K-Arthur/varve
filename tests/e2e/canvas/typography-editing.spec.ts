@@ -25,13 +25,36 @@ test.describe('Typography editing workflow', () => {
 
     const toolbar = page.getByRole('toolbar', { name: 'Text formatting' });
     await expect(toolbar).toBeVisible();
+    const more = toolbar.getByRole('button', { name: 'More text formatting' });
+    await more.click();
+    await expect(
+      page.getByRole('dialog', { name: 'More text formatting', exact: true }),
+    ).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(editor).toBeVisible();
+    const toolbarBounds = await toolbar.boundingBox();
+    const moreBounds = await more.boundingBox();
+    if (!toolbarBounds || !moreBounds) throw new Error('Missing toolbar bounds');
+    expect(moreBounds.x + moreBounds.width).toBeLessThanOrEqual(
+      toolbarBounds.x + toolbarBounds.width,
+    );
     await toolbar.getByRole('button', { name: 'Bold' }).click();
     await expect(editor).toBeVisible();
 
     const fontInput = toolbar.locator('.font-selector__input');
     await fontInput.click();
-    await expect(toolbar.locator('.font-selector__dropdown')).toBeVisible();
+    await expect(page.getByRole('listbox', { name: 'Font families' })).toBeVisible();
     await expect(editor).toBeVisible();
+    const menu = page.getByRole('listbox', { name: 'Font families' });
+    await expect(menu.getByRole('option').first()).toBeVisible();
+    const bounds = await menu.boundingBox();
+    const viewport = page.viewportSize();
+    if (!bounds || !viewport) throw new Error('Missing font picker bounds');
+    expect(bounds.width).toBeGreaterThanOrEqual(240);
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.y).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width);
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(viewport.height);
     await page.screenshot({
       path: testInfo.outputPath('text-toolbar-font-menu.png'),
       animations: 'disabled',
@@ -39,7 +62,7 @@ test.describe('Typography editing workflow', () => {
     });
 
     await page.keyboard.press('Escape');
-    await expect(toolbar.locator('.font-selector__dropdown')).toBeHidden();
+    await expect(page.getByRole('listbox', { name: 'Font families' })).toBeHidden();
     await expect(editor).toBeVisible();
 
     await page.keyboard.press('Escape');

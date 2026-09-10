@@ -5,13 +5,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FloatingTextBar, type FloatingTextBarProps } from './FloatingTextBar';
 
 vi.mock('@floating-ui/dom', () => ({
-  computePosition: vi.fn(() => Promise.resolve({ x: 0, y: 0 })),
+  computePosition: vi.fn(() =>
+    Promise.resolve({ x: 0, y: 0, middlewareData: {}, placement: 'bottom' }),
+  ),
   autoUpdate: vi.fn(() => vi.fn()),
   flip: vi.fn(),
   shift: vi.fn(),
   offset: vi.fn(),
   size: vi.fn(),
   hide: vi.fn(),
+  arrow: vi.fn(),
 }));
 
 afterEach(cleanup);
@@ -102,15 +105,18 @@ describe('FloatingTextBar', () => {
 
   it('renders align buttons', async () => {
     render(<FloatingTextBar {...defaultProps()} />);
-    await settledToolbar();
+    fireEvent.click(await screen.findByRole('button', { name: 'More text formatting' }));
+    await waitFor(() => expect(screen.getByLabelText('List')).toBeVisible());
     expect(await screen.findByRole('radiogroup', { name: 'Text alignment' })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'Left' })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'Center' })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'Right' })).toBeInTheDocument();
   });
 
-  it('renders list toggle', () => {
+  it('renders list toggle', async () => {
     render(<FloatingTextBar {...defaultProps()} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'More text formatting' }));
+    await waitFor(() => screen.getByLabelText('List'));
     const list = screen.getByLabelText('List');
     expect(list).toBeInTheDocument();
     expect(list).toHaveAttribute('aria-pressed', 'false');
@@ -133,10 +139,12 @@ describe('FloatingTextBar', () => {
     expect(screen.getByLabelText('Italic')).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('shows list as active when listStyle is not none', () => {
+  it('shows list as active when listStyle is not none', async () => {
     render(
       <FloatingTextBar {...defaultProps({ node: { ...BASE_TEXT_NODE, listStyle: 'disc' } })} />,
     );
+    fireEvent.click(await screen.findByRole('button', { name: 'More text formatting' }));
+    await waitFor(() => screen.getByLabelText('List'));
     expect(screen.getByLabelText('List')).toHaveAttribute('aria-pressed', 'true');
   });
 
@@ -144,7 +152,7 @@ describe('FloatingTextBar', () => {
     render(
       <FloatingTextBar {...defaultProps({ node: { ...BASE_TEXT_NODE, textAlign: 'center' } })} />,
     );
-    await settledToolbar();
+    fireEvent.click(await screen.findByRole('button', { name: 'More text formatting' }));
     expect(await screen.findByRole('radio', { name: 'Center' })).toBeChecked();
     expect(screen.getByRole('radio', { name: 'Left' })).not.toBeChecked();
   });
@@ -185,20 +193,24 @@ describe('FloatingTextBar', () => {
     expect(onUpdate).toHaveBeenCalledWith('text-1', { fontStyle: 'normal' });
   });
 
-  it('calls onUpdate with list disc on list click', () => {
+  it('calls onUpdate with list disc on list click', async () => {
     const onUpdate = vi.fn();
     render(<FloatingTextBar {...defaultProps({ onUpdate })} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'More text formatting' }));
+    await waitFor(() => screen.getByLabelText('List'));
     fireEvent.click(screen.getByLabelText('List'));
     expect(onUpdate).toHaveBeenCalledWith('text-1', { listStyle: 'disc' });
   });
 
-  it('calls onUpdate with list none on list click when already list', () => {
+  it('calls onUpdate with list none on list click when already list', async () => {
     const onUpdate = vi.fn();
     render(
       <FloatingTextBar
         {...defaultProps({ node: { ...BASE_TEXT_NODE, listStyle: 'disc' }, onUpdate })}
       />,
     );
+    fireEvent.click(await screen.findByRole('button', { name: 'More text formatting' }));
+    await waitFor(() => screen.getByLabelText('List'));
     fireEvent.click(screen.getByLabelText('List'));
     expect(onUpdate).toHaveBeenCalledWith('text-1', { listStyle: 'none' });
   });
@@ -206,7 +218,7 @@ describe('FloatingTextBar', () => {
   it('calls onUpdate with align value on align click', async () => {
     const onUpdate = vi.fn();
     render(<FloatingTextBar {...defaultProps({ onUpdate })} />);
-    await settledToolbar();
+    fireEvent.click(await screen.findByRole('button', { name: 'More text formatting' }));
     fireEvent.click(await screen.findByRole('radio', { name: 'Center' }));
     expect(onUpdate).toHaveBeenCalledWith('text-1', { textAlign: 'center' });
   });
@@ -216,6 +228,9 @@ describe('FloatingTextBar', () => {
     render(<FloatingTextBar {...defaultProps({ onUpdate })} />);
     const input = screen.getByLabelText('Font size');
     fireEvent.change(input, { target: { value: '24' } });
+    expect(onUpdate).not.toHaveBeenCalled();
+    fireEvent.blur(input);
+    expect(onUpdate).toHaveBeenCalledOnce();
     expect(onUpdate).toHaveBeenCalledWith('text-1', { fontSize: 24 });
   });
 

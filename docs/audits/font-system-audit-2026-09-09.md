@@ -34,32 +34,35 @@ depend on host-installed fonts.
 The existing compact-picker E2E was also inspected visually. The empty-text
 scenario loses the picker surface after the text interaction; the non-empty
 scenario keeps it alive but constrains the family field and clips the menu.
-Those observations are tracked as editor UX acceptance tests rather than
-being hidden by screenshot updates.
+The toolbar menu-boundary and picker-first Escape repairs are now covered by
+the focused E2E contract; a fresh runtime capture remains dependent on the
+concurrent InspectorQuickBar worktree being HMR-clean. Those observations are
+tracked as editor UX acceptance tests rather than being hidden by screenshot
+updates.
 
 ## Original hypothesis disposition
 
 The 16 hypotheses from the prior review are kept explicit here so a passing
 unit test cannot be mistaken for end-to-end completion.
 
-| # | Hypothesis | Disposition |
+| # | Original hypothesis | Current disposition |
 | --- | --- | --- |
-| 1 | Name records lose language/platform fields | Fixed in parser and real-font probes |
-| 2 | Collection headers use incorrect offsets | Fixed; member index is retained |
-| 3 | cmap format 4/12 coverage is incomplete | Fixed and covered by parser tests |
-| 4 | GSUB/GPOS traversal reads headers as features | Fixed and covered by real fonts |
-| 5 | WOFF reconstruction changes identity/checksums | Fixed for validation and original-byte hashing |
-| 6 | Native enumeration uses a disconnected IPC shape | Request envelope fixed; production Refresh wiring remains |
-| 7 | Native storage collides by family | IndexedDB is content-addressed; native exact-file migration remains |
-| 8 | Legacy migration can resurrect removed families | Hash migration is guarded; durable removal journal remains |
-| 9 | Dynamic byte faces bypass worker readiness | Blob-backed stylesheet bridge added; adoption is still gated synchronously |
-| 10 | Variable axes are absent from measurement identity | Authored references now persist; cache-axis audit remains |
-| 11 | HarfBuzz shaping is not the canonical render path | Existing backend is present; production compositor integration remains |
-| 12 | Package manifests claim fonts without payloads | Fixed: `bundled` follows a written `fonts/` entry |
-| 13 | Export readiness can silently time out | Raster readiness reports timeouts; font-specific preflight remains |
-| 14 | Rich-text outlining reuses one face for all runs | Remains open; run-level outlining is required |
-| 15 | Image identification ignores target regions/dependencies | Remains open; crop/target/OCR slice is required |
-| 16 | Catalog previews can fetch artifacts implicitly | Fixed: browsing and hover are metadata-only |
+| 1 | Native enumeration has no production caller | Confirmed in fresh source audit. Request shape repaired earlier; startup/Refresh and exact native handles remain open. |
+| 2 | Stored-font restoration has no production caller | Disproved for browser: restoration is already called before editor mount. Native exact-file restoration remains incomplete. |
+| 3 | Fonts inspector onSelect is a no-op | Open integration check: verify the actual mounted panel target adapter; browse-only is valid only when explicitly labelled. |
+| 4 | Browser face selection discards face metadata | Confirmed: selection callbacks still accept a family string. Real face/instance application remains open. |
+| 5 | Family strings collapse distinct files and members | Confirmed across picker, native storage and runtime projection; optional schema references alone do not fix it. |
+| 6 | Inspector edits ignore active ranges and inherited styles | Confirmed for top-level batch update and floating toolbar callbacks. Shared range/caret adapter remains open. |
+| 7 | Select by Font ignores effective runs and current scope | Existing command needs the shared effective usage index and explicit scope/navigation integration. |
+| 8 | Native metadata and exact file loadability are lost | Confirmed: paths are enumerated but no opaque exact-file/member handle flows to rendering. |
+| 9 | Native storage overwrites by normalized family | Confirmed in font_storage.rs; artifact/face migration and exact uninstall remain open. |
+| 10 | Byte-loaded fonts do not reach render workers | Partial repair: blob-backed CSS bridge exists. Exact revision acknowledgement and main/worker oracle remain open. |
+| 11 | Readiness and caches omit full face instance | Confirmed: useDocumentFonts keys family/weight/style. Axis, features, language and face revision require audit/integration. |
+| 12 | Missing-font checks conflate family and usable face | Partial resolver states exist; distinct capability outcomes and recovery UI remain open. |
+| 13 | Catalog and registry disagree through lossy bridging | Confirmed architecture risk: family projections and placeholder metadata remain. One authoritative exact-face service is required. |
+| 14 | Image identification ignores region and text target | Confirmed: whole-image analysis, missing classifier/comparison dependencies, and an ineffective image-selection Apply path. |
+| 15 | Download lifecycle needs explicit verification | Earlier queue/cancellation tests exist. Migration restart, integrity, offline retry and exact uninstall still require end-to-end proof. |
+| 16 | Historical audit completion claims conflict | Confirmed. Historical claims remain historical; the restored original acceptance matrix is the current checklist. |
 
 The acceptance scenarios and their current evidence ownership are tracked in
 [`font-acceptance-matrix-2026-09-09.md`](./font-acceptance-matrix-2026-09-09.md).
@@ -71,3 +74,38 @@ the embedded desktop lane. Windows WebView2 and macOS WKWebView still require
 their CI or platform environments. The collaboration package remains a
 transport stub, so this work will provide portable font references and
 authorized asset descriptors without claiming live peer synchronization.
+
+
+## Continuation audit — 2026-09-10
+
+The earlier hypothesis table accidentally substituted parser discoveries for
+several of the supplied hypotheses. The table above now follows all 16 original
+hypotheses, and the acceptance matrix follows all 24 original scenarios.
+Parser discoveries remain additional findings, not substitutes.
+
+At `8cd73fc72` plus the shared working tree, the font picker always consumed
+Escape, including when closed. Inline fallback-placement arrays also restarted
+the toolbar positioning effect on every parent render. The menu had no
+independent collision boundary. The current repair makes placement inputs stable,
+portals the menu separately, keeps active options mounted, preserves native text
+editing keys and only consumes Escape while open.
+
+Chromium run `1494` passed both typography-editing tests, including the second
+Escape and empty-layer cleanup. Inspected captures nevertheless exposed an
+empty virtual list: the portaled scroll element arrived after virtualizer setup.
+That observation prompted a callback-ref repair and an explicit visible-option
+assertion. The capture also exposed toolbar contents overflowing its background;
+alignment/list controls were moved into More. Run 1494 is evidence of this
+intermediate defect, not visual approval of the finished toolbar.
+
+Implementation order, primary standards and integration gates are in the
+[remaining-work plan](../plans/font-system-remaining-2026-09-10.md).
+
+The subsequent cross-component review confirmed 40px family/weight fields next
+to 32px buttons and differently sized field text. The toolbar now follows the
+main floating palette's spacing and surface tokens. Computed comparisons and
+27 inspected final captures cover three themes at DPR 1/2/3; the shadow was
+moved onto the placement layer after visual inspection found clipped corners.
+Exact measurements, failed iterations and passing commands are in the
+[toolbar evidence log](./font-toolbar-evidence-2026-09-10.md). This verifies the
+local toolbar repair, not completion of the broader font acceptance matrix.
