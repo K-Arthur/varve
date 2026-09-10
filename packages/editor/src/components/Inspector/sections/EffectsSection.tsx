@@ -298,6 +298,9 @@ export function EffectsSection({ nodes, sectionId }: EffectsSectionProps) {
       title="Layer Effects"
       sectionId={sectionId}
       defaultExpanded={effectNodes.some((n) => (n.effects?.length ?? 0) > 0)}
+      action={
+        <EffectAddAction value={newEffectType} onChange={setNewEffectType} onAdd={addEffect} />
+      }
     >
       {effectNodes.every((n) => (n.effects?.length ?? 0) === 0) ? (
         <div className="insp-empty-message">No effects</div>
@@ -325,29 +328,79 @@ export function EffectsSection({ nodes, sectionId }: EffectsSectionProps) {
       {countMixed && rowCount > 0 && (
         <div className="insp-empty-message">Some selected nodes have additional effects</div>
       )}
-      <div className="insp-fill-add">
-        <Select
-          label="New effect type"
-          value={newEffectType}
-          options={EFFECT_TYPE_OPTIONS}
-          onChange={(v) => setNewEffectType(v as Effect['type'])}
-        />
-        <button
-          type="button"
-          className="insp-add-btn"
-          onClick={addEffect}
-          disabled={newEffectType === 'depthBlur'}
-          title={
-            newEffectType === 'depthBlur'
-              ? 'Generate a DepthMap in the image Depth Blur section first'
-              : undefined
-          }
-        >
-          <Icon name="Plus" label={undefined} size="0.85em" />
-          <span>Add</span>
-        </button>
-      </div>
     </DisclosureSection>
+  );
+}
+
+function EffectAddAction({
+  value,
+  onChange,
+  onAdd,
+}: {
+  value: Effect['type'];
+  onChange: (value: Effect['type']) => void;
+  onAdd: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const selectedLabel =
+    EFFECT_TYPE_OPTIONS.find((option) => option.value === value)?.label ?? 'Effect type';
+  const menuItems = useMemo<readonly MenuEntry[]>(
+    () =>
+      EFFECT_TYPE_OPTIONS.map((option) => ({
+        id: option.value,
+        label: option.label,
+        icon: option.icon,
+        disabled: option.value === 'depthBlur',
+        onAction: () => {
+          onChange(option.value);
+          setOpen(false);
+        },
+      })),
+    [onChange],
+  );
+  return (
+    <div className="insp-fill-add__controls">
+      <button
+        ref={triggerRef}
+        type="button"
+        className="insp-inline-btn insp-effect-type-trigger"
+        aria-label="New effect type"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title={`Effect type: ${selectedLabel}`}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <Icon
+          name={EFFECT_TYPE_OPTIONS.find((option) => option.value === value)?.icon ?? 'Sparkles'}
+          label={undefined}
+          size="0.85em"
+        />
+        <Icon name="ChevronDown" label={undefined} size="0.75em" />
+      </button>
+      <Menu
+        triggerRef={triggerRef}
+        open={open}
+        onClose={() => setOpen(false)}
+        label="New effect type"
+        items={menuItems}
+        size="compact"
+      />
+      <button
+        type="button"
+        className="insp-add-btn"
+        onClick={onAdd}
+        disabled={value === 'depthBlur'}
+        title={
+          value === 'depthBlur'
+            ? 'Generate a DepthMap in the image Depth Blur section first'
+            : `Add ${selectedLabel}`
+        }
+      >
+        <Icon name="Plus" label={undefined} size="0.85em" />
+        <span>Add</span>
+      </button>
+    </div>
   );
 }
 

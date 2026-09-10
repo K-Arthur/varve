@@ -37,6 +37,8 @@ export interface DisclosureSectionProps {
   /** Nested subsection identifier under a parent sectionId. Requires sectionId. */
   subsectionId?: string;
   defaultExpanded?: boolean;
+  /** Optional action rendered beside the disclosure trigger. */
+  action?: ReactNode;
   children: ReactNode;
 }
 
@@ -69,6 +71,7 @@ export function DisclosureSection({
   sectionId,
   subsectionId,
   defaultExpanded = true,
+  action,
   children,
 }: DisclosureSectionProps) {
   const auto = useId();
@@ -83,6 +86,7 @@ export function DisclosureSection({
         subsectionId={subsectionId}
         title={title}
         panelId={panelId}
+        action={action}
       >
         {children}
       </RegistryDisclosure>
@@ -91,7 +95,7 @@ export function DisclosureSection({
 
   // ── Legacy mode: local state + sessionStorage ──
   return (
-    <LegacyDisclosure slug={slug} title={title} defaultExpanded={defaultExpanded}>
+    <LegacyDisclosure slug={slug} title={title} defaultExpanded={defaultExpanded} action={action}>
       {children}
     </LegacyDisclosure>
   );
@@ -106,6 +110,7 @@ function RegistryDisclosure({
   subsectionId,
   title,
   panelId,
+  action,
   defaultExpanded: _defaultExpanded,
   children,
 }: {
@@ -113,6 +118,7 @@ function RegistryDisclosure({
   subsectionId?: string;
   title: string;
   panelId: string;
+  action?: ReactNode;
   defaultExpanded?: boolean;
   children: ReactNode;
 }) {
@@ -167,25 +173,28 @@ function RegistryDisclosure({
 
   return (
     <section className="insp-disclosure">
-      <button
-        ref={triggerRef}
-        type="button"
-        className="insp-disclosure__trigger"
-        aria-expanded={expanded}
-        aria-controls={panelId}
-        aria-haspopup={def?.canHide ? 'menu' : undefined}
-        onClick={handleToggle}
-        onContextMenu={handleTriggerContextMenu}
-        onKeyDown={handleTriggerKeyDown}
-      >
-        <Icon
-          name="ChevronRight"
-          label={undefined}
-          className="insp-disclosure__chevron"
-          size="0.9em"
-        />
-        <span>{title}</span>
-      </button>
+      <div className="insp-disclosure__header">
+        <button
+          ref={triggerRef}
+          type="button"
+          className="insp-disclosure__trigger"
+          aria-expanded={expanded}
+          aria-controls={panelId}
+          aria-haspopup={def?.canHide ? 'menu' : undefined}
+          onClick={handleToggle}
+          onContextMenu={handleTriggerContextMenu}
+          onKeyDown={handleTriggerKeyDown}
+        >
+          <Icon
+            name="ChevronRight"
+            label={undefined}
+            className="insp-disclosure__chevron"
+            size="0.9em"
+          />
+          <span>{title}</span>
+        </button>
+        {action && <div className="insp-disclosure__action">{action}</div>}
+      </div>
       {expanded && (
         <fieldset className="insp-disclosure__content" id={panelId}>
           <legend className="sr-only">{title}</legend>
@@ -215,11 +224,13 @@ function LegacyDisclosure({
   slug,
   title,
   defaultExpanded,
+  action,
   children,
 }: {
   slug: string;
   title: string;
   defaultExpanded: boolean;
+  action?: ReactNode;
   children: ReactNode;
 }) {
   const [expanded, setExpanded] = useState<boolean>(() => readStored(slug, defaultExpanded));
@@ -234,7 +245,10 @@ function LegacyDisclosure({
 
   return (
     <Disclosure open={expanded} onOpenChange={handleOpenChange} className="insp-disclosure">
-      <DisclosureTrigger className="insp-disclosure__trigger">{title}</DisclosureTrigger>
+      <div className="insp-disclosure__header">
+        <DisclosureTrigger className="insp-disclosure__trigger">{title}</DisclosureTrigger>
+        {action && <div className="insp-disclosure__action">{action}</div>}
+      </div>
       <DisclosureContent className="insp-disclosure__content">{children}</DisclosureContent>
     </Disclosure>
   );

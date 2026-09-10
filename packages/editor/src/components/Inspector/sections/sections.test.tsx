@@ -151,7 +151,7 @@ describe('AppearanceSection', () => {
     renderWithProvider(<AppearanceSection nodes={[node]} />);
     expect(screen.getByLabelText('Opacity (%)')).toHaveValue('100');
     expect(screen.getByLabelText('Blend mode')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Open Effect Studio' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Open Effect Studio' })).toBeNull();
   });
 
   it('shows opacity Mixed indicator for multi-select with differing values', () => {

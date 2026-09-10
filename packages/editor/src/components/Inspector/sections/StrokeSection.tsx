@@ -210,7 +210,16 @@ export function StrokeSection({ nodes }: StrokeSectionProps) {
   const countMixed = !allEqual;
 
   return (
-    <DisclosureSection title="Stroke" sectionId="stroke">
+    <DisclosureSection
+      title="Stroke"
+      sectionId="stroke"
+      action={
+        <button type="button" className="insp-add-btn" onClick={addStroke}>
+          <Icon name="Plus" label={undefined} size="0.85em" />
+          <span>Add Stroke</span>
+        </button>
+      }
+    >
       {strokeNodes.every((n) => n.strokes.length === 0) ? (
         <div className="insp-empty-message">No stroke</div>
       ) : (
@@ -233,10 +242,6 @@ export function StrokeSection({ nodes }: StrokeSectionProps) {
       {countMixed && minStrokes > 0 && (
         <div className="insp-empty-message">Some selected nodes have additional strokes</div>
       )}
-      <button type="button" className="insp-add-btn" onClick={addStroke}>
-        <Icon name="Plus" label={undefined} size="0.85em" />
-        <span>Add Stroke</span>
-      </button>
     </DisclosureSection>
   );
 }

@@ -272,7 +272,33 @@ export function FillSection({ nodes }: FillSectionProps) {
   );
 
   return (
-    <DisclosureSection title="Fill" sectionId="fills">
+    <DisclosureSection
+      title="Fill"
+      sectionId="fills"
+      action={
+        <div className="insp-fill-add__controls">
+          <button
+            ref={addTriggerRef}
+            type="button"
+            className="insp-add-btn insp-fill-add__trigger"
+            aria-haspopup="menu"
+            aria-expanded={addMenuOpen}
+            onClick={() => setAddMenuOpen((v) => !v)}
+          >
+            <Icon name="Plus" label={undefined} size="0.85em" />
+            <span>Add fill</span>
+          </button>
+          <Menu
+            triggerRef={addTriggerRef}
+            open={addMenuOpen}
+            onClose={() => setAddMenuOpen(false)}
+            label="Add fill"
+            items={addMenuItems}
+            size="compact"
+          />
+        </div>
+      }
+    >
       {fills.length === 0 && <div className="insp-empty-message">No fill</div>}
       <div ref={bindingTriggerRef} className="insp-field-group">
         {fills.map((fill, i) => (
@@ -318,29 +344,6 @@ export function FillSection({ nodes }: FillSectionProps) {
       {countMixed && fills.length > 0 && (
         <div className="insp-empty-message">Some selected nodes have additional fills</div>
       )}
-      <div className="insp-fill-add">
-        <div className="insp-fill-add__controls">
-          <button
-            ref={addTriggerRef}
-            type="button"
-            className="insp-add-btn insp-fill-add__trigger"
-            aria-haspopup="menu"
-            aria-expanded={addMenuOpen}
-            onClick={() => setAddMenuOpen((v) => !v)}
-          >
-            <Icon name="Plus" label={undefined} size="0.85em" />
-            <span>Add fill</span>
-          </button>
-          <Menu
-            triggerRef={addTriggerRef}
-            open={addMenuOpen}
-            onClose={() => setAddMenuOpen(false)}
-            label="Add fill"
-            items={addMenuItems}
-            size="compact"
-          />
-        </div>
-      </div>
       {editor.bindingField === 'fill' && (
         <BindingMenu
           variableStore={docVariableStore(editor.state.document)}

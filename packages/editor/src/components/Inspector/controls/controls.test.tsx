@@ -48,6 +48,31 @@ describe('DisclosureSection', () => {
     expect(screen.getByText('size-content')).toBeTruthy();
   });
 
+  it('keeps a sibling action outside the disclosure trigger', () => {
+    const onAction = () => {};
+    render(
+      <DisclosureSection
+        title="Fills"
+        defaultExpanded={false}
+        action={
+          <button type="button" onClick={onAction}>
+            Add fill
+          </button>
+        }
+      >
+        <div>fill-content</div>
+      </DisclosureSection>,
+    );
+    const trigger = screen.getByRole('button', { name: /^fills$/i });
+    const action = screen.getByRole('button', { name: /add fill/i });
+    expect(action.parentElement?.className).toContain('insp-disclosure__action');
+    expect(action.closest('button')).toBe(action);
+    fireEvent.click(action);
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(trigger);
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+  });
+
   it('persists expansion state across remounts via sessionStorage', () => {
     sessionStorage.setItem('strata:inspector:disclosure:persist-test', '0');
     const { unmount } = render(

@@ -13,7 +13,6 @@ import { Select } from '@varve/ui';
 import { useRef } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
-import { EffectStudioLauncher } from '../../EffectStudio/EffectStudioLauncher';
 import { deriveNumericBindingPresentation } from '../boundPropertyState';
 import { BindingMenu } from '../controls/BindingMenu';
 import { groupBlendOptions } from '../controls/blendModeOptionGroups';
@@ -102,9 +101,6 @@ export function AppearanceSection({ nodes }: { nodes: SceneNode[] }) {
           }}
           placeholder="Mixed"
         />
-      </FieldRow>
-      <FieldRow label="Creative effects">
-        <EffectStudioLauncher />
       </FieldRow>
     </DisclosureSection>
   );

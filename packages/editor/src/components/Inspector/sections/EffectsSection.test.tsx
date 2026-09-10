@@ -461,7 +461,7 @@ describe('EffectsSection — effect type dropdown', () => {
   afterEach(cleanup);
 
   function openDropdown() {
-    const trigger = screen.getByRole('combobox', { name: /new effect type/i });
+    const trigger = screen.getByRole('button', { name: /new effect type/i });
     fireEvent.click(trigger);
   }
 
@@ -469,7 +469,7 @@ describe('EffectsSection — effect type dropdown', () => {
     render(<EffectsSection nodes={[nodeWithShadow('n1')]} />);
     openDropdown();
     await waitFor(() => {
-      const options = screen.getAllByRole('option');
+      const options = screen.getAllByRole('menuitem');
       const labels = options.map((o) => o.textContent);
       expect(labels).toContain('Chromatic Aberration');
     });
@@ -478,7 +478,7 @@ describe('EffectsSection — effect type dropdown', () => {
   it('includes glitch in new effect type options', async () => {
     render(<EffectsSection nodes={[nodeWithShadow('n1')]} />);
     openDropdown();
-    const options = await screen.findAllByRole('option');
+    const options = await screen.findAllByRole('menuitem');
     const labels = options.map((o) => o.textContent);
     expect(labels).toContain('Glitch');
   });
