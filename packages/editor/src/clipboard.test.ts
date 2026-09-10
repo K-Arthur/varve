@@ -4,6 +4,8 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   captureClipboardEvent,
   clearCapturedClipboardEvent,
+  createTransferRequest,
+  getClipboardSnapshot,
   parseClipboardData,
   readClipboardUnifiedWithFallback,
   readFromClipboardEvent,
@@ -227,6 +229,24 @@ describe('readFromClipboardEvent', () => {
     });
 
     expect(result.varveData?.nodes[0]?.name).toBe('Snapshot');
+  });
+
+  it('keeps snapshots and fallbacks owned by distinct gesture requests', async () => {
+    const firstRequest = createTransferRequest('paste', 'session-a');
+    const secondRequest = createTransferRequest('paste', 'session-a');
+    expect(firstRequest.operationId).not.toBe(secondRequest.operationId);
+
+    const first = new File([new Uint8Array([1, 2])], 'first.png', { type: 'image/png' });
+    const second = new File([new Uint8Array([3, 4])], 'second.png', { type: 'image/png' });
+    captureClipboardEvent(createClipboardEventWithFiles([first]), firstRequest);
+    captureClipboardEvent(createClipboardEventWithFiles([second]), secondRequest);
+
+    expect(getClipboardSnapshot(firstRequest)?.request).toEqual(firstRequest);
+    expect(getClipboardSnapshot(secondRequest)?.orderedItems).toEqual(['second.png']);
+    const firstResult = await readClipboardUnifiedWithFallback(undefined, firstRequest);
+    const secondResult = await readClipboardUnifiedWithFallback(undefined, secondRequest);
+    expect(firstResult.importItems[0]?.name).toBe('first.png');
+    expect(secondResult.importItems[0]?.name).toBe('second.png');
   });
 
   it('preserves distinct image files that share a filename', async () => {

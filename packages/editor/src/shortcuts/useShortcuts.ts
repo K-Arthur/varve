@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getActionRegistry } from '../actions/ActionRegistry';
-import { schedulePasteFallback } from '../clipboard';
+import { createTransferRequest, schedulePasteFallback } from '../clipboard';
 import type { EditorContextValue } from '../context';
 import {
   bindingMatchesEvent,
@@ -133,7 +133,7 @@ export function useShortcuts(
           // event outside editable elements, though, so schedule a
           // fallback that runs the action directly unless the real event
           // arrives first and cancels it (see clipboard.ts).
-          schedulePasteFallback(() => {
+          schedulePasteFallback(createTransferRequest('paste'), () => {
             ref.current.recordAction('shortcut:paste');
             getHandler('paste')?.();
           });

@@ -120,6 +120,43 @@ export interface UnifiedClipboardResult {
   htmlText?: string;
 }
 
+export type TransferIntent = 'paste' | 'copy' | 'cut' | 'import' | 'drop';
+
+export interface TransferRequest {
+  readonly operationId: string;
+  readonly gestureId: string;
+  readonly intent: TransferIntent;
+  readonly sessionId?: string;
+  readonly createdAt: number;
+}
+
+export type ClipboardRequest = TransferRequest;
+
+export interface ClipboardCapabilities {
+  readonly text: boolean;
+  readonly html: boolean;
+  readonly raster: boolean;
+  readonly customMime: boolean;
+  readonly fileTransfer: boolean;
+  readonly permission: 'granted' | 'denied' | 'unknown';
+}
+
+export interface ClipboardSnapshot {
+  readonly request: TransferRequest;
+  readonly capturedAt: number;
+  readonly capabilities: ClipboardCapabilities;
+  readonly orderedItems: readonly string[];
+  readonly alternatives: readonly string[];
+}
+
+export interface TransferOutcome {
+  readonly request: TransferRequest;
+  readonly status: 'committed' | 'empty' | 'failed' | 'cancelled' | 'superseded';
+  readonly committedRoots: readonly string[];
+  readonly warnings: readonly string[];
+  readonly capabilities?: ClipboardCapabilities;
+}
+
 export type ClipboardWriteOutcome =
   | { status: 'editable'; mimeTypes: string[] }
   | { status: 'text-only'; reason: 'editable-format-unavailable' }
@@ -767,21 +804,113 @@ async function readClipboardSnapshot(
   return result;
 }
 
-/**
- * Module-level reference to the last paste event, captured by
- * the native paste listener in Shell. Used as a fallback when
- * `navigator.clipboard.read()` fails (common on Wayland).
- */
-let capturedPasteSnapshot: ClipboardDataSnapshot | null = null;
-
-/** Snapshot a paste event while its DataTransfer is live; never retain the event itself. */
-export function captureClipboardEvent(event: ClipboardEvent): void {
-  capturedPasteSnapshot = event.clipboardData ? snapshotClipboardData(event.clipboardData) : null;
+interface OwnedClipboardSnapshot {
+  data: ClipboardDataSnapshot;
+  contract: ClipboardSnapshot;
 }
 
-/** Clear the captured paste event (e.g. after consuming it). */
-export function clearCapturedClipboardEvent(): void {
-  capturedPasteSnapshot = null;
+let transferSequence = 0;
+let latestTransferRequest: TransferRequest | null = null;
+const pendingTransferRequests: TransferRequest[] = [];
+const capturedClipboardSnapshots = new Map<string, OwnedClipboardSnapshot>();
+const pendingPasteFallbacks = new Map<string, ReturnType<typeof setTimeout>>();
+
+export function createTransferRequest(
+  intent: TransferIntent = 'paste',
+  sessionId?: string,
+): TransferRequest {
+  transferSequence += 1;
+  const id = `${Date.now().toString(36)}-${transferSequence.toString(36)}`;
+  const request: TransferRequest = {
+    operationId: id,
+    gestureId: id,
+    intent,
+    ...(sessionId ? { sessionId } : {}),
+    createdAt: Date.now(),
+  };
+  latestTransferRequest = request;
+  if (intent === 'paste') pendingTransferRequests.push(request);
+  return request;
+}
+
+export function getLatestTransferRequest(): TransferRequest | null {
+  return latestTransferRequest;
+}
+
+function removePendingRequest(request: TransferRequest): void {
+  const index = pendingTransferRequests.findIndex(
+    (candidate) => candidate.operationId === request.operationId,
+  );
+  if (index >= 0) pendingTransferRequests.splice(index, 1);
+  if (latestTransferRequest?.operationId === request.operationId) {
+    latestTransferRequest = pendingTransferRequests[pendingTransferRequests.length - 1] ?? null;
+  }
+}
+
+function capabilitiesForSnapshot(snapshot: ClipboardDataSnapshot): ClipboardCapabilities {
+  return {
+    text: Boolean(snapshot.plainText),
+    html: Boolean(snapshot.htmlText),
+    raster: snapshot.files.some(
+      ({ file }) => file.type.startsWith('image/') && file.type !== 'image/svg+xml',
+    ),
+    customMime: Boolean(snapshot.varveData),
+    fileTransfer: snapshot.files.length > 0,
+    permission: 'granted',
+  };
+}
+
+function contractForSnapshot(
+  request: TransferRequest,
+  snapshot: ClipboardDataSnapshot,
+): ClipboardSnapshot {
+  const alternatives = [
+    snapshot.varveData ? VARVE_MIME : null,
+    snapshot.svgText ? 'image/svg+xml' : null,
+    snapshot.htmlText ? 'text/html' : null,
+    snapshot.plainText ? 'text/plain' : null,
+    ...snapshot.files.map(({ file }) => file.type),
+  ].filter((value): value is string => Boolean(value));
+  return {
+    request,
+    capturedAt: Date.now(),
+    capabilities: capabilitiesForSnapshot(snapshot),
+    orderedItems: snapshot.files.map(({ file }) => file.name || file.type),
+    alternatives,
+  };
+}
+
+export function getClipboardSnapshot(request?: TransferRequest): ClipboardSnapshot | null {
+  const owned = request ?? latestTransferRequest;
+  return owned ? (capturedClipboardSnapshots.get(owned.operationId)?.contract ?? null) : null;
+}
+
+/** Snapshot a paste event while its DataTransfer is live; never retain the event itself. */
+export function captureClipboardEvent(event: ClipboardEvent, request?: TransferRequest): void {
+  const owned = request ?? pendingTransferRequests[0] ?? createTransferRequest('paste');
+  const data = event.clipboardData ? snapshotClipboardData(event.clipboardData) : null;
+  if (data) {
+    capturedClipboardSnapshots.set(owned.operationId, {
+      data,
+      contract: contractForSnapshot(owned, data),
+    });
+  } else {
+    capturedClipboardSnapshots.delete(owned.operationId);
+  }
+  removePendingRequest(owned);
+  latestTransferRequest = owned;
+}
+
+/** Clear one captured event (or all legacy captures) after consuming it. */
+export function clearCapturedClipboardEvent(request?: TransferRequest): void {
+  if (request) {
+    capturedClipboardSnapshots.delete(request.operationId);
+    removePendingRequest(request);
+    return;
+  }
+  capturedClipboardSnapshots.clear();
+  pendingTransferRequests.length = 0;
+  latestTransferRequest = null;
 }
 
 /** Whether a clipboard event belongs to a browser-owned editing surface. */
@@ -816,20 +945,37 @@ export function isNativeClipboardTarget(event: Event): boolean {
  * `paste` event cancels it before running the action itself, so exactly one
  * of the two paths executes.
  */
-let pendingPasteFallback: ReturnType<typeof setTimeout> | null = null;
-
-export function schedulePasteFallback(run: () => void, delayMs = 150): void {
-  cancelPasteFallback();
-  pendingPasteFallback = setTimeout(() => {
-    pendingPasteFallback = null;
-    run();
-  }, delayMs);
+export function schedulePasteFallback(
+  requestOrRun: TransferRequest | (() => void),
+  runOrDelay: (() => void) | number = 150,
+  delayMs = 150,
+): TransferRequest {
+  const request =
+    typeof requestOrRun === 'function' ? createTransferRequest('paste') : requestOrRun;
+  const run = typeof requestOrRun === 'function' ? requestOrRun : (runOrDelay as () => void);
+  const timeout = typeof runOrDelay === 'number' ? runOrDelay : delayMs;
+  cancelPasteFallback(request);
+  pendingPasteFallbacks.set(
+    request.operationId,
+    setTimeout(() => {
+      pendingPasteFallbacks.delete(request.operationId);
+      removePendingRequest(request);
+      latestTransferRequest = request;
+      run();
+    }, timeout),
+  );
+  return request;
 }
 
-export function cancelPasteFallback(): void {
-  if (pendingPasteFallback !== null) {
-    clearTimeout(pendingPasteFallback);
-    pendingPasteFallback = null;
+export function cancelPasteFallback(request?: TransferRequest): void {
+  const owned = request ?? pendingTransferRequests[0] ?? latestTransferRequest;
+  if (owned) {
+    const timer = pendingPasteFallbacks.get(owned.operationId);
+    if (timer !== undefined) {
+      clearTimeout(timer);
+      pendingPasteFallbacks.delete(owned.operationId);
+    }
+    return;
   }
 }
 
@@ -846,9 +992,14 @@ export function cancelPasteFallback(): void {
  */
 export async function readClipboardUnifiedWithFallback(
   platform?: Pick<Platform, 'kind' | 'readClipboardData' | 'readClipboardImage'>,
+  request?: TransferRequest,
 ): Promise<UnifiedClipboardResult> {
-  const eventSnapshot = capturedPasteSnapshot;
-  capturedPasteSnapshot = null;
+  const owned = request ?? latestTransferRequest;
+  const eventSnapshot = owned ? capturedClipboardSnapshots.get(owned.operationId)?.data : undefined;
+  if (owned) {
+    capturedClipboardSnapshots.delete(owned.operationId);
+    removePendingRequest(owned);
+  }
   let eventResult: UnifiedClipboardResult | null = null;
   if (eventSnapshot) {
     eventResult = await readClipboardSnapshot(eventSnapshot);
