@@ -62,7 +62,7 @@ not treated as proof merely because the browser completed the capture.
 | UI-02 | Home active navigation, `packages/home/src/home.css` | Active Recent row carries a high-saturation filled treatment that competes with the primary empty-state action | P2 | Selection treatment was inherited from an accent-filled navigation pattern | Fixed in this pass with a quieter wash plus a persistent accent rail |
 | UI-03 | Home file thumbnail controls, `packages/home/src/home.css` | Drag handle and type badge use translucency/blur while the adopted application surface model is opaque | P2 | Legacy “glass” treatment survived the opaque-surface migration | Fixed in this pass with opaque token-backed surfaces |
 | UI-04 | Marketing product screenshot frame, `apps/website/src/components/ProductShowcase.astro` | Generic desktop-window dots make the real application capture feel like a mockup | P2 | Showcase wrapper predates the current product-chrome direction | Fixed in this pass with a Varve workspace frame and status treatment |
-| UI-05 | Editor domain controls, `packages/editor/src/components/Inspector/` and Layers | Inline/domain controls remain a known migration area even though the visual language is mostly coherent | P2 | Specialized editor widgets predate some shared primitives | Partially addressed: Inspector field containment, responsive control sizing, and the single-selection Quick properties surface are covered; Tree/Combobox ownership work remains deferred |
+| UI-05 | Editor domain controls, `packages/editor/src/components/Inspector/` and Layers | Inline/domain controls remain a known migration area even though the visual language is mostly coherent | P2 | Specialized editor widgets predate some shared primitives | Partially addressed: Inspector field containment, responsive control sizing, and canonical one-location property editing are covered; Tree/Combobox ownership work remains deferred |
 | UI-06 | Website feature page composition | Feature pages are visually consistent but have no shared product-frame primitive for domain screenshots | P3 | Each page owns its screenshot framing locally | Deferred; candidate for a later Astro component extraction |
 
 ## D. Design direction adopted
@@ -101,21 +101,20 @@ framework or visual skin.
 ## Inspector follow-up — 2026-09-09
 
 The deferred inspector slice now has a bounded implementation. A single selected
-node exposes X, Y, W, H, Opacity, and Fill at the top of the Design/Properties
-surface. The strip reuses the canonical setters and binding presentation, keeps
-image dimensions proportional like the full Layout section, and disappears for
-empty or mixed selections. Its controls use the existing token and input-field
-grammar: explicit borders, restrained sunken grouping, keyboard focus rings,
-and a wider Fill control for the color-popover affordance.
+node exposes X, Y, W, H, Opacity, and Fill in the canonical Design/Properties
+sections. The controls reuse the existing setters and binding presentation,
+keep image dimensions proportional like the full Layout section, and remain
+selection-aware for empty and mixed selections. Their presentation uses the
+existing token and input-field grammar: compact controls, quiet separators,
+keyboard focus rings, and a focused colour editor.
 
-The implementation deliberately leaves the full Layout and Appearance sections
-in place as the authoritative editing surfaces. This avoids introducing a
-second state model while reducing repeated navigation for the six most common
-single-selection edits.
+The implementation keeps one authoritative editing location per property. This
+avoids introducing a second state model or duplicate geometry, opacity, and
+fill controls while retaining the existing command and binding paths.
 
 Evidence: `tests/e2e/inspector/quick-properties.spec.ts` verifies the real
-browser flow, canonical X synchronization, empty/mixed-selection behavior, and
-the focused visual snapshot. `tests/e2e/inspector/control-layout.spec.ts`
+browser flow, canonical X synchronization, absence of the duplicate surface,
+empty/mixed-selection behavior, and the focused visual snapshot. `tests/e2e/inspector/control-layout.spec.ts`
 audits inputs and dropdowns at 240, 320, 480, and 640px rail widths. The
 repository-wide visual gate remains an integration check.
 
@@ -336,14 +335,9 @@ the curated `SolidIconName` union in `packages/ui/src/icons/SolidIcon.tsx`
   reference image) — Line height+Letter spacing is now paired (above);
   Weight+Size is a bigger change (a `Select` and a `NumberField` sharing
   one row, rather than two `NumberField`s) and was not attempted this pass.
-- Extending the Opacity-as-percentage treatment to the canonical
-  `AppearanceSection` and `InspectorQuickBar` Opacity fields. Both are
-  variable-binding-aware (`deriveNumericBindingPresentation`,
-  read-only/bound states) with existing tests asserting the raw 0–1 bound
-  display value; converting them safely requires scaling the bound-value
-  path too and updating those tests deliberately, not as a byproduct of an
-  unrelated change. `ShadowParams`' Opacity (no binding support) was the
-  validated, lower-risk instance of this pattern.
+- Adding another opacity summary. The inspector now has one canonical,
+  variable-binding-aware Appearance field; any future shortcut must reuse that
+  display contract rather than introduce a second editor.
 - `VariantBox`'s all-caps section title (noted in the Layers pass) remains
   the same kind of debt as the Selection Sets fix already applied there,
   in a different component outside this pass's scope.

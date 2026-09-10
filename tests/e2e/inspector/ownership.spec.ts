@@ -113,14 +113,7 @@ test.describe('Inspector feature ownership', () => {
 
     await expect(page.locator('.editor-inspector')).toHaveCount(1);
     const inspector = page.locator('.editor-inspector');
-    const quickBar = page.getByRole('region', { name: 'Quick properties' });
-    await expect(quickBar).toBeVisible();
-    for (const label of ['X (px)', 'Y (px)', 'Width (px)', 'Height (px)']) {
-      await expect(quickBar.getByRole('spinbutton', { name: label })).toHaveCount(1);
-    }
-    await expect(
-      quickBar.getByRole('spinbutton', { name: 'Opacity (%)', exact: true }),
-    ).toHaveCount(1);
+    await expect(page.getByRole('region', { name: 'Quick properties' })).toHaveCount(0);
     const layout = inspector.getByRole('group', { name: 'Position & Size' });
     for (const label of [
       /^X(?: \(AB\))? \(px\)$/,
@@ -132,8 +125,8 @@ test.describe('Inspector feature ownership', () => {
     }
     await expect(
       inspector.getByRole('spinbutton', { name: 'Opacity (%)', exact: true }),
-    ).toHaveCount(2);
-    await expect(inspector.getByRole('spinbutton', { name: /^Opacity/ })).toHaveCount(2);
+    ).toHaveCount(1);
+    await expect(inspector.getByRole('spinbutton', { name: /^Opacity/ })).toHaveCount(1);
     for (const label of ['Min W (px)', 'Max W (px)', 'Min H (px)', 'Max H (px)']) {
       await expect(inspector.getByRole('spinbutton', { name: label })).toHaveCount(0);
     }
