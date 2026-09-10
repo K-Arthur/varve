@@ -16,6 +16,7 @@ import { docVariableStore } from '../../../docVariableStore';
 import { EffectStudioLauncher } from '../../EffectStudio/EffectStudioLauncher';
 import { deriveNumericBindingPresentation } from '../boundPropertyState';
 import { BindingMenu } from '../controls/BindingMenu';
+import { groupBlendOptions } from '../controls/blendModeOptionGroups';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';
@@ -92,10 +93,8 @@ export function AppearanceSection({ nodes }: { nodes: SceneNode[] }) {
         <Select
           label="Blend mode"
           value={isMixed(blendRaw) ? '' : blendRaw}
-          options={[
-            ...(isMixed(blendRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []),
-            ...BLEND_OPTIONS,
-          ]}
+          options={isMixed(blendRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []}
+          groups={groupBlendOptions(BLEND_OPTIONS)}
           onChange={(v) => {
             if (v) setSelectedBlendMode(v as BlendMode);
           }}

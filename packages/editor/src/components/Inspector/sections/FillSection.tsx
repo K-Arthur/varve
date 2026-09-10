@@ -46,6 +46,7 @@ import {
   resolvedGradientInterpolationSpace,
 } from '../color/gradientUiState';
 import { BindingMenu } from '../controls/BindingMenu';
+import { groupBlendOptions } from '../controls/blendModeOptionGroups';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 import { InspectorColorPopover } from '../controls/InspectorColorPopover';
@@ -771,10 +772,8 @@ function FillRow({
           <Select
             label="Fill blend mode"
             value={isMixed(blendRaw) ? '' : blendRaw}
-            options={[
-              ...(isMixed(blendRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []),
-              ...BLEND_OPTIONS,
-            ]}
+            options={isMixed(blendRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []}
+            groups={groupBlendOptions(BLEND_OPTIONS)}
             onChange={(v) => {
               if (v) patch({ blendMode: v as BlendMode });
             }}

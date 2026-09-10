@@ -33,6 +33,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { AdjustmentEditor } from '../../AdjustmentLayer/AdjustmentEditor';
+import { groupBlendOptions } from '../controls/blendModeOptionGroups';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { RangeValueControl } from '../controls/RangeValueControl';
 import {
@@ -504,7 +505,7 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
                 <Select
                   label={`${filterName(selected)} effect blend mode`}
                   value={selected.blendMode}
-                  options={BLEND_OPTIONS}
+                  groups={groupBlendOptions(BLEND_OPTIONS)}
                   onChange={(value) =>
                     updateFilter(selected.id, { blendMode: value as AdjustmentBlendMode })
                   }

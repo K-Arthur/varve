@@ -40,6 +40,7 @@ import { managedColorToRgba } from '@varve/shared';
 import { Icon, Select, Switch } from '@varve/ui';
 import { useCallback, useId, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
+import { groupBlendOptions } from '../controls/blendModeOptionGroups';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow, InspectorFieldGroup } from '../controls/FieldRow';
 import { InspectorColorPopover } from '../controls/InspectorColorPopover';
@@ -920,10 +921,8 @@ function ChromaticAberrationParams({
         <Select
           label="Aberration blend mode"
           value={isMixed(blendRaw) ? '' : (blendRaw as string)}
-          options={[
-            ...(isMixed(blendRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []),
-            ...BLEND_OPTIONS,
-          ]}
+          options={isMixed(blendRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []}
+          groups={groupBlendOptions(BLEND_OPTIONS)}
           onChange={(v) => {
             if (!v) return;
             onChange((e) =>
@@ -1156,10 +1155,8 @@ function GlitchParams({
         <Select
           label="Glitch blend mode"
           value={isMixed(blendRaw) ? '' : blendRaw}
-          options={[
-            ...(isMixed(blendRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []),
-            ...BLEND_OPTIONS,
-          ]}
+          options={isMixed(blendRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []}
+          groups={groupBlendOptions(BLEND_OPTIONS)}
           onChange={(value) => {
             if (!value) return;
             onChange((effect) =>
@@ -1789,10 +1786,8 @@ function ShadowParams({
         <Select
           label="Effect blend mode"
           value={isMixed(blendRaw) ? '' : (blendRaw as string)}
-          options={[
-            ...(isMixed(blendRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []),
-            ...BLEND_OPTIONS,
-          ]}
+          options={isMixed(blendRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []}
+          groups={groupBlendOptions(BLEND_OPTIONS)}
           onChange={(v) => {
             if (!v) return;
             const mode = v as BlendMode;
@@ -2064,10 +2059,8 @@ function GlowParams({
         <Select
           label="Glow blend mode"
           value={isMixed(blendRaw) ? '' : (blendRaw as string)}
-          options={[
-            ...(isMixed(blendRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []),
-            ...BLEND_OPTIONS,
-          ]}
+          options={isMixed(blendRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []}
+          groups={groupBlendOptions(BLEND_OPTIONS)}
           onChange={(v) => {
             if (!v) return;
             const mode = v as BlendMode;
