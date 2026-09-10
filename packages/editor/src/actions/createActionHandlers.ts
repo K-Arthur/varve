@@ -581,9 +581,14 @@ export function createActionHandlers(
         e.announce('Copy as PNG is unavailable until a render surface is ready');
         return;
       }
-      const raw = typeof window !== 'undefined' ? window.prompt('PNG scale (1, 2, or 3)', '1') : '1';
-      const scale = raw === '3' ? 3 : raw === '2' ? 2 : 1;
-      cb.onCopyAsPng(scale);
+      void import('../components/PromptDialog')
+        .then(({ promptDialog }) => promptDialog('PNG scale (1, 2, or 3)', '1'))
+        .then((raw) => {
+          if (raw === null) return;
+          const scale = raw === '3' ? 3 : raw === '2' ? 2 : 1;
+          cb.onCopyAsPng?.(scale);
+        })
+        .catch(() => e.announce('PNG scale selection is unavailable'));
     },
     pastePlainText: () => {
       if (typeof navigator === 'undefined' || typeof navigator.clipboard?.readText !== 'function') {
@@ -613,43 +618,44 @@ export function createActionHandlers(
         .catch(() => e.announce('Plain text clipboard access was denied'));
     },
     pasteSvgMarkup: () => {
-      if (typeof window === 'undefined' || typeof window.prompt !== 'function') {
-        e.announce('SVG markup entry is unavailable');
-        return;
-      }
-      const markup = window.prompt('Paste SVG markup');
-      if (!markup || markup.length > MAX_DIRECT_CLIPBOARD_TEXT) {
-        if (markup) e.announce('SVG markup is too large');
-        return;
-      }
-      void ImportService.importFiles(
-        [
-          {
-            name: 'pasted.svg',
-            source: 'clipboard',
-            size: new TextEncoder().encode(markup).byteLength,
-            text: markup,
-          },
-        ],
-        { center: true, embedImages: true },
-      )
-        .then((report) => {
-          const items = report.files.flatMap((file) =>
-            file.artifacts.flatMap((artifact) =>
-              artifact.nodeIds.flatMap((id) => {
-                const node = artifact.document.nodes[id];
-                return node ? [{ node, sourceDoc: artifact.document }] : [];
-              }),
-            ),
-          );
-          if (items.length === 0) {
-            e.announce('SVG markup did not contain supported artwork');
+      void import('../components/PromptDialog')
+        .then(({ promptDialog }) => promptDialog('Paste SVG markup'))
+        .then((markup) => {
+          if (!markup) return;
+          if (markup.length > MAX_DIRECT_CLIPBOARD_TEXT) {
+            e.announce('SVG markup is too large');
             return;
           }
-          e.batchImportNodes(items);
-          e.announce(`Pasted ${items.length} SVG layer${items.length === 1 ? '' : 's'}`);
+          return ImportService.importFiles(
+            [
+              {
+                name: 'pasted.svg',
+                source: 'clipboard',
+                size: new TextEncoder().encode(markup).byteLength,
+                text: markup,
+              },
+            ],
+            { center: true, embedImages: true },
+          )
+            .then((report) => {
+              const items = report.files.flatMap((file) =>
+                file.artifacts.flatMap((artifact) =>
+                  artifact.nodeIds.flatMap((id) => {
+                    const node = artifact.document.nodes[id];
+                    return node ? [{ node, sourceDoc: artifact.document }] : [];
+                  }),
+                ),
+              );
+              if (items.length === 0) {
+                e.announce('SVG markup did not contain supported artwork');
+                return;
+              }
+              e.batchImportNodes(items);
+              e.announce(`Pasted ${items.length} SVG layer${items.length === 1 ? '' : 's'}`);
+            })
+            .catch(() => e.announce('SVG markup could not be parsed'));
         })
-        .catch(() => e.announce('SVG markup could not be parsed'));
+        .catch(() => e.announce('SVG markup entry is unavailable'));
     },
     copyProperties: () => e.copySelectedProperties(),
     pasteProperties: () => e.pastePropertiesToSelection(),
