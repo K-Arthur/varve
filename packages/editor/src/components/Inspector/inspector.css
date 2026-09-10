@@ -5286,6 +5286,10 @@
   grid-template-columns: minmax(0, 2.4rem) minmax(0, 1fr);
 }
 
+.insp-quick-bar__group:last-child .insp-quick-bar__fields > .insp-field {
+  grid-template-columns: minmax(0, 4.5rem) minmax(0, 1fr);
+}
+
 .insp-quick-bar__fields .insp-field__label {
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
@@ -5351,5 +5355,9 @@
 
   .insp-quick-bar__fields > .insp-field {
     grid-template-columns: minmax(0, 2.8rem) minmax(0, 1fr);
+  }
+
+  .insp-quick-bar__group:last-child .insp-quick-bar__fields > .insp-field {
+    grid-template-columns: minmax(0, 4.5rem) minmax(0, 1fr);
   }
 }
