@@ -43,9 +43,11 @@ Adjustments and opens the same dialog, so menu, palette, and inspector entry
 points cannot drift into separate workflows. If the selection is mixed or
 multi-layer, the action announces the requirement and does not open a modal.
 
-The dialog accepts three mask sources: a painted source mask, the current
-document pixel selection, or the selected image's raster layer mask. All three
-are normalized into source-image pixel space before inference. Invert, Clear
+The dialog accepts four mask sources: a painted source mask, the current
+document pixel selection, the selected image's raster layer mask, or the source
+image alpha channel. All four are normalized into source-image pixel space
+before inference. Alpha-derived coverage remains soft at semitransparent edges
+instead of being thresholded into a binary selection. Invert, Clear
 Paint, Show Mask Overlay, brush size, add/subtract/intersect mask operations,
 mask grow/shrink, feather, context padding, quality/model choice, prompt (when
 a ready provider can consume it), Fit, 1:1, Original/Result, variation
@@ -124,10 +126,12 @@ setup action or blocker.
 The native diffusion provider runs in a supervised helper process. The renderer
 receives an opaque qualified model handle, never a model filesystem path or
 model bytes. Imported safe-format artifacts are hashed and must pass an actual
-masked helper run before prompt modes are enabled. The desktop workflow
-supports an explicit, allowlisted download or user import, then validation;
-downloads resume through a native partial file, verify the pinned SHA-256, and
-install atomically. There is no silent model download.
+masked helper run before prompt modes are enabled. The helper validates that
+the decoded source and mask dimensions match the declared working frame before
+loading weights, so it never guesses at resampling or mask alignment. The
+desktop workflow supports an explicit, allowlisted download or user import,
+then validation; downloads resume through a native partial file, verify the
+pinned SHA-256, and install atomically. There is no silent model download.
 
 There is no silent remote fallback. A future remote provider must request
 consent immediately before upload, state the provider and transmitted data,

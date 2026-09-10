@@ -163,10 +163,6 @@
   gap: var(--space-1);
 }
 
-.caf-dialog__mask-actions button:last-child {
-  grid-column: 1 / -1;
-}
-
 .caf-dialog__mask-operations {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

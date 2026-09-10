@@ -44,6 +44,15 @@ import './ContentAwareFillDialog.css';
 const MODEL_ID = 'lama-inpainting';
 const DEFAULT_BRUSH_SIZE = 28;
 const MAX_VARIATIONS = 4;
+const MAX_PREVIEW_PIXELS = 4_000_000;
+
+function previewRasterDimensions(width: number, height: number): { width: number; height: number } {
+  const scale = Math.min(1, Math.sqrt(MAX_PREVIEW_PIXELS / Math.max(1, width * height)));
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
+  };
+}
 
 function maskCoverageDataUrl(coverage: Uint8Array, width: number, height: number): string {
   const canvas = document.createElement('canvas');
@@ -65,19 +74,23 @@ function imageDataDataUrl(imageData: ImageData): string {
   return canvas.toDataURL('image/png');
 }
 
-function loadImageToImageData(src: string): Promise<ImageData> {
+function loadImageToImageData(
+  src: string,
+  targetWidth?: number,
+  targetHeight?: number,
+): Promise<ImageData> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
+      canvas.width = targetWidth ?? img.naturalWidth;
+      canvas.height = targetHeight ?? img.naturalHeight;
       const ctx = canvas.getContext('2d');
       if (!ctx) {
         reject(new Error('Failed to get canvas context'));
         return;
       }
-      ctx.drawImage(img, 0, 0);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       resolve(ctx.getImageData(0, 0, canvas.width, canvas.height));
     };
     img.onerror = () => reject(new Error('Failed to load image'));
@@ -159,7 +172,9 @@ export function ContentAwareFillDialog({
   const [maskExpansion, setMaskExpansion] = useState(0);
   const [maskFeather, setMaskFeather] = useState(0);
   const [contextPadding, setContextPadding] = useState(32);
-  const [maskOrigin, setMaskOrigin] = useState<'brush' | 'pixel-selection' | 'layer-mask'>('brush');
+  const [maskOrigin, setMaskOrigin] = useState<
+    'brush' | 'pixel-selection' | 'layer-mask' | 'image-alpha'
+  >('brush');
   const [maskOperation, setMaskOperation] = useState<MaskCombineOperation>('replace');
   const [modelAvailable, setModelAvailable] = useState(false);
   const [diffusionModelInstalled, setDiffusionModelInstalled] = useState(false);
@@ -424,23 +439,24 @@ export function ContentAwareFillDialog({
 
         const nw = img.naturalWidth;
         const nh = img.naturalHeight;
+        const preview = previewRasterDimensions(nw, nh);
         setNaturalSize({ w: nw, h: nh });
 
         const previewCanvas = previewCanvasRef.current;
         const maskCanvas = maskCanvasRef.current;
         if (previewCanvas) {
-          previewCanvas.width = nw;
-          previewCanvas.height = nh;
+          previewCanvas.width = preview.width;
+          previewCanvas.height = preview.height;
           const ctx = previewCanvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0);
+          ctx?.drawImage(img, 0, 0, preview.width, preview.height);
         }
         if (maskCanvas) {
-          maskCanvas.width = nw;
-          maskCanvas.height = nh;
+          maskCanvas.width = preview.width;
+          maskCanvas.height = preview.height;
           const mctx = maskCanvas.getContext('2d');
           if (mctx) {
             mctx.fillStyle = 'black';
-            mctx.fillRect(0, 0, nw, nh);
+            mctx.fillRect(0, 0, preview.width, preview.height);
           }
         }
         setHasMaskStrokes(false);
@@ -585,7 +601,7 @@ export function ContentAwareFillDialog({
       coverage: Uint8Array,
       width: number,
       height: number,
-      origin: 'pixel-selection' | 'layer-mask',
+      origin: 'pixel-selection' | 'layer-mask' | 'image-alpha',
     ) => {
       const canvas = maskCanvasRef.current;
       if (!canvas || naturalSize.w <= 0 || naturalSize.h <= 0) {
@@ -596,15 +612,15 @@ export function ContentAwareFillDialog({
         const resized = resizeMaskCoverage(
           coverage,
           { width, height },
-          { width: naturalSize.w, height: naturalSize.h },
+          { width: canvas.width, height: canvas.height },
         );
         const context = canvas.getContext('2d');
         if (!context) throw new Error('Mask canvas unavailable');
         const current = maskCoverageFromRgba(
-          context.getImageData(0, 0, naturalSize.w, naturalSize.h).data,
+          context.getImageData(0, 0, canvas.width, canvas.height).data,
         );
         const combined = combineMaskCoverage(current, resized, maskOperation);
-        putMaskCoverage(context, combined, { width: naturalSize.w, height: naturalSize.h });
+        putMaskCoverage(context, combined, { width: canvas.width, height: canvas.height });
         setHasMaskStrokes(combined.some((value) => value > 0));
         setMaskOrigin(origin);
         bumpMaskRevision();
@@ -647,6 +663,24 @@ export function ContentAwareFillDialog({
       'layer-mask',
     );
   }, [announce, applyMaskCoverage, layerMaskAsset]);
+
+  const handleUseImageAlpha = useCallback(async () => {
+    if (!imageSrc) {
+      announce('The source image is not available for alpha selection');
+      return;
+    }
+    try {
+      const preview = previewRasterDimensions(naturalSize.w, naturalSize.h);
+      const imageData = await loadImageToImageData(imageSrc, preview.width, preview.height);
+      const coverage = new Uint8Array(imageData.width * imageData.height);
+      for (let index = 0; index < coverage.length; index += 1) {
+        coverage[index] = imageData.data[index * 4 + 3]!;
+      }
+      applyMaskCoverage(coverage, imageData.width, imageData.height, 'image-alpha');
+    } catch (error) {
+      announce(error instanceof Error ? error.message : 'The image alpha could not be loaded');
+    }
+  }, [announce, applyMaskCoverage, imageSrc]);
 
   const handleInvertMask = useCallback(() => {
     const canvas = maskCanvasRef.current;
@@ -820,7 +854,11 @@ export function ContentAwareFillDialog({
       for (let i = 0; i < rawMask.length; i++) {
         rawMask[i] = maskImageData.data[i * 4]!;
       }
-      const userMaskDataUrl = maskCanvas.toDataURL('image/png');
+      // The editable mask is preview-sized while the dialog is open, but the
+      // persisted recipe must retain a source-resolution mask. Upscale the
+      // coverage with smoothing disabled so its dimensions and origin match
+      // the immutable source snapshot recorded below.
+      const userMaskDataUrl = maskCoverageDataUrl(rawMask, fullData.width, fullData.height);
       const refinedMask = refineGenerativeMask(
         rawMask,
         { width: fullData.width, height: fullData.height },
@@ -1535,6 +1573,15 @@ export function ContentAwareFillDialog({
                 type="button"
                 variant="ghost"
                 size="sm"
+                onClick={() => void handleUseImageAlpha()}
+                disabled={!imageSrc || hasResult || isProcessing}
+              >
+                Use Image Alpha
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
                 onClick={handleInvertMask}
                 disabled={!hasMaskStrokes || hasResult || isProcessing}
               >
@@ -1571,7 +1618,9 @@ export function ContentAwareFillDialog({
                 ? 'Using the current document pixel selection.'
                 : maskOrigin === 'layer-mask'
                   ? 'Using the selected image layer mask.'
-                  : 'Paint directly on the source to define the edit region.'}
+                  : maskOrigin === 'image-alpha'
+                    ? 'Using the source image alpha channel.'
+                    : 'Paint directly on the source to define the edit region.'}
             </p>
           </div>
 

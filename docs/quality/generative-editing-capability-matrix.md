@@ -23,7 +23,7 @@ the user starts a job.
 | Prompt-conditioned Fill | Unavailable by design; no remote fallback | Implemented behind the native model gate; real-photo qualification pending | Not verified | Native helper path; no release claim until the model lane passes |
 | Prompt-conditioned Replace | Unavailable by design | Implemented behind the native model gate; real-photo qualification pending | Not verified | Native helper path; no release claim until the model lane passes |
 | Prompt-conditioned Expand | Unavailable by design | Implemented behind the native model gate; real-photo qualification pending | Not verified | `packages/editor/src/components/ContentAwareFill/expandCanvas.test.ts`; native model lane pending |
-| Mask editing and refinement | Implemented; automatically verified | Shared implementation | Shared implementation | `packages/editor/src/components/ContentAwareFill/maskOperations.test.ts` |
+| Mask editing and refinement | Implemented; automatically verified | Shared implementation | Shared implementation | `packages/editor/src/components/ContentAwareFill/maskOperations.test.ts`, CAF browser E2E (paint/source controls) |
 | In-place acceptance and Restore Original | Implemented; automatically verified | Shared implementation | Shared implementation | `packages/editor/src/imageOperations.test.ts` and scene persistence tests |
 | Save/reopen, clipboard, package export | Implemented paths | Implemented paths | Shared implementation | Document codec, closure, and clipboard tests; generative package evidence pending |
 

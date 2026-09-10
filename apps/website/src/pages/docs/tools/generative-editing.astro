@@ -22,6 +22,7 @@ import { sitePath } from '../../../lib/siteUrl';
         <ul>
           <li><strong>Use Pixel Selection</strong> imports the current document pixel selection.</li>
           <li><strong>Use Layer Mask</strong> imports the selected image's raster layer mask.</li>
+          <li><strong>Use Image Alpha</strong> imports the source alpha channel, preserving semitransparent coverage.</li>
           <li><strong>Invert</strong> swaps edit and preserve coverage. <strong>Show mask overlay</strong> lets you inspect the boundary before generating.</li>
         </ul>
         <p>Choose Replace, Add, Subtract, or Intersect when combining another mask source. Expand mask grows the edit region to catch edge contamination; a negative value shrinks it. Feather softens the final composite edge. Context controls how much surrounding source imagery is supplied to the local reconstruction. These controls operate in source-image pixels and changing any of them clears the candidate, requiring a fresh preview.</p>
@@ -55,7 +56,7 @@ import { sitePath } from '../../../lib/siteUrl';
       <section class="docs-section">
         <h2>Review and accept</h2>
         <p>Use Original and Result to compare the source with the generated image. Fit, 1:1, zoom, and Center support both composition review and edge inspection. Regenerate creates a temporary variation entry; selecting a variation changes the candidate without writing document history.</p>
-        <p>Apply updates the existing image layer in one undoable transaction and preserves its id, ordering, layout, transforms, effects, and relationships. The document retains an immutable source snapshot and records the mask assets, provider/runtime, quality, seed, accepted variation, and placement/output frame. Rendering, reopening, and exporting the accepted result do not require the model to remain installed.</p>
+        <p>Apply updates the existing image layer in one undoable transaction and preserves its id, ordering, layout, transforms, effects, and relationships. The document retains an immutable source snapshot and records the mask assets, provider/runtime, quality, seed, accepted variation, and placement/output frame. From the Adjustments inspector, <strong>Duplicate as Layer</strong> creates a separate editable copy of the accepted result. Rendering, reopening, and exporting the accepted result do not require the model to remain installed.</p>
         <p>Undo and redo operate on the embedded scene data and do not run inference again. Save/reopen, Layers, the inspector, clipboard, and export therefore see the same accepted result.</p>
       </section>
 

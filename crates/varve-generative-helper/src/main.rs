@@ -59,6 +59,13 @@ fn validate_request(request: &Request) -> Result<(), String> {
     if request.width == 0 || request.height == 0 || request.width > 2048 || request.height > 2048 {
         return Err("Generation dimensions must be between 1 and 2048 pixels".into());
     }
+    validate_image_dimensions(
+        &request.init_image_path,
+        "source",
+        request.width,
+        request.height,
+    )?;
+    validate_image_dimensions(&request.mask_path, "mask", request.width, request.height)?;
     if request.steps == 0 || request.steps > 100 {
         return Err("Generation steps must be between 1 and 100".into());
     }
@@ -67,6 +74,22 @@ fn validate_request(request: &Request) -> Result<(), String> {
     }
     if !request.guidance_scale.is_finite() || !(0.0..=50.0).contains(&request.guidance_scale) {
         return Err("Generation guidance scale must be between 0 and 50".into());
+    }
+    Ok(())
+}
+
+fn validate_image_dimensions(
+    path: &std::path::Path,
+    label: &str,
+    expected_width: u32,
+    expected_height: u32,
+) -> Result<(), String> {
+    let (width, height) = image::image_dimensions(path)
+        .map_err(|error| format!("The {label} artifact is not a readable image: {error}"))?;
+    if width != expected_width || height != expected_height {
+        return Err(format!(
+            "The {label} artifact dimensions {width}x{height} do not match the working frame {expected_width}x{expected_height}"
+        ));
     }
     Ok(())
 }
@@ -151,16 +174,24 @@ mod tests {
     use super::{validate_request, Request};
     use std::fs;
     use std::path::PathBuf;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    static TEST_SEQUENCE: AtomicUsize = AtomicUsize::new(0);
 
     fn valid_request() -> (Request, PathBuf) {
         let root = std::env::temp_dir().join(format!(
-            "varve-generative-helper-test-{}",
-            std::process::id()
+            "varve-generative-helper-test-{}-{}",
+            std::process::id(),
+            TEST_SEQUENCE.fetch_add(1, Ordering::Relaxed),
         ));
         fs::create_dir_all(&root).expect("create test directory");
-        for name in ["model.safetensors", "source.png", "mask.png"] {
-            fs::write(root.join(name), [1u8]).expect("create test artifact");
-        }
+        fs::write(root.join("model.safetensors"), [1u8]).expect("create model artifact");
+        image::RgbaImage::from_pixel(512, 512, image::Rgba([238, 238, 238, 255]))
+            .save(root.join("source.png"))
+            .expect("create source artifact");
+        image::GrayImage::from_pixel(512, 512, image::Luma([255]))
+            .save(root.join("mask.png"))
+            .expect("create mask artifact");
         (
             Request {
                 model_path: root.join("model.safetensors"),
@@ -193,6 +224,26 @@ mod tests {
         request.width = 512;
         request.guidance_scale = 51.0;
         assert!(validate_request(&request).is_err());
+
+        fs::remove_dir_all(root).expect("remove test directory");
+    }
+
+    #[test]
+    fn rejects_source_or_mask_dimensions_that_do_not_match_the_working_frame() {
+        let (mut request, root) = valid_request();
+
+        request.width = 256;
+        assert!(validate_request(&request)
+            .expect_err("a resized working frame must not be guessed")
+            .contains("source artifact dimensions"));
+
+        request.width = 512;
+        image::GrayImage::from_pixel(256, 512, image::Luma([255]))
+            .save(&request.mask_path)
+            .expect("write mismatched mask");
+        assert!(validate_request(&request)
+            .expect_err("a mismatched mask must be rejected")
+            .contains("mask artifact dimensions"));
 
         fs::remove_dir_all(root).expect("remove test directory");
     }

@@ -363,16 +363,35 @@ test.describe('Content-Aware Fill dialog', () => {
       await triggerCafDialog(page, photographicNodeId);
       const dialog = page.locator('dialog.varve-dialog--caf[open]');
       await expect(dialog.getByRole('tab')).toHaveCount(4);
+      const previewBacking = await dialog
+        .locator('canvas.caf-dialog__preview-canvas')
+        .first()
+        .evaluate((element) => {
+          const canvas = element as HTMLCanvasElement;
+          return { width: canvas.width, height: canvas.height };
+        });
+      expect(previewBacking.width * previewBacking.height).toBeLessThanOrEqual(4_000_000);
       await expect(dialog.getByRole('tab', { name: 'Remove' })).toHaveAttribute(
         'aria-selected',
         'true',
       );
-      await expect(dialog.getByRole('button', { name: 'Use Pixel Selection' })).toBeVisible();
-      await expect(dialog.getByRole('button', { name: 'Use Layer Mask' })).toBeVisible();
-      await expect(dialog.getByRole('button', { name: 'Invert' })).toBeVisible();
-      await expect(dialog.locator('#caf-dialog-mask-expansion')).toHaveValue('0');
-      await expect(dialog.locator('#caf-dialog-mask-feather')).toHaveValue('0');
-      await expect(dialog.locator('#caf-dialog-context-padding')).toHaveValue('32');
+      for (const name of ['Use Pixel Selection', 'Use Layer Mask', 'Use Image Alpha', 'Invert']) {
+        const control = dialog.getByRole('button', { name });
+        await control.scrollIntoViewIfNeeded();
+        await expect(control).toBeVisible();
+      }
+      for (const [id, value] of [
+        ['#caf-dialog-mask-expansion', '0'],
+        ['#caf-dialog-mask-feather', '0'],
+        ['#caf-dialog-context-padding', '32'],
+      ] as const) {
+        const control = dialog.locator(id);
+        await control.scrollIntoViewIfNeeded();
+        await expect(control).toHaveValue(value);
+      }
+      await dialog.locator('.caf-dialog__left').evaluate((element) => {
+        element.scrollTop = 0;
+      });
 
       await dialog.getByRole('tab', { name: 'Fill' }).click();
       await expect(dialog.locator('#caf-dialog-prompt')).toBeVisible();
@@ -403,6 +422,7 @@ test.describe('Content-Aware Fill dialog', () => {
       await expect(dialog.getByRole('tab')).toHaveCount(4);
       await expect(dialog.getByRole('button', { name: 'Use Pixel Selection' })).toBeVisible();
       await expect(dialog.getByRole('button', { name: 'Use Layer Mask' })).toBeVisible();
+      await expect(dialog.getByRole('button', { name: 'Use Image Alpha' })).toBeVisible();
       await expect(dialog.locator('canvas.caf-dialog__mask-canvas')).toBeVisible();
       await expect(dialog).toHaveScreenshot(`generative-edit-${fixture.slug}.png`, {
         animations: 'disabled',
@@ -422,6 +442,14 @@ test.describe('Content-Aware Fill dialog', () => {
     const clearBtn = page.getByRole('button', { name: /clear paint/i });
     await expect(clearBtn).toBeEnabled();
     await expect(generateBtn).toBeEnabled();
+  });
+
+  test('uses source image alpha as an editable mask source', async ({ page }) => {
+    await triggerCafDialog(page, nodeId);
+    const dialog = page.locator('dialog.varve-dialog--caf[open]');
+    await dialog.getByRole('button', { name: 'Use Image Alpha' }).click();
+    await expect(dialog).toContainText('Using the source image alpha channel.');
+    await expect(page.getByRole('button', { name: /remove && fill/i })).toBeEnabled();
   });
 
   test('quality mode selection works', async ({ page }) => {
