@@ -851,6 +851,16 @@ export function getLatestTransferRequest(): TransferRequest | null {
   return latestTransferRequest;
 }
 
+/**
+ * Claim the oldest keyboard paste request for the next synchronous DOM event.
+ * A browser can dispatch several paste events before an async import finishes;
+ * keeping the identity in the request queue prevents those events from
+ * sharing a global snapshot or fallback timer.
+ */
+export function claimPendingTransferRequest(): TransferRequest {
+  return pendingTransferRequests[0] ?? createTransferRequest('paste');
+}
+
 function removePendingRequest(request: TransferRequest): void {
   const index = pendingTransferRequests.findIndex(
     (candidate) => candidate.operationId === request.operationId,
@@ -900,7 +910,10 @@ export function getClipboardSnapshot(request?: TransferRequest): ClipboardSnapsh
 }
 
 /** Snapshot a paste event while its DataTransfer is live; never retain the event itself. */
-export function captureClipboardEvent(event: ClipboardEvent, request?: TransferRequest): void {
+export function captureClipboardEvent(
+  event: ClipboardEvent,
+  request?: TransferRequest,
+): TransferRequest {
   const owned = request ?? pendingTransferRequests[0] ?? createTransferRequest('paste');
   const data = event.clipboardData ? snapshotClipboardData(event.clipboardData) : null;
   if (data) {
@@ -913,6 +926,7 @@ export function captureClipboardEvent(event: ClipboardEvent, request?: TransferR
   }
   removePendingRequest(owned);
   latestTransferRequest = owned;
+  return owned;
 }
 
 /** Clear one captured event (or all legacy captures) after consuming it. */
@@ -1008,7 +1022,15 @@ export async function readClipboardUnifiedWithFallback(
   platform?: Pick<Platform, 'kind' | 'readClipboardData' | 'readClipboardImage'>,
   request?: TransferRequest,
 ): Promise<UnifiedClipboardResult> {
-  const owned = request ?? latestTransferRequest;
+  // An explicit request is authoritative. For compatibility with menu and
+  // test callers that do not have a request, only reuse the latest request if
+  // it still owns an unread snapshot; otherwise create a fresh operation so a
+  // previous gesture cannot leak into this read.
+  const latestWithSnapshot =
+    latestTransferRequest && capturedClipboardSnapshots.has(latestTransferRequest.operationId)
+      ? latestTransferRequest
+      : null;
+  const owned = request ?? latestWithSnapshot ?? createTransferRequest('paste');
   const eventSnapshot = owned ? capturedClipboardSnapshots.get(owned.operationId)?.data : undefined;
   if (owned) {
     capturedClipboardSnapshots.delete(owned.operationId);

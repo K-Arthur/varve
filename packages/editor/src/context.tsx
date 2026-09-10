@@ -380,6 +380,7 @@ import {
   clipboardRichTextWarning,
   parseClipboardRichText,
   readClipboardUnifiedWithFallback,
+  type TransferRequest,
   writeClipboardOutcome,
 } from './clipboard';
 import type { SectionId } from './components/Inspector/sectionRegistry';
@@ -1415,7 +1416,7 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   /** Cut selected nodes (copy + remove). */
   cutSelected: () => void;
   /** Paste nodes from system clipboard. */
-  paste: () => void;
+  paste: (request?: TransferRequest) => void;
   /** Import a node from an imported document (svg/image) into the current document. */
   importNode: (
     node: SceneNode,
@@ -7858,7 +7859,7 @@ export function EditorProvider({
         );
       },
 
-      paste: async () => {
+      paste: async (request?: TransferRequest) => {
         // Capture the destination before asynchronous clipboard work.
         const invocation: PasteInvocation = {
           document: stateRef.current.document,
@@ -7885,7 +7886,7 @@ export function EditorProvider({
         // (cross-platform, no Wayland permission issues), falls back to
         // navigator.clipboard.read() for menu-triggered pastes, then to a
         // native OS clipboard read on Tauri for WebKitGTK/Wayland.
-        const unified = await readClipboardUnifiedWithFallback(platform);
+        const unified = await readClipboardUnifiedWithFallback(platform, request);
         const varveData = unified.varveData;
 
         const importInputs = (varveData ? [] : unified.importItems).map((item): ImportFileInput => {

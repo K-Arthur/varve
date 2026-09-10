@@ -21,7 +21,12 @@ import {
 } from './actions/registerAll';
 import { AuditOverlayHost } from './audit/overlay/AuditOverlayHost';
 import { CanvasArea, type CanvasContextMenuRequest } from './CanvasArea';
-import { cancelPasteFallback, captureClipboardEvent, isNativeClipboardTarget } from './clipboard';
+import {
+  cancelPasteFallback,
+  captureClipboardEvent,
+  claimPendingTransferRequest,
+  isNativeClipboardTarget,
+} from './clipboard';
 import { SubjectPickerOverlay } from './components/BackgroundRemoval/SubjectPickerOverlay';
 import { SelectionBreadcrumb } from './components/Breadcrumb/SelectionBreadcrumb';
 import { CodePanel } from './components/CodePanel/CodePanel';
@@ -260,11 +265,12 @@ function ShellInner({
 
       // The real ClipboardEvent arrived — the keydown-scheduled fallback
       // (useShortcuts) must not also run the paste action.
-      cancelPasteFallback();
-      captureClipboardEvent(ce);
+      const request = claimPendingTransferRequest();
+      cancelPasteFallback(request);
+      captureClipboardEvent(ce, request);
       e.preventDefault();
       // Let the editor paste handler process the captured event data
-      editor.paste();
+      editor.paste(request);
     };
     window.addEventListener('paste', handler);
     return () => window.removeEventListener('paste', handler);

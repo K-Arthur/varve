@@ -133,9 +133,10 @@ export function useShortcuts(
           // event outside editable elements, though, so schedule a
           // fallback that runs the action directly unless the real event
           // arrives first and cancels it (see clipboard.ts).
-          schedulePasteFallback(createTransferRequest('paste'), () => {
+          const request = createTransferRequest('paste');
+          schedulePasteFallback(request, () => {
             ref.current.recordAction('shortcut:paste');
-            getHandler('paste')?.();
+            ref.current.paste(request);
           });
           return;
         }
