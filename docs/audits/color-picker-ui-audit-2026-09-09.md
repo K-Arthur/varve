@@ -99,9 +99,9 @@ The implementation status is:
 - **Covered:** 72 focused ColorPicker tests, 21 GradientEditor tests, 11
   InspectorColorPopover tests, 6 StrokeSection tests, 56 ColorPicker tests in
   the affected planner lane, 4 SpotColorBrowser tests, 7 focused Chromium
-  picker/gradient tests, and 7 of 9 Chromium fill-interaction tests. The two
-  fill failures were pre-existing canvas/demo flakiness (a navigation-destroyed
-  pixel sample and a missing demo Rectangle row), not picker assertions.
+  picker/gradient tests, and all 9 Chromium fill-interaction tests. The demo
+  parity assertion now compares both corresponding samples because its first
+  gradient stop intentionally matches the source fill.
 - **Captured and inspected:** Light solid and gradient full-editor compositions
   at 1440×900. The earlier audit also retains Light, Dark, High Contrast, and
   constrained-window baseline captures for comparison. The capture pipeline is
@@ -127,9 +127,9 @@ or discard canonical picker values.
 ```text
 Changed scope: packages/ui ColorPicker; editor InspectorColorPopover, GradientEditor, FillSection, StrokeSection; color picker tests; docs/help; website pages and screenshot manifest; product capture scenes; focused E2E selectors.
 Validation plan: pnpm verify:plan --staged selected Tier 0, picker/editor Tier 1 tests, affected editor/ui checks, and website closure; no full-suite escalation.
-Commands actually run: focused ColorPicker Vitest (72 passed); GradientEditor Vitest (21 passed); planner-selected Inspector/Stroke/ColorPicker/Spot tests (all passed); Chromium color-picker + gradient visual tests (7 passed); Chromium fill-interaction (7 passed, 2 unrelated failures); product capture for solid-picker,gradient-picker (20 captured, 0 skipped, 0 failures); Biome check/write and diff check.
-Passed: focused picker correctness, gradient composition, browser picker/gradient workflows, real Light captures.
-Skipped as unrelated: Rust, broad workspace tests, full Playwright matrix, and unrelated working-tree changes.
+Commands actually run: focused ColorPicker Vitest (72 passed); GradientEditor Vitest (21 passed); planner-selected Inspector/Stroke/ColorPicker/Spot tests (all passed); Chromium color-picker + gradient visual tests (7 passed); Chromium fill-interaction (9 passed); website Astro builds for `/` and `/varve` (82 pages each); website desktop visual checks (workspace page passed; docs/features baselines correctly reported expected content-height diffs); desktop and mobile website captures inspected; product capture for solid-picker,gradient-picker (20 captured, 0 skipped, 0 failures); Biome check/write and diff check; docs, emoji, and token audits passed.
+Passed: focused picker correctness, gradient composition, browser picker/gradient workflows, real Light captures, website builds, and no-overflow checks at 1280 px and 390 px.
+Skipped as unrelated: Rust, broad workspace tests, full Playwright matrix, and unrelated working-tree changes. The architecture audit was attempted with a 120-second bound and timed out in the existing madge graph scan after a shared parse warning; no hub imports were changed.
 Escalations: isolated local Vite/Chromium server required approved sandbox escalation; the first sandboxed server attempt failed before tests because local bind/PNPM store access was denied.
 Full suite run: no.
 ```

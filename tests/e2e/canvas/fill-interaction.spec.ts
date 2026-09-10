@@ -544,7 +544,10 @@ test.describe('/try demo parity', () => {
     await page.getByRole('button', { name: /^done$/i }).click();
     const grad = await samplePixels(page, [p1, p2]);
     expect(pixelDist(grad[0]!, grad[1]!)).toBeGreaterThan(30);
-    const changedDist = pixelDist(grad[0]!, before[0]!);
+    // The demo's default first stop intentionally matches the source fill, so
+    // the left sample may remain identical while the second stop changes.
+    // Assert that at least one corresponding sample reflects the conversion.
+    const changedDist = Math.max(pixelDist(grad[0]!, before[0]!), pixelDist(grad[1]!, before[1]!));
     expect(changedDist).toBeGreaterThan(10);
 
     // The one-click add-fill menu must also work in the demo.
