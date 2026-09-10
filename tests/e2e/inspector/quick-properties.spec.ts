@@ -25,7 +25,7 @@ test.describe('Inspector canonical properties', () => {
     await expect(page.getByRole('spinbutton', { name: 'Opacity (%)' })).toHaveCount(1);
     const fills = page.locator('button.insp-disclosure__trigger').filter({ hasText: /^Fill$/ });
     if ((await fills.getAttribute('aria-expanded')) !== 'true') await fills.click();
-    await expect(page.getByRole('button', { name: 'Primary fill colour' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Fill colour' })).toBeVisible();
 
     const x = position.getByRole('spinbutton', { name: 'X (px)' });
     await x.fill('300');
