@@ -425,3 +425,13 @@ distinct operation IDs; the ordered-claim regression now also verifies that
 queued DOM events consume those requests in gesture order. Real Chromium/Firefox repeated-keyboard and native
 Wayland ownership runs remain external validation lanes; no browser result is
 claimed from this contract-level repair.
+
+Validation for this follow-up also ran `pnpm audit:docs` (clean, 728 docs),
+`pnpm audit:emoji` (clean), `pnpm audit:tokens` (153 pairs across three
+themes), and `node scripts/audit-architecture.mjs --ci` (the established
+14-cycle and hub-budget diagnostics, with no layer or type-only ratchet
+violations). The ordered-claim regression passed in the isolated clipboard
+harness. The required full gate completed package typechecks but stopped at
+the unrelated concurrent E2E fixture error in
+`tests/e2e/canvas/font-toolbar-visual.spec.ts`; the shared workstream file was
+left untouched.
