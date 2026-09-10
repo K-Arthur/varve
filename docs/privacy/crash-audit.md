@@ -100,6 +100,11 @@ Only an explicit `strata:crash-consent` decision record may migrate (see
 1. Model downloads (github/huggingface) — content fetches; request includes
    IP and headers only. No consent gate today (out of scope; disclosed).
 2. Font/icon fetches (Google Fonts, Fontsource, Iconify) — same.
+   Font catalog search and hover are local-only. A font artifact is fetched
+   only after an explicit installation action; the public browser demo does
+   not download catalog families implicitly. Installed bytes remain in local
+   IndexedDB or the desktop application-data directory and are restored with
+   hash verification.
 3. Cloud bg-removal provider — user-configured, opt-in, disabled by default.
    Sends image content to the configured endpoint. Consent is explicit
    (user-configured), but not crash-related.

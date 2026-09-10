@@ -239,6 +239,7 @@ The current automated and manual accessibility evidence matrix is in
 | `architecture/spacing-system.md` | Canonical spacing primitives, semantic roles, responsive gutters, and ownership boundaries |
 | `architecture/label-field-system.md` | Label/control composition, responsive inspector groups, precision inputs, and theme behavior |
 | `architecture/font-provider-architecture.md` | Fontsource catalog, explicit installation, persistence, and provider boundaries |
+| `architecture/font-system.md` | Canonical font identity, discovery, persistence, readiness, and privacy contract |
 | `architecture/font-semantic-system.md` | Provider-independent font ontology, provenance, local query/ranking, migration, and model gate |
 | `architecture/font-text-geometry.md` | Font readiness, derived text layout, and interaction bounds |
 | `architecture/colour-management.md` | Colour management and ICC |

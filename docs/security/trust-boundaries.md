@@ -42,6 +42,11 @@ It must never contain: private credentials, backend secrets, signing private
 keys, privileged API clients initialized with secret keys, account passwords,
 infrastructure credentials.
 
+Font artifacts follow the same public-client boundary: catalog metadata and
+version-pinned download URLs are not secrets, while downloaded bytes are local
+user data. Search and hover must not initiate network access; only an explicit
+install may fetch a font, and its bytes are validated before registration.
+
 ### Zone B — Static website (`apps/website/`)
 
 An **untrusted public client**. Everything generated into the deployed site is

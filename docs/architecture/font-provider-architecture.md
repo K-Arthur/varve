@@ -2,7 +2,8 @@
 
 Varve treats font discovery, artifact delivery, and runtime registration as
 separate responsibilities. The shipped catalog is the runtime source of truth;
-the network is only an explicit desktop installation transport.
+the network is only an explicit desktop installation transport. Browse and
+search never fetch font artifacts.
 
 ## Runtime flow
 
@@ -35,15 +36,17 @@ job before it is persisted or registered.
 
 ## Persistence and migration
 
-`packages/engine/src/font/fontStorage.ts` is the single browser/Tauri-webview
-artifact store. Its key includes provider id, family id, package version,
+`packages/engine/src/font/fontStorage.ts` is the browser/Tauri-webview
+artifact store, while the desktop filesystem adapter is preferred during
+startup when native storage is available. Its key includes provider id, family id, package version,
 weight/style, subset, variable/static kind, and content hash. Family name is
 not a uniqueness key. The first access migrates records from the former
 `varve-font-storage`, `varve-fonts`, and `strata-fonts` stores and hashes their
 content. The editor module is only a compatibility re-export of this engine
 store.
 
-Document manifests retain canonical identity and missing/substituted status.
+Document format 2.27 carries optional exact `fontReference` values and font
+manifest v2 retains canonical identity and missing/substituted status.
 Opening an older document never triggers a download and never silently changes
 the text family. A user may explicitly install a matching catalog artifact and
 then resolve the manifest again. Restoring a persisted artifact preserves its
