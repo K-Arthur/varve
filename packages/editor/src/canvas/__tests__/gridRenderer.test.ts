@@ -111,6 +111,34 @@ describe('computeGridLines', () => {
     expect(horizontals.length).toBeGreaterThan(0);
     expect(verticals.length).toBeGreaterThan(0);
   });
+
+  it('uses each axis spacing for its own minor lattice', () => {
+    const grid = makeGrid({ spacingX: 8, spacingY: 12, subdivisions: 4 });
+    const result = computeGridLines(grid, 1, 0, 0, 400, 400);
+    const horizontalYs = result.minor
+      .filter((line) => line.y1 === line.y2)
+      .map((line) => line.y1)
+      .sort((a, b) => a - b);
+    const verticalXs = result.minor
+      .filter((line) => line.x1 === line.x2)
+      .map((line) => line.x1)
+      .sort((a, b) => a - b);
+
+    expect(horizontalYs.length).toBeGreaterThan(2);
+    expect(verticalXs.length).toBeGreaterThan(2);
+    expect(horizontalYs[1]! - horizontalYs[0]!).toBeCloseTo(12);
+    expect(verticalXs[1]! - verticalXs[0]!).toBeCloseTo(8);
+  });
+
+  it('projects grid lines through the camera rotation', () => {
+    const grid = makeGrid({ spacingX: 100, spacingY: 100, subdivisions: 1 });
+    const result = computeGridLines(grid, 1, 0, 0, 400, 400, Math.PI / 4);
+    const horizontal = result.major.find((line) => Math.abs(line.y2 - line.y1) > 1);
+    const vertical = result.major.find((line) => Math.abs(line.x2 - line.x1) > 1);
+
+    expect(horizontal).toBeDefined();
+    expect(vertical).toBeDefined();
+  });
 });
 
 describe('resolveCanvasColor', () => {

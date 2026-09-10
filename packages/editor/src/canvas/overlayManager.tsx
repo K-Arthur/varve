@@ -387,20 +387,9 @@ export function useOverlayDraw({
     // ── Document grid overlay ────────────────────────────────────────────
     const dg = s.documentGrid;
     if (dg?.visible && dg.spacingX > 0 && dg.spacingY > 0) {
-      const lines = computeGridLines(dg, s.zoom, s.pan.x, s.pan.y, cssW, cssH);
+      const lines = computeGridLines(dg, s.zoom, s.pan.x, s.pan.y, cssW, cssH, s.cameraRotation);
       const minorOpacity = dg.opacity * 0.6;
-      renderGridOnCtx(
-        ctx,
-        lines,
-        dpr,
-        dg.color,
-        dg.color,
-        dg.opacity,
-        minorOpacity,
-        dg.rotation ?? 0,
-        dg.offsetX ?? 0,
-        dg.offsetY ?? 0,
-      );
+      renderGridOnCtx(ctx, lines, dpr, dg.color, dg.color, dg.opacity, minorOpacity);
       ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
 
