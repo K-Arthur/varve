@@ -7912,6 +7912,7 @@ export function EditorProvider({
           return;
         }
 
+        let committedPasteCount = 0;
         runOwnedTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
           setState((s) => {
             let doc = s.document;
@@ -8076,6 +8077,7 @@ export function EditorProvider({
             }
 
             if (newIds.length === 0) return s;
+            committedPasteCount = newIds.length;
             return {
               ...s,
               document: mergeImportedResources(doc, resourceImports),
@@ -8084,20 +8086,13 @@ export function EditorProvider({
           });
         });
 
-        const totalCount =
-          (varveData
-            ? (varveData.rootIds?.length ??
-              varveData.nodes.filter(
-                (node) =>
-                  !varveData.nodes.some(
-                    (parent) => isContainer(parent) && parent.children.includes(node.id),
-                  ),
-              ).length)
-            : 0) + importResults.length;
-        if (totalCount > 0) {
+        if (committedPasteCount > 0) {
           const failed = importReport?.failureCount ?? 0;
+          const partial = importReport?.partialCount ?? 0;
           announcerRef.current?.announce(
-            `Pasted ${totalCount} layer${totalCount > 1 ? 's' : ''}${failed > 0 ? `; ${failed} failed` : ''}`,
+            `Pasted ${committedPasteCount} layer${committedPasteCount > 1 ? 's' : ''}${
+              failed > 0 ? `; ${failed} failed` : ''
+            }${partial > 0 ? `; ${partial} with fidelity changes` : ''}`,
           );
         }
       },
