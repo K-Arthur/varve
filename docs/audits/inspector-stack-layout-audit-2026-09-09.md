@@ -35,12 +35,12 @@ percent, border, and text-measurement cases.
 
 ## Interaction baseline
 
-The existing Chromium containment baseline passed on the refreshed checkout.
-The canonical-properties screenshot was manually inspected after removing the
-duplicate Quick properties strip. Two history warnings (`updateDoc called
-outside transaction`) were observed and remain a follow-up item for numeric
-draft ownership. Selection changes during numeric drafts, portaled colour
-edits, table text editing, and image tuning still need browser reproductions.
+The existing Chromium containment and quick-properties baseline passed 3/3
+tests on the refreshed checkout. The matching quick-properties screenshot was
+manually inspected. Two history warnings (`updateDoc called outside
+transaction`) were observed and remain a follow-up item for numeric draft
+ownership. Selection changes during numeric drafts, portaled colour edits,
+table text editing, and image tuning still need browser reproductions.
 
 ## Decisions
 
@@ -69,11 +69,11 @@ results are verification gaps, not inferred support.
 
 ## Inspector visual refinement — 2026-09-09
 
-The follow-up visual pass keeps the accepted ownership contract and removes the
-single-selection Quick properties strip so Position & Size, Appearance, and
-Fills are the only editing locations for their properties. Appearance displays
-opacity as a percentage while storing the existing 0–1 value; Stack / Grid is
-the visible frame-flow owner.
+The follow-up visual pass keeps the accepted ownership contract and refines the
+single-selection Quick properties strip as a non-owning summary. Position & Size
+remains the canonical owner of geometry; Appearance displays opacity as a
+percentage while storing the existing 0–1 value; Stack / Grid is the visible
+frame-flow owner.
 
 Paint and effect sections are composed through the section registry instead of
 being appended as a second appearance surface. Effect rows now reserve stable
