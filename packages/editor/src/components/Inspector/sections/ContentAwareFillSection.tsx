@@ -67,15 +67,33 @@ export function ContentAwareFillSection({ nodes, onOpenDialog }: ContentAwareFil
     }
     beginTransaction();
     try {
+      const duplicateEditId = `${acceptedEdit.id}-copy-${Date.now()}`;
       const duplicated = insertDerivedImageShape(state.document, typedNode.id, {
         dataUrl: resultAsset.dataUrl,
         assetId: resultAsset.id,
         width: resultAsset.naturalWidth,
         height: resultAsset.naturalHeight,
         suffix: 'Generative Edit Copy',
-        generativeEditId: acceptedEdit.id,
+        generativeEditId: duplicateEditId,
       });
-      updateDoc(() => duplicated.doc);
+      // Candidate/source assets are immutable and can be shared, but the
+      // record itself belongs to the new layer. Keeping a distinct record
+      // prevents edits to the duplicate's recipe from changing the source's
+      // provenance and gives clipboard/package traversal an unambiguous owner.
+      const duplicateEdit = {
+        ...acceptedEdit,
+        id: duplicateEditId,
+        sourceNodeId: duplicated.nodeId,
+        resultNodeId: duplicated.nodeId,
+        updatedAt: Date.now(),
+      };
+      updateDoc(() => ({
+        ...duplicated.doc,
+        generativeEdits: {
+          ...duplicated.doc.generativeEdits,
+          [duplicateEditId]: duplicateEdit,
+        },
+      }));
       commitTransaction();
       setSelection(duplicated.nodeId);
       announce('Duplicated the accepted generative result as a new layer');

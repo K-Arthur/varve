@@ -51,7 +51,8 @@ instead of being thresholded into a binary selection. Invert, Clear
 Paint, Show Mask Overlay, brush size, add/subtract/intersect mask operations,
 mask grow/shrink, feather, context padding, quality/model choice, prompt (when
 a ready provider can consume it), Fit, 1:1, Original/Result, variation
-selection, cancellation, and Apply are exposed in the same session. Changing
+selection/deletion, cancellation, and Apply are exposed in the same session. The
+last retained candidate cannot be deleted. Changing
 the source, mask, or generation settings invalidates the preview rather than
 silently applying a candidate made for an earlier state.
 
@@ -61,8 +62,11 @@ Its id, ordering, transforms, effects, relationships, and selection are
 preserved. The immutable source snapshot and `Document.generativeEdits` record
 are retained for Restore Original, auditability, and later regeneration. The
 Layers panel, inspector, selection state, undo/redo, save/reopen, clipboard,
-and export therefore see the same accepted result. Undo and redo replay
-document data; they never invoke inference.
+and export therefore see the same accepted result. Reopening the Generative
+Edit dialog rehydrates the accepted mode, recipe, mask, output frame, and
+retained candidates from document data; it never invokes inference merely to
+restore the editing session. Undo and redo replay document data; they never
+invoke inference.
 
 ## Document model
 

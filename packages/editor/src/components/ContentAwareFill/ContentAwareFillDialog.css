@@ -470,6 +470,12 @@
   gap: var(--space-2);
 }
 
+.caf-dialog__variation-card {
+  position: relative;
+  width: 48px;
+  height: 64px;
+}
+
 .caf-dialog__variations-fieldset {
   border: 0;
   min-width: 0;
@@ -512,4 +518,31 @@
 .caf-dialog__variation--active {
   border-color: var(--color-interactive-default);
   box-shadow: 0 0 0 1px var(--color-interactive-default);
+}
+
+.caf-dialog__variation-delete {
+  position: absolute;
+  right: -3px;
+  bottom: 0;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-pill);
+  padding: 0;
+  background: var(--color-surface-overlay);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 13px;
+  cursor: pointer;
+}
+
+.caf-dialog__variation-delete:hover:not(:disabled),
+.caf-dialog__variation-delete:focus-visible {
+  border-color: var(--color-feedback-danger);
+  color: var(--color-feedback-danger);
+}
+
+.caf-dialog__variation-delete:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }

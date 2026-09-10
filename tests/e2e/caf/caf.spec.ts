@@ -616,7 +616,7 @@ test.describe('Content-Aware Fill dialog', () => {
       .waitFor({ state: 'hidden', timeout: 5000 });
 
     await page.getByRole('tab', { name: 'Adjustments' }).click();
-    await page.getByRole('button', { name: 'Generative Edit' }).click();
+    await page.getByRole('button', { name: 'Open Generative Edit dialog' }).click();
     const duplicateButton = page.getByRole('button', {
       name: 'Duplicate generative result as layer',
     });
@@ -625,6 +625,57 @@ test.describe('Content-Aware Fill dialog', () => {
 
     await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 5000 });
     await expect(page.getByRole('treeitem', { name: /Generative Edit Copy/i })).toBeVisible();
+
+    const duplicatedDocument = await readEditorDocument(page);
+    const generativeNodes = Object.values(duplicatedDocument.nodes).filter(
+      (candidate: any) => candidate?.generativeEditId,
+    ) as Array<{ id: string; generativeEditId: string }>;
+    expect(generativeNodes).toHaveLength(2);
+    expect(generativeNodes[0]?.generativeEditId).not.toBe(generativeNodes[1]?.generativeEditId);
+    const duplicateNode = generativeNodes.find((candidate) => candidate.id !== nodeId);
+    expect(duplicateNode).toBeTruthy();
+    expect(
+      duplicatedDocument.generativeEdits?.[duplicateNode!.generativeEditId]?.sourceNodeId,
+    ).toBe(duplicateNode!.id);
+  });
+
+  test('reopens an accepted edit with its saved recipe and mask', async ({ page }) => {
+    await triggerCafDialog(page, nodeId);
+    const dialog = page.locator('dialog.varve-dialog--caf[open]');
+    await paintMaskStroke(page);
+
+    const expansion = dialog.locator('#caf-dialog-mask-expansion');
+    await expansion.evaluate((element) => {
+      const input = element as HTMLInputElement;
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!
+        .set!;
+      setter.call(input, '8');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await expect(expansion).toHaveValue('8');
+    await dialog.getByRole('button', { name: /remove && fill/i }).click();
+    await expect(dialog.getByRole('button', { name: /^apply$/i })).toBeEnabled({
+      timeout: 30_000,
+    });
+    await dialog.getByRole('button', { name: /^apply$/i }).click();
+    await dialog.waitFor({ state: 'hidden', timeout: 5000 });
+
+    await page.getByRole('tab', { name: 'Adjustments' }).click();
+    await page.getByRole('button', { name: 'Open Generative Edit dialog' }).click();
+    const reopened = page.locator('dialog.varve-dialog--caf[open]');
+    await expect(reopened).toBeVisible();
+    await expect(reopened.getByRole('tab', { name: 'Remove' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    await expect(reopened.locator('#caf-dialog-mask-expansion')).toHaveValue('8');
+    await expect(reopened).toContainText('Using the accepted edit mask.');
+    await expect(reopened.getByRole('button', { name: 'Delete variation 1' })).toBeDisabled();
+    await expect(reopened.getByRole('button', { name: /^apply$/i })).toBeEnabled({
+      timeout: 10_000,
+    });
+    await reopened.getByRole('button', { name: /^cancel$/i }).click();
   });
 
   test('applies a real photographic edit in place and retains its source recipe', async ({

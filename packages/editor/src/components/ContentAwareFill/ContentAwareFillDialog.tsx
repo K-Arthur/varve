@@ -20,6 +20,8 @@ import {
 import {
   createEmbeddedAsset,
   decodedDataUrlByteLength,
+  type GenerativeEditRecord,
+  type GenerativeEditVariation,
   hashContent,
   imageShapeSrc,
   isImageShape,
@@ -99,6 +101,31 @@ function loadImageToImageData(
   });
 }
 
+/** Rehydrate a persisted candidate for comparison without rerunning inference. */
+function persistedVariationResult(
+  edit: GenerativeEditRecord,
+  variation: GenerativeEditVariation,
+  imageData: ImageData,
+): GenerativeEditResult {
+  const outputFrame = variation.outputFrame ?? edit.outputFrame;
+  return {
+    imageData,
+    width: variation.width,
+    height: variation.height,
+    filledBounds: {
+      x: outputFrame.x,
+      y: outputFrame.y,
+      w: outputFrame.width,
+      h: outputFrame.height,
+    },
+    mode: edit.mode,
+    quality: variation.settings?.quality ?? edit.settings.quality,
+    provider: variation.provider ?? edit.provider,
+    processingTimeMs: 0,
+    warnings: [],
+  };
+}
+
 export interface ContentAwareFillDialogProps {
   nodeId: string | null;
   isOpen: boolean;
@@ -173,7 +200,7 @@ export function ContentAwareFillDialog({
   const [maskFeather, setMaskFeather] = useState(0);
   const [contextPadding, setContextPadding] = useState(32);
   const [maskOrigin, setMaskOrigin] = useState<
-    'brush' | 'pixel-selection' | 'layer-mask' | 'image-alpha'
+    'brush' | 'pixel-selection' | 'layer-mask' | 'image-alpha' | 'persisted'
   >('brush');
   const [maskOperation, setMaskOperation] = useState<MaskCombineOperation>('replace');
   const [modelAvailable, setModelAvailable] = useState(false);
@@ -246,6 +273,32 @@ export function ContentAwareFillDialog({
       })
     : '';
   const sourceImage = typedNode?.fills?.find((fill) => fill.type === 'image')?.image;
+  const acceptedEdit = typedNode?.generativeEditId
+    ? state.document.generativeEdits?.[typedNode.generativeEditId]
+    : undefined;
+  const acceptedVariation = acceptedEdit
+    ? (acceptedEdit.variations.find(
+        (variation) =>
+          variation.id === (acceptedEdit.acceptedVariationId ?? acceptedEdit.activeVariationId),
+      ) ?? acceptedEdit.variations[0])
+    : undefined;
+  const acceptedResultAsset = acceptedVariation?.assetId
+    ? state.document.assets?.[acceptedVariation.assetId]
+    : undefined;
+  const acceptedSourceAsset = acceptedEdit?.sourceSnapshotAssetId
+    ? state.document.assets?.[acceptedEdit.sourceSnapshotAssetId]
+    : acceptedEdit?.sourceAssetId
+      ? state.document.assets?.[acceptedEdit.sourceAssetId]
+      : undefined;
+  const acceptedUserMaskAsset = acceptedEdit?.masks.userMaskAssetId
+    ? state.document.rasterMaskAssets?.[acceptedEdit.masks.userMaskAssetId]
+    : undefined;
+  const acceptedInferenceMaskAsset = acceptedEdit?.masks.inferenceMaskAssetId
+    ? state.document.rasterMaskAssets?.[acceptedEdit.masks.inferenceMaskAssetId]
+    : undefined;
+  const acceptedContextAsset = acceptedVariation?.contextAssetId
+    ? state.document.assets?.[acceptedVariation.contextAssetId]
+    : undefined;
   const sourceAssetId = sourceImage?.assetId ?? null;
   const sourceHash = sourceAssetId
     ? (state.document.assets?.[sourceAssetId]?.hash ?? hashContent(imageSrc))
@@ -372,6 +425,23 @@ export function ContentAwareFillDialog({
   }, [isOpen]);
 
   useEffect(() => {
+    if (!isOpen || !acceptedEdit) return;
+    const settings = acceptedEdit.settings;
+    setMode(acceptedEdit.mode);
+    setQuality(settings.quality === 'draft' ? 'fast' : 'ai');
+    setPrompt(settings.prompt ?? '');
+    setNegativePrompt(settings.negativePrompt ?? '');
+    setSeed(settings.seed ?? null);
+    setStrength(settings.strength ?? 0.75);
+    setSteps(settings.steps ?? 24);
+    setGuidanceScale(settings.guidanceScale ?? 7);
+    setMaskExpansion(settings.maskExpansion ?? 0);
+    setMaskFeather(settings.feather ?? 0);
+    setContextPadding(settings.contextPadding ?? 32);
+    setVariationCount(Math.max(1, Math.min(4, acceptedEdit.variations.length || 1)));
+  }, [acceptedEdit, isOpen]);
+
+  useEffect(() => {
     if (!isOpen) return;
     if (!typedNode || !imageSrc) {
       invalidatePreview();
@@ -449,6 +519,15 @@ export function ContentAwareFillDialog({
           previewCanvas.height = preview.height;
           const ctx = previewCanvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, preview.width, preview.height);
+          if (acceptedSourceAsset?.dataUrl) {
+            const original = await loadImageToImageData(
+              acceptedSourceAsset.dataUrl,
+              preview.width,
+              preview.height,
+            );
+            if (cancelled) return;
+            ctx?.putImageData(original, 0, 0);
+          }
         }
         if (maskCanvas) {
           maskCanvas.width = preview.width;
@@ -460,6 +539,104 @@ export function ContentAwareFillDialog({
           }
         }
         setHasMaskStrokes(false);
+
+        if (acceptedUserMaskAsset?.dataUrl && maskCanvas) {
+          // Persisted masks can be source-resolution masks from large photos.
+          // Decode them directly into the bounded preview rather than routing
+          // them through the interactive mask limit used for new selections.
+          const decoded = await loadImageToImageData(
+            acceptedUserMaskAsset.dataUrl,
+            preview.width,
+            preview.height,
+          );
+          if (cancelled) return;
+          const coverage = maskCoverageFromRgba(decoded.data);
+          const maskContext = maskCanvas.getContext('2d');
+          if (maskContext) {
+            putMaskCoverage(maskContext, coverage, {
+              width: preview.width,
+              height: preview.height,
+            });
+            setHasMaskStrokes(coverage.some((value) => value > 0));
+            setMaskOrigin('persisted');
+            maskRevisionRef.current = 1;
+            setMaskRevision(1);
+          }
+        }
+
+        if (acceptedEdit && acceptedVariation && acceptedResultAsset?.dataUrl) {
+          const resultPreview = previewRasterDimensions(
+            acceptedVariation.width,
+            acceptedVariation.height,
+          );
+          const resultImageData = await loadImageToImageData(
+            acceptedResultAsset.dataUrl,
+            resultPreview.width,
+            resultPreview.height,
+          );
+          if (cancelled) return;
+          const restoredVariations = (
+            await Promise.all(
+              acceptedEdit.variations.map(async (variation) => {
+                const asset = variation.assetId
+                  ? state.document.assets?.[variation.assetId]
+                  : undefined;
+                if (!asset?.dataUrl) return null;
+                const imageData =
+                  variation.id === acceptedVariation.id
+                    ? resultImageData
+                    : await loadImageToImageData(
+                        asset.dataUrl,
+                        previewRasterDimensions(variation.width, variation.height).width,
+                        previewRasterDimensions(variation.width, variation.height).height,
+                      );
+                return {
+                  id: variation.id,
+                  dataUrl: asset.dataUrl,
+                  result: persistedVariationResult(acceptedEdit, variation, imageData),
+                  seed:
+                    variation.seed ?? variation.settings?.seed ?? acceptedEdit.settings.seed ?? 0,
+                };
+              }),
+            )
+          ).filter((variation): variation is NonNullable<typeof variation> => variation !== null);
+          const restoredResult =
+            restoredVariations.find((variation) => variation.id === acceptedVariation.id)?.result ??
+            persistedVariationResult(acceptedEdit, acceptedVariation, resultImageData);
+          const restoredOutputFrame = acceptedVariation.outputFrame ?? acceptedEdit.outputFrame;
+          const inferenceMaskWidth = acceptedEdit.masks.width;
+          const inferenceMaskHeight = acceptedEdit.masks.height;
+          const context = acceptedContextAsset;
+          generationRef.current = {
+            sourceSignature,
+            userMaskDataUrl: acceptedUserMaskAsset?.dataUrl ?? '',
+            inferenceMaskDataUrl: acceptedInferenceMaskAsset?.dataUrl ?? '',
+            userMaskWidth: acceptedEdit.masks.userWidth ?? acceptedEdit.maskWidth,
+            userMaskHeight: acceptedEdit.masks.userHeight ?? acceptedEdit.maskHeight,
+            inferenceMaskWidth,
+            inferenceMaskHeight,
+            inferenceMaskOffsetX: acceptedEdit.masks.offsetX,
+            inferenceMaskOffsetY: acceptedEdit.masks.offsetY,
+            contextDataUrl: context?.dataUrl ?? '',
+            contextWidth: context?.naturalWidth ?? 1,
+            contextHeight: context?.naturalHeight ?? 1,
+            outputFrame: {
+              x: restoredOutputFrame.x,
+              y: restoredOutputFrame.y,
+              width: restoredOutputFrame.width,
+              height: restoredOutputFrame.height,
+              sourceWidth: restoredOutputFrame.sourceWidth,
+              sourceHeight: restoredOutputFrame.sourceHeight,
+            },
+            result: restoredResult,
+            seed: acceptedVariation.seed ?? acceptedEdit.settings.seed ?? 0,
+          };
+          setVariations(restoredVariations);
+          setActiveVariationId(acceptedVariation.id);
+          setResult(restoredResult);
+          setPreviewDataUrl(acceptedResultAsset.dataUrl);
+          setShowOriginal(false);
+        }
       } catch {
         /* best-effort */
       }
@@ -467,7 +644,19 @@ export function ContentAwareFillDialog({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, imageSrc]);
+  }, [
+    acceptedContextAsset,
+    acceptedEdit,
+    acceptedInferenceMaskAsset,
+    acceptedResultAsset,
+    acceptedSourceAsset,
+    acceptedUserMaskAsset,
+    acceptedVariation,
+    imageSrc,
+    isOpen,
+    sourceSignature,
+    state.document.assets,
+  ]);
 
   const centerPreview = useCallback(() => {
     const area = previewAreaRef.current;
@@ -1280,6 +1469,31 @@ export function ContentAwareFillDialog({
     usesDiffusion,
   ]);
 
+  const handleDeleteVariation = useCallback(
+    (variationId: string, variationNumber: number) => {
+      if (variations.length <= 1) return;
+      const removedIndex = variations.findIndex((variation) => variation.id === variationId);
+      const nextVariations = variations.filter((variation) => variation.id !== variationId);
+      const nextActive =
+        activeVariationId === variationId
+          ? nextVariations[Math.min(removedIndex, nextVariations.length - 1)]
+          : (nextVariations.find((variation) => variation.id === activeVariationId) ??
+            nextVariations[0]);
+      setVariations(nextVariations);
+      if (nextActive) {
+        setActiveVariationId(nextActive.id);
+        setResult(nextActive.result);
+        setPreviewDataUrl(nextActive.dataUrl);
+        if (generationRef.current) {
+          generationRef.current.result = nextActive.result;
+          generationRef.current.seed = nextActive.seed;
+        }
+      }
+      announce(`Deleted variation ${variationNumber}`);
+    },
+    [activeVariationId, announce, variations],
+  );
+
   if (!isOpen && !dialogRef.current?.open) return null;
 
   return (
@@ -1620,7 +1834,9 @@ export function ContentAwareFillDialog({
                   ? 'Using the selected image layer mask.'
                   : maskOrigin === 'image-alpha'
                     ? 'Using the source image alpha channel.'
-                    : 'Paint directly on the source to define the edit region.'}
+                    : maskOrigin === 'persisted'
+                      ? 'Using the accepted edit mask.'
+                      : 'Paint directly on the source to define the edit region.'}
             </p>
           </div>
 
@@ -1894,25 +2110,35 @@ export function ContentAwareFillDialog({
               <legend className="caf-dialog__label">Variations</legend>
               <div className="caf-dialog__variations">
                 {variations.map((variation, index) => (
-                  <button
-                    type="button"
-                    key={variation.id}
-                    className={`caf-dialog__variation${activeVariationId === variation.id ? ' caf-dialog__variation--active' : ''}`}
-                    onClick={() => {
-                      setActiveVariationId(variation.id);
-                      setResult(variation.result);
-                      setPreviewDataUrl(variation.dataUrl);
-                      if (generationRef.current) {
-                        generationRef.current.result = variation.result;
-                        generationRef.current.seed = variation.seed;
-                      }
-                    }}
-                    aria-label={`Variation ${index + 1}`}
-                    aria-pressed={activeVariationId === variation.id}
-                  >
-                    <img src={variation.dataUrl} alt="" />
-                    <span>{index + 1}</span>
-                  </button>
+                  <div className="caf-dialog__variation-card" key={variation.id}>
+                    <button
+                      type="button"
+                      className={`caf-dialog__variation${activeVariationId === variation.id ? ' caf-dialog__variation--active' : ''}`}
+                      onClick={() => {
+                        setActiveVariationId(variation.id);
+                        setResult(variation.result);
+                        setPreviewDataUrl(variation.dataUrl);
+                        if (generationRef.current) {
+                          generationRef.current.result = variation.result;
+                          generationRef.current.seed = variation.seed;
+                        }
+                      }}
+                      aria-label={`Variation ${index + 1}`}
+                      aria-pressed={activeVariationId === variation.id}
+                    >
+                      <img src={variation.dataUrl} alt="" />
+                      <span>{index + 1}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="caf-dialog__variation-delete"
+                      aria-label={`Delete variation ${index + 1}`}
+                      disabled={variations.length <= 1 || isProcessing}
+                      onClick={() => handleDeleteVariation(variation.id, index + 1)}
+                    >
+                      {String.fromCharCode(215)}
+                    </button>
+                  </div>
                 ))}
               </div>
             </fieldset>
