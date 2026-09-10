@@ -147,6 +147,46 @@ Important existing commands retain their current access paths:
   loading behavior intact.
 - Preserved the website’s shared font/token imports and responsive layout.
 
+## Inspector follow-up — section manager (same day, second pass)
+
+A focused re-audit of the Inspector's section-manager popover
+(`SectionManagerTrigger`), reported directly from a running session rather
+than found by screen-scanning, turned up two real defects distinct from the
+UI-05 responsive-containment work above:
+
+1. `.insp-panel__header` was defined twice in `inspector.css` (once near the
+   top of the file, once under a later "Panel header" section). The later
+   rule won the cascade for the properties it redeclared but silently
+   dropped the first rule's horizontal padding, leaving the section-manager
+   gear button flush against the scrolling panel's own scrollbar track
+   instead of clear of it — a real, reported click-target defect, not a
+   cosmetic one.
+2. `.insp-section-manager__label` had no overflow containment. In the
+   popover's fixed 280px width, a longer section title ("Align &
+   Distribute") wrapped to two lines while its sibling category badge and
+   "required" flag stayed single-line and vertically centered against the
+   row's now-taller height, reading as overlapping text.
+
+Fixed by consolidating the header rule with a right inset matching the
+content padding immediately below it, and giving the label the same
+ellipsis-truncation-plus-tooltip treatment used for row names elsewhere in
+the app (`Tooltip ... truncationOnly`). Verified with
+`tests/e2e/inspector/section-manager-visual.spec.ts`, which asserts a
+positive gear-to-scrollbar inset and a single-line row height; confirmed
+failing pre-fix (0px inset, reproduced by reverting only the two changed
+files) and passing post-fix. The existing `section-management.spec.ts`
+suite (8 scenarios) and `SectionManagerTrigger.test.tsx` (2 tests) pass
+unchanged.
+
+A broader visual sweep of a real single-selection state (default width,
+240px narrow width, dark theme) found the panel otherwise coherent — Quick
+properties, Fill, Align & Distribute, and Layout all render cleanly at each
+width and theme, consistent with the UI-05 responsive-containment work
+landed earlier the same day. No marketing surface depicts this popover (no
+`/features/inspector` page exists, and the one Inspector product screenshot
+in the website manifest is a real, pipeline-generated capture rather than a
+hand-coded mock), so no marketing change was needed for this fix.
+
 ## G. Residual design-debt register
 
 | Item | Severity | Reason deferred | Next action |
