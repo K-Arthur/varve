@@ -7,7 +7,7 @@
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
     "beforeDevCommand": "pnpm dev",
-    "beforeBuildCommand": "node ../../scripts/fetch-onnxruntime.mjs && pnpm build"
+    "beforeBuildCommand": "node ../../scripts/fetch-onnxruntime.mjs && node ../../scripts/build-generative-helper.mjs && pnpm build"
   },
   "app": {
     "withGlobalTauri": true,
@@ -96,7 +96,7 @@
     "active": true,
     "createUpdaterArtifacts": true,
     "targets": ["appimage", "deb", "rpm", "nsis", "dmg"],
-    "resources": ["onnxruntime-libs/**/*"],
+    "resources": ["onnxruntime-libs/**/*", "../../../target/release/varve-generative-helper*"],
     "fileAssociations": [
       {
         "ext": ["varve"],

@@ -4,12 +4,14 @@ import {
   type GenerativeEditMode,
   type GenerativeEditResult,
   GenerativeJobController,
+  type GenerativeJobSnapshot,
   getGenerativeEditCapabilities,
   getModelLoader,
   getNativeGenerativeModelStatus,
   importNativeGenerativeModel,
   QUALITY_DESCRIPTIONS,
   QUALITY_LABELS,
+  qualifyNativeGenerativeModel,
   runGenerativeEdit,
 } from '@varve/engine';
 import {
@@ -120,6 +122,8 @@ export function ContentAwareFillDialog({
   } | null>(null);
   const sessionSourceSignatureRef = useRef<string | null>(null);
   const variationSequenceRef = useRef(0);
+  const maskRevisionRef = useRef(0);
+  const currentJobSnapshotRef = useRef<GenerativeJobSnapshot | null>(null);
 
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -141,7 +145,8 @@ export function ContentAwareFillDialog({
   const [maskOrigin, setMaskOrigin] = useState<'brush' | 'pixel-selection' | 'layer-mask'>('brush');
   const [maskOperation, setMaskOperation] = useState<MaskCombineOperation>('replace');
   const [modelAvailable, setModelAvailable] = useState(false);
-  const [diffusionModelPath, setDiffusionModelPath] = useState<string | null>(null);
+  const [diffusionModelInstalled, setDiffusionModelInstalled] = useState(false);
+  const [diffusionModelHandle, setDiffusionModelHandle] = useState<string | null>(null);
   const [diffusionModelSize, setDiffusionModelSize] = useState(0);
   const [diffusionModelReason, setDiffusionModelReason] = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
@@ -153,7 +158,7 @@ export function ContentAwareFillDialog({
     left: 0,
   });
 
-  type DialogStatus = 'idle' | 'downloading' | 'generating' | 'applying' | 'error';
+  type DialogStatus = 'idle' | 'downloading' | 'qualifying' | 'generating' | 'applying' | 'error';
   const [status, setStatus] = useState<DialogStatus>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [result, setResult] = useState<GenerativeEditResult | null>(null);
@@ -171,10 +176,7 @@ export function ContentAwareFillDialog({
   const [previewViewport, setPreviewViewport] = useState({ width: 0, height: 0 });
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generationStage, setGenerationStage] = useState('Preparing');
-  const currentRevisionRef = useRef(state.revision);
-  currentRevisionRef.current = state.revision;
-
-  const isProcessing = status === 'generating' || status === 'applying';
+  const isProcessing = status === 'qualifying' || status === 'generating' || status === 'applying';
   const hasResult = previewDataUrl != null && result != null;
   const capabilities = getGenerativeEditCapabilities();
   const promptNeedsDiffusion =
@@ -182,7 +184,7 @@ export function ContentAwareFillDialog({
   const usesDiffusion = mode === 'replace' || mode === 'expand' || promptNeedsDiffusion;
   const modeMissingModel =
     (!usesDiffusion && quality === 'ai' && !modelAvailable) ||
-    (usesDiffusion && !diffusionModelPath);
+    (usesDiffusion && !diffusionModelHandle);
   const modeAvailable = capabilities[mode] && !modeMissingModel;
   const hasExpandPadding = Object.values(expandPadding).some((value) => value > 0);
   const canGenerate =
@@ -200,10 +202,48 @@ export function ContentAwareFillDialog({
     ? JSON.stringify({
         src: imageSrc,
         assetId: typedNode.fills?.find((fill) => fill.type === 'image')?.image?.assetId,
+        imagePlacement: typedNode.fills?.find((fill) => fill.type === 'image')?.image,
         shape: typedNode.shape,
         transform: typedNode.transform,
       })
     : '';
+  const sourceImage = typedNode?.fills?.find((fill) => fill.type === 'image')?.image;
+  const sourceAssetId = sourceImage?.assetId ?? null;
+  const sourceHash = sourceAssetId
+    ? (state.document.assets?.[sourceAssetId]?.hash ?? hashContent(imageSrc))
+    : hashContent(imageSrc);
+  // The editor revision changes for unrelated document edits too. Use the
+  // source fingerprint for the job's source revision so an unrelated layer
+  // edit does not invalidate a valid generation; sourceHash/placement still
+  // guard the actual image and its mapping independently.
+  const sourceRevision = Number.parseInt(sourceHash.slice(0, 8), 16) || 0;
+  const settingsFingerprint = JSON.stringify({
+    mode,
+    quality,
+    prompt,
+    negativePrompt,
+    seed,
+    variationCount,
+    strength,
+    steps,
+    guidanceScale,
+    maskExpansion,
+    maskFeather,
+    contextPadding,
+  });
+  currentJobSnapshotRef.current = typedNode
+    ? {
+        documentId: state.document.id,
+        targetId: nodeId ?? '',
+        sourceRevision,
+        sourceAssetId,
+        sourceHash,
+        placementFingerprint: sourceSignature,
+        maskRevision: maskRevisionRef.current,
+        settingsFingerprint,
+        outputFrameFingerprint: JSON.stringify(mode === 'expand' ? expandPadding : null),
+      }
+    : null;
 
   const invalidatePreview = useCallback(() => {
     jobControllerRef.current.cancel();
@@ -260,8 +300,10 @@ export function ContentAwareFillDialog({
     setContextPadding(32);
     setMaskOrigin('brush');
     setMaskOperation('replace');
+    maskRevisionRef.current = 0;
     setModelAvailable(false);
-    setDiffusionModelPath(null);
+    setDiffusionModelInstalled(false);
+    setDiffusionModelHandle(null);
     setDiffusionModelSize(0);
     setDiffusionModelReason(null);
     setStatus('idle');
@@ -322,7 +364,8 @@ export function ContentAwareFillDialog({
     let cancelled = false;
     void getNativeGenerativeModelStatus().then((available) => {
       if (cancelled) return;
-      setDiffusionModelPath(available.installed ? available.modelPath : null);
+      setDiffusionModelInstalled(available.installed);
+      setDiffusionModelHandle(available.ready ? available.modelHandle : null);
       setDiffusionModelSize(available.sizeBytes);
       setDiffusionModelReason(available.reason);
     });
@@ -461,18 +504,20 @@ export function ContentAwareFillDialog({
       if (hasMaskStrokes !== combined.some((value) => value > 0)) {
         setHasMaskStrokes(combined.some((value) => value > 0));
       }
+      maskRevisionRef.current += 1;
     },
     [brushSize, hasMaskStrokes, maskOperation],
   );
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
+      if (isProcessing) return;
       isPaintingRef.current = true;
       setMaskOrigin('brush');
       e.currentTarget.setPointerCapture(e.pointerId);
       paintAt(e.clientX, e.clientY);
     },
-    [paintAt],
+    [isProcessing, paintAt],
   );
 
   const handlePointerMove = useCallback(
@@ -497,6 +542,7 @@ export function ContentAwareFillDialog({
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     setHasMaskStrokes(false);
     setMaskOrigin('brush');
+    maskRevisionRef.current += 1;
     invalidatePreview();
   }, [invalidatePreview]);
 
@@ -527,6 +573,7 @@ export function ContentAwareFillDialog({
         putMaskCoverage(context, combined, { width: naturalSize.w, height: naturalSize.h });
         setHasMaskStrokes(combined.some((value) => value > 0));
         setMaskOrigin(origin);
+        maskRevisionRef.current += 1;
         invalidatePreview();
         setErrorMessage(null);
       } catch (err) {
@@ -577,6 +624,7 @@ export function ContentAwareFillDialog({
     for (let i = 0; i < coverage.length; i += 1) coverage[i] = 255 - coverage[i]!;
     putMaskCoverage(context, coverage, { width: canvas.width, height: canvas.height });
     setHasMaskStrokes(coverage.some((value) => value > 0));
+    maskRevisionRef.current += 1;
     invalidatePreview();
   }, [hasMaskStrokes, invalidatePreview]);
 
@@ -629,13 +677,14 @@ export function ContentAwareFillDialog({
       const picked = (await tauri.core.invoke('plugin:dialog|open', {
         options: {
           multiple: false,
-          filters: [{ name: 'Diffusion model', extensions: ['safetensors', 'ckpt', 'gguf'] }],
+          filters: [{ name: 'Diffusion model', extensions: ['safetensors', 'gguf'] }],
         },
       })) as Array<{ path?: string }> | null;
       const selected = picked?.[0]?.path;
       if (!selected) return;
       const imported = await importNativeGenerativeModel(selected);
-      setDiffusionModelPath(imported.installed ? imported.modelPath : null);
+      setDiffusionModelInstalled(imported.installed);
+      setDiffusionModelHandle(imported.ready ? imported.modelHandle : null);
       setDiffusionModelSize(imported.sizeBytes);
       setDiffusionModelReason(imported.reason);
       setErrorMessage(null);
@@ -647,10 +696,39 @@ export function ContentAwareFillDialog({
     }
   }, []);
 
+  const handleQualifyDiffusionModel = useCallback(async () => {
+    setStatus('qualifying');
+    setErrorMessage(null);
+    try {
+      const qualified = await qualifyNativeGenerativeModel();
+      setDiffusionModelInstalled(qualified.installed);
+      setDiffusionModelHandle(qualified.ready ? qualified.modelHandle : null);
+      setDiffusionModelSize(qualified.sizeBytes);
+      setDiffusionModelReason(qualified.reason);
+      if (!qualified.ready) throw new Error(qualified.reason ?? 'Model qualification failed.');
+      setStatus('idle');
+    } catch (err) {
+      setStatus('error');
+      setErrorMessage(
+        err instanceof Error ? err.message : 'The diffusion model could not be qualified.',
+      );
+    }
+  }, []);
+
   const handleGenerate = useCallback(async () => {
     if (!imageSrc || !modeAvailable || !canGenerate) return;
-    const sourceRevision = currentRevisionRef.current;
-    const token = jobControllerRef.current.start(sourceRevision);
+    const jobSnapshot = currentJobSnapshotRef.current;
+    if (!jobSnapshot) return;
+    const token = jobControllerRef.current.start(jobSnapshot);
+    const isCurrentJob = () => {
+      const currentSnapshot = currentJobSnapshotRef.current;
+      return currentSnapshot
+        ? jobControllerRef.current.isCurrent(token, {
+            ...currentSnapshot,
+            maskRevision: maskRevisionRef.current,
+          })
+        : false;
+    };
     setStatus('generating');
     setErrorMessage(null);
     setGenerationProgress(0);
@@ -658,7 +736,7 @@ export function ContentAwareFillDialog({
 
     try {
       const fullData = await loadImageToImageData(imageSrc);
-      if (!jobControllerRef.current.isCurrent(token, currentRevisionRef.current)) {
+      if (!isCurrentJob()) {
         throw new GenerativeEditError('stale', 'The source changed before generation completed.');
       }
 
@@ -700,18 +778,19 @@ export function ContentAwareFillDialog({
         sourceWidth: fullData.width,
         sourceHeight: fullData.height,
       };
-      const generationSeed = seed ?? sourceRevision + variationSequenceRef.current;
+      const generationSeed = seed ?? jobSnapshot.sourceRevision + variationSequenceRef.current;
       const needsDiffusion =
         mode === 'replace' || mode === 'expand' || (mode === 'fill' && prompt.trim().length > 0);
       let modelPath: string | undefined;
       if (needsDiffusion) {
-        if (!diffusionModelPath) {
+        if (!diffusionModelHandle) {
           throw new GenerativeEditError(
             'missing-model',
             'Install a compatible local diffusion model before using this prompt-capable mode.',
           );
         }
-        modelPath = diffusionModelPath;
+        // The native adapter resolves this opaque handle inside the desktop
+        // process. Model filesystem paths never cross the IPC boundary.
       } else if (quality === 'ai') {
         const loader = getModelLoader();
         modelPath = (await loader.getModelPath(MODEL_ID, token.signal)) ?? undefined;
@@ -750,7 +829,7 @@ export function ContentAwareFillDialog({
           outputWidth: generationImage.width,
           outputHeight: generationImage.height,
           signal: token.signal,
-          isCurrent: () => jobControllerRef.current.isCurrent(token, currentRevisionRef.current),
+          isCurrent: isCurrentJob,
           onProgress: ({ stage, progress }) => {
             jobControllerRef.current.update(progress, stage);
             setGenerationProgress((index + progress) / variationCount);
@@ -759,6 +838,7 @@ export function ContentAwareFillDialog({
             );
           },
           modelPath,
+          modelHandle: diffusionModelHandle ?? undefined,
         });
         const outCanvas = document.createElement('canvas');
         outCanvas.width = generated.imageData.width;
@@ -774,7 +854,15 @@ export function ContentAwareFillDialog({
         });
       }
       const generated = generatedVariations[generatedVariations.length - 1];
-      if (!generated || !jobControllerRef.current.complete(token, currentRevisionRef.current)) {
+      const currentSnapshot = currentJobSnapshotRef.current;
+      if (
+        !generated ||
+        !currentSnapshot ||
+        !jobControllerRef.current.complete(token, {
+          ...currentSnapshot,
+          maskRevision: maskRevisionRef.current,
+        })
+      ) {
         throw new GenerativeEditError('stale', 'The source changed while generation was running.');
       }
       generationRef.current = {
@@ -809,7 +897,7 @@ export function ContentAwareFillDialog({
   }, [
     contextPadding,
     canGenerate,
-    diffusionModelPath,
+    diffusionModelHandle,
     expandPadding,
     imageSrc,
     maskExpansion,
@@ -1202,9 +1290,11 @@ export function ContentAwareFillDialog({
               <strong>Local processing</strong>
               <small>
                 {mode === 'replace' || mode === 'expand' || promptNeedsDiffusion
-                  ? diffusionModelPath
-                    ? `Diffusion · ${Math.round(diffusionModelSize / 1_000_000)} MB · local`
-                    : 'Diffusion model required · local only'
+                  ? diffusionModelHandle
+                    ? `Diffusion · ${Math.round(diffusionModelSize / 1_000_000)} MB · qualified local`
+                    : diffusionModelInstalled
+                      ? 'Diffusion model installed · validation required'
+                      : 'Diffusion model required · local only'
                   : quality === 'fast'
                     ? 'PatchMatch · no download'
                     : 'LaMa · stored on this device'}
@@ -1221,12 +1311,26 @@ export function ContentAwareFillDialog({
                 onClick={() => void handleImportDiffusionModel()}
                 disabled={!capabilities.prompt || isProcessing}
               >
-                {diffusionModelPath ? 'Replace Diffusion Model' : 'Install Diffusion Model'}
+                {diffusionModelInstalled ? 'Replace Diffusion Model' : 'Install Diffusion Model'}
               </Button>
+              {diffusionModelInstalled && !diffusionModelHandle && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => void handleQualifyDiffusionModel()}
+                  disabled={isProcessing}
+                >
+                  Validate Model
+                </Button>
+              )}
               <p className="caf-dialog__hint">
-                {diffusionModelPath
-                  ? 'The model is managed in Varve storage and used offline.'
-                  : 'Select a compatible SD 1.5/SDXL inpainting model. Browser generation is unavailable.'}
+                {diffusionModelHandle
+                  ? 'The model passed a masked production-helper check and is managed offline.'
+                  : diffusionModelInstalled
+                    ? (diffusionModelReason ??
+                      'Run validation before using prompt-capable generation.')
+                    : 'Select a safe-format SD 1.5/SDXL inpainting model. Legacy checkpoint files are rejected. Browser generation is unavailable.'}
               </p>
             </div>
           )}
@@ -1579,9 +1683,11 @@ export function ContentAwareFillDialog({
             {isProcessing ? (
               <div className="caf-dialog__status">
                 <span aria-live="polite">
-                  {status === 'generating'
-                    ? `${generationStage}… ${Math.round(generationProgress * 100)}%`
-                    : 'Applying…'}
+                  {status === 'qualifying'
+                    ? 'Validating local diffusion model…'
+                    : status === 'generating'
+                      ? `${generationStage}… ${Math.round(generationProgress * 100)}%`
+                      : 'Applying…'}
                 </span>
                 <Button
                   type="button"

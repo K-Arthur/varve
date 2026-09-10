@@ -48,7 +48,14 @@ export interface GenerativeEditRequest {
   prompt?: string;
   negativePrompt?: string;
   seed?: number;
+  strength?: number;
+  steps?: number;
+  guidanceScale?: number;
+  outputWidth?: number;
+  outputHeight?: number;
   contextPadding?: number;
+  /** Opaque handle for a qualified native prompt-capable model. */
+  modelHandle?: string;
   modelPath?: string;
   modelId?: string;
   signal?: AbortSignal;
@@ -71,10 +78,16 @@ export interface GenerativeEditResult {
 
 export type GenerativeEditErrorCode =
   | 'unsupported-mode'
+  | 'prompt-unavailable'
+  | 'unsupported-runtime'
   | 'invalid-image'
   | 'invalid-mask'
   | 'empty-mask'
   | 'missing-model'
+  | 'insufficient-memory'
+  | 'device-loss'
+  | 'timeout'
+  | 'runtime-failure'
   | 'cancelled'
   | 'stale';
 

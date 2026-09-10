@@ -14,10 +14,13 @@ use image::load_from_memory;
 use notify::Watcher;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::io::{Read, Write};
+use std::process::{Child, Command as ProcessCommand, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{LazyLock, Mutex};
+use std::time::{Duration, Instant};
+use base64::Engine as _;
 use tauri::ipc::Response;
 use tauri::Emitter;
 use tauri::Manager;
@@ -1052,6 +1055,566 @@ async fn content_aware_fill(
     })
     .await
     .map_err(|e| format!("Content-aware fill task failed: {e}"))?
+}
+
+// ── Isolated prompt-capable generative editing ──────────────────────────
+
+static GENERATIVE_CHILDREN: LazyLock<Mutex<HashMap<String, Child>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+#[derive(Debug, serde::Deserialize)]
+pub struct GenerativeEditOptions {
+    pub request_id: String,
+    pub model_handle: String,
+    pub image_data: Vec<u8>,
+    pub image_w: u32,
+    pub image_h: u32,
+    pub mask: Vec<u8>,
+    pub mask_w: u32,
+    pub mask_h: u32,
+    pub mode: String,
+    pub prompt: String,
+    pub negative_prompt: String,
+    pub output_w: u32,
+    pub output_h: u32,
+    pub steps: u32,
+    pub guidance_scale: f32,
+    pub seed: i64,
+    pub strength: f32,
+}
+
+const GENERATIVE_MODEL_STEM: &str = "varve-diffusion-inpainting";
+const GENERATIVE_MODEL_HANDLE: &str = "varve-diffusion-inpainting";
+const GENERATIVE_MODEL_PROFILE: &str = "sd-inpainting-generic-v1";
+const GENERATIVE_MODEL_METADATA_SUFFIX: &str = ".metadata.json";
+
+#[derive(Debug, Deserialize, Serialize)]
+struct GenerativeModelMetadata {
+    schema_version: u32,
+    model_handle: String,
+    profile_id: String,
+    size_bytes: u64,
+    checksum_sha256: String,
+    qualified: bool,
+    qualified_at: Option<u64>,
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct GenerativeModelStatus {
+    installed: bool,
+    ready: bool,
+    model_handle: Option<String>,
+    profile_id: Option<String>,
+    checksum_sha256: Option<String>,
+    size_bytes: u64,
+    reason: Option<String>,
+}
+
+fn managed_generative_model_paths(app: &tauri::AppHandle) -> Result<Vec<std::path::PathBuf>, String> {
+    let dir = model_dir(app)?;
+    Ok(["safetensors", "gguf"]
+        .into_iter()
+        .map(|extension| dir.join(format!("{GENERATIVE_MODEL_STEM}.{extension}")))
+        .collect())
+}
+
+fn generative_model_metadata_path(model_path: &std::path::Path) -> std::path::PathBuf {
+    let file_name = model_path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or(GENERATIVE_MODEL_STEM);
+    model_path.with_file_name(format!("{file_name}{GENERATIVE_MODEL_METADATA_SUFFIX}"))
+}
+
+fn read_generative_model_metadata(
+    model_path: &std::path::Path,
+) -> Option<GenerativeModelMetadata> {
+    let bytes = std::fs::read(generative_model_metadata_path(model_path)).ok()?;
+    serde_json::from_slice(&bytes).ok()
+}
+
+fn unix_timestamp_seconds() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
+}
+
+fn model_status_blocking(
+    app: &tauri::AppHandle,
+) -> Result<GenerativeModelStatus, String> {
+    for path in managed_generative_model_paths(&app)? {
+        if let Ok(metadata) = path.metadata() {
+            if metadata.is_file() && metadata.len() > 0 {
+                let (size_bytes, checksum_sha256) = sha256_file(&path)?;
+                let record = read_generative_model_metadata(&path);
+                let ready = record.as_ref().is_some_and(|record| {
+                    record.schema_version == 1
+                        && record.model_handle == GENERATIVE_MODEL_HANDLE
+                        && record.profile_id == GENERATIVE_MODEL_PROFILE
+                        && record.size_bytes == size_bytes
+                        && record.checksum_sha256 == checksum_sha256
+                        && record.qualified
+                });
+                let reason = if ready {
+                    Some("The local model passed Varve's masked inpainting qualification.".into())
+                } else if record.is_some() {
+                    Some("The model changed or failed qualification. Validate it again before generation.".into())
+                } else {
+                    Some("Model installed locally. Validate it with a masked production run before generation.".into())
+                };
+                return Ok(GenerativeModelStatus {
+                    installed: true,
+                    ready,
+                    model_handle: Some(GENERATIVE_MODEL_HANDLE.into()),
+                    profile_id: Some(GENERATIVE_MODEL_PROFILE.into()),
+                    checksum_sha256: Some(checksum_sha256),
+                    size_bytes,
+                    reason,
+                });
+            }
+        }
+    }
+    Ok(GenerativeModelStatus {
+        installed: false,
+        ready: false,
+        model_handle: None,
+        profile_id: None,
+        checksum_sha256: None,
+        size_bytes: 0,
+        reason: Some(
+            "Import a safe-format SD 1.5 or SDXL inpainting model. Model weights are not downloaded automatically."
+                .into(),
+        ),
+    })
+}
+
+#[tauri::command]
+async fn generative_edit_model_status(
+    app: tauri::AppHandle,
+) -> Result<GenerativeModelStatus, String> {
+    tauri::async_runtime::spawn_blocking(move || model_status_blocking(&app))
+        .await
+        .map_err(|error| format!("Generative model status task failed: {error}"))?
+}
+
+#[tauri::command]
+fn import_generative_edit_model(
+    app: tauri::AppHandle,
+    path: String,
+) -> Result<GenerativeModelStatus, String> {
+    let source = resolve_user_path_approved(&path)?;
+    let extension = source
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(str::to_ascii_lowercase)
+        .ok_or_else(|| "Choose a .safetensors or .gguf model file".to_string())?;
+    if !matches!(extension.as_str(), "safetensors" | "gguf") {
+        return Err("Choose a .safetensors or .gguf model file".into());
+    }
+    let metadata = source
+        .metadata()
+        .map_err(|error| format!("Could not read selected model: {error}"))?;
+    if !metadata.is_file() || metadata.len() == 0 || metadata.len() > 16 * 1024 * 1024 * 1024 {
+        return Err("The selected model file is empty or larger than the 16 GB safety limit".into());
+    }
+    let paths = managed_generative_model_paths(&app)?;
+    let destination = paths
+        .iter()
+        .find(|candidate| {
+            candidate.extension().and_then(|value| value.to_str()) == Some(extension.as_str())
+        })
+        .cloned()
+        .ok_or_else(|| "Could not resolve managed model storage".to_string())?;
+    if source != destination {
+        let staging = destination.with_extension(format!("{extension}.importing"));
+        std::fs::copy(&source, &staging)
+            .map_err(|error| format!("Could not stage the selected model: {error}"))?;
+        // The staged copy is complete before the destination is replaced.
+        // Windows cannot atomically replace an existing file with rename, so
+        // remove only the managed destination after staging has succeeded.
+        if destination.exists() {
+            std::fs::remove_file(&destination)
+                .map_err(|error| format!("Could not replace the installed model: {error}"))?;
+        }
+        if let Err(error) = std::fs::rename(&staging, &destination) {
+            let _ = std::fs::remove_file(&staging);
+            return Err(format!("Could not install the selected model: {error}"));
+        }
+    }
+    let _ = std::fs::remove_file(generative_model_metadata_path(&destination));
+    for other in paths {
+        if other != destination {
+            let _ = std::fs::remove_file(&other);
+            let _ = std::fs::remove_file(generative_model_metadata_path(&other));
+        }
+    }
+    model_status_blocking(&app)
+}
+
+fn qualification_request(model_handle: &str, request_id: String) -> GenerativeEditOptions {
+    const WIDTH: u32 = 64;
+    const HEIGHT: u32 = 64;
+    let mut image_data = vec![0u8; (WIDTH * HEIGHT * 4) as usize];
+    let mut mask = vec![0u8; (WIDTH * HEIGHT) as usize];
+    for y in 0..HEIGHT {
+        for x in 0..WIDTH {
+            let pixel = ((y * WIDTH + x) * 4) as usize;
+            image_data[pixel] = 238;
+            image_data[pixel + 1] = 238;
+            image_data[pixel + 2] = 238;
+            image_data[pixel + 3] = 255;
+            if (20..44).contains(&x) && (20..44).contains(&y) {
+                mask[(y * WIDTH + x) as usize] = 255;
+            }
+        }
+    }
+    GenerativeEditOptions {
+        request_id,
+        model_handle: model_handle.into(),
+        image_data,
+        image_w: WIDTH,
+        image_h: HEIGHT,
+        mask,
+        mask_w: WIDTH,
+        mask_h: HEIGHT,
+        mode: "replace".into(),
+        prompt: "a red ceramic apple on a plain light background".into(),
+        negative_prompt: "text, watermark, blurry".into(),
+        output_w: WIDTH,
+        output_h: HEIGHT,
+        steps: 4,
+        guidance_scale: 7.0,
+        seed: 417,
+        strength: 0.85,
+    }
+}
+
+fn resolve_generative_model_for_run(
+    app: &tauri::AppHandle,
+    require_qualified: bool,
+) -> Result<std::path::PathBuf, String> {
+    let status = model_status_blocking(app)?;
+    if !status.installed {
+        return Err("The local diffusion model is not installed".into());
+    }
+    if require_qualified && !status.ready {
+        return Err(status.reason.unwrap_or_else(|| {
+            "The local diffusion model has not passed inpainting qualification".into()
+        }));
+    }
+    managed_generative_model_paths(app)?
+        .into_iter()
+        .find(|candidate| candidate.is_file())
+        .ok_or_else(|| "The installed diffusion model is no longer available".to_string())
+}
+
+fn write_generative_model_metadata(
+    model_path: &std::path::Path,
+    qualified: bool,
+) -> Result<(), String> {
+    let (size_bytes, checksum_sha256) = sha256_file(model_path)?;
+    let metadata = GenerativeModelMetadata {
+        schema_version: 1,
+        model_handle: GENERATIVE_MODEL_HANDLE.into(),
+        profile_id: GENERATIVE_MODEL_PROFILE.into(),
+        size_bytes,
+        checksum_sha256,
+        qualified,
+        qualified_at: qualified.then(unix_timestamp_seconds),
+    };
+    let bytes = serde_json::to_vec_pretty(&metadata)
+        .map_err(|error| format!("Could not serialize model metadata: {error}"))?;
+    write_file_atomic(&generative_model_metadata_path(model_path), &bytes)
+}
+
+#[tauri::command]
+async fn qualify_generative_edit_model(
+    app: tauri::AppHandle,
+) -> Result<GenerativeModelStatus, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let model_path = resolve_generative_model_for_run(&app, false)?;
+        let result = generative_edit_blocking(
+            app.clone(),
+            qualification_request(GENERATIVE_MODEL_HANDLE, format!("qualification-{}", uuid())),
+        )?;
+        if result.width != 64 || result.height != 64 {
+            return Err(format!(
+                "The model returned {}x{} during qualification; expected 64x64",
+                result.width, result.height
+            ));
+        }
+        let generated = base64::engine::general_purpose::STANDARD
+            .decode(result.png_base64)
+            .map_err(|error| format!("Qualification output was not valid PNG data: {error}"))?;
+        let decoded = load_from_memory(&generated)
+            .map_err(|error| format!("Qualification output could not be decoded: {error}"))?;
+        if decoded.width() != 64 || decoded.height() != 64 {
+            return Err("Qualification output dimensions could not be verified".into());
+        }
+        let output = decoded.to_rgb8();
+        let changed_pixels = output
+            .pixels()
+            .filter(|pixel| pixel[0] != 238 || pixel[1] != 238 || pixel[2] != 238)
+            .count();
+        if changed_pixels == 0 {
+            return Err("The masked qualification output was unchanged; model compatibility was not proven".into());
+        }
+        write_generative_model_metadata(&model_path, true)?;
+        model_status_blocking(&app)
+    })
+    .await
+    .map_err(|error| format!("Generative model qualification task failed: {error}"))?
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct GenerativeEditResult {
+    pub png_base64: String,
+    pub width: u32,
+    pub height: u32,
+    pub execution_backend: String,
+    pub processing_time_ms: u64,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct GenerativeHelperRequest {
+    model_path: String,
+    init_image_path: String,
+    mask_path: String,
+    output_path: String,
+    prompt: String,
+    negative_prompt: String,
+    width: u32,
+    height: u32,
+    steps: u32,
+    guidance_scale: f32,
+    seed: i64,
+    strength: f32,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GenerativeHelperResponse {
+    width: u32,
+    height: u32,
+    backend: String,
+}
+
+fn valid_generation_request_id(request_id: &str) -> bool {
+    !request_id.is_empty()
+        && request_id.len() <= 128
+        && request_id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+}
+
+fn resolve_generative_helper(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    if let Some(path) = std::env::var_os("VARVE_GENERATIVE_HELPER") {
+        let path = std::path::PathBuf::from(path);
+        if path.is_file() {
+            return Ok(path);
+        }
+        return Err("Configured generative helper does not exist".into());
+    }
+    let file_name = if cfg!(target_os = "windows") {
+        "varve-generative-helper.exe"
+    } else {
+        "varve-generative-helper"
+    };
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        let bundled = resource_dir.join(file_name);
+        if bundled.is_file() {
+            return Ok(bundled);
+        }
+    }
+    let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let profile = if cfg!(debug_assertions) { "debug" } else { "release" };
+    let dev_path = manifest_dir.join("../../../target").join(profile).join(file_name);
+    if dev_path.is_file() {
+        return Ok(dev_path);
+    }
+    Err("The packaged local diffusion helper is unavailable. Rebuild the desktop runtime.".into())
+}
+
+fn write_generation_inputs(
+    work_dir: &std::path::Path,
+    options: &GenerativeEditOptions,
+) -> Result<(std::path::PathBuf, std::path::PathBuf), String> {
+    let image_pixels = u64::from(options.image_w)
+        .checked_mul(u64::from(options.image_h))
+        .ok_or_else(|| "Generation source dimensions overflow".to_string())?;
+    if image_pixels == 0 || image_pixels > 64 * 1024 * 1024 || options.image_data.len() as u64 != image_pixels * 4 {
+        return Err("Generation source pixels do not match the declared dimensions".into());
+    }
+    let mask_pixels = u64::from(options.mask_w)
+        .checked_mul(u64::from(options.mask_h))
+        .ok_or_else(|| "Generation mask dimensions overflow".to_string())?;
+    if mask_pixels == 0 || mask_pixels > 64 * 1024 * 1024 || options.mask.len() as u64 != mask_pixels {
+        return Err("Generation mask pixels do not match the declared dimensions".into());
+    }
+    let rgba = image::RgbaImage::from_raw(options.image_w, options.image_h, options.image_data.clone())
+        .ok_or_else(|| "Generation source image buffer is invalid".to_string())?;
+    let mask = image::GrayImage::from_raw(options.mask_w, options.mask_h, options.mask.clone())
+        .ok_or_else(|| "Generation mask buffer is invalid".to_string())?;
+    let image_path = work_dir.join("source.png");
+    let mask_path = work_dir.join("mask.png");
+    image::DynamicImage::ImageRgba8(rgba)
+        .save(&image_path)
+        .map_err(|error| format!("Could not write generation source: {error}"))?;
+    image::DynamicImage::ImageLuma8(mask)
+        .save(&mask_path)
+        .map_err(|error| format!("Could not write generation mask: {error}"))?;
+    Ok((image_path, mask_path))
+}
+
+fn generative_edit_blocking(
+    app: tauri::AppHandle,
+    options: GenerativeEditOptions,
+) -> Result<GenerativeEditResult, String> {
+    if !valid_generation_request_id(&options.request_id) {
+        return Err("Invalid generative edit request id".into());
+    }
+    if options.model_handle != GENERATIVE_MODEL_HANDLE {
+        return Err("Unknown or unqualified generative model handle".into());
+    }
+    if options.mode != "fill" && options.mode != "replace" && options.mode != "expand" {
+        return Err("The diffusion helper supports Fill, Replace, and Expand only".into());
+    }
+    if options.prompt.trim().is_empty() {
+        return Err("A prompt is required for prompt-capable generation".into());
+    }
+    if options.output_w == 0 || options.output_h == 0 || options.output_w > 2048 || options.output_h > 2048 {
+        return Err("Generation output dimensions must be between 1 and 2048 pixels".into());
+    }
+    let helper = resolve_generative_helper(&app)?;
+    let model_path = resolve_generative_model_for_run(&app, true)?;
+    let root = app
+        .path()
+        .app_cache_dir()
+        .map_err(|error| format!("Could not resolve generation cache: {error}"))?
+        .join("generative-edits")
+        .join(&options.request_id);
+    std::fs::create_dir_all(&root).map_err(|error| format!("Could not create generation cache: {error}"))?;
+    let (image_path, mask_path) = write_generation_inputs(&root, &options)?;
+    let output_path = root.join("output.png");
+    let request_path = root.join("request.json");
+    let helper_request = GenerativeHelperRequest {
+        model_path: model_path.to_string_lossy().into_owned(),
+        init_image_path: image_path.to_string_lossy().into_owned(),
+        mask_path: mask_path.to_string_lossy().into_owned(),
+        output_path: output_path.to_string_lossy().into_owned(),
+        prompt: options.prompt,
+        negative_prompt: options.negative_prompt,
+        width: options.output_w,
+        height: options.output_h,
+        steps: options.steps,
+        guidance_scale: options.guidance_scale,
+        seed: options.seed,
+        strength: options.strength,
+    };
+    let request_bytes = serde_json::to_vec(&helper_request).map_err(|error| error.to_string())?;
+    std::fs::write(&request_path, request_bytes)
+        .map_err(|error| format!("Could not write generation request: {error}"))?;
+
+    let started = Instant::now();
+    let child = ProcessCommand::new(helper)
+        .arg("--request")
+        .arg(&request_path)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| format!("Could not start local diffusion helper: {error}"))?;
+    let request_id = options.request_id.clone();
+    GENERATIVE_CHILDREN
+        .lock()
+        .map_err(|_| "Generation process registry is unavailable".to_string())?
+        .insert(request_id.clone(), child);
+
+    let status = loop {
+        let mut processes = GENERATIVE_CHILDREN
+            .lock()
+            .map_err(|_| "Generation process registry is unavailable".to_string())?;
+        let process = processes
+            .get_mut(&request_id)
+            .ok_or_else(|| "Generation was cancelled".to_string())?;
+        if let Some(status) = process
+            .try_wait()
+            .map_err(|error| format!("Could not poll diffusion helper: {error}"))?
+        {
+            break status;
+        }
+        drop(processes);
+        if started.elapsed() > Duration::from_secs(15 * 60) {
+            if let Ok(mut processes) = GENERATIVE_CHILDREN.lock() {
+                if let Some(mut process) = processes.remove(&request_id) {
+                    let _ = process.kill();
+                    let _ = process.wait();
+                }
+            }
+            return Err("Local diffusion generation timed out".into());
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    };
+    let mut processes = GENERATIVE_CHILDREN
+        .lock()
+        .map_err(|_| "Generation process registry is unavailable".to_string())?;
+    let process = processes
+        .remove(&request_id)
+        .ok_or_else(|| "Generation was cancelled".to_string())?;
+    drop(processes);
+    let output = process
+        .wait_with_output()
+        .map_err(|error| format!("Could not collect diffusion helper output: {error}"))?;
+    if !status.success() {
+        let reason = String::from_utf8_lossy(&output.stderr);
+        return Err(if reason.trim().is_empty() {
+            "Local diffusion generation failed".into()
+        } else {
+            reason.trim().to_string()
+        });
+    }
+    let helper_response: GenerativeHelperResponse = serde_json::from_slice(&output.stdout)
+        .map_err(|error| format!("Invalid diffusion helper response: {error}"))?;
+    let png = std::fs::read(&output_path)
+        .map_err(|error| format!("Diffusion helper did not produce an output image: {error}"))?;
+    Ok(GenerativeEditResult {
+        png_base64: base64::engine::general_purpose::STANDARD.encode(png),
+        width: helper_response.width,
+        height: helper_response.height,
+        execution_backend: helper_response.backend,
+        processing_time_ms: started.elapsed().as_millis() as u64,
+        warnings: Vec::new(),
+    })
+}
+
+#[tauri::command]
+async fn generative_edit(
+    app: tauri::AppHandle,
+    options: GenerativeEditOptions,
+) -> Result<GenerativeEditResult, String> {
+    tauri::async_runtime::spawn_blocking(move || generative_edit_blocking(app, options))
+        .await
+        .map_err(|error| format!("Generative edit task failed: {error}"))?
+}
+
+#[tauri::command]
+fn cancel_generative_edit(request_id: String) -> Result<(), String> {
+    if !valid_generation_request_id(&request_id) {
+        return Err("Invalid generative edit request id".into());
+    }
+    let mut processes = GENERATIVE_CHILDREN
+        .lock()
+        .map_err(|_| "Generation process registry is unavailable".to_string())?;
+    if let Some(process) = processes.get_mut(&request_id) {
+        process
+            .kill()
+            .map_err(|error| format!("Could not cancel diffusion helper: {error}"))?;
+    }
+    Ok(())
 }
 
 /// Whether native ONNX inference is actually usable right now — the `ai`
@@ -3199,6 +3762,11 @@ pub fn run() {
             delete_background_removal_model,
             denoise_image,
             content_aware_fill,
+            generative_edit,
+            cancel_generative_edit,
+            generative_edit_model_status,
+            import_generative_edit_model,
+            qualify_generative_edit_model,
             trace_image,
             trace_image_binary,
             media_probe_binary,

@@ -17,6 +17,7 @@ members = [
     "crates/varve-colour",
     "crates/varve-effects",
     "crates/varve-wasm",
+    "crates/varve-generative-helper",
 ]
 
 [workspace.package]

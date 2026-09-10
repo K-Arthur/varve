@@ -1,5 +1,16 @@
-export type { GenerativeJobState, GenerativeJobStatus, GenerativeJobToken } from './job';
+export type {
+  GenerativeJobSnapshot,
+  GenerativeJobState,
+  GenerativeJobStatus,
+  GenerativeJobToken,
+} from './job';
 export { createGenerativeJobState, GenerativeJobController } from './job';
+export type { NativeGenerativeModelStatus } from './nativeModel';
+export {
+  getNativeGenerativeModelStatus,
+  importNativeGenerativeModel,
+  qualifyNativeGenerativeModel,
+} from './nativeModel';
 export { getGenerativeEditCapabilities, runGenerativeEdit } from './pipeline';
 export {
   type GenerativeEditCapabilities,
