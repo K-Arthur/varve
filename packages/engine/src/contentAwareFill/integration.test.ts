@@ -50,6 +50,31 @@ describe('Content-Aware Fill Integration', () => {
     expect(result.data).not.toBe(img.data);
   });
 
+  it('composites soft coverage without forcing transparent edges opaque', () => {
+    const source = new ImageData(1, 1);
+    source.data.set([0, 0, 0, 0]);
+    const generated = new ImageData(1, 1);
+    generated.data.set([255, 255, 255, 255]);
+
+    const result = compositeFillResult(source, generated, 0, 0, new Uint8Array([128]));
+
+    expect(result.data[0]).toBe(255);
+    expect(result.data[1]).toBe(255);
+    expect(result.data[2]).toBe(255);
+    expect(result.data[3]).toBe(128);
+  });
+
+  it('preserves untouched pixels byte-for-byte, including alpha', () => {
+    const source = new ImageData(2, 1);
+    source.data.set([10, 20, 30, 77, 40, 50, 60, 88]);
+    const generated = new ImageData(1, 1);
+    generated.data.set([255, 0, 0, 255]);
+
+    const result = compositeFillResult(source, generated, 0, 0, new Uint8Array([255]));
+
+    expect(Array.from(result.data.slice(4))).toEqual([40, 50, 60, 88]);
+  });
+
   it('full pipeline: bounded context preserves pixel data', () => {
     const img = makeSyntheticImage(100, 100);
     const mask = new Uint8Array(100 * 100);

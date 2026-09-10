@@ -104,6 +104,14 @@ export function compositeFillResult(
   fillOffsetY: number,
   mask?: Uint8Array,
 ): ImageData {
+  if (
+    !Number.isSafeInteger(fillOffsetX) ||
+    !Number.isSafeInteger(fillOffsetY) ||
+    (mask !== undefined && mask.length !== fillResult.width * fillResult.height)
+  ) {
+    throw new Error('Fill result offsets or mask dimensions are invalid');
+  }
+
   const result = new ImageData(
     new Uint8ClampedArray(imageData.data),
     imageData.width,
@@ -120,26 +128,51 @@ export function compositeFillResult(
       const si = (y * fillResult.width + x) * 4;
       const di = (dstY * imageData.width + dstX) * 4;
       const maskCoverage = mask ? (mask[y * fillResult.width + x] ?? 0) / 255 : 1;
-      const sa = (fillResult.data[si + 3] ?? 0) * maskCoverage;
+      const sourceAlpha = (imageData.data[di + 3] ?? 0) / 255;
+      const fillAlpha = ((fillResult.data[si + 3] ?? 0) / 255) * maskCoverage;
+      const outputAlpha = fillAlpha + sourceAlpha * (1 - fillAlpha);
 
-      if (sa >= 255) {
-        rd[di] = fillResult.data[si]!;
-        rd[di + 1] = fillResult.data[si + 1]!;
-        rd[di + 2] = fillResult.data[si + 2]!;
-        rd[di + 3] = 255;
-      } else if (sa > 0) {
-        const f = sa / 255;
-        rd[di] = Math.round((imageData.data[di] ?? 0) * (1 - f) + (fillResult.data[si] ?? 0) * f);
-        rd[di + 1] = Math.round(
-          (imageData.data[di + 1] ?? 0) * (1 - f) + (fillResult.data[si + 1] ?? 0) * f,
-        );
-        rd[di + 2] = Math.round(
-          (imageData.data[di + 2] ?? 0) * (1 - f) + (fillResult.data[si + 2] ?? 0) * f,
-        );
-        rd[di + 3] = 255;
+      if (outputAlpha <= 0) {
+        rd[di] = 0;
+        rd[di + 1] = 0;
+        rd[di + 2] = 0;
+        rd[di + 3] = 0;
+        continue;
       }
+
+      // Model output is straight-alpha sRGB. Composite in premultiplied
+      // linear light so soft masks and transparent edges do not produce dark
+      // halos or force every partially covered pixel opaque.
+      const sourceWeight = sourceAlpha * (1 - fillAlpha);
+      const fillWeight = fillAlpha;
+      const sourceR = srgbToLinear((imageData.data[di] ?? 0) / 255);
+      const sourceG = srgbToLinear((imageData.data[di + 1] ?? 0) / 255);
+      const sourceB = srgbToLinear((imageData.data[di + 2] ?? 0) / 255);
+      const fillR = srgbToLinear((fillResult.data[si] ?? 0) / 255);
+      const fillG = srgbToLinear((fillResult.data[si + 1] ?? 0) / 255);
+      const fillB = srgbToLinear((fillResult.data[si + 2] ?? 0) / 255);
+
+      rd[di] = Math.round(
+        linearToSrgb((sourceR * sourceWeight + fillR * fillWeight) / outputAlpha) * 255,
+      );
+      rd[di + 1] = Math.round(
+        linearToSrgb((sourceG * sourceWeight + fillG * fillWeight) / outputAlpha) * 255,
+      );
+      rd[di + 2] = Math.round(
+        linearToSrgb((sourceB * sourceWeight + fillB * fillWeight) / outputAlpha) * 255,
+      );
+      rd[di + 3] = Math.round(outputAlpha * 255);
     }
   }
 
   return result;
+}
+
+function srgbToLinear(value: number): number {
+  return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+}
+
+function linearToSrgb(value: number): number {
+  const clamped = Math.max(0, Math.min(1, value));
+  return clamped <= 0.0031308 ? clamped * 12.92 : 1.055 * clamped ** (1 / 2.4) - 0.055;
 }
