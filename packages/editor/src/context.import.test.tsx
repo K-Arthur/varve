@@ -146,6 +146,16 @@ function createClipboardEventWithSvg(svg: string): ClipboardEvent {
   return { type: 'paste', clipboardData: dt } as ClipboardEvent;
 }
 
+function createClipboardEventWithHtml(html: string, plainText = ''): ClipboardEvent {
+  const dt = {
+    files: createFileList([]),
+    items: [] as unknown as DataTransferItemList,
+    getData: (type: string) =>
+      type === 'text/html' ? html : type === 'text/plain' ? plainText : '',
+  } as unknown as DataTransfer;
+  return { type: 'paste', clipboardData: dt } as ClipboardEvent;
+}
+
 describe('Editor import insertion', () => {
   it('deep-clones imported container subtrees into editor state', async () => {
     const child = makeShapeNode('s1', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 });
@@ -277,6 +287,49 @@ describe('Editor import insertion', () => {
       const group = ctx.state.document.nodes[firstId];
       expect(group?.kind).toBe('frame');
       if (group?.kind === 'frame') expect(group.children).toHaveLength(2);
+    } finally {
+      clearCapturedClipboardEvent();
+    }
+  });
+
+  it('inserts clipboard HTML as editable rich text with formatting', async () => {
+    captureClipboardEvent(
+      createClipboardEventWithHtml(
+        '<p>Hello <strong>world</strong><br><span style="color:#ff0000">red</span></p>',
+        'Hello world\nred',
+      ),
+    );
+
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function Test() {
+      ctx = useEditor();
+      return (
+        <button type="button" onClick={() => void ctx?.paste()}>
+          paste rich text
+        </button>
+      );
+    }
+
+    try {
+      render(
+        <EditorProvider>
+          <Test />
+        </EditorProvider>,
+      );
+      screen.getByText('paste rich text').click();
+      await waitFor(() => expect(ctx?.state.selection).toHaveLength(1));
+      const id = ctx?.state.selection[0];
+      if (!ctx || !id) throw new Error('Expected pasted text selection');
+      const node = ctx.state.document.nodes[id];
+      expect(node?.kind).toBe('text');
+      if (node?.kind !== 'text') return;
+      expect(node.text).toBe('Hello world\nred');
+      expect(node.richText?.paragraphs[0]?.runs).toEqual([
+        { text: 'Hello ' },
+        { text: 'world', format: { fontWeight: 700 } },
+        { text: '\n' },
+        { text: 'red', format: { color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } } },
+      ]);
     } finally {
       clearCapturedClipboardEvent();
     }
