@@ -530,3 +530,18 @@ The regression pastes an SVG containing a nested group and a second root,
 asserting source root order, shared parent placement, preserved sibling
 spacing, and the group's two editable children. Browser and desktop clipboard
 ownership evidence remains separate from this parser/insertion regression.
+
+Browser evidence for the same behavior:
+
+```text
+VARVE_E2E_PORT=1480 pnpm exec playwright test \
+  tests/e2e/canvas/clipboard.spec.ts -g "SVG paste preserves" \
+  --project=chromium --workers=1 --reporter=line
+1 passed (1.2m)
+```
+
+The inspected artifact is
+`test-results/run-65344-1480/canvas-clipboard-SVG-paste-80bb0-r-spacing-and-nested-groups-chromium/clipboard-svg-order-and-groups.png`.
+It shows the grouped root and its sibling selected together on the canvas; the
+test also asserts their serialized order, editable group children, and world
+spacing. Wayland ownership and packaged Tauri transport remain open.
