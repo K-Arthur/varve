@@ -679,3 +679,41 @@ The `arboard` PNG fallback now rejects empty images, dimensions above 32,768px,
 and images above 64 megapixels before constructing an RGBA image or encoding
 PNG. This closes the native dimension-bomb gap; packaged execution and the
 Wayland ownership lane remain external evidence.
+
+### Completion status reconciliation — 2026-09-10
+
+The local browser/application implementation is substantially repaired, but the
+clipboard/import effort is **not fully complete**. The following items remain
+open and must not be described as shipped or verified:
+
+- Paste, file import, and canvas drop still do not share one `PreparedFragment`
+  preparation and atomic insertion contract. Their route-specific preparation
+  paths remain a known implementation gap (CLIP-20).
+- Permission-denied Cut, stale/superseded Cut, save/reopen, and real picker/drop
+  cancellation still need end-to-end evidence.
+- Packaged Tauri Wayland/WebKitGTK clipboard ownership, external Firefox
+  transfers, and the explicit `tests/wdio/clipboard-wayland.e2e.ts` lane remain
+  unrun. The native wrapper unit tests do not substitute for those checks.
+- Packaged `.fig` decoding still needs a production-CSP smoke test. The
+  browser/native decoder has a no-dynamic-code regression, but the packaged
+  WebView resource and decompression path is not verified.
+- Owned Firefox captures for the synthetic Figma design (ordinary Copy, Copy as
+  SVG, and Copy as PNG) are absent. Ordinary Figma Copy therefore remains
+  unsupported/unverified; Copy as SVG remains the documented interoperability
+  route.
+- Same-name/identical files from an external application and native permission
+  outcomes need transport coverage. Root-transform/viewBox needs a packaged
+  visual capture in addition to parser tests.
+
+The exact `master` desktop-crate command attempted for the native image guard
+was:
+
+```text
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml native_clipboard --lib
+```
+
+It stopped during the existing desktop build script because the isolated
+checkout did not contain `apps/desktop/src-tauri/onnxruntime-libs/**/*`; no
+native clipboard test result was claimed from that run. The focused JS/import
+and wrapper checks recorded above remain valid, but they do not close the
+external platform lanes listed here.
