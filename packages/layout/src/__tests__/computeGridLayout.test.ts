@@ -109,6 +109,11 @@ describe('parseGridTracks', () => {
     expect(result[1]).toBe(100);
     expect(result[2]).toBe(100);
   });
+
+  it('expands repeat templates before resolving tracks', () => {
+    expect(parseGridTracks('repeat(3, 1fr)', 300, 0)).toEqual([100, 100, 100]);
+    expect(parseGridTracks('repeat(2, 40px) 1fr', 200, 0)).toEqual([40, 40, 120]);
+  });
 });
 
 // ── computeGridLayout ────────────────────────────────────────────────────────
@@ -593,6 +598,49 @@ describe('applyGridLayout', () => {
     const updated = applyGridLayout(doc, parentId);
     expect(updated.nodes.a?.transform).toEqual([1, 0, 0, 1, 0, 0]);
     expect(updated.nodes.b?.transform).toEqual([1, 0, 0, 1, 200, 0]);
+  });
+
+  it('applies calculated cell sizes to flexible children and preserves transforms', () => {
+    let doc = makeDoc();
+    doc = addNode(doc, 'a', {
+      layoutSizingWidth: 'fill',
+      layoutSizingHeight: 'fill',
+      transform: [1.2, 0.15, -0.2, 0.8, 9, 11] as const,
+    });
+    const parentId = 'parent';
+    doc = {
+      ...doc,
+      nodes: {
+        ...doc.nodes,
+        [parentId]: {
+          id: parentId,
+          name: 'Grid',
+          kind: 'frame',
+          transform: [1, 0, 0, 1, 0, 0] as const,
+          w: 400,
+          h: 200,
+          children: ['a'],
+          layoutStyle: makeLayoutStyle({ gridTemplateColumns: '1fr', gridTemplateRows: '1fr' }),
+          fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 1 },
+          index: 0,
+          order: 'a0',
+          visible: true,
+          locked: false,
+          opacity: 1,
+          blendMode: 'normal',
+          rotation: 0,
+          strokes: [],
+          effects: [],
+        },
+      },
+    };
+    const updated = applyGridLayout(doc, parentId);
+    const result = updated.nodes.a;
+    expect(result?.transform).toEqual([1.2, 0.15, -0.2, 0.8, 0, 0]);
+    if (result?.kind === 'shape' && result.shape.kind === 'rect') {
+      expect(result.shape.w).toBe(400);
+      expect(result.shape.h).toBe(200);
+    }
   });
 
   it('returns doc unchanged when parent is not a frame', () => {

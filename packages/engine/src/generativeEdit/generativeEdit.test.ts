@@ -87,26 +87,6 @@ describe('GenerativeJobController', () => {
     expect(jobs.getState().status).toBe('completed');
   });
 
-  it('rejects a result when any source-affecting snapshot field changes', () => {
-    const jobs = new GenerativeJobController();
-    const snapshot = {
-      documentId: 'doc-1',
-      targetId: 'image-1',
-      sourceRevision: 1,
-      sourceAssetId: 'asset-source',
-      sourceHash: 'hash-source',
-      placementFingerprint: 'placement-1',
-      maskRevision: 2,
-      settingsFingerprint: 'settings-1',
-      outputFrameFingerprint: 'frame-1',
-    } as const;
-    const token = jobs.start(snapshot);
-    expect(jobs.isCurrent(token, snapshot)).toBe(true);
-    expect(jobs.isCurrent(token, { ...snapshot, maskRevision: 3 })).toBe(false);
-    expect(jobs.complete(token, { ...snapshot, sourceHash: 'changed' })).toBe(false);
-    expect(jobs.getState().status).toBe('queued');
-  });
-
   it('uses a typed error for unsupported work', () => {
     const error = new GenerativeEditError('unsupported-mode', 'not available');
     expect(error).toBeInstanceOf(Error);

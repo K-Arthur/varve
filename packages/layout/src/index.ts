@@ -29,8 +29,14 @@ export { applyGridLayout, computeGridLayout, parseGridTracks } from './computeGr
 export type { CycleCheckResult, LayoutCycleVerdict } from './cycleDetection';
 export { checkLayoutCycle } from './cycleDetection';
 export { resolveIntrinsicSizes } from './intrinsicSize';
-export type { Size } from './measure';
-export { axisSizing, clampAxis, isFlowParticipant, measureNodeSize } from './measure';
+export type { NodeFootprint, Size } from './measure';
+export {
+  axisSizing,
+  clampAxis,
+  isFlowParticipant,
+  measureNodeFootprint,
+  measureNodeSize,
+} from './measure';
 export { reflowLayoutChildren } from './reflow';
 export { resizeNodeGeometry } from './resizeGeometry';
 export const PACKAGE = '@varve/layout' as const;

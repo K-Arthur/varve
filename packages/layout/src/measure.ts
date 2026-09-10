@@ -14,12 +14,25 @@ export interface Size {
   h: number;
 }
 
+export interface NodeFootprint {
+  geometry: Size;
+  occupied: Size;
+}
+
 /** A node's own natural (unresolved) size — does not recurse into a frame's children. */
 export function measureNodeSize(n: SceneNode, includeBorders = false): Size {
-  const base = measureNodeSizeRaw(n);
-  if (!includeBorders) return base;
+  const footprint = measureNodeFootprint(n);
+  return includeBorders ? footprint.occupied : footprint.geometry;
+}
+
+/** Measure geometry and the optional visible-stroke footprint together. */
+export function measureNodeFootprint(n: SceneNode): NodeFootprint {
+  const geometry = measureNodeSizeRaw(n);
   const [top, right, bottom, left] = strokeOutsets(n);
-  return { w: base.w + left + right, h: base.h + top + bottom };
+  return {
+    geometry,
+    occupied: { w: geometry.w + left + right, h: geometry.h + top + bottom },
+  };
 }
 
 function measureNodeSizeRaw(n: SceneNode): Size {

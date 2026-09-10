@@ -128,6 +128,8 @@ const NODE_BASE_KEY_ORDER: readonly string[] = [
   'layoutSizing',
   'layoutSizingWidth',
   'layoutSizingHeight',
+  'layoutRelativeWidth',
+  'layoutRelativeHeight',
   'layoutPosition',
   'layoutAlign',
   'gridPlacement',

@@ -522,7 +522,9 @@ describe('computeFlexLayout', () => {
       ];
     }
     const results = computeFlexLayout(frame, [bordered, makeChild('c2', 0, 0, 20, 40)]);
-    expect(results[0]).toMatchObject({ w: 108 });
+    // Geometry remains 100px; the 4px outside stroke contributes to the
+    // occupied footprint used for spacing.
+    expect(results[0]).toMatchObject({ w: 100, occupiedW: 108 });
     expect(results[1]).toMatchObject({ x: 118 });
   });
 });

@@ -8,7 +8,7 @@
  * Research basis: CSS Grid Layout Module Level 1, Figma auto-layout grid.
  */
 import type { Document, LayoutStyle, NodeId, SceneNode } from '@varve/scene';
-import { axisSizing, isFlowParticipant, measureNodeSize } from './measure';
+import { axisSizing, isFlowParticipant, measureNodeFootprint, measureNodeSize } from './measure';
 import { resizeNodeGeometry } from './resizeGeometry';
 
 export interface GridItem {
@@ -17,6 +17,8 @@ export interface GridItem {
   y: number;
   w: number;
   h: number;
+  occupiedW?: number;
+  occupiedH?: number;
 }
 
 type TrackSize = { kind: 'px'; value: number } | { kind: 'fr'; value: number } | { kind: 'auto' };
@@ -322,6 +324,7 @@ export function computeGridLayout(
   for (const a of assignments) {
     const childId = childNodes[a.childIndex]?.id;
     if (!childId) continue;
+    const footprint = measureNodeFootprint(childNodes[a.childIndex]!);
     const cw =
       resolvedColSizes.slice(a.col, a.col + a.colSpan).reduce((s, v) => s + v + columnGap, 0) -
       columnGap;
@@ -331,8 +334,21 @@ export function computeGridLayout(
       id: childId,
       x: colPositions[a.col] ?? 0,
       y: rowPositions[a.row] ?? 0,
-      w: Math.max(0, cw),
-      h: Math.max(0, rh),
+      w: Math.max(
+        0,
+        cw -
+          (layoutStyle.includeBordersInLayout === true
+            ? footprint.occupied.w - footprint.geometry.w
+            : 0),
+      ),
+      h: Math.max(
+        0,
+        rh -
+          (layoutStyle.includeBordersInLayout === true
+            ? footprint.occupied.h - footprint.geometry.h
+            : 0),
+      ),
+      ...(layoutStyle.includeBordersInLayout === true ? { occupiedW: cw, occupiedH: rh } : {}),
     });
   }
 

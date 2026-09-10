@@ -500,19 +500,15 @@ export type {
   GenerativeEditRequest,
   GenerativeEditResult,
   GenerativeEditRuntime,
-  GenerativeJobSnapshot,
   GenerativeJobState,
   GenerativeJobStatus,
   GenerativeJobToken,
-  NativeGenerativeModelStatus,
 } from './generativeEdit';
 export {
   createGenerativeJobState,
   GenerativeEditError,
   GenerativeJobController,
   getGenerativeEditCapabilities,
-  getNativeGenerativeModelStatus,
-  importNativeGenerativeModel,
   runGenerativeEdit,
 } from './generativeEdit';
 export * from './geometry';

@@ -9,7 +9,13 @@
  * Research basis: CSS Flexible Box Layout Module Level 1, Figma auto layout.
  */
 import type { FrameNode, LayoutSizing, SceneNode } from '@varve/scene';
-import { axisSizing, clampAxis, isFlowParticipant, measureNodeSize, type Size } from './measure';
+import {
+  axisSizing,
+  clampAxis,
+  isFlowParticipant,
+  measureNodeFootprint,
+  type Size,
+} from './measure';
 
 export interface LayoutResult {
   id: string;
@@ -17,6 +23,9 @@ export interface LayoutResult {
   y: number;
   w: number;
   h: number;
+  /** Occupied footprint used for spacing; geometry dimensions remain w/h. */
+  occupiedW?: number;
+  occupiedH?: number;
 }
 
 function isRow(dir: string): boolean {
@@ -193,8 +202,9 @@ export function computeFlexLayout(frame: FrameNode, allChildren: SceneNode[]): L
   const crossAvail = row ? availH : availW;
 
   // ── Measure intrinsic sizes and resolve primary-axis constraints ──
-  const naturalSizes = children.map((child) =>
-    measureNodeSize(child, style.includeBordersInLayout === true),
+  const footprints = children.map(measureNodeFootprint);
+  const naturalSizes = footprints.map((footprint) =>
+    style.includeBordersInLayout === true ? footprint.occupied : footprint.geometry,
   );
   const sizes = resolvePrimarySizes(children, naturalSizes, primaryAxis, avail, gap, row);
   const contentTotal = sizes.reduce((s, sz) => s + (row ? sz.w : sz.h), 0);
@@ -309,7 +319,23 @@ export function computeFlexLayout(frame: FrameNode, allChildren: SceneNode[]): L
         else if (effectiveAlign === 'end') cx = crossCursor + crossAvail - cw;
       }
 
-      const result = { id: child.id, x: cx, y: cy, w: cw, h: ch };
+      const footprint = footprints[i]!;
+      const geometryW =
+        style.includeBordersInLayout === true
+          ? Math.max(0, cw - (footprint.occupied.w - footprint.geometry.w))
+          : cw;
+      const geometryH =
+        style.includeBordersInLayout === true
+          ? Math.max(0, ch - (footprint.occupied.h - footprint.geometry.h))
+          : ch;
+      const result = {
+        id: child.id,
+        x: cx,
+        y: cy,
+        w: geometryW,
+        h: geometryH,
+        ...(style.includeBordersInLayout === true ? { occupiedW: cw, occupiedH: ch } : {}),
+      };
       results.push(result);
       resultById.set(child.id, result);
       primaryCursor += (row ? cw : ch) + gap;
@@ -327,7 +353,10 @@ export function computeFlexLayout(frame: FrameNode, allChildren: SceneNode[]): L
         .filter((r): r is LayoutResult => Boolean(r));
       if (lineResults.length === 0) continue;
 
-      const totalSize = lineResults.reduce((s, r) => s + (row ? r.w : r.h), 0);
+      const totalSize = lineResults.reduce(
+        (s, r) => s + (row ? (r.occupiedW ?? r.w) : (r.occupiedH ?? r.h)),
+        0,
+      );
       const lineGaps = (lineResults.length - 1) * gap;
       const free = (row ? availW : availH) - totalSize - lineGaps;
 

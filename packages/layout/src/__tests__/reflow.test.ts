@@ -86,6 +86,19 @@ describe('reflowLayoutChildren', () => {
     }
   });
 
+  it('preserves a child transform linear component while reflowing translation', () => {
+    const frame = makeFrame({ w: 400, h: 300 });
+    const child = makeChild('a', 0, 0, 100, 50);
+    child.layoutSizing = 'fill';
+    child.transform = [1.5, 0.25, -0.1, 0.75, 12, 18] as Affine;
+    frame.children = ['a'];
+    const doc = makeDoc(frame, [child]);
+
+    const reflowed = reflowLayoutChildren(doc, 'f1');
+    expect(childTransform(reflowed, 'a').slice(0, 4)).toEqual([1.5, 0.25, -0.1, 0.75]);
+    expect(childTransform(reflowed, 'a').slice(4)).toEqual([0, 0]);
+  });
+
   it('keeps fixed (hug) children at their natural size', () => {
     const frame = makeFrame({ w: 400, h: 300 });
     const a = makeChild('a', 0, 0, 100, 50);
