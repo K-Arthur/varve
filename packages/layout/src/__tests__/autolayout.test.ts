@@ -332,6 +332,131 @@ describe('computeFlexLayout', () => {
     expect(results[0]?.w).toBe(60);
   });
 
+  it('redistributes space released by a capped fill child', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 20,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    frame.w = 300;
+    const first = makeChild('first', 0, 0, 20, 40);
+    first.layoutSizing = 'fill';
+    first.maxWidth = 80;
+    const second = makeChild('second', 0, 0, 20, 40);
+    second.layoutSizing = 'fill';
+    const results = computeFlexLayout(frame, [first, second]);
+    expect(results.map((result) => result.w)).toEqual([80, 200]);
+  });
+
+  it('preserves flexible minima when the container cannot fit them', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 10,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    frame.w = 100;
+    const first = makeChild('first', 0, 0, 20, 40);
+    first.layoutSizing = 'fill';
+    first.minWidth = 60;
+    const second = makeChild('second', 0, 0, 20, 40);
+    second.layoutSizing = 'fill';
+    second.minWidth = 60;
+    const results = computeFlexLayout(frame, [first, second]);
+    expect(results.map((result) => result.w)).toEqual([60, 60]);
+  });
+
+  it('aligns a capped cross-axis fill item using its final size', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+      alignItems: 'center',
+    });
+    frame.h = 100;
+    const child = makeChild('child', 0, 0, 20, 80);
+    child.layoutSizingWidth = 'fill';
+    child.layoutSizingHeight = 'hug';
+    child.maxHeight = 40;
+    const [result] = computeFlexLayout(frame, [child]);
+    expect(result).toMatchObject({ y: 30, h: 40 });
+  });
+
+  it('keeps the occupied extent of strongly overlapping items finite', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: -60,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    const children = [
+      makeChild('a', 0, 0, 40, 20),
+      makeChild('b', 0, 0, 40, 20),
+      makeChild('c', 0, 0, 40, 20),
+    ];
+    const results = computeFlexLayout(frame, children);
+    expect(results.map((result) => result.x)).toEqual([0, -20, -40]);
+    expect(
+      Math.max(...results.map((result) => result.x + result.w)) -
+        Math.min(...results.map((result) => result.x)),
+    ).toBe(80);
+  });
+
+  it('keeps fixed geometry and inactive bounds while placing siblings', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 10,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    frame.w = 220;
+    const fixed = makeChild('fixed', 0, 0, 100, 40);
+    fixed.layoutSizing = 'fixed';
+    fixed.maxWidth = 40;
+    const sibling = makeChild('sibling', 0, 0, 40, 40);
+    const results = computeFlexLayout(frame, [fixed, sibling]);
+    expect(results[0]).toMatchObject({ x: 0, w: 100 });
+    expect(results[1]).toMatchObject({ x: 110, w: 40 });
+  });
+
+  it('keeps relative percentages literal and gives capped space to fill', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 10,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    frame.w = 300;
+    const relative = makeChild('relative', 0, 0, 20, 40);
+    relative.layoutSizing = 'relative';
+    relative.layoutRelativeWidth = 25;
+    relative.maxWidth = 40;
+    const fill = makeChild('fill', 0, 0, 20, 40);
+    fill.layoutSizing = 'fill';
+    const results = computeFlexLayout(frame, [relative, fill]);
+    expect(results.map((result) => result.w)).toEqual([40, 250]);
+  });
+
   it('a child cross-axis sizing set to hug is never stretched by parent alignItems', () => {
     const frame = makeFrame({
       mode: 'flex',

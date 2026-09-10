@@ -318,6 +318,10 @@ export function TypographySection({ nodes }: TypographySectionProps) {
   const alignVRaw = commonValue(textNodes, (n) =>
     getTextValue(n, (t) => t.textAlignVertical ?? 'top'),
   );
+  const typographyDraftKey = textNodes
+    .map((node) => node.id)
+    .sort()
+    .join(',');
   const caseRaw = commonValue(textNodes, (n) => getTextValue(n, (t) => t.textCase ?? 'none'));
   const decorationRaw = commonValue(textNodes, (n) =>
     getTextValue(n, (t) => t.textDecoration ?? 'none'),
@@ -439,6 +443,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
           step={1}
           min={0}
           fieldName="fontSize"
+          draftKey={`${typographyDraftKey}:font-size`}
           onShiftClick={() => setBindingField('fontSize')}
           onChange={(v) => batchUpdate((n) => ({ ...n, fontSize: v }))}
         />
@@ -456,13 +461,14 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             <NumberField
               label="Line height"
               unit="%"
-              value={isMixed(lineHeightRaw) ? 1.2 : lineHeightRaw}
+              value={isMixed(lineHeightRaw) ? 120 : lineHeightRaw * 100}
               mixed={isMixed(lineHeightRaw)}
-              step={0.1}
+              step={1}
               min={0}
               fieldName="lineHeight"
+              draftKey={`${typographyDraftKey}:line-height`}
               onShiftClick={() => setBindingField('lineHeight')}
-              onChange={(v) => batchUpdate((n) => ({ ...n, lineHeight: v }))}
+              onChange={(v) => batchUpdate((n) => ({ ...n, lineHeight: v / 100 }))}
             />
           </div>
           <div className="insp-icon-field">
@@ -480,6 +486,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
               mixed={isMixed(letterSpacingRaw)}
               step={0.1}
               fieldName="letterSpacing"
+              draftKey={`${typographyDraftKey}:letter-spacing`}
               onShiftClick={() => setBindingField('letterSpacing')}
               onChange={(v) => batchUpdate((n) => ({ ...n, letterSpacing: v }))}
             />
@@ -492,6 +499,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
           mixed={isMixed(trackingRaw)}
           step={10}
           fieldName="tracking"
+          draftKey={`${typographyDraftKey}:tracking`}
           onShiftClick={() => setBindingField('tracking')}
           onChange={(v) => batchUpdate((n) => ({ ...n, tracking: v }))}
         />
@@ -503,6 +511,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
           step={1}
           min={0}
           fieldName="paragraphSpacing"
+          draftKey={`${typographyDraftKey}:paragraph-spacing`}
           onShiftClick={() => setBindingField('paragraphSpacing')}
           onChange={(v) => batchUpdate((n) => ({ ...n, paragraphSpacing: v }))}
         />

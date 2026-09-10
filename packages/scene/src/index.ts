@@ -113,6 +113,7 @@ export * from './pageOwnership';
 export * from './pageRange';
 export * from './pageScene';
 export * from './paint';
+export * from './paintOrder';
 export * from './paintCoverage';
 export * from './pasteboardLayout';
 export * from './preflight';

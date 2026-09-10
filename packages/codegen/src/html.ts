@@ -116,7 +116,8 @@ function layoutToCss(layout: LayoutSpec, unit: string, base: number): Record<str
     }
     const gapH = layout.gap.left || layout.gap.right;
     const gapV = layout.gap.top || layout.gap.bottom;
-    if (gapH || gapV) props.gap = sizeValue(Math.max(gapH, gapV), unit, base);
+    const resolvedGap = Math.max(0, gapH, gapV);
+    if (resolvedGap > 0) props.gap = sizeValue(resolvedGap, unit, base);
     if (layout.wrap) props['flex-wrap'] = 'wrap';
 
     const ai = layout.alignItems;
@@ -160,7 +161,7 @@ function layoutToCss(layout: LayoutSpec, unit: string, base: number): Record<str
     props.width = sizeValue(layout.width.value, unit, base);
   } else if (layout.width.mode === 'fill') {
     props.width = '100%';
-  } else if (layout.width.mode === 'percent') {
+  } else if (layout.width.mode === 'percent' || layout.width.mode === 'relative') {
     props.width = `${layout.width.value}%`;
   } else if (layout.width.mode === 'hug') {
     props.width = 'fit-content';
@@ -170,7 +171,7 @@ function layoutToCss(layout: LayoutSpec, unit: string, base: number): Record<str
     props.height = sizeValue(layout.height.value, unit, base);
   } else if (layout.height.mode === 'fill') {
     props.height = '100%';
-  } else if (layout.height.mode === 'percent') {
+  } else if (layout.height.mode === 'percent' || layout.height.mode === 'relative') {
     props.height = `${layout.height.value}%`;
   } else if (layout.height.mode === 'hug') {
     props.height = 'fit-content';

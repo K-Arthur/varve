@@ -223,6 +223,14 @@ export function fillSlot(
   return newDoc;
 }
 
+/** Clear a component slot and remove its current fill subtree. */
+export function clearSlot(doc: Document, instanceId: NodeId, slotId: string): Document {
+  const instance = doc.nodes[instanceId];
+  if (instance?.kind !== 'frame' || !instance.componentId) return doc;
+  const fillId = instance.slots?.[slotId];
+  return fillId ? removeChildFill(doc, instanceId, fillId) : doc;
+}
+
 /** Remove a fill node from an instance's children and nodes map. */
 function removeChildFill(doc: Document, instanceId: NodeId, fillId: NodeId): Document {
   const instance = doc.nodes[instanceId] as FrameNode | undefined;

@@ -94,6 +94,30 @@ export function exportNodeToCss(
   lines.push(`  top: ${formatSize(pos.y, unit, base)};`);
   lines.push(`  width: ${formatSize(pos.w, unit, base)};`);
   lines.push(`  height: ${formatSize(pos.h, unit, base)};`);
+  const widthSizing = node.layoutSizingWidth ?? node.layoutSizing;
+  const heightSizing = node.layoutSizingHeight ?? node.layoutSizing;
+  if (widthSizing === 'relative') {
+    lines.push(`  width: ${node.layoutRelativeWidth ?? 100}%;`);
+  } else if (widthSizing === 'fill') {
+    lines.push('  width: 100%;');
+  } else if (widthSizing === 'hug') {
+    lines.push('  width: max-content;');
+  }
+  if (heightSizing === 'relative') {
+    lines.push(`  height: ${node.layoutRelativeHeight ?? 100}%;`);
+  } else if (heightSizing === 'fill') {
+    lines.push('  height: 100%;');
+  } else if (heightSizing === 'hug') {
+    lines.push('  height: max-content;');
+  }
+  if (typeof node.minWidth === 'number')
+    lines.push(`  min-width: ${formatSize(node.minWidth, unit, base)};`);
+  if (typeof node.maxWidth === 'number')
+    lines.push(`  max-width: ${formatSize(node.maxWidth, unit, base)};`);
+  if (typeof node.minHeight === 'number')
+    lines.push(`  min-height: ${formatSize(node.minHeight, unit, base)};`);
+  if (typeof node.maxHeight === 'number')
+    lines.push(`  max-height: ${formatSize(node.maxHeight, unit, base)};`);
   const tokenName = opts?.variableStore
     ? resolveTokenName(node.bindings, 'fill', opts.variableStore)
     : undefined;
@@ -139,8 +163,16 @@ export function exportNodeToCss(
   if (node.kind === 'frame' && node.layoutStyle) {
     const l = node.layoutStyle;
     lines.push(`  display: flex;`);
-    lines.push(`  flex-direction: ${l.direction};`);
-    if (l.gap) lines.push(`  gap: ${formatSize(l.gap, unit, base)};`);
+    const direction =
+      l.direction === 'rowReverse'
+        ? 'row-reverse'
+        : l.direction === 'columnReverse'
+          ? 'column-reverse'
+          : l.direction;
+    lines.push(`  flex-direction: ${direction};`);
+    // CSS has no negative gap. Keep the authored overlap in the document and
+    // emit the closest safe snapshot while targetGaps reports the loss.
+    if (l.gap !== 0) lines.push(`  gap: ${formatSize(Math.max(0, l.gap), unit, base)};`);
     if (l.padding) {
       const pad = l.padding;
       if (pad[0] || pad[1] || pad[2] || pad[3]) {
@@ -201,6 +233,17 @@ export function exportNodeToCss(
  */
 export function cssTargetGaps(node: SceneNode, _doc: SceneDocument): TargetGap[] {
   const gaps: TargetGap[] = [...adjustmentStackTargetGaps(node)];
+
+  if (node.kind === 'frame' && node.layoutStyle && node.layoutStyle.gap < 0) {
+    gaps.push({
+      nodeId: node.id,
+      nodeName: node.name,
+      feature: 'negative stack spacing',
+      severity: 'warning',
+      fallback:
+        'CSS gap is emitted as zero; use a resolved snapshot or explicit offsets for overlap',
+    });
+  }
 
   if (isImageShape(node)) {
     gaps.push({

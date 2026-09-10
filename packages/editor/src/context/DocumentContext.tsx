@@ -155,6 +155,7 @@ export interface DocumentContextValue {
   createComponentFromFrame: (name: string, masterRootId: NodeId, slots: Slot[]) => void;
   createComponentInstance: (componentId: NodeId) => void;
   fillSlot: (instanceId: NodeId, slotId: string, fillNodeId: NodeId) => void;
+  clearSlot: (instanceId: NodeId, slotId: string) => void;
   swapComponentInstance: (instanceId: NodeId, newComponentId: NodeId) => void;
   resetInstanceOverrides: (instanceId: NodeId) => void;
   syncComponentInstances: (componentId: NodeId) => SyncResult;

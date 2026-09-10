@@ -619,7 +619,6 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
       add('table', <TableSection node={node as import('@varve/scene').TableNode} />);
       add('table-cells', <TableCellsSection tableId={node.id} />);
       add('table-columns', <TableTracksSection tableId={node.id} />);
-      add('table-rows', <TableTracksSection tableId={node.id} />);
       add('appearance', <AppearanceSection nodes={nodes} />);
       add('adjustment-layer-access', <AdjustmentLayerAccessSection nodes={nodes} />);
       return entries.sort((a, b) => a.order - b.order);
@@ -635,7 +634,6 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
     if (!isFrame) add('layout-child', <LayoutChildSection nodes={nodes} />);
     if (isRect || isFrame) add('corner-radius', <CornerRadiusSection nodes={nodes} />);
     if (isFrame) add('layout', <LayoutSection node={node as import('@varve/scene').FrameNode} />);
-    if (!isFrame) add('layout', <LayoutChildSection nodes={nodes} />);
     add('appearance', <AppearanceSection nodes={nodes} />);
     add('adjustment-layer-access', <AdjustmentLayerAccessSection nodes={nodes} />);
     add('selection-colors', <SelectionColorsSection nodes={nodes} />);

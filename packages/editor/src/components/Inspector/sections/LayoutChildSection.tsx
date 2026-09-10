@@ -5,12 +5,14 @@ import { useMemo } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
+import { NumberField } from '../controls/NumberField';
 import { commonValue, isMixed } from '../selection/selectionState';
 
 const SIZING_OPTIONS: { value: LayoutSizing; label: string }[] = [
   { value: 'fixed', label: 'Fixed' },
   { value: 'hug', label: 'Hug contents' },
   { value: 'fill', label: 'Fill container' },
+  { value: 'relative', label: 'Relative %' },
 ];
 
 const POSITION_OPTIONS: { value: LayoutPosition; label: string }[] = [
@@ -33,6 +35,12 @@ export function LayoutChildSection({ nodes }: { nodes: SceneNode[] }) {
     setSelectedLayoutPosition,
     setSelectedLayoutSizingHeight,
     setSelectedLayoutSizingWidth,
+    setSelectedLayoutRelativeWidth,
+    setSelectedLayoutRelativeHeight,
+    setSelectedMinWidth,
+    setSelectedMaxWidth,
+    setSelectedMinHeight,
+    setSelectedMaxHeight,
     state,
   } = useEditor();
   const parent = useMemo(() => {
@@ -53,6 +61,16 @@ export function LayoutChildSection({ nodes }: { nodes: SceneNode[] }) {
   );
   const position = commonValue(nodes, (node) => node.layoutPosition ?? 'flow');
   const align = commonValue(nodes, (node) => node.layoutAlign ?? 'inherit');
+  const minWidth = commonValue(nodes, (node) => node.minWidth);
+  const maxWidth = commonValue(nodes, (node) => node.maxWidth);
+  const minHeight = commonValue(nodes, (node) => node.minHeight);
+  const maxHeight = commonValue(nodes, (node) => node.maxHeight);
+  const relativeWidth = commonValue(nodes, (node) => node.layoutRelativeWidth);
+  const relativeHeight = commonValue(nodes, (node) => node.layoutRelativeHeight);
+  const draftKey = nodes
+    .map((node) => node.id)
+    .sort()
+    .join(',');
 
   return (
     <DisclosureSection title="Layout child" sectionId="layout-child">
@@ -92,6 +110,76 @@ export function LayoutChildSection({ nodes }: { nodes: SceneNode[] }) {
           onChange={(value) => setSelectedLayoutAlign(value as LayoutAlign)}
         />
       </FieldRow>
+      {!isMixed(width) && width === 'relative' && (
+        <NumberField
+          label="Width share"
+          unit="%"
+          value={isMixed(relativeWidth) ? 0 : (relativeWidth ?? 100)}
+          mixed={isMixed(relativeWidth)}
+          min={0}
+          step={0.1}
+          draftKey={`${draftKey}:relative-width`}
+          onChange={setSelectedLayoutRelativeWidth}
+        />
+      )}
+      {!isMixed(height) && height === 'relative' && (
+        <NumberField
+          label="Height share"
+          unit="%"
+          value={isMixed(relativeHeight) ? 0 : (relativeHeight ?? 100)}
+          mixed={isMixed(relativeHeight)}
+          min={0}
+          step={0.1}
+          draftKey={`${draftKey}:relative-height`}
+          onChange={setSelectedLayoutRelativeHeight}
+        />
+      )}
+      <NumberField
+        label="Min W"
+        unit="px"
+        value={isMixed(minWidth) ? 0 : (minWidth ?? 0)}
+        mixed={isMixed(minWidth)}
+        min={0}
+        disabled={!isMixed(width) && width === 'fixed'}
+        draftKey={`${draftKey}:min-width`}
+        onChange={setSelectedMinWidth}
+      />
+      <NumberField
+        label="Max W"
+        unit="px"
+        value={isMixed(maxWidth) ? 0 : (maxWidth ?? 0)}
+        mixed={isMixed(maxWidth)}
+        min={0}
+        disabled={!isMixed(width) && width === 'fixed'}
+        draftKey={`${draftKey}:max-width`}
+        onChange={setSelectedMaxWidth}
+      />
+      <NumberField
+        label="Min H"
+        unit="px"
+        value={isMixed(minHeight) ? 0 : (minHeight ?? 0)}
+        mixed={isMixed(minHeight)}
+        min={0}
+        disabled={!isMixed(height) && height === 'fixed'}
+        draftKey={`${draftKey}:min-height`}
+        onChange={setSelectedMinHeight}
+      />
+      <NumberField
+        label="Max H"
+        unit="px"
+        value={isMixed(maxHeight) ? 0 : (maxHeight ?? 0)}
+        mixed={isMixed(maxHeight)}
+        min={0}
+        disabled={!isMixed(height) && height === 'fixed'}
+        draftKey={`${draftKey}:max-height`}
+        onChange={setSelectedMaxHeight}
+      />
+      {((!isMixed(width) && width === 'fixed') || (!isMixed(height) && height === 'fixed')) && (
+        <p className="insp-panel__color-mode-note" role="note">
+          Fixed axes keep bounds for later mode changes; bounds are inactive until the axis becomes
+          flexible.
+        </p>
+      )}
     </DisclosureSection>
   );
 }

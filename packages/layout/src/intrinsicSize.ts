@@ -19,7 +19,7 @@ import { computeGridLayout } from './computeGridLayout';
 import { axisSizing, clampAxis, isFlowParticipant, measureNodeSize, type Size } from './measure';
 
 function axisContribution(child: SceneNode, axis: 'width' | 'height', natural: number): number {
-  if (axisSizing(child, axis) !== 'fill') return natural;
+  if (axisSizing(child, axis) !== 'fill' && axisSizing(child, axis) !== 'relative') return natural;
   return (axis === 'width' ? child.minWidth : child.minHeight) ?? 0;
 }
 
@@ -34,20 +34,26 @@ function computeFrameContentSize(nodes: Record<NodeId, SceneNode>, frame: FrameN
     .map((cid) => nodes[cid])
     .filter((n): n is SceneNode => n !== undefined && isFlowParticipant(n));
 
-  let mainSum = 0;
+  let mainCursor = 0;
+  let mainMin = 0;
+  let mainMax = 0;
   let crossMax = 0;
-  for (const child of flowChildren) {
+  for (const [index, child] of flowChildren.entries()) {
     const sz = measureNodeSize(child);
     const mainNatural = row ? sz.w : sz.h;
     const crossNatural = row ? sz.h : sz.w;
-    mainSum += axisContribution(child, row ? 'width' : 'height', mainNatural);
+    const mainSize = axisContribution(child, row ? 'width' : 'height', mainNatural);
+    mainMin = Math.min(mainMin, mainCursor);
+    mainMax = Math.max(mainMax, mainCursor + mainSize);
+    mainCursor += mainSize;
+    if (index < flowChildren.length - 1) mainCursor += gap;
     crossMax = Math.max(crossMax, axisContribution(child, row ? 'height' : 'width', crossNatural));
   }
-  mainSum += Math.max(0, flowChildren.length - 1) * gap;
+  const mainExtent = Math.max(0, mainMax - mainMin);
 
   return row
-    ? { w: mainSum + pl + pr, h: crossMax + pt + pb }
-    : { w: crossMax + pl + pr, h: mainSum + pt + pb };
+    ? { w: mainExtent + pl + pr, h: crossMax + pt + pb }
+    : { w: crossMax + pl + pr, h: mainExtent + pt + pb };
 }
 
 /**

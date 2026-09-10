@@ -349,14 +349,18 @@ function buildAutoLayoutSpec(node: FrameNode): LayoutSpec {
 
   if (node.layoutStyle) {
     layout.mode = 'flex';
-    layout.direction = node.layoutStyle.direction === 'row' ? 'row' : 'column';
+    layout.direction =
+      node.layoutStyle.direction === 'row'
+        ? 'row'
+        : node.layoutStyle.direction === 'rowReverse'
+          ? 'row-reverse'
+          : node.layoutStyle.direction === 'columnReverse'
+            ? 'column-reverse'
+            : 'column';
     layout.wrap = node.layoutStyle.wrap;
-    layout.gap = {
-      top: node.layoutStyle.gap,
-      right: node.layoutStyle.gap,
-      bottom: node.layoutStyle.gap,
-      left: node.layoutStyle.gap,
-    };
+    const rowGap = node.layoutStyle.rowGap ?? node.layoutStyle.gap;
+    const columnGap = node.layoutStyle.columnGap ?? node.layoutStyle.gap;
+    layout.gap = { top: rowGap, right: columnGap, bottom: rowGap, left: columnGap };
     layout.padding = {
       top: node.layoutStyle.padding[0],
       right: node.layoutStyle.padding[1],
@@ -376,14 +380,39 @@ function buildAutoLayoutSpec(node: FrameNode): LayoutSpec {
     layout.height = { mode: 'hug', value: 0 };
   }
 
-  if (node.w && node.w > 0) {
-    layout.width = { mode: 'fixed', value: node.w };
-  }
-  if (node.h && node.h > 0) {
-    layout.height = { mode: 'fixed', value: node.h };
-  }
+  layout.width = authoredSizing(node, 'width', node.w ?? 0);
+  layout.height = authoredSizing(node, 'height', node.h ?? 0);
 
   return layout;
+}
+
+function authoredSizing(
+  node: SceneNode,
+  axis: 'width' | 'height',
+  resolved: number,
+): LayoutSpec['width'] {
+  const mode =
+    axis === 'width'
+      ? (node.layoutSizingWidth ?? node.layoutSizing ?? 'fixed')
+      : (node.layoutSizingHeight ?? node.layoutSizing ?? 'fixed');
+  const min = axis === 'width' ? node.minWidth : node.minHeight;
+  const max = axis === 'width' ? node.maxWidth : node.maxHeight;
+  const bounds = {
+    ...(typeof min === 'number' ? { min } : {}),
+    ...(typeof max === 'number' ? { max } : {}),
+  };
+  if (mode === 'relative') {
+    return {
+      mode: 'relative',
+      value:
+        axis === 'width' ? (node.layoutRelativeWidth ?? 100) : (node.layoutRelativeHeight ?? 100),
+      percentageReference: 'parent-content',
+      ...bounds,
+    };
+  }
+  if (mode === 'hug') return { mode: 'hug', value: resolved, ...bounds };
+  if (mode === 'fill') return { mode: 'fill', value: resolved, ...bounds };
+  return { mode: 'fixed', value: resolved, ...bounds };
 }
 
 // ── Node Position Computation ──────────────────────────────────────────────────
@@ -644,8 +673,8 @@ function convertToSemanticNode(
   const layout: LayoutSpec = {
     ...baseLayout,
     mode: layoutMode,
-    width: pos.w > 0 ? { mode: 'fixed', value: pos.w } : { mode: 'hug', value: 0 },
-    height: pos.h > 0 ? { mode: 'fixed', value: pos.h } : { mode: 'hug', value: 0 },
+    width: authoredSizing(node, 'width', pos.w),
+    height: authoredSizing(node, 'height', pos.h),
     position: buildPositionLayout(pos, layoutMode),
     flex: buildFlexChildSpec(node),
   };

@@ -37,7 +37,7 @@ import {
   setEffectMask,
 } from '@varve/scene';
 import { managedColorToRgba } from '@varve/shared';
-import { Icon, Select, Switch } from '@varve/ui';
+import { Icon, type IconName, Select, Switch } from '@varve/ui';
 import { useCallback, useId, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { groupBlendOptions } from '../controls/blendModeOptionGroups';
@@ -152,32 +152,27 @@ function toSwatchBg(color: ManagedColor): string {
 }
 
 /**
- * Icons are category-level, not one-per-effect: the curated Phosphor set has
- * no literal "blur" or "shadow" glyph, and inventing a distinct icon per
- * exotic blur variant (9 of them) would mean guessing at glyphs a reader has
- * no way to already recognize. Effects that share a rendering family (all
- * nine blur types; inner/outer shadow; inner/outer glow) share one icon —
- * the label text still disambiguates the specific variant. glassMaterial has
- * no confident match in the curated set and is left without one rather than
- * force a misleading pick.
+ * Every effect type gets a distinct visual cue in the picker and row summary.
+ * The label remains authoritative for assistive technology; icons are
+ * decorative and only help scanning a dense effect stack.
  */
-const EFFECT_TYPE_OPTIONS: { value: Effect['type']; label: string; icon?: string }[] = [
-  { value: 'dropShadow', label: 'Drop Shadow', icon: 'StackSimple' },
-  { value: 'innerShadow', label: 'Inner Shadow', icon: 'StackSimple' },
-  { value: 'outerGlow', label: 'Outer Glow', icon: 'Sparkle' },
-  { value: 'innerGlow', label: 'Inner Glow', icon: 'Sparkle' },
+const EFFECT_TYPE_OPTIONS: { value: Effect['type']; label: string; icon?: IconName }[] = [
+  { value: 'dropShadow', label: 'Drop Shadow', icon: 'SunDim' },
+  { value: 'innerShadow', label: 'Inner Shadow', icon: 'CircleDot' },
+  { value: 'outerGlow', label: 'Outer Glow', icon: 'Sparkles' },
+  { value: 'innerGlow', label: 'Inner Glow', icon: 'Aperture' },
   { value: 'layerBlur', label: 'Layer Blur', icon: 'CloudFog' },
-  { value: 'gaussianBlur', label: 'Gaussian Blur', icon: 'CloudFog' },
-  { value: 'fieldBlur', label: 'Field Blur', icon: 'CloudFog' },
-  { value: 'irisBlur', label: 'Iris Blur', icon: 'CloudFog' },
-  { value: 'tiltShiftBlur', label: 'Tilt-Shift Blur', icon: 'CloudFog' },
-  { value: 'pathBlur', label: 'Path Blur', icon: 'CloudFog' },
-  { value: 'spinBlur', label: 'Spin Blur', icon: 'CloudFog' },
-  { value: 'backgroundBlur', label: 'Background Blur', icon: 'CloudFog' },
-  { value: 'depthBlur', label: 'Depth Blur', icon: 'CloudFog' },
-  { value: 'glassMaterial', label: 'Glass Material' },
+  { value: 'gaussianBlur', label: 'Gaussian Blur', icon: 'CircleDashed' },
+  { value: 'fieldBlur', label: 'Field Blur', icon: 'Focus' },
+  { value: 'irisBlur', label: 'Iris Blur', icon: 'Scan' },
+  { value: 'tiltShiftBlur', label: 'Tilt-Shift Blur', icon: 'Move3d' },
+  { value: 'pathBlur', label: 'Path Blur', icon: 'Workflow' },
+  { value: 'spinBlur', label: 'Spin Blur', icon: 'Orbit' },
+  { value: 'backgroundBlur', label: 'Background Blur', icon: 'PanelTop' },
+  { value: 'depthBlur', label: 'Depth Blur', icon: 'Disc3' },
+  { value: 'glassMaterial', label: 'Glass Material', icon: 'GlassWater' },
   { value: 'chromaticAberration', label: 'Chromatic Aberration', icon: 'Rainbow' },
-  { value: 'glitch', label: 'Glitch', icon: 'Lightning' },
+  { value: 'glitch', label: 'Glitch', icon: 'Zap' },
 ];
 
 export function EffectsSection({ nodes, sectionId }: EffectsSectionProps) {
@@ -466,6 +461,13 @@ function EffectRow({
         {type === 'glassMaterial' && (
           <GlassTintSwatch nodes={rowNodes} index={index} onChange={onChange} />
         )}
+        {type && EFFECT_TYPE_OPTIONS.find((option) => option.value === type)?.icon && (
+          <Icon
+            name={EFFECT_TYPE_OPTIONS.find((option) => option.value === type)!.icon!}
+            label={undefined}
+            size="0.85em"
+          />
+        )}
         <span
           style={{ flex: 1, fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}
         >
@@ -508,7 +510,7 @@ function EffectRow({
       </div>
 
       {type && expanded && (
-        <div id={paramsId}>
+        <div id={paramsId} key={`${nodes.map((node) => node.id).join(',')}:${index}`}>
           <EffectParams type={type} nodes={rowNodes} index={index} onChange={onChange} />
         </div>
       )}

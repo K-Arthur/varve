@@ -41,6 +41,134 @@ function primaryGrowWeight(child: SceneNode, primaryAxis: 'width' | 'height'): n
   return fillGrow || styleGrow;
 }
 
+function relativePercent(child: SceneNode, axis: 'width' | 'height'): number {
+  const value = axis === 'width' ? child.layoutRelativeWidth : child.layoutRelativeHeight;
+  return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, value) : 0;
+}
+
+function isGrowParticipant(child: SceneNode, axis: 'width' | 'height'): boolean {
+  // A legacy grow factor makes an item flexible even when the old unified
+  // sizing field says fixed. Relative sizing remains literal and therefore
+  // takes precedence over grow.
+  return axisSizing(child, axis) !== 'relative' && primaryGrowWeight(child, axis) > 0;
+}
+
+/** Legacy nodes had no sizing field and expected min/max to clamp geometry.
+ * Explicit Fixed mode is different: its authored bounds remain inactive. */
+function constraintsActive(child: SceneNode, axis: 'width' | 'height'): boolean {
+  const explicit = axis === 'width' ? child.layoutSizingWidth : child.layoutSizingHeight;
+  const unified = child.layoutSizing;
+  if (explicit !== undefined) return explicit !== 'fixed';
+  if (unified !== undefined) return unified !== 'fixed';
+  return true;
+}
+
+/** Resolve flexible sizes with freezing/redistribution rather than a one-shot clamp. */
+function resolvePrimarySizes(
+  children: SceneNode[],
+  natural: Size[],
+  axis: 'width' | 'height',
+  available: number,
+  gap: number,
+  row: boolean,
+): Size[] {
+  const values = natural.map((size) => (row ? size.w : size.h));
+  const gapTotal = Math.max(0, children.length - 1) * gap;
+  const growIndices = children
+    .map((child, index) => (isGrowParticipant(child, axis) ? index : -1))
+    .filter((index) => index >= 0);
+  const growSet = new Set(growIndices);
+  const definiteTotal = children.reduce(
+    (sum, _child, index) => sum + (growSet.has(index) ? 0 : values[index]!),
+    0,
+  );
+  const relativeIndices = children
+    .map((child, index) => (axisSizing(child, axis) === 'relative' ? index : -1))
+    .filter((index) => index >= 0);
+  const relativeBudget = Math.max(0, available - definiteTotal - gapTotal);
+  for (const index of growIndices) {
+    values[index] = 0;
+  }
+  for (const index of relativeIndices) {
+    values[index] = clampAxis(
+      relativeBudget * (relativePercent(children[index]!, axis) / 100),
+      children[index]!,
+      axis,
+    );
+  }
+
+  const fillIndices = growIndices;
+  const fixedAndRelative = values.reduce(
+    (sum, value, index) => sum + (growSet.has(index) ? 0 : value),
+    0,
+  );
+  let remaining = available - fixedAndRelative - gapTotal;
+
+  // Preserve minimums even when the container cannot fit its contents.
+  if (remaining < 0) {
+    for (const index of fillIndices) {
+      const min = axis === 'width' ? children[index]!.minWidth : children[index]!.minHeight;
+      values[index] = typeof min === 'number' ? Math.max(0, min) : 0;
+    }
+    return values.map((value, index) => {
+      const child = children[index]!;
+      const resolved = constraintsActive(child, axis) ? clampAxis(value, child, axis) : value;
+      return row ? { w: resolved, h: natural[index]!.h } : { w: natural[index]!.w, h: resolved };
+    });
+  }
+
+  // Freeze items that hit a bound and distribute the residual among the rest.
+  const unfrozen = new Set(fillIndices);
+  let guard = 0;
+  while (unfrozen.size > 0 && remaining >= 0 && guard++ <= children.length + 1) {
+    const weightTotal = [...unfrozen].reduce(
+      (sum, index) => sum + primaryGrowWeight(children[index]!, axis),
+      0,
+    );
+    if (weightTotal <= 0) break;
+    let froze = false;
+    for (const index of [...unfrozen]) {
+      const child = children[index]!;
+      const proposed = remaining * (primaryGrowWeight(child, axis) / weightTotal);
+      const clamped = clampAxis(proposed, child, axis);
+      values[index] = clamped;
+      const min = axis === 'width' ? child.minWidth : child.minHeight;
+      const max = axis === 'width' ? child.maxWidth : child.maxHeight;
+      if (
+        (typeof min === 'number' && proposed < min) ||
+        (typeof max === 'number' && proposed > max)
+      ) {
+        unfrozen.delete(index);
+        remaining -= clamped;
+        froze = true;
+      }
+    }
+    if (!froze) {
+      remaining = 0;
+      break;
+    }
+  }
+  if (unfrozen.size > 0 && remaining > 0) {
+    const weightTotal = [...unfrozen].reduce(
+      (sum, index) => sum + primaryGrowWeight(children[index]!, axis),
+      0,
+    );
+    for (const index of unfrozen) {
+      values[index] = clampAxis(
+        remaining * (primaryGrowWeight(children[index]!, axis) / weightTotal),
+        children[index]!,
+        axis,
+      );
+    }
+  }
+
+  return values.map((value, index) => {
+    const child = children[index]!;
+    const resolved = constraintsActive(child, axis) ? clampAxis(value, child, axis) : value;
+    return row ? { w: resolved, h: natural[index]!.h } : { w: natural[index]!.w, h: resolved };
+  });
+}
+
 export function computeFlexLayout(frame: FrameNode, allChildren: SceneNode[]): LayoutResult[] {
   const style = frame.layoutStyle;
   if (!style) return [];
@@ -63,38 +191,12 @@ export function computeFlexLayout(frame: FrameNode, allChildren: SceneNode[]): L
   const avail = row ? availW : availH;
   const crossAvail = row ? availH : availW;
 
-  // ── Measure intrinsic sizes, clamp primary axis to min/max ──────
-  const sizes: Size[] = children.map((c) => {
-    const sz = measureNodeSize(c);
-    const clamped = clampAxis(row ? sz.w : sz.h, c, primaryAxis);
-    return row ? { w: clamped, h: sz.h } : { w: sz.w, h: clamped };
-  });
-
-  // ── Zero out primary-axis base size for grow/fill children ──────
-  const growWeights = children.map((c) => primaryGrowWeight(c, primaryAxis));
-  const growTotal = growWeights.reduce((s, w) => s + w, 0);
-  for (let i = 0; i < sizes.length; i++) {
-    if (growWeights[i]! > 0) {
-      const sz = sizes[i]!;
-      sizes[i] = row ? { w: 0, h: sz.h } : { w: sz.w, h: 0 };
-    }
-  }
-
-  const gapsTotal = Math.max(0, children.length - 1) * gap;
+  // ── Measure intrinsic sizes and resolve primary-axis constraints ──
+  const naturalSizes = children.map(measureNodeSize);
+  const sizes = resolvePrimarySizes(children, naturalSizes, primaryAxis, avail, gap, row);
   const contentTotal = sizes.reduce((s, sz) => s + (row ? sz.w : sz.h), 0);
+  const gapsTotal = Math.max(0, children.length - 1) * gap;
   const rawRemaining = avail - contentTotal - gapsTotal;
-
-  // ── Distribute remaining space to grow/fill children (fill-after-fixed) ──
-  if (growTotal > 0 && rawRemaining > 0) {
-    for (let i = 0; i < sizes.length; i++) {
-      const weight = growWeights[i]!;
-      if (weight <= 0) continue;
-      const rawShare = rawRemaining * (weight / growTotal);
-      const clamped = clampAxis(rawShare, children[i]!, primaryAxis);
-      const sz = sizes[i]!;
-      sizes[i] = row ? { w: clamped, h: sz.h } : { w: sz.w, h: clamped };
-    }
-  }
 
   // ── Shrink when content overflows (legacy per-child shrink factor) ──
   if (rawRemaining < 0) {
@@ -109,8 +211,12 @@ export function computeFlexLayout(frame: FrameNode, allChildren: SceneNode[]): L
         if (sh <= 0) continue;
         const perUnit = overflow / shrinkTotal;
         const sz = sizes[i]!;
-        if (row) sizes[i] = { w: Math.max(0, sz.w - perUnit * sh), h: sz.h };
-        else sizes[i] = { w: sz.w, h: Math.max(0, sz.h - perUnit * sh) };
+        const next = row ? Math.max(0, sz.w - perUnit * sh) : Math.max(0, sz.h - perUnit * sh);
+        const constrained = constraintsActive(children[i]!, primaryAxis)
+          ? clampAxis(next, children[i]!, primaryAxis)
+          : next;
+        if (row) sizes[i] = { w: constrained, h: sz.h };
+        else sizes[i] = { w: sz.w, h: constrained };
       }
     }
   }
@@ -146,6 +252,7 @@ export function computeFlexLayout(frame: FrameNode, allChildren: SceneNode[]): L
 
   // ── Distribute lines along cross-axis, align items per line ─────
   const results: LayoutResult[] = [];
+  const resultById = new Map<string, LayoutResult>();
   let crossCursor = row ? pt : pl;
   const crossGap = gap;
 
@@ -178,24 +285,30 @@ export function computeFlexLayout(frame: FrameNode, allChildren: SceneNode[]): L
         effectiveAlign = 'start';
       }
 
-      let cx = row ? primaryCursor : crossCursor;
-      let cy = row ? crossCursor : primaryCursor;
-
-      if (row && effectiveAlign !== 'start') {
-        if (effectiveAlign === 'center') cy = crossCursor + (crossAvail - ch) / 2;
-        else if (effectiveAlign === 'end') cy = crossCursor + crossAvail - ch;
-        else if (effectiveAlign === 'stretch') ch = crossAvail;
-      } else if (!row && effectiveAlign !== 'start') {
-        if (effectiveAlign === 'center') cx = crossCursor + (crossAvail - cw) / 2;
-        else if (effectiveAlign === 'end') cx = crossCursor + crossAvail - cw;
-        else if (effectiveAlign === 'stretch') cw = crossAvail;
+      if (effectiveAlign === 'stretch') {
+        if (row) ch = crossAvail;
+        else cw = crossAvail;
       }
-
-      const clampedCross = clampAxis(row ? ch : cw, child, crossAxis);
+      const crossValue = row ? ch : cw;
+      const clampedCross = constraintsActive(child, crossAxis)
+        ? clampAxis(crossValue, child, crossAxis)
+        : crossValue;
       if (row) ch = clampedCross;
       else cw = clampedCross;
 
-      results.push({ id: child.id, x: cx, y: cy, w: cw, h: ch });
+      let cx = row ? primaryCursor : crossCursor;
+      let cy = row ? crossCursor : primaryCursor;
+      if (row && effectiveAlign !== 'start') {
+        if (effectiveAlign === 'center') cy = crossCursor + (crossAvail - ch) / 2;
+        else if (effectiveAlign === 'end') cy = crossCursor + crossAvail - ch;
+      } else if (!row && effectiveAlign !== 'start') {
+        if (effectiveAlign === 'center') cx = crossCursor + (crossAvail - cw) / 2;
+        else if (effectiveAlign === 'end') cx = crossCursor + crossAvail - cw;
+      }
+
+      const result = { id: child.id, x: cx, y: cy, w: cw, h: ch };
+      results.push(result);
+      resultById.set(child.id, result);
       primaryCursor += (row ? cw : ch) + gap;
     }
 
@@ -206,12 +319,14 @@ export function computeFlexLayout(frame: FrameNode, allChildren: SceneNode[]): L
   const justify = style.justifyContent ?? 'start';
   if (justify !== 'start' && lines.length > 0) {
     for (const line of lines) {
-      const lineResults = line.indices.map((i) => results.find((r) => r.id === children[i]?.id)!);
+      const lineResults = line.indices
+        .map((i) => resultById.get(children[i]!.id))
+        .filter((r): r is LayoutResult => Boolean(r));
       if (lineResults.length === 0) continue;
 
       const totalSize = lineResults.reduce((s, r) => s + (row ? r.w : r.h), 0);
       const lineGaps = (lineResults.length - 1) * gap;
-      const free = ((row ? availW : availH) - totalSize - lineGaps) | 0;
+      const free = (row ? availW : availH) - totalSize - lineGaps;
 
       if (free <= 0) continue;
 

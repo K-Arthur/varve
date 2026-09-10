@@ -46,7 +46,11 @@ export function invalidateNodeThumbnail(nodeId: string): void {
 import { getDesktopAnalytics } from './analytics/desktopAnalytics';
 import { getLayerNavigationCommands } from './components/LayersPanel/layerNavigationRegistry';
 import { PaletteExtractDialogHost } from './components/PaletteExtract/PaletteExtractDialogHost';
-import { applySelectedLayoutChildField } from './context/layoutChildSetters';
+import {
+  applySelectedConstraint,
+  applySelectedLayoutChildField,
+  mergePaintValue,
+} from './context/layoutChildSetters';
 import * as sessionGlobals from './context/sessionGlobals';
 import { useAutoBackupServices } from './context/useAutoBackupServices';
 import { type ImportedResourceSet, mergeImportedResources } from './import/mergeImportedResources';
@@ -151,6 +155,7 @@ import {
   captureLayerState as captureLayerStateDoc,
   clearGuides,
   clearLiveTrace as clearLiveTraceDoc,
+  clearSlot as clearSlotDoc,
   cloneSmartFilters,
   convertDocumentColors as convertDocumentColorsDoc,
   createClippingMask as createClippingMaskDoc,
@@ -1146,20 +1151,19 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
     axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom',
     reference?: 'selection' | 'container' | 'page',
   ) => void;
-  /** P3: batch-set min width on all selected nodes. */
   setSelectedMinWidth: (value: number) => void;
-  /** P3: batch-set max width on all selected nodes. */
+  clearSelectedMinWidth: () => void;
   setSelectedMaxWidth: (value: number) => void;
-  /** P3: batch-set min height on all selected nodes. */
+  clearSelectedMaxWidth: () => void;
   setSelectedMinHeight: (value: number) => void;
-  /** P3: batch-set max height on all selected nodes. */
+  clearSelectedMinHeight: () => void;
   setSelectedMaxHeight: (value: number) => void;
-  /** P3: batch-set layout sizing mode on all selected nodes. */
+  clearSelectedMaxHeight: () => void;
   setSelectedLayoutSizing: (value: import('@varve/scene').LayoutSizing) => void;
-  /** Batch-set width sizing mode (fixed/hug/fill) on all selected layout children. */
   setSelectedLayoutSizingWidth: (value: import('@varve/scene').LayoutSizing) => void;
-  /** Batch-set height sizing mode (fixed/hug/fill) on all selected layout children. */
   setSelectedLayoutSizingHeight: (value: import('@varve/scene').LayoutSizing) => void;
+  setSelectedLayoutRelativeWidth: (value: number) => void;
+  setSelectedLayoutRelativeHeight: (value: number) => void;
   /** Batch-set flow/absolute position on all selected layout children. */
   setSelectedLayoutPosition: (value: import('@varve/scene').LayoutPosition) => void;
   /** P3: batch-set grid item placement on all selected nodes. */
@@ -1251,8 +1255,8 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   createComponentFromFrame: (name: string, masterRootId: NodeId, slots: Slot[]) => void;
   /** Create an instance of a component. */
   createComponentInstance: (componentId: NodeId) => void;
-  /** Fill a slot on a component instance. */
   fillSlot: (instanceId: NodeId, slotId: string, fillNodeId: NodeId) => void;
+  clearSlot: (instanceId: NodeId, slotId: string) => void;
   /** Swap a component instance to a different component definition. */
   swapComponentInstance: (instanceId: NodeId, newComponentId: NodeId) => void;
   /** Reset overrides on a component instance to master defaults. */
@@ -5163,8 +5167,14 @@ export function EditorProvider({
             if (!node) continue;
             const current = resolveNodeFills(node);
             const next = [...current];
-            if (index >= 0 && index < next.length) next[index] = fill;
-            else next.push(fill);
+            if (index >= 0 && index < next.length) {
+              const currentFill = next[index];
+              // Inspector field edits pass a complete value for convenience,
+              // but same-type edits (opacity, visibility, colour, gradients)
+              // must preserve every property that was not edited on each
+              // selected node. A type change intentionally replaces the row.
+              next[index] = mergePaintValue(currentFill, fill);
+            } else next.push(fill);
             d.nodes[id] = { ...node, fills: next } as SceneNode;
             // When an image fill's src changes and the node has a raster mask,
             // mark the mask stale so the user knows to re-run background removal.
@@ -6151,6 +6161,10 @@ export function EditorProvider({
 
       fillSlot: (instanceId, slotId, fillNodeId) => {
         updateDoc((doc) => fillSlotDoc(doc, instanceId, slotId, fillNodeId));
+      },
+
+      clearSlot: (instanceId, slotId) => {
+        updateDoc((doc) => clearSlotDoc(doc, instanceId, slotId));
       },
 
       swapComponentInstance: (instanceId, newComponentId) => {
@@ -8506,60 +8520,32 @@ export function EditorProvider({
       },
 
       setSelectedMinWidth: (value) => {
-        const sel = state.selection;
-        if (sel.length === 0) return;
-        updateDoc((doc) => {
-          const nodes = { ...doc.nodes };
-          for (const id of sel) {
-            const node = nodes[id];
-            if (!node) continue;
-            nodes[id] = { ...node, minWidth: value };
-          }
-          return { ...doc, nodes };
-        });
+        updateDoc((doc) => applySelectedConstraint(doc, state.selection, 'minWidth', value));
       },
+
+      clearSelectedMinWidth: () =>
+        updateDoc((doc) => applySelectedConstraint(doc, state.selection, 'minWidth')),
 
       setSelectedMaxWidth: (value) => {
-        const sel = state.selection;
-        if (sel.length === 0) return;
-        updateDoc((doc) => {
-          const nodes = { ...doc.nodes };
-          for (const id of sel) {
-            const node = nodes[id];
-            if (!node) continue;
-            nodes[id] = { ...node, maxWidth: value };
-          }
-          return { ...doc, nodes };
-        });
+        updateDoc((doc) => applySelectedConstraint(doc, state.selection, 'maxWidth', value));
       },
+
+      clearSelectedMaxWidth: () =>
+        updateDoc((doc) => applySelectedConstraint(doc, state.selection, 'maxWidth')),
 
       setSelectedMinHeight: (value) => {
-        const sel = state.selection;
-        if (sel.length === 0) return;
-        updateDoc((doc) => {
-          const nodes = { ...doc.nodes };
-          for (const id of sel) {
-            const node = nodes[id];
-            if (!node) continue;
-            nodes[id] = { ...node, minHeight: value };
-          }
-          return { ...doc, nodes };
-        });
+        updateDoc((doc) => applySelectedConstraint(doc, state.selection, 'minHeight', value));
       },
 
+      clearSelectedMinHeight: () =>
+        updateDoc((doc) => applySelectedConstraint(doc, state.selection, 'minHeight')),
+
       setSelectedMaxHeight: (value) => {
-        const sel = state.selection;
-        if (sel.length === 0) return;
-        updateDoc((doc) => {
-          const nodes = { ...doc.nodes };
-          for (const id of sel) {
-            const node = nodes[id];
-            if (!node) continue;
-            nodes[id] = { ...node, maxHeight: value };
-          }
-          return { ...doc, nodes };
-        });
+        updateDoc((doc) => applySelectedConstraint(doc, state.selection, 'maxHeight', value));
       },
+
+      clearSelectedMaxHeight: () =>
+        updateDoc((doc) => applySelectedConstraint(doc, state.selection, 'maxHeight')),
 
       setSelectedLayoutSizing: (value) =>
         updateDoc((doc) =>
@@ -8575,6 +8561,18 @@ export function EditorProvider({
         updateDoc((doc) =>
           applySelectedLayoutChildField(doc, state.selection, 'layoutSizingHeight', value),
         ),
+
+      setSelectedLayoutRelativeWidth: (value) => {
+        updateDoc((doc) =>
+          applySelectedLayoutChildField(doc, state.selection, 'layoutRelativeWidth', value),
+        );
+      },
+
+      setSelectedLayoutRelativeHeight: (value) => {
+        updateDoc((doc) =>
+          applySelectedLayoutChildField(doc, state.selection, 'layoutRelativeHeight', value),
+        );
+      },
 
       setSelectedLayoutPosition: (value) =>
         updateDoc((doc) =>
@@ -10375,6 +10373,7 @@ export function EditorProvider({
       createComponentFromFrame: value.createComponentFromFrame,
       createComponentInstance: value.createComponentInstance,
       fillSlot: value.fillSlot,
+      clearSlot: value.clearSlot,
       swapComponentInstance: value.swapComponentInstance,
       resetInstanceOverrides: value.resetInstanceOverrides,
       syncComponentInstances: value.syncComponentInstances,

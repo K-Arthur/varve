@@ -17,6 +17,7 @@ import { groupWorldBounds } from './coordinateService';
 import { designCanvasChildren, getActiveDesignCanvas, getDesignCanvas } from './designCanvas';
 import type { Document, NodeEntry } from './document';
 import { computePageNumbering } from './pageNumbering';
+import { effectivePaintOrder } from './paintOrder';
 import { autoPageLayout } from './pasteboardLayout';
 import type { GroupNode, NodeId, Page, PagePlacement } from './types';
 import { isContainer } from './types';
@@ -417,7 +418,7 @@ function appendNodeInstances(
         ...(options.masterPlacement ? { masterPlacement: options.masterPlacement } : {}),
       });
       if (isContainer(node) && node.children.length > 0) {
-        walk(node.children, nodeId, depth + 1);
+        walk(effectivePaintOrder(doc, node), nodeId, depth + 1);
       }
     }
   }

@@ -39,6 +39,7 @@ import { isRasterPyramidEnabled, setRasterPyramidEnabled } from '@varve/engine/r
 import type { Document, Effect, ManagedColor, Mask, NodeId } from '@varve/scene';
 import {
   activeSmartFilters,
+  effectivePaintOrder,
   isLiveBooleanNode,
   nodeEffectPadding,
   resolveAdjustmentScope,
@@ -353,7 +354,7 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
   const replayChildren = (nodeId: NodeId, target: SceneContext): void => {
     const node = input.document.nodes[nodeId];
     if (!node || !('children' in node)) return;
-    for (const childId of node.children) replayNode(childId, target);
+    for (const childId of effectivePaintOrder(input.document, node)) replayNode(childId, target);
   };
 
   const resolveEffectMask: EffectMaskResolver = (binding, item, target, width, height) => {
@@ -539,7 +540,7 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
           contentSurfaceCtx.save();
           clipFrameQuad(contentSurfaceCtx);
           // Render content: all children including mask source (unless hidden)
-          for (const childId of node.children) {
+          for (const childId of effectivePaintOrder(input.document, node)) {
             if (childId !== maskSourceId) replayNode(childId, contentSurfaceCtx);
           }
           // Render mask source on top of content unless hideMaskSource
@@ -614,7 +615,7 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
               clipTarget.clip(mask.fillRule ?? 'nonzero');
             }
             clipTarget.transform(...inverse);
-            for (const childId of node.children) {
+            for (const childId of effectivePaintOrder(input.document, node)) {
               if (childId !== maskSourceId) replayNode(childId, clipTarget);
             }
             // Render mask source on top of clipped children unless hideMaskSource
@@ -806,7 +807,7 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
         let minY = Infinity;
         let maxX = -Infinity;
         let maxY = -Infinity;
-        for (const childId of node.children) {
+        for (const childId of effectivePaintOrder(input.document, node)) {
           const childItem = itemById.get(childId);
           if (!childItem) continue;
           const childBounds = primitiveBounds(childItem.primitive);
@@ -1008,7 +1009,7 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
         subtreeIds.add(id);
         const n = input.document.nodes[id];
         if (n && 'children' in n) {
-          for (const childId of n.children) collectSubtree(childId);
+          for (const childId of effectivePaintOrder(input.document, n)) collectSubtree(childId);
         }
       };
       for (const tid of targetIds) collectSubtree(tid);

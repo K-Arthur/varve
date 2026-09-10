@@ -925,12 +925,18 @@ export interface EditorContextValue {
     reference?: 'selection' | 'container' | 'page',
   ) => void;
   setSelectedMinWidth: (value: number) => void;
+  clearSelectedMinWidth: () => void;
   setSelectedMaxWidth: (value: number) => void;
+  clearSelectedMaxWidth: () => void;
   setSelectedMinHeight: (value: number) => void;
+  clearSelectedMinHeight: () => void;
   setSelectedMaxHeight: (value: number) => void;
+  clearSelectedMaxHeight: () => void;
   setSelectedLayoutSizing: (value: LayoutSizing) => void;
   setSelectedLayoutSizingWidth: (value: LayoutSizing) => void;
   setSelectedLayoutSizingHeight: (value: LayoutSizing) => void;
+  setSelectedLayoutRelativeWidth: (value: number) => void;
+  setSelectedLayoutRelativeHeight: (value: number) => void;
   setSelectedLayoutPosition: (value: import('@varve/scene').LayoutPosition) => void;
   setSelectedLayoutAlign: (value: import('@varve/scene').LayoutAlign) => void;
   setSelectedGridPlacement: (value: GridItemPlacement) => void;
@@ -1023,6 +1029,7 @@ export interface EditorContextValue {
   ) => { componentId?: NodeId; error?: string };
   createComponentInstance: (componentId: NodeId) => void;
   fillSlot: (instanceId: NodeId, slotId: string, fillNodeId: NodeId) => void;
+  clearSlot: (instanceId: NodeId, slotId: string) => void;
   swapComponentInstance: (instanceId: NodeId, newComponentId: NodeId) => void;
   resetInstanceOverrides: (instanceId: NodeId) => void;
   syncComponentInstances: (componentId: NodeId) => import('@varve/scene').SyncResult;

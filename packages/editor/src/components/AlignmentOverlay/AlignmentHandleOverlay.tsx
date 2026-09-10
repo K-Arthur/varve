@@ -1,6 +1,6 @@
-import { computeFloatingOrigin } from '@varve/shared';
+import { computeFloatingOrigin, screenDeltaToWorld, worldToScreen } from '@varve/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getEditorViewport } from '../../canvas/cameraState';
+import { getEditorViewport, toCamera } from '../../canvas/cameraState';
 import { useEditor } from '../../context';
 import {
   distributeSelectionInDocument,
@@ -38,14 +38,6 @@ interface SessionData {
 // (applyEditorCameraToCtx: floating origin) — naive world*zoom+pan drifts
 // from the real paint position once panned away from world (0,0), putting
 // these spacing handles somewhere other than the selection they measure.
-function worldToScreenX(wx: number, zoom: number, panX: number, originX: number): number {
-  return (wx - originX) * zoom + panX;
-}
-
-function worldToScreenY(wy: number, zoom: number, panY: number, originY: number): number {
-  return (wy - originY) * zoom + panY;
-}
-
 export function AlignmentHandleOverlay() {
   const {
     state,
@@ -64,10 +56,9 @@ export function AlignmentHandleOverlay() {
   const doc = state.document;
   const zoom = state.zoom;
   const pan = state.pan;
-  const origin = computeFloatingOrigin(
-    { zoom, pan, rotation: state.cameraRotation },
-    getEditorViewport(),
-  );
+  const viewport = getEditorViewport();
+  const origin = computeFloatingOrigin({ zoom, pan, rotation: state.cameraRotation }, viewport);
+  const camera = toCamera({ zoom, pan, cameraRotation: state.cameraRotation });
 
   const computeData = useCallback(() => {
     const capabilities = getAlignmentCapabilities(doc, sel);
@@ -104,9 +95,12 @@ export function AlignmentHandleOverlay() {
 
   const data = computeData();
 
-  if (!data || sel.length < 2) return null;
-
-  const { sortedH, sortedV, gapsH, gapsV } = data;
+  const { sortedH, sortedV, gapsH, gapsV } = data ?? {
+    sortedH: [] as Bounds[],
+    sortedV: [] as Bounds[],
+    gapsH: [] as number[],
+    gapsV: [] as number[],
+  };
 
   const handlePointerDown =
     (axis: 'horizontal' | 'vertical', index: number) => (e: React.PointerEvent) => {
@@ -152,10 +146,14 @@ export function AlignmentHandleOverlay() {
   const gapFromPointer = useCallback(
     (e: React.PointerEvent, session: SessionData, drag: DragState) => {
       const mousePos = session.axis === 'horizontal' ? e.clientX : e.clientY;
-      const deltaWorld = (mousePos - drag.startMouse) / zoom;
-      return Math.round(drag.initialGap + deltaWorld);
+      const delta = screenDeltaToWorld(
+        camera,
+        session.axis === 'horizontal' ? mousePos - drag.startMouse : 0,
+        session.axis === 'vertical' ? mousePos - drag.startMouse : 0,
+      );
+      return Math.round(drag.initialGap + (session.axis === 'horizontal' ? delta[0] : delta[1]));
     },
-    [zoom],
+    [camera],
   );
 
   const handlePointerMove = useCallback(
@@ -244,22 +242,24 @@ export function AlignmentHandleOverlay() {
     return sortedH.slice(0, -1).map((item, i) => {
       const next = sortedH[i + 1];
       if (!next) return null;
-      const left = worldToScreenX(item.x + item.w, zoom, pan.x, origin[0]);
-      const right = worldToScreenX(next.x, zoom, pan.x, origin[0]);
+      const left = worldToScreen(camera, item.x + item.w, item.y + item.h / 2, viewport, origin)[0];
+      const right = worldToScreen(camera, next.x, next.y + next.h / 2, viewport, origin)[0];
       const midX = (left + right) / 2;
-      const topY = worldToScreenY(Math.min(item.y, next.y), zoom, pan.y, origin[1]);
-      const bottomY = worldToScreenY(
+      const topY = worldToScreen(
+        camera,
+        (item.x + item.w + next.x) / 2,
+        Math.min(item.y, next.y),
+        viewport,
+        origin,
+      )[1];
+      const bottomY = worldToScreen(
+        camera,
+        (item.x + item.w + next.x) / 2,
         Math.max(item.y + item.h, next.y + next.h),
-        zoom,
-        pan.y,
-        origin[1],
-      );
-      const midY = worldToScreenY(
-        (Math.max(item.y + item.h, next.y + next.h) + Math.min(item.y, next.y)) / 2,
-        zoom,
-        pan.y,
-        origin[1],
-      );
+        viewport,
+        origin,
+      )[1];
+      const midY = (topY + bottomY) / 2;
 
       const gap =
         currentGap !== null && dragState?.activeIndex === i && dragState?.axis === 'horizontal'
@@ -329,22 +329,24 @@ export function AlignmentHandleOverlay() {
     return sortedV.slice(0, -1).map((item, i) => {
       const next = sortedV[i + 1];
       if (!next) return null;
-      const top = worldToScreenY(item.y + item.h, zoom, pan.y, origin[1]);
-      const bottom = worldToScreenY(next.y, zoom, pan.y, origin[1]);
+      const top = worldToScreen(camera, item.x + item.w / 2, item.y + item.h, viewport, origin)[1];
+      const bottom = worldToScreen(camera, next.x + next.w / 2, next.y, viewport, origin)[1];
       const midY = (top + bottom) / 2;
-      const leftX = worldToScreenX(Math.min(item.x, next.x), zoom, pan.x, origin[0]);
-      const rightX = worldToScreenX(
+      const leftX = worldToScreen(
+        camera,
+        Math.min(item.x, next.x),
+        (item.y + item.h + next.y) / 2,
+        viewport,
+        origin,
+      )[0];
+      const rightX = worldToScreen(
+        camera,
         Math.max(item.x + item.w, next.x + next.w),
-        zoom,
-        pan.x,
-        origin[0],
-      );
-      const midX = worldToScreenX(
-        (Math.max(item.x + item.w, next.x + next.w) + Math.min(item.x, next.x)) / 2,
-        zoom,
-        pan.x,
-        origin[0],
-      );
+        (item.y + item.h + next.y) / 2,
+        viewport,
+        origin,
+      )[0];
+      const midX = (leftX + rightX) / 2;
 
       const gap =
         currentGap !== null && dragState?.activeIndex === i && dragState?.axis === 'vertical'
@@ -404,6 +406,8 @@ export function AlignmentHandleOverlay() {
       );
     });
   };
+
+  if (!data || sel.length < 2) return null;
 
   return (
     // Not aria-hidden: this SVG contains focusable role="slider" controls with

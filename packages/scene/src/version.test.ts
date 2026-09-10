@@ -14,7 +14,7 @@ import {
 
 describe('Document Versioning', () => {
   it('uses the native raster-mask schema version', () => {
-    expect(CURRENT_DOCUMENT_VERSION).toBe('2.25');
+    expect(CURRENT_DOCUMENT_VERSION).toBe('2.26');
     expect(SUPPORTED_VERSIONS).toContain('2.4');
   });
   it('migrates email metadata without changing ordinary documents', () => {
@@ -27,7 +27,7 @@ describe('Document Versioning', () => {
       components: {},
       nextId: 1,
     });
-    expect(migrated?.formatVersion).toBe('2.25');
+    expect(migrated?.formatVersion).toBe('2.26');
     expect(migrated?.emailProfile).toBeUndefined();
     expect(migrated?.emailSemantics).toBeUndefined();
   });
@@ -120,7 +120,7 @@ describe('Document Versioning', () => {
       components: {},
       nextId: 1,
     });
-    expect(migrated?.formatVersion).toBe('2.25');
+    expect(migrated?.formatVersion).toBe('2.26');
     expect(migrated?.generativeEdits).toBeUndefined();
   });
 
@@ -150,7 +150,7 @@ describe('Document Versioning', () => {
       },
     });
 
-    expect(migrated?.formatVersion).toBe('2.25');
+    expect(migrated?.formatVersion).toBe('2.26');
     expect(migrated?.gridSettings).toMatchObject({
       layoutGrids: { frame1: [{ id: 'legacy-guide' }] },
     });
@@ -184,7 +184,7 @@ describe('Generative edit schema migration', () => {
       },
     }) as Record<string, unknown>;
     const edit = (migrated.generativeEdits as Record<string, Record<string, unknown>>).legacy;
-    expect(migrated.formatVersion).toBe('2.25');
+    expect(migrated.formatVersion).toBe('2.26');
     expect(edit.schemaVersion).toBe(2);
     expect(edit.sourceSnapshotAssetId).toBe('source-1');
     expect(edit.masks).toMatchObject({

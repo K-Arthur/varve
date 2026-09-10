@@ -168,6 +168,8 @@ export function ComponentSection({ node }: { node: FrameNode }) {
                   onChange={(v) => {
                     if (v) {
                       editor.fillSlot(node.id, slot.id, v);
+                    } else {
+                      editor.clearSlot(node.id, slot.id);
                     }
                   }}
                 />

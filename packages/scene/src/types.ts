@@ -1270,8 +1270,12 @@ export interface NodeBase {
   layoutSizing?: LayoutSizing;
   /** Width sizing within a layout parent. Falls back to layoutSizing for old documents. */
   layoutSizingWidth?: LayoutSizing;
+  /** Authored width percentage for relative sizing. */
+  layoutRelativeWidth?: number;
   /** Height sizing within a layout parent. Falls back to layoutSizing for old documents. */
   layoutSizingHeight?: LayoutSizing;
+  /** Authored height percentage for relative sizing. */
+  layoutRelativeHeight?: number;
   /** Whether this node participates in its parent's flow layout. */
   layoutPosition?: LayoutPosition;
   /** Optional cross-axis alignment override for a flow child. */
@@ -1556,10 +1560,14 @@ export interface LayoutStyle {
   rowGap?: number;
   /** P3: Column gap (separate from `gap` for grid). */
   columnGap?: number;
+  /** Include visible stroke footprints in stack/grid padding and gaps. */
+  includeBordersInLayout?: boolean;
+  /** Paint order for overlapping flow items; authored order remains unchanged. */
+  overlapOrder?: 'legacy' | 'firstOnTop' | 'lastOnTop';
 }
 
 /** How a child is sized within its parent's auto-layout. */
-export type LayoutSizing = 'fixed' | 'hug' | 'fill';
+export type LayoutSizing = 'fixed' | 'hug' | 'fill' | 'relative';
 export type LayoutPosition = 'flow' | 'absolute';
 export type LayoutAlign = 'inherit' | 'start' | 'center' | 'end' | 'stretch';
 

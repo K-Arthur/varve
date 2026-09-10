@@ -55,6 +55,7 @@ const SIZING_OPTIONS: { value: LayoutSizing; label: string }[] = [
   { value: 'fixed', label: 'Fixed' },
   { value: 'hug', label: 'Hug contents' },
   { value: 'fill', label: 'Fill container' },
+  { value: 'relative', label: 'Relative %' },
 ];
 
 const GRID_AUTO_FLOW_OPTIONS: { value: NonNullable<LayoutStyle['gridAutoFlow']>; label: string }[] =
@@ -230,7 +231,7 @@ export function LayoutSection({ node }: { node: FrameNode }) {
                   label="Gap"
                   unit="px"
                   value={ls.gap}
-                  min={0}
+                  min={-100000}
                   onChange={(v) => patch({ gap: v })}
                 />
                 <FieldRow label="Wrap">
@@ -267,6 +268,7 @@ export function LayoutSection({ node }: { node: FrameNode }) {
                     aria-label={`Padding ${side}`}
                     value={ls.padding[i] ?? 0}
                     step={1}
+                    min={0}
                     onChange={(e) => {
                       const p = [...ls.padding] as [number, number, number, number];
                       p[i] = Number(e.target.value) || 0;
@@ -299,6 +301,28 @@ export function LayoutSection({ node }: { node: FrameNode }) {
                 className="insp-select"
               />
             </FieldRow>
+            <FieldRow label="Borders in layout">
+              <Switch
+                aria-label="Include visible borders in layout"
+                checked={ls.includeBordersInLayout === true}
+                onChange={(event) => patch({ includeBordersInLayout: event.target.checked })}
+              />
+            </FieldRow>
+            <FieldRow label="Overlap order">
+              <Select
+                label="Overlap paint order"
+                value={ls.overlapOrder ?? 'legacy'}
+                options={[
+                  { value: 'legacy', label: 'Legacy (last on top)' },
+                  { value: 'firstOnTop', label: 'First child on top' },
+                  { value: 'lastOnTop', label: 'Last child on top' },
+                ]}
+                onChange={(value) => patch({ overlapOrder: value as LayoutStyle['overlapOrder'] })}
+              />
+            </FieldRow>
+            <p className="insp-panel__color-mode-note" role="note">
+              Negative gaps overlap items. Shadows and blur stay out of layout measurement.
+            </p>
           </>
         )}
         {/* Clamp() fluid sizing for the frame itself */}
@@ -506,7 +530,13 @@ function ClampSizingControls({ nodes }: { nodes: SceneNode[] }) {
     setSelectedMaxHeight,
     setSelectedLayoutSizingWidth,
     setSelectedLayoutSizingHeight,
+    setSelectedLayoutRelativeWidth,
+    setSelectedLayoutRelativeHeight,
     setSelectedGridPlacement,
+    clearSelectedMinWidth,
+    clearSelectedMaxWidth,
+    clearSelectedMinHeight,
+    clearSelectedMaxHeight,
   } = editor;
 
   const minWRaw = commonValue(nodes, (n) => n.minWidth);
@@ -521,6 +551,14 @@ function ClampSizingControls({ nodes }: { nodes: SceneNode[] }) {
     nodes,
     (n) => n.layoutSizingHeight ?? n.layoutSizing ?? 'fixed',
   );
+  const relativeWRaw = commonValue(nodes, (n) => n.layoutRelativeWidth);
+  const relativeHRaw = commonValue(nodes, (n) => n.layoutRelativeHeight);
+  const widthIsFixed = !isMixed(widthSizingRaw) && widthSizingRaw === 'fixed';
+  const heightIsFixed = !isMixed(heightSizingRaw) && heightSizingRaw === 'fixed';
+  const draftKey = nodes
+    .map((node) => node.id)
+    .sort()
+    .join(',');
   const gridColStartRaw = commonValue(nodes, (n) => n.gridPlacement?.gridColumnStart);
   const gridColEndRaw = commonValue(nodes, (n) => n.gridPlacement?.gridColumnEnd);
   const gridRowStartRaw = commonValue(nodes, (n) => n.gridPlacement?.gridRowStart);
@@ -580,32 +618,82 @@ function ClampSizingControls({ nodes }: { nodes: SceneNode[] }) {
         value={isMixed(minWRaw) ? 0 : (minWRaw ?? 0)}
         mixed={isMixed(minWRaw)}
         min={0}
+        disabled={widthIsFixed}
+        draftKey={`${draftKey}:min-width`}
         onChange={setSelectedMinWidth}
       />
+      <button type="button" className="insp-btn insp-btn--compact" onClick={clearSelectedMinWidth}>
+        Clear min W
+      </button>
       <NumberField
         label="Max W"
         unit="px"
         value={isMixed(maxWRaw) ? 0 : (maxWRaw ?? 0)}
         mixed={isMixed(maxWRaw)}
         min={0}
+        disabled={widthIsFixed}
+        draftKey={`${draftKey}:max-width`}
         onChange={setSelectedMaxWidth}
       />
+      <button type="button" className="insp-btn insp-btn--compact" onClick={clearSelectedMaxWidth}>
+        Clear max W
+      </button>
       <NumberField
         label="Min H"
         unit="px"
         value={isMixed(minHRaw) ? 0 : (minHRaw ?? 0)}
         mixed={isMixed(minHRaw)}
         min={0}
+        disabled={heightIsFixed}
+        draftKey={`${draftKey}:min-height`}
         onChange={setSelectedMinHeight}
       />
+      <button type="button" className="insp-btn insp-btn--compact" onClick={clearSelectedMinHeight}>
+        Clear min H
+      </button>
       <NumberField
         label="Max H"
         unit="px"
         value={isMixed(maxHRaw) ? 0 : (maxHRaw ?? 0)}
         mixed={isMixed(maxHRaw)}
         min={0}
+        disabled={heightIsFixed}
+        draftKey={`${draftKey}:max-height`}
         onChange={setSelectedMaxHeight}
       />
+      <button type="button" className="insp-btn insp-btn--compact" onClick={clearSelectedMaxHeight}>
+        Clear max H
+      </button>
+      {(widthIsFixed || heightIsFixed) && (
+        <p className="insp-panel__color-mode-note" role="note">
+          Fixed axes keep their constraints for later mode changes, but the bounds are inactive
+          while Fixed.
+        </p>
+      )}
+      {!isMixed(widthSizingRaw) && widthSizingRaw === 'relative' && (
+        <NumberField
+          label="Width share"
+          unit="%"
+          value={isMixed(relativeWRaw) ? 0 : (relativeWRaw ?? 100)}
+          mixed={isMixed(relativeWRaw)}
+          min={0}
+          step={0.1}
+          draftKey={`${draftKey}:relative-width`}
+          onChange={setSelectedLayoutRelativeWidth}
+        />
+      )}
+      {!isMixed(heightSizingRaw) && heightSizingRaw === 'relative' && (
+        <NumberField
+          label="Height share"
+          unit="%"
+          value={isMixed(relativeHRaw) ? 0 : (relativeHRaw ?? 100)}
+          mixed={isMixed(relativeHRaw)}
+          min={0}
+          step={0.1}
+          draftKey={`${draftKey}:relative-height`}
+          onChange={setSelectedLayoutRelativeHeight}
+        />
+      )}
       {/* Grid item placement */}
       <div
         style={{

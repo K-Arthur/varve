@@ -116,9 +116,10 @@ export function TableCellsSection({ tableId }: Props) {
 
   return (
     <DisclosureSection title="Cells" sectionId="table-cells">
-      {selection.length === 1 && (
+      {selection.length === 1 && owner && (
         <FieldRow label="Text">
           <textarea
+            key={owner.id}
             className="insp-textarea"
             aria-label="Cell text"
             rows={3}
@@ -138,7 +139,7 @@ export function TableCellsSection({ tableId }: Props) {
       <FieldRow label="Align">
         <SegmentedControl
           label="Horizontal alignment"
-          value={alignH ?? 'left'}
+          value={alignH ?? ''}
           options={[
             { value: 'left', label: 'Left' },
             { value: 'center', label: 'Center' },
@@ -155,7 +156,7 @@ export function TableCellsSection({ tableId }: Props) {
       <FieldRow label="Vertical">
         <SegmentedControl
           label="Vertical alignment"
-          value={alignV ?? 'middle'}
+          value={alignV ?? ''}
           options={[
             { value: 'top', label: 'Top' },
             { value: 'middle', label: 'Middle' },
@@ -177,7 +178,9 @@ export function TableCellsSection({ tableId }: Props) {
               value={owner.rowSpan}
               step={1}
               min={1}
-              onChange={() => {}}
+              readOnly
+              draftKey={`${tableId}:${owner.id}:row-span`}
+              onChange={() => undefined}
             />
             <span aria-hidden>|</span>
             <NumberField
@@ -185,7 +188,9 @@ export function TableCellsSection({ tableId }: Props) {
               value={owner.columnSpan}
               step={1}
               min={1}
-              onChange={() => {}}
+              readOnly
+              draftKey={`${tableId}:${owner.id}:column-span`}
+              onChange={() => undefined}
             />
           </div>
         </FieldRow>
@@ -203,6 +208,11 @@ export function TableCellsSection({ tableId }: Props) {
             Split cell
           </button>
         </FieldRow>
+      )}
+      {selection.length === 1 && owner && (owner.rowSpan > 1 || owner.columnSpan > 1) && (
+        <div className="insp-empty-message" role="note">
+          Spans are derived from the table grid. Use Split to return this cell to a single slot.
+        </div>
       )}
       {selection.length === 1 && owner && (
         <FieldRow label="Cell border">
@@ -330,6 +340,37 @@ export function TableTracksSection({ tableId }: Props) {
             min={8}
             onChange={(v) => {
               if (columnId) op((t) => setColumnSizing(t, columnId, { kind: 'fixed', value: v }));
+            }}
+          />
+        </FieldRow>
+      )}
+      {column && column.sizing.kind === 'percentage' && (
+        <FieldRow label="Width %">
+          <NumberField
+            label="Column percentage"
+            unit="%"
+            value={column.sizing.value}
+            step={0.1}
+            min={0}
+            draftKey={`${tableId}:${columnId}:percentage`}
+            onChange={(v) => {
+              if (columnId)
+                op((t) => setColumnSizing(t, columnId, { kind: 'percentage', value: v }));
+            }}
+          />
+        </FieldRow>
+      )}
+      {column && column.sizing.kind === 'fraction' && (
+        <FieldRow label="Width weight">
+          <NumberField
+            label="Column weight"
+            unit="fr"
+            value={column.sizing.value}
+            step={0.1}
+            min={0}
+            draftKey={`${tableId}:${columnId}:fraction`}
+            onChange={(v) => {
+              if (columnId) op((t) => setColumnSizing(t, columnId, { kind: 'fraction', value: v }));
             }}
           />
         </FieldRow>

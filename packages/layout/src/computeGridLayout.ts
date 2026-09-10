@@ -9,7 +9,8 @@
  */
 import type { Document, LayoutStyle, NodeId, SceneNode } from '@varve/scene';
 import { DEFAULT_ARTWORK_FONT_FAMILY, measureText } from '@varve/shared';
-import { isFlowParticipant } from './measure';
+import { axisSizing, isFlowParticipant, measureNodeSize } from './measure';
+import { resizeNodeGeometry } from './resizeGeometry';
 
 export interface GridItem {
   id: NodeId;
@@ -23,7 +24,17 @@ type TrackSize = { kind: 'px'; value: number } | { kind: 'fr'; value: number } |
 
 function parseTrackTemplate(template: string): TrackSize[] {
   if (!template || template.trim() === '') return [];
-  const parts = template.trim().split(/\s+/);
+  const parts: string[] = [];
+  const tokenPattern = /repeat\(\s*(\d+)\s*,\s*([^()]+?)\s*\)|[^\s]+/g;
+  for (const match of template.matchAll(tokenPattern)) {
+    const count = Number.parseInt(match[1] ?? '', 10);
+    if (Number.isFinite(count) && match[2]) {
+      const repeated = match[2].trim().split(/\s+/);
+      for (let i = 0; i < count; i++) parts.push(...repeated);
+    } else if (match[0]) {
+      parts.push(match[0]);
+    }
+  }
   return parts.map((part) => {
     if (part.endsWith('px')) {
       return { kind: 'px', value: parseFloat(part) };
@@ -299,12 +310,14 @@ export function computeGridLayout(
     }
   }
 
-  const cellMap: number[] = [];
+  const columnMap: number[] = [];
+  const rowMap: number[] = [];
   for (const a of assignments) {
-    cellMap[a.col] = a.childIndex;
+    columnMap[a.childIndex] = a.col;
+    rowMap[a.childIndex] = a.row;
   }
-  const resolvedColSizes = resolveAutoTracks(resolvedCols, childNodes, cellMap, false);
-  const resolvedRowSizes = resolveAutoTracks(resolvedRows, childNodes, cellMap, true);
+  const resolvedColSizes = resolveAutoTracks(resolvedCols, childNodes, columnMap, false);
+  const resolvedRowSizes = resolveAutoTracks(resolvedRows, childNodes, rowMap, true);
 
   const colPositions: number[] = [pl];
   for (let c = 0; c < resolvedColSizes.length; c++) {
@@ -366,7 +379,18 @@ export function applyGridLayout(doc: Document, parentId: NodeId): Document {
   for (const r of results) {
     const child = nodes[r.id];
     if (child) {
-      nodes[r.id] = { ...child, transform: [1, 0, 0, 1, r.x, r.y] as const };
+      const current = measureNodeSize(child);
+      const wantW = axisSizing(child, 'width') === 'fixed' ? current.w : r.w;
+      const wantH = axisSizing(child, 'height') === 'fixed' ? current.h : r.h;
+      let updated = child;
+      if (Math.abs(current.w - wantW) > 0.001 || Math.abs(current.h - wantH) > 0.001) {
+        updated = resizeNodeGeometry(updated, wantW, wantH);
+      }
+      const transform = child.transform;
+      nodes[r.id] = {
+        ...updated,
+        transform: [transform[0], transform[1], transform[2], transform[3], r.x, r.y] as const,
+      };
     }
   }
   return { ...doc, nodes };

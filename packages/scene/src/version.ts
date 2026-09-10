@@ -15,7 +15,64 @@ import { migrateV222ToV223 } from './version-migrations-v223';
 import { migrateV223ToV224 } from './version-migrations-v224';
 import { migrateV224ToV225 } from './version-migrations-v225';
 
-export const CURRENT_DOCUMENT_VERSION = '2.25';
+export const CURRENT_DOCUMENT_VERSION = '2.26';
+
+function normalizeLayoutSizingFields(raw: Record<string, unknown>): Record<string, unknown> {
+  const rawNodes = raw.nodes;
+  if (!rawNodes || typeof rawNodes !== 'object') return { ...raw, formatVersion: '2.26' };
+  const nodes: Record<string, unknown> = {};
+  for (const [id, value] of Object.entries(rawNodes as Record<string, unknown>)) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      nodes[id] = value;
+      continue;
+    }
+    const node = { ...(value as Record<string, unknown>) };
+    for (const field of [
+      'layoutRelativeWidth',
+      'layoutRelativeHeight',
+      'minWidth',
+      'minHeight',
+      'maxWidth',
+      'maxHeight',
+    ]) {
+      const candidate = node[field];
+      if (typeof candidate !== 'number' || !Number.isFinite(candidate)) {
+        delete node[field];
+      } else {
+        node[field] = Math.max(0, candidate);
+      }
+    }
+    if (
+      typeof node.minWidth === 'number' &&
+      typeof node.maxWidth === 'number' &&
+      node.maxWidth < node.minWidth
+    ) {
+      node.maxWidth = node.minWidth;
+    }
+    if (
+      typeof node.minHeight === 'number' &&
+      typeof node.maxHeight === 'number' &&
+      node.maxHeight < node.minHeight
+    ) {
+      node.maxHeight = node.minHeight;
+    }
+    const layoutStyle = node.layoutStyle;
+    if (layoutStyle && typeof layoutStyle === 'object' && !Array.isArray(layoutStyle)) {
+      const normalizedStyle = { ...(layoutStyle as Record<string, unknown>) };
+      if (
+        normalizedStyle.overlapOrder !== 'firstOnTop' &&
+        normalizedStyle.overlapOrder !== 'lastOnTop'
+      ) {
+        delete normalizedStyle.overlapOrder;
+      }
+      if (normalizedStyle.includeBordersInLayout !== true)
+        delete normalizedStyle.includeBordersInLayout;
+      node.layoutStyle = normalizedStyle;
+    }
+    nodes[id] = node;
+  }
+  return { ...raw, formatVersion: '2.26', nodes };
+}
 
 export const SUPPORTED_VERSIONS = [
   '1.0',
@@ -55,6 +112,7 @@ export const SUPPORTED_VERSIONS = [
   '2.23',
   '2.24',
   '2.25',
+  '2.26',
 ];
 
 export interface DocumentMigration {
@@ -831,6 +889,11 @@ const migrations: DocumentMigration[] = [
     from: '2.24',
     to: '2.25',
     migrate: (raw) => migrateV224ToV225(raw),
+  },
+  {
+    from: '2.25',
+    to: '2.26',
+    migrate: (raw) => normalizeLayoutSizingFields(raw),
   },
 ];
 

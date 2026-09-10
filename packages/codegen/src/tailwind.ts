@@ -87,6 +87,8 @@ function layoutClasses(node: SemanticNode, b: ClassBuilder) {
     b.classes.push('w-full');
   } else if (layout.width.mode === 'hug') {
     b.classes.push('w-fit');
+  } else if (layout.width.mode === 'relative' || layout.width.mode === 'percent') {
+    b.classes.push(`w-[${layout.width.value}%]`);
   }
 
   if (layout.height.mode === 'fixed' && layout.height.value > 0) {
@@ -95,6 +97,8 @@ function layoutClasses(node: SemanticNode, b: ClassBuilder) {
     b.classes.push('h-full');
   } else if (layout.height.mode === 'hug') {
     b.classes.push('h-fit');
+  } else if (layout.height.mode === 'relative' || layout.height.mode === 'percent') {
+    b.classes.push(`h-[${layout.height.value}%]`);
   }
 
   const pad = layout.padding;

@@ -36,6 +36,7 @@ import {
   createVariableStore,
   type Document,
   documentHasSolo,
+  effectivePaintOrder,
   getEffectiveNode,
   isAnimatedMediaNode,
   isContainer,
@@ -1327,7 +1328,7 @@ export function renderContent(deps: RenderContentDeps): void {
         if (n.children.length > 0) {
           const renderChildren = (ctx: CanvasRenderingContext2D) => {
             const adjIds: string[] = [];
-            for (const childId of n.children) {
+            for (const childId of effectivePaintOrder(doc, n)) {
               const child = doc.nodes[childId];
               if (child?.kind === 'adjustment') {
                 adjIds.push(childId);
@@ -1362,7 +1363,7 @@ export function renderContent(deps: RenderContentDeps): void {
       } else if (n.kind === 'group') {
         if (s.canvasMode === 'outline') {
           const oAdjIds: string[] = [];
-          for (const childId of n.children) {
+          for (const childId of effectivePaintOrder(doc, n)) {
             const child = doc.nodes[childId];
             if (child?.kind === 'adjustment') {
               oAdjIds.push(childId);
@@ -1411,7 +1412,7 @@ export function renderContent(deps: RenderContentDeps): void {
               maxY = wb.y + wb.h;
             }
           } else {
-            for (const childId of n.children) {
+            for (const childId of effectivePaintOrder(doc, n)) {
               parentIndex ??= buildParentIndexMap(doc);
               const b = nodeVisualWorldBounds(doc, childId, resolvedStyles, parentIndex);
               if (b) {
@@ -1461,7 +1462,7 @@ export function renderContent(deps: RenderContentDeps): void {
               }
             } else {
               const gAdjIds: string[] = [];
-              for (const childId of n.children) {
+              for (const childId of effectivePaintOrder(doc, n)) {
                 const child = doc.nodes[childId];
                 if (child?.kind === 'adjustment') {
                   gAdjIds.push(childId);
@@ -1732,7 +1733,7 @@ export function renderContent(deps: RenderContentDeps): void {
           }
         } else {
           const adjIds: string[] = [];
-          for (const childId of n.children) {
+          for (const childId of effectivePaintOrder(doc, n)) {
             const child = doc.nodes[childId];
             if (child?.kind === 'adjustment') {
               adjIds.push(childId);

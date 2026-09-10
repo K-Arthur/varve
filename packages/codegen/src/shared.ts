@@ -11,6 +11,7 @@ import type {
   Document as SceneDocument,
   SceneNode,
 } from '@varve/scene';
+import { effectivePaintOrder } from '@varve/scene';
 import { managedColorToRgba, multiplyAffine, rgbToHex, rotateDeg } from '@varve/shared';
 import type { TargetGap } from './types';
 
@@ -273,5 +274,7 @@ export function shapeVerticesToPoints(s: SceneNode): string {
 
 export function getChildren(doc: SceneDocument, node: SceneNode): SceneNode[] {
   if (node.kind !== 'frame' && node.kind !== 'group') return [];
-  return (node.children ?? []).map((cid: NodeId) => doc.nodes[cid]).filter(Boolean) as SceneNode[];
+  return effectivePaintOrder(doc, node)
+    .map((cid: NodeId) => doc.nodes[cid])
+    .filter(Boolean) as SceneNode[];
 }

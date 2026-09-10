@@ -100,10 +100,12 @@ export interface Spacing {
 }
 
 export interface SizingSpec {
-  mode: 'fixed' | 'hug' | 'fill' | 'percent' | 'auto';
+  mode: 'fixed' | 'hug' | 'fill' | 'relative' | 'percent' | 'auto';
   value: number;
   min?: number;
   max?: number;
+  /** Reference budget for authored percentage sizing. */
+  percentageReference?: 'parent-content' | 'cross-axis' | 'grid-cell' | 'unknown';
 }
 
 export interface BreakpointBehavior {
