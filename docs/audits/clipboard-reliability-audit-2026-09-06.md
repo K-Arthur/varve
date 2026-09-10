@@ -384,3 +384,28 @@ actual decompression/resource behavior. CLIP-13 (owned Firefox Figma clipboard
 captures) and CLIP-15 (Wayland native transport/cancellation lane) remain open;
 ordinary Figma Copy is still unsupported and no private envelope is inferred
 from the native file fixture.
+### Validation follow-up — 2026-09-10
+
+The current `master` checkout was rechecked after the native decoder change:
+
+```text
+./node_modules/.bin/tsc -p packages/import/tsconfig.json --noEmit --pretty false
+passed
+VARVE_TEST_WORKERS=1 ./node_modules/.bin/vitest run packages/import/src/figma.test.ts packages/import/src/service.test.ts --maxWorkers=1 --reporter=dot
+23 tests passed
+VARVE_TEST_WORKERS=1 ./node_modules/.bin/vitest run packages/import/src/svg.test.ts packages/editor/src/clipboard.test.ts packages/editor/src/clipboardRichText.test.ts packages/editor/src/context.import.test.tsx packages/editor/src/dropUtils.test.ts --maxWorkers=1 --reporter=dot
+86 tests passed
+pnpm typecheck:e2e
+passed
+```
+
+The website build completed with 84 generated pages. `pnpm verify:plan`
+selected a full gate because the shared checkout contains concurrent lock,
+toolchain, and validation changes. `pnpm verify:affected` stopped at that
+required escalation. The full gate completed the architecture scan and all
+workspace package typechecks but stopped at its E2E typecheck invocation with
+exit code 1; the exact standalone command above passed immediately afterward.
+The gate also reported pre-existing concurrent formatter and health diagnostics
+in website changelog, Inspector, and editor context files. Those files were
+left untouched to preserve the other workstreams.
+
