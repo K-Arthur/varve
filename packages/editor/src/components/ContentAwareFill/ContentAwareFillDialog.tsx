@@ -4,7 +4,10 @@ import {
   type GenerativeEditMode,
   type GenerativeEditResult,
   GenerativeJobController,
+  getGenerativeEditCapabilities,
   getModelLoader,
+  getNativeGenerativeModelStatus,
+  importNativeGenerativeModel,
   QUALITY_DESCRIPTIONS,
   QUALITY_LABELS,
   runGenerativeEdit,
@@ -22,7 +25,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { replaceImageShapeContent } from '../../imageOperations';
 import { decodeRasterMaskDataUrl, rasterizeAreaSelectionForNode } from '../../tools/selectionMask';
+import { type ExpandPadding, prepareExpandedGenerationInput } from './expandCanvas';
 import {
+  combineMaskCoverage,
+  type MaskCombineOperation,
   maskCoverageFromRgba,
   putMaskCoverage,
   refineGenerativeMask,
@@ -32,6 +38,7 @@ import './ContentAwareFillDialog.css';
 
 const MODEL_ID = 'lama-inpainting';
 const DEFAULT_BRUSH_SIZE = 28;
+const MAX_VARIATIONS = 4;
 
 function maskCoverageDataUrl(coverage: Uint8Array, width: number, height: number): string {
   const canvas = document.createElement('canvas');
@@ -94,6 +101,20 @@ export function ContentAwareFillDialog({
     sourceSignature: string;
     userMaskDataUrl: string;
     inferenceMaskDataUrl: string;
+    userMaskWidth: number;
+    userMaskHeight: number;
+    inferenceMaskWidth: number;
+    inferenceMaskHeight: number;
+    inferenceMaskOffsetX: number;
+    inferenceMaskOffsetY: number;
+    outputFrame: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      sourceWidth: number;
+      sourceHeight: number;
+    };
     result: GenerativeEditResult;
     seed: number;
   } | null>(null);
@@ -107,14 +128,30 @@ export function ContentAwareFillDialog({
   const [quality, setQuality] = useState<ContentAwareFillQuality>('fast');
   const [mode, setMode] = useState<GenerativeEditMode>('remove');
   const [prompt, setPrompt] = useState('');
+  const [negativePrompt, setNegativePrompt] = useState('');
+  const [seed, setSeed] = useState<number | null>(null);
+  const [variationCount, setVariationCount] = useState(1);
+  const [strength, setStrength] = useState(0.75);
+  const [steps, setSteps] = useState(24);
+  const [guidanceScale, setGuidanceScale] = useState(7);
   const [brushSize, setBrushSize] = useState(DEFAULT_BRUSH_SIZE);
   const [maskExpansion, setMaskExpansion] = useState(0);
   const [maskFeather, setMaskFeather] = useState(0);
   const [contextPadding, setContextPadding] = useState(32);
   const [maskOrigin, setMaskOrigin] = useState<'brush' | 'pixel-selection' | 'layer-mask'>('brush');
+  const [maskOperation, setMaskOperation] = useState<MaskCombineOperation>('replace');
   const [modelAvailable, setModelAvailable] = useState(false);
+  const [diffusionModelPath, setDiffusionModelPath] = useState<string | null>(null);
+  const [diffusionModelSize, setDiffusionModelSize] = useState(0);
+  const [diffusionModelReason, setDiffusionModelReason] = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [naturalSize, setNaturalSize] = useState({ w: 0, h: 0 });
+  const [expandPadding, setExpandPadding] = useState<ExpandPadding>({
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  });
 
   type DialogStatus = 'idle' | 'downloading' | 'generating' | 'applying' | 'error';
   const [status, setStatus] = useState<DialogStatus>('idle');
@@ -139,8 +176,18 @@ export function ContentAwareFillDialog({
 
   const isProcessing = status === 'generating' || status === 'applying';
   const hasResult = previewDataUrl != null && result != null;
-  const modeMissingModel = quality === 'ai' && !modelAvailable;
-  const modeAvailable = mode === 'fill' || mode === 'remove';
+  const capabilities = getGenerativeEditCapabilities();
+  const promptNeedsDiffusion =
+    (mode === 'replace' || mode === 'expand' || mode === 'fill') && prompt.trim().length > 0;
+  const usesDiffusion = mode === 'replace' || mode === 'expand' || promptNeedsDiffusion;
+  const modeMissingModel =
+    (!usesDiffusion && quality === 'ai' && !modelAvailable) ||
+    (usesDiffusion && !diffusionModelPath);
+  const modeAvailable = capabilities[mode] && !modeMissingModel;
+  const hasExpandPadding = Object.values(expandPadding).some((value) => value > 0);
+  const canGenerate =
+    (hasMaskStrokes || (mode === 'expand' && hasExpandPadding)) &&
+    (mode !== 'replace' || prompt.trim().length > 0);
 
   const node = nodeId ? state.document.nodes[nodeId] : undefined;
   const isImage = Boolean(node && isImageShape(node));
@@ -201,11 +248,22 @@ export function ContentAwareFillDialog({
     setQuality('fast');
     setMode('remove');
     setPrompt('');
+    setNegativePrompt('');
+    setSeed(null);
+    setVariationCount(1);
+    setStrength(0.75);
+    setSteps(24);
+    setGuidanceScale(7);
     setBrushSize(DEFAULT_BRUSH_SIZE);
     setMaskExpansion(0);
     setMaskFeather(0);
     setContextPadding(32);
     setMaskOrigin('brush');
+    setMaskOperation('replace');
+    setModelAvailable(false);
+    setDiffusionModelPath(null);
+    setDiffusionModelSize(0);
+    setDiffusionModelReason(null);
     setStatus('idle');
     setErrorMessage(null);
     setResult(null);
@@ -223,6 +281,7 @@ export function ContentAwareFillDialog({
     setGenerationProgress(0);
     setGenerationStage('Preparing');
     setNaturalSize({ w: 0, h: 0 });
+    setExpandPadding({ top: 0, right: 0, bottom: 0, left: 0 });
   }, [isOpen]);
 
   useEffect(() => {
@@ -253,6 +312,20 @@ export function ContentAwareFillDialog({
       const available = await loader.isModelAvailable(MODEL_ID);
       if (!cancelled) setModelAvailable(available);
     })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    void getNativeGenerativeModelStatus().then((available) => {
+      if (cancelled) return;
+      setDiffusionModelPath(available.installed ? available.modelPath : null);
+      setDiffusionModelSize(available.sizeBytes);
+      setDiffusionModelReason(available.reason);
+    });
     return () => {
       cancelled = true;
     };
@@ -364,13 +437,32 @@ export function ContentAwareFillDialog({
       const y = (clientY - rect.top) * scaleY;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
-      ctx.fillStyle = 'white';
-      ctx.beginPath();
-      ctx.arc(x, y, brushSize / 2, 0, Math.PI * 2);
-      ctx.fill();
-      if (!hasMaskStrokes) setHasMaskStrokes(true);
+      const current = maskCoverageFromRgba(
+        ctx.getImageData(0, 0, canvas.width, canvas.height).data,
+      );
+      const incoming = new Uint8Array(current.length);
+      const radius = brushSize / 2;
+      const minX = Math.max(0, Math.floor(x - radius));
+      const maxX = Math.min(canvas.width - 1, Math.ceil(x + radius));
+      const minY = Math.max(0, Math.floor(y - radius));
+      const maxY = Math.min(canvas.height - 1, Math.ceil(y + radius));
+      for (let py = minY; py <= maxY; py += 1) {
+        for (let px = minX; px <= maxX; px += 1) {
+          if (Math.hypot(px + 0.5 - x, py + 0.5 - y) <= radius) {
+            incoming[py * canvas.width + px] = 255;
+          }
+        }
+      }
+      const combined = combineMaskCoverage(current, incoming, maskOperation);
+      putMaskCoverage(ctx, combined, {
+        width: canvas.width,
+        height: canvas.height,
+      });
+      if (hasMaskStrokes !== combined.some((value) => value > 0)) {
+        setHasMaskStrokes(combined.some((value) => value > 0));
+      }
     },
-    [brushSize, hasMaskStrokes],
+    [brushSize, hasMaskStrokes, maskOperation],
   );
 
   const handlePointerDown = useCallback(
@@ -428,8 +520,12 @@ export function ContentAwareFillDialog({
         );
         const context = canvas.getContext('2d');
         if (!context) throw new Error('Mask canvas unavailable');
-        putMaskCoverage(context, resized, { width: naturalSize.w, height: naturalSize.h });
-        setHasMaskStrokes(resized.some((value) => value > 0));
+        const current = maskCoverageFromRgba(
+          context.getImageData(0, 0, naturalSize.w, naturalSize.h).data,
+        );
+        const combined = combineMaskCoverage(current, resized, maskOperation);
+        putMaskCoverage(context, combined, { width: naturalSize.w, height: naturalSize.h });
+        setHasMaskStrokes(combined.some((value) => value > 0));
         setMaskOrigin(origin);
         invalidatePreview();
         setErrorMessage(null);
@@ -437,7 +533,7 @@ export function ContentAwareFillDialog({
         announce(err instanceof Error ? err.message : 'The mask could not be loaded');
       }
     },
-    [announce, invalidatePreview, naturalSize.h, naturalSize.w],
+    [announce, invalidatePreview, maskOperation, naturalSize.h, naturalSize.w],
   );
 
   const handleUsePixelSelection = useCallback(() => {
@@ -516,8 +612,43 @@ export function ContentAwareFillDialog({
     downloadAbortRef.current?.abort();
   }, []);
 
+  const handleImportDiffusionModel = useCallback(async () => {
+    try {
+      const tauri = (
+        window as Window & {
+          __TAURI__?: {
+            core?: {
+              invoke: (command: string, args?: Record<string, unknown>) => Promise<unknown>;
+            };
+          };
+        }
+      ).__TAURI__;
+      if (!tauri?.core?.invoke) {
+        throw new Error('Model installation is available in the desktop app only.');
+      }
+      const picked = (await tauri.core.invoke('plugin:dialog|open', {
+        options: {
+          multiple: false,
+          filters: [{ name: 'Diffusion model', extensions: ['safetensors', 'ckpt', 'gguf'] }],
+        },
+      })) as Array<{ path?: string }> | null;
+      const selected = picked?.[0]?.path;
+      if (!selected) return;
+      const imported = await importNativeGenerativeModel(selected);
+      setDiffusionModelPath(imported.installed ? imported.modelPath : null);
+      setDiffusionModelSize(imported.sizeBytes);
+      setDiffusionModelReason(imported.reason);
+      setErrorMessage(null);
+    } catch (err) {
+      setStatus('error');
+      setErrorMessage(
+        err instanceof Error ? err.message : 'The diffusion model could not be installed.',
+      );
+    }
+  }, []);
+
   const handleGenerate = useCallback(async () => {
-    if (!imageSrc || !modeAvailable) return;
+    if (!imageSrc || !modeAvailable || !canGenerate) return;
     const sourceRevision = currentRevisionRef.current;
     const token = jobControllerRef.current.start(sourceRevision);
     setStatus('generating');
@@ -545,15 +676,43 @@ export function ContentAwareFillDialog({
         rawMask[i] = maskImageData.data[i * 4]!;
       }
       const userMaskDataUrl = maskCanvas.toDataURL('image/png');
-      const mask = refineGenerativeMask(
+      const refinedMask = refineGenerativeMask(
         rawMask,
         { width: fullData.width, height: fullData.height },
         { expansion: maskExpansion, feather: maskFeather },
       );
-      const inferenceMaskDataUrl = maskCoverageDataUrl(mask, fullData.width, fullData.height);
-      const generationSeed = sourceRevision + variationSequenceRef.current;
+      const expanded =
+        mode === 'expand'
+          ? prepareExpandedGenerationInput(fullData, refinedMask, expandPadding)
+          : null;
+      const generationImage = expanded?.imageData ?? fullData;
+      const mask = expanded?.mask ?? refinedMask;
+      const maskWidth = expanded?.maskWidth ?? fullData.width;
+      const maskHeight = expanded?.maskHeight ?? fullData.height;
+      const sourceOffsetX = expanded?.sourceOffsetX ?? 0;
+      const sourceOffsetY = expanded?.sourceOffsetY ?? 0;
+      const inferenceMaskDataUrl = maskCoverageDataUrl(mask, maskWidth, maskHeight);
+      const outputFrame = {
+        x: -sourceOffsetX,
+        y: -sourceOffsetY,
+        width: generationImage.width,
+        height: generationImage.height,
+        sourceWidth: fullData.width,
+        sourceHeight: fullData.height,
+      };
+      const generationSeed = seed ?? sourceRevision + variationSequenceRef.current;
+      const needsDiffusion =
+        mode === 'replace' || mode === 'expand' || (mode === 'fill' && prompt.trim().length > 0);
       let modelPath: string | undefined;
-      if (quality === 'ai') {
+      if (needsDiffusion) {
+        if (!diffusionModelPath) {
+          throw new GenerativeEditError(
+            'missing-model',
+            'Install a compatible local diffusion model before using this prompt-capable mode.',
+          );
+        }
+        modelPath = diffusionModelPath;
+      } else if (quality === 'ai') {
         const loader = getModelLoader();
         modelPath = (await loader.getModelPath(MODEL_ID, token.signal)) ?? undefined;
         if (!modelPath) {
@@ -564,54 +723,78 @@ export function ContentAwareFillDialog({
         }
       }
 
-      const generated = await runGenerativeEdit({
-        mode,
-        imageData: fullData,
-        mask,
-        maskWidth: fullData.width,
-        maskHeight: fullData.height,
-        quality: quality === 'fast' ? 'draft' : 'quality',
-        prompt,
-        negativePrompt: '',
-        seed: generationSeed,
-        contextPadding,
-        signal: token.signal,
-        isCurrent: () => jobControllerRef.current.isCurrent(token, currentRevisionRef.current),
-        onProgress: ({ stage, progress }) => {
-          jobControllerRef.current.update(progress, stage);
-          setGenerationProgress(progress);
-          setGenerationStage(stage[0]?.toUpperCase() + stage.slice(1));
-        },
-        modelPath,
-      });
-      if (!jobControllerRef.current.complete(token, currentRevisionRef.current)) {
+      const generatedVariations: Array<{
+        id: string;
+        dataUrl: string;
+        result: GenerativeEditResult;
+        seed: number;
+      }> = [];
+      for (let index = 0; index < variationCount; index += 1) {
+        const variationSeed = generationSeed + index;
+        const generated = await runGenerativeEdit({
+          mode,
+          imageData: generationImage,
+          mask,
+          maskWidth,
+          maskHeight,
+          maskOffsetX: 0,
+          maskOffsetY: 0,
+          quality: quality === 'fast' ? 'draft' : 'quality',
+          prompt,
+          negativePrompt,
+          seed: variationSeed,
+          strength,
+          steps,
+          guidanceScale,
+          contextPadding,
+          outputWidth: generationImage.width,
+          outputHeight: generationImage.height,
+          signal: token.signal,
+          isCurrent: () => jobControllerRef.current.isCurrent(token, currentRevisionRef.current),
+          onProgress: ({ stage, progress }) => {
+            jobControllerRef.current.update(progress, stage);
+            setGenerationProgress((index + progress) / variationCount);
+            setGenerationStage(
+              `${stage[0]?.toUpperCase() + stage.slice(1)} · variation ${index + 1}/${variationCount}`,
+            );
+          },
+          modelPath,
+        });
+        const outCanvas = document.createElement('canvas');
+        outCanvas.width = generated.imageData.width;
+        outCanvas.height = generated.imageData.height;
+        const rctx = outCanvas.getContext('2d');
+        if (!rctx) throw new Error('Canvas unavailable');
+        rctx.putImageData(generated.imageData, 0, 0);
+        generatedVariations.push({
+          id: `variation-${++variationSequenceRef.current}`,
+          dataUrl: outCanvas.toDataURL('image/png'),
+          result: generated,
+          seed: variationSeed,
+        });
+      }
+      const generated = generatedVariations[generatedVariations.length - 1];
+      if (!generated || !jobControllerRef.current.complete(token, currentRevisionRef.current)) {
         throw new GenerativeEditError('stale', 'The source changed while generation was running.');
       }
-
-      const outCanvas = document.createElement('canvas');
-      outCanvas.width = generated.imageData.width;
-      outCanvas.height = generated.imageData.height;
-      const rctx = outCanvas.getContext('2d');
-      if (!rctx) throw new Error('Canvas unavailable');
-      rctx.putImageData(generated.imageData, 0, 0);
-      const dataUrl = outCanvas.toDataURL('image/png');
-      const variationId = `variation-${++variationSequenceRef.current}`;
-
       generationRef.current = {
         sourceSignature,
         userMaskDataUrl,
         inferenceMaskDataUrl,
-        result: generated,
-        seed: generationSeed,
+        userMaskWidth: fullData.width,
+        userMaskHeight: fullData.height,
+        inferenceMaskWidth: maskWidth,
+        inferenceMaskHeight: maskHeight,
+        inferenceMaskOffsetX: -sourceOffsetX,
+        inferenceMaskOffsetY: -sourceOffsetY,
+        outputFrame,
+        result: generated.result,
+        seed: generated.seed,
       };
-      setVariations((current) =>
-        [...current, { id: variationId, dataUrl, result: generated, seed: generationSeed }].slice(
-          -4,
-        ),
-      );
-      setActiveVariationId(variationId);
-      setResult(generated);
-      setPreviewDataUrl(dataUrl);
+      setVariations(generatedVariations.slice(-MAX_VARIATIONS));
+      setActiveVariationId(generated.id);
+      setResult(generated.result);
+      setPreviewDataUrl(generated.dataUrl);
       setShowOriginal(false);
       setStatus('idle');
     } catch (err) {
@@ -625,6 +808,9 @@ export function ContentAwareFillDialog({
     }
   }, [
     contextPadding,
+    canGenerate,
+    diffusionModelPath,
+    expandPadding,
     imageSrc,
     maskExpansion,
     maskFeather,
@@ -633,6 +819,12 @@ export function ContentAwareFillDialog({
     prompt,
     quality,
     sourceSignature,
+    negativePrompt,
+    seed,
+    strength,
+    steps,
+    guidanceScale,
+    variationCount,
   ]);
 
   const handleApply = useCallback(async () => {
@@ -658,8 +850,9 @@ export function ContentAwareFillDialog({
           ? sourceNode.fills?.find((fill) => fill.type === 'image')?.image
           : undefined;
       const editId = `generative-edit-${Date.now()}-${++variationSequenceRef.current}`;
-      const sourceWidth = naturalSize.w || result.width;
-      const sourceHeight = naturalSize.h || result.height;
+      const generatedFrame = generationRef.current.outputFrame;
+      const sourceWidth = generatedFrame.sourceWidth || naturalSize.w || result.width;
+      const sourceHeight = generatedFrame.sourceHeight || naturalSize.h || result.height;
       const sourceAsset = sourceFill?.assetId ? currentDoc.assets?.[sourceFill.assetId] : undefined;
       const sourceSnapshot =
         sourceAsset ??
@@ -669,19 +862,26 @@ export function ContentAwareFillDialog({
           naturalWidth: sourceWidth,
           naturalHeight: sourceHeight,
         });
-      const makeMaskAsset = (suffix: string, dataUrl: string) => ({
+      const makeMaskAsset = (suffix: string, dataUrl: string, width: number, height: number) => ({
         id: `generative-mask-${editId}-${suffix}`,
         mimeType: 'image/png' as const,
         dataUrl,
-        width: sourceWidth,
-        height: sourceHeight,
+        width,
+        height,
         byteLength: decodedDataUrlByteLength(dataUrl),
         checksum: hashContent(dataUrl),
       });
-      const userMaskAsset = makeMaskAsset('user', generationRef.current.userMaskDataUrl);
+      const userMaskAsset = makeMaskAsset(
+        'user',
+        generationRef.current.userMaskDataUrl,
+        generationRef.current.userMaskWidth,
+        generationRef.current.userMaskHeight,
+      );
       const inferenceMaskAsset = makeMaskAsset(
         'inference',
         generationRef.current.inferenceMaskDataUrl,
+        generationRef.current.inferenceMaskWidth,
+        generationRef.current.inferenceMaskHeight,
       );
       // The current compositing path uses the refined coverage. Keep a named
       // reference even when it is byte-identical so future providers can
@@ -689,6 +889,8 @@ export function ContentAwareFillDialog({
       const compositeMaskAsset = makeMaskAsset(
         'composite',
         generationRef.current.inferenceMaskDataUrl,
+        generationRef.current.inferenceMaskWidth,
+        generationRef.current.inferenceMaskHeight,
       );
       const variationEntries =
         variations.length > 0
@@ -717,16 +919,15 @@ export function ContentAwareFillDialog({
       const settings = {
         ...(generationRef.current.seed !== undefined ? { seed: generationRef.current.seed } : {}),
         ...(prompt.trim() ? { prompt } : {}),
+        ...(negativePrompt.trim() ? { negativePrompt } : {}),
         quality: result.quality,
         contextPadding,
         maskExpansion,
         feather: maskFeather,
+        ...(usesDiffusion ? { strength, steps, guidanceScale } : {}),
       };
       const outputFrame = {
-        x: 0,
-        y: 0,
-        width: result.width,
-        height: result.height,
+        ...generatedFrame,
         sourceWidth,
         sourceHeight,
         coordinateSpace: 'source-image-pixels' as const,
@@ -745,16 +946,20 @@ export function ContentAwareFillDialog({
           userMaskAssetId: userMaskAsset.id,
           inferenceMaskAssetId: inferenceMaskAsset.id,
           compositeMaskAssetId: compositeMaskAsset.id,
-          width: sourceWidth,
-          height: sourceHeight,
-          offsetX: 0,
-          offsetY: 0,
+          width: generationRef.current.inferenceMaskWidth,
+          height: generationRef.current.inferenceMaskHeight,
+          offsetX: generationRef.current.inferenceMaskOffsetX,
+          offsetY: generationRef.current.inferenceMaskOffsetY,
           coordinateSpace: 'source-image-pixels' as const,
+          userWidth: generationRef.current.userMaskWidth,
+          userHeight: generationRef.current.userMaskHeight,
+          userOffsetX: 0,
+          userOffsetY: 0,
         },
         outputFrame,
         maskAssetId: userMaskAsset.id,
-        maskWidth: sourceWidth,
-        maskHeight: sourceHeight,
+        maskWidth: generationRef.current.userMaskWidth,
+        maskHeight: generationRef.current.userMaskHeight,
         maskCoordinateSpace: 'source-image-pixels' as const,
         settings,
         provider: result.provider,
@@ -766,11 +971,7 @@ export function ContentAwareFillDialog({
           createdAt: now,
           seed: variation.seed,
           settings: { ...settings, seed: variation.seed },
-          outputFrame: {
-            ...outputFrame,
-            width: variation.result.width,
-            height: variation.result.height,
-          },
+          outputFrame: { ...outputFrame },
           provider: variation.result.provider,
         })),
         activeVariationId: activeVariation.id,
@@ -799,6 +1000,16 @@ export function ContentAwareFillDialog({
         generativeEditId: editId,
         width: result.width,
         height: result.height,
+        ...(mode === 'expand'
+          ? {
+              outputFrame: {
+                sourceOffsetX: -outputFrame.x,
+                sourceOffsetY: -outputFrame.y,
+                sourceWidth,
+                sourceHeight,
+              },
+            }
+          : {}),
       });
       const record = { ...recordBase, resultNodeId: nodeId };
       beginTransaction();
@@ -843,8 +1054,14 @@ export function ContentAwareFillDialog({
     setSelection,
     updateDoc,
     announce,
+    negativePrompt,
     onApplied,
     onClose,
+    prompt,
+    strength,
+    steps,
+    guidanceScale,
+    usesDiffusion,
   ]);
 
   if (!isOpen && !dialogRef.current?.open) return null;
@@ -926,15 +1143,20 @@ export function ContentAwareFillDialog({
             </div>
             <p className="caf-dialog__hint">
               {modeAvailable
-                ? 'Paint the pixels to regenerate. The source layer stays untouched.'
-                : 'This mode is staged in the workflow, but needs a verified prompt-capable provider.'}
+                ? mode === 'expand'
+                  ? 'Set one or more sides to extend. Original pixels keep their world position.'
+                  : 'Paint the pixels to regenerate. The source is retained for Restore Original.'
+                : (capabilities.reason ?? diffusionModelReason ?? 'This mode is unavailable.')}
             </p>
           </div>
 
           {(mode === 'fill' || mode === 'replace' || mode === 'expand') && (
             <div className="caf-dialog__section">
               <label className="caf-dialog__label" htmlFor="caf-dialog-prompt">
-                Prompt <span className="caf-dialog__optional">optional</span>
+                Prompt{' '}
+                <span className="caf-dialog__optional">
+                  {mode === 'replace' ? 'required' : 'optional'}
+                </span>
               </label>
               <textarea
                 id="caf-dialog-prompt"
@@ -949,9 +1171,28 @@ export function ContentAwareFillDialog({
                 aria-describedby="caf-dialog-prompt-note caf-dialog-provider-note"
               />
               <p id="caf-dialog-prompt-note" className="caf-dialog__hint">
-                The local provider uses the source and mask, not prompt conditioning; this text is
-                not sent or retained.
+                {capabilities.prompt
+                  ? 'Sent only to the locally installed diffusion model; it never leaves this device.'
+                  : 'Prompt conditioning is unavailable in the browser. Install the desktop diffusion model to use it.'}
               </p>
+              {capabilities.prompt && (
+                <>
+                  <label className="caf-dialog__label" htmlFor="caf-dialog-negative-prompt">
+                    Negative prompt <span className="caf-dialog__optional">optional</span>
+                  </label>
+                  <textarea
+                    id="caf-dialog-negative-prompt"
+                    className="caf-dialog__prompt"
+                    value={negativePrompt}
+                    onChange={(event) => {
+                      setNegativePrompt(event.target.value);
+                      invalidatePreview();
+                    }}
+                    placeholder="Things to avoid"
+                    rows={2}
+                  />
+                </>
+              )}
             </div>
           )}
 
@@ -960,10 +1201,97 @@ export function ContentAwareFillDialog({
             <span>
               <strong>Local processing</strong>
               <small>
-                {quality === 'fast' ? 'PatchMatch · no download' : 'LaMa · stored on this device'}
+                {mode === 'replace' || mode === 'expand' || promptNeedsDiffusion
+                  ? diffusionModelPath
+                    ? `Diffusion · ${Math.round(diffusionModelSize / 1_000_000)} MB · local`
+                    : 'Diffusion model required · local only'
+                  : quality === 'fast'
+                    ? 'PatchMatch · no download'
+                    : 'LaMa · stored on this device'}
               </small>
             </span>
           </div>
+
+          {(mode === 'replace' || mode === 'expand' || promptNeedsDiffusion) && (
+            <div className="caf-dialog__section">
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                onClick={() => void handleImportDiffusionModel()}
+                disabled={!capabilities.prompt || isProcessing}
+              >
+                {diffusionModelPath ? 'Replace Diffusion Model' : 'Install Diffusion Model'}
+              </Button>
+              <p className="caf-dialog__hint">
+                {diffusionModelPath
+                  ? 'The model is managed in Varve storage and used offline.'
+                  : 'Select a compatible SD 1.5/SDXL inpainting model. Browser generation is unavailable.'}
+              </p>
+            </div>
+          )}
+
+          {usesDiffusion && (
+            <div className="caf-dialog__refinement-grid">
+              <div className="caf-dialog__section">
+                <label className="caf-dialog__label" htmlFor="caf-dialog-strength">
+                  Strength: {Math.round(strength * 100)}%
+                </label>
+                <input
+                  id="caf-dialog-strength"
+                  type="range"
+                  className="varve-native-range caf-dialog__range"
+                  min={0.1}
+                  max={1}
+                  step={0.05}
+                  value={strength}
+                  onChange={(event) => {
+                    setStrength(Number(event.target.value));
+                    invalidatePreview();
+                  }}
+                  disabled={isProcessing}
+                />
+              </div>
+              <div className="caf-dialog__section">
+                <label className="caf-dialog__label" htmlFor="caf-dialog-steps">
+                  Steps: {steps}
+                </label>
+                <input
+                  id="caf-dialog-steps"
+                  type="range"
+                  className="varve-native-range caf-dialog__range"
+                  min={4}
+                  max={100}
+                  step={1}
+                  value={steps}
+                  onChange={(event) => {
+                    setSteps(Number(event.target.value));
+                    invalidatePreview();
+                  }}
+                  disabled={isProcessing}
+                />
+              </div>
+              <div className="caf-dialog__section">
+                <label className="caf-dialog__label" htmlFor="caf-dialog-guidance">
+                  Guidance: {guidanceScale}
+                </label>
+                <input
+                  id="caf-dialog-guidance"
+                  type="range"
+                  className="varve-native-range caf-dialog__range"
+                  min={0}
+                  max={20}
+                  step={0.5}
+                  value={guidanceScale}
+                  onChange={(event) => {
+                    setGuidanceScale(Number(event.target.value));
+                    invalidatePreview();
+                  }}
+                  disabled={isProcessing}
+                />
+              </div>
+            </div>
+          )}
 
           <div className="caf-dialog__section">
             <span className="caf-dialog__label">Mask source</span>
@@ -996,6 +1324,31 @@ export function ContentAwareFillDialog({
                 Invert
               </Button>
             </div>
+            <fieldset className="caf-dialog__mask-operations">
+              <legend className="caf-dialog__label">Mask operation</legend>
+              {(
+                [
+                  ['replace', 'Replace'],
+                  ['add', 'Add'],
+                  ['subtract', 'Subtract'],
+                  ['intersect', 'Intersect'],
+                ] as const
+              ).map(([operation, label]) => (
+                <button
+                  key={operation}
+                  type="button"
+                  className={`caf-dialog__mask-operation${maskOperation === operation ? ' caf-dialog__mask-operation--active' : ''}`}
+                  aria-pressed={maskOperation === operation}
+                  disabled={hasResult || isProcessing}
+                  onClick={() => {
+                    setMaskOperation(operation);
+                    announce(`Mask operation: ${label}`);
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </fieldset>
             <p className="caf-dialog__hint" aria-live="polite">
               {maskOrigin === 'pixel-selection'
                 ? 'Using the current document pixel selection.'
@@ -1004,6 +1357,35 @@ export function ContentAwareFillDialog({
                   : 'Paint directly on the source to define the edit region.'}
             </p>
           </div>
+
+          {mode === 'expand' && (
+            <div className="caf-dialog__section">
+              <span className="caf-dialog__label">Expansion (source pixels)</span>
+              <div className="caf-dialog__expand-grid">
+                {(['top', 'right', 'bottom', 'left'] as const).map((side) => (
+                  <label key={side} className="caf-dialog__expand-field">
+                    <span>{side}</span>
+                    <input
+                      id={`caf-expand-${side}`}
+                      type="number"
+                      min={0}
+                      max={1024}
+                      step={1}
+                      value={expandPadding[side]}
+                      onChange={(event) => {
+                        const value = Math.max(0, Math.min(1024, Number(event.target.value) || 0));
+                        setExpandPadding((current) => ({ ...current, [side]: value }));
+                        invalidatePreview();
+                      }}
+                    />
+                  </label>
+                ))}
+              </div>
+              <p className="caf-dialog__hint">
+                Expansion generates only the new bounds; existing pixels are copied unchanged.
+              </p>
+            </div>
+          )}
 
           <div className="caf-dialog__section">
             <span className="caf-dialog__label">Quality</span>
@@ -1081,13 +1463,13 @@ export function ContentAwareFillDialog({
           <div className="caf-dialog__refinement-grid">
             <div className="caf-dialog__section">
               <label className="caf-dialog__label" htmlFor="caf-dialog-mask-expansion">
-                Expand mask: {maskExpansion}px
+                {maskExpansion < 0 ? 'Shrink mask' : 'Grow mask'}: {Math.abs(maskExpansion)}px
               </label>
               <input
                 id="caf-dialog-mask-expansion"
                 type="range"
                 className="varve-native-range caf-dialog__range"
-                min={0}
+                min={-64}
                 max={64}
                 step={1}
                 value={maskExpansion}
@@ -1133,6 +1515,41 @@ export function ContentAwareFillDialog({
                 }}
               />
             </div>
+          </div>
+
+          <div className="caf-dialog__section">
+            <label className="caf-dialog__label" htmlFor="caf-dialog-variation-count">
+              Variations
+            </label>
+            <input
+              id="caf-dialog-variation-count"
+              type="number"
+              min={1}
+              max={MAX_VARIATIONS}
+              step={1}
+              value={variationCount}
+              onChange={(event) =>
+                setVariationCount(
+                  Math.max(1, Math.min(MAX_VARIATIONS, Number(event.target.value) || 1)),
+                )
+              }
+              disabled={!capabilities.variations || hasResult || isProcessing}
+            />
+            <label className="caf-dialog__label" htmlFor="caf-dialog-seed">
+              Seed <span className="caf-dialog__optional">optional</span>
+            </label>
+            <input
+              id="caf-dialog-seed"
+              type="number"
+              value={seed ?? ''}
+              placeholder="Random per generation"
+              onChange={(event) => {
+                const value = event.target.value.trim();
+                setSeed(value === '' ? null : Number(value));
+                invalidatePreview();
+              }}
+              disabled={isProcessing}
+            />
           </div>
 
           {!hasResult && (
@@ -1183,7 +1600,7 @@ export function ContentAwareFillDialog({
                 type="button"
                 variant="secondary"
                 size="sm"
-                disabled={!modeAvailable || modeMissingModel || !hasMaskStrokes}
+                disabled={!modeAvailable || !canGenerate}
                 onClick={handleGenerate}
               >
                 {hasResult

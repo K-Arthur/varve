@@ -1,6 +1,7 @@
 import type { SceneNode } from '@varve/scene';
 import { imageShapeSrc, isImageShape } from '@varve/scene';
 import { useEditor } from '../../../context';
+import { restoreImageShapeContent } from '../../../imageOperations';
 import { DisclosureSection } from '../controls/DisclosureSection';
 
 interface ContentAwareFillSectionProps {
@@ -28,28 +29,14 @@ export function ContentAwareFillSection({ nodes, onOpenDialog }: ContentAwareFil
 
   const restoreOriginal = () => {
     if (!sourceAsset) return;
-    const fills = (typedNode.fills ?? []).map((fill, index) => {
-      if (index !== 0 || fill.type !== 'image' || !fill.image) return fill;
-      return {
-        ...fill,
-        image: {
-          ...fill.image,
-          src: sourceAsset.dataUrl,
-          assetId: sourceAsset.id,
-          imageWidth: sourceAsset.naturalWidth,
-          imageHeight: sourceAsset.naturalHeight,
-        },
-      };
-    });
     beginTransaction();
     try {
-      updateDoc((doc) => ({
-        ...doc,
-        nodes: {
-          ...doc.nodes,
-          [typedNode.id]: { ...typedNode, fills, generativeEditId: undefined },
-        },
-      }));
+      updateDoc((doc) =>
+        restoreImageShapeContent(doc, typedNode.id, {
+          sourceAsset,
+          outputFrame: acceptedEdit?.mode === 'expand' ? acceptedEdit.outputFrame : undefined,
+        }),
+      );
       commitTransaction();
       announce('Restored the original image');
     } catch (error) {

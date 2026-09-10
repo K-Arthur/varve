@@ -1,9 +1,10 @@
-import { createDocument, makeImageShapeNode } from '@varve/scene';
+import { createDocument, createEmbeddedAsset, makeImageShapeNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
   insertDerivedImageShape,
   insertTraceGroup,
   replaceImageShapeContent,
+  restoreImageShapeContent,
   selectedImageShape,
 } from './imageOperations';
 
@@ -48,6 +49,68 @@ describe('replaceImageShapeContent', () => {
     expect(updated.fills?.[0]).toMatchObject({
       type: 'image',
       image: { src: 'data:image/png;base64,BBBB', assetId: 'asset-output' },
+    });
+  });
+
+  it('expands the image frame while preserving the old pixels world position', () => {
+    const doc = imageDoc();
+    const next = replaceImageShapeContent(doc, 'img1', {
+      dataUrl: 'data:image/png;base64,EXPANDED',
+      assetId: 'asset-expanded',
+      width: 32,
+      height: 24,
+      outputFrame: {
+        sourceOffsetX: 6,
+        sourceOffsetY: 4,
+        sourceWidth: 20,
+        sourceHeight: 10,
+      },
+    });
+    const updated = next.nodes.img1;
+    if (updated?.kind !== 'shape') throw new Error('expected shape');
+    expect(updated.shape).toMatchObject({ kind: 'rect', w: 32, h: 24 });
+    expect(updated.transform).toEqual([1, 0, 0, 1, -1, 3]);
+  });
+
+  it('restores source pixels and bounds after an expanded edit', () => {
+    const doc = imageDoc();
+    const source = createEmbeddedAsset({
+      dataUrl: 'data:image/png;base64,AAAA',
+      mimeType: 'image/png',
+      naturalWidth: 20,
+      naturalHeight: 10,
+    });
+    const expanded = replaceImageShapeContent(doc, 'img1', {
+      dataUrl: 'data:image/png;base64,EXPANDED',
+      assetId: 'asset-expanded',
+      width: 32,
+      height: 24,
+      outputFrame: {
+        sourceOffsetX: 6,
+        sourceOffsetY: 4,
+        sourceWidth: 20,
+        sourceHeight: 10,
+      },
+    });
+    const restored = restoreImageShapeContent(expanded, 'img1', {
+      sourceAsset: source,
+      outputFrame: {
+        x: -6,
+        y: -4,
+        width: 32,
+        height: 24,
+        sourceWidth: 20,
+        sourceHeight: 10,
+      },
+    });
+    const image = restored.nodes.img1;
+    if (image?.kind !== 'shape') throw new Error('expected shape');
+    expect(image.shape).toMatchObject({ kind: 'rect', w: 20, h: 10 });
+    expect(image.transform).toEqual([1, 0, 0, 1, 5, 7]);
+    expect(image.generativeEditId).toBeUndefined();
+    expect(image.fills?.[0]).toMatchObject({
+      type: 'image',
+      image: { assetId: source.id, src: source.dataUrl, imageWidth: 20, imageHeight: 10 },
     });
   });
 });

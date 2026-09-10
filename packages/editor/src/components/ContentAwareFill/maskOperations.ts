@@ -79,6 +79,72 @@ function maxFilterColumns(
   return result;
 }
 
+function minFilterRows(
+  mask: Uint8Array,
+  width: number,
+  height: number,
+  radius: number,
+): Uint8Array {
+  if (radius === 0) return mask.slice();
+  const result = new Uint8Array(mask.length);
+  const deque = new Int32Array(width);
+
+  for (let y = 0; y < height; y += 1) {
+    let head = 0;
+    let tail = 0;
+    const add = (x: number) => {
+      const value = mask[y * width + x]!;
+      while (tail > head && mask[y * width + deque[tail - 1]!]! >= value) tail -= 1;
+      deque[tail++] = x;
+    };
+    for (let x = 0; x <= Math.min(width - 1, radius); x += 1) add(x);
+    for (let x = 0; x < width; x += 1) {
+      if (x < radius || x + radius >= width) {
+        result[y * width + x] = 0;
+        continue;
+      }
+      if (x > 0 && x + radius < width) add(x + radius);
+      const left = x - radius;
+      while (tail > head && deque[head]! < left) head += 1;
+      result[y * width + x] = head < tail ? mask[y * width + deque[head]!]! : mask[y * width + x]!;
+    }
+  }
+  return result;
+}
+
+function minFilterColumns(
+  mask: Uint8Array,
+  width: number,
+  height: number,
+  radius: number,
+): Uint8Array {
+  if (radius === 0) return mask.slice();
+  const result = new Uint8Array(mask.length);
+  const deque = new Int32Array(height);
+
+  for (let x = 0; x < width; x += 1) {
+    let head = 0;
+    let tail = 0;
+    const add = (y: number) => {
+      const value = mask[y * width + x]!;
+      while (tail > head && mask[deque[tail - 1]! * width + x]! >= value) tail -= 1;
+      deque[tail++] = y;
+    };
+    for (let y = 0; y <= Math.min(height - 1, radius); y += 1) add(y);
+    for (let y = 0; y < height; y += 1) {
+      if (y < radius || y + radius >= height) {
+        result[y * width + x] = 0;
+        continue;
+      }
+      if (y > 0 && y + radius < height) add(y + radius);
+      const top = y - radius;
+      while (tail > head && deque[head]! < top) head += 1;
+      result[y * width + x] = head < tail ? mask[deque[head]! * width + x]! : mask[y * width + x]!;
+    }
+  }
+  return result;
+}
+
 function blurRows(mask: Uint8Array, width: number, height: number, radius: number): Uint8Array {
   const result = new Uint8Array(mask.length);
   for (let y = 0; y < height; y += 1) {
@@ -136,7 +202,7 @@ export function refineGenerativeMask(
   if (!validDimensions(dimensions) || mask.length !== dimensions.width * dimensions.height) {
     throw new Error('Generative mask dimensions are invalid');
   }
-  const expansion = Math.max(0, Math.min(64, Math.round(options.expansion ?? 0)));
+  const expansion = Math.max(-64, Math.min(64, Math.round(options.expansion ?? 0)));
   const feather = Math.max(0, Math.min(64, Math.round(options.feather ?? 0)));
   let refined = mask.slice() as Uint8Array;
   if (expansion > 0) {
@@ -145,6 +211,14 @@ export function refineGenerativeMask(
       dimensions.width,
       dimensions.height,
       expansion,
+    );
+  } else if (expansion < 0) {
+    const radius = Math.abs(expansion);
+    refined = minFilterColumns(
+      minFilterRows(refined, dimensions.width, dimensions.height, radius),
+      dimensions.width,
+      dimensions.height,
+      radius,
     );
   }
   if (feather > 0) {
@@ -156,6 +230,31 @@ export function refineGenerativeMask(
     );
   }
   return refined;
+}
+
+export type MaskCombineOperation = 'replace' | 'add' | 'subtract' | 'intersect';
+
+/** Combine two aligned soft masks without destroying fractional coverage. */
+export function combineMaskCoverage(
+  current: Uint8Array,
+  incoming: Uint8Array,
+  operation: MaskCombineOperation,
+): Uint8Array {
+  if (current.length !== incoming.length) throw new Error('Mask dimensions are invalid');
+  const result = new Uint8Array(current.length);
+  for (let index = 0; index < result.length; index += 1) {
+    const left = current[index]!;
+    const right = incoming[index]!;
+    result[index] =
+      operation === 'replace'
+        ? right
+        : operation === 'add'
+          ? Math.max(left, right)
+          : operation === 'subtract'
+            ? Math.round((left * (255 - right)) / 255)
+            : Math.min(left, right);
+  }
+  return result;
 }
 
 /** Read the coverage channel used by both selection masks and RGBA PNG masks. */

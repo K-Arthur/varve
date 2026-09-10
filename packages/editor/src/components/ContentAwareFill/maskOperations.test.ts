@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { maskCoverageFromRgba, putMaskCoverage, refineGenerativeMask } from './maskOperations';
+import {
+  combineMaskCoverage,
+  maskCoverageFromRgba,
+  putMaskCoverage,
+  refineGenerativeMask,
+} from './maskOperations';
 
 describe('generative mask operations', () => {
   it('expands a single selected pixel without mutating the source', () => {
@@ -24,6 +29,29 @@ describe('generative mask operations', () => {
     expect(feathered[1]).toBeGreaterThan(feathered[2]!);
     expect(feathered[2]).toBeGreaterThan(0);
     expect(feathered[4]).toBe(0);
+  });
+
+  it('shrinks a selected region without changing the input mask', () => {
+    const source = new Uint8Array(25).fill(255);
+    const shrunk = refineGenerativeMask(source, { width: 5, height: 5 }, { expansion: -1 });
+
+    expect([...source].every((value) => value === 255)).toBe(true);
+    expect([...shrunk]).toEqual([
+      0, 0, 0, 0, 0, 0, 255, 255, 255, 0, 0, 255, 255, 255, 0, 0, 255, 255, 255, 0, 0, 0, 0, 0, 0,
+    ]);
+  });
+
+  it('combines hard and soft masks with explicit operations', () => {
+    const current = Uint8Array.from([0, 100, 255]);
+    const incoming = Uint8Array.from([128, 200, 128]);
+    expect(combineMaskCoverage(current, incoming, 'replace')).toEqual(incoming);
+    expect(combineMaskCoverage(current, incoming, 'add')).toEqual(Uint8Array.from([128, 200, 255]));
+    expect(combineMaskCoverage(current, incoming, 'subtract')).toEqual(
+      Uint8Array.from([0, 22, 127]),
+    );
+    expect(combineMaskCoverage(current, incoming, 'intersect')).toEqual(
+      Uint8Array.from([0, 100, 128]),
+    );
   });
 
   it('reads alpha masks and opaque grayscale masks', () => {

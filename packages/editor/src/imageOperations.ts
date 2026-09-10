@@ -10,6 +10,7 @@ import { fitBezierToContour } from '@varve/engine';
 import {
   addChild,
   type Document,
+  type DocumentAsset,
   getParent,
   imageFill,
   insertNode,
@@ -97,6 +98,31 @@ export interface InPlaceImageInput {
   height: number;
   /** Link the displayed source node to its accepted generative recipe. */
   generativeEditId?: string;
+  /**
+   * Expanded output geometry in source pixels. The old source frame is at
+   * (sourceOffsetX, sourceOffsetY) in the new image; the node is translated
+   * through its existing affine transform so those pixels stay in place.
+   */
+  outputFrame?: {
+    sourceOffsetX: number;
+    sourceOffsetY: number;
+    sourceWidth: number;
+    sourceHeight: number;
+  };
+}
+
+export interface RestoreImageInput {
+  /** Immutable source snapshot retained by the accepted generative edit. */
+  sourceAsset: DocumentAsset;
+  /** Expansion frame recorded by the accepted edit, when applicable. */
+  outputFrame?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    sourceWidth: number;
+    sourceHeight: number;
+  };
 }
 
 /**
@@ -130,6 +156,35 @@ export function replaceImageShapeContent(
     };
   });
   if (!replaced) throw new Error('Source does not contain an image fill');
+  const outputFrame = input.outputFrame;
+  if (
+    outputFrame &&
+    (source.shape.kind !== 'rect' ||
+      outputFrame.sourceWidth <= 0 ||
+      outputFrame.sourceHeight <= 0 ||
+      outputFrame.sourceOffsetX < 0 ||
+      outputFrame.sourceOffsetY < 0 ||
+      outputFrame.sourceOffsetX + outputFrame.sourceWidth > input.width ||
+      outputFrame.sourceOffsetY + outputFrame.sourceHeight > input.height)
+  ) {
+    throw new Error('Expanded image output does not have a supported source frame');
+  }
+
+  const expandedGeometry = outputFrame
+    ? {
+        shape: {
+          ...source.shape,
+          w: input.width,
+          h: input.height,
+        },
+        transform: translateLocal(
+          source.transform,
+          -outputFrame.sourceOffsetX,
+          -outputFrame.sourceOffsetY,
+        ),
+      }
+    : {};
+
   return {
     ...doc,
     nodes: {
@@ -137,10 +192,89 @@ export function replaceImageShapeContent(
       [nodeId]: {
         ...source,
         fills,
+        ...expandedGeometry,
         ...(input.generativeEditId ? { generativeEditId: input.generativeEditId } : {}),
       },
     },
   };
+}
+
+/**
+ * Restore an accepted image edit from its embedded source snapshot. For an
+ * expanded result, the accepted node's local origin was moved by the
+ * negative source offset; move it back while restoring the source bounds.
+ * Applying the translation through the current linear transform preserves
+ * later user scale and rotation changes.
+ */
+export function restoreImageShapeContent(
+  doc: Document,
+  nodeId: NodeId,
+  input: RestoreImageInput,
+): Document {
+  const source = doc.nodes[nodeId];
+  if (source?.kind !== 'shape' || !isImageShape(source)) {
+    throw new Error('Source must be an image-filled shape');
+  }
+  let replaced = false;
+  const fills = (source.fills ?? []).map((fill) => {
+    if (replaced || fill.type !== 'image' || !fill.image) return fill;
+    replaced = true;
+    return {
+      ...fill,
+      image: {
+        ...fill.image,
+        src: input.sourceAsset.dataUrl,
+        assetId: input.sourceAsset.id,
+        imageWidth: input.sourceAsset.naturalWidth,
+        imageHeight: input.sourceAsset.naturalHeight,
+      },
+    };
+  });
+  if (!replaced) throw new Error('Source does not contain an image fill');
+
+  const frame = input.outputFrame;
+  if (
+    frame &&
+    (source.shape.kind !== 'rect' ||
+      frame.sourceWidth <= 0 ||
+      frame.sourceHeight <= 0 ||
+      frame.x > 0 ||
+      frame.y > 0 ||
+      frame.x + frame.width < 0 ||
+      frame.y + frame.height < 0)
+  ) {
+    throw new Error('The accepted expansion frame is invalid');
+  }
+  const sourceOffsetX = frame ? -frame.x : 0;
+  const sourceOffsetY = frame ? -frame.y : 0;
+  const geometry = frame
+    ? {
+        shape: { ...source.shape, w: frame.sourceWidth, h: frame.sourceHeight },
+        transform: translateLocal(source.transform, sourceOffsetX, sourceOffsetY),
+      }
+    : {};
+
+  return {
+    ...doc,
+    nodes: {
+      ...doc.nodes,
+      [nodeId]: {
+        ...source,
+        fills,
+        ...geometry,
+        generativeEditId: undefined,
+      },
+    },
+  };
+}
+
+function translateLocal(
+  transform: ShapeNode['transform'],
+  dx: number,
+  dy: number,
+): ShapeNode['transform'] {
+  const [a, b, c, d, e, f] = transform;
+  return [a, b, c, d, e + a * dx + c * dy, f + b * dx + d * dy];
 }
 
 function placeBeside(
