@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   applyDropPosition,
   isDragLeaveOutside,
+  isImportSessionCurrent,
   isPointInsideRect,
   isSupportedFile,
   resolvePasteDestination,
@@ -180,6 +181,30 @@ describe('isSupportedFile', () => {
   it('is case-insensitive', () => {
     expect(isSupportedFile('PHOTO.PNG')).toBe(true);
     expect(isSupportedFile('Drawing.SVG')).toBe(true);
+  });
+});
+
+describe('isImportSessionCurrent', () => {
+  const expected = {
+    documentId: 'doc-1',
+    activeId: 'tab-1',
+    revision: 4,
+    selectionRevision: 9,
+  };
+
+  it('accepts the unchanged destination snapshot', () => {
+    expect(isImportSessionCurrent({ document: { id: 'doc-1' }, ...expected }, expected)).toBe(true);
+  });
+
+  it.each([
+    ['document', { document: { id: 'doc-2' } }],
+    ['tab', { activeId: 'tab-2' }],
+    ['document revision', { revision: 5 }],
+    ['selection revision', { selectionRevision: 10 }],
+  ])('rejects a changed %s before commit', (_label, change) => {
+    expect(
+      isImportSessionCurrent({ document: { id: 'doc-1' }, ...expected, ...change }, expected),
+    ).toBe(false);
   });
 });
 
