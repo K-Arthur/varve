@@ -85,9 +85,9 @@ import { sitePath } from '../../lib/siteUrl';
             <thead><tr><th scope="col">Representation</th><th scope="col">Route</th><th scope="col">Result</th><th scope="col">Known loss</th><th scope="col">Tested platform</th></tr></thead>
             <tbody>
               <tr><th scope="row">Varve fragment</th><td>Copy / Cut / Paste</td><td>Editable layers and supported assets</td><td>Advanced component, style, variable, and motion closure is not yet carried</td><td>Vitest; browser/native lanes pending</td></tr>
-              <tr><th scope="row">SVG</th><td>Copy as SVG / Paste SVG</td><td>Editable supported subset</td><td>Unsupported XML, effects, and semantics are reported</td><td>Chromium/Firefox parser fixtures; visual lane pending</td></tr>
-              <tr><th scope="row">PNG/JPEG/WebP</th><td>Copy as PNG / image paste</td><td>Raster image with alpha where supplied</td><td>Pixels are not editable vectors</td><td>Browser importer; native transport pending</td></tr>
-              <tr><th scope="row">Plain text</th><td>Copy text / Paste text</td><td>Editable canvas text or native caret insertion</td><td>Rich formatting is not yet promised</td><td>Unit coverage; keyboard lane pending</td></tr>
+              <tr><th scope="row">SVG</th><td>External SVG / paste</td><td>Editable supported subset</td><td>Unsupported XML, effects, and semantics are reported</td><td>Chromium/Firefox parser fixtures; visual lane pending</td></tr>
+              <tr><th scope="row">PNG/JPEG/WebP</th><td>External image / paste</td><td>Raster image with alpha where supplied</td><td>Pixels are not editable vectors</td><td>Browser importer; native transport pending</td></tr>
+              <tr><th scope="row">Plain text</th><td>System text / paste</td><td>Editable canvas text or native caret insertion</td><td>Rich formatting is not yet promised</td><td>Unit coverage; keyboard lane pending</td></tr>
               <tr><th scope="row">Figma ordinary Copy</th><td>Private clipboard envelope</td><td>Unsupported / filtered</td><td>No undocumented decoder is enabled</td><td>Unverified until owned Firefox capture</td></tr>
             </tbody>
           </table>
