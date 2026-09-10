@@ -3,12 +3,12 @@ import Layout from '../../../layouts/Layout.astro';
 import { sitePath } from '../../../lib/siteUrl';
 ---
 
-<Layout title="Generative Editing — Varve Docs" description="Use Varve's local, mask-guided generative editing workflow for non-destructive Fill and Remove operations.">
+<Layout title="Generative Editing — Varve Docs" description="Use Varve's local, mask-guided generative editing workflow for Fill and Remove, with desktop prompt modes gated by model qualification.">
   <div class="container-custom">
     <article class="docs-page">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href={sitePath('/docs')}>Documentation</a> / Tools / Generative Editing</nav>
       <h1>Generative Editing</h1>
-      <p class="docs-intro">A mask-guided, local-first workflow for reconstructing image regions while keeping the source layer and accepted result separate.</p>
+      <p class="docs-intro">A mask-guided, local-first workflow for reconstructing image regions while keeping an immutable source snapshot and an editable accepted result.</p>
 
       <section class="docs-section">
         <h2>Open the tool</h2>
@@ -24,7 +24,7 @@ import { sitePath } from '../../../lib/siteUrl';
           <li><strong>Use Layer Mask</strong> imports the selected image's raster layer mask.</li>
           <li><strong>Invert</strong> swaps edit and preserve coverage. <strong>Show mask overlay</strong> lets you inspect the boundary before generating.</li>
         </ul>
-        <p>Expand mask grows the edit region to catch edge contamination. Feather softens the final composite edge. Context controls how much surrounding source imagery is supplied to the local reconstruction. These controls operate in source-image pixels and changing any of them clears the candidate, requiring a fresh preview.</p>
+        <p>Choose Replace, Add, Subtract, or Intersect when combining another mask source. Expand mask grows the edit region to catch edge contamination; a negative value shrinks it. Feather softens the final composite edge. Context controls how much surrounding source imagery is supplied to the local reconstruction. These controls operate in source-image pixels and changing any of them clears the candidate, requiring a fresh preview.</p>
       </section>
 
       <section class="docs-section">
@@ -34,8 +34,8 @@ import { sitePath } from '../../../lib/siteUrl';
           <tbody>
             <tr><td>Fill</td><td>Reconstruct painted pixels from nearby context.</td><td>Local, available</td></tr>
             <tr><td>Remove</td><td>Rebuild the background after painting an unwanted object.</td><td>Local, available</td></tr>
-            <tr><td>Replace</td><td>Replace a region from a text instruction.</td><td>Staged; requires a verified prompt provider</td></tr>
-            <tr><td>Expand</td><td>Synthesize pixels beyond the current image bounds.</td><td>Staged; requires a verified outpainting provider</td></tr>
+            <tr><td>Replace</td><td>Replace a region from a text instruction.</td><td>Desktop only after a local model passes qualification</td></tr>
+            <tr><td>Expand</td><td>Synthesize pixels beyond the current image bounds.</td><td>Desktop only after a local model passes qualification</td></tr>
           </tbody>
         </table>
       </section>
@@ -45,7 +45,8 @@ import { sitePath } from '../../../lib/siteUrl';
         <ul>
           <li><strong>Fast</strong> uses the offline PatchMatch heuristic and needs no model download.</li>
           <li><strong>AI</strong> uses the optional LaMa inpainting model. Download it explicitly; the model is kept in local model storage.</li>
-          <li>LaMa is image-conditioned, not text-conditioned. The prompt field is shown for the shared Fill/Replace/Expand workflow contract but is not used by the current local provider, and prompt text is not stored in the local edit record.</li>
+          <li>LaMa is image-conditioned, not text-conditioned. Prompt-conditioned Fill, Replace, and Expand require an explicitly imported safe-format model that passes the desktop validation run. The browser has no silent remote fallback.</li>
+          <li>Desktop model setup is deliberately two-step: import the local artifact, then choose <strong>Validate Model</strong>. A non-empty model file is not treated as compatible until the production helper completes a masked test.</li>
           <li>There is no silent remote fallback. A future remote provider must state what it uploads and ask for consent immediately before transmission.</li>
         </ul>
       </section>
@@ -53,13 +54,13 @@ import { sitePath } from '../../../lib/siteUrl';
       <section class="docs-section">
         <h2>Review and accept</h2>
         <p>Use Original and Result to compare the source with the generated image. Fit, 1:1, zoom, and Center support both composition review and edge inspection. Regenerate creates a temporary variation entry; selecting a variation changes the candidate without writing document history.</p>
-        <p>Apply inserts the accepted pixels as a sibling image layer in one undoable transaction and selects that new layer. The source remains intact. The document records the source relationship, mask asset, provider/runtime, quality, seed, accepted variation, and placement fingerprint. Rendering the accepted layer does not require the model to be installed.</p>
+        <p>Apply updates the existing image layer in one undoable transaction and preserves its id, ordering, layout, transforms, effects, and relationships. The document retains an immutable source snapshot and records the mask assets, provider/runtime, quality, seed, accepted variation, and placement/output frame. Rendering, reopening, and exporting the accepted result do not require the model to remain installed.</p>
         <p>Undo and redo operate on the embedded scene data and do not run inference again. Save/reopen, Layers, the inspector, clipboard, and export therefore see the same accepted result.</p>
       </section>
 
       <section class="docs-section docs-note">
         <h2>When a result becomes stale</h2>
-        <p>If the source image, placement, or document revision changes while a job is running, the result is discarded instead of being applied to the wrong pixels. Cancel also leaves the document unchanged. Generate again after making edits to the source.</p>
+        <p>If the source image, placement, mask, settings, output frame, target, or document identity changes while a job is running, the result is discarded instead of being applied to the wrong pixels. Unrelated document edits do not invalidate it. Cancel also leaves the document unchanged. Generate again after making edits to the source.</p>
       </section>
 
       <section class="docs-section">

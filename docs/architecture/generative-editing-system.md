@@ -45,19 +45,22 @@ multi-layer, the action announces the requirement and does not open a modal.
 
 The dialog accepts three mask sources: a painted source mask, the current
 document pixel selection, or the selected image's raster layer mask. All three
-are normalized into source-image pixel space before inference. Invert,
-Clear Paint, Show Mask Overlay, brush size, mask expansion, feather, context
-  padding, quality/model choice, prompt (where the staged mode needs it), Fit, 1:1, Original/Result, variation
+are normalized into source-image pixel space before inference. Invert, Clear
+Paint, Show Mask Overlay, brush size, add/subtract/intersect mask operations,
+mask grow/shrink, feather, context padding, quality/model choice, prompt (when
+a ready provider can consume it), Fit, 1:1, Original/Result, variation
 selection, cancellation, and Apply are exposed in the same session. Changing
 the source, mask, or generation settings invalidates the preview rather than
 silently applying a candidate made for an earlier state.
 
 On Apply, the source is revalidated, the accepted result and mask assets are
-embedded, and the generated sibling layer plus `Document.generativeEdits`
-record are written in one editor transaction. The new layer is selected after
-the transaction commits, so the Layers panel, inspector, selection state,
-undo/redo, save/reopen, clipboard, and export all see the same accepted
-result. Undo and redo replay document data; they never invoke inference.
+embedded, and the existing image node is updated in one editor transaction.
+Its id, ordering, transforms, effects, relationships, and selection are
+preserved. The immutable source snapshot and `Document.generativeEdits` record
+are retained for Restore Original, auditability, and later regeneration. The
+Layers panel, inspector, selection state, undo/redo, save/reopen, clipboard,
+and export therefore see the same accepted result. Undo and redo replay
+document data; they never invoke inference.
 
 ## Document model
 
@@ -68,24 +71,27 @@ result. Undo and redo replay document data; they never invoke inference.
 - a source-pixel mask asset and its dimensions;
 - operation (`fill`, `remove`, `replace`, or `expand`);
 - optional provider-consumed prompt, negative prompt, seed, quality, context
-  padding, and mask refinement settings. The current local provider does not
-  consume prompts, so the editor does not persist prompt text for these runs;
+  padding, and mask refinement settings. Prompt text is persisted only when
+  the recorded provider actually consumed it;
 - provider/model/runtime provenance and creation time;
 - variation records, accepted variation id, and compatibility version.
 
-Generated pixels live in `Document.assets`. The accepted result is an ordinary
-image layer linked to the generation record; it is not baked into the original
-source. Missing models therefore affect regeneration only, not rendering of an
-accepted result.
+Generated pixels live in `Document.assets`. The accepted result remains an
+ordinary image asset linked from the original image node and generation record;
+the original source bytes are retained separately. Missing models therefore
+affect regeneration only, not rendering, restore, or export of an accepted
+result.
 
 ## Freshness and history
 
-Every job captures document id, target id, source revision, a source-placement
-fingerprint, and an edit-session id. Applying a result rechecks all keys synchronously before
-starting the editor transaction. A stale, cancelled, deleted-target, or
-closed-document result is discarded. Previewing or changing the active
-variation is transient. Accepting is one undoable transaction; redo reuses the
-embedded result asset.
+Every job captures document id, target id, immutable source asset/hash,
+source-placement fingerprint, mask revision, effective-settings fingerprint,
+output-frame fingerprint, and an edit-session id. Applying a result rechecks
+all source-affecting keys synchronously before starting the editor transaction.
+Unrelated document edits do not invalidate a candidate. A stale, cancelled,
+deleted-target, or closed-document result is discarded. Previewing or changing
+the active variation is transient. Accepting is one undoable transaction; redo
+reuses the embedded result asset.
 
 ## Mask and coordinate contract
 
@@ -105,9 +111,12 @@ mask; transparent source RGB is never treated as meaningful context.
 
 Providers declare capabilities, locality (`local` or `remote`), model id and
 version, required model bytes, supported operation modes, maximum dimensions,
-and cancellation behavior. The editor only exposes settings that the selected
-provider consumes. Model downloads use the existing verified manifest and
-IndexedDB/native storage; binaries do not go to localStorage.
+and cancellation behavior. The native diffusion provider runs in a supervised
+helper process. The renderer receives an opaque qualified model handle, never a
+model filesystem path or model bytes. Imported safe-format artifacts are
+hashed and must pass an actual masked helper run before prompt modes are
+enabled. The current desktop workflow is explicit-import/explicit-validation;
+there is no automatic model download yet.
 
 There is no silent remote fallback. A future remote provider must request
 consent immediately before upload, state the provider and transmitted data,
@@ -122,9 +131,18 @@ flattening, and print preflight paths. A document does not need the original
 model or provider to render an accepted result. Regeneration may be unavailable
 after reload when the model is missing; the accepted result remains available.
 
+## Qualification status and remaining work
+
+The adapter/build integration and deterministic qualification gate are present,
+but a release-quality profile still requires a pinned artifact, model license
+notice, cross-platform backend qualification, real-photograph task corpus, and
+reviewed Fill/Remove/Replace/Expand results. Until that evidence is recorded,
+the product must keep prompt-conditioned modes unavailable and must not use
+their interface presence as marketing evidence.
+
 ## Non-goals for this slice
 
-- claiming text-conditioned Replace/Expand with LaMa;
+- claiming text-conditioned Replace/Expand without a qualified native model;
 - silently uploading a document to a cloud provider;
 - retaining every full-resolution variation decoded in memory;
 - creating a second mask or asset store;

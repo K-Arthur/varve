@@ -1006,7 +1006,7 @@ export function ContentAwareFillDialog({
       const now = Date.now();
       const settings = {
         ...(generationRef.current.seed !== undefined ? { seed: generationRef.current.seed } : {}),
-        ...(prompt.trim() ? { prompt } : {}),
+        ...(result.provider.id === 'varve-diffusion-inpainting' && prompt.trim() ? { prompt } : {}),
         ...(negativePrompt.trim() ? { negativePrompt } : {}),
         quality: result.quality,
         contextPadding,
