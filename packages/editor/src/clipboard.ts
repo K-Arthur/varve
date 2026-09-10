@@ -136,19 +136,72 @@ function parseClipboardNode(value: unknown): SceneNode | null {
   if (!isRecord(value) || typeof value.id !== 'string' || typeof value.kind !== 'string') {
     return null;
   }
+  if (
+    !['shape', 'text', 'group', 'frame', 'table', 'adjustment', 'path', 'rasterLayer'].includes(
+      value.kind,
+    )
+  ) {
+    return null;
+  }
+  if (value.id.length === 0 || value.id.length > 256) return null;
+  if (
+    'transform' in value &&
+    (!Array.isArray(value.transform) ||
+      value.transform.length !== 6 ||
+      value.transform.some((entry) => typeof entry !== 'number' || !Number.isFinite(entry)))
+  ) {
+    return null;
+  }
+  if ((value.kind === 'group' || value.kind === 'frame') && !Array.isArray(value.children)) {
+    return null;
+  }
+  if (
+    (value.kind === 'group' || value.kind === 'frame') &&
+    (value.children as unknown[]).some((child) => typeof child !== 'string' || child.length > 256)
+  ) {
+    return null;
+  }
   if (value.kind !== 'rasterLayer' || value.tiles instanceof Map) {
     return value as unknown as SceneNode;
   }
   if (!isRecord(value.tiles)) return value as unknown as SceneNode;
-  return {
-    ...value,
-    tiles: deserializeTiles(value.tiles as unknown as SerializableTiles),
-  } as unknown as SceneNode;
+  try {
+    return {
+      ...value,
+      tiles: deserializeTiles(value.tiles as unknown as SerializableTiles),
+    } as unknown as SceneNode;
+  } catch {
+    return null;
+  }
+}
+
+function validateNodeGraph(nodes: SceneNode[]): boolean {
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+  const visit = (id: string): boolean => {
+    if (visiting.has(id)) return false;
+    if (visited.has(id)) return true;
+    const node = byId.get(id);
+    if (!node) return false;
+    visiting.add(id);
+    if ((node.kind === 'group' || node.kind === 'frame') && !node.children.every(visit)) {
+      return false;
+    }
+    visiting.delete(id);
+    visited.add(id);
+    return true;
+  };
+  return nodes.every((node) => visit(node.id));
+}
+
+function validResourceMap(value: unknown): boolean {
+  return !value || (isRecord(value) && Object.values(value).every(isRecord));
 }
 
 /** Validate and rehydrate a transport payload before it enters editor state. */
 export function parseClipboardData(text: string): ClipboardData | null {
-  if (text.length > MAX_CLIPBOARD_JSON_BYTES) return null;
+  if (new TextEncoder().encode(text).byteLength > MAX_CLIPBOARD_JSON_BYTES) return null;
   let raw: unknown;
   try {
     raw = JSON.parse(text);
@@ -172,12 +225,34 @@ export function parseClipboardData(text: string): ClipboardData | null {
     ids.add(node.id);
     nodes.push(node);
   }
+  if (!validateNodeGraph(nodes)) return null;
   const rootIds = raw.rootIds;
   if (
     rootIds !== undefined &&
     (!Array.isArray(rootIds) ||
       rootIds.some((id) => typeof id !== 'string' || !ids.has(id)) ||
       new Set(rootIds).size !== rootIds.length)
+  ) {
+    return null;
+  }
+  if (
+    !validResourceMap(raw.rasterMaskAssets) ||
+    !validResourceMap(raw.assets) ||
+    !validResourceMap(raw.iconAssets) ||
+    !validResourceMap(raw.mockupTemplates) ||
+    !validResourceMap(raw.generativeEdits)
+  ) {
+    return null;
+  }
+  if (
+    raw.worldAnchor !== undefined &&
+    (!isRecord(raw.worldAnchor) ||
+      Object.values(raw.worldAnchor).some(
+        (anchor) =>
+          !Array.isArray(anchor) ||
+          anchor.length !== 6 ||
+          anchor.some((entry) => typeof entry !== 'number' || !Number.isFinite(entry)),
+      ))
   ) {
     return null;
   }
