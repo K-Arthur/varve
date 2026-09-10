@@ -168,13 +168,13 @@ mistaken for a parser or placement failure:
 | CLIP-02 | Transport / event lifetime | Paste events are synchronously snapshotted; delayed reads never retain `ClipboardEvent` or `DataTransfer`. **Resolved.** | `clipboard.test.ts`; `Shell.tsx` ownership guard |
 | CLIP-03 | Transport / MIME negotiation | Current, legacy, and web-prefixed Varve MIME types are read from DOM snapshots and async string items. SVG string MIME and SVG `text/plain` fallbacks are retained. **Resolved for strings; native desktop bridge still unverified.** | `clipboard.ts`; focused 55-test run |
 | CLIP-04 | Application / Cut | Names-only text fallback is not treated as an editable transfer. **Resolved in the write contract; end-to-end OS denial coverage remains open.** | `ClipboardWriteOutcome`; Cut tests |
-| CLIP-05 | Application / graph | All ordered roots share one ID map during clone, preserving supported sibling references. **Resolved for node graph references; full component/style/variable/motion closure remains open.** | `scene/clone.ts`; `context.import.test.tsx` |
+| CLIP-05 | Application / graph | All ordered roots share one ID map during clone, preserving supported sibling references. **Resolved for the supported document closure; unsupported external references remain fidelity losses.** | `scene/clone.ts`; `documentCodec.test.ts`; `mergeImportedResources.test.ts` |
 | CLIP-06 | Application / destination | Clipboard fragments no longer construct a temporary document by spreading the destination document. **Resolved for destination-resource leakage.** | `context.tsx`; import tests |
 | CLIP-07 | Transport / ownership | Composed focus paths retain input, textarea, select, dialog, contenteditable, textbox, and embedded editor ownership. Canvas paste prevents the browser default only after it claims the event. **Resolved in unit coverage; native Firefox/WebKit evidence open.** | `isNativeClipboardTarget`; Shell listener |
 | CLIP-08 | Parser / SVG | XML declaration/BOM/comment handling, repeated path tuples, Q/T conversion, bounded arcs, and malformed-tag progress are covered. **Resolved for the reported hangs and regressions; root-transform/viewBox visual evidence open.** | `packages/import/src/svg.test.ts` |
-| CLIP-09 | Application / lifetime | File-picker and drop imports capture document/session/revision/selection identity and cancel before commit when it changes. **Implemented; focused stale-import regression is still to be added.** | `isSessionCurrent`; picker/drop call sites |
+| CLIP-09 | Application / lifetime | File-picker and drop imports capture document/session/revision/selection identity and cancel before commit when it changes. **Resolved in the guard and focused regression; real picker/drop cancellation remains platform evidence.** | `isSessionCurrent`; `dropUtils.test.ts` |
 | CLIP-10 | Application / feedback | Partial and failed import reporting is available in the Import Report path. **Open for paste/drop UI wiring and actual committed-root counts.** | `useFileImport.ts`; Import Report follow-up |
-| CLIP-11 | Parser / rich text | Canvas plain text now inserts an editable text node. Paragraph/line-break and rich-text subset conversion is **open**. | `context.tsx`; no rich-text fixture yet |
+| CLIP-11 | Parser / rich text | Canvas plain text and bounded HTML now insert editable text nodes. Paragraphs, line breaks, whitespace, bold/italic/decoration, font family, and CSS color are supported; unsafe or omitted content produces warnings. **Resolved for the supported subset.** | `clipboardRichText.test.ts`; `context.import.test.tsx` |
 | CLIP-12 | Transport / item identity | File objects are deduplicated by object identity; an SVG string and equivalent SVG file no longer create two logical items. **Resolved for the DOM snapshot route; same-name external application coverage open.** | `clipboard.ts` snapshot tests |
 | CLIP-13 | Figma transport | Ordinary Figma Copy envelope is **unsupported/unverified**. Copy as SVG remains the documented interoperability route until a bounded Firefox fixture proves a safe adapter. | `figma-import-system.md`; fixture lane open |
 | CLIP-14 | Native decode / permission | Native `.fig` decoding and dynamic decompression behavior under the packaged Tauri CSP are **open**. The browser converter and local file route are separate from clipboard. | `docs/architecture/figma-import-system.md`; desktop lane open |
@@ -243,14 +243,40 @@ handles, centered rotated placement, and website clipboard capability tables in
 light, dark, and mobile layouts. Native `.fig` screenshots show the imported
 layers and the expected Import Results report; the report is intentionally
 dismissed by the integration spec before canvas assertions. The full native
-transport, Firefox-owned Figma captures, rich-text formatting, and paste/drop
-Import Results wiring remain open and are not claimed as complete.
+transport, Firefox-owned Figma captures, and paste/drop Import Results wiring
+remain open and are not claimed as complete.
 
 The stale destination guard now has a dedicated `dropUtils.test.ts` regression
 covering unchanged sessions and document, tab, document-revision, and
 selection-revision changes. Its focused run passed 25 tests; this closes the
 unit-test gap in CLIP-09 while the delayed real picker/drop browser lane remains
 platform-dependent.
+
+### Rich-text paste follow-up — 2026-09-10
+
+CLIP-11 is resolved for the bounded supported HTML subset. The editor now has
+an integration regression proving that a captured HTML clipboard item becomes
+an editable text node with paragraph content, line breaks, bold runs, and CSS
+color formatting. The parser continues to omit executable, external, and
+unsupported content and reports those losses.
+
+Evidence:
+
+```text
+cd /tmp/varve-rich && VARVE_TEST_WORKERS=1 \
+  /home/kevina/CodingProjects/varve/node_modules/.bin/vitest run \
+  packages/editor/src/context.import.test.tsx \
+  packages/editor/src/clipboardRichText.test.ts --maxWorkers=1 --reporter=dot
+18 tests passed
+/home/kevina/CodingProjects/varve/node_modules/.bin/biome check \
+  packages/editor/src/context.import.test.tsx \
+  packages/editor/src/clipboardRichText.ts \
+  packages/editor/src/clipboardRichText.test.ts
+passed
+```
+
+Native browser ownership, rich-text shaping across every font/script, and
+paste/drop Import Results remain separate validation or product-surface work.
 
 ### Final validation record — 2026-09-09
 
