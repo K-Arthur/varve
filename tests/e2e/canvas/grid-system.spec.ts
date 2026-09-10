@@ -39,7 +39,9 @@ test.describe('Grid system — real editor controls and visual overlay', () => {
     await expect(showLayoutGuides).toBeChecked();
 
     await page.keyboard.press('f');
-    await dragOnCanvas(page, 180, 140, 620, 500);
+    // Keep the drag clear of the empty-canvas onboarding card, which can
+    // otherwise consume the pointer sequence before the first frame exists.
+    await dragOnCanvas(page, 24, 24, 248, 168);
     await page.keyboard.press('v');
     await page.waitForTimeout(300);
 
