@@ -217,3 +217,11 @@ text through `ImportService` and commits the resulting artifacts through the
 same batch insertion API as file import. PNG scale selection is delegated to
 the renderer callback (1× by default, with 2× and 3× choices); the renderer
 owns transparent output and actual pixel encoding.
+
+Keyboard paste ownership is request-bound from dispatch through insertion. Each
+shortcut creates one `TransferRequest` per gesture and keeps its fallback timer
+keyed by that request. The DOM paste listener claims the oldest pending request
+synchronously, snapshots its `DataTransfer`, cancels only that request's
+fallback, and passes the same identity into the editor paste command. Menu and
+palette calls create a fresh read when no captured snapshot belongs to them, so
+an earlier gesture cannot leak into a later operation.

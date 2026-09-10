@@ -409,3 +409,18 @@ The gate also reported pre-existing concurrent formatter and health diagnostics
 in website changelog, Inspector, and editor context files. Those files were
 left untouched to preserve the other workstreams.
 
+### Request ownership follow-up — 2026-09-10
+
+CLIP-06 is resolved for the browser gesture hand-off. The keyboard path now
+creates one `TransferRequest` per gesture, keeps fallback timers keyed by that
+request, and passes the identity into `EditorProvider.paste`. The synchronous
+DOM listener claims the matching pending request before reading
+`ClipboardEvent.clipboardData`, cancels only that request, and forwards the
+captured snapshot to the same operation. A read without a captured request
+starts a fresh operation instead of reusing a completed gesture's state.
+
+The existing request-isolation regression in
+`packages/editor/src/clipboard.test.ts` covers two same-session snapshots and
+distinct operation IDs. Real Chromium/Firefox repeated-keyboard and native
+Wayland ownership runs remain external validation lanes; no browser result is
+claimed from this contract-level repair.
