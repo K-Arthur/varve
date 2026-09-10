@@ -14,7 +14,7 @@ import {
 
 describe('Document Versioning', () => {
   it('uses the native raster-mask schema version', () => {
-    expect(CURRENT_DOCUMENT_VERSION).toBe('2.24');
+    expect(CURRENT_DOCUMENT_VERSION).toBe('2.25');
     expect(SUPPORTED_VERSIONS).toContain('2.4');
   });
   it('migrates email metadata without changing ordinary documents', () => {
@@ -27,7 +27,7 @@ describe('Document Versioning', () => {
       components: {},
       nextId: 1,
     });
-    expect(migrated?.formatVersion).toBe('2.24');
+    expect(migrated?.formatVersion).toBe('2.25');
     expect(migrated?.emailProfile).toBeUndefined();
     expect(migrated?.emailSemantics).toBeUndefined();
   });
@@ -120,7 +120,7 @@ describe('Document Versioning', () => {
       components: {},
       nextId: 1,
     });
-    expect(migrated?.formatVersion).toBe('2.24');
+    expect(migrated?.formatVersion).toBe('2.25');
     expect(migrated?.generativeEdits).toBeUndefined();
   });
 
@@ -150,10 +150,50 @@ describe('Document Versioning', () => {
       },
     });
 
-    expect(migrated?.formatVersion).toBe('2.24');
+    expect(migrated?.formatVersion).toBe('2.25');
     expect(migrated?.gridSettings).toMatchObject({
       layoutGrids: { frame1: [{ id: 'legacy-guide' }] },
     });
+  });
+});
+
+describe('Generative edit schema migration', () => {
+  it('upgrades v1 records without losing their source or mask recipe', () => {
+    const migrated = migrateDocument({
+      formatVersion: '2.23',
+      generativeEdits: {
+        legacy: {
+          schemaVersion: 1,
+          id: 'legacy',
+          mode: 'remove',
+          sourceNodeId: 'image-1',
+          sourceAssetId: 'source-1',
+          sourceLocator: 'asset:source-1',
+          sourceRevision: 2,
+          placementRevision: 'placement-2',
+          maskAssetId: 'mask-1',
+          maskWidth: 320,
+          maskHeight: 200,
+          maskCoordinateSpace: 'source-image-pixels',
+          settings: { quality: 'balanced', contextPadding: 32, maskExpansion: 0, feather: 0 },
+          provider: { kind: 'local', id: 'varve-lama', runtime: 'wasm' },
+          variations: [{ id: 'v1', assetId: 'output-1', width: 320, height: 200, createdAt: 3 }],
+          createdAt: 3,
+          updatedAt: 4,
+        },
+      },
+    }) as Record<string, unknown>;
+    const edit = (migrated.generativeEdits as Record<string, Record<string, unknown>>).legacy;
+    expect(migrated.formatVersion).toBe('2.25');
+    expect(edit.schemaVersion).toBe(2);
+    expect(edit.sourceSnapshotAssetId).toBe('source-1');
+    expect(edit.masks).toMatchObject({
+      userMaskAssetId: 'mask-1',
+      width: 320,
+      height: 200,
+      coordinateSpace: 'source-image-pixels',
+    });
+    expect(edit.outputFrame).toMatchObject({ width: 320, height: 200 });
   });
 });
 

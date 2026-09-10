@@ -13,8 +13,9 @@ import { migrateV220ToV221 } from './version-migrations-v221';
 import { migrateV221ToV222 } from './version-migrations-v222';
 import { migrateV222ToV223 } from './version-migrations-v223';
 import { migrateV223ToV224 } from './version-migrations-v224';
+import { migrateV224ToV225 } from './version-migrations-v225';
 
-export const CURRENT_DOCUMENT_VERSION = '2.24';
+export const CURRENT_DOCUMENT_VERSION = '2.25';
 
 export const SUPPORTED_VERSIONS = [
   '1.0',
@@ -53,6 +54,7 @@ export const SUPPORTED_VERSIONS = [
   '2.22',
   '2.23',
   '2.24',
+  '2.25',
 ];
 
 export interface DocumentMigration {
@@ -824,6 +826,11 @@ const migrations: DocumentMigration[] = [
     from: '2.23',
     to: '2.24',
     migrate: (raw) => migrateV223ToV224(raw),
+  },
+  {
+    from: '2.24',
+    to: '2.25',
+    migrate: (raw) => migrateV224ToV225(raw),
   },
 ];
 

@@ -6,7 +6,7 @@
  * on an installed model or a provider retaining a response.
  */
 
-export const GENERATIVE_EDIT_SCHEMA_VERSION = 1 as const;
+export const GENERATIVE_EDIT_SCHEMA_VERSION = 2 as const;
 
 export type GenerativeEditMode = 'fill' | 'remove' | 'replace' | 'expand';
 export type GenerativeEditQuality = 'draft' | 'balanced' | 'quality';
@@ -36,6 +36,37 @@ export interface GenerativeEditSettings {
   contextPadding: number;
   maskExpansion: number;
   feather: number;
+  /** Prompt-conditioning strength for providers that expose it. */
+  strength?: number;
+  /** Sampling steps for providers that expose it. */
+  steps?: number;
+  /** Classifier-free guidance for providers that expose it. */
+  guidanceScale?: number;
+}
+
+export interface GenerativeEditMaskSet {
+  /** The mask as edited by the user before provider refinement. */
+  userMaskAssetId: string;
+  /** The provider-facing mask after expansion/feathering. */
+  inferenceMaskAssetId?: string;
+  /** The coverage used by the final source/result composite. */
+  compositeMaskAssetId?: string;
+  width: number;
+  height: number;
+  offsetX: number;
+  offsetY: number;
+  coordinateSpace: 'source-image-pixels';
+}
+
+export interface GenerativeEditOutputFrame {
+  /** Source-image pixel frame containing the generated result. */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  sourceWidth: number;
+  sourceHeight: number;
+  coordinateSpace: 'source-image-pixels';
 }
 
 export interface GenerativeEditVariation {
@@ -44,6 +75,11 @@ export interface GenerativeEditVariation {
   width: number;
   height: number;
   createdAt: number;
+  seed?: number;
+  settings?: GenerativeEditSettings;
+  /** Optional prepared context retained for reproducibility/debugging. */
+  contextAssetId?: string;
+  outputFrame?: GenerativeEditOutputFrame;
   provider?: GenerativeEditProvider;
 }
 
@@ -53,9 +89,14 @@ export interface GenerativeEditRecord {
   mode: GenerativeEditMode;
   sourceNodeId: string;
   sourceAssetId?: string;
+  /** Immutable source snapshot used even if the source fill is later replaced. */
+  sourceSnapshotAssetId?: string;
   sourceLocator: string;
   sourceRevision: number;
   placementRevision: string;
+  masks: GenerativeEditMaskSet;
+  outputFrame: GenerativeEditOutputFrame;
+  /** Compatibility alias retained for readers of the first record shape. */
   maskAssetId: string;
   maskWidth: number;
   maskHeight: number;
@@ -108,7 +149,57 @@ function validSettings(value: unknown): value is GenerativeEditSettings {
     (settings.prompt === undefined || typeof settings.prompt === 'string') &&
     (settings.negativePrompt === undefined || typeof settings.negativePrompt === 'string') &&
     (settings.seed === undefined ||
-      (typeof settings.seed === 'number' && Number.isFinite(settings.seed)))
+      (typeof settings.seed === 'number' && Number.isFinite(settings.seed))) &&
+    (settings.strength === undefined ||
+      (typeof settings.strength === 'number' &&
+        Number.isFinite(settings.strength) &&
+        settings.strength >= 0 &&
+        settings.strength <= 1)) &&
+    (settings.steps === undefined ||
+      (Number.isSafeInteger(settings.steps) && settings.steps > 0 && settings.steps <= 200)) &&
+    (settings.guidanceScale === undefined ||
+      (typeof settings.guidanceScale === 'number' &&
+        Number.isFinite(settings.guidanceScale) &&
+        settings.guidanceScale >= 0 &&
+        settings.guidanceScale <= 50))
+  );
+}
+
+function validMaskSet(value: unknown): value is GenerativeEditMaskSet {
+  if (!value || typeof value !== 'object') return false;
+  const masks = value as Partial<GenerativeEditMaskSet>;
+  return (
+    typeof masks.userMaskAssetId === 'string' &&
+    masks.userMaskAssetId.length > 0 &&
+    (masks.inferenceMaskAssetId === undefined ||
+      (typeof masks.inferenceMaskAssetId === 'string' && masks.inferenceMaskAssetId.length > 0)) &&
+    (masks.compositeMaskAssetId === undefined ||
+      (typeof masks.compositeMaskAssetId === 'string' && masks.compositeMaskAssetId.length > 0)) &&
+    Number.isSafeInteger(masks.width) &&
+    (masks.width ?? 0) > 0 &&
+    Number.isSafeInteger(masks.height) &&
+    (masks.height ?? 0) > 0 &&
+    Number.isSafeInteger(masks.offsetX) &&
+    Number.isSafeInteger(masks.offsetY) &&
+    masks.coordinateSpace === 'source-image-pixels'
+  );
+}
+
+function validOutputFrame(value: unknown): value is GenerativeEditOutputFrame {
+  if (!value || typeof value !== 'object') return false;
+  const frame = value as Partial<GenerativeEditOutputFrame>;
+  return (
+    Number.isSafeInteger(frame.x) &&
+    Number.isSafeInteger(frame.y) &&
+    Number.isSafeInteger(frame.width) &&
+    (frame.width ?? 0) > 0 &&
+    Number.isSafeInteger(frame.height) &&
+    (frame.height ?? 0) > 0 &&
+    Number.isSafeInteger(frame.sourceWidth) &&
+    (frame.sourceWidth ?? 0) > 0 &&
+    Number.isSafeInteger(frame.sourceHeight) &&
+    (frame.sourceHeight ?? 0) > 0 &&
+    frame.coordinateSpace === 'source-image-pixels'
   );
 }
 
@@ -127,7 +218,13 @@ function validVariation(value: unknown): value is GenerativeEditVariation {
     Number.isSafeInteger(height) &&
     (height ?? 0) > 0 &&
     finiteNonNegative(variation.createdAt) &&
-    (variation.provider === undefined || validProvider(variation.provider))
+    (variation.provider === undefined || validProvider(variation.provider)) &&
+    (variation.seed === undefined ||
+      (typeof variation.seed === 'number' && Number.isFinite(variation.seed))) &&
+    (variation.settings === undefined || validSettings(variation.settings)) &&
+    (variation.contextAssetId === undefined ||
+      (typeof variation.contextAssetId === 'string' && variation.contextAssetId.length > 0)) &&
+    (variation.outputFrame === undefined || validOutputFrame(variation.outputFrame))
   );
 }
 
@@ -152,6 +249,14 @@ export function validateGenerativeEdit(value: unknown): string | null {
   }
   if (typeof edit.placementRevision !== 'string' || edit.placementRevision.length === 0) {
     return 'Generative edit placementRevision is required';
+  }
+  if (!validMaskSet(edit.masks)) return 'Generative edit masks are invalid';
+  if (!validOutputFrame(edit.outputFrame)) return 'Generative edit outputFrame is invalid';
+  if (
+    edit.sourceSnapshotAssetId !== undefined &&
+    (typeof edit.sourceSnapshotAssetId !== 'string' || edit.sourceSnapshotAssetId.length === 0)
+  ) {
+    return 'Generative edit sourceSnapshotAssetId is invalid';
   }
   if (typeof edit.maskAssetId !== 'string' || edit.maskAssetId.length === 0) {
     return 'Generative edit maskAssetId is required';

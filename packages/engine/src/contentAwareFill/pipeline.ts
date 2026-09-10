@@ -38,7 +38,13 @@ export async function runLaMaInference(
 ): Promise<LaMaInferResult> {
   if (nativeLaMaProvider.isAvailable()) {
     onProgress?.(0.2);
-    const nativeResult = await nativeLaMaProvider.infer(imageData, mask, signal);
+    const nativeResult = await nativeLaMaProvider.infer(
+      imageData,
+      mask,
+      maskWidth,
+      maskHeight,
+      signal,
+    );
     onProgress?.(1);
     return nativeResult;
   }
@@ -76,10 +82,22 @@ export async function runLaMaInference(
   const output = pickSoleOutputTensor(rawOutputs);
   if (!output) throw new Error('Fill inference did not produce an output tensor');
 
-  const outputDimH = (output.dims[2] as number) ?? (output.dims[1] as number) ?? 512;
-  const outputDimW = (output.dims[3] as number) ?? (output.dims[0] as number) ?? 512;
-  const outputH = Math.max(outputDimH, outputDimW > outputDimH ? outputDimW : outputDimH);
-  const outputW = Math.min(outputDimH, outputDimW > outputDimH ? outputDimW : outputDimH);
+  // LaMa exports are normally NCHW (`[1, 3, height, width]`), but a few
+  // compatible ONNX exports use CHW or HW. Read the trailing spatial pair
+  // instead of inferring orientation from the source aspect ratio: the latter
+  // silently transposes portrait contexts and produces visibly displaced
+  // composites.
+  const spatialDims = output.dims.length >= 2 ? output.dims.slice(-2) : [];
+  const outputH = spatialDims[0] ?? 512;
+  const outputW = spatialDims[1] ?? 512;
+  if (
+    !Number.isSafeInteger(outputW) ||
+    !Number.isSafeInteger(outputH) ||
+    outputW <= 0 ||
+    outputH <= 0
+  ) {
+    throw new Error('Fill inference returned invalid output dimensions');
+  }
 
   const letterbox = rawOutputs.letterbox as { offsetX: number; offsetY: number } | undefined;
 
