@@ -187,6 +187,143 @@ landed earlier the same day. No marketing surface depicts this popover (no
 in the website manifest is a real, pipeline-generated capture rather than a
 hand-coded mock), so no marketing change was needed for this fix.
 
+## Inspector follow-up — Layer Effects and Corner Radius redesign (same day, third pass)
+
+A design-inspiration pass (Figma/Sketch effect-stack and shadow-panel
+references) targeted the two clearest, most-evidenced gaps against that
+reference language: the Layer Effects row and the shadow-family parameter
+layout it expands into, plus the structurally identical per-corner radius
+quad.
+
+### Baseline
+
+Captured from the real running editor with a drop-shadow effect added and
+expanded:
+
+- The effect row was a flat, bottom-border-only strip carrying eight small
+  icon buttons (expand chevron, reset, duplicate, an Eye/EyeOff visibility
+  toggle, a square color swatch, the type label, two reorder chevrons, and
+  remove) with no card container — reading as one continuous utility strip
+  rather than a stack of distinct effects.
+- `ShadowParams` spread X/Y, Angle/Distance, and Blur/Spread across three
+  separate `InspectorFieldGroup` pairs down the column. In the fixed
+  `--space-10` label column, "Distance" truncated to "Distan" — a real,
+  reproducible clipping defect, not a hypothetical one.
+- Opacity rendered as a raw 0–1 decimal ("0.3") instead of a percentage,
+  unlike the established `unit="%"` + `value * 100` / `onChange(v / 100)`
+  pattern already used elsewhere in the Inspector (e.g. `BrushSection`'s
+  Stabilization field).
+- `CornerRadiusSection`'s per-corner TL/TR/BL/BR fields used the same
+  three-separate-pairs layout as the shadow quad.
+
+### Delivered
+
+- Two new shared, reusable primitives in `inspector.css`: `.insp-quad-grid`
+  (a boxed 2×2 grid for grouping related numeric fields — shadow
+  X/Y/Blur/Spread, per-corner radius) and `.insp-icon-field` (a small
+  muted decorative icon ahead of a field's own visible label — the field
+  keeps its text label, so the row stays legible without requiring the
+  reader to have memorized icon meanings first, unlike a pure icon-only
+  chip).
+- `.insp-effect-row` is now a card (border, radius, raised surface) instead
+  of a flat bottom-bordered strip; `.insp-swatch--round` gives the effect
+  and glass-tint color swatches a circular face, matching the Figma/Sketch
+  round color-chip convention.
+- `ShadowParams`: X/Y/Blur/Spread now render as one boxed `.insp-quad-grid`
+  with `MoveHorizontal`/`MoveVertical`/`Focus`/`Expand` icon prefixes;
+  Angle/Distance stay as Varve's own polar-coordinate alternative to the
+  same X/Y pair, now positioned after the quad rather than interleaved
+  with it; "Distance" no longer truncates (`displayLabel="Dist"`, full
+  "Distance" name preserved for assistive tech); Opacity now reads as a
+  percentage.
+- `CornerRadiusSection`'s per-corner fields use the same `.insp-quad-grid`
+  with `CornerUpLeft`/`CornerUpRight`/`CornerDownLeft`/`CornerDownRight`
+  icons.
+- `TypographySection`'s Line height and Letter spacing — previously two
+  full-width stacked fields — now share one `.insp-quad-grid` row with
+  `AlignVerticalSpaceAround`/`AlignHorizontalSpaceAround` icons, matching
+  the paired treatment the reference material shows for this exact field
+  pair. "Letter spacing" gets `displayLabel="Letter sp."` for the same
+  truncation-avoidance reason as ShadowParams' "Distance".
+- **Correction during implementation:** the effect row's visibility toggle
+  was first built as a bespoke `.insp-switch` CSS component (track + thumb
+  on a bare button). Before shipping it, a check of `TypographySection`'s
+  imports surfaced that `@varve/ui`'s `Switch` component already exists and
+  is already used throughout the Inspector via the exact convention
+  `<Switch className="insp-switch" .../>` (`BackgroundRemovalSection`,
+  `ColorizeSection`, `TypographySection`, `LensBlurSection`,
+  `InteractionSection`) — and `Switch.css` already defines
+  `.varve-switch.insp-switch` sizing overrides for this exact context. The
+  bespoke implementation was deleted and replaced with the real shared
+  `<Switch>` component, avoiding shipping a second, colliding definition of
+  the same class name with a different DOM shape.
+
+### Investigated, no change made
+
+Two sections the reference material specifically called out were checked
+against real running output and found to already exceed the reference's
+own capability, not fall short of it:
+
+- **`FramePresetsSection`** already renders a searchable, grouped preset
+  picker (`@varve/ui`'s `PresetPicker`) with favorites, recents, and
+  user-created custom presets (save/rename/duplicate/delete) — materially
+  more capable than the flat categorized dropdown shown in the reference.
+- **`SelectionColorsSection`** already deduplicates paints across the whole
+  selection and shows role (Fill/Stroke/Text/…), reference count, and
+  editability per group — information the reference's flat hex+opacity
+  list does not surface at all. Its square swatch tiles (vs. the new
+  circular effect-row swatches) are a deliberate, precedented distinction:
+  a larger "swatch library" tile grid scales to many distinct document
+  colors better than a vertical list would, the same reasoning Figma
+  itself applies differently across its own swatch contexts.
+
+Changing either to imitate the simpler reference would have been a
+regression, not an improvement, so neither was touched.
+
+### Explicitly deferred (not attempted this pass)
+
+- Pairing Weight+Size into one row in `TypographySection` (per the latest
+  reference image) — Line height+Letter spacing is now paired (above);
+  Weight+Size is a bigger change (a `Select` and a `NumberField` sharing
+  one row, rather than two `NumberField`s) and was not attempted this pass.
+- Extending the Opacity-as-percentage treatment to the canonical
+  `AppearanceSection` and `InspectorQuickBar` Opacity fields. Both are
+  variable-binding-aware (`deriveNumericBindingPresentation`,
+  read-only/bound states) with existing tests asserting the raw 0–1 bound
+  display value; converting them safely requires scaling the bound-value
+  path too and updating those tests deliberately, not as a byproduct of an
+  unrelated change. `ShadowParams`' Opacity (no binding support) was the
+  validated, lower-risk instance of this pattern.
+- Grouped/sectioned blend-mode dropdown options (the reference shows
+  Darken/Lighten/Contrast/Component clusters with a checkmark for the
+  active mode; Varve's `BLEND_OPTIONS` renders as one flat list wherever
+  it's used — `AppearanceSection`, `ShadowParams`, `GlowParams`,
+  `GlitchParams`, `ChromaticAberrationParams`). Worth doing once, in the
+  shared list, not per call site.
+- An icon per effect type in the "new effect" picker (`EFFECT_TYPE_OPTIONS`
+  in `EffectsSection`), matching the reference's icon-per-type add menu.
+- `VariantBox`'s all-caps section title (noted in the Layers pass) remains
+  the same kind of debt as the Selection Sets fix already applied there,
+  in a different component outside this pass's scope.
+
+### Verification
+
+- `pnpm exec vitest run packages/editor/src/components/Inspector` — 602
+  tests across 61 files, unchanged pass rate before and after the `Switch`
+  correction.
+- `tests/e2e/inspector/effects-shadow-redesign.spec.ts` — two scenarios:
+  the effect row's card/switch/round-swatch/boxed-quad structure, and the
+  corner-radius quad. Both confirmed passing against the real running
+  editor.
+- Screenshots of the expanded Drop Shadow row were captured and reviewed
+  directly in light and dark themes, and of the per-corner radius quad, at
+  each step of the implementation (bespoke switch, then the corrected
+  shared-`Switch` version).
+- `pnpm exec vitest run .../TypographySection.test.tsx` — 5/5, after the
+  Line height/Letter spacing pairing (also covered by the 602-test run
+  above, run after this change).
+- `pnpm exec biome check` clean on all changed files.
+
 ## G. Residual design-debt register
 
 | Item | Severity | Reason deferred | Next action |
