@@ -509,7 +509,11 @@ export function CanvasOverlays({
           node={n}
           textScreenRect={textScreenRect}
           onUpdate={(id, changes) =>
-            editor.updateNode(id, (node) => (node.kind === 'text' ? { ...node, ...changes } : node))
+            editor.groupCompoundOperation('Typography', () =>
+              editor.updateNode(id, (node) =>
+                node.kind === 'text' ? { ...node, ...changes } : node,
+              ),
+            )
           }
           onClose={() =>
             finishTextEdit(richTextToPlainText(n.richText ?? plainTextToRichText(n.text)))
