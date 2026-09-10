@@ -140,6 +140,35 @@ async function triggerCafDialog(
   await page.waitForTimeout(300);
 }
 
+async function readEditorDocument(page: import('@playwright/test').Page): Promise<any> {
+  return page.evaluate(() => {
+    const rootEl = document.querySelector('#root > *') as any;
+    if (!rootEl) throw new Error('editor root not found');
+    const fiberKey = Object.keys(rootEl).find((key) => key.startsWith('__reactFiber$'));
+    if (!fiberKey) throw new Error('editor fiber not found');
+    const seen = new Set<any>();
+    let documentState: any = null;
+    (function walk(fiber: any): void {
+      if (!fiber || seen.has(fiber) || documentState) return;
+      seen.add(fiber);
+      let hook = fiber.memoizedState;
+      while (hook) {
+        if (hook.queue) {
+          const state = hook.queue.lastRenderedState;
+          if (state?.document?.nodes) {
+            documentState = state.document;
+            return;
+          }
+        }
+        hook = hook.next;
+      }
+      for (const nextFiber of [fiber.child, fiber.sibling]) walk(nextFiber);
+    })(rootEl[fiberKey]);
+    if (!documentState) throw new Error('editor document state not found');
+    return documentState;
+  });
+}
+
 /**
  * Drop a PNG onto the canvas, then wait for the shape to appear in the
  * layers panel and click it to ensure it is selected.  Returns the node ID.
@@ -512,6 +541,48 @@ test.describe('Content-Aware Fill dialog', () => {
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10_000 });
     await expect(page.locator('[role="treeitem"][aria-selected="true"]')).toHaveCount(1);
     expect(historyWarnings).toEqual([]);
+  });
+
+  test('applies a real photographic edit in place and retains its source recipe', async ({
+    page,
+  }, testInfo) => {
+    const photographicNodeId = await dropImageAndSelect(
+      page,
+      path.join(FIXTURES_DIR, 'real-life-landscape.jpg'),
+    );
+    const before = await readEditorDocument(page);
+    const beforeNode = before.nodes[photographicNodeId];
+    const sourceAssetId = beforeNode?.fills?.find((fill: any) => fill.type === 'image')?.image
+      ?.assetId;
+    expect(sourceAssetId).toBeTruthy();
+
+    await triggerCafDialog(page, photographicNodeId);
+    await paintMaskStroke(page);
+    const generateBtn = page.getByRole('button', { name: /remove && fill/i });
+    await expect(generateBtn).toBeEnabled();
+    await generateBtn.click();
+
+    const applyBtn = page.getByRole('button', { name: /^apply$/i });
+    await expect(applyBtn).toBeEnabled({ timeout: 30_000 });
+    await applyBtn.click();
+    await page.locator('dialog.varve-dialog--caf[open]').waitFor({
+      state: 'hidden',
+      timeout: 5000,
+    });
+
+    const after = await readEditorDocument(page);
+    const afterNode = after.nodes[photographicNodeId];
+    expect(afterNode).toBeTruthy();
+    expect(afterNode.generativeEditId).toBeTruthy();
+    const edit = after.generativeEdits?.[afterNode.generativeEditId];
+    expect(edit?.mode).toBe('remove');
+    expect(edit?.provider.id).toBe('varve-content-aware');
+    expect(edit?.sourceSnapshotAssetId).toBe(sourceAssetId);
+    expect(after.assets?.[sourceAssetId]).toBeTruthy();
+    expect(edit?.variations).toHaveLength(1);
+    expect(after.assets?.[edit.variations[0].assetId]).toBeTruthy();
+
+    await page.screenshot({ path: testInfo.outputPath('real-landscape-applied.png') });
   });
 
   test('undo reverts the CAF apply operation', async ({ page }) => {

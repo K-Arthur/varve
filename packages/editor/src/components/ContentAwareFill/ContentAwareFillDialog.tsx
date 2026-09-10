@@ -185,6 +185,7 @@ export function ContentAwareFillDialog({
   >([]);
   const [activeVariationId, setActiveVariationId] = useState<string | null>(null);
   const [hasMaskStrokes, setHasMaskStrokes] = useState(false);
+  const [maskRevision, setMaskRevision] = useState(0);
   const [showOriginal, setShowOriginal] = useState(false);
   const [previewZoom, setPreviewZoom] = useState<'fit' | 'custom'>('fit');
   const [customZoomBase, setCustomZoomBase] = useState<'fit' | 'natural'>('fit');
@@ -260,7 +261,7 @@ export function ContentAwareFillDialog({
         sourceAssetId,
         sourceHash,
         placementFingerprint: sourceSignature,
-        maskRevision: maskRevisionRef.current,
+        maskRevision,
         settingsFingerprint,
         outputFrameFingerprint: JSON.stringify(mode === 'expand' ? expandPadding : null),
       }
@@ -274,6 +275,12 @@ export function ContentAwareFillDialog({
     setVariations([]);
     setActiveVariationId(null);
     setStatus('idle');
+  }, []);
+
+  const bumpMaskRevision = useCallback(() => {
+    const nextRevision = maskRevisionRef.current + 1;
+    maskRevisionRef.current = nextRevision;
+    setMaskRevision(nextRevision);
   }, []);
 
   useEffect(() => {
@@ -322,6 +329,7 @@ export function ContentAwareFillDialog({
     setMaskOrigin('brush');
     setMaskOperation('replace');
     maskRevisionRef.current = 0;
+    setMaskRevision(0);
     setModelAvailable(false);
     setDiffusionModelInstalled(false);
     setDiffusionModelHandle(null);
@@ -529,9 +537,9 @@ export function ContentAwareFillDialog({
       if (hasMaskStrokes !== combined.some((value) => value > 0)) {
         setHasMaskStrokes(combined.some((value) => value > 0));
       }
-      maskRevisionRef.current += 1;
+      bumpMaskRevision();
     },
-    [brushSize, hasMaskStrokes, maskOperation],
+    [brushSize, bumpMaskRevision, hasMaskStrokes, maskOperation],
   );
 
   const handlePointerDown = useCallback(
@@ -567,9 +575,9 @@ export function ContentAwareFillDialog({
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     setHasMaskStrokes(false);
     setMaskOrigin('brush');
-    maskRevisionRef.current += 1;
+    bumpMaskRevision();
     invalidatePreview();
-  }, [invalidatePreview]);
+  }, [bumpMaskRevision, invalidatePreview]);
 
   const applyMaskCoverage = useCallback(
     (
@@ -598,14 +606,14 @@ export function ContentAwareFillDialog({
         putMaskCoverage(context, combined, { width: naturalSize.w, height: naturalSize.h });
         setHasMaskStrokes(combined.some((value) => value > 0));
         setMaskOrigin(origin);
-        maskRevisionRef.current += 1;
+        bumpMaskRevision();
         invalidatePreview();
         setErrorMessage(null);
       } catch (err) {
         announce(err instanceof Error ? err.message : 'The mask could not be loaded');
       }
     },
-    [announce, invalidatePreview, maskOperation, naturalSize.h, naturalSize.w],
+    [announce, bumpMaskRevision, invalidatePreview, maskOperation, naturalSize.h, naturalSize.w],
   );
 
   const handleUsePixelSelection = useCallback(() => {
@@ -649,9 +657,9 @@ export function ContentAwareFillDialog({
     for (let i = 0; i < coverage.length; i += 1) coverage[i] = 255 - coverage[i]!;
     putMaskCoverage(context, coverage, { width: canvas.width, height: canvas.height });
     setHasMaskStrokes(coverage.some((value) => value > 0));
-    maskRevisionRef.current += 1;
+    bumpMaskRevision();
     invalidatePreview();
-  }, [hasMaskStrokes, invalidatePreview]);
+  }, [bumpMaskRevision, hasMaskStrokes, invalidatePreview]);
 
   const handleDownload = useCallback(async () => {
     setStatus('downloading');
@@ -781,12 +789,11 @@ export function ContentAwareFillDialog({
     const token = jobControllerRef.current.start(jobSnapshot);
     const isCurrentJob = () => {
       const currentSnapshot = currentJobSnapshotRef.current;
-      return currentSnapshot
-        ? jobControllerRef.current.isCurrent(token, {
-            ...currentSnapshot,
-            maskRevision: maskRevisionRef.current,
-          })
-        : false;
+      const candidate = currentSnapshot
+        ? { ...currentSnapshot, maskRevision: maskRevisionRef.current }
+        : null;
+      const current = candidate ? jobControllerRef.current.isCurrent(token, candidate) : false;
+      return current;
     };
     setStatus('generating');
     setErrorMessage(null);
