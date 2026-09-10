@@ -418,10 +418,30 @@ fn write_binary_file_to_folder(
 
 const MAX_NATIVE_CLIPBOARD_ITEMS: usize = 16;
 const MAX_NATIVE_CLIPBOARD_BYTES: usize = 64 * 1024 * 1024;
+const MAX_NATIVE_IMAGE_DIMENSION: u32 = 32_768;
+const MAX_NATIVE_IMAGE_PIXELS: u64 = 64 * 1024 * 1024;
 const NATIVE_CLIPBOARD_DEADLINE: Duration = Duration::from_secs(5);
 
 static NATIVE_CLIPBOARD_CANCELLATIONS: LazyLock<Mutex<HashSet<String>>> =
     LazyLock::new(|| Mutex::new(HashSet::new()));
+
+fn validate_native_image_dimensions(width: u32, height: u32) -> Result<(), String> {
+    if width == 0 || height == 0 {
+        return Err("clipboard image has empty dimensions".into());
+    }
+    if width > MAX_NATIVE_IMAGE_DIMENSION || height > MAX_NATIVE_IMAGE_DIMENSION {
+        return Err(format!(
+            "clipboard image dimensions exceed the {MAX_NATIVE_IMAGE_DIMENSION}px limit"
+        ));
+    }
+    let pixels = u64::from(width)
+        .checked_mul(u64::from(height))
+        .ok_or_else(|| "clipboard image dimensions overflow".to_string())?;
+    if pixels > MAX_NATIVE_IMAGE_PIXELS {
+        return Err("clipboard image exceeds the 64 megapixel limit".into());
+    }
+    Ok(())
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -714,8 +734,11 @@ fn read_clipboard_image_png() -> Result<Option<Vec<u8>>, String> {
         Err(arboard::Error::ContentNotAvailable) => return Ok(None),
         Err(e) => return Err(e.to_string()),
     };
-    let width = img.width as u32;
-    let height = img.height as u32;
+    let width = u32::try_from(img.width)
+        .map_err(|_| "clipboard image width exceeds the supported range".to_string())?;
+    let height = u32::try_from(img.height)
+        .map_err(|_| "clipboard image height exceeds the supported range".to_string())?;
+    validate_native_image_dimensions(width, height)?;
     let rgba = image::RgbaImage::from_raw(width, height, img.bytes.into_owned())
         .ok_or_else(|| "clipboard image buffer size did not match its dimensions".to_string())?;
     let mut png_bytes: Vec<u8> = Vec::new();
@@ -4444,6 +4467,14 @@ fn cancel_print_job(printer_name: String, job_id: u32) -> Result<String, String>
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn native_clipboard_image_dimensions_are_bounded_before_conversion() {
+        assert!(validate_native_image_dimensions(1, 1).is_ok());
+        assert!(validate_native_image_dimensions(32_769, 1).is_err());
+        assert!(validate_native_image_dimensions(8_193, 8_193).is_err());
+        assert!(validate_native_image_dimensions(0, 10).is_err());
+    }
 
     #[cfg(target_os = "linux")]
     #[test]

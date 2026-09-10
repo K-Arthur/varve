@@ -178,7 +178,7 @@ mistaken for a parser or placement failure:
 | CLIP-12 | Transport / item identity | File objects are deduplicated by object identity; an SVG string and equivalent SVG file no longer create two logical items. **Resolved for the DOM snapshot route; same-name external application coverage open.** | `clipboard.ts` snapshot tests |
 | CLIP-13 | Figma transport | Ordinary Figma Copy envelope is **unsupported/unverified**. Copy as SVG remains the documented interoperability route until a bounded Firefox fixture proves a safe adapter. | `figma-import-system.md`; fixture lane open |
 | CLIP-14 | Native decode / permission | Native `.fig` decoding and dynamic decompression behavior under the packaged Tauri CSP are **open**. The browser converter and local file route are separate from clipboard. | `docs/architecture/figma-import-system.md`; desktop lane open |
-| CLIP-15 | Native transport / lifetime | Bounded streaming reads, operation IDs, cancellation cleanup, and a five-second deadline are implemented in the native command and frontend wrapper; the focused Tauri wrapper tests pass. **Packaged Wayland/WebKitGTK ownership and the explicit WDIO lane remain open.** | `apps/desktop/src-tauri/src/lib.rs`; `packages/platform/src/tauri.ts`, `tauri.test.ts`; WDIO lane open |
+| CLIP-15 | Native transport / lifetime | Bounded streaming reads, operation IDs, cancellation cleanup, a five-second deadline, and native image dimension/pixel checks are implemented in the command and frontend wrapper; focused wrapper tests pass. **Packaged Wayland/WebKitGTK ownership and the explicit WDIO lane remain open.** | `apps/desktop/src-tauri/src/lib.rs`; `packages/platform/src/tauri.ts`, `tauri.test.ts`; WDIO lane open |
 
 ### Requirement-to-test mapping
 
@@ -672,3 +672,10 @@ cd /tmp/varve-figma && VARVE_TEST_WORKERS=1 \
   packages/import/src/svg.ts packages/import/src/svg.test.ts
 passed
 ```
+
+### Native image budget follow-up — 2026-09-10
+
+The `arboard` PNG fallback now rejects empty images, dimensions above 32,768px,
+and images above 64 megapixels before constructing an RGBA image or encoding
+PNG. This closes the native dimension-bomb gap; packaged execution and the
+Wayland ownership lane remain external evidence.
