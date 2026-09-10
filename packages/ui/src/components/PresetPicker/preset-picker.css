@@ -54,6 +54,10 @@
     background var(--duration-quick) var(--ease-standard),
     border-color var(--duration-quick) var(--ease-standard);
   min-width: 0;
+  /* The card recipe clips overflow, which drops a flex item's automatic
+     minimum height to zero; without this the scrolling listbox squeezes
+     every tile into a sliver instead of scrolling. */
+  flex-shrink: 0;
 }
 
 .preset-tile:hover,
@@ -107,4 +111,63 @@
 .preset-tile__favorite,
 .preset-tile__menu-trigger {
   flex-shrink: 0;
+}
+
+/* ---------- Compact density: one line per preset (side panels) ---------- */
+.preset-picker[data-density="compact"] .preset-picker__listbox {
+  gap: 1px;
+}
+
+.preset-tile[data-preset-density="compact"] {
+  min-height: var(--space-6);
+  padding-block: 0;
+  gap: var(--space-2);
+  background: transparent;
+  border-color: transparent;
+}
+
+.preset-tile[data-preset-density="compact"]:hover,
+.preset-picker:focus-within .preset-tile[data-preset-density="compact"].preset-tile--highlighted {
+  background: var(--color-surface-hover);
+  border-color: transparent;
+}
+
+.preset-tile[data-preset-density="compact"].preset-tile--selected {
+  border-color: var(--color-interactive-focus-ring);
+}
+
+.preset-tile[data-preset-density="compact"] .preset-tile__preview {
+  width: var(--space-4);
+  height: var(--space-4);
+}
+
+.preset-tile[data-preset-density="compact"] .preset-tile__info {
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.preset-tile[data-preset-density="compact"] .preset-tile__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: var(--font-weight-regular);
+}
+
+.preset-tile[data-preset-density="compact"] .preset-tile__size {
+  flex: 0 0 auto;
+  font-size: var(--font-size-xs);
+}
+
+/* A star on every row reads as an icon wall; reveal it where it is useful:
+   already a favorite, or the row is hovered, highlighted, or focused. */
+.preset-tile[data-preset-density="compact"] .preset-tile__favorite:not([aria-pressed="true"]) {
+  opacity: 0;
+}
+
+.preset-tile[data-preset-density="compact"]:hover .preset-tile__favorite,
+.preset-picker:focus-within
+  .preset-tile[data-preset-density="compact"].preset-tile--highlighted
+  .preset-tile__favorite,
+.preset-tile[data-preset-density="compact"]:focus-within .preset-tile__favorite {
+  opacity: 1;
 }

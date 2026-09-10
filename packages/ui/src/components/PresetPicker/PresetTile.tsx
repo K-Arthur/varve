@@ -3,17 +3,38 @@ import { useRef, useState } from 'react';
 import { IconButton } from '../IconButton';
 import { Menu, type MenuEntry } from '../Menu';
 
-/** Max preview box in px; the preset's proportion is fit inside this. */
-const PREVIEW_BOX = 28;
+/** Max preview box in px per density; the preset's proportion is fit inside. */
+const PREVIEW_BOX = { comfortable: 22, compact: 14 } as const;
+const DIMENSION_SEPARATOR = String.fromCharCode(215);
 
-function previewDims(preset: { width: number; height: number }): { w: number; h: number } {
+export type PresetPickerDensity = keyof typeof PREVIEW_BOX;
+
+function previewDims(
+  preset: { width: number; height: number },
+  box: number,
+): { w: number; h: number } {
+  const min = Math.max(4, Math.round(box / 4));
   const ratio = preset.width / preset.height;
-  if (ratio >= 1) return { w: PREVIEW_BOX, h: Math.max(6, PREVIEW_BOX / ratio) };
-  return { w: Math.max(6, PREVIEW_BOX * ratio), h: PREVIEW_BOX };
+  if (ratio >= 1) return { w: box, h: Math.max(min, box / ratio) };
+  return { w: Math.max(min, box * ratio), h: box };
 }
 
 function formatDimension(value: number): string {
   return String(Math.round(value * 100) / 100);
+}
+
+/** "393 x 852" for pixels; physical units keep their suffix ("8.5 x 11 in"). */
+export function formatPresetSize(preset: Preset): string {
+  const size = `${formatDimension(preset.width)} ${DIMENSION_SEPARATOR} ${formatDimension(preset.height)}`;
+  return preset.unit === 'px' ? size : `${size} ${preset.unit}`;
+}
+
+/** True when the name already states the size ("4 × 6 in"), so a caption would repeat it. */
+export function presetNameRepeatsSize(preset: Preset): boolean {
+  const compact = (value: string) =>
+    value.toLowerCase().replace(new RegExp(DIMENSION_SEPARATOR, 'g'), 'x').replace(/\s+/g, '');
+  const size = `${formatDimension(preset.width)}x${formatDimension(preset.height)}`;
+  return compact(preset.name).includes(size);
 }
 
 export interface PresetTileProps {
@@ -23,6 +44,8 @@ export interface PresetTileProps {
   isHighlighted: boolean;
   isSelected: boolean;
   isFavorite: boolean;
+  /** `compact` renders one line (name, then size) for narrow side panels. */
+  density?: PresetPickerDensity;
   onSelect: () => void;
   onMouseEnter: () => void;
   onToggleFavorite?: () => void;
@@ -46,6 +69,7 @@ export function PresetTile({
   isHighlighted,
   isSelected,
   isFavorite,
+  density = 'comfortable',
   onSelect,
   onMouseEnter,
   onToggleFavorite,
@@ -53,7 +77,7 @@ export function PresetTile({
   onDuplicate,
   onDelete,
 }: PresetTileProps) {
-  const dims = previewDims(preset);
+  const dims = previewDims(preset, PREVIEW_BOX[density]);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
 
@@ -65,7 +89,7 @@ export function PresetTile({
   const menuItems = rawMenuItems.filter((entry): entry is MenuEntry => entry != null);
 
   const showOverflow = isCustom && menuItems.length > 0;
-  const sizeLabel = `${formatDimension(preset.width)} x ${formatDimension(preset.height)} ${preset.unit}`;
+  const sizeLabel = presetNameRepeatsSize(preset) ? null : formatPresetSize(preset);
 
   return (
     // biome-ignore lint/a11y/useFocusableInteractive: focus managed by aria-activedescendant on the parent listbox/combobox, matching Select.tsx's option rows
@@ -77,6 +101,8 @@ export function PresetTile({
       data-highlighted={isHighlighted || undefined}
       data-variant="selectable"
       data-density="compact"
+      data-orientation="horizontal"
+      data-preset-density={density}
       data-selected={isSelected || undefined}
       className={`preset-tile varve-card varve-card--selectable${isHighlighted ? ' preset-tile--highlighted' : ''}${isSelected ? ' preset-tile--selected' : ''}`}
       onClick={onSelect}
@@ -87,7 +113,7 @@ export function PresetTile({
       </span>
       <span className="preset-tile__info">
         <span className="preset-tile__name">{preset.name}</span>
-        <span className="preset-tile__size">{sizeLabel}</span>
+        {sizeLabel && <span className="preset-tile__size">{sizeLabel}</span>}
       </span>
       {onToggleFavorite && (
         <IconButton

@@ -9,7 +9,7 @@ import {
   useState,
 } from 'react';
 import { SearchField } from '../SearchField';
-import { PresetTile } from './PresetTile';
+import { type PresetPickerDensity, PresetTile } from './PresetTile';
 
 export interface PresetPickerProps {
   /** Built-in preset groups, in display order. */
@@ -32,6 +32,8 @@ export interface PresetPickerProps {
   /** Show the search field. Defaults to true — with 10 categories of
    *  built-ins plus custom presets, search is useful even for small lists. */
   searchable?: boolean;
+  /** `compact` lists presets as single-line rows for narrow side panels. */
+  density?: PresetPickerDensity;
 }
 
 type PickerRow =
@@ -150,6 +152,7 @@ export function PresetPicker({
   onDuplicateCustom,
   onDeleteCustom,
   searchable = true,
+  density = 'comfortable',
 }: PresetPickerProps) {
   const [query, setQuery] = useState('');
   const [highlightedIdx, setHighlightedIdx] = useState(0);
@@ -253,7 +256,7 @@ export function PresetPicker({
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: composite combobox+listbox keydown handler, mirroring HomeSearchPalette — catches bubbled keydown from whichever real interactive descendant (search input or listbox) currently has focus.
-    <div className="preset-picker" onKeyDown={handleKeyDown}>
+    <div className="preset-picker" data-density={density} onKeyDown={handleKeyDown}>
       {searchable && (
         <SearchField
           value={query}
@@ -302,6 +305,7 @@ export function PresetPicker({
               isHighlighted={idx === highlightedIdx}
               isSelected={preset.id === selectedId}
               isFavorite={favoriteIds.has(preset.id)}
+              density={density}
               onSelect={() => onSelect(preset)}
               onMouseEnter={() => setHighlightedIdx(idx)}
               onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(preset) : undefined}
