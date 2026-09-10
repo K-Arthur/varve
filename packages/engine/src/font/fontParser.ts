@@ -29,6 +29,9 @@ import {
  * Accepts TTF, OTF, WOFF, or WOFF2 data.
  */
 export async function parseFontData(data: ArrayBuffer): Promise<ParsedFontMetadata> {
+  if (data.byteLength < 12) {
+    throw new Error('Font data is truncated');
+  }
   const format = detectFontFormat(data);
 
   // WOFF2 needs brotli decompression — defer to the WOFF2 parser
@@ -85,6 +88,31 @@ const DEFAULT_IDENTITY = {
   fullName: 'Unknown',
 };
 
+function fallbackMetadata(format: FontFormat, fileSize: number): ParsedFontMetadata {
+  return {
+    identity: { ...DEFAULT_IDENTITY },
+    format,
+    fileSize,
+    unitsPerEm: 1000,
+    ascender: 800,
+    descender: -200,
+    lineGap: 0,
+    glyphCount: 0,
+    isVariable: false,
+    axes: [],
+    namedInstances: [],
+    openTypeFeatures: [],
+    unicodeRanges: [],
+    scripts: [],
+    languages: [],
+    embeddingRights: 'unknown',
+    hasColorGlyphs: false,
+    colorFormats: [],
+    category: 'unknown',
+    source: 'system',
+  };
+}
+
 // ── WOFF2 Parsing ───────────────────────────────────────────────────────────
 
 async function parseWOFF2(data: ArrayBuffer): Promise<ParsedFontMetadata> {
@@ -104,7 +132,10 @@ async function parseWOFF2(data: ArrayBuffer): Promise<ParsedFontMetadata> {
   const decompressed = await decompressWOFF2(data);
   if (decompressed) {
     const members = await parseRawCollectionMembers(decompressed, 'woff2');
-    return members[0] ?? (await parseRawFontAtOffset(decompressed, 'woff2', 0, 0));
+    return withOriginalArtifactIdentity(
+      members[0] ?? (await parseRawFontAtOffset(decompressed, 'woff2', 0, 0)),
+      data,
+    );
   }
 
   // Fallback: parse what we can from the WOFF2 header
@@ -234,10 +265,13 @@ async function parseWOFF1(data: ArrayBuffer): Promise<ParsedFontMetadata> {
   }
 
   // Reconstruct a minimal SFNT font from decompressed tables
-  const sfnt = reconstructSFNT(tables);
+  const sfnt = reconstructSFNT(tables, view.getUint32(4));
   if (sfnt) {
     const members = await parseRawCollectionMembers(sfnt, 'woff');
-    return members[0] ?? (await parseRawFontAtOffset(sfnt, 'woff', 0, 0));
+    return withOriginalArtifactIdentity(
+      members[0] ?? (await parseRawFontAtOffset(sfnt, 'woff', 0, 0)),
+      data,
+    );
   }
 
   // Fallback
@@ -304,7 +338,10 @@ async function decompressZlib(data: ArrayBuffer, expectedLength: number): Promis
   throw new Error('DecompressionStream is not available for WOFF1 decompression');
 }
 
-function reconstructSFNT(tables: Map<string, ArrayBuffer>): ArrayBuffer | null {
+function reconstructSFNT(
+  tables: Map<string, ArrayBuffer>,
+  flavor = 0x00010000,
+): ArrayBuffer | null {
   if (tables.size === 0) return null;
 
   // Calculate total size for SFNT font
@@ -337,7 +374,7 @@ function reconstructSFNT(tables: Map<string, ArrayBuffer>): ArrayBuffer | null {
   const outView = new DataView(buffer);
 
   // Offset table header
-  outView.setUint16(0, 0); // sfVersion (will be set from head table)
+  outView.setUint32(0, flavor);
   outView.setUint16(2, numTables);
   outView.setUint16(4, 0); // searchRange
   outView.setUint16(6, 0); // entrySelector
@@ -367,12 +404,27 @@ function reconstructSFNT(tables: Map<string, ArrayBuffer>): ArrayBuffer | null {
 }
 
 function computeTableChecksum(data: ArrayBuffer): number {
-  const words = new Uint16Array(data);
+  const paddedLength = (data.byteLength + 3) & ~3;
+  const bytes = new Uint8Array(paddedLength);
+  bytes.set(new Uint8Array(data));
+  const view = new DataView(bytes.buffer);
   let sum = 0;
-  for (let i = 0; i < words.length; i++) {
-    sum = (sum + (words[i] ?? 0)) | 0;
+  for (let i = 0; i < paddedLength; i += 4) {
+    sum = (sum + view.getUint32(i)) >>> 0;
   }
-  return sum >>> 0;
+  return sum;
+}
+
+async function withOriginalArtifactIdentity(
+  metadata: ParsedFontMetadata,
+  original: ArrayBuffer,
+): Promise<ParsedFontMetadata> {
+  const { contentHash, fingerprint, hashAlgorithm } = await computeFontHash(original);
+  return {
+    ...metadata,
+    fileSize: original.byteLength,
+    identity: { ...metadata.identity, contentHash, fingerprint, hashAlgorithm },
+  };
 }
 
 // ── Raw TTF/OTF Parsing ────────────────────────────────────────────────────
@@ -389,12 +441,14 @@ async function parseRawCollectionMembers(
     return [];
   }
 
-  const numFonts = view.getUint32(4);
+  // TTC header: version (uint32) at 4, numFonts at 8, offsets at 12.
+  if (data.byteLength < 12) return [];
+  const numFonts = view.getUint32(8);
   if (numFonts === 0 || numFonts > MAX_COLLECTION_MEMBERS) {
     return [];
   }
 
-  const offsetStart = 8;
+  const offsetStart = 12;
   const members: ParsedFontMetadata[] = [];
   for (let i = 0; i < numFonts; i++) {
     const offsetOff = offsetStart + i * 4;
@@ -417,7 +471,13 @@ async function parseRawFontAtOffset(
   const view = new DataView(data);
 
   // Read offset table
+  if (sfntOffset < 0 || sfntOffset + 12 > data.byteLength) {
+    return fallbackMetadata(format, data.byteLength);
+  }
   const numTables = view.getUint16(sfntOffset + 4);
+  if (numTables === 0 || numTables > 4096 || sfntOffset + 12 + numTables * 16 > data.byteLength) {
+    return fallbackMetadata(format, data.byteLength);
+  }
 
   // Build table directory map
   const tableMap = readTableDirectory(data, sfntOffset, numTables);
@@ -549,10 +609,15 @@ function readTableDirectory(
       view.getUint8(off + 2),
       view.getUint8(off + 3),
     );
+    const offset = view.getUint32(off + 8);
+    const length = view.getUint32(off + 12);
+    // Table spans are untrusted input. Reject entries that point outside the
+    // file instead of allowing a later parser to read unrelated bytes.
+    if (offset > data.byteLength || length > data.byteLength - offset) continue;
     map.set(tag, {
       tag,
-      offset: view.getUint32(off + 8),
-      length: view.getUint32(off + 12),
+      offset,
+      length,
       checksum: view.getUint32(off + 4),
     });
   }
@@ -571,6 +636,7 @@ function parseNameTable(data: ArrayBuffer, tables: Map<string, TableDirectory>):
   const view = new DataView(data);
   const base = table.offset;
   const result: NameRecords = {};
+  const priority: Record<number, number> = {};
 
   if (base + 6 > data.byteLength) return result;
 
@@ -583,12 +649,20 @@ function parseNameTable(data: ArrayBuffer, tables: Map<string, TableDirectory>):
     if (recOff + 12 > data.byteLength) break;
 
     const platformID = view.getUint16(recOff);
-    const nameID = view.getUint16(recOff + 4);
-    const length = view.getUint16(recOff + 6);
-    const offset2 = view.getUint16(recOff + 8);
+    const encodingID = view.getUint16(recOff + 2);
+    const languageID = view.getUint16(recOff + 4);
+    const nameID = view.getUint16(recOff + 6);
+    const length = view.getUint16(recOff + 8);
+    const offset2 = view.getUint16(recOff + 10);
 
-    // Prefer Windows platform (3) over Mac (1)
-    if (result[nameID] !== undefined) continue;
+    // Prefer Unicode Windows records, then Unicode Macintosh records. Within
+    // one platform prefer English (language 0 or 0x0409) and a Unicode
+    // encoding over legacy encodings.
+    const recordPriority =
+      (platformID === 3 ? 20 : platformID === 0 ? 18 : platformID === 1 ? 10 : 0) +
+      (encodingID === 10 || encodingID === 1 ? 2 : 0) +
+      (languageID === 0 || languageID === 0x0409 ? 1 : 0);
+    if (result[nameID] !== undefined && (priority[nameID] ?? -1) >= recordPriority) continue;
 
     const strBase = base + stringOffset + offset2;
     if (strBase + length > data.byteLength) continue;
@@ -605,6 +679,7 @@ function parseNameTable(data: ArrayBuffer, tables: Map<string, TableDirectory>):
     }
 
     result[nameID] = decoded.trim();
+    priority[nameID] = recordPriority;
   }
 
   return result;
@@ -873,19 +948,35 @@ function parseCmapTable(
         continue;
       }
       const segCount = view.getUint16(formatOffset + 6) / 2;
+      const endCodes = formatOffset + 14;
+      const startCodes = endCodes + segCount * 2 + 2; // reservedPad follows endCode[]
       for (let s = 0; s < segCount && s < 200; s++) {
-        const startOffset = formatOffset + 14 + s * 2;
-        const endOffset = formatOffset + 14 + segCount * 2 + s * 2;
-        if (endOffset + 2 > data.byteLength) break;
+        const endOffset = endCodes + s * 2;
+        const startOffset = startCodes + s * 2;
+        if (startOffset + 2 > data.byteLength || endOffset + 2 > data.byteLength) break;
 
         const start = view.getUint16(startOffset);
         const end = view.getUint16(endOffset);
         if (start !== 0xffff && end !== 0xffff) {
-          ranges.push([start, end]);
+          if (start <= end) ranges.push([start, end]);
         }
       }
-      break; // Only parse the first cmap subtable
+    } else if (format === 12) {
+      // Format 12 covers the supplementary planes and is common in CJK fonts.
+      if (formatOffset + 16 > data.byteLength) {
+        subtableOffset += 8;
+        continue;
+      }
+      const groups = view.getUint32(formatOffset + 12);
+      for (let g = 0; g < groups && g < 10000; g++) {
+        const groupOffset = formatOffset + 16 + g * 12;
+        if (groupOffset + 12 > data.byteLength) break;
+        const start = view.getUint32(groupOffset);
+        const end = view.getUint32(groupOffset + 4);
+        if (start <= end) ranges.push([start, end]);
+      }
     }
+    subtableOffset += 8;
   }
 
   return ranges;
@@ -903,26 +994,25 @@ function parseGPOSTable(data: ArrayBuffer, tables: Map<string, TableDirectory>):
   return parseFeatureList(data, table.offset, table.length);
 }
 
-function parseFeatureList(data: ArrayBuffer, offset: number, _length: number): string[] {
-  if (offset + 8 > data.byteLength) return [];
+function parseFeatureList(data: ArrayBuffer, offset: number, length: number): string[] {
+  if (offset + 10 > data.byteLength || length < 10) return [];
 
   const view = new DataView(data);
-  const featureCount = view.getUint16(offset + 4);
+  const featureListOffset = view.getUint16(offset + 6);
+  const featureList = offset + featureListOffset;
+  if (featureList + 2 > data.byteLength || featureListOffset >= length) return [];
+  const featureCount = view.getUint16(featureList);
   const features: string[] = [];
 
   for (let i = 0; i < featureCount && i < 100; i++) {
-    const recOff = offset + 8 + i * 2;
-    if (recOff + 2 > data.byteLength) break;
-
-    const featureOffset = view.getUint16(recOff);
-    const absOff = offset + featureOffset;
-    if (absOff + 4 > data.byteLength) break;
+    const recOff = featureList + 2 + i * 6;
+    if (recOff + 6 > data.byteLength) break;
 
     const tag = String.fromCharCode(
-      view.getUint8(absOff),
-      view.getUint8(absOff + 1),
-      view.getUint8(absOff + 2),
-      view.getUint8(absOff + 3),
+      view.getUint8(recOff),
+      view.getUint8(recOff + 1),
+      view.getUint8(recOff + 2),
+      view.getUint8(recOff + 3),
     );
 
     if (tag.length === 4 && /^[a-z]{4}$/i.test(tag)) {

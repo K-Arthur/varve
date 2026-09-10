@@ -184,7 +184,8 @@ export function detectFontFormat(data: ArrayBuffer): FontFormat {
  * Use this as a Map/Set key for deduplication.
  */
 export function fontIdentityKey(id: FontIdentity): string {
-  return `${id.contentHash}:${id.postScriptName}`;
+  const member = id.collectionIndex === undefined ? 'single' : String(id.collectionIndex);
+  return `${id.contentHash}:${member}:${id.postScriptName}`;
 }
 
 /**
@@ -217,6 +218,9 @@ export function sameFontFace(a: FontIdentity, b: FontIdentity): boolean {
     ) {
       return false;
     }
+    if (a.collectionIndex !== undefined && b.collectionIndex !== undefined) {
+      return a.collectionIndex === b.collectionIndex;
+    }
     return true;
   }
 
@@ -230,6 +234,9 @@ export function sameFontFace(a: FontIdentity, b: FontIdentity): boolean {
       a.postScriptName !== b.postScriptName
     ) {
       return false;
+    }
+    if (a.collectionIndex !== undefined && b.collectionIndex !== undefined) {
+      return a.collectionIndex === b.collectionIndex;
     }
     return true;
   }

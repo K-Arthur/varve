@@ -113,9 +113,10 @@ function makeNameTable(fields: Record<number, string>): ArrayBuffer {
     const recOff = headerSize + i * 12;
     view.setUint16(recOff, e.platformID);
     view.setUint16(recOff + 2, 3); // encodingID = Unicode BMP
-    view.setUint16(recOff + 4, e.nameID);
-    view.setUint16(recOff + 6, e.text.length * 2);
-    view.setUint16(recOff + 8, strPos - stringOffset);
+    view.setUint16(recOff + 4, 0); // languageID = English
+    view.setUint16(recOff + 6, e.nameID);
+    view.setUint16(recOff + 8, e.text.length * 2);
+    view.setUint16(recOff + 10, strPos - stringOffset);
 
     for (let j = 0; j < e.text.length; j++) {
       view.setUint16(strPos + j * 2, e.text.charCodeAt(j));
@@ -238,7 +239,7 @@ function makeFvarTable(
 
 function makeFormat4Cmap(ranges: Array<[number, number]>): ArrayBuffer {
   const segCount = ranges.length;
-  const bufSize = 14 + 8 * segCount + 4;
+  const bufSize = 16 + 8 * segCount + 4;
   const buffer = new ArrayBuffer(bufSize);
   const view = new DataView(buffer);
 
@@ -253,8 +254,9 @@ function makeFormat4Cmap(ranges: Array<[number, number]>): ArrayBuffer {
     const [start, end] = ranges[i]!;
     // endCode
     view.setUint16(14 + i * 2, end);
-    // startCode
-    view.setUint16(14 + segCount * 2 + i * 2, start);
+    // reservedPad then startCode
+    view.setUint16(14 + segCount * 2, 0);
+    view.setUint16(16 + segCount * 2 + i * 2, start);
   }
 
   return buffer;
@@ -263,7 +265,7 @@ function makeFormat4Cmap(ranges: Array<[number, number]>): ArrayBuffer {
 function makeCmapTable(subtables: ArrayBuffer[]): ArrayBuffer {
   const version = 4;
   const numTables = subtables.length;
-  let totalSize = 4;
+  let totalSize = 4 + numTables * 8;
   const offsets: number[] = [];
   for (const sub of subtables) {
     offsets.push(totalSize);
@@ -290,36 +292,31 @@ function makeCmapTable(subtables: ArrayBuffer[]): ArrayBuffer {
 }
 
 function makeGSUBTable(featureTags: string[]): ArrayBuffer {
-  // Layout matches what parseFeatureList expects:
-  // offset+4: featureCount (uint16)
-  // offset+8: feature record offsets (2 bytes each)
-  // Each feature record: 4-byte tag + 2-byte padding
-  const recordOffsetsSize = featureTags.length * 2;
-  const recordDataSize = featureTags.length * 6;
-  const headerSize = 8;
-  const totalSize = headerSize + recordOffsetsSize + recordDataSize;
+  // OpenType Layout header + ScriptList + FeatureList. The parser only needs
+  // the FeatureList records, but the offsets must be spec-shaped.
+  const featureListOffset = 10;
+  const recordDataStart = featureListOffset + 2 + featureTags.length * 6;
+  const totalSize = recordDataStart + featureTags.length * 6;
   const buffer = new ArrayBuffer(totalSize);
   const view = new DataView(buffer);
 
-  view.setUint16(0, 0); // padding
-  view.setUint16(2, 0); // padding
-  view.setUint16(4, featureTags.length); // featureCount
-  view.setUint16(6, 0); // padding
-
-  // Feature record offsets at offset+8
-  const recordDataStart = headerSize + recordOffsetsSize;
+  view.setUint32(0, 0x00010000); // version
+  view.setUint16(4, 0); // scriptListOffset
+  view.setUint16(6, featureListOffset);
+  view.setUint16(8, 0); // lookupListOffset
+  view.setUint16(featureListOffset, featureTags.length);
 
   for (let i = 0; i < featureTags.length; i++) {
     const tag = featureTags[i]!;
     const recOffset = recordDataStart + i * 6;
-    // Offset relative to offset+0 (since absOff = offset + featureOffset in parser)
-    view.setUint16(headerSize + i * 2, recOffset);
+    const recordOffset = featureListOffset + 2 + i * 6;
+    view.setUint8(recordOffset, tag.charCodeAt(0));
+    view.setUint8(recordOffset + 1, tag.charCodeAt(1));
+    view.setUint8(recordOffset + 2, tag.charCodeAt(2));
+    view.setUint8(recordOffset + 3, tag.charCodeAt(3));
+    view.setUint16(recordOffset + 4, recOffset - featureListOffset);
 
-    // Feature tag at recOffset
-    view.setUint8(recOffset, tag.charCodeAt(0));
-    view.setUint8(recOffset + 1, tag.charCodeAt(1));
-    view.setUint8(recOffset + 2, tag.charCodeAt(2));
-    view.setUint8(recOffset + 3, tag.charCodeAt(3));
+    // Feature table header: lookupCount = 0.
     view.setUint16(recOffset + 4, 0); // padding
   }
 
@@ -641,8 +638,8 @@ function buildTestCollection(
     buildTestFont(fields, colorTables ? { colr: !!colorTables.colr } : undefined),
   );
 
-  // Compute total size: TTC header (8 + 4*numFonts) + member offsets aligned to 4
-  let offset = 8 + members.length * 4;
+  // Compute total size: TTC header (version + numFonts + offsets).
+  let offset = 12 + members.length * 4;
   const memberOffsets: number[] = [];
   for (const buf of memberBuffers) {
     memberOffsets.push(offset);
@@ -655,9 +652,10 @@ function buildTestCollection(
 
   // TTC header
   view.setUint32(0, 0x74746366); // "ttcf"
-  view.setUint32(4, members.length);
+  view.setUint32(4, 0x00010000); // version
+  view.setUint32(8, members.length);
   for (let i = 0; i < members.length; i++) {
-    view.setUint32(8 + i * 4, memberOffsets[i]!);
+    view.setUint32(12 + i * 4, memberOffsets[i]!);
   }
 
   for (let i = 0; i < memberBuffers.length; i++) {
@@ -814,9 +812,7 @@ describe('error handling', () => {
   });
 
   it('handles font data too small for table directory gracefully', async () => {
-    const meta = await parseFontData(new ArrayBuffer(10));
-    expect(meta.identity.familyName).toBe('Unknown');
-    expect(meta.fileSize).toBe(10);
+    await expect(parseFontData(new ArrayBuffer(10))).rejects.toThrow();
   });
 
   it('handles font with missing name table gracefully', async () => {
