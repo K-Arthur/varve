@@ -39,6 +39,10 @@ test.describe('Typography editing workflow', () => {
     });
 
     await page.keyboard.press('Escape');
+    await expect(toolbar.locator('.font-selector__dropdown')).toBeHidden();
+    await expect(editor).toBeVisible();
+
+    await page.keyboard.press('Escape');
     await expect(editor).toBeHidden();
   });
 
