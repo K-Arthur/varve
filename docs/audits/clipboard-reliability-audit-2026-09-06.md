@@ -452,11 +452,16 @@ Evidence:
   packages/editor/src/actions/createActionHandlers.ts \
   packages/editor/src/actions/createActionHandlers.test.ts
 passed
+cd /tmp/varve-current && VARVE_TEST_WORKERS=1 \
+  /home/kevina/CodingProjects/varve/node_modules/.bin/vitest run \
+  packages/editor/src/actions/createActionHandlers.test.ts --maxWorkers=1 --reporter=dot
+34 tests passed
 ```
 
 The focused dialog assertions are included in
 `packages/editor/src/actions/createActionHandlers.test.ts`. A complete
-isolated Vitest run was not claimed because the temporary archive lacked the
-workspace's direct `idb` and `wawoff2` dependency links; package typechecks and
-the repository affected/full-gate results remain recorded above. External
+isolated package run was not claimed because the temporary archive required
+the workspace's direct dependency links; the focused action-handler suite
+passed after supplying those existing links. Package typechecks and the
+repository affected/full-gate results remain recorded above. External
 Firefox/Figma, Wayland, and packaged Tauri CSP lanes are unchanged.
