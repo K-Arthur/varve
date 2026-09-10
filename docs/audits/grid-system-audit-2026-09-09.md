@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-09  
 **Scope:** scene model, migrations, Figma import, editor rendering, snapping, inspector, and website documentation  
-**Status:** implementation complete; marketing browser validation complete; editor browser validation in progress
+**Status:** implementation complete; marketing browser validation complete; editor browser validation blocked by shared-worktree app instability
 
 This is a new audit against the current `master` tree. The earlier grid audit
 (`grid-system-audit-2026-07-27.md`) correctly identified missing layout-guide rendering,
@@ -58,7 +58,7 @@ but its remaining-state tables are historical and should not be treated as curre
 | Inspector controls and state precedence | Done | `LayoutSection.test.tsx` and editor typecheck |
 | Website documentation and feature copy | Done | website typecheck + 6 grid-docs browser tests across both site builds |
 | Marketing visual hierarchy and responsive composition | Done | inspected desktop/mobile docs and Canvas feature captures; no overflow |
-| Editor browser interaction/visual validation | In progress | Playwright canvas spec and screenshot/oracle evidence |
+| Editor browser interaction/visual validation | Blocked in shared worktree | Playwright reaches the editor, then the app enters its safe-mode crash screen before the layout-guide assertion; rerun after concurrent editor changes settle |
 
 ## External reference check
 
