@@ -1,1 +1,0 @@
-export { SelectionInfoBar } from './SelectionInfoBar';

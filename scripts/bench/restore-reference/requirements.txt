@@ -1,5 +1,0 @@
-numpy
-opencv-python
-pillow
-scikit-image
-onnxruntime
