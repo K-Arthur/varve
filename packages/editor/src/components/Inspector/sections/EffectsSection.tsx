@@ -37,7 +37,7 @@ import {
   setEffectMask,
 } from '@varve/scene';
 import { managedColorToRgba } from '@varve/shared';
-import { Icon, Select } from '@varve/ui';
+import { Icon, Select, Switch } from '@varve/ui';
 import { useCallback, useId, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -431,14 +431,12 @@ function EffectRow({
         >
           <Icon name="Copy" label={undefined} size="0.85em" />
         </button>
-        <button
-          type="button"
-          className="insp-inline-btn"
+        <Switch
+          className="insp-switch"
           aria-label={`${visibility ? 'Hide' : 'Show'} effect`}
-          onClick={() => onChange((e) => ({ ...e, visible: !e.visible }))}
-        >
-          <Icon name={visibility ? 'Eye' : 'EyeOff'} label={undefined} size="0.85em" />
-        </button>
+          checked={visibility}
+          onChange={(event) => onChange((e) => ({ ...e, visible: event.target.checked }))}
+        />
         {type &&
           type !== 'layerBlur' &&
           type !== 'gaussianBlur' &&
@@ -540,6 +538,7 @@ function EffectColorSwatch({
   return (
     <InspectorColorPopover
       label="Effect colour"
+      className="insp-swatch insp-swatch--round"
       value={color ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 255 }}
       onChange={(c) => onChange((e) => setEffectColor(e, c as ManagedColor))}
       swatchStyle={{ background: swatchBg }}
@@ -1352,6 +1351,7 @@ function GlassTintSwatch({
   return (
     <InspectorColorPopover
       label="Glass tint"
+      className="insp-swatch insp-swatch--round"
       value={tint ?? { space: 'rgb', r: 200, g: 220, b: 255, a: 60 }}
       onChange={(c) =>
         onChange((e) => (e.type === 'glassMaterial' ? { ...e, tint: c as ManagedColor } : e))
@@ -1661,33 +1661,87 @@ function ShadowParams({
 
   return (
     <div className="insp-effect-params">
-      <InspectorFieldGroup columns={2}>
-        <NumberField
-          label="X"
-          value={isMixed(xRaw) ? 0 : xRaw}
-          mixed={isMixed(xRaw)}
-          step={1}
-          onChange={(v) =>
-            onChange((e) =>
-              e.type === 'dropShadow' || e.type === 'innerShadow' ? { ...e, x: v } : e,
-            )
-          }
-        />
-        <NumberField
-          label="Y"
-          value={isMixed(yRaw) ? 0 : yRaw}
-          mixed={isMixed(yRaw)}
-          step={1}
-          onChange={(v) =>
-            onChange((e) =>
-              e.type === 'dropShadow' || e.type === 'innerShadow' ? { ...e, y: v } : e,
-            )
-          }
-        />
-      </InspectorFieldGroup>
+      {/* Boxed quad: the four values that define a shadow's shape, grouped as
+          one visual unit (Figma/Sketch convention) instead of scattered
+          label/field pairs. */}
+      <div className="insp-quad-grid">
+        <div className="insp-icon-field">
+          <Icon
+            name="MoveHorizontal"
+            label={undefined}
+            size="0.85em"
+            className="insp-icon-field__icon"
+          />
+          <NumberField
+            label="X"
+            value={isMixed(xRaw) ? 0 : xRaw}
+            mixed={isMixed(xRaw)}
+            step={1}
+            onChange={(v) =>
+              onChange((e) =>
+                e.type === 'dropShadow' || e.type === 'innerShadow' ? { ...e, x: v } : e,
+              )
+            }
+          />
+        </div>
+        <div className="insp-icon-field">
+          <Icon
+            name="MoveVertical"
+            label={undefined}
+            size="0.85em"
+            className="insp-icon-field__icon"
+          />
+          <NumberField
+            label="Y"
+            value={isMixed(yRaw) ? 0 : yRaw}
+            mixed={isMixed(yRaw)}
+            step={1}
+            onChange={(v) =>
+              onChange((e) =>
+                e.type === 'dropShadow' || e.type === 'innerShadow' ? { ...e, y: v } : e,
+              )
+            }
+          />
+        </div>
+        <div className="insp-icon-field">
+          <Icon name="Focus" label={undefined} size="0.85em" className="insp-icon-field__icon" />
+          <NumberField
+            label="Blur"
+            value={isMixed(blurRaw) ? 0 : blurRaw}
+            mixed={isMixed(blurRaw)}
+            step={1}
+            min={0}
+            onChange={(v) =>
+              onChange((e) =>
+                e.type === 'dropShadow' || e.type === 'innerShadow' ? { ...e, blur: v } : e,
+              )
+            }
+          />
+        </div>
+        <div className="insp-icon-field">
+          <Icon name="Expand" label={undefined} size="0.85em" className="insp-icon-field__icon" />
+          <NumberField
+            label="Spread"
+            value={isMixed(spreadRaw) ? 0 : spreadRaw}
+            mixed={isMixed(spreadRaw)}
+            step={1}
+            min={-2048}
+            onChange={(v) =>
+              onChange((e) =>
+                e.type === 'dropShadow' || e.type === 'innerShadow' ? { ...e, spread: v } : e,
+              )
+            }
+          />
+        </div>
+      </div>
+      {/* Angle/Distance are a Varve-specific alternate control over the same
+          X/Y pair (polar instead of cartesian) — kept, but secondary to the
+          boxed quad above rather than interleaved with it. */}
       <InspectorFieldGroup columns={2}>
         <NumberField
           label="Angle"
+          displayLabel="Angle"
+          unit="deg"
           value={isMixed(angleRaw) ? 0 : angleRaw}
           mixed={isMixed(angleRaw)}
           step={1}
@@ -1702,6 +1756,7 @@ function ShadowParams({
         />
         <NumberField
           label="Distance"
+          displayLabel="Dist"
           value={isMixed(distanceRaw) ? 0 : distanceRaw}
           mixed={isMixed(distanceRaw)}
           step={1}
@@ -1715,42 +1770,18 @@ function ShadowParams({
           }
         />
       </InspectorFieldGroup>
-      <InspectorFieldGroup columns={2}>
-        <NumberField
-          label="Blur"
-          value={isMixed(blurRaw) ? 0 : blurRaw}
-          mixed={isMixed(blurRaw)}
-          step={1}
-          min={0}
-          onChange={(v) =>
-            onChange((e) =>
-              e.type === 'dropShadow' || e.type === 'innerShadow' ? { ...e, blur: v } : e,
-            )
-          }
-        />
-        <NumberField
-          label="Spread"
-          value={isMixed(spreadRaw) ? 0 : spreadRaw}
-          mixed={isMixed(spreadRaw)}
-          step={1}
-          min={-2048}
-          onChange={(v) =>
-            onChange((e) =>
-              e.type === 'dropShadow' || e.type === 'innerShadow' ? { ...e, spread: v } : e,
-            )
-          }
-        />
-      </InspectorFieldGroup>
       <NumberField
         label="Opacity"
-        value={isMixed(opacityRaw) ? 1 : opacityRaw}
+        displayLabel="Opacity"
+        unit="%"
+        value={isMixed(opacityRaw) ? 100 : Math.round(opacityRaw * 100)}
         mixed={isMixed(opacityRaw)}
-        step={0.01}
+        step={1}
         min={0}
-        max={1}
+        max={100}
         onChange={(v) =>
           onChange((e) =>
-            e.type === 'dropShadow' || e.type === 'innerShadow' ? { ...e, opacity: v } : e,
+            e.type === 'dropShadow' || e.type === 'innerShadow' ? { ...e, opacity: v / 100 } : e,
           )
         }
       />

@@ -10,12 +10,13 @@
  * Research basis: Figma/Sketch corner radius panel; APG Spinbutton.
  */
 import type { SceneNode } from '@varve/scene';
+import { Icon } from '@varve/ui';
 import { useCallback, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
 import { BindingMenu } from '../controls/BindingMenu';
 import { DisclosureSection } from '../controls/DisclosureSection';
-import { FieldRow, InspectorFieldGroup } from '../controls/FieldRow';
+import { FieldRow } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';
 import { RangeValueControl } from '../controls/RangeValueControl';
 import { commonValue, isMixed } from '../selection/selectionState';
@@ -114,16 +115,44 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
         )}
       </div>
       {perCorner && (
-        <>
-          <InspectorFieldGroup columns={2}>
+        <div className="insp-quad-grid">
+          <div className="insp-icon-field">
+            <Icon
+              name="CornerUpLeft"
+              label={undefined}
+              size="0.85em"
+              className="insp-icon-field__icon"
+            />
             <NumberField label="TL" value={tl} min={0} onChange={(v) => handlePerCorner(0, v)} />
+          </div>
+          <div className="insp-icon-field">
+            <Icon
+              name="CornerUpRight"
+              label={undefined}
+              size="0.85em"
+              className="insp-icon-field__icon"
+            />
             <NumberField label="TR" value={tr} min={0} onChange={(v) => handlePerCorner(1, v)} />
-          </InspectorFieldGroup>
-          <InspectorFieldGroup columns={2}>
+          </div>
+          <div className="insp-icon-field">
+            <Icon
+              name="CornerDownLeft"
+              label={undefined}
+              size="0.85em"
+              className="insp-icon-field__icon"
+            />
             <NumberField label="BL" value={bl} min={0} onChange={(v) => handlePerCorner(3, v)} />
+          </div>
+          <div className="insp-icon-field">
+            <Icon
+              name="CornerDownRight"
+              label={undefined}
+              size="0.85em"
+              className="insp-icon-field__icon"
+            />
             <NumberField label="BR" value={br} min={0} onChange={(v) => handlePerCorner(2, v)} />
-          </InspectorFieldGroup>
-        </>
+          </div>
+        </div>
       )}
       <button
         type="button"

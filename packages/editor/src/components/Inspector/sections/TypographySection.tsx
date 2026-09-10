@@ -23,7 +23,7 @@ import {
   richTextToPlainText,
   textNodeGeometry,
 } from '@varve/scene';
-import { Select, Switch, Tooltip } from '@varve/ui';
+import { Icon, Select, Switch, Tooltip } from '@varve/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
@@ -442,27 +442,49 @@ export function TypographySection({ nodes }: TypographySectionProps) {
           onShiftClick={() => setBindingField('fontSize')}
           onChange={(v) => batchUpdate((n) => ({ ...n, fontSize: v }))}
         />
-        <NumberField
-          label="Line height"
-          unit="%"
-          value={isMixed(lineHeightRaw) ? 1.2 : lineHeightRaw}
-          mixed={isMixed(lineHeightRaw)}
-          step={0.1}
-          min={0}
-          fieldName="lineHeight"
-          onShiftClick={() => setBindingField('lineHeight')}
-          onChange={(v) => batchUpdate((n) => ({ ...n, lineHeight: v }))}
-        />
-        <NumberField
-          label="Letter spacing"
-          unit="px"
-          value={isMixed(letterSpacingRaw) ? 0 : letterSpacingRaw}
-          mixed={isMixed(letterSpacingRaw)}
-          step={0.1}
-          fieldName="letterSpacing"
-          onShiftClick={() => setBindingField('letterSpacing')}
-          onChange={(v) => batchUpdate((n) => ({ ...n, letterSpacing: v }))}
-        />
+        {/* Paired as one boxed row — Figma/Sketch present line height and
+            letter spacing as a matched pair, not two stacked full-width
+            fields. */}
+        <div className="insp-quad-grid">
+          <div className="insp-icon-field">
+            <Icon
+              name="AlignVerticalSpaceAround"
+              label={undefined}
+              size="0.85em"
+              className="insp-icon-field__icon"
+            />
+            <NumberField
+              label="Line height"
+              unit="%"
+              value={isMixed(lineHeightRaw) ? 1.2 : lineHeightRaw}
+              mixed={isMixed(lineHeightRaw)}
+              step={0.1}
+              min={0}
+              fieldName="lineHeight"
+              onShiftClick={() => setBindingField('lineHeight')}
+              onChange={(v) => batchUpdate((n) => ({ ...n, lineHeight: v }))}
+            />
+          </div>
+          <div className="insp-icon-field">
+            <Icon
+              name="AlignHorizontalSpaceAround"
+              label={undefined}
+              size="0.85em"
+              className="insp-icon-field__icon"
+            />
+            <NumberField
+              label="Letter spacing"
+              displayLabel="Letter sp."
+              unit="px"
+              value={isMixed(letterSpacingRaw) ? 0 : letterSpacingRaw}
+              mixed={isMixed(letterSpacingRaw)}
+              step={0.1}
+              fieldName="letterSpacing"
+              onShiftClick={() => setBindingField('letterSpacing')}
+              onChange={(v) => batchUpdate((n) => ({ ...n, letterSpacing: v }))}
+            />
+          </div>
+        </div>
         <NumberField
           label="Tracking"
           unit="‰"

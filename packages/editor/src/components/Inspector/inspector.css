@@ -1115,6 +1115,12 @@
   opacity: 0.7;
 }
 
+/* Circular variant for list-row swatches (Layer Effects), matching the
+ * round color chip convention in Figma/Sketch-style effect stacks. */
+.insp-swatch--round {
+  border-radius: 50%;
+}
+
 .insp-picker-popover {
   position: fixed;
   z-index: var(--z-overlay);
@@ -4883,13 +4889,54 @@
   padding-inline-start: var(--space-2);
 }
 
+/* A card per effect, not a flat bordered list — matches the Figma/Sketch
+ * "stacked chips" convention for a reorderable effect stack instead of
+ * reading as one continuous utility strip. */
 .insp-effect-row {
-  border-bottom: 1px solid var(--color-border-subtle);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-raised);
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
   min-width: 0;
-  padding: var(--space-1) 0;
+  padding: var(--space-1) var(--space-2);
+}
+
+.insp-effect-row + .insp-effect-row {
+  margin-top: var(--space-1);
+}
+
+/* Compact boxed 2x2 grid of related numeric fields (shadow X/Y/Blur/Spread,
+ * per-corner radius) — groups values Figma/Sketch present as one visual
+ * unit instead of separate label/field pairs spread down the column. */
+.insp-quad-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-1) var(--space-2);
+  padding: var(--space-2);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-control-compact);
+}
+
+/* Icon-chip wrapper — a small decorative icon ahead of a labeled field, for
+ * quick visual scanning in a dense quad (X/Y/Blur/Spread, per-corner radius).
+ * The field keeps its own visible text label; the icon reinforces rather
+ * than replaces it, so the row stays legible without requiring the reader to
+ * have memorized icon meanings first. */
+.insp-icon-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.insp-icon-field__icon {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+.insp-icon-field > .insp-field {
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 .insp-effect-row__header {
