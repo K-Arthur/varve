@@ -218,6 +218,13 @@ same batch insertion API as file import. PNG scale selection is delegated to
 the renderer callback (1× by default, with 2× and 3× choices); the renderer
 owns transparent output and actual pixel encoding.
 
+Both interactive command surfaces use the shared `PromptDialog` rather than a
+blocking browser prompt. The dialog preserves focus, Escape cancellation, and
+screen-reader labeling; canceling PNG scale or SVG markup entry performs no
+clipboard write or import. SVG markup remains size-bounded before the importer
+is invoked, and parser failures are announced through the normal command
+feedback path.
+
 Keyboard paste ownership is request-bound from dispatch through insertion. Each
 shortcut creates one `TransferRequest` per gesture and keeps its fallback timer
 keyed by that request. The DOM paste listener claims the oldest pending request

@@ -435,3 +435,28 @@ harness. The required full gate completed package typechecks but stopped at
 the unrelated concurrent E2E fixture error in
 `tests/e2e/canvas/font-toolbar-visual.spec.ts`; the shared workstream file was
 left untouched.
+
+### Accessible command dialog follow-up — 2026-09-10
+
+CLIP-25 is resolved for the clipboard command entry points. Copy as PNG scale
+selection and Paste SVG Markup now use the shared `PromptDialog`, so keyboard
+focus, Escape cancellation, and accessible labeling are consistent with the
+rest of the editor. A canceled dialog returns before any renderer callback or
+import operation; SVG markup is still bounded before `ImportService` runs, and
+dialog/import failures produce the existing live announcement.
+
+Evidence:
+
+```text
+/home/kevina/CodingProjects/varve/node_modules/.bin/biome check \
+  packages/editor/src/actions/createActionHandlers.ts \
+  packages/editor/src/actions/createActionHandlers.test.ts
+passed
+```
+
+The focused dialog assertions are included in
+`packages/editor/src/actions/createActionHandlers.test.ts`. A complete
+isolated Vitest run was not claimed because the temporary archive lacked the
+workspace's direct `idb` and `wawoff2` dependency links; package typechecks and
+the repository affected/full-gate results remain recorded above. External
+Firefox/Figma, Wayland, and packaged Tauri CSP lanes are unchanged.
