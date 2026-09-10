@@ -8,11 +8,11 @@ not certification of a full scenario.
 
 | # | Original acceptance scenario | Status | Evidence / next executable check |
 | --- | --- | --- | --- |
-| 1 | A bundled font appears, previews, applies, renders identically on main thread and worker, exports, and survives reopen offline. | Open | Parser and bundled metadata tests exist; offline render/export/reopen oracle pending. |
+| 1 | A bundled font appears, previews, applies, renders identically on main thread and worker, exports, and survives reopen offline. | Open | Three required licensed variable-font artifacts verify metrics, axes and original-byte identity; offline render/export/reopen oracle pending. |
 | 2 | Desktop enumerates an installed family with several faces; selecting a face preserves its exact identity, weight, style, and stretch after restart. | Open | Native IPC envelope corrected; exact handles, face identity, and native restart proof pending. |
 | 3 | Browser local-font access succeeds, is denied, is unsupported, and is revoked; each state has a clear next action. | Open | Permission request helper exists; deliberate UI, revocation, and import fallback proof pending. |
 | 4 | Two different font files with the same family name coexist. The selected one remains selected across save/reopen and the other is not removed by uninstall. | Open | Hash model exists; native family storage and runtime aliases still collapse artifacts. |
-| 5 | A TTC/OTC exposes distinct members and selecting one does not collapse to the first file member. | Open | Collection parsing corrected; picker/member import and reopen proof pending. |
+| 5 | A TTC/OTC exposes distinct members and selecting one does not collapse to the first file member. | Open | Header/offset checks exist; WOFF2 collection-entry identity now matches single-face parsing. Independent multi-member fixtures, picker/member import and reopen proof pending. |
 | 6 | A variable font named instance and custom axes render, copy/paste, collaborate, export, undo/redo, and reopen without clamping drift. | Open | Axes persist in model; canonical shaping and full dependency round trips pending. |
 | 7 | Real and unavailable weights/styles produce accurate controls; synthetic styling is blocked or clearly disclosed according to product policy. | Open | Hardcoded toolbar/inspector weights and synthetic italic remain to be replaced. |
 | 8 | Opening or hovering the picker creates no undo entry. Escape restores the exact prior formatting. Click creates one entry. | Open | Escape/portal repair and 27 inspected theme/DPR/narrow captures committed in `e4508d4e7`; presentation-only preview and one-step undo proof pending. |
@@ -47,3 +47,7 @@ implementation order and gate ownership.
 
 Inspector and website captures, validation failures and remaining platform checks
 are in the [integration evidence log](./font-integration-evidence-2026-09-10.md).
+
+Required fixture provenance, the corrected OS/2 audit finding, and the reproduced
+WOFF2 identity mismatch are in the [parser evidence log](./font-os2-metrics-evidence-2026-09-10.md).
+These bounded checks do not close any full acceptance scenario.

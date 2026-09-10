@@ -158,3 +158,32 @@ The token audit passed 153 pairs across three themes; the architecture audit
 passed with existing hub-budget warnings. No render dispatch, schema, or public
 API was changed by this run-metadata repair, so no new full-gate escalation
 was selected. The earlier schema integration still requires its final gate.
+
+
+## OS/2 audit correction — 2026-09-10
+
+The preceding claim that x-height/cap-height belong at offsets 84/86 is
+**disproved and superseded**. The specification's code-page ranges occupy
+78–85; signed `sxHeight` and `sCapHeight` are at **86/88**. The earlier parser
+used the correct offsets. An independent opentype.js read of the actual bundled
+files confirms Geist 530/710, IBM Plex Sans 516/698, and Fraunces 964/1400 font
+units. The repair retains those offsets and corrects signed reads, version
+guards, short-table bounds and fallback to hhea when OS/2 metrics are absent.
+
+Real-font tests now require checked-in licensed artifacts instead of returning
+success when a desktop dependency is unavailable. The synthetic OS/2 helper now writes an
+actual version-4, 96-byte table; the SFNT helper now uses big-endian 32-bit
+checksums and a byte-sized rangeShift. Regressions cover complete and shortened
+version-0 tables, an OS/2 table at end of file, unrelated bytes after truncated
+tables, signed heights, zero metrics and old versions with trailing bytes.
+
+The embedding base/no-subsetting/bitmap-only findings remain open. This
+correction does not certify whole-file checksums, all malformed-table handling,
+collection identity, or export policy. Exact corpus provenance and validation
+are in the [OS/2 metrics evidence](./font-os2-metrics-evidence-2026-09-10.md).
+
+The real-font follow-up also reproduced inconsistent WOFF2 identity between
+the single-face and collection parser entry points. The collection-capable
+path now retains the original WOFF2 SHA-256, format and byte size; three
+artifact comparisons failed before this correction. A true compressed
+multi-member collection fixture remains pending.

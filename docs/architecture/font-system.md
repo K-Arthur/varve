@@ -29,7 +29,9 @@ bytes and collection member. PostScript names are metadata. The current
 `fontIdentityKey` still includes the PostScript name; compatibility adapters
 and runtime aliases remain to be integrated. Display
 family, version, source, and license are metadata and never replace the hash.
-WOFF reconstruction keeps the original artifact hash. A text node,
+WOFF reconstruction keeps the original artifact hash. Both single-face and
+collection-capable WOFF2 parsing retain that original hash, format and byte
+size, with one artifact hash shared by its collection members. A text node,
 character format, text style, and v2 font manifest entry may carry
 `fontReference`; legacy `fontFamily`, weight, and style fields remain readable.
 
@@ -37,6 +39,28 @@ Variation axes and OpenType features remain authored presentation settings.
 The ordinary weight control must update `wght` when supported and preserve
 custom axes and mandatory shaping features. Existing hardcoded weight controls
 still need this integration.
+
+## Parsed metrics
+
+OS/2 x-height and cap-height are signed font-unit values at offsets 86/88 in
+version 2 and later. Reads are bounded to the actual table span. Legacy 68-byte
+version-0 tables have no typographic ascender/descender fields; hhea supplies
+them instead. Valid zero metrics are preserved. The checked-in real-font tests
+use required fixtures, and their absence fails validation.
+
+Name records and their strings are bounded by the declared name table, rather
+than the whole file. Unicode-platform names use UTF-16BE; incomplete code units
+are ignored. Legacy code pages and format-1 language tags still need coverage.
+
+WOFF1 decoding uses zlib streams and requires exact decoded table lengths.
+Header/directory spans, block order, padding and table checksums are validated
+before metadata extraction. Original and reconstructed bytes are bounded to
+128 MiB, with at most 4,095 tables and a two-second deadline per compressed
+table. SFNT reconstruction preserves the physical table order, restores the
+search fields and recomputes the `head` checksum adjustment. The original
+container remains the identity source. These bounds do not yet provide the
+planned parser-worker deadline or validation of every inner OpenType table.
+See the [WOFF evidence](../audits/font-woff-evidence-2026-09-10.md).
 
 ## Persistence and recovery
 

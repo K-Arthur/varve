@@ -57,7 +57,7 @@ function buildMinimalSFNT(
   const maxPow2 = 2 ** Math.floor(Math.log2(numTables));
   view.setUint16(6, maxPow2 * 16);
   view.setUint16(8, Math.log2(maxPow2));
-  view.setUint16(10, numTables - maxPow2);
+  view.setUint16(10, (numTables - maxPow2) * 16);
 
   for (let i = 0; i < entries.length; i++) {
     const e = entries[i]!;
@@ -81,10 +81,12 @@ function buildMinimalSFNT(
 }
 
 function computeChecksum(data: ArrayBuffer): number {
-  const words = new Uint16Array(data);
+  const bytes = new Uint8Array((data.byteLength + 3) & ~3);
+  bytes.set(new Uint8Array(data));
+  const view = new DataView(bytes.buffer);
   let sum = 0;
-  for (let i = 0; i < words.length; i++) {
-    sum = (sum + (words[i] ?? 0)) | 0;
+  for (let i = 0; i < bytes.byteLength; i += 4) {
+    sum = (sum + view.getUint32(i)) >>> 0;
   }
   return sum >>> 0;
 }
@@ -112,7 +114,7 @@ function makeNameTable(fields: Record<number, string>): ArrayBuffer {
     const e = entries[i]!;
     const recOff = headerSize + i * 12;
     view.setUint16(recOff, e.platformID);
-    view.setUint16(recOff + 2, 3); // encodingID = Unicode BMP
+    view.setUint16(recOff + 2, 1); // Windows encodingID = Unicode BMP
     view.setUint16(recOff + 4, 0); // languageID = English
     view.setUint16(recOff + 6, e.nameID);
     view.setUint16(recOff + 8, e.text.length * 2);
@@ -142,14 +144,15 @@ function makeOS2Table(
   xHeight?: number,
   capHeight?: number,
 ): ArrayBuffer {
-  const length = capHeight !== undefined ? 90 : xHeight !== undefined ? 88 : 86;
+  const length = 96;
   const buffer = new ArrayBuffer(length);
   const view = new DataView(buffer);
+  view.setUint16(0, 4);
   view.setUint16(8, fsType);
   view.setInt16(68, ascender);
   view.setInt16(70, descender);
-  if (xHeight !== undefined) view.setUint16(86, xHeight);
-  if (capHeight !== undefined) view.setUint16(88, capHeight);
+  if (xHeight !== undefined) view.setInt16(86, xHeight);
+  if (capHeight !== undefined) view.setInt16(88, capHeight);
   return buffer;
 }
 
@@ -436,6 +439,29 @@ describe('detectFontFormat', () => {
 });
 
 describe('parseFontData', () => {
+  it('decodes Unicode-platform name records as UTF-16BE', async () => {
+    const name = makeNameTable({ 1: 'Café 字体 𝔄' });
+    new DataView(name).setUint16(6, 0);
+    const meta = await parseFontData(buildMinimalSFNT(makeHeadTable(), name));
+    expect(meta.identity.familyName).toBe('Café 字体 𝔄');
+  });
+
+  it.each([0, 5, 17, 19])('does not read beyond a %i-byte name table', async (length) => {
+    const name = makeNameTable({ 1: 'Outside declared table' });
+    const data = buildMinimalSFNT(makeHeadTable(), name);
+    // The bytes remain in the file, but the directory excludes them from name.
+    new DataView(data).setUint32(12 + 16 + 12, length);
+    const meta = await parseFontData(data);
+    expect(meta.identity.familyName).toBe('Unknown');
+  });
+
+  it('ignores a Unicode name with an incomplete UTF-16 code unit', async () => {
+    const name = makeNameTable({ 1: 'Incomplete' });
+    const view = new DataView(name);
+    view.setUint16(6 + 8, view.getUint16(6 + 8) - 1);
+    const meta = await parseFontData(buildMinimalSFNT(makeHeadTable(), name));
+    expect(meta.identity.familyName).toBe('Unknown');
+  });
   it('parses a minimal TTF font and extracts identity fields', async () => {
     const data = buildTestFont();
     const meta = await parseFontData(data);
@@ -474,6 +500,56 @@ describe('parseFontData', () => {
     const meta = await parseFontData(data);
     expect(meta.xHeight).toBe(500);
     expect(meta.capHeight).toBe(700);
+  });
+
+  it('reads signed FWORD heights and preserves zero typographic metrics', async () => {
+    const data = buildTestFont(undefined, {
+      os2: { ascender: 0, descender: 0, fsType: 0, xHeight: -500, capHeight: -700 },
+      hhea: { ascender: 920, descender: -280, lineGap: 0 },
+    });
+    const meta = await parseFontData(data);
+    expect([meta.ascender, meta.descender, meta.xHeight, meta.capHeight]).toEqual([
+      0, 0, -500, -700,
+    ]);
+  });
+
+  it('reads a complete version-0 table at the end of the file', async () => {
+    const os2 = makeOS2Table(900, -300).slice(0, 78);
+    new DataView(os2).setUint16(0, 0);
+    const data = buildMinimalSFNT(makeHeadTable(), makeNameTable({ 1: 'Legacy' }), os2);
+    const meta = await parseFontData(data);
+    expect([meta.ascender, meta.descender]).toEqual([900, -300]);
+    expect(meta.xHeight).toBeUndefined();
+    expect(meta.capHeight).toBeUndefined();
+  });
+
+  it.each([0, 32, 41, 67, 68])(
+    'does not read metrics beyond a %i-byte OS/2 table',
+    async (length) => {
+      const os2 = makeOS2Table(900, -300).slice(0, length);
+      if (length >= 2) new DataView(os2).setUint16(0, 0);
+      const data = buildMinimalSFNT(
+        makeHeadTable(),
+        makeNameTable({ 1: 'Bounded' }),
+        os2,
+        makeHheaTable(920, -280, 0),
+      );
+      const meta = await parseFontData(data);
+      expect([meta.ascender, meta.descender]).toEqual([920, -280]);
+      expect(meta.xHeight).toBeUndefined();
+      expect(meta.capHeight).toBeUndefined();
+      expect(meta.embeddingRights).toBe(length < 68 ? 'unknown' : 'installable');
+    },
+  );
+
+  it.each([0, 1])('ignores later height fields in OS/2 version %i', async (version) => {
+    const os2 = makeOS2Table(800, -200, 0, 500, 700);
+    new DataView(os2).setUint16(0, version);
+    const meta = await parseFontData(
+      buildMinimalSFNT(makeHeadTable(), makeNameTable({ 1: 'Earlier format' }), os2),
+    );
+    expect(meta.xHeight).toBeUndefined();
+    expect(meta.capHeight).toBeUndefined();
   });
 
   it('extracts glyph count from maxp table', async () => {

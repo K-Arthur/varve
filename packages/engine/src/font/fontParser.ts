@@ -59,7 +59,16 @@ export async function parseFontCollection(data: ArrayBuffer): Promise<ParsedFont
   if (format === 'woff2') {
     const decompressed = await decompressWOFF2(data);
     if (decompressed) {
-      return parseFontCollection(decompressed);
+      const members = await parseFontCollection(decompressed);
+      // A collection-capable importer must resolve the same artifact as the
+      // single-face path. Hash the original container once for every member.
+      const artifactIdentity = await computeFontHash(data);
+      return members.map((metadata) => ({
+        ...metadata,
+        format: 'woff2',
+        fileSize: data.byteLength,
+        identity: { ...metadata.identity, ...artifactIdentity },
+      }));
     }
     // Decompression failed — fall back to header-only metadata
     return [await parseFontData(data)];
@@ -219,113 +228,139 @@ async function decompressWOFF2(data: ArrayBuffer): Promise<ArrayBuffer | null> {
 
 async function parseWOFF1(data: ArrayBuffer): Promise<ParsedFontMetadata> {
   const view = new DataView(data);
-
-  // WOFF1 header: signature(4) flavor(4) length(4) numTables(2) reserved(2)
-  // metaOffset(4) metaLength(4) metaOrigLength(4) privOffset(4) privLength(4)
-  const numTables = view.getUint16(12);
-
-  // WOFF1 table directory follows the header
-  // Each entry: tag(4) offset(4) compLength(4) origLength(4) origChecksum(4)
-  // Total header = 44 bytes, directory starts at byte 44
-  const DIR_START = 44;
-  const DIR_ENTRY_SIZE = 20;
-
-  // Collect compressed table data
+  const entries = readWoffDirectory(data);
   const tables = new Map<string, ArrayBuffer>();
-  for (let i = 0; i < numTables && i < 100; i++) {
-    const entryOff = DIR_START + i * DIR_ENTRY_SIZE;
-    if (entryOff + DIR_ENTRY_SIZE > data.byteLength) break;
-
-    const tag = String.fromCharCode(
-      view.getUint8(entryOff),
-      view.getUint8(entryOff + 1),
-      view.getUint8(entryOff + 2),
-      view.getUint8(entryOff + 3),
-    );
-    const compOffset = view.getUint32(entryOff + 4);
-    const compLength = view.getUint32(entryOff + 8);
-    const origLength = view.getUint32(entryOff + 12);
-
-    if (compOffset + compLength > data.byteLength) continue;
-
-    const compressed = data.slice(compOffset, compOffset + compLength);
-
-    if (compLength === origLength) {
-      // Uncompressed
-      tables.set(tag, compressed);
-    } else {
-      // Zlib-compressed — decompress
-      try {
-        const decompressed = await decompressZlib(compressed, origLength);
-        tables.set(tag, decompressed);
-      } catch {
-        // Skip tables we can't decompress
-      }
+  // Preserve physical table order when reconstructing the original SFNT.
+  for (const entry of entries.sort((a, b) => a.offset - b.offset)) {
+    const compressed = data.slice(entry.offset, entry.offset + entry.compressedLength);
+    const decoded =
+      entry.compressedLength === entry.length
+        ? compressed
+        : await decompressZlib(compressed, entry.length);
+    if (computeTableChecksum(decoded, entry.tag === 'head') !== entry.checksum) {
+      throw new Error(`Invalid WOFF1 checksum for ${entry.tag}`);
     }
+    tables.set(entry.tag, decoded);
   }
-
-  // Reconstruct a minimal SFNT font from decompressed tables
   const sfnt = reconstructSFNT(tables, view.getUint32(4));
-  if (sfnt) {
-    const members = await parseRawCollectionMembers(sfnt, 'woff');
-    return withOriginalArtifactIdentity(
-      members[0] ?? (await parseRawFontAtOffset(sfnt, 'woff', 0, 0)),
-      data,
-    );
-  }
+  if (!sfnt) throw new Error('Invalid WOFF1: no font tables');
+  return withOriginalArtifactIdentity(await parseRawFontAtOffset(sfnt, 'woff', 0, 0), data);
+}
 
-  // Fallback
-  return {
-    identity: DEFAULT_IDENTITY,
-    format: 'woff',
-    fileSize: data.byteLength,
-    unitsPerEm: 1000,
-    ascender: 800,
-    descender: -200,
-    lineGap: 0,
-    glyphCount: 0,
-    isVariable: false,
-    axes: [],
-    namedInstances: [],
-    openTypeFeatures: [],
-    unicodeRanges: [],
-    scripts: [],
-    languages: [],
-    embeddingRights: 'unknown',
-    hasColorGlyphs: false,
-    colorFormats: [],
-    category: 'unknown',
-    source: 'system',
-  };
+const MAX_WOFF_BYTES = 128 * 1024 * 1024;
+const alignFontBytes = (length: number) => Math.ceil(length / 4) * 4;
+
+interface WoffTable extends TableDirectory {
+  compressedLength: number;
+}
+
+function readWoffDirectory(data: ArrayBuffer): WoffTable[] {
+  if (data.byteLength < 44 || data.byteLength > MAX_WOFF_BYTES) {
+    throw new Error('Invalid WOFF1 header or file size');
+  }
+  const view = new DataView(data);
+  const count = view.getUint16(12);
+  const directoryEnd = 44 + count * 20;
+  if (
+    view.getUint32(8) !== data.byteLength ||
+    view.getUint16(14) !== 0 ||
+    count === 0 ||
+    count > 4095 ||
+    directoryEnd > data.byteLength
+  ) {
+    throw new Error('Invalid WOFF1 header or directory');
+  }
+  const entries: WoffTable[] = [];
+  let decodedSize = 12 + count * 16;
+  let previousTag = -1;
+  for (let i = 0; i < count; i++) {
+    const record = 44 + i * 20;
+    const tag = view.getUint32(record);
+    const length = view.getUint32(record + 12);
+    const compressedLength = view.getUint32(record + 8);
+    decodedSize += alignFontBytes(length);
+    if (tag <= previousTag || compressedLength > length || decodedSize > MAX_WOFF_BYTES) {
+      throw new Error('Invalid WOFF1 table directory or decoded size');
+    }
+    previousTag = tag;
+    entries.push({
+      tag: String.fromCharCode(...new Uint8Array(data, record, 4)),
+      offset: view.getUint32(record + 4),
+      length,
+      compressedLength,
+      checksum: view.getUint32(record + 16),
+    });
+  }
+  if (decodedSize !== view.getUint32(16)) throw new Error('Invalid WOFF1 decoded size');
+  validateWoffBlocks(data, entries, directoryEnd);
+  return entries;
+}
+
+function validateWoffBlocks(data: ArrayBuffer, entries: WoffTable[], directoryEnd: number): void {
+  const view = new DataView(data);
+  const blocks = entries.map((entry) => ({ offset: entry.offset, length: entry.compressedLength }));
+  blocks.sort((a, b) => a.offset - b.offset);
+  const metadataOffset = view.getUint32(24);
+  const metadataLength = view.getUint32(28);
+  const metadataOriginalLength = view.getUint32(32);
+  const privateOffset = view.getUint32(36);
+  const privateLength = view.getUint32(40);
+  if (
+    (metadataOffset === 0) !== (metadataLength === 0) ||
+    (metadataOffset === 0) !== (metadataOriginalLength === 0) ||
+    (privateOffset === 0) !== (privateLength === 0)
+  ) {
+    throw new Error('Invalid WOFF1 optional block header');
+  }
+  if (metadataOffset) blocks.push({ offset: metadataOffset, length: metadataLength });
+  if (privateOffset) blocks.push({ offset: privateOffset, length: privateLength });
+  let end = directoryEnd;
+  for (const block of blocks) {
+    if (block.offset !== alignFontBytes(end) || block.length > data.byteLength - block.offset) {
+      throw new Error('Invalid WOFF1 block alignment, overlap or bounds');
+    }
+    for (let i = end; i < block.offset; i++) {
+      if (view.getUint8(i) !== 0) throw new Error('Invalid WOFF1 padding');
+    }
+    end = block.offset + block.length;
+  }
+  if (end > data.byteLength || data.byteLength > alignFontBytes(end)) {
+    throw new Error('Invalid WOFF1 trailing data');
+  }
+  for (let i = end; i < data.byteLength; i++) {
+    if (view.getUint8(i) !== 0) throw new Error('Invalid WOFF1 trailing padding');
+  }
 }
 
 /**
- * Decompress a zlib-compressed block (raw deflate, as used by WOFF1 tables).
- * Uses the Web `DecompressionStream` when available and falls back to the
- * browser/node `inflate-raw` equivalent.
+ * WOFF1 uses the zlib wrapper, including its checksum, rather than raw deflate.
+ * Bound retained output to the declared length and settle stream errors once.
  */
 async function decompressZlib(data: ArrayBuffer, expectedLength: number): Promise<ArrayBuffer> {
-  if (typeof DecompressionStream !== 'undefined') {
-    const ds = new DecompressionStream('deflate-raw');
-    const writer = ds.writable.getWriter();
-    const reader = ds.readable.getReader();
-
-    const writePromise = writer.write(new Uint8Array(data)).then(() => writer.close());
-
+  if (typeof DecompressionStream === 'undefined') {
+    throw new Error('DecompressionStream is not available for WOFF1 decompression');
+  }
+  const reader = new Blob([data])
+    .stream()
+    .pipeThrough(new DecompressionStream('deflate'))
+    .getReader();
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => reject(new Error('WOFF1 decompression timed out')), 2_000);
+  });
+  try {
     const chunks: Uint8Array[] = [];
     let total = 0;
     while (true) {
-      const { done, value } = await reader.read();
+      const { done, value } = await Promise.race([reader.read(), deadline]);
       if (done) break;
-      chunks.push(value);
       total += value.byteLength;
-      // Guard against pathological expansion.
-      if (total > Math.max(expectedLength * 4, 16 * 1024 * 1024)) {
-        throw new Error('Decompressed WOFF1 table exceeds safety limit');
+      if (total > expectedLength) {
+        throw new Error('WOFF1 decompressed table exceeds declared length');
       }
+      chunks.push(value);
     }
-    await writePromise;
-
+    if (total !== expectedLength) throw new Error('WOFF1 decompressed table length mismatch');
     const out = new Uint8Array(total);
     let offset = 0;
     for (const chunk of chunks) {
@@ -333,9 +368,13 @@ async function decompressZlib(data: ArrayBuffer, expectedLength: number): Promis
       offset += chunk.byteLength;
     }
     return out.buffer;
+  } catch (cause) {
+    throw new Error('Invalid WOFF1 compressed table', { cause });
+  } finally {
+    clearTimeout(timeout);
+    await reader.cancel().catch(() => {});
+    reader.releaseLock();
   }
-
-  throw new Error('DecompressionStream is not available for WOFF1 decompression');
 }
 
 function reconstructSFNT(
@@ -362,7 +401,7 @@ function reconstructSFNT(
       tag,
       offset: currentOffset,
       length: tableData.byteLength,
-      checksum: computeTableChecksum(tableData),
+      checksum: computeTableChecksum(tableData, tag === 'head'),
     });
     currentOffset += paddedLength;
   }
@@ -375,12 +414,15 @@ function reconstructSFNT(
 
   // Offset table header
   outView.setUint32(0, flavor);
-  outView.setUint16(2, numTables);
-  outView.setUint16(4, 0); // searchRange
-  outView.setUint16(6, 0); // entrySelector
-  outView.setUint16(8, 0); // rangeShift
+  const entrySelector = Math.floor(Math.log2(numTables));
+  const searchRange = 2 ** entrySelector * 16;
+  outView.setUint16(4, numTables);
+  outView.setUint16(6, searchRange);
+  outView.setUint16(8, entrySelector);
+  outView.setUint16(10, numTables * 16 - searchRange);
 
   // Table directory
+  tableEntries.sort((a, b) => (a.tag < b.tag ? -1 : a.tag > b.tag ? 1 : 0));
   for (let i = 0; i < tableEntries.length; i++) {
     const entry = tableEntries[i]!;
     const dirOff = headerSize + i * 16;
@@ -400,16 +442,23 @@ function reconstructSFNT(
     out.set(new Uint8Array(tableData), entry.offset);
   }
 
+  const head = tableEntries.find((entry) => entry.tag === 'head');
+  if (head && head.length >= 12) {
+    outView.setUint32(head.offset + 8, 0);
+    outView.setUint32(head.offset + 8, (0xb1b0afba - computeTableChecksum(buffer)) >>> 0);
+  }
+
   return buffer;
 }
 
-function computeTableChecksum(data: ArrayBuffer): number {
+function computeTableChecksum(data: ArrayBuffer, isHead = false): number {
   const paddedLength = (data.byteLength + 3) & ~3;
   const bytes = new Uint8Array(paddedLength);
   bytes.set(new Uint8Array(data));
   const view = new DataView(bytes.buffer);
   let sum = 0;
   for (let i = 0; i < paddedLength; i += 4) {
+    if (isHead && i === 8) continue;
     sum = (sum + view.getUint32(i)) >>> 0;
   }
   return sum;
@@ -515,8 +564,8 @@ async function parseRawFontAtOffset(
   const { contentHash, fingerprint, hashAlgorithm } = await computeFontHash(data);
 
   const unitsPerEm = headData.unitsPerEm || 1000;
-  const ascender = os2Data.ascender || hheaData.ascender || 800;
-  const descender = os2Data.descender || hheaData.descender || -200;
+  const ascender = os2Data.ascender ?? hheaData.ascender ?? 800;
+  const descender = os2Data.descender ?? hheaData.descender ?? -200;
   const lineGap = hheaData.lineGap || 0;
   const xHeight = os2Data.xHeight;
   const capHeight = os2Data.capHeight;
@@ -631,22 +680,22 @@ interface NameRecords {
 
 function parseNameTable(data: ArrayBuffer, tables: Map<string, TableDirectory>): NameRecords {
   const table = tables.get('name');
-  if (!table) return {};
+  if (!table || table.length < 6) return {};
 
-  const view = new DataView(data);
-  const base = table.offset;
+  const view = new DataView(data, table.offset, table.length);
   const result: NameRecords = {};
   const priority: Record<number, number> = {};
 
-  if (base + 6 > data.byteLength) return result;
-
-  const count = view.getUint16(base + 2);
-  const stringOffset = view.getUint16(base + 4);
-  const recordsStart = base + 6;
+  const count = view.getUint16(2);
+  const stringOffset = view.getUint16(4);
+  const recordsStart = 6;
+  const recordsEnd = recordsStart + count * 12;
+  if (recordsEnd > table.length || stringOffset < recordsEnd || stringOffset > table.length) {
+    return result;
+  }
 
   for (let i = 0; i < count; i++) {
     const recOff = recordsStart + i * 12;
-    if (recOff + 12 > data.byteLength) break;
 
     const platformID = view.getUint16(recOff);
     const encodingID = view.getUint16(recOff + 2);
@@ -655,22 +704,23 @@ function parseNameTable(data: ArrayBuffer, tables: Map<string, TableDirectory>):
     const length = view.getUint16(recOff + 8);
     const offset2 = view.getUint16(recOff + 10);
 
-    // Prefer Unicode Windows records, then Unicode Macintosh records. Within
-    // one platform prefer English (language 0 or 0x0409) and a Unicode
-    // encoding over legacy encodings.
+    // Prefer Windows records, then Unicode-platform records. Within a
+    // platform favor the default/Windows English language IDs and Unicode
+    // encodings over legacy encodings.
     const recordPriority =
       (platformID === 3 ? 20 : platformID === 0 ? 18 : platformID === 1 ? 10 : 0) +
       (encodingID === 10 || encodingID === 1 ? 2 : 0) +
       (languageID === 0 || languageID === 0x0409 ? 1 : 0);
     if (result[nameID] !== undefined && (priority[nameID] ?? -1) >= recordPriority) continue;
 
-    const strBase = base + stringOffset + offset2;
-    if (strBase + length > data.byteLength) continue;
+    const strBase = stringOffset + offset2;
+    if (strBase + length > table.length) continue;
 
-    const bytes = new Uint8Array(data, strBase, length);
+    const bytes = new Uint8Array(data, table.offset + strBase, length);
 
     let decoded: string;
-    if (platformID === 3) {
+    if (platformID === 0 || platformID === 3) {
+      if (length % 2 !== 0) continue;
       decoded = decodeUTF16BE(bytes);
     } else if (platformID === 1) {
       decoded = decodeMacRoman(bytes);
@@ -723,8 +773,8 @@ function parseHeadTable(data: ArrayBuffer, tables: Map<string, TableDirectory>):
 }
 
 interface OS2Data {
-  ascender: number;
-  descender: number;
+  ascender?: number;
+  descender?: number;
   xHeight?: number;
   capHeight?: number;
   embeddingRights: EmbeddingRights;
@@ -734,37 +784,31 @@ interface OS2Data {
 
 function parseOS2Table(data: ArrayBuffer, tables: Map<string, TableDirectory>): OS2Data {
   const table = tables.get('OS/2');
-  if (!table) {
-    return { ascender: 800, descender: -200, embeddingRights: 'unknown', scripts: [] };
-  }
-  if (table.offset + 88 > data.byteLength) {
-    return { ascender: 800, descender: -200, embeddingRights: 'unknown', scripts: [] };
+  // Legacy version-0 tables may end at usLastCharIndex (68 bytes). Bounds
+  // belong to this table, not the whole file: the next table is unrelated data.
+  if (!table || table.length < 68) {
+    return { embeddingRights: 'unknown', scripts: [] };
   }
 
-  const view = new DataView(data);
-  const base = table.offset;
+  const view = new DataView(data, table.offset, table.length);
+  const version = view.getUint16(0);
 
-  const ascender = view.getInt16(base + 68);
-  const descender = view.getInt16(base + 70);
+  const ascender = table.length >= 78 ? view.getInt16(68) : undefined;
+  const descender = table.length >= 78 ? view.getInt16(70) : undefined;
 
   let xHeight: number | undefined;
   let capHeight: number | undefined;
-  if (table.length >= 88) {
-    xHeight = view.getUint16(base + 86);
-  }
-  if (table.length >= 90) {
-    capHeight = view.getUint16(base + 88);
+  if (version >= 2 && table.length >= 96) {
+    xHeight = view.getInt16(86);
+    capHeight = view.getInt16(88);
   }
 
   // fsType at offset 8 — embedding permissions
-  const fsType = view.getUint16(base + 8);
+  const fsType = view.getUint16(8);
   const embeddingRights = classifyFSType(fsType);
 
   // Panose classification
-  let panose: Uint8Array | undefined;
-  if (table.length >= 32) {
-    panose = new Uint8Array(data, base + 32, 10);
-  }
+  const panose = new Uint8Array(data, table.offset + 32, 10);
 
   // Unicode range (bytes 42-58)
   const scripts: string[] = [];

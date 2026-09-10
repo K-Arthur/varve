@@ -1,0 +1,35 @@
+[
+  {
+    "package": "@fontsource-variable/geist",
+    "packageVersion": "5.3.0",
+    "file": "geist/geist-latin-wght-normal.woff2",
+    "license": "geist/LICENSE",
+    "sha256": "19f9c92546aa300c312235e3125af1b81394d8db9a4bc4a425cd5b641d2d54e1",
+    "expected": {
+      "xHeight": 530,
+      "capHeight": 710
+    }
+  },
+  {
+    "package": "@fontsource-variable/ibm-plex-sans",
+    "packageVersion": "5.3.0",
+    "file": "ibm-plex-sans/ibm-plex-sans-latin-wght-normal.woff2",
+    "license": "ibm-plex-sans/LICENSE",
+    "sha256": "e2291e842cf5af167122a22881a740c7f2dda7716f1e8cd76680264f4a859470",
+    "expected": {
+      "xHeight": 516,
+      "capHeight": 698
+    }
+  },
+  {
+    "package": "@fontsource-variable/fraunces",
+    "packageVersion": "5.3.0",
+    "file": "fraunces/fraunces-latin-opsz-normal.woff2",
+    "license": "fraunces/LICENSE",
+    "sha256": "7234ed860a9cc83045413c4faee63c960a8f2d1917adcf728119307d56e0d783",
+    "expected": {
+      "xHeight": 964,
+      "capHeight": 1400
+    }
+  }
+]
