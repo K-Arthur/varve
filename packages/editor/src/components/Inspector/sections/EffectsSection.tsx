@@ -151,23 +151,33 @@ function toSwatchBg(color: ManagedColor): string {
   return `rgba(${r},${g},${b},${(a / 255).toFixed(2)})`;
 }
 
-const EFFECT_TYPE_OPTIONS: { value: Effect['type']; label: string }[] = [
-  { value: 'dropShadow', label: 'Drop Shadow' },
-  { value: 'innerShadow', label: 'Inner Shadow' },
-  { value: 'outerGlow', label: 'Outer Glow' },
-  { value: 'innerGlow', label: 'Inner Glow' },
-  { value: 'layerBlur', label: 'Layer Blur' },
-  { value: 'gaussianBlur', label: 'Gaussian Blur' },
-  { value: 'fieldBlur', label: 'Field Blur' },
-  { value: 'irisBlur', label: 'Iris Blur' },
-  { value: 'tiltShiftBlur', label: 'Tilt-Shift Blur' },
-  { value: 'pathBlur', label: 'Path Blur' },
-  { value: 'spinBlur', label: 'Spin Blur' },
-  { value: 'backgroundBlur', label: 'Background Blur' },
-  { value: 'depthBlur', label: 'Depth Blur' },
+/**
+ * Icons are category-level, not one-per-effect: the curated Phosphor set has
+ * no literal "blur" or "shadow" glyph, and inventing a distinct icon per
+ * exotic blur variant (9 of them) would mean guessing at glyphs a reader has
+ * no way to already recognize. Effects that share a rendering family (all
+ * nine blur types; inner/outer shadow; inner/outer glow) share one icon —
+ * the label text still disambiguates the specific variant. glassMaterial has
+ * no confident match in the curated set and is left without one rather than
+ * force a misleading pick.
+ */
+const EFFECT_TYPE_OPTIONS: { value: Effect['type']; label: string; icon?: string }[] = [
+  { value: 'dropShadow', label: 'Drop Shadow', icon: 'StackSimple' },
+  { value: 'innerShadow', label: 'Inner Shadow', icon: 'StackSimple' },
+  { value: 'outerGlow', label: 'Outer Glow', icon: 'Sparkle' },
+  { value: 'innerGlow', label: 'Inner Glow', icon: 'Sparkle' },
+  { value: 'layerBlur', label: 'Layer Blur', icon: 'CloudFog' },
+  { value: 'gaussianBlur', label: 'Gaussian Blur', icon: 'CloudFog' },
+  { value: 'fieldBlur', label: 'Field Blur', icon: 'CloudFog' },
+  { value: 'irisBlur', label: 'Iris Blur', icon: 'CloudFog' },
+  { value: 'tiltShiftBlur', label: 'Tilt-Shift Blur', icon: 'CloudFog' },
+  { value: 'pathBlur', label: 'Path Blur', icon: 'CloudFog' },
+  { value: 'spinBlur', label: 'Spin Blur', icon: 'CloudFog' },
+  { value: 'backgroundBlur', label: 'Background Blur', icon: 'CloudFog' },
+  { value: 'depthBlur', label: 'Depth Blur', icon: 'CloudFog' },
   { value: 'glassMaterial', label: 'Glass Material' },
-  { value: 'chromaticAberration', label: 'Chromatic Aberration' },
-  { value: 'glitch', label: 'Glitch' },
+  { value: 'chromaticAberration', label: 'Chromatic Aberration', icon: 'Rainbow' },
+  { value: 'glitch', label: 'Glitch', icon: 'Lightning' },
 ];
 
 export function EffectsSection({ nodes, sectionId }: EffectsSectionProps) {
