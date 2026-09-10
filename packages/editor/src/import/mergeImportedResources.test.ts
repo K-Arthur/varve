@@ -18,6 +18,7 @@ describe('mergeImportedResources', () => {
         componentId: 'source-component',
       }),
       styleId: 'source-style',
+      paintRefs: ['source-paint'],
       bindings: { fill: { variableId: 'source-variable' } },
     };
     const root = makeGroupNode('source-root', {
@@ -56,6 +57,18 @@ describe('mergeImportedResources', () => {
           },
         },
       },
+      paints: {
+        'source-paint': {
+          id: 'source-paint',
+          name: 'Surface paint',
+          fill: {
+            type: 'solid' as const,
+            opacity: 1,
+            blendMode: 'normal' as const,
+            visible: true,
+          },
+        },
+      },
       variableStore,
       interactions: {
         [instance.id]: [
@@ -68,6 +81,30 @@ describe('mergeImportedResources', () => {
             enabled: true,
           },
         ],
+      },
+      stories: {
+        'source-story': {
+          id: 'source-story',
+          name: 'Story',
+          content: { paragraphs: [] },
+          thread: [instance.id],
+        },
+      },
+      timelines: {
+        'source-timeline': {
+          id: 'source-timeline',
+          name: 'Pulse',
+          duration: 1000,
+          defaultEasing: { kind: 'linear' as const },
+          tracks: [
+            {
+              id: 'source-track',
+              nodeId: instance.id,
+              property: 'opacity',
+              keyframes: [{ progress: 0, value: 1 }],
+            },
+          ],
+        },
       },
     };
     const target = createDocument('target');
@@ -88,15 +125,23 @@ describe('mergeImportedResources', () => {
     const style = Object.values(merged.styles ?? {})[0];
     const variable = Object.values(merged.variableStore?.variables ?? {})[0];
     const interaction = merged.interactions?.[clonedInstance.id]?.[0];
+    const paintId = clonedInstance.paintRefs?.[0];
+    const story = Object.values(merged.stories ?? {})[0];
+    const timeline = Object.values(merged.timelines ?? {})[0];
 
     expect(component?.masterRootId).toBe(clone.idMap.get(master.id));
     expect(clonedInstance.componentId).toBe(component?.id);
     expect(clonedInstance.styleId).toBe(style?.id);
     expect(clonedInstance.bindings?.fill.variableId).toBe(variable?.id);
+    expect(paintId).toBeTruthy();
+    expect(paintId).not.toBe('source-paint');
+    expect(merged.paints?.[paintId!]?.name).toBe('Surface paint');
     expect(interaction?.nodeId).toBe(clonedInstance.id);
     expect((interaction?.actions[0] as { targetId?: string } | undefined)?.targetId).toBe(
       clone.idMap.get(master.id),
     );
+    expect(story?.thread).toEqual([clonedInstance.id]);
+    expect(timeline?.tracks[0]?.nodeId).toBe(clonedInstance.id);
   });
 
   it('remaps mockup templates referenced by imported frame instances', () => {

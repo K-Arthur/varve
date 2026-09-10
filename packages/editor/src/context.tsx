@@ -7772,6 +7772,16 @@ export function EditorProvider({
           closure.mockupTemplates,
           platform,
           snapshot.document.id,
+          closure.generativeEdits,
+          closure.components,
+          closure.styles,
+          closure.paints,
+          closure.variableStore,
+          closure.interactions,
+          closure.timelines,
+          closure.stories,
+          closure.motionExtensions,
+          closure.motionPresets,
         ).then(
           (outcome) => {
             if (outcome.status === 'editable') {
@@ -7821,6 +7831,16 @@ export function EditorProvider({
           closure.mockupTemplates,
           platform,
           sourceDocumentId,
+          closure.generativeEdits,
+          closure.components,
+          closure.styles,
+          closure.paints,
+          closure.variableStore,
+          closure.interactions,
+          closure.timelines,
+          closure.stories,
+          closure.motionExtensions,
+          closure.motionPresets,
         ).then(
           (outcome) => {
             if (outcome.status !== 'editable') {
@@ -7993,6 +8013,17 @@ export function EditorProvider({
                 ...(varveData.generativeEdits
                   ? { generativeEdits: varveData.generativeEdits }
                   : {}),
+                ...(varveData.components ? { components: varveData.components } : {}),
+                ...(varveData.styles ? { styles: varveData.styles } : {}),
+                ...(varveData.paints ? { paints: varveData.paints } : {}),
+                ...(varveData.variableStore ? { variableStore: varveData.variableStore } : {}),
+                ...(varveData.interactions ? { interactions: varveData.interactions } : {}),
+                ...(varveData.timelines ? { timelines: varveData.timelines } : {}),
+                ...(varveData.stories ? { stories: varveData.stories } : {}),
+                ...(varveData.motionExtensions
+                  ? { motionExtensions: varveData.motionExtensions }
+                  : {}),
+                ...(varveData.motionPresets ? { motionPresets: varveData.motionPresets } : {}),
               };
               // copySelected()/cutSelected() serialize each selected node plus
               // its full descendant subtree (gatherSubtreeNodes), so a node

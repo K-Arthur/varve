@@ -13,6 +13,7 @@ import { DocumentCodec } from './documentCodec';
 import { gradientFill, imageFill } from './fills';
 import { addRasterMaskAsset } from './masks';
 import { makePaint, type Page, type RasterMaskAsset } from './types';
+import { createVariableStore } from './variables';
 import { CURRENT_DOCUMENT_VERSION } from './version';
 
 const PNG_DATA_URL =
@@ -278,6 +279,86 @@ describe('DocumentCodec', () => {
 
     expect([...closure.nodeIds]).toEqual(['g1', 's1']);
     expect(Object.keys(closure.nodes)).toEqual(['g1', 's1']);
+  });
+
+  it('collects editable document resources without promoting dependencies to roots', () => {
+    const master = makeFrameNode('master', { name: 'Master' });
+    const instance = {
+      ...makeFrameNode('instance', { name: 'Instance' }),
+      componentId: 'component',
+      styleId: 'style',
+      paintRefs: ['paint'],
+      bindings: { fill: { variableId: 'variable' } },
+    };
+    const variableStore = createVariableStore(['default']);
+    variableStore.variables.variable = {
+      id: 'variable',
+      name: 'Surface',
+      type: 'color',
+      valuesByMode: { default: '#fff' },
+    };
+    const doc = {
+      ...createDocument('resource closure', true),
+      nodes: { [instance.id]: instance, [master.id]: master },
+      components: {
+        component: { id: 'component', name: 'Button', slots: [], masterRootId: master.id },
+      },
+      styles: {
+        style: {
+          id: 'style',
+          type: 'color' as const,
+          name: 'Surface',
+          fill: { type: 'solid' as const, opacity: 1, blendMode: 'normal' as const, visible: true },
+        },
+      },
+      paints: {
+        paint: {
+          id: 'paint',
+          name: 'Surface paint',
+          fill: { type: 'solid' as const, opacity: 1, blendMode: 'normal' as const, visible: true },
+        },
+      },
+      variableStore,
+      interactions: {
+        [instance.id]: [
+          {
+            id: 'interaction',
+            nodeId: instance.id,
+            name: 'Navigate',
+            trigger: { kind: 'onClick' },
+            actions: [],
+            enabled: true,
+          },
+        ],
+      },
+      timelines: {
+        timeline: {
+          id: 'timeline',
+          name: 'Pulse',
+          duration: 1000,
+          defaultEasing: { kind: 'linear' as const },
+          tracks: [
+            {
+              id: 'track',
+              nodeId: instance.id,
+              property: 'opacity',
+              keyframes: [{ progress: 0, value: 1 }],
+            },
+          ],
+        },
+      },
+    };
+
+    const closure = DocumentCodec.collectNodeClosure(doc, [instance.id]);
+
+    expect(closure.nodes[master.id]).toBeDefined();
+    expect(closure.components?.component?.masterRootId).toBe(master.id);
+    expect(closure.styles?.style).toBeDefined();
+    expect(closure.paints?.paint).toBeDefined();
+    expect(closure.variableStore?.variables.variable).toBeDefined();
+    expect(closure.interactions?.[instance.id]).toHaveLength(1);
+    expect(closure.timelines?.timeline?.tracks[0]?.nodeId).toBe(instance.id);
+    expect(closure.nodeIds.has(master.id)).toBe(true);
   });
 
   describe('document-level image assets', () => {

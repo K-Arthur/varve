@@ -91,6 +91,15 @@ export interface ClipboardData {
   mockupTemplates?: Record<string, MockupTemplateAsset>;
   /** Generative edit records whose source/result nodes are in this fragment. */
   generativeEdits?: NonNullable<Document['generativeEdits']>;
+  components?: Document['components'];
+  styles?: Document['styles'];
+  paints?: Document['paints'];
+  variableStore?: Document['variableStore'];
+  interactions?: Document['interactions'];
+  timelines?: Document['timelines'];
+  stories?: Document['stories'];
+  motionExtensions?: Document['motionExtensions'];
+  motionPresets?: Document['motionPresets'];
   /**
    * Placed-world transform of each copied selection root, keyed by the
    * node's ORIGINAL id. Optional and forward-compatible: clipboard payloads
@@ -323,7 +332,16 @@ export function parseClipboardData(text: string): ClipboardData | null {
     !validResourceMap(raw.assets) ||
     !validResourceMap(raw.iconAssets) ||
     !validResourceMap(raw.mockupTemplates) ||
-    !validResourceMap(raw.generativeEdits)
+    !validResourceMap(raw.generativeEdits) ||
+    !validResourceMap(raw.components) ||
+    !validResourceMap(raw.styles) ||
+    !validResourceMap(raw.paints) ||
+    !validResourceMap(raw.variableStore) ||
+    !validResourceMap(raw.interactions) ||
+    !validResourceMap(raw.timelines) ||
+    !validResourceMap(raw.stories) ||
+    !validResourceMap(raw.motionExtensions) ||
+    !validResourceMap(raw.motionPresets)
   ) {
     return null;
   }
@@ -365,6 +383,25 @@ export function parseClipboardData(text: string): ClipboardData | null {
     ...(isRecord(raw.generativeEdits)
       ? { generativeEdits: raw.generativeEdits as ClipboardData['generativeEdits'] }
       : {}),
+    ...(isRecord(raw.components)
+      ? { components: raw.components as ClipboardData['components'] }
+      : {}),
+    ...(isRecord(raw.styles) ? { styles: raw.styles as ClipboardData['styles'] } : {}),
+    ...(isRecord(raw.paints) ? { paints: raw.paints as ClipboardData['paints'] } : {}),
+    ...(isRecord(raw.variableStore)
+      ? { variableStore: raw.variableStore as unknown as ClipboardData['variableStore'] }
+      : {}),
+    ...(isRecord(raw.interactions)
+      ? { interactions: raw.interactions as ClipboardData['interactions'] }
+      : {}),
+    ...(isRecord(raw.timelines) ? { timelines: raw.timelines as ClipboardData['timelines'] } : {}),
+    ...(isRecord(raw.stories) ? { stories: raw.stories as ClipboardData['stories'] } : {}),
+    ...(isRecord(raw.motionExtensions)
+      ? { motionExtensions: raw.motionExtensions as ClipboardData['motionExtensions'] }
+      : {}),
+    ...(isRecord(raw.motionPresets)
+      ? { motionPresets: raw.motionPresets as ClipboardData['motionPresets'] }
+      : {}),
     ...(isRecord(raw.worldAnchor)
       ? { worldAnchor: raw.worldAnchor as ClipboardData['worldAnchor'] }
       : {}),
@@ -381,6 +418,15 @@ function serializeClipboardData(
   mockupTemplates?: Record<string, MockupTemplateAsset>,
   sourceDocumentId?: string,
   generativeEdits?: NonNullable<Document['generativeEdits']>,
+  components?: Document['components'],
+  styles?: Document['styles'],
+  paints?: Document['paints'],
+  variableStore?: Document['variableStore'],
+  interactions?: Document['interactions'],
+  timelines?: Document['timelines'],
+  stories?: Document['stories'],
+  motionExtensions?: Document['motionExtensions'],
+  motionPresets?: Document['motionPresets'],
 ): string {
   const data: ClipboardData = {
     format: VARVE_CLIPBOARD_FORMAT,
@@ -394,6 +440,15 @@ function serializeClipboardData(
     ...(mockupTemplates && Object.keys(mockupTemplates).length > 0 ? { mockupTemplates } : {}),
     ...(worldAnchor && Object.keys(worldAnchor).length > 0 ? { worldAnchor } : {}),
     ...(generativeEdits && Object.keys(generativeEdits).length > 0 ? { generativeEdits } : {}),
+    ...(components && Object.keys(components).length > 0 ? { components } : {}),
+    ...(styles && Object.keys(styles).length > 0 ? { styles } : {}),
+    ...(paints && Object.keys(paints).length > 0 ? { paints } : {}),
+    ...(variableStore && Object.keys(variableStore.variables).length > 0 ? { variableStore } : {}),
+    ...(interactions && Object.keys(interactions).length > 0 ? { interactions } : {}),
+    ...(timelines && Object.keys(timelines).length > 0 ? { timelines } : {}),
+    ...(stories && Object.keys(stories).length > 0 ? { stories } : {}),
+    ...(motionExtensions && Object.keys(motionExtensions).length > 0 ? { motionExtensions } : {}),
+    ...(motionPresets && Object.keys(motionPresets).length > 0 ? { motionPresets } : {}),
   };
   return JSON.stringify(data);
 }
@@ -417,6 +472,15 @@ export function writeClipboardOutcome(
   platform?: Pick<Platform, 'kind' | 'writeClipboardData'>,
   sourceDocumentId?: string,
   generativeEdits?: NonNullable<Document['generativeEdits']>,
+  components?: Document['components'],
+  styles?: Document['styles'],
+  paints?: Document['paints'],
+  variableStore?: Document['variableStore'],
+  interactions?: Document['interactions'],
+  timelines?: Document['timelines'],
+  stories?: Document['stories'],
+  motionExtensions?: Document['motionExtensions'],
+  motionPresets?: Document['motionPresets'],
 ): Promise<ClipboardWriteOutcome> {
   const generation = ++latestClipboardWrite;
   const run = clipboardWriteTail.then(() =>
@@ -431,6 +495,15 @@ export function writeClipboardOutcome(
       platform,
       sourceDocumentId,
       generativeEdits,
+      components,
+      styles,
+      paints,
+      variableStore,
+      interactions,
+      timelines,
+      stories,
+      motionExtensions,
+      motionPresets,
       generation,
     ),
   );
@@ -452,6 +525,15 @@ async function writeClipboardOutcomeNow(
   platform?: Pick<Platform, 'kind' | 'writeClipboardData'>,
   sourceDocumentId?: string,
   generativeEdits?: NonNullable<Document['generativeEdits']>,
+  components?: Document['components'],
+  styles?: Document['styles'],
+  paints?: Document['paints'],
+  variableStore?: Document['variableStore'],
+  interactions?: Document['interactions'],
+  timelines?: Document['timelines'],
+  stories?: Document['stories'],
+  motionExtensions?: Document['motionExtensions'],
+  motionPresets?: Document['motionPresets'],
   generation?: number,
 ): Promise<ClipboardWriteOutcome> {
   const isCurrentWrite = (): boolean =>
@@ -469,6 +551,15 @@ async function writeClipboardOutcomeNow(
       mockupTemplates,
       sourceDocumentId,
       generativeEdits,
+      components,
+      styles,
+      paints,
+      variableStore,
+      interactions,
+      timelines,
+      stories,
+      motionExtensions,
+      motionPresets,
     );
   } catch {
     return { status: 'failed', reason: 'write-failed' };
@@ -561,6 +652,15 @@ export async function writeClipboard(
   platform?: Pick<Platform, 'kind' | 'writeClipboardData'>,
   sourceDocumentId?: string,
   generativeEdits?: NonNullable<Document['generativeEdits']>,
+  components?: Document['components'],
+  styles?: Document['styles'],
+  paints?: Document['paints'],
+  variableStore?: Document['variableStore'],
+  interactions?: Document['interactions'],
+  timelines?: Document['timelines'],
+  stories?: Document['stories'],
+  motionExtensions?: Document['motionExtensions'],
+  motionPresets?: Document['motionPresets'],
 ): Promise<boolean> {
   return (
     (
@@ -575,6 +675,15 @@ export async function writeClipboard(
         platform,
         sourceDocumentId,
         generativeEdits,
+        components,
+        styles,
+        paints,
+        variableStore,
+        interactions,
+        timelines,
+        stories,
+        motionExtensions,
+        motionPresets,
       )
     ).status === 'editable'
   );

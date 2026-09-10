@@ -138,7 +138,7 @@ async function publishClipboardRepresentation(
     try {
       await navigator.clipboard.write([
         new ClipboardItemCtor({
-          [mimeType]: new Blob([data], { type: mimeType }),
+          [mimeType]: new Blob([data as unknown as BlobPart], { type: mimeType }),
           'text/plain': plainText,
         }),
       ]);

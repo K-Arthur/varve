@@ -10,9 +10,14 @@ interface ResourceMaps {
   nodeIds: Map<string, string>;
   componentIds: Map<string, string>;
   styleIds: Map<string, string>;
+  paintIds: Map<string, string>;
   templateIds: Map<string, string>;
   variableIds: Map<string, string>;
   collectionIds: Map<string, string>;
+  storyIds: Map<string, string>;
+  timelineIds: Map<string, string>;
+  motionExtensionIds: Map<string, string>;
+  motionPresetIds: Map<string, string>;
 }
 
 function allocateResourceId(doc: Document, occupied: Set<string>): { id: string; doc: Document } {
@@ -73,9 +78,14 @@ function mergeGroup(
     nodeIds,
     componentIds: new Map(),
     styleIds: new Map(),
+    paintIds: new Map(),
     templateIds: new Map(),
     variableIds: new Map(),
     collectionIds: new Map(),
+    storyIds: new Map(),
+    timelineIds: new Map(),
+    motionExtensionIds: new Map(),
+    motionPresetIds: new Map(),
   };
 
   for (const id of Object.keys(sourceDoc.components)) {
@@ -87,6 +97,11 @@ function mergeGroup(
     const allocated = allocateResourceId(doc, occupied);
     doc = allocated.doc;
     maps.styleIds.set(id, allocated.id);
+  }
+  for (const id of Object.keys(sourceDoc.paints ?? {})) {
+    const allocated = allocateResourceId(doc, occupied);
+    doc = allocated.doc;
+    maps.paintIds.set(id, allocated.id);
   }
   for (const id of Object.keys(sourceDoc.mockupTemplates ?? {})) {
     const allocated = allocateResourceId(doc, occupied);
@@ -102,6 +117,26 @@ function mergeGroup(
     const allocated = allocateResourceId(doc, occupied);
     doc = allocated.doc;
     maps.collectionIds.set(id, allocated.id);
+  }
+  for (const id of Object.keys(sourceDoc.stories ?? {})) {
+    const allocated = allocateResourceId(doc, occupied);
+    doc = allocated.doc;
+    maps.storyIds.set(id, allocated.id);
+  }
+  for (const id of Object.keys(sourceDoc.timelines ?? {})) {
+    const allocated = allocateResourceId(doc, occupied);
+    doc = allocated.doc;
+    maps.timelineIds.set(id, allocated.id);
+  }
+  for (const id of Object.keys(sourceDoc.motionExtensions ?? {})) {
+    const allocated = allocateResourceId(doc, occupied);
+    doc = allocated.doc;
+    maps.motionExtensionIds.set(id, allocated.id);
+  }
+  for (const id of Object.keys(sourceDoc.motionPresets ?? {})) {
+    const allocated = allocateResourceId(doc, occupied);
+    doc = allocated.doc;
+    maps.motionPresetIds.set(id, allocated.id);
   }
 
   const components = { ...doc.components };
@@ -140,6 +175,17 @@ function mergeGroup(
     const id = maps.styleIds.get(sourceId);
     if (!id) continue;
     styles[id] = { ...source, id };
+  }
+
+  const paints = { ...(doc.paints ?? {}) };
+  for (const [sourceId, source] of Object.entries(sourceDoc.paints ?? {})) {
+    const id = maps.paintIds.get(sourceId);
+    if (!id) continue;
+    paints[id] = {
+      ...source,
+      id,
+      fill: structuredClone(source.fill),
+    };
   }
 
   const mockupTemplates = { ...(doc.mockupTemplates ?? {}) };
@@ -226,6 +272,9 @@ function mergeGroup(
       bindings?: Record<string, { variableId: string }>;
       mockup?: { templateId?: string };
       generativeEditId?: string;
+      paintRefs?: string[];
+      storyBinding?: { storyId: string; threadIndex: number };
+      pathId?: string;
     };
     if ('componentId' in candidate) {
       const componentId = maps.componentIds.get(candidate.componentId ?? '');
@@ -233,6 +282,22 @@ function mergeGroup(
       else delete candidate.componentId;
     }
     if (candidate.styleId) candidate.styleId = maps.styleIds.get(candidate.styleId);
+    if (candidate.paintRefs) {
+      candidate.paintRefs = candidate.paintRefs
+        .map((paintId) => maps.paintIds.get(paintId))
+        .filter((paintId): paintId is string => Boolean(paintId));
+      if (candidate.paintRefs.length === 0) delete candidate.paintRefs;
+    }
+    if (candidate.pathId) {
+      const pathId = maps.nodeIds.get(candidate.pathId);
+      if (pathId) candidate.pathId = pathId;
+      else delete candidate.pathId;
+    }
+    if (candidate.storyBinding) {
+      const storyId = maps.storyIds.get(candidate.storyBinding.storyId);
+      if (storyId) candidate.storyBinding = { ...candidate.storyBinding, storyId };
+      else delete candidate.storyBinding;
+    }
     const bindings = (candidate as unknown as { bindings?: Record<string, { variableId: string }> })
       .bindings;
     if (bindings) {
@@ -272,14 +337,67 @@ function mergeGroup(
     }));
   }
 
+  const stories = { ...(doc.stories ?? {}) };
+  for (const [sourceId, story] of Object.entries(sourceDoc.stories ?? {})) {
+    const id = maps.storyIds.get(sourceId);
+    if (!id) continue;
+    stories[id] = {
+      ...structuredClone(story),
+      id,
+      thread: story.thread
+        .map((nodeId) => maps.nodeIds.get(nodeId))
+        .filter((nodeId): nodeId is string => Boolean(nodeId)),
+    };
+  }
+
+  const timelines = { ...(doc.timelines ?? {}) };
+  for (const [sourceId, timeline] of Object.entries(sourceDoc.timelines ?? {})) {
+    const id = maps.timelineIds.get(sourceId);
+    if (!id) continue;
+    timelines[id] = {
+      ...structuredClone(timeline),
+      id,
+      tracks: timeline.tracks
+        .map((track) => ({
+          ...track,
+          nodeId: maps.nodeIds.get(track.nodeId) ?? track.nodeId,
+          ...(track.nestedTimelineId
+            ? { nestedTimelineId: maps.timelineIds.get(track.nestedTimelineId) }
+            : {}),
+        }))
+        .filter((track) => new Set(maps.nodeIds.values()).has(track.nodeId)),
+    };
+  }
+
+  const motionExtensions = { ...(doc.motionExtensions ?? {}) };
+  for (const [sourceId, extension] of Object.entries(sourceDoc.motionExtensions ?? {})) {
+    const id = maps.motionExtensionIds.get(sourceId);
+    const nodeId = maps.nodeIds.get(extension.nodeId);
+    if (!id || !nodeId) continue;
+    motionExtensions[id] = { ...structuredClone(extension), id, nodeId };
+  }
+
+  const motionPresets = { ...(doc.motionPresets ?? {}) };
+  for (const [sourceId, preset] of Object.entries(sourceDoc.motionPresets ?? {})) {
+    const id = maps.motionPresetIds.get(sourceId);
+    const timelineId = maps.timelineIds.get(preset.timelineId);
+    if (!id || !timelineId) continue;
+    motionPresets[id] = { ...preset, id, timelineId };
+  }
+
   return {
     doc: {
       ...doc,
       nodes,
       components,
       ...(Object.keys(styles).length > 0 ? { styles } : {}),
+      ...(Object.keys(paints).length > 0 ? { paints } : {}),
       ...(Object.keys(mockupTemplates).length > 0 ? { mockupTemplates } : {}),
       ...(Object.keys(interactions).length > 0 ? { interactions } : {}),
+      ...(Object.keys(stories).length > 0 ? { stories } : {}),
+      ...(Object.keys(timelines).length > 0 ? { timelines } : {}),
+      ...(Object.keys(motionExtensions).length > 0 ? { motionExtensions } : {}),
+      ...(Object.keys(motionPresets).length > 0 ? { motionPresets } : {}),
       ...(Object.keys(generativeEdits).length > 0 ? { generativeEdits } : {}),
     },
     maps,
@@ -300,9 +418,14 @@ export function mergeImportedResources(target: Document, imports: ImportedResour
     ...Object.keys(doc.nodes),
     ...Object.keys(doc.components),
     ...Object.keys(doc.styles ?? {}),
+    ...Object.keys(doc.paints ?? {}),
     ...Object.keys(doc.mockupTemplates ?? {}),
     ...Object.keys(doc.variableStore?.variables ?? {}),
     ...Object.keys(doc.variableStore?.collections ?? {}),
+    ...Object.keys(doc.stories ?? {}),
+    ...Object.keys(doc.timelines ?? {}),
+    ...Object.keys(doc.motionExtensions ?? {}),
+    ...Object.keys(doc.motionPresets ?? {}),
   ]);
   for (const [sourceDoc, entries] of grouped) {
     const merged = mergeGroup(doc, sourceDoc, entries, occupied);

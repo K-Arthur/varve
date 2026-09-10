@@ -71,6 +71,22 @@ export interface DocumentNormalizeResult {
 export interface DocumentClosure {
   nodeIds: Set<NodeId>;
   nodes: Record<NodeId, SceneNode>;
+  /** Component definitions whose instance or master is in the closure. */
+  components?: Document['components'];
+  /** Reusable styles referenced by closure nodes. */
+  styles?: Document['styles'];
+  /** Reusable paints referenced by closure nodes. */
+  paints?: Document['paints'];
+  /** Variable bindings and their referenced aliases. */
+  variableStore?: Document['variableStore'];
+  /** Prototype interactions owned by closure nodes. */
+  interactions?: Document['interactions'];
+  /** Motion timelines/tracks targeting closure nodes. */
+  timelines?: Document['timelines'];
+  /** Linked text stories referenced by closure text frames. */
+  stories?: Document['stories'];
+  motionExtensions?: Document['motionExtensions'];
+  motionPresets?: Document['motionPresets'];
   rasterMaskAssets?: Document['rasterMaskAssets'];
   /** Image assets (v2.6+) referenced by the closure's nodes — see ./assets.ts. */
   assets?: Document['assets'];
@@ -901,6 +917,125 @@ function collectNodeClosure(doc: Document, rootIds: NodeId[]): DocumentClosure {
   }
 
   for (const id of rootIds) visit(id);
+
+  // Component masters, path-text targets, and linked-story frames are
+  // dependencies rather than visible paste roots. Keep discovering those
+  // dependencies iteratively so a copied instance remains editable without
+  // turning its master/path/story nodes into additional top-level pastes.
+  let scanned = 0;
+  while (scanned < nodeIds.size) {
+    const pending = [...nodeIds];
+    const id = pending[scanned++];
+    const node = id ? nodes[id] : undefined;
+    if (!node) continue;
+    const candidate = node as SceneNode & {
+      componentId?: NodeId;
+      pathId?: NodeId;
+      storyBinding?: { storyId?: NodeId };
+    };
+    const component = candidate.componentId ? doc.components[candidate.componentId] : undefined;
+    if (component) visit(component.masterRootId);
+    if (candidate.pathId) visit(candidate.pathId);
+    const storyId = candidate.storyBinding?.storyId;
+    const story = storyId ? doc.stories?.[storyId] : undefined;
+    if (story) for (const frameId of story.thread) visit(frameId);
+  }
+
+  const components: NonNullable<Document['components']> = {};
+  const styles: NonNullable<Document['styles']> = {};
+  const paints: NonNullable<Document['paints']> = {};
+  const interactions: NonNullable<Document['interactions']> = {};
+  const stories: NonNullable<Document['stories']> = {};
+  const timelines: NonNullable<Document['timelines']> = {};
+  const motionExtensions: NonNullable<Document['motionExtensions']> = {};
+  const motionPresets: NonNullable<Document['motionPresets']> = {};
+  const variableIds = new Set<string>();
+  const collectionIds = new Set<string>();
+  const timelineIds = new Set<string>();
+  for (const node of Object.values(nodes)) {
+    const candidate = node as SceneNode & {
+      componentId?: NodeId;
+      styleId?: string;
+      paintRefs?: string[];
+      bindings?: Record<string, { variableId?: string }>;
+      storyBinding?: { storyId?: NodeId };
+    };
+    if (candidate.componentId) {
+      const component = doc.components[candidate.componentId];
+      if (component && nodeIds.has(component.masterRootId)) components[component.id] = component;
+    }
+    if (candidate.styleId && doc.styles?.[candidate.styleId]) {
+      styles[candidate.styleId] = doc.styles[candidate.styleId]!;
+    }
+    for (const paintId of candidate.paintRefs ?? []) {
+      const paint = doc.paints?.[paintId];
+      if (paint) paints[paintId] = paint;
+    }
+    for (const binding of Object.values(candidate.bindings ?? {})) {
+      if (binding.variableId) variableIds.add(binding.variableId);
+    }
+    const nodeInteractions = doc.interactions?.[node.id];
+    if (nodeInteractions) interactions[node.id] = nodeInteractions;
+    const storyId = candidate.storyBinding?.storyId;
+    if (storyId && doc.stories?.[storyId]) stories[storyId] = doc.stories[storyId]!;
+    for (const [timelineId, timeline] of Object.entries(doc.timelines ?? {})) {
+      if (timeline.tracks.some((track) => nodeIds.has(track.nodeId))) {
+        timelineIds.add(timelineId);
+        timelines[timelineId] = timeline;
+      }
+    }
+  }
+  // Include nested motion timelines and the variable collections/aliases that
+  // own every referenced variable. Unsupported external references simply
+  // remain absent and are reported by the importer as fidelity loss.
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const timeline of Object.values(timelines)) {
+      for (const track of timeline.tracks) {
+        if (track.nestedTimelineId && !timelineIds.has(track.nestedTimelineId)) {
+          const nested = doc.timelines?.[track.nestedTimelineId];
+          if (nested) {
+            timelineIds.add(nested.id);
+            timelines[nested.id] = nested;
+            changed = true;
+          }
+        }
+      }
+    }
+  }
+  for (const id of Object.keys(doc.variableStore?.variables ?? {})) {
+    if (variableIds.has(id)) {
+      const collection = Object.values(doc.variableStore?.collections ?? {}).find((entry) =>
+        entry.variableIds.includes(id),
+      );
+      if (collection) collectionIds.add(collection.id);
+    }
+  }
+  for (const collectionId of collectionIds) {
+    const collection = doc.variableStore?.collections?.[collectionId];
+    for (const variableId of collection?.variableIds ?? []) variableIds.add(variableId);
+  }
+  const variableStore = doc.variableStore
+    ? {
+        ...doc.variableStore,
+        variables: Object.fromEntries(
+          Object.entries(doc.variableStore.variables).filter(([id]) => variableIds.has(id)),
+        ),
+        collections: Object.fromEntries(
+          Object.entries(doc.variableStore.collections).filter(([id]) => collectionIds.has(id)),
+        ),
+        activeCollectionId: collectionIds.has(doc.variableStore.activeCollectionId)
+          ? doc.variableStore.activeCollectionId
+          : '',
+      }
+    : undefined;
+  for (const [id, extension] of Object.entries(doc.motionExtensions ?? {})) {
+    if (nodeIds.has(extension.nodeId)) motionExtensions[id] = extension;
+  }
+  for (const [id, preset] of Object.entries(doc.motionPresets ?? {})) {
+    if (timelineIds.has(preset.timelineId)) motionPresets[id] = preset;
+  }
   const rasterMaskAssets: NonNullable<Document['rasterMaskAssets']> = {};
   for (const node of Object.values(nodes)) {
     const assetId = node.mask?.rasterMask?.assetId;
@@ -971,6 +1106,16 @@ function collectNodeClosure(doc: Document, rootIds: NodeId[]): DocumentClosure {
   return {
     nodeIds,
     nodes,
+    components: Object.keys(components).length > 0 ? components : undefined,
+    styles: Object.keys(styles).length > 0 ? styles : undefined,
+    paints: Object.keys(paints).length > 0 ? paints : undefined,
+    variableStore:
+      variableStore && Object.keys(variableStore.variables).length > 0 ? variableStore : undefined,
+    interactions: Object.keys(interactions).length > 0 ? interactions : undefined,
+    timelines: Object.keys(timelines).length > 0 ? timelines : undefined,
+    stories: Object.keys(stories).length > 0 ? stories : undefined,
+    motionExtensions: Object.keys(motionExtensions).length > 0 ? motionExtensions : undefined,
+    motionPresets: Object.keys(motionPresets).length > 0 ? motionPresets : undefined,
     rasterMaskAssets: Object.keys(rasterMaskAssets).length > 0 ? rasterMaskAssets : undefined,
     assets: Object.keys(assets).length > 0 ? assets : undefined,
     iconAssets: Object.keys(iconAssets).length > 0 ? iconAssets : undefined,
