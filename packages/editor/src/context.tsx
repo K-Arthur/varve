@@ -376,7 +376,12 @@ import {
   rotateViewAtScreen,
   toCamera,
 } from './canvas/cameraState';
-import { readClipboardUnifiedWithFallback, writeClipboardOutcome } from './clipboard';
+import {
+  clipboardRichTextWarning,
+  parseClipboardRichText,
+  readClipboardUnifiedWithFallback,
+  writeClipboardOutcome,
+} from './clipboard';
 import type { SectionId } from './components/Inspector/sectionRegistry';
 import {
   hideOptionalSections as hideAllOptional,
@@ -7914,8 +7919,14 @@ export function EditorProvider({
             })),
           ) ?? [];
 
+        const richText =
+          !varveData && importResults.length === 0
+            ? parseClipboardRichText(unified.htmlText ?? '')
+            : null;
         const plainText =
-          !varveData && importResults.length === 0 ? unified.plainText?.slice(0, 2_000_000) : null;
+          !varveData && importResults.length === 0
+            ? (richText?.plainText ?? unified.plainText?.slice(0, 2_000_000))
+            : null;
         if (!varveData && importResults.length === 0 && !plainText) {
           announcerRef.current?.announce('Paste did not contain supported artwork or text');
           return;
@@ -7949,6 +7960,7 @@ export function EditorProvider({
                 fontSize: 16,
                 textMode: 'point',
                 textResizing: 'autoWidth',
+                ...(richText ? { richText: richText.richText } : {}),
               });
               doc = targetParentId
                 ? addChild(next.doc, targetParentId, textNode)
@@ -8106,7 +8118,7 @@ export function EditorProvider({
           announcerRef.current?.announce(
             `Pasted ${committedPasteCount} layer${committedPasteCount > 1 ? 's' : ''}${
               failed > 0 ? `; ${failed} failed` : ''
-            }${partial > 0 ? `; ${partial} with fidelity changes` : ''}`,
+            }${partial > 0 ? `; ${partial} with fidelity changes` : ''}${clipboardRichTextWarning(richText)}`,
           );
         }
       },

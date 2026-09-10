@@ -26,6 +26,8 @@ import {
 } from '@varve/scene';
 import type { Affine } from '@varve/shared';
 
+export { clipboardRichTextWarning, parseClipboardRichText } from './clipboardRichText';
+
 export const VARVE_MIME = 'application/vnd.varve+json';
 export const LEGACY_MIME = 'application/vnd.strata+json';
 /**
@@ -114,6 +116,8 @@ export interface UnifiedClipboardResult {
   importItems: ClipboardImportItem[];
   /** Plain text that is not an SVG. Text editors remain the native owner. */
   plainText?: string;
+  /** Bounded HTML snapshot for the editable rich-text importer. */
+  htmlText?: string;
 }
 
 export type ClipboardWriteOutcome =
@@ -536,7 +540,7 @@ function isSvgText(text: string): boolean {
 }
 
 function hasRichClipboardContent(result: UnifiedClipboardResult): boolean {
-  return Boolean(result.varveData || result.importItems.length > 0);
+  return Boolean(result.varveData || result.importItems.length > 0 || result.htmlText);
 }
 
 function addImageItem(
@@ -610,6 +614,14 @@ async function readClipboardItem(
       // Ignore one unreadable representation.
     }
   }
+  if (item.types.includes('text/html')) {
+    try {
+      const html = await (await item.getType('text/html')).text();
+      if (html) result.htmlText ??= html.slice(0, 4 * 1024 * 1024);
+    } catch {
+      // HTML is optional; plain text remains usable.
+    }
+  }
 }
 
 export async function readClipboardUnified(): Promise<UnifiedClipboardResult> {
@@ -650,6 +662,7 @@ interface ClipboardDataSnapshot {
   varveData: ClipboardData | null;
   plainText: string | null;
   svgText: string | null;
+  htmlText: string | null;
   files: ClipboardFileSnapshot[];
 }
 
@@ -689,6 +702,13 @@ function snapshotClipboardData(dt: DataTransfer): ClipboardDataSnapshot {
   } catch {
     // Text is optional.
   }
+  let htmlText: string | null = null;
+  try {
+    const html = dt.getData('text/html');
+    if (html) htmlText = html.slice(0, 4 * 1024 * 1024);
+  } catch {
+    // HTML is optional.
+  }
   const files: ClipboardFileSnapshot[] = [];
   const seenFiles = new Set<File>();
   const addFile = (file: File | null, index: number): void => {
@@ -701,7 +721,7 @@ function snapshotClipboardData(dt: DataTransfer): ClipboardDataSnapshot {
     const item = dt.items[i];
     if (item?.kind === 'file') addFile(item.getAsFile(), i);
   }
-  return { varveData, plainText, svgText, files };
+  return { varveData, plainText, svgText, htmlText, files };
 }
 
 async function readClipboardSnapshot(
@@ -710,6 +730,7 @@ async function readClipboardSnapshot(
   const result = createClipboardResult();
   result.varveData = snapshot.varveData;
   if (snapshot.plainText) result.plainText = snapshot.plainText;
+  if (snapshot.htmlText) result.htmlText = snapshot.htmlText;
   if (snapshot.svgText) addImageItem(result, snapshot.svgText, 'image/svg+xml', 'clipboard.svg');
   if (snapshot.varveData) return result;
   const imported = await Promise.all(
