@@ -1,4 +1,4 @@
-import { exportDocumentToSvg } from '@varve/codegen';
+import { exportDocumentToSvg, exportNodeToSvg } from '@varve/codegen';
 import {
   areaSelectionBounds,
   areaSelectionFromColorRange,
@@ -12,8 +12,17 @@ import {
   sourcePixelToLocal,
   transformAreaSelection,
 } from '@varve/engine';
-import { toDelimitedText } from '@varve/import';
-import { getImageFill, getOwnRasterMaskAsset, isImageShape, type TextNode } from '@varve/scene';
+import { ImportService, toDelimitedText } from '@varve/import';
+import {
+  createDocument,
+  getImageFill,
+  getOwnRasterMaskAsset,
+  isImageShape,
+  makeTextNode,
+  nextNodeId,
+  type SceneNode,
+  type TextNode,
+} from '@varve/scene';
 import { type Affine, multiplyAffine, rotateRad, scaleXY, translate } from '@varve/shared';
 import { commitRasterMask } from '../backgroundRemoval/commitRasterMask';
 import { applyNudgePlan, getNudgeStep, type NudgeDirection, planNudge } from '../commands/nudge';
@@ -91,6 +100,60 @@ export interface ActionHandlerCallbacks {
   onBringAllPanelsToCurrentDisplay?: () => void;
   /** Reattach detached panels and clear only their window-placement state. */
   onResetPanelWindowLayout?: () => void;
+  /** Renderer-owned selection snapshot for Copy as PNG. */
+  onCopyAsPng?: (scale: 1 | 2 | 3) => void;
+}
+
+const MAX_DIRECT_CLIPBOARD_TEXT = 2_000_000;
+
+function selectedClipboardNodes(editor: EditorContextValue): SceneNode[] {
+  return editor.state.selection
+    .map((id) => editor.state.document.nodes[id])
+    .filter((node): node is SceneNode => Boolean(node));
+}
+
+function stripSvgEnvelope(markup: string): string {
+  return markup
+    .replace(/^\s*<\?xml[^>]*>\s*/i, '')
+    .replace(/^\s*<svg[^>]*>/i, '')
+    .replace(/<\/svg>\s*$/i, '');
+}
+
+async function publishClipboardRepresentation(
+  editor: EditorContextValue,
+  mimeType: string,
+  data: Uint8Array,
+  plainText: string,
+): Promise<boolean> {
+  if (editor.platform?.kind === 'tauri') {
+    try {
+      if (await editor.platform.writeClipboardData([{ mimeType, data }])) return true;
+    } catch {
+      // Fall through to the browser clipboard API.
+    }
+  }
+  if (typeof navigator === 'undefined' || !navigator.clipboard) return false;
+  const ClipboardItemCtor = globalThis.ClipboardItem;
+  if (typeof ClipboardItemCtor === 'function' && typeof navigator.clipboard.write === 'function') {
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItemCtor({
+          [mimeType]: new Blob([data], { type: mimeType }),
+          'text/plain': plainText,
+        }),
+      ]);
+      return true;
+    } catch {
+      // Text is still a useful external-editor fallback.
+    }
+  }
+  if (typeof navigator.clipboard.writeText !== 'function') return false;
+  try {
+    await navigator.clipboard.writeText(plainText);
+    return false;
+  } catch {
+    return false;
+  }
 }
 
 export function createActionHandlers(
@@ -472,6 +535,122 @@ export function createActionHandlers(
     copy: () => e.copySelected(),
     cut: () => e.cutSelected(),
     paste: () => e.paste(),
+    copyText: () => {
+      const nodes = selectedClipboardNodes(e);
+      if (nodes.length === 0) return;
+      const text = nodes
+        .map((node) => (node.kind === 'text' ? node.text : node.name))
+        .join('\n')
+        .slice(0, MAX_DIRECT_CLIPBOARD_TEXT);
+      void publishClipboardRepresentation(
+        e,
+        'text/plain',
+        new TextEncoder().encode(text),
+        text,
+      ).then((editable) =>
+        e.announce(editable ? 'Copied text' : 'Copied text using the browser fallback'),
+      );
+    },
+    copyAsSvg: () => {
+      const nodes = selectedClipboardNodes(e);
+      if (nodes.length === 0) {
+        e.announce('Select artwork before copying SVG');
+        return;
+      }
+      const snapshot = e.state.document;
+      const parts = nodes.map((node) =>
+        exportNodeToSvg(node, snapshot, { background: 'transparent' }),
+      );
+      const svg =
+        parts.length === 1
+          ? parts[0]!
+          : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000"><g>${parts
+              .map(stripSvgEnvelope)
+              .join('')}</g></svg>`;
+      void publishClipboardRepresentation(
+        e,
+        'image/svg+xml',
+        new TextEncoder().encode(svg),
+        svg,
+      ).then((editable) =>
+        e.announce(editable ? 'Copied selection as SVG' : 'Copied SVG using the browser fallback'),
+      );
+    },
+    copyAsPng: () => {
+      if (!cb.onCopyAsPng) {
+        e.announce('Copy as PNG is unavailable until a render surface is ready');
+        return;
+      }
+      const raw = typeof window !== 'undefined' ? window.prompt('PNG scale (1, 2, or 3)', '1') : '1';
+      const scale = raw === '3' ? 3 : raw === '2' ? 2 : 1;
+      cb.onCopyAsPng(scale);
+    },
+    pastePlainText: () => {
+      if (typeof navigator === 'undefined' || typeof navigator.clipboard?.readText !== 'function') {
+        e.announce('Plain text clipboard access is unavailable');
+        return;
+      }
+      void navigator.clipboard
+        .readText()
+        .then((text) => {
+          const value = text.slice(0, MAX_DIRECT_CLIPBOARD_TEXT);
+          if (!value) {
+            e.announce('The clipboard has no text');
+            return;
+          }
+          const source = createDocument('Clipboard text', true);
+          const next = nextNodeId(source);
+          const node = makeTextNode(next.id, value, {
+            name: 'Pasted text',
+            nameMode: 'automatic',
+            fontSize: 16,
+            textMode: 'point',
+            textResizing: 'autoWidth',
+          });
+          e.importNode(node, next.doc);
+          e.announce('Pasted plain text');
+        })
+        .catch(() => e.announce('Plain text clipboard access was denied'));
+    },
+    pasteSvgMarkup: () => {
+      if (typeof window === 'undefined' || typeof window.prompt !== 'function') {
+        e.announce('SVG markup entry is unavailable');
+        return;
+      }
+      const markup = window.prompt('Paste SVG markup');
+      if (!markup || markup.length > MAX_DIRECT_CLIPBOARD_TEXT) {
+        if (markup) e.announce('SVG markup is too large');
+        return;
+      }
+      void ImportService.importFiles(
+        [
+          {
+            name: 'pasted.svg',
+            source: 'clipboard',
+            size: new TextEncoder().encode(markup).byteLength,
+            text: markup,
+          },
+        ],
+        { center: true, embedImages: true },
+      )
+        .then((report) => {
+          const items = report.files.flatMap((file) =>
+            file.artifacts.flatMap((artifact) =>
+              artifact.nodeIds.flatMap((id) => {
+                const node = artifact.document.nodes[id];
+                return node ? [{ node, sourceDoc: artifact.document }] : [];
+              }),
+            ),
+          );
+          if (items.length === 0) {
+            e.announce('SVG markup did not contain supported artwork');
+            return;
+          }
+          e.batchImportNodes(items);
+          e.announce(`Pasted ${items.length} SVG layer${items.length === 1 ? '' : 's'}`);
+        })
+        .catch(() => e.announce('SVG markup could not be parsed'));
+    },
     copyProperties: () => e.copySelectedProperties(),
     pasteProperties: () => e.pastePropertiesToSelection(),
     duplicate: () => e.duplicateSelected(),

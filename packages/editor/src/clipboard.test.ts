@@ -565,6 +565,43 @@ describe('readFromClipboardEvent', () => {
     expect(tiles.get('0:0')?.pixels[0]).toBe(255);
   });
 
+  it('preserves generative edit closure records in version 2 fragments', () => {
+    const node = {
+      id: 'shape-1',
+      kind: 'shape',
+      name: 'Source',
+      transform: [1, 0, 0, 1, 0, 0],
+      visible: true,
+      locked: false,
+      opacity: 1,
+      fills: [],
+      strokes: [],
+      strokeWidth: 0,
+      shapeType: 'rect',
+      width: 20,
+      height: 20,
+    } as unknown as SceneNode;
+    const generativeEdits = {
+      edit1: {
+        id: 'edit1',
+        mode: 'fill',
+        sourceNodeId: 'shape-1',
+        variations: [],
+        masks: {},
+      },
+    };
+    const parsed = parseClipboardData(
+      JSON.stringify({
+        format: 'varve-clipboard',
+        version: 2,
+        nodes: [node],
+        rootIds: ['shape-1'],
+        generativeEdits,
+      }),
+    );
+    expect(parsed?.generativeEdits).toEqual(generativeEdits);
+  });
+
   it('rejects unknown node kinds and cyclic container graphs before paste', () => {
     const unknown = parseClipboardData(
       JSON.stringify({

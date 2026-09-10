@@ -7989,6 +7989,9 @@ export function EditorProvider({
                 ...(varveData.mockupTemplates
                   ? { mockupTemplates: varveData.mockupTemplates }
                   : {}),
+                ...(varveData.generativeEdits
+                  ? { generativeEdits: varveData.generativeEdits }
+                  : {}),
               };
               // copySelected()/cutSelected() serialize each selected node plus
               // its full descendant subtree (gatherSubtreeNodes), so a node

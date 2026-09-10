@@ -120,6 +120,8 @@ export interface SvgExportOptions {
   minify?: boolean;
   includeHidden?: boolean;
   styleMode?: 'inline' | 'presentation';
+  /** Backdrop policy for clipboard/export surfaces. */
+  background?: 'transparent' | 'white';
   /**
    * Pre-rasterized image assets for nodes that use effects which
    * vector formats cannot represent natively.

@@ -15,6 +15,7 @@
 import type { Platform } from '@varve/platform';
 import type { MockupTemplateAsset } from '@varve/scene';
 import {
+  type Document,
   type DocumentAsset,
   type DocumentIconAsset,
   deserializeTiles,
@@ -88,6 +89,8 @@ export interface ClipboardData {
   assets?: Record<string, DocumentAsset>;
   iconAssets?: Record<string, DocumentIconAsset>;
   mockupTemplates?: Record<string, MockupTemplateAsset>;
+  /** Generative edit records whose source/result nodes are in this fragment. */
+  generativeEdits?: NonNullable<Document['generativeEdits']>;
   /**
    * Placed-world transform of each copied selection root, keyed by the
    * node's ORIGINAL id. Optional and forward-compatible: clipboard payloads
@@ -359,6 +362,9 @@ export function parseClipboardData(text: string): ClipboardData | null {
     ...(isRecord(raw.mockupTemplates)
       ? { mockupTemplates: raw.mockupTemplates as ClipboardData['mockupTemplates'] }
       : {}),
+    ...(isRecord(raw.generativeEdits)
+      ? { generativeEdits: raw.generativeEdits as ClipboardData['generativeEdits'] }
+      : {}),
     ...(isRecord(raw.worldAnchor)
       ? { worldAnchor: raw.worldAnchor as ClipboardData['worldAnchor'] }
       : {}),
@@ -374,6 +380,7 @@ function serializeClipboardData(
   rootIds?: string[],
   mockupTemplates?: Record<string, MockupTemplateAsset>,
   sourceDocumentId?: string,
+  generativeEdits?: NonNullable<Document['generativeEdits']>,
 ): string {
   const data: ClipboardData = {
     format: VARVE_CLIPBOARD_FORMAT,
@@ -386,6 +393,7 @@ function serializeClipboardData(
     ...(iconAssets && Object.keys(iconAssets).length > 0 ? { iconAssets } : {}),
     ...(mockupTemplates && Object.keys(mockupTemplates).length > 0 ? { mockupTemplates } : {}),
     ...(worldAnchor && Object.keys(worldAnchor).length > 0 ? { worldAnchor } : {}),
+    ...(generativeEdits && Object.keys(generativeEdits).length > 0 ? { generativeEdits } : {}),
   };
   return JSON.stringify(data);
 }
@@ -408,6 +416,7 @@ export function writeClipboardOutcome(
   mockupTemplates?: Record<string, MockupTemplateAsset>,
   platform?: Pick<Platform, 'kind' | 'writeClipboardData'>,
   sourceDocumentId?: string,
+  generativeEdits?: NonNullable<Document['generativeEdits']>,
 ): Promise<ClipboardWriteOutcome> {
   const generation = ++latestClipboardWrite;
   const run = clipboardWriteTail.then(() =>
@@ -421,6 +430,7 @@ export function writeClipboardOutcome(
       mockupTemplates,
       platform,
       sourceDocumentId,
+      generativeEdits,
       generation,
     ),
   );
@@ -441,6 +451,7 @@ async function writeClipboardOutcomeNow(
   mockupTemplates?: Record<string, MockupTemplateAsset>,
   platform?: Pick<Platform, 'kind' | 'writeClipboardData'>,
   sourceDocumentId?: string,
+  generativeEdits?: NonNullable<Document['generativeEdits']>,
   generation?: number,
 ): Promise<ClipboardWriteOutcome> {
   const isCurrentWrite = (): boolean =>
@@ -457,6 +468,7 @@ async function writeClipboardOutcomeNow(
       rootIds,
       mockupTemplates,
       sourceDocumentId,
+      generativeEdits,
     );
   } catch {
     return { status: 'failed', reason: 'write-failed' };
@@ -548,6 +560,7 @@ export async function writeClipboard(
   mockupTemplates?: Record<string, MockupTemplateAsset>,
   platform?: Pick<Platform, 'kind' | 'writeClipboardData'>,
   sourceDocumentId?: string,
+  generativeEdits?: NonNullable<Document['generativeEdits']>,
 ): Promise<boolean> {
   return (
     (
@@ -561,6 +574,7 @@ export async function writeClipboard(
         mockupTemplates,
         platform,
         sourceDocumentId,
+        generativeEdits,
       )
     ).status === 'editable'
   );

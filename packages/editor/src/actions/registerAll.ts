@@ -183,6 +183,11 @@ export function registerEditorActions(
     ['documentInfo', 'Document Info…', 'file'],
     ['revealInFiles', 'Reveal in Files', 'file'],
     ['copyFilePath', 'Copy File Path', 'file'],
+    ['copyText', 'Copy Text', 'edit'],
+    ['copyAsSvg', 'Copy as SVG', 'edit'],
+    ['copyAsPng', 'Copy as PNG', 'edit'],
+    ['pastePlainText', 'Paste as Plain Text', 'edit'],
+    ['pasteSvgMarkup', 'Paste SVG Markup…', 'edit'],
   ] as const satisfies ReadonlyArray<readonly [string, string, ActionCategory]>;
   for (const [id, label, category] of menuActions) {
     if (INFERENCE_COMMANDS.has(id) && isCapabilityRestricted('inference')) continue;

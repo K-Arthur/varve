@@ -280,6 +280,8 @@ export interface SvgExportOptions {
    * other characters).
    */
   minify?: boolean;
+  /** Backdrop policy for clipboard/export surfaces. */
+  background?: 'transparent' | 'white';
   /**
    * Pre-rasterized image assets for nodes that use effects which
    * SVG 1.1 cannot represent natively (adjustment layers with
