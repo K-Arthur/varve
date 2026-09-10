@@ -251,3 +251,27 @@ covering unchanged sessions and document, tab, document-revision, and
 selection-revision changes. Its focused run passed 25 tests; this closes the
 unit-test gap in CLIP-09 while the delayed real picker/drop browser lane remains
 platform-dependent.
+
+### Final validation record — 2026-09-09
+
+The final task commit sequence is on `master` (`0e9b637af` through
+`4c4ddd583`), with the concurrent Inspector, grid, generative-edit, and
+snapshot work left uncommitted or in its own commits. `pnpm verify:plan`
+selected the full closure and reported `FULL-SUITE ESCALATION: YES` because the
+worktree includes workspace/toolchain changes. `pnpm verify:affected` therefore
+stopped at the required escalation and the explicitly authorized full gate was
+run with reason `Clipboard/import serialization, native transport bounds, and
+the planner's workspace/toolchain escalation`. That gate reached the affected
+typechecks but stopped on the unrelated concurrent
+`packages/engine/src/inference/inferenceWorker.ts` `PatchMatchResult` error;
+the native build also remains blocked by concurrent codegen, scene, and
+generative-helper errors. This is recorded as a validation blocker, not a
+clipboard pass.
+
+The documentation, emoji, token, and architecture audits passed. Website
+desktop light/dark and mobile captures passed for both GitHub Pages and the
+custom-domain base (8 Playwright tests); inspected evidence is retained under
+`test-results/clipboard-feature-*`. The remaining open lanes are the owned
+Firefox Figma captures, packaged Tauri `.fig` CSP/decompression verification,
+rich-text formatting, paste/drop Import Results UI wiring, and native
+Wayland/WebKitGTK transport and cancellation cleanup.
