@@ -241,6 +241,11 @@ const DARK_ELEVATION = `
 
   /* Scrim overlay (dark mode — slightly more opaque for contrast). */
   --elevation-scrim: oklch(0 0 0 / 0.65);
+
+  /* Signature accent tokens (dark mode — higher luminance for visibility on dark surfaces). */
+  --color-signature-branch: oklch(0.82 0.15 78);
+  --color-signature-audit: oklch(0.72 0.16 295);
+  --color-signature-ai: oklch(0.84 0.2 188);
 `;
 
 const HC_ELEVATION = `
@@ -260,6 +265,11 @@ const HC_ELEVATION = `
 
   /* Scrim overlay (HC — near-opaque for maximum separation). */
   --elevation-scrim: oklch(0 0 0 / 0.7);
+
+  /* Signature accent tokens (HC — maximum-contrast yellow-green for all accents). */
+  --color-signature-branch: oklch(0.9519 0.2924 111.62);
+  --color-signature-audit: oklch(0.9519 0.2924 111.62);
+  --color-signature-ai: oklch(0.9519 0.2924 111.62);
 `;
 
 /** Map legacy --color-surface-* to canonical elevation tokens (overrides color.ts values). */
