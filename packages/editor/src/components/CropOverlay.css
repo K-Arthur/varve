@@ -12,7 +12,7 @@
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-floating);
   background: var(--elevation-surface-raised);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--elevation-shadow-raised);
   transform: translateX(-50%);
   pointer-events: auto;
 }

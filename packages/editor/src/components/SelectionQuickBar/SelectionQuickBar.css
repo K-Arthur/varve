@@ -6,7 +6,7 @@
 
 .selection-quick-bar {
   position: absolute;
-  z-index: 45;
+  z-index: var(--elevation-z-raised);
   transform: translateX(-50%);
   pointer-events: none;
   width: max-content;
@@ -22,7 +22,7 @@
   background: var(--elevation-surface-raised);
   border-radius: var(--radius-floating);
   border: 1px solid var(--color-border-subtle);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--elevation-shadow-raised);
   pointer-events: auto;
 }
 
@@ -159,7 +159,7 @@
   background: var(--elevation-surface-overlay);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-surface);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--elevation-shadow-overlay);
   display: flex;
   flex-direction: column;
   gap: 2px;

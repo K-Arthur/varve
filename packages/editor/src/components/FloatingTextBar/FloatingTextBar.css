@@ -21,7 +21,7 @@
 .floating-text-bar__layer,
 .floating-text-bar__more-layer {
   border-radius: var(--radius-floating);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--elevation-shadow-raised);
 }
 
 .floating-text-bar {

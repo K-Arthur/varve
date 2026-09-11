@@ -65,6 +65,8 @@ export const SPACING_LAYOUT = {
   'statusbar-height': 'clamp(1.5rem, 1.45rem + 0.25vw, 1.75rem)',
   'sidebar-width': 'clamp(14rem, 12rem + 8vw, 18rem)',
   'inspector-width': 'clamp(15rem, 13rem + 8vw, 20rem)',
+  /** Consistent vertical height for all panel section headers (layers, inspector, etc.). */
+  'panel-header-height': 'clamp(2rem, 1.9rem + 0.25vw, 2.25rem)',
 } as const;
 
 export type SpacingPrimitive = keyof typeof SPACING_PRIMITIVES;
