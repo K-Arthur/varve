@@ -486,3 +486,5 @@ export function WorkspaceTabs() {
     </div>
   );
 }
+
+export { ContextAwareShortcuts } from './ContextAwareShortcuts';

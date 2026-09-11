@@ -23,7 +23,7 @@ import { isCapabilityRestricted, isWorkspaceModeAllowed } from './capabilities/r
 import { ArchiveDialog, type ArchiveDialogProps } from './components/Archive/ArchiveDialog';
 import { OfflineBanner } from './components/OfflineBanner';
 import { RasterizeDialog } from './components/Rasterize/RasterizeDialog';
-import { WorkspaceTabs } from './components/WorkspaceTabs';
+import { ContextAwareShortcuts, WorkspaceTabs } from './components/WorkspaceTabs';
 import { useEditor } from './context';
 import { computeCapabilities, getNudgeCapability, useNativeMenu } from './menu';
 import { useMenubarFocusEffects } from './menu/menubarFocus';
@@ -2502,6 +2502,7 @@ export function Menubar({
             </Tooltip>
           )}
         </div>
+        <ContextAwareShortcuts />
       </div>
 
       {/* ── Right: Workspace tabs + Zoom + Undo/Redo ── */}
