@@ -1,6 +1,7 @@
 import { getImageFill, isImageShape } from '@varve/scene';
 import { Icon, NumberInput, Select, Tooltip, TooltipProvider } from '@varve/ui';
 import { useSyncExternalStore } from 'react';
+import { AIStatusIndicator } from './components/AIStatusIndicator/AIStatusIndicator';
 import { AuditBadge } from './components/AuditBadge';
 import { DebtBadge } from './components/DebtBadge';
 import { PreflightWarnings } from './components/PreflightWarnings';
@@ -331,6 +332,7 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
             )}
           </span>
         )}
+        <AIStatusIndicator />
       </div>
     </TooltipProvider>
   );

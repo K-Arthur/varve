@@ -23,7 +23,14 @@ export {
   type IntelligenceDispatchResult,
   matchIntelligenceCommand,
 } from './intelligenceRegistry';
-export type { AIMessage, AIModel, AISession } from './types';
+export type {
+  AIExecutionMode,
+  AIMessage,
+  AIModel,
+  AIModelLoadState,
+  AISession,
+  AITaskStatus,
+} from './types';
 export const PACKAGE = '@varve/ai' as const;
 
 import {

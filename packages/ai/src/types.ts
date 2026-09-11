@@ -14,3 +14,18 @@ export interface AISession {
 }
 
 export type AIModel = 'varve-default' | 'claude-3-sonnet' | 'gpt-4o';
+
+/** Execution mode: on-device local models vs remote inference. */
+export type AIExecutionMode = 'local' | 'cloud' | 'hybrid' | 'disabled';
+
+/** Model loading/runtime lifecycle state. */
+export type AIModelLoadState = 'unloaded' | 'loading' | 'ready' | 'error';
+
+/** Current AI pipeline task status. */
+export interface AITaskStatus {
+  task: string;
+  status: 'idle' | 'running' | 'completed' | 'failed';
+  progress?: number;
+  executionMode: AIExecutionMode;
+  modelLoadState: AIModelLoadState;
+}
