@@ -194,3 +194,12 @@ selection summary.
 - no new control is inert, decorative, or unreachable;
 - affected unit, E2E, accessibility, and visual checks are recorded in
   `UI_UX_PANEL_CANVAS_VERIFICATION.md`.
+
+## September 2026 Workspace Redesign Target State
+
+- **Panels as Opaque Floating Containers**: Side panels use 100% opaque, instrument-grade surfaces (`var(--elevation-surface-default)`) framed by hairline borders (`var(--border-micro)`) and subtle elevation shadows (`var(--elevation-shadow-raised)`), eliminating all frosted blur and glassmorphism.
+- **Persistent Header Collapse**: Each panel header houses an accessible, keyboard-reachable collapse button (`.editor__collapse-btn`) with persistent layout settings and instant keyboard hotkey support (Ctrl+B / Ctrl+Shift+B).
+- **Deep-Nesting Resilience**: Virtualized layer rows maintain readable label bounds regardless of hierarchy depth via smooth horizontal overflow-scrolling on hover/focus and persistent full-path `title` attributes.
+- **Compact Modular Top Toolbar**: Menubar combines document identity with a dynamic, context-aware shortcut toolbar that surfaces relevant hotkeys and commands tailored to the currently selected layer types.
+- **Local-First AI Transparency**: Non-blocking status chip in the editor chrome communicates on-device ML readiness and processing states without fake latency or deceptive cloud promises.
+

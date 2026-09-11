@@ -276,6 +276,18 @@ tabs or rows.
 1. Complete PNL-01 and PNL-02 with focused unit tests. Done.
 2. Complete PNL-03 through a small responsive drawer controller change and E2E. Done.
 3. Add named selection status semantics without making pointer updates noisy. Done.
-4. Run the affected planner, focused tests, layers/a11y E2E, and visual captures. In progress.
+4. Run the affected planner, focused tests, layers/a11y E2E, and visual captures. Done.
 5. Re-open all after-state screenshots and record limitations in the verification
-   document. In progress.
+   document. Done.
+
+## September 2026 Workspace Redesign Extension
+
+### Additional Findings & Remediations
+
+- **PNL-05 (Tokens & Surfaces)**: Replaced legacy `--shadow-*` / `--z-*` tokens and translucent frosted-glass styling (`.editor__panel--glass`) with 100% opaque, instrument-grade elevated floating container surfaces (`--elevation-surface-default`, `--elevation-shadow-raised`, hairline `--border-micro`). Added signature accent tokens (`--color-signature-branch`, `--color-signature-audit`, `--color-signature-ai`) and `--panel-header-height`.
+- **PNL-06 (Heading Hierarchy)**: Elevated panel titles and selection headers (`.layers-panel__title`, `.insp-panel__node-name`, `.insp-panel__multi-count`) from generic `<span>` and `<p>` tags to real semantic `<h2>` elements to satisfy WAI-ARIA APG heading navigation without visual regression.
+- **PNL-07 (Deep-Nesting Legibility & Numeric Monospace)**: Provided horizontal overflow-scroll for deeply nested layer rows on hover/focus along with persistent `title` hierarchy tooltips on every row. Configured numeric spinbutton inputs in the Inspector with `--type-data-numeric-family` and `tabular-nums`.
+- **PNL-08 (Collapsible Floating Containers)**: Added dedicated collapse affordances (`.editor__collapse-btn`) to both LayersPanel and PropertiesPanel headers with persistent settings in `PanelSettingsStore` (`leftPanelCollapsed`, `rightPanelCollapsed`, `detachedPanelLayout`, `layoutVersion`).
+- **PNL-09 (Top Navigation Modular Toolbar & Dynamic Shortcuts)**: Integrated `ContextAwareShortcuts` widget into the top menubar center section, dynamically presenting context-sensitive shortcuts (Image: Crop/Remove BG/Vectorize; Text: Edit/Bold; Path: Edit Nodes/Duplicate; Frame: Auto Layout/Ungroup; Multi: Group/Union/Align; Canvas: Frame/Rect/Text) as interactive micro-pills.
+- **PNL-10 (On-Device AI Status Chip)**: Added non-blocking `AIStatusIndicator` chip to the status bar indicating local private neural engine readiness and active execution state using signature accent `--color-signature-ai`.
+

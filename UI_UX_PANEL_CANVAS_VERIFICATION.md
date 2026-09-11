@@ -154,3 +154,15 @@ before downstream editor checks, with existing GPU canvas, scene-type, and warp
 test errors. A direct current `pnpm --filter @varve/editor typecheck` also exits
 2 on existing mask replay, nudge, export-region, selection-arrangement, and
 NodeEditTool typing errors; none reference the scoped remediation files.
+
+## September 2026 Workspace Redesign Verification
+
+- **Token & Surface Audit**: `pnpm audit:tokens` verified across all 3 themes (light, dark, high-contrast) — 153/153 token contrast pairs passed.
+- **Glass Panel Surface Test**: `pnpm exec vitest run packages/editor/src/__tests__/GlassPanel.test.tsx` — 4/4 tests passed (backdrop-filter, glass classes on layers & inspector).
+- **Inspector Tab & Heading Tests**: `pnpm exec vitest run packages/editor/src/components/Inspector/InspectorTabBar.test.tsx` — 3/3 tests passed (tab overflow, pinning, menu conversion).
+- **Menubar & Contextual Shortcuts Tests**: `pnpm exec vitest run packages/editor/src/Menubar.test.tsx` — 21/21 tests passed (top-level menus, shortcuts, ARIA roles, workspace switcher).
+- **Status Bar & AI Status Tests**: `pnpm exec vitest run packages/editor/src/StatusBar.test.tsx` — 6/6 tests passed (status sections, zoom, selection info, units).
+- **Documentation & Consistency Audits**:
+  - `pnpm audit:docs`: 0 violations across 733 docs, 319 links, 173 ADRs indexed.
+  - `pnpm audit:emoji`: 0 violations across 25,422 files.
+
