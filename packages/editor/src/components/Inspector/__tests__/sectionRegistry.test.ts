@@ -15,6 +15,7 @@ import {
   getSectionDefinition,
   getSectionRegistryIntegrityIssues,
   getSectionsByCategory,
+  resolveSectionOrder,
   SECTION_DEFINITIONS,
   type SectionAvailabilityContext,
 } from '../sectionRegistry';
@@ -22,6 +23,7 @@ import {
   countHiddenSections,
   createDefaultSectionState,
   getHiddenSectionIds,
+  hasCustomSectionOrder,
   hideOptionalSections,
   hideSection,
   hideSubSection,
@@ -797,5 +799,32 @@ describe('Section state migration', () => {
       },
     } as unknown as Record<string, unknown>);
     expect(state['position-size'].collapsed).toBe(true);
+  });
+});
+
+describe('contextual section order', () => {
+  it('leads with Typography for text selections and keeps registry order otherwise', () => {
+    const typography = getSectionDefinition('typography')!;
+    const fills = getSectionDefinition('fills')!;
+    const appearance = getSectionDefinition('appearance')!;
+    const textCtx = baseCtx({ selectedNodes: [makeTextNode()] });
+    expect(resolveSectionOrder(typography, textCtx)).toBeGreaterThan(
+      resolveSectionOrder(appearance, textCtx),
+    );
+    expect(resolveSectionOrder(typography, textCtx)).toBeLessThan(
+      resolveSectionOrder(fills, textCtx),
+    );
+    const mixedCtx = baseCtx({ selectedNodes: [makeTextNode(), makeNode({ id: 'shape-2' })] });
+    expect(resolveSectionOrder(typography, mixedCtx)).toBe(typography.order);
+  });
+
+  it('treats saved orders as a preference only once the user has reordered', () => {
+    const defaults = createDefaultSectionState();
+    expect(hasCustomSectionOrder(defaults)).toBe(false);
+    const reordered = {
+      ...defaults,
+      typography: { ...defaults.typography, order: 15 },
+    };
+    expect(hasCustomSectionOrder(reordered)).toBe(true);
   });
 });

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { InspectorContext, InspectorScope } from './inspectorContext';
 
 const SCOPE_LABELS: Record<InspectorScope, string> = {
@@ -21,7 +22,14 @@ function shouldShowContextHeader(scope: InspectorScope): boolean {
  * or a second selection surface. Ordinary object selections retain their
  * existing node/multi-selection headers inside the Properties surface.
  */
-export function InspectorContextHeader({ context }: { context: InspectorContext }) {
+export function InspectorContextHeader({
+  context,
+  action,
+}: {
+  context: InspectorContext;
+  /** Panel-level control for this row (the section customizer). */
+  action?: ReactNode;
+}) {
   if (!shouldShowContextHeader(context.scope)) return null;
 
   const scopeLabel = SCOPE_LABELS[context.scope];
@@ -33,6 +41,7 @@ export function InspectorContextHeader({ context }: { context: InspectorContext 
     >
       <span className="insp-context-header__scope">{scopeLabel}</span>
       <h2 className="insp-context-header__target">{context.target.label}</h2>
+      {action && <div className="insp-context-header__action">{action}</div>}
     </section>
   );
 }

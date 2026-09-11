@@ -78,11 +78,17 @@ export function InspectorTabBar({ tabs, activeTab, onActivate, onDetach }: Inspe
       return;
     }
 
+    // Tabs stretch to fill the row, so their rendered widths always sum to
+    // the row width and sub-pixel rounding alone could report an overflow
+    // (and keep it, since the remaining tabs re-stretch). Measure natural
+    // widths with stretching suspended for this synchronous read.
     const tabWidths = new Map<InspectorTabId, number>();
+    tabList.setAttribute('data-measuring', 'true');
     for (const tab of tabs) {
       const width = tabRefs.current.get(tab.id)?.getBoundingClientRect().width ?? 0;
       tabWidths.set(tab.id, width > 0 ? width : estimateTabWidth(tab.label));
     }
+    tabList.removeAttribute('data-measuring');
 
     // The More button is a sibling flex item. When it is visible, the browser
     // has already reduced the tablist's client width by that button's width;
@@ -175,6 +181,12 @@ export function InspectorTabBar({ tabs, activeTab, onActivate, onDetach }: Inspe
               onKeyDown={(event) => handleTabKeyDown(event, index)}
             >
               {tab.label}
+              {tab.id === 'audit' && (
+                <span
+                  className="insp-panel__tab-indicator insp-panel__tab-indicator--audit"
+                  aria-hidden="true"
+                />
+              )}
             </button>
           );
         })}

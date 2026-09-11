@@ -22,7 +22,7 @@ test.describe('Inspector canonical properties', () => {
     await expect(position.getByRole('spinbutton', { name: 'Y (px)' })).toHaveCount(1);
     await expect(position.getByRole('spinbutton', { name: 'W (px)' })).toHaveCount(1);
     await expect(position.getByRole('spinbutton', { name: 'H (px)' })).toHaveCount(1);
-    await expect(page.getByRole('spinbutton', { name: 'Opacity (%)' })).toHaveCount(1);
+    await expect(page.getByRole('spinbutton', { name: 'Opacity (%)', exact: true })).toHaveCount(1);
     const fills = page.locator('button.insp-disclosure__trigger').filter({ hasText: /^Fill$/ });
     if ((await fills.getAttribute('aria-expanded')) !== 'true') await fills.click();
     await expect(page.getByRole('button', { name: 'Fill colour' })).toBeVisible();
@@ -48,6 +48,6 @@ test.describe('Inspector canonical properties', () => {
     await shapes.nth(1).click({ modifiers: ['Control'] });
     await expect(page.getByRole('region', { name: 'Quick properties' })).toHaveCount(0);
     await expect(page.getByRole('group', { name: 'Position & Size' })).toHaveCount(1);
-    await expect(page.getByRole('spinbutton', { name: 'Opacity (%)' })).toHaveCount(1);
+    await expect(page.getByRole('spinbutton', { name: 'Opacity (%)', exact: true })).toHaveCount(1);
   });
 });

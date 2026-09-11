@@ -966,6 +966,26 @@ export function getSectionRegistryIntegrityIssues(): string[] {
 }
 
 /** Get a section definition by ID. Returns undefined for unknown IDs (safe migration). */
+/**
+ * Contextual order for selections whose primary content is not geometry.
+ * For text layers, Typography is the property people edit most, so it
+ * follows Appearance instead of trailing fills, strokes, and effects
+ * (the Figma and Sketch convention). A user's saved order still wins.
+ */
+const TEXT_SELECTION_ORDER: Partial<Record<SectionId, number>> = {
+  typography: 205,
+  'text-on-path': 206,
+};
+
+export function resolveSectionOrder(
+  def: SectionDefinition,
+  ctx: SectionAvailabilityContext,
+): number {
+  const textOnly =
+    ctx.selectedNodes.length > 0 && ctx.selectedNodes.every((node) => node.kind === 'text');
+  return (textOnly ? TEXT_SELECTION_ORDER[def.id] : undefined) ?? def.order;
+}
+
 export function getSectionDefinition(id: SectionId): SectionDefinition | undefined {
   return SECTION_MAP.get(id);
 }

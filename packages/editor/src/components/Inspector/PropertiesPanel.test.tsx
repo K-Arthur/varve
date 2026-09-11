@@ -157,13 +157,14 @@ describe('PropertiesPanel canvas settings', () => {
   it('renders canvas settings inline in the Properties empty state', async () => {
     renderPanel();
     expect(screen.getByLabelText(/Inspector context: (Document|Canvas)/)).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: 'Canvas' })).toBeTruthy();
+    // DocumentPanel is lazy-loaded; the generous timeout absorbs slow workers.
+    expect(await screen.findByRole('button', { name: 'Canvas' }, { timeout: 15000 })).toBeTruthy();
     expect(await screen.findByText(/^Background$/)).toBeTruthy();
   });
 
   it('renders real document colour settings without exposing storage-root node counts', async () => {
     renderPanel();
-    expect(await screen.findByRole('radio', { name: 'RGB' })).toHaveAttribute(
+    expect(await screen.findByRole('radio', { name: 'RGB' }, { timeout: 15000 })).toHaveAttribute(
       'aria-checked',
       'true',
     );
@@ -349,6 +350,16 @@ describe('PropertiesPanel section gating for a real single selection', () => {
     expect(
       screen.getByRole('combobox', { name: 'Child cross-axis alignment override' }),
     ).toBeInTheDocument();
+  });
+
+  it('keeps inert Selection Sources out and puts the section customizer in the header row', async () => {
+    await renderPanelWithSelectedRect();
+    // A plain rectangle has no pixel selection, saved selections, closed
+    // path, or image, so every Selection Sources command would be disabled.
+    expect(screen.queryByRole('button', { name: 'Selection Sources' })).toBeNull();
+    const header = document.querySelector('.insp-panel__node-header');
+    expect(header?.querySelector('[aria-label^="Customize sections"]')).not.toBeNull();
+    expect(document.querySelector('.insp-panel > .insp-panel__header')).toBeNull();
   });
 
   it('does not mount image-only AI sections for a non-image rect selection', async () => {

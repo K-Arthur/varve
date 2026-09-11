@@ -63,6 +63,7 @@
 .selection-info-bar__dimensions,
 .selection-info-bar__position,
 .selection-info-bar__rotation {
+  font-family: var(--type-data-numeric-family);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-muted);
   flex-shrink: 0;

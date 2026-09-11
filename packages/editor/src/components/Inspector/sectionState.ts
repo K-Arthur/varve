@@ -460,6 +460,18 @@ export function getHiddenSectionIds(state: SectionVisibilityState): SectionId[] 
 // Ordering
 // ---------------------------------------------------------------------------
 
+/**
+ * True once the user has reordered sections. Default state copies each
+ * registry order, and a reorder rewrites every order, so any difference from
+ * the registry means the saved order is a deliberate preference.
+ */
+export function hasCustomSectionOrder(state: SectionVisibilityState): boolean {
+  return getAllSectionIds().some((id) => {
+    const saved = state[id]?.order;
+    return saved !== undefined && saved !== getSectionDefinition(id)?.order;
+  });
+}
+
 /** Get section IDs sorted by their effective order. */
 export function getOrderedSectionIds(
   state: SectionVisibilityState,

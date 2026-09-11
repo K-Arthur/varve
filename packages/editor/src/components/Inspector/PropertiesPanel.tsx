@@ -18,7 +18,7 @@ import {
   isImageShape,
   type SceneNode,
 } from '@varve/scene';
-import { Button, EmptyState, Icon } from '@varve/ui';
+import { Button, Icon, SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { setInspectorTabHandler, useEditor } from '../../context';
 import { requestToolOptions } from '../../context/toolOptionsBridge';
@@ -48,9 +48,11 @@ import { SectionManagerTrigger } from './SectionManagerTrigger';
 import { SelectionSourcesPanel } from './SelectionSourcesPanel';
 import {
   getSectionDefinition,
+  resolveSectionOrder,
   type SectionAvailabilityContext,
   type SectionId,
 } from './sectionRegistry';
+import { hasCustomSectionOrder } from './sectionState';
 import { AdjustmentLayerAccessSection } from './sections/AdjustmentLayerAccessSection';
 import { AlignDistributeBar } from './sections/AlignDistributeBar';
 import { AnimationSection } from './sections/AnimationSection';
@@ -111,7 +113,7 @@ const EmailPanel = lazy(() =>
 type ExportSubTab = 'format' | 'code';
 
 export function PropertiesPanel() {
-  const { selectedNodes, state, platform, toggleVariablesPanel } = useEditor();
+  const { selectedNodes, state, platform, toggleVariablesPanel, toggleRightPanel } = useEditor();
   const { addPreset, updatePreset, removePreset, setShowExportDialog } = useEditor();
   const effectiveConfig = useEffectiveWorkspaceConfig(state.workspaceMode);
   const selNodes = selectedNodes();
@@ -304,10 +306,31 @@ export function PropertiesPanel() {
           tabs={visibleTabConfigs}
           activeTab={tab}
           onActivate={activateTab}
-          onDetach={<PanelDetachButton />}
+          onDetach={
+            <>
+              <PanelDetachButton />
+              {toggleRightPanel && (
+                <Tooltip label="Collapse Inspector (Ctrl+Shift+B)">
+                  <button
+                    type="button"
+                    className="editor__collapse-btn insp-panel__header-btn"
+                    onClick={() => toggleRightPanel()}
+                    aria-label="Collapse Inspector (Ctrl+Shift+B)"
+                  >
+                    <SolidIcon name={SOLID_CHROME_ICONS.chevronRight} size="0.85em" />
+                  </button>
+                </Tooltip>
+              )}
+            </>
+          }
         />
       </PanelDragHandle>
-      <InspectorContextHeader context={inspectorContext} />
+      <InspectorContextHeader
+        context={inspectorContext}
+        action={
+          tab === 'properties' && summary.kind === 'empty' ? <SectionManagerTrigger /> : undefined
+        }
+      />
 
       {tab === 'properties' && (
         <div
@@ -316,15 +339,23 @@ export function PropertiesPanel() {
           role="tabpanel"
           aria-labelledby="insp-tab-properties"
         >
-          <div className="insp-panel__header">
-            <SectionManagerTrigger />
-          </div>
-          <SelectionSourcesPanel />
+          {/* Pixel coverage leads only while it is what is being inspected;
+              otherwise it follows the object's own properties. */}
+          {inspectorContext.scope === 'pixel-selection' && <SelectionSourcesPanel />}
           <SelectionLockGuard restriction={restrictionNotice} showNotice={tab === 'properties'}>
             {summary.kind === 'empty' && <EmptySelectionState context={inspectorContext} />}
-            {summary.kind === 'single' && <SingleSelectionPanel nodes={selNodes} />}
-            {summary.kind === 'multi' && <MultiSelectionPanel nodes={selNodes} summary={summary} />}
+            {summary.kind === 'single' && (
+              <SingleSelectionPanel nodes={selNodes} headerAction={<SectionManagerTrigger />} />
+            )}
+            {summary.kind === 'multi' && (
+              <MultiSelectionPanel
+                nodes={selNodes}
+                summary={summary}
+                headerAction={<SectionManagerTrigger />}
+              />
+            )}
           </SelectionLockGuard>
+          {inspectorContext.scope !== 'pixel-selection' && <SelectionSourcesPanel />}
           {/* Insights remains document-level and last in the Design composition.
               It is lazy because the audit panel is also reachable from the
               legacy tab/deep-link path. */}
@@ -527,12 +558,16 @@ function SelectionLockGuard({
  */
 function composeSections(state: EditorState, availability: SectionAvailabilityContext) {
   const entries: { id: SectionId; order: number; el: React.ReactNode }[] = [];
+  // A user's reordering wins; otherwise the selection decides (text layers
+  // lead with Typography).
+  const customOrder = hasCustomSectionOrder(state.sectionVisibility);
   const add = (id: SectionId, el: React.ReactNode) => {
     const def = getSectionDefinition(id);
     if (def && !def.isAvailable(availability)) return;
     if (state.sectionVisibility[id]?.hidden && def?.canHide) return;
-    const o = state.sectionVisibility[id]?.order;
-    entries.push({ id, order: o ?? def?.order ?? 500, el });
+    const saved = state.sectionVisibility[id]?.order;
+    const contextual = def ? resolveSectionOrder(def, availability) : 500;
+    entries.push({ id, order: customOrder ? (saved ?? contextual) : contextual, el });
   };
   const sorted = () => entries.sort((a, b) => a.order - b.order);
   return { add, sorted };
@@ -594,41 +629,19 @@ function EmptySelectionState({ context }: { context: InspectorContext }) {
   if (context.scope === 'tool') return <ToolContextState context={context} />;
   const showsDocumentSettings =
     context.scope === 'document' || context.scope === 'canvas' || context.scope === 'page';
-  const scopeDescription =
-    context.scope === 'pixel-selection'
-      ? `Inspecting ${context.target.label}. Select a layer to return to object properties.`
-      : `Inspecting ${context.target.label} settings. Select a layer to edit its properties.`;
+  // The context header above already names what is being inspected, so one
+  // line of guidance replaces the former illustration, headline, and repeat.
+  const hint = showsDocumentSettings
+    ? 'Select a layer to edit its properties.'
+    : context.scope === 'pixel-selection'
+      ? 'Select a layer to return to object properties.'
+      : 'Choose a layer or return to the originating workflow to continue.';
   return (
     <div className="insp-panel__empty">
-      <EmptyState
-        illustration={
-          <svg
-            width="64"
-            height="64"
-            viewBox="0 0 64 64"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            aria-hidden
-          >
-            <title>No selection</title>
-            <rect x="8" y="8" width="48" height="48" rx="4" strokeDasharray="4 3" opacity="0.4" />
-            <rect
-              x="16"
-              y="16"
-              width="32"
-              height="32"
-              rx="2"
-              strokeDasharray="3 2"
-              opacity="0.25"
-            />
-            <circle cx="32" cy="32" r="3" fill="currentColor" opacity="0.15" />
-          </svg>
-        }
-        headline="No selection"
-        description={scopeDescription}
-      />
-      {showsDocumentSettings ? (
+      <p className="insp-panel__empty-hint" role="status">
+        {hint}
+      </p>
+      {showsDocumentSettings && (
         <Suspense
           fallback={
             <p className="insp-panel__empty-hint" role="status">
@@ -638,16 +651,18 @@ function EmptySelectionState({ context }: { context: InspectorContext }) {
         >
           <DocumentPanel />
         </Suspense>
-      ) : (
-        <p className="insp-panel__empty-hint" role="status">
-          Choose a layer or return to the originating workflow to continue.
-        </p>
       )}
     </div>
   );
 }
 
-function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
+function SingleSelectionPanel({
+  nodes,
+  headerAction,
+}: {
+  nodes: SceneNode[];
+  headerAction?: React.ReactNode;
+}) {
   const { state } = useEditor();
   const node = nodes[0] as SceneNode;
   // An Export Region is stored as a frame but is not a layout container: it
@@ -730,12 +745,13 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
   return (
     <>
       <header className="insp-panel__node-header">
-        <p className="insp-panel__node-name">
+        <h2 className="insp-panel__node-name">
           {node.name}
           <span className="insp-panel__node-kind">
             {isExportRegionNode ? 'export region' : node.kind}
           </span>
-        </p>
+        </h2>
+        {headerAction}
       </header>
       <AlignDistributeBar />
       {node.kind === 'group' && <BooleanSection node={node} />}
@@ -749,9 +765,11 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
 function MultiSelectionPanel({
   nodes,
   summary,
+  headerAction,
 }: {
   nodes: SceneNode[];
   summary: SelectionSummary;
+  headerAction?: React.ReactNode;
 }) {
   const { state } = useEditor();
 
@@ -791,11 +809,14 @@ function MultiSelectionPanel({
 
   return (
     <>
-      <div className="insp-panel__multi-count" role="status">
-        {summary.sharedKind
-          ? `${nodes.length} ${summary.sharedKind} selected`
-          : `${nodes.length} selected`}
-      </div>
+      <header className="insp-panel__node-header">
+        <h2 className="insp-panel__multi-count" role="status">
+          {summary.sharedKind
+            ? `${nodes.length} ${summary.sharedKind} selected`
+            : `${nodes.length} selected`}
+        </h2>
+        {headerAction}
+      </header>
       <AlignDistributeBar />
       {sectionEntries.map((entry) => (
         <div key={entry.id}>{entry.el}</div>

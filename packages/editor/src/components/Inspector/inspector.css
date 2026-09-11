@@ -78,9 +78,16 @@
   white-space: nowrap;
   scroll-margin-inline: var(--space-2);
 }
-.insp-panel__tab[data-tab-group-start="true"] {
+/* Natural-width measurement pass (InspectorTabBar.measureOverflow). */
+.insp-panel__tabs[data-measuring="true"] > .insp-panel__tab {
+  flex-grow: 0;
+}
+
+/* One hairline between every pair of adjacent tabs. Dividers only at group
+ * boundaries read as missing wherever a contextual tab (Adjustments) joined
+ * a group, and the extra group margin made tab widths uneven. */
+.insp-panel__tab + .insp-panel__tab {
   border-inline-start: 1px solid var(--color-border-subtle);
-  margin-inline-start: var(--space-1);
 }
 .insp-panel__tab-overflow {
   flex: 0 0 auto;
@@ -96,8 +103,43 @@
   white-space: nowrap;
 }
 .insp-panel__tab-overflow:hover,
-.insp-panel__tab-overflow[aria-expanded="true"] {
+.insp-panel__tab:hover {
   color: var(--color-text-primary);
+}
+
+.insp-panel__tab-indicator--audit {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-inline-start: var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--color-signature-audit);
+  vertical-align: middle;
+}
+
+.insp-panel__header-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-6);
+  height: var(--space-6);
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  border-radius: var(--radius-control-compact);
+  cursor: pointer;
+  transition:
+    background var(--duration-fast) var(--ease-default),
+    color var(--duration-fast) var(--ease-default);
+}
+.insp-panel__header-btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+.insp-panel__header-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
 }
 .insp-panel__tab-overflow:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
@@ -144,21 +186,40 @@
   overflow-y: auto;
 }
 .insp-panel__multi-count {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
-  padding: var(--space-1) var(--space-3);
 }
 
-/* ---------- Selection header (single node) ---------- */
+/* ---------- Selection header (single node or multi count) ----------
+ * Carries the section customizer at its trailing edge, so the gear never
+ * needs a row of its own. */
 .insp-panel__node-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
   padding: var(--space-2) var(--space-3) var(--space-1);
   border-bottom: 1px solid var(--color-border-subtle);
 }
 .insp-panel__node-name {
+  flex: 1 1 auto;
+  min-width: 0;
   margin: 0;
+  overflow: hidden;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.insp-panel__node-header > :last-child:not(p),
+.insp-context-header__action {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+  align-self: center;
 }
 .insp-panel__node-kind {
   color: var(--color-text-muted);
@@ -441,7 +502,7 @@
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control);
-  box-shadow: 0 4px 16px oklch(0 0 0 / 0.15);
+  box-shadow: var(--elevation-shadow-overlay);
   padding: var(--space-3);
 }
 .insp-section-manager__actions {
@@ -616,12 +677,12 @@
 /* Section context menu (right-click to hide) */
 .insp-disclosure__context-menu {
   position: fixed;
-  z-index: var(--z-dropdown);
+  z-index: var(--elevation-z-overlay);
   min-width: 10rem;
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control);
-  box-shadow: 0 4px 12px oklch(0 0 0 / 0.15);
+  box-shadow: var(--elevation-shadow-overlay);
   padding: var(--space-1) 0;
 }
 .insp-disclosure__context-menu-item {
@@ -827,7 +888,7 @@
 
 .insp-fill-add__menu {
   position: absolute;
-  z-index: var(--z-dropdown);
+  z-index: var(--elevation-z-overlay);
   top: calc(100% + var(--space-1));
   left: 0;
   right: 0;
@@ -1043,9 +1104,9 @@
   background: var(--color-surface-sunken);
   border: 1px solid transparent;
   border-radius: var(--radius-control-compact);
-  color: var(--color-text-primary);
-  font: inherit;
+  font-family: var(--type-data-numeric-family);
   font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
   cursor: ew-resize;
   outline: none;
@@ -1199,7 +1260,7 @@
 
 .insp-picker-popover {
   position: fixed;
-  z-index: var(--z-overlay);
+  z-index: var(--elevation-z-overlay);
   background: var(--color-surface-overlay);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-control);
@@ -1439,7 +1500,7 @@
 }
 .insp-align-popover {
   position: fixed;
-  z-index: var(--z-dropdown);
+  z-index: var(--elevation-z-overlay);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -1594,7 +1655,7 @@
   border-radius: var(--radius-control);
   box-shadow: var(--elevation-shadow-overlay);
   padding: var(--space-1);
-  z-index: var(--z-dropdown);
+  z-index: var(--elevation-z-overlay);
   min-width: 120px;
   display: flex;
   flex-direction: column;
@@ -2164,27 +2225,8 @@
 .insp-panel__empty {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-1);
   padding-bottom: var(--space-3);
-}
-.insp-panel__empty > .varve-empty {
-  gap: var(--space-2);
-  padding: var(--space-5) var(--space-3);
-}
-.insp-panel__empty > .varve-empty .varve-empty__illustration {
-  width: var(--space-8);
-  height: var(--space-8);
-  margin-bottom: 0;
-}
-.insp-panel__empty > .varve-empty .varve-empty__illustration > svg {
-  width: 100%;
-  height: 100%;
-}
-.insp-panel__empty > .varve-empty .varve-empty__headline {
-  font-size: var(--font-size-sm);
-}
-.insp-panel__empty > .varve-empty .varve-empty__desc {
-  font-size: var(--font-size-xs);
 }
 .insp-canvas-props {
   display: flex;
@@ -2457,7 +2499,7 @@
   border: 2px solid var(--color-interactive-default);
   border-radius: var(--radius-pill);
   background: var(--color-surface-raised);
-  box-shadow: var(--shadow-xs);
+  box-shadow: var(--elevation-shadow-raised);
 }
 
 .insp-slider__input::-moz-range-thumb {
@@ -2466,7 +2508,7 @@
   border: 2px solid var(--color-interactive-default);
   border-radius: var(--radius-pill);
   background: var(--color-surface-raised);
-  box-shadow: var(--shadow-xs);
+  box-shadow: var(--elevation-shadow-raised);
 }
 
 .insp-slider__input:focus-visible {
@@ -3552,7 +3594,7 @@
   border: 2px solid var(--color-interactive-default);
   border-radius: var(--radius-pill);
   background: var(--color-surface-raised);
-  box-shadow: var(--shadow-xs);
+  box-shadow: var(--elevation-shadow-raised);
 }
 
 .insp-range::-moz-range-thumb {
@@ -3561,7 +3603,7 @@
   border: 2px solid var(--color-interactive-default);
   border-radius: var(--radius-pill);
   background: var(--color-surface-raised);
-  box-shadow: var(--shadow-xs);
+  box-shadow: var(--elevation-shadow-raised);
 }
 
 .insp-range:focus-visible {

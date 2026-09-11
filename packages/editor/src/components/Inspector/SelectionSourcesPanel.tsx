@@ -4,12 +4,24 @@ import { Icon, Tooltip } from '@varve/ui';
 import { useState } from 'react';
 import { getActionRegistry } from '../../actions/ActionRegistry';
 import { getToolManager } from '../../canvas/toolDispatcher';
-import { useEditor } from '../../context';
+import { type ToolId, useEditor } from '../../context';
 import type { SelectionPaintTool } from '../../tools/SelectionPaintTool';
 import { deserializeAreaSelection, serializeAreaSelection } from '../../tools/savedAreaSelections';
 import { DisclosureSection } from './controls/DisclosureSection';
 
 import './selectionSources.css';
+
+/** Tools that build or refine pixel coverage, where these sources are the task at hand. */
+const AREA_SELECTION_TOOLS = new Set<ToolId>([
+  'marquee',
+  'ellipseMarquee',
+  'pixelLasso',
+  'magicWand',
+  'selectionPaint',
+  'refineMask',
+  'trimapEdit',
+  'sam2Segment',
+]);
 
 function runAction(id: string): void {
   getActionRegistry().get(id)?.handler(undefined);
@@ -146,6 +158,18 @@ export function SelectionSourcesPanel() {
     }));
     announce(`Duplicated ${item.name}`);
   };
+
+  // Every command here needs a pixel selection, saved selections, a closed
+  // path, or an image. Without one the section is a stack of disabled
+  // buttons, so it stays out of the Inspector until it can act.
+  const canAct =
+    hasAreaSelection ||
+    paintingSelection ||
+    saved.length > 0 ||
+    hasClosedPath ||
+    hasImage ||
+    AREA_SELECTION_TOOLS.has(state.tool);
+  if (!canAct) return null;
 
   return (
     <DisclosureSection title="Selection Sources" id="selection-sources" defaultExpanded={false}>
