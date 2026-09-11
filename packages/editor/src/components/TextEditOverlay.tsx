@@ -225,6 +225,10 @@ export function TextEditOverlay({
     // receiving focus. Reconcile the last native input before that handoff,
     // but keep the editing session alive until the focus decision below.
     flushPendingText();
+    // A formatting click must start its own undo transaction, even when it
+    // arrives before the typing burst's idle timer. Keep only the focus
+    // session alive across the toolbar handoff, not the typing transaction.
+    commitBurst();
     if (blurCommitFrameRef.current !== null) {
       cancelAnimationFrame(blurCommitFrameRef.current);
     }
@@ -246,7 +250,7 @@ export function TextEditOverlay({
         );
       if (!insideEditingSurface) commit(textareaRef.current?.value ?? '');
     });
-  }, [commit]);
+  }, [commit, commitBurst, flushPendingText]);
 
   useEffect(() => {
     return () => {

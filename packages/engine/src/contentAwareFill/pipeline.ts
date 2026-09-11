@@ -38,13 +38,7 @@ export async function runLaMaInference(
 ): Promise<LaMaInferResult> {
   if (nativeLaMaProvider.isAvailable()) {
     onProgress?.(0.2);
-    const nativeResult = await nativeLaMaProvider.infer(
-      imageData,
-      mask,
-      maskWidth,
-      maskHeight,
-      signal,
-    );
+    const nativeResult = await nativeLaMaProvider.infer(imageData, mask, signal);
     onProgress?.(1);
     return nativeResult;
   }

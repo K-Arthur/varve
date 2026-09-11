@@ -326,4 +326,43 @@ describe('TextEditOverlay', () => {
       vi.useRealTimers();
     }
   });
+
+  it('finishes pending typing before a formatting control receives focus', () => {
+    vi.useFakeTimers();
+    const events: string[] = [];
+    const onCommit = vi.fn();
+    try {
+      render(
+        <EditorCtx.Provider
+          value={
+            {
+              beginTransaction: () => events.push('begin'),
+              commitTransaction: () => events.push('commit'),
+              setSelectionRange: vi.fn(),
+            } as unknown as EditorContextValue
+          }
+        >
+          <TextEditOverlay
+            node={makeNode('Hello')}
+            zoom={1}
+            pan={{ x: 0, y: 0 }}
+            canvasElement={document.createElement('canvas')}
+            onCommit={onCommit}
+            onUpdateText={() => events.push('text')}
+          />
+          <button type="button" data-varve-overlay="true" onFocus={() => events.push('format')}>
+            Format
+          </button>
+        </EditorCtx.Provider>,
+      );
+      fireEvent.input(screen.getByRole('textbox'), { target: { value: 'Hello!' } });
+      act(() => screen.getByRole('button', { name: 'Format' }).focus());
+      expect(events).toEqual(['begin', 'text', 'commit', 'format']);
+      act(() => vi.advanceTimersByTime(600));
+      expect(events).toEqual(['begin', 'text', 'commit', 'format']);
+      expect(onCommit).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

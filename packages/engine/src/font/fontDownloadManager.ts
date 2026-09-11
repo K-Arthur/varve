@@ -289,7 +289,8 @@ export class FontDownloadManager {
       // Cancellation can happen while validation is running (the fetch
       // controller is already gone by then). Never let that late completion
       // turn a cancelled job back into a successful download.
-      if (job.status === 'cancelled' || job.status === 'paused') return;
+      const currentStatus = job.status as DownloadJobStatus;
+      if (currentStatus === 'cancelled' || currentStatus === 'paused') return;
       job.status = 'complete';
       job.data = data;
       job.metadata = metadata;
