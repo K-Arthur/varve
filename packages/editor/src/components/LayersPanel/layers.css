@@ -37,6 +37,8 @@
  * doesn't clip — text has no intrinsic box, so it renders past the heading's
  * allotted space and visually overlaps the icon buttons beside it. */
 .layers-panel__title {
+  margin: 0;
+  font-size: inherit;
   font-weight: var(--font-weight-semibold);
   letter-spacing: normal;
   overflow: hidden;
@@ -58,6 +60,20 @@
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
   line-height: 1;
+}
+
+.layers-panel__filter-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-1);
+  height: var(--space-4);
+  border-radius: var(--radius-pill);
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 .layers-panel__header-actions {
@@ -693,6 +709,22 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+}
+
+/* Deep nesting legibility: smooth horizontal scroll on row hover/focus so long names
+ * in deeply indented structures remain fully readable without horizontal clutter. */
+.layers-row:hover .layers-row__label,
+.layers-row:focus-within .layers-row__label {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.layers-row:hover .layers-row__label::-webkit-scrollbar,
+.layers-row:focus-within .layers-row__label::-webkit-scrollbar {
+  display: none;
+}
+.layers-row:hover .layers-row__name,
+.layers-row:focus-within .layers-row__name {
+  text-overflow: clip;
 }
 
 .layers-row__name--instance {

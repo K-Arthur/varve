@@ -122,6 +122,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     openVectorizeDialog,
     platform,
     showToast,
+    toggleLeftPanel,
   } = useEditor();
   const [filterSpec, setFilterSpec] = usePanelLocalState<LayerFilterSpec>(
     'layers',
@@ -643,8 +644,13 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
       >
         <div className="layers-panel__header">
           <div className="layers-panel__heading">
-            <span className="layers-panel__title">Layers</span>
+            <h2 className="layers-panel__title">Layers</h2>
             <span className="layers-panel__count">{totalCount}</span>
+            {isFiltering(filterSpec) && (
+              <span className="layers-panel__filter-badge" title="Filter applied">
+                Filtered
+              </span>
+            )}
           </div>
           <TooltipProvider>
             <div className="layers-panel__header-actions">
@@ -712,6 +718,18 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
                 </Tooltip>
               )}
               <PanelDetachButton />
+              {toggleLeftPanel && (
+                <Tooltip label="Collapse Layers panel (Ctrl+B)">
+                  <button
+                    type="button"
+                    className="layers-panel__header-btn editor__collapse-btn"
+                    onClick={() => toggleLeftPanel()}
+                    aria-label="Collapse Layers panel (Ctrl+B)"
+                  >
+                    <SolidIcon name={SOLID_CHROME_ICONS.chevronLeft} size="0.85em" />
+                  </button>
+                </Tooltip>
+              )}
             </div>
           </TooltipProvider>
         </div>

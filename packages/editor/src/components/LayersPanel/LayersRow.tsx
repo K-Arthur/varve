@@ -527,6 +527,7 @@ export const LayersRow = memo(function LayersRow({
             <Tooltip label={displayName} truncationOnly>
               <span
                 className={`layers-row__name${isInstance ? ' layers-row__name--instance' : ''}${searchMatch ? ' layers-row__name--match' : ''}${!hasRealName ? ' layers-row__name--ghost' : ''}`}
+                title={accessibleDescription}
               >
                 {displayName}
               </span>

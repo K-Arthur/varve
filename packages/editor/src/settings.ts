@@ -51,6 +51,17 @@ export interface PanelSettingsStore {
   logoPanelVisible: boolean;
   /** Minimap visibility (global view preference, independent of workspace panels). */
   minimapVisible: boolean;
+  /** Collapsed state for left panel (collapsible floating container). */
+  leftPanelCollapsed?: boolean;
+  /** Collapsed state for right panel (collapsible floating container). */
+  rightPanelCollapsed?: boolean;
+  /** Detached panel layout coordinates and sizes. */
+  detachedPanelLayout?: {
+    left?: { x: number; y: number; width: number; height: number } | null;
+    right?: { x: number; y: number; width: number; height: number } | null;
+  } | null;
+  /** Schema layout version for panel layout migrations. */
+  layoutVersion?: number;
 }
 
 export interface AppearanceSettingsStore {
@@ -263,6 +274,10 @@ export const DEFAULT_PANEL_SETTINGS: PanelSettingsStore = {
   rightPanelWidth: null,
   logoPanelVisible: false,
   minimapVisible: true,
+  leftPanelCollapsed: false,
+  rightPanelCollapsed: false,
+  detachedPanelLayout: null,
+  layoutVersion: 1,
 };
 
 export const DEFAULT_RENDER_SETTINGS: RenderSettingsStore = {
