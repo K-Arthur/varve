@@ -136,7 +136,7 @@ export function getSelectionAnnouncement(doc: Document, nodes: readonly SceneNod
 }
 
 export function SelectionInfoBar() {
-  const { state, setSelection } = useEditor();
+  const { state, setSelection, toggleLeftPanel, toggleRightPanel } = useEditor();
   const { revealSelection } = useViewport();
   const selectionContext = useMemo(
     () =>
@@ -273,11 +273,67 @@ export function SelectionInfoBar() {
   }, [sel, state.document, selectionContext.hierarchy, handleBreadcrumbClick, revealSelection]);
 
   return (
-    <section className="selection-info-bar" aria-label="Selection information">
-      <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">
-        {selectionAnnouncement}
-      </span>
-      {content}
-    </section>
+    <>
+      {!state.leftPanelVisible && (
+        <button
+          type="button"
+          className="editor__panel-restore-btn editor__panel-restore-btn--left"
+          onClick={() => toggleLeftPanel?.()}
+          aria-label="Expand layers panel (Ctrl+B)"
+          title="Expand layers panel (Ctrl+B)"
+          data-testid="restore-left-panel"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="2" y="2" width="12" height="12" rx="2" />
+            <path d="M6 2v12" />
+            <path d="M9 6l2 2-2 2" />
+          </svg>
+          <span className="editor__panel-restore-label">Layers</span>
+        </button>
+      )}
+      {!state.rightPanelVisible && (
+        <button
+          type="button"
+          className="editor__panel-restore-btn editor__panel-restore-btn--right"
+          onClick={() => toggleRightPanel?.()}
+          aria-label="Expand inspector panel (Ctrl+Shift+B)"
+          title="Expand inspector panel (Ctrl+Shift+B)"
+          data-testid="restore-right-panel"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="2" y="2" width="12" height="12" rx="2" />
+            <path d="M10 2v12" />
+            <path d="M7 6l-2 2 2 2" />
+          </svg>
+          <span className="editor__panel-restore-label">Inspector</span>
+        </button>
+      )}
+      <section className="selection-info-bar" aria-label="Selection information">
+        <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+          {selectionAnnouncement}
+        </span>
+        {content}
+      </section>
+    </>
   );
 }

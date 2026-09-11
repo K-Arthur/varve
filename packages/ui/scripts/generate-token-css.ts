@@ -159,8 +159,19 @@ ${sizingBlock}
   --elevation-z-overlay: 1000;
 
   /* --- Micro-borders (Linear-style 1px edges) --- */
-  --border-micro: 1px solid oklch(0 0 0 / 0.08);
+  --border-micro: 1px solid oklch(0 0 0 / 0.12);
   --border-micro-accent: 1px solid oklch(0.779 0.1229 188.31 / 0.25);
+
+  /* --- Signature accent tokens (bespoke per-feature identity, P3-range) ---
+   * Used for icon tints, tab indicators, and status chips only.
+   * Do NOT use as text-on-background — these are presentational accents.
+   *   branch:  warm amber-gold   (version / branching concept)
+   *   audit:   muted violet      (accessibility / quality audit tab)
+   *   ai:      electric teal-P3  (on-device AI; distinct from brand teal)
+   */
+  --color-signature-branch: oklch(0.75 0.14 78);
+  --color-signature-audit: oklch(0.62 0.14 295);
+  --color-signature-ai: oklch(0.78 0.18 188);
 
   /* --- Legacy shadows (kept for backward compat, prefer elevation-*) --- */
   --shadow-none: none;

@@ -165,4 +165,14 @@ NodeEditTool typing errors; none reference the scoped remediation files.
 - **Documentation & Consistency Audits**:
   - `pnpm audit:docs`: 0 violations across 733 docs, 319 links, 173 ADRs indexed.
   - `pnpm audit:emoji`: 0 violations across 25,422 files.
+- **SelectionInfoBar Restore Affordance Unit Tests**:
+  - `pnpm exec vitest run packages/editor/src/components/SelectionInfoBar/SelectionInfoBar.test.tsx` — 5/5 tests passed (verifying restore buttons mount when panels are collapsed and trigger `toggleLeftPanel` / `toggleRightPanel` on click).
+- **Panel Collapse & Edge Restore Visual Verification**:
+  - `VARVE_E2E_PORT=1429 pnpm exec playwright test tests/e2e/layers/layers-panel-visual.spec.ts --project=chromium` — 2/2 tests passed.
+  - Screenshots visually inspected via direct image loading:
+    - `layers-collapse-btn-icon.png`: Bespoke 16x16 SVG sidebar-collapse icon rendering crisp borders, vertical divider, and directional collapse chevron.
+    - `canvas-left-panel-collapsed.png`: Left layers panel collapsed, displaying the elevated `.editor__panel-restore-btn--left` floating pill with SVG panel-expand icon and "Layers" label at `left: 28px, top: 100px`, cleanly clearing the document tab bar and rulers without collision.
+    - `canvas-both-panels-collapsed.png`: Both left and right panels collapsed, rendering symmetric floating restore pills on left and right canvas margins.
+    - `canvas-panels-restored.png`: Panels fully restored upon direct clicking of the restore affordances, confirming seamless round-trip interaction.
+
 

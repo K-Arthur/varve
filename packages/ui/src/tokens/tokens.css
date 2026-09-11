@@ -155,6 +155,7 @@
   --statusbar-height: clamp(1.5rem, 1.45rem + 0.25vw, 1.75rem);
   --sidebar-width: clamp(14rem, 12rem + 8vw, 18rem);
   --inspector-width: clamp(15rem, 13rem + 8vw, 20rem);
+  --panel-header-height: clamp(2rem, 1.9rem + 0.25vw, 2.25rem);
   /* --- Separator recipes --- */
   --separator-thickness: 1px;
   --separator-content-gap: var(--space-3);
@@ -343,7 +344,7 @@
   --elevation-z-overlay: 1000;
 
   /* --- Micro-borders (Linear-style 1px edges) --- */
-  --border-micro: 1px solid oklch(0 0 0 / 0.08);
+  --border-micro: 1px solid oklch(0 0 0 / 0.12);
   --border-micro-accent: 1px solid oklch(0.779 0.1229 188.31 / 0.25);
 
   /* --- Signature accent tokens (bespoke per-feature identity, P3-range) ---
@@ -356,9 +357,6 @@
   --color-signature-branch: oklch(0.75 0.14 78);
   --color-signature-audit: oklch(0.62 0.14 295);
   --color-signature-ai: oklch(0.78 0.18 188);
-
-  /* --- Geometry tokens --- */
-  --panel-header-height: clamp(2rem, 1.9rem + 0.25vw, 2.25rem);
 
   /* --- Legacy shadows (kept for backward compat, prefer elevation-*) --- */
   --shadow-none: none;
@@ -568,6 +566,7 @@
   --statusbar-height: clamp(1.5rem, 1.45rem + 0.25vw, 1.75rem);
   --sidebar-width: clamp(14rem, 12rem + 8vw, 18rem);
   --inspector-width: clamp(15rem, 13rem + 8vw, 20rem);
+  --panel-header-height: clamp(2rem, 1.9rem + 0.25vw, 2.25rem);
   /* --- Separator recipes --- */
   --separator-thickness: 1px;
   --separator-content-gap: var(--space-3);
@@ -590,11 +589,6 @@
 
   /* Scrim overlay (dark mode — slightly more opaque for contrast). */
   --elevation-scrim: oklch(0 0 0 / 0.65);
-
-  /* Signature accent tokens (dark mode — higher luminance for visibility on dark surfaces). */
-  --color-signature-branch: oklch(0.82 0.15 78);
-  --color-signature-audit: oklch(0.72 0.16 295);
-  --color-signature-ai: oklch(0.84 0.2 188);
 
   /* Surface aliases — single elevation system (Neo-Bento redesign). */
   --color-surface-app: var(--elevation-surface-default);
@@ -754,6 +748,7 @@
   --statusbar-height: clamp(1.5rem, 1.45rem + 0.25vw, 1.75rem);
   --sidebar-width: clamp(14rem, 12rem + 8vw, 18rem);
   --inspector-width: clamp(15rem, 13rem + 8vw, 20rem);
+  --panel-header-height: clamp(2rem, 1.9rem + 0.25vw, 2.25rem);
   /* --- Separator recipes --- */
   --separator-thickness: 1px;
   --separator-content-gap: var(--space-3);
@@ -776,11 +771,6 @@
 
   /* Scrim overlay (HC — near-opaque for maximum separation). */
   --elevation-scrim: oklch(0 0 0 / 0.7);
-
-  /* Signature accent tokens (HC — maximum-contrast yellow-green for all accents). */
-  --color-signature-branch: oklch(0.9519 0.2924 111.62);
-  --color-signature-audit: oklch(0.9519 0.2924 111.62);
-  --color-signature-ai: oklch(0.9519 0.2924 111.62);
 
   /* Surface aliases — single elevation system (Neo-Bento redesign). */
   --color-surface-app: var(--elevation-surface-default);
@@ -942,6 +932,7 @@
     --statusbar-height: clamp(1.5rem, 1.45rem + 0.25vw, 1.75rem);
     --sidebar-width: clamp(14rem, 12rem + 8vw, 18rem);
     --inspector-width: clamp(15rem, 13rem + 8vw, 20rem);
+    --panel-header-height: clamp(2rem, 1.9rem + 0.25vw, 2.25rem);
     /* --- Separator recipes --- */
     --separator-thickness: 1px;
     --separator-content-gap: var(--space-3);
@@ -964,11 +955,6 @@
 
     /* Scrim overlay (dark mode — slightly more opaque for contrast). */
     --elevation-scrim: oklch(0 0 0 / 0.65);
-
-    /* Signature accent tokens (dark mode — higher luminance for visibility on dark surfaces). */
-    --color-signature-branch: oklch(0.82 0.15 78);
-    --color-signature-audit: oklch(0.72 0.16 295);
-    --color-signature-ai: oklch(0.84 0.2 188);
 
     /* Surface aliases — single elevation system (Neo-Bento redesign). */
     --color-surface-app: var(--elevation-surface-default);
@@ -1133,6 +1119,7 @@
     --statusbar-height: clamp(1.5rem, 1.45rem + 0.25vw, 1.75rem);
     --sidebar-width: clamp(14rem, 12rem + 8vw, 18rem);
     --inspector-width: clamp(15rem, 13rem + 8vw, 20rem);
+    --panel-header-height: clamp(2rem, 1.9rem + 0.25vw, 2.25rem);
     /* --- Separator recipes --- */
     --separator-thickness: 1px;
     --separator-content-gap: var(--space-3);
@@ -1155,11 +1142,6 @@
 
     /* Scrim overlay (HC — near-opaque for maximum separation). */
     --elevation-scrim: oklch(0 0 0 / 0.7);
-
-    /* Signature accent tokens (HC — maximum-contrast yellow-green for all accents). */
-    --color-signature-branch: oklch(0.9519 0.2924 111.62);
-    --color-signature-audit: oklch(0.9519 0.2924 111.62);
-    --color-signature-ai: oklch(0.9519 0.2924 111.62);
 
     /* Surface aliases — single elevation system (Neo-Bento redesign). */
     --color-surface-app: var(--elevation-surface-default);

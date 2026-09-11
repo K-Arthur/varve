@@ -202,4 +202,7 @@ selection summary.
 - **Deep-Nesting Resilience**: Virtualized layer rows maintain readable label bounds regardless of hierarchy depth via smooth horizontal overflow-scrolling on hover/focus and persistent full-path `title` attributes.
 - **Compact Modular Top Toolbar**: Menubar combines document identity with a dynamic, context-aware shortcut toolbar that surfaces relevant hotkeys and commands tailored to the currently selected layer types.
 - **Local-First AI Transparency**: Non-blocking status chip in the editor chrome communicates on-device ML readiness and processing states without fake latency or deceptive cloud promises.
+- **Direct-Manipulation Restore Affordances**: When panels are collapsed, floating micro-pills (`.editor__panel-restore-btn`) hover on the canvas edge at `top: calc(var(--topbar-height, 40px) + 32px + 28px)`, offering one-click expansion and clear keyboard tooltips without obscuring page tabs or rulers.
+- **Splitter Ergonomics**: Resizable panel handles provide an expanded 14px hit target (`inline-size: 14px; left: -7px; right: -7px;`) for reliable trackpad and mouse grabbing while maintaining a hairline 1px visual border.
+
 

@@ -2802,12 +2802,14 @@ input[type="number"] {
 .panel-resize {
   /* Positioning is local to the shell; affordance comes from ResizableHandle. */
   position: absolute;
+  z-index: var(--elevation-z-raised, 15);
+  inline-size: 14px;
 }
 .panel-resize--right {
-  right: -4px;
+  right: -7px;
 }
 .panel-resize--left {
-  left: -4px;
+  left: -7px;
 }
 /* Overlay mode (small screens): panels are fixed drawers — no resizing. */
 @media (max-width: 899px) {
@@ -2997,6 +2999,57 @@ input[type="number"] {
 .editor__layers-panel[data-collapsed] .editor__panel-header,
 .editor__inspector-panel[data-collapsed] .editor__panel-header {
   display: none;
+}
+
+/* ── Collapsed panel restore affordance ── */
+.editor__panel-restore-btn {
+  position: fixed;
+  top: calc(var(--topbar-height, 40px) + 32px + 28px);
+  z-index: var(--elevation-z-overlay, 100);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1, 4px);
+  padding: 6px 10px;
+  background: var(--elevation-surface-raised);
+  color: var(--color-text-secondary);
+  border: var(--border-micro);
+  border-radius: var(--radius-full, 9999px);
+  box-shadow: var(--elevation-shadow-raised);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  user-select: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transition:
+    background var(--duration-fast) var(--ease-default),
+    color var(--duration-fast) var(--ease-default),
+    border-color var(--duration-fast) var(--ease-default),
+    box-shadow var(--duration-fast) var(--ease-default),
+    transform var(--duration-fast) var(--ease-default);
+}
+.editor__panel-restore-btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-focus);
+  box-shadow: var(--elevation-shadow-overlay);
+  transform: translateY(-1px);
+}
+.editor__panel-restore-btn:active {
+  transform: translateY(0);
+}
+.editor__panel-restore-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+.editor__panel-restore-btn--left {
+  left: 28px;
+}
+.editor__panel-restore-btn--right {
+  right: 16px;
+}
+.editor__panel-restore-label {
+  letter-spacing: 0.02em;
 }
 
 /* ════════════════════════════════════════════════════════════
