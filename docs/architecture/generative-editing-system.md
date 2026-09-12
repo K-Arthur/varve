@@ -13,7 +13,7 @@ provider, while the document semantics remain the same.
 The verified local pipeline currently supports mask-guided Fill and Remove:
 
 ```text
-selection / painted mask
+selection / painted mask / confirmed Object Selection candidate
   → source-image-pixel mask (0 preserve, 255 edit)
   → bounded context with aspect-preserving coordinates
   → PatchMatch (offline) or installed LaMa (local)
@@ -43,11 +43,15 @@ Adjustments and opens the same dialog, so menu, palette, and inspector entry
 points cannot drift into separate workflows. If the selection is mixed or
 multi-layer, the action announces the requirement and does not open a modal.
 
-The dialog accepts four mask sources: a painted source mask, the current
-document pixel selection, the selected image's raster layer mask, or the source
-image alpha channel. All four are normalized into source-image pixel space
-before inference. Alpha-derived coverage remains soft at semitransparent edges
-instead of being thresholded into a binary selection. Invert, Clear
+The dialog accepts five mask sources: a painted source mask, the current
+document pixel selection, the selected image's raster layer mask, the source
+image alpha channel, or a ready candidate from the shared Object Selection
+session. Object Selection remains a suggestion until the user confirms a
+candidate; CAF then copies that candidate into its own editable mask, so later
+brush edits cannot mutate the transient segmentation session. All five sources
+are normalized into source-image pixel space before inference. Alpha-derived
+coverage remains soft at semitransparent edges instead of being thresholded into
+a binary selection. Invert, Clear
 Paint, Show Mask Overlay, brush size, add/subtract/intersect mask operations,
 mask grow/shrink, feather, context padding, quality/model choice, prompt (when
 a ready provider can consume it), Fit, 1:1, Original/Result, variation
@@ -116,6 +120,15 @@ worker crashes, timeouts, and decode failures. Quick heuristic removal does
 not acquire a lease. This keeps a background-removal fallback chain from
 competing with generation while allowing unrelated lightweight editor work to
 continue.
+
+The native diffusion boundary performs a second resource check immediately
+before helper startup. Linux (including a ChromeOS Linux desktop container),
+Windows/Windows-on-ARM, and macOS/Apple Silicon use platform memory APIs when
+available; the status reports the measured architecture, backend, available
+memory, and conservative requirement. A constrained device is refused before
+model loading and is directed to the promptless Fast/PatchMatch path. Browser
+device-memory hints are advisory only and never imply that a prompt model is
+available; WASM/WebGPU providers must still pass their own safe-peak budget.
 
 ## Mask and coordinate contract
 

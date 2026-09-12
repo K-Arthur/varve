@@ -56,7 +56,7 @@ import StatusPill from '../../components/StatusPill.astro';
         <p class="eyebrow">The workflow</p>
         <h2>Paint, preview, accept.</h2>
         <div class="workflow-grid">
-          <article><span>01</span><h3>Mark the edit</h3><p>Use a source-pixel mask. Black preserves the source; white identifies the region to regenerate.</p></article>
+          <article><span>01</span><h3>Mark the edit</h3><p>Use a brush, pixel selection, layer mask, image alpha, or a confirmed Object Selection candidate. Black preserves the source; white identifies the region to regenerate.</p></article>
           <article><span>02</span><h3>Choose the local path</h3><p>Draft uses the fast PatchMatch path. Higher quality uses the optional LaMa model; prompt-conditioned desktop modes use an explicitly downloaded and validated local diffusion profile.</p></article>
           <article><span>03</span><h3>Review before committing</h3><p>Compare Original and Result, inspect at Fit or 1:1, and keep a generated variation only when it looks right.</p></article>
           <article><span>04</span><h3>Keep the source recoverable</h3><p>Accepting updates the existing image layer in one undoable transaction while retaining an immutable source snapshot and the mask/provider record.</p></article>
@@ -73,9 +73,9 @@ import StatusPill from '../../components/StatusPill.astro';
         <p class="eyebrow">Designed to stay in sync</p>
         <h2 id="integration-title">One image workflow, not a detached modal.</h2>
         <div class="integration-grid">
-          <p><strong>Reuse existing intent.</strong><br />Start with a brush mask, the current pixel selection, an image layer mask, or the source alpha channel. Expansion, feathering, and bounded context keep the edit aligned to source pixels.</p>
+          <p><strong>Reuse existing intent.</strong><br />Start with a brush mask, the current pixel selection, an image layer mask, source alpha, or a confirmed Object Selection candidate. Expansion, feathering, and bounded context keep the edit aligned to source pixels.</p>
           <p><strong>Keep the document honest.</strong><br />Apply updates the selected image in place, preserves its identity and layout, and retains the original pixels for Restore Original. Provenance, undo, save/reopen, export, and the Layers panel stay on one document state.</p>
-          <p><strong>Know what is available.</strong><br />Fill and Remove run locally today. Replace and Expand are visible in the shared interface, but remain gated until an imported local model passes Varve's compatibility and quality requirements.</p>
+          <p><strong>Know what is available.</strong><br />Fill and Remove run locally today. Fast/PatchMatch is the lightweight path for constrained devices, including many Chromebooks and ARM systems. Replace and Expand are visible in the shared interface, but remain gated until an imported local model passes Varve's compatibility and quality requirements.</p>
         </div>
       </section>
 

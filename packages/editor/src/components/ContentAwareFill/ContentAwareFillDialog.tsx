@@ -202,7 +202,7 @@ export function ContentAwareFillDialog({
   const [maskFeather, setMaskFeather] = useState(0);
   const [contextPadding, setContextPadding] = useState(32);
   const [maskOrigin, setMaskOrigin] = useState<
-    'brush' | 'pixel-selection' | 'layer-mask' | 'image-alpha' | 'persisted'
+    'brush' | 'pixel-selection' | 'layer-mask' | 'image-alpha' | 'object-selection' | 'persisted'
   >('brush');
   const [maskOperation, setMaskOperation] = useState<MaskCombineOperation>('replace');
   const [modelAvailable, setModelAvailable] = useState(false);
@@ -276,6 +276,13 @@ export function ContentAwareFillDialog({
   const imageSrc = typedNode ? imageShapeSrc(typedNode) : '';
   const areaSelection = state.areaSelection;
   const layerMaskAsset = typedNode ? resolveRasterMaskAsset(state.document, typedNode) : null;
+  const objectSelection =
+    typedNode &&
+    state.objectSelectionSession?.nodeId === typedNode.id &&
+    (!state.objectSelectionSession.documentId ||
+      state.objectSelectionSession.documentId === state.document.id)
+      ? state.objectSelectionSession
+      : null;
 
   const sourceSignature = typedNode
     ? JSON.stringify({
@@ -814,7 +821,7 @@ export function ContentAwareFillDialog({
       coverage: Uint8Array,
       width: number,
       height: number,
-      origin: 'pixel-selection' | 'layer-mask' | 'image-alpha',
+      origin: 'pixel-selection' | 'layer-mask' | 'image-alpha' | 'object-selection',
     ) => {
       const canvas = maskCanvasRef.current;
       if (!canvas || naturalSize.w <= 0 || naturalSize.h <= 0) {
@@ -858,6 +865,24 @@ export function ContentAwareFillDialog({
     }
     applyMaskCoverage(raster.data, raster.width, raster.height, 'pixel-selection');
   }, [announce, applyMaskCoverage, areaSelection, nodeId, state.document]);
+
+  const handleUseObjectSelection = useCallback(() => {
+    if (objectSelection?.status !== 'ready') {
+      announce('Run Object Selection and choose a candidate before using it as the edit mask');
+      return;
+    }
+    const candidate = objectSelection.candidates[objectSelection.selectedCandidate];
+    if (!candidate || objectSelection.width <= 0 || objectSelection.height <= 0) {
+      announce('The selected Object Selection candidate is not available');
+      return;
+    }
+    applyMaskCoverage(
+      candidate.mask,
+      objectSelection.width,
+      objectSelection.height,
+      'object-selection',
+    );
+  }, [announce, applyMaskCoverage, objectSelection]);
 
   const handleUseLayerMask = useCallback(async () => {
     if (!layerMaskAsset) {
@@ -1857,6 +1882,15 @@ export function ContentAwareFillDialog({
                 type="button"
                 variant="ghost"
                 size="sm"
+                onClick={handleUseObjectSelection}
+                disabled={objectSelection?.status !== 'ready' || hasResult || isProcessing}
+              >
+                Use Object Selection
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => void handleUseLayerMask()}
                 disabled={!layerMaskAsset || hasResult || isProcessing}
               >
@@ -1913,9 +1947,11 @@ export function ContentAwareFillDialog({
                   ? 'Using the selected image layer mask.'
                   : maskOrigin === 'image-alpha'
                     ? 'Using the source image alpha channel.'
-                    : maskOrigin === 'persisted'
-                      ? 'Using the accepted edit mask.'
-                      : 'Paint directly on the source to define the edit region.'}
+                    : maskOrigin === 'object-selection'
+                      ? 'Using the confirmed Object Selection candidate; refine it with the brush.'
+                      : maskOrigin === 'persisted'
+                        ? 'Using the accepted edit mask.'
+                        : 'Paint directly on the source to define the edit region.'}
             </p>
           </div>
 

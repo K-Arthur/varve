@@ -23,6 +23,7 @@ import { sitePath } from '../../../lib/siteUrl';
           <li><strong>Use Pixel Selection</strong> imports the current document pixel selection.</li>
           <li><strong>Use Layer Mask</strong> imports the selected image's raster layer mask.</li>
           <li><strong>Use Image Alpha</strong> imports the source alpha channel, preserving semitransparent coverage.</li>
+          <li><strong>Use Object Selection</strong> imports the confirmed candidate from the shared Object Selection tool. It remains editable here, so brush refinement does not alter the original segmentation session.</li>
           <li><strong>Invert</strong> swaps edit and preserve coverage. <strong>Show mask overlay</strong> lets you inspect the boundary before generating.</li>
         </ul>
         <p>Choose Replace, Add, Subtract, or Intersect when combining another mask source. Expand mask grows the edit region to catch edge contamination; a negative value shrinks it. Feather softens the final composite edge. Context controls how much surrounding source imagery is supplied to the local reconstruction. These controls operate in source-image pixels and changing any of them clears the candidate, requiring a fresh preview.</p>
@@ -44,11 +45,12 @@ import { sitePath } from '../../../lib/siteUrl';
       <section class="docs-section">
         <h2>Quality and providers</h2>
         <ul>
-          <li><strong>Fast</strong> uses the offline PatchMatch heuristic and needs no model download.</li>
+          <li><strong>Fast / Quick Cleanup</strong> uses the offline PatchMatch heuristic and needs no model download. It is the fallback for constrained-memory devices and simple dust, blemish, and background cleanup.</li>
           <li><strong>AI</strong> uses the optional LaMa inpainting model. Download it explicitly; the model is kept in local model storage.</li>
           <li>LaMa is image-conditioned, not text-conditioned. Prompt-conditioned Fill, Replace, and Expand require an explicitly imported safe-format model that passes the desktop validation run. The browser has no silent remote fallback.</li>
           <li>Desktop model setup is deliberately two-step: download the allowlisted Stable Diffusion 1.5 Inpainting Q4_0 candidate or import a safe-format artifact, then choose <strong>Validate Model</strong>. A non-empty model file is not treated as compatible until the production helper completes a masked test.</li>
           <li>The current 1.75 GB candidate needs about 6 GB of available memory and is licensed CreativeML OpenRAIL-M. It failed Varve's 2026-09-12 real-photograph semantic/runtime qualification, so its prompt-conditioned modes remain disabled. A model checksum and reviewed result are required before any prompt mode is enabled.</li>
+          <li>On desktop, the native runtime measures available memory and reports the architecture/backend before loading diffusion. ChromeOS browser sessions and ARM browser sessions retain the local lightweight paths; prompt-conditioned generation is not advertised unless a qualified desktop provider is present.</li>
           <li>There is no silent remote fallback. A future remote provider must state what it uploads and ask for consent immediately before transmission.</li>
         </ul>
       </section>
