@@ -667,16 +667,28 @@ input[type="number"] {
 }
 
 /* Tab strip (A8) — compact file tabs à la VS Code / Figma */
-.editor-tabs {
+/* Tab-strip row: the scrollable tab list plus the pinned New-document
+ * button. The wrapper owns the grid cell; without it the New button is
+ * auto-placed into the next free cell (the logo column) and appears as a
+ * stray top-right control instead of sitting beside the tabs. */
+.editor-tabs-row {
   grid-area: tabs;
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--elevation-surface-default);
+  border-top: var(--border-micro);
+  border-bottom: var(--border-micro);
+}
+.editor-tabs {
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   align-items: stretch;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
-  background: var(--elevation-surface-default);
-  border-top: var(--border-micro);
-  border-bottom: var(--border-micro);
 }
 .editor-tabs::-webkit-scrollbar {
   display: none;
@@ -813,7 +825,7 @@ input[type="number"] {
   outline-offset: -2px;
 }
 
-[data-theme="high-contrast"] .editor-tabs {
+[data-theme="high-contrast"] .editor-tabs-row {
   border-top: 1px solid var(--color-border-subtle);
   border-bottom: 1px solid var(--color-border-subtle);
 }

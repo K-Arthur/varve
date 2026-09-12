@@ -162,7 +162,7 @@ export function TabStrip({ onBackToHome: _onBackToHome }: { onBackToHome?: () =>
   const rovingId = focusId ?? activeId;
 
   return (
-    <>
+    <div className="editor-tabs-row">
       <div className="editor-tabs" role="tablist" aria-label="Open documents">
         {sessions.map((sess) => {
           const isActive = sess.id === activeId;
@@ -257,6 +257,6 @@ export function TabStrip({ onBackToHome: _onBackToHome }: { onBackToHome?: () =>
           <PlusIcon />
         </button>
       </Tooltip>
-    </>
+    </div>
   );
 }

@@ -57,4 +57,16 @@ describe('FontSelector', () => {
     expect(onDocumentKeyDown).toHaveBeenCalledOnce();
     document.removeEventListener('keydown', onDocumentKeyDown);
   });
+
+  it('keeps a 60-character family name intact and labelled', () => {
+    // Regression guard for the inspector truncation audit: a long family
+    // name must not be truncated in the data layer (the input scrolls, it
+    // does not lose characters) and must keep its accessible name.
+    const longName = 'Iowan Old Style Black Italic Display Swash Alternate Wide Display';
+    expect(longName.length).toBeGreaterThanOrEqual(60);
+    render(<FontSelector value={longName} onChange={() => {}} />);
+    const input = screen.getByRole('combobox');
+    expect(input).toHaveValue(longName);
+    expect(input).toHaveAccessibleName('Font family');
+  });
 });
