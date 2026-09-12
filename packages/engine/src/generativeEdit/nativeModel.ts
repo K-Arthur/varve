@@ -26,6 +26,16 @@ export interface NativeGenerativeModelStatus {
   sizeBytes: number;
   partialBytes: number;
   reason: string | null;
+  /** Measured by the native runtime immediately before model use when available. */
+  memoryAvailableBytes?: number | null;
+  /** Conservative working-set requirement for the current native profile. */
+  memoryRequiredBytes?: number;
+  /** constrained / standard / high / unknown. */
+  resourceTier?: string;
+  /** The helper backend selected by the packaged runtime. */
+  executionBackend?: string;
+  /** OS architecture, including arm64/aarch64 where applicable. */
+  architecture?: string;
 }
 
 /**
@@ -44,6 +54,11 @@ export async function getNativeGenerativeModelStatus(): Promise<NativeGenerative
       sizeBytes: 0,
       partialBytes: 0,
       reason: 'Prompt-capable generation requires the packaged desktop provider.',
+      memoryAvailableBytes: null,
+      memoryRequiredBytes: NATIVE_GENERATIVE_MODEL_PROFILE.minimumMemoryBytes,
+      resourceTier: 'unknown',
+      executionBackend: 'unknown',
+      architecture: undefined,
     };
   }
   try {
@@ -60,6 +75,11 @@ export async function getNativeGenerativeModelStatus(): Promise<NativeGenerative
       partialBytes: 0,
       reason:
         error instanceof Error ? error.message : 'The local diffusion model status is unavailable.',
+      memoryAvailableBytes: null,
+      memoryRequiredBytes: NATIVE_GENERATIVE_MODEL_PROFILE.minimumMemoryBytes,
+      resourceTier: 'unknown',
+      executionBackend: 'unknown',
+      architecture: undefined,
     };
   }
 }

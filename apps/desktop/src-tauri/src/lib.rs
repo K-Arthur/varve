@@ -4,6 +4,7 @@ mod font;
 mod font_storage;
 mod filesystem;
 mod generative_qualification;
+mod generative_resources;
 mod logs;
 mod lifecycle;
 mod menu;
@@ -1401,6 +1402,11 @@ struct GenerativeModelStatus {
     size_bytes: u64,
     partial_bytes: u64,
     reason: Option<String>,
+    memory_available_bytes: Option<u64>,
+    memory_required_bytes: u64,
+    resource_tier: String,
+    execution_backend: String,
+    architecture: String,
 }
 
 fn managed_generative_model_paths(app: &tauri::AppHandle) -> Result<Vec<std::path::PathBuf>, String> {
@@ -1436,6 +1442,7 @@ fn unix_timestamp_seconds() -> u64 {
 fn model_status_blocking(
     app: &tauri::AppHandle,
 ) -> Result<GenerativeModelStatus, String> {
+    let resource = generative_resources::snapshot(512, 512);
     let paths = managed_generative_model_paths(app)?;
     for path in &paths {
         if let Ok(metadata) = path.metadata() {
@@ -1472,6 +1479,11 @@ fn model_status_blocking(
                     size_bytes,
                     partial_bytes: 0,
                     reason,
+                    memory_available_bytes: resource.available_memory_bytes,
+                    memory_required_bytes: resource.required_memory_bytes,
+                    resource_tier: resource.resource_tier.into(),
+                    execution_backend: resource.execution_backend.into(),
+                    architecture: resource.architecture.into(),
                 });
             }
         }
@@ -1495,6 +1507,11 @@ fn model_status_blocking(
             "Download or import a safe-format SD 1.5 inpainting model, then validate it before generation."
                 .into(),
         ),
+        memory_available_bytes: resource.available_memory_bytes,
+        memory_required_bytes: resource.required_memory_bytes,
+        resource_tier: resource.resource_tier.into(),
+        execution_backend: resource.execution_backend.into(),
+        architecture: resource.architecture.into(),
     })
 }
 
@@ -2128,6 +2145,7 @@ fn generative_edit_blocking_with_requirement(
     if options.output_w == 0 || options.output_h == 0 || options.output_w > 2048 || options.output_h > 2048 {
         return Err("Generation output dimensions must be between 1 and 2048 pixels".into());
     }
+    generative_resources::preflight(options.output_w, options.output_h)?;
     let helper = resolve_generative_helper(&app)?;
     let model_path = resolve_generative_model_for_run(&app, require_qualified)?;
     let root = app

@@ -210,6 +210,13 @@ export function ContentAwareFillDialog({
   const [diffusionModelHandle, setDiffusionModelHandle] = useState<string | null>(null);
   const [diffusionModelSize, setDiffusionModelSize] = useState(0);
   const [diffusionModelReason, setDiffusionModelReason] = useState<string | null>(null);
+  const [diffusionResource, setDiffusionResource] = useState<{
+    availableBytes: number | null;
+    requiredBytes: number;
+    tier: string;
+    backend: string;
+    architecture: string;
+  } | null>(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [naturalSize, setNaturalSize] = useState({ w: 0, h: 0 });
   const [expandPadding, setExpandPadding] = useState<ExpandPadding>({
@@ -252,7 +259,12 @@ export function ContentAwareFillDialog({
   const modeMissingModel =
     (!usesDiffusion && quality === 'ai' && !modelAvailable) ||
     (usesDiffusion && !diffusionModelHandle);
-  const modeAvailable = modeCapability.available && !modeMissingModel;
+  const diffusionMemoryFits =
+    !usesDiffusion ||
+    !diffusionResource ||
+    diffusionResource.availableBytes == null ||
+    diffusionResource.availableBytes >= diffusionResource.requiredBytes;
+  const modeAvailable = modeCapability.available && !modeMissingModel && diffusionMemoryFits;
   const hasExpandPadding = Object.values(expandPadding).some((value) => value > 0);
   const canGenerate =
     (hasMaskStrokes || (mode === 'expand' && hasExpandPadding)) &&
@@ -491,6 +503,14 @@ export function ContentAwareFillDialog({
       setDiffusionModelHandle(available.ready ? available.modelHandle : null);
       setDiffusionModelSize(available.sizeBytes);
       setDiffusionModelReason(available.reason);
+      setDiffusionResource({
+        availableBytes: available.memoryAvailableBytes ?? null,
+        requiredBytes:
+          available.memoryRequiredBytes ?? NATIVE_GENERATIVE_MODEL_PROFILE.minimumMemoryBytes,
+        tier: available.resourceTier ?? 'unknown',
+        backend: available.executionBackend ?? 'unknown',
+        architecture: available.architecture ?? 'unknown',
+      });
     });
     return () => {
       cancelled = true;
@@ -940,6 +960,14 @@ export function ContentAwareFillDialog({
       setDiffusionModelHandle(downloaded.ready ? downloaded.modelHandle : null);
       setDiffusionModelSize(downloaded.sizeBytes);
       setDiffusionModelReason(downloaded.reason);
+      setDiffusionResource({
+        availableBytes: downloaded.memoryAvailableBytes ?? null,
+        requiredBytes:
+          downloaded.memoryRequiredBytes ?? NATIVE_GENERATIVE_MODEL_PROFILE.minimumMemoryBytes,
+        tier: downloaded.resourceTier ?? 'unknown',
+        backend: downloaded.executionBackend ?? 'unknown',
+        architecture: downloaded.architecture ?? 'unknown',
+      });
       setStatus('idle');
     } catch (err) {
       if (controller.signal.aborted) {
@@ -982,6 +1010,14 @@ export function ContentAwareFillDialog({
       setDiffusionModelHandle(imported.ready ? imported.modelHandle : null);
       setDiffusionModelSize(imported.sizeBytes);
       setDiffusionModelReason(imported.reason);
+      setDiffusionResource({
+        availableBytes: imported.memoryAvailableBytes ?? null,
+        requiredBytes:
+          imported.memoryRequiredBytes ?? NATIVE_GENERATIVE_MODEL_PROFILE.minimumMemoryBytes,
+        tier: imported.resourceTier ?? 'unknown',
+        backend: imported.executionBackend ?? 'unknown',
+        architecture: imported.architecture ?? 'unknown',
+      });
       setErrorMessage(null);
     } catch (err) {
       setStatus('error');
@@ -1000,6 +1036,14 @@ export function ContentAwareFillDialog({
       setDiffusionModelHandle(qualified.ready ? qualified.modelHandle : null);
       setDiffusionModelSize(qualified.sizeBytes);
       setDiffusionModelReason(qualified.reason);
+      setDiffusionResource({
+        availableBytes: qualified.memoryAvailableBytes ?? null,
+        requiredBytes:
+          qualified.memoryRequiredBytes ?? NATIVE_GENERATIVE_MODEL_PROFILE.minimumMemoryBytes,
+        tier: qualified.resourceTier ?? 'unknown',
+        backend: qualified.executionBackend ?? 'unknown',
+        architecture: qualified.architecture ?? 'unknown',
+      });
       if (!qualified.ready) throw new Error(qualified.reason ?? 'Model qualification failed.');
       setStatus('idle');
     } catch (err) {
@@ -1591,7 +1635,11 @@ export function ContentAwareFillDialog({
                 ? mode === 'expand'
                   ? 'Set one or more sides to extend. Original pixels keep their world position.'
                   : 'Paint the pixels to regenerate. The source is retained for Restore Original.'
-                : (capabilities.reason ?? diffusionModelReason ?? 'This mode is unavailable.')}
+                : diffusionResource &&
+                    diffusionResource.availableBytes != null &&
+                    diffusionResource.availableBytes < diffusionResource.requiredBytes
+                  ? `This ${diffusionResource.architecture} device has about ${Math.floor(diffusionResource.availableBytes / 1_048_576)} MiB available, but local diffusion needs about ${Math.ceil(diffusionResource.requiredBytes / 1_048_576)} MiB. Use Quick Cleanup for this edit.`
+                  : (capabilities.reason ?? diffusionModelReason ?? 'This mode is unavailable.')}
             </p>
           </div>
 
@@ -1649,7 +1697,7 @@ export function ContentAwareFillDialog({
               <small>
                 {mode === 'replace' || mode === 'expand' || promptNeedsDiffusion
                   ? diffusionModelHandle
-                    ? `Diffusion · ${Math.round(diffusionModelSize / 1_000_000)} MB · qualified local`
+                    ? `Diffusion · ${Math.round(diffusionModelSize / 1_000_000)} MB · qualified local${diffusionResource ? ` · ${diffusionResource.backend}/${diffusionResource.architecture}` : ''}`
                     : diffusionModelInstalled
                       ? 'Diffusion model installed · validation required'
                       : 'Diffusion model required · local only'
@@ -1705,6 +1753,22 @@ export function ContentAwareFillDialog({
                 </Button>
               )}
               <p className="caf-dialog__hint">
+                {diffusionResource?.availableBytes != null &&
+                  diffusionResource.availableBytes < diffusionResource.requiredBytes && (
+                    <>
+                      Low-memory guard: about{' '}
+                      {Math.floor(diffusionResource.availableBytes / 1_048_576)} MiB available; this
+                      model needs about {Math.ceil(diffusionResource.requiredBytes / 1_048_576)}{' '}
+                      MiB. Use Quick Cleanup or a smaller edit region.{' '}
+                    </>
+                  )}
+                {diffusionResource?.availableBytes != null &&
+                  diffusionResource.availableBytes >= diffusionResource.requiredBytes && (
+                    <>
+                      {diffusionResource.tier} memory · {diffusionResource.backend}/
+                      {diffusionResource.architecture} · measured before generation.{' '}
+                    </>
+                  )}
                 {diffusionModelHandle
                   ? 'The model passed a masked production-helper check and is managed offline.'
                   : diffusionModelInstalled
