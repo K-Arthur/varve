@@ -7,6 +7,7 @@ trust. Start with the audit; it explains why the rest of these exist.
 |---|---|---|
 | [release-readiness-audit.md](release-readiness-audit.md) | Can this repository ship today? Evidence-backed findings, severity scorecard, and Phase 1 command results |
 | [platform-support-matrix.md](platform-support-matrix.md) | Which OSes and architectures we actually support, and which we only claim to |
+| [chromeos-linux.md](chromeos-linux.md) | ChromeOS Linux (Crostini) ARM64/x86_64 install, update, uninstall, and hardware-check contract, with the Stage 5 artifact evidence |
 | [distribution-decision-matrix.md](distribution-decision-matrix.md) | Which channels to use now, later, and never — scored, with reasons |
 | [signing-decision-record.md](signing-decision-record.md) | The current code-signing strategy per platform, with sources and prices (2026-08-08) |
 | [code-signing-setup.md](code-signing-setup.md) | Human-only acquisition checklist: Apple, Azure, GitHub — tick off every step |
