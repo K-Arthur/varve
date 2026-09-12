@@ -149,11 +149,15 @@ before worker rendering can reuse them; otherwise the main-thread replay
 
 ## Compact editing surfaces
 
-The inspector and floating text toolbar use the same family picker model. The
-toolbar uses the main floating palette's spacing, surface and shadow tokens,
-with 32px compact controls, consistent field typography and a separate More
-panel for alignment and lists. Its independently anchored font menu remains
-inside the viewport. Escape has an explicit precedence: an open family picker
+The inspector, contextual text bar, and floating text toolbar use the same
+family picker model. The contextual bar exposes family, weight, and size
+commands directly below the menubar, with 32px compact controls and a
+horizontal overflow boundary instead of shrinking a family field to an
+unreadable label. The floating toolbar uses the main floating palette's
+spacing, surface and shadow tokens, with 32px compact controls, consistent
+field typography and a separate More panel for alignment and lists. Its
+independently anchored font menu remains inside the viewport. Escape has an
+explicit precedence: an open family picker
 closes first without committing the search; a subsequent Escape exits text
 editing. The size field commits its draft on blur or Enter; Escape discards an
 unfinished draft. Range/caret targeting still requires the shared typography

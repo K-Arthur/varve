@@ -81,11 +81,44 @@ async function measureToolbarConsistency(page: Page, toolbar: Locator) {
   return { chrome, palette, measured };
 }
 
+async function measureContextFontControls(contextBar: Locator) {
+  const measured = await contextBar.evaluate((element) => {
+    const controls = Array.from(element.querySelectorAll('input, button')).map((control) => ({
+      label: control.getAttribute('aria-label'),
+      width: control.getBoundingClientRect().width,
+      height: control.getBoundingClientRect().height,
+      center: control.getBoundingClientRect().y + control.getBoundingClientRect().height / 2,
+    }));
+    return {
+      height: element.getBoundingClientRect().height,
+      controls,
+      familyWidth: element
+        .querySelector<HTMLInputElement>('[aria-label="Font family"]')
+        ?.getBoundingClientRect().width,
+    };
+  });
+  await test.info().attach('context-font-controls', {
+    body: JSON.stringify(measured, null, 2),
+    contentType: 'application/json',
+  });
+  expect(measured.height).toBeGreaterThanOrEqual(32);
+  expect(measured.familyWidth ?? 0).toBeGreaterThanOrEqual(160);
+  const firstControl = measured.controls[0];
+  if (!firstControl) throw new Error('Context bar has no text controls');
+  for (const control of measured.controls) {
+    expect(control.height, `${control.label} height`).toBe(32);
+    expect(control.center, `${control.label} alignment`).toBeCloseTo(firstControl.center, 0);
+  }
+  return measured;
+}
+
 for (const dpr of [1, 2, 3]) {
   test.describe(`Font toolbar at DPR ${dpr}`, () => {
     test.use({ deviceScaleFactor: dpr, contextOptions: { reducedMotion: 'reduce' } });
     test('fits the viewport with readable menus in every theme', async ({ page }, testInfo) => {
       const toolbar = await startText(page);
+      const contextBar = page.getByRole('toolbar', { name: 'Contextual properties' });
+      await expect(contextBar).toBeVisible();
       for (const theme of ['light', 'dark', 'high-contrast']) {
         await page.evaluate((theme) => {
           document.documentElement.dataset.theme = theme;
@@ -93,6 +126,7 @@ for (const dpr of [1, 2, 3]) {
         await page.setViewportSize({ width: 1280, height: 800 });
         await containedInViewport(page, toolbar);
         const consistency = await measureToolbarConsistency(page, toolbar);
+        await measureContextFontControls(contextBar);
         await writeFile(
           testInfo.outputPath(`${theme}-toolbar-metrics.json`),
           JSON.stringify(consistency, null, 2),

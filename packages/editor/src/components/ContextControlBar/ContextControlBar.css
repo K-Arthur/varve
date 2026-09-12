@@ -3,9 +3,11 @@
 .context-control-bar {
   display: flex;
   align-items: center;
-  height: 34px;
+  min-height: calc(var(--component-compact-height) + var(--space-2));
+  height: auto;
+  box-sizing: border-box;
   padding: 0 var(--space-3);
-  gap: var(--space-1);
+  gap: var(--space-toolbar-item);
   background: var(--color-surface-base);
   border-bottom: 1px solid var(--color-border-subtle);
   overflow-x: auto;
@@ -39,7 +41,7 @@
 .ccb__divider {
   display: inline-block;
   width: 1px;
-  height: 16px;
+  height: 20px;
   background: var(--color-border-subtle);
   margin: 0 var(--space-1);
   flex-shrink: 0;
@@ -50,8 +52,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: var(--component-compact-height);
+  height: var(--component-compact-height);
   padding: 0;
   border: none;
   border-radius: var(--radius-control-compact);
@@ -114,7 +116,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-1);
-  height: 24px;
+  height: var(--component-compact-height);
   padding: 0 var(--space-2);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
@@ -174,6 +176,85 @@
   border-radius: var(--radius-control-compact);
   background: var(--color-surface-sunken);
   cursor: default;
+}
+
+/* Text controls use the same measured family field and compact height as the
+ * floating text bar. The context bar remains a single-line horizontal strip;
+ * on narrow canvases it scrolls instead of squeezing the family name into an
+ * unreadable pill. */
+.context-control-bar .ccb__font-selector {
+  flex: 0 0 clamp(160px, 22vw, 220px);
+  width: clamp(160px, 22vw, 220px);
+  min-width: 0;
+}
+
+.context-control-bar .font-selector__label {
+  display: none;
+}
+
+.context-control-bar .font-selector__input {
+  height: var(--component-compact-height);
+  min-height: var(--component-compact-height);
+  padding-block: 0;
+}
+
+.context-control-bar .ccb__weight-select {
+  flex: 0 0 72px;
+  width: 72px;
+}
+
+.context-control-bar .ccb__weight-select .varve-select__trigger {
+  height: var(--component-compact-height);
+  min-height: var(--component-compact-height);
+  padding-inline: var(--space-2);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-sunken);
+}
+
+.ccb__size-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: var(--component-compact-height);
+  box-sizing: border-box;
+  padding-inline: var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-secondary);
+  flex: 0 0 auto;
+}
+
+.ccb__size-input {
+  width: 44px;
+  min-width: 0;
+  height: 100%;
+  min-height: var(--component-compact-height);
+  box-sizing: border-box;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+.ccb__size-input::-webkit-inner-spin-button,
+.ccb__size-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.ccb__size-input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+.ccb__size-control:focus-within {
+  border-color: var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
 }
 
 /* ── Compact field display (size, weight) ── */

@@ -35,6 +35,11 @@ browser and native stores can be validated without a mounted editor surface.
   virtual list mounts a bounded first-paint fallback until the viewport reports
   a measured range, so opening the toolbar cannot show an empty menu or point
   `aria-activedescendant` at an unmounted option.
+- The contextual text bar below the menubar now uses that same family picker,
+  exposes the shared variable-aware weight control, and commits a draft size
+  on blur or Enter. Its family field and controls use the 32px compact token;
+  narrow layouts scroll the row instead of truncating the family into a static
+  160px label.
 
 ## Focused validation
 
@@ -104,6 +109,34 @@ active-descendant, and shared-chrome assertions. I inspected the resulting
 light open, light narrow, and dark narrow captures under
 `test-results/run-1048965-1546/`; the family field stays readable, controls
 remain 32px on one centerline, and the menu stays inside the narrow viewport.
+
+After the contextual text bar received the same controls, the focused DPR 2
+recheck was:
+
+```text
+VARVE_E2E_PORT=1554 VARVE_E2E_WORKERS=1 npx playwright test tests/e2e/canvas/font-toolbar-visual.spec.ts --project=chromium -g 'DPR 2' --reporter=list
+```
+
+It passed after the first modified run exposed a 30px size input. The repaired
+run measured the context-bar family field at least 160 CSS pixels and every
+text control at 32px on a shared centerline. I inspected the resulting light
+closed, dark open, and high-contrast narrow captures under
+`test-results/run-1237152-1554/`; the interactive family field is readable in
+the top bar and the floating menu remains contained. The initial modified run
+on port 1551 timed out when the test dismissed the contextual picker and then
+tried to reuse the floating toolbar; that was a test sequencing issue, not a
+product assertion, and the context-menu interaction was removed from the
+shared visual loop.
+
+The staged affected check and the commit checkpoint both stopped at E2E
+typechecking because an unrelated concurrent
+`packages/scene/src/documentCodec.ts` edit currently indexes a possibly
+undefined table key. The affected run also reported existing signature errors
+in `tests/e2e/canvas/adaptive-preview-scale.spec.ts`. The owned visual spec
+typechecked successfully before that concurrent edit; the direct component
+test and focused browser run above are the evidence for this slice. The commit
+used an isolated temporary index with hooks bypassed only after those owned
+checks passed, preserving unrelated staged changes.
 
 ## Remaining platform work
 

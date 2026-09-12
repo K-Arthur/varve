@@ -7,7 +7,7 @@
  *   - Nothing selected  → quick-access tool buttons (Frame, Rect, Text, Pen)
  *   - Image selected    → Crop, Remove BG, separator, Opacity
  *   - Shape/Vector      → Fill swatch, Stroke swatch, Stroke width, Flip H/V
- *   - Text layer        → Font family pill, Weight, Size, Align L/C/R/J
+ *   - Text layer        → Font family, Weight, and Size controls
  *   - Frame             → Preset label, Orientation swap, Clip toggle
  *   - Multi-select      → Group, Align H center, Align V center, Boolean Union
  *
@@ -19,9 +19,12 @@
 
 import type { FrameNode, SceneNode, TextNode } from '@varve/scene';
 import { isExportRegion, isImageShape } from '@varve/scene';
-import { Icon, Tooltip } from '@varve/ui';
-import { useMemo, useState } from 'react';
+import { DEFAULT_ARTWORK_FONT_FAMILY } from '@varve/shared';
+import { Icon, Select, Tooltip } from '@varve/ui';
+import { useEffect, useMemo, useState } from 'react';
 import { type ToolId, useEditor } from '../../context';
+import { FontSelector } from '../FontBrowser/FontSelector';
+import { fontFamilyChanges, fontWeightChanges } from '../Typography/fontWeight';
 import './ContextControlBar.css';
 
 /* ── Small helpers ───────────────────────────────────────────────── */
@@ -158,21 +161,104 @@ function ImageSection({
   );
 }
 
-function TextSection({ node }: { node: TextNode }) {
-  const fontFamily = node.fontFamily ?? 'System';
-  const fontSize = typeof node.fontSize === 'number' ? Math.round(node.fontSize) : '—';
+const FONT_WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800, 900];
+
+function TextSection({
+  node,
+  updateNode,
+}: {
+  node: TextNode;
+  updateNode: (id: TextNode['id'], updater: (node: SceneNode) => SceneNode) => void;
+}) {
+  const fontFamily = node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY;
+  const fontWeight = node.fontWeight ?? 400;
   return (
     <>
       <span className="ccb__label">Text</span>
       <Divider />
-      <span className="ccb__text-family" title={fontFamily}>
-        {fontFamily.length > 18 ? `${fontFamily.slice(0, 16)}…` : fontFamily}
-      </span>
-      <span className="ccb__field-compact">
-        <span className="ccb__field-label">Size</span>
-        <span className="ccb__field-value">{fontSize}</span>
-      </span>
+      <FontSelector
+        className="ccb__font-selector"
+        value={fontFamily}
+        onChange={(family) =>
+          updateNode(node.id, (current) =>
+            current.kind === 'text'
+              ? ({ ...current, ...fontFamilyChanges(family) } as TextNode)
+              : current,
+          )
+        }
+      />
+      <Select
+        label="Font weight"
+        className="ccb__weight-select"
+        value={String(fontWeight)}
+        options={FONT_WEIGHTS.map((weight) => ({
+          value: String(weight),
+          label: String(weight),
+        }))}
+        onChange={(value) =>
+          updateNode(node.id, (current) =>
+            current.kind === 'text'
+              ? ({ ...current, ...fontWeightChanges(current, Number(value)) } as TextNode)
+              : current,
+          )
+        }
+      />
+      <TextSizeControl node={node} updateNode={updateNode} />
     </>
+  );
+}
+
+function TextSizeControl({
+  node,
+  updateNode,
+}: {
+  node: TextNode;
+  updateNode: (id: TextNode['id'], updater: (node: SceneNode) => SceneNode) => void;
+}) {
+  const [draft, setDraft] = useState(String(node.fontSize ?? 16));
+  const value = node.fontSize ?? 16;
+
+  useEffect(() => setDraft(String(value)), [value]);
+
+  const commit = () => {
+    const next = Number(draft);
+    if (!Number.isFinite(next) || next <= 0 || next > 10000) {
+      setDraft(String(value));
+      return;
+    }
+    if (next !== value) {
+      updateNode(node.id, (current) =>
+        current.kind === 'text' ? ({ ...current, fontSize: next } as TextNode) : current,
+      );
+    }
+    setDraft(String(next));
+  };
+
+  return (
+    <label className="ccb__size-control">
+      <span className="ccb__field-label">Size</span>
+      <input
+        type="number"
+        className="ccb__size-input"
+        aria-label="Font size"
+        min={1}
+        max={10000}
+        step={1}
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            event.currentTarget.blur();
+          } else if (event.key === 'Escape' && draft !== String(value)) {
+            event.preventDefault();
+            event.stopPropagation();
+            setDraft(String(value));
+          }
+        }}
+      />
+    </label>
   );
 }
 
@@ -295,6 +381,7 @@ export function ContextControlBar() {
     openVectorizeDialog,
     alignSelected,
     booleanOp,
+    updateNode,
   } = useEditor();
   const sel = state.selection;
   const doc = state.document;
@@ -332,7 +419,7 @@ export function ContextControlBar() {
     }
 
     if (node.kind === 'text') {
-      return <TextSection node={node as TextNode} />;
+      return <TextSection node={node as TextNode} updateNode={updateNode} />;
     }
 
     if (node.kind === 'frame' && !isExportRegion(node)) {
@@ -369,6 +456,7 @@ export function ContextControlBar() {
     openVectorizeDialog,
     alignSelected,
     booleanOp,
+    updateNode,
   ]);
 
   return (
