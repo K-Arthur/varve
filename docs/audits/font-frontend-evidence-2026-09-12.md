@@ -25,6 +25,11 @@ browser and native stores can be validated without a mounted editor surface.
   adapter as the quick toolbar. Bold and numeric weight edits therefore keep
   authored `wdth`, `slnt`, and other custom axes while updating `wght` for
   variable families; static families keep the legacy weight-only update.
+- Expanded browser rows now expose a face-level selection action. Applying a
+  selected face updates family, weight, style, PostScript metadata, and the
+  canonical `fontReference` together; applying a family row clears an older
+  exact reference instead of carrying it into a different face. This landed in
+  `40cabdd2b`.
 
 ## Focused validation
 
@@ -35,6 +40,7 @@ Commands run:
 ./node_modules/.bin/vitest run packages/engine/src/fontRegistry.test.ts packages/engine/src/font/fontLoader.test.ts --config vitest.config.ts --reporter=verbose
 ./node_modules/.bin/vitest run packages/editor/src/components/FloatingTextBar/FloatingTextBar.test.tsx --config vitest.config.ts --reporter=verbose
 ./node_modules/.bin/vitest run packages/editor/src/components/FontBrowser/FontBrowser.test.tsx --config vitest.config.ts --pool=threads --maxWorkers=1 --reporter=verbose
+./node_modules/.bin/vitest run packages/editor/src/components/FontBrowser/FontBrowser.test.tsx packages/editor/src/components/FloatingTextBar/FloatingTextBar.test.tsx packages/editor/src/components/Inspector/sections/__tests__/VariableAxes.test.tsx --config vitest.config.ts --pool=threads --maxWorkers=1 --reporter=dot
 ./node_modules/.bin/tsc -p packages/engine/tsconfig.json --noEmit
 pnpm audit:docs
 pnpm audit:emoji
@@ -46,6 +52,8 @@ engine typecheck and all three audits passed. The editor typecheck was run as
 part of the affected work and remains blocked by unrelated concurrent edits in
 `Menubar`, `createActionHandlers`, `AIStatusIndicator`, `ContextAwareShortcuts`,
 `PositionSizeSection`, `StorageSettingsTab`, and `WorkspaceTabs`.
+The face-selection regression and its neighboring typography controls pass
+**24/24** in the focused combined run (the browser face assertion is included).
 
 ## Visual inspection
 
