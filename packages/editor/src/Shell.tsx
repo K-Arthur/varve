@@ -42,7 +42,7 @@ import { PresenceIndicator } from './components/LayersPanel/PresenceIndicator';
 import { LogoPanel } from './components/LogoPanel/LogoPanel';
 import { LogoPreviewDialog } from './components/LogoPreview/LogoPreviewDialog';
 import { MasterPanel } from './components/MasterPanel/MasterPanel';
-import { Menubar } from './components/Menubar';
+import { ContextControlBar, Menubar } from './components/Menubar';
 import { MinimapPanel } from './components/Minimap/MinimapPanel';
 import { PageNav } from './components/PageNav/PageNav';
 import { PagesPanel } from './components/PagesPanel/PagesPanel';
@@ -404,6 +404,7 @@ function ShellInner({
       onResizeImage: editor.openImageResizeDialog,
       onBringAllPanelsToCurrentDisplay: bringAllPanelsToCurrentDisplay,
       onResetPanelWindowLayout: resetPanelWindowLayout,
+      onCopyAsPng: (scale) => void exportLayerRef.current?.copySelectionAsPng(scale),
     });
     if (staticActionsRegistered.current) return;
     staticActionsRegistered.current = true;
@@ -583,6 +584,7 @@ function ShellInner({
               onGettingStarted={() => onboardingLayerRef.current?.openWelcome()}
               onWhatsNew={() => editorHelp.setHelpCenterOpen(true)}
             />
+            <ContextControlBar />
           </header>
         )}
         <FloatingToolbar />

@@ -14,12 +14,9 @@ import {
 } from '@varve/engine';
 import { ImportService, toDelimitedText } from '@varve/import';
 import {
-  createDocument,
   getImageFill,
   getOwnRasterMaskAsset,
   isImageShape,
-  makeTextNode,
-  nextNodeId,
   type SceneNode,
   type TextNode,
 } from '@varve/scene';
@@ -32,7 +29,7 @@ import { startTextEditing } from '../context';
 import { preparedFragmentFromRootSets } from '../dropUtils';
 import { harmonizeSpacing as applyHarmonize } from '../intelligence/spacingHarmonizer';
 import { getLifecycleCoordinator } from '../lifecycle';
-import { nodeLocalBounds } from '../scene/world';
+import { nodeLocalBounds, nodeWorldBounds } from '../scene/world';
 import { loadSettings, updateSettings } from '../settings';
 import { deserializeAreaSelection, serializeAreaSelection } from '../tools/savedAreaSelections';
 import {
@@ -119,6 +116,30 @@ function stripSvgEnvelope(markup: string): string {
     .replace(/^\s*<\?xml[^>]*>\s*/i, '')
     .replace(/^\s*<svg[^>]*>/i, '')
     .replace(/<\/svg>\s*$/i, '');
+}
+
+function unionSvgBounds(
+  nodes: readonly SceneNode[],
+  snapshot: EditorContextValue['state']['document'],
+): { x: number; y: number; w: number; h: number } {
+  let bounds: { x: number; y: number; w: number; h: number } | null = null;
+  for (const node of nodes) {
+    const next = nodeWorldBounds(snapshot, node.id) ?? nodeLocalBounds(node, snapshot);
+    if (!next) continue;
+    if (!bounds) {
+      bounds = { ...next };
+      continue;
+    }
+    const x = Math.min(bounds.x, next.x);
+    const y = Math.min(bounds.y, next.y);
+    bounds = {
+      x,
+      y,
+      w: Math.max(bounds.x + bounds.w, next.x + next.w) - x,
+      h: Math.max(bounds.y + bounds.h, next.y + next.h) - y,
+    };
+  }
+  return bounds ?? { x: 0, y: 0, w: 1, h: 1 };
 }
 
 export function createActionHandlers(
@@ -532,10 +553,11 @@ export function createActionHandlers(
       const parts = nodes.map((node) =>
         exportNodeToSvg(node, snapshot, { background: 'transparent' }),
       );
+      const bounds = unionSvgBounds(nodes, snapshot);
       const svg =
         parts.length === 1
           ? parts[0]!
-          : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000"><g>${parts
+          : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${bounds.x} ${bounds.y} ${bounds.w} ${bounds.h}"><g>${parts
               .map(stripSvgEnvelope)
               .join('')}</g></svg>`;
       void writeClipboardRepresentation(
@@ -580,16 +602,12 @@ export function createActionHandlers(
             e.announce('The clipboard has no text');
             return;
           }
-          const source = createDocument('Clipboard text', true);
-          const next = nextNodeId(source);
-          const node = makeTextNode(next.id, value, {
-            name: 'Pasted text',
-            nameMode: 'automatic',
-            fontSize: 16,
-            textMode: 'point',
-            textResizing: 'autoWidth',
+          e.commitPreparedFragment({
+            route: 'paste',
+            items: [],
+            targetParentId: null,
+            text: { plainText: value },
           });
-          e.importNode(node, next.doc);
           e.announce('Pasted plain text');
         })
         .catch(() => e.announce('Plain text clipboard access was denied'));

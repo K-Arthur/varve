@@ -1,3 +1,4 @@
+import { exportNodeToSvg } from '@varve/codegen';
 import { createEngine, type Engine, getFontRegistry } from '@varve/engine';
 import { FontCatalog } from '@varve/engine/font';
 import type { Platform } from '@varve/platform';
@@ -10,6 +11,7 @@ import {
   type PreparedBackgroundRemoval,
 } from '../../backgroundRemoval/commitRasterMask';
 import { isCapabilityRestricted } from '../../capabilities/restrictions';
+import { writeClipboardRepresentation } from '../../clipboard';
 import { useEditor } from '../../context';
 import {
   createBufferedExportArchive,
@@ -21,6 +23,7 @@ import { type ExportProgressEvent, ExportService } from '../../exportService';
 import { buildPackageExport } from '../../packageExport';
 import { BatchBgRemoveDialog } from '../BatchBgRemoveDialog';
 import { ExportDialog } from '../Export/ExportDialog';
+import { worldBBox } from '../SpecPanel/measurement';
 import { QuickConvertDialogHost } from './QuickConvertDialogHost';
 
 function isRasterExport(format: ExportFormat): boolean {
@@ -53,10 +56,99 @@ function exportableNodes(doc: Document): SceneNode[] {
 
 export interface ExportLayerHandle {
   openBatchBgRemove: () => void;
+  copySelectionAsPng: (scale: 1 | 2 | 3) => Promise<void>;
 }
 
 export interface ExportLayerProps {
   platform?: Platform;
+}
+
+const MAX_COPY_PNG_DIMENSION = 32_768;
+const MAX_COPY_PNG_PIXELS = 64_000_000;
+
+function stripSvgEnvelope(markup: string): string {
+  return markup
+    .replace(/^\s*<\?xml[^>]*>\s*/i, '')
+    .replace(/^\s*<svg[^>]*>/i, '')
+    .replace(/<\/svg>\s*$/i, '');
+}
+
+function unionBounds(
+  bounds: { x: number; y: number; w: number; h: number },
+  next: { x: number; y: number; w: number; h: number },
+): { x: number; y: number; w: number; h: number } {
+  const x = Math.min(bounds.x, next.x);
+  const y = Math.min(bounds.y, next.y);
+  return {
+    x,
+    y,
+    w: Math.max(bounds.x + bounds.w, next.x + next.w) - x,
+    h: Math.max(bounds.y + bounds.h, next.y + next.h) - y,
+  };
+}
+
+async function renderSelectionPng(
+  nodes: readonly SceneNode[],
+  documentSnapshot: Document,
+  requestedScale: 1 | 2 | 3,
+): Promise<{ bytes: Uint8Array; clamped: boolean }> {
+  if (typeof document === 'undefined' || typeof Image === 'undefined') {
+    throw new Error('PNG rendering is unavailable in this runtime');
+  }
+  let bounds = worldBBox(nodes[0]!, documentSnapshot);
+  for (const node of nodes.slice(1))
+    bounds = unionBounds(bounds, worldBBox(node, documentSnapshot));
+  const width = Math.max(1, bounds.w);
+  const height = Math.max(1, bounds.h);
+  const parts = nodes.map((node) =>
+    stripSvgEnvelope(exportNodeToSvg(node, documentSnapshot, { background: 'transparent' })),
+  );
+  const svg = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${bounds.x} ${bounds.y} ${width} ${height}" width="${width}" height="${height}">`,
+    `<g>${parts.join('')}</g>`,
+    '</svg>',
+  ].join('');
+
+  const requestedWidth = Math.max(1, Math.round(width * requestedScale));
+  const requestedHeight = Math.max(1, Math.round(height * requestedScale));
+  const pixelScale = Math.min(
+    1,
+    MAX_COPY_PNG_DIMENSION / requestedWidth,
+    MAX_COPY_PNG_DIMENSION / requestedHeight,
+    Math.sqrt(MAX_COPY_PNG_PIXELS / (requestedWidth * requestedHeight)),
+  );
+  const outputWidth = Math.max(1, Math.floor(requestedWidth * pixelScale));
+  const outputHeight = Math.max(1, Math.floor(requestedHeight * pixelScale));
+  const canvas = document.createElement('canvas');
+  canvas.width = outputWidth;
+  canvas.height = outputHeight;
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('PNG rendering is unavailable in this runtime');
+
+  const image = new Image();
+  const svgUrl = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+  try {
+    await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve();
+      image.onerror = () => reject(new Error('SVG selection could not be rasterized'));
+      image.src = svgUrl;
+    });
+    context.clearRect(0, 0, outputWidth, outputHeight);
+    context.drawImage(image, 0, 0, outputWidth, outputHeight);
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((value) => {
+        if (value) resolve(value);
+        else reject(new Error('PNG encoding is unavailable in this runtime'));
+      }, 'image/png');
+    });
+    return {
+      bytes: new Uint8Array(await blob.arrayBuffer()),
+      clamped: outputWidth !== requestedWidth || outputHeight !== requestedHeight,
+    };
+  } finally {
+    URL.revokeObjectURL(svgUrl);
+  }
 }
 
 export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(function ExportLayer(
@@ -80,17 +172,61 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
   const saveExportFile = useMemo(() => createExportSaveFile(platform), [platform]);
   const [batchBgRemoveOpen, setBatchBgRemoveOpen] = useState(false);
 
-  useImperativeHandle(ref, () => ({
-    // BatchBgRemoveDialog calls removeBackground straight from @varve/engine
-    // rather than through the editor context, so the context guard does not
-    // cover it. Disabling the Object-menu item was not enough either — the
-    // command palette reaches this same handler. Refusing to open the dialog
-    // is the one place every route passes through.
-    openBatchBgRemove: () => {
-      if (isCapabilityRestricted('inference')) return;
-      setBatchBgRemoveOpen(true);
+  const copySelectionAsPng = useCallback(
+    async (scale: 1 | 2 | 3): Promise<void> => {
+      const snapshot = editorRef.current;
+      const documentSnapshot = snapshot.state.document;
+      const nodes = snapshot.state.selection
+        .map((id) => documentSnapshot.nodes[id])
+        .filter((node): node is SceneNode => Boolean(node));
+      if (nodes.length === 0) {
+        snapshot.announce('Select artwork before copying PNG');
+        return;
+      }
+      try {
+        const rendered = await renderSelectionPng(nodes, documentSnapshot, scale);
+        const outcome = await writeClipboardRepresentation(
+          'image/png',
+          rendered.bytes,
+          nodes.map((node) => node.name).join('\n'),
+          platform,
+        );
+        if (outcome.status === 'editable') {
+          snapshot.announce(
+            rendered.clamped
+              ? 'Copied selection as PNG (scaled down to fit the image safety limit)'
+              : 'Copied selection as PNG',
+          );
+        } else if (outcome.status === 'text-only') {
+          snapshot.announce('Copied layer names as text — PNG clipboard write unavailable');
+        } else {
+          snapshot.announce('Copy PNG failed — clipboard unavailable');
+        }
+      } catch (error) {
+        snapshot.announce(
+          error instanceof Error ? `Copy PNG failed — ${error.message}` : 'Copy PNG failed',
+        );
+      }
     },
-  }));
+    [platform],
+  );
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      // BatchBgRemoveDialog calls removeBackground straight from @varve/engine
+      // rather than through the editor context, so the context guard does not
+      // cover it. Disabling the Object-menu item was not enough either — the
+      // command palette reaches this same handler. Refusing to open the dialog
+      // is the one place every route passes through.
+      openBatchBgRemove: () => {
+        if (isCapabilityRestricted('inference')) return;
+        setBatchBgRemoveOpen(true);
+      },
+      copySelectionAsPng,
+    }),
+    [copySelectionAsPng],
+  );
 
   const getExportEngine = useCallback(() => {
     exportEngineRef.current ??= createEngine('auto');

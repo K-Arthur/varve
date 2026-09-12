@@ -42,7 +42,10 @@ export function parseSvg(svg: string, options?: Partial<ImportOptions>): ImportR
   if (vb) {
     const parts = vb.split(/[\s,]+/).map(Number);
     if (parts.length === 4) {
-      const [minX, minY, vw, vh] = parts;
+      const minX = parts[0] ?? Number.NaN;
+      const minY = parts[1] ?? Number.NaN;
+      const vw = parts[2] ?? Number.NaN;
+      const vh = parts[3] ?? Number.NaN;
       if (
         Number.isFinite(minX) &&
         Number.isFinite(minY) &&

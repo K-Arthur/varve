@@ -60,7 +60,13 @@ describe('prepared fragments', () => {
   it('preserves an artifact root set as one ordered item', () => {
     const source = createDocument('source', true);
     const first = makeShapeNode('first', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 });
-    const second = makeShapeNode('second', { kind: 'ellipse', x: 20, y: 0, w: 10, h: 10 });
+    const second = makeShapeNode('second', {
+      kind: 'ellipse',
+      cx: 25,
+      cy: 5,
+      rx: 5,
+      ry: 5,
+    });
     const fragment = preparedFragmentFromRootSets(
       'import',
       [

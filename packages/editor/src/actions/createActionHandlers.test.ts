@@ -76,6 +76,97 @@ describe('createActionHandlers — clipboard dialogs', () => {
     await vi.waitFor(() => expect(promptDialog).toHaveBeenCalledWith('Paste SVG markup'));
     expect(batchImportNodes).not.toHaveBeenCalled();
   });
+
+  it('exports multiple SVG roots in selection order with their world-space arrangement', async () => {
+    let document = createDocument('svg export');
+    const first = makeShapeNode(
+      'first',
+      { kind: 'rect', x: 0, y: 0, w: 20, h: 10 },
+      {
+        name: 'first',
+        transform: [1, 0, 0, 1, 100, 200],
+        fill: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
+      },
+    );
+    const second = makeShapeNode(
+      'second',
+      { kind: 'rect', x: 0, y: 0, w: 30, h: 40 },
+      {
+        name: 'second',
+        transform: [1, 0, 0, 1, -30, 50],
+        fill: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 },
+      },
+    );
+    document = addNode(addNode(document, first), second);
+    let written: Array<{ getType: (type: string) => Promise<Blob> }> | undefined;
+    class TestClipboardItem {
+      constructor(private readonly entries: Record<string, Blob>) {}
+      async getType(type: string): Promise<Blob> {
+        return this.entries[type]!;
+      }
+    }
+    const originalClipboardItem = globalThis.ClipboardItem;
+    const originalClipboard = navigator.clipboard;
+    Object.defineProperty(globalThis, 'ClipboardItem', {
+      configurable: true,
+      value: TestClipboardItem,
+    });
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        write: vi.fn(async (items) => {
+          written = items;
+        }),
+        writeText: vi.fn(),
+      },
+    });
+    try {
+      const editor = makeEditorMock({
+        state: { selection: [first.id, second.id], document } as EditorContextValue['state'],
+        platform: undefined,
+      });
+      createActionHandlers(editor).copyAsSvg?.();
+      await vi.waitFor(() => expect(written).toHaveLength(1));
+      const svg = await written![0]!.getType('image/svg+xml').then((blob) => blob.text());
+      expect(svg).toContain('viewBox="-30 50 150 160"');
+      expect(svg.indexOf('rgba(255,0,0,1.000)')).toBeLessThan(svg.indexOf('rgba(0,0,255,1.000)'));
+    } finally {
+      Object.defineProperty(globalThis, 'ClipboardItem', {
+        configurable: true,
+        value: originalClipboardItem,
+      });
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: originalClipboard,
+      });
+    }
+  });
+
+  it('inserts plain text through the shared prepared-fragment path', async () => {
+    const readText = vi.fn(async () => 'Editable clipboard text');
+    const commitPreparedFragment = vi.fn(() => ['pasted-text']);
+    const originalClipboard = navigator.clipboard;
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { readText },
+    });
+    try {
+      const editor = makeEditorMock({ commitPreparedFragment });
+      createActionHandlers(editor).pastePlainText?.();
+      await vi.waitFor(() => expect(commitPreparedFragment).toHaveBeenCalledTimes(1));
+      expect(commitPreparedFragment).toHaveBeenCalledWith({
+        route: 'paste',
+        items: [],
+        targetParentId: null,
+        text: { plainText: 'Editable clipboard text' },
+      });
+    } finally {
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: originalClipboard,
+      });
+    }
+  });
 });
 
 describe('createActionHandlers — object nudge actions', () => {
