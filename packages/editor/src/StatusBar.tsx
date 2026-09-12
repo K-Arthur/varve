@@ -116,21 +116,21 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
         {showDebtBadge && <DebtBadge />}
         <AuditBadge />
         {compositorDiag?.deviceLost && (
-          <span className="editor-status__info editor-status__info--warning">
+          <span className="editor-status__meta editor-status__meta--warning">
             GPU lost — using Canvas2D
           </span>
         )}
         {compositorDiag && !compositorDiag.deviceLost && (
-          <span className="editor-status__info">
+          <span className="editor-status__meta editor-status__diagnostic">
             {compositorDiag.backendId}
             {compositorDiag.gpuActive ? '' : ' (cpu)'}
           </span>
         )}
-        {pageInfoLabel && <span>{pageInfoLabel}</span>}
-        {colorModeLabel && <span>{colorModeLabel}</span>}
-        {imageInfoLabel && <span>{imageInfoLabel}</span>}
+        {pageInfoLabel && <span className="editor-status__meta">{pageInfoLabel}</span>}
+        {colorModeLabel && <span className="editor-status__meta">{colorModeLabel}</span>}
+        {imageInfoLabel && <span className="editor-status__meta">{imageInfoLabel}</span>}
         {sectionVisible('cursorPos') && state.cursorPos && (
-          <span>
+          <span className="editor-status__meta editor-status__cursor">
             X: {Math.round(state.cursorPos.x)} Y: {Math.round(state.cursorPos.y)}
           </span>
         )}
@@ -286,36 +286,38 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
             </Tooltip>
           </div>
         )}
-        <Tooltip label="Fit page" shortcut={sc('fitActivePage')}>
-          <button
-            type="button"
-            onClick={fitActivePage}
-            aria-label="Fit active page"
-            className="editor-status__fit-btn"
-          >
-            Fit page
-          </button>
-        </Tooltip>
-        <Tooltip label="Fit all" shortcut={sc('fitAll')}>
-          <button
-            type="button"
-            onClick={fitAll}
-            aria-label="Fit all to viewport"
-            className="editor-status__fit-btn"
-          >
-            Fit all
-          </button>
-        </Tooltip>
-        <Tooltip label="Fit selection" shortcut={sc('fitSelection')}>
-          <button
-            type="button"
-            onClick={() => revealSelection({ fit: true })}
-            aria-label="Fit selection to viewport"
-            className="editor-status__fit-btn"
-          >
-            Fit sel
-          </button>
-        </Tooltip>
+        <span className="editor-status__fit-group">
+          <Tooltip label="Fit page" shortcut={sc('fitActivePage')}>
+            <button
+              type="button"
+              onClick={fitActivePage}
+              aria-label="Fit active page"
+              className="editor-status__fit-btn"
+            >
+              Fit page
+            </button>
+          </Tooltip>
+          <Tooltip label="Fit all" shortcut={sc('fitAll')}>
+            <button
+              type="button"
+              onClick={fitAll}
+              aria-label="Fit all to viewport"
+              className="editor-status__fit-btn"
+            >
+              Fit all
+            </button>
+          </Tooltip>
+          <Tooltip label="Fit selection" shortcut={sc('fitSelection')}>
+            <button
+              type="button"
+              onClick={() => revealSelection({ fit: true })}
+              aria-label="Fit selection to viewport"
+              className="editor-status__fit-btn"
+            >
+              Fit sel
+            </button>
+          </Tooltip>
+        </span>
         {sectionVisible('selectionInfo') && (
           <span className="editor-status__info">
             {singleSel ? (

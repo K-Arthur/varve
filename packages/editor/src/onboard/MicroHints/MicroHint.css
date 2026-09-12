@@ -1,4 +1,9 @@
 .micro-hint {
+  /* The hint belongs to the canvas, not the shell: scoping it to the canvas
+   * grid area keeps it centred over the artwork instead of bleeding into the
+   * inspector when the side panels are open. Same containing-block pattern as
+   * .floating-toolbar. */
+  grid-area: canvas;
   position: absolute;
   bottom: var(--space-12);
   left: 50%;
@@ -17,7 +22,9 @@
   color: var(--color-text-primary);
   pointer-events: auto;
   animation: varve-tooltip-fade-in var(--duration-fast) var(--ease-default);
-  max-width: 360px;
+  /* Never wider than the canvas cell (minus a small inset), and never wider
+   * than the readable measure. */
+  max-width: min(360px, calc(100% - var(--space-6)));
 }
 
 .micro-hint--exiting {
@@ -56,7 +63,8 @@
 
 .micro-hint__body {
   color: var(--color-text-secondary);
-  white-space: nowrap;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .micro-hint__dismiss {

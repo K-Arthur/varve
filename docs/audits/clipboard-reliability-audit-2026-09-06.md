@@ -190,7 +190,7 @@ mistaken for a parser or placement failure:
 | Cross-root references and resource closure | clone/import tests | components/styles/variables/interactions/motion fixtures |
 | Import lifetime and cancellation | `isSessionCurrent` checks | stale picker/drop regression and native cancellation cleanup |
 | Figma interoperability boundary | qualified docs only | owned Firefox captures for Copy, Copy as SVG, Copy as PNG |
-| Marketing claims and help | website/help changes and inspected clipboard-page captures on both deployment bases | broader website visual matrix outside the focused clipboard route |
+| Marketing claims and help | website/help changes in the documentation milestone | desktop light/dark/mobile captures on both deployment bases |
 
 The exact focused command for the first repair milestone was:
 
@@ -376,8 +376,8 @@ The new stable findings are:
 | CLIP-17 | Transport / item identity | **Resolved.** An SVG string suppresses only a byte-identical file representation; distinct same-name SVG files remain separate logical items. | `packages/editor/src/clipboard.test.ts`, commit `da45957af` |
 | CLIP-18 | Parser / rich text | **Resolved for the bounded subset.** HTML is snapshotted synchronously and converted into editable canvas paragraphs, line breaks, bold/italic/decoration, font, and RGB color runs. Unsafe embeds and unsupported formatting produce warnings; plain text remains the fallback. | `packages/editor/src/clipboardRichText.test.ts`, commit `b84ef71ad` |
 | CLIP-19 | Import / throughput | **Resolved for batch decoding.** Import workers are capped at two, preserve input order in the final report, and report progress as individual files complete. | `packages/import/src/service.test.ts`, commit `8b9734fbe` |
-| CLIP-20 | Application / shared insertion | **Resolved locally.** Paste, file import, and canvas drop prepare `PreparedFragment` records and commit through one atomic insertion loop; platform cancellation evidence remains open. | `context.tsx`, `CanvasArea.tsx`, `useFileImport.ts`, commit `d4f8de4a` |
-| CLIP-21 | Native transport / deadline | **Resolved in the native bridge.** Tauri reads/writes carry operation IDs, bounded streaming, cancellation, and a five-second deadline; packaged ownership and the explicit Wayland WDIO lane remain external evidence. | `apps/desktop/src-tauri/src/lib.rs`, `packages/platform/src/tauri.ts`, commit `5e5a80c1` |
+| CLIP-20 | Application / shared insertion | **Open.** Paste, file import, and canvas drop still have route-specific preparation and commit code; a shared `PreparedFragment` transaction remains to be extracted. | `context.tsx`, `CanvasArea.tsx`, `useFileImport.ts` |
+| CLIP-21 | Native transport / deadline | **Open.** Tauri clipboard reads remain synchronous command paths without operation cancellation or a five-second deadline. | `apps/desktop/src-tauri/src/lib.rs`, `docs/quality/tauri-command-audit.md` |
 | CLIP-22 | Native decode / CSP | **Open.** Packaged `.fig` decoding still requires a production CSP run proving the schema interpreter/decompression path does not reach dynamic code. | `packages/import/src/figma/native.ts`, desktop validation lane |
 
 The capability boundary remains explicit: ordinary Figma Copy is unsupported
@@ -686,9 +686,9 @@ The local browser/application implementation is substantially repaired, but the
 clipboard/import effort is **not fully complete**. The following items remain
 open and must not be described as shipped or verified:
 
-- Paste, file import, and canvas drop now share the local `PreparedFragment`
-  preparation and atomic insertion contract (CLIP-20 resolved). Real picker,
-  drop, and packaged cancellation still need platform evidence.
+- Paste, file import, and canvas drop still do not share one `PreparedFragment`
+  preparation and atomic insertion contract. Their route-specific preparation
+  paths remain a known implementation gap (CLIP-20).
 - Permission-denied Cut, stale/superseded Cut, save/reopen, and real picker/drop
   cancellation still need end-to-end evidence.
 - Packaged Tauri Wayland/WebKitGTK clipboard ownership, external Firefox

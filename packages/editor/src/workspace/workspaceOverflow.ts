@@ -40,10 +40,37 @@ export interface WorkspaceLayoutResult {
   overflow: WorkspaceMode[];
   /** True when only icon-only tabs can fit (labels hidden). */
   iconOnly: boolean;
+  /**
+   * True when even the active mode must compact to an icon. False on desktop
+   * strips, where the active mode keeps its name.
+   */
+  compactActive: boolean;
 }
 
 /** Width below which tabs drop their labels (icon-only strip). */
 export const WORKSPACE_ICON_ONLY_THRESHOLD = 900;
+
+/**
+ * Rendered width of one icon-only tab: the 28px dock button plus the bar's
+ * 5px gap. Using a smaller assumed width makes the computed strip wider than
+ * the space the bar actually has, so the bar overflows its wrapper.
+ */
+export const WORKSPACE_ICON_TAB_WIDTH = 33;
+
+/**
+ * Minimum strip width that can show the active mode's label pill alongside
+ * the overflow button. Below it the active mode compacts to an icon; above it
+ * the active mode keeps its name (the desktop presentation).
+ */
+export const WORKSPACE_ACTIVE_LABEL_MIN_WIDTH = 210;
+
+/**
+ * Safety floor for the active mode's label pill width. The measured width can
+ * be stale (it is captured while the pill was still compact), and
+ * under-counting it is what lets the dock bar overflow leftward over the
+ * document title. The pill is icon + gap + 6.5rem max label + padding.
+ */
+export const WORKSPACE_ACTIVE_PILL_MIN_WIDTH = 104;
 
 export function computeWorkspaceLayout(input: WorkspaceLayoutInput): WorkspaceLayoutResult {
   const { modes, activeMode, availableWidth, tabWidths, overflowMenuWidth, overflowPriority } =
@@ -51,10 +78,19 @@ export function computeWorkspaceLayout(input: WorkspaceLayoutInput): WorkspaceLa
 
   const modeWidth = (m: WorkspaceMode): number => tabWidths[m] ?? 64;
 
-  // Icon-only strip: every tab is roughly the same width; if the strip
-  // can't fit the count, fall back to a single active tab + overflow.
+  // Icon-only strip: inactive tabs drop their labels. The active tab keeps
+  // its name unless the strip is too narrow even for the active pill.
   const iconOnly = availableWidth < WORKSPACE_ICON_ONLY_THRESHOLD;
-  const perTab = (m: WorkspaceMode): number => (iconOnly ? 32 : modeWidth(m));
+  const compactActive = availableWidth < WORKSPACE_ACTIVE_LABEL_MIN_WIDTH;
+  const perTab = (m: WorkspaceMode): number => {
+    // The active pill is wider than an icon; the overflow math must use its
+    // measured width (with a safety floor for stale measurements) or the
+    // strip overflows and covers the document title.
+    if (m === activeMode && !compactActive) {
+      return Math.max(modeWidth(m), WORKSPACE_ACTIVE_PILL_MIN_WIDTH);
+    }
+    return iconOnly ? WORKSPACE_ICON_TAB_WIDTH : modeWidth(m);
+  };
 
   const greedy: WorkspaceMode[] = [];
   let used = overflowMenuWidth;
@@ -92,11 +128,16 @@ export function computeWorkspaceLayout(input: WorkspaceLayoutInput): WorkspaceLa
   if (iconOnly) {
     const fits = greedy;
     if (fits.length === 0) {
-      return { visible: [activeMode], overflow: modes.filter((m) => m !== activeMode), iconOnly };
+      return {
+        visible: [activeMode],
+        overflow: modes.filter((m) => m !== activeMode),
+        iconOnly,
+        compactActive,
+      };
     }
   }
 
   const visible = greedy;
   const overflow = modes.filter((m) => !visible.includes(m));
-  return { visible, overflow, iconOnly };
+  return { visible, overflow, iconOnly, compactActive };
 }

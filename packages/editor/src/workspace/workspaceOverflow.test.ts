@@ -31,7 +31,9 @@ describe('computeWorkspaceLayout', () => {
   });
 
   it('overflows the lowest-priority modes first in icon-only mode', () => {
-    // Below the icon-only threshold, tabs are 32px; at 250px only six fit.
+    // Below the icon-only threshold inactive tabs are 33px, but the active
+    // mode keeps its measured label pill (96px): the strip math must account
+    // for that or the bar overflows its wrapper and covers the title.
     const result = computeWorkspaceLayout({
       modes,
       activeMode: 'design',
@@ -41,8 +43,33 @@ describe('computeWorkspaceLayout', () => {
       overflowPriority: WORKSPACE_OVERFLOW_PRIORITY,
     });
     expect(result.iconOnly).toBe(true);
-    expect(result.visible).toEqual(['design', 'drawing', 'image', 'print', 'motion', 'codegen']);
-    expect(result.overflow).toEqual(['email', 'logo']);
+    expect(result.compactActive).toBe(false);
+    expect(result.visible).toEqual(['design', 'drawing', 'image', 'print']);
+    expect(result.overflow).toEqual(['motion', 'codegen', 'email', 'logo']);
+  });
+
+  it('keeps the active label on desktop strips and compacts it only when too narrow', () => {
+    const wide = computeWorkspaceLayout({
+      modes,
+      activeMode: 'design',
+      availableWidth: 500,
+      tabWidths,
+      overflowMenuWidth: 40,
+      overflowPriority: WORKSPACE_OVERFLOW_PRIORITY,
+    });
+    expect(wide.compactActive).toBe(false);
+    expect(wide.visible).toContain('design');
+
+    const narrow = computeWorkspaceLayout({
+      modes,
+      activeMode: 'design',
+      availableWidth: 150,
+      tabWidths,
+      overflowMenuWidth: 40,
+      overflowPriority: WORKSPACE_OVERFLOW_PRIORITY,
+    });
+    expect(narrow.compactActive).toBe(true);
+    expect(narrow.visible).toContain('design');
   });
 
   it('keeps the active mode visible even when it would overflow', () => {
@@ -110,7 +137,7 @@ describe('computeWorkspaceLayout', () => {
       overflowPriority: WORKSPACE_OVERFLOW_PRIORITY,
     });
     expect(result.iconOnly).toBe(true);
-    // Icon-only: 7 tabs at 32px + 36px menu = 260px, all fit.
+    // Icon-only: 7 tabs at 33px + 36px menu = 267px, all fit.
     expect(result.visible).toEqual(modes);
     expect(result.overflow).toEqual([]);
   });

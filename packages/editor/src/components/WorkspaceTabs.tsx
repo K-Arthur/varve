@@ -46,12 +46,7 @@ import { Menu, TablerIcon, type TablerIconName, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { allowedWorkspaceModes } from '../capabilities/restrictions';
 import { useEditor } from '../context';
-import { useWorkspaceCustomizations } from '../workspace/useWorkspaceConfig';
-import {
-  computeWorkspaceLayout,
-  WORKSPACE_ICON_ONLY_THRESHOLD,
-  type WorkspaceLayoutResult,
-} from '../workspace/workspaceOverflow';
+import { computeWorkspaceLayout, type WorkspaceLayoutResult } from '../workspace/workspaceOverflow';
 import { workspaceShortcutLabel } from '../workspace/workspaceShortcutLabel';
 import {
   WORKSPACE_LABELS,
@@ -64,6 +59,13 @@ import {
 const TAB_GAP = 6;
 /** Width of the "More" overflow button (icon + padding). */
 const OVERFLOW_BTN_WIDTH = 40;
+/**
+ * Horizontal chrome of `.workspace-dock__bar` (6px padding × 2 + 1px border
+ * × 2). The overflow math must subtract it; without it the computed strip is
+ * wider than the space the bar actually has, so the bar overflows its
+ * wrapper — leftward, over the document title.
+ */
+const DOCK_CHROME_WIDTH = 14;
 
 /** Maximum icon scale at full magnification. */
 const DOCK_ICON_MAX_SCALE = 1.55;
@@ -137,7 +139,6 @@ function magnificationTarget(distance: number): number {
 
 export function WorkspaceTabs() {
   const { state, requestWorkspaceSwitch, resetWorkspaceToDefault } = useEditor();
-  const customizations = useWorkspaceCustomizations();
   const wrapRef = useRef<HTMLDivElement>(null);
   const dockRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<Partial<Record<WorkspaceMode, HTMLButtonElement | null>>>({});
@@ -173,7 +174,7 @@ export function WorkspaceTabs() {
       computeWorkspaceLayout({
         modes: allowedModes,
         activeMode: state.workspaceMode,
-        availableWidth: wrap.clientWidth,
+        availableWidth: Math.max(0, wrap.clientWidth - DOCK_CHROME_WIDTH),
         tabWidths: naturalWidths.current,
         overflowMenuWidth: OVERFLOW_BTN_WIDTH,
         overflowPriority: WORKSPACE_OVERFLOW_PRIORITY,
@@ -377,15 +378,22 @@ export function WorkspaceTabs() {
     [layout.visible, handleSwitch],
   );
 
-  const iconOnly = wrapRef.current
-    ? wrapRef.current.clientWidth < WORKSPACE_ICON_ONLY_THRESHOLD
-    : layout.iconOnly;
+  // Render from the same computed layout the width math used. Deriving
+  // icon-only independently (from wrap width) desynchronised the two: tabs
+  // could render labels while the math assumed 32px icons, so the active
+  // label pill overflowed the dock and covered the document title.
+  const iconOnly = layout.iconOnly;
 
   const rovingId = focusId ?? state.workspaceMode;
 
   return (
     <div ref={wrapRef} className="workspace-dock">
-      <div ref={dockRef} className="workspace-dock__bar" role="radiogroup" aria-label="Workspace">
+      <div
+        ref={dockRef}
+        className={`workspace-dock__bar${layout.compactActive ? ' workspace-dock--compact-active' : ''}`}
+        role="radiogroup"
+        aria-label="Workspace"
+      >
         {layout.visible.map((mode) => {
           const isActive = state.workspaceMode === mode;
 
@@ -425,14 +433,12 @@ export function WorkspaceTabs() {
                     data-workspace-icon={WORKSPACE_ICON_NAMES[mode]}
                   />
                 </span>
-                {(!iconOnly || isActive) && (
+                {/* Inactive modes are icon-only; the active mode keeps its
+                    name unless the strip is too narrow even for the pill, so
+                    the desktop presentation always names the active
+                    workspace. */}
+                {(isActive ? !layout.compactActive : !iconOnly) && (
                   <span className="workspace-dock__label">{WORKSPACE_LABELS[mode]}</span>
-                )}
-                {customizations[mode] && (
-                  <>
-                    <span className="workspace-dock__customized-dot" aria-hidden="true" />
-                    <span className="sr-only">customized</span>
-                  </>
                 )}
               </button>
             </Tooltip>
