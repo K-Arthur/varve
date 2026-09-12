@@ -3,6 +3,9 @@
 This entry records the editor integration that removes family-level placeholder
 catalogs from persistence, missing-font recovery, and package export.
 
+Implementation commit: `2b7d98ff9812fae38a5b4e9e47468580dabb3456`.
+The follow-up browser virtualization evidence is `4144143d8e5fb352ef2b8b757f98f761562bd44d`.
+
 ## Boundary repaired
 
 `createFontCatalogFromRegistry` in `packages/engine/src/font/fontBridge.ts` is
