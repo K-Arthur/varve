@@ -78,6 +78,20 @@ export {
 export type { PackageExportResult, PackageManifest } from './packageExport';
 export { buildPackageExport } from './packageExport';
 export type {
+  CapabilityProbeStatus,
+  CapabilityReport,
+  FileCapabilityProbe,
+  StorageCapabilityProbe,
+  WasmCapabilityProbe,
+  WebGlCapabilityProbe,
+  WebGpuCapabilityProbe,
+} from './performance/capabilityReport';
+export {
+  CAPABILITY_REPORT_SCHEMA_VERSION,
+  collectCapabilityReport,
+  serializeCapabilityReport,
+} from './performance/capabilityReport';
+export type {
   FrameJob,
   FrameLane,
   FrameScheduler,

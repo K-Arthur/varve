@@ -10,6 +10,7 @@ import { enableDrawDiagnostics } from '../../canvas/drawDiagnostics';
 import { getAverageFrameTime, getPercentileFrameTime } from '../../canvas/frameBudget';
 import { setReducedMotionOverride } from '../../context/reducedMotionManager';
 import type { PerformanceSettingsStore, RenderSettingsStore } from '../../settings';
+import { CapabilityReportPanel } from './CapabilityReportPanel';
 import { InteractionTracePanel } from './InteractionTracePanel';
 import { useSettings } from './SettingsContext';
 
@@ -159,6 +160,8 @@ export function PerformanceSettingsTab() {
       <Button variant="secondary" size="sm" onClick={handleCopyDiagnostics}>
         {copied ? 'Copied' : 'Copy performance diagnostics'}
       </Button>
+
+      <CapabilityReportPanel />
 
       <div className="settings-divider" />
 

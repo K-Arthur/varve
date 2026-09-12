@@ -175,6 +175,13 @@ describe('PerformanceSettingsTab', () => {
     expect(screen.getByText('Avg. frame time')).toBeTruthy();
   });
 
+  it('exposes the capability report as an on-demand diagnostic', () => {
+    openPerformanceTab();
+    expect(screen.getByRole('heading', { name: 'Platform capability report' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Collect capability report' })).toBeTruthy();
+    expect(screen.queryByText('View report JSON')).toBeNull();
+  });
+
   it('copy diagnostics button does not throw when clicked', () => {
     openPerformanceTab();
     const copyBtn = screen.getByText('Copy performance diagnostics');
