@@ -1898,6 +1898,20 @@ fn take_generation_cancellation(request_id: &str) -> bool {
         .unwrap_or(true)
 }
 
+/// Clear a generation cancellation tombstone when its request reaches a
+/// terminal state. The tombstone must outlive the renderer's cancel call long
+/// enough to cover helper startup, but it must not accumulate when a request
+/// fails before a child process is created.
+struct GenerationCancellationGuard {
+    request_id: String,
+}
+
+impl Drop for GenerationCancellationGuard {
+    fn drop(&mut self) {
+        clear_generation_cancellation(&self.request_id);
+    }
+}
+
 fn write_generative_model_metadata(
     model_path: &std::path::Path,
     qualified: bool,
@@ -2087,6 +2101,14 @@ fn generative_edit_blocking_with_requirement(
     if !valid_generation_request_id(&options.request_id) {
         return Err("Invalid generative edit request id".into());
     }
+    // A cancel can arrive after IPC dispatch but before this blocking task is
+    // scheduled. Consume that startup tombstone before doing any work.
+    if take_generation_cancellation(&options.request_id) {
+        return Err("Generation was cancelled".into());
+    }
+    let _cancellation_guard = GenerationCancellationGuard {
+        request_id: options.request_id.clone(),
+    };
     if options.model_handle != GENERATIVE_MODEL_HANDLE {
         return Err("Unknown or unqualified generative model handle".into());
     }
@@ -2147,14 +2169,13 @@ fn generative_edit_blocking_with_requirement(
     // The cancel command may have run between the initial check and child
     // registration. Re-check after registration and terminate before the
     // helper gets an opportunity to publish output.
-    if generation_cancel_requested(&request_id) {
+    if take_generation_cancellation(&request_id) {
         if let Ok(mut processes) = GENERATIVE_CHILDREN.lock() {
             if let Some(mut process) = processes.remove(&request_id) {
                 let _ = process.kill();
                 let _ = process.wait();
             }
         }
-        clear_generation_cancellation(&request_id);
         return Err("Generation was cancelled".into());
     }
 
@@ -2190,7 +2211,6 @@ fn generative_edit_blocking_with_requirement(
         Some(process) => process,
         None => {
             drop(processes);
-            clear_generation_cancellation(&request_id);
             return Err("Generation was cancelled".into());
         }
     };
@@ -2198,6 +2218,9 @@ fn generative_edit_blocking_with_requirement(
     let output = process
         .wait_with_output()
         .map_err(|error| format!("Could not collect diffusion helper output: {error}"))?;
+    if generation_cancel_requested(&request_id) {
+        return Err("Generation was cancelled".into());
+    }
     if !status.success() {
         let reason = String::from_utf8_lossy(&output.stderr);
         return Err(if reason.trim().is_empty() {
@@ -2235,13 +2258,23 @@ fn cancel_generative_edit(request_id: String) -> Result<(), String> {
     if !valid_generation_request_id(&request_id) {
         return Err("Invalid generative edit request id".into());
     }
+    // Record the tombstone before looking up the child. This closes the race
+    // where cancellation wins between command dispatch and helper startup.
+    GENERATIVE_CANCELLATIONS
+        .lock()
+        .map_err(|_| "Generation cancellation state is unavailable".to_string())?
+        .insert(request_id.clone());
     let mut processes = GENERATIVE_CHILDREN
         .lock()
         .map_err(|_| "Generation process registry is unavailable".to_string())?;
     if let Some(process) = processes.get_mut(&request_id) {
-        process
-            .kill()
-            .map_err(|error| format!("Could not cancel diffusion helper: {error}"))?;
+        if let Err(error) = process.kill() {
+            // The child may have exited between the lookup and kill. The
+            // tombstone still makes the completion path discard its output.
+            if error.kind() != std::io::ErrorKind::NotFound {
+                return Err(format!("Could not cancel diffusion helper: {error}"));
+            }
+        }
     }
     Ok(())
 }
@@ -4567,6 +4600,15 @@ mod tests {
 
         let third = state.register("lama-third");
         assert!(!third.is_cancelled());
+    }
+
+    #[test]
+    fn generative_cancellation_records_startup_tombstones() {
+        let request_id = format!("generative-cancel-test-{}", uuid());
+        cancel_generative_edit(request_id.clone()).expect("record cancellation");
+        assert!(generation_cancel_requested(&request_id));
+        assert!(take_generation_cancellation(&request_id));
+        assert!(!generation_cancel_requested(&request_id));
     }
 
     #[test]

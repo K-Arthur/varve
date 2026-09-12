@@ -107,4 +107,15 @@ describe('generative edit document contract', () => {
       'source-image-pixels',
     );
   });
+
+  it('accepts signed mask refinement and rejects values outside the editor range', () => {
+    const shrink = fixture();
+    shrink.settings.maskExpansion = -64;
+    shrink.variations[0]!.settings!.maskExpansion = -64;
+    expect(validateGenerativeEdit(shrink)).toBeNull();
+
+    const invalid = fixture();
+    invalid.settings.maskExpansion = -65;
+    expect(validateGenerativeEdit(invalid)).toContain('settings');
+  });
 });

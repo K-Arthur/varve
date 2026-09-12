@@ -34,6 +34,7 @@ export interface GenerativeEditSettings {
   seed?: number;
   quality: GenerativeEditQuality;
   contextPadding: number;
+  /** Signed source-pixel refinement: positive grows, negative shrinks. */
   maskExpansion: number;
   feather: number;
   /** Prompt-conditioning strength for providers that expose it. */
@@ -132,6 +133,12 @@ function finiteNonNegative(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0;
 }
 
+function finiteBetween(value: unknown, minimum: number, maximum: number): value is number {
+  return (
+    typeof value === 'number' && Number.isFinite(value) && value >= minimum && value <= maximum
+  );
+}
+
 function validProvider(value: unknown): value is GenerativeEditProvider {
   if (!value || typeof value !== 'object') return false;
   const provider = value as Partial<GenerativeEditProvider>;
@@ -149,7 +156,7 @@ function validSettings(value: unknown): value is GenerativeEditSettings {
   return (
     QUALITIES.has(settings.quality as GenerativeEditQuality) &&
     finiteNonNegative(settings.contextPadding) &&
-    finiteNonNegative(settings.maskExpansion) &&
+    finiteBetween(settings.maskExpansion, -64, 64) &&
     finiteNonNegative(settings.feather) &&
     (settings.prompt === undefined || typeof settings.prompt === 'string') &&
     (settings.negativePrompt === undefined || typeof settings.negativePrompt === 'string') &&
