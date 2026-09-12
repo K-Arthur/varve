@@ -1,10 +1,11 @@
-import type { MockupTemplateAsset } from '@varve/scene';
+import type { GenerativeEditRecord, MockupTemplateAsset } from '@varve/scene';
 import {
   createDocument,
   createVariableStore,
   deepCloneSubtree,
   makeFrameNode,
   makeGroupNode,
+  makeShapeNode,
 } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { mergeImportedResources } from './mergeImportedResources';
@@ -192,5 +193,163 @@ describe('mergeImportedResources', () => {
     expect(templateId).toBeTruthy();
     expect(templateId).not.toBe('source-template');
     expect(merged.mockupTemplates?.[templateId!]?.contentHash).toBe('source-hash');
+  });
+
+  it('remaps colliding image and raster-mask assets used by generative edits', () => {
+    const sourceNode = {
+      ...makeShapeNode('source-image', { kind: 'rect', x: 0, y: 0, w: 64, h: 64 }),
+      fills: [
+        {
+          type: 'image' as const,
+          image: {
+            src: 'data:image/png;base64,AA==',
+            assetId: 'shared-image',
+            fit: 'fill' as const,
+            x: 0,
+            y: 0,
+            scale: 1,
+          },
+          opacity: 1,
+          blendMode: 'normal' as const,
+          visible: true,
+        },
+      ],
+      mask: {
+        type: 'alpha' as const,
+        visible: true,
+        rasterMask: {
+          assetId: 'shared-mask',
+          coordinateSpace: 'source-image-pixels' as const,
+          sourceIdentity: {
+            kind: 'source-metadata' as const,
+            locator: 'source-image',
+            revision: 1,
+          },
+        },
+      },
+    };
+    const sourceEdit = {
+      schemaVersion: 2,
+      id: 'source-edit',
+      mode: 'replace',
+      sourceNodeId: sourceNode.id,
+      sourceAssetId: 'shared-image',
+      sourceSnapshotAssetId: 'shared-image',
+      sourceLocator: 'source-image',
+      sourceRevision: 1,
+      placementRevision: 'placement-1',
+      masks: {
+        userMaskAssetId: 'shared-mask',
+        inferenceMaskAssetId: 'shared-mask',
+        compositeMaskAssetId: 'shared-mask',
+        width: 64,
+        height: 64,
+        offsetX: 0,
+        offsetY: 0,
+        coordinateSpace: 'source-image-pixels',
+      },
+      outputFrame: {
+        x: 0,
+        y: 0,
+        width: 64,
+        height: 64,
+        sourceWidth: 64,
+        sourceHeight: 64,
+        coordinateSpace: 'source-image-pixels',
+      },
+      maskAssetId: 'shared-mask',
+      maskWidth: 64,
+      maskHeight: 64,
+      maskCoordinateSpace: 'source-image-pixels',
+      settings: {
+        quality: 'balanced',
+        contextPadding: 16,
+        maskExpansion: 0,
+        feather: 0,
+        prompt: 'a red apple',
+      },
+      provider: { kind: 'local', id: 'local', runtime: 'native-cpu' },
+      variations: [
+        {
+          id: 'source-variation',
+          assetId: 'shared-image',
+          contextAssetId: 'shared-image',
+          width: 64,
+          height: 64,
+          createdAt: 1,
+        },
+      ],
+      createdAt: 1,
+      updatedAt: 1,
+    } satisfies GenerativeEditRecord;
+    const sourceAsset = {
+      id: 'shared-image',
+      storage: 'embedded' as const,
+      mimeType: 'image/png',
+      dataUrl: 'data:image/png;base64,AA==',
+      naturalWidth: 1,
+      naturalHeight: 1,
+      byteLength: 1,
+      hash: 'source-image-hash',
+    };
+    const sourceMask = {
+      id: 'shared-mask',
+      mimeType: 'image/png' as const,
+      dataUrl: 'data:image/png;base64,Ag==',
+      width: 1,
+      height: 1,
+      byteLength: 1,
+    };
+    const source = {
+      ...createDocument('source-assets'),
+      rootChildren: [sourceNode.id],
+      nodes: { [sourceNode.id]: sourceNode },
+      assets: { [sourceAsset.id]: sourceAsset },
+      rasterMaskAssets: { [sourceMask.id]: sourceMask },
+      generativeEdits: { [sourceEdit.id]: sourceEdit },
+    };
+    const targetAsset = { ...sourceAsset, dataUrl: 'data:image/png;base64,BA==', hash: 'target' };
+    const targetMask = { ...sourceMask, dataUrl: 'data:image/png;base64,Bg==' };
+    const target = {
+      ...createDocument('target-assets'),
+      assets: { [targetAsset.id]: targetAsset },
+      rasterMaskAssets: { [targetMask.id]: targetMask },
+    };
+    const clone = deepCloneSubtree(source.nodes, target.nextId, sourceNode.id, {
+      dropForeignReferences: true,
+    });
+    const clonedDocument = {
+      ...target,
+      nodes: clone.nodes,
+      rootChildren: [clone.rootId],
+      nextId: clone.nextId,
+    };
+
+    const merged = mergeImportedResources(clonedDocument, [
+      { sourceDoc: source, idMap: clone.idMap },
+    ]);
+    const clonedNode = merged.nodes[clone.rootId]!;
+    const imageAssetId = clonedNode.fills?.[0]?.image?.assetId;
+    const maskAssetId = clonedNode.mask?.rasterMask?.assetId;
+    const importedEdit = Object.values(merged.generativeEdits ?? {}).find(
+      (edit) => edit.sourceNodeId === clone.rootId,
+    );
+
+    expect(imageAssetId).toBeTruthy();
+    expect(imageAssetId).not.toBe('shared-image');
+    expect(maskAssetId).toBeTruthy();
+    expect(maskAssetId).not.toBe('shared-mask');
+    expect(merged.assets?.shared?.dataUrl).toBeUndefined();
+    expect(merged.assets?.['shared-image']?.dataUrl).toBe(targetAsset.dataUrl);
+    expect(merged.assets?.[imageAssetId!]?.dataUrl).toBe(sourceAsset.dataUrl);
+    expect(merged.rasterMaskAssets?.['shared-mask']?.dataUrl).toBe(targetMask.dataUrl);
+    expect(merged.rasterMaskAssets?.[maskAssetId!]?.dataUrl).toBe(sourceMask.dataUrl);
+    expect(clonedNode.fills?.[0]?.image?.src).toBe(sourceAsset.dataUrl);
+    expect(importedEdit?.sourceAssetId).toBe(imageAssetId);
+    expect(importedEdit?.sourceSnapshotAssetId).toBe(imageAssetId);
+    expect(importedEdit?.maskAssetId).toBe(maskAssetId);
+    expect(importedEdit?.masks.userMaskAssetId).toBe(maskAssetId);
+    expect(importedEdit?.variations[0]?.assetId).toBe(imageAssetId);
+    expect(importedEdit?.variations[0]?.contextAssetId).toBe(imageAssetId);
   });
 });

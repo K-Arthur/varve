@@ -1,4 +1,14 @@
-import type { Document, MockupTemplateAsset, SceneNode } from '@varve/scene';
+import type {
+  Document,
+  DocumentAsset,
+  DocumentIconAsset,
+  Fill,
+  IccProfileEntry,
+  LiveMatteSource,
+  MockupTemplateAsset,
+  RasterMaskAsset,
+  SceneNode,
+} from '@varve/scene';
 import { nextNodeId } from '@varve/scene';
 
 export interface ImportedResourceSet {
@@ -18,6 +28,10 @@ interface ResourceMaps {
   timelineIds: Map<string, string>;
   motionExtensionIds: Map<string, string>;
   motionPresetIds: Map<string, string>;
+  assetIds: Map<string, string>;
+  rasterMaskAssetIds: Map<string, string>;
+  iconAssetIds: Map<string, string>;
+  iccProfileIds: Map<string, string>;
 }
 
 function allocateResourceId(doc: Document, occupied: Set<string>): { id: string; doc: Document } {
@@ -29,6 +43,215 @@ function allocateResourceId(doc: Document, occupied: Set<string>): { id: string;
 
 function remapId(value: string | undefined, ids: Map<string, string>): string | undefined {
   return value ? (ids.get(value) ?? value) : value;
+}
+
+function resourcePayload(value: unknown): unknown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+  const { id: _id, ...payload } = value as Record<string, unknown>;
+  return payload;
+}
+
+function resourcesEquivalent(left: unknown, right: unknown): boolean {
+  return JSON.stringify(resourcePayload(left)) === JSON.stringify(resourcePayload(right));
+}
+
+function mapImportedAssetIds<T extends { id: string }>(
+  target: Document,
+  sourceAssets: Record<string, T> | undefined,
+  targetAssets: Record<string, T> | undefined,
+  occupied: Set<string>,
+): { doc: Document; ids: Map<string, string> } {
+  let doc = target;
+  const ids = new Map<string, string>();
+  for (const [sourceId, sourceAsset] of Object.entries(sourceAssets ?? {})) {
+    const existing = targetAssets?.[sourceId];
+    if (existing && resourcesEquivalent(existing, sourceAsset)) {
+      ids.set(sourceId, sourceId);
+      continue;
+    }
+    if (!existing && !occupied.has(sourceId)) {
+      occupied.add(sourceId);
+      ids.set(sourceId, sourceId);
+      continue;
+    }
+    const allocated = allocateResourceId(doc, occupied);
+    doc = allocated.doc;
+    ids.set(sourceId, allocated.id);
+  }
+  return { doc, ids };
+}
+
+function remapLiveMatteSource(source: LiveMatteSource, maps: ResourceMaps): LiveMatteSource {
+  if (source.kind === 'scene-node') {
+    return { ...source, nodeId: maps.nodeIds.get(source.nodeId) ?? source.nodeId };
+  }
+  if (source.kind === 'raster-asset') {
+    return { ...source, assetId: maps.rasterMaskAssetIds.get(source.assetId) ?? source.assetId };
+  }
+  return source;
+}
+
+function remapFill(fill: Fill, maps: ResourceMaps, assets: Document['assets']): Fill {
+  if (fill.type !== 'image' || !fill.image) return fill;
+  const assetId = remapId(fill.image.assetId, maps.assetIds);
+  const asset = assetId ? assets?.[assetId] : undefined;
+  const upscale = fill.image.upscale
+    ? {
+        ...fill.image.upscale,
+        sourceAssetId:
+          maps.assetIds.get(fill.image.upscale.sourceAssetId) ?? fill.image.upscale.sourceAssetId,
+        upscaleAssetId:
+          maps.assetIds.get(fill.image.upscale.upscaleAssetId) ?? fill.image.upscale.upscaleAssetId,
+      }
+    : undefined;
+  return {
+    ...fill,
+    image: {
+      ...fill.image,
+      ...(assetId ? { assetId } : {}),
+      ...(asset ? { src: asset.dataUrl } : {}),
+      ...(upscale ? { upscale } : {}),
+    },
+  };
+}
+
+function remapNodeAssetReferences(
+  node: SceneNode,
+  maps: ResourceMaps,
+  assets: Document['assets'],
+): SceneNode {
+  let result = node;
+  if (node.fills) {
+    result = {
+      ...result,
+      fills: node.fills.map((fill) => remapFill(fill, maps, assets)),
+    } as SceneNode;
+  }
+  if (node.mask) {
+    const mask = { ...node.mask };
+    if (mask.rasterMask) {
+      mask.rasterMask = {
+        ...mask.rasterMask,
+        assetId: maps.rasterMaskAssetIds.get(mask.rasterMask.assetId) ?? mask.rasterMask.assetId,
+      };
+    }
+    if (mask.matteSource) mask.matteSource = remapLiveMatteSource(mask.matteSource, maps);
+    result = { ...result, mask } as SceneNode;
+  }
+  if ('effects' in node && Array.isArray(node.effects)) {
+    result = {
+      ...result,
+      effects: node.effects.map((effect) =>
+        effect.mask
+          ? {
+              ...effect,
+              mask: { ...effect.mask, source: remapLiveMatteSource(effect.mask.source, maps) },
+            }
+          : effect,
+      ),
+    } as SceneNode;
+  }
+  if (node.iconAssetId) {
+    result = {
+      ...result,
+      iconAssetId: maps.iconAssetIds.get(node.iconAssetId) ?? node.iconAssetId,
+    } as SceneNode;
+  }
+  if (node.kind === 'frame' && node.mockup) {
+    result = {
+      ...result,
+      mockup: {
+        ...node.mockup,
+        surfaceBindings: Object.fromEntries(
+          Object.entries(node.mockup.surfaceBindings).map(([surfaceId, binding]) => [
+            surfaceId,
+            binding.assetId
+              ? {
+                  ...binding,
+                  assetId: maps.assetIds.get(binding.assetId) ?? binding.assetId,
+                }
+              : binding,
+          ]),
+        ),
+      },
+    } as SceneNode;
+  }
+  return result;
+}
+
+function remapGenerativeEditAssets(
+  edit: import('@varve/scene').GenerativeEditRecord,
+  maps: ResourceMaps,
+): import('@varve/scene').GenerativeEditRecord {
+  const remapMask = (assetId: string | undefined) => remapId(assetId, maps.rasterMaskAssetIds);
+  return {
+    ...edit,
+    sourceAssetId: remapId(edit.sourceAssetId, maps.assetIds),
+    sourceSnapshotAssetId: remapId(edit.sourceSnapshotAssetId, maps.assetIds),
+    maskAssetId: remapMask(edit.maskAssetId) ?? edit.maskAssetId,
+    masks: {
+      ...edit.masks,
+      userMaskAssetId: remapMask(edit.masks.userMaskAssetId) ?? edit.masks.userMaskAssetId,
+      inferenceMaskAssetId: remapMask(edit.masks.inferenceMaskAssetId),
+      compositeMaskAssetId: remapMask(edit.masks.compositeMaskAssetId),
+    },
+    variations: edit.variations.map((variation) => ({
+      ...variation,
+      assetId: remapId(variation.assetId, maps.assetIds) ?? variation.assetId,
+      contextAssetId: remapId(variation.contextAssetId, maps.assetIds),
+    })),
+  };
+}
+
+function mergeImportedAssets(target: Document, source: Document, maps: ResourceMaps): Document {
+  const assets: Record<string, DocumentAsset> = { ...(target.assets ?? {}) };
+  for (const [sourceId, asset] of Object.entries(source.assets ?? {})) {
+    const id = maps.assetIds.get(sourceId);
+    if (!id || (id === sourceId && assets[id])) continue;
+    const metadata = asset.metadata?.iccProfileId
+      ? {
+          ...asset.metadata,
+          iccProfileId:
+            maps.iccProfileIds.get(asset.metadata.iccProfileId) ?? asset.metadata.iccProfileId,
+        }
+      : asset.metadata;
+    assets[id] = { ...asset, id, ...(metadata ? { metadata } : {}) };
+  }
+
+  const rasterMaskAssets: Record<string, RasterMaskAsset> = {
+    ...(target.rasterMaskAssets ?? {}),
+  };
+  for (const [sourceId, asset] of Object.entries(source.rasterMaskAssets ?? {})) {
+    const id = maps.rasterMaskAssetIds.get(sourceId);
+    if (!id || (id === sourceId && rasterMaskAssets[id])) continue;
+    rasterMaskAssets[id] = { ...asset, id };
+  }
+
+  const iconAssets: Record<string, DocumentIconAsset> = { ...(target.iconAssets ?? {}) };
+  for (const [sourceId, asset] of Object.entries(source.iconAssets ?? {})) {
+    const id = maps.iconAssetIds.get(sourceId);
+    if (!id || (id === sourceId && iconAssets[id])) continue;
+    iconAssets[id] = {
+      ...asset,
+      id,
+      instanceNodeIds: asset.instanceNodeIds.map((nodeId) => maps.nodeIds.get(nodeId) ?? nodeId),
+    };
+  }
+
+  const iccProfiles: Record<string, IccProfileEntry> = { ...(target.iccProfiles ?? {}) };
+  for (const [sourceId, profile] of Object.entries(source.iccProfiles ?? {})) {
+    const id = maps.iccProfileIds.get(sourceId);
+    if (!id || (id === sourceId && iccProfiles[id])) continue;
+    iccProfiles[id] = { ...profile, id };
+  }
+
+  return {
+    ...target,
+    ...(Object.keys(assets).length > 0 ? { assets } : {}),
+    ...(Object.keys(rasterMaskAssets).length > 0 ? { rasterMaskAssets } : {}),
+    ...(Object.keys(iconAssets).length > 0 ? { iconAssets } : {}),
+    ...(Object.keys(iccProfiles).length > 0 ? { iccProfiles } : {}),
+  };
 }
 
 function remapValue(value: string | boolean, nodeIds: Map<string, string>): string | boolean {
@@ -86,7 +309,25 @@ function mergeGroup(
     timelineIds: new Map(),
     motionExtensionIds: new Map(),
     motionPresetIds: new Map(),
+    assetIds: new Map(),
+    rasterMaskAssetIds: new Map(),
+    iconAssetIds: new Map(),
+    iccProfileIds: new Map(),
   };
+
+  let mapped = mapImportedAssetIds(doc, sourceDoc.assets, doc.assets, occupied);
+  doc = mapped.doc;
+  maps.assetIds = mapped.ids;
+  mapped = mapImportedAssetIds(doc, sourceDoc.rasterMaskAssets, doc.rasterMaskAssets, occupied);
+  doc = mapped.doc;
+  maps.rasterMaskAssetIds = mapped.ids;
+  mapped = mapImportedAssetIds(doc, sourceDoc.iconAssets, doc.iconAssets, occupied);
+  doc = mapped.doc;
+  maps.iconAssetIds = mapped.ids;
+  mapped = mapImportedAssetIds(doc, sourceDoc.iccProfiles, doc.iccProfiles, occupied);
+  doc = mapped.doc;
+  maps.iccProfileIds = mapped.ids;
+  doc = mergeImportedAssets(doc, sourceDoc, maps);
 
   for (const id of Object.keys(sourceDoc.components)) {
     const allocated = allocateResourceId(doc, occupied);
@@ -174,7 +415,10 @@ function mergeGroup(
   for (const [sourceId, source] of Object.entries(sourceDoc.styles ?? {})) {
     const id = maps.styleIds.get(sourceId);
     if (!id) continue;
-    styles[id] = { ...source, id };
+    styles[id] =
+      source.type === 'color'
+        ? { ...source, id, fill: remapFill(source.fill, maps, doc.assets) }
+        : { ...source, id };
   }
 
   const paints = { ...(doc.paints ?? {}) };
@@ -184,7 +428,7 @@ function mergeGroup(
     paints[id] = {
       ...source,
       id,
-      fill: structuredClone(source.fill),
+      fill: remapFill(structuredClone(source.fill), maps, doc.assets),
     };
   }
 
@@ -262,6 +506,10 @@ function mergeGroup(
         ? { resultNodeId: maps.nodeIds.get(sourceEdit.resultNodeId) ?? sourceEdit.resultNodeId }
         : {}),
     };
+    const importedEdit = generativeEdits[editId];
+    if (importedEdit) {
+      generativeEdits[editId] = remapGenerativeEditAssets(importedEdit, maps);
+    }
   }
   for (const targetId of nodeIds.values()) {
     const node = nodes[targetId];
@@ -276,6 +524,8 @@ function mergeGroup(
       storyBinding?: { storyId: string; threadIndex: number };
       pathId?: string;
     };
+    const remappedAssetReferences = remapNodeAssetReferences(candidate, maps, doc.assets);
+    Object.assign(candidate, remappedAssetReferences);
     if ('componentId' in candidate) {
       const componentId = maps.componentIds.get(candidate.componentId ?? '');
       if (componentId && components[componentId]) candidate.componentId = componentId;
@@ -426,6 +676,10 @@ export function mergeImportedResources(target: Document, imports: ImportedResour
     ...Object.keys(doc.timelines ?? {}),
     ...Object.keys(doc.motionExtensions ?? {}),
     ...Object.keys(doc.motionPresets ?? {}),
+    ...Object.keys(doc.assets ?? {}),
+    ...Object.keys(doc.rasterMaskAssets ?? {}),
+    ...Object.keys(doc.iconAssets ?? {}),
+    ...Object.keys(doc.iccProfiles ?? {}),
   ]);
   for (const [sourceDoc, entries] of grouped) {
     const merged = mergeGroup(doc, sourceDoc, entries, occupied);
