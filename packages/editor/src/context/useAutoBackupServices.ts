@@ -4,6 +4,11 @@ import { useEffect, useRef } from 'react';
 import { AutoSaveService } from '../autoSaveService';
 import { BackupService } from '../backupService';
 import { loadSettings as loadUiSettings } from '../components/Settings/settings';
+import {
+  type LockManagerLike,
+  shouldSkipStaleWrite,
+  withDocumentWriteLock,
+} from '../persistence/crossTabWrite';
 import { getSharedRecoveryManager, type RecoveryManager } from '../recovery';
 import type { EditorState } from './types';
 
@@ -32,6 +37,8 @@ export function useAutoBackupServices(
   }
   /** Auto-save service ref for lifecycle-triggered saves. */
   const autoSaveRef = useRef<AutoSaveService | null>(null);
+  /** Last successful autosave timestamp per file, for cross-tab conflict checks. */
+  const lastWrittenAtRef = useRef(new Map<string, number>());
   if (enabled && !autoSaveRef.current && platform) {
     const uiSettings = loadUiSettings();
     autoSaveRef.current = new AutoSaveService(
@@ -49,12 +56,34 @@ export function useAutoBackupServices(
         const meta = s.sessions.find((sess) => sess.id === s.activeId);
         try {
           if (meta?.fileId) {
-            await upsertPreservingMeta(platform, meta.fileId, meta.name, json);
-          } else {
-            // Untitled document: persist as recovery point so work is never lost
-            const doc = JSON.parse(json) as Document;
-            await recoveryRef.current?.createRecoveryPoint(doc, meta?.name ?? 'Untitled');
+            const fileId = meta.fileId;
+            const locks =
+              typeof navigator === 'undefined'
+                ? undefined
+                : ((navigator as Navigator & { locks?: LockManagerLike }).locks ?? undefined);
+            return await withDocumentWriteLock(locks, fileId, async () => {
+              // Never silently replace a later write from another editor on
+              // this origin: if the stored record moved on since this tab's
+              // last autosave, skip and keep the local edits dirty/recoverable.
+              const entry = await platform.getFile(fileId).catch(() => undefined);
+              if (
+                shouldSkipStaleWrite(entry?.updatedAt, lastWrittenAtRef.current.get(fileId) ?? null)
+              ) {
+                if (typeof console !== 'undefined') {
+                  console.warn(
+                    '[Varve] autosave skipped: the stored copy changed in another editor; edits remain in memory and recovery.',
+                  );
+                }
+                return false;
+              }
+              await upsertPreservingMeta(platform, fileId, meta.name, json);
+              lastWrittenAtRef.current.set(fileId, Date.now());
+              return true;
+            });
           }
+          // Untitled document: persist as recovery point so work is never lost
+          const doc = JSON.parse(json) as Document;
+          await recoveryRef.current?.createRecoveryPoint(doc, meta?.name ?? 'Untitled');
           return true;
         } catch {
           return false;

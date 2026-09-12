@@ -45,6 +45,7 @@ import { PerformanceSettingsTab } from './PerformanceSettingsTab';
 import { SemanticSearchTab } from './SemanticSearchTab';
 import type { SettingsSection } from './SettingsContext';
 import { useSettings } from './SettingsContext';
+import { StorageSettingsTab } from './StorageSettingsTab';
 
 const SECTIONS: { id: SettingsSection; label: string }[] = [
   { id: 'general', label: 'General' },
@@ -53,6 +54,7 @@ const SECTIONS: { id: SettingsSection; label: string }[] = [
   { id: 'shortcuts', label: 'Keyboard Shortcuts' },
   { id: 'export', label: 'Export' },
   { id: 'performance', label: 'Performance' },
+  { id: 'storage', label: 'Storage & Offline' },
   { id: 'nudge', label: 'Nudging & Movement' },
   { id: 'models', label: 'Offline Models' },
   { id: 'collab', label: 'Collab' },
@@ -209,6 +211,7 @@ export function SettingsDialog({
             )}
             {activeSection === 'export' && <ExportSettingsTab />}
             {activeSection === 'performance' && <PerformanceSettingsTab />}
+            {activeSection === 'storage' && <StorageSettingsTab />}
             {activeSection === 'nudge' && <NudgeSection />}
             {activeSection === 'models' && (
               <>

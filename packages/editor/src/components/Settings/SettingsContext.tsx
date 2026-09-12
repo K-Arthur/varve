@@ -17,6 +17,7 @@ export type SettingsSection =
   | 'shortcuts'
   | 'export'
   | 'performance'
+  | 'storage'
   | 'nudge'
   | 'models'
   | 'collab'
