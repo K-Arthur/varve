@@ -6,8 +6,9 @@
 //! request file plus a result file; model weights never cross the JSON/JS IPC
 //! boundary.
 
-use diffusion_rs::api::{gen_img, ConfigBuilder, ModelConfigBuilder};
+use diffusion_rs::api::{BackendDevice, ConfigBuilder, ModelConfigBuilder, Module, gen_img};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::path::PathBuf;
@@ -40,7 +41,57 @@ fn default_guidance_scale() -> f32 {
 struct Response {
     width: u32,
     height: u32,
-    backend: &'static str,
+    backend: String,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum RequestedBackend {
+    Cpu,
+    Vulkan,
+    Metal,
+}
+
+impl RequestedBackend {
+    fn from_environment() -> Result<Self, String> {
+        let requested = env::var("VARVE_GENERATIVE_BACKEND").unwrap_or_else(|_| {
+            if cfg!(feature = "metal") {
+                "metal".into()
+            } else if cfg!(feature = "vulkan") {
+                "vulkan".into()
+            } else {
+                "cpu".into()
+            }
+        });
+        match requested.trim().to_ascii_lowercase().as_str() {
+            "cpu" => Ok(Self::Cpu),
+            "vulkan" if cfg!(feature = "vulkan") => Ok(Self::Vulkan),
+            "metal" if cfg!(feature = "metal") => Ok(Self::Metal),
+            "vulkan" => Err("The helper was built without its Vulkan feature".into()),
+            "metal" => Err("The helper was built without its Metal feature".into()),
+            _ => Err(format!(
+                "Unsupported VARVE_GENERATIVE_BACKEND value: {requested}"
+            )),
+        }
+    }
+
+    fn configure(self, model: &mut ModelConfigBuilder) -> &'static str {
+        let device = match self {
+            Self::Cpu => return "native-cpu",
+            Self::Vulkan => BackendDevice::VULKAN0,
+            Self::Metal => BackendDevice::METAL,
+        };
+        let backends = HashMap::from([
+            (Module::Diffusion, device.clone()),
+            (Module::Te, device.clone()),
+            (Module::Vae, device),
+        ]);
+        model.backend(backends);
+        match self {
+            Self::Vulkan => "native-vulkan",
+            Self::Metal => "native-metal",
+            Self::Cpu => unreachable!(),
+        }
+    }
 }
 
 fn validate_request(request: &Request) -> Result<(), String> {
@@ -101,7 +152,9 @@ fn run(request: Request) -> Result<Response, String> {
             .map_err(|error| format!("Cannot create output directory: {error}"))?;
     }
 
+    let requested_backend = RequestedBackend::from_environment()?;
     let mut model = ModelConfigBuilder::default();
+    let backend = requested_backend.configure(&mut model);
     model
         .model(request.model_path)
         .enable_mmap(true)
@@ -136,7 +189,7 @@ fn run(request: Request) -> Result<Response, String> {
     Ok(Response {
         width: output.0,
         height: output.1,
-        backend: "native-cpu",
+        backend: backend.into(),
     })
 }
 
@@ -171,7 +224,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::{validate_request, Request};
+    use super::{Request, validate_request};
     use std::fs;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -233,17 +286,21 @@ mod tests {
         let (mut request, root) = valid_request();
 
         request.width = 256;
-        assert!(validate_request(&request)
-            .expect_err("a resized working frame must not be guessed")
-            .contains("source artifact dimensions"));
+        assert!(
+            validate_request(&request)
+                .expect_err("a resized working frame must not be guessed")
+                .contains("source artifact dimensions")
+        );
 
         request.width = 512;
         image::GrayImage::from_pixel(256, 512, image::Luma([255]))
             .save(&request.mask_path)
             .expect("write mismatched mask");
-        assert!(validate_request(&request)
-            .expect_err("a mismatched mask must be rejected")
-            .contains("mask artifact dimensions"));
+        assert!(
+            validate_request(&request)
+                .expect_err("a mismatched mask must be rejected")
+                .contains("mask artifact dimensions")
+        );
 
         fs::remove_dir_all(root).expect("remove test directory");
     }

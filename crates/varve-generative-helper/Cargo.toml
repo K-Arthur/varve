@@ -7,6 +7,11 @@ license = "FSL-1.1-MIT"
 authors.workspace = true
 repository.workspace = true
 
+[features]
+default = []
+vulkan = ["diffusion-rs/vulkan"]
+metal = ["diffusion-rs/metal"]
+
 [dependencies]
 diffusion-rs = "=0.1.20"
 image = "0.25"
