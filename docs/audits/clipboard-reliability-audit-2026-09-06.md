@@ -382,6 +382,7 @@ The new stable findings are:
 | CLIP-35 | Application / command discovery | **Resolved.** The rendered Edit menu now exposes the same representation commands as the action registry and canvas context menu; selection gating is consistent. | `packages/editor/src/Menubar.tsx`, `tests/e2e/canvas/clipboard.spec.ts`, commit `e1c0fa5e` |
 | CLIP-36 | Transport / write ownership | **Resolved.** The final text-only fallback rechecks the generation after both resolve and reject, so superseded writes cannot report success. | `packages/editor/src/clipboard.ts`, `packages/editor/src/clipboard.test.ts`, commit `e71cbb56` |
 | CLIP-37 | Application / placement | **Resolved.** Plain-text paste captures destination scope and canvas geometry before the browser read and cancels when document, revision, design, or selection scope changes. | `packages/editor/src/actions/createActionHandlers.ts`, commit `2aa86ae1` |
+| CLIP-38 | Application / SVG placement | **Resolved.** Copying a selected child now lifts that root to its accumulated world transform before export, retaining the original offset when pasted outside its parent frame. | `packages/editor/src/actions/createActionHandlers.ts`, `packages/editor/src/actions/createActionHandlers.test.ts`, commit `3e9416b3` |
 
 The capability boundary remains explicit: ordinary Figma Copy is unsupported
 until a synthetic design is captured from Firefox with provenance and a bounded
@@ -996,3 +997,29 @@ pnpm exec vitest run packages/editor/src/actions/createActionHandlers.test.ts \
 ```
 
 The correction is committed as `2aa86ae1`.
+
+### Nested SVG placement correction — 2026-09-12
+
+The multi-root SVG export used world-space bounds for its wrapper, but a child
+selected inside a translated frame still serialized only its local transform.
+That mismatch could place the artwork at the wrong location when pasted into a
+different document (CLIP-38), an application/placement defect rather than an
+SVG parser failure.
+
+The exporter now snapshots each selected root with its accumulated world
+transform before emitting the fragment. Descendants retain their local
+transforms, so nested groups remain grouped while the root's original world
+placement and sibling order remain intact. The focused regression verifies the
+world-space viewBox and transform for a nested child.
+
+```text
+pnpm exec biome check --write \
+  packages/editor/src/actions/createActionHandlers.ts \
+  packages/editor/src/actions/createActionHandlers.test.ts
+passed
+pnpm exec vitest run packages/editor/src/actions/createActionHandlers.test.ts \
+  --maxWorkers=1 -t 'SVG|plain text'
+3 passed
+```
+
+The correction is committed as `3e9416b3`.

@@ -244,7 +244,9 @@ The Edit menu, canvas context menu, and action palette expose Copy Text, Copy
 as SVG, Copy as PNG, Paste as Plain Text, and Paste SVG Markup. These commands
 have no default keyboard bindings, so existing shortcuts remain unchanged.
 Copy Text uses the selected nodes' text or names. Copy as SVG serializes a
-selection snapshot with a transparent backdrop. When multiple roots are
+selection snapshot with a transparent backdrop. Selected nested roots are
+lifted to their accumulated world transform before serialization, so copying
+from inside a frame does not lose the frame's offset. When multiple roots are
 selected, their source order is retained and the wrapper `viewBox` is the
 union of their world-space bounds, so negative coordinates, gaps, and rotated
 placement are not clipped or collapsed into an arbitrary 1000×1000 canvas.
