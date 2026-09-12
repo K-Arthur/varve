@@ -885,3 +885,30 @@ receive the 40-unit cascade.
 
 The correction is committed as `d5cf54e6`. It has no effect on File > Import
 center/cascade behavior or same-document Paste world-anchor placement.
+
+### Website claim and visual check — 2026-09-12
+
+The marketing and file-format pages were rebuilt from both deployment bases so
+their claims match the implemented behavior: SVG is a bounded editable subset
+with ordered/grouped placement, Copy as PNG is transparent and scale-selected,
+and ordinary Figma Copy remains unsupported. The focused website route passed
+on GitHub Pages and custom-domain builds in light/dark desktop and mobile
+layouts; the generated captures were inspected for clipping, overflow, table
+readability, and contrast.
+
+```text
+pnpm build:website                 # 84 pages built; 0 Astro errors
+pnpm build:website:pages            # 84 pages built; 0 Astro errors
+VARVE_WEBSITE_E2E_PORT=4431 \
+VARVE_WEBSITE_E2E_PORT_ROOT=4432 \
+pnpm --dir apps/website exec playwright test \
+  -c ../../playwright.website.config.ts tests/e2e/clipboard-feature.spec.ts \
+  --project=ghpages --project=custom-domain --project=touch --workers=2
+8 passed
+```
+
+Inspected captures include the `test-results/clipboard-feature-clipboard-feature-
+desktop-{light,dark}-layout-{ghpages,custom-domain}/` images and the matching
+`clipboard-feature-mobile` captures. This is visual evidence for the website
+surface; it does not substitute for native WebKitGTK/Tauri, Firefox/Wayland,
+or external Figma transfer evidence.
