@@ -244,12 +244,17 @@ The Edit menu, canvas context menu, and action palette expose Copy Text, Copy
 as SVG, Copy as PNG, Paste as Plain Text, and Paste SVG Markup. These commands
 have no default keyboard bindings, so existing shortcuts remain unchanged.
 Copy Text uses the selected nodes' text or names. Copy as SVG serializes a
-selection snapshot with a transparent backdrop and falls back to plain text
-when the browser denies a rich write. Paste SVG Markup sends bounded source
-text through `ImportService` and commits the resulting artifacts through the
-same batch insertion API as file import. PNG scale selection is delegated to
-the renderer callback (1× by default, with 2× and 3× choices); the renderer
-owns transparent output and actual pixel encoding.
+selection snapshot with a transparent backdrop. When multiple roots are
+selected, their source order is retained and the wrapper `viewBox` is the
+union of their world-space bounds, so negative coordinates, gaps, and rotated
+placement are not clipped or collapsed into an arbitrary 1000×1000 canvas.
+It falls back to plain text when the browser denies a rich write. Paste SVG
+Markup sends bounded source text through `ImportService` and commits the
+resulting artifacts through the same batch insertion API as file import. PNG
+scale selection is delegated to the renderer callback (1× by default, with 2×
+and 3× choices); `ExportLayer` snapshots the selection, rasterizes a
+transparent world-space SVG union, enforces dimension/pixel limits before
+encoding, and writes the resulting PNG through the same serialized queue.
 
 Every representation write, including these command-specific formats, enters
 the generation-keyed clipboard queue. Native and browser fallbacks recheck the

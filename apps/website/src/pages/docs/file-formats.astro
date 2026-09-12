@@ -105,6 +105,9 @@ const figmaImportFaq = {
           <li>Transform attributes (matrix, translate, rotate, scale, skew)</li>
           <li>Fill, stroke, opacity, and style attributes</li>
         </ul>
+        <p>
+          Imported SVG keeps the source's ordered sibling roots and nested groups as logical artifacts. Their transforms, viewBox origin, and relative spacing are resolved before placement, so separate groups are not pasted as an unordered stack or given independent offsets. Unsupported effects and semantics remain visible in Import Results instead of being silently flattened.
+        </p>
 
         <h3>Figma design data</h3>
         <p>

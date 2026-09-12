@@ -46,6 +46,11 @@ evidence.
    roots are cloned with one mapping and translated by one union-bounds delta.
    The source sibling order and nested group hierarchy are therefore retained;
    cascade spacing applies only between distinct logical artifacts.
+8. **Export representations from a captured selection.** Copy as SVG uses the
+   selected roots' world-space union as its wrapper viewBox and keeps source
+   order. Copy as PNG snapshots the same selection in `ExportLayer`, renders a
+   transparent bounded raster, and uses the same serialized clipboard writer;
+   representation commands never read a later selection after an await.
 
 ## Consequences
 

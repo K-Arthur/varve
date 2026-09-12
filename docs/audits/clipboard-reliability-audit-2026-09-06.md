@@ -829,3 +829,44 @@ pnpm exec vitest run \
 The implementation is committed as `63c19047`. Menu snapshot refresh remains
 with the concurrent menu workstream; the existing baseline already predates
 the earlier command additions, while the new command-integrity check passes.
+
+### Frontend representation completion — 2026-09-12
+
+The follow-up audit reopened two application/placement defects that were easy
+to miss behind command registration: Copy as PNG had an action callback but no
+renderer-owned implementation, and multi-root Copy as SVG wrapped all roots in
+an arbitrary `0 0 1000 1000` viewBox. Plain-text command paste also bypassed the
+shared prepared-fragment insertion transaction. These defects could produce an
+unavailable command, clipped or displaced SVG in another editor, and history
+behavior different from ordinary paste (CLIP-31, CLIP-32, CLIP-33).
+
+`ExportLayer` now snapshots the selected document and roots, renders a
+transparent PNG at an explicit 1×/2×/3× scale, enforces dimension and pixel
+budgets before encoding, and publishes through the serialized representation
+writer. Copy as SVG computes a world-space union viewBox while retaining the
+selection order and each root's transform. Plain text creates a prepared text
+item and commits through the same atomic insertion path. SVG viewBox parsing
+also rejects missing/nonfinite tuple components without leaving an invalid
+source in the parser.
+
+Evidence:
+
+```text
+pnpm exec biome check --write \
+  packages/editor/src/actions/createActionHandlers.ts \
+  packages/editor/src/actions/createActionHandlers.test.ts \
+  packages/editor/src/components/Shell/ExportLayer.tsx
+passed
+pnpm exec vitest run packages/editor/src/actions/createActionHandlers.test.ts \
+  --maxWorkers=1 -t 'clipboard dialogs'
+4 tests passed
+VARVE_E2E_PORT=1480 pnpm exec playwright test \
+  tests/e2e/canvas/clipboard.spec.ts -g 'SVG paste preserves' \
+  --project=chromium --workers=1 --reporter=line
+1 passed; inspected test-results/run-797825-1480/.../clipboard-svg-order-and-groups.png
+```
+
+The implementation is committed as `8d57aaf8`. Firefox/Wayland external
+transfers, packaged WebKitGTK `.fig` decoding, native PNG transport, and the
+full deployment visual matrix remain open verification lanes; this local
+browser evidence does not imply those platforms.
