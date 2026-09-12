@@ -127,22 +127,36 @@ Machine checks that supplement the spec:
 
 ```text
 VARVE_E2E_PORT=1494 VARVE_DEMO_DIST_URL=http://127.0.0.1:1492 \
-VARVE_E2E_OUTPUT_DIR=run-stage2-export4 \
+VARVE_E2E_OUTPUT_DIR=run-stage2-export5 \
 pnpm exec playwright test tests/e2e/browser/try-export.spec.ts \
   --project=chromium --workers=1 --reporter=list
 
-✓ SVG export contains the rendered shape geometry (7.5 s)
-✓ JPEG export contains real rendered pixels, not a flat fill (4.3 s)
-2 passed (48.8 s)
+✓ SVG export contains the rendered shape geometry (46.1 s)
+✓ JPEG export of a shape contains real rendered pixels (30.1 s)
+✓ frame export contains the poster content, not an empty artboard (11.2 s)
+3 passed (2.9 m)
 ```
 
   The SVG assertion is on decoded geometry (`<circle>` with the teal fill and
-  the node transform); the JPEG assertion decodes the downloaded bytes in a
-  canvas and requires a pixel spread greater than a flat fill. Verified by
-  inspection: the exported `Sun` SVG contains
+  the node transform); the JPEG/PNG assertions decode the downloaded bytes in
+  a canvas and require a pixel spread greater than a flat fill, and the frame
+  test requires the full 1200x800 poster with content. Verified by inspection:
+  the exported `Sun` SVG contains
   `<circle cx="0" cy="0" r="130" fill="rgba(57,208,198,1.000)">` inside
-  `viewBox="830 80 260 260"`, and the JPEG measured mean 0.475 / stddev 0.247
-  across 2473 colours.
+  `viewBox="830 80 260 260"`.
+
+- Demo regression after the sample nesting fix:
+
+```text
+VARVE_E2E_PORT=1497 VARVE_E2E_OUTPUT_DIR=run-stage2-trydemo \
+pnpm exec playwright test tests/e2e/browser/try-demo.spec.ts \
+  --project=chromium --workers=1 --reporter=list
+13 passed (14.6 m)
+```
+
+  The spec's attached screenshot was inspected: the poster renders with the
+  headline, subtitle, shapes, and outline clipped correctly to the frame, and
+  the layers panel shows `Poster` (level 1) with nine level-2 children.
 
 Visual inspection (screenshots read during this session, stored under
 `/tmp/varve-chromeos-stage2-visual-*` and `/tmp/varve-chromeos-stage2-export*`):
@@ -172,17 +186,16 @@ typecheck passes for both new specs.
 3. Cross-tab autosave conflict handling prevents silent overwrite but does
    not merge versions; the newer version stays stored and the skipped edits
    remain dirty with recovery copies.
-4. The demo's sample document is flat: the "Poster" frame has no children
-   (its shapes are root-level siblings), so exporting the frame itself
-   produces an empty artboard. Exports of the actual content are correct
-   (verified above). Making the sample frame own its children is a
-   content-model follow-up with clipping implications, not an export defect.
+4. The demo sample is no longer flat: `buildDemoSampleDocument` now parents
+   the nine content nodes under the `Poster` frame, so moving the frame moves
+   the poster and exporting it exports the artwork. Verified by the unit
+   structure assertion (9 children, `rootChildren === [frame]`), the
+   frame-export pixel test, and the 13-test `try-demo` suite.
 5. The support matrix is not updated here: promotion still requires a Duet
    run (tab discard, installed-app offline, touch/pen, real storage
    pressure).
-6. `apps/website/src/pages/docs.astro` was dirty with another agent's work,
-   so the new guide is linked from the product page and FAQ rather than the
-   docs index; the index entry is a handoff.
+6. The docs index (`/docs`) now links the Browser Demo & Offline guide under
+   Getting Started; the earlier handoff is resolved.
 
 ## 8. Next smallest verification step
 

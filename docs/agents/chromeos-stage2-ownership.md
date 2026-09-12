@@ -112,8 +112,13 @@ Delivered on `master`:
 - Opt-in production-artifact acceptance spec (`try-pwa.spec.ts`) with three
   passing checks and inspected screenshots.
 - Export acceptance spec (`try-export.spec.ts`) that decodes the downloaded
-  SVG/JPEG and requires real geometry and pixel variation.
-- Browser Demo & Offline website guide plus product/FAQ corrections.
+  SVG/JPEG/PNG and requires real geometry and pixel variation.
+- Demo sample fidelity: the poster frame now owns its content, so frame
+  export and frame moves behave like a real frame; covered by the unit
+  structure assertion, the frame-export pixel test, and the 13-test demo
+  suite.
+- Browser Demo & Offline website guide (linked from the docs index) plus
+  product/FAQ corrections.
 
 Explicit remaining gaps (detailed in the audit): Duet device evidence,
 support-matrix promotion, and a docs-index entry for the new guide (that file

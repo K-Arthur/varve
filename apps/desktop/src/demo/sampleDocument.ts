@@ -11,12 +11,14 @@
  */
 import { contentHash, type FileEntry, type Platform } from '@varve/platform';
 import {
+  addChild,
   addNode,
   createDocument,
   type Document,
   makeFrameNode,
   makeShapeNode,
   makeTextNode,
+  type NodeId,
   nextNodeId,
   serializeDocument,
 } from '@varve/scene';
@@ -49,16 +51,19 @@ export function buildDemoSampleDocument(): Document {
   const doc0 = { ...base, id: SAMPLE_DOC_ID };
   let doc = doc0;
 
-  const insert = <T extends Parameters<typeof addNode>[1]>(node: T) => {
+  const insert = <T extends Parameters<typeof addNode>[1]>(node: T, parentId?: NodeId) => {
     const { doc: next, id } = nextNodeId(doc);
-    doc = addNode(next, { ...node, id });
+    doc = parentId ? addChild(next, parentId, { ...node, id }) : addNode(next, { ...node, id });
     return id;
   };
 
   const frameW = 1200;
   const frameH = 800;
 
-  insert(
+  // The poster frame owns its content. A frame is a clipping container, so
+  // the layers panel nests the content, moving the frame moves the poster,
+  // and exporting the frame exports the artwork rather than an empty board.
+  const frameId = insert(
     makeFrameNode('', {
       name: 'Poster',
       w: frameW,
@@ -69,11 +74,9 @@ export function buildDemoSampleDocument(): Document {
     }),
   );
 
-  // Teal circle, top-right. Kept inside the frame: it is a sibling of the
-  // Poster rather than a child, so clipContent never applied to it, and at
-  // r=170 centred on (860, 60) it reached y=-110 — a disc floating above the
-  // artboard. Harmless while the demo opened cropped at 100%, obvious the
-  // moment the view fits the whole document.
+  // Teal circle, top-right. Kept inside the frame: `clipContent` now applies
+  // to it as a child, and at r=130 centred on (960, 210) every edge is well
+  // inside the 1200x800 board.
   insert(
     makeShapeNode(
       '',
@@ -84,6 +87,7 @@ export function buildDemoSampleDocument(): Document {
         fill: TEAL,
       },
     ),
+    frameId,
   );
 
   // Pink rounded card, bottom-left.
@@ -99,6 +103,7 @@ export function buildDemoSampleDocument(): Document {
         cornerSmoothing: 0.6,
       },
     ),
+    frameId,
   );
 
   // Three accent dots.
@@ -114,6 +119,7 @@ export function buildDemoSampleDocument(): Document {
           fill: colors[i],
         },
       ),
+      frameId,
     );
   }
 
@@ -133,6 +139,7 @@ export function buildDemoSampleDocument(): Document {
       lineHeight: 1,
       fill: INK,
     }),
+    frameId,
   );
 
   // Subtitle.
@@ -148,6 +155,7 @@ export function buildDemoSampleDocument(): Document {
       lineHeight: 1.3,
       fill: INK,
     }),
+    frameId,
   );
 
   // Body copy.
@@ -166,9 +174,11 @@ export function buildDemoSampleDocument(): Document {
         fill: MUTED,
       },
     ),
+    frameId,
   );
 
-  // Thin outline frame on top (stroke only).
+  // Thin outline frame on top (stroke only). Added last so it paints above
+  // the content inside the poster frame.
   insert(
     makeShapeNode(
       '',
@@ -194,6 +204,7 @@ export function buildDemoSampleDocument(): Document {
         ],
       },
     ),
+    frameId,
   );
 
   return doc;

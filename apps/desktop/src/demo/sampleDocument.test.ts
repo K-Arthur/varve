@@ -57,6 +57,12 @@ describe('demo sample document', () => {
     expect(kinds).toContain('text');
     const frame = ids.find((id) => doc.nodes[id]!.kind === 'frame');
     expect(frame).toBeTruthy();
+    // The poster frame owns its content: the layers nest, moving the frame
+    // moves the poster, and exporting the frame exports the artwork rather
+    // than an empty artboard.
+    const frameNode = doc.nodes[frame!] as { children: string[] };
+    expect(frameNode.children.length).toBe(9);
+    expect(doc.rootChildren).toEqual([frame]);
   });
 
   it('has a stable library id and entry metadata', () => {
