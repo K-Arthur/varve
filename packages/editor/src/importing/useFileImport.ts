@@ -190,10 +190,15 @@ export function useFileImport(editor: FileImportEditor): FileImportController {
             preparedFragmentFromRootSets('import', parsedItems, { targetParentId: null }),
           );
           if (reportHasIssues(result)) {
-            setReport({ ...result, insertedCount: committedIds.length, route: 'import' });
+            setReport({
+              ...result,
+              insertedCount: committedIds.length,
+              committedRootIds: committedIds,
+              route: 'import',
+            });
           }
         } else if (reportHasIssues(result)) {
-          setReport({ ...result, insertedCount: 0, route: 'import' });
+          setReport({ ...result, insertedCount: 0, committedRootIds: [], route: 'import' });
         }
         const landed = result.successCount + result.partialCount;
         editor.announce(

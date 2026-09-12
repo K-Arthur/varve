@@ -148,6 +148,7 @@
 }
 .import-results__footer {
   display: flex;
+  gap: var(--space-2);
   justify-content: flex-end;
   padding: var(--space-3) var(--space-4);
   border-top: var(--border-micro);

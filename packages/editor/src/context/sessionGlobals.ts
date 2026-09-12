@@ -47,6 +47,8 @@ export function startTextEditing(nodeId: string): void {
  * surface for material losses and failures. */
 export type ImportResultReport = ImportReport & {
   insertedCount?: number;
+  /** Roots committed by the ingestion route, for an explicit reveal action. */
+  committedRootIds?: readonly string[];
   route?: 'paste' | 'import' | 'drop';
 };
 

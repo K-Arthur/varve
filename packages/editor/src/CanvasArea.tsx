@@ -1104,12 +1104,12 @@ export function CanvasArea({
         reader.announce('Import cancelled because the document changed while it was loading');
         return;
       }
-      let committedCount = 0;
+      let committedIds: NodeId[] = [];
       if (parsedItems.length > 0) {
         const allImages = parsedItems.every(({ rootIds, sourceDoc }) =>
           rootIds.every((id) => isImageShape(sourceDoc.nodes[id]!)),
         );
-        committedCount = reader.commitPreparedFragment(
+        committedIds = reader.commitPreparedFragment(
           preparedFragmentFromRootSets('drop', parsedItems, {
             targetParentId: null,
             maskTargetId: maskTargetId && allImages ? maskTargetId : undefined,
@@ -1124,7 +1124,8 @@ export function CanvasArea({
       ) {
         publishImportReport({
           ...report,
-          insertedCount: committedCount,
+          insertedCount: committedIds.length,
+          committedRootIds: committedIds,
           route: 'drop',
         });
       }

@@ -8162,6 +8162,7 @@ export function EditorProvider({
             sessionGlobals.publishImportReport({
               ...importReport,
               insertedCount: 0,
+              committedRootIds: [],
               route: 'paste',
             });
           }
@@ -8228,7 +8229,7 @@ export function EditorProvider({
             const anchors = item.worldAnchors;
             return anchors ? item.rootIds.every((id) => isFiniteAffine(anchors[id])) : true;
           });
-        const committedPasteCount = commitPreparedFragment({
+        const committedPasteIds = commitPreparedFragment({
           route: 'paste',
           items: preparedItems,
           targetParentId,
@@ -8237,7 +8238,8 @@ export function EditorProvider({
           ...(!varveData && plainText
             ? { text: { plainText, ...(richText ? { richText: richText.richText } : {}) } }
             : {}),
-        }).length;
+        });
+        const committedPasteCount = committedPasteIds.length;
 
         if (committedPasteCount > 0) {
           const failed = importReport?.failureCount ?? 0;
@@ -8259,6 +8261,7 @@ export function EditorProvider({
             sessionGlobals.publishImportReport({
               ...importReport,
               insertedCount: committedPasteCount,
+              committedRootIds: committedPasteIds,
               route: 'paste',
             });
           }

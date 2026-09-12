@@ -108,6 +108,38 @@ describe('createActionHandlers — clipboard dialogs', () => {
     expect(batchImportNodes).not.toHaveBeenCalled();
   });
 
+  it('cancels SVG markup when the destination changes while the dialog is open', async () => {
+    let resolvePrompt!: (value: string | null) => void;
+    vi.mocked(promptDialog).mockReturnValue(
+      new Promise<string | null>((resolve) => {
+        resolvePrompt = resolve;
+      }),
+    );
+    const commitPreparedFragment = vi.fn();
+    const initialState = {
+      selection: [],
+      document: createDocument('svg race'),
+      activeId: 'svg-race',
+      revision: 0,
+      selectionRevision: 0,
+    } as unknown as EditorContextValue['state'];
+    const editor = makeEditorMock({
+      state: initialState,
+      canvasToWorld: vi.fn(() => ({ x: 0, y: 0 })),
+      commitPreparedFragment,
+    });
+    createActionHandlers(editor).pasteSvgMarkup?.();
+    await vi.waitFor(() => expect(promptDialog).toHaveBeenCalledWith('Paste SVG markup'));
+    editor.state = { ...initialState, revision: 1 };
+    resolvePrompt('<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10"/></svg>');
+    await vi.waitFor(() =>
+      expect(editor.announce).toHaveBeenCalledWith(
+        'SVG paste cancelled because the document changed',
+      ),
+    );
+    expect(commitPreparedFragment).not.toHaveBeenCalled();
+  });
+
   it('exports multiple SVG roots in selection order with their world-space arrangement', async () => {
     let document = createDocument('svg export');
     const first = makeShapeNode(

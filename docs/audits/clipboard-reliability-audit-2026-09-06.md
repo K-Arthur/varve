@@ -1152,3 +1152,34 @@ all five Chromium tests (including real paste, Copy as PNG, grouped SVG paste,
 frame placement, and rotated viewport placement). The next concurrent CAF lane
 stopped on a four-pixel visual snapshot drift and did not run its remaining 16
 tests; no clipboard failure was reported.
+
+### CLIP-40 — Import feedback could not reveal committed results (2026-09-12)
+
+**Classification:** Application / frontend feedback. **Resolved locally.**
+
+The shared Import Results surface previously received only counts and warning
+text. An offscreen paste, file import, or drop could therefore succeed while
+leaving the user without a direct way to find the inserted roots. The report
+now carries the actual committed root IDs. Shell filters those IDs against the
+current document, selects the surviving roots, and fits their world bounds from
+an accessible **Reveal selection** button. The SVG markup helper also captures
+its destination before the prompt/parser awaits and cancels if the document
+scope changes before commit.
+
+Evidence:
+
+```text
+packages/editor/src/components/ImportResults.tsx
+packages/editor/src/components/ImportResults.test.tsx
+packages/editor/src/context/sessionGlobals.ts
+packages/editor/src/context.tsx
+packages/editor/src/CanvasArea.tsx
+packages/editor/src/importing/useFileImport.ts
+packages/editor/src/Shell.tsx
+packages/editor/src/actions/createActionHandlers.ts
+packages/editor/src/actions/createActionHandlers.test.ts
+```
+
+The native Wayland ownership lane, packaged Tauri CSP/.fig decode, and owned
+Firefox Figma captures remain external verification lanes recorded in CLIP-13,
+CLIP-15, and CLIP-22.

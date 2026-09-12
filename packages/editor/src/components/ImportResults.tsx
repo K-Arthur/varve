@@ -6,10 +6,13 @@ import './ImportResults.css';
 export interface ImportResultsProps {
   result: BatchImportResult | ImportResultReport;
   onClose: () => void;
+  /** Reveal the roots that actually reached the canvas, when available. */
+  onRevealSelection?: (rootIds: readonly string[]) => void;
 }
 
 export type ImportResultReport = ImportReport & {
   insertedCount?: number;
+  committedRootIds?: readonly string[];
   route?: 'paste' | 'import' | 'drop';
 };
 
@@ -44,7 +47,7 @@ function rowsFor(result: BatchImportResult | ImportResultReport): ImportResultRo
   }));
 }
 
-export function ImportResults({ result, onClose }: ImportResultsProps) {
+export function ImportResults({ result, onClose, onRevealSelection }: ImportResultsProps) {
   const [expanded, setExpanded] = useState(false);
   const rows = rowsFor(result);
   const serviceReport = isServiceReport(result);
@@ -53,6 +56,7 @@ export function ImportResults({ result, onClose }: ImportResultsProps) {
   const failCount = serviceReport ? result.failureCount : result.failCount;
   const unsupportedCount = serviceReport ? result.unsupportedCount : 0;
   const insertedCount = serviceReport ? result.insertedCount : undefined;
+  const committedRootIds = serviceReport ? result.committedRootIds : undefined;
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -213,6 +217,15 @@ export function ImportResults({ result, onClose }: ImportResultsProps) {
         )}
 
         <div className="import-results__footer">
+          {committedRootIds && committedRootIds.length > 0 && onRevealSelection && (
+            <button
+              type="button"
+              className="import-results__btn"
+              onClick={() => onRevealSelection(committedRootIds)}
+            >
+              Reveal selection
+            </button>
+          )}
           <button
             type="button"
             className="import-results__btn import-results__btn--primary"

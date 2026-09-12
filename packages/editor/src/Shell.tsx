@@ -325,6 +325,18 @@ function ShellInner({
     setImportReportHandler((report) => setTransferReport(report));
     return () => setImportReportHandler(null);
   }, []);
+  const revealImportedSelection = useCallback(
+    (rootIds: readonly string[]) => {
+      const validRootIds = rootIds.filter((id) => Boolean(editor.state.document.nodes[id]));
+      if (validRootIds.length === 0) return;
+      editor.setSelectionRefs(validRootIds, { origin: 'api' });
+      editor.revealSelection({ behavior: 'fit', padding: 56 });
+      editor.announce(
+        `Revealed ${validRootIds.length} imported layer${validRootIds.length === 1 ? '' : 's'}`,
+      );
+    },
+    [editor],
+  );
   const responsivePanelTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [layersVisible, setLayersVisible] = useState(false);
   const [inspectorVisible, setInspectorVisible] = useState(false);
@@ -631,10 +643,18 @@ function ShellInner({
           />
         )}
         {fileImport.report && (
-          <ImportResults result={fileImport.report} onClose={fileImport.dismissReport} />
+          <ImportResults
+            result={fileImport.report}
+            onClose={fileImport.dismissReport}
+            onRevealSelection={revealImportedSelection}
+          />
         )}
         {transferReport && (
-          <ImportResults result={transferReport} onClose={() => setTransferReport(null)} />
+          <ImportResults
+            result={transferReport}
+            onClose={() => setTransferReport(null)}
+            onRevealSelection={revealImportedSelection}
+          />
         )}
         <ImageCompareOverlay
           active={editor.state.beforeAfterCompare}

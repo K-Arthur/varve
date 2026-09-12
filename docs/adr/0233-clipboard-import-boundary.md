@@ -63,6 +63,8 @@ outside the supported closure are reported as fidelity loss rather than
 reconstructed from destination state. Marketing and help pages must use the
 capability matrix and may not claim full SVG, ordinary Figma Copy, or preview
 behavior without a passing fixture.
+Import Results may carry the committed root IDs; Shell validates them against
+the current document before offering a visible Reveal selection action.
 
 ## Evidence
 

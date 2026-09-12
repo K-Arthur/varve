@@ -53,6 +53,30 @@ describe('ImportResults', () => {
     expect(screen.getByText(/3 layers inserted/i)).toBeTruthy();
   });
 
+  it('offers to reveal the roots committed by an ingestion route', () => {
+    const onRevealSelection = vi.fn();
+    const result = {
+      startedAt: 0,
+      completedAt: 1,
+      durationMs: 1,
+      totalFiles: 1,
+      successCount: 1,
+      partialCount: 1,
+      failureCount: 0,
+      unsupportedCount: 0,
+      files: [],
+      warnings: ['one fidelity change'],
+      insertedCount: 2,
+      committedRootIds: ['n1', 'n2'],
+      route: 'paste' as const,
+    };
+    render(
+      <ImportResults result={result} onClose={() => {}} onRevealSelection={onRevealSelection} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /reveal selection/i }));
+    expect(onRevealSelection).toHaveBeenCalledWith(['n1', 'n2']);
+  });
+
   it('shows failure count when there are failures', () => {
     const result = makeResult({ successCount: 8, failCount: 3 });
     render(<ImportResults result={result} onClose={() => {}} />);

@@ -185,6 +185,10 @@ partial output, or failures. Publication happens after the atomic scene commit
 and includes the route and the number of committed roots, so the Import Results
 dialog reports what reached the document rather than only what the transport
 offered. Stale or cancelled sessions do not publish a success count.
+When a report includes committed roots, the dialog also offers **Reveal
+selection**. That action selects only roots still present in the active
+document and fits their world bounds, so an offscreen or cascaded import can
+be found without changing the insertion transaction.
 
 ## Fidelity and limitations
 

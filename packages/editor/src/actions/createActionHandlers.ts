@@ -669,6 +669,31 @@ export function createActionHandlers(
         .catch(() => e.announce('Plain text clipboard access was denied'));
     },
     pasteSvgMarkup: () => {
+      // Capture the destination before opening the prompt. The dialog and
+      // parser both await; a later selection or document revision must not
+      // redirect this explicit paste into a different scope.
+      const invocation = e.state;
+      const selected =
+        invocation?.selection.length === 1
+          ? invocation.document.nodes[invocation.selection[0]!]
+          : undefined;
+      const targetParentId =
+        selected &&
+        !selected.locked &&
+        selected.visible !== false &&
+        (selected.kind === 'frame' || selected.kind === 'group')
+          ? selected.id
+          : null;
+      const canvas =
+        typeof document === 'undefined'
+          ? null
+          : document.querySelector<HTMLElement>('.editor-canvas');
+      const center = e.canvasToWorld
+        ? e.canvasToWorld(
+            (canvas?.clientWidth ?? window.innerWidth) / 2,
+            (canvas?.clientHeight ?? window.innerHeight - 120) / 2,
+          )
+        : undefined;
       void import('../components/PromptDialog')
         .then(({ promptDialog }) => promptDialog('Paste SVG markup'))
         .then((markup) => {
@@ -689,6 +714,17 @@ export function createActionHandlers(
             { center: true, embedImages: true },
           )
             .then((report) => {
+              const current = e.state;
+              if (
+                invocation &&
+                (current.document.id !== invocation.document.id ||
+                  current.activeId !== invocation.activeId ||
+                  current.revision !== invocation.revision ||
+                  current.selectionRevision !== invocation.selectionRevision)
+              ) {
+                e.announce('SVG paste cancelled because the document changed');
+                return;
+              }
               const items = report.files.flatMap((file) =>
                 file.artifacts.flatMap((artifact) => {
                   const rootIds = artifact.nodeIds.filter((id) => artifact.document.nodes[id]);
@@ -700,7 +736,10 @@ export function createActionHandlers(
                 return;
               }
               const committed = e.commitPreparedFragment(
-                preparedFragmentFromRootSets('import', items, { targetParentId: null }),
+                preparedFragmentFromRootSets('paste', items, {
+                  targetParentId,
+                  ...(center ? { center } : {}),
+                }),
               );
               e.announce(
                 `Pasted ${committed.length} SVG layer${committed.length === 1 ? '' : 's'}`,
