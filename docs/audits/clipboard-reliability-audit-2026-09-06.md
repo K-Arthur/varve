@@ -382,7 +382,7 @@ The new stable findings are:
 | CLIP-35 | Application / command discovery | **Resolved.** The rendered Edit menu now exposes the same representation commands as the action registry and canvas context menu; selection gating is consistent. | `packages/editor/src/Menubar.tsx`, `tests/e2e/canvas/clipboard.spec.ts`, commit `e1c0fa5e` |
 | CLIP-36 | Transport / write ownership | **Resolved.** The final text-only fallback rechecks the generation after both resolve and reject, so superseded writes cannot report success. | `packages/editor/src/clipboard.ts`, `packages/editor/src/clipboard.test.ts`, commit `e71cbb56` |
 | CLIP-37 | Application / placement | **Resolved.** Plain-text paste captures destination scope and canvas geometry before the browser read and cancels when document, revision, design, or selection scope changes. | `packages/editor/src/actions/createActionHandlers.ts`, commit `2aa86ae1` |
-| CLIP-38 | Application / SVG placement | **Resolved.** Copying a selected child now lifts that root to its accumulated world transform before export, retaining the original offset when pasted outside its parent frame. | `packages/editor/src/actions/createActionHandlers.ts`, `packages/editor/src/actions/createActionHandlers.test.ts`, commit `3e9416b3` |
+| CLIP-38 | Application / SVG placement | **Resolved.** Copying a selected child now lifts that root to its accumulated world transform before export, retaining the original offset when pasted outside its parent frame. | `packages/editor/src/actions/createActionHandlers.ts`, `packages/editor/src/actions/createActionHandlers.test.ts`, commits `3e9416b3`, `df893fa9` |
 
 The capability boundary remains explicit: ordinary Figma Copy is unsupported
 until a synthetic design is captured from Firefox with provenance and a bounded
@@ -1022,4 +1022,5 @@ pnpm exec vitest run packages/editor/src/actions/createActionHandlers.test.ts \
 3 passed
 ```
 
-The correction is committed as `3e9416b3`.
+The implementation is committed as `3e9416b3`; the follow-up assertion syntax
+correction is committed as `df893fa9`.
