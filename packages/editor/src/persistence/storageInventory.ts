@@ -50,7 +50,7 @@ export interface StorageInventoryDeps {
   };
   cacheStorage?: {
     keys: () => Promise<string[]>;
-    open?: (name: string) => Promise<{ keys: () => Promise<unknown[]> }>;
+    open?: (name: string) => Promise<{ keys: () => Promise<readonly unknown[]> }>;
   };
   listRecoveryMeta?: () => Promise<Array<{ sizeBytes: number }>>;
 }
