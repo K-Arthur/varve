@@ -48,6 +48,9 @@ export function saveTargetFromSession(meta: SessionFileMeta | undefined): SaveTa
       kind: 'web-file-handle',
       handleId: meta.saveHandleId,
       displayName: meta.saveHandleName ?? meta.name ?? 'document.varve',
+      // Arm the pre-overwrite check once this session has a baseline. The
+      // browser analogue of the native diskContentHash guard.
+      ...(meta.diskContentHash ? { expectedContentHash: meta.diskContentHash } : {}),
     };
   }
   if (meta?.libraryStorage && meta.fileId) {

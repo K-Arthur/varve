@@ -119,6 +119,11 @@ Delivered on `master`:
   suite.
 - Browser Demo & Offline website guide (linked from the docs index) plus
   product/FAQ corrections.
+- Browser file-handle safety at ChromeOS parity: external-change guard
+  (content hash before overwrite), in-memory handle fallback when IndexedDB
+  is unavailable, and a canonical browser route section in
+  `docs/architecture/filesystem-boundary.md` covering Files app/Drive,
+  removable media, shared files, and data-deletion semantics.
 
 Explicit remaining gaps (detailed in the audit): Duet device evidence,
 support-matrix promotion, and a docs-index entry for the new guide (that file

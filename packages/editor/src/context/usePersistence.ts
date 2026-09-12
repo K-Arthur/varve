@@ -299,7 +299,9 @@ async function performSave(
     if (written.kind !== 'written') return writeFailure(patch, written.error);
     const fileId = meta.fileId ?? crypto.randomUUID();
     await mirror(patch, platform, fileId, meta.name, json);
-    const update: SessionUpdate = { fileId };
+    // Establish the baseline for external-change detection: the next save
+    // refuses to overwrite a file whose bytes no longer match this hash.
+    const update: SessionUpdate = { fileId, diskContentHash: contentHash(json) };
     return afterPrimaryWrite(platform, stateRef, recoveryRef, patch, revision, update, meta.name);
   }
 
@@ -362,7 +364,14 @@ async function chooseAndAdopt(
   }
   const cur = stateRef.current;
   const clean = cur.document === revision;
-  const update: SessionUpdate = { ...adopted.session, fileId, name: adopted.name };
+  const update: SessionUpdate = {
+    ...adopted.session,
+    fileId,
+    name: adopted.name,
+    // A successful write to a persistent destination establishes the
+    // external-change baseline (native files and browser file handles alike).
+    ...(adopted.persistent ? { diskContentHash: contentHash(json) } : {}),
+  };
   const sessions = cur.sessions.map((sess) =>
     sess.id === cur.activeId ? { ...sess, ...update, dirty: clean ? false : sess.dirty } : sess,
   );

@@ -122,6 +122,24 @@ import { sitePath } from '../../lib/siteUrl';
       </section>
 
       <section class="docs-section">
+        <h2>Files on a Chromebook</h2>
+        <p>
+          Saving uses the ChromeOS Files app. When you choose a location, Chrome
+          asks for access and can remember it; if permission expires, the next
+          save asks again and your edits stay put until the write succeeds.
+        </p>
+        <ul>
+          <li><strong>My Files and removable media</strong> work like any other folder. If an SD card or USB drive is removed while a document is open, the next save reports the destination is unavailable — reconnect it and save again, or use Save As.</li>
+          <li><strong>Google Drive files</strong> can be opened and saved through the Files app, but Drive sync is handled by ChromeOS, not Varve. If a newer copy was synced from another device, Varve refuses to overwrite it and points you at Save As, so both versions survive.</li>
+          <li><strong>Offline Drive copies</strong> are your Files app's "available offline" setting. Varve does not manage which Drive files stay offline.</li>
+          <li><strong>Read-only or shared files</strong> cannot be overwritten; the save reports a permission failure and Save As creates your own copy.</li>
+          <li><strong>Deleting browsing data or uninstalling the app with data removal</strong> deletes documents and recovery copies stored in the browser. Files saved through the Files app live outside browser storage and are not removed by that.</li>
+          <li><strong>Private/incognito windows</strong> discard everything at the end of the session; save to a file if the work matters.</li>
+          <li><strong>ChromeOS Linux (the Linux development environment)</strong> keeps its own files; storage there is separate from the browser demo.</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
         <h2>Updates</h2>
         <p>
           A new build is never forced onto an open document. When an update is ready the demo shows

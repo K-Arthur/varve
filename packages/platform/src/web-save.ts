@@ -11,7 +11,7 @@
  * fake path. Handles are origin-scoped and permission-gated by the browser.
  */
 import { type IDBPDatabase, openDB } from 'idb';
-import { normalizeSaveFileName, uuid, withDocumentExt } from './pure';
+import { contentHash, normalizeSaveFileName, uuid, withDocumentExt } from './pure';
 import type { DocumentSaveTargetChoice, SaveError, SaveTarget, WriteSaveResult } from './types';
 
 /** Save dialog filter: new documents produce the canonical format only.
@@ -67,27 +67,35 @@ async function openHandleDb(): Promise<IDBPDatabase> {
 
 async function storeSaveHandle(handle: FileSystemFileHandle, name: string): Promise<string> {
   const handleId = uuid();
-  const db = await openHandleDb();
+  // IndexedDB can be unavailable (private mode, blocked storage, quota) and a
+  // handle can be non-cloneable. Both cases keep the handle in memory so the
+  // session can still write to the file the user just picked; only a reload
+  // asks for it again, surfaced honestly as permission-expired.
   try {
-    await db.put(STORE_HANDLES, { handleId, handle, name } satisfies HandleRecord);
+    const db = await openHandleDb();
+    try {
+      await db.put(STORE_HANDLES, { handleId, handle, name } satisfies HandleRecord);
+    } finally {
+      db.close();
+    }
   } catch {
-    // DataCloneError (non-cloneable handle) or quota failure: keep the
-    // handle in memory so this session can still save to the file the user
-    // just picked.
     ephemeralHandles.set(handleId, handle);
-  } finally {
-    db.close();
   }
   return handleId;
 }
 
 async function loadSaveHandle(handleId: string): Promise<FileSystemFileHandle | undefined> {
-  const db = await openHandleDb();
   try {
-    const record = (await db.get(STORE_HANDLES, handleId)) as HandleRecord | undefined;
-    if (record?.handle) return record.handle;
-  } finally {
-    db.close();
+    const db = await openHandleDb();
+    try {
+      const record = (await db.get(STORE_HANDLES, handleId)) as HandleRecord | undefined;
+      if (record?.handle) return record.handle;
+    } finally {
+      db.close();
+    }
+  } catch {
+    // Storage open/get failed (private mode, blocked IndexedDB): fall through
+    // to the in-memory handle this session already stored.
   }
   return ephemeralHandles.get(handleId);
 }
@@ -103,7 +111,11 @@ function triggerDownload(filename: string, contents: string): void {
   URL.revokeObjectURL(url);
 }
 
-async function writeToSaveHandle(handleId: string, contents: string): Promise<WriteSaveResult> {
+async function writeToSaveHandle(
+  handleId: string,
+  contents: string,
+  expectedContentHash?: string,
+): Promise<WriteSaveResult> {
   let handle: FileSystemFileHandle | undefined;
   try {
     handle = await loadSaveHandle(handleId);
@@ -124,6 +136,27 @@ async function writeToSaveHandle(handleId: string, contents: string): Promise<Wr
         message: "This file's saved handle is no longer available. Use Save As to pick it again.",
       },
     };
+  }
+  if (expectedContentHash !== undefined) {
+    // Pre-overwrite check for edits made outside this session: cloud sync
+    // (Drive-backed files), another app, another device, or removable media
+    // remounted with a different file. Reading failing is not itself proof of
+    // change — createWritable below reports the real category in that case.
+    try {
+      const file = await handle.getFile();
+      if (contentHash(await file.text()) !== expectedContentHash) {
+        return {
+          kind: 'failed',
+          error: {
+            category: 'file-changed-externally',
+            message:
+              'The file changed since it was opened — another app, another device, or cloud sync wrote a newer version. Use Save As to keep both versions.',
+          },
+        };
+      }
+    } catch {
+      // Fall through: the write path classifies a vanished or unreadable file.
+    }
   }
   try {
     let permission = await (handle as PermissionedFileHandle).queryPermission({
@@ -216,7 +249,7 @@ export async function writeWebSaveTarget(
 ): Promise<WriteSaveResult> {
   switch (target.kind) {
     case 'web-file-handle':
-      return writeToSaveHandle(target.handleId, contents);
+      return writeToSaveHandle(target.handleId, contents, target.expectedContentHash);
     case 'download-only':
       triggerDownload(target.suggestedName, contents);
       return { kind: 'written' };

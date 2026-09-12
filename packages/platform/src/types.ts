@@ -285,7 +285,20 @@ export interface OpenFileResult {
  */
 export type SaveTarget =
   | { kind: 'native-file'; path: string }
-  | { kind: 'web-file-handle'; handleId: string; displayName: string }
+  /**
+   * A File System Access API handle persisted by the browser platform.
+   * `expectedContentHash` is the hash of the bytes this session last read or
+   * wrote. Before overwriting, the writer re-reads the file and refuses when
+   * the hash differs — that is how a Drive-synced, removable-media, or
+   * other-app edit is detected instead of silently replaced. It is optional
+   * because the first save after opening has no reliable baseline yet.
+   */
+  | {
+      kind: 'web-file-handle';
+      handleId: string;
+      displayName: string;
+      expectedContentHash?: string;
+    }
   | { kind: 'app-storage'; fileId: string }
   | { kind: 'download-only'; suggestedName: string }
   | { kind: 'unsaved' };

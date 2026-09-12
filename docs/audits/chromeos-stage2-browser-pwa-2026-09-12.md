@@ -88,6 +88,9 @@ test results. Nothing here is a device measurement claim.
 | Install readiness | A Chromium `beforeinstallprompt` is deferred and offered as an "Install app" button; browsers that never fire it show nothing (no simulated install path) | `demoPwaState.ts`, `DemoBanner.tsx`, `demoBanner.css` |
 | Storage manager | Settings → Storage & Offline: usage/quota estimates labelled as estimates, persistence status with a click-to-request action, recovery-copy count/size, offline app-copy count, and a destructive-confirm "Clear offline app copies" that is prefix-gated to `varve-demo-shell-*` and cannot touch documents or recovery data, plus the profile-deletion warning | `packages/editor/src/persistence/storageInventory.ts`, `components/Settings/StorageSettingsTab.tsx`, `SettingsDialog.tsx`, `SettingsContext.tsx` |
 | Cross-tab autosave safety | Autosave writes acquire a per-document Web Lock and skip the write when the stored record is newer than this tab's last write, so a background autosave can never silently replace another editor's later work; skipped writes stay dirty and keep their recovery copies | `packages/editor/src/persistence/crossTabWrite.ts`, `context/useAutoBackupServices.ts` |
+| Browser file-handle safety (ChromeOS) | Browser saves now carry the session's content hash (`expectedContentHash`); the writer re-reads the picked file and refuses to overwrite when it changed outside the session (Drive sync, another app/device, remounted media). Handles also survive IndexedDB being unavailable (private mode/blocked storage) by falling back to an in-memory handle, so the session can still save | `packages/platform/src/web-save.ts`, `types.ts`, `packages/editor/src/persistence/saveTypes.ts`, `context/usePersistence.ts` |
+| Browser filesystem contract | `docs/architecture/filesystem-boundary.md` now documents the browser route as a first-class boundary: ownership, storage map, path taxonomy, safety contracts, ChromeOS specifics (Files app/Drive, removable media, shared files, data deletion, Crostini separation), and the remaining follow-ups | `docs/architecture/filesystem-boundary.md` |
+| Chromebook file guidance | New "Files on a Chromebook" section in the Browser Demo & Offline guide (Files app, Drive, offline pinning, removable media, read-only files, data deletion, private windows, Linux container separation) | `apps/website/src/pages/docs/browser-demo.astro` |
 | Acceptance coverage | New opt-in spec for a served production artifact: partial-cache fallback page, offline launch after verified setup, and offer-then-activate service-worker update | `tests/e2e/browser/try-pwa.spec.ts` |
 | Support copy | New Browser Demo & Offline guide with tested install/offline/cleanup steps and exact limits; product page no longer claims "no hosted web app"; FAQ covers the browser route | `apps/website/src/pages/docs/browser-demo.astro`, `pages/product.astro`, `pages/support/faq.astro` |
 
@@ -175,6 +178,20 @@ Unit checks: `demoPwaState` (8), `storageInventory` (6),
 `crossTabWrite` (4), `StorageSettingsTab` (3) all pass under Vitest; e2e
 typecheck passes for both new specs.
 
+Browser file-handle checks (2026-09-12 continuation):
+
+```text
+pnpm exec vitest run packages/platform/src/__tests__/webSaveHandle.test.ts
+3 passed  # baseline write, external-change refusal, no-baseline write
+pnpm --filter @varve/platform typecheck   # clean
+pnpm --filter @varve/editor typecheck     # clean
+```
+
+The external-change test simulates a Drive/another-device rewrite between
+reads and asserts the writer returns `file-changed-externally`, does not call
+`createWritable()`, and points at Save As; the IndexedDB-unavailable test
+exercises the in-memory handle path that private/blocked storage produces.
+
 ## 7. Known limits and handoffs
 
 1. `navigator.onLine` is still used as a fallback when no worker answers;
@@ -196,6 +213,13 @@ typecheck passes for both new specs.
    pressure).
 6. The docs index (`/docs`) now links the Browser Demo & Offline guide under
    Getting Started; the earlier handoff is resolved.
+7. Browser route file parity: sessions that bound a destination are protected
+   by the content-hash guard, but opening a document from Recent Files still
+   discards the stored handle, so the next Save asks for a location again.
+   Rebinding the handle on open is a handoff to the Recent/Menubar owner;
+   `file_handlers` (opening a `.varve` from the Files app) remains a
+   documented progressive-enhancement follow-up. Both are recorded in
+   `docs/architecture/filesystem-boundary.md`.
 
 ## 8. Next smallest verification step
 
