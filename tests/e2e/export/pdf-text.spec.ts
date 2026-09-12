@@ -64,8 +64,15 @@ test.describe('PDF text export', () => {
     const exportTab = page.locator('[role="tablist"] button[role="tab"]', {
       hasText: /^export$/i,
     });
-    await exportTab.waitFor({ state: 'visible', timeout: 5000 });
-    await exportTab.click();
+    if (await exportTab.isVisible()) {
+      await exportTab.click();
+    } else {
+      await page.getByRole('button', { name: /^More inspector tabs/ }).click();
+      await page
+        .getByRole('menu', { name: 'More inspector tabs' })
+        .getByRole('menuitem', { name: 'Export', exact: true })
+        .click();
+    }
   }
 
   async function createTextNode(page: import('@playwright/test').Page, text: string) {
