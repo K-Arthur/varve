@@ -1131,3 +1131,9 @@ pnpm exec tsc -p packages/editor/tsconfig.json --noEmit --pretty false
 3 unrelated concurrent diagnostics in AIStatusIndicator, ContextAwareShortcuts,
 and the in-flight font catalog projection; zero clipboard/import errors
 ```
+
+With `VARVE_E2E_PORT=1490`, the planner-launched clipboard E2E lane completed
+all five Chromium tests (including real paste, Copy as PNG, grouped SVG paste,
+frame placement, and rotated viewport placement). The next concurrent CAF lane
+stopped on a four-pixel visual snapshot drift and did not run its remaining 16
+tests; no clipboard failure was reported.
