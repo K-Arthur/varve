@@ -24,10 +24,10 @@ stored artifacts ──┘              │
 
 ## Portable identity
 
-The target exact-face key is `sha256:<digest>:<member>`: original artifact
-bytes and collection member. PostScript names are metadata. The current
-`fontIdentityKey` still includes the PostScript name; compatibility adapters
-and runtime aliases remain to be integrated. Display
+The exact-face key is `sha256:<digest>:<member>`: original artifact bytes and
+collection member. PostScript names are metadata. Non-canonical legacy records
+retain their old display key until they can be rehashed; they never become an
+exact portable reference by name alone. Display
 family, version, source, and license are metadata and never replace the hash.
 WOFF reconstruction keeps the original artifact hash. Both single-face and
 collection-capable WOFF2 parsing retain that original hash, format and byte
@@ -61,6 +61,14 @@ search fields and recomputes the `head` checksum adjustment. The original
 container remains the identity source. These bounds do not yet provide the
 planned parser-worker deadline or validation of every inner OpenType table.
 See the [WOFF evidence](../audits/font-woff-evidence-2026-09-10.md).
+
+Embedding policy is additive: the OS/2 base right (`installable`,
+`preview-and-print`, `editable`, or `restricted`) is stored beside independent
+`noSubsetting` and `bitmapOnly` flags. The legacy `embeddingRights` value remains
+for older manifests, but policy evaluation uses the separate fields. A font
+with unknown license provenance cannot be offered for redistribution or live
+embedding merely because its fsType bits look permissive; the details panel
+shows the unknown state and the reason an export option is unavailable.
 
 ## Persistence and recovery
 
@@ -123,6 +131,12 @@ editing. The size field commits its draft on blur or Enter; Escape discards an
 unfinished draft. Range/caret targeting still requires the shared typography
 command adapter.
 Presentation-only hover preview is not integrated yet.
+
+The full browser's license details view exposes the base embedding right,
+no-subsetting and bitmap-only declarations as separate rows, plus whether the
+font actually declares license provenance. This keeps a technical file flag
+from reading like a legal assurance and gives export preflight a stable reason
+to block an unsupported operation.
 
 Moving focus from typing to the quick toolbar first flushes pending text and
 closes the typing transaction, while keeping the editing surface mounted.

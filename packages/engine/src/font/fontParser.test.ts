@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { detectFontFormat, fontIdentityKey } from './fontIdentity';
-import { parseFontCollection, parseFontData } from './fontParser';
+import { classifyEmbeddingFSType, parseFontCollection, parseFontData } from './fontParser';
 
 // ── Helper: build minimal OpenType font bytes ──────────────────────────
 
@@ -583,6 +583,31 @@ describe('parseFontData', () => {
       os2: { ascender: 800, descender: -200, fsType: 0x0100 },
     });
     expect((await parseFontData(noSubsetting)).embeddingRights).toBe('no-subsetting');
+  });
+
+  it('keeps no-subsetting and bitmap-only flags separate from base rights', async () => {
+    const policy = classifyEmbeddingFSType(0x0100 | 0x0004);
+    expect(policy).toEqual({
+      baseRights: 'preview-and-print',
+      noSubsetting: true,
+      bitmapOnly: false,
+      source: 'os2',
+    });
+
+    const bitmapOnly = classifyEmbeddingFSType(0x0200);
+    expect(bitmapOnly.baseRights).toBe('installable');
+    expect(bitmapOnly.bitmapOnly).toBe(true);
+
+    const meta = await parseFontData(
+      buildTestFont(undefined, {
+        os2: { ascender: 800, descender: -200, fsType: 0x0200 },
+      }),
+    );
+    expect(meta.embeddingPolicy).toMatchObject({
+      baseRights: 'installable',
+      noSubsetting: false,
+      bitmapOnly: true,
+    });
   });
 
   it('detects variable fonts from fvar table', async () => {

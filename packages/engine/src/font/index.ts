@@ -34,12 +34,15 @@ export type {
 export { FontDownloadManager } from './fontDownloadManager';
 // Identity and types
 export type {
+  EmbeddingBaseRights,
   EmbeddingRights,
   FontCategory,
+  FontEmbeddingPolicy,
   FontFormat,
   FontIdentity,
   FontReference,
   FontSourceKind,
+  LicenseProvenance,
   ParsedAxis,
   ParsedFontMetadata,
   ParsedNamedInstance,
@@ -48,6 +51,8 @@ export {
   detectFontFormat,
   fontIdentityKey,
   fontReferenceFromIdentity,
+  fontReferenceKey,
+  isCanonicalSha256Identity,
   sameFontFace,
 } from './fontIdentity';
 export type {
@@ -58,7 +63,9 @@ export type {
 } from './fontLicensePolicy';
 // License policy
 export {
+  embeddingPolicyFromRights,
   FontLicensePolicy,
+  getLicenseFromEmbeddingPolicy,
   getLicenseFromEmbeddingRights,
   KNOWN_LICENSES,
 } from './fontLicensePolicy';
@@ -83,7 +90,7 @@ export {
   resolveManifestAgainstCatalog,
 } from './fontManifest';
 // Font file parsing
-export { parseFontData } from './fontParser';
+export { classifyEmbeddingFSType, parseFontData } from './fontParser';
 export type { FontPersistenceResult } from './fontPersistence';
 // Document font manifest persistence (save/load integration)
 export {

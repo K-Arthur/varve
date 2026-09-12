@@ -394,6 +394,8 @@ export class FontLoader {
         copyright: meta.copyright,
         license: meta.license,
         embeddingRights: meta.embeddingRights,
+        embeddingPolicy: meta.embeddingPolicy,
+        licenseProvenance: meta.licenseProvenance,
         hasColorGlyphs: meta.hasColorGlyphs,
         colorFormats: meta.colorFormats,
         paletteCount: meta.paletteCount,

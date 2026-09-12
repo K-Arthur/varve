@@ -12,7 +12,13 @@
  * embedding bits (ISO/IEC 14496-22), Google Fonts embeddin g guidelines.
  */
 
-import type { EmbeddingRights, FontSourceKind } from './fontIdentity';
+import type {
+  EmbeddingBaseRights,
+  EmbeddingRights,
+  FontEmbeddingPolicy,
+  FontSourceKind,
+  LicenseProvenance,
+} from './fontIdentity';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -36,6 +42,10 @@ export interface FontLicenseInfo {
   licenseText?: string;
   attribution?: string;
   embeddingRights: EmbeddingRights;
+  /** OS/2 base permission and technical restrictions, kept separate. */
+  embeddingPolicy?: FontEmbeddingPolicy;
+  /** Explicit source-license provenance; unknown is never treated as a grant. */
+  licenseProvenance?: LicenseProvenance;
   permissions: FontPermissions;
   source: FontSourceKind;
   sourceLocation?: string;
@@ -173,6 +183,41 @@ export const KNOWN_LICENSES: Map<string, FontLicenseInfo> = new Map([
 
 /** Derive partial permissions from OS/2 embedding-rights tags. */
 export function getLicenseFromEmbeddingRights(rights: EmbeddingRights): Partial<FontPermissions> {
+  return getLicenseFromEmbeddingPolicy(embeddingPolicyFromRights(rights));
+}
+
+/** Convert the legacy single rights tag into the additive policy model. */
+export function embeddingPolicyFromRights(rights: EmbeddingRights): FontEmbeddingPolicy {
+  if (rights === 'no-subsetting') {
+    return {
+      baseRights: 'installable',
+      noSubsetting: true,
+      bitmapOnly: false,
+      source: 'os2',
+    };
+  }
+  return {
+    baseRights: rights as EmbeddingBaseRights,
+    noSubsetting: false,
+    bitmapOnly: false,
+    source: rights === 'unknown' ? 'unknown' : 'os2',
+  };
+}
+
+/** Derive technical embedding permissions without turning flags into a license. */
+export function getLicenseFromEmbeddingPolicy(
+  policy: FontEmbeddingPolicy,
+): Partial<FontPermissions> {
+  const permissions = getBaseEmbeddingPermissions(policy.baseRights);
+  if (policy.bitmapOnly) {
+    permissions.documentEmbedding = false;
+    permissions.webEmbedding = false;
+    permissions.editableEmbedding = false;
+  }
+  return permissions;
+}
+
+function getBaseEmbeddingPermissions(rights: EmbeddingBaseRights): Partial<FontPermissions> {
   switch (rights) {
     case 'installable':
       return {
@@ -206,14 +251,6 @@ export function getLicenseFromEmbeddingRights(rights: EmbeddingRights): Partial<
         printEmbedding: false,
         editableEmbedding: false,
       };
-    case 'no-subsetting':
-      return {
-        desktopInstall: true,
-        documentEmbedding: true,
-        webEmbedding: true,
-        printEmbedding: true,
-        editableEmbedding: true,
-      };
     case 'unknown':
       return {
         desktopInstall: false,
@@ -240,11 +277,37 @@ const OPERATION_TO_PERMISSION: Record<FontOperation, keyof FontPermissions> = {
   download: 'commercial',
 };
 
-function decide(
-  permissions: FontPermissions,
-  operation: FontOperation,
-  attribution?: string,
-): PolicyDecision {
+function decide(font: FontLicenseInfo, operation: FontOperation): PolicyDecision {
+  const permissions = font.permissions;
+  const embeddingPolicy = font.embeddingPolicy ?? embeddingPolicyFromRights(font.embeddingRights);
+
+  if (font.licenseProvenance === 'unknown' && operation !== 'install') {
+    return {
+      allowed: false,
+      requiresConfirmation: false,
+      reason: `Operation "${operation}" cannot be offered until this font's license provenance is verified.`,
+    };
+  }
+
+  if (operation === 'subset' && embeddingPolicy.noSubsetting) {
+    return {
+      allowed: false,
+      requiresConfirmation: false,
+      reason: 'This font declares No Subsetting in OS/2 fsType; preserve the original bytes.',
+    };
+  }
+
+  if (
+    embeddingPolicy.bitmapOnly &&
+    (operation === 'embed-document' || operation === 'embed-web' || operation === 'modify')
+  ) {
+    return {
+      allowed: false,
+      requiresConfirmation: false,
+      reason: 'This font declares Bitmap Embedding Only; use an explicit raster fallback.',
+    };
+  }
+
   const key = OPERATION_TO_PERMISSION[operation];
   const allowed = permissions[key];
 
@@ -258,12 +321,12 @@ function decide(
 
   // Attribution is only required when there is an attribution string present
   // (OFL, Apache, etc.). If the license includes attribution, surface it.
-  if (attribution) {
+  if (font.attribution) {
     return {
       allowed: true,
       requiresConfirmation: true,
       reason: `Operation "${operation}" is allowed but attribution is required.`,
-      attribution,
+      attribution: font.attribution,
     };
   }
 
@@ -283,7 +346,7 @@ export class FontLicensePolicy {
 
   /** Evaluate whether a font operation is allowed. */
   evaluate(font: FontLicenseInfo, operation: FontOperation): PolicyDecision {
-    return decide(font.permissions, operation, font.attribution);
+    return decide(font, operation);
   }
 
   /** Register a license for a font ID (typically the content hash). */
@@ -321,6 +384,6 @@ export class FontLicensePolicy {
   canSubset(fontId: string): boolean {
     const info = this.licenses.get(fontId);
     if (!info) return false;
-    return info.permissions.modification;
+    return this.evaluate(info, 'subset').allowed;
   }
 }

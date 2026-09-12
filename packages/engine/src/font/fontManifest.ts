@@ -13,7 +13,13 @@
  */
 
 import type { FontCatalog, FontCatalogEntry } from './fontCatalog';
-import type { EmbeddingRights, FontIdentity, FontReference, FontSourceKind } from './fontIdentity';
+import type {
+  EmbeddingRights,
+  FontEmbeddingPolicy,
+  FontIdentity,
+  FontReference,
+  FontSourceKind,
+} from './fontIdentity';
 import { fontIdentityKey, fontReferenceFromIdentity } from './fontIdentity';
 import type { FontReplacement, MissingFontInfo } from './fontResolver';
 import { FontResolver } from './fontResolver';
@@ -44,6 +50,8 @@ export interface FontManifestEntry {
   source: FontSourceKind;
   /** Embedding permission from the OS/2 table or license policy. */
   embeddingRights: EmbeddingRights;
+  /** Independent technical embedding constraints from the source face. */
+  embeddingPolicy?: FontEmbeddingPolicy;
   /** Runtime status of the font reference. */
   status: FontManifestStatus;
   /** If status is `substituted`, the original family name that was replaced. */
@@ -381,6 +389,7 @@ function catalogEntryToManifest(
     ...(fontReference ? { fontReference } : {}),
     source: entry.source,
     embeddingRights: entry.embeddingRights,
+    embeddingPolicy: entry.embeddingPolicy,
     status: overrides.status,
     substituteFor: overrides.substituteFor,
   };

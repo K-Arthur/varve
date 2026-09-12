@@ -658,6 +658,10 @@ export interface FontMetadata {
   license?: string;
   /** Embedding permission from OS/2 fsType. */
   embeddingRights?: import('./font/fontIdentity').EmbeddingRights;
+  /** Independent OS/2 base permission and technical restrictions. */
+  embeddingPolicy?: import('./font/fontIdentity').FontEmbeddingPolicy;
+  /** Whether license metadata was explicitly declared by the source. */
+  licenseProvenance?: import('./font/fontIdentity').LicenseProvenance;
   /** Whether the font contains color glyphs (COLR/CPAL, SVG, sbix, CBDT/CBLC). */
   hasColorGlyphs?: boolean;
   /** Detected colour-font technologies present in the file. */

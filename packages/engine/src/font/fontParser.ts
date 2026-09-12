@@ -16,6 +16,7 @@ import {
   detectFontFormat,
   type EmbeddingRights,
   type FontCategory,
+  type FontEmbeddingPolicy,
   type FontFormat,
   type ParsedAxis,
   type ParsedFontMetadata,
@@ -115,6 +116,13 @@ function fallbackMetadata(format: FontFormat, fileSize: number): ParsedFontMetad
     scripts: [],
     languages: [],
     embeddingRights: 'unknown',
+    embeddingPolicy: {
+      baseRights: 'unknown',
+      noSubsetting: false,
+      bitmapOnly: false,
+      source: 'unknown',
+    },
+    licenseProvenance: 'unknown',
     hasColorGlyphs: false,
     colorFormats: [],
     category: 'unknown',
@@ -169,6 +177,13 @@ async function parseWOFF2(data: ArrayBuffer): Promise<ParsedFontMetadata> {
     scripts: [],
     languages: [],
     embeddingRights: 'unknown',
+    embeddingPolicy: {
+      baseRights: 'unknown',
+      noSubsetting: false,
+      bitmapOnly: false,
+      source: 'unknown',
+    },
+    licenseProvenance: 'unknown',
     hasColorGlyphs: false,
     colorFormats: [],
     category: 'unknown',
@@ -622,6 +637,8 @@ async function parseRawFontAtOffset(
     scripts: os2Data.scripts,
     languages: [],
     embeddingRights,
+    embeddingPolicy: os2Data.embeddingPolicy,
+    licenseProvenance: license || licenseUrl ? 'declared' : 'unknown',
     hasColorGlyphs: colorCapabilities.hasColor,
     colorFormats: colorCapabilities.colorFormats,
     paletteCount: colorCapabilities.paletteCount,
@@ -778,6 +795,7 @@ interface OS2Data {
   xHeight?: number;
   capHeight?: number;
   embeddingRights: EmbeddingRights;
+  embeddingPolicy: FontEmbeddingPolicy;
   panose?: Uint8Array;
   scripts: string[];
 }
@@ -787,7 +805,16 @@ function parseOS2Table(data: ArrayBuffer, tables: Map<string, TableDirectory>): 
   // Legacy version-0 tables may end at usLastCharIndex (68 bytes). Bounds
   // belong to this table, not the whole file: the next table is unrelated data.
   if (!table || table.length < 68) {
-    return { embeddingRights: 'unknown', scripts: [] };
+    return {
+      embeddingRights: 'unknown',
+      embeddingPolicy: {
+        baseRights: 'unknown',
+        noSubsetting: false,
+        bitmapOnly: false,
+        source: 'unknown',
+      },
+      scripts: [],
+    };
   }
 
   const view = new DataView(data, table.offset, table.length);
@@ -805,7 +832,10 @@ function parseOS2Table(data: ArrayBuffer, tables: Map<string, TableDirectory>): 
 
   // fsType at offset 8 — embedding permissions
   const fsType = view.getUint16(8);
-  const embeddingRights = classifyFSType(fsType);
+  const embeddingPolicy = classifyEmbeddingFSType(fsType);
+  const embeddingRights = embeddingPolicy.noSubsetting
+    ? 'no-subsetting'
+    : embeddingPolicy.baseRights;
 
   // Panose classification
   const panose = new Uint8Array(data, table.offset + 32, 10);
@@ -814,23 +844,33 @@ function parseOS2Table(data: ArrayBuffer, tables: Map<string, TableDirectory>): 
   const scripts: string[] = [];
   // Simplified: just track if the font has CJK ranges
 
-  return { ascender, descender, xHeight, capHeight, embeddingRights, panose, scripts };
+  return {
+    ascender,
+    descender,
+    xHeight,
+    capHeight,
+    embeddingRights,
+    embeddingPolicy,
+    panose,
+    scripts,
+  };
 }
 
-function classifyFSType(fsType: number): EmbeddingRights {
+/** Decode OS/2 fsType while keeping technical flags separate from base rights. */
+export function classifyEmbeddingFSType(fsType: number): FontEmbeddingPolicy {
   const noSubsetting = (fsType & 0x0100) !== 0;
+  const bitmapOnly = (fsType & 0x0200) !== 0;
+
+  let baseRights: FontEmbeddingPolicy['baseRights'] = 'installable';
 
   // Bit 1 (0x0002) = Restricted License Embedding
-  if (fsType & 0x0002) return noSubsetting ? 'no-subsetting' : 'restricted';
-
+  if (fsType & 0x0002) baseRights = 'restricted';
   // Bit 2 (0x0004) = Preview & Print Embedding
-  if (fsType & 0x0004) return noSubsetting ? 'no-subsetting' : 'preview-and-print';
-
+  else if (fsType & 0x0004) baseRights = 'preview-and-print';
   // Bit 3 (0x0008) = Editable Embedding
-  if (fsType & 0x0008) return noSubsetting ? 'no-subsetting' : 'editable';
+  else if (fsType & 0x0008) baseRights = 'editable';
 
-  // No embedding bits set = Installable Embedding
-  return noSubsetting ? 'no-subsetting' : 'installable';
+  return { baseRights, noSubsetting, bitmapOnly, source: 'os2' };
 }
 
 interface HheaData {

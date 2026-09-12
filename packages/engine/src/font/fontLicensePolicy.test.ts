@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { FontLicenseInfo } from './fontLicensePolicy';
 import {
+  embeddingPolicyFromRights,
   FontLicensePolicy,
+  getLicenseFromEmbeddingPolicy,
   getLicenseFromEmbeddingRights,
   KNOWN_LICENSES,
 } from './fontLicensePolicy';
@@ -137,6 +139,40 @@ describe('FontLicensePolicy', () => {
       const result = policy.evaluate(noAttr, 'redistribute');
       expect(result.requiresConfirmation).toBe(false);
       expect(result.attribution).toBeUndefined();
+    });
+
+    it('blocks subsetting when the font declares no-subsetting', () => {
+      const font = makeOflLicense({
+        embeddingPolicy: {
+          baseRights: 'installable',
+          noSubsetting: true,
+          bitmapOnly: false,
+          source: 'os2',
+        },
+      });
+      const result = policy.evaluate(font, 'subset');
+      expect(result.allowed).toBe(false);
+      expect(result.reason).toContain('No Subsetting');
+    });
+
+    it('blocks live embedding for bitmap-only fonts', () => {
+      const font = makeOflLicense({
+        embeddingPolicy: {
+          baseRights: 'installable',
+          noSubsetting: false,
+          bitmapOnly: true,
+          source: 'os2',
+        },
+      });
+      expect(policy.evaluate(font, 'embed-document').allowed).toBe(false);
+      expect(policy.evaluate(font, 'embed-web').allowed).toBe(false);
+    });
+
+    it('does not grant legal operations when provenance is explicitly unknown', () => {
+      const font = makeOflLicense({ licenseProvenance: 'unknown' });
+      expect(policy.evaluate(font, 'install').allowed).toBe(true);
+      expect(policy.evaluate(font, 'redistribute').allowed).toBe(false);
+      expect(policy.evaluate(font, 'embed-document').allowed).toBe(false);
     });
   });
 
@@ -293,5 +329,28 @@ describe('getLicenseFromEmbeddingRights', () => {
     expect(p.documentEmbedding).toBe(true);
     expect(p.webEmbedding).toBe(true);
     expect(p.editableEmbedding).toBe(true);
+  });
+});
+
+describe('embedding policy projections', () => {
+  it('maps legacy no-subsetting to installable base rights', () => {
+    expect(embeddingPolicyFromRights('no-subsetting')).toEqual({
+      baseRights: 'installable',
+      noSubsetting: true,
+      bitmapOnly: false,
+      source: 'os2',
+    });
+  });
+
+  it('removes live embedding permissions for bitmap-only files', () => {
+    const permissions = getLicenseFromEmbeddingPolicy({
+      baseRights: 'installable',
+      noSubsetting: false,
+      bitmapOnly: true,
+      source: 'os2',
+    });
+    expect(permissions.documentEmbedding).toBe(false);
+    expect(permissions.webEmbedding).toBe(false);
+    expect(permissions.editableEmbedding).toBe(false);
   });
 });

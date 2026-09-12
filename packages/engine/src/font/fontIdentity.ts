@@ -47,6 +47,25 @@ export type EmbeddingRights =
   | 'no-subsetting' // fsType bit 8: embedding ok, subsetting prohibited
   | 'unknown';
 
+/** Base embedding permission from the mutually-exclusive OS/2 fsType bits. */
+export type EmbeddingBaseRights =
+  | 'installable'
+  | 'preview-and-print'
+  | 'editable'
+  | 'restricted'
+  | 'unknown';
+
+/** Technical embedding constraints reported independently from license text. */
+export interface FontEmbeddingPolicy {
+  baseRights: EmbeddingBaseRights;
+  noSubsetting: boolean;
+  bitmapOnly: boolean;
+  source: 'os2' | 'unknown';
+}
+
+/** Whether a parsed license declaration is actually present. */
+export type LicenseProvenance = 'declared' | 'unknown';
+
 /** Normalized font identity — the stable key for deduplication. */
 export interface FontIdentity {
   /** Full SHA-256 hash of the font file bytes (64 hex chars). */
@@ -90,7 +109,7 @@ export interface FontReference {
 }
 
 export function fontReferenceFromIdentity(identity: FontIdentity): FontReference | undefined {
-  if (!identity.contentHash || identity.hashAlgorithm !== 'sha256') return undefined;
+  if (!isCanonicalSha256Identity(identity)) return undefined;
   return {
     artifactHash: identity.contentHash.toLowerCase(),
     ...(identity.collectionIndex === undefined
@@ -98,6 +117,18 @@ export function fontReferenceFromIdentity(identity: FontIdentity): FontReference
       : { collectionIndex: identity.collectionIndex }),
     ...(identity.postScriptName ? { postScriptName: identity.postScriptName } : {}),
   };
+}
+
+/** True only for a complete, cryptographically-derived SHA-256 identity. */
+export function isCanonicalSha256Identity(identity: FontIdentity): boolean {
+  return identity.hashAlgorithm === 'sha256' && /^[0-9a-f]{64}$/i.test(identity.contentHash);
+}
+
+/** Stable portable key for an artifact and one collection member. */
+export function fontReferenceKey(reference: FontReference): string {
+  const member =
+    reference.collectionIndex === undefined ? 'single' : String(reference.collectionIndex);
+  return `sha256:${reference.artifactHash.toLowerCase()}:${member}`;
 }
 
 /** Complete metadata parsed from a font file. */
@@ -151,6 +182,10 @@ export interface ParsedFontMetadata {
   languages?: string[];
   /** Embedding permission from OS/2 fsType. */
   embeddingRights: EmbeddingRights;
+  /** Independent OS/2 base permission and technical restrictions. */
+  embeddingPolicy?: FontEmbeddingPolicy;
+  /** Whether license metadata was explicitly declared by the source. */
+  licenseProvenance?: LicenseProvenance;
   /** Whether the font contains color glyphs (COLR/CPAL or sbix or SVG). */
   hasColorGlyphs: boolean;
   /** Detected colour-font technologies present in the file. */
@@ -210,6 +245,9 @@ export function detectFontFormat(data: ArrayBuffer): FontFormat {
  */
 export function fontIdentityKey(id: FontIdentity): string {
   const member = id.collectionIndex === undefined ? 'single' : String(id.collectionIndex);
+  if (isCanonicalSha256Identity(id)) {
+    return `sha256:${id.contentHash.toLowerCase()}:${member}`;
+  }
   return `${id.contentHash}:${member}:${id.postScriptName}`;
 }
 
@@ -243,10 +281,7 @@ export function sameFontFace(a: FontIdentity, b: FontIdentity): boolean {
     ) {
       return false;
     }
-    if (a.collectionIndex !== undefined && b.collectionIndex !== undefined) {
-      return a.collectionIndex === b.collectionIndex;
-    }
-    return true;
+    return (a.collectionIndex ?? undefined) === (b.collectionIndex ?? undefined);
   }
 
   // Legacy/non-canonical hash match.
