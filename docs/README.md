@@ -442,6 +442,7 @@ The following dated files were moved from `docs/architecture/` to
 | `audits/validation-release-system-audit-2026-08-31.md` | Measured validation/CI/release baseline, root causes, and exact-SHA redesign evidence |
 | `quality/render-path-verification.md` | Render-path verification contract |
 | `quality/object-selection-parity.md` | Object Selection quality/parity methodology |
+| `audits/generative-editing-runtime-qualification-2026-09-12.md` | Real-photograph local prompt-model qualification results and release-gate decision |
 | `quality/semantic-similarity-benchmark.md` | Semantic-similarity benchmark reproduction recipe (corpus + retrieval eval) |
 | `quality/cycles.md` / `quality/scene-cycle-report.md` / `quality/section-registry-cycle-report.md` / `quality/wasm-engine-cycle.md` | Dependency cycle reports (dated records, 2026-07) |
 | `quality/report-audit.md` | Audit report quality review (dated record, 2026-07-25) |

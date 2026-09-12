@@ -32,9 +32,9 @@
     "differenceMap": "difference.png"
   },
   "review": {
-    "reviewedAt": "2026-09-09",
-    "notes": "The helper completed masked CPU inference and the final composite preserved the surrounding landscape by applying the result only through the effective mask. The raw candidate changes the full frame, as expected from the inpainting runtime; it is not used directly as the accepted image.",
+    "reviewedAt": "2026-09-12",
+    "notes": "The helper completed masked CPU inference and the final composite preserved the surrounding landscape by applying the result only through the effective mask. The raw candidate changes the full frame, as expected from the inpainting runtime; it is not used directly as the accepted image. Visual inspection found a bright rectangular sign-like artifact rather than a red ceramic apple, so the candidate fails semantic adherence and photographic plausibility.",
     "releaseQualified": false,
-    "reason": "One photographic task is evidence of a genuine result, not the required 24-photo/32-task quality gate."
+    "reason": "Prompt-conditioned quality failure; one photographic task also cannot satisfy the required 24-photo/32-task quality gate."
   }
 }

@@ -22,14 +22,20 @@
 | `real-life-wainwright-building.jpg` | 2238×2583 | JPEG | [Wainwright Building](https://commons.wikimedia.org/wiki/File:Wainwright_Building,_709_Chestnut_Street._Adler,_Sullivan,_and_Ramsey,_Architects.jpg) — Emil Boehl | Public domain (US) | [Original](https://upload.wikimedia.org/wikipedia/commons/7/72/Wainwright_Building%2C_709_Chestnut_Street._Adler%2C_Sullivan%2C_and_Ramsey%2C_Architects.jpg) | `8363640ec0a70bd2ff718f99769464fcebf8bb309f35725614ea04371f16a03b` | Tall-building perspective; original dimensions retained. |
 | `real-life-brookings-hall.jpg` | 1920×1518 | JPEG | [1904 World's Fair Administration Building](https://commons.wikimedia.org/wiki/File:1904_World%27s_Fair_Administration_Building_(Brookings_Hall,_Washington_University)_seen_from_the_southeast_with_the_Italian_Pavilion_in_the_foreground.jpg) — Official Photographic Company | Public domain (US) | [1920px thumbnail](https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ec/1904_World%27s_Fair_Administration_Building_%28Brookings_Hall%2C_Washington_University%29_seen_from_the_southeast_with_the_Italian_Pavilion_in_the_foreground.jpg/1920px-1904_World%27s_Fair_Administration_Building_%28Brookings_Hall%2C_Washington_University%29_seen_from_the_southeast_with_the_Italian_Pavilion_in_the_foreground.jpg) | `52616d243a9095407ef620d19f38067dc6b1eb8cb213af2830843f19e60ea187` | Historic campus architecture; downloaded as a 1920px thumbnail. |
 
-## Reviewed generative evidence
+## Generative evidence
 
-`generative-evidence/sd15-q4_0-landscape-replace/` contains the first reviewed
-production-helper run on a photographic source: the prepared source, explicit
-source-pixel mask, raw model candidate, final masked composite, difference map,
-and [run manifest](generative-evidence/sd15-q4_0-landscape-replace/manifest.json).
-It is evidence that the pinned helper/model pair produces a genuine
-prompt-conditioned result; it is not a release qualification of the profile.
+`generative-evidence/sd15-q4_0-landscape-replace/` contains the prepared source,
+explicit source-pixel mask, raw model candidate, final masked composite,
+difference map, and [run manifest](generative-evidence/sd15-q4_0-landscape-replace/manifest.json).
+The run completed, but its inspected output is not acceptable
+prompt-conditioned quality; it is retained as a failed qualification sample,
+not as product proof.
+
+`generative-evidence/qualification-2026-09-12/` contains the additional
+diffusion-rs, llama-box, and upstream stable-diffusion.cpp candidates inspected
+on the same real photograph. The [manifest](generative-evidence/qualification-2026-09-12/manifest.json)
+records the exact model/runtime, settings, output hashes, and failure reason.
+No candidate in that run is release-qualified.
 
 Project-generated images remain marked above. The eleven `real-life-*.jpg`
 fixtures were downloaded from Wikimedia Commons on 2026-09-09 and 2026-09-10

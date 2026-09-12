@@ -41,11 +41,13 @@ import {
   refineGenerativeMask,
   resizeMaskCoverage,
 } from './maskOperations';
+import { mergeGenerativeVariations } from './variationSession';
 import './ContentAwareFillDialog.css';
 
 const MODEL_ID = 'lama-inpainting';
 const DEFAULT_BRUSH_SIZE = 28;
-const MAX_VARIATIONS = 4;
+const MAX_BATCH_VARIATIONS = 4;
+const MAX_RETAINED_VARIATIONS = 8;
 const MAX_PREVIEW_PIXELS = 4_000_000;
 
 function previewRasterDimensions(width: number, height: number): { width: number; height: number } {
@@ -438,7 +440,9 @@ export function ContentAwareFillDialog({
     setMaskExpansion(settings.maskExpansion ?? 0);
     setMaskFeather(settings.feather ?? 0);
     setContextPadding(settings.contextPadding ?? 32);
-    setVariationCount(Math.max(1, Math.min(4, acceptedEdit.variations.length || 1)));
+    setVariationCount(
+      Math.max(1, Math.min(MAX_BATCH_VARIATIONS, acceptedEdit.variations.length || 1)),
+    );
   }, [acceptedEdit, isOpen]);
 
   useEffect(() => {
@@ -1106,7 +1110,11 @@ export function ContentAwareFillDialog({
         }
       }
 
-      const effectiveVariationCount = Math.min(variationCount, modeCapability.limits.maxVariations);
+      const effectiveVariationCount = Math.min(
+        variationCount,
+        modeCapability.limits.maxVariations,
+        MAX_BATCH_VARIATIONS,
+      );
       const generatedVariations: Array<{
         id: string;
         dataUrl: string;
@@ -1187,7 +1195,14 @@ export function ContentAwareFillDialog({
         result: generated.result,
         seed: generated.seed,
       };
-      setVariations(generatedVariations.slice(-MAX_VARIATIONS));
+      setVariations((previous) =>
+        mergeGenerativeVariations(
+          previous,
+          generatedVariations,
+          activeVariationId,
+          MAX_RETAINED_VARIATIONS,
+        ),
+      );
       setActiveVariationId(generated.id);
       setResult(generated.result);
       setPreviewDataUrl(generated.dataUrl);
