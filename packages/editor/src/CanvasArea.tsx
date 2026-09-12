@@ -1076,18 +1076,24 @@ export function CanvasArea({
         embedImages: true,
       });
 
-      for (const [i, fileReport] of report.files.entries()) {
+      for (const fileReport of report.files) {
         for (const artifact of fileReport.artifacts) {
           const rootIds = artifact.nodeIds.filter((id) => artifact.document.nodes[id]);
           if (rootIds.length === 0) continue;
           // Keep each parser artifact as one ordered root set. SVG import can
           // produce several sibling roots that must retain their grouping and
           // relative order when dropped.
+          const artifactIndex = parsedItems.length;
           parsedItems.push({
             rootIds,
             sourceDoc: artifact.document,
             ...(dropWorld
-              ? { position: { x: dropWorld[0] + i * 40, y: dropWorld[1] + i * 40 } }
+              ? {
+                  position: {
+                    x: dropWorld[0] + artifactIndex * 40,
+                    y: dropWorld[1] + artifactIndex * 40,
+                  },
+                }
               : {}),
           });
         }
