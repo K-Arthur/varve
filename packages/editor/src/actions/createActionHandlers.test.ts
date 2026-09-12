@@ -245,6 +245,50 @@ describe('createActionHandlers — clipboard dialogs', () => {
       });
     }
   });
+
+  it('cancels plain text when the document changes during the clipboard read', async () => {
+    let resolveRead!: (value: string) => void;
+    const readText = vi.fn(
+      () =>
+        new Promise<string>((resolve) => {
+          resolveRead = resolve;
+        }),
+    );
+    const commitPreparedFragment = vi.fn();
+    const originalClipboard = navigator.clipboard;
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { readText },
+    });
+    try {
+      const state = {
+        selection: [],
+        document: createDocument('plain text race'),
+        activeId: 'plain-text-race',
+        revision: 0,
+        selectionRevision: 0,
+      } as unknown as EditorContextValue['state'];
+      const editor = makeEditorMock({
+        state,
+        canvasToWorld: vi.fn(() => ({ x: 0, y: 0 })),
+        commitPreparedFragment,
+      });
+      createActionHandlers(editor).pastePlainText?.();
+      editor.state = { ...state, revision: 1 };
+      resolveRead('stale text');
+      await vi.waitFor(() =>
+        expect(editor.announce).toHaveBeenCalledWith(
+          'Plain text paste cancelled because the document changed',
+        ),
+      );
+      expect(commitPreparedFragment).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: originalClipboard,
+      });
+    }
+  });
 });
 
 describe('createActionHandlers — object nudge actions', () => {
