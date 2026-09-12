@@ -96,11 +96,70 @@ Runtime re-measurement after the changes (same state, all sections expanded):
 
 | Item | Severity | Reason deferred | Next action |
 |---|---|---|---|
-| Scroll depth when every section is expanded (1028px default, 2883px all-expanded) | P2 | Needs product decision on per-section navigation vs. pinning | Prototype a compact section jump list or sticky section label; validate with keyboard users |
-| Long font/token names can still truncate in the label column | P3 | Not reproduced at default width; tooltip path already exists | Add a truncation audit case with a 60-character family name |
-| Resizable-rail discoverability | P3 | The splitter exists and is keyboard operable | Consider a hint in the panel header overflow menu |
-| Native/Tauri inspector rendering | P2 | No desktop GUI session under load | Run the desktop visual lane on a supported host |
+| Scroll depth when every section is expanded | P2 | Needs product decision | Section F closes this with sticky headers |
+| Long font/token names can still truncate in the label column | P3 | Not reproduced at default width | Section F adds the regression test |
+| Resizable-rail discoverability | P3 | The splitter exists and is keyboard operable | Section F verifies the tooltip |
+| Native/Tauri inspector rendering | P2 | No desktop GUI session under load | Section F records the bounded native evidence |
+
+## F. Follow-up closure and second pass — 2026-09-12 (later)
+
+### F1. Scroll depth — sticky section headers (closed)
+
+Section headers now use `position: sticky; top: 0` inside the scrolling panel.
+A runtime probe scrolled to 200px and 420px and confirmed that while a
+section card spans the panel top, its header pins at the scrollport padding
+edge (header top 177px vs panel top 171px, i.e. the 6px panel padding), then
+is pushed away by the next section. This directly answers the Blender-style
+"lose section context in a long property list" complaint without adding a
+second navigation control to a panel that already has tabs and a section
+manager.
+
+### F2. Control-height contract (new finding, fixed)
+
+Runtime measurement showed the inspector mixed **21 / 24 / 27 / 32 / 39 / 65px**
+control heights: `.insp-num__input` used the fluid spacing token `--space-7`
+(39px), `--space-6` fields were 27px, `RangeValueControl` overrode its number
+field to 27px, selects were 32px, and `.insp-btn-sm` (which stands in for a
+field) was 27px. Because two of those are fluid tokens, field heights also
+drifted with the viewport. Every text/number field, dropdown, and
+field-height button now renders at `--component-compact-height` (32px).
+Re-measured: **zero** off-contract fields.
+
+### F3. Aesthetic and token cleanup (new finding, fixed)
+
+| Issue | Fix |
+|---|---|
+| Section containers used an undefined `--radius-xs` fallback (4px) while other surfaces used canonical tokens | Unified on `--radius-control` (8px), giving the container a larger radius than its 6px inputs |
+| Hardcoded `rgba(0,0,0,0.03)` card shadows duplicated the borders ("borders within borders" noise) | Removed; borders alone separate |
+| `.audit-badge--error:hover` / `.contextual-audit-chip--*` used light-only `oklch(0.95 …)` fills — wrong in dark and high-contrast themes | Replaced with `color-mix(in oklab, var(--color-feedback-*) …, var(--color-surface-raised))` |
+| Hardcoded 10/11px type sizes and 0.05em tracking | Mapped to `--font-size-2xs` / `--font-size-xs` and `--tracking-wide` |
+| Non-canonical `--space-1-5` / `--space-2-5` tokens (some declarations silently invalid with no fallback) | Mapped to `--space-2` / `--space-3` |
+| 39 duplicate top-level selectors in `inspector.css` (25 byte-identical, 4 contiguous, 3 core field selectors, plus specialized widgets) | 25 identical blocks removed, 4 contiguous selectors merged, and `.insp-field`, `.insp-field__label`, `.insp-field__control` consolidated from 2-3 definitions each to one. Remaining specialized-widget duplicates are documented as maintainability debt |
+| Raw radius values repo-wide failing `pnpm audit:radius` (including two legacy `--radius-sm` consumers) | All migrated to semantic tokens; `audit:radius` now exits 0 |
+
+### F4. Truncation regression guard (closed)
+
+`FontSelector.test.tsx` now renders a 60-character family name and asserts the
+combobox still carries the full value and its accessible name — guarding the
+data layer against truncation while the input scrolls visually.
+
+### F5. Resizable-rail discoverability (closed)
+
+`PanelResizeHandle` already wraps the splitter in
+`Tooltip label="Drag to resize — double-click to reset"` with
+`aria-label`, `aria-valuenow/min/max`, `aria-controls`, and keyboard
+resize — no change needed.
+
+### F6. Native inspector rendering (bounded)
+
+`pnpm desktop:preflight` reports GUI available; `cargo check` passes and the
+debug binary links and launches, rendering Varve's loading surface in the
+WebKitGTK window. Capturing the native editor chrome itself was not possible
+in this non-interactive session (no Wayland single-window capture or
+window-activation tool, with the concurrent agent's terminal in front).
+Native rendering remains a desktop-lane task.
 
 This is an AI-assisted engineering pass using automated plus visual evidence.
 It is not a WCAG conformance certification; native screen readers and physical
 input devices remain untested.
+

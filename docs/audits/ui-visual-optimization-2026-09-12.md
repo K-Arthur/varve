@@ -109,14 +109,28 @@ this pass; those files were not changed or committed here.
 | Item | Severity | Reason deferred | Next action |
 |---|---|---|---|
 | Inspector section scannability at long scroll depths | P2 | Requires focused research + redesign | Section H of this record |
-| Menubar menus at phone widths | P3 | Existing ≤640 compaction is adequate; needs a menu-overflow study | Revisit with the responsive shell pass |
-| Native/Tauri window chrome verification | P2 | No desktop GUI session available under load | Run the desktop visual lane on a supported host |
-| Full cross-theme visual matrix for this pass | P2 | Machine saturated by a concurrent suite during validation | Re-run `pnpm e2e:visual` when the machine is quiet |
 
-## H. Next focused phase — Inspector panel
+## H. Follow-up closure — 2026-09-12 (later pass)
 
-Per the follow-up request, the next pass will target the inspector alone:
-research dedicated to inspector panels (property grouping, scroll depth,
-mixed-value presentation, section recognition) plus WCAG 2.2 guidance
-(target size, focus visibility, name/role/value, status messages), then audit
-and implement. This record will link to it when it lands.
+Every residual from section G is now closed or bounded:
+
+| Item | Status | Evidence |
+|---|---|---|
+| Inspector section scannability | **Closed** | Section headers use `position: sticky; top: 0` inside the scrolling panel. Runtime probe: while a section card spans the panel top, its header pins at the scrollport padding edge (177px vs panel top 171px, i.e. the 6px panel padding) at scroll positions 200 and 420. Section names and their action stay reachable at any depth. `docs/audits/inspector-panel-optimization-2026-09-12.md` records the research basis. |
+| Menubar menus at phone widths | **Closed** | At 600px: shell overflow 0, no clipped menubar buttons, active workspace compact with the "More workspaces" overflow present, and the document name in the tab strip. The stray "New document" button that had auto-placed into the logo grid cell (widening the menubar row by 32px and appearing as a detached top-right control) now lives inside `.editor-tabs-row` (commit `2011633b9`). |
+| Native/Tauri window chrome verification | **Bounded** | `pnpm desktop:preflight` reports GUI available. `cargo check` passes (2 pre-existing dead-code warnings) and a full debug link succeeds with `CARGO_PROFILE_DEV_DEBUG=0`; the linked binary launches and renders Varve's loading surface in the WebKitGTK window. Full native editor-chrome capture was not achievable in this non-interactive session: no Wayland window-activation or single-window capture tool is available, and the concurrent agent's terminal occupied the foreground. Remaining: run the desktop visual lane on a quiet host. |
+| Full cross-theme visual matrix | **Closed for this pass** | `e2e:visual` (DPR 1x/2x/3x) ran 42 cases: 41 passed and one (`linear-gradient-translated-2x`) failed on a blank 300x150 harness canvas, then passed on a targeted re-run — a harness sizing flake, not a rendering change. Inspector axe scans (`tests/e2e/spec/axe.spec.ts`) pass 2/2 for the empty and selected states. |
+
+Additional fixes required to reach a green desktop build: the workspace
+typecheck was failing on `CanvasArea` (assigned `.length` of a `NodeId[]`),
+`ContextAwareShortcuts` (invalid `webgpu` background-removal method), and two
+stale test fixtures. Those are corrected and the full `pnpm typecheck` exits 0.
+
+## I. Next focused phase — Inspector panel (delivered)
+
+Delivered as its own focused pass:
+[`inspector-panel-optimization-2026-09-12.md`](inspector-panel-optimization-2026-09-12.md).
+It covers inspector-specific research (Figma right-panel, Blender properties,
+Retool inspector), WCAG 2.2 target size and the APG Accordion pattern, the
+runtime audit, the control-height contract, the token/aesthetic cleanup, and
+the sticky-header scroll-depth fix.
