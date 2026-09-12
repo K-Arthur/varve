@@ -181,68 +181,74 @@ export async function runPrecisionBenchmark(
       executionProviders: [provider === 'native' ? 'cpu' : provider],
     });
 
-    const dummyInput = new Float32Array(1 * 3 * inputSize * inputSize);
-    const fp32InputName = fp32Session.inputNames[0];
-    const int8InputName = int8Session.inputNames[0];
-    if (!fp32InputName || !int8InputName) return null;
+    // Both sessions are created before the benchmark body so every exit path
+    // (early `return null`, a `run` failure, an abort) releases them. A
+    // benchmark that leaked a session would pin WASM memory for the rest of
+    // the session and could make the next real model fail its memory gate.
+    try {
+      const dummyInput = new Float32Array(1 * 3 * inputSize * inputSize);
+      const fp32InputName = fp32Session.inputNames[0];
+      const int8InputName = int8Session.inputNames[0];
+      if (!fp32InputName || !int8InputName) return null;
 
-    // Warmup
-    for (let i = 0; i < warmupRuns; i++) {
-      const t = new ort.Tensor('float32', dummyInput, [1, 3, inputSize, inputSize]);
-      try {
-        await fp32Session.run({ [fp32InputName]: t } as Record<string, unknown>);
-      } finally {
-        t.dispose();
+      // Warmup
+      for (let i = 0; i < warmupRuns; i++) {
+        const t = new ort.Tensor('float32', dummyInput, [1, 3, inputSize, inputSize]);
+        try {
+          await fp32Session.run({ [fp32InputName]: t } as Record<string, unknown>);
+        } finally {
+          t.dispose();
+        }
+        const t2 = new ort.Tensor('float32', dummyInput, [1, 3, inputSize, inputSize]);
+        try {
+          await int8Session.run({ [int8InputName]: t2 } as Record<string, unknown>);
+        } finally {
+          t2.dispose();
+        }
       }
-      const t2 = new ort.Tensor('float32', dummyInput, [1, 3, inputSize, inputSize]);
-      try {
-        await int8Session.run({ [int8InputName]: t2 } as Record<string, unknown>);
-      } finally {
-        t2.dispose();
+
+      // Benchmark FP32
+      const fp32Times: number[] = [];
+      for (let i = 0; i < benchRuns; i++) {
+        const t = new ort.Tensor('float32', dummyInput, [1, 3, inputSize, inputSize]);
+        const start = performance.now();
+        try {
+          await fp32Session.run({ [fp32InputName]: t } as Record<string, unknown>);
+        } finally {
+          t.dispose();
+        }
+        fp32Times.push(performance.now() - start);
       }
+
+      // Benchmark INT8
+      const int8Times: number[] = [];
+      for (let i = 0; i < benchRuns; i++) {
+        const t = new ort.Tensor('float32', dummyInput, [1, 3, inputSize, inputSize]);
+        const start = performance.now();
+        try {
+          await int8Session.run({ [int8InputName]: t } as Record<string, unknown>);
+        } finally {
+          t.dispose();
+        }
+        int8Times.push(performance.now() - start);
+      }
+
+      fp32Times.sort((a, b) => a - b);
+      int8Times.sort((a, b) => a - b);
+      const fp32Median = fp32Times[Math.floor(fp32Times.length / 2)];
+      const int8Median = int8Times[Math.floor(int8Times.length / 2)];
+      if (fp32Median === undefined || int8Median === undefined) return null;
+      if (fp32Median <= 0) return null;
+
+      return {
+        speedup: int8Median / fp32Median,
+        fp32Ms: fp32Median,
+        int8Ms: int8Median,
+      };
+    } finally {
+      const releases = [fp32Session.release(), int8Session.release()];
+      await Promise.allSettled(releases);
     }
-
-    // Benchmark FP32
-    const fp32Times: number[] = [];
-    for (let i = 0; i < benchRuns; i++) {
-      const t = new ort.Tensor('float32', dummyInput, [1, 3, inputSize, inputSize]);
-      const start = performance.now();
-      try {
-        await fp32Session.run({ [fp32InputName]: t } as Record<string, unknown>);
-      } finally {
-        t.dispose();
-      }
-      fp32Times.push(performance.now() - start);
-    }
-
-    // Benchmark INT8
-    const int8Times: number[] = [];
-    for (let i = 0; i < benchRuns; i++) {
-      const t = new ort.Tensor('float32', dummyInput, [1, 3, inputSize, inputSize]);
-      const start = performance.now();
-      try {
-        await int8Session.run({ [int8InputName]: t } as Record<string, unknown>);
-      } finally {
-        t.dispose();
-      }
-      int8Times.push(performance.now() - start);
-    }
-
-    await fp32Session.release();
-    await int8Session.release();
-
-    fp32Times.sort((a, b) => a - b);
-    int8Times.sort((a, b) => a - b);
-    const fp32Median = fp32Times[Math.floor(fp32Times.length / 2)];
-    const int8Median = int8Times[Math.floor(int8Times.length / 2)];
-    if (fp32Median === undefined || int8Median === undefined) return null;
-    if (fp32Median <= 0) return null;
-
-    return {
-      speedup: int8Median / fp32Median,
-      fp32Ms: fp32Median,
-      int8Ms: int8Median,
-    };
   } catch {
     return null;
   }

@@ -41,27 +41,40 @@ type OrtModule = {
  * - Release on cache eviction or explicit dispose
  * - WASM memory-safety preflight before creating WASM-only sessions
  */
+async function defaultLoadOrt(): Promise<OrtModule> {
+  return (await import('onnxruntime-web')) as unknown as OrtModule;
+}
+
 export class SessionManager {
   private sessions = new Map<string, ManagedSession>();
   private ortModule: OrtModule | null = null;
   private ortPromise: Promise<OrtModule> | null = null;
   private maxSessions: number;
+  private loadOrtModule: () => Promise<OrtModule>;
 
   /** Default: one session per model, for up to 3 distinct models. */
-  constructor(maxSessions = 3) {
+  constructor(maxSessions = 3, loadOrtModule: () => Promise<OrtModule> = defaultLoadOrt) {
     this.maxSessions = maxSessions;
+    this.loadOrtModule = loadOrtModule;
   }
 
   /** Lazily import and cache the ONNX Runtime Web module. */
   private async getOrt(): Promise<OrtModule> {
     if (this.ortModule) return this.ortModule;
     if (this.ortPromise) return this.ortPromise;
-    this.ortPromise = this.loadOrt();
-    return this.ortPromise;
+    const attempt = this.loadOrt().catch((error: unknown) => {
+      // Do not cache a rejected import: a transient chunk/network failure
+      // would otherwise disable optional inference for the rest of the
+      // session. The next call retries the import.
+      if (this.ortPromise === attempt) this.ortPromise = null;
+      throw error;
+    });
+    this.ortPromise = attempt;
+    return attempt;
   }
 
   private async loadOrt(): Promise<OrtModule> {
-    const ort = (await import('onnxruntime-web')) as unknown as OrtModule;
+    const ort = await this.loadOrtModule();
     this.ortModule = ort;
     return ort;
   }
