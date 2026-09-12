@@ -19,10 +19,10 @@
 
 import type { Adjustment } from '@varve/engine';
 import { getImportAcceptString, type ImportReport, ImportService } from '@varve/import';
-import type { Document, SceneNode } from '@varve/scene';
+import type { Document, NodeId, SceneNode } from '@varve/scene';
 import { type ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 import type { ImportResultReport } from '../context/sessionGlobals';
-import { type PreparedFragment, preparedFragmentFromNodes } from '../dropUtils';
+import { type PreparedFragment, preparedFragmentFromRootSets } from '../dropUtils';
 
 /** Files that describe a colour transform rather than artwork. */
 const LUT_PATTERN = /\.(cube|3dl|clf|ctf)$/i;
@@ -173,13 +173,11 @@ export function useFileImport(editor: FileImportEditor): FileImportController {
           abortController.signal,
         );
 
-        const parsedItems: { node: SceneNode; sourceDoc: Document }[] = [];
+        const parsedItems: { rootIds: NodeId[]; sourceDoc: Document }[] = [];
         for (const fileReport of result.files) {
           for (const artifact of fileReport.artifacts) {
-            for (const id of artifact.nodeIds) {
-              const node = artifact.document.nodes[id];
-              if (node) parsedItems.push({ node, sourceDoc: artifact.document });
-            }
+            const rootIds = artifact.nodeIds.filter((id) => artifact.document.nodes[id]);
+            if (rootIds.length > 0) parsedItems.push({ rootIds, sourceDoc: artifact.document });
           }
         }
         if (!isCurrent()) {
@@ -189,7 +187,7 @@ export function useFileImport(editor: FileImportEditor): FileImportController {
         // One batch, so the whole import is a single undo step.
         if (parsedItems.length > 0) {
           const committedIds = editor.commitPreparedFragment(
-            preparedFragmentFromNodes('import', parsedItems, { targetParentId: null }),
+            preparedFragmentFromRootSets('import', parsedItems, { targetParentId: null }),
           );
           if (reportHasIssues(result)) {
             setReport({ ...result, insertedCount: committedIds.length, route: 'import' });

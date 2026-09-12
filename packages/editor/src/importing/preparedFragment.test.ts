@@ -5,6 +5,7 @@ import {
   type PreparedFragmentClone,
   type PreparedFragmentItem,
   preparedFragmentFromNodes,
+  preparedFragmentFromRootSets,
 } from './preparedFragment';
 
 describe('prepared fragments', () => {
@@ -54,5 +55,24 @@ describe('prepared fragments', () => {
 
     expect(result.rootIds).toEqual([]);
     expect(result.resourceImports).toEqual([]);
+  });
+
+  it('preserves an artifact root set as one ordered item', () => {
+    const source = createDocument('source', true);
+    const first = makeShapeNode('first', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 });
+    const second = makeShapeNode('second', { kind: 'ellipse', x: 20, y: 0, w: 10, h: 10 });
+    const fragment = preparedFragmentFromRootSets(
+      'import',
+      [
+        {
+          sourceDoc: { ...source, nodes: { [first.id]: first, [second.id]: second } },
+          rootIds: [first.id, second.id],
+        },
+      ],
+      { targetParentId: null },
+    );
+
+    expect(fragment.items).toHaveLength(1);
+    expect(fragment.items[0]?.rootIds).toEqual([first.id, second.id]);
   });
 });

@@ -27,6 +27,7 @@ export type {
 export {
   commitPreparedFragmentDocument,
   preparedFragmentFromNodes,
+  preparedFragmentFromRootSets,
 } from './importing/preparedFragment';
 
 export interface PasteDestination {

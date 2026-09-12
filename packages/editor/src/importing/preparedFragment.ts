@@ -84,14 +84,40 @@ export function preparedFragmentFromNodes(
   items: readonly { node: SceneNode; sourceDoc: Document; position?: { x: number; y: number } }[],
   placement: Pick<PreparedFragment, 'targetParentId' | 'center' | 'maskTargetId'>,
 ): PreparedFragment {
+  return preparedFragmentFromRootSets(
+    route,
+    items.map(({ node, sourceDoc, position }) => ({
+      sourceDoc,
+      rootIds: [node.id],
+      ...(position ? { position } : {}),
+    })),
+    placement,
+  );
+}
+
+/**
+ * Build a fragment from already grouped artifact roots. Keeping the root set
+ * together is significant for SVGs and other imports that produce a logical
+ * group of sibling nodes; insertion must not flatten those siblings into
+ * unrelated visible items.
+ */
+export function preparedFragmentFromRootSets(
+  route: PreparedFragmentRoute,
+  items: readonly {
+    sourceDoc: Document;
+    rootIds: readonly NodeId[];
+    position?: { x: number; y: number };
+  }[],
+  placement: Pick<PreparedFragment, 'targetParentId' | 'center' | 'maskTargetId'>,
+): PreparedFragment {
   return {
     route,
     targetParentId: placement.targetParentId,
     ...(placement.center ? { center: placement.center } : {}),
     ...(placement.maskTargetId ? { maskTargetId: placement.maskTargetId } : {}),
-    items: items.map(({ node, sourceDoc, position }) => ({
+    items: items.map(({ sourceDoc, rootIds, position }) => ({
       sourceDoc,
-      rootIds: [node.id],
+      rootIds: [...rootIds],
       ...(position ? { position } : {}),
     })),
   };

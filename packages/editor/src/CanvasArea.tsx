@@ -67,7 +67,7 @@ import {
   isDragLeaveOutside,
   isImportSessionCurrent,
   isPointInsideRect,
-  preparedFragmentFromNodes,
+  preparedFragmentFromRootSets,
 } from './dropUtils';
 import { useCollabPresence } from './hooks/useCollabPresence';
 import {
@@ -1051,7 +1051,7 @@ export function CanvasArea({
       };
       // Parse all files FIRST (expensive SVG parsing) before any setState
       const parsedItems: {
-        node: SceneNode;
+        rootIds: NodeId[];
         sourceDoc: import('@varve/scene').Document;
         position?: { x: number; y: number };
       }[] = [];
@@ -1078,23 +1078,18 @@ export function CanvasArea({
 
       for (const [i, fileReport] of report.files.entries()) {
         for (const artifact of fileReport.artifacts) {
-          for (const id of artifact.nodeIds) {
-            const node = artifact.document.nodes[id];
-            if (!node) continue;
-            // Pass the target through `position` rather than pre-applying it
-            // to the node: batchImportNodes is the single positioning
-            // authority and re-positions any item without an explicit
-            // `position` to the viewport centre — a pre-positioned node
-            // with no `position` field would get that fallback applied on
-            // top, discarding the drop point.
-            parsedItems.push({
-              node,
-              sourceDoc: artifact.document,
-              ...(dropWorld
-                ? { position: { x: dropWorld[0] + i * 40, y: dropWorld[1] + i * 40 } }
-                : {}),
-            });
-          }
+          const rootIds = artifact.nodeIds.filter((id) => artifact.document.nodes[id]);
+          if (rootIds.length === 0) continue;
+          // Keep each parser artifact as one ordered root set. SVG import can
+          // produce several sibling roots that must retain their grouping and
+          // relative order when dropped.
+          parsedItems.push({
+            rootIds,
+            sourceDoc: artifact.document,
+            ...(dropWorld
+              ? { position: { x: dropWorld[0] + i * 40, y: dropWorld[1] + i * 40 } }
+              : {}),
+          });
         }
       }
 
@@ -1103,14 +1098,17 @@ export function CanvasArea({
         reader.announce('Import cancelled because the document changed while it was loading');
         return;
       }
+      let committedCount = 0;
       if (parsedItems.length > 0) {
-        const allImages = parsedItems.every(({ node }) => isImageShape(node));
-        reader.commitPreparedFragment(
-          preparedFragmentFromNodes('drop', parsedItems, {
+        const allImages = parsedItems.every(({ rootIds, sourceDoc }) =>
+          rootIds.every((id) => isImageShape(sourceDoc.nodes[id]!)),
+        );
+        committedCount = reader.commitPreparedFragment(
+          preparedFragmentFromRootSets('drop', parsedItems, {
             targetParentId: null,
             maskTargetId: maskTargetId && allImages ? maskTargetId : undefined,
           }),
-        );
+        ).length;
       }
       if (
         report.partialCount > 0 ||
@@ -1120,7 +1118,7 @@ export function CanvasArea({
       ) {
         publishImportReport({
           ...report,
-          insertedCount: parsedItems.length,
+          insertedCount: committedCount,
           route: 'drop',
         });
       }
