@@ -40,6 +40,7 @@ import type {
 import { createContext } from 'react';
 import type { SectionVisibilityState } from '../components/Inspector/sectionState';
 import type { LayerNavigationCommands } from '../components/LayersPanel/layerNavigationCommands';
+import type { PreparedFragment } from '../dropUtils';
 import type {
   EditorHistorySession,
   HistoryIssue,
@@ -1174,6 +1175,8 @@ export interface EditorContextValue {
     items: { node: SceneNode; sourceDoc: Document; position?: { x: number; y: number } }[],
     options?: { maskTargetId?: NodeId },
   ) => void;
+  /** Commit a previously acquired fragment through the shared insertion path. */
+  commitPreparedFragment: (fragment: PreparedFragment) => NodeId[];
 
   // Binding
   bindingField: string | null;

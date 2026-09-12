@@ -47,7 +47,7 @@ export function startTextEditing(nodeId: string): void {
  * surface for material losses and failures. */
 export type ImportResultReport = ImportReport & {
   insertedCount?: number;
-  route?: 'paste' | 'drop';
+  route?: 'paste' | 'import' | 'drop';
 };
 
 let importReportHandler: ((report: ImportResultReport | null) => void) | null = null;

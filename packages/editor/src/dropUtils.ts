@@ -17,6 +17,18 @@ import {
   rebaseWorldTransformToParent,
 } from './scene/world';
 
+export type {
+  PreparedFragment,
+  PreparedFragmentCommitHooks,
+  PreparedFragmentCommitResult,
+  PreparedFragmentItem,
+  PreparedFragmentRoute,
+} from './importing/preparedFragment';
+export {
+  commitPreparedFragmentDocument,
+  preparedFragmentFromNodes,
+} from './importing/preparedFragment';
+
 export interface PasteDestination {
   /** Explicit selected frame/group, or null for the active workspace root. */
   targetId: NodeId | null;

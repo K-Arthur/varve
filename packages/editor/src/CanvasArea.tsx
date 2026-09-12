@@ -67,6 +67,7 @@ import {
   isDragLeaveOutside,
   isImportSessionCurrent,
   isPointInsideRect,
+  preparedFragmentFromNodes,
 } from './dropUtils';
 import { useCollabPresence } from './hooks/useCollabPresence';
 import {
@@ -1104,9 +1105,11 @@ export function CanvasArea({
       }
       if (parsedItems.length > 0) {
         const allImages = parsedItems.every(({ node }) => isImageShape(node));
-        reader.batchImportNodes(
-          parsedItems,
-          maskTargetId && allImages ? { maskTargetId } : undefined,
+        reader.commitPreparedFragment(
+          preparedFragmentFromNodes('drop', parsedItems, {
+            targetParentId: null,
+            maskTargetId: maskTargetId && allImages ? maskTargetId : undefined,
+          }),
         );
       }
       if (

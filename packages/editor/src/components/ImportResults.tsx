@@ -10,7 +10,7 @@ export interface ImportResultsProps {
 
 export type ImportResultReport = ImportReport & {
   insertedCount?: number;
-  route?: 'paste' | 'drop';
+  route?: 'paste' | 'import' | 'drop';
 };
 
 interface ImportResultRow {

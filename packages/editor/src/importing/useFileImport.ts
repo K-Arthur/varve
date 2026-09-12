@@ -21,6 +21,8 @@ import type { Adjustment } from '@varve/engine';
 import { getImportAcceptString, type ImportReport, ImportService } from '@varve/import';
 import type { Document, SceneNode } from '@varve/scene';
 import { type ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
+import type { ImportResultReport } from '../context/sessionGlobals';
+import { type PreparedFragment, preparedFragmentFromNodes } from '../dropUtils';
 
 /** Files that describe a colour transform rather than artwork. */
 const LUT_PATTERN = /\.(cube|3dl|clf|ctf)$/i;
@@ -43,6 +45,7 @@ export interface FileImportEditor {
   announce: (message: string) => void;
   addLutAdjustment: (adjustment: Adjustment) => void;
   batchImportNodes: (items: { node: SceneNode; sourceDoc: Document }[]) => void;
+  commitPreparedFragment: (fragment: PreparedFragment) => string[];
 }
 
 export interface FileImportController {
@@ -54,7 +57,7 @@ export interface FileImportController {
   openPicker: () => void;
   onFilesSelected: (event: ChangeEvent<HTMLInputElement>) => Promise<void>;
   progress: ImportProgressState | null;
-  report: ImportReport | null;
+  report: ImportResultReport | null;
   cancel: () => void;
   dismissReport: () => void;
 }
@@ -111,7 +114,7 @@ export function useFileImport(editor: FileImportEditor): FileImportController {
   editorRef.current = editor;
   const abortRef = useRef<AbortController | null>(null);
   const [progress, setProgress] = useState<ImportProgressState | null>(null);
-  const [report, setReport] = useState<ImportReport | null>(null);
+  const [report, setReport] = useState<ImportResultReport | null>(null);
 
   // An import that outlives its Shell has nowhere to put its nodes.
   useEffect(() => () => abortRef.current?.abort(), []);
@@ -184,8 +187,16 @@ export function useFileImport(editor: FileImportEditor): FileImportController {
           return;
         }
         // One batch, so the whole import is a single undo step.
-        if (parsedItems.length > 0) editor.batchImportNodes(parsedItems);
-        if (reportHasIssues(result)) setReport(result);
+        if (parsedItems.length > 0) {
+          const committedIds = editor.commitPreparedFragment(
+            preparedFragmentFromNodes('import', parsedItems, { targetParentId: null }),
+          );
+          if (reportHasIssues(result)) {
+            setReport({ ...result, insertedCount: committedIds.length, route: 'import' });
+          }
+        } else if (reportHasIssues(result)) {
+          setReport({ ...result, insertedCount: 0, route: 'import' });
+        }
         const landed = result.successCount + result.partialCount;
         editor.announce(
           `Imported ${landed} file${landed === 1 ? '' : 's'}; ${result.failureCount} failed`,

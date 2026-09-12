@@ -497,13 +497,16 @@ import {
 import {
   applyDropPosition,
   clipboardFragmentWorldBounds,
+  commitPreparedFragmentDocument,
   isFiniteAffine,
+  type PreparedFragment,
+  type PreparedFragmentItem,
   placePastedRootsAtWorldCenter,
+  preparedFragmentFromNodes,
   rebasePastedRoot,
   rectCenter,
   resolvePasteDestination,
   translateWorldTransform,
-  unionNodeWorldBounds,
 } from './dropUtils';
 import { createFlattenOptions } from './flatten/types';
 import { readGuidesFromClipboard, writeGuidesToClipboard } from './guideClipboard';
@@ -1437,6 +1440,8 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
     }[],
     options?: { maskTargetId?: NodeId },
   ) => void;
+  /** Commit a prepared fragment through the shared Paste/Import/Drop path. */
+  commitPreparedFragment: (fragment: PreparedFragment) => NodeId[];
   /** The field name currently targeted for variable binding, or null. */
   bindingField: string | null;
   /** Open the BindingMenu for a specific field, or close it. */
@@ -3582,6 +3587,221 @@ export function EditorProvider({
   });
   /** Ref to the persistent-history API for use inside stable callbacks. */
   persistentHistoryRef.current = persistentHistory;
+
+  /**
+   * Shared atomic insertion for Paste, File Import, and Drop. Acquisition and
+   * placement are prepared by each route; this function owns cloning,
+   * resource registration, one undo transaction, selection, and optional
+   * image-mask attachment.
+   */
+  const commitPreparedFragment = useCallback(
+    (fragment: PreparedFragment): NodeId[] => {
+      let committedIds: NodeId[] = [];
+      runOwnedTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+        setState((s) => {
+          const doc = s.document;
+          const selectedContainerId: NodeId | null =
+            fragment.targetParentId ??
+            (s.selection.length === 1
+              ? (() => {
+                  const selected = s.document.nodes[s.selection[0]!];
+                  return selected &&
+                    !selected.locked &&
+                    selected.visible !== false &&
+                    (selected.kind === 'frame' || selected.kind === 'group')
+                    ? selected.id
+                    : null;
+                })()
+              : null);
+          const targetParentId = selectedContainerId;
+          const center =
+            fragment.center ??
+            viewportCenterWorld({ zoom: s.zoom, pan: s.pan, cameraRotation: s.cameraRotation });
+          const prepared = commitPreparedFragmentDocument(doc, fragment, {
+            clone: (targetDoc, item) => {
+              const rootId = item.rootIds[0];
+              if (!rootId) return null;
+              return insertImportedSubtree(
+                targetDoc,
+                item.sourceDoc,
+                rootId,
+                (node) => node,
+                s.workspaceMode,
+                item.rootIds.slice(1),
+              );
+            },
+            place: (currentDoc, inserted, item, currentFragment, itemIndex) => {
+              if (item.worldAnchors && currentFragment.route === 'paste') {
+                const sourceBounds = clipboardFragmentWorldBounds(
+                  item.sourceDoc,
+                  item.rootIds,
+                  item.worldAnchors,
+                );
+                const sourceCenter = sourceBounds ? rectCenter(sourceBounds) : null;
+                const delta =
+                  !currentFragment.preserveWorldPose && sourceCenter
+                    ? {
+                        x: center.x - sourceCenter.x,
+                        y: center.y - sourceCenter.y,
+                      }
+                    : { x: 0, y: 0 };
+                let next = currentDoc;
+                for (const [index, sourceId] of item.rootIds.entries()) {
+                  const insertedRootId = inserted.rootIds[index];
+                  if (!insertedRootId) continue;
+                  const currentRoot = next.nodes[insertedRootId];
+                  if (!currentRoot) continue;
+                  const anchor = item.worldAnchors[sourceId];
+                  const desiredWorld =
+                    isFiniteAffine(anchor) && (currentFragment.preserveWorldPose || sourceBounds)
+                      ? translateWorldTransform(anchor, delta.x, delta.y)
+                      : translateWorldTransform(
+                          nodeWorldTransform(next, insertedRootId),
+                          delta.x,
+                          delta.y,
+                        );
+                  next = rebasePastedRoot(next, insertedRootId, targetParentId, desiredWorld);
+                }
+                return next;
+              }
+              const target =
+                item.position ??
+                ({ x: center.x + itemIndex * 40, y: center.y + itemIndex * 40 } as const);
+              return placePastedRootsAtWorldCenter(
+                currentDoc,
+                inserted.rootIds,
+                targetParentId,
+                target,
+              );
+            },
+          });
+          let nextDoc = prepared.doc;
+          const resourceImports: ImportedResourceSet[] = prepared.resourceImports;
+          if (fragment.text?.plainText) {
+            const next = nextNodeId(nextDoc);
+            const parentWorld = targetParentId ? nodeWorldTransform(nextDoc, targetParentId) : null;
+            const local = parentWorld
+              ? applyAffine(invertAffine(parentWorld), [center.x, center.y])
+              : [center.x, center.y];
+            const textNode = makeTextNode(next.id, fragment.text.plainText, {
+              name: 'Pasted text',
+              nameMode: 'automatic',
+              transform: [1, 0, 0, 1, local[0], local[1]],
+              fontSize: 16,
+              textMode: 'point',
+              textResizing: 'autoWidth',
+              ...(fragment.text.richText ? { richText: fragment.text.richText } : {}),
+            });
+            nextDoc = targetParentId
+              ? addChild(nextDoc, targetParentId, textNode)
+              : addNode(nextDoc, textNode);
+            prepared.rootIds.push(textNode.id);
+          }
+          if (prepared.rootIds.length === 0) return s;
+
+          if (fragment.route !== 'paste') {
+            for (const id of prepared.rootIds) {
+              const insertedNode = nextDoc.nodes[id];
+              if (!insertedNode || !isImageShape(insertedNode)) continue;
+              const shape = insertedNode as import('@varve/scene').ShapeNode;
+              const imageFill = shape.fills?.find(
+                (fill) => fill.type === 'image' && fill.image,
+              )?.image;
+              if (!imageFill) continue;
+              const existingFit = imageFill.fit !== 'fill' ? imageFill.fit : undefined;
+              const suggestion = suggestFit(
+                imageFill.imageWidth ?? shapeWidth(shape.shape),
+                imageFill.imageHeight ?? shapeHeight(shape.shape),
+                shapeWidth(shape.shape),
+                shapeHeight(shape.shape),
+                false,
+                existingFit,
+              );
+              const newFit = fromFitSuggestion(suggestion.fit);
+              if (newFit === imageFill.fit) continue;
+              const fills = shape.fills ?? [];
+              nextDoc = {
+                ...nextDoc,
+                nodes: {
+                  ...nextDoc.nodes,
+                  [id]: {
+                    ...shape,
+                    fills: fills.map((fill) =>
+                      fill.type === 'image' && fill.image
+                        ? { ...fill, image: { ...fill.image, fit: newFit } }
+                        : fill,
+                    ),
+                  } as SceneNode,
+                },
+              };
+            }
+          }
+
+          const maskTargetId = fragment.maskTargetId;
+          const maskTarget = maskTargetId ? nextDoc.nodes[maskTargetId] : undefined;
+          if (
+            maskTargetId &&
+            maskTarget &&
+            canBeClipMaskSource(maskTarget) &&
+            prepared.rootIds.length > 0 &&
+            prepared.rootIds.every((id) => isImageShape(nextDoc.nodes[id]!))
+          ) {
+            const targetParent = getParent(nextDoc, maskTargetId);
+            for (const importedId of prepared.rootIds) {
+              if (getParent(nextDoc, importedId) === targetParent) continue;
+              const importedWorld = nodeWorldTransform(nextDoc, importedId);
+              const parentWorld = targetParent
+                ? nodeWorldTransform(nextDoc, targetParent)
+                : ([1, 0, 0, 1, 0, 0] as const);
+              const imported = nextDoc.nodes[importedId];
+              if (!imported) continue;
+              nextDoc = {
+                ...nextDoc,
+                nodes: {
+                  ...nextDoc.nodes,
+                  [importedId]: { ...imported, rotation: 0 },
+                },
+              };
+              const parent = targetParent ? nextDoc.nodes[targetParent] : undefined;
+              const toIndex =
+                parent && isContainer(parent)
+                  ? parent.children.length
+                  : nextDoc.rootChildren.length;
+              nextDoc = reparentNodeDoc(
+                nextDoc,
+                importedId,
+                targetParent,
+                toIndex,
+                multiplyAffine(invertAffine(parentWorld), importedWorld),
+              );
+            }
+            try {
+              const clipped = createClippingMaskDoc(nextDoc, maskTargetId, prepared.rootIds, {
+                type: 'clip',
+                hideMaskSource: true,
+                linked: true,
+              });
+              nextDoc = clipped.doc;
+              committedIds = [clipped.groupId];
+            } catch (error) {
+              announcerRef.current?.announce(
+                error instanceof Error ? error.message : 'Imported images could not be masked',
+              );
+            }
+          }
+          if (committedIds.length === 0) committedIds = [...prepared.rootIds];
+          return {
+            ...s,
+            document: mergeImportedResources(nextDoc, resourceImports),
+            selection: committedIds,
+            dirty: true,
+          };
+        });
+      });
+      return committedIds;
+    },
+    [beginTransaction, commitTransaction],
+  );
 
   const value = useMemo<EditorContextValue>(
     () => ({
@@ -7978,194 +8198,70 @@ export function EditorProvider({
           return;
         }
 
-        let committedPasteCount = 0;
-        runOwnedTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
-          setState((s) => {
-            let doc = s.document;
-            const newIds: NodeId[] = [];
-            const resourceImports: ImportedResourceSet[] = [];
+        const preparedItems: PreparedFragmentItem[] = [];
+        if (varveData) {
+          const tempNodes: Record<string, SceneNode> = {};
+          for (const node of varveData.nodes) tempNodes[node.id] = node;
+          const fragmentBase = createDocument('Clipboard fragment', true);
+          const tempDoc: Document = {
+            ...fragmentBase,
+            nodes: tempNodes,
+            ...(varveData.rasterMaskAssets ? { rasterMaskAssets: varveData.rasterMaskAssets } : {}),
+            ...(varveData.assets ? { assets: varveData.assets } : {}),
+            ...(varveData.iconAssets ? { iconAssets: varveData.iconAssets } : {}),
+            ...(varveData.mockupTemplates ? { mockupTemplates: varveData.mockupTemplates } : {}),
+            ...(varveData.generativeEdits ? { generativeEdits: varveData.generativeEdits } : {}),
+            ...(varveData.components ? { components: varveData.components } : {}),
+            ...(varveData.styles ? { styles: varveData.styles } : {}),
+            ...(varveData.paints ? { paints: varveData.paints } : {}),
+            ...(varveData.variableStore ? { variableStore: varveData.variableStore } : {}),
+            ...(varveData.interactions ? { interactions: varveData.interactions } : {}),
+            ...(varveData.timelines ? { timelines: varveData.timelines } : {}),
+            ...(varveData.stories ? { stories: varveData.stories } : {}),
+            ...(varveData.motionExtensions ? { motionExtensions: varveData.motionExtensions } : {}),
+            ...(varveData.motionPresets ? { motionPresets: varveData.motionPresets } : {}),
+          };
+          const childIds = new Set<NodeId>();
+          for (const node of varveData.nodes) {
+            if (isContainer(node)) for (const childId of node.children) childIds.add(childId);
+          }
+          const rootIds =
+            varveData.rootIds && varveData.rootIds.length > 0
+              ? varveData.rootIds
+              : varveData.nodes.filter((node) => !childIds.has(node.id)).map((node) => node.id);
+          const validRootIds = rootIds.filter((id) => Boolean(tempNodes[id]));
+          if (validRootIds.length > 0) {
+            const worldAnchor = varveData.worldAnchor ?? {};
+            preparedItems.push({
+              sourceDoc: tempDoc,
+              rootIds: validRootIds,
+              worldAnchors: worldAnchor,
+            });
+          }
+        }
+        for (const result of importResults) {
+          if (result.nodeIds.length === 0) continue;
+          preparedItems.push({ sourceDoc: result.document, rootIds: result.nodeIds });
+        }
 
-            if (plainText) {
-              const next = nextNodeId(doc);
-              const parentWorld = targetParentId ? nodeWorldTransform(doc, targetParentId) : null;
-              const local = parentWorld
-                ? applyAffine(invertAffine(parentWorld), [
-                    pasteDestination.center.x,
-                    pasteDestination.center.y,
-                  ])
-                : [pasteDestination.center.x, pasteDestination.center.y];
-              const textNode = makeTextNode(next.id, plainText, {
-                name: 'Pasted text',
-                nameMode: 'automatic',
-                transform: [1, 0, 0, 1, local[0], local[1]],
-                fontSize: 16,
-                textMode: 'point',
-                textResizing: 'autoWidth',
-                ...(richText ? { richText: richText.richText } : {}),
-              });
-              doc = targetParentId
-                ? addChild(next.doc, targetParentId, textNode)
-                : addNode(next.doc, textNode);
-              newIds.push(textNode.id);
-            }
-
-            // Paste target and placement were resolved before the async
-            // clipboard read. All branches below finish in parent-local
-            // coordinates after their world-space placement is determined.
-            if (varveData) {
-              const tempNodes: Record<string, SceneNode> = {};
-              for (const node of varveData.nodes) {
-                tempNodes[node.id] = node;
-              }
-              // Keep the source fragment independent of destination resources.
-              const fragmentBase = createDocument('Clipboard fragment', true);
-              const tempDoc: Document = {
-                ...fragmentBase,
-                nodes: tempNodes,
-                ...(varveData.rasterMaskAssets
-                  ? { rasterMaskAssets: varveData.rasterMaskAssets }
-                  : {}),
-                ...(varveData.assets ? { assets: varveData.assets } : {}),
-                ...(varveData.iconAssets ? { iconAssets: varveData.iconAssets } : {}),
-                ...(varveData.mockupTemplates
-                  ? { mockupTemplates: varveData.mockupTemplates }
-                  : {}),
-                ...(varveData.generativeEdits
-                  ? { generativeEdits: varveData.generativeEdits }
-                  : {}),
-                ...(varveData.components ? { components: varveData.components } : {}),
-                ...(varveData.styles ? { styles: varveData.styles } : {}),
-                ...(varveData.paints ? { paints: varveData.paints } : {}),
-                ...(varveData.variableStore ? { variableStore: varveData.variableStore } : {}),
-                ...(varveData.interactions ? { interactions: varveData.interactions } : {}),
-                ...(varveData.timelines ? { timelines: varveData.timelines } : {}),
-                ...(varveData.stories ? { stories: varveData.stories } : {}),
-                ...(varveData.motionExtensions
-                  ? { motionExtensions: varveData.motionExtensions }
-                  : {}),
-                ...(varveData.motionPresets ? { motionPresets: varveData.motionPresets } : {}),
-              };
-              // copySelected()/cutSelected() serialize each selected node plus
-              // its full descendant subtree (gatherSubtreeNodes), so a node
-              // referenced as another copied node's child is a descendant, not
-              // an independent paste target — only the roots of the original
-              // selection should become new top-level pastes.
-              const childIds = new Set<NodeId>();
-              for (const node of varveData.nodes) {
-                if (isContainer(node)) {
-                  for (const childId of node.children) childIds.add(childId);
-                }
-              }
-              const rootIds =
-                varveData.rootIds && varveData.rootIds.length > 0
-                  ? varveData.rootIds
-                  : varveData.nodes.filter((node) => !childIds.has(node.id)).map((node) => node.id);
-              const worldAnchor = varveData.worldAnchor ?? {};
-              const insertedVarveRoots: Array<{ rootId: NodeId; sourceId: NodeId }> = [];
-              const validRootIds = rootIds.filter((id) => Boolean(tempNodes[id]));
-              const firstRootId = validRootIds[0];
-              if (firstRootId) {
-                // Clone every selected root in one pass. The shared id map
-                // keeps masks, scopes, effects, and path-text references
-                // between sibling roots instead of treating them as foreign.
-                const inserted = insertImportedSubtree(
-                  doc,
-                  tempDoc,
-                  firstRootId,
-                  (n) => n,
-                  invocation.workspaceMode,
-                  validRootIds.slice(1),
-                );
-                if (inserted) {
-                  doc = inserted.doc;
-                  resourceImports.push({ sourceDoc: tempDoc, idMap: inserted.idMap });
-                  insertedVarveRoots.push(
-                    ...inserted.rootIds.map((rootId, index) => ({
-                      rootId,
-                      sourceId: validRootIds[index]!,
-                    })),
-                  );
-                }
-              }
-
-              // A current same-document copy has an authoritative placed-world
-              // anchor. With no explicit container, preserve that pose; an
-              // explicitly selected frame/group instead receives the fragment
-              // centered as a whole while retaining its relative arrangement.
-              // Foreign or legacy payloads lack a trustworthy
-              // destination-independent pose, so they use the same center
-              // policy.
-              const preserveWorldPose =
-                varveData.sourceDocumentId === invocation.document.id &&
-                targetFrameId === null &&
-                insertedVarveRoots.every(({ sourceId }) => isFiniteAffine(worldAnchor[sourceId]));
-              const insertedIds = insertedVarveRoots.map(({ rootId }) => rootId);
-              const sourceBounds =
-                clipboardFragmentWorldBounds(
-                  tempDoc,
-                  insertedVarveRoots.map(({ sourceId }) => sourceId),
-                  worldAnchor,
-                ) ?? unionNodeWorldBounds(doc, insertedIds);
-              const sourceCenter = sourceBounds ? rectCenter(sourceBounds) : null;
-              const placementDelta =
-                !preserveWorldPose && sourceCenter
-                  ? {
-                      x: pasteDestination.center.x - sourceCenter.x,
-                      y: pasteDestination.center.y - sourceCenter.y,
-                    }
-                  : { x: 0, y: 0 };
-
-              for (const { rootId: insertedRootId, sourceId } of insertedVarveRoots) {
-                const root = doc.nodes[insertedRootId];
-                if (!root) continue;
-                const currentWorld = nodeWorldTransform(doc, insertedRootId);
-                const anchor = worldAnchor[sourceId];
-                const desiredWorld =
-                  isFiniteAffine(anchor) && (preserveWorldPose || Boolean(sourceBounds))
-                    ? translateWorldTransform(anchor, placementDelta.x, placementDelta.y)
-                    : translateWorldTransform(currentWorld, placementDelta.x, placementDelta.y);
-                doc = rebasePastedRoot(doc, insertedRootId, targetParentId, desiredWorld);
-                newIds.push(insertedRootId);
-              }
-            }
-
-            // External images/SVGs have no Varve world anchor. Place each
-            // logical item at the selected container's center, or at the
-            // captured viewport center when no container is selected. Apply
-            // the final world translation after insertion so page placement,
-            // rotation, scale, and the active content root are all honored.
-            let pasteIndex = 0;
-            for (const result of importResults) {
-              const firstId = result.nodeIds[0];
-              if (!firstId) continue;
-              const inserted = insertImportedSubtree(
-                doc,
-                result.document,
-                firstId,
-                (node) => node,
-                invocation.workspaceMode,
-                result.nodeIds.slice(1),
-              );
-              if (!inserted) continue;
-              doc = inserted.doc;
-              resourceImports.push({ sourceDoc: result.document, idMap: inserted.idMap });
-              doc = placePastedRootsAtWorldCenter(doc, inserted.rootIds, targetParentId, {
-                x: pasteDestination.center.x + pasteIndex * 40,
-                y: pasteDestination.center.y + pasteIndex * 40,
-              });
-              newIds.push(...inserted.rootIds);
-              pasteIndex += 1;
-            }
-
-            if (newIds.length === 0) return s;
-            committedPasteCount = newIds.length;
-            return {
-              ...s,
-              document: mergeImportedResources(doc, resourceImports),
-              selection: newIds,
-            };
+        const preserveWorldPose =
+          varveData !== null &&
+          varveData.sourceDocumentId === invocation.document.id &&
+          targetFrameId === null &&
+          preparedItems.every((item) => {
+            const anchors = item.worldAnchors;
+            return anchors ? item.rootIds.every((id) => isFiniteAffine(anchors[id])) : true;
           });
-        });
+        const committedPasteCount = commitPreparedFragment({
+          route: 'paste',
+          items: preparedItems,
+          targetParentId,
+          center: pasteDestination.center,
+          preserveWorldPose,
+          ...(!varveData && plainText
+            ? { text: { plainText, ...(richText ? { richText: richText.richText } : {}) } }
+            : {}),
+        }).length;
 
         if (committedPasteCount > 0) {
           const failed = importReport?.failureCount ?? 0;
@@ -8226,166 +8322,17 @@ export function EditorProvider({
       },
 
       batchImportNodes: (items, options) => {
-        setState((s) => {
-          undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
-          undoLabelsRef.current = [...undoLabelsRef.current.slice(-50), 'Edit'];
-          redoStackRef.current = [];
-          redoLabelsRef.current = [];
-          let doc = s.document;
-          const newIds: NodeId[] = [];
-          const resourceImports: ImportedResourceSet[] = [];
-          const selectedContainerId: NodeId | null =
-            s.selection.length === 1
-              ? (() => {
-                  const selected = s.document.nodes[s.selection[0]!];
-                  return selected &&
-                    !selected.locked &&
-                    selected.visible !== false &&
-                    (selected.kind === 'frame' || selected.kind === 'group')
-                    ? selected.id
-                    : null;
-                })()
-              : null;
-          let batchIndex = 0;
-          for (const { node, sourceDoc, position } of items) {
-            // Cascade positionless items from the viewport centre so a
-            // multi-file import doesn't stack every node on one point.
-            const fallback = viewportCenterWorld({
-              zoom: s.zoom,
-              pan: s.pan,
-              cameraRotation: s.cameraRotation,
-            });
-            const target = position ?? {
-              x: fallback.x + batchIndex * 40,
-              y: fallback.y + batchIndex * 40,
-            };
-            batchIndex += 1;
-            const inserted = insertImportedSubtree(
-              doc,
-              sourceDoc,
-              node.id,
-              (clonedRoot) => applyDropPosition(clonedRoot, target),
-              s.workspaceMode,
-            );
-            if (!inserted) continue;
-            doc = inserted.doc;
-            resourceImports.push({ sourceDoc, idMap: inserted.idMap });
-            const insertedNode = doc.nodes[inserted.rootId];
-            if (insertedNode && isImageShape(insertedNode)) {
-              const shape = insertedNode as import('@varve/scene').ShapeNode;
-              const imageFill = shape.fills?.find((f) => f.type === 'image' && f.image)?.image;
-              if (imageFill) {
-                const existingFit = imageFill.fit !== 'fill' ? imageFill.fit : undefined;
-                const frameW = shapeWidth(shape.shape);
-                const frameH = shapeHeight(shape.shape);
-                const imageW = imageFill.imageWidth ?? frameW;
-                const imageH = imageFill.imageHeight ?? frameH;
-                const suggestion = suggestFit(imageW, imageH, frameW, frameH, false, existingFit);
-                const newFit = fromFitSuggestion(suggestion.fit);
-                if (newFit !== imageFill.fit) {
-                  const fills = shape.fills ?? [];
-                  const newFills = fills.map((f) =>
-                    f.type === 'image' && f.image
-                      ? { ...f, image: { ...f.image, fit: newFit } }
-                      : f,
-                  );
-                  doc = {
-                    ...doc,
-                    nodes: {
-                      ...doc.nodes,
-                      [inserted.rootId]: { ...shape, fills: newFills } as SceneNode,
-                    },
-                  };
-                }
-              }
-            }
-            // File-picker imports honour a selected frame/group as their
-            // destination, matching paste and canvas-drop behaviour. The
-            // importer initially attaches roots to the active page so it can
-            // remain document-scoped; rebase the imported world transform
-            // before reparenting so translated/rotated containers do not
-            // teleport their new children.
-            if (selectedContainerId && doc.nodes[selectedContainerId]) {
-              const parent = doc.nodes[selectedContainerId];
-              const importedWorld = nodeWorldTransform(doc, inserted.rootId);
-              const parentWorld = nodeWorldTransform(doc, selectedContainerId);
-              const localTransform = multiplyAffine(invertAffine(parentWorld), importedWorld);
-              const toIndex = isContainer(parent) ? parent.children.length : -1;
-              if (toIndex >= 0) {
-                doc = reparentNodeDoc(
-                  doc,
-                  inserted.rootId,
-                  selectedContainerId,
-                  toIndex,
-                  localTransform,
-                );
-              }
-            }
-            newIds.push(inserted.rootId);
-          }
-          const maskTargetId = options?.maskTargetId;
-          const maskTarget = maskTargetId ? doc.nodes[maskTargetId] : undefined;
-          if (
-            maskTargetId &&
-            maskTarget &&
-            canBeClipMaskSource(maskTarget) &&
-            newIds.length > 0 &&
-            newIds.every((id) => {
-              const node = doc.nodes[id];
-              return node ? isImageShape(node) : false;
-            })
-          ) {
-            const targetParentId = getParent(doc, maskTargetId);
-            for (const importedId of newIds) {
-              if (getParent(doc, importedId) === targetParentId) continue;
-              const importedWorld = nodeWorldTransform(doc, importedId);
-              const parentWorld = targetParentId
-                ? nodeWorldTransform(doc, targetParentId)
-                : ([1, 0, 0, 1, 0, 0] as const);
-              const localTransform = multiplyAffine(invertAffine(parentWorld), importedWorld);
-              const imported = doc.nodes[importedId];
-              if (!imported) continue;
-              doc = {
-                ...doc,
-                nodes: {
-                  ...doc.nodes,
-                  [importedId]: { ...imported, rotation: 0 },
-                },
-              };
-              const parent = targetParentId ? doc.nodes[targetParentId] : undefined;
-              const toIndex =
-                parent && isContainer(parent) ? parent.children.length : doc.rootChildren.length;
-              doc = reparentNodeDoc(doc, importedId, targetParentId, toIndex, localTransform);
-            }
-            try {
-              const clipped = createClippingMaskDoc(doc, maskTargetId, newIds, {
-                type: 'clip',
-                hideMaskSource: true,
-                linked: true,
-              });
-              return {
-                ...s,
-                document: clipped.doc,
-                selection: [clipped.groupId],
-                dirty: true,
-              };
-            } catch (error) {
-              announcerRef.current?.announce(
-                error instanceof Error ? error.message : 'Imported images could not be masked',
-              );
-            }
-          }
-          return {
-            ...s,
-            document: mergeImportedResources(doc, resourceImports),
-            selection: newIds,
-            dirty: newIds.length > 0 || s.dirty,
-          };
-        });
+        const committed = commitPreparedFragment(
+          preparedFragmentFromNodes('import', items, {
+            targetParentId: null,
+            maskTargetId: options?.maskTargetId,
+          }),
+        );
         announcerRef.current?.announce(
-          `Imported ${items.length} layer${items.length > 1 ? 's' : ''}`,
+          `Imported ${committed.length} layer${committed.length === 1 ? '' : 's'}`,
         );
       },
+      commitPreparedFragment,
 
       bindingField: interactionState.bindingField,
       setBindingField: interactionState.setBindingField,
@@ -10284,6 +10231,7 @@ export function EditorProvider({
       onBackToHome,
       beginTransaction,
       commitTransaction,
+      commitPreparedFragment,
       abortTransaction,
       groupCompoundOperation,
       createTextChain,
