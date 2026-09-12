@@ -1112,3 +1112,15 @@ pnpm verify:affected
 Tier 0, typecheck:e2e, and selected unit lanes passed
 e2e:file:tests/e2e/canvas/clipboard.spec.ts — blocked: http://localhost:1420 already used
 ```
+
+After selecting an isolated E2E port, a final affected rerun reached the
+current concurrent engine work and stopped at its untouched formatter changes:
+
+```text
+VARVE_E2E_PORT=1490 pnpm verify:affected
+blocked at format:touched by packages/engine/src/generativeEdit/diffusionFrame.ts
+  and diffusionFrame.test.ts formatting diagnostics
+```
+
+The clipboard/import files remain clean under the same formatter and lint
+checks, and their direct unit and isolated browser E2E commands passed.
