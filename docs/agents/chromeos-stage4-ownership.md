@@ -94,3 +94,29 @@ visual-harness paths visible in `git status`; `docs/release/platform-support-mat
 - Stage 5's Linux ARM64 route remains independent; Stage 2's installed-PWA
   evidence remains independent.
 - Support-tier promotion remains Stage 7 work; nothing here changes the matrix.
+
+## Stage 4 progress
+
+**Updated:** 2026-09-12
+
+Delivered on `master`:
+
+- Ownership record and research ledger + audit
+  ([audit](../audits/chromeos-stage4-input-responsive-2026-09-12.md))
+  (`69bb8a8a7`).
+- Keyboard/visual-viewport inset model (`canvas/keyboardInset.ts`), document
+  publication through `KeyboardInsetPublisher`, dialog/toast/FAB adaptation,
+  and a visual-viewport clamp in `FloatingPortal` (`1952bc945`).
+- Responsive repairs: removed the legacy 600px document floor (320px WCAG
+  reflow floor now), measured `--floating-toolbar-height` so drawer FABs clear
+  the palette in every workspace, and brought compact menubar/status chrome to
+  the 24x24 CSS px target floor on coarse pointers (`f76d98eb1`).
+- Device-matrix acceptance spec (13 Chromium tests) and visually inspected
+  screenshots at 960x600, 1200x750, 1280x800, 600x960, 800x1280, 480x640, and
+  640x400 (200% zoom equivalent) (`f76d98eb1`).
+- Architecture docs ([responsive-workspace.md](../architecture/responsive-workspace.md),
+  behavior-matrix ChromeOS section) and marketing-website guidance for touch,
+  pen, keyboard conflicts, and the on-screen keyboard.
+
+Explicit remaining gaps: Duet hardware verification (audit section 5),
+support-matrix promotion (Stage 7), and a real OSK run in the installed PWA.

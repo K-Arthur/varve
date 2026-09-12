@@ -143,6 +143,35 @@ import { sitePath } from '../../lib/siteUrl';
       </section>
 
       <section class="docs-section">
+        <h2>Touch, pen, and keyboard on a tablet</h2>
+        <p>
+          The browser demo adapts to tablet and split-screen widths instead of assuming a desktop
+          window. At narrow widths the Layers, Resources, and Inspector panels become on-screen
+          drawers, the tool palette and status bar stay reachable, and controls grow to
+          comfortable touch targets.
+        </p>
+        <ul>
+          <li><strong>One finger</strong> draws or selects with the active tool.</li>
+          <li><strong>Two fingers</strong> pan and pinch-zoom the canvas around the gesture; page zoom is not affected.</li>
+          <li><strong>Long-press</strong> a stack of overlapping layers for the deep-selection menu — the touch equivalent of right-click.</li>
+          <li><strong>Pen</strong> input is treated as a precision pointer: pressure, tilt, and twist are used when the browser and device report them, and strokes fall back to constant width when they do not. Eraser-tip input is detected where the platform exposes it.</li>
+        </ul>
+        <p>
+          A detachable keyboard is optional. The app adapts to the actual viewport and pointer
+          capabilities, never to assumptions about whether a keyboard is attached. Where the
+          browser reports the on-screen keyboard geometry, dialogs, toasts, and the panel drawer
+          buttons move above it so the field you are editing and its commit controls stay visible.
+        </p>
+        <p>
+          ChromeOS owns some keyboard combinations. Varve switches workspaces with
+          <code>Ctrl+Shift+1…7</code> (not the browser's <code>Ctrl+1…8</code> tab switches).
+          Combinations such as <code>Ctrl+T</code>, <code>Ctrl+W</code>,
+          <code>Ctrl+Shift+I</code>, and <code>Ctrl+P</code> belong to the browser, so use the
+          menu, tab strip, or command palette for those actions in the browser demo.
+        </p>
+      </section>
+
+      <section class="docs-section">
         <h2>Troubleshooting</h2>
         <ul>
           <li><strong>"Varve is not available offline yet"</strong> — the browser has no complete offline copy. Reconnect, load the demo once, and let the page settle for a few seconds.</li>

@@ -158,12 +158,15 @@ cannot leave the editor stuck.
 
 | Area | Status |
 |---|---|
-| Keyboard panning (arrow keys move view) | Not implemented (arrows nudge selection) — accessible alternative via Hand tool + keyboard is WIP |
+| Keyboard panning (arrow keys move view) | Not implemented (arrows nudge selection) — touch pan, trackpad scroll, and the Hand tool are the pointer paths; an explicit "pan view" keyboard mode remains WIP |
 | Pen barrel-button action customization | Not exposed in settings |
 | Gesture sensitivity settings | Not exposed (defaults follow platform) |
 | `zoomBy`/`zoomAtScreenPoint`/`panToWorldPoint` convenience API | Absorbed by existing `commitCamera`/`computeZoom*`; not re-exported |
 | Viewport-rotation gestures (touch twist) | Not implemented; rotation via toolbar/shortcuts only |
 | Diagnostics HUD toggle | Ring buffer exists; opt-in via `?perf=1` query param. Exposed as `window.__varvePerf` (see `drawDiagnostics.ts`); input diagnostics module (`inputDiagnostics.ts`) provides a ring buffer of normalized events but does not currently expose a window global |
+| Real USI Pen 2 pressure/tilt/eraser/palm behavior | CDP pen emulation covers the pipeline; hardware truth requires the Duet checklist in `docs/audits/chromeos-stage4-input-responsive-2026-09-12.md` |
+| Real on-screen keyboard appearance/dismissal | Inset model and surface adaptation implemented and unit/E2E-tested with synthetic geometry; real OSK is a device check |
+| ChromeOS-reserved shortcut conflicts | Documented in section 8; no app code change required (menu/palette provide alternatives) |
 
 ## 7. Manual hardware checklist (release gate)
 
@@ -182,3 +185,69 @@ Before shipping an input milestone, verify on each available device:
 - [ ] Multi-selection arrows: every eligible root moves by the same world delta; spacing and hierarchy remain unchanged.
 - [ ] Held Arrow: repeat movement is responsive, creates one undo interaction, and blur/visibility loss cannot leave it open.
 - [ ] Window blur mid-drag: no stuck state; pointer cancel received.
+
+## 8. ChromeOS and browser-route constraints
+
+Research basis: ChromeOS Help "Chromebook keyboard shortcuts" and "Use your
+Chromebook touchpad" (Google, accessed 2026-09-12; ChromeOS stable 152).
+Reserved combinations are owned by the OS/browser and cannot be intercepted by
+page code. These are discovered from the documentation and observed on Chrome
+for desktop; they are not yet re-verified on the Duet.
+
+### 8.1 Reserved by the browser/OS (do not rely on these in the browser route)
+
+| Reserved input | Consequence for Varve |
+|---|---|
+| `Ctrl+1` … `Ctrl+8` | Switches browser tabs. Varve workspace shortcuts deliberately use `Ctrl+Shift+1`…`7`/`9`, which is not reserved. |
+| `Ctrl+T`, `Ctrl+N`, `Ctrl+W` | Browser tabs/windows. Varve's "New tab"/"Close Document" bindings only resolve inside Tauri; in the browser use the tab strip, File menu, or command palette. |
+| `Ctrl+H`, `Ctrl+J` | History/Downloads. Not bound by Varve. |
+| `Ctrl+Shift+I`, `Ctrl+Shift+J`, `Ctrl+Shift+C` | Developer Tools. `Ctrl+Shift+I` (Invert Selection) is unreachable in the browser; use Edit > Invert Selection or the palette. |
+| `Ctrl+P`, `Ctrl+S`, `Ctrl+O`, `Ctrl+D`, `Ctrl+F` | Print/Save/Open/Bookmark/Find-in-page. Varve's own Print/Save/Open/Find actions must be invoked from the menu, palette, or toolbar in the browser route; the app cannot guarantee the page handler wins for these. |
+| `Ctrl+Shift++` / `Ctrl+Shift+-` / `Ctrl+Shift+0` | Changes the ChromeOS screen resolution. Varve's zoom uses `Ctrl+=` / `Ctrl+-` / `Ctrl+0` (no Shift). |
+| `Alt+=` / `Alt+-` / `Alt+[` / `Alt+]` | Maximize/minimize/dock. Not bound by Varve. |
+| `Ctrl+Space` / `Ctrl+Shift+Space` | Keyboard-language switch / emoji picker. Not bound by Varve. |
+| `Alt+Backspace` | Forward delete in text fields. Varve's canvas Delete is bare `Backspace`, which text inputs consume normally. |
+| `Search`/`Launcher` combinations | OS shortcuts (e.g. Search+L lock, Search+Alt caps lock). Varve binds none. |
+| Three-finger swipes | Browser tab switching / overview. Varve navigation must never require three fingers; canvas gestures use one or two. |
+| Two-finger tap on the touchpad | Right-click. The canvas context menu is reachable by right-click and by touch/pen long-press. |
+| `Alt`+click on the touchpad | Right-click. Two Varve interactions assume `Alt` as a modifier: the Zoom tool's Alt+click zoom-out and BaseTool's Alt-drag "draw from centre". On a Chromebook touchpad these arrive as right-clicks and open the context menu instead. Keyboard-free alternatives: the status-bar zoom stepper / zoom field for zoom-out, and the Inspector geometry fields for centre-anchored sizing. |
+
+### 8.2 Touch and pen policy (as implemented and tested in emulation)
+
+| Input | Behavior | Evidence |
+|---|---|---|
+| One-finger touch | Routed to the active tool (draw/select/edit), not viewport pan | E2E `one-finger touch draws with the active tool` |
+| Two-finger touch | Pan + zoom about the centroid; page zoom stays at 1 | E2E `two-finger pinch zooms the canvas without page zoom` |
+| Touch long-press | Opens the deep-selection menu (SelectTool, `LONG_PRESS_MS`) | unit tests + implementation |
+| Touch multi-select | Toolbar toggle (`state.touchMultiSelect`) with marquee suppression | E2E and unit tests |
+| Pen | Pressure/tilt/twist normalized when reported; missing data falls back to constant pressure, never dropped | `inputNormalizer` unit tests; synthetic CDP pen E2E |
+| Pen + touch | Touch navigation can run while a pen hovers; touch never merges into a pen stroke | documented policy; real arbitration is a device check |
+| Eraser tip | Detected via `button === 5` | `inputNormalizer` |
+| Palm touches | Platform palm rejection is trusted where exposed; the app does not claim perfect rejection | device checklist |
+
+### 8.3 Coarse-pointer target policy
+
+- WCAG 2.2 SC 2.5.8 floor: every interactive control must be at least
+  24x24 CSS px, or satisfy the spacing exception.
+- The project goal is 44 CSS px (`--touch-target-min`) for primary controls:
+  drawer FABs, workspace dock, floating text bar, and shared form controls.
+- Compact chrome (menubar items, status bar toggles/zoom stepper, tabs, save
+  badge, debt badge) keeps its 36px/28px bar heights but grows every control
+  to a 24px minimum hit box under `@media (pointer: coarse), (any-pointer:
+  coarse)`.
+- Automated check: `tests/e2e/interaction/chromeos-device-matrix.spec.ts`
+  (`primary chrome meets the 24 CSS px target floor`) measures every button in
+  the menubar, status bar, floating toolbar, and FAB cluster at 800x1280 with
+  a coarse pointer and fails on any visible control below 24px.
+
+### 8.4 Virtual keyboard
+
+- The editor publishes `--keyboard-inset-bottom`, `--visual-viewport-height`,
+  and `--visual-viewport-offset-top` (see
+  [`responsive-workspace.md`](./responsive-workspace.md)).
+- Dialogs, toasts, and drawer triggers adapt; the canvas itself continues to
+  receive visual-viewport resize events through `canvasSurface.ts`.
+- No page zoom is disabled, and no `preventDefault` is called on viewport
+  events, so OS-reserved gestures and accessibility zoom keep working.
+- Real OSK verification (caret, commit controls, restore after dismissal) is
+  on the Duet checklist.

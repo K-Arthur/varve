@@ -49,16 +49,32 @@ The input core already exists and is documented by
 ## 3. Confirmed gaps this stage addresses
 
 1. **No virtual-keyboard / visual-viewport inset model.** The only
-   VirtualViewport consumers are canvas geometry subscriptions; no surface
-   adapts to an OSK, and no `keyboard-inset-*` usage exists. Fixed by
-   `canvas/keyboardInset.ts` + a document-level CSS-variable publication and
-   surface CSS.
-2. **No emulated device-matrix acceptance test.** Responsive coverage is a
-   single 640x700 drawer test; nothing asserts overflow/target geometry at the
-   requested CSS sizes, touch gestures, or pen events.
-3. **ChromeOS-reserved shortcut conflicts are undocumented** for users, and
-   nothing checks that an essential action is not bound only to an
-   OS-reserved combination.
+   Viewport consumers were canvas geometry subscriptions; no surface adapted
+   to an OSK, and no `keyboard-inset-*` usage existed. Fixed by
+   `canvas/keyboardInset.ts` + a document-level CSS-variable publication,
+   dialog/toast/FAB adaptation, and a visual-viewport clamp in
+   `FloatingPortal` (commit `1952bc945`).
+2. **No emulated device-matrix acceptance test.** Responsive coverage was a
+   single 640x700 drawer test; nothing asserted overflow/target geometry at
+   the requested CSS sizes, touch gestures, or pen events. Added
+   `tests/e2e/interaction/chromeos-device-matrix.spec.ts` (13 tests, all
+   passing on Chromium, commit `f76d98eb1`).
+3. **Legacy `min-width: 600px` document floor** forced horizontal page drift
+   in split-screen and at the 200%-zoom-equivalent width. Replaced with the
+   320 CSS px WCAG reflow floor (commit `f76d98eb1`).
+4. **Bottom chrome overlap:** drawer FABs covered floating-toolbar controls at
+   every `<=899px` width because their offset assumed a fixed toolbar height.
+   The toolbar now publishes its measured height and the FABs clear it in all
+   workspaces, asserted in Design and Draw modes (commit `f76d98eb1`).
+5. **Undersized compact chrome on coarse pointers:** menubar items, tabs,
+   status-bar toggles, the zoom stepper, save/layout/debt badges, and the
+   units select measured 12-22 CSS px. They now meet the 24x24 floor under
+   `(pointer: coarse)` while their bars keep their heights (commit
+   `f76d98eb1`).
+6. **ChromeOS-reserved shortcut conflicts were undocumented.** Section 8 of
+   [`input-system-behavior-matrix.md`](../architecture/input-system-behavior-matrix.md)
+   now lists browser/OS-owned combinations, the touch/pen policy, the target
+   policy, and the virtual-keyboard contract.
 
 ## 4. Acceptance plan
 
@@ -91,8 +107,17 @@ The input core already exists and is documented by
 
 ## 6. Evidence log
 
-Appended per milestone; see the ownership record for commit ids.
-
 | Milestone | Command | Result | Artifacts inspected |
 |---|---|---|---|
-| (pending) | | | |
+| Keyboard/visual-viewport model + floating UI clamp (`1952bc945`) | `pnpm exec vitest run packages/editor/src/canvas/__tests__/keyboardInset.test.ts packages/ui/src/components/overlayGeometry.test.ts packages/ui/src/components/FloatingPortal.test.tsx` | 37/37 passed | test output |
+| Typechecks | `pnpm --filter @varve/ui typecheck`, `pnpm --filter @varve/editor typecheck`, `pnpm --filter @varve/desktop typecheck`, `pnpm typecheck:e2e` | all passed | compiler output |
+| Responsive/input acceptance (`f76d98eb1`) | `VARVE_E2E_PORT=1494 VARVE_E2E_OUTPUT_DIR=stage4-final pnpm exec playwright test tests/e2e/interaction/chromeos-device-matrix.spec.ts --project=chromium --reporter=list` | 13/13 passed (3.8m) | Screenshots inspected: 960x600, 1200x750, 1280x800, 600x960, 800x1280, 480x640, 640x400 (200% equivalent). Under load one run hit a renderer `Target crashed`; the isolated rerun passed, recorded as environment flake. |
+| Bottom-chrome clearance fix | `... -g "portrait-600x960\|portrait-800x1280\|split-480x640\|zoom200\|bottom chrome clearance"` | 4/5 passed; split-480 rerun passed alone | Screenshots show FABs clear of the toolbar at 480x640, 800x1280, 640x400; clearance test passes in Design and Draw |
+| Floating toolbar unit tests | `pnpm exec vitest run packages/editor/src/components/FloatingToolbar/FloatingToolbar.test.tsx` | 9/9 passed | test output |
+| Coarse-target measurements | `coarse-target-measurements.json` attachment from the passing run | after fixes: zero controls below 24x24 at 800x1280 | attachment + inspected screenshot |
+
+Pre-fix measurements retained for the record: the coarse-target test first
+failed with 13 undersized controls (menubar items 19.25px tall, tabs 18px,
+status toggles/zoom 12-17.44px, save badge 20px, units select 22px); the
+480x640 matrix first failed with `documentScrollWidth 600 > clientWidth 480`
+caused by `html { min-width: 600px }`.

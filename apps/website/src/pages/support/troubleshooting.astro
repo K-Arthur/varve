@@ -93,6 +93,48 @@ import { sitePath } from '../../lib/siteUrl';
       </div>
 
       <div class="troubleshooting-section">
+        <h2>Input and Devices</h2>
+
+        <div class="troubleshoot-item">
+          <h3>Touch gestures don't do what I expect in the browser demo</h3>
+          <p>
+            <strong>Solution:</strong> One finger operates the active tool, while two fingers pan
+            and pinch-zoom the canvas. If the wrong tool is active, pick one from the palette or
+            press its shortcut. Long-press a stack of overlapping layers for the deep-selection
+            menu (the touch equivalent of right-click). On a touchscreen laptop both the
+            touchscreen and the trackpad stay active — a trackpad two-finger scroll pans the
+            canvas, and a trackpad pinch zooms it.
+          </p>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>A keyboard shortcut does nothing on a Chromebook</h3>
+          <p>
+            <strong>Solution:</strong> ChromeOS reserves some combinations before the page sees
+            them. <code>Ctrl+1…8</code> switches browser tabs, <code>Ctrl+T</code> /
+            <code>Ctrl+W</code> / <code>Ctrl+N</code> manage tabs and windows,
+            <code>Ctrl+Shift+I</code> opens Developer Tools, and
+            <code>Ctrl+Shift++</code> / <code>Ctrl+Shift+-</code> / <code>Ctrl+Shift+0</code>
+            changes the screen resolution. Use the menu, command palette, toolbar, or status bar
+            for those actions. Varve's workspace switching uses
+            <code>Ctrl+Shift+1…7</code>, and zoom keys are matched by physical key position, so
+            they behave the same on French and English Chromebook keyboards.
+          </p>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>The on-screen keyboard covers the editor</h3>
+          <p>
+            <strong>Solution:</strong> Chromium-based browsers report the on-screen keyboard
+            geometry, and the demo reserves that height for dialogs, toasts, and the panel drawer
+            buttons. If a specific field is still covered, dismiss and refocus the field so the
+            operating system scrolls it back into view; if it persists, report it with your
+            ChromeOS version and device model.
+          </p>
+        </div>
+      </div>
+
+      <div class="troubleshooting-section">
         <h2>Crashes and Errors</h2>
         
         <div class="troubleshoot-item">
