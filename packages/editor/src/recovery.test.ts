@@ -236,6 +236,61 @@ describe('RecoveryManager', () => {
       expect(await manager.listSessions()).toHaveLength(2);
     });
   });
+
+  describe('recovery byte cap', () => {
+    function paddedDoc(label: string): Record<string, unknown> {
+      return {
+        formatVersion: '1.0',
+        name: label,
+        nodes: {},
+        rootChildren: [],
+        padding: 'x'.repeat(1200),
+      };
+    }
+
+    it('evicts oldest redundant points when the byte cap is exceeded', async () => {
+      const capped = new RecoveryManager(storage, 2500);
+      let now = 1000;
+      vi.spyOn(Date, 'now').mockImplementation(() => (now += 10));
+
+      await capped.createRecoveryPoint(paddedDoc('first') as never, 'Untitled');
+      await capped.createRecoveryPoint(paddedDoc('second') as never, 'Untitled');
+      await capped.createRecoveryPoint(paddedDoc('third') as never, 'Untitled');
+
+      const metas = await capped.listSessionsMeta();
+      expect(metas).toHaveLength(1);
+      const raw = await storage.load(`recovery_${metas[0]!.id}`);
+      expect(raw).toContain('third');
+      vi.restoreAllMocks();
+    });
+
+    it('never deletes the newest point for a tab to satisfy the byte cap', async () => {
+      const capped = new RecoveryManager(storage, 100);
+
+      await capped.createRecoveryPoint(paddedDoc('only-copy') as never, 'Unsaved');
+
+      // The point is larger than the cap, but it is the tab's only recovery
+      // copy; the cap must not delete it.
+      expect(await capped.listSessionsMeta()).toHaveLength(1);
+    });
+
+    it('keeps the newest point of each tab when many tabs exceed the cap', async () => {
+      const capped = new RecoveryManager(storage, 2600);
+      let now = 5000;
+      vi.spyOn(Date, 'now').mockImplementation(() => (now += 10));
+
+      await capped.createRecoveryPoint(paddedDoc('a-old') as never, 'Tab A');
+      await capped.createRecoveryPoint(paddedDoc('a-new') as never, 'Tab A');
+      await capped.createRecoveryPoint(paddedDoc('b-new') as never, 'Tab B');
+
+      const metas = await capped.listSessionsMeta();
+      expect(metas.map((m) => m.tabName).sort()).toEqual(['Tab A', 'Tab B']);
+      const newestA = metas.find((m) => m.tabName === 'Tab A');
+      const rawA = await storage.load(`recovery_${newestA!.id}`);
+      expect(rawA).toContain('a-new');
+      vi.restoreAllMocks();
+    });
+  });
 });
 
 describe('getSharedRecoveryManager', () => {

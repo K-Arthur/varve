@@ -491,6 +491,14 @@ describe('synchronous worker image-payload admission', () => {
     );
   });
 
+  it('bounds transfer admission by default when no budget is supplied', () => {
+    // A caller that forgets `maxEntries` must not make the per-frame image
+    // transfer unbounded; the default is a bounded source count.
+    const sources = Array.from({ length: 65 }, (_, i) => `img-${i}.png`);
+    expect(admitWorkerImagePayload([imageItem(...sources)])).toBe('source-count');
+    expect(admitWorkerImagePayload([imageItem(...sources)], { maxEntries: 65 })).toBeNull();
+  });
+
   it('counts only sources that still need transferring, so a resident scene is admitted', () => {
     // Regression: counting residents too refused a fully-resident scene
     // forever — a refused frame transfers nothing, so residency could never

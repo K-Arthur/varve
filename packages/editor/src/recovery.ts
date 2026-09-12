@@ -181,8 +181,21 @@ export interface RecoverySessionMeta extends RecoverySession {
 
 const MAX_SESSIONS_DEFAULT = 20;
 
+/**
+ * Total recovery bytes kept per origin. Recovery points hold a full document
+ * string each, so on a small eMMC device a handful of image-heavy documents
+ * can occupy gigabytes if only the session count is capped. Older redundant
+ * points for the same tab are evicted first; the newest point per tab is
+ * never deleted to satisfy this cap (a single oversized point may therefore
+ * keep the total above it).
+ */
+const MAX_TOTAL_BYTES_DEFAULT = 64 * 1024 * 1024;
+
 export class RecoveryManager {
-  constructor(private storage: RecoveryStorage) {}
+  constructor(
+    private storage: RecoveryStorage,
+    private maxTotalBytes = MAX_TOTAL_BYTES_DEFAULT,
+  ) {}
 
   async createRecoveryPoint(
     doc: Document,
@@ -208,6 +221,34 @@ export class RecoveryManager {
 
     // Enforce max sessions limit — remove oldest beyond cap
     await this.enforceMaxSessions(MAX_SESSIONS_DEFAULT);
+    await this.enforceTotalBytes();
+  }
+
+  /**
+   * Evict the oldest redundant points until the byte cap is met. The newest
+   * point for each tab is the only copy of that tab's latest work, so it is
+   * protected even when it alone exceeds the cap.
+   */
+  private async enforceTotalBytes(): Promise<void> {
+    const metas = await this.listSessionsMeta();
+    let total = metas.reduce((sum, meta) => sum + meta.sizeBytes, 0);
+    if (total <= this.maxTotalBytes) return;
+
+    const protectedIds = new Set<string>();
+    const seenTabs = new Set<string>();
+    for (const meta of metas) {
+      const tabKey = meta.fileId ?? `name:${meta.tabName}`;
+      if (seenTabs.has(tabKey)) continue;
+      seenTabs.add(tabKey);
+      protectedIds.add(meta.id);
+    }
+
+    for (const meta of [...metas].reverse()) {
+      if (total <= this.maxTotalBytes) break;
+      if (protectedIds.has(meta.id)) continue;
+      await this.deleteSession(meta.id);
+      total -= meta.sizeBytes;
+    }
   }
 
   private async enforceMaxSessions(max: number): Promise<void> {

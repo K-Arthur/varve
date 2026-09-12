@@ -241,7 +241,12 @@ export interface WorkerImageAdmissionOptions {
  * The source-count budget applies to sources that actually need transferring:
  * counting residents too would refuse a fully-resident scene forever, and a
  * refused frame transfers nothing, so residency could never grow past the cap.
+ *
+ * `maxEntries` has a bounded default: a caller that forgets the option must
+ * not make the per-frame image transfer unbounded.
  */
+const DEFAULT_MAX_ENTRIES = 64;
+
 export function admitWorkerImagePayload(
   ir: RenderItem[],
   options: WorkerImageAdmissionOptions = {},
@@ -250,7 +255,7 @@ export function admitWorkerImagePayload(
   if (srcs.length === 0) return null;
   if (irHasUnsupportedWorkerMasks(ir)) return 'masked';
   if (resolveSourcesForLoad(srcs) === null) return 'unresolvable-source';
-  const maxEntries = options.maxEntries ?? Number.POSITIVE_INFINITY;
+  const maxEntries = options.maxEntries ?? DEFAULT_MAX_ENTRIES;
   const resident = options.residentSources;
   let needsTransfer = 0;
   for (const src of srcs) {
