@@ -214,22 +214,27 @@ source: `apps/website/src/pages/docs/chromeos-linux.astro`), linked from the
 Linux download section, Getting Started, the docs index, and troubleshooting.
 It was validated the same day:
 
-- `pnpm build:website` and `pnpm build:website:pages` produced 85 routes each
-  before the final docs-index link was added.
+- `pnpm build:website` and `pnpm build:website:pages` completed after the
+  other agent's untracked `browser-demo.astro` import error was fixed by its
+  owner (`astro check`: 0 errors); 85 routes per variant.
 - Playwright e2e content spec `apps/website/tests/e2e/chromeos-linux.spec.ts`
   passed (4/4) against the Pages-base build: exact artifact filename and
   version come from the generated release manifest and are cross-checked
   against `docs/release/chromeos-linux.md`; the checksum, apt install, apt
-  remove, and "Share with Linux" text are asserted; the route is in the
-  sitemap.
-- The SEO contract spec now includes `/docs/chromeos-linux` in its route list,
-  so head metadata (title, canonical, Open Graph, JSON-LD) is covered.
+  remove, and "Share with Linux" text are asserted; the docs-index link is
+  asserted; the route is in the sitemap.
+- The SEO contract spec includes `/docs/chromeos-linux` in its route list; the
+  new route emits `index, follow` with complete canonical/OG/JSON-LD metadata.
+  The SEO spec run was 8 passed / 1 failed: `/releases` is `noindex` on
+  `master` (pre-existing, outside this stage's files).
 - Committed visual baselines:
   `chromeos-linux-light-ghpages-linux.png` (article content, 800x3880),
   `download-linux-light-ghpages-linux.png` (Linux panel with the ChromeOS row,
   960x3863) and the refreshed `download-dark-ghpages-linux.png` (1280x6447).
-  All three were inspected as images, and passed twice consecutively.
-- The ChromeOS page captures use a document-coordinate clip because a bare
+  All were inspected as images, and passed twice consecutively. The
+  `docs-light.png` baseline needed no change for the added docs-index link
+  (the delta is below the suite's 2% pixel threshold).
+- The ChromeOS page capture uses a document-coordinate clip because a bare
   fullPage capture of that route varies by 4 blank pixels between Playwright's
   repeated screenshots (measured with `scrollHeight` stable at 4886 while
   successive captures returned 4886/4890). The clip keeps the comparison on
@@ -242,7 +247,13 @@ Unrelated failures observed while validating (not produced by Stage 5):
   uses raw `#dce7eb`, and `--surface-raised` / `--font-ui` are referenced but
   undefined. The offenders were introduced by the grid-systems website commit
   (`2f214960b`) and are outside this stage's file ownership.
+- `workspaces-docs-light` visual baseline fails because the workspaces docs
+  page changed without its snapshot being updated (another active workstream);
+  the baseline was left untouched.
+- `/releases` returns `noindex, nofollow` while the SEO spec expects
+  `index, follow`; the page is committed that way on `master` before Stage 5.
 - A new untracked `apps/website/src/pages/docs/browser-demo.astro` (another
-  active workstream, seen at 06:30) imported `../../../lib/siteUrl` and
-  `../../../layouts/Layout.astro`, which do not resolve from `src/pages/docs/`.
-  It blocked a rebuild at one point; it is not part of Stage 5.
+  active workstream) initially imported `../../../lib/siteUrl` and
+  `../../../layouts/Layout.astro`, which do not resolve from `src/pages/docs/`;
+  it temporarily blocked a rebuild and was fixed by its owner during this
+  session.
