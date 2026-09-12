@@ -60,6 +60,15 @@ test.describe('Layers panel visual states', () => {
       name: 'Collapse Inspector (Ctrl+Shift+B)',
     });
     if (await collapseRightBtn.isVisible().catch(() => false)) {
+      const headerActions = page.locator('.insp-panel__header-actions');
+      if (await headerActions.isVisible().catch(() => false)) {
+        await headerActions.screenshot({
+          path: testInfo.outputPath('inspector-header-actions.png'),
+        });
+      }
+      await collapseRightBtn.screenshot({
+        path: testInfo.outputPath('inspector-collapse-btn-icon.png'),
+      });
       await collapseRightBtn.click();
       const restoreRight = page.getByTestId('restore-right-panel');
       await expect(restoreRight).toBeVisible();

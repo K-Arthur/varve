@@ -60,6 +60,25 @@
   align-self: center;
   margin-inline: var(--space-1) var(--space-2);
 }
+.insp-panel__header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding-inline-start: var(--space-1);
+  padding-inline-end: var(--space-2);
+  border-inline-start: 1px solid var(--color-border-subtle);
+  align-self: stretch;
+  flex-shrink: 0;
+}
+.insp-panel__header-actions > .panel-detach-btn,
+.insp-panel__header-actions > .varve-tooltip-trigger {
+  align-self: center;
+  margin-inline: 0;
+}
+.insp-panel__header-actions .varve-tooltip-trigger {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
 .insp-panel__tabs::-webkit-scrollbar {
   display: none;
 }
@@ -118,28 +137,50 @@
 }
 
 .insp-panel__header-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--space-6);
-  height: var(--space-6);
+  inline-size: max(28px, var(--space-6));
+  block-size: max(28px, var(--space-6));
+  min-inline-size: 28px;
+  min-block-size: 28px;
   padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--color-text-muted);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-control-compact);
+  background: var(--color-surface-raised);
+  color: var(--color-text-secondary);
   cursor: pointer;
+  flex: 0 0 auto;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
   transition:
-    background var(--duration-fast) var(--ease-default),
-    color var(--duration-fast) var(--ease-default);
+    background var(--duration-quick) var(--ease-standard),
+    border-color var(--duration-quick) var(--ease-standard),
+    color var(--duration-quick) var(--ease-standard),
+    box-shadow var(--duration-quick) var(--ease-standard),
+    transform var(--duration-quick) var(--ease-standard);
 }
 .insp-panel__header-btn:hover {
+  border-color: var(--color-interactive-default);
   background: var(--color-surface-hover);
   color: var(--color-text-primary);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.14);
+}
+.insp-panel__header-btn:active {
+  background: var(--color-surface-sunken);
+  color: var(--color-interactive-active);
+  transform: translateY(1px);
 }
 .insp-panel__header-btn:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: -1px;
+  outline: 3px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+  color: var(--color-text-primary);
+}
+[data-theme="high-contrast"] .insp-panel__header-btn {
+  border: 2px solid var(--color-border-strong);
+}
+[data-theme="high-contrast"] .insp-panel__header-btn:hover,
+[data-theme="high-contrast"] .insp-panel__header-btn:focus-visible {
+  border-color: var(--color-interactive-focus-ring);
 }
 .insp-panel__tab-overflow:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);

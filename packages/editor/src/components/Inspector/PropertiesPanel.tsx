@@ -307,7 +307,7 @@ export function PropertiesPanel() {
           activeTab={tab}
           onActivate={activateTab}
           onDetach={
-            <>
+            <div className="insp-panel__header-actions">
               <PanelDetachButton />
               {toggleRightPanel && (
                 <Tooltip label="Collapse Inspector (Ctrl+Shift+B)">
@@ -356,7 +356,7 @@ export function PropertiesPanel() {
                   </button>
                 </Tooltip>
               )}
-            </>
+            </div>
           }
         />
       </PanelDragHandle>
