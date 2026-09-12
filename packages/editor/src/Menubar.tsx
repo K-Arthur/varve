@@ -4,6 +4,7 @@ import { VARVE_URLS } from '@varve/shared';
 import {
   AlertDialog,
   closeAllOverlays,
+  elementAnchor,
   FloatingPortal,
   IconButton,
   SOLID_CHROME_ICONS,
@@ -23,7 +24,7 @@ import { isCapabilityRestricted, isWorkspaceModeAllowed } from './capabilities/r
 import { ArchiveDialog, type ArchiveDialogProps } from './components/Archive/ArchiveDialog';
 import { OfflineBanner } from './components/OfflineBanner';
 import { RasterizeDialog } from './components/Rasterize/RasterizeDialog';
-import { ContextAwareShortcuts, WorkspaceTabs } from './components/WorkspaceTabs';
+import { WorkspaceTabs } from './components/WorkspaceTabs';
 import { useEditor } from './context';
 import { computeCapabilities, getNudgeCapability, useNativeMenu } from './menu';
 import { useMenubarFocusEffects } from './menu/menubarFocus';
@@ -602,6 +603,29 @@ function buildMenus(
           shortcut: formatShortcut(SHORTCUT_DEFS.paste.binding),
           ariaKeyshortcut: ks('paste'),
           action: 'paste',
+        },
+        {
+          label: 'Copy Text',
+          action: 'copyText',
+          disabled: !hasSelection,
+        },
+        {
+          label: 'Copy as SVG',
+          action: 'copyAsSvg',
+          disabled: !hasSelection,
+        },
+        {
+          label: 'Copy as PNG',
+          action: 'copyAsPng',
+          disabled: !hasSelection,
+        },
+        {
+          label: 'Paste as Plain Text',
+          action: 'pastePlainText',
+        },
+        {
+          label: 'Paste SVG Markup',
+          action: 'pasteSvgMarkup',
         },
         {
           label: 'Copy Properties',
@@ -2325,7 +2349,13 @@ export function Menubar({
           ))}
           {openMenu && openMenuIndex >= 0 && (
             <FloatingPortal
+              key={openMenu}
               anchorRef={openMenuAnchorRef}
+              explicitAnchor={
+                topLevelRefs.current[openMenuIndex]
+                  ? elementAnchor(topLevelRefs.current[openMenuIndex]!)
+                  : undefined
+              }
               open
               insideRefs={[submenuRef]}
               kind="menubar-menu"
@@ -2502,7 +2532,6 @@ export function Menubar({
             </Tooltip>
           )}
         </div>
-        <ContextAwareShortcuts />
       </div>
 
       {/* ── Right: Workspace tabs + Zoom + Undo/Redo ── */}

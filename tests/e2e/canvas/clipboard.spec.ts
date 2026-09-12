@@ -67,6 +67,35 @@ test('a live browser paste event transfers an editable layer and renders it', as
   });
 });
 
+test('Edit menu Copy as PNG performs a real clipboard write', async ({ page }) => {
+  test.setTimeout(300000);
+  await navigateToEditor(page);
+  await seedLayers(page, 1);
+  await page.getByRole('treeitem').first().click();
+
+  const editMenu = page.getByRole('menubar').getByRole('menuitem', { name: /^Edit$/i });
+  await editMenu.click();
+  const copyAsPng = page.getByRole('menuitem', { name: /Copy as PNG/i });
+  await expect(copyAsPng).toBeVisible();
+  await copyAsPng.click();
+
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('textbox', { name: /PNG scale/i }).press('Enter');
+  await expect
+    .poll(async () =>
+      page.evaluate(async () => {
+        try {
+          const items = await navigator.clipboard.read();
+          return items[0]?.types ?? [];
+        } catch {
+          return [];
+        }
+      }),
+    )
+    .toContain('image/png');
+});
+
 test('SVG paste preserves root order, spacing, and nested groups', async ({ page }, testInfo) => {
   test.setTimeout(300000);
   await navigateToEditor(page);

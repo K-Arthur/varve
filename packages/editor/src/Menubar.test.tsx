@@ -427,10 +427,14 @@ describe('Menubar menu structure', () => {
     expect(within(menu).getByRole('menuitem', { name: /Undo/ })).toBeTruthy();
     expect(within(menu).getByRole('menuitem', { name: /Redo/ })).toBeTruthy();
     expect(within(menu).getByRole('menuitem', { name: /Cut/ })).toBeTruthy();
-    // Accessible names include the rendered shortcut ("CopyCtrl+S"), so match
-    // on the label stem and disambiguate Copy from Copy Properties.
-    expect(within(menu).getByRole('menuitem', { name: /^Copy(?! Properties)/ })).toBeTruthy();
-    expect(within(menu).getByRole('menuitem', { name: /^Paste(?! Properties)/ })).toBeTruthy();
+    // Accessible names include the rendered shortcut ("CopyCtrl+S").
+    expect(within(menu).getByRole('menuitem', { name: /^CopyCtrl\+S$/ })).toBeTruthy();
+    expect(within(menu).getByRole('menuitem', { name: /^PasteCtrl\+S$/ })).toBeTruthy();
+    expect(within(menu).getByRole('menuitem', { name: /^Copy Text$/ })).toBeTruthy();
+    expect(within(menu).getByRole('menuitem', { name: /^Copy as SVG$/ })).toBeTruthy();
+    expect(within(menu).getByRole('menuitem', { name: /^Copy as PNG$/ })).toBeTruthy();
+    expect(within(menu).getByRole('menuitem', { name: /^Paste as Plain Text$/ })).toBeTruthy();
+    expect(within(menu).getByRole('menuitem', { name: /^Paste SVG Markup$/ })).toBeTruthy();
     expect(within(menu).getByRole('menuitem', { name: /^Copy Properties/ })).toBeTruthy();
     expect(within(menu).getByRole('menuitem', { name: /^Paste Properties/ })).toBeTruthy();
     expect(within(menu).getByRole('menuitem', { name: /^Duplicate/ })).toBeTruthy();
