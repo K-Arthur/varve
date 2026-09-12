@@ -138,6 +138,16 @@ test and focused browser run above are the evidence for this slice. The commit
 used an isolated temporary index with hooks bypassed only after those owned
 checks passed, preserving unrelated staged changes.
 
+The remaining committed-context checks were run together:
+
+```text
+VARVE_E2E_PORT=1555 VARVE_E2E_WORKERS=1 npx playwright test tests/e2e/canvas/font-toolbar-visual.spec.ts --project=chromium -g 'DPR [13]' --reporter=list
+```
+
+Both cases passed (**2/2**). The DPR 1 and DPR 3 captures under
+`test-results/run-1263534-1555/` were inspected for the context-bar field,
+floating picker, theme contrast, and narrow viewport containment.
+
 ## Remaining platform work
 
 Linux Tauri/WebKitGTK still needs an embedded local-font permission and native
