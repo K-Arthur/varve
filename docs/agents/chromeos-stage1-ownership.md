@@ -82,3 +82,30 @@ website support claims. No new dependencies, ports, or shared test/output
 directories are reserved by this slice. Before each commit, re-check the
 worktree and stage only the paths listed for the milestone; unrelated dirty
 font/input work remains untouched.
+
+## Handoff: browser offline evidence and loader boundary
+
+**Updated:** 2026-09-12
+
+The browser/PWA implementation is now owned by the active Stage 2 record at
+[`chromeos-stage2-ownership.md`](./chromeos-stage2-ownership.md). Its worker
+changes are intentionally not restaged here. The isolated engine/lifecycle
+repair landed as [`ec7d3f732`](https://github.com/K-Arthur/varve/commit/ec7d3f732):
+
+- `packages/engine/src/wasmLoader.ts` uses Cache Storage as a worker-safe
+  fallback when a network fetch fails, for both the render and trace loaders;
+  a missing cache entry still fails and preserves the existing fallback chain.
+- `packages/engine/src/wasmLoader.test.ts` covers cached-offline and missing
+  asset behavior.
+- `packages/editor/src/lifecycle/LifecycleProvider.tsx` marks a non-bfcache
+  browser page hide clean only when no session is dirty. This prevents ordinary
+  reloads from accumulating false crash-loop failures while retaining recovery
+  for dirty/discarded sessions.
+
+Local production-artifact evidence (Linux x86_64 Chromium, localhost, fresh
+profile, 2026-09-12) reached the sample document after two online reloads and
+then an offline reload; `.editor-canvas` and `.layers-panel` were present and
+the browser's offline banner was visible. The inspected screenshot is
+`/tmp/varve-chromeos-visual/demo-offline-final.png`. This is not Duet or
+ChromeOS hardware evidence. The Stage 2 owner should fold the equivalent
+sequence into its isolated browser acceptance spec and repeat it on the Duet.
