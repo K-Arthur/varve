@@ -1233,3 +1233,12 @@ affected gate stopped at `format:touched` on two unrelated concurrent editor
 files (`AIStatusIndicator.tsx` and `ContextAwareShortcuts.tsx`); no clipboard,
 import, or report file was implicated. The clean editor typecheck and focused
 79-test rerun above are the targeted evidence for that correction.
+
+An isolated Chromium rerun of `tests/e2e/canvas/clipboard.spec.ts` passed the
+live paste, Copy as PNG, grouped SVG order/spacing/nested-group, and selected
+frame placement cases (4 passed). The final rotated-camera case could not
+start because the canvas content layer never became visible within 60 seconds
+after the concurrent editor server restarted; it timed out during navigation,
+before any clipboard assertion. The grouped SVG screenshot from that run was
+inspected and shows the grouped artwork and sibling selection together on the
+canvas.
