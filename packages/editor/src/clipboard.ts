@@ -117,6 +117,16 @@ export interface ClipboardData {
   worldAnchor?: Record<string, Affine>;
 }
 
+/** Immutable selection and geometry snapshot used by delayed exports. */
+export interface ClipboardSelectionSnapshot {
+  document: Document;
+  nodes: readonly SceneNode[];
+  activeId: string;
+  revision: number;
+  selectionRevision: number;
+  worldTransforms?: Readonly<Record<string, Affine>>;
+}
+
 export interface ClipboardImportItem {
   data: string | Uint8Array;
   mimeType: string;

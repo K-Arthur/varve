@@ -404,7 +404,8 @@ function ShellInner({
       onResizeImage: editor.openImageResizeDialog,
       onBringAllPanelsToCurrentDisplay: bringAllPanelsToCurrentDisplay,
       onResetPanelWindowLayout: resetPanelWindowLayout,
-      onCopyAsPng: (scale) => void exportLayerRef.current?.copySelectionAsPng(scale),
+      onCopyAsPng: (scale, selection) =>
+        void exportLayerRef.current?.copySelectionAsPng(scale, selection),
     });
     if (staticActionsRegistered.current) return;
     staticActionsRegistered.current = true;

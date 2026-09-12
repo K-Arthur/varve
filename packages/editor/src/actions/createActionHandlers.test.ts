@@ -67,6 +67,36 @@ describe('createActionHandlers — clipboard dialogs', () => {
     });
   });
 
+  it('captures the PNG selection before the scale dialog resolves', async () => {
+    let resolvePrompt!: (value: string | null) => void;
+    vi.mocked(promptDialog).mockReturnValue(
+      new Promise<string | null>((resolve) => {
+        resolvePrompt = resolve;
+      }),
+    );
+    const node = nudgeRect('png-snapshot', 20, 30);
+    const document = addNode(createDocument('png snapshot'), node);
+    const onCopyAsPng = vi.fn();
+    const initialState = {
+      selection: [node.id],
+      document,
+      activeId: 'png-snapshot',
+      revision: 0,
+      selectionRevision: 0,
+    } as unknown as EditorContextValue['state'];
+    const editor = makeEditorMock({ state: initialState, onCopyAsPng });
+
+    createActionHandlers(editor, { onCopyAsPng }).copyAsPng?.();
+    editor.state = { ...initialState, selection: [] };
+    resolvePrompt('2');
+
+    await vi.waitFor(() => expect(onCopyAsPng).toHaveBeenCalledTimes(1));
+    expect(onCopyAsPng).toHaveBeenCalledWith(
+      2,
+      expect.objectContaining({ document, nodes: [expect.objectContaining({ id: node.id })] }),
+    );
+  });
+
   it('does not import cancelled SVG markup', async () => {
     vi.mocked(promptDialog).mockResolvedValue(null);
     const batchImportNodes = vi.fn();

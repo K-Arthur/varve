@@ -22,7 +22,7 @@ import {
 } from '@varve/scene';
 import { type Affine, multiplyAffine, rotateRad, scaleXY, translate } from '@varve/shared';
 import { commitRasterMask } from '../backgroundRemoval/commitRasterMask';
-import { writeClipboardRepresentation } from '../clipboard';
+import { type ClipboardSelectionSnapshot, writeClipboardRepresentation } from '../clipboard';
 import { applyNudgePlan, getNudgeStep, type NudgeDirection, planNudge } from '../commands/nudge';
 import type { EditorContextValue, ToolId } from '../context';
 import { startTextEditing } from '../context';
@@ -100,7 +100,7 @@ export interface ActionHandlerCallbacks {
   /** Reattach detached panels and clear only their window-placement state. */
   onResetPanelWindowLayout?: () => void;
   /** Renderer-owned selection snapshot for Copy as PNG. */
-  onCopyAsPng?: (scale: 1 | 2 | 3) => void;
+  onCopyAsPng?: (scale: 1 | 2 | 3, selection?: ClipboardSelectionSnapshot) => void;
 }
 
 const MAX_DIRECT_CLIPBOARD_TEXT = 2_000_000;
@@ -586,12 +586,29 @@ export function createActionHandlers(
         e.announce('Copy as PNG is unavailable until a render surface is ready');
         return;
       }
+      const invocation = e.state;
+      const nodes = invocation ? selectedClipboardNodes(e) : [];
+      const selectionSnapshot: ClipboardSelectionSnapshot | undefined =
+        invocation && nodes.length > 0
+          ? {
+              document: invocation.document,
+              nodes,
+              activeId: invocation.activeId,
+              revision: invocation.revision,
+              selectionRevision: invocation.selectionRevision,
+              worldTransforms:
+                typeof e.getWorldTransform === 'function'
+                  ? Object.fromEntries(nodes.map((node) => [node.id, e.getWorldTransform(node.id)]))
+                  : undefined,
+            }
+          : undefined;
       void import('../components/PromptDialog')
         .then(({ promptDialog }) => promptDialog('PNG scale (1, 2, or 3)', '1'))
         .then((raw) => {
           if (raw === null) return;
           const scale = raw === '3' ? 3 : raw === '2' ? 2 : 1;
-          cb.onCopyAsPng?.(scale);
+          if (selectionSnapshot) cb.onCopyAsPng?.(scale, selectionSnapshot);
+          else cb.onCopyAsPng?.(scale);
         })
         .catch(() => e.announce('PNG scale selection is unavailable'));
     },

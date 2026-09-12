@@ -11,7 +11,7 @@ import {
   type PreparedBackgroundRemoval,
 } from '../../backgroundRemoval/commitRasterMask';
 import { isCapabilityRestricted } from '../../capabilities/restrictions';
-import { writeClipboardRepresentation } from '../../clipboard';
+import { type ClipboardSelectionSnapshot, writeClipboardRepresentation } from '../../clipboard';
 import { useEditor } from '../../context';
 import {
   createBufferedExportArchive,
@@ -56,7 +56,7 @@ function exportableNodes(doc: Document): SceneNode[] {
 
 export interface ExportLayerHandle {
   openBatchBgRemove: () => void;
-  copySelectionAsPng: (scale: 1 | 2 | 3) => Promise<void>;
+  copySelectionAsPng: (scale: 1 | 2 | 3, selection?: ClipboardSelectionSnapshot) => Promise<void>;
 }
 
 export interface ExportLayerProps {
@@ -91,7 +91,7 @@ async function renderSelectionPng(
   nodes: readonly SceneNode[],
   documentSnapshot: Document,
   requestedScale: 1 | 2 | 3,
-  resolveWorldTransform?: (id: string) => SceneNode['transform'],
+  worldTransforms?: Readonly<Record<string, SceneNode['transform']>>,
 ): Promise<{ bytes: Uint8Array; clamped: boolean }> {
   if (typeof document === 'undefined' || typeof Image === 'undefined') {
     throw new Error('PNG rendering is unavailable in this runtime');
@@ -102,8 +102,8 @@ async function renderSelectionPng(
   const width = Math.max(1, bounds.w);
   const height = Math.max(1, bounds.h);
   const parts = nodes.map((node) => {
-    const exportRoot = resolveWorldTransform
-      ? ({ ...node, transform: resolveWorldTransform(node.id), rotation: 0 } as SceneNode)
+    const exportRoot = worldTransforms?.[node.id]
+      ? ({ ...node, transform: worldTransforms[node.id]!, rotation: 0 } as SceneNode)
       : node;
     return stripSvgEnvelope(
       exportNodeToSvg(exportRoot, documentSnapshot, { background: 'transparent' }),
@@ -179,14 +179,26 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
   const [batchBgRemoveOpen, setBatchBgRemoveOpen] = useState(false);
 
   const copySelectionAsPng = useCallback(
-    async (scale: 1 | 2 | 3): Promise<void> => {
+    async (scale: 1 | 2 | 3, selection?: ClipboardSelectionSnapshot): Promise<void> => {
       const snapshot = editorRef.current;
-      const documentSnapshot = snapshot.state.document;
-      const nodes = snapshot.state.selection
-        .map((id) => documentSnapshot.nodes[id])
-        .filter((node): node is SceneNode => Boolean(node));
+      const documentSnapshot = selection?.document ?? snapshot.state.document;
+      const nodes = selection
+        ? [...selection.nodes]
+        : snapshot.state.selection
+            .map((id) => documentSnapshot.nodes[id])
+            .filter((node): node is SceneNode => Boolean(node));
       if (nodes.length === 0) {
         snapshot.announce('Select artwork before copying PNG');
+        return;
+      }
+      if (
+        selection &&
+        (snapshot.state.document.id !== selection.document.id ||
+          snapshot.state.activeId !== selection.activeId ||
+          snapshot.state.revision !== selection.revision ||
+          snapshot.state.selectionRevision !== selection.selectionRevision)
+      ) {
+        snapshot.announce('Copy as PNG cancelled because the document changed');
         return;
       }
       try {
@@ -194,8 +206,18 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
           nodes,
           documentSnapshot,
           scale,
-          typeof snapshot.getWorldTransform === 'function' ? snapshot.getWorldTransform : undefined,
+          selection?.worldTransforms,
         );
+        if (
+          selection &&
+          (snapshot.state.document.id !== selection.document.id ||
+            snapshot.state.activeId !== selection.activeId ||
+            snapshot.state.revision !== selection.revision ||
+            snapshot.state.selectionRevision !== selection.selectionRevision)
+        ) {
+          snapshot.announce('Copy as PNG cancelled because the document changed');
+          return;
+        }
         const outcome = await writeClipboardRepresentation(
           'image/png',
           rendered.bytes,
