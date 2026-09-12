@@ -1242,3 +1242,34 @@ after the concurrent editor server restarted; it timed out during navigation,
 before any clipboard assertion. The grouped SVG screenshot from that run was
 inspected and shows the grouped artwork and sibling selection together on the
 canvas.
+
+### CLIP-41 — Reveal action could outlive its source document (2026-09-12)
+
+**Classification:** Application / session ownership. **Resolved locally.**
+
+Import reports now carry the receiving document ID alongside committed root
+IDs. Before selecting or fitting anything, Shell rejects a report whose source
+document is no longer active; this prevents a delayed report from targeting a
+coincidentally reused ID in another open document.
+
+Evidence: `context/sessionGlobals.ts`, `context.tsx`, `CanvasArea.tsx`,
+`importing/useFileImport.ts`, `Shell.tsx`, and the `ImportResults` callback test.
+
+Validation:
+
+```text
+pnpm exec biome check \
+  packages/editor/src/context/sessionGlobals.ts \
+  packages/editor/src/components/ImportResults.tsx \
+  packages/editor/src/components/ImportResults.test.tsx \
+  packages/editor/src/Shell.tsx packages/editor/src/context.tsx \
+  packages/editor/src/CanvasArea.tsx packages/editor/src/importing/useFileImport.ts
+passed
+
+pnpm exec vitest run packages/editor/src/components/ImportResults.test.tsx \
+  packages/editor/src/actions/createActionHandlers.test.ts --maxWorkers=1 --reporter=dot
+2 files, 51 tests passed
+
+pnpm exec tsc -p packages/editor/tsconfig.json --noEmit --pretty false
+passed
+```
