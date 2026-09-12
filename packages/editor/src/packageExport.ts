@@ -6,7 +6,13 @@
  * APIs favor binary ZIP payloads over many loose writes for portability.
  */
 
-import { collectFontData, type FontCatalog } from '@varve/engine/font';
+import {
+  collectFontData,
+  type FontCatalog,
+  type FontReference,
+  fontReferenceFromIdentity,
+  fontReferenceKey,
+} from '@varve/engine/font';
 import { dataUrlToBytes } from '@varve/import';
 import {
   type Document,
@@ -93,6 +99,8 @@ export interface PackageAssetEntry {
 
 export interface PackageFontEntry {
   family: string;
+  /** Exact requested artifact/member when the document carries one. */
+  fontReference?: FontReference;
   bundled: boolean;
   reason: string;
   embeddingStatus:
@@ -291,13 +299,21 @@ async function collectFonts(
   catalog: FontCatalog | undefined,
   pkg: MutablePackage,
 ): Promise<PackageFontEntry[]> {
-  const families = new Set<string>();
+  const requests = new Map<string, { family: string; fontReference?: FontReference }>();
+  const addRequest = (family: string | undefined, fontReference?: FontReference): void => {
+    if (!family?.trim()) return;
+    const normalizedFamily = family.trim();
+    const key = fontReference
+      ? `${normalizedFamily.toLocaleLowerCase()}\u0000${fontReferenceKey(fontReference)}`
+      : normalizedFamily.toLocaleLowerCase();
+    if (!requests.has(key)) requests.set(key, { family: normalizedFamily, fontReference });
+  };
   for (const node of Object.values(doc.nodes)) {
     if (node.kind !== 'text') continue;
-    if (node.fontFamily) families.add(node.fontFamily);
+    addRequest(node.fontFamily, node.fontReference);
     for (const paragraph of node.richText?.paragraphs ?? []) {
       for (const run of paragraph.runs ?? []) {
-        if (run.format?.fontFamily) families.add(run.format.fontFamily);
+        addRequest(run.format?.fontFamily, run.format?.fontReference);
       }
     }
   }
@@ -306,22 +322,43 @@ async function collectFonts(
   // resolved from the shipped registry. The manifest must still be honest:
   // a permitted license without bytes is listed as unavailable rather than
   // claiming a font that the ZIP does not contain.
-  const records = await collectFontData([...families], { fetchBundled: true });
-  const recordByFamily = new Map(records.map((record) => [record.family.toLowerCase(), record]));
+  const requestedFonts = [...requests.values()].sort((a, b) => {
+    const familyOrder = a.family.localeCompare(b.family);
+    if (familyOrder !== 0) return familyOrder;
+    return (a.fontReference ? fontReferenceKey(a.fontReference) : '').localeCompare(
+      b.fontReference ? fontReferenceKey(b.fontReference) : '',
+    );
+  });
+  const records = await collectFontData(requestedFonts, { fetchBundled: true });
+  const recordByRequest = new Map(
+    records.map((record) => [
+      record.fontReference
+        ? `${record.family.toLocaleLowerCase()}\u0000${fontReferenceKey(record.fontReference)}`
+        : record.family.toLocaleLowerCase(),
+      record,
+    ]),
+  );
 
-  return [...families].sort().map((family) => {
-    const embeddingStatus = resolveEmbeddingStatus(family, catalog);
+  return requestedFonts.map(({ family, fontReference }) => {
+    const requestKey = fontReference
+      ? `${family.toLocaleLowerCase()}\u0000${fontReferenceKey(fontReference)}`
+      : family.toLocaleLowerCase();
+    const embeddingStatus = resolveEmbeddingStatus(family, catalog, fontReference);
     const canBundle = canBundleFont(embeddingStatus);
-    const record = recordByFamily.get(family.toLowerCase());
+    const record = recordByRequest.get(requestKey);
     const bundled = canBundle && record !== undefined;
     let filePath: string | undefined;
     if (bundled && record) {
-      filePath = `fonts/${safeFontName(family)}.font`;
+      const suffix = fontReference
+        ? `-${fontReference.artifactHash.slice(0, 12)}-${fontReference.collectionIndex ?? 'single'}`
+        : '';
+      filePath = `fonts/${safeFontName(family)}${suffix}.font`;
       addBytes(pkg, filePath, 'font', record.data);
     }
 
     return {
       family,
+      ...(fontReference ? { fontReference } : {}),
       bundled,
       embeddingStatus,
       reason: embeddingReason(embeddingStatus, bundled, record !== undefined),
@@ -333,13 +370,23 @@ async function collectFonts(
 function resolveEmbeddingStatus(
   family: string,
   catalog?: FontCatalog,
+  fontReference?: FontReference,
 ): PackageFontEntry['embeddingStatus'] {
   if (!catalog) return 'unknown';
 
   const entries = catalog.getEntriesForFamily(family);
   if (entries.length === 0) return 'unknown';
 
-  const rights = entries[0]!.embeddingRights;
+  const entry = fontReference
+    ? entries.find((candidate) => {
+        const candidateReference = fontReferenceFromIdentity(candidate.identity);
+        return (
+          candidateReference !== undefined &&
+          fontReferenceKey(candidateReference) === fontReferenceKey(fontReference)
+        );
+      })
+    : entries[0];
+  const rights = entry?.embeddingRights ?? entries[0]!.embeddingRights;
   switch (rights) {
     case 'installable':
       return 'installable';

@@ -103,6 +103,33 @@ describe('buildPackageExport', () => {
     expect(maskEntry!.fillIndex).toBe(-1);
   });
 
+  it('keeps same-family exact face references separate in the package manifest', async () => {
+    const firstReference = { artifactHash: '1'.repeat(64), collectionIndex: 0 };
+    const secondReference = { artifactHash: '2'.repeat(64), collectionIndex: 1 };
+    const first = {
+      ...makeTextNode('face-a', 'A', { fontFamily: 'Shared Family' }),
+      fontReference: firstReference,
+    };
+    const second = {
+      ...makeTextNode('face-b', 'B', { fontFamily: 'Shared Family' }),
+      fontReference: secondReference,
+    };
+    const doc: Document = {
+      ...createDocument('Exact Faces', true),
+      rootChildren: ['face-a', 'face-b'],
+      nodes: { 'face-a': first, 'face-b': second },
+      nextId: 3,
+    };
+
+    const result = await buildPackageExport(doc);
+
+    expect(result.manifest.fonts).toHaveLength(2);
+    expect(result.manifest.fonts.map((font) => font.fontReference)).toEqual(
+      expect.arrayContaining([firstReference, secondReference]),
+    );
+    expect(result.manifest.fonts.every((font) => font.bundled === false)).toBe(true);
+  });
+
   it('packages retained generative sources, candidates, and contexts', async () => {
     const makeAsset = (id: string, payload: string): DocumentAsset => ({
       id,

@@ -1,9 +1,19 @@
 import { getFontRegistry } from '../fontRegistry';
+import type { FontReference } from './fontIdentity';
+import { fontReferenceKey } from './fontIdentity';
 import { listStoredFonts, loadStoredFont } from './fontStorage';
+import { loadFontFromFilesystem } from './fontStorageFs';
+
+export interface FontDataRequest {
+  family: string;
+  /** Resolve this exact artifact/member; never silently fall back to a family. */
+  fontReference?: FontReference;
+}
 
 export interface FontDataRecord {
   family: string;
   data: Uint8Array;
+  fontReference?: FontReference;
 }
 
 export interface FontCollectOptions {
@@ -72,25 +82,37 @@ async function fetchFontData(url: string, signal?: AbortSignal): Promise<Uint8Ar
 }
 
 export async function collectFontData(
-  families: string[],
+  families: readonly (string | FontDataRequest)[],
   options: FontCollectOptions = {},
 ): Promise<FontDataRecord[]> {
   const { fetchBundled = true, signal, onProgress } = options;
   const results: FontDataRecord[] = [];
   const seen = new Set<string>();
 
-  for (const rawFamily of families) {
+  for (const rawRequest of families) {
     if (signal?.aborted) break;
-    const family = rawFamily.trim();
-    if (!family || seen.has(family.toLowerCase())) continue;
-    seen.add(family.toLowerCase());
+    const request = typeof rawRequest === 'string' ? { family: rawRequest } : rawRequest;
+    const family = request.family.trim();
+    const requestKey = request.fontReference
+      ? fontReferenceKey(request.fontReference)
+      : family.toLowerCase();
+    if (!family || seen.has(requestKey)) continue;
+    seen.add(requestKey);
     onProgress?.(family, 'cached');
 
-    // 1. Check IndexedDB storage
+    // 1. Check the exact application storage record. An exact request must
+    // never be satisfied by a different artifact that happens to share its
+    // family name.
     try {
-      const stored = await loadStoredFont(family);
+      const stored = request.fontReference
+        ? await loadFontFromFilesystem(request.fontReference)
+        : await loadStoredFont(family);
       if (stored?.data) {
-        results.push({ family, data: new Uint8Array(stored.data) });
+        results.push({
+          family,
+          data: new Uint8Array(stored.data),
+          ...(request.fontReference ? { fontReference: request.fontReference } : {}),
+        });
         onProgress?.(family, 'storage');
         continue;
       }
@@ -103,11 +125,26 @@ export async function collectFontData(
       try {
         const registry = getFontRegistry();
         const entries = registry?.getEntries(family) ?? [];
-        const bundled = entries.find((e) => e.source === 'bundled' && e.url);
+        const requestedFaceKey = request.fontReference
+          ? fontReferenceKey(request.fontReference)
+          : undefined;
+        const bundled = entries.find(
+          (entry) =>
+            entry.source === 'bundled' &&
+            entry.url &&
+            (!request.fontReference ||
+              entry.faceKey === requestedFaceKey ||
+              (request.fontReference.postScriptName !== undefined &&
+                entry.postScriptName === request.fontReference.postScriptName)),
+        );
         if (bundled?.url) {
           const data = await fetchFontData(bundled.url, signal);
           if (data) {
-            results.push({ family, data });
+            results.push({
+              family,
+              data,
+              ...(request.fontReference ? { fontReference: request.fontReference } : {}),
+            });
             onProgress?.(family, 'fetched');
             continue;
           }

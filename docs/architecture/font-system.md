@@ -139,9 +139,13 @@ family name is present. Byte-backed loads publish a local blob-backed
 `@font-face` rule so the worker can harvest the exact payload without a
 network request. Worker font assets still need an adoption acknowledgement
 before worker rendering can reuse them; otherwise the main-thread replay
-remains authoritative. Package export sets `bundled` only after writing
-verified bytes into `fonts/`. Full cache identity across face revision, axes, features, language and rich
-runs remains an integration requirement, not established by the family bridge.
+   remains authoritative. Package export sets `bundled` only after writing
+   verified bytes into `fonts/`. Export requests carry a document's exact
+   `fontReference`, so same-family artifacts and collection members remain
+   separate; an unavailable requested member is never silently replaced by a
+   different family artifact. Full cache identity across face revision, axes,
+   features, language and rich runs remains an integration requirement, not
+   established by the family bridge.
 
 ## Compact editing surfaces
 

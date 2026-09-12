@@ -23,7 +23,7 @@ export type {
 // Searchable catalog
 export { diffCatalogs, FontCatalog } from './fontCatalog';
 // Font data collector (binary retrieval for export)
-export type { FontCollectOptions, FontDataRecord } from './fontDataCollector';
+export type { FontCollectOptions, FontDataRecord, FontDataRequest } from './fontDataCollector';
 export { collectAllStoredFonts, collectFontData } from './fontDataCollector';
 export type {
   DownloadJob,
