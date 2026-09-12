@@ -1227,3 +1227,9 @@ node scripts/audit-architecture.mjs --ci
 completed with the repository's existing 14 dependency cycles and known hub/
 instability warnings; no new layer, type-only-edge, or dead-export violation
 ```
+
+After the drop root-ID correction (`a1dfdbeb`), the planner was rerun. The
+affected gate stopped at `format:touched` on two unrelated concurrent editor
+files (`AIStatusIndicator.tsx` and `ContextAwareShortcuts.tsx`); no clipboard,
+import, or report file was implicated. The clean editor typecheck and focused
+79-test rerun above are the targeted evidence for that correction.
