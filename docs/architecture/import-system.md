@@ -223,7 +223,7 @@ decode; cyclic `<use>` is detected by a visited-id set.
 | `packages/import/src/svg.ts`, `svg/elements.ts` | SVG parse and element conversion |
 | `packages/import/src/svg/resourcePolicy.ts` | What an imported SVG may reference |
 | `packages/import/src/validation.ts` | Preflight fidelity estimate |
-| `packages/editor/src/context.tsx` | `batchImportNodes`: placement, selection, undo |
+| `packages/editor/src/context.tsx` | `commitPreparedFragment`: shared placement, selection, resource merge, and undo |
 
 ## Testing
 
@@ -231,3 +231,19 @@ decode; cyclic `<use>` is detected by a visited-id set.
   format honesty, service), `packages/editor/src/importPickerWiring.test.tsx`.
 - E2E: `tests/e2e/canvas/file-import.spec.ts` (real menu action, six specs
   with visual snapshots), `tests/e2e/browser/try-demo.spec.ts` (demo import).
+
+
+## Frontend operation lifetime
+
+File picker and canvas drop each create a request-owned abort controller before
+reading bytes. Starting another gesture supersedes the earlier request, and
+unmounting the editor aborts it. Progress, report state, and the hidden file
+input are cleared only by the operation that owns them. The importer checks its
+signal before worker progress/report callbacks and before returning a result.
+
+Paste, Import, and Drop all finish through `commitPreparedFragment`, which
+clones each logical artifact with one dependency mapping, applies its route
+specific placement, merges resources, selects the roots that actually landed,
+and records one history entry. A stale document/session or canceled signal is
+checked before that atomic commit; no late operation may insert into a newer
+tab or publish a misleading count.

@@ -52,6 +52,14 @@ evidence.
    transparent bounded raster, and uses the same serialized clipboard writer;
    representation commands never read a later selection after an await.
 
+9. **Give every asynchronous frontend operation one owner.** File-picker and
+   drop requests carry a monotonic operation ID and abort signal. Paste menu
+   commands capture their request scope before prompts or reads. A newer
+   operation may supersede an older one, but only the owner can report progress,
+   clear controls, publish Import Results, or commit roots. The shared
+   `commitPreparedFragment` path is the only insertion boundary for Paste,
+   Import, and Drop.
+
 ## Consequences
 
 Paste, Import, and Drop retain distinct acquisition and placement callbacks but

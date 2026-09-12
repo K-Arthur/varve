@@ -1280,3 +1280,66 @@ pnpm exec vitest run packages/editor/src/components/ImportResults.test.tsx \
 pnpm exec tsc -p packages/editor/tsconfig.json --noEmit --pretty false
 passed
 ```
+
+
+### CLIP-42 — Superseded frontend ingestion could outlive its gesture (2026-09-12)
+
+**Checkout:** `d6e7c3839d4c529e165bfe0fc636a6a3f13d4724` on `master`, `/home/kevina/CodingProjects/varve`.
+**Environment:** Linux KDE/Wayland (`WAYLAND_DISPLAY=wayland-0`,
+`DISPLAY=:0`); Chromium, Firefox, WebKit MiniBrowser, and the Tauri
+preflight are installed. The working tree also contains concurrent Inspector,
+generative-edit, typography, and visual-snapshot changes; those files remain
+outside this milestone.
+
+The reproduction uses a deferred `ImportService` result: start one picker
+operation, start a second before the first worker settles, then resolve the
+first result late. Before the repair, the late callback could clear the newer
+progress/report state and, on a matching revision, insert stale roots. The same
+shape was possible for two drops and for a menu paste whose prompt/read outlived
+the initiating selection. The boundary is **application/frontend lifetime**,
+not a parser or transport failure.
+
+| Defect | Status | Evidence |
+| --- | --- | --- |
+| Picker operation ID, abort signal, and owner-only cleanup | **Resolved locally** | `packages/editor/src/importing/useFileImport.ts`, `useFileImport.test.tsx` |
+| Drop supersession and stale document/session guard | **Resolved locally** | `packages/editor/src/CanvasArea.tsx`, `packages/editor/src/context.tsx` |
+| Late import worker progress/report after cancellation | **Resolved locally** | `packages/import/src/service.ts` |
+| Menu plain-text/SVG destination drift after an await | **Resolved locally** | `packages/editor/src/actions/createActionHandlers.ts`, `createActionHandlers.test.ts` |
+| Native Wayland ownership, Firefox external transfer, packaged `.fig` CSP | **Open external lanes** | CLIP-13, CLIP-14, CLIP-15; no owned Firefox fixture in checkout |
+
+Requirement-to-test mapping for this milestone:
+
+| Requirement | Focused evidence | Remaining evidence |
+| --- | --- | --- |
+| Superseded picker cannot commit or clear a newer run | `useFileImport.test.tsx` deferred two-operation regression | Real OS file-picker cancellation |
+| Drop and menu work retain initiating scope | `CanvasArea.tsx`, action-handler regression, editor typecheck | Chromium/Firefox menu and native drop capture under Wayland |
+| SVG fidelity warnings show actual inserted roots | `createActionHandlers.test.ts`, existing Import Results bridge tests | Packaged desktop visual capture |
+
+Validation for the implementation commit:
+
+```text
+pnpm exec vitest run \
+  packages/editor/src/actions/createActionHandlers.test.ts \
+  packages/editor/src/clipboard.test.ts \
+  packages/editor/src/importing/preparedFragment.test.ts \
+  packages/editor/src/import/mergeImportedResources.test.ts \
+  packages/scene/src/documentCodec.test.ts \
+  packages/import/src/service.test.ts \
+  --maxWorkers=1 --reporter=dot
+6 files, 111 tests passed
+
+pnpm exec vitest run packages/editor/src/importing/useFileImport.test.tsx \
+  --maxWorkers=1 --reporter=dot
+1 file, 1 test passed
+
+pnpm exec tsc -p packages/editor/tsconfig.json --noEmit --pretty false
+passed
+
+pnpm exec tsc -p packages/import/tsconfig.json --noEmit --pretty false
+passed
+```
+
+The website capability page and file-format guide now describe operation
+supersession, grouped SVG insertion, and the honest Figma boundary. The full
+Wayland/WebKitGTK lane, owned Firefox Figma captures, and packaged `.fig` CSP
+smoke remain specifically unverified rather than inferred from jsdom tests.

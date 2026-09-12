@@ -211,6 +211,7 @@ const figmaImportFaq = {
           <li>Multiple files are tiled with spacing</li>
           <li>Batch import decodes at most two files concurrently, restores selection order, and reports progress per completed file</li>
         </ul>
+        <p>Each picker or drop is bound to the document and session that started it. A newer transfer cancels an older decode before commit, so stale artwork cannot appear in a different tab or overwrite the current report. SVG artifacts keep their source order, grouping, and relative spacing; unsupported features are listed in Import Results.</p>
       </section>
 
       <div class="docs-cta">

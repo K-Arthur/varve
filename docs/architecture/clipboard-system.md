@@ -288,3 +288,28 @@ destination parent, and initiating canvas center before awaiting the browser
 clipboard read. A navigation, unrelated edit, or selection change therefore
 cancels the insertion instead of moving text into a different document or
 placing it from a stale canvas query.
+
+
+## Frontend operation ownership (2026-09-12)
+
+The frontend keeps asynchronous ingestion tied to the gesture that started it.
+`useFileImport` allocates an operation ID and `AbortController` for each file
+picker change. A later picker gesture aborts the earlier decode; only the
+current owner may update progress, clear the input, publish Import Results, or
+commit the prepared batch. Unmounting the editor aborts the owner as well.
+
+`CanvasArea` applies the same lifetime contract to HTML5 and native Tauri
+file drops. The drop position, document identity, session, revision, and
+mask target are captured before `ImportService` starts. A superseded drop or a
+document change releases its controller and cannot append stale roots or
+reports. `ImportService` checks cancellation immediately before progress and
+report callbacks, so a late worker result cannot repaint UI for a newer
+operation.
+
+Menu Paste as Plain Text and Paste SVG Markup use the same request-bound
+snapshot and prepared-fragment path as keyboard paste. They capture the
+selection, destination parent, active page, workspace, and canvas center before
+opening a prompt or reading the clipboard, then reject a result whose document
+scope changed. SVG markup warnings and partial conversion are published through
+the Import Results bridge with the actual committed root IDs. This keeps the
+visible frontend feedback aligned with the one undoable scene transaction.
