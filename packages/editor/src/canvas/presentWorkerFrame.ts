@@ -11,6 +11,7 @@
 import type { CompositorBackend } from '@varve/compositor';
 import type { Affine } from '@varve/shared';
 import { computeProfile } from './adaptiveProfile';
+import { canvasBackingSize } from './canvasSurface';
 import { endFrameTiming, getAverageFrameTime, getOverBudgetCount } from './frameBudget';
 import { recordFrame } from './perfRuntime';
 import type {
@@ -79,11 +80,21 @@ export function tryPresentWorkerFrame(args: PresentWorkerFrameArgs): boolean {
     identityTransform = [1, 0, 0, 1, 0, 0],
   } = args;
   if (!wb || !compositor) return false;
+  // The bitmap is composited 1:1 into the backing store. Compare against the
+  // actual backing-store size rather than the nominal DPR so an interactive
+  // preview-scale surface still presents its matching bitmap (and a stale
+  // preview bitmap is refused once the surface is promoted back to full
+  // resolution).
+  const surfaceMatches =
+    canvas.width > 0 && canvas.height > 0
+      ? canvasBackingSize(viewport.width, wb.dpr) === canvas.width &&
+        canvasBackingSize(viewport.height, wb.dpr) === canvas.height
+      : wb.dpr === dpr;
   const bitmapIsCurrent =
     wb.docVersion === docVersion &&
     wb.viewport.width === viewport.width &&
     wb.viewport.height === viewport.height &&
-    wb.dpr === dpr &&
+    surfaceMatches &&
     wb.camera.zoom === camera.zoom &&
     wb.camera.pan.x === camera.pan.x &&
     wb.camera.pan.y === camera.pan.y &&

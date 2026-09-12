@@ -19,18 +19,34 @@ export type ProfileTier = 'quality' | 'balanced' | 'performance' | 'constrained'
 
 export interface PerformanceProfile {
   tier: ProfileTier;
+  /**
+   * Interactive preview render scale. Applied to the content canvas backing
+   * store only while an editor interaction (drag/pinch/wheel burst) is open;
+   * settled frames and exports always render at full device resolution.
+   */
   renderScale: number;
   cacheMultiplier: number;
   enableWorker: boolean;
   enablePartialRedraw: boolean;
-  enableCulling: boolean;
-  backdropBlurQuality: 'high' | 'medium' | 'low';
-  prefetchEnabled: boolean;
-  prefetchDepth: number;
-  imageDecodeQuality: 'full' | 'half' | 'quarter';
-  effectQuality: 'full' | 'reduced' | 'disabled';
-  compositor: 'canvas2d' | 'webgpu' | 'auto';
 }
+
+/**
+ * Runtime consumers, so a field is never added without one:
+ * - `renderScale`: `renderPipeline.renderContent` preview DPR while interacting.
+ * - `cacheMultiplier`: `getAdaptiveCacheLimits` -> subtree IR / engine-node memo.
+ * - `enableWorker`: worker-paint gate in `renderPipeline`.
+ * - `enablePartialRedraw`: dirty-prune gate in `renderPipeline`.
+ * Image LOD, effect previewing, culling and the compositor choice are already
+ * governed by their own authorities (`selectRasterRepresentation`,
+ * `workerSourceCapFor`, the spatial index, ADR-0003) and deliberately do not
+ * duplicate those decisions here.
+ */
+export const TIER_RENDER_SCALE: Readonly<Record<ProfileTier, number>> = {
+  quality: 1,
+  balanced: 1,
+  performance: 0.75,
+  constrained: 0.5,
+};
 
 export interface PlatformCapabilities {
   hasWorker: boolean;
@@ -163,62 +179,34 @@ function profileForTier(tier: ProfileTier, caps: PlatformCapabilities): Performa
     case 'quality':
       return {
         tier: 'quality',
-        renderScale: 1,
+        renderScale: TIER_RENDER_SCALE.quality,
         cacheMultiplier: 2,
         enableWorker: resolveWorkerEligibility(caps).allowed,
         enablePartialRedraw: true,
-        enableCulling: true,
-        backdropBlurQuality: 'high',
-        prefetchEnabled: true,
-        prefetchDepth: 3,
-        imageDecodeQuality: 'full',
-        effectQuality: 'full',
-        compositor: caps.hasWebGPU ? 'webgpu' : 'canvas2d',
       };
     case 'balanced':
       return {
         tier: 'balanced',
-        renderScale: 1,
+        renderScale: TIER_RENDER_SCALE.balanced,
         cacheMultiplier: 1,
         enableWorker: resolveWorkerEligibility(caps).allowed,
         enablePartialRedraw: true,
-        enableCulling: true,
-        backdropBlurQuality: 'medium',
-        prefetchEnabled: true,
-        prefetchDepth: 2,
-        imageDecodeQuality: 'full',
-        effectQuality: 'full',
-        compositor: 'canvas2d',
       };
     case 'performance':
       return {
         tier: 'performance',
-        renderScale: 0.75,
+        renderScale: TIER_RENDER_SCALE.performance,
         cacheMultiplier: 0.5,
         enableWorker: false,
         enablePartialRedraw: true,
-        enableCulling: true,
-        backdropBlurQuality: 'low',
-        prefetchEnabled: false,
-        prefetchDepth: 0,
-        imageDecodeQuality: 'half',
-        effectQuality: 'reduced',
-        compositor: 'canvas2d',
       };
     case 'constrained':
       return {
         tier: 'constrained',
-        renderScale: 0.5,
+        renderScale: TIER_RENDER_SCALE.constrained,
         cacheMultiplier: 0.25,
         enableWorker: false,
         enablePartialRedraw: false,
-        enableCulling: true,
-        backdropBlurQuality: 'low',
-        prefetchEnabled: false,
-        prefetchDepth: 0,
-        imageDecodeQuality: 'quarter',
-        effectQuality: 'disabled',
-        compositor: 'canvas2d',
       };
   }
 }
@@ -254,6 +242,21 @@ export function computeProfile(
 /** Get current tier without re-computing. */
 export function getCurrentTier(): ProfileTier {
   return currentTier;
+}
+
+/**
+ * Preview render scale for the tier selected by the last frame. Read by the
+ * render pipeline at the top of a frame, before the per-frame profile is
+ * recomputed, so a tier change takes effect on the following frame.
+ */
+export function getCurrentRenderScale(): number {
+  return TIER_RENDER_SCALE[currentTier];
+}
+
+/** Override the tier for tests. Resets the tier dwell counter. */
+export function _setTierForTesting(tier: ProfileTier): void {
+  currentTier = tier;
+  framesInTier = 0;
 }
 
 /** Reset profile state (e.g. on document switch). */

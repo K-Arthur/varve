@@ -2,8 +2,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   _resetPlatformCapabilities,
   _setCooldownFrames,
+  _setTierForTesting,
   computeProfile,
   detectPlatformCapabilities,
+  getCurrentRenderScale,
   getCurrentTier,
   resetProfile,
 } from '../adaptiveProfile';
@@ -24,8 +26,6 @@ describe('adaptiveProfile', () => {
       if (i >= 15) {
         expect(profile.tier).toBe('quality');
         expect(profile.renderScale).toBe(1);
-        expect(profile.backdropBlurQuality).toBe('high');
-        expect(profile.prefetchEnabled).toBe(true);
       }
     }
   });
@@ -53,8 +53,6 @@ describe('adaptiveProfile', () => {
       if (i >= 20) {
         expect(profile.tier, `expected constrained, got ${profile.tier}`).toBe('constrained');
         expect(profile.renderScale).toBe(0.5);
-        expect(profile.imageDecodeQuality).toBe('quarter');
-        expect(profile.effectQuality).toBe('disabled');
       }
     }
   });
@@ -66,6 +64,32 @@ describe('adaptiveProfile', () => {
     for (let i = 0; i < 8; i++) {
       const profile = computeProfile(50, 10, 1000);
       expect(profile.tier).toBe('balanced');
+    }
+  });
+
+  it('reports the current tier render scale for the render loop', () => {
+    resetProfile();
+    expect(getCurrentRenderScale()).toBe(1);
+
+    _setTierForTesting('performance');
+    expect(getCurrentTier()).toBe('performance');
+    expect(getCurrentRenderScale()).toBe(0.75);
+
+    _setTierForTesting('constrained');
+    expect(getCurrentRenderScale()).toBe(0.5);
+
+    resetProfile();
+    expect(getCurrentRenderScale()).toBe(1);
+  });
+
+  it('keeps an overridden tier through the cooldown window', () => {
+    resetProfile();
+    _setCooldownFrames(10);
+    _setTierForTesting('performance');
+    for (let i = 0; i < 8; i++) {
+      const profile = computeProfile(8, 0, 50);
+      expect(profile.tier).toBe('performance');
+      expect(profile.renderScale).toBe(0.75);
     }
   });
 

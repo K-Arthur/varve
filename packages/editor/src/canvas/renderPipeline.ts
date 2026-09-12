@@ -98,7 +98,7 @@ import {
   evaluateWarpedContainerItems,
   warpedContainerWorldBounds,
 } from '../warp/warpContainerRender';
-import { computeProfile } from './adaptiveProfile';
+import { computeProfile, getCurrentRenderScale } from './adaptiveProfile';
 import {
   applyEditorCameraToCtx,
   toCamera as editorToCamera,
@@ -491,7 +491,13 @@ export function renderContent(deps: RenderContentDeps): void {
     return;
   }
 
-  const dpr = displayDpr;
+  // Interactive preview scale: a tier under sustained over-budget frames may
+  // render the content canvas at a reduced backing-store resolution while a
+  // drag/pinch/wheel burst is open. Settled frames always return to the full
+  // device resolution (redrawCoordinator treats the DPR change as
+  // invalidation), and export/print render through their own surfaces.
+  const previewScale = isEditorInteractionActive() ? getCurrentRenderScale() : 1;
+  const dpr = displayDpr * previewScale;
   const cssW = vpWidth;
   const cssH = vpHeight;
   resizeCanvasBackingStore(canvas, cssW, cssH, dpr);
@@ -1133,7 +1139,7 @@ export function renderContent(deps: RenderContentDeps): void {
       }
     }
 
-    if (cameraMoving && observedImageSources.size > 0) {
+    if (cameraMoving && (observedImageSources.size > 0 || previewScale < 1)) {
       scheduleSettledImageRefinement(canvas, isEditorInteractionActive, () => {
         requestContentDrawRef.current?.('image-settled-refinement', 'asset-ready');
       });

@@ -53,9 +53,14 @@ import { describeRenderPath, resolveRenderPathDiagnostic } from '../render/rende
 import { resolveWorkerEligibility } from '../render/workerEligibility';
 import { getRegisteredWorkerHost } from '../render/workerHost';
 import {
+  _setTierForTesting,
   computeProfile,
   detectPlatformCapabilities,
+  getCurrentRenderScale,
+  getCurrentTier,
   type PerformanceProfile,
+  type ProfileTier,
+  resetProfile,
 } from './adaptiveProfile';
 import type { DirtyRegionRecorder } from './dirtyRegion';
 import { computeMergedDirtyRegion, mergeDirtyRects } from './dirtyRegionMerge';
@@ -375,6 +380,14 @@ function augmentPerfDiagnosticsHandle(): void {
       averageMs: () => getAverageFrameTime(),
       overBudgetCount: () => getOverBudgetCount(),
       summary: () => getFrameBudgetSummary(),
+    },
+    // Adaptive profile state and the preview-scale acceptance seam. Reads are
+    // inert outside ?perf=1 like the rest of this handle.
+    profile: {
+      tier: () => getCurrentTier(),
+      renderScale: () => getCurrentRenderScale(),
+      reset: () => resetProfile(),
+      setTierForTesting: (tier: ProfileTier) => _setTierForTesting(tier),
     },
     capabilities: () => detectPlatformCapabilities(),
     // Which backend is actually drawing, and which gate decided it. Composed
