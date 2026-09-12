@@ -757,3 +757,39 @@ for packaged Wayland/WebKitGTK ownership, Firefox/Figma transfers, permission
 denials, picker/drop cancellation, packaged `.fig` CSP behavior, and the
 required visual captures; those lanes are not inferred from the shared-loop
 tests.
+
+### Artifact-root grouping follow-up — 2026-09-11
+
+The first PreparedFragment implementation still flattened every imported
+artifact to one item per node in File > Import and Drop. That changed the
+placement unit for SVGs that contain ordered sibling roots: the siblings could
+receive separate cascade offsets and lose their logical grouping. The parser
+already returned artifact boundaries, so this was an application/placement
+defect rather than a transport or SVG-tokenizer defect (CLIP-27).
+
+File > Import and Drop now preserve each artifact's ordered `rootIds` as one
+`PreparedFragmentItem`. The shared commit loop clones that complete root set in
+one mapping, while separate files and separate parser artifacts remain separate
+items. Drop image-mask detection examines every root, and Import Results reports
+the number of roots that actually committed. Paste's existing grouped artifact
+path remains unchanged.
+
+Evidence:
+
+```text
+pnpm exec biome check \
+  packages/editor/src/importing/preparedFragment.ts \
+  packages/editor/src/importing/preparedFragment.test.ts \
+  packages/editor/src/dropUtils.ts packages/editor/src/CanvasArea.tsx \
+  packages/editor/src/importing/useFileImport.ts
+passed
+pnpm exec vitest run \
+  packages/editor/src/importing/preparedFragment.test.ts \
+  packages/editor/src/context.import.test.tsx \
+  packages/editor/src/dropUtils.test.ts --maxWorkers=1
+44 tests passed
+```
+
+The follow-up is committed as `755fda79a`. The browser visual capture for SVG
+ordering and nested groups remains the separate evidence for Paste; a real
+Firefox/Wayland Drop capture and the packaged visual lane are still open.
