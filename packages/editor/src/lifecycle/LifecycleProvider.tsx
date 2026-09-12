@@ -176,6 +176,13 @@ export function LifecycleProvider({ onBackToHome }: { onBackToHome?: () => void 
     const onPageHide = () => {
       coordinatorRef.current?.bestEffortFlush();
     };
+    const onFreeze = () => {
+      // Chrome may freeze a hidden tab without delivering a later unload.
+      // Flush at the lifecycle boundary while the browser still permits
+      // IndexedDB work; the coordinator and recovery layer remain the
+      // fallback when the browser suspends the page before the promise runs.
+      coordinatorRef.current?.bestEffortFlush();
+    };
     const onVisibilityChange = () => {
       if (document.hidden) {
         coordinatorRef.current?.bestEffortFlush();
@@ -183,10 +190,12 @@ export function LifecycleProvider({ onBackToHome }: { onBackToHome?: () => void 
     };
     window.addEventListener('beforeunload', onBeforeUnload);
     window.addEventListener('pagehide', onPageHide);
+    window.addEventListener('freeze', onFreeze);
     document.addEventListener('visibilitychange', onVisibilityChange);
     return () => {
       window.removeEventListener('beforeunload', onBeforeUnload);
       window.removeEventListener('pagehide', onPageHide);
+      window.removeEventListener('freeze', onFreeze);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, []);

@@ -57,3 +57,28 @@ Stages 2–7 must re-check their relevant current sources and must not treat the
 proposed budgets or browser observations here as real Duet measurements. The
 Duet hardware is not attached to this session, so the hardware checklist and
 runtime capability report are the next verification boundary.
+
+## Continuation: browser durability and evidence slices
+
+**Updated:** 2026-09-12
+**Current base SHA:** `4cb548cedfad306161929334d45aeac775f0c1d6`
+**Current milestone:** add a scoped browser-demo service worker/update path and
+close the documented hidden/freeze lifecycle gap before performance and UX
+work proceeds.
+
+Additional owned paths for this slice:
+
+- `apps/desktop/public/manifest.json`
+- `apps/desktop/public/varve-demo-sw.js`
+- `apps/desktop/src/demo/demoServiceWorker.ts` and its tests
+- `apps/desktop/src/demo/staleAssetGuard.ts`
+- `apps/desktop/src/main.tsx`
+- `packages/editor/src/lifecycle/LifecycleProvider.tsx`
+- corresponding readiness ledger, support, and marketing documentation
+
+Shared interfaces remain single-writer: the demo bootstrap/service-worker
+registration, persistence and recovery entry points, release metadata, and
+website support claims. No new dependencies, ports, or shared test/output
+directories are reserved by this slice. Before each commit, re-check the
+worktree and stage only the paths listed for the milestone; unrelated dirty
+font/input work remains untouched.

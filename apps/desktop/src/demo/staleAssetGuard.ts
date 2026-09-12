@@ -19,6 +19,8 @@
  * that may never have loaded.
  */
 
+import { DEMO_PWA_UPDATE_EVENT } from './demoServiceWorker';
+
 const STYLE_ID = 'varve-stale-asset-style';
 
 /** Self-contained styles — no tokens, no external stylesheet. */
@@ -86,22 +88,41 @@ function injectStyles(): void {
 export function installStaleAssetGuard(): () => void {
   let shown = false;
   let host: HTMLDivElement | null = null;
+  let serviceWorkerRegistration: ServiceWorkerRegistration | null = null;
 
-  const show = (kind: string) => {
+  const show = (kind: string, registration?: ServiceWorkerRegistration) => {
     if (shown || typeof document === 'undefined') return;
     shown = true;
+    serviceWorkerRegistration = registration ?? null;
     injectStyles();
     host = document.createElement('div');
     host.setAttribute('role', 'alert');
     host.className = 'varve-stale-asset-banner';
     const message = document.createElement('p');
     message.textContent =
-      'A newer version of the browser demo is available. Reload to continue with the latest build.';
+      kind === 'service-worker'
+        ? 'A newer version of the browser demo is ready. Update when you are ready to reload.'
+        : 'A newer version of the browser demo is available. Reload to continue with the latest build.';
     const reload = document.createElement('button');
     reload.type = 'button';
-    reload.textContent = 'Reload demo';
+    reload.textContent = kind === 'service-worker' ? 'Update and reload' : 'Reload demo';
     reload.addEventListener('click', () => {
-      window.location.reload();
+      const waiting = serviceWorkerRegistration?.waiting;
+      if (kind !== 'service-worker' || !waiting || !navigator.serviceWorker) {
+        window.location.reload();
+        return;
+      }
+      let reloaded = false;
+      const reloadAfterActivation = () => {
+        if (reloaded) return;
+        reloaded = true;
+        window.location.reload();
+      };
+      navigator.serviceWorker.addEventListener('controllerchange', reloadAfterActivation, {
+        once: true,
+      });
+      waiting.postMessage({ type: 'VARVE_DEMO_ACTIVATE_UPDATE' });
+      window.setTimeout(reloadAfterActivation, 8000);
     });
     const close = document.createElement('button');
     close.type = 'button';
@@ -139,11 +160,18 @@ export function installStaleAssetGuard(): () => void {
     }
   };
 
+  const onPwaUpdate = (event: Event) => {
+    const detail = (event as CustomEvent<{ registration?: ServiceWorkerRegistration }>).detail;
+    show('service-worker', detail?.registration);
+  };
+
   window.addEventListener('error', onError, true);
   window.addEventListener('unhandledrejection', onUnhandledRejection);
+  window.addEventListener(DEMO_PWA_UPDATE_EVENT, onPwaUpdate);
   return () => {
     window.removeEventListener('error', onError, true);
     window.removeEventListener('unhandledrejection', onUnhandledRejection);
+    window.removeEventListener(DEMO_PWA_UPDATE_EVENT, onPwaUpdate);
     host?.remove();
     document.getElementById(STYLE_ID)?.remove();
   };

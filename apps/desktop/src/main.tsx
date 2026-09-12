@@ -19,6 +19,7 @@ import { App } from './App';
 import { applyDemoCapabilities } from './demo/demoCapabilities';
 import { demoMode } from './demo/demoMode';
 import { suppressFirstRunOnboarding } from './demo/demoOnboarding';
+import { installDemoServiceWorker } from './demo/demoServiceWorker';
 import { installFrameGuard } from './demo/frameGuard';
 import { installStaleAssetGuard } from './demo/staleAssetGuard';
 import { initCspDiagnostics } from './security/cspDiagnostics';
@@ -92,6 +93,10 @@ async function bootstrap() {
   if (demo.active && !isPanelWindow) {
     installFrameGuard();
     installStaleAssetGuard();
+    void installDemoServiceWorker({
+      active: demo.active,
+      development: Boolean((import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV),
+    });
     // Declare what the demo withholds before the editor mounts, so the first
     // render already has the right workspace tabs and affordances rather than
     // showing then retracting them.
