@@ -1076,3 +1076,18 @@ The focused website build and eight-route light/dark/mobile clipboard-page
 visual checks remain recorded above. Native Wayland WDIO, external Firefox
 Figma ownership, and packaged Tauri CSP remain explicitly unverified external
 lanes.
+
+The affected Menubar unit lane initially raced the FloatingPortal's measured
+visibility and reported four false negatives while querying a hidden wrapper.
+The assertions now wait for the named visible menu; the complete 21-test
+Menubar file passes. This is test synchronization evidence, not a change to
+clipboard behavior.
+
+```text
+pnpm exec biome check --write packages/editor/src/Menubar.test.tsx
+passed
+pnpm exec vitest run packages/editor/src/Menubar.test.tsx --maxWorkers=1 --reporter=dot
+21 passed
+```
+
+The test-only correction is committed as `8054c425`.
