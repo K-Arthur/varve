@@ -28,7 +28,7 @@ below is backed by an actual launch on real hardware; everything else is labelle
 | **Linux** (Arch/CachyOS) | x86-64 | ✅ built + launched | `.deb` (host WebKitGTK) | unsigned | ✅ dev machine | glibc 2.35+ | **1** | High |
 | **Linux** (Debian/Ubuntu) | x86-64 | ✅ built in CI | `.deb` 49.9 MB (v0.2.1) | unsigned | ⬜ VM needed (container install-test ✅) | Ubuntu 22.04 | **2** | Medium |
 | **Linux** (Fedora/RHEL) | x86-64 | ✅ built in CI | `.rpm` 49.9 MB (v0.2.1) | unsigned | ⬜ VM needed (container install-test ✅) | Fedora 38 | **2** | Low |
-| **Linux** | ARM64 | ✅ v0.2.1: built + container install-tested + AppImage headless launch on native `ubuntu-22.04-arm` | AppImage, `.deb`, `.rpm` | checksums + SBOM | ⚠️ native-runner install tests + headless AppImage launch verified (2026-08-25); long-term hardware testing pending | glibc 2.35+ | **2** | Medium |
+| **Linux** | ARM64 | ✅ v0.2.1: built + container install-tested + AppImage headless launch on native `ubuntu-22.04-arm` | AppImage, `.deb`, `.rpm` | checksums + SBOM | ⚠️ native-runner install tests + headless AppImage launch verified (2026-08-25); Stage 5 (2026-09-12): published `.deb` bytes re-verified, glibc floor 2.35, dependency closure resolves on Debian 12/13 arm64; v0.2.1 AppImage lost its bundled ONNX Runtime (fixed on master, next release must confirm); long-term hardware testing pending | glibc 2.35+ | **2** | Medium |
 | **Windows 10/11** | x86-64 | ✅ built in CI (`windows-latest`, NSIS) | `.exe` | unsigned | ⚠️ runner smoke passed 2026-08-09 and 2026-08-21 (install/launch/uninstall); no long-term hardware testing | Win 10 1809 | **3** | Low |
 | **Windows** | ARM64 | ✅ v0.2.1: built + runner smoke passed on native `windows-11-arm` | native ARM64 app in NSIS distribution | unsigned until signing gate passes | ⚠️ runner smoke passed 2026-08-25 (install/launch); long-term hardware testing pending | Windows 10 1809 | **2** | Medium |
 | **macOS** | ARM64 | ✅ built in CI (`macos-latest`, `aarch64-apple-darwin` DMG) | `.dmg` | unsigned, unnotarised | ⚠️ runner smoke passed 2026-08-09 (mount/launch/unmount); no long-term hardware testing | macOS 13 | **3** | Low |
@@ -36,20 +36,19 @@ below is backed by an actual launch on real hardware; everything else is labelle
 
 Legend: ✅ verified · ⚠️ runner smoke passed once, no ongoing hardware testing · ⬜ planned · ❌ absent
 
-## 2b. ChromeOS and Chromebook routes — Stage 1 baseline
+## 2b. ChromeOS and Chromebook routes
 
 ChromeOS routes are intentionally separate from native Linux ARM64. The Lenovo
-Chromebook Duet 11M889 has not been run in this project during the Stage 1
-baseline, so none of these rows is a supported-device claim. Google’s Linux
-documentation also describes hardware acceleration, GPU, and video decode as
-unsupported in the Linux environment; that limitation does not describe the
-native Chrome browser.
+Chromebook Duet 11M889 has not been run in this project, so none of these rows
+is a supported-device claim. Google’s Linux documentation also describes
+hardware acceleration, GPU, and video decode as unsupported in the Linux
+environment; that limitation does not describe the native Chrome browser.
 
 | Route | Current artifact/path | Required evidence still missing | Stage 1 tier |
 |---|---|---|---|
 | Native Chrome browser tab | `apps/desktop` bounded `VITE_DEMO=1` build, WASM engine, IndexedDB and File System Access/input fallbacks | Duet launch, first editable frame, pen/touch/keyboard, storage quota/recovery, import/export, and paired performance samples | **Tier 3 — Experimental, demo only** |
 | Installed browser app/PWA | Same browser artifact; `apps/desktop/public/manifest.json` supplies standalone metadata and 192/512 icons | Install criteria, service-worker control, offline reload/update, persistence, and route-specific smoke test | **Tier 3 — Experimental, unverified** |
-| ARM64 Linux through ChromeOS Linux | Existing ARM64 Tauri packages and native engine; this is not native ChromeOS Chrome | Crostini GUI launch, WebKitGTK/portal behavior, display/input, fonts, printing, graphics fallback, and model behavior | **Tier 3 — Experimental, separate from native ARM64 Linux Tier 2** |
+| ARM64 Linux through ChromeOS Linux | Existing ARM64 Tauri packages and native engine; this is not native ChromeOS Chrome. Stage 5 (2026-09-12): v0.2.1 `.deb` bytes, metadata, glibc floor and Debian 12/13 dependency closure verified; install/update/uninstall contract in [`chromeos-linux.md`](chromeos-linux.md) | Crostini GUI launch, WebKitGTK/portal behavior, display/input, fonts, printing, graphics fallback, and model behavior | **Tier 3 — Experimental, separate from native ARM64 Linux Tier 2** |
 
 The browser/PWA capability report is available on request from **Settings →
 Performance → Platform capability report**. It records bounded local runtime
@@ -57,6 +56,18 @@ facts, including dynamic graphics/worker/WASM/storage checks, but it does not
 promote a route or upload diagnostics. The full evidence ledger, fixture map,
 budgets, and hardware checklist are in
 [`docs/audits/chromeos-stage1-baseline-2026-09-11.md`](../audits/chromeos-stage1-baseline-2026-09-11.md).
+
+Stage 5 (2026-09-12) added Linux ARM64 package evidence for the third route:
+the published v0.2.1 `.deb` was re-verified byte-for-byte against
+`SHA256SUMS.txt`, its control metadata and `GLIBC_2.35` floor were inspected,
+and its dependency closure was resolved against arm64-only Debian 12 and
+Debian 13 archives. The audit also found and fixed an AppImage packaging
+defect: v0.2.1 AppImages were pruned of `usr/lib` wholesale, losing the
+bundled native ONNX Runtime that the `.deb` carries; the fix is on `master`
+and the next release must confirm it. No Chromebook run happened, so the
+route stays Tier 3. Evidence:
+[`docs/audits/chromeos-stage5-linux-arm64-2026-09-12.md`](../audits/chromeos-stage5-linux-arm64-2026-09-12.md);
+instructions: [`docs/release/chromeos-linux.md`](chromeos-linux.md).
 
 ---
 
