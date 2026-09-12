@@ -120,3 +120,40 @@ export function watchOnlineStatus(
 export function getOnlineStatus(navigatorLike?: { onLine?: boolean }): boolean {
   return navigatorLike?.onLine !== false;
 }
+
+/**
+ * Ask the controlling service worker whether the current document was served
+ * from the browser cache. Returns null when there is no controller, the
+ * browser lacks MessageChannel, or the worker does not answer in time — the
+ * caller then keeps its navigator-based state.
+ */
+export function queryServedFromCache(
+  controller: ServiceWorker | null | undefined,
+  timeoutMs = 2000,
+): Promise<boolean | null> {
+  if (!controller || typeof MessageChannel === 'undefined') return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const channel = new MessageChannel();
+    let settled = false;
+    const finish = (value: boolean | null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(value);
+    };
+    const timer = setTimeout(() => finish(null), timeoutMs);
+    channel.port1.onmessage = (event: MessageEvent) => {
+      const data = event.data as { type?: unknown; online?: unknown } | null;
+      if (data?.type === 'VARVE_DEMO_CONNECTIVITY_PONG' && typeof data.online === 'boolean') {
+        finish(!data.online);
+      } else {
+        finish(null);
+      }
+    };
+    try {
+      controller.postMessage({ type: 'VARVE_DEMO_CONNECTIVITY_PING' }, [channel.port2]);
+    } catch {
+      finish(null);
+    }
+  });
+}

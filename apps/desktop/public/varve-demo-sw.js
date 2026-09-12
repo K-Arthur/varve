@@ -21,6 +21,14 @@
 const CACHE_NAME = 'varve-demo-shell-v2';
 const MAX_CACHE_ENTRIES = 256;
 const MAX_ENTRY_REFS = 64;
+
+/**
+ * Whether the last navigation this worker answered came from the network.
+ * `navigator.onLine` is not authoritative (captive portals, emulated offline
+ * conditions), so the page asks the worker what actually happened when it
+ * needs to label the current session as "served from the browser cache".
+ */
+let lastNavigationOnline = true;
 const PRECACHE_ASSETS = [
   './wasm/varve_wasm.js',
   './wasm/varve_wasm_simd.js',
@@ -186,8 +194,11 @@ async function precacheShell(cache) {
 async function networkFirst(request) {
   const cache = await caches.open(CACHE_NAME);
   try {
-    return await cacheResponse(request, await fetch(request));
+    const response = await cacheResponse(request, await fetch(request));
+    lastNavigationOnline = true;
+    return response;
   } catch {
+    lastNavigationOnline = false;
     const shellHref = new URL('./', self.registration.scope).href;
     const cached = (await cache.match(request)) || (await cache.match(shellHref));
     if (cached) return cached;
@@ -238,6 +249,17 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'VARVE_DEMO_ACTIVATE_UPDATE') {
     void self.skipWaiting();
+    return;
+  }
+  // Connectivity report for the page: "was the document you are running in
+  // served from cache?" The page cannot trust navigator.onLine, but the
+  // worker knows exactly which branch its navigation fetch took.
+  if (event.data?.type === 'VARVE_DEMO_CONNECTIVITY_PING') {
+    const port = event.ports?.[0];
+    port?.postMessage({
+      type: 'VARVE_DEMO_CONNECTIVITY_PONG',
+      online: lastNavigationOnline,
+    });
   }
 });
 

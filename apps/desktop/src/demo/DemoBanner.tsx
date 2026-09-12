@@ -24,6 +24,7 @@ import {
   createInstallPromptController,
   getOnlineStatus,
   type InstallPromptController,
+  queryServedFromCache,
   watchOnlineStatus,
 } from './demoPwaState';
 import './demoBanner.css';
@@ -77,6 +78,15 @@ export function DemoBanner({ config }: DemoBannerProps) {
       setCanInstall(controller.getPending() !== null);
     });
     const unsubscribeOnline = watchOnlineStatus(window, (online) => setOffline(!online));
+    // navigator.onLine is not authoritative (captive portals, emulated
+    // conditions): ask the worker that answered this navigation whether it
+    // came from cache.
+    void queryServedFromCache(
+      typeof navigator === 'undefined' ? null : navigator.serviceWorker?.controller,
+    ).then((servedFromCache) => {
+      if (servedFromCache === true) setOffline(true);
+      else if (servedFromCache === false && getOnlineStatus(navigator)) setOffline(false);
+    });
     return () => {
       unsubscribeInstall();
       unsubscribeOnline();

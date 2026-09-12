@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createInstallPromptController, getOnlineStatus, watchOnlineStatus } from './demoPwaState';
+import {
+  createInstallPromptController,
+  getOnlineStatus,
+  queryServedFromCache,
+  watchOnlineStatus,
+} from './demoPwaState';
 
 class FakeTarget {
   private listeners = new Map<string, Set<(event: Event) => void>>();
@@ -102,5 +107,35 @@ describe('demo online status', () => {
     expect(listener).toHaveBeenCalledTimes(2);
     expect(target.count('online')).toBe(0);
     expect(target.count('offline')).toBe(0);
+  });
+});
+
+describe('service-worker connectivity query', () => {
+  it('reports cache-served when the worker answered the navigation offline', async () => {
+    const controller = {
+      postMessage: (_message: unknown, ports?: Transferable[]) => {
+        const port = ports?.[0] as MessagePort | undefined;
+        port?.postMessage({ type: 'VARVE_DEMO_CONNECTIVITY_PONG', online: false });
+      },
+    } as unknown as ServiceWorker;
+
+    expect(await queryServedFromCache(controller, 1000)).toBe(true);
+  });
+
+  it('reports online when the worker served from the network', async () => {
+    const controller = {
+      postMessage: (_message: unknown, ports?: Transferable[]) => {
+        const port = ports?.[0] as MessagePort | undefined;
+        port?.postMessage({ type: 'VARVE_DEMO_CONNECTIVITY_PONG', online: true });
+      },
+    } as unknown as ServiceWorker;
+
+    expect(await queryServedFromCache(controller, 1000)).toBe(false);
+  });
+
+  it('returns null without a controller or an answer', async () => {
+    expect(await queryServedFromCache(null)).toBeNull();
+    const silent = { postMessage: () => undefined } as unknown as ServiceWorker;
+    expect(await queryServedFromCache(silent, 20)).toBeNull();
   });
 });
