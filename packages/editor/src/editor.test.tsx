@@ -14,8 +14,8 @@ describe('Shell', () => {
     render(<Shell />);
     // Menubar present
     expect(screen.getByRole('menubar')).toBeTruthy();
-    // Toolbar present
-    expect(screen.getByRole('toolbar')).toBeTruthy();
+    // The main palette remains present alongside contextual action toolbars.
+    expect(screen.getByRole('toolbar', { name: 'Drawing tools' })).toBeTruthy();
     // Canvas region present
     expect(screen.getByRole('region', { name: /^canvas$/i })).toBeTruthy();
     // Layers panel present (its tree renders only when layers exist; the

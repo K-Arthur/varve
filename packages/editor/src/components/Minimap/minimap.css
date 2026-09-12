@@ -112,6 +112,13 @@
   color: var(--color-text-muted);
 }
 
+.minimap-panel--collapsed-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-1);
+}
+
 .minimap-panel--collapsed:hover {
   background: var(--color-surface-hover);
   color: var(--color-text-primary);

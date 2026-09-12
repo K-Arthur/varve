@@ -170,9 +170,14 @@ NodeEditTool typing errors; none reference the scoped remediation files.
 - **Panel Collapse & Edge Restore Visual Verification**:
   - `VARVE_E2E_PORT=1429 pnpm exec playwright test tests/e2e/layers/layers-panel-visual.spec.ts --project=chromium` — 2/2 tests passed.
   - Screenshots visually inspected via direct image loading:
-    - `layers-collapse-btn-icon.png`: Bespoke 16x16 SVG sidebar-collapse icon rendering crisp borders, vertical divider, and directional collapse chevron.
+    - `layers-collapse-btn-icon.png`: Bespoke 16x16 SVG sidebar-collapse icon rendering crisp borders, vertical divider, tinted sidebar region, and directional collapse chevron on an elevated 24x24 surface.
+    - `layers-panel-populated-light.png`: Left sidebar rail populated with layers, showing the conspicuous `[ ◨◀ ]` collapse button positioned at the top right of the rail next to the minimap header (`5 objects · Fit · v · [ ◨◀ ]`), with the Layers header below maintaining only the clean detach button `⛶` without congestion.
     - `canvas-left-panel-collapsed.png`: Left layers panel collapsed, displaying the elevated `.editor__panel-restore-btn--left` floating pill with SVG panel-expand icon and "Layers" label at `left: 28px, top: 100px`, cleanly clearing the document tab bar and rulers without collision.
     - `canvas-both-panels-collapsed.png`: Both left and right panels collapsed, rendering symmetric floating restore pills on left and right canvas margins.
     - `canvas-panels-restored.png`: Panels fully restored upon direct clicking of the restore affordances, confirming seamless round-trip interaction.
+- **Left Sidebar Collapse Relocation Unit Verification**:
+  - `pnpm exec vitest run packages/editor/src/components/Minimap/MinimapPanel.test.tsx` — 13/13 tests passed.
+  - `pnpm exec vitest run packages/editor/src/components/SelectionInfoBar/SelectionInfoBar.test.tsx` — 5/5 tests passed.
+  - `pnpm exec vitest run packages/editor/src/components/Inspector/PropertiesPanel.test.tsx` — 28/28 tests passed.
 
 

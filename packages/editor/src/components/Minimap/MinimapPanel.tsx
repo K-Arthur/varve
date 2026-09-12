@@ -361,7 +361,49 @@ export function MinimapPanel({ canvasOwnerRef }: MinimapPanelProps) {
     [editor, endDrag, panByScreen],
   );
 
-  if (minimapVisible === false) return null;
+  const toggleLeftPanel = editor.toggleLeftPanel;
+
+  const collapseButton = toggleLeftPanel ? (
+    <Tooltip label="Collapse Layers panel (Ctrl+B)">
+      <button
+        type="button"
+        className="editor__collapse-btn"
+        onClick={() => toggleLeftPanel()}
+        aria-label="Collapse Layers panel (Ctrl+B)"
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <rect
+            x="2"
+            y="2"
+            width="12"
+            height="12"
+            rx="2"
+            stroke="currentColor"
+            strokeWidth="1.25"
+            fill="none"
+          />
+          <rect x="2" y="2" width="4" height="12" rx="1.5" fill="currentColor" fillOpacity="0.25" />
+          <line x1="6" y1="2" x2="6" y2="14" stroke="currentColor" strokeWidth="1.25" />
+          <path
+            d="M11.5 6L9.5 8L11.5 10"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+    </Tooltip>
+  ) : null;
+
+  if (minimapVisible === false) {
+    return (
+      <div className="editor__panel-header editor__panel-header--left">
+        <span className="editor__panel-title">Layers</span>
+        {collapseButton}
+      </div>
+    );
+  }
 
   const nodeCount = scene.entries.length;
   const outlierCount = scene.outliers.length;
@@ -369,29 +411,32 @@ export function MinimapPanel({ canvasOwnerRef }: MinimapPanelProps) {
 
   if (collapsed) {
     return (
-      <Tooltip label="Show minimap">
-        <button
-          type="button"
-          className="minimap-panel minimap-panel--collapsed"
-          onClick={() => setCollapsed(false)}
-          aria-label="Show minimap"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <rect
-              x="1"
-              y="1"
-              width="14"
-              height="14"
-              rx="2"
-              stroke="currentColor"
-              strokeWidth="1.5"
-            />
-            <rect x="3" y="3" width="4" height="3" rx="0.5" fill="currentColor" opacity="0.4" />
-            <rect x="9" y="5" width="4" height="5" rx="0.5" fill="currentColor" opacity="0.4" />
-            <rect x="4" y="9" width="6" height="4" rx="0.5" fill="currentColor" opacity="0.4" />
-          </svg>
-        </button>
-      </Tooltip>
+      <div className="minimap-panel--collapsed-wrapper">
+        <Tooltip label="Show minimap">
+          <button
+            type="button"
+            className="minimap-panel minimap-panel--collapsed"
+            onClick={() => setCollapsed(false)}
+            aria-label="Show minimap"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <rect
+                x="1"
+                y="1"
+                width="14"
+                height="14"
+                rx="2"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              />
+              <rect x="3" y="3" width="4" height="3" rx="0.5" fill="currentColor" opacity="0.4" />
+              <rect x="9" y="5" width="4" height="5" rx="0.5" fill="currentColor" opacity="0.4" />
+              <rect x="4" y="9" width="6" height="4" rx="0.5" fill="currentColor" opacity="0.4" />
+            </svg>
+          </button>
+        </Tooltip>
+        {collapseButton}
+      </div>
     );
   }
 
@@ -440,6 +485,7 @@ export function MinimapPanel({ canvasOwnerRef }: MinimapPanelProps) {
             </svg>
           </button>
         </Tooltip>
+        {collapseButton}
       </div>
       <canvas
         ref={canvasRef}

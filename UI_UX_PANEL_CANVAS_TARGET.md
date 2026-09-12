@@ -204,5 +204,6 @@ selection summary.
 - **Local-First AI Transparency**: Non-blocking status chip in the editor chrome communicates on-device ML readiness and processing states without fake latency or deceptive cloud promises.
 - **Direct-Manipulation Restore Affordances**: When panels are collapsed, floating micro-pills (`.editor__panel-restore-btn`) hover on the canvas edge at `top: calc(var(--topbar-height, 40px) + 32px + 28px)`, offering one-click expansion and clear keyboard tooltips without obscuring page tabs or rulers.
 - **Splitter Ergonomics**: Resizable panel handles provide an expanded 14px hit target (`inline-size: 14px; left: -7px; right: -7px;`) for reliable trackpad and mouse grabbing while maintaining a hairline 1px visual border.
+- **Top Sidebar Collapse Positioning & Ergonomics**: The left panel collapse affordance is positioned strictly at the top of the left sidebar rail (in the minimap header, collapsed bar, and fallback header), keeping it aligned with the top floating expand button and Inspector tab header. The button is styled as an elevated, conspicuous control with bespoke 16x16 SVG iconography featuring tinted panel regions.
 
 
