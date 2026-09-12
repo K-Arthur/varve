@@ -326,7 +326,11 @@ function ShellInner({
     return () => setImportReportHandler(null);
   }, []);
   const revealImportedSelection = useCallback(
-    (rootIds: readonly string[]) => {
+    (rootIds: readonly string[], documentId?: string) => {
+      if (documentId && documentId !== editor.state.document.id) {
+        editor.announce('Reveal selection cancelled because the document changed');
+        return;
+      }
       const validRootIds = rootIds.filter((id) => Boolean(editor.state.document.nodes[id]));
       if (validRootIds.length === 0) return;
       editor.setSelectionRefs(validRootIds, { origin: 'api' });

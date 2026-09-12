@@ -1126,6 +1126,7 @@ export function CanvasArea({
           ...report,
           insertedCount: committedIds.length,
           committedRootIds: committedIds,
+          documentId: expected.documentId,
           route: 'drop',
         });
       }

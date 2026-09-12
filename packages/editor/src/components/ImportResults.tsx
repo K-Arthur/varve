@@ -7,12 +7,13 @@ export interface ImportResultsProps {
   result: BatchImportResult | ImportResultReport;
   onClose: () => void;
   /** Reveal the roots that actually reached the canvas, when available. */
-  onRevealSelection?: (rootIds: readonly string[]) => void;
+  onRevealSelection?: (rootIds: readonly string[], documentId?: string) => void;
 }
 
 export type ImportResultReport = ImportReport & {
   insertedCount?: number;
   committedRootIds?: readonly string[];
+  documentId?: string;
   route?: 'paste' | 'import' | 'drop';
 };
 
@@ -221,7 +222,9 @@ export function ImportResults({ result, onClose, onRevealSelection }: ImportResu
             <button
               type="button"
               className="import-results__btn"
-              onClick={() => onRevealSelection(committedRootIds)}
+              onClick={() =>
+                onRevealSelection(committedRootIds, serviceReport ? result.documentId : undefined)
+              }
             >
               Reveal selection
             </button>

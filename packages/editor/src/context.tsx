@@ -8163,6 +8163,7 @@ export function EditorProvider({
               ...importReport,
               insertedCount: 0,
               committedRootIds: [],
+              documentId: invocation.document.id,
               route: 'paste',
             });
           }
@@ -8262,6 +8263,7 @@ export function EditorProvider({
               ...importReport,
               insertedCount: committedPasteCount,
               committedRootIds: committedPasteIds,
+              documentId: invocation.document.id,
               route: 'paste',
             });
           }

@@ -194,11 +194,18 @@ export function useFileImport(editor: FileImportEditor): FileImportController {
               ...result,
               insertedCount: committedIds.length,
               committedRootIds: committedIds,
+              documentId: expected.documentId,
               route: 'import',
             });
           }
         } else if (reportHasIssues(result)) {
-          setReport({ ...result, insertedCount: 0, committedRootIds: [], route: 'import' });
+          setReport({
+            ...result,
+            insertedCount: 0,
+            committedRootIds: [],
+            documentId: expected.documentId,
+            route: 'import',
+          });
         }
         const landed = result.successCount + result.partialCount;
         editor.announce(

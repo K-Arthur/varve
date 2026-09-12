@@ -68,13 +68,14 @@ describe('ImportResults', () => {
       warnings: ['one fidelity change'],
       insertedCount: 2,
       committedRootIds: ['n1', 'n2'],
+      documentId: 'doc-1',
       route: 'paste' as const,
     };
     render(
       <ImportResults result={result} onClose={() => {}} onRevealSelection={onRevealSelection} />,
     );
     fireEvent.click(screen.getByRole('button', { name: /reveal selection/i }));
-    expect(onRevealSelection).toHaveBeenCalledWith(['n1', 'n2']);
+    expect(onRevealSelection).toHaveBeenCalledWith(['n1', 'n2'], 'doc-1');
   });
 
   it('shows failure count when there are failures', () => {

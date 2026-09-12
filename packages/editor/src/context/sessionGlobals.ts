@@ -49,6 +49,8 @@ export type ImportResultReport = ImportReport & {
   insertedCount?: number;
   /** Roots committed by the ingestion route, for an explicit reveal action. */
   committedRootIds?: readonly string[];
+  /** Document that received those roots; prevents a stale report targeting a new tab. */
+  documentId?: string;
   route?: 'paste' | 'import' | 'drop';
 };
 
