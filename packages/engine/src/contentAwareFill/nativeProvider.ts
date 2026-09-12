@@ -25,6 +25,40 @@ export interface NativeLaMaResult {
   warnings: string[];
 }
 
+function validateNativeResponse(response: NativeLaMaResponse, imageData: ImageData): void {
+  if (
+    !Number.isSafeInteger(response.width) ||
+    !Number.isSafeInteger(response.height) ||
+    response.width <= 0 ||
+    response.height <= 0
+  ) {
+    throw new Error('Native LaMa returned invalid output dimensions');
+  }
+  if (response.width !== imageData.width || response.height !== imageData.height) {
+    throw new Error(
+      `Native LaMa output ${response.width}x${response.height} does not match the requested ${imageData.width}x${imageData.height}`,
+    );
+  }
+  if (typeof response.model_id !== 'string' || response.model_id.trim().length === 0) {
+    throw new Error('Native LaMa returned no model id');
+  }
+  if (
+    typeof response.execution_backend !== 'string' ||
+    response.execution_backend.trim().length === 0
+  ) {
+    throw new Error('Native LaMa returned no execution backend');
+  }
+  if (!Number.isSafeInteger(response.processing_time_ms) || response.processing_time_ms < 0) {
+    throw new Error('Native LaMa returned invalid processing time');
+  }
+  if (
+    !Array.isArray(response.warnings) ||
+    response.warnings.some((warning) => typeof warning !== 'string')
+  ) {
+    throw new Error('Native LaMa returned invalid warnings');
+  }
+}
+
 /**
  * Desktop LaMa inference through the Rust ONNX Runtime command.
  *
@@ -96,6 +130,7 @@ export const nativeLaMaProvider = {
 
       if (signal?.aborted) throw new Error('cancelled');
       if (!raw?.png_base64) throw new Error('Native LaMa returned no image');
+      validateNativeResponse(raw, imageData);
 
       const binary = atob(raw.png_base64);
       const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));

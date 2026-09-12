@@ -73,6 +73,23 @@ describe('nativeLaMaProvider', () => {
     ).rejects.toThrow('do not match response');
   });
 
+  it('rejects native metadata that cannot support honest provenance', async () => {
+    invoke.mockResolvedValue({
+      png_base64: btoa('png'),
+      width: 24,
+      height: 16,
+      model_id: '',
+      execution_backend: 'ort-native',
+      processing_time_ms: 1,
+      warnings: [],
+    });
+
+    await expect(
+      nativeLaMaProvider.infer(new ImageData(24, 16), new Uint8Array(24 * 16)),
+    ).rejects.toThrow('no model id');
+    expect(decodeImageBytesToImageData).not.toHaveBeenCalled();
+  });
+
   it('cancels the native request and does not await a late helper response', async () => {
     const controller = new AbortController();
     const pending = new Promise<never>(() => undefined);

@@ -26,6 +26,46 @@ export interface NativeGenerativeResult {
   warnings: string[];
 }
 
+const MAX_NATIVE_DIMENSION = 2_048;
+
+function validateNativeResponse(
+  response: NativeGenerativeResponse,
+  request: GenerativeEditRequest,
+): void {
+  const expectedWidth = request.outputWidth ?? request.imageData.width;
+  const expectedHeight = request.outputHeight ?? request.imageData.height;
+  if (
+    !Number.isSafeInteger(response.width) ||
+    !Number.isSafeInteger(response.height) ||
+    response.width <= 0 ||
+    response.height <= 0 ||
+    response.width > MAX_NATIVE_DIMENSION ||
+    response.height > MAX_NATIVE_DIMENSION
+  ) {
+    throw new Error('Native generation returned invalid output dimensions');
+  }
+  if (response.width !== expectedWidth || response.height !== expectedHeight) {
+    throw new Error(
+      `Native generation output ${response.width}x${response.height} does not match the requested ${expectedWidth}x${expectedHeight}`,
+    );
+  }
+  if (
+    typeof response.execution_backend !== 'string' ||
+    response.execution_backend.trim().length === 0
+  ) {
+    throw new Error('Native generation returned no execution backend');
+  }
+  if (!Number.isSafeInteger(response.processing_time_ms) || response.processing_time_ms < 0) {
+    throw new Error('Native generation returned invalid processing time');
+  }
+  if (
+    !Array.isArray(response.warnings) ||
+    response.warnings.some((warning) => typeof warning !== 'string')
+  ) {
+    throw new Error('Native generation returned invalid warnings');
+  }
+}
+
 function defaultPrompt(mode: GenerativeEditMode): string {
   return mode === 'expand' ? 'seamless continuation of the surrounding scene' : '';
 }
@@ -133,6 +173,7 @@ export const nativeGenerativeProvider = {
       }
       if (request.signal?.aborted) throw new Error('cancelled');
       if (!raw?.png_base64) throw new Error('Native generation returned no image');
+      validateNativeResponse(raw, request);
       const binary = atob(raw.png_base64);
       const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
       const imageData = await decodeImageBytesToImageData(bytes);

@@ -155,6 +155,12 @@ desktop workflow supports an explicit, allowlisted download or user import,
 then validation; downloads resume through a native partial file, verify the
 pinned SHA-256, and install atomically. There is no silent model download.
 
+Native image adapters validate the returned dimensions against the requested
+working frame before decoding or compositing. They also require a finite
+non-negative processing time, a non-empty execution backend/model identity,
+and string-only warnings. Untrusted IPC metadata therefore cannot create a
+candidate with invented geometry or provenance.
+
 There is no silent remote fallback. A future remote provider must request
 consent immediately before upload, state the provider and transmitted data,
 respect a global remote-inference setting, and never store credentials or raw

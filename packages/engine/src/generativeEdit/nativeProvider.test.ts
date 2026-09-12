@@ -85,6 +85,40 @@ describe('nativeGenerativeProvider', () => {
     });
   });
 
+  it('rejects a response whose geometry does not match the requested frame', async () => {
+    invoke.mockResolvedValue({
+      png_base64: btoa('png'),
+      width: 7,
+      height: 6,
+      execution_backend: 'native-cpu',
+      processing_time_ms: 42,
+      warnings: [],
+    });
+
+    await expect(nativeGenerativeProvider.infer(request())).rejects.toMatchObject({
+      code: 'runtime-failure',
+      message: expect.stringContaining('does not match the requested'),
+    });
+    expect(decodeImageBytesToImageData).not.toHaveBeenCalled();
+  });
+
+  it('rejects response metadata that cannot support honest provenance', async () => {
+    invoke.mockResolvedValue({
+      png_base64: btoa('png'),
+      width: 8,
+      height: 6,
+      execution_backend: '',
+      processing_time_ms: -1,
+      warnings: [42],
+    });
+
+    await expect(nativeGenerativeProvider.infer(request())).rejects.toMatchObject({
+      code: 'runtime-failure',
+      message: expect.stringMatching(/execution backend|processing time|warnings/),
+    });
+    expect(decodeImageBytesToImageData).not.toHaveBeenCalled();
+  });
+
   it('cancels the native request and rejects without accepting a late result', async () => {
     const controller = new AbortController();
     const pending = new Promise<never>(() => undefined);
