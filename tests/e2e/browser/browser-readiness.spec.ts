@@ -17,7 +17,8 @@
  *  9. startup timeline marks (performance evidence)
  * 10. clipboard copy/paste (Chromium only — permission grant)
  * 11. bundled fonts available to the document
- * 12. no service worker; not cross-origin isolated (host posture evidence)
+ * 12. no service worker on the non-demo route; the /try demo route registers
+ *     its own scoped worker (covered by try-pwa.spec.ts)
  *
  * Evidence is attached as JSON so the audit report can quote exact numbers.
  */
@@ -532,8 +533,9 @@ test.describe('browser build readiness', () => {
       };
     });
 
-    // Not a PWA: no service worker, so offline-after-reload is NOT supported
-    // and must never be promised. Works offline only while the tab is open.
+    // The non-demo route is not a PWA: no service worker registers here (only
+    // the /try demo route does, with its own scope), so offline-after-reload
+    // is not part of this route's contract.
     expect(posture.serviceWorkerRegistrations).toBe(0);
     // Nothing requests SharedArrayBuffer, so COOP/COEP isolation is not
     // required — a plain static host with CSP suffices.

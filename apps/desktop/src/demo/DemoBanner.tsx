@@ -12,7 +12,7 @@
  */
 
 import { Icon } from '@varve/ui';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   type DemoAnalyticsChoice,
   readDemoAnalyticsChoice,
@@ -20,6 +20,12 @@ import {
   trackDemoLaunched,
 } from './demoAnalytics';
 import type { DemoConfig } from './demoMode';
+import {
+  createInstallPromptController,
+  getOnlineStatus,
+  type InstallPromptController,
+  watchOnlineStatus,
+} from './demoPwaState';
 import './demoBanner.css';
 
 const DISMISS_KEY = 'varve-demo-banner-dismissed';
@@ -43,6 +49,11 @@ export function DemoBanner({ config }: DemoBannerProps) {
   // 'unknown' until the visitor decides, and 'unknown' is not consent — the
   // analytics client treats anything but 'granted' as denied.
   const [analyticsChoice, setAnalyticsChoice] = useState<DemoAnalyticsChoice>('unknown');
+  // Chromium offers `beforeinstallprompt` when the manifest meets its install
+  // criteria; nothing is shown if the browser never offers it.
+  const [canInstall, setCanInstall] = useState(false);
+  const [offline, setOffline] = useState(() => !getOnlineStatus(navigator));
+  const installController = useRef<InstallPromptController | null>(null);
 
   useEffect(() => {
     try {
@@ -55,6 +66,23 @@ export function DemoBanner({ config }: DemoBannerProps) {
     // Counting is attempted on every load, not only after a grant: the call is
     // a no-op unless consent already exists from a previous visit.
     trackDemoLaunched();
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const controller = createInstallPromptController(window);
+    installController.current = controller;
+    setCanInstall(controller.getPending() !== null);
+    const unsubscribeInstall = controller.subscribe(() => {
+      setCanInstall(controller.getPending() !== null);
+    });
+    const unsubscribeOnline = watchOnlineStatus(window, (online) => setOffline(!online));
+    return () => {
+      unsubscribeInstall();
+      unsubscribeOnline();
+      controller.dispose();
+      installController.current = null;
+    };
   }, []);
 
   const choose = (choice: 'granted' | 'denied') => {
@@ -80,6 +108,12 @@ export function DemoBanner({ config }: DemoBannerProps) {
           Browser demo — the real editor, running entirely on this device. No account, nothing
           uploaded.
         </p>
+        {offline && (
+          <span className="varve-demo-banner__offline" role="status">
+            Offline — running from the copy saved in this browser. Edits stay on this device until
+            you reconnect.
+          </span>
+        )}
         <details className="varve-demo-banner__limits">
           <summary>What's limited in the browser demo</summary>
           <ul>
@@ -101,6 +135,15 @@ export function DemoBanner({ config }: DemoBannerProps) {
               No thanks
             </button>
           </fieldset>
+        )}
+        {canInstall && (
+          <button
+            type="button"
+            className="varve-demo-banner__install"
+            onClick={() => void installController.current?.prompt()}
+          >
+            Install app
+          </button>
         )}
         <a
           className="varve-demo-banner__cta"
