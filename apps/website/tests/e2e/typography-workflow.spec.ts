@@ -29,6 +29,7 @@ for (const route of ['/features/typography', '/docs/tools/typography']) {
       const content = page.locator('.feature-page, .docs-page');
       await expect(content).toContainText('More text formatting');
       await expect(content).toContainText('Select by Font');
+      await expect(content).toContainText('Document fonts');
       await expect(content).toContainText('still being integrated');
       await page.screenshot({ path: testInfo.outputPath('typography-intro.png') });
       const details = page.getByRole('heading', {

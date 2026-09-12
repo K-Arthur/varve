@@ -46,6 +46,14 @@ const fontReplacementFaq = {
         text: 'You can inspect catalog metadata and installed faces without a network request. A family specimen becomes available after you explicitly install the font on desktop; choosing a result alone never downloads or changes the document.',
       },
     },
+    {
+      '@type': 'Question',
+      name: 'How can I find every text layer that uses a font?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Open the Fonts panel and choose Document fonts. It defaults to the active page, groups exact faces separately from family-only requests, excludes hidden and locked content, and lets you select every matching text layer in one action. Switch to Entire document for a broader review.',
+      },
+    },
   ],
 };
 ---
@@ -125,6 +133,17 @@ const fontReplacementFaq = {
         </div>
       </section>
 
+      <section class="feature-section document-fonts-workflow">
+        <p class="feature-callout__eyebrow">Audit the document</p>
+        <h2>See which faces your text actually uses</h2>
+        <p>
+          The Fonts panel opens on <strong>Document fonts</strong>, scoped to the active page. It groups exact artifact faces and family-only requests separately, shows character counts and page locations, keeps linked story frames together, and excludes hidden or locked content from the working list. Choose <strong>Entire document</strong> for a broader audit, then select every matching text layer in one action before making a replacement decision.
+        </p>
+        <p>
+          Unused text styles remain visible in their own disclosure, while <strong>Browse all fonts</strong> opens the full local-first catalog without changing the document. A family-only request stays visibly unresolved until an exact face is installed or deliberately replaced.
+        </p>
+      </section>
+
       <div class="feature-visual feature-visual--pair">
         <figure>
           <img
@@ -194,7 +213,7 @@ const fontReplacementFaq = {
             <li>Native PDF vertical text and exact vertical font-table/vertical-alternate fidelity are not yet proven end to end; HTML/CSS and SVG retain semantic writing-mode data, while unsupported targets require an explicit outline or raster fallback</li>
             <li>Text-to-outlines produces placeholder bounding boxes (real glyph path extraction deferred)</li>
             <li>Rich-text transactions and mixed inspector state exist, but insertion-style state, composition transactions, and complete shaped per-span rendering remain in development</li>
-            <li>Font substitution preserves editability and provenance, but a compatible or category fallback can change text metrics; explicit restore-to-original-font actions are planned</li>
+            <li>Font substitution preserves editability and provenance, but a compatible or category fallback can change text metrics; scoped restore-to-original replacement actions remain under integration</li>
           </ul>
         </div>
       </section>
@@ -214,8 +233,8 @@ const fontReplacementFaq = {
           selected text objects. Use the Rich Text editor for range formatting.
           Registered exact-face selection is available from the expanded browser
           rows; the Logo wordmark panel shares that browser and exposes weight
-          and style controls. Recovery of an imported collection face, Document
-          Fonts, Select by Font, arbitrary image-region crop/overlay selection,
+          and style controls. Recovery of an imported collection face, scoped
+          Select by Font replacement with layout preview, arbitrary image-region crop/overlay selection,
           and applying an identified face to an existing text target are still
           being integrated. Browser
           local-font enumeration is available only through the explicit action
@@ -274,6 +293,8 @@ const fontReplacementFaq = {
         <p>It can. Font metrics affect wrapping and bounds, so Varve shows the match quality and asks you to review reflow before delivery.</p>
         <h3>Can I preview a font before applying it?</h3>
         <p>Installed and bundled faces can be previewed locally. Catalog-only results show metadata until you explicitly install the exact desktop artifact; browsing never starts a remote request.</p>
+        <h3>How do I see which faces are used in a document?</h3>
+        <p>Open the Fonts panel's Document fonts view. It starts on the active page, separates exact faces from family-only requests, excludes hidden and locked content, and lets you select every matching text layer. Choose Entire document when you need a broader audit; Browse all fonts keeps discovery separate from the document.</p>
         <h3>Is vertical text just rotated text?</h3>
         <p>No. Vertical-rl and vertical-lr are logical writing modes with their own column progression and grapheme orientation. Rotation remains an independent object transform, and vertical alignment remains a text-frame alignment setting.</p>
       </section>

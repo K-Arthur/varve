@@ -135,6 +135,14 @@ import { sitePath } from '../../../lib/siteUrl';
           Font details distinguish the OS/2 base embedding permission from the separate no-subsetting and bitmap-only declarations. These technical flags do not prove a license grant. If license provenance is unknown, Varve keeps the state visible and does not offer redistribution or live font embedding until you verify the source terms.
         </p>
 
+        <h3 id="document-fonts">Document Fonts</h3>
+        <p>
+          Open the Fonts panel to review the faces the document actually uses. The panel starts on the active page and lets you switch to <strong>Entire document</strong>. Exact artifact and collection-member faces stay separate from family-only requests; each row shows the face label, character count, and page locations. Linked story frames are kept together, while hidden and locked content is excluded from the working list.
+        </p>
+        <p>
+          Select a row to select every matching text layer in one action. Unused text styles appear separately so cleanup does not look like missing artwork. Use <strong>Browse all fonts</strong> to return to discovery; browsing a catalog family does not change the document or start a provider request.
+        </p>
+
         <h3>Semantic discovery</h3>
         <p>
           Queries such as <code>friendly rounded sans for UI</code>, <code>editorial serif with Vietnamese</code>, and <code>similar to Inter</code> are parsed into explainable constraints and preferences. “With” coverage and feature requirements are hard; words such as “friendly” and “editorial” are ranking preferences unless the query is clarified. Results distinguish verified facts, measured metrics, curated observations, and unknown metadata. Similarity, alternatives, and pairings are separate recommendation lanes.
@@ -231,8 +239,9 @@ import { sitePath } from '../../../lib/siteUrl';
           (and known exact reference) for the next text layer and activates the
           Text tool. Arbitrary transformed crop selection, OCR-assisted region
           overlays, and applying a result to an existing text target remain
-          under integration. Document Fonts and Select by Font are also still
-          being integrated.
+          under integration. Document Fonts is available from the Fonts panel;
+          scoped Select by Font replacement with layout preview remains under
+          integration.
         </p>
       </section>
 

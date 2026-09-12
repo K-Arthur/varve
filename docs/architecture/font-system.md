@@ -199,6 +199,36 @@ Because an image selection is not a text target, a candidate action is labelled
 Text tool. Arbitrary transformed crop selection, OCR-assisted region overlays,
 and applying a result to an existing text target remain separate work.
 
+## Research-derived UX constraints
+
+The 2026-09-12 comparison of Figma, Photoshop, Illustrator, InDesign, and
+Affinity is recorded in the [font and typography UX research
+note](../research/font-typography-ux-research-2026-09-12.md). It turns recurring
+product complaints into runtime constraints:
+
+- Discovery and commitment are separate. Search, hover, and keyboard movement
+  stay local and synchronous; preview and installation are explicit, bounded
+  operations.
+- A family label is never proof of an available face. The UI exposes source,
+  exact face, version/conflict, permission, stored-byte, and readiness states
+  and keeps a missing or substituted request visible until the user resolves
+  it.
+- Replacement always names its scope and affected locations. The default
+  Document Fonts/Select by Font scope is the current page, with inherited,
+  linked, and component text included and hidden or locked content excluded.
+  A replacement is previewable, one undo transaction, and reversible.
+- Variable controls show only supported axes. Weight updates `wght` when
+  present and preserves other authored axes; mandatory shaping features and
+  rich-run settings remain part of the layout identity.
+- Technical embedding flags and source-license provenance remain separate.
+  Export claims are made only after exact bytes are verified and written.
+- Image identification is reviewable and local: bounded transformed regions,
+  confidence/model metadata, explicit text targets, cancellation on target
+  change, and manual entry when recognition is unavailable.
+
+These constraints guide new frontend work and are acceptance criteria for the
+remaining Document Fonts, image-identification, and native platform slices.
+
 ## Evidence and open platform work
 
 The parser and identity corrections are recorded in
