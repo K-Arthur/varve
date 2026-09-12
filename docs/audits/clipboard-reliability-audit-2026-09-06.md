@@ -793,3 +793,39 @@ pnpm exec vitest run \
 The follow-up is committed as `755fda79a`. The browser visual capture for SVG
 ordering and nested groups remains the separate evidence for Paste; a real
 Firefox/Wayland Drop capture and the packaged visual lane are still open.
+
+### Rich representation write ownership — 2026-09-12
+
+The command-specific Copy Text and Copy as SVG paths previously wrote directly
+through a local helper. That left them outside the serialized clipboard queue:
+if a second gesture superseded a pending rich write, the first promise could
+resolve as editable after the newer operation had started. This was an
+application/transport ownership defect (CLIP-16), and it could authorize a
+destructive caller that trusted the outcome.
+
+All rich representation writes now use the same generation-keyed queue as the
+Varve fragment writer. Native, prefixed browser, unprefixed browser, and
+text-only fallbacks check ownership both before and after every await. A stale
+operation returns `write-failed` and cannot issue a late fallback write. The
+SVG markup helper also commits grouped parser artifacts through the shared
+PreparedFragment path.
+
+Evidence:
+
+```text
+pnpm exec biome check \
+  packages/editor/src/clipboard.ts packages/editor/src/clipboard.test.ts \
+  packages/editor/src/actions/createActionHandlers.ts
+passed
+pnpm exec vitest run packages/editor/src/clipboard.test.ts --maxWorkers=1 --reporter=dot
+27 tests passed
+pnpm exec vitest run \
+  packages/editor/src/menu/__tests__/commandIntegrity.test.ts \
+  packages/editor/src/actions/createActionHandlers.test.ts \
+  --maxWorkers=1 --reporter=dot
+40 tests passed
+```
+
+The implementation is committed as `63c19047`. Menu snapshot refresh remains
+with the concurrent menu workstream; the existing baseline already predates
+the earlier command additions, while the new command-integrity check passes.

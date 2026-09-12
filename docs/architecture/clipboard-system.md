@@ -251,6 +251,11 @@ same batch insertion API as file import. PNG scale selection is delegated to
 the renderer callback (1× by default, with 2× and 3× choices); the renderer
 owns transparent output and actual pixel encoding.
 
+Every representation write, including these command-specific formats, enters
+the generation-keyed clipboard queue. Native and browser fallbacks recheck the
+operation after each asynchronous write, so a superseded gesture cannot publish
+late data or be mistaken for a committed editable transfer.
+
 Both interactive command surfaces use the shared `PromptDialog` rather than a
 blocking browser prompt. The dialog preserves focus, Escape cancellation, and
 screen-reader labeling; canceling PNG scale or SVG markup entry performs no
