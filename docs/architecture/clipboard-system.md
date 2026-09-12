@@ -275,3 +275,9 @@ synchronously, snapshots its `DataTransfer`, cancels only that request's
 fallback, and passes the same identity into the editor paste command. Menu and
 palette calls create a fresh read when no captured snapshot belongs to them, so
 an earlier gesture cannot leak into a later operation.
+
+Plain-text paste captures the document identity, revision, selection scope,
+destination parent, and initiating canvas center before awaiting the browser
+clipboard read. A navigation, unrelated edit, or selection change therefore
+cancels the insertion instead of moving text into a different document or
+placing it from a stale canvas query.
