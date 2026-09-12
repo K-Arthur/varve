@@ -77,7 +77,7 @@
 }
 
 .floating-text-bar__btn--active:hover {
-  background: var(--color-interactive-selected-surface-hover);
+  background: var(--color-interactive-hover);
   color: var(--color-text-on-accent);
 }
 

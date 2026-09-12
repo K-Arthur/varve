@@ -70,6 +70,18 @@ it can reimport removed fonts on restart. Native storage is still keyed by
 family and can overwrite another face. Both require artifact/face records,
 original-byte integrity checks, atomic migration recovery and exact removal.
 
+Download attempts retain their concurrency slot through validation and integrity
+checks. Cancellation and pause invalidate an attempt generation, so a late
+result cannot overwrite a retry of the same job. A retry waits for the prior
+attempt to settle before starting; removal also prevents late publication.
+The configured queue limit is clamped to one or two attempts. An operation-wide
+parser deadline and cancellation of work inside storage remain separate gaps.
+The network transfer has a 30-second deadline covering headers and body reads.
+Abort checks after each read prevent late progress, and error cleanup closes
+unread response bodies. Timeout is a retryable failure rather than a successful
+installation. Expected-hash verification fails if SHA-256 is unavailable; the
+legacy synchronous guard cannot claim to have verified a supplied hash.
+
 Document format 2.27 introduces a recovery-safe font-reference migration and
 font manifest v2. The migration lowercases valid SHA-256 references, bounds
 collection members, removes malformed reference objects, and leaves family-only
@@ -111,6 +123,12 @@ editing. The size field commits its draft on blur or Enter; Escape discards an
 unfinished draft. Range/caret targeting still requires the shared typography
 command adapter.
 Presentation-only hover preview is not integrated yet.
+
+Moving focus from typing to the quick toolbar first flushes pending text and
+closes the typing transaction, while keeping the editing surface mounted.
+The next formatting choice therefore gets its own undo entry. The pointer
+regression verifies typing followed immediately by Bold, Undo and Redo; it
+does not establish the still-pending rich-range command adapter.
 
 The inspector gives the family picker a full-width row with one label and a
 32px Browse button. Line height and letter spacing use separate shared numeric

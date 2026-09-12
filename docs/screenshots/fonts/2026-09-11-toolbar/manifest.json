@@ -1,0 +1,511 @@
+{
+  "kind": "working-tree-observation",
+  "continuationBaseSha": "7337ec1ab",
+  "scope": "Toolbar layout after DESIGN.md token changes; three themes, DPR 1/2/3, desktop and 640 CSS-pixel viewport. Not native browser zoom or font-system certification. Concurrent clipboard work may be present. Active and hovered formatting buttons additionally checked at DPR 1 in three themes; final history rerun disables HMR.",
+  "captures": [
+    {
+      "file": "dpr-1-dark-closed.png",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-76f26-adable-menus-in-every-theme-chromium/dark-closed.png",
+      "sha256": "e216c8ae8c1f393bf884985a36d770b8662f25011005063f86ecff023fa558e4",
+      "dpr": 1,
+      "width": 1280,
+      "height": 800,
+      "inspected": true
+    },
+    {
+      "file": "dpr-1-dark-narrow.png",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-76f26-adable-menus-in-every-theme-chromium/dark-narrow.png",
+      "sha256": "814a829d02b2d94c68e5fcad038d0cb5333fb8aabf2fc1fec4c7e1d1dc055f4c",
+      "dpr": 1,
+      "width": 640,
+      "height": 640,
+      "inspected": true
+    },
+    {
+      "file": "dpr-1-dark-open.png",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-76f26-adable-menus-in-every-theme-chromium/dark-open.png",
+      "sha256": "cc92c689484c3a37c95ab677c481d8c2c3b6bec8d1c5af9ec698eb98b9930d76",
+      "dpr": 1,
+      "width": 1280,
+      "height": 800,
+      "inspected": true
+    },
+    {
+      "file": "dpr-1-high-contrast-closed.png",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-76f26-adable-menus-in-every-theme-chromium/high-contrast-closed.png",
+      "sha256": "fe210c6a489aa43d75baa7c08a19ce3130982f09d6b3d05befacd8f8a6e48585",
+      "dpr": 1,
+      "width": 1280,
+      "height": 800,
+      "inspected": true
+    },
+    {
+      "file": "dpr-1-high-contrast-narrow.png",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-76f26-adable-menus-in-every-theme-chromium/high-contrast-narrow.png",
+      "sha256": "29e6fecfb074864599f3052d5916b01ed59a15db8123193f2711a5266710c666",
+      "dpr": 1,
+      "width": 640,
+      "height": 640,
+      "inspected": true
+    },
+    {
+      "file": "dpr-1-high-contrast-open.png",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-76f26-adable-menus-in-every-theme-chromium/high-contrast-open.png",
+      "sha256": "6a1f8c0a5b53e2c74db48e2030666edbd10ffdf617029033a2556190c58c8198",
+      "dpr": 1,
+      "width": 1280,
+      "height": 800,
+      "inspected": true
+    },
+    {
+      "file": "dpr-1-light-closed.png",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-76f26-adable-menus-in-every-theme-chromium/light-closed.png",
+      "sha256": "264b2966e7cfa1b37a62243a1cf4ff354cbf3c1044131d131933a10f573156ca",
+      "dpr": 1,
+      "width": 1280,
+      "height": 800,
+      "inspected": true
+    },
+    {
+      "file": "dpr-1-light-narrow.png",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-76f26-adable-menus-in-every-theme-chromium/light-narrow.png",
+      "sha256": "2424459394e307fd546e3ba7e5d23ea097fea2b1e114ae9db333592e7129bd97",
+      "dpr": 1,
+      "width": 640,
+      "height": 640,
+      "inspected": true
+    },
+    {
+      "file": "dpr-1-light-open.png",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-76f26-adable-menus-in-every-theme-chromium/light-open.png",
+      "sha256": "c67fc83dc67960bf5b02fa6a648b1dab569f2abe3d1ffab4358d8a3447974bd6",
+      "dpr": 1,
+      "width": 1280,
+      "height": 800,
+      "inspected": true
+    },
+    {
+      "file": "dpr-2-dark-closed.png",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-c70f7-adable-menus-in-every-theme-chromium/dark-closed.png",
+      "sha256": "353808c003bc4786d990a5e46691d01edf8a6405bed3995121360c5f8b75f4ff",
+      "dpr": 2,
+      "width": 2560,
+      "height": 1600,
+      "inspected": true
+    },
+    {
+      "file": "dpr-2-dark-narrow.png",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-c70f7-adable-menus-in-every-theme-chromium/dark-narrow.png",
+      "sha256": "cc3c656d16acb4900a8bf514271a7e25b9dcbc8e55a4fb345f5eaa8348310abf",
+      "dpr": 2,
+      "width": 1280,
+      "height": 1280,
+      "inspected": true
+    },
+    {
+      "file": "dpr-2-dark-open.png",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-c70f7-adable-menus-in-every-theme-chromium/dark-open.png",
+      "sha256": "d76e032851c2e42466cad887c77c4ee538c850dbb6a17070be6f83e56e489f3e",
+      "dpr": 2,
+      "width": 2560,
+      "height": 1600,
+      "inspected": true
+    },
+    {
+      "file": "dpr-2-high-contrast-closed.png",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-c70f7-adable-menus-in-every-theme-chromium/high-contrast-closed.png",
+      "sha256": "2fc88bb1f9c7dac323b43e18e234cdd6a2a1dc4440163858f2fc7fa21d211f12",
+      "dpr": 2,
+      "width": 2560,
+      "height": 1600,
+      "inspected": true
+    },
+    {
+      "file": "dpr-2-high-contrast-narrow.png",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-c70f7-adable-menus-in-every-theme-chromium/high-contrast-narrow.png",
+      "sha256": "8b3f95606ec6c70475d5d8f152cad67cd0b4c985bce8e35028283cb58ffaee0f",
+      "dpr": 2,
+      "width": 1280,
+      "height": 1280,
+      "inspected": true
+    },
+    {
+      "file": "dpr-2-high-contrast-open.png",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-c70f7-adable-menus-in-every-theme-chromium/high-contrast-open.png",
+      "sha256": "f7cf221d31395baa83345c5892aa3bc2565c1c62f37430a5fc8b1536862aabcc",
+      "dpr": 2,
+      "width": 2560,
+      "height": 1600,
+      "inspected": true
+    },
+    {
+      "file": "dpr-2-light-closed.png",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-c70f7-adable-menus-in-every-theme-chromium/light-closed.png",
+      "sha256": "5f679d3916fa597920a61eee8b9f5b444f6f00a2bf458cfdcbe42f62429f785a",
+      "dpr": 2,
+      "width": 2560,
+      "height": 1600,
+      "inspected": true
+    },
+    {
+      "file": "dpr-2-light-narrow.png",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-c70f7-adable-menus-in-every-theme-chromium/light-narrow.png",
+      "sha256": "4c15428e0d9561c396b1ba6ed629e258775f25f50d73feb5260079f9a223b902",
+      "dpr": 2,
+      "width": 1280,
+      "height": 1280,
+      "inspected": true
+    },
+    {
+      "file": "dpr-2-light-open.png",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-c70f7-adable-menus-in-every-theme-chromium/light-open.png",
+      "sha256": "503c1d9df474dd98c9336ee17eb17eca5e37e4a91d819736312fdab92a461286",
+      "dpr": 2,
+      "width": 2560,
+      "height": 1600,
+      "inspected": true
+    },
+    {
+      "file": "dpr-3-dark-closed.png",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-cbecb-adable-menus-in-every-theme-chromium/dark-closed.png",
+      "sha256": "0e785d19f78b4d3db7518e6e469db22848f575018e04d551b43b562dc707b68c",
+      "dpr": 3,
+      "width": 3840,
+      "height": 2400,
+      "inspected": true
+    },
+    {
+      "file": "dpr-3-dark-narrow.png",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-cbecb-adable-menus-in-every-theme-chromium/dark-narrow.png",
+      "sha256": "5cf9fe2274691fb5a5db0d986ee6f9d4e6c82780cb03a661e50c902d6ccfce13",
+      "dpr": 3,
+      "width": 1920,
+      "height": 1920,
+      "inspected": true
+    },
+    {
+      "file": "dpr-3-dark-open.png",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-cbecb-adable-menus-in-every-theme-chromium/dark-open.png",
+      "sha256": "f48031147500c7e7d3fdfdda4968ce3ebc7167baec8c52383d7c4d0ea7e5f1f4",
+      "dpr": 3,
+      "width": 3840,
+      "height": 2400,
+      "inspected": true
+    },
+    {
+      "file": "dpr-3-high-contrast-closed.png",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-cbecb-adable-menus-in-every-theme-chromium/high-contrast-closed.png",
+      "sha256": "248f73080ff2e6b9dae602b19b79cd7b22ac3035b8a83b673ec980c3330dd9d6",
+      "dpr": 3,
+      "width": 3840,
+      "height": 2400,
+      "inspected": true
+    },
+    {
+      "file": "dpr-3-high-contrast-narrow.png",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-cbecb-adable-menus-in-every-theme-chromium/high-contrast-narrow.png",
+      "sha256": "9132fb0d5ced66890a7e918b55d4cf82eff05ef93660c3ca365aa45e01016de4",
+      "dpr": 3,
+      "width": 1920,
+      "height": 1920,
+      "inspected": true
+    },
+    {
+      "file": "dpr-3-high-contrast-open.png",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-cbecb-adable-menus-in-every-theme-chromium/high-contrast-open.png",
+      "sha256": "f0578d855d4153fbdbb0639a295974f44f22f600be1987d52b4eb748af396dbe",
+      "dpr": 3,
+      "width": 3840,
+      "height": 2400,
+      "inspected": true
+    },
+    {
+      "file": "dpr-3-light-closed.png",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-cbecb-adable-menus-in-every-theme-chromium/light-closed.png",
+      "sha256": "ecf3ead1f61493b3370a5904d6cbae0f2ab4860ef1982322ee71bd4088bdf64f",
+      "dpr": 3,
+      "width": 3840,
+      "height": 2400,
+      "inspected": true
+    },
+    {
+      "file": "dpr-3-light-narrow.png",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-cbecb-adable-menus-in-every-theme-chromium/light-narrow.png",
+      "sha256": "54b6dcfaeee754bddc1fcf1c2dc336d9e14697f09ce196049c57f052d08d55bd",
+      "dpr": 3,
+      "width": 1920,
+      "height": 1920,
+      "inspected": true
+    },
+    {
+      "file": "dpr-3-light-open.png",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-cbecb-adable-menus-in-every-theme-chromium/light-open.png",
+      "sha256": "c71d30216e42d616839a2f5db0bfab2ed543b355417ee8871ac71380f13df09f",
+      "dpr": 3,
+      "width": 3840,
+      "height": 2400,
+      "inspected": true
+    },
+    {
+      "file": "history-undo-before-contrast-fix.png",
+      "source": "test-results/font-lifecycle-affected/canvas-font-toolbar-histor-346db-y-from-the-preceding-typing-chromium/toolbar-after-format-undo.png",
+      "sha256": "fa87580cf8c534aa6fcb30551439bfcf7b1ba2b2d0d814c4736dfaa1402f8b07",
+      "width": 1280,
+      "height": 720,
+      "inspected": true,
+      "disposition": "History behavior inspected. Redo exposed the light-theme pressed-button contrast defect; not accepted as final active-state styling."
+    },
+    {
+      "file": "history-redo-before-contrast-fix.png",
+      "source": "test-results/font-lifecycle-affected/canvas-font-toolbar-histor-346db-y-from-the-preceding-typing-chromium/toolbar-after-format-redo.png",
+      "sha256": "ed1a13cee2db7b6587f5dc4908968ad8f78fd28ea4dc5fed8c2b26e845d9b54e",
+      "width": 1280,
+      "height": 720,
+      "inspected": true,
+      "disposition": "History behavior inspected. Redo exposed the light-theme pressed-button contrast defect; not accepted as final active-state styling."
+    },
+    {
+      "file": "before-light-pressed.png",
+      "source": "test-results/font-toolbar-contrast-before/canvas-font-toolbar-contra-77920-ns-remain-readable-in-light-chromium/light-pressed.png",
+      "sha256": "5d229d06289671c726c1ffe51e8b6a92d64c435ba0f4c7c0ca2eeed6c191102a",
+      "disposition": "Before contrast repair; hovered state fails at 1.329:1.",
+      "width": 1280,
+      "height": 720,
+      "inspected": true
+    },
+    {
+      "file": "before-light-hovered.png",
+      "source": "test-results/font-toolbar-contrast-before/canvas-font-toolbar-contra-77920-ns-remain-readable-in-light-chromium/light-hovered.png",
+      "sha256": "98cc6447d6585d6b8e55763f76211df09158b4c45d31f288ca46a5f522d17c9b",
+      "disposition": "Before contrast repair; hovered state fails at 1.329:1.",
+      "width": 1280,
+      "height": 720,
+      "inspected": true
+    },
+    {
+      "file": "after-light-hovered.png",
+      "source": "test-results/font-toolbar-contrast-after/canvas-font-toolbar-contra-77920-ns-remain-readable-in-light-chromium/light-hovered.png",
+      "sha256": "8bbf9c6fba2001ee80d59f9977d95731ad643fa3d3b107a129056d557d88e1dc",
+      "width": 1280,
+      "height": 720,
+      "inspected": true
+    },
+    {
+      "file": "after-light-pressed.png",
+      "source": "test-results/font-toolbar-contrast-after/canvas-font-toolbar-contra-77920-ns-remain-readable-in-light-chromium/light-pressed.png",
+      "sha256": "9f53ba6747dc0fe43d47c545c86b3ac160564036e4e7b5a4f83776a0371eab84",
+      "width": 1280,
+      "height": 720,
+      "inspected": true
+    },
+    {
+      "file": "after-dark-hovered.png",
+      "source": "test-results/font-toolbar-contrast-after/canvas-font-toolbar-contra-84fcc-ons-remain-readable-in-dark-chromium/dark-hovered.png",
+      "sha256": "4b0d8c1fdfe8c61cdf38722b20f63d1b2f290d545e9c534fe503d135cb03e5a8",
+      "width": 1280,
+      "height": 720,
+      "inspected": true
+    },
+    {
+      "file": "after-dark-pressed.png",
+      "source": "test-results/font-toolbar-contrast-after/canvas-font-toolbar-contra-84fcc-ons-remain-readable-in-dark-chromium/dark-pressed.png",
+      "sha256": "5a41f264ed16decc22ad1a8a7180ecb3437dcf9f61f824c6ec30374fb19fa17d",
+      "width": 1280,
+      "height": 720,
+      "inspected": true
+    },
+    {
+      "file": "after-high-contrast-hovered.png",
+      "source": "test-results/font-toolbar-contrast-after/canvas-font-toolbar-contra-a570e-n-readable-in-high-contrast-chromium/high-contrast-hovered.png",
+      "sha256": "59e1b7d288b839429d918dc3b430f0fdf2eb75794d46ec874b11820a426f8091",
+      "width": 1280,
+      "height": 720,
+      "inspected": true
+    },
+    {
+      "file": "after-high-contrast-pressed.png",
+      "source": "test-results/font-toolbar-contrast-after/canvas-font-toolbar-contra-a570e-n-readable-in-high-contrast-chromium/high-contrast-pressed.png",
+      "sha256": "3200bccd96cdcd6ff4ae57da851be9ed5654ce02a9cfe38e0037ea64247c7563",
+      "width": 1280,
+      "height": 720,
+      "inspected": true
+    },
+    {
+      "file": "history-undo-final.png",
+      "source": "test-results/font-toolbar-history-final/canvas-font-toolbar-histor-346db-y-from-the-preceding-typing-chromium/toolbar-after-format-undo.png",
+      "sha256": "6e913f22e899fb78616d1b2c19842813b6268a3ab16a0edcf4546c72952112bd",
+      "width": 1280,
+      "height": 720,
+      "inspected": true
+    },
+    {
+      "file": "history-redo-final.png",
+      "source": "test-results/font-toolbar-history-final/canvas-font-toolbar-histor-346db-y-from-the-preceding-typing-chromium/toolbar-after-format-redo.png",
+      "sha256": "b3a743b42a8e4e9b01ed094bc05622eb87ea0e6d865dba56678c4769eb91f163",
+      "width": 1280,
+      "height": 720,
+      "inspected": true
+    },
+    {
+      "file": "help-root-desktop-light-history.png",
+      "source": "reports/font-lifecycle-2026-09-11/help-captures/root-desktop-light-history.png",
+      "sha256": "8e2f90c63de39b218cc0dee9a14d4f9b4cd70234abb6bc80f4d8708a6fb7ae54",
+      "inspected": true,
+      "layout": "desktop-light",
+      "theme": "light",
+      "scope": "Typography help, final inline spacing and Undo instructions; both website base paths."
+    },
+    {
+      "file": "help-root-desktop-dark-history.png",
+      "source": "reports/font-lifecycle-2026-09-11/help-captures/root-desktop-dark-history.png",
+      "sha256": "ea44a41f7643d6491042a62f9950a57af32d45b4c34cb22ecd6edf8468f625b9",
+      "inspected": true,
+      "layout": "desktop-dark",
+      "theme": "dark",
+      "scope": "Typography help, final inline spacing and Undo instructions; both website base paths."
+    },
+    {
+      "file": "help-root-narrow-dark-history.png",
+      "source": "reports/font-lifecycle-2026-09-11/help-captures/root-narrow-dark-history.png",
+      "sha256": "4cd28566f77044ee2b92ed96f75f19202fe2c66762d3952b6bb73b2ec8215a44",
+      "inspected": true,
+      "layout": "narrow-dark",
+      "theme": "dark",
+      "scope": "Typography help, final inline spacing and Undo instructions; both website base paths."
+    },
+    {
+      "file": "help-pages-desktop-light-history.png",
+      "source": "reports/font-lifecycle-2026-09-11/help-captures/pages-desktop-light-history.png",
+      "sha256": "8e2f90c63de39b218cc0dee9a14d4f9b4cd70234abb6bc80f4d8708a6fb7ae54",
+      "inspected": true,
+      "layout": "desktop-light",
+      "theme": "light",
+      "scope": "Typography help, final inline spacing and Undo instructions; both website base paths."
+    },
+    {
+      "file": "help-pages-desktop-dark-history.png",
+      "source": "reports/font-lifecycle-2026-09-11/help-captures/pages-desktop-dark-history.png",
+      "sha256": "ea44a41f7643d6491042a62f9950a57af32d45b4c34cb22ecd6edf8468f625b9",
+      "inspected": true,
+      "layout": "desktop-dark",
+      "theme": "dark",
+      "scope": "Typography help, final inline spacing and Undo instructions; both website base paths."
+    },
+    {
+      "file": "help-pages-narrow-dark-history.png",
+      "source": "reports/font-lifecycle-2026-09-11/help-captures/pages-narrow-dark-history.png",
+      "sha256": "4cd28566f77044ee2b92ed96f75f19202fe2c66762d3952b6bb73b2ec8215a44",
+      "inspected": true,
+      "layout": "narrow-dark",
+      "theme": "dark",
+      "scope": "Typography help, final inline spacing and Undo instructions; both website base paths."
+    }
+  ],
+  "metrics": [
+    {
+      "file": "dpr-1-dark-toolbar-metrics.json",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-76f26-adable-menus-in-every-theme-chromium/dark-toolbar-metrics.json",
+      "sha256": "d50d16ae8362b2f2325ac104a62338b7bc3786ffcc4bd84ec4ba33845a70acdc",
+      "dpr": 1,
+      "sourceSha256": "4c530257d6c76a35f2d3ac0aedfeb0601f724906b4854481c8d4ae3744dfbbcc"
+    },
+    {
+      "file": "dpr-1-high-contrast-toolbar-metrics.json",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-76f26-adable-menus-in-every-theme-chromium/high-contrast-toolbar-metrics.json",
+      "sha256": "cf0dff0afc915651dceed6ad05e707b0ac9e36c5c3075baa2e291986cdb52fb3",
+      "dpr": 1,
+      "sourceSha256": "46106b7f153784f81f6f4bbe925b2dbe15a9d115c5aa58d05a7a7b69abfbd870"
+    },
+    {
+      "file": "dpr-1-light-toolbar-metrics.json",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-76f26-adable-menus-in-every-theme-chromium/light-toolbar-metrics.json",
+      "sha256": "2fd777a7daa69ed22f400f83b1041b109836f11d4a45e9ec25e0739ba0e87f34",
+      "dpr": 1,
+      "sourceSha256": "7aaa6c176c25bc92c492902b73d3d6aa494c5138ae31274973a3dec033336b5e"
+    },
+    {
+      "file": "dpr-2-dark-toolbar-metrics.json",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-c70f7-adable-menus-in-every-theme-chromium/dark-toolbar-metrics.json",
+      "sha256": "d50d16ae8362b2f2325ac104a62338b7bc3786ffcc4bd84ec4ba33845a70acdc",
+      "dpr": 2,
+      "sourceSha256": "4c530257d6c76a35f2d3ac0aedfeb0601f724906b4854481c8d4ae3744dfbbcc"
+    },
+    {
+      "file": "dpr-2-high-contrast-toolbar-metrics.json",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-c70f7-adable-menus-in-every-theme-chromium/high-contrast-toolbar-metrics.json",
+      "sha256": "cf0dff0afc915651dceed6ad05e707b0ac9e36c5c3075baa2e291986cdb52fb3",
+      "dpr": 2,
+      "sourceSha256": "46106b7f153784f81f6f4bbe925b2dbe15a9d115c5aa58d05a7a7b69abfbd870"
+    },
+    {
+      "file": "dpr-2-light-toolbar-metrics.json",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-c70f7-adable-menus-in-every-theme-chromium/light-toolbar-metrics.json",
+      "sha256": "2fd777a7daa69ed22f400f83b1041b109836f11d4a45e9ec25e0739ba0e87f34",
+      "dpr": 2,
+      "sourceSha256": "7aaa6c176c25bc92c492902b73d3d6aa494c5138ae31274973a3dec033336b5e"
+    },
+    {
+      "file": "dpr-3-dark-toolbar-metrics.json",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-cbecb-adable-menus-in-every-theme-chromium/dark-toolbar-metrics.json",
+      "sha256": "d50d16ae8362b2f2325ac104a62338b7bc3786ffcc4bd84ec4ba33845a70acdc",
+      "dpr": 3,
+      "sourceSha256": "4c530257d6c76a35f2d3ac0aedfeb0601f724906b4854481c8d4ae3744dfbbcc"
+    },
+    {
+      "file": "dpr-3-high-contrast-toolbar-metrics.json",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-cbecb-adable-menus-in-every-theme-chromium/high-contrast-toolbar-metrics.json",
+      "sha256": "cf0dff0afc915651dceed6ad05e707b0ac9e36c5c3075baa2e291986cdb52fb3",
+      "dpr": 3,
+      "sourceSha256": "46106b7f153784f81f6f4bbe925b2dbe15a9d115c5aa58d05a7a7b69abfbd870"
+    },
+    {
+      "file": "dpr-3-light-toolbar-metrics.json",
+      "source": "test-results/font-toolbar-sep11/canvas-font-toolbar-visual-cbecb-adable-menus-in-every-theme-chromium/light-toolbar-metrics.json",
+      "sha256": "2fd777a7daa69ed22f400f83b1041b109836f11d4a45e9ec25e0739ba0e87f34",
+      "dpr": 3,
+      "sourceSha256": "7aaa6c176c25bc92c492902b73d3d6aa494c5138ae31274973a3dec033336b5e"
+    },
+    {
+      "file": "after-light-hovered-contrast.json",
+      "source": "test-results/font-toolbar-contrast-after/canvas-font-toolbar-contra-77920-ns-remain-readable-in-light-chromium/light-hovered-contrast.json",
+      "sha256": "ff9d453d73112f5af32a0e72e6797d8d445574891a111a14e73b7274ad9b6545",
+      "sourceSha256": "d741689eb90d7294481c25e6761cd9d99ec9bddcd7f560965b542389ee8a12ce"
+    },
+    {
+      "file": "after-light-pressed-contrast.json",
+      "source": "test-results/font-toolbar-contrast-after/canvas-font-toolbar-contra-77920-ns-remain-readable-in-light-chromium/light-pressed-contrast.json",
+      "sha256": "2900c341ba2c78bed6f76a2661ef95d31776a6ffa58136bb35310ba65289612f",
+      "sourceSha256": "9a05af433790901f6971b2b4d686f865db54ae3f240552c0b8af69b0a98dc220"
+    },
+    {
+      "file": "after-dark-hovered-contrast.json",
+      "source": "test-results/font-toolbar-contrast-after/canvas-font-toolbar-contra-84fcc-ons-remain-readable-in-dark-chromium/dark-hovered-contrast.json",
+      "sha256": "4c074db336d14b382d459b9319a517e2ade4eb8c7df9d5ed873b10a268946786",
+      "sourceSha256": "5bf6523421907b673b4f44c358b742a61b98965f23e86993ff53f02345e4c10f"
+    },
+    {
+      "file": "after-dark-pressed-contrast.json",
+      "source": "test-results/font-toolbar-contrast-after/canvas-font-toolbar-contra-84fcc-ons-remain-readable-in-dark-chromium/dark-pressed-contrast.json",
+      "sha256": "148f2d3cbb29db12602e369a416d8e0ea33042d4e2f37cca8401f631b2b11d25",
+      "sourceSha256": "b3acb64cd88b7fffff672e6d5017705f802864be45fd5220dde1d65a101f4644"
+    },
+    {
+      "file": "after-high-contrast-hovered-contrast.json",
+      "source": "test-results/font-toolbar-contrast-after/canvas-font-toolbar-contra-a570e-n-readable-in-high-contrast-chromium/high-contrast-hovered-contrast.json",
+      "sha256": "4f0e687407ff6dea94c304f64182c9ee419fcb594c80576515d8260eeca046df",
+      "sourceSha256": "551a09f51caf0833c8a85ad9b4d611cf75fe9feb515cdf55ca10c13f02fc89f2"
+    },
+    {
+      "file": "after-high-contrast-pressed-contrast.json",
+      "source": "test-results/font-toolbar-contrast-after/canvas-font-toolbar-contra-a570e-n-readable-in-high-contrast-chromium/high-contrast-pressed-contrast.json",
+      "sha256": "4f0e687407ff6dea94c304f64182c9ee419fcb594c80576515d8260eeca046df",
+      "sourceSha256": "551a09f51caf0833c8a85ad9b4d611cf75fe9feb515cdf55ca10c13f02fc89f2"
+    },
+    {
+      "file": "help-bounds.json",
+      "source": "reports/font-lifecycle-2026-09-11/help-captures/captures.json",
+      "sha256": "b94923fd70736a86e58b15d89c48c56b9083ccdf39b10e29755491d3bf6707a0"
+    }
+  ],
+  "metricFormatting": "JSON whitespace normalized by repository formatter; sourceSha256 retains original measurement bytes where different. Values unchanged."
+}

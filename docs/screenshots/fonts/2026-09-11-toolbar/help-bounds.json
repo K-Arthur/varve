@@ -1,0 +1,74 @@
+[
+  {
+    "file": "root-desktop-light-history.png",
+    "url": "http://127.0.0.1:4475/docs/tools/typography",
+    "layout": "desktop-light",
+    "theme": "light",
+    "bounds": {
+      "x": 240,
+      "y": 432.484375,
+      "width": 800,
+      "height": 122.0625
+    }
+  },
+  {
+    "file": "root-desktop-dark-history.png",
+    "url": "http://127.0.0.1:4475/docs/tools/typography",
+    "layout": "desktop-dark",
+    "theme": "dark",
+    "bounds": {
+      "x": 240,
+      "y": 432.484375,
+      "width": 800,
+      "height": 122.0625
+    }
+  },
+  {
+    "file": "root-narrow-dark-history.png",
+    "url": "http://127.0.0.1:4475/docs/tools/typography",
+    "layout": "narrow-dark",
+    "theme": "dark",
+    "bounds": {
+      "x": 16,
+      "y": 369.125,
+      "width": 358,
+      "height": 193.265625
+    }
+  },
+  {
+    "file": "pages-desktop-light-history.png",
+    "url": "http://127.0.0.1:4476/varve/docs/tools/typography",
+    "layout": "desktop-light",
+    "theme": "light",
+    "bounds": {
+      "x": 240,
+      "y": 432.484375,
+      "width": 800,
+      "height": 122.0625
+    }
+  },
+  {
+    "file": "pages-desktop-dark-history.png",
+    "url": "http://127.0.0.1:4476/varve/docs/tools/typography",
+    "layout": "desktop-dark",
+    "theme": "dark",
+    "bounds": {
+      "x": 240,
+      "y": 432.484375,
+      "width": 800,
+      "height": 122.0625
+    }
+  },
+  {
+    "file": "pages-narrow-dark-history.png",
+    "url": "http://127.0.0.1:4476/varve/docs/tools/typography",
+    "layout": "narrow-dark",
+    "theme": "dark",
+    "bounds": {
+      "x": 16,
+      "y": 369.125,
+      "width": 358,
+      "height": 193.265625
+    }
+  }
+]
