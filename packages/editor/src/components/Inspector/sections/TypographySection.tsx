@@ -29,6 +29,7 @@ import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
 import { FontBrowserDialog } from '../../FontBrowser/FontBrowserDialog';
 import { FontSelector } from '../../FontBrowser/FontSelector';
+import { fontWeightChanges } from '../../Typography/fontWeight';
 import { GlyphTypographySection } from '../../Typography/GlyphTypographySection';
 import { BindingMenu } from '../controls/BindingMenu';
 import { ContrastIndicator } from '../controls/ContrastIndicator';
@@ -417,7 +418,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             value={isMixed(weightRaw) ? '400' : String(weightRaw)}
             placeholder={isMixed(weightRaw) ? 'Mixed' : undefined}
             options={FONT_WEIGHTS.map((w) => ({ value: String(w), label: String(w) }))}
-            onChange={(v) => batchUpdate((n) => ({ ...n, fontWeight: Number(v) }))}
+            onChange={(v) => batchUpdate((n) => ({ ...n, ...fontWeightChanges(n, Number(v)) }))}
           />
         </FieldRow>
         <FieldRow label="Style">

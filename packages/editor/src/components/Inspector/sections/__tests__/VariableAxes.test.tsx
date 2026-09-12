@@ -7,7 +7,7 @@
  * which no bundled family did until the registry learned their fvar axes —
  * so the whole surface was unreachable in the shipping application.
  */
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createDocument, type TextNode } from '@varve/scene';
 import { afterEach, describe, expect, it } from 'vitest';
 import { EditorProvider, useEditor } from '../../../../context';
@@ -166,5 +166,16 @@ describe('variable font axes panel', () => {
     renderLive(textNode('Geist Variable', { wght: 800 }));
     fireEvent.click(screen.getByLabelText('Reset Weight to default'));
     expect(slider().value).toBe('400');
+  });
+
+  it('keeps the inspector weight control coupled to the wght axis', async () => {
+    renderLive(textNode('Geist Variable', { wdth: 92 }));
+    fireEvent.click(screen.getByLabelText('Font weight'));
+    fireEvent.click(await waitFor(() => screen.getByRole('option', { name: '700' })));
+
+    expect(slider().value).toBe('700');
+    // The unrelated authored axis must survive the ordinary weight control.
+    const documentText = screen.getByLabelText('Weight (wght)');
+    expect(documentText).toBeTruthy();
   });
 });

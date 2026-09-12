@@ -14,6 +14,7 @@ import {
 } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FontSelector } from '../FontBrowser/FontSelector';
+import { fontWeightChanges } from '../Typography/fontWeight';
 import './FloatingTextBar.css';
 
 export interface FloatingTextBarProps {
@@ -30,20 +31,6 @@ const TOOLBAR_FALLBACKS: Array<'bottom-start' | 'right-start' | 'left-start'> = 
   'left-start',
 ];
 
-function weightChanges(
-  node: TextNode,
-  weight: number,
-  registry: ReturnType<typeof getFontRegistry>,
-): Partial<TextNode> {
-  const family = node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY;
-  const supportsWeightAxis =
-    registry.getAxisDefinitions(family)?.some((axis) => axis.tag === 'wght') === true ||
-    node.variableAxes?.wght !== undefined;
-  return supportsWeightAxis
-    ? { fontWeight: weight, variableAxes: { ...(node.variableAxes ?? {}), wght: weight } }
-    : { fontWeight: weight };
-}
-
 export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: FloatingTextBarProps) {
   const registry = useMemo(() => getFontRegistry(), []);
   const [colorOpen, setColorOpen] = useState(false);
@@ -56,7 +43,7 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
 
   const handleBoldToggle = useCallback(() => {
     const current = node.fontWeight ?? 400;
-    onUpdate(node.id, weightChanges(node, current >= 600 ? 400 : 700, registry));
+    onUpdate(node.id, fontWeightChanges(node, current >= 600 ? 400 : 700, registry));
   }, [node, onUpdate, registry]);
 
   const handleItalicToggle = useCallback(() => {
@@ -92,7 +79,7 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
 
   const handleFontWeightChange = useCallback(
     (value: string) => {
-      onUpdate(node.id, weightChanges(node, Number(value), registry));
+      onUpdate(node.id, fontWeightChanges(node, Number(value), registry));
     },
     [node, onUpdate, registry],
   );
