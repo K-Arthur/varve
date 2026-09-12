@@ -1,6 +1,6 @@
 # Varve — Platform & Architecture Support Matrix
 
-**Last verified:** 2026-09-02
+**Last verified:** 2026-09-12
 **Applies to:** the current release line (v0.2.1 published 2026-08-25;
 v0.2.0 published 2026-08-21; v0.1.2 published 2026-08-16)
 
@@ -35,6 +35,28 @@ below is backed by an actual launch on real hardware; everything else is labelle
 | **macOS** | x86-64 | ❌ not built (dependency EOL — ONNX Runtime upstream discontinued macOS Intel binaries; see `docs/plans/macos-intel-feasibility.md`) | — | — | ❌ | — | **Not supported** | — |
 
 Legend: ✅ verified · ⚠️ runner smoke passed once, no ongoing hardware testing · ⬜ planned · ❌ absent
+
+## 2b. ChromeOS and Chromebook routes — Stage 1 baseline
+
+ChromeOS routes are intentionally separate from native Linux ARM64. The Lenovo
+Chromebook Duet 11M889 has not been run in this project during the Stage 1
+baseline, so none of these rows is a supported-device claim. Google’s Linux
+documentation also describes hardware acceleration, GPU, and video decode as
+unsupported in the Linux environment; that limitation does not describe the
+native Chrome browser.
+
+| Route | Current artifact/path | Required evidence still missing | Stage 1 tier |
+|---|---|---|---|
+| Native Chrome browser tab | `apps/desktop` bounded `VITE_DEMO=1` build, WASM engine, IndexedDB and File System Access/input fallbacks | Duet launch, first editable frame, pen/touch/keyboard, storage quota/recovery, import/export, and paired performance samples | **Tier 3 — Experimental, demo only** |
+| Installed browser app/PWA | Same browser artifact; `apps/desktop/public/manifest.json` supplies standalone metadata and 192/512 icons | Install criteria, service-worker control, offline reload/update, persistence, and route-specific smoke test | **Tier 3 — Experimental, unverified** |
+| ARM64 Linux through ChromeOS Linux | Existing ARM64 Tauri packages and native engine; this is not native ChromeOS Chrome | Crostini GUI launch, WebKitGTK/portal behavior, display/input, fonts, printing, graphics fallback, and model behavior | **Tier 3 — Experimental, separate from native ARM64 Linux Tier 2** |
+
+The browser/PWA capability report is available on request from **Settings →
+Performance → Platform capability report**. It records bounded local runtime
+facts, including dynamic graphics/worker/WASM/storage checks, but it does not
+promote a route or upload diagnostics. The full evidence ledger, fixture map,
+budgets, and hardware checklist are in
+[`docs/audits/chromeos-stage1-baseline-2026-09-11.md`](../audits/chromeos-stage1-baseline-2026-09-11.md).
 
 ---
 
