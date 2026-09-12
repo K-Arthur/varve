@@ -43,7 +43,8 @@ export function installDemoServiceWorker(options: DemoServiceWorkerOptions): () 
   }
 
   const serviceWorker = navigator.serviceWorker;
-  const scope = normalizeDemoBaseUrl(options.baseUrl ?? import.meta.env.BASE_URL);
+  const buildBaseUrl = (import.meta as ImportMeta & { env?: { BASE_URL?: string } }).env?.BASE_URL;
+  const scope = normalizeDemoBaseUrl(options.baseUrl ?? buildBaseUrl);
   const url = demoServiceWorkerUrl(scope);
   let registration: ServiceWorkerRegistration | null = null;
 
