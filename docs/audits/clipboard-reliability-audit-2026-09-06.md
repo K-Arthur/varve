@@ -1326,7 +1326,7 @@ pnpm exec vitest run \
   packages/scene/src/documentCodec.test.ts \
   packages/import/src/service.test.ts \
   --maxWorkers=1 --reporter=dot
-6 files, 111 tests passed
+6 files, 112 tests passed
 
 pnpm exec vitest run packages/editor/src/importing/useFileImport.test.tsx \
   --maxWorkers=1 --reporter=dot
