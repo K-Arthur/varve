@@ -7,11 +7,13 @@ import {
   makeFrameNode,
   makeGroupNode,
   makeShapeNode,
+  makeTableNode,
   validateDocument,
 } from './document';
 import { DocumentCodec } from './documentCodec';
 import { gradientFill, imageFill } from './fills';
 import { addRasterMaskAsset } from './masks';
+import { setCellSceneContent } from './tableOps';
 import { makePaint, type Page, type RasterMaskAsset } from './types';
 import { createVariableStore } from './variables';
 import { CURRENT_DOCUMENT_VERSION } from './version';
@@ -359,6 +361,93 @@ describe('DocumentCodec', () => {
     expect(closure.interactions?.[instance.id]).toHaveLength(1);
     expect(closure.timelines?.timeline?.tracks[0]?.nodeId).toBe(instance.id);
     expect(closure.nodeIds.has(master.id)).toBe(true);
+  });
+
+  it('collects table cell scene content and cross-root mask dependencies', () => {
+    const support = makeShapeNode('mask-support', { kind: 'rect', x: 0, y: 0, w: 20, h: 20 });
+    const table = makeTableNode('table', { rows: 1, columns: 1 });
+    const cellId = Object.keys(table.table.cells)[0]!;
+    const tableWithContent = {
+      ...table,
+      table: setCellSceneContent(table.table, cellId, support.id),
+    };
+    const masked = {
+      ...makeShapeNode('masked', { kind: 'rect', x: 30, y: 0, w: 20, h: 20 }),
+      mask: { type: 'alpha' as const, sourceNodeId: support.id, visible: true },
+    };
+    const doc = {
+      ...createDocument('cross-root closure', true),
+      rootChildren: [table.id, masked.id],
+      nodes: { [table.id]: tableWithContent, [masked.id]: masked, [support.id]: support },
+    };
+
+    const closure = DocumentCodec.collectNodeClosure(doc, [table.id, masked.id]);
+
+    expect(closure.nodeIds.has(support.id)).toBe(true);
+    expect(closure.nodes[support.id]).toBe(support);
+    expect(closure.nodeIds.size).toBe(3);
+  });
+
+  it('follows aliases across collections in a copied variable closure', () => {
+    const node = {
+      ...makeShapeNode('bound', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }),
+      bindings: { opacity: { variableId: 'source-a' } },
+    };
+    const variableStore = createVariableStore(['default']);
+    variableStore.variables = {
+      'source-a': {
+        id: 'source-a',
+        name: 'Surface',
+        type: 'color',
+        valuesByMode: { default: '{source-b}' },
+      },
+      'source-b': {
+        id: 'source-b',
+        name: 'Base',
+        type: 'color',
+        valuesByMode: { default: '{source-c}' },
+      },
+      'source-c': {
+        id: 'source-c',
+        name: 'Literal',
+        type: 'color',
+        valuesByMode: { default: '#fff' },
+      },
+    };
+    variableStore.collections = {
+      first: {
+        id: 'first',
+        name: 'First',
+        modes: ['default'],
+        activeMode: 'default',
+        variableIds: ['source-a'],
+      },
+      second: {
+        id: 'second',
+        name: 'Second',
+        modes: ['default'],
+        activeMode: 'default',
+        variableIds: ['source-b', 'source-c'],
+      },
+    };
+    const doc = {
+      ...createDocument('alias closure', true),
+      rootChildren: [node.id],
+      nodes: { [node.id]: node },
+      variableStore,
+    };
+
+    const closure = DocumentCodec.collectNodeClosure(doc, [node.id]);
+
+    expect(Object.keys(closure.variableStore?.variables ?? {}).sort()).toEqual([
+      'source-a',
+      'source-b',
+      'source-c',
+    ]);
+    expect(Object.keys(closure.variableStore?.collections ?? {}).sort()).toEqual([
+      'first',
+      'second',
+    ]);
   });
 
   describe('document-level image assets', () => {

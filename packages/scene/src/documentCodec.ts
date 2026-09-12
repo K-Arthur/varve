@@ -40,7 +40,7 @@ import { deserializeTiles, type SerializableTiles } from './rasterLayer';
 import { normalizeSavedAreaSelections } from './savedAreaSelection';
 import { createEmptySelectionSetsData } from './selectionSet';
 import { normalizeStrokeIds } from './strokeIdentity';
-import { emptyTableModel } from './table';
+import { emptyTableModel, tableContentNodeIds } from './table';
 import { normalizeTableModelDefensively } from './tableOps';
 import { type NodeId, normalizeImageFillData, type Page, type SceneNode } from './types';
 import {
@@ -906,39 +906,157 @@ function collectNodeClosure(doc: Document, rootIds: NodeId[]): DocumentClosure {
   const nodes: Record<NodeId, SceneNode> = {};
 
   function visit(id: NodeId): void {
-    if (nodeIds.has(id)) return;
-    const node = doc.nodes[id];
-    if (!node) return;
-    nodeIds.add(id);
-    nodes[id] = node;
-    if (isContainer(node)) {
-      for (const childId of node.children) visit(childId);
+    const pending = [id];
+    while (pending.length > 0) {
+      const currentId = pending.pop()!;
+      if (nodeIds.has(currentId)) continue;
+      const node = doc.nodes[currentId];
+      if (!node) continue;
+      nodeIds.add(currentId);
+      nodes[currentId] = node;
+      if (isContainer(node)) {
+        for (let index = node.children.length - 1; index >= 0; index -= 1) {
+          pending.push(node.children[index]!);
+        }
+      }
+      // Table cell scene content is intentionally outside the table's child
+      // list. It is still part of the editable closure and must travel with
+      // the table without becoming an additional visible paste root.
+      if (node.kind === 'table') {
+        for (const contentId of tableContentNodeIds(node.table)) pending.push(contentId);
+      }
     }
   }
 
   for (const id of rootIds) visit(id);
 
-  // Component masters, path-text targets, and linked-story frames are
-  // dependencies rather than visible paste roots. Keep discovering those
-  // dependencies iteratively so a copied instance remains editable without
-  // turning its master/path/story nodes into additional top-level pastes.
+  const visitFillReferences = (fill: unknown): void => {
+    if (!fill || typeof fill !== 'object') return;
+    const pattern = (fill as { pattern?: { tileSrc?: unknown } }).pattern;
+    if (typeof pattern?.tileSrc === 'string' && doc.nodes[pattern.tileSrc]) {
+      visit(pattern.tileSrc);
+    }
+  };
+
+  // Component masters, path-text targets, linked-story frames, masks, table
+  // cell content, and interaction/motion targets are dependencies rather than
+  // visible paste roots. Keep discovering those dependencies iteratively so a
+  // copied fragment remains editable without turning support nodes into
+  // additional top-level pastes.
   let scanned = 0;
   while (scanned < nodeIds.size) {
     const pending = [...nodeIds];
     const id = pending[scanned++];
-    const node = id ? nodes[id] : undefined;
+    if (!id) continue;
+    const node = nodes[id];
     if (!node) continue;
     const candidate = node as SceneNode & {
       componentId?: NodeId;
       pathId?: NodeId;
+      pathTextSettings?: { pathNodeId?: NodeId };
       storyBinding?: { storyId?: NodeId };
+      slots?: Record<string, NodeId>;
+      propertyOverrides?: Record<string, string | boolean | NodeId>;
+      mask?: {
+        sourceNodeId?: NodeId;
+        matteSource?: { kind?: string; nodeId?: NodeId };
+      };
+      effects?: Array<{ mask?: { source?: { kind?: string; nodeId?: NodeId } } }>;
     };
     const component = candidate.componentId ? doc.components[candidate.componentId] : undefined;
-    if (component) visit(component.masterRootId);
+    if (component) {
+      visit(component.masterRootId);
+      for (const slot of component.slots) {
+        if (slot.defaultContentId) visit(slot.defaultContentId);
+      }
+      for (const property of component.properties ?? []) {
+        if (typeof property.defaultValue === 'string' && doc.nodes[property.defaultValue]) {
+          visit(property.defaultValue);
+        }
+      }
+      for (const variant of component.variants ?? []) {
+        for (const value of Object.values(variant.propertyValues)) {
+          if (typeof value === 'string' && doc.nodes[value]) visit(value);
+        }
+      }
+    }
+    for (const childId of Object.values(candidate.slots ?? {})) visit(childId);
+    for (const value of Object.values(candidate.propertyOverrides ?? {})) {
+      if (typeof value === 'string') visit(value);
+    }
     if (candidate.pathId) visit(candidate.pathId);
+    if (candidate.pathTextSettings?.pathNodeId) visit(candidate.pathTextSettings.pathNodeId);
+    if (candidate.mask?.sourceNodeId) visit(candidate.mask.sourceNodeId);
+    if (candidate.mask?.matteSource?.kind === 'scene-node' && candidate.mask.matteSource.nodeId) {
+      visit(candidate.mask.matteSource.nodeId);
+    }
+    for (const effect of candidate.effects ?? []) {
+      if (effect.mask?.source?.kind === 'scene-node' && effect.mask.source.nodeId) {
+        visit(effect.mask.source.nodeId);
+      }
+    }
+    if (candidate.kind === 'frame' && candidate.mockup) {
+      for (const binding of Object.values(candidate.mockup.surfaceBindings)) {
+        if (binding.mode === 'live' && binding.nodeId) visit(binding.nodeId);
+      }
+    }
+    for (const fill of candidate.fills ?? []) visitFillReferences(fill);
+    if (candidate.styleId) {
+      const style = doc.styles?.[candidate.styleId];
+      if (style?.type === 'color') visitFillReferences(style.fill);
+      if (style?.type === 'effect') {
+        for (const effect of style.effects) {
+          if (effect.mask?.source.kind === 'scene-node') visit(effect.mask.source.nodeId);
+        }
+      }
+    }
+    for (const paintId of candidate.paintRefs ?? []) {
+      const paint = doc.paints?.[paintId];
+      if (paint) visitFillReferences(paint.fill);
+    }
     const storyId = candidate.storyBinding?.storyId;
     const story = storyId ? doc.stories?.[storyId] : undefined;
     if (story) for (const frameId of story.thread) visit(frameId);
+
+    // Interaction payloads are intentionally open-ended, but these keys are
+    // the supported node-reference positions. Walking them here preserves a
+    // cross-root prototype link while avoiding accidental treatment of labels
+    // or arbitrary string values as node IDs.
+    const visitInteractionRefs = (value: unknown): void => {
+      if (Array.isArray(value)) {
+        for (const entry of value) visitInteractionRefs(entry);
+        return;
+      }
+      if (!value || typeof value !== 'object') return;
+      for (const [childKey, childValue] of Object.entries(value as Record<string, unknown>)) {
+        if (
+          (childKey === 'nodeId' ||
+            childKey === 'targetId' ||
+            childKey === 'overlayId' ||
+            childKey === 'newTargetId' ||
+            childKey === 'containerId') &&
+          typeof childValue === 'string'
+        ) {
+          visit(childValue);
+        } else {
+          visitInteractionRefs(childValue);
+        }
+      }
+    };
+    for (const interaction of doc.interactions?.[id] ?? []) visitInteractionRefs(interaction);
+
+    for (const timeline of Object.values(doc.timelines ?? {})) {
+      if (timeline.tracks.some((track) => track.nodeId === id)) {
+        for (const track of timeline.tracks) visit(track.nodeId);
+      }
+    }
+
+    for (const edit of Object.values(doc.generativeEdits ?? {})) {
+      if (edit.sourceNodeId === id || edit.resultNodeId === id) {
+        visit(edit.sourceNodeId);
+        if (edit.resultNodeId) visit(edit.resultNodeId);
+      }
+    }
   }
 
   const components: NonNullable<Document['components']> = {};
@@ -986,8 +1104,9 @@ function collectNodeClosure(doc: Document, rootIds: NodeId[]): DocumentClosure {
     }
   }
   // Include nested motion timelines and the variable collections/aliases that
-  // own every referenced variable. Unsupported external references simply
-  // remain absent and are reported by the importer as fidelity loss.
+  // own every referenced variable. Alias values may use either a variable id
+  // or its authored name, and may cross collection boundaries, so resolve the
+  // transitive chain before slicing the store.
   let changed = true;
   while (changed) {
     changed = false;
@@ -1004,17 +1123,56 @@ function collectNodeClosure(doc: Document, rootIds: NodeId[]): DocumentClosure {
       }
     }
   }
-  for (const id of Object.keys(doc.variableStore?.variables ?? {})) {
-    if (variableIds.has(id)) {
-      const collection = Object.values(doc.variableStore?.collections ?? {}).find((entry) =>
-        entry.variableIds.includes(id),
-      );
-      if (collection) collectionIds.add(collection.id);
+  const variableStoreSource = doc.variableStore;
+  const variableByName = new Map(
+    Object.values(variableStoreSource?.variables ?? {}).map((variable) => [
+      variable.name,
+      variable,
+    ]),
+  );
+  const collectionVariableIds = (
+    collection: NonNullable<Document['variableStore']>['collections'][string],
+  ) => {
+    const ids = [...collection.variableIds];
+    const walkGroups = (groups: typeof collection.groups): void => {
+      for (const group of groups ?? []) {
+        ids.push(...group.variableIds);
+        walkGroups(group.groups);
+      }
+    };
+    walkGroups(collection.groups);
+    return ids;
+  };
+  let variableClosureChanged = true;
+  while (variableClosureChanged) {
+    variableClosureChanged = false;
+    for (const id of [...variableIds]) {
+      const variable = variableStoreSource?.variables[id];
+      if (!variable) continue;
+      for (const raw of Object.values(variable.valuesByMode)) {
+        if (typeof raw !== 'string') continue;
+        for (const match of raw.matchAll(/\{([^}]+)\}/g)) {
+          const target = variableStoreSource?.variables[match[1]!] ?? variableByName.get(match[1]!);
+          if (target && !variableIds.has(target.id)) {
+            variableIds.add(target.id);
+            variableClosureChanged = true;
+          }
+        }
+      }
     }
-  }
-  for (const collectionId of collectionIds) {
-    const collection = doc.variableStore?.collections?.[collectionId];
-    for (const variableId of collection?.variableIds ?? []) variableIds.add(variableId);
+    for (const collection of Object.values(variableStoreSource?.collections ?? {})) {
+      if (!collectionVariableIds(collection).some((id) => variableIds.has(id))) continue;
+      if (!collectionIds.has(collection.id)) {
+        collectionIds.add(collection.id);
+        variableClosureChanged = true;
+      }
+      for (const variableId of collectionVariableIds(collection)) {
+        if (!variableIds.has(variableId)) {
+          variableIds.add(variableId);
+          variableClosureChanged = true;
+        }
+      }
+    }
   }
   const variableStore = doc.variableStore
     ? {

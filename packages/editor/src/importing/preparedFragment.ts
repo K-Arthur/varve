@@ -9,6 +9,13 @@ export interface PreparedFragmentItem {
   sourceDoc: Document;
   /** Ordered visible roots. Descendants and dependency-only nodes stay internal. */
   rootIds: readonly NodeId[];
+  /**
+   * Additional source nodes required by those roots. They are cloned into the
+   * destination mapping but are kept unattached so dependency-only content
+   * (masks, table cell artwork, component masters, and linked targets) cannot
+   * appear as extra visible paste roots.
+   */
+  dependencyIds?: readonly NodeId[];
   /** Optional explicit world placement for a file/drop item. */
   position?: { x: number; y: number };
   /** Source-world anchors used by same-document clipboard paste. */
@@ -106,6 +113,7 @@ export function preparedFragmentFromRootSets(
   items: readonly {
     sourceDoc: Document;
     rootIds: readonly NodeId[];
+    dependencyIds?: readonly NodeId[];
     position?: { x: number; y: number };
   }[],
   placement: Pick<PreparedFragment, 'targetParentId' | 'center' | 'maskTargetId'>,
@@ -115,9 +123,10 @@ export function preparedFragmentFromRootSets(
     targetParentId: placement.targetParentId,
     ...(placement.center ? { center: placement.center } : {}),
     ...(placement.maskTargetId ? { maskTargetId: placement.maskTargetId } : {}),
-    items: items.map(({ sourceDoc, rootIds, position }) => ({
+    items: items.map(({ sourceDoc, rootIds, dependencyIds, position }) => ({
       sourceDoc,
       rootIds: [...rootIds],
+      ...(dependencyIds && dependencyIds.length > 0 ? { dependencyIds: [...dependencyIds] } : {}),
       ...(position ? { position } : {}),
     })),
   };

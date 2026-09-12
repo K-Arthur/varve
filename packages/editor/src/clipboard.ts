@@ -85,6 +85,11 @@ export interface ClipboardData {
   nodes: SceneNode[];
   /** Original selected roots, in user selection order. */
   rootIds?: string[];
+  /**
+   * Node ids that support the roots but must not become visible paste roots.
+   * These are explicit in v2; older payloads infer them from reachability.
+   */
+  dependencyIds?: string[];
   rasterMaskAssets?: Record<string, RasterMaskAsset>;
   assets?: Record<string, DocumentAsset>;
   iconAssets?: Record<string, DocumentIconAsset>;
@@ -337,6 +342,16 @@ export function parseClipboardData(text: string): ClipboardData | null {
   ) {
     return null;
   }
+  const dependencyIds = raw.dependencyIds;
+  if (
+    dependencyIds !== undefined &&
+    (!Array.isArray(dependencyIds) ||
+      dependencyIds.some((id) => typeof id !== 'string' || !ids.has(id)) ||
+      new Set(dependencyIds).size !== dependencyIds.length ||
+      (Array.isArray(rootIds) && dependencyIds.some((id) => rootIds.includes(id))))
+  ) {
+    return null;
+  }
   if (
     !validResourceMap(raw.rasterMaskAssets) ||
     !validResourceMap(raw.assets) ||
@@ -380,6 +395,7 @@ export function parseClipboardData(text: string): ClipboardData | null {
     ...(typeof raw.sourceDocumentId === 'string' ? { sourceDocumentId: raw.sourceDocumentId } : {}),
     nodes,
     ...(rootIds ? { rootIds: [...rootIds] } : {}),
+    ...(dependencyIds ? { dependencyIds: [...dependencyIds] } : {}),
     ...(isRecord(raw.rasterMaskAssets)
       ? { rasterMaskAssets: raw.rasterMaskAssets as ClipboardData['rasterMaskAssets'] }
       : {}),
@@ -437,6 +453,7 @@ function serializeClipboardData(
   stories?: Document['stories'],
   motionExtensions?: Document['motionExtensions'],
   motionPresets?: Document['motionPresets'],
+  dependencyIds?: string[],
 ): string {
   const data: ClipboardData = {
     format: VARVE_CLIPBOARD_FORMAT,
@@ -444,6 +461,7 @@ function serializeClipboardData(
     ...(sourceDocumentId ? { sourceDocumentId } : {}),
     nodes: nodes.map(serializeClipboardNode),
     ...(rootIds && rootIds.length > 0 ? { rootIds: [...rootIds] } : {}),
+    ...(dependencyIds && dependencyIds.length > 0 ? { dependencyIds: [...dependencyIds] } : {}),
     ...(rasterMaskAssets && Object.keys(rasterMaskAssets).length > 0 ? { rasterMaskAssets } : {}),
     ...(assets && Object.keys(assets).length > 0 ? { assets } : {}),
     ...(iconAssets && Object.keys(iconAssets).length > 0 ? { iconAssets } : {}),
@@ -503,6 +521,7 @@ export function writeClipboardOutcome(
   stories?: Document['stories'],
   motionExtensions?: Document['motionExtensions'],
   motionPresets?: Document['motionPresets'],
+  dependencyIds?: string[],
 ): Promise<ClipboardWriteOutcome> {
   return enqueueClipboardWrite((generation) =>
     writeClipboardOutcomeNow(
@@ -526,6 +545,7 @@ export function writeClipboardOutcome(
       motionExtensions,
       motionPresets,
       generation,
+      dependencyIds,
     ),
   );
 }
@@ -617,6 +637,7 @@ async function writeClipboardOutcomeNow(
   motionExtensions?: Document['motionExtensions'],
   motionPresets?: Document['motionPresets'],
   generation?: number,
+  dependencyIds?: string[],
 ): Promise<ClipboardWriteOutcome> {
   const isCurrentWrite = (): boolean =>
     generation === undefined || generation === latestClipboardWrite;
@@ -642,6 +663,7 @@ async function writeClipboardOutcomeNow(
       stories,
       motionExtensions,
       motionPresets,
+      dependencyIds,
     );
   } catch {
     return { status: 'failed', reason: 'write-failed' };
@@ -654,7 +676,13 @@ async function writeClipboardOutcomeNow(
   if (encodedJson.byteLength > MAX_CLIPBOARD_JSON_BYTES || !parseClipboardData(json)) {
     return { status: 'failed', reason: 'write-failed' };
   }
-  const text = nodes.map((n) => n.name).join('\n');
+  const text =
+    rootIds && rootIds.length > 0
+      ? rootIds
+          .map((id) => nodes.find((node) => node.id === id)?.name)
+          .filter((name): name is string => Boolean(name))
+          .join('\n')
+      : nodes.map((n) => n.name).join('\n');
   const textBlob = new Blob([text], { type: 'text/plain' });
   if (platform?.kind === 'tauri') {
     try {
@@ -712,7 +740,7 @@ async function writeClipboardOutcomeNow(
     return { status: 'failed', reason: 'clipboard-unavailable' };
   }
   try {
-    await navigator.clipboard.writeText(nodes.map((n) => n.name).join('\n'));
+    await navigator.clipboard.writeText(text);
     if (!isCurrentWrite()) return { status: 'failed', reason: 'write-failed' };
     return { status: 'text-only', reason: 'editable-format-unavailable' };
   } catch (error) {
@@ -748,6 +776,7 @@ export async function writeClipboard(
   stories?: Document['stories'],
   motionExtensions?: Document['motionExtensions'],
   motionPresets?: Document['motionPresets'],
+  dependencyIds?: string[],
 ): Promise<boolean> {
   return (
     (
@@ -771,6 +800,7 @@ export async function writeClipboard(
         stories,
         motionExtensions,
         motionPresets,
+        dependencyIds,
       )
     ).status === 'editable'
   );
@@ -788,6 +818,33 @@ function isSvgText(text: string): boolean {
 
 function hasRichClipboardContent(result: UnifiedClipboardResult): boolean {
   return Boolean(result.varveData || result.importItems.length > 0 || result.htmlText);
+}
+
+/** Extract one local SVG element from HTML clipboard data without executing or
+ * fetching anything. The SVG still goes through the bounded SVG importer. */
+function extractSvgFromHtml(html: string): string | null {
+  if (!/<svg\b/i.test(html) || typeof DOMParser === 'undefined') return null;
+  try {
+    const document = new DOMParser().parseFromString(html, 'text/html');
+    const svg = document.querySelector('svg');
+    if (!svg || typeof XMLSerializer === 'undefined') return null;
+    const serialized = new XMLSerializer().serializeToString(svg);
+    return isSvgText(serialized) ? serialized : null;
+  } catch {
+    return null;
+  }
+}
+
+function addSvgItem(result: UnifiedClipboardResult, data: string, name: string): void {
+  if (
+    result.importItems.some(
+      (item) =>
+        item.mimeType === 'image/svg+xml' && typeof item.data === 'string' && item.data === data,
+    )
+  ) {
+    return;
+  }
+  addImageItem(result, data, 'image/svg+xml', name);
 }
 
 function addImageItem(
@@ -825,7 +882,7 @@ async function readClipboardItem(
     try {
       const text = await (await item.getType(svgType)).text();
       if (isSvgText(text)) {
-        addImageItem(result, text, 'image/svg+xml', `clipboard-${itemIndex}.svg`);
+        addSvgItem(result, text, `clipboard-${itemIndex}.svg`);
         return;
       }
     } catch {
@@ -853,7 +910,7 @@ async function readClipboardItem(
     try {
       const text = await (await item.getType('text/plain')).text();
       if (isSvgText(text)) {
-        addImageItem(result, text, 'image/svg+xml', `clipboard-${itemIndex}.svg`);
+        addSvgItem(result, text, `clipboard-${itemIndex}.svg`);
       } else if (text) {
         result.plainText ??= text;
       }
@@ -864,7 +921,12 @@ async function readClipboardItem(
   if (item.types.includes('text/html')) {
     try {
       const html = await (await item.getType('text/html')).text();
-      if (html) result.htmlText ??= html.slice(0, 4 * 1024 * 1024);
+      if (html) {
+        const bounded = html.slice(0, 4 * 1024 * 1024);
+        result.htmlText ??= bounded;
+        const svg = extractSvgFromHtml(bounded);
+        if (svg) addSvgItem(result, svg, `clipboard-${itemIndex}.svg`);
+      }
     } catch {
       // HTML is optional; plain text remains usable.
     }
@@ -978,7 +1040,11 @@ async function readClipboardSnapshot(
   result.varveData = snapshot.varveData;
   if (snapshot.plainText) result.plainText = snapshot.plainText;
   if (snapshot.htmlText) result.htmlText = snapshot.htmlText;
-  if (snapshot.svgText) addImageItem(result, snapshot.svgText, 'image/svg+xml', 'clipboard.svg');
+  if (snapshot.svgText) addSvgItem(result, snapshot.svgText, 'clipboard.svg');
+  if (snapshot.htmlText) {
+    const svg = extractSvgFromHtml(snapshot.htmlText);
+    if (svg) addSvgItem(result, svg, 'clipboard-html.svg');
+  }
   if (snapshot.varveData) return result;
   const imported = await Promise.all(
     snapshot.files.map(async ({ file, index }) => {
@@ -1232,11 +1298,7 @@ export async function readClipboardUnifiedWithFallback(
     capturedClipboardSnapshots.delete(owned.operationId);
     removePendingRequest(owned);
   }
-  let eventResult: UnifiedClipboardResult | null = null;
-  if (eventSnapshot) {
-    eventResult = await readClipboardSnapshot(eventSnapshot);
-    if (hasRichClipboardContent(eventResult)) return eventResult;
-  }
+  if (eventSnapshot) return readClipboardSnapshot(eventSnapshot);
   const apiResult = await readClipboardUnified();
   if (hasRichClipboardContent(apiResult)) {
     return apiResult;
@@ -1298,5 +1360,5 @@ export async function readClipboardUnifiedWithFallback(
       // empty result rather than rejecting the whole paste() action.
     }
   }
-  return eventResult ?? apiResult;
+  return apiResult;
 }

@@ -703,6 +703,27 @@ function gatherSubtreeNodes(doc: Document, ids: NodeId[]): SceneNode[] {
   return result;
 }
 
+/** Return nodes present in a serialized fragment that are not reachable from
+ * its visible roots. They must be cloned for reference integrity but remain
+ * unattached in the destination scene. */
+function dependencyNodeIdsForRoots(doc: Document, rootIds: readonly NodeId[]): NodeId[] {
+  const reachable = new Set<NodeId>();
+  const pending = [...rootIds].reverse();
+  while (pending.length > 0) {
+    const id = pending.pop()!;
+    if (reachable.has(id)) continue;
+    const node = doc.nodes[id];
+    if (!node) continue;
+    reachable.add(id);
+    if (isContainer(node)) {
+      for (let index = node.children.length - 1; index >= 0; index -= 1) {
+        pending.push(node.children[index]!);
+      }
+    }
+  }
+  return Object.keys(doc.nodes).filter((id) => !reachable.has(id));
+}
+
 /** Remove selected descendants from transfer roots. */
 function selectionRootIds(doc: Document, ids: readonly NodeId[]): NodeId[] {
   const selected = new Set(ids);
@@ -747,6 +768,7 @@ function insertImportedSubtree(
   adjustRoot: (node: SceneNode) => SceneNode,
   workspaceMode: string = 'print',
   additionalRootIds: readonly NodeId[] = [],
+  dependencyRootIds: readonly NodeId[] = [],
 ): { doc: Document; rootId: NodeId; rootIds: NodeId[]; idMap: Map<string, string> } | null {
   // Cross-document import/clipboard paste: mask and scope references that
   // point outside the pasted subtree must not leak source-document IDs —
@@ -754,7 +776,7 @@ function insertImportedSubtree(
   // than left dangling.
   const cloned = deepCloneSubtree(sourceDoc.nodes, targetDoc.nextId, rootId, {
     dropForeignReferences: true,
-    additionalRootIds,
+    additionalRootIds: [...additionalRootIds, ...dependencyRootIds],
   });
   const root = cloned.nodes[cloned.rootId];
   if (!root || Object.keys(cloned.nodes).length === 0) return null;
@@ -3597,6 +3619,8 @@ export function EditorProvider({
             clone: (targetDoc, item) => {
               const rootId = item.rootIds[0];
               if (!rootId) return null;
+              const dependencyIds =
+                item.dependencyIds ?? dependencyNodeIdsForRoots(item.sourceDoc, item.rootIds);
               return insertImportedSubtree(
                 targetDoc,
                 item.sourceDoc,
@@ -3604,6 +3628,7 @@ export function EditorProvider({
                 (node) => node,
                 s.workspaceMode,
                 item.rootIds.slice(1),
+                dependencyIds,
               );
             },
             place: (currentDoc, inserted, item, currentFragment, itemIndex) => {
@@ -7955,8 +7980,12 @@ export function EditorProvider({
         if (sel.length === 0) return;
         const nodes = gatherSubtreeNodes(snapshot.document, sel);
         if (nodes.length === 0) return;
-        const nodeIds = nodes.map((n) => n.id);
-        const closure = DocumentCodec.collectNodeClosure(snapshot.document, nodeIds);
+        const closure = DocumentCodec.collectNodeClosure(
+          snapshot.document,
+          nodes.map((n) => n.id),
+        );
+        const visibleNodeIds = new Set(nodes.map((node) => node.id));
+        const dependencyIds = [...closure.nodeIds].filter((id) => !visibleNodeIds.has(id));
         // World anchor per selection root (placed world): lets paste preserve
         // the source pose or translate the whole fragment into a destination.
         const worldAnchor: Record<string, Affine> = {};
@@ -7964,7 +7993,7 @@ export function EditorProvider({
           worldAnchor[id] = nodeWorldTransform(snapshot.document, id);
         }
         void writeClipboardOutcome(
-          nodes,
+          Object.values(closure.nodes),
           closure.rasterMaskAssets,
           closure.assets,
           closure.iconAssets,
@@ -7983,6 +8012,7 @@ export function EditorProvider({
           closure.stories,
           closure.motionExtensions,
           closure.motionPresets,
+          dependencyIds,
         ).then(
           (outcome) => {
             if (outcome.status === 'editable') {
@@ -8012,8 +8042,12 @@ export function EditorProvider({
         }
         const nodes = gatherSubtreeNodes(snapshot.document, sel);
         if (nodes.length === 0) return;
-        const nodeIds = nodes.map((n) => n.id);
-        const closure = DocumentCodec.collectNodeClosure(snapshot.document, nodeIds);
+        const closure = DocumentCodec.collectNodeClosure(
+          snapshot.document,
+          nodes.map((n) => n.id),
+        );
+        const visibleNodeIds = new Set(nodes.map((node) => node.id));
+        const dependencyIds = [...closure.nodeIds].filter((id) => !visibleNodeIds.has(id));
         const worldAnchor: Record<string, Affine> = {};
         for (const id of sel) {
           worldAnchor[id] = nodeWorldTransform(snapshot.document, id);
@@ -8023,7 +8057,7 @@ export function EditorProvider({
         const sourceSessionId = snapshot.activeId;
         const sourceRevision = snapshot.revision;
         void writeClipboardOutcome(
-          nodes,
+          Object.values(closure.nodes),
           closure.rasterMaskAssets,
           closure.assets,
           closure.iconAssets,
@@ -8042,6 +8076,7 @@ export function EditorProvider({
           closure.stories,
           closure.motionExtensions,
           closure.motionPresets,
+          dependencyIds,
         ).then(
           (outcome) => {
             if (outcome.status !== 'editable') {
@@ -8210,9 +8245,13 @@ export function EditorProvider({
           const validRootIds = rootIds.filter((id) => Boolean(tempNodes[id]));
           if (validRootIds.length > 0) {
             const worldAnchor = varveData.worldAnchor ?? {};
+            const dependencyIds =
+              varveData.dependencyIds?.filter((id) => Boolean(tempNodes[id])) ??
+              dependencyNodeIdsForRoots(tempDoc, validRootIds);
             preparedItems.push({
               sourceDoc: tempDoc,
               rootIds: validRootIds,
+              ...(dependencyIds.length > 0 ? { dependencyIds } : {}),
               worldAnchors: worldAnchor,
             });
           }

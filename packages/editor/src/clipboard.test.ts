@@ -233,6 +233,44 @@ describe('readFromClipboardEvent', () => {
     expect(result.varveData?.nodes[0]?.name).toBe('Snapshot');
   });
 
+  it('treats the initiating plain-text event as authoritative', async () => {
+    clearCapturedClipboardEvent();
+    const request = createTransferRequest('paste', 'session-text');
+    const dt = createDataTransferWithFiles([]);
+    dt.getData = (format: string) => (format === 'text/plain' ? 'initiating text' : '');
+    captureClipboardEvent({ clipboardData: dt } as ClipboardEvent, request);
+
+    const result = await readClipboardUnifiedWithFallback(
+      {
+        kind: 'memory',
+        readClipboardData: async () => ({
+          mimeType: 'text/plain',
+          data: new TextEncoder().encode('later clipboard text'),
+        }),
+        readClipboardImage: async () => null,
+      },
+      request,
+    );
+
+    expect(result.plainText).toBe('initiating text');
+    clearCapturedClipboardEvent();
+  });
+
+  it('routes an SVG embedded in HTML through the SVG import representation', async () => {
+    const dt = createDataTransferWithFiles([]);
+    dt.getData = (format: string) =>
+      format === 'text/html'
+        ? '<div><svg viewBox="0 0 10 10"><rect width="10" height="10" /></svg></div>'
+        : '';
+
+    const result = await readFromClipboardEvent({ clipboardData: dt } as ClipboardEvent);
+
+    expect(result.importItems).toHaveLength(1);
+    expect(result.importItems[0]?.mimeType).toBe('image/svg+xml');
+    expect(String(result.importItems[0]?.data)).toContain('<svg');
+    expect(result.htmlText).toContain('viewBox');
+  });
+
   it('keeps snapshots and fallbacks owned by distinct gesture requests', async () => {
     const firstRequest = createTransferRequest('paste', 'session-a');
     const secondRequest = createTransferRequest('paste', 'session-a');
@@ -677,6 +715,23 @@ describe('readFromClipboardEvent', () => {
         JSON.stringify({ format: 'varve-clipboard', version: 2, nodes, rootIds: ['g-0'] }),
       ),
     ).toBeNull();
+  });
+
+  it('round-trips dependency-only node ids without promoting them to roots', () => {
+    const parsed = parseClipboardData(
+      JSON.stringify({
+        format: 'varve-clipboard',
+        version: 2,
+        nodes: [
+          { id: 'root', kind: 'shape' },
+          { id: 'support', kind: 'shape' },
+        ],
+        rootIds: ['root'],
+        dependencyIds: ['support'],
+      }),
+    );
+    expect(parsed?.rootIds).toEqual(['root']);
+    expect(parsed?.dependencyIds).toEqual(['support']);
   });
 
   it('does not report an invalid fragment as an editable clipboard write', async () => {

@@ -2,6 +2,7 @@ import type {
   Document,
   DocumentAsset,
   DocumentIconAsset,
+  Effect,
   Fill,
   IccProfileEntry,
   LiveMatteSource,
@@ -81,14 +82,32 @@ function mapImportedAssetIds<T extends { id: string }>(
   return { doc, ids };
 }
 
-function remapLiveMatteSource(source: LiveMatteSource, maps: ResourceMaps): LiveMatteSource {
+function remapLiveMatteSource(
+  source: LiveMatteSource,
+  maps: ResourceMaps,
+): LiveMatteSource | undefined {
   if (source.kind === 'scene-node') {
-    return { ...source, nodeId: maps.nodeIds.get(source.nodeId) ?? source.nodeId };
+    const nodeId = maps.nodeIds.get(source.nodeId);
+    return nodeId ? { ...source, nodeId } : undefined;
   }
   if (source.kind === 'raster-asset') {
-    return { ...source, assetId: maps.rasterMaskAssetIds.get(source.assetId) ?? source.assetId };
+    const assetId = maps.rasterMaskAssetIds.get(source.assetId);
+    return assetId ? { ...source, assetId } : undefined;
   }
   return source;
+}
+
+function remapEffects(effects: readonly Effect[], maps: ResourceMaps): Effect[] {
+  return effects.map((effect) => {
+    const source = effect.mask?.source;
+    if (!source) return effect;
+    const remapped = remapLiveMatteSource(source, maps);
+    if (!remapped) {
+      const { mask: _mask, ...withoutMask } = effect;
+      return withoutMask as Effect;
+    }
+    return { ...effect, mask: { ...effect.mask!, source: remapped } };
+  });
 }
 
 function remapFill(fill: Fill, maps: ResourceMaps, assets: Document['assets']): Fill {
@@ -129,32 +148,35 @@ function remapNodeAssetReferences(
   }
   if (node.mask) {
     const mask = { ...node.mask };
+    if (mask.sourceNodeId) {
+      const sourceNodeId = maps.nodeIds.get(mask.sourceNodeId);
+      if (sourceNodeId) mask.sourceNodeId = sourceNodeId;
+      else delete mask.sourceNodeId;
+    }
     if (mask.rasterMask) {
       mask.rasterMask = {
         ...mask.rasterMask,
         assetId: maps.rasterMaskAssetIds.get(mask.rasterMask.assetId) ?? mask.rasterMask.assetId,
       };
     }
-    if (mask.matteSource) mask.matteSource = remapLiveMatteSource(mask.matteSource, maps);
-    result = { ...result, mask } as SceneNode;
+    if (mask.matteSource) {
+      const matteSource = remapLiveMatteSource(mask.matteSource, maps);
+      if (matteSource) mask.matteSource = matteSource;
+      else delete mask.matteSource;
+    }
+    const hasSource = Boolean(
+      mask.sourceNodeId || mask.vectorMask || mask.rasterMask || mask.matteSource,
+    );
+    result = { ...result, mask: hasSource ? mask : undefined } as SceneNode;
   }
   if ('effects' in node && Array.isArray(node.effects)) {
-    result = {
-      ...result,
-      effects: node.effects.map((effect) =>
-        effect.mask
-          ? {
-              ...effect,
-              mask: { ...effect.mask, source: remapLiveMatteSource(effect.mask.source, maps) },
-            }
-          : effect,
-      ),
-    } as SceneNode;
+    result = { ...result, effects: remapEffects(node.effects, maps) } as SceneNode;
   }
   if (node.iconAssetId) {
+    const iconAssetId = maps.iconAssetIds.get(node.iconAssetId);
     result = {
       ...result,
-      iconAssetId: maps.iconAssetIds.get(node.iconAssetId) ?? node.iconAssetId,
+      ...(iconAssetId ? { iconAssetId } : { iconAssetId: undefined }),
     } as SceneNode;
   }
   if (node.kind === 'frame' && node.mockup) {
@@ -163,15 +185,25 @@ function remapNodeAssetReferences(
       mockup: {
         ...node.mockup,
         surfaceBindings: Object.fromEntries(
-          Object.entries(node.mockup.surfaceBindings).map(([surfaceId, binding]) => [
-            surfaceId,
-            binding.assetId
-              ? {
-                  ...binding,
-                  assetId: maps.assetIds.get(binding.assetId) ?? binding.assetId,
-                }
-              : binding,
-          ]),
+          Object.entries(node.mockup.surfaceBindings)
+            .map(([surfaceId, binding]) => {
+              if (binding.mode === 'live' && binding.nodeId) {
+                const nodeId = maps.nodeIds.get(binding.nodeId);
+                return nodeId ? [surfaceId, { ...binding, nodeId }] : null;
+              }
+              return [
+                surfaceId,
+                binding.assetId
+                  ? {
+                      ...binding,
+                      assetId: maps.assetIds.get(binding.assetId) ?? binding.assetId,
+                    }
+                  : binding,
+              ];
+            })
+            .filter((entry): entry is [string, (typeof node.mockup.surfaceBindings)[string]] =>
+              Boolean(entry),
+            ),
         ),
       },
     } as SceneNode;
@@ -234,7 +266,9 @@ function mergeImportedAssets(target: Document, source: Document, maps: ResourceM
     iconAssets[id] = {
       ...asset,
       id,
-      instanceNodeIds: asset.instanceNodeIds.map((nodeId) => maps.nodeIds.get(nodeId) ?? nodeId),
+      instanceNodeIds: asset.instanceNodeIds
+        .map((nodeId) => maps.nodeIds.get(nodeId))
+        .filter((nodeId): nodeId is string => Boolean(nodeId)),
     };
   }
 
@@ -258,9 +292,16 @@ function remapValue(value: string | boolean, nodeIds: Map<string, string>): stri
   return typeof value === 'string' ? (nodeIds.get(value) ?? value) : value;
 }
 
-function remapVariableValue(value: unknown, ids: Map<string, string>): unknown {
+function remapVariableValue(
+  value: unknown,
+  ids: Map<string, string>,
+  aliases: Map<string, string> = ids,
+): unknown {
   if (typeof value !== 'string') return value;
-  return value.replace(/\{([^}]+)\}/g, (_, id: string) => `{${ids.get(id) ?? id}}`);
+  return value.replace(
+    /\{([^}]+)\}/g,
+    (_, id: string) => `{${ids.get(id) ?? aliases.get(id) ?? id}}`,
+  );
 }
 
 function remapInteractionValue(value: unknown, nodeIds: Map<string, string>): unknown {
@@ -391,8 +432,8 @@ function mergeGroup(
       masterRootId,
       slots: source.slots.map((slot) => ({
         ...slot,
-        ...(slot.defaultContentId
-          ? { defaultContentId: nodeIds.get(slot.defaultContentId) ?? slot.defaultContentId }
+        ...(slot.defaultContentId && nodeIds.has(slot.defaultContentId)
+          ? { defaultContentId: nodeIds.get(slot.defaultContentId) }
           : {}),
       })),
       properties: source.properties?.map((property) => ({
@@ -418,7 +459,9 @@ function mergeGroup(
     styles[id] =
       source.type === 'color'
         ? { ...source, id, fill: remapFill(source.fill, maps, doc.assets) }
-        : { ...source, id };
+        : source.type === 'effect'
+          ? { ...source, id, effects: remapEffects(source.effects, maps) }
+          : { ...source, id };
   }
 
   const paints = { ...(doc.paints ?? {}) };
@@ -443,6 +486,13 @@ function mergeGroup(
   if (sourceStore) {
     const existing = doc.variableStore;
     const variables = { ...(existing?.variables ?? {}) };
+    const variableAliases = new Map<string, string>();
+    for (const [sourceId, variable] of Object.entries(sourceStore.variables)) {
+      const id = maps.variableIds.get(sourceId);
+      if (!id) continue;
+      variableAliases.set(sourceId, id);
+      variableAliases.set(variable.name, id);
+    }
     for (const [sourceId, variable] of Object.entries(sourceStore.variables)) {
       const id = maps.variableIds.get(sourceId);
       if (!id) continue;
@@ -452,7 +502,7 @@ function mergeGroup(
         valuesByMode: Object.fromEntries(
           Object.entries(variable.valuesByMode).map(([mode, value]) => [
             mode,
-            remapVariableValue(value, maps.variableIds),
+            remapVariableValue(value, maps.variableIds, variableAliases),
           ]),
         ) as typeof variable.valuesByMode,
       };
@@ -464,9 +514,9 @@ function mergeGroup(
       collections[id] = {
         ...collection,
         id,
-        variableIds: collection.variableIds.map(
-          (variableId) => maps.variableIds.get(variableId) ?? variableId,
-        ),
+        variableIds: collection.variableIds
+          .map((variableId) => maps.variableIds.get(variableId))
+          .filter((variableId): variableId is string => Boolean(variableId)),
       };
     }
     doc = {
@@ -502,8 +552,8 @@ function mergeGroup(
       ...sourceEdit,
       id: editId,
       sourceNodeId,
-      ...(sourceEdit.resultNodeId
-        ? { resultNodeId: maps.nodeIds.get(sourceEdit.resultNodeId) ?? sourceEdit.resultNodeId }
+      ...(sourceEdit.resultNodeId && maps.nodeIds.has(sourceEdit.resultNodeId)
+        ? { resultNodeId: maps.nodeIds.get(sourceEdit.resultNodeId) }
         : {}),
     };
     const importedEdit = generativeEdits[editId];
