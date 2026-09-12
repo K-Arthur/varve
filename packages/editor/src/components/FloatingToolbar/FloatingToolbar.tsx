@@ -14,7 +14,7 @@ import {
   Tooltip,
   TooltipProvider,
 } from '@varve/ui';
-import { useMemo, useState } from 'react';
+import { useLayoutEffect, useMemo, useState } from 'react';
 import { type ToolId, useEditor } from '../../context';
 import { toolShortcutLabel } from '../../shortcuts';
 import { getToolDefinition } from '../../tools/toolRegistry';
@@ -381,6 +381,33 @@ export function FloatingToolbar() {
     slots,
     state.tool as ToolId,
   );
+
+  // Publish the palette's rendered height so bottom-anchored chrome (the
+  // responsive drawer FABs) can clear it in every workspace, including
+  // drawing mode's extra controls row. The observer covers font-size and
+  // responsive-overflow changes without a layout loop.
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    const rootElement = root?.ownerDocument.documentElement;
+    if (!root || !rootElement) return;
+    const publish = () => {
+      const height = root.getBoundingClientRect().height;
+      if (Number.isFinite(height) && height > 0) {
+        rootElement.style.setProperty('--floating-toolbar-height', `${Math.ceil(height)}px`);
+      }
+    };
+    publish();
+    if (typeof ResizeObserver === 'undefined') {
+      return () => rootElement.style.removeProperty('--floating-toolbar-height');
+    }
+    const observer = new ResizeObserver(publish);
+    observer.observe(root);
+    return () => {
+      observer.disconnect();
+      rootElement.style.removeProperty('--floating-toolbar-height');
+    };
+  }, [rootRef]);
+
   if (!config.floatingToolbar) return null;
   // Modal image-edit tools provide their own focused handles and completion
   // actions. Keeping the global palette mounted here would cover the lower

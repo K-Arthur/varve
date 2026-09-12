@@ -1,10 +1,12 @@
 /* ── Minimum viewport ───────────────────────────────── */
-/* Varve is a design tool — viewports narrower than 600px make panels,
- * toolbars, and inspector controls overlap beyond usability.  Enforce a
- * floor so the browser shows a horizontal scrollbar instead of a broken
- * layout. */
+/* 320 CSS px is the WCAG 1.4.10 reflow floor and the narrowest width the
+ * responsive layout supports: at <=899px panels become fixed drawers, the
+ * menubar compacts, and the status bar drops low-priority segments. The
+ * previous 600px floor forced horizontal page scrolling in split-screen and
+ * portrait tablet widths, which is exactly what the drawer layout exists to
+ * avoid. Keep a floor only for physically impossible viewports. */
 html {
-  min-width: 600px;
+  min-width: 320px;
 }
 
 /* ── Error boundary ─────────────────────────────────── */
@@ -2175,17 +2177,25 @@ input[type="number"] {
 @media (max-width: 899px) {
   .editor__fab {
     display: flex;
-    /* Keep the responsive panel controls above the fixed-height status bar.
-       At compact heights the old 24px offset put the FABs over save/zoom
-       state, making those single-user controls unreadable. The keyboard inset
-       lifts them above the on-screen keyboard while it is open. */
-    bottom: calc(28px + var(--space-3) + var(--keyboard-inset-bottom, 0px));
+    /* Clear, from the viewport bottom: the status bar, the selection info
+       strip (28px min-height in SelectionInfoBar.css), the floating toolbar
+       (offset by --space-3; its measured height is published as
+       --floating-toolbar-height, with the toolbar token as fallback), and a
+       gap. The keyboard inset lifts them above the on-screen keyboard while
+       it is open. Previously the offset was a fixed 24-80px, which let the
+       FABs sit on top of toolbar buttons at every <=899px width. */
+    bottom: calc(
+      var(--statusbar-height) +
+      28px +
+      var(--space-3) +
+      var(--floating-toolbar-height, var(--toolbar-height)) +
+      var(--space-2) +
+      var(--keyboard-inset-bottom, 0px)
+    );
   }
 }
-/* At phone widths the horizontally-scrollable tool strip occupies the same
- * lower edge as the drawer affordances. Lift the FABs above that strip so the
- * Layers drawer remains reachable instead of being visually/pointer-hidden by
- * the toolbar. */
+/* At phone widths the menubar compacts. The FAB offset is unified at the
+ * <=899px drawer breakpoint above, where it clears the measured toolbar. */
 @media (max-width: 640px) {
   /* Keep the application menus and workspace switcher readable on phone
      widths. The document title is still available in the document tab row
@@ -2231,9 +2241,6 @@ input[type="number"] {
   .editor-menubar__zoom-divider {
     display: none;
   }
-  .editor__fab {
-    bottom: calc(28px + var(--space-3) + 52px + var(--keyboard-inset-bottom, 0px));
-  }
 }
 .editor__fab--layers {
   left: var(--space-3);
@@ -2263,6 +2270,33 @@ input[type="number"] {
   .workspace-dock__more {
     min-inline-size: var(--touch-target-min);
     min-block-size: var(--touch-target-min);
+  }
+
+  /* WCAG 2.2 SC 2.5.8: compact chrome rows are ~17-20px targets by desktop
+   * design. On coarse pointers they must reach the 24x24 CSS px floor. The
+   * 36px menubar and 28px status strip hold a 24px control without changing
+   * either bar's height. */
+  .editor-menubar .editor-menubar__item,
+  .editor-menubar .editor-menubar__doc-name-text,
+  .editor-menubar .editor-menubar__doc-name-input,
+  .editor-status .save-status,
+  .editor-status .editor-status__score-badge,
+  .editor-status .debt-badge,
+  .editor-status .varve-select__trigger {
+    min-height: 24px;
+  }
+
+  .editor-status__toggle,
+  .editor-status__zoom-chip .editor-status__toggle {
+    width: 24px;
+    min-width: 24px;
+    height: 24px;
+  }
+
+  .editor-status__fit-btn,
+  .editor-status__unit-select,
+  .editor-status__zoom-value {
+    min-height: 24px;
   }
 }
 
