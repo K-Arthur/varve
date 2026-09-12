@@ -49,10 +49,10 @@ evidence.
 
 ## Consequences
 
-The editor currently shares validation and import reporting, while Paste,
-Import, and Drop still retain route-specific preparation and commit code; a
-shared `PreparedFragment` transaction is the next application milestone.
-Native Wayland and packaged Tauri behavior require explicit desktop
+Paste, Import, and Drop retain distinct acquisition and placement callbacks but
+share the `PreparedFragment` contract and one atomic insertion loop. The loop
+returns actual committed roots and resource maps, which keeps Import Results
+counts tied to the scene transaction. Native Wayland and packaged Tauri behavior require explicit desktop
 validation; browser unit tests do not stand in for that evidence. References
 outside the supported closure are reported as fidelity loss rather than
 reconstructed from destination state. Marketing and help pages must use the

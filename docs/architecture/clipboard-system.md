@@ -1,6 +1,6 @@
 # Clipboard System
 
-Status: current (2026-09-09)
+Status: current (2026-09-11)
 
 Varve has one system object clipboard for layer transfer and deliberately
 separate application buffers for properties, effect stacks, guides, tables,
@@ -67,6 +67,18 @@ reported as fidelity loss rather than resolved from the destination by display
 name. Imported assets and document resources are merged through
 `mergeImportedResources`; the source document is never used as mutable
 destination state.
+
+## Prepared insertion contract
+
+Paste, File > Import, and canvas Drop now prepare their acquired artifacts as
+`PreparedFragment` values before touching editor state. The shared
+`commitPreparedFragmentDocument` loop clones each logical item in source order,
+allocates one mapping per item, applies the route's placement callback, merges
+resources, and returns the actual committed roots. Paste retains world-anchor
+placement and editable text handling; Import and Drop retain their center,
+cascade, and mask semantics. The editor wraps that loop in one undo transaction
+and publishes the resulting root count, so parsing and placement cannot create
+partially visible intermediate batches.
 
 ## Representation selection
 
@@ -206,7 +218,9 @@ Implementation map:
 - `packages/editor/src/clipboard.ts` — transport, validation, typed transfer
   requests, request-bound snapshots, and representation negotiation;
 - `packages/editor/src/context.tsx` — command ownership, target binding,
-  insertion, placement, and history;
+  prepared-fragment commit, target binding, placement, and history;
+- `packages/editor/src/importing/preparedFragment.ts` — shared prepared
+  fragment contract and atomic insertion loop;
 - `packages/editor/src/import/mergeImportedResources.ts` — fresh resource IDs
   and reference remapping;
 - `packages/editor/src/propertyClipboard.ts` and `guideClipboard.ts` —

@@ -717,3 +717,43 @@ checkout did not contain `apps/desktop/src-tauri/onnxruntime-libs/**/*`; no
 native clipboard test result was claimed from that run. The focused JS/import
 and wrapper checks recorded above remain valid, but they do not close the
 external platform lanes listed here.
+
+### Prepared-fragment insertion milestone — 2026-09-11
+
+CLIP-20 is resolved for the local editor implementation. Paste, File > Import,
+and canvas Drop now produce `PreparedFragment` records and call the shared
+`commitPreparedFragmentDocument` loop. The loop preserves acquisition order,
+clones each logical artifact with its complete source mapping, applies the
+route-specific placement callback, merges resources, and returns the roots that
+actually committed. Paste still preserves world anchors and editable text;
+Import and Drop still preserve their center/cascade and mask behavior.
+
+Evidence from an isolated checkout based on `master`:
+
+```text
+/home/kevina/CodingProjects/varve/node_modules/.bin/biome check \
+  packages/editor/src/importing/preparedFragment.ts \
+  packages/editor/src/importing/preparedFragment.test.ts \
+  packages/editor/src/importing/useFileImport.ts \
+  packages/editor/src/context/sessionGlobals.ts \
+  packages/editor/src/components/ImportResults.tsx \
+  packages/editor/src/dropUtils.ts packages/editor/src/CanvasArea.tsx \
+  packages/editor/src/context/types.ts packages/editor/src/context.tsx
+passed
+VARVE_TEST_WORKERS=1 /home/kevina/CodingProjects/varve/node_modules/.bin/vitest run \
+  packages/editor/src/context.import.test.tsx \
+  packages/editor/src/importing/preparedFragment.test.ts \
+  --maxWorkers=1 --reporter=dot
+18 tests passed
+/home/kevina/CodingProjects/varve/node_modules/.bin/tsc \
+  -p packages/editor/tsconfig.json --noEmit --pretty false
+clipboard/import files passed; the command also reports pre-existing \
+codegen/SVG and missing Prism declaration diagnostics
+```
+
+The implementation is committed as `d4f8de4a`. The earlier CLIP-20 row in the
+milestone table is superseded by this section. External evidence remains open
+for packaged Wayland/WebKitGTK ownership, Firefox/Figma transfers, permission
+denials, picker/drop cancellation, packaged `.fig` CSP behavior, and the
+required visual captures; those lanes are not inferred from the shared-loop
+tests.
