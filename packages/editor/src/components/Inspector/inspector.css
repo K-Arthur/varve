@@ -154,7 +154,6 @@
   color: var(--color-text-secondary);
   cursor: pointer;
   flex: 0 0 auto;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
   transition:
     background var(--duration-quick) var(--ease-standard),
     border-color var(--duration-quick) var(--ease-standard),
@@ -166,7 +165,7 @@
   border-color: var(--color-interactive-default);
   background: var(--color-surface-hover);
   color: var(--color-text-primary);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.14);
+  box-shadow: var(--elevation-shadow-raised);
 }
 .insp-panel__header-btn:active {
   background: var(--color-surface-sunken);
@@ -432,11 +431,10 @@
 .insp-disclosure {
   position: relative;
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-xs, 4px);
+  border-radius: var(--radius-control);
   background: var(--color-surface-raised);
   padding: var(--space-2);
   margin-bottom: 0;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
   transition: border-color var(--duration-quick) var(--ease-standard);
 }
 .insp-disclosure:hover {
@@ -446,11 +444,25 @@
   margin-bottom: 0;
 }
 
+/* Section headers stick to the top of the scrolling inspector while their
+ * own card is in view, then are pushed away by the next header. This is the
+ * scroll-depth fix from the inspector research (Blender/Photoshop users
+ * report losing section context in long property lists): the section name and
+ * its action stay reachable without adding another navigation control. The
+ * negative inline margin and matching padding let the opaque header cover the
+ * card padding so content cannot show through beside it. */
 .insp-disclosure__header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
+  margin-inline: calc(-1 * var(--space-2));
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-surface-raised);
+  border-radius: var(--radius-control);
 }
 
 .insp-disclosure__trigger {
@@ -466,9 +478,9 @@
   border: none;
   color: var(--color-text-secondary);
   font: inherit;
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold, 700);
-  letter-spacing: 0.05em;
+  letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
   cursor: pointer;
   transition: color var(--duration-quick) var(--ease-standard);
@@ -520,7 +532,7 @@
   border: none;
   margin: 0;
   min-inline-size: 0;
-  padding: var(--space-1-5, 6px) 0 0;
+  padding: var(--space-2) 0 0;
 }
 
 /* ── Section Manager (panel header customize button) ── */
@@ -619,7 +631,7 @@
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--tracking-wide);
   padding: var(--space-1) 0;
 }
 .insp-section-manager__item {
@@ -771,39 +783,8 @@
 .insp-disclosure__context-menu-item:hover,
 .insp-disclosure__context-menu-item:focus-visible {
   background: var(--color-surface-hover);
-}
-.insp-disclosure__context-menu-item:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
-}
-
-.insp-field {
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: flex-start;
-  gap: var(--space-2);
-  min-width: 0;
-  min-height: 2rem;
-}
-
-.insp-field__label {
-  display: inline-flex;
-  align-items: center;
-  flex: 0 1 var(--space-10);
-  width: var(--space-10);
-  min-width: var(--space-10);
-  min-height: 2rem;
-  color: var(--color-text-secondary);
-  font-family: var(--type-interface-label-family);
-  font-size: var(--type-interface-label-size);
-  font-weight: var(--type-interface-label-weight);
-  line-height: var(--type-interface-label-line-height);
-}
-
-.insp-empty-message {
-  padding: var(--space-2) 0;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
 }
 
 /* ---------- Selection Colors ---------- */
@@ -967,7 +948,7 @@
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control);
-  box-shadow: 0 4px 12px oklch(0 0 0 / 0.15);
+  box-shadow: var(--elevation-shadow-raised);
   padding: var(--space-1) 0;
 }
 
@@ -989,9 +970,6 @@
 .insp-fill-add__menu-item:hover,
 .insp-fill-add__menu-item:focus-visible {
   background: var(--color-surface-hover);
-}
-
-.insp-fill-add__menu-item:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
@@ -1004,8 +982,8 @@
 .insp-stroke-row {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1-5);
-  padding: var(--space-1-5) var(--space-2);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control);
   background: var(--color-surface-sunken);
@@ -1023,7 +1001,7 @@
 .insp-paint-row {
   display: flex;
   align-items: center;
-  gap: var(--space-1-5);
+  gap: var(--space-2);
   min-width: 0;
   min-height: var(--space-6);
 }
@@ -1084,23 +1062,7 @@
   width: auto;
   min-width: 0;
 }
-.insp-field__label {
-  display: inline-flex;
-  align-items: center;
-  flex: 0 1 var(--space-10);
-  width: var(--space-10);
-  min-width: var(--space-10);
-  min-height: 2rem;
-  font-family: var(--type-interface-label-family);
-  font-size: var(--type-interface-label-size);
-  font-weight: var(--type-interface-label-weight);
-  line-height: var(--type-interface-label-line-height);
-  color: var(--color-text-muted);
-  white-space: nowrap;
-  /* Scrub handle — drag on the label to change the value. */
-  cursor: ew-resize;
-  user-select: none;
-}
+
 /* Long labels (e.g. "Distribute columns", "Responsive rules"): wrap inside
  * the label column instead of overflowing into the control and overlapping
  * the adjacent buttons. */
@@ -1116,15 +1078,7 @@
 .insp-field__label--readonly {
   cursor: default;
 }
-.insp-field__control {
-  flex: 1 1 0;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-  width: 0;
-  min-width: 0;
-}
+
 .insp-field__control > * {
   min-width: 0;
 }
@@ -1174,7 +1128,9 @@
    * must never contribute to row sizing, or rows overflow the card. */
   width: 0;
   min-width: 2.25rem;
-  height: var(--space-7, 28px);
+  /* One field-height contract: match the shared compact control height and
+   * the dropdowns beside it instead of a fluid spacing token. */
+  height: var(--component-compact-height);
   padding: 0 var(--space-2);
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
@@ -1243,7 +1199,8 @@
   flex: 1;
   width: 0;
   min-width: 3.5rem;
-  height: var(--space-5);
+  /* Match the number fields and shared selects (compact control height). */
+  height: var(--component-compact-height);
   font-size: var(--font-size-xs);
   background: var(--color-surface-sunken);
   color: var(--color-text-primary);
@@ -1447,6 +1404,8 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+  /* Field-height contract: this button stands in for a text field. */
+  min-height: var(--component-compact-height);
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
   color: var(--color-text-primary);
@@ -1520,8 +1479,9 @@
 }
 
 .insp-flip-btn {
-  width: var(--space-6, 24px);
-  height: var(--space-6, 24px);
+  /* Inline field action: same height as the field beside it. */
+  width: var(--component-compact-height);
+  height: var(--component-compact-height);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1622,7 +1582,7 @@
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control);
   background: var(--color-surface-raised);
-  box-shadow: 0 4px 12px oklch(0 0 0 / 0.15);
+  box-shadow: var(--elevation-shadow-raised);
   color: var(--color-text-primary);
   font-size: var(--font-size-xs);
 }
@@ -1722,21 +1682,20 @@
 .insp-align-section {
   padding: var(--space-2);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-xs, 4px);
+  border-radius: var(--radius-control);
   background: var(--color-surface-raised);
   margin-bottom: 0;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
   transition: border-color var(--duration-quick) var(--ease-standard);
 }
 .insp-align-section:hover {
   border-color: color-mix(in srgb, var(--color-border-strong) 40%, var(--color-border-subtle));
 }
 .insp-align-section__title {
-  margin: 0 0 var(--space-1-5, 6px);
+  margin: 0 0 var(--space-2);
   color: var(--color-text-secondary);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold, 700);
-  letter-spacing: 0.05em;
+  letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
 }
 [data-theme="high-contrast"] .insp-align-section {
@@ -2015,8 +1974,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
+  width: var(--component-compact-height);
+  height: var(--component-compact-height);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
   background: var(--color-surface-default);
@@ -2153,7 +2112,7 @@
   flex: 1;
   width: 0;
   min-width: 3.5rem;
-  height: var(--space-5);
+  height: var(--component-compact-height);
   padding: 0 var(--space-2);
   background: var(--color-surface-sunken);
   border: 1px solid transparent;
@@ -2675,6 +2634,9 @@ fieldset.insp-canvas-props,
    offering to change it. */
 .insp-slider__reset {
   flex: none;
+  /* WCAG 2.5.8 target and the shared field height. */
+  min-width: var(--component-compact-height);
+  min-height: var(--component-compact-height);
   padding: 0 var(--space-1);
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
@@ -3145,8 +3107,8 @@ fieldset.insp-canvas-props,
 }
 .palette-section__count-input {
   width: 100%;
-  min-height: 44px;
-  height: var(--space-6);
+  min-height: var(--component-compact-height);
+  height: var(--component-compact-height);
   padding: 0 var(--space-2);
   background: var(--color-surface-sunken);
   border: 1px solid transparent;
@@ -3481,7 +3443,7 @@ fieldset.insp-canvas-props,
   font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--tracking-wide);
 }
 .intelligence-histogram__bars {
   display: flex;
@@ -3844,68 +3806,6 @@ fieldset.insp-canvas-props,
 }
 
 /* ─── BindingMenu (variable binding combobox) ─────────── */
-.binding-menu {
-  width: 14rem;
-  padding: var(--space-2);
-  font-size: var(--font-size-xs);
-  background: var(--elevation-surface-overlay);
-  border: var(--border-micro);
-  border-radius: var(--radius-control);
-  box-shadow: var(--elevation-shadow-overlay);
-}
-.binding-menu__input {
-  width: 100%;
-  height: var(--space-6);
-  font-size: var(--font-size-xs);
-  background: var(--elevation-surface-sunken);
-  color: var(--color-text-primary);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control-compact);
-  padding: 0 var(--space-2);
-  margin-bottom: var(--space-1);
-}
-.binding-menu__input:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 1px;
-}
-.binding-menu__list {
-  margin: 0;
-  padding: 0;
-  max-height: 180px;
-  overflow-y: auto;
-}
-.binding-menu__item {
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-control-compact);
-  cursor: pointer;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-1);
-}
-.binding-menu__item--highlighted {
-  background: var(--color-accent-subtle);
-}
-.binding-menu__item-name {
-  font-weight: var(--font-weight-medium);
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.binding-menu__item-value {
-  color: var(--color-text-muted);
-  font-size: var(--font-size-2xs);
-  flex-shrink: 0;
-}
-.binding-menu__empty {
-  color: var(--color-text-muted);
-  margin: 0;
-  padding: var(--space-1) 0;
-}
-.binding-menu__expression {
-  margin-top: var(--space-1);
-  border-top: 1px solid var(--color-border-subtle);
-  padding-top: var(--space-1);
-}
 
 /* ─── GradientEditor ──────────────────────────────────── */
 .gradient-editor {
@@ -3913,24 +3813,13 @@ fieldset.insp-canvas-props,
   flex-direction: column;
   gap: var(--space-2);
 }
-.gradient-editor__select {
-  flex: 1;
-  height: var(--space-5);
-  font-size: var(--font-size-xs);
-  background: var(--elevation-surface-sunken);
-  color: var(--color-text-primary);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control-compact);
-  padding: 0 var(--space-2);
-}
+
 /* Wrapper provides horizontal room for stop handles at the bar edges
  * so the 24×24 WCAG target-size handles don't clip against the bar border.
  * Handles are 24px; at position 0%/100% the handle center aligns with the
  * bar content edge so 12px extends past it. The bar border is 1px, so the
  * wrapper needs ≥13px. Using 26px for generous visual clearance. */
-.gradient-editor__bar-wrap {
-  padding: 8px 26px;
-}
+
 .gradient-editor__bar {
   position: relative;
   height: 20px;
@@ -3938,35 +3827,9 @@ fieldset.insp-canvas-props,
   border: 1px solid var(--color-border-subtle);
   cursor: copy;
   user-select: none;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
+  box-shadow: inset 0 1px 2px color-mix(in oklab, var(--color-text-primary) 10%, transparent);
 }
-.gradient-editor__stop {
-  position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  /* WCAG 2.2 §2.5.8 target size minimum: 24×24 CSS px */
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  cursor: grab;
-  padding: 0;
-  z-index: 1;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-}
-.gradient-editor__stop--selected {
-  border: 2px solid var(--color-interactive-default);
-  box-shadow:
-    0 0 0 2px var(--color-interactive-default),
-    0 1px 3px rgba(0, 0, 0, 0.25);
-}
-.gradient-editor__stop--idle {
-  border: 2px solid var(--elevation-surface-overlay);
-}
-.gradient-editor__stop-controls {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
+
 .gradient-editor__options {
   border-top: 1px solid var(--color-border-subtle);
   padding-top: var(--space-1);
@@ -3982,31 +3845,6 @@ fieldset.insp-canvas-props,
   flex-direction: column;
   gap: var(--space-1);
   padding-top: var(--space-2);
-}
-.gradient-editor__unit {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-}
-.gradient-editor__position-input {
-  width: var(--space-10);
-}
-.gradient-editor__remove-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--space-5);
-  height: var(--space-5);
-  background: transparent;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control-compact);
-  color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 0;
-  flex-shrink: 0;
-}
-.gradient-editor__remove-btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
 }
 
 /* Keep the padded stop-bar hit area inside a narrow inspector column. */
@@ -4026,33 +3864,6 @@ fieldset.insp-canvas-props,
 }
 
 /* ─── DebtBadge (status bar debt count pill) ──────────── */
-.debt-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 1px 5px;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-pill);
-  font-size: var(--font-size-2xs);
-  font-weight: var(--font-weight-semibold);
-  cursor: pointer;
-  transition:
-    background var(--duration-quick) var(--ease-standard),
-    border-color var(--duration-quick) var(--ease-standard);
-  font-family: inherit;
-  line-height: 1.4;
-  white-space: nowrap;
-}
-.debt-badge:hover {
-  border-color: var(--color-border-strong);
-}
-.debt-badge:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 1px;
-}
-.debt-badge__count {
-  font-feature-settings: "tnum";
-}
 
 [data-theme="high-contrast"] .debt-badge {
   border-width: 2px;
@@ -4070,7 +3881,7 @@ fieldset.insp-canvas-props,
 }
 .binding-menu__input {
   width: 100%;
-  height: var(--space-6);
+  height: var(--component-compact-height);
   font-size: var(--font-size-xs);
   background: var(--elevation-surface-sunken);
   color: var(--color-text-primary);
@@ -4130,7 +3941,7 @@ fieldset.insp-canvas-props,
 }
 .gradient-editor__select {
   flex: 1;
-  height: var(--space-5);
+  height: var(--component-compact-height);
   font-size: var(--font-size-xs);
   background: var(--elevation-surface-sunken);
   color: var(--color-text-primary);
@@ -4153,7 +3964,7 @@ fieldset.insp-canvas-props,
   border: 1px solid var(--color-border-subtle);
   cursor: copy;
   user-select: none;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
+  box-shadow: inset 0 1px 2px color-mix(in oklab, var(--color-text-primary) 10%, transparent);
 }
 .gradient-editor__stop {
   position: absolute;
@@ -4166,13 +3977,13 @@ fieldset.insp-canvas-props,
   cursor: grab;
   padding: 0;
   z-index: 1;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--elevation-shadow-raised);
 }
 .gradient-editor__stop--selected {
   border: 2px solid var(--color-interactive-default);
   box-shadow:
     0 0 0 2px var(--color-interactive-default),
-    0 1px 3px rgba(0, 0, 0, 0.25);
+    var(--elevation-shadow-raised);
 }
 .gradient-editor__stop--idle {
   border: 2px solid var(--elevation-surface-overlay);
@@ -4445,14 +4256,14 @@ fieldset.insp-canvas-props,
   border-color: var(--color-feedback-danger);
 }
 .audit-badge--error:hover {
-  background: oklch(0.95 0.02 25);
+  background: color-mix(in oklab, var(--color-feedback-danger) 12%, var(--color-surface-raised));
 }
 .audit-badge--warning {
   color: var(--color-feedback-warning);
   border-color: var(--color-feedback-warning);
 }
 .audit-badge--warning:hover {
-  background: oklch(0.95 0.04 80);
+  background: color-mix(in oklab, var(--color-feedback-warning) 14%, var(--color-surface-raised));
 }
 .audit-badge__count {
   font-weight: var(--font-weight-medium);
@@ -4479,11 +4290,11 @@ fieldset.insp-canvas-props,
   max-width: 100%;
 }
 .contextual-audit-chip--error {
-  background: oklch(0.95 0.02 25);
+  background: color-mix(in oklab, var(--color-feedback-danger) 12%, var(--color-surface-raised));
   color: var(--color-feedback-danger);
 }
 .contextual-audit-chip--warning {
-  background: oklch(0.95 0.04 80);
+  background: color-mix(in oklab, var(--color-feedback-warning) 14%, var(--color-surface-raised));
   color: var(--color-feedback-warning);
 }
 .contextual-audit-chip--suggestion,
@@ -4918,13 +4729,10 @@ fieldset.insp-canvas-props,
 .email-preflight__items {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-1);
   margin: 0;
   padding: 0;
   list-style: none;
-}
-.email-preflight__items {
-  gap: var(--space-1);
 }
 .email-preflight__group-heading {
   display: flex;
@@ -5099,23 +4907,33 @@ fieldset.insp-canvas-props,
  * nested fields from competing for one flex row's width.
  */
 .insp-field {
-  align-items: center;
   display: grid;
+  flex-wrap: nowrap;
+  align-items: center;
   gap: var(--space-2);
-  grid-template-columns: minmax(0, 38%) minmax(0, 1fr);
   min-width: 0;
+  min-height: 2rem;
+  grid-template-columns: minmax(0, 38%) minmax(0, 1fr);
 }
 
 .insp-field__label {
+  display: inline-flex;
+  align-items: center;
   flex: none;
+  width: auto;
   min-width: 14px;
+  min-height: 2rem;
+  color: var(--color-text-muted);
+  font-family: var(--type-interface-label-family);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--type-interface-label-line-height);
+  white-space: nowrap;
+  /* Scrub handle — drag on the label to change the value. */
+  cursor: ew-resize;
+  user-select: none;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-  width: auto;
-  font-size: 11px;
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.02em;
 }
@@ -5127,9 +4945,13 @@ fieldset.insp-canvas-props,
 }
 
 .insp-field__control {
+  flex: 1 1 0;
+  display: flex;
   align-items: center;
-  min-width: 0;
+  flex-wrap: wrap;
+  gap: var(--space-1);
   width: auto;
+  min-width: 0;
 }
 
 .insp-field__control > .insp-field {
@@ -5165,7 +4987,7 @@ fieldset.insp-canvas-props,
 }
 
 .insp-field-group--size {
-  gap: var(--space-1-5, 6px);
+  gap: var(--space-2);
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
 }
 
@@ -5199,12 +5021,8 @@ fieldset.insp-canvas-props,
 .insp-field-group--rotation > .insp-field,
 .insp-field-group--skew > .insp-field {
   gap: var(--space-1);
-  grid-template-columns: auto minmax(0, 1fr);
-  min-width: 0;
-}
-
-.insp-field-group--skew > .insp-field {
   grid-template-columns: max-content minmax(0, 1fr);
+  min-width: 0;
 }
 
 .insp-field-group--size > .insp-proportion-lock,
@@ -5596,9 +5414,9 @@ fieldset.insp-canvas-props,
 .insp-preset-popover__search {
   display: flex;
   align-items: center;
-  padding: var(--space-1-5) var(--space-2);
+  padding: var(--space-2) var(--space-2);
   border-bottom: 1px solid var(--color-border-subtle);
-  gap: var(--space-1-5);
+  gap: var(--space-2);
   background: var(--color-surface-base);
 }
 
@@ -5650,10 +5468,10 @@ fieldset.insp-canvas-props,
 }
 
 .insp-preset-group__header {
-  padding: var(--space-1) var(--space-2-5);
-  font-size: 10px;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold, 700);
-  letter-spacing: 0.05em;
+  letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
   color: var(--color-text-muted);
 }
@@ -5663,7 +5481,7 @@ fieldset.insp-canvas-props,
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: var(--space-1) var(--space-2-5);
+  padding: var(--space-1) var(--space-3);
   border: none;
   background: transparent;
   color: var(--color-text-primary);
@@ -5708,8 +5526,27 @@ fieldset.insp-canvas-props,
 
 .insp-preset-item__dims {
   color: var(--color-text-muted);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-variant-numeric: tabular-nums;
   margin-left: var(--space-2);
   flex-shrink: 0;
+}
+
+/* ── Field-height contract ─────────────────────────────────────────────
+ * Every text field, number field, and dropdown inside the inspector renders
+ * at the shared compact component height. Controls previously mixed the
+ * fluid --space-5/6/7 spacing tokens (19-42px depending on viewport) with
+ * hardcoded rem values, so inputs and dropdowns no longer matched each other
+ * and heights shifted as the window resized. */
+.insp-panel .varve-number-input,
+.insp-disclosure .varve-number-input,
+.insp-panel .insp-stepper__input,
+.insp-disclosure .insp-stepper__input,
+.insp-panel .insp-sm__input-text,
+.insp-disclosure .insp-sm__input-text,
+.gradient-editor__position-input,
+.insp-interaction-row__name-input,
+.insp-interaction-row__field select {
+  height: var(--component-compact-height);
+  min-height: var(--component-compact-height);
 }

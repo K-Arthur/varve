@@ -38,8 +38,9 @@
   color: var(--color-text-primary);
   font: inherit;
   font-feature-settings: "tnum";
-  font-size: var(--font-size-sm);
-  height: var(--space-6);
+  /* Match every other inspector number field (was --space-6 ≈ 27px). */
+  font-size: var(--font-size-xs);
+  height: var(--component-compact-height);
   inline-size: 100%;
   min-inline-size: 0;
   outline: none;
