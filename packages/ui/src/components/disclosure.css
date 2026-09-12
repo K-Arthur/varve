@@ -17,6 +17,9 @@
   align-items: center;
   gap: var(--space-1);
   width: 100%;
+  /* WCAG 2.5.8: disclosure headers are pointer targets and must be at least
+   * 24x24 CSS px (or spaced, which stacked headers are not). */
+  min-height: 24px;
   padding: var(--space-2) 0;
   background: none;
   border: none;

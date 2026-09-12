@@ -22,8 +22,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  /* WCAG 2.5.8: keep the glyph small but give it a 24x24 pointer target. */
+  width: 24px;
+  height: 24px;
   padding: 0;
   color: var(--color-text-muted);
   background: transparent;

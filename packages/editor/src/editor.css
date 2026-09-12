@@ -1443,22 +1443,38 @@ input[type="number"] {
 }
 
 /* ── Contrast indicator dot ─────────────────────────── */
+/* WCAG 2.5.8: the hit area is 24x24 while the visible dot stays 8px. */
 .insp-contrast-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-control-compact);
   border: none;
   padding: 0;
+  background: transparent;
   cursor: pointer;
   flex-shrink: 0;
 }
-.insp-contrast-dot--pass {
+.insp-contrast-dot::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-text-muted);
+}
+.insp-contrast-dot:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 0;
+}
+.insp-contrast-dot--pass::before {
   background: var(--color-feedback-success, #2e7d32);
 }
-.insp-contrast-dot--fail {
+.insp-contrast-dot--fail::before {
   background: var(--color-feedback-danger, #d32f2f);
 }
-.insp-contrast-dot--warn {
+.insp-contrast-dot--warn::before {
   background: var(--color-feedback-warning, #f57c00);
 }
 .insp-contrast-popover {

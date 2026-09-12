@@ -174,25 +174,30 @@ function RegistryDisclosure({
   return (
     <section className="insp-disclosure">
       <div className="insp-disclosure__header">
-        <button
-          ref={triggerRef}
-          type="button"
-          className="insp-disclosure__trigger"
-          aria-expanded={expanded}
-          aria-controls={panelId}
-          aria-haspopup={def?.canHide ? 'menu' : undefined}
-          onClick={handleToggle}
-          onContextMenu={handleTriggerContextMenu}
-          onKeyDown={handleTriggerKeyDown}
-        >
-          <Icon
-            name="ChevronRight"
-            label={undefined}
-            className="insp-disclosure__chevron"
-            size="0.9em"
-          />
-          <span>{title}</span>
-        </button>
+        {/* APG Accordion: the header button is wrapped in a heading so
+            assistive technology can navigate between inspector sections. The
+            section action stays outside the heading. */}
+        <h3 className="insp-disclosure__heading">
+          <button
+            ref={triggerRef}
+            type="button"
+            className="insp-disclosure__trigger"
+            aria-expanded={expanded}
+            aria-controls={panelId}
+            aria-haspopup={def?.canHide ? 'menu' : undefined}
+            onClick={handleToggle}
+            onContextMenu={handleTriggerContextMenu}
+            onKeyDown={handleTriggerKeyDown}
+          >
+            <Icon
+              name="ChevronRight"
+              label={undefined}
+              className="insp-disclosure__chevron"
+              size="0.9em"
+            />
+            <span>{title}</span>
+          </button>
+        </h3>
         {action && <div className="insp-disclosure__action">{action}</div>}
       </div>
       {expanded && (
@@ -246,7 +251,9 @@ function LegacyDisclosure({
   return (
     <Disclosure open={expanded} onOpenChange={handleOpenChange} className="insp-disclosure">
       <div className="insp-disclosure__header">
-        <DisclosureTrigger className="insp-disclosure__trigger">{title}</DisclosureTrigger>
+        <h3 className="insp-disclosure__heading">
+          <DisclosureTrigger className="insp-disclosure__trigger">{title}</DisclosureTrigger>
+        </h3>
         {action && <div className="insp-disclosure__action">{action}</div>}
       </div>
       <DisclosureContent className="insp-disclosure__content">{children}</DisclosureContent>

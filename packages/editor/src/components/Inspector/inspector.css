@@ -432,7 +432,7 @@
 .insp-disclosure {
   position: relative;
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control-compact, 6px);
+  border-radius: var(--radius-xs, 4px);
   background: var(--color-surface-raised);
   padding: var(--space-2);
   margin-bottom: 0;
@@ -458,6 +458,9 @@
   align-items: center;
   gap: var(--space-1);
   width: 100%;
+  /* WCAG 2.5.8: a pointer target of at least 24x24 CSS px. The section
+   * headers are stacked with no gap, so the spacing exception does not apply. */
+  min-height: 24px;
   padding: var(--space-1) 0;
   background: none;
   border: none;
@@ -473,10 +476,21 @@
 .insp-disclosure__trigger:hover {
   color: var(--color-text-primary);
 }
-.insp-disclosure__header > .insp-disclosure__trigger {
+.insp-disclosure__header > .insp-disclosure__trigger,
+.insp-disclosure__header > .insp-disclosure__heading {
   flex: 1 1 auto;
   min-width: 0;
   width: auto;
+}
+
+/* The section title is a real heading so assistive technology can navigate
+ * between inspector sections (APG Accordion). The section action button stays
+ * outside the heading, which APG requires for persistent header controls. */
+.insp-disclosure__heading {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  margin: 0;
 }
 .insp-disclosure__action {
   display: flex;
@@ -517,6 +531,9 @@
   display: flex;
   align-items: center;
   gap: var(--space-1);
+  /* WCAG 2.5.8 minimum pointer target. */
+  min-width: 24px;
+  min-height: 24px;
   padding: var(--space-1) var(--space-2);
   background: none;
   border: 1px solid transparent;
@@ -1249,6 +1266,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* WCAG 2.5.8: the visual glyph stays small, the hit area does not. */
+  min-width: 24px;
+  min-height: 24px;
   width: var(--space-5);
   height: var(--space-5);
   background: transparent;
@@ -1560,13 +1580,15 @@
   padding: var(--space-05) 0;
   flex-wrap: wrap;
 }
-/* Keep a command cluster intact when the inspector is narrow. A wrapped row
- * is a fallback, not a scatter: buttons wrap as one unit so the alignment
- * grid never fragments mid-cluster across unrelated rows. */
+/* Keep a command cluster intact when the inspector is narrow: the group
+ * wraps internally as a block instead of scattering its buttons between
+ * unrelated controls. */
 .insp-align-group {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-05);
+  flex-wrap: wrap;
+  column-gap: var(--space-05);
+  row-gap: var(--space-1);
   min-width: 0;
 }
 .insp-align-targets {
@@ -1700,7 +1722,7 @@
 .insp-align-section {
   padding: var(--space-2);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control-compact, 6px);
+  border-radius: var(--radius-xs, 4px);
   background: var(--color-surface-raised);
   margin-bottom: 0;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
@@ -2156,6 +2178,8 @@
   justify-content: center;
   gap: var(--space-1);
   width: 100%;
+  /* WCAG 2.5.8 minimum pointer target. */
+  min-height: 24px;
   height: var(--space-5);
   background: transparent;
   border: 1px dashed var(--color-border-subtle);
@@ -2337,11 +2361,16 @@
   gap: var(--space-1);
   padding-bottom: var(--space-3);
 }
+.insp-panel fieldset,
+fieldset.insp-canvas-props,
 .insp-canvas-props {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-1) 0 var(--space-2);
+  border: none;
+  margin: 0;
+  min-inline-size: 0;
 }
 .insp-canvas-props .insp-field {
   align-items: center;
@@ -2352,7 +2381,10 @@
   min-width: 4.5rem;
 }
 .insp-canvas-props .insp-field__control--inline {
-  flex-wrap: nowrap;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
   min-width: 0;
 }
 .insp-canvas-props .insp-field__control--inline :where(label) {
@@ -2870,6 +2902,8 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+  /* WCAG 2.5.8 minimum pointer target. */
+  min-height: 24px;
   background: none;
   border: none;
   padding: 0;
@@ -2996,6 +3030,9 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-1);
+  /* WCAG 2.5.8 minimum pointer target. */
+  min-width: 24px;
+  min-height: 24px;
   height: var(--space-5);
   padding: 0 var(--space-2);
   background: var(--color-interactive-default);
@@ -4491,6 +4528,8 @@
 .intelligence-filter-chip {
   display: inline-flex;
   align-items: center;
+  /* WCAG 2.5.8 minimum pointer target. */
+  min-height: 24px;
   padding: 2px 8px;
   border-radius: var(--radius-control-compact);
   border: 1px solid var(--color-border-subtle);
