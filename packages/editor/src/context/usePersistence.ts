@@ -1,5 +1,5 @@
 import { getFontRegistry } from '@varve/engine';
-import { attachFontManifestToDocument, FontCatalog } from '@varve/engine/font';
+import { attachFontManifestToDocument, createFontCatalogFromRegistry } from '@varve/engine/font';
 import {
   contentHash,
   displayNameFromPath,
@@ -58,7 +58,7 @@ export function usePersistence(
       { nodes: doc.nodes, styles: doc.styles, fontManifest: doc.fontManifest } as Parameters<
         typeof attachFontManifestToDocument
       >[0],
-      buildCatalogFromRegistry(),
+      createFontCatalogFromRegistry(getFontRegistry()),
     );
     return DocumentCodec.encode({ ...doc, fontManifest: manifest });
   }, [stateRef]);
@@ -578,7 +578,7 @@ export function resolveFontManifest(doc: Document): Document {
     return doc;
   }
 
-  const catalog = buildCatalogFromRegistry();
+  const catalog = createFontCatalogFromRegistry(getFontRegistry());
 
   const { manifest } = attachFontManifestToDocument(
     { nodes: doc.nodes, styles: doc.styles, fontManifest: doc.fontManifest } as Parameters<
@@ -606,66 +606,6 @@ function hasTextNodes(doc: Document): boolean {
     if (style.type === 'text' && 'fontFamily' in style && style.fontFamily) return true;
   }
   return false;
-}
-
-/**
- * Build a FontCatalog from the current FontRegistry for manifest resolution.
- */
-function buildCatalogFromRegistry(): FontCatalog {
-  const catalog = new FontCatalog();
-  const registry = getFontRegistry();
-
-  for (const family of registry.families()) {
-    const entries = registry.getEntries(family);
-    const first = entries[0];
-    if (!first) continue;
-
-    catalog.addEntry({
-      identity: {
-        contentHash: `registry:${family}`,
-        postScriptName: family.replace(/\s+/g, '-'),
-        familyName: family,
-        subfamilyName: weightToSubfamily(first.weight, first.style),
-        fullName: `${family} ${weightToSubfamily(first.weight, first.style)}`,
-      },
-      format: 'unknown',
-      fileSize: 0,
-      unitsPerEm: 1000,
-      ascender: 800,
-      descender: -200,
-      lineGap: 0,
-      glyphCount: 0,
-      isVariable: registry.isVariable(family),
-      axes: [],
-      namedInstances: [],
-      openTypeFeatures: registry.getSupportedFeatures(family),
-      unicodeRanges: [],
-      scripts: [],
-      embeddingRights: first.source === 'system' ? 'installable' : 'unknown',
-      hasColorGlyphs: false,
-      category: 'sans-serif',
-      source:
-        first.source === 'system' ? 'system' : first.source === 'google' ? 'remote' : 'bundled',
-    });
-  }
-
-  return catalog;
-}
-
-function weightToSubfamily(weight: number, style: string): string {
-  const weightNames: Record<number, string> = {
-    100: 'Thin',
-    200: 'ExtraLight',
-    300: 'Light',
-    400: 'Regular',
-    500: 'Medium',
-    600: 'SemiBold',
-    700: 'Bold',
-    800: 'ExtraBold',
-    900: 'Black',
-  };
-  const base = weightNames[weight] ?? 'Regular';
-  return style === 'italic' ? `${base} Italic` : base;
 }
 
 /**

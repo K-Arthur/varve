@@ -12,6 +12,12 @@ services. `FontRegistry`, the semantic catalog, the compact selector, and the
 full browser are projections that subscribe to their revisions; they must not
 construct independent placeholder catalogs. Search is local and does not fetch
 font artifacts. Installation is the only operation that may download bytes.
+Editor services that still need a catalog view call the engine's
+`createFontCatalogFromRegistry` adapter. It projects every registered face,
+including collection members and variable-axis definitions, and copies known
+family metadata. A registry entry without a verified artifact keeps an explicit
+non-canonical identity; the adapter never upgrades a family name into a
+portable hash.
 
 ```text
 catalog metadata ──┐
@@ -117,7 +123,9 @@ The full browser exposes that boundary as an explicit **Allow local fonts** or
 the browser permission, or the compatibility list supplied the results. Face
 expansion reads exact registry entries (including a known PostScript name and
 portable face key); catalog weight/style combinations are never presented as
-selectable faces when no corresponding artifact is installed.
+selectable faces when no corresponding artifact is installed. The family list
+uses measured virtualization with an overscan window; an unmeasured or
+zero-sized test viewport falls back to normal flow until a real range exists.
 
 ## Readiness boundary
 

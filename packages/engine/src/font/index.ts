@@ -11,7 +11,7 @@
 
 export type { UnifiedFontInfo } from './fontBridge';
 // Bridge between FontRegistry and FontCatalog
-export { FontBridge } from './fontBridge';
+export { createFontCatalogFromRegistry, FontBridge } from './fontBridge';
 export type { FontCacheConfig, FontCacheEntry } from './fontCache';
 // Caching
 export { FontBinaryCache, FontMetadataCache } from './fontCache';

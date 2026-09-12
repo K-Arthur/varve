@@ -6,6 +6,7 @@
  * preview-only for document use until the user explicitly installs it.
  */
 
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { getFontRegistry } from '@varve/engine';
 import {
   enumerateSystemFonts,
@@ -185,6 +186,7 @@ export function FontBrowser({
   const [semanticFilter, setSemanticFilter] = useState<SemanticFilter>('all');
   const [selectedFamily, setSelectedFamily] = useState<string | undefined>(selectedFamilyProp);
   const [expandedFamilies, setExpandedFamilies] = useState<Set<string>>(new Set());
+  const [listElement, setListElement] = useState<HTMLDivElement | null>(null);
   const [installingFamily, setInstallingFamily] = useState<string | null>(null);
   const [installError, setInstallError] = useState<string | null>(null);
   const [tagDraft, setTagDraft] = useState('');
@@ -232,6 +234,29 @@ export function FontBrowser({
     if (effectiveQuery) return entries;
     return entries.sort((a, b) => a.record.familyName.localeCompare(b.record.familyName));
   }, [activeFilter, effectiveQuery, registry, searchResults, showDownloadable]);
+
+  const virtualizer = useVirtualizer({
+    count: displayEntries.length,
+    getScrollElement: () => listElement,
+    estimateSize: () => 58,
+    getItemKey: (index) => displayEntries[index]?.record.familyId ?? index,
+    overscan: 8,
+  });
+  const virtualItems = virtualizer.getVirtualItems();
+  // A zero-sized jsdom viewport (and the first render before a portal/list
+  // element is attached) has no measurable range. Keep the content usable in
+  // that state; a real viewport switches to the measured range immediately.
+  const rowsToRender =
+    virtualItems.length > 0
+      ? virtualItems
+      : displayEntries.map((entry, index) => ({
+          index,
+          key: entry.record.familyId,
+          start: 0,
+          end: 0,
+          size: 0,
+          lane: 0,
+        }));
 
   const selectedRecord = selectedFamily ? semantic.findByFamilyName(selectedFamily) : undefined;
   const selectedResult = selectedRecord
@@ -464,7 +489,7 @@ export function FontBrowser({
             </div>
             <span className="font-browser__hint">Select a family to inspect</span>
           </div>
-          <div className="font-browser__list">
+          <div ref={setListElement} className="font-browser__list">
             {displayEntries.length === 0 && (
               <div className="font-browser__empty">
                 <strong>
@@ -477,106 +502,131 @@ export function FontBrowser({
                 </span>
               </div>
             )}
-            {displayEntries.map(({ record, result, faces }) => {
-              const isSelected = selectedFamily === record.familyName;
-              const isExpanded = expandedFamilies.has(record.familyId);
-              const hasFaces = faces.length > 1;
-              const labels = descriptors(record);
-              return (
-                <div
-                  key={record.familyId}
-                  className={`font-browser__entry${isSelected ? ' font-browser__entry--selected' : ''}`}
-                >
-                  <div className="font-browser__row">
-                    {hasFaces ? (
-                      <button
-                        type="button"
-                        className="font-browser__expand-btn"
-                        onClick={() => toggleExpand(record.familyId)}
-                        aria-expanded={isExpanded}
-                        aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${record.familyName} faces`}
-                      >
-                        <Icon name={isExpanded ? 'ChevronDown' : 'ChevronRight'} size={12} />
-                      </button>
-                    ) : (
-                      <span className="font-browser__expand-placeholder" aria-hidden="true" />
-                    )}
-                    <button
-                      type="button"
-                      className="font-browser__select-btn"
-                      onClick={() => handleSelect(record)}
-                      aria-pressed={isSelected}
+            {displayEntries.length > 0 && (
+              <div
+                className="font-browser__virtual-content"
+                style={{ height: virtualizer.getTotalSize() }}
+              >
+                {rowsToRender.map((virtualRow) => {
+                  const entry = displayEntries[virtualRow.index];
+                  if (!entry) return null;
+                  const { record, result, faces } = entry;
+                  const isSelected = selectedFamily === record.familyName;
+                  const isExpanded = expandedFamilies.has(record.familyId);
+                  const hasFaces = faces.length > 1;
+                  const labels = descriptors(record);
+                  return (
+                    <div
+                      key={virtualRow.key}
+                      ref={virtualizer.measureElement}
+                      data-index={virtualRow.index}
+                      className={`font-browser__virtual-row font-browser__entry${isSelected ? ' font-browser__entry--selected' : ''}`}
+                      style={
+                        virtualItems.length > 0
+                          ? {
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              width: '100%',
+                              transform: `translateY(${virtualRow.start}px)`,
+                            }
+                          : undefined
+                      }
                     >
-                      <span className="font-browser__row-copy">
-                        <span
-                          className="font-browser__preview"
-                          style={{ fontFamily: fontStack(record.familyName) }}
-                        >
-                          {record.familyName}
-                        </span>
-                        {labels.length > 0 && (
-                          <span className="font-browser__descriptors">{labels.join(' · ')}</span>
+                      <div className="font-browser__row">
+                        {hasFaces ? (
+                          <button
+                            type="button"
+                            className="font-browser__expand-btn"
+                            onClick={() => toggleExpand(record.familyId)}
+                            aria-expanded={isExpanded}
+                            aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${record.familyName} faces`}
+                          >
+                            <Icon name={isExpanded ? 'ChevronDown' : 'ChevronRight'} size={12} />
+                          </button>
+                        ) : (
+                          <span className="font-browser__expand-placeholder" aria-hidden="true" />
                         )}
-                      </span>
-                    </button>
-                    <span className="font-browser__meta">
-                      <Tooltip label={sourceLabel(record)}>
-                        <span className="font-browser__badge">{sourceBadge(record)}</span>
-                      </Tooltip>
-                      {record.variable && (
-                        <span className="font-browser__badge font-browser__badge--var">
-                          Variable
-                        </span>
-                      )}
-                      {record.scripts.length > 1 && (
-                        <Tooltip
-                          label={`${record.scripts.length} writing systems in catalog metadata`}
-                        >
-                          <span className="font-browser__badge">
-                            {record.scripts.length} scripts
-                          </span>
-                        </Tooltip>
-                      )}
-                      {result.status === 'unknown' && (
-                        <span className="font-browser__badge font-browser__badge--unknown">
-                          Unverified
-                        </span>
-                      )}
-                    </span>
-                    {record.downloadable && !record.installed && (
-                      <button
-                        type="button"
-                        className="font-browser__install-btn"
-                        onClick={() => void installFamily(record)}
-                        disabled={installingFamily === record.familyId}
-                        aria-label={`Install ${record.familyName}`}
-                      >
-                        {installingFamily === record.familyId ? 'Installing…' : 'Install'}
-                      </button>
-                    )}
-                  </div>
-                  {isExpanded && hasFaces && (
-                    <div className="font-browser__faces">
-                      {faces.map((face) => (
                         <button
-                          key={face.key}
                           type="button"
-                          className="font-browser__face-row"
+                          className="font-browser__select-btn"
                           onClick={() => handleSelect(record)}
+                          aria-pressed={isSelected}
                         >
-                          <span className="font-browser__face-name">
-                            {face.postScriptName ?? `${face.weight} ${face.style}`}
-                          </span>
-                          <span className="font-browser__face-meta">
-                            {face.weight} {face.style}
+                          <span className="font-browser__row-copy">
+                            <span
+                              className="font-browser__preview"
+                              style={{ fontFamily: fontStack(record.familyName) }}
+                            >
+                              {record.familyName}
+                            </span>
+                            {labels.length > 0 && (
+                              <span className="font-browser__descriptors">
+                                {labels.join(' · ')}
+                              </span>
+                            )}
                           </span>
                         </button>
-                      ))}
+                        <span className="font-browser__meta">
+                          <Tooltip label={sourceLabel(record)}>
+                            <span className="font-browser__badge">{sourceBadge(record)}</span>
+                          </Tooltip>
+                          {record.variable && (
+                            <span className="font-browser__badge font-browser__badge--var">
+                              Variable
+                            </span>
+                          )}
+                          {record.scripts.length > 1 && (
+                            <Tooltip
+                              label={`${record.scripts.length} writing systems in catalog metadata`}
+                            >
+                              <span className="font-browser__badge">
+                                {record.scripts.length} scripts
+                              </span>
+                            </Tooltip>
+                          )}
+                          {result.status === 'unknown' && (
+                            <span className="font-browser__badge font-browser__badge--unknown">
+                              Unverified
+                            </span>
+                          )}
+                        </span>
+                        {record.downloadable && !record.installed && (
+                          <button
+                            type="button"
+                            className="font-browser__install-btn"
+                            onClick={() => void installFamily(record)}
+                            disabled={installingFamily === record.familyId}
+                            aria-label={`Install ${record.familyName}`}
+                          >
+                            {installingFamily === record.familyId ? 'Installing…' : 'Install'}
+                          </button>
+                        )}
+                      </div>
+                      {isExpanded && hasFaces && (
+                        <div className="font-browser__faces">
+                          {faces.map((face) => (
+                            <button
+                              key={face.key}
+                              type="button"
+                              className="font-browser__face-row"
+                              onClick={() => handleSelect(record)}
+                            >
+                              <span className="font-browser__face-name">
+                                {face.postScriptName ?? `${face.weight} ${face.style}`}
+                              </span>
+                              <span className="font-browser__face-meta">
+                                {face.weight} {face.style}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              );
-            })}
+                  );
+                })}
+              </div>
+            )}
           </div>
           <div className="font-browser__count">
             {resultCountLabel}

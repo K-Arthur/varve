@@ -257,6 +257,15 @@
   scrollbar-width: thin;
 }
 
+.font-browser__virtual-content {
+  position: relative;
+  width: 100%;
+}
+
+.font-browser__virtual-row {
+  box-sizing: border-box;
+}
+
 .font-browser__entry {
   display: flex;
   flex-direction: column;

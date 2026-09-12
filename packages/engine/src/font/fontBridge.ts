@@ -14,8 +14,12 @@
  */
 
 import type { FontEntry, FontRegistry } from '../fontRegistry';
-import type { FontCatalog, FontCatalogEntry } from './fontCatalog';
-import type { ParsedFontMetadata } from './fontIdentity';
+import { FontCatalog, type FontCatalogEntry } from './fontCatalog';
+import {
+  fontReferenceFromIdentity,
+  fontReferenceKey,
+  type ParsedFontMetadata,
+} from './fontIdentity';
 import type { FontLicensePolicy } from './fontLicensePolicy';
 
 // ---------------------------------------------------------------------------
@@ -30,6 +34,24 @@ export interface UnifiedFontInfo {
   isLoaded: boolean;
   isMissing: boolean;
   isVariable: boolean;
+}
+
+/**
+ * Create the catalog projection used by editor services from the authoritative
+ * runtime registry.  Callers should use this adapter instead of manufacturing
+ * one family-level placeholder entry: a registry can contain several exact
+ * faces (including collection members) and its metadata may be richer than the
+ * legacy family-only shape suggests.
+ */
+export function createFontCatalogFromRegistry(registry: FontRegistry): FontCatalog {
+  const catalog = new FontCatalog();
+  for (const family of registry.families()) {
+    for (const entry of registry.getEntries(family)) {
+      const catalogEntry = catalog.addEntry(parsedMetadataFromRegistryEntry(registry, entry));
+      catalog.setActive(catalogEntry.id, registry.isAvailable(family));
+    }
+  }
+  return catalog;
 }
 
 // ---------------------------------------------------------------------------
@@ -69,39 +91,12 @@ export class FontBridge {
    */
   syncRegistryToCatalog(): void {
     for (const family of this.registry.families()) {
-      if (this.catalog.getEntriesForFamily(family).length > 0) continue;
-
-      const entries = this.registry.getEntries(family);
-      const first = entries[0];
-      if (!first) continue;
-
-      const catalogEntry: ParsedFontMetadata = {
-        identity: {
-          contentHash: `registry:${family}`,
-          postScriptName: family.replace(/\s+/g, '-'),
-          familyName: family,
-          subfamilyName: weightToSubfamily(first.weight, first.style),
-          fullName: `${family} ${weightToSubfamily(first.weight, first.style)}`,
-        },
-        format: 'unknown',
-        fileSize: 0,
-        unitsPerEm: 1000,
-        ascender: 800,
-        descender: -200,
-        lineGap: 0,
-        glyphCount: 0,
-        isVariable: this.registry.isVariable(family),
-        axes: [],
-        namedInstances: [],
-        openTypeFeatures: this.registry.getSupportedFeatures(family),
-        unicodeRanges: [],
-        scripts: [],
-        embeddingRights: first.source === 'system' ? 'installable' : 'unknown',
-        hasColorGlyphs: false,
-        category: 'sans-serif',
-        source: sourceKindFromRegistry(first.source),
-      };
-      this.catalog.addEntry(catalogEntry);
+      for (const entry of this.registry.getEntries(family)) {
+        const catalogEntry = this.catalog.addEntry(
+          parsedMetadataFromRegistryEntry(this.registry, entry),
+        );
+        this.catalog.setActive(catalogEntry.id, this.registry.isAvailable(family));
+      }
     }
   }
 
@@ -112,13 +107,37 @@ export class FontBridge {
   syncCatalogToRegistry(): void {
     for (const entry of this.catalog.all()) {
       const family = entry.identity.familyName;
-      if (this.registry.isRegistered(family)) continue;
+      const fontReference = fontReferenceFromIdentity(entry.identity);
+      const alreadyRegistered = this.registry
+        .getEntries(family)
+        .some((candidate) =>
+          fontReference
+            ? candidate.faceKey === fontReferenceKey(fontReference)
+            : entry.identity.postScriptName
+              ? candidate.postScriptName === entry.identity.postScriptName &&
+                candidate.weight === weightFromSubfamily(entry.identity.subfamilyName) &&
+                candidate.style ===
+                  (entry.identity.subfamilyName.toLowerCase().includes('italic')
+                    ? 'italic'
+                    : 'normal')
+              : candidate.weight === weightFromSubfamily(entry.identity.subfamilyName) &&
+                candidate.style ===
+                  (entry.identity.subfamilyName.toLowerCase().includes('italic')
+                    ? 'italic'
+                    : 'normal'),
+        );
+      if (alreadyRegistered) continue;
 
       this.registry.register({
         family,
         weight: weightFromSubfamily(entry.identity.subfamilyName),
         style: entry.identity.subfamilyName.toLowerCase().includes('italic') ? 'italic' : 'normal',
         source: registrySourceFromKind(entry.source),
+        ...(fontReference ? { faceKey: fontReferenceKey(fontReference) } : {}),
+        ...(entry.identity.postScriptName ? { postScriptName: entry.identity.postScriptName } : {}),
+        ...(entry.identity.collectionIndex === undefined
+          ? {}
+          : { collectionIndex: entry.identity.collectionIndex }),
       });
     }
   }
@@ -159,6 +178,138 @@ export class FontBridge {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function parsedMetadataFromRegistryEntry(
+  registry: FontRegistry,
+  entry: FontEntry,
+): ParsedFontMetadata {
+  const familyMetadata = registry.getMetadata(entry.family);
+  const axes = entry.axisDefinitions ?? [];
+  const identity = identityFromRegistryEntry(entry, familyMetadata);
+  return {
+    identity,
+    format: normalizeFontFormat(familyMetadata?.format),
+    fileSize: 0,
+    ...(familyMetadata?.vendor ? { vendor: familyMetadata.vendor } : {}),
+    ...(familyMetadata?.version ? { version: familyMetadata.version } : {}),
+    ...(familyMetadata?.copyright ? { copyright: familyMetadata.copyright } : {}),
+    ...(familyMetadata?.license ? { license: familyMetadata.license } : {}),
+    ...(familyMetadata?.embeddingRights
+      ? { embeddingRights: familyMetadata.embeddingRights }
+      : { embeddingRights: entry.source === 'system' ? 'installable' : 'unknown' }),
+    ...(familyMetadata?.embeddingPolicy ? { embeddingPolicy: familyMetadata.embeddingPolicy } : {}),
+    ...(familyMetadata?.licenseProvenance
+      ? { licenseProvenance: familyMetadata.licenseProvenance }
+      : {}),
+    unitsPerEm: familyMetadata?.unitsPerEm ?? 1000,
+    ascender: familyMetadata?.ascender ?? 800,
+    descender: familyMetadata?.descender ?? -200,
+    lineGap: familyMetadata?.lineGap ?? 0,
+    ...(familyMetadata?.xHeight === undefined ? {} : { xHeight: familyMetadata.xHeight }),
+    ...(familyMetadata?.capHeight === undefined ? {} : { capHeight: familyMetadata.capHeight }),
+    glyphCount: familyMetadata?.glyphCount ?? 0,
+    isVariable: axes.length > 0 || Boolean(entry.variableAxes) || registry.isVariable(entry.family),
+    axes: axes.map(({ tag, name, min, default: defaultValue, max }) => ({
+      tag,
+      name,
+      min,
+      default: defaultValue,
+      max,
+    })),
+    namedInstances: [],
+    openTypeFeatures:
+      familyMetadata?.openTypeFeatures ?? registry.getSupportedFeatures(entry.family),
+    unicodeRanges: [],
+    scripts: [],
+    ...(familyMetadata?.isCJK ? { languages: ['CJK'] } : {}),
+    hasColorGlyphs: familyMetadata?.hasColorGlyphs ?? false,
+    ...(familyMetadata?.colorFormats ? { colorFormats: familyMetadata.colorFormats } : {}),
+    ...(familyMetadata?.paletteCount === undefined
+      ? {}
+      : { paletteCount: familyMetadata.paletteCount }),
+    category: categoryFromMetadata(familyMetadata?.isCJK, entry.family),
+    source: sourceKindFromRegistry(entry.source),
+    ...(entry.sourceLocation ? { sourceLocation: entry.sourceLocation } : {}),
+  };
+}
+
+function identityFromRegistryEntry(
+  entry: FontEntry,
+  familyMetadata: ReturnType<FontRegistry['getMetadata']>,
+): ParsedFontMetadata['identity'] {
+  const exact = parseFaceKey(entry.faceKey);
+  const collectionIndex = exact?.collectionIndex ?? entry.collectionIndex;
+  const postScriptName = entry.postScriptName ?? familyMetadata?.postScriptName ?? '';
+  const subfamilyName = weightToSubfamily(entry.weight, entry.style);
+  const contentHash =
+    exact?.artifactHash ??
+    [
+      'registry',
+      entry.family,
+      entry.source,
+      entry.weight,
+      entry.style,
+      entry.postScriptName ?? '',
+      entry.url ?? '',
+      entry.sourceLocation ?? '',
+      collectionIndex ?? '',
+    ].join(':');
+  return {
+    contentHash,
+    ...(exact ? { hashAlgorithm: 'sha256' as const } : { hashAlgorithm: 'unknown' as const }),
+    postScriptName,
+    familyName: entry.family,
+    subfamilyName,
+    fullName: `${entry.family} ${subfamilyName}`,
+    ...(collectionIndex === undefined ? {} : { collectionIndex }),
+  };
+}
+
+function parseFaceKey(
+  faceKey: string | undefined,
+): { artifactHash: string; collectionIndex?: number } | undefined {
+  if (!faceKey) return undefined;
+  const match = /^sha256:([0-9a-f]{64}):(single|[0-9]+)$/i.exec(faceKey);
+  if (!match) return undefined;
+  return {
+    artifactHash: match[1]!.toLowerCase(),
+    ...(match[2] === 'single' ? {} : { collectionIndex: Number(match[2]) }),
+  };
+}
+
+function normalizeFontFormat(format: string | undefined): ParsedFontMetadata['format'] {
+  switch (format?.toLowerCase()) {
+    case 'ttf':
+    case 'truetype':
+      return 'ttf';
+    case 'otf':
+    case 'opentype':
+      return 'otf';
+    case 'ttc':
+      return 'ttc';
+    case 'otc':
+      return 'otc';
+    case 'woff':
+      return 'woff';
+    case 'woff2':
+      return 'woff2';
+    default:
+      return 'unknown';
+  }
+}
+
+function categoryFromMetadata(
+  isCJK: boolean | undefined,
+  family: string,
+): ParsedFontMetadata['category'] {
+  if (isCJK) return 'sans-serif';
+  const lower = family.toLowerCase();
+  if (lower.includes('mono') || lower.includes('code')) return 'monospace';
+  if (lower.includes('serif') || lower.includes('times') || lower.includes('georgia')) {
+    return 'serif';
+  }
+  return 'sans-serif';
+}
 
 function weightToSubfamily(weight: number, style: string): string {
   const weightNames: Record<number, string> = {
