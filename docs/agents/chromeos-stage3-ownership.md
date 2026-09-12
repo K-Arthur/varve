@@ -80,10 +80,14 @@ that area at this snapshot.
   paths listed above.
 - Serialize commits on `master`; no rebase, reset, global stash, history
   rewrite, force-push, or worktree removal.
-- Reserve `VARVE_E2E_PORT=1495` for browser runs from this task (1491/1492
-  Stage 1/2, 1493 Stage 5, 1494 used by Stage 2 evidence; 1420/1481 other
-  agents). Do not run heavy suites while other agents' vitest/Playwright jobs
-  are active.
+- Reserve `VARVE_E2E_PORT=1496` for browser runs from this task (1491/1492
+  Stage 1/2, 1493 Stage 5, 1494 used by Stage 2 evidence, 1495 occupied;
+  1420/1481 other agents). Do not run heavy suites while other agents'
+  vitest/Playwright jobs are active.
+- Stage 4 (input/responsive) owns `apps/website/src/pages/docs/browser-demo.astro`,
+  `apps/website/src/pages/support/troubleshooting.astro`, and
+  `tests/e2e/interaction/*`. Stage 3 uses `product.astro`,
+  `tests/e2e/canvas/*`, and `docs/audits/chromeos-stage3-*` instead.
 - Temporary evidence lives in `/tmp/varve-chromeos-stage3-*`; only distilled
   results are committed.
 - Paired measurements only: same build, viewport/DPR, machine load, and power

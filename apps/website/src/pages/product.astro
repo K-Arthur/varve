@@ -120,6 +120,12 @@ import ClosingCTA from '../components/ClosingCTA.astro';
         <p>
           Varve runs natively on Linux (CachyOS, Arch, Ubuntu, Fedora — x86_64 and ARM64), macOS (Apple Silicon), and Windows (x86_64 and ARM64). The rendering architecture separates scene computation from display, using an intermediate representation that replays efficiently to the canvas. The same codebase powers both the native desktop and WASM web builds.
         </p>
+        <p>
+          On constrained hardware — including Chromebooks and 4&nbsp;GB machines — the browser build measures frame cost while you work and adapts: drags and zooms may preview at a reduced render scale, then restore full device resolution as soon as the gesture settles. Exports and saved files are always full fidelity. GPU acceleration is only used after a real adapter and device can be created, not because the browser advertises a feature; when it is unavailable the Canvas2D path is kept and the document is unchanged.
+        </p>
+        <p>
+          AI-assisted operations are optional and on-device. Nothing is uploaded, core editing never requires a model download, and unsupported acceleration shows an honest unavailable state instead of silently switching to a server.
+        </p>
       </section>
 
       <section class="product-section">

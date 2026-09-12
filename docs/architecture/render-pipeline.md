@@ -61,6 +61,32 @@ Rust `hit_test` IPC exists but is **not called** from `CanvasArea`. Engine `hitT
 4. Optional render worker replays to `OffscreenCanvas` with `docVersion` stale guards.
 5. The `RedrawCoordinator` decides before any scene traversal whether a frame is `skip` (nothing changed), `present` (composite worker bitmap only), or `content` (full scene replay). This decision is recorded as `frameDecision` in `FrameDiagnostics` and forwarded as the frame `disposition` in the interaction trace, so consumers can distinguish scene-free composites from full replays without re-analyzing the frame.
 
+### Interactive preview scale (2026-09-12)
+
+The adaptive profile's `renderScale` is applied to the content canvas backing
+store only while an editor interaction is open (drag, pinch, wheel burst):
+`renderPipeline.renderContent` multiplies the display DPR by the current
+tier's scale (1 / 1 / 0.75 / 0.5 for quality / balanced / performance /
+constrained). Consequences and invariants:
+
+- Settled frames always return to full display resolution. The
+  `RedrawCoordinator` treats a DPR change as invalidation, so promotion is a
+  normal content frame; the image settled-refinement timer requests the
+  promoting frame after the interaction quiets.
+- Overlays (selection, guides, rulers, warp handles) render on their own
+  canvas at full DPR and are unaffected; hit testing is world-space.
+- Export, print, and saved originals render through their own surfaces and
+  keep full fidelity.
+- The render worker receives the same scaled DPR; `presentWorkerFrame`
+  compares the worker bitmap against the actual backing-store size (via
+  `canvasBackingSize`) instead of the nominal DPR, so the present path keeps
+  working at preview scale and refuses a stale preview bitmap once the
+  surface is promoted.
+- `PerformanceProfile` only carries fields with runtime consumers
+  (`renderScale`, `cacheMultiplier`, `enableWorker`, `enablePartialRedraw`);
+  image LOD remains governed by `selectRasterRepresentation` /
+  `workerSourceCapFor`, and culling by the spatial index.
+
 ## Backend Selection
 
 | Runtime | IR source | Display |
