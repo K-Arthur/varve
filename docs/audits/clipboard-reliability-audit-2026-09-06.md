@@ -1024,3 +1024,18 @@ pnpm exec vitest run packages/editor/src/actions/createActionHandlers.test.ts \
 
 The implementation is committed as `3e9416b3`; the follow-up assertion syntax
 correction is committed as `df893fa9`.
+
+The browser visual rerun after the correction also passed:
+
+```text
+VARVE_E2E_PORT=1483 pnpm exec playwright test \
+  tests/e2e/canvas/clipboard.spec.ts -g 'SVG paste preserves' \
+  --project=chromium --workers=1 --reporter=line
+1 passed
+```
+
+Inspected evidence: `test-results/run-1006991-1483/canvas-clipboard-SVG-
+paste-80bb0-r-spacing-and-nested-groups-chromium/clipboard-svg-order-and-
+groups.png`. The screenshot shows the imported group and sibling rectangle in
+their separate positions with the group selected; geometry and layer-order
+assertions pass alongside the visual capture.
