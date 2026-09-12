@@ -63,10 +63,12 @@ Weights are not stored in the repository or in portable documents.
   warm timings, cancellation latency, and package-level reopening evidence
   remain outstanding.
 
-The renderer-side cancellation race is covered by the native-provider unit
-lane: abort rejects the active request immediately and forwards the opaque
-request id to the desktop cancellation command. Desktop helper termination and
-cross-platform latency measurements still require native package evidence.
+The renderer-side cancellation races are covered by the native-provider unit
+lane: abort rejects active prompt generation and LaMa requests immediately and
+forwards each opaque request id to its desktop cancellation command. The
+desktop LaMa command now owns a request-scoped cooperative token and serialized
+execution gate; the native helper termination and cross-platform latency
+measurements still require native package evidence.
 
 This ledger deliberately records gaps rather than converting an enabled
 control or a passing mock into a capability claim.

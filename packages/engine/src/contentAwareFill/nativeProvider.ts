@@ -61,17 +61,38 @@ export const nativeLaMaProvider = {
     });
     try {
       const { invoke } = await import('@tauri-apps/api/core');
-      const raw = await invoke<NativeLaMaResponse>('content_aware_fill', {
-        options: {
-          image_data: Array.from(imageData.data),
-          image_w: imageData.width,
-          image_h: imageData.height,
-          mask: Array.from(mask),
-          mask_w: imageData.width,
-          mask_h: imageData.height,
-          preview_max_dimension: 2048,
-        },
-      });
+      const requestId = `lama-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      let rejectOnAbort: ((reason: Error) => void) | null = null;
+      const abort = () => {
+        void invoke('cancel_content_aware_fill', { requestId });
+        rejectOnAbort?.(new Error('cancelled'));
+      };
+      signal?.addEventListener('abort', abort, { once: true });
+      let raw: NativeLaMaResponse;
+      try {
+        raw = await new Promise<NativeLaMaResponse>((resolve, reject) => {
+          rejectOnAbort = reject;
+          if (signal?.aborted) {
+            abort();
+            return;
+          }
+          void invoke<NativeLaMaResponse>('content_aware_fill', {
+            options: {
+              request_id: requestId,
+              image_data: Array.from(imageData.data),
+              image_w: imageData.width,
+              image_h: imageData.height,
+              mask: Array.from(mask),
+              mask_w: imageData.width,
+              mask_h: imageData.height,
+              preview_max_dimension: 2048,
+            },
+          }).then(resolve, reject);
+        });
+      } finally {
+        rejectOnAbort = null;
+        signal?.removeEventListener('abort', abort);
+      }
 
       if (signal?.aborted) throw new Error('cancelled');
       if (!raw?.png_base64) throw new Error('Native LaMa returned no image');

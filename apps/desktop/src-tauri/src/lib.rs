@@ -1163,6 +1163,8 @@ async fn denoise_image(
 /// Options for native content-aware fill.
 #[derive(Debug, serde::Deserialize)]
 pub struct ContentAwareFillOptions {
+    #[serde(default)]
+    pub request_id: Option<String>,
     pub image_data: Vec<u8>,
     pub image_w: u32,
     pub image_h: u32,
@@ -1184,6 +1186,80 @@ pub struct ContentAwareFillResult {
     pub warnings: Vec<String>,
 }
 
+/// Single-job cancellation and admission state for native LaMa. The engine
+/// already checks this token at model/session and processing boundaries; the
+/// command owns the token so renderer AbortSignals can stop a native request
+/// without waiting for the blocking task to return.
+struct LamaCancelState {
+    active: Mutex<Option<LamaCancelEntry>>,
+    execution_gate: std::sync::Arc<Mutex<()>>,
+}
+
+struct LamaCancelEntry {
+    request_id: String,
+    token: varve_bgremove::InferenceCancellationToken,
+}
+
+impl LamaCancelState {
+    fn new() -> Self {
+        Self {
+            active: Mutex::new(None),
+            execution_gate: std::sync::Arc::new(Mutex::new(())),
+        }
+    }
+
+    fn register(&self, request_id: &str) -> varve_bgremove::InferenceCancellationToken {
+        if let Ok(mut guard) = self.active.lock() {
+            if let Some(current) = guard.as_ref() {
+                if current.request_id == request_id {
+                    return current.token.clone();
+                }
+            }
+            let token = varve_bgremove::InferenceCancellationToken::default();
+            if let Some(previous) = guard.replace(LamaCancelEntry {
+                request_id: request_id.to_owned(),
+                token: token.clone(),
+            }) {
+                previous.token.cancel();
+            }
+            return token;
+        }
+        varve_bgremove::InferenceCancellationToken::default()
+    }
+
+    fn cancel(&self, request_id: &str) {
+        if let Ok(guard) = self.active.lock() {
+            if let Some(entry) = guard.as_ref() {
+                if entry.request_id == request_id {
+                    entry.token.cancel();
+                }
+            }
+        }
+    }
+
+    fn finish(&self, request_id: &str) {
+        if let Ok(mut guard) = self.active.lock() {
+            if guard
+                .as_ref()
+                .is_some_and(|entry| entry.request_id == request_id)
+            {
+                *guard = None;
+            }
+        }
+    }
+
+    fn execution_gate(&self) -> std::sync::Arc<Mutex<()>> {
+        self.execution_gate.clone()
+    }
+}
+
+#[tauri::command]
+fn cancel_content_aware_fill(app: tauri::AppHandle, request_id: String) {
+    if let Some(state) = app.try_state::<LamaCancelState>() {
+        state.cancel(&request_id);
+    }
+}
+
 /// Run native LaMa inpainting on an image+mask pair.
 ///
 /// Preferred over the WASM-worker path on desktop because native ONNX
@@ -1200,7 +1276,28 @@ async fn content_aware_fill(
         );
     }
 
-    tauri::async_runtime::spawn_blocking(move || {
+    let request_id = options
+        .request_id
+        .clone()
+        .unwrap_or_else(|| format!("lama-{}", std::process::id()));
+    let (cancellation, execution_gate) = app.try_state::<LamaCancelState>().map_or_else(
+        || {
+            (
+                varve_bgremove::InferenceCancellationToken::default(),
+                std::sync::Arc::new(Mutex::new(())),
+            )
+        },
+        |state| (state.register(&request_id), state.execution_gate()),
+    );
+    let cancellation_for_worker = cancellation.clone();
+
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let _permit = execution_gate
+            .lock()
+            .map_err(|_| "Native LaMa execution gate was poisoned".to_string())?;
+        if cancellation_for_worker.is_cancelled() {
+            return Err("Inference cancelled".to_owned());
+        }
         let request = varve_bgremove::LamaInpaintRequest {
             image_rgba: options.image_data,
             image_w: options.image_w,
@@ -1211,7 +1308,7 @@ async fn content_aware_fill(
             preview_max_dimension: options.preview_max_dimension,
         };
 
-        let result = varve_bgremove::lama_inpaint(request)?;
+        let result = varve_bgremove::lama_inpaint_cancellable(request, &cancellation_for_worker)?;
 
         Ok(ContentAwareFillResult {
             png_base64: result.png_base64,
@@ -1224,7 +1321,12 @@ async fn content_aware_fill(
         })
     })
     .await
-    .map_err(|e| format!("Content-aware fill task failed: {e}"))?
+    .map_err(|e| format!("Content-aware fill task failed: {e}"));
+
+    if let Some(state) = app.try_state::<LamaCancelState>() {
+        state.finish(&request_id);
+    }
+    result?
 }
 
 // ── Isolated prompt-capable generative editing ──────────────────────────
@@ -4136,6 +4238,7 @@ pub fn run() {
             let store = varve_sync::DocumentStore::new(&db_path).expect("init document store");
             app.manage(store);
             app.manage(UpscaleCancelState::new());
+            app.manage(LamaCancelState::new());
             app.manage(TraceCancelState::new());
             app.manage(lifecycle::LifecycleGuard::new());
             // OS file-association intake (.varve / .strata "Open With").
@@ -4290,6 +4393,7 @@ pub fn run() {
             delete_background_removal_model,
             denoise_image,
             content_aware_fill,
+            cancel_content_aware_fill,
             generative_edit,
             cancel_generative_edit,
             generative_edit_model_status,
@@ -4446,6 +4550,24 @@ fn cancel_print_job(printer_name: String, job_id: u32) -> Result<String, String>
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn lama_cancellation_is_request_scoped_and_stale_finish_is_ignored() {
+        let state = LamaCancelState::new();
+        let first = state.register("lama-first");
+        let second = state.register("lama-second");
+
+        assert!(first.is_cancelled(), "a newer request supersedes the older one");
+        assert!(!second.is_cancelled());
+
+        state.finish("lama-first");
+        state.cancel("lama-second");
+        assert!(second.is_cancelled(), "the active request can be cancelled by id");
+        state.finish("lama-second");
+
+        let third = state.register("lama-third");
+        assert!(!third.is_cancelled());
+    }
 
     #[test]
     fn native_clipboard_image_dimensions_are_bounded_before_conversion() {

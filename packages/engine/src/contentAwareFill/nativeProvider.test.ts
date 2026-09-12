@@ -40,7 +40,8 @@ describe('nativeLaMaProvider', () => {
     const result = await nativeLaMaProvider.infer(image, mask);
 
     expect(invoke).toHaveBeenCalledWith('content_aware_fill', {
-      options: {
+      options: expect.objectContaining({
+        request_id: expect.any(String),
         image_data: Array.from(image.data),
         image_w: 24,
         image_h: 16,
@@ -48,7 +49,7 @@ describe('nativeLaMaProvider', () => {
         mask_w: 24,
         mask_h: 16,
         preview_max_dimension: 2048,
-      },
+      }),
     });
     expect(decodeImageBytesToImageData).toHaveBeenCalledWith(new Uint8Array([137, 80, 78, 71]));
     expect(result.executionProvider).toBe('native');
@@ -70,5 +71,28 @@ describe('nativeLaMaProvider', () => {
     await expect(
       nativeLaMaProvider.infer(new ImageData(24, 16), new Uint8Array(24 * 16)),
     ).rejects.toThrow('do not match response');
+  });
+
+  it('cancels the native request and does not await a late helper response', async () => {
+    const controller = new AbortController();
+    const pending = new Promise<never>(() => undefined);
+    invoke.mockImplementation((command: string) => {
+      if (command === 'content_aware_fill') return pending;
+      return Promise.resolve();
+    });
+
+    const inference = nativeLaMaProvider.infer(
+      new ImageData(24, 16),
+      new Uint8Array(24 * 16),
+      controller.signal,
+    );
+    await vi.waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith('content_aware_fill', expect.anything()),
+    );
+    controller.abort();
+    await vi.waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith('cancel_content_aware_fill', expect.anything()),
+    );
+    await expect(inference).rejects.toThrow('cancelled');
   });
 });
