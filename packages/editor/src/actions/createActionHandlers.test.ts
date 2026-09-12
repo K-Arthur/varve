@@ -1,6 +1,5 @@
 import { areaSelectionCoverageAt, createAreaSelection } from '@varve/engine';
 import {
-  type Affine,
   addChild,
   addNode,
   createDocument,
@@ -8,6 +7,7 @@ import {
   makeFrameNode,
   makeShapeNode,
 } from '@varve/scene';
+import type { Affine } from '@varve/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { promptDialog } from '../components/PromptDialog';
 import type { EditorContextValue } from '../context';
