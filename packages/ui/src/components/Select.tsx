@@ -457,65 +457,67 @@ export function Select({
         placement="bottom-start"
         className="varve-floating-layer"
       >
-        <div
-          ref={listboxRef}
-          id={listboxId}
-          role="listbox"
-          aria-label={label}
-          className="varve-select__listbox"
-          style={{ position: 'static' }}
-        >
-          {shouldShowSearch && (
-            <div className="varve-select__search">
-              <input
-                ref={searchInputRef}
-                type="search"
-                className="varve-select__search-input"
-                placeholder="Filter options…"
-                aria-label={`Filter ${label}`}
-                aria-controls={listboxId}
-                aria-activedescendant={highlightedId}
-                value={filterText}
-                onChange={(event) => {
-                  setFilterText(event.target.value);
-                  setHighlightedIdx(0);
-                }}
-                onKeyDown={handleSearchKeyDown}
-              />
-            </div>
-          )}
-          {loading ? (
-            <div className="varve-select__state">
-              <LoadingLabel label={loadingLabel} size="sm" />
-            </div>
-          ) : loadError ? (
-            <div className="varve-select__state varve-select__state--error" role="alert">
-              <span>{loadError}</span>
-              {onRetry && (
-                <button type="button" className="varve-select__retry" onClick={onRetry}>
-                  Retry
-                </button>
-              )}
-            </div>
-          ) : filteredOptions.length === 0 ? (
-            <div className="varve-select__state">{noResultsLabel}</div>
-          ) : (
-            filteredGroups.map((group) => {
-              const content = group.options.map(renderOption);
-              const groupKey = group.label || group.options[0]?.value || 'ungrouped';
-              return group.label ? (
-                <div key={`group-${groupKey}`} className="varve-select__group">
-                  <div className="varve-select__group-label">{group.label}</div>
-                  {content}
-                </div>
-              ) : (
-                <div key={`ungrouped-${groupKey}`} className="varve-select__group">
-                  {content}
-                </div>
-              );
-            })
-          )}
-        </div>
+        {open && (
+          <div
+            ref={listboxRef}
+            id={listboxId}
+            role="listbox"
+            aria-label={label}
+            className="varve-select__listbox"
+            style={{ position: 'static' }}
+          >
+            {shouldShowSearch && (
+              <div className="varve-select__search">
+                <input
+                  ref={searchInputRef}
+                  type="search"
+                  className="varve-select__search-input"
+                  placeholder="Filter options…"
+                  aria-label={`Filter ${label}`}
+                  aria-controls={listboxId}
+                  aria-activedescendant={highlightedId}
+                  value={filterText}
+                  onChange={(event) => {
+                    setFilterText(event.target.value);
+                    setHighlightedIdx(0);
+                  }}
+                  onKeyDown={handleSearchKeyDown}
+                />
+              </div>
+            )}
+            {loading ? (
+              <div className="varve-select__state">
+                <LoadingLabel label={loadingLabel} size="sm" />
+              </div>
+            ) : loadError ? (
+              <div className="varve-select__state varve-select__state--error" role="alert">
+                <span>{loadError}</span>
+                {onRetry && (
+                  <button type="button" className="varve-select__retry" onClick={onRetry}>
+                    Retry
+                  </button>
+                )}
+              </div>
+            ) : filteredOptions.length === 0 ? (
+              <div className="varve-select__state">{noResultsLabel}</div>
+            ) : (
+              filteredGroups.map((group) => {
+                const content = group.options.map(renderOption);
+                const groupKey = group.label || group.options[0]?.value || 'ungrouped';
+                return group.label ? (
+                  <div key={`group-${groupKey}`} className="varve-select__group">
+                    <div className="varve-select__group-label">{group.label}</div>
+                    {content}
+                  </div>
+                ) : (
+                  <div key={`ungrouped-${groupKey}`} className="varve-select__group">
+                    {content}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
       </FloatingPortal>
 
       <div

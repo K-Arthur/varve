@@ -50,14 +50,21 @@ export function GlyphTypographySection({ node, onConvertToOutlines }: GlyphTypog
   const adjustment: GlyphAdjustment | undefined = node.glyphAdjustments?.[selectedCluster];
   const pairValue = node.pairAdjustments?.[selectedPair];
 
-  const clusterOptions = clusters.map((_, index) => ({
-    value: String(index),
-    label: `${index + 1} · ${clusterLabel(text, index)}`,
-  }));
-  const pairOptions = clusters.slice(0, -1).map((_, index) => ({
-    value: String(index),
-    label: `${clusterLabel(text, index)} | ${clusterLabel(text, index + 1)}`,
-  }));
+  const { clusterOptions, pairOptions } = useMemo(() => {
+    // Each item is already one grapheme. Re-segmenting the entire text for
+    // every label made selecting/editing long text quadratic in its length.
+    const labels = clusters.map((cluster) => clusterLabel(cluster, 0));
+    return {
+      clusterOptions: labels.map((label, index) => ({
+        value: String(index),
+        label: `${index + 1} · ${label}`,
+      })),
+      pairOptions: labels.slice(0, -1).map((label, index) => ({
+        value: String(index),
+        label: `${label} | ${labels[index + 1]}`,
+      })),
+    };
+  }, [clusters]);
 
   const patchAdjustment = (patch: Partial<GlyphAdjustment>) => {
     if (!enabled) return;

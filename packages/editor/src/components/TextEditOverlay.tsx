@@ -398,14 +398,32 @@ export function TextEditOverlay({
         wordWrap: 'break-word',
         transform: `matrix(${cssMatrix.join(',')})`,
         transformOrigin: '0 0',
-        zIndex: 1000,
+        pointerEvents: 'auto',
       }}
       data-text-edit-surface="true"
       data-writing-mode={node.writingMode ?? 'horizontal-tb'}
       data-text-orientation={node.textOrientation ?? 'mixed'}
     />
   );
-  return createPortal(editor, document.body);
+  return createPortal(
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        pointerEvents: 'none',
+        zIndex: 'var(--z-overlay)',
+        // The textarea keeps its full transformed geometry for native caret
+        // and selection behavior. Clip both paint and hit testing in viewport
+        // coordinates so a long or rotated edit cannot cover the inspector.
+        clipPath: rect
+          ? `inset(${rect.top}px ${Math.max(0, window.innerWidth - rect.right)}px ${Math.max(0, window.innerHeight - rect.bottom)}px ${rect.left}px)`
+          : undefined,
+      }}
+    >
+      {editor}
+    </div>,
+    document.body,
+  );
 }
 
 function flatOffsetToRichAddress(

@@ -26,6 +26,21 @@ enough to serve as Varve’s authoritative glyph, cluster, caret, or export data
 The exact findings and code references are in
 [the 2026-08-13 Unicode text audit](../audits/unicode-text-shaping-audit-2026-08-13.md).
 
+## Editing surface and inspector cost
+
+The native textarea preserves the full transformed text bounds for caret,
+selection, input and IME behavior. Its body portal clips painting and hit
+testing to the canvas viewport, so an off-canvas line cannot intercept the
+inspector. The floating formatting toolbar remains a separate overlay.
+This does not replace the pending shaped-glyph caret geometry work.
+
+The glyph inspector segments a paragraph once, derives each label from its
+existing grapheme, and memoizes the option arrays. Closed shared Select
+controls do not construct their option elements. This avoids quadratic
+whole-paragraph segmentation and unnecessary option allocation when selecting
+or editing long text. The [September 12 frontend evidence](../audits/font-frontend-evidence-2026-09-12.md)
+records the real long-text interaction, clipping hit-test and validation limits.
+
 ## Target pipeline
 
 ```text
