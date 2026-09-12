@@ -6,8 +6,10 @@
 export type { FontStorageMetadata, StoredFontRecord } from '@varve/engine/font';
 export {
   getStoredFont,
+  getStoredFontByIdentity,
   getStoredFontCount,
   listStoredFonts,
   removeStoredFont,
+  removeStoredFontByIdentity,
   storeFont,
 } from '@varve/engine/font';

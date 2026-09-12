@@ -8,7 +8,14 @@
  * back to a no-op that reports no fonts stored.
  */
 
-import { listStoredFonts, loadStoredFont, removeStoredFont, storeFont } from './fontStorage';
+import {
+  getStoredFontByIdentity,
+  listStoredFonts,
+  loadStoredFont,
+  removeStoredFont,
+  removeStoredFontByIdentity,
+  storeFont,
+} from './fontStorage';
 
 export interface FontStorageFsMeta {
   family: string;
@@ -20,6 +27,10 @@ export interface FontStorageFsMeta {
   storedAt: string;
   fileSizeBytes: number;
   sha256: string;
+  faceKey?: string;
+  collectionIndex?: number;
+  postScriptName?: string;
+  integrity?: 'verified' | 'corrupt' | 'unknown';
 }
 
 function getCore(): {
@@ -50,6 +61,10 @@ async function tauriInvoke(cmd: string, args?: Record<string, unknown>): Promise
   return core.invoke(cmd, args);
 }
 
+function portableFaceKey(artifactHash: string, collectionIndex?: number): string {
+  return `sha256:${artifactHash.replace(/^sha256:/i, '').toLowerCase()}:${collectionIndex ?? 'single'}`;
+}
+
 /**
  * Store font data in the filesystem application data directory.
  * Also mirrors to IndexedDB for web fallback.
@@ -63,18 +78,37 @@ export async function storeFontOnFilesystem(
     licenseUrl?: string;
     attribution?: string;
     version?: string;
+    collectionIndex?: number;
+    postScriptName?: string;
+    artifactHash?: string;
+    faceKey?: string;
   },
 ): Promise<FontStorageFsMeta | null> {
   if (!isTauri()) {
     // Fall back to IndexedDB
-    await storeFont(family, data, {
+    const stored = await storeFont(family, data, {
       providerId: meta?.providerId ?? 'legacy',
       license: meta?.licenseName,
       licenseUrl: meta?.licenseUrl,
       attribution: meta?.attribution,
       packageVersion: meta?.version,
+      collectionIndex: meta?.collectionIndex,
+      postScriptName: meta?.postScriptName,
+      artifactHash: meta?.artifactHash,
+      faceKey: meta?.faceKey,
     });
-    return null;
+    return {
+      family: stored.familyName,
+      storedAt: new Date(stored.storedAt).toISOString(),
+      providerId: stored.metadata.providerId,
+      licenseName: stored.metadata.license,
+      fileSizeBytes: stored.data.byteLength,
+      sha256: stored.artifactHash,
+      faceKey: stored.faceKey,
+      collectionIndex: stored.metadata.collectionIndex,
+      postScriptName: stored.metadata.postScriptName,
+      integrity: stored.integrity,
+    };
   }
 
   const result = await tauriInvoke('store_font_on_filesystem', {
@@ -85,6 +119,10 @@ export async function storeFontOnFilesystem(
     licenseUrl: meta?.licenseUrl ?? null,
     attribution: meta?.attribution ?? null,
     version: meta?.version ?? null,
+    collectionIndex: meta?.collectionIndex ?? null,
+    postScriptName: meta?.postScriptName ?? null,
+    artifactHash: meta?.artifactHash ?? null,
+    faceKey: meta?.faceKey ?? null,
   });
 
   return result as FontStorageFsMeta;
@@ -95,10 +133,13 @@ export async function storeFontOnFilesystem(
  * Falls back to IndexedDB on web.
  */
 export async function loadFontFromFilesystem(
-  family: string,
+  familyOrIdentity: string | { artifactHash: string; collectionIndex?: number },
 ): Promise<{ data: Uint8Array; meta: FontStorageFsMeta } | null> {
   if (!isTauri()) {
-    const stored = await loadStoredFont(family);
+    const stored =
+      typeof familyOrIdentity === 'string'
+        ? await loadStoredFont(familyOrIdentity)
+        : await getStoredFontByIdentity(familyOrIdentity);
     if (!stored) return null;
     return {
       data: new Uint8Array(stored.data),
@@ -108,14 +149,22 @@ export async function loadFontFromFilesystem(
         providerId: stored.metadata.providerId,
         licenseName: stored.metadata.license,
         fileSizeBytes: stored.data.byteLength,
-        sha256: '',
+        sha256: stored.artifactHash,
+        faceKey: stored.faceKey,
+        collectionIndex: stored.metadata.collectionIndex,
+        postScriptName: stored.metadata.postScriptName,
+        integrity: stored.integrity,
       },
     };
   }
 
-  const result = (await tauriInvoke('load_font_from_filesystem', { family })) as
-    | [number[], FontStorageFsMeta]
-    | null;
+  const result = (await tauriInvoke('load_font_from_filesystem', {
+    family: typeof familyOrIdentity === 'string' ? familyOrIdentity : null,
+    faceKey:
+      typeof familyOrIdentity === 'string'
+        ? null
+        : portableFaceKey(familyOrIdentity.artifactHash, familyOrIdentity.collectionIndex),
+  })) as [number[], FontStorageFsMeta] | null;
   if (!result) return null;
   return {
     data: new Uint8Array(result[0]),
@@ -136,7 +185,11 @@ export async function listFilesystemFonts(): Promise<FontStorageFsMeta[]> {
       providerId: s.metadata.providerId,
       licenseName: s.metadata.license,
       fileSizeBytes: s.data.byteLength,
-      sha256: '',
+      sha256: s.artifactHash,
+      faceKey: s.faceKey,
+      collectionIndex: s.metadata.collectionIndex,
+      postScriptName: s.metadata.postScriptName,
+      integrity: s.integrity,
     }));
   }
 
@@ -147,13 +200,24 @@ export async function listFilesystemFonts(): Promise<FontStorageFsMeta[]> {
  * Remove a font from the filesystem.
  * Falls back to IndexedDB on web.
  */
-export async function removeFontFromFilesystem(family: string): Promise<boolean> {
+export async function removeFontFromFilesystem(
+  familyOrIdentity: string | { artifactHash: string; collectionIndex?: number },
+): Promise<boolean> {
   if (!isTauri()) {
-    await removeStoredFont(family);
-    return true;
+    if (typeof familyOrIdentity === 'string') {
+      await removeStoredFont(familyOrIdentity);
+      return true;
+    }
+    return removeStoredFontByIdentity(familyOrIdentity);
   }
 
-  return (await tauriInvoke('remove_font_from_filesystem', { family })) as boolean;
+  return (await tauriInvoke('remove_font_from_filesystem', {
+    family: typeof familyOrIdentity === 'string' ? familyOrIdentity : null,
+    faceKey:
+      typeof familyOrIdentity === 'string'
+        ? null
+        : portableFaceKey(familyOrIdentity.artifactHash, familyOrIdentity.collectionIndex),
+  })) as boolean;
 }
 
 /**

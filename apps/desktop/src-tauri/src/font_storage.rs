@@ -2,8 +2,9 @@
 //! application data directory (APPDATA / XDG_DATA_HOME / ~/Library).
 //!
 //! Uses a subdirectory named `fonts/` under the platform-appropriate
-//! application data directory. Each font is stored as:
-//!   <appdata>/fonts/<sha256-of-family-name>/<family-normalized>.ttf
+//! application data directory. New files are stored under a hash of the
+//! canonical `sha256:<artifact>:<member>` face key; old family-addressed files
+//! remain readable during migration.
 //!
 //! A metadata sidecar stores family, provider, license, and attribution.
 //!
@@ -16,16 +17,37 @@ use std::path::PathBuf;
 
 /// Metadata stored alongside each font.
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct FontStorageMeta {
     pub family: String,
+    #[serde(alias = "provider_id")]
     pub provider_id: Option<String>,
+    #[serde(alias = "license_name")]
     pub license_name: Option<String>,
+    #[serde(alias = "license_url")]
     pub license_url: Option<String>,
     pub attribution: Option<String>,
     pub version: Option<String>,
+    #[serde(alias = "stored_at")]
     pub stored_at: String,
+    #[serde(alias = "file_size_bytes")]
     pub file_size_bytes: u64,
     pub sha256: String,
+    #[serde(default)]
+    #[serde(alias = "face_key")]
+    pub face_key: Option<String>,
+    #[serde(default)]
+    #[serde(alias = "collection_index")]
+    pub collection_index: Option<u32>,
+    #[serde(default)]
+    #[serde(alias = "post_script_name")]
+    pub post_script_name: Option<String>,
+    #[serde(default = "default_integrity")]
+    pub integrity: String,
+}
+
+fn default_integrity() -> String {
+    "unknown".to_string()
 }
 
 /// Derive a safe directory name from a family string.
@@ -58,11 +80,94 @@ fn font_storage_path(app: &tauri::AppHandle, family: &str) -> Result<PathBuf, St
     Ok(dir.join(safe))
 }
 
-/// Ensure the font storage directory exists.
-fn ensure_font_dir(app: &tauri::AppHandle, family: &str) -> Result<PathBuf, String> {
-    let path = font_storage_path(app, family)?;
-    std::fs::create_dir_all(&path).map_err(|e| format!("Cannot create font storage dir: {e}"))?;
-    Ok(path)
+fn face_storage_path(app: &tauri::AppHandle, face_key: &str) -> Result<PathBuf, String> {
+    let dir = font_dir(app)?;
+    if !is_canonical_face_key(face_key) {
+        return Err("Invalid font face identity".into());
+    }
+    Ok(dir.join(format!("face-{}", safe_face_key(face_key))))
+}
+
+fn is_canonical_face_key(face_key: &str) -> bool {
+    let Some(rest) = face_key.strip_prefix("sha256:") else {
+        return false;
+    };
+    let Some((digest, member)) = rest.split_once(':') else {
+        return false;
+    };
+    digest.len() == 64
+        && digest.bytes().all(|byte| byte.is_ascii_hexdigit())
+        && (member == "single"
+            || member == "0"
+            || (member.parse::<u32>().is_ok()
+                && !member.starts_with('0')
+                && !member.starts_with('+')))
+}
+
+fn canonical_face_key(
+    sha256: &str,
+    collection_index: Option<u32>,
+    supplied: Option<String>,
+) -> Result<String, String> {
+    let member = collection_index
+        .map(|index| index.to_string())
+        .unwrap_or_else(|| "single".to_string());
+    let expected_digest = sha256.to_ascii_lowercase();
+    let canonical = format!("sha256:{expected_digest}:{member}");
+    let Some(value) = supplied else {
+        return Ok(canonical);
+    };
+    if !is_canonical_face_key(&value) {
+        return Err("Invalid font face identity".into());
+    }
+    let Some(rest) = value.strip_prefix("sha256:") else {
+        return Err("Invalid font face identity".into());
+    };
+    let Some((supplied_digest, supplied_member)) = rest.split_once(':') else {
+        return Err("Invalid font face identity".into());
+    };
+    if !supplied_digest.eq_ignore_ascii_case(&expected_digest)
+        || (collection_index.is_some() && supplied_member != member)
+    {
+        return Err("Font face identity does not match the supplied bytes".into());
+    }
+    Ok(format!("sha256:{expected_digest}:{supplied_member}"))
+}
+
+fn safe_face_key(face_key: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(face_key.as_bytes());
+    hasher
+        .finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
+fn find_font_storage_path(app: &tauri::AppHandle, family: &str) -> Result<PathBuf, String> {
+    let legacy = font_storage_path(app, family)?;
+    if legacy.exists() {
+        return Ok(legacy);
+    }
+    let root = font_dir(app)?;
+    for entry in std::fs::read_dir(root).map_err(|e| format!("Cannot read font dir: {e}"))? {
+        let Ok(entry) = entry else { continue };
+        let path = entry.path();
+        let meta_path_buf = path.join("meta.json");
+        if !meta_path_buf.exists() {
+            continue;
+        }
+        let Ok(content) = std::fs::read_to_string(meta_path_buf) else {
+            continue;
+        };
+        let Ok(meta) = serde_json::from_str::<FontStorageMeta>(&content) else {
+            continue;
+        };
+        if meta.family.eq_ignore_ascii_case(family) {
+            return Ok(path);
+        }
+    }
+    Ok(legacy)
 }
 
 fn meta_path(dir: &PathBuf) -> PathBuf {
@@ -75,7 +180,7 @@ fn font_file_path(dir: &PathBuf) -> PathBuf {
         if let Ok(entry) = entry {
             let path = entry.path();
             if let Some(ext) = path.extension() {
-                match ext.to_str().unwrap_or("") {
+                match ext.to_str().unwrap_or("").to_ascii_lowercase().as_str() {
                     "ttf" | "otf" | "woff" | "woff2" => return path,
                     _ => continue,
                 }
@@ -95,14 +200,24 @@ pub fn store_font_on_filesystem(
     license_url: Option<String>,
     attribution: Option<String>,
     version: Option<String>,
+    collection_index: Option<u32>,
+    post_script_name: Option<String>,
+    artifact_hash: Option<String>,
+    face_key: Option<String>,
 ) -> Result<FontStorageMeta, String> {
-    let dir = ensure_font_dir(&app, &family)?;
-
     // Compute SHA-256
     let mut hasher = Sha256::new();
     hasher.update(&data);
     let hash_result = hasher.finalize();
     let sha256: String = hash_result.iter().map(|b| format!("{:02x}", b)).collect();
+    if let Some(expected) = artifact_hash {
+        if expected.trim_start_matches("sha256:").to_lowercase() != sha256 {
+            return Err("Font artifact hash does not match the supplied bytes".into());
+        }
+    }
+    let resolved_face_key = canonical_face_key(&sha256, collection_index, face_key)?;
+    let dir = face_storage_path(&app, &resolved_face_key)?;
+    std::fs::create_dir_all(&dir).map_err(|e| format!("Cannot create font storage dir: {e}"))?;
 
     // Detect format from magic bytes
     let ext = if data.len() > 4 {
@@ -159,6 +274,10 @@ pub fn store_font_on_filesystem(
         stored_at: chrono::Utc::now().to_rfc3339(),
         file_size_bytes: file_size,
         sha256,
+        face_key: Some(resolved_face_key),
+        collection_index,
+        post_script_name,
+        integrity: "verified".into(),
     };
 
     let meta_json =
@@ -187,9 +306,13 @@ pub fn store_font_on_filesystem(
 #[tauri::command]
 pub fn load_font_from_filesystem(
     app: tauri::AppHandle,
-    family: String,
+    family: Option<String>,
+    face_key: Option<String>,
 ) -> Result<Option<(Vec<u8>, FontStorageMeta)>, String> {
-    let dir = font_storage_path(&app, &family)?;
+    let dir = match face_key {
+        Some(key) => face_storage_path(&app, &key)?,
+        None => find_font_storage_path(&app, family.as_deref().unwrap_or_default())?,
+    };
     if !dir.exists() {
         return Ok(None);
     }
@@ -207,7 +330,24 @@ pub fn load_font_from_filesystem(
 
     let data = std::fs::read(&font_path).map_err(|e| format!("Cannot read font file: {e}"))?;
 
-    Ok(Some((data, meta)))
+    let mut hasher = Sha256::new();
+    hasher.update(&data);
+    let actual: String = hasher
+        .finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect();
+    if actual != meta.sha256.to_lowercase() {
+        return Err("Stored font failed integrity verification".into());
+    }
+
+    Ok(Some((
+        data,
+        FontStorageMeta {
+            integrity: "verified".into(),
+            ..meta
+        },
+    )))
 }
 
 #[tauri::command]
@@ -226,7 +366,24 @@ pub fn list_filesystem_fonts(app: tauri::AppHandle) -> Result<Vec<FontStorageMet
                 continue;
             }
             if let Ok(content) = std::fs::read_to_string(&meta_path_buf) {
-                if let Ok(meta) = serde_json::from_str::<FontStorageMeta>(&content) {
+                if let Ok(mut meta) = serde_json::from_str::<FontStorageMeta>(&content) {
+                    let font_path = font_file_path(&path);
+                    if let Ok(data) = std::fs::read(&font_path) {
+                        let mut hasher = Sha256::new();
+                        hasher.update(&data);
+                        let actual: String = hasher
+                            .finalize()
+                            .iter()
+                            .map(|byte| format!("{byte:02x}"))
+                            .collect();
+                        meta.integrity = if actual == meta.sha256.to_lowercase() {
+                            "verified".into()
+                        } else {
+                            "corrupt".into()
+                        };
+                    } else {
+                        meta.integrity = "corrupt".into();
+                    }
                     results.push(meta);
                 }
             }
@@ -238,13 +395,46 @@ pub fn list_filesystem_fonts(app: tauri::AppHandle) -> Result<Vec<FontStorageMet
 }
 
 #[tauri::command]
-pub fn remove_font_from_filesystem(app: tauri::AppHandle, family: String) -> Result<bool, String> {
-    let dir = font_storage_path(&app, &family)?;
-    if !dir.exists() {
-        return Ok(false);
+pub fn remove_font_from_filesystem(
+    app: tauri::AppHandle,
+    family: Option<String>,
+    face_key: Option<String>,
+) -> Result<bool, String> {
+    if let Some(key) = face_key {
+        let dir = face_storage_path(&app, &key)?;
+        if !dir.exists() {
+            return Ok(false);
+        }
+        std::fs::remove_dir_all(&dir).map_err(|e| format!("Cannot remove font directory: {e}"))?;
+        return Ok(true);
     }
-    std::fs::remove_dir_all(&dir).map_err(|e| format!("Cannot remove font directory: {e}"))?;
-    Ok(true)
+
+    let family = family.as_deref().unwrap_or_default();
+    let root = font_dir(&app)?;
+    let mut matches = Vec::new();
+    for entry in std::fs::read_dir(&root).map_err(|e| format!("Cannot read font dir: {e}"))? {
+        let Ok(entry) = entry else { continue };
+        let path = entry.path();
+        let metadata_path = path.join("meta.json");
+        let Ok(content) = std::fs::read_to_string(metadata_path) else {
+            continue;
+        };
+        let Ok(meta) = serde_json::from_str::<FontStorageMeta>(&content) else {
+            continue;
+        };
+        if meta.family.eq_ignore_ascii_case(family) {
+            matches.push(path);
+        }
+    }
+    // Preserve compatibility with the pre-v2 family-addressed directory.
+    let legacy = font_storage_path(&app, family)?;
+    if legacy.exists() && !matches.iter().any(|path| path == &legacy) {
+        matches.push(legacy);
+    }
+    for path in &matches {
+        std::fs::remove_dir_all(path).map_err(|e| format!("Cannot remove font directory: {e}"))?;
+    }
+    Ok(!matches.is_empty())
 }
 
 #[tauri::command]
@@ -273,4 +463,30 @@ pub fn get_filesystem_font_storage_usage(app: tauri::AppHandle) -> Result<(u64, 
     }
 
     Ok((font_count, total_bytes))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{canonical_face_key, is_canonical_face_key};
+
+    const DIGEST: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
+    #[test]
+    fn accepts_canonical_single_and_collection_keys() {
+        assert!(is_canonical_face_key(&format!("sha256:{DIGEST}:single")));
+        assert!(is_canonical_face_key(&format!("sha256:{DIGEST}:3")));
+        assert!(!is_canonical_face_key(&format!("sha256:{DIGEST}:03")));
+        assert!(!is_canonical_face_key("family:Inter"));
+    }
+
+    #[test]
+    fn canonicalizes_supplied_digest_and_rejects_mismatches() {
+        let upper = DIGEST.to_uppercase();
+        assert_eq!(
+            canonical_face_key(&upper, Some(2), Some(format!("sha256:{upper}:2"))).unwrap(),
+            format!("sha256:{DIGEST}:2")
+        );
+        assert!(canonical_face_key(DIGEST, Some(2), Some(format!("sha256:{DIGEST}:1"))).is_err());
+        assert!(canonical_face_key(DIGEST, None, Some("sha256:bad:single".into())).is_err());
+    }
 }
