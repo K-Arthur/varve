@@ -594,6 +594,28 @@ export function createActionHandlers(
         e.announce('Plain text clipboard access is unavailable');
         return;
       }
+      const invocation = e.state;
+      const selected =
+        invocation.selection.length === 1
+          ? invocation.document.nodes[invocation.selection[0]!]
+          : undefined;
+      const targetParentId =
+        selected &&
+        !selected.locked &&
+        selected.visible !== false &&
+        (selected.kind === 'frame' || selected.kind === 'group')
+          ? selected.id
+          : null;
+      const canvas =
+        typeof document === 'undefined'
+          ? null
+          : document.querySelector<HTMLElement>('.editor-canvas');
+      const center = e.canvasToWorld
+        ? e.canvasToWorld(
+            (canvas?.clientWidth ?? window.innerWidth) / 2,
+            (canvas?.clientHeight ?? window.innerHeight - 120) / 2,
+          )
+        : undefined;
       void navigator.clipboard
         .readText()
         .then((text) => {
@@ -602,10 +624,21 @@ export function createActionHandlers(
             e.announce('The clipboard has no text');
             return;
           }
+          const current = e.state;
+          if (
+            current.document.id !== invocation.document.id ||
+            current.activeId !== invocation.activeId ||
+            current.revision !== invocation.revision ||
+            current.selectionRevision !== invocation.selectionRevision
+          ) {
+            e.announce('Plain text paste cancelled because the document changed');
+            return;
+          }
           e.commitPreparedFragment({
             route: 'paste',
             items: [],
-            targetParentId: null,
+            targetParentId,
+            ...(center ? { center } : {}),
             text: { plainText: value },
           });
           e.announce('Pasted plain text');

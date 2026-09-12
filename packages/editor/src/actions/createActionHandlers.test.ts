@@ -151,13 +151,24 @@ describe('createActionHandlers — clipboard dialogs', () => {
       value: { readText },
     });
     try {
-      const editor = makeEditorMock({ commitPreparedFragment });
+      const editor = makeEditorMock({
+        state: {
+          selection: [],
+          document: createDocument('plain text'),
+          activeId: 'plain-text',
+          revision: 0,
+          selectionRevision: 0,
+        } as EditorContextValue['state'],
+        canvasToWorld: vi.fn(() => ({ x: 0, y: 0 })),
+        commitPreparedFragment,
+      });
       createActionHandlers(editor).pastePlainText?.();
       await vi.waitFor(() => expect(commitPreparedFragment).toHaveBeenCalledTimes(1));
       expect(commitPreparedFragment).toHaveBeenCalledWith({
         route: 'paste',
         items: [],
         targetParentId: null,
+        center: { x: 0, y: 0 },
         text: { plainText: 'Editable clipboard text' },
       });
     } finally {
