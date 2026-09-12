@@ -763,20 +763,6 @@ function insertImportedSubtree(
     .map((id) => cloned.idMap.get(id))
     .filter((id): id is NodeId => Boolean(id));
   const nodes = { ...cloned.nodes, [cloned.rootId]: adjustRoot(root) };
-
-  // Merge both asset tables from the source document into the target.
-  // Cloned nodes retain their assetIds, so the referenced image bytes and
-  // raster masks must travel with imported or clipboard-cloned subtrees.
-  const mergedRasterAssets = sourceDoc.rasterMaskAssets
-    ? { ...(targetDoc.rasterMaskAssets ?? {}), ...sourceDoc.rasterMaskAssets }
-    : targetDoc.rasterMaskAssets;
-  const mergedImageAssets = sourceDoc.assets
-    ? { ...(targetDoc.assets ?? {}), ...sourceDoc.assets }
-    : targetDoc.assets;
-  const mergedIconAssets = sourceDoc.iconAssets
-    ? { ...(targetDoc.iconAssets ?? {}), ...sourceDoc.iconAssets }
-    : targetDoc.iconAssets;
-
   // Design workspace imports belong to the active Design Canvas. Print
   // workspace imports belong to the active publishing Page. Adding directly
   // to rootChildren would bypass either scoped renderer and make the layer
@@ -805,11 +791,6 @@ function insertImportedSubtree(
           ...nodes,
           [contentRootId]: updatedContentRoot,
         },
-        ...(mergedRasterAssets !== targetDoc.rasterMaskAssets
-          ? { rasterMaskAssets: mergedRasterAssets }
-          : {}),
-        ...(mergedImageAssets !== targetDoc.assets ? { assets: mergedImageAssets } : {}),
-        ...(mergedIconAssets !== targetDoc.iconAssets ? { iconAssets: mergedIconAssets } : {}),
       },
     };
   }
@@ -823,11 +804,6 @@ function insertImportedSubtree(
       nextId: cloned.nextId,
       rootChildren: [...targetDoc.rootChildren, ...clonedRootIds],
       nodes: { ...targetDoc.nodes, ...nodes },
-      ...(mergedRasterAssets !== targetDoc.rasterMaskAssets
-        ? { rasterMaskAssets: mergedRasterAssets }
-        : {}),
-      ...(mergedImageAssets !== targetDoc.assets ? { assets: mergedImageAssets } : {}),
-      ...(mergedIconAssets !== targetDoc.iconAssets ? { iconAssets: mergedIconAssets } : {}),
     },
   };
 }
