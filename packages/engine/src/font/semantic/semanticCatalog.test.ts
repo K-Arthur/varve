@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { FontRegistry } from '../../fontRegistry';
 import type { FontsourceCatalogRecord } from '../catalogSchema';
 import type { FontCatalogEntry } from '../fontCatalog';
 import { FontSemanticCatalog, migrateLegacyFontCatalogTags } from './semanticCatalog';
@@ -85,5 +86,23 @@ describe('FontSemanticCatalog legacy migration', () => {
     expect(catalog.findByFamilyName('Inter')?.profile).toEqual(
       expect.objectContaining({ schemaVersion: 1 }),
     );
+  });
+
+  it('keeps a literal family query ahead of semantic-word constraints', () => {
+    const catalog = new FontSemanticCatalog({
+      fontsource: [],
+      registry: new FontRegistry([
+        { family: 'IBM Plex Sans Variable', weight: 400, style: 'normal', source: 'bundled' },
+        { family: 'Inter', weight: 400, style: 'normal', source: 'system' },
+      ]),
+    });
+
+    const result = catalog.search('IBM Plex Sans Variable', {
+      installedOnly: true,
+      diversity: false,
+    });
+
+    expect(result[0]?.record.familyName).toBe('IBM Plex Sans Variable');
+    expect(result[0]?.reasons[0]?.kind).toBe('exact-match');
   });
 });

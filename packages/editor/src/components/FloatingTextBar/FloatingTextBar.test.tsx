@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { TextNode } from '@varve/scene';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fontFamilyChanges } from '../Typography/fontWeight';
 import { FloatingTextBar, type FloatingTextBarProps } from './FloatingTextBar';
 
 vi.mock('@floating-ui/dom', () => ({
@@ -264,6 +265,13 @@ describe('FloatingTextBar', () => {
     // FontSelector uses a combobox pattern
     const fontInput = screen.getByRole('combobox', { name: 'Font family' });
     expect(fontInput).toBeInTheDocument();
+  });
+
+  it('clears an older exact face for a family-only choice', () => {
+    expect(fontFamilyChanges('IBM Plex Sans Variable')).toEqual({
+      fontFamily: 'IBM Plex Sans Variable',
+      fontReference: undefined,
+    });
   });
 
   it('calls onUpdate with font weight on select change', async () => {

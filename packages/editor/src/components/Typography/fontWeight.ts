@@ -2,6 +2,11 @@ import { getFontRegistry } from '@varve/engine';
 import type { TextNode } from '@varve/scene';
 import { DEFAULT_ARTWORK_FONT_FAMILY } from '@varve/shared';
 
+/** A family-only choice must not retain a reference to a different artifact. */
+export function fontFamilyChanges(family: string | undefined): Partial<TextNode> {
+  return { fontFamily: family, fontReference: undefined };
+}
+
 /**
  * Apply the authored weight to a text node while keeping a declared weight
  * axis in sync. Other variation axes belong to the author and are retained.

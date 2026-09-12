@@ -206,11 +206,42 @@ export class FontSemanticCatalog {
     const installed = options.installedOnly
       ? filtered.filter((record) => record.installed)
       : filtered;
-    return searchFontSemanticRecords(installed, query, {
+    const ranked = searchFontSemanticRecords(installed, query, {
       limit: options.limit,
       strictness: options.strictness,
       diversity: options.diversity,
     });
+
+    // A family name can contain semantic words such as “sans” or “variable”.
+    // The structured parser quite correctly interprets those words as
+    // constraints, but a picker search must still make an exact family typed
+    // by the user win over unrelated records that happen to satisfy them.
+    const literal = normalize(typeof query === 'string' ? query : query.text);
+    if (!literal) return ranked;
+    const direct = installed
+      .filter(
+        (record) =>
+          normalize(record.familyName) === literal ||
+          record.aliases.some((alias) => normalize(alias) === literal),
+      )
+      .map((record) => ({
+        record,
+        score: Number.MAX_SAFE_INTEGER,
+        reasons: [
+          {
+            kind: 'exact-match' as const,
+            label: 'Exact family match',
+            contribution: Number.MAX_SAFE_INTEGER,
+          },
+        ],
+        unknownRequired: [],
+        excludedMatches: [],
+        status: 'match' as const,
+      }));
+    if (direct.length === 0) return ranked;
+    const directIds = new Set(direct.map(({ record }) => record.familyId));
+    const merged = [...direct, ...ranked.filter(({ record }) => !directIds.has(record.familyId))];
+    return options.limit === undefined ? merged : merged.slice(0, Math.max(0, options.limit));
   }
 
   upsertParsedFont(metadata: ParsedFontMetadata): FontSemanticRecord {

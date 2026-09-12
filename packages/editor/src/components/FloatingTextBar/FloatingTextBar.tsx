@@ -14,7 +14,7 @@ import {
 } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FontSelector } from '../FontBrowser/FontSelector';
-import { fontWeightChanges } from '../Typography/fontWeight';
+import { fontFamilyChanges, fontWeightChanges } from '../Typography/fontWeight';
 import './FloatingTextBar.css';
 
 export interface FloatingTextBarProps {
@@ -72,7 +72,7 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
 
   const handleFontFamilyChange = useCallback(
     (value: string) => {
-      onUpdate(node.id, { fontFamily: value });
+      onUpdate(node.id, fontFamilyChanges(value));
     },
     [node, onUpdate],
   );

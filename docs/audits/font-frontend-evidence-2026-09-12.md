@@ -30,6 +30,11 @@ browser and native stores can be validated without a mounted editor surface.
   canonical `fontReference` together; applying a family row clears an older
   exact reference instead of carrying it into a different face. This landed in
   `40cabdd2b`.
+- The compact combobox now treats a literal family name as an exact result even
+  when words such as “sans” or “variable” are also semantic tags. Its portaled
+  virtual list mounts a bounded first-paint fallback until the viewport reports
+  a measured range, so opening the toolbar cannot show an empty menu or point
+  `aria-activedescendant` at an unmounted option.
 
 ## Focused validation
 
@@ -41,6 +46,7 @@ Commands run:
 ./node_modules/.bin/vitest run packages/editor/src/components/FloatingTextBar/FloatingTextBar.test.tsx --config vitest.config.ts --reporter=verbose
 ./node_modules/.bin/vitest run packages/editor/src/components/FontBrowser/FontBrowser.test.tsx --config vitest.config.ts --pool=threads --maxWorkers=1 --reporter=verbose
 ./node_modules/.bin/vitest run packages/editor/src/components/FontBrowser/FontBrowser.test.tsx packages/editor/src/components/FloatingTextBar/FloatingTextBar.test.tsx packages/editor/src/components/Inspector/sections/__tests__/VariableAxes.test.tsx --config vitest.config.ts --pool=threads --maxWorkers=1 --reporter=dot
+./node_modules/.bin/vitest run packages/engine/src/font/semantic/semanticCatalog.test.ts packages/editor/src/components/FloatingTextBar/FloatingTextBar.test.tsx packages/editor/src/components/FontBrowser/FontSelector.test.tsx --config vitest.config.ts --pool=threads --maxWorkers=1 --reporter=dot
 ./node_modules/.bin/tsc -p packages/engine/tsconfig.json --noEmit
 pnpm audit:docs
 pnpm audit:emoji
@@ -54,6 +60,8 @@ part of the affected work and remains blocked by unrelated concurrent edits in
 `PositionSizeSection`, `StorageSettingsTab`, and `WorkspaceTabs`.
 The face-selection regression and its neighboring typography controls pass
 **24/24** in the focused combined run (the browser face assertion is included).
+The compact literal-search and first-paint fallback checks pass **37/37** in
+the follow-up run.
 
 ## Visual inspection
 

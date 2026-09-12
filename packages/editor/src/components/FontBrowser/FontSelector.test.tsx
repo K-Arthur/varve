@@ -58,6 +58,17 @@ describe('FontSelector', () => {
     document.removeEventListener('keydown', onDocumentKeyDown);
   });
 
+  it('keeps literal family options mounted before the portaled viewport is measured', async () => {
+    render(<FontSelector value="Inter" onChange={() => {}} />);
+    const input = screen.getByRole('combobox', { name: 'Font family' });
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: 'IBM Plex Sans Variable' } });
+
+    expect(
+      await screen.findByRole('option', { name: /IBM Plex Sans Variable/ }),
+    ).toBeInTheDocument();
+  });
+
   it('keeps a 60-character family name intact and labelled', () => {
     // Regression guard for the inspector truncation audit: a long family
     // name must not be truncated in the data layer (the input scrolls, it

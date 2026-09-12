@@ -180,6 +180,39 @@ export function FontSelector({
     },
   });
 
+  // Portaled listboxes can render once before their scroll viewport has a
+  // measurable client height (jsdom and the first animation frame both do
+  // this). Keep a bounded set of rows mounted so the menu never appears empty
+  // and aria-activedescendant always points at a real option. Once the viewport
+  // reports a range, the normal virtualizer owns the list again.
+  const virtualItems = virtualizer.getVirtualItems();
+  const fallbackVirtualItems = useMemo(() => {
+    const indexes = new Set<number>();
+    for (let index = 0; index < Math.min(rows.length, 120); index += 1) indexes.add(index);
+    const activeRow = rows.findIndex(
+      (row) => row.kind === 'font' && row.index === highlightedIndex,
+    );
+    if (activeRow >= 0) indexes.add(activeRow);
+    let cursor = 0;
+    return [...indexes]
+      .sort((a, b) => a - b)
+      .map((index) => {
+        const size = rows[index]?.kind === 'section' ? 24 : 32;
+        const item = {
+          index,
+          key: rows[index]?.key ?? index,
+          start: cursor,
+          size,
+          end: cursor + size,
+          lane: 0,
+        };
+        cursor += size;
+        return item;
+      });
+  }, [highlightedIndex, rows]);
+  const renderedVirtualItems = virtualItems.length > 0 ? virtualItems : fallbackVirtualItems;
+  const contentHeight = Math.max(virtualizer.getTotalSize(), fallbackVirtualItems.at(-1)?.end ?? 0);
+
   const scrollToFontIndex = useCallback(
     (index: number) => {
       const rowIndex = rows.findIndex((row) => row.kind === 'font' && row.index === index);
@@ -328,11 +361,8 @@ export function FontSelector({
             aria-label="Font families"
           >
             {flatList.length > 0 && (
-              <div
-                className="font-selector__virtual-content"
-                style={{ height: virtualizer.getTotalSize() }}
-              >
-                {virtualizer.getVirtualItems().map((virtualRow) => {
+              <div className="font-selector__virtual-content" style={{ height: contentHeight }}>
+                {renderedVirtualItems.map((virtualRow) => {
                   const row = rows[virtualRow.index];
                   if (!row) return null;
                   const rowStyle = {
