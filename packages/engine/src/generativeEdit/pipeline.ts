@@ -3,6 +3,7 @@ import { compositeFillResult, extractBoundedContext } from '../contentAwareFill/
 import { prepareDiffusionFrame } from './diffusionFrame';
 import { NATIVE_GENERATIVE_MODEL_PROFILE } from './nativeModel';
 import { nativeGenerativeProvider } from './nativeProvider';
+import { assessGenerativeEditResources, getGenerativeEditResourceProfile } from './resourcePolicy';
 import {
   type GenerativeEditCapabilities,
   type GenerativeEditCapabilityParameter,
@@ -42,6 +43,7 @@ function modeCapabilities(
 
 function localCapabilities(): GenerativeEditCapabilities {
   const promptCapable = nativeGenerativeProvider.isAvailable();
+  const resourceProfile = getGenerativeEditResourceProfile();
   const reconstructionParameters: readonly GenerativeEditCapabilityParameter[] = [
     'seed',
     'contextPadding',
@@ -107,6 +109,7 @@ function localCapabilities(): GenerativeEditCapabilities {
         reason: unavailablePromptReason,
       }),
     },
+    resourceProfile,
     ...(promptCapable ? {} : { reason: unavailablePromptReason }),
   };
 }
@@ -204,10 +207,26 @@ export async function runGenerativeEdit(
   if (request.mode === 'remove' && request.prompt?.trim()) {
     warnings.push('Remove is reconstruction-based and does not use prompts.');
   }
-  if (
-    (request.mode === 'replace' || request.mode === 'expand' || promptRequested) &&
-    nativeGenerativeProvider.isAvailable()
-  ) {
+  const requiresDiffusion =
+    request.mode === 'replace' ||
+    request.mode === 'expand' ||
+    (request.mode === 'fill' && promptRequested);
+  const resourceAssessment = assessGenerativeEditResources({
+    mode: request.mode,
+    width: request.imageData.width,
+    height: request.imageData.height,
+    outputWidth: request.outputWidth,
+    outputHeight: request.outputHeight,
+    quality: request.quality,
+    requiresDiffusion,
+  });
+  if (!resourceAssessment.allowed) {
+    throw new GenerativeEditError(
+      resourceAssessment.reasonCode ?? 'insufficient-memory',
+      resourceAssessment.reason ?? 'The requested local model does not fit this device safely.',
+    );
+  }
+  if (requiresDiffusion && nativeGenerativeProvider.isAvailable()) {
     const context = extractBoundedContext(
       request.imageData,
       request.mask,

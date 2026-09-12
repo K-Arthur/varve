@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  assessGenerativeEditResources,
   GenerativeEditError,
   GenerativeJobController,
   getGenerativeEditCapabilities,
@@ -57,6 +58,50 @@ describe('generative edit capabilities', () => {
       expect.arrayContaining(['contextPadding', 'maskExpansion', 'feather']),
     );
     expect(capabilities.modes.remove.limits.maxVariations).toBe(1);
+    expect(capabilities.resourceProfile).toEqual(
+      expect.objectContaining({
+        executionBackend: expect.any(String),
+        tier: expect.any(String),
+      }),
+    );
+  });
+
+  it('refuses a browser model request when its safe peak budget is too small', () => {
+    const assessment = assessGenerativeEditResources({
+      mode: 'fill',
+      width: 512,
+      height: 512,
+      quality: 'quality',
+      requiresDiffusion: false,
+      profile: {
+        tier: 'constrained',
+        executionBackend: 'wasm',
+        safePeakBytes: 100 * 1024 * 1024,
+        summary: 'test',
+      },
+    });
+    expect(assessment).toMatchObject({
+      allowed: false,
+      reasonCode: 'insufficient-memory',
+      fallback: 'quick-cleanup',
+    });
+  });
+
+  it('leaves native requests to the authoritative desktop preflight', () => {
+    const assessment = assessGenerativeEditResources({
+      mode: 'replace',
+      width: 512,
+      height: 512,
+      quality: 'quality',
+      requiresDiffusion: true,
+      profile: {
+        tier: 'unknown',
+        executionBackend: 'native',
+        summary: 'native test',
+      },
+    });
+    expect(assessment.allowed).toBe(true);
+    expect(assessment.estimatedPeakBytes).toBeGreaterThan(6 * 1024 ** 3);
   });
 
   it('rejects prompt-only modes until a verified provider exists', async () => {

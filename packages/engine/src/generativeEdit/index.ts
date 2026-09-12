@@ -18,11 +18,16 @@ export {
 } from './nativeModel';
 export { getGenerativeEditCapabilities, runGenerativeEdit } from './pipeline';
 export {
+  assessGenerativeEditResources,
+  getGenerativeEditResourceProfile,
+} from './resourcePolicy';
+export {
   type GenerativeEditCapabilities,
   type GenerativeEditCapabilityParameter,
   type GenerativeEditCapabilityReasonCode,
   GenerativeEditError,
   type GenerativeEditErrorCode,
+  type GenerativeEditExecutionBackend,
   type GenerativeEditMode,
   type GenerativeEditModeCapabilities,
   type GenerativeEditProgress,
@@ -30,6 +35,8 @@ export {
   type GenerativeEditProviderKind,
   type GenerativeEditQuality,
   type GenerativeEditRequest,
+  type GenerativeEditResourceProfile,
+  type GenerativeEditResourceTier,
   type GenerativeEditResult,
   type GenerativeEditRuntime,
 } from './types';

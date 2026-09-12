@@ -11,6 +11,26 @@ export type GenerativeEditRuntime =
   | 'native-accelerated'
   | 'remote';
 
+export type GenerativeEditResourceTier = 'constrained' | 'standard' | 'high' | 'unknown';
+export type GenerativeEditExecutionBackend = 'native' | 'webgpu' | 'wasm' | 'unknown';
+
+export interface GenerativeEditResourceProfile {
+  /** Conservative device tier used for local preflight and UI copy. */
+  tier: GenerativeEditResourceTier;
+  /** Best-known execution family; this is not a quality qualification. */
+  executionBackend: GenerativeEditExecutionBackend;
+  /** Runtime-reported architecture when one is available. */
+  architecture?: string;
+  /** Browser device-memory hint, when the platform exposes one. */
+  approximateMemoryBytes?: number;
+  /** Conservative safe peak for browser/WASM inference, when known. */
+  safePeakBytes?: number;
+  /** Conservative safe model-file budget for browser/WASM inference. */
+  safeModelBytes?: number;
+  /** Honest explanation suitable for the setup/status surface. */
+  summary: string;
+}
+
 export interface GenerativeEditProvider {
   kind: GenerativeEditProviderKind;
   id: string;
@@ -36,6 +56,7 @@ export type GenerativeEditCapabilityReasonCode =
   | 'runtime-unavailable'
   | 'model-required'
   | 'model-unqualified'
+  | 'insufficient-memory'
   | 'prompt-unavailable'
   | 'remote-unconfigured';
 
@@ -65,6 +86,7 @@ export interface GenerativeEditCapabilities {
   prompt: boolean;
   variations: boolean;
   modes: Record<GenerativeEditMode, GenerativeEditModeCapabilities>;
+  resourceProfile: GenerativeEditResourceProfile;
   reason?: string;
 }
 
