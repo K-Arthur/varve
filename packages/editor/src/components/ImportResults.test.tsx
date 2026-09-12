@@ -65,7 +65,9 @@ describe('ImportResults', () => {
       failureCount: 0,
       unsupportedCount: 0,
       files: [],
-      warnings: ['one fidelity change'],
+      warnings: [
+        { code: 'fidelity-change', message: 'one fidelity change', severity: 'warning' as const },
+      ],
       insertedCount: 2,
       committedRootIds: ['n1', 'n2'],
       documentId: 'doc-1',

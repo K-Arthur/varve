@@ -24,7 +24,8 @@ interface ContextShortcut {
 }
 
 export function ContextAwareShortcuts() {
-  const { state, setTool, groupSelected, ungroupSelected } = useEditor();
+  const { state, setTool, groupSelected, ungroupSelected, removeBackground, openVectorizeDialog } =
+    useEditor();
   const sel = state.selection;
   const doc = state.document;
 
@@ -75,14 +76,18 @@ export function ContextAwareShortcuts() {
             label: 'Remove BG',
             key: 'B',
             tooltip: 'Remove background using on-device ML (B)',
-            action: () => setTool('removeBg'),
+            action: () => {
+              void removeBackground('ai-balanced');
+            },
           },
           {
             id: 'trace',
             label: 'Vectorize',
             key: 'Alt+V',
             tooltip: 'Convert raster to vector paths (Alt+V)',
-            action: () => setTool('vectorize'),
+            action: () => {
+              openVectorizeDialog();
+            },
           },
         ];
       }

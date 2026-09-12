@@ -84,7 +84,7 @@ describe('createActionHandlers — clipboard dialogs', () => {
       revision: 0,
       selectionRevision: 0,
     } as unknown as EditorContextValue['state'];
-    const editor = makeEditorMock({ state: initialState, onCopyAsPng });
+    const editor = makeEditorMock({ state: initialState });
 
     createActionHandlers(editor, { onCopyAsPng }).copyAsPng?.();
     editor.state = { ...initialState, selection: [] };
