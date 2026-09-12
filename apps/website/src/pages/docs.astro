@@ -24,6 +24,28 @@ import { sitePath } from '../lib/siteUrl';
         </div>
 
         <div class="docs-card site-card site-card--surface">
+          <h2>Reference</h2>
+          <p>Quick reference for keyboard shortcuts and settings</p>
+          <ul>
+            <li><a href={sitePath('/docs/keyboard-shortcuts')}>Keyboard Shortcuts</a></li>
+            <li><a href={sitePath('/docs/settings')}>Settings & Preferences</a></li>
+            <li><a href={sitePath('/docs/updates')}>Updates</a></li>
+            <li><a href={sitePath('/docs/file-formats')}>File Formats</a></li>
+          </ul>
+        </div>
+
+        <div class="docs-card site-card site-card--surface">
+          <h2>Technical</h2>
+          <p>Architecture and technical documentation</p>
+          <ul>
+            <li><a href={sitePath('/docs/architecture')}>Architecture Overview</a></li>
+            <li><a href={sitePath('/docs/rendering')}>Rendering Pipeline</a></li>
+            <li><a href={sitePath('/docs/development-workflow')}>Development Workflow</a></li>
+            <li><a href="https://github.com/K-Arthur/varve/blob/main/AGENTS.md">Development Guide (AGENTS.md)</a></li>
+          </ul>
+        </div>
+
+        <div class="docs-card docs-card--wide site-card site-card--surface">
           <h2>Tools & Features</h2>
           <p>Comprehensive guide to all tools and capabilities</p>
           <ul>
@@ -47,39 +69,17 @@ import { sitePath } from '../lib/siteUrl';
             <li><a href={sitePath('/docs/workspaces')}>Workspaces</a></li>
           </ul>
         </div>
-
-        <div class="docs-card site-card site-card--surface">
-          <h2>Reference</h2>
-          <p>Quick reference for keyboard shortcuts and settings</p>
-          <ul>
-            <li><a href={sitePath('/docs/keyboard-shortcuts')}>Keyboard Shortcuts</a></li>
-            <li><a href={sitePath('/docs/settings')}>Settings & Preferences</a></li>
-            <li><a href={sitePath('/docs/updates')}>Updates</a></li>
-            <li><a href={sitePath('/docs/file-formats')}>File Formats</a></li>
-          </ul>
-        </div>
-
-        <div class="docs-card site-card site-card--surface">
-          <h2>Technical</h2>
-          <p>Architecture and technical documentation</p>
-          <ul>
-            <li><a href={sitePath('/docs/architecture')}>Architecture Overview</a></li>
-            <li><a href={sitePath('/docs/rendering')}>Rendering Pipeline</a></li>
-            <li><a href={sitePath('/docs/development-workflow')}>Development Workflow</a></li>
-            <li><a href="https://github.com/K-Arthur/varve/blob/main/AGENTS.md">Development Guide (AGENTS.md)</a></li>
-          </ul>
-        </div>
       </div>
 
       <div class="docs-note">
         <h3>Documentation Status</h3>
         <p>
-          Documentation is being actively developed. For the most up-to-date information, see the 
-          <a href="https://github.com/K-Arthur/varve">GitHub repository</a> and 
+          Documentation is being actively developed. For the most up-to-date information, see the{' '}
+          <a href="https://github.com/K-Arthur/varve">GitHub repository</a> and{' '}
           <a href="https://github.com/K-Arthur/varve/discussions">GitHub Discussions</a>.
         </p>
         <p>
-          Want to help improve documentation? See the 
+          Want to help improve documentation? See the{' '}
           <a href={sitePath('/contribute')}>contribution guidelines</a>.
         </p>
       </div>
@@ -104,9 +104,39 @@ import { sitePath } from '../lib/siteUrl';
   
   .docs-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+    /* Three short reference cards, then the full-width tools catalogue. */
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--space-6);
     margin-bottom: 3rem;
+    /* Cards size to their own content. The old stretch behaviour turned the
+       three-link Getting Started card into a mostly-empty 400px box beside
+       the long Tools & Features list. */
+    align-items: start;
+  }
+
+  /* The long tools catalogue spans the full grid width and flows its links
+     into columns, so every card stays close to its natural height. */
+  .docs-card--wide {
+    grid-column: 1 / -1;
+  }
+
+  .docs-card--wide ul {
+    columns: 3;
+    column-gap: var(--space-6);
+  }
+
+  .docs-card--wide li {
+    break-inside: avoid;
+  }
+
+  @media (max-width: 760px) {
+    .docs-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .docs-card--wide ul {
+      columns: 1;
+    }
   }
   
   .docs-card {
