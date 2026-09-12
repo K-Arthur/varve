@@ -15,7 +15,28 @@ import {
   viewportPoint,
   virtualPointReference,
   virtualRangeReference,
+  visualViewportClampRect,
 } from './overlayGeometry';
+
+function withVisualViewport<T>(
+  value:
+    | { width: number; height: number; offsetTop: number; offsetLeft: number; scale: number }
+    | undefined,
+  run: () => T,
+): T {
+  const original = Object.getOwnPropertyDescriptor(window, 'visualViewport');
+  Object.defineProperty(window, 'visualViewport', {
+    configurable: true,
+    writable: true,
+    value,
+  });
+  try {
+    return run();
+  } finally {
+    if (original) Object.defineProperty(window, 'visualViewport', original);
+    else Reflect.deleteProperty(window, 'visualViewport');
+  }
+}
 
 describe('overlay geometry contracts', () => {
   it('tags client coordinates as viewport coordinates', () => {
@@ -114,5 +135,34 @@ describe('overlay geometry contracts', () => {
       expect(safe.right).toBeGreaterThanOrEqual(safe.left);
       expect(safe.bottom).toBeGreaterThanOrEqual(safe.top);
     }
+  });
+
+  it('falls back to the layout viewport when visualViewport is unavailable', () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 });
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 768 });
+    const rect = visualViewportClampRect(document, 8);
+    expect(rect.width).toBe(1008);
+    expect(rect.height).toBe(752);
+  });
+
+  it('constrains to the visual viewport when the keyboard shrinks it', () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 });
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 768 });
+    withVisualViewport({ width: 1024, height: 420, offsetTop: 0, offsetLeft: 0, scale: 1 }, () => {
+      const rect = visualViewportClampRect(document, 8);
+      expect(rect.width).toBe(1008);
+      expect(rect.height).toBe(404);
+      expect(rect.bottom).toBe(412);
+    });
+  });
+
+  it('keeps the layout fallback while the page is pinch-zoomed', () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 });
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 768 });
+    withVisualViewport({ width: 512, height: 384, offsetTop: 40, offsetLeft: 30, scale: 2 }, () => {
+      const rect = visualViewportClampRect(document, 8);
+      expect(rect.width).toBe(1008);
+      expect(rect.bottom).toBe(760);
+    });
   });
 });

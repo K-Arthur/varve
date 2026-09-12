@@ -21,6 +21,7 @@ export {
   type DirtyMergeResult,
   mergeDirtyRects,
 } from './canvas/dirtyRegionMerge';
+export { KeyboardInsetPublisher } from './canvas/useKeyboardInset';
 export type {
   CapabilityRestrictions,
   RestrictedCapability,

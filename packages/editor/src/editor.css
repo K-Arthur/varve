@@ -2155,7 +2155,7 @@ input[type="number"] {
 /* ── Floating action buttons ── */
 .editor__fab {
   position: fixed;
-  bottom: var(--space-6);
+  bottom: calc(var(--space-6) + var(--keyboard-inset-bottom, 0px));
   z-index: var(--z-raised);
   width: var(--space-9);
   height: var(--space-9);
@@ -2177,8 +2177,9 @@ input[type="number"] {
     display: flex;
     /* Keep the responsive panel controls above the fixed-height status bar.
        At compact heights the old 24px offset put the FABs over save/zoom
-       state, making those single-user controls unreadable. */
-    bottom: calc(28px + var(--space-3));
+       state, making those single-user controls unreadable. The keyboard inset
+       lifts them above the on-screen keyboard while it is open. */
+    bottom: calc(28px + var(--space-3) + var(--keyboard-inset-bottom, 0px));
   }
 }
 /* At phone widths the horizontally-scrollable tool strip occupies the same
@@ -2231,7 +2232,7 @@ input[type="number"] {
     display: none;
   }
   .editor__fab {
-    bottom: calc(28px + var(--space-3) + 52px);
+    bottom: calc(28px + var(--space-3) + 52px + var(--keyboard-inset-bottom, 0px));
   }
 }
 .editor__fab--layers {

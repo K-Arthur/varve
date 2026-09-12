@@ -44,6 +44,7 @@ import {
   safeViewportRect,
   virtualPointReference,
   virtualRangeReference,
+  visualViewportClampRect,
 } from './overlayGeometry';
 
 const SAFE_VIEWPORT_PADDING = 8;
@@ -417,10 +418,42 @@ export function FloatingPortal({
               (result.middlewareData.hide as { referenceHidden?: boolean } | undefined)
                 ?.referenceHidden,
             );
+          // Floating UI constrains to the layout viewport. The visual viewport
+          // is the region actually visible when the on-screen keyboard is
+          // open, so clamp the computed position into it as a final step and
+          // cap the height when the popover is taller than the visible region.
+          const clampRect = visualViewportClampRect(ownerDocument, SAFE_VIEWPORT_PADDING);
+          const floatingRect = floating.getBoundingClientRect();
+          let positionedX = result.x;
+          let positionedY = result.y;
+          let visualMaxHeight: number | undefined;
+          if (clampRect.width > 0 && clampRect.height > 0) {
+            const clampedHeight = Math.min(floatingRect.height, clampRect.height);
+            positionedX = Math.min(
+              Math.max(result.x, clampRect.left),
+              Math.max(clampRect.left, clampRect.right - floatingRect.width),
+            );
+            positionedY = Math.min(
+              Math.max(result.y, clampRect.top),
+              Math.max(clampRect.top, clampRect.bottom - clampedHeight),
+            );
+            if (floatingRect.height > clampRect.height) {
+              visualMaxHeight = clampRect.height;
+            }
+          }
+          const sizeMiddlewareMaxHeight = floating.style.maxHeight
+            ? Number.parseFloat(floating.style.maxHeight)
+            : undefined;
+          const resolvedMaxHeight =
+            visualMaxHeight !== undefined
+              ? sizeMiddlewareMaxHeight !== undefined
+                ? Math.min(visualMaxHeight, sizeMiddlewareMaxHeight)
+                : visualMaxHeight
+              : sizeMiddlewareMaxHeight;
           const nextStyle: CSSProperties = {
             position: 'fixed',
-            left: result.x,
-            top: result.y,
+            left: positionedX,
+            top: positionedY,
             boxSizing: 'border-box',
             // The size middleware writes collision constraints directly to
             // the floating node before this position update resolves. Keep
@@ -428,7 +461,7 @@ export function FloatingPortal({
             // otherwise React removes max-height/overflow on the next render
             // and tall context menus can extend below the viewport.
             maxWidth: floating.style.maxWidth || undefined,
-            maxHeight: floating.style.maxHeight || undefined,
+            maxHeight: resolvedMaxHeight === undefined ? undefined : resolvedMaxHeight,
             overflowY: (floating.style.overflowY || undefined) as CSSProperties['overflowY'],
             visibility: hiddenByReference ? 'hidden' : 'visible',
             pointerEvents: hiddenByReference ? 'none' : 'auto',
@@ -436,8 +469,8 @@ export function FloatingPortal({
           };
           setPosStyle(nextStyle);
           positionRef.current?.({
-            x: result.x,
-            y: result.y,
+            x: positionedX,
+            y: positionedY,
             placement: result.placement,
             middlewareData: result.middlewareData as Record<string, unknown>,
           });

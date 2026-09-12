@@ -542,8 +542,12 @@
      ANY author `display` declaration overrides that UA rule regardless of
      specificity. Unscoped `display: flex` would leave a closed (but
      always-mounted) dialog visible and intercepting pointer events — the
-     same trap documented for .varve-dialog--settings in editor.css. */
-  max-height: min(calc(100vh - 2rem), 42rem);
+     same trap documented for .varve-dialog--settings in editor.css.
+
+     Height uses the published visual viewport (shrinks for the on-screen
+     keyboard) with `dvh` as the no-JS fallback, so the footer stays
+     reachable while editing with the keyboard open. */
+  max-height: min(calc(var(--visual-viewport-height, 100dvh) - 2rem), 42rem);
 }
 .varve-dialog[open] {
   display: flex;
@@ -552,7 +556,7 @@
 .varve-dialog--lg {
   width: min(92vw, 52rem);
   max-width: min(92vw, 52rem);
-  max-height: min(calc(100vh - 2rem), 46rem);
+  max-height: min(calc(var(--visual-viewport-height, 100dvh) - 2rem), 46rem);
 }
 .varve-dialog::backdrop {
   background: var(--elevation-scrim);
@@ -1658,7 +1662,7 @@
 
 .varve-toast-container {
   position: fixed;
-  bottom: calc(var(--statusbar-height) + var(--space-3));
+  bottom: calc(var(--statusbar-height) + var(--space-3) + var(--keyboard-inset-bottom, 0px));
   right: max(var(--space-4), calc(var(--inspector-width) + var(--space-4)));
   z-index: var(--z-toast);
   pointer-events: none;
@@ -1670,7 +1674,7 @@
   flex-direction: column;
   align-items: stretch;
   gap: var(--space-2);
-  max-height: min(32rem, calc(100vh - var(--space-8)));
+  max-height: min(32rem, calc(var(--visual-viewport-height, 100vh) - var(--space-8)));
   overflow-y: auto;
   overscroll-behavior: contain;
   pointer-events: auto;
@@ -1679,7 +1683,7 @@
   .varve-toast-container {
     left: var(--space-4);
     right: var(--space-4);
-    bottom: calc(var(--statusbar-height) + var(--space-3));
+    bottom: calc(var(--statusbar-height) + var(--space-3) + var(--keyboard-inset-bottom, 0px));
     max-width: none;
   }
 }

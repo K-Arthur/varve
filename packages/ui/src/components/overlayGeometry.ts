@@ -211,6 +211,43 @@ export function safeViewportRect(ownerDocument: Document, padding = 8): SafeView
   };
 }
 
+/**
+ * The on-screen keyboard shrinks the visual viewport without changing the
+ * layout viewport, so layout-viewport clamps place popovers under the
+ * keyboard. This returns the visible region for post-placement clamping.
+ *
+ * Scope: only the unzoomed case (`scale` ~ 1, page-level pinch excluded).
+ * Under pinch zoom the coordinate space of `getBoundingClientRect` versus
+ * `VisualViewport` offsets is browser-defined enough that clamping could
+ * misfire; the layout viewport remains the fallback there, and the visual
+ * viewport metrics are still published to CSS (`--visual-viewport-height`).
+ */
+export function visualViewportClampRect(ownerDocument: Document, padding = 8): SafeViewportRect {
+  const view = ownerDocument.defaultView;
+  const visual = view?.visualViewport;
+  const layout = safeViewportRect(ownerDocument, padding);
+  if (!visual) return layout;
+  const scale = visual.scale;
+  if (typeof scale === 'number' && Number.isFinite(scale) && scale > 1.05) return layout;
+  const width = Number.isFinite(visual.width) ? Math.max(0, visual.width) : 0;
+  const height = Number.isFinite(visual.height) ? Math.max(0, visual.height) : 0;
+  if (width <= 0 || height <= 0) return layout;
+  const inset = Math.max(0, padding);
+  const left = Math.min(inset, width);
+  const top = Math.min(inset, height);
+  const right = Math.max(left, width - inset);
+  const bottom = Math.max(top, height - inset);
+  return {
+    left,
+    top,
+    right,
+    bottom,
+    width: Math.max(0, right - left),
+    height: Math.max(0, bottom - top),
+    padding: inset,
+  };
+}
+
 export type OverlayDirection = 'ltr' | 'rtl';
 
 /** Read writing direction from the anchor's owner document, never the main window. */

@@ -5,6 +5,7 @@ import {
   currentDocumentSchemaVersion,
   getDesktopAnalytics,
   installCrashTestHooks,
+  KeyboardInsetPublisher,
   type OpenFileRequest,
   renderProjectThumbnailNow,
   SettingsDialog,
@@ -455,6 +456,7 @@ export function App() {
 
   const appContent = (
     <TooltipProvider>
+      <KeyboardInsetPublisher />
       {showLoader && (
         <StartupLoader
           error={bootError}
