@@ -29,7 +29,15 @@ const faqSchema = {
       name: 'Does Varve work offline?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Yes. Core editing works fully offline with no account required. Optional network features include model downloads, online font/icon search, consented update checks, and user-configured cloud providers — each is explicit and user-controlled.',
+        text: 'Yes. Core editing works fully offline with no account required. Optional network features include model downloads, online font/icon search, consented update checks, and user-configured cloud providers — each is explicit and user-controlled. In the browser demo, offline operation requires one complete online visit first, after which the demo opens from the browser’s saved copy.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Can I use Varve in a browser?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Yes — a bounded browser demo runs the real editor on the WASM engine at varve.studio/try/, with everything processing locally and no account. It covers the Design, Draw, and Photo workspaces and can be installed as an app in Chrome or Edge. Print production, on-device model features, and the Motion, Codegen, Logo, and Email workspaces remain desktop-only. See the Browser Demo & Offline guide for saving, storage, and offline details.',
       },
     },
     {
@@ -196,7 +204,27 @@ const breadcrumbSchema = {
             Does Varve work offline?
           </summary>
           <div class="faq-item__answer">
-            <p>Yes. Core editing works fully offline with no account required. Optional network features — model downloads, additional font downloads, update checks, and user-configured cloud providers — are each explicit and user-controlled. See the <a href={sitePath('/about/privacy')}>privacy policy</a> for details.</p>
+            <p>Yes. Core editing works fully offline with no account required. Optional network features — model downloads, additional font downloads, update checks, and user-configured cloud providers — are each explicit and user-controlled. See the <a href={sitePath('/about/privacy')}>privacy policy</a> for details. In the browser demo, offline operation requires one complete online visit first.</p>
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-item__question">
+            <span class="faq-item__chevron" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            Can I use Varve in a browser?
+          </summary>
+          <div class="faq-item__answer">
+            <p>
+              Yes — a bounded browser demo runs the real editor on the WASM engine at
+              <a href={sitePath('/try/')}>varve.studio/try/</a>, with everything processing locally
+              and no account. It covers the Design, Draw, and Photo workspaces and can be installed
+              as an app in Chrome or Edge. Print production, on-device model features, and the
+              Motion, Codegen, Logo, and Email workspaces remain desktop-only. See the
+              <a href={sitePath('/docs/browser-demo')}>Browser Demo &amp; Offline guide</a> for
+              saving, storage, and offline details.
+            </p>
           </div>
         </details>
 

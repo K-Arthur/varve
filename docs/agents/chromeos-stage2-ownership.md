@@ -94,3 +94,26 @@ worktree belong to their active agents.
   and tab-discard behavior must still be confirmed on the device.
 - Support-matrix tier promotion is not claimed here.
 - The Stage 5 Linux ARM64 route remains independent.
+
+## Stage 2 progress (browser/PWA)
+
+**Updated:** 2026-09-12
+
+Delivered on `master`:
+
+- Stage 2 research ledger and audit
+  ([audit](../audits/chromeos-stage2-browser-pwa-2026-09-12.md)).
+- Demo service worker: entry-graph precache, truthful 503 offline fallback,
+  and a cached-navigation signal the page uses instead of trusting
+  `navigator.onLine` (`0cdab761b`).
+- Install-aware demo banner and offline session notice.
+- Storage manager (usage, persistence request, recovery inventory, gated
+  offline-copy cleanup) and cross-tab autosave conflict guard.
+- Opt-in production-artifact acceptance spec (`try-pwa.spec.ts`) with three
+  passing checks and inspected screenshots.
+- Browser Demo & Offline website guide plus product/FAQ corrections.
+
+Explicit remaining gaps (detailed in the audit): Duet device evidence,
+support-matrix promotion, and a docs-index entry for the new guide (that file
+is owned by another active writer at this snapshot).
+

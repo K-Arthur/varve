@@ -79,8 +79,89 @@ test results. Nothing here is a device measurement claim.
 - Round-trip a representative `.varve` document through the browser save
   path and reopen it; inspect rendered output and export, not just bytes.
 
-## 5. Next smallest verification step
+## 5. Stage 2 implementation delivered
 
-Run the new browser acceptance spec against the production demo build on an
-isolated port, inspect the captured screenshots, then repeat the offline and
-multi-tab checks on the Duet itself before any support-tier wording changes.
+| Area | Change | Files |
+|---|---|---|
+| Offline shell correctness | The demo worker now precaches the shell's entry graph (scripts, styles, fonts, manifest plus the WASM binaries, bounded at 64 references) and answers an offline navigation with the cached shell, then a truthful 503 document that says the offline copy is incomplete and that saved documents were not touched | `apps/desktop/public/varve-demo-sw.js` |
+| Cached-session signal | `navigator.onLine` is not authoritative (captive portals; emulated offline conditions do not update it), so the page asks the controlling worker whether its navigation came from cache; the banner reports "Offline — running from the copy saved in this browser" only from that answer or a real offline event | `demoPwaState.ts`, `DemoBanner.tsx` |
+| Install readiness | A Chromium `beforeinstallprompt` is deferred and offered as an "Install app" button; browsers that never fire it show nothing (no simulated install path) | `demoPwaState.ts`, `DemoBanner.tsx`, `demoBanner.css` |
+| Storage manager | Settings → Storage & Offline: usage/quota estimates labelled as estimates, persistence status with a click-to-request action, recovery-copy count/size, offline app-copy count, and a destructive-confirm "Clear offline app copies" that is prefix-gated to `varve-demo-shell-*` and cannot touch documents or recovery data, plus the profile-deletion warning | `packages/editor/src/persistence/storageInventory.ts`, `components/Settings/StorageSettingsTab.tsx`, `SettingsDialog.tsx`, `SettingsContext.tsx` |
+| Cross-tab autosave safety | Autosave writes acquire a per-document Web Lock and skip the write when the stored record is newer than this tab's last write, so a background autosave can never silently replace another editor's later work; skipped writes stay dirty and keep their recovery copies | `packages/editor/src/persistence/crossTabWrite.ts`, `context/useAutoBackupServices.ts` |
+| Acceptance coverage | New opt-in spec for a served production artifact: partial-cache fallback page, offline launch after verified setup, and offer-then-activate service-worker update | `tests/e2e/browser/try-pwa.spec.ts` |
+| Support copy | New Browser Demo & Offline guide with tested install/offline/cleanup steps and exact limits; product page no longer claims "no hosted web app"; FAQ covers the browser route | `apps/website/src/pages/docs/browser-demo.astro`, `pages/product.astro`, `pages/support/faq.astro` |
+
+## 6. Acceptance evidence (2026-09-12)
+
+Artifact: the production `/try/` build (`VITE_DEMO=1 VITE_BASE_URL=/try/ vite build --outDir dist-try`),
+served from a disposable staging directory on 127.0.0.1:1492. The repository's
+`build:try` script could not complete its `tsc --noEmit` step because four
+unrelated files owned by other active agents had in-flight type errors
+(`Menubar.tsx`, `AIStatusIndicator.tsx`, `ContextAwareShortcuts.tsx`,
+`WorkspaceTabs.tsx`); the Vite build itself succeeded (40 s / 22 s runs) and
+pruned 686.7 MB of demo-inference assets.
+
+```text
+VARVE_E2E_PORT=1494 VARVE_DEMO_DIST_URL=http://127.0.0.1:1492 \
+VARVE_DEMO_DIST_DIR=/tmp/varve-chromeos-stage2-serve \
+VARVE_E2E_OUTPUT_DIR=run-stage2-pwa2 \
+pnpm exec playwright test tests/e2e/browser/try-pwa.spec.ts \
+  --project=chromium --workers=1 --reporter=list
+
+✓ partial/unfinished offline setup gets a truthful unavailable page (10.9 s)
+✓ offline launch after a verified setup reaches the editor (34.6 s)
+✓ a waiting update is offered, not forced, and activates on request (39.5 s)
+3 passed (4.3 m)
+```
+
+Machine checks that supplement the spec:
+
+- Cache inventory after first online visit: 85 entries including all six
+  `/try/wasm/*` binaries and the entry-graph assets.
+- Offline relaunch: editor reached ready, sample document showed 10 layers,
+  no `WASM engine failed` warning, and the cached WASM resource entries show
+  `transferSize: 0` (served from the worker, not the network).
+- The failed network requests logged while offline are the SIMD probe's
+  aborted attempts; the fallback base/SIMD path loads from cache.
+
+Visual inspection (screenshots read during this session, stored under
+`/tmp/varve-chromeos-stage2-visual-*`):
+
+- `offline-relaunch.png` — banner states offline and the document stays
+  editable with the canvas and layers panel intact.
+- `offline-fallback.png` — the 503 page states that setup is incomplete and
+  that nothing was deleted.
+- `storage-tab.png` — Storage & Offline renders in the settings dialog with
+  estimate, persistence action, recovery count, cache count, and warnings.
+
+Unit checks: `demoPwaState` (8), `storageInventory` (6),
+`crossTabWrite` (4), `StorageSettingsTab` (3) all pass under Vitest; e2e
+typecheck passes for the new spec.
+
+## 7. Known limits and handoffs
+
+1. `navigator.onLine` is still used as a fallback when no worker answers;
+   real network-loss behavior must be confirmed on the Duet.
+2. A first-ever offline launch with no prior visit cannot render app UI (no
+   code has ever run in that browser). The service worker covers every state
+   after installation; the fallback page covers partial setup. This is
+   documented in the guide rather than papered over.
+3. Cross-tab autosave conflict handling prevents silent overwrite but does
+   not merge versions; the newer version stays stored and the skipped edits
+   remain dirty with recovery copies.
+4. The support matrix is not updated here: promotion still requires a Duet
+   run (tab discard, installed-app offline, touch/pen, real storage
+   pressure).
+5. `apps/website/src/pages/docs.astro` was dirty with another agent's work,
+   so the new guide is linked from the product page and FAQ rather than the
+   docs index; the index entry is a handoff.
+
+## 8. Next smallest verification step
+
+Run the same three acceptance checks on the Duet against
+`https://varve.studio/try/` in an installed app: finish setup online, disable
+Wi-Fi, relaunch from the launcher, confirm the offline banner and an editable
+sample, then install and force-quit during an update to confirm the update
+notice and recovery. Record ChromeOS channel/version, free storage, and the
+browser's storage estimate before and after.
+

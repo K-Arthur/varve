@@ -9,7 +9,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
     <div class="product-page">
       <h1 class="page-hero-title">What is Varve?</h1>
       <p class="page-hero-sub">
-        A local-first design suite for vector, layout, typography, motion, and print — one application, no account, no subscription. It runs natively on Linux, macOS, and Windows on the same Rust engine. Documents are saved as local files on your machine; there is no hosted web app yet.
+        A local-first design suite for vector, layout, typography, motion, and print — one application, no account, no subscription. It runs natively on Linux, macOS, and Windows on the same Rust engine. Documents are saved as local files on your machine; there is no account-based hosted service, though a bounded <a href={sitePath('/try/')}>browser demo</a> of the editor is available.
       </p>
 
       <section class="product-section">
@@ -90,7 +90,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
       <section class="product-section">
         <h2>Local-first, your files, your machine</h2>
         <p>
-          Varve stores design data locally. No account or mandatory cloud sync is required, and core editing works offline. Optional model downloads, online font/icon search, user-configured providers, update checks, and aggregate measurements are separate network features; consented measurements do not include design content. You own your files, you control where they live, and the desktop application uses a native Rust engine. The same engine is compiled to WASM for the web target (a hosted web app is not available yet).
+          Varve stores design data locally. No account or mandatory cloud sync is required, and core editing works offline. Optional model downloads, online font/icon search, user-configured providers, update checks, and aggregate measurements are separate network features; consented measurements do not include design content. You own your files, you control where they live, and the desktop application uses a native Rust engine. The same engine is compiled to WASM for the <a href={sitePath('/docs/browser-demo')}>browser demo</a> — a bounded subset, not a hosted replacement for the desktop app.
         </p>
       </section>
 

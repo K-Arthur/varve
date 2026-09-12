@@ -1,0 +1,246 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+---
+
+<Layout title="Browser Demo & Offline — Varve Docs" description="Use the Varve browser demo, install it as an app, work offline, and understand exactly what is saved and where.">
+  <div class="container-custom">
+    <div class="docs-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/docs')}>Documentation</a> / Browser Demo
+      </nav>
+
+      <h1>Browser Demo &amp; Offline</h1>
+      <p class="docs-intro">
+        The browser demo at <a href={sitePath('/try/')}>varve.studio/try/</a> is the real editor
+        running on the WASM engine, entirely on your device. Nothing is uploaded, no account is
+        required, and the same document format opens in the desktop app. This guide covers what is
+        actually saved, how offline operation works, and what the demo deliberately leaves out.
+      </p>
+
+      <section class="docs-section">
+        <h2>What the demo is</h2>
+        <p>
+          The demo is a bounded browser build, not a hosted replacement for the desktop app. It
+          includes the Design, Draw, and Photo workspaces with the shared scene model, tools,
+          undo/redo, layers, and Inspector. Print production (PDF, CMYK, bleed, colour-managed
+          output), on-device inference (background removal, upscaling, visual search), and the
+          Motion, Codegen, Logo, and Email workspaces remain desktop-only, and the interface says so
+          where those features would appear.
+        </p>
+        <p>
+          The engine loads as WebAssembly and renders with Canvas2D in a browser tab. On this host
+          the page is not cross-origin isolated, so multi-threaded WASM is unavailable and large
+          documents render more slowly than in the desktop application.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Opening the demo</h2>
+        <ol>
+          <li>Open <a href={sitePath('/try/')}>varve.studio/try/</a> in a current Chrome, Edge, or other Chromium-based browser. Firefox and Safari work with the download save fallback described below.</li>
+          <li>A sample document opens directly in the editor.</li>
+          <li>Edit, draw, or import your own PNG/JPEG/SVG artwork. Everything stays in this browser.</li>
+          <li>When you want to keep a file, use <strong>File → Save As</strong> (or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd>) so you choose where it goes.</li>
+        </ol>
+      </section>
+
+      <section class="docs-section">
+        <h2>Saving, recovery, and what "Saved" means</h2>
+        <p>
+          The demo follows your browser's file capabilities. In Chromium browsers it can keep
+          writing to a file you chose (File System Access API), re-asking for permission when the
+          browser requires it. In Firefox and Safari, Save produces a fresh snapshot download each
+          time and the browser-local copy is updated as well, because a download is not a
+          persistent location.
+        </p>
+        <p>
+          <strong>Saved means the write to the destination actually finished.</strong> The status
+          bar reports <em>Saving…</em>, <em>Saved</em>, <em>Modified</em>, <em>Not saved</em>, or
+          <em>Save failed</em> with the reason in its tooltip. A cancelled file picker changes
+          nothing and does not mark the document saved. While edits have not reached a destination,
+          the demo writes <strong>recovery copies</strong> into this browser's storage; they are
+          offered after a crash or a discarded tab and are removed when the document is saved, when
+          you discard it intentionally, or after seven days.
+        </p>
+        <p>
+          The demo does not auto-save to disk. Set your own save rhythm, or use the desktop app's
+          file workflow for continuous work.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Installing as an app</h2>
+        <p>
+          In Chrome or Edge on desktop and Chromebooks, the demo can be installed like an app:
+          click the install icon in the address bar (or <strong>⋮ → Cast, save, and share →
+          Install page as app</strong>). It then opens in its own window with a launcher icon.
+          Installed and tab sessions share the same browser storage, so documents are the same in
+          both.
+        </p>
+        <p>
+          If install is unavailable (policy, an unsupported browser, or a private window), keep
+          using the demo in a normal tab — every feature behaves identically. Uninstalling the app
+          with "delete data" removes documents and recovery copies; export what you need first.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Offline</h2>
+        <p>
+          Offline operation is real but staged. After one complete online visit, the browser
+          service worker has saved the application shell, its scripts, styles, fonts, and the WASM
+          engine, and <strong>the demo can then open and edit offline</strong>. The demo banner
+          tells you when you are running from the saved copy and that edits stay on this device.
+        </p>
+        <ul>
+          <li><strong>First-ever visit offline:</strong> no application code has ever run in this browser, so nothing can display an editor. The page explains that the demo is not available offline yet and asks you to reconnect.</li>
+          <li><strong>Interrupted setup:</strong> if the browser installed the worker but the offline copy is incomplete, a plain page says the copy is not finished and that your saved documents were not touched.</li>
+          <li><strong>Private/incognito windows</strong> discard everything when they close and cannot install apps.</li>
+          <li><strong>Updates catch up later:</strong> if the demo updates itself, the new version downloads in the background and asks before reloading.</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Storage: what is kept, and how to clean it up</h2>
+        <p>
+          Open <strong>File → Settings… → Storage &amp; Offline</strong> to see the browser's
+          estimate of storage used, whether the browser has granted persistent storage, how many
+          recovery copies exist, and how many offline app files are cached.
+        </p>
+        <ul>
+          <li><strong>Ask the browser to keep it</strong> requests persistent storage. Browsers may decide based on how often you use the site; a declined request deletes nothing.</li>
+          <li><strong>Clear offline app copies</strong> removes only the cached copy of the application itself so the next visit downloads a fresh build. Documents and recovery copies are untouched; offline support returns after one complete online visit.</li>
+          <li><strong>"Delete browsing data"</strong> in browser settings (or uninstalling the app with data removal) deletes documents and recovery copies too. Export anything you need first.</li>
+        </ul>
+        <p>
+          Browser storage estimates are approximate and shared with everything else this site
+          stores. Plan for roughly twice a document's size while a save is in progress. If the
+          device runs low on space, the browser may evict best-effort site data — another reason to
+          save important work to a real file or to the desktop app.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Updates</h2>
+        <p>
+          A new build is never forced onto an open document. When an update is ready the demo shows
+          a notice with <strong>Update and reload</strong> and <strong>Dismiss</strong>; the reload
+          happens only when you choose it. If an old page references build files that a deploy has
+          replaced, the same notice recovers the session with a reload — your documents are in
+          browser storage, not in those files.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Moving work between browser and desktop</h2>
+        <p>
+          Documents use the same <code>.varve</code> format in both. Save from the demo, then open
+          the file in the desktop app (or vice versa). The demo exports PNG, JPEG, WebP, and SVG;
+          PDF and print production require the desktop app. Optional on-device models, local font
+          installation, and native file paths are desktop features.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Troubleshooting</h2>
+        <ul>
+          <li><strong>"Varve is not available offline yet"</strong> — the browser has no complete offline copy. Reconnect, load the demo once, and let the page settle for a few seconds.</li>
+          <li><strong>The demo asks for file access again</strong> — browsers do not always remember file permissions between sessions. Choose the same file again, or use <strong>Save As</strong>.</li>
+          <li><strong>Save failed with a permission or quota message</strong> — the document stays modified and its recovery copy remains. Free up space or grant access, then save again; nothing was overwritten by the failed attempt.</li>
+          <li><strong>An update notice will not go away after updating</strong> — close every demo tab and window (including the installed app) and reopen; one old client can keep an update "waiting".</li>
+        </ul>
+      </section>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .docs-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  .breadcrumb a {
+    color: var(--text-secondary);
+  }
+  .docs-page h1 {
+    font-size: clamp(2rem, 5vw, 2.5rem);
+    font-family: var(--font-editorial);
+    font-weight: 700;
+    font-variation-settings: 'opsz' 144;
+    letter-spacing: -0.015em;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+  }
+  .docs-intro {
+    font-size: 1.125rem;
+    color: var(--text-secondary);
+    margin-bottom: 3rem;
+  }
+  .docs-section {
+    margin-bottom: 3rem;
+  }
+  .docs-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+    border-bottom: 2px solid var(--border-accent);
+    padding-bottom: 0.5rem;
+  }
+  .docs-section p {
+    color: var(--text-secondary);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+  .docs-section ul,
+  .docs-section ol {
+    margin-bottom: 1rem;
+  }
+  .docs-section ul {
+    list-style: none;
+  }
+  .docs-section ul li {
+    margin-bottom: 0.5rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--text-secondary);
+  }
+  .docs-section ul li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--text-link-hover);
+  }
+  .docs-section ol {
+    padding-left: 1.5rem;
+    color: var(--text-secondary);
+  }
+  .docs-section ol li {
+    margin-bottom: 0.5rem;
+    line-height: 1.8;
+  }
+  .docs-section code {
+    background: var(--surface-muted);
+    padding: 0.125rem 0.375rem;
+    border-radius: var(--website-radius-control-compact);
+    font-family: monospace;
+    font-size: 0.875rem;
+  }
+  .docs-section kbd {
+    background: var(--surface-muted);
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-control-compact);
+    padding: 0.125rem 0.375rem;
+    font-family: monospace;
+    font-size: 0.8125rem;
+  }
+  .docs-section a {
+    color: var(--text-link);
+  }
+</style>
