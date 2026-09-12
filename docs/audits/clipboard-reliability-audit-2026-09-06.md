@@ -1091,3 +1091,16 @@ pnpm exec vitest run packages/editor/src/Menubar.test.tsx --maxWorkers=1 --repor
 ```
 
 The test-only correction is committed as `8054c425`.
+
+The post-synchronization affected rerun passed all selected formatter, lint,
+docs, emoji, E2E typecheck, and targeted unit lanes, including the 21 Menubar
+tests and all clipboard/import regressions. The clipboard E2E lane then could
+not start because the shared concurrent desktop server already owned port
+`1420`; the standalone Chromium SVG and Copy as PNG runs recorded above used
+isolated ports and passed.
+
+```text
+pnpm verify:affected
+Tier 0, typecheck:e2e, and selected unit lanes passed
+e2e:file:tests/e2e/canvas/clipboard.spec.ts — blocked: http://localhost:1420 already used
+```
