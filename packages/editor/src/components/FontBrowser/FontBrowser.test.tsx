@@ -67,4 +67,33 @@ describe('FontBrowser', () => {
     expect(refresh).toBeVisible();
     expect(screen.queryByText(/local (families|family) ready/i)).not.toBeInTheDocument();
   });
+
+  it('applies the exact registered face chosen from an expanded family', () => {
+    const onSelectFace = vi.fn();
+    render(
+      <FontBrowser
+        layout="modal"
+        showDownloadable
+        selectedFamily="IBM Plex Sans Variable"
+        onSelectFace={onSelectFace}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand IBM Plex Sans Variable faces' }));
+    const boldFace = screen
+      .getAllByRole('button', { name: /700 normal/ })
+      .find((button) => button.classList.contains('font-browser__face-row'));
+    expect(boldFace).toBeTruthy();
+
+    fireEvent.click(boldFace!);
+    fireEvent.click(screen.getByRole('button', { name: 'Use IBM Plex Sans Variable face' }));
+
+    expect(onSelectFace).toHaveBeenCalledWith(
+      expect.objectContaining({
+        family: 'IBM Plex Sans Variable',
+        weight: 700,
+        style: 'normal',
+      }),
+    );
+  });
 });

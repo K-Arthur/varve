@@ -126,6 +126,9 @@ portable face key); catalog weight/style combinations are never presented as
 selectable faces when no corresponding artifact is installed. The family list
 uses measured virtualization with an overscan window; an unmeasured or
 zero-sized test viewport falls back to normal flow until a real range exists.
+Selecting an expanded registered face applies its weight, style, PostScript
+metadata, and canonical `fontReference` together; choosing a family row clears
+an older exact reference instead of leaving stale identity attached to new text.
 
 ## Readiness boundary
 
@@ -150,7 +153,8 @@ inside the viewport. Escape has an explicit precedence: an open family picker
 closes first without committing the search; a subsequent Escape exits text
 editing. The size field commits its draft on blur or Enter; Escape discards an
 unfinished draft. Range/caret targeting still requires the shared typography
-command adapter.
+command adapter. The inspector and toolbar weight controls share the same
+variable-font `wght` update path, preserving unrelated authored axes.
 Presentation-only hover preview is not integrated yet.
 
 The full browser's license details view exposes the base embedding right,

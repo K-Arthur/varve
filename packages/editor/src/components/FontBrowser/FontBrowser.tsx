@@ -8,6 +8,7 @@
 
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { getFontRegistry } from '@varve/engine';
+import type { FontReference } from '@varve/engine/font';
 import {
   enumerateSystemFonts,
   type FontSearchResult,
@@ -39,6 +40,8 @@ import './FontBrowser.css';
 
 export interface FontBrowserProps {
   onSelect?: (family: string) => void;
+  /** Apply the exact registered face selected in the expanded face list. */
+  onSelectFace?: (selection: FontFaceSelection) => void;
   selectedFamily?: string;
   showDownloadable?: boolean;
   maxHeight?: number;
@@ -58,10 +61,20 @@ type SemanticFilter =
 
 interface FontFaceEntry {
   key: string;
+  faceKey?: string;
   postScriptName?: string;
   weight: number;
   style: string;
   source: string;
+  fontReference?: FontReference;
+}
+
+export interface FontFaceSelection {
+  family: string;
+  weight: number;
+  style: 'normal' | 'italic';
+  postScriptName?: string;
+  fontReference?: FontReference;
 }
 
 interface FontDisplayEntry {
@@ -129,6 +142,19 @@ function fontStack(family: string): string {
   return `"${family.replaceAll('"', '')}", sans-serif`;
 }
 
+function fontReferenceFromFaceKey(
+  faceKey: string | undefined,
+  postScriptName: string | undefined,
+): FontReference | undefined {
+  const match = /^sha256:([0-9a-f]{64}):(single|[0-9]+)$/i.exec(faceKey ?? '');
+  if (!match) return undefined;
+  return {
+    artifactHash: match[1]!.toLowerCase(),
+    ...(match[2] === 'single' ? {} : { collectionIndex: Number(match[2]) }),
+    ...(postScriptName ? { postScriptName } : {}),
+  };
+}
+
 function descriptors(record: FontSemanticRecord): string[] {
   return [
     ...new Map(
@@ -160,10 +186,14 @@ function facesFor(
     return [
       {
         key,
+        ...(entry.faceKey ? { faceKey: entry.faceKey } : {}),
         ...(entry.postScriptName ? { postScriptName: entry.postScriptName } : {}),
         weight: entry.weight,
         style: entry.style,
         source: entry.source,
+        ...(fontReferenceFromFaceKey(entry.faceKey, entry.postScriptName)
+          ? { fontReference: fontReferenceFromFaceKey(entry.faceKey, entry.postScriptName) }
+          : {}),
       },
     ];
   });
@@ -171,6 +201,7 @@ function facesFor(
 
 export function FontBrowser({
   onSelect,
+  onSelectFace,
   selectedFamily: selectedFamilyProp,
   showDownloadable = false,
   maxHeight,
@@ -185,6 +216,7 @@ export function FontBrowser({
   const [activeFilter, setActiveFilter] = useState<SourceFilter>('all');
   const [semanticFilter, setSemanticFilter] = useState<SemanticFilter>('all');
   const [selectedFamily, setSelectedFamily] = useState<string | undefined>(selectedFamilyProp);
+  const [selectedFace, setSelectedFace] = useState<FontFaceSelection | undefined>();
   const [expandedFamilies, setExpandedFamilies] = useState<Set<string>>(new Set());
   const [listElement, setListElement] = useState<HTMLDivElement | null>(null);
   const [installingFamily, setInstallingFamily] = useState<string | null>(null);
@@ -201,7 +233,10 @@ export function FontBrowser({
   const tagInputId = useId();
   const localFontApiAvailable = useMemo(() => hasQueryLocalFonts(), []);
 
-  useEffect(() => setSelectedFamily(selectedFamilyProp), [selectedFamilyProp]);
+  useEffect(() => {
+    setSelectedFamily(selectedFamilyProp);
+    setSelectedFace(undefined);
+  }, [selectedFamilyProp]);
 
   const effectiveQuery = useMemo(() => {
     const filterQuery = SEMANTIC_FILTERS.find((filter) => filter.key === semanticFilter)?.query;
@@ -312,14 +347,36 @@ export function FontBrowser({
   const handleSelect = useCallback(
     (record: FontSemanticRecord) => {
       setSelectedFamily(record.familyName);
+      setSelectedFace(undefined);
+      semantic.markRecentlyUsed(record.familyId);
+    },
+    [semantic],
+  );
+
+  const handleSelectFace = useCallback(
+    (record: FontSemanticRecord, face: FontFaceEntry) => {
+      const selection: FontFaceSelection = {
+        family: record.familyName,
+        weight: face.weight,
+        style: face.style === 'italic' ? 'italic' : 'normal',
+        ...(face.postScriptName ? { postScriptName: face.postScriptName } : {}),
+        ...(face.fontReference ? { fontReference: face.fontReference } : {}),
+      };
+      setSelectedFamily(record.familyName);
+      setSelectedFace(selection);
       semantic.markRecentlyUsed(record.familyId);
     },
     [semantic],
   );
 
   const applySelected = useCallback(() => {
-    if (selectedRecord?.installed) onSelect?.(selectedRecord.familyName);
-  }, [onSelect, selectedRecord]);
+    if (!selectedRecord?.installed) return;
+    if (selectedFace && onSelectFace) {
+      onSelectFace(selectedFace);
+      return;
+    }
+    onSelect?.(selectedRecord.familyName);
+  }, [onSelect, onSelectFace, selectedFace, selectedRecord]);
 
   const toggleExpand = useCallback((familyId: string) => {
     setExpandedFamilies((previous) => {
@@ -610,7 +667,13 @@ export function FontBrowser({
                               key={face.key}
                               type="button"
                               className="font-browser__face-row"
-                              onClick={() => handleSelect(record)}
+                              onClick={() => handleSelectFace(record, face)}
+                              aria-pressed={
+                                selectedFace?.family === record.familyName &&
+                                (selectedFace.postScriptName ??
+                                  `${selectedFace.weight}-${selectedFace.style}`) ===
+                                  (face.postScriptName ?? `${face.weight}-${face.style}`)
+                              }
                             >
                               <span className="font-browser__face-name">
                                 {face.postScriptName ?? `${face.weight} ${face.style}`}
@@ -762,15 +825,23 @@ export function FontBrowser({
                     {installingFamily === selectedRecord.familyId ? 'Installing…' : 'Install font'}
                   </button>
                 )}
-                {onSelect && selectedRecord.installed && (
+                {(onSelect || onSelectFace) && selectedRecord.installed && (
                   <button
                     type="button"
                     className="font-browser__use-btn"
                     onClick={applySelected}
-                    aria-label={`Use ${selectedRecord.familyName}`}
-                    disabled={selectedRecord.familyName === selectedFamilyProp}
+                    aria-label={
+                      selectedFace
+                        ? `Use ${selectedFace.family} face`
+                        : `Use ${selectedRecord.familyName}`
+                    }
+                    disabled={!selectedFace && selectedRecord.familyName === selectedFamilyProp}
                   >
-                    {selectedRecord.familyName === selectedFamilyProp ? 'Current font' : 'Use font'}
+                    {selectedFace
+                      ? 'Use face'
+                      : selectedRecord.familyName === selectedFamilyProp
+                        ? 'Current font'
+                        : 'Use font'}
                   </button>
                 )}
               </div>

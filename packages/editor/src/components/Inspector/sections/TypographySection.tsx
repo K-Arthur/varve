@@ -27,6 +27,7 @@ import { Icon, Select, Switch, Tooltip } from '@varve/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
+import type { FontFaceSelection } from '../../FontBrowser/FontBrowser';
 import { FontBrowserDialog } from '../../FontBrowser/FontBrowserDialog';
 import { FontSelector } from '../../FontBrowser/FontSelector';
 import { fontWeightChanges } from '../../Typography/fontWeight';
@@ -343,7 +344,21 @@ export function TypographySection({ nodes }: TypographySectionProps) {
         onClose={() => setFontBrowserOpen(false)}
         selectedFamily={isMixed(familyRaw) ? undefined : familyRaw}
         onSelect={(family) => {
-          batchUpdate((n) => ({ ...n, fontFamily: family || undefined }));
+          batchUpdate((n) => ({
+            ...n,
+            fontFamily: family || undefined,
+            fontReference: undefined,
+          }));
+          setFontBrowserOpen(false);
+        }}
+        onSelectFace={(selection: FontFaceSelection) => {
+          batchUpdate((n) => ({
+            ...n,
+            fontFamily: selection.family,
+            fontWeight: selection.weight,
+            fontStyle: selection.style,
+            fontReference: selection.fontReference,
+          }));
           setFontBrowserOpen(false);
         }}
       />

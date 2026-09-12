@@ -168,7 +168,7 @@ const fontReplacementFaq = {
           <li><strong>Font system:</strong> Offline semantic catalog, local-first search, @fontsource runtime loading, CSS fallback chains, and explicit version-pinned desktop installs</li>
           <li><strong>Font discovery:</strong> Natural-language intent, coverage and feature constraints, personal tags, similarity, alternatives, pairings, and explainable result reasons</li>
           <li><strong>Missing-font replacement:</strong> Ranked local candidates, rich-text-aware Replace All, and manifest provenance across save/reopen</li>
-          <li><strong>Quick text toolbar:</strong> Compact font, size, and color controls; alignment and lists in More text formatting; keyboard dismissal for the font picker</li>
+          <li><strong>Quick text toolbar:</strong> Compact 32px controls share the editor palette's spacing and surface tokens; alignment and lists live in More text formatting, with keyboard dismissal for the font picker</li>
           <li><strong>Typography inspector:</strong> Font family, weight, style, size, line height, letter spacing, alignment, OpenType features</li>
         </ul>
       </section>
@@ -211,8 +211,10 @@ const fontReplacementFaq = {
         <p>
           The compact toolbar and ordinary inspector controls currently format
           selected text objects. Use the Rich Text editor for range formatting.
-          Exact collection-face recovery, Document Fonts, Select by Font, and
-          image crop-to-font application are still being integrated. Browser
+          Registered exact-face selection is available from the expanded browser
+          rows; recovery of an imported collection face, Document Fonts,
+          Select by Font, and image crop-to-font application are still being
+          integrated. Browser
           local-font enumeration is available only through the explicit action
           in the full browser and remains subject to the browser's permission
           policy.
