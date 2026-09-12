@@ -437,96 +437,98 @@ export function AlignDistributeBar() {
       </h2>
       <TooltipProvider>
         <div className="insp-align-bar" role="toolbar" aria-label="Align and distribute">
-          <Tooltip label="Align left edges">
-            <button
-              type="button"
-              className="pill-group__btn"
-              aria-label="Align left edges"
-              onClick={() => doAlign('left')}
-              disabled={!canAlign}
-            >
-              <AlignIcon type="alignLeft" />
-            </button>
-          </Tooltip>
-          <Tooltip label="Align horizontal centers">
-            <button
-              type="button"
-              className="pill-group__btn"
-              aria-label="Align horizontal centers"
-              onClick={() => doAlign('centerH')}
-              disabled={!canAlign}
-            >
-              <AlignIcon type="alignCenterH" />
-            </button>
-          </Tooltip>
-          <Tooltip label="Align right edges">
-            <button
-              type="button"
-              className="pill-group__btn"
-              aria-label="Align right edges"
-              onClick={() => doAlign('right')}
-              disabled={!canAlign}
-            >
-              <AlignIcon type="alignRight" />
-            </button>
-          </Tooltip>
-          <div className="insp-separator" />
-          <Tooltip label="Align top edges">
-            <button
-              type="button"
-              className="pill-group__btn"
-              aria-label="Align top edges"
-              onClick={() => doAlign('top')}
-              disabled={!canAlign}
-            >
-              <AlignIcon type="alignTop" />
-            </button>
-          </Tooltip>
-          <Tooltip label="Align vertical centers">
-            <button
-              type="button"
-              className="pill-group__btn"
-              aria-label="Align vertical centers"
-              onClick={() => doAlign('centerV')}
-              disabled={!canAlign}
-            >
-              <AlignIcon type="alignCenterV" />
-            </button>
-          </Tooltip>
-          <Tooltip label="Align bottom edges">
-            <button
-              type="button"
-              className="pill-group__btn"
-              aria-label="Align bottom edges"
-              onClick={() => doAlign('bottom')}
-              disabled={!canAlign}
-            >
-              <AlignIcon type="alignBottom" />
-            </button>
-          </Tooltip>
-          <div className="insp-separator" />
-          <Tooltip label="Distribute horizontal spacing">
-            <button
-              type="button"
-              className="pill-group__btn"
-              aria-label="Distribute horizontal spacing"
-              onClick={() => handleDistribute('horizontal')}
-              disabled={!canRunDistribution}
-            >
-              <DistributeIcon type="horizontal" />
-            </button>
-          </Tooltip>
-          <Tooltip label="Distribute vertical spacing">
-            <button
-              type="button"
-              className="pill-group__btn"
-              aria-label="Distribute vertical spacing"
-              onClick={() => handleDistribute('vertical')}
-              disabled={!canRunDistribution}
-            >
-              <DistributeIcon type="vertical" />
-            </button>
-          </Tooltip>
+          <div className="insp-align-group">
+            <Tooltip label="Align left edges">
+              <button
+                type="button"
+                className="pill-group__btn"
+                aria-label="Align left edges"
+                onClick={() => doAlign('left')}
+                disabled={!canAlign}
+              >
+                <AlignIcon type="alignLeft" />
+              </button>
+            </Tooltip>
+            <Tooltip label="Align horizontal centers">
+              <button
+                type="button"
+                className="pill-group__btn"
+                aria-label="Align horizontal centers"
+                onClick={() => doAlign('centerH')}
+                disabled={!canAlign}
+              >
+                <AlignIcon type="alignCenterH" />
+              </button>
+            </Tooltip>
+            <Tooltip label="Align right edges">
+              <button
+                type="button"
+                className="pill-group__btn"
+                aria-label="Align right edges"
+                onClick={() => doAlign('right')}
+                disabled={!canAlign}
+              >
+                <AlignIcon type="alignRight" />
+              </button>
+            </Tooltip>
+            <div className="insp-separator" />
+            <Tooltip label="Align top edges">
+              <button
+                type="button"
+                className="pill-group__btn"
+                aria-label="Align top edges"
+                onClick={() => doAlign('top')}
+                disabled={!canAlign}
+              >
+                <AlignIcon type="alignTop" />
+              </button>
+            </Tooltip>
+            <Tooltip label="Align vertical centers">
+              <button
+                type="button"
+                className="pill-group__btn"
+                aria-label="Align vertical centers"
+                onClick={() => doAlign('centerV')}
+                disabled={!canAlign}
+              >
+                <AlignIcon type="alignCenterV" />
+              </button>
+            </Tooltip>
+            <Tooltip label="Align bottom edges">
+              <button
+                type="button"
+                className="pill-group__btn"
+                aria-label="Align bottom edges"
+                onClick={() => doAlign('bottom')}
+                disabled={!canAlign}
+              >
+                <AlignIcon type="alignBottom" />
+              </button>
+            </Tooltip>
+            <div className="insp-separator" />
+            <Tooltip label="Distribute horizontal spacing">
+              <button
+                type="button"
+                className="pill-group__btn"
+                aria-label="Distribute horizontal spacing"
+                onClick={() => handleDistribute('horizontal')}
+                disabled={!canRunDistribution}
+              >
+                <DistributeIcon type="horizontal" />
+              </button>
+            </Tooltip>
+            <Tooltip label="Distribute vertical spacing">
+              <button
+                type="button"
+                className="pill-group__btn"
+                aria-label="Distribute vertical spacing"
+                onClick={() => handleDistribute('vertical')}
+                disabled={!canRunDistribution}
+              >
+                <DistributeIcon type="vertical" />
+              </button>
+            </Tooltip>
+          </div>
           <div className="insp-align-options">
             <Tooltip label="Distribution options">
               <button
@@ -614,108 +616,114 @@ export function AlignDistributeBar() {
           </div>
         </div>
         <div className="insp-align-bar" role="toolbar" aria-label="Advanced alignment options">
-          <Tooltip
-            label={keyObjectId ? 'Key object set. Click to clear' : 'Set key object from selection'}
-          >
-            <button
-              type="button"
-              className={`pill-group__btn ${keyObjectId ? 'pill-group__btn--active' : ''}`}
-              aria-label={keyObjectId ? 'Clear key object' : 'Set key object from selection'}
-              onClick={handleToggleKeyObject}
-              disabled={!capabilities.canAlign}
+          <div className="insp-align-group">
+            <Tooltip
+              label={
+                keyObjectId ? 'Key object set. Click to clear' : 'Set key object from selection'
+              }
             >
-              <KeyObjectIcon />
-              {keyObjectId && <span className="insp-badge" />}
-            </button>
-          </Tooltip>
-          <div className="insp-align-targets" role="radiogroup" aria-label="Alignment reference">
-            <Tooltip label="Align to selection bounds">
               <button
                 type="button"
-                className={`pill-group__btn ${alignmentReference === 'selection' ? 'pill-group__btn--active' : ''}`}
-                aria-label={
-                  alignmentReference === 'selection'
-                    ? 'Align to selection bounds (active)'
-                    : 'Align to selection bounds'
-                }
-                aria-pressed={alignmentReference === 'selection'}
-                onClick={() => chooseAlignmentReference('selection')}
+                className={`pill-group__btn ${keyObjectId ? 'pill-group__btn--active' : ''}`}
+                aria-label={keyObjectId ? 'Clear key object' : 'Set key object from selection'}
+                onClick={handleToggleKeyObject}
                 disabled={!capabilities.canAlign}
               >
-                Selection
+                <KeyObjectIcon />
+                {keyObjectId && <span className="insp-badge" />}
               </button>
             </Tooltip>
-            <Tooltip label="Align to parent frame bounds">
+            <div className="insp-align-targets" role="radiogroup" aria-label="Alignment reference">
+              <Tooltip label="Align to selection bounds">
+                <button
+                  type="button"
+                  className={`pill-group__btn ${alignmentReference === 'selection' ? 'pill-group__btn--active' : ''}`}
+                  aria-label={
+                    alignmentReference === 'selection'
+                      ? 'Align to selection bounds (active)'
+                      : 'Align to selection bounds'
+                  }
+                  aria-pressed={alignmentReference === 'selection'}
+                  onClick={() => chooseAlignmentReference('selection')}
+                  disabled={!capabilities.canAlign}
+                >
+                  Selection
+                </button>
+              </Tooltip>
+              <Tooltip label="Align to parent frame bounds">
+                <button
+                  type="button"
+                  className={`pill-group__btn ${alignmentReference === 'container' ? 'pill-group__btn--active' : ''}`}
+                  aria-label={
+                    alignmentReference === 'container'
+                      ? 'Align to parent frame (active)'
+                      : 'Align to parent frame'
+                  }
+                  aria-pressed={alignmentReference === 'container'}
+                  onClick={() => chooseAlignmentReference('container')}
+                  disabled={!capabilities.canAlignToContainer}
+                >
+                  Frame
+                </button>
+              </Tooltip>
+              <Tooltip label="Align to active page / canvas bounds">
+                <button
+                  type="button"
+                  className={`pill-group__btn ${alignmentReference === 'page' ? 'pill-group__btn--active' : ''}`}
+                  aria-label={
+                    alignmentReference === 'page' ? 'Align to page (active)' : 'Align to page'
+                  }
+                  aria-pressed={alignmentReference === 'page'}
+                  onClick={() =>
+                    chooseAlignmentReference(alignmentReference === 'page' ? 'selection' : 'page')
+                  }
+                  disabled={!capabilities.canAlignToPage}
+                >
+                  <PageIcon />
+                  <span className="insp-align-target-label">Page</span>
+                </button>
+              </Tooltip>
+            </div>
+          </div>
+          <div className="insp-align-group">
+            <div className="insp-separator" />
+            <div style={{ position: 'relative' }}>
               <button
+                ref={tidyBtnRef}
                 type="button"
-                className={`pill-group__btn ${alignmentReference === 'container' ? 'pill-group__btn--active' : ''}`}
-                aria-label={
-                  alignmentReference === 'container'
-                    ? 'Align to parent frame (active)'
-                    : 'Align to parent frame'
-                }
-                aria-pressed={alignmentReference === 'container'}
-                onClick={() => chooseAlignmentReference('container')}
-                disabled={!capabilities.canAlignToContainer}
+                className="pill-group__btn"
+                aria-label="Tidy up grid"
+                title="Tidy up — arrange in grid"
+                onClick={() => setShowTidyMenu(!showTidyMenu)}
+                disabled={!capabilities.canTidy}
               >
-                Frame
+                <GridIcon />
               </button>
-            </Tooltip>
-            <Tooltip label="Align to active page / canvas bounds">
+              <FloatingPortal
+                anchorRef={tidyBtnRef}
+                open={showTidyMenu}
+                kind="popover"
+                placement="bottom-end"
+                fallbackPlacements={['top-end', 'bottom-start', 'top-start']}
+                onClose={() => setShowTidyMenu(false)}
+                dismissOnEscape
+                className="varve-floating-layer"
+              >
+                <TidyUpPopover onApply={handleTidyUp} onClose={() => setShowTidyMenu(false)} />
+              </FloatingPortal>
+            </div>
+            <Tooltip label="Toggle oriented bounding box alignment">
               <button
                 type="button"
-                className={`pill-group__btn ${alignmentReference === 'page' ? 'pill-group__btn--active' : ''}`}
-                aria-label={
-                  alignmentReference === 'page' ? 'Align to page (active)' : 'Align to page'
-                }
-                aria-pressed={alignmentReference === 'page'}
-                onClick={() =>
-                  chooseAlignmentReference(alignmentReference === 'page' ? 'selection' : 'page')
-                }
-                disabled={!capabilities.canAlignToPage}
+                className={`pill-group__btn ${obbEnabled ? 'pill-group__btn--active' : ''}`}
+                aria-label={obbEnabled ? 'OBB alignment on' : 'OBB alignment off'}
+                onClick={() => setObbEnabled(!obbEnabled)}
+                disabled={!canAlign}
               >
-                <PageIcon />
-                <span className="insp-align-target-label">Page</span>
+                <OBBIcon />
               </button>
             </Tooltip>
           </div>
-          <div className="insp-separator" />
-          <div style={{ position: 'relative' }}>
-            <button
-              ref={tidyBtnRef}
-              type="button"
-              className="pill-group__btn"
-              aria-label="Tidy up grid"
-              title="Tidy up — arrange in grid"
-              onClick={() => setShowTidyMenu(!showTidyMenu)}
-              disabled={!capabilities.canTidy}
-            >
-              <GridIcon />
-            </button>
-            <FloatingPortal
-              anchorRef={tidyBtnRef}
-              open={showTidyMenu}
-              kind="popover"
-              placement="bottom-end"
-              fallbackPlacements={['top-end', 'bottom-start', 'top-start']}
-              onClose={() => setShowTidyMenu(false)}
-              dismissOnEscape
-              className="varve-floating-layer"
-            >
-              <TidyUpPopover onApply={handleTidyUp} onClose={() => setShowTidyMenu(false)} />
-            </FloatingPortal>
-          </div>
-          <Tooltip label="Toggle oriented bounding box alignment">
-            <button
-              type="button"
-              className={`pill-group__btn ${obbEnabled ? 'pill-group__btn--active' : ''}`}
-              aria-label={obbEnabled ? 'OBB alignment on' : 'OBB alignment off'}
-              onClick={() => setObbEnabled(!obbEnabled)}
-              disabled={!canAlign}
-            >
-              <OBBIcon />
-            </button>
-          </Tooltip>
         </div>
       </TooltipProvider>
     </section>
