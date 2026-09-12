@@ -870,3 +870,18 @@ The implementation is committed as `8d57aaf8`. Firefox/Wayland external
 transfers, packaged WebKitGTK `.fig` decoding, native PNG transport, and the
 full deployment visual matrix remain open verification lanes; this local
 browser evidence does not imply those platforms.
+
+### Drop artifact cascade correction — 2026-09-12
+
+The grouped-root follow-up still used the file index when choosing a cascade
+offset. A single file can yield more than one parser artifact, so those
+artifacts could be placed on top of one another even though their roots were
+correctly grouped internally. This was an application/placement defect
+(CLIP-34), not a parser or transport failure.
+
+Drop placement now offsets by the ordered parsed-artifact index. Roots within
+one artifact retain one position and one mapping; only distinct artifacts
+receive the 40-unit cascade.
+
+The correction is committed as `d5cf54e6`. It has no effect on File > Import
+center/cascade behavior or same-document Paste world-anchor placement.
