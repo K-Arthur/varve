@@ -12,6 +12,7 @@ import {
   readFromClipboardEvent,
   writeClipboard,
   writeClipboardOutcome,
+  writeClipboardRepresentation,
 } from './clipboard';
 
 // jsdom doesn't implement ClipboardEvent, DataTransfer, or Blob.arrayBuffer.
@@ -701,6 +702,66 @@ describe('readFromClipboardEvent', () => {
       await expect(
         writeClipboard([{ id: 'n1', kind: 'shape', name: 'Fallback' } as unknown as SceneNode]),
       ).resolves.toBe(false);
+    } finally {
+      Object.defineProperty(globalThis, 'ClipboardItem', {
+        configurable: true,
+        value: originalClipboardItem,
+      });
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: originalClipboard,
+      });
+    }
+  });
+
+  it('does not let a superseded rich write resolve as editable', async () => {
+    const originalClipboard = navigator.clipboard;
+    const originalClipboardItem = globalThis.ClipboardItem;
+    let releaseFirst!: () => void;
+    const firstWrite = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    let writeCount = 0;
+    class TestClipboardItem {
+      readonly entries: Record<string, Blob>;
+      constructor(entries: Record<string, Blob>) {
+        this.entries = entries;
+      }
+    }
+    const write = vi.fn(async () => {
+      writeCount += 1;
+      if (writeCount === 1) await firstWrite;
+    });
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(globalThis, 'ClipboardItem', {
+      configurable: true,
+      value: TestClipboardItem,
+    });
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { write, writeText },
+    });
+
+    try {
+      const first = writeClipboardRepresentation(
+        'image/svg+xml',
+        new TextEncoder().encode('<svg />'),
+        '<svg />',
+      );
+      await vi.waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+      const second = writeClipboardRepresentation(
+        'image/svg+xml',
+        new TextEncoder().encode('<svg><rect /></svg>'),
+        '<svg><rect /></svg>',
+      );
+      releaseFirst();
+
+      await expect(first).resolves.toEqual({ status: 'failed', reason: 'write-failed' });
+      await expect(second).resolves.toEqual({
+        status: 'editable',
+        mimeTypes: ['image/svg+xml', 'text/plain'],
+      });
+      expect(writeText).not.toHaveBeenCalled();
     } finally {
       Object.defineProperty(globalThis, 'ClipboardItem', {
         configurable: true,

@@ -460,6 +460,18 @@ function isPermissionError(error: unknown): boolean {
 let clipboardWriteTail: Promise<void> = Promise.resolve();
 let latestClipboardWrite = 0;
 
+function enqueueClipboardWrite(
+  operation: (generation: number) => Promise<ClipboardWriteOutcome>,
+): Promise<ClipboardWriteOutcome> {
+  const generation = ++latestClipboardWrite;
+  const run = clipboardWriteTail.then(() => operation(generation));
+  clipboardWriteTail = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
 /** Serialize clipboard writes and suppress late fallbacks from superseded requests. */
 export function writeClipboardOutcome(
   nodes: SceneNode[],
@@ -482,8 +494,7 @@ export function writeClipboardOutcome(
   motionExtensions?: Document['motionExtensions'],
   motionPresets?: Document['motionPresets'],
 ): Promise<ClipboardWriteOutcome> {
-  const generation = ++latestClipboardWrite;
-  const run = clipboardWriteTail.then(() =>
+  return enqueueClipboardWrite((generation) =>
     writeClipboardOutcomeNow(
       nodes,
       rasterMaskAssets,
@@ -507,11 +518,72 @@ export function writeClipboardOutcome(
       generation,
     ),
   );
-  clipboardWriteTail = run.then(
-    () => undefined,
-    () => undefined,
+}
+
+/**
+ * Publish a single non-Varve representation (Copy Text/SVG/PNG) through the
+ * same serialized write queue as object copies. A superseded operation is
+ * reported as failed and cannot issue a late fallback write.
+ */
+export function writeClipboardRepresentation(
+  mimeType: string,
+  data: Uint8Array,
+  plainText: string,
+  platform?: Pick<Platform, 'kind' | 'writeClipboardData'>,
+): Promise<ClipboardWriteOutcome> {
+  return enqueueClipboardWrite((generation) =>
+    writeClipboardRepresentationNow(mimeType, data, plainText, platform, generation),
   );
-  return run;
+}
+
+async function writeClipboardRepresentationNow(
+  mimeType: string,
+  data: Uint8Array,
+  plainText: string,
+  platform: Pick<Platform, 'kind' | 'writeClipboardData'> | undefined,
+  generation: number,
+): Promise<ClipboardWriteOutcome> {
+  const isCurrentWrite = (): boolean => generation === latestClipboardWrite;
+  if (!isCurrentWrite()) return { status: 'failed', reason: 'write-failed' };
+  if (platform?.kind === 'tauri') {
+    try {
+      const written = await platform.writeClipboardData([{ mimeType, data }]);
+      if (written && isCurrentWrite()) return { status: 'editable', mimeTypes: [mimeType] };
+    } catch {
+      // Continue through browser and text-only fallbacks.
+    }
+  }
+  if (!isCurrentWrite() || typeof navigator === 'undefined' || !navigator.clipboard) {
+    return { status: 'failed', reason: 'write-failed' };
+  }
+  const clipboardItemCtor = globalThis.ClipboardItem;
+  if (typeof clipboardItemCtor === 'function' && typeof navigator.clipboard.write === 'function') {
+    try {
+      await navigator.clipboard.write([
+        new clipboardItemCtor({
+          [mimeType]: new Blob([data as unknown as BlobPart], { type: mimeType }),
+          'text/plain': plainText,
+        }),
+      ]);
+      if (!isCurrentWrite()) return { status: 'failed', reason: 'write-failed' };
+      return { status: 'editable', mimeTypes: [mimeType, 'text/plain'] };
+    } catch {
+      // Text is still useful in an external editor.
+    }
+  }
+  if (!isCurrentWrite() || typeof navigator.clipboard.writeText !== 'function') {
+    return { status: 'failed', reason: 'write-failed' };
+  }
+  try {
+    await navigator.clipboard.writeText(plainText);
+    if (!isCurrentWrite()) return { status: 'failed', reason: 'write-failed' };
+    return { status: 'text-only', reason: 'editable-format-unavailable' };
+  } catch (error) {
+    return {
+      status: 'failed',
+      reason: isPermissionError(error) ? 'permission-denied' : 'write-failed',
+    };
+  }
 }
 
 async function writeClipboardOutcomeNow(
@@ -603,8 +675,10 @@ async function writeClipboardOutcomeNow(
           'text/plain': textBlob,
         }),
       ]);
+      if (!isCurrentWrite()) return { status: 'failed', reason: 'write-failed' };
       return { status: 'editable', mimeTypes: [WEB_VARVE_MIME, WEB_LEGACY_MIME, 'text/plain'] };
     } catch (firstError) {
+      if (!isCurrentWrite()) return { status: 'failed', reason: 'write-failed' };
       try {
         await navigator.clipboard.write([
           new clipboardItemCtor({
@@ -613,6 +687,7 @@ async function writeClipboardOutcomeNow(
             'text/plain': textBlob,
           }),
         ]);
+        if (!isCurrentWrite()) return { status: 'failed', reason: 'write-failed' };
         return { status: 'editable', mimeTypes: [VARVE_MIME, LEGACY_MIME, 'text/plain'] };
       } catch (secondError) {
         if (isPermissionError(firstError) || isPermissionError(secondError)) {

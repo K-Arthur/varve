@@ -25,6 +25,7 @@ import {
 } from '@varve/scene';
 import { type Affine, multiplyAffine, rotateRad, scaleXY, translate } from '@varve/shared';
 import { commitRasterMask } from '../backgroundRemoval/commitRasterMask';
+import { writeClipboardRepresentation } from '../clipboard';
 import { applyNudgePlan, getNudgeStep, type NudgeDirection, planNudge } from '../commands/nudge';
 import type { EditorContextValue, ToolId } from '../context';
 import { startTextEditing } from '../context';
@@ -118,43 +119,6 @@ function stripSvgEnvelope(markup: string): string {
     .replace(/^\s*<\?xml[^>]*>\s*/i, '')
     .replace(/^\s*<svg[^>]*>/i, '')
     .replace(/<\/svg>\s*$/i, '');
-}
-
-async function publishClipboardRepresentation(
-  editor: EditorContextValue,
-  mimeType: string,
-  data: Uint8Array,
-  plainText: string,
-): Promise<boolean> {
-  if (editor.platform?.kind === 'tauri') {
-    try {
-      if (await editor.platform.writeClipboardData([{ mimeType, data }])) return true;
-    } catch {
-      // Fall through to the browser clipboard API.
-    }
-  }
-  if (typeof navigator === 'undefined' || !navigator.clipboard) return false;
-  const ClipboardItemCtor = globalThis.ClipboardItem;
-  if (typeof ClipboardItemCtor === 'function' && typeof navigator.clipboard.write === 'function') {
-    try {
-      await navigator.clipboard.write([
-        new ClipboardItemCtor({
-          [mimeType]: new Blob([data as unknown as BlobPart], { type: mimeType }),
-          'text/plain': plainText,
-        }),
-      ]);
-      return true;
-    } catch {
-      // Text is still a useful external-editor fallback.
-    }
-  }
-  if (typeof navigator.clipboard.writeText !== 'function') return false;
-  try {
-    await navigator.clipboard.writeText(plainText);
-    return false;
-  } catch {
-    return false;
-  }
 }
 
 export function createActionHandlers(
@@ -543,13 +507,19 @@ export function createActionHandlers(
         .map((node) => (node.kind === 'text' ? node.text : node.name))
         .join('\n')
         .slice(0, MAX_DIRECT_CLIPBOARD_TEXT);
-      void publishClipboardRepresentation(
-        e,
+      void writeClipboardRepresentation(
         'text/plain',
         new TextEncoder().encode(text),
         text,
-      ).then((editable) =>
-        e.announce(editable ? 'Copied text' : 'Copied text using the browser fallback'),
+        e.platform,
+      ).then((outcome) =>
+        e.announce(
+          outcome.status === 'editable'
+            ? 'Copied text'
+            : outcome.status === 'text-only'
+              ? 'Copied text using the browser fallback'
+              : 'Copy text failed — clipboard unavailable',
+        ),
       );
     },
     copyAsSvg: () => {
@@ -568,13 +538,19 @@ export function createActionHandlers(
           : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000"><g>${parts
               .map(stripSvgEnvelope)
               .join('')}</g></svg>`;
-      void publishClipboardRepresentation(
-        e,
+      void writeClipboardRepresentation(
         'image/svg+xml',
         new TextEncoder().encode(svg),
         svg,
-      ).then((editable) =>
-        e.announce(editable ? 'Copied selection as SVG' : 'Copied SVG using the browser fallback'),
+        e.platform,
+      ).then((outcome) =>
+        e.announce(
+          outcome.status === 'editable'
+            ? 'Copied selection as SVG'
+            : outcome.status === 'text-only'
+              ? 'Copied SVG using the browser fallback'
+              : 'Copy SVG failed — clipboard unavailable',
+        ),
       );
     },
     copyAsPng: () => {
