@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { deflateSync } from 'node:zlib';
 import { expect, test } from '@playwright/test';
+import { navigateToEditor, switchWorkspace } from '../shared';
 
 const FIXTURES_DIR = path.resolve(__dirname, '..', 'fixtures');
 const GENERATED_FIXTURES_DIR = path.join(tmpdir(), `varve-caf-${process.pid}`);
@@ -182,6 +183,17 @@ async function readEditorDocument(page: import('@playwright/test').Page): Promis
   });
 }
 
+async function openGenerativeEditFromAdjustments(
+  page: import('@playwright/test').Page,
+): Promise<void> {
+  const sectionToggle = page.getByRole('button', { name: 'Generative Edit', exact: true });
+  await expect(sectionToggle).toBeVisible({ timeout: 10_000 });
+  if ((await sectionToggle.getAttribute('aria-expanded')) !== 'true') {
+    await sectionToggle.click();
+  }
+  await page.getByRole('button', { name: 'Open Generative Edit dialog' }).click();
+}
+
 /**
  * Drop a PNG onto the canvas, then wait for the shape to appear in the
  * layers panel and click it to ensure it is selected.  Returns the node ID.
@@ -296,39 +308,7 @@ test.describe('Content-Aware Fill dialog', () => {
   let nodeId: string;
 
   test.beforeEach(async ({ page }) => {
-    await page.goto('/', { timeout: 120_000, waitUntil: 'load' });
-    const newBtn = page.getByRole('button', { name: /^new$/i });
-    await newBtn.waitFor({ state: 'visible', timeout: 180_000 });
-    await newBtn.click({ force: true, timeout: 30_000 });
-    await page
-      .locator('dialog[open]')
-      .getByRole('button', { name: /^create design$/i })
-      .waitFor({ timeout: 5000 });
-    await page
-      .locator('dialog[open]')
-      .getByRole('button', { name: /^create design$/i })
-      .click({ timeout: 10_000 });
-    await page.locator('.layers-panel').waitFor({ timeout: 15_000 });
-
-    // Dismiss welcome modal
-    const blankCanvas = page.getByRole('dialog').getByRole('button', { name: /^blank canvas$/i });
-    if (await blankCanvas.isVisible({ timeout: 1000 }).catch(() => false)) {
-      await blankCanvas.click({ timeout: 5000 });
-    } else {
-      const close = page
-        .getByRole('dialog')
-        .getByRole('button', { name: /close|get started/i })
-        .first();
-      if (await close.isVisible({ timeout: 1000 }).catch(() => false)) {
-        await close.click({ timeout: 5000 });
-      }
-    }
-
-    const dismiss = page.locator('.onboarding-checklist__dismiss');
-    if (await dismiss.isVisible({ timeout: 1000 }).catch(() => false)) {
-      await dismiss.click({ timeout: 5000 });
-    }
-
+    await navigateToEditor(page);
     nodeId = await dropImageAndSelect(page);
   });
 
@@ -615,8 +595,12 @@ test.describe('Content-Aware Fill dialog', () => {
       .locator('dialog.varve-dialog--caf[open]')
       .waitFor({ state: 'hidden', timeout: 5000 });
 
+    // The image-processing sections are owned by Photo mode.  Keep this
+    // assertion on the same user-visible route as the AI Tools handoff shown
+    // outside that workspace instead of relying on an internal dialog state.
+    await switchWorkspace(page, 'Photo');
     await page.getByRole('tab', { name: 'Adjustments' }).click();
-    await page.getByRole('button', { name: 'Open Generative Edit dialog' }).click();
+    await openGenerativeEditFromAdjustments(page);
     const duplicateButton = page.getByRole('button', {
       name: 'Duplicate generative result as layer',
     });
@@ -661,8 +645,9 @@ test.describe('Content-Aware Fill dialog', () => {
     await dialog.getByRole('button', { name: /^apply$/i }).click();
     await dialog.waitFor({ state: 'hidden', timeout: 5000 });
 
+    await switchWorkspace(page, 'Photo');
     await page.getByRole('tab', { name: 'Adjustments' }).click();
-    await page.getByRole('button', { name: 'Open Generative Edit dialog' }).click();
+    await openGenerativeEditFromAdjustments(page);
     const reopened = page.locator('dialog.varve-dialog--caf[open]');
     await expect(reopened).toBeVisible();
     await expect(reopened.getByRole('tab', { name: 'Remove' })).toHaveAttribute(
