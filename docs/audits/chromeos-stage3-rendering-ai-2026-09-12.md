@@ -139,12 +139,54 @@ Two deliberate non-changes:
 
 ### 4.1 Browser acceptance and visual inspection (local x86_64 Chromium)
 
-Pending: the run and inspected screenshots are appended here when the
-acceptance spec completes. The spec is
-`tests/e2e/canvas/adaptive-preview-scale.spec.ts`; it asserts the full-resolution
-settled backing store, the 0.75 preview backing store during a drag at the
-forced performance tier, the return to full resolution after the interaction
-settles, and pixel equality with a `forceFullRedraw` oracle.
+Spec: `tests/e2e/canvas/adaptive-preview-scale.spec.ts`. It seeds a rectangle,
+zooms to 200%, forces the performance tier through the `?perf=1` seam, pans
+with the Hand tool, and asserts: settled frames at full backing resolution;
+mid-drag backing at exactly `round(cssWidth x DPR x 0.75)` with
+`tier === 'performance'`; full resolution restored after the interaction
+quiets; and canvas-pixel equality with a `forceFullRedraw` oracle.
+
+Command and result (production artifact, no watcher):
+
+```text
+pnpm --filter @varve/desktop exec vite build --outDir dist-stage3
+pnpm --filter @varve/desktop exec vite preview --outDir dist-stage3 --port 1497 --strictPort
+node scripts/quality/heavy-lease.mjs e2e-stage3-static -- \
+  pnpm exec playwright test tests/e2e/canvas/adaptive-preview-scale.spec.ts \
+  --config=/tmp/varve-stage3-pw.config.ts
+
+✓ interactive previews degrade at the tier scale and settle at full resolution (15.4s)
+1 passed (18.4s)
+```
+
+The temporary config is a throwaway `/tmp` file (no `webServer`, no
+global setup) pointed at the static artifact. Two earlier attempts against the
+Vite dev server failed in `page.evaluate` with "Execution context was
+destroyed" because other active agents' file writes triggered HMR reloads
+mid-test; that is shared-worktree churn, not a product failure, and the static
+artifact removes the variable.
+
+Visual inspection (screenshots read at full size; stored under
+`/tmp/varve-chromeos-stage3-visual/`):
+
+- `preview-scale-drag.png` — interaction open at the forced performance tier;
+  the canvas shows the rectangle mid-pan with the selection outline and corner
+  handles tracking it. The preview scale is active (asserted numerically); the
+  `?perf=1` diagnostics HUD is visible because the flag enables it.
+- `preview-scale-settled.png` — after release and the 180 ms quiet delay, the
+  rectangle and its selection handles sit at the panned position at full
+  backing resolution; no stale preview pixels, no misaligned overlay, and the
+  pixel oracle (settled hash === `forceFullRedraw` hash) passed.
+
+Limits of this evidence: it is headless Chromium with a software rasterizer
+(no GPU), a single rectangle, and DPR 1, so it proves correctness and the
+backing-scale contract, not device frame rates on the Duet's Mali GPU. The
+diagnostics HUD's interaction-total numbers in these screenshots are not a
+performance claim.
+
+A unit-level validation of the same contract runs in
+`presentWorkerFrame.test.ts`: a 0.75 bitmap presents on a 0.75 surface and is
+refused once the surface returns to full resolution.
 
 ### 4.2 Machine checks (unit)
 
