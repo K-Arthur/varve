@@ -1,0 +1,59 @@
+# ChromeOS Stage 1 ownership record
+
+**Task:** `chromeos-stage1-2026-09-11`
+**Coordinator:** Codex
+**Started:** 2026-09-11
+**Updated:** 2026-09-12
+**Base SHA:** `c23e6c8dc44168bc70d1626455154232c65447c1`
+**Branch/worktree:** `master` / `/home/kevina/CodingProjects/varve`
+
+## Scope owned by this task
+
+- Stage 1 research ledger, repository audit, route decision, fixture map,
+  acceptance-budget proposal, and implementation handoff.
+- Bounded local-only capability reporting and its editor settings surface,
+  after the documentation baseline is committed.
+- ChromeOS-specific platform-support and performance documentation.
+
+The active worktree already contained an unrelated font/input reliability batch
+before this task began. Its modified and untracked paths remain owned by that
+work and are not to be staged, reformatted, or committed here. In particular,
+avoid `CanvasArea.tsx`, `tests/e2e/shared.ts`, font files/tests/screenshots,
+and the current import/drop/menu changes unless the other owner hands them off.
+
+## Shared interfaces and serialization boundaries
+
+These are single-writer surfaces for later stages; Stage 1 only documents the
+handoff and does not change them:
+
+| Surface | Proposed owner for follow-up | Stage 1 contract |
+|---|---|---|
+| Platform capability types and probes | platform/performance owner | Report is bounded, on-demand, local-only, and separates static presence from dynamic success |
+| Autosave, recovery, and storage schema | persistence owner | Preserve the existing platform facade and recovery records; no Chromebook-only schema |
+| Renderer and input entry points | editor/render owner | Reuse adaptive capability gates; no UA-only route or new canvas hub imports |
+| Lockfiles and package manifests | dependency owner | No dependency upgrade is justified by Stage 1 evidence |
+| Service worker and PWA metadata | web/deployment owner | Treat `/try` as a deployed demo until offline install/update evidence exists |
+| Support matrix and release metadata | release/docs owner | Do not promote ChromeOS or Linux ARM64 beyond evidence-backed tiers |
+
+## Coordination rules
+
+- Before each patch and commit, re-check `git status --short` and the owned
+  paths. Stage only explicit paths listed in the current milestone.
+- Serialize commits on `master`; do not rebase, reset, stash globally, or
+  delete another worktree.
+- Active worktrees observed at start included `integrate-brush`,
+  `integrate-transform`, and `integrate-validation`, plus prunable temporary
+  worktrees. They are not part of this task's ownership.
+- Reserve `VARVE_E2E_PORT=1491` for any future browser run from this task.
+  Do not run device/performance measurements while another agent owns the
+  shared browser or native workload.
+- Use `/tmp/varve-chromeos-stage1-*` for temporary reports and screenshots;
+  never use a shared generated-output directory.
+
+## Handoffs
+
+The Stage 1 baseline is [the ChromeOS baseline audit](../audits/chromeos-stage1-baseline-2026-09-11.md).
+Stages 2–7 must re-check their relevant current sources and must not treat the
+proposed budgets or browser observations here as real Duet measurements. The
+Duet hardware is not attached to this session, so the hardware checklist and
+runtime capability report are the next verification boundary.
