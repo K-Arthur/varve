@@ -33,6 +33,15 @@
  * on the download page; a silent white screen is worse than a declared
  * dependency.
  *
+ * Resource preservation (fixed 2026-09-12): Tauri installs `bundle.resources`
+ * under `usr/lib/<productName>/` in the AppDir — the same tree as the system
+ * libraries. The original implementation removed `usr/lib` and `usr/lib64`
+ * wholesale, which also deleted `usr/lib/Varve/onnxruntime-libs/<os>-<arch>/
+ * libonnxruntime.so` (and the generative helper). v0.2.1's published
+ * AppImages therefore shipped without the native ONNX Runtime even though the
+ * .deb and .rpm carried it. The prune plan now keeps the product's resource
+ * directory and removes only the library entries around it.
+ *
  * Runs after `tauri build` on the Linux bundle directory, before collection.
  * Safe and idempotent: operates on the produced AppImage payload only.
  *
@@ -41,10 +50,22 @@
  *     [--tools-dir ~/.cache/tauri]
  */
 import { execFileSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdtempSync, readdirSync, rmSync, statSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+} from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { normalizeArchitecture } from './targets.mjs';
+
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
+const TAURI_CONF = join(REPO_ROOT, 'apps', 'desktop', 'src-tauri', 'tauri.conf.json');
 
 function parseArgs(argv) {
   const args = {};
@@ -67,6 +88,44 @@ function findTool(toolsDir, names) {
     if (existsSync(p)) return p;
   }
   return null;
+}
+
+/**
+ * Tauri installs `bundle.resources` under `usr/lib/<productName>/` on Linux
+ * (verified against the v0.2.1 .deb: `/usr/lib/Varve/onnxruntime-libs/...`).
+ * The AppImage uses the same AppDir layout, so the product name is also the
+ * resource directory name there.
+ */
+export function resolveLinuxResourceDirName(tauriConfPath = TAURI_CONF) {
+  if (!existsSync(tauriConfPath)) return null;
+  const conf = JSON.parse(readFileSync(tauriConfPath, 'utf8'));
+  return typeof conf.productName === 'string' && conf.productName.length > 0
+    ? conf.productName
+    : null;
+}
+
+/**
+ * Decide which entries under `usr/lib`/`usr/lib64` to remove and which to
+ * keep. Everything in those trees is a bundled system library except the
+ * product's own resource directory, which holds Tauri resources such as the
+ * native ONNX Runtime and the generative helper.
+ */
+export function collectPrunePlan(squashfsRoot, resourceDirName) {
+  const remove = [];
+  const keep = [];
+  for (const dirName of ['lib', 'lib64']) {
+    const dir = join(squashfsRoot, 'usr', dirName);
+    if (!existsSync(dir)) continue;
+    for (const entry of readdirSync(dir)) {
+      const full = join(dir, entry);
+      if (dirName === 'lib' && resourceDirName && entry === resourceDirName) {
+        keep.push(full);
+      } else {
+        remove.push(full);
+      }
+    }
+  }
+  return { remove, keep };
 }
 
 function main() {
@@ -93,17 +152,27 @@ function main() {
   // versions; the no-arg form extracts to ./squashfs-root reliably.
   execFileSync(appImagePath, ['--appimage-extract'], { cwd: work, stdio: 'pipe' });
 
-  const libDirs = [join(squashfsRoot, 'usr', 'lib'), join(squashfsRoot, 'usr', 'lib64')];
-  let removed = 0;
-  for (const dir of libDirs) {
-    if (!existsSync(dir)) continue;
-    // Remove the entire library tree (files, symlinks AND subdirectories
-    // such as usr/lib/x86_64-linux-gnu/gtk-3.0/*): every library the binary
-    // needs resolves from the host (validated with ldd on v0.1.1), and a
-    // leftover module .so makes linuxdeploy re-deploy dependencies and fail
-    // on libs the CI host does not have.
-    rmSync(dir, { recursive: true, force: true });
-    removed += 1;
+  // Tauri resources (the bundled ONNX Runtime, the generative helper) live
+  // under usr/lib/<productName> inside the same tree as the GTK/WebKit
+  // closure. Remove only the library entries; keeping the resource directory
+  // is what stops the AppImage from silently losing native AI.
+  const resourceDirName = resolveLinuxResourceDirName();
+  const { remove, keep } = collectPrunePlan(squashfsRoot, resourceDirName);
+  for (const entry of remove) {
+    // Files, symlinks AND subdirectories such as
+    // usr/lib/x86_64-linux-gnu/gtk-3.0/*: every library the binary needs
+    // resolves from the host (validated with ldd on v0.1.1), and a leftover
+    // module .so makes linuxdeploy re-deploy dependencies and fail on libs
+    // the CI host does not have.
+    rmSync(entry, { recursive: true, force: true });
+  }
+  const removed = remove.length;
+  if (keep.length > 0) {
+    process.stdout.write(
+      `Preserving ${keep.length} resource directory(ies): ${keep
+        .map((p) => p.slice(squashfsRoot.length + 1))
+        .join(', ')}\n`,
+    );
   }
 
   if (removed === 0) {
@@ -163,12 +232,34 @@ function main() {
   }
   chmodSync(output, 0o755);
 
+  // Re-assembly is the step that dropped resources in the past, so verify the
+  // final payload — not just the intermediate AppDir — still carries them.
+  if (keep.length > 0 && resourceDirName) {
+    const verifyWork = mkdtempSync(join(tmpdir(), 'varve-appimage-verify-'));
+    try {
+      execFileSync(output, ['--appimage-extract'], { cwd: verifyWork, stdio: 'pipe' });
+      const preserved = join(verifyWork, 'squashfs-root', 'usr', 'lib', resourceDirName);
+      if (!existsSync(preserved)) {
+        throw new Error(
+          `Pruned AppImage lost its resource directory usr/lib/${resourceDirName}. ` +
+            'The native ONNX Runtime and generative helper would be missing.',
+        );
+      }
+    } finally {
+      rmSync(verifyWork, { recursive: true, force: true });
+    }
+  }
+
   const prunedSize = statSync(output).size;
   rmSync(work, { recursive: true, force: true });
   process.stdout.write(
-    `Pruned ${removed} bundled libraries and re-assembled ${appImage} (${(prunedSize / 1e6).toFixed(1)} MB). ` +
-      'AppImage now uses host WebKit/GTK/GStreamer/Mesa — see module doc.\n',
+    `Pruned ${removed} bundled library entries and re-assembled ${appImage} (${(prunedSize / 1e6).toFixed(1)} MB). ` +
+      'AppImage now uses host WebKit/GTK/GStreamer/Mesa and keeps its own resources — see module doc.\n',
   );
 }
 
-main();
+const isDirectRun =
+  process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isDirectRun) {
+  main();
+}
