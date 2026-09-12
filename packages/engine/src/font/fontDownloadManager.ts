@@ -50,7 +50,7 @@ export interface FontDownloadExpectation {
 }
 
 export interface DownloadManagerConfig {
-  /** Max concurrent downloads (default 3). */
+  /** Max concurrent download/validation attempts (default 2, clamped to 1–2). */
   maxConcurrent?: number;
   /** Max file size in bytes (default 10 MB). */
   maxFileSize?: number;
@@ -93,11 +93,16 @@ export class FontDownloadManager {
   private events: DownloadManagerEvents;
   private jobs = new Map<string, DownloadJob>();
   private abortControllers = new Map<string, AbortController>();
+  private executing = new Set<DownloadJob>();
+  private generations = new WeakMap<DownloadJob, number>();
   private processing = false;
 
   constructor(config?: DownloadManagerConfig, events?: DownloadManagerEvents) {
+    const requestedConcurrency = config?.maxConcurrent ?? 2;
     this.config = {
-      maxConcurrent: config?.maxConcurrent ?? 3,
+      maxConcurrent: Number.isFinite(requestedConcurrency)
+        ? Math.min(2, Math.max(1, Math.floor(requestedConcurrency)))
+        : 2,
       maxFileSize: config?.maxFileSize ?? 10 * 1024 * 1024,
       allowedFormats: config?.allowedFormats ?? ['ttf', 'otf', 'woff', 'woff2'],
       validateIntegrity: config?.validateIntegrity ?? true,
@@ -144,6 +149,7 @@ export class FontDownloadManager {
     if (!job) return false;
     if (job.status === 'complete' || job.status === 'cancelled') return false;
 
+    this.generations.set(job, (this.generations.get(job) ?? 0) + 1);
     const controller = this.abortControllers.get(jobId);
     controller?.abort();
     this.abortControllers.delete(jobId);
@@ -160,6 +166,7 @@ export class FontDownloadManager {
     if (!job) return false;
     if (job.status !== 'queued' && job.status !== 'downloading') return false;
 
+    this.generations.set(job, (this.generations.get(job) ?? 0) + 1);
     const controller = this.abortControllers.get(jobId);
     controller?.abort();
     this.abortControllers.delete(jobId);
@@ -247,37 +254,34 @@ export class FontDownloadManager {
     });
   }
 
-  private async runQueue(): Promise<void> {
-    const active = this.getActiveJobs().filter((j) => j.status === 'downloading');
-    const available = this.config.maxConcurrent - active.length;
+  private runQueue(): void {
+    // Validation and cancelled attempts that have not settled still occupy
+    // capacity. A retry of that same object waits until its prior attempt ends.
+    const available = this.config.maxConcurrent - this.executing.size;
     if (available <= 0) return;
 
     const queued = this.getAllJobs()
-      .filter((j) => j.status === 'queued')
+      .filter((j) => j.status === 'queued' && !this.executing.has(j))
       .sort((a, b) => a.createdAt - b.createdAt)
       .slice(0, available);
 
-    const workers = queued.map((job) => this.executeJob(job));
-    await Promise.allSettled(workers);
-
-    // A queue with more jobs than the concurrency limit must continue after
-    // the first batch settles. The previous implementation only drained on
-    // addJob/resume/retry, leaving later jobs permanently queued.
-    if (this.getAllJobs().some((job) => job.status === 'queued')) {
-      this.processQueue();
-    }
+    void Promise.allSettled(queued.map((job) => this.executeJob(job)));
   }
 
   private async executeJob(job: DownloadJob): Promise<void> {
+    const generation = this.generations.get(job) ?? 0;
+    this.executing.add(job);
     job.status = 'downloading';
 
     try {
       // Download
       const data = await this.downloadFile(job);
+      if (!this.isCurrentAttempt(job, generation)) return;
 
       // Validate format
       job.status = 'validating';
       const metadata = await this.validateFont(data, job.format);
+      if (!this.isCurrentAttempt(job, generation)) return;
 
       // Integrity check
       if (this.config.validateIntegrity && job.expectation?.sha256) {
@@ -286,11 +290,9 @@ export class FontDownloadManager {
       }
 
       // Success
-      // Cancellation can happen while validation is running (the fetch
-      // controller is already gone by then). Never let that late completion
-      // turn a cancelled job back into a successful download.
-      const currentStatus = job.status as DownloadJobStatus;
-      if (currentStatus === 'cancelled' || currentStatus === 'paused') return;
+      // Check the attempt, not just mutable status: retry may already have
+      // changed a cancelled job back to queued while validation was pending.
+      if (!this.isCurrentAttempt(job, generation)) return;
       job.status = 'complete';
       job.data = data;
       job.metadata = metadata;
@@ -299,15 +301,20 @@ export class FontDownloadManager {
       job.completedAt = Date.now();
       this.events.onJobComplete?.(job);
     } catch (err) {
-      // Don't mark as failed if cancelled
-      const s = job.status as DownloadJobStatus;
-      if (s === 'cancelled' || s === 'paused') return;
+      if (!this.isCurrentAttempt(job, generation)) return;
 
       job.status = 'failed';
       job.error = err instanceof Error ? err.message : String(err);
       job.completedAt = Date.now();
       this.events.onJobFailed?.(job);
+    } finally {
+      this.executing.delete(job);
+      this.processQueue();
     }
+  }
+
+  private isCurrentAttempt(job: DownloadJob, generation: number): boolean {
+    return this.jobs.get(job.id) === job && (this.generations.get(job) ?? 0) === generation;
   }
 
   // ── Download ───────────────────────────────────────────────────────────
@@ -317,9 +324,18 @@ export class FontDownloadManager {
     this.validateDownloadUrl(job.url);
     const controller = new AbortController();
     this.abortControllers.set(job.id, controller);
+    // Bound the whole transfer, including a body that stalls after its headers.
+    // Validation has a separate lifecycle and does not use this network timer.
+    const timeout = setTimeout(
+      () =>
+        controller.abort(new Error('Font download timed out. Check your connection and retry.')),
+      30_000,
+    );
+    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
 
     try {
       const response = await fetch(job.url, { signal: controller.signal, redirect: 'error' });
+      controller.signal.throwIfAborted();
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -342,10 +358,11 @@ export class FontDownloadManager {
       }
       job.totalBytes = contentLength || 0;
 
-      const reader = response.body?.getReader();
+      reader = response.body?.getReader();
       if (!reader) {
         // No streaming support — fall back to arrayBuffer()
         const buffer = await response.arrayBuffer();
+        controller.signal.throwIfAborted();
         if (buffer.byteLength > this.config.maxFileSize) {
           throw new Error(
             `Font file too large: ${buffer.byteLength} bytes (max ${this.config.maxFileSize})`,
@@ -363,6 +380,7 @@ export class FontDownloadManager {
 
       while (true) {
         const { done, value } = await reader.read();
+        controller.signal.throwIfAborted();
         if (done) break;
 
         chunks.push(value);
@@ -389,7 +407,11 @@ export class FontDownloadManager {
 
       return result.buffer;
     } finally {
-      this.abortControllers.delete(job.id);
+      clearTimeout(timeout);
+      // Close unread bodies on header/size errors as well as explicit cancel.
+      controller.abort();
+      reader?.releaseLock?.();
+      if (this.abortControllers.get(job.id) === controller) this.abortControllers.delete(job.id);
     }
   }
 
@@ -424,24 +446,21 @@ export class FontDownloadManager {
     return metadata;
   }
 
-  /** Verify data integrity via SHA-256 hash comparison. Returns true if valid. */
+  /**
+   * @deprecated Use verifyIntegrityAsync for hash verification. This legacy
+   * guard only accepts the absence of an expected hash; it cannot verify one.
+   */
   verifyIntegrity(_data: ArrayBuffer, expectedHash?: string): boolean {
-    if (!expectedHash) return true;
-
-    // Compute SHA-256 using SubtleCrypto if available
-    if (typeof crypto !== 'undefined' && crypto.subtle) {
-      // We return synchronously in the current interface, so for hash verification
-      // the caller should use the async path. For now, return true if no crypto.
-      // The async version is available via verifyIntegrityAsync.
-      return true;
-    }
-
-    return true;
+    return !expectedHash;
   }
 
   /** Async SHA-256 integrity verification. */
   async verifyIntegrityAsync(data: ArrayBuffer, expectedHash: string): Promise<boolean> {
-    if (typeof crypto === 'undefined' || !crypto.subtle) return true;
+    if (typeof crypto === 'undefined' || !crypto.subtle) {
+      throw new Error(
+        'SHA-256 verification is unavailable. Retry in a secure browser or desktop app.',
+      );
+    }
 
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
     const hashArray = new Uint8Array(hashBuffer);
