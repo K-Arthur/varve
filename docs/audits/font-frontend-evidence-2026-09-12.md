@@ -8,6 +8,9 @@ browser and native stores can be validated without a mounted editor surface.
 
 - The full browser expands only `FontRegistry` faces. It no longer creates
   synthetic PostScript names from every catalog weight/style combination.
+- The full browser list uses measured virtualization and overscan. It keeps a
+  normal-flow fallback only while its scroll viewport has not produced a
+  measurable range, which preserves first paint and jsdom accessibility tests.
 - Parsed byte-backed faces and native/browser local-font enumeration carry the
   known PostScript name, collection member, portable face key, and variable
   axis definitions into the shared registry.
