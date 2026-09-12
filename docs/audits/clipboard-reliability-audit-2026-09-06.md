@@ -243,8 +243,8 @@ handles, centered rotated placement, and website clipboard capability tables in
 light, dark, and mobile layouts. Native `.fig` screenshots show the imported
 layers and the expected Import Results report; the report is intentionally
 dismissed by the integration spec before canvas assertions. The full native
-transport, Firefox-owned Figma captures, and paste/drop Import Results wiring
-remain open and are not claimed as complete.
+transport and Firefox-owned Figma captures remain open and are not claimed as
+complete.
 
 The stale destination guard now has a dedicated `dropUtils.test.ts` regression
 covering unchanged sessions and document, tab, document-revision, and
@@ -355,8 +355,7 @@ desktop light/dark and mobile captures passed for both GitHub Pages and the
 custom-domain base (8 Playwright tests); inspected evidence is retained under
 `test-results/clipboard-feature-*`. The remaining open lanes are the owned
 Firefox Figma captures, packaged Tauri `.fig` CSP/decompression verification,
-rich-text formatting, paste/drop Import Results UI wiring, and native
-Wayland/WebKitGTK transport and cancellation cleanup.
+and native Wayland/WebKitGTK transport and cancellation cleanup.
 
 The final focused rerun covered `clipboard.test.ts`, `context.import.test.tsx`,
 `dropUtils.test.ts`, and `svg.test.ts`: 82 tests passed in 21.39 seconds.
