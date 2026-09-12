@@ -1215,3 +1215,15 @@ pnpm --dir apps/website exec playwright test \
   --project=ghpages --project=custom-domain --project=touch --reporter=list
 8 passed; inspected desktop light/dark and mobile screenshots
 ```
+
+The final editor typecheck and architecture health check were also rerun after
+the report bridge change:
+
+```text
+pnpm exec tsc -p packages/editor/tsconfig.json --noEmit --pretty false
+passed
+
+node scripts/audit-architecture.mjs --ci
+completed with the repository's existing 14 dependency cycles and known hub/
+instability warnings; no new layer, type-only-edge, or dead-export violation
+```
