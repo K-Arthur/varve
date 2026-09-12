@@ -21,6 +21,10 @@ browser and native stores can be validated without a mounted editor surface.
 - The quick text toolbar writes the ordinary `fontWeight` and, when the family
   declares `wght`, the same value into `variableAxes.wght` while retaining all
   other authored axes.
+- The Typography inspector's ordinary weight control uses the same command
+  adapter as the quick toolbar. Bold and numeric weight edits therefore keep
+  authored `wdth`, `slnt`, and other custom axes while updating `wght` for
+  variable families; static families keep the legacy weight-only update.
 
 ## Focused validation
 
@@ -68,6 +72,22 @@ detached during concurrent editor changes. These are environment/concurrency
 failures, not passing claims for the new browser action; the deterministic
 component and registry tests above are the evidence for this slice. A fresh
 Chromium run on a quiet `master` checkout remains the next executable check.
+
+The follow-up visual run used the shared toolbar oracle after the inspector
+adapter landed:
+
+```text
+VARVE_E2E_PORT=1545 VARVE_E2E_WORKERS=1 npx playwright test tests/e2e/canvas/font-toolbar-visual.spec.ts --project=chromium --reporter=list
+VARVE_E2E_PORT=1546 VARVE_E2E_WORKERS=1 npx playwright test tests/e2e/canvas/font-toolbar-visual.spec.ts --project=chromium -g 'DPR 1' --reporter=list
+```
+
+The first run passed DPR 2 and DPR 3 and hit a cold-start canvas-bounds race in
+DPR 1. The isolated DPR 1 rerun passed after the dev server was warm. All
+three DPRs therefore passed the theme, readable-menu, viewport-containment,
+active-descendant, and shared-chrome assertions. I inspected the resulting
+light open, light narrow, and dark narrow captures under
+`test-results/run-1048965-1546/`; the family field stays readable, controls
+remain 32px on one centerline, and the menu stays inside the narrow viewport.
 
 ## Remaining platform work
 
