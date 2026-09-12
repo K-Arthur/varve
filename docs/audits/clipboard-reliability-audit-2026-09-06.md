@@ -1123,3 +1123,11 @@ blocked at format:touched by packages/engine/src/generativeEdit/diffusionFrame.t
 
 The clipboard/import files remain clean under the same formatter and lint
 checks, and their direct unit and isolated browser E2E commands passed.
+
+The direct editor typecheck also reports no clipboard/import diagnostics:
+
+```text
+pnpm exec tsc -p packages/editor/tsconfig.json --noEmit --pretty false
+3 unrelated concurrent diagnostics in AIStatusIndicator, ContextAwareShortcuts,
+and the in-flight font catalog projection; zero clipboard/import errors
+```
