@@ -1040,6 +1040,13 @@ from local coordinates while the wrapper is in world coordinates (CLIP-39).
 The implementation is committed as `60a067c8`; the existing real Copy as PNG
 Chromium test continues to pass.
 
+```text
+VARVE_E2E_PORT=1484 pnpm exec playwright test \
+  tests/e2e/canvas/clipboard.spec.ts -g 'Edit menu Copy as PNG' \
+  --project=chromium --workers=1 --reporter=line
+1 passed
+```
+
 The browser visual rerun after the correction also passed:
 
 ```text
