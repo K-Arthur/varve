@@ -1243,6 +1243,13 @@ before any clipboard assertion. The grouped SVG screenshot from that run was
 inspected and shows the grouped artwork and sibling selection together on the
 canvas.
 
+After the report document-identity contract (`87bb74bd`), the planner selected
+the wider concurrent canvas/UI closure. The mandated affected run stopped at
+the same two unrelated `format:touched` diagnostics in
+`AIStatusIndicator.tsx` and `ContextAwareShortcuts.tsx`, before any targeted
+clipboard lane; the clean editor typecheck and focused report/action tests were
+rerun after the contract fix.
+
 ### CLIP-41 — Reveal action could outlive its source document (2026-09-12)
 
 **Classification:** Application / session ownership. **Resolved locally.**
