@@ -40,6 +40,15 @@ browser and native stores can be validated without a mounted editor surface.
   on blur or Enter. Its family field and controls use the 32px compact token;
   narrow layouts scroll the row instead of truncating the family into a static
   160px label.
+- The Logo wordmark panel now uses the shared family combobox, an explicit
+  Browse fonts dialog, and direct weight/style controls. Family-only changes
+  clear stale exact references; an expanded registered face applies its
+  family, weight, style, and portable reference together.
+- Identify Font now bounds decoded image data to a 2048px edge, supplies a
+  registry-backed catalog and local render comparison to the detection
+  pipeline, and accepts optional recognized text. Candidate actions are
+  labelled **Use for new text** and queue a pending family/reference before
+  activating the Text tool; they no longer claim to mutate the selected image.
 
 ## Focused validation
 
@@ -52,7 +61,9 @@ Commands run:
 ./node_modules/.bin/vitest run packages/editor/src/components/FontBrowser/FontBrowser.test.tsx --config vitest.config.ts --pool=threads --maxWorkers=1 --reporter=verbose
 ./node_modules/.bin/vitest run packages/editor/src/components/FontBrowser/FontBrowser.test.tsx packages/editor/src/components/FloatingTextBar/FloatingTextBar.test.tsx packages/editor/src/components/Inspector/sections/__tests__/VariableAxes.test.tsx --config vitest.config.ts --pool=threads --maxWorkers=1 --reporter=dot
 ./node_modules/.bin/vitest run packages/engine/src/font/semantic/semanticCatalog.test.ts packages/editor/src/components/FloatingTextBar/FloatingTextBar.test.tsx packages/editor/src/components/FontBrowser/FontSelector.test.tsx --config vitest.config.ts --pool=threads --maxWorkers=1 --reporter=dot
+./node_modules/.bin/vitest run packages/editor/src/components/LogoPanel/LogoTypographySection.test.tsx packages/editor/src/components/Inspector/sections/FontDetectSection.test.tsx --config vitest.config.ts --pool=threads --maxWorkers=1 --reporter=dot
 ./node_modules/.bin/tsc -p packages/engine/tsconfig.json --noEmit
+./node_modules/.bin/tsc -p packages/editor/tsconfig.json --noEmit
 pnpm audit:docs
 pnpm audit:emoji
 pnpm audit:tokens
@@ -67,6 +78,9 @@ The face-selection regression and its neighboring typography controls pass
 **24/24** in the focused combined run (the browser face assertion is included).
 The compact literal-search and first-paint fallback checks pass **37/37** in
 the follow-up run.
+The Logo wordmark and Identify Font component checks pass **5/5**. The editor
+typecheck passed for these owned files before later concurrent scene edits
+reintroduced the unrelated E2E typecheck failure described below.
 
 ## Visual inspection
 
@@ -153,5 +167,6 @@ floating picker, theme contrast, and narrow viewport containment.
 Linux Tauri/WebKitGTK still needs an embedded local-font permission and native
 refresh capture. Windows WebView2 and macOS WKWebView remain pending their
 native CI/manual environments. Document Fonts, Select by Font, exact
-collection-face replacement, and image crop-to-font application remain open
-from the main typography audit.
+collection-face replacement, arbitrary image-region crop/overlay selection,
+OCR-assisted identification, and applying a detected face to an existing text
+target remain open from the main typography audit.

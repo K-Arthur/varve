@@ -11,8 +11,16 @@
  * Results are presented as ranked candidates with honest confidence language.
  */
 
-import type { FontDetectionResult } from '@varve/engine';
-import { detectFont, getModelLoader, loadFullLabelMap } from '@varve/engine';
+import type { FontCandidate, FontDetectionResult } from '@varve/engine';
+import {
+  createFontCatalogFromRegistry,
+  detectFont,
+  fontReferenceFromIdentity,
+  getFontRegistry,
+  getModelLoader,
+  loadFullLabelMap,
+  renderAndCompare,
+} from '@varve/engine';
 import type { SceneNode } from '@varve/scene';
 import { imageShapeSrc, isImageShape } from '@varve/scene';
 import { Button } from '@varve/ui';
@@ -22,6 +30,7 @@ import { DisclosureSection } from '../controls/DisclosureSection';
 import './FontDetectSection.css';
 
 const MODEL_ID = 'font-classify';
+const MAX_IMAGE_EDGE = 2048;
 
 interface FontDetectState {
   status: 'idle' | 'downloading' | 'detecting' | 'error';
@@ -35,14 +44,15 @@ function loadImageToImageData(src: string): Promise<ImageData> {
     const img = new Image();
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
+      const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(img.naturalWidth, img.naturalHeight));
+      canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
       const ctx = canvas.getContext('2d');
       if (!ctx) {
         reject(new Error('Failed to get canvas context'));
         return;
       }
-      ctx.drawImage(img, 0, 0);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       resolve(ctx.getImageData(0, 0, canvas.width, canvas.height));
     };
     img.onerror = () => reject(new Error('Failed to load image'));
@@ -59,6 +69,7 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
   const downloadAbortRef = useRef<AbortController | null>(null);
   const [modelAvailable, setModelAvailable] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
+  const [recognizedText, setRecognizedText] = useState('');
 
   const [detect, setDetect] = useState<FontDetectState>({
     status: 'idle',
@@ -75,16 +86,28 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
     if (!isImage) return;
     let cancelled = false;
     (async () => {
-      const [available] = await Promise.all([
-        getModelLoader().isModelAvailable(MODEL_ID),
-        loadFullLabelMap(),
-      ]);
-      if (!cancelled) setModelAvailable(available);
+      try {
+        const [available] = await Promise.all([
+          getModelLoader().isModelAvailable(MODEL_ID),
+          loadFullLabelMap(),
+        ]);
+        if (!cancelled) setModelAvailable(available);
+      } catch {
+        if (!cancelled) setModelAvailable(false);
+      }
     })();
     return () => {
       cancelled = true;
     };
   }, [isImage]);
+
+  useEffect(() => {
+    abortRef.current?.abort();
+    downloadAbortRef.current?.abort();
+    abortRef.current = null;
+    downloadAbortRef.current = null;
+    setDetect((prev) => ({ ...prev, status: 'idle', errorMessage: null, result: null }));
+  }, [imageSrc]);
 
   const handleDownload = useCallback(async () => {
     setDetect((prev) => ({ ...prev, status: 'downloading', errorMessage: null }));
@@ -130,14 +153,29 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
       const fullData = await loadImageToImageData(imageSrc);
       if (controller.signal.aborted) throw new Error('cancelled');
 
+      const registry = getFontRegistry();
+      const fontCatalog = createFontCatalogFromRegistry(registry);
+
       const result = await detectFont(
         {
           imageData: fullData,
           mode: 'hybrid',
+          recognizedText: recognizedText.trim() || undefined,
           maxCandidates: 5,
           signal: controller.signal,
         },
-        {},
+        {
+          fontCatalog,
+          renderCompare: async (imageData, families, text) =>
+            (
+              await renderAndCompare({
+                sourceImageData: imageData,
+                families,
+                recognizedText: text,
+                signal: controller.signal,
+              })
+            ).scores,
+        },
       );
 
       if (controller.signal.aborted) throw new Error('cancelled');
@@ -160,7 +198,7 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
       const message = err instanceof Error ? err.message : 'Font detection failed';
       setDetect((prev) => ({ ...prev, status: 'error', errorMessage: message }));
     }
-  }, [imageSrc, announce]);
+  }, [imageSrc, announce, recognizedText]);
 
   const handleCancel = useCallback(() => {
     abortRef.current?.abort();
@@ -171,24 +209,23 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
     setDetect((prev) => ({ ...prev, result: null }));
   }, []);
 
-  const applyCandidateFont = useCallback(
-    (family: string) => {
-      editor.beginTransaction();
-      try {
-        for (const textNode of nodes) {
-          if (textNode.kind === 'text') {
-            editor.updateNode(textNode.id, (n) => ({
-              ...n,
-              fontFamily: family,
-            }));
-          }
-        }
-      } finally {
-        editor.commitTransaction();
-      }
-      announce(`Applied font: ${family}`);
+  const useCandidateForNewText = useCallback(
+    (candidate: FontCandidate) => {
+      const reference = candidate.catalogEntry
+        ? fontReferenceFromIdentity(candidate.catalogEntry.identity)
+        : undefined;
+      editor.setPendingFormat({
+        fontFamily: candidate.family,
+        ...(reference ? { fontReference: reference } : {}),
+      });
+      editor.setTool('text');
+      announce(
+        candidate.isAvailable
+          ? `Font selected for new text: ${candidate.family}`
+          : `Font request queued for new text: ${candidate.family}`,
+      );
     },
-    [editor, nodes, announce],
+    [announce, editor],
   );
 
   if (!isImage || !typedNode) return null;
@@ -200,9 +237,22 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
     <DisclosureSection title="Identify Font" sectionId="font-detect">
       <div className="insp-field-group">
         <p className="insp-hint">
-          Identifies the font family used in this image. Select a clear, high-contrast text region
-          for best results. Runs locally in a web worker.
+          Identifies the font family used in this image. The source is bounded to a 2048px edge and
+          all comparison work stays local. Select a clear, high-contrast text region for best
+          results.
         </p>
+
+        <label className="font-detect-text-field">
+          <span className="insp-subsection__label">Text in image (optional)</span>
+          <input
+            type="text"
+            className="font-detect-text-input"
+            value={recognizedText}
+            onChange={(event) => setRecognizedText(event.target.value)}
+            placeholder="Type the visible text for local comparison"
+            aria-label="Text in image (optional)"
+          />
+        </label>
 
         {needsDownload && (
           <div className="insp-actions">
@@ -243,7 +293,7 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
 
         {detect.result && (
           <section className="insp-nested-panel" aria-label="Font detection results">
-            <ResultsList result={detect.result} onApply={applyCandidateFont} />
+            <ResultsList result={detect.result} onUseForNewText={useCandidateForNewText} />
             <div className="insp-actions">
               <Button type="button" variant="ghost" size="sm" onClick={handleDismissResult}>
                 Dismiss
@@ -287,10 +337,10 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
 
 function ResultsList({
   result,
-  onApply,
+  onUseForNewText,
 }: {
   result: FontDetectionResult;
-  onApply?: (family: string) => void;
+  onUseForNewText?: (candidate: FontCandidate) => void;
 }) {
   if (result.candidates.length === 0) {
     return (
@@ -331,10 +381,10 @@ function ResultsList({
                 type="button"
                 variant="secondary"
                 size="sm"
-                onClick={() => onApply?.(candidate.family)}
-                aria-label={`Apply font ${candidate.family}`}
+                onClick={() => onUseForNewText?.(candidate)}
+                aria-label={`Use ${candidate.family} for new text`}
               >
-                Apply
+                Use for new text
               </Button>
             </div>
           </li>

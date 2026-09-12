@@ -107,6 +107,22 @@
   gap: var(--space-1);
 }
 
+.logo-panel__font-field {
+  gap: var(--space-2);
+}
+
+.logo-panel__font-field .font-selector {
+  min-width: 0;
+}
+
+.logo-panel__font-field .font-selector__input {
+  min-height: var(--component-compact-height);
+}
+
+.logo-panel__font-browse {
+  align-self: flex-start;
+}
+
 .logo-panel__field-label {
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);

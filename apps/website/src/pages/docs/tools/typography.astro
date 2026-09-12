@@ -224,9 +224,15 @@ import { sitePath } from '../../../lib/siteUrl';
           original font source so recipients can obtain the appropriate file.
         </p>
         <p>
-          Document Fonts, Select by Font, and the image crop-to-font workflow
-          are still being integrated. The current image identification panel
-          does not yet provide a complete crop, identify, and apply workflow.
+          The <strong>Identify Font</strong> panel accepts a selected image,
+          bounds decoded data to a 2048px edge, and can use optional recognized
+          text for local render comparison against the installed catalog. A
+          candidate's <strong>Use for new text</strong> action queues its family
+          (and known exact reference) for the next text layer and activates the
+          Text tool. Arbitrary transformed crop selection, OCR-assisted region
+          overlays, and applying a result to an existing text target remain
+          under integration. Document Fonts and Select by Font are also still
+          being integrated.
         </p>
       </section>
 

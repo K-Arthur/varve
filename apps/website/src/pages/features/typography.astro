@@ -170,6 +170,7 @@ const fontReplacementFaq = {
           <li><strong>Missing-font replacement:</strong> Ranked local candidates, rich-text-aware Replace All, and manifest provenance across save/reopen</li>
           <li><strong>Quick text toolbar:</strong> Compact 32px controls share the editor palette's spacing and surface tokens; alignment and lists live in More text formatting, with keyboard dismissal for the font picker</li>
           <li><strong>Typography inspector:</strong> Font family, weight, style, size, line height, letter spacing, alignment, OpenType features</li>
+          <li><strong>Image font identification:</strong> Bounded local image analysis, optional recognized text, installed-font comparison, and an explicit Use for new text handoff</li>
         </ul>
       </section>
 
@@ -212,9 +213,11 @@ const fontReplacementFaq = {
           The compact toolbar and ordinary inspector controls currently format
           selected text objects. Use the Rich Text editor for range formatting.
           Registered exact-face selection is available from the expanded browser
-          rows; recovery of an imported collection face, Document Fonts,
-          Select by Font, and image crop-to-font application are still being
-          integrated. Browser
+          rows; the Logo wordmark panel shares that browser and exposes weight
+          and style controls. Recovery of an imported collection face, Document
+          Fonts, Select by Font, arbitrary image-region crop/overlay selection,
+          and applying an identified face to an existing text target are still
+          being integrated. Browser
           local-font enumeration is available only through the explicit action
           in the full browser and remains subject to the browser's permission
           policy.

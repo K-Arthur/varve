@@ -1,4 +1,33 @@
 /* FontDetectSection — "Identify Font" ranked candidate results. */
+.font-detect-text-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.font-detect-text-input {
+  width: 100%;
+  min-height: var(--component-compact-height);
+  box-sizing: border-box;
+  padding: var(--space-1) var(--space-2);
+  color: var(--color-text-primary);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  font: inherit;
+  font-size: var(--type-interface-control-size);
+}
+
+.font-detect-text-input:focus-visible {
+  border-color: var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+}
+
+.font-detect-text-input::placeholder {
+  color: var(--color-text-muted);
+}
+
 .font-detect-results {
   list-style: none;
   margin: 0;

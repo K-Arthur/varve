@@ -8,14 +8,19 @@
  */
 
 import type { TextNode } from '@varve/scene';
-import { NumberInput } from '@varve/ui';
-import { useMemo } from 'react';
+import { Button, Icon, NumberInput, Select } from '@varve/ui';
+import { useMemo, useState } from 'react';
 import { useEditor } from '../../context';
+import type { FontFaceSelection } from '../FontBrowser/FontBrowser';
+import { FontBrowserDialog } from '../FontBrowser/FontBrowserDialog';
+import { FontSelector } from '../FontBrowser/FontSelector';
+import { fontFamilyChanges, fontWeightChanges } from '../Typography/fontWeight';
 import { GlyphTypographySection } from '../Typography/GlyphTypographySection';
 
 export function LogoTypographySection({ node }: { node: TextNode }) {
   const editor = useEditor();
   const nodeId = node.id;
+  const [fontBrowserOpen, setFontBrowserOpen] = useState(false);
 
   const patch = useMemo(
     () => (patch: Partial<TextNode>) => {
@@ -32,6 +37,24 @@ export function LogoTypographySection({ node }: { node: TextNode }) {
 
   return (
     <div className="logo-panel__section-body">
+      <FontBrowserDialog
+        open={fontBrowserOpen}
+        onClose={() => setFontBrowserOpen(false)}
+        selectedFamily={node.fontFamily}
+        onSelect={(family) => {
+          patch(fontFamilyChanges(family || undefined));
+          setFontBrowserOpen(false);
+        }}
+        onSelectFace={(selection: FontFaceSelection) => {
+          patch({
+            ...fontFamilyChanges(selection.family),
+            fontReference: selection.fontReference,
+            ...fontWeightChanges({ ...node, fontFamily: selection.family }, selection.weight),
+            fontStyle: selection.style,
+          });
+          setFontBrowserOpen(false);
+        }}
+      />
       <label className="logo-panel__field">
         <span className="logo-panel__field-label">Wordmark text</span>
         <input
@@ -41,15 +64,46 @@ export function LogoTypographySection({ node }: { node: TextNode }) {
           onChange={(e) => patch({ text: e.target.value })}
         />
       </label>
-      <div className="logo-panel__field">
-        <span className="logo-panel__field-label">Font</span>
-        <input
-          className="logo-panel__text-input"
-          type="text"
+      <div className="logo-panel__field logo-panel__font-field">
+        <FontSelector
           value={node.fontFamily ?? ''}
-          placeholder="Font family"
-          onChange={(e) => patch({ fontFamily: e.target.value || undefined })}
+          label="Font family"
+          onChange={(family) => patch(fontFamilyChanges(family || undefined))}
         />
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="logo-panel__font-browse"
+          onClick={() => setFontBrowserOpen(true)}
+          aria-label="Browse fonts for wordmark"
+        >
+          <Icon name="Search" size={14} />
+          Browse fonts
+        </Button>
+      </div>
+      <div className="logo-panel__field">
+        <span className="logo-panel__field-label">Weight and style</span>
+        <div className="logo-panel__button-row">
+          <Select
+            label="Font weight"
+            value={String(node.fontWeight ?? 400)}
+            options={[100, 200, 300, 400, 500, 600, 700, 800, 900].map((weight) => ({
+              value: String(weight),
+              label: String(weight),
+            }))}
+            onChange={(value) => patch(fontWeightChanges(node, Number(value)))}
+          />
+          <Select
+            label="Font style"
+            value={node.fontStyle ?? 'normal'}
+            options={[
+              { value: 'normal', label: 'Normal' },
+              { value: 'italic', label: 'Italic' },
+            ]}
+            onChange={(fontStyle) => patch({ fontStyle: fontStyle as TextNode['fontStyle'] })}
+          />
+        </div>
       </div>
       <div className="logo-panel__field">
         <span className="logo-panel__field-label">Size and tracking</span>

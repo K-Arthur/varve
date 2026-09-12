@@ -149,14 +149,14 @@ before worker rendering can reuse them; otherwise the main-thread replay
 
 ## Compact editing surfaces
 
-The inspector, contextual text bar, and floating text toolbar use the same
-family picker model. The contextual bar exposes family, weight, and size
-commands directly below the menubar, with 32px compact controls and a
-horizontal overflow boundary instead of shrinking a family field to an
-unreadable label. The floating toolbar uses the main floating palette's
-spacing, surface and shadow tokens, with 32px compact controls, consistent
-field typography and a separate More panel for alignment and lists. Its
-independently anchored font menu remains inside the viewport. Escape has an
+The inspector, contextual text bar, floating text toolbar, and Logo wordmark
+panel use the same family picker model. The contextual bar exposes family,
+weight, and size commands directly below the menubar, with 32px compact
+controls and a horizontal overflow boundary instead of shrinking a family
+field to an unreadable label. The floating toolbar uses the main floating
+palette's spacing, surface and shadow tokens, with 32px compact controls,
+consistent field typography and a separate More panel for alignment and lists.
+Its independently anchored font menu remains inside the viewport. Escape has an
 explicit precedence: an open family picker
 closes first without committing the search; a subsequent Escape exits text
 editing. The size field commits its draft on blur or Enter; Escape discards an
@@ -184,6 +184,20 @@ choices stay on one row. These scoped styles do not change other inspector
 sections. Rich-text operations preserve inherited character-style links when
 splitting, replacing and clearing runs; the ordinary toolbar still needs the
 range/caret command adapter.
+
+The Logo wordmark controls use the same picker and an explicit Browse fonts
+dialog. Choosing a family clears an older exact reference; choosing a
+registered face applies its family, weight, style, and reference together.
+Weight and style are available directly in the Logo panel so wordmarks do not
+fall back to a family-only text field.
+
+The image **Identify Font** panel bounds decoded image data to a 2048px edge,
+passes the live registry projection and local render comparison into the
+detection pipeline, and accepts optional recognized text to improve matching.
+Because an image selection is not a text target, a candidate action is labelled
+**Use for new text**: it stores a pending family/reference and activates the
+Text tool. Arbitrary transformed crop selection, OCR-assisted region overlays,
+and applying a result to an existing text target remain separate work.
 
 ## Evidence and open platform work
 
