@@ -8,13 +8,17 @@
 
 import { getFontRegistry } from '@varve/engine';
 import {
+  enumerateSystemFonts,
   type FontSearchResult,
   type FontSemanticRecord,
   findFontAlternatives,
   findFontPairings,
   findSimilarFonts,
   getFontSemanticCatalog,
+  getSystemFontDiscoveryStatus,
+  hasQueryLocalFonts,
   parseFontSemanticQuery,
+  resetSystemFontCache,
   tagLabel,
 } from '@varve/engine/font';
 import { Icon, SearchField, Tooltip } from '@varve/ui';
@@ -52,7 +56,8 @@ type SemanticFilter =
   | 'vietnamese';
 
 interface FontFaceEntry {
-  postScriptName: string;
+  key: string;
+  postScriptName?: string;
   weight: number;
   style: string;
   source: string;
@@ -141,21 +146,26 @@ function facesFor(
   record: FontSemanticRecord,
   registry: ReturnType<typeof getFontRegistry>,
 ): FontFaceEntry[] {
-  const registered = registry.getEntries(record.familyName).map((entry) => ({
-    postScriptName: `${record.familyName}-${entry.weight}-${entry.style}`,
-    weight: entry.weight,
-    style: entry.style,
-    source: entry.source,
-  }));
-  if (registered.length > 0) return registered;
-  return record.weights.slice(0, 12).flatMap((weight) =>
-    record.styles.map((style) => ({
-      postScriptName: `${record.familyName}-${weight}-${style}`,
-      weight,
-      style,
-      source: record.source,
-    })),
-  );
+  // Expand only faces the runtime has actually registered. Catalog weights
+  // and styles describe a family, but inventing PostScript names for every
+  // Cartesian combination makes an unavailable face look selectable.
+  const seen = new Set<string>();
+  return registry.getEntries(record.familyName).flatMap((entry, index) => {
+    const key =
+      entry.faceKey ??
+      `${record.familyName}\u0000${entry.postScriptName ?? ''}\u0000${entry.weight}\u0000${entry.style}\u0000${entry.source}\u0000${index}`;
+    if (seen.has(key)) return [];
+    seen.add(key);
+    return [
+      {
+        key,
+        ...(entry.postScriptName ? { postScriptName: entry.postScriptName } : {}),
+        weight: entry.weight,
+        style: entry.style,
+        source: entry.source,
+      },
+    ];
+  });
 }
 
 export function FontBrowser({
@@ -181,8 +191,13 @@ export function FontBrowser({
   const [previewText, setPreviewText] = useState('The quick brown fox jumps over the lazy dog');
   const [previewStatus, setPreviewStatus] = useState<FontPreviewStatus>('unavailable');
   const [previewMessage, setPreviewMessage] = useState<string | undefined>();
+  const [localFontStatus, setLocalFontStatus] = useState<
+    'idle' | 'loading' | 'ready' | 'permission-denied' | 'fallback' | 'error'
+  >('idle');
+  const [localFontCount, setLocalFontCount] = useState(0);
   const previewFaceRef = useRef<FontFace | undefined>(undefined);
   const tagInputId = useId();
+  const localFontApiAvailable = useMemo(() => hasQueryLocalFonts(), []);
 
   useEffect(() => setSelectedFamily(selectedFamilyProp), [selectedFamilyProp]);
 
@@ -307,6 +322,43 @@ export function FontBrowser({
     [semantic],
   );
 
+  const refreshLocalFonts = useCallback(async () => {
+    setLocalFontStatus('loading');
+    try {
+      // Enumeration is deliberately user initiated. Search, hover, and
+      // opening the picker never invoke either the native scanner or the
+      // browser Local Font Access permission prompt.
+      resetSystemFontCache();
+      const families = await enumerateSystemFonts();
+      semantic.syncRegistry(registry);
+      semantic.notifyExternalChange();
+      setLocalFontCount(families.length);
+      const status = getSystemFontDiscoveryStatus();
+      setLocalFontStatus(
+        status === 'permission-denied'
+          ? 'permission-denied'
+          : status === 'fallback'
+            ? 'fallback'
+            : 'ready',
+      );
+    } catch {
+      setLocalFontStatus('error');
+    }
+  }, [registry, semantic]);
+
+  const localFontStatusLabel =
+    localFontStatus === 'loading'
+      ? 'Checking local fonts…'
+      : localFontStatus === 'ready'
+        ? `${localFontCount} local ${localFontCount === 1 ? 'family' : 'families'} ready`
+        : localFontStatus === 'permission-denied'
+          ? 'Local font permission was denied'
+          : localFontStatus === 'fallback'
+            ? 'Using the compatibility font list'
+            : localFontStatus === 'error'
+              ? 'Local font discovery failed'
+              : undefined;
+
   const addTag = useCallback(() => {
     if (!selectedRecord || !tagDraft.trim()) return;
     semantic.addUserTag(selectedRecord.familyId, tagDraft.trim());
@@ -385,6 +437,21 @@ export function FontBrowser({
               ))}
             </select>
           </label>
+          <div className="font-browser__local-fonts">
+            <button
+              type="button"
+              className="font-browser__local-fonts-button"
+              onClick={() => void refreshLocalFonts()}
+              disabled={localFontStatus === 'loading'}
+            >
+              {localFontApiAvailable ? 'Allow local fonts' : 'Refresh local fonts'}
+            </button>
+            {localFontStatusLabel && (
+              <span className="font-browser__local-fonts-status" role="status" aria-live="polite">
+                {localFontStatusLabel}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -492,12 +559,14 @@ export function FontBrowser({
                     <div className="font-browser__faces">
                       {faces.map((face) => (
                         <button
-                          key={face.postScriptName}
+                          key={face.key}
                           type="button"
                           className="font-browser__face-row"
                           onClick={() => handleSelect(record)}
                         >
-                          <span className="font-browser__face-name">{face.postScriptName}</span>
+                          <span className="font-browser__face-name">
+                            {face.postScriptName ?? `${face.weight} ${face.style}`}
+                          </span>
                           <span className="font-browser__face-meta">
                             {face.weight} {face.style}
                           </span>

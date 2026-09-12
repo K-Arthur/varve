@@ -1,3 +1,4 @@
+import { getFontRegistry } from '@varve/engine';
 import type { ManagedColor, NodeId, TextNode } from '@varve/scene';
 import { DEFAULT_ARTWORK_FONT_FAMILY, managedColorToRgba } from '@varve/shared';
 import {
@@ -29,7 +30,22 @@ const TOOLBAR_FALLBACKS: Array<'bottom-start' | 'right-start' | 'left-start'> = 
   'left-start',
 ];
 
+function weightChanges(
+  node: TextNode,
+  weight: number,
+  registry: ReturnType<typeof getFontRegistry>,
+): Partial<TextNode> {
+  const family = node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY;
+  const supportsWeightAxis =
+    registry.getAxisDefinitions(family)?.some((axis) => axis.tag === 'wght') === true ||
+    node.variableAxes?.wght !== undefined;
+  return supportsWeightAxis
+    ? { fontWeight: weight, variableAxes: { ...(node.variableAxes ?? {}), wght: weight } }
+    : { fontWeight: weight };
+}
+
 export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: FloatingTextBarProps) {
+  const registry = useMemo(() => getFontRegistry(), []);
   const [colorOpen, setColorOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLButtonElement>(null);
@@ -40,8 +56,8 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
 
   const handleBoldToggle = useCallback(() => {
     const current = node.fontWeight ?? 400;
-    onUpdate(node.id, { fontWeight: current >= 600 ? 400 : 700 });
-  }, [node, onUpdate]);
+    onUpdate(node.id, weightChanges(node, current >= 600 ? 400 : 700, registry));
+  }, [node, onUpdate, registry]);
 
   const handleItalicToggle = useCallback(() => {
     onUpdate(node.id, {
@@ -76,9 +92,9 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
 
   const handleFontWeightChange = useCallback(
     (value: string) => {
-      onUpdate(node.id, { fontWeight: Number(value) });
+      onUpdate(node.id, weightChanges(node, Number(value), registry));
     },
-    [node, onUpdate],
+    [node, onUpdate, registry],
   );
 
   const fillColor: ManagedColor = node.fill ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 255 };

@@ -175,6 +175,29 @@ describe('FloatingTextBar', () => {
     expect(onUpdate).toHaveBeenCalledWith('text-1', { fontWeight: 400 });
   });
 
+  it('couples weight changes to the wght axis while preserving custom axes', () => {
+    const onUpdate = vi.fn();
+    render(
+      <FloatingTextBar
+        {...defaultProps({
+          onUpdate,
+          node: {
+            ...BASE_TEXT_NODE,
+            fontFamily: 'Geist Variable',
+            variableAxes: { wdth: 92 },
+          },
+        })}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText('Bold'));
+
+    expect(onUpdate).toHaveBeenCalledWith('text-1', {
+      fontWeight: 700,
+      variableAxes: { wdth: 92, wght: 700 },
+    });
+  });
+
   it('calls onUpdate with italic on italic click', () => {
     const onUpdate = vi.fn();
     render(<FloatingTextBar {...defaultProps({ onUpdate })} />);

@@ -151,6 +151,52 @@
   font: inherit;
 }
 
+.font-browser__local-fonts {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.font-browser__local-fonts-button {
+  min-height: var(--component-compact-height);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-interactive-default);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-raised);
+  color: var(--color-interactive-default);
+  font: inherit;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.font-browser__local-fonts-button:hover:not(:disabled) {
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+}
+
+.font-browser__local-fonts-button:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+
+.font-browser__local-fonts-button:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.font-browser__local-fonts-status {
+  max-width: 10rem;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .font-browser__workspace {
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(19rem, 0.85fr);
@@ -756,6 +802,19 @@
     flex-direction: column;
   }
 
+  .font-browser__local-fonts {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .font-browser__local-fonts-button {
+    width: 100%;
+  }
+
+  .font-browser__local-fonts-status {
+    max-width: none;
+  }
+
   .font-browser__semantic-filter {
     justify-content: space-between;
   }
@@ -785,7 +844,8 @@
 [data-theme="high-contrast"] .font-browser,
 [data-theme="high-contrast"] .font-browser__specimen-label input,
 [data-theme="high-contrast"] .font-browser__tag-editor input,
-[data-theme="high-contrast"] .font-browser__semantic-filter select {
+[data-theme="high-contrast"] .font-browser__semantic-filter select,
+[data-theme="high-contrast"] .font-browser__local-fonts-button {
   border-color: var(--color-border-strong);
 }
 
@@ -808,7 +868,8 @@
 
   .font-browser__badge,
   .font-browser__chip,
-  .font-browser__detail-tag {
+  .font-browser__detail-tag,
+  .font-browser__local-fonts-button {
     border: 1px solid ButtonText;
   }
 }

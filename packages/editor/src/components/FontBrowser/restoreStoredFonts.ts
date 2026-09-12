@@ -48,7 +48,15 @@ export async function restoreStoredFonts(): Promise<{
       const records = await listFilesystemFonts();
       for (const record of records) {
         try {
-          const stored = await loadFontFromFilesystem(record.family);
+          const stored = await loadFontFromFilesystem(
+            record.faceKey ??
+              (record.sha256
+                ? {
+                    artifactHash: record.sha256,
+                    collectionIndex: record.collectionIndex,
+                  }
+                : record.family),
+          );
           if (!stored) {
             failed++;
             continue;
@@ -56,7 +64,9 @@ export async function restoreStoredFonts(): Promise<{
           const data = asArrayBuffer(stored.data);
           if (record.sha256) {
             const actual = await sha256Hex(data);
-            if (actual && actual !== record.sha256.toLowerCase()) throw new Error('hash mismatch');
+            if (actual && actual !== record.sha256.toLowerCase().replace(/^sha256:/, '')) {
+              throw new Error('hash mismatch');
+            }
           }
           const result = await loader.loadFromArrayBufferPublic(
             record.family,
@@ -67,6 +77,13 @@ export async function restoreStoredFonts(): Promise<{
               : record.providerId === 'google'
                 ? 'google'
                 : 'user',
+            {
+              ...(record.postScriptName ? { postScriptName: record.postScriptName } : {}),
+              ...(record.faceKey ? { faceKey: record.faceKey } : {}),
+              ...(record.collectionIndex === undefined
+                ? {}
+                : { collectionIndex: record.collectionIndex }),
+            },
           );
           if (result.success) restored++;
           else failed++;

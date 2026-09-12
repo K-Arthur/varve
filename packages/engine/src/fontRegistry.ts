@@ -19,6 +19,14 @@ export interface FontEntry {
   weight: number;
   style: 'normal' | 'italic';
   source: 'system' | 'bundled' | 'google' | 'fontsource' | 'user';
+  /** PostScript name from the exact face's name table, when known. */
+  postScriptName?: string;
+  /** Portable identity for the exact artifact/member (`sha256:<digest>:<member>`). */
+  faceKey?: string;
+  /** Member index for a TrueType/OpenType collection. */
+  collectionIndex?: number;
+  /** Native source handle/path retained for exact local access. */
+  sourceLocation?: string;
   /** Optional source URL retained for legacy/provider metadata. */
   url?: string;
   /** Variable font axis values (e.g. { wght: 500, wdth: 75, slnt: 0, opsz: 14 }). */
@@ -40,9 +48,18 @@ function fontEntryKey(entry: FontEntry): string {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([tag, value]) => `${tag}=${value}`)
     .join(',');
-  return [entry.family, entry.weight, entry.style, entry.source, entry.url ?? '', axes].join(
-    '\u0000',
-  );
+  return [
+    entry.family,
+    entry.weight,
+    entry.style,
+    entry.source,
+    entry.url ?? '',
+    entry.postScriptName ?? '',
+    entry.faceKey ?? '',
+    entry.collectionIndex ?? '',
+    entry.sourceLocation ?? '',
+    axes,
+  ].join('\u0000');
 }
 
 export type FontLoadState = 'unknown' | 'loading' | 'loaded' | 'error';

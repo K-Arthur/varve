@@ -78,7 +78,7 @@ const fontReplacementFaq = {
           For native Figma <code>.fig</code>, REST, or plugin-export JSON imports, Varve also treats fonts as document dependencies. It detects missing families in ordinary text, rich-text runs, and reusable text styles; checks the shipped Fontsource catalog for the requested face; ranks installed candidates; and keeps the original family reference in the saved document manifest. You can continue editing locally without keeping Figma open.
         </p>
         <p>
-          The catalog ships with Varve, so font discovery works offline and does not require a Google Fonts key or runtime metadata request. On desktop, installing a result is an explicit action that retrieves one exact, version-pinned Fontsource artifact, stores it locally, and only then makes it available to the document. If a font is still unavailable after reopening, the missing-font workflow helps you review a replacement. Same-name files and collection-member recovery remain under integration. The browser demo can browse the catalog but does not download additional font files.
+          The catalog ships with Varve, so font discovery works offline and does not require a Google Fonts key or runtime metadata request. The full browser offers an explicit local-font permission or refresh action and reports when it falls back to the compatibility list. On desktop, installing a result is an explicit action that retrieves one exact, version-pinned Fontsource artifact, stores it locally under its artifact and face identity, and only then makes it available to the document. If a font is still unavailable after reopening, the missing-font workflow helps you review a replacement. Same-name files and collection members remain distinct in storage; native GUI restart evidence is still being collected. The browser demo can browse the catalog but does not download additional font files.
         </p>
       </section>
 
@@ -211,9 +211,11 @@ const fontReplacementFaq = {
         <p>
           The compact toolbar and ordinary inspector controls currently format
           selected text objects. Use the Rich Text editor for range formatting.
-          Browser local-font permission/import, exact collection-face recovery,
-          Document Fonts, Select by Font, and image crop-to-font application are
-          still being integrated.
+          Exact collection-face recovery, Document Fonts, Select by Font, and
+          image crop-to-font application are still being integrated. Browser
+          local-font enumeration is available only through the explicit action
+          in the full browser and remains subject to the browser's permission
+          policy.
         </p>
         <p>
           Review the source license before distributing a font file. Technical

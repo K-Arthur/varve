@@ -116,6 +116,34 @@ describe('FontRegistry', () => {
     expect(reg.getEntries('Exact Face')).toHaveLength(2);
   });
 
+  it('keeps distinct exact faces that share a family, weight, and style', () => {
+    const reg = new FontRegistry([]);
+    reg.register({
+      family: 'Collection Family',
+      weight: 400,
+      style: 'normal',
+      source: 'user',
+      postScriptName: 'Collection-Regular',
+      faceKey: `sha256:${'1'.repeat(64)}:0`,
+      collectionIndex: 0,
+    });
+    reg.register({
+      family: 'Collection Family',
+      weight: 400,
+      style: 'normal',
+      source: 'user',
+      postScriptName: 'Collection-Book',
+      faceKey: `sha256:${'1'.repeat(64)}:1`,
+      collectionIndex: 1,
+    });
+
+    expect(reg.getEntries('Collection Family')).toHaveLength(2);
+    expect(reg.getEntries('Collection Family').map((entry) => entry.faceKey)).toEqual([
+      `sha256:${'1'.repeat(64)}:0`,
+      `sha256:${'1'.repeat(64)}:1`,
+    ]);
+  });
+
   it('registers a font entry with url source', () => {
     const reg = new FontRegistry([]);
     reg.register({

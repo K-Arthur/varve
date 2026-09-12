@@ -72,11 +72,17 @@ shows the unknown state and the reason an export option is unavailable.
 
 ## Persistence and recovery
 
-Browser artifacts currently use IndexedDB database `varve-font-storage-v2`,
-version 1. Its legacy migration lacks a durable journal and removal tombstones;
-it can reimport removed fonts on restart. Native storage is still keyed by
-family and can overwrite another face. Both require artifact/face records,
-original-byte integrity checks, atomic migration recovery and exact removal.
+Browser artifacts use IndexedDB database `varve-font-storage-v2`, version 2.
+The `artifacts`, `artifactBlobs`, and `faces` stores are joined by the exact
+SHA-256 artifact/member key; shared blobs carry a reference count. Writes
+rehash the original bytes, reads quarantine tampered records, and exact removal
+leaves a tombstone. A durable migration journal prevents a completed legacy
+import from resurrecting a deleted face after restart. Family lookup remains a
+compatibility projection and is not used for exact recovery.
+
+Native storage now writes the same face key into hash-addressed directories,
+keeps old family-addressed files readable, and verifies the sidecar digest on
+load and listing. Windows and macOS native runs remain pending.
 
 Download attempts retain their concurrency slot through validation and integrity
 checks. Cancellation and pause invalidate an attempt generation, so a late
@@ -105,6 +111,13 @@ only attempted after a deliberate user action and permission; denial falls
 back to the shipped catalog. Hovering, searching, or opening a catalog result
 does not fetch a remote font. The public browser demo can browse metadata and
 bundled faces, but additional artifacts require an explicit desktop install.
+
+The full browser exposes that boundary as an explicit **Allow local fonts** or
+**Refresh local fonts** action. Its status reports whether native enumeration,
+the browser permission, or the compatibility list supplied the results. Face
+expansion reads exact registry entries (including a known PostScript name and
+portable face key); catalog weight/style combinations are never presented as
+selectable faces when no corresponding artifact is installed.
 
 ## Readiness boundary
 

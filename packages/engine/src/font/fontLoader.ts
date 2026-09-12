@@ -11,7 +11,11 @@
 
 import { isTauriRuntime as isTauri } from '@varve/platform';
 import { type FontRegistry, getFontRegistry } from '../fontRegistry';
-import type { ParsedFontMetadata } from './fontIdentity';
+import {
+  fontReferenceFromIdentity,
+  fontReferenceKey,
+  type ParsedFontMetadata,
+} from './fontIdentity';
 import { parseFontData } from './fontParser';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -161,6 +165,11 @@ export class FontLoader {
       providerId?: string;
       weight?: number;
       style?: 'normal' | 'italic';
+      postScriptName?: string;
+      faceKey?: string;
+      artifactHash?: string;
+      collectionIndex?: number;
+      axes?: Array<{ tag: string; name?: string; min: number; max: number; default: number }>;
     },
   ): Promise<LoadResult> {
     const key = `${family}\u0000${storageMetadata?.weight ?? 'auto'}:${storageMetadata?.style ?? 'normal'}`;
@@ -319,7 +328,15 @@ export class FontLoader {
     data: ArrayBuffer,
     source: 'network' | 'local',
     registrySource: 'system' | 'bundled' | 'google' | 'fontsource' | 'user' = 'user',
-    faceOptions?: { weight?: number; style?: 'normal' | 'italic' },
+    faceOptions?: {
+      weight?: number;
+      style?: 'normal' | 'italic';
+      postScriptName?: string;
+      faceKey?: string;
+      artifactHash?: string;
+      collectionIndex?: number;
+      axes?: Array<{ tag: string; name?: string; min: number; max: number; default: number }>;
+    },
   ): Promise<LoadResult> {
     return this.loadFromArrayBuffer(family, data, source, registrySource, faceOptions);
   }
@@ -331,7 +348,15 @@ export class FontLoader {
     data: ArrayBuffer,
     source: 'network' | 'local',
     registrySource: 'system' | 'bundled' | 'google' | 'fontsource' | 'user' = 'user',
-    faceOptions?: { weight?: number; style?: 'normal' | 'italic' },
+    faceOptions?: {
+      weight?: number;
+      style?: 'normal' | 'italic';
+      postScriptName?: string;
+      faceKey?: string;
+      artifactHash?: string;
+      collectionIndex?: number;
+      axes?: Array<{ tag: string; name?: string; min: number; max: number; default: number }>;
+    },
   ): Promise<LoadResult> {
     if (typeof document === 'undefined' || !document.fonts) {
       const result: LoadResult = {
@@ -377,11 +402,45 @@ export class FontLoader {
     this.loaded.set(family, result);
 
     // Register in FontRegistry so existing UI components see the font
+    const faceReference = meta ? fontReferenceFromIdentity(meta.identity) : undefined;
     this.registry.register({
       family,
       weight,
       style,
       source: registrySource,
+      ...(faceOptions?.postScriptName
+        ? { postScriptName: faceOptions.postScriptName }
+        : meta?.identity.postScriptName
+          ? { postScriptName: meta.identity.postScriptName }
+          : {}),
+      ...(faceOptions?.collectionIndex !== undefined
+        ? { collectionIndex: faceOptions.collectionIndex }
+        : meta?.identity.collectionIndex === undefined
+          ? {}
+          : { collectionIndex: meta.identity.collectionIndex }),
+      ...(faceOptions?.faceKey
+        ? { faceKey: faceOptions.faceKey }
+        : faceReference
+          ? { faceKey: fontReferenceKey(faceReference) }
+          : {}),
+      ...(faceOptions?.axes?.length
+        ? {
+            axisDefinitions: faceOptions.axes.map((axis) => ({
+              ...axis,
+              name: axis.name ?? axis.tag,
+            })),
+          }
+        : meta?.axes.length
+          ? {
+              axisDefinitions: meta.axes.map((axis) => ({
+                tag: axis.tag,
+                name: axis.name,
+                min: axis.min,
+                default: axis.default,
+                max: axis.max,
+              })),
+            }
+          : {}),
     });
 
     if (meta) {
@@ -523,6 +582,14 @@ interface WindowWithLocalFonts extends Window {
 /** Cache for queryLocalFonts results (enumerated once per session). */
 let _enumeratedSystemFamilies: string[] | null = null;
 let _enumeratedSystemFonts: LocalFontMetadata[] | null = null;
+export type SystemFontDiscoveryStatus =
+  | 'unknown'
+  | 'native'
+  | 'local-api'
+  | 'fallback'
+  | 'permission-denied'
+  | 'error';
+let _systemFontDiscoveryStatus: SystemFontDiscoveryStatus = 'unknown';
 
 /**
  * Check whether the browser supports the Local Font Access API.
@@ -561,11 +628,14 @@ export async function enumerateSystemFonts(): Promise<string[]> {
           weight: Math.round(face.weight),
           style: face.style.includes('italic') ? 'italic' : 'normal',
           source: 'system',
+          postScriptName: face.name,
+          sourceLocation: face.path || undefined,
         });
       }
 
       const families = [...familySet].sort();
       _enumeratedSystemFamilies = families;
+      _systemFontDiscoveryStatus = 'native';
       // Expose full face details through getCachedLocalFontMetadata semantics.
       _enumeratedSystemFonts = faces.map((f) => ({
         postscriptName: f.name,
@@ -584,17 +654,35 @@ export async function enumerateSystemFonts(): Promise<string[]> {
       const win = window as WindowWithLocalFonts;
       const fonts = await win.queryLocalFonts!();
       _enumeratedSystemFonts = fonts;
+      const registry = getFontRegistry();
+      for (const font of fonts) {
+        registry.register({
+          family: font.family,
+          weight: weightFromSubfamily(font.style),
+          style: /italic|oblique/i.test(font.style) ? 'italic' : 'normal',
+          source: 'system',
+          postScriptName: font.postscriptName,
+        });
+      }
       const families = [...new Set(fonts.map((f) => f.family))].sort();
       _enumeratedSystemFamilies = families;
+      _systemFontDiscoveryStatus = 'local-api';
       return families;
     } catch {
       // Permission denied or API error — fall through to safe list
+      _systemFontDiscoveryStatus = 'permission-denied';
     }
   }
 
   // Fallback: safe list of fonts available across Windows, macOS, and Linux
   _enumeratedSystemFamilies = [...SYSTEM_FONTS];
+  if (_systemFontDiscoveryStatus === 'unknown') _systemFontDiscoveryStatus = 'fallback';
   return _enumeratedSystemFamilies;
+}
+
+/** Explain which local-font discovery path supplied the current list. */
+export function getSystemFontDiscoveryStatus(): SystemFontDiscoveryStatus {
+  return _systemFontDiscoveryStatus;
 }
 
 /**
@@ -611,6 +699,7 @@ export function getCachedLocalFontMetadata(): LocalFontMetadata[] | null {
 export function resetSystemFontCache(): void {
   _enumeratedSystemFamilies = null;
   _enumeratedSystemFonts = null;
+  _systemFontDiscoveryStatus = 'unknown';
 }
 
 /**

@@ -70,12 +70,18 @@ export {
   KNOWN_LICENSES,
 } from './fontLicensePolicy';
 // Loading and registration
-export type { FontLoaderConfig, LoadResult, SystemFontFace } from './fontLoader';
+export type {
+  FontLoaderConfig,
+  LoadResult,
+  SystemFontDiscoveryStatus,
+  SystemFontFace,
+} from './fontLoader';
 export {
   detectSystemFonts,
   enumerateSystemFonts,
   FontLoader,
   getCachedLocalFontMetadata,
+  getSystemFontDiscoveryStatus,
   hasQueryLocalFonts,
   resetSystemFontCache,
 } from './fontLoader';
@@ -118,10 +124,12 @@ export { FONT_COMPAT_MAP, FontResolver } from './fontResolver';
 export type { FontStorageMetadata, StoredFontRecord } from './fontStorage';
 export {
   getStoredFont,
+  getStoredFontByIdentity,
   getStoredFontCount,
   listStoredFonts,
   loadStoredFont,
   removeStoredFont,
+  removeStoredFontByIdentity,
   storeFont,
 } from './fontStorage';
 // Tauri filesystem font storage adapter

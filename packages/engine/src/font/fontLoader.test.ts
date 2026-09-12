@@ -1,7 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { FontRegistry } from '../fontRegistry';
+import { FontRegistry, getFontRegistry, resetFontRegistry } from '../fontRegistry';
 import type { ParsedFontMetadata } from './fontIdentity';
-import { detectSystemFonts, FontLoader, loadSystemFontsViaLocal } from './fontLoader';
+import {
+  detectSystemFonts,
+  enumerateSystemFonts,
+  FontLoader,
+  getSystemFontDiscoveryStatus,
+  loadSystemFontsViaLocal,
+  resetSystemFontCache,
+} from './fontLoader';
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 
@@ -283,6 +290,50 @@ describe('detectSystemFonts', () => {
     expect(fonts).toContain('Helvetica');
     expect(fonts).toContain('Times New Roman');
     expect(fonts).toContain('Courier New');
+  });
+});
+
+describe('enumerateSystemFonts', () => {
+  beforeEach(() => {
+    resetSystemFontCache();
+    resetFontRegistry();
+  });
+  afterEach(() => {
+    resetSystemFontCache();
+    resetFontRegistry();
+    vi.unstubAllGlobals();
+  });
+
+  it('reports the compatibility path when no native or browser API exists', async () => {
+    const families = await enumerateSystemFonts();
+
+    expect(families).toContain('Arial');
+    expect(getSystemFontDiscoveryStatus()).toBe('fallback');
+  });
+
+  it('registers exact browser faces only after the local-font query resolves', async () => {
+    vi.stubGlobal('window', {
+      queryLocalFonts: vi.fn().mockResolvedValue([
+        {
+          postscriptName: 'ExactLocal-BoldItalic',
+          fullName: 'Exact Local Bold Italic',
+          family: 'Exact Local',
+          style: 'Bold Italic',
+        },
+      ]),
+    });
+
+    await enumerateSystemFonts();
+
+    expect(getSystemFontDiscoveryStatus()).toBe('local-api');
+    expect(getFontRegistry().getEntries('Exact Local')).toEqual([
+      expect.objectContaining({
+        postScriptName: 'ExactLocal-BoldItalic',
+        weight: 700,
+        style: 'italic',
+        source: 'system',
+      }),
+    ]);
   });
 });
 

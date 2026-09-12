@@ -112,10 +112,10 @@ import { sitePath } from '../../../lib/siteUrl';
           <li><strong>Explicit desktop installs</strong> — When enabled, retrieve one exact, version-pinned Fontsource artifact after reviewing the result and its license metadata</li>
         </ul>
         <p>
-          The compact font family selector shows installed fonts only and never starts a download. Open Browse fonts for semantic discovery, coverage and license inspection. The public browser demo keeps search local-first and does not make remote provider requests; desktop installation is a separate explicit action. Missing fonts open a recovery dialog that uses the same shipped catalog and install boundary.
+          The compact font family selector shows installed fonts only and never starts a download. Open Browse fonts for semantic discovery, coverage and license inspection. In the full browser, use <strong>Allow local fonts</strong> (or <strong>Refresh local fonts</strong> on desktop) to deliberately enumerate local faces; the status explains whether permission, native enumeration, or the compatibility list supplied the result. The public browser demo keeps search local-first and does not make remote provider requests; desktop installation is a separate explicit action. Missing fonts open a recovery dialog that uses the same shipped catalog and install boundary.
         </p>
         <p>
-          Downloads are stored locally. If a font is still reported missing after reopening, review the requested family and face before choosing a replacement. Collection members and different files with the same family name are still being integrated into storage and recovery; a family match does not prove that the original file was restored.
+          Downloads are stored locally under an artifact hash and collection-member face key. If a font is still reported missing after reopening, review the requested family and exact face before choosing a replacement. Collection members and different files with the same family name remain distinct; a family match does not prove that the original file was restored.
         </p>
 
         <h3>Browse fonts</h3>
@@ -125,6 +125,7 @@ import { sitePath } from '../../../lib/siteUrl';
         <ol>
           <li><strong>Search:</strong> A plain term such as <code>gothic</code> returns only matching catalog families. Natural-language queries remain ranked and show the interpreted terms.</li>
           <li><strong>Inspect:</strong> Select a family to keep the list in place while reviewing a custom specimen rendered with the available family, source, license, styles, weights, script coverage, tags, and related families.</li>
+          <li><strong>Expand exact faces:</strong> Open a family row to see only registered faces. Known PostScript names and portable collection-member identities are shown; unavailable weight/style combinations are not invented.</li>
           <li><strong>Decide:</strong> Use an installed family explicitly, or install a catalog-only family after reviewing its metadata. Selecting a result alone never changes the document.</li>
         </ol>
         <p>

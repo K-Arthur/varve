@@ -59,4 +59,12 @@ describe('FontBrowser', () => {
     expect(screen.getByText('Varve specimen 123')).toBeVisible();
     expect(onSelect).not.toHaveBeenCalled();
   });
+
+  it('exposes local font discovery as an explicit action', () => {
+    render(<FontBrowser layout="modal" showDownloadable />);
+
+    const refresh = screen.getByRole('button', { name: 'Refresh local fonts' });
+    expect(refresh).toBeVisible();
+    expect(screen.queryByText(/local (families|family) ready/i)).not.toBeInTheDocument();
+  });
 });
