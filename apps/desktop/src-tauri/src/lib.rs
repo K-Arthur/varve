@@ -3,6 +3,7 @@ mod file_open;
 mod font;
 mod font_storage;
 mod filesystem;
+mod generative_qualification;
 mod logs;
 mod lifecycle;
 mod menu;
@@ -1364,6 +1365,7 @@ const GENERATIVE_MODEL_HANDLE: &str = "varve-diffusion-inpainting";
 const GENERATIVE_MODEL_PROFILE: &str = "sd15-inpainting-q4_0-v1";
 const GENERATIVE_MODEL_CUSTOM_PROFILE: &str = "custom-safe-inpainting-v1";
 const GENERATIVE_MODEL_METADATA_SUFFIX: &str = ".metadata.json";
+const GENERATIVE_MODEL_METADATA_SCHEMA_VERSION: u32 = 2;
 const GENERATIVE_MODEL_FILENAME: &str = "varve-diffusion-inpainting.gguf";
 const GENERATIVE_MODEL_DOWNLOAD_URL: &str = "https://huggingface.co/gpustack/stable-diffusion-v1-5-inpainting-GGUF/resolve/21491e4/stable-diffusion-v1-5-inpainting-Q4_0.gguf?download=true";
 const GENERATIVE_MODEL_DOWNLOAD_SIZE: u64 = 1_747_219_584;
@@ -1441,7 +1443,7 @@ fn model_status_blocking(
                 let (size_bytes, checksum_sha256) = sha256_file(&path)?;
                 let record = read_generative_model_metadata(&path);
                 let ready = record.as_ref().is_some_and(|record| {
-                        record.schema_version == 1
+                        record.schema_version == GENERATIVE_MODEL_METADATA_SCHEMA_VERSION
                         && record.model_handle == GENERATIVE_MODEL_HANDLE
                         && matches!(
                             record.profile_id.as_str(),
@@ -1822,8 +1824,11 @@ fn import_generative_edit_model(
 }
 
 fn qualification_request(model_handle: &str, request_id: String) -> GenerativeEditOptions {
-    const WIDTH: u32 = 64;
-    const HEIGHT: u32 = 64;
+    // SD 1.5 inpainting was trained around a 512px working frame. A tiny
+    // 64px probe can return a valid PNG while exercising an unsupported
+    // latent shape and must not be allowed to mark a model ready.
+    const WIDTH: u32 = 512;
+    const HEIGHT: u32 = 512;
     let mut image_data = vec![0u8; (WIDTH * HEIGHT * 4) as usize];
     let mut mask = vec![0u8; (WIDTH * HEIGHT) as usize];
     for y in 0..HEIGHT {
@@ -1833,7 +1838,7 @@ fn qualification_request(model_handle: &str, request_id: String) -> GenerativeEd
             image_data[pixel + 1] = 238;
             image_data[pixel + 2] = 238;
             image_data[pixel + 3] = 255;
-            if (20..44).contains(&x) && (20..44).contains(&y) {
+            if (128..384).contains(&x) && (128..384).contains(&y) {
                 mask[(y * WIDTH + x) as usize] = 255;
             }
         }
@@ -1925,7 +1930,7 @@ fn write_generative_model_metadata(
         GENERATIVE_MODEL_CUSTOM_PROFILE
     };
     let metadata = GenerativeModelMetadata {
-        schema_version: 1,
+        schema_version: GENERATIVE_MODEL_METADATA_SCHEMA_VERSION,
         model_handle: GENERATIVE_MODEL_HANDLE.into(),
         profile_id: profile_id.into(),
         size_bytes,
@@ -1946,11 +1951,18 @@ async fn qualify_generative_edit_model(
         let model_path = resolve_generative_model_for_run(&app, false)?;
         let options = qualification_request(GENERATIVE_MODEL_HANDLE, format!("qualification-{}", uuid()));
         let qualification_request_id = options.request_id.clone();
+        let qualification_mask = options.mask.clone();
+        let qualification_width = options.mask_w;
+        let qualification_height = options.mask_h;
+        // Invalidate any earlier approval before starting. A cancellation,
+        // crash, or failed semantic check must never leave a stale qualified
+        // record for the same bytes.
+        write_generative_model_metadata(&model_path, false)?;
         let result = generative_edit_blocking_with_requirement(app.clone(), options, false)?;
-        if result.width != 64 || result.height != 64 {
+        if result.width != qualification_width || result.height != qualification_height {
             return Err(format!(
-                "The model returned {}x{} during qualification; expected 64x64",
-                result.width, result.height
+                "The model returned {}x{} during qualification; expected {}x{}",
+                result.width, result.height, qualification_width, qualification_height
             ));
         }
         let generated = base64::engine::general_purpose::STANDARD
@@ -1958,25 +1970,20 @@ async fn qualify_generative_edit_model(
             .map_err(|error| format!("Qualification output was not valid PNG data: {error}"))?;
         let decoded = load_from_memory(&generated)
             .map_err(|error| format!("Qualification output could not be decoded: {error}"))?;
-        if decoded.width() != 64 || decoded.height() != 64 {
+        if decoded.width() != qualification_width || decoded.height() != qualification_height {
             return Err("Qualification output dimensions could not be verified".into());
         }
         let output = decoded.to_rgb8();
-        let mut changed_pixels = 0;
-        for y in 20..44 {
-            for x in 20..44 {
-                let pixel = output.get_pixel(x, y);
-                if pixel[0] != 238 || pixel[1] != 238 || pixel[2] != 238 {
-                    if take_generation_cancellation(&qualification_request_id) {
-                        return Err("Generation was cancelled".into());
-                    }
-                    changed_pixels += 1;
-                }
-            }
+        if take_generation_cancellation(&qualification_request_id) {
+            return Err("Generation was cancelled".into());
         }
-        if changed_pixels == 0 {
-            return Err("The masked qualification output was unchanged; model compatibility was not proven".into());
-        }
+        generative_qualification::validate_masked_prompt_output(
+            &output,
+            &qualification_mask,
+            qualification_width,
+            qualification_height,
+            [238; 3],
+        )?;
         write_generative_model_metadata(&model_path, true)?;
         model_status_blocking(&app)
     })
