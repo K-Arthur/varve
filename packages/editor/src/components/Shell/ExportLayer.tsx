@@ -91,6 +91,7 @@ async function renderSelectionPng(
   nodes: readonly SceneNode[],
   documentSnapshot: Document,
   requestedScale: 1 | 2 | 3,
+  resolveWorldTransform?: (id: string) => SceneNode['transform'],
 ): Promise<{ bytes: Uint8Array; clamped: boolean }> {
   if (typeof document === 'undefined' || typeof Image === 'undefined') {
     throw new Error('PNG rendering is unavailable in this runtime');
@@ -100,9 +101,14 @@ async function renderSelectionPng(
     bounds = unionBounds(bounds, worldBBox(node, documentSnapshot));
   const width = Math.max(1, bounds.w);
   const height = Math.max(1, bounds.h);
-  const parts = nodes.map((node) =>
-    stripSvgEnvelope(exportNodeToSvg(node, documentSnapshot, { background: 'transparent' })),
-  );
+  const parts = nodes.map((node) => {
+    const exportRoot = resolveWorldTransform
+      ? ({ ...node, transform: resolveWorldTransform(node.id), rotation: 0 } as SceneNode)
+      : node;
+    return stripSvgEnvelope(
+      exportNodeToSvg(exportRoot, documentSnapshot, { background: 'transparent' }),
+    );
+  });
   const svg = [
     '<?xml version="1.0" encoding="UTF-8"?>',
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${bounds.x} ${bounds.y} ${width} ${height}" width="${width}" height="${height}">`,
@@ -184,7 +190,12 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
         return;
       }
       try {
-        const rendered = await renderSelectionPng(nodes, documentSnapshot, scale);
+        const rendered = await renderSelectionPng(
+          nodes,
+          documentSnapshot,
+          scale,
+          typeof snapshot.getWorldTransform === 'function' ? snapshot.getWorldTransform : undefined,
+        );
         const outcome = await writeClipboardRepresentation(
           'image/png',
           rendered.bytes,
