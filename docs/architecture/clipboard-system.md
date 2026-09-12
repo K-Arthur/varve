@@ -255,8 +255,9 @@ Markup sends bounded source text through `ImportService` and commits the
 resulting artifacts through the same batch insertion API as file import. PNG
 scale selection is delegated to the renderer callback (1× by default, with 2×
 and 3× choices); `ExportLayer` snapshots the selection, rasterizes a
-transparent world-space SVG union, enforces dimension/pixel limits before
-encoding, and writes the resulting PNG through the same serialized queue.
+transparent world-space SVG union, lifts nested roots to accumulated world
+transforms, enforces dimension/pixel limits before encoding, and writes the
+resulting PNG through the same serialized queue.
 
 Every representation write, including these command-specific formats, enters
 the generation-keyed clipboard queue. Native and browser fallbacks recheck the

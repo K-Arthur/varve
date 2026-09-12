@@ -382,6 +382,7 @@ The new stable findings are:
 | CLIP-36 | Transport / write ownership | **Resolved.** The final text-only fallback rechecks the generation after both resolve and reject, so superseded writes cannot report success. | `packages/editor/src/clipboard.ts`, `packages/editor/src/clipboard.test.ts`, commit `e71cbb56` |
 | CLIP-37 | Application / placement | **Resolved.** Plain-text paste captures destination scope and canvas geometry before the browser read and cancels when document, revision, design, or selection scope changes. | `packages/editor/src/actions/createActionHandlers.ts`, `packages/editor/src/actions/createActionHandlers.test.ts`, commits `2aa86ae1`, `d4ed3526` |
 | CLIP-38 | Application / SVG placement | **Resolved.** Copying a selected child now lifts that root to its accumulated world transform before export, retaining the original offset when pasted outside its parent frame. | `packages/editor/src/actions/createActionHandlers.ts`, `packages/editor/src/actions/createActionHandlers.test.ts`, commits `3e9416b3`, `df893fa9` |
+| CLIP-39 | Application / PNG placement | **Resolved.** Copy as PNG applies the same accumulated world transform to nested selected roots before rasterization, keeping the raster output aligned with its world-space bounds. | `packages/editor/src/components/Shell/ExportLayer.tsx`, commit `60a067c8` |
 
 The capability boundary remains explicit: ordinary Figma Copy is unsupported
 until a synthetic design is captured from Firefox with provenance and a bounded
@@ -1031,6 +1032,13 @@ pnpm exec vitest run packages/editor/src/actions/createActionHandlers.test.ts \
 
 The implementation is committed as `3e9416b3`; the follow-up assertion syntax
 correction is committed as `df893fa9`.
+
+The same placement rule now applies to PNG clipboard output. `ExportLayer`
+passes accumulated world transforms for nested selected roots into its bounded
+SVG raster source before encoding, so transparent PNG bounds cannot be filled
+from local coordinates while the wrapper is in world coordinates (CLIP-39).
+The implementation is committed as `60a067c8`; the existing real Copy as PNG
+Chromium test continues to pass.
 
 The browser visual rerun after the correction also passed:
 
