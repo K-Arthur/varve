@@ -1,7 +1,11 @@
 # Font storage and lifecycle evidence — 2026-09-12
 
 This milestone repairs the browser and native storage seams without claiming
-the complete document-font lifecycle. It follows the embedding-policy commit
+the complete document-font lifecycle. It landed as
+[`775ebc647e14976b07dfa56b04a81fc420bdbd4c`](https://github.com/varve-app/varve/commit/775ebc647e14976b07dfa56b04a81fc420bdbd4c),
+after the frontend face-discovery commit
+[`9e0959af6c2ebd7c25953acb733183dd985a860e`](https://github.com/varve-app/varve/commit/9e0959af6c2ebd7c25953acb733183dd985a860e)
+and the embedding-policy commit
 [`bb5ba7b37f958fdf78932621ac5c5461ad30d038`](https://github.com/varve-app/varve/commit/bb5ba7b37f958fdf78932621ac5c5461ad30d038).
 
 ## Behavior covered
@@ -38,9 +42,10 @@ cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --lib font_storage:
 Results: browser storage **7/7 tests passed**; the engine typecheck passed; the
 native storage module was rustfmt-clean, its focused Rust tests passed **2/2**,
 and the desktop library compiled. The editor typecheck was run but is currently
-blocked by six unrelated concurrent edits (Menubar `explicitAnchor`, AI status,
-shortcut IDs, PositionSizeSection fixture, and WorkspaceTabs layout); the exact
-diagnostics are preserved in the agent run output. Cargo reported only
+blocked by eight unrelated concurrent edits (`Menubar` `explicitAnchor`,
+`createActionHandlers` fixtures, AI status, shortcut IDs, PositionSizeSection
+fixture, `StorageSettingsTab` cache typing, and `WorkspaceTabs` layout); the
+exact diagnostics are preserved in the agent run output. Cargo reported only
 pre-existing warnings in unrelated desktop code. The repository
 `verify:affected --staged` process was already running against concurrent master
 work; its unrelated editor collection failures remain in
