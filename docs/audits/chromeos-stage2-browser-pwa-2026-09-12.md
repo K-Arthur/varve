@@ -123,9 +123,29 @@ Machine checks that supplement the spec:
   `transferSize: 0` (served from the worker, not the network).
 - The failed network requests logged while offline are the SIMD probe's
   aborted attempts; the fallback base/SIMD path loads from cache.
+- Export acceptance (second spec, same artifact):
+
+```text
+VARVE_E2E_PORT=1494 VARVE_DEMO_DIST_URL=http://127.0.0.1:1492 \
+VARVE_E2E_OUTPUT_DIR=run-stage2-export4 \
+pnpm exec playwright test tests/e2e/browser/try-export.spec.ts \
+  --project=chromium --workers=1 --reporter=list
+
+✓ SVG export contains the rendered shape geometry (7.5 s)
+✓ JPEG export contains real rendered pixels, not a flat fill (4.3 s)
+2 passed (48.8 s)
+```
+
+  The SVG assertion is on decoded geometry (`<circle>` with the teal fill and
+  the node transform); the JPEG assertion decodes the downloaded bytes in a
+  canvas and requires a pixel spread greater than a flat fill. Verified by
+  inspection: the exported `Sun` SVG contains
+  `<circle cx="0" cy="0" r="130" fill="rgba(57,208,198,1.000)">` inside
+  `viewBox="830 80 260 260"`, and the JPEG measured mean 0.475 / stddev 0.247
+  across 2473 colours.
 
 Visual inspection (screenshots read during this session, stored under
-`/tmp/varve-chromeos-stage2-visual-*`):
+`/tmp/varve-chromeos-stage2-visual-*` and `/tmp/varve-chromeos-stage2-export*`):
 
 - `offline-relaunch.png` — banner states offline and the document stays
   editable with the canvas and layers panel intact.
@@ -133,10 +153,13 @@ Visual inspection (screenshots read during this session, stored under
   that nothing was deleted.
 - `storage-tab.png` — Storage & Offline renders in the settings dialog with
   estimate, persistence action, recovery count, cache count, and warnings.
+- `stage2-website-browser-demo-guide.png`, `stage2-website-faq-browser-question.png`
+  — the new guide and FAQ entry render with the docs typography after the
+  page gained its own style block.
 
 Unit checks: `demoPwaState` (8), `storageInventory` (6),
 `crossTabWrite` (4), `StorageSettingsTab` (3) all pass under Vitest; e2e
-typecheck passes for the new spec.
+typecheck passes for both new specs.
 
 ## 7. Known limits and handoffs
 
@@ -149,10 +172,15 @@ typecheck passes for the new spec.
 3. Cross-tab autosave conflict handling prevents silent overwrite but does
    not merge versions; the newer version stays stored and the skipped edits
    remain dirty with recovery copies.
-4. The support matrix is not updated here: promotion still requires a Duet
+4. The demo's sample document is flat: the "Poster" frame has no children
+   (its shapes are root-level siblings), so exporting the frame itself
+   produces an empty artboard. Exports of the actual content are correct
+   (verified above). Making the sample frame own its children is a
+   content-model follow-up with clipping implications, not an export defect.
+5. The support matrix is not updated here: promotion still requires a Duet
    run (tab discard, installed-app offline, touch/pen, real storage
    pressure).
-5. `apps/website/src/pages/docs.astro` was dirty with another agent's work,
+6. `apps/website/src/pages/docs.astro` was dirty with another agent's work,
    so the new guide is linked from the product page and FAQ rather than the
    docs index; the index entry is a handoff.
 

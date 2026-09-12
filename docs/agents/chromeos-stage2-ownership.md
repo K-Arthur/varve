@@ -111,6 +111,8 @@ Delivered on `master`:
   offline-copy cleanup) and cross-tab autosave conflict guard.
 - Opt-in production-artifact acceptance spec (`try-pwa.spec.ts`) with three
   passing checks and inspected screenshots.
+- Export acceptance spec (`try-export.spec.ts`) that decodes the downloaded
+  SVG/JPEG and requires real geometry and pixel variation.
 - Browser Demo & Offline website guide plus product/FAQ corrections.
 
 Explicit remaining gaps (detailed in the audit): Duet device evidence,
