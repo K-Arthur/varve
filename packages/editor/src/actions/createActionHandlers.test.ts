@@ -195,7 +195,7 @@ describe('createActionHandlers — clipboard dialogs', () => {
       await vi.waitFor(() => expect(written).toHaveLength(1));
       const svg = await written![0]!.getType('image/svg+xml').then((blob) => blob.text());
       expect(svg).toContain('viewBox="120 80 20 10"');
-      expect(svg).toContain('transform="matrix(1 0 0 1 120 80)"');
+      expect(svg).toContain('transform="matrix(1,0,0,1,120,80)"');
     } finally {
       Object.defineProperty(globalThis, 'ClipboardItem', {
         configurable: true,
