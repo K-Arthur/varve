@@ -1,5 +1,6 @@
 import { type ContentAwareFillQuality, runContentAwareFillPipeline } from '../contentAwareFill';
 import { compositeFillResult, extractBoundedContext } from '../contentAwareFill/contextExtraction';
+import { prepareDiffusionFrame } from './diffusionFrame';
 import { NATIVE_GENERATIVE_MODEL_PROFILE } from './nativeModel';
 import { nativeGenerativeProvider } from './nativeProvider';
 import {
@@ -216,24 +217,31 @@ export async function runGenerativeEdit(
       request.maskOffsetY ?? 0,
       request.contextPadding,
     );
+    const diffusionFrame = prepareDiffusionFrame(
+      context.imageData,
+      context.mask,
+      context.width,
+      context.height,
+    );
     const nativeResult = await nativeGenerativeProvider.infer({
       ...request,
-      imageData: context.imageData,
-      mask: context.mask,
-      maskWidth: context.width,
-      maskHeight: context.height,
+      imageData: diffusionFrame.imageData,
+      mask: diffusionFrame.mask,
+      maskWidth: diffusionFrame.width,
+      maskHeight: diffusionFrame.height,
       maskOffsetX: 0,
       maskOffsetY: 0,
-      outputWidth: context.width,
-      outputHeight: context.height,
+      outputWidth: diffusionFrame.width,
+      outputHeight: diffusionFrame.height,
     });
     if (request.signal?.aborted) throw new GenerativeEditError('cancelled', 'cancelled');
     if (request.isCurrent && !request.isCurrent()) {
       throw new GenerativeEditError('stale', 'The source changed while generation was running.');
     }
+    const restored = diffusionFrame.restore(nativeResult.imageData);
     const composited = compositeFillResult(
       request.imageData,
-      nativeResult.imageData,
+      restored,
       context.offsetX,
       context.offsetY,
       context.mask,
