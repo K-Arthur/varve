@@ -14,7 +14,10 @@ import { navigateToEditor } from '../shared';
 async function dismissImportReport(page: import('@playwright/test').Page): Promise<void> {
   const report = page.locator('.import-results-overlay');
   if (!(await report.isVisible({ timeout: 1000 }).catch(() => false))) return;
-  await report.getByRole('button', { name: /close/i }).click();
+  // The overlay has both an icon-only Close button and a labelled primary
+  // Close action. Use the action that dismisses the report instead of a
+  // broad accessible-name query that matches both controls.
+  await report.locator('button.import-results__btn--primary').click();
   await expect(report).toHaveCount(0);
 }
 
