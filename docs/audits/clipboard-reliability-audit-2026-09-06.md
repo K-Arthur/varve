@@ -912,3 +912,37 @@ desktop-{light,dark}-layout-{ghpages,custom-domain}/` images and the matching
 `clipboard-feature-mobile` captures. This is visual evidence for the website
 surface; it does not substitute for native WebKitGTK/Tauri, Firefox/Wayland,
 or external Figma transfer evidence.
+
+### Rendered menu ownership correction — 2026-09-12
+
+The command definitions and canvas context menu listed the representation
+commands, but the rendered `Menubar` used a separate legacy Edit-menu array and
+omitted them. This was a frontend command-discovery defect (CLIP-35): users
+could reach Copy as PNG only through an unadvertised route, so the feature was
+effectively absent from the main menu.
+
+The rendered Edit menu now exposes all five representation commands with the
+same selection gating as the context menu. A browser E2E test selects a real
+layer, opens Edit, chooses Copy as PNG, confirms the accessible scale dialog,
+and verifies an `image/png` clipboard item. The menu unit test asserts the
+labels directly.
+
+Evidence:
+
+```text
+pnpm exec biome check --write \
+  packages/editor/src/Menubar.tsx packages/editor/src/Menubar.test.tsx \
+  tests/e2e/canvas/clipboard.spec.ts
+passed
+pnpm exec vitest run packages/editor/src/Menubar.test.tsx \
+  --maxWorkers=1 -t 'Edit menu contains'
+1 passed
+VARVE_E2E_PORT=1482 pnpm exec playwright test \
+  tests/e2e/canvas/clipboard.spec.ts -g 'Edit menu Copy as PNG' \
+  --project=chromium --workers=1 --reporter=line
+1 passed
+```
+
+The correction is committed as `e1c0fa5e`. The E2E exercises Chromium's
+browser transport; native Tauri clipboard ownership and Firefox/Wayland
+external transfers remain separate verification lanes.
