@@ -22,12 +22,15 @@ platform proof remain open.
 
 ## Validation
 
-Baseline revision before this slice: `HEAD` at the start of implementation.
+Implementation commit: [`bb5ba7b37f958fdf78932621ac5c5461ad30d038`](https://github.com/varve-app/varve/commit/bb5ba7b37f958fdf78932621ac5c5461ad30d038).
+The parent revision was `4cb548ced` when the isolated commit was prepared;
+unrelated staged master work was preserved by the guarded index helper.
 
 Commands run:
 
 ```text
 pnpm exec biome check --write packages/engine/src/font/fontIdentity.ts packages/engine/src/font/fontParser.ts packages/engine/src/font/fontLicensePolicy.ts packages/engine/src/font/fontManifest.ts packages/engine/src/font/index.ts packages/engine/src/fontRegistry.ts packages/engine/src/font/fontLoader.ts packages/engine/src/font/fontParser.test.ts packages/engine/src/font/fontLicensePolicy.test.ts packages/editor/src/components/FontBrowser/FontLicenseDetails.tsx
+pnpm verify:plan
 pnpm exec vitest run packages/engine/src/font/fontParser.test.ts packages/engine/src/font/fontLicensePolicy.test.ts --config vitest.config.ts
 pnpm --filter @varve/engine typecheck
 pnpm --filter @varve/editor typecheck
