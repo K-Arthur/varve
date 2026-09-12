@@ -54,7 +54,7 @@
   min-inline-size: 3.75rem;
   padding: var(--space-1) var(--space-2);
   border: var(--border-micro);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--elevation-surface);
   color: var(--color-text);
   font: inherit;

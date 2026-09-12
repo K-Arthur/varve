@@ -59,7 +59,7 @@
   padding: 0 4px;
   min-width: 16px;
   height: 16px;
-  border-radius: 3px;
+  border-radius: 1px;
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
   color: var(--color-text-muted);

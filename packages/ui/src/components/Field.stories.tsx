@@ -22,7 +22,7 @@ export const StandardField: Story = {
         style={{
           padding: '8px',
           border: '1px solid var(--color-border-subtle)',
-          borderRadius: '6px',
+          borderRadius: 'var(--radius-control-compact)',
           background: 'var(--color-surface-sunken)',
           color: 'var(--color-text-primary)',
           width: '100%',
@@ -47,7 +47,7 @@ export const WithError: Story = {
         style={{
           padding: '8px',
           border: '1px solid var(--color-feedback-danger)',
-          borderRadius: '6px',
+          borderRadius: 'var(--radius-control-compact)',
           background: 'var(--color-surface-sunken)',
           color: 'var(--color-text-primary)',
           width: '100%',
@@ -72,7 +72,7 @@ export const WithDescriptionAndError: Story = {
         style={{
           padding: '8px',
           border: '1px solid var(--color-feedback-danger)',
-          borderRadius: '6px',
+          borderRadius: 'var(--radius-control-compact)',
           background: 'var(--color-surface-sunken)',
           color: 'var(--color-text-primary)',
           width: '100%',
@@ -96,7 +96,7 @@ export const OptionalField: Story = {
         style={{
           padding: '8px',
           border: '1px solid var(--color-border-subtle)',
-          borderRadius: '6px',
+          borderRadius: 'var(--radius-control-compact)',
           background: 'var(--color-surface-sunken)',
           color: 'var(--color-text-primary)',
           width: '100%',
@@ -119,7 +119,7 @@ export const CompactRow: Story = {
           style={{
             padding: '4px 8px',
             border: '1px solid var(--color-border-subtle)',
-            borderRadius: '6px',
+            borderRadius: 'var(--radius-control-compact)',
             background: 'var(--color-surface-sunken)',
             color: 'var(--color-text-primary)',
             width: '100%',
@@ -142,7 +142,7 @@ export const CompactRowDisabled: Story = {
           style={{
             padding: '4px 8px',
             border: '1px solid var(--color-border-subtle)',
-            borderRadius: '6px',
+            borderRadius: 'var(--radius-control-compact)',
             background: 'var(--color-surface-sunken)',
             color: 'var(--color-text-primary)',
             width: '100%',
@@ -189,7 +189,7 @@ export const VisuallyHiddenLabel: Story = {
         style={{
           padding: '8px',
           border: '1px solid var(--color-border-subtle)',
-          borderRadius: '6px',
+          borderRadius: 'var(--radius-control-compact)',
           background: 'var(--color-surface-sunken)',
           color: 'var(--color-text-primary)',
           width: '100%',
@@ -212,7 +212,7 @@ export const DarkMode: Story = {
           style={{
             padding: '8px',
             border: '1px solid var(--color-border-subtle)',
-            borderRadius: '6px',
+            borderRadius: 'var(--radius-control-compact)',
             background: 'var(--color-surface-sunken)',
             color: 'var(--color-text-primary)',
             width: '100%',

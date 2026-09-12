@@ -110,7 +110,7 @@ export function BooleanSection({ node }: { node: GroupNode }) {
               padding: 'var(--space-1)',
               background: 'var(--color-surface-sunken)',
               border: '1px solid var(--color-border-subtle)',
-              borderRadius: 'var(--radius-sm)',
+              borderRadius: 'var(--radius-control-compact)',
             }}
           >
             <button

@@ -116,15 +116,15 @@ import StatusPill from '../../components/StatusPill.astro';
   .feature-page h1 { font-size: clamp(2rem, 5vw, 2.7rem); font-family: var(--font-editorial); font-weight: 700; letter-spacing: -.02em; margin-bottom: 1rem; color: var(--text-primary); }
   .feature-intro { font-size: 1.25rem; color: var(--text-secondary); margin-bottom: 3rem; }
   .feature-section { margin: 3rem 0; }
-  .feature-section--highlight { padding: 1.5rem; border: 1px solid var(--border-subtle); border-radius: 1rem; background: var(--surface-card); }
+  .feature-section--highlight { padding: 1.5rem; border: 1px solid var(--border-subtle); border-radius: var(--website-radius-floating); background: var(--surface-card); }
   .feature-section h2 { font-size: 1.5rem; margin-bottom: 1rem; color: var(--text-primary); }
   .feature-section h3 { font-size: 1rem; margin: .5rem 0; color: var(--text-primary); }
   .feature-section p, .feature-section li { color: var(--text-secondary); line-height: 1.7; }
   .stage-grid, .coverage-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1.5rem; }
   .control-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-top: 1.5rem; }
-  .coverage-grid article, .stage-grid article, .control-grid article { padding: 1rem; border: 1px solid var(--border-subtle); border-radius: .75rem; }
+  .coverage-grid article, .stage-grid article, .control-grid article { padding: 1rem; border: 1px solid var(--border-subtle); border-radius: var(--website-radius-floating); }
   .stage-number { color: var(--accent-primary); font-variant-numeric: tabular-nums; font-size: .8rem; }
-  .support-table-wrap { overflow-x: auto; border: 1px solid var(--border-subtle); border-radius: .75rem; }
+  .support-table-wrap { overflow-x: auto; border: 1px solid var(--border-subtle); border-radius: var(--website-radius-floating); }
   .support-table { width: 100%; border-collapse: collapse; min-width: 560px; }
   .support-table th, .support-table td { text-align: left; padding: .8rem 1rem; border-bottom: 1px solid var(--border-subtle); color: var(--text-secondary); }
   .support-table thead th { color: var(--text-primary); font-size: .85rem; }
