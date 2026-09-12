@@ -1114,7 +1114,7 @@ export function CanvasArea({
             targetParentId: null,
             maskTargetId: maskTargetId && allImages ? maskTargetId : undefined,
           }),
-        ).length;
+        );
       }
       if (
         report.partialCount > 0 ||
