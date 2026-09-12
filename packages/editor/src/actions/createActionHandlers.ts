@@ -551,7 +551,13 @@ export function createActionHandlers(
       }
       const snapshot = e.state.document;
       const parts = nodes.map((node) =>
-        exportNodeToSvg(node, snapshot, { background: 'transparent' }),
+        exportNodeToSvg(
+          typeof e.getWorldTransform === 'function'
+            ? ({ ...node, transform: e.getWorldTransform(node.id), rotation: 0 } as SceneNode)
+            : node,
+          snapshot,
+          { background: 'transparent' },
+        ),
       );
       const bounds = unionSvgBounds(nodes, snapshot);
       const svg =

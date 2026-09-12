@@ -142,6 +142,72 @@ describe('createActionHandlers — clipboard dialogs', () => {
     }
   });
 
+  it('exports a nested selection with its accumulated world transform', async () => {
+    let document = createDocument('nested svg export');
+    const parent = makeFrameNode('parent', {
+      w: 200,
+      h: 120,
+      transform: [1, 0, 0, 1, 100, 50],
+    });
+    const child = makeShapeNode(
+      'nested-child',
+      {
+        kind: 'rect',
+        x: 0,
+        y: 0,
+        w: 20,
+        h: 10,
+      },
+      {
+        name: 'nested child',
+        transform: [1, 0, 0, 1, 20, 30],
+      },
+    );
+    document = addChild(addNode(document, parent), parent.id, child);
+    const originalClipboardItem = globalThis.ClipboardItem;
+    const originalClipboard = navigator.clipboard;
+    let written: Array<{ getType: (type: string) => Promise<Blob> }> | undefined;
+    class TestClipboardItem {
+      constructor(private readonly entries: Record<string, Blob>) {}
+      async getType(type: string): Promise<Blob> {
+        return this.entries[type]!;
+      }
+    }
+    Object.defineProperty(globalThis, 'ClipboardItem', {
+      configurable: true,
+      value: TestClipboardItem,
+    });
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        write: vi.fn(async (items) => {
+          written = items;
+        }),
+        writeText: vi.fn(),
+      },
+    });
+    try {
+      const editor = makeEditorMock({
+        state: { selection: [child.id], document } as EditorContextValue['state'],
+        getWorldTransform: vi.fn(() => [1, 0, 0, 1, 120, 80]),
+      });
+      createActionHandlers(editor).copyAsSvg?.();
+      await vi.waitFor(() => expect(written).toHaveLength(1));
+      const svg = await written![0]!.getType('image/svg+xml').then((blob) => blob.text());
+      expect(svg).toContain('viewBox="120 80 20 10"');
+      expect(svg).toContain('transform="matrix(1 0 0 1 120 80)"');
+    } finally {
+      Object.defineProperty(globalThis, 'ClipboardItem', {
+        configurable: true,
+        value: originalClipboardItem,
+      });
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: originalClipboard,
+      });
+    }
+  });
+
   it('inserts plain text through the shared prepared-fragment path', async () => {
     const readText = vi.fn(async () => 'Editable clipboard text');
     const commitPreparedFragment = vi.fn(() => ['pasted-text']);
