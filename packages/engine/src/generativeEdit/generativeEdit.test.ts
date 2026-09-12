@@ -137,4 +137,15 @@ describe('GenerativeJobController', () => {
     ).toBe(true);
     expect(jobs.getState()).toMatchObject({ status: 'cancelled', error: expect.any(Error) });
   });
+
+  it('maps cancellation errors from shared admission to cancelled state', () => {
+    const jobs = new GenerativeJobController();
+    const token = jobs.start(1);
+    const error = Object.assign(new Error('Inference request was cancelled while waiting.'), {
+      code: 'cancelled',
+    });
+
+    expect(jobs.fail(token, error)).toBe(true);
+    expect(jobs.getState().status).toBe('cancelled');
+  });
 });

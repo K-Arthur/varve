@@ -17,6 +17,8 @@
  * with method set to 'ai-balanced' and can check whether the quality was
  * reduced.
  */
+
+import { estimateInferenceReservation, getInferenceAdmission } from '../../inference/admission';
 import { removeBackgroundHeuristic } from '../heuristic';
 import { cloneImageData } from '../protocol';
 import type { BackgroundRemovalOptions, BackgroundRemovalResult } from '../types';
@@ -212,6 +214,29 @@ export async function dispatchBackgroundRemoval(
     return removeBackgroundHeuristic(imageData, options);
   }
 
+  const lease = await getInferenceAdmission().acquire({
+    kind: 'background-removal',
+    reservationBytes: estimateInferenceReservation({
+      width: imageData.width,
+      height: imageData.height,
+      modelBytes: options.method === 'ai-quality' ? 512 * 1024 * 1024 : 128 * 1024 * 1024,
+    }),
+    signal,
+    label: `background removal (${options.method})`,
+  });
+
+  try {
+    return await dispatchBackgroundRemovalAdmitted(imageData, options, signal);
+  } finally {
+    lease.release();
+  }
+}
+
+async function dispatchBackgroundRemovalAdmitted(
+  imageData: ImageData,
+  options: BackgroundRemovalOptions,
+  signal?: AbortSignal,
+): Promise<BackgroundRemovalResult> {
   // Every availability check, provider, and reduced-quality fallback shares
   // one budget. A stalled runtime cannot multiply the wait by chain length.
   const deadline =

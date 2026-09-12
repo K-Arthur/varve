@@ -1,6 +1,6 @@
 # Generative editing system
 
-Status: current-state contract, 2026-09-09. See [ADR-0232](../adr/0232-generative-editing-semantics.md).
+Status: current-state contract, 2026-09-12. See [ADR-0232](../adr/0232-generative-editing-semantics.md).
 
 Varve's generative editing surface is a non-destructive layer over the
 existing scene, selection, raster-mask, asset, inference, history, and export
@@ -105,6 +105,17 @@ immediately even if an IPC future has not resolved. The desktop command keeps a
 cancellation tombstone, kills the supervised helper, and checks that tombstone
 before and after process registration and before reading output. Consequently a
 late helper response cannot turn a cancelled request into an accepted candidate.
+
+All heavy local inference also passes through `InferenceAdmission`. It is a
+single FIFO lease queue shared by prompt generation, native LaMa, background
+removal dispatch, and the generic model worker host. The default policy admits
+one heavy request at a time; callers may supply a measured reservation for a
+known model and working frame. A queued request is removed immediately when
+its signal aborts, and every owner releases its lease in `finally`, including
+worker crashes, timeouts, and decode failures. Quick heuristic removal does
+not acquire a lease. This keeps a background-removal fallback chain from
+competing with generation while allowing unrelated lightweight editor work to
+continue.
 
 ## Mask and coordinate contract
 

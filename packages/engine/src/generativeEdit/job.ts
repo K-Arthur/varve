@@ -1,4 +1,4 @@
-import { GenerativeEditError } from './types';
+import type { GenerativeEditError } from './types';
 
 export type GenerativeJobStatus =
   | 'idle'
@@ -107,13 +107,11 @@ export class GenerativeJobController {
 
   fail(token: GenerativeJobToken, error: GenerativeEditError | Error): boolean {
     if (this.active?.token.id !== token.id) return false;
+    const code = (error as Error & { code?: unknown }).code;
     this.state = {
       ...this.state,
       status:
-        (error instanceof GenerativeEditError && error.code === 'cancelled') ||
-        error.message.toLowerCase() === 'cancelled'
-          ? 'cancelled'
-          : 'error',
+        code === 'cancelled' || error.message.toLowerCase() === 'cancelled' ? 'cancelled' : 'error',
       error,
     };
     this.active = null;

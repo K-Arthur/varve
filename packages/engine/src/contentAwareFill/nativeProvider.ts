@@ -1,4 +1,9 @@
 import { isTauriRuntime } from '@varve/platform';
+import {
+  estimateInferenceReservation,
+  getInferenceAdmission,
+  type InferenceLease,
+} from '../inference/admission';
 import { decodeImageBytesToImageData } from '../upscaleProviders/pngDecode';
 
 export interface NativeLaMaResponse {
@@ -43,39 +48,54 @@ export const nativeLaMaProvider = {
       throw new Error('Native LaMa inference requires the desktop app');
     }
 
-    const { invoke } = await import('@tauri-apps/api/core');
-    const raw = await invoke<NativeLaMaResponse>('content_aware_fill', {
-      options: {
-        image_data: Array.from(imageData.data),
-        image_w: imageData.width,
-        image_h: imageData.height,
-        mask: Array.from(mask),
-        mask_w: imageData.width,
-        mask_h: imageData.height,
-        preview_max_dimension: 2048,
-      },
+    const lease: InferenceLease = await getInferenceAdmission().acquire({
+      kind: 'other',
+      reservationBytes: estimateInferenceReservation({
+        width: imageData.width,
+        height: imageData.height,
+        outputWidth: imageData.width,
+        outputHeight: imageData.height,
+      }),
+      signal,
+      label: 'content-aware fill',
     });
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const raw = await invoke<NativeLaMaResponse>('content_aware_fill', {
+        options: {
+          image_data: Array.from(imageData.data),
+          image_w: imageData.width,
+          image_h: imageData.height,
+          mask: Array.from(mask),
+          mask_w: imageData.width,
+          mask_h: imageData.height,
+          preview_max_dimension: 2048,
+        },
+      });
 
-    if (signal?.aborted) throw new Error('cancelled');
-    if (!raw?.png_base64) throw new Error('Native LaMa returned no image');
+      if (signal?.aborted) throw new Error('cancelled');
+      if (!raw?.png_base64) throw new Error('Native LaMa returned no image');
 
-    const binary = atob(raw.png_base64);
-    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
-    const decoded = await decodeImageBytesToImageData(bytes);
+      const binary = atob(raw.png_base64);
+      const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+      const decoded = await decodeImageBytesToImageData(bytes);
 
-    if (decoded.width !== raw.width || decoded.height !== raw.height) {
-      throw new Error(
-        `Native LaMa dimensions ${decoded.width}x${decoded.height} do not match response ${raw.width}x${raw.height}`,
-      );
+      if (decoded.width !== raw.width || decoded.height !== raw.height) {
+        throw new Error(
+          `Native LaMa dimensions ${decoded.width}x${decoded.height} do not match response ${raw.width}x${raw.height}`,
+        );
+      }
+
+      return {
+        imageData: decoded,
+        width: raw.width,
+        height: raw.height,
+        executionProvider: 'native',
+        processingTimeMs: raw.processing_time_ms,
+        warnings: raw.warnings ?? [],
+      };
+    } finally {
+      lease.release();
     }
-
-    return {
-      imageData: decoded,
-      width: raw.width,
-      height: raw.height,
-      executionProvider: 'native',
-      processingTimeMs: raw.processing_time_ms,
-      warnings: raw.warnings ?? [],
-    };
   },
 };

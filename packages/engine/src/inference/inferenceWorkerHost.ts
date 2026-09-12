@@ -5,12 +5,20 @@
  * and stale-result rejection via generation tracking.
  */
 
+import { estimateInferenceReservation, getInferenceAdmission } from './admission';
 import { InferenceError } from './core/InferenceError';
-import type { WorkerInferRequest, WorkerInferResult, WorkerResponse } from './inferenceWorker';
+import type {
+  WorkerInferRequest,
+  WorkerInferResult,
+  WorkerResponse,
+  WorkerTensor,
+} from './inferenceWorker';
 
 export interface InferenceJobOptions {
   signal?: AbortSignal;
   timeoutMs?: number;
+  /** Override the conservative shared-admission estimate when known. */
+  reservationBytes?: number;
 }
 
 interface PendingJob {
@@ -123,80 +131,95 @@ export class InferenceWorkerHost {
     request: Omit<WorkerInferRequest, 'requestId'>,
     options: InferenceJobOptions = {},
   ): Promise<WorkerInferResult> {
-    const worker = this.ensureWorker();
-    const requestId = `inf_${++this.nextRequestId}_${Date.now().toString(36)}`;
-    const timeout = options.timeoutMs ?? MODEL_TIMEOUT_MS[request.modelType] ?? DEFAULT_TIMEOUT_MS;
+    const admissionRequest = {
+      kind: 'worker' as const,
+      reservationBytes: options.reservationBytes ?? estimateWorkerReservation(request),
+      signal: options.signal,
+      label: `${request.modelType} inference`,
+    };
+    const lease =
+      getInferenceAdmission().tryAcquire(admissionRequest) ??
+      (await getInferenceAdmission().acquire(admissionRequest));
 
-    return new Promise((resolve, reject) => {
-      if (options.signal?.aborted) {
-        reject(new Error('cancelled'));
-        return;
-      }
+    try {
+      const worker = this.ensureWorker();
+      const requestId = `inf_${++this.nextRequestId}_${Date.now().toString(36)}`;
+      const timeout =
+        options.timeoutMs ?? MODEL_TIMEOUT_MS[request.modelType] ?? DEFAULT_TIMEOUT_MS;
 
-      const timer = setTimeout(() => {
-        const job = this.pendingJobs.get(requestId);
-        if (!job) return;
-        this.pendingJobs.delete(requestId);
-        job.abortCleanup?.();
-        job.reject(
-          new InferenceError('inference_timeout', undefined, {
-            message: `Inference timed out after ${timeout}ms`,
-            technical: `The ${request.modelType} request exceeded the host deadline.`,
-          }),
-        );
-        // ONNX Runtime does not expose cooperative cancellation for every
-        // graph. Terminating the worker is the only way to prevent a timed-out
-        // request from occupying the shared worker and poisoning the retry.
-        this.worker?.terminate();
-        this.worker = null;
-        this.workerReady = false;
-        for (const [id, other] of this.pendingJobs) {
-          clearTimeout(other.timer);
-          other.abortCleanup?.();
-          this.pendingJobs.delete(id);
-          other.reject(
-            new InferenceError('worker_crash', undefined, {
-              message: 'Inference worker restarted after a timeout.',
-              technical: 'The worker was terminated to stop a non-cancellable graph.',
-            }),
-          );
+      return await new Promise((resolve, reject) => {
+        if (options.signal?.aborted) {
+          reject(new Error('cancelled'));
+          return;
         }
-      }, timeout);
 
-      const job: PendingJob = { resolve, reject, timer };
-      this.pendingJobs.set(requestId, job);
-
-      const fullRequest: WorkerInferRequest = { ...request, requestId };
-      try {
-        worker.postMessage(fullRequest);
-      } catch (error) {
-        clearTimeout(timer);
-        job.abortCleanup?.();
-        this.pendingJobs.delete(requestId);
-        reject(error instanceof Error ? error : new Error(String(error)));
-        return;
-      }
-
-      if (options.signal) {
-        const onAbort = () => {
-          const pending = this.pendingJobs.get(requestId);
-          if (!pending) return;
-          clearTimeout(pending.timer);
+        const timer = setTimeout(() => {
+          const job = this.pendingJobs.get(requestId);
+          if (!job) return;
           this.pendingJobs.delete(requestId);
-          pending.abortCleanup = undefined;
-          pending.reject(new InferenceError('inference_cancelled'));
-          // Stop the current graph before a retry can be posted.
-          this.restartWorker(
-            new InferenceError('worker_crash', undefined, {
-              message: 'Inference worker restarted after cancellation.',
-              technical: 'The worker was terminated to stop a non-cancellable graph.',
+          job.abortCleanup?.();
+          job.reject(
+            new InferenceError('inference_timeout', undefined, {
+              message: `Inference timed out after ${timeout}ms`,
+              technical: `The ${request.modelType} request exceeded the host deadline.`,
             }),
           );
-        };
-        job.abortCleanup = () => options.signal?.removeEventListener('abort', onAbort);
-        options.signal.addEventListener('abort', onAbort, { once: true });
-      }
-    });
+          // ONNX Runtime does not expose cooperative cancellation for every
+          // graph. Terminating the worker is the only way to prevent a timed-out
+          // request from occupying the shared worker and poisoning the retry.
+          this.worker?.terminate();
+          this.worker = null;
+          this.workerReady = false;
+          for (const [id, other] of this.pendingJobs) {
+            clearTimeout(other.timer);
+            other.abortCleanup?.();
+            this.pendingJobs.delete(id);
+            other.reject(
+              new InferenceError('worker_crash', undefined, {
+                message: 'Inference worker restarted after a timeout.',
+                technical: 'The worker was terminated to stop a non-cancellable graph.',
+              }),
+            );
+          }
+        }, timeout);
+
+        const job: PendingJob = { resolve, reject, timer };
+        this.pendingJobs.set(requestId, job);
+
+        const fullRequest: WorkerInferRequest = { ...request, requestId };
+        try {
+          worker.postMessage(fullRequest);
+        } catch (error) {
+          clearTimeout(timer);
+          job.abortCleanup?.();
+          this.pendingJobs.delete(requestId);
+          reject(error instanceof Error ? error : new Error(String(error)));
+          return;
+        }
+
+        if (options.signal) {
+          const onAbort = () => {
+            const pending = this.pendingJobs.get(requestId);
+            if (!pending) return;
+            clearTimeout(pending.timer);
+            this.pendingJobs.delete(requestId);
+            pending.abortCleanup = undefined;
+            pending.reject(new InferenceError('inference_cancelled'));
+            // Stop the current graph before a retry can be posted.
+            this.restartWorker(
+              new InferenceError('worker_crash', undefined, {
+                message: 'Inference worker restarted after cancellation.',
+                technical: 'The worker was terminated to stop a non-cancellable graph.',
+              }),
+            );
+          };
+          job.abortCleanup = () => options.signal?.removeEventListener('abort', onAbort);
+          options.signal.addEventListener('abort', onAbort, { once: true });
+        }
+      });
+    } finally {
+      lease.release();
+    }
   }
 
   /** Cancel all pending jobs and terminate the worker */
@@ -221,6 +244,30 @@ export class InferenceWorkerHost {
   get pendingCount(): number {
     return this.pendingJobs.size;
   }
+}
+
+function estimateWorkerReservation(request: Omit<WorkerInferRequest, 'requestId'>): number {
+  const tensorBytes = Object.values(request.tensors ?? {}).reduce(
+    (total, tensor) => total + tensorByteLength(tensor),
+    0,
+  );
+  const auxBytes = request.auxImageData
+    ? request.auxImageData.width * request.auxImageData.height * 4
+    : 0;
+  if (!request.imageData) {
+    return Math.max(1 * 1024 * 1024, tensorBytes * 2 + auxBytes);
+  }
+  return estimateInferenceReservation({
+    width: request.imageData.width,
+    height: request.imageData.height,
+    outputWidth: request.targetWidth,
+    outputHeight: request.targetHeight,
+    additionalBytes: auxBytes + tensorBytes,
+  });
+}
+
+function tensorByteLength(tensor: WorkerTensor): number {
+  return tensor.data.byteLength;
 }
 
 let sharedHost: InferenceWorkerHost | null = null;

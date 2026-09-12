@@ -17,6 +17,21 @@ export type {
   SegmentationPrompt,
 } from '../segmentation/types';
 export { isUsableSegmentationPrompt, serializeSegmentationCacheKey } from '../segmentation/types';
+export type {
+  InferenceAdmissionErrorCode,
+  InferenceAdmissionKind,
+  InferenceAdmissionOptions,
+  InferenceAdmissionRequest,
+  InferenceAdmissionSnapshot,
+  InferenceLease,
+} from './admission';
+export {
+  estimateInferenceReservation,
+  getInferenceAdmission,
+  InferenceAdmission,
+  InferenceAdmissionError,
+  resetInferenceAdmission,
+} from './admission';
 export { DownloadManager } from './core/DownloadManager';
 export type { InferenceErrorCode, InferenceErrorDetails } from './core/InferenceError';
 export { InferenceError, isInferenceError, toUserMessage } from './core/InferenceError';
