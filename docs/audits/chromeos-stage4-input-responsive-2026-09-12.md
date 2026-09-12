@@ -121,3 +121,22 @@ failed with 13 undersized controls (menubar items 19.25px tall, tabs 18px,
 status toggles/zoom 12-17.44px, save badge 20px, units select 22px); the
 480x640 matrix first failed with `documentScrollWidth 600 > clientWidth 480`
 caused by `html { min-width: 600px }`.
+
+### Regression checks and known unrelated failures
+
+- `tests/e2e/canvas/toolbar-layout.spec.ts` passed after the toolbar-height
+  publication change.
+- `tests/e2e/menus/overlay-reliability.spec.ts` has one failing subtest
+  ("keeps menubar flyouts and context menus attached through real input"): the
+  Logo submenu stays mounted after the first Escape. This is **not caused by
+  Stage 4**: reverting the only overlay change (the `FloatingPortal` visual
+  clamp) to its pre-Stage-4 content reproduces the identical failure, and all
+  placement assertions in that test pass before the Escape step. The failure
+  coincides with active uncommitted `Menubar.tsx` work (menu item additions and
+  removal of `ContextAwareShortcuts`) by another writer; handed off in the
+  ownership record.
+- `pnpm verify:plan` over the Stage 4 commits escalates to full suite because
+  other agents' interleaved commits in the same worktree include
+  workspace/config changes; `pnpm verify:plan` over uncommitted files reports
+  120 files that are not part of Stage 4. The targeted Tier 0-2 checks for the
+  Stage 4 paths were run directly (above).

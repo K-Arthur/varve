@@ -120,3 +120,13 @@ Delivered on `master`:
 
 Explicit remaining gaps: Duet hardware verification (audit section 5),
 support-matrix promotion (Stage 7), and a real OSK run in the installed PWA.
+
+## Handoff: unrelated overlay failure observed during Stage 4 validation
+
+`tests/e2e/menus/overlay-reliability.spec.ts` → "keeps menubar flyouts and
+context menus attached through real input" fails at the first Escape (the Logo
+submenu stays mounted). Stage 4 does not touch Escape/registry behavior, and a
+controlled revert of the Stage 4 `FloatingPortal` clamp reproduces the same
+failure; the test's placement assertions pass. The Menubar owner should check
+the in-progress `Menubar.tsx` changes (submenu dismissal after removing
+`ContextAwareShortcuts`) before that spec is treated as a gate.
