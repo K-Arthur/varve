@@ -398,6 +398,15 @@ export function CanvasArea({
   const [dropTargetFrameId, setDropTargetFrameId] = useState<NodeId | null>(null);
   const [maskDropTargetId, setMaskDropTargetId] = useState<NodeId | null>(null);
   const maskDropTargetRef = useRef<NodeId | null>(null);
+  const dropOperationSequenceRef = useRef(0);
+  const dropAbortRef = useRef<AbortController | null>(null);
+  useEffect(
+    () => () => {
+      dropAbortRef.current?.abort();
+      dropAbortRef.current = null;
+    },
+    [],
+  );
   // Incremented by the image cache subscriber so drawContent re-runs after async image loads.
   const [imageCacheStamp, setImageCacheStamp] = useState(0);
   const [fontLoadStamp, setFontLoadStamp] = useState(0);
@@ -1042,6 +1051,19 @@ export function CanvasArea({
       maskTargetId?: NodeId,
     ) => {
       if (files.length === 0) return;
+      // A new drop supersedes a still-decoding drop. The operation identity
+      // protects the newer gesture from a late report or commit by the old
+      // parser, while the signal lets native/import decoders release work.
+      dropAbortRef.current?.abort();
+      const operationId = ++dropOperationSequenceRef.current;
+      const abortController = new AbortController();
+      dropAbortRef.current = abortController;
+      const ownsOperation = (): boolean => dropOperationSequenceRef.current === operationId;
+      const isActiveOperation = (): boolean => ownsOperation() && !abortController.signal.aborted;
+      const releaseOperation = (): void => {
+        if (!ownsOperation()) return;
+        dropAbortRef.current = null;
+      };
       const reader = editorRef.current;
       const expected = {
         documentId: reader.state.document.id,
@@ -1071,10 +1093,30 @@ export function CanvasArea({
           bytes: file.data,
         };
       });
-      const report = await ImportService.importFiles(importInputs, {
-        center: !dropWorld,
-        embedImages: true,
-      });
+      let report: Awaited<ReturnType<typeof ImportService.importFiles>>;
+      try {
+        report = await ImportService.importFiles(
+          importInputs,
+          {
+            center: !dropWorld,
+            embedImages: true,
+          },
+          abortController.signal,
+        );
+      } catch (error) {
+        releaseOperation();
+        if (error instanceof Error && error.name === 'AbortError') return;
+        if (isActiveOperation()) {
+          reader.announce(
+            `Import failed: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+        return;
+      }
+      if (!isActiveOperation()) {
+        releaseOperation();
+        return;
+      }
 
       for (const fileReport of report.files) {
         for (const artifact of fileReport.artifacts) {
@@ -1101,7 +1143,10 @@ export function CanvasArea({
 
       // Single batched setState for all imported nodes
       if (!isImportSessionCurrent(editorRef.current.state, expected)) {
-        reader.announce('Import cancelled because the document changed while it was loading');
+        releaseOperation();
+        if (isActiveOperation()) {
+          reader.announce('Import cancelled because the document changed while it was loading');
+        }
         return;
       }
       let committedIds: NodeId[] = [];
@@ -1133,6 +1178,7 @@ export function CanvasArea({
       reader.announce(
         `Imported ${report.successCount + report.partialCount} file${report.successCount + report.partialCount === 1 ? '' : 's'}; ${report.failureCount} failed`,
       );
+      releaseOperation();
     },
     [],
   );

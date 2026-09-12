@@ -113,11 +113,20 @@ export function useFileImport(editor: FileImportEditor): FileImportController {
   const editorRef = useRef(editor);
   editorRef.current = editor;
   const abortRef = useRef<AbortController | null>(null);
+  const operationSequenceRef = useRef(0);
+  const activeOperationRef = useRef<number | null>(null);
   const [progress, setProgress] = useState<ImportProgressState | null>(null);
   const [report, setReport] = useState<ImportResultReport | null>(null);
 
   // An import that outlives its Shell has nowhere to put its nodes.
-  useEffect(() => () => abortRef.current?.abort(), []);
+  useEffect(
+    () => () => {
+      activeOperationRef.current = null;
+      abortRef.current?.abort();
+      abortRef.current = null;
+    },
+    [],
+  );
 
   const openPicker = useCallback(() => inputRef.current?.click(), []);
   const cancel = useCallback(() => abortRef.current?.abort(), []);
@@ -128,6 +137,17 @@ export function useFileImport(editor: FileImportEditor): FileImportController {
       const input = event.target;
       const files = Array.from(input.files ?? []);
       if (files.length === 0) return;
+      // A second picker gesture supersedes the first one. Aborting the old
+      // controller is not enough by itself: its promise may settle later and
+      // otherwise clear the new run's progress, report, or input value.
+      abortRef.current?.abort();
+      const operationId = ++operationSequenceRef.current;
+      const abortController = new AbortController();
+      abortRef.current = abortController;
+      activeOperationRef.current = operationId;
+      const isOwnedOperation = (): boolean => activeOperationRef.current === operationId;
+      const isActiveOperation = (): boolean =>
+        isOwnedOperation() && !abortController.signal.aborted;
       const expected = {
         documentId: editor.state.document.id,
         activeId: editor.state.activeId,
@@ -143,15 +163,17 @@ export function useFileImport(editor: FileImportEditor): FileImportController {
           current.selectionRevision === expected.selectionRevision
         );
       };
+      const isCurrentOperation = (): boolean => isActiveOperation() && isCurrent();
       try {
         const lutFiles = files.filter((f) => LUT_PATTERN.test(f.name));
-        if (lutFiles.length > 0) await importLutFiles(lutFiles, editorRef.current, isCurrent);
+        if (lutFiles.length > 0)
+          await importLutFiles(lutFiles, editorRef.current, isCurrentOperation);
+        if (!isCurrentOperation()) return;
 
         const artwork = files.filter((f) => !LUT_PATTERN.test(f.name));
         if (artwork.length === 0) return;
 
-        const abortController = new AbortController();
-        abortRef.current = abortController;
+        if (!isActiveOperation()) return;
         setReport(null);
         setProgress({ current: 0, total: artwork.length, fileName: artwork[0]!.name });
 
@@ -167,11 +189,13 @@ export function useFileImport(editor: FileImportEditor): FileImportController {
           {
             center: true,
             embedImages: true,
-            onProgress: (current, total, file) =>
-              setProgress({ current, total, fileName: file.name }),
+            onProgress: (current, total, file) => {
+              if (isActiveOperation()) setProgress({ current, total, fileName: file.name });
+            },
           },
           abortController.signal,
         );
+        if (!isCurrentOperation()) return;
 
         const parsedItems: { rootIds: NodeId[]; sourceDoc: Document }[] = [];
         for (const fileReport of result.files) {
@@ -180,7 +204,7 @@ export function useFileImport(editor: FileImportEditor): FileImportController {
             if (rootIds.length > 0) parsedItems.push({ rootIds, sourceDoc: artifact.document });
           }
         }
-        if (!isCurrent()) {
+        if (!isCurrentOperation()) {
           editor.announce('Import cancelled because the document changed while it was loading');
           return;
         }
@@ -189,7 +213,7 @@ export function useFileImport(editor: FileImportEditor): FileImportController {
           const committedIds = editor.commitPreparedFragment(
             preparedFragmentFromRootSets('import', parsedItems, { targetParentId: null }),
           );
-          if (reportHasIssues(result)) {
+          if (reportHasIssues(result) && isActiveOperation()) {
             setReport({
               ...result,
               insertedCount: committedIds.length,
@@ -198,7 +222,7 @@ export function useFileImport(editor: FileImportEditor): FileImportController {
               route: 'import',
             });
           }
-        } else if (reportHasIssues(result)) {
+        } else if (reportHasIssues(result) && isActiveOperation()) {
           setReport({
             ...result,
             insertedCount: 0,
@@ -212,13 +236,17 @@ export function useFileImport(editor: FileImportEditor): FileImportController {
           `Imported ${landed} file${landed === 1 ? '' : 's'}; ${result.failureCount} failed`,
         );
       } catch (err) {
+        if (!isActiveOperation()) return;
         if (err instanceof Error && err.name === 'AbortError') return;
         editor.announce(err instanceof Error ? `Import failed: ${err.message}` : 'Import failed');
       } finally {
-        abortRef.current = null;
-        setProgress(null);
-        // Let the same file be re-picked after a failed or cancelled run.
-        input.value = '';
+        if (isOwnedOperation()) {
+          activeOperationRef.current = null;
+          abortRef.current = null;
+          setProgress(null);
+          // Let the same file be re-picked after a failed or cancelled run.
+          input.value = '';
+        }
       }
     },
     [editor],

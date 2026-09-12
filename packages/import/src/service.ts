@@ -350,12 +350,18 @@ export const ImportService = {
         const input = inputs[index];
         if (!input) return;
         const fileReport = await importOne(input, options, signal);
+        // A cancellation can arrive while the parser is finishing a file.
+        // Do not publish a progress event for work that the caller has already
+        // declared stale; UI consumers use this callback to advance visible
+        // progress and must not be resurrected by a late worker.
+        assertNotAborted(signal);
         files[index] = fileReport;
         completed += 1;
         options.onProgress?.(completed, inputs.length, fileReport);
       }
     };
     await Promise.all(Array.from({ length: Math.min(2, inputs.length) }, () => worker()));
+    assertNotAborted(signal);
     const orderedFiles = files.filter((file): file is ImportFileReport => Boolean(file));
 
     const completedAt = Date.now();

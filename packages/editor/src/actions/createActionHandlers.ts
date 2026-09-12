@@ -22,10 +22,17 @@ import {
 } from '@varve/scene';
 import { type Affine, multiplyAffine, rotateRad, scaleXY, translate } from '@varve/shared';
 import { commitRasterMask } from '../backgroundRemoval/commitRasterMask';
-import { type ClipboardSelectionSnapshot, writeClipboardRepresentation } from '../clipboard';
+import {
+  type ClipboardSelectionSnapshot,
+  createTransferRequest,
+  getClipboardSnapshot,
+  readClipboardUnifiedWithFallback,
+  writeClipboardRepresentation,
+} from '../clipboard';
 import { applyNudgePlan, getNudgeStep, type NudgeDirection, planNudge } from '../commands/nudge';
 import type { EditorContextValue, ToolId } from '../context';
 import { startTextEditing } from '../context';
+import { publishImportReport } from '../context/sessionGlobals';
 import { preparedFragmentFromRootSets } from '../dropUtils';
 import { harmonizeSpacing as applyHarmonize } from '../intelligence/spacingHarmonizer';
 import { getLifecycleCoordinator } from '../lifecycle';
@@ -109,6 +116,42 @@ function selectedClipboardNodes(editor: EditorContextValue): SceneNode[] {
   return editor.state.selection
     .map((id) => editor.state.document.nodes[id])
     .filter((node): node is SceneNode => Boolean(node));
+}
+
+/**
+ * Menu commands can open a dialog or await a native clipboard read. Keep the
+ * destination captured by that gesture instead of allowing a later tab,
+ * page, selection, or revision to receive the result.
+ */
+function pasteScopeIsCurrent(
+  editor: EditorContextValue,
+  invocation: EditorContextValue['state'],
+): boolean {
+  const current = editor.state;
+  return (
+    current.document.id === invocation.document.id &&
+    current.activeId === invocation.activeId &&
+    current.workspaceMode === invocation.workspaceMode &&
+    current.document.activePageId === invocation.document.activePageId &&
+    current.revision === invocation.revision &&
+    current.selectionRevision === invocation.selectionRevision &&
+    current.selection.length === invocation.selection.length &&
+    current.selection.every((id, index) => id === invocation.selection[index])
+  );
+}
+
+function importReportNeedsFeedback(report: import('@varve/import').ImportReport): boolean {
+  return (
+    report.partialCount > 0 ||
+    report.failureCount > 0 ||
+    report.warnings.length > 0 ||
+    report.files.some(
+      (file) =>
+        file.status !== 'success' ||
+        file.warnings.length > 0 ||
+        file.unsupportedFeatures.length > 0,
+    )
+  );
 }
 
 function stripSvgEnvelope(markup: string): string {
@@ -613,11 +656,16 @@ export function createActionHandlers(
         .catch(() => e.announce('PNG scale selection is unavailable'));
     },
     pastePlainText: () => {
-      if (typeof navigator === 'undefined' || typeof navigator.clipboard?.readText !== 'function') {
+      if (typeof navigator === 'undefined') {
         e.announce('Plain text clipboard access is unavailable');
         return;
       }
       const invocation = e.state;
+      const request = createTransferRequest('paste', invocation.activeId);
+      // If a DOM paste event already owns this request, its bytes are
+      // authoritative. Do not fall back to a later system read after that
+      // event has been consumed.
+      const hasCapturedEvent = getClipboardSnapshot(request) !== null;
       const selected =
         invocation.selection.length === 1
           ? invocation.document.nodes[invocation.selection[0]!]
@@ -639,21 +687,41 @@ export function createActionHandlers(
             (canvas?.clientHeight ?? window.innerHeight - 120) / 2,
           )
         : undefined;
-      void navigator.clipboard
-        .readText()
-        .then((text) => {
+      // Keep the legacy `readText()` call synchronous when it is the only
+      // browser capability. Some engines do not expose `read()` at all; a
+      // direct invocation preserves the gesture's permission grant and keeps
+      // the request bound to this menu action.
+      const clipboardRead =
+        !hasCapturedEvent &&
+        e.platform?.kind !== 'tauri' &&
+        typeof navigator.clipboard?.read !== 'function' &&
+        typeof navigator.clipboard?.readText === 'function'
+          ? Promise.resolve(navigator.clipboard.readText()).then((text) => ({
+              varveData: null,
+              importItems: [],
+              plainText: text,
+            }))
+          : readClipboardUnifiedWithFallback(e.platform, request);
+      void clipboardRead
+        .then(async (clipboard) => {
+          let text = clipboard.plainText ?? '';
+          // Older browsers expose readText without read(). This fallback is
+          // valid for an explicit menu command, but never after an initiating
+          // ClipboardEvent has been captured for this request.
+          if (
+            !text &&
+            !hasCapturedEvent &&
+            clipboard.importItems.length === 0 &&
+            typeof navigator.clipboard?.readText === 'function'
+          ) {
+            text = await navigator.clipboard.readText();
+          }
           const value = text.slice(0, MAX_DIRECT_CLIPBOARD_TEXT);
           if (!value) {
             e.announce('The clipboard has no text');
             return;
           }
-          const current = e.state;
-          if (
-            current.document.id !== invocation.document.id ||
-            current.activeId !== invocation.activeId ||
-            current.revision !== invocation.revision ||
-            current.selectionRevision !== invocation.selectionRevision
-          ) {
+          if (!pasteScopeIsCurrent(e, invocation)) {
             e.announce('Plain text paste cancelled because the document changed');
             return;
           }
@@ -666,7 +734,10 @@ export function createActionHandlers(
           });
           e.announce('Pasted plain text');
         })
-        .catch(() => e.announce('Plain text clipboard access was denied'));
+        .catch((error) => {
+          if (error instanceof Error && error.name === 'AbortError') return;
+          e.announce('Plain text clipboard access was denied');
+        });
     },
     pasteSvgMarkup: () => {
       // Capture the destination before opening the prompt. The dialog and
@@ -714,14 +785,7 @@ export function createActionHandlers(
             { center: true, embedImages: true },
           )
             .then((report) => {
-              const current = e.state;
-              if (
-                invocation &&
-                (current.document.id !== invocation.document.id ||
-                  current.activeId !== invocation.activeId ||
-                  current.revision !== invocation.revision ||
-                  current.selectionRevision !== invocation.selectionRevision)
-              ) {
+              if (invocation && !pasteScopeIsCurrent(e, invocation)) {
                 e.announce('SVG paste cancelled because the document changed');
                 return;
               }
@@ -732,6 +796,15 @@ export function createActionHandlers(
                 }),
               );
               if (items.length === 0) {
+                if (importReportNeedsFeedback(report)) {
+                  publishImportReport({
+                    ...report,
+                    insertedCount: 0,
+                    committedRootIds: [],
+                    documentId: invocation.document.id,
+                    route: 'paste',
+                  });
+                }
                 e.announce('SVG markup did not contain supported artwork');
                 return;
               }
@@ -741,11 +814,23 @@ export function createActionHandlers(
                   ...(center ? { center } : {}),
                 }),
               );
+              if (importReportNeedsFeedback(report)) {
+                publishImportReport({
+                  ...report,
+                  insertedCount: committed.length,
+                  committedRootIds: committed,
+                  documentId: invocation.document.id,
+                  route: 'paste',
+                });
+              }
               e.announce(
                 `Pasted ${committed.length} SVG layer${committed.length === 1 ? '' : 's'}`,
               );
             })
-            .catch(() => e.announce('SVG markup could not be parsed'));
+            .catch((error) => {
+              if (error instanceof Error && error.name === 'AbortError') return;
+              e.announce('SVG markup could not be parsed');
+            });
         })
         .catch(() => e.announce('SVG markup entry is unavailable'));
     },

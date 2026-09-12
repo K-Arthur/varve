@@ -12,6 +12,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { promptDialog } from '../components/PromptDialog';
 import type { EditorContextValue } from '../context';
 import { setStartTextEditingHandler } from '../context';
+import { setImportReportHandler } from '../context/sessionGlobals';
 import { createActionHandlers } from './createActionHandlers';
 
 vi.mock('../components/PromptDialog', () => ({
@@ -138,6 +139,41 @@ describe('createActionHandlers — clipboard dialogs', () => {
       ),
     );
     expect(commitPreparedFragment).not.toHaveBeenCalled();
+  });
+
+  it('publishes SVG fidelity changes through the Import Results bridge', async () => {
+    vi.mocked(promptDialog).mockResolvedValue(
+      '<svg xmlns="http://www.w3.org/2000/svg"><defs><filter id="blur"/></defs><rect width="10" height="10"/></svg>',
+    );
+    const reportHandler = vi.fn();
+    const commitPreparedFragment = vi.fn(() => ['svg-root']);
+    const document = createDocument('svg report');
+    const editor = makeEditorMock({
+      state: {
+        selection: [],
+        document,
+        activeId: 'svg-report',
+        revision: 0,
+        selectionRevision: 0,
+      } as unknown as EditorContextValue['state'],
+      canvasToWorld: vi.fn(() => ({ x: 0, y: 0 })),
+      commitPreparedFragment,
+    });
+    setImportReportHandler(reportHandler);
+    try {
+      createActionHandlers(editor).pasteSvgMarkup?.();
+      await vi.waitFor(() => expect(reportHandler).toHaveBeenCalledTimes(1));
+      expect(reportHandler).toHaveBeenCalledWith(
+        expect.objectContaining({
+          route: 'paste',
+          documentId: document.id,
+          insertedCount: 1,
+          committedRootIds: ['svg-root'],
+        }),
+      );
+    } finally {
+      setImportReportHandler(null);
+    }
   });
 
   it('exports multiple SVG roots in selection order with their world-space arrangement', async () => {
