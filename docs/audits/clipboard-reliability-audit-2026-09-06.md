@@ -1183,3 +1183,35 @@ packages/editor/src/actions/createActionHandlers.test.ts
 The native Wayland ownership lane, packaged Tauri CSP/.fig decode, and owned
 Firefox Figma captures remain external verification lanes recorded in CLIP-13,
 CLIP-15, and CLIP-22.
+
+Validation for CLIP-40 and the frontend/marketing surface:
+
+```text
+pnpm exec biome check \
+  packages/editor/src/actions/createActionHandlers.ts \
+  packages/editor/src/actions/createActionHandlers.test.ts \
+  packages/editor/src/components/ImportResults.tsx \
+  packages/editor/src/components/ImportResults.test.tsx \
+  packages/editor/src/context/sessionGlobals.ts \
+  packages/editor/src/importing/useFileImport.ts
+passed
+
+pnpm exec vitest run \
+  packages/editor/src/components/ImportResults.test.tsx \
+  packages/editor/src/actions/createActionHandlers.test.ts \
+  --maxWorkers=1 --reporter=dot
+2 files, 51 tests passed
+
+pnpm verify:affected (VARVE_E2E_PORT=1490)
+all selected clipboard/import unit lanes and E2E typecheck passed;
+stopped in unrelated CAF screenshot drift (4 pixels), 16 CAF tests did not run
+
+pnpm build:website && pnpm build:website:pages
+86 pages built for each deployment base; 0 errors, 5 existing Astro hints
+
+pnpm --dir apps/website exec playwright test \
+  -c ../../playwright.website.config.ts \
+  tests/e2e/clipboard-feature.spec.ts \
+  --project=ghpages --project=custom-domain --project=touch --reporter=list
+8 passed; inspected desktop light/dark and mobile screenshots
+```
