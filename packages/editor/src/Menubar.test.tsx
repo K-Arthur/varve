@@ -319,14 +319,15 @@ describe('Menubar dropdown portal', () => {
     const menubar = screen.getByRole('menubar');
     await user.click(within(menubar).getByRole('menuitem', { name: 'File' }));
 
-    const menuPanel = document.body.querySelector('.editor-menubar__menu');
+    const menu = await screen.findByRole('menu', { name: 'File' });
+    const menuPanel = menu.parentElement;
     expect(menuPanel).toBeTruthy();
     expect(menuPanel?.parentElement).toBe(document.body);
     expect(
       // jsdom 30 computes the label+shortcut spans as inline (no CSS in
       // tests), so dom-accessibility-api concatenates "SaveCtrl+S" without a
       // space; the real browser (CSS loaded) exposes "Save Ctrl+S".
-      within(menuPanel as HTMLElement).getByRole('menuitem', { name: /Save\s*Ctrl/ }),
+      within(menu).getByRole('menuitem', { name: /Save\s*Ctrl/ }),
     ).toBeTruthy();
   });
 
@@ -337,7 +338,8 @@ describe('Menubar dropdown portal', () => {
     const menubar = screen.getByRole('menubar');
     await user.click(within(menubar).getByRole('menuitem', { name: 'View' }));
 
-    const menuPanel = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
+    const menuPanel = (await screen.findByRole('menu', { name: 'View' }))
+      .parentElement as HTMLElement;
     expect(menuPanel).toBeTruthy();
     expect(menuPanel.style.position).toBe('fixed');
   });
@@ -354,7 +356,7 @@ describe('Menubar menu structure', () => {
       render(<Menubar />);
       const edit = within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'Edit' });
       await user.click(edit);
-      const menu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
+      const menu = await screen.findByRole('menu', { name: 'Edit' });
       expect(within(menu).getByRole('menuitem', { name: /Undo/ })).toBeTruthy();
       expect(within(menu).getByRole('menuitem', { name: /Redo/ })).toBeTruthy();
     } finally {
@@ -374,7 +376,7 @@ describe('Menubar menu structure', () => {
     const user = userEvent.setup();
     render(<Menubar />);
     await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'File' }));
-    const menu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
+    const menu = await screen.findByRole('menu', { name: 'File' });
     const items = within(menu).getAllByRole('menuitem');
     const labels = items.map((el) => el.textContent ?? '');
     expect(labels.some((t) => t.startsWith('New'))).toBe(true);
@@ -391,7 +393,7 @@ describe('Menubar menu structure', () => {
       render(<Menubar />);
       await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'View' }));
       // The logo toggle renders as menuitemcheckbox; match all item roles.
-      const menu = await screen.findByRole('menu');
+      const menu = await screen.findByRole('menu', { name: 'View' });
       const labels = within(menu)
         .getAllByRole('menuitem')
         .concat(within(menu).queryAllByRole('menuitemcheckbox'))
@@ -423,7 +425,7 @@ describe('Menubar menu structure', () => {
     const user = userEvent.setup();
     render(<Menubar />);
     await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'Edit' }));
-    const menu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
+    const menu = await screen.findByRole('menu', { name: 'Edit' });
     expect(within(menu).getByRole('menuitem', { name: /Undo/ })).toBeTruthy();
     expect(within(menu).getByRole('menuitem', { name: /Redo/ })).toBeTruthy();
     expect(within(menu).getByRole('menuitem', { name: /Cut/ })).toBeTruthy();
@@ -445,7 +447,7 @@ describe('Menubar menu structure', () => {
     const user = userEvent.setup();
     render(<Menubar />);
     await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'Object' }));
-    const menu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
+    const menu = await screen.findByRole('menu', { name: 'Object' });
     expect(within(menu).getByRole('menuitem', { name: /Group/ })).toBeTruthy();
     expect(within(menu).getByRole('menuitem', { name: /Ungroup/ })).toBeTruthy();
     expect(within(menu).getByRole('menuitem', { name: /Union/ })).toBeTruthy();
@@ -462,7 +464,7 @@ describe('Menubar menu structure', () => {
     const user = userEvent.setup();
     render(<Menubar />);
     await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'Help' }));
-    const menu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
+    const menu = await screen.findByRole('menu', { name: 'Help' });
     expect(within(menu).getByRole('menuitem', { name: /Contextual Help/ })).toBeTruthy();
     expect(within(menu).getByRole('menuitem', { name: /Help Center/ })).toBeTruthy();
     expect(within(menu).getByRole('menuitem', { name: /About Varve/ })).toBeTruthy();
@@ -475,7 +477,7 @@ describe('Menubar shortcut display', () => {
     render(<Menubar />);
     // Open File menu
     await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'File' }));
-    const menu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
+    const menu = await screen.findByRole('menu', { name: 'File' });
     // Import should use formatShortcut, not hardcoded '⌘I'
     const importItem = within(menu).getByRole('menuitem', { name: /Import/ });
     const shortcut = importItem.querySelector('.editor-menubar__menu-shortcut');
@@ -487,7 +489,7 @@ describe('Menubar shortcut display', () => {
     const user = userEvent.setup();
     render(<Menubar />);
     await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'Edit' }));
-    const menu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
+    const menu = await screen.findByRole('menu', { name: 'Edit' });
     // All our shortcuts render as 'Ctrl+S' since formatShortcut mock returns that
     const shortcutElements = menu.querySelectorAll('.editor-menubar__menu-shortcut');
     expect(shortcutElements.length).toBeGreaterThan(0);
@@ -499,7 +501,7 @@ describe('Menubar disabled states', () => {
     const user = userEvent.setup();
     render(<Menubar />);
     await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'Object' }));
-    const menu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
+    const menu = await screen.findByRole('menu', { name: 'Object' });
     // Group requires 2+ selected
     const groupItem = within(menu).getByRole('menuitem', { name: /Group/ });
     expect(groupItem).toBeDisabled();
@@ -511,7 +513,7 @@ describe('Menubar disabled states', () => {
     await user.click(
       within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'Arrange' }),
     );
-    const menu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
+    const menu = await screen.findByRole('menu', { name: 'Arrange' });
     const bringFront = within(menu).getByRole('menuitem', { name: /Bring to Front/ });
     expect(bringFront).toBeDisabled();
   });
@@ -529,7 +531,7 @@ describe('Menubar disabled states', () => {
     await user.click(
       within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'Arrange' }),
     );
-    const menu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
+    const menu = await screen.findByRole('menu', { name: 'Arrange' });
     expect(within(menu).getByRole('menuitem', { name: /Nudge Right/ })).toBeDisabled();
   });
 
@@ -544,7 +546,7 @@ describe('Menubar disabled states', () => {
     render(<Menubar />);
 
     await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'View' }));
-    const viewMenu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
+    const viewMenu = await screen.findByRole('menu', { name: 'View' });
     expect(
       within(viewMenu).getByRole('menuitemradio', { name: /Workspace: Design/ }),
     ).not.toBeDisabled();
@@ -557,7 +559,7 @@ describe('Menubar disabled states', () => {
 
     await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'View' }));
     await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'Object' }));
-    const objectMenu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
+    const objectMenu = await screen.findByRole('menu', { name: 'Object' });
     expect(within(objectMenu).getByRole('menuitem', { name: /Remove Background/ })).toBeDisabled();
   });
 });
@@ -567,7 +569,7 @@ describe('Menubar ARIA attributes', () => {
     const user = userEvent.setup();
     render(<Menubar />);
     await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'View' }));
-    const menu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
+    const menu = await screen.findByRole('menu', { name: 'View' });
     const designItem = within(menu).getByRole('menuitemradio', { name: /Workspace: Design/ });
     expect(designItem).toBeTruthy();
     expect(designItem).toHaveAttribute('aria-checked', 'true');
@@ -578,7 +580,7 @@ describe('Menubar ARIA attributes', () => {
     const user = userEvent.setup();
     render(<Menubar />);
     await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'View' }));
-    const menu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
+    const menu = await screen.findByRole('menu', { name: 'View' });
     const lightItem = within(menu).getByRole('menuitemradio', { name: 'Light' });
     expect(lightItem).toBeTruthy();
   });
@@ -587,7 +589,7 @@ describe('Menubar ARIA attributes', () => {
     const user = userEvent.setup();
     render(<Menubar />);
     await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'View' }));
-    const menu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
+    const menu = await screen.findByRole('menu', { name: 'View' });
     const outlineItem = within(menu).getByRole('menuitemcheckbox', { name: /Outline Mode/ });
     expect(outlineItem).toBeTruthy();
   });
@@ -596,7 +598,7 @@ describe('Menubar ARIA attributes', () => {
     const user = userEvent.setup();
     render(<Menubar />);
     await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'Edit' }));
-    const menu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
+    const menu = await screen.findByRole('menu', { name: 'Edit' });
     const undoItem = within(menu).getByRole('menuitem', { name: /Undo/ });
     expect(undoItem).toHaveAttribute('aria-keyshortcuts');
   });
