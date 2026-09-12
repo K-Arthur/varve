@@ -703,8 +703,10 @@ async function writeClipboardOutcomeNow(
   }
   try {
     await navigator.clipboard.writeText(nodes.map((n) => n.name).join('\n'));
+    if (!isCurrentWrite()) return { status: 'failed', reason: 'write-failed' };
     return { status: 'text-only', reason: 'editable-format-unavailable' };
   } catch (error) {
+    if (!isCurrentWrite()) return { status: 'failed', reason: 'write-failed' };
     return {
       status: 'failed',
       reason: isPermissionError(error) ? 'permission-denied' : 'write-failed',

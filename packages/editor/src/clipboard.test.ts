@@ -774,6 +774,50 @@ describe('readFromClipboardEvent', () => {
     }
   });
 
+  it('does not let a superseded text fallback report success after its await', async () => {
+    const originalClipboard = navigator.clipboard;
+    const originalClipboardItem = globalThis.ClipboardItem;
+    let releaseFirst!: () => void;
+    const firstWrite = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    const writeText = vi.fn(async () => {
+      await firstWrite;
+    });
+    Object.defineProperty(globalThis, 'ClipboardItem', { configurable: true, value: undefined });
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+    try {
+      const first = writeClipboardOutcome([
+        { id: 'n1', kind: 'shape', name: 'First' } as unknown as SceneNode,
+      ]);
+      await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+      const second = writeClipboardRepresentation(
+        'image/svg+xml',
+        new TextEncoder().encode('<svg />'),
+        '<svg />',
+      );
+      releaseFirst();
+
+      await expect(first).resolves.toEqual({ status: 'failed', reason: 'write-failed' });
+      await expect(second).resolves.toEqual({
+        status: 'text-only',
+        reason: 'editable-format-unavailable',
+      });
+    } finally {
+      Object.defineProperty(globalThis, 'ClipboardItem', {
+        configurable: true,
+        value: originalClipboardItem,
+      });
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: originalClipboard,
+      });
+    }
+  });
+
   it('uses the native rich clipboard when WebKit exposes only text fallback data', async () => {
     const varveJson = JSON.stringify({
       format: 'varve-clipboard',
