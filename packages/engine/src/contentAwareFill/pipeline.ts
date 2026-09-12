@@ -1,7 +1,7 @@
 import { decodeLamaOutput, getInferenceWorkerHost } from '../inference';
 import { compositeFillResult, extractBoundedContext } from './contextExtraction';
 import { nativeLaMaProvider } from './nativeProvider';
-import { patchMatchFill } from './patchMatch';
+import { runPatchMatchInWorker } from './patchMatchWorkerHost';
 import type { BoundedContext, ContentAwareFillOptions, ContentAwareFillResult } from './types';
 
 function pickSoleOutputTensor(outputs: Record<string, unknown>): {
@@ -156,7 +156,7 @@ export async function runContentAwareFillPipeline(
     if (signal?.aborted) throw new Error('cancelled');
     onProgress?.(0.1);
 
-    const pmResult = patchMatchFill(
+    const pmResult = await runPatchMatchInWorker(
       boundedCtx.imageData,
       boundedCtx.mask,
       boundedCtx.width,

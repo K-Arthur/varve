@@ -130,6 +130,13 @@ model loading and is directed to the promptless Fast/PatchMatch path. Browser
 device-memory hints are advisory only and never imply that a prompt model is
 available; WASM/WebGPU providers must still pass their own safe-peak budget.
 
+Fast/PatchMatch preparation and matching run in a dedicated module worker in
+browser-capable runtimes. Cancelling a request terminates that worker, so a
+long textured-region search cannot block pointer input or later mutate the
+dialog. The synchronous implementation remains only for SSR, tests, and
+embedded runtimes without `Worker`; it is never the preferred desktop/web
+path.
+
 ## Mask and coordinate contract
 
 The analytical selection is document-space and camera-aware. The model mask is
