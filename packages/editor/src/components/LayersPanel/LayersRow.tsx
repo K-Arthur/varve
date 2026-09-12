@@ -147,7 +147,7 @@ export const LayersRow = memo(function LayersRow({
   onToggleVisibility,
   onToggleLock,
   onToggleSolo,
-  onToggleSelectionCheckbox,
+  onToggleSelectionCheckbox: _onToggleSelectionCheckbox,
   onFocus,
   idx,
   totalRows,
@@ -181,7 +181,7 @@ export const LayersRow = memo(function LayersRow({
   const isGroup = node.kind === 'group';
   const isContainerNode = isContainer(node);
   const layerPresentation = resolveLayerPresentation(node, doc);
-  const typeIcon = layerPresentation.icon;
+  const typeIcon = isGroup && expanded ? 'FolderOpen' : layerPresentation.icon;
   const thumbnailDataUrl = useThumbnail(node, docId, doc);
   // Only show a preview chip for real image content — solid-fill frame
   // thumbnails read as unexplained coloured squares next to the type icon.
@@ -423,31 +423,6 @@ export const LayersRow = memo(function LayersRow({
           <SolidIcon name={SOLID_CHROME_ICONS.gripVertical} size="0.75em" />
         </button>
 
-        {/* Pointer/touch selection affordance. The treeitem's aria-selected and
-            keyboard Space are the accessible selection model; this control is
-            intentionally visual-only so assistive technology does not hear a
-            second, competing selection state. */}
-        <label
-          className={`layers-row__selection-checkbox ${selected ? 'layers-row__selection-checkbox--selected' : ''}`}
-          tabIndex={-1}
-          onPointerDown={stopDragActivation}
-          aria-hidden="true"
-        >
-          <input
-            type="checkbox"
-            checked={selected}
-            onChange={(e) => {
-              e.stopPropagation();
-              onToggleSelectionCheckbox?.(node.id);
-            }}
-            hidden
-          />
-          <SolidIcon
-            name={selected ? SOLID_CHROME_ICONS.checkCircle : SOLID_CHROME_ICONS.square}
-            size="0.75em"
-          />
-        </label>
-
         {/* Disclosure triangle */}
         {container ? (
           <button
@@ -478,6 +453,9 @@ export const LayersRow = memo(function LayersRow({
           <span className="layers-row__disclosure-spacer" />
         )}
 
+        {/* Active selection dot indicator */}
+        {selected && !editing && <span className="layers-row__selection-dot" aria-hidden="true" />}
+
         {/* Thumbnail preview (frames and images) */}
         {showThumbnail && (
           <img src={thumbnailDataUrl!} alt="" aria-hidden className="layers-row__thumbnail" />
@@ -502,7 +480,7 @@ export const LayersRow = memo(function LayersRow({
             name={typeIcon}
             size={16}
             aria-hidden
-            className="layers-row__type-icon"
+            className={`layers-row__type-icon layers-row__type-icon--${layerPresentation.category} layers-row__type-icon--${layerPresentation.subtype}`}
             style={isInstance ? { opacity: 0.65 } : undefined}
           />
         </button>
@@ -527,7 +505,6 @@ export const LayersRow = memo(function LayersRow({
             <Tooltip label={displayName} truncationOnly>
               <span
                 className={`layers-row__name${isInstance ? ' layers-row__name--instance' : ''}${searchMatch ? ' layers-row__name--match' : ''}${!hasRealName ? ' layers-row__name--ghost' : ''}`}
-                title={accessibleDescription}
               >
                 {displayName}
               </span>

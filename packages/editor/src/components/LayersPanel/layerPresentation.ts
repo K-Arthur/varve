@@ -51,7 +51,7 @@ export function resolveLayerPresentation(node: SceneNode, doc?: Document): Layer
         category: 'instance',
         subtype: 'component-instance',
         label: 'Component instance',
-        icon: SOLID_TOOL_ICONS.component,
+        icon: 'CubeFocus',
       };
     }
     if (isComponentDefinition(node, doc)) {
@@ -60,7 +60,7 @@ export function resolveLayerPresentation(node: SceneNode, doc?: Document): Layer
         category: 'component',
         subtype: 'component-definition',
         label: 'Component',
-        icon: SOLID_TOOL_ICONS.component,
+        icon: 'CubeFocus',
       };
     }
     if (isExportRegion(node)) {
@@ -97,7 +97,7 @@ export function resolveLayerPresentation(node: SceneNode, doc?: Document): Layer
       category: 'text',
       subtype: 'text',
       label: 'Text',
-      icon: SOLID_TOOL_ICONS.text,
+      icon: 'TextAa',
     };
   }
 
@@ -159,7 +159,7 @@ export function resolveLayerPresentation(node: SceneNode, doc?: Document): Layer
       category: 'vector',
       subtype: 'path',
       label: 'Vector path',
-      icon: 'Pen',
+      icon: 'BezierCurve',
     };
   }
 
@@ -191,7 +191,7 @@ function shapeIcon(kind: string): SolidIconName {
     case 'arrow':
       return SOLID_TOOL_ICONS.arrow;
     case 'path':
-      return 'Pen';
+      return 'BezierCurve';
     default:
       return SOLID_TOOL_ICONS.rect;
   }

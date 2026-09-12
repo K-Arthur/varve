@@ -83,11 +83,29 @@ describe('resolveLayerPresentation', () => {
     expect(resolveLayerPresentation(root, definitionDoc)).toMatchObject({
       category: 'component',
       label: 'Component',
+      icon: 'CubeFocus',
     });
     expect(resolveLayerPresentation(instance, definitionDoc)).toMatchObject({
       dataType: 'instance',
       category: 'instance',
       label: 'Component instance',
+      icon: 'CubeFocus',
+    });
+  });
+
+  it('assigns distinctive icons for text and vector paths', () => {
+    const textNode = { id: 'text-1', name: 'Typography', kind: 'text' as const, visible: true, locked: false, blendMode: 'normal', opacity: 1, bindings: {}, fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 }, index: 0, order: 'a0', rotation: 0 };
+    const pathNode = { id: 'path-1', name: 'Spline', kind: 'path' as const, visible: true, locked: false, blendMode: 'normal', opacity: 1, bindings: {}, fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 }, index: 1, order: 'a1', rotation: 0 };
+
+    expect(resolveLayerPresentation(textNode as never)).toMatchObject({
+      dataType: 'text',
+      category: 'text',
+      icon: 'TextAa',
+    });
+    expect(resolveLayerPresentation(pathNode as never)).toMatchObject({
+      dataType: 'path',
+      category: 'vector',
+      icon: 'BezierCurve',
     });
   });
 });

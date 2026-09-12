@@ -472,6 +472,7 @@
 .layers-row--selected {
   background: var(--color-interactive-selected-surface);
   color: var(--color-text-primary);
+  border-color: color-mix(in srgb, var(--color-interactive-selected-border) 60%, transparent);
   box-shadow: inset 0 0 0 1px var(--color-interactive-selected-border);
 }
 
@@ -539,20 +540,30 @@
   flex-shrink: 0;
   border: none;
   background: none;
-  color: inherit;
+  color: var(--color-text-secondary);
   cursor: pointer;
   padding: 0;
   border-radius: var(--radius-control-compact);
-  opacity: 0.6;
+  opacity: 0.75;
+  transition:
+    opacity var(--duration-quick) var(--ease-standard),
+    color var(--duration-quick) var(--ease-standard);
 }
 
 .layers-row__disclosure:hover {
+  color: var(--color-text-primary);
   opacity: 1;
 }
 .layers-row__disclosure:focus-visible {
+  color: var(--color-text-primary);
   opacity: 1;
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
+}
+
+.layers-row--selected .layers-row__disclosure {
+  color: var(--color-text-primary);
+  opacity: 0.9;
 }
 
 .layers-row__disclosure-spacer {
@@ -603,46 +614,53 @@
   outline-offset: -1px;
 }
 
-/* ─── Selection checkbox ─────────────────────────────────────── */
-.layers-row__selection-checkbox {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--space-4);
-  height: var(--space-4);
+/* ─── Active selection dot indicator ───────────────────────── */
+.layers-row__selection-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-interactive-default);
   flex-shrink: 0;
-  cursor: pointer;
-  border-radius: var(--radius-control-compact);
-  color: var(--color-text-muted);
-  opacity: 0;
-  pointer-events: none;
-  transition:
-    opacity var(--duration-quick) var(--ease-standard),
-    color var(--duration-quick) var(--ease-standard);
-}
-.layers-row__selection-checkbox--selected {
-  opacity: 1;
-  pointer-events: auto;
-  color: var(--color-interactive-default);
-}
-.layers-row--selected .layers-row__selection-checkbox,
-.layers-row--selected .layers-row__selection-checkbox--selected {
-  opacity: 1;
-  pointer-events: auto;
-  color: var(--color-interactive-default);
+  margin-inline-end: var(--space-05);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-interactive-default) 35%, transparent);
 }
 
-.layers-row:hover .layers-row__selection-checkbox,
-.layers-row:focus-within .layers-row__selection-checkbox {
-  color: var(--color-text-primary);
-  pointer-events: auto;
-}
-
-/* ─── Type icon ─────────────────────────────────────────────── */
+/* ─── Type icon semantic colors ─────────────────────────────── */
 .layers-row__type-icon {
   flex-shrink: 0;
   opacity: 1;
   color: inherit;
+  transition: color var(--duration-quick) var(--ease-standard);
+}
+
+.layers-row__type-icon--frame {
+  color: var(--color-layer-accent-frame);
+}
+
+.layers-row__type-icon--group {
+  color: var(--color-layer-accent-group);
+}
+
+.layers-row__type-icon--text {
+  color: var(--color-layer-accent-text);
+}
+
+.layers-row__type-icon--vector {
+  color: var(--color-layer-accent-shape);
+}
+
+.layers-row__type-icon--component,
+.layers-row__type-icon--instance {
+  color: var(--color-layer-accent-component);
+}
+
+.layers-row__type-icon--raster {
+  color: var(--color-layer-accent-image);
+}
+
+.layers-row__type-icon--adjustment {
+  color: var(--color-layer-accent-adjustment);
 }
 
 .layers-row--selected .layers-row__type-icon {
@@ -677,17 +695,10 @@
 [data-theme="high-contrast"] .layers-row--selected .layers-row__type-icon {
   color: var(--color-text-on-accent);
 }
-/* HC: checkbox always visible; use explicit border for contrast */
-[data-theme="high-contrast"] .layers-row__selection-checkbox {
-  opacity: 1;
-  color: var(--color-text-secondary);
-}
-[data-theme="high-contrast"] .layers-row__selection-checkbox--selected {
-  color: var(--color-interactive-default);
-}
-[data-theme="high-contrast"] .layers-row--selected .layers-row__selection-checkbox,
-[data-theme="high-contrast"] .layers-row--selected .layers-row__selection-checkbox--selected {
-  color: var(--color-text-on-accent);
+/* HC: selection dot */
+[data-theme="high-contrast"] .layers-row__selection-dot {
+  background: Highlight;
+  box-shadow: none;
 }
 
 /* ─── Name ──────────────────────────────────────────────────── */
@@ -709,6 +720,15 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+}
+
+.layers-row--selected .layers-row__name {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+[data-theme="high-contrast"] .layers-row--selected .layers-row__name {
+  color: var(--color-text-on-accent);
 }
 
 /* Deep nesting legibility: smooth horizontal scroll on row hover/focus so long names
@@ -1056,41 +1076,60 @@
   flex-shrink: 0;
   border: none;
   background: none;
-  color: inherit;
+  color: var(--color-text-secondary);
   cursor: pointer;
   padding: 0;
   border-radius: var(--radius-control-compact);
-  opacity: 0.25;
-  transition: opacity var(--duration-quick) var(--ease-standard);
+  opacity: 0.65;
+  transition:
+    opacity var(--duration-quick) var(--ease-standard),
+    color var(--duration-quick) var(--ease-standard);
 }
 
-.layers-row__toggle:hover {
+.layers-row:hover .layers-row__toggle,
+.layers-row:focus-within .layers-row__toggle {
+  opacity: 0.85;
+}
+
+.layers-row__toggle:hover,
+.layers-row__toggle:focus-visible {
+  color: var(--color-text-primary);
   opacity: 1;
 }
 
+.layers-row__toggle:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
 .layers-row__toggle--active {
+  color: var(--color-text-primary);
   opacity: 1;
 }
 
 .layers-row__toggle--visibility-on {
-  opacity: 0.4;
+  color: var(--color-text-secondary);
+  opacity: 0.75;
 }
 
 .layers-row__toggle--visibility-off {
+  color: var(--color-text-primary);
   opacity: 1;
 }
 
 .layers-row__toggle--locked-on {
+  color: var(--color-text-primary);
   opacity: 1;
 }
 
 .layers-row__toggle--locked-off {
-  opacity: 0.25;
+  color: var(--color-text-secondary);
+  opacity: 0.65;
 }
 
 .layers-row__toggle--solo-on {
   opacity: 1;
-  color: var(--accent);
+  color: var(--color-interactive-default);
 }
 
 .layers-row__toggle--solo-off {
@@ -1100,15 +1139,14 @@
 
 .layers-row:hover .layers-row__toggle--solo-off,
 .layers-row:focus-within .layers-row__toggle--solo-off {
-  opacity: 0.25;
+  opacity: 0.65;
   pointer-events: auto;
 }
 
 /* Pointer and touch routes remain available without requiring hover. */
 @media (hover: none), (pointer: coarse) {
-  .layers-row__selection-checkbox,
   .layers-row__toggle--solo-off {
-    opacity: 0.55;
+    opacity: 0.75;
     pointer-events: auto;
   }
 }
@@ -1125,11 +1163,32 @@
 
 /* Mixed visibility/lock state — dash icon for multi-selection with mixed values */
 .layers-row__toggle--visibility-mixed {
-  opacity: 0.55;
+  color: var(--color-text-primary);
+  opacity: 0.85;
 }
 
 .layers-row__toggle--locked-mixed {
-  opacity: 0.55;
+  color: var(--color-text-primary);
+  opacity: 0.85;
+}
+
+.layers-row--selected .layers-row__toggle {
+  color: var(--color-text-primary);
+  opacity: 0.85;
+}
+
+.layers-row--selected .layers-row__toggle:hover,
+.layers-row--selected .layers-row__toggle:focus-visible {
+  opacity: 1;
+}
+
+[data-theme="high-contrast"] .layers-row__toggle {
+  opacity: 1;
+  color: var(--color-text-primary);
+}
+
+[data-theme="high-contrast"] .layers-row--selected .layers-row__toggle {
+  color: var(--color-text-on-accent);
 }
 
 /* ─── Filter bar — multi-faceted layer filter ─────── */
@@ -1437,6 +1496,9 @@
   opacity: 0;
   color: var(--color-text-subtle);
   touch-action: none;
+  background: none;
+  border: none;
+  padding: 0;
 }
 
 .layers-row:hover .layers-row__drag-handle,

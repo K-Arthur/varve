@@ -490,4 +490,45 @@ describe('LayersRow double-click icon', () => {
     expect(onToggleExpand).not.toHaveBeenCalled();
     expect(onRename).not.toHaveBeenCalled();
   });
+
+  it('renders modern row elements without blank checkbox, and includes selection dot and category icon', () => {
+    const frameNode = makeNode('f1', 'Page 1', 'frame', { w: 840, h: 1188 });
+    const { container, rerender } = renderRow({
+      node: frameNode,
+      selected: false,
+    });
+
+    // Unselected: no checkbox, no dot, name clearly visible, type category class present
+    expect(container.querySelector('.layers-row__selection-checkbox')).toBeNull();
+    expect(container.querySelector('.layers-row__selection-dot')).toBeNull();
+    expect(container.querySelector('.layers-row__name')?.textContent).toBe('Page 1');
+    expect(container.querySelector('.layers-row__type-icon--frame')).not.toBeNull();
+
+    // Selected: shows selection dot, keeps name clearly visible
+    rerender(
+      <LayersRow
+        node={frameNode}
+        depth={0}
+        selected={true}
+        focused={false}
+        expanded={false}
+        editing={false}
+        totalRows={1}
+        onToggleExpand={vi.fn()}
+        onSelect={vi.fn()}
+        onRename={vi.fn()}
+        onRenameStart={vi.fn()}
+        onRenameCommit={vi.fn()}
+        onRenameCancel={vi.fn()}
+        onToggleVisibility={vi.fn()}
+        onToggleLock={vi.fn()}
+        onFocus={vi.fn()}
+        idx={0}
+      />,
+    );
+
+    expect(container.querySelector('.layers-row__selection-checkbox')).toBeNull();
+    expect(container.querySelector('.layers-row__selection-dot')).not.toBeNull();
+    expect(container.querySelector('.layers-row__name')?.textContent).toBe('Page 1');
+  });
 });
