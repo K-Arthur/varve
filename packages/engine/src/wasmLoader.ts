@@ -21,6 +21,36 @@ export interface WasmEngineModule {
 let wasmModulePromise: Promise<WasmEngineModule | null> | null = null;
 let prewarmStarted = false;
 
+/**
+ * Fetch a runtime asset, using Cache Storage when the network is unavailable.
+ *
+ * The demo service worker normally serves these requests, but WASM can also be
+ * fetched by a dedicated or blob worker whose request is not consistently
+ * intercepted across browser versions. Cache Storage is available in workers,
+ * so checking it here keeps the local-first fallback honest after an offline
+ * reload without changing the native/Tauri path.
+ */
+export async function fetchWasmAsset(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<Response> {
+  try {
+    const response = await fetch(input, init);
+    if (response.ok) return response;
+    throw new Error(`WASM asset request failed (${response.status})`);
+  } catch (error) {
+    if (typeof caches !== 'undefined') {
+      try {
+        const cached = await caches.match(input);
+        if (cached?.ok) return cached;
+      } catch {
+        // Cache Storage can be unavailable in private or restricted contexts.
+      }
+    }
+    throw error;
+  }
+}
+
 /** Warm the WASM engine during idle time so it's ready when first needed. */
 export function prewarmWasmEngine(): void {
   if (prewarmStarted) return;
@@ -62,7 +92,7 @@ async function loadWasmEngineModuleUncached(): Promise<WasmEngineModule | null> 
     for (const wasmUrl of candidates) {
       let blobUrl: string | null = null;
       try {
-        const response = await fetch(wasmUrl, { method: 'HEAD' });
+        const response = await fetchWasmAsset(wasmUrl, { method: 'HEAD' });
         if (!response.ok) continue;
         const jsUrl = wasmUrl.replace('_bg.wasm', '.js').replace('_simd_bg.wasm', '_simd.js');
         // Vite's dev server refuses to serve /public assets through its
@@ -72,7 +102,7 @@ async function loadWasmEngineModuleUncached(): Promise<WasmEngineModule | null> 
         // it from a blob: URL sidesteps that dev-only restriction (works
         // identically in production, where there's no transform pipeline
         // in the way to begin with).
-        const jsSource = await fetch(jsUrl).then((r) => r.text());
+        const jsSource = await fetchWasmAsset(jsUrl).then((r) => r.text());
         blobUrl = URL.createObjectURL(new Blob([jsSource], { type: 'text/javascript' }));
         const mod = (await import(/* @vite-ignore */ blobUrl)) as {
           default: (opts?: {
@@ -84,7 +114,7 @@ async function loadWasmEngineModuleUncached(): Promise<WasmEngineModule | null> 
         };
         // The generated glue's positional-argument form is deprecated (logs a
         // console warning on every call) in favor of a single options object.
-        await mod.default({ module_or_path: fetch(wasmUrl).then((r) => r.arrayBuffer()) });
+        await mod.default({ module_or_path: fetchWasmAsset(wasmUrl).then((r) => r.arrayBuffer()) });
         return mod;
       } catch {
         // try the next candidate
@@ -138,10 +168,10 @@ export async function tryLoadTraceWasm(): Promise<WasmTraceModule | null> {
     for (const wasmUrl of candidates) {
       let blobUrl: string | null = null;
       try {
-        const response = await fetch(wasmUrl, { method: 'HEAD' });
+        const response = await fetchWasmAsset(wasmUrl, { method: 'HEAD' });
         if (!response.ok) continue;
         const jsUrl = wasmUrl.replace('_bg.wasm', '.js').replace('_simd_bg.wasm', '_simd.js');
-        const jsSource = await fetch(jsUrl).then((r) => r.text());
+        const jsSource = await fetchWasmAsset(jsUrl).then((r) => r.text());
         blobUrl = URL.createObjectURL(new Blob([jsSource], { type: 'text/javascript' }));
         const mod = (await import(/* @vite-ignore */ blobUrl)) as {
           default: (opts?: {
@@ -165,7 +195,7 @@ export async function tryLoadTraceWasm(): Promise<WasmTraceModule | null> {
           ) => string;
           wasm_trace_version: () => string;
         };
-        await mod.default({ module_or_path: fetch(wasmUrl).then((r) => r.arrayBuffer()) });
+        await mod.default({ module_or_path: fetchWasmAsset(wasmUrl).then((r) => r.arrayBuffer()) });
         cachedTraceModule = mod;
         return mod;
       } catch {

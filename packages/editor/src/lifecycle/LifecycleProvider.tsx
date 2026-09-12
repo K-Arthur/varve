@@ -173,8 +173,18 @@ export function LifecycleProvider({ onBackToHome }: { onBackToHome?: () => void 
         event.returnValue = '';
       }
     };
-    const onPageHide = () => {
-      coordinatorRef.current?.bestEffortFlush();
+    const onPageHide = (event: PageTransitionEvent) => {
+      const coordinator = coordinatorRef.current;
+      if (!coordinator) return;
+      coordinator.bestEffortFlush();
+      // A reload/navigation with no unsaved work is a clean browser-session
+      // boundary. Without this, every ordinary reload leaves the marker armed
+      // as unclean and repeated reloads can incorrectly trigger safe mode.
+      // Do not mark bfcache transitions or dirty sessions clean: either can
+      // continue running or need recovery if the browser is later discarded.
+      if (!event.persisted && !coordinator.shouldWarnOnUnload()) {
+        getSharedShutdownMarker().markClean();
+      }
     };
     const onFreeze = () => {
       // Chrome may freeze a hidden tab without delivering a later unload.
