@@ -1,5 +1,6 @@
 import { areaSelectionCoverageAt, createAreaSelection } from '@varve/engine';
 import {
+  type Affine,
   addChild,
   addNode,
   createDocument,
@@ -189,7 +190,7 @@ describe('createActionHandlers — clipboard dialogs', () => {
     try {
       const editor = makeEditorMock({
         state: { selection: [child.id], document } as EditorContextValue['state'],
-        getWorldTransform: vi.fn(() => [1, 0, 0, 1, 120, 80]),
+        getWorldTransform: vi.fn(() => [1, 0, 0, 1, 120, 80] as Affine),
       });
       createActionHandlers(editor).copyAsSvg?.();
       await vi.waitFor(() => expect(written).toHaveLength(1));
@@ -224,7 +225,7 @@ describe('createActionHandlers — clipboard dialogs', () => {
           activeId: 'plain-text',
           revision: 0,
           selectionRevision: 0,
-        } as EditorContextValue['state'],
+        } as unknown as EditorContextValue['state'],
         canvasToWorld: vi.fn(() => ({ x: 0, y: 0 })),
         commitPreparedFragment,
       });
