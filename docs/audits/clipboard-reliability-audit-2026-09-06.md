@@ -379,6 +379,9 @@ The new stable findings are:
 | CLIP-20 | Application / shared insertion | **Resolved locally.** Paste, file import, and canvas drop prepare `PreparedFragment` records and commit through one atomic insertion loop; platform cancellation evidence remains open. | `context.tsx`, `CanvasArea.tsx`, `useFileImport.ts`, commit `d4f8de4a` |
 | CLIP-21 | Native transport / deadline | **Resolved in the native bridge.** Tauri reads/writes carry operation IDs, bounded streaming, cancellation, and a five-second deadline; packaged ownership and the explicit Wayland WDIO lane remain external evidence. | `apps/desktop/src-tauri/src/lib.rs`, `packages/platform/src/tauri.ts`, commit `5e5a80c1` |
 | CLIP-22 | Native decode / CSP | **Open.** Packaged `.fig` decoding still requires a production CSP run proving the schema interpreter/decompression path does not reach dynamic code. | `packages/import/src/figma/native.ts`, desktop validation lane |
+| CLIP-35 | Application / command discovery | **Resolved.** The rendered Edit menu now exposes the same representation commands as the action registry and canvas context menu; selection gating is consistent. | `packages/editor/src/Menubar.tsx`, `tests/e2e/canvas/clipboard.spec.ts`, commit `e1c0fa5e` |
+| CLIP-36 | Transport / write ownership | **Resolved.** The final text-only fallback rechecks the generation after both resolve and reject, so superseded writes cannot report success. | `packages/editor/src/clipboard.ts`, `packages/editor/src/clipboard.test.ts`, commit `e71cbb56` |
+| CLIP-37 | Application / placement | **Resolved.** Plain-text paste captures destination scope and canvas geometry before the browser read and cancels when document, revision, design, or selection scope changes. | `packages/editor/src/actions/createActionHandlers.ts`, commit `2aa86ae1` |
 
 The capability boundary remains explicit: ordinary Figma Copy is unsupported
 until a synthetic design is captured from Firefox with provenance and a bounded
