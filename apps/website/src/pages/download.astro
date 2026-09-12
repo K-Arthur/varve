@@ -175,6 +175,7 @@ const REQUIREMENTS: Record<string, string[]> = {
     'RAM: 4 GB minimum, 8 GB recommended',
     'Display: Wayland or X11',
     'Storage: 500 MB minimum free disk',
+    'ChromeOS: use the .deb inside the Linux development environment; GPU acceleration is unavailable to Linux apps and support is experimental (see the ChromeOS guide)',
   ],
   macos: [
     'OS: macOS 13 Ventura or later',
@@ -579,6 +580,11 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                           <td><code>sudo apt install ./Varve-*.deb</code></td>
                         </tr>
                         <tr>
+                          <td><strong>ChromeOS (Linux development environment)</strong></td>
+                          <td>Debian package (.deb)</td>
+                          <td><code>sudo apt install ./Varve-*.deb</code></td>
+                        </tr>
+                        <tr>
                           <td><strong>Fedora / RHEL / Rocky / Alma</strong></td>
                           <td>RPM package (.rpm)</td>
                           <td><code>sudo dnf install ./Varve-*.rpm</code></td>
@@ -627,6 +633,14 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                       <code>.desktop</code> file, icons, MIME types, and clean uninstall via
                       <code>pacman -R</code>. No FUSE dependency. Build with
                       <code>makepkg -si</code> from the PKGBUILD directory.
+                    </p>
+                    <p>
+                      <strong>ChromeOS (Linux development environment)</strong> — install the
+                      <code>.deb</code> inside the Linux container. It is an ARM64 or x86_64
+                      Debian environment, not native ChromeOS Chrome; GPU acceleration is not
+                      available to Linux apps, and files kept only inside the container are
+                      deleted if the environment is removed. Step-by-step:{' '}
+                      <a href={sitePath('/docs/chromeos-linux')}>Varve on ChromeOS</a>.
                     </p>
                   </div>
                 </div>
@@ -857,6 +871,13 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                 <strong>Linux — .deb fails to install or start:</strong> the package needs the
                 system WebKitGTK library — <code>sudo apt install libwebkit2gtk-4.1-0</code>, then
                 reinstall the package.
+              </li>
+              <li>
+                <strong>ChromeOS — the Linux app does not install, launch, or see files:</strong>{' '}
+                use the <code>.deb</code> for your architecture (<code>uname -m</code>) inside the
+                Linux development environment, keep projects in a shared My files/Drive folder
+                (container files are deleted with the environment), and expect software rendering.
+                See the <a href={sitePath('/docs/chromeos-linux')}>ChromeOS guide</a>.
               </li>
               <li>
                 <strong>Arch/CachyOS — prefer the PKGBUILD:</strong> the

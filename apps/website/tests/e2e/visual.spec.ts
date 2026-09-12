@@ -57,6 +57,23 @@ async function warmFullPage(page: import('@playwright/test').Page) {
   await waitForImages(page);
 }
 
+/**
+ * Wait until the document height stops changing. Downloads and docs pages gain
+ * a detection banner or a footer in-view class after load; a full-page capture
+ * taken mid-change fails Playwright's two-consecutive-stable-screenshots check.
+ */
+async function waitForStableDocument(page: import('@playwright/test').Page) {
+  await page.evaluate(async () => {
+    let previous = -1;
+    for (let i = 0; i < 60; i++) {
+      const height = document.documentElement.scrollHeight;
+      if (height === previous) return;
+      previous = height;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  });
+}
+
 async function seedTheme(page: import('@playwright/test').Page, theme: 'light' | 'dark') {
   await page.addInitScript((value: string) => {
     try {
@@ -206,11 +223,52 @@ test('download page dark', async ({ page }) => {
   await page.goto('/download?test-motion=static');
   await waitForImages(page);
   await expect(page.getByRole('heading', { name: /download varve/i })).toBeVisible();
+  // Detection adds a recommendation banner after load; wait for the layout to
+  // settle before the full-page capture.
+  await expect(page.locator('#detection-banner')).toBeVisible();
   await warmFullPage(page);
+  await waitForStableDocument(page);
   await expect(page).toHaveScreenshot('download-dark.png', {
     fullPage: true,
     maxDiffPixelRatio: 0.02,
   });
+});
+
+test('download page linux guidance light', async ({ browser }) => {
+  // The default Playwright UA reports Windows, so the Linux panel is hidden in
+  // the page-level baseline above. Pin an ARM64 Linux UA and capture the Linux
+  // panel itself so ChromeOS/Linux guidance stays visually reviewed.
+  const context = await browser.newContext({
+    userAgent:
+      'Mozilla/5.0 (X11; Linux aarch64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
+    colorScheme: 'light',
+  });
+  const page = await context.newPage();
+  await seedTheme(page, 'light');
+  await page.goto('/download?test-motion=static');
+  const linuxSection = page.locator('#platform-linux');
+  await expect(linuxSection).toBeVisible();
+  await expect(
+    linuxSection.locator('.distro-table').getByText('ChromeOS (Linux development environment)'),
+  ).toBeVisible();
+  await expect(page.locator('#detection-banner')).toBeVisible();
+  await warmFullPage(page);
+  await waitForStableDocument(page);
+  const linuxClip = await linuxSection.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return {
+      x: Math.floor(rect.left + window.scrollX),
+      y: Math.floor(rect.top + window.scrollY),
+      width: Math.ceil(rect.width),
+      height: Math.ceil(rect.height),
+    };
+  });
+  await expect(page).toHaveScreenshot('download-linux-light.png', {
+    fullPage: true,
+    clip: linuxClip,
+    maxDiffPixelRatio: 0.02,
+  });
+  await context.close();
 });
 
 test('docs page light', async ({ page }) => {
@@ -233,6 +291,34 @@ test('workspaces docs page light', async ({ page }) => {
   await warmFullPage(page);
   await expect(page).toHaveScreenshot('workspaces-docs-light.png', {
     fullPage: true,
+    maxDiffPixelRatio: 0.02,
+  });
+});
+
+test('chromeos docs page light', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
+  await seedTheme(page, 'light');
+  await page.goto('/docs/chromeos-linux?test-motion=static');
+  const docsPage = page.locator('.docs-page');
+  await expect(page.getByRole('heading', { name: 'Varve on ChromeOS', exact: true })).toBeVisible();
+  await warmFullPage(page);
+  await waitForStableDocument(page);
+  // Clip to the article in document coordinates. A bare fullPage capture of
+  // this route varies by 4px between Playwright's repeated screenshots
+  // (viewport resize artifact measured 2026-09-12), which trips the
+  // two-consecutive-stable-screenshots check; the article itself is stable.
+  const docsClip = await docsPage.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return {
+      x: Math.floor(rect.left + window.scrollX),
+      y: Math.floor(rect.top + window.scrollY),
+      width: Math.ceil(rect.width),
+      height: Math.ceil(rect.height),
+    };
+  });
+  await expect(page).toHaveScreenshot('chromeos-linux-light.png', {
+    fullPage: true,
+    clip: docsClip,
     maxDiffPixelRatio: 0.02,
   });
 });

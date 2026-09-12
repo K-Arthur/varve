@@ -44,6 +44,7 @@ const ROUTES = [
   '/features/local-first',
   '/features/print-production',
   '/features/layers',
+  '/docs/chromeos-linux',
 ];
 
 /** Routes that must never appear in the sitemap. */

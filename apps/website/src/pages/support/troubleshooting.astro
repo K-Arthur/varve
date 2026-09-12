@@ -35,6 +35,19 @@ import { sitePath } from '../../lib/siteUrl';
         </div>
 
         <div class="troubleshoot-item">
+          <h3>Varve on ChromeOS: install, launch, or file access</h3>
+          <p>
+            <strong>Solution:</strong> Install the <code>.deb</code> inside the ChromeOS
+            Linux development environment and match your architecture
+            (<code>uname -m</code>). ChromeOS does not expose GPU acceleration to Linux
+            apps, printing needs CUPS inside the container, and files kept only in the
+            container are deleted if the Linux environment is removed — keep projects in a
+            shared My files/Drive folder. The full walkthrough is in
+            <a href={sitePath('/docs/chromeos-linux')}>Varve on ChromeOS</a>.
+          </p>
+        </div>
+
+        <div class="troubleshoot-item">
           <h3>macOS says "app is damaged" on launch</h3>
           <p><strong>Solution:</strong> This is a macOS security gate for unsigned apps. Right-click the app and select "Open", then click "Open" in the dialog. This only needs to be done once.</p>
         </div>
