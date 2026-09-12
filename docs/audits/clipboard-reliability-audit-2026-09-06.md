@@ -1039,3 +1039,40 @@ paste-80bb0-r-spacing-and-nested-groups-chromium/clipboard-svg-order-and-
 groups.png`. The screenshot shows the imported group and sibling rectangle in
 their separate positions with the group selected; geometry and layer-order
 assertions pass alongside the visual capture.
+
+### Final local reliability rerun — 2026-09-12
+
+The final focused browser/application rerun on `master` commit
+`43195596fe1c83181d95131b753ac3afffe92897` passed 93 clipboard/import tests
+across the action handlers, serialized writer, prepared-fragment insertion,
+and SVG parser. The affected planner was run first; it selected the full
+workspace closure because concurrent work touched shared packages. Its Tier 0
+formatter check stopped on the unrelated concurrent
+`apps/website/tests/e2e/chromeos-linux.spec.ts` import/order and wrapping
+diagnostics, so that file was left untouched.
+
+```text
+pnpm verify:plan
+Full-suite escalation: NO
+pnpm verify:affected
+blocked at format:touched by unrelated chromeos-linux.spec.ts diagnostics
+pnpm exec vitest run \
+  packages/editor/src/actions/createActionHandlers.test.ts \
+  packages/editor/src/clipboard.test.ts \
+  packages/editor/src/importing/preparedFragment.test.ts \
+  packages/import/src/svg.test.ts --maxWorkers=1 --reporter=dot
+4 files, 93 tests passed
+pnpm audit:docs
+clean (746 docs, 346 links, 173 ADRs)
+pnpm audit:emoji
+clean (4304 files)
+pnpm audit:tokens
+all 153 pairs pass across 3 themes
+node scripts/audit-architecture.mjs --ci
+complete; 14 known cycles, no layer/type-only/dead-export ratchet
+```
+
+The focused website build and eight-route light/dark/mobile clipboard-page
+visual checks remain recorded above. Native Wayland WDIO, external Firefox
+Figma ownership, and packaged Tauri CSP remain explicitly unverified external
+lanes.
