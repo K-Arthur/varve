@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { getActionRegistry, resetActionRegistryForTesting } from '../../actions/ActionRegistry';
 import { detectCollisions, SHORTCUT_DEFS } from '../../shortcuts/ShortcutManager';
-import { getAllMenuDefs } from '../defs';
+import { getAllMenuDefs, getCanvasContextMenuDefs } from '../defs';
 import type { Accelerator, MenuContext, MenuItemDef } from '../types';
 import { dispatchNativeMenuAction } from '../useNativeMenu';
 
@@ -81,6 +81,21 @@ describe('menu command integrity', () => {
     }
 
     expect(commandsWithoutDispatch, commandsWithoutDispatch.join('\n')).toEqual([]);
+  });
+
+  it('exposes every clipboard representation command in the canvas context menu', () => {
+    const ids = getCanvasContextMenuDefs(() => {})
+      .filter((item) => item.kind === 'command')
+      .map((item) => item.id);
+    expect(ids).toEqual(
+      expect.arrayContaining([
+        'ctx-copyText',
+        'ctx-copyAsSvg',
+        'ctx-copyAsPng',
+        'ctx-pastePlainText',
+        'ctx-pasteSvgMarkup',
+      ]),
+    );
   });
 
   it('falls back to the menubar dispatcher for native-only commands', () => {

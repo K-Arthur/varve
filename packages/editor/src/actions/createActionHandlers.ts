@@ -28,6 +28,7 @@ import { commitRasterMask } from '../backgroundRemoval/commitRasterMask';
 import { applyNudgePlan, getNudgeStep, type NudgeDirection, planNudge } from '../commands/nudge';
 import type { EditorContextValue, ToolId } from '../context';
 import { startTextEditing } from '../context';
+import { preparedFragmentFromRootSets } from '../dropUtils';
 import { harmonizeSpacing as applyHarmonize } from '../intelligence/spacingHarmonizer';
 import { getLifecycleCoordinator } from '../lifecycle';
 import { nodeLocalBounds } from '../scene/world';
@@ -639,19 +640,21 @@ export function createActionHandlers(
           )
             .then((report) => {
               const items = report.files.flatMap((file) =>
-                file.artifacts.flatMap((artifact) =>
-                  artifact.nodeIds.flatMap((id) => {
-                    const node = artifact.document.nodes[id];
-                    return node ? [{ node, sourceDoc: artifact.document }] : [];
-                  }),
-                ),
+                file.artifacts.flatMap((artifact) => {
+                  const rootIds = artifact.nodeIds.filter((id) => artifact.document.nodes[id]);
+                  return rootIds.length > 0 ? [{ rootIds, sourceDoc: artifact.document }] : [];
+                }),
               );
               if (items.length === 0) {
                 e.announce('SVG markup did not contain supported artwork');
                 return;
               }
-              e.batchImportNodes(items);
-              e.announce(`Pasted ${items.length} SVG layer${items.length === 1 ? '' : 's'}`);
+              const committed = e.commitPreparedFragment(
+                preparedFragmentFromRootSets('import', items, { targetParentId: null }),
+              );
+              e.announce(
+                `Pasted ${committed.length} SVG layer${committed.length === 1 ? '' : 's'}`,
+              );
             })
             .catch(() => e.announce('SVG markup could not be parsed'));
         })
