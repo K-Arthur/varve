@@ -142,10 +142,13 @@ The focused geometry and document checks passed after the implementation pass:
   automatic-tangent refresh after anchor movement.
 - `packages/shared/src/bezierPathOps.test.ts` — 23 tests passed, including the
   nearest-point distance-unit regression.
-- The editor node-tool, geometry, topology-dependency, and document-codec
-  suites passed together with the shared path suites in one clean run:
-  6 files and 92 tests passed. The run used one Vitest worker because the
-  shared machine was also carrying unrelated jobs.
+- The editor node-tool, geometry, control, topology-dependency, and
+  document-codec suites passed together with the shared path suites in one
+  clean run: 7 files and 96 tests passed. The run used one Vitest worker
+  because the shared machine was also carrying unrelated jobs.
+  The added compound-hole coverage verifies automatic tangents, closing
+  segment insertion/hit testing, and the corresponding control guard when the
+  outer contour is open.
 
 The real capture workflow
 (`pnpm capture:workflow bezier-node-edit --no-mp4`) exercised the application,
