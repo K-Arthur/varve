@@ -179,17 +179,22 @@ export function replaceImageShapeContent(
       throw new Error('Generative image patch is invalid');
     }
 
-    // Remove only prior generative overlays. The original image fill and all
-    // unrelated fills remain in their original order, so effects, masks, and
-    // user-authored paint stacks continue to behave as before.
-    const fills = sourceFills.filter(
-      (fill) => !(fill.type === 'image' && fill.image?.generativeEditOverlay),
-    );
+    // Retain prior generative overlays so repeated edits build on the visible
+    // image instead of silently erasing earlier accepted patches. The
+    // original image fill and all unrelated fills remain in their original
+    // order, so effects, masks, and user-authored paint stacks continue to
+    // behave as before. Restore Original removes the complete overlay stack.
+    const fills = [...sourceFills];
     const baseImageIndex = fills.findIndex(
       (fill) => fill.type === 'image' && Boolean(fill.image) && !fill.image?.generativeEditOverlay,
     );
     if (baseImageIndex < 0) throw new Error('Source does not contain an image fill');
-    fills.splice(baseImageIndex + 1, 0, {
+    const lastOverlayIndex = fills.reduce(
+      (lastIndex, fill, index) =>
+        fill.type === 'image' && fill.image?.generativeEditOverlay ? index : lastIndex,
+      -1,
+    );
+    fills.splice(Math.max(baseImageIndex + 1, lastOverlayIndex + 1), 0, {
       type: 'image',
       image: {
         src: patch.dataUrl,

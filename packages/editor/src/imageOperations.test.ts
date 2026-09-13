@@ -113,6 +113,54 @@ describe('replaceImageShapeContent', () => {
     });
   });
 
+  it('retains earlier bounded patches when a later edit is accepted', () => {
+    const first = replaceImageShapeContent(imageDoc(), 'img1', {
+      dataUrl: 'data:image/png;base64,AAAA',
+      assetId: 'asset-source',
+      width: 20,
+      height: 10,
+      generativeEditId: 'edit-1',
+      patch: {
+        dataUrl: 'data:image/png;base64,FIRST',
+        assetId: 'asset-first',
+        width: 40,
+        height: 30,
+        x: 2,
+        y: 3,
+        editId: 'edit-1',
+        variationId: 'variation-1',
+      },
+    });
+    const second = replaceImageShapeContent(first, 'img1', {
+      dataUrl: 'data:image/png;base64,AAAA',
+      assetId: 'asset-source',
+      width: 20,
+      height: 10,
+      generativeEditId: 'edit-2',
+      patch: {
+        dataUrl: 'data:image/png;base64,SECOND',
+        assetId: 'asset-second',
+        width: 50,
+        height: 25,
+        x: 60,
+        y: 8,
+        editId: 'edit-2',
+        variationId: 'variation-2',
+      },
+    });
+    const updated = second.nodes.img1;
+    if (updated?.kind !== 'shape') throw new Error('expected shape');
+    expect(updated.fills).toHaveLength(3);
+    expect(updated.fills?.[1]?.image?.generativeEditOverlay).toMatchObject({
+      editId: 'edit-1',
+      variationId: 'variation-1',
+    });
+    expect(updated.fills?.[2]?.image?.generativeEditOverlay).toMatchObject({
+      editId: 'edit-2',
+      variationId: 'variation-2',
+    });
+  });
+
   it('restores the source and removes bounded generative overlays', () => {
     const source = createEmbeddedAsset({
       dataUrl: 'data:image/png;base64,AAAA',
