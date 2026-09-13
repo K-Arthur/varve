@@ -1337,6 +1337,9 @@ passed
 
 pnpm exec tsc -p packages/import/tsconfig.json --noEmit --pretty false
 passed
+
+pnpm exec vitest run packages/import/src --maxWorkers=1 --reporter=dot
+356 tests passed across 31 import test files
 ```
 
 The website capability page and file-format guide now describe operation
