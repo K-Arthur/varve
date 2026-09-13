@@ -9,6 +9,9 @@
  * Figma text resizing model.
  */
 
+import type { OpenTypeFeatureMap } from './typographyFeatures';
+import { openTypeFeaturesToCss } from './typographyFeatures';
+
 export interface TextMeasureOptions {
   fontSize: number;
   fontFamily: string;
@@ -21,6 +24,8 @@ export interface TextMeasureOptions {
   /** Extra leading between paragraphs, in px. Not applied before the first. */
   paragraphSpacing?: number;
   textCase?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
+  /** Explicit OpenType values; source ranges are handled by the shaper. */
+  openTypeFeatures?: OpenTypeFeatureMap;
   variableAxes?: Record<string, number>;
 }
 
@@ -318,6 +323,7 @@ export interface RunMeasureOptions {
   letterSpacing?: number;
   lineHeight?: number;
   textCase?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
+  openTypeFeatures?: OpenTypeFeatureMap;
   variableFontSettings?: Record<string, number>;
 }
 
@@ -410,10 +416,7 @@ export function buildVariationSettingsCSS(settings?: Record<string, number>): st
   return `font-variation-settings: ${parts};`;
 }
 
-export function buildFeatureSettingsCSS(features?: Record<string, boolean>): string | undefined {
-  if (!features || Object.keys(features).length === 0) return undefined;
-  const parts = Object.entries(features)
-    .map(([tag, on]) => `"${tag}" ${on ? '1' : '0'}`)
-    .join(', ');
-  return `font-feature-settings: ${parts};`;
+export function buildFeatureSettingsCSS(features?: OpenTypeFeatureMap): string | undefined {
+  const settings = openTypeFeaturesToCss(features);
+  return settings ? `font-feature-settings: ${settings};` : undefined;
 }

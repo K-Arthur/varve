@@ -12,7 +12,7 @@
  * for the canvas renderer.
  */
 
-import type { PathNodeMode } from '@varve/shared';
+import type { OpenTypeFeatureMap, PathNodeMode } from '@varve/shared';
 import type { SpatialBlurEffect } from './spatialBlur';
 
 export type { PathNodeMode } from '@varve/shared';
@@ -21,9 +21,13 @@ export type Point = readonly [number, number];
 
 // ── Local typography IR types (mirrors @varve/scene without the dependency) ──
 
-export type OpenTypeFeatureMap = Record<string, boolean | Record<string, boolean> | undefined> & {
-  custom?: Record<string, boolean>;
-};
+export type {
+  OpenTypeFeatureEntry,
+  OpenTypeFeatureMap,
+  OpenTypeFeatureRange,
+  OpenTypeFeatureSetting,
+  OpenTypeFeatureValue,
+} from '@varve/shared';
 
 export type VariableFontSettings = Record<string, number>;
 

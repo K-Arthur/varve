@@ -1,5 +1,14 @@
+import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { normalizeNativeShapedRun } from './shapingBackend';
+import { createHarfBuzzWasmBackend, normalizeNativeShapedRun } from './shapingBackend';
+
+function readArrayBuffer(path: string): ArrayBuffer {
+  const bytes = readFileSync(path);
+  return Uint8Array.from(bytes).buffer;
+}
+
+const OPEN_SANS = 'crates/varve-print/fixtures/OpenSans-Regular.ttf';
+const ARABIC = '/usr/share/fonts/noto/NotoSansArabic-Regular.ttf';
 
 describe('shaping backend contract', () => {
   it('normalizes native font units and preserves UTF-16 clusters', () => {
@@ -28,6 +37,8 @@ describe('shaping backend contract', () => {
       clusterUtf16: 0,
     });
     expect(result.glyphs[1]!.clusterUtf16).toBe(2);
+    expect(result.glyphs[0]!.sourceEnd).toBe(2);
+    expect(result.glyphs[1]!.sourceEnd).toBe(4);
     expect(result.ascent).toBe(16);
     expect(result.descent).toBe(4);
   });
@@ -48,4 +59,59 @@ describe('shaping backend contract', () => {
     expect(result.direction).toBe('ltr');
     expect(result.missingGlyphIndices).toEqual([0]);
   });
+
+  it.runIf(existsSync(OPEN_SANS))(
+    'passes real numeric and ranged features to HarfBuzz',
+    async () => {
+      const backend = createHarfBuzzWasmBackend();
+      const fontData = readArrayBuffer(OPEN_SANS);
+      const enabled = await backend.shape({
+        text: 'fi ffi',
+        fontData,
+        fontSize: 100,
+        fontIdentity: 'fixture:opensans',
+        features: { liga: true, ss01: 2 },
+      });
+      const disabled = await backend.shape({
+        text: 'fi ffi',
+        fontData,
+        fontSize: 100,
+        features: { liga: false },
+      });
+
+      expect(enabled.fontIdentity).toBe('fixture:opensans');
+      expect(enabled.faceIndex).toBe(0);
+      expect(enabled.glyphs.length).toBeLessThan(disabled.glyphs.length);
+      expect(enabled.glyphs.every((glyph) => glyph.glyphId > 0)).toBe(true);
+      expect(enabled.glyphs.every((glyph) => glyph.sourceEnd! <= 'fi ffi'.length)).toBe(true);
+
+      const ranged = await backend.shape({
+        text: 'fi fi',
+        fontData,
+        fontSize: 100,
+        features: {
+          liga: {
+            value: false,
+            ranges: [{ startUtf16: 3, endUtf16: 5, value: true }],
+          },
+        },
+      });
+      expect(ranged.glyphs.length).toBe(4);
+      expect(ranged.glyphs.some((glyph) => glyph.clusterUtf16 === 3)).toBe(true);
+    },
+  );
+
+  it.runIf(existsSync(ARABIC))(
+    'reports inferred RTL direction when direction is omitted',
+    async () => {
+      const result = await createHarfBuzzWasmBackend().shape({
+        text: 'سلام',
+        fontData: readArrayBuffer(ARABIC),
+        fontSize: 64,
+      });
+      expect(result.direction).toBe('rtl');
+      expect(result.script).toBe('arab');
+      expect(result.glyphs[0]!.clusterUtf16).toBe('سلام'.length - 1);
+    },
+  );
 });

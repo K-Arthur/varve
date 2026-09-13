@@ -7,12 +7,15 @@
  * downstream layout code does not depend on either IPC or Emscripten types.
  */
 
+import { normalizeOpenTypeFeatureMap } from '@varve/shared';
 import type { OpenTypeFeatureMap, ShapedGlyph } from './types';
 import { createUnicodeIndexMap } from './unicode/unicodeIndices';
 
 export interface ShapingBackendRequest {
   text: string;
   fontData: ArrayBuffer;
+  /** Stable artifact/face identity used for cache invalidation and export diagnostics. */
+  fontIdentity?: string;
   faceIndex?: number;
   fontSize: number;
   language?: string;
@@ -31,6 +34,10 @@ export interface ShapingBackendResult {
   direction: 'ltr' | 'rtl' | 'ttb' | 'btt';
   script?: string;
   language?: string;
+  /** Identity of the exact font artifact used for this derived result. */
+  fontIdentity?: string;
+  /** Face index used when the artifact is a collection. */
+  faceIndex: number;
   missingGlyphIndices: number[];
   warnings: string[];
   backend: 'harfbuzz-wasm' | 'rustybuzz-native';
@@ -66,25 +73,29 @@ export function normalizeNativeShapedRun(
   payload: NativeShapedRunPayload,
   text: string,
   fontSize: number,
+  options: { fontIdentity?: string; faceIndex?: number } = {},
 ): ShapingBackendResult {
   const unitsPerEm = positiveOr(payload.units_per_em, 1000);
   const scale = fontSize / unitsPerEm;
+  const rawGlyphs = payload.glyphs.map((glyph) => ({
+    glyphId: glyph.glyph_id,
+    xAdvance: glyph.x_advance * scale,
+    yAdvance: glyph.y_advance * scale,
+    xOffset: glyph.x_offset * scale,
+    yOffset: glyph.y_offset * scale,
+    clusterUtf16: clampCluster(glyph.cluster, text.length),
+  }));
   return {
-    glyphs: payload.glyphs.map((glyph) => ({
-      glyphId: glyph.glyph_id,
-      xAdvance: glyph.x_advance * scale,
-      yAdvance: glyph.y_advance * scale,
-      xOffset: glyph.x_offset * scale,
-      yOffset: glyph.y_offset * scale,
-      clusterUtf16: clampCluster(glyph.cluster, text.length),
-    })),
+    glyphs: addClusterEnds(rawGlyphs, text.length),
     unitsPerEm,
     ascent: positiveOr(payload.ascent, unitsPerEm * 0.8) * scale,
-    descent: positiveOr(payload.descent, unitsPerEm * 0.2) * scale,
+    descent: positiveOr(Math.abs(payload.descent ?? 0), unitsPerEm * 0.2) * scale,
     lineGap: Math.max(0, payload.line_gap ?? 0) * scale,
     direction: normalizeDirection(payload.direction),
     script: payload.script,
     language: payload.language,
+    fontIdentity: options.fontIdentity,
+    faceIndex: options.faceIndex ?? 0,
     missingGlyphIndices:
       payload.missing_glyph_indices ??
       payload.glyphs.flatMap((glyph, index) => (glyph.glyph_id === 0 ? [index] : [])),
@@ -136,33 +147,42 @@ export function createHarfBuzzWasmBackend(): ShapingBackend {
       if (request.language) buffer.setLanguage(request.language);
       buffer.setClusterLevel(hb.ClusterLevel.MONOTONE_CHARACTERS);
 
-      const features = featureList(hb.Feature, request.features);
+      const features = featureList(hb.Feature, request.features, request.text.length);
       hb.shape(font, buffer, features);
       const infos = buffer.getGlyphInfos();
       const positions = buffer.getGlyphPositions();
       const extents = font.hExtents();
-      const glyphs = infos.map((info, index) => {
-        const position = positions[index]!;
-        return {
-          glyphId: info.codepoint,
-          xAdvance: position.xAdvance,
-          yAdvance: position.yAdvance,
-          xOffset: position.xOffset,
-          yOffset: position.yOffset,
-          clusterUtf16: clampCluster(info.cluster, request.text.length),
-        } satisfies ShapedGlyph;
-      });
+      const glyphs = addClusterEnds(
+        infos.map((info, index) => {
+          const position = positions[index]!;
+          return {
+            glyphId: info.codepoint,
+            xAdvance: position.xAdvance,
+            yAdvance: position.yAdvance,
+            xOffset: position.xOffset,
+            yOffset: position.yOffset,
+            clusterUtf16: clampCluster(info.cluster, request.text.length),
+          } satisfies ShapedGlyph;
+        }),
+        request.text.length,
+      );
       return {
         glyphs,
         unitsPerEm: face.upem,
         ascent: extents.ascender,
         descent: Math.abs(extents.descender),
         lineGap: extents.lineGap,
-        direction: request.direction ?? 'ltr',
-        script: request.script,
+        // harfbuzzjs 1.6 exposes setters but no buffer getters. When the
+        // caller leaves direction/script automatic, resolve the same strong
+        // character/script policy used by the TS itemizer rather than lying
+        // about an inferred RTL run as LTR.
+        direction: request.direction ?? inferDirection(request.text),
+        script: request.script ?? inferScript(request.text),
         language: request.language,
+        fontIdentity: request.fontIdentity,
+        faceIndex: request.faceIndex ?? 0,
         missingGlyphIndices: glyphs.flatMap((glyph, index) => (glyph.glyphId === 0 ? [index] : [])),
-        warnings: [],
+        warnings: featureListWarnings(hb.Feature, request.features, request.text.length),
         backend: 'harfbuzz-wasm',
       };
     },
@@ -172,14 +192,19 @@ export function createHarfBuzzWasmBackend(): ShapingBackend {
 function featureList(
   Feature: typeof import('harfbuzzjs').Feature,
   features?: OpenTypeFeatureMap,
+  textLength = 0,
 ): Array<InstanceType<typeof Feature>> {
-  if (!features) return [];
-  const entries = Object.entries(features).filter(([tag]) => tag !== 'custom');
-  if (features.custom) entries.push(...Object.entries(features.custom));
-  return entries.flatMap(([tag, enabled]) => {
-    if (typeof enabled !== 'boolean' || tag.length !== 4) return [];
-    return [new Feature(tag, enabled ? 1 : 0)];
-  });
+  return normalizeOpenTypeFeatureMap(features, textLength).features.map(
+    (feature) => new Feature(feature.tag, feature.value, feature.startUtf16, feature.endUtf16),
+  );
+}
+
+function featureListWarnings(
+  _Feature: typeof import('harfbuzzjs').Feature,
+  features: OpenTypeFeatureMap | undefined,
+  textLength: number,
+): string[] {
+  return normalizeOpenTypeFeatureMap(features, textLength).warnings;
 }
 
 function directionToHarfBuzz(
@@ -202,6 +227,63 @@ function normalizeDirection(direction: string): ShapingBackendResult['direction'
 
 function clampCluster(cluster: number, textLength: number): number {
   return Math.min(Math.max(0, Math.trunc(cluster)), textLength);
+}
+
+/** Derive an exclusive logical source end for each shaping cluster. */
+function addClusterEnds(glyphs: ShapedGlyph[], textLength: number): ShapedGlyph[] {
+  const starts = [
+    ...new Set(glyphs.map((glyph) => clampCluster(glyph.clusterUtf16, textLength))),
+  ].sort((a, b) => a - b);
+  return glyphs.map((glyph) => {
+    const start = clampCluster(glyph.clusterUtf16, textLength);
+    const next = starts.find((candidate) => candidate > start);
+    return { ...glyph, clusterUtf16: start, sourceEnd: next ?? textLength };
+  });
+}
+
+function inferDirection(text: string): 'ltr' | 'rtl' {
+  for (const character of text) {
+    const codePoint = character.codePointAt(0) ?? 0;
+    if (isRtlStrong(codePoint)) return 'rtl';
+    if (isLtrStrong(codePoint)) return 'ltr';
+  }
+  return 'ltr';
+}
+
+function inferScript(text: string): string {
+  for (const character of text) {
+    const codePoint = character.codePointAt(0) ?? 0;
+    if (isRtlStrong(codePoint)) return codePoint >= 0x0590 && codePoint <= 0x05ff ? 'hebr' : 'arab';
+    if (codePoint >= 0x0900 && codePoint <= 0x097f) return 'dev2';
+    if (codePoint >= 0x0e00 && codePoint <= 0x0eff) return 'thai';
+    if (codePoint >= 0x3040 && codePoint <= 0x30ff) return 'kana';
+    if (codePoint >= 0x4e00 && codePoint <= 0x9fff) return 'hani';
+    if (isLtrStrong(codePoint)) return 'latn';
+  }
+  return 'DFLT';
+}
+
+function isRtlStrong(codePoint: number): boolean {
+  return (
+    (codePoint >= 0x0590 && codePoint <= 0x08ff) ||
+    (codePoint >= 0xfb1d && codePoint <= 0xfdff) ||
+    (codePoint >= 0xfe70 && codePoint <= 0xfeff) ||
+    (codePoint >= 0x1ee00 && codePoint <= 0x1eeff)
+  );
+}
+
+function isLtrStrong(codePoint: number): boolean {
+  return (
+    (codePoint >= 0x0041 && codePoint <= 0x005a) ||
+    (codePoint >= 0x0061 && codePoint <= 0x007a) ||
+    (codePoint >= 0x00c0 && codePoint <= 0x024f) ||
+    (codePoint >= 0x0370 && codePoint <= 0x052f) ||
+    (codePoint >= 0x0900 && codePoint <= 0x0d7f) ||
+    (codePoint >= 0x0e00 && codePoint <= 0x0eff) ||
+    (codePoint >= 0x3040 && codePoint <= 0x30ff) ||
+    (codePoint >= 0x4e00 && codePoint <= 0x9fff) ||
+    (codePoint >= 0xac00 && codePoint <= 0xd7af)
+  );
 }
 
 function positiveOr(value: number | undefined, fallback: number): number {

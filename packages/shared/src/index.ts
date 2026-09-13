@@ -617,6 +617,24 @@ export {
 export * from './thumbnail/contracts';
 export { DEFAULT_ARTWORK_FONT_FAMILY } from './typographyDefaults';
 export type { DocumentUnit, SpecUnit } from './units';
+export type {
+  FeatureNormalizationResult,
+  NormalizedOpenTypeFeature,
+  OpenTypeFeatureEntry,
+  OpenTypeFeatureMap,
+  OpenTypeFeatureRange,
+  OpenTypeFeatureSetting,
+  OpenTypeFeatureValue,
+} from './typographyFeatures';
+export {
+  isOpenTypeFeatureTag,
+  normalizeOpenTypeFeatureMap,
+  normalizeOpenTypeFeatureValue,
+  openTypeFeaturesToCss,
+  OPTIONAL_LIGATURE_FEATURE_TAGS,
+  REQUIRED_SHAPING_FEATURE_TAGS,
+  resolveOpenTypeFeatureMaps,
+} from './typographyFeatures';
 export {
   convertDocumentUnit,
   convertPx,
