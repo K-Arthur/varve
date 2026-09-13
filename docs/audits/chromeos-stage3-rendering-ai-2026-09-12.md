@@ -237,10 +237,11 @@ refused once the surface returns to full resolution.
 | `pnpm --filter @varve/desktop typecheck` | blocked by the same unrelated workspace errors |
 
 The final shared-worktree validation was intentionally recorded separately from
-the owned-scope checks above. `pnpm verify:plan` selected 63 changed files
-(101% of repository tests) because concurrent agents left unrelated edits in
-the checkout; it reported **no** full-suite escalation. `pnpm verify:affected`
-therefore stopped at Tier 0 on an unrelated formatting diagnostic in
+the owned-scope checks above. An earlier final-gate snapshot selected 63 changed
+files (101% of repository tests); the last recheck selected 60 changed files
+(still 101%) because concurrent agents left unrelated edits in the checkout.
+Both plans reported **no** full-suite escalation. `pnpm verify:affected`
+therefore stopped at Tier 0 on the same unrelated formatting diagnostic in
 `packages/editor/src/components/AIStatusIndicator/AIStatusIndicator.tsx`.
 The explicitly escalated `pnpm verify:full` reached workspace typechecks and
 stopped on the unrelated import errors above; the later editor typecheck also
