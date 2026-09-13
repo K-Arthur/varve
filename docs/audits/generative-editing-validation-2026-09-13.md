@@ -61,10 +61,20 @@ This is recorded as a harness/resource failure, not as a generation pass or
 failure. The existing real-photo CAF qualification lane remains the source of
 the earlier promptless Fill/Remove evidence.
 
-A later single-case retry for promptless Fill also did not reach the test body:
-the concurrent worktree's Vite server repeatedly failed to resolve the
-unrelated `packages/engine/src/frequencySeparation` export before the editor
-could load. This is likewise an infrastructure failure, not visual evidence.
+The previously blocked single-case retry for promptless Fill was rerun on an
+isolated port after the shared editor bundle became loadable. It passed in
+47.8 seconds. The test imported `real-life-still-life.jpg`, painted the mask
+with real pointer events, applied the result, and independently decoded the
+persisted overlay; it verified non-transparent output, changed pixels, and
+more than eight color buckets. The captured result was inspected at the
+dialog scale and retained in the Playwright output directory. This is valid
+promptless reconstruction evidence, not prompt-conditioned model-quality
+evidence.
+
+The visual evidence commit remains pending because the repository hook's
+`typecheck:e2e` lane still reports unrelated concurrent errors in
+`backgroundRemoval/maskDecode`, `ddcolor`, `retouch`, and mockup code. No hook
+was bypassed.
 
 ### Native model-quality evidence
 
