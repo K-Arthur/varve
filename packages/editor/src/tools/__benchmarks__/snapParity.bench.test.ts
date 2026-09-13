@@ -300,8 +300,8 @@ function snapPositionCanonical(
   // Canonical spacing — the original O(k²) pair scan.
   const xGaps: { mid: number; gap: number }[] = [];
   const yGaps: { mid: number; gap: number }[] = [];
-  for (const a of otherBounds) {
-    for (const b of otherBounds) {
+  for (const a of activeBounds) {
+    for (const b of activeBounds) {
       if (a === b) continue;
       const gapX = b.x - (a.x + a.w);
       if (gapX > 0 && a.x + a.w < cx && b.x > cx) {

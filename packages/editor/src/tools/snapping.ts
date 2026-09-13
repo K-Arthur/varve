@@ -6,6 +6,15 @@ export interface SnapGuide {
   position: number;
   label?: string;
   distance?: number;
+  /** Stable identity of the target that produced this guide. */
+  targetId?: string;
+  /** Source and target features used by the solver (for feedback/debugging). */
+  sourceFeature?: string;
+  targetFeature?: string;
+  /** The space in which position and correction are expressed. */
+  referenceSpace?: 'world';
+  /** Signed movement correction applied to the raw proposal on this axis. */
+  correction?: number;
   type?:
     | 'guide'
     | 'layout-grid'
@@ -42,12 +51,40 @@ export interface SnapResult {
   x: number;
   y: number;
   guides: SnapGuide[];
+  /** Structured matches retained for overlays, diagnostics, and invalidation. */
+  matches?: SnapMatch[];
+}
+
+export interface SnapMatch {
+  targetId: string;
+  sourceFeature: string;
+  targetFeature: string;
+  referenceSpace: 'world';
+  correction: { x: number; y: number };
+  category: NonNullable<SnapGuide['type']>;
+}
+
+export interface SnapTarget {
+  id: string;
+  bounds: { x: number; y: number; w: number; h: number };
+  /** Optional hierarchy metadata used to make candidate scope explicit. */
+  parentId?: string | null;
 }
 
 /** Sticky snap session — tracks active snap locks per axis (hysteresis). */
+export interface SnapLock {
+  guidePosition: number;
+  snappedCoord: number;
+  targetId?: string;
+  sourceFeature?: string;
+  targetFeature?: string;
+  type?: SnapGuide['type'];
+  referenceSpace?: 'world';
+}
+
 export interface SnapSession {
-  stickyX: { guidePosition: number; snappedCoord: number } | null;
-  stickyY: { guidePosition: number; snappedCoord: number } | null;
+  stickyX: SnapLock | null;
+  stickyY: SnapLock | null;
 }
 
 export interface SnapOptions {
@@ -55,19 +92,28 @@ export interface SnapOptions {
   zoom?: number;
   /** Prior sticky session for hysteresis. */
   session?: SnapSession | null;
+  /** Unsnapped proposal for this sample. Required when a caller retains a corrected box. */
+  rawIntent?: { x: number; y: number };
   /** Enable sticky (hysteresis) snap. Default true. */
   sticky?: boolean;
   /** Permanent ruler guides that objects can snap to. */
-  guideTargets?: Array<{ axis: 'horizontal' | 'vertical'; position: number }>;
+  guideTargets?: Array<{ axis: 'horizontal' | 'vertical'; position: number; id?: string }>;
   /** Layout grid cell size for frame grid snapping (world units). */
   layoutGridStep?: number;
   /** Authored frame layout-guide line targets in world coordinates. */
-  layoutGridTargets?: Array<{ axis: 'horizontal' | 'vertical'; position: number }>;
+  layoutGridTargets?: Array<{ axis: 'horizontal' | 'vertical'; position: number; id?: string }>;
   /** Pixel grid snapping (snaps to integer pixel coordinates). */
   pixelGridSnap?: boolean;
 }
 
 export const SNAP_RANGE_PX = 200;
+
+export type SnapTargetInput = { x: number; y: number; w: number; h: number } | SnapTarget;
+
+interface NormalizedSnapTarget extends SnapTarget {
+  originalIndex: number;
+  explicitId: boolean;
+}
 
 export function snapTargetSearchRect(
   bounds: { x: number; y: number; w: number; h: number },
@@ -123,42 +169,204 @@ export function filterSnapTargets(
   parentIndex: Map<string, string | null>,
   draggedId: string,
   excludedIds?: ReadonlySet<string>,
+  movingRootIds?: ReadonlySet<string>,
 ): Array<{ x: number; y: number; w: number; h: number }> {
+  return filterSnapTargetEntries(
+    draggedBounds,
+    camera,
+    allBounds,
+    parentIndex,
+    draggedId,
+    excludedIds,
+    movingRootIds,
+  ).map((target) => target.bounds);
+}
+
+/**
+ * Return identity-preserving snap candidates after broad-phase and hierarchy
+ * filtering. The public bounds-only wrapper above remains for older tools and
+ * tests; movement uses this richer form so a sticky lock can be invalidated
+ * when its target changes.
+ */
+export function filterSnapTargetEntries(
+  draggedBounds: { x: number; y: number; w: number; h: number },
+  camera: { zoom: number },
+  allBounds: Array<{
+    nodeId: string;
+    bounds: { x: number; y: number; w: number; h: number };
+  }>,
+  parentIndex: Map<string, string | null>,
+  draggedId: string,
+  excludedIds?: ReadonlySet<string>,
+  movingRootIds?: ReadonlySet<string>,
+): SnapTarget[] {
   const draggedParent = parentIndex.get(draggedId) ?? null;
   const draggedScreen = screenBounds(draggedBounds, camera);
-  const results: Array<{ x: number; y: number; w: number; h: number; priority: number }> = [];
+  const results: Array<SnapTarget & { priority: number }> = [];
+  const movingRoots = new Set(movingRootIds ?? (draggedId ? [draggedId] : []));
 
   for (const entry of allBounds) {
     // Semantic filter: the dragged object, every sibling moving in the same
     // selection, and any explicitly excluded node can never be a valid target.
-    if (entry.nodeId === draggedId) continue;
     if (excludedIds?.has(entry.nodeId)) continue;
+    if (isInMovingHierarchy(entry.nodeId, movingRoots, parentIndex)) continue;
     const targetScreen = screenBounds(entry.bounds, camera);
     if (!intersect(draggedScreen, targetScreen)) continue;
     const targetParent = parentIndex.get(entry.nodeId) ?? null;
     const priority = draggedParent !== null && targetParent === draggedParent ? 0 : 1;
-    results.push({ ...entry.bounds, priority });
+    results.push({
+      id: entry.nodeId,
+      bounds: entry.bounds,
+      parentId: targetParent,
+      priority,
+    });
   }
 
-  results.sort((a, b) => a.priority - b.priority);
-  return results.map(({ priority: _, ...bounds }) => bounds);
+  results.sort((a, b) => a.priority - b.priority || a.id.localeCompare(b.id));
+  return results.map(({ priority: _, ...target }) => target);
+}
+
+function isInMovingHierarchy(
+  nodeId: string,
+  movingRoots: ReadonlySet<string>,
+  parentIndex: Map<string, string | null>,
+): boolean {
+  if (movingRoots.has(nodeId)) return true;
+
+  // Exclude descendants: their bounds move with the selected root and are
+  // self-referential snap targets. Also exclude ancestors because a frame's
+  // aggregate bounds may depend on the moving child. Explicit frame/page
+  // references are added separately by the canvas integration.
+  let cursor: string | null = nodeId;
+  const visited = new Set<string>();
+  while (cursor && !visited.has(cursor)) {
+    visited.add(cursor);
+    if (movingRoots.has(cursor)) return true;
+    cursor = parentIndex.get(cursor) ?? null;
+  }
+
+  for (const root of movingRoots) {
+    let child: string | null = root;
+    const visitedRoot = new Set<string>();
+    while (child && !visitedRoot.has(child)) {
+      visitedRoot.add(child);
+      const parent = parentIndex.get(child) ?? null;
+      if (parent === nodeId) return true;
+      child = parent;
+    }
+  }
+  return false;
+}
+
+function isSnapTarget(value: SnapTargetInput): value is SnapTarget {
+  return 'id' in value && 'bounds' in value && typeof value.id === 'string';
+}
+
+function normalizeSnapTargets(targets: SnapTargetInput[]): NormalizedSnapTarget[] {
+  const normalized = targets.map((target, originalIndex) => {
+    if (isSnapTarget(target)) {
+      return { ...target, originalIndex, explicitId: true };
+    }
+    return {
+      id: `legacy:${originalIndex}`,
+      bounds: target,
+      originalIndex,
+      explicitId: false,
+    };
+  });
+
+  // Preserve legacy array order for callers that do not provide identity, but
+  // make identity-bearing candidates independent of spatial-index iteration
+  // order. This gives the same document/settings/intent a deterministic winner
+  // when coincident targets are returned in a different order.
+  const hasExplicitIdentity = normalized.some((target) => target.explicitId);
+  if (hasExplicitIdentity) {
+    normalized.sort(
+      (a, b) =>
+        Number(!a.explicitId) - Number(!b.explicitId) ||
+        a.id.localeCompare(b.id) ||
+        a.originalIndex - b.originalIndex,
+    );
+  }
+  return normalized;
+}
+
+function snapLockForGuide(guide: SnapGuide, snappedCoord: number): SnapLock {
+  return {
+    guidePosition: guide.position,
+    snappedCoord,
+    targetId: guide.targetId,
+    sourceFeature: guide.sourceFeature,
+    targetFeature: guide.targetFeature,
+    type: guide.type,
+    referenceSpace: guide.referenceSpace,
+  };
+}
+
+function lockMatchesGuide(lock: SnapLock, guide: SnapGuide): boolean {
+  if (lock.targetId !== undefined || guide.targetId !== undefined) {
+    return (
+      lock.targetId === guide.targetId &&
+      lock.sourceFeature === guide.sourceFeature &&
+      lock.targetFeature === guide.targetFeature
+    );
+  }
+  return (
+    lock.guidePosition === guide.position &&
+    lock.sourceFeature === guide.sourceFeature &&
+    lock.targetFeature === guide.targetFeature &&
+    lock.type === guide.type
+  );
+}
+
+function guideFromLock(axis: 'horizontal' | 'vertical', lock: SnapLock): SnapGuide {
+  return {
+    axis,
+    position: lock.guidePosition,
+    targetId: lock.targetId,
+    sourceFeature: lock.sourceFeature,
+    targetFeature: lock.targetFeature,
+    type: lock.type,
+    referenceSpace: lock.referenceSpace,
+  };
+}
+
+function stickyTargetIsInScope(lock: SnapLock, activeTargets: NormalizedSnapTarget[]): boolean {
+  const targetId = lock.targetId;
+  if (!targetId) return true;
+  if (
+    targetId.startsWith('grid:') ||
+    targetId.startsWith('layout-grid:') ||
+    targetId.startsWith('pixel-grid:') ||
+    targetId.startsWith('guide:')
+  ) {
+    return true;
+  }
+  if (targetId.startsWith('midpoint:')) {
+    const ids = targetId.slice('midpoint:'.length).split(':');
+    return ids.every((id) => activeTargets.some((target) => target.id === id));
+  }
+  return activeTargets.some((target) => target.id === targetId);
 }
 
 function tryStickyAxis(
-  currentCoord: number,
+  rawIntentCoord: number,
   proposedCoord: number,
-  guidePosition: number,
+  guide: SnapGuide,
   session: SnapSession['stickyX'],
-  _thresh: number,
   release: number,
   sticky: boolean,
 ): { coord: number; session: SnapSession['stickyX']; snapped: boolean } {
-  if (sticky && session && Math.abs(currentCoord - session.snappedCoord) < release) {
-    return { coord: session.snappedCoord, session, snapped: true };
+  if (sticky && session && lockMatchesGuide(session, guide)) {
+    if (Math.abs(rawIntentCoord - session.snappedCoord) < release) {
+      return { coord: session.snappedCoord, session, snapped: true };
+    }
+    return { coord: rawIntentCoord, session: null, snapped: false };
   }
+  const lock = snapLockForGuide(guide, proposedCoord);
   return {
     coord: proposedCoord,
-    session: { guidePosition, snappedCoord: proposedCoord },
+    session: lock,
     snapped: true,
   };
 }
@@ -172,6 +380,13 @@ const SNAP_PRIORITY = {
   midpoint: 50,
   spacing: 30,
 } as const;
+
+function formatSnapValue(value: number): string {
+  if (!Number.isFinite(value)) return '—';
+  return Number.isInteger(value)
+    ? String(value)
+    : value.toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
+}
 
 /** Compete a new snap candidate; returns true if it wins (higher priority or same priority + closer). */
 function compete(
@@ -291,27 +506,47 @@ interface LineSnapCandidate {
   guide: SnapGuide;
 }
 
+const VERTICAL_SOURCE_FEATURES = ['left', 'centerX', 'right'] as const;
+const HORIZONTAL_SOURCE_FEATURES = ['top', 'centerY', 'bottom'] as const;
+
 function closestLineSnapCandidate(
   x: number,
   y: number,
   w: number,
   h: number,
-  target: { axis: 'horizontal' | 'vertical'; position: number },
+  target: { axis: 'horizontal' | 'vertical'; position: number; id?: string },
   threshold: number,
   type: SnapGuide['type'],
   label: string,
 ): LineSnapCandidate | null {
-  const values = target.axis === 'vertical' ? [x, x + w / 2, x + w] : [y, y + h / 2, y + h];
+  const values =
+    target.axis === 'vertical'
+      ? ([x, x + w / 2, x + w] as const)
+      : ([y, y + h / 2, y + h] as const);
+  const sourceFeatures =
+    target.axis === 'vertical' ? VERTICAL_SOURCE_FEATURES : HORIZONTAL_SOURCE_FEATURES;
   let bestValue = values[0]!;
+  let bestSourceFeature = sourceFeatures[0]!;
   let bestDistance = Math.abs(bestValue - target.position);
-  for (const value of values.slice(1)) {
+  for (let index = 1; index < values.length; index++) {
+    const value = values[index]!;
     const distance = Math.abs(value - target.position);
     if (distance < bestDistance) {
       bestValue = value;
+      bestSourceFeature = sourceFeatures[index]!;
       bestDistance = distance;
     }
   }
   if (bestDistance >= threshold) return null;
+  const metadata = target.id
+    ? {
+        targetId: target.id,
+        sourceFeature: bestSourceFeature,
+        targetFeature: type === 'guide' ? 'guide' : (type ?? 'target-line'),
+        referenceSpace: 'world' as const,
+        correction: -(bestValue - target.position),
+      }
+    : {};
   return {
     axis: target.axis,
     position: target.position,
@@ -326,6 +561,7 @@ function closestLineSnapCandidate(
       distance: bestDistance,
       type,
       label,
+      ...metadata,
     },
   };
 }
@@ -335,7 +571,7 @@ export function snapPosition(
   y: number,
   w: number,
   h: number,
-  otherBounds: Array<{ x: number; y: number; w: number; h: number }>,
+  otherBounds: SnapTargetInput[],
   grid?: number | GridSnapConfig,
   snapExcludedIds?: Set<string>,
   options: SnapOptions = {},
@@ -346,14 +582,27 @@ export function snapPosition(
   const release = releaseThresholdWorld(zoom);
   let session: SnapSession = options.session ?? { stickyX: null, stickyY: null };
 
+  // `x`/`y` are historically the current proposal. Callers that retain a
+  // corrected box during a gesture can provide the raw proposal explicitly;
+  // every candidate and hysteresis decision below then uses that intent. This
+  // prevents a released lock from being re-acquired from its own correction.
+  x = Number.isFinite(options.rawIntent?.x) ? options.rawIntent!.x : x;
+  y = Number.isFinite(options.rawIntent?.y) ? options.rawIntent!.y : y;
+
+  const normalizedTargets = normalizeSnapTargets(otherBounds);
+
   let snappedX = x;
   let snappedY = y;
   const guides: SnapGuide[] = [];
 
-  const activeBounds =
+  const activeTargets =
     snapExcludedIds && snapExcludedIds.size > 0
-      ? otherBounds.filter((_, i) => !snapExcludedIds.has(String(i)))
-      : otherBounds;
+      ? normalizedTargets.filter(
+          (target) =>
+            !snapExcludedIds.has(target.id) && !snapExcludedIds.has(String(target.originalIndex)),
+        )
+      : normalizedTargets;
+  const activeBounds = activeTargets.map((target) => target.bounds);
 
   const cx = x + w / 2;
   const cy = y + h / 2;
@@ -379,13 +628,33 @@ export function snapPosition(
       if (dx < thresh && compete(prio, dx, bestXPriority, bestXDiff)) {
         bestXDiff = dx;
         bestXSnap = gx;
-        bestXGuide = { axis: 'vertical', position: gx, label: `${gx}px`, type: 'edge' };
+        bestXGuide = {
+          axis: 'vertical',
+          position: gx,
+          label: `${gx}px`,
+          type: 'edge',
+          targetId: 'grid:x',
+          sourceFeature: 'left',
+          targetFeature: 'grid',
+          referenceSpace: 'world',
+          correction: gx - x,
+        };
         bestXPriority = prio;
       }
       if (dy < thresh && compete(prio, dy, bestYPriority, bestYDiff)) {
         bestYDiff = dy;
         bestYSnap = gy;
-        bestYGuide = { axis: 'horizontal', position: gy, label: `${gy}px`, type: 'edge' };
+        bestYGuide = {
+          axis: 'horizontal',
+          position: gy,
+          label: `${gy}px`,
+          type: 'edge',
+          targetId: 'grid:y',
+          sourceFeature: 'top',
+          targetFeature: 'grid',
+          referenceSpace: 'world',
+          correction: gy - y,
+        };
         bestYPriority = prio;
       }
     }
@@ -402,13 +671,31 @@ export function snapPosition(
     if (dx < thresh && compete(prio, dx, bestXPriority, bestXDiff)) {
       bestXDiff = dx;
       bestXSnap = lx;
-      bestXGuide = { axis: 'vertical', position: lx, type: 'edge' };
+      bestXGuide = {
+        axis: 'vertical',
+        position: lx,
+        type: 'edge',
+        targetId: 'layout-grid:x',
+        sourceFeature: 'left',
+        targetFeature: 'layout-grid',
+        referenceSpace: 'world',
+        correction: lx - x,
+      };
       bestXPriority = prio;
     }
     if (dy < thresh && compete(prio, dy, bestYPriority, bestYDiff)) {
       bestYDiff = dy;
       bestYSnap = ly;
-      bestYGuide = { axis: 'horizontal', position: ly, type: 'edge' };
+      bestYGuide = {
+        axis: 'horizontal',
+        position: ly,
+        type: 'edge',
+        targetId: 'layout-grid:y',
+        sourceFeature: 'top',
+        targetFeature: 'layout-grid',
+        referenceSpace: 'world',
+        correction: ly - y,
+      };
       bestYPriority = prio;
     }
   }
@@ -462,13 +749,33 @@ export function snapPosition(
     if (dx < thresh && compete(prio, dx, bestXPriority, bestXDiff)) {
       bestXDiff = dx;
       bestXSnap = px;
-      bestXGuide = { axis: 'vertical', position: px, label: `${px}px`, type: 'edge' };
+      bestXGuide = {
+        axis: 'vertical',
+        position: px,
+        label: `${px}px`,
+        type: 'edge',
+        targetId: 'pixel-grid:x',
+        sourceFeature: 'left',
+        targetFeature: 'pixel-grid',
+        referenceSpace: 'world',
+        correction: px - x,
+      };
       bestXPriority = prio;
     }
     if (dy < thresh && compete(prio, dy, bestYPriority, bestYDiff)) {
       bestYDiff = dy;
       bestYSnap = py;
-      bestYGuide = { axis: 'horizontal', position: py, label: `${py}px`, type: 'edge' };
+      bestYGuide = {
+        axis: 'horizontal',
+        position: py,
+        label: `${py}px`,
+        type: 'edge',
+        targetId: 'pixel-grid:y',
+        sourceFeature: 'top',
+        targetFeature: 'pixel-grid',
+        referenceSpace: 'world',
+        correction: py - y,
+      };
       bestYPriority = prio;
     }
   }
@@ -491,6 +798,15 @@ export function snapPosition(
               distance: absDiff,
               type: 'guide',
               label: 'guide',
+              ...(guide.id
+                ? {
+                    targetId: guide.id,
+                    sourceFeature: key,
+                    targetFeature: 'guide',
+                    referenceSpace: 'world' as const,
+                    correction: -diff,
+                  }
+                : {}),
             };
             bestXPriority = prio;
           }
@@ -508,6 +824,15 @@ export function snapPosition(
               distance: absDiff,
               type: 'guide',
               label: 'guide',
+              ...(guide.id
+                ? {
+                    targetId: guide.id,
+                    sourceFeature: key,
+                    targetFeature: 'guide',
+                    referenceSpace: 'world' as const,
+                    correction: -diff,
+                  }
+                : {}),
             };
             bestYPriority = prio;
           }
@@ -526,6 +851,7 @@ export function snapPosition(
     const n = activeBounds.length;
     const centersX: number[] = new Array(n);
     const centersY: number[] = new Array(n);
+    const targetIds = activeTargets.map((target) => target.id);
     for (let i = 0; i < n; i++) {
       const b = activeBounds[i]!;
       centersX[i] = b.x + b.w / 2;
@@ -550,7 +876,17 @@ export function snapPosition(
         if (dmx < thresh && compete(prio, dmx, bestXPriority, bestXDiff)) {
           bestXDiff = dmx;
           bestXSnap = x - (cx - midX);
-          bestXGuide = { axis: 'vertical', position: midX, type: 'midpoint', label: 'mid' };
+          bestXGuide = {
+            axis: 'vertical',
+            position: midX,
+            type: 'midpoint',
+            label: 'mid',
+            targetId: `midpoint:${[targetIds[i]!, targetIds[xPartner]!].sort().join(':')}`,
+            sourceFeature: 'centerX',
+            targetFeature: 'midpoint',
+            referenceSpace: 'world',
+            correction: -(cx - midX),
+          };
           bestXPriority = prio;
         }
       }
@@ -562,14 +898,25 @@ export function snapPosition(
         if (dmy < thresh && compete(prio, dmy, bestYPriority, bestYDiff)) {
           bestYDiff = dmy;
           bestYSnap = y - (cy - midY);
-          bestYGuide = { axis: 'horizontal', position: midY, type: 'midpoint', label: 'mid' };
+          bestYGuide = {
+            axis: 'horizontal',
+            position: midY,
+            type: 'midpoint',
+            label: 'mid',
+            targetId: `midpoint:${[targetIds[i]!, targetIds[yPartner]!].sort().join(':')}`,
+            sourceFeature: 'centerY',
+            targetFeature: 'midpoint',
+            referenceSpace: 'world',
+            correction: -(cy - midY),
+          };
           bestYPriority = prio;
         }
       }
     }
   }
 
-  for (const b of activeBounds) {
+  for (const target of activeTargets) {
+    const b = target.bounds;
     const bCX = b.x + b.w / 2;
     const bCY = b.y + b.h / 2;
     const bEdges = {
@@ -593,6 +940,11 @@ export function snapPosition(
           position: bEdges[key],
           distance: absDiff,
           type: key === 'centerX' ? 'center' : 'edge',
+          targetId: target.id,
+          sourceFeature: key,
+          targetFeature: key,
+          referenceSpace: 'world',
+          correction: -diff,
         };
         bestXPriority = prio;
       }
@@ -610,6 +962,11 @@ export function snapPosition(
           position: bEdges[key],
           distance: absDiff,
           type: key === 'centerY' ? 'center' : 'edge',
+          targetId: target.id,
+          sourceFeature: key,
+          targetFeature: key,
+          referenceSpace: 'world',
+          correction: -diff,
         };
         bestYPriority = prio;
       }
@@ -617,57 +974,31 @@ export function snapPosition(
   }
 
   if (bestXGuide) {
-    const stickyResult = tryStickyAxis(
-      x,
-      bestXSnap,
-      bestXGuide.position,
-      session.stickyX,
-      thresh,
-      release,
-      sticky,
-    );
+    const stickyResult = tryStickyAxis(x, bestXSnap, bestXGuide, session.stickyX, release, sticky);
     snappedX = stickyResult.coord;
-    session = { ...session, stickyX: stickyResult.snapped ? stickyResult.session : null };
+    session = { ...session, stickyX: sticky && stickyResult.snapped ? stickyResult.session : null };
     if (stickyResult.snapped || !sticky) guides.push(bestXGuide);
-  } else if (sticky && session.stickyX) {
-    const hold = tryStickyAxis(
-      x,
-      x,
-      session.stickyX.guidePosition,
-      session.stickyX,
-      thresh,
-      release,
-      true,
-    );
+  } else if (sticky && session.stickyX && stickyTargetIsInScope(session.stickyX, activeTargets)) {
+    const lockGuide = guideFromLock('vertical', session.stickyX);
+    const hold = tryStickyAxis(x, x, lockGuide, session.stickyX, release, true);
     if (hold.snapped) snappedX = hold.coord;
     else session = { ...session, stickyX: null };
+  } else if (sticky && session.stickyX) {
+    session = { ...session, stickyX: null };
   }
 
   if (bestYGuide) {
-    const stickyResult = tryStickyAxis(
-      y,
-      bestYSnap,
-      bestYGuide.position,
-      session.stickyY,
-      thresh,
-      release,
-      sticky,
-    );
+    const stickyResult = tryStickyAxis(y, bestYSnap, bestYGuide, session.stickyY, release, sticky);
     snappedY = stickyResult.coord;
-    session = { ...session, stickyY: stickyResult.snapped ? stickyResult.session : null };
+    session = { ...session, stickyY: sticky && stickyResult.snapped ? stickyResult.session : null };
     if (stickyResult.snapped || !sticky) guides.push(bestYGuide);
-  } else if (sticky && session.stickyY) {
-    const hold = tryStickyAxis(
-      y,
-      y,
-      session.stickyY.guidePosition,
-      session.stickyY,
-      thresh,
-      release,
-      true,
-    );
+  } else if (sticky && session.stickyY && stickyTargetIsInScope(session.stickyY, activeTargets)) {
+    const lockGuide = guideFromLock('horizontal', session.stickyY);
+    const hold = tryStickyAxis(y, y, lockGuide, session.stickyY, release, true);
     if (hold.snapped) snappedY = hold.coord;
     else session = { ...session, stickyY: null };
+  } else if (sticky && session.stickyY) {
+    session = { ...session, stickyY: null };
   }
 
   // C4: Spacing distribution (lowest priority). The canonical evaluation is
@@ -676,14 +1007,14 @@ export function snapPosition(
   // a fixed a is the left edge closest to (3*a.right - 2*cx) among left edges
   // > cx — a sorted binary search, reducing the rule to O(k log k) with
   // identical winners (parity-verified).
-  if (otherBounds.length > 1) {
-    const n = otherBounds.length;
+  if (activeTargets.length > 1) {
+    const n = activeTargets.length;
     const rightEdges: number[] = new Array(n);
     const bottomEdges: number[] = new Array(n);
     const leftEdges: number[] = new Array(n);
     const topEdges: number[] = new Array(n);
     for (let i = 0; i < n; i++) {
-      const b = otherBounds[i]!;
+      const b = activeTargets[i]!.bounds;
       rightEdges[i] = b.x + b.w;
       bottomEdges[i] = b.y + b.h;
       leftEdges[i] = b.x;
@@ -698,8 +1029,9 @@ export function snapPosition(
     const sortedLeft = xOrder.map((i) => leftEdges[i]!);
     const sortedTop = yOrder.map((i) => topEdges[i]!);
     const prio = SNAP_PRIORITY.spacing;
+    const preciseSpacingLabel = activeTargets.some((target) => target.explicitId);
 
-    let bestXGap: { mid: number; gap: number; obj: number } | null = null;
+    let bestXGap: { mid: number; gap: number; obj: number; targetId: string } | null = null;
     for (let i = 0; i < n; i++) {
       const ra = rightEdges[i]!;
       if (!(ra < cx)) continue;
@@ -709,22 +1041,36 @@ export function snapPosition(
       const mid = (ra + leftEdges[j]!) / 2;
       const gap = leftEdges[j]! - ra;
       const obj = Math.abs(gap - (mid - cx));
-      if (bestXGap === null || obj < bestXGap.obj) bestXGap = { mid, gap, obj };
+      const targetId = `spacing:${[activeTargets[i]!.id, activeTargets[j]!.id].sort().join(':')}`;
+      if (
+        bestXGap === null ||
+        obj < bestXGap.obj ||
+        (obj === bestXGap.obj && targetId.localeCompare(bestXGap.targetId) < 0)
+      ) {
+        bestXGap = { mid, gap, obj, targetId };
+      }
     }
     if (bestXGap) {
       const dmx = Math.abs(cx - bestXGap.mid);
       if (dmx < thresh * 3 && compete(prio, dmx, bestXPriority, bestXDiff)) {
-        snappedX = x - (cx - bestXGap.mid);
-        guides.push({
+        bestXDiff = dmx;
+        bestXSnap = x - (cx - bestXGap.mid);
+        bestXGuide = {
           axis: 'vertical',
           position: bestXGap.mid,
           type: 'spacing',
-          label: `${Math.round(bestXGap.gap)}px`,
-        });
+          label: `${preciseSpacingLabel ? formatSnapValue(bestXGap.gap) : Math.round(bestXGap.gap)}px`,
+          targetId: bestXGap.targetId,
+          sourceFeature: 'centerX',
+          targetFeature: 'spacing-gap',
+          referenceSpace: 'world',
+          correction: -(cx - bestXGap.mid),
+        };
+        bestXPriority = prio;
       }
     }
 
-    let bestYGap: { mid: number; gap: number; obj: number } | null = null;
+    let bestYGap: { mid: number; gap: number; obj: number; targetId: string } | null = null;
     for (let i = 0; i < n; i++) {
       const ba = bottomEdges[i]!;
       if (!(ba < cy)) continue;
@@ -734,23 +1080,76 @@ export function snapPosition(
       const mid = (ba + topEdges[j]!) / 2;
       const gap = topEdges[j]! - ba;
       const obj = Math.abs(gap - (mid - cy));
-      if (bestYGap === null || obj < bestYGap.obj) bestYGap = { mid, gap, obj };
+      const targetId = `spacing:${[activeTargets[i]!.id, activeTargets[j]!.id].sort().join(':')}`;
+      if (
+        bestYGap === null ||
+        obj < bestYGap.obj ||
+        (obj === bestYGap.obj && targetId.localeCompare(bestYGap.targetId) < 0)
+      ) {
+        bestYGap = { mid, gap, obj, targetId };
+      }
     }
     if (bestYGap) {
       const dmy = Math.abs(cy - bestYGap.mid);
       if (dmy < thresh * 3 && compete(prio, dmy, bestYPriority, bestYDiff)) {
-        snappedY = y - (cy - bestYGap.mid);
-        guides.push({
+        bestYDiff = dmy;
+        bestYSnap = y - (cy - bestYGap.mid);
+        bestYGuide = {
           axis: 'horizontal',
           position: bestYGap.mid,
           type: 'spacing',
-          label: `${Math.round(bestYGap.gap)}px`,
-        });
+          label: `${preciseSpacingLabel ? formatSnapValue(bestYGap.gap) : Math.round(bestYGap.gap)}px`,
+          targetId: bestYGap.targetId,
+          sourceFeature: 'centerY',
+          targetFeature: 'spacing-gap',
+          referenceSpace: 'world',
+          correction: -(cy - bestYGap.mid),
+        };
+        bestYPriority = prio;
       }
     }
   }
 
-  return { x: snappedX, y: snappedY, guides, session };
+  // Spacing is selected after the cheaper edge/midpoint rules, so apply its
+  // winning candidate through the same sticky resolver as every other snap.
+  // This keeps the session and the visible guide in agreement instead of
+  // returning a corrected coordinate with the previous lock still active.
+  if (bestXGuide?.type === 'spacing') {
+    const stickyResult = tryStickyAxis(x, bestXSnap, bestXGuide, session.stickyX, release, sticky);
+    snappedX = stickyResult.coord;
+    session = { ...session, stickyX: sticky && stickyResult.snapped ? stickyResult.session : null };
+    if (stickyResult.snapped || !sticky) guides.push(bestXGuide);
+  }
+  if (bestYGuide?.type === 'spacing') {
+    const stickyResult = tryStickyAxis(y, bestYSnap, bestYGuide, session.stickyY, release, sticky);
+    snappedY = stickyResult.coord;
+    session = { ...session, stickyY: sticky && stickyResult.snapped ? stickyResult.session : null };
+    if (stickyResult.snapped || !sticky) guides.push(bestYGuide);
+  }
+
+  const matches = guides.flatMap((guide) => {
+    if (!guide.targetId || !guide.sourceFeature || !guide.targetFeature) return [];
+    return [
+      {
+        targetId: guide.targetId,
+        sourceFeature: guide.sourceFeature,
+        targetFeature: guide.targetFeature,
+        referenceSpace: 'world' as const,
+        correction: {
+          x: guide.axis === 'vertical' ? (guide.correction ?? snappedX - x) : 0,
+          y: guide.axis === 'horizontal' ? (guide.correction ?? snappedY - y) : 0,
+        },
+        category: guide.type ?? 'edge',
+      },
+    ];
+  });
+  return {
+    x: snappedX,
+    y: snappedY,
+    guides,
+    matches: matches.length > 0 ? matches : undefined,
+    session,
+  };
 }
 
 export function snapSize(

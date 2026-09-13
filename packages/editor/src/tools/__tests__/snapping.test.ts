@@ -627,6 +627,89 @@ describe('snapPosition — sticky hysteresis', () => {
     const result = snapPosition(12, 50, 100, 100, [box(0, 50, 100, 100)]);
     expect(result.x).toBe(12);
   });
+
+  it('releases a lock when raw intent leaves the target, even if the caller supplies the corrected position', () => {
+    const target = { id: 'target-a', bounds: box(0, 50, 100, 100) };
+    const first = snapPosition(3, 50, 100, 100, [target] as never, undefined, undefined, {
+      zoom: 1,
+      session: createSnapSession(),
+    });
+
+    const released = snapPosition(0, 50, 100, 100, [target] as never, undefined, undefined, {
+      zoom: 1,
+      rawIntent: { x: 20, y: 50 },
+      session: first.session,
+    });
+
+    expect(released.x).toBe(20);
+    expect(released.session.stickyX).toBeNull();
+  });
+
+  it('invalidates a sticky lock when its target identity is replaced', () => {
+    const targetA = { id: 'target-a', bounds: box(0, 50, 100, 100) };
+    const targetB = { id: 'target-b', bounds: box(0, 50, 100, 100) };
+    const first = snapPosition(3, 50, 100, 100, [targetA] as never, undefined, undefined, {
+      zoom: 1,
+      session: createSnapSession(),
+    });
+    const next = snapPosition(6, 50, 100, 100, [targetB] as never, undefined, undefined, {
+      zoom: 1,
+      session: first.session,
+    });
+    const guide = next.guides.find((candidate) => candidate.axis === 'vertical');
+
+    expect(guide && (guide as { targetId?: string }).targetId).toBe('target-b');
+    expect(next.session.stickyX && (next.session.stickyX as { targetId?: string }).targetId).toBe(
+      'target-b',
+    );
+  });
+
+  it('chooses the same tied target when candidate order is shuffled', () => {
+    const targetA = { id: 'target-a', bounds: box(0, 50, 100, 100) };
+    const targetB = { id: 'target-b', bounds: box(0, 50, 100, 100) };
+    const first = snapPosition(3, 50, 100, 100, [targetA, targetB] as never, undefined, undefined, {
+      sticky: false,
+    });
+    const shuffled = snapPosition(
+      3,
+      50,
+      100,
+      100,
+      [targetB, targetA] as never,
+      undefined,
+      undefined,
+      { sticky: false },
+    );
+
+    expect(
+      (first.guides.find((candidate) => candidate.axis === 'vertical') as { targetId?: string })
+        ?.targetId,
+    ).toBe('target-a');
+    expect(
+      (
+        shuffled.guides.find((candidate) => candidate.axis === 'vertical') as {
+          targetId?: string;
+        }
+      )?.targetId,
+    ).toBe('target-a');
+  });
+});
+
+describe('filterSnapTargets — hierarchy exclusion', () => {
+  it('does not expose a selected descendant as a target when its ancestor is moving', () => {
+    const result = filterSnapTargets(
+      { x: 0, y: 0, w: 100, h: 100 },
+      { zoom: 1 },
+      [{ nodeId: 'child', bounds: box(20, 0, 100, 100) }],
+      new Map([
+        ['parent', null],
+        ['child', 'parent'],
+      ]),
+      'parent',
+    );
+
+    expect(result).toHaveLength(0);
+  });
 });
 
 describe('pageSnapTargets (M6 — all pages on the pasteboard)', () => {
