@@ -6,6 +6,7 @@ import {
   DEFAULT_RASTER_SURFACE_POLICY,
   encodeRasterSurface,
   fitRasterDimensions,
+  validateRasterSurfaceDimensions,
 } from './rasterSurface';
 
 describe('fitRasterDimensions', () => {
@@ -71,5 +72,18 @@ describe('portable raster surface', () => {
       },
     );
     expect(createRasterSurface(20, 10).backend).toBe('html');
+  });
+
+  it('rejects hostile backing-store dimensions before canvas construction', () => {
+    expect(() => validateRasterSurfaceDimensions(16_384, 16_384)).toThrow(/area limit/);
+    expect(() => createRasterSurface(16_384, 16_384)).toThrow(/area limit/);
+  });
+
+  it('rejects non-finite and invalid dimensions without allocating', () => {
+    expect(() => validateRasterSurfaceDimensions(Number.NaN, 1)).toThrow(/Invalid raster surface/);
+    expect(() => validateRasterSurfaceDimensions(1, Number.POSITIVE_INFINITY)).toThrow(
+      /Invalid raster surface/,
+    );
+    expect(() => validateRasterSurfaceDimensions(0, 1)).toThrow(/Invalid raster surface/);
   });
 });

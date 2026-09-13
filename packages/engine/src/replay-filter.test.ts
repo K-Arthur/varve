@@ -220,6 +220,22 @@ describe('replay filter chain', () => {
     expect(applyFilterWithCompositingSpy.mock.calls[0]?.[3]).toBe(100);
   });
 
+  it('keeps later items renderable when a content-effect surface is too large', () => {
+    const { target, calls } = makeRecorder();
+    expect(() =>
+      replayIr(target, [
+        {
+          ...rectItem(10, 10),
+          effects: [{ type: 'layerBlur', radius: 10_000_000, visible: true }],
+        },
+        rectItem(5, 5),
+      ]),
+    ).not.toThrow();
+    expect(calls.filter((call) => call.startsWith('fill filter=')).length).toBeGreaterThanOrEqual(
+      2,
+    );
+  });
+
   it('composes multiple convertible filters into one filter string', () => {
     const { target, calls } = makeRecorder();
     replayIr(target, [

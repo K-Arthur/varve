@@ -30,6 +30,17 @@ describe('CompositeCanvas', () => {
     expect(cc.height).toBeGreaterThanOrEqual(50);
   });
 
+  it('rejects a backing store above the shared raster policy', () => {
+    expect(
+      () =>
+        new CompositeCanvas({
+          width: 16_384,
+          height: 16_384,
+          testCanvas: document.createElement('canvas'),
+        }),
+    ).toThrow(/area limit/);
+  });
+
   it('getImageData/putImageData round-trip', () => {
     const canvas = document.createElement('canvas');
     const cc = new CompositeCanvas({ width: 10, height: 10, testCanvas: canvas });

@@ -36,6 +36,39 @@ export interface FittedRasterDimensions {
   constrainedBy: Array<'dimension' | 'area'>;
 }
 
+function validateRasterSurfacePolicy(policy: RasterSurfacePolicy): void {
+  if (
+    !Number.isSafeInteger(policy.maxDimension) ||
+    !Number.isSafeInteger(policy.maxPixels) ||
+    policy.maxDimension < 1 ||
+    policy.maxPixels < 1
+  ) {
+    throw new RangeError('Raster surface policy must contain positive safe integer limits');
+  }
+}
+
+/** Validate the backing-store dimensions before an engine allocates a canvas. */
+export function validateRasterSurfaceDimensions(
+  width: number,
+  height: number,
+  policy: RasterSurfacePolicy = DEFAULT_RASTER_SURFACE_POLICY,
+): void {
+  if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1) {
+    throw new RangeError(`Invalid raster surface size ${width}x${height}`);
+  }
+  validateRasterSurfacePolicy(policy);
+  if (width > policy.maxDimension || height > policy.maxDimension) {
+    throw new RangeError(
+      `Raster surface size ${width}x${height} exceeds the ${policy.maxDimension}px axis limit`,
+    );
+  }
+  if (width > Math.floor(policy.maxPixels / height)) {
+    throw new RangeError(
+      `Raster surface size ${width}x${height} exceeds the ${policy.maxPixels}-pixel area limit`,
+    );
+  }
+}
+
 export function fitRasterDimensions(
   requestedWidth: number,
   requestedHeight: number,
@@ -57,11 +90,17 @@ export function fitRasterDimensions(
   ) {
     throw new RangeError('Raster surface policy must contain positive finite limits');
   }
+  validateRasterSurfacePolicy({
+    maxDimension: Math.floor(policy.maxDimension),
+    maxPixels: Math.floor(policy.maxPixels),
+  });
 
   const width = Math.max(1, Math.round(requestedWidth));
   const height = Math.max(1, Math.round(requestedHeight));
   const dimensionFactor = Math.min(1, policy.maxDimension / Math.max(width, height));
-  const areaFactor = Math.min(1, Math.sqrt(policy.maxPixels / (width * height)));
+  // Divide in stages so a hostile request cannot overflow width * height
+  // before the fit scale is derived.
+  const areaFactor = Math.min(1, Math.sqrt(policy.maxPixels / width / height));
   const scaleFactor = Math.min(dimensionFactor, areaFactor);
   const constrainedBy: Array<'dimension' | 'area'> = [];
   if (dimensionFactor < 1) constrainedBy.push('dimension');
@@ -82,9 +121,7 @@ export function createRasterSurface(
   height: number,
   attributes: CanvasRenderingContext2DSettings = {},
 ): RasterSurface {
-  if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1) {
-    throw new RangeError(`Invalid raster surface size ${width}x${height}`);
-  }
+  validateRasterSurfaceDimensions(width, height);
 
   if (typeof OffscreenCanvas !== 'undefined') {
     try {

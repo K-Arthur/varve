@@ -16,6 +16,7 @@ import type { BlendEvaluationSpace } from '@varve/shared';
 import { blendModeDefinition, type CanvasBlendOperation } from './blendModeCatalog';
 import { blendPixels as blendPixelsCanonical } from './blendModes';
 import { gaussianBlurLinearLight } from './blur';
+import { validateRasterSurfaceDimensions } from './rasterSurface';
 
 export type { BlendMode } from './types';
 
@@ -42,8 +43,12 @@ export class CompositeCanvas {
 
   constructor(opts: CompositeCanvasOptions) {
     this._dpr = opts.devicePixelRatio ?? 1;
+    if (!Number.isFinite(this._dpr) || this._dpr <= 0) {
+      throw new RangeError('CompositeCanvas devicePixelRatio must be finite and positive');
+    }
     const w = Math.ceil(opts.width * this._dpr);
     const h = Math.ceil(opts.height * this._dpr);
+    validateRasterSurfaceDimensions(w, h);
 
     if (opts.testCanvas) {
       this.canvas = opts.testCanvas;
@@ -104,6 +109,7 @@ export class CompositeCanvas {
   resize(w: number, h: number): void {
     const pw = Math.ceil(w * this._dpr);
     const ph = Math.ceil(h * this._dpr);
+    validateRasterSurfaceDimensions(pw, ph);
     if (pw <= this.canvas.width && ph <= this.canvas.height) return;
     this.canvas.width = Math.max(pw, this.canvas.width);
     this.canvas.height = Math.max(ph, this.canvas.height);

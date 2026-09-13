@@ -1,6 +1,6 @@
 # Low-end effects and model runtime baseline (2026-09-13)
 
-Status: implementation in progress. This audit records the evidence used for
+Status: implementation checkpoint. This audit records the evidence used for
 the low-end rendering and inference work; it is not a claim that the physical
 reference device has been validated.
 
@@ -37,12 +37,30 @@ availability, or Crostini graphics acceleration.
 | P1 | A complex item filter uses a full canvas-sized isolated surface. | `replayItemOnIsolatedSurface` and `filterCompositor` use `canvas.width × canvas.height` even for a small filtered item. Every such item can cause large temporary surfaces and readbacks. | Use a clipped region for non-expanding pointwise filters; retain the full path for spatial/global filters until their bounds contract is proven. |
 | P1 | A provider timeout can fall through while the provider still owns the request. | `packages/engine/src/inference/ProviderChain.ts` creates an abort controller but passes the caller's signal to providers. A timed-out provider can therefore overlap a fallback attempt. | Propagate the attempt signal and make timeout fallback conservative unless completion/cancellation is known. |
 | P1 | Resumed downloads do not validate `Content-Range`. | `packages/engine/src/inference/core/DownloadManager.ts` accepts any `206` response for a partial file. A wrong start offset can corrupt an otherwise valid artifact. | Validate the range start/total and preserve validators; reject incomplete or oversized responses before installation. |
-| P0 guard | Surface constructors validate dimensions but do not provide a shared reservation before all intermediate allocations. | `packages/engine/src/rasterSurface.ts`, `compositeCanvas.ts`, filter and replay callers. A valid base surface can still be followed by several simultaneous RGBA/intermediate/readback allocations. | Extend the existing derived-work admission at the allocation boundary in a later milestone; never retry an unsafe allocation indefinitely. |
+| P0 guard | The documented raster policy was not enforced by every portable surface constructor, and an oversized content-effect surface could abort the whole replay. | `packages/engine/src/rasterSurface.ts`, `compositeCanvas.ts`, `replay.ts`, filter and effect callers. A valid base surface can still be followed by several simultaneous RGBA/intermediate/readback allocations. | Enforce axis/area guards before construction and fall back to authoritative base content when an optional effect surface cannot be allocated. Aggregate byte reservations across effects and inference remain a separate follow-up. |
 
 These are code observations, not runtime measurements. The existing adjustment
 pipeline already sums filter expansion in `totalEffectExpansion`; the content
 effect path should follow the same ordered-support rule rather than introduce
 a second semantic convention.
+
+## Implemented checkpoints
+
+The following changes are committed on `master` and have targeted synthetic
+coverage. They do not promote the browser/PWA or Crostini support tier without
+device-specific evidence:
+
+- `3170349e1` — cumulative content-effect support bounds, with finite-input
+  guards and ordered-stack fixtures.
+- `71680122e` — pointwise post-filter regions, including transformed painted
+  bounds, stroke coverage, viewport clipping, and conservative full-surface
+  routing for spatial/global/effect-bearing filters.
+- `604b22b2b` — provider timeout fail-closed behavior unless hard cancellation
+  is declared, plus conservative `Content-Range`, ETag, size, HTML-response,
+  and multipart component validation for model downloads.
+- The allocation-safety checkpoint adds pre-construction raster/composite
+  guards and replay fallback for unallocatable content-effect surfaces. Its
+  targeted validation is recorded with the final commit below.
 
 ## Research record
 

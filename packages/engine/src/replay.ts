@@ -57,7 +57,7 @@ import {
   registerPyramidSource,
 } from './rasterPyramid/renderTiles';
 import { emitRasterReplaySample, isRasterReplayMeasured } from './rasterReplayMetrics';
-import { createRasterSurface } from './rasterSurface';
+import { createRasterSurface, validateRasterSurfaceDimensions } from './rasterSurface';
 import {
   advanceGradientCacheFrame,
   createGradientStyle,
@@ -210,10 +210,19 @@ function createEffectBuffer(
   canvas: HTMLCanvasElement | OffscreenCanvas;
   ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 } | null {
+  try {
+    validateRasterSurfaceDimensions(w, h);
+  } catch {
+    return null;
+  }
   if (typeof OffscreenCanvas !== 'undefined') {
-    const oc = new OffscreenCanvas(w, h);
-    const ctx = oc.getContext('2d');
-    if (ctx) return { canvas: oc, ctx };
+    try {
+      const oc = new OffscreenCanvas(w, h);
+      const ctx = oc.getContext('2d');
+      if (ctx) return { canvas: oc, ctx };
+    } catch {
+      // Fall through to the HTML canvas path.
+    }
   }
   if (typeof document !== 'undefined') {
     const c = document.createElement('canvas');
@@ -396,6 +405,97 @@ function applyRasterEffectMask(
   const evaluated = canvas.getImageData(0, 0, canvas.width, canvas.height);
   const merged = compositeMaskedEffectPixels(input, evaluated, mask, binding);
   canvas.putImageData(merged as unknown as ImageData, 0, 0);
+}
+
+/**
+ * Render content effects into a bounded local surface. A malformed or hostile
+ * authored extent falls back to the authoritative unfiltered content instead
+ * of aborting the whole replay and leaving later items unpainted.
+ */
+function paintContentEffects(
+  target: ReplayTarget,
+  item: RenderItem,
+  contentEffects: readonly ContentEffect[],
+  itemAlpha: number,
+  itemBlend: string,
+  effectMaskResolver?: EffectMaskResolver,
+): void {
+  const bounds = primitiveBounds(item.primitive);
+  if (bounds.w <= 0 || bounds.h <= 0) return;
+  const padding = contentEffectPadding(contentEffects);
+  const surfaceWidth = Math.max(1, Math.ceil(bounds.w + padding * 2));
+  const surfaceHeight = Math.max(1, Math.ceil(bounds.h + padding * 2));
+
+  try {
+    const canvas = new CompositeCanvas({
+      width: surfaceWidth,
+      height: surfaceHeight,
+      devicePixelRatio: 1,
+    });
+    canvas.ctx.translate(-bounds.x + padding, -bounds.y + padding);
+    paintFillsAndStrokes(canvas.ctx as unknown as ReplayTarget, item, itemAlpha, itemBlend);
+
+    for (const effect of contentEffects) {
+      const input = canvas.getImageData(0, 0, canvas.width, canvas.height);
+      if (effect.type === 'layerBlur') {
+        canvas.applyBlur(Math.max(0, effect.radius));
+      } else if (effect.type === 'depthBlur') {
+        if (effect.depthMap) {
+          try {
+            const resource = effect.depthMap;
+            const cacheKey = depthMapCacheKey(resource);
+            const decoded = decodedDepthMapCache.get(cacheKey) ?? deserializeDepthMap(resource);
+            decodedDepthMapCache.set(cacheKey, decoded);
+            const depthMap = resizeDepthMap(decoded, canvas.width, canvas.height);
+            const blurred = applyDepthBlur(input, depthMap, {
+              blurAmount: effect.blurStrength,
+              focalDepth: effect.focusDepth,
+              transitionRange: effect.focusRange * Math.max(0, effect.falloff),
+              invert: effect.invert,
+              edgeProtection: effect.edgeProtection,
+            });
+            canvas.putImageData(blurred, 0, 0);
+          } catch {
+            // A missing/corrupt persisted resource must not blank the
+            // document; keeping the input is the safe render fallback.
+          }
+        }
+      } else if (
+        effect.type === 'gaussianBlur' ||
+        effect.type === 'fieldBlur' ||
+        effect.type === 'irisBlur' ||
+        effect.type === 'tiltShiftBlur' ||
+        effect.type === 'pathBlur' ||
+        effect.type === 'spinBlur'
+      ) {
+        canvas.putImageData(applySpatialBlur(input, effect as SpatialBlurEffect), 0, 0);
+      } else if (effect.type === 'chromaticAberration') {
+        applyChromaticAberration(canvas, canvas.width, canvas.height, effect);
+      } else if (effect.type === 'glitch') {
+        applyGlitch(canvas, canvas.width, canvas.height, effect);
+      }
+      applyRasterEffectMask(canvas, input, effect, item, effectMaskResolver);
+    }
+
+    target.save();
+    try {
+      target.globalAlpha = 1;
+      target.globalCompositeOperation = itemBlend;
+      target.drawImage?.(
+        canvas.canvas as unknown as CanvasImageSource,
+        bounds.x - padding,
+        bounds.y - padding,
+        surfaceWidth,
+        surfaceHeight,
+      );
+    } finally {
+      target.restore();
+    }
+  } catch {
+    // A surface allocation/readback failure is recoverable for this item: the
+    // base content remains authoritative and later items must still render.
+    paintFillsAndStrokes(target, item, itemAlpha, itemBlend);
+  }
 }
 
 /** Paint fills and strokes to `target` (shared by direct and layerBlur offscreen paths). */
@@ -981,80 +1081,14 @@ export function replayIr(
 
         // ── Fills + strokes pass (offscreen when content effects present) ───
         if (contentEffects.length > 0) {
-          const bounds = primitiveBounds(item.primitive);
-          if (bounds.w > 0 && bounds.h > 0) {
-            const padding = contentEffectPadding(contentEffects);
-            const surfaceWidth = Math.max(1, Math.ceil(bounds.w + padding * 2));
-            const surfaceHeight = Math.max(1, Math.ceil(bounds.h + padding * 2));
-            const cc = new CompositeCanvas({
-              width: surfaceWidth,
-              height: surfaceHeight,
-              devicePixelRatio: 1,
-            });
-            cc.ctx.translate(-bounds.x + padding, -bounds.y + padding);
-            paintFillsAndStrokes(cc.ctx as unknown as ReplayTarget, item, itemAlpha, itemBlend);
-
-            for (const effect of contentEffects) {
-              const input = cc.getImageData(0, 0, cc.width, cc.height);
-              if (effect.type === 'layerBlur') {
-                cc.applyBlur(Math.max(0, effect.radius));
-              } else if (effect.type === 'depthBlur') {
-                if (effect.depthMap) {
-                  try {
-                    const resource = effect.depthMap;
-                    const cacheKey = depthMapCacheKey(resource);
-                    const decoded =
-                      decodedDepthMapCache.get(cacheKey) ?? deserializeDepthMap(resource);
-                    decodedDepthMapCache.set(cacheKey, decoded);
-                    const depthMap = resizeDepthMap(decoded, cc.width, cc.height);
-                    const blurred = applyDepthBlur(input, depthMap, {
-                      blurAmount: effect.blurStrength,
-                      focalDepth: effect.focusDepth,
-                      transitionRange: effect.focusRange * Math.max(0, effect.falloff),
-                      invert: effect.invert,
-                      edgeProtection: effect.edgeProtection,
-                    });
-                    cc.putImageData(blurred, 0, 0);
-                  } catch {
-                    // A missing/corrupt persisted resource must not blank the
-                    // document; keeping the input is the safe render fallback.
-                  }
-                }
-              } else if (
-                effect.type === 'gaussianBlur' ||
-                effect.type === 'fieldBlur' ||
-                effect.type === 'irisBlur' ||
-                effect.type === 'tiltShiftBlur' ||
-                effect.type === 'pathBlur' ||
-                effect.type === 'spinBlur'
-              ) {
-                cc.putImageData(applySpatialBlur(input, effect as SpatialBlurEffect), 0, 0);
-              } else if (effect.type === 'chromaticAberration') {
-                applyChromaticAberration(cc, cc.width, cc.height, effect);
-              } else if (effect.type === 'glitch') {
-                applyGlitch(cc, cc.width, cc.height, effect);
-              }
-              applyRasterEffectMask(
-                cc,
-                input,
-                effect,
-                item,
-                effectMaskResolverForCurrentReplay ?? undefined,
-              );
-            }
-
-            target.save();
-            target.globalAlpha = 1;
-            target.globalCompositeOperation = itemBlend;
-            target.drawImage?.(
-              cc.canvas as unknown as CanvasImageSource,
-              bounds.x - padding,
-              bounds.y - padding,
-              surfaceWidth,
-              surfaceHeight,
-            );
-            target.restore();
-          }
+          paintContentEffects(
+            target,
+            item,
+            contentEffects,
+            itemAlpha,
+            itemBlend,
+            effectMaskResolverForCurrentReplay ?? undefined,
+          );
         } else {
           paintFillsAndStrokes(target, item, itemAlpha, itemBlend);
         }

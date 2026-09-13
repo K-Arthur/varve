@@ -125,6 +125,13 @@ small exposure/curves/LUT treatment from allocating a full viewport while
 keeping blur, displacement, dither, grain, halftone, and similar treatments
 on their authoritative path.
 
+Portable raster and composite surfaces validate their axis and area limits
+before constructing a backing store. If a content-effect extent or a later
+readback is not allocatable, the item renders its authoritative fills/strokes
+and later items continue; a failed optional effect never aborts the replay.
+These are allocation-safety fallbacks, not permission to silently lower final
+export quality.
+
 ## Verified invariants
 
 1. **Array-order within each stage, no sort.** Every stage iterates
