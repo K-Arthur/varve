@@ -1,9 +1,11 @@
 # Varve drawing input quality audit — 2026-09-13
 
 Status: web-route implementation complete and browser-engine validation passed
-for the focused regressions below; physical Duet/PWA/Crostini runs remain
-pending. This report records evidence and limits; it does not turn synthetic
-PointerEvents into hardware certification.
+for the focused regressions below. The separate Stage 2 production-artifact
+checks also covered PWA install readiness, offline launch, update activation,
+and browser export; physical Duet/PWA/Crostini runs remain pending. This
+report records evidence and limits; it does not turn synthetic PointerEvents
+into hardware certification.
 
 ## Hardware and runtime boundary
 
@@ -18,7 +20,7 @@ The routes are intentionally separate:
 | Route | What this work can verify | Not claimed |
 |---|---|---|
 | Chrome tab in ChromeOS | Chromium DOM routing, persisted controls, synthetic mouse/touch/pen sequences, screenshots, document invariants | USI pressure, palm rejection, ChromeOS digitizer behavior, physical latency |
-| Installed PWA | Same web code after installation; offline/local-first behavior must be checked separately | Browser results are not automatically PWA certification |
+| Installed PWA | Stage 2's served `/try/` artifact passed install-readiness, offline-launch, update-activation, and export checks; the drawing code is the same web route | The installed ChromeOS window, OSK, Files integration, and physical pen/touch behavior still need a device run |
 | Tauri Linux ARM64/Crostini | Published v0.2.1 ARM64 artifact/dependency evidence and the WebKitGTK capability boundary | A package/dependency check or Linux launch is not pen-pressure or multitouch evidence; no ARM64 Chromebook hardware run is claimed here |
 
 The physical panel resolution is not used as a CSS viewport assumption. The
@@ -76,7 +78,7 @@ These issue reports identify failure modes, not universal compatibility facts:
 | Route / target | Touch draw/navigation | Pen recognition | Pressure/tilt/twist/eraser | Rendering/input evidence | Status |
 |---|---|---|---|---|---|
 | Chromium tab, automated | Synthetic pointer routing; user setting; pinch path retained | Synthetic `pointerType` only | Normalizer preserves fields; observed capability starts unknown | Existing Canvas2D/worker path plus focused E2E/screenshots | Focused Chromium tests passed; not hardware certification |
-| Installed PWA | Same web implementation; install/offline check pending | Not separately tested yet | Not separately tested yet | Must be tested in its installed window | Pending |
+| Installed PWA | Stage 2's served `/try/` artifact passed install/offline/update lifecycle checks; same drawing implementation and local-first storage | Same web API fields; no physical pen recognition claim | Not separately tested on an installed physical window | PWA artifact and export checks passed; installed-window geometry/input remain pending | Automated artifact checks passed; physical run pending |
 | Tauri Linux ARM64/Crostini | Adapter can fall back to unknown/default policy | System WebKitGTK behavior is runtime-specific | Pressure/tilt/eraser unknown until actual WebKitGTK + device run | Tauri uses system WebKitGTK; no ARM64 package or pressure claim inferred | Pending/manual |
 | Windows/macOS/non-Chromium | Existing repository regressions remain required | No new certification from this change | Route-specific observed capabilities required | No claim beyond tests actually run | Pending affected validation |
 | Lenovo Duet 11M889 + USI Pen 2 | Required acceptance workflow documented below | Must record events actually observed | Must test pressure range, tilt/twist, barrel/eraser, hover and palm | Must record CSS viewport/DPR/usable canvas and route | Hardware unavailable/pending |
@@ -95,6 +97,14 @@ visual run on isolated port 1500 passed the close-target case; the inspected
 first anchor before closure. The live cubic-handle run also passed and was
 inspected. These are browser-engine and synthetic-pointer results, not
 physical pressure or palm-rejection evidence.
+
+The separate ChromeOS Stage 2 production-artifact run served `/try/` from a
+disposable local origin and passed its three PWA checks: incomplete offline
+setup showed a truthful unavailable page, a completed setup reopened the
+editor offline, and a waiting update was offered rather than forced. Its
+browser export checks also passed. Those results establish the PWA artifact's
+service-worker/install lifecycle, not a physical ChromeOS installed-window
+input result; the latter remains on the Duet checklist below.
 
 ## Performance method
 
