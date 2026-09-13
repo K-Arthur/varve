@@ -2,7 +2,13 @@
 
 import { useDroppable } from '@dnd-kit/core';
 import { type CompositorBackend, createCompositorBackend } from '@varve/compositor';
-import { createEngine, type Engine, getImageCache, prewarmWasmEngine } from '@varve/engine';
+import {
+  createEngine,
+  type Engine,
+  getImageCache,
+  prewarmWasmEngine,
+  subscribeToCanvasFontReady,
+} from '@varve/engine';
 import { type ImportFileInput, ImportService } from '@varve/import';
 import {
   buildAllVariantCaches,
@@ -57,6 +63,7 @@ import { TouchCandidateMenu } from './components/Breadcrumb/TouchCandidateMenu';
 import { CanvasOverlays, markNewTextEditTarget } from './components/CanvasOverlays';
 import {
   type EditorState,
+  importReportHasIssues,
   publishImportReport,
   setStartTextEditingHandler,
   useEditor,
@@ -221,6 +228,11 @@ export function CanvasArea({
 }) {
   const contentCanvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
+  // Chromium can retain a Canvas2D font fallback choice for the lifetime of
+  // the context. A feature alias must therefore repaint through a fresh
+  // context once its face is ready; changing this key is presentation-only
+  // and does not affect document/history state.
+  const [canvasContextRevision, setCanvasContextRevision] = useState(0);
   const announcer = useRef<HTMLDivElement>(null);
   const editor = useEditor();
   const { state, rootNodes } = editor;
@@ -278,6 +290,7 @@ export function CanvasArea({
   const { canvasSize, canvasRectRef, viewportAnchorRef, refreshCanvasRect } = useCanvasGeometry(
     contentCanvasRef,
     handleCanvasGeometryChange,
+    canvasContextRevision,
   );
 
   // Diagnostics HUD is off by default; driven by the persisted Settings >
@@ -543,7 +556,7 @@ export function CanvasArea({
         requestContentDrawRef.current?.('context-restore', 'backing-store-recovery');
       },
     });
-  }, []);
+  }, [canvasContextRevision]);
 
   useEffect(() => {
     createEngine('auto').then((eng) => {
@@ -594,7 +607,7 @@ export function CanvasArea({
       backend?.destroy();
       compositorRef.current = null;
     };
-  }, []);
+  }, [canvasContextRevision]);
 
   const workerFailedRef = useRef(false);
 
@@ -716,6 +729,23 @@ export function CanvasArea({
     setFontLoadStamp((n) => n + 1);
     requestRedrawRef.current?.();
   });
+
+  // Generated whole-run Canvas font aliases load asynchronously. Repaint
+  // after their FontFaceSet promise settles so a feature request cannot leave
+  // the fallback frame on the backing store indefinitely.
+  useEffect(
+    () =>
+      subscribeToCanvasFontReady(() => {
+        setCanvasContextRevision((n) => n + 1);
+        paintedSurfaceRef.current = null;
+        invalidateTransformCache(transformCacheRef.current);
+        subtreeIrCacheRef.current.invalidate();
+        engineNodeMemoRef.current.clear();
+        snapIndexRef.current = null;
+        setFontLoadStamp((n) => n + 1);
+      }),
+    [],
+  );
 
   // Auto-enter text edit mode after creating a text node via TextTool
   useEffect(() => {
@@ -1390,6 +1420,7 @@ export function CanvasArea({
         />
       )}
       <canvas
+        key={`content-${canvasContextRevision}`}
         ref={contentCanvasRef}
         tabIndex={0}
         aria-roledescription="Design canvas"
