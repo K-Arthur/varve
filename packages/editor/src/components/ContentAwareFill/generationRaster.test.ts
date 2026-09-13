@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   computeSourceRegionFromPreviewMask,
   deriveGeneratedOverlay,
+  encodePreviewMaskAtSourceSize,
+  mapSourceRegionToProxy,
   samplePreviewMaskToRegion,
   workingPixelBudgetForTier,
   workingRasterDimensions,
@@ -30,6 +32,43 @@ describe('bounded generative raster planning', () => {
     expect(workingRasterDimensions(region, 2_000_000)).toEqual({ width: 2000, height: 1000 });
     expect(workingPixelBudgetForTier('constrained')).toBe(1_048_576);
     expect(workingPixelBudgetForTier('unknown')).toBe(2_000_000);
+  });
+
+  it('maps a bounded source region to the decoded proxy without stretching axes', () => {
+    expect(
+      mapSourceRegionToProxy({ x: 1000, y: 500, width: 2000, height: 1000 }, 8000, 4000, 1600, 800),
+    ).toEqual({
+      x: 200,
+      y: 100,
+      width: 400,
+      height: 200,
+    });
+  });
+
+  it('persists the editable mask at source dimensions with a streaming PNG', async () => {
+    const dataUrl = await encodePreviewMaskAtSourceSize(
+      Uint8Array.from([0, 255, 128, 64]),
+      2,
+      2,
+      4,
+      2,
+    );
+    const bytes = Uint8Array.from(atob(dataUrl.split(',')[1] ?? ''), (value) =>
+      value.charCodeAt(0),
+    );
+    const header = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    expect(Array.from(bytes.slice(0, 8))).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
+    expect(header.getUint32(16)).toBe(4);
+    expect(header.getUint32(20)).toBe(2);
+    expect(bytes[25]).toBe(0); // grayscale PNG
+  });
+
+  it('honours cancellation before another source-resolution scanline', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      encodePreviewMaskAtSourceSize(Uint8Array.from([255]), 1, 1, 8, 8, controller.signal),
+    ).rejects.toThrow('cancelled');
   });
 
   it('samples only the selected source rectangle instead of building a full mask', () => {

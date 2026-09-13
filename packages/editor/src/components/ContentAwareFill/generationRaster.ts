@@ -1,7 +1,6 @@
 import type { GenerativeEditResult } from '@varve/engine';
 
 import { computeMaskBounds } from '@varve/engine';
-import { putMaskCoverage } from './maskOperations';
 
 export interface SourceImageRegion {
   x: number;
@@ -177,43 +176,127 @@ export function loadImageRegionToImageData(
   return context.getImageData(0, 0, target.width, target.height);
 }
 
+function pngCrc32(bytes: Uint8Array): number {
+  let crc = 0xffffffff;
+  for (const byte of bytes) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit += 1) {
+      crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function pngChunk(type: string, data: Uint8Array): Uint8Array {
+  const typeBytes = new TextEncoder().encode(type);
+  const crcInput = new Uint8Array(typeBytes.length + data.length);
+  crcInput.set(typeBytes);
+  crcInput.set(data, typeBytes.length);
+  const chunk = new Uint8Array(12 + data.length);
+  const view = new DataView(chunk.buffer);
+  view.setUint32(0, data.length);
+  chunk.set(typeBytes, 4);
+  chunk.set(data, 8);
+  view.setUint32(8 + data.length, pngCrc32(crcInput));
+  return chunk;
+}
+
+function concatenateBytes(parts: readonly Uint8Array[]): Uint8Array {
+  const total = parts.reduce((sum, part) => sum + part.length, 0);
+  const result = new Uint8Array(total);
+  let offset = 0;
+  for (const part of parts) {
+    result.set(part, offset);
+    offset += part.length;
+  }
+  return result;
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+  }
+  return btoa(binary);
+}
+
 /**
  * Persist a source-resolution mask without first creating a source-resolution
  * Uint8Array or ImageData. The preview mask is the editable representation;
- * the encoded PNG retains the source coordinate frame for reopening.
+ * the encoded grayscale PNG retains the source coordinate frame for
+ * reopening. CompressionStream is used row-by-row so a large photograph
+ * consumes only one scanline plus the compressed output in working memory.
  */
-export function encodePreviewMaskAtSourceSize(
+export async function encodePreviewMaskAtSourceSize(
   previewMask: Uint8Array,
   previewWidth: number,
   previewHeight: number,
   sourceWidth: number,
   sourceHeight: number,
-): string {
+  signal?: AbortSignal,
+): Promise<string> {
   if (
     previewMask.length !== previewWidth * previewHeight ||
     !validPixelCount(previewWidth, previewHeight) ||
-    !validPixelCount(sourceWidth, sourceHeight)
+    !validPixelCount(sourceWidth, sourceHeight) ||
+    sourceWidth > 0xffffffff ||
+    sourceHeight > 0xffffffff
   ) {
     throw new Error('Mask encoding dimensions are invalid');
   }
-  const previewCanvas = document.createElement('canvas');
-  previewCanvas.width = previewWidth;
-  previewCanvas.height = previewHeight;
-  const previewContext = previewCanvas.getContext('2d');
-  if (!previewContext) throw new Error('Canvas unavailable');
-  putMaskCoverage(previewContext, previewMask, {
-    width: previewWidth,
-    height: previewHeight,
-  });
+  if (typeof CompressionStream === 'undefined') {
+    throw new Error(
+      'This runtime cannot persist a full-resolution generative mask. Update the desktop runtime or use a current browser.',
+    );
+  }
 
-  const sourceCanvas = document.createElement('canvas');
-  sourceCanvas.width = sourceWidth;
-  sourceCanvas.height = sourceHeight;
-  const sourceContext = sourceCanvas.getContext('2d');
-  if (!sourceContext) throw new Error('Canvas unavailable');
-  sourceContext.imageSmoothingEnabled = false;
-  sourceContext.drawImage(previewCanvas, 0, 0, sourceWidth, sourceHeight);
-  return sourceCanvas.toDataURL('image/png');
+  const stream = new CompressionStream('deflate');
+  const writer = stream.writable.getWriter();
+  const compressedPromise = new Response(stream.readable).arrayBuffer();
+  try {
+    const row = new Uint8Array(sourceWidth + 1);
+    row[0] = 0; // PNG filter: None. Each row is independently generated.
+    for (let y = 0; y < sourceHeight; y += 1) {
+      if (signal?.aborted) throw new Error('Generative mask encoding was cancelled.');
+      const previewY = Math.min(
+        previewHeight - 1,
+        Math.floor(((y + 0.5) * previewHeight) / sourceHeight),
+      );
+      const previewRow = previewY * previewWidth;
+      for (let x = 0; x < sourceWidth; x += 1) {
+        const previewX = Math.min(
+          previewWidth - 1,
+          Math.floor(((x + 0.5) * previewWidth) / sourceWidth),
+        );
+        row[x + 1] = previewMask[previewRow + previewX] ?? 0;
+      }
+      await writer.write(row);
+    }
+    await writer.close();
+    const compressed = new Uint8Array(await compressedPromise);
+    const signature = Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]);
+    const header = new Uint8Array(13);
+    const headerView = new DataView(header.buffer);
+    headerView.setUint32(0, sourceWidth);
+    headerView.setUint32(4, sourceHeight);
+    header[8] = 8; // bit depth
+    header[9] = 0; // grayscale
+    header[10] = 0; // compression method
+    header[11] = 0; // filter method
+    header[12] = 0; // no interlace
+    const png = concatenateBytes([
+      signature,
+      pngChunk('IHDR', header),
+      pngChunk('IDAT', compressed),
+      pngChunk('IEND', new Uint8Array()),
+    ]);
+    return `data:image/png;base64,${bytesToBase64(png)}`;
+  } catch (error) {
+    await writer.abort(error).catch(() => undefined);
+    await compressedPromise.catch(() => undefined);
+    throw error;
+  }
 }
 
 /**
@@ -258,6 +341,124 @@ export function deriveGeneratedOverlay(
     overlay.data[offset + 3] = clampByte(overlayAlpha * 255);
   }
   return overlay;
+}
+
+/** Map a source-pixel region into a bounded decoded proxy without stretching. */
+export function mapSourceRegionToProxy(
+  region: SourceImageRegion,
+  sourceWidth: number,
+  sourceHeight: number,
+  proxyWidth: number,
+  proxyHeight: number,
+): SourceImageRegion {
+  if (
+    !validDimensions(sourceWidth, sourceHeight) ||
+    !validDimensions(proxyWidth, proxyHeight) ||
+    !validPixelCount(region.width, region.height) ||
+    region.x < 0 ||
+    region.y < 0 ||
+    region.x + region.width > sourceWidth ||
+    region.y + region.height > sourceHeight
+  ) {
+    throw new Error('Source and proxy dimensions are invalid');
+  }
+  const scaleX = proxyWidth / sourceWidth;
+  const scaleY = proxyHeight / sourceHeight;
+  const left = Math.max(0, Math.min(proxyWidth - 1, Math.floor(region.x * scaleX)));
+  const top = Math.max(0, Math.min(proxyHeight - 1, Math.floor(region.y * scaleY)));
+  const right = Math.max(
+    left + 1,
+    Math.min(proxyWidth, Math.ceil((region.x + region.width) * scaleX)),
+  );
+  const bottom = Math.max(
+    top + 1,
+    Math.min(proxyHeight, Math.ceil((region.y + region.height) * scaleY)),
+  );
+  return { x: left, y: top, width: right - left, height: bottom - top };
+}
+
+/** Render only the transparent patch for a bounded generative result. */
+export function renderGeneratedRegionToPatchCanvas(options: {
+  source: ImageData;
+  result: GenerativeEditResult;
+  mask: Uint8Array;
+}): HTMLCanvasElement {
+  const overlay = deriveGeneratedOverlay(options.source, options.result.imageData, options.mask);
+  const canvas = document.createElement('canvas');
+  canvas.width = overlay.width;
+  canvas.height = overlay.height;
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Canvas unavailable');
+  context.putImageData(overlay, 0, 0);
+  return canvas;
+}
+
+/**
+ * Compose a candidate into the already-bounded dialog preview. This keeps
+ * visual review honest while avoiding a source-resolution output canvas.
+ */
+export function renderGeneratedRegionToPreviewCanvas(options: {
+  preview: CanvasImageSource;
+  previewWidth: number;
+  previewHeight: number;
+  sourceWidth: number;
+  sourceHeight: number;
+  region: SourceImageRegion;
+  source: ImageData;
+  result: GenerativeEditResult;
+  mask: Uint8Array;
+}): HTMLCanvasElement {
+  const {
+    preview,
+    previewWidth,
+    previewHeight,
+    sourceWidth,
+    sourceHeight,
+    region,
+    source,
+    result,
+    mask,
+  } = options;
+  if (
+    !validDimensions(previewWidth, previewHeight) ||
+    !validDimensions(sourceWidth, sourceHeight) ||
+    region.x < 0 ||
+    region.y < 0 ||
+    region.x + region.width > sourceWidth ||
+    region.y + region.height > sourceHeight
+  ) {
+    throw new Error('Generated preview region is outside the source image');
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = previewWidth;
+  canvas.height = previewHeight;
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Canvas unavailable');
+  context.drawImage(preview, 0, 0, previewWidth, previewHeight);
+
+  const patch = renderGeneratedRegionToPatchCanvas({ source, result, mask });
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = 'high';
+  context.drawImage(
+    patch,
+    0,
+    0,
+    patch.width,
+    patch.height,
+    (region.x / sourceWidth) * previewWidth,
+    (region.y / sourceHeight) * previewHeight,
+    (region.width / sourceWidth) * previewWidth,
+    (region.height / sourceHeight) * previewHeight,
+  );
+  return canvas;
+}
+
+export function compositeGeneratedRegionToPatchDataUrl(options: {
+  source: ImageData;
+  result: GenerativeEditResult;
+  mask: Uint8Array;
+}): string {
+  return renderGeneratedRegionToPatchCanvas(options).toDataURL('image/png');
 }
 
 /**

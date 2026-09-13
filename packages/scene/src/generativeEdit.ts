@@ -78,6 +78,11 @@ export interface GenerativeEditOutputFrame {
 export interface GenerativeEditVariation {
   id: string;
   assetId: string;
+  /**
+   * New bounded browser/desktop results are transparent region overlays. An
+   * omitted value means the legacy asset is a complete output frame.
+   */
+  assetKind?: 'full-output' | 'region-overlay';
   /** Small preview asset used by candidate cards before a full result is selected. */
   thumbnailAssetId?: string;
   width: number;
@@ -233,6 +238,9 @@ function validVariation(value: unknown): value is GenerativeEditVariation {
     variation.id.length > 0 &&
     typeof variation.assetId === 'string' &&
     variation.assetId.length > 0 &&
+    (variation.assetKind === undefined ||
+      variation.assetKind === 'full-output' ||
+      variation.assetKind === 'region-overlay') &&
     (variation.thumbnailAssetId === undefined ||
       (typeof variation.thumbnailAssetId === 'string' && variation.thumbnailAssetId.length > 0)) &&
     Number.isSafeInteger(width) &&

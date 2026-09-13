@@ -72,6 +72,84 @@ describe('replaceImageShapeContent', () => {
     expect(updated.transform).toEqual([1, 0, 0, 1, -1, 3]);
   });
 
+  it('stores a bounded generative patch above the immutable source fill', () => {
+    const doc = imageDoc();
+    const next = replaceImageShapeContent(doc, 'img1', {
+      dataUrl: 'data:image/png;base64,AAAA',
+      assetId: 'asset-source',
+      width: 20,
+      height: 10,
+      generativeEditId: 'edit-patch',
+      patch: {
+        dataUrl: 'data:image/png;base64,PATCH',
+        assetId: 'asset-patch',
+        width: 120,
+        height: 80,
+        x: 240,
+        y: 160,
+        editId: 'edit-patch',
+        variationId: 'variation-1',
+      },
+    });
+    const updated = next.nodes.img1;
+    if (updated?.kind !== 'shape') throw new Error('expected shape');
+    expect(updated.generativeEditId).toBe('edit-patch');
+    expect(updated.fills).toHaveLength(2);
+    expect(updated.fills?.[0]?.image).toMatchObject({
+      src: 'data:image/png;base64,AAAA',
+    });
+    expect(updated.fills?.[0]?.image?.assetId).toBeUndefined();
+    expect(updated.fills?.[1]).toMatchObject({
+      type: 'image',
+      image: {
+        assetId: 'asset-patch',
+        fit: 'crop',
+        x: 240,
+        y: 160,
+        imageWidth: 120,
+        imageHeight: 80,
+        generativeEditOverlay: { editId: 'edit-patch', variationId: 'variation-1' },
+      },
+    });
+  });
+
+  it('restores the source and removes bounded generative overlays', () => {
+    const source = createEmbeddedAsset({
+      dataUrl: 'data:image/png;base64,AAAA',
+      mimeType: 'image/png',
+      naturalWidth: 20,
+      naturalHeight: 10,
+    });
+    const patched = replaceImageShapeContent(imageDoc(), 'img1', {
+      dataUrl: source.dataUrl,
+      assetId: source.id,
+      width: 20,
+      height: 10,
+      generativeEditId: 'edit-patch',
+      patch: {
+        dataUrl: 'data:image/png;base64,PATCH',
+        assetId: 'asset-patch',
+        width: 120,
+        height: 80,
+        x: 240,
+        y: 160,
+        editId: 'edit-patch',
+        variationId: 'variation-1',
+      },
+    });
+    const restored = restoreImageShapeContent(patched, 'img1', { sourceAsset: source });
+    const image = restored.nodes.img1;
+    if (image?.kind !== 'shape') throw new Error('expected shape');
+    expect(image.generativeEditId).toBeUndefined();
+    expect(image.fills).toHaveLength(1);
+    expect(image.fills?.[0]?.image).toMatchObject({
+      src: source.dataUrl,
+      assetId: source.id,
+      imageWidth: 20,
+      imageHeight: 10,
+    });
+  });
+
   it('restores source pixels and bounds after an expanded edit', () => {
     const doc = imageDoc();
     const source = createEmbeddedAsset({

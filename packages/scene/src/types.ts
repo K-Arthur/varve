@@ -781,6 +781,17 @@ export interface ImageFillUpscale {
   modelId?: string;
 }
 
+/**
+ * Identifies a bounded generative result painted above an immutable source
+ * image. The fill's crop/placement fields carry the source-pixel frame; this
+ * marker lets Restore Original and repeated edits remove only the patch that
+ * belongs to the accepted recipe.
+ */
+export interface GenerativeEditOverlay {
+  editId: string;
+  variationId: string;
+}
+
 export interface ImageFillData {
   /**
    * Image source as a data URL.
@@ -833,6 +844,8 @@ export interface ImageFillData {
   flipV?: boolean;
   /** Non-destructive upscale metadata. */
   upscale?: ImageFillUpscale;
+  /** Bounded generative patch painted over the source fill. */
+  generativeEditOverlay?: GenerativeEditOverlay;
   /**
    * Non-destructive four-corner (perspective) transform. When present, the
    * image fill is rendered through the engine's projective `warpedImage`

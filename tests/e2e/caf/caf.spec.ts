@@ -600,7 +600,11 @@ test.describe('Content-Aware Fill dialog', () => {
     // outside that workspace instead of relying on an internal dialog state.
     await switchWorkspace(page, 'Photo');
     await page.getByRole('tab', { name: 'Adjustments' }).click();
-    await openGenerativeEditFromAdjustments(page);
+    const sectionToggle = page.getByRole('button', { name: 'Generative Edit', exact: true });
+    await expect(sectionToggle).toBeVisible({ timeout: 10_000 });
+    if ((await sectionToggle.getAttribute('aria-expanded')) !== 'true') {
+      await sectionToggle.click();
+    }
     const duplicateButton = page.getByRole('button', {
       name: 'Duplicate generative result as layer',
     });
@@ -740,6 +744,24 @@ test.describe('Content-Aware Fill dialog', () => {
     expect(edit.masks.offsetY).toBeGreaterThanOrEqual(0);
     expect(edit.outputFrame.sourceWidth).toBe(sourceAsset.naturalWidth);
     expect(edit.outputFrame.sourceHeight).toBe(sourceAsset.naturalHeight);
+    const userMaskAsset = after.rasterMaskAssets?.[edit.maskAssetId];
+    expect(userMaskAsset?.width).toBe(sourceAsset.naturalWidth);
+    expect(userMaskAsset?.height).toBe(sourceAsset.naturalHeight);
+    expect(edit.maskWidth).toBe(sourceAsset.naturalWidth);
+    expect(edit.maskHeight).toBe(sourceAsset.naturalHeight);
+    expect(edit.masks.userWidth).toBe(sourceAsset.naturalWidth);
+    expect(edit.masks.userHeight).toBe(sourceAsset.naturalHeight);
+    const fills = afterNode?.fills?.filter((fill: any) => fill.type === 'image') ?? [];
+    expect(fills).toHaveLength(2);
+    expect(fills[0]?.image?.assetId).toBe(sourceAssetId);
+    expect(fills[1]?.image?.generativeEditOverlay).toMatchObject({
+      editId: afterNode.generativeEditId,
+      variationId: edit.acceptedVariationId,
+    });
+    expect(fills[1]?.image?.fit).toBe('crop');
+    expect(fills[1]?.image?.imageWidth).toBeGreaterThan(0);
+    expect(fills[1]?.image?.imageHeight).toBeGreaterThan(0);
+    await page.screenshot({ path: testInfo.outputPath('real-portrait-bounded-applied.png') });
   });
 
   test('undo reverts the CAF apply operation', async ({ page }) => {
