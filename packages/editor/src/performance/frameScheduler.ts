@@ -15,6 +15,7 @@ export interface FrameSchedulerDiagnostics {
   replacedJobs: number;
   cancelledJobs: number;
   deferredBackgroundFrames: number;
+  frameIntervalMs: number;
 }
 
 export interface FrameScheduler {
@@ -27,6 +28,8 @@ export interface FrameScheduler {
   /** Force-close all open interactions (window blur / visibility hidden). */
   resetInteractions(): void;
   setVisible(visible: boolean): void;
+  /** Update work windows after a stable presentation-cadence measurement. */
+  setFrameIntervalMs(intervalMs: number): void;
   getDiagnostics(): FrameSchedulerDiagnostics;
   dispose(): void;
 }
@@ -81,10 +84,12 @@ export function createFrameScheduler(options: FrameSchedulerOptions = {}): Frame
     options.requestFrame ?? ((callback: FrameRequestCallback) => requestAnimationFrame(callback));
   const cancelFrame = options.cancelFrame ?? ((id: number) => cancelAnimationFrame(id));
   const now = options.now ?? (() => performance.now());
-  const workBudgets = resolveFrameSchedulerWorkBudgets(
-    options.frameIntervalMs,
-    options.frameWorkBudgetMs,
-  );
+  let frameIntervalMs =
+    Number.isFinite(options.frameIntervalMs) && options.frameIntervalMs! > 0
+      ? options.frameIntervalMs!
+      : DEFAULT_FRAME_INTERVAL_MS;
+  const interactionBudgetOverride = options.frameWorkBudgetMs;
+  let workBudgets = resolveFrameSchedulerWorkBudgets(frameIntervalMs, interactionBudgetOverride);
   const interactionSettleMs = options.interactionSettleMs ?? 120;
   const queues = new Map<FrameLane, Map<string, QueuedJob>>(
     LANE_ORDER.map((lane) => [lane, new Map<string, QueuedJob>()]),
@@ -100,6 +105,7 @@ export function createFrameScheduler(options: FrameSchedulerOptions = {}): Frame
     replacedJobs: 0,
     cancelledJobs: 0,
     deferredBackgroundFrames: 0,
+    frameIntervalMs,
   };
 
   const queuedCount = () => {
@@ -209,6 +215,12 @@ export function createFrameScheduler(options: FrameSchedulerOptions = {}): Frame
       } else if (visible) {
         ensureFrame();
       }
+    },
+    setFrameIntervalMs(nextIntervalMs) {
+      if (!Number.isFinite(nextIntervalMs) || nextIntervalMs <= 0) return;
+      frameIntervalMs = nextIntervalMs;
+      workBudgets = resolveFrameSchedulerWorkBudgets(frameIntervalMs, interactionBudgetOverride);
+      diagnostics.frameIntervalMs = frameIntervalMs;
     },
     getDiagnostics() {
       return { ...diagnostics, queuedJobs: queuedCount() };

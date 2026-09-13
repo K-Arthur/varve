@@ -39,6 +39,17 @@ describe('frame scheduler', () => {
     expect(resolveFrameSchedulerWorkBudgets(20, 7).interactionMs).toBe(7);
   });
 
+  it('updates work windows after a measured cadence change', () => {
+    const harness = makeHarness();
+    harness.scheduler.setFrameIntervalMs(1000 / 120);
+    expect(harness.scheduler.getDiagnostics().frameIntervalMs).toBeCloseTo(1000 / 120, 3);
+
+    const background = vi.fn(() => harness.spend(3));
+    harness.scheduler.request('background', 'background', background);
+    harness.advance(150);
+    expect(background).toHaveBeenCalledOnce();
+  });
+
   it('runs lanes in interaction, canvas, UI, background order', () => {
     const harness = makeHarness();
     const order: string[] = [];

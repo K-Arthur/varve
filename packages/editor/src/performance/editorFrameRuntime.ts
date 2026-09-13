@@ -1,3 +1,5 @@
+import { initFrameBudget, updateFrameCadence } from '../canvas/frameBudget';
+import { FrameCadenceEstimator } from './frameCadence';
 import {
   createFrameScheduler,
   type FrameJob,
@@ -8,22 +10,36 @@ import {
 let scheduler: FrameScheduler | null = null;
 let nextKey = 1;
 let removeVisibilityListener: (() => void) | null = null;
+let cadenceEstimator: FrameCadenceEstimator | null = null;
 
 function createRuntimeScheduler(): FrameScheduler {
-  const refreshRate =
-    typeof screen !== 'undefined'
-      ? (screen as typeof screen & { refreshRate?: number }).refreshRate
-      : undefined;
+  cadenceEstimator = new FrameCadenceEstimator();
+  initFrameBudget();
+  const recordFrameCadence = (frameTimeMs: number, callback: FrameRequestCallback): void => {
+    const estimate = cadenceEstimator?.observe(frameTimeMs);
+    if (estimate) {
+      updateFrameCadence(estimate);
+      runtime.setFrameIntervalMs(estimate.intervalMs);
+    }
+    callback(frameTimeMs);
+  };
   const runtime = createFrameScheduler({
-    requestFrame: (callback) => window.requestAnimationFrame(callback),
+    requestFrame: (callback) =>
+      window.requestAnimationFrame((frameTimeMs) => recordFrameCadence(frameTimeMs, callback)),
     cancelFrame: (id) => window.cancelAnimationFrame(id),
-    frameIntervalMs:
-      typeof refreshRate === 'number' && Number.isFinite(refreshRate) && refreshRate > 0
-        ? 1000 / refreshRate
-        : undefined,
   });
   if (typeof document !== 'undefined') {
-    const updateVisibility = () => runtime.setVisible(document.visibilityState !== 'hidden');
+    const updateVisibility = () => {
+      const visible = document.visibilityState !== 'hidden';
+      if (!visible) {
+        const fallback = cadenceEstimator?.reset();
+        if (fallback) {
+          updateFrameCadence(fallback);
+          runtime.setFrameIntervalMs(fallback.intervalMs);
+        }
+      }
+      runtime.setVisible(visible);
+    };
     updateVisibility();
     document.addEventListener('visibilitychange', updateVisibility);
     removeVisibilityListener = () =>
@@ -81,6 +97,8 @@ export function resetEditorInteractions(): void {
 export function resetEditorFrameRuntimeForTests(): void {
   scheduler?.dispose();
   scheduler = null;
+  cadenceEstimator = null;
+  initFrameBudget();
   removeVisibilityListener?.();
   removeVisibilityListener = null;
   nextKey = 1;

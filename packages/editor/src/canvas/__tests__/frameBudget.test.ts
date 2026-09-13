@@ -11,6 +11,7 @@ import {
   initFrameBudget,
   resetFrameTimings,
   startFrameTiming,
+  updateFrameCadence,
 } from '../frameBudget';
 
 describe('frameBudget', () => {
@@ -65,6 +66,21 @@ describe('frameBudget', () => {
   it('initFrameBudget runs without error', () => {
     initFrameBudget();
     expect(getFrameBudgetMs()).toBeGreaterThan(0);
+  });
+
+  it('records measured cadence without relying on screen.refreshRate', () => {
+    initFrameBudget();
+    updateFrameCadence({
+      intervalMs: 1000 / 120,
+      refreshRate: 120,
+      source: 'measured',
+      samples: 24,
+    });
+    const summary = getFrameBudgetSummary();
+    expect(summary.intervalMs).toBeCloseTo(1000 / 120, 5);
+    expect(summary.displayRefreshRate).toBeCloseTo(120, 5);
+    expect(summary.cadenceSource).toBe('measured');
+    expect(summary.cadenceSamples).toBe(24);
   });
 
   it('getOverBudgetCount returns number of over-budget frames', () => {

@@ -5,9 +5,12 @@
  * per-phase timing for diagnostics. Uses bounded rolling metrics rather
  * than unbounded timing logs.
  *
- * Frame budgets are computed from the display refresh rate rather than
- * hard-coding only 16.67 ms. Falls back to 60 fps when unavailable.
+ * Frame budgets are updated by the shared visible-rAF cadence estimator. A
+ * conservative 60 Hz interval is used until a stable measured cadence is
+ * available; a slow callback stream never expands the work window.
  */
+
+import type { FrameCadenceEstimate } from '../performance/frameCadence';
 
 export interface PhaseTiming {
   cacheLookupMs: number;
@@ -43,6 +46,8 @@ export interface FrameWorkBudgetSummary {
 export interface FrameBudgetSummary {
   displayRefreshRate: number;
   intervalMs: number;
+  cadenceSource: FrameCadenceEstimate['source'];
+  cadenceSamples: number;
   classes: Record<FrameWorkClass, FrameWorkBudgetSummary>;
 }
 
@@ -60,15 +65,25 @@ const CLASS_BUDGET_MULTIPLIERS: Record<FrameWorkClass, number> = {
 };
 
 let displayRefreshRate = 60;
-let frameBudgetMs = 16.67;
+let frameBudgetMs = 1000 / 60;
+let cadenceSource: FrameCadenceEstimate['source'] = 'fallback';
+let cadenceSamples = 0;
 
-/** Initialise frame budget from display refresh rate. */
+/** Initialise frame budget to the conservative fallback interval. */
 export function initFrameBudget(): void {
-  if (typeof window !== 'undefined' && 'screen' in window) {
-    const rate = (screen as { refreshRate?: number }).refreshRate ?? 60;
-    displayRefreshRate = rate;
-    frameBudgetMs = 1000 / rate;
-  }
+  displayRefreshRate = 60;
+  frameBudgetMs = 1000 / 60;
+  cadenceSource = 'fallback';
+  cadenceSamples = 0;
+}
+
+/** Apply a cadence from the shared runtime estimator. */
+export function updateFrameCadence(estimate: FrameCadenceEstimate): void {
+  if (!Number.isFinite(estimate.intervalMs) || estimate.intervalMs <= 0) return;
+  frameBudgetMs = estimate.intervalMs;
+  displayRefreshRate = 1000 / estimate.intervalMs;
+  cadenceSource = estimate.source;
+  cadenceSamples = Math.max(0, Math.floor(estimate.samples));
 }
 
 /** Current per-frame budget in ms (e.g. 16.67 for 60fps, 8.33 for 120fps). */
@@ -168,6 +183,8 @@ export function getFrameBudgetSummary(): FrameBudgetSummary {
   return {
     displayRefreshRate,
     intervalMs: frameBudgetMs,
+    cadenceSource,
+    cadenceSamples,
     classes: {
       interaction: summarizeWorkClass('interaction'),
       authoritative: summarizeWorkClass('authoritative'),
