@@ -104,7 +104,7 @@ unreferenced; it is not presented as an optimization.
 |---|---|---|
 | A rejected `onnxruntime-web` dynamic import was cached forever, permanently disabling optional inference after one transient failure | `engine/src/inference/SessionManager.ts` | Rejected attempts are dropped so the next call retries; regression tests added |
 | `runPrecisionBenchmark` released its two sessions only on the success path | `engine/src/backgroundRemoval/precisionCapabilities.ts` | Both sessions release in a `finally`; regression tests added |
-| WebGPU provider selection already performs a real hardware-adapter probe; WebNN is absent | `backgroundRemoval/environmentCapabilities.ts`, `inference/core/RuntimeCapabilities.ts` | Verified; no change. No `navigator.ml` reference exists anywhere in the repository |
+| WebGPU provider selection needed a real device check, not only an adapter check; WebNN is absent | `backgroundRemoval/environmentCapabilities.ts`, `inference/core/RuntimeCapabilities.ts` | Both inference capability surfaces now reuse the real adapter+device probe; temporary devices are destroyed and failed creation reports WASM/Canvas2D fallback. No `navigator.ml` reference exists anywhere in the repository |
 | Adapter presence alone was too coarse for diagnostics and GPU effects | `editor/performance/webGpuProbe.ts`, `engine/gpuAdapter.ts`, `backgroundRemoval/gpuEffectRunner.ts`, `compositor/WebGPUBackend.ts` | A low-power adapter/device probe now reports supported/unavailable/failed, destroys its temporary device, and invalidates effect resources after `device.lost`; the Canvas2D path remains authoritative when the probe or runtime fails. |
 | Cloud background removal is disabled by default and has no editor UI caller | `backgroundRemoval/providers/cloudProvider.ts`, `cloudConfig.ts` | Verified; no silent fallback to a paid endpoint |
 | `session.run` is not cancellable; worker restart is the only true stop | `inference/inferenceWorkerHost.ts` | Documented limit; cancellation remains bounded by one inference/tile |
@@ -180,6 +180,20 @@ destroyed" because other active agents' file writes triggered HMR reloads
 mid-test; that is shared-worktree churn, not a product failure, and the static
 artifact removes the variable.
 
+The same production-artifact test was re-run on the final Stage 3 working tree
+after the lifecycle/GPU and model-requirement commits, using the reserved
+fallback port:
+
+```text
+pnpm --filter @varve/desktop exec vite build --outDir dist-stage3
+pnpm --filter @varve/desktop exec vite preview --outDir dist-stage3 --port 15000 --strictPort
+pnpm exec playwright test tests/e2e/canvas/adaptive-preview-scale.spec.ts \
+  --config=/tmp/varve-stage3-pw.config.ts --reporter=list
+
+✓ interactive previews degrade at the tier scale and settle at full resolution (6.1s)
+1 passed (7.3s)
+```
+
 Visual inspection (screenshots read at full size; stored under
 `/tmp/varve-chromeos-stage3-visual/`):
 
@@ -191,6 +205,11 @@ Visual inspection (screenshots read at full size; stored under
   rectangle and its selection handles sit at the panned position at full
   backing resolution; no stale preview pixels, no misaligned overlay, and the
   pixel oracle (settled hash === `forceFullRedraw` hash) passed.
+- `product-desktop.png`, `product-mobile.png`, and
+  `browser-demo-mobile.png` — current static Astro output at 1440px and
+  390px widths. The Chromebook route note and constrained-device section are
+  visible, readable, and contained within the viewport; a scripted check found
+  no horizontal overflow (`scrollWidth === clientWidth`).
 
 Limits of this evidence: it is headless Chromium with a software rasterizer
 (no GPU), a single rectangle, and DPR 1, so it proves correctness and the
@@ -209,7 +228,10 @@ refused once the surface returns to full resolution.
 | `pnpm exec vitest run packages/editor/src/canvas/__tests__/adaptiveProfile.test.ts packages/editor/src/canvas/presentWorkerFrame.test.ts` | 18 passed |
 | `pnpm exec vitest run packages/engine/src/inference/SessionManager.test.ts packages/engine/src/backgroundRemoval/precisionCapabilities.test.ts` | 5 passed |
 | `pnpm exec vitest run packages/editor/src/recovery.test.ts packages/editor/src/render/collectImageBitmaps.test.ts` | 56 passed |
+| `VARVE_TEST_WORKERS=1 pnpm exec vitest run packages/editor/src/modelRequirements.test.ts packages/editor/src/components/Settings/BgRemovalModelsTab.test.tsx packages/editor/src/components/BackgroundRemoval/ModelDownloadDialog.test.tsx packages/editor/src/components/Settings/__tests__/ColorizationModelsTab.test.tsx packages/editor/src/components/Settings/SemanticSearchTab.test.tsx` | 32 passed |
 | `pnpm --filter @varve/engine typecheck` | clean |
+| `pnpm --filter @varve/website typecheck` | 0 errors (5 pre-existing hints) |
+| `pnpm --filter @varve/website build` | 86 static routes built; 0 errors (bundler warnings recorded in handoff) |
 | `pnpm --filter @varve/editor typecheck` | only the unrelated in-flight `ImportResults.tsx` error owned by another active agent; Stage 3 files clean |
 
 `pnpm verify:plan` on the shared worktree reports affected coverage across the
@@ -235,10 +257,9 @@ per the repository's validation economy.
    worker termination remains the only hard stop.
 6. Built-in browser AI (Gemini Nano / Prompt API) is unavailable on this device
    class per Chrome's documented requirements; no Varve feature depends on it.
-7. Generic ORT runtime diagnostics still retain an adapter-level capability
-   report in the legacy `RuntimeCapabilities` surface; actual device creation
-   is enforced by the effect runner/background-removal path and the editor's
-   adaptive probe. WebNN is not implemented or claimed.
+7. WebNN is not implemented or claimed; the ONNX provider chain remains
+   WebGPU (only after a real device probe), then WebGL/WASM according to the
+   runtime report.
 8. The repository's `wasm-bindgen` minor version is not pinned; this stage did
    not change the WASM toolchain.
 
