@@ -83,3 +83,51 @@ captures. Linux Tauri/WebKitGTK, Windows WebView2, and macOS WKWebView still
 need their platform-specific typography runs. Exact-face readiness, rich-range
 commands, worker parity, export preflight, and transformed image-region
 identification remain outside this polish slice.
+
+## Follow-up audit — 2026-09-12
+
+The previous evidence correctly normalized the compact controls, but its
+minimum-height rule still measured the floating bar from the 32px content box.
+At a wide viewport this left the floating surface 3.203125px shorter than the
+main palette (the mismatch was reproduced on port 1518 before the repair).
+The follow-up now derives the floating bar border-box height from the shared
+`--toolbar-height` token and keeps the 2px border contribution explicit. This
+preserves the compact control rhythm while matching the palette at wide and
+narrow widths.
+
+The quick-bar **Edit text** action now activates the text tool before assigning
+the edit target. This closes a focus/lifecycle hole where a selected text node
+could show the editing target while Select remained active; the first caret
+click then exited editing and dismissed the formatting surface.
+
+The visual helper also follows the responsive product path: it uses the direct
+Text action when that action is visible and the context-bar **Add text** action
+when the compact palette has moved Text into More tools. It creates an area-text
+target and explicitly enters editing before measuring the floating bar.
+
+Validation on the corrected working tree:
+
+```text
+VARVE_E2E_PORT=1520 VARVE_E2E_WORKERS=1 npx playwright test tests/e2e/canvas/font-toolbar-visual.spec.ts --project=chromium --reporter=list
+```
+
+The run passed **3/3** DPR scenarios (1, 2, and 3). The inspected captures
+cover the open light, dark narrow, and high-contrast states:
+
+- `test-results/run-1665420-1520/canvas-font-toolbar-visual-76f26-adable-menus-in-every-theme-chromium/light-open.png`
+- `test-results/run-1665420-1520/canvas-font-toolbar-visual-c70f7-adable-menus-in-every-theme-chromium/dark-narrow.png`
+- `test-results/run-1665420-1520/canvas-font-toolbar-visual-cbecb-adable-menus-in-every-theme-chromium/high-contrast-open.png`
+
+Measured computed geometry in that run was identical for the main palette and
+floating bar: `gap: 2.88px`, `padding: 5.76px 9.44px`, `border-radius: 14px`,
+`height: 46.796875px`, and 32px controls sharing one vertical centerline.
+The family field remained readable, horizontal overflow stayed `auto` with
+`nowrap`, and the opened menu stayed within the viewport. The menu overlapping
+the inspector in the narrow capture is the intended anchored-overlay behavior,
+not clipping.
+
+The first fresh run also exposed an app-startup defect unrelated to the visual
+assertions: the editor imported `getRuntimeCapabilitiesSync` from the engine
+root without that export. The export is being landed as a small runtime fix;
+the concurrent inference-resource export in the same file remains task-owned
+by its original change and is preserved separately.

@@ -27,15 +27,10 @@
 .floating-text-bar {
   position: static;
   width: max-content;
-  /* Match the main palette's content-box geometry. The fluid global
-   * toolbar-height token belongs to the canvas palette and otherwise makes
-   * this compact text surface grow at wide viewports. */
-  min-block-size: calc(
-    var(--text-toolbar-control-height) +
-    var(--space-toolbar) +
-    var(--space-toolbar) +
-    2px
-  );
+  /* Match the main palette's border-box geometry at every viewport. The
+   * shared toolbar height is fluid by design, so a wide canvas does not leave
+   * the text bar visibly shorter than the palette it sits beside. */
+  min-block-size: calc(var(--toolbar-height) + 2px);
   max-width: calc(100vw - 24px);
   white-space: nowrap;
   overflow-x: auto;

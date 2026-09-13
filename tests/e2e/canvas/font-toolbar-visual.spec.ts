@@ -22,11 +22,25 @@ async function startText(page: Page) {
   await expect(canvas).toBeVisible();
   const bounds = await canvas.boundingBox();
   if (!bounds) throw new Error('Canvas has no bounds');
-  // Use the rendered tool action so startup focus cannot swallow the shortcut.
+  // The responsive floating palette may move Text into its More tools menu
+  // when side panels consume the canvas width. Use the always-visible context
+  // bar action in that state so this visual test measures the text toolbar
+  // instead of assuming every tool is a direct child of the palette.
   const textTool = toolbarRoot.locator('[data-tool="text"]');
-  await textTool.waitFor({ state: 'visible', timeout: 15000 });
-  await textTool.click({ timeout: 15000 });
-  await page.mouse.click(bounds.x + 120, bounds.y + 160);
+  if (await textTool.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await textTool.click({ timeout: 15000 });
+  } else {
+    const contextText = page.getByRole('button', { name: 'Add text', exact: true });
+    await contextText.waitFor({ state: 'visible', timeout: 15000 });
+    await contextText.click({ timeout: 15000 });
+  }
+  // Dragging creates an area-text target and enters the same editing state a
+  // user gets when they size a text box; a single click only selects the new
+  // point-text node and leaves the formatting bar closed.
+  await page.mouse.move(bounds.x + 120, bounds.y + 160);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x + 360, bounds.y + 220);
+  await page.mouse.up();
   await page.keyboard.insertText('Typography in context');
   const toolbar = page.getByRole('toolbar', { name: 'Text formatting' });
   // Text creation and text editing are separate states on a cold canvas. If
@@ -35,9 +49,10 @@ async function startText(page: Page) {
   // the quick formatting bar.
   if (!(await toolbar.isVisible({ timeout: 1000 }).catch(() => false))) {
     const edit = page.getByRole('button', { name: 'Edit text', exact: true }).first();
-    if (await edit.isVisible({ timeout: 1000 }).catch(() => false)) await edit.click();
+    await edit.waitFor({ state: 'visible', timeout: 15000 });
+    await edit.click({ timeout: 15000 });
   }
-  await expect(toolbar).toBeVisible();
+  await expect(toolbar).toBeVisible({ timeout: 15000 });
   return toolbar;
 }
 

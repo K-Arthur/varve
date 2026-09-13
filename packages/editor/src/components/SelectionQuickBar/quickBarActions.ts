@@ -112,6 +112,11 @@ export async function dispatchQuickBarAction(
     case 'editText': {
       const id = deps.selection[0];
       if (!id) return;
+      // Keep the text interaction mode in sync with the editing surface. A
+      // selected text node can be edited from the quick bar while Select is
+      // still the active tool; leaving the tool unchanged makes the first
+      // caret click immediately leave editing and close the formatting bar.
+      deps.setTool('text');
       deps.setTextEditTargetId?.(id);
       return;
     }

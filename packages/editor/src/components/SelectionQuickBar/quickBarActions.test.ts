@@ -128,6 +128,7 @@ describe('dispatchQuickBarAction', () => {
   it('starts text edit for editText', async () => {
     const deps = makeDeps({ selection: ['t1'], selectedImageNode: null });
     await dispatchQuickBarAction('editText', deps);
+    expect(deps.setTool).toHaveBeenCalledWith('text');
     expect(deps.setTextEditTargetId).toHaveBeenCalledWith('t1');
   });
 
