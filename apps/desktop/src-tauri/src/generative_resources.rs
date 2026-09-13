@@ -32,10 +32,54 @@ fn parse_linux_available_memory(contents: &str) -> Option<u64> {
     })
 }
 
+/// Read a cgroup memory value. cgroup v2 uses `max` for an unlimited limit;
+/// treating that as absent lets the host's MemAvailable value remain the
+/// authority. Very large v1 sentinel values are also treated as unlimited.
+fn parse_cgroup_memory_value(contents: &str) -> Option<u64> {
+    let value = contents.trim();
+    if value == "max" {
+        return None;
+    }
+    let bytes = value.parse::<u64>().ok()?;
+    (bytes < (1 << 60)).then_some(bytes)
+}
+
+fn cgroup_available_memory(limit: &str, current: &str) -> Option<u64> {
+    let limit = parse_cgroup_memory_value(limit)?;
+    let current = parse_cgroup_memory_value(current)?;
+    limit.checked_sub(current)
+}
+
 #[cfg(target_os = "linux")]
 fn available_memory_bytes_impl() -> Option<u64> {
-    let contents = std::fs::read_to_string("/proc/meminfo").ok()?;
-    parse_linux_available_memory(&contents)
+    let host_available = std::fs::read_to_string("/proc/meminfo")
+        .ok()
+        .and_then(|contents| parse_linux_available_memory(&contents));
+
+    // Crostini and other sandboxed Linux environments may expose the host's
+    // MemAvailable while enforcing a smaller memory.max for the app. The
+    // effective budget is the lower of the host value and the current cgroup
+    // allowance. Try cgroup v2 first, then the legacy v1 mount.
+    let cgroup_available = [
+        ("/sys/fs/cgroup/memory.max", "/sys/fs/cgroup/memory.current"),
+        (
+            "/sys/fs/cgroup/memory/memory.limit_in_bytes",
+            "/sys/fs/cgroup/memory/memory.usage_in_bytes",
+        ),
+    ]
+    .into_iter()
+    .find_map(|(limit_path, current_path)| {
+        let limit = std::fs::read_to_string(limit_path).ok()?;
+        let current = std::fs::read_to_string(current_path).ok()?;
+        cgroup_available_memory(&limit, &current)
+    });
+
+    match (host_available, cgroup_available) {
+        (Some(host), Some(cgroup)) => Some(host.min(cgroup)),
+        (Some(host), None) => Some(host),
+        (None, Some(cgroup)) => Some(cgroup),
+        (None, None) => None,
+    }
 }
 
 #[cfg(target_os = "windows")]
@@ -138,7 +182,10 @@ pub(crate) fn preflight(width: u32, height: u32) -> Result<NativeResourceSnapsho
 
 #[cfg(test)]
 mod tests {
-    use super::{estimated_required_memory_bytes, parse_linux_available_memory, resource_tier};
+    use super::{
+        cgroup_available_memory, estimated_required_memory_bytes, parse_cgroup_memory_value,
+        parse_linux_available_memory, resource_tier,
+    };
 
     const GIB: u64 = 1024 * 1024 * 1024;
 
@@ -150,6 +197,24 @@ mod tests {
             parse_linux_available_memory(contents),
             Some(3_500_000 * 1024)
         );
+    }
+
+    #[test]
+    fn uses_the_effective_crostini_cgroup_budget() {
+        let host_available = 8 * GIB;
+        let cgroup_available =
+            cgroup_available_memory("2147483648\n", "536870912\n").expect("finite cgroup budget");
+        assert_eq!(cgroup_available, 1536 * 1024 * 1024);
+        assert_eq!(host_available.min(cgroup_available), cgroup_available);
+    }
+
+    #[test]
+    fn ignores_unlimited_and_malformed_cgroup_limits() {
+        assert_eq!(parse_cgroup_memory_value("max\n"), None);
+        assert_eq!(parse_cgroup_memory_value("9223372036854771712\n"), None);
+        assert_eq!(cgroup_available_memory("max", "1024"), None);
+        assert_eq!(cgroup_available_memory("not-a-number", "1024"), None);
+        assert_eq!(cgroup_available_memory("1024", "2048"), None);
     }
 
     #[test]
