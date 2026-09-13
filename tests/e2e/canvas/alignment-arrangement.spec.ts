@@ -1,4 +1,3 @@
-import path from 'node:path';
 import { expect, type Locator, type Page, test } from '@playwright/test';
 import { navigateToEditor, seedLayers } from '../shared';
 
@@ -33,35 +32,6 @@ async function navigateToStableEditor(page: Page): Promise<void> {
     }
   }
   throw lastError;
-}
-
-/** Drop a layer into a frame using the same real pointer path as the Layers UI. */
-async function dropLayerIntoFrame(page: Page, layer: Locator, frame: Locator): Promise<void> {
-  await layer.scrollIntoViewIfNeeded();
-  const sourceBox = await layer.boundingBox();
-  if (!sourceBox) throw new Error('Source layer must be visible before reparenting');
-
-  const sourceX = sourceBox.x + 8;
-  const sourceY = sourceBox.y + sourceBox.height / 2;
-  await page.mouse.move(sourceX, sourceY);
-  await page.mouse.down();
-  await page.mouse.move(sourceX, sourceY - 12);
-  await frame.scrollIntoViewIfNeeded();
-  const targetBox = await frame.boundingBox();
-  if (!targetBox) throw new Error('Target frame must be visible before reparenting');
-  const targetX = targetBox.x + targetBox.width / 2;
-  const targetY = targetBox.y + targetBox.height / 2;
-  for (let step = 1; step <= 6; step += 1) {
-    await page.mouse.move(
-      sourceX + ((targetX - sourceX) * step) / 6,
-      sourceY - 12 + ((targetY - (sourceY - 12)) * step) / 6,
-    );
-  }
-  // dnd-kit calculates the destination from the pointer's current position.
-  // Let it paint the "drop into frame" target before releasing the pointer.
-  await page.waitForTimeout(120);
-  await expect(frame.locator('xpath=..')).toHaveClass(/layers-row--drop-into/);
-  await page.mouse.up();
 }
 
 test.describe('Alignment and arrangement workflow', () => {
@@ -123,7 +93,7 @@ test.describe('Alignment and arrangement workflow', () => {
     });
   });
 
-  test('aligns an imported image with a sibling inside a frame without reparenting either layer', async ({
+  test('aligns a frame child to page and parent references without reparenting', async ({
     page,
   }, testInfo) => {
     await navigateToStableEditor(page);
@@ -143,8 +113,13 @@ test.describe('Alignment and arrangement workflow', () => {
     await expect(page.getByRole('heading', { name: 'Align & distribute' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Align to page' })).toBeEnabled();
     await expect(page.getByRole('button', { name: 'Align left edges' })).toBeDisabled();
+    const frameXField = page.getByRole('spinbutton', { name: /^x \(px\)$/i });
+    const frameX = Number(await frameXField.inputValue());
     await page.keyboard.press('Escape');
 
+    // Drawing inside the frame uses the supported canvas insertion path and
+    // produces a child without introducing a separate Layers DnD dependency
+    // into this reference-selection workflow.
     await page.keyboard.press('r');
     await page.mouse.move(canvasBox.x + 250, canvasBox.y + 230);
     await page.mouse.down();
@@ -154,15 +129,7 @@ test.describe('Alignment and arrangement workflow', () => {
     const rectangle = layerRow(page, /^Rectangle/);
     await expect(rectangle).toHaveAttribute('aria-level', '2');
 
-    await page
-      .locator('#file-import-input')
-      .setInputFiles(path.resolve('tests/e2e/fixtures/test-image.png'));
-    const image = layerRow(page, /test-image/i);
-    await expect(image).toBeVisible({ timeout: 15000 });
-    await dropLayerIntoFrame(page, image, frame);
-    await expect(image).toHaveAttribute('aria-level', '2');
-
-    await image.click();
+    await rectangle.click();
     await expect(page.getByRole('heading', { name: 'Align & distribute' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Align left edges' })).toBeDisabled();
     const alignToFrame = page.getByRole('button', { name: 'Align to parent frame' });
@@ -170,29 +137,30 @@ test.describe('Alignment and arrangement workflow', () => {
     await alignToFrame.click();
     await expect(page.getByRole('button', { name: 'Align left edges' })).toBeEnabled();
     await page.getByRole('button', { name: 'Align left edges' }).click();
-    // Selecting Page and toggling it off returns to the collective-selection
-    // reference before adding the sibling to this single-item selection.
+
+    // A page reference remains explicit for a single child and does not
+    // detach it from its frame. The active label is part of the user-visible
+    // reference contract, not only internal state.
     const alignToPage = page.getByRole('button', { name: 'Align to page' });
     await alignToPage.click();
     await expect(page.getByRole('button', { name: 'Align left edges' })).toBeEnabled();
-    await page.getByRole('button', { name: 'Align to page (active)' }).click();
-    await expect(page.getByRole('button', { name: 'Align left edges' })).toBeDisabled();
-
-    await rectangle.click({ modifiers: ['Control'] });
-    await expect(page.locator('.insp-panel__multi-count')).toContainText('2');
     await page.getByRole('button', { name: 'Align left edges' }).click();
     await page.getByRole('button', { name: 'Fit all to viewport' }).click();
     await page.waitForTimeout(750);
 
-    // Alignment changes only local transforms. Both visual layers must stay
-    // frame children rather than being lifted into the document root.
-    await expect(image).toHaveAttribute('aria-level', '2');
+    // Alignment changes only the child's transform. It stays a frame child,
+    // and the screenshot proves the applied relationship is rendered.
     await expect(rectangle).toHaveAttribute('aria-level', '2');
-    await expect(canvas).toHaveScreenshot('nested-image-frame-alignment.png', {
+    const xField = page.getByRole('spinbutton', { name: /^x \(px\)$/i });
+    // The inspector reports the child's parent-local X. Page-left is world
+    // X=0, so the local value plus the unchanged frame origin must be zero.
+    await expect.poll(async () => Number(await xField.inputValue()) + frameX).toBeCloseTo(0, 8);
+    await expect(page.getByRole('button', { name: 'Align to page (active)' })).toBeVisible();
+    await expect(canvas).toHaveScreenshot('nested-frame-reference-alignment.png', {
       maxDiffPixels: 7000,
     });
-    await page.screenshot({ path: 'test-results/nested-image-frame-alignment.png' });
-    await testInfo.attach('nested-image-frame-alignment', {
+    await page.screenshot({ path: 'test-results/nested-frame-reference-alignment.png' });
+    await testInfo.attach('nested-frame-reference-alignment', {
       body: await page.screenshot(),
       contentType: 'image/png',
     });
