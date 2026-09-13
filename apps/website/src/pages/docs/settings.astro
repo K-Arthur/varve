@@ -22,6 +22,8 @@ import { sitePath } from '../../lib/siteUrl';
         </p>
         <ul>
           <li><strong>Appearance</strong> — Theme, grid, and snap preferences</li>
+          <li><strong>Drawing Input</strong> — Finger ownership, wheel policy, sensitivity, and optional mouse-wheel continuation</li>
+          <li><strong>Performance</strong> — Interactive preview quality, diagnostics, and platform capability checks</li>
           <li><strong>Export</strong> — Default export format, scale, ICC profile, bleed, and text outlining</li>
           <li><strong>Updates</strong> — Update consent, channel, and install-on-quit preferences on supported desktop builds</li>
         </ul>
@@ -110,6 +112,38 @@ import { sitePath } from '../../lib/siteUrl';
         <h3>Canvas Mode</h3>
         <p>
           The default canvas mode on startup: Full (all fills and effects), Outline (structure-only), or Preview (clean display).
+        </p>
+      </section>
+
+      <section class="docs-section" data-testid="navigation-settings-help">
+        <h2>Navigation and rendering settings</h2>
+        <h3>Drawing Input</h3>
+        <p>
+          The default wheel policy uses an unmodified wheel for canvas pan and
+          Ctrl/Cmd+wheel for pointer-centred zoom. Choose <strong>Always pan</strong> or
+          <strong>Always zoom</strong> when your mouse, trackpad, or WebView reports a gesture
+          differently. The sensitivity control changes the normalized CSS-pixel travel and
+          accepts fractional values from 0.25&times; to 4&times;.
+        </p>
+        <p>
+          Optional detented mouse-wheel continuation is deliberately separate from trackpad
+          momentum. Trackpad and ambiguous pixel streams remain direct-only so the editor does
+          not add a second momentum tail. These preferences affect the view only: they never
+          change artwork, selection, dirty state, or undo history.
+        </p>
+
+        <h3>Performance</h3>
+        <p>
+          <strong>Automatic</strong> interactive preview lets the renderer choose a bounded
+          movement quality from observed frame pressure and restores authoritative resolution
+          after the gesture settles. <strong>Full resolution</strong> keeps navigation at the
+          full device-pixel target when the document and hardware can sustain it. Neither choice
+          changes saved artwork, hit testing, export, or print output.
+        </p>
+        <p>
+          The diagnostics and platform capability report are opt-in and local. They show the
+          active backend, frame age/cadence, queue state, preview tier, and fallback reason
+          without collecting artwork or persistent hardware identifiers.
         </p>
       </section>
 
