@@ -60,6 +60,36 @@ async function surfaceHash(page: import('@playwright/test').Page): Promise<numbe
 }
 
 /**
+ * The editor can briefly return to Home while the newly-created document is
+ * being opened. Confirm the actual canvas interaction surface before the
+ * nudge fixture starts, and retry only that navigation if the hand-off loses
+ * the editor shell.
+ */
+async function navigateToStableEditor(page: import('@playwright/test').Page): Promise<void> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await navigateToEditor(page, '/?perf=1', { startupTimeout: 90_000 });
+      await page.locator('.editor-shell').waitFor({ state: 'visible', timeout: 30_000 });
+      await page.locator('canvas.editor-canvas__content-layer').waitFor({
+        state: 'visible',
+        timeout: 30_000,
+      });
+      await page.waitForTimeout(500);
+      await expect(page.locator('.editor-shell')).toBeVisible({ timeout: 5000 });
+      await expect(page.locator('canvas.editor-canvas__content-layer')).toBeVisible({
+        timeout: 5000,
+      });
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt < 2) await page.waitForTimeout(250);
+    }
+  }
+  throw lastError;
+}
+
+/**
  * Create a single rect at a fixed position and select it.
  */
 async function createRect(page: import('@playwright/test').Page) {
@@ -81,7 +111,7 @@ test.describe('Nudge transaction resilience', () => {
     await page.setViewportSize(VIEWPORT);
     // The perf query exposes forceFullRedraw so a nudge can be checked
     // against an authoritative renderer replay in the multi-selection test.
-    await navigateToEditor(page, '/?perf=1');
+    await navigateToStableEditor(page);
   });
 
   test('arrow key nudges a selected node', async ({ page }) => {
