@@ -5,6 +5,7 @@ import {
   extractBoundedContext,
 } from '../contentAwareFill/contextExtraction';
 import { prepareDiffusionFrame } from './diffusionFrame';
+import { runDeterministicExpandFallback } from './expandFallback';
 import { NATIVE_GENERATIVE_MODEL_PROFILE } from './nativeModel';
 import { nativeGenerativeProvider } from './nativeProvider';
 import { assessGenerativeEditResources, getGenerativeEditResourceProfile } from './resourcePolicy';
@@ -73,7 +74,10 @@ function localCapabilities(): GenerativeEditCapabilities {
     fill: true,
     remove: true,
     replace: promptCapable,
-    expand: promptCapable,
+    // Promptless expansion uses the same deterministic reconstruction path
+    // as Remove. Prompt-conditioned expansion remains gated by the native
+    // diffusion provider below.
+    expand: true,
     prompt: promptCapable,
     variations: promptCapable,
     modes: {
@@ -103,14 +107,15 @@ function localCapabilities(): GenerativeEditCapabilities {
         reason: unavailablePromptReason,
       }),
       expand: modeCapabilities({
-        available: promptCapable,
-        ready: false,
+        // Promptless expansion is a deterministic local reconstruction and is
+        // useful on every supported runtime. Prompt-conditioned expansion is
+        // still separately gated by the provider's prompt capability/model.
+        available: true,
+        ready: true,
         prompt: promptCapable,
         variations: promptCapable,
-        supportedParameters: promptCapable ? diffusionParameters : [],
+        supportedParameters: promptCapable ? diffusionParameters : reconstructionParameters,
         limits: promptCapable ? NATIVE_LIMITS : BROWSER_LIMITS,
-        reasonCode: promptCapable ? 'model-required' : 'runtime-unavailable',
-        reason: unavailablePromptReason,
       }),
     },
     resourceProfile,
@@ -213,7 +218,7 @@ export async function runGenerativeEdit(
   }
   const requiresDiffusion =
     request.mode === 'replace' ||
-    request.mode === 'expand' ||
+    (request.mode === 'expand' && promptRequested) ||
     (request.mode === 'fill' && promptRequested);
   const workingRegion = computeBoundedContextRegion(
     request.imageData.width,
@@ -324,6 +329,45 @@ export async function runGenerativeEdit(
       'prompt-unavailable',
       'Prompt conditioning requires the packaged desktop diffusion provider.',
     );
+  }
+  if (request.mode === 'expand') {
+    if (
+      request.maskWidth !== request.imageData.width ||
+      request.maskHeight !== request.imageData.height ||
+      (request.maskOffsetX ?? 0) !== 0 ||
+      (request.maskOffsetY ?? 0) !== 0
+    ) {
+      throw new GenerativeEditError(
+        'invalid-mask',
+        'Expand requires a full-frame mask aligned with the expanded output frame.',
+      );
+    }
+    const expanded = await runDeterministicExpandFallback({
+      imageData: request.imageData,
+      mask: request.mask,
+      quality: mapQuality(request.quality),
+      contextPadding: request.contextPadding,
+      seed: request.seed,
+      signal: request.signal,
+      onProgress: (progress) => request.onProgress?.({ stage: 'generating', progress }),
+      modelPath: request.modelPath,
+      modelId: request.modelId,
+    });
+    if (request.signal?.aborted) throw new GenerativeEditError('cancelled', 'cancelled');
+    if (request.isCurrent && !request.isCurrent()) {
+      throw new GenerativeEditError('stale', 'The source changed while generation was running.');
+    }
+    return {
+      imageData: expanded.imageData,
+      width: expanded.width,
+      height: expanded.height,
+      filledBounds: expanded.filledBounds,
+      mode: request.mode,
+      quality: request.quality,
+      provider: providerFor(expanded),
+      processingTimeMs: performance.now() - startTime,
+      warnings: [...warnings, ...expanded.warnings],
+    };
   }
   if (mapQuality(request.quality) === 'ai' && !request.modelPath) {
     throw new GenerativeEditError(

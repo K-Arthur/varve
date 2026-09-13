@@ -40,7 +40,7 @@ describe('generative edit capabilities', () => {
       fill: true,
       remove: true,
       replace: false,
-      expand: false,
+      expand: true,
       prompt: false,
     });
     expect(capabilities.modes.remove).toMatchObject({
