@@ -296,26 +296,29 @@ function FontSizeInput({ value, onCommit }: { value: number; onCommit: (value: n
     } else setDraft(String(value));
   };
   return (
-    <input
-      type="number"
-      className="floating-text-bar__size-input"
-      value={draft}
-      aria-label="Font size"
-      min={1}
-      max={10000}
-      step={1}
-      onChange={(event) => setDraft(event.target.value)}
-      onBlur={commit}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter') {
-          event.preventDefault();
-          event.currentTarget.blur();
-        } else if (event.key === 'Escape' && draft !== String(value)) {
-          event.preventDefault();
-          event.stopPropagation();
-          setDraft(String(value));
-        }
-      }}
-    />
+    <label className="floating-text-bar__size-control">
+      <span className="floating-text-bar__field-label">Size</span>
+      <input
+        type="number"
+        className="floating-text-bar__size-input"
+        value={draft}
+        aria-label="Font size"
+        min={1}
+        max={10000}
+        step={1}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            event.currentTarget.blur();
+          } else if (event.key === 'Escape' && draft !== String(value)) {
+            event.preventDefault();
+            event.stopPropagation();
+            setDraft(String(value));
+          }
+        }}
+      />
+    </label>
   );
 }

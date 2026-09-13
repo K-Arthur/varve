@@ -104,6 +104,7 @@ describe('FloatingTextBar', () => {
     const size = screen.getByLabelText('Font size') as HTMLInputElement;
     expect(size).toBeInTheDocument();
     expect(size.value).toBe('16');
+    expect(screen.getByText('Size')).toBeInTheDocument();
   });
 
   it('renders align buttons', async () => {
