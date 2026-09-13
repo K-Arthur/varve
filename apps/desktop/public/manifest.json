@@ -33,5 +33,14 @@
       "type": "image/png",
       "purpose": "maskable"
     }
+  ],
+  "file_handlers": [
+    {
+      "action": "./",
+      "accept": {
+        "application/json": [".varve", ".strata"]
+      },
+      "launch_type": "single-client"
+    }
   ]
 }

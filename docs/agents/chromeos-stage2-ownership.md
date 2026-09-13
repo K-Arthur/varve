@@ -124,6 +124,11 @@ Delivered on `master`:
   is unavailable, and a canonical browser route section in
   `docs/architecture/filesystem-boundary.md` covering Files app/Drive,
   removable media, shared files, and data-deletion semantics.
+- Recent-files rebinding and PWA file launch: Open Recent binds the stored
+  handle (Save writes back, no re-prompt), and the installed demo can open
+  `.varve`/`.strata` from the Files app through `file_handlers` +
+  `launchQueue`, with the launched handle adopted as the save destination.
+  Covered by `try-launch.spec.ts` and `browserFileLaunch.test.ts`.
 
 Explicit remaining gaps (detailed in the audit): Duet device evidence,
 support-matrix promotion, and a docs-index entry for the new guide (that file

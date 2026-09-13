@@ -658,6 +658,17 @@ export interface EditorState {
   };
 }
 
+/** Save-destination binding applied when a browser file handle is opened
+ *  rather than chosen in this session (File → Open Recent, or a file
+ *  launched from the OS/Files-app association). The handle id refers to the
+ *  platform's handle store; the hash is the content the handle pointed at
+ *  when it was read, so the first save can detect an external change. */
+export interface OpenFileBinding {
+  saveHandleId: string;
+  saveHandleName?: string;
+  diskContentHash?: string;
+}
+
 export interface EditorContextValue {
   state: EditorState;
   platform?: Platform;
@@ -998,6 +1009,9 @@ export interface EditorContextValue {
     json: string | null,
     /** True when the app-managed library is the authoritative save target. */
     libraryStorage?: boolean,
+    /** Bind an already-open browser file handle as this document's save
+     *  destination (Open Recent / launched file). Ignored by other routes. */
+    binding?: OpenFileBinding,
   ) => void;
   rootNodes: () => SceneNode[];
   reparentNode: (id: NodeId, newParentId: NodeId | null, toIndex: number) => void;

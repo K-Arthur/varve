@@ -147,6 +147,7 @@ export {
   STORE_VERSIONS,
   STORE_WORKSPACES,
 } from './web-db';
+export { adoptBrowserFileHandle } from './web-save';
 export type {
   ButtonLayout,
   ControlsPosition,

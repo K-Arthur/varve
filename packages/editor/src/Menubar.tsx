@@ -1,5 +1,6 @@
 // COMPLEXITY: 275 cyclo (over ceiling 200) — see Phase 5 of architecture-health-remediation-2026-07-26.md
 
+import { adoptBrowserFileHandle, contentHash } from '@varve/platform';
 import { VARVE_URLS } from '@varve/shared';
 import {
   AlertDialog,
@@ -2068,7 +2069,24 @@ export function Menubar({
           }
           const file = await handle.getFile();
           const text = await file.text();
-          openFile(undefined, entry.label, undefined, text);
+          // Bind the stored handle so Save writes back to the file the user
+          // picked instead of re-prompting. Opening used to discard the
+          // handle, leaving Recent a read-only snapshot with no destination.
+          let binding:
+            | { saveHandleId: string; saveHandleName: string; diskContentHash: string }
+            | undefined;
+          try {
+            binding = {
+              saveHandleId: await adoptBrowserFileHandle(handle, file.name),
+              saveHandleName: file.name,
+              // Baseline for the external-change guard: a later save refuses
+              // to overwrite a file that changed since this read.
+              diskContentHash: contentHash(text),
+            };
+          } catch {
+            // The document still opens; the first save asks for a location.
+          }
+          openFile(undefined, entry.label, undefined, text, undefined, binding);
         } catch (err) {
           if (err instanceof DOMException && err.name === 'NotFoundError') {
             setMissingFileDialog({
@@ -2351,7 +2369,7 @@ export function Menubar({
             <FloatingPortal
               key={openMenu}
               anchorRef={openMenuAnchorRef}
-              explicitAnchor={
+              anchor={
                 topLevelRefs.current[openMenuIndex]
                   ? elementAnchor(topLevelRefs.current[openMenuIndex]!)
                   : undefined

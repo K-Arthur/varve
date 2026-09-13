@@ -20,6 +20,8 @@ import {
 } from '@varve/editor';
 import { HomeShell } from '@varve/home';
 import {
+  adoptBrowserFileHandle,
+  contentHash,
   createWebPlatform,
   detectPlatform,
   displayNameFromPath,
@@ -33,6 +35,7 @@ import { TitleBar } from './chrome/TitleBar';
 import { DemoBanner } from './demo/DemoBanner';
 import { useDemoEntry } from './demo/useDemoEntry';
 import { installNativeLifecycleBridge } from './lifecycle/nativeLifecycleBridge';
+import { armBrowserFileLaunch, type LaunchedBrowserFile } from './startup/browserFileLaunch';
 import { armOsFileOpen } from './startup/osFileOpen';
 import { revealMainWindow } from './startup/revealMainWindow';
 import { TauriUpdateProvider } from './updates/tauriUpdateProvider';
@@ -370,13 +373,19 @@ export function App() {
 
   // Commit an open with content already in hand (shared by the normal open
   // path and the demo's direct path) so editor-mount and startup milestones
-  // are identical everywhere.
+  // are identical everywhere. `binding` carries a browser file-handle
+  // destination when the open came from a stored/launched handle.
   const commitOpen = useCallback(
-    (entry: { id: string; name: string }, json: string) => {
+    (
+      entry: { id: string; name: string },
+      json: string,
+      binding?: { saveHandleId: string; saveHandleName?: string; diskContentHash?: string },
+    ) => {
       setOpenRequest((prev) => ({
         id: entry.id,
         name: entry.name,
         json,
+        ...(binding ?? {}),
         seq: (prev?.seq ?? 0) + 1,
       }));
       markEditorStateInitialized();
@@ -396,6 +405,41 @@ export function App() {
     },
     [markEditorStateInitialized, measure, onEditorReady],
   );
+
+  /**
+   * Browser/PWA file-association intake (`file_handlers`). When the installed
+   * app is chosen to open a `.varve`/`.strata` file, adopt the handle as the
+   * session's save destination (with a content-hash baseline) and open the
+   * document through the normal entry path. Unsupported browsers and the
+   * uninstalled page never reach the handler.
+   */
+  const handleBrowserFileLaunch = useCallback(
+    async (file: LaunchedBrowserFile) => {
+      const name = file.name.replace(/\.(varve|strata)$/i, '') || file.name;
+      let binding:
+        | { saveHandleId: string; saveHandleName?: string; diskContentHash?: string }
+        | undefined;
+      try {
+        binding = {
+          saveHandleId: await adoptBrowserFileHandle(file.handle, file.name),
+          saveHandleName: file.name,
+          diskContentHash: contentHash(file.text),
+        };
+      } catch {
+        // The document still opens; the first save asks for a location.
+      }
+      commitOpen({ id: crypto.randomUUID(), name }, file.text, binding);
+    },
+    [commitOpen],
+  );
+
+  useEffect(() => {
+    let dispose: (() => void) | undefined;
+    void armBrowserFileLaunch(handleBrowserFileLaunch).then((disposeLaunch) => {
+      dispose = disposeLaunch;
+    });
+    return () => dispose?.();
+  }, [handleBrowserFileLaunch]);
 
   // Browser-demo entry (/try): seed the sample document and open it directly
   // instead of the Home-first boot. Desktop and non-demo URLs are no-ops.

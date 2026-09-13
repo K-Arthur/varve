@@ -89,6 +89,7 @@ test results. Nothing here is a device measurement claim.
 | Storage manager | Settings → Storage & Offline: usage/quota estimates labelled as estimates, persistence status with a click-to-request action, recovery-copy count/size, offline app-copy count, and a destructive-confirm "Clear offline app copies" that is prefix-gated to `varve-demo-shell-*` and cannot touch documents or recovery data, plus the profile-deletion warning | `packages/editor/src/persistence/storageInventory.ts`, `components/Settings/StorageSettingsTab.tsx`, `SettingsDialog.tsx`, `SettingsContext.tsx` |
 | Cross-tab autosave safety | Autosave writes acquire a per-document Web Lock and skip the write when the stored record is newer than this tab's last write, so a background autosave can never silently replace another editor's later work; skipped writes stay dirty and keep their recovery copies | `packages/editor/src/persistence/crossTabWrite.ts`, `context/useAutoBackupServices.ts` |
 | Browser file-handle safety (ChromeOS) | Browser saves now carry the session's content hash (`expectedContentHash`); the writer re-reads the picked file and refuses to overwrite when it changed outside the session (Drive sync, another app/device, remounted media). Handles also survive IndexedDB being unavailable (private mode/blocked storage) by falling back to an in-memory handle, so the session can still save | `packages/platform/src/web-save.ts`, `types.ts`, `packages/editor/src/persistence/saveTypes.ts`, `context/usePersistence.ts` |
+| Recent-files rebinding + file launch | Open Recent adopts the stored browser handle and its content hash, and the demo manifest declares `.varve`/`.strata` `file_handlers`; `launchQueue` launches open as documents with the handle bound for saving. `openFile` gained an optional binding applied to reused/new tabs; the launch intake is `apps/desktop/src/startup/browserFileLaunch.ts` | `packages/editor/src/Menubar.tsx`, `Shell.tsx`, `context.tsx`, `context/types.ts`, `apps/desktop/src/App.tsx`, `startup/browserFileLaunch.ts`, `apps/desktop/public/manifest.json`, `packages/platform/src/web-save.ts`, `index.ts` |
 | Browser filesystem contract | `docs/architecture/filesystem-boundary.md` now documents the browser route as a first-class boundary: ownership, storage map, path taxonomy, safety contracts, ChromeOS specifics (Files app/Drive, removable media, shared files, data deletion, Crostini separation), and the remaining follow-ups | `docs/architecture/filesystem-boundary.md` |
 | Chromebook file guidance | New "Files on a Chromebook" section in the Browser Demo & Offline guide (Files app, Drive, offline pinning, removable media, read-only files, data deletion, private windows, Linux container separation) | `apps/website/src/pages/docs/browser-demo.astro` |
 | Acceptance coverage | New opt-in spec for a served production artifact: partial-cache fallback page, offline launch after verified setup, and offer-then-activate service-worker update | `tests/e2e/browser/try-pwa.spec.ts` |
@@ -161,6 +162,30 @@ pnpm exec playwright test tests/e2e/browser/try-demo.spec.ts \
   headline, subtitle, shapes, and outline clipped correctly to the frame, and
   the layers panel shows `Poster` (level 1) with nine level-2 children.
 
+- File-launch and Recent rebinding acceptance (same artifact, staged in the
+  repo's gitignored `.tmp/` because the shared `/tmp` tmpfs was full):
+
+```text
+VARVE_E2E_PORT=1494 VARVE_DEMO_DIST_URL=http://127.0.0.1:1492 \
+VARVE_DEMO_DIST_DIR=<repo>/.tmp/stage2-serve \
+VARVE_E2E_OUTPUT_DIR=run-stage2-launch2 \
+pnpm exec playwright test tests/e2e/browser/try-launch.spec.ts \
+  tests/e2e/browser/try-pwa.spec.ts --project=chromium --workers=1 --reporter=list
+
+✓ a launched .varve opens and saves through its handle (6.2 s)
+✓ PWA fallback / offline relaunch / update (3 tests)
+4 passed (53.6 s)
+```
+
+  An OS launch cannot be reproduced headlessly, so the spec installs the same
+  `LaunchParams` + `launchQueue` surface Chrome provides, delivers a real
+  sample `.varve`, and then proves the save binding: `Ctrl+S` made no save
+  picker call and no download, the handle's writable received the encoded
+  document, and the status reached `Saved`. Recent-files rebinding uses the
+  same `openFile(..., binding)` path. Unit coverage for the launch decoder is
+  `apps/desktop/src/startup/browserFileLaunch.test.ts` (3 tests) and for the
+  handle guard `packages/platform/src/__tests__/webSaveHandle.test.ts` (3).
+
 Visual inspection (screenshots read during this session, stored under
 `/tmp/varve-chromeos-stage2-visual-*` and `/tmp/varve-chromeos-stage2-export*`):
 
@@ -213,13 +238,13 @@ exercises the in-memory handle path that private/blocked storage produces.
    pressure).
 6. The docs index (`/docs`) now links the Browser Demo & Offline guide under
    Getting Started; the earlier handoff is resolved.
-7. Browser route file parity: sessions that bound a destination are protected
-   by the content-hash guard, but opening a document from Recent Files still
-   discards the stored handle, so the next Save asks for a location again.
-   Rebinding the handle on open is a handoff to the Recent/Menubar owner;
-   `file_handlers` (opening a `.varve` from the Files app) remains a
-   documented progressive-enhancement follow-up. Both are recorded in
-   `docs/architecture/filesystem-boundary.md`.
+7. Browser route file parity is complete at the app level: opening from
+   Recent Files binds the stored handle, and the manifest's `file_handlers`
+   entry opens launched `.varve`/`.strata` files with the handle adopted as
+   the save destination. The remaining gap is device verification of the
+   Files-app association and Drive-backed handles (no Duet attached); the
+   app-side contract is covered by the `try-launch` acceptance spec and the
+   browser filesystem section in `docs/architecture/filesystem-boundary.md`.
 
 ## 8. Next smallest verification step
 

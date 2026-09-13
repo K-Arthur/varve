@@ -84,6 +84,24 @@ async function storeSaveHandle(handle: FileSystemFileHandle, name: string): Prom
   return handleId;
 }
 
+/**
+ * Adopt a live File System Access handle as a session save target and return
+ * the handle id the editor stores in its session metadata.
+ *
+ * Used when the handle is already in hand but was not produced by the save
+ * picker: opening a document from the recent-files store, or a file launched
+ * from the OS/PWA Files-app association. Keeping this in the platform layer
+ * means those flows reuse the same persistence, permission, and
+ * external-change machinery as Save As. When IndexedDB is unavailable the
+ * handle is kept in memory for the session (private mode / blocked storage).
+ */
+export async function adoptBrowserFileHandle(
+  handle: FileSystemFileHandle,
+  name: string,
+): Promise<string> {
+  return storeSaveHandle(handle, name);
+}
+
 async function loadSaveHandle(handleId: string): Promise<FileSystemFileHandle | undefined> {
   try {
     const db = await openHandleDb();

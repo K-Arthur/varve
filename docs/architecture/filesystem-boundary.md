@@ -213,18 +213,28 @@ hidden from the user's own file manager.
   container is not shared with the browser's origin storage; see
   `docs/release/chromeos-linux.md`.
 
+### Implemented (browser route, 2026-09-12)
+
+- **Recent-files rebinding.** Opening a document from the browser recent-files
+  store reads its persisted handle, adopts it through
+  `adoptBrowserFileHandle`, and opens the document with a
+  `saveHandleId` + `diskContentHash` binding. `Save` writes back to the file
+  the user originally picked instead of re-prompting; the external-change
+  guard is armed from the first read.
+- **`file_handlers` launch.** The demo manifest declares `.varve`/`.strata`
+  handlers, and `startup/browserFileLaunch.ts` consumes `launchQueue`
+  launches when the app is installed. A launched file opens as its own
+  document, its handle is adopted as the save destination, and its content
+  hash seeds the external-change guard. Unsupported browsers and the
+  uninstalled page report unsupported and show nothing.
+
 ### Known follow-ups (browser route)
 
-- **Recent-files rebinding.** The browser recent-files flow reads a stored
-  handle and opens the document content, but the session does not adopt the
-  handle as its save target, so the next Save asks for a location again. The
-  handle guard above protects sessions that bound a destination; rebinding on
-  open is the remaining parity gap.
-- **`file_handlers` launch** (opening a `.varve` from the Files app) is
-  researched but not implemented; it requires an installed app and per-launch
-  permission, so it remains a progressive enhancement.
 - **OPFS staging** for very large temporary work is unused; documents are
   bounded by origin quota and the editor's own raster policies.
+- **Device verification** of Files-app association, Drive-backed handles, and
+  permission prompts on ChromeOS still requires the reference device; the
+  app-side contract above is covered by the `try-launch` acceptance spec.
 
 ## Known follow-up slices
 

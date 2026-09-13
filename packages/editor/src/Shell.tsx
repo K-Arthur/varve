@@ -112,6 +112,11 @@ export interface OpenFileRequest {
   json: string | null;
   /** True when the request came from the app-managed Home library. */
   libraryStorage?: boolean;
+  /** Browser file-handle binding (Open Recent / launched file) so Save writes
+   *  back to the file instead of re-prompting. */
+  saveHandleId?: string;
+  saveHandleName?: string;
+  diskContentHash?: string;
   seq: number;
 }
 
@@ -316,6 +321,13 @@ function ShellInner({
       openFile.filePath,
       openFile.json,
       openFile.libraryStorage,
+      openFile.saveHandleId
+        ? {
+            saveHandleId: openFile.saveHandleId,
+            saveHandleName: openFile.saveHandleName,
+            diskContentHash: openFile.diskContentHash,
+          }
+        : undefined,
     );
   }, [openFile, editor]);
   const fileRef = useRef<HTMLInputElement>(null);

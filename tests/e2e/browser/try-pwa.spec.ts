@@ -170,19 +170,29 @@ test.describe('browser demo PWA acceptance (built artifact)', () => {
       await expect(page.locator('[data-varve-editor-ready="true"]')).toBeVisible();
 
       await banner.getByRole('button', { name: /update and reload/i }).click();
-      await page.waitForLoadState('domcontentloaded');
-      await waitForEditorReady(page);
 
+      // Activation happens asynchronously; the page then reloads via
+      // controllerchange. A poll that runs during that navigation would lose
+      // its execution context, so treat a destroyed context as "not yet" and
+      // keep polling until the updated worker has activated.
       await expect
         .poll(
-          () =>
-            page.evaluate(async (marker: string) => {
-              const names = await caches.keys();
-              return names.includes(marker);
-            }, UPDATE_MARKER_CACHE),
+          async () => {
+            try {
+              return await page.evaluate(async (marker: string) => {
+                const names = await caches.keys();
+                return names.includes(marker);
+              }, UPDATE_MARKER_CACHE);
+            } catch {
+              // Navigation in progress (reload after activation).
+              return false;
+            }
+          },
           { timeout: 60000, message: 'the updated worker should activate after consent' },
         )
         .toBe(true);
+
+      await waitForEditorReady(page);
     } finally {
       writeFileSync(servedWorkerPath, originalWorker);
     }

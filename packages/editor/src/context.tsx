@@ -451,6 +451,7 @@ import type {
   InspectorTab,
   IntelligenceTab,
   LoadDocumentMeta,
+  OpenFileBinding,
   PersistentHistoryApi,
   RulerMode,
   SelectionOrigin,
@@ -1268,6 +1269,7 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
     filePath: string | undefined,
     json: string | null,
     libraryStorage?: boolean,
+    binding?: OpenFileBinding,
   ) => void;
   /** Visible root-level nodes in paint order (layers panel, IR). */
   rootNodes: () => SceneNode[];
@@ -8820,6 +8822,7 @@ export function EditorProvider({
         filePath: string | undefined,
         json: string | null,
         libraryStorage?: boolean,
+        binding?: OpenFileBinding,
       ) => {
         // Parse up front; null/invalid json = fresh blank document (new file).
         let doc: Document;
@@ -8940,7 +8943,14 @@ export function EditorProvider({
               dirty: false,
               sessions: s.sessions.map((sess) =>
                 sess.id === s.activeId
-                  ? { ...sess, name, filePath, fileId, libraryStorage: libraryStorage || undefined }
+                  ? {
+                      ...sess,
+                      name,
+                      filePath,
+                      fileId,
+                      libraryStorage: libraryStorage || undefined,
+                      ...(binding ?? {}),
+                    }
                   : sess,
               ),
               activeId: s.activeId,
@@ -8965,6 +8975,7 @@ export function EditorProvider({
                 filePath,
                 fileId,
                 libraryStorage: libraryStorage || undefined,
+                ...(binding ?? {}),
               },
             ],
             activeId: newId,
