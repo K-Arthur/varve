@@ -2036,10 +2036,10 @@ pnpm exec tsc -p packages/import/tsconfig.json --noEmit --pretty false
 passed
 
 VITE_CONFIG_NATIVE_IGNORE_WARNING=true VARVE_TEST_WORKERS=1 pnpm exec vitest run packages/import/src/psd-mask.test.ts packages/import/src/psd.test.ts packages/import/src/format-honesty.test.ts --maxWorkers=1 --reporter=dot
-36 tests passed
+37 tests passed
 
 VITE_CONFIG_NATIVE_IGNORE_WARNING=true VARVE_TEST_WORKERS=1 pnpm exec vitest run packages/import/src --maxWorkers=1 --reporter=dot
-31 files, 365 tests passed
+31 files, 366 tests passed
 
 VITE_CONFIG_NATIVE_IGNORE_WARNING=true VARVE_E2E_PORT=1635 VARVE_E2E_WORKERS=1 VARVE_E2E_OUTPUT_DIR=import-format-visual-2026-09-12-final-chromium pnpm exec playwright test tests/e2e/canvas/import-format-smoke.spec.ts --project=chromium --workers=1 --reporter=list
 2 passed (1.0m)
