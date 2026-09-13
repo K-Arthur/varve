@@ -49,6 +49,7 @@ import { GuideOverlay } from './GuideOverlay/GuideOverlay';
 import { KnifeHoverOverlay } from './KnifeHoverOverlay';
 import { MeshWarpOverlay } from './MeshWarpOverlay';
 import { MotionPathOverlay } from './MotionPathOverlay';
+import { NodeEditControls } from './NodeEditControls';
 import { NodeEditOverlay } from './NodeEditOverlay';
 import { OnionSkinOverlay } from './OnionSkinOverlay';
 import { PageLayoutOverlay } from './PageLayoutOverlay';
@@ -100,6 +101,7 @@ export interface CanvasOverlaysProps {
   snapGuides: SnapGuide[];
   nodeEditTargetId: string | null;
   nodeEditSelectedAnchors: ReadonlySet<number>;
+  setNodeEditSelectedAnchors: (anchors: ReadonlySet<number>) => void;
   textEditTargetId: string | null;
   newTextEditTargetRef: React.MutableRefObject<NodeId | null>;
   setTextEditTargetId: (id: string | null) => void;
@@ -141,6 +143,7 @@ export function CanvasOverlays({
   snapGuides,
   nodeEditTargetId,
   nodeEditSelectedAnchors,
+  setNodeEditSelectedAnchors,
   textEditTargetId,
   newTextEditTargetRef,
   setTextEditTargetId,
@@ -681,7 +684,20 @@ export function CanvasOverlays({
             selectedAnchors={nodeEditSelectedAnchors}
             zoom={zoom}
             pan={pan}
+            cameraRotation={cameraRotation}
+            viewport={canvasSize}
             worldTransform={nodeEditWorldMat}
+          />
+        )}
+      {tool === 'nodeEdit' &&
+        nodeEditNode?.kind === 'shape' &&
+        nodeEditNode.shape.kind === 'path' &&
+        scopedNodeEditTargetId && (
+          <NodeEditControls
+            targetId={scopedNodeEditTargetId}
+            selectedAnchors={nodeEditSelectedAnchors}
+            setSelectedAnchors={setNodeEditSelectedAnchors}
+            setTargetId={setNodeEditTargetId}
           />
         )}
       <SelectionOverlay canvasRef={contentCanvasRef} />

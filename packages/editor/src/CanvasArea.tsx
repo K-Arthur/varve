@@ -1437,6 +1437,7 @@ export function CanvasArea({
         snapGuides={snapGuides}
         nodeEditTargetId={nodeEditTargetId}
         nodeEditSelectedAnchors={nodeEditSelectedAnchors}
+        setNodeEditSelectedAnchors={setNodeEditSelectedAnchors}
         textEditTargetId={textEditTargetId}
         newTextEditTargetRef={newTextEditTargetIdRef}
         setTextEditTargetId={setTextEditTargetId}
