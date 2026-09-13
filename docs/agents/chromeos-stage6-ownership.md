@@ -99,3 +99,31 @@ to this session; the Stage 1–5 device checklists remain the handoff.
   `features/canvas.astro`/`docs/tools/grids.astro`, the 12 pre-existing visual
   baseline failures, and the remaining sitewide glued-link occurrences on
   contact/press/licensing pages.
+
+## Stage 6 continuation — 2026-09-13
+
+**Task:** `chromeos-stage6-followup-2026-09-13`
+**Owner:** Codex (continuation on `master`)
+**Base SHA:** `17504583017a1abdd94741573636925bdc3b67ea`
+**Working tree:** shared `master`; unrelated paths remain owned by their
+existing agents and are not staged by this continuation.
+**Reserved validation resources:** website ports `4331`/`4332`; temporary
+captures under `/tmp/varve-chromeos-stage6-followup-*`.
+
+### Owned paths for this continuation
+
+- `apps/website/src/pages/product.astro`
+- `apps/website/src/pages/docs/chromeos-linux.astro`
+- `apps/website/tests/e2e/browser-demo.spec.ts`
+- `scripts/release/release-notes.mjs`
+- `scripts/release/verify-product-truth.mjs`
+- `docs/release/chromeos-linux.md`
+- this ownership record and the Stage 6 audit
+
+### Contract and handoff
+
+The continuation changes no editor, desktop runtime, manifest, updater key,
+deployment workflow, or public release asset. Release metadata remains
+read-only input. The production site was inspected but not deployed; the
+remaining handoff is an explicitly authorized deploy/cache check. Device
+support remains unpromoted until the Duet hardware checklist is completed.

@@ -178,3 +178,57 @@ notice, browser route, and manual chooser; install the web app from
 launcher, and edit/save/export the sample; record `chrome://version`, viewport,
 DPR, and storage estimate. Then repeat the Stage 2 and Stage 5 hardware
 checklists. Only that evidence can promote a tier.
+
+## 7. Follow-up research and production consistency (2026-09-13)
+
+This continuation was researched before the follow-up implementation. The
+sources below are evidence for the decision, not instructions to run unknown
+code. User reports from issue trackers are deliberately separated from vendor
+documentation: they identify failure patterns worth preventing, but they do
+not establish Varve or ChromeOS support.
+
+### 7.1 Focused research ledger
+
+| Question | Source URL / title | Publisher / access date | Applicable versions / platforms | Finding and confidence | Implementation consequence | Unresolved conflict |
+|---|---|---|---|---|---|---|
+| How should a below-the-fold video avoid consuming constrained-device bandwidth? | [Lazy-loading video](https://web.dev/articles/lazy-loading-video) | Google web.dev, updated 2026-07-02, accessed 2026-09-13 | Current Chromium and compatible browsers | `preload="none"` prevents a video from being preloaded; `loading="lazy"` can defer poster/metadata work; autoplay overrides preload. **High** | The product recording is user-controlled, uses a poster, and is `preload="none"`/lazy instead of starting when it enters the viewport. | Browser codec and preload behavior still varies; the regression test checks the current Chromium build only. |
+| What does a field Core Web Vitals claim require? | [Web Vitals](https://web.dev/articles/vitals) | Google web.dev, accessed 2026-09-13 | Current Chrome/CrUX | LCP ≤ 2.5 s, INP ≤ 200 ms, and CLS ≤ 0.1 are 75th-percentile targets; lab TBT is not field INP. **High** | Follow-up measurements are labeled lab observations and do not claim field performance or editor smoothness. | No consent-approved field telemetry exists, so there is no Varve field sample. |
+| What failures do users report when a browser editor is used on weak hardware or connections? | [Photopea #8018](https://github.com/photopea/photopea/issues/8018), [#5756](https://github.com/photopea/photopea/issues/5756), [#7275](https://github.com/photopea/photopea/issues/7275), [#5941](https://github.com/photopea/photopea/issues/5941), [#1066](https://github.com/photopea/photopea/issues/1066) | Photopea public issue tracker, accessed 2026-09-13 | Community reports; not platform certification | Reports include Chromebook/tablet lag, large request bursts/freezes, unbounded tab memory growth, huge-document save failures, and offline expectations not being met. **Low-to-medium signal confidence; individual causes are unverified** | Keep route guidance explicit, do not auto-download heavy media/models, state browser/offline prerequisites, distinguish explicit saves from recovery, and provide bounded escalation data. | Reports are anecdotal and product/version-specific; no numerical Varve limit is inferred from them. |
+| What touch/pen failures are visible in another canvas editor? | [Excalidraw #9603](https://github.com/excalidraw/excalidraw/issues/9603), [#9705](https://github.com/excalidraw/excalidraw/issues/9705), [#6474](https://github.com/excalidraw/excalidraw/issues/6474) | Excalidraw public issue tracker, accessed 2026-09-13 | Community reports across iOS/Chromebook touch devices | Reports include coordinate drift, missing palm rejection/gesture handling, slow input, many-element slowdown, and skipped Chromebook pen samples. **Low signal confidence; not reproduced here** | Keep the touch/pen guide explicit about unverified hardware behavior and preserve a no-pen/no-keyboard route; require a real-device pointer test before promoting support. | No user-agent or hardware emulation can prove USI Pen 2 or Duet behavior. |
+| Is the deployed website the same artifact as the Stage 6 source? | [Varve download page](https://varve.studio/download/), [Varve troubleshooting](https://varve.studio/support/troubleshooting/), [v0.2.1 release](https://github.com/K-Arthur/varve/releases/tag/v0.2.1), and the repository `release-manifest.json` | Varve production/GitHub/repository, accessed 2026-09-13 | Published v0.2.1 and current `master` source | The live download page still contains the old mobile/tablet block and the live troubleshooting page lacks the structured Stage 6 Chromebook entries. The direct v0.2.1 release is published, while its downloadable updater feed exists; the release prose still says updates are manual. **High for observed drift; feed target usability remains package-specific** | Do not claim deployment is complete. Reconcile the release-note generator and add source checks; request an authorized website deployment/cache validation separately. | A production deployment was not authorized in this task, and GitHub/Pages cache timing can change after publication. |
+
+### 7.2 Follow-up implementation consequence
+
+The previous Stage 6 table correctly described the product recording as an
+intersection-observed autoplay. That was still unnecessary work for a marketing
+page: it could start a large recording when a visitor did not ask for it, and
+the poster was already a sufficient reduced-motion fallback. The source now
+keeps the demonstration purposeful and available, but asks the visitor to
+press play. The product page's release-route note also links directly to the
+Chromebook chooser and browser demo.
+
+The ChromeOS guide now reads filenames, sizes, URLs, and checksums from the
+generated release manifest, with a build-time failure if the required ARM64 or
+x86_64 Debian artifact is absent. The release-notes generator no longer emits
+the blanket “no in-app updater” sentence when a feed is published; it states
+that eligibility is target/package-specific and keeps Debian/RPM/manual paths
+manual. The product-truth check covers those canonical sources so a future
+release bump cannot silently leave v0.2.1 in the Chromebook instructions.
+
+### 7.3 Validation boundary
+
+The source and local production-equivalent build are the evidence boundary for
+this continuation. A Playwright Chromium run captures the product route at
+desktop, portrait, and narrow widths and asserts that the video has controls,
+does not autoplay, and does not request either video source before an explicit
+play. Captures are inspected as images, not accepted solely because the test
+process passed. No screenshot here proves native ChromeOS, PWA installation,
+Linux GUI behavior, touch latency, battery life, RAM headroom, GPU access, or
+NPU access.
+
+The live-site mismatch remains a release/deployment follow-up: the smallest
+next step is an authorized deploy of the already-built website, followed by a
+fresh request to `/download/`, `/docs/chromebook/`, and
+`/support/troubleshooting/` with cache headers recorded. Until that happens,
+public-production claims must be phrased as “implemented in `master` and
+validated in the local production-equivalent build,” not as live-site proof.
