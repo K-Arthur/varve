@@ -156,6 +156,17 @@ describe('WebGPU golden diff vs Canvas2D', () => {
     expect(isGpuBatchSupported([FIXTURE_ITEMS[2]!])).toBe(false);
   });
 
+  it('accepts non-uniform/skewed circle transforms and rejects degenerate affines', () => {
+    const circle = FIXTURE_ITEMS[1]!;
+    // Local-space fragment coverage makes these exact; they must stay on GPU.
+    expect(isGpuBatchSupported([{ ...circle, transform: [2, 0, 0, 1, 10, 10] }])).toBe(true);
+    expect(isGpuBatchSupported([{ ...circle, transform: [1, 0.4, 0, 1, 10, 10] }])).toBe(true);
+    // A singular affine paints nothing in Canvas2D; a degenerate GPU triangle
+    // could still cover pixels. Fail closed so the two backends agree.
+    expect(isGpuBatchSupported([{ ...circle, transform: [0, 0, 0, 0, 10, 10] }])).toBe(false);
+    expect(isGpuBatchSupported([{ ...circle, transform: [1, 0, 2, 0, 10, 10] }])).toBe(false);
+  });
+
   it('applyItemAffine matches @varve/shared applyAffine (a·x+c·y+e)', () => {
     const t = [2, 0.5, -0.25, 3, 10, -4] as const;
     const p = [4, 6] as const;

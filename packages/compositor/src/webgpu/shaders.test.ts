@@ -152,16 +152,28 @@ describe('WGSL shader strings', () => {
   });
 
   describe('CIRCLE_VERTEX_WGSL', () => {
-    it('is identical to SOLID_VERTEX_WGSL', () => {
-      expect(CIRCLE_VERTEX_WGSL).toBe(SOLID_VERTEX_WGSL);
+    it('shares the solid camera math and forwards object-local position', () => {
+      // Coverage is tested in local space, so the circle vertex stage adds a
+      // local varying on top of the solid transform. It is no longer a literal
+      // alias of SOLID_VERTEX_WGSL.
+      expect(CIRCLE_VERTEX_WGSL).toContain('CameraUniform');
+      expect(CIRCLE_VERTEX_WGSL).toContain('fn vs_main');
+      expect(CIRCLE_VERTEX_WGSL).toContain('@location(1) local: vec2f');
+      expect(CIRCLE_VERTEX_WGSL).toContain('out.local = input.localPos');
+      expect(CIRCLE_VERTEX_WGSL).toContain('camera.origin');
+      expect(SOLID_VERTEX_WGSL).toContain('fn vs_main');
     });
   });
 
   describe('CIRCLE_FRAGMENT_WGSL', () => {
-    it('contains the circle discard logic', () => {
+    it('discards using object-local coverage, not framebuffer position', () => {
       expect(CIRCLE_FRAGMENT_WGSL).toContain('CircleUniform');
       expect(CIRCLE_FRAGMENT_WGSL).toContain('discard');
-      expect(CIRCLE_FRAGMENT_WGSL).toContain('distance(pos.xy, circle.center)');
+      expect(CIRCLE_FRAGMENT_WGSL).toContain('distance(local, circle.center)');
+      // A framebuffer-space test is only correct for conformal transforms and
+      // clipped non-uniformly scaled circles (regression guard).
+      expect(CIRCLE_FRAGMENT_WGSL).not.toContain('@builtin(position)');
+      expect(CIRCLE_FRAGMENT_WGSL).not.toContain('distance(pos.xy');
     });
 
     it('CircleUniform fields have correct types', () => {

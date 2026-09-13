@@ -12,6 +12,7 @@ import {
   BLIT_FRAGMENT_WGSL,
   BLIT_VERTEX_WGSL,
   CIRCLE_FRAGMENT_WGSL,
+  CIRCLE_VERTEX_WGSL,
   SOLID_FRAGMENT_WGSL,
   SOLID_VERTEX_WGSL,
 } from './shaders';
@@ -42,6 +43,10 @@ describe('TS / Rust WGSL drift guard', () => {
 
   it('SOLID_FRAGMENT_WGSL matches naga mirror', () => {
     expect(norm(extractRustWgsl(rust, 'SOLID_FRAGMENT_WGSL'))).toBe(norm(SOLID_FRAGMENT_WGSL));
+  });
+
+  it('CIRCLE_VERTEX_WGSL matches naga mirror', () => {
+    expect(norm(extractRustWgsl(rust, 'CIRCLE_VERTEX_WGSL'))).toBe(norm(CIRCLE_VERTEX_WGSL));
   });
 
   it('CIRCLE_FRAGMENT_WGSL matches naga mirror', () => {

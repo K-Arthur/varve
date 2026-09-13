@@ -131,6 +131,17 @@ function isGpuPrimitive(item: RenderItem): boolean {
 }
 
 /**
+ * A singular item affine has no visible area: Canvas2D paints nothing, while
+ * a degenerate GPU triangle can still cover a pixel or a line. Fail closed.
+ */
+function hasVisibleAffine(transform: readonly number[]): boolean {
+  const [a, b, c, d] = transform;
+  if (a === undefined || b === undefined || c === undefined || d === undefined) return false;
+  const det = a * d - b * c;
+  return Number.isFinite(det) && Math.abs(det) >= 1e-9;
+}
+
+/**
  * The current WebGPU pipelines only reproduce a single solid fill on a rect
  * or circle. Keep this predicate deliberately fail-closed: routing a richer
  * item to the GPU would silently drop paint-stack, stroke, effect, filter, or
@@ -143,6 +154,7 @@ export function isGpuBatchSupported(items: readonly RenderItem[]): boolean {
     items.every(
       (item) =>
         isGpuPrimitive(item) &&
+        hasVisibleAffine(item.transform) &&
         (item.fills?.length ?? 0) === 0 &&
         (item.strokes?.length ?? 0) === 0 &&
         (item.effects?.length ?? 0) === 0 &&
@@ -175,25 +187,6 @@ export function applyItemAffine(
 function roundUpPow2(n: number): number {
   if (n <= 256) return 256;
   return 1 << (32 - Math.clz32(n - 1));
-}
-
-function worldToScreenCss(
-  worldX: number,
-  worldY: number,
-  camera: CompositorFrame['camera'],
-  viewport: CompositorFrame['viewport'],
-  origin: readonly [number, number],
-): [number, number] {
-  const zoomedX = (worldX - origin[0]) * camera.zoom;
-  const zoomedY = (worldY - origin[1]) * camera.zoom;
-  const cx = viewport.width * 0.5;
-  const cy = viewport.height * 0.5;
-  const dx = zoomedX - cx;
-  const dy = zoomedY - cy;
-  const r = camera.rotation ?? 0;
-  const cos = Math.cos(r);
-  const sin = Math.sin(r);
-  return [cx + camera.pan.x + dx * cos - dy * sin, cy + camera.pan.y + dx * sin + dy * cos];
 }
 
 export class WebGPUBackend {
@@ -624,7 +617,6 @@ export class WebGPUBackend {
     // presented to Canvas2D; retaining them here would make a later blit
     // cumulative and duplicate earlier runs.
     let firstPass = true;
-    const dpr = window.devicePixelRatio || 1;
 
     if (solidItems.length > 0) {
       const solidVerts = buildVertices(solidItems);
@@ -666,26 +658,16 @@ export class WebGPUBackend {
       }
     }
 
-    const camera = frame.camera;
-    const origin = computeFloatingOrigin(camera, frame.viewport);
-
     for (const circleItem of circleItems) {
       const circleVerts = buildVertices([circleItem]);
       if (circleVerts.length === 0) continue;
       const prim = circleItem.primitive;
       if (prim.kind !== 'circle') continue;
-      const t = circleItem.transform;
-      const [worldCx, worldCy] = applyItemAffine([prim.cx, prim.cy], t);
-      const [screenCx, screenCy] = worldToScreenCss(
-        worldCx,
-        worldCy,
-        camera,
-        frame.viewport,
-        origin,
-      );
-      const screenR = prim.r * camera.zoom;
-      // @builtin(position) is in framebuffer pixels; uniforms must match DPR.
-      const circleData = new Float32Array([screenCx * dpr, screenCy * dpr, screenR * dpr, 0]);
+      // `buildVertices` already applies the item affine; the fragment shader
+      // tests coverage in the same object-local space, so the uniform stays
+      // local (no CPU camera/DPR reconstruction, exact under non-uniform
+      // scale and skew).
+      const circleData = new Float32Array([prim.cx, prim.cy, prim.r, 0]);
       device.queue.writeBuffer(circleUniformBuffer, 0, circleData.buffer as ArrayBuffer);
       const data = flattenVertices(circleVerts);
       this.lastFrameVertexBytes += data.byteLength;
