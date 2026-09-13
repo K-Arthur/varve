@@ -100,12 +100,12 @@ server (`tests/e2e/canvas/file-import.spec.ts`, snapshots inspected).
 |---|---|---|
 | PNG | Full | Alpha, ICC, EXIF orientation preserved |
 | JPEG | Full | EXIF orientation applied to displayed dimensions |
-| WebP | Full | Extended-format dimension probe fixed 2026-08-27. Animated WebP retained as animated media |
-| GIF | Full | Animation retained, not flattened to a first frame |
+| WebP | Editable raster (animated media) | Extended-format dimension probe fixed 2026-08-27. Animated WebP retains its frame metadata and is placed through the media clock; conversion/export remains first-frame where documented |
+| GIF | Editable raster (animated media) | Animation retains its frame metadata and is placed through the media clock; conversion/export remains first-frame where documented |
 | BMP | Full | |
 | TIFF | Flattened raster | The first IFD is decoded and transcoded to an embedded PNG (`utif` + `upng-js`); source photometric/bit-depth metadata is inspected before normalization, while multi-page/layered TIFF fidelity is reported as a loss |
 | AVIF | Full | `ispe` box probe now recurses through `iprp`/`ipco` |
-| SVG / SVGZ | Editable vector | See fidelity matrix; `.svgz` is gunzipped by content sniff |
+| SVG / SVGZ | Editable vector | See fidelity matrix; `.svgz` is gunzipped by content sniff and retains the `svgz` source label in the Import Results report, including bounded malformed-input failures |
 | PSD / PSB | Partial | Version 1/2 `8BPS` files import a bounded layer tree (groups, bounds, visibility, opacity, and representable masks); layer pixels, effects, adjustment layers, and smart objects are reported as unsupported |
 | PDF | Partial | Basic paths and text; gradients approximated, fonts substituted |
 | AI | Partial | `.ai` files with a PDF-compatible wrapper or legacy EPS header use the AI adapter; complex Illustrator effects, meshes, and native semantics are reported as losses |

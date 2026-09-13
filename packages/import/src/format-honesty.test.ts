@@ -38,8 +38,22 @@ describe('import format honesty', () => {
 
     expect(report.files.map((file) => [file.format, file.status, file.nodeCount])).toEqual([
       ['svg', 'success', 1],
-      ['svg', 'success', 1],
+      ['svgz', 'success', 1],
     ]);
+  });
+
+  it('reports malformed SVGZ as a bounded parse failure with its source label', async () => {
+    const report = await ImportService.importFiles([
+      { name: 'broken.svgz', source: 'file-picker', bytes: new Uint8Array([0x1f, 0x8b, 0x08]) },
+    ]);
+    const file = report.files[0]!;
+
+    expect(file).toMatchObject({ format: 'svgz', status: 'failed', nodeCount: 0 });
+    expect(file.error).toBeUndefined();
+    expect(file.warnings.map((warning) => warning.message).join(' ')).toMatch(
+      /no <svg> element found/i,
+    );
+    expect(file.unsupportedFeatures).toEqual([]);
   });
 
   it('imports real layered PSD and PSB fixtures as partial editable layer trees', async () => {

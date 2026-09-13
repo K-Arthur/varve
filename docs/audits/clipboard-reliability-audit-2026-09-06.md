@@ -1488,3 +1488,55 @@ visual snapshot comparisons stopped on the existing 682×552 canvas versus
 generated PNGs and no unrelated baselines were changed. Packaged WebKitGTK,
 Firefox-owned external transfers, and an Illustrator-authored fixture remain
 separate verification lanes.
+
+### IMP-07 — Malformed extension-owned vector files were misclassified (2026-09-12)
+
+**Checkout:** `1b0644efe419b0f60a6903134af1d703777c9aeb` on `master`,
+`/home/kevina/CodingProjects/varve`. **Environment:** Linux KDE/Wayland
+(`WAYLAND_DISPLAY=wayland-0`, `DISPLAY=:0`), Node/Vitest, and the checked-in
+browser import harness. The working tree also contains unrelated Inspector,
+generative-edit, typography, and visual-snapshot changes; they remain outside
+this repair.
+
+The reproduction supplied a three-byte gzip header as `broken.svgz`. Because
+the SVG parser could not validate the decompressed text, registry lookup
+returned no parser and Import Results said *No importer is registered for
+svgz*. That is a parser-boundary classification defect: the declared format
+was known, but malformed source was indistinguishable from an unsupported
+format. The same stale ownership rule affected other extension-owned parsers
+when no stronger content signature was available.
+
+| ID | Defect | Status | Evidence |
+| --- | --- | --- | --- |
+| IMP-07 | A malformed `.svgz` stopped at registry lookup and was reported as unsupported; valid `.svgz` was reported only as generic `svg` | **Resolved locally** | `packages/import/src/registry.ts`, `service.ts`, `registry.test.ts`, `format-honesty.test.ts` |
+
+The registry now keeps the filename-selected parser when content detection has
+not produced a stronger signature. The parser can therefore return a bounded
+failure and preserve the source label. `ImportService` reports `svgz` for both
+valid and malformed `.svgz`, while content signatures still win for a genuine
+PNG/JPEG or other mismatched file. No browser decoder or active SVG markup is
+introduced by this change.
+
+Validation evidence:
+
+```text
+pnpm exec vitest run packages/import/src/registry.test.ts \
+  packages/import/src/format-honesty.test.ts \
+  packages/import/src/service.test.ts --maxWorkers=1 --reporter=dot
+27 tests passed
+
+pnpm exec tsc -p packages/import/tsconfig.json --noEmit --pretty false
+passed
+
+pnpm exec biome check packages/import/src/registry.ts \
+  packages/import/src/service.ts \
+  packages/import/src/format-honesty.test.ts \
+  packages/import/src/registry.test.ts
+passed
+```
+
+The format guide and capability table now describe malformed declared files as
+parse failures and align GIF/WebP language with the animated-media path. A
+packaged Tauri/WebKitGTK run, Firefox-owned external transfers, and an
+Illustrator-authored fixture remain external verification lanes; this repair
+does not infer those results.

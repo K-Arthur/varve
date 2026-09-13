@@ -111,7 +111,9 @@ const figmaImportFaq = {
         <p>
           <code>.svgz</code> uses the same bounded parser after gzip decompression. The encoded and
           decoded source budgets are checked before parsing, and malformed or external references
-          are rejected with a report rather than being handed to the browser as active markup.
+          are rejected with a report rather than being handed to the browser as active markup. A
+          malformed declared vector file is reported as a parse failure for that format, rather
+          than as an unknown importer.
         </p>
 
         <h3>Figma design data</h3>

@@ -200,7 +200,9 @@ async function importOne(
   const reportFormat =
     detection.format === 'psb' && parser?.format === 'psd'
       ? 'psb'
-      : (parser?.format ?? detection.format ?? format);
+      : detection.format === 'svgz' && parser?.format === 'svg'
+        ? 'svgz'
+        : (parser?.format ?? detection.format ?? format);
   const rasterCandidate =
     data instanceof Uint8Array &&
     (isRasterFallbackFormat(format) ||
