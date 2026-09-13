@@ -1566,3 +1566,64 @@ formatter diagnostic; no import file was implicated. The targeted import
 package typecheck, format check, documentation/emoji/token audits, and the
 two commands above passed. This refresh is recorded on `master` after
 `4fe38896ac661e0dce2ef184f77336a52417f6b3`.
+
+### IMP-08 — Malformed Photoshop and Illustrator sources could look partially imported (2026-09-12)
+
+**Reproduction checkout:** `aa1f69006bf089839e3ed7c11fb0165988e23605` on
+`master`, `/home/kevina/CodingProjects/varve`. **Environment:** Linux
+KDE/Wayland (`WAYLAND_DISPLAY=wayland-0`, `DISPLAY=:0`), Node `v22.23.2`,
+Vitest, and Chromium Playwright. The working tree contains unrelated editor,
+engine, website, and visual-snapshot changes; they remain outside this repair.
+
+The fresh audit sent truncated `8BPS` headers and a header-only `%PDF-` file
+through `ImportService.importFiles`. The PSD/PSB parser reached its dependency
+with no usable header and the service added generic fidelity warnings, so a
+zero-node result was labelled **partial**. The AI adapter always generated an
+`Adobe Illustrator content` text node for any PDF header, even when the wrapper
+contained no supported artwork. These are parser/application classification
+failures, not transport or placement failures.
+
+| ID | Defect | Status | Evidence |
+| --- | --- | --- | --- |
+| IMP-08a | Truncated or over-budget PSD/PSB headers could reach `@webtoon/psd` and be reported as partial | **Resolved locally** | `packages/import/src/psd.ts`, `format-honesty.test.ts` |
+| IMP-08b | Header-only AI PDF wrappers fabricated a placeholder layer | **Resolved locally** | `packages/import/src/ai.ts`, `ai.test.ts`, `format-honesty.test.ts` |
+| IMP-08c | A declared-format failure was not consistently distinguished from a partial conversion | **Resolved locally** | `packages/import/src/service.ts` |
+
+The repair validates the Photoshop header (version, channel count, dimensions,
+bit depth, colour mode, encoded bytes, and decoded-pixel budget) before invoking
+the third-party parser. AI's bounded fallback now extracts only supported SVG,
+text, or basic rectangle content; an empty wrapper produces no nodes and a
+failure warning. Import Results continues to show fidelity warnings for real
+partial imports while classifying malformed declared files as failures.
+
+Validation evidence for this milestone:
+
+```text
+pnpm exec vitest run packages/import/src/ai.test.ts \
+  packages/import/src/format-honesty.test.ts \
+  packages/import/src/service.test.ts \
+  packages/import/src/psd.test.ts \
+  packages/import/src/psd-mask.test.ts --maxWorkers=1 --reporter=dot
+5 files, 53 tests passed
+
+pnpm exec vitest run packages/import/src --maxWorkers=1 --reporter=dot
+31 files, 362 tests passed
+
+pnpm exec biome check --write packages/import/src/psd.ts \
+  packages/import/src/ai.ts packages/import/src/service.ts \
+  packages/import/src/format-honesty.test.ts packages/import/src/ai.test.ts
+passed; no fixes required
+```
+
+The real Chromium File > Import lane reached the PSD/PSB, PDF/AI/EPS, TIFF,
+and SVG insertion assertions. Its existing Chromium visual baselines are
+`682×597`, while the current concurrent shell renders `682×552`; the targeted
+format runs therefore stopped at snapshot dimension comparison. The actual
+PSD/PSB Import Results dialog, SVG artwork, raster matrix, and PDF/AI/EPS
+results were inspected from the captured images, and no unrelated baseline was
+changed. The parser-advertising retry also hit the shared Vite startup timeout
+before the `New` button appeared. This is visual baseline/startup evidence,
+not a format parser failure.
+
+The implementation and focused regressions are committed as
+`286ccee4710c1a6ca64af15b502c02ba2fcd2632`.
