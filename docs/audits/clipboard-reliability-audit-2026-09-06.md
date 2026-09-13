@@ -1694,3 +1694,55 @@ decoded through the bounded first-IFD path and stored as an alpha-preserving
 PNG asset with source colour metadata. Layer effects, smart objects, advanced
 Illustrator appearance, multi-page/layered TIFF, and exact high-bit-depth/CMYK
 round-trips remain explicit fidelity losses or unverified external cases.
+
+### CLIP-44 — Native Wayland lane reaches the user workflow but its IPC bridge is unavailable (2026-09-12)
+
+**Validation checkout:** `65a01e39b6a7e90f6bcd9536525a43e0ed694754` on
+`master`. **Environment:** Linux KDE/Wayland (`WAYLAND_DISPLAY=wayland-0`,
+`DISPLAY=:0`), WebKitGTK 2.52.4, GTK 3.24.52, Node 26, and the Tauri WDIO
+embedded WebDriver service. This lane is intentionally separate from the
+Chromium clipboard tests and from parser/import tests.
+
+The desktop preflight passed and confirmed the GUI and WebKitGTK dependencies.
+The prescribed `pnpm desktop:build:test` command stopped before compiling the
+desktop bundle because the concurrent ContentAwareFill work has three unrelated
+TypeScript errors. A bounded workaround built the WDIO web assets with
+`pnpm --dir apps/desktop exec vite build --mode wdio` and the native binary with
+`cargo build --manifest-path apps/desktop/src-tauri/Cargo.toml --features wdio --bin varve-desktop`;
+both completed with warnings only.
+
+The explicit Wayland lane then started the embedded service and exercised the
+actual accessible rectangle command, pointer dispatch, Edit menu, and Copy menu
+item. The focused run used:
+
+```text
+VARVE_WDIO_SPECS=./tests/wdio/clipboard-wayland.e2e.ts \
+TAURI_WEBDRIVER_PORT=4451 pnpm exec wdio run wdio.conf.ts \
+--mochaOpts.grep "writes and reads"
+```
+
+It finished **0 passed, 1 failed (22.9s)**. The failure occurred at the native
+clipboard read with `Tauri core.invoke not available after 5s timeout` from the
+WDIO Tauri evaluation bridge. The full explicit lane on port 4447 finished
+**0 passed, 3 failed (3m32s)** with the same bridge/core-invoke failure and
+timeouts. The DOM-only portions were moved to standard WDIO execution so the
+result no longer hides behind a test-only React-fiber invocation.
+
+This is a **transport/test-provider/platform verification failure**, not an
+application parser failure: the shell rendered, the real command surface was
+reached, and the native provider could not expose Tauri `core.invoke` to the
+embedded WebDriver evaluation context. Diagnostics also report that
+`tauri-driver`, `WebKitWebDriver`, and the distro-specific package names are
+not installed. The production CSP was left unchanged. CLIP-15 therefore stays
+open for a desktop with a working WebKit/Tauri driver and for ownership-lifetime
+verification; no native clipboard or packaged `.fig` parity claim is made.
+
+Inspected failure captures:
+
+* `artifacts/desktop/failed-1789267476008.png`
+* `artifacts/desktop/failed-1789267507896.png`
+
+The images show the intact desktop shell and no renderer crash. A rerun on a
+machine with the missing driver/IPC bridge must assert real copy, paste, cut,
+ownership lifetime, and native `.fig` import before CLIP-15 or CLIP-14 can be
+closed.
