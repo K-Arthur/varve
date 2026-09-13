@@ -130,6 +130,7 @@ import {
   requiresLeafMaskReplay,
 } from './maskReplay';
 import { pressureProfileToResidencyPressure, resolveRuntimePressureProfile } from './memoryBudget';
+import { getInteractivePreviewMode } from './navigationRuntime';
 import { openFullRedraw, openMultiRectPartialClip, openUnionPartialClip } from './partialPaint';
 import {
   beginContentFrame,
@@ -501,7 +502,10 @@ export function renderContent(deps: RenderContentDeps): void {
   // drag/pinch/wheel burst is open. Settled frames always return to the full
   // device resolution (redrawCoordinator treats the DPR change as
   // invalidation), and export/print render through their own surfaces.
-  const previewScale = isEditorInteractionActive() ? getCurrentRenderScale() : 1;
+  const previewScale =
+    isEditorInteractionActive() && getInteractivePreviewMode() === 'automatic'
+      ? getCurrentRenderScale()
+      : 1;
   const dpr = displayDpr * previewScale;
   const cssW = vpWidth;
   const cssH = vpHeight;
