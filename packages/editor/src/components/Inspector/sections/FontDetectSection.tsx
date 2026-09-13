@@ -139,6 +139,7 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
         rotation: image?.rotation,
         flipH: image?.flipH,
         flipV: image?.flipV,
+        signal: controller.signal,
       });
       if (controller.signal.aborted) throw new Error('cancelled');
 

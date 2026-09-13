@@ -63,4 +63,13 @@ describe('font detection image extraction', () => {
     expect(context.scale).toHaveBeenCalledWith(-1, -1);
     expect(context.getImageData).toHaveBeenCalledWith(0, 0, 80, 120);
   });
+
+  it('rejects immediately when the detection target is cancelled during decode', async () => {
+    const controller = new AbortController();
+    const pending = loadFontDetectionImage('data:image/png;base64,fixture', {
+      signal: controller.signal,
+    });
+    controller.abort();
+    await expect(pending).rejects.toThrow('cancelled');
+  });
 });

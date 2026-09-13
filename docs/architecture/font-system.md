@@ -257,7 +257,8 @@ settings; **Select region on canvas** enters the existing crop tool so the user
 can choose a text region before running detection, while **Analyze visible crop**
 can be disabled to compare the full source. Crop extraction clamps malformed
 coordinates and applies transforms in a bounded offscreen canvas without
-mutating the document. Because an image selection is not a text target, a
+mutating the document; an AbortSignal cancels the decode itself when the image
+target changes or the user presses Cancel. Because an image selection is not a
 candidate action is labelled **Use for new text**: it stores a pending
 family/reference and activates the Text tool. Arbitrary OCR-assisted region
 overlays and applying a result to an existing text target remain separate work.

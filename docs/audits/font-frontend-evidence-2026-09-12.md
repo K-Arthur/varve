@@ -56,10 +56,11 @@ browser and native stores can be validated without a mounted editor surface.
   activating the Text tool; they no longer claim to mutate the selected image.
 
 The crop extraction follow-up is covered by the focused `FontDetectSection` and
-`fontDetectImage` tests (5/5). They assert transformed source-rectangle drawing,
-coordinate clamping, visible-crop reporting, crop-tool entry, and the existing
-candidate-to-new-text handoff. The extraction is a presentation input only: it
-does not write a crop or any other change while detection is running.
+`fontDetectImage` tests (6/6). They assert transformed source-rectangle drawing,
+coordinate clamping, visible-crop reporting, crop-tool entry, cancellation
+during decode, and the existing candidate-to-new-text handoff. The extraction
+is a presentation input only: it does not write a crop or any other change
+while detection is running.
 
 ## Registry-backed weight controls — 2026-09-12
 

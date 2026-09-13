@@ -8,6 +8,7 @@ export interface FontDetectImageOptions {
   rotation?: number;
   flipH?: boolean;
   flipV?: boolean;
+  signal?: AbortSignal;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -32,7 +33,30 @@ export function loadFontDetectionImage(
 ): Promise<ImageData> {
   return new Promise((resolve, reject) => {
     const img = new Image();
+    let settled = false;
+    const cleanup = () => {
+      options.signal?.removeEventListener('abort', onAbort);
+    };
+    const rejectCancelled = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(new Error('cancelled'));
+    };
+    const onAbort = () => {
+      rejectCancelled();
+      // Stop a pending network/decode operation when the image target changes.
+      img.src = '';
+    };
+    if (options.signal?.aborted) {
+      rejectCancelled();
+      return;
+    }
+    options.signal?.addEventListener('abort', onAbort, { once: true });
     img.onload = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
       const sourceWidth = safeDimension(img.naturalWidth, 1);
       const sourceHeight = safeDimension(img.naturalHeight, 1);
       const sourceScale = Math.min(1, FONT_DETECT_MAX_EDGE / Math.max(sourceWidth, sourceHeight));
@@ -80,7 +104,12 @@ export function loadFontDetectionImage(
       context.restore();
       resolve(context.getImageData(0, 0, width, height));
     };
-    img.onerror = () => reject(new Error('Failed to load image'));
+    img.onerror = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(new Error('Failed to load image'));
+    };
     img.crossOrigin = 'anonymous';
     img.src = src;
   });
