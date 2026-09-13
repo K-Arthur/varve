@@ -47,7 +47,9 @@ fn parse_cgroup_memory_value(contents: &str) -> Option<u64> {
 fn cgroup_available_memory(limit: &str, current: &str) -> Option<u64> {
     let limit = parse_cgroup_memory_value(limit)?;
     let current = parse_cgroup_memory_value(current)?;
-    limit.checked_sub(current)
+    // A transient usage value above the limit is pressure, not evidence that
+    // the host budget is usable. Keep the refusal conservative in that case.
+    Some(limit.saturating_sub(current))
 }
 
 #[cfg(target_os = "linux")]
@@ -214,7 +216,7 @@ mod tests {
         assert_eq!(parse_cgroup_memory_value("9223372036854771712\n"), None);
         assert_eq!(cgroup_available_memory("max", "1024"), None);
         assert_eq!(cgroup_available_memory("not-a-number", "1024"), None);
-        assert_eq!(cgroup_available_memory("1024", "2048"), None);
+        assert_eq!(cgroup_available_memory("1024", "2048"), Some(0));
     }
 
     #[test]
