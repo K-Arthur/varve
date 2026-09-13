@@ -6,6 +6,7 @@ import {
   getOverlayTrace,
   registerOverlay,
   setOverlayDebugEnabled,
+  subscribeToOverlayCount,
 } from './OverlayRegistry';
 
 const cleanups: Array<() => void> = [];
@@ -170,5 +171,20 @@ describe('overlay registry', () => {
     document.body.append(next);
     register('debug-restart-next', next);
     expect(getOverlayTrace(document).some((entry) => entry.event === 'registered')).toBe(true);
+  });
+
+  it('reports overlay counts to subscribers on register and unregister', () => {
+    const first = document.createElement('div');
+    const second = document.createElement('div');
+    document.body.append(first, second);
+    const counts: number[] = [];
+    const unsubscribe = subscribeToOverlayCount(document, (count) => counts.push(count));
+    cleanups.push(unsubscribe);
+
+    const closeFirst = register('count-first', first);
+    register('count-second', second);
+    closeFirst();
+
+    expect(counts).toEqual([1, 2, 1]);
   });
 });

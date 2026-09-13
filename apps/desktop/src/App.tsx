@@ -13,6 +13,7 @@ import {
   Shell,
   startDesktopFlushTimer,
   stopDesktopFlushTimer,
+  TabletBackDismiss,
   UpdateCoordinatorProvider,
   useStartup,
 } from '@varve/editor';
@@ -457,6 +458,7 @@ export function App() {
   const appContent = (
     <TooltipProvider>
       <KeyboardInsetPublisher />
+      <TabletBackDismiss />
       {showLoader && (
         <StartupLoader
           error={bootError}

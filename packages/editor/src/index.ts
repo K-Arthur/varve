@@ -64,6 +64,7 @@ export {
   setLifecycleCommitHook,
   setLifecycleFinalizeHandler,
 } from './lifecycle';
+export { TabletBackDismiss } from './navigation/TabletBackDismiss';
 // Onboarding state — exposed so a host can declare first-run already handled
 // (the browser demo explains itself through its own banner).
 export { TIPS } from './onboard/DidYouKnow/tips';

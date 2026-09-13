@@ -2190,7 +2190,8 @@ input[type="number"] {
       var(--space-3) +
       var(--floating-toolbar-height, var(--toolbar-height)) +
       var(--space-2) +
-      var(--keyboard-inset-bottom, 0px)
+      var(--keyboard-inset-bottom, 0px) +
+      env(safe-area-inset-bottom, 0px)
     );
   }
 }
@@ -2954,6 +2955,44 @@ input[type="number"] {
   .editor__library-panel {
     left: auto;
     right: 0;
+  }
+}
+
+/* ── Portrait / compact-width sheets ──
+ * Apple HIG: in compact horizontal size classes an inspector presents as a
+ * sheet, and layouts must adapt to size changes non-destructively; Material's
+ * adaptive guidance likewise treats secondary content as a sheet in compact
+ * layouts. Layers stays a side drawer because it is navigation/outline
+ * content, matching the sidebar-overlay-in-portrait pattern.
+ * ChromeOS/Android large-screen guidance: support both orientations and test
+ * at common sizes; landscape keeps the side-inspector form because there is
+ * horizontal room. This block sits after every drawer rule so its inset and
+ * transform win the cascade. */
+@media (max-width: 899px) and (orientation: portrait) {
+  .editor__inspector-panel,
+  .editor__library-panel,
+  .editor__logo-panel {
+    inset: auto 0 0 0;
+    width: auto;
+    max-width: none;
+    height: min(72dvh, 560px);
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 24px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    border-left: none;
+    border-top: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-floating) var(--radius-floating) 0 0;
+    box-shadow: 0 -1px 4px rgb(0 0 0 / 0.08);
+    transform: translateY(100%);
+  }
+
+  .editor__inspector-panel[data-visible],
+  .editor__library-panel[data-visible],
+  .editor__logo-panel {
+    transform: translateY(0);
+  }
+
+  .editor__layers-panel {
+    height: 100dvh;
   }
 }
 

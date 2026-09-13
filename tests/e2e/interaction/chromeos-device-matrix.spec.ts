@@ -74,12 +74,12 @@ async function settleLayout(page: Page): Promise<void> {
 }
 
 /**
- * Read the editor's document node count through the React context. The Layers
+ * Read the editor's serialized document through the React context. The Layers
  * drawer does not render its virtualized rows at <=899px, so a treeitem
  * assertion cannot observe a commit at those widths; the serialized document
  * is the authoritative state.
  */
-async function documentNodeCount(page: Page): Promise<number> {
+async function serializeEditorDocument(page: Page): Promise<string> {
   return page.evaluate(() => {
     const root = document.getElementById('root');
     if (!root) throw new Error('React root not found');
@@ -105,11 +105,15 @@ async function documentNodeCount(page: Page): Promise<number> {
     }
     const editor = find((root as unknown as Record<string, unknown>)[key]);
     if (!editor?.serializeDocument) throw new Error('Missing editor context');
-    const serializedDocument = JSON.parse(editor.serializeDocument()) as {
-      nodes?: Record<string, unknown>;
-    };
-    return Object.keys(serializedDocument.nodes ?? {}).length;
+    return editor.serializeDocument();
   });
+}
+
+async function documentNodeCount(page: Page): Promise<number> {
+  const serialized = JSON.parse(await serializeEditorDocument(page)) as {
+    nodes?: Record<string, unknown>;
+  };
+  return Object.keys(serialized.nodes ?? {}).length;
 }
 
 interface ViewportMetrics {
@@ -441,6 +445,33 @@ test.describe('touch interaction', () => {
     expect(pageErrors).toEqual([]);
   });
 
+  test('a tap selects without moving the object', async ({ page }) => {
+    await navigateToEditor(page);
+    await settleLayout(page);
+
+    // Draw a rectangle, then switch to Select and tap it with a touch contact.
+    await page.keyboard.press('r');
+    const box = await page.locator('canvas.editor-canvas__content-layer').boundingBox();
+    if (!box) throw new Error('content canvas not laid out');
+    await page.mouse.move(box.x + 150, box.y + 150);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 320, box.y + 280, { steps: 8 });
+    await page.mouse.up();
+    await page.keyboard.press('v');
+    await settleLayout(page);
+
+    const before = await serializeEditorDocument(page);
+    expect(
+      JSON.parse(before).nodes && Object.keys(JSON.parse(before).nodes).length,
+    ).toBeGreaterThan(0);
+
+    await page.touchscreen.tap(box.x + 235, box.y + 215);
+    await page.waitForTimeout(250);
+    const after = await serializeEditorDocument(page);
+    expect(after).toBe(before);
+    expect(pageErrors).toEqual([]);
+  });
+
   test('two-finger pinch zooms the canvas without page zoom', async ({ page }) => {
     await navigateToEditor(page);
     await settleLayout(page);
@@ -542,6 +573,260 @@ test.describe('pen interaction', () => {
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
     await expect(page.getByRole('treeitem').first()).toContainText(/path|vector shape/i);
     expect(pageErrors).toEqual([]);
+  });
+});
+
+test.describe('tablet back gesture', () => {
+  test.skip(({ browserName }) => browserName !== 'chromium', 'history traversal runs on Chromium');
+  test.use({ hasTouch: true, viewport: { width: 800, height: 1280 } });
+
+  test('system back dismisses an open menu instead of leaving the editor', async ({ page }) => {
+    await navigateToEditor(page);
+    await settleLayout(page);
+    const urlBefore = page.url();
+
+    await page.getByRole('menubar').getByRole('menuitem', { name: 'File', exact: true }).click();
+    const rootLayer = page.locator(
+      '[data-overlay-kind="menubar-menu"][data-overlay-state="visible"]',
+    );
+    await expect(rootLayer).toHaveCount(1);
+
+    await page.evaluate(() => window.history.back());
+    await expect(rootLayer).toHaveCount(0, { timeout: 5000 });
+    expect(page.url()).toBe(urlBefore);
+    await expect(page.getByRole('menubar')).toBeVisible();
+    expect(pageErrors).toEqual([]);
+  });
+
+  test('closing a menu from the UI removes the history guard', async ({ page }) => {
+    await navigateToEditor(page);
+    await settleLayout(page);
+
+    await page.getByRole('menubar').getByRole('menuitem', { name: 'File', exact: true }).click();
+    const rootLayer = page.locator(
+      '[data-overlay-kind="menubar-menu"][data-overlay-state="visible"]',
+    );
+    await expect(rootLayer).toHaveCount(1);
+    await page.keyboard.press('Escape');
+    await expect(rootLayer).toHaveCount(0);
+    await page.waitForTimeout(150);
+
+    const guarded = await page.evaluate(
+      () => (history.state as { varveOverlayGuard?: boolean } | null)?.varveOverlayGuard === true,
+    );
+    expect(guarded).toBe(false);
+    expect(pageErrors).toEqual([]);
+  });
+});
+
+test.describe('portrait and landscape presentation', () => {
+  test.skip(({ browserName }) => browserName !== 'chromium', 'emulated tablet runs on Chromium');
+
+  test.describe('portrait', () => {
+    test.use({ hasTouch: true, viewport: { width: 600, height: 960 } });
+
+    test('supplementary panels present as bottom sheets', async ({ page }, testInfo) => {
+      await navigateToEditor(page);
+      await settleLayout(page);
+
+      const cases = [
+        {
+          button: '.editor__fab--inspector',
+          panel: '.editor__inspector-panel',
+          unmountsOnClose: false,
+        },
+        {
+          button: '.editor__fab--library',
+          panel: '.editor__library-panel',
+          unmountsOnClose: true,
+        },
+      ];
+      for (const entry of cases) {
+        await page.locator(entry.button).click();
+        const panel = page.locator(entry.panel);
+        await expect(panel).toHaveAttribute('data-visible', 'true');
+        // Let the slide-in transition settle before measuring.
+        await page.waitForTimeout(300);
+        const geometry = await panel.evaluate((element) => {
+          const rect = element.getBoundingClientRect();
+          const style = getComputedStyle(element);
+          return {
+            left: rect.left,
+            right: rect.right,
+            top: rect.top,
+            bottom: rect.bottom,
+            width: rect.width,
+            height: rect.height,
+            radiusTopLeft: style.borderTopLeftRadius,
+            position: style.position,
+            innerHeight: window.innerHeight,
+          };
+        });
+        // Anchored to the bottom edge, nearly full width, clearly shorter
+        // than the viewport (a sheet, not a full-height side panel).
+        const viewportHeight = geometry.innerHeight;
+        expect(geometry.position).toBe('fixed');
+        expect(
+          Math.abs(geometry.bottom - viewportHeight),
+          `sheet bottom ${geometry.bottom} vs viewport ${viewportHeight}`,
+        ).toBeLessThanOrEqual(2);
+        expect(geometry.width).toBeGreaterThanOrEqual(600 * 0.9);
+        expect(geometry.height).toBeGreaterThan(viewportHeight * 0.4);
+        expect(geometry.height).toBeLessThanOrEqual(viewportHeight * 0.8);
+        expect(geometry.top).toBeGreaterThan(viewportHeight * 0.2);
+        expect(Number.parseFloat(geometry.radiusTopLeft)).toBeGreaterThan(0);
+
+        const screenshotPath = testInfo.outputPath(
+          `portrait-sheet-${entry.panel.replace(/[^a-z]/gi, '')}.png`,
+        );
+        await page.screenshot({ path: screenshotPath });
+        await testInfo.attach(`portrait-sheet-${entry.panel}`, {
+          path: screenshotPath,
+          contentType: 'image/png',
+        });
+        await page.keyboard.press('Escape');
+        if (entry.unmountsOnClose) {
+          await expect(panel).toHaveCount(0);
+        } else {
+          await expect(panel).not.toHaveAttribute('data-visible');
+        }
+      }
+      expect(pageErrors).toEqual([]);
+    });
+  });
+
+  test.describe('landscape', () => {
+    test.use({ hasTouch: true, viewport: { width: 800, height: 600 } });
+
+    test('supplementary panels stay side drawers', async ({ page }) => {
+      await navigateToEditor(page);
+      await settleLayout(page);
+
+      await page.locator('.editor__fab--inspector').click();
+      const panel = page.locator('.editor__inspector-panel');
+      await expect(panel).toHaveAttribute('data-visible', 'true');
+      await page.waitForTimeout(300);
+      const geometry = await panel.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        return {
+          right: rect.right,
+          top: rect.top,
+          bottom: rect.bottom,
+          width: rect.width,
+          height: rect.height,
+          position: style.position,
+          innerWidth: window.innerWidth,
+          innerHeight: window.innerHeight,
+        };
+      });
+      expect(geometry.position).toBe('fixed');
+      expect(Math.abs(geometry.right - geometry.innerWidth)).toBeLessThanOrEqual(2);
+      expect(geometry.width).toBeLessThanOrEqual(420);
+      expect(geometry.height).toBeGreaterThanOrEqual(geometry.innerHeight * 0.9);
+      expect(geometry.top).toBeLessThanOrEqual(2);
+      expect(pageErrors).toEqual([]);
+    });
+  });
+
+  test.describe('rotation', () => {
+    test.use({ hasTouch: true, viewport: { width: 600, height: 960 } });
+
+    test('preserves the open panel and adapts its presentation', async ({ page }) => {
+      await navigateToEditor(page);
+      await settleLayout(page);
+
+      await page.locator('.editor__fab--inspector').click();
+      const panel = page.locator('.editor__inspector-panel');
+      await expect(panel).toHaveAttribute('data-visible', 'true');
+      await page.waitForTimeout(300);
+      const portrait = await panel.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          width: rect.width,
+          height: rect.height,
+          bottom: rect.bottom,
+          innerHeight: window.innerHeight,
+        };
+      });
+      expect(portrait.width).toBeGreaterThanOrEqual(600 * 0.9);
+      expect(Math.abs(portrait.bottom - portrait.innerHeight)).toBeLessThanOrEqual(2);
+
+      // Rotate to landscape: the panel stays open (non-destructive). At
+      // 960x600 the shell is past the 899px drawer breakpoint, so it docks as
+      // the regular inspector column instead of a fixed drawer.
+      await page.setViewportSize({ width: 960, height: 600 });
+      await settleLayout(page);
+      await expect(panel).toHaveAttribute('data-visible', 'true');
+      await page.waitForTimeout(300);
+      const landscape = await panel.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        return {
+          width: rect.width,
+          height: rect.height,
+          position: style.position,
+          innerHeight: window.innerHeight,
+        };
+      });
+      expect(landscape.position).toBe('relative');
+      expect(landscape.width).toBeLessThanOrEqual(420);
+      expect(landscape.height).toBeGreaterThan(0.4 * landscape.innerHeight);
+
+      // Rotate back: the sheet presentation returns.
+      await page.setViewportSize({ width: 600, height: 960 });
+      await settleLayout(page);
+      await page.waitForTimeout(300);
+      const backToPortrait = await panel.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        return {
+          width: rect.width,
+          bottom: rect.bottom,
+          position: style.position,
+          innerHeight: window.innerHeight,
+        };
+      });
+      expect(backToPortrait.position).toBe('fixed');
+      expect(backToPortrait.width).toBeGreaterThanOrEqual(600 * 0.9);
+      expect(Math.abs(backToPortrait.bottom - backToPortrait.innerHeight)).toBeLessThanOrEqual(2);
+      expect(pageErrors).toEqual([]);
+    });
+  });
+
+  test.describe('rotation mid-gesture', () => {
+    test.use({ viewport: { width: 800, height: 1280 } });
+
+    test('does not leave a stuck interaction', async ({ page }) => {
+      await navigateToEditor(page);
+      await settleLayout(page);
+
+      const canvas = page.locator('canvas.editor-canvas__content-layer');
+      const box = await canvas.boundingBox();
+      if (!box) throw new Error('content canvas not laid out');
+
+      await page.keyboard.press('r');
+      const before = await documentNodeCount(page);
+      await page.mouse.move(box.x + 120, box.y + 140);
+      await page.mouse.down();
+      await page.mouse.move(box.x + 240, box.y + 240, { steps: 5 });
+      // Rotate while the pointer is down; the gesture must cancel cleanly.
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await settleLayout(page);
+      await page.mouse.up();
+      await page.waitForTimeout(200);
+
+      // A fresh gesture still works: the tool is not stuck mid-drag.
+      const rotatedBox = await canvas.boundingBox();
+      if (!rotatedBox) throw new Error('content canvas missing after rotation');
+      await page.keyboard.press('r');
+      await page.mouse.move(rotatedBox.x + 160, rotatedBox.y + 160);
+      await page.mouse.down();
+      await page.mouse.move(rotatedBox.x + 320, rotatedBox.y + 260, { steps: 6 });
+      await page.mouse.up();
+      await expect.poll(() => documentNodeCount(page), { timeout: 10000 }).toBeGreaterThan(before);
+      expect(pageErrors).toEqual([]);
+    });
   });
 });
 

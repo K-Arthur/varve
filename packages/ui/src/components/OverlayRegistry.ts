@@ -81,6 +81,7 @@ interface DocumentRegistry {
   pointerListener: (event: PointerEvent) => void;
   keyListener: (event: KeyboardEvent) => void;
   blurListener: () => void;
+  countListeners: Set<(count: number) => void>;
 }
 
 const registries = new WeakMap<Document, DocumentRegistry>();
@@ -358,6 +359,7 @@ function createRegistry(ownerDocument: Document): DocumentRegistry {
     pointerListener: () => undefined,
     keyListener: () => undefined,
     blurListener: () => undefined,
+    countListeners: new Set(),
   };
   registry.pointerListener = (event) => closeOutsideTree(registry, event);
   registry.keyListener = (event) => closeDeepestEscape(registry, event);
@@ -384,10 +386,23 @@ function ensureListeners(registry: DocumentRegistry): void {
 
 function removeListeners(registry: DocumentRegistry, ownerDocument: Document): void {
   if (registry.entries.size !== 0) return;
+  if (registry.countListeners.size > 0) return;
   ownerDocument.removeEventListener('pointerdown', registry.pointerListener, true);
   ownerDocument.removeEventListener('keydown', registry.keyListener);
   ownerDocument.defaultView?.removeEventListener('blur', registry.blurListener);
   registries.delete(ownerDocument);
+}
+
+function notifyOverlayCount(registry: DocumentRegistry): void {
+  if (registry.countListeners.size === 0) return;
+  const count = registry.entries.size;
+  for (const listener of Array.from(registry.countListeners)) {
+    try {
+      listener(count);
+    } catch {
+      // A subscriber must never break overlay registration or teardown.
+    }
+  }
 }
 
 export function registerOverlay(input: OverlayRegistrationInput): () => void {
@@ -397,6 +412,7 @@ export function registerOverlay(input: OverlayRegistrationInput): () => void {
   registry.closingIds.delete(entry.id);
   registry.entries.set(entry.id, entry);
   ensureListeners(registry);
+  notifyOverlayCount(registry);
   trace(registry, {
     time: now(),
     event: 'registered',
@@ -414,6 +430,7 @@ export function registerOverlay(input: OverlayRegistrationInput): () => void {
     if (registry.entries.get(entry.id) === entry) {
       registry.entries.delete(entry.id);
       registry.closingIds.delete(entry.id);
+      notifyOverlayCount(registry);
       trace(registry, {
         time: now(),
         event: 'unregistered',
@@ -485,6 +502,29 @@ export function closeAllOverlays(
     (entry) => !entry.parentId || !registry.entries.has(entry.parentId),
   );
   for (const root of roots) closeTreeEntries(registry, root.id, reason);
+}
+
+/** Number of overlays currently registered for an owner document. */
+export function getOverlayCount(ownerDocument: Document): number {
+  return registries.get(ownerDocument)?.entries.size ?? 0;
+}
+
+/**
+ * Subscribe to the registered-overlay count. Used by platform back-gesture
+ * handling (ChromeOS tablet mode) to maintain a history guard while any
+ * dismissible surface is open. The listener fires after registration and
+ * unregistration, not while a close is merely pending.
+ */
+export function subscribeToOverlayCount(
+  ownerDocument: Document,
+  listener: (count: number) => void,
+): () => void {
+  const registry = getRegistry(ownerDocument);
+  registry.countListeners.add(listener);
+  return () => {
+    registry.countListeners.delete(listener);
+    removeListeners(registry, ownerDocument);
+  };
 }
 
 /** Install the same development bridge in a detached owner window. */

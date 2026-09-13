@@ -1662,7 +1662,12 @@
 
 .varve-toast-container {
   position: fixed;
-  bottom: calc(var(--statusbar-height) + var(--space-3) + var(--keyboard-inset-bottom, 0px));
+  bottom: calc(
+    var(--statusbar-height) +
+    var(--space-3) +
+    var(--keyboard-inset-bottom, 0px) +
+    env(safe-area-inset-bottom, 0px)
+  );
   right: max(var(--space-4), calc(var(--inspector-width) + var(--space-4)));
   z-index: var(--z-toast);
   pointer-events: none;
@@ -1683,7 +1688,12 @@
   .varve-toast-container {
     left: var(--space-4);
     right: var(--space-4);
-    bottom: calc(var(--statusbar-height) + var(--space-3) + var(--keyboard-inset-bottom, 0px));
+    bottom: calc(
+      var(--statusbar-height) +
+      var(--space-3) +
+      var(--keyboard-inset-bottom, 0px) +
+      env(safe-area-inset-bottom, 0px)
+    );
     max-width: none;
   }
 }

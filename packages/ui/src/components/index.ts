@@ -159,11 +159,13 @@ export type {
 export {
   closeAllOverlays,
   closeOverlayTree,
+  getOverlayCount,
   getOverlaySnapshot,
   getOverlayTrace,
   installOverlayDebugBridge,
   registerOverlay,
   setOverlayDebugEnabled,
+  subscribeToOverlayCount,
   traceOverlayEvent,
 } from './OverlayRegistry';
 export type {

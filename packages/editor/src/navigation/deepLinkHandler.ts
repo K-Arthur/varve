@@ -9,6 +9,7 @@ import {
 } from './navigationCoordinator';
 import type { NavigationRequest } from './navigationRequest';
 import { parseNavigationTargetFromUrl } from './navigationTargets';
+import { OVERLAY_GUARD_FLAG } from './overlayGuardFlag';
 
 export type DeepLinkType = 'finding' | 'unknown';
 
@@ -224,8 +225,17 @@ export function setupDeepLinkListener(deps: () => DeepLinkDeps): () => void {
     }
   };
 
+  // The platform back-gesture guard pushes same-URL entries marked with
+  // OVERLAY_GUARD_FLAG. Those pops belong to overlay dismissal, not deep-link
+  // navigation, so they must not re-run a navigation.
+  const handlePopState = (event: PopStateEvent) => {
+    const state = event.state as Record<string, unknown> | null;
+    if (state?.[OVERLAY_GUARD_FLAG] === true) return;
+    handleHashChange();
+  };
+
   window.addEventListener('hashchange', handleHashChange);
-  window.addEventListener('popstate', handleHashChange);
+  window.addEventListener('popstate', handlePopState);
 
   const initialDeps = deps();
   const initialRequest = parseDeepLink(window.location.href);
@@ -237,7 +247,7 @@ export function setupDeepLinkListener(deps: () => DeepLinkDeps): () => void {
 
   return () => {
     window.removeEventListener('hashchange', handleHashChange);
-    window.removeEventListener('popstate', handleHashChange);
+    window.removeEventListener('popstate', handlePopState);
   };
 }
 
