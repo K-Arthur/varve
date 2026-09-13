@@ -138,6 +138,62 @@ async function selectAll(page: import('@playwright/test').Page): Promise<void> {
   await page.waitForTimeout(250);
 }
 
+async function configureAdjustmentMask(page: import('@playwright/test').Page): Promise<void> {
+  const configured = await page.evaluate(() => {
+    const container = document.getElementById('root');
+    if (!container) return false;
+    const fiberKey = Object.keys(container).find(
+      (k) => k.startsWith('__reactFiber$') || k.startsWith('__reactContainer$'),
+    );
+    if (!fiberKey) return false;
+    function walk(fiber: Record<string, unknown> | null): Record<string, unknown> | null {
+      if (!fiber) return null;
+      for (const props of [fiber.memoizedProps, fiber.pendingProps]) {
+        const p = props as Record<string, unknown> | undefined;
+        if (
+          p?.value &&
+          typeof p.value === 'object' &&
+          'createAdjustmentLayer' in (p.value as Record<string, unknown>)
+        ) {
+          return p.value as Record<string, unknown>;
+        }
+      }
+      return (
+        walk(fiber.child as Record<string, unknown> | null) ||
+        walk(fiber.sibling as Record<string, unknown> | null)
+      );
+    }
+    const ctx = walk(
+      (container as unknown as Record<string, unknown>)[fiberKey] as Record<string, unknown> | null,
+    );
+    const api = ctx as {
+      state?: { document?: { nodes?: Record<string, { kind?: string; id?: string }> } };
+      beginTransaction?: () => void;
+      commitTransaction?: () => void;
+      updateNode?: (
+        id: string,
+        updater: (node: Record<string, unknown>) => Record<string, unknown>,
+      ) => void;
+    };
+    const nodes = api.state?.document?.nodes ?? {};
+    const shapes = Object.values(nodes)
+      .filter((n) => n.kind === 'shape')
+      .map((n) => n.id ?? '')
+      .filter(Boolean);
+    const adj = Object.values(nodes).find((n) => n.kind === 'adjustment');
+    if (shapes.length < 2 || !adj?.id || typeof api.updateNode !== 'function') return false;
+    api.beginTransaction?.();
+    api.updateNode(adj.id, (node) => ({
+      ...(node as Record<string, unknown>),
+      scope: { mode: 'image-local', targetNodeId: shapes[0]! },
+      mask: { type: 'clip', visible: true, sourceNodeId: shapes[1]! },
+    }));
+    api.commitTransaction?.();
+    return true;
+  });
+  expect(configured).toBe(true);
+}
+
 async function treeItemNames(page: import('@playwright/test').Page): Promise<string[]> {
   const items = page.locator('.layers-panel [role="treeitem"]');
   const count = await items.count();
@@ -391,58 +447,7 @@ test.describe('effect targeting', () => {
 
     // Scope to the big rect; attach a clip-type spatial mask whose source is
     // the small bottom rect — the effect may only show inside that rect.
-    const configured = await page.evaluate(() => {
-      const container = document.getElementById('root');
-      if (!container) return false;
-      const fiberKey = Object.keys(container).find(
-        (k) => k.startsWith('__reactFiber$') || k.startsWith('__reactContainer$'),
-      );
-      if (!fiberKey) return false;
-      function walk(fiber: Record<string, unknown> | null): Record<string, unknown> | null {
-        if (!fiber) return null;
-        for (const props of [fiber.memoizedProps, fiber.pendingProps]) {
-          const p = props as Record<string, unknown> | undefined;
-          if (
-            p?.value &&
-            typeof p.value === 'object' &&
-            'createAdjustmentLayer' in (p.value as Record<string, unknown>)
-          ) {
-            return p.value as Record<string, unknown>;
-          }
-        }
-        return (
-          walk(fiber.child as Record<string, unknown> | null) ||
-          walk(fiber.sibling as Record<string, unknown> | null)
-        );
-      }
-      const ctx = walk(
-        (container as unknown as Record<string, unknown>)[fiberKey] as Record<
-          string,
-          unknown
-        > | null,
-      );
-      const api = ctx as {
-        state?: { document?: { nodes?: Record<string, { kind?: string; id?: string }> } };
-        updateNode?: (
-          id: string,
-          updater: (node: Record<string, unknown>) => Record<string, unknown>,
-        ) => void;
-      };
-      const nodes = api.state?.document?.nodes ?? {};
-      const shapes = Object.values(nodes)
-        .filter((n) => n.kind === 'shape')
-        .map((n) => n.id ?? '')
-        .filter(Boolean);
-      const adj = Object.values(nodes).find((n) => n.kind === 'adjustment');
-      if (shapes.length < 2 || !adj?.id || typeof api.updateNode !== 'function') return false;
-      api.updateNode(adj.id, (node) => ({
-        ...(node as Record<string, unknown>),
-        scope: { mode: 'image-local', targetNodeId: shapes[0]! },
-        mask: { type: 'clip', visible: true, sourceNodeId: shapes[1]! },
-      }));
-      return true;
-    });
-    expect(configured).toBe(true);
+    await configureAdjustmentMask(page);
 
     const beforeInside = await settledHash(page, { x: 80, y: 150, w: 160, h: 40 });
     const beforeOutside = await settledHash(page, { x: 80, y: 80, w: 160, h: 40 });
@@ -474,6 +479,97 @@ test.describe('effect targeting', () => {
     await maskSource.scrollIntoViewIfNeeded();
     await expect(maskSource).toBeVisible();
     await page.screenshot({ path: SHOT.canvas('09-mask-inspector') });
+  });
+
+  test('saved adjustment masks survive browser reload and reopen', async ({ page }) => {
+    test.setTimeout(240000);
+    mkdirSync(REVIEW_DIR, { recursive: true });
+    await page.addInitScript(() => {
+      Object.defineProperty(window, 'showSaveFilePicker', {
+        configurable: true,
+        writable: true,
+        value: undefined,
+      });
+    });
+    await navigateToCleanEditor(page);
+    await addRect(page, 60, 60, 200, 200);
+    await addRect(page, 60, 140, 200, 60);
+    const created = await callEditor(page, 'createAdjustmentLayer');
+    expect(created).not.toBeNull();
+    await page.waitForTimeout(500);
+    await configureAdjustmentMask(page);
+
+    const adjustmentsTab = page.getByRole('tab', { name: /Adjustments/i });
+    await adjustmentsTab.click();
+    await page.locator('button.adj-panel__add-btn').click();
+    await page.locator('.adj-panel__add-menu').waitFor({ state: 'visible', timeout: 5000 });
+    await page
+      .locator('.adj-panel__add-menu-item')
+      .filter({ hasText: /^Brightness$/ })
+      .click();
+    await page.getByRole('slider', { name: 'Brightness', exact: true }).fill('60');
+    await page.waitForTimeout(600);
+    await page.screenshot({ path: SHOT.canvas('10-adjustment-mask-before-reopen') });
+
+    await page.keyboard.press('Escape');
+    await page
+      .getByRole('menubar')
+      .getByRole('menuitem', { name: /^File$/ })
+      .click();
+    await page.getByRole('menu').first().waitFor({ state: 'visible', timeout: 5000 });
+    await page.getByRole('menuitem', { name: /^Save\s+Ctrl\+S$/i }).click();
+    await expect(page.locator('.save-status')).toHaveText('Saved', { timeout: 30000 });
+    await page.reload({ timeout: 120000, waitUntil: 'commit' });
+    const recovery = page.locator('dialog[open]').filter({
+      hasText: /closed unexpectedly|recover your documents/i,
+    });
+    if (await recovery.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await recovery
+        .getByRole('button', { name: /review my documents|close/i })
+        .first()
+        .click()
+        .catch(() => undefined);
+    }
+    await page.locator('.varve-home').waitFor({ timeout: 45000 });
+    await page.getByRole('gridcell').first().dblclick({ timeout: 30000 });
+    await page.locator('.layers-panel').waitFor({ timeout: 60000 });
+
+    const adjustmentItem = page
+      .locator('.layers-panel [role="treeitem"]')
+      .filter({ hasText: /Adjustment/i })
+      .last();
+    await expect(adjustmentItem).toBeVisible({ timeout: 30000 });
+    await adjustmentItem.click();
+    const reopenedJson = (await callEditor(page, 'serializeDocument')) as string | null;
+    expect(reopenedJson).toBeTruthy();
+    const reopenedModel = JSON.parse(reopenedJson as string) as {
+      nodes?: Record<
+        string,
+        {
+          kind?: string;
+          mask?: { type?: string; sourceNodeId?: string; visible?: boolean };
+          adjustments?: Array<{ kind?: string; value?: number }>;
+        }
+      >;
+    };
+    const reopenedAdjustment = Object.values(reopenedModel.nodes ?? {}).find(
+      (node) => node.kind === 'adjustment',
+    );
+    expect(reopenedAdjustment?.mask).toMatchObject({
+      type: 'clip',
+      visible: true,
+    });
+    expect(reopenedAdjustment?.mask?.sourceNodeId).toBeTruthy();
+    expect(reopenedAdjustment?.adjustments).toEqual(
+      expect.arrayContaining([expect.objectContaining({ kind: 'brightness', value: 60 })]),
+    );
+
+    await page.evaluate(() => window.__varvePerf?.forceFullRedraw());
+    await page.waitForTimeout(700);
+    const maskSource = page.getByRole('combobox', { name: 'Mask source' });
+    await maskSource.scrollIntoViewIfNeeded();
+    await expect(maskSource).toBeVisible();
+    await page.screenshot({ path: SHOT.canvas('10-adjustment-mask-after-reopen') });
   });
 
   test('persistence: serialize → reload reproduces the clipping stack', async ({ page }) => {
