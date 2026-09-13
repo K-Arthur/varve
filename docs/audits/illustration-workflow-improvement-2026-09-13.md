@@ -125,15 +125,29 @@ slice is:
 
 | Check | Command | Result |
 |---|---|---|
-| Focused unit/component tests | `pnpm exec vitest run packages/editor/src/tools/__tests__/SmudgeTool.test.ts packages/editor/src/components/Inspector/sections/BrushSection.test.tsx --reporter=verbose` | Pass: 19 tests in 2 files. |
+| Focused unit/component tests | `pnpm exec vitest run packages/editor/src/tools/__tests__/SmudgeTool.test.ts packages/editor/src/components/Inspector/sections/BrushSection.test.tsx --reporter=verbose` | Pass: 19 tests in 2 files in the initial focused run; the commit checkpoint reran both files and passed 20 tests. |
 | Scene-order regression | Included in `packages/editor/src/tools/__tests__/SmudgeTool.test.ts` | Pass: merged sources follow active scene-tree order and hidden ancestors are skipped. |
 | Changed Smudge unit suite after scene-order hardening | `test_tmp=$(mktemp -d /var/tmp/varve-smudge-unit.XXXXXX); TMPDIR="$test_tmp" pnpm exec vitest run --maxWorkers=1 packages/editor/src/tools/__tests__/SmudgeTool.test.ts --reporter=verbose` | Pass: 16 tests. Temporary directory was removed by the command. |
 | Focused format/lint and whitespace | `pnpm exec biome check packages/editor/src/context/types.ts packages/editor/src/context.tsx packages/editor/src/tools/SmudgeTool.ts packages/editor/src/components/Inspector/sections/BrushSection.tsx packages/editor/src/tools/__tests__/SmudgeTool.test.ts packages/editor/src/components/Inspector/sections/BrushSection.test.tsx tests/e2e/paint/brush-ui.spec.ts` plus `git diff --check` | Pass. |
-| Documentation drift | `pnpm audit:docs` | Pass: 773 docs, 380 links, 174 ADRs indexed. |
-| Emoji gate | `pnpm audit:emoji` | Pass: 4,417 files scanned. |
+| Documentation drift | `pnpm audit:docs` | Pass: 779 docs, 385 links, 174 ADRs indexed on the post-commit tree. |
+| Emoji gate | `pnpm audit:emoji` | The initial slice check passed with 4,417 files; the current shared-tree rerun reports 9 unrelated violations in `ColorizeSection.tsx` and `DepthMaskSection.tsx`. |
 | Token contrast gate | `pnpm audit:tokens` | Pass: 153 pairs across light, dark, and high-contrast themes. |
 | Real browser workflow | `test_tmp=$(mktemp -d /var/tmp/varve-smudge-e2e.XXXXXX); TMPDIR="$test_tmp" VARVE_E2E_PORT=1496 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 pnpm exec playwright test tests/e2e/paint/brush-ui.spec.ts --project=chromium --grep "smudge mode and sampling controls" --reporter=list` | Pass: 1 test. The run used its own port and output directory. |
 | Browser artifacts | `test-results/run-2296405-1496/paint-brush-ui-paint-UI-in-a306a--drive-a-real-canvas-stroke-chromium/` | Inspected `smudge-source-stroke.png`, `smudge-controls.png`, and `smudge-merged-stroke.png`. The source stroke is visible, the mode/source state is readable, and the resulting smudge stroke changes the artwork. |
+
+`pnpm verify:plan` on the current shared tree selected 274 changed files,
+all affected packages, and a full-suite escalation because concurrent
+workspace/toolchain/validation files are dirty. `pnpm verify:affected` was run
+and exited at that mandated escalation point with a request to run
+`pnpm verify:full`; no full-gate result is claimed for this slice.
+
+`node scripts/audit-architecture.mjs --ci` was started as required for the
+shared context change. During roughly 33 minutes of concurrent Madge work it
+reported pre-existing engine/scene cycles and parse/JSON failures in other
+packages, but did not reach a complete summary before being interrupted to
+avoid competing with the other agents' audits. `pnpm bench` was likewise
+started with one requested worker and was interrupted after roughly four
+minutes of shared Vitest contention; no benchmark number is claimed.
 
 The full `brush-ui.spec.ts` file was also attempted on the isolated port. An
 existing large-library scroll test timed out after 2.5 minutes under the
