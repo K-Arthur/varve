@@ -109,10 +109,19 @@ import { sitePath } from '../../../lib/siteUrl';
           <li><strong>Pan</strong> — Hold Space and drag, or middle-click drag to pan the canvas</li>
           <li><strong>View rotation</strong> — Available through View menu or status bar controls</li>
           <li><strong>Grid overlay</strong> — Toggle pixel grid and layout grid overlays from View menu or status bar</li>
-          <li><strong>Snap</strong> — Smart snapping to edges, centers, and grid lines. Toggle with <code>,</code> key or View menu</li>
+          <li><strong>Snap</strong> — Scoped pointer assistance for visible edges, centers, guides, pages, frames, and configured grids. Toggle with <code>,</code> or the View menu; hold Ctrl/Cmd during a drag for a temporary bypass</li>
         </ul>
         <p>
           The canvas uses a <strong>floating origin</strong> system that maintains numerical precision even at extreme zoom levels or when working with very large documents.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Precision placement</h2>
+        <p>
+          Use the Inspector for exact coordinates, configured nudges, explicit alignment references,
+          and distinct spacing modes. The canvas uses the same document geometry for its snap guides
+          and applied movement. See the <a href={sitePath('/docs/tools/precision-placement')}>Precision Placement guide</a> for details.
         </p>
       </section>
 

@@ -52,14 +52,19 @@ import { sitePath } from '../../../lib/siteUrl';
           <li><strong>Press Escape</strong> to complete an open path</li>
         </ul>
         <p>
-          After creation, switch to the <strong>Node Edit tool</strong> (double-click the path with the Select tool) to edit individual anchors and handles. In node edit mode:
+          After creation, switch to the <strong>Node Edit tool</strong> (double-click the path with the Select tool) to edit anchors, holes, segments, and handles. Node editing is scoped to one path so local coordinates stay unambiguous:
         </p>
         <ul>
-          <li><strong>Drag</strong> an anchor point to move it</li>
-          <li><strong>Drag</strong> a bezier handle to adjust curvature</li>
-          <li><strong>Backspace</strong> to delete the selected anchor (minimum 2 points)</li>
-          <li><strong>C</strong> to toggle between corner and smooth handle types</li>
+          <li><strong>Click</strong> an anchor to select it; <strong>Shift+click</strong> adds or removes anchors. Dragging an already-selected anchor moves the selected group.</li>
+          <li><strong>Drag</strong> a Bézier handle to adjust curvature. Corner handles are independent; Smooth keeps tangent directions aligned; Symmetric also keeps lengths equal; Automatic derives handles from neighboring anchors.</li>
+          <li><strong>Double-click</strong> a segment to insert a node at the nearest curve parameter, preserving the cubic within floating-point tolerance.</li>
+          <li><strong>Backspace/Delete</strong> removes selected anchors when the contour remains valid. Use the visible panel for coordinates, relative handle vectors, insert, open/close, reverse, line, and curve conversion.</li>
+          <li><strong>Shift+C / Shift+S / Shift+Y / Shift+A</strong> apply Corner, Smooth, Symmetric, or Automatic mode. <strong>C</strong> toggles corner and smooth.</li>
+          <li><strong>Arrow / Shift+Arrow</strong> nudges selected anchors by the configured amounts. <strong>Escape</strong> cancels an active drag before leaving node editing; a second Escape exits.</li>
         </ul>
+        <p>
+          Break/split and joining separate endpoint objects are deliberately disabled until their correspondence and dependent-feature policies are complete. Topology edits are also blocked for paths used by text-on-path, masks, motion/timeline data, or interactions; detach or convert the dependent feature first.
+        </p>
       </section>
 
       <section class="docs-section">
@@ -129,7 +134,7 @@ import { sitePath } from '../../../lib/siteUrl';
           <li><strong>Move</strong> — Drag selected node(s) to reposition</li>
           <li><strong>Resize</strong> — Drag corner or edge handles</li>
           <li><strong>Rotate</strong> — Drag outside a corner handle</li>
-          <li><strong>Nudge</strong> — Arrow keys use the configurable small amount; Shift+Arrow uses the configurable big amount</li>
+          <li><strong>Nudge</strong> — Arrow keys use the configurable small amount; Shift+Arrow uses the independent big amount, including positive fractions</li>
           <li><strong>Multi-select</strong> — Shift+click or marquee drag</li>
           <li><strong>Auto-reparent</strong> — Dragging a node into a container's bounds automatically reparents it</li>
           <li><strong>Ctrl-bypass</strong> — Hold Ctrl during drag to suppress auto-reparenting</li>
@@ -142,12 +147,13 @@ import { sitePath } from '../../../lib/siteUrl';
           With the canvas focused, Arrow keys move the selected object or frame in document axes,
           even when an idle creation tool remains active. Open Settings &gt; Nudging &amp; Movement
           to choose the small and big amounts; values are stored locally and displayed using your
-          current unit preference. Keyboard movement never reparents an object.
+          current unit preference. Keyboard movement is exact, independent of zoom and pointer
+          snapping, and never reparents an object.
         </p>
         <ul>
           <li><strong>Arrow</strong> — Small nudge</li>
           <li><strong>Shift+Arrow</strong> — Big nudge</li>
-          <li><strong>Pointer drag</strong> — Uses snapping and may reparent according to the drop target</li>
+          <li><strong>Pointer drag</strong> — Uses scoped snapping and may reparent according to the drop target</li>
           <li><strong>Ctrl/Cmd+Shift while dragging</strong> — Preserve the current parent</li>
         </ul>
         <p>

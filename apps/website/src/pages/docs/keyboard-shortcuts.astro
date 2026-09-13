@@ -92,6 +92,48 @@ import { sitePath } from '../../lib/siteUrl';
       </section>
 
       <section class="shortcuts-section">
+        <h2>Node editing</h2>
+        <div class="shortcuts-grid">
+          <div class="shortcut-item">
+            <code>Double-click segment</code>
+            <span>Insert a node at the nearest curve position</span>
+          </div>
+          <div class="shortcut-item">
+            <code>Shift + C</code>
+            <span>Corner/cusp mode</span>
+          </div>
+          <div class="shortcut-item">
+            <code>Shift + S</code>
+            <span>Smooth tangent mode</span>
+          </div>
+          <div class="shortcut-item">
+            <code>Shift + Y</code>
+            <span>Symmetric tangent and length mode</span>
+          </div>
+          <div class="shortcut-item">
+            <code>Shift + A</code>
+            <span>Automatic neighbor-based smoothing</span>
+          </div>
+          <div class="shortcut-item">
+            <code>Arrow / Shift + Arrow</code>
+            <span>Nudge selected anchors by the small or big amount</span>
+          </div>
+          <div class="shortcut-item">
+            <code>Delete / Backspace</code>
+            <span>Delete selected anchors when the contour remains valid</span>
+          </div>
+          <div class="shortcut-item">
+            <code>Escape</code>
+            <span>Cancel an active node drag; press again to exit node editing</span>
+          </div>
+        </div>
+        <p class="shortcuts-note">
+          Use Shift+click to add or remove anchors. The on-canvas node panel provides numeric local
+          coordinates and relative handle vectors when a pointer drag is not practical.
+        </p>
+      </section>
+
+      <section class="shortcuts-section">
         <h2>Edit</h2>
         <div class="shortcuts-grid">
           <div class="shortcut-item">
@@ -131,6 +173,33 @@ import { sitePath } from '../../lib/siteUrl';
             <span>Delete selection</span>
           </div>
         </div>
+      </section>
+
+      <section class="shortcuts-section">
+        <h2>Precision placement</h2>
+        <div class="shortcuts-grid">
+          <div class="shortcut-item">
+            <code>Arrow keys</code>
+            <span>Exact nudge of the canvas selection by the configured small amount</span>
+          </div>
+          <div class="shortcut-item">
+            <code>Shift + Arrow</code>
+            <span>Exact nudge by the configured big amount</span>
+          </div>
+          <div class="shortcut-item">
+            <code>Ctrl/Cmd + Drag</code>
+            <span>Temporarily bypass pointer snapping while preserving the drag relationship</span>
+          </div>
+          <div class="shortcut-item">
+            <code>Escape</code>
+            <span>Finish an active nudge or cancel an active pointer preview, depending on context</span>
+          </div>
+        </div>
+        <p class="shortcuts-note">
+          Arrow keys stay with a focused text/number field, slider, toolbar, dialog, or IME. Set
+          nudge amounts in <a href={sitePath('/docs/settings')}>Settings &amp; Preferences</a> and
+          use the Inspector for numeric coordinates and alignment/distribution commands.
+        </p>
       </section>
 
       <section class="shortcuts-section">
@@ -326,6 +395,16 @@ import { sitePath } from '../../lib/siteUrl';
   .shortcut-item span {
     color: var(--text-secondary);
     font-size: 0.875rem;
+  }
+
+  .shortcuts-note {
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-top: 1rem;
+  }
+
+  .shortcuts-note a {
+    color: var(--text-link);
   }
   
   .docs-cta {

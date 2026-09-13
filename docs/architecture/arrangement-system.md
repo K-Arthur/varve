@@ -4,15 +4,17 @@ Status: active. This is the contract for one-time alignment, distribution,
 explicit spacing, tidy-up, persistent auto layout, and paint-order changes.
 It complements the [transform system](transform-system.md): arrangement
 commands choose world-space targets, while the transform pipeline persists the
-result in each node's direct parent space.
+result in each node's direct parent space. The research, observed behavior
+matrix, and deliberately deferred cases are recorded in
+[`docs/audits/nudge-snapping-alignment-research-2026-09-13.md`](../audits/nudge-snapping-alignment-research-2026-09-13.md).
 
 ## Capability matrix
 
 | Workflow | Canonical engine | Inspector / menu | Canvas | Persistence / history | Status |
 | --- | --- | --- | --- | --- | --- |
 | Align six edges and centers | `selectionArrangement.ts` + `@varve/shared/align` | Align & distribute bar, Arrange menu, shortcuts | Alignment guide feedback | One document mutation | Complete |
-| Selection / Frame / Page reference | World bounds + placed page bounds | Explicit reference selector | Guide feedback | Session-only reference state | Complete |
-| Equal visible edge gaps | `computeDistribution` / `distributeSelectionInDocument` | Distribution options | Gap handles | One mutation; outer items retained | Complete |
+| Selection / Frame / Page reference | World bounds + placed page bounds | Explicit reference selector | Post-command guide feedback | Session-only reference state | Complete |
+| Equal visible edge gaps | `computeDistribution` / `distributeSelectionInDocument` | Distribution options | Gap relationship feedback | One mutation; outer items retained | Complete |
 | Equal reference-point centers | `computeDistributionCenters` | Distribution options | Not a gap handle operation | One mutation; outer centers retained | Complete |
 | Numeric gap, including two objects | Fixed-gap distribution | Distribution options | Gap handles and keyboard sliders | One mutation; first spatial item anchors | Complete |
 | Tidy-up grid | `tidySelectionInDocument` + `computeTidyLayout` | Tidy-up options: columns, row gap, column gap | Not persistent layout | One mutation; selection top-left anchor retained | Complete |
@@ -28,7 +30,9 @@ Manual arrangement uses finite, transformed, world-space axis-aligned bounds
 from `nodeWorldBounds`. These are geometric bounds, not stroke/effect bounds;
 the OBB button is the explicit exception for oriented alignment. The renderer,
 selection overlay, arrangement commands, and export continue to share the
-scene's transform and geometry pipeline.
+scene's transform and geometry pipeline. Alignment feedback is produced from
+the document after the command, so the visible target line and label cannot
+silently describe a pre-command selection snapshot.
 
 The operation is resolved as:
 
@@ -48,7 +52,11 @@ chosen axis, then the perpendicular position, then node id. Alignment preserves
 width, height, linear transform, rotation, scale, flips, appearance, and
 parentage. Numeric gaps preserve the leading item after spatial sorting; with
 three or more items the outermost items remain fixed. A negative gap is an
-intentional overlap and is never silently clamped.
+intentional overlap and is never silently clamped. Equal-gap distribution uses
+projected object sizes and the fixed outer span (`(span - sum(sizes)) /
+(count - 1)`); equal-center distribution intentionally uses center intervals
+instead. Stable id tie-breaking makes repeated execution idempotent even when
+selection or index iteration order changes.
 
 Tidy-up is a one-time transform, not auto layout. It uses the deterministic
 grid inference already shared by the editor and preserves the selection's
@@ -59,7 +67,9 @@ parent-child layout relationship.
 ## Interaction and history
 
 Inspector commands and menu actions use the editor's normal document mutation
-path, producing one undo entry. Gap handles open a `preview` transaction on
+path, producing one undo entry. The Inspector exposes the reference and mode
+before execution; a key object remains fixed and its identity is included in
+the resulting feedback. Gap handles open a `preview` transaction on
 pointer-down and calculate every frame from the pointer-down document, avoiding
 cumulative drift. Pointer-up commits one entry; Escape, window blur, and
 pointer cancellation restore the exact starting document. Keyboard gap sliders

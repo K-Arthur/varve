@@ -1,0 +1,152 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { sitePath } from '../../../lib/siteUrl';
+---
+
+<Layout
+  title="Precision Placement — Varve Docs"
+  description="Use exact nudges, scoped snapping, explicit alignment references, and unambiguous distribution in Varve."
+>
+  <div class="container-custom">
+    <main class="docs-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/docs')}>Documentation</a> / Tools / Precision Placement
+      </nav>
+
+      <h1>Precision placement</h1>
+      <p class="docs-intro">
+        Varve keeps deliberate movement, magnetic assistance, and one-shot arrangement separate so
+        a precise command stays precise.
+      </p>
+
+      <section class="docs-section" aria-labelledby="nudge-title">
+        <h2 id="nudge-title">Exact nudging</h2>
+        <p>
+          Focus the canvas with an eligible selection, then press an Arrow key. Arrow uses the
+          configured small amount; <strong>Shift + Arrow</strong> uses the independently configured
+          big amount. Values accept positive fractions and are stored in canonical geometry units,
+          while Settings displays them in your General unit preference.
+        </p>
+        <p>
+          Camera zoom, camera rotation, device scale, and object rotation do not change the
+          requested displacement. With snapping disabled, an object at <code>x = 10.25</code>
+          moved right by <code>1</code> ends at <code>x = 11.25</code>. Keyboard nudging does not
+          reparent an object or apply pointer snapping.
+        </p>
+        <p>
+          Open <a href={sitePath('/docs/settings')}>Settings</a> → Nudging &amp; Movement to edit
+          the two amounts or restore their defaults. Numeric fields and the Inspector's position
+          controls provide pointer-friendly alternatives to a physical keyboard.
+        </p>
+      </section>
+
+      <section class="docs-section" aria-labelledby="snap-title">
+        <h2 id="snap-title">Scoped snapping</h2>
+        <p>
+          Pointer movement uses the current world-space pointer proposal, then applies at most one
+          common correction to a multi-selection. Candidate scope is the active editing surface;
+          moving roots and their dependent descendants are excluded. Current targets include
+          visible object edges and centers, page/frame bounds, ruler guides, document/layout grids,
+          and the explicit pixel-grid mode where enabled.
+        </p>
+        <div class="contract-grid">
+          <article>
+            <h3>Magnetic assistance</h3>
+            <p>Screen-space tolerance acquires a nearby eligible target and releases from raw pointer intent.</p>
+          </article>
+          <article>
+            <h3>Temporary bypass</h3>
+            <p>Hold <strong>Ctrl</strong> on Linux/Windows or <strong>Cmd</strong> on macOS during a drag to bypass snapping without changing the drag origin.</p>
+          </article>
+          <article>
+            <h3>Explainable feedback</h3>
+            <p>Transient guides retain target identity, source feature, target feature, correction, and category so a stale lock cannot describe a replacement.</p>
+          </article>
+        </div>
+        <p>
+          Grid and pixel alignment are separate from ordinary magnetic snapping. Turning on a
+          visible grid does not round all document coordinates, and moving an object with Arrow
+          keys does not silently snap it to an integer.
+        </p>
+      </section>
+
+      <section class="docs-section" aria-labelledby="arrange-title">
+        <h2 id="arrange-title">Alignment and distribution</h2>
+        <p>
+          In the Inspector's Align &amp; Distribute bar, choose the reference before executing an
+          operation: selection bounds, a containing frame, an explicit page, or a key object. The
+          active reference is visible in the control, and the key object remains stationary. A
+          single eligible object can still align to a page or valid frame.
+        </p>
+        <table>
+          <thead>
+            <tr><th scope="col">Mode</th><th scope="col">Meaning</th><th scope="col">Availability</th></tr>
+          </thead>
+          <tbody>
+            <tr><th scope="row">Equal gaps</th><td>Equal edge-to-edge gaps across a fixed span; object sizes remain part of the calculation.</td><td>Three or more eligible objects</td></tr>
+            <tr><th scope="row">Equal centers</th><td>Equal intervals between reference centers; it is not an equal-gap operation.</td><td>Three or more eligible objects</td></tr>
+            <tr><th scope="row">Fixed gap</th><td>Places objects with the entered signed gap after stable spatial ordering.</td><td>Two or more eligible objects</td></tr>
+            <tr><th scope="row">Tidy Up</th><td>One-time grid arrangement that does not create persistent auto layout.</td><td>Two or more eligible objects</td></tr>
+          </tbody>
+        </table>
+        <p>
+          Commands preserve dimensions, transforms, styles, parentage, and paint order. A completed
+          command is one undo entry; Escape or pointer cancellation restores a spacing preview.
+          Guides describe the applied result and its reference rather than a stale pre-command
+          snapshot. See <a href={sitePath('/docs/tools/auto-layout')}>Auto Layout</a> when children
+          are intentionally flow-managed.
+        </p>
+      </section>
+
+      <section class="docs-section" aria-labelledby="focus-title">
+        <h2 id="focus-title">Focus and accessibility</h2>
+        <p>
+          Arrow keys belong to the focused text field, number field, slider, toolbar, dialog, or
+          IME composition. The canvas only owns them when it has focus. If a keyboard is not
+          available, use the numeric Position &amp; Size controls, Align &amp; Distribute actions, or
+          fixed-gap field; these paths do not require a drag.
+        </p>
+        <p>
+          For the complete current bindings and platform modifier labels, see
+          <a href={sitePath('/docs/keyboard-shortcuts')}>Keyboard Shortcuts</a>. For grid origins,
+          subdivisions, and pixel-grid semantics, see <a href={sitePath('/docs/tools/grids')}>Grid Systems</a>.
+        </p>
+      </section>
+
+      <aside class="docs-note">
+        <strong>Current boundary:</strong> visual/effect bounds, typography baselines, path-anchor
+        snapping, and responsive absolute-child anchors are not presented here as complete
+        precision-placement modes. They need their own metric and UI contracts before being
+        advertised.
+      </aside>
+    </main>
+  </div>
+</Layout>
+
+<style>
+  .docs-page { max-width: 820px; margin: 0 auto; padding: 3rem 0 5rem; }
+  .breadcrumb { color: var(--text-secondary); font-size: .875rem; margin-bottom: 1.5rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  .docs-page h1 { color: var(--text-primary); font: 700 clamp(2rem, 5vw, 2.8rem)/1.1 var(--font-editorial); letter-spacing: -.02em; margin-bottom: 1rem; }
+  .docs-intro { color: var(--text-secondary); font-size: 1.18rem; line-height: 1.7; margin-bottom: 3rem; }
+  .docs-section { margin-bottom: 3rem; }
+  .docs-section h2 { color: var(--text-primary); font-size: 1.55rem; margin-bottom: .9rem; }
+  .docs-section h3 { color: var(--text-primary); font-size: 1rem; margin: 0; }
+  .docs-section p { color: var(--text-secondary); line-height: 1.75; }
+  .docs-section a { color: var(--text-link); }
+  code { background: var(--surface-muted); border: 1px solid var(--border-subtle); border-radius: var(--website-radius-control-compact); color: var(--text-primary); padding: .1rem .3rem; }
+  .contract-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); margin: 1.25rem 0; }
+  .contract-grid article { background: var(--surface-card); border: 1px solid var(--border-default); border-radius: var(--website-radius-surface); padding: var(--space-4); }
+  .contract-grid p { font-size: .92rem; line-height: 1.55; margin: .5rem 0 0; }
+  table { border-collapse: collapse; color: var(--text-secondary); margin: 1.25rem 0; width: 100%; }
+  th, td { border-bottom: 1px solid var(--border-subtle); padding: .75rem; text-align: left; vertical-align: top; }
+  th { color: var(--text-primary); }
+  .docs-note { background: var(--surface-muted); border: 1px solid var(--border-default); border-radius: var(--website-radius-surface); color: var(--text-secondary); line-height: 1.65; padding: var(--space-4); }
+  .docs-note strong { color: var(--text-primary); }
+  @media (max-width: 680px) {
+    .docs-page { padding: 2rem 0 4rem; }
+    .contract-grid { grid-template-columns: 1fr; }
+    table { font-size: .9rem; }
+    th, td { padding: .6rem .45rem; }
+  }
+</style>

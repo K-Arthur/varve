@@ -3,7 +3,9 @@
 This document is the current-state contract for keyboard nudging and pointer
 movement. The implementation is split between the canvas input pipeline,
 `ToolManager`, `CanvasNudgeController`, `SelectTool`, and the shared planner in
-`scene/selectionArrangement.ts`.
+`scene/selectionArrangement.ts`. The evidence and unresolved coverage matrix
+for this contract lives in
+[`docs/audits/nudge-snapping-alignment-research-2026-09-13.md`](../audits/nudge-snapping-alignment-research-2026-09-13.md).
 
 ## Input ownership
 
@@ -37,7 +39,10 @@ The stored values are preferences, not document state or history. Movement is
 world/document-axis movement: camera zoom, camera rotation, device-pixel ratio,
 monitor scale, and the selected object's rotation do not alter the requested
 delta. The shared planner converts the same world delta into each direct
-parent's local coordinate system and changes only translation components.
+parent's local coordinate system and changes only translation components. A
+fractional position remains fractional: with snapping disabled, `x = 10.25`
+and a small right nudge of `1` becomes `x = 11.25`, not an integer-rounded
+position.
 
 ## Hierarchy and eligibility
 
@@ -71,6 +76,10 @@ The modifier contract is deliberately explicit:
 
 Snapping and preserve-parent are separate fields in `InteractionSnapshot`, so a
 future UI can expose them independently without changing movement geometry.
+Pointer movement retains the raw world-space proposal for each sample; a snap
+correction is applied once to the primary selection bounds and the resulting
+world displacement is then translated through every selected root's parent.
+Keyboard nudging never enters that snap path.
 
 ## Transactions and feedback
 
@@ -83,7 +92,9 @@ clears its transient state.
 The nudge settings use labelled fields with inline validation and an explicit
 reset action. Existing selection announcements and Inspector/Layers updates
 remain the source of visible document feedback; repeated key events do not
-produce one toast or announcement per repeat.
+produce one toast or announcement per repeat. The setting value is stored in
+canonical geometry units and converted only for display, so changing units
+does not reinterpret existing transforms.
 
 ## Source research and Varve decisions
 
@@ -100,6 +111,11 @@ Directly confirmed in the official product documentation:
   documents Arrow movement without changing a layer's parent.
 - [Figma auto layout](https://help.figma.com/hc/en-us/articles/360040451373-Guide-to-Auto-Layout)
   distinguishes flow-managed positioning from independently positioned layers.
+
+The broader source record also covers snapping scopes and temporary overrides,
+Pointer Events cancellation/capture, toolbar arrow-key ownership, WCAG target
+size, and public reports of distant-target, fractional-coordinate, and missing
+feedback failures: [`nudge-snapping-alignment-research-2026-09-13.md`](../audits/nudge-snapping-alignment-research-2026-09-13.md).
 
 The following are implementation inferences rather than claims made by those
 sources: preserving one rigid world delta across transformed parents, using one

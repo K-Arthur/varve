@@ -70,10 +70,31 @@ import { sitePath } from '../../lib/siteUrl';
 
         <h3>Snap</h3>
         <ul>
-          <li><strong>Snap to Grid</strong> — Snap objects to the grid lines and intersections</li>
-          <li><strong>Snap to Objects</strong> — Snap to edges and centers of other objects (smart snapping)</li>
-          <li><strong>Snap threshold</strong> — Distance in pixels within which snapping activates</li>
+          <li><strong>Enable snapping</strong> — Turn magnetic pointer assistance on or off for eligible canvas tools</li>
+          <li><strong>Snap to Grid</strong> — Snap objects to configured document-grid lines and intersections</li>
+          <li><strong>Snap to Objects</strong> — Snap to visible object edges and centers in the active editing scope</li>
+          <li><strong>Pixel alignment</strong> — Keep integer-pixel placement as a separate explicit choice; it does not round every nudge</li>
+          <li><strong>Snap threshold</strong> — Screen-space distance within which magnetic snapping activates; zoom does not change the size of the hand movement</li>
         </ul>
+
+        <h3>Nudging &amp; Movement</h3>
+        <p>
+          Set independent <strong>Small nudge</strong> and <strong>Big nudge</strong> amounts. Arrow
+          uses the small amount and Shift+Arrow uses the big amount. Values may be positive
+          fractions, are stored in canonical geometry units, and are displayed using the General
+          unit preference. Reset restores the factory defaults without changing document geometry.
+          Keyboard nudges are exact and do not invoke magnetic snapping or reparenting.
+        </p>
+
+        <h3>Alignment &amp; distribution</h3>
+        <p>
+          The Align &amp; Distribute bar keeps the reference and mode explicit. Choose selection
+          bounds, a containing frame, a page, or a key object; then choose equal gaps, equal
+          centers, fixed gap, or Tidy Up. Fixed gap is available for two eligible objects, while
+          automatic equal-gap and equal-center distribution require three. See the
+          <a href={sitePath('/docs/tools/precision-placement')}>Precision Placement guide</a> for
+          the exact geometry contracts.
+        </p>
 
         <h3>Canvas Mode</h3>
         <p>
