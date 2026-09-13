@@ -10,7 +10,7 @@ import {
 } from '@varve/engine/font';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MissingFontDialog } from './MissingFontDialog';
-import { findMissingFontRecoveryMatch } from './missingFontRecovery';
+import { findMissingFontRecoveryMatch, missingFontRecoveryKey } from './missingFontRecovery';
 
 afterEach(cleanup);
 
@@ -71,7 +71,7 @@ function makeRecoveryMatches(missing = makeMissingFont()) {
     ],
   };
   const match = findMissingFontRecoveryMatch(missing, new FontsourceCatalogStore(snapshot));
-  return new Map(match ? [[missing.familyName, match]] : []);
+  return new Map(match ? [[missingFontRecoveryKey(missing), match]] : []);
 }
 
 function dialogProps(missingFonts = [makeMissingFont()]) {

@@ -315,6 +315,10 @@ product complaints into runtime constraints:
   Document Fonts/Select by Font scope is the current page, with inherited,
   linked, and component text included and hidden or locked content excluded.
   A replacement is previewable, one undo transaction, and reversible.
+- Missing-font recovery uses the same exact artifact/member key as document
+  resolution. Family-only legacy records use a family compatibility key;
+  exact same-family artifacts get independent recovery rows and alias installs
+  retain the original exact scope.
 - Variable controls show only supported axes. Weight updates `wght` when
   present and preserves other authored axes; mandatory shaping features and
   rich-run settings remain part of the layout identity.

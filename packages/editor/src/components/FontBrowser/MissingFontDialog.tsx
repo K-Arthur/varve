@@ -7,11 +7,11 @@
  *
  * Research basis: Figma missing font dialog, InDesign missing font replacement.
  */
-import { type FontSubstitute, fontReferenceKey, type MissingFontInfo } from '@varve/engine/font';
+import type { FontSubstitute, MissingFontInfo } from '@varve/engine/font';
 import { Select } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MissingFontRecoveryMatch } from './missingFontRecovery';
-import { fontFaceLabel } from './missingFontRecovery';
+import { fontFaceLabel, missingFontRecoveryKey } from './missingFontRecovery';
 import './MissingFontDialog.css';
 
 export interface MissingFontDialogProps {
@@ -32,9 +32,7 @@ function bestSubstitute(substitutes: FontSubstitute[]): FontSubstitute | undefin
 }
 
 function missingFontKey(missing: MissingFontInfo): string {
-  return missing.fontReference
-    ? `reference:${fontReferenceKey(missing.fontReference)}`
-    : missing.familyName;
+  return missingFontRecoveryKey(missing);
 }
 
 function initialSelections(
@@ -72,7 +70,7 @@ export function MissingFontDialog({
   const [selections, setSelections] = useState<Map<string, string>>(() =>
     initialSelections(missingFonts),
   );
-  const [installingFamily, setInstallingFamily] = useState<string | null>(null);
+  const [installingKey, setInstallingKey] = useState<string | null>(null);
   const [installError, setInstallError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -145,7 +143,7 @@ export function MissingFontDialog({
 
   const handleInstall = useCallback(
     async (missing: MissingFontInfo, match: MissingFontRecoveryMatch) => {
-      setInstallingFamily(missing.familyName);
+      setInstallingKey(missingFontKey(missing));
       setInstallError(null);
       try {
         await onInstallFontsource(missing, match);
@@ -154,7 +152,7 @@ export function MissingFontDialog({
           error instanceof Error ? error.message : 'The matching font could not be installed.',
         );
       } finally {
-        setInstallingFamily(null);
+        setInstallingKey(null);
       }
     },
     [onInstallFontsource],
@@ -211,8 +209,8 @@ export function MissingFontDialog({
           {missingFonts.map((mf) => {
             const substitute = selections.get(missingFontKey(mf));
             const hasSubstitutes = mf.substitutes.length > 0;
-            const recoveryMatch = recoveryMatches.get(mf.familyName);
-            const installing = installingFamily === mf.familyName;
+            const recoveryMatch = recoveryMatches.get(missingFontRecoveryKey(mf));
+            const installing = installingKey === missingFontKey(mf);
 
             return (
               <div key={missingFontKey(mf)} className="missing-font-dialog__item">
@@ -276,7 +274,7 @@ export function MissingFontDialog({
                       type="button"
                       className="missing-font-dialog__install-btn"
                       onClick={() => void handleInstall(mf, recoveryMatch)}
-                      disabled={installingFamily !== null || Boolean(downloadRestrictionMessage)}
+                      disabled={installingKey !== null || Boolean(downloadRestrictionMessage)}
                       aria-label={`Install ${recoveryMatch.record.familyName} ${fontFaceLabel(recoveryMatch)}`}
                     >
                       {installing
@@ -290,7 +288,7 @@ export function MissingFontDialog({
                     type="button"
                     className="missing-font-dialog__browse-btn"
                     onClick={() => onBrowseCatalog(mf)}
-                    disabled={installingFamily !== null}
+                    disabled={installingKey !== null}
                   >
                     Browse fonts
                   </button>
@@ -319,7 +317,7 @@ export function MissingFontDialog({
                     type="button"
                     className="missing-font-dialog__apply-btn"
                     onClick={() => handleApply(mf)}
-                    disabled={!substitute || installingFamily !== null}
+                    disabled={!substitute || installingKey !== null}
                   >
                     Apply
                   </button>
@@ -351,7 +349,7 @@ export function MissingFontDialog({
             type="button"
             className="missing-font-dialog__btn missing-font-dialog__btn--primary"
             onClick={handleReplaceAll}
-            disabled={!allResolved || installingFamily !== null}
+            disabled={!allResolved || installingKey !== null}
           >
             Replace All
           </button>

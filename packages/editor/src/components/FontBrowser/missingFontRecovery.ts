@@ -4,12 +4,24 @@ import type {
   FontsourceCatalogStore,
   MissingFontInfo,
 } from '@varve/engine/font';
+import { fontReferenceKey } from '@varve/engine/font';
 
 export interface MissingFontRecoveryMatch {
   artifact: FontArtifactDescriptor;
   record: FontsourceCatalogRecord;
   matchedByAlias: boolean;
   exactFace: boolean;
+}
+
+/**
+ * Use the portable artifact/member identity when a document provides one.
+ * Family names remain the compatibility key for legacy family-only records,
+ * but same-family artifacts must never share a recovery row.
+ */
+export function missingFontRecoveryKey(missing: MissingFontInfo): string {
+  return missing.fontReference
+    ? `reference:${fontReferenceKey(missing.fontReference)}`
+    : missing.familyName;
 }
 
 function normalizeFamily(value: string): string {

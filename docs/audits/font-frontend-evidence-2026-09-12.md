@@ -491,3 +491,22 @@ paragraph and leaves the neighbouring `llo` run and node-level default intact.
 This closes the character-range path for the inspector controls; multi-layer
 rich-run targeting and the complete layout oracle remain open in the
 acceptance matrix.
+
+## Same-family missing-font recovery follow-up — 2026-09-13
+
+Fontsource recovery rows now use the same portable key as the resolver:
+`reference:sha256:<artifact>:<member>` for exact requests and the family name
+only for legacy family-only records. The Missing Fonts dialog resolves and
+displays the exact row, so two artifacts with one family name cannot borrow
+each other's recovery metadata. Alias installation also passes the original
+missing record into replacement, keeping an exact request scoped to its face
+instead of replacing every same-family artifact.
+Dialog dismissal and Replace All mappings use the same key, so resolving or
+dismissing one exact face does not suppress a different artifact with the same
+family name.
+
+Focused pure recovery checks passed **5/5**, including distinct keys for two
+same-family artifacts. The existing dialog interaction suite could not produce
+a result on the shared host after four minutes of swapping; it was terminated
+without a pass claim. The keying path is covered by the pure helper test, while
+full dialog and restart/recovery E2E remain pending.

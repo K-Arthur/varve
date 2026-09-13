@@ -13,7 +13,6 @@ import {
   createFontCatalogFromRegistry,
   type FontCatalog,
   FontResolver,
-  fontReferenceKey,
   getFontsourceCatalog,
 } from '@varve/engine/font';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -24,7 +23,7 @@ import { applyFontReplacement } from './applyFontReplacement';
 import { FontBrowserDialog } from './FontBrowserDialog';
 import { MissingFontDialog } from './MissingFontDialog';
 import type { MissingFontRecoveryMatch } from './missingFontRecovery';
-import { findMissingFontRecoveryMatch } from './missingFontRecovery';
+import { findMissingFontRecoveryMatch, missingFontRecoveryKey } from './missingFontRecovery';
 import { downloadAndApplyOnlineFont } from './useOnlineFontSearch';
 
 export function MissingFontController() {
@@ -67,11 +66,7 @@ export function MissingFontController() {
   const hasMissing = useMemo(() => missingFonts.length > 0, [missingFonts]);
 
   const missingKey = useMemo(
-    () =>
-      missingFonts
-        .map((font) => font.originalReference.toLowerCase())
-        .sort()
-        .join('\u0000'),
+    () => missingFonts.map(missingFontRecoveryKey).sort().join('\u0000'),
     [missingFonts],
   );
 
@@ -106,10 +101,7 @@ export function MissingFontController() {
     editor.updateDoc((doc) => {
       let next = doc;
       for (const missing of resolvedMissing) {
-        const key = missing.fontReference
-          ? `reference:${fontReferenceKey(missing.fontReference)}`
-          : missing.familyName;
-        const replacement = map.get(key);
+        const replacement = map.get(missingFontRecoveryKey(missing));
         if (!replacement) continue;
         next = applyFontReplacement(next, catalogRef.current!, {
           original: missing.familyName,
@@ -135,7 +127,7 @@ export function MissingFontController() {
     return new Map(
       missingFonts.flatMap((missing) => {
         const match = findMissingFontRecoveryMatch(missing, fontsource);
-        return match ? ([[missing.familyName, match]] as const) : [];
+        return match ? ([[missingFontRecoveryKey(missing), match]] as const) : [];
       }),
     );
   }, [missingFonts]);
@@ -155,7 +147,9 @@ export function MissingFontController() {
         variable: match.artifact.variable,
       },
     );
-    if (match.matchedByAlias) handleReplace(missing.familyName, match.artifact.familyName);
+    if (match.matchedByAlias) {
+      handleReplace(missing.familyName, match.artifact.familyName, missing);
+    }
   };
 
   if (browsingFont) {

@@ -1,7 +1,7 @@
 import type { MissingFontInfo } from '@varve/engine/font';
 import { type FontsourceCatalogSnapshot, FontsourceCatalogStore } from '@varve/engine/font';
 import { describe, expect, it } from 'vitest';
-import { findMissingFontRecoveryMatch } from './missingFontRecovery';
+import { findMissingFontRecoveryMatch, missingFontRecoveryKey } from './missingFontRecovery';
 
 const snapshot: FontsourceCatalogSnapshot = {
   schemaVersion: 1,
@@ -54,6 +54,15 @@ function missing(overrides: Partial<MissingFontInfo> = {}): MissingFontInfo {
 }
 
 describe('findMissingFontRecoveryMatch', () => {
+  it('keeps exact recovery rows separate for same-family artifacts', () => {
+    const first = missing({ fontReference: { artifactHash: 'a'.repeat(64), collectionIndex: 0 } });
+    const second = missing({ fontReference: { artifactHash: 'b'.repeat(64), collectionIndex: 0 } });
+
+    expect(missingFontRecoveryKey(first)).toBe(`reference:sha256:${'a'.repeat(64)}:0`);
+    expect(missingFontRecoveryKey(second)).toBe(`reference:sha256:${'b'.repeat(64)}:0`);
+    expect(missingFontRecoveryKey(first)).not.toBe(missingFontRecoveryKey(second));
+  });
+
   it('resolves the requested family and face to an immutable Fontsource artifact', () => {
     const match = findMissingFontRecoveryMatch(missing(), new FontsourceCatalogStore(snapshot));
 
