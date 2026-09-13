@@ -855,19 +855,20 @@ export function ContentAwareFillDialog({
     setMaskFeather(settings.feather ?? 0);
     setContextPadding(settings.contextPadding ?? 32);
     if (acceptedEdit.mode === 'expand') {
-      const frame = acceptedEdit.outputFrame;
-      const left = Math.max(0, -frame.x);
-      const top = Math.max(0, -frame.y);
       setExpandPadding({
-        top,
-        right: Math.max(0, frame.width - frame.sourceWidth - left),
-        bottom: Math.max(0, frame.height - frame.sourceHeight - top),
-        left,
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0,
       });
       setExpandAspectRatio('free');
       setExpandAnchor('center');
-      setExpandTargetWidth(String(frame.width));
-      setExpandTargetHeight(String(frame.height));
+      // Reopening an accepted Expand reviews the accepted output, which is
+      // now the current source for a possible subsequent expansion. Reusing
+      // the original margins here would silently plan the same expansion a
+      // second time against an already-expanded frame.
+      setExpandTargetWidth(String(acceptedEdit.outputFrame.width));
+      setExpandTargetHeight(String(acceptedEdit.outputFrame.height));
     }
     setVariationCount(
       Math.max(1, Math.min(MAX_BATCH_VARIATIONS, acceptedEdit.variations.length || 1)),
