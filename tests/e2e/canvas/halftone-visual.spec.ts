@@ -11,6 +11,7 @@
  * Screenshots for every state are saved to test-results/halftone-visual/
  * for manual visual review.
  */
+import { readFileSync } from 'node:fs';
 import { expect, type Page, test } from '@playwright/test';
 import { dragOnCanvas } from '../shared';
 
@@ -476,13 +477,45 @@ test.describe('Halftone visual verification', () => {
     await page.waitForTimeout(300);
 
     await page.getByRole('button', { name: 'PNG', exact: true }).first().click();
+    const downloadPromise = page.waitForEvent('download');
     await page.getByRole('button', { name: /download/i }).click();
+    const download = await downloadPromise;
 
     const msg = page.locator('.spec-export__message');
     await expect(msg).toBeVisible({ timeout: 20000 });
     await expect(msg).toHaveText(/exported/i, { timeout: 20000 });
     await expect(msg).not.toHaveText(/failed/i);
     await page.screenshot({ path: `${SHOT_DIR}/17-export-png-message.png` });
+
+    // Inspect the file actually written: the exported raster must contain both
+    // ink and paper pixels (a nonempty file is not proof of a halftone).
+    const downloadPath = await download.path();
+    expect(downloadPath).toBeTruthy();
+    const base64 = readFileSync(downloadPath as string).toString('base64');
+    const stats = await page.evaluate(async (data) => {
+      const img = new Image();
+      img.src = `data:image/png;base64,${data}`;
+      await img.decode();
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('no 2d context');
+      ctx.drawImage(img, 0, 0);
+      const px = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      let dark = 0;
+      let light = 0;
+      for (let i = 0; i < px.length; i += 4) {
+        const gray = 0.299 * px[i]! + 0.587 * px[i + 1]! + 0.114 * px[i + 2]!;
+        if (gray < 110) dark++;
+        else if (gray > 200) light++;
+      }
+      return { width: canvas.width, height: canvas.height, dark, light };
+    }, base64);
+    expect(stats.width).toBeGreaterThan(0);
+    expect(stats.height).toBeGreaterThan(0);
+    expect(stats.dark, 'exported PNG must contain ink pixels').toBeGreaterThan(0);
+    expect(stats.light, 'exported PNG must contain paper pixels').toBeGreaterThan(0);
   });
 
   test('11 - panning preserves document-space pattern phase (AM)', async ({ page }) => {
@@ -623,13 +656,23 @@ test.describe('Halftone visual verification', () => {
     await page.waitForTimeout(300);
 
     await page.getByRole('button', { name: 'SVG', exact: true }).first().click();
+    const svgDownloadPromise = page.waitForEvent('download');
     await page.getByRole('button', { name: /download/i }).click();
+    const svgDownload = await svgDownloadPromise;
 
     const msg = page.locator('.spec-export__message');
     await expect(msg).toBeVisible({ timeout: 20000 });
     await expect(msg).toHaveText(/exported/i, { timeout: 20000 });
     await expect(msg).not.toHaveText(/failed/i);
     await page.screenshot({ path: `${SHOT_DIR}/23-export-svg-message.png` });
+
+    // The SVG must keep the halftone as an embedded raster asset instead of
+    // silently dropping the effect.
+    const svgPath = await svgDownload.path();
+    expect(svgPath).toBeTruthy();
+    const svg = readFileSync(svgPath as string, 'utf-8');
+    expect(svg).toContain('<svg');
+    expect(svg).toContain('data:image/png;base64,');
   });
 
   test('14 - JPEG export with halftone succeeds', async ({ page }) => {
@@ -649,13 +692,42 @@ test.describe('Halftone visual verification', () => {
     await page.waitForTimeout(300);
 
     await page.getByRole('button', { name: 'JPEG', exact: true }).first().click();
+    const jpegDownloadPromise = page.waitForEvent('download');
     await page.getByRole('button', { name: /download/i }).click();
+    const jpegDownload = await jpegDownloadPromise;
 
     const msg = page.locator('.spec-export__message');
     await expect(msg).toBeVisible({ timeout: 20000 });
     await expect(msg).toHaveText(/exported/i, { timeout: 20000 });
     await expect(msg).not.toHaveText(/failed/i);
     await page.screenshot({ path: `${SHOT_DIR}/24-export-jpeg-message.png` });
+
+    const jpegPath = await jpegDownload.path();
+    expect(jpegPath).toBeTruthy();
+    const jpegBase64 = readFileSync(jpegPath as string).toString('base64');
+    const jpegStats = await page.evaluate(async (data) => {
+      const img = new Image();
+      img.src = `data:image/jpeg;base64,${data}`;
+      await img.decode();
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('no 2d context');
+      ctx.drawImage(img, 0, 0);
+      const px = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      let dark = 0;
+      let light = 0;
+      for (let i = 0; i < px.length; i += 4) {
+        const gray = 0.299 * px[i]! + 0.587 * px[i + 1]! + 0.114 * px[i + 2]!;
+        if (gray < 110) dark++;
+        else if (gray > 200) light++;
+      }
+      return { width: canvas.width, height: canvas.height, dark, light };
+    }, jpegBase64);
+    expect(jpegStats.width).toBeGreaterThan(0);
+    expect(jpegStats.dark, 'exported JPEG must contain ink pixels').toBeGreaterThan(0);
+    expect(jpegStats.light, 'exported JPEG must contain paper pixels').toBeGreaterThan(0);
   });
 
   test('15 - CMYK process screening renders colored dots on a saturated source', async ({

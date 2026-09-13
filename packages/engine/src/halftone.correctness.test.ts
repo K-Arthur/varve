@@ -446,6 +446,20 @@ describe('alpha screening (version 2)', () => {
     for (let i = 3; i < img.data.length; i += 4) expect(img.data[i]).toBe(200);
   });
 
+  it('leaves fully transparent pixels untouched (hidden RGB included)', () => {
+    const img = solid(64, 64, [255, 0, 0], 0);
+    const before = Array.from(img.data);
+    applyAMScreeningV2(img, v2({ frequency: 16 }));
+    expect(Array.from(img.data)).toEqual(before);
+
+    // Partially transparent pixels are screened and keep their alpha.
+    const edge = solid(64, 64, [128, 128, 128], 128);
+    applyAMScreeningV2(edge, v2({ frequency: 16 }));
+    for (let i = 3; i < edge.data.length; i += 4) expect(edge.data[i]).toBe(128);
+    expect(inkFraction(edge)).toBeGreaterThan(0);
+    expect(inkFraction(edge)).toBeLessThan(1);
+  });
+
   it('screens ink coverage into alpha in screen mode', () => {
     const black = solid(64, 64, [0, 0, 0], 255);
     applyAMScreeningV2(black, v2({ frequency: 16, alphaMode: 'screen' }));

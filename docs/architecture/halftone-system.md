@@ -176,6 +176,7 @@ output. No profile or calibration math is implied. The Inspector says so.
 | Value | Behavior |
 |---|---|
 | `blue-noise` | 64×64 void-and-cluster threshold matrix (Ulichney), deterministic seed, indexed by document pixel. Default for new effects. |
+| (channel handling) | FM screens one density plane; with `channel: 'cmyk'` it uses the K (luma darkness) separation. Process-color stochastic screening would need four independent screens and is not claimed. |
 | `bayer` | 8×8 Bayer ordered matrix, document-indexed. Legacy documents are pinned here so they keep their authored preview appearance. |
 | `error-diffusion` | Serpentine Floyd–Steinberg on a single scalar density plane with exact error conservation and row-bounded kernels. Runs only when the caller declares a **full-frame** render (`fullFrame: true`, set by export paths). In region-tiled preview, the position-stable blue-noise screen is shown; the Inspector labels this so the substitution is explicit, and new effects default to blue-noise precisely to avoid the mismatch. |
 
