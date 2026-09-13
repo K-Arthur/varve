@@ -1,4 +1,6 @@
+import path from 'node:path';
 import { expect, test } from '@playwright/test';
+import { importImageFile, selectImageNode } from '../helpers/editor-helpers';
 import { navigateToEditor } from '../shared';
 
 test.describe('Font detection', () => {
@@ -117,5 +119,60 @@ test.describe('Font detection', () => {
       }
     });
     expect(componentExists).toBe(true);
+  });
+
+  test('image identification controls stay readable inside the adjustments panel', async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(60000);
+    await importImageFile(page, 'test-image.png');
+    await selectImageNode(page);
+    await page.getByRole('treeitem').first().click();
+
+    const inspector = page.locator('.editor__inspector-panel');
+    const adjustmentsTab = inspector.getByRole('tab', { name: 'Adjustments', exact: true });
+    await expect(adjustmentsTab).toBeVisible({ timeout: 5000 });
+    await adjustmentsTab.click();
+
+    const trigger = inspector.getByRole('button', { name: 'Identify Font', exact: true });
+    await trigger.scrollIntoViewIfNeeded();
+    await expect(trigger).toBeVisible({ timeout: 5000 });
+    if ((await trigger.getAttribute('aria-expanded')) !== 'true') await trigger.click();
+
+    const section = trigger.locator('xpath=ancestor::section[contains(@class, "insp-disclosure")]');
+    await expect(section).toBeVisible();
+    const textInput = section.getByRole('textbox', { name: 'Text in image (optional)' });
+    await expect(textInput).toBeVisible();
+    await expect(
+      section.getByText(
+        'Type text manually, or use local OCR when its models are already installed.',
+      ),
+    ).toBeVisible();
+
+    const bounds = await section.evaluate((element) => {
+      const panel = element.closest('.editor__inspector-panel');
+      const sectionRect = element.getBoundingClientRect();
+      const panelRect = panel?.getBoundingClientRect();
+      return {
+        section: sectionRect.toJSON(),
+        panel: panelRect?.toJSON() ?? null,
+        scrollWidth: element.scrollWidth,
+        clientWidth: element.clientWidth,
+      };
+    });
+    expect(bounds.panel).not.toBeNull();
+    expect(bounds.section.left).toBeGreaterThanOrEqual(bounds.panel!.left - 1);
+    expect(bounds.section.right).toBeLessThanOrEqual(bounds.panel!.right + 1);
+    expect(bounds.scrollWidth).toBeLessThanOrEqual(bounds.clientWidth + 1);
+
+    const screenshot = await section.screenshot();
+    await testInfo.attach('font-identification-panel', {
+      body: screenshot,
+      contentType: 'image/png',
+    });
+    await page.screenshot({
+      path: path.resolve('reports/ui-review/font-identification/font-identification-panel.png'),
+      fullPage: false,
+    });
   });
 });
