@@ -57,19 +57,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     varve_bgremove::runtime::init_native_runtime(Path::new(&args[1]))?;
     let env = Environment::current()?;
-    // ORT resolves a plugin library path relative to the core runtime's own
-    // directory, so pass an absolute path.
-    let plugin_path = std::fs::canonicalize(&args[2])?;
-    let _library = match env.register_ep_library("webgpu_ep_registration", &plugin_path) {
-        Ok(library) => {
-            println!("PLUGIN_REGISTERED");
-            library
-        }
+    // Use the production registration path (the app calls the same function).
+    match varve_bgremove::webgpu_ep::register(std::path::Path::new(&args[2])) {
+        Ok(()) => println!(
+            "PLUGIN_REGISTERED {:?}",
+            varve_bgremove::webgpu_ep::status()
+        ),
         Err(err) => {
             eprintln!("PLUGIN_REGISTER_FAILED: {err}");
             std::process::exit(2);
         }
-    };
+    }
 
     let mut webgpu_devices = Vec::new();
     for device in env.devices() {
@@ -196,5 +194,38 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!(
         "PLACEMENT webgpu_nodes={webgpu_nodes} cpu_nodes={cpu_nodes} webgpu_ms={webgpu_ms:.1} cpu_ms={cpu_ms:.1}"
     );
+
+    // Production path: the same policy + session creation + provider
+    // reporting the desktop app uses (`varve_bgremove::webgpu_ep` +
+    // `OrtInferenceRuntime`).
+    use varve_bgremove::inference::{InferenceRuntime, OrtInferenceRuntime};
+    use varve_bgremove::webgpu_ep::{self, InferenceProviderPolicy};
+    let runtime = OrtInferenceRuntime;
+    let dims = [1usize, 3, size, size];
+
+    webgpu_ep::set_inference_provider_policy(InferenceProviderPolicy::Gpu);
+    let mut gpu_session = runtime.create_session(std::path::Path::new(&args[3]))?;
+    let gpu_provider = gpu_session.execution_provider();
+    let gpu_production = gpu_session.run_nd(&input, &dims)?;
+    let gpu_production = gpu_production.data;
+
+    webgpu_ep::set_inference_provider_policy(InferenceProviderPolicy::Cpu);
+    let mut cpu_session = runtime.create_session(std::path::Path::new(&args[3]))?;
+    let cpu_provider = cpu_session.execution_provider();
+    let cpu_production = cpu_session.run_nd(&input, &dims)?;
+    let cpu_production = cpu_production.data;
+
+    let mut production_max = 0f32;
+    for (a, b) in cpu_production.iter().zip(gpu_production.iter()) {
+        production_max = production_max.max((a - b).abs());
+    }
+    println!(
+        "PRODUCTION_PATH gpu_provider={gpu_provider} cpu_provider={cpu_provider} values={} parity_max={production_max:.6}",
+        gpu_production.len()
+    );
+    if gpu_provider != "native-webgpu" || cpu_provider != "native-cpu" {
+        eprintln!("PRODUCTION_PATH_PROVIDER_MISMATCH");
+        std::process::exit(5);
+    }
     Ok(())
 }

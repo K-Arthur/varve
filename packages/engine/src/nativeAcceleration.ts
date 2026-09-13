@@ -168,6 +168,20 @@ export function nativeAccelerationClearCache(): void {
 
 export type NativeInferenceProviderPolicy = 'auto' | 'cpu' | 'gpu';
 
+const POLICY_STORAGE_KEY = 'varve.native.inferenceProvider';
+
+/** Locally persisted provider preference (never stored in documents). */
+export function storedNativeInferenceProviderPolicy(): NativeInferenceProviderPolicy | null {
+  if (typeof localStorage === 'undefined') return null;
+  const value = localStorage.getItem(POLICY_STORAGE_KEY);
+  return value === 'auto' || value === 'cpu' || value === 'gpu' ? value : null;
+}
+
+export function storeNativeInferenceProviderPolicy(policy: NativeInferenceProviderPolicy): void {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem(POLICY_STORAGE_KEY, policy);
+}
+
 /**
  * Set the native inference provider policy. `gpu` is rejected by the native
  * side when the WebGPU execution provider is not actually registered, so the
@@ -180,6 +194,7 @@ export async function setNativeInferenceProviderPolicy(
   const { invoke } = await import('@tauri-apps/api/core');
   const applied = await invoke<string>('native_set_inference_provider', { policy });
   cached = null;
+  storeNativeInferenceProviderPolicy(applied as NativeInferenceProviderPolicy);
   return applied as NativeInferenceProviderPolicy;
 }
 

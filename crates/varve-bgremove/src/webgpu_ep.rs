@@ -144,7 +144,11 @@ fn init(plugin_path: &Path) -> Result<WebGpuEpDevice, String> {
         }
         let hardware = entry.hardware_device();
         device = Some(WebGpuEpDevice {
-            vendor: hardware.vendor().ok().map(str::to_string),
+            vendor: hardware
+                .vendor()
+                .ok()
+                .map(str::to_string)
+                .filter(|vendor| !vendor.is_empty()),
             device_id: hardware.id(),
             device_type: format!("{:?}", hardware.ty()),
         });
@@ -192,7 +196,10 @@ pub fn note_run(provider: &'static str) {
 
 /// Provider that produced the most recent inference result.
 pub fn last_run_provider() -> &'static str {
-    LAST_RUN_PROVIDER.lock().map(|guard| *guard).unwrap_or("native-cpu")
+    LAST_RUN_PROVIDER
+        .lock()
+        .map(|guard| *guard)
+        .unwrap_or("native-cpu")
 }
 
 pub fn note_attach_failure(error: &str) {
@@ -202,7 +209,10 @@ pub fn note_attach_failure(error: &str) {
 }
 
 pub fn last_attach_error() -> Option<String> {
-    LAST_ATTACH_ERROR.lock().ok().and_then(|guard| guard.clone())
+    LAST_ATTACH_ERROR
+        .lock()
+        .ok()
+        .and_then(|guard| guard.clone())
 }
 
 /// Attach the WebGPU EP to a session builder. Errors when no device is
@@ -226,10 +236,18 @@ pub fn attach_webgpu(builder: SessionBuilder) -> Result<SessionBuilder, String> 
         return Err("No WebGPU execution provider device is available".to_string());
     }
     // Bucketed buffer caching is the recommended mode for repeated inference
-    // with stable shapes; NHWC is the WebGPU EP's preferred layout.
+    // with stable shapes; NHWC is the WebGPU EP's preferred layout. Keys are
+    // prefixed with the EP name because `with_devices` filters options by
+    // device group.
     let options = [
-        ("preferredLayout".to_string(), "NHWC".to_string()),
-        ("defaultBufferCacheMode".to_string(), "bucket".to_string()),
+        (
+            "WebGpuExecutionProvider.preferredLayout".to_string(),
+            "NHWC".to_string(),
+        ),
+        (
+            "WebGpuExecutionProvider.defaultBufferCacheMode".to_string(),
+            "bucket".to_string(),
+        ),
     ];
     builder
         .with_devices(devices, Some(&options))

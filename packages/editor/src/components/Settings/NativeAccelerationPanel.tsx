@@ -16,6 +16,7 @@ import {
   type NativeInferenceProviderPolicy,
   runNativeGpuSelfTest,
   setNativeInferenceProviderPolicy,
+  storedNativeInferenceProviderPolicy,
   type UnavailableReason,
 } from '@varve/engine/nativeAcceleration';
 import { Button, Select } from '@varve/ui';
@@ -76,7 +77,20 @@ export function NativeAccelerationPanel() {
   );
 
   useEffect(() => {
-    void refresh(false);
+    void (async () => {
+      // Re-apply the locally persisted preference after a restart; the
+      // native policy itself is process-global and does not persist.
+      const stored = storedNativeInferenceProviderPolicy();
+      if (stored) {
+        try {
+          await setNativeInferenceProviderPolicy(stored);
+        } catch {
+          // Unavailable stored choice (e.g. WebGPU-only on a CPU host) is
+          // ignored; the native side keeps the current policy.
+        }
+      }
+      await refresh(false);
+    })();
   }, [refresh]);
 
   if (!available) return null;
