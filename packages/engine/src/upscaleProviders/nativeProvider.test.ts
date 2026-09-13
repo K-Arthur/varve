@@ -23,14 +23,17 @@ describe('nativeUpscaleProvider', () => {
   it('reports not-available outside the Tauri webview', async () => {
     setTauri(false);
     const { nativeUpscaleProvider } = await import('./nativeProvider');
-    await expect(nativeUpscaleProvider.isAvailable({ method: 'ai' })).toBe(false);
+    await expect(nativeUpscaleProvider.isAvailable({ method: 'ai' })).resolves.toBe(false);
   });
 
   it('reports available inside the Tauri webview', async () => {
     setTauri(true);
     vi.resetModules();
+    vi.doMock('@tauri-apps/api/core', () => ({
+      invoke: vi.fn(async (command: string) => (command === 'native_ai_status' ? true : null)),
+    }));
     const { nativeUpscaleProvider } = await import('./nativeProvider');
-    await expect(nativeUpscaleProvider.isAvailable({ method: 'ai' })).toBe(true);
+    await expect(nativeUpscaleProvider.isAvailable({ method: 'ai' })).resolves.toBe(true);
   });
 
   it('uses the default Real-ESRGAN model when no modelId is supplied', async () => {

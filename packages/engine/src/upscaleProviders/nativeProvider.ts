@@ -39,8 +39,19 @@ export const nativeUpscaleProvider: UpscaleProvider = {
   id: 'native-upscale',
   label: 'Native (Desktop)',
 
-  isAvailable(_options: UpscaleOptions) {
-    return isTauri();
+  async isAvailable(options: UpscaleOptions) {
+    if (!isTauri()) return false;
+    // AI upscaling is only offered to this provider after the packaged native
+    // ORT library has actually loaded. The bundled model alone is not proof
+    // that a session can run; a false result lets the chain choose the worker
+    // without starting a request that is guaranteed to fail.
+    if (options.method !== 'ai') return true;
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke<boolean>('native_ai_status');
+    } catch {
+      return false;
+    }
   },
 
   async upscale(imageData, options, signal) {
