@@ -8,13 +8,22 @@
  * Research basis: Figma Zoom tool (Z), Illustrator zoom (Z).
  */
 
-import { centerBoundsCamera, clampZoom, zoomAboutPoint } from '@varve/shared';
+import {
+  centerBoundsCameraWithRotation,
+  clampZoom,
+  fitBoundsCameraWithRotation,
+  zoomAboutPoint,
+} from '@varve/shared';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
 export class ZoomTool extends BaseTool {
   id = 'zoom' as const;
   private marqueeStart: { x: number; y: number } | null = null;
+
+  private cameraRotation(ctx: ToolContext): number {
+    return Number.isFinite(ctx.cameraRotation) ? (ctx.cameraRotation ?? 0) : 0;
+  }
 
   override cursor(state: ToolCursorState): CursorSpec {
     return state === 'drag' ? { css: 'crosshair' } : { css: 'zoom-in' };
@@ -54,21 +63,22 @@ export class ZoomTool extends BaseTool {
       const canvasW = canvasRect?.width ?? window.innerWidth;
       const canvasH = canvasRect?.height ?? window.innerHeight;
       if (rect.w > 0 && rect.h > 0 && canvasW > 0 && canvasH > 0) {
-        const zoomX = canvasW / rect.w;
-        const zoomY = canvasH / rect.h;
-        const newZoom = Math.min(zoomX, zoomY) * 0.9;
-        const clampedZoom = clampZoom(newZoom);
-        // Use the shared centerBoundsCamera instead of duplicating the pan
-        // math — this keeps the marquee center at the viewport center and
-        // is consistent with the rest of the viewport API.
-        const cam = centerBoundsCamera(rect, { width: canvasW, height: canvasH }, clampedZoom);
+        const viewport = { width: canvasW, height: canvasH };
+        const rotation = this.cameraRotation(ctx);
+        // Ask the canonical rotated fit helper for the camera footprint, then
+        // retain ZoomTool's intentional 10% breathing room. Re-centering with
+        // the same rotation keeps the marquee useful in rotated views.
+        const fit = fitBoundsCameraWithRotation(rect, viewport, rotation, 0);
+        if (!Number.isFinite(fit.zoom)) return;
+        const clampedZoom = clampZoom(fit.zoom * 0.9);
+        const cam = centerBoundsCameraWithRotation(rect, viewport, clampedZoom, rotation);
         ctx.setCamera(cam);
       }
     } else {
       const factor = ctx.altKey ? 0.8 : 1.25;
       const newZoom = clampZoom(ctx.zoom * factor);
       const anchor: [number, number] = [this.drag.startWorld.x, this.drag.startWorld.y];
-      const cam = { pan: ctx.pan, zoom: ctx.zoom };
+      const cam = { pan: ctx.pan, zoom: ctx.zoom, rotation: this.cameraRotation(ctx) };
       const canvasRect = ctx.canvasElement?.getBoundingClientRect();
       const viewport = {
         width: canvasRect?.width ?? window.innerWidth,

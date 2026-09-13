@@ -18,6 +18,7 @@ import {
   localRectToScreen,
   MAX_ZOOM,
   MIN_ZOOM,
+  placeWorldPointAtScreen,
   resetViewRotation,
   revealBoundsCamera,
   revealBoundsCameraWithRotation,
@@ -391,6 +392,39 @@ describe('zoomAboutPoint', () => {
     const original = cam(12, -8, 2);
     expect(zoomAboutPoint(original, [Number.NaN, 0], 3)).toBe(original);
     expect(zoomAboutPoint(original, [0, 0], Number.NaN)).toBe(original);
+  });
+});
+
+describe('placeWorldPointAtScreen', () => {
+  it('follows a moving pinch anchor while changing zoom', () => {
+    const viewport = { width: 1200, height: 700 };
+    const start: Camera = {
+      pan: { x: -420.5, y: 180.25 },
+      zoom: 1.75,
+      rotation: Math.PI / 6,
+    };
+    const startScreen: [number, number] = [315.25, 241.5];
+    const anchor = screenToWorld(start, startScreen[0], startScreen[1], viewport);
+    const endScreen: [number, number] = [402.75, 289.25];
+    const end = placeWorldPointAtScreen(start, anchor, endScreen, 2.9, viewport);
+    const projected = worldToScreen(end, anchor[0], anchor[1], viewport);
+
+    expect(projected[0]).toBeCloseTo(endScreen[0], 8);
+    expect(projected[1]).toBeCloseTo(endScreen[1], 8);
+    expect(end.rotation).toBe(start.rotation);
+  });
+
+  it('solves translation after zoom clamping', () => {
+    const viewport = { width: 900, height: 600 };
+    const start: Camera = { pan: { x: -80, y: 35 }, zoom: 2, rotation: -0.4 };
+    const screen: [number, number] = [710, 125];
+    const anchor = screenToWorld(start, screen[0], screen[1], viewport);
+    const end = placeWorldPointAtScreen(start, anchor, screen, MAX_ZOOM * 10, viewport);
+    const projected = worldToScreen(end, anchor[0], anchor[1], viewport);
+
+    expect(end.zoom).toBe(MAX_ZOOM);
+    expect(projected[0]).toBeCloseTo(screen[0], 8);
+    expect(projected[1]).toBeCloseTo(screen[1], 8);
   });
 });
 

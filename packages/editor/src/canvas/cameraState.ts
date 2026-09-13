@@ -5,7 +5,7 @@ import type { Camera, Point, Rect, Viewport } from '@varve/shared';
 import {
   applyCameraTransform,
   computeFloatingOrigin,
-  fitBoundsCamera,
+  fitBoundsCameraWithRotation,
   resetViewRotation,
   rotateAboutScreenPoint,
   screenToWorld,
@@ -91,8 +91,9 @@ export function fitBoundsToState(
   bounds: Rect,
   viewport: Viewport,
   padding = 40,
+  rotation = 0,
 ): Pick<EditorCameraState, 'zoom' | 'pan' | 'cameraRotation'> {
-  const cam = fitBoundsCamera(bounds, viewport, padding);
+  const cam = fitBoundsCameraWithRotation(bounds, viewport, rotation, padding);
   return cameraPatch(cam);
 }
 

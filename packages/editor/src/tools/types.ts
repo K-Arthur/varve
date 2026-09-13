@@ -152,6 +152,8 @@ export interface ToolContext {
   selection: NodeId[];
   zoom: number;
   pan: { x: number; y: number };
+  /** Current view rotation in radians, carried with the canonical camera. */
+  cameraRotation?: number;
   /** When true, tap-to-add/remove selection mode is active for touch input. */
   touchMultiSelect: { active: boolean; suspended: boolean };
   shiftKey: boolean;

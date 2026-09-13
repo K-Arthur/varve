@@ -11,6 +11,7 @@ import {
   clampZoom,
   computeFloatingOrigin,
   fitBoundsCameraWithRotation,
+  placeWorldPointAtScreen,
   screenToWorld,
   zoomAboutPoint,
 } from '@varve/shared';
@@ -172,8 +173,12 @@ function snapshotHeldPointer(ev: PointerEvent): PointerEvent {
   });
 }
 
+function isTouchLikePointerType(pointerType: string): boolean {
+  return pointerType === 'touch' || pointerType === 'unknown' || pointerType === '';
+}
+
 function isTouchLikeContact(contact: { pointerType: string } | null | undefined): boolean {
-  return contact?.pointerType === 'touch' || contact?.pointerType === 'unknown';
+  return contact ? isTouchLikePointerType(contact.pointerType) : false;
 }
 
 export function useCanvasInputs({
@@ -208,6 +213,14 @@ export function useCanvasInputs({
     lastDist: number;
     lastCentroid: { x: number; y: number };
   } | null>(null);
+  // Safari/WebKit gesture events can accompany Pointer Events for the same
+  // fingers. Once that native stream is admitted, it owns the touch contacts
+  // until gestureend so the pointer pinch path cannot apply a second zoom.
+  const nativeGestureRef = useRef<{
+    worldAnchor: [number, number];
+    baseZoom: number;
+  } | null>(null);
+  const nativeGestureEditorInteractionOpen = useRef(false);
   // Explicit navigation-gesture state machine (see navigationState.ts). Owns
   // the viewport-level pan/pinch transitions; tools own their own drag state.
   const navigationStateRef = useRef<NavigationGestureState>('idle');
@@ -319,6 +332,10 @@ export function useCanvasInputs({
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       const ne = e.nativeEvent as PointerEvent;
+      if (nativeGestureRef.current && isTouchLikePointerType(e.pointerType)) {
+        e.preventDefault();
+        return;
+      }
       if (e.pointerType === 'pen') observeInputCapabilities(ne);
       // Refresh before registering this event as an active anchor. A canvas
       // may have moved since the observer's last frame; the new pointerdown
@@ -453,6 +470,10 @@ export function useCanvasInputs({
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       const ne = e.nativeEvent as PointerEvent;
+      if (nativeGestureRef.current && isTouchLikePointerType(e.pointerType)) {
+        e.preventDefault();
+        return;
+      }
       if (e.pointerType === 'pen') observeInputCapabilities(ne);
       const trackedMove = updatePointerContact(
         pointerOwnershipRef.current,
@@ -676,6 +697,13 @@ export function useCanvasInputs({
       stopAutoPan();
       const pointerId = e.pointerId;
       const contact = getPointerContact(pointerOwnershipRef.current, pointerId);
+      if (nativeGestureRef.current && isTouchLikePointerType(e.pointerType)) {
+        if (contact) {
+          endPointerContact(pointerOwnershipRef.current, pointerId);
+          if (isTouchLikeContact(contact)) touchPointers.current.delete(pointerId);
+        }
+        return;
+      }
       const wasPinching = pinchRef.current !== null;
       const touchLike = isTouchLikeContact(contact);
       if (contact?.role === 'navigation' || contact?.role === 'ignored') {
@@ -765,6 +793,11 @@ export function useCanvasInputs({
       const pointerId = e.pointerId;
       const contact = getPointerContact(pointerOwnershipRef.current, pointerId);
       if (!contact) return;
+      if (nativeGestureRef.current && isTouchLikePointerType(e.pointerType)) {
+        endPointerContact(pointerOwnershipRef.current, pointerId);
+        if (isTouchLikeContact(contact)) touchPointers.current.delete(pointerId);
+        return;
+      }
       if (activeDragPointer.current?.pointerId === pointerId) {
         activeDragPointer.current = null;
         clearViewportAnchor();
@@ -831,6 +864,42 @@ export function useCanvasInputs({
       const anchor = screenToWorld(cam, clientX - left, clientY - top, viewport, origin);
       const newCam = zoomAboutPoint(cam, anchor, clampZoom(newZoom), viewport);
       commitCamera(newCam);
+    };
+
+    const placeWorldAnchorAtClientPoint = (
+      worldAnchor: [number, number],
+      clientX: number,
+      clientY: number,
+      newZoom: number,
+    ): void => {
+      if (
+        !Number.isFinite(worldAnchor[0]) ||
+        !Number.isFinite(worldAnchor[1]) ||
+        !Number.isFinite(clientX) ||
+        !Number.isFinite(clientY) ||
+        !Number.isFinite(newZoom)
+      ) {
+        return;
+      }
+      const s = stateRef.current;
+      const rect = canvasRectRef.current;
+      const canvasEl = contentCanvasRef.current;
+      const viewport = {
+        width: canvasEl?.clientWidth ?? 800,
+        height: canvasEl?.clientHeight ?? 600,
+      };
+      if (viewport.width <= 0 || viewport.height <= 0) return;
+      const left = Number.isFinite(rect.left) ? rect.left : 0;
+      const top = Number.isFinite(rect.top) ? rect.top : 0;
+      const cam = { pan: s.pan, zoom: s.zoom, rotation: s.cameraRotation };
+      const next = placeWorldPointAtScreen(
+        cam,
+        worldAnchor,
+        [clientX - left, clientY - top],
+        clampZoom(newZoom),
+        viewport,
+      );
+      commitCamera(next);
     };
 
     const inertiaRef = { current: { vx: 0, vy: 0, active: false } };
@@ -1017,34 +1086,86 @@ export function useCanvasInputs({
       ) {
         return { x: clientX, y: clientY };
       }
-      return lastPointer ?? canvasCenterClient();
+      return pinchGeometry()?.centroid ?? lastPointer ?? canvasCenterClient();
     };
-    let gestureBaseZoom = 1;
+
+    const captureNativeGestureAnchor = (point: { x: number; y: number }): boolean => {
+      const s = stateRef.current;
+      const canvasEl = contentCanvasRef.current;
+      const viewport = {
+        width: canvasEl?.clientWidth ?? 800,
+        height: canvasEl?.clientHeight ?? 600,
+      };
+      if (viewport.width <= 0 || viewport.height <= 0) return false;
+      const rect = canvasRectRef.current;
+      const left = Number.isFinite(rect.left) ? rect.left : 0;
+      const top = Number.isFinite(rect.top) ? rect.top : 0;
+      const cam = { pan: s.pan, zoom: s.zoom, rotation: s.cameraRotation };
+      const origin = computeFloatingOrigin(cam, viewport);
+      const anchor = screenToWorld(cam, point.x - left, point.y - top, viewport, origin);
+      if (!anchor.every(Number.isFinite)) return false;
+      nativeGestureRef.current = {
+        worldAnchor: anchor,
+        baseZoom: Number.isFinite(s.zoom) ? clampZoom(s.zoom) : 1,
+      };
+      return true;
+    };
+
     const onGestureStart = (e: Event) => {
       e.preventDefault();
       refreshCanvasRect?.();
       const ge = e as Partial<WebKitGestureEvent>;
       const point = resolveGesturePoint(ge.clientX, ge.clientY);
+      if (!captureNativeGestureAnchor(point)) return;
+      pinchRef.current = null;
+      const activePointer = activeDragPointer.current;
+      const activeContact = activePointer
+        ? getPointerContact(pointerOwnershipRef.current, activePointer.pointerId)
+        : null;
+      if (activePointer && activeContact?.role === 'tool') {
+        tmRef.current?.handlePointerCancel(activePointer, buildToolCtx(activePointer));
+        endPointerContact(pointerOwnershipRef.current, activePointer.pointerId);
+        activeDragPointer.current = null;
+        stopAutoPan();
+        setSnapGuides([]);
+        closePointerEditorInteraction();
+        endInteraction();
+      }
+      if (!isEditorInteractionActive()) {
+        beginEditorInteraction();
+        nativeGestureEditorInteractionOpen.current = true;
+      }
       setViewportAnchor(point.x, point.y);
-      gestureBaseZoom = Number.isFinite(stateRef.current.zoom)
-        ? clampZoom(stateRef.current.zoom)
-        : 1;
       cancelWheelInertiaRef.current?.();
-      if (isInteractionTracingEnabled()) beginInteraction('pinch');
+      if (isInteractionTracingEnabled() && getActiveInteractionIdentity()?.kind !== 'pinch') {
+        beginInteraction('pinch');
+      }
     };
     const onGestureChange = (e: Event) => {
       e.preventDefault();
       const ge = e as WebKitGestureEvent;
       const point = resolveGesturePoint(ge.clientX, ge.clientY);
+      if (!nativeGestureRef.current && !captureNativeGestureAnchor(point)) return;
       const scale =
         typeof ge.scale === 'number' && Number.isFinite(ge.scale) && ge.scale > 0 ? ge.scale : 1;
       setViewportAnchor(point.x, point.y);
       refreshCanvasRect?.();
       cancelWheelInertiaRef.current?.();
-      zoomAboutClientPoint(point.x, point.y, gestureBaseZoom * scale);
+      placeWorldAnchorAtClientPoint(
+        nativeGestureRef.current?.worldAnchor ?? [0, 0],
+        point.x,
+        point.y,
+        (nativeGestureRef.current?.baseZoom ?? stateRef.current.zoom) * scale,
+      );
     };
     const onGestureEnd = (e: Event) => {
       e.preventDefault();
+      nativeGestureRef.current = null;
+      pinchRef.current = null;
+      if (nativeGestureEditorInteractionOpen.current) {
+        nativeGestureEditorInteractionOpen.current = false;
+        endEditorInteraction();
+      }
       endInteractionIfKind('pinch');
       clearViewportAnchor();
     };
@@ -1052,6 +1173,10 @@ export function useCanvasInputs({
     const trackPointer = (e: PointerEvent) => {
       lastPointer = { x: e.clientX, y: e.clientY };
       pointerInside = true;
+      const contact = getPointerContact(pointerOwnershipRef.current, e.pointerId);
+      if (contact && isTouchLikeContact(contact)) {
+        touchPointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      }
     };
     const onPointerLeave = () => {
       pointerInside = false;
@@ -1076,6 +1201,7 @@ export function useCanvasInputs({
           listen<{ factor?: number }>('canvas://pinch-zoom', (event) => {
             const factor = event.payload?.factor;
             if (typeof factor !== 'number' || !Number.isFinite(factor) || factor <= 0) return;
+            if (nativeGestureRef.current) return;
             // Pinching over a panel should not move the artwork. The page zoom
             // has already been reverted natively, so swallowing it is enough.
             if (pointerInside === false) return;
@@ -1178,6 +1304,8 @@ export function useCanvasInputs({
     refreshCanvasRect,
     viewportAnchorRef,
     closePointerEditorInteraction,
+    stopAutoPan,
+    setSnapGuides,
   ]);
 
   // The native gesture effect is allowed to rebind when camera/editor
@@ -1190,6 +1318,11 @@ export function useCanvasInputs({
       activeDragPointer.current = null;
       touchPointers.current.clear();
       pinchRef.current = null;
+      nativeGestureRef.current = null;
+      if (nativeGestureEditorInteractionOpen.current) {
+        nativeGestureEditorInteractionOpen.current = false;
+        endEditorInteraction();
+      }
       resetPointerOwnership(pointerOwnershipRef.current);
       closePointerEditorInteraction();
       clearViewportAnchor();
@@ -1586,6 +1719,11 @@ export function useCanvasInputs({
   const onBlur = useCallback(() => {
     stopAutoPan();
     cancelWheelInertiaRef.current?.();
+    nativeGestureRef.current = null;
+    if (nativeGestureEditorInteractionOpen.current) {
+      nativeGestureEditorInteractionOpen.current = false;
+      endEditorInteraction();
+    }
     const heldPointer = activeDragPointer.current;
     const heldContact = heldPointer
       ? getPointerContact(pointerOwnershipRef.current, heldPointer.pointerId)
@@ -1638,6 +1776,11 @@ export function useCanvasInputs({
       activeDragPointer.current = null;
       touchPointers.current.clear();
       pinchRef.current = null;
+      nativeGestureRef.current = null;
+      if (nativeGestureEditorInteractionOpen.current) {
+        nativeGestureEditorInteractionOpen.current = false;
+        endEditorInteraction();
+      }
       resetPointerOwnership(pointerOwnershipRef.current);
       pointerEditorInteractionOpen.current = false;
       wheelEditorInteractionOpen.current = false;

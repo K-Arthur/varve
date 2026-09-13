@@ -23,6 +23,7 @@ function makeCtx(overrides: Partial<ToolContext> = {}): ToolContext {
     selection: [],
     zoom: 1,
     pan: { x: 0, y: 0 },
+    cameraRotation: 0,
     shiftKey: false,
     altKey: false,
     ctrlKey: false,
@@ -283,5 +284,62 @@ describe('ZoomTool — zoom clamping', () => {
 
     const camera = firstCallArg<import('@varve/shared').Camera>(vi.mocked(ctx.setCamera));
     expect(camera.zoom).toBeGreaterThanOrEqual(MIN_ZOOM);
+  });
+});
+
+describe('ZoomTool — rotated camera contract', () => {
+  it('preserves rotation when click-zooming around a rotated view', () => {
+    const rotation = Math.PI / 6;
+    const viewport = { width: 640, height: 480 };
+    const pan = { x: -120, y: 70 };
+    const zoom = 1.5;
+    const pointer = { x: 410, y: 190 };
+    const ctx = makeCtx({
+      zoom,
+      pan,
+      cameraRotation: rotation,
+      canvasElement: {
+        getBoundingClientRect: () => ({ width: viewport.width, height: viewport.height }),
+      } as unknown as HTMLCanvasElement,
+    });
+    ctx.canvasToWorld = vi.fn((cx: number, cy: number) => {
+      const origin = computeFloatingOrigin({ pan, zoom, rotation }, viewport);
+      const [x, y] = screenToWorld({ pan, zoom, rotation }, cx, cy, viewport, origin);
+      return { x, y };
+    });
+
+    const tool = new ZoomTool();
+    const event = makePointerEvent(pointer.x, pointer.y);
+    tool.onPointerDown(event, ctx);
+    tool.onPointerUp?.(event, ctx);
+
+    const camera = firstCallArg<import('@varve/shared').Camera>(vi.mocked(ctx.setCamera));
+    expect(camera.rotation).toBeCloseTo(rotation, 10);
+    const origin = computeFloatingOrigin(camera, viewport);
+    const world = ctx.canvasToWorld(pointer.x, pointer.y);
+    const [screenX, screenY] = worldToScreen(camera, world.x, world.y, viewport, origin);
+    expect(screenX).toBeCloseTo(pointer.x, 5);
+    expect(screenY).toBeCloseTo(pointer.y, 5);
+  });
+
+  it('keeps the active rotation for marquee zoom', () => {
+    const rotation = Math.PI / 4;
+    const viewport = { width: 640, height: 480 };
+    const ctx = makeCtx({
+      cameraRotation: rotation,
+      canvasElement: {
+        getBoundingClientRect: () => ({ width: viewport.width, height: viewport.height }),
+      } as unknown as HTMLCanvasElement,
+      canvasToWorld: vi.fn((x: number, y: number) => ({ x, y })),
+    });
+    const tool = new ZoomTool();
+    const down = makePointerEvent(100, 100);
+    const move = makePointerEvent(300, 260);
+    tool.onPointerDown(down, ctx);
+    tool.onPointerMove?.(move, ctx);
+    tool.onPointerUp?.(move, ctx);
+
+    const camera = firstCallArg<import('@varve/shared').Camera>(vi.mocked(ctx.setCamera));
+    expect(camera.rotation).toBeCloseTo(rotation, 10);
   });
 });

@@ -13,7 +13,7 @@ import {
   animateCamera,
   type Camera,
   clampZoom,
-  fitBoundsCamera,
+  fitBoundsCameraWithRotation,
   stepZoom,
   type Viewport,
   zoomAboutPoint,
@@ -126,6 +126,7 @@ export function getCanvasViewport(): Viewport {
 export function computeFitAllCamera(
   doc: Document,
   viewport: Viewport,
+  rotation = 0,
 ): { zoom: number; pan: { x: number; y: number } } | null {
   const entries = walkNodes(doc);
   // nodeWorldBounds falls back to an O(n) linear scan (getParent) for every
@@ -150,5 +151,5 @@ export function computeFitAllCamera(
     union = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
   }
   if (!union) return null;
-  return fitBoundsCamera(union, viewport, 40);
+  return fitBoundsCameraWithRotation(union, viewport, rotation, 40);
 }

@@ -506,13 +506,46 @@ export function zoomAboutPoint(
   if (!isFiniteViewport(vp) || vp.width === 0 || vp.height === 0) return cam;
   const origin: Point = viewport ? computeFloatingOrigin(cam, viewport) : [0, 0];
   const [screenX, screenY] = worldToScreen(cam, worldAnchor[0], worldAnchor[1], vp, origin);
+  if (![screenX, screenY].every(Number.isFinite)) return cam;
+  return placeWorldPointAtScreen(cam, worldAnchor, [screenX, screenY], z, vp);
+}
+
+/**
+ * Place a world point at an explicit viewport-local CSS pixel position.
+ *
+ * This is the general form of focal-point zoom. It is needed when the
+ * screen-space anchor moves during a gesture (for example, a pinch centroid):
+ * the world point captured at gesture start must follow the moving centroid
+ * while the zoom changes. Clamping happens before the translation is solved,
+ * so a zoom-limit hit cannot introduce a focal-point jump.
+ */
+export function placeWorldPointAtScreen(
+  cam: Camera,
+  worldAnchor: Point,
+  screenAnchor: Point,
+  newZoom: number = cam.zoom,
+  viewport: Viewport = DEFAULT_VIEWPORT,
+): Camera {
+  if (
+    !isFiniteCamera(cam) ||
+    !isFinitePoint(worldAnchor) ||
+    !isFinitePoint(screenAnchor) ||
+    !Number.isFinite(newZoom) ||
+    !isFiniteViewport(viewport) ||
+    viewport.width === 0 ||
+    viewport.height === 0
+  ) {
+    return cam;
+  }
+  const z = clampZoom(newZoom);
+  const origin = computeFloatingOrigin(cam, viewport);
   const baseCam: Camera = { ...cam, pan: { x: 0, y: 0 }, zoom: z };
-  const [baseX, baseY] = worldToScreen(baseCam, worldAnchor[0], worldAnchor[1], vp, origin);
-  if (![screenX, screenY, baseX, baseY].every(Number.isFinite)) return cam;
+  const [baseX, baseY] = worldToScreen(baseCam, worldAnchor[0], worldAnchor[1], viewport, origin);
+  if (![baseX, baseY].every(Number.isFinite)) return cam;
   return {
     ...cam,
     zoom: z,
-    pan: { x: screenX - baseX, y: screenY - baseY },
+    pan: { x: screenAnchor[0] - baseX, y: screenAnchor[1] - baseY },
   };
 }
 

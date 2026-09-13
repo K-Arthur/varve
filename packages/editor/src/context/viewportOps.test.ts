@@ -101,6 +101,15 @@ describe('computeFitAllCamera', () => {
     expect(cam!.zoom).toBeGreaterThan(0);
   });
 
+  it('reduces fit zoom for a rotated pasteboard footprint', () => {
+    const doc = makeFlatDoc(10);
+    const unrotated = computeFitAllCamera(doc, viewport, 0);
+    const rotated = computeFitAllCamera(doc, viewport, Math.PI / 4);
+    expect(unrotated).not.toBeNull();
+    expect(rotated).not.toBeNull();
+    expect(rotated!.zoom).toBeLessThan(unrotated!.zoom);
+  });
+
   it('returns null for a genuinely empty document', () => {
     const doc = createDocument('empty', {});
     expect(computeFitAllCamera(doc, viewport)).toBeNull();
