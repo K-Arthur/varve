@@ -82,7 +82,9 @@
 
 .font-selector__dropdown {
   position: relative;
-  width: min(320px, calc(100vw - 16px));
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   z-index: var(--z-dropdown);
   max-height: 280px;
   overflow-y: auto;
@@ -93,6 +95,8 @@
 
 .font-selector__menu-layer {
   display: flex;
+  width: 100%;
+  min-width: 0;
   min-height: 0;
   border-radius: var(--radius-surface);
   box-shadow: var(--shadow-lg);

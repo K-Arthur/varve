@@ -205,6 +205,15 @@ font actually declares license provenance. This keeps a technical file flag
 from reading like a legal assurance and gives export preflight a stable reason
 to block an unsupported operation.
 
+The full browser's inspection pane also exposes the exact variable axes declared
+by the selected catalog family. Sliders use the font's own minimum, default,
+maximum, and a bounded step; the live specimen receives the same variation
+settings. Axis edits remain a draft until **Use face**, and **Reset** restores
+the `fvar` defaults without creating a document change. The ordinary `wght`
+axis updates the pending face weight while preserving non-weight axes and the
+portable face reference. Catalog search and hover remain metadata-only; an
+installed or bundled face is required before the apply action is enabled.
+
 Moving focus from typing to the quick toolbar first flushes pending text and
 closes the typing transaction, while keeping the editing surface mounted.
 The next formatting choice therefore gets its own undo entry. The pointer

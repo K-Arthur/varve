@@ -348,6 +348,7 @@ export function FontSelector({
           fallbackPlacements={MENU_FALLBACKS}
           offsetDistance={4}
           maxHeight={280}
+          matchAnchorWidth
           kind="listbox"
           className="font-selector__menu-layer"
           onClose={dismiss}

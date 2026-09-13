@@ -87,6 +87,13 @@ interface FontDisplayEntry {
   faces: FontFaceEntry[];
 }
 
+interface VariableAxesPanelProps {
+  record: FontSemanticRecord;
+  values: Record<string, number>;
+  onChange: (tag: string, value: number) => void;
+  onReset: () => void;
+}
+
 const SOURCE_FILTERS: readonly { key: SourceFilter; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'system', label: 'System' },
@@ -173,6 +180,66 @@ function descriptors(record: FontSemanticRecord): string[] {
   ].slice(0, 3);
 }
 
+function axisSettings(values: Record<string, number>): string | undefined {
+  const settings = Object.entries(values)
+    .filter(([tag, value]) => /^[A-Za-z]{4}$/.test(tag) && Number.isFinite(value))
+    .map(([tag, value]) => `"${tag}" ${value}`)
+    .join(', ');
+  return settings || undefined;
+}
+
+function axisStep(min: number, max: number): number {
+  const span = max - min;
+  return span >= 100 ? 1 : span / 100;
+}
+
+function VariableAxesPanel({ record, values, onChange, onReset }: VariableAxesPanelProps) {
+  if (!record.axes.length) return null;
+  const hasCustomValues = record.axes.some(
+    (axis) => (values[axis.tag] ?? axis.default) !== axis.default,
+  );
+  return (
+    <section className="font-browser__axes" aria-label="Variable font axes">
+      <div className="font-browser__axes-header">
+        <div>
+          <strong>Variable axes</strong>
+          <span>Adjust the selected face before applying it.</span>
+        </div>
+        <button type="button" onClick={onReset} disabled={!hasCustomValues}>
+          Reset
+        </button>
+      </div>
+      {record.axes.map((axis) => {
+        const value = values[axis.tag] ?? axis.default;
+        const label = `${axis.name || axis.tag} (${axis.tag})`;
+        return (
+          <div className="font-browser__axis" key={axis.tag}>
+            <div className="font-browser__axis-label">
+              <label htmlFor={`font-axis-${record.familyId}-${axis.tag}`}>{label}</label>
+              <output htmlFor={`font-axis-${record.familyId}-${axis.tag}`}>{value}</output>
+            </div>
+            <input
+              id={`font-axis-${record.familyId}-${axis.tag}`}
+              type="range"
+              min={axis.min}
+              max={axis.max}
+              step={axisStep(axis.min, axis.max)}
+              value={value}
+              aria-label={label}
+              onChange={(event) => onChange(axis.tag, Number(event.target.value))}
+            />
+            <div className="font-browser__axis-range" aria-hidden="true">
+              <span>{axis.min}</span>
+              <span>{axis.default} default</span>
+              <span>{axis.max}</span>
+            </div>
+          </div>
+        );
+      })}
+    </section>
+  );
+}
+
 function facesFor(
   record: FontSemanticRecord,
   registry: ReturnType<typeof getFontRegistry>,
@@ -249,6 +316,7 @@ export function FontBrowser({
   const [installingFamily, setInstallingFamily] = useState<string | null>(null);
   const [installError, setInstallError] = useState<string | null>(null);
   const [tagDraft, setTagDraft] = useState('');
+  const [axisDraft, setAxisDraft] = useState<Record<string, number>>({});
   const [previewText, setPreviewText] = useState('The quick brown fox jumps over the lazy dog');
   const [previewStatus, setPreviewStatus] = useState<FontPreviewStatus>('unavailable');
   const [previewMessage, setPreviewMessage] = useState<string | undefined>();
@@ -263,6 +331,7 @@ export function FontBrowser({
   useEffect(() => {
     setSelectedFamily(selectedFamilyProp);
     setSelectedFace(undefined);
+    setAxisDraft({});
   }, [selectedFamilyProp]);
 
   const effectiveQuery = useMemo(() => {
@@ -321,6 +390,10 @@ export function FontBrowser({
         }));
 
   const selectedRecord = selectedFamily ? semantic.findByFamilyName(selectedFamily) : undefined;
+  const selectedFaces = useMemo(
+    () => (selectedRecord ? facesFor(selectedRecord, registry) : []),
+    [registry, selectedRecord],
+  );
   const selectedResult = selectedRecord
     ? (searchResults.find((result) => result.record.familyId === selectedRecord.familyId) ??
       semantic.search(selectedRecord.familyName, {
@@ -329,6 +402,22 @@ export function FontBrowser({
         diversity: false,
       })[0])
     : undefined;
+
+  useEffect(() => {
+    if (!selectedRecord || selectedRecord.axes.length === 0) {
+      setAxisDraft({});
+      return;
+    }
+    const baseFace = selectedFaces[0];
+    setAxisDraft(
+      Object.fromEntries(
+        selectedRecord.axes.map((axis) => [
+          axis.tag,
+          baseFace?.variableAxes?.[axis.tag] ?? axis.default,
+        ]),
+      ),
+    );
+  }, [selectedRecord?.familyId, selectedFaces]);
 
   useEffect(() => {
     removeFontPreview(previewFaceRef.current);
@@ -393,10 +482,64 @@ export function FontBrowser({
       };
       setSelectedFamily(record.familyName);
       setSelectedFace(selection);
+      setAxisDraft(
+        Object.fromEntries(
+          record.axes.map((axis) => [axis.tag, face.variableAxes?.[axis.tag] ?? axis.default]),
+        ),
+      );
       semantic.markRecentlyUsed(record.familyId);
     },
     [semantic],
   );
+
+  const handleAxisChange = useCallback(
+    (tag: string, value: number) => {
+      if (!selectedRecord || !Number.isFinite(value)) return;
+      const axis = selectedRecord.axes.find((candidate) => candidate.tag === tag);
+      if (!axis) return;
+      const nextValue = Math.min(axis.max, Math.max(axis.min, value));
+      const nextAxes = { ...axisDraft, [tag]: nextValue };
+      const baseFace = selectedFace ?? selectedFaces[0];
+      setAxisDraft(nextAxes);
+      if (baseFace) {
+        setSelectedFace({
+          family: selectedRecord.familyName,
+          weight: Math.round(nextAxes.wght ?? baseFace.weight),
+          style: baseFace.style === 'italic' ? 'italic' : 'normal',
+          ...(baseFace.postScriptName ? { postScriptName: baseFace.postScriptName } : {}),
+          ...(baseFace.fontReference ? { fontReference: baseFace.fontReference } : {}),
+          variableAxes: nextAxes,
+        });
+      } else {
+        setSelectedFace({
+          family: selectedRecord.familyName,
+          weight: Math.round(nextAxes.wght ?? 400),
+          style: 'normal',
+          variableAxes: nextAxes,
+        });
+      }
+    },
+    [axisDraft, selectedFace, selectedFaces, selectedRecord],
+  );
+
+  const resetAxes = useCallback(() => {
+    if (!selectedRecord) return;
+    const defaults = Object.fromEntries(
+      selectedRecord.axes.map((axis) => [axis.tag, axis.default]),
+    );
+    setAxisDraft(defaults);
+    const baseFace = selectedFace ?? selectedFaces[0];
+    if (baseFace) {
+      setSelectedFace({
+        family: selectedRecord.familyName,
+        weight: Math.round(defaults.wght ?? baseFace.weight),
+        style: baseFace.style === 'italic' ? 'italic' : 'normal',
+        ...(baseFace.postScriptName ? { postScriptName: baseFace.postScriptName } : {}),
+        ...(baseFace.fontReference ? { fontReference: baseFace.fontReference } : {}),
+        variableAxes: defaults,
+      });
+    }
+  }, [selectedFace, selectedFaces, selectedRecord]);
 
   const applySelected = useCallback(() => {
     if (!selectedRecord?.installed) return;
@@ -769,7 +912,12 @@ export function FontBrowser({
               <div
                 className={`font-browser__specimen${previewStatus === 'ready' ? '' : ' font-browser__specimen--fallback'}`}
                 data-preview-status={previewStatus}
-                style={{ fontFamily: fontStack(selectedRecord.familyName) }}
+                style={{
+                  fontFamily: fontStack(selectedRecord.familyName),
+                  ...(axisSettings(axisDraft)
+                    ? { fontVariationSettings: axisSettings(axisDraft) }
+                    : {}),
+                }}
               >
                 {previewText || 'Type a custom specimen…'}
               </div>
@@ -786,6 +934,13 @@ export function FontBrowser({
                   {previewMessage ?? 'Install the family to load the actual font in the document.'}
                 </p>
               )}
+
+              <VariableAxesPanel
+                record={selectedRecord}
+                values={axisDraft}
+                onChange={handleAxisChange}
+                onReset={resetAxes}
+              />
 
               <dl className="font-browser__detail-grid">
                 <div>

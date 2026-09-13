@@ -61,6 +61,24 @@ describe('FontBrowser', () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 
+  it('keeps an exact family visible when its catalog search terms are also semantic filters', () => {
+    render(<FontBrowser layout="modal" showDownloadable selectedFamily="IBM Plex Sans Variable" />);
+
+    const search = screen.getByRole('searchbox', {
+      name: 'Search fonts by name or design language',
+    });
+    fireEvent.change(search, { target: { value: 'IBM Plex Sans Variable' } });
+
+    const exactRow = screen
+      .getAllByRole('button')
+      .find(
+        (button) =>
+          button.classList.contains('font-browser__select-btn') &&
+          button.textContent?.includes('IBM Plex Sans Variable'),
+      );
+    expect(exactRow).toBeVisible();
+  });
+
   it('exposes local font discovery as an explicit action', () => {
     render(<FontBrowser layout="modal" showDownloadable />);
 
@@ -128,5 +146,60 @@ describe('FontBrowser', () => {
       }),
     );
     entry!.namedInstances = undefined;
+  });
+
+  it('edits supported variable axes in the preview and applies the chosen values explicitly', () => {
+    const onSelectFace = vi.fn();
+    render(
+      <FontBrowser
+        layout="modal"
+        showDownloadable
+        selectedFamily="IBM Plex Sans Variable"
+        onSelectFace={onSelectFace}
+      />,
+    );
+
+    const weight = screen.getByRole('slider', { name: 'Weight (wght)' });
+    expect(weight).toHaveAttribute('min', '100');
+    expect(weight).toHaveAttribute('max', '700');
+    expect(weight).toHaveValue('400');
+    expect(screen.getByText('Variable axes')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Reset' })).toBeDisabled();
+
+    fireEvent.change(weight, { target: { value: '650' } });
+
+    expect(weight).toHaveValue('650');
+    expect(onSelectFace).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Reset' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Use IBM Plex Sans Variable face' })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Use IBM Plex Sans Variable face' }));
+    expect(onSelectFace).toHaveBeenCalledWith(
+      expect.objectContaining({
+        family: 'IBM Plex Sans Variable',
+        weight: 650,
+        variableAxes: expect.objectContaining({ wght: 650 }),
+      }),
+    );
+  });
+
+  it('resets custom variable axes to the face defaults without applying a change', () => {
+    const onSelectFace = vi.fn();
+    render(
+      <FontBrowser
+        layout="modal"
+        showDownloadable
+        selectedFamily="IBM Plex Sans Variable"
+        onSelectFace={onSelectFace}
+      />,
+    );
+
+    const weight = screen.getByRole('slider', { name: 'Weight (wght)' });
+    fireEvent.change(weight, { target: { value: '650' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
+
+    expect(weight).toHaveValue('400');
+    expect(screen.getByRole('button', { name: 'Reset' })).toBeDisabled();
+    expect(onSelectFace).not.toHaveBeenCalled();
   });
 });
