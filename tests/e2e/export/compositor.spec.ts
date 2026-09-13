@@ -30,8 +30,19 @@ test.describe('Export compositor — structural flattening', () => {
     const exportTab = page.locator('[role="tablist"] button[role="tab"]', {
       hasText: /^export$/i,
     });
-    await exportTab.waitFor({ state: 'visible', timeout: 5000 });
-    await exportTab.click();
+    if (await exportTab.isVisible().catch(() => false)) {
+      await exportTab.click();
+      return;
+    }
+
+    // The inspector moves less-common tabs into this overflow menu at the
+    // compact desktop breakpoint. Export must remain reachable through the
+    // same real UI path instead of making the test depend on a wide viewport.
+    await page.getByRole('button', { name: /^More inspector tabs/ }).click();
+    await page
+      .getByRole('menu', { name: 'More inspector tabs' })
+      .getByRole('menuitem', { name: 'Export', exact: true })
+      .click();
   }
 
   test('Export a document with effects to SVG embeds raster image', async ({ page }) => {

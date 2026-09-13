@@ -61,6 +61,25 @@ The numeric assertions and visual captures are intentionally separate: the
 Inspector proves document geometry, while before/during/after screenshots prove
 focus, guide visibility, reference presentation, and final rendering.
 
+## Export route check
+
+The existing browser export-compositor workflow was also exercised after the
+placement changes. At the default Chromium viewport the inspector correctly
+places Export in the overflow menu; the test helper now follows that real
+responsive route as well as the inline tab. The clean vector export completed
+successfully on an isolated port:
+
+```text
+VARVE_E2E_PORT=1574 VARVE_DISABLE_HMR=1 pnpm exec playwright test \
+  tests/e2e/export/compositor.spec.ts --project=chromium \
+  --grep "clean document to SVG" --workers=1 --reporter=list
+1 passed (27.3s; Playwright wall time 1.1m)
+```
+
+The downloaded artifact was validated by the existing spec as an SVG containing
+vector geometry and no embedded raster data. Native filesystem export remains a
+separate platform boundary and is not claimed by this browser run.
+
 ## Remaining boundaries
 
 These are not presented as complete until their own evidence exists:
