@@ -88,15 +88,26 @@ and Vitest workers:
 | Selection mapping and sparse raster mutation | `timeout 300s nice -n 10 pnpm exec vitest run packages/scene/src/__tests__/rasterLayer.test.ts packages/editor/src/tools/selectionCoverage.test.ts --pool=forks --maxWorkers=1 --no-file-parallelism --testNamePattern='fills only the covered pixels|uses soft coverage|selectionCoverageForRasterNode' --reporter=verbose` | Pass: 4 tests in 2 files; 30 unrelated tests skipped. Duration 218.08s under shared load. |
 | Touched-file formatting/lint | `pnpm exec biome format --write packages/scene/src/__tests__/rasterLayer.test.ts` and `pnpm exec biome check packages/scene/src/rasterLayer.ts packages/scene/src/__tests__/rasterLayer.test.ts packages/editor/src/tools/selectionCoverage.ts packages/editor/src/tools/selectionCoverage.test.ts packages/editor/src/components/Inspector/SelectionSourcesPanel.tsx packages/editor/src/components/Inspector/SelectionSourcesPanel.test.tsx tests/e2e/canvas/selection-fill.spec.ts apps/website/src/pages/features/strokes.astro apps/website/src/pages/docs/tools/strokes.astro` | Pass: 7 files checked after one formatting fix. |
 | Scene package typecheck | `pnpm --filter @varve/scene typecheck` | Blocked by unrelated concurrent diagnostics in `src/__tests__/clone.test.ts`, `src/__tests__/depthMaskRecipe.test.ts`, and `../shared/src/typographyFeatures.ts`; no diagnostic named this slice. |
+| E2E typecheck | `timeout 180s pnpm typecheck:e2e` | Blocked by unrelated concurrent diagnostics in engine colorization dispatch and WebGPU circle-parity metrics; no diagnostic named `selection-fill.spec.ts`. |
 | Affected planner | `pnpm verify:plan` / `pnpm verify:affected` | Planner selected 376 shared-tree changes and required full escalation; affected exited at that mandated boundary with `FULL-SUITE ESCALATION: YES`. No full-gate pass is claimed. |
+| Documentation/emoji/token audits | `pnpm audit:docs`, `pnpm audit:emoji`, `pnpm audit:tokens` | Pass: 791 docs / 393 links / 174 ADRs; 4,527 files emoji-clean; 153 token pairs pass across three themes. |
+| Website build | `timeout 300s pnpm --filter @varve/website build` | Environment timeout after the env guard and Astro diagnostics phase under concurrent repository load. It emitted existing unused-import warnings but no error naming the two changed stroke pages. |
 
 The Inspector integration test was launched separately with a 300-second
-bound, but shared module compilation is still the limiting factor and its
-result is recorded at handoff. The required browser validation must verify the
-existing editor path, inspect before/after canvas images, exercise undo, and
-cover save/reopen/export before this slice can claim end-to-end visual
-acceptance. No visual pass is claimed merely because a screenshot was
-generated.
+bound, but shared module compilation produced no result before the bound.
+The browser scenario was attempted on isolated ports. The first attempt was
+blocked by a concurrent incomplete `packages/engine/src/replay.ts` parse
+error. A later attempt reached the real editor and failed for a useful UI
+reason: the existing marquee options popover covered the test gesture, so no
+area selection was created and the new button correctly remained disabled.
+That failure screenshot was inspected at
+`test-results/selection-fill-e2e-retry/canvas-selection-fill-sele-512bb-ction-Sources-and-undoes-it-chromium/test-failed-1.png`.
+The regression was corrected to close **Tool options** and drag on the
+established `.editor-canvas` surface. A subsequent run was blocked by the
+shared Vite startup timeout before reaching the test. Therefore no successful
+browser visual/save/reopen/export pass is claimed yet; the failure artifact is
+evidence of validation and of the corrected interaction contract, not an
+acceptance result.
 
 ## Limits and next slice
 
