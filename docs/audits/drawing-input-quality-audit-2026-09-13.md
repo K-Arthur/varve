@@ -104,6 +104,13 @@ path through the active Pen tool, and removed the draft toolbar without a
 global undo. This remains synthetic browser input; it does not certify a
 physical touchscreen or stylus.
 
+Two later attempts to run the same test with an attached toolbar screenshot
+(ports 2011 and 2012) timed out in global setup before the editor loaded while
+the shared machine was running many concurrent Playwright/Vitest/typecheck
+jobs. They produced no screenshot and no test-body result; the screenshot is
+not presented as visual evidence. The previously opened Pen live-handle,
+multi-anchor, and close-target artifacts remain the inspected visual evidence.
+
 The separate ChromeOS Stage 2 production-artifact run served `/try/` from a
 disposable local origin and passed its three PWA checks: incomplete offline
 setup showed a truthful unavailable page, a completed setup reopened the
