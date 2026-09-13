@@ -25,6 +25,10 @@
       "types": "./src/gpuAdapter.ts",
       "default": "./src/gpuAdapter.ts"
     },
+    "./nativeAcceleration": {
+      "types": "./src/nativeAcceleration.ts",
+      "default": "./src/nativeAcceleration.ts"
+    },
     "./semanticSimilarity": {
       "types": "./src/semanticSimilarity/index.ts",
       "default": "./src/semanticSimilarity/index.ts"
@@ -32,6 +36,14 @@
     "./vision": {
       "types": "./src/vision/index.ts",
       "default": "./src/vision/index.ts"
+    },
+    "./hdr": {
+      "types": "./src/hdr/index.ts",
+      "default": "./src/hdr/index.ts"
+    },
+    "./raw": {
+      "types": "./src/raw/index.ts",
+      "default": "./src/raw/index.ts"
     },
     "./segmentationQuality": {
       "types": "./src/segmentation/quality/index.ts",

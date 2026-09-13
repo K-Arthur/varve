@@ -1,3 +1,4 @@
+mod acceleration;
 mod crash;
 mod file_open;
 mod font;
@@ -2870,6 +2871,17 @@ async fn upscale_image_command(
     let target_height = options.target_height;
     let scale_opt = options.scale;
 
+    // Non-AI methods can use the native GPU resampler when a hardware device
+    // is available. Any failure (no adapter, device loss, unsupported size)
+    // falls back to the CPU filters below; the request never fails because of
+    // an unavailable accelerator.
+    let gpu_workers = if method != "ai" {
+        app.try_state::<std::sync::Arc<acceleration::AccelerationState>>()
+            .and_then(|state| state.workers().ok())
+    } else {
+        None
+    };
+
     let result = tauri::async_runtime::spawn_blocking(move || {
         // Serialize native upscale allocations. Superseded jobs remain cheap
         // queued closures and observe their cancellation flag before decoding
@@ -2907,6 +2919,7 @@ async fn upscale_image_command(
             model_id.as_str(),
             progress_callback,
             cancel_for_worker,
+            gpu_workers,
         )
     })
     .await
@@ -2932,8 +2945,12 @@ async fn upscale_image_command(
 /// pixel-count ceiling before any allocation; runs on a blocking thread so
 /// the UI thread stays free.
 #[tauri::command]
-async fn apply_live_effect_binary(request: tauri::ipc::Request<'_>) -> Result<Response, String> {
+async fn apply_live_effect_binary(
+    state: tauri::State<'_, std::sync::Arc<acceleration::AccelerationState>>,
+    request: tauri::ipc::Request<'_>,
+) -> Result<Response, String> {
     const OPTIONS_HEADER: &str = "x-varve-effect";
+    const BACKEND_HEADER: &str = "x-varve-effect-backend";
     const MAX_EFFECT_PIXELS: u64 = 33_554_432; // 8192x4096 — export ceiling
     let rgba = match request.body() {
         tauri::ipc::InvokeBody::Raw(bytes) => bytes.clone(),
@@ -2941,6 +2958,12 @@ async fn apply_live_effect_binary(request: tauri::ipc::Request<'_>) -> Result<Re
             return Err("Binary effect requires an application/octet-stream body".into())
         }
     };
+    let backend = request
+        .headers()
+        .get(BACKEND_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("cpu")
+        .to_ascii_lowercase();
     let options_json = request
         .headers()
         .get(OPTIONS_HEADER)
@@ -2957,6 +2980,19 @@ async fn apply_live_effect_binary(request: tauri::ipc::Request<'_>) -> Result<Re
         return Err(format!(
             "Effect surface contains {pixels} pixels; the native limit is {MAX_EFFECT_PIXELS} pixels"
         ));
+    }
+
+    if backend == "gpu" {
+        // Explicit GPU requests fail closed: the provider chain decides
+        // whether to fall back to the CPU command, and a success here means
+        // the GPU actually produced the bytes.
+        let workers = state.workers()?;
+        let result = tauri::async_runtime::spawn_blocking(move || {
+            acceleration::apply_effect_on_gpu(&workers, &effect_request, &rgba)
+        })
+        .await
+        .map_err(|e| format!("GPU effect task panicked: {e}"))??;
+        return Ok(Response::new(result));
     }
 
     let result = tauri::async_runtime::spawn_blocking(move || {
@@ -2981,6 +3017,7 @@ fn upscale_image_impl(
     model_id: &str,
     progress_callback: Option<varve_upscale::ProgressCallback>,
     cancel_flag: std::sync::Arc<AtomicBool>,
+    gpu_workers: Option<acceleration::GpuWorkers>,
 ) -> Result<Vec<u8>, String> {
     if cancel_flag.load(Ordering::SeqCst) {
         return Err("Upscale cancelled".into());
@@ -3034,7 +3071,22 @@ fn upscale_image_impl(
     } else {
         let filter = varve_upscale::UpscaleFilter::from_method(method);
         let mp = (width as u64) * (height as u64);
-        if mp > 4_000_000 {
+        // Native GPU resampling when a hardware device is available. The
+        // result is within 1 LSB of the image-rs CPU filters (verified by
+        // crates/varve-accel parity tests); on any failure the CPU path runs.
+        let gpu_result = gpu_workers.as_ref().and_then(|workers| {
+            acceleration::resample_on_gpu(
+                workers, pixels, width, height, out_w, out_h, method,
+            )
+            .map_err(|err| {
+                eprintln!("native GPU resample unavailable ({err}); using CPU filters");
+                err
+            })
+            .ok()
+        });
+        if let Some(bytes) = gpu_result {
+            bytes
+        } else if mp > 4_000_000 {
             varve_upscale::tiled_upscale(pixels, width, height, scale, 256, 16, filter)?
         } else {
             varve_upscale::cpu_upscale(pixels, width, height, scale, filter)?
@@ -4585,6 +4637,7 @@ pub fn run() {
             let store = varve_sync::DocumentStore::new(&db_path).expect("init document store");
             app.manage(store);
             app.manage(UpscaleCancelState::new());
+            app.manage(std::sync::Arc::new(acceleration::AccelerationState::new()));
             app.manage(LamaCancelState::new());
             app.manage(TraceCancelState::new());
             app.manage(lifecycle::LifecycleGuard::new());
@@ -4668,6 +4721,8 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            acceleration::native_acceleration_status,
+            acceleration::native_gpu_self_test,
             crash::crash_write_report,
             crash::crash_list_reports,
             crash::crash_read_report,
@@ -5761,6 +5816,7 @@ mod tests {
                 .unwrap_or("upscale-realesr-general"),
             None,
             std::sync::Arc::new(AtomicBool::new(false)),
+            None,
         )
         .expect("upscale_image should succeed");
         let decoded = image::load_from_memory(&result).expect("result must be PNG");
@@ -5833,6 +5889,7 @@ mod tests {
             "unused",
             None,
             std::sync::Arc::new(AtomicBool::new(false)),
+            None,
         )
         .expect_err("large output must be rejected");
         assert!(
@@ -5856,6 +5913,7 @@ mod tests {
             "unused",
             None,
             cancelled,
+            None,
         )
         .expect_err("cancelled job must not run");
         assert_eq!(error, "Upscale cancelled");

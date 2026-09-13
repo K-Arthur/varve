@@ -131,6 +131,50 @@ export const nativeEffectProvider: LiveEffectProvider = {
 };
 
 /**
+ * Desktop GPU provider: native wgpu compute through
+ * `apply_live_effect_binary` with an explicit GPU backend. Availability is
+ * the native capability report (hardware adapter present); unsupported
+ * effects or a failed device fall through to the CPU providers in the chain,
+ * so a GPU success here always means the GPU produced the bytes.
+ */
+export const nativeGpuEffectProvider: LiveEffectProvider = {
+  id: 'native-gpu-effects',
+  label: 'Native GPU (Desktop)',
+  async isAvailable() {
+    if (!isTauri()) return false;
+    const { isNativeGpuComputeUsable } = await import('../nativeAcceleration');
+    return isNativeGpuComputeUsable();
+  },
+  async apply(request, rgba) {
+    if (!isTauri()) throw new Error('Native GPU effects require the desktop app');
+    const [{ invoke }] = await Promise.all([import('@tauri-apps/api/core')]);
+    const wireOptions = {
+      effect: request.effect,
+      width: request.width,
+      height: request.height,
+      quality: request.quality,
+      coordSpace: request.coordSpace ?? undefined,
+      params: request.params,
+    };
+    const resultBytes = await invoke<ArrayBuffer | number[]>(
+      'apply_live_effect_binary',
+      arrayBufferForBytes(rgba),
+      {
+        headers: {
+          'x-varve-effect': JSON.stringify(wireOptions),
+          'x-varve-effect-backend': 'gpu',
+        },
+      },
+    );
+    const result = responseBytes(resultBytes);
+    if (result.length !== rgba.length) {
+      throw new Error(`Native GPU effect returned ${result.length} bytes, expected ${rgba.length}`);
+    }
+    return result;
+  },
+};
+
+/**
  * Reference provider: the existing TS kernels, byte-identical to the
  * interactive preview path. Always available.
  */
@@ -221,7 +265,7 @@ export const cpuEffectProvider: LiveEffectProvider = {
  */
 export function buildEffectChain(gpu?: LiveEffectProvider): LiveEffectProvider[] {
   const chain: LiveEffectProvider[] = [];
-  if (isTauri()) chain.push(nativeEffectProvider);
+  if (isTauri()) chain.push(nativeGpuEffectProvider, nativeEffectProvider);
   if (gpu) chain.push(gpu);
   chain.push(cpuEffectProvider);
   return chain;

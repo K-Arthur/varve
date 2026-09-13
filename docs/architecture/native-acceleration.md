@@ -13,7 +13,7 @@ and failure-mode research:
 | Canvas presentation | webview + `@varve/compositor` | Canvas2D replay is authoritative; WebGPU is opt-in per ADR-0003 |
 | Native compute | `crates/varve-accel` | Offscreen effects/resampling on a native device |
 | Inference | `crates/varve-bgremove`, `crates/varve-upscale` via ONNX Runtime | Provider status is reported from what the *loaded* runtime provides |
-| Frontend contract | `@varve/engine` native-acceleration client (added with the desktop wiring milestone) | Mirrors the Rust report; no separate detector |
+| Frontend contract | `@varve/engine/nativeAcceleration` | Mirrors the Rust report; no separate detector |
 
 A native GPU being present does **not** mean the DOM canvas draws on it, and
 browser `navigator.gpu` is irrelevant to native discovery. Native discovery
@@ -84,7 +84,12 @@ Desktop:
   native CPU provider. There is no ambiguous `auto` mode at the IPC layer —
   the chain already owns fallback ordering.
 - `native_acceleration_status` and `native_gpu_self_test` expose the report
-  and a bounded verification run to Settings and diagnostics.
+  and a bounded verification run to Settings and diagnostics. The Settings
+  panel (`NativeAccelerationPanel`) renders presentation, compute, and
+  inference separately and maps unavailable reasons to plain language.
+- Non-AI upscale methods resample on the GPU inside the blocking upscale
+  worker (`acceleration::resample_on_gpu`), with automatic CPU fallback; the
+  output is within 1 LSB of the image-rs CPU filters (nearest is byte-exact).
 
 Web: the same `LiveEffectProvider` chain is consumed by `dispatchLiveEffect`;
 the browser GPU tier is `gpuEffectProvider` from `@varve/compositor`. The
@@ -140,6 +145,13 @@ Measured on CachyOS / RADV RENOIR (Ryzen 3 5300U), 2026-09-13:
 | RGB split 1024² | 346 ms | 11.7 ms | 30× |
 | RGB split 2048² | 786 ms | 20.4 ms | 39× |
 | RGB split 4096² | 3853 ms | 275 ms | 14× |
+| Resample 1080p → 4K bicubic | 3143 ms | 62 ms | 51× |
+| Resample 1080p → 4K Lanczos3 | 3745 ms | 93 ms | 40× |
+| Resample 6 MP → 24 MP bicubic | 3805 ms | 563 ms | 7× |
+| Resample 6 MP → 24 MP Lanczos3 | 3926 ms | 416 ms | 9× |
+
+Resample parity against `image-rs` on the parity corpus: nearest byte-exact;
+bilinear/bicubic/Lanczos3 maximum 1 LSB, PSNR 78–85 dB.
 
 Self-test: `AMD Radeon Graphics (RADV RENOIR)`, Vulkan, 5–8 ms. Software
 adapters are declined; on hosts without a hardware adapter the report explains

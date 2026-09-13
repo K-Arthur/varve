@@ -10,9 +10,14 @@ import { enableDrawDiagnostics } from '../../canvas/drawDiagnostics';
 import { getAverageFrameTime, getPercentileFrameTime } from '../../canvas/frameBudget';
 import { setReducedMotionOverride } from '../../context/reducedMotionManager';
 import { ensureWebGpuCapabilityProbe, type WebGpuProbeStatus } from '../../performance/webGpuProbe';
-import type { PerformanceSettingsStore, RenderSettingsStore } from '../../settings';
+import type {
+  InteractivePreviewMode,
+  PerformanceSettingsStore,
+  RenderSettingsStore,
+} from '../../settings';
 import { CapabilityReportPanel } from './CapabilityReportPanel';
 import { InteractionTracePanel } from './InteractionTracePanel';
+import { NativeAccelerationPanel } from './NativeAccelerationPanel';
 import { useSettings } from './SettingsContext';
 
 import './PerformanceSettingsTab.css';
@@ -21,6 +26,11 @@ const MEMORY_BUDGET_OPTIONS: { value: RenderSettingsStore['memoryBudget']; label
   { value: 'low', label: 'Low (constrained devices)' },
   { value: 'medium', label: 'Balanced (recommended)' },
   { value: 'high', label: 'High (large documents, more RAM available)' },
+];
+
+const INTERACTIVE_PREVIEW_OPTIONS: { value: InteractivePreviewMode; label: string }[] = [
+  { value: 'automatic', label: 'Automatic (recommended)' },
+  { value: 'full', label: 'Full resolution while navigating' },
 ];
 
 const REDUCED_MOTION_OPTIONS: {
@@ -68,7 +78,7 @@ export function PerformanceSettingsTab() {
 
   function handleResetDefaults() {
     updateSettings({
-      render: { memoryBudget: 'medium' },
+      render: { memoryBudget: 'medium', interactivePreview: 'automatic' },
       performance: { reducedMotionOverride: 'system', showPerformanceDiagnostics: false },
     });
     setReducedMotionOverride(null);
@@ -86,6 +96,7 @@ export function PerformanceSettingsTab() {
       averageFrameTimeMs: Number(getAverageFrameTime().toFixed(2)),
       p95FrameTimeMs: Number(getPercentileFrameTime(95).toFixed(2)),
       memoryBudget: settings.render.memoryBudget,
+      interactivePreview: settings.render.interactivePreview,
       reducedMotionOverride: settings.performance.reducedMotionOverride,
       webGpuStatus,
       platform: caps,
@@ -115,6 +126,23 @@ export function PerformanceSettingsTab() {
         Controls how much memory the canvas render cache may retain. Lower budgets reduce memory use
         on constrained devices at the cost of more redraw work on large documents. Takes effect for
         newly opened documents.
+      </p>
+
+      <FieldRow label="Interactive preview quality">
+        <Select
+          options={INTERACTIVE_PREVIEW_OPTIONS}
+          value={settings.render.interactivePreview}
+          onChange={(value) =>
+            updateRender({ interactivePreview: value as InteractivePreviewMode })
+          }
+          label="Interactive preview quality"
+        />
+      </FieldRow>
+      <p className="settings-hint">
+        Automatic may lower the temporary canvas backing scale after sustained over-budget frames;
+        it always returns to authoritative full resolution after navigation settles. Full resolution
+        keeps every navigation frame at device scale, which may cost responsiveness on constrained
+        hardware. Exports are full quality in either mode.
       </p>
 
       <FieldRow label="Reduce motion">
@@ -177,6 +205,8 @@ export function PerformanceSettingsTab() {
       <Button variant="secondary" size="sm" onClick={handleCopyDiagnostics}>
         {copied ? 'Copied' : 'Copy performance diagnostics'}
       </Button>
+
+      <NativeAccelerationPanel />
 
       <CapabilityReportPanel />
 
