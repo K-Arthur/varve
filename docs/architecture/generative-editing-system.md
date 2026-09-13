@@ -201,7 +201,11 @@ receives an immediate, actionable refusal for a large photograph and keeps its
 prompts intact; the user can paint a mask or use Fast/PatchMatch instead. This
 path does not silently downscale a confirmed source mask, because doing so
 without carrying the exact source-to-working transform through the decoder
-would make the result appear plausible while targeting the wrong pixels.
+would make the result appear plausible while targeting the wrong pixels. A
+Tauri WebView first reuses the native OS/cgroup memory snapshot when available,
+so a capable ARM desktop is not confused with a browser that merely omitted
+`navigator.deviceMemory`; if that snapshot cannot be obtained, the conservative
+WebView safe peak remains in force.
 
 ## Mask and coordinate contract
 

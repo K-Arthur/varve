@@ -1074,6 +1074,7 @@ export function ContentAwareFillDialog({
           downloaded.memoryRequiredBytes ?? NATIVE_GENERATIVE_MODEL_PROFILE.minimumMemoryBytes,
         tier: downloaded.resourceTier ?? 'unknown',
         backend: downloaded.executionBackend ?? 'unknown',
+        platform: downloaded.platform ?? 'unknown',
         architecture: downloaded.architecture ?? 'unknown',
       });
       setStatus('idle');
@@ -1124,6 +1125,7 @@ export function ContentAwareFillDialog({
           imported.memoryRequiredBytes ?? NATIVE_GENERATIVE_MODEL_PROFILE.minimumMemoryBytes,
         tier: imported.resourceTier ?? 'unknown',
         backend: imported.executionBackend ?? 'unknown',
+        platform: imported.platform ?? 'unknown',
         architecture: imported.architecture ?? 'unknown',
       });
       setErrorMessage(null);
@@ -1150,6 +1152,7 @@ export function ContentAwareFillDialog({
           qualified.memoryRequiredBytes ?? NATIVE_GENERATIVE_MODEL_PROFILE.minimumMemoryBytes,
         tier: qualified.resourceTier ?? 'unknown',
         backend: qualified.executionBackend ?? 'unknown',
+        platform: qualified.platform ?? 'unknown',
         architecture: qualified.architecture ?? 'unknown',
       });
       if (!qualified.ready) throw new Error(qualified.reason ?? 'Model qualification failed.');

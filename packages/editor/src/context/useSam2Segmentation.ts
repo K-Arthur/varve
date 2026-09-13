@@ -8,6 +8,7 @@ import {
   getInferenceWorkerHost,
   getModelById,
   getModelLoader,
+  getNativeGenerativeModelStatus,
   getRuntimeCapabilitiesSync,
 } from '@varve/engine';
 import { type Document, imageShapeSrc, type NodeId } from '@varve/scene';
@@ -413,13 +414,28 @@ export function useSam2Segmentation(
       const encoderId = 'sam2-hiera-tiny-encoder';
       const decoderId = 'sam2-hiera-tiny-decoder';
       const encoderPeakBytes = getModelById(encoderId)?.peakMemoryBytes ?? 700_000_000;
+      const runtime = getRuntimeCapabilitiesSync();
+      let safePeakBytes = runtime.wasmSafePeakBytes;
+      if (runtime.isTauri) {
+        // Tauri WebViews commonly omit navigator.deviceMemory. Reuse the
+        // desktop process' cgroup/OS snapshot when it is available so a
+        // capable ARM or x86 desktop is not mistaken for a 2 GB browser.
+        const nativeResources = await getNativeGenerativeModelStatus();
+        if (
+          nativeResources.memoryAvailableBytes != null &&
+          nativeResources.memoryAvailableBytes > 0
+        ) {
+          safePeakBytes = nativeResources.memoryAvailableBytes;
+        }
+      }
       const resourceAssessment = assessImageInferenceResources({
         width: naturalW,
         height: naturalH,
         modelPeakBytes: encoderPeakBytes,
-        runtime: getRuntimeCapabilitiesSync(),
+        runtime: { wasmSafePeakBytes: safePeakBytes },
         operation: 'Object Selection',
       });
+      if (combinedSignal.aborted) return null;
       if (!resourceAssessment.allowed) {
         markFailure({
           code: 'out_of_memory',
