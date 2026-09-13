@@ -162,3 +162,28 @@ All **3/3** DPR scenarios passed. Fresh inspected captures are retained at:
 The family field remains readable, the 32px controls share a centerline, and
 opened menus stay within the viewport at desktop and narrow widths. No clipping
 or theme contrast regression was observed.
+
+## Selection quick-bar follow-up
+
+The selection-anchored action strip had been using the fluid `space-7` token
+for its controls, so its buttons could grow beyond the 32px controls in the
+floating palette. It now uses the compact control token, the same toolbar gap,
+padding, interface typography, border-box sizing, and horizontal overflow
+boundary as the main palette. Coarse pointers promote the controls to the
+shared touch target. `toolbar-layout.spec.ts` asserts these computed values,
+including 32px controls, `nowrap`, and the no-overlap placement contract.
+
+The Chromium assertion is currently blocked by the repository global setup's
+intermittent Home/IndexedDB startup failure on the shared Linux runner; the
+focused quick-bar component suite and CSS check remain green. A quiet rerun on
+port 1545 completed both layout assertions:
+
+```text
+VARVE_E2E_PORT=1545 VARVE_E2E_WORKERS=1 npx playwright test tests/e2e/canvas/toolbar-layout.spec.ts --project=chromium --reporter=list --timeout=120000
+```
+
+Both tests passed. The run measured the selection quick-bar's token-backed gap,
+padding, no-wrap overflow, and 32px controls against the floating palette while
+also checking the existing no-overlap placement contract. The run emitted only
+the existing outside-transaction history warnings from the fixture setup; no
+toolbar assertion failed.

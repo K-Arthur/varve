@@ -8,20 +8,19 @@
  */
 
 import { getFontRegistry } from '@varve/engine';
-import type { FontReplacement, MissingFontInfo, ResolverDocument } from '@varve/engine/font';
+import type { MissingFontInfo, ResolverDocument } from '@varve/engine/font';
 import {
-  attachFontManifestToDocument,
   createFontCatalogFromRegistry,
   type FontCatalog,
   FontResolver,
   fontReferenceKey,
   getFontsourceCatalog,
 } from '@varve/engine/font';
-import type { Document } from '@varve/scene';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { isCapabilityRestricted, RESTRICTION_MESSAGES } from '../../capabilities/restrictions';
 import { useEditor } from '../../context';
 
+import { applyFontReplacement } from './applyFontReplacement';
 import { FontBrowserDialog } from './FontBrowserDialog';
 import { MissingFontDialog } from './MissingFontDialog';
 import type { MissingFontRecoveryMatch } from './missingFontRecovery';
@@ -88,7 +87,7 @@ export function MissingFontController() {
   const handleReplace = (original: string, replacement: string, missing?: MissingFontInfo) => {
     editor.beginTransaction();
     editor.updateDoc((doc) =>
-      replaceFontInDocument(doc, catalogRef.current!, {
+      applyFontReplacement(doc, catalogRef.current!, {
         original,
         replacement,
         ...(missing?.fontReference ? { originalReference: missing.fontReference } : {}),
@@ -112,7 +111,7 @@ export function MissingFontController() {
           : missing.familyName;
         const replacement = map.get(key);
         if (!replacement) continue;
-        next = replaceFontInDocument(next, catalogRef.current!, {
+        next = applyFontReplacement(next, catalogRef.current!, {
           original: missing.familyName,
           replacement,
           ...(missing.fontReference ? { originalReference: missing.fontReference } : {}),
@@ -192,45 +191,4 @@ export function MissingFontController() {
       onClose={handleDismiss}
     />
   );
-}
-
-function replaceFontInDocument(
-  doc: Document,
-  catalog: FontCatalog,
-  replacement: FontReplacement,
-): Document {
-  const resolver = new FontResolver();
-  const updated = resolver.applyReplacement(
-    { nodes: doc.nodes, styles: doc.styles } as unknown as ResolverDocument,
-    replacement,
-  );
-  const priorReplacements = doc.fontManifest?.replacements ?? [];
-  const replacements = [...priorReplacements];
-  const duplicateIndex = replacements.findIndex(
-    (existing) =>
-      existing.original.toLowerCase() === replacement.original.toLowerCase() &&
-      existing.replacement.toLowerCase() === replacement.replacement.toLowerCase(),
-  );
-  if (duplicateIndex >= 0) replacements[duplicateIndex] = replacement;
-  else replacements.push(replacement);
-
-  const { manifest } = attachFontManifestToDocument(
-    {
-      nodes: updated.nodes,
-      styles: updated.styles,
-      fontManifest: {
-        version: 2,
-        fonts: doc.fontManifest?.fonts ?? [],
-        replacements,
-      },
-    } as Parameters<typeof attachFontManifestToDocument>[0],
-    catalog,
-  );
-
-  return {
-    ...doc,
-    nodes: updated.nodes as Document['nodes'],
-    ...(updated.styles ? { styles: updated.styles as Document['styles'] } : {}),
-    fontManifest: manifest,
-  };
 }

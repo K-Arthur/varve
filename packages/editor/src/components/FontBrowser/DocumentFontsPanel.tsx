@@ -1,8 +1,15 @@
-import type { FontReference } from '@varve/engine';
+import { getFontRegistry } from '@varve/engine';
+import {
+  createFontCatalogFromRegistry,
+  type FontReference,
+  type FontReplacement,
+} from '@varve/engine/font';
 import { useMemo, useState } from 'react';
 import { useEditor } from '../../context';
+import { applyFontReplacement } from './applyFontReplacement';
 import { buildDocumentFontUsage, type DocumentFontUsage } from './documentFontUsage';
 import { FontBrowser } from './FontBrowser';
+import { FontBrowserDialog } from './FontBrowserDialog';
 import './DocumentFontsPanel.css';
 
 type Scope = 'page' | 'document';
@@ -40,10 +47,12 @@ function usageMatches(usage: DocumentFontUsage, query: string): boolean {
 }
 
 export function DocumentFontsPanel() {
-  const { state, setSelectionRefs, announce } = useEditor();
+  const editor = useEditor();
+  const { state, setSelectionRefs, announce } = editor;
   const [scope, setScope] = useState<Scope>('page');
   const [query, setQuery] = useState('');
   const [view, setView] = useState<'document' | 'browse'>('document');
+  const [replacementTarget, setReplacementTarget] = useState<DocumentFontUsage | null>(null);
   const page = state.document.pages?.find(
     (candidate) => candidate.id === state.document.activePageId,
   );
@@ -92,108 +101,174 @@ export function DocumentFontsPanel() {
     );
   };
 
+  const applyReplacement = (entry: DocumentFontUsage, replacement: FontReplacement) => {
+    const catalog = createFontCatalogFromRegistry(getFontRegistry());
+    editor.beginTransaction();
+    editor.updateDoc((doc) => applyFontReplacement(doc, catalog, replacement));
+    editor.commitTransaction();
+    setReplacementTarget(null);
+    announce(
+      `Replaced ${entry.family} in ${entry.nodeIds.length} text layer${entry.nodeIds.length === 1 ? '' : 's'}. Layout may change.`,
+    );
+  };
+
+  const openReplacement = (entry: DocumentFontUsage) => {
+    setReplacementTarget(entry);
+  };
+
+  const replacementDescription = replacementTarget
+    ? `${replacementTarget.family} · ${replacementTarget.totalCharacters} character${replacementTarget.totalCharacters === 1 ? '' : 's'} across ${replacementTarget.nodeIds.length} text layer${replacementTarget.nodeIds.length === 1 ? '' : 's'}. Review wrapping after replacement.`
+    : undefined;
+
   return (
-    <div className="document-fonts-panel">
-      <header className="document-fonts-panel__header">
-        <div>
-          <h2>Document fonts</h2>
-          <p>Inspect exact faces and jump to every matching text layer.</p>
-        </div>
-        <button
-          type="button"
-          className="document-fonts-panel__browse"
-          onClick={() => setView('browse')}
-        >
-          Browse all fonts
-        </button>
-      </header>
-
-      <div className="document-fonts-panel__scope" role="tablist" aria-label="Font usage scope">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={scope === 'page'}
-          className={scope === 'page' ? 'is-active' : undefined}
-          onClick={() => setScope('page')}
-        >
-          {page?.name ?? 'Current page'}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={scope === 'document'}
-          className={scope === 'document' ? 'is-active' : undefined}
-          onClick={() => setScope('document')}
-        >
-          Entire document
-        </button>
-      </div>
-
-      <label className="document-fonts-panel__search">
-        <span>Filter document fonts</span>
-        <input
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search family, face, or location"
+    <>
+      {replacementTarget && (
+        <FontBrowserDialog
+          open
+          selectedFamily={replacementTarget.family}
+          onClose={() => setReplacementTarget(null)}
+          onSelect={(family) =>
+            applyReplacement(replacementTarget, {
+              original: replacementTarget.family,
+              replacement: family,
+              ...(replacementTarget.fontReference
+                ? { originalReference: replacementTarget.fontReference }
+                : {}),
+              applyToAll: true,
+              preserveOriginalReference: true,
+            })
+          }
+          onSelectFace={(selection) =>
+            applyReplacement(replacementTarget, {
+              original: replacementTarget.family,
+              replacement: selection.family,
+              ...(replacementTarget.fontReference
+                ? { originalReference: replacementTarget.fontReference }
+                : {}),
+              ...(selection.fontReference ? { replacementReference: selection.fontReference } : {}),
+              applyToAll: true,
+              preserveOriginalReference: true,
+            })
+          }
         />
-      </label>
-
-      <div className="document-fonts-panel__summary" role="status" aria-live="polite">
-        {usedEntries.length} {usedEntries.length === 1 ? 'face' : 'faces'} in{' '}
-        {scope === 'page' ? activeSurfaceName : 'this document'}
-      </div>
-
-      <section className="document-fonts-panel__list" aria-label="Fonts used in the document">
-        {usedEntries.length === 0 ? (
-          <div className="document-fonts-panel__empty">
-            <strong>
-              {query ? 'No matching document fonts' : 'No visible text fonts on this scope'}
-            </strong>
-            <span>
-              Hidden and locked content is excluded. Use the broader scope or browse for another
-              face.
-            </span>
-          </div>
-        ) : (
-          usedEntries.map((entry) => (
-            <article key={entry.key} className="document-fonts-panel__row">
-              <div className="document-fonts-panel__row-copy">
-                <strong>{entry.family}</strong>
-                <span>{faceName(entry)}</span>
-                <small>{usageDescription(entry)}</small>
-                <small className={entry.fontReference ? 'is-exact' : 'is-family-only'}>
-                  {referenceSummary(entry.fontReference)}
-                </small>
-              </div>
-              <button
-                type="button"
-                className="document-fonts-panel__select"
-                onClick={() => selectUsage(entry)}
-                aria-label={`Select text using ${entry.family} ${faceName(entry)}`}
-              >
-                Select
-              </button>
-            </article>
-          ))
-        )}
-      </section>
-
-      {unusedStyles.length > 0 && (
-        <details className="document-fonts-panel__unused">
-          <summary>Unused text styles ({unusedStyles.length})</summary>
-          <ul>
-            {unusedStyles.map((entry) => (
-              <li key={entry.key}>
-                <span>{entry.family}</span>
-                <small>
-                  {entry.styleIds.length} style{entry.styleIds.length === 1 ? '' : 's'}
-                </small>
-              </li>
-            ))}
-          </ul>
-        </details>
       )}
-    </div>
+      <div className="document-fonts-panel">
+        <header className="document-fonts-panel__header">
+          <div>
+            <h2>Document fonts</h2>
+            <p>Inspect exact faces and jump to every matching text layer.</p>
+          </div>
+          <button
+            type="button"
+            className="document-fonts-panel__browse"
+            onClick={() => setView('browse')}
+          >
+            Browse all fonts
+          </button>
+        </header>
+
+        <div className="document-fonts-panel__scope" role="tablist" aria-label="Font usage scope">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={scope === 'page'}
+            className={scope === 'page' ? 'is-active' : undefined}
+            onClick={() => setScope('page')}
+          >
+            {page?.name ?? 'Current page'}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={scope === 'document'}
+            className={scope === 'document' ? 'is-active' : undefined}
+            onClick={() => setScope('document')}
+          >
+            Entire document
+          </button>
+        </div>
+
+        <label className="document-fonts-panel__search">
+          <span>Filter document fonts</span>
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search family, face, or location"
+          />
+        </label>
+
+        <div className="document-fonts-panel__summary" role="status" aria-live="polite">
+          {usedEntries.length} {usedEntries.length === 1 ? 'face' : 'faces'} in{' '}
+          {scope === 'page' ? activeSurfaceName : 'this document'}
+        </div>
+
+        <section className="document-fonts-panel__list" aria-label="Fonts used in the document">
+          {usedEntries.length === 0 ? (
+            <div className="document-fonts-panel__empty">
+              <strong>
+                {query ? 'No matching document fonts' : 'No visible text fonts on this scope'}
+              </strong>
+              <span>
+                Hidden and locked content is excluded. Use the broader scope or browse for another
+                face.
+              </span>
+            </div>
+          ) : (
+            usedEntries.map((entry) => (
+              <article key={entry.key} className="document-fonts-panel__row">
+                <div className="document-fonts-panel__row-copy">
+                  <strong>{entry.family}</strong>
+                  <span>{faceName(entry)}</span>
+                  <small>{usageDescription(entry)}</small>
+                  <small className={entry.fontReference ? 'is-exact' : 'is-family-only'}>
+                    {referenceSummary(entry.fontReference)}
+                  </small>
+                </div>
+                <div className="document-fonts-panel__row-actions">
+                  <button
+                    type="button"
+                    className="document-fonts-panel__select"
+                    onClick={() => selectUsage(entry)}
+                    aria-label={`Select text using ${entry.family} ${faceName(entry)}`}
+                  >
+                    Select
+                  </button>
+                  <button
+                    type="button"
+                    className="document-fonts-panel__replace"
+                    onClick={() => openReplacement(entry)}
+                    aria-label={`Replace ${entry.family} ${faceName(entry)}`}
+                  >
+                    Replace
+                  </button>
+                </div>
+              </article>
+            ))
+          )}
+        </section>
+
+        {unusedStyles.length > 0 && (
+          <details className="document-fonts-panel__unused">
+            <summary>Unused text styles ({unusedStyles.length})</summary>
+            <ul>
+              {unusedStyles.map((entry) => (
+                <li key={entry.key}>
+                  <span>{entry.family}</span>
+                  <small>
+                    {entry.styleIds.length} style{entry.styleIds.length === 1 ? '' : 's'}
+                  </small>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+        {replacementDescription && (
+          <p className="document-fonts-panel__replacement-note" role="status">
+            {replacementDescription}
+          </p>
+        )}
+      </div>
+    </>
   );
 }

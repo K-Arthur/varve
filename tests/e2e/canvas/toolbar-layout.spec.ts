@@ -114,5 +114,30 @@ test.describe('Toolbar layout', () => {
     // It must have actually flipped above the selection, not merely missed
     // colliding by luck.
     expect(quickBar.bottom).toBeLessThanOrEqual(r.top + 1);
+
+    const quickBarSurface = page.locator('.selection-quick-bar__inner');
+    const quickMetrics = await quickBarSurface.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        gap: style.gap,
+        padding: style.padding,
+        overflowX: style.overflowX,
+        whiteSpace: style.whiteSpace,
+        controls: Array.from(element.querySelectorAll('button')).map(
+          (control) => control.getBoundingClientRect().height,
+        ),
+      };
+    });
+    const paletteMetrics = await page
+      .locator('.floating-toolbar [role="toolbar"]')
+      .evaluate((element) => {
+        const style = getComputedStyle(element);
+        return { gap: style.gap, padding: style.padding };
+      });
+    expect(quickMetrics.gap).toBe(paletteMetrics.gap);
+    expect(quickMetrics.padding).toBe(paletteMetrics.padding);
+    expect(quickMetrics.overflowX).toBe('auto');
+    expect(quickMetrics.whiteSpace).toBe('nowrap');
+    for (const height of quickMetrics.controls) expect(height).toBe(32);
   });
 });

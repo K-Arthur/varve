@@ -119,6 +119,16 @@ coverage is unknown and is never interpreted as an empty font. Replacement can
 be scoped to the exact reference, clears stale identity when the user chooses a
 family-only fallback, and records that scope in manifest replacement history.
 
+Document Fonts now exposes a scoped **Replace** action beside each used face.
+It opens the same full browser used by the other typography surfaces, so a
+replacement can be chosen as either an installed family or an expanded exact
+face/member. The panel reports the affected layer and character counts before
+the chooser opens. A committed choice updates matching rich runs and shared
+text styles in one history transaction, clears stale identity for a family-only
+choice, and records the original family/reference in manifest replacement
+history. Closing the chooser leaves the document untouched. A full layout
+geometry preview and restore-original command are still pending.
+
 ## Discovery and privacy
 
 Desktop enumeration uses the native `enumerate_system_fonts` request envelope
@@ -200,6 +210,12 @@ splitting, replacing and clearing runs; compact family, weight, and size
 controls use the shared range/caret command adapter. The inspector's broader
 mixed-value and style-editing paths remain separately covered by its own
 selection tests.
+
+Selection-anchored quick bars use the same compact control height, interface
+type scale, surface padding, gap, and horizontal overflow boundary as the main
+floating palette. This keeps contextual actions on one centerline with the
+font toolbar at wide, narrow, and coarse-pointer sizes; the bar's placement
+still flips above a selection when the canvas safe area has no room below.
 
 The Logo wordmark controls use the same picker and an explicit Browse fonts
 dialog. Choosing a family clears an older exact reference; choosing a

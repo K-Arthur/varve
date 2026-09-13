@@ -6,6 +6,44 @@ import { useEditor } from '../../context';
 import { DocumentFontsPanel } from './DocumentFontsPanel';
 
 vi.mock('../../context', () => ({ useEditor: vi.fn() }));
+vi.mock('./FontBrowserDialog', () => ({
+  FontBrowserDialog: ({
+    onClose,
+    onSelect,
+    onSelectFace,
+  }: {
+    onClose: () => void;
+    onSelect?: (family: string) => void;
+    onSelectFace?: (selection: {
+      family: string;
+      weight: number;
+      style: 'normal' | 'italic';
+      fontReference?: { artifactHash: string; collectionIndex?: number; postScriptName?: string };
+    }) => void;
+  }) => (
+    <div role="dialog" aria-label="Browse fonts">
+      <button type="button" onClick={() => onSelect?.('Noto Sans')}>
+        Use family
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          onSelectFace?.({
+            family: 'Noto Sans',
+            weight: 700,
+            style: 'normal',
+            fontReference: { artifactHash: 'c'.repeat(64), postScriptName: 'NotoSans-Bold' },
+          })
+        }
+      >
+        Use exact face
+      </button>
+      <button type="button" onClick={onClose}>
+        Cancel replacement
+      </button>
+    </div>
+  ),
+}));
 
 const mockedUseEditor = vi.mocked(useEditor);
 
@@ -25,6 +63,9 @@ function makeEditorState() {
     state: { document, selection: [], workspaceMode: 'design' },
     setSelectionRefs: vi.fn(),
     announce: vi.fn(),
+    beginTransaction: vi.fn(),
+    commitTransaction: vi.fn(),
+    updateDoc: vi.fn((fn: (value: typeof document) => typeof document) => fn(document)),
   } as unknown as ReturnType<typeof useEditor>;
 }
 
@@ -68,5 +109,22 @@ describe('DocumentFontsPanel', () => {
     expect(
       screen.getByRole('searchbox', { name: 'Search fonts by name or design language' }),
     ).toBeVisible();
+  });
+
+  it('opens a scoped replacement chooser and applies an exact face in one transaction', () => {
+    const editor = makeEditorState();
+    mockedUseEditor.mockReturnValue(editor);
+    render(<DocumentFontsPanel />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Replace Inter Inter-Bold' }));
+    expect(screen.getByRole('dialog', { name: 'Browse fonts' })).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Use exact face' }));
+    expect(editor.beginTransaction).toHaveBeenCalledTimes(1);
+    expect(editor.commitTransaction).toHaveBeenCalledTimes(1);
+    expect(editor.updateDoc).toHaveBeenCalledTimes(1);
+    expect(editor.announce).toHaveBeenCalledWith(
+      'Replaced Inter in 1 text layer. Layout may change.',
+    );
   });
 });
