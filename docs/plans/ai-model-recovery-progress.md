@@ -7,6 +7,17 @@
 > through other sessions (font detection, colourisation fallbacks). Verify
 > against the codebase before treating any "pending" row as open work.
 
+> **Current verification (2026-09-13):** the DDColor adapter and official
+> export contract are present, but no DDColor ONNX bytes were found in
+> `models-source/` or `apps/desktop/public/models/`; both configured
+> `models-v1` release asset URLs returned HTTP 404.
+> The manifest therefore keeps `integrityVerified: false` and
+> `inferenceVerified: false`. The editor exposes photo colorization only as a
+> clearly gated workflow; deterministic tint/recolor, palette, and reference
+> workflows do not depend on this artifact. Do not change these flags without
+> recording the artifact byte size, SHA-256, ONNX checker result, and worker
+> smoke-test provider.
+
 > Scoped implementation plan for restoring colourisation and font-identification
 > capabilities that are currently disabled due to unavailable model artifacts.
 
@@ -31,19 +42,19 @@ Pre-existing failures:
 
 ## Phase 1 — Architecture Map
 
-### Colourisation capability
+### Colourisation capability (historical baseline)
 
 | Layer | File | Status |
 |-------|------|--------|
-| UI entry | `packages/editor/src/components/Inspector/sections/ColorizeSection.tsx` | Exposes 4 classical workflows (recolor, palette, transfer, harmonise). NO photo-colorize entry. |
+| UI entry | `packages/editor/src/components/Inspector/sections/ColorizeSection.tsx` | Exposes photo colorization plus four deterministic workflows; required inputs are real controls. |
 | UI settings | `packages/editor/src/components/Settings/ColorizationModelsTab.tsx` | Filters catalog for `ddcolor`/`ddcolor-tiny`, shows "Unavailable" |
 | Pipeline dispatch | `packages/engine/src/colorization/pipelineDispatch.ts` | Routes classical synchronously, photo-colorize through ONNX worker |
 | Classical algorithms | `recolor.ts`, `transfer.ts`, `harmonize.ts`, `pipeline.ts` | Fully implemented, no model needed |
-| DDColor ONNX path | `runtimeResolver.ts` → `dispatchOnnxWorker` → `inferenceWorker.ts` | Implemented but unreachable (no model file) |
+| DDColor ONNX path | `runtimeResolver.ts` → `ddcolorRuntime.ts` → `dispatchOnnxWorker` → `inferenceWorker.ts` | Adapter is wired; execution is gated by loader readiness and artifact verification |
 | DDColor model code | `packages/engine/src/inference/models/ddcolor.ts` | Tensor spec + decode implemented |
 | Worker registration | `inferenceWorker.ts:200-204` | `ddcolor` registered with 512x512 input |
-| Catalog | `modelCatalog.ts` FALLBACK_ENTRIES | ddcolor/ddcolor-tiny NOT present |
-| Manifest | `apps/desktop/public/models/manifest.json:680-773` | Both entries have `remoteUrl: ""`, `sha256: null` |
+| Catalog | `modelCatalog.ts` FALLBACK_ENTRIES | ddcolor/ddcolor-tiny present with explicit `export-pending` acquisition state |
+| Manifest | `apps/desktop/public/models/manifest.json:1316-1451` | Both entries are non-bundled, checksum-listed, but contract/integrity/inference remain unverified; release assets are currently 404 |
 
 ### Font detection capability
 
@@ -111,27 +122,31 @@ Changes:
 
 ## Phase 4 — DDColor Conversion
 
-DDColor ONNX artifacts generated and bundled.
-
-Status: **complete**
+Status: **blocked pending artifact verification**
 
 | Model | Size | Input | Output | SHA-256 |
 |-------|------|-------|--------|---------|
-| ddcolor-tiny | 220 MB | 256x256 | [1,2,256,256] | `cb8996ef...` |
-| ddcolor | 980 MB | 512x512 | [1,2,512,512] | `69ba2e3d...` |
+| ddcolor-tiny | expected ~220 MB | 256x256 | [1,2,256,256] | listed, not verified |
+| ddcolor | expected ~980 MB | 512x512 | [1,2,512,512] | listed, not verified |
 
 - Source: piddnad/ddcolor_modelscope + ddcolor_paper_tiny (Apache-2.0)
 - Export: official `scripts/export_onnx.py` (opset 12) via `tools/ddcolor-export/` recipe
-- Verified: ONNX checker, shape inference, simplification, ORT smoke test
-- Storage: Git LFS (`*.onnx` tracked)
+- Contract: input/output shape and RGB [0,1] normalization are documented from the official exporter
+- Remaining: produce/acquire exact bytes, verify SHA-256, run ONNX checker and ORT worker smoke test
+- Storage: runtime model storage/IndexedDB after an explicit verified download; no binaries in this checkout
 
 ---
 
 ## Phase 5 — Colourisation Fallbacks
 
-Classical workflows already implemented. Wire them as the primary always-available path.
+Classical workflows are now the primary always-available path: tint/selective
+recolor, palette mapping, reference transfer, and harmonization are exposed
+through the unified Colorize inspector and share the contract-aware dispatcher.
 
-Status: **pending**
+Status: **complete for deterministic workflows**
+
+The remaining DDColor artifact acquisition and runtime smoke verification stays
+in Phase 4 and is intentionally not represented as a deterministic fallback.
 
 ---
 

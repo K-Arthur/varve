@@ -17,6 +17,10 @@ in [`architecture/image-enhancement-system.md`](architecture/image-enhancement-s
 and [`quality/image-enhancement-benchmark.md`](quality/image-enhancement-benchmark.md).
 The 2026-08-22 implementation evidence matrix is in
 [`audits/image-enhancement-implementation-2026-08-22.md`](audits/image-enhancement-implementation-2026-08-22.md).
+Current photo source, RAW, HDR, and retouch contracts are documented in
+[`architecture/photo-raw-hdr-system.md`](architecture/photo-raw-hdr-system.md),
+with implementation evidence in
+[`audits/photo-raw-hdr-capability-audit-2026-09-13.md`](audits/photo-raw-hdr-capability-audit-2026-09-13.md).
 Current interface typography and component sizing contracts are documented in
 [`architecture/interface-sizing-system.md`](architecture/interface-sizing-system.md).
 Current inspector and form-field composition, spacing, precision-entry, and
@@ -260,6 +264,7 @@ The current automated and manual accessibility evidence matrix is in
 | `architecture/knife-and-export-regions.md` | Knife object slicing and Export Regions: why they are separate, the split algorithm, supported node types, tolerances |
 | `architecture/image-trace-system.md` | Native raster-to-vector tracing (silhouette/centerline/pixel-art) |
 | `architecture/image-vector-enhancement.md` | Image/vector enhancement and AI upscaling dispatch |
+| `architecture/photo-raw-hdr-system.md` | Shared photo source, RAW development, HDR bracket, precision, retouch, and export contract |
 | `architecture/palette-extraction-system.md` | Deterministic local image palette, harmony, and WCAG pair analysis |
 | `architecture/thumbnail-system.md` | Unified thumbnail system (ADR-0218) |
 | `architecture/generative-editing-system.md` | Generative editing, provider, mask, history, and persistence contract (ADR-0232) |
@@ -314,6 +319,7 @@ The current automated and manual accessibility evidence matrix is in
 | `architecture/icon-library.md` | User-facing icon library: search, acquisition, cache, licensing (distinct from internal UI icons — see `design/icon-system.md` and `adr/0006-icon-system-architecture.md`) |
 | `architecture/icon-system-naming.md` | Internal UI icon naming rules and visual standards (current-state contract in `design/icon-system.md`) |
 | `architecture/onnx-inference-architecture.md` | ONNX inference architecture |
+| `architecture/colorization-system.md` | Colorize workflows, pixel contracts, model readiness, persistence, and verification |
 | `architecture/semantic-asset-similarity.md` | Local image-to-image similarity, duplicate lanes, model/runtime boundaries, and current limitations |
 | `quality/semantic-asset-similarity-benchmark.md` | Exact-search scale baseline and held-out retrieval evaluation contract |
 | `architecture/object-selection-system.md` | AI Object Selection (SAM2 prompts, transient masks, runtime boundary, persistence) — distinct from the pixel/node selection tools below |

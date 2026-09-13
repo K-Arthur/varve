@@ -89,7 +89,7 @@ The `DownloadManager` provides:
 - ETag-based freshness checking
 - Progress reporting with speed estimation
 - Cancel/pause/resume
-- State persistence to localStorage
+- Persistent state in the model store (IndexedDB on web; app storage on desktop)
 - State change subscriptions
 
 Resumption is conservative: a partial is reused only when its byte count and
@@ -100,9 +100,13 @@ upstream checksum, repair operation, and expected size through the same
 validation path; the parent is not marked ready until every component is
 installed.
 
-### Bundled Models
+### Verified bundled model examples
 
-Four ONNX models are bundled with the app:
+The small segmentation and upscaling models below are examples of models that
+may be packaged when their release checks pass. DDColor is intentionally not in
+this table: it is a runtime-downloadable, model-gated colorization artifact and
+is not bundled in the current checkout. Model binaries are never stored in
+localStorage.
 
 | Model | Size | Precision | Purpose |
 |-------|------|-----------|---------|
@@ -217,20 +221,29 @@ INT8 models are NOT automatically selected. The policy engine considers:
 5. **WebKitGTK** does not support WebGPU; WebGL is unreliable
 6. **Large model WASM inference** (BiRefNet at 1024×1024) can cause `std::bad_alloc`
 
-## Bundled Models
+## Model delivery and colorization readiness
 
-The following models ship with the app (Git LFS tracked, no runtime download):
+The model catalog distinguishes a catalog entry, a reachable URL, a stored
+artifact, checksum verification, and a successful runtime smoke test. A row
+must not be presented as ready based on its filename or release URL alone.
+
+The DDColor entries are intended to be runtime-downloaded once a verified
+release asset is published; they are not shipped inside the app installer:
 
 | Model | Size | License | SHA-256 |
 |-------|------|---------|---------|
-| `ddcolor-tiny` | 220 MB | Apache-2.0 | `cb8996ef...` |
-| `ddcolor` | 980 MB | Apache-2.0 | `69ba2e3d...` |
+| `ddcolor-tiny` | expected ~220 MB | Apache-2.0 | listed, not verified in this checkout |
+| `ddcolor` | expected ~980 MB | Apache-2.0 | listed, not verified in this checkout |
 | `upscale-realesr-general` | 5 MB | BSD-3-Clause | `856e1f4d...` |
 | `upscale-realesr-general-int8` | 1.3 MB | BSD-3-Clause | `357ebd67...` |
 | `u2netp` | 4.7 MB | MIT | `309c8469...` |
 | `u2netp-int8` | 1.2 MB | MIT | `7b3355af...` |
 
-DDColor artifacts were generated from official Apache-2.0 weights via the reproducible export recipe in `tools/ddcolor-export/`. See that directory for the full conversion record (pinned versions, verification steps, license).
+The DDColor code and model terms are Apache-2.0 upstream. The official
+PyTorch repository and export script are the provenance; the ONNX bytes still
+need to be generated or acquired, hash-verified, and smoke-tested before the
+photo workflow is called available. See `models-source/README.md` and the
+Colorize architecture record for the current evidence.
 
 ## Development
 
@@ -243,7 +256,7 @@ DDColor artifacts were generated from official Apache-2.0 weights via the reprod
 5. Add to `packages/engine/src/inference/modelCatalog.ts`'s `FALLBACK_ENTRIES` with explicit `acquisition` field
 6. Add to `packages/engine/src/inference/manifest.ts`'s `KNOWN_SIZES`, `modelQuality`, `modelDisplayName`
 7. Create test file `packages/engine/src/inference/models/<name>.test.ts`
-8. If bundled: place `.onnx` in `apps/desktop/public/models/` (Git LFS handles binaries)
+8. If bundled: place `.onnx` in `apps/desktop/public/models/` only after the release asset guard, checksum, and runtime smoke test pass; do not assume Git LFS content is present
 9. Add frontend surface in the appropriate tool section
 
 ### Acquisition Strategies
@@ -252,9 +265,9 @@ Each model declares how it is obtained via the `acquisition` field:
 
 | Kind | Meaning | Example |
 |------|---------|---------|
-| `bundled` | Ships with the app (LFS) | `ddcolor`, `u2netp` |
+| `bundled` | Ships with the app after release validation | `u2netp`, `realesr-general-x4v3` |
 | `remote` | Downloadable from URL at runtime | `scunet`, `font-classify` |
-| `generated` | Produced from upstream weights via recipe | (DDColor was this, now bundled) |
+| `generated` | Produced from upstream weights via recipe | DDColor conversion route (artifact pending verification) |
 | `manual-import` | User supplies the file | — |
 | `unavailable` | Cannot be acquired (reason in `detail`) | Legacy stubs |
 

@@ -5,13 +5,16 @@ bundling. They live here, outside `apps/desktop/public/`, because everything in
 `public/` is copied into `dist/` by Vite and embedded in the installer — which
 is how `ddcolor.onnx` alone nearly added a gigabyte to every download.
 
-They are Git LFS objects. `git clone` gives you 133-byte pointer files; run
-`git lfs pull` to get the real content.
+The current checkout intentionally contains no ONNX objects or Git LFS
+pointers for these models. The table below records the intended artifact
+route, not a verification result. A model is not advertised as ready until
+the downloaded bytes pass the catalog SHA-256 check and an ONNX Runtime
+smoke test in the supported worker.
 
 | File | Real size | Feature | Distributed via |
 |---|---|---|---|
-| `ddcolor.onnx` | 980 MB | AI Colorize (photo-realistic) | GitHub release `models-v1` |
-| `ddcolor-tiny.onnx` | 220 MB | AI Colorize (fast preview) | GitHub release `models-v1` |
+| `ddcolor.onnx` | expected ~980 MB | AI Colorize (photo) | GitHub release `models-v1` (target; asset returned 404 on 2026-09-13) |
+| `ddcolor-tiny.onnx` | expected ~220 MB | AI Colorize (fast preview) | GitHub release `models-v1` (target; asset returned 404 on 2026-09-13) |
 | `font-classify.onnx` | 64 MB | Font identification | HuggingFace (upstream) |
 
 `font-classify.onnx` is kept here only as a provenance record — the app
@@ -21,24 +24,24 @@ exports with no upstream URL, so **we** have to host them.
 
 ## Publishing the ddcolor models
 
-Required once, before colorization works for any user. Uploads to a dedicated
+Required before the AI photo lane can be marked ready. Uploads to a dedicated
 `models-v1` release so model assets are versioned independently of app releases
 and are never re-uploaded on an app release.
 
 ```sh
-git lfs pull --include="models-source/*.onnx"
 node scripts/release/publish-model-assets.mjs --dry-run   # check hashes first
-node scripts/release/publish-model-assets.mjs             # needs gh auth
+node scripts/release/publish-model-assets.mjs             # needs gh auth and verified local artifacts
 ```
 
 The script verifies each file's SHA-256 against the model catalog **before**
-uploading, so a corrupt LFS checkout cannot become a published asset that every
-client then rejects.
+uploading. It refuses to run when the expected artifacts are absent, so a
+missing or corrupt checkout cannot become a published asset that every client
+then rejects.
 
 ## Why a separate release tag
 
-GitHub release assets have unmetered download bandwidth, a 2 GB per-file limit,
-and do not consume the 10 GB/month Git LFS bandwidth allowance. Using a fixed
+GitHub release assets have unmetered download bandwidth and a 2 GB per-file
+limit. Using a fixed
 `models-v1` tag means:
 
 - app releases stay small and fast to publish;
