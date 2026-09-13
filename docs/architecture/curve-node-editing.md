@@ -82,6 +82,12 @@ focus loss, tool deactivation, or target invalidation. Keyboard nudges use one
 transaction for a held-key sequence. `Escape` first cancels an active drag;
 pressing it again exits node editing.
 
+Undo and redo remain available after a canvas gesture. Their remapped
+Ctrl/Cmd bindings are captured before browser-native editing handling, while
+inputs, dialogs, IME composition, and other text widgets retain ownership of
+their native history shortcuts. Other global shortcuts continue through the
+normal bubble path so the active tool can consume tool-specific keys first.
+
 ## Available operations
 
 Implemented through canonical helpers and visible node-edit controls:
@@ -135,7 +141,8 @@ finite-coordinate rejection, group movement, selection-only history, pointer
 cancellation, persistence, and topology dependency blocking. Real browser
 verification must drive the actual canvas with Playwright and inspect both the
 rendered artwork and the node overlay; a passing unit test is not evidence that
-the overlay is aligned.
+the overlay is aligned. The keyboard history guard also has a focused
+`useShortcuts` regression covering undo/redo capture and action recording.
 
 The current known platform boundary is the actual browser/Tauri webview pair
 available on the validation host. A Chromebook viewport or user-agent string

@@ -87,6 +87,7 @@ capability status is:
 | Insertion, deletion, reverse, open/close, line/curve controls | **Working for the scoped single-path model** | de Casteljau insertion, selection remaps, ring-aware deletion/reversal, controls, and focused tests. |
 | Transaction cancellation and no-op selection | **Working in tool contract** | Pointer-cancel, Escape/focus cleanup, and selection-only transaction tests. |
 | Dependent path topology | **Safely restricted** | Text-on-path, masks, motion/timeline, effects/scopes, component, and interaction references receive an actionable block. |
+| Undo/redo after a canvas gesture | **Working in code; post-fix browser lane unverified** | The direct control restored the edit in a real capture; a focused shortcut test verifies capture-phase Ctrl/Cmd+Z and Shift+Z dispatch. The post-fix browser capture attempts crashed before completing. |
 | Break/split separate paths, endpoint join, shape-preserving general deletion | **Missing/deferred** | Controls expose a disabled explanation; no silent approximation is presented as complete. |
 | Physical ChromeOS and Linux WebKitGTK visual lanes | **Unverified** | This host provides browser automation and Linux tooling, not the actual Chromebook hardware lane. |
 
@@ -152,13 +153,24 @@ The focused geometry and document checks passed after the implementation pass:
 
 The real capture workflow
 (`pnpm capture:workflow bezier-node-edit --no-mp4`) exercised the application,
-not a mock geometry helper. Its product assertions passed for entering node
-editing, four real anchors, anchor dragging, handle dragging, undo, and redo.
-The recording verifier reported one presentation finding only: the generated
-WebM was 30.6 seconds, outside its 14–26 second delivery window. The inspected
-mid-edit frame showed the rendered path, anchors, and handles; the final frame
-showed the normal selection state. This is visual evidence of the workflow, but
-not a clean canonical-video result.
+not a mock geometry helper. The successful pre-shortcut-fix run recorded and
+asserted entering node editing, four real anchors, anchor dragging, handle
+dragging, undo, and redo; its product assertions passed, but the generated
+WebM was 43.2 seconds, outside the 14–26 second delivery window. The inspected
+mid-edit frame showed the rendered path, anchors, handles, explicit mode
+controls, numeric fields, and topology controls; the final frame showed the
+normal selection state. A later direct-control diagnostic completed the same
+sequence at 26.7 seconds, with only the duration verifier finding, but it used
+the enabled Undo control rather than the keyboard shortcut and is not treated
+as post-fix keyboard proof.
+
+The focused `useShortcuts` test passed for capture-phase undo/redo dispatch and
+action recording. Two post-fix real Chromium capture attempts crashed the
+renderer (one during startup, one during the first drawing gesture) before
+assertions completed, so no clean post-fix browser capture is claimed. The
+capture helper now uses a bounded whole-canvas fingerprint for mutation checks
+and retains full visual-frame sampling; its next clean run should be repeated
+on an idle machine.
 
 The committed Playwright regression
 (`tests/e2e/canvas/node-editing.spec.ts`) drives pointer events through the real
