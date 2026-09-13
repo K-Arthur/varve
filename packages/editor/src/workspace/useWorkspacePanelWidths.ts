@@ -9,12 +9,8 @@
  */
 
 import { useEffect, useRef } from 'react';
-import {
-  clampPanelWidthToViewport,
-  defaultPanelWidth,
-  type PanelSide,
-} from '../components/PanelResizeHandle';
-import { subscribeWorkspaceReset } from './workspaceResetEvents';
+import type { PanelSide } from '../components/PanelResizeHandle';
+import { subscribeWorkspaceLayoutApplied, subscribeWorkspaceReset } from './workspaceResetEvents';
 import {
   getPanelWidths,
   getWorkspacePreferences,
@@ -30,6 +26,11 @@ import type { PanelId, WorkspaceMode } from './workspaceTypes';
  *   the new workspace's saved widths are applied.
  * - Reset events clear the live CSS overrides so a reset takes effect
  *   immediately, not only after a restart.
+ *
+ * `widths` are the user's desired widths (min/max clamped, not viewport
+ * clamped). Persisting the desired value keeps a narrow window from
+ * permanently overwriting the desktop arrangement; `usePanelWidths` clamps
+ * only the value it renders.
  *
  * The return value was previously `{ saveCurrentWidths, restoreWorkspaceWidths }`
  * — exported but never consumed anywhere. Widths are written on switch and on
@@ -54,6 +55,17 @@ export function useWorkspacePanelWidths(
     });
   }, [workspaceMode, setWidth]);
 
+  // A named layout replaces the arrangement wholesale: apply the widths it
+  // specifies and fall back to the default for panels it omits, so applying
+  // a layout is reproducible rather than inheriting the previous widths.
+  useEffect(() => {
+    return subscribeWorkspaceLayoutApplied((detail) => {
+      if (detail.mode !== workspaceMode) return;
+      setWidth('layers', detail.panelWidths.layers ?? null);
+      setWidth('inspector', detail.panelWidths.inspector ?? null);
+    });
+  }, [workspaceMode, setWidth]);
+
   // Save current widths when workspace changes
   useEffect(() => {
     if (prevModeRef.current !== workspaceMode) {
@@ -67,30 +79,16 @@ export function useWorkspacePanelWidths(
         );
       }
 
-      // Restore the new workspace's widths
+      // Restore the new workspace's desired widths. Display-time viewport
+      // clamping happens in `usePanelWidths`, so a small window does not
+      // rewrite the saved value.
       const newPrefs = getWorkspacePreferences();
       const savedWidths = getPanelWidths(newPrefs, workspaceMode);
-      const viewport = typeof window !== 'undefined' ? window.innerWidth : 1440;
-
       if (savedWidths.layers !== undefined) {
-        const otherWidth = widths.inspector ?? defaultPanelWidth('inspector', viewport);
-        const clamped = clampPanelWidthToViewport(
-          'layers',
-          savedWidths.layers,
-          otherWidth,
-          viewport,
-        );
-        setWidth('layers', clamped);
+        setWidth('layers', savedWidths.layers);
       }
       if (savedWidths.inspector !== undefined) {
-        const otherWidth = widths.layers ?? defaultPanelWidth('layers', viewport);
-        const clamped = clampPanelWidthToViewport(
-          'inspector',
-          savedWidths.inspector,
-          otherWidth,
-          viewport,
-        );
-        setWidth('inspector', clamped);
+        setWidth('inspector', savedWidths.inspector);
       }
 
       prevModeRef.current = workspaceMode;

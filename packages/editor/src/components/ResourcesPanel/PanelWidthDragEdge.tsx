@@ -15,7 +15,10 @@
 import { ResizableHandle, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
-import { subscribeWorkspaceReset } from '../../workspace/workspaceResetEvents';
+import {
+  subscribeWorkspaceLayoutApplied,
+  subscribeWorkspaceReset,
+} from '../../workspace/workspaceResetEvents';
 import {
   clearPanelWidths,
   getPanelWidths,
@@ -68,6 +71,19 @@ export function PanelWidthDragEdge() {
       latestWidthRef.current = null;
       setWidth(null);
       applyToContainer(null);
+    });
+  }, [applyToContainer, state.workspaceMode]);
+
+  // Named layouts replace panel widths; the library edge follows the same
+  // apply/reset semantics as the sidebar handles.
+  useEffect(() => {
+    return subscribeWorkspaceLayoutApplied((detail) => {
+      if (detail.mode !== state.workspaceMode) return;
+      const next = detail.panelWidths.library;
+      const clamped = next === undefined ? null : clampLibraryWidth(next);
+      latestWidthRef.current = clamped;
+      setWidth(clamped);
+      applyToContainer(clamped);
     });
   }, [applyToContainer, state.workspaceMode]);
 

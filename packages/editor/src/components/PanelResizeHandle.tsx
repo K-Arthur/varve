@@ -50,57 +50,77 @@ export function clampPanelWidthToViewport(
   return Math.min(clampPanelWidth(side, width), available);
 }
 
+/**
+ * Resolve the widths actually rendered at a viewport.
+ *
+ * Desired widths are the user's persisted intent (min/max clamped only); the
+ * display value additionally yields to the canvas minimum. Keeping the two
+ * apart is what stops a narrow window from permanently overwriting a desktop
+ * arrangement.
+ */
+export function resolveDisplayWidths(
+  desired: { layers: number | null; inspector: number | null },
+  viewport: number,
+): { layers: number | null; inspector: number | null } {
+  const resolved = { ...desired };
+  if (desired.layers !== null) {
+    const other = desired.inspector ?? defaultPanelWidth('inspector', viewport);
+    resolved.layers = clampPanelWidthToViewport('layers', desired.layers, other, viewport);
+  }
+  if (desired.inspector !== null) {
+    const other = desired.layers ?? defaultPanelWidth('layers', viewport);
+    resolved.inspector = clampPanelWidthToViewport('inspector', desired.inspector, other, viewport);
+  }
+  return resolved;
+}
+
 /** Hook owning both panel widths (persisted in editor settings);
- *  returns CSS-var style for the shell root. */
+ *  returns CSS-var style for the shell root.
+ *
+ *  `widths` are the widths actually used for layout (clamped so the canvas
+ *  keeps CANVAS_MIN_WIDTH at the current viewport); `desiredWidths` are the
+ *  user's chosen widths with only the per-panel min/max applied. Only the
+ *  desired value is persisted, so opening a narrow window and switching
+ *  modes cannot permanently shrink a desktop arrangement.
+ */
 export function usePanelWidths(): {
   shellStyle: React.CSSProperties;
   widths: { layers: number | null; inspector: number | null };
+  desiredWidths: { layers: number | null; inspector: number | null };
   setWidth: (side: PanelSide, width: number | null) => void;
 } {
   const [widths, setWidths] = useState<{ layers: number | null; inspector: number | null }>(() => {
     const { leftPanelWidth, rightPanelWidth } = loadSettings().panel;
-    const viewport = typeof window !== 'undefined' ? window.innerWidth : 1440;
-    const layersSaved = leftPanelWidth != null ? clampPanelWidth('layers', leftPanelWidth) : null;
-    const inspectorSaved =
-      rightPanelWidth != null ? clampPanelWidth('inspector', rightPanelWidth) : null;
-    const otherLayers = inspectorSaved ?? defaultPanelWidth('inspector', viewport);
-    const otherInspector = layersSaved ?? defaultPanelWidth('layers', viewport);
     return {
-      layers:
-        layersSaved != null
-          ? clampPanelWidthToViewport('layers', layersSaved, otherLayers, viewport)
-          : null,
-      inspector:
-        inspectorSaved != null
-          ? clampPanelWidthToViewport('inspector', inspectorSaved, otherInspector, viewport)
-          : null,
+      layers: leftPanelWidth != null ? clampPanelWidth('layers', leftPanelWidth) : null,
+      inspector: rightPanelWidth != null ? clampPanelWidth('inspector', rightPanelWidth) : null,
     };
   });
 
   const setWidth = useCallback((side: PanelSide, width: number | null) => {
     setWidths((prev) => {
-      const otherSaved = side === 'layers' ? prev.inspector : prev.layers;
-      const viewport = typeof window !== 'undefined' ? window.innerWidth : 1440;
-      const otherWidth =
-        otherSaved ?? defaultPanelWidth(side === 'layers' ? 'inspector' : 'layers', viewport);
-      const clamped =
-        width === null ? null : clampPanelWidthToViewport(side, width, otherWidth, viewport);
+      // Persist the user's intent (min/max clamp only), never the
+      // viewport-clamped display value.
+      const desired = width === null ? null : clampPanelWidth(side, width);
       updateSettings({
-        panel: side === 'layers' ? { leftPanelWidth: clamped } : { rightPanelWidth: clamped },
+        panel: side === 'layers' ? { leftPanelWidth: desired } : { rightPanelWidth: desired },
       });
-      return { ...prev, [side]: clamped };
+      return { ...prev, [side]: desired };
     });
   }, []);
 
+  const viewport = typeof window !== 'undefined' ? window.innerWidth : 1440;
+  const effective = resolveDisplayWidths(widths, viewport);
+
   const shellStyle: React.CSSProperties = {};
-  if (widths.layers !== null) {
-    (shellStyle as Record<string, string>)['--sidebar-width'] = `${widths.layers}px`;
+  if (effective.layers !== null) {
+    (shellStyle as Record<string, string>)['--sidebar-width'] = `${effective.layers}px`;
   }
-  if (widths.inspector !== null) {
-    (shellStyle as Record<string, string>)['--inspector-width'] = `${widths.inspector}px`;
+  if (effective.inspector !== null) {
+    (shellStyle as Record<string, string>)['--inspector-width'] = `${effective.inspector}px`;
   }
 
-  return { shellStyle, widths, setWidth };
+  return { shellStyle, widths: effective, desiredWidths: widths, setWidth };
 }
 
 export function PanelResizeHandle({
