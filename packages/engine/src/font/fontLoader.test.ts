@@ -399,7 +399,25 @@ describe('enumerateSystemFonts', () => {
     const families = await enumerateSystemFonts();
 
     expect(families).toContain('Arial');
-    expect(getSystemFontDiscoveryStatus()).toBe('fallback');
+    expect(getSystemFontDiscoveryStatus()).toBe('unsupported');
+  });
+
+  it('distinguishes a denied local-font permission from an API failure', async () => {
+    vi.stubGlobal('window', {
+      queryLocalFonts: vi
+        .fn()
+        .mockRejectedValueOnce(Object.assign(new Error('permission'), { name: 'NotAllowedError' })),
+    });
+
+    await enumerateSystemFonts();
+    expect(getSystemFontDiscoveryStatus()).toBe('permission-denied');
+
+    resetSystemFontCache();
+    vi.stubGlobal('window', {
+      queryLocalFonts: vi.fn().mockRejectedValue(new Error('font API failed')),
+    });
+    await enumerateSystemFonts();
+    expect(getSystemFontDiscoveryStatus()).toBe('error');
   });
 
   it('registers exact browser faces only after the local-font query resolves', async () => {

@@ -84,12 +84,17 @@ describe('FontBrowser', () => {
     expect(new Set(familyRows.map((button) => button.textContent)).size).toBe(familyRows.length);
   });
 
-  it('exposes local font discovery as an explicit action', () => {
+  it('exposes local font discovery as an explicit action', async () => {
     render(<FontBrowser layout="modal" showDownloadable />);
 
     const refresh = screen.getByRole('button', { name: 'Refresh local fonts' });
     expect(refresh).toBeVisible();
     expect(screen.queryByText(/local (families|family) ready/i)).not.toBeInTheDocument();
+
+    fireEvent.click(refresh);
+    expect(
+      await screen.findByText('Local font access is unavailable; using the compatibility list'),
+    ).toBeVisible();
   });
 
   it('applies the exact registered face chosen from an expanded family', () => {

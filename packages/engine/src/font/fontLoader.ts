@@ -781,6 +781,7 @@ export type SystemFontDiscoveryStatus =
   | 'native'
   | 'local-api'
   | 'fallback'
+  | 'unsupported'
   | 'permission-denied'
   | 'error';
 let _systemFontDiscoveryStatus: SystemFontDiscoveryStatus = 'unknown';
@@ -790,7 +791,15 @@ let _systemFontDiscoveryStatus: SystemFontDiscoveryStatus = 'unknown';
  */
 export function hasQueryLocalFonts(): boolean {
   if (typeof window === 'undefined') return false;
-  return 'queryLocalFonts' in window;
+  return typeof (window as WindowWithLocalFonts).queryLocalFonts === 'function';
+}
+
+function classifyLocalFontAccessError(error: unknown): 'permission-denied' | 'error' {
+  const name =
+    error && typeof error === 'object' && 'name' in error
+      ? String((error as { name?: unknown }).name)
+      : '';
+  return name === 'NotAllowedError' || name === 'SecurityError' ? 'permission-denied' : 'error';
 }
 
 /**
@@ -862,15 +871,17 @@ export async function enumerateSystemFonts(): Promise<string[]> {
       _enumeratedSystemFamilies = families;
       _systemFontDiscoveryStatus = 'local-api';
       return families;
-    } catch {
-      // Permission denied or API error — fall through to safe list
-      _systemFontDiscoveryStatus = 'permission-denied';
+    } catch (error) {
+      // Permission denial and an implementation/runtime failure need
+      // different next actions in the browser UI. Both still fall back to the
+      // shipped compatibility list so discovery remains usable offline.
+      _systemFontDiscoveryStatus = classifyLocalFontAccessError(error);
     }
   }
 
   // Fallback: safe list of fonts available across Windows, macOS, and Linux
   _enumeratedSystemFamilies = [...SYSTEM_FONTS];
-  if (_systemFontDiscoveryStatus === 'unknown') _systemFontDiscoveryStatus = 'fallback';
+  if (_systemFontDiscoveryStatus === 'unknown') _systemFontDiscoveryStatus = 'unsupported';
   return _enumeratedSystemFamilies;
 }
 
