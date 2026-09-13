@@ -1986,6 +1986,10 @@ passed
 VARVE_TEST_WORKERS=1 pnpm exec vitest run packages/import/src/format-honesty.test.ts \
   packages/import/src/ai.test.ts --maxWorkers=1 --reporter=dot
 24 tests passed
+
+VARVE_TEST_WORKERS=1 pnpm exec vitest run packages/import/src \
+  --maxWorkers=1 --reporter=dot
+364 tests passed across 31 import test files
 ```
 
 The repository still has no licensed Illustrator-authored fixture, so this
