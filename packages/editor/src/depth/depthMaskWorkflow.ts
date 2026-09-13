@@ -10,6 +10,22 @@ import {
 } from '@varve/engine';
 import type { DepthMaskRecipe, NodeId, RasterMaskSourceIdentity } from '@varve/scene';
 
+/** Keep model-validity input as a compact alpha plane, not interleaved RGBA. */
+export function rgbaToAlphaPlane(
+  rgba: ArrayLike<number>,
+  width: number,
+  height: number,
+): Uint8Array {
+  if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width <= 0 || height <= 0) {
+    throw new Error('RGBA dimensions must be positive safe integers');
+  }
+  const pixels = width * height;
+  if (rgba.length !== pixels * 4) throw new Error('RGBA length must match its dimensions');
+  const alpha = new Uint8Array(pixels);
+  for (let index = 0; index < pixels; index++) alpha[index] = rgba[index * 4 + 3] ?? 0;
+  return alpha;
+}
+
 export interface DepthMaskRecipeInput {
   depthMapId: string;
   nodeId: NodeId;

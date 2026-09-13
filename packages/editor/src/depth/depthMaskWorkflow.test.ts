@@ -5,6 +5,7 @@ import {
   coverageToRgba,
   depthCoverageForRecipe,
   makeDepthMaskRecipe,
+  rgbaToAlphaPlane,
 } from './depthMaskWorkflow';
 
 function map(values: number[], valid = values.map(() => 1)): DepthMap {
@@ -24,6 +25,11 @@ function map(values: number[], valid = values.map(() => 1)): DepthMap {
 }
 
 describe('depth mask workflow', () => {
+  it('extracts alpha before projecting source validity into model space', () => {
+    expect(Array.from(rgbaToAlphaPlane([10, 20, 30, 0, 40, 50, 60, 255], 2, 1))).toEqual([0, 255]);
+    expect(() => rgbaToAlphaPlane([0, 0, 0], 1, 1)).toThrow('RGBA length');
+  });
+
   it('keeps invalid samples excluded when a range is inverted', () => {
     const coverage = depthCoverageForRecipe(map([0.1, 0.5, 0.9], [1, 0, 1]), {
       range: { near: 0, far: 0.5, nearTransition: 0, farTransition: 0 },

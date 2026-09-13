@@ -17,6 +17,7 @@ import { imageShapeSrc, isImageShape } from '@varve/scene';
 import { Button, Separator, Switch } from '@varve/ui';
 import { type MouseEvent, useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useEditor, useViewport } from '../../../context';
+import { rgbaToAlphaPlane } from '../../../depth/depthMaskWorkflow';
 import { containDepthPreview, depthPreviewPointToMap } from '../../../depth/depthPreviewLayout';
 import { worldPointToImageMaskPixel } from '../../../tools/imageMaskCoordinates';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -407,10 +408,7 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
       // ImageData is RGBA; the depth contract deliberately accepts a compact
       // one-byte alpha plane so RGB from transparent pixels can never affect
       // validity statistics or padding registration.
-      const sourceAlpha = new Uint8Array(imageData.width * imageData.height);
-      for (let index = 0; index < sourceAlpha.length; index++) {
-        sourceAlpha[index] = imageData.data[index * 4 + 3] ?? 0;
-      }
+      const sourceAlpha = rgbaToAlphaPlane(imageData.data, imageData.width, imageData.height);
       const sourceValidity = sourceAlphaToDepthValidity(
         sourceAlpha,
         imageData.width,
