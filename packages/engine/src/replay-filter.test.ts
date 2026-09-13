@@ -192,8 +192,32 @@ describe('replay filter chain', () => {
 
     const [filterTarget] = applyFilterWithCompositingSpy.mock.calls[0]!;
     expect(filterTarget).not.toBe(target);
+    expect(applyFilterWithCompositingSpy.mock.calls[0]?.[2]).toBe(10);
+    expect(applyFilterWithCompositingSpy.mock.calls[0]?.[3]).toBe(10);
     expect(calls).not.toContain('clearRect');
     expect(calls).toContain('drawImage');
+  });
+
+  it('keeps a spatial filter on the full surface until its bounds are proven tile-safe', () => {
+    const { target } = makeRecorder();
+    replayIr(target, [
+      {
+        ...rectItem(10, 10),
+        filters: [
+          {
+            kind: 'exposure' as const,
+            value: 1,
+            offset: 0,
+            gammaCorrection: 1,
+            opacity: 1,
+            blendMode: 'normal' as const,
+          },
+          { kind: 'blur' as const, radius: 4, opacity: 1, blendMode: 'normal' as const },
+        ],
+      },
+    ]);
+    expect(applyFilterWithCompositingSpy.mock.calls[0]?.[2]).toBe(100);
+    expect(applyFilterWithCompositingSpy.mock.calls[0]?.[3]).toBe(100);
   });
 
   it('composes multiple convertible filters into one filter string', () => {

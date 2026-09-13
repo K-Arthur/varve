@@ -115,7 +115,15 @@ Thin inner stroke rendered after fills but before post-render filters.
 Non-CSS filters (non-normal blend mode, opacity < 1, or unsupported
 by CSS `filter`) are composited over the final per-item result via
 offscreen canvas. Simple CSS filters are applied earlier (line 678–689)
-via `target.filter`.
+via `target.filter`. When the post-render stack is strictly pointwise and the
+item has no visible staged effects, the isolated surface is clipped to the
+transformed painted bounds (including conservative stroke coverage and the
+viewport clip). Spatial, pattern, global-context, and effect-bearing items
+retain the full-surface path until an equivalent bounds contract is proved.
+This distinction is implemented by `filterSurfaceRegion.ts`; it prevents a
+small exposure/curves/LUT treatment from allocating a full viewport while
+keeping blur, displacement, dither, grain, halftone, and similar treatments
+on their authoritative path.
 
 ## Verified invariants
 

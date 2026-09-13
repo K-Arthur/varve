@@ -25,6 +25,7 @@ import {
   computeScreenBounds,
 } from './effectPipeline';
 import { applyFilterWithCompositing } from './filterCompositor';
+import { computePointwiseFilterSurface } from './filterSurfaceRegion';
 import { applyFilterChain, filterChainToCss, filterToCss, supportsCanvasFilter } from './filters';
 import { getImageCache } from './imageCache';
 import { imagePlaceholderFill } from './imagePlaceholder';
@@ -743,15 +744,35 @@ function replayItemOnIsolatedSurface(
     return false;
   }
 
+  const matrix = target.getTransform();
+  const region = computePointwiseFilterSurface({
+    sourceBounds: primitiveBounds(item.primitive),
+    cameraTransform: matrix,
+    itemTransform: item.transform,
+    strokes: item.strokes,
+    filters: item.filters ?? [],
+    hasVisibleEffects: item.effects?.some((effect) => effect.visible) ?? false,
+    canvasWidth: canvas.width,
+    canvasHeight: canvas.height,
+  });
+  const surfaceWidth = region?.width ?? canvas.width;
+  const surfaceHeight = region?.height ?? canvas.height;
+
   let surface: ReturnType<typeof createRasterSurface>;
   try {
-    surface = createRasterSurface(canvas.width, canvas.height);
+    surface = createRasterSurface(surfaceWidth, surfaceHeight);
   } catch {
     return false;
   }
 
-  const matrix = target.getTransform();
-  surface.context.setTransform(matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f);
+  surface.context.setTransform(
+    matrix.a,
+    matrix.b,
+    matrix.c,
+    matrix.d,
+    matrix.e - (region?.x ?? 0),
+    matrix.f - (region?.y ?? 0),
+  );
   replayIr(
     surface.context as unknown as ReplayTarget,
     [
@@ -770,29 +791,33 @@ function replayItemOnIsolatedSurface(
   applyFilterWithCompositing(
     surface.context as CanvasRenderingContext2D,
     item.filters ?? [],
-    canvas.width,
-    canvas.height,
+    surfaceWidth,
+    surfaceHeight,
     { treatmentSpace: treatmentSpaceForReplayItem(matrix, item) },
   );
 
   if (needsLinearBlend && target.getImageData && target.putImageData) {
-    const backdrop = target.getImageData(0, 0, canvas.width, canvas.height);
-    const source = surface.context.getImageData(0, 0, canvas.width, canvas.height);
+    const x = region?.x ?? 0;
+    const y = region?.y ?? 0;
+    const backdrop = target.getImageData(x, y, surfaceWidth, surfaceHeight);
+    const source = surface.context.getImageData(0, 0, surfaceWidth, surfaceHeight);
     target.putImageData(
       blendPixels(backdrop, source, item.blendMode ?? 'normal', item.opacity ?? 1, 'linear-srgb'),
-      0,
-      0,
+      x,
+      y,
     );
     return true;
   }
 
+  const drawX = region?.x ?? 0;
+  const drawY = region?.y ?? 0;
   target.save();
   try {
     target.setTransform(1, 0, 0, 1, 0, 0);
     target.globalAlpha = item.opacity ?? 1;
     target.globalCompositeOperation =
       item.blendMode && item.blendMode !== 'normal' ? mapBlendMode(item.blendMode) : 'source-over';
-    target.drawImage(surface.canvas as CanvasImageSource, 0, 0);
+    target.drawImage(surface.canvas as CanvasImageSource, drawX, drawY);
   } finally {
     target.restore();
   }
