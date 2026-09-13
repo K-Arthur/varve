@@ -60,6 +60,12 @@ export function linearToSrgb(value: number): number {
   return clamped <= 0.0031308 ? clamped * 12.92 : 1.055 * clamped ** (1 / 2.4) - 0.055;
 }
 
+/** Inverse sRGB transfer used when a stored 8-bit rendition must be read back. */
+export function srgbToLinear(value: number): number {
+  const clamped = Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
+  return clamped <= 0.04045 ? clamped / 12.92 : ((clamped + 0.055) / 1.055) ** 2.4;
+}
+
 /**
  * Convert an SDR display-linear raster to an ordinary 8-bit sRGB rendition.
  * This is a disposable output, not a replacement for the range-bearing master.
