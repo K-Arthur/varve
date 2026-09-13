@@ -52,6 +52,21 @@ test.describe('Font browser filter reset', () => {
     await expect(dialog.getByRole('tab', { name: 'All' })).toHaveAttribute('aria-selected', 'true');
     await expect(dialog.getByRole('combobox', { name: 'Semantic font filter' })).toHaveValue('all');
     await expect(dialog.getByRole('button', { name: 'Reset font browser filters' })).toHaveCount(0);
+
+    const allTab = dialog.getByRole('tab', { name: 'All' });
+    const systemTab = dialog.getByRole('tab', { name: 'System' });
+    const favoritesTab = dialog.getByRole('tab', { name: 'Favorites' });
+    await allTab.focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(systemTab).toHaveAttribute('aria-selected', 'true');
+    await expect(systemTab).toHaveAttribute('tabindex', '0');
+    await expect(allTab).toHaveAttribute('tabindex', '-1');
+    await page.keyboard.press('End');
+    await expect(favoritesTab).toHaveAttribute('aria-selected', 'true');
+    await expect(favoritesTab).toHaveAttribute('tabindex', '0');
+    await page.keyboard.press('Home');
+    await expect(allTab).toHaveAttribute('aria-selected', 'true');
+    await expect(allTab).toBeFocused();
     await page.screenshot({
       path: test.info().outputPath('font-browser-reset-narrow.png'),
       animations: 'disabled',

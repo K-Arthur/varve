@@ -147,6 +147,31 @@ describe('FontBrowser', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('uses roving tab focus with Arrow, Home, and End navigation', () => {
+    render(<FontBrowser layout="modal" showDownloadable />);
+
+    const all = screen.getByRole('tab', { name: 'All' });
+    const system = screen.getByRole('tab', { name: 'System' });
+    const favorites = screen.getByRole('tab', { name: 'Favorites' });
+    expect(all).toHaveAttribute('tabindex', '0');
+    expect(system).toHaveAttribute('tabindex', '-1');
+
+    all.focus();
+    fireEvent.keyDown(all, { key: 'ArrowRight' });
+    expect(system).toHaveAttribute('aria-selected', 'true');
+    expect(system).toHaveAttribute('tabindex', '0');
+    expect(document.activeElement).toBe(system);
+
+    fireEvent.keyDown(system, { key: 'End' });
+    expect(favorites).toHaveAttribute('aria-selected', 'true');
+    expect(favorites).toHaveAttribute('tabindex', '0');
+    expect(document.activeElement).toBe(favorites);
+
+    fireEvent.keyDown(favorites, { key: 'Home' });
+    expect(all).toHaveAttribute('aria-selected', 'true');
+    expect(document.activeElement).toBe(all);
+  });
+
   it('applies the exact registered face chosen from an expanded family', () => {
     const onSelectFace = vi.fn();
     render(

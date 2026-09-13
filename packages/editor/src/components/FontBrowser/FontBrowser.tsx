@@ -691,14 +691,37 @@ export function FontBrowser({
 
         <div className="font-browser__controls">
           <div className="font-browser__filters" role="tablist" aria-label="Font source filter">
-            {SOURCE_FILTERS.map((filter) => (
+            {SOURCE_FILTERS.map((filter, filterIndex) => (
               <button
                 key={filter.key}
                 type="button"
                 role="tab"
                 aria-selected={activeFilter === filter.key}
+                tabIndex={activeFilter === filter.key ? 0 : -1}
                 className={`font-browser__filter-btn${activeFilter === filter.key ? ' font-browser__filter-btn--active' : ''}`}
                 onClick={() => setActiveFilter(filter.key)}
+                onKeyDown={(event) => {
+                  const isPrevious = event.key === 'ArrowLeft';
+                  const isNext = event.key === 'ArrowRight';
+                  const isFirst = event.key === 'Home';
+                  const isLast = event.key === 'End';
+                  if (!isPrevious && !isNext && !isFirst && !isLast) return;
+                  event.preventDefault();
+                  const nextIndex = isFirst
+                    ? 0
+                    : isLast
+                      ? SOURCE_FILTERS.length - 1
+                      : (filterIndex + (isPrevious ? -1 : 1) + SOURCE_FILTERS.length) %
+                        SOURCE_FILTERS.length;
+                  const nextFilter = SOURCE_FILTERS[nextIndex];
+                  if (!nextFilter) return;
+                  setActiveFilter(nextFilter.key);
+                  const tabs =
+                    event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>(
+                      '[role="tab"]',
+                    );
+                  tabs?.[nextIndex]?.focus();
+                }}
               >
                 {filter.label}
               </button>
