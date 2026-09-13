@@ -1,4 +1,25 @@
 export type {
+  ExpandedFrame,
+  ExpandGenerationEstimate,
+  ExpandLimits,
+  ExpandMargins,
+  ExpandPlan,
+  ExpandPlanRejection,
+  ExpandPlanRejectionCode,
+  ExpandPlanResult,
+  ExpandRegion,
+} from './expandPlan';
+export {
+  buildExpandedFrame,
+  computeExpandPlan,
+  DEFAULT_EXPAND_LIMITS,
+  estimateExpandGenerationResolution,
+  expandCoverageMask,
+  expandPlanOutputFrame,
+  normalizeExpandMargins,
+  restoreProtectedPixels,
+} from './expandPlan';
+export type {
   GenerativeJobSnapshot,
   GenerativeJobState,
   GenerativeJobStatus,
