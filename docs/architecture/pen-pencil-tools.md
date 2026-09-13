@@ -44,12 +44,6 @@ The preview uses the same point/relative-handle convention as the committed
 | Escape (dragging) | Cancel in-progress handle |
 | Click path endpoint | Continue existing path; either endpoint is oriented for continuation |
 
-While a Pen draft is visible, the canvas overlay exposes labeled **Finish**,
-**Close**, **Cancel**, and **Undo anchor** buttons. They dispatch directly to
-the active `PenTool`, so a touch user does not need a keyboard or a close-target
-hover; disabled states reflect whether the current draft can perform Close or
-Undo Anchor.
-
 Pen stays active after each path commit (multi-path workflow).
 
 ### Contact ownership and cancellation

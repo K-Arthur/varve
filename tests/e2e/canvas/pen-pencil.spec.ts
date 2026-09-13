@@ -126,23 +126,4 @@ test.describe('Pen and Pencil tools', () => {
 
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
   });
-
-  test('Pen exposes touch actions for finish, close, cancel, and undo anchor', async ({ page }) => {
-    await page.keyboard.press('p');
-    await clickOnCanvas(page, 180, 160);
-    await page.waitForTimeout(350);
-
-    const actions = page.getByRole('toolbar', { name: 'Pen path actions' });
-    await expect(actions).toBeVisible();
-    await expect(actions.getByRole('button', { name: 'Close path' })).toBeDisabled();
-    await expect(actions.getByRole('button', { name: 'Undo last anchor' })).toBeEnabled();
-
-    await clickOnCanvas(page, 340, 160);
-    await page.waitForTimeout(100);
-    await expect(actions.getByRole('button', { name: 'Close path' })).toBeEnabled();
-    await actions.getByRole('button', { name: 'Close path' }).click();
-
-    await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
-    await expect(page.getByRole('toolbar', { name: 'Pen path actions' })).toHaveCount(0);
-  });
 });

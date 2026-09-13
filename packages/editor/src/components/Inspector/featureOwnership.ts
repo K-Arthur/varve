@@ -344,6 +344,14 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     rationale:
       'Points users to Photo mode for image AI/ML tools when an image is selected outside Photo mode.',
   },
+  'depth-mask': {
+    surface: 'adjustments',
+    scope: 'selection',
+    frequency: 'rare',
+    complexity: 'large-editor',
+    status: 'functional',
+    rationale: 'A reusable scalar depth resource drives a revisitable layer-mask recipe.',
+  },
   'lens-blur': {
     surface: 'adjustments',
     scope: 'selection',

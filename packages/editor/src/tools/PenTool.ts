@@ -310,59 +310,6 @@ export class PenTool extends BaseTool {
     }
   }
 
-  /**
-   * Execute an explicit touch/toolbar action for the current construction.
-   * These actions intentionally stay on PenTool so Finish, Close, Cancel, and
-   * Undo Anchor preserve the same draft/history semantics as their keyboard
-   * equivalents; the overlay only supplies an accessible pointer surface.
-   */
-  performConstructionAction(
-    action: import('./types').PenConstructionAction,
-    ctx: ToolContext,
-  ): void {
-    if (this.penState === PenState.Idle) return;
-
-    if (action === 'cancel') {
-      this.releaseActivePointer(ctx);
-      this.clearDraft(ctx);
-      ctx.announce('Path cancelled');
-      return;
-    }
-
-    if (action === 'finish') {
-      this.dragStartCanvas = null;
-      this.commitPath(ctx, false);
-      ctx.announce('Path finished');
-      return;
-    }
-
-    if (action === 'close') {
-      if (this.points.length < 2) {
-        ctx.announce('Add another anchor before closing the path');
-        return;
-      }
-      this.dragStartCanvas = null;
-      this.commitPath(ctx, true);
-      ctx.announce('Path closed');
-      return;
-    }
-
-    this.releaseActivePointer(ctx);
-    if (this.points.length <= this.continuationBasePointCount) {
-      ctx.announce('No new anchor to undo');
-      return;
-    }
-    this.points.pop();
-    if (this.points.length === 0) {
-      this.clearDraft(ctx);
-    } else {
-      this.penState = PenState.Placing;
-      this.dragStartCanvas = null;
-      this.syncDraft(ctx, null);
-    }
-    ctx.announce('Last anchor removed');
-  }
-
   private commitPath(ctx: ToolContext, closed: boolean): void {
     this.releaseActivePointer(ctx);
     ctx.setDraft(null);
@@ -465,7 +412,6 @@ export class PenTool extends BaseTool {
       pointer,
       closedPreview,
       isDragging: this.penState === PenState.Dragging,
-      undoAnchorAvailable: this.points.length > this.continuationBasePointCount,
       label: closedPreview ? 'Click first anchor to close path' : 'Pen construction',
     });
   }

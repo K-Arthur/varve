@@ -119,12 +119,8 @@ export interface PenConstructionDraft {
   closedPreview: boolean;
   /** True while the active anchor's handle gesture is still in progress. */
   isDragging: boolean;
-  /** True when the touch toolbar can remove an anchor without touching committed geometry. */
-  undoAnchorAvailable: boolean;
   label?: string;
 }
-
-export type PenConstructionAction = 'finish' | 'close' | 'cancel' | 'undo-anchor';
 
 /** Ephemeral region-selection state for the staged Shape Builder session. */
 export interface ShapeBuilderDraft {

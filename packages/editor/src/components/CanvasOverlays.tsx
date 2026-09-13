@@ -55,7 +55,6 @@ import { OnionSkinOverlay } from './OnionSkinOverlay';
 import { PageLayoutOverlay } from './PageLayoutOverlay';
 import { PagePrintOverlays } from './PagePrintOverlays';
 import { PageToolOverlay } from './PageToolOverlay';
-import { PenConstructionActions } from './PenConstructionActions';
 import { PerspectiveOverlay } from './PerspectiveOverlay';
 import { Ruler } from './Ruler/Ruler';
 import { SelectionQuickBarHost } from './SelectionQuickBar/SelectionQuickBarHost';
@@ -122,7 +121,6 @@ export interface CanvasOverlaysProps {
   artboardRect: { x: number; y: number; w: number; h: number } | null;
   pixelProbe: PixelProbe | null;
   draft: DraftShape | null;
-  onPenAction: (action: import('../tools/types').PenConstructionAction) => void;
   onShapeBuilderAction: (action: import('@varve/scene').ShapeBuilderAction) => void;
   onShapeBuilderExit: () => void;
 }
@@ -168,7 +166,6 @@ export function CanvasOverlays({
   artboardRect,
   pixelProbe,
   draft,
-  onPenAction,
   onShapeBuilderAction,
   onShapeBuilderExit,
 }: CanvasOverlaysProps) {
@@ -797,9 +794,6 @@ export function CanvasOverlays({
           onAction={onShapeBuilderAction}
           onExit={onShapeBuilderExit}
         />
-      )}
-      {tool === 'pen' && draft?.kind === 'bezier-path' && (
-        <PenConstructionActions draft={draft} onAction={onPenAction} />
       )}
       {renderVariantBox}
       <SelectionQuickBarHost

@@ -9,6 +9,10 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
 }
 
+function isSafeInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value);
+}
+
 function isObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -29,7 +33,7 @@ export function validateDepthMaskRecipe(
   }
   if (
     binding.coordinateSpace !== 'source-image-pixels' ||
-    !Number.isSafeInteger(binding.processingRevision) ||
+    !isSafeInteger(binding.processingRevision) ||
     binding.processingRevision < 0
   ) {
     return 'Depth mask recipe source binding is invalid';
@@ -49,22 +53,21 @@ export function validateDepthMaskRecipe(
   if (!COMBINE_MODES.includes(recipe.combine as (typeof COMBINE_MODES)[number])) {
     return 'Depth mask recipe combine mode is unsupported';
   }
-  if (!Number.isSafeInteger(recipe.algorithmVersion) || recipe.algorithmVersion < 1) {
+  if (!isSafeInteger(recipe.algorithmVersion) || recipe.algorithmVersion < 1) {
     return 'Depth mask recipe algorithm version is invalid';
   }
   if (recipe.correction !== undefined) {
     const correction = recipe.correction;
-    if (
-      !isObject(correction) ||
-      !Number.isSafeInteger(correction.revision) ||
-      correction.revision < 0
-    ) {
+    if (!isObject(correction) || !isSafeInteger(correction.revision) || correction.revision < 0) {
       return 'Depth mask recipe correction is invalid';
     }
     if (correction.target !== 'coverage' && correction.target !== 'depth') {
       return 'Depth mask recipe correction target is invalid';
     }
-    if (correction.assetId !== undefined && !doc.rasterMaskAssets?.[correction.assetId]) {
+    if (
+      correction.assetId !== undefined &&
+      (typeof correction.assetId !== 'string' || !doc.rasterMaskAssets?.[correction.assetId])
+    ) {
       return 'Depth mask recipe correction references a missing mask asset';
     }
   }

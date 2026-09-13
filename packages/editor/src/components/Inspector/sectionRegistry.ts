@@ -63,6 +63,7 @@ export type SectionId =
   | 'document-grid'
   | 'isometric-grid'
   | 'ai-denoise'
+  | 'depth-mask'
   | 'lens-blur'
   | 'line-art'
   | 'image-crop'
@@ -647,6 +648,17 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
       isSingleSelection(ctx) && isImageNode(ctx.selectedNodes) && ctx.workspaceMode === 'image',
   },
 
+  {
+    id: 'depth-mask',
+    title: 'Depth Mask',
+    defaultExpanded: true,
+    canHide: true,
+    essential: false,
+    order: 294,
+    category: 'advanced',
+    isAvailable: (ctx) =>
+      isSingleSelection(ctx) && isImageNode(ctx.selectedNodes) && ctx.workspaceMode === 'image',
+  },
   {
     id: 'lens-blur',
     title: 'Depth Blur',

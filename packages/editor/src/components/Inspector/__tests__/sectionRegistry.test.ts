@@ -371,6 +371,7 @@ describe('Section availability predicates', () => {
       'background-removal',
       'colorize',
       'ai-denoise',
+      'depth-mask',
       'lens-blur',
       'line-art',
       'content-aware-fill',

@@ -1456,17 +1456,6 @@ export function CanvasArea({
         artboardRect={artboardRect}
         pixelProbe={pixelProbe}
         draft={draft}
-        onPenAction={(action) => {
-          const tool = tm.current?.getTool('pen') as
-            | {
-                performConstructionAction: (
-                  nextAction: typeof action,
-                  ctx: ToolContext,
-                ) => void;
-              }
-            | undefined;
-          tool?.performConstructionAction(action, buildToolCtx(new PointerEvent('pointerup')));
-        }}
         onShapeBuilderAction={(action) => {
           const tool = tm.current?.getTool('shapeBuilder') as
             | { applyAction: (nextAction: typeof action, ctx: ToolContext) => void }

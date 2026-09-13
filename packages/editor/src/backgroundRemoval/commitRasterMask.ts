@@ -14,6 +14,7 @@
 import type {
   BackgroundRemovalProvenance,
   BackgroundRemovalState,
+  DepthMaskRecipe,
   Document,
   DocumentAsset,
   ImageFillData,
@@ -24,6 +25,7 @@ import type {
 import {
   addRasterMaskAsset,
   cryptoId,
+  pruneUnreferencedRasterMaskAssets,
   removeRasterMaskAsset,
   resolveNodePaints,
   updateRasterMaskAsset,
@@ -50,6 +52,8 @@ export interface RasterMaskCommitFields {
    * `node-local-pixels` (brush-painted layer masks).
    */
   coordinateSpace?: 'source-image-pixels' | 'container-local-pixels' | 'node-local-pixels';
+  /** Persist depth intent beside the resolved PNG; null explicitly clears it. */
+  depthRecipe?: DepthMaskRecipe | null;
 }
 
 function dataUrlByteLength(dataUrl: string): number {
@@ -84,6 +88,51 @@ function makeAsset(assetId: string, fields: RasterMaskCommitFields): RasterMaskA
     height: fields.height,
     byteLength: dataUrlByteLength(fields.dataUrl),
   };
+}
+
+function attachDepthRecipe(
+  doc: Document,
+  nodeId: NodeId,
+  recipe: DepthMaskRecipe | null | undefined,
+): Document {
+  if (recipe === undefined) return doc;
+  const node = doc.nodes[nodeId];
+  const rasterMask = node?.mask?.rasterMask;
+  if (!node || !rasterMask) return doc;
+  const nextRasterMask = { ...rasterMask };
+  if (recipe === null) delete nextRasterMask.depthRecipe;
+  else nextRasterMask.depthRecipe = recipe;
+  return pruneUnreferencedRasterMaskAssets({
+    ...doc,
+    nodes: {
+      ...doc.nodes,
+      [nodeId]: {
+        ...node,
+        mask: { ...node.mask!, rasterMask: nextRasterMask },
+      },
+    },
+  });
+}
+
+/**
+ * Brush, trimap, and segmentation edits call this helper without a recipe.
+ * When they replace a depth-derived mask, point the recipe at the new resolved
+ * coverage so a later range edit can reapply the range without discarding that
+ * manual correction.
+ */
+function preserveDepthCorrection(doc: Document, nodeId: NodeId): Document {
+  const node = doc.nodes[nodeId];
+  const rasterMask = node?.mask?.rasterMask;
+  const recipe = rasterMask?.depthRecipe;
+  if (!node || !rasterMask || !recipe) return doc;
+  return attachDepthRecipe(doc, nodeId, {
+    ...recipe,
+    correction: {
+      assetId: rasterMask.assetId,
+      revision: (recipe.correction?.revision ?? 0) + 1,
+      target: 'coverage',
+    },
+  });
 }
 
 /**
@@ -160,14 +209,18 @@ export function commitRasterMask(
     const updated = updateRasterMaskAsset(sourceAlignedDoc, nodeId, asset);
     if (updated === sourceAlignedDoc) return doc;
     const provenance = makeProvenance(fields);
-    if (!provenance) return updated;
-    const updatedNode = updated.nodes[nodeId]!;
+    const withRecipe =
+      fields.depthRecipe !== undefined
+        ? attachDepthRecipe(updated, nodeId, fields.depthRecipe)
+        : preserveDepthCorrection(updated, nodeId);
+    if (!provenance) return withRecipe;
+    const updatedNode = withRecipe.nodes[nodeId]!;
     const updatedMask = updatedNode.mask;
-    if (!updatedMask?.rasterMask) return updated;
+    if (!updatedMask?.rasterMask) return withRecipe;
     return {
-      ...updated,
+      ...withRecipe,
       nodes: {
-        ...updated.nodes,
+        ...withRecipe.nodes,
         [nodeId]: {
           ...updatedNode,
           mask: {
@@ -186,6 +239,9 @@ export function commitRasterMask(
     {
       provenance: makeProvenance(fields),
       editRevision: 1,
+      ...(fields.depthRecipe !== undefined && fields.depthRecipe !== null
+        ? { depthRecipe: fields.depthRecipe }
+        : {}),
     },
     { coordinateSpace: fields.coordinateSpace },
   );

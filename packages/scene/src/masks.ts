@@ -808,14 +808,33 @@ function rasterAssetsEqual(left: RasterMaskAsset, right: RasterMaskAsset): boole
 
 function isRasterAssetReferenced(doc: Document, assetId: string, exceptNodeId?: NodeId): boolean {
   return Object.values(doc.nodes).some(
-    (node) => node.id !== exceptNodeId && node.mask?.rasterMask?.assetId === assetId,
+    (node) =>
+      node.id !== exceptNodeId &&
+      (node.mask?.rasterMask?.assetId === assetId ||
+        node.mask?.rasterMask?.depthRecipe?.correction?.assetId === assetId),
   );
 }
 
 function withoutUnreferencedAsset(doc: Document, assetId: string): Document {
   if (isRasterAssetReferenced(doc, assetId) || !getOwnRasterMaskAsset(doc, assetId)) return doc;
-  const rasterMaskAssets = { ...doc.rasterMaskAssets };
-  delete rasterMaskAssets[assetId];
+  return pruneUnreferencedRasterMaskAssets(doc);
+}
+
+/** Remove mask payloads that are no longer referenced by a live mask or recipe correction. */
+export function pruneUnreferencedRasterMaskAssets(doc: Document): Document {
+  if (!doc.rasterMaskAssets) return doc;
+  const referenced = new Set<string>();
+  for (const node of Object.values(doc.nodes)) {
+    const rasterMask = node.mask?.rasterMask;
+    if (!rasterMask) continue;
+    referenced.add(rasterMask.assetId);
+    if (rasterMask.depthRecipe?.correction?.assetId) {
+      referenced.add(rasterMask.depthRecipe.correction.assetId);
+    }
+  }
+  const rasterMaskAssets = Object.fromEntries(
+    Object.entries(doc.rasterMaskAssets).filter(([id]) => referenced.has(id)),
+  );
   return {
     ...doc,
     rasterMaskAssets: Object.keys(rasterMaskAssets).length > 0 ? rasterMaskAssets : undefined,

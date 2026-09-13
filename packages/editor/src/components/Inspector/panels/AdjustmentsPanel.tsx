@@ -8,6 +8,7 @@ import { BackgroundRemovalSection } from '../sections/BackgroundRemovalSection';
 import { FrameInterpolationSection } from '../sections/BlendImagesSection';
 import { ColorizeSection } from '../sections/ColorizeSection';
 import { ContentAwareFillSection } from '../sections/ContentAwareFillSection';
+import { DepthMaskSection } from '../sections/DepthMaskSection';
 import { DetectTextSection } from '../sections/DetectTextSection';
 import { EffectStudioAccessSection } from '../sections/EffectStudioAccessSection';
 import { EffectsSection } from '../sections/EffectsSection';
@@ -72,6 +73,7 @@ export function AdjustmentsPanel() {
           <BackgroundRemovalSection nodes={nodes} />
           <ColorizeSection nodes={nodes} />
           <AIDenoiseSection nodes={nodes} />
+          <DepthMaskSection nodes={nodes} />
           <LensBlurSection nodes={nodes} />
           <LineArtSection nodes={nodes} />
           <ContentAwareFillSection nodes={nodes} onOpenDialog={openCafDialog} />

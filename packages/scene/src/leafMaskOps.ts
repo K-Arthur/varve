@@ -99,6 +99,7 @@ export function attachRasterMaskAsset(
     ...(rasterMask?.editRevision !== undefined ? { editRevision: rasterMask.editRevision } : {}),
     ...(rasterMask?.staleReason !== undefined ? { staleReason: rasterMask.staleReason } : {}),
     ...(rasterMask?.provenance !== undefined ? { provenance: rasterMask.provenance } : {}),
+    ...(rasterMask?.depthRecipe !== undefined ? { depthRecipe: rasterMask.depthRecipe } : {}),
   };
   const mask: Mask = { type: 'alpha', visible: true, rasterMask: maskData };
   const candidate = {

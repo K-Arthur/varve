@@ -62,6 +62,7 @@ describe('Inspector feature ownership', () => {
       'background-removal',
       'colorize',
       'ai-denoise',
+      'depth-mask',
       'lens-blur',
       'line-art',
       'content-aware-fill',
