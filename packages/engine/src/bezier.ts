@@ -30,6 +30,8 @@ export interface PathPoint {
   y: number;
   handleIn: [number, number] | null;
   handleOut: [number, number] | null;
+  /** Optional semantic mode retained by geometry helpers when present. */
+  mode?: import('@varve/shared').PathNodeMode;
   pressure?: number;
   tilt?: { x: number; y: number };
 }

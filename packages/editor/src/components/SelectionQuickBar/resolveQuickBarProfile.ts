@@ -23,6 +23,7 @@ export type QuickBarActionId =
   | 'cancelBg'
   | 'editNodes'
   | 'simplify'
+  | 'reversePath'
   | 'closePath'
   | 'openPath'
   | 'editText'
@@ -120,6 +121,7 @@ function pathProfile(node: ShapeNode): QuickBarProfile {
   const actions: QuickBarAction[] = [
     action('editNodes', 'Edit nodes'),
     action('simplify', 'Simplify'),
+    action('reversePath', 'Reverse path'),
     action('flipH', 'Flip horizontal'),
     action('flipV', 'Flip vertical'),
     closed ? action('openPath', 'Open path') : action('closePath', 'Close path'),

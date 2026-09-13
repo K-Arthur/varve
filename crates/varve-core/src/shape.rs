@@ -14,6 +14,9 @@ pub struct PathPoint {
     pub handle_in: Option<[f64; 2]>,
     #[serde(rename = "handleOut")]
     pub handle_out: Option<[f64; 2]>,
+    /// Optional editor semantic; rendering only needs the handles.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
 }
 
 /// First-pass shape set. Bézier paths arrive with the lyon integration.

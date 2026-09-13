@@ -74,6 +74,26 @@ failure modes that users notice and that Varve can realistically avoid.
 | A changed vector-point drag model slows ordinary editing; selection handles flicker. | [Figma vector-point drag report](https://forum.figma.com/report-a-problem-6/vector-points-no-longer-act-as-drag-anchors-really-slowing-down-workflow-maybe-a-modifier-key-to-bring-it-back-50622), [Figma handle flicker report](https://forum.figma.com/ask-the-community-7/resizing-and-repositioning-nodes-causes-user-s-selection-handles-to-flicker-11707) | Preserve the conventional selected-anchor drag, use a potential-drag threshold before mutation, and verify stable overlay state in recordings/screenshots. |
 | Direct selection can pick an unexpected path/object. | [Adobe Community: wrong direct-selection target](https://community.adobe.com/questions-652/problems-with-selecting-a-path-direct-selection-illustrator-29-4-815356) | Scope node editing to one authoritative target path; do not introduce unsafe multi-object local-coordinate editing. |
 
+## Post-implementation status (2026-09-13)
+
+The foundational pass now implements the core decisions above. The updated
+capability status is:
+
+| Area | Current status | Evidence |
+| --- | --- | --- |
+| Single and multi-anchor movement, holes, keyboard nudge | **Working** | Canonical `pathRings` mutation, transformed-tool tests, group-drag and compound-ring tests. |
+| Full-transform hit testing and camera-rotated overlay | **Working in code; browser visual lane pending** | Screen-space numerical tests cover rotation/non-uniform affine and closing segments; real Playwright visual evidence is tracked separately from unit results. |
+| Corner, smooth, symmetric, automatic modes | **Working** | Explicit mode helpers, invariant tests, keyboard/control affordances, and persisted optional mode. |
+| Insertion, deletion, reverse, open/close, line/curve controls | **Working for the scoped single-path model** | de Casteljau insertion, selection remaps, ring-aware deletion/reversal, controls, and focused tests. |
+| Transaction cancellation and no-op selection | **Working in tool contract** | Pointer-cancel, Escape/focus cleanup, and selection-only transaction tests. |
+| Dependent path topology | **Safely restricted** | Text-on-path, masks, motion/timeline, effects/scopes, component, and interaction references receive an actionable block. |
+| Break/split separate paths, endpoint join, shape-preserving general deletion | **Missing/deferred** | Controls expose a disabled explanation; no silent approximation is presented as complete. |
+| Physical ChromeOS and Linux WebKitGTK visual lanes | **Unverified** | This host provides browser automation and Linux tooling, not the actual Chromebook hardware lane. |
+
+The original matrix remains the baseline audit and is intentionally retained so
+future changes can distinguish an observed defect from a feature that was
+deliberately deferred.
+
 ## Varve decisions and validation contract
 
 These are proposed product decisions for implementation, not claims about what

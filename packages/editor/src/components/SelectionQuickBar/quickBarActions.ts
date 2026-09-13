@@ -46,6 +46,7 @@ export interface QuickBarActionDeps {
   groupSelected?: () => void;
   booleanOp?: (kind: 'union' | 'subtract' | 'intersect' | 'exclude') => void;
   simplifySelectedPath?: () => void;
+  reverseSelectedPath?: () => void;
   toggleSelectedPathClosed?: (closed: boolean) => void;
   announce?: (msg: string) => void;
 }
@@ -137,6 +138,9 @@ export async function dispatchQuickBarAction(
       return;
     case 'simplify':
       deps.simplifySelectedPath?.();
+      return;
+    case 'reversePath':
+      deps.reverseSelectedPath?.();
       return;
     case 'closePath':
       deps.toggleSelectedPathClosed?.(true);

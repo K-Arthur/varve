@@ -5,7 +5,11 @@ import type { ShapeNode } from '@varve/scene';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../context';
 import { selectedImageShape } from '../../imageOperations';
-import { setPathClosed, simplifyPathNode } from './pathQuickOps';
+import {
+  findPathTopologyDependency,
+  pathTopologyBlockMessage,
+} from '../../pathTopologyDependencies';
+import { reversePathNode, setPathClosed, simplifyPathNode } from './pathQuickOps';
 import { dispatchQuickBarAction } from './quickBarActions';
 import { type QuickBarActionId, resolveQuickBarProfile } from './resolveQuickBarProfile';
 import { SelectionQuickBar } from './SelectionQuickBar';
@@ -129,12 +133,33 @@ export function SelectionQuickBarHost({
           simplifySelectedPath: () => {
             const id = state.selection[0];
             if (!id) return;
+            const dependency = findPathTopologyDependency(state.document, id);
+            if (dependency) {
+              editor.announce(pathTopologyBlockMessage(dependency));
+              return;
+            }
             editor.updateDoc((doc) => simplifyPathNode(doc, id));
             editor.announce('Path simplified');
+          },
+          reverseSelectedPath: () => {
+            const id = state.selection[0];
+            if (!id) return;
+            const dependency = findPathTopologyDependency(state.document, id);
+            if (dependency) {
+              editor.announce(pathTopologyBlockMessage(dependency));
+              return;
+            }
+            editor.updateDoc((doc) => reversePathNode(doc, id));
+            editor.announce('Path direction reversed');
           },
           toggleSelectedPathClosed: (closed) => {
             const id = state.selection[0];
             if (!id) return;
+            const dependency = findPathTopologyDependency(state.document, id);
+            if (dependency) {
+              editor.announce(pathTopologyBlockMessage(dependency));
+              return;
+            }
             editor.updateDoc((doc) => setPathClosed(doc, id, closed));
             editor.announce(closed ? 'Path closed' : 'Path opened');
           },

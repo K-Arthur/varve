@@ -3831,12 +3831,14 @@ mod tests {
                         y: 0.0,
                         handle_in: None,
                         handle_out: None,
+                        mode: None,
                     },
                     varve_core::PathPoint {
                         x: 100.0,
                         y: 100.0,
                         handle_in: None,
                         handle_out: None,
+                        mode: None,
                     },
                 ],
                 closed: false,
@@ -3882,24 +3884,28 @@ mod tests {
                     y,
                     handle_in: None,
                     handle_out: None,
+                    mode: None,
                 },
                 varve_core::PathPoint {
                     x: x + size,
                     y,
                     handle_in: None,
                     handle_out: None,
+                    mode: None,
                 },
                 varve_core::PathPoint {
                     x: x + size,
                     y: y + size,
                     handle_in: None,
                     handle_out: None,
+                    mode: None,
                 },
                 varve_core::PathPoint {
                     x,
                     y: y + size,
                     handle_in: None,
                     handle_out: None,
+                    mode: None,
                 },
             ]
         };

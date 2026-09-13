@@ -222,7 +222,7 @@ function defaultHandleLength(ring: readonly PathPoint[], index: number, closed: 
     prev ? pointToPointDist(ring[index]!, prev) : Infinity,
     next ? pointToPointDist(ring[index]!, next) : Infinity,
   ].filter(Number.isFinite);
-  return lengths.length > 0 ? Math.max(1e-6, Math.min(...lengths) / 3) : 0;
+  return lengths.length > 0 ? Math.max(4, Math.min(...lengths) / 3) : 4;
 }
 
 function tangentDirection(

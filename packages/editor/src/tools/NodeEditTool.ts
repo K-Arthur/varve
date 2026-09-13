@@ -1,22 +1,69 @@
 /**
- * NodeEditTool — path anchor editing mode.
+ * NodeEditTool — transactional anchor, handle, and segment editing.
  *
- * Activated by double-clicking a path/bezier ShapeNode in SelectTool.
- * Manages per-anchor selection, drag-move, delete, and corner/smooth toggle.
- * Exits back to 'select' on Escape or V.
+ * Pointer presses select first. A gesture becomes document-mutating only after
+ * the CSS-pixel drag threshold is crossed, which keeps selection-only clicks
+ * out of history. Every mutation is calculated from the pre-gesture shape so
+ * high-frequency pointer events do not accumulate rounding or stale indices.
  */
 import type { PathPoint } from '@varve/engine';
-import { applyAffine, invertAffine } from '@varve/engine';
+import { applyAffine } from '@varve/engine';
 import type { ShapeNode } from '@varve/scene';
-import { tryInvertAffine } from '@varve/shared';
+import {
+  type Affine,
+  areFinitePathRings,
+  bendPathSegment,
+  deleteSelectedAnchorsFromPath,
+  insertPointOnPath,
+  locatePathIndex,
+  nodeModeForPoint,
+  type PathNodeMode,
+  pathPointAtIndex,
+  pathRings,
+  remapSelectionAfterInsertion,
+  setNodeModeAtIndex,
+  translateSelectedAnchors,
+  tryInvertAffine,
+  withPathRings,
+} from '@varve/shared';
 import { getNudgeStep, type NudgeDirection } from '../commands/nudge';
+import { findPathTopologyDependency, pathTopologyBlockMessage } from '../pathTopologyDependencies';
 import { nodeWorldTransform } from '../scene/world';
 import { loadSettings } from '../settings';
 import { BaseTool } from './BaseTool';
+import { findNodeEditHit, type NodeEditHit } from './nodeEditGeometry';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
-const ANCHOR_HIT_RADIUS = 8;
-const HANDLE_HIT_RADIUS = 6;
+type PathShape = Extract<ShapeNode['shape'], { kind: 'path' }>;
+
+interface PointerGestureBase {
+  pointerId: number;
+  targetId: string;
+  baseShape: PathShape;
+  selected: Set<number>;
+  startWorld: { x: number; y: number };
+  startLocal: [number, number];
+  inverseWorld: Affine;
+  startCanvas: { x: number; y: number };
+  active: boolean;
+}
+
+type PointerGesture =
+  | (PointerGestureBase & { kind: 'anchor'; anchorIdx: number })
+  | (PointerGestureBase & {
+      kind: 'handle';
+      anchorIdx: number;
+      which: 'in' | 'out';
+      startHandle: [number, number];
+      startMode: PathNodeMode;
+    })
+  | (PointerGestureBase & {
+      kind: 'segment';
+      ringIndex: number;
+      segmentIndex: number;
+    });
+
+const DRAG_THRESHOLD_CSS_PX = 3;
 
 function nudgeDirectionForKey(key: string): NudgeDirection | null {
   switch (key) {
@@ -46,263 +93,441 @@ function nudgeDelta(direction: NudgeDirection, step: number): { x: number; y: nu
   }
 }
 
+function idleDrag() {
+  return {
+    kind: 'idle' as const,
+    pointerId: -1,
+    startCanvas: { x: 0, y: 0 },
+    startWorld: { x: 0, y: 0 },
+    currentCanvas: { x: 0, y: 0 },
+    currentWorld: { x: 0, y: 0 },
+  };
+}
+
+function clonePathShape(shape: PathShape): PathShape {
+  return withPathRings({ ...shape }, pathRings(shape));
+}
+
+function finiteAffine(matrix: Affine): boolean {
+  return matrix.every(Number.isFinite);
+}
+
+function safeInverse(matrix: Affine): Affine | null {
+  if (!finiteAffine(matrix)) return null;
+  const determinant = matrix[0] * matrix[3] - matrix[1] * matrix[2];
+  const linearScale = Math.max(
+    Math.abs(matrix[0]),
+    Math.abs(matrix[1]),
+    Math.abs(matrix[2]),
+    Math.abs(matrix[3]),
+    1,
+  );
+  if (
+    !Number.isFinite(determinant) ||
+    Math.abs(determinant) <= Number.EPSILON * linearScale ** 2 * 64
+  ) {
+    return null;
+  }
+  const inverse = tryInvertAffine(matrix);
+  return inverse && finiteAffine(inverse) ? inverse : null;
+}
+
+function pathNode(
+  ctx: ToolContext,
+  targetId: string,
+): { node: ShapeNode; shape: PathShape } | null {
+  const node = ctx.getNode(targetId);
+  if (node?.kind !== 'shape' || node.shape.kind !== 'path') return null;
+  return { node, shape: node.shape };
+}
+
+function pointerScreen(ctx: ToolContext, event: PointerEvent): { x: number; y: number } {
+  return (
+    ctx.pointerToCanvas?.(event.clientX, event.clientY) ?? {
+      x: event.clientX,
+      y: event.clientY,
+    }
+  );
+}
+
+function screenDistance(a: { x: number; y: number }, b: { x: number; y: number }): number {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function localDelta(
+  inverseWorld: Affine,
+  startWorld: { x: number; y: number },
+  currentWorld: { x: number; y: number },
+): [number, number] | null {
+  const start = applyAffine(inverseWorld, [startWorld.x, startWorld.y]);
+  const current = applyAffine(inverseWorld, [currentWorld.x, currentWorld.y]);
+  const delta: [number, number] = [current[0] - start[0], current[1] - start[1]];
+  return delta.every(Number.isFinite) ? delta : null;
+}
+
+function handleLength(handle: readonly [number, number] | null): number {
+  return handle ? Math.hypot(handle[0], handle[1]) : 0;
+}
+
+function moveHandle(
+  point: PathPoint,
+  which: 'in' | 'out',
+  startHandle: readonly [number, number],
+  delta: readonly [number, number],
+  startMode: PathNodeMode,
+  altKey: boolean,
+): PathPoint {
+  const moved: [number, number] = [startHandle[0] + delta[0], startHandle[1] + delta[1]];
+  const mode = altKey ? 'corner' : startMode === 'automatic' ? 'smooth' : startMode;
+  const next: PathPoint = {
+    ...point,
+    [which === 'in' ? 'handleIn' : 'handleOut']: moved,
+    mode,
+  };
+  if (altKey || mode === 'corner') return next;
+
+  const oppositeWhich = which === 'in' ? 'handleOut' : 'handleIn';
+  const opposite = which === 'in' ? point.handleOut : point.handleIn;
+  const movedLength = handleLength(moved);
+  const oppositeLength = mode === 'symmetric' ? movedLength : handleLength(opposite) || movedLength;
+  if (movedLength <= Number.EPSILON || oppositeLength <= Number.EPSILON) {
+    next[oppositeWhich] = [0, 0];
+    return next;
+  }
+  const unitX = moved[0] / movedLength;
+  const unitY = moved[1] / movedLength;
+  next[oppositeWhich] = [-unitX * oppositeLength, -unitY * oppositeLength];
+  return next;
+}
+
 export class NodeEditTool extends BaseTool {
   id = 'nodeEdit' as const;
 
   private selectedAnchors: Set<number> = new Set();
-  private draggingAnchorIdx: number | null = null;
-  private dragStartAnchorPos: { x: number; y: number } | null = null;
-  private dragStartWorld: { x: number; y: number } | null = null;
-  private draggingHandle: { anchorIdx: number; which: 'in' | 'out' } | null = null;
-  private dragStartHandleValue: [number, number] | null = null;
-  private inTransaction = false;
+  private pointerGesture: PointerGesture | null = null;
+  private inNudgeTransaction = false;
   private heldNudgeKeys = new Set<NudgeDirection>();
-  private altDragStarted = false;
 
   override cursor(state: ToolCursorState): CursorSpec {
-    if (state === 'drag') return { css: 'move' };
-    return { css: 'crosshair' };
+    return state === 'drag' ? { css: 'move' } : { css: 'crosshair' };
   }
 
   override onDeactivate(ctx: ToolContext): void {
+    this.cancelPointerGesture(ctx);
     this.finishNudgeGesture(ctx);
     ctx.setNodeEditTargetId(null);
     this.selectedAnchors.clear();
-    this.draggingAnchorIdx = null;
-    this.draggingHandle = null;
-    this.dragStartHandleValue = null;
-    this.altDragStarted = false;
+    ctx.setNodeEditSelectedAnchors(new Set());
   }
 
   override onFocusLoss(ctx: ToolContext): void {
+    this.cancelPointerGesture(ctx);
     this.finishNudgeGesture(ctx);
   }
 
   private finishNudgeGesture(ctx: ToolContext): void {
     this.heldNudgeKeys.clear();
-    this.endEditTransaction(ctx);
-  }
-
-  private beginEditTransaction(ctx: ToolContext): void {
-    if (!this.inTransaction) {
-      ctx.beginTransaction();
-      this.inTransaction = true;
-    }
-  }
-
-  private endEditTransaction(ctx: ToolContext): void {
-    if (this.inTransaction) {
+    if (this.inNudgeTransaction) {
       ctx.commitTransaction();
-      this.inTransaction = false;
+      this.inNudgeTransaction = false;
     }
+  }
+
+  private beginNudgeTransaction(ctx: ToolContext): void {
+    if (!this.inNudgeTransaction) {
+      ctx.beginTransaction();
+      this.inNudgeTransaction = true;
+    }
+  }
+
+  private beginPointerTransaction(ctx: ToolContext): void {
+    if (!this.pointerGesture || this.pointerGesture.active) return;
+    ctx.beginTransaction();
+    this.pointerGesture.active = true;
+  }
+
+  private cancelPointerGesture(ctx: ToolContext): void {
+    const gesture = this.pointerGesture;
+    if (!gesture) return;
+    if (gesture.active) ctx.abortTransaction();
+    ctx.releasePointerCapture(gesture.pointerId);
+    this.pointerGesture = null;
+    this.drag = idleDrag();
+  }
+
+  private finishPointerGesture(ctx: ToolContext): void {
+    const gesture = this.pointerGesture;
+    if (!gesture) return;
+    if (gesture.active) ctx.commitTransaction();
+    ctx.releasePointerCapture(gesture.pointerId);
+    this.pointerGesture = null;
+    this.drag = idleDrag();
   }
 
   override onPointerDown(e: PointerEvent, ctx: ToolContext): GestureResult {
-    ctx.setPointerCapture(e.pointerId);
-    const world = ctx.canvasToWorld(e.clientX, e.clientY);
+    if (this.pointerGesture) return { consumed: false };
     const targetId = ctx.nodeEditTargetId;
     if (!targetId) return { consumed: false };
+    const target = pathNode(ctx, targetId);
+    if (!target) return { consumed: false };
 
-    const node = ctx.getNode(targetId);
-    if (node?.kind !== 'shape' || node.shape.kind !== 'path') {
-      return { consumed: false };
+    const world = ctx.canvasToWorld(e.clientX, e.clientY);
+    if (!Number.isFinite(world.x) || !Number.isFinite(world.y)) return { consumed: false };
+    const worldTransform =
+      ctx.getWorldTransform?.(targetId) ?? nodeWorldTransform(ctx.document, targetId);
+    const inverseWorld = safeInverse(worldTransform);
+    if (!inverseWorld) {
+      ctx.announce('This path cannot be edited because its transform is not invertible.');
+      return { consumed: true };
     }
-
-    // Convert world pointer to node's local space using full inverse world transform.
-    // This correctly handles rotated/scaled nodes and nodes inside frames.
-    const worldMat = nodeWorldTransform(ctx.document, targetId);
-    const invWorld = invertAffine(worldMat);
-    const local = applyAffine(invWorld, [world.x, world.y]);
-
-    // Screen-space hit radii converted to node-local units: the pointer is
-    // compared against anchors in LOCAL space, so the CSS-pixel radius must
-    // be divided by zoom (screen→world) and the node's world scale
-    // (world→local). Without this, a 10× scaled node gets an effective
-    // 80 px screen hit radius and a 0.1-zoom canvas becomes unclickable.
-    const worldScaleX = Math.hypot(worldMat[0], worldMat[1]) || 1;
-    const anchorRadiusLocal = ANCHOR_HIT_RADIUS / ctx.zoom / worldScaleX;
-    const handleRadiusLocal = HANDLE_HIT_RADIUS / ctx.zoom / worldScaleX;
-
-    // Check handle hit first (handles have smaller radius 6px vs anchor 8px,
-    // but we check handles first so they take priority when the user clicks
-    // near a handle control point even if it's also within anchor radius).
-    const rings = pathRings(node.shape);
-    const handleHit = findNearestHandle(rings, local, handleRadiusLocal);
-    const anchorHit = findNearestAnchorLocal(rings, local, anchorRadiusLocal);
-
-    if (handleHit !== null && anchorHit !== null && anchorHit === handleHit.anchorIdx) {
-      // Both within radius of the same anchor — anchor hit takes priority.
-      // This avoids accidental handle grabs when the user intends to move the anchor.
-    } else if (handleHit !== null) {
-      // Handle hit, no competing anchor hit
-      this.beginEditTransaction(ctx);
-      if (!e.shiftKey) this.selectedAnchors.clear();
-      ctx.setNodeEditSelectedAnchors(new Set(this.selectedAnchors));
-      const pt = pointAtGlobalIndex(rings, handleHit.anchorIdx);
-      if (!pt) return { consumed: true, captured: true };
-      const wasAlt = e.altKey;
-      this.draggingHandle = handleHit;
-      this.dragStartHandleValue = [
-        ...(handleHit.which === 'in' ? pt.handleIn! : pt.handleOut!),
-      ] as [number, number];
-      this.dragStartWorld = world;
-      // Store whether Alt key was held at drag start (breaks symmetry)
-      this.altDragStarted = wasAlt;
-      this.drag = {
-        kind: 'dragging',
-        pointerId: e.pointerId,
-        startCanvas: { x: e.clientX, y: e.clientY },
-        startWorld: world,
-        currentCanvas: { x: e.clientX, y: e.clientY },
-        currentWorld: world,
-      };
-      return { consumed: true, captured: true };
-    }
-
-    if (anchorHit !== null) {
-      this.beginEditTransaction(ctx);
-      if (!e.shiftKey) this.selectedAnchors.clear();
-      this.selectedAnchors.add(anchorHit);
-      ctx.setNodeEditSelectedAnchors(new Set(this.selectedAnchors));
-      this.draggingAnchorIdx = anchorHit;
-      const pt = pointAtGlobalIndex(rings, anchorHit);
-      if (!pt) return { consumed: true, captured: true };
-      this.dragStartAnchorPos = { x: pt.x, y: pt.y };
-      this.dragStartWorld = world;
-      this.drag = {
-        kind: 'dragging',
-        pointerId: e.pointerId,
-        startCanvas: { x: e.clientX, y: e.clientY },
-        startWorld: world,
-        currentCanvas: { x: e.clientX, y: e.clientY },
-        currentWorld: world,
-      };
-    } else {
-      if (!e.shiftKey) {
+    const screen = pointerScreen(ctx, e);
+    const hit = findNodeEditHit(
+      pathRings(target.shape),
+      target.shape.closed,
+      worldTransform,
+      screen,
+      (point) => ctx.worldToCanvas(point.x, point.y),
+    );
+    if (!hit) {
+      if (!e.shiftKey && !(e.pointerType === 'touch' && ctx.touchMultiSelect.active)) {
         this.selectedAnchors.clear();
         ctx.setNodeEditSelectedAnchors(new Set());
       }
-      this.draggingAnchorIdx = null;
-      this.endEditTransaction(ctx);
+      return { consumed: true };
     }
 
+    const baseShape = clonePathShape(target.shape);
+    const localStart = applyAffine(inverseWorld, [world.x, world.y]);
+    if (!localStart.every(Number.isFinite)) return { consumed: true };
+    const additive =
+      e.shiftKey ||
+      (e.pointerType === 'touch' && ctx.touchMultiSelect.active && !ctx.touchMultiSelect.suspended);
+
+    let selected = new Set(this.selectedAnchors);
+    if (hit.kind === 'anchor') {
+      if (additive) {
+        if (selected.has(hit.anchorIdx)) selected.delete(hit.anchorIdx);
+        else selected.add(hit.anchorIdx);
+        this.selectedAnchors = selected;
+        ctx.setNodeEditSelectedAnchors(new Set(selected));
+        if (!selected.has(hit.anchorIdx)) return { consumed: true };
+      } else if (!selected.has(hit.anchorIdx)) {
+        selected = new Set([hit.anchorIdx]);
+        this.selectedAnchors = selected;
+        ctx.setNodeEditSelectedAnchors(new Set(selected));
+      }
+    } else if (hit.kind === 'handle') {
+      selected = additive ? new Set([...selected, hit.anchorIdx]) : new Set([hit.anchorIdx]);
+      this.selectedAnchors = selected;
+      ctx.setNodeEditSelectedAnchors(new Set(selected));
+    }
+
+    const gesture = this.makePointerGesture(
+      hit,
+      targetId,
+      baseShape,
+      selected,
+      e.pointerId,
+      world,
+      [localStart[0], localStart[1]],
+      inverseWorld,
+      screen,
+    );
+    if (!gesture) return { consumed: true };
+    this.pointerGesture = gesture;
+    this.drag = {
+      kind: 'dragging',
+      pointerId: e.pointerId,
+      startCanvas: screen,
+      startWorld: world,
+      currentCanvas: screen,
+      currentWorld: world,
+    };
+    ctx.setPointerCapture(e.pointerId);
     return { consumed: true, captured: true };
   }
 
-  override onPointerMove(e: PointerEvent, ctx: ToolContext): void {
-    if (this.drag.kind !== 'dragging' || this.drag.pointerId !== e.pointerId) return;
-
-    const targetId = ctx.nodeEditTargetId;
-    if (!targetId) return;
-
-    // Convert both start and current world positions to node-local space.
-    // The delta in local space is the correct displacement regardless
-    // of the node's rotation, scale, or parent transforms.
-    const worldMat = nodeWorldTransform(ctx.document, targetId);
-    const invWorld = invertAffine(worldMat);
-    const current = ctx.canvasToWorld(e.clientX, e.clientY);
-    this.drag.currentCanvas = { x: e.clientX, y: e.clientY };
-    this.drag.currentWorld = current;
-
-    const dw = this.dragStartWorld;
-    if (!dw) return;
-    const localStart = applyAffine(invWorld, [dw.x, dw.y]);
-    const localCurrent = applyAffine(invWorld, [current.x, current.y]);
-    const dx = localCurrent[0] - localStart[0];
-    const dy = localCurrent[1] - localStart[1];
-
-    if (this.draggingHandle !== null && this.dragStartHandleValue) {
-      // Handle drag: update handleIn/handleOut values
-      const { anchorIdx, which } = this.draggingHandle;
-      const newHandle0 = this.dragStartHandleValue[0] + dx;
-      const newHandle1 = this.dragStartHandleValue[1] + dy;
-      ctx.updateNode(targetId, (n) => {
-        if (n.kind !== 'shape' || n.shape.kind !== 'path') return n;
-        // Update the selected anchor in whichever contour it belongs to.
-        return {
-          ...n,
-          shape: updatePathPoint(n.shape, anchorIdx, (p) => {
-            if (which === 'in') {
-              const updated = { ...p, handleIn: [newHandle0, newHandle1] as [number, number] };
-              if (!this.altDragStarted) {
-                updated.handleOut = [-newHandle0, -newHandle1] as [number, number];
-              }
-              return updated;
-            }
-            const updated = { ...p, handleOut: [newHandle0, newHandle1] as [number, number] };
-            if (!this.altDragStarted && p.handleIn) {
-              updated.handleIn = [-newHandle0, -newHandle1] as [number, number];
-            }
-            return updated;
-          }),
-        } as ShapeNode;
-      });
-      return;
+  private makePointerGesture(
+    hit: NodeEditHit,
+    targetId: string,
+    baseShape: PathShape,
+    selected: Set<number>,
+    pointerId: number,
+    startWorld: { x: number; y: number },
+    startLocal: [number, number],
+    inverseWorld: Affine,
+    startCanvas: { x: number; y: number },
+  ): PointerGesture | null {
+    const base: PointerGestureBase = {
+      pointerId,
+      targetId,
+      baseShape,
+      selected: new Set(selected),
+      startWorld,
+      startLocal,
+      inverseWorld,
+      startCanvas,
+      active: false,
+    };
+    if (hit.kind === 'anchor') return { ...base, kind: 'anchor', anchorIdx: hit.anchorIdx };
+    if (hit.kind === 'segment') {
+      return {
+        ...base,
+        kind: 'segment',
+        ringIndex: hit.ringIndex,
+        segmentIndex: hit.segmentIndex,
+      };
     }
-
-    if (this.draggingAnchorIdx === null || !this.dragStartAnchorPos || !this.dragStartWorld) return;
-
-    const newX = this.dragStartAnchorPos.x + dx;
-    const newY = this.dragStartAnchorPos.y + dy;
-    const anchorIdx = this.draggingAnchorIdx;
-
-    ctx.updateNode(targetId, (n) => {
-      if (n.kind !== 'shape' || n.shape.kind !== 'path') return n;
-      const shape = updatePathPoint(n.shape, anchorIdx, (p) => ({ ...p, x: newX, y: newY }));
-      return { ...n, shape } as ShapeNode;
-    });
-  }
-
-  override onPointerUp(e: PointerEvent, ctx: ToolContext): void {
-    ctx.releasePointerCapture(e.pointerId);
-    this.endEditTransaction(ctx);
-    this.draggingAnchorIdx = null;
-    this.dragStartAnchorPos = null;
-    this.dragStartWorld = null;
-    this.draggingHandle = null;
-    this.dragStartHandleValue = null;
-    this.altDragStarted = false;
-    this.drag = {
-      kind: 'idle',
-      pointerId: -1,
-      startCanvas: { x: 0, y: 0 },
-      startWorld: { x: 0, y: 0 },
-      currentCanvas: { x: 0, y: 0 },
-      currentWorld: { x: 0, y: 0 },
+    const point = pathPointAtIndex(pathRings(baseShape), hit.anchorIdx);
+    if (!point) return null;
+    const startHandle = hit.which === 'in' ? point.handleIn : point.handleOut;
+    if (!startHandle) return null;
+    return {
+      ...base,
+      kind: 'handle',
+      anchorIdx: hit.anchorIdx,
+      which: hit.which,
+      startHandle: [...startHandle] as [number, number],
+      startMode: nodeModeForPoint(point),
     };
   }
 
+  override onPointerMove(e: PointerEvent, ctx: ToolContext): void {
+    const gesture = this.pointerGesture;
+    if (!gesture || gesture.pointerId !== e.pointerId) return;
+    if (ctx.nodeEditTargetId !== gesture.targetId || !pathNode(ctx, gesture.targetId)) {
+      this.cancelPointerGesture(ctx);
+      return;
+    }
+    const screen = pointerScreen(ctx, e);
+    const world = ctx.canvasToWorld(e.clientX, e.clientY);
+    this.drag.currentCanvas = screen;
+    this.drag.currentWorld = world;
+    if (screenDistance(screen, gesture.startCanvas) < DRAG_THRESHOLD_CSS_PX) return;
+    const delta = localDelta(gesture.inverseWorld, gesture.startWorld, world);
+    if (!delta) {
+      this.cancelPointerGesture(ctx);
+      return;
+    }
+    this.beginPointerTransaction(ctx);
+    const nextShape = this.shapeForGesture(gesture, delta, e.altKey);
+    if (!nextShape || !areFinitePathRings(pathRings(nextShape))) {
+      this.cancelPointerGesture(ctx);
+      return;
+    }
+    ctx.updateNode(gesture.targetId, (node) => {
+      if (node.kind !== 'shape' || node.shape.kind !== 'path') return node;
+      return { ...node, shape: nextShape } as ShapeNode;
+    });
+  }
+
+  private shapeForGesture(
+    gesture: PointerGesture,
+    delta: [number, number],
+    altKey: boolean,
+  ): PathShape | null {
+    if (gesture.kind === 'anchor') {
+      return translateSelectedAnchors(gesture.baseShape, gesture.selected, delta);
+    }
+    if (gesture.kind === 'segment') {
+      return bendPathSegment(gesture.baseShape, gesture.ringIndex, gesture.segmentIndex, delta);
+    }
+    return updatePointAtHandle(
+      gesture.baseShape,
+      gesture.anchorIdx,
+      gesture.which,
+      gesture.startHandle,
+      delta,
+      gesture.startMode,
+      altKey,
+    );
+  }
+
+  override onPointerUp(e: PointerEvent, ctx: ToolContext): void {
+    if (!this.pointerGesture || this.pointerGesture.pointerId !== e.pointerId) return;
+    this.finishPointerGesture(ctx);
+  }
+
+  override onPointerCancel(e: PointerEvent, ctx: ToolContext): void {
+    if (!this.pointerGesture || this.pointerGesture.pointerId !== e.pointerId) return;
+    this.cancelPointerGesture(ctx);
+  }
+
+  override onDoubleClick(e: PointerEvent, ctx: ToolContext): void {
+    const targetId = ctx.nodeEditTargetId;
+    if (!targetId) return;
+    const target = pathNode(ctx, targetId);
+    if (!target) return;
+    const dependency = findPathTopologyDependency(ctx.document, targetId);
+    if (dependency) {
+      ctx.announce(pathTopologyBlockMessage(dependency));
+      return;
+    }
+    const worldTransform =
+      ctx.getWorldTransform?.(targetId) ?? nodeWorldTransform(ctx.document, targetId);
+    if (!safeInverse(worldTransform)) return;
+    const hit = findNodeEditHit(
+      pathRings(target.shape),
+      target.shape.closed,
+      worldTransform,
+      pointerScreen(ctx, e),
+      (point) => ctx.worldToCanvas(point.x, point.y),
+    );
+    if (hit?.kind !== 'segment') return;
+    const inserted = insertPointOnPath(target.shape, hit.ringIndex, hit.segmentIndex, hit.t);
+    if (!inserted) return;
+    ctx.beginTransaction();
+    ctx.updateNode(targetId, (node) => {
+      if (node.kind !== 'shape' || node.shape.kind !== 'path') return node;
+      return { ...node, shape: inserted.shape } as ShapeNode;
+    });
+    ctx.commitTransaction();
+    const nextSelection = remapSelectionAfterInsertion(
+      this.selectedAnchors,
+      inserted.insertedIndex,
+    );
+    nextSelection.add(inserted.insertedIndex);
+    this.selectedAnchors = nextSelection;
+    ctx.setNodeEditSelectedAnchors(new Set(nextSelection));
+    ctx.announce(`Inserted node ${inserted.insertedIndex + 1}.`);
+  }
+
   override onKeyDown(e: KeyboardEvent, ctx: ToolContext): boolean {
-    if (e.key === 'Escape' || e.key === 'v') {
+    if (e.key === 'Escape') {
+      if (this.pointerGesture) {
+        this.cancelPointerGesture(ctx);
+        return true;
+      }
       this.finishNudgeGesture(ctx);
       ctx.setTool('select');
       return true;
     }
-
-    if (e.key === 'Backspace') {
-      return this.deleteSelectedAnchors(ctx);
+    if (e.key === 'v' || e.key === 'V') {
+      this.cancelPointerGesture(ctx);
+      this.finishNudgeGesture(ctx);
+      ctx.setTool('select');
+      return true;
     }
-
-    if (e.key === 'c' || e.key === 'C') {
-      return this.toggleCornerSmooth(ctx);
-    }
+    if (e.key === 'Backspace' || e.key === 'Delete') return this.deleteSelectedAnchors(ctx);
+    if (e.shiftKey && e.key.toLowerCase() === 'c') return this.applyMode('corner', ctx);
+    if (e.shiftKey && e.key.toLowerCase() === 's') return this.applyMode('smooth', ctx);
+    if (e.shiftKey && e.key.toLowerCase() === 'y') return this.applyMode('symmetric', ctx);
+    if (e.shiftKey && e.key.toLowerCase() === 'a') return this.applyMode('automatic', ctx);
+    if (e.key === 'c' || e.key === 'C') return this.toggleCornerSmooth(ctx);
 
     const direction = nudgeDirectionForKey(e.key);
-    if (direction) {
-      if (e.altKey || e.ctrlKey || e.metaKey) {
-        this.finishNudgeGesture(ctx);
-        return false;
-      }
-      return this.nudgeSelectedAnchors(direction, e.shiftKey ? 'large' : 'standard', ctx);
+    if (!direction) return false;
+    if (e.altKey || e.ctrlKey || e.metaKey) {
+      this.finishNudgeGesture(ctx);
+      return false;
     }
-
-    return false;
+    return this.nudgeSelectedAnchors(direction, e.shiftKey ? 'large' : 'standard', ctx);
   }
 
   override onKeyUp(e: KeyboardEvent, ctx: ToolContext): void {
     const direction = nudgeDirectionForKey(e.key);
     if (direction && this.heldNudgeKeys.delete(direction) && this.heldNudgeKeys.size === 0) {
-      this.endEditTransaction(ctx);
+      this.finishNudgeGesture(ctx);
     }
   }
 
@@ -314,33 +539,27 @@ export class NodeEditTool extends BaseTool {
     if (this.selectedAnchors.size === 0) return false;
     const targetId = ctx.nodeEditTargetId;
     if (!targetId) return false;
-    const node = ctx.getNode(targetId);
-    if (node?.kind !== 'shape' || node.shape.kind !== 'path') return false;
-
-    const step = getNudgeStep(mode, loadSettings().nudge);
-    const worldDelta = nudgeDelta(direction, step);
-    const inverseWorld = tryInvertAffine(nodeWorldTransform(ctx.document, targetId));
-    if (!inverseWorld?.every(Number.isFinite)) return false;
-
-    // Affine translations do not apply to vectors: use only the inverse
-    // linear matrix so one Arrow always means the same document-space delta,
-    // even for a rotated/scaled/flipped path or parent container.
-    const localDeltaX = inverseWorld[0] * worldDelta.x + inverseWorld[2] * worldDelta.y;
-    const localDeltaY = inverseWorld[1] * worldDelta.x + inverseWorld[3] * worldDelta.y;
-    if (!Number.isFinite(localDeltaX) || !Number.isFinite(localDeltaY)) return false;
-
-    const startsGesture = this.heldNudgeKeys.size === 0;
+    const target = pathNode(ctx, targetId);
+    if (!target) return false;
+    const inverseWorld = safeInverse(
+      ctx.getWorldTransform?.(targetId) ?? nodeWorldTransform(ctx.document, targetId),
+    );
+    if (!inverseWorld) return false;
+    const world = nudgeDelta(direction, getNudgeStep(mode, loadSettings().nudge));
+    const delta: [number, number] = [
+      inverseWorld[0] * world.x + inverseWorld[2] * world.y,
+      inverseWorld[1] * world.x + inverseWorld[3] * world.y,
+    ];
+    if (!delta.every(Number.isFinite)) return false;
+    if (this.heldNudgeKeys.size === 0) this.beginNudgeTransaction(ctx);
     this.heldNudgeKeys.add(direction);
-    if (startsGesture) this.beginEditTransaction(ctx);
-    const anchors = new Set(this.selectedAnchors);
-    ctx.updateNode(targetId, (current) => {
-      if (current.kind !== 'shape' || current.shape.kind !== 'path') return current;
-      const points = current.shape.points.map((point, index) =>
-        anchors.has(index)
-          ? { ...point, x: point.x + localDeltaX, y: point.y + localDeltaY }
-          : point,
-      );
-      return { ...current, shape: { ...current.shape, points } } as ShapeNode;
+    const selected = new Set(this.selectedAnchors);
+    ctx.updateNode(targetId, (node) => {
+      if (node.kind !== 'shape' || node.shape.kind !== 'path') return node;
+      return {
+        ...node,
+        shape: translateSelectedAnchors(node.shape, selected, delta),
+      } as ShapeNode;
     });
     return true;
   }
@@ -349,39 +568,44 @@ export class NodeEditTool extends BaseTool {
     if (this.selectedAnchors.size === 0) return false;
     const targetId = ctx.nodeEditTargetId;
     if (!targetId) return false;
-    const node = ctx.getNode(targetId);
-    if (node?.kind !== 'shape' || node.shape.kind !== 'path') return false;
-    const rings = pathRings(node.shape);
-    const removals = new Map<number, Set<number>>();
-    for (const globalIndex of this.selectedAnchors) {
-      const location = locateGlobalIndex(rings, globalIndex);
-      if (!location) continue;
-      const indices = removals.get(location.ringIndex) ?? new Set<number>();
-      indices.add(location.pointIndex);
-      removals.set(location.ringIndex, indices);
+    const target = pathNode(ctx, targetId);
+    if (!target) return false;
+    const dependency = findPathTopologyDependency(ctx.document, targetId);
+    if (dependency) {
+      ctx.announce(pathTopologyBlockMessage(dependency));
+      return true;
     }
-    for (const [ringIndex, indices] of removals) {
-      const ring = rings[ringIndex]!;
-      const minimum = ringIndex === 0 ? 2 : 3;
-      if (ring.length - indices.size < minimum) return false;
+    const result = deleteSelectedAnchorsFromPath(target.shape, this.selectedAnchors);
+    if (!result) {
+      ctx.announce('The selected nodes cannot be deleted without invalidating the contour.');
+      return true;
     }
-
     ctx.beginTransaction();
-    ctx.updateNode(targetId, (n) => {
-      if (n.kind !== 'shape' || n.shape.kind !== 'path') return n;
-      const currentRings = pathRings(n.shape);
-      const points = currentRings[0]!.filter((_, i) => !removals.get(0)?.has(i));
-      const holes = currentRings
-        .slice(1)
-        .map((ring, i) => ring.filter((_, pointIndex) => !removals.get(i + 1)?.has(pointIndex)));
-      return {
-        ...n,
-        shape: withPathRings(n.shape, [points, ...holes]),
-      } as ShapeNode;
+    ctx.updateNode(targetId, (node) => {
+      if (node.kind !== 'shape' || node.shape.kind !== 'path') return node;
+      return { ...node, shape: result.shape } as ShapeNode;
     });
     ctx.commitTransaction();
-    this.selectedAnchors.clear();
-    ctx.setNodeEditSelectedAnchors(new Set());
+    this.selectedAnchors = result.selection;
+    ctx.setNodeEditSelectedAnchors(new Set(result.selection));
+    return true;
+  }
+
+  private applyMode(mode: PathNodeMode, ctx: ToolContext): boolean {
+    if (this.selectedAnchors.size === 0) return false;
+    const targetId = ctx.nodeEditTargetId;
+    if (!targetId) return false;
+    const target = pathNode(ctx, targetId);
+    if (!target) return false;
+    let shape = target.shape;
+    for (const index of this.selectedAnchors) shape = setNodeModeAtIndex(shape, index, mode);
+    if (!areFinitePathRings(pathRings(shape))) return false;
+    ctx.beginTransaction();
+    ctx.updateNode(targetId, (node) => {
+      if (node.kind !== 'shape' || node.shape.kind !== 'path') return node;
+      return { ...node, shape } as ShapeNode;
+    });
+    ctx.commitTransaction();
     return true;
   }
 
@@ -389,41 +613,21 @@ export class NodeEditTool extends BaseTool {
     if (this.selectedAnchors.size === 0) return false;
     const targetId = ctx.nodeEditTargetId;
     if (!targetId) return false;
-
-    const toToggle = new Set(this.selectedAnchors);
-    // Read the current points before mapping so computeDefaultHandleLength
-    // can see the original array.
-    ctx.updateNode(targetId, (n) => {
-      if (n.kind !== 'shape' || n.shape.kind !== 'path') return n;
-      const s = n.shape;
-      const rings = pathRings(s);
-      let offset = 0;
-      const updatedRings = rings.map((ring) => {
-        const ringOffset = offset;
-        offset += ring.length;
-        return ring.map((p, i) => {
-          if (!toToggle.has(ringOffset + i)) return p;
-          if (p.handleIn === null && p.handleOut === null) {
-            const len = computeDefaultHandleLength(ring, i);
-            const prevDir = computeHandleDirection(ring, i, 'prev');
-            const nextDir = computeHandleDirection(ring, i, 'next');
-            return {
-              ...p,
-              handleIn: [prevDir[0] * len, prevDir[1] * len] as [number, number],
-              handleOut: [nextDir[0] * len, nextDir[1] * len] as [number, number],
-            };
-          }
-          return { ...p, handleIn: null, handleOut: null };
-        });
-      });
-      return {
-        ...n,
-        shape: {
-          ...s,
-          ...withPathRings(s, updatedRings),
-        },
-      } as ShapeNode;
+    const target = pathNode(ctx, targetId);
+    if (!target) return false;
+    let shape = target.shape;
+    for (const index of this.selectedAnchors) {
+      const point = pathPointAtIndex(pathRings(shape), index);
+      if (!point) continue;
+      const mode = nodeModeForPoint(point) === 'corner' ? 'smooth' : 'corner';
+      shape = setNodeModeAtIndex(shape, index, mode);
+    }
+    ctx.beginTransaction();
+    ctx.updateNode(targetId, (node) => {
+      if (node.kind !== 'shape' || node.shape.kind !== 'path') return node;
+      return { ...node, shape } as ShapeNode;
     });
+    ctx.commitTransaction();
     return true;
   }
 
@@ -433,165 +637,20 @@ export class NodeEditTool extends BaseTool {
   }
 }
 
-function pathRings(shape: Extract<ShapeNode['shape'], { kind: 'path' }>): PathPoint[][] {
-  return shape.contours?.length
-    ? shape.contours.map((ring) => [...ring])
-    : [shape.points, ...(shape.holes ?? [])];
-}
-
-function withPathRings(
-  shape: Extract<ShapeNode['shape'], { kind: 'path' }>,
-  rings: PathPoint[][],
-): Extract<ShapeNode['shape'], { kind: 'path' }> {
-  return {
-    ...shape,
-    points: rings[0] ?? [],
-    ...(shape.contours?.length ? { contours: rings } : {}),
-    ...(shape.holes ? { holes: rings.slice(1) } : {}),
-  };
-}
-
-function locateGlobalIndex(
-  rings: PathPoint[][],
-  globalIndex: number,
-): { ringIndex: number; pointIndex: number } | null {
-  let offset = 0;
-  for (let ringIndex = 0; ringIndex < rings.length; ringIndex++) {
-    const ring = rings[ringIndex]!;
-    if (globalIndex >= offset && globalIndex < offset + ring.length) {
-      return { ringIndex, pointIndex: globalIndex - offset };
-    }
-    offset += ring.length;
-  }
-  return null;
-}
-
-function pointAtGlobalIndex(rings: PathPoint[][], globalIndex: number): PathPoint | null {
-  const location = locateGlobalIndex(rings, globalIndex);
-  return location ? (rings[location.ringIndex]![location.pointIndex] ?? null) : null;
-}
-
-function updatePathPoint(
-  shape: Extract<ShapeNode['shape'], { kind: 'path' }>,
-  globalIndex: number,
-  update: (point: PathPoint) => PathPoint,
-): Extract<ShapeNode['shape'], { kind: 'path' }> {
+function updatePointAtHandle(
+  shape: PathShape,
+  anchorIdx: number,
+  which: 'in' | 'out',
+  startHandle: readonly [number, number],
+  delta: readonly [number, number],
+  startMode: PathNodeMode,
+  altKey: boolean,
+): PathShape {
   const rings = pathRings(shape);
-  const location = locateGlobalIndex(rings, globalIndex);
+  const location = locatePathIndex(rings, anchorIdx);
   if (!location) return shape;
-  const updatedRings = rings.map((ring, ringIndex) =>
-    ring.map((point, pointIndex) =>
-      ringIndex === location.ringIndex && pointIndex === location.pointIndex
-        ? update(point)
-        : point,
-    ),
-  );
-  return {
-    ...withPathRings(shape, updatedRings),
-  };
-}
-
-function findNearestAnchorLocal(
-  rings: PathPoint[][],
-  local: readonly [number, number],
-  radius: number,
-): number | null {
-  let best: number | null = null;
-  let bestDist = radius * radius;
-  let offset = 0;
-  for (const ring of rings) {
-    for (let i = 0; i < ring.length; i++) {
-      const p = ring[i]!;
-      const dx = local[0] - p.x;
-      const dy = local[1] - p.y;
-      const dist2 = dx * dx + dy * dy;
-      if (dist2 < bestDist) {
-        bestDist = dist2;
-        best = offset + i;
-      }
-    }
-    offset += ring.length;
-  }
-  return best;
-}
-
-function findNearestHandle(
-  rings: PathPoint[][],
-  local: readonly [number, number],
-  radius: number,
-): { anchorIdx: number; which: 'in' | 'out' } | null {
-  const r2 = radius * radius;
-  let best: { anchorIdx: number; which: 'in' | 'out' } | null = null;
-  let bestDist = r2;
-  let offset = 0;
-  for (const ring of rings) {
-    for (let i = 0; i < ring.length; i++) {
-      const p = ring[i]!;
-      if (p.handleIn) {
-        const hx = p.x + p.handleIn[0];
-        const hy = p.y + p.handleIn[1];
-        const dx = local[0] - hx;
-        const dy = local[1] - hy;
-        const d2 = dx * dx + dy * dy;
-        if (d2 < bestDist) {
-          bestDist = d2;
-          best = { anchorIdx: offset + i, which: 'in' };
-        }
-      }
-      if (p.handleOut) {
-        const hx = p.x + p.handleOut[0];
-        const hy = p.y + p.handleOut[1];
-        const dx = local[0] - hx;
-        const dy = local[1] - hy;
-        const d2 = dx * dx + dy * dy;
-        if (d2 < bestDist) {
-          bestDist = d2;
-          best = { anchorIdx: offset + i, which: 'out' };
-        }
-      }
-    }
-    offset += ring.length;
-  }
-  return best;
-}
-
-function computeDefaultHandleLength(points: PathPoint[], idx: number): number {
-  const prev = idx > 0 ? points[idx - 1] : null;
-  const next = idx < points.length - 1 ? points[idx + 1] : null;
-  const p = points[idx]!;
-
-  let len = 20;
-  if (prev) {
-    len = Math.sqrt((p.x - prev.x) ** 2 + (p.y - prev.y) ** 2) / 3;
-  }
-  if (next) {
-    const nextLen = Math.sqrt((next.x - p.x) ** 2 + (next.y - p.y) ** 2) / 3;
-    len = Math.min(len, nextLen);
-  }
-  return Math.max(len, 4);
-}
-
-function computeHandleDirection(
-  points: PathPoint[],
-  idx: number,
-  dir: 'prev' | 'next',
-): [number, number] {
-  const p = points[idx]!;
-  if (dir === 'prev' && idx > 0) {
-    const prev = points[idx - 1]!;
-    const dx = prev.x - p.x;
-    const dy = prev.y - p.y;
-    const len = Math.sqrt(dx * dx + dy * dy) || 1;
-    return [dx / len, dy / len];
-  }
-  if (dir === 'next' && idx < points.length - 1) {
-    const next = points[idx + 1]!;
-    const dx = next.x - p.x;
-    const dy = next.y - p.y;
-    const len = Math.sqrt(dx * dx + dy * dy) || 1;
-    return [dx / len, dy / len];
-  }
-  // Fallback: no adjacent point — use horizontal right
-  if (dir === 'next') return [1, 0];
-  return [-1, 0];
+  const ring = rings[location.ringIndex]!;
+  const point = ring[location.pointIndex]!;
+  ring[location.pointIndex] = moveHandle(point, which, startHandle, delta, startMode, altKey);
+  return withPathRings(shape, rings);
 }

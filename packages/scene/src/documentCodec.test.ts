@@ -25,6 +25,27 @@ const PNG_2X2_DATA_URL =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACAQAAAABazTCJAAAADElEQVQI12M4wHAAAAMEAYHFO6KpAAAAAElFTkSuQmCC';
 
 describe('DocumentCodec', () => {
+  it('round-trips explicit path node modes without a schema migration', () => {
+    const path = makeShapeNode('path', {
+      kind: 'path',
+      points: [
+        { x: 0, y: 0, handleIn: null, handleOut: [20, 0], mode: 'smooth' },
+        { x: 100, y: 0, handleIn: [-20, 0], handleOut: null, mode: 'symmetric' },
+      ],
+      closed: false,
+      tolerance: 3,
+    });
+    const doc = addNode(createDocument('Path modes', true), path);
+    const result = DocumentCodec.decode(DocumentCodec.encode(doc));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const decoded = result.document.nodes.path;
+    expect(decoded?.kind).toBe('shape');
+    if (decoded?.kind !== 'shape' || decoded.shape.kind !== 'path') return;
+    expect(decoded.shape.points.map((point) => point.mode)).toEqual(['smooth', 'symmetric']);
+  });
+
   it('round-trips the export-region frame role', () => {
     let doc = createDocument('Export region', true);
     doc = addNode(

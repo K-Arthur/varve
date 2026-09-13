@@ -5,6 +5,7 @@
  */
 import { type PathPoint, simplifyPathRDP } from '@varve/engine';
 import type { Document, NodeId, ShapeNode } from '@varve/scene';
+import { pathRings, reversePathShape, withPathRings } from '@varve/shared';
 
 function getPathShape(doc: Document, nodeId: NodeId): ShapeNode | null {
   const node = doc.nodes[nodeId];
@@ -28,13 +29,26 @@ export function setPathClosed(doc: Document, nodeId: NodeId, closed: boolean): D
 export function simplifyPathNode(doc: Document, nodeId: NodeId, epsilon = 1.5): Document {
   const node = getPathShape(doc, nodeId);
   if (node?.shape.kind !== 'path') return doc;
-  const pts = node.shape.points as PathPoint[];
-  if (pts.length <= 2) return doc;
-  const result = simplifyPathRDP(pts, epsilon, node.shape.closed);
-  if (result.simplifiedCount >= result.originalCount) return doc;
+  const rings = pathRings(node.shape);
+  const results = rings.map((ring) =>
+    simplifyPathRDP(ring as PathPoint[], epsilon, node.shape.closed),
+  );
+  if (results.every((result) => result.simplifiedCount >= result.originalCount)) return doc;
+  const simplifiedRings = results.map((result) => result.points);
   const updated: ShapeNode = {
     ...node,
-    shape: { ...node.shape, points: result.points },
+    shape: withPathRings(node.shape, simplifiedRings),
+  };
+  return { ...doc, nodes: { ...doc.nodes, [nodeId]: updated } };
+}
+
+/** Reverse every authored contour while preserving incoming/outgoing vectors. */
+export function reversePathNode(doc: Document, nodeId: NodeId): Document {
+  const node = getPathShape(doc, nodeId);
+  if (node?.shape.kind !== 'path') return doc;
+  const updated: ShapeNode = {
+    ...node,
+    shape: reversePathShape(node.shape),
   };
   return { ...doc, nodes: { ...doc.nodes, [nodeId]: updated } };
 }

@@ -308,6 +308,44 @@ describe('NodeEditTool — anchor move', () => {
     const updated = updater(node);
     expect(updated.shape.holes?.[0]?.[0]).toMatchObject({ x: 35, y: 30 });
   });
+
+  it('preserves a selected anchor group when dragging one member', () => {
+    const tool = new NodeEditTool();
+    const ctx = makeCtx();
+    selectAnchors(tool, 0, 1);
+    tool.onPointerDown?.(makePointerEvent(10, 10), ctx);
+    tool.onPointerMove?.(makePointerEvent(30, 25), ctx);
+    const updated = applyLatestNodeUpdate(
+      ctx,
+      vi.mocked(ctx.getNode)('n1')! as ReturnType<typeof makePathNode>,
+    );
+    expect(updated.shape.points[0]).toMatchObject({ x: 30, y: 25 });
+    expect(updated.shape.points[1]).toMatchObject({ x: 120, y: 25 });
+    expect(updated.shape.points[2]).toMatchObject({ x: 100, y: 100 });
+  });
+
+  it('does not create a transaction for a selection-only click', () => {
+    const tool = new NodeEditTool();
+    const ctx = makeCtx();
+    tool.onPointerDown?.(makePointerEvent(10, 10), ctx);
+    tool.onPointerUp?.(makePointerEvent(10, 10), ctx);
+    expect(ctx.beginTransaction).not.toHaveBeenCalled();
+    expect(ctx.commitTransaction).not.toHaveBeenCalled();
+  });
+
+  it('aborts an active pointer gesture on cancellation', () => {
+    const tool = new NodeEditTool();
+    const ctx = makeCtx();
+    tool.onPointerDown?.(makePointerEvent(10, 10), ctx);
+    tool.onPointerMove?.(makePointerEvent(30, 20), ctx);
+    tool.onPointerCancel?.(makePointerEvent(30, 20), ctx);
+    expect(ctx.beginTransaction).toHaveBeenCalledTimes(1);
+    expect(ctx.abortTransaction).toHaveBeenCalledTimes(1);
+    expect(ctx.commitTransaction).not.toHaveBeenCalled();
+    vi.mocked(ctx.updateNode).mockClear();
+    tool.onPointerMove?.(makePointerEvent(40, 30), ctx);
+    expect(ctx.updateNode).not.toHaveBeenCalled();
+  });
 });
 
 describe('NodeEditTool — keyboard anchor nudge', () => {
@@ -628,14 +666,14 @@ describe('NodeEditTool — toggleCornerSmooth segment-aware', () => {
     // Segment to prev (point 0→1): length 60, 1/3 = 20
     // Segment to next (point 1→2): length 60, 1/3 = 20
     // Min = 20
-    // handleIn should be along the prev→this vector (0,60)→(0,0) = (0, -60), so handleIn = [0, -20]
-    // handleOut should be along the this→next vector (0,60)→(60,60) = (60, 0), so handleOut = [20, 0]
+    // Smooth mode uses the bisector tangent through the neighbouring anchors;
+    // both handles are collinear and opposite, with one-third chord lengths.
     expect(p1.handleIn).not.toBeNull();
     expect(p1.handleOut).not.toBeNull();
-    expect(p1.handleIn?.[0]).toBeCloseTo(0);
-    expect(p1.handleIn?.[1]).toBeCloseTo(-20);
-    expect(p1.handleOut?.[0]).toBeCloseTo(20);
-    expect(p1.handleOut?.[1]).toBeCloseTo(0);
+    expect(p1.handleIn?.[0]).toBeCloseTo(-20 / Math.sqrt(2));
+    expect(p1.handleIn?.[1]).toBeCloseTo(-20 / Math.sqrt(2));
+    expect(p1.handleOut?.[0]).toBeCloseTo(20 / Math.sqrt(2));
+    expect(p1.handleOut?.[1]).toBeCloseTo(20 / Math.sqrt(2));
   });
 
   it('toggleCornerSmooth creates handles with minimum 4px length for close points', () => {

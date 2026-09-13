@@ -2,7 +2,7 @@ import type { PathPoint } from '@varve/engine';
 import { applyAffine } from '@varve/engine';
 import type { ShapeNode } from '@varve/scene';
 import type { Affine } from '@varve/shared';
-import { computeFloatingOrigin, worldToScreen } from '@varve/shared';
+import { computeFloatingOrigin, nodeModeForPoint, pathRings, worldToScreen } from '@varve/shared';
 import { getEditorViewport } from '../canvas/cameraState';
 import { CANVAS_INTERACTIVE_OVERLAY_Z_INDEX } from '../canvas/overlayZIndex';
 
@@ -11,25 +11,36 @@ interface NodeEditOverlayProps {
   selectedAnchors: ReadonlySet<number>;
   zoom: number;
   pan: { x: number; y: number };
+  cameraRotation?: number;
+  viewport?: { width: number; height: number };
   /** Full world transform for the node (composed from all ancestors). */
   worldTransform?: Affine;
 }
 
-// Must match the transform the canvas actually paints with
-// (applyEditorCameraToCtx: floating origin) — naive world*zoom+pan drifts
-// from the real paint position once panned away from world (0,0), putting
-// these anchor handles somewhere other than the path they're editing.
-function worldToCanvas(
+function projectWorld(
   wx: number,
   wy: number,
   zoom: number,
   pan: { x: number; y: number },
+  rotation: number,
+  viewport: { width: number; height: number },
 ): { x: number; y: number } {
-  const cam = { zoom, pan };
-  const viewport = getEditorViewport();
-  const origin = computeFloatingOrigin(cam, viewport);
-  const [x, y] = worldToScreen(cam, wx, wy, viewport, origin);
+  const camera = { zoom, pan, rotation };
+  const origin = computeFloatingOrigin(camera, viewport);
+  const [x, y] = worldToScreen(camera, wx, wy, viewport, origin);
   return { x, y };
+}
+
+function pointScreen(
+  transform: Affine,
+  point: readonly [number, number],
+  zoom: number,
+  pan: { x: number; y: number },
+  rotation: number,
+  viewport: { width: number; height: number },
+): { x: number; y: number } {
+  const world = applyAffine(transform, point);
+  return projectWorld(world[0], world[1], zoom, pan, rotation, viewport);
 }
 
 export function NodeEditOverlay({
@@ -37,19 +48,20 @@ export function NodeEditOverlay({
   selectedAnchors,
   zoom,
   pan,
+  cameraRotation = 0,
+  viewport,
   worldTransform,
 }: NodeEditOverlayProps) {
   if (node.shape.kind !== 'path') return null;
-  const rings = node.shape.contours?.length
-    ? node.shape.contours
-    : [node.shape.points, ...(node.shape.holes ?? [])];
-
-  // Use the provided world transform, or fall back to the node's own transform
-  // (which is just the translation for identity-rotated nodes).
+  const rings = pathRings(node.shape);
+  const resolvedViewport = viewport ?? getEditorViewport();
   const wt = worldTransform ?? (node.transform as Affine);
+  let globalOffset = 0;
 
   return (
     <svg
+      className="node-edit-overlay"
+      data-testid="node-edit-overlay"
       style={{
         position: 'absolute',
         inset: 0,
@@ -61,116 +73,84 @@ export function NodeEditOverlay({
       aria-hidden
     >
       <title>Node edit overlay</title>
-      {rings.flatMap((ring, ringIndex) =>
-        ring.map((p: PathPoint, i: number) => {
-          const globalIndex =
-            rings.slice(0, ringIndex).reduce((count, previous) => count + previous.length, 0) + i;
-          const wp = applyAffine(wt, [p.x, p.y]);
-          const c = worldToCanvas(wp[0], wp[1], zoom, pan);
+      {rings.flatMap((ring, ringIndex) => {
+        const elements = ring.map((point: PathPoint, pointIndex: number) => {
+          const globalIndex = globalOffset + pointIndex;
+          const anchor = pointScreen(
+            wt,
+            [point.x, point.y],
+            zoom,
+            pan,
+            cameraRotation,
+            resolvedViewport,
+          );
+          const mode = nodeModeForPoint(point);
           const selected = selectedAnchors.has(globalIndex);
-          const isSmooth = p.handleIn !== null || p.handleOut !== null;
+          const handle = (which: 'in' | 'out') => {
+            const vector = which === 'in' ? point.handleIn : point.handleOut;
+            if (!vector) return null;
+            return pointScreen(
+              wt,
+              [point.x + vector[0], point.y + vector[1]],
+              zoom,
+              pan,
+              cameraRotation,
+              resolvedViewport,
+            );
+          };
+          const inScreen = handle('in');
+          const outScreen = handle('out');
           return (
-            // biome-ignore lint/suspicious/noArrayIndexKey: path points have no id; position in the path is the identity and points move during editing
-            <g key={`${ringIndex}-${i}`}>
-              {p.handleIn && (
+            <g
+              key={`node-${globalIndex}-${point.x}-${point.y}-${point.handleIn?.join(':') ?? ''}-${point.handleOut?.join(':') ?? ''}`}
+              data-node-anchor={globalIndex}
+              data-node-ring={ringIndex}
+              data-node-point={pointIndex}
+              data-node-mode={mode}
+              data-node-selected={selected ? 'true' : 'false'}
+            >
+              {inScreen && (
                 <>
                   <line
-                    x1={c.x}
-                    y1={c.y}
-                    x2={
-                      worldToCanvas(
-                        ...applyAffine(wt, [p.x + p.handleIn[0], p.y + p.handleIn[1]]),
-                        zoom,
-                        pan,
-                      ).x
-                    }
-                    y2={
-                      worldToCanvas(
-                        ...applyAffine(wt, [p.x + p.handleIn[0], p.y + p.handleIn[1]]),
-                        zoom,
-                        pan,
-                      ).y
-                    }
+                    x1={anchor.x}
+                    y1={anchor.y}
+                    x2={inScreen.x}
+                    y2={inScreen.y}
                     stroke="var(--color-interactive-default)"
                     strokeWidth={1}
                   />
                   <circle
-                    cx={
-                      worldToCanvas(
-                        ...applyAffine(wt, [p.x + p.handleIn[0], p.y + p.handleIn[1]]),
-                        zoom,
-                        pan,
-                      ).x
-                    }
-                    cy={
-                      worldToCanvas(
-                        ...applyAffine(wt, [p.x + p.handleIn[0], p.y + p.handleIn[1]]),
-                        zoom,
-                        pan,
-                      ).y
-                    }
+                    data-node-handle="in"
+                    cx={inScreen.x}
+                    cy={inScreen.y}
                     r={3}
                     fill="var(--color-interactive-default)"
                   />
                 </>
               )}
-              {p.handleOut && (
+              {outScreen && (
                 <>
                   <line
-                    x1={c.x}
-                    y1={c.y}
-                    x2={
-                      worldToCanvas(
-                        ...applyAffine(wt, [p.x + p.handleOut[0], p.y + p.handleOut[1]]),
-                        zoom,
-                        pan,
-                      ).x
-                    }
-                    y2={
-                      worldToCanvas(
-                        ...applyAffine(wt, [p.x + p.handleOut[0], p.y + p.handleOut[1]]),
-                        zoom,
-                        pan,
-                      ).y
-                    }
+                    x1={anchor.x}
+                    y1={anchor.y}
+                    x2={outScreen.x}
+                    y2={outScreen.y}
                     stroke="var(--color-interactive-default)"
                     strokeWidth={1}
                   />
                   <circle
-                    cx={
-                      worldToCanvas(
-                        ...applyAffine(wt, [p.x + p.handleOut[0], p.y + p.handleOut[1]]),
-                        zoom,
-                        pan,
-                      ).x
-                    }
-                    cy={
-                      worldToCanvas(
-                        ...applyAffine(wt, [p.x + p.handleOut[0], p.y + p.handleOut[1]]),
-                        zoom,
-                        pan,
-                      ).y
-                    }
+                    data-node-handle="out"
+                    cx={outScreen.x}
+                    cy={outScreen.y}
                     r={3}
                     fill="var(--color-interactive-default)"
                   />
                 </>
               )}
-              {isSmooth ? (
-                <circle
-                  cx={c.x}
-                  cy={c.y}
-                  r={5}
-                  fill={
-                    selected ? 'var(--color-interactive-default)' : 'var(--color-surface-overlay)'
-                  }
-                  stroke="var(--color-interactive-default)"
-                  strokeWidth={1.5}
-                />
-              ) : (
+              {mode === 'corner' ? (
                 <rect
-                  x={c.x - 4}
-                  y={c.y - 4}
+                  x={anchor.x - 4}
+                  y={anchor.y - 4}
                   width={8}
                   height={8}
                   fill={
@@ -179,11 +159,25 @@ export function NodeEditOverlay({
                   stroke="var(--color-interactive-default)"
                   strokeWidth={1.5}
                 />
+              ) : (
+                <circle
+                  cx={anchor.x}
+                  cy={anchor.y}
+                  r={5}
+                  fill={
+                    selected ? 'var(--color-interactive-default)' : 'var(--color-surface-overlay)'
+                  }
+                  stroke="var(--color-interactive-default)"
+                  strokeWidth={mode === 'automatic' ? 2.5 : 1.5}
+                  strokeDasharray={mode === 'symmetric' ? '2 1' : undefined}
+                />
               )}
             </g>
           );
-        }),
-      )}
+        });
+        globalOffset += ring.length;
+        return elements;
+      })}
     </svg>
   );
 }

@@ -391,6 +391,7 @@ export function nearestPointOnPath(
   steps = 20,
 ): { segmentIndex: number; t: number; point: { x: number; y: number }; dist: number } | null {
   if (points.length < 2) return null;
+  const sampleSteps = Math.max(1, Math.floor(Number.isFinite(steps) ? steps : 20));
 
   let bestSeg = 0;
   let bestT = 0;
@@ -411,8 +412,8 @@ export function nearestPointOnPath(
   for (const [i, j] of getSegments()) {
     const cb = segmentToCubic(points[i]!, points[j]!);
     // Coarse search
-    for (let s = 0; s <= steps; s++) {
-      const t = s / steps;
+    for (let s = 0; s <= sampleSteps; s++) {
+      const t = s / sampleSteps;
       const pt = cubicBezierPoint(cb, t);
       const dx = pt.x - query.x;
       const dy = pt.y - query.y;
@@ -430,8 +431,8 @@ export function nearestPointOnPath(
     // to the wrong curve and return an impossible segment/parameter pair.
     let candidateT = bestT;
     let candidateDist = Infinity;
-    for (let s = 0; s <= steps; s++) {
-      const t = s / steps;
+    for (let s = 0; s <= sampleSteps; s++) {
+      const t = s / sampleSteps;
       const pt = cubicBezierPoint(cb, t);
       const dx = pt.x - query.x;
       const dy = pt.y - query.y;
