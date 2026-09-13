@@ -9,7 +9,9 @@ export type TypographyTextChanges = Partial<
     | 'fontWeight'
     | 'fontStyle'
     | 'fontSize'
+    | 'lineHeight'
     | 'letterSpacing'
+    | 'tracking'
     | 'textCase'
     | 'textDecoration'
     | 'fill'
@@ -66,8 +68,16 @@ export function toCharacterFormat(changes: TypographyTextChanges): CharacterForm
     format.fontSize = changes.fontSize;
     recognized = true;
   }
+  if ('lineHeight' in changes) {
+    format.lineHeight = changes.lineHeight;
+    recognized = true;
+  }
   if ('letterSpacing' in changes) {
     format.letterSpacing = changes.letterSpacing;
+    recognized = true;
+  }
+  if ('tracking' in changes) {
+    format.tracking = changes.tracking;
     recognized = true;
   }
   if ('textCase' in changes) {

@@ -40,6 +40,8 @@ describe('typography command adapter', () => {
         fontReference: { artifactHash: 'a'.repeat(64), collectionIndex: 1 },
         fontWeight: 700,
         fontSize: 24,
+        lineHeight: 1.35,
+        tracking: 18,
         fill,
         variableAxes: { wdth: 90 },
       }),
@@ -48,10 +50,23 @@ describe('typography command adapter', () => {
       fontReference: { artifactHash: 'a'.repeat(64), collectionIndex: 1 },
       fontWeight: 700,
       fontSize: 24,
+      lineHeight: 1.35,
+      tracking: 18,
       color: fill,
       variableFontSettings: { wdth: 90 },
     });
     expect(toCharacterFormat({})).toBeNull();
+  });
+
+  it('routes inspector spacing changes through a selected rich range', () => {
+    const current = surface();
+    applyTypographyChanges(current, 'text-1', { lineHeight: 1.4, tracking: 24 });
+
+    expect(current.applyFormatToSelection).toHaveBeenCalledWith({
+      lineHeight: 1.4,
+      tracking: 24,
+    });
+    expect(current.updateNode).not.toHaveBeenCalled();
   });
 
   it('formats only the selected characters in one history transaction', () => {

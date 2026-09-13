@@ -464,3 +464,30 @@ style-only patch. The Logo surface regression suite passed **4/4** after this
 wiring. The inspector suite was not counted from the interrupted shared-host
 run because unrelated concurrent Vitest and typecheck jobs left the process
 without a result.
+
+## Inspector range-formatting follow-up — 2026-09-13
+
+The inspector's character controls still used a node-wide batch updater even
+when the active text editor held a selected range. Family, exact-face, weight,
+style, size, line-height, letter spacing, and tracking now use the shared
+typography command adapter. An expanded range receives a rich-run format,
+while a collapsed caret records pending formatting without dirtying the
+document; multi-node selection keeps the existing one-transaction batch path.
+The adapter also carries `fontReference` and variable-axis values into the
+selected runs, so choosing a face in the full browser follows the same scope
+rules as the compact toolbars.
+
+Focused checks:
+
+```text
+TMPDIR=/home/kevina/CodingProjects/varve/.tmp pnpm exec biome check packages/editor/src/components/Typography/typographyCommand.ts packages/editor/src/components/Typography/typographyCommand.test.ts packages/editor/src/components/Inspector/sections/TypographySection.tsx packages/editor/src/components/Inspector/sections/__tests__/TypographySection.test.tsx
+TMPDIR=/home/kevina/CodingProjects/varve/.tmp pnpm exec vitest run packages/editor/src/components/Typography/typographyCommand.test.ts --config vitest.config.ts --pool=threads --maxWorkers=1 --no-file-parallelism --reporter=verbose
+TMPDIR=/home/kevina/CodingProjects/varve/.tmp pnpm exec vitest run packages/editor/src/components/Inspector/sections/__tests__/TypographySection.test.tsx --config vitest.config.ts --pool=threads --maxWorkers=1 --no-file-parallelism --reporter=verbose
+```
+
+The adapter suite passed **6/6** and the inspector suite passed **6/6**. The
+new inspector regression formats only the selected `He` range in a two-run
+paragraph and leaves the neighbouring `llo` run and node-level default intact.
+This closes the character-range path for the inspector controls; multi-layer
+rich-run targeting and the complete layout oracle remain open in the
+acceptance matrix.

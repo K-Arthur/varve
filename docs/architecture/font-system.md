@@ -238,10 +238,13 @@ The inspector gives the family picker a full-width row with one label and a
 rows so their names and units remain visible at minimum panel width. Alignment
 choices stay on one row. These scoped styles do not change other inspector
 sections. Rich-text operations preserve inherited character-style links when
-splitting, replacing and clearing runs; compact family, weight, and size
-controls use the shared range/caret command adapter. The inspector's broader
-mixed-value and style-editing paths remain separately covered by its own
-selection tests.
+splitting, replacing and clearing runs; the inspector, contextual bar, and
+floating toolbar route family, exact face, weight, style, size, line-height,
+letter-spacing, and tracking through the shared range/caret command adapter.
+An expanded range receives a run-only format, a collapsed caret receives
+pending formatting, and multi-node selection retains one grouped transaction.
+The inspector's broader mixed-value and style-editing paths remain separately
+covered by its own selection tests.
 
 Selection-anchored quick bars use the same compact control height, interface
 type scale, surface padding, gap, and horizontal overflow boundary as the main

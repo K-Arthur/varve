@@ -37,6 +37,11 @@ import {
   fontWeightOptions,
 } from '../../Typography/fontWeight';
 import { GlyphTypographySection } from '../../Typography/GlyphTypographySection';
+import {
+  applyTypographyChanges,
+  type TypographyCommandSurface,
+  type TypographyTextChanges,
+} from '../../Typography/typographyCommand';
 import { BindingMenu } from '../controls/BindingMenu';
 import { ContrastIndicator } from '../controls/ContrastIndicator';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -236,6 +241,9 @@ export function TypographySection({ nodes }: TypographySectionProps) {
     setBindingField,
     bindingField,
     setSelectedBinding,
+    applyFormatToSelection,
+    setPendingFormat,
+    groupCompoundOperation,
   } = editor;
   const bindingTriggerRef = useRef<HTMLDivElement>(null);
   const [richTextEnabled, setRichTextEnabled] = useState(false);
@@ -256,6 +264,39 @@ export function TypographySection({ nodes }: TypographySectionProps) {
       commitTransaction();
     },
     [textNodes, updateNode, beginTransaction, commitTransaction],
+  );
+
+  const typographySurface = useMemo<TypographyCommandSurface>(
+    () => ({
+      selectedIds: editor.state.selection,
+      selectionRange: editor.state.selectionRange,
+      pendingFormat: editor.state.pendingFormat,
+      updateNode,
+      applyFormatToSelection,
+      setPendingFormat,
+      groupCompoundOperation,
+    }),
+    [
+      applyFormatToSelection,
+      editor.state.pendingFormat,
+      editor.state.selection,
+      editor.state.selectionRange,
+      groupCompoundOperation,
+      setPendingFormat,
+      updateNode,
+    ],
+  );
+
+  const applyTypographyToSelection = useCallback(
+    (changes: TypographyTextChanges) => {
+      const onlyNode = textNodes.length === 1 ? textNodes[0] : undefined;
+      if (onlyNode) {
+        applyTypographyChanges(typographySurface, onlyNode.id, changes);
+        return;
+      }
+      batchUpdate((node) => ({ ...node, ...changes }));
+    },
+    [batchUpdate, textNodes, typographySurface],
   );
 
   const textContent = useMemo(() => {
@@ -347,18 +388,17 @@ export function TypographySection({ nodes }: TypographySectionProps) {
         onClose={() => setFontBrowserOpen(false)}
         selectedFamily={isMixed(familyRaw) ? undefined : familyRaw}
         onSelect={(family) => {
-          batchUpdate((n) => ({ ...n, ...fontFamilyChanges(family || undefined) }));
+          applyTypographyToSelection(fontFamilyChanges(family || undefined));
           setFontBrowserOpen(false);
         }}
         onSelectFace={(selection: FontFaceSelection) => {
-          batchUpdate((n) => ({
-            ...n,
+          applyTypographyToSelection({
             fontFamily: selection.family,
             fontWeight: selection.weight,
             fontStyle: selection.style,
             fontReference: selection.fontReference,
             variableAxes: selection.variableAxes,
-          }));
+          });
           setFontBrowserOpen(false);
         }}
       />
@@ -415,7 +455,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
           <FontSelector
             value={isMixed(familyRaw) ? '' : familyRaw}
             fontReference={textNodes.length === 1 ? textNodes[0]?.fontReference : undefined}
-            onChange={(v) => batchUpdate((n) => ({ ...n, ...fontFamilyChanges(v || undefined) }))}
+            onChange={(v) => applyTypographyToSelection(fontFamilyChanges(v || undefined))}
           />
           <Tooltip label="Browse fonts">
             <button
@@ -439,7 +479,11 @@ export function TypographySection({ nodes }: TypographySectionProps) {
               disabled: option.disabled,
               disabledReason: option.disabledReason,
             }))}
-            onChange={(v) => batchUpdate((n) => ({ ...n, ...fontWeightChanges(n, Number(v)) }))}
+            onChange={(v) =>
+              textNodes.length === 1
+                ? applyTypographyToSelection(fontWeightChanges(textNodes[0]!, Number(v)))
+                : batchUpdate((n) => ({ ...n, ...fontWeightChanges(n, Number(v)) }))
+            }
           />
         </FieldRow>
         <FieldRow label="Style">
@@ -447,7 +491,11 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             label="Font style"
             value={isMixed(styleRaw) ? 'normal' : styleRaw}
             options={FONT_STYLE_OPTIONS}
-            onChange={(v) => batchUpdate((n) => ({ ...n, ...fontStyleChanges(n, v) }))}
+            onChange={(v) =>
+              textNodes.length === 1
+                ? applyTypographyToSelection(fontStyleChanges(textNodes[0]!, v))
+                : batchUpdate((n) => ({ ...n, ...fontStyleChanges(n, v) }))
+            }
           />
           {textFillColor && (
             <ContrastIndicator
@@ -468,7 +516,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
           fieldName="fontSize"
           draftKey={`${typographyDraftKey}:font-size`}
           onShiftClick={() => setBindingField('fontSize')}
-          onChange={(v) => batchUpdate((n) => ({ ...n, fontSize: v }))}
+          onChange={(v) => applyTypographyToSelection({ fontSize: v })}
         />
         <NumberField
           label="Line height"
@@ -480,7 +528,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
           fieldName="lineHeight"
           draftKey={`${typographyDraftKey}:line-height`}
           onShiftClick={() => setBindingField('lineHeight')}
-          onChange={(v) => batchUpdate((n) => ({ ...n, lineHeight: v / 100 }))}
+          onChange={(v) => applyTypographyToSelection({ lineHeight: v / 100 })}
         />
         <NumberField
           label="Letter spacing"
@@ -491,7 +539,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
           fieldName="letterSpacing"
           draftKey={`${typographyDraftKey}:letter-spacing`}
           onShiftClick={() => setBindingField('letterSpacing')}
-          onChange={(v) => batchUpdate((n) => ({ ...n, letterSpacing: v }))}
+          onChange={(v) => applyTypographyToSelection({ letterSpacing: v })}
         />
         <NumberField
           label="Tracking"
@@ -502,7 +550,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
           fieldName="tracking"
           draftKey={`${typographyDraftKey}:tracking`}
           onShiftClick={() => setBindingField('tracking')}
-          onChange={(v) => batchUpdate((n) => ({ ...n, tracking: v }))}
+          onChange={(v) => applyTypographyToSelection({ tracking: v })}
         />
         <NumberField
           label="Para spacing"
