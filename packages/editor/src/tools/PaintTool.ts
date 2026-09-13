@@ -34,6 +34,7 @@ import {
 import { BrushWorkerHost, type StrokeBatchEvent } from '../render/brushWorkerHost';
 import { getPaintProfiler } from '../render/paintProfiler';
 import { BaseTool } from './BaseTool';
+import { pressureForDrawingInput } from './drawingInputRuntime';
 import {
   collectSourceEvents,
   inputToStrokePoint,
@@ -349,7 +350,7 @@ export class PaintTool extends BaseTool {
 
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
     const local = rasterLocalPoint(ctx, rasterNodeId, world);
-    const sp = inputToStrokePoint(normalizeInputEvent(e), local);
+    const sp = inputToStrokePoint(this.withPressurePreference(normalizeInputEvent(e), ctx), local);
     this.lastSamplePoint = sp;
     this.dispatch(session, [sp]);
 
@@ -371,7 +372,7 @@ export class PaintTool extends BaseTool {
       if (ev.isPredicted) continue;
       const world = ctx.canvasToWorld(ev.clientX, ev.clientY);
       const local = rasterLocalPoint(ctx, session.rasterNodeId, world);
-      const sp = this.makeSample(local, ev);
+      const sp = this.makeSample(local, this.withPressurePreference(ev, ctx));
       if (sp) batch.push(sp);
     }
     if (batch.length > 0) this.dispatch(session, batch);
@@ -389,7 +390,7 @@ export class PaintTool extends BaseTool {
 
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
     const local = rasterLocalPoint(ctx, session.rasterNodeId, world);
-    const sp = this.makeSample(local, normalizeInputEvent(e));
+    const sp = this.makeSample(local, this.withPressurePreference(normalizeInputEvent(e), ctx));
     if (sp) this.dispatch(session, [sp]);
 
     super.onPointerUp(e, ctx);
@@ -469,7 +470,11 @@ export class PaintTool extends BaseTool {
       const world = ctx.canvasToWorld(input.clientX, input.clientY);
       const local = rasterLocalPoint(ctx, session.rasterNodeId, world);
       const time = previous ? Math.max(previous.time, input.time) : input.time;
-      const point = inputToStrokePoint({ ...input, time }, local, previous ?? undefined);
+      const point = inputToStrokePoint(
+        { ...this.withPressurePreference(input, ctx), time },
+        local,
+        previous ?? undefined,
+      );
       points.push(point);
       previous = point;
     }
@@ -514,6 +519,18 @@ export class PaintTool extends BaseTool {
     const sp = inputToStrokePoint({ ...input, time }, local, last);
     this.lastSamplePoint = sp;
     return sp;
+  }
+
+  private withPressurePreference(
+    input: NormalizedInputEvent,
+    ctx: ToolContext,
+  ): NormalizedInputEvent {
+    const pressure = pressureForDrawingInput(
+      input.pressure,
+      ctx.pressureEnabled,
+      ctx.pressureCurve,
+    );
+    return pressure === input.pressure ? input : { ...input, pressure };
   }
 
   /** Apply one generated batch to canonical document state. */

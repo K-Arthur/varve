@@ -142,6 +142,16 @@ export interface NudgeSettingsStore {
   big: number;
 }
 
+/** Input ownership and stylus-dynamics preferences shared by canvas tools. */
+export interface DrawingInputSettingsStore {
+  /** Whether a one-finger/unknown contact starts the active tool or navigation. */
+  fingerMode: 'draw' | 'navigate';
+  /** When false, brushes use a stable mid-width/mid-opacity pressure value. */
+  pressureEnabled: boolean;
+  /** Exponent applied to normalized pressure; 1 is the neutral curve. */
+  pressureCurve: number;
+}
+
 /**
  * How selecting a layer from the Layers panel affects the canvas camera.
  *
@@ -196,6 +206,7 @@ export interface EditorSettings {
   performance: PerformanceSettingsStore;
   layers: LayersSettingsStore;
   nudge: NudgeSettingsStore;
+  drawingInput: DrawingInputSettingsStore;
   collab: CollabSettingsStore;
   ai: AiSettingsStore;
   privacy: PrivacySettingsStore;
@@ -338,6 +349,12 @@ export const DEFAULT_NUDGE_SETTINGS: NudgeSettingsStore = {
   big: 10,
 };
 
+export const DEFAULT_DRAWING_INPUT_SETTINGS: DrawingInputSettingsStore = {
+  fingerMode: 'draw',
+  pressureEnabled: true,
+  pressureCurve: 1,
+};
+
 export const NUDGE_MIN = 0.01;
 export const NUDGE_MAX = 10000;
 
@@ -361,6 +378,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   performance: { ...DEFAULT_PERFORMANCE_SETTINGS },
   layers: { ...DEFAULT_LAYERS_SETTINGS },
   nudge: { ...DEFAULT_NUDGE_SETTINGS },
+  drawingInput: { ...DEFAULT_DRAWING_INPUT_SETTINGS },
   collab: { ...DEFAULT_COLLAB_SETTINGS },
   ai: { ...DEFAULT_AI_SETTINGS },
   privacy: { ...DEFAULT_PRIVACY_SETTINGS },
@@ -392,6 +410,26 @@ function normalizeNudgeSettings(
   };
 }
 
+function normalizeDrawingInputSettings(
+  partial: Partial<DrawingInputSettingsStore> | undefined,
+): DrawingInputSettingsStore {
+  const pressureCurve =
+    typeof partial?.pressureCurve === 'number' && Number.isFinite(partial.pressureCurve)
+      ? Math.min(4, Math.max(0.25, partial.pressureCurve))
+      : DEFAULT_DRAWING_INPUT_SETTINGS.pressureCurve;
+  return {
+    fingerMode:
+      partial?.fingerMode === 'navigate' || partial?.fingerMode === 'draw'
+        ? partial.fingerMode
+        : DEFAULT_DRAWING_INPUT_SETTINGS.fingerMode,
+    pressureEnabled:
+      typeof partial?.pressureEnabled === 'boolean'
+        ? partial.pressureEnabled
+        : DEFAULT_DRAWING_INPUT_SETTINGS.pressureEnabled,
+    pressureCurve,
+  };
+}
+
 function normalizeAnalyticsConsent(value: unknown): AnalyticsConsentState {
   return value === 'granted' || value === 'denied' ? value : 'unknown';
 }
@@ -416,6 +454,7 @@ export function loadSettings(): EditorSettings {
         performance: { ...DEFAULT_PERFORMANCE_SETTINGS },
         layers: { ...DEFAULT_LAYERS_SETTINGS },
         nudge: { ...DEFAULT_NUDGE_SETTINGS },
+        drawingInput: { ...DEFAULT_DRAWING_INPUT_SETTINGS },
         collab: { ...DEFAULT_COLLAB_SETTINGS },
         ai: { ...DEFAULT_AI_SETTINGS },
         privacy: { ...DEFAULT_PRIVACY_SETTINGS },
@@ -525,6 +564,9 @@ export function loadSettings(): EditorSettings {
       ),
       layers: normalizeLayersSettings(parsed.layers as Partial<LayersSettingsStore>),
       nudge: normalizeNudgeSettings(parsed.nudge as Partial<NudgeSettingsStore>),
+      drawingInput: normalizeDrawingInputSettings(
+        parsed.drawingInput as Partial<DrawingInputSettingsStore>,
+      ),
       collab: mergePartial(DEFAULT_COLLAB_SETTINGS, parsed.collab as Partial<CollabSettingsStore>),
       ai: mergePartial(DEFAULT_AI_SETTINGS, parsed.ai as Partial<AiSettingsStore>),
       privacy,
@@ -550,6 +592,7 @@ export function loadSettings(): EditorSettings {
       performance: { ...DEFAULT_PERFORMANCE_SETTINGS },
       layers: { ...DEFAULT_LAYERS_SETTINGS },
       nudge: { ...DEFAULT_NUDGE_SETTINGS },
+      drawingInput: { ...DEFAULT_DRAWING_INPUT_SETTINGS },
       collab: { ...DEFAULT_COLLAB_SETTINGS },
       ai: { ...DEFAULT_AI_SETTINGS },
       privacy: { ...DEFAULT_PRIVACY_SETTINGS },
@@ -590,6 +633,7 @@ export interface EditorSettingsPatch {
   performance?: Partial<PerformanceSettingsStore>;
   layers?: Partial<LayersSettingsStore>;
   nudge?: Partial<NudgeSettingsStore>;
+  drawingInput?: Partial<DrawingInputSettingsStore>;
   collab?: Partial<CollabSettingsStore>;
   ai?: Partial<AiSettingsStore>;
   privacy?: Partial<PrivacySettingsStore>;
@@ -614,6 +658,7 @@ export function updateSettings(patch: EditorSettingsPatch): EditorSettings {
     performance: { ...current.performance, ...patch.performance },
     layers: { ...current.layers, ...patch.layers },
     nudge: normalizeNudgeSettings({ ...current.nudge, ...patch.nudge }),
+    drawingInput: normalizeDrawingInputSettings({ ...current.drawingInput, ...patch.drawingInput }),
     collab: { ...current.collab, ...patch.collab },
     ai: { ...current.ai, ...patch.ai },
     privacy: { ...current.privacy, ...patch.privacy },
@@ -637,6 +682,7 @@ export function resetSettings(): EditorSettings {
     performance: { ...DEFAULT_PERFORMANCE_SETTINGS },
     layers: { ...DEFAULT_LAYERS_SETTINGS },
     nudge: { ...DEFAULT_NUDGE_SETTINGS },
+    drawingInput: { ...DEFAULT_DRAWING_INPUT_SETTINGS },
     collab: { ...DEFAULT_COLLAB_SETTINGS },
     ai: { ...DEFAULT_AI_SETTINGS },
     privacy: { ...DEFAULT_PRIVACY_SETTINGS },

@@ -38,6 +38,18 @@ describe('SettingsDialog', () => {
     expect(exportTab?.getAttribute('aria-selected')).toBe('true');
   });
 
+  it('exposes a reachable drawing input policy and persists it', async () => {
+    renderWithProvider(<SettingsDialog open={true} onClose={() => {}} initialSection="input" />);
+    const mode = screen.getByRole('combobox', { name: 'Finger / unknown contact' });
+    expect(mode).toHaveTextContent('Finger draws');
+    fireEvent.click(mode);
+    fireEvent.click(await screen.findByRole('option', { name: /Finger navigates/ }));
+    expect(mode).toHaveTextContent('Finger navigates');
+    expect(JSON.parse(localStorage.getItem('varve-editor-settings')!).drawingInput.fingerMode).toBe(
+      'navigate',
+    );
+  });
+
   it('closes on close button', () => {
     const onClose = vi.fn();
     renderWithProvider(<SettingsDialog open={true} onClose={onClose} />);

@@ -17,6 +17,7 @@ import {
   requestEditorFrame,
 } from '../performance/editorFrameRuntime';
 import { BaseTool } from './BaseTool';
+import { pressureForDrawingInput } from './drawingInputRuntime';
 import type { Point2D } from './fitting';
 import { fitPathToBeziers, simplifyPoints } from './fitting';
 import { collectSourceEvents, normalizeInputEvent } from './inputNormalizer';
@@ -57,9 +58,14 @@ export class PencilTool extends BaseTool {
     const result = super.onPointerDown(e, ctx);
     if (!result.consumed) return result;
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
-    this.currentPressure = e.pressure > 0 ? e.pressure : 0.5;
+    const input = normalizeInputEvent(e);
+    this.currentPressure = pressureForDrawingInput(
+      input.pressure,
+      ctx.pressureEnabled,
+      ctx.pressureCurve,
+    );
     this.oneEuro.reset();
-    this.filterTime = normalizeInputEvent(e).time;
+    this.filterTime = input.time;
     const sp = strokePoint(world.x, world.y, {
       pressure: this.currentPressure,
       time: this.filterTime,
@@ -74,7 +80,11 @@ export class PencilTool extends BaseTool {
     if (this.drag.kind !== 'dragging' || this.drag.pointerId !== e.pointerId) return;
     this.drag.currentCanvas = { x: e.clientX, y: e.clientY };
     this.drag.currentWorld = ctx.canvasToWorld(e.clientX, e.clientY);
-    this.currentPressure = e.pressure > 0 ? e.pressure : 0.5;
+    this.currentPressure = pressureForDrawingInput(
+      normalizeInputEvent(e).pressure,
+      ctx.pressureEnabled,
+      ctx.pressureCurve,
+    );
 
     // Sample coalesced sub-frame events when available (Chrome/Firefox/Safari 18.2+).
     // WebKitGTK returns a stub — falls back to the single event.
@@ -82,7 +92,12 @@ export class PencilTool extends BaseTool {
     for (const ev of events) {
       if (ev.isPredicted) continue;
       const world = ctx.canvasToWorld(ev.clientX, ev.clientY);
-      this.samplePoint(world, ev.pressure > 0 ? ev.pressure : 0.5, ev.time, ctx);
+      this.samplePoint(
+        world,
+        pressureForDrawingInput(ev.pressure, ctx.pressureEnabled, ctx.pressureCurve),
+        ev.time,
+        ctx,
+      );
     }
   }
 
@@ -92,16 +107,18 @@ export class PencilTool extends BaseTool {
     pressure: number,
     time: number,
     ctx: ToolContext,
+    force = false,
   ): void {
     if (this.captured.length === 0) return;
     this.filterTime = Math.max(this.filterTime, time);
     const rawSp = strokePoint(world.x, world.y, { pressure, time: this.filterTime });
     const filtered = oneEuroFilterPoint(rawSp, this.oneEuro);
 
-    const last = this.captured[this.captured.length - 1] as Point2D;
+    const last = this.captured[this.captured.length - 1] as CapturedPoint;
     const dx = filtered.x - last.x;
     const dy = filtered.y - last.y;
-    if (dx * dx + dy * dy > 1) {
+    const distanceSquared = dx * dx + dy * dy;
+    if (distanceSquared > 1 || (force && distanceSquared > 0) || pressure !== last.pressure) {
       this.captured.push({ x: filtered.x, y: filtered.y, pressure });
       ctx.setDraft({
         kind: 'freehand',
@@ -115,13 +132,13 @@ export class PencilTool extends BaseTool {
     if (this.drag.kind !== 'dragging' || this.drag.pointerId !== e.pointerId) return;
     this.drag.currentCanvas = { x: e.clientX, y: e.clientY };
     this.drag.currentWorld = ctx.canvasToWorld(e.clientX, e.clientY);
-    this.currentPressure = e.pressure > 0 ? e.pressure : 0.5;
-    this.samplePoint(
-      this.drag.currentWorld,
-      this.currentPressure,
-      normalizeInputEvent(e).time,
-      ctx,
+    const input = normalizeInputEvent(e);
+    this.currentPressure = pressureForDrawingInput(
+      input.pressure,
+      ctx.pressureEnabled,
+      ctx.pressureCurve,
     );
+    this.samplePoint(this.drag.currentWorld, this.currentPressure, input.time, ctx, true);
     this.stopCapture();
 
     ctx.beginTransaction();

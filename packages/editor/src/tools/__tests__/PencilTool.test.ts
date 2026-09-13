@@ -332,6 +332,28 @@ describe('PencilTool', () => {
     }
   });
 
+  it('keeps a real zero-pressure pen sample and records a stationary pressure change', () => {
+    const tool = new PencilTool();
+    const ctx = makeCtx({ pointerType: 'pen', pressureEnabled: true, pressureCurve: 1 });
+
+    tool.onPointerDown?.(makePointerEvent(100, 100, { pointerType: 'pen', pressure: 0 }), ctx);
+    tool.onPointerMove?.(makePointerEvent(100, 100, { pointerType: 'pen', pressure: 0.25 }), ctx);
+
+    const captured = (tool as unknown as { captured: Array<{ pressure: number }> }).captured;
+    expect(captured).toHaveLength(2);
+    expect(captured[0]?.pressure).toBe(0);
+    expect(captured[1]?.pressure).toBe(0.25);
+  });
+
+  it('can disable pressure dynamics for a constant-width fallback', () => {
+    const tool = new PencilTool();
+    const ctx = makeCtx({ pointerType: 'pen', pressureEnabled: false });
+
+    tool.onPointerDown?.(makePointerEvent(100, 100, { pointerType: 'pen', pressure: 0.1 }), ctx);
+    const captured = (tool as unknown as { captured: Array<{ pressure: number }> }).captured;
+    expect(captured[0]?.pressure).toBe(0.5);
+  });
+
   it('ends capture on deactivate', () => {
     const tool = new PencilTool();
     const ctx = makeCtx();

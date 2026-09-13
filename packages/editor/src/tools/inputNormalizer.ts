@@ -40,8 +40,13 @@ export interface NormalizedInputEvent {
   /** Width and height of the contact ellipse in CSS pixels. Mouse = 1. */
   width: number;
   height: number;
-  /** Pointer type as reported by the browser. */
-  pointerType: 'mouse' | 'pen' | 'touch';
+  /** Pointer type used by the input policy. Unknown/custom values stay unknown. */
+  pointerType: 'mouse' | 'pen' | 'touch' | 'unknown';
+  /** Original browser-provided pointerType, retained for diagnostics. */
+  rawPointerType: string;
+  /** Button transition and active button bitfield for this sample. */
+  button: number;
+  buttons: number;
   /** Altitude angle in radians from the surface (0 = flat, PI/2 = perpendicular). */
   altitudeAngle: number;
   /** Azimuth angle in radians from the X axis. */
@@ -77,14 +82,31 @@ export interface PlatformCapabilities {
   isLimited: boolean;
 }
 
+export type ObservedCapabilityStatus = 'unknown' | 'observed' | 'unavailable';
+
+/**
+ * Device observations are intentionally separate from API availability.
+ * `PointerEvent` existing in a runtime does not prove that a connected pen
+ * supplies pressure, tilt, twist, or an eraser channel.
+ */
+export interface ObservedInputCapabilities {
+  pointerType: 'unknown' | 'mouse' | 'touch' | 'pen';
+  pressure: ObservedCapabilityStatus;
+  tilt: ObservedCapabilityStatus;
+  twist: ObservedCapabilityStatus;
+  eraser: ObservedCapabilityStatus;
+}
+
 /** Detected platform capabilities. Populated once at init. */
 let platformCaps: PlatformCapabilities | null = null;
 
 export function detectPlatformCapabilities(): PlatformCapabilities {
   if (platformCaps) return platformCaps;
 
-  const hasCoalesced = typeof PointerEvent.prototype.getCoalescedEvents === 'function';
-  const hasPredicted = typeof PointerEvent.prototype.getPredictedEvents === 'function';
+  const pointerEventPrototype =
+    typeof PointerEvent === 'function' ? PointerEvent.prototype : undefined;
+  const hasCoalesced = typeof pointerEventPrototype?.getCoalescedEvents === 'function';
+  const hasPredicted = typeof pointerEventPrototype?.getPredictedEvents === 'function';
   const hasOffscreen = typeof OffscreenCanvas !== 'undefined';
 
   const isWebKit = isWebKitGTK();
@@ -102,14 +124,68 @@ export function detectPlatformCapabilities(): PlatformCapabilities {
   return platformCaps;
 }
 
+let observedCapabilities: ObservedInputCapabilities = createUnknownCapabilities();
+let observedPressureValues = new Set<number>();
+
+function createUnknownCapabilities(): ObservedInputCapabilities {
+  return {
+    pointerType: 'unknown',
+    pressure: 'unknown',
+    tilt: 'unknown',
+    twist: 'unknown',
+    eraser: 'unknown',
+  };
+}
+
+/** Record conservative, non-identifying capabilities from an actual sample. */
+export function observeInputCapabilities(ev: PointerEvent): ObservedInputCapabilities {
+  const pointerType = normalizePointerType(safeString(ev, 'pointerType', ''));
+  observedCapabilities.pointerType = pointerType === 'unknown' ? 'unknown' : pointerType;
+  if (pointerType !== 'pen') return { ...observedCapabilities };
+
+  const pressure = safeNumber(ev, 'pressure', Number.NaN);
+  if (Number.isFinite(pressure) && pressure >= 0 && pressure <= 1) {
+    observedPressureValues.add(pressure);
+    // A single default value is not evidence either way. Two distinct values
+    // are the smallest useful observation that this channel is dynamic.
+    if (observedPressureValues.size > 1) observedCapabilities.pressure = 'observed';
+  } else {
+    observedCapabilities.pressure = 'unavailable';
+  }
+
+  const tiltX = safeNumber(ev, 'tiltX', 0);
+  const tiltY = safeNumber(ev, 'tiltY', 0);
+  if (tiltX !== 0 || tiltY !== 0) observedCapabilities.tilt = 'observed';
+  const twist = safeNumber(ev, 'twist', 0);
+  if (twist !== 0 && twist >= 0) observedCapabilities.twist = 'observed';
+  if (normalizeInputEvent(ev).isEraser) observedCapabilities.eraser = 'observed';
+  return { ...observedCapabilities };
+}
+
+export function getObservedInputCapabilities(): ObservedInputCapabilities {
+  return { ...observedCapabilities };
+}
+
+/** Test/diagnostics reset; it does not affect persisted settings. */
+export function resetObservedInputCapabilities(): void {
+  observedCapabilities = createUnknownCapabilities();
+  observedPressureValues = new Set<number>();
+}
+
 /**
  * Check whether a given PointerEvent's stylus data is genuine vs
  * browser-emulated (e.g. mouse events on WebKitGTK that lack real
  * pressure/tilt but report pointerType='pen' anyway).
  */
 export function hasGenuineStylusData(ev: PointerEvent): boolean {
-  if (ev.pointerType !== 'pen') return false;
-  return ev.pressure > 0 || ev.tiltX !== 0 || ev.tiltY !== 0 || ev.twist !== 0;
+  if (safeString(ev, 'pointerType', '') !== 'pen') return false;
+  const pressure = safeNumber(ev, 'pressure', Number.NaN);
+  return (
+    (Number.isFinite(pressure) && pressure > 0 && Math.abs(pressure - 0.5) > 0.001) ||
+    safeNumber(ev, 'tiltX', 0) !== 0 ||
+    safeNumber(ev, 'tiltY', 0) !== 0 ||
+    (safeNumber(ev, 'twist', 0) !== 0 && safeNumber(ev, 'twist', 0) >= 0)
+  );
 }
 
 /**
@@ -117,21 +193,23 @@ export function hasGenuineStylusData(ev: PointerEvent): boolean {
  * All properties are safely defaulted.
  */
 export function normalizeInputEvent(ev: PointerEvent): NormalizedInputEvent {
-  const pointerType = normalizePointerType(ev.pointerType);
-  const pressure = normalizePressure(ev.pressure, pointerType);
+  const rawPointerType = safeString(ev, 'pointerType', '');
+  const pointerType = normalizePointerType(rawPointerType);
+  const pressure = normalizePressure(safeNumber(ev, 'pressure', Number.NaN), pointerType);
 
-  const tiltX = clampFinite(ev.tiltX, -90, 90, 0);
-  const tiltY = clampFinite(ev.tiltY, -90, 90, 0);
-  const twist = ev.twist ?? -1;
+  const tiltX = clampFinite(safeNumber(ev, 'tiltX', Number.NaN), -90, 90, 0);
+  const tiltY = clampFinite(safeNumber(ev, 'tiltY', Number.NaN), -90, 90, 0);
+  const twist = safeNumber(ev, 'twist', -1);
+  const tiltMagnitude = normalizeTilt(tiltX, tiltY);
 
-  const altitude = Number.isFinite(ev.altitudeAngle)
-    ? clampFinite(ev.altitudeAngle, 0, Math.PI / 2, Math.PI / 2)
-    : (Math.PI / 2) * (1 - tiltY / 90);
-  const azimuth = Number.isFinite(ev.azimuthAngle)
-    ? ev.azimuthAngle
-    : (tiltAzimuth(tiltX, tiltY) ?? 0);
-  const now = performance.now();
-  const eventTime = ev.timeStamp;
+  const altitudeValue = safeNumber(ev, 'altitudeAngle', Number.NaN);
+  const altitude = Number.isFinite(altitudeValue)
+    ? clampFinite(altitudeValue, 0, Math.PI / 2, Math.PI / 2)
+    : Math.PI / 2 - (tiltMagnitude * Math.PI) / 180;
+  const azimuthValue = safeNumber(ev, 'azimuthAngle', Number.NaN);
+  const azimuth = Number.isFinite(azimuthValue) ? azimuthValue : (tiltAzimuth(tiltX, tiltY) ?? 0);
+  const now = safeNow();
+  const eventTime = safeNumber(ev, 'timeStamp', Number.NaN);
   // Modern PointerEvent timestamps share performance.timeOrigin. Reject
   // legacy epoch-domain or malformed values before mixing them with RAF time.
   const time =
@@ -140,30 +218,86 @@ export function normalizeInputEvent(ev: PointerEvent): NormalizedInputEvent {
       : now;
 
   return {
-    clientX: ev.clientX,
-    clientY: ev.clientY,
+    clientX: clampFinite(
+      safeNumber(ev, 'clientX', Number.NaN),
+      -Number.MAX_VALUE,
+      Number.MAX_VALUE,
+      0,
+    ),
+    clientY: clampFinite(
+      safeNumber(ev, 'clientY', Number.NaN),
+      -Number.MAX_VALUE,
+      Number.MAX_VALUE,
+      0,
+    ),
     pressure,
     tiltX,
     tiltY,
-    twist: twist >= 0 ? twist % 360 : -1,
-    tangentialPressure: clampFinite(
-      (ev as PointerEvent & { tangentialPressure?: number }).tangentialPressure,
-      -1,
-      1,
-      0,
-    ),
-    width: clampFinite((ev as PointerEvent & { width?: number }).width, 0, Number.MAX_VALUE, 1),
-    height: clampFinite((ev as PointerEvent & { height?: number }).height, 0, Number.MAX_VALUE, 1),
+    twist: Number.isFinite(twist) && twist >= 0 ? twist % 360 : -1,
+    tangentialPressure: clampFinite(safeNumber(ev, 'tangentialPressure', Number.NaN), -1, 1, 0),
+    width: clampFinite(safeNumber(ev, 'width', Number.NaN), 0, Number.MAX_VALUE, 1),
+    height: clampFinite(safeNumber(ev, 'height', Number.NaN), 0, Number.MAX_VALUE, 1),
     pointerType,
+    rawPointerType,
+    button: clampFinite(safeNumber(ev, 'button', Number.NaN), -1, Number.MAX_VALUE, 0),
+    buttons: clampFinite(safeNumber(ev, 'buttons', Number.NaN), 0, Number.MAX_SAFE_INTEGER, 0),
     altitudeAngle: Math.max(0, Math.min(Math.PI / 2, altitude)),
     azimuthAngle: azimuth,
     isPredicted: false,
     time,
-    isEraser:
-      (ev as PointerEvent & { eraserButtons?: number }).pointerType === 'pen' && ev.button === 5,
-    isPrimary: ev.isPrimary,
-    pointerId: ev.pointerId,
+    isEraser: isEraserEvent(ev, pointerType),
+    isPrimary: safeBoolean(ev, 'isPrimary', false),
+    pointerId: clampFinite(
+      safeNumber(ev, 'pointerId', Number.NaN),
+      -1,
+      Number.MAX_SAFE_INTEGER,
+      -1,
+    ),
   };
+}
+
+function safeNow(): number {
+  return typeof performance !== 'undefined' && typeof performance.now === 'function'
+    ? performance.now()
+    : Date.now();
+}
+
+function safeNumber(source: object | null | undefined, key: string, fallback: number): number {
+  try {
+    const value = (source as Record<string, unknown> | null | undefined)?.[key];
+    return typeof value === 'number' ? value : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function safeString(source: object | null | undefined, key: string, fallback: string): string {
+  try {
+    const value = (source as Record<string, unknown> | null | undefined)?.[key];
+    return typeof value === 'string' ? value : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function safeBoolean(source: object | null | undefined, key: string, fallback: boolean): boolean {
+  try {
+    const value = (source as Record<string, unknown> | null | undefined)?.[key];
+    return typeof value === 'boolean' ? value : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function isEraserEvent(
+  ev: PointerEvent,
+  pointerType: NormalizedInputEvent['pointerType'],
+): boolean {
+  if (pointerType !== 'pen') return false;
+  const button = safeNumber(ev, 'button', -1);
+  const buttons = safeNumber(ev, 'buttons', 0);
+  const eraserButtons = safeNumber(ev, 'eraserButtons', 0);
+  return button === 5 || (buttons & 32) !== 0 || eraserButtons > 0;
 }
 
 function clampFinite(
@@ -179,7 +313,7 @@ function clampFinite(
 function normalizePointerType(pointerType: string): NormalizedInputEvent['pointerType'] {
   return pointerType === 'pen' || pointerType === 'touch' || pointerType === 'mouse'
     ? pointerType
-    : 'mouse';
+    : 'unknown';
 }
 
 /**
@@ -193,34 +327,25 @@ export function collectSourceEvents(
 ): NormalizedInputEvent[] {
   const events: NormalizedInputEvent[] = [];
 
-  if (typeof ev.getCoalescedEvents === 'function') {
-    const coalesced = ev.getCoalescedEvents();
-    if (coalesced.length > 0) {
-      for (const c of coalesced) {
-        events.push(normalizeInputEvent(c));
-      }
+  const coalesced = safeSampleList(ev, 'getCoalescedEvents');
+  if (coalesced.length > 0) {
+    for (const c of coalesced) {
+      events.push(normalizeInputEvent(c));
     }
   }
 
   const primary = normalizeInputEvent(ev);
   const last = events[events.length - 1];
-  if (
-    !last ||
-    last.clientX !== primary.clientX ||
-    last.clientY !== primary.clientY ||
-    last.time !== primary.time
-  ) {
+  if (!last || !sameInputSample(last, primary)) {
     events.push(primary);
   }
 
-  if (includePredicted && typeof ev.getPredictedEvents === 'function') {
-    const predicted = ev.getPredictedEvents();
-    if (predicted.length > 0) {
-      for (const p of predicted) {
-        const norm = normalizeInputEvent(p);
-        norm.isPredicted = true;
-        events.push(norm);
-      }
+  if (includePredicted) {
+    const predicted = safeSampleList(ev, 'getPredictedEvents');
+    for (const p of predicted) {
+      const norm = normalizeInputEvent(p);
+      norm.isPredicted = true;
+      events.push(norm);
     }
   }
 
@@ -258,13 +383,63 @@ export function canonicalizeInputEvents(
 
   const result: NormalizedInputEvent[] = [];
   const seen = new Set<string>();
-  for (const { event } of [...confirmed, ...predicted]) {
-    const key = `${event.pointerId}:${event.time}:${event.clientX}:${event.clientY}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    result.push(event);
-  }
+  const appendUnique = (entries: Array<{ event: NormalizedInputEvent }>) => {
+    for (const { event } of entries) {
+      const key = inputSampleKey(event);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      result.push(event);
+    }
+  };
+  // Keep the confirmed and predicted arrays separate so a temporary combined
+  // array is not allocated for every pointermove packet.
+  appendUnique(confirmed);
+  appendUnique(predicted);
   return result;
+}
+
+function safeSampleList(
+  ev: PointerEvent,
+  methodName: 'getCoalescedEvents' | 'getPredictedEvents',
+): PointerEvent[] {
+  try {
+    const method = (ev as unknown as Record<string, unknown>)[methodName];
+    if (typeof method !== 'function') return [];
+    const result = (method as () => unknown).call(ev);
+    return Array.isArray(result)
+      ? result.filter((sample): sample is PointerEvent =>
+          Boolean(sample && typeof sample === 'object'),
+        )
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function sameInputSample(a: NormalizedInputEvent, b: NormalizedInputEvent): boolean {
+  return (
+    a.pointerId === b.pointerId &&
+    a.pointerType === b.pointerType &&
+    a.rawPointerType === b.rawPointerType &&
+    a.clientX === b.clientX &&
+    a.clientY === b.clientY &&
+    a.time === b.time &&
+    a.pressure === b.pressure &&
+    a.tiltX === b.tiltX &&
+    a.tiltY === b.tiltY &&
+    a.twist === b.twist &&
+    a.tangentialPressure === b.tangentialPressure &&
+    a.width === b.width &&
+    a.height === b.height &&
+    a.button === b.button &&
+    a.buttons === b.buttons &&
+    a.isEraser === b.isEraser &&
+    a.isPrimary === b.isPrimary
+  );
+}
+
+function inputSampleKey(event: NormalizedInputEvent): string {
+  return `${event.pointerId}:${event.pointerType}:${event.rawPointerType}:${event.time}:${event.clientX}:${event.clientY}:${event.pressure}:${event.tiltX}:${event.tiltY}:${event.twist}:${event.tangentialPressure}:${event.width}:${event.height}:${event.button}:${event.buttons}:${event.isEraser}:${event.isPrimary}`;
 }
 
 /**

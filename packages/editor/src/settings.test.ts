@@ -24,6 +24,11 @@ describe('loadSettings', () => {
     expect(s.layers.autoReveal).toBe(true);
     expect(s.layers.selectionNavigation).toBe('select-only');
     expect(s.nudge).toEqual({ small: 1, big: 10 });
+    expect(s.drawingInput).toEqual({
+      fingerMode: 'draw',
+      pressureEnabled: true,
+      pressureCurve: 1,
+    });
     expect(s.privacy.usageAnalytics).toBe('unknown');
     expect(s.privacy.diagnostics).toBe('unknown');
   });
@@ -179,6 +184,18 @@ describe('loadSettings', () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ nudge: { small: 'bad', big: null } }));
     expect(loadSettings().nudge).toEqual({ small: 1, big: 10 });
   });
+
+  it('normalizes drawing input preferences without rejecting older settings files', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ drawingInput: { fingerMode: 'navigate', pressureCurve: 99 } }),
+    );
+    expect(loadSettings().drawingInput).toEqual({
+      fingerMode: 'navigate',
+      pressureEnabled: true,
+      pressureCurve: 4,
+    });
+  });
 });
 
 describe('updateSettings', () => {
@@ -200,6 +217,16 @@ describe('updateSettings', () => {
     expect(s.export.defaultFormat).toBe('webp');
     expect(s.export.defaultScale).toEqual({ type: 'factor', value: 2 });
     expect(s.appearance.theme).toBe('system');
+  });
+
+  it('persists a partial drawing input update', () => {
+    const s = updateSettings({ drawingInput: { fingerMode: 'navigate', pressureEnabled: false } });
+    expect(s.drawingInput).toEqual({
+      fingerMode: 'navigate',
+      pressureEnabled: false,
+      pressureCurve: 1,
+    });
+    expect(loadSettings().drawingInput.fingerMode).toBe('navigate');
   });
 });
 
@@ -240,5 +267,14 @@ describe('resetSettings', () => {
     updateSettings({ nudge: { small: 0.5, big: 20 } });
     expect(loadSettings().nudge).toEqual({ small: 0.5, big: 20 });
     expect(resetSettings().nudge).toEqual({ small: 1, big: 10 });
+  });
+
+  it('restores drawing input preferences to factory defaults', () => {
+    updateSettings({ drawingInput: { fingerMode: 'navigate', pressureEnabled: false } });
+    expect(resetSettings().drawingInput).toEqual({
+      fingerMode: 'draw',
+      pressureEnabled: true,
+      pressureCurve: 1,
+    });
   });
 });

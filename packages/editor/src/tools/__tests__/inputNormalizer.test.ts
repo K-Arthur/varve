@@ -21,6 +21,7 @@ function makePointerEvent(overrides: Partial<PointerEvent> = {}): PointerEvent {
     pointerId: 1,
     isPrimary: true,
     button: 0,
+    buttons: 0,
     timeStamp: performance.now(),
     getCoalescedEvents: undefined as unknown as () => PointerEvent[],
     getPredictedEvents: undefined as unknown as () => PointerEvent[],
@@ -96,6 +97,17 @@ describe('normalizeInputEvent', () => {
     expect(n.isEraser).toBe(true);
   });
 
+  it('keeps eraser state active when the button transition has passed', () => {
+    const ev = makePointerEvent({ pointerType: 'pen', button: 0, buttons: 32 });
+    expect(normalizeInputEvent(ev).isEraser).toBe(true);
+  });
+
+  it('preserves custom pointer types as unknown instead of pretending they are a mouse', () => {
+    const n = normalizeInputEvent(makePointerEvent({ pointerType: 'vendor-stylus' }));
+    expect(n.pointerType).toBe('unknown');
+    expect(n.rawPointerType).toBe('vendor-stylus');
+  });
+
   it('computes altitudeAngle from tilt when absent', () => {
     const ev = makePointerEvent({ tiltY: 45, altitudeAngle: undefined as unknown as number });
     const n = normalizeInputEvent(ev);
@@ -146,6 +158,26 @@ describe('normalizeInputEvent', () => {
     expect(n.width).toBe(1);
     expect(n.height).toBe(1);
   });
+
+  it('keeps malformed coordinates and twist finite', () => {
+    const n = normalizeInputEvent(
+      makePointerEvent({
+        clientX: Number.NaN,
+        clientY: Number.POSITIVE_INFINITY,
+        twist: Number.POSITIVE_INFINITY,
+      }),
+    );
+    expect(n.clientX).toBe(0);
+    expect(n.clientY).toBe(0);
+    expect(n.twist).toBe(-1);
+  });
+
+  it('does not treat a malformed negative eraser channel as active', () => {
+    const n = normalizeInputEvent(
+      makePointerEvent({ pointerType: 'pen', eraserButtons: -1 } as Partial<PointerEvent>),
+    );
+    expect(n.isEraser).toBe(false);
+  });
 });
 
 describe('collectSourceEvents', () => {
@@ -172,6 +204,47 @@ describe('collectSourceEvents', () => {
     expect(events[1]!.clientX).toBe(102);
     expect(events[2]!.clientX).toBe(100);
     expect(events.map((event) => event.time)).toEqual([now - 4, now - 2, expect.any(Number)]);
+  });
+
+  it('keeps dynamics and button changes at an unchanged coordinate and timestamp', () => {
+    const time = performance.now();
+    const ev = makePointerEvent({
+      pointerType: 'pen',
+      pressure: 0.8,
+      timeStamp: time,
+      buttons: 32,
+      getCoalescedEvents: () =>
+        [
+          makePointerEvent({
+            pointerType: 'pen',
+            pressure: 0.2,
+            timeStamp: time,
+            buttons: 1,
+          }),
+        ] as unknown as PointerEvent[],
+    });
+    const events = collectSourceEvents(ev);
+    expect(events).toHaveLength(2);
+    expect(events[0]).toMatchObject({ pressure: 0.2, buttons: 1 });
+    expect(events[1]).toMatchObject({ pressure: 0.8, buttons: 32 });
+  });
+
+  it('falls back when a webview throws while reading optional sample APIs', () => {
+    const ev = makePointerEvent({ pointerType: 'pen', pressure: 0.7 });
+    Object.defineProperty(ev, 'getCoalescedEvents', {
+      configurable: true,
+      get: () => {
+        throw new Error('webkit stub');
+      },
+    });
+    Object.defineProperty(ev, 'getPredictedEvents', {
+      configurable: true,
+      get: () => {
+        throw new Error('webkit stub');
+      },
+    });
+    expect(() => collectSourceEvents(ev, true)).not.toThrow();
+    expect(collectSourceEvents(ev, true)).toHaveLength(1);
   });
 
   it('marks predicted events when requested', () => {
@@ -226,6 +299,9 @@ describe('inputToStrokePoint', () => {
       width: 2,
       height: 2,
       pointerType: 'pen',
+      rawPointerType: 'pen',
+      button: 0,
+      buttons: 0,
       altitudeAngle: Math.PI / 3,
       azimuthAngle: 0.5,
       isPredicted: false,
@@ -257,6 +333,9 @@ describe('inputToStrokePoint', () => {
       width: 1,
       height: 1,
       pointerType: 'mouse',
+      rawPointerType: 'mouse',
+      button: 0,
+      buttons: 0,
       altitudeAngle: Math.PI / 2,
       azimuthAngle: 0,
       isPredicted: false,
@@ -282,6 +361,9 @@ describe('inputToStrokePoint', () => {
       width: 1,
       height: 1,
       pointerType: 'mouse',
+      rawPointerType: 'mouse',
+      button: 0,
+      buttons: 0,
       altitudeAngle: Math.PI / 2,
       azimuthAngle: 0,
       isPredicted: false,
@@ -308,8 +390,14 @@ describe('hasGenuineStylusData', () => {
     ).toBe(false);
   });
 
-  it('returns true for pen with pressure', () => {
+  it('does not treat the default 0.5 pen value as proof of a pressure sensor', () => {
     expect(hasGenuineStylusData(makePointerEvent({ pointerType: 'pen', pressure: 0.5 }))).toBe(
+      false,
+    );
+  });
+
+  it('returns true for a non-default pen pressure sample', () => {
+    expect(hasGenuineStylusData(makePointerEvent({ pointerType: 'pen', pressure: 0.75 }))).toBe(
       true,
     );
   });

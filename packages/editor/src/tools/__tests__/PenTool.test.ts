@@ -590,6 +590,39 @@ describe('PenTool', () => {
     expect(() => tool.onDeactivate?.(ctx)).not.toThrow();
   });
 
+  it('ignores a foreign pointer cancellation and cancels only its owning contact', () => {
+    const tool = new PenTool();
+    const ctx = makeCtx();
+    tool.onActivate?.(ctx);
+
+    tool.onPointerDown?.(makePointerEvent(100, 100, { pointerId: 11 }), ctx);
+    tool.onPointerCancel?.(
+      makePointerEvent(120, 120, { pointerId: 12, pointerType: 'touch' }),
+      ctx,
+    );
+    expect(ctx.setDraft).not.toHaveBeenLastCalledWith(null);
+
+    tool.onPointerCancel?.(makePointerEvent(120, 120, { pointerId: 11, pointerType: 'pen' }), ctx);
+    expect(ctx.setDraft).toHaveBeenLastCalledWith(null);
+    expect(ctx.releasePointerCapture).toHaveBeenCalledWith(11);
+  });
+
+  it('releases capture after a successful anchor and after an explicit finish', () => {
+    const tool = new PenTool();
+    const ctx = makeCtx();
+    tool.onActivate?.(ctx);
+
+    tool.onPointerDown?.(makePointerEvent(100, 100, { pointerId: 21 }), ctx);
+    tool.onPointerUp?.(makePointerEvent(100, 100, { pointerId: 21 }), ctx);
+    expect(ctx.releasePointerCapture).toHaveBeenCalledWith(21);
+
+    vi.advanceTimersByTime(500);
+    tool.onPointerDown?.(makePointerEvent(200, 150, { pointerId: 22 }), ctx);
+    tool.onPointerUp?.(makePointerEvent(200, 150, { pointerId: 22 }), ctx);
+    tool.onKeyDown?.(makeKeyEvent('Enter'), ctx);
+    expect(ctx.releasePointerCapture).toHaveBeenCalledWith(22);
+  });
+
   it('commitPath wraps createShapeAt in undo transaction', () => {
     const tool = new PenTool();
     const ctx = makeCtx();

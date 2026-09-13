@@ -55,7 +55,7 @@ export abstract class BaseTool implements Tool {
   };
 
   private dragStartFired = false;
-  private activePointerType: 'mouse' | 'pen' | 'touch' = 'mouse';
+  private activePointerType: 'mouse' | 'pen' | 'touch' | 'unknown' = 'mouse';
 
   abstract cursor(state: ToolCursorState): CursorSpec;
 
@@ -80,7 +80,10 @@ export abstract class BaseTool implements Tool {
   onPointerDown(e: PointerEvent, ctx: ToolContext): GestureResult {
     if (this.drag.kind !== 'idle') return { consumed: false };
     ctx.setPointerCapture(e.pointerId);
-    this.activePointerType = (e.pointerType as 'mouse' | 'pen' | 'touch') || 'mouse';
+    this.activePointerType =
+      e.pointerType === 'mouse' || e.pointerType === 'pen' || e.pointerType === 'touch'
+        ? e.pointerType
+        : 'unknown';
     const canvas = { x: e.clientX, y: e.clientY };
     const world = ctx.canvasToWorld(canvas.x, canvas.y);
     this.drag = {

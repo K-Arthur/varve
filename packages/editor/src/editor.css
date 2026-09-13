@@ -3541,6 +3541,45 @@ dialog.varve-dialog--settings[open] {
   color: var(--color-text-muted);
   line-height: var(--font-line-relaxed);
 }
+.settings-input-probe {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: 7rem;
+  padding: var(--space-3);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: var(--elevation-surface-sunken);
+  color: var(--color-text-primary);
+  touch-action: none;
+  user-select: none;
+  cursor: crosshair;
+}
+.settings-input-probe:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+.settings-input-probe > span,
+.settings-input-probe > output {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  line-height: var(--font-line-relaxed);
+}
+.settings-input-probe__meter {
+  height: var(--space-2);
+  overflow: hidden;
+  margin: var(--space-2) 0;
+  border-radius: var(--radius-control);
+  background: var(--color-surface-sunken);
+}
+.settings-input-probe__meter > span {
+  display: block;
+  height: 100%;
+  min-width: 1px;
+  border-radius: inherit;
+  background: var(--color-interactive-default);
+  transition: width 40ms linear;
+}
 .settings-section__subtitle {
   margin: 0;
   font-size: var(--font-size-sm);

@@ -19,6 +19,7 @@ export type SettingsSection =
   | 'performance'
   | 'storage'
   | 'nudge'
+  | 'input'
   | 'models'
   | 'collab'
   | 'ai'

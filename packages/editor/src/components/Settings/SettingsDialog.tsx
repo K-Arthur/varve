@@ -40,6 +40,7 @@ import { InspectorColorPopover } from '../Inspector/controls/InspectorColorPopov
 import { whiteForMode } from '../Inspector/panels/DocumentPanel';
 import { BgRemovalModelsTab } from './BgRemovalModelsTab';
 import { ColorizationModelsTab } from './ColorizationModelsTab';
+import { DrawingInputSettingsTab } from './DrawingInputSettingsTab';
 import { ExportSettingsTab } from './ExportSettingsTab';
 import { PerformanceSettingsTab } from './PerformanceSettingsTab';
 import { SemanticSearchTab } from './SemanticSearchTab';
@@ -56,6 +57,7 @@ const SECTIONS: { id: SettingsSection; label: string }[] = [
   { id: 'performance', label: 'Performance' },
   { id: 'storage', label: 'Storage & Offline' },
   { id: 'nudge', label: 'Nudging & Movement' },
+  { id: 'input', label: 'Drawing Input' },
   { id: 'models', label: 'Offline Models' },
   { id: 'collab', label: 'Collab' },
   { id: 'ai', label: 'On-device Assistants' },
@@ -213,6 +215,7 @@ export function SettingsDialog({
             {activeSection === 'performance' && <PerformanceSettingsTab />}
             {activeSection === 'storage' && <StorageSettingsTab />}
             {activeSection === 'nudge' && <NudgeSection />}
+            {activeSection === 'input' && <DrawingInputSettingsTab />}
             {activeSection === 'models' && (
               <>
                 <BgRemovalModelsTab />

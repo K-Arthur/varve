@@ -47,6 +47,8 @@ export class PenTool extends BaseTool {
   private continuationBasePointCount = 0;
   /** When non-null, we're continuing this existing path node. */
   private continuePathId: string | null = null;
+  /** Pen owns exactly one contact; foreign pointer cancels must be ignored. */
+  private activePointerId: number | null = null;
 
   override cursor(_state: ToolCursorState): CursorSpec {
     return { css: 'crosshair' };
@@ -60,15 +62,18 @@ export class PenTool extends BaseTool {
     this.dragStartPointCount = 0;
     this.continuationBasePointCount = 0;
     this.continuePathId = null;
+    this.activePointerId = null;
   }
 
   override onDeactivate(ctx: ToolContext): void {
+    this.releaseActivePointer(ctx);
     this.penState = PenState.Idle;
     this.points = [];
     this.dragStartCanvas = null;
     this.dragStartPointCount = 0;
     this.continuationBasePointCount = 0;
     this.continuePathId = null;
+    this.activePointerId = null;
     ctx.setDraft(null);
   }
 
@@ -111,7 +116,11 @@ export class PenTool extends BaseTool {
   }
 
   override onPointerDown(e: PointerEvent, ctx: ToolContext): GestureResult {
+    if (this.activePointerId !== null && this.activePointerId !== e.pointerId) {
+      return { consumed: false };
+    }
     ctx.setPointerCapture(e.pointerId);
+    this.activePointerId = e.pointerId;
     const canvas = { x: e.clientX, y: e.clientY };
     const world = ctx.canvasToWorld(canvas.x, canvas.y);
 
@@ -169,6 +178,7 @@ export class PenTool extends BaseTool {
   }
 
   override onPointerMove(e: PointerEvent, ctx: ToolContext): void {
+    if (this.activePointerId !== null && this.activePointerId !== e.pointerId) return;
     if (this.penState === PenState.Dragging && this.dragStartCanvas) {
       const lastIdx = this.points.length - 1;
       if (lastIdx < 0) return;
@@ -224,24 +234,38 @@ export class PenTool extends BaseTool {
   }
 
   override onPointerUp(e: PointerEvent, ctx: ToolContext): void {
+    if (this.activePointerId !== e.pointerId) return;
     if (this.penState === PenState.Dragging) {
       this.penState = PenState.Placing;
       this.dragStartCanvas = null;
       this.syncDraft(ctx, ctx.canvasToWorld(e.clientX, e.clientY));
     }
+    this.releaseActivePointer(ctx);
+  }
+
+  override onPointerCancel(e: PointerEvent, ctx: ToolContext): void {
+    if (this.activePointerId !== e.pointerId) return;
+    this.releaseActivePointer(ctx);
+    this.clearDraft(ctx);
+    ctx.announce('Path cancelled');
+  }
+
+  override onFocusLoss(ctx: ToolContext): void {
+    // An open Placing draft remains available for the explicit Finish/Close
+    // actions. Only an in-flight contact is aborted when focus/capture is lost.
+    if (this.activePointerId === null && this.penState !== PenState.Dragging) return;
+    this.releaseActivePointer(ctx);
+    this.clearDraft(ctx);
   }
 
   override onKeyDown(e: KeyboardEvent, ctx: ToolContext): boolean {
     if (this.penState === PenState.Placing || this.penState === PenState.Dragging) {
       if (e.key === 'Escape') {
         if (this.penState === PenState.Dragging) {
+          this.releaseActivePointer(ctx);
           this.dragStartCanvas = null;
           if (this.dragStartPointCount === 0) {
-            this.penState = PenState.Idle;
-            this.points = [];
-            this.continuePathId = null;
-            this.continuationBasePointCount = 0;
-            ctx.setDraft(null);
+            this.clearDraft(ctx);
           } else {
             this.points.length = this.dragStartPointCount;
             this.penState = PenState.Placing;
@@ -255,9 +279,7 @@ export class PenTool extends BaseTool {
           this.commitPath(ctx, false);
           ctx.announce('Path finished');
         } else {
-          this.penState = PenState.Idle;
-          this.points = [];
-          ctx.setDraft(null);
+          this.clearDraft(ctx);
           ctx.announce('Path cancelled');
         }
         return true;
@@ -289,6 +311,7 @@ export class PenTool extends BaseTool {
   }
 
   private commitPath(ctx: ToolContext, closed: boolean): void {
+    this.releaseActivePointer(ctx);
     ctx.setDraft(null);
     ctx.beginTransaction();
     try {
@@ -331,6 +354,23 @@ export class PenTool extends BaseTool {
     this.dragStartCanvas = null;
     this.continuePathId = null;
     this.continuationBasePointCount = 0;
+    this.activePointerId = null;
+  }
+
+  private releaseActivePointer(ctx: ToolContext): void {
+    if (this.activePointerId === null) return;
+    ctx.releasePointerCapture(this.activePointerId);
+    this.activePointerId = null;
+  }
+
+  private clearDraft(ctx: ToolContext): void {
+    this.penState = PenState.Idle;
+    this.points = [];
+    this.dragStartCanvas = null;
+    this.dragStartPointCount = 0;
+    this.continuePathId = null;
+    this.continuationBasePointCount = 0;
+    ctx.setDraft(null);
   }
 
   private constrainPoint(

@@ -80,7 +80,8 @@ export type DraftShape =
   | { kind: 'frame'; x: number; y: number; w: number; h: number; label?: string }
   | { kind: 'freehand'; points: { x: number; y: number }[]; label?: string }
   | PredictedStrokeDraft
-  | PenConstructionDraft;
+  | PenConstructionDraft
+  | ShapeBuilderDraft;
 
 /**
  * Replaceable visual continuation for browser-predicted pen input.
@@ -121,6 +122,17 @@ export interface PenConstructionDraft {
   label?: string;
 }
 
+/** Ephemeral region-selection state for the staged Shape Builder session. */
+export interface ShapeBuilderDraft {
+  kind: 'shape-builder';
+  revision: string;
+  hoveredFaceId: string | null;
+  selectedFaceIds: readonly string[];
+  sweep: readonly { x: number; y: number }[];
+  status: 'ready' | 'unsupported';
+  message?: string;
+}
+
 export interface PixelProbe {
   screenX: number;
   screenY: number;
@@ -146,8 +158,11 @@ export interface ToolContext {
   altKey: boolean;
   ctrlKey: boolean;
   metaKey: boolean;
-  pointerType: 'mouse' | 'pen' | 'touch';
+  pointerType: 'mouse' | 'pen' | 'touch' | 'unknown';
   pointerPressure: number;
+  /** Runtime pressure preference applied by pressure-aware tools. */
+  pressureEnabled?: boolean;
+  pressureCurve?: number;
   /** Stylus tilt in degrees from perpendicular (-90 to 90). */
   tiltX: number;
   tiltY: number;
@@ -247,6 +262,8 @@ export interface ToolContext {
   updateNodes: (
     updaters: ReadonlyArray<{ id: NodeId; update: (n: SceneNode) => SceneNode }>,
   ) => void;
+  /** Apply a complete scene mutation as one editor update. */
+  updateDocument?: (updater: (doc: Document) => Document) => void;
   /** Activate a page (page-scoped commands, insertion target, inspector). */
   setActivePage?: (pageId: NodeId) => void;
   /** Master source currently being edited, when the canvas is source-scoped. */
