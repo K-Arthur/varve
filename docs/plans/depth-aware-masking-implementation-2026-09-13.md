@@ -74,9 +74,10 @@ worktree is created: the requested integration branch is the existing
 - Fix heatmap contain layout and pointer mapping; use the existing image
   coordinate mapper for canvas picks and reject clicks outside the displayed
   source.
-- Reuse existing mask painting/lasso/segmentation/matting primitives with an
-  explicit “Correct depth” versus “Refine coverage” target. Range changes do
-  not erase correction strokes.
+- Reuse existing mask painting/lasso/segmentation/matting primitives for the
+  shipped **Refine coverage** target. Keep **Correct depth** as a named,
+  unsupported correction-layer boundary until a continuous-field correction
+  resource is implemented; range changes do not erase coverage corrections.
 - Expose Replace/Intersect/Add/Union/Subtract with a safe preserving default,
   before/after/bypass/reset, Escape/cancel, keyboard range controls and
   accessible disabled reasons.

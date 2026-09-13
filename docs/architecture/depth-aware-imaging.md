@@ -173,7 +173,8 @@ kernel and commits through the existing raster-mask owner.
 The supported workflow stays inside existing editor surfaces:
 
 1. Select an image and open **Adjustments → Depth Mask**, or select an
-   adjustment layer and choose its bound source image.
+   adjustment layer and explicitly choose its bound source image. An
+   unbound adjustment never defaults to the first image in the document.
 2. Choose a generated/saved resource, or import Varve's self-describing
    `.vdepth.json` file. A resource must declare canonical near-is-low ordering,
    dimensions, precision, validity, and (when present) source registration.
