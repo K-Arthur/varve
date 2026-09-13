@@ -2612,35 +2612,45 @@ fixed permitted regions and extends the live override surface instead.
 
 ### Verification
 
-- Unit suites green in the main worktree: `workspaceStore.test.ts` 33/33,
-  `layoutVariants.test.ts` 24/24, `interactionResolution.test.ts` 8/8,
-  `ManageLayoutsDialog.test.tsx` 6/6, `PanelResizeHandle.test.tsx` 5/5,
-  `WorkspaceCustomizeDialog.test.tsx` 6/6 (including the new live
-  panel-toggle test), `WorkspaceTabs.test.tsx`, `workspaceSwitching.test.tsx`
-  41/41, `ShortcutPalette.test.tsx`; `audit:docs` and `audit:emoji` clean.
-- Playwright ran the new `tests/e2e/workspace/customization.spec.ts` against a
-  clean install of this change set in an isolated worktree (the shared tree
-  was mid-edit by concurrent agents):
-  - PASS: Focus canvas applies and Default restores (verified by inspection of
+- Unit suites green in the main worktree: `workspaceStore` 33/33,
+  `layoutVariants` 24/24, `layoutVariants.property` 4/4 (fast-check bounded
+  operation sequences), `interactionResolution` 8/8, `ManageLayoutsDialog`
+  6/6, `PanelResizeHandle` 5/5, `WorkspaceCustomizeDialog` 6/6 (including the
+  live panel-toggle regression), `workspaceSwitching` 41/41, plus
+  `workspaceReset`, `layoutPersistence`/`recoveryManager`/`dockModel` 80/80,
+  and `ShortcutPalette`; `audit:docs`, `audit:emoji`, and `audit:tokens`
+  (153/153 pairs across 3 themes) clean.
+- Playwright on a clean install in an isolated worktree at this change set:
+  the complete `tests/e2e/workspace/customization.spec.ts` lane now has all
+  six specs passing —
+  - customize-dialog panel toggle and persistence: this lane caught the real
+    pre-existing defect where the dialog wrote the preference but never
+    patched live `EditorState`; fixed with `setPanelVisible` plus a unit test;
+  - Focus canvas apply and Default restore (inspected
     `reports/workspace-review/focus-canvas-applied.png`: panels, tab strip,
     and status bar hidden; menubar and floating toolbar retained; status line
-    "Applied 'Focus canvas' to Design.").
-  - PASS: reset captures a recoverable snapshot and Restore re-applies it.
-  - The two remaining specs caught a real pre-existing defect: customize
-    dialog panel toggles wrote the preference but never patched the live
-    `EditorState`, so surfaces did not change until a workspace switch. Fixed
-    with `setPanelVisible` on the editor context plus a regression test.
-  - Visual inspection of `reports/workspace-review/manage-layouts-pre-css-fix.png`
-    showed the Manage Layouts dialog clipping its right-side actions; the
-    dialog now uses max-width with wrapped action rows. Re-capturing that
-    screenshot and re-running the two remaining specs is pending until the
-    shared tree compiles again (foreign mid-edit `typography.ts` and missing
-    scene exports block `typecheck:e2e`).
-- Commits landed on master: layout-variant store, interaction classification,
-  Manage Layouts dialog, panel-width intent, editor-chrome customization +
-  Shell mount, menus/palette wiring, and docs/site/help. The E2E spec commit
-  is held in the working tree because the foreign `typecheck:e2e` failure
-  blocks the commit checkpoint; the exact command to land it once the tree is
-  green is in the handoff notes.
+    "Applied 'Focus canvas' to Design.");
+  - reset snapshot capture and Restore;
+  - hostile import rejection and valid import/apply;
+  - narrow-viewport drawer open, Escape close, reopen;
+  - chrome-less workspace keeps its launchers at 760px (the P0 fix).
+  Two earlier failures were a cold-start startup timeout (passed on rerun)
+  and a spec issue where the still-open Manage Layouts modal intercepted the
+  FAB click (spec now closes the dialog first).
+- Visual inspection: `reports/workspace-review/manage-layouts-pre-css-fix.png`
+  showed the dialog clipping its right-side actions; the after screenshot
+  (`test-results/workspace-manage-layouts.png` in the verification run)
+  confirms Duplicate/Save/Done sit inside the dialog frame, and
+  `workspace-narrow-drawer.png` confirms the drawer overlay with FABs above
+  the status bar.
+- Desktop lane sanity: `node scripts/desktop/preflight.mjs --json` is green
+  on this host (CachyOS, Wayland, gtk 3.24.52, webkit2gtk-4.1 2.52.6, xvfb
+  available). A full Tauri app relaunch was not run.
+- The E2E spec commit remains in the working tree because `pnpm typecheck:e2e`
+  fails on foreign in-flight types (`packages/scene`, `packages/engine`).
+  Land it with:
+  `git add tests/e2e/workspace/customization.spec.ts && git commit -m "test(workspace): add layout customization and recovery E2E spec"`
+  once `pnpm typecheck:e2e` is green.
+
 
 
