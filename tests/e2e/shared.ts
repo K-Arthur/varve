@@ -12,6 +12,19 @@ export async function navigateToEditor(
   path = '/',
   options: { waitUntil?: 'commit' | 'domcontentloaded'; startupTimeout?: number } = {},
 ) {
+  const dismissSafeMode = async (timeout = 5000) => {
+    const continueNormalStartup = page.getByRole('button', {
+      name: /continue normal startup/i,
+    });
+    if (!(await continueNormalStartup.isVisible({ timeout }).catch(() => false))) return;
+    await continueNormalStartup.click({ timeout: 10000 });
+    await page
+      .locator('.safe-mode-screen')
+      .waitFor({ state: 'hidden', timeout: 10000 })
+      .catch(() => undefined);
+    await page.waitForTimeout(250);
+  };
+
   // Generous timeouts: under heavy concurrent dev-server load (many watched
   // files recompiling at once), first paint can take much longer than a
   // quiet dev server without indicating any real problem. Measured cold
@@ -32,13 +45,7 @@ export async function navigateToEditor(
     await page.evaluate(() => localStorage.removeItem('varve:safe-mode'));
     await page.reload({ timeout: 300000 });
   }
-  const continueNormalStartup = page.getByRole('button', {
-    name: /continue normal startup/i,
-  });
-  if (await continueNormalStartup.isVisible({ timeout: 5000 }).catch(() => false)) {
-    await continueNormalStartup.click({ timeout: 5000 });
-    await page.waitForTimeout(1000);
-  }
+  await dismissSafeMode();
   // Crash-recovery dialog (IndexedDB-backed): "Review my documents" only
   // dismisses the dialog, so clicking it is side-effect free.
   const recovery = page.locator('dialog[open]').filter({
@@ -55,6 +62,10 @@ export async function navigateToEditor(
   const newBtn = page.getByRole('button', { name: /^new$/i });
   await newBtn.waitFor({ state: 'visible', timeout: options.startupTimeout ?? 45000 });
   await newBtn.click({ force: true, timeout: 15000 });
+  // Crash-loop recovery can finish booting after the Home buttons become
+  // visible. Re-check after opening New so the modal never races a safe-mode
+  // screen that is still mounted above it.
+  await dismissSafeMode(1000);
   // The new-document dialog's primary action is labelled "Create design" in
   // some builds and plain "Create" in others, so match either. The 5s budget
   // this replaces was the outlier in a helper that otherwise allows 45-300s:

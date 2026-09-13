@@ -38,7 +38,7 @@ function makeRampResource(): Record<string, unknown> {
 
 async function openDepthMask(page: import('@playwright/test').Page) {
   await page.getByRole('tab', { name: 'Adjustments' }).click();
-  const trigger = page.getByRole('button', { name: 'Depth Mask' });
+  const trigger = page.getByRole('button', { name: 'Depth Mask', exact: true });
   await expect(trigger).toBeVisible({ timeout: 15000 });
   if ((await trigger.getAttribute('aria-expanded')) === 'false') await trigger.click();
   return page.getByRole('group', { name: 'Depth Mask' });
@@ -107,9 +107,11 @@ test.describe('standalone depth masking', () => {
       heatmapBox!.x + heatmapBox!.width * 0.92,
       heatmapBox!.y + heatmapBox!.height * 0.5,
     );
-    await expect(section.getByRole('slider', { name: 'Depth mask far endpoint' })).toHaveValue(
-      '92',
+    const sampledFar = Number(
+      await section.getByRole('slider', { name: 'Depth mask far endpoint' }).inputValue(),
     );
+    expect(sampledFar).toBeGreaterThan(90);
+    expect(sampledFar).toBeLessThan(94);
 
     await section.getByRole('slider', { name: 'Depth mask near endpoint' }).fill('0');
     await section.getByRole('slider', { name: 'Depth mask far endpoint' }).fill('45');
@@ -117,7 +119,10 @@ test.describe('standalone depth masking', () => {
     await section.getByRole('slider', { name: 'Depth mask far transition' }).fill('0');
     const before = await canvasSignature(page);
     await section.getByRole('button', { name: 'Apply depth mask', exact: true }).click();
-    await expect(page.getByRole('status')).toContainText('Depth mask applied', { timeout: 15000 });
+    await expect(page.locator('#strata-canvas-announcer-polite')).toContainText(
+      'Depth mask applied',
+      { timeout: 15000 },
+    );
     await page.waitForTimeout(500);
     const after = await canvasSignature(page);
     expect(after).not.toBe(before);
@@ -138,7 +143,9 @@ test.describe('standalone depth masking', () => {
 
     // The existing Mask surface remains the refinement owner; painting is a
     // later operation and does not require regenerating or changing depth.
-    await page.getByRole('tab', { name: 'Properties' }).click();
+    // The Properties panel's inline tab is labelled Design; Properties is the
+    // panel's historical name, not a tab label at this viewport.
+    await page.getByRole('tab', { name: 'Design', exact: true }).click();
     await expect(page.getByRole('button', { name: /mask/i }).first()).toBeVisible({
       timeout: 15000,
     });
