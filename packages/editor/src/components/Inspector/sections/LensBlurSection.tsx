@@ -191,7 +191,6 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
       const controller = generateAbortRef.current;
       if (!controller) return;
       controller.abort();
-      getInferenceWorkerHost().dispose();
       generateAbortRef.current = null;
     };
   }, [src, node?.id]);
@@ -431,10 +430,8 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
     if (!controller) return;
     generateRunRef.current += 1;
     controller.abort();
-    // ONNX Runtime's session.run has no portable AbortSignal hook. Disposing
-    // the host terminates the worker, which is the only reliable way to stop a
-    // long INT8 WASM inference instead of merely abandoning its Promise.
-    getInferenceWorkerHost().dispose();
+    // The shared host detaches this request and discards its late result. It
+    // must stay alive because segmentation/enhancement jobs may share it.
     generateAbortRef.current = null;
     setDepthState('idle');
     setInferenceError('Depth generation cancelled');

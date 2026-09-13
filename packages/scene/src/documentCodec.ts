@@ -19,6 +19,7 @@ import {
   validateDocumentAsset,
   validateIccProfileEntry,
 } from './assets';
+import { validateDepthMaskRecipe } from './depthMaskRecipe';
 import type { Document } from './document';
 import { isContainer, makeGroupNode } from './document';
 import { type DocumentLike, findParentCycle, validateAndRepairDocument } from './document-utils';
@@ -92,6 +93,8 @@ export interface DocumentClosure {
   assets?: Document['assets'];
   /** Icon assets referenced by the closure's nodes — see ./iconAsset.ts. */
   iconAssets?: Document['iconAssets'];
+  /** Accepted scalar depth resources referenced by effects or mask recipes. */
+  depthMaps?: Document['depthMaps'];
   /** Mockup template assets referenced by the closure's nodes (v2.16+). */
   mockupTemplates?: Document['mockupTemplates'];
   /** Generative recipes owned by a node in the closure, including candidates. */
@@ -255,6 +258,25 @@ function sanitizeRasterMaskState(doc: Document, warnings: DocumentCodecWarning[]
       const { mask: _invalidMask, ...rest } = node;
       nodes[nodeId] = rest as SceneNode;
       continue;
+    }
+    if (rasterMask.depthRecipe) {
+      const recipeError = validateDepthMaskRecipe(rasterMask.depthRecipe, candidate);
+      if (recipeError) {
+        warnings.push(
+          warning(
+            'document.invalid-depth-mask-recipe',
+            `${nodeId}: ${recipeError}; the last resolved raster mask was retained`,
+            'warning',
+            `${nodeId}.mask.rasterMask.depthRecipe`,
+          ),
+        );
+        nodes[nodeId] = {
+          ...node,
+          mask: { ...node.mask!, rasterMask: { ...rasterMask, depthRecipe: undefined } },
+        } as SceneNode;
+        referencedAssets.add(rasterMask.assetId);
+        continue;
+      }
     }
     referencedAssets.add(rasterMask.assetId);
     nodes[nodeId] = node;
@@ -1195,10 +1217,26 @@ function collectNodeClosure(doc: Document, rootIds: NodeId[]): DocumentClosure {
     if (timelineIds.has(preset.timelineId)) motionPresets[id] = preset;
   }
   const rasterMaskAssets: NonNullable<Document['rasterMaskAssets']> = {};
+  const depthMapIds = new Set<string>();
   for (const node of Object.values(nodes)) {
     const assetId = node.mask?.rasterMask?.assetId;
     const asset = assetId ? getOwnRasterMaskAsset(doc, assetId) : undefined;
     if (assetId && asset) rasterMaskAssets[assetId] = asset;
+    const correctionAssetId = node.mask?.rasterMask?.depthRecipe?.correction?.assetId;
+    const correctionAsset = correctionAssetId
+      ? getOwnRasterMaskAsset(doc, correctionAssetId)
+      : undefined;
+    if (correctionAsset) rasterMaskAssets[correctionAsset.id] = correctionAsset;
+    const recipeDepthMapId = node.mask?.rasterMask?.depthRecipe?.depthMapId;
+    if (recipeDepthMapId) depthMapIds.add(recipeDepthMapId);
+    for (const effect of ('effects' in node ? node.effects : []) ?? []) {
+      if (effect.type === 'depthBlur') depthMapIds.add(effect.depthMapId);
+    }
+  }
+  const depthMaps: NonNullable<Document['depthMaps']> = {};
+  for (const id of depthMapIds) {
+    const resource = doc.depthMaps?.[id];
+    if (resource) depthMaps[id] = resource;
   }
   const assets: NonNullable<Document['assets']> = {};
   for (const node of Object.values(nodes)) {
@@ -1279,6 +1317,7 @@ function collectNodeClosure(doc: Document, rootIds: NodeId[]): DocumentClosure {
     motionExtensions: Object.keys(motionExtensions).length > 0 ? motionExtensions : undefined,
     motionPresets: Object.keys(motionPresets).length > 0 ? motionPresets : undefined,
     rasterMaskAssets: Object.keys(rasterMaskAssets).length > 0 ? rasterMaskAssets : undefined,
+    depthMaps: Object.keys(depthMaps).length > 0 ? depthMaps : undefined,
     assets: Object.keys(assets).length > 0 ? assets : undefined,
     iconAssets: Object.keys(iconAssets).length > 0 ? iconAssets : undefined,
     mockupTemplates: Object.keys(mockupTemplates).length > 0 ? mockupTemplates : undefined,

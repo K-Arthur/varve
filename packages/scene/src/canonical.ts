@@ -89,6 +89,7 @@ const DOCUMENT_KEY_ORDER: readonly string[] = [
   'stories',
   'brushPresets',
   'rasterMaskAssets',
+  'depthMaps',
   'iconAssets',
   'assets',
   'generativeEdits',
