@@ -337,7 +337,8 @@ export interface Platform {
   // where `navigator.clipboard.read()` and the DOM `paste` event both fail to
   // surface image data (notably WebKitGTK on Wayland). Returns null if the
   // clipboard has no image or the platform doesn't support this.
-  readClipboardImage(): Promise<Uint8Array | null>;
+  /** Read an image with the same cancellation/deadline contract as MIME reads. */
+  readClipboardImage(signal?: AbortSignal): Promise<Uint8Array | null>;
 
   // ─── Native OS Print ──────────────────────────────────────────────────────
   /** List available printers on the system. */

@@ -57,6 +57,49 @@ describe('createTauriPlatform', () => {
     });
   });
 
+  it('bounds native clipboard image reads at the transport deadline', async () => {
+    vi.useFakeTimers();
+    try {
+      const invoke = vi.fn((cmd: string) => {
+        if (cmd === 'read_clipboard_image_png') return new Promise<never>(() => {});
+        return Promise.resolve(null);
+      });
+      globalWithTauri.__TAURI__ = {
+        core: { invoke },
+        event: { listen: async () => () => {} },
+      };
+
+      const pending = createTauriPlatform().readClipboardImage();
+      const rejected = expect(pending).rejects.toThrow(/deadline/i);
+      await vi.advanceTimersByTimeAsync(5_000);
+      await rejected;
+      expect(invoke).toHaveBeenCalledWith('cancel_clipboard_operation', {
+        operationId: expect.any(String),
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('cancels a native clipboard image read when its signal is aborted', async () => {
+    const invoke = vi.fn((cmd: string) => {
+      if (cmd === 'read_clipboard_image_png') return new Promise<never>(() => {});
+      return Promise.resolve(null);
+    });
+    globalWithTauri.__TAURI__ = {
+      core: { invoke },
+      event: { listen: async () => () => {} },
+    };
+
+    const controller = new AbortController();
+    const pending = createTauriPlatform().readClipboardImage(controller.signal);
+    controller.abort();
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+    expect(invoke).toHaveBeenCalledWith('cancel_clipboard_operation', {
+      operationId: expect.any(String),
+    });
+  });
+
   it('saves binary files as ArrayBuffer IPC payloads instead of number arrays', async () => {
     const invoke = vi.fn(async (cmd: string, _args?: unknown) => {
       if (cmd === 'plugin:dialog|save') return '/tmp/icon.svg';
