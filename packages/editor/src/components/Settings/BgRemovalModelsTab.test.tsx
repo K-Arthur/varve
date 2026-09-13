@@ -115,6 +115,7 @@ describe('BgRemovalModelsTab — storage transparency + control', () => {
         id: 'birefnet-general-lite',
         name: 'BiRefNet Lite',
         sizeBytes: 120_000_000,
+        peakMemoryBytes: 900_000_000,
         remoteUrl: 'https://example.com/lite.onnx',
         checksum: 'lite-checksum',
       }),
@@ -133,6 +134,9 @@ describe('BgRemovalModelsTab — storage transparency + control', () => {
     await waitFor(() => expect(screen.getByText('BiRefNet Lite')).toBeInTheDocument());
     expect(screen.getByText('BiRefNet Full')).toBeInTheDocument();
     expect(screen.getAllByText(/not installed/i)).toHaveLength(2);
+    expect(
+      screen.getByText(/Download\/storage ~120 MB · estimated peak working memory ~900 MB/),
+    ).toBeInTheDocument();
     // Storage location must be disclosed, not hidden.
     expect(screen.getByText(/stored in/i)).toBeInTheDocument();
   });
