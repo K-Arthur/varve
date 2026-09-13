@@ -95,6 +95,29 @@ function slider(page: Page, label: string) {
   return page.locator(`input[type="range"][aria-label*="${label}" i]`);
 }
 
+/**
+ * Open the inspector's Export tab. Narrow inspector rows move lower-priority
+ * tabs into the accessible "More inspector tabs" menu, so both paths are
+ * exercised the way a real user reaches them.
+ */
+async function openExportTab(page: Page) {
+  const exportTab = page.getByRole('tab', { name: 'Export', exact: true });
+  if (await exportTab.count()) {
+    await exportTab.click();
+  } else {
+    await page.getByRole('button', { name: /More inspector tabs/ }).click();
+    await page
+      .getByRole('menu', { name: 'More inspector tabs' })
+      .getByRole('menuitem', { name: 'Export', exact: true })
+      .click();
+  }
+  await page.waitForTimeout(300);
+}
+
+function exportFormatButton(page: Page, format: 'PNG' | 'SVG' | 'JPEG') {
+  return page.locator('.spec-export__group').getByRole('button', { name: format, exact: true });
+}
+
 async function setSlider(page: Page, label: string, value: number) {
   await slider(page, label).fill(String(value));
   await page.waitForTimeout(500);
@@ -471,13 +494,9 @@ test.describe('Halftone visual verification', () => {
     await page.waitForTimeout(300);
     await addHalftoneAdjustment(page);
 
-    const exportTab = page.locator('[role="tablist"] button[role="tab"]', {
-      hasText: /^export$/i,
-    });
-    await exportTab.click();
-    await page.waitForTimeout(300);
+    await openExportTab(page);
 
-    await page.getByRole('button', { name: 'PNG', exact: true }).first().click();
+    await exportFormatButton(page, 'PNG').click();
     const downloadPromise = page.waitForEvent('download');
     await page.getByRole('button', { name: /download/i }).click();
     const download = await downloadPromise;
@@ -650,13 +669,9 @@ test.describe('Halftone visual verification', () => {
     await page.waitForTimeout(300);
     await addHalftoneAdjustment(page);
 
-    const exportTab = page.locator('[role="tablist"] button[role="tab"]', {
-      hasText: /^export$/i,
-    });
-    await exportTab.click();
-    await page.waitForTimeout(300);
+    await openExportTab(page);
 
-    await page.getByRole('button', { name: 'SVG', exact: true }).first().click();
+    await exportFormatButton(page, 'SVG').click();
     const svgDownloadPromise = page.waitForEvent('download');
     await page.getByRole('button', { name: /download/i }).click();
     const svgDownload = await svgDownloadPromise;
@@ -686,13 +701,9 @@ test.describe('Halftone visual verification', () => {
     await page.waitForTimeout(300);
     await addHalftoneAdjustment(page);
 
-    const exportTab = page.locator('[role="tablist"] button[role="tab"]', {
-      hasText: /^export$/i,
-    });
-    await exportTab.click();
-    await page.waitForTimeout(300);
+    await openExportTab(page);
 
-    await page.getByRole('button', { name: 'JPEG', exact: true }).first().click();
+    await exportFormatButton(page, 'JPEG').click();
     const jpegDownloadPromise = page.waitForEvent('download');
     await page.getByRole('button', { name: /download/i }).click();
     const jpegDownload = await jpegDownloadPromise;
