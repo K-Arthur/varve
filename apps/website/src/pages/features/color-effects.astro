@@ -33,7 +33,7 @@ const gradientPickerShot = scenes['gradient-picker']?.status === 'captured' ? sc
       <section class="feature-section">
         <h2>What It Is</h2>
         <p>
-          Varve provides color management across RGB, CMYK, grayscale, and spot color spaces with ICC profile support. CMYK values remain native document values instead of being flattened into display RGB during editing. Select an image and Varve can also build a local, deterministic palette from the visible crop, suggest harmonies, and surface WCAG 2.1 contrast pairs. The effects system includes alpha-aware drop and inner shadows, layer and background blur, solid or gradient glows, RGB/custom chromatic splits, and glitch. Adjustment layers provide non-destructive editing with curves, levels, selective color, HSL, and exposure controls. The halftone engine supports AM and FM screening for print production.
+          Varve provides color management across RGB, CMYK, grayscale, and spot color spaces with ICC profile support. CMYK values remain native document values instead of being flattened into display RGB during editing. Select an image and Varve can also build a local, deterministic palette from the visible crop, suggest harmonies, and surface WCAG 2.1 contrast pairs. The effects system includes alpha-aware drop and inner shadows, layer and background blur, solid or gradient glows, RGB/custom chromatic splits, and glitch. Adjustment layers provide non-destructive editing with curves, levels, selective color, HSL, and exposure controls. The halftone engine supports AM and FM screening for print-style looks, with CMYK process screening documented as an artistic preview rather than a calibrated separation.
         </p>
       </section>
 
@@ -240,7 +240,7 @@ const gradientPickerShot = scenes['gradient-picker']?.status === 'captured' ? sc
           <li><strong>Effects:</strong> Alpha-aware drop/inner shadows, canonical Gaussian and Layer Blur, Field/Iris/Tilt-Shift/Path/Spin spatial blur, background blur, Depth Blur, solid or gradient outer/inner glow, glass material, RGB/custom chromatic split, and glitch</li>
           <li><strong>Image Treatments:</strong> Fine Texture, Local Contrast, Atmospheric Depth, Dehaze, Vignette, Grain, and Highlight Glow with source-preserving Object Filters and Adjustment Layers</li>
           <li><strong>Adjustment layers:</strong> Curves (Catmull-Rom spline), levels, selective color (9 targets), HSL, exposure — with per-target scoping</li>
-          <li><strong>Halftone screening:</strong> AM (clustered-dot, 5 dot shapes) and FM (Floyd-Steinberg + Bayer) with standard CMYK angles</li>
+          <li><strong>Halftone screening:</strong> AM clustered dots (7 shapes) and FM stochastic (blue-noise, Bayer, or full-frame error diffusion); document-anchored ruling in LPI, mono ink/paper with an alpha-screening mode, and CMYK process preview with per-ink angles, GCR/UCR black generation, ink limits, and plate preview</li>
           <li><strong>Soft proofing:</strong> qualified CMYK simulation and gamut status when a profile converter is registered; browser display remains an sRGB preview</li>
           <li><strong>Background removal:</strong> Fast, Auto, and High quality local cutouts with optional IS-Net/BiRefNet models, hair-edge refinement, subject picker, and an undoable mask workflow</li>
           <li><strong>Retouching tools:</strong> Clone stamp, healing brush, spot heal, patch tool</li>
@@ -268,7 +268,7 @@ const gradientPickerShot = scenes['gradient-picker']?.status === 'captured' ? sc
           Color management uses a ManagedColor discriminated union (RGB/CMYK/Gray/Spot) with bit-depth-aware channels and analytical sRGB-to-CMYK conversion via OKLab. The blur engine uses normalized separable Gaussian and spatial reference kernels with premultiplied alpha and linear-light accumulation; backend choice does not redefine an authored radius. Adjustment layers support 5 scoping modes for targeting specific layers.
         </p>
         <p>
-          The halftone engine implements ISO 12647-2 standard CMYK screen angles. Background removal runs locally through an ONNX Runtime pipeline: the browser worker handles the compatible path, while native desktop execution is preferred for heavier models.
+          The halftone engine screens document-anchored threshold matrices calibrated to Varve's 96 ppi document units, with per-pixel sampling so the rendered ruling matches the requested LPI; CMYK uses standard press angles (C 15°, M 75°, Y 0°, K 45°) overridable per ink, and is an artistic process preview rather than a calibrated ICC separation. Background removal runs locally through an ONNX Runtime pipeline: the browser worker handles the compatible path, while native desktop execution is preferred for heavier models.
         </p>
       </section>
 

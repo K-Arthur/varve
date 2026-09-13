@@ -170,6 +170,26 @@ import { sitePath } from '../../../lib/siteUrl';
       </section>
 
       <section class="docs-section">
+        <h2>Halftone & Screens</h2>
+        <p>
+          The <strong>Halftone</strong> adjustment screens scoped artwork into clustered AM dots,
+          lines, rings, or stochastic FM texture while keeping the editable source. Controls cover
+          frequency in lines per inch with a document-space period readout, angle, shape, threshold,
+          intensity, edge softness, ink and paper colors, and an ink-on-transparency alpha mode.
+          Process <strong>CMYK</strong> screening adds per-ink angles, registration offsets, GCR/UCR
+          black generation, a total ink limit, and single-plate preview &mdash; an artistic
+          process-screen simulation, not an ICC separation.
+        </p>
+        <p>
+          <strong>Color Halftone</strong> is a separate object filter for comic, zine, and pop-art
+          looks in CMYK, RGB, or mono mode. Screens are anchored in document coordinates, so panning
+          and zooming never shift the pattern or change the ruling. See the
+          <a href={sitePath('/docs/tools/halftone')}>Halftone guide</a> for the complete workflow,
+          FM algorithm choices, and export behavior.
+        </p>
+      </section>
+
+      <section class="docs-section">
         <h2>Image Treatments</h2>
         <p>
           Image Treatments add non-destructive local texture, contrast, atmospheric depth,
@@ -219,7 +239,7 @@ import { sitePath } from '../../../lib/siteUrl';
 
       <div class="docs-cta">
         <h2>Related Guides</h2>
-        <p>See <a href={sitePath('/docs/tools/vector')}>Vector Tools</a> for shape creation, <a href={sitePath('/docs/tools/image-treatments')}>Image Treatments</a> for non-destructive finishing, or <a href={sitePath('/docs/file-formats')}>File Formats</a> for color mode considerations in export.</p>
+        <p>See <a href={sitePath('/docs/tools/halftone')}>Halftone &amp; Screens</a> for process screening and screentone workflows, <a href={sitePath('/docs/tools/colorization')}>Colorize &amp; Recolor</a> for tint, palette, reference, and model-readiness workflows; <a href={sitePath('/docs/tools/vector')}>Vector Tools</a> for shape creation, <a href={sitePath('/docs/tools/image-treatments')}>Image Treatments</a> for non-destructive finishing, or <a href={sitePath('/docs/file-formats')}>File Formats</a> for color mode considerations in export.</p>
       </div>
     </div>
   </div>

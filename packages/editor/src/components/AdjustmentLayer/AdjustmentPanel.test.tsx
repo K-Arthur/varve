@@ -207,11 +207,14 @@ describe('AdjustmentPanel', () => {
     await waitFor(() => {
       expect(screen.getByLabelText('Screening method')).toBeInTheDocument();
     });
-    expect(screen.getByLabelText('Halftone pattern')).toBeInTheDocument();
     expect(screen.getByLabelText('Dot shape')).toBeInTheDocument();
     expect(screen.getByLabelText('Ink channel')).toBeInTheDocument();
     expect(screen.getByLabelText('Screen frequency in lines per inch')).toBeInTheDocument();
     expect(screen.getByLabelText('Screen angle in degrees')).toBeInTheDocument();
+    // New effects use the corrected screen contract and state the period.
+    expect(screen.queryByText('Legacy screen')).toBeNull();
+    expect(screen.getByText(/Period \d+\.\d+ px at 96 ppi/)).toBeInTheDocument();
+    expect(screen.getByText('Advanced')).toBeInTheDocument();
   });
 
   it('editing the frequency slider updates the underlying HalftoneAdjustment', async () => {

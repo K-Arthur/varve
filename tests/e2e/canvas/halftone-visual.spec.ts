@@ -179,6 +179,64 @@ async function canvasPattern(page: Page): Promise<string> {
 }
 
 /**
+ * Measure the average horizontal repeat period of the screen inside a
+ * document-space rect. A full period contains two ink/paper transitions, so
+ * period = 2 * span / transitions along interior rows.
+ */
+async function measureScreenPeriod(
+  page: Page,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+): Promise<number> {
+  return page.evaluate(
+    ({ x, y, w, h }) => {
+      const canvas = document.querySelector<HTMLCanvasElement>(
+        'canvas.editor-canvas__content-layer',
+      );
+      if (!canvas) return -1;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return -1;
+      const rect = canvas.getBoundingClientRect();
+      const sx = canvas.width / rect.width;
+      const sy = canvas.height / rect.height;
+      const data = ctx.getImageData(
+        Math.round(x * sx),
+        Math.round(y * sy),
+        Math.max(1, Math.round(w * sx)),
+        Math.max(1, Math.round(h * sy)),
+      ).data;
+      const rowW = Math.round(w * sx);
+      const periods: number[] = [];
+      for (let row = 2; row < Math.min(14, Math.round(h * sy)); row++) {
+        let transitions = 0;
+        let first = -1;
+        let last = -1;
+        let prev: boolean | null = null;
+        for (let px = 0; px < rowW; px++) {
+          const i = (row * rowW + px) * 4;
+          const gray = 0.299 * data[i]! + 0.587 * data[i + 1]! + 0.114 * data[i + 2]!;
+          const ink = gray < 128;
+          if (ink) {
+            if (first < 0) first = px;
+            last = px;
+          }
+          if (prev !== null && ink !== prev) transitions++;
+          prev = ink;
+        }
+        if (transitions > 0 && last > first) {
+          periods.push((2 * (last - first)) / transitions);
+        }
+      }
+      if (periods.length === 0) return -1;
+      return periods.reduce((sum, value) => sum + value, 0) / periods.length;
+    },
+    { x, y, w, h },
+  );
+}
+
+/**
  * Count dark/light transitions along horizontal scanlines inside a region.
  * A higher screen frequency must produce MORE transitions per row (finer
  * dot spacing), which is the correct discriminator — dark AREA FRACTION is
@@ -245,9 +303,9 @@ test.describe('Halftone visual verification', () => {
     // UI: every halftone control must be present
     await expect(page.locator('text=Preset').first()).toBeVisible({ timeout: 8000 });
     await expect(page.locator('text=Method').first()).toBeVisible();
-    await expect(page.locator('text=Pattern').first()).toBeVisible();
-    await expect(page.locator('text=Dot Shape').first()).toBeVisible();
+    await expect(page.locator('text=Shape').first()).toBeVisible();
     await expect(page.locator('text=Channel').first()).toBeVisible();
+    await expect(page.locator('text=Advanced').first()).toBeVisible();
     await expect(slider(page, 'frequency')).toBeVisible();
     await expect(slider(page, 'angle')).toBeVisible();
     await expect(slider(page, 'threshold')).toBeVisible();
@@ -715,5 +773,50 @@ test.describe('Halftone visual verification', () => {
     expect(chroma, 'color halftone must produce colored (non-grayscale) output').toBeGreaterThan(
       60,
     );
+  });
+
+  test('17 - requested ruling is measurable on canvas (12 LPI ~= 8 px period)', async ({
+    page,
+  }) => {
+    await drawRect(page, 100, 100, 700, 400);
+    await addHalftoneAdjustment(page);
+    await setSlider(page, 'frequency', 12);
+    await setSlider(page, 'angle', 0);
+    await page.screenshot({ path: `${SHOT_DIR}/27-ruling-12lpi.png` });
+
+    const period = await measureScreenPeriod(page, 140, 140, 400, 200);
+    expect(period, 'screen period must be measurable').toBeGreaterThan(0);
+    // 96 ppi / 12 LPI = 8 document px; allow antialiasing tolerance.
+    expect(period).toBeGreaterThan(6.5);
+    expect(period).toBeLessThan(9.5);
+  });
+
+  test('18 - new effects use corrected screening and expose FM algorithm choice', async ({
+    page,
+  }) => {
+    await drawRect(page, 100, 100, 600, 400);
+    await addHalftoneAdjustment(page);
+
+    // New adjustments never show the legacy upgrade affordance.
+    await expect(page.locator('text=Legacy screen')).toHaveCount(0);
+    // The frequency readout states the document-space period.
+    await expect(page.locator('text=/Period \\d+\\.\\d+ px at 96 ppi/')).toBeVisible();
+
+    // Switching to FM reveals the explicit dither algorithm selector.
+    const methodCombo = page.locator('[role="combobox"][aria-label="Screening method"]');
+    await methodCombo.click();
+    await page.getByRole('option', { name: /^FM/i }).click();
+    await page.waitForTimeout(500);
+    const ditherCombo = page.locator('[role="combobox"][aria-label="FM dither algorithm"]');
+    await expect(ditherCombo).toBeVisible();
+    await page.screenshot({ path: `${SHOT_DIR}/28-fm-algorithm.png` });
+
+    // Legacy documents keep "error diffusion" selectable as an explicit
+    // export-quality algorithm; selection persists in the control.
+    await ditherCombo.click();
+    await page.getByRole('option', { name: /error diffusion/i }).click();
+    await page.waitForTimeout(400);
+    await expect(ditherCombo).toContainText(/error diffusion/i);
+    await page.screenshot({ path: `${SHOT_DIR}/29-fm-error-diffusion.png` });
   });
 });

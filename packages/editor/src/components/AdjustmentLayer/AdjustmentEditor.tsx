@@ -3,6 +3,7 @@ import {
   COLOR_HALFTONE_PRESETS,
   type Color,
   type CurvePoint,
+  DOC_PIXELS_PER_INCH,
   HALFTONE_PRESETS,
   isImageTreatmentKind,
   LUT_INPUT_SPACE_LABELS,
@@ -17,6 +18,7 @@ import { FilePickerButton, Select, Switch } from '@varve/ui';
 import { ColorPicker } from '@varve/ui/components/ColorPicker';
 import { useCallback, useMemo, useState } from 'react';
 import { CurveEditor } from '../Inspector/controls/CurveEditor';
+import { DisclosureSection } from '../Inspector/controls/DisclosureSection';
 import { GradientMapAdjustmentSection } from '../Inspector/controls/GradientMapAdjustmentSection';
 import { HistogramWidget } from '../Inspector/controls/HistogramWidget';
 import { RangeValueControl } from '../Inspector/controls/RangeValueControl';
@@ -1108,6 +1110,20 @@ function ChannelMixerEditor({ adjustment, onChange }: AdjustmentEditorProps) {
   );
 }
 
+const HALFTONE_SHAPE_OPTIONS = [
+  { value: 'round', label: 'Round' },
+  { value: 'elliptical', label: 'Elliptical' },
+  { value: 'square', label: 'Square' },
+  { value: 'diamond', label: 'Diamond' },
+  { value: 'line', label: 'Line' },
+  { value: 'cross', label: 'Cross' },
+  { value: 'circle', label: 'Ring' },
+];
+
+function patternForShape(shape: string): string {
+  return shape === 'line' || shape === 'cross' || shape === 'circle' ? shape : 'dot';
+}
+
 function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
   const adj = adjustment as import('@varve/scene').HalftoneAdjustment;
   const handleSelect = (key: string) => (value: string) => {
@@ -1117,33 +1133,86 @@ function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
     onChange({ [key]: value } as unknown as Partial<Adjustment>);
   };
 
+  const method = adj.method ?? 'am';
+  const channel = adj.channel;
+  const isCmyk = channel === 'cmyk';
+  const isLegacy = adj.algorithmVersion === 1;
+  const periodPx = DOC_PIXELS_PER_INCH / Math.max(1, adj.frequency);
+  const channelAngles = adj.channelAngles ?? {};
+  const registrationOffset = adj.registrationOffset ?? {};
+
   const currentPresetId = useMemo(() => {
-    const match = HALFTONE_PRESETS.find(
-      (p) =>
-        p.params.pattern === adj.pattern &&
-        p.params.frequency === adj.frequency &&
-        p.params.angle === adj.angle &&
-        p.params.dotShape === adj.dotShape &&
-        p.params.channel === adj.channel &&
-        p.params.method === adj.method,
-    );
+    const match = HALFTONE_PRESETS.find((p) => {
+      const preset = p.params;
+      return (
+        preset.pattern === adj.pattern &&
+        preset.frequency === adj.frequency &&
+        preset.angle === adj.angle &&
+        preset.dotShape === adj.dotShape &&
+        preset.channel === adj.channel &&
+        preset.method === adj.method &&
+        (preset.fmAlgorithm ?? 'blue-noise') === (adj.fmAlgorithm ?? 'blue-noise') &&
+        (preset.blackGeneration ?? 'none') === (adj.blackGeneration ?? 'none')
+      );
+    });
     return match?.id ?? '';
   }, [adj]);
 
   const handlePresetSelect = (value: string) => {
     const preset = HALFTONE_PRESETS.find((p) => p.id === value);
     if (preset) {
+      // Presets are authored against the corrected screen contract.
       const { pattern, ...rest } = preset.params;
-      onChange({ pattern, ...rest } as unknown as Partial<Adjustment>);
+      onChange({ pattern, algorithmVersion: 2, ...rest } as unknown as Partial<Adjustment>);
     }
+  };
+
+  const handleShapeChange = (shape: string) => {
+    onChange({
+      dotShape: shape,
+      pattern: patternForShape(shape),
+    } as unknown as Partial<Adjustment>);
+  };
+
+  const setChannelAngle = (key: 'c' | 'm' | 'y' | 'k') => (value: number) => {
+    const next = { ...channelAngles };
+    if (Number.isFinite(value)) next[key] = value;
+    else delete next[key];
+    onChange({ channelAngles: next } as unknown as Partial<Adjustment>);
+  };
+  const setRegistrationOffset = (key: 'c' | 'm' | 'y' | 'k', axis: 0 | 1) => (value: number) => {
+    const current = registrationOffset[key] ?? [0, 0];
+    const next = {
+      ...registrationOffset,
+      [key]: axis === 0 ? [value, current[1]] : [current[0], value],
+    };
+    onChange({ registrationOffset: next } as unknown as Partial<Adjustment>);
   };
 
   const fgColor = adj.foregroundColor ?? [0, 0, 0];
   const bgColor = adj.backgroundColor ?? [255, 255, 255];
-  const isMonoChannel = adj.channel !== 'cmyk';
+  const isMonoChannel = !isCmyk;
 
   return (
     <div>
+      {isLegacy && (
+        <div className="adj-editor__row">
+          <span className="adj-editor__label">Legacy screen</span>
+          <button
+            type="button"
+            className="adj-editor__action"
+            onClick={() => onChange({ algorithmVersion: 2 } as unknown as Partial<Adjustment>)}
+          >
+            Update to corrected screening
+          </button>
+        </div>
+      )}
+      {isLegacy && (
+        <p className="adj-editor__hint">
+          This effect was created before the corrected screen contract. Updating keeps its settings
+          but renders the requested ruling and dot shape accurately.
+        </p>
+      )}
       <div className="adj-editor__row">
         <span className="adj-editor__label">Preset</span>
         <Select
@@ -1158,7 +1227,7 @@ function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
         <span className="adj-editor__label">Method</span>
         <Select
           label="Screening method"
-          value={adj.method}
+          value={method}
           options={[
             { value: 'am', label: 'AM (clustered dot)' },
             { value: 'fm', label: 'FM (stochastic)' },
@@ -1166,35 +1235,39 @@ function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           onChange={handleSelect('method')}
         />
       </div>
-      <div className="adj-editor__row">
-        <span className="adj-editor__label">Pattern</span>
-        <Select
-          label="Halftone pattern"
-          value={adj.pattern}
-          options={[
-            { value: 'dot', label: 'Dot' },
-            { value: 'line', label: 'Line' },
-            { value: 'cross', label: 'Cross' },
-            { value: 'circle', label: 'Circle' },
-          ]}
-          onChange={handleSelect('pattern')}
-        />
-      </div>
-      <div className="adj-editor__row">
-        <span className="adj-editor__label">Dot Shape</span>
-        <Select
-          label="Dot shape"
-          value={adj.dotShape}
-          options={[
-            { value: 'round', label: 'Round' },
-            { value: 'elliptical', label: 'Elliptical' },
-            { value: 'square', label: 'Square' },
-            { value: 'diamond', label: 'Diamond' },
-            { value: 'line', label: 'Line' },
-          ]}
-          onChange={handleSelect('dotShape')}
-        />
-      </div>
+      {method === 'fm' && (
+        <div className="adj-editor__row">
+          <span className="adj-editor__label">Dither</span>
+          <Select
+            label="FM dither algorithm"
+            value={adj.fmAlgorithm ?? 'blue-noise'}
+            options={[
+              { value: 'blue-noise', label: 'Blue noise (stochastic)' },
+              { value: 'bayer', label: 'Bayer ordered' },
+              { value: 'error-diffusion', label: 'Error diffusion (export)' },
+            ]}
+            onChange={handleSelect('fmAlgorithm')}
+          />
+        </div>
+      )}
+      {method === 'fm' && (adj.fmAlgorithm ?? 'blue-noise') === 'error-diffusion' && (
+        <p className="adj-editor__hint">
+          Error diffusion is a full-frame algorithm. Newly created effects keep preview and export
+          identical; legacy documents that selected it show the blue-noise preview while exporting
+          with error diffusion.
+        </p>
+      )}
+      {method === 'am' && (
+        <div className="adj-editor__row">
+          <span className="adj-editor__label">Shape</span>
+          <Select
+            label="Dot shape"
+            value={adj.dotShape}
+            options={HALFTONE_SHAPE_OPTIONS}
+            onChange={handleShapeChange}
+          />
+        </div>
+      )}
       <div className="adj-editor__row">
         <span className="adj-editor__label">Channel</span>
         <Select
@@ -1225,8 +1298,11 @@ function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           unit="LPI"
           rangeAriaLabel="Screen frequency in lines per inch"
           onChange={handleValue('frequency')}
-          disabled={adj.channel === 'cmyk'}
         />
+        <p className="adj-editor__hint">
+          Period {periodPx.toFixed(2)} px at 96 ppi
+          {periodPx < 3 ? ' — increase export resolution to resolve this ruling.' : '.'}
+        </p>
       </div>
       <div className="adj-editor__slider-row">
         <div className="adj-editor__slider-label">
@@ -1243,7 +1319,7 @@ function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           unit="°"
           rangeAriaLabel="Screen angle in degrees"
           onChange={handleValue('angle')}
-          disabled={adj.channel === 'cmyk'}
+          disabled={isCmyk}
         />
       </div>
       <div className="adj-editor__slider-row">
@@ -1331,18 +1407,173 @@ function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           </div>
         </>
       )}
-      {adj.channel === 'cmyk' && (
+      {isMonoChannel && method === 'am' && (
         <div className="adj-editor__row">
-          <span
-            style={{
-              fontSize: 'var(--font-size-xs)',
-              color: 'var(--color-text-muted)',
-            }}
-          >
-            CMYK mode screens each ink at its standard press angle (C 15°, M 75°, Y 0°, K 45°) to
-            avoid moiré between channels.
-          </span>
+          <span className="adj-editor__label">Alpha</span>
+          <Select
+            label="Alpha handling"
+            value={adj.alphaMode ?? 'preserve'}
+            options={[
+              { value: 'preserve', label: 'Preserve source alpha' },
+              { value: 'screen', label: 'Screen ink into alpha' },
+            ]}
+            onChange={handleSelect('alphaMode')}
+          />
         </div>
+      )}
+      {(isMonoChannel || isCmyk) && (
+        <DisclosureSection title="Advanced" id="halftone-advanced" defaultExpanded={false}>
+          {isCmyk && (
+            <>
+              <div className="adj-editor__row">
+                <span className="adj-editor__label">Black</span>
+                <Select
+                  label="Black generation"
+                  value={adj.blackGeneration ?? 'none'}
+                  options={[
+                    { value: 'none', label: 'None (CMY only)' },
+                    { value: 'gcr', label: 'GCR (full gray component)' },
+                    { value: 'ucr', label: 'UCR (shadows only)' },
+                  ]}
+                  onChange={handleSelect('blackGeneration')}
+                />
+              </div>
+              {(adj.blackGeneration ?? 'none') !== 'none' && (
+                <div className="adj-editor__slider-row">
+                  <div className="adj-editor__slider-label">
+                    <span>Black strength</span>
+                    <span>{Math.round((adj.gcrStrength ?? 0.5) * 100)}%</span>
+                  </div>
+                  <RangeValueControl
+                    label="Black generation strength"
+                    rangeClassName="adj-editor__slider"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={Math.round((adj.gcrStrength ?? 0.5) * 100)}
+                    unit="%"
+                    onChange={(value) =>
+                      onChange({ gcrStrength: value / 100 } as unknown as Partial<Adjustment>)
+                    }
+                  />
+                </div>
+              )}
+              <div className="adj-editor__slider-row">
+                <div className="adj-editor__slider-label">
+                  <span>Total ink limit</span>
+                  <span>{Math.round((adj.tacLimit ?? 1) * 100)}%</span>
+                </div>
+                <RangeValueControl
+                  label="Total area coverage limit"
+                  rangeClassName="adj-editor__slider"
+                  min={50}
+                  max={100}
+                  step={1}
+                  value={Math.round((adj.tacLimit ?? 1) * 100)}
+                  unit="%"
+                  onChange={(value) =>
+                    onChange({ tacLimit: value / 100 } as unknown as Partial<Adjustment>)
+                  }
+                />
+              </div>
+              <div className="adj-editor__row">
+                <span className="adj-editor__label">Show ink</span>
+                <Select
+                  label="Channel preview"
+                  value={adj.previewChannel ?? 'composite'}
+                  options={[
+                    { value: 'composite', label: 'Composite' },
+                    { value: 'c', label: 'Cyan' },
+                    { value: 'm', label: 'Magenta' },
+                    { value: 'y', label: 'Yellow' },
+                    { value: 'k', label: 'Black' },
+                  ]}
+                  onChange={handleSelect('previewChannel')}
+                />
+              </div>
+              {(['c', 'm', 'y', 'k'] as const).map((ink) => (
+                <div className="adj-editor__row" key={ink}>
+                  <span className="adj-editor__label">{ink.toUpperCase()} angle / offset</span>
+                  <div className="adj-editor__ink-row">
+                    <input
+                      type="number"
+                      className="adj-editor__number"
+                      min={0}
+                      max={360}
+                      step={1}
+                      value={channelAngles[ink] ?? ''}
+                      placeholder={
+                        ink === 'c' ? '15' : ink === 'm' ? '75' : ink === 'y' ? '0' : '45'
+                      }
+                      aria-label={`${ink.toUpperCase()} screen angle`}
+                      onChange={(event) => {
+                        const value = Number(event.target.value);
+                        if (event.target.value === '') {
+                          const next = { ...channelAngles };
+                          delete next[ink];
+                          onChange({ channelAngles: next } as unknown as Partial<Adjustment>);
+                        } else {
+                          setChannelAngle(ink)(value);
+                        }
+                      }}
+                    />
+                    <input
+                      type="number"
+                      className="adj-editor__number"
+                      step={1}
+                      value={registrationOffset[ink]?.[0] ?? 0}
+                      aria-label={`${ink.toUpperCase()} registration X offset`}
+                      onChange={(event) =>
+                        setRegistrationOffset(ink, 0)(Number(event.target.value))
+                      }
+                    />
+                    <input
+                      type="number"
+                      className="adj-editor__number"
+                      step={1}
+                      value={registrationOffset[ink]?.[1] ?? 0}
+                      aria-label={`${ink.toUpperCase()} registration Y offset`}
+                      onChange={(event) =>
+                        setRegistrationOffset(ink, 1)(Number(event.target.value))
+                      }
+                    />
+                  </div>
+                </div>
+              ))}
+              <p className="adj-editor__hint">
+                CMYK is an uncalibrated process-screen preview, not an ICC separation. Per-channel
+                angles override the standard press angles (C 15°, M 75°, Y 0°, K 45°); offsets are
+                in document pixels.
+              </p>
+            </>
+          )}
+          {isMonoChannel && (
+            <>
+              <div className="adj-editor__slider-row">
+                <div className="adj-editor__slider-label">
+                  <span>Dot gain</span>
+                  <span>{Math.round((adj.dotGain ?? 0) * 100)}%</span>
+                </div>
+                <RangeValueControl
+                  label="Dot gain compensation"
+                  rangeClassName="adj-editor__slider"
+                  min={0}
+                  max={50}
+                  step={1}
+                  value={Math.round((adj.dotGain ?? 0) * 100)}
+                  unit="%"
+                  onChange={(value) =>
+                    onChange({ dotGain: value / 100 } as unknown as Partial<Adjustment>)
+                  }
+                />
+              </div>
+              <p className="adj-editor__hint">
+                Dot gain expands midtone coverage as printed ink spreads, without changing the paper
+                or solid endpoints.
+              </p>
+            </>
+          )}
+        </DisclosureSection>
       )}
     </div>
   );
@@ -1381,13 +1612,35 @@ function ColorHalftoneEditor({
         angle: preset.params.angle,
         dotShape: preset.params.dotShape,
         mode: preset.params.mode,
+        algorithmVersion: 2,
         inkColor: preset.params.inkColor ? ([...preset.params.inkColor] as Color) : undefined,
       } as unknown as Partial<Adjustment>);
     }
   };
 
+  const isLegacy = adj.algorithmVersion === 1;
+  const periodPx = DOC_PIXELS_PER_INCH / Math.max(1, adj.screenSize);
+
   return (
     <div>
+      {isLegacy && (
+        <>
+          <div className="adj-editor__row">
+            <span className="adj-editor__label">Legacy screen</span>
+            <button
+              type="button"
+              className="adj-editor__action"
+              onClick={() => onChange({ algorithmVersion: 2 } as unknown as Partial<Adjustment>)}
+            >
+              Update to corrected screening
+            </button>
+          </div>
+          <p className="adj-editor__hint">
+            This effect used a screen whose tone was inverted and whose mix double-counted black.
+            Updating keeps its settings and corrects the output.
+          </p>
+        </>
+      )}
       <div className="adj-editor__row">
         <span className="adj-editor__label">Preset</span>
         <Select
@@ -1440,6 +1693,14 @@ function ColorHalftoneEditor({
           unit="LPI"
           onChange={handleValue('screenSize')}
         />
+        <p className="adj-editor__hint">
+          Period {periodPx.toFixed(2)} px at 96 ppi.
+          {adj.mode === 'cmyk'
+            ? ' CMYK is an uncalibrated artistic separation, not an ICC process proof.'
+            : adj.mode === 'mono'
+              ? ' Mono screens ink over the source colours.'
+              : ''}
+        </p>
       </div>
       <div className="adj-editor__slider-row">
         <div className="adj-editor__slider-label">

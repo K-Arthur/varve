@@ -1,0 +1,110 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { sitePath } from '../../../lib/siteUrl';
+---
+
+<Layout
+  title="Halftone — Varve Docs"
+  description="Create, edit, and export non-destructive halftone and process-screening looks in Varve."
+>
+  <div class="container-custom">
+    <article class="doc-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/docs')}>Docs</a> / <a href={sitePath('/docs/tools/color')}>Color &amp; Effects</a> / Halftone
+      </nav>
+      <h1>Halftone</h1>
+      <p class="lead">
+        A non-destructive adjustment that screens any scoped content &mdash; images, vector shapes,
+        text, groups &mdash; into clustered dots, lines, or stochastic texture, and keeps the editable
+        source underneath.
+      </p>
+
+      <h2>Apply a halftone</h2>
+      <ol>
+        <li>Select the artwork (or leave nothing selected to affect the page) and create an
+          <strong>Adjustment Layer</strong>.</li>
+        <li>In the Adjustments tab choose <strong>Add adjustment &rarr; Halftone</strong>.</li>
+        <li>Pick a <strong>Preset</strong> as a starting point, then tune frequency, angle, and
+          shape. The source stays editable; toggling the adjustment off restores it exactly.</li>
+      </ol>
+
+      <h2>Read the controls</h2>
+      <ul>
+        <li><strong>Method</strong> &mdash; AM uses clustered dots (classic print look); FM uses a
+          stochastic threshold. FM offers <strong>Blue noise</strong> (recommended, preview and
+          export match), <strong>Bayer</strong> (regular ordered pattern), and
+          <strong>Error diffusion</strong> (full-frame export quality).</li>
+        <li><strong>Shape</strong> &mdash; round, elliptical, square, diamond, line, cross, or ring.
+          Shape selection changes the dot geometry without changing tone.</li>
+        <li><strong>Frequency (LPI)</strong> &mdash; lines per inch in document units. The panel
+          shows the resulting period in pixels at 96&nbsp;ppi; when the period drops below about
+          3&nbsp;px, raise the export resolution instead of trusting the preview.</li>
+        <li><strong>Angle</strong> &mdash; mono screens only. Process (CMYK) screens use standard
+          press angles per ink.</li>
+        <li><strong>Threshold</strong> shifts how much of the tone becomes ink; <strong>Intensity</strong>
+          blends the screened result with the original; <strong>Softness</strong> anti-aliases dot
+          edges without changing coverage.</li>
+        <li><strong>Ink / Paper</strong> colors are available for single-ink screens, and
+          <strong>Alpha &rarr; Screen ink into alpha</strong> turns a mono screen into a true
+          ink-on-transparency screentone.</li>
+      </ul>
+
+      <h2>Process screening (CMYK)</h2>
+      <p>
+        Selecting the <strong>CMYK</strong> channel screens each process ink separately at its own
+        angle and recombines them for a preview. Advanced controls expose per-channel angles and
+        registration offsets, <strong>black generation</strong> (GCR or shadow-only UCR) with
+        strength, a <strong>total ink limit</strong>, and a <strong>Show ink</strong> selector for
+        inspecting a single plate. This is an artistic process-screen preview, not an ICC
+        separation or press-calibrated proof.
+      </p>
+
+      <h2>Document-space behavior</h2>
+      <p>
+        The screen is anchored in document coordinates: panning and zooming never shift the pattern
+        or change its ruling, and two objects at the same document position share the same screen
+        phase. Export at higher resolution resolves more samples per cell while keeping the same
+        physical frequency.
+      </p>
+
+      <h2>Legacy screens</h2>
+      <p>
+        Documents created before the corrected 2026 screen contract keep their original rendering so
+        artwork does not change underneath you. Their Inspector shows <strong>Legacy screen</strong>
+        with an <strong>Update to corrected screening</strong> action that keeps every setting and
+        renders the requested ruling and shape accurately. New effects always start on the corrected
+        contract.
+      </p>
+
+      <h2>Export</h2>
+      <p>
+        Halftones export through the canonical render pipeline at the requested resolution. SVG and
+        PDF cannot encode a screen structurally, so the affected subtree is rasterized with the full
+        filter stack and embedded while the rest of the page stays vector. Preview and export use
+        the same algorithm for AM and ordered FM; error diffusion applies only to full-frame export.
+      </p>
+
+      <h2>Limitations</h2>
+      <p>
+        Screening is CPU-based. CMYK and duotone modes are uncalibrated artistic simulations, not
+        press-ready separations, and standard screen angles are conventions rather than a universal
+        moiré guarantee. Halftone output is raster, not editable vector dots; there is no vector
+        conversion export.
+      </p>
+
+      <p><a href={sitePath('/features/color-effects')}>Read the color and effects overview →</a></p>
+    </article>
+  </div>
+</Layout>
+
+<style>
+  .doc-page { max-width: 760px; margin: 0 auto; padding: 3rem 0 5rem; }
+  .breadcrumb { font-size: 0.875rem; margin-bottom: 1.5rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  h1 { font-family: var(--font-editorial); font-size: clamp(2rem, 5vw, 2.75rem); color: var(--text-primary); }
+  .lead { font-size: 1.2rem; color: var(--text-secondary); margin-bottom: 2.5rem; }
+  h2 { margin-top: 2.5rem; color: var(--text-primary); }
+  p, li { color: var(--text-secondary); line-height: 1.75; }
+  li + li { margin-top: 0.65rem; }
+  code { color: var(--text-primary); }
+</style>

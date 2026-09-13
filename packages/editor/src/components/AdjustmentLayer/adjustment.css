@@ -565,6 +565,31 @@
   border-color: var(--color-interactive-default);
 }
 
+.adj-editor__action {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.adj-editor__action:hover {
+  border-color: var(--color-interactive-default);
+}
+
+.adj-editor__action:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+
+.adj-editor__ink-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
 .adj-editor__select {
   padding: var(--space-1) var(--space-1);
   border: 1px solid var(--color-border-subtle);
