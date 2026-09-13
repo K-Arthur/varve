@@ -1,6 +1,6 @@
 # Generative editing system
 
-Status: current-state contract, 2026-09-12. See [ADR-0232](../adr/0232-generative-editing-semantics.md).
+Status: current-state contract, 2026-09-13. See [ADR-0232](../adr/0232-generative-editing-semantics.md).
 
 Varve's generative editing surface is a non-destructive layer over the
 existing scene, selection, raster-mask, asset, inference, history, and export
@@ -46,6 +46,7 @@ Generative Edit is available from all of the image-oriented entry points that
 can safely provide one raster source:
 
 - the image inspector's Adjustments section;
+- the image inspector's Crop & Bounds → Generative Expand action;
 - Object → Generative Edit…;
 - the command palette, under the same action id, with `generative`,
   `inpainting`, `fill`, `remove object`, and `heal` search terms.
@@ -74,6 +75,16 @@ new generation is required before Apply can mutate the document again. The
 last retained candidate cannot be deleted. Changing
 the source, mask, or generation settings invalidates the preview rather than
 silently applying a candidate made for an earlier state.
+
+Expand exposes the four independent source-pixel margins as the authoritative
+frame controls. It also provides common target aspect ratios, explicit output
+width and height, and nine source anchors (center, sides, and corners). The
+anchor names the retained source position in the new frame. These helpers only
+convert a containing output frame into margins; they never crop or scale
+the retained source. The same computed margins feed the planner, preview,
+inference mask, output-frame record, and acceptance transaction. If the selected
+device budget would round the generated border away, the control surface marks
+the frame unavailable before a job can start.
 
 On Apply, the source is revalidated, the accepted result and mask assets are
 embedded, and the existing image node is updated in one editor transaction.
@@ -225,7 +236,9 @@ accepted expanded asset replaces the image fill and the node geometry grows to
 the output frame while `outputFrame` preserves the source's world-space
 position, so expanding on the top or left does not move the subject. The review
 surface states the effective generation resolution, because the fixed LaMa
-graph letterboxes the frame and enlarges its output. When a bounded edit is
+graph letterboxes the frame and enlarges its output. The working-frame planner
+rejects a budget that would round the requested border into a no-op rather than
+returning an unchanged expansion. When a bounded edit is
 repeated, the next bounded context starts from the immutable source plus all
 previously accepted overlay patches; the active candidate is excluded only
 from the review baseline so it cannot be painted twice.
