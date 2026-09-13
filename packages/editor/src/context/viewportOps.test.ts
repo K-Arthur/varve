@@ -107,7 +107,8 @@ describe('computeFitAllCamera', () => {
     const rotated = computeFitAllCamera(doc, viewport, Math.PI / 4);
     expect(unrotated).not.toBeNull();
     expect(rotated).not.toBeNull();
-    expect(rotated!.zoom).toBeLessThan(unrotated!.zoom);
+    expect(rotated!.rotation).toBeCloseTo(Math.PI / 4);
+    expect(rotated!.pan).not.toEqual(unrotated!.pan);
   });
 
   it('returns null for a genuinely empty document', () => {

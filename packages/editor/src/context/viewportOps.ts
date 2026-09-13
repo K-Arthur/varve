@@ -127,7 +127,7 @@ export function computeFitAllCamera(
   doc: Document,
   viewport: Viewport,
   rotation = 0,
-): { zoom: number; pan: { x: number; y: number } } | null {
+): Camera | null {
   const entries = walkNodes(doc);
   // nodeWorldBounds falls back to an O(n) linear scan (getParent) for every
   // node's ancestor-chain lookup when no parentIndex is passed. Called once
