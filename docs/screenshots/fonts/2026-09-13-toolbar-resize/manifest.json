@@ -1,7 +1,7 @@
 {
   "evidenceType": "working-tree observation",
-  "headAtCollection": "master at visual run port 1635; exact SHA recorded in evidence log",
-  "command": "VARVE_E2E_PORT=1635 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 npx playwright test tests/e2e/canvas/font-toolbar-visual.spec.ts --project=chromium -g 'DPR 1' --reporter=list --timeout=120000",
+  "headAtCollection": "dd2b9ae646f75daa17598c36331c49e6ad96ccbd",
+  "command": "VARVE_E2E_PORT=1640 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 npx playwright test tests/e2e/canvas/font-toolbar-visual.spec.ts --project=chromium -g 'DPR 1' --reporter=list --timeout=120000",
   "captures": [
     {
       "file": "dark-closed.png",

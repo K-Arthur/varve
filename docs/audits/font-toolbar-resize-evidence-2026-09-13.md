@@ -47,10 +47,10 @@ resize-triggered portal Escape, plus the normal second Escape path.
 The real browser flow passed:
 
 ```text
-TMPDIR=/home/kevina/CodingProjects/varve/.tmp VARVE_E2E_PORT=1635 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 npx playwright test tests/e2e/canvas/font-toolbar-visual.spec.ts --project=chromium -g 'DPR 1' --reporter=list --timeout=120000
+TMPDIR=/home/kevina/CodingProjects/varve/.tmp VARVE_E2E_PORT=1640 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 npx playwright test tests/e2e/canvas/font-toolbar-visual.spec.ts --project=chromium -g 'DPR 1' --reporter=list --timeout=120000
 ```
 
-Result: **1 passed** in 2.1 minutes. The flow exercised light, dark, and high
+Result: **1 passed** in 1.7 minutes after commit `dd2b9ae646f75daa17598c36331c49e6ad96ccbd`. The flow exercised light, dark, and high
 contrast themes, 1920/1280/640 CSS-pixel widths, closed/open/narrow picker
 states, keyboard filtering, active-descendant mounting, menu containment, and
 the resize that previously ended editing. The inspected captures and metrics
@@ -69,11 +69,10 @@ The measured DPR-1 toolbar contract was identical in all three themes:
 | Family field | 180 px minimum at the narrow check |
 
 The failed port-1625 retry is retained only as diagnosis evidence. A later
-pass on port 1635 is the accepted visual result. The visual run started while
-`master` was changing concurrently; the reflog brackets collection between
-`4e0ac0b5e` (08:30:56) and `769855414` (08:33:41), and the run finished before
-the subsequent `4d6a1cc22` commit. The screenshots are therefore intentionally
-labelled working-tree evidence rather than a frozen-SHA release certification.
+pass on port 1635 is the accepted visual result. The post-commit run captured its launch and completion at
+`dd2b9ae646f75daa17598c36331c49e6ad96ccbd`; `master` did not advance during the
+run. The captures are therefore tied to the committed toolbar fix, while the
+remaining platform lanes still require their own environments.
 
 ## Acceptance disposition
 
