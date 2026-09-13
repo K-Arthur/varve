@@ -127,6 +127,18 @@ export function composeExpandedFullResolution(options: {
     layout.source.dw,
     layout.source.dh,
   );
+  // Normalize the retained source through the canvas once, then write the
+  // sampled bytes back with putImageData. The generation draw below is
+  // clipped away from this rectangle, so this makes the source side of the
+  // composition byte-stable instead of leaving it subject to a later canvas
+  // interpolation or premultiplication pass.
+  const retainedPixels = context.getImageData(
+    layout.source.dx,
+    layout.source.dy,
+    layout.source.dw,
+    layout.source.dh,
+  );
+  context.putImageData(retainedPixels, layout.source.dx, layout.source.dy);
 
   const generatedCanvas = drawableFromImageData(generated);
   context.save();
