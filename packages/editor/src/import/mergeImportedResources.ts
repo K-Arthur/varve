@@ -230,6 +230,12 @@ function remapGenerativeEditAssets(
     variations: edit.variations.map((variation) => ({
       ...variation,
       assetId: remapId(variation.assetId, maps.assetIds) ?? variation.assetId,
+      ...(variation.thumbnailAssetId
+        ? {
+            thumbnailAssetId:
+              remapId(variation.thumbnailAssetId, maps.assetIds) ?? variation.thumbnailAssetId,
+          }
+        : {}),
       contextAssetId: remapId(variation.contextAssetId, maps.assetIds),
     })),
   };
