@@ -87,6 +87,26 @@ describe('harvestDocumentFontFaces', () => {
     expect(sources).toEqual(['url(data:font/woff2;base64,AAA)', 'url(https://cdn.test/b.woff2)']);
   });
 
+  it('carries exact byte-backed face identity and bridge revision', () => {
+    withStyleSheets([
+      sheet([
+        fontFaceRule({
+          'font-family': 'Shared',
+          src: 'url(blob:http://localhost/face-a)',
+          '--varve-face-key':
+            '"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:single"',
+          '--varve-face-revision': '"Shared:3"',
+        }),
+      ]),
+    ]);
+
+    expect(harvestDocumentFontFaces()[0]).toMatchObject({
+      family: 'Shared',
+      faceKey: 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:single',
+      revision: 'Shared:3',
+    });
+  });
+
   it('skips a cross-origin stylesheet instead of throwing', () => {
     const opaque = {
       href: 'https://other.test/fonts.css',
@@ -120,6 +140,10 @@ describe('fontFaceSetKey', () => {
       fontFaceSetKey([face, { family: 'B', source: 'url(/b.woff2)' }]),
     );
     expect(fontFaceSetKey([face])).not.toBe(fontFaceSetKey([{ ...face, weight: '700' }]));
+    expect(fontFaceSetKey([face])).not.toBe(
+      fontFaceSetKey([{ ...face, faceKey: `sha256:${'a'.repeat(64)}:single` }]),
+    );
+    expect(fontFaceSetKey([face])).not.toBe(fontFaceSetKey([{ ...face, revision: 'Shared:2' }]));
   });
 
   it('has a distinct identity for an empty set', () => {

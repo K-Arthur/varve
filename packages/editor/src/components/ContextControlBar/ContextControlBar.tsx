@@ -185,6 +185,7 @@ function TextSection({
       <FontSelector
         className="ccb__font-selector"
         value={fontFamily}
+        fontReference={node.fontReference}
         onChange={(family) => applyChanges(fontFamilyChanges(family))}
       />
       <Select

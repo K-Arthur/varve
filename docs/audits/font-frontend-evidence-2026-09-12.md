@@ -365,3 +365,41 @@ and the semantic ranker both returned a local record. The full browser now
 deduplicates result rows by `familyId` before virtualization; the focused
 FontBrowser suite passed **8/8** after the repair and no longer emits the
 duplicate-key warning during the exact-family search.
+
+## Exact-face worker lifecycle follow-up — 2026-09-13
+
+The audit found that `FontLoader.unloadFont(family)` was the only removal path:
+two imported artifacts with the same family, weight, and style could not be
+removed independently, and the worker bridge retained a stale blob rule after
+one face was removed. The loader now tracks each loaded `FontFace` by its
+portable `sha256:<digest>:<member>` key, exposes `unloadFace(faceKey)`, removes
+only that face's document entry, bridge style, object URL, and registry entry,
+and keeps family-level removal for legacy unkeyed faces. Worker font rules now
+carry the exact face key and a monotone bridge revision; the worker face-set
+identity includes both so a remove/re-add cycle cannot reuse an old adoption
+acknowledgement.
+
+Focused checks:
+
+```text
+TMPDIR=/home/kevina/CodingProjects/varve/.tmp pnpm exec biome check --write packages/engine/src/font/fontLoader.ts packages/engine/src/font/fontLoader.test.ts packages/engine/src/fontRegistry.ts packages/engine/src/fontRegistry.test.ts packages/editor/src/render/workerFonts.ts packages/editor/src/render/workerFonts.test.ts
+TMPDIR=/home/kevina/CodingProjects/varve/.tmp pnpm exec vitest run packages/engine/src/font/fontLoader.test.ts packages/engine/src/fontRegistry.test.ts packages/editor/src/render/workerFonts.test.ts --reporter=dot
+```
+
+The focused suites passed **85/85** across three files. The first attempt hit
+`ENOSPC` because the shared `/tmp` tmpfs was full; rerunning with the repository
+`.tmp` directory passed. The package typecheck remains blocked by an unrelated
+concurrent `rasterSurface.test.ts` import of a missing
+`validateRasterSurfaceDimensions` export. No browser screenshot was required
+for this lifecycle-only change; the existing worker/font visual captures above
+remain the rendering evidence, while exact face removal is covered by the
+registry/loader tests.
+
+The toolbar geometry evidence was re-inspected at 1280x720 in the existing
+light, dark, and narrow captures. The compact text bar and contextual bar share
+the palette's 32px controls, tokenized gap and padding, surface, radius, and
+shadow; long family names remain readable and the open menu stays within the
+viewport. A fresh DPR-1 retry on `master` (port 1602) reached the browser cold
+start but ended with Playwright `page.goto: Target page, context or browser has
+been closed`; no new screenshot was treated as passing. This is recorded as an
+environment limitation, not visual certification of that failed retry.

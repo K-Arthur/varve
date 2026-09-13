@@ -8,7 +8,13 @@
 
 import { defaultRangeExtractor, useVirtualizer } from '@tanstack/react-virtual';
 import { getFontRegistry, getFontSemanticCatalog } from '@varve/engine';
-import { type FontSemanticRecord, parseFontSemanticQuery, tagLabel } from '@varve/engine/font';
+import {
+  type FontReference,
+  type FontSemanticRecord,
+  fontReferenceKey,
+  parseFontSemanticQuery,
+  tagLabel,
+} from '@varve/engine/font';
 import { FloatingPortal, Tooltip } from '@varve/ui';
 import {
   useCallback,
@@ -24,6 +30,8 @@ import './FontSelector.css';
 export interface FontSelectorProps {
   value: string;
   onChange: (family: string) => void;
+  /** Exact artifact/member requested by the current text target, if any. */
+  fontReference?: FontReference;
   label?: string;
   className?: string;
 }
@@ -62,6 +70,7 @@ function recordLabels(record: FontSemanticRecord): string[] {
 export function FontSelector({
   value,
   onChange,
+  fontReference,
   label = 'Font family',
   className,
 }: FontSelectorProps) {
@@ -118,7 +127,17 @@ export function FontSelector({
     }
     return [...byName.values()].sort((a, b) => a.familyName.localeCompare(b.familyName));
   }, [semantic, semanticRevision, registryRevision]);
-  const hasMatch = allInstalled.some((record) => normalize(record.familyName) === normalize(value));
+  const hasFamilyMatch = allInstalled.some(
+    (record) => normalize(record.familyName) === normalize(value),
+  );
+  const requestedFaceKey = fontReference ? fontReferenceKey(fontReference) : undefined;
+  const hasExactFaceMatch =
+    !requestedFaceKey ||
+    registry.getEntries(value).some((entry) => entry.faceKey === requestedFaceKey);
+  const warningLabel = !hasFamilyMatch
+    ? 'Font is not installed'
+    : 'Exact font face is not installed; fallback is in use';
+  const showWarning = (!hasFamilyMatch || !hasExactFaceMatch) && !isOpen && value.trim();
 
   const sections = useMemo(() => {
     const sections: Array<{ title: string; records: FontSemanticRecord[] }> = [];
@@ -305,7 +324,9 @@ export function FontSelector({
       <label className="font-selector__label" htmlFor={inputId}>
         {label}
       </label>
-      <div className="font-selector__input-wrapper">
+      <div
+        className={`font-selector__input-wrapper${showWarning ? ' font-selector__input-wrapper--warning' : ''}`}
+      >
         <input
           ref={inputRef}
           id={inputId}
@@ -332,9 +353,9 @@ export function FontSelector({
           }
           autoComplete="off"
         />
-        {!hasMatch && !isOpen && value.trim() && (
-          <Tooltip label="Font is not installed">
-            <span className="font-selector__warning" role="img" aria-label="Font is not installed">
+        {showWarning && (
+          <Tooltip label={warningLabel}>
+            <span className="font-selector__warning" role="img" aria-label={warningLabel}>
               !
             </span>
           </Tooltip>

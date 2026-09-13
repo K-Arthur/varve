@@ -121,6 +121,68 @@ describe('FontLoader', () => {
     ]);
   });
 
+  it('unloads one exact artifact while retaining a same-family sibling', async () => {
+    const registry = new FontRegistry([]);
+    const loader = new FontLoader(undefined, registry);
+    const firstKey = `sha256:${'1'.repeat(64)}:single`;
+    const secondKey = `sha256:${'2'.repeat(64)}:single`;
+    const faces: Array<{ family: string; source: unknown }> = [];
+    const deleteFace = vi.fn();
+    const originalFontFace = globalThis.FontFace;
+    const originalFonts = document.fonts;
+    // @ts-expect-error — the test supplies a minimal FontFace implementation.
+    globalThis.FontFace = class ExactFace {
+      family: string;
+      source: unknown;
+      constructor(family: string, source: unknown) {
+        this.family = family;
+        this.source = source;
+        faces.push(this);
+      }
+      load() {
+        return Promise.resolve(this);
+      }
+    };
+    // @ts-expect-error — document.fonts is read-only in DOM lib
+    document.fonts = {
+      add: vi.fn(),
+      delete: deleteFace,
+      ready: Promise.resolve(),
+      [Symbol.iterator]: function* () {
+        yield* [];
+      },
+    };
+
+    try {
+      await loader.restoreFont('Shared Family', new ArrayBuffer(100), {
+        faceKey: firstKey,
+        postScriptName: 'Shared-Regular-A',
+      });
+      await loader.restoreFont('Shared Family', new ArrayBuffer(100), {
+        faceKey: secondKey,
+        postScriptName: 'Shared-Regular-B',
+      });
+
+      expect(registry.getEntries('Shared Family').map((entry) => entry.faceKey)).toEqual([
+        firstKey,
+        secondKey,
+      ]);
+      expect(loader.unloadFace(firstKey)).toBe(true);
+      expect(deleteFace).toHaveBeenCalledWith(faces[0]);
+      expect(registry.getEntries('Shared Family').map((entry) => entry.faceKey)).toEqual([
+        secondKey,
+      ]);
+      expect(loader.getLoadedFonts()).toEqual(['Shared Family']);
+      expect(loader.unloadFace(secondKey)).toBe(true);
+      expect(loader.getLoadedFonts()).toEqual([]);
+      expect(loader.unloadFace(firstKey)).toBe(false);
+    } finally {
+      globalThis.FontFace = originalFontFace;
+      // @ts-expect-error — restore the test harness document.fonts object
+      document.fonts = originalFonts;
+    }
+  });
+
   it('loadFontFromUrl calls fetch and creates FontFace', async () => {
     const fakeData = new ArrayBuffer(100);
     const fetchMock = vi.fn().mockResolvedValue({

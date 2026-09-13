@@ -49,6 +49,11 @@
   box-sizing: border-box;
 }
 
+.font-selector__input-wrapper--warning .font-selector__input {
+  /* Keep the diagnostic badge from obscuring the end of a long family name. */
+  padding-inline-end: calc(var(--space-2) + 1.2em);
+}
+
 .font-selector__input:focus-visible {
   border-color: var(--color-interactive-focus-ring);
   outline: 2px solid var(--color-interactive-focus-ring);

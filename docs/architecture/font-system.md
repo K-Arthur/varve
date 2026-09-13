@@ -172,15 +172,22 @@ validated face, main-thread readiness, worker adoption, shaping/export
 support, and operation permission. A face is not “ready” merely because its
 family name is present. Byte-backed loads publish a local blob-backed
 `@font-face` rule so the worker can harvest the exact payload without a
-network request. Worker font assets still need an adoption acknowledgement
-before worker rendering can reuse them; otherwise the main-thread replay
-   remains authoritative. Package export sets `bundled` only after writing
-   verified bytes into `fonts/`. Export requests carry a document's exact
-   `fontReference`, so same-family artifacts and collection members remain
-   separate; an unavailable requested member is never silently replaced by a
-   different family artifact. Full cache identity across face revision, axes,
-   features, language and rich runs remains an integration requirement, not
-   established by the family bridge.
+network request. The bridge also carries the portable
+`sha256:<digest>:<member>` face key and a process-local revision in the rule.
+Those markers are included in the worker face-set key, so removing and
+re-adding the same bytes cannot be mistaken for an already-adopted set.
+`FontLoader.unloadFace(faceKey)` removes only that artifact/member from
+`document.fonts`, its worker style/object URL, and the registry; family-level
+unload remains a compatibility operation for legacy unkeyed faces. Worker
+font assets still need an adoption acknowledgement before worker rendering
+can reuse them; otherwise the main-thread replay remains authoritative.
+Package export sets `bundled` only after writing verified bytes into `fonts/`.
+Export requests carry a document's exact
+`fontReference`, so same-family artifacts and collection members remain
+separate; an unavailable requested member is never silently replaced by a
+different family artifact. Full cache identity across face revision, axes,
+features, language and rich runs remains an integration requirement, not
+established by the family bridge.
 
 ## Compact editing surfaces
 
