@@ -179,6 +179,11 @@ was not treated as product evidence. Existing artifacts from concurrent Stage 3 
 `/tmp/varve-chromeos-stage3-visual/`; this record does not represent them as
 physical-device evidence.
 
+The dedicated display-interval diagnostics test was also attempted after the
+focused checks; its global editor warm-up timed out at 180 seconds before the
+test body under the shared Vite/Playwright load. No p95/p99 or frame-cadence
+number is reported from that attempt.
+
 ## Exact remaining limitations
 
 - Physical Chromebook touchscreen, USI pen, detachable trackpad, ChromeOS
