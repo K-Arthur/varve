@@ -58,7 +58,10 @@ import {
 } from '@varve/shared';
 import type { EditorContextValue, EditorState } from '../context';
 import { isEditorInteractionActive } from '../performance/editorFrameRuntime';
-import { resolveMeasuredMemoryPressure } from '../performance/memoryPressure';
+import {
+  type MeasuredMemoryPressure,
+  resolveMeasuredMemoryPressure,
+} from '../performance/memoryPressure';
 import { applyPropertyPath } from '../propertyPath';
 import {
   getAdaptiveResidencyManager,
@@ -1101,7 +1104,7 @@ export function renderContent(deps: RenderContentDeps): void {
     const residency = getAdaptiveResidencyManager();
     residency.beginFrame();
     const averageFrameTime = getAverageFrameTime();
-    const framePressure =
+    const framePressure: MeasuredMemoryPressure =
       averageFrameTime > 50
         ? 'critical'
         : averageFrameTime > 32
@@ -1112,7 +1115,8 @@ export function renderContent(deps: RenderContentDeps): void {
     const memoryPressure = resolveMeasuredMemoryPressure();
     const hintPressure = pressureProfileToResidencyPressure(resolveRuntimePressureProfile());
     const pressureRank = { normal: 0, elevated: 1, high: 2, critical: 3 } as const;
-    const pressure = [framePressure, memoryPressure, hintPressure].reduce((best, next) =>
+    const pressureSignals: MeasuredMemoryPressure[] = [framePressure, memoryPressure, hintPressure];
+    const pressure = pressureSignals.reduce((best, next) =>
       pressureRank[next] > pressureRank[best] ? next : best,
     );
     residency.setPressure(pressure);

@@ -4,7 +4,7 @@
  */
 
 import { Button, Select, SwitchField } from '@varve/ui';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { detectPlatformCapabilities, getCurrentTier } from '../../canvas/adaptiveProfile';
 import { enableDrawDiagnostics } from '../../canvas/drawDiagnostics';
 import { getAverageFrameTime, getPercentileFrameTime } from '../../canvas/frameBudget';

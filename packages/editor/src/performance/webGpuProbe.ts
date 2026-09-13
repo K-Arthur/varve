@@ -17,7 +17,7 @@ export interface WebGpuCapabilityProbe {
   limits: Readonly<Record<string, number>>;
   /** Optional features are not required by the compositor probe. */
   requiredFeatures: readonly string[];
-  status: Exclude<WebGpuProbeStatus, 'unknown'>;
+  status: WebGpuProbeStatus;
   isFallbackAdapter?: boolean;
 }
 

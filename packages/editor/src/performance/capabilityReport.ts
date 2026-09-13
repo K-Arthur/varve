@@ -14,7 +14,7 @@ import {
   type OffscreenProbeDetail,
   probeOffscreenCapability,
 } from '../render/offscreenCapabilityProbe';
-import { ensureWebGpuCapabilityProbe } from './webGpuProbe';
+import { ensureWebGpuCapabilityProbe, type WebGpuCapabilityProbe } from './webGpuProbe';
 
 export type { WebGpuCapabilityProbe } from './webGpuProbe';
 
