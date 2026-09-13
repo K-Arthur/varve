@@ -141,6 +141,17 @@ export function resetGpuCapability(): void {
   gpuInitPromise = null;
 }
 
+/**
+ * Invalidate only the matching lost device. The loss callback has already
+ * made its resources unusable; the next request must re-probe instead of
+ * reusing that handle, while unrelated capability generations remain intact.
+ */
+export function invalidateGpuCapability(device: GPUDevice): void {
+  if (gpuCapability.kind !== 'available' || gpuCapability.device !== device) return;
+  gpuCapability = { kind: 'unavailable' };
+  gpuInitPromise = null;
+}
+
 // ── Filter properties ──────────────────────────────────────────────────────
 
 /**
@@ -622,14 +633,12 @@ export function effectPixelExpansion(
       const r = Math.ceil(filter.radius);
       return [r, r, r, r];
     }
-    case 'colorHalftone': {
-      const cellSize = Math.max(2, Math.round(72 / Math.max(1, filter.screenSize)));
-      return [cellSize, cellSize, cellSize, cellSize];
-    }
-    case 'halftone': {
-      const cellSize = Math.max(2, Math.round(72 / Math.max(1, filter.frequency)));
-      return [cellSize, cellSize, cellSize, cellSize];
-    }
+    case 'colorHalftone':
+    case 'halftone':
+      // Screening is strictly per-pixel: a pixel's threshold depends only on
+      // its own tone and document position, never on its neighbors, so the
+      // filter surface needs no region expansion.
+      return [0, 0, 0, 0];
     case 'bloom': {
       const radius = Math.ceil(filter.radius ?? 0);
       const streak = Math.ceil((filter.streakLength ?? 0) * (filter.streakIntensity ?? 0) * 0.5);

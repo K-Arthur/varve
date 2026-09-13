@@ -272,9 +272,16 @@ export interface HalftoneAdjustment extends AdjustmentBase {
   pattern: 'dot' | 'line' | 'cross' | 'circle';
   frequency: number;
   angle: number;
-  dotShape: 'round' | 'elliptical' | 'square' | 'diamond' | 'line';
+  dotShape: 'round' | 'elliptical' | 'square' | 'diamond' | 'line' | 'cross' | 'circle';
   channel: 'k' | 'c' | 'm' | 'y' | 'cmyk';
   method: 'am' | 'fm';
+  /** Screening semantics. 1 = legacy geometry, 2 = corrected (default). */
+  algorithmVersion?: 1 | 2;
+  /** FM algorithm. Default 'blue-noise' for version 2 effects. */
+  fmAlgorithm?: 'blue-noise' | 'bayer' | 'error-diffusion';
+  /** Mono alpha handling: 'preserve' (default) or intentional
+   *  ink-on-transparency 'screen'. Version 2 only. */
+  alphaMode?: 'preserve' | 'screen';
   threshold?: number;
   intensity?: number;
   softness?: number;
@@ -459,6 +466,8 @@ export interface ColorHalftoneAdjustment extends AdjustmentBase {
   angle: number;
   dotShape: 'round' | 'square' | 'diamond' | 'line';
   mode: 'cmyk' | 'rgb' | 'mono';
+  /** Screening semantics. 1 = legacy, 2 = corrected tone/geometry. */
+  algorithmVersion?: 1 | 2;
   intensity: number;
   inkColor?: Color;
 }
@@ -998,6 +1007,9 @@ export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
         dotShape: adjustment.dotShape,
         channel: adjustment.channel,
         method: adjustment.method,
+        algorithmVersion: adjustment.algorithmVersion,
+        fmAlgorithm: adjustment.fmAlgorithm,
+        alphaMode: adjustment.alphaMode,
         threshold: adjustment.threshold,
         intensity: adjustment.intensity,
         softness: adjustment.softness,
@@ -1135,6 +1147,7 @@ export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
         angle: adjustment.angle,
         dotShape: adjustment.dotShape,
         mode: adjustment.mode,
+        algorithmVersion: adjustment.algorithmVersion,
         intensity: adjustment.intensity,
         inkColor: adjustment.inkColor as readonly [number, number, number, number] | undefined,
         ...base,
@@ -1703,12 +1716,20 @@ export function adjustmentDefaults(kind: AdjustmentKind): Omit<Adjustment, 'id' 
         dotShape: 'round',
         channel: 'k',
         method: 'am',
+        algorithmVersion: 2,
+        fmAlgorithm: 'blue-noise',
+        alphaMode: 'preserve',
         threshold: 128,
         intensity: 1,
         softness: 0,
         invert: false,
         foregroundColor: [0, 0, 0] as [number, number, number],
         backgroundColor: [255, 255, 255] as [number, number, number],
+        tacLimit: 1,
+        blackGeneration: 'none',
+        gcrStrength: 0.5,
+        previewChannel: 'composite',
+        dotGain: 0,
       } as Omit<Adjustment, 'id' | 'kind'>;
     case 'gradientMap':
       return {
@@ -1746,6 +1767,7 @@ export function adjustmentDefaults(kind: AdjustmentKind): Omit<Adjustment, 'id' 
         angle: 0,
         dotShape: 'round',
         mode: 'cmyk',
+        algorithmVersion: 2,
         intensity: 1,
       } as Omit<Adjustment, 'id' | 'kind'>;
     case 'duotone':

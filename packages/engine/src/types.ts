@@ -1214,9 +1214,12 @@ export type FilterIR =
       pattern: 'dot' | 'line' | 'cross' | 'circle';
       frequency: number; // LPI (lines per inch)
       angle: number; // Screen angle in degrees (0-359)
-      dotShape: 'round' | 'elliptical' | 'square' | 'diamond' | 'line';
+      dotShape: 'round' | 'elliptical' | 'square' | 'diamond' | 'line' | 'cross' | 'circle';
       channel: 'k' | 'c' | 'm' | 'y' | 'cmyk';
       method: 'am' | 'fm'; // Amplitude modulation or frequency modulation
+      algorithmVersion?: 1 | 2;
+      fmAlgorithm?: 'blue-noise' | 'bayer' | 'error-diffusion';
+      alphaMode?: 'preserve' | 'screen';
       threshold?: number;
       intensity?: number;
       softness?: number;
@@ -1309,6 +1312,7 @@ export type FilterIR =
       angle: number;
       dotShape: 'round' | 'square' | 'diamond' | 'line';
       mode: 'cmyk' | 'rgb' | 'mono';
+      algorithmVersion?: 1 | 2;
       intensity: number;
       inkColor?: readonly [number, number, number, number];
       opacity: number;

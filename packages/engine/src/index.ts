@@ -202,18 +202,23 @@ export {
   normalizeColorBalanceParams,
 } from './colorBalance';
 export type {
+  ColorHalftoneAlgorithmVersion,
   ColorHalftoneDotShape,
   ColorHalftoneMode,
   ColorHalftoneParams,
 } from './colorHalftone';
 export {
   applyColorHalftone,
+  applyColorHalftoneV2,
+  applyLegacyColorHalftone,
   COLOR_HALFTONE_PRESETS,
 } from './colorHalftone';
+export type { ColorizationRequestContract } from './colorization/colorizationRequest';
 export { generateColorizationRequestId } from './colorization/colorizationRequest';
 export { combineLabToImageData } from './colorization/colorSpace';
+export { resolveDdColorRuntime } from './colorization/ddcolorRuntime';
 export { harmonize } from './colorization/harmonize';
-export { colorizationPipeline, paletteColorize } from './colorization/pipeline';
+export { colorizationPipeline, paletteColorize, validatePalette } from './colorization/pipeline';
 export { dispatchColorization, validateColorizationRequest } from './colorization/pipelineDispatch';
 export { selectiveRecolor } from './colorization/recolor';
 export { DD_COLOR_MODELS, resolveRuntime } from './colorization/runtimeResolver';
@@ -504,6 +509,15 @@ export {
   resetFontRegistry,
 } from './fontRegistry';
 export type {
+  ExpandedFrame,
+  ExpandGenerationEstimate,
+  ExpandLimits,
+  ExpandMargins,
+  ExpandPlan,
+  ExpandPlanRejection,
+  ExpandPlanRejectionCode,
+  ExpandPlanResult,
+  ExpandRegion,
   GenerativeEditCapabilities,
   GenerativeEditErrorCode,
   GenerativeEditExecutionBackend,
@@ -526,8 +540,14 @@ export type {
 } from './generativeEdit';
 export {
   assessGenerativeEditResources,
+  buildExpandedFrame,
+  computeExpandPlan,
   createGenerativeJobState,
+  DEFAULT_EXPAND_LIMITS,
   downloadNativeGenerativeModel,
+  estimateExpandGenerationResolution,
+  expandCoverageMask,
+  expandPlanOutputFrame,
   GenerativeEditError,
   GenerativeJobController,
   getGenerativeEditCapabilities,
@@ -535,7 +555,9 @@ export {
   getNativeGenerativeModelStatus,
   importNativeGenerativeModel,
   NATIVE_GENERATIVE_MODEL_PROFILE,
+  normalizeExpandMargins,
   qualifyNativeGenerativeModel,
+  restoreProtectedPixels,
   runGenerativeEdit,
 } from './generativeEdit';
 export * from './geometry';
@@ -594,20 +616,44 @@ export {
   samplePlane,
 } from './grainTexture';
 export type {
+  HalftoneAlgorithmVersion,
+  HalftoneBlackGeneration,
   HalftoneChannel,
   HalftoneDotShape,
+  HalftoneFmAlgorithm,
   HalftoneMethod,
   HalftoneParams,
   HalftonePattern,
   HalftonePreset,
+  HalftonePreviewChannel,
+  HalftoneRenderOptions,
 } from './halftone';
 export {
+  applyAMScreening,
+  applyAMScreeningV2,
   applyBayerDithering,
+  applyErrorDiffusionV2,
+  applyFMStochastic,
   applyHalftone,
+  applyLegacyAMScreening,
+  applyOrderedDitherV2,
   BAYER_DEFAULT_SIZE,
   bayerMatrix,
+  generateAMMatrix,
+  generateLegacyAMMatrix,
   HALFTONE_PRESETS,
 } from './halftone';
+export type { ScreenShape } from './halftoneScreen';
+export {
+  cachedBlueNoiseMatrix,
+  cachedScreenMatrix,
+  DOC_PIXELS_PER_INCH,
+  docCellPeriod,
+  generateBlueNoiseMatrix,
+  generateEqualizedMatrix,
+  STANDARD_SCREEN_ANGLES,
+  shapeField,
+} from './halftoneScreen';
 export type {
   ConvertedImage,
   ExportImageResource,
@@ -743,12 +789,17 @@ export {
   runProviderChain,
   SessionManager,
 } from './inference';
+export { clampImageToMaxDimension } from './inference/imageTensor';
 export type {
   WorkerInferRequest,
   WorkerInferResult,
   WorkerModelType,
 } from './inference/inferenceWorker';
-export { DD_COLOR_INPUT_SIZE, decodeDdColorOutput } from './inference/models/ddcolor';
+export {
+  DD_COLOR_INPUT_SIZE,
+  DD_COLOR_TINY_INPUT_SIZE,
+  decodeDdColorOutput,
+} from './inference/models/ddcolor';
 export { decodeDepthOutput, depthToMask } from './inference/models/depth';
 export {
   type DetrDetection,

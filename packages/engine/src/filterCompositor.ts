@@ -82,6 +82,9 @@ export interface FilterRenderOptions {
   coordSpace?: CoordSpace;
   /** Stable object/source or document-space metadata for Image Treatments. */
   treatmentSpace?: ImageTreatmentSpace;
+  /** True when the filter runs on a full-frame surface (export), which is the
+   *  only mode that may use causal algorithms such as error diffusion. */
+  fullFrame?: boolean;
   /** Receives non-fatal diagnostics when a runtime filter has no implementation. */
   onDiagnostic?: (diagnostic: FilterDiagnostic) => void;
 }
@@ -144,6 +147,25 @@ export function applyFilterWithCompositing(
     if ((f.opacity ?? 1) >= 1 && (!f.blendMode || f.blendMode === 'normal')) {
       current = filtered;
       continue;
+    }
+
+    // A normal-strength crossfade can be evaluated into the existing current
+    // surface. This keeps the peak at two full-size intermediates instead of
+    // allocating a third composed surface for every partially opaque filter.
+    if (!f.blendMode || f.blendMode === 'normal') {
+      try {
+        const backdrop = current.context.getImageData(0, 0, width, height);
+        const source = filtered.context.getImageData(0, 0, width, height);
+        current.context.putImageData(
+          mixFilterPixels(backdrop, source, 'normal', f.opacity ?? 1),
+          0,
+          0,
+        );
+        continue;
+      } catch {
+        // Preserve the existing compositor fallback below when pixel access is
+        // unavailable in a particular WebView.
+      }
     }
 
     try {
@@ -554,6 +576,9 @@ export function applySoftwareFilter(
         dotShape: string;
         channel: string;
         method: string;
+        algorithmVersion?: 1 | 2;
+        fmAlgorithm?: 'blue-noise' | 'bayer' | 'error-diffusion';
+        alphaMode?: 'preserve' | 'screen';
         threshold?: number;
         intensity?: number;
         softness?: number;
@@ -573,16 +598,20 @@ export function applySoftwareFilter(
         previewChannel?: 'composite' | 'c' | 'm' | 'y' | 'k';
         dotGain?: number;
       };
-      // Map the UI 'pattern' field to the engine's effective dotShape.
-      // Pattern is the high-level screen type; dotShape is the engine primitive.
-      // When they differ, pattern takes precedence so the UI selector works.
+      // Legacy documents (algorithmVersion 1) used `pattern` as the effective
+      // shape and ignored `dotShape` when the two differed. Version 2 treats
+      // `dotShape` as canonical and `pattern` as a legacy grouping alias, so
+      // presets such as Fine Print (elliptical) render the authored shape.
       const patternToDotShape: Record<string, HalftoneDotShape> = {
         dot: 'round',
         line: 'line',
         cross: 'cross',
         circle: 'circle',
       };
-      const effectiveDotShape = patternToDotShape[hf.pattern] ?? (hf.dotShape as HalftoneDotShape);
+      const effectiveDotShape =
+        hf.algorithmVersion === 1
+          ? ((patternToDotShape[hf.pattern] ?? hf.dotShape) as HalftoneDotShape)
+          : ((hf.dotShape as HalftoneDotShape) ?? patternToDotShape[hf.pattern]);
       // Document anchoring: the preview rasterizes the adjustment backdrop in
       // viewport-anchored device pixels, so the region's document-space origin
       // and the camera scale must reach the screening engine. Without this,
@@ -607,16 +636,27 @@ export function applySoftwareFilter(
           dotShape: effectiveDotShape,
           channel: hf.channel as HalftoneChannel,
           method: hf.method as HalftoneMethod,
+          algorithmVersion: hf.algorithmVersion,
+          fmAlgorithm: hf.fmAlgorithm,
+          alphaMode: hf.alphaMode,
           threshold: hf.threshold,
           intensity: hf.intensity,
           softness: hf.softness,
           invert: hf.invert,
           foregroundColor: hf.foregroundColor,
           backgroundColor: hf.backgroundColor,
+          channelAngles: hf.channelAngles,
+          registrationOffset: hf.registrationOffset,
+          tacLimit: hf.tacLimit,
+          blackGeneration: hf.blackGeneration,
+          gcrStrength: hf.gcrStrength,
+          previewChannel: hf.previewChannel,
+          dotGain: hf.dotGain,
         },
         offsetX,
         offsetY,
         pixelScale,
+        { fullFrame: options.fullFrame === true },
       );
       ctx.putImageData(imageData, 0, 0);
       break;
@@ -729,17 +769,34 @@ export function applySoftwareFilter(
         angle: number;
         dotShape: string;
         mode: string;
+        algorithmVersion?: 1 | 2;
         intensity: number;
         inkColor?: readonly [number, number, number, number];
       };
-      applyColorHalftone(imageData, {
-        screenSize: chf.screenSize ?? 12,
-        angle: chf.angle ?? 0,
-        dotShape: chf.dotShape as ColorHalftoneDotShape,
-        mode: chf.mode as ColorHalftoneMode,
-        intensity: chf.intensity ?? 1,
-        inkColor: chf.inkColor,
-      });
+      const colorCoord = options.coordSpace;
+      let colorOffsetX = 0;
+      let colorOffsetY = 0;
+      let colorPixelScale = 1;
+      if (colorCoord && colorCoord.scale > 0) {
+        colorPixelScale = colorCoord.scale;
+        colorOffsetX = (colorCoord.regionX - colorCoord.originX) / colorCoord.scale;
+        colorOffsetY = (colorCoord.regionY - colorCoord.originY) / colorCoord.scale;
+      }
+      applyColorHalftone(
+        imageData,
+        {
+          screenSize: chf.screenSize ?? 12,
+          angle: chf.angle ?? 0,
+          dotShape: chf.dotShape as ColorHalftoneDotShape,
+          mode: chf.mode as ColorHalftoneMode,
+          algorithmVersion: chf.algorithmVersion,
+          intensity: chf.intensity ?? 1,
+          inkColor: chf.inkColor,
+        },
+        colorOffsetX,
+        colorOffsetY,
+        colorPixelScale,
+      );
       ctx.putImageData(imageData, 0, 0);
       break;
     }

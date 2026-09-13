@@ -4,6 +4,7 @@ import {
   applyBayerDithering,
   applyFMStochastic,
   applyHalftone,
+  applyOrderedDitherV2,
   bayerMatrix,
   cachedAMMatrix,
   generateAMMatrix,
@@ -1284,7 +1285,7 @@ describe('halftone combined params integration', () => {
     expect(Array.from(data1.data)).toEqual(Array.from(data2.data));
   });
 
-  it('applyHalftone dispatch passes threshold and intensity through (FM with offset → Bayer)', () => {
+  it('applyHalftone dispatch honors the explicit FM algorithm (blue-noise)', () => {
     const w = 32;
     const h = 32;
     const data1 = new ImageData(w, h);
@@ -1299,6 +1300,61 @@ describe('halftone combined params integration', () => {
       dotShape: 'round',
       channel: 'k',
       method: 'fm',
+      algorithmVersion: 2,
+      fmAlgorithm: 'blue-noise',
+      threshold: 180,
+      intensity: 0.8,
+    };
+
+    applyHalftone(data1, params, 5, 5);
+    applyOrderedDitherV2(data2, params, 'blue-noise', 5, 5);
+
+    expect(Array.from(data1.data)).toEqual(Array.from(data2.data));
+  });
+
+  it('applyHalftone dispatch honors the explicit FM algorithm (bayer)', () => {
+    const w = 32;
+    const h = 32;
+    const data1 = new ImageData(w, h);
+    const data2 = new ImageData(w, h);
+    fillGradient(data1, w, h);
+    fillGradient(data2, w, h);
+
+    const params: HalftoneParams = {
+      pattern: 'dot',
+      frequency: 10,
+      angle: 0,
+      dotShape: 'round',
+      channel: 'k',
+      method: 'fm',
+      algorithmVersion: 2,
+      fmAlgorithm: 'bayer',
+      threshold: 180,
+      intensity: 0.8,
+    };
+
+    applyHalftone(data1, params, 5, 5);
+    applyOrderedDitherV2(data2, params, 'bayer', 5, 5);
+
+    expect(Array.from(data1.data)).toEqual(Array.from(data2.data));
+  });
+
+  it('legacy version 1 FM with region offsets keeps the legacy Bayer preview', () => {
+    const w = 32;
+    const h = 32;
+    const data1 = new ImageData(w, h);
+    const data2 = new ImageData(w, h);
+    fillGradient(data1, w, h);
+    fillGradient(data2, w, h);
+
+    const params: HalftoneParams = {
+      pattern: 'dot',
+      frequency: 10,
+      angle: 0,
+      dotShape: 'round',
+      channel: 'k',
+      method: 'fm',
+      algorithmVersion: 1,
       threshold: 180,
       intensity: 0.8,
     };

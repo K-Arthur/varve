@@ -42,9 +42,12 @@ const BLEND_MODES: readonly AdjustmentBlendMode[] = [
 const ENUMS: Record<string, readonly string[]> = {
   channel: ['rgb', 'red', 'green', 'blue'],
   pattern: ['dot', 'line', 'cross', 'circle'],
-  dotShape: ['round', 'elliptical', 'square', 'diamond', 'line'],
+  dotShape: ['round', 'elliptical', 'square', 'diamond', 'line', 'cross', 'circle'],
   method: ['am', 'fm'],
-  previewChannel: ['k', 'c', 'm', 'y', 'cmyk'],
+  fmAlgorithm: ['blue-noise', 'bayer', 'error-diffusion'],
+  blackGeneration: ['none', 'gcr', 'ucr'],
+  alphaMode: ['preserve', 'screen'],
+  previewChannel: ['composite', 'c', 'm', 'y', 'k'],
   outputChannel: ['red', 'green', 'blue'],
   colorRange: [
     'reds',
@@ -155,7 +158,50 @@ const KIND_NUMERIC_RANGES: Record<string, Record<string, [number, number]>> = {
     yellowBlue: [-100, 100],
     algorithmVersion: [1, 1],
   },
+  halftone: {
+    frequency: [1, 1000],
+    angle: [0, 360],
+    threshold: [0, 255],
+    intensity: [0, 1],
+    softness: [0, 1],
+    tacLimit: [0, 1],
+    gcrStrength: [0, 1],
+    dotGain: [0, 1],
+    algorithmVersion: [1, 2],
+  },
+  colorHalftone: {
+    screenSize: [1, 200],
+    angle: [0, 360],
+    intensity: [0, 1],
+    algorithmVersion: [1, 2],
+  },
 };
+
+/** Per-channel degree overrides: only known inks, finite, clamped. */
+function normalizeChannelAngles(value: unknown): Record<string, number> | undefined {
+  if (!isRecord(value)) return undefined;
+  const result: Record<string, number> = {};
+  for (const key of ['c', 'm', 'y', 'k']) {
+    if (value[key] !== undefined) result[key] = finiteNumber(value[key], 0, 0, 360);
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+/** Per-channel registration offsets in document px. */
+function normalizeRegistrationOffset(value: unknown): Record<string, [number, number]> | undefined {
+  if (!isRecord(value)) return undefined;
+  const result: Record<string, [number, number]> = {};
+  for (const key of ['c', 'm', 'y', 'k']) {
+    const entry = value[key];
+    if (Array.isArray(entry)) {
+      result[key] = [
+        finiteNumber(entry[0], 0, -4096, 4096),
+        finiteNumber(entry[1], 0, -4096, 4096),
+      ];
+    }
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -476,6 +522,32 @@ export function normalizeAdjustmentStack(
     // Several gradient-map controls are optional so old documents can omit
     // them. Normalize them when present even though they are absent from the
     // default object used above.
+    if (kind === 'halftone') {
+      // Compatibility contract: documents written before these fields existed
+      // were authored against the legacy screen geometry and the Bayer FM
+      // preview. Pin version 1 / Bayer for them instead of reinterpreting
+      // their artwork. New adjustments are created with version 2.
+      normalized.algorithmVersion = raw.algorithmVersion === 2 ? 2 : 1;
+      normalized.fmAlgorithm =
+        raw.fmAlgorithm === 'blue-noise' || raw.fmAlgorithm === 'error-diffusion'
+          ? raw.fmAlgorithm
+          : 'bayer';
+      if (raw.channelAngles !== undefined) {
+        const angles = normalizeChannelAngles(raw.channelAngles);
+        if (angles) normalized.channelAngles = angles;
+        else delete normalized.channelAngles;
+      }
+      if (raw.registrationOffset !== undefined) {
+        const offsets = normalizeRegistrationOffset(raw.registrationOffset);
+        if (offsets) normalized.registrationOffset = offsets;
+        else delete normalized.registrationOffset;
+      }
+    }
+
+    if (kind === 'colorHalftone') {
+      normalized.algorithmVersion = raw.algorithmVersion === 2 ? 2 : 1;
+    }
+
     if (kind === 'gradientMap') {
       if (raw.channelStops !== undefined) {
         normalized.channelStops = normalizeValue(kind, 'channelStops', raw.channelStops, {});

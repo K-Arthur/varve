@@ -1,19 +1,46 @@
 /**
  * Halftone screening engine — AM (amplitude modulation) and FM (frequency
- * modulation / stochastic) screening for print-quality halftone generation.
+ * modulation / stochastic) screening for print-style halftone generation.
  *
  * Architecture:
- *   AM screening uses pre-computed threshold matrices (clustered-dot) at
- *   configurable LPI, angle, and dot shape. FM screening uses Floyd-Steinberg
- *   error diffusion for quality export and pre-computed blue-noise matrices
- *   for real-time preview.
+ *   AM screening indexes a rank-equalized threshold matrix per output pixel
+ *   inside each screen cell (algorithm version 2, see halftoneScreen.ts), at
+ *   configurable LPI, angle, and dot shape. FM screening uses an ordered
+ *   blue-noise matrix by default, Bayer ordered dithering for legacy
+ *   documents, and explicit error diffusion when full-frame processing is
+ *   requested.
  *
- * Research basis: Ulichney (Void-and-Cluster 1993), ISO 12647-2,
- *   Adobe Accurate Screens, Ghostscript gxht.c, Bart Wronski's
- *   BlueNoiseGenerator, Floyd-Steinberg error diffusion (1975).
+ * Versioning:
+ *   `algorithmVersion: 1` preserves the pre-correction screen geometry and
+ *   tone mapping exactly (documents created before 2026). Version 2 is the
+ *   corrected contract used by all newly created effects. The scene
+ *   persistence boundary pins version 1 for documents that predate the field.
  *
- * All operations work on linearized sRGB data for perceptual correctness.
+ * Tone domain:
+ *   Version 2 screens encoded sRGB channel values (Rec.709 luma) for every
+ *   method, so AM, ordered FM, and error diffusion agree on what "50% gray"
+ *   means. Legacy paths keep their original mixed encoded/linear behavior.
+ *
+ * Research basis: Ulichney (Digital Halftoning 1987; Void-and-Cluster 1993),
+ *   ISO 12647-2 screen angles, Krita Screentone (size mode, equalization,
+ *   macrocell alignment), GIMP Newsprint (per-channel period/angle, black
+ *   pullout), Floyd-Steinberg error diffusion (1975).
  */
+
+import {
+  applyDotGain,
+  blueNoiseMatrixSize,
+  cachedBlueNoiseMatrix,
+  cachedScreenMatrix,
+  clamp01,
+  coverageAt,
+  docCellPeriod,
+  type ScreenShape,
+  STANDARD_SCREEN_ANGLES,
+  sampleScreenThreshold,
+  sanitizeLineScreen,
+  screenMatrixSize,
+} from './halftoneScreen';
 
 export type HalftonePattern = 'dot' | 'line' | 'cross' | 'circle';
 export type HalftoneDotShape =
@@ -26,6 +53,13 @@ export type HalftoneDotShape =
   | 'circle';
 export type HalftoneChannel = 'k' | 'c' | 'm' | 'y' | 'cmyk';
 export type HalftoneMethod = 'am' | 'fm';
+/** Version of the screening semantics. 1 = legacy, 2 = corrected. */
+export type HalftoneAlgorithmVersion = 1 | 2;
+/** FM thresholding algorithm. Ordered modes are parity-safe; error
+ *  diffusion is a full-frame (export) algorithm. */
+export type HalftoneFmAlgorithm = 'blue-noise' | 'bayer' | 'error-diffusion';
+export type HalftoneBlackGeneration = 'none' | 'gcr' | 'ucr';
+export type HalftonePreviewChannel = 'composite' | 'c' | 'm' | 'y' | 'k';
 
 export interface HalftoneParams {
   pattern: HalftonePattern;
@@ -34,6 +68,10 @@ export interface HalftoneParams {
   dotShape: HalftoneDotShape;
   channel: HalftoneChannel;
   method: HalftoneMethod;
+  /** Screening semantics. Missing/1 = legacy geometry; 2 = corrected. */
+  algorithmVersion?: HalftoneAlgorithmVersion;
+  /** FM algorithm. Missing defaults to 'bayer' (legacy preview look). */
+  fmAlgorithm?: HalftoneFmAlgorithm;
   /** Threshold midpoint (0-255, default 128). Higher = less ink (brighter output). */
   threshold?: number;
   /** Effect intensity 0-1 (default 1). Blends between original and halftoned. */
@@ -46,16 +84,44 @@ export interface HalftoneParams {
   foregroundColor?: [number, number, number];
   /** Background (paper) color as [r, g, b] (default [255, 255, 255] = white). */
   backgroundColor?: [number, number, number];
+  /** Per-channel screen angle overrides (degrees, absolute). cmyk only. */
+  channelAngles?: { c?: number; m?: number; y?: number; k?: number };
+  /** Per-channel registration offset in document px. cmyk only. */
+  registrationOffset?: {
+    c?: [number, number];
+    m?: [number, number];
+    y?: [number, number];
+    k?: [number, number];
+  };
+  /** Total area coverage limit (0-1; 1 = 400%). Default 1. cmyk only. */
+  tacLimit?: number;
+  /** Black generation method. Default 'none'. cmyk only. */
+  blackGeneration?: HalftoneBlackGeneration;
+  /** Black generation strength 0-1. Default 0.5. */
+  gcrStrength?: number;
+  /** Show a single separation instead of the composite. Default 'composite'. */
+  previewChannel?: HalftonePreviewChannel;
+  /** Dot gain compensation 0-1. Default 0. */
+  dotGain?: number;
+  /**
+   * Alpha behavior for mono screens (algorithm version 2 only).
+   * 'preserve' (default) leaves source alpha untouched.
+   * 'screen' multiplies source alpha by ink coverage, producing intentional
+   * ink-on-transparency screentones instead of a rectangular ink field.
+   */
+  alphaMode?: 'preserve' | 'screen';
+}
+
+/** Options that affect algorithm selection without changing authored look. */
+export interface HalftoneRenderOptions {
+  /** True when the whole document surface is being processed (export).
+   *  Full-frame is the only condition under which error diffusion runs. */
+  fullFrame?: boolean;
 }
 
 // ── Standard CMYK Screen Angles ────────────────────────────────────────
 
-const STANDARD_ANGLES: Record<string, number> = {
-  c: 15, // Cyan
-  m: 75, // Magenta
-  y: 0, // Yellow (least visible)
-  k: 45, // Black (most visible)
-};
+const STANDARD_ANGLES: Record<string, number> = STANDARD_SCREEN_ANGLES;
 
 // ── Threshold Matrix Cache ──────────────────────────────────────────────
 //
@@ -69,33 +135,51 @@ const STANDARD_ANGLES: Record<string, number> = {
 // in this module — callers must not mutate a matrix returned from here.
 
 const MATRIX_CACHE_LIMIT = 64;
-const matrixCache = new Map<string, Uint8Array>();
+const legacyMatrixCache = new Map<string, Uint8Array>();
 
-export function cachedAMMatrix(size: number, dotShape: HalftoneDotShape): Uint8Array {
+/** Legacy per-cell threshold matrix (algorithm version 1). */
+export function cachedLegacyAMMatrix(size: number, dotShape: HalftoneDotShape): Uint8Array {
   const key = `${size}:${dotShape}`;
-  const cached = matrixCache.get(key);
+  const cached = legacyMatrixCache.get(key);
   if (cached) return cached;
 
-  const matrix = generateAMMatrix(size, dotShape);
-  if (matrixCache.size >= MATRIX_CACHE_LIMIT) {
-    const oldestKey = matrixCache.keys().next().value;
-    if (oldestKey !== undefined) matrixCache.delete(oldestKey);
+  const matrix = generateLegacyAMMatrix(size, dotShape);
+  if (legacyMatrixCache.size >= MATRIX_CACHE_LIMIT) {
+    const oldestKey = legacyMatrixCache.keys().next().value;
+    if (oldestKey !== undefined) legacyMatrixCache.delete(oldestKey);
   }
-  matrixCache.set(key, matrix);
+  legacyMatrixCache.set(key, matrix);
   return matrix;
 }
 
 // ── AM Screening ───────────────────────────────────────────────────────
 
+function toScreenShape(dotShape: HalftoneDotShape): ScreenShape {
+  return dotShape;
+}
+
 /**
- * Generate a threshold matrix for AM screening.
- * Uses a clustered-dot approach where dots grow from cell centers.
- *
- * @param size Matrix size (must be power of 2, e.g., 32, 64, 128)
- * @param dotShape Shape of the halftone dot
- * @returns Uint8Array (size × size) with values 0-255
+ * Corrected AM threshold matrix (algorithm version 2): a rank-equalized
+ * single-cell matrix, sampled per output pixel inside the cell.
  */
 export function generateAMMatrix(size: number, dotShape: HalftoneDotShape): Uint8Array {
+  return cachedScreenMatrix(size, toScreenShape(dotShape));
+}
+
+/** Memoized corrected AM matrix. Callers must not mutate the returned array. */
+export function cachedAMMatrix(size: number, dotShape: HalftoneDotShape): Uint8Array {
+  return cachedScreenMatrix(size, toScreenShape(dotShape));
+}
+
+/**
+ * Legacy threshold matrix (algorithm version 1).
+ *
+ * Kept verbatim so documents created before the corrected screening contract
+ * render exactly as authored. It is applied once per whole cell (see
+ * `screenChannelAtLegacy`), which is why its effective period exceeds the
+ * requested cell period.
+ */
+export function generateLegacyAMMatrix(size: number, dotShape: HalftoneDotShape): Uint8Array {
   const matrix = new Uint8Array(size * size);
   const half = size / 2;
 
@@ -285,18 +369,16 @@ function sanitizeThreshold(value: number | undefined): number {
 }
 
 /**
- * Apply AM screening to pixel data.
+ * Legacy AM screening (algorithm version 1). Kept pixel-exact for documents
+ * created before the corrected screening contract.
  *
  * @param data ImageData to process (in-place)
  * @param params Halftone parameters
- * @param pixelScale Image pixels per document pixel (1.0 at zoom 1; the
- *   live preview passes the camera scale so the screen resolves in device
- *   pixels while staying anchored in document space)
- * @param offsetX Document-space x origin of the image region (0 = image
- *   origin is the document origin)
+ * @param pixelScale Image pixels per document pixel
+ * @param offsetX Document-space x origin of the image region
  * @param offsetY Document-space y origin of the image region
  */
-export function applyAMScreening(
+export function applyLegacyAMScreening(
   data: ImageData,
   params: HalftoneParams,
   pixelScale: number = 1,
@@ -327,7 +409,7 @@ export function applyAMScreening(
   // screen frequency is lower than the requested LPI — a physical
   // resolution limit, not a code defect.
   const matrixSize = Math.max(4, nextPowerOfTwo(cellSize * 2));
-  const matrix = cachedAMMatrix(matrixSize, dotShape);
+  const matrix = cachedLegacyAMMatrix(matrixSize, dotShape);
 
   if (intensity === 0) return;
 
@@ -449,6 +531,304 @@ export function applyAMScreening(
         pixels[idx + 2] = fb;
       }
     }
+  }
+}
+
+// ── AM Screening (algorithm version 2) ────────────────────────────────
+
+const REC709 = { r: 0.2126, g: 0.7152, b: 0.0722 } as const;
+
+/** Encoded sRGB luma (Rec.709 weights). */
+function encodedLuma(pixels: Uint8ClampedArray, idx: number): number {
+  return REC709.r * pixels[idx]! + REC709.g * pixels[idx + 1]! + REC709.b * pixels[idx + 2]!;
+}
+
+/**
+ * Ink density 0..255 for a single channel. Cyan absorbs red, magenta green,
+ * yellow blue; black is encoded-luma darkness. This is the separation
+ * convention used by every version-2 path.
+ */
+function channelInkDensity(
+  pixels: Uint8ClampedArray,
+  idx: number,
+  channel: HalftoneChannel,
+): number {
+  switch (channel) {
+    case 'c':
+      return 255 - pixels[idx]!;
+    case 'm':
+      return 255 - pixels[idx + 1]!;
+    case 'y':
+      return 255 - pixels[idx + 2]!;
+    default:
+      return 255 - encodedLuma(pixels, idx);
+  }
+}
+
+/**
+ * Write one mono screened pixel. `preserve` keeps source alpha and inks the
+ * fg/bg blend; `screen` writes the ink color with alpha = source alpha *
+ * coverage, the intentional ink-on-transparency screentone mode.
+ */
+function writeMonoCoverage(
+  pixels: Uint8ClampedArray,
+  idx: number,
+  coverage: number,
+  params: HalftoneParams,
+  fg: readonly number[],
+  bg: readonly number[],
+  intensity: number,
+): void {
+  const blend = (source: number, target: number): number =>
+    intensity < 1 ? Math.round(source + (target - source) * intensity) : target;
+
+  if (params.alphaMode === 'screen') {
+    const sourceAlpha = pixels[idx + 3]!;
+    const targetAlpha = Math.round(sourceAlpha * coverage);
+    pixels[idx] = blend(pixels[idx]!, fg[0]!);
+    pixels[idx + 1] = blend(pixels[idx + 1]!, fg[1]!);
+    pixels[idx + 2] = blend(pixels[idx + 2]!, fg[2]!);
+    pixels[idx + 3] = blend(sourceAlpha, targetAlpha);
+    return;
+  }
+
+  const pr = Math.round(bg[0]! + (fg[0]! - bg[0]!) * coverage);
+  const pg = Math.round(bg[1]! + (fg[1]! - bg[1]!) * coverage);
+  const pb = Math.round(bg[2]! + (fg[2]! - bg[2]!) * coverage);
+  pixels[idx] = blend(pixels[idx]!, pr);
+  pixels[idx + 1] = blend(pixels[idx + 1]!, pg);
+  pixels[idx + 2] = blend(pixels[idx + 2]!, pb);
+}
+
+const SUBSAMPLE_TAPS = [-0.25, 0.25] as const;
+
+interface ResolvedChannelScreen {
+  cos: number;
+  sin: number;
+  offsetX: number;
+  offsetY: number;
+}
+
+function resolveChannelScreen(
+  channel: 'c' | 'm' | 'y' | 'k',
+  params: HalftoneParams,
+): ResolvedChannelScreen {
+  const override = params.channelAngles?.[channel];
+  const angle = sanitizeAngle(typeof override === 'number' ? override : STANDARD_ANGLES[channel]!);
+  const rad = (angle * Math.PI) / 180;
+  const offset = params.registrationOffset?.[channel];
+  const offsetX = Array.isArray(offset) && Number.isFinite(offset[0]) ? offset[0]! : 0;
+  const offsetY = Array.isArray(offset) && Number.isFinite(offset[1]) ? offset[1]! : 0;
+  return { cos: Math.cos(rad), sin: Math.sin(rad), offsetX, offsetY };
+}
+
+/**
+ * Apply corrected AM screening (algorithm version 2).
+ *
+ * The matrix covers one cell and is sampled per output pixel, so the measured
+ * period equals `96 / frequency` document px at any zoom or export scale.
+ * CMYK separation is a documented uncalibrated preview: channel densities are
+ * complementary encoded values with optional black generation, TAC limiting,
+ * per-channel angles/offsets, and single-separation preview.
+ */
+export function applyAMScreeningV2(
+  data: ImageData,
+  params: HalftoneParams,
+  pixelScale: number = 1,
+  offsetX: number = 0,
+  offsetY: number = 0,
+): void {
+  const w = data.width;
+  const h = data.height;
+  const pixels = data.data;
+  const threshold = sanitizeThreshold(params.threshold);
+  const intensity = clamp01(params.intensity ?? 1);
+  const softness = clamp01(params.softness ?? 0);
+  const dotGain = clamp01(params.dotGain ?? 0);
+  const invert = params.invert ?? false;
+  const fg = params.foregroundColor ?? [0, 0, 0];
+  const bg = params.backgroundColor ?? [255, 255, 255];
+  const frequency = sanitizeLineScreen(params.frequency);
+  const cellPeriod = docCellPeriod(frequency);
+  const safeScale = Number.isFinite(pixelScale) && pixelScale > 0 ? pixelScale : 1;
+  const safeOffsetX = Number.isFinite(offsetX) ? offsetX : 0;
+  const safeOffsetY = Number.isFinite(offsetY) ? offsetY : 0;
+  const matrixSize = screenMatrixSize(cellPeriod, safeScale);
+  const matrix = cachedScreenMatrix(matrixSize, toScreenShape(params.dotShape));
+
+  if (intensity === 0) return;
+
+  if (params.channel === 'cmyk') {
+    const screens = {
+      c: resolveChannelScreen('c', params),
+      m: resolveChannelScreen('m', params),
+      y: resolveChannelScreen('y', params),
+      k: resolveChannelScreen('k', params),
+    };
+    const blackGeneration = params.blackGeneration ?? 'none';
+    const gcrStrength = clamp01(params.gcrStrength ?? 0.5);
+    const tacLimit = Number.isFinite(params.tacLimit)
+      ? Math.max(0, Math.min(1, params.tacLimit as number))
+      : 1;
+    const previewChannel = params.previewChannel ?? 'composite';
+    const tacMaximum = tacLimit * 4;
+    // Process screening runs several rotated screens at once; a hard binary
+    // edge at small cell sizes makes each channel's sampled area depend on
+    // its angle, which tints neutral tones. A one-sample-wide edge blend is
+    // the standard antialiasing cure and leaves the authored dot geometry
+    // (period, angle, shape) intact.
+    const channelSoftness = Math.max(softness, Math.min(0.5, 255 / (matrixSize * 128)));
+
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const idx = (y * w + x) * 4;
+        if (pixels[idx + 3]! === 0) continue; // skip transparent
+
+        const docX = x / safeScale + safeOffsetX;
+        const docY = y / safeScale + safeOffsetY;
+
+        let cInk = 1 - pixels[idx]! / 255;
+        let mInk = 1 - pixels[idx + 1]! / 255;
+        let yInk = 1 - pixels[idx + 2]! / 255;
+        const grayComponent = Math.min(cInk, mInk, yInk);
+        let kInk = 0;
+        if (blackGeneration === 'gcr') {
+          kInk = grayComponent * gcrStrength;
+        } else if (blackGeneration === 'ucr') {
+          // UCR removes density only in the shadow end of the tone range.
+          kInk = Math.max(0, grayComponent - 0.5) * 2 * gcrStrength;
+        }
+        cInk = Math.max(0, cInk - kInk);
+        mInk = Math.max(0, mInk - kInk);
+        yInk = Math.max(0, yInk - kInk);
+
+        if (tacMaximum > 0) {
+          const total = cInk + mInk + yInk + kInk;
+          if (total > tacMaximum) {
+            const scale = tacMaximum / total;
+            cInk *= scale;
+            mInk *= scale;
+            yInk *= scale;
+            kInk *= scale;
+          }
+        } else {
+          cInk = 0;
+          mInk = 0;
+          yInk = 0;
+          kInk = 0;
+        }
+
+        // Four sub-pixel taps estimate the channel's area coverage instead of
+        // point-sampling a rotated lattice, which removes most of the
+        // angle-dependent tone bias between the process screens.
+        const coverageOf = (screen: ResolvedChannelScreen, density: number): number => {
+          const gained = applyDotGain(density * 255, dotGain);
+          const tap = 0.25 / safeScale;
+          let total = 0;
+          for (const sy of SUBSAMPLE_TAPS) {
+            for (const sx of SUBSAMPLE_TAPS) {
+              const thresholdValue = sampleScreenThreshold(
+                matrix,
+                matrixSize,
+                docX + screen.offsetX + sx * tap,
+                docY + screen.offsetY + sy * tap,
+                screen.cos,
+                screen.sin,
+                cellPeriod,
+              );
+              total += coverageAt(gained, thresholdValue, threshold, channelSoftness);
+            }
+          }
+          return total / (SUBSAMPLE_TAPS.length * SUBSAMPLE_TAPS.length);
+        };
+
+        const cCoverage = coverageOf(screens.c, cInk);
+        const mCoverage = coverageOf(screens.m, mInk);
+        const yCoverage = coverageOf(screens.y, yInk);
+        const kCoverage = coverageOf(screens.k, kInk);
+
+        let nr: number;
+        let ng: number;
+        let nb: number;
+        if (previewChannel === 'composite') {
+          // Uncalibrated subtractive overprint preview.
+          nr = Math.round(255 * (1 - cCoverage) * (1 - kCoverage));
+          ng = Math.round(255 * (1 - mCoverage) * (1 - kCoverage));
+          nb = Math.round(255 * (1 - yCoverage) * (1 - kCoverage));
+        } else {
+          const selected = {
+            c: cCoverage,
+            m: mCoverage,
+            y: yCoverage,
+            k: kCoverage,
+          }[previewChannel];
+          const coverage = invert ? 1 - selected : selected;
+          nr = Math.round(bg[0] + (fg[0] - bg[0]) * coverage);
+          ng = Math.round(bg[1] + (fg[1] - bg[1]) * coverage);
+          nb = Math.round(bg[2] + (fg[2] - bg[2]) * coverage);
+        }
+
+        if (intensity < 1) {
+          pixels[idx] = Math.round(pixels[idx]! + (nr - pixels[idx]!) * intensity);
+          pixels[idx + 1] = Math.round(pixels[idx + 1]! + (ng - pixels[idx + 1]!) * intensity);
+          pixels[idx + 2] = Math.round(pixels[idx + 2]! + (nb - pixels[idx + 2]!) * intensity);
+        } else {
+          pixels[idx] = nr;
+          pixels[idx + 1] = ng;
+          pixels[idx + 2] = nb;
+        }
+        // Alpha is never an ink channel.
+      }
+    }
+    return;
+  }
+
+  // Mono single-channel screen.
+  const angle = sanitizeAngle(params.angle);
+  const rad = (angle * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const channel: HalftoneChannel = params.channel;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const idx = (y * w + x) * 4;
+      if (pixels[idx + 3]! === 0) continue; // skip transparent
+
+      const docX = x / safeScale + safeOffsetX;
+      const docY = y / safeScale + safeOffsetY;
+      const density = channelInkDensity(pixels, idx, channel);
+      const gained = applyDotGain(density, dotGain);
+      const thresholdValue = sampleScreenThreshold(
+        matrix,
+        matrixSize,
+        docX,
+        docY,
+        cos,
+        sin,
+        cellPeriod,
+      );
+      let coverage = coverageAt(gained, thresholdValue, threshold, softness);
+      if (invert) coverage = 1 - coverage;
+      writeMonoCoverage(pixels, idx, coverage, params, fg, bg, intensity);
+    }
+  }
+}
+
+/**
+ * Version-aware AM entry point. Version 1 reproduces the legacy per-cell
+ * screen exactly; version 2 uses the corrected per-pixel, equalized screen.
+ */
+export function applyAMScreening(
+  data: ImageData,
+  params: HalftoneParams,
+  pixelScale: number = 1,
+  offsetX: number = 0,
+  offsetY: number = 0,
+): void {
+  if (params.algorithmVersion === 1) {
+    applyLegacyAMScreening(data, params, pixelScale, offsetX, offsetY);
+  } else {
+    applyAMScreeningV2(data, params, pixelScale, offsetX, offsetY);
   }
 }
 
@@ -769,25 +1149,166 @@ export function applyBayerDithering(
   }
 }
 
+// ── FM Screening (algorithm version 2) ─────────────────────────────────
+
+const bayerThresholdCache = new Map<number, Uint8Array>();
+
+/** Bayer thresholds scaled to the same [1, 255] domain as the screen matrix. */
+function bayerThresholds(size: number): Uint8Array {
+  const cached = bayerThresholdCache.get(size);
+  if (cached) return cached;
+  const matrix = bayerMatrix(size);
+  const total = size * size;
+  const thresholds = new Uint8Array(total);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      thresholds[y * size + x] = Math.max(
+        1,
+        Math.min(255, Math.round((matrix[y]![x]! * 255) / total)),
+      );
+    }
+  }
+  bayerThresholdCache.set(size, thresholds);
+  return thresholds;
+}
+
+/**
+ * Document-anchored ordered dithering (algorithm version 2).
+ *
+ * The threshold source is explicit: 'blue-noise' (void-and-cluster) or
+ * 'bayer'. Both index by document pixel, so the pattern is stable under
+ * pan/zoom and identical for preview and export at the same region origin.
+ * Tone is encoded darkness, matching the corrected AM contract.
+ */
+export function applyOrderedDitherV2(
+  data: ImageData,
+  params: HalftoneParams,
+  algorithm: 'blue-noise' | 'bayer',
+  offsetX: number = 0,
+  offsetY: number = 0,
+  pixelScale: number = 1,
+): void {
+  const w = data.width;
+  const h = data.height;
+  const pixels = data.data;
+  const matrix =
+    algorithm === 'blue-noise' ? cachedBlueNoiseMatrix() : bayerThresholds(BAYER_DEFAULT_SIZE);
+  const size = algorithm === 'blue-noise' ? blueNoiseMatrixSize() : BAYER_DEFAULT_SIZE;
+  const threshold = sanitizeThreshold(params.threshold);
+  const intensity = clamp01(params.intensity ?? 1);
+  const softness = clamp01(params.softness ?? 0);
+  const dotGain = clamp01(params.dotGain ?? 0);
+  const invert = params.invert ?? false;
+  const fg = params.foregroundColor ?? [0, 0, 0];
+  const bg = params.backgroundColor ?? [255, 255, 255];
+  const safeScale = Number.isFinite(pixelScale) && pixelScale > 0 ? pixelScale : 1;
+  const safeOffsetX = Number.isFinite(offsetX) ? offsetX : 0;
+  const safeOffsetY = Number.isFinite(offsetY) ? offsetY : 0;
+  const channel = params.channel === 'cmyk' ? 'k' : params.channel;
+
+  if (intensity === 0) return;
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const idx = (y * w + x) * 4;
+      if (pixels[idx + 3]! === 0) continue; // skip transparent
+
+      const docX = x / safeScale + safeOffsetX;
+      const docY = y / safeScale + safeOffsetY;
+      const mx = ((Math.floor(docX) % size) + size) % size;
+      const my = ((Math.floor(docY) % size) + size) % size;
+      const thresholdValue = matrix[my * size + mx]!;
+      const density = applyDotGain(channelInkDensity(pixels, idx, channel), dotGain);
+      let coverage = coverageAt(density, thresholdValue, threshold, softness);
+      if (invert) coverage = 1 - coverage;
+      writeMonoCoverage(pixels, idx, coverage, params, fg, bg, intensity);
+    }
+  }
+}
+
+/**
+ * Error diffusion (algorithm version 2) — an explicit full-frame algorithm.
+ *
+ * A single scalar ink-density plane drives the diffusion, so the quantizer's
+ * error is conserved exactly (the legacy RGB-weighted diffusion lost about
+ * 55% of it and shifted hue). Serpentine scan; the kernel never wraps across
+ * row boundaries. Transparent pixels neither emit nor retain error that could
+ * leak back into opaque neighbors.
+ */
+export function applyErrorDiffusionV2(data: ImageData, params: HalftoneParams): void {
+  const w = data.width;
+  const h = data.height;
+  const pixels = data.data;
+  const threshold = sanitizeThreshold(params.threshold);
+  const intensity = clamp01(params.intensity ?? 1);
+  const dotGain = clamp01(params.dotGain ?? 0);
+  const invert = params.invert ?? false;
+  const fg = params.foregroundColor ?? [0, 0, 0];
+  const bg = params.backgroundColor ?? [255, 255, 255];
+  const channel = params.channel === 'cmyk' ? 'k' : params.channel;
+
+  if (intensity === 0) return;
+
+  const plane = new Float32Array(w * h);
+  for (let i = 0, p = 0; i < plane.length; i++, p += 4) {
+    plane[i] = pixels[p + 3]! === 0 ? 0 : channelInkDensity(pixels, p, channel);
+  }
+
+  const addError = (index: number, x: number, y: number, error: number, weight: number): void => {
+    if (x < 0 || x >= w || y >= h) return;
+    const next = plane[index]! + error * weight;
+    plane[index] = next < -512 ? -512 : next > 512 ? 512 : next;
+  };
+
+  for (let y = 0; y < h; y++) {
+    const leftToRight = y % 2 === 0;
+    const start = leftToRight ? 0 : w - 1;
+    const end = leftToRight ? w : -1;
+    const step = leftToRight ? 1 : -1;
+
+    for (let x = start; x !== end; x += step) {
+      const index = y * w + x;
+      const pixel = index * 4;
+      if (pixels[pixel + 3]! === 0) continue;
+
+      const adjusted = applyDotGain(plane[index]!, dotGain) - (threshold - 128);
+      const ink = adjusted >= 128 ? 1 : 0;
+      const quantized = ink ? 255 : 0;
+      const error = adjusted - quantized;
+      const coverage = invert ? 1 - ink : ink;
+      writeMonoCoverage(pixels, pixel, coverage, params, fg, bg, intensity);
+
+      if (leftToRight) {
+        addError(index + 1, x + 1, y, error, 7 / 16);
+        addError(index + w - 1, x - 1, y + 1, error, 3 / 16);
+        addError(index + w, x, y + 1, error, 5 / 16);
+        addError(index + w + 1, x + 1, y + 1, error, 1 / 16);
+      } else {
+        addError(index - 1, x - 1, y, error, 7 / 16);
+        addError(index + w + 1, x + 1, y + 1, error, 3 / 16);
+        addError(index + w, x, y + 1, error, 5 / 16);
+        addError(index + w - 1, x - 1, y + 1, error, 1 / 16);
+      }
+    }
+  }
+}
+
 /**
  * Apply halftone effect to pixel data.
- * Dispatches to AM or FM method based on params.
  *
- * For FM (stochastic) method:
- * - Without offset params (full-frame export): uses Floyd-Steinberg error diffusion
- *   for highest quality.
- * - With offset params (viewport-tiled preview): uses Bayer ordered dithering,
- *   which is position-stable under pan/zoom because threshold selection is
- *   based on document-absolute coordinates, not relative scan position.
+ * Version 1 replays the legacy dispatch exactly (FM chose Bayer when region
+ * offsets were present and Floyd-Steinberg otherwise). Version 2 selects its
+ * algorithm explicitly from `params.fmAlgorithm`; error diffusion runs only
+ * when the caller declares a full-frame render (`options.fullFrame`), and the
+ * position-stable blue-noise screen is used otherwise so previews never
+ * substitute a different authored pattern silently.
  *
  * @param data ImageData to process (in-place)
  * @param params Halftone parameters
- * @param offsetX Document-space x offset of the render region (document
- *   anchoring: panning the viewport never shifts the pattern phase)
+ * @param offsetX Document-space x offset of the render region
  * @param offsetY Document-space y offset of the render region
- * @param pixelScale Image pixels per document pixel (live preview passes
- *   the camera scale so cell geometry resolves in device pixels while
- *   staying anchored in document space; default 1)
+ * @param pixelScale Image pixels per document pixel
+ * @param options Render-mode options that do not change authored parameters
  */
 export function applyHalftone(
   data: ImageData,
@@ -795,22 +1316,42 @@ export function applyHalftone(
   offsetX?: number,
   offsetY?: number,
   pixelScale: number = 1,
+  options: HalftoneRenderOptions = {},
 ): ImageData {
   const hasOffset = offsetX !== undefined && offsetY !== undefined;
-  if (params.method === 'fm') {
-    if (hasOffset) {
-      applyBayerDithering(data, params, offsetX, offsetY, pixelScale);
+  if (params.algorithmVersion === 1) {
+    if (params.method === 'fm') {
+      if (hasOffset) {
+        applyBayerDithering(data, params, offsetX, offsetY, pixelScale);
+      } else {
+        applyFMStochastic(data, params);
+      }
     } else {
-      applyFMStochastic(data, params);
+      applyLegacyAMScreening(
+        data,
+        params,
+        pixelScale,
+        hasOffset ? (offsetX as number) : 0,
+        hasOffset ? (offsetY as number) : 0,
+      );
     }
+    return data;
+  }
+
+  const ox = hasOffset ? (offsetX as number) : 0;
+  const oy = hasOffset ? (offsetY as number) : 0;
+  if (params.method === 'am') {
+    applyAMScreeningV2(data, params, pixelScale, ox, oy);
+    return data;
+  }
+
+  const algorithm = params.fmAlgorithm ?? 'bayer';
+  if (algorithm === 'error-diffusion' && options.fullFrame) {
+    applyErrorDiffusionV2(data, params);
+  } else if (algorithm === 'error-diffusion') {
+    applyOrderedDitherV2(data, params, 'blue-noise', ox, oy, pixelScale);
   } else {
-    applyAMScreening(
-      data,
-      params,
-      pixelScale,
-      hasOffset ? (offsetX as number) : 0,
-      hasOffset ? (offsetY as number) : 0,
-    );
+    applyOrderedDitherV2(data, params, algorithm, ox, oy, pixelScale);
   }
   return data;
 }
@@ -907,7 +1448,7 @@ export const HALFTONE_PRESETS: HalftonePreset[] = [
   {
     id: 'stochastic-fine',
     name: 'Stochastic Fine',
-    description: 'FM error diffusion — modern stochastic screening',
+    description: 'Fine blue-noise FM screen — modern stochastic screening',
     params: {
       pattern: 'dot',
       frequency: 50,
@@ -915,6 +1456,38 @@ export const HALFTONE_PRESETS: HalftonePreset[] = [
       dotShape: 'round',
       channel: 'k',
       method: 'fm',
+      fmAlgorithm: 'blue-noise',
+    },
+  },
+  {
+    id: 'zine-stochastic',
+    name: 'Zine Stochastic',
+    description: 'Coarse blue-noise FM screen — photocopy and zine texture',
+    params: {
+      pattern: 'dot',
+      frequency: 28,
+      angle: 0,
+      dotShape: 'round',
+      channel: 'k',
+      method: 'fm',
+      fmAlgorithm: 'blue-noise',
+      threshold: 120,
+    },
+  },
+  {
+    id: 'process-cmyk',
+    name: 'Process CMYK',
+    description: 'Four-colour process screen with GCR black generation',
+    params: {
+      pattern: 'dot',
+      frequency: 60,
+      angle: 45,
+      dotShape: 'round',
+      channel: 'cmyk',
+      method: 'am',
+      blackGeneration: 'gcr',
+      gcrStrength: 0.7,
+      tacLimit: 1,
     },
   },
   {
