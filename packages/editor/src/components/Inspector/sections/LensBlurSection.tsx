@@ -404,8 +404,15 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
       const letterbox = result.outputs.letterbox as
         | { offsetX: number; offsetY: number; contentWidth?: number; contentHeight?: number }
         | undefined;
+      // ImageData is RGBA; the depth contract deliberately accepts a compact
+      // one-byte alpha plane so RGB from transparent pixels can never affect
+      // validity statistics or padding registration.
+      const sourceAlpha = new Uint8Array(imageData.width * imageData.height);
+      for (let index = 0; index < sourceAlpha.length; index++) {
+        sourceAlpha[index] = imageData.data[index * 4 + 3] ?? 0;
+      }
       const sourceValidity = sourceAlphaToDepthValidity(
-        imageData.data,
+        sourceAlpha,
         imageData.width,
         imageData.height,
         outputW,
