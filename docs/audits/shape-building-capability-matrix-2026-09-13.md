@@ -153,12 +153,13 @@ license to drop small regions.
 | Capability | Baseline | Target evidence |
 | --- | --- | --- |
 | Two overlapping rectangles: regions, areas, boundaries, remainders | Working / verified in scene | Scene tests cover 15,000 union / 5,000 intersection / 5,000 difference / 10,000 XOR, face ownership, disconnected components, destructive remainders, and stale revisions; real UI E2E is the remaining gate. |
-| Circles/curves and transformed artwork | Partial | Independent deviation checks after nonuniform/shear transforms; screenshot and node-edit inspection remain required. |
+| Circles/curves and transformed artwork | Partial / bounded | Independent deviation checks cover transformed cubic and ellipse conversion; reconstructed results remain documented polygonal approximations and screenshot/node-edit inspection remain required. |
+| Rendered rounded rectangles and negative-direction geometry | Working / scene verified | Rounded-rectangle hit testing uses the rendered boundary, including per-corner radii, transformed arc sampling, and negative-direction rectangles; continuous/smoothed corners remain explicitly unsupported. |
 | Donuts, nested islands, compound paths | Working / scene verified | Fill-rule-aware arrangement tests preserve a donut hole and reject artificial connectors; save/reopen/export visual evidence remains required. |
 | One self-intersecting path | Partial | Arrangement API supports one selected source; a dedicated self-intersection UI fixture remains to be added. |
 | Shared/tangent/coincident/near-coincident geometry | Partial / guarded | Deterministic no-phantom-face tests and finite-coordinate assertions exist; broader degeneracy fixtures remain. |
 | Open boundaries, strokes, and gaps | Missing | Explicit eligibility message in v1; no silent closure or bounding-box fallback. |
-| Staged selection, sweep crossing, idempotence, touch/keyboard/cancel | Implemented / browser evidence pending | Playwright pointer sweep covers before/during/after, create, undo/redo, and node-edit entry; touch-only and cancellation recordings remain. |
+| Staged selection, sweep crossing, idempotence, touch/keyboard/cancel | Implemented / browser evidence partial | Scene/editor tests cover fast face crossing, touch multi-select toggling, and pointer cancellation; manual browser evidence covers entry, sweep, preview, and staged status, while final Create/Undo/Redo/Node Edit runner coverage remains blocked by Chromium crashes under concurrent load. |
 | Source retention, style, hierarchy, references | Partial | Create retains sources, destructive references are guarded, and outputs are ordinary path nodes; save/reopen/export and mixed-style evidence remain. |
 | Browser/Tauri parity and constrained-device behavior | Partial | Browser tool is wired and desktop/editor builds are available; a clean browser E2E and measured constrained-device run remain. |
 
@@ -172,7 +173,8 @@ Decisions: use a lightweight arrangement model in `@varve/scene`; reuse the
 existing polygon kernel only for bounded reconstruction; use ordinary editable
 compound path nodes for committed output; make Create retained-source and Merge
 destructive; keep whole-object Booleans separate; use a staged Apply/Cancel
-session; reject unsupported stroke/open/masked/live inputs explicitly.
+session; support ordinary rendered rounded rectangles but reject continuous
+corner smoothing; reject unsupported stroke/open/masked/live inputs explicitly.
 
 Hypotheses to verify: the current scene path representation can preserve enough
 curve provenance for unchanged portions without a new native kernel; the
@@ -191,17 +193,21 @@ not attributed to Shape Builder.
 
 ### 2026-09-13 implementation receipt
 
-- Scene geometry: `packages/scene/src/shapeBuilder.test.ts` passed 9/9, including
-  the rectangle area oracle, thin-face sweep, donut hole, disconnected output,
-  one self-intersecting path under its authored fill rule, retained-source
-  Create, destructive remainders, and stale revision rejection.
-- A follow-up document-codec round-trip fixture now covers a created compound
-  result with a hole. It is committed and Biome-checked; its isolated execution
-  was deferred after repeated Vitest startup stalls during the machine's
-  concurrent memory pressure, so it is not counted in the 9/9 receipt.
-- Independent curve check: the transformed cubic deviation test passed with a
-  measured maximum below the 0.08-unit fixture budget; it does not compare two
-  paths through the same conversion helper.
+- Scene geometry: `packages/scene/src/shapeBuilder.test.ts` passed 13/13,
+  including the rectangle area oracle, thin-face sweep, donut hole,
+  disconnected output, one self-intersecting path under its authored fill rule,
+  retained-source Create, destructive remainders, stale revision rejection,
+  rendered rounded-rectangle hit testing, and zero-area primitive rejection.
+- The document-codec round-trip fixture covers a created compound result with a
+  hole and passed as part of the 12/12 scene run; the arrangement remains
+  derived state rather than a second serialized authority.
+- Independent curve checks in `packages/scene/src/boolean/integration.test.ts`
+  passed 3/3: a transformed cubic remains below the 0.08-unit fixture budget,
+  and a strongly sheared/non-uniformly transformed ellipse remains below the
+  0.011-unit world-space budget. Neither compares two paths through the same
+  conversion helper.
+- Editor tool tests passed 2/2: touch multi-select taps add/remove a face
+  idempotently, and pointer cancellation restores the staged face set.
 - Real browser interaction: Playwright drove the browser application in an
   isolated worktree on Linux, created two rectangles through the UI, entered
   Shape Builder from the visible toolbar, swept three regions, and the status
@@ -218,5 +224,6 @@ not attributed to Shape Builder.
   unrelated E2E suites were concurrently consuming renderer memory. That
   portion remains unverified rather than being reported as passed.
 - The website source was checked with the Shape Builder guide and feature-card
-  links present; a clean website build remains part of the affected validation
-  run.
+  links present; the guide documents rounded-rectangle support and explicit
+  unsupported-input behavior. A clean website build remains part of the
+  affected validation run.

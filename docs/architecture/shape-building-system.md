@@ -50,6 +50,14 @@ geometry revision and a stable topology key; it is not an array index. Face
 identity also includes its boundary component, so disconnected faces with the
 same source contributors do not alias.
 
+Parametric rectangles with ordinary corner radii are converted from the
+rendered rounded boundary before intersection construction. Arc sampling uses
+the complete world affine and a bounded 0.01-world-unit chord-error ceiling;
+continuous/smoothed corners remain explicitly unsupported until their renderer
+path can be shared without drift. Zero-area primitives are rejected before the
+arrangement is built, while self-intersecting paths are still allowed when they
+contain non-collinear geometry.
+
 Each source is classified independently using its authored fill rule before
 the sources are combined. Even-odd parity and non-zero winding are not
 substituted with one global rule. Duplicate and shared edges retain ownership
@@ -96,7 +104,9 @@ leaves the tool. Buttons expose every implemented action, and keyboard
 shortcuts are M (Merge), E/Delete (Erase), X (Extract), C (Create), and D
 (Divide). The overlay uses patterns and boundary styles in addition to color,
 announces state changes, and exposes a tap-to-select/apply path for users who
-cannot or do not want to drag.
+cannot or do not want to drag. The existing touch multi-select toggle also
+makes touch taps add or remove regions without relying on a hardware modifier
+key.
 
 ## Budgets and invalidation
 

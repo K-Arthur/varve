@@ -46,7 +46,7 @@ import { sitePath } from '../../../lib/siteUrl';
           Donuts, nested islands, compound paths, self-intersections, shared edges, and transformed shapes are decomposed into selectable faces. Holes remain holes. The unbounded outside is never offered as a giant region, and a bounded empty face is shown as unavailable rather than silently turned into new artwork.
         </p>
         <p>
-          Open paths, visible strokes, masks, effects, instances, locked ancestors, and live Boolean groups are reported as unsupported. Convert or outline them explicitly when you need boundary or stroke-area construction; Varve does not silently flatten your source semantics.
+          Ordinary rounded rectangles use the rendered rounded boundary, including per-corner radii and negative-direction geometry. Continuous/smoothed corners, open paths, visible strokes, masks, effects, instances, locked ancestors, and live Boolean groups are reported as unsupported. Convert or outline them explicitly when you need those semantics; Varve does not silently flatten your source.
         </p>
       </section>
 
