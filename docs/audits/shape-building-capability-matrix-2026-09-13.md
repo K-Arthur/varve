@@ -213,6 +213,13 @@ not attributed to Shape Builder.
   conversion helper.
 - Editor tool tests passed 2/2: touch multi-select taps add/remove a face
   idempotently, and pointer cancellation restores the staged face set.
+- A scene-model smoke probe on this shared, resource-contended host measured
+  overlapping rectangle fixtures as follows: 2 sources → 8 segments, 10
+  intersection events, 3 faces, 62.00 ms; 8 sources → 32 segments, 148
+  intersection events, 24 faces, 30.40 ms; 16 sources → 64 segments, 372
+  intersection events, 48 faces, 122.69 ms. These are bounded-work sanity
+  measurements, not a clean constrained-device benchmark; no committed
+  accuracy or topology is reduced to meet a time target.
 - Real browser interaction: Playwright drove the browser application in an
   isolated worktree on Linux, created two rectangles through the UI, entered
   Shape Builder from the visible toolbar, swept three regions, and the status
