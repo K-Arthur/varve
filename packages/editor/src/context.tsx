@@ -10603,3 +10603,4 @@ function colorsEqual(a: unknown, b: unknown): boolean {
   if (a.length !== b.length) return false;
   return a.every((v, i) => v === (b as number[])[i]);
 }
+        smudgeSampleAllLayers: false,

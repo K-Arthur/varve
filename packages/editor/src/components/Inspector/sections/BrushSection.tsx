@@ -14,6 +14,12 @@ const BLEND_MODE_OPTIONS = [
   { value: 'exclusion', label: 'Exclusion' },
 ];
 
+const SMUDGE_MODE_OPTIONS = [
+  { value: 'sampling', label: 'Pure smudge' },
+  { value: 'mixing', label: 'Loaded paint' },
+  { value: 'fingerpaint', label: 'Fingerpaint' },
+] as const;
+
 import { useCallback } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -217,16 +223,56 @@ export function BrushSection({ tool, sectionId }: BrushSectionProps) {
       </div>
 
       {isSmudge && (
-        <NumberField
-          label="Strength"
-          value={Math.round(brushSettings.smudgeStrength * 100)}
-          min={0}
-          max={100}
-          step={1}
-          shiftStep={10}
-          unit="%"
-          onChange={(v) => setBrushSetting('smudgeStrength', v / 100)}
-        />
+        <>
+          <div className="insp-field">
+            <span className="insp-field__label">Mode</span>
+            <div className="insp-field__control">
+              <Select
+                label="Smudge mode"
+                value={brushSettings.smudgeMode}
+                options={SMUDGE_MODE_OPTIONS.map((option) => ({
+                  value: option.value,
+                  label: option.label,
+                }))}
+                onChange={(value) =>
+                  setBrushSetting('smudgeMode', value as 'sampling' | 'mixing' | 'fingerpaint')
+                }
+              />
+            </div>
+          </div>
+
+          <div className="insp-field">
+            <span className="insp-field__label">Sample</span>
+            <div className="insp-field__control">
+              <button
+                type="button"
+                className={`btn-toggle${brushSettings.smudgeSampleAllLayers ? ' btn-toggle--active' : ''}`}
+                aria-label="Sample merged layers"
+                aria-pressed={brushSettings.smudgeSampleAllLayers}
+                onClick={() =>
+                  setBrushSetting('smudgeSampleAllLayers', !brushSettings.smudgeSampleAllLayers)
+                }
+              >
+                {brushSettings.smudgeSampleAllLayers ? 'Merged' : 'Current layer'}
+              </button>
+            </div>
+          </div>
+
+          <p className="insp-field__hint">
+            Merged sampling reads visible raster layers and deposits only on the active target.
+          </p>
+
+          <NumberField
+            label="Strength"
+            value={Math.round(brushSettings.smudgeStrength * 100)}
+            min={0}
+            max={100}
+            step={1}
+            shiftStep={10}
+            unit="%"
+            onChange={(v) => setBrushSetting('smudgeStrength', v / 100)}
+          />
+        </>
       )}
     </DisclosureSection>
   );

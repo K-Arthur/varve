@@ -19,6 +19,7 @@ import type {
   BrushPreset,
   RasterLayerNode,
   RasterTile,
+  SceneNode,
   SmudgeState,
   StrokeDabSession,
   StrokePoint,
@@ -47,6 +48,61 @@ import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './
  * the foreground into the reservoir on every pickup.
  */
 export type SmudgeMode = 'sampling' | 'mixing' | 'fingerpaint';
+
+export interface RasterSamplingLayer {
+  id: string;
+  tiles: Map<string, RasterTile>;
+  opacity?: number;
+  visible?: boolean;
+}
+
+/**
+ * Return raster sources in the same bottom-to-top order exposed by the active
+ * scene scope. Object insertion order is not paint order: layer reordering
+ * edits the parent child arrays without rebuilding `document.nodes`.
+ *
+ * Hidden ancestors are excluded so merged sampling cannot pull pixels from a
+ * hidden group. Group opacity, masks, effects, and transforms remain outside
+ * this tile-only source contract and are documented as limitations below.
+ */
+export function rasterSamplingLayersInPaintOrder(
+  ctx: Pick<ToolContext, 'document' | 'rootNodes'>,
+): RasterSamplingLayer[] {
+  const layers: RasterSamplingLayer[] = [];
+  const visited = new Set<string>();
+
+  const visit = (nodes: readonly SceneNode[], inheritedVisible: boolean): void => {
+    for (const node of nodes) {
+      if (visited.has(node.id)) continue;
+      visited.add(node.id);
+
+      const visible = inheritedVisible && (node as { visible?: boolean }).visible !== false;
+      if (!visible) continue;
+
+      if ((node as { kind?: string }).kind === 'rasterLayer') {
+        const raster = node as unknown as RasterLayerNode;
+        layers.push({
+          id: raster.id,
+          tiles: raster.tiles,
+          opacity: raster.opacity,
+          visible: raster.visible,
+        });
+      }
+
+      const childIds = 'children' in node && Array.isArray(node.children) ? node.children : [];
+      if (childIds.length === 0) continue;
+      visit(
+        childIds
+          .map((childId) => ctx.document.nodes[childId])
+          .filter((child): child is SceneNode => Boolean(child)),
+        visible,
+      );
+    }
+  };
+
+  visit(ctx.rootNodes(), true);
+  return layers;
+}
 
 /** Stable 32-bit hash so a stroke's jitter is reproducible from its identity. */
 function hashSeed(text: string): number {
@@ -113,6 +169,8 @@ export class SmudgeTool extends BaseTool {
     smoothing: number;
     spacing: number;
     smudgeStrength: number;
+    smudgeMode: SmudgeMode;
+    smudgeSampleAllLayers: boolean;
   }) => void;
 
   constructor() {
@@ -138,6 +196,7 @@ export class SmudgeTool extends BaseTool {
     spacing: number;
     smudgeStrength: number;
     smudgeMode?: SmudgeMode;
+    smudgeSampleAllLayers?: boolean;
   }): void {
     this.preset.id = settings.presetId;
     this.preset.radius = settings.radius;
@@ -148,6 +207,9 @@ export class SmudgeTool extends BaseTool {
     this.preset.spacing = settings.spacing;
     this.preset.smudgeStrength = settings.smudgeStrength;
     if (settings.smudgeMode) this.mode = settings.smudgeMode;
+    if (settings.smudgeSampleAllLayers !== undefined) {
+      this.setSampleAllLayers(settings.smudgeSampleAllLayers);
+    }
   }
 
   /** Current reservoir contents, for tool-options readouts and tests. */
@@ -164,6 +226,8 @@ export class SmudgeTool extends BaseTool {
     smoothing: number;
     spacing: number;
     smudgeStrength: number;
+    smudgeMode: SmudgeMode;
+    smudgeSampleAllLayers: boolean;
   } {
     return {
       presetId: this.preset.id,
@@ -174,6 +238,8 @@ export class SmudgeTool extends BaseTool {
       smoothing: this.preset.smoothing,
       spacing: this.preset.spacing,
       smudgeStrength: this.preset.smudgeStrength,
+      smudgeMode: this.mode,
+      smudgeSampleAllLayers: this.sampleAllLayers,
     };
   }
 
@@ -366,13 +432,7 @@ export class SmudgeTool extends BaseTool {
    * stroke so the stroke cannot sample its own output part-way through.
    */
   private flattenVisibleStack(ctx: ToolContext): Map<string, RasterTile> | null {
-    const layers: Array<{ tiles: Map<string, RasterTile>; opacity?: number; visible?: boolean }> =
-      [];
-    for (const node of Object.values(ctx.document.nodes)) {
-      if ((node as { kind?: string }).kind !== 'rasterLayer') continue;
-      const raster = node as unknown as RasterLayerNode;
-      layers.push({ tiles: raster.tiles, opacity: raster.opacity, visible: raster.visible });
-    }
+    const layers = rasterSamplingLayersInPaintOrder(ctx);
     return layers.length > 0 ? flattenTilesForSampling(layers) : null;
   }
 
