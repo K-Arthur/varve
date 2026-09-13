@@ -157,7 +157,7 @@ and architecture jobs, so startup durations are not frame-budget baselines.
 | Targeted Biome check | 14 navigation source files clean | Formatting/import contracts passed for the input, camera, settings, and render preference slice. |
 | Settings E2E source check | 1 file clean | The real Settings workflow is formatted and type-checked separately from the unit UI suite. |
 | Website production build | 100 routes built; 1m53s; exit 0 | The updated canvas, keyboard-shortcut, touch, settings, and performance documentation routes compile in static output. |
-| Website canvas browser E2E | 1 test passed; 18.0 s; exit 0 | Desktop and mobile responsive copy/layout assertions passed; both screenshots were inspected. |
+| Website canvas browser E2E | 1 test passed; 5.9 s; exit 0 | Desktop and mobile responsive copy/layout assertions passed; both fresh screenshots were inspected. |
 | Editor navigation browser E2E | Hand keyboard pan and stationary edge auto-pan passed in the broad run; an isolated Hand visual-contract rerun passed 1 test in 3.3m; 2 other broad-run tests failed in setup and 6 did not run | Real DOM canvas routing and artwork/document invariants passed for the completed workflows. The other failures were setup timeouts under concurrent Vite/Playwright load, not assertion failures. |
 | Partial-redraw visual oracle | 3 cases passed; the fourth authoritative full-redraw case timed out in `page.goto` after 180 s while Vite was starved under concurrent jobs | Passed cases cover localized pruning, a spanning dependency, missing-candidate sensitivity, and stale pixels across a pan. The final exact-match case remains pending; no full oracle pass is claimed. |
 
@@ -168,7 +168,9 @@ count, and no checkerboard/smear. The inspected artifacts are
 `test-results/var/tmp/varve-nav-final/hand-final/canvas-input-navigation-Na-156ed-thout-changing-the-document-chromium/navigation-before.png`,
 `navigation-after-right.png`, and `navigation-settled.png`.
 
-The website canvas E2E likewise captured and inspected desktop/mobile output.
+The website canvas E2E likewise captured and inspected desktop/mobile output:
+`test-results/canvas-feature-canvas-feat-e6f1e-tract-and-reflows-on-mobile-ghpages/canvas-feature-desktop.png`
+and `canvas-feature-mobile.png`.
 Wheel pan, Ctrl/Cmd-wheel zoom, rotated ZoomTool/pinch, minimap/fit, and the
 settled optimized-vs-authoritative surface hash still require a clean targeted
 browser run. The partial-redraw oracle passed three cases on the final source
