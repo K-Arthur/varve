@@ -128,6 +128,6 @@ not clipping.
 
 The first fresh run also exposed an app-startup defect unrelated to the visual
 assertions: the editor imported `getRuntimeCapabilitiesSync` from the engine
-root without that export. The export is being landed as a small runtime fix;
-the concurrent inference-resource export in the same file remains task-owned
-by its original change and is preserved separately.
+root without that export. It is now present in the engine root export from
+`07098c3de`; the concurrent inference-resource exports in the same file remain
+task-owned by their original change and are preserved separately.
