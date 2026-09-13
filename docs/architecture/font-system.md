@@ -123,6 +123,9 @@ a validated face has parsed cmap ranges, the resolver reports the distinct
 coverage is unknown and is never interpreted as an empty font. Replacement can
 be scoped to the exact reference, clears stale identity when the user chooses a
 family-only fallback, and records that scope in manifest replacement history.
+If an unavailable reference also carries a PostScript name, substitute ranking
+uses that face-level signal before the legacy family-name heuristic, so localized
+or shared family labels do not hide a matching installed face.
 
 Document Fonts now exposes a scoped **Replace** action beside each used face.
 It opens the same full browser used by the other typography surfaces, so a

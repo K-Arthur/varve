@@ -316,6 +316,52 @@ describe('FontResolver', () => {
       const highQuality = subs.filter((s) => s.matchQuality !== 'script-fallback');
       expect(highQuality).toHaveLength(0);
     });
+
+    it('uses an exact PostScript reference before family-based fallbacks', () => {
+      const catalog = new FontCatalog();
+      catalog.addEntry(
+        makeMeta({
+          identity: makeIdentity({
+            contentHash: 'f'.repeat(64),
+            familyName: 'Localized Display',
+            postScriptName: 'AcmeDisplay-Bold',
+            subfamilyName: 'Bold',
+          }),
+        }),
+      );
+      catalog.addEntry(
+        makeMeta({
+          identity: makeIdentity({
+            contentHash: 'e'.repeat(64),
+            familyName: 'Acme Display',
+            postScriptName: 'AcmeDisplay-Regular',
+            subfamilyName: 'Regular',
+          }),
+        }),
+      );
+
+      const substitutes = resolver.findSubstitutes(
+        {
+          familyName: 'Acme Display',
+          fontReference: {
+            artifactHash: 'a'.repeat(64),
+            postScriptName: 'AcmeDisplay-Bold',
+          },
+          requestedWeight: 700,
+          requestedStyle: 'normal',
+          nodeIds: ['t1'],
+          status: 'missing',
+          substitutes: [],
+          originalReference: 'Acme Display',
+        },
+        catalog,
+      );
+
+      expect(substitutes[0]).toMatchObject({
+        familyName: 'Localized Display',
+        matchQuality: 'postscript',
+      });
+    });
   });
 
   describe('FONT_COMPAT_MAP', () => {

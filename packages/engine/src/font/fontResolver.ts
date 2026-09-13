@@ -371,10 +371,32 @@ export class FontResolver {
     const allSubstitutes: FontSubstitute[] = [];
     const seen = new Set<string>();
 
-    // Tier 1: Exact PostScript name match
+    // Tier 1: Exact PostScript name match. An exact face request can carry a
+    // PostScript name even when its family label is localized, abbreviated,
+    // or shared by several artifacts. Prefer that portable face signal over
+    // guessing from the display family.
+    const requestedPostScript = missing.fontReference?.postScriptName?.trim().toLowerCase();
+    if (requestedPostScript && requestedPostScript !== 'unknown') {
+      for (const entry of catalog.all()) {
+        const postScriptLower = entry.identity.postScriptName.trim().toLowerCase();
+        const family = entry.identity.familyName;
+        if (postScriptLower !== requestedPostScript || seen.has(family)) continue;
+        seen.add(family);
+        allSubstitutes.push({
+          familyName: family,
+          matchQuality: 'postscript',
+          confidence: 0.98,
+          source: entry.source,
+          availableVariants: collectVariants(catalog, family),
+        });
+      }
+    }
+
+    // Legacy family-only requests use the family label as their best exact
+    // signal. Keep this compatibility path after the portable face lookup.
     for (const entry of catalog.all()) {
-      const postScriptLower = entry.identity.postScriptName.toLowerCase();
-      const target = missing.familyName.toLowerCase().replace(/\s+/g, '');
+      const postScriptLower = entry.identity.postScriptName.trim().toLowerCase();
+      const target = missing.familyName.trim().toLowerCase().replace(/\s+/g, '');
       if (postScriptLower === target && !seen.has(entry.identity.familyName)) {
         seen.add(entry.identity.familyName);
         allSubstitutes.push({

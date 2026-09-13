@@ -187,3 +187,18 @@ the single-face and collection parser entry points. The collection-capable
 path now retains the original WOFF2 SHA-256, format and byte size; three
 artifact comparisons failed before this correction. A true compressed
 multi-member collection fixture remains pending.
+
+## Exact PostScript substitute ranking — 2026-09-13
+
+The resolver accepted an exact `fontReference` for missing-face detection, but
+its first substitute tier still compared the display family to PostScript
+names. A localized or shared family label could therefore miss the installed
+face whose PostScript name was already present in the document. The resolver
+now ranks a case-insensitive requested PostScript match first, then retains the
+legacy family-only heuristic and compatibility tiers. An explicit `Unknown`
+PostScript value is ignored rather than treated as a face signal.
+
+The focused resolver suite passed **35/35**, including a regression where
+`AcmeDisplay-Bold` is installed under a different localized family label. The
+full missing-status and face-recovery matrix remains open pending corrupt,
+version-mismatch, permission, and restart evidence.
