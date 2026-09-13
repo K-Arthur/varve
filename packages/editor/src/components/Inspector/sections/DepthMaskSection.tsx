@@ -38,6 +38,7 @@ const MAX_IMPORT_BYTES = 128 * 1024 * 1024;
 
 interface SourceInfo {
   locator: string;
+  identityLocator: string;
   fillAssetId?: string;
   sourceHash?: string;
   width: number;
@@ -65,8 +66,13 @@ function sourceInfo(doc: Document, node: ShapeNode): SourceInfo {
     doc,
   ).find((fill) => fill.type === 'image')?.image;
   const asset = image?.assetId ? doc.assets?.[image.assetId] : undefined;
+  const locator = image?.src ?? imageShapeSrc(node);
   return {
-    locator: image?.src ?? imageShapeSrc(node),
+    locator,
+    // Keep large embedded data URLs out of recipes when the document already
+    // has an immutable asset identity. `locator` remains the actual fill
+    // source used by the renderer/commit path.
+    identityLocator: image?.assetId ? `asset:${image.assetId}` : locator,
     ...(image?.assetId ? { fillAssetId: image.assetId } : {}),
     ...(asset?.hash ? { sourceHash: asset.hash } : {}),
     width: image?.imageWidth ?? asset?.naturalWidth ?? 0,
@@ -228,7 +234,9 @@ export function DepthMaskSection({ nodes, targetNode }: DepthMaskSectionProps) {
     nearTransition: 4,
     farTransition: 4,
     invert: false,
-    combine: 'replace',
+    // Applying a new range to an existing raster mask should preserve the
+    // artist's work unless they explicitly choose Replace.
+    combine: target?.mask?.rasterMask ? 'intersect' : 'replace',
   });
   const fileRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<HTMLCanvasElement>(null);
@@ -256,6 +264,14 @@ export function DepthMaskSection({ nodes, targetNode }: DepthMaskSectionProps) {
   useEffect(() => {
     setReplaceNonRasterMask(false);
   }, [target?.id]);
+
+  useEffect(() => {
+    if (recipe) return;
+    setRange((current) => ({
+      ...current,
+      combine: target?.mask?.rasterMask ? 'intersect' : 'replace',
+    }));
+  }, [recipe, target?.id]);
 
   useEffect(() => {
     const preferred = recipe?.depthMapId;
@@ -447,7 +463,7 @@ export function DepthMaskSection({ nodes, targetNode }: DepthMaskSectionProps) {
       processingRevision: selectedResource.sourceRevision ?? 1,
       sourceIdentity: {
         kind: 'source-metadata',
-        locator: source.locator,
+        locator: source.identityLocator,
         pixelWidth: depthData.width,
         pixelHeight: depthData.height,
         revision: selectedResource.sourceRevision ?? 1,

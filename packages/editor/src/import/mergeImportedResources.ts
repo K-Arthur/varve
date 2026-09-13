@@ -174,6 +174,13 @@ function remapNodeAssetReferences(
         const fillAssetId = depthRecipe?.sourceBinding.fillAssetId
           ? maps.assetIds.get(depthRecipe.sourceBinding.fillAssetId)
           : undefined;
+        const sourceIdentity =
+          depthRecipe?.sourceIdentity.kind === 'source-metadata' && fillAssetId
+            ? {
+                ...depthRecipe.sourceIdentity,
+                locator: `asset:${fillAssetId}`,
+              }
+            : depthRecipe?.sourceIdentity;
         mask.rasterMask = {
           ...mask.rasterMask,
           assetId,
@@ -187,6 +194,7 @@ function remapNodeAssetReferences(
                     nodeId: sourceNodeId,
                     ...(fillAssetId ? { fillAssetId } : { fillAssetId: undefined }),
                   },
+                  ...(sourceIdentity ? { sourceIdentity } : {}),
                 },
               }
             : { depthRecipe: undefined }),

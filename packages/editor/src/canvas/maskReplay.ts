@@ -127,12 +127,16 @@ function applyPlacementTransform(
 function drawSourceBoundRasterMask(
   ctx: RasterContext,
   image: CanvasImageSource,
-  assetWidth: number,
-  assetHeight: number,
   placement: ReturnType<typeof computeImagePlacement>,
 ): void {
   if (!placement) return;
   const drawTile = (rect: { x: number; y: number; w: number; h: number }): void => {
+    const sampleRect = {
+      x: placement.sampleDrawRect.x + rect.x - placement.drawRect.x,
+      y: placement.sampleDrawRect.y + rect.y - placement.drawRect.y,
+      w: placement.sampleDrawRect.w,
+      h: placement.sampleDrawRect.h,
+    };
     const centerX = rect.x + rect.w / 2;
     const centerY = rect.y + rect.h / 2;
     ctx.save();
@@ -144,7 +148,21 @@ function drawSourceBoundRasterMask(
       placement.flipH,
       placement.flipV,
     );
-    ctx.drawImage(image, 0, 0, assetWidth, assetHeight, rect.x, rect.y, rect.w, rect.h);
+    // A source-bound depth mask is registered in source pixels. Use the same
+    // source crop and destination sample rectangle as the image fill; drawing
+    // the whole mask into drawRect would shift coverage whenever a crop or a
+    // contain/cover sample is active.
+    ctx.drawImage(
+      image,
+      placement.sourceRect.x,
+      placement.sourceRect.y,
+      placement.sourceRect.w,
+      placement.sourceRect.h,
+      sampleRect.x,
+      sampleRect.y,
+      sampleRect.w,
+      sampleRect.h,
+    );
     ctx.restore();
   };
 
@@ -288,13 +306,7 @@ export function applyAdjustmentSpatialMask(options: AdjustmentSpatialMaskOptions
     } else if (rasterMaskImage && rasterAsset && rasterPlacement?.placement) {
       const sourceWorld = getWorldTransform(rasterPlacement.nodeId);
       maskCtx.transform(...sourceWorld);
-      drawSourceBoundRasterMask(
-        maskCtx,
-        rasterMaskImage,
-        rasterAsset.width,
-        rasterAsset.height,
-        rasterPlacement.placement,
-      );
+      drawSourceBoundRasterMask(maskCtx, rasterMaskImage, rasterPlacement.placement);
     }
   };
   const hardClip =
@@ -315,13 +327,7 @@ export function applyAdjustmentSpatialMask(options: AdjustmentSpatialMaskOptions
     } else if (rasterMaskImage && rasterAsset && rasterPlacement?.placement) {
       const sourceWorld = getWorldTransform(rasterPlacement.nodeId);
       backdropCtx.transform(...sourceWorld);
-      drawSourceBoundRasterMask(
-        backdropCtx,
-        rasterMaskImage,
-        rasterAsset.width,
-        rasterAsset.height,
-        rasterPlacement.placement,
-      );
+      drawSourceBoundRasterMask(backdropCtx, rasterMaskImage, rasterPlacement.placement);
     }
   } else {
     applyMaskAlpha(backdropCtx as CanvasRenderingContext2D, drawMaskAtDevice, {

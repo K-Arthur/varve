@@ -151,6 +151,10 @@ describe('depth resource paste ownership', () => {
     expect(rasterMask?.depthRecipe?.sourceBinding.nodeId).toBe(clonedNode.id);
     expect(remappedSourceAssetId).toBeTruthy();
     expect(remappedSourceAssetId).not.toBe(sourceAsset.id);
+    expect(rasterMask?.depthRecipe?.sourceIdentity).toMatchObject({
+      kind: 'source-metadata',
+      locator: `asset:${remappedSourceAssetId}`,
+    });
     expect(merged.depthMaps?.[remappedDepthId!]?.sourceAssetId).toBe(remappedSourceAssetId);
   });
 });
