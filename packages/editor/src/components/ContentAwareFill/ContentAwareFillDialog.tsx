@@ -914,7 +914,14 @@ export function ContentAwareFillDialog({
           knownWidth > 0 && knownHeight > 0
             ? previewRasterDimensions(knownWidth, knownHeight)
             : { width: 1024, height: 1024 };
-        const baseSource = acceptedSourceAsset?.dataUrl ?? sourceAsset?.dataUrl ?? imageSrc;
+        // Bounded edits rebuild the review baseline from the immutable source
+        // plus accepted overlay patches. Expand replaces the source fill with
+        // a full output, so reopening or expanding again must start from that
+        // current accepted frame instead of reverting to the old snapshot.
+        const baseSource =
+          acceptedEdit?.mode === 'expand'
+            ? (sourceAsset?.dataUrl ?? imageSrc ?? acceptedSourceAsset?.dataUrl ?? '')
+            : (acceptedSourceAsset?.dataUrl ?? sourceAsset?.dataUrl ?? imageSrc);
         const reviewOverlays = overlaySources.filter(
           (overlay) => overlay.editId !== acceptedEdit?.id,
         );
