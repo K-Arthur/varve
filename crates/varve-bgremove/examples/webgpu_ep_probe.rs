@@ -28,23 +28,48 @@ fn run(
     size: usize,
     input: &[f32],
 ) -> Result<Vec<f32>, Box<dyn std::error::Error>> {
-    let input_name = session
+    let input_names: Vec<String> = session
         .inputs()
-        .first()
-        .ok_or("model has no inputs")?
-        .name()
-        .to_owned();
+        .iter()
+        .map(|entry| entry.name().to_owned())
+        .collect();
     let output_name = session
         .outputs()
         .first()
         .ok_or("model has no outputs")?
         .name()
         .to_owned();
-    let tensor = ort::value::Tensor::from_array(([1usize, 3, size, size], input.to_vec()))?;
-    let outputs = session.run(ort::inputs! { input_name.as_str() => tensor })?;
+    let outputs = if input_names.iter().any(|name| name == "mask") {
+        // Two-input inpainting contract (LaMa): image [1,3,N,N], mask [1,1,N,N].
+        let image = ort::value::Tensor::from_array(([1usize, 3, size, size], input.to_vec()))?;
+        let mask =
+            ort::value::Tensor::from_array(([1usize, 1, size, size], vec![0f32; size * size]))?;
+        session.run(ort::inputs! { "image" => image, "mask" => mask })?
+    } else {
+        let input_name = input_names.first().ok_or("model has no inputs")?.clone();
+        let tensor = ort::value::Tensor::from_array(([1usize, 3, size, size], input.to_vec()))?;
+        session.run(ort::inputs! { input_name.as_str() => tensor })?
+    };
     let output = outputs.get(&output_name).ok_or("output not found")?;
     let (_, data) = output.try_extract_tensor::<f32>()?;
     Ok(data.to_vec())
+}
+
+fn run_production(
+    session: &mut Box<dyn varve_bgremove::inference::InferenceSession>,
+    size: usize,
+    input: &[f32],
+) -> Result<Vec<f32>, Box<dyn std::error::Error>> {
+    let dims = [1usize, 3, size, size];
+    if session.input_names().iter().any(|name| name == "mask") {
+        let mask = vec![0f32; size * size];
+        let mask_dims = [1usize, 1, size, size];
+        Ok(session
+            .run_multi(&[("image", input, &dims), ("mask", &mask, &mask_dims)])?
+            .data)
+    } else {
+        Ok(session.run_nd(input, &dims)?.data)
+    }
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -201,19 +226,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     use varve_bgremove::inference::{InferenceRuntime, OrtInferenceRuntime};
     use varve_bgremove::webgpu_ep::{self, InferenceProviderPolicy};
     let runtime = OrtInferenceRuntime;
-    let dims = [1usize, 3, size, size];
 
     webgpu_ep::set_inference_provider_policy(InferenceProviderPolicy::Gpu);
     let mut gpu_session = runtime.create_session(std::path::Path::new(&args[3]))?;
     let gpu_provider = gpu_session.execution_provider();
-    let gpu_production = gpu_session.run_nd(&input, &dims)?;
-    let gpu_production = gpu_production.data;
+    let gpu_production = run_production(&mut gpu_session, size, &input)?;
 
     webgpu_ep::set_inference_provider_policy(InferenceProviderPolicy::Cpu);
     let mut cpu_session = runtime.create_session(std::path::Path::new(&args[3]))?;
     let cpu_provider = cpu_session.execution_provider();
-    let cpu_production = cpu_session.run_nd(&input, &dims)?;
-    let cpu_production = cpu_production.data;
+    let cpu_production = run_production(&mut cpu_session, size, &input)?;
 
     let mut production_max = 0f32;
     for (a, b) in cpu_production.iter().zip(gpu_production.iter()) {

@@ -214,6 +214,16 @@ the audit host:
 | Node placement (ORT profiler, u2netp 1×3×320×320, 4 runs) | 1468/1468 node executions on WebGPU, 0 on CPU |
 | Output parity vs CPU EP | max abs 2e-6, mean abs 4e-8 |
 | Median wall time | CPU 1999 ms vs WebGPU 336 ms (~6×) |
+| isnet-general-use 1×3×1024×1024 | 1460/1460 on WebGPU, 0 CPU; parity 2e-6; CPU 6514 ms vs GPU 2029 ms |
+| lama-inpainting (2-input, 512²) | **Partial partition**: 21592 WebGPU vs 11232 CPU node executions across 4 runs; parity exact (0); CPU 96192 ms vs GPU 8190 ms |
+| Missing plugin (negative control) | `PLUGIN_REGISTER_FAILED` with the missing path named, exit 2 — no silent GPU claim, CPU policy unaffected |
+
+Node counts are not time-weighted: LaMa's CPU-side nodes account for a small
+fraction of kernel time (profiler CPU total 815 ms vs WebGPU 23304 ms over
+the profiled runs), but "WebGPU active" for that model must be reported as
+*WebGPU with a CPU fallback partition*, not full-acceleration. The upscale
+model path (`varve-upscale`) is not yet wired to the provider policy and
+remains a documented remaining integration item.
 
 Command:
 
