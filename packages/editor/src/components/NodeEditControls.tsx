@@ -157,8 +157,14 @@ export function NodeEditControls({
       return { ...point, [which]: current };
     });
     const mode = nodeModeForPoint(singlePoint);
-    if (mode === 'smooth' || mode === 'symmetric' || mode === 'automatic') {
-      nextShape = setNodeModeAtIndex(nextShape, index, mode === 'automatic' ? 'smooth' : mode);
+    if (mode === 'automatic') {
+      nextShape = setNodeModeAtIndex(
+        nextShape,
+        index,
+        key === 'x' || key === 'y' ? 'automatic' : 'smooth',
+      );
+    } else if (mode === 'smooth' || mode === 'symmetric') {
+      nextShape = setNodeModeAtIndex(nextShape, index, mode);
     }
     commitShape(nextShape);
   };
