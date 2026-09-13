@@ -1465,7 +1465,7 @@ pnpm exec vitest run packages/import/src/formatCapabilities.test.ts \
   packages/import/src/svg.test.ts \
   packages/import/src/svg-clipmask.test.ts \
   packages/import/src/validation.test.ts --maxWorkers=1 --reporter=dot
-112 tests passed
+113 tests passed
 
 pnpm exec tsc -p packages/import/tsconfig.json --noEmit --pretty false
 passed
