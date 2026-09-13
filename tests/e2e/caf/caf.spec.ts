@@ -795,6 +795,10 @@ test.describe('Content-Aware Fill dialog', () => {
     expect(edit?.provider.id).toBe('varve-content-aware');
     expect(edit?.sourceSnapshotAssetId).toBe(sourceAssetId);
     expect(after.assets?.[sourceAssetId]).toBeTruthy();
+    expect(after.assets?.[sourceAssetId]?.dataUrl).toBe(before.assets?.[sourceAssetId]?.dataUrl);
+    expect(afterNode.fills?.find((fill: any) => fill.type === 'image')?.image?.assetId).toBe(
+      sourceAssetId,
+    );
     expect(edit?.variations).toHaveLength(1);
     expect(after.assets?.[edit.variations[0].assetId]).toBeTruthy();
 
