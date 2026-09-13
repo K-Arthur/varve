@@ -70,9 +70,10 @@ import { sitePath } from '../../../lib/siteUrl';
         <h2 id="photo-title">Photo colorization readiness</h2>
         <p>
           Photo Colorization is disabled until Settings → Models reports a verified DDColor model.
-          The current release includes the adapter, bounded preview, explicit letterbox geometry,
-          tensor validation, and full-resolution reconstruction that combines predicted chroma
-          with the original source detail and alpha. It does not ship an unverified checkpoint.
+          The current release includes the adapter, quality-mapped preview, tensor validation,
+          and the official upstream input contract (grayscale-derived RGB, square model input)
+          plus full-resolution reconstruction that combines predicted chroma with the original
+          source detail and alpha. It does not ship an unverified checkpoint.
         </p>
         <p>
           If the model is unavailable, use Tint / Selective Recolor for deterministic work. Varve
@@ -84,7 +85,8 @@ import { sitePath } from '../../../lib/siteUrl';
       <section class="docs-section" aria-labelledby="review-title">
         <h2 id="review-title">Review, save, and export</h2>
         <ul>
-          <li>Preview is bounded for responsiveness; Apply Full may recompute a large image with more model context.</li>
+          <li>Preview runs at the quality mode's model resolution; Apply rebuilds the approved predicted colors over the full-resolution source, so the committed colors match the preview.</li>
+          <li>The preview includes a split-view comparator against the original, so changes can be inspected before committing.</li>
           <li>A changed source or input revision makes an asynchronous result stale instead of replacing unrelated edits.</li>
           <li>Apply stores accepted result bytes in the document's embedded asset table, so save/reopen/export does not require the model again.</li>
           <li>The current result is materialized and source-preserving. Re-editable Colorize recipes and persistent painted hints are planned, not implied by the duplicate layer.</li>

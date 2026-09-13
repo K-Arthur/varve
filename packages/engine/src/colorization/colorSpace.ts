@@ -11,14 +11,18 @@
  * postprocessing.
  */
 
+import { resizeMaskBilinear } from '../inference/imageTensor';
 import { labToRgb, rgbToLab } from '../nonSeparable';
+import type { ChromaPlanes } from './colorizationRequest';
 
 /**
  * Combine a source's L channel with predicted a*b* to produce a colorized
  * RGB ImageData. All arrays must be the same length in pixels.
  *
  * `predA` and `predB` are in LAB a*b* range (-128 to 127), NOT normalized.
- * Returns a new ImageData with the original alpha preserved.
+ * The source L* is always retained: DDColor-class models predict chrominance
+ * only, so there is no separate lightness control in this path. Returns a new
+ * ImageData with the original alpha preserved.
  */
 export function combineLabToImageData(
   sourceData: Uint8ClampedArray,
@@ -26,7 +30,6 @@ export function combineLabToImageData(
   height: number,
   predA: Float32Array,
   predB: Float32Array,
-  luminancePreservation: number,
 ): ImageData {
   if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width <= 0 || height <= 0) {
     throw new Error('Source dimensions must be positive integers');
@@ -38,12 +41,8 @@ export function combineLabToImageData(
   if (predA.length < pixelCount || predB.length < pixelCount) {
     throw new Error('Predicted chroma planes are shorter than the source image');
   }
-  if (!Number.isFinite(luminancePreservation)) {
-    throw new Error('Luminance preservation must be finite');
-  }
   const out = new ImageData(width, height);
   const outData = out.data;
-  const lumPres = Math.max(0, Math.min(1, luminancePreservation));
 
   for (let i = 0; i < pixelCount; i++) {
     const srcIdx = i * 4;
@@ -61,15 +60,13 @@ export function combineLabToImageData(
     const b = (sourceData[srcIdx + 2] ?? 0) / 255;
 
     const [srcL] = rgbToLab(r, g, b);
-    const modelL = srcL;
-    const finalL = srcL * lumPres + modelL * (1 - lumPres);
 
     const a = predA[i] ?? 0;
     const bVal = predB[i] ?? 0;
     if (!Number.isFinite(a) || !Number.isFinite(bVal)) {
       throw new Error('Predicted chroma contains a non-finite value');
     }
-    const [outR, outG, outB] = labToRgb(finalL, a, bVal);
+    const [outR, outG, outB] = labToRgb(srcL, a, bVal);
 
     outData[dstIdx] = Number.isFinite(outR) ? outR * 255 : 0;
     outData[dstIdx + 1] = Number.isFinite(outG) ? outG * 255 : 0;
@@ -78,6 +75,40 @@ export function combineLabToImageData(
   }
 
   return out;
+}
+
+/**
+ * Reconstruct a full-resolution colorization from a cached chroma prediction.
+ *
+ * Used by Apply after the user approved a preview: the model's a*b* planes are
+ * bilinearly resized to the source dimensions and combined with the *original*
+ * source lightness/detail and alpha. This is the same chroma upsampling the inference
+ * path performs; it never enlarges a low-resolution RGB result, and it never
+ * needs a second model run, so the committed colors are the approved ones.
+ */
+export function combineChromaAtSourceResolution(
+  source: ImageData,
+  chroma: ChromaPlanes,
+): ImageData {
+  const { width, height, data } = source;
+  if (
+    !Number.isSafeInteger(chroma.width) ||
+    !Number.isSafeInteger(chroma.height) ||
+    chroma.width <= 0 ||
+    chroma.height <= 0
+  ) {
+    throw new Error('Predicted chroma dimensions must be positive integers');
+  }
+  const pixelCount = chroma.width * chroma.height;
+  if (chroma.a.length < pixelCount || chroma.b.length < pixelCount) {
+    throw new Error('Predicted chroma planes are shorter than their dimensions');
+  }
+  if (chroma.width === width && chroma.height === height) {
+    return combineLabToImageData(data, width, height, chroma.a, chroma.b);
+  }
+  const a = resizeMaskBilinear(chroma.a, chroma.width, chroma.height, width, height);
+  const b = resizeMaskBilinear(chroma.b, chroma.width, chroma.height, width, height);
+  return combineLabToImageData(data, width, height, a, b);
 }
 
 /**

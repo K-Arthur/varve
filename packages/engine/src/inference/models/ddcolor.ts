@@ -12,8 +12,9 @@
  *
  *   Architecture: ConvNeXt backbone encoder + two decoders
  *   (MultiScaleColorDecoder for spatial refinement, color-token decoder
- *   for semantic color queries). Input: RGB image. Output: a*b* chrominance
- *   channels in CIELAB space. Luminance is preserved from the source.
+ *   for semantic color queries). Input: grayscale-derived RGB image. Output:
+ *   a*b* chrominance channels in CIELAB space. Luminance is preserved from
+ *   the original source.
  *
  *   ONNX export: official `scripts/export_onnx.py` (opset 12), verified
  *   input/output tensor names from the export script:
@@ -23,6 +24,20 @@
  *   The official exporter can emit dynamic H/W only when invoked with
  *   `--input_size 0`; Varve's approved contracts use fixed 512x512 and
  *   256x256 tensors, matching the model variants we intend to verify.
+ *
+ *   INPUT CONTRACT (verified against upstream `ddcolor/pipeline.py`
+ *   `ColorizationPipeline.process`, master 2026-09-13): the model is fed
+ *   *grayscale-derived RGB*, not the original image. Upstream converts the
+ *   resized image to CIELAB, keeps only L, builds `(L, 0, 0)`, and converts
+ *   back to RGB. It also resizes directly to the square model input (no
+ *   aspect-preserving letterbox), then resizes the predicted a*b* planes
+ *   bilinearly back to the source dimensions and recombines them with the
+ *   *original* source L. Varve reproduces that contract exactly:
+ *     source RGB -> CIELAB L -> Lab(L,0,0) -> RGB -> square stretch resize
+ *     -> model -> raw a*b* -> bilinear resize to source -> combine with
+ *     source L + source alpha.
+ *   Feeding the original color channels would be out of distribution and
+ *   would make results depend on colors DDColor was trained not to see.
  *
  *   Training data: ImageNet (ILSVRC 2012) + private artistic images for
  *   the "artistic" variant. No personally-identifiable data.
@@ -37,7 +52,8 @@
  *   Artifact sizes are release/export dependent and remain unverified here.
  */
 
-import type { TensorSpec } from '../imageTensor';
+import { labToRgb, rgbToLab } from '../../nonSeparable';
+import { resizeMaskBilinear, type TensorSpec } from '../imageTensor';
 
 export const DD_COLOR_INPUT_SIZE = 512;
 
@@ -65,6 +81,39 @@ export interface DdColorLetterbox {
   /** Rounded raster width/height of the drawn source region. */
   contentWidth?: number;
   contentHeight?: number;
+}
+
+/**
+ * Convert a source image to the grayscale-derived RGB the official DDColor
+ * pipeline feeds the model.
+ *
+ * Replicates upstream `ColorizationPipeline.process`: each pixel is converted
+ * from sRGB to CIELAB, the L* channel is kept, and `(L*, 0, 0)` is converted
+ * back to RGB. The result is a neutral RGB image whose lightness matches the
+ * source; residual chroma is at floating-point noise level. Alpha is carried
+ * through unchanged (the model input is opaque) so callers can keep one image
+ * for reporting and never mistake this for a document matte.
+ */
+export function ddColorInputFromSource(imageData: ImageData): ImageData {
+  const { width, height, data } = imageData;
+  if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width <= 0 || height <= 0) {
+    throw new Error('DDColor source dimensions must be positive integers');
+  }
+  const output = new ImageData(width, height);
+  for (let pixel = 0; pixel < width * height; pixel += 1) {
+    const index = pixel * 4;
+    const [l] = rgbToLab(
+      (data[index] ?? 0) / 255,
+      (data[index + 1] ?? 0) / 255,
+      (data[index + 2] ?? 0) / 255,
+    );
+    const [grayR, grayG, grayB] = labToRgb(l, 0, 0);
+    output.data[index] = Math.round(grayR * 255);
+    output.data[index + 1] = Math.round(grayG * 255);
+    output.data[index + 2] = Math.round(grayB * 255);
+    output.data[index + 3] = data[index + 3] ?? 255;
+  }
+  return output;
 }
 
 /**
@@ -156,8 +205,8 @@ export function decodeDdColorOutput(
   }
 
   if (srcW !== targetWidth || srcH !== targetHeight) {
-    aPlane = resizeBilinear(aPlane, srcH, srcW, targetHeight, targetWidth);
-    bPlane = resizeBilinear(bPlane, srcH, srcW, targetHeight, targetWidth);
+    aPlane = resizeMaskBilinear(aPlane, srcW, srcH, targetWidth, targetHeight);
+    bPlane = resizeMaskBilinear(bPlane, srcW, srcH, targetWidth, targetHeight);
   }
 
   return { a: aPlane, b: bPlane };
@@ -177,41 +226,5 @@ function cropRegion(
       result[y * cropW + x] = data[(cropY + y) * srcW + (cropX + x)] ?? 0;
     }
   }
-  return result;
-}
-
-function resizeBilinear(
-  data: Float32Array,
-  srcH: number,
-  srcW: number,
-  dstH: number,
-  dstW: number,
-): Float32Array<ArrayBuffer> {
-  if (srcW === dstW && srcH === dstH) {
-    const copy = new Float32Array(data.length);
-    copy.set(data);
-    return copy;
-  }
-  const result = new Float32Array(dstH * dstW);
-  const xRatio = srcW / dstW;
-  const yRatio = srcH / dstH;
-
-  for (let y = 0; y < dstH; y++) {
-    for (let x = 0; x < dstW; x++) {
-      const srcX = x * xRatio;
-      const srcY = y * yRatio;
-      const x0 = Math.min(Math.floor(srcX), srcW - 1);
-      const y0 = Math.min(Math.floor(srcY), srcH - 1);
-      const x1 = Math.min(x0 + 1, srcW - 1);
-      const y1 = Math.min(y0 + 1, srcH - 1);
-      const xWeight = srcX - x0;
-      const yWeight = srcY - y0;
-
-      const top = data[y0 * srcW + x0]! * (1 - xWeight) + data[y0 * srcW + x1]! * xWeight;
-      const bot = data[y1 * srcW + x0]! * (1 - xWeight) + data[y1 * srcW + x1]! * xWeight;
-      result[y * dstW + x] = top * (1 - yWeight) + bot * yWeight;
-    }
-  }
-
   return result;
 }

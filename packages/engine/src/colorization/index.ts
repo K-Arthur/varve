@@ -1,4 +1,5 @@
 export type {
+  ChromaPlanes,
   ColorizationProgress,
   ColorizationProgressPhase,
   ColorizationRequestContract,
@@ -16,6 +17,7 @@ export {
   detectStaleResult,
   generateColorizationRequestId,
 } from './colorizationRequest';
+export { combineChromaAtSourceResolution, combineLabToImageData } from './colorSpace';
 export { resolveDdColorRuntime } from './ddcolorRuntime';
 export { harmonize } from './harmonize';
 export { colorizationPipeline, paletteColorize, validatePalette } from './pipeline';

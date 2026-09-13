@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DD_COLOR_INPUT_SIZE, decodeDdColorOutput } from './ddcolor';
+import { DD_COLOR_INPUT_SIZE, ddColorInputFromSource, decodeDdColorOutput } from './ddcolor';
 
 describe('decodeDdColorOutput', () => {
   it('DD_COLOR_INPUT_SIZE is 512', () => {
@@ -69,5 +69,47 @@ describe('decodeDdColorOutput', () => {
     const malformed = new Float32Array(8);
     malformed[0] = Number.NaN;
     expect(() => decodeDdColorOutput(malformed, 2, 2, 2, 2)).toThrow('non-finite');
+  });
+});
+
+describe('ddColorInputFromSource', () => {
+  it('converts a saturated source to neutral RGB with the same lightness', () => {
+    const source = new ImageData(new Uint8ClampedArray([255, 0, 0, 255]), 1, 1);
+    const result = ddColorInputFromSource(source);
+    const [r, g, b, a] = Array.from(result.data);
+    expect(Math.abs((r ?? 0) - (g ?? 0))).toBeLessThanOrEqual(1);
+    expect(Math.abs((g ?? 0) - (b ?? 0))).toBeLessThanOrEqual(1);
+    expect(a).toBe(255);
+    // Pure red has L* ~= 53.24, which is mid-gray, not black or white.
+    expect(r).toBeGreaterThan(100);
+    expect(r).toBeLessThan(160);
+  });
+
+  it('leaves an already-neutral pixel essentially unchanged', () => {
+    const source = new ImageData(new Uint8ClampedArray([128, 128, 128, 200]), 1, 1);
+    const result = ddColorInputFromSource(source);
+    const [r, g, b, a] = Array.from(result.data);
+    expect(Math.abs((r ?? 0) - 128)).toBeLessThanOrEqual(1);
+    expect(Math.abs((g ?? 0) - 128)).toBeLessThanOrEqual(1);
+    expect(Math.abs((b ?? 0) - 128)).toBeLessThanOrEqual(1);
+    expect(a).toBe(200);
+  });
+
+  it('keeps distinct source luminances distinct and ordered', () => {
+    const source = new ImageData(
+      new Uint8ClampedArray([20, 60, 200, 255, 200, 200, 200, 255]),
+      2,
+      1,
+    );
+    const result = ddColorInputFromSource(source);
+    const dark = result.data[0] ?? 0;
+    const light = result.data[4] ?? 0;
+    expect(dark).toBeLessThan(light);
+    expect(light - dark).toBeGreaterThan(30);
+  });
+
+  it('rejects zero-sized sources', () => {
+    const invalid = { width: 0, height: 0, data: new Uint8ClampedArray(0) } as ImageData;
+    expect(() => ddColorInputFromSource(invalid)).toThrow('positive integers');
   });
 });

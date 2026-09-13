@@ -28,7 +28,7 @@ import { harmonize } from './harmonize';
 import { paletteColorize, validatePalette } from './palette';
 import { selectiveRecolor } from './recolor';
 import { featherMask } from './sam2Recolor';
-import { analyzeImageData } from './taskClassifier';
+import { analyzeImageData, classifyTask } from './taskClassifier';
 import { colorTransferLab } from './transfer';
 
 // ---------------------------------------------------------------------------
@@ -290,8 +290,8 @@ async function dispatchOnnxWorker(
 
   switch (request.kind) {
     case 'photo-colorize': {
-      const params = request.params ?? {};
       const stats = analyzeImageData(sourceData);
+      const classification = classifyTask(stats);
       const resolution = await resolveDdColorRuntime(request.qualityMode, stats, request.signal);
       const requestedPreviewMax = request.provider.previewMaxDimension;
       const maxDim =
@@ -367,17 +367,17 @@ async function dispatchOnnxWorker(
         letterbox,
       );
 
-      // DDColor predicts chroma at working resolution. Upsample only the
-      // chroma planes, then combine them with the original source L/detail
-      // and alpha at natural resolution. Enlarging the low-resolution RGB
-      // result would visibly soften texture and edge detail.
+      // DDColor predicts chroma at the model's square input resolution. The
+      // worker fed grayscale-derived RGB (upstream contract) and this path
+      // resizes only the a*b* planes back to the source dimensions, then
+      // combines them with the original source L*/detail and alpha. Enlarging
+      // a low-resolution RGB result would visibly soften texture.
       const outputImageData = combineLabToImageData(
         sourceData.data,
         sourceData.width,
         sourceData.height,
         a,
         b,
-        params.luminancePreservation ?? 1,
       );
 
       request.onProgress?.({
@@ -397,6 +397,8 @@ async function dispatchOnnxWorker(
         referenceRevision: request.reference?.revision,
         dispatchedAt: performance.now(),
         imageData: outputImageData,
+        chroma: { a, b, width: sourceData.width, height: sourceData.height },
+        sourceKind: classification.sourceKind,
         workflow: 'photo-colorize' as const,
         modelUsed: resolution.modelId,
         provider:

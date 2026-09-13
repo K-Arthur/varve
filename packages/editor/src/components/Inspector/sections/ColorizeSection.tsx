@@ -6,7 +6,14 @@
  * parameters). Inference state is transient; Apply materializes an embedded
  * output asset through colorizationCommit.ts so the source remains untouched.
  */
-import type { ColorizationRequestContract, QualityMode } from '@varve/engine';
+import type {
+  ChromaPlanes,
+  ColorizationProgressPhase,
+  ColorizationRequestContract,
+  ColorizationResultContract,
+  QualityMode,
+  SourceKind,
+} from '@varve/engine';
 import type { ColorSwatch, SceneNode, ShapeNode } from '@varve/scene';
 import { imageShapeSrc, isImageShape, managedColorToHex } from '@varve/scene';
 import { Button, Select, Switch } from '@varve/ui';
@@ -38,15 +45,44 @@ interface MaskSelection {
 
 interface ColorizeState {
   status: 'idle' | 'previewing' | 'applying' | 'error';
+  phase: ColorizationProgressPhase | null;
   errorMessage: string | null;
   previewDataUrl: string | null;
   previewImageData: ImageData | null;
+  previewChroma: ChromaPlanes | null;
+  previewSourceKind: SourceKind | null;
   previewSignature: string | null;
   previewSourceSrc: string | null;
   elapsedMs: number;
 }
 
-const PREVIEW_MAX_DIMENSION = 512;
+/**
+ * Preview model resolution per quality mode. The preview and the final apply
+ * resolve the model to the same input size, so Apply never introduces colors
+ * the user has not seen; Apply only reconstructs the approved chroma over the
+ * full-resolution source L-star/detail.
+ */
+const PREVIEW_MAX_DIMENSIONS: Record<QualityMode, number> = {
+  fast: 256,
+  balanced: 512,
+  quality: 1024,
+  automatic: 1024,
+};
+
+const PHASE_LABELS: Record<ColorizationProgressPhase, string> = {
+  preprocessing: 'Preparing source',
+  'model-download': 'Loading model',
+  encoding: 'Encoding',
+  inference: 'Running model',
+  decoding: 'Decoding',
+  postprocessing: 'Compositing',
+  compositing: 'Compositing',
+  complete: 'Finalizing',
+};
+
+function phaseLabel(phase: ColorizationProgressPhase | null): string | null {
+  return phase ? (PHASE_LABELS[phase] ?? 'Processing') : null;
+}
 
 function workflowKind(workflow: ColorizeWorkflow): ColorizationRequestContract['kind'] {
   switch (workflow) {
@@ -94,6 +130,54 @@ function swatchHex(swatch: ColorSwatch): string | null {
   }
 }
 
+/**
+ * Split-view comparator: the approved preview on the left of the handle, the
+ * untouched source on the right. Both images come from the same source and
+ * share the same aspect ratio, so the overlay needs no resampling.
+ */
+function ColorizeCompare({ sourceSrc, previewSrc }: { sourceSrc: string; previewSrc: string }) {
+  const [split, setSplit] = useState(50);
+  const sliderId = useId();
+  return (
+    <div className="colorize-section__compare">
+      <img
+        className="colorize-section__compare-base"
+        src={sourceSrc}
+        alt="Original source for comparison"
+      />
+      <div
+        className="colorize-section__compare-overlay"
+        style={{ clipPath: `inset(0 ${100 - split}% 0 0)` }}
+        aria-hidden="true"
+      >
+        <img className="colorize-section__compare-top" src={previewSrc} alt="" />
+      </div>
+      <span className="colorize-section__compare-tag colorize-section__compare-tag--left">
+        Preview
+      </span>
+      <span className="colorize-section__compare-tag colorize-section__compare-tag--right">
+        Original
+      </span>
+      <div className="colorize-section__compare-control">
+        <label className="insp-hint" htmlFor={sliderId}>
+          Reveal
+        </label>
+        <input
+          id={sliderId}
+          className="colorize-section__compare-slider"
+          type="range"
+          min={0}
+          max={100}
+          step={1}
+          value={split}
+          onChange={(event) => setSplit(Number(event.target.value))}
+          aria-label="Reveal colorize preview over the original image"
+        />
+      </div>
+    </div>
+  );
+}
+
 export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
   const { state, updateDoc, announce, setSelection, groupCompoundOperation } = useEditor();
   const node = nodes[0];
@@ -131,9 +215,12 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
   const [modelAvailable, setModelAvailable] = useState<boolean | null>(null);
   const [colorize, setColorize] = useState<ColorizeState>({
     status: 'idle',
+    phase: null,
     errorMessage: null,
     previewDataUrl: null,
     previewImageData: null,
+    previewChroma: null,
+    previewSourceKind: null,
     previewSignature: null,
     previewSourceSrc: null,
     elapsedMs: 0,
@@ -212,9 +299,12 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
     setColorize((previous) => ({
       ...previous,
       status: 'idle',
+      phase: null,
       errorMessage: null,
       previewDataUrl: null,
       previewImageData: null,
+      previewChroma: null,
+      previewSourceKind: null,
       previewSignature: null,
       previewSourceSrc: null,
       elapsedMs: 0,
@@ -293,12 +383,13 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
       intent: 'preview' | 'full',
       expectedSignature: string,
       controller: AbortController,
-    ): Promise<ImageData> => {
+    ): Promise<ColorizationResultContract> => {
       const { clampImageToMaxDimension, dispatchColorization, generateColorizationRequestId } =
         await import('@varve/engine');
       const liveState = liveStateRef.current;
+      const previewMaxDimension = PREVIEW_MAX_DIMENSIONS[qualityMode];
       const processingData =
-        intent === 'preview' ? clampImageToMaxDimension(fullData, PREVIEW_MAX_DIMENSION) : fullData;
+        intent === 'preview' ? clampImageToMaxDimension(fullData, previewMaxDimension) : fullData;
       const currentMask =
         workflow === 'recolor'
           ? recolorScope === 'whole'
@@ -336,7 +427,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
         provider: {
           backend: 'auto',
           intent,
-          previewMaxDimension: PREVIEW_MAX_DIMENSION,
+          previewMaxDimension,
         },
         mask: currentMask
           ? {
@@ -377,6 +468,12 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
           neutralProtection,
         },
         signal: controller.signal,
+        onProgress: (progress) => {
+          if (controller.signal.aborted) return;
+          setColorize((previous) =>
+            previous.phase === progress.phase ? previous : { ...previous, phase: progress.phase },
+          );
+        },
       };
 
       const result = await dispatchColorization(request, processingData, reference?.data);
@@ -395,7 +492,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
       ) {
         throw new Error('Colorize result is stale because the source changed');
       }
-      return result.imageData;
+      return result;
     },
     [
       workflow,
@@ -439,24 +536,30 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
     setColorize((previous) => ({
       ...previous,
       status: 'previewing',
+      phase: null,
       errorMessage: null,
       previewDataUrl: null,
       previewImageData: null,
+      previewChroma: null,
+      previewSourceKind: null,
       previewSignature: null,
       previewSourceSrc: null,
       elapsedMs: 0,
     }));
 
     try {
-      const previewData = await loadImageData(imageSrc, PREVIEW_MAX_DIMENSION);
+      const previewData = await loadImageData(imageSrc, PREVIEW_MAX_DIMENSIONS[qualityMode]);
       if (controller.signal.aborted || generation !== operationGenerationRef.current) return;
       const result = await runColorize(previewData, 'preview', expectedSignature, controller);
       if (controller.signal.aborted || generation !== operationGenerationRef.current) return;
       setColorize((previous) => ({
         ...previous,
         status: 'idle',
-        previewDataUrl: imageDataUrl(result),
-        previewImageData: result,
+        phase: null,
+        previewDataUrl: imageDataUrl(result.imageData),
+        previewImageData: result.imageData,
+        previewChroma: result.chroma ?? null,
+        previewSourceKind: result.sourceKind ?? null,
         previewSignature: expectedSignature,
         previewSourceSrc: imageSrc,
         elapsedMs: 0,
@@ -465,9 +568,14 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
     } catch (error) {
       if (controller.signal.aborted || generation !== operationGenerationRef.current) return;
       const message = error instanceof Error ? error.message : 'Preview failed';
-      setColorize((previous) => ({ ...previous, status: 'error', errorMessage: message }));
+      setColorize((previous) => ({
+        ...previous,
+        status: 'error',
+        phase: null,
+        errorMessage: message,
+      }));
     }
-  }, [imageSrc, canRun, operationSignature, loadImageData, runColorize, announce]);
+  }, [imageSrc, canRun, operationSignature, loadImageData, runColorize, announce, qualityMode]);
 
   const handleApply = useCallback(async () => {
     if (!imageSrc || !canRun || !colorize.previewDataUrl) return;
@@ -481,6 +589,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
     setColorize((previous) => ({
       ...previous,
       status: 'applying',
+      phase: null,
       errorMessage: null,
       elapsedMs: 0,
     }));
@@ -488,14 +597,26 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
     try {
       const fullData = await loadImageData(imageSrc);
       if (controller.signal.aborted || generation !== operationGenerationRef.current) return;
-      const canReusePreview =
+      const previewMatches =
         colorize.previewSignature === expectedSignature &&
-        colorize.previewSourceSrc === capturedSourceSrc &&
+        colorize.previewSourceSrc === capturedSourceSrc;
+      const canReusePreviewImage =
+        previewMatches &&
         colorize.previewImageData?.width === fullData.width &&
         colorize.previewImageData?.height === fullData.height;
-      const result = canReusePreview
-        ? colorize.previewImageData!
-        : await runColorize(fullData, 'full', expectedSignature, controller);
+      const canReusePreviewChroma = previewMatches && colorize.previewChroma !== null;
+      let result: ImageData;
+      if (canReusePreviewImage) {
+        // The preview already ran at source resolution; commit it verbatim.
+        result = colorize.previewImageData!;
+      } else if (canReusePreviewChroma) {
+        // Rebuild the approved model chroma over the full-resolution source
+        // L*/detail and alpha. No second inference, no color surprise.
+        const { combineChromaAtSourceResolution } = await import('@varve/engine');
+        result = combineChromaAtSourceResolution(fullData, colorize.previewChroma!);
+      } else {
+        result = (await runColorize(fullData, 'full', expectedSignature, controller)).imageData;
+      }
       if (controller.signal.aborted || generation !== operationGenerationRef.current) return;
 
       const dataUrl = imageDataUrl(result);
@@ -546,6 +667,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
     canRun,
     colorize.previewDataUrl,
     colorize.previewImageData,
+    colorize.previewChroma,
     colorize.previewSignature,
     colorize.previewSourceSrc,
     operationSignature,
@@ -564,7 +686,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
     operationGenerationRef.current += 1;
     abortRef.current?.abort();
     abortRef.current = null;
-    setColorize((previous) => ({ ...previous, status: 'idle', elapsedMs: 0 }));
+    setColorize((previous) => ({ ...previous, status: 'idle', phase: null, elapsedMs: 0 }));
     announce('Colorize cancelled');
   }, [announce]);
 
@@ -743,8 +865,8 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
                 id={hueId}
                 label="Hue"
                 value={targetHue}
-                min={-180}
-                max={360}
+                min={hueMode === 'set' ? 0 : -180}
+                max={hueMode === 'set' ? 360 : 180}
                 step={1}
                 unit="deg"
                 disabled={isProcessing}
@@ -1028,14 +1150,22 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
             <div className="colorize-section__preview-frame">
               <img src={colorize.previewDataUrl!} alt="Colorize preview" />
             </div>
-            {colorize.previewImageData &&
-              Math.max(colorize.previewImageData.width, colorize.previewImageData.height) >=
-                PREVIEW_MAX_DIMENSION && (
-                <p className="insp-hint">
-                  Apply Full recomputes images above {PREVIEW_MAX_DIMENSION}px at source resolution;
-                  inferred colors can change slightly when more context is available.
-                </p>
-              )}
+            {colorize.previewSourceSrc === imageSrc && (
+              <ColorizeCompare sourceSrc={imageSrc} previewSrc={colorize.previewDataUrl!} />
+            )}
+            {workflow === 'photo' && (
+              <p className="insp-hint">
+                Apply rebuilds the approved preview&apos;s predicted colors over the full-resolution
+                original; source detail and alpha are retained.
+              </p>
+            )}
+            {workflow === 'photo' && colorize.previewSourceKind === 'already-colored' && (
+              <p className="insp-hint">
+                This image already contains strong color. Photo colorization replaces its chroma
+                with inferred colors; use Tint / Selective Recolor to adjust existing colors
+                instead.
+              </p>
+            )}
             <div className="insp-actions">
               <Button
                 type="button"
@@ -1065,8 +1195,9 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
           {isProcessing ? (
             <>
               <span className="insp-hint" aria-live="polite">
-                {colorize.status === 'previewing' ? 'Generating preview…' : 'Applying colorize…'}{' '}
-                {Math.round(colorize.elapsedMs / 1000)}s
+                {phaseLabel(colorize.phase) ??
+                  (colorize.status === 'previewing' ? 'Generating preview' : 'Applying colorize')}
+                … {Math.round(colorize.elapsedMs / 1000)}s
               </span>
               <Button
                 type="button"

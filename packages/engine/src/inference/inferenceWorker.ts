@@ -23,6 +23,7 @@ import {
   DD_COLOR_INPUT_SIZE,
   DD_COLOR_TENSOR_SPEC,
   DD_COLOR_TINY_INPUT_SIZE,
+  ddColorInputFromSource,
 } from './models/ddcolor';
 import { DEPTH_ANYTHING_INPUT_SIZE, DEPTH_ANYTHING_TENSOR_SPEC } from './models/depth';
 import { DETR_INPUT_SIZE, DETR_TENSOR_SPEC } from './models/detr';
@@ -163,6 +164,13 @@ interface ModelPreprocessor {
    * replaces the canvas letterbox for this model. See
    * semanticSimilarity/preprocess.ts. */
   semanticPreprocess?: SemanticResizeSpec;
+  /** Model-specific image conversion applied before resize/pack (e.g. DDColor
+   * requires grayscale-derived RGB, not the original color channels). */
+  transformInput?: (imageData: ImageData) => ImageData;
+  /** Resize to the full square model input instead of aspect-preserving
+   * letterbox. Matches pipelines whose reference implementation squashes to
+   * the input size (DDColor upstream). */
+  stretchInput?: boolean;
 }
 
 const modelRegistry = new Map<WorkerModelType, ModelPreprocessor>();
@@ -246,6 +254,10 @@ registerModelType('ddcolor', {
   getInputSize: (modelId) =>
     modelId === 'ddcolor-tiny' ? DD_COLOR_TINY_INPUT_SIZE : DD_COLOR_INPUT_SIZE,
   hasImageInput: true,
+  // Upstream `ColorizationPipeline.process` feeds grayscale-derived RGB and
+  // squashes to the square model input with no letterbox. See ddcolor.ts.
+  transformInput: ddColorInputFromSource,
+  stretchInput: true,
 });
 
 registerModelType('lama', {
@@ -568,7 +580,7 @@ function preprocessImage(
   imageData: ImageData,
   inputSize: number,
   spec: TensorSpec,
-  options: { singleChannel?: boolean; channelsLast?: boolean } = {},
+  options: { singleChannel?: boolean; channelsLast?: boolean; stretch?: boolean } = {},
 ): {
   tensor: Float32Array;
   width: number;
@@ -620,13 +632,27 @@ function preprocessImage(
   const srcCtx = srcCanvas.getContext('2d')!;
   srcCtx.putImageData(imageData, 0, 0);
 
-  const scale = Math.min(inputSize / imageData.width, inputSize / imageData.height);
-  const offsetX = (inputSize - imageData.width * scale) / 2;
-  const offsetY = (inputSize - imageData.height * scale) / 2;
-  const contentWidth = Math.max(1, Math.round(imageData.width * scale));
-  const contentHeight = Math.max(1, Math.round(imageData.height * scale));
-
-  ctx.drawImage(srcCanvas, offsetX, offsetY, contentWidth, contentHeight);
+  let offsetX: number;
+  let offsetY: number;
+  let contentWidth: number;
+  let contentHeight: number;
+  if (options.stretch) {
+    // Reference implementations that squash to the model input (DDColor
+    // upstream `cv2.resize(img, (input_size, input_size))`) have no padding
+    // and no crop inverse: the full frame maps onto the full tensor.
+    ctx.drawImage(srcCanvas, 0, 0, inputSize, inputSize);
+    offsetX = 0;
+    offsetY = 0;
+    contentWidth = inputSize;
+    contentHeight = inputSize;
+  } else {
+    const scale = Math.min(inputSize / imageData.width, inputSize / imageData.height);
+    offsetX = (inputSize - imageData.width * scale) / 2;
+    offsetY = (inputSize - imageData.height * scale) / 2;
+    contentWidth = Math.max(1, Math.round(imageData.width * scale));
+    contentHeight = Math.max(1, Math.round(imageData.height * scale));
+    ctx.drawImage(srcCanvas, offsetX, offsetY, contentWidth, contentHeight);
+  }
   const resizedData = ctx.getImageData(0, 0, inputSize, inputSize);
 
   if (options.singleChannel) {
@@ -717,8 +743,12 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
         dims = [1, 3, semantic.height, semantic.width];
       } else {
         const inputSize = modelPre.getInputSize(modelId);
-        const primary = preprocessImage(imageData, inputSize, modelPre.tensorSpec, {
+        const primarySource = modelPre.transformInput
+          ? modelPre.transformInput(imageData)
+          : imageData;
+        const primary = preprocessImage(primarySource, inputSize, modelPre.tensorSpec, {
           channelsLast: modelPre.channelsLast,
+          stretch: modelPre.stretchInput,
         });
         letterboxOffsetX = primary.offsetX;
         letterboxOffsetY = primary.offsetY;

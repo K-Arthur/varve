@@ -67,12 +67,17 @@ weights to ONNX format for use in Varve's colorization pipeline.
 
 | Model | Input | Output | Size |
 |-------|-------|--------|--------------|
-| ddcolor-tiny | `[1, 3, 256, 256]` float32 RGB [0,1] | `[1, 2, 256, 256]` a*b* | not measured |
-| ddcolor | `[1, 3, 512, 512]` float32 RGB [0,1] | `[1, 2, 512, 512]` a*b* | not measured |
+| ddcolor-tiny | `[1, 3, 256, 256]` float32 grayscale-derived RGB [0,1] | `[1, 2, 256, 256]` a*b* | not measured |
+| ddcolor | `[1, 3, 512, 512]` float32 grayscale-derived RGB [0,1] | `[1, 2, 512, 512]` a*b* | not measured |
 
 - Input name: `input`, Output name: `output`.
 - Normalization: none (RGB divided by 255 in preprocessing).
-- Padding: gray (128, 128, 128) for letterboxing.
+- Input content: the model must be fed RGB reconstructed from the source L*
+  channel (`Lab(L*, 0, 0) -> RGB`), not the original color channels. Varve's
+  `ddColorInputFromSource` implements exactly that conversion.
+- Geometry: square stretch resize to the model input, matching upstream
+  `cv2.resize(img, (input_size, input_size))`; there is no letterbox padding
+  for this model, and the a*b* output is resized back to source dimensions.
 
 ## Post-Export Verification
 

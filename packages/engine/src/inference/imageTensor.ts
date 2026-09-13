@@ -172,7 +172,7 @@ export function resizeMaskBilinear(
   srcHeight: number,
   dstWidth: number,
   dstHeight: number,
-): Float32Array {
+): Float32Array<ArrayBuffer> {
   const result = new Float32Array(dstWidth * dstHeight);
   const xRatio = srcWidth / dstWidth;
   const yRatio = srcHeight / dstHeight;

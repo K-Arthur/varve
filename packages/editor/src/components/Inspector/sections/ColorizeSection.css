@@ -277,6 +277,95 @@
   object-fit: contain;
 }
 
+.colorize-section__compare {
+  position: relative;
+  margin-top: var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  overflow: hidden;
+  background:
+    repeating-conic-gradient(
+      var(--color-surface-sunken) 0% 25%,
+      var(--color-surface-default) 0% 50%
+    )
+    50% / 16px 16px;
+}
+
+.colorize-section__compare-base,
+.colorize-section__compare-top {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.colorize-section__compare-overlay {
+  position: absolute;
+  inset: 0;
+}
+
+.colorize-section__compare-top {
+  height: 100%;
+  object-fit: cover;
+}
+
+.colorize-section__compare-tag {
+  position: absolute;
+  top: var(--space-1);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-overlay);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  line-height: 1.6;
+  pointer-events: none;
+}
+
+.colorize-section__compare-tag--left {
+  left: var(--space-1);
+}
+
+.colorize-section__compare-tag--right {
+  right: var(--space-1);
+}
+
+.colorize-section__compare-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2) var(--space-2);
+}
+
+.colorize-section__compare-control label {
+  flex: 0 0 auto;
+}
+
+.colorize-section__compare-slider {
+  flex: 1;
+  height: 4px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--color-surface-raised);
+  border-radius: var(--radius-control-compact);
+  outline: none;
+  cursor: pointer;
+}
+
+.colorize-section__compare-slider::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-interactive-default);
+  cursor: pointer;
+  border: 2px solid var(--color-surface-default);
+}
+
+.colorize-section__compare-slider:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+
 /* Colorization dialog */
 .colorize-dialog__body {
   display: flex;

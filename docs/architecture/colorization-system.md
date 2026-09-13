@@ -33,7 +33,7 @@ controls that are decorative in the selected mode.
 | Mode | Selects the operation, not merely a model preset | All | Dispatch kind is asserted by engine tests and UI labels |
 | Scope | `Whole image` creates an explicit full-coverage mask; `Mask image` requires a real image mask | Selective recolor | Missing mask rejects the request; different mask dimensions are resampled at pixel centres |
 | Hue behavior | `Set absolute hue` chooses a target hue; `Rotate existing hue` adds a relative degree offset | Selective recolor | Both paths are separate engine branches and tested |
-| Hue | Degrees, -180 to 360 in the panel; wrapped by Lab polar conversion | Selective recolor | Numeric field changes the request signature and invalidates preview |
+| Hue | Degrees; `Set absolute hue` spans 0–360, `Rotate existing hue` spans -180–180; wrapped by Lab polar conversion | Selective recolor | Numeric field changes the request signature and invalidates preview |
 | Saturation | Existing chroma scale (`×`); neutral source pixels receive a bounded chroma seed so a tint can introduce color | Selective recolor | Zero blend is identity; grayscale tint has a non-zero-chroma regression test |
 | Chroma | Target/reference chroma multiplier (`×`) | Recolor, transfer, harmonize | Applied once in the selected operation |
 | Lightness | Source L* preservation, 0–100% | Recolor, transfer | Contract is CIELAB L*, not HSL lightness or linear luminance |
@@ -44,7 +44,7 @@ controls that are decorative in the selected mode.
 | Mapping | `Shaded palette influence` retains source L* and can produce tonal shades; `Strict palette colors` uses literal selected sRGB bytes at 100% adherence | Palette colorize | Strict output is tested against authored palette bytes |
 | Adherence | 0–100%; strict constraint applies only at 100% | Palette colorize | Partial adherence is intentionally not strict quantization |
 | Reference image | Decoded pixels plus identity, dimensions, and revision | Transfer, harmonize | Missing identity or pixels rejects dispatch; source and reference dimensions are independent |
-| Quality | A measured DDColor model/resolution choice, not a visual warning switch | Photo colorization | Only shown for photo mode; readiness is separate from catalog presence |
+| Quality | Selects the model input size used by both preview and apply (fast 256, balanced 512, quality/automatic 1024, capped by source) | Photo colorization | Only shown for photo mode; Apply reuses the preview's chroma, so the setting made at preview time is what commits |
 
 ## End-to-end data flow
 
@@ -123,28 +123,40 @@ transparent reference is an actionable error.
 
 ### Photo colorization
 
-DDColor is a chrominance-prediction model. The verified path is:
+DDColor is a chrominance-prediction model. The verified path reproduces the
+official `ColorizationPipeline.process` contract:
 
 ```text
 full-resolution source + alpha
-  -> bounded model-resolution letterbox
-  -> DDColor [1, 2, H, W] chroma output
-  -> explicit asymmetric crop inverse
-  -> chroma-plane upsampling
+  -> source RGB -> CIELAB L* -> Lab(L*, 0, 0) -> grayscale-derived RGB
+  -> square stretch resize to the model input (no aspect padding)
+  -> DDColor [1, 2, H, W] raw a*b* output (OpenCV Lab float units)
+  -> bilinear a*b* resize to source dimensions
   -> original source L*/detail + predicted chroma + original alpha
 ```
 
-The implementation does not upscale a low-resolution RGB result over the
-source. The worker reports the rounded content width/height used for the
-letterbox, rather than inferring symmetric padding. Tensor rank, channel count,
-length, finite values, dimensions, and crop bounds are validated before
-reconstruction.
+The model is intentionally fed grayscale-derived RGB, not the original color
+channels: upstream converts the resized image to Lab, keeps L*, and rebuilds
+`(L*, 0, 0)`. Feeding original color would be out of distribution. The upstream
+reference also squashes directly to the square model input, so the adapter has
+no letterbox padding to reverse for DDColor; the letterbox contract remains in
+the shared worker for the other models that need it. The implementation never
+upscales a low-resolution RGB result over the source: only chroma planes are
+resampled. Tensor rank, channel count, length, finite values, and output
+dimensions are validated before reconstruction.
 
-The preview is bounded to 512px before processing. Apply reuses the approved
-preview only when it already has source dimensions; otherwise it recomputes at
-the selected full resolution and tells the user that additional context can
-change inferred colors. The model is deterministic in the current adapter; no
-fake seed-based variations are exposed.
+Preview and apply resolve the model to the same input size (quality mode maps
+to 256/512/1024px, capped by source size), so the colors seen in the preview are
+the colors that commit. Applying above preview resolution reconstructs the
+approved a*b* planes over the full-resolution source L* and alpha instead of
+running a second inference; the result carries the chroma planes with the
+preview for exactly this purpose. The model is deterministic in the current
+adapter; no fake seed-based variations are exposed.
+
+The dispatch also classifies the source (`photo`, `lineart`, `illustration`, or
+`already-colored`) and returns it with the result. The panel uses that to tell
+the user when an already-colored image is being recolored rather than having
+its missing color inferred.
 
 ## Model readiness and delivery
 
@@ -181,6 +193,7 @@ Playwright 1.62.1; Vitest 4.1.10).
 | What does a familiar Colorize control mean? | [GIMP Colorize](https://docs.gimp.org/3.0/en/gimp-tool-colorize.html) defines hue, saturation, and lightness over the active layer/selection. [Photoshop Colorize](https://helpx.adobe.com/photoshop/using/colorize.html) separates color pins and output choices. | Workflow vocabulary and scope | Varve uses explicit source scope and CIELAB L* semantics; it does not imply Photoshop Neural Filters are available. UI and unit tests trace every visible field. |
 | How should line-art guidance behave? | [Krita Colorize Mask](https://docs.krita.org/en/reference_manual/tools/colorize_mask.html) documents editable color strokes, gap handling, output beneath linework, and conversion to paint. | Strong line-art reference, not a photo-model contract | Line-art is kept separate and deferred until hints and fills can be persisted and regenerated without leaks. |
 | What model is suitable for photos? | [DDColor repository](https://github.com/piddnad/DDColor) and [paper](https://arxiv.org/abs/2212.11613) describe dual decoders and color queries; official code includes ONNX export instructions. | Photo adapter and provenance | Use official conversion only; do not ship an unproven community ONNX. Tensor and artifact gates are explicit. |
+| What exactly does DDColor expect as input? | Upstream [`ddcolor/pipeline.py`](https://github.com/piddnad/DDColor/blob/master/ddcolor/pipeline.py) `ColorizationPipeline.process` (master, read 2026-09-13): resize to square, convert to Lab, keep L, rebuild `(L,0,0)` RGB, feed that; output a*b* resized back and combined with original L. | Tensor contract and preprocessing parity | Varve feeds grayscale-derived RGB and squashes to the square model input; it does not feed source color channels or reverse letterbox padding for this model. Unit tests assert neutral output, preserved L*/alpha, and source-resolution reconstruction. |
 | What are the web runtime constraints? | [ONNX Runtime Web JavaScript guide](https://onnxruntime.ai/docs/get-started/with-javascript/web.html), [large-model guidance](https://onnxruntime.ai/docs/tutorials/web/large-models.html), and [WebGPU EP guidance](https://onnxruntime.ai/docs/execution-providers/WebGPU-ExecutionProvider.html) distinguish browser memory, external data, and provider capability. | Preview budget, model delivery, provider reporting | Use the existing worker/loader, bound preview before allocation, and report the worker's execution provider rather than the requested provider. Real hardware/provider smoke tests remain blocked with the absent artifact. |
 | How should async image work be isolated? | [MDN Web Workers](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers), [OffscreenCanvas](https://developer.mozilla.org/en-US/docs/Web/API/OffscreenCanvas), and [createImageBitmap](https://developer.mozilla.org/en-US/docs/Web/API/Window/createImageBitmap) document worker/off-main-thread image boundaries. | Preview and inference lifecycle | Keep decoded source and model work off the commit path; use immutable request identity and latest-document functional commits. |
 | What is the color-space authority? | [CSS Color 4](https://www.w3.org/TR/css-color-4/) defines the relevant color-space and conversion terminology. | Avoid HSL/Lab ambiguity | Document controls say CIELAB L*; the browser ImageData boundary is sRGB RGBA8 and is not advertised as HDR/ICC-raster fidelity. |
@@ -206,8 +219,11 @@ Stable deterministic coverage currently includes:
 - mask dimensions that differ from the source;
 - alpha-preserving, transparent-excluded statistics;
 - strict palette membership and one-color palettes;
-- empty references, malformed parameters, malformed DDColor tensors, and
-  asymmetric letterbox geometry;
+- empty references, malformed parameters, and malformed DDColor tensors;
+- DDColor grayscale-derived input conversion (neutral output, preserved L*,
+  preserved alpha) and square-stretch geometry without letterbox reversal;
+- cached chroma reconstruction at source resolution (upscale path, identity
+  path, alpha preservation, malformed planes);
 - contract validation and stale palette/mask/reference/parameter revisions;
 - source-preserving materialized commit and changed-source rejection.
 

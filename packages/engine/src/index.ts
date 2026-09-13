@@ -219,9 +219,17 @@ export {
   applyLegacyColorHalftone,
   COLOR_HALFTONE_PRESETS,
 } from './colorHalftone';
-export type { ColorizationRequestContract } from './colorization/colorizationRequest';
+export type {
+  ChromaPlanes,
+  ColorizationProgressPhase,
+  ColorizationRequestContract,
+  ColorizationResultContract,
+} from './colorization/colorizationRequest';
 export { generateColorizationRequestId } from './colorization/colorizationRequest';
-export { combineLabToImageData } from './colorization/colorSpace';
+export {
+  combineChromaAtSourceResolution,
+  combineLabToImageData,
+} from './colorization/colorSpace';
 export { resolveDdColorRuntime } from './colorization/ddcolorRuntime';
 export { harmonize } from './colorization/harmonize';
 export { colorizationPipeline, paletteColorize, validatePalette } from './colorization/pipeline';
@@ -237,6 +245,7 @@ export type {
   ColorizationWorkflow,
   QualityMode,
   RuntimeResolution,
+  SourceKind,
   TaskClassification,
 } from './colorization/types';
 export type { ColourEngine, ColourWasmModule } from './colour/colourLoader';

@@ -20,7 +20,7 @@
  *   - SAM2 (Kirillov et al., 2023): Segment Anything Model 2.
  *   - SCUNet (Zhang et al., 2023): CNN+Transformer denoising.
  */
-import type { ColorizationWorkflow, QualityMode } from './types';
+import type { ColorizationWorkflow, QualityMode, SourceKind } from './types';
 
 // ---------------------------------------------------------------------------
 // Request kinds — discriminated union of every colorization operation
@@ -186,6 +186,18 @@ export interface ColorizationRequestContract {
 }
 
 // ---------------------------------------------------------------------------
+// Chroma planes — cached model color prediction
+// ---------------------------------------------------------------------------
+
+/** Predicted a*b* chroma planes in CIELAB units at the stated dimensions. */
+export interface ChromaPlanes {
+  a: Float32Array;
+  b: Float32Array;
+  width: number;
+  height: number;
+}
+
+// ---------------------------------------------------------------------------
 // Colorization result — carries stale-detection metadata
 // ---------------------------------------------------------------------------
 
@@ -213,6 +225,14 @@ export interface ColorizationResultContract {
   provider: string;
   /** Total wall-clock processing time in ms. */
   elapsedMs: number;
+  /** Chrominance-model output (DDColor class), at the result image's
+   *  dimensions. Callers may cache this with an approved preview and
+   *  reconstruct at full resolution via `combineChromaAtSourceResolution`
+   *  without a second inference. */
+  chroma?: ChromaPlanes;
+  /** Deterministic classification of the source image. Lets the UI label an
+   *  already-colored photograph as a recolor rather than a recovery. */
+  sourceKind?: SourceKind;
   /** For SAM2 decode: multiple mask candidates. */
   maskCandidates?: Array<{
     mask: Uint8Array;

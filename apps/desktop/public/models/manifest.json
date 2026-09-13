@@ -1381,7 +1381,7 @@
         "contractVersion": 1,
         "contractVerifiedAt": "2026-07-27T20:17:34.043Z"
       },
-      "notes": "DDColor-Tiny (ConvNeXt-tiny) — fast grayscale-to-color preview. Expected artifact size ~220MB. Apache-2.0. Input: 256x256 RGB [0,1]. Output: a*b* chroma [1,2,256,256]. The official conversion recipe is documented, but this artifact is not bundled and remains unavailable until its bytes are hash-verified and smoke-tested."
+      "notes": "DDColor-Tiny (ConvNeXt-tiny) — fast grayscale-to-color preview. Expected artifact size ~220MB. Apache-2.0. Input: 256x256 grayscale-derived RGB [0,1] (source L* -> Lab(L,0,0) -> RGB, square stretch resize). Output: a*b* chroma [1,2,256,256] resized to source dimensions. The official conversion recipe is documented, but this artifact is not bundled and remains unavailable until its bytes are hash-verified and smoke-tested."
     },
     {
       "id": "ddcolor",
@@ -1452,7 +1452,7 @@
         "contractVersion": 1,
         "contractVerifiedAt": "2026-07-27T20:17:34.043Z"
       },
-      "notes": "DDColor-L (ConvNeXt-large) — higher-quality grayscale-to-color. Expected artifact size ~980MB. Apache-2.0. Input: 512x512 RGB [0,1]. Output: a*b* chroma [1,2,512,512]. The official conversion recipe is documented, but this artifact is not bundled and remains unavailable until its bytes are hash-verified and smoke-tested."
+      "notes": "DDColor-L (ConvNeXt-large) — higher-quality grayscale-to-color. Expected artifact size ~980MB. Apache-2.0. Input: 512x512 grayscale-derived RGB [0,1] (source L* -> Lab(L,0,0) -> RGB, square stretch resize). Output: a*b* chroma [1,2,512,512] resized to source dimensions. The official conversion recipe is documented, but this artifact is not bundled and remains unavailable until its bytes are hash-verified and smoke-tested."
     },
     {
       "id": "sam2-hiera-small",
