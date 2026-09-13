@@ -219,6 +219,15 @@ workflow, persistence, and cancellation commits listed in the architecture
 record. The corresponding source, scalar, and UI changes remain on `master`;
 no new branch or parallel depth subsystem was created.
 
+Commit `56e3e419` extends the canvas workflow spec to decode the actual PNG
+appearance export (magic bytes and dimensions) in addition to the scalar
+resource export. Its `pnpm typecheck:e2e` check passes. A repeat browser run
+containing that assertion was attempted in the isolated snapshot but timed out
+before the Home screen rendered (`New` never appeared), during Vite startup;
+it did not reach or fail the depth assertion. The earlier complete Chromium
+run above remains the verified visual workflow, and the new assertion is kept
+as the regression gate for the next healthy browser startup.
+
 ## Boundaries
 
 Implemented and verified are the model-free canonical resource workflow,
