@@ -678,6 +678,33 @@ export function applyAMScreeningV2(
     // the standard antialiasing cure and leaves the authored dot geometry
     // (period, angle, shape) intact.
     const channelSoftness = Math.max(softness, Math.min(0.5, 255 / (matrixSize * 128)));
+    const tap = 0.25 / safeScale;
+    // Sub-pixel coverage for one ink at one pixel. Defined once per render
+    // (not per pixel) so the hot loop allocates nothing.
+    const coverageOf = (
+      screen: ResolvedChannelScreen,
+      density: number,
+      docX: number,
+      docY: number,
+    ): number => {
+      const gained = applyDotGain(density * 255, dotGain);
+      let total = 0;
+      for (const sy of SUBSAMPLE_TAPS) {
+        for (const sx of SUBSAMPLE_TAPS) {
+          const thresholdValue = sampleScreenThreshold(
+            matrix,
+            matrixSize,
+            docX + screen.offsetX + sx * tap,
+            docY + screen.offsetY + sy * tap,
+            screen.cos,
+            screen.sin,
+            cellPeriod,
+          );
+          total += coverageAt(gained, thresholdValue, threshold, channelSoftness);
+        }
+      }
+      return total / (SUBSAMPLE_TAPS.length * SUBSAMPLE_TAPS.length);
+    };
 
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
@@ -718,34 +745,10 @@ export function applyAMScreeningV2(
           kInk = 0;
         }
 
-        // Four sub-pixel taps estimate the channel's area coverage instead of
-        // point-sampling a rotated lattice, which removes most of the
-        // angle-dependent tone bias between the process screens.
-        const coverageOf = (screen: ResolvedChannelScreen, density: number): number => {
-          const gained = applyDotGain(density * 255, dotGain);
-          const tap = 0.25 / safeScale;
-          let total = 0;
-          for (const sy of SUBSAMPLE_TAPS) {
-            for (const sx of SUBSAMPLE_TAPS) {
-              const thresholdValue = sampleScreenThreshold(
-                matrix,
-                matrixSize,
-                docX + screen.offsetX + sx * tap,
-                docY + screen.offsetY + sy * tap,
-                screen.cos,
-                screen.sin,
-                cellPeriod,
-              );
-              total += coverageAt(gained, thresholdValue, threshold, channelSoftness);
-            }
-          }
-          return total / (SUBSAMPLE_TAPS.length * SUBSAMPLE_TAPS.length);
-        };
-
-        const cCoverage = coverageOf(screens.c, cInk);
-        const mCoverage = coverageOf(screens.m, mInk);
-        const yCoverage = coverageOf(screens.y, yInk);
-        const kCoverage = coverageOf(screens.k, kInk);
+        const cCoverage = coverageOf(screens.c, cInk, docX, docY);
+        const mCoverage = coverageOf(screens.m, mInk, docX, docY);
+        const yCoverage = coverageOf(screens.y, yInk, docX, docY);
+        const kCoverage = coverageOf(screens.k, kInk, docX, docY);
 
         let nr: number;
         let ng: number;

@@ -64,8 +64,20 @@ numerics are clamped at load and sanitized again at render time.
 
 ## 4. Measured environment and limits
 
-- Bench: `packages/engine/src/bench/halftoneScreening.bench.ts` (run
-  explicitly; supersedes any numbers below once executed on a quiet host).
+- Host: AMD Ryzen 3 5300U, 24 GB RAM, CachyOS (kernel 7.2.3), Node 22.23.2.
+- Workload: 1920×1080 flat mid-gray screen including per-run `ImageData`
+  allocation, measured with `performance.now()` medians of five runs while
+  unrelated agent suites were also running, so these are contention-affected
+  upper bounds, not clean-host numbers:
+  - AM v2 mono 45 LPI: ~0.51 s (legacy v1: ~0.36 s under the same load; the
+    run-to-run spread was 0.32–0.62 s).
+  - AM v2 CMYK 45 LPI (4 inks × 4 taps): ~4.6 s, down from ~44 s before the
+    per-pixel closure hoist — a 9.6× improvement.
+  - FM blue-noise: ~0.35 s.
+- CMYK remains the cost driver at ~16 sample evaluations per pixel; previews
+  screen only the visible region. The committed benchmark
+  (`packages/engine/src/bench/halftoneScreening.bench.ts`) is the procedure
+  for clean-host numbers.
 - Rendering remains CPU/main-thread; no worker/GPU screening backend is
   claimed. CMYK is an uncalibrated process preview, not an ICC separation.
 - Dedicated procedural screentone fill generators and vector dot conversion
