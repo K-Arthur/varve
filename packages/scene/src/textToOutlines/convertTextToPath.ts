@@ -144,6 +144,7 @@ export function convertTextNodeToPath(
 
   const textNode = node as unknown as TextNode;
   const rawText = textNode.text ?? '';
+  const sourceHasRichText = Boolean(textNode.richText?.paragraphs?.length);
   const isEmpty = rawText.length === 0 || !rawText.trim();
 
   if (isEmpty) {
@@ -171,7 +172,7 @@ export function convertTextNodeToPath(
       warnings: [
         'Text uses a case transform. Convert the displayed text to source characters first; the editable text was preserved.',
       ],
-      hadRichText: Boolean(textNode.richText),
+      hadRichText: sourceHasRichText,
     };
   }
   if (textNode.textMode === 'path' || textNode.pathTextSettings) {
@@ -180,7 +181,7 @@ export function convertTextNodeToPath(
       warnings: [
         'Text on a path must be detached before outlining so the path layout is not lost or changed.',
       ],
-      hadRichText: Boolean(textNode.richText),
+      hadRichText: sourceHasRichText,
     };
   }
   const liveWarps = (textNode as TextNode & { warps?: Array<{ enabled?: boolean }> }).warps;
@@ -190,7 +191,7 @@ export function convertTextNodeToPath(
       warnings: [
         'Text has a live warp. Expand the warp first, then outline the resulting editable text.',
       ],
-      hadRichText: Boolean(textNode.richText),
+      hadRichText: sourceHasRichText,
     };
   }
 
@@ -243,7 +244,7 @@ export function convertTextNodeToPath(
               ...warnings,
               `Text run ${runIndex} uses a case transform. The editable text was preserved.`,
             ],
-            hadRichText: Boolean(textNode.richText),
+            hadRichText: sourceHasRichText,
           };
         }
 
@@ -281,7 +282,7 @@ export function convertTextNodeToPath(
               ...warnings,
               `The shaped outline run did not match source text for run ${runIndex}; the editable text was preserved.`,
             ],
-            hadRichText: Boolean(textNode.richText),
+            hadRichText: sourceHasRichText,
           };
         }
 
@@ -294,7 +295,7 @@ export function convertTextNodeToPath(
               ...warnings,
               'Text was not converted because the selected font did not produce complete vector outlines.',
             ],
-            hadRichText: hasRichText,
+            hadRichText: sourceHasRichText,
           };
         }
         runCursorX += runResult.bounds.w;
@@ -416,7 +417,7 @@ export function convertTextNodeToPath(
           ...warnings,
           'Text was not converted because the selected font did not produce complete vector outlines.',
         ],
-        hadRichText: hasRichText,
+        hadRichText: sourceHasRichText,
       };
     }
 
@@ -617,6 +618,6 @@ export function convertTextNodeToPath(
     document: newDoc,
     warnings,
     estimatedNodeCount,
-    hadRichText: hasRichText,
+    hadRichText: sourceHasRichText,
   };
 }

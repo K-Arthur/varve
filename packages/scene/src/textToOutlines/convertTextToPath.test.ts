@@ -173,6 +173,7 @@ describe('convertTextNodeToPath', () => {
       (node) => node.kind === 'shape' && node.id.startsWith('txt1-run-'),
     );
     expect(glyphs).toHaveLength(2);
+    expect(result.hadRichText).toBe(false);
     const yPositions = glyphs.map((node) => {
       if (node.kind !== 'shape' || node.shape.kind !== 'path') return 0;
       return Math.min(...node.shape.points.map((point) => point.y));

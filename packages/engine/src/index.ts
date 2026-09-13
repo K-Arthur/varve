@@ -1240,12 +1240,15 @@ export type { ShapeRichTextInput, ShapeRunInput } from './shaping';
 export { hitTestCaret, scriptCodeToTag, shapeParagraphRuns, shapeRun, shapeText } from './shaping';
 export type {
   NativeShapedRunPayload,
+  NativeShapeInvoker,
+  NativeShapeWireRequest,
   ShapingBackend,
   ShapingBackendRequest,
   ShapingBackendResult,
 } from './shapingBackend';
 export {
   createHarfBuzzWasmBackend,
+  createNativeShapingBackend,
   normalizeNativeShapedRun,
 } from './shapingBackend';
 export type { ShapingCacheKeyOptions } from './shapingCache';

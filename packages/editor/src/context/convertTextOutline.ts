@@ -1,4 +1,10 @@
-import { collectFontData, createHarfBuzzWasmBackend, getFontRegistry } from '@varve/engine';
+import {
+  collectFontData,
+  createHarfBuzzWasmBackend,
+  createNativeShapingBackend,
+  getFontRegistry,
+} from '@varve/engine';
+import { isTauriRuntime } from '@varve/platform';
 import type { Document, TextNode } from '@varve/scene';
 import { convertTextNodeToPath, plainTextToRichText } from '@varve/scene';
 
@@ -213,13 +219,18 @@ interface OutlineShapingResult {
   missingGlyphs: number[];
 }
 
+type OutlineShapeResult = Awaited<
+  ReturnType<ReturnType<typeof createHarfBuzzWasmBackend>['shape']>
+>;
+
 async function shapeForOutline(
   node: TextNode,
   fontData: ArrayBuffer,
   faceIndex: number,
   fontIdentity: string | undefined,
 ): Promise<OutlineShapingResult> {
-  const backend = createHarfBuzzWasmBackend();
+  const wasmBackend = createHarfBuzzWasmBackend();
+  const preferredBackend = isTauriRuntime() ? createNativeShapingBackend() : wasmBackend;
   const warnings: string[] = [];
   const missingGlyphs: number[] = [];
   const shape = async (
@@ -230,17 +241,35 @@ async function shapeForOutline(
     language: string | undefined,
     direction: 'ltr' | 'rtl' | undefined,
   ) => {
-    const result = await backend.shape({
-      text,
-      fontData,
-      fontIdentity,
-      faceIndex,
-      fontSize,
-      features,
-      variationAxes: axes,
-      language,
-      direction,
-    });
+    let result: OutlineShapeResult;
+    try {
+      result = await preferredBackend.shape({
+        text,
+        fontData,
+        fontIdentity,
+        faceIndex,
+        fontSize,
+        features,
+        variationAxes: axes,
+        language,
+        direction,
+      });
+    } catch (error) {
+      if (preferredBackend === wasmBackend) throw error;
+      warnings.push('Native shaping was unavailable; used the local HarfBuzz WASM fallback.');
+      console.warn('[Varve] native outline shaping failed; falling back to WASM', error);
+      result = await wasmBackend.shape({
+        text,
+        fontData,
+        fontIdentity,
+        faceIndex,
+        fontSize,
+        features,
+        variationAxes: axes,
+        language,
+        direction,
+      });
+    }
     warnings.push(...result.warnings);
     missingGlyphs.push(...result.missingGlyphIndices);
     return result;

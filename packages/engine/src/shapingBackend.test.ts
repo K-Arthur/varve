@@ -1,6 +1,11 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { createHarfBuzzWasmBackend, normalizeNativeShapedRun } from './shapingBackend';
+import type { NativeShapeWireRequest } from './shapingBackend';
+import {
+  createHarfBuzzWasmBackend,
+  createNativeShapingBackend,
+  normalizeNativeShapedRun,
+} from './shapingBackend';
 
 function readArrayBuffer(path: string): ArrayBuffer {
   const bytes = readFileSync(path);
@@ -58,6 +63,46 @@ describe('shaping backend contract', () => {
     expect(result.glyphs[0]!.clusterUtf16).toBe(3);
     expect(result.direction).toBe('ltr');
     expect(result.missingGlyphIndices).toEqual([0]);
+  });
+
+  it('serializes indexed and ranged settings through the native shaping port', async () => {
+    let request: NativeShapeWireRequest | undefined;
+    const backend = createNativeShapingBackend(async (wire) => {
+      request = wire;
+      return JSON.stringify({
+        glyphs: [
+          { glyph_id: 17, x_advance: 1000, y_advance: 0, x_offset: 0, y_offset: 0, cluster: 0 },
+        ],
+        direction: 'ltr',
+        script: 'latn',
+        units_per_em: 1000,
+        ascent: 800,
+        descent: -200,
+      });
+    });
+
+    const result = await backend.shape({
+      text: 'ab',
+      fontData: new Uint8Array([0, 1, 2]).buffer,
+      fontIdentity: 'fixture:test',
+      fontSize: 20,
+      features: {
+        ss01: 3,
+        liga: { value: false, ranges: [{ startUtf16: 1, endUtf16: 2, value: true }] },
+      },
+      variationAxes: { wght: 650 },
+    });
+
+    expect(request!.feature_settings).toEqual([
+      { tag: 'ss01', value: 3, start: 0, end: 2 },
+      { tag: 'liga', value: 0, start: 0, end: 2 },
+      { tag: 'liga', value: 1, start: 1, end: 2 },
+    ]);
+    expect(request!.variation_axes).toEqual({ wght: 650 });
+    expect(request!.font_data).toEqual([0, 1, 2]);
+    expect(result.backend).toBe('rustybuzz-native');
+    expect(result.glyphs[0]).toMatchObject({ glyphId: 17, xAdvance: 20, sourceEnd: 2 });
+    expect(result.fontIdentity).toBe('fixture:test');
   });
 
   it.runIf(existsSync(OPEN_SANS))(

@@ -68,14 +68,42 @@ export interface NativeShapedRunPayload {
   line_gap?: number;
 }
 
+/** JSON request accepted by the desktop `shape_text_command` IPC endpoint. */
+export interface NativeShapeWireRequest {
+  text: string;
+  font_data: number[];
+  face_index: number;
+  font_size: number;
+  language: string | null;
+  script: string | null;
+  direction: ShapingBackendRequest['direction'] | null;
+  feature_settings: Array<{
+    tag: string;
+    value: number;
+    start: number;
+    end: number;
+  }>;
+  variation_axes: Record<string, number>;
+}
+
+/** Injectable port used by the native adapter and its contract tests. */
+export type NativeShapeInvoker = (request: NativeShapeWireRequest) => Promise<unknown>;
+
 /** Convert the native wire response into the browser-facing shape contract. */
 export function normalizeNativeShapedRun(
   payload: NativeShapedRunPayload,
   text: string,
   fontSize: number,
-  options: { fontIdentity?: string; faceIndex?: number } = {},
+  options: {
+    fontIdentity?: string;
+    faceIndex?: number;
+    metrics?: { unitsPerEm?: number; ascent?: number; descent?: number; lineGap?: number };
+  } = {},
 ): ShapingBackendResult {
-  const unitsPerEm = positiveOr(payload.units_per_em, 1000);
+  const unitsPerEm = positiveOr(
+    payload.units_per_em,
+    positiveOr(options.metrics?.unitsPerEm, 1000),
+  );
   const scale = fontSize / unitsPerEm;
   const rawGlyphs = payload.glyphs.map((glyph) => ({
     glyphId: glyph.glyph_id,
@@ -88,9 +116,12 @@ export function normalizeNativeShapedRun(
   return {
     glyphs: addClusterEnds(rawGlyphs, text.length),
     unitsPerEm,
-    ascent: positiveOr(payload.ascent, unitsPerEm * 0.8) * scale,
-    descent: positiveOr(Math.abs(payload.descent ?? 0), unitsPerEm * 0.2) * scale,
-    lineGap: Math.max(0, payload.line_gap ?? 0) * scale,
+    ascent:
+      positiveOr(payload.ascent, positiveOr(options.metrics?.ascent, unitsPerEm * 0.8)) * scale,
+    descent:
+      positiveOr(Math.abs(payload.descent ?? options.metrics?.descent ?? 0), unitsPerEm * 0.2) *
+      scale,
+    lineGap: Math.max(0, payload.line_gap ?? options.metrics?.lineGap ?? 0) * scale,
     direction: normalizeDirection(payload.direction),
     script: payload.script,
     language: payload.language,
@@ -102,6 +133,102 @@ export function normalizeNativeShapedRun(
     warnings: payload.warnings ?? [],
     backend: 'rustybuzz-native',
   };
+}
+
+/**
+ * Shape through the desktop rustybuzz command while retaining the same
+ * normalized result consumed by browser/WASM callers.
+ *
+ * The adapter is deliberately dependency-injected: tests and alternate
+ * desktop shells can provide an IPC port, while the default port resolves
+ * Tauri only at request time. Font bytes are copied once into the wire
+ * request; no document text or private font is sent outside that port.
+ */
+export function createNativeShapingBackend(
+  invoke: NativeShapeInvoker = invokeNativeShapeCommand,
+): ShapingBackend {
+  return {
+    kind: 'rustybuzz-native',
+    async shape(request) {
+      const normalized = normalizeOpenTypeFeatureMap(request.features, request.text.length);
+      const wire: NativeShapeWireRequest = {
+        text: request.text,
+        font_data: Array.from(new Uint8Array(request.fontData)),
+        face_index: request.faceIndex ?? 0,
+        font_size: request.fontSize,
+        language: request.language ?? null,
+        script: request.script ?? null,
+        direction: request.direction ?? null,
+        feature_settings: normalized.features.map((feature) => ({
+          tag: feature.tag,
+          value: feature.value,
+          start: feature.startUtf16,
+          end: feature.endUtf16,
+        })),
+        variation_axes: request.variationAxes ?? {},
+      };
+      const raw = await invoke(wire);
+      const payload = parseNativePayload(raw);
+      const metrics = await readFontMetrics(request.fontData, request.faceIndex ?? 0);
+      const result = normalizeNativeShapedRun(payload, request.text, request.fontSize, {
+        fontIdentity: request.fontIdentity,
+        faceIndex: request.faceIndex,
+        metrics,
+      });
+      return {
+        ...result,
+        warnings: [...normalized.warnings, ...result.warnings],
+      };
+    },
+  };
+}
+
+async function invokeNativeShapeCommand(request: NativeShapeWireRequest): Promise<unknown> {
+  const tauri = (
+    globalThis as {
+      __TAURI__?: {
+        core?: { invoke?: (command: string, args?: Record<string, unknown>) => Promise<unknown> };
+      };
+    }
+  ).__TAURI__;
+  const invoke = tauri?.core?.invoke;
+  if (!invoke) throw new Error('Native text shaping is unavailable outside the desktop runtime.');
+  return invoke('shape_text_command', { request_json: JSON.stringify(request) });
+}
+
+function parseNativePayload(raw: unknown): NativeShapedRunPayload {
+  const value = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    !Array.isArray((value as { glyphs?: unknown }).glyphs)
+  ) {
+    throw new Error('Native text shaping returned an invalid payload.');
+  }
+  return value as NativeShapedRunPayload;
+}
+
+async function readFontMetrics(
+  fontData: ArrayBuffer,
+  faceIndex: number,
+): Promise<{ unitsPerEm?: number; ascent?: number; descent?: number; lineGap?: number }> {
+  try {
+    const { parseFontCollection } = await import('./font/fontParser');
+    const faces = await parseFontCollection(fontData);
+    const face = faces[faceIndex] ?? faces[0];
+    return face
+      ? {
+          unitsPerEm: face.unitsPerEm,
+          ascent: face.ascender,
+          descent: face.descender,
+          lineGap: face.lineGap,
+        }
+      : {};
+  } catch {
+    // The native result remains useful when metadata parsing is unavailable;
+    // normalizeNativeShapedRun supplies conservative metrics in that case.
+    return {};
+  }
 }
 
 /**

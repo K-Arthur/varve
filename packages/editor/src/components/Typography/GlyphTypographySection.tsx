@@ -94,7 +94,8 @@ export function GlyphTypographySection({ node, onConvertToOutlines }: GlyphTypog
         />
         <p className="glyph-typography__hint">
           Turning kerning off disables pair kerning between clusters; tracking and manual pair
-          adjustments still apply. Ligatures stay independent.
+          adjustments still apply. Standard ligature sequences remain intact; turn Standard
+          ligatures off before moving letters inside fi/ff/ffi/fl/ffl sequences.
         </p>
       </div>
 
