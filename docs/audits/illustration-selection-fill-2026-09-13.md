@@ -138,7 +138,7 @@ repository's concurrent Vite, Vitest, and full-gate workers:
 | Export content invariant | Same Chromium run; PNG decoded with `pngjs` | Pass: PNG signature, 640×480 dimensions, and more than 5,000 opaque black pixels. The saved PNG was inspected both with transparency and composited over a neutral background. |
 | Documentation/emoji/token audits | `pnpm audit:docs`, `pnpm audit:emoji`, `pnpm audit:tokens` | Pass: docs clean (796 docs, 401 links, 174 ADRs indexed), emoji clean (4,546 files), and all 153 theme token pairs pass across three themes. |
 | Affected planner/full gate | `pnpm verify:plan`, `pnpm verify:affected`, and `VARVE_FULL_GATE_REASON='Final shared-master illustration integration gate; planner escalated because concurrent workspace/toolchain/validation changes broadened the affected closure' timeout 900s pnpm verify:full` | Planner required full escalation. Affected stopped at that mandated boundary. The full gate timed out under shared load and reported unrelated concurrent lint/architecture failures; no full-gate pass is claimed. |
-| Website build | `timeout 300s pnpm --filter @varve/website build` | Environment timeout after the env guard and Astro diagnostics phase under concurrent repository load. It emitted existing unused-import warnings but no error naming the two changed stroke pages. |
+| Website build | `timeout 300s pnpm --filter @varve/website build` | Pass: Astro check completed with 0 errors and the static build generated 100 pages. The existing five unused-import hints remain non-blocking; the two stroke pages are included in the generated routes. |
 
 The browser evidence is under
 `test-results/selection-fill-e2e-final19/canvas-selection-fill-sele-512bb-ction-Sources-and-undoes-it-chromium/`:
