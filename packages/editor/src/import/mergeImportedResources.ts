@@ -312,7 +312,7 @@ function mergeImportedAssets(target: Document, source: Document, maps: ResourceM
       ...(resource.sourceAssetId ? { sourceAssetId: sourceAssetId ?? undefined } : {}),
     };
   }
- 
+
   const iconAssets: Record<string, DocumentIconAsset> = { ...(target.iconAssets ?? {}) };
   for (const [sourceId, asset] of Object.entries(source.iconAssets ?? {})) {
     const id = maps.iconAssetIds.get(sourceId);
