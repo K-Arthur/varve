@@ -900,6 +900,55 @@ struct BgRemoveResult {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+struct BgRemoveBinaryMetadata {
+    confidence: f32,
+    method: String,
+    processing_time_ms: u64,
+    width: u32,
+    height: u32,
+    execution_provider: String,
+}
+
+const BG_REMOVE_BINARY_MAGIC: &[u8; 4] = b"VBG1";
+
+/// Encode background-removal metadata and the PNG mask in one bounded binary
+/// response. The metadata length is a little-endian u32 immediately after the
+/// magic; the remaining bytes are the PNG. This keeps large images and masks
+/// out of JSON/base64 IPC while preserving the small, versioned response
+/// contract needed by the webview.
+fn encode_bg_remove_binary(result: BgRemoveResult) -> Result<Response, String> {
+    let mask_png = base64::engine::general_purpose::STANDARD
+        .decode(result.mask_base64)
+        .map_err(|error| format!("Native mask base64 decode failed: {error}"))?;
+    if mask_png.is_empty() {
+        return Err("Native background-removal mask is empty".into());
+    }
+    let metadata = serde_json::to_vec(&BgRemoveBinaryMetadata {
+        confidence: result.confidence,
+        method: result.method,
+        processing_time_ms: result.processing_time_ms,
+        width: result.width,
+        height: result.height,
+        execution_provider: result.execution_provider,
+    })
+    .map_err(|error| format!("Native mask metadata serialize failed: {error}"))?;
+    let metadata_len = u32::try_from(metadata.len())
+        .map_err(|_| "Native mask metadata is too large for binary IPC".to_string())?;
+    let capacity = BG_REMOVE_BINARY_MAGIC
+        .len()
+        .saturating_add(std::mem::size_of::<u32>())
+        .saturating_add(metadata.len())
+        .saturating_add(mask_png.len());
+    let mut wire = Vec::with_capacity(capacity);
+    wire.extend_from_slice(BG_REMOVE_BINARY_MAGIC);
+    wire.extend_from_slice(&metadata_len.to_le_bytes());
+    wire.extend_from_slice(&metadata);
+    wire.extend_from_slice(&mask_png);
+    Ok(Response::new(wire))
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct NativeBgModelStatus {
     runtime_ready: bool,
     installed: bool,
@@ -1203,6 +1252,44 @@ async fn download_background_removal_model(
 ///    and converts panics into a `JoinError` we can report as an error.
 #[tauri::command]
 async fn remove_background(
+    app: tauri::AppHandle,
+    image_data: Vec<u8>,
+    options: BgRemoveOptions,
+) -> Result<BgRemoveResult, String> {
+    remove_background_command(app, image_data, options).await
+}
+
+/// Binary IPC variant: the encoded source image travels as the request body;
+/// options travel as a compact JSON header and the mask returns as a binary
+/// envelope. The legacy JSON command above remains for older clients and
+/// tests, but the current desktop provider uses this path.
+#[tauri::command]
+async fn remove_background_binary(
+    app: tauri::AppHandle,
+    request: tauri::ipc::Request<'_>,
+) -> Result<Response, String> {
+    const OPTIONS_HEADER: &str = "x-varve-bg-remove-options";
+    let image_data = match request.body() {
+        tauri::ipc::InvokeBody::Raw(bytes) => bytes.clone(),
+        tauri::ipc::InvokeBody::Json(_) => {
+            return Err("Binary background removal requires an application/octet-stream body".into())
+        }
+    };
+    let options_json = request
+        .headers()
+        .get(OPTIONS_HEADER)
+        .ok_or_else(|| format!("Missing {OPTIONS_HEADER} header"))?
+        .to_str()
+        .map_err(|_| format!("Invalid {OPTIONS_HEADER} header"))?
+        .to_owned();
+    let options: BgRemoveOptions = serde_json::from_str(&options_json)
+        .map_err(|error| format!("Invalid background-removal options: {error}"))?;
+    drop(request);
+    let result = remove_background_command(app, image_data, options).await?;
+    encode_bg_remove_binary(result)
+}
+
+async fn remove_background_command(
     app: tauri::AppHandle,
     image_data: Vec<u8>,
     options: BgRemoveOptions,
@@ -4869,6 +4956,7 @@ pub fn run() {
             write_clipboard_data,
             cancel_clipboard_operation,
             remove_background,
+            remove_background_binary,
             native_ai_status,
             native_background_removal_model_status,
             preflight_native_background_removal,
@@ -5783,6 +5871,35 @@ mod tests {
         assert_eq!(json["executionProvider"], "native-cpu");
         assert!(json.get("mask_base64").is_none());
         assert!(json.get("processing_time_ms").is_none());
+    }
+
+    #[test]
+    fn bg_remove_binary_response_keeps_mask_out_of_json() {
+        use tauri::ipc::{IpcResponse, InvokeResponseBody};
+
+        let mask = [137u8, 80, 78, 71];
+        let result = BgRemoveResult {
+            mask_base64: base64::engine::general_purpose::STANDARD.encode(mask),
+            confidence: 0.75,
+            method: "quick".to_string(),
+            processing_time_ms: 42,
+            width: 10,
+            height: 20,
+            execution_provider: "native-cpu".to_string(),
+        };
+        let body = encode_bg_remove_binary(result)
+            .expect("encode binary response")
+            .body()
+            .expect("response body");
+        let InvokeResponseBody::Raw(bytes) = body else {
+            panic!("background-removal binary response was JSON encoded");
+        };
+        assert_eq!(&bytes[..4], BG_REMOVE_BINARY_MAGIC);
+        let metadata_len = u32::from_le_bytes(bytes[4..8].try_into().unwrap()) as usize;
+        let metadata: serde_json::Value = serde_json::from_slice(&bytes[8..8 + metadata_len])
+            .expect("metadata JSON");
+        assert_eq!(metadata["method"], "quick");
+        assert_eq!(&bytes[8 + metadata_len..], mask);
     }
 
     #[test]

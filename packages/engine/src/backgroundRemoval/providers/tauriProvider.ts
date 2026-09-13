@@ -1,4 +1,5 @@
 import { isTauriRuntime } from '@varve/platform';
+import { decodeMaskBytes, decodeMaskDataUrl } from '../maskDecode';
 import type { BackgroundRemovalOptions, BackgroundRemovalResult } from '../types';
 
 export { isTauriRuntime };
@@ -16,6 +17,108 @@ interface TauriBgRemoveResponse {
   height: number;
   /** Present on runtimes with provider reporting. */
   executionProvider?: string;
+}
+
+interface TauriBgRemoveMetadata {
+  confidence: number;
+  method: string;
+  processingTimeMs: number;
+  width: number;
+  height: number;
+  executionProvider?: string;
+}
+
+const BG_REMOVE_BINARY_MAGIC = [0x56, 0x42, 0x47, 0x31] as const;
+
+function arrayBufferForBytes(bytes: Uint8Array): ArrayBuffer {
+  if (
+    bytes.byteOffset === 0 &&
+    bytes.byteLength === bytes.buffer.byteLength &&
+    bytes.buffer instanceof ArrayBuffer
+  ) {
+    return bytes.buffer;
+  }
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy.buffer;
+}
+
+function responseBytes(value: unknown): Uint8Array | null {
+  if (value instanceof ArrayBuffer) return new Uint8Array(value);
+  if (value instanceof Uint8Array) return value;
+  if (Array.isArray(value) && value.every((entry) => Number.isInteger(entry))) {
+    return Uint8Array.from(value);
+  }
+  return null;
+}
+
+function bytesToDataUrl(bytes: Uint8Array): string {
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+  }
+  return `data:image/png;base64,${btoa(binary)}`;
+}
+
+function parseNativeResponse(value: unknown): {
+  metadata: TauriBgRemoveMetadata;
+  maskBytes?: Uint8Array;
+  maskDataUrl?: string;
+} {
+  const bytes = responseBytes(value);
+  if (!bytes) {
+    // Keep a narrow compatibility adapter for older desktop binaries. The
+    // current command returns the binary envelope below; this branch is not
+    // used by the installed build after it has been updated.
+    const legacy = value as Partial<TauriBgRemoveResponse> | null;
+    if (!legacy || typeof legacy.maskBase64 !== 'string') {
+      throw new Error('Native background-removal response is not binary');
+    }
+    return {
+      metadata: {
+        confidence: Number(legacy.confidence),
+        method: String(legacy.method),
+        processingTimeMs: Number(legacy.processingTimeMs),
+        width: Number(legacy.width),
+        height: Number(legacy.height),
+        executionProvider: legacy.executionProvider,
+      },
+      maskDataUrl: `data:image/png;base64,${legacy.maskBase64}`,
+    };
+  }
+
+  if (bytes.length < 8 || BG_REMOVE_BINARY_MAGIC.some((byte, index) => bytes[index] !== byte)) {
+    throw new Error('Native background-removal response has an invalid binary header');
+  }
+  const metadataLength = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(
+    4,
+    true,
+  );
+  const metadataStart = 8;
+  const maskStart = metadataStart + metadataLength;
+  if (metadataLength > 64 * 1024 || maskStart > bytes.length || maskStart === bytes.length) {
+    throw new Error('Native background-removal response has invalid metadata or mask length');
+  }
+  let metadata: TauriBgRemoveMetadata;
+  try {
+    metadata = JSON.parse(
+      new TextDecoder().decode(bytes.subarray(metadataStart, maskStart)),
+    ) as TauriBgRemoveMetadata;
+  } catch {
+    throw new Error('Native background-removal metadata is invalid');
+  }
+  if (
+    !Number.isFinite(metadata.width) ||
+    !Number.isFinite(metadata.height) ||
+    metadata.width <= 0 ||
+    metadata.height <= 0 ||
+    typeof metadata.method !== 'string'
+  ) {
+    throw new Error('Native background-removal metadata is incomplete');
+  }
+  const maskBytes = bytes.subarray(maskStart);
+  return { metadata, maskBytes };
 }
 
 interface NativeModelStatus {
@@ -150,49 +253,52 @@ async function invokeTauriRemoveBackground(
   }
 
   const { invoke } = await import('@tauri-apps/api/core');
-  const raw = await invoke<TauriBgRemoveResponse>('remove_background', {
-    imageData: Array.from(bytes),
-    options: {
-      method: options.method,
-      tolerance: options.tolerance,
-      featherRadius: options.feather,
-      // Default must match the worker/direct providers: decontamination is
-      // an explicit opt-in mask operation, not an implicit native default.
-      // The UI always passes the checkbox value explicitly.
-      decontaminate: options.decontaminate ?? false,
-      clickX: options.clickPoint?.x,
-      clickY: options.clickPoint?.y,
-      previewMaxDimension: options.previewMaxDimension,
+  const raw = await invoke<unknown>('remove_background_binary', arrayBufferForBytes(bytes), {
+    headers: {
+      'x-varve-bg-remove-options': JSON.stringify({
+        method: options.method,
+        tolerance: options.tolerance,
+        featherRadius: options.feather,
+        // Default must match the worker/direct providers: decontamination is
+        // an explicit opt-in mask operation, not an implicit native default.
+        // The UI always passes the checkbox value explicitly.
+        decontaminate: options.decontaminate ?? false,
+        clickX: options.clickPoint?.x,
+        clickY: options.clickPoint?.y,
+        previewMaxDimension: options.previewMaxDimension,
+      }),
     },
   });
 
-  if (raw.method !== options.method) {
+  const parsed = parseNativeResponse(raw);
+  if (parsed.metadata.method !== options.method) {
     throw new Error(
-      `Native background removal returned '${raw.method}' for '${options.method}' request`,
+      `Native background removal returned '${parsed.metadata.method}' for '${options.method}' request`,
     );
   }
-  const maskDataUrl = `data:image/png;base64,${raw.maskBase64}`;
-  const { decodeMaskDataUrl } = await import('../maskDecode');
-  const decoded = await decodeMaskDataUrl(maskDataUrl);
-  if (decoded.width !== raw.width || decoded.height !== raw.height) {
+  const maskDataUrl = parsed.maskBytes ? bytesToDataUrl(parsed.maskBytes) : parsed.maskDataUrl!;
+  const decoded = parsed.maskBytes
+    ? await decodeMaskBytes(parsed.maskBytes)
+    : await decodeMaskDataUrl(maskDataUrl);
+  if (decoded.width !== parsed.metadata.width || decoded.height !== parsed.metadata.height) {
     throw new Error(
-      `Native mask dimensions ${decoded.width}x${decoded.height} do not match response ${raw.width}x${raw.height}`,
+      `Native mask dimensions ${decoded.width}x${decoded.height} do not match response ${parsed.metadata.width}x${parsed.metadata.height}`,
     );
   }
   return {
     maskDataUrl,
-    confidence: raw.confidence,
+    confidence: parsed.metadata.confidence,
     method: options.method,
-    processingTimeMs: raw.processingTimeMs,
-    width: raw.width,
-    height: raw.height,
+    processingTimeMs: parsed.metadata.processingTimeMs,
+    width: parsed.metadata.width,
+    height: parsed.metadata.height,
     // The Rust result reports which provider actually produced the mask
     // (`native-webgpu` when the WebGPU plugin EP ran the session). Older
     // runtimes omit the field; keep the generic `native` label then.
     executionProvider:
-      raw.executionProvider === 'native-webgpu'
+      parsed.metadata.executionProvider === 'native-webgpu'
         ? 'native-webgpu'
-        : raw.executionProvider === 'native-cpu'
+        : parsed.metadata.executionProvider === 'native-cpu'
           ? 'native-cpu'
           : 'native',
     modelId: modelId ?? undefined,

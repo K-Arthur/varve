@@ -26,3 +26,16 @@ export async function decodeMaskDataUrl(
   }
   return { mask, width: img.width, height: img.height };
 }
+
+/** Decode a PNG mask received through a native binary IPC response. */
+export async function decodeMaskBytes(
+  bytes: Uint8Array,
+): Promise<{ mask: Uint8Array; width: number; height: number }> {
+  if (bytes.byteLength === 0) throw new Error('Native mask response is empty');
+  const url = URL.createObjectURL(new Blob([bytes], { type: 'image/png' }));
+  try {
+    return await decodeMaskDataUrl(url);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}

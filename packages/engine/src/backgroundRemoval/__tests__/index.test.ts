@@ -46,6 +46,7 @@ vi.mock('@tauri-apps/api/core', () => ({
   invoke: mockInvoke,
 }));
 vi.mock('../maskDecode', () => ({
+  decodeMaskBytes: mockDecodeMaskDataUrl,
   decodeMaskDataUrl: mockDecodeMaskDataUrl,
 }));
 
@@ -293,7 +294,11 @@ describe('removeBackground dispatch', () => {
       width: 4,
       height: 4,
     });
-    expect(mockInvoke).toHaveBeenCalledWith('remove_background', expect.anything());
+    expect(mockInvoke).toHaveBeenCalledWith(
+      'remove_background_binary',
+      expect.anything(),
+      expect.anything(),
+    );
     expect(result.maskDataUrl).toBe('data:image/png;base64,abc123');
     expect(result.confidence).toBe(0.6);
     expect(result.processingTimeMs).toBe(5);

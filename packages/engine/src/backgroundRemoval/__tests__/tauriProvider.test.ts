@@ -1,15 +1,19 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockDecode, mockInvoke, mockListen } = vi.hoisted(() => ({
+const { mockDecode, mockDecodeBytes, mockInvoke, mockListen } = vi.hoisted(() => ({
   mockDecode: vi.fn(),
+  mockDecodeBytes: vi.fn(),
   mockInvoke: vi.fn(),
   mockListen: vi.fn(),
 }));
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: mockInvoke }));
 vi.mock('@tauri-apps/api/event', () => ({ listen: mockListen }));
-vi.mock('../maskDecode', () => ({ decodeMaskDataUrl: mockDecode }));
+vi.mock('../maskDecode', () => ({
+  decodeMaskBytes: mockDecodeBytes,
+  decodeMaskDataUrl: mockDecode,
+}));
 
 describe('Tauri background-removal provider', () => {
   beforeEach(() => {
@@ -17,6 +21,9 @@ describe('Tauri background-removal provider', () => {
     mockInvoke.mockReset();
     mockListen.mockReset().mockResolvedValue(vi.fn());
     mockDecode.mockReset().mockResolvedValue({ mask: new Uint8Array([255]), width: 1, height: 1 });
+    mockDecodeBytes
+      .mockReset()
+      .mockResolvedValue({ mask: new Uint8Array([255]), width: 1, height: 1 });
     const fakeContext = { putImageData: vi.fn() };
     const fakeBlob = { arrayBuffer: () => Promise.resolve(new ArrayBuffer(4)) } as Blob;
     vi.spyOn(document, 'createElement').mockReturnValue({
@@ -62,7 +69,7 @@ describe('Tauri background-removal provider', () => {
       method: 'ai-quality',
     });
 
-    expect(commands).toEqual(['preflight_native_background_removal', 'remove_background']);
+    expect(commands).toEqual(['preflight_native_background_removal', 'remove_background_binary']);
     expect(mockInvoke).toHaveBeenCalledWith('preflight_native_background_removal', {
       modelId: 'birefnet-general-lite',
       width: 1,
@@ -104,18 +111,61 @@ describe('Tauri background-removal provider', () => {
       method: 'ai-quality',
     });
     const args = mockInvoke.mock.calls.find(
-      ([command]) => command === 'remove_background',
-    )?.[1] as { options: { decontaminate: boolean } };
-    expect(args.options.decontaminate).toBe(false);
+      ([command]) => command === 'remove_background_binary',
+    )?.[2] as { headers: { 'x-varve-bg-remove-options': string } };
+    expect(JSON.parse(args.headers['x-varve-bg-remove-options']).decontaminate).toBe(false);
 
     await tauriRemovalProvider.remove(new ImageData(new Uint8ClampedArray([1, 2, 3, 255]), 1, 1), {
       method: 'ai-quality',
       decontaminate: true,
     });
     const explicit = mockInvoke.mock.calls.filter(
-      ([command]) => command === 'remove_background',
-    ) as Array<[string, { options: { decontaminate: boolean } }]>;
-    expect(explicit.at(-1)?.[1].options.decontaminate).toBe(true);
+      ([command]) => command === 'remove_background_binary',
+    ) as Array<[string, ArrayBuffer, { headers: { 'x-varve-bg-remove-options': string } }]>;
+    expect(
+      JSON.parse(explicit.at(-1)?.[2].headers['x-varve-bg-remove-options'] ?? '{}').decontaminate,
+    ).toBe(true);
+  });
+
+  it('uses the versioned binary envelope for a native mask response', async () => {
+    const metadata = new TextEncoder().encode(
+      JSON.stringify({
+        confidence: 0.98,
+        method: 'ai-quality',
+        processingTimeMs: 123,
+        width: 1,
+        height: 1,
+        executionProvider: 'native-webgpu',
+      }),
+    );
+    const maskBytes = new Uint8Array([137, 80, 78, 71]);
+    const wire = new Uint8Array(8 + metadata.length + maskBytes.length);
+    wire.set([0x56, 0x42, 0x47, 0x31], 0);
+    new DataView(wire.buffer).setUint32(4, metadata.length, true);
+    wire.set(metadata, 8);
+    wire.set(maskBytes, 8 + metadata.length);
+    mockInvoke.mockImplementation(async (command: string) => {
+      if (command === 'preflight_native_background_removal') return undefined;
+      return wire.buffer;
+    });
+
+    const { tauriRemovalProvider } = await import('../providers/tauriProvider');
+    const result = await tauriRemovalProvider.remove(
+      new ImageData(new Uint8ClampedArray([1, 2, 3, 255]), 1, 1),
+      { method: 'ai-quality' },
+    );
+
+    expect(mockInvoke).toHaveBeenCalledWith(
+      'remove_background_binary',
+      expect.any(ArrayBuffer),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'x-varve-bg-remove-options': expect.stringContaining('ai-quality'),
+        }),
+      }),
+    );
+    expect(mockDecodeBytes).toHaveBeenCalledWith(maskBytes);
+    expect(result.executionProvider).toBe('native-webgpu');
   });
 
   it('forwards native download progress and uses the fixed model-id command', async () => {
