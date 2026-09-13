@@ -123,6 +123,7 @@ unreferenced; it is not presented as an optimization.
 | `f9eca85e4` | Adaptive profile uses a bounded real WebGPU device probe and throttled memory-pressure signal; residency and diagnostics degrade conservatively without vendor hard-coding. | `webGpuProbe.ts`, `adaptiveProfile.ts`, `memoryPressure.ts`, `memoryBudget.ts`, `renderPipeline.ts`, `perfRuntime.ts` (+tests) |
 | `cd23ec748` | Derived work pauses across page lifecycle transitions; admitted jobs yield between chunks; GPU effect resources are released and retried after device loss. | `pageLifecycle.ts` (+test), `App.tsx`, worker schedulers, `gpuAdapter.ts`, `GpuEffectRunner`, `WebGPUBackend` (+tests) |
 | `23c7238d4` | Optional model dialogs and settings disclose download/storage bytes and estimated peak working memory separately, including unknown values when the catalog has no measurement. | `modelRequirements.ts` (+test), model settings tabs, `ModelDownloadDialog.tsx` (+tests) |
+| `f74c03d99` | Corrects adaptive pressure type narrowing and imports for the settings/capability surfaces; preserves the bounded runtime probe contract under strict TypeScript checks. | `renderPipeline.ts`, `PerformanceSettingsTab.tsx`, `capabilityReport.ts`, `webGpuProbe.ts` |
 
 Design constraints preserved:
 
@@ -232,12 +233,24 @@ refused once the surface returns to full resolution.
 | `pnpm --filter @varve/engine typecheck` | clean |
 | `pnpm --filter @varve/website typecheck` | 0 errors (5 pre-existing hints) |
 | `pnpm --filter @varve/website build` | 86 static routes built; 0 errors (bundler warnings recorded in handoff) |
-| `pnpm --filter @varve/editor typecheck` | only the unrelated in-flight `ImportResults.tsx` error owned by another active agent; Stage 3 files clean |
+| `pnpm --filter @varve/editor typecheck` | Stage 3 files clean; blocked only by unrelated in-flight `packages/import/src/service.ts` errors (`ImportResult` missing and an implicit-any callback) |
+| `pnpm --filter @varve/desktop typecheck` | blocked by the same unrelated `packages/import/src/service.ts` errors |
 
-`pnpm verify:plan` on the shared worktree reports affected coverage across the
-repository because more than a hundred unrelated paths from other active agents
-are modified; it reports **no full-suite escalation**. Targeted tests are used
-per the repository's validation economy.
+The final shared-worktree validation was intentionally recorded separately from
+the owned-scope checks above. `pnpm verify:plan` selected 63 changed files
+(101% of repository tests) because concurrent agents left unrelated edits in
+the checkout; it reported **no** full-suite escalation. `pnpm verify:affected`
+therefore stopped at Tier 0 on an unrelated formatting diagnostic in
+`packages/editor/src/components/AIStatusIndicator/AIStatusIndicator.tsx`.
+The explicitly escalated `pnpm verify:full` reached workspace typechecks and
+stopped on the unrelated `packages/import/src/service.ts` errors above. The
+required docs, emoji, token, and architecture audits passed (architecture
+reported 14 distinct cycles, below its enforced ceiling, with existing hub and
+instability warnings). The root `pnpm bench` command was stopped after
+discovery showed 108 benchmark files under existing sibling worktrees and
+report snapshots; a bounded spatial-index invocation inherited the same
+include path and was stopped for the same reason. No benchmark output is used
+as a device-performance or before/after claim.
 
 ## 5. Known limits and handoffs
 
