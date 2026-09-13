@@ -34,7 +34,12 @@ test('clipboard feature page remains usable at mobile width', async ({ page }, t
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );
   expect(overflow).toBeLessThanOrEqual(0);
-  await expect(page.getByRole('link', { name: /download varve/i })).toBeVisible();
+  // The download CTA is platform-labelled by design ("Download for Linux",
+  // "Get Varve", …), so assert the action by its stable test hook and
+  // destination rather than one label string.
+  const downloadCta = page.locator('[data-download-cta]:visible').first();
+  await expect(downloadCta).toBeVisible();
+  await expect(downloadCta).toHaveAttribute('href', /\/download$/);
   await page.screenshot({
     path: testInfo.outputPath('clipboard-feature-mobile.png'),
     fullPage: true,
