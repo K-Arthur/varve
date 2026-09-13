@@ -39,7 +39,6 @@ update, not for someone reading the commit log.
   history, pointer cancellation restores the pre-drag shape, and topology edits
   no longer silently update only a legacy outer-point array or break dependent
   text, mask, motion, and interaction references.
-
 - **Touch and stylus ownership** — pointer IDs, active button state, coalesced
   dynamics, capture loss, foreign contacts, and cancellation now flow through
   one policy. A second finger resolves only its provisional interaction, a
