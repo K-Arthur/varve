@@ -271,6 +271,21 @@ test.describe('Navigation visual contract', () => {
     expect(afterDown.width).toBeCloseTo(before.width, 0);
     expect(afterDown.y).toBeLessThan(afterRight.y);
     expect(await page.getByRole('treeitem').count()).toBe(nodeCount);
+    await testInfo.attach('navigation-measurement.json', {
+      body: JSON.stringify(
+        {
+          before,
+          afterRight,
+          afterDown,
+          nodeCount,
+          expectedPanCssPx: { right: 48, down: 192 },
+          browserTimestamps: 'not collected; this is a geometry/document-integrity measurement',
+        },
+        null,
+        2,
+      ),
+      contentType: 'application/json',
+    });
     await page.screenshot({ path: testInfo.outputPath('navigation-settled.png'), fullPage: false });
   });
 });
