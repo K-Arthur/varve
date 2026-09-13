@@ -99,14 +99,16 @@ All keyboard zoom entry points resolve through the physical key
 (`KeyboardEvent.code`), so `Shift+1` matches on layouts where it prints `!`,
 and numpad works under any NumLock state (see `input/physicalKey.ts`).
 
-Arrow movement belongs only to the active canvas object-editing context. It
-does not claim a key from an input, `contenteditable`, modal/dialog, or active
-IME composition; focused composite widgets and specialized tools (for example
-the Layers tree, direct-node, and crop editing) receive the event before generic
-object movement. An idle creation or navigation tool that declines Arrow lets
-the canvas fallback handle a movable selection. A movable selection prevents
-browser page scrolling. A selected locked/hidden or flow-layout-managed root
-does not move; in a mixed selection, eligible roots still move. See
+Arrow movement belongs to the active canvas owner. In the explicit Hand or
+temporary Space-Hand context, Arrow and Shift+Arrow pan the viewport by 48 and
+192 CSS pixels. Otherwise it does not claim a key from an input,
+`contenteditable`, modal/dialog, or active IME composition; focused composite
+widgets and specialized tools (for example the Layers tree, direct-node, and
+crop editing) receive the event before generic object movement. An idle
+creation tool that declines Arrow lets the canvas fallback handle a movable
+selection. A movable selection prevents browser page scrolling. A selected
+locked/hidden or flow-layout-managed root does not move; in a mixed selection,
+eligible roots still move. See
 [Nudge and movement](nudge-and-movement.md) for the complete contract and
 Settings > Nudging & Movement for the local small/big amounts.
 
