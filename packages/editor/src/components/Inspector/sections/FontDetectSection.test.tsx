@@ -12,6 +12,7 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useEditor } from '../../../context';
 import { FontDetectSection } from './FontDetectSection';
+import { hasLocalFontOcr, recognizeFontTextLocally } from './fontOcr';
 
 vi.mock('../../../context', () => ({
   useEditor: vi.fn(),
@@ -51,6 +52,23 @@ vi.mock('@varve/ui', () => ({
   ),
 }));
 
+vi.mock('./fontOcr', () => ({
+  averageOcrConfidence: (result: { words: Array<{ text: string; confidence: number }> }) => {
+    const words = result.words.filter((word) => word.text.trim());
+    return words.length > 0
+      ? words.reduce((sum, word) => sum + word.confidence, 0) / words.length
+      : undefined;
+  },
+  hasLocalFontOcr: vi.fn(),
+  recognizeFontTextLocally: vi.fn(),
+  textFromOcrResult: (result: { words: Array<{ text: string }> }) =>
+    result.words
+      .map((word) => word.text.trim())
+      .filter(Boolean)
+      .join(' ')
+      .trim(),
+}));
+
 const image = makeImageShapeNode('image-1', {
   src: 'data:image/png;base64,fixture',
   w: 320,
@@ -81,6 +99,34 @@ const groupCompoundOperation = vi.fn((_label: string, action: () => void) => act
 const updateNode = vi.fn();
 const setSelection = vi.fn();
 const textTarget = makeTextNode('text-target', 'Editable target', { name: 'Headline' });
+const ocrResult = {
+  words: [
+    {
+      x: 4,
+      y: 8,
+      width: 120,
+      height: 24,
+      detectionConfidence: 0.96,
+      text: 'Sample',
+      confidence: 0.9,
+      charConfidences: [0.9],
+    },
+    {
+      x: 132,
+      y: 8,
+      width: 100,
+      height: 24,
+      detectionConfidence: 0.94,
+      text: 'text',
+      confidence: 0.8,
+      charConfidences: [0.8],
+    },
+  ],
+  executionProvider: 'wasm',
+  processingTimeMs: 24,
+  dictionaryAvailable: true,
+  recognitionModelId: 'tr-ocr-base-printed',
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -89,6 +135,8 @@ beforeEach(() => {
     downloadModel: vi.fn(),
   } as never);
   vi.mocked(loadFullLabelMap).mockResolvedValue([] as never);
+  vi.mocked(hasLocalFontOcr).mockResolvedValue(false);
+  vi.mocked(recognizeFontTextLocally).mockResolvedValue(ocrResult);
   vi.mocked(renderAndCompare).mockResolvedValue({
     scores: new Map(),
     details: new Map(),
@@ -229,5 +277,54 @@ describe('FontDetectSection', () => {
       node: typeof textTarget,
     ) => typeof textTarget;
     expect(updater(textTarget)).toMatchObject({ fontFamily: 'Inter', fontReference: undefined });
+  });
+
+  it('uses installed local OCR to fill editable text and reports confidence', async () => {
+    vi.mocked(hasLocalFontOcr).mockResolvedValue(true);
+    render(<FontDetectSection nodes={[image]} />);
+
+    const ocrButton = await screen.findByRole('button', { name: 'Recognize text locally' });
+    fireEvent.click(ocrButton);
+
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: 'Text in image (optional)' })).toHaveValue(
+        'Sample text',
+      ),
+    );
+    expect(recognizeFontTextLocally).toHaveBeenCalledWith(
+      expect.any(ImageData),
+      expect.any(AbortSignal),
+      expect.any(Function),
+    );
+    expect(screen.getByRole('status')).toHaveTextContent(/average confidence 85%/i);
+    expect(announce).toHaveBeenCalledWith('Local OCR recognized 2 text regions');
+  });
+
+  it('keeps manual entry available when local OCR assets are missing', async () => {
+    render(<FontDetectSection nodes={[image]} />);
+
+    expect(
+      await screen.findByText('Local OCR models are unavailable in this runtime.'),
+    ).toBeVisible();
+    expect(screen.getByRole('textbox', { name: 'Text in image (optional)' })).toBeEnabled();
+    expect(
+      screen.queryByRole('button', { name: 'Recognize text locally' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('keeps classifier detection available when OCR availability probing fails', async () => {
+    vi.mocked(getModelLoader).mockReturnValue({
+      isModelAvailable: vi.fn(async () => true),
+      downloadModel: vi.fn(),
+    } as never);
+    vi.mocked(hasLocalFontOcr).mockRejectedValue(new Error('OCR manifest unavailable'));
+
+    render(<FontDetectSection nodes={[image]} />);
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Identify font in image' })).toBeVisible(),
+    );
+    expect(screen.queryByRole('button', { name: /Download AI Model/ })).not.toBeInTheDocument();
+    expect(screen.getByText('Local OCR models are unavailable in this runtime.')).toBeVisible();
   });
 });

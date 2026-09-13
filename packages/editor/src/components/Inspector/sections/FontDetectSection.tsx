@@ -13,7 +13,7 @@
  * the document's existing text layers.
  */
 
-import type { FontCandidate, FontDetectionResult } from '@varve/engine';
+import type { FontCandidate, FontDetectionResult, OcrResult } from '@varve/engine';
 import {
   createFontCatalogFromRegistry,
   detectFont,
@@ -30,6 +30,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FONT_DETECT_MAX_EDGE, loadFontDetectionImage } from './fontDetectImage';
+import {
+  averageOcrConfidence,
+  type FontOcrProgress,
+  hasLocalFontOcr,
+  recognizeFontTextLocally,
+  textFromOcrResult,
+} from './fontOcr';
 import './FontDetectSection.css';
 
 const MODEL_ID = 'font-classify';
@@ -46,7 +53,15 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
   const node = nodes[0];
   const abortRef = useRef<AbortController | null>(null);
   const downloadAbortRef = useRef<AbortController | null>(null);
+  const ocrAbortRef = useRef<AbortController | null>(null);
   const [modelAvailable, setModelAvailable] = useState(false);
+  const [ocrAvailable, setOcrAvailable] = useState(false);
+  const [ocrStatus, setOcrStatus] = useState<'idle' | 'checking' | 'processing' | 'error'>(
+    'checking',
+  );
+  const [ocrProgress, setOcrProgress] = useState<FontOcrProgress | null>(null);
+  const [ocrError, setOcrError] = useState<string | null>(null);
+  const [ocrResult, setOcrResult] = useState<OcrResult | null>(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [recognizedText, setRecognizedText] = useState('');
   const [targetId, setTargetId] = useState('');
@@ -99,27 +114,38 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
   useEffect(() => {
     if (!isImage) return;
     let cancelled = false;
+    setOcrStatus('checking');
     (async () => {
-      try {
-        const [available] = await Promise.all([
-          getModelLoader().isModelAvailable(MODEL_ID),
-          loadFullLabelMap(),
-        ]);
-        if (!cancelled) setModelAvailable(available);
-      } catch {
-        if (!cancelled) setModelAvailable(false);
+      const [classifierResult, , ocrResult] = await Promise.allSettled([
+        getModelLoader().isModelAvailable(MODEL_ID),
+        loadFullLabelMap(),
+        hasLocalFontOcr(),
+      ]);
+      if (!cancelled) {
+        setModelAvailable(
+          classifierResult.status === 'fulfilled' && classifierResult.value === true,
+        );
+        setOcrAvailable(ocrResult.status === 'fulfilled' && ocrResult.value === true);
+        setOcrStatus('idle');
       }
     })();
     return () => {
       cancelled = true;
+      ocrAbortRef.current?.abort();
     };
   }, [isImage]);
 
   useEffect(() => {
     abortRef.current?.abort();
     downloadAbortRef.current?.abort();
+    ocrAbortRef.current?.abort();
     abortRef.current = null;
     downloadAbortRef.current = null;
+    ocrAbortRef.current = null;
+    setOcrStatus('idle');
+    setOcrProgress(null);
+    setOcrError(null);
+    setOcrResult(null);
     setDetect((prev) => ({ ...prev, status: 'idle', errorMessage: null, result: null }));
   }, [imageSrc, visibleCrop?.x, visibleCrop?.y, visibleCrop?.w, visibleCrop?.h]);
 
@@ -154,6 +180,53 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
 
   const handleCancelDownload = useCallback(() => {
     downloadAbortRef.current?.abort();
+  }, []);
+
+  const handleRecognizeText = useCallback(async () => {
+    if (!ocrAvailable) return;
+    ocrAbortRef.current?.abort();
+    const controller = new AbortController();
+    ocrAbortRef.current = controller;
+    setOcrStatus('processing');
+    setOcrProgress(null);
+    setOcrError(null);
+    setOcrResult(null);
+
+    try {
+      if (!imageSrc) throw new Error('No image selected');
+      const imageData = await loadFontDetectionImage(imageSrc, {
+        crop: analyzeVisibleCrop ? visibleCrop : undefined,
+        rotation: image?.rotation,
+        flipH: image?.flipH,
+        flipV: image?.flipV,
+        signal: controller.signal,
+      });
+      if (controller.signal.aborted) throw new Error('cancelled');
+      const result = await recognizeFontTextLocally(imageData, controller.signal, setOcrProgress);
+      if (controller.signal.aborted) throw new Error('cancelled');
+      const text = textFromOcrResult(result);
+      setRecognizedText(text);
+      setOcrResult(result);
+      setOcrStatus('idle');
+      setOcrProgress({ phase: 'done', completed: 1, total: 1 });
+      announce(
+        text
+          ? `Local OCR recognized ${result.words.length} text region${result.words.length === 1 ? '' : 's'}`
+          : 'Local OCR found no readable text; enter it manually',
+      );
+    } catch (err) {
+      if (controller.signal.aborted) return;
+      setOcrStatus('error');
+      setOcrError(err instanceof Error ? err.message : 'Local OCR failed');
+    } finally {
+      if (ocrAbortRef.current === controller) ocrAbortRef.current = null;
+    }
+  }, [analyzeVisibleCrop, announce, image, imageSrc, ocrAvailable, visibleCrop]);
+
+  const handleCancelOcr = useCallback(() => {
+    ocrAbortRef.current?.abort();
+    setOcrStatus('idle');
+    setOcrProgress(null);
   }, []);
 
   const handleDetect = useCallback(async () => {
@@ -339,6 +412,55 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
             placeholder="Type the visible text for local comparison"
             aria-label="Text in image (optional)"
           />
+          <span className="insp-hint">
+            Type text manually, or use local OCR when its models are already installed.
+          </span>
+          {ocrAvailable ? (
+            <div className="font-detect-ocr-actions">
+              {ocrStatus === 'processing' ? (
+                <>
+                  <span className="insp-hint" aria-live="polite">
+                    Reading text locally
+                    {ocrProgress?.phase ? ` · ${ocrProgress.phase}` : ''}
+                    {ocrProgress && ocrProgress.total > 0
+                      ? ` (${ocrProgress.completed}/${ocrProgress.total})`
+                      : ''}
+                    …
+                  </span>
+                  <Button type="button" variant="ghost" size="sm" onClick={handleCancelOcr}>
+                    Cancel OCR
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRecognizeText}
+                  aria-label="Recognize text locally"
+                >
+                  Read text with local OCR
+                </Button>
+              )}
+            </div>
+          ) : (
+            <span className="insp-hint">Local OCR models are unavailable in this runtime.</span>
+          )}
+          {ocrResult && (
+            <p className="insp-hint" role="status">
+              OCR found {ocrResult.words.length} region{ocrResult.words.length === 1 ? '' : 's'}
+              {averageOcrConfidence(ocrResult) === undefined
+                ? ''
+                : ` · average confidence ${Math.round(averageOcrConfidence(ocrResult)! * 100)}%`}
+              {ocrResult.recognitionModelId ? ` · ${ocrResult.recognitionModelId}` : ''}. Review the
+              editable text before comparing fonts.
+            </p>
+          )}
+          {ocrStatus === 'error' && ocrError && (
+            <p className="insp-hint insp-hint--error" role="alert">
+              {ocrError}. Enter the text manually or try again.
+            </p>
+          )}
         </label>
 
         {textTargets.length > 0 && (
