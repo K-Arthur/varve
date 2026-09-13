@@ -63,8 +63,12 @@ import StatusPill from '../../components/StatusPill.astro';
             <p>Opt into merged raster-layer sampling when texturing a new paint layer. Deposits still go to the active target, keeping the source layers intact.</p>
           </article>
           <article>
+            <h3>Selection-to-flats</h3>
+            <p>Build a marquee, lasso, or image-derived selection, select the destination pixel layer, and fill it without changing the source artwork. Soft edges and transparent pixels remain real tile data.</p>
+          </article>
+          <article>
             <h3>Honest boundaries</h3>
-            <p>Merged sampling currently covers visible raster-layer tiles. Vector, group, effect, and transformed-content sampling remains explicit work rather than a hidden flattening step.</p>
+            <p>Selection fills currently target one visible, unlocked raster layer. Vector, group, effect, and transformed-content sampling remains explicit work rather than a hidden flattening step.</p>
           </article>
         </div>
       </section>

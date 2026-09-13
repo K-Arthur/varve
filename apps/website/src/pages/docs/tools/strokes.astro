@@ -23,6 +23,15 @@ import { sitePath } from '../../../lib/siteUrl';
         <p>
           <strong>Sample merged layers</strong> is an explicit opt-in setting. It reads a read-only snapshot of visible raster-layer tiles while depositing only on the active target, which makes clipped texture and paintover passes safer. It does not implicitly sample vector nodes, group isolation, effects, or transformed non-raster content; use an explicit flattened raster copy when those sources are required.
         </p>
+        <h3>Selections into flats</h3>
+        <ol>
+          <li>Create a marquee, pixel-lasso, quick-mask, or image-derived selection.</li>
+          <li>Select one visible, unlocked pixel layer as the destination.</li>
+          <li>Open <strong>Selection Sources</strong> in the Inspector and choose <strong>Fill pixel layer</strong>.</li>
+        </ol>
+        <p>
+          The fill is one undoable tile mutation and leaves the selection active for another colour pass. Feathered or anti-aliased selection coverage remains soft; a locked, hidden, vector, or image-only target is refused instead of being silently rasterized. This is a selection fill, not a full line-art bucket detector: use the existing image-derived Magic Wand or lasso to define the region first.
+        </p>
       </section>
 
       <section class="docs-section">
