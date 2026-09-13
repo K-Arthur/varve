@@ -35,6 +35,12 @@ update, not for someone reading the commit log.
   supported restoration and upscale paths, Deblur + Upscale is exposed in the
   operation menu, and manual processing changes mark the dialog Custom while
   preserving output behavior.
+- **Generative Expand** — Extend an image beyond its bounds with per-side
+  margins and a visible output frame. The retained source is copied through
+  exactly, the full new border including corners is generated locally with the
+  optional LaMa model (PatchMatch texture continuation otherwise), and large
+  sources are generated at a device-budgeted proxy size then recomposed at full
+  resolution. Prompt-conditioned expansion remains gated.
 
 ### Fixed
 
