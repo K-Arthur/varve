@@ -216,7 +216,7 @@ export function DocumentFontsPanel() {
   };
 
   const replacementDescription = replacementTarget
-    ? `${replacementTarget.family} · ${replacementTarget.totalCharacters} character${replacementTarget.totalCharacters === 1 ? '' : 's'} across ${replacementTarget.nodeIds.length} text layer${replacementTarget.nodeIds.length === 1 ? '' : 's'}. Review wrapping after replacement.`
+    ? `${replacementTarget.family} · ${replacementTarget.totalCharacters} character${replacementTarget.totalCharacters === 1 ? '' : 's'} across ${replacementTarget.nodeIds.length} text layer${replacementTarget.nodeIds.length === 1 ? '' : 's'} in ${scope === 'page' ? activeSurfaceName : 'the entire document'}. Review wrapping after replacement.`
     : undefined;
 
   return (
