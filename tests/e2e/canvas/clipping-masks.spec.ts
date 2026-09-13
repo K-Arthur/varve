@@ -219,12 +219,12 @@ test.describe('clipping masks', () => {
     await page.waitForTimeout(500);
     const hardClip = await settledHash(page);
 
-    // Select the group and open the Appearance tab (Mask section lives
-    // there; the default Properties tab does not render it).
+    // Select the group and open the Design tab. Appearance sections, including
+    // masks, are merged into the current Design inspector surface.
     await page.locator('.layers-panel [role="treeitem"]').first().click();
-    const appearanceTab = page.getByRole('tab', { name: /^Appearance$/ });
-    await expect(appearanceTab).toBeVisible({ timeout: 5000 });
-    await appearanceTab.click();
+    const designTab = page.getByRole('tab', { name: /^Design$/ });
+    await expect(designTab).toBeVisible({ timeout: 5000 });
+    await designTab.click();
     await page.waitForTimeout(300);
 
     // Feather: the mask section exposes a Feather number field.
@@ -466,11 +466,13 @@ test.describe('effect targeting', () => {
     await page.screenshot({ path: SHOT.canvas('09-masked-adjustment') });
     await page.screenshot({ path: SHOT.layers('09-masked-adjustment') });
 
-    // The spatial mask is also discoverable in the existing Appearance
-    // inspector, including its stable source picker.
-    const appearanceTab = page.getByRole('tab', { name: /^Appearance$/ });
-    await appearanceTab.click();
-    await expect(page.getByRole('combobox', { name: 'Mask source' })).toBeVisible();
+    // The spatial mask is also discoverable in the existing Design inspector,
+    // including its stable source picker.
+    const designTab = page.getByRole('tab', { name: /^Design$/ });
+    await designTab.click();
+    const maskSource = page.getByRole('combobox', { name: 'Mask source' });
+    await maskSource.scrollIntoViewIfNeeded();
+    await expect(maskSource).toBeVisible();
     await page.screenshot({ path: SHOT.canvas('09-mask-inspector') });
   });
 

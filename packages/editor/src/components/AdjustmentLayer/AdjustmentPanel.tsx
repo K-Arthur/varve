@@ -16,6 +16,7 @@ import { useEditor } from '../../context';
 import { NumberField } from '../Inspector/controls/NumberField';
 import { RangeValueControl } from '../Inspector/controls/RangeValueControl';
 import { AdjustmentScopeSection } from '../Inspector/sections/AdjustmentScopeSection';
+import { MaskSection } from '../Inspector/sections/MaskSection';
 import { AdjustmentEditor } from './AdjustmentEditor';
 import { useAdjustmentHistogram } from './useAdjustmentHistogram';
 import './adjustment.css';
@@ -330,6 +331,8 @@ export function AdjustmentPanel() {
           });
         }}
       />
+
+      <MaskSection nodes={[adjNode]} />
 
       <fieldset className="adj-panel__presets">
         <legend>Correction presets</legend>
