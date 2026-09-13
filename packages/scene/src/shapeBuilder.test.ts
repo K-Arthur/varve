@@ -119,6 +119,35 @@ describe('Shape Builder arrangement and actions', () => {
     ).toBe(true);
   });
 
+  it('decomposes one self-intersecting path under its authored fill rule', () => {
+    let doc = createDocument('self-intersection', true);
+    const point = (x: number, y: number) => ({ x, y, handleIn: null, handleOut: null });
+    const points = [point(0, 0), point(100, 100), point(0, 100), point(100, 0)];
+    doc = addNode(
+      doc,
+      makeShapeNode(
+        'bowtie',
+        {
+          kind: 'path',
+          points,
+          contours: [points],
+          holes: [],
+          closed: true,
+          tolerance: 3,
+          fillRule: 'evenodd',
+        },
+        { transform: identity },
+      ),
+    );
+    const model = buildShapeBuilderModel(doc, ['bowtie']);
+    const selectable = model.faces.filter((face) => face.selectable);
+    expect(model.status).toBe('ready');
+    expect(selectable).toHaveLength(2);
+    expect(selectable.reduce((sum, face) => sum + face.area, 0)).toBeCloseTo(5_000, 6);
+    expect(new Set(model.faces.map((face) => face.id)).size).toBe(model.faces.length);
+    expect(model.faces.every((face) => face.outer.length >= 3)).toBe(true);
+  });
+
   it('creates a retained-source result and keeps a destructive merge atomic', () => {
     const doc = rectangles();
     const model = buildShapeBuilderModel(doc, ['a', 'b']);

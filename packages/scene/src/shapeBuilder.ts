@@ -923,8 +923,14 @@ export function buildShapeBuilderModel(
       revision,
     );
   }
+  const generatedVertexCount =
+    arrangement.vertices.length +
+    faces.reduce(
+      (total, face) => total + face.outer.length + face.holes.reduce((sum, hole) => sum + hole.length, 0),
+      0,
+    );
   if (
-    arrangement.vertices.length > SHAPE_BUILDER_LIMITS.maxGeneratedVertices ||
+    generatedVertexCount > SHAPE_BUILDER_LIMITS.maxGeneratedVertices ||
     allPoints.some((point) => !Number.isFinite(point.x) || !Number.isFinite(point.y))
   ) {
     return unsupported(
