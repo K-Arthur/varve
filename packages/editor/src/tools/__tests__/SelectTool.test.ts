@@ -903,6 +903,32 @@ describe('SelectTool — drop target frame highlighting', () => {
     expect(snapPosition).toHaveBeenCalledWith({ x: 20, y: 20, w: 50, h: 50 }, []);
   });
 
+  it('anchors a snap proposal to the initial world bounds, not the transform origin', () => {
+    const tool = new SelectTool();
+    const snapPosition = vi.fn((b) => ({ x: b.x, y: b.y, guides: [] }));
+    const setNodePositions = vi.fn();
+    const ctx = makeCtx({
+      document: documentWithRootNodes(['n1']),
+      selection: ['n1'],
+      snapPosition,
+      setNodePositions,
+      nodeWorldBounds: vi.fn().mockReturnValue({ x: 5, y: 7, w: 50, h: 40 }),
+      getNode: vi.fn().mockReturnValue({ id: 'n1', transform: [1, 0, 0, 1, 0, 0] }),
+    });
+
+    // The transform origin is (0, 0), but the geometry starts at (5, 7) in
+    // world space. A 20-unit drag must therefore propose bounds at (25, 27)
+    // for edge/center snapping while the mutation still translates the root
+    // by exactly 20 units.
+    (tool as any).drag = { startCanvas: { x: 0, y: 0 }, currentCanvas: { x: 20, y: 20 } };
+    (tool as any).initialPositions = new Map([['n1', { x: 0, y: 0 }]]);
+    (tool as any).initialWorldBounds = new Map([['n1', { x: 5, y: 7, w: 50, h: 40 }]]);
+    (tool as any).onDragMove?.(ctx);
+
+    expect(snapPosition).toHaveBeenCalledWith({ x: 25, y: 27, w: 50, h: 40 }, []);
+    expect(setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 20, y: 20 }]);
+  });
+
   it('snaps a multi-selection as a whole, preserving relative arrangement', () => {
     const tool = new SelectTool();
     // Snap response shifts the primary node by +7,+7 — the group must move

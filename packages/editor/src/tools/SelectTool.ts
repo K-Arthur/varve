@@ -98,6 +98,8 @@ export class SelectTool extends BaseTool {
   private marqueeContainment = false;
   private isMoveGesture = false;
   private initialPositions = new Map<string, { x: number; y: number }>();
+  /** World-space bounds captured at pointer-down for precise snap proposals. */
+  private initialWorldBounds = new Map<string, { x: number; y: number; w: number; h: number }>();
   private hasDuplicated = false;
   /** Nodes that were selected when an Alt-duplicate fired, in selection order. */
   private duplicateSourceIds: string[] = [];
@@ -167,6 +169,7 @@ export class SelectTool extends BaseTool {
       this.pointerDownForceMarquee = false;
       this.forceMarqueeHeld = false;
       this.initialPositions.clear();
+      this.initialWorldBounds.clear();
       this.hasDuplicated = false;
     }
   }
@@ -271,9 +274,13 @@ export class SelectTool extends BaseTool {
     this.isMoveGesture = true;
     ctx.beginTransaction();
     this.initialPositions.clear();
+    this.initialWorldBounds.clear();
     for (const id of selection) {
       const worldMat = ctx.getWorldTransform?.(id) ?? nodeWorldTransform(ctx.document, id);
       this.initialPositions.set(id, { x: worldMat[4], y: worldMat[5] });
+      const node = ctx.getNode(id);
+      const bounds = node ? ctx.nodeWorldBounds(node) : null;
+      if (bounds) this.initialWorldBounds.set(id, bounds);
     }
   }
 
@@ -449,6 +456,8 @@ export class SelectTool extends BaseTool {
             if (!cloneId || !sourceId) continue;
             const origin = this.initialPositions.get(sourceId);
             if (origin) this.initialPositions.set(cloneId, origin);
+            const bounds = this.initialWorldBounds.get(sourceId);
+            if (bounds) this.initialWorldBounds.set(cloneId, bounds);
           }
           this.awaitingDuplicateHandoff = false;
           this.gestureSelectionIds = [...cloneIds];
@@ -493,10 +502,21 @@ export class SelectTool extends BaseTool {
       const primaryInit = primaryId ? this.initialPositions.get(primaryId) : null;
       const primaryNode = primaryId ? ctx.getNode(primaryId) : null;
       if (primaryInit && primaryNode && !interaction.bypassSnap) {
-        const primaryBounds = ctx.nodeWorldBounds(primaryNode);
+        const primaryBounds =
+          (primaryId ? this.initialWorldBounds.get(primaryId) : undefined) ??
+          ctx.nodeWorldBounds(primaryNode);
         if (primaryBounds) {
-          const unsnappedX = primaryInit.x + totalDelta.dx;
-          const unsnappedY = primaryInit.y + totalDelta.dy;
+          // Snap features are defined by world bounds, not by the transform's
+          // local-origin translation. The fallback keeps synthetic tool tests
+          // and geometry-free nodes on the historical origin contract; real
+          // gestures always populate the pointer-down bounds snapshot.
+          const hasInitialBounds = primaryId ? this.initialWorldBounds.has(primaryId) : false;
+          const unsnappedX = hasInitialBounds
+            ? primaryBounds.x + totalDelta.dx
+            : primaryInit.x + totalDelta.dx;
+          const unsnappedY = hasInitialBounds
+            ? primaryBounds.y + totalDelta.dy
+            : primaryInit.y + totalDelta.dy;
           const snapped = ctx.snapPosition(
             { x: unsnappedX, y: unsnappedY, w: primaryBounds.w, h: primaryBounds.h },
             [],
@@ -699,6 +719,7 @@ export class SelectTool extends BaseTool {
     this.gestureSelectionIds = [];
     this.marqueeBaseSelection = [];
     this.initialPositions.clear();
+    this.initialWorldBounds.clear();
     this.hasDuplicated = false;
     this.cancelLongPress();
     interactionSession.reset();
@@ -860,6 +881,7 @@ export class SelectTool extends BaseTool {
     this.gestureSelectionIds = [];
     this.marqueeBaseSelection = [];
     this.initialPositions.clear();
+    this.initialWorldBounds.clear();
     this.hasDuplicated = false;
     interactionSession.reset();
   }
