@@ -17,45 +17,16 @@ import {
   runNativeGpuSelfTest,
   setNativeInferenceProviderPolicy,
   storedNativeInferenceProviderPolicy,
-  type UnavailableReason,
 } from '@varve/engine/nativeAcceleration';
 import { Button, Select } from '@varve/ui';
 import { useCallback, useEffect, useState } from 'react';
 
 import './NativeAccelerationPanel.css';
-
-function reasonLabel(reason: UnavailableReason | null): string {
-  switch (reason) {
-    case null:
-      return 'available';
-    case 'notPresent':
-      return 'no device present';
-    case 'driverMissing':
-      return 'driver missing';
-    case 'runtimeMissing':
-      return 'runtime missing';
-    case 'artifactMissing':
-      return 'component not bundled';
-    case 'permissionDenied':
-      return 'permission denied';
-    case 'softwareOnly':
-      return 'software renderer only';
-    case 'unsupportedPlatform':
-      return 'unsupported platform';
-    case 'unsupportedOperator':
-      return 'unsupported operators';
-    case 'initFailed':
-      return 'initialization failed';
-    case 'timeout':
-      return 'probe timed out';
-    case 'deviceLost':
-      return 'device lost';
-    case 'userDisabled':
-      return 'disabled in settings';
-    default:
-      return 'unavailable';
-  }
-}
+import {
+  inferencePlacementLabel,
+  npuPlacementLabel,
+  reasonLabel,
+} from './nativeAccelerationPanelLabels';
 
 export function NativeAccelerationPanel() {
   const available = isNativeAccelerationAvailable();
@@ -156,18 +127,18 @@ export function NativeAccelerationPanel() {
         </div>
         <div className="native-accel__row">
           <dt>AI inference</dt>
-          <dd>
-            {inference?.runtimeLoaded
-              ? 'ONNX Runtime loaded; CPU execution provider available'
-              : 'ONNX Runtime not loaded yet; CPU execution provider is the shipped baseline'}
-          </dd>
+          <dd>{inferencePlacementLabel(inference?.providers)}</dd>
+        </div>
+        <div className="native-accel__row">
+          <dt>NPU inference</dt>
+          <dd>{npuPlacementLabel(inference?.providers)}</dd>
         </div>
         <div className="native-accel__row native-accel__row--control">
           <dt>AI inference device</dt>
           <dd>
             <Select
               options={[
-                { value: 'auto', label: 'Automatic (WebGPU when available and verified)' },
+                { value: 'auto', label: 'Automatic (compatible WebGPU, then CPU)' },
                 { value: 'cpu', label: 'CPU only' },
                 { value: 'gpu', label: 'WebGPU only (fails if unavailable)' },
               ]}
@@ -178,6 +149,12 @@ export function NativeAccelerationPanel() {
           </dd>
         </div>
       </dl>
+
+      <p className="native-accel__note">
+        NPU execution is shown only when a supported provider, runtime, device, and model are
+        present. This build does not bundle a vendor NPU runtime, so it will not claim NPU work from
+        a device name or an advertised operating-system capability.
+      </p>
 
       <details className="native-accel__details">
         <summary>Device and provider details</summary>
