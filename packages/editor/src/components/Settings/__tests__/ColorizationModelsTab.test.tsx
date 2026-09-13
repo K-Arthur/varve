@@ -103,7 +103,7 @@ describe('ColorizationModelsTab', () => {
 
   it('renders hint text about DDColor models', async () => {
     render(<ColorizationModelsTab />);
-    expect(await screen.findByText(/DDColor models bring grayscale/i)).toBeTruthy();
+    expect(await screen.findByText(/DDColor models propose plausible colors/i)).toBeTruthy();
   });
 
   it('renders model rows for ddcolor and ddcolor-tiny', async () => {

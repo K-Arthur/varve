@@ -1,7 +1,7 @@
 // @ts-nocheck
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../controls/FieldRow', () => ({
@@ -26,6 +26,8 @@ vi.mock('../../../../context', () => ({
     selectedNodes: () => [],
     announce: vi.fn(),
     updateDoc: vi.fn(),
+    setSelection: vi.fn(),
+    groupCompoundOperation: vi.fn((_label, action) => action()),
   }),
 }));
 
@@ -49,6 +51,9 @@ vi.mock('@varve/engine', () => ({
     confidence: 0.9,
   })),
   listAllModels: vi.fn(() => []),
+  getModelLoaderReady: vi.fn(async () => ({
+    isModelAvailable: vi.fn().mockResolvedValue(false),
+  })),
 }));
 
 vi.mock('@varve/scene', () => ({
@@ -118,7 +123,8 @@ describe('ColorizeSection', () => {
     expect(select).toBeTruthy();
     const options = Array.from(select.querySelectorAll('option'));
     expect(options.map((o) => o.textContent)).toEqual([
-      'Recolor (Hue Shift)',
+      'Photo Colorization (AI)',
+      'Tint / Selective Recolor',
       'Palette Colorize',
       'Reference Transfer',
       'Harmonize',
@@ -127,12 +133,15 @@ describe('ColorizeSection', () => {
 
   it('renders recolor controls by default', () => {
     render(<ColorizeSection nodes={[makeImageNode()]} />);
-    expect(screen.getByLabelText('Target hue shift in degrees')).toBeTruthy();
+    expect(screen.getByLabelText('Target absolute hue in degrees')).toBeTruthy();
     expect(screen.getByLabelText('Saturation scale')).toBeTruthy();
   });
 
   it('renders quality mode buttons', () => {
     render(<ColorizeSection nodes={[makeImageNode()]} />);
+    fireEvent.change(screen.getByLabelText('Colorization workflow'), {
+      target: { value: 'photo' },
+    });
     expect(screen.getByRole('radio', { name: 'Fast' })).toBeTruthy();
     expect(screen.getByRole('radio', { name: 'Balanced' })).toBeTruthy();
     expect(screen.getByRole('radio', { name: 'Quality' })).toBeTruthy();
@@ -146,12 +155,12 @@ describe('ColorizeSection', () => {
 
   it('renders skin protection switch for recolor workflow', () => {
     render(<ColorizeSection nodes={[makeImageNode()]} />);
-    expect(screen.getByRole('switch', { name: 'Protect skin tones' })).toBeTruthy();
+    expect(screen.getByRole('switch', { name: /Protect skin-like pixels/ })).toBeTruthy();
   });
 
   it('renders neutral protection switch for recolor workflow', () => {
     render(<ColorizeSection nodes={[makeImageNode()]} />);
-    expect(screen.getByRole('switch', { name: 'Protect neutral regions' })).toBeTruthy();
+    expect(screen.getByRole('switch', { name: 'Protect near-neutral pixels' })).toBeTruthy();
   });
 
   it('renders palette hint when palette workflow selected', () => {
@@ -165,12 +174,12 @@ describe('ColorizeSection', () => {
     render(<ColorizeSection nodes={[makeImageNode()]} />);
     const select = screen.getByLabelText('Colorization workflow');
     fireEvent.change(select, { target: { value: 'transfer' } });
-    expect(screen.getByText(/Pick a reference image/i)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Choose reference image' })).toBeTruthy();
   });
 
   it('renders luminance preservation slider', () => {
     render(<ColorizeSection nodes={[makeImageNode()]} />);
-    expect(screen.getByLabelText(/luminance preservation strength/i)).toBeTruthy();
+    expect(screen.getByLabelText(/source lightness preservation/i)).toBeTruthy();
   });
 
   it('renders blend strength slider', () => {
@@ -195,9 +204,14 @@ describe('ColorizeSection', () => {
     expect(screen.queryByRole('button', { name: /cancel/i })).toBeNull();
   });
 
-  it('shows DDColor model hint when no models available', () => {
+  it('shows DDColor model hint when no models available', async () => {
     render(<ColorizeSection nodes={[makeImageNode()]} />);
-    expect(screen.getByText(/DDColor model not yet available/i)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Colorization workflow'), {
+      target: { value: 'photo' },
+    });
+    await waitFor(() =>
+      expect(screen.getByText(/No verified DDColor model installed/i)).toBeTruthy(),
+    );
   });
 
   it('returns null when no node provided', () => {

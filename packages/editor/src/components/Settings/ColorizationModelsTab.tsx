@@ -81,9 +81,9 @@ export function ColorizationModelsTab() {
     <div className="colorization-models-section">
       <h3 className="colorization-models-section__title">Colorization Models</h3>
       <p className="colorization-models-section__hint">
-        DDColor models bring grayscale photos and line art to life with AI. Both are optional
-        downloads (Apache-2.0 licensed). Once downloaded, all processing runs locally on your
-        device.
+        DDColor models propose plausible colors for grayscale photos. They are optional downloads
+        (Apache-2.0 licensed); line-art coloring is a separate deterministic workflow. Once a model
+        is verified and downloaded, processing runs locally on your device.
       </p>
       <RegionLoader label="Loading model status" loading={loading}>
         <ul className="bg-models-list" aria-label="Colorization models">

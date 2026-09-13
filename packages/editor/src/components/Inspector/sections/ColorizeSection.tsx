@@ -1,100 +1,263 @@
 /**
- * ColorizeSection — unified selective recolor / palette colorize /
- * reference transfer inspector panel with progressive disclosure.
+ * ColorizeSection — source-preserving deterministic color workflows with an
+ * explicitly gated local photo-colorization lane.
  *
- * Provides:
- *   - Workflow selector (Recolor / Palette / Transfer / Harmonize)
- *   - SAM2 mask integration for selective recolor
- *   - Document swatch picker for palette colorize
- *   - Reference image picker for color transfer
- *   - Preview / Apply / Cancel flow
- *   - Model installation state
- *   - WCAG 2.2 AA compliant
- *
- * Uses the shared colorization request contract and pipeline dispatch.
+ * The panel owns authored intent (mode, swatches, reference, mask and
+ * parameters). Inference state is transient; Apply materializes an embedded
+ * output asset through colorizationCommit.ts so the source remains untouched.
  */
-import type { QualityMode } from '@varve/engine';
-import { listAllModels } from '@varve/engine';
-import type { SceneNode } from '@varve/scene';
-import { imageShapeSrc, isImageShape } from '@varve/scene';
+import type { ColorizationRequestContract, QualityMode } from '@varve/engine';
+import type { ColorSwatch, SceneNode, ShapeNode } from '@varve/scene';
+import { imageShapeSrc, isImageShape, managedColorToHex } from '@varve/scene';
 import { Button, Select, Switch } from '@varve/ui';
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import type { ChangeEvent } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { commitColorizationResult } from '../../../colorizationCommit';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 import { RangeValueControl } from '../controls/RangeValueControl';
 import './ColorizeSection.css';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+type ColorizeWorkflow = 'photo' | 'recolor' | 'palette' | 'transfer' | 'harmonize';
+type RecolorScope = 'whole' | 'mask';
+type PaletteMode = 'shaded' | 'strict';
 
-type RecolorWorkflow = 'recolor' | 'palette' | 'transfer' | 'harmonize';
+interface ReferenceSelection {
+  src: string;
+  data: ImageData;
+  revision: number;
+}
+
+interface MaskSelection {
+  data: Uint8Array;
+  width: number;
+  height: number;
+  revision: number;
+}
 
 interface ColorizeState {
   status: 'idle' | 'previewing' | 'applying' | 'error';
   errorMessage: string | null;
   previewDataUrl: string | null;
+  previewImageData: ImageData | null;
+  previewSignature: string | null;
+  previewSourceSrc: string | null;
   elapsedMs: number;
-  modelAvailable: boolean;
 }
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
+const PREVIEW_MAX_DIMENSION = 512;
+
+function workflowKind(workflow: ColorizeWorkflow): ColorizationRequestContract['kind'] {
+  switch (workflow) {
+    case 'photo':
+      return 'photo-colorize';
+    case 'palette':
+      return 'palette-colorize';
+    case 'transfer':
+      return 'reference-transfer';
+    case 'harmonize':
+      return 'harmonize';
+    default:
+      return 'selective-recolor';
+  }
+}
+
+function maskFromImage(image: ImageData): Uint8Array {
+  const mask = new Uint8Array(image.width * image.height);
+  for (let pixel = 0; pixel < mask.length; pixel += 1) {
+    const index = pixel * 4;
+    const luminance =
+      0.2126 * (image.data[index] ?? 0) +
+      0.7152 * (image.data[index + 1] ?? 0) +
+      0.0722 * (image.data[index + 2] ?? 0);
+    mask[pixel] = Math.round((luminance * (image.data[index + 3] ?? 255)) / 255);
+  }
+  return mask;
+}
+
+function imageDataUrl(imageData: ImageData): string {
+  const canvas = document.createElement('canvas');
+  canvas.width = imageData.width;
+  canvas.height = imageData.height;
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Canvas 2D context is unavailable');
+  context.putImageData(imageData, 0, 0);
+  return canvas.toDataURL('image/png');
+}
+
+function swatchHex(swatch: ColorSwatch): string | null {
+  try {
+    return managedColorToHex(swatch.color);
+  } catch {
+    return null;
+  }
+}
 
 export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
-  const { state, updateDoc, announce } = useEditor();
+  const { state, updateDoc, announce, setSelection, groupCompoundOperation } = useEditor();
   const node = nodes[0];
   const hueId = useId();
   const satId = useId();
   const lumId = useId();
   const blendId = useId();
+  const chromaId = useId();
   const adherenceId = useId();
+  const referenceInputId = useId();
+  const maskInputId = useId();
   const abortRef = useRef<AbortController | null>(null);
   const elapsedRef = useRef<number | null>(null);
+  const referenceUrlRef = useRef<string | null>(null);
+  const liveStateRef = useRef(state);
+  const operationGenerationRef = useRef(0);
+  const parameterSignatureRef = useRef('');
 
-  const [workflow, setWorkflow] = useState<RecolorWorkflow>('recolor');
+  const [workflow, setWorkflow] = useState<ColorizeWorkflow>('recolor');
   const [targetHue, setTargetHue] = useState(0);
+  const [hueMode, setHueMode] = useState<'set' | 'rotate'>('set');
   const [saturationScale, setSaturationScale] = useState(1);
   const [luminancePreservation, setLuminancePreservation] = useState(1);
   const [blendStrength, setBlendStrength] = useState(1);
-  const [adherence, setAdherence] = useState(0.5);
-  const [qualityMode, setQualityMode] = useState<QualityMode>('balanced');
   const [chromaStrength, setChromaStrength] = useState(1);
+  const [adherence, setAdherence] = useState(0.5);
+  const [paletteMode, setPaletteMode] = useState<PaletteMode>('shaded');
+  const [qualityMode, setQualityMode] = useState<QualityMode>('balanced');
   const [skinProtection, setSkinProtection] = useState(true);
   const [neutralProtection, setNeutralProtection] = useState(true);
+  const [recolorScope, setRecolorScope] = useState<RecolorScope>('whole');
+  const [selectedSwatchIds, setSelectedSwatchIds] = useState<string[]>([]);
+  const [reference, setReference] = useState<ReferenceSelection | null>(null);
+  const [mask, setMask] = useState<MaskSelection | null>(null);
   const [modelAvailable, setModelAvailable] = useState<boolean | null>(null);
-  const [_selectedSwatchIds, _setSelectedSwatchIds] = useState<string[]>([]);
-  const [_referenceSrc, _setReferenceSrc] = useState<string | null>(null);
-  const [maskData, _setMaskData] = useState<Uint8Array | null>(null);
-  const [_maskWidth, _setMaskWidth] = useState(0);
-  const [_maskHeight, _setMaskHeight] = useState(0);
-
   const [colorize, setColorize] = useState<ColorizeState>({
     status: 'idle',
     errorMessage: null,
     previewDataUrl: null,
+    previewImageData: null,
+    previewSignature: null,
+    previewSourceSrc: null,
     elapsedMs: 0,
-    modelAvailable: false,
   });
 
+  liveStateRef.current = state;
   const isImage = Boolean(node && isImageShape(node));
-  const typedNode = isImage ? (node as import('@varve/scene').ShapeNode) : null;
+  const typedNode = isImage ? (node as ShapeNode) : null;
   const imageSrc = typedNode ? imageShapeSrc(typedNode) : '';
+  const sourceId = typedNode?.id ?? '';
+  const documentSwatches = state.document.swatches ?? [];
 
-  // Elapsed timer
+  const usableSwatches = useMemo(
+    () =>
+      documentSwatches.flatMap((swatch) => {
+        const hex = swatchHex(swatch);
+        return hex ? [{ swatch, hex }] : [];
+      }),
+    [documentSwatches],
+  );
+
+  const selectedPalette = useMemo(
+    () =>
+      selectedSwatchIds.flatMap((id) => {
+        const entry = usableSwatches.find((candidate) => candidate.swatch.id === id);
+        return entry ? [entry] : [];
+      }),
+    [selectedSwatchIds, usableSwatches],
+  );
+
+  const operationSignature = useMemo(
+    () =>
+      JSON.stringify({
+        workflow,
+        targetHue,
+        hueMode,
+        saturationScale,
+        luminancePreservation,
+        blendStrength,
+        chromaStrength,
+        adherence,
+        paletteMode,
+        qualityMode,
+        skinProtection,
+        neutralProtection,
+        recolorScope,
+        swatches: selectedPalette.map(({ swatch, hex }) => [swatch.id, hex]),
+        referenceRevision: reference?.revision ?? null,
+        maskRevision: mask?.revision ?? null,
+      }),
+    [
+      workflow,
+      targetHue,
+      hueMode,
+      saturationScale,
+      luminancePreservation,
+      blendStrength,
+      chromaStrength,
+      adherence,
+      paletteMode,
+      qualityMode,
+      skinProtection,
+      neutralProtection,
+      recolorScope,
+      selectedPalette,
+      reference?.revision,
+      mask?.revision,
+    ],
+  );
+  parameterSignatureRef.current = operationSignature;
+
+  const invalidatePreview = useCallback(() => {
+    operationGenerationRef.current += 1;
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setColorize((previous) => ({
+      ...previous,
+      status: 'idle',
+      errorMessage: null,
+      previewDataUrl: null,
+      previewImageData: null,
+      previewSignature: null,
+      previewSourceSrc: null,
+      elapsedMs: 0,
+    }));
+  }, []);
+
   useEffect(() => {
-    if (colorize.status === 'previewing' || colorize.status === 'applying') {
-      setColorize((prev) => ({ ...prev, elapsedMs: 0 }));
-      const start = Date.now();
-      elapsedRef.current = window.setInterval(() => {
-        setColorize((prev) => ({ ...prev, elapsedMs: Date.now() - start }));
-      }, 250);
-    } else if (elapsedRef.current !== null) {
-      clearInterval(elapsedRef.current);
-      elapsedRef.current = null;
+    if (workflow !== 'photo') {
+      setModelAvailable(null);
+      return;
     }
+    let active = true;
+    setModelAvailable(null);
+    void import('@varve/engine')
+      .then(async ({ getModelLoaderReady }) => {
+        const loader = await getModelLoaderReady();
+        const available =
+          (await loader.isModelAvailable('ddcolor-tiny')) ||
+          (await loader.isModelAvailable('ddcolor'));
+        if (active) setModelAvailable(available);
+      })
+      .catch(() => {
+        if (active) setModelAvailable(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [workflow]);
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+      if (referenceUrlRef.current) URL.revokeObjectURL(referenceUrlRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (colorize.status !== 'previewing' && colorize.status !== 'applying') return;
+    setColorize((previous) => ({ ...previous, elapsedMs: 0 }));
+    const startedAt = Date.now();
+    elapsedRef.current = window.setInterval(() => {
+      setColorize((previous) => ({ ...previous, elapsedMs: Date.now() - startedAt }));
+    }, 250);
     return () => {
       if (elapsedRef.current !== null) {
         clearInterval(elapsedRef.current);
@@ -103,189 +266,220 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
     };
   }, [colorize.status]);
 
-  const resetState = useCallback(() => {
-    abortRef.current?.abort();
-    abortRef.current = null;
-    setColorize((prev) => ({
-      status: 'idle',
-      errorMessage: null,
-      previewDataUrl: null,
-      elapsedMs: 0,
-      modelAvailable: prev.modelAvailable,
-    }));
-  }, []);
+  const loadImageData = useCallback(
+    async (src: string, maxDimension?: number): Promise<ImageData> => {
+      const { cachedImageDims, getImageCache } = await import('@varve/engine');
+      const image = await getImageCache().load(src);
+      const sourceDimensions = cachedImageDims(image);
+      const sourceLongestEdge = Math.max(sourceDimensions.width, sourceDimensions.height);
+      const scale =
+        maxDimension && sourceLongestEdge > maxDimension ? maxDimension / sourceLongestEdge : 1;
+      const width = Math.max(1, Math.round(sourceDimensions.width * scale));
+      const height = Math.max(1, Math.round(sourceDimensions.height * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Canvas 2D context is unavailable');
+      context.drawImage(image, 0, 0, width, height);
+      return context.getImageData(0, 0, width, height);
+    },
+    [],
+  );
 
-  // Check model availability
-  useEffect(() => {
-    try {
-      const models = listAllModels();
-      setModelAvailable(models.some((m) => m.id === 'ddcolor' || m.id === 'ddcolor-tiny'));
-    } catch {
-      setModelAvailable(false);
-    }
-  }, []);
-
-  // Load image from cache
-  const loadImageData = useCallback(async (src: string): Promise<ImageData> => {
-    const { cachedImageDims, getImageCache } = await import('@varve/engine');
-    const img = await getImageCache().load(src);
-    const { width: w, height: h } = cachedImageDims(img);
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d')!;
-    ctx.drawImage(img, 0, 0);
-    return ctx.getImageData(0, 0, w, h);
-  }, []);
-
-  // Run colorization
   const runColorize = useCallback(
-    async (fullData: ImageData): Promise<ImageData> => {
-      const { dispatchColorization, generateColorizationRequestId } = await import('@varve/engine');
-      const { managedColorToHex } = await import('@varve/scene');
-
-      // Build palette from selected swatches
-      let paletteColors: string[] = [];
-      if (workflow === 'palette' && _selectedSwatchIds.length > 0) {
-        const doc = state.document;
-        const swatches = doc.swatches ?? [];
-        paletteColors = _selectedSwatchIds
-          .map((id: string) => swatches.find((s: { id: string }) => s.id === id))
-          .filter((s): s is NonNullable<typeof s> => s != null)
-          .map((s) => managedColorToHex(s.color));
+    async (
+      fullData: ImageData,
+      intent: 'preview' | 'full',
+      expectedSignature: string,
+      controller: AbortController,
+    ): Promise<ImageData> => {
+      const { clampImageToMaxDimension, dispatchColorization, generateColorizationRequestId } =
+        await import('@varve/engine');
+      const liveState = liveStateRef.current;
+      const processingData =
+        intent === 'preview' ? clampImageToMaxDimension(fullData, PREVIEW_MAX_DIMENSION) : fullData;
+      const currentMask =
+        workflow === 'recolor'
+          ? recolorScope === 'whole'
+            ? {
+                data: new Uint8Array(processingData.width * processingData.height).fill(255),
+                width: processingData.width,
+                height: processingData.height,
+                revision: 0,
+              }
+            : mask
+          : null;
+      if (workflow === 'recolor' && !currentMask) {
+        throw new Error('Choose a mask image or switch scope to Whole image');
+      }
+      if ((workflow === 'transfer' || workflow === 'harmonize') && !reference) {
+        throw new Error('Choose a reference image before previewing');
+      }
+      if (workflow === 'palette' && selectedPalette.length === 0) {
+        throw new Error('Select at least one document swatch before previewing');
       }
 
-      const request = {
+      const request: ColorizationRequestContract = {
         requestId: generateColorizationRequestId(),
-        kind:
-          workflow === 'palette'
-            ? ('palette-colorize' as const)
-            : workflow === 'transfer'
-              ? ('reference-transfer' as const)
-              : workflow === 'harmonize'
-                ? ('harmonize' as const)
-                : ('selective-recolor' as const),
+        documentId: liveState.document.id,
+        parameterVersion: expectedSignature,
+        kind: workflowKind(workflow),
         source: {
-          nodeId: state.selection[0] ?? '',
-          revision: 0,
-          width: fullData.width,
-          height: fullData.height,
+          nodeId: sourceId,
+          revision: liveState.revision,
+          width: processingData.width,
+          height: processingData.height,
+          colorProfile: liveState.document.colorConfig?.workingSpace,
         },
         qualityMode,
-        provider: { backend: 'auto' as const, intent: 'full' as const },
-        mask: maskData
+        provider: {
+          backend: 'auto',
+          intent,
+          previewMaxDimension: PREVIEW_MAX_DIMENSION,
+        },
+        mask: currentMask
           ? {
-              maskId: 'current',
-              revision: 0,
-              data: maskData,
-              width: _maskWidth,
-              height: _maskHeight,
+              maskId: 'colorize-mask',
+              revision: currentMask.revision,
+              data: currentMask.data,
+              width: currentMask.width,
+              height: currentMask.height,
             }
           : undefined,
         palette:
-          paletteColors.length >= 2
+          workflow === 'palette'
             ? {
-                colors: paletteColors,
-                revision: 0,
+                colors: selectedPalette.map(({ hex }) => hex),
+                swatchIds: selectedPalette.map(({ swatch }) => swatch.id),
+                revision: liveState.revision,
                 adherence,
               }
             : undefined,
+        reference: reference
+          ? {
+              assetId: 'colorize-reference',
+              revision: reference.revision,
+              width: reference.data.width,
+              height: reference.data.height,
+              src: reference.src,
+            }
+          : undefined,
         params: {
           targetHue,
+          hueMode,
           saturationScale,
           luminancePreservation,
           chromaStrength,
+          blendStrength,
+          paletteMode,
           skinProtection,
           neutralProtection,
         },
-        signal: abortRef.current?.signal,
+        signal: controller.signal,
       };
 
-      const result = await dispatchColorization(request, fullData);
+      const result = await dispatchColorization(request, processingData, reference?.data);
+      if (controller.signal.aborted) throw new Error('Colorization cancelled');
+      if (parameterSignatureRef.current !== expectedSignature) {
+        throw new Error('Colorize result is stale because its controls changed');
+      }
+      const currentSource = liveStateRef.current.document.nodes[sourceId];
+      if (
+        liveStateRef.current.selection.length !== 1 ||
+        liveStateRef.current.selection[0] !== sourceId ||
+        !currentSource ||
+        currentSource.kind !== 'shape' ||
+        !isImageShape(currentSource) ||
+        imageShapeSrc(currentSource) !== imageSrc
+      ) {
+        throw new Error('Colorize result is stale because the source changed');
+      }
       return result.imageData;
     },
     [
       workflow,
+      recolorScope,
+      mask,
+      reference,
+      selectedPalette,
+      sourceId,
+      imageSrc,
+      qualityMode,
       targetHue,
+      hueMode,
       saturationScale,
       luminancePreservation,
       chromaStrength,
+      blendStrength,
+      paletteMode,
+      adherence,
       skinProtection,
       neutralProtection,
-      adherence,
-      qualityMode,
-      _selectedSwatchIds,
-      maskData,
-      _maskWidth,
-      _maskHeight,
-      state.selection,
-      state.document,
     ],
   );
 
+  const canRun =
+    Boolean(imageSrc) &&
+    (workflow === 'photo'
+      ? modelAvailable === true
+      : workflow === 'palette'
+        ? selectedPalette.length > 0
+        : workflow === 'transfer' || workflow === 'harmonize'
+          ? reference !== null
+          : recolorScope === 'whole' || mask !== null);
+
   const handlePreview = useCallback(async () => {
-    if (!imageSrc) return;
+    if (!imageSrc || !canRun) return;
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
-    setColorize((prev) => ({
-      ...prev,
+    const generation = ++operationGenerationRef.current;
+    const expectedSignature = operationSignature;
+    setColorize((previous) => ({
+      ...previous,
       status: 'previewing',
       errorMessage: null,
       previewDataUrl: null,
+      previewImageData: null,
+      previewSignature: null,
+      previewSourceSrc: null,
       elapsedMs: 0,
     }));
 
     try {
-      const fullData = await loadImageData(imageSrc);
-      if (controller.signal.aborted) return;
-      const result = await runColorize(fullData);
-      if (controller.signal.aborted) return;
-
-      // Render preview
-      const maxPreviewDim = 512;
-      let previewW = result.width;
-      let previewH = result.height;
-      if (Math.max(previewW, previewH) > maxPreviewDim) {
-        const s = maxPreviewDim / Math.max(previewW, previewH);
-        previewW = Math.round(previewW * s);
-        previewH = Math.round(previewH * s);
-      }
-
-      const tmpCanvas = document.createElement('canvas');
-      tmpCanvas.width = result.width;
-      tmpCanvas.height = result.height;
-      const tmpCtx = tmpCanvas.getContext('2d')!;
-      tmpCtx.putImageData(result, 0, 0);
-
-      const previewCanvas = document.createElement('canvas');
-      previewCanvas.width = previewW;
-      previewCanvas.height = previewH;
-      const ctx = previewCanvas.getContext('2d')!;
-      ctx.drawImage(tmpCanvas, 0, 0, previewW, previewH);
-
-      const dataUrl = previewCanvas.toDataURL('image/png');
-      setColorize((prev) => ({
-        ...prev,
+      const previewData = await loadImageData(imageSrc, PREVIEW_MAX_DIMENSION);
+      if (controller.signal.aborted || generation !== operationGenerationRef.current) return;
+      const result = await runColorize(previewData, 'preview', expectedSignature, controller);
+      if (controller.signal.aborted || generation !== operationGenerationRef.current) return;
+      setColorize((previous) => ({
+        ...previous,
         status: 'idle',
-        previewDataUrl: dataUrl,
+        previewDataUrl: imageDataUrl(result),
+        previewImageData: result,
+        previewSignature: expectedSignature,
+        previewSourceSrc: imageSrc,
         elapsedMs: 0,
       }));
       announce('Colorize preview ready');
-    } catch (err) {
-      if (controller.signal.aborted) return;
-      const message = err instanceof Error ? err.message : 'Preview failed';
-      setColorize((prev) => ({ ...prev, status: 'error', errorMessage: message }));
+    } catch (error) {
+      if (controller.signal.aborted || generation !== operationGenerationRef.current) return;
+      const message = error instanceof Error ? error.message : 'Preview failed';
+      setColorize((previous) => ({ ...previous, status: 'error', errorMessage: message }));
     }
-  }, [imageSrc, loadImageData, runColorize, announce]);
+  }, [imageSrc, canRun, operationSignature, loadImageData, runColorize, announce]);
 
   const handleApply = useCallback(async () => {
-    if (!imageSrc) return;
+    if (!imageSrc || !canRun || !colorize.previewDataUrl) return;
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
-    setColorize((prev) => ({
-      ...prev,
+    const generation = ++operationGenerationRef.current;
+    const expectedSignature = operationSignature;
+    const capturedSourceId = sourceId;
+    const capturedSourceSrc = imageSrc;
+    setColorize((previous) => ({
+      ...previous,
       status: 'applying',
       errorMessage: null,
       elapsedMs: 0,
@@ -293,78 +487,171 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
 
     try {
       const fullData = await loadImageData(imageSrc);
-      if (controller.signal.aborted) return;
-      const result = await runColorize(fullData);
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted || generation !== operationGenerationRef.current) return;
+      const canReusePreview =
+        colorize.previewSignature === expectedSignature &&
+        colorize.previewSourceSrc === capturedSourceSrc &&
+        colorize.previewImageData?.width === fullData.width &&
+        colorize.previewImageData?.height === fullData.height;
+      const result = canReusePreview
+        ? colorize.previewImageData!
+        : await runColorize(fullData, 'full', expectedSignature, controller);
+      if (controller.signal.aborted || generation !== operationGenerationRef.current) return;
 
-      const outputCanvas = document.createElement('canvas');
-      outputCanvas.width = result.width;
-      outputCanvas.height = result.height;
-      const outputCtx = outputCanvas.getContext('2d')!;
-      outputCtx.putImageData(result, 0, 0);
-      const dataUrl = outputCanvas.toDataURL('image/png');
-
-      const { insertDerivedImageShape } = await import('../../../imageOperations');
-      const currentDoc = state.document;
-      const sourceId = state.selection[0];
-      if (!sourceId) throw new Error('No selection');
-      const sourceNode = currentDoc.nodes[sourceId];
-      if (!sourceNode) throw new Error('Source node no longer exists');
-
-      const inserted = insertDerivedImageShape(currentDoc, sourceId, {
-        dataUrl,
-        width: result.width,
-        height: result.height,
-        suffix: `${workflow}-result`,
+      const dataUrl = imageDataUrl(result);
+      const currentState = liveStateRef.current;
+      if (
+        currentState.selection.length !== 1 ||
+        currentState.selection[0] !== capturedSourceId ||
+        currentState.document.nodes[capturedSourceId] === undefined
+      ) {
+        throw new Error('Colorize result is stale because the selection changed');
+      }
+      let insertedNodeId: string | null = null;
+      groupCompoundOperation('Colorize', () => {
+        updateDoc((doc) => {
+          const currentSource = doc.nodes[capturedSourceId];
+          if (
+            currentSource?.kind !== 'shape' ||
+            !isImageShape(currentSource) ||
+            imageShapeSrc(currentSource) !== capturedSourceSrc
+          ) {
+            return doc;
+          }
+          const committed = commitColorizationResult(doc, {
+            sourceId: capturedSourceId,
+            sourceSrc: capturedSourceSrc,
+            dataUrl,
+            width: result.width,
+            height: result.height,
+            suffix: `${workflow}-result`,
+          });
+          insertedNodeId = committed.nodeId;
+          return committed.doc;
+        });
       });
-      updateDoc(() => inserted.doc);
+      if (!insertedNodeId) {
+        throw new Error('Colorize result is stale because the source changed');
+      }
+      if (insertedNodeId) setSelection(insertedNodeId);
       announce(`Colorize applied (${result.width} x ${result.height})`);
-      resetState();
-    } catch (err) {
-      if (controller.signal.aborted) return;
-      const message = err instanceof Error ? err.message : 'Apply failed';
-      setColorize((prev) => ({ ...prev, status: 'error', errorMessage: message }));
+      invalidatePreview();
+    } catch (error) {
+      if (controller.signal.aborted || generation !== operationGenerationRef.current) return;
+      const message = error instanceof Error ? error.message : 'Apply failed';
+      setColorize((previous) => ({ ...previous, status: 'error', errorMessage: message }));
     }
   }, [
     imageSrc,
+    canRun,
+    colorize.previewDataUrl,
+    colorize.previewImageData,
+    colorize.previewSignature,
+    colorize.previewSourceSrc,
+    operationSignature,
+    sourceId,
     loadImageData,
     runColorize,
     workflow,
-    state.document,
-    state.selection,
     updateDoc,
+    groupCompoundOperation,
+    setSelection,
     announce,
-    resetState,
+    invalidatePreview,
   ]);
 
   const handleCancel = useCallback(() => {
+    operationGenerationRef.current += 1;
     abortRef.current?.abort();
     abortRef.current = null;
-    setColorize((prev) => ({ ...prev, status: 'idle', elapsedMs: 0 }));
-  }, []);
+    setColorize((previous) => ({ ...previous, status: 'idle', elapsedMs: 0 }));
+    announce('Colorize cancelled');
+  }, [announce]);
+
+  const handleReferenceFile = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      event.target.value = '';
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      try {
+        const data = await loadImageData(url);
+        if (referenceUrlRef.current) URL.revokeObjectURL(referenceUrlRef.current);
+        referenceUrlRef.current = url;
+        setReference({ src: url, data, revision: Date.now() });
+        invalidatePreview();
+      } catch (error) {
+        URL.revokeObjectURL(url);
+        setColorize((previous) => ({
+          ...previous,
+          status: 'error',
+          errorMessage:
+            error instanceof Error ? error.message : 'Reference image could not be read',
+        }));
+      }
+    },
+    [loadImageData, invalidatePreview],
+  );
+
+  const handleMaskFile = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      event.target.value = '';
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      try {
+        const data = await loadImageData(url);
+        setMask({
+          data: maskFromImage(data),
+          width: data.width,
+          height: data.height,
+          revision: Date.now(),
+        });
+        setRecolorScope('mask');
+        invalidatePreview();
+      } catch (error) {
+        setColorize((previous) => ({
+          ...previous,
+          status: 'error',
+          errorMessage: error instanceof Error ? error.message : 'Mask image could not be read',
+        }));
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    },
+    [loadImageData, invalidatePreview],
+  );
 
   if (!isImage || !typedNode) return null;
 
   const isProcessing = colorize.status === 'previewing' || colorize.status === 'applying';
-  const showPreview = colorize.previewDataUrl != null;
+  const showPreview = colorize.previewDataUrl !== null;
+  const showsLuminance = workflow === 'recolor' || workflow === 'transfer';
+  const showsBlend = workflow === 'recolor' || workflow === 'transfer' || workflow === 'harmonize';
+  const showsChroma = workflow === 'recolor' || workflow === 'transfer' || workflow === 'harmonize';
+  const showsProtection = workflow === 'recolor' || workflow === 'harmonize';
 
   return (
     <DisclosureSection title="Colorize" sectionId="colorize">
       <div className="insp-field-group">
         <p className="insp-hint">
-          Selective recolor, palette-based colorization, and reference color transfer. Runs locally
-          via classical algorithms or AI models.
+          Colorize preserves the selected image. Automatic photo colorization infers plausible
+          colors; it cannot recover verified historical color. Deterministic modes stay offline and
+          do not require a model or account.
         </p>
 
-        {/* Workflow selector */}
         <FieldRow label="Mode">
           <Select
             label="Colorization workflow"
             value={workflow}
             disabled={isProcessing}
-            onChange={(v) => setWorkflow(v as RecolorWorkflow)}
+            onChange={(value) => {
+              setWorkflow(value as ColorizeWorkflow);
+              invalidatePreview();
+            }}
             options={[
-              { value: 'recolor', label: 'Recolor (Hue Shift)' },
+              { value: 'photo', label: 'Photo Colorization (AI)' },
+              { value: 'recolor', label: 'Tint / Selective Recolor' },
               { value: 'palette', label: 'Palette Colorize' },
               { value: 'transfer', label: 'Reference Transfer' },
               { value: 'harmonize', label: 'Harmonize' },
@@ -372,22 +659,103 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
           />
         </FieldRow>
 
-        {/* Recolor controls */}
+        {workflow === 'photo' && (
+          <div className="colorize-section__model-status" aria-live="polite">
+            <p className="insp-hint">
+              DDColor runs locally when a verified model is installed. The model proposes chroma
+              while the original detail, lightness, and alpha are retained.
+            </p>
+            {modelAvailable === null && (
+              <span className="colorize-section__model-badge">Checking model readiness…</span>
+            )}
+            {modelAvailable === true && (
+              <span className="colorize-section__model-badge">Verified DDColor model ready</span>
+            )}
+            {modelAvailable === false && (
+              <span className="colorize-section__model-badge colorize-section__model-badge--warning">
+                No verified DDColor model installed. Open Settings &gt; Models to install one.
+              </span>
+            )}
+          </div>
+        )}
+
         {workflow === 'recolor' && (
           <>
+            <FieldRow label="Scope">
+              <Select
+                label="Recolor scope"
+                value={recolorScope}
+                disabled={isProcessing}
+                onChange={(value) => {
+                  setRecolorScope(value as RecolorScope);
+                  invalidatePreview();
+                }}
+                options={[
+                  { value: 'whole', label: 'Whole image' },
+                  { value: 'mask', label: 'Mask image' },
+                ]}
+              />
+            </FieldRow>
+            {recolorScope === 'mask' && (
+              <div className="colorize-section__input-group">
+                <input
+                  id={maskInputId}
+                  className="colorize-section__file-input"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleMaskFile}
+                  disabled={isProcessing}
+                  aria-label="Choose recolor mask image"
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => document.getElementById(maskInputId)?.click()}
+                  disabled={isProcessing}
+                >
+                  {mask ? 'Replace mask image' : 'Choose mask image'}
+                </Button>
+                {mask && (
+                  <span className="colorize-section__input-status">
+                    Mask {mask.width} x {mask.height}
+                  </span>
+                )}
+              </div>
+            )}
+            <FieldRow label="Hue behavior">
+              <Select
+                label="Hue behavior"
+                value={hueMode}
+                disabled={isProcessing}
+                onChange={(value) => {
+                  setHueMode(value as 'set' | 'rotate');
+                  invalidatePreview();
+                }}
+                options={[
+                  { value: 'set', label: 'Set absolute hue' },
+                  { value: 'rotate', label: 'Rotate existing hue' },
+                ]}
+              />
+            </FieldRow>
             <FieldRow label="Hue" htmlFor={`${hueId}-range`}>
               <RangeValueControl
                 id={hueId}
                 label="Hue"
                 value={targetHue}
                 min={-180}
-                max={180}
+                max={360}
                 step={1}
                 unit="deg"
                 disabled={isProcessing}
                 rangeClassName="insp-range"
-                rangeAriaLabel="Target hue shift in degrees"
-                onChange={setTargetHue}
+                rangeAriaLabel={
+                  hueMode === 'set' ? 'Target absolute hue in degrees' : 'Hue rotation in degrees'
+                }
+                onChange={(value) => {
+                  setTargetHue(value);
+                  invalidatePreview();
+                }}
               />
             </FieldRow>
             <FieldRow label="Saturation" htmlFor={`${satId}-range`}>
@@ -402,131 +770,172 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
                 disabled={isProcessing}
                 rangeClassName="insp-range"
                 rangeAriaLabel="Saturation scale"
-                onChange={setSaturationScale}
+                onChange={(value) => {
+                  setSaturationScale(value);
+                  invalidatePreview();
+                }}
               />
             </FieldRow>
           </>
         )}
 
-        {/* Quality mode */}
-        <fieldset className="colorize-section__quality-row">
-          <legend className="insp-label">Quality</legend>
-          <div
-            className="colorize-section__quality-options"
-            role="radiogroup"
-            aria-label="Quality mode"
-          >
-            {(['fast', 'balanced', 'quality', 'automatic'] as QualityMode[]).map((qm) => (
-              <label
-                key={qm}
-                className={`insp-radio-btn${qualityMode === qm ? ' insp-radio-btn--active' : ''}`}
-              >
-                <input
-                  type="radio"
-                  name="quality-mode"
-                  checked={qualityMode === qm}
-                  onChange={() => setQualityMode(qm)}
-                />
-                {qm.charAt(0).toUpperCase() + qm.slice(1)}
-              </label>
-            ))}
-          </div>
-        </fieldset>
-
-        {/* Palette controls */}
         {workflow === 'palette' && (
-          <p className="insp-hint">
-            Select document swatches to use as the target palette. The image will be re-colored to
-            match the selected swatch colors.
-          </p>
-        )}
-
-        {/* Transfer controls */}
-        {workflow === 'transfer' && (
-          <p className="insp-hint">
-            Pick a reference image to transfer its color characteristics to the selected image. Uses
-            Reinhard et al. (2001) LAB-space transfer.
-          </p>
-        )}
-
-        {/* Photo/recolor controls */}
-        {workflow === 'recolor' && (
           <>
-            <FieldRow label="Chroma" htmlFor={`${hueId}-chroma-range`}>
+            <p className="insp-hint">
+              Select document swatches. Shaded mapping keeps source lightness and may create tonal
+              shades; strict mapping uses only the selected sRGB swatch bytes at 100% adherence.
+            </p>
+            <fieldset className="colorize-section__swatches">
+              <legend className="sr-only">Palette swatches</legend>
+              {usableSwatches.length === 0 && (
+                <p className="insp-hint">This document has no usable swatches yet.</p>
+              )}
+              {usableSwatches.map(({ swatch, hex }) => {
+                const selected = selectedSwatchIds.includes(swatch.id);
+                return (
+                  <button
+                    type="button"
+                    key={swatch.id}
+                    className={`colorize-section__swatch${selected ? ' colorize-section__swatch--selected' : ''}`}
+                    aria-pressed={selected}
+                    aria-label={`${selected ? 'Remove' : 'Use'} swatch ${swatch.name}`}
+                    onClick={() => {
+                      setSelectedSwatchIds((ids) =>
+                        ids.includes(swatch.id)
+                          ? ids.filter((id) => id !== swatch.id)
+                          : [...ids, swatch.id],
+                      );
+                      invalidatePreview();
+                    }}
+                  >
+                    <span
+                      className="colorize-section__swatch-chip"
+                      style={{ backgroundColor: hex }}
+                    />
+                    <span>{swatch.name}</span>
+                  </button>
+                );
+              })}
+            </fieldset>
+            <FieldRow label="Mapping">
+              <Select
+                label="Palette mapping"
+                value={paletteMode}
+                disabled={isProcessing}
+                onChange={(value) => {
+                  setPaletteMode(value as PaletteMode);
+                  invalidatePreview();
+                }}
+                options={[
+                  { value: 'shaded', label: 'Shaded palette influence' },
+                  { value: 'strict', label: 'Strict palette colors' },
+                ]}
+              />
+            </FieldRow>
+            <FieldRow label="Adherence" htmlFor={`${adherenceId}-range`}>
               <RangeValueControl
-                id={`${hueId}-chroma`}
-                label="Chroma"
-                value={chromaStrength}
+                id={adherenceId}
+                label="Adherence"
+                value={adherence}
                 min={0}
-                max={2}
+                max={1}
                 step={0.05}
-                unit="x"
+                unit="%"
+                displayScale={100}
                 disabled={isProcessing}
                 rangeClassName="insp-range"
-                rangeAriaLabel="Chroma strength"
-                onChange={setChromaStrength}
+                rangeAriaLabel="Palette adherence"
+                onChange={(value) => {
+                  setAdherence(value);
+                  invalidatePreview();
+                }}
               />
             </FieldRow>
-            <div className="insp-field-group">
-              <Switch
-                className="insp-switch"
-                label="Protect skin tones"
-                checked={skinProtection}
-                disabled={isProcessing}
-                onChange={(e) => setSkinProtection(e.target.checked)}
-              />
-              <Switch
-                className="insp-switch"
-                label="Protect neutral regions"
-                checked={neutralProtection}
-                disabled={isProcessing}
-                onChange={(e) => setNeutralProtection(e.target.checked)}
-              />
-            </div>
           </>
         )}
 
-        {/* Shared controls */}
-        <FieldRow label="Luminance" htmlFor={`${lumId}-range`}>
-          <RangeValueControl
-            id={lumId}
-            label="Luminance"
-            value={luminancePreservation}
-            min={0}
-            max={1}
-            step={0.05}
-            unit="%"
-            displayScale={100}
-            disabled={isProcessing}
-            rangeClassName="insp-range"
-            rangeAriaLabel="Luminance preservation strength"
-            onChange={setLuminancePreservation}
-          />
-        </FieldRow>
+        {(workflow === 'transfer' || workflow === 'harmonize') && (
+          <div className="colorize-section__input-group">
+            <input
+              id={referenceInputId}
+              className="colorize-section__file-input"
+              type="file"
+              accept="image/*"
+              onChange={handleReferenceFile}
+              disabled={isProcessing}
+              aria-label="Choose color reference image"
+            />
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => document.getElementById(referenceInputId)?.click()}
+              disabled={isProcessing}
+            >
+              {reference ? 'Replace reference image' : 'Choose reference image'}
+            </Button>
+            {reference && (
+              <>
+                <img
+                  className="colorize-section__reference-thumb"
+                  src={reference.src}
+                  alt="Selected color reference"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    if (referenceUrlRef.current) URL.revokeObjectURL(referenceUrlRef.current);
+                    referenceUrlRef.current = null;
+                    setReference(null);
+                    invalidatePreview();
+                  }}
+                  disabled={isProcessing}
+                >
+                  Clear
+                </Button>
+              </>
+            )}
+          </div>
+        )}
 
-        <FieldRow label="Blend" htmlFor={`${blendId}-range`}>
-          <RangeValueControl
-            id={blendId}
-            label="Blend"
-            value={blendStrength}
-            min={0}
-            max={1}
-            step={0.05}
-            unit="%"
-            displayScale={100}
-            disabled={isProcessing}
-            rangeClassName="insp-range"
-            rangeAriaLabel="Blend strength"
-            onChange={setBlendStrength}
-          />
-        </FieldRow>
+        {workflow === 'photo' && (
+          <fieldset className="colorize-section__quality-row">
+            <legend className="insp-label">Quality</legend>
+            <div
+              className="colorize-section__quality-options"
+              role="radiogroup"
+              aria-label="Quality mode"
+            >
+              {(['fast', 'balanced', 'quality', 'automatic'] as QualityMode[]).map((mode) => (
+                <label
+                  key={mode}
+                  className={`insp-radio-btn${qualityMode === mode ? ' insp-radio-btn--active' : ''}`}
+                >
+                  <input
+                    type="radio"
+                    name="quality-mode"
+                    checked={qualityMode === mode}
+                    disabled={isProcessing}
+                    onChange={() => {
+                      setQualityMode(mode);
+                      invalidatePreview();
+                    }}
+                  />
+                  {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        )}
 
-        {workflow === 'palette' && (
-          <FieldRow label="Adherence" htmlFor={`${adherenceId}-range`}>
+        {workflow !== 'photo' && showsLuminance && (
+          <FieldRow label="Lightness" htmlFor={`${lumId}-range`}>
             <RangeValueControl
-              id={adherenceId}
-              label="Adherence"
-              value={adherence}
+              id={lumId}
+              label="Lightness"
+              value={luminancePreservation}
               min={0}
               max={1}
               step={0.05}
@@ -534,42 +943,106 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
               displayScale={100}
               disabled={isProcessing}
               rangeClassName="insp-range"
-              rangeAriaLabel="Palette adherence"
-              onChange={setAdherence}
+              rangeAriaLabel="Source lightness preservation"
+              onChange={(value) => {
+                setLuminancePreservation(value);
+                invalidatePreview();
+              }}
             />
           </FieldRow>
         )}
 
-        {/* Preview */}
+        {workflow !== 'photo' && showsChroma && (
+          <FieldRow label="Chroma" htmlFor={`${chromaId}-range`}>
+            <RangeValueControl
+              id={chromaId}
+              label="Chroma"
+              value={chromaStrength}
+              min={0}
+              max={2}
+              step={0.05}
+              unit="x"
+              disabled={isProcessing}
+              rangeClassName="insp-range"
+              rangeAriaLabel="Chroma strength"
+              onChange={(value) => {
+                setChromaStrength(value);
+                invalidatePreview();
+              }}
+            />
+          </FieldRow>
+        )}
+
+        {workflow !== 'photo' && showsBlend && (
+          <FieldRow label="Blend" htmlFor={`${blendId}-range`}>
+            <RangeValueControl
+              id={blendId}
+              label="Blend"
+              value={blendStrength}
+              min={0}
+              max={1}
+              step={0.05}
+              unit="%"
+              displayScale={100}
+              disabled={isProcessing}
+              rangeClassName="insp-range"
+              rangeAriaLabel="Blend strength"
+              onChange={(value) => {
+                setBlendStrength(value);
+                invalidatePreview();
+              }}
+            />
+          </FieldRow>
+        )}
+
+        {workflow !== 'photo' && showsProtection && (
+          <div className="insp-field-group">
+            <Switch
+              className="insp-switch"
+              label="Protect near-neutral pixels"
+              checked={neutralProtection}
+              disabled={isProcessing}
+              onChange={(event) => {
+                setNeutralProtection(event.target.checked);
+                invalidatePreview();
+              }}
+            />
+            {workflow === 'recolor' && (
+              <Switch
+                className="insp-switch"
+                label="Protect skin-like pixels (heuristic)"
+                checked={skinProtection}
+                disabled={isProcessing}
+                onChange={(event) => {
+                  setSkinProtection(event.target.checked);
+                  invalidatePreview();
+                }}
+              />
+            )}
+          </div>
+        )}
+
         {showPreview && (
           <section className="insp-nested-panel" aria-label="Colorize preview">
             <p className="insp-subsection__label">Preview</p>
-            <div
-              className="insp-mask-review"
-              style={{
-                backgroundImage:
-                  'linear-gradient(45deg, var(--color-surface-sunken) 25%, transparent 25%), linear-gradient(-45deg, var(--color-surface-sunken) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, var(--color-surface-sunken) 75%), linear-gradient(-45deg, transparent 75%, var(--color-surface-sunken) 75%)',
-                backgroundSize: '16px 16px',
-              }}
-            >
-              <img
-                src={colorize.previewDataUrl ?? undefined}
-                alt="Colorize preview"
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  maxHeight: 180,
-                  objectFit: 'contain',
-                }}
-              />
+            <div className="colorize-section__preview-frame">
+              <img src={colorize.previewDataUrl!} alt="Colorize preview" />
             </div>
+            {colorize.previewImageData &&
+              Math.max(colorize.previewImageData.width, colorize.previewImageData.height) >=
+                PREVIEW_MAX_DIMENSION && (
+                <p className="insp-hint">
+                  Apply Full recomputes images above {PREVIEW_MAX_DIMENSION}px at source resolution;
+                  inferred colors can change slightly when more context is available.
+                </p>
+              )}
             <div className="insp-actions">
               <Button
                 type="button"
                 variant="default"
                 size="sm"
                 onClick={handleApply}
-                disabled={isProcessing}
+                disabled={isProcessing || !canRun}
                 loading={colorize.status === 'applying'}
                 aria-label="Apply colorization at full resolution"
               >
@@ -579,7 +1052,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => setColorize((prev) => ({ ...prev, previewDataUrl: null }))}
+                onClick={invalidatePreview}
                 disabled={isProcessing}
               >
                 Discard
@@ -588,7 +1061,6 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
           </section>
         )}
 
-        {/* Actions */}
         <div className="insp-actions">
           {isProcessing ? (
             <>
@@ -613,6 +1085,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
                 variant="secondary"
                 size="sm"
                 onClick={handlePreview}
+                disabled={!canRun}
                 aria-label="Generate colorize preview"
               >
                 Preview
@@ -621,7 +1094,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
                 type="button"
                 variant="default"
                 size="sm"
-                disabled={!showPreview}
+                disabled={!showPreview || !canRun}
                 onClick={handleApply}
                 aria-label="Apply colorization at full resolution"
               >
@@ -634,12 +1107,6 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
         {colorize.status === 'error' && colorize.errorMessage && (
           <p className="insp-hint insp-hint--error" role="alert">
             {colorize.errorMessage}
-          </p>
-        )}
-
-        {modelAvailable === false && (
-          <p className="insp-hint">
-            DDColor model not yet available. Open Settings Models to download it.
           </p>
         )}
       </div>

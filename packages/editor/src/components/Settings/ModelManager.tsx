@@ -7,11 +7,11 @@ import type {
 import {
   createDiagnosticsLabel,
   DownloadManager,
-  deriveAcquisition,
   getRuntimeCapabilities,
   isInferenceError,
   listAllModels,
   resetRuntimeCapabilities,
+  resolveAcquisition,
 } from '@varve/engine';
 import { Button, Icon, RegionLoader } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -125,7 +125,7 @@ export function ModelManager() {
 
         let availabilityReason: string | undefined;
         if (!entry.bundled && !isReady) {
-          const acquisition = deriveAcquisition(entry);
+          const acquisition = resolveAcquisition(entry);
           if (acquisition.kind === 'unavailable') {
             availabilityReason = acquisition.detail;
           } else if (acquisition.kind === 'generated') {
