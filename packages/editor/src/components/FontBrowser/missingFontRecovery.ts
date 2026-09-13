@@ -14,6 +14,20 @@ export interface MissingFontRecoveryMatch {
 }
 
 /**
+ * A catalog download cannot reproduce an authored artifact hash from family
+ * metadata alone. Exact document references therefore need an explicit
+ * replacement after installation, even when the catalog family, weight, and
+ * style line up. Aliases also need replacement because their display family
+ * differs from the document request.
+ */
+export function recoveryRequiresReplacement(
+  missing: MissingFontInfo,
+  match: MissingFontRecoveryMatch,
+): boolean {
+  return Boolean(missing.fontReference) || match.matchedByAlias;
+}
+
+/**
  * Use the portable artifact/member identity when a document provides one.
  * Family names remain the compatibility key for legacy family-only records,
  * but same-family artifacts must never share a recovery row.

@@ -102,6 +102,28 @@ describe('MissingFontDialog', () => {
     expect(screen.getByText(/SIL Open Font License/i)).toBeInTheDocument();
   });
 
+  it('labels an exact artifact install as an explicit replacement', () => {
+    const missing = {
+      ...makeMissingFont(),
+      fontReference: { artifactHash: 'a'.repeat(64), collectionIndex: 0 },
+    };
+    const props = dialogProps([missing]);
+    const match = props.recoveryMatches.get(missingFontRecoveryKey(missing));
+    render(
+      <MissingFontDialog
+        {...props}
+        recoveryMatches={new Map(match ? [[missingFontRecoveryKey(missing), match]] : [])}
+      />,
+    );
+
+    expect(
+      screen.getByText('Matching face available; original file will be replaced'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Install Missing Display 700' })).toHaveTextContent(
+      'Install and replace face',
+    );
+  });
+
   it('submits the ranked default replacement as one bulk mapping', async () => {
     const user = userEvent.setup();
     const onReplaceAll = vi.fn();

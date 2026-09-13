@@ -11,7 +11,11 @@ import type { FontSubstitute, MissingFontInfo } from '@varve/engine/font';
 import { Select } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MissingFontRecoveryMatch } from './missingFontRecovery';
-import { fontFaceLabel, missingFontRecoveryKey } from './missingFontRecovery';
+import {
+  fontFaceLabel,
+  missingFontRecoveryKey,
+  recoveryRequiresReplacement,
+} from './missingFontRecovery';
 import './MissingFontDialog.css';
 
 export interface MissingFontDialogProps {
@@ -211,6 +215,9 @@ export function MissingFontDialog({
             const hasSubstitutes = mf.substitutes.length > 0;
             const recoveryMatch = recoveryMatches.get(missingFontRecoveryKey(mf));
             const installing = installingKey === missingFontKey(mf);
+            const requiresReplacement = recoveryMatch
+              ? recoveryRequiresReplacement(mf, recoveryMatch)
+              : false;
 
             return (
               <div key={missingFontKey(mf)} className="missing-font-dialog__item">
@@ -255,7 +262,9 @@ export function MissingFontDialog({
                         <strong>
                           {recoveryMatch.matchedByAlias
                             ? `Catalog match: ${recoveryMatch.record.familyName}`
-                            : 'Exact family available from Fontsource'}
+                            : mf.fontReference
+                              ? 'Matching face available; original file will be replaced'
+                              : 'Exact family available from Fontsource'}
                         </strong>
                         <span>
                           {fontFaceLabel(recoveryMatch)} · {recoveryMatch.record.license.name}
@@ -279,9 +288,11 @@ export function MissingFontDialog({
                     >
                       {installing
                         ? 'Installing…'
-                        : recoveryMatch.exactFace
-                          ? 'Install exact face'
-                          : 'Install closest face'}
+                        : requiresReplacement
+                          ? 'Install and replace face'
+                          : recoveryMatch.exactFace
+                            ? 'Install exact face'
+                            : 'Install closest face'}
                     </button>
                   )}
                   <button

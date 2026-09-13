@@ -1,7 +1,11 @@
 import type { MissingFontInfo } from '@varve/engine/font';
 import { type FontsourceCatalogSnapshot, FontsourceCatalogStore } from '@varve/engine/font';
 import { describe, expect, it } from 'vitest';
-import { findMissingFontRecoveryMatch, missingFontRecoveryKey } from './missingFontRecovery';
+import {
+  findMissingFontRecoveryMatch,
+  missingFontRecoveryKey,
+  recoveryRequiresReplacement,
+} from './missingFontRecovery';
 
 const snapshot: FontsourceCatalogSnapshot = {
   schemaVersion: 1,
@@ -75,6 +79,7 @@ describe('findMissingFontRecoveryMatch', () => {
     expect(match?.artifact.url).toContain('@5.3.0/latin-700-italic.woff2');
     expect(match?.exactFace).toBe(true);
     expect(match?.matchedByAlias).toBe(false);
+    expect(recoveryRequiresReplacement(missing(), match!)).toBe(false);
   });
 
   it('accepts a catalog alias but reports that the canonical family differs', () => {
@@ -85,6 +90,18 @@ describe('findMissingFontRecoveryMatch', () => {
 
     expect(match?.record.familyName).toBe('Example Sans');
     expect(match?.matchedByAlias).toBe(true);
+    expect(recoveryRequiresReplacement(missing({ familyName: 'Example UI' }), match!)).toBe(true);
+  });
+
+  it('requires an explicit replacement when an exact artifact is unavailable', () => {
+    const requested = missing({
+      fontReference: { artifactHash: 'a'.repeat(64), collectionIndex: 0 },
+    });
+    const match = findMissingFontRecoveryMatch(requested, new FontsourceCatalogStore(snapshot));
+
+    expect(match?.exactFace).toBe(true);
+    expect(match?.matchedByAlias).toBe(false);
+    expect(recoveryRequiresReplacement(requested, match!)).toBe(true);
   });
 
   it('uses the nearest available face without presenting it as exact', () => {

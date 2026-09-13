@@ -322,6 +322,10 @@ product complaints into runtime constraints:
   resolution. Family-only legacy records use a family compatibility key;
   exact same-family artifacts get independent recovery rows and alias installs
   retain the original exact scope.
+- A catalog family/weight/style match is metadata evidence, not proof of the
+  authored artifact bytes or collection member. Installing a catalog match for
+  an exact request therefore always presents an explicit replacement action
+  and records the original reference for recovery.
 - Variable controls show only supported axes. Weight updates `wght` when
   present and preserves other authored axes; mandatory shaping features and
   rich-run settings remain part of the layout identity.

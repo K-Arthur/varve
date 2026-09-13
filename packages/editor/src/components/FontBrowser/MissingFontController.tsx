@@ -23,7 +23,11 @@ import { applyFontReplacement } from './applyFontReplacement';
 import { FontBrowserDialog } from './FontBrowserDialog';
 import { MissingFontDialog } from './MissingFontDialog';
 import type { MissingFontRecoveryMatch } from './missingFontRecovery';
-import { findMissingFontRecoveryMatch, missingFontRecoveryKey } from './missingFontRecovery';
+import {
+  findMissingFontRecoveryMatch,
+  missingFontRecoveryKey,
+  recoveryRequiresReplacement,
+} from './missingFontRecovery';
 import { downloadAndApplyOnlineFont } from './useOnlineFontSearch';
 
 export function MissingFontController() {
@@ -147,7 +151,7 @@ export function MissingFontController() {
         variable: match.artifact.variable,
       },
     );
-    if (match.matchedByAlias) {
+    if (recoveryRequiresReplacement(missing, match)) {
       handleReplace(missing.familyName, match.artifact.familyName, missing);
     }
   };

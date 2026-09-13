@@ -510,3 +510,29 @@ same-family artifacts. The existing dialog interaction suite could not produce
 a result on the shared host after four minutes of swapping; it was terminated
 without a pass claim. The keying path is covered by the pure helper test, while
 full dialog and restart/recovery E2E remain pending.
+
+## Exact recovery after catalog installation — 2026-09-13
+
+Fontsource metadata can identify a family, weight, and style, but it does not
+prove that the downloaded artifact has the original document SHA-256 or
+collection member. An exact missing request therefore remains a replacement
+operation even when the catalog row looks like an exact face. The dialog now
+labels that case **Matching face available; original file will be replaced**
+and the action is **Install and replace face**. Family-only legacy requests may
+still use the exact-family action, while catalog aliases continue to require a
+replacement because their canonical family differs.
+
+The controller applies the replacement with the original missing record, so
+same-family artifacts cannot be rewritten together. The focused helper and
+dialog checks passed **15/15**, including the exact-reference-after-install
+case and its visible replacement label. The full dialog interaction lane and
+durable restart proof remain pending on the shared host; no dialog E2E pass is
+claimed from the earlier interrupted run.
+
+The final isolated `pnpm verify:affected --staged` attempt also passed
+`format:touched`, `lint:touched`, `audit:emoji`, `audit:docs`, the dialog file
+(`9/9`), and the recovery helper file (`6/6`). Its subsequent @varve/editor
+package closure produced no result before the 600-second bound and exited with
+`[ELIFECYCLE]`; concurrent editor/compositor suites were consuming the shared
+host. This is recorded as an environment-limited validation gap, not as a
+failure of either focused font test.
