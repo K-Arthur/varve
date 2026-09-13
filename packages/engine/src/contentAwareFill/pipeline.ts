@@ -26,6 +26,25 @@ export interface LaMaInferResult {
   warnings: string[];
 }
 
+/**
+ * Read the spatial dimensions from a LaMa output tensor. ONNX image outputs
+ * are NCHW (`[..., height, width]`); keep that contract independent of the
+ * source image's aspect ratio so portrait contexts are not transposed during
+ * decode.
+ */
+export function getLaMaOutputDimensions(dims: readonly number[]): {
+  width: number;
+  height: number;
+} {
+  const spatialDims = dims.length >= 2 ? dims.slice(-2) : [];
+  const height = spatialDims[0] ?? 512;
+  const width = spatialDims[1] ?? 512;
+  if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width <= 0 || height <= 0) {
+    throw new Error('Fill inference returned invalid output dimensions');
+  }
+  return { width, height };
+}
+
 export async function runLaMaInference(
   imageData: ImageData,
   mask: Uint8Array,
@@ -81,24 +100,14 @@ export async function runLaMaInference(
   // instead of inferring orientation from the source aspect ratio: the latter
   // silently transposes portrait contexts and produces visibly displaced
   // composites.
-  const spatialDims = output.dims.length >= 2 ? output.dims.slice(-2) : [];
-  const outputH = spatialDims[0] ?? 512;
-  const outputW = spatialDims[1] ?? 512;
-  if (
-    !Number.isSafeInteger(outputW) ||
-    !Number.isSafeInteger(outputH) ||
-    outputW <= 0 ||
-    outputH <= 0
-  ) {
-    throw new Error('Fill inference returned invalid output dimensions');
-  }
+  const { width: outputW, height: outputH } = getLaMaOutputDimensions(output.dims);
 
   const letterbox = rawOutputs.letterbox as { offsetX: number; offsetY: number } | undefined;
 
   const decoded = decodeLamaOutput(
     output.data,
-    imageData.width > imageData.height ? outputW : outputH,
-    imageData.width > imageData.height ? outputH : outputW,
+    outputW,
+    outputH,
     imageData.width,
     imageData.height,
     letterbox,
