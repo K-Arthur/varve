@@ -2,7 +2,7 @@ import { FontRegistry } from '@varve/engine';
 import { fontReferenceKey } from '@varve/engine/font';
 import type { TextNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
-import { fontFamilyChanges, fontWeightOptions } from './fontWeight';
+import { fontFamilyChanges, fontWeightChanges, fontWeightOptions } from './fontWeight';
 
 function node(
   overrides: Partial<
@@ -198,5 +198,69 @@ describe('fontWeightOptions', () => {
         disabledReason: expect.any(String),
       },
     ]);
+  });
+});
+
+describe('fontWeightChanges', () => {
+  it('moves a collection face reference when the requested weight is another member', () => {
+    const regularReference = { artifactHash: 'a'.repeat(64), collectionIndex: 0 };
+    const boldReference = { artifactHash: 'a'.repeat(64), collectionIndex: 1 };
+    const registry = new FontRegistry([
+      {
+        family: 'Collection Family',
+        weight: 400,
+        style: 'normal',
+        source: 'user',
+        faceKey: fontReferenceKey(regularReference),
+        postScriptName: 'Collection-Regular',
+      },
+      {
+        family: 'Collection Family',
+        weight: 700,
+        style: 'normal',
+        source: 'user',
+        faceKey: fontReferenceKey(boldReference),
+        postScriptName: 'Collection-Bold',
+      },
+    ]);
+    const current = node({
+      fontFamily: 'Collection Family',
+      fontWeight: 400,
+      fontReference: regularReference,
+    }) as TextNode;
+
+    expect(fontWeightChanges(current, 700, registry)).toEqual({
+      fontWeight: 700,
+      fontReference: { ...boldReference, postScriptName: 'Collection-Bold' },
+    });
+  });
+
+  it('clears an exact reference when no same-artifact static face can satisfy the weight', () => {
+    const current = node({
+      fontFamily: 'Static Family',
+      fontWeight: 400,
+      fontReference: { artifactHash: 'a'.repeat(64) },
+    }) as TextNode;
+    const registry = new FontRegistry([
+      {
+        family: 'Static Family',
+        weight: 400,
+        style: 'normal',
+        source: 'user',
+        faceKey: fontReferenceKey({ artifactHash: 'a'.repeat(64) }),
+      },
+      {
+        family: 'Static Family',
+        weight: 700,
+        style: 'normal',
+        source: 'user',
+        faceKey: fontReferenceKey({ artifactHash: 'b'.repeat(64) }),
+      },
+    ]);
+
+    expect(fontWeightChanges(current, 700, registry)).toEqual({
+      fontWeight: 700,
+      fontReference: undefined,
+    });
   });
 });

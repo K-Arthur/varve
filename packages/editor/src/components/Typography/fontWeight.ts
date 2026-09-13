@@ -1,5 +1,5 @@
 import { getFontRegistry } from '@varve/engine';
-import { fontReferenceKey } from '@varve/engine/font';
+import { type FontReference, fontReferenceKey } from '@varve/engine/font';
 import type { TextNode } from '@varve/scene';
 import { DEFAULT_ARTWORK_FONT_FAMILY } from '@varve/shared';
 
@@ -15,6 +15,24 @@ export interface FontWeightOption {
 type WeightNode = Pick<TextNode, 'fontFamily' | 'fontWeight' | 'fontStyle' | 'fontReference'>;
 
 const STANDARD_WEIGHT_STOPS = [100, 200, 300, 400, 500, 600, 700, 800, 900] as const;
+
+function referenceFromFaceKey(
+  faceKey: string | undefined,
+  postScriptName?: string,
+): FontReference | undefined {
+  const match = /^sha256:([0-9a-f]{64}):(single|[0-9]+)$/i.exec(faceKey ?? '');
+  if (!match) return undefined;
+  return {
+    artifactHash: match[1]!,
+    ...(match[2] === 'single' ? {} : { collectionIndex: Number(match[2]) }),
+    ...(postScriptName ? { postScriptName } : {}),
+  };
+}
+
+function sameArtifact(faceKey: string | undefined, reference: FontReference): boolean {
+  const match = /^sha256:([0-9a-f]{64}):(single|[0-9]+)$/i.exec(faceKey ?? '');
+  return match?.[1]?.toLowerCase() === reference.artifactHash.toLowerCase();
+}
 
 function nodesList(nodeOrNodes: WeightNode | readonly WeightNode[]): readonly WeightNode[] {
   return Array.isArray(nodeOrNodes) ? nodeOrNodes : [nodeOrNodes as WeightNode];
@@ -39,20 +57,24 @@ function supportedWeights(
           entry.postScriptName?.toLowerCase() === node.fontReference?.postScriptName?.toLowerCase(),
       )
     : [];
+  const artifactEntries = node.fontReference
+    ? entries.filter((entry) => sameArtifact(entry.faceKey, node.fontReference!))
+    : [];
   const exactEntries = node.fontReference
-    ? exactKeyEntries.length > 0
-      ? exactKeyEntries
-      : entriesWithIdentity.length === 0 && postScriptEntries.length > 0
-        ? postScriptEntries
-        : entriesWithIdentity.length === 0
-          ? entries
-          : []
+    ? artifactEntries.length > 0
+      ? artifactEntries
+      : exactKeyEntries.length > 0
+        ? exactKeyEntries
+        : entriesWithIdentity.length === 0 && postScriptEntries.length > 0
+          ? postScriptEntries
+          : entriesWithIdentity.length === 0
+            ? entries
+            : []
     : [];
   // An exact reference is authoritative when the registry has identity data.
   // Older system enumeration records may only contain family/style metadata;
   // retain that usable fallback rather than hiding every control.
-  const referenceCanUseFamilyMetadata =
-    !node.fontReference || exactEntries.length > 0 || entriesWithIdentity.length === 0;
+  const referenceCanUseFamilyMetadata = !node.fontReference || entriesWithIdentity.length === 0;
   const scopedEntries =
     exactEntries.length > 0 ? exactEntries : referenceCanUseFamilyMetadata ? entries : [];
   const axis = (
@@ -135,7 +157,24 @@ export function fontWeightChanges(
   const hasWeightAxis =
     registry.getAxisDefinitions(family)?.some((axis) => axis.tag === 'wght') === true ||
     node.variableAxes?.wght !== undefined;
-  return hasWeightAxis
-    ? { fontWeight: weight, variableAxes: { ...(node.variableAxes ?? {}), wght: weight } }
-    : { fontWeight: weight };
+  if (hasWeightAxis) {
+    return { fontWeight: weight, variableAxes: { ...(node.variableAxes ?? {}), wght: weight } };
+  }
+  if (!node.fontReference || node.fontWeight === weight) return { fontWeight: weight };
+
+  // Static collection members are separate faces. If the registry can find
+  // the requested weight in the same artifact, move the member reference with
+  // the authored choice; otherwise clear the stale exact face so a different
+  // artifact cannot be mistaken for the selected one.
+  const entries = registry.getEntries(family);
+  const style = node.fontStyle ?? 'normal';
+  const styledEntries = entries.filter((entry) => entry.style === style);
+  const candidates = styledEntries.length > 0 ? styledEntries : entries;
+  const target = candidates.find(
+    (entry) => entry.weight === weight && sameArtifact(entry.faceKey, node.fontReference!),
+  );
+  const targetReference = target
+    ? referenceFromFaceKey(target.faceKey, target.postScriptName)
+    : undefined;
+  return { fontWeight: weight, fontReference: targetReference };
 }
