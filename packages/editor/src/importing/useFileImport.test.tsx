@@ -58,7 +58,6 @@ function editorFixture(): FileImportEditor {
       pan: { x: 0, y: 0 },
       cameraRotation: 0,
     },
-    canvasToWorld: vi.fn((x: number, y: number) => ({ x, y })),
     announce: vi.fn(),
     addLutAdjustment: vi.fn(),
     batchImportNodes: vi.fn(),

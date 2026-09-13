@@ -52,8 +52,6 @@ export interface FileImportEditor {
     pan: { x: number; y: number };
     cameraRotation: number;
   };
-  /** Convert a CSS canvas point using the current editor camera. */
-  canvasToWorld?: (cx: number, cy: number) => { x: number; y: number };
   announce: (message: string) => void;
   addLutAdjustment: (adjustment: Adjustment) => void;
   batchImportNodes: (items: { node: SceneNode; sourceDoc: Document }[]) => void;
@@ -82,21 +80,17 @@ function captureImportContext(
   const width = canvas?.clientWidth ?? (typeof window === 'undefined' ? 1920 : window.innerWidth);
   const height =
     canvas?.clientHeight ?? (typeof window === 'undefined' ? 1080 : window.innerHeight - 120);
-  const centerPoint = editor.canvasToWorld
-    ? editor.canvasToWorld(width / 2, height / 2)
-    : (() => {
-        const [x, y] = editorScreenToWorld(
-          {
-            zoom: editor.state.zoom,
-            pan: editor.state.pan,
-            cameraRotation: editor.state.cameraRotation,
-          },
-          width / 2,
-          height / 2,
-          { width, height },
-        );
-        return { x, y };
-      })();
+  const [x, y] = editorScreenToWorld(
+    {
+      zoom: editor.state.zoom,
+      pan: editor.state.pan,
+      cameraRotation: editor.state.cameraRotation,
+    },
+    width / 2,
+    height / 2,
+    { width, height },
+  );
+  const centerPoint = { x, y };
   const destination = resolvePasteDestination(
     editor.state.document,
     editor.state.selection,
