@@ -152,4 +152,54 @@ test.describe('Settings dialog', () => {
       fullPage: true,
     });
   });
+
+  test('exposes navigation policy and preview quality in the existing settings tabs', async ({
+    page,
+  }, testInfo) => {
+    await navigateToEditor(page);
+    await page.evaluate(() => {
+      const file = [...document.querySelectorAll('button')].find(
+        (element) => element.textContent?.trim() === 'File',
+      );
+      (file as HTMLElement | undefined)?.click();
+    });
+    await page.getByRole('menuitem', { name: /Settings/ }).click();
+
+    const settingsDialog = page.locator('dialog.varve-dialog--settings[open]');
+    await settingsDialog.getByRole('tab', { name: 'Drawing Input', exact: true }).click();
+    const wheel = settingsDialog.getByRole('combobox', { name: 'Wheel behavior' });
+    await expect(wheel).toContainText('Standard: wheel pans');
+    await wheel.click();
+    await page.getByRole('option', { name: /Always zoom/ }).click();
+
+    const sensitivity = settingsDialog.getByRole('spinbutton', { name: 'Wheel sensitivity' });
+    await sensitivity.fill('1.5');
+    await sensitivity.blur();
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const settings = JSON.parse(localStorage.getItem('varve-editor-settings') ?? '{}');
+          return {
+            wheelMode: settings.viewport?.wheelMode,
+            wheelSensitivity: settings.viewport?.wheelSensitivity,
+          };
+        }),
+      )
+      .toEqual({ wheelMode: 'zoom', wheelSensitivity: 1.5 });
+
+    await settingsDialog.getByRole('tab', { name: 'Performance', exact: true }).click();
+    const preview = settingsDialog.getByRole('combobox', { name: 'Interactive preview quality' });
+    await preview.click();
+    await page.getByRole('option', { name: /Full resolution/ }).click();
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            JSON.parse(localStorage.getItem('varve-editor-settings') ?? '{}').render
+              ?.interactivePreview,
+        ),
+      )
+      .toBe('full');
+    await page.screenshot({ path: testInfo.outputPath('navigation-settings.png'), fullPage: true });
+  });
 });
