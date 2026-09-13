@@ -313,6 +313,44 @@ export async function canvasScreenshot(page) {
   return canvasPixels(page);
 }
 
+/**
+ * Returns a cheap, whole-canvas fingerprint for mutation assertions.
+ *
+ * Screenshots are useful evidence, but Chromium's screenshot path is much
+ * slower than reading the already-painted 2D content canvas on a constrained
+ * machine. Keep this separate from canvasPixels so visual captures still use
+ * screenshots while long workflows can assert artwork changes without adding
+ * dead air to the delivered recording.
+ */
+export async function canvasDigest(page) {
+  return page.evaluate(() => {
+    const canvas = document.querySelector('canvas.editor-canvas__content-layer');
+    const context = canvas?.getContext('2d');
+    if (!canvas || !context) throw new Error('content canvas pixels unavailable');
+    const sample = document.createElement('canvas');
+    sample.width = 128;
+    sample.height = 128;
+    const sampleContext = sample.getContext('2d');
+    if (!sampleContext) throw new Error('content canvas fingerprint unavailable');
+    sampleContext.drawImage(canvas, 0, 0, sample.width, sample.height);
+    const data = sampleContext.getImageData(0, 0, sample.width, sample.height).data;
+    let hash = 2166136261;
+    for (const byte of data) hash = Math.imul(hash ^ byte, 16777619);
+    return `${canvas.width}x${canvas.height}:${hash >>> 0}`;
+  });
+}
+
+/** Waits for an asynchronous document mutation to reach the painted canvas. */
+export async function waitForCanvasDigestChange(page, before, { timeout = 5000 } = {}) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const current = await canvasDigest(page);
+    if (current !== before) return current;
+    await page.waitForTimeout(100);
+  }
+  throw new Error(`rendered canvas did not change within ${timeout}ms (${before})`);
+}
+
 /* ---------------------------------------------------------------- */
 /* Canvas interaction                                               */
 /* ---------------------------------------------------------------- */

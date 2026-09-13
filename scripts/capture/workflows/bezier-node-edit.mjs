@@ -12,7 +12,7 @@ import { strict as assert } from 'node:assert';
 import {
   useTool as activateTool,
   beat,
-  canvasPixels,
+  canvasDigest,
   clickAt,
   dragAt,
   dragPage,
@@ -22,6 +22,7 @@ import {
   parkPointer,
   selectLayer,
   settle,
+  waitForCanvasDigestChange,
 } from '../core/editor.mjs';
 import { capture } from '../core/run.mjs';
 
@@ -57,9 +58,9 @@ await capture({
     // the gesture that makes the segment a curve rather than a straight run.
     // Positions are fractions of the drawing area, which is what the panels
     // leave behind rather than the window size.
-    await dragAt(page, [0.12, 0.62], [0.24, 0.44]);
-    await dragAt(page, [0.38, 0.32], [0.5, 0.26]);
-    await dragAt(page, [0.64, 0.56], [0.76, 0.66]);
+    await dragAt(page, [0.12, 0.62], [0.24, 0.44], { steps: 3, settleMs: 250 });
+    await dragAt(page, [0.38, 0.32], [0.5, 0.26], { steps: 3, settleMs: 250 });
+    await dragAt(page, [0.64, 0.56], [0.76, 0.66], { steps: 3, settleMs: 250 });
     await clickAt(page, 0.9, 0.34);
     await beat(page, 350);
 
@@ -107,14 +108,18 @@ await capture({
     assertions.push(`node edit mode exposes ${points.anchors.length} real anchors on the path`);
 
     const target = points.anchors[Math.floor(points.anchors.length / 2)];
-    const beforeMove = await canvasPixels(page);
-    await dragPage(page, target, { x: target.x + 10, y: target.y - 150 }, { steps: 14 });
+    const beforeMove = await canvasDigest(page);
+    await dragPage(
+      page,
+      target,
+      { x: target.x + 10, y: target.y - 150 },
+      { steps: 3, settleMs: 250 },
+    );
     await parkPointer(page);
     await settle(page);
-    const afterMove = await canvasPixels(page);
     assert.notEqual(
-      Buffer.compare(beforeMove, afterMove),
-      0,
+      beforeMove,
+      await canvasDigest(page),
       'moving an anchor did not change the rendered canvas',
     );
     assertions.push('dragging an anchor changed the rendered geometry');
@@ -125,32 +130,40 @@ await capture({
     // apart without reaching into the document model.
     const moved = await nodeEditPoints(page);
     const handle = moved.handles[Math.floor(moved.handles.length / 2)] ?? moved.anchors[0];
-    const beforeHandle = await canvasPixels(page);
-    await dragPage(page, handle, { x: handle.x + 90, y: handle.y - 110 }, { steps: 14 });
+    const beforeHandle = await canvasDigest(page);
+    await dragPage(
+      page,
+      handle,
+      { x: handle.x + 90, y: handle.y - 110 },
+      { steps: 3, settleMs: 250 },
+    );
     await parkPointer(page);
     await settle(page);
     assert.notEqual(
-      Buffer.compare(beforeHandle, await canvasPixels(page)),
-      0,
+      beforeHandle,
+      await canvasDigest(page),
       'dragging a tangent handle did not change the rendered curve',
     );
     assertions.push('dragging its control handle re-curved the adjoining segments');
     await beat(page, 630);
 
     // Undo has to reach the node edit, not just the path creation.
-    const beforeUndo = await canvasPixels(page);
+    const beforeUndo = await canvasDigest(page);
+    await page.locator('canvas.editor-canvas__content-layer').focus();
     await page.keyboard.press('Control+z');
-    await page.waitForTimeout(600);
-    assert.notEqual(
-      Buffer.compare(beforeUndo, await canvasPixels(page)),
-      0,
-      'undo did not revert the node edit',
-    );
+    await waitForCanvasDigestChange(page, beforeUndo);
     assertions.push('undo reverted the node edit');
     await beat(page, 350);
 
+    await page.locator('canvas.editor-canvas__content-layer').focus();
     await page.keyboard.press('Control+Shift+z');
-    await page.waitForTimeout(700);
+    const afterUndo = await canvasDigest(page);
+    await waitForCanvasDigestChange(page, afterUndo);
+    assert.equal(
+      await canvasDigest(page),
+      beforeUndo,
+      'redo did not restore the pre-undo rendered geometry',
+    );
     assertions.push('redo restored it');
 
     await activateTool(page, 'v');
