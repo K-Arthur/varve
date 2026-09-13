@@ -805,6 +805,31 @@ export interface DepthLetterboxTransform {
   contentHeight?: number;
 }
 
+function letterboxContent(
+  transform: DepthLetterboxTransform,
+  mapWidth: number,
+  mapHeight: number,
+): { offsetX: number; offsetY: number; contentWidth: number; contentHeight: number } {
+  const content = {
+    offsetX: transform.offsetX,
+    offsetY: transform.offsetY,
+    contentWidth: transform.contentWidth ?? mapWidth - transform.offsetX * 2,
+    contentHeight: transform.contentHeight ?? mapHeight - transform.offsetY * 2,
+  };
+  if (
+    !Object.values(content).every(Number.isFinite) ||
+    content.offsetX < 0 ||
+    content.offsetY < 0 ||
+    content.contentWidth <= 0 ||
+    content.contentHeight <= 0 ||
+    content.offsetX + content.contentWidth > mapWidth + 0.5 ||
+    content.offsetY + content.contentHeight > mapHeight + 0.5
+  ) {
+    throw new Error('Depth letterbox registration is invalid');
+  }
+  return content;
+}
+
 /**
  * Project source alpha into the model-output grid without treating transparent
  * RGB as valid depth evidence. The transform is the same letterbox geometry
@@ -824,22 +849,11 @@ export function sourceAlphaToDepthValidity(
   if (alpha.length !== sourcePixels) {
     throw new Error('Source alpha length must match the source image dimensions');
   }
-  const offsetX = transform?.offsetX ?? 0;
-  const offsetY = transform?.offsetY ?? 0;
-  const contentWidth = transform?.contentWidth ?? mapWidth;
-  const contentHeight = transform?.contentHeight ?? mapHeight;
-  if (
-    !Number.isFinite(offsetX) ||
-    !Number.isFinite(offsetY) ||
-    !Number.isFinite(contentWidth) ||
-    !Number.isFinite(contentHeight) ||
-    offsetX < 0 ||
-    offsetY < 0 ||
-    contentWidth <= 0 ||
-    contentHeight <= 0
-  ) {
-    throw new Error('Depth alpha registration is invalid');
-  }
+  const { offsetX, offsetY, contentWidth, contentHeight } = letterboxContent(
+    transform ?? { offsetX: 0, offsetY: 0 },
+    mapWidth,
+    mapHeight,
+  );
 
   const valid = new Uint8Array(mapPixels);
   for (let y = 0; y < mapHeight; y++) {
@@ -983,16 +997,16 @@ export function unletterboxDepthMap(
 ): DepthMap {
   validateMapBuffers(map);
   validateDimensions(width, height);
-  if (
-    !Number.isFinite(transform.offsetX) ||
-    !Number.isFinite(transform.offsetY) ||
-    transform.offsetX < 0 ||
-    transform.offsetY < 0
-  ) {
-    return resizeDepthMap(map, width, height);
+  const { offsetX, offsetY, contentWidth, contentHeight } = letterboxContent(
+    transform,
+    map.width,
+    map.height,
+  );
+  const scaleX = contentWidth / width;
+  const scaleY = contentHeight / height;
+  if (!Number.isFinite(scaleX) || !Number.isFinite(scaleY) || scaleX <= 0 || scaleY <= 0) {
+    throw new Error('Depth letterbox registration has invalid source scale');
   }
-  const scale = Math.min(map.width / width, map.height / height);
-  if (!Number.isFinite(scale) || scale <= 0) return resizeDepthMap(map, width, height);
   const values = new Float32Array(width * height);
   const valid = new Uint8Array(width * height);
   const measurements = map.measurements ? new Float32Array(width * height) : undefined;
@@ -1000,8 +1014,8 @@ export function unletterboxDepthMap(
     for (let x = 0; x < width; x++) {
       const sample = sampleDepthBilinearInside(
         map,
-        transform.offsetX + (x + 0.5) * scale - 0.5,
-        transform.offsetY + (y + 0.5) * scale - 0.5,
+        offsetX + (x + 0.5) * scaleX - 0.5,
+        offsetY + (y + 0.5) * scaleY - 0.5,
       );
       const index = y * width + x;
       if (sample === null) {
@@ -1025,10 +1039,10 @@ export function unletterboxDepthMap(
       map.metadata,
       width,
       height,
-      1 / scale,
-      1 / scale,
-      transform.offsetX,
-      transform.offsetY,
+      1 / scaleX,
+      1 / scaleY,
+      offsetX,
+      offsetY,
     ),
   };
 }

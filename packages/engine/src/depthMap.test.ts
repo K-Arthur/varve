@@ -285,6 +285,35 @@ describe('DepthMap', () => {
     expect(restored.values[3]).toBeCloseTo(6.5 / 7, 5);
   });
 
+  it('uses the worker content rectangle instead of reconstructing a rounded scale', () => {
+    const values = new Float32Array(8 * 8);
+    const valid = new Uint8Array(values.length).fill(1);
+    for (let y = 0; y < 8; y++) {
+      for (let x = 0; x < 8; x++) values[y * 8 + x] = y / 7;
+    }
+    const map: DepthMap = {
+      width: 8,
+      height: 8,
+      values,
+      valid,
+      metadata: {
+        depthType: 'relative',
+        unit: 'normalized',
+        nearFarConvention: 'nearIsLow',
+        inferenceVersion: 1,
+        preprocessingVersion: 1,
+      },
+    };
+    const restored = unletterboxDepthMap(map, 4, 3, {
+      offsetX: 0,
+      offsetY: 1.5,
+      contentWidth: 8,
+      contentHeight: 5,
+    });
+    expect(restored.values[0]).toBeCloseTo((1.5 + 0.5 * (5 / 3) - 0.5) / 7, 5);
+    expect(restored.values[8]).toBeCloseTo((1.5 + 2.5 * (5 / 3) - 0.5) / 7, 5);
+  });
+
   it('uses explicit registration for source-size changes without clamping outside samples', () => {
     const map: DepthMap = {
       width: 2,
