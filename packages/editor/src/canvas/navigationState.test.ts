@@ -98,6 +98,16 @@ describe('navigationState', () => {
     }
   });
 
+  it('a touch cancellation preserves the remaining navigation set', () => {
+    const t = transitionNavigationState('touch-pinch', {
+      type: 'pointer-cancel',
+      pointerType: 'touch',
+      pointerCount: 1,
+    });
+    expect(t.next).toBe('touch-pan');
+    expect(t.finished).toBe(true);
+  });
+
   it('blur and reset collapse any active gesture to idle', () => {
     for (const event of [{ type: 'blur' }, { type: 'reset' }] as const) {
       const t = transitionNavigationState('touch-pinch', event);

@@ -15,8 +15,11 @@
  *   with larger magnitudes — the magnitude threshold separates these
  *   from trackpad pixel-mode events.
  *
- * The classifier is intentionally permissive: when uncertain, it
- * defaults to `mouse` (the safer assumption for zoom behavior).
+ * The classifier preserves an `unknown` result. Unknown input remains fully
+ * usable as direct pan/zoom, but does not receive application-side inertia:
+ * adding momentum to an unrecognised precision device is how OS momentum tails
+ * become doubled and sticky. A later sequence can still resolve to mouse or
+ * trackpad through wheelGesture.ts.
  *
  * Research basis: W3C UIEvents WheelEvent, Chromium wheel event
  * translation, Firefox DOMMouseScroll, MDN WheelEvent.
@@ -40,7 +43,7 @@ export type WheelDeltaInput = Pick<WheelEvent, 'deltaMode' | 'deltaX' | 'deltaY'
  *    mouse wheel (detented wheels report ~100-120 px per notch in
  *    pixel mode on some platforms).
  * 3. `deltaMode === 0` with small deltas (< 50) → trackpad.
- * 4. Otherwise → unknown (treat as mouse for safety).
+ * 4. Otherwise → unknown (direct manipulation continues without app inertia).
  */
 export function classifyWheelEvent(e: WheelDeltaInput): WheelSource {
   // Line-mode or page-mode is always a mouse wheel.
@@ -62,16 +65,23 @@ export function classifyWheelEvent(e: WheelDeltaInput): WheelSource {
  * Normalize a wheel delta to stable internal pixel units.
  *
  * - `deltaMode 0` (PIXEL): pass through (already in CSS pixels).
- * - `deltaMode 1` (LINE): multiply by 16 (standard line height).
+ * - `deltaMode 1` (LINE): multiply by the app's explicit 16 CSS-pixel policy.
  * - `deltaMode 2` (PAGE): multiply by the element's client height.
  */
+/** Explicit application policy for DOM_DELTA_LINE, not a universal font metric. */
+export const DEFAULT_WHEEL_LINE_HEIGHT_CSS_PX = 16;
+
 export function normalizeWheelDelta(
   delta: number,
   deltaMode: number,
   clientHeight: number,
 ): number {
-  if (deltaMode === 1) return delta * 16;
-  if (deltaMode === 2) return delta * clientHeight;
+  if (!Number.isFinite(delta)) return 0;
+  if (deltaMode === 1) return delta * DEFAULT_WHEEL_LINE_HEIGHT_CSS_PX;
+  if (deltaMode === 2) {
+    const height = Number.isFinite(clientHeight) ? Math.max(0, clientHeight) : 0;
+    return delta * height;
+  }
   return delta;
 }
 
@@ -102,8 +112,8 @@ export interface ResolvedWheelAction {
   /**
    * Whether the app should apply its own inertia on top of this event.
    * Precision trackpads deliver their own momentum, so app-side inertia
-   * would double it; mouse wheels need it. `unknown` (borderline) inherits
-   * the mouse behavior for safety.
+   * would double it; mouse wheels need it. `unknown` (borderline) stays
+   * direct-only until sequence evidence resolves it.
    */
   applyInertia: boolean;
 }
@@ -163,6 +173,6 @@ export function resolveWheelAction(e: {
     deltaY: -normY,
     shiftHeld: false,
     scale: 1,
-    applyInertia: source !== 'trackpad',
+    applyInertia: source === 'mouse',
   };
 }

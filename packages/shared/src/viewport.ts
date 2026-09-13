@@ -63,8 +63,76 @@ export interface Viewport {
   height: number;
 }
 
+const DEFAULT_VIEWPORT: Viewport = { width: 1920, height: 1080 };
+
+function isFiniteCamera(cam: Camera): boolean {
+  return (
+    Number.isFinite(cam.pan.x) &&
+    Number.isFinite(cam.pan.y) &&
+    Number.isFinite(cam.zoom) &&
+    cam.zoom > 0 &&
+    (cam.rotation === undefined || Number.isFinite(cam.rotation))
+  );
+}
+
+function isFiniteViewport(viewport: Viewport): boolean {
+  return (
+    Number.isFinite(viewport.width) &&
+    viewport.width >= 0 &&
+    Number.isFinite(viewport.height) &&
+    viewport.height >= 0
+  );
+}
+
+function isFinitePoint(point: Point): boolean {
+  return Number.isFinite(point[0]) && Number.isFinite(point[1]);
+}
+
+function normalizeRect(rect: Rect): Rect | null {
+  if (![rect.x, rect.y, rect.w, rect.h].every(Number.isFinite)) return null;
+  const x2 = rect.x + rect.w;
+  const y2 = rect.y + rect.h;
+  if (!Number.isFinite(x2) || !Number.isFinite(y2)) return null;
+  return {
+    x: Math.min(rect.x, x2),
+    y: Math.min(rect.y, y2),
+    w: Math.abs(rect.w),
+    h: Math.abs(rect.h),
+  };
+}
+
+function projectedScreenBounds(
+  cam: Camera,
+  viewport: Viewport,
+  worldRect: Rect,
+): { minX: number; minY: number; maxX: number; maxY: number } | null {
+  const rect = normalizeRect(worldRect);
+  if (!rect || !isFiniteCamera(cam) || !isFiniteViewport(viewport)) return null;
+  const origin = computeFloatingOrigin(cam, viewport);
+  const corners: Point[] = [
+    [rect.x, rect.y],
+    [rect.x + rect.w, rect.y],
+    [rect.x, rect.y + rect.h],
+    [rect.x + rect.w, rect.y + rect.h],
+  ];
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const corner of corners) {
+    const [x, y] = worldToScreen(cam, corner[0], corner[1], viewport, origin);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x);
+    maxY = Math.max(maxY, y);
+  }
+  return { minX, minY, maxX, maxY };
+}
+
 /** Clamp `z` to the supported zoom range. */
 export function clampZoom(z: number): number {
+  if (!Number.isFinite(z)) return 1;
   return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z));
 }
 
@@ -99,16 +167,20 @@ export function buildWorldToScreenAffine(
   viewport: Viewport,
   _origin: Point = [0, 0],
 ): Affine {
-  const r = cam.rotation ?? 0;
-  const cx = viewport.width / 2;
-  const cy = viewport.height / 2;
+  const safeViewport = isFiniteViewport(viewport) ? viewport : DEFAULT_VIEWPORT;
+  const safeZoom = Number.isFinite(cam.zoom) && cam.zoom > 0 ? clampZoom(cam.zoom) : 1;
+  const panX = Number.isFinite(cam.pan.x) ? cam.pan.x : 0;
+  const panY = Number.isFinite(cam.pan.y) ? cam.pan.y : 0;
+  const r = Number.isFinite(cam.rotation) ? (cam.rotation ?? 0) : 0;
+  const cx = safeViewport.width / 2;
+  const cy = safeViewport.height / 2;
   let m = identity;
-  m = multiplyAffine(scaleAffine(cam.zoom), m);
+  m = multiplyAffine(scaleAffine(safeZoom), m);
   m = multiplyAffine(translate(-cx, -cy), m);
   if (r !== 0) {
     m = multiplyAffine(rotateRad(r), m);
   }
-  m = multiplyAffine(translate(cx + cam.pan.x, cy + cam.pan.y), m);
+  m = multiplyAffine(translate(cx + panX, cy + panY), m);
   return m;
 }
 
@@ -131,9 +203,12 @@ export function screenToWorld(
   viewport: Viewport = { width: 1920, height: 1080 },
   origin: Point = [0, 0],
 ): Point {
-  const inv = buildScreenToWorldAffine(cam, viewport, origin);
-  if (!inv) return [(cx - cam.pan.x) / cam.zoom, (cy - cam.pan.y) / cam.zoom];
-  return applyAffine(inv, [cx, cy]);
+  const vp = isFiniteViewport(viewport) ? viewport : DEFAULT_VIEWPORT;
+  const point: Point = [Number.isFinite(cx) ? cx : 0, Number.isFinite(cy) ? cy : 0];
+  const inv = buildScreenToWorldAffine(cam, vp, origin);
+  if (!inv) return [0, 0];
+  const result = applyAffine(inv, point);
+  return isFinitePoint(result) ? result : [0, 0];
 }
 
 /** Convert world coords → canvas-area-relative CSS px. */
@@ -144,19 +219,24 @@ export function worldToScreen(
   viewport: Viewport = { width: 1920, height: 1080 },
   origin: Point = [0, 0],
 ): Point {
-  const m = buildWorldToScreenAffine(cam, viewport, origin);
-  return applyAffine(m, [wx, wy]);
+  const vp = isFiniteViewport(viewport) ? viewport : DEFAULT_VIEWPORT;
+  const m = buildWorldToScreenAffine(cam, vp, origin);
+  const point: Point = [Number.isFinite(wx) ? wx : 0, Number.isFinite(wy) ? wy : 0];
+  const result = applyAffine(m, point);
+  return isFinitePoint(result) ? result : [0, 0];
 }
 
 /** Convert a CSS-pixel delta to a world-space delta. */
 export function screenDeltaToWorld(cam: Camera, dx: number, dy: number): Point {
-  const z = cam.zoom;
-  const r = cam.rotation ?? 0;
-  if (r === 0) return [dx / z, dy / z];
+  const z = Number.isFinite(cam.zoom) && cam.zoom > 0 ? cam.zoom : 1;
+  const r = Number.isFinite(cam.rotation) ? (cam.rotation ?? 0) : 0;
+  const safeDx = Number.isFinite(dx) ? dx : 0;
+  const safeDy = Number.isFinite(dy) ? dy : 0;
+  if (r === 0) return [safeDx / z, safeDy / z];
   const cos = Math.cos(-r);
   const sin = Math.sin(-r);
-  const rx = dx * cos - dy * sin;
-  const ry = dx * sin + dy * cos;
+  const rx = safeDx * cos - safeDy * sin;
+  const ry = safeDx * sin + safeDy * cos;
   return [rx / z, ry / z];
 }
 
@@ -268,19 +348,29 @@ export function fitZoom(
   padding: number,
   maxZoom: number = DEFAULT_REVEAL_MAX_ZOOM,
 ): number {
-  const availW = Math.max(1, viewport.width - 2 * padding);
-  const availH = Math.max(1, viewport.height - 2 * padding);
-  const rectW = Math.max(1e-6, worldRect.w);
-  const rectH = Math.max(1e-6, worldRect.h);
-  return clampZoom(Math.min(availW / rectW, availH / rectH, maxZoom));
+  const rect = normalizeRect(worldRect);
+  if (!rect || !isFiniteViewport(viewport)) return 1;
+  const safePadding = Number.isFinite(padding) ? Math.max(0, padding) : 0;
+  const safeMaxZoom = Number.isFinite(maxZoom) ? maxZoom : DEFAULT_REVEAL_MAX_ZOOM;
+  const availW = Math.max(1, viewport.width - 2 * safePadding);
+  const availH = Math.max(1, viewport.height - 2 * safePadding);
+  const rectW = Math.max(1e-6, rect.w);
+  const rectH = Math.max(1e-6, rect.h);
+  return clampZoom(Math.min(availW / rectW, availH / rectH, safeMaxZoom));
 }
 
 export function centerBoundsCamera(worldRect: Rect, viewport: Viewport, zoom: number): Camera {
-  const cx = worldRect.x + worldRect.w / 2;
-  const cy = worldRect.y + worldRect.h / 2;
+  const rect = normalizeRect(worldRect) ?? { x: 0, y: 0, w: 0, h: 0 };
+  const safeViewport = isFiniteViewport(viewport) ? viewport : DEFAULT_VIEWPORT;
+  const safeZoom = Number.isFinite(zoom) && zoom > 0 ? clampZoom(zoom) : 1;
+  const cx = rect.x + rect.w / 2;
+  const cy = rect.y + rect.h / 2;
   return {
-    pan: { x: viewport.width / 2 - cx * zoom, y: viewport.height / 2 - cy * zoom },
-    zoom,
+    pan: {
+      x: safeViewport.width / 2 - cx * safeZoom,
+      y: safeViewport.height / 2 - cy * safeZoom,
+    },
+    zoom: safeZoom,
     rotation: 0,
   };
 }
@@ -292,18 +382,22 @@ export function centerBoundsCameraWithRotation(
   zoom: number,
   rotation: number,
 ): Camera {
-  const cx = worldRect.x + worldRect.w / 2;
-  const cy = worldRect.y + worldRect.h / 2;
-  const viewportCx = viewport.width / 2;
-  const viewportCy = viewport.height / 2;
-  const cos = Math.cos(rotation);
-  const sin = Math.sin(rotation);
-  const rotatedX = cos * (cx * zoom - viewportCx) - sin * (cy * zoom - viewportCy);
-  const rotatedY = sin * (cx * zoom - viewportCx) + cos * (cy * zoom - viewportCy);
+  const rect = normalizeRect(worldRect) ?? { x: 0, y: 0, w: 0, h: 0 };
+  const safeViewport = isFiniteViewport(viewport) ? viewport : DEFAULT_VIEWPORT;
+  const safeZoom = Number.isFinite(zoom) && zoom > 0 ? clampZoom(zoom) : 1;
+  const safeRotation = Number.isFinite(rotation) ? rotation : 0;
+  const cx = rect.x + rect.w / 2;
+  const cy = rect.y + rect.h / 2;
+  const viewportCx = safeViewport.width / 2;
+  const viewportCy = safeViewport.height / 2;
+  const cos = Math.cos(safeRotation);
+  const sin = Math.sin(safeRotation);
+  const rotatedX = cos * (cx * safeZoom - viewportCx) - sin * (cy * safeZoom - viewportCy);
+  const rotatedY = sin * (cx * safeZoom - viewportCx) + cos * (cy * safeZoom - viewportCy);
   return {
     pan: { x: viewportCx - viewportCx - rotatedX, y: viewportCy - viewportCy - rotatedY },
-    zoom,
-    rotation,
+    zoom: safeZoom,
+    rotation: safeRotation,
   };
 }
 
@@ -315,16 +409,22 @@ export function fitBoundsCameraWithRotation(
   padding: number = DEFAULT_REVEAL_PADDING,
   maxZoom: number = DEFAULT_REVEAL_MAX_ZOOM,
 ): Camera {
-  const absCos = Math.abs(Math.cos(rotation));
-  const absSin = Math.abs(Math.sin(rotation));
+  const rect = normalizeRect(worldRect);
+  const safeViewport = isFiniteViewport(viewport) ? viewport : DEFAULT_VIEWPORT;
+  const safeRotation = Number.isFinite(rotation) ? rotation : 0;
+  if (!rect) {
+    return centerBoundsCameraWithRotation({ x: 0, y: 0, w: 0, h: 0 }, safeViewport, 1, 0);
+  }
+  const absCos = Math.abs(Math.cos(safeRotation));
+  const absSin = Math.abs(Math.sin(safeRotation));
   const projected = {
     x: 0,
     y: 0,
-    w: worldRect.w * absCos + worldRect.h * absSin,
-    h: worldRect.w * absSin + worldRect.h * absCos,
+    w: rect.w * absCos + rect.h * absSin,
+    h: rect.w * absSin + rect.h * absCos,
   };
-  const zoom = fitZoom(projected, viewport, padding, maxZoom);
-  return centerBoundsCameraWithRotation(worldRect, viewport, zoom, rotation);
+  const zoom = fitZoom(projected, safeViewport, padding, maxZoom);
+  return centerBoundsCameraWithRotation(rect, safeViewport, zoom, safeRotation);
 }
 
 /**
@@ -337,33 +437,34 @@ export function revealBoundsCameraWithRotation(
   worldRect: Rect,
   padding: number = DEFAULT_REVEAL_PADDING,
 ): Camera {
-  const origin = computeFloatingOrigin(cam, viewport);
-  const corners: Point[] = [
-    [worldRect.x, worldRect.y],
-    [worldRect.x + worldRect.w, worldRect.y],
-    [worldRect.x, worldRect.y + worldRect.h],
-    [worldRect.x + worldRect.w, worldRect.y + worldRect.h],
-  ];
-  const projected = corners.map(([x, y]) => worldToScreen(cam, x, y, viewport, origin));
-  const minX = Math.min(...projected.map(([x]) => x));
-  const minY = Math.min(...projected.map(([, y]) => y));
-  const maxX = Math.max(...projected.map(([x]) => x));
-  const maxY = Math.max(...projected.map(([, y]) => y));
-  const usableW = Math.max(1, viewport.width - padding * 2);
-  const usableH = Math.max(1, viewport.height - padding * 2);
+  if (!isFiniteCamera(cam) || !isFiniteViewport(viewport)) return cam;
+  const projected = projectedScreenBounds(cam, viewport, worldRect);
+  if (!projected) return cam;
+  const safePadding = Number.isFinite(padding) ? Math.max(0, padding) : 0;
+  const { minX, minY, maxX, maxY } = projected;
+  const usableW = Math.max(1, viewport.width - safePadding * 2);
+  const usableH = Math.max(1, viewport.height - safePadding * 2);
   if (
-    minX >= padding &&
-    minY >= padding &&
-    maxX <= padding + usableW &&
-    maxY <= padding + usableH
+    minX >= safePadding &&
+    minY >= safePadding &&
+    maxX <= safePadding + usableW &&
+    maxY <= safePadding + usableH
   ) {
     return cam;
   }
 
   const dx =
-    minX < padding ? padding - minX : maxX > padding + usableW ? padding + usableW - maxX : 0;
+    minX < safePadding
+      ? safePadding - minX
+      : maxX > safePadding + usableW
+        ? safePadding + usableW - maxX
+        : 0;
   const dy =
-    minY < padding ? padding - minY : maxY > padding + usableH ? padding + usableH - maxY : 0;
+    minY < safePadding
+      ? safePadding - minY
+      : maxY > safePadding + usableH
+        ? safePadding + usableH - maxY
+        : 0;
   return { ...cam, pan: { x: cam.pan.x + dx, y: cam.pan.y + dy } };
 }
 
@@ -383,75 +484,7 @@ export function revealBoundsCamera(
   worldRect: Rect,
   padding: number = DEFAULT_REVEAL_PADDING,
 ): Camera {
-  const z = cam.zoom;
-  const pz = padding / z;
-
-  const panX = cam.pan.x;
-  const panY = cam.pan.y;
-
-  const rectMinX = worldRect.x;
-  const rectMinY = worldRect.y;
-  const rectMaxX = worldRect.x + worldRect.w;
-  const rectMaxY = worldRect.y + worldRect.h;
-
-  const vpMinX = -panX / z;
-  const vpMinY = -panY / z;
-  const vpMaxX = (viewport.width - panX) / z;
-  const vpMaxY = (viewport.height - panY) / z;
-  if (
-    rectMinX >= vpMinX + pz &&
-    rectMinY >= vpMinY + pz &&
-    rectMaxX <= vpMaxX - pz &&
-    rectMaxY <= vpMaxY - pz
-  ) {
-    return cam;
-  }
-
-  const leftReqX = -z * rectMinX + padding;
-  const rightReqX = viewport.width - z * rectMaxX - padding;
-  const vpWidthWorld = vpMaxX - vpMinX;
-  const fitsX = worldRect.w <= vpWidthWorld - 2 * pz;
-
-  let newPanX: number;
-  if (fitsX) {
-    if (panX < leftReqX) {
-      newPanX = leftReqX <= rightReqX ? leftReqX : (leftReqX + rightReqX) / 2;
-    } else if (panX > rightReqX) {
-      newPanX = rightReqX >= leftReqX ? rightReqX : (leftReqX + rightReqX) / 2;
-    } else {
-      newPanX = panX;
-    }
-  } else if (rectMinX < vpMinX + pz) {
-    newPanX = leftReqX;
-  } else {
-    newPanX = rightReqX;
-  }
-
-  const leftReqY = -z * rectMinY + padding;
-  const rightReqY = viewport.height - z * rectMaxY - padding;
-  const vpHeightWorld = vpMaxY - vpMinY;
-  const fitsY = worldRect.h <= vpHeightWorld - 2 * pz;
-
-  let newPanY: number;
-  if (fitsY) {
-    if (panY < leftReqY) {
-      newPanY = leftReqY <= rightReqY ? leftReqY : (leftReqY + rightReqY) / 2;
-    } else if (panY > rightReqY) {
-      newPanY = rightReqY >= leftReqY ? rightReqY : (leftReqY + rightReqY) / 2;
-    } else {
-      newPanY = panY;
-    }
-  } else if (rectMinY < vpMinY + pz) {
-    newPanY = leftReqY;
-  } else {
-    newPanY = rightReqY;
-  }
-
-  return {
-    pan: { x: Math.round(newPanX * 1000) / 1000, y: Math.round(newPanY * 1000) / 1000 },
-    zoom: z,
-    rotation: cam.rotation,
-  };
+  return revealBoundsCameraWithRotation(cam, viewport, worldRect, padding);
 }
 
 /**
@@ -467,12 +500,15 @@ export function zoomAboutPoint(
   newZoom: number,
   viewport?: Viewport,
 ): Camera {
+  if (!isFiniteCamera(cam) || !isFinitePoint(worldAnchor) || !Number.isFinite(newZoom)) return cam;
   const z = clampZoom(newZoom);
-  const vp = viewport ?? { width: 1920, height: 1080 };
+  const vp = viewport ?? DEFAULT_VIEWPORT;
+  if (!isFiniteViewport(vp) || vp.width === 0 || vp.height === 0) return cam;
   const origin: Point = viewport ? computeFloatingOrigin(cam, viewport) : [0, 0];
   const [screenX, screenY] = worldToScreen(cam, worldAnchor[0], worldAnchor[1], vp, origin);
   const baseCam: Camera = { ...cam, pan: { x: 0, y: 0 }, zoom: z };
   const [baseX, baseY] = worldToScreen(baseCam, worldAnchor[0], worldAnchor[1], vp, origin);
+  if (![screenX, screenY, baseX, baseY].every(Number.isFinite)) return cam;
   return {
     ...cam,
     zoom: z,
@@ -481,7 +517,10 @@ export function zoomAboutPoint(
 }
 
 export function localRectToScreen(worldMatrix: Affine, cam: Camera, localRect: Rect): Rect {
-  return transformRect(worldToScreenAffine(cam), transformRect(worldMatrix, localRect));
+  return transformRect(
+    buildWorldToScreenAffine(cam, DEFAULT_VIEWPORT),
+    transformRect(worldMatrix, localRect),
+  );
 }
 
 export function lerpCamera(from: Camera, to: Camera, t: number): Camera {
@@ -515,29 +554,23 @@ export function clampCamera(
   documentBounds: Rect | null,
   margin: number = 500,
 ): Camera {
-  if (!documentBounds) return cam;
-  const origin = computeFloatingOrigin(cam, viewport);
+  if (!documentBounds || !isFiniteCamera(cam) || !isFiniteViewport(viewport)) return cam;
+  const projected = projectedScreenBounds(cam, viewport, documentBounds);
+  if (!projected) return cam;
   const z = cam.zoom;
-  const marginScreen = margin * z;
-  const topLeft = worldToScreen(cam, documentBounds.x, documentBounds.y, viewport, origin);
-  const bottomRight = worldToScreen(
-    cam,
-    documentBounds.x + documentBounds.w,
-    documentBounds.y + documentBounds.h,
-    viewport,
-    origin,
-  );
+  const safeMargin = Number.isFinite(margin) ? Math.max(0, margin) : 500;
+  const marginScreen = safeMargin * z;
   let newPanX = cam.pan.x;
-  if (bottomRight[0] < -marginScreen) {
-    newPanX = cam.pan.x + (-marginScreen - bottomRight[0]);
-  } else if (topLeft[0] > viewport.width + marginScreen) {
-    newPanX = cam.pan.x - (topLeft[0] - (viewport.width + marginScreen));
+  if (projected.maxX < -marginScreen) {
+    newPanX = cam.pan.x + (-marginScreen - projected.maxX);
+  } else if (projected.minX > viewport.width + marginScreen) {
+    newPanX = cam.pan.x - (projected.minX - (viewport.width + marginScreen));
   }
   let newPanY = cam.pan.y;
-  if (bottomRight[1] < -marginScreen) {
-    newPanY = cam.pan.y + (-marginScreen - bottomRight[1]);
-  } else if (topLeft[1] > viewport.height + marginScreen) {
-    newPanY = cam.pan.y - (topLeft[1] - (viewport.height + marginScreen));
+  if (projected.maxY < -marginScreen) {
+    newPanY = cam.pan.y + (-marginScreen - projected.maxY);
+  } else if (projected.minY > viewport.height + marginScreen) {
+    newPanY = cam.pan.y - (projected.minY - (viewport.height + marginScreen));
   }
   return { ...cam, pan: { x: newPanX, y: newPanY } };
 }

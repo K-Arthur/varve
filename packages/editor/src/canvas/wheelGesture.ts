@@ -24,9 +24,9 @@
  *
  * The output drives `applyInertia`: only gestures classified as wheel/mouse
  * receive app-side inertia; trackpad gestures keep the OS momentum alone.
- * When the trajectory is genuinely ambiguous it degrades to the per-event
- * classification, which defaults to `mouse` — the safe choice per the
- * existing wheelClassifier contract.
+ * When the trajectory is genuinely ambiguous it preserves `unknown`. The
+ * caller still applies the current delta immediately, while withholding
+ * application inertia until the sequence provides reliable evidence.
  */
 
 import { classifyWheelEvent, type WheelSource } from './wheelClassifier';

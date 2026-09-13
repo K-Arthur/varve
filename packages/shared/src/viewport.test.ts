@@ -42,6 +42,10 @@ describe('clampZoom', () => {
   it('clamps below minimum', () => expect(clampZoom(0.0001)).toBe(MIN_ZOOM));
   it('clamps above maximum', () => expect(clampZoom(100)).toBe(MAX_ZOOM));
   it('passes through in-range values', () => expect(clampZoom(1.5)).toBe(1.5));
+  it('returns a finite default for nonfinite input', () => {
+    expect(clampZoom(Number.NaN)).toBe(1);
+    expect(clampZoom(Number.POSITIVE_INFINITY)).toBe(1);
+  });
 });
 
 describe('screen<->world round-trips', () => {
@@ -308,6 +312,24 @@ describe('revealBoundsCamera', () => {
     const out = revealBoundsCamera(c, vp, { x: 0, y: 2000, w: 100, h: 50 }, 10);
     expect(out.pan.y).toBeCloseTo(-980, 0);
   });
+
+  it('preserves fractional pan and active rotation', () => {
+    const c: Camera = { pan: { x: 0.125, y: -0.375 }, zoom: 1.5, rotation: Math.PI / 8 };
+    const target = { x: -900.125, y: 30.25, w: 20.5, h: 10.75 };
+    const out = revealBoundsCamera(c, vp, target, 10);
+    expect(out.rotation).toBe(c.rotation);
+    expect(out.pan.x % 1).not.toBe(0);
+    expect(out.pan.y % 1).not.toBe(0);
+    const corners = [
+      [target.x, target.y],
+      [target.x + target.w, target.y],
+      [target.x, target.y + target.h],
+      [target.x + target.w, target.y + target.h],
+    ] as const;
+    const projected = corners.map(([x, y]) => worldToScreen(out, x, y, vp));
+    expect(Math.min(...projected.map(([x]) => x))).toBeGreaterThanOrEqual(10 - 1e-8);
+    expect(Math.min(...projected.map(([, y]) => y))).toBeGreaterThanOrEqual(10 - 1e-8);
+  });
 });
 
 describe('zoomAboutPoint', () => {
@@ -361,6 +383,14 @@ describe('zoomAboutPoint', () => {
     const c = cam(0, 0, 1);
     const clamped = zoomAboutPoint(c, [0, 0], 100);
     expect(clamped.zoom).toBe(MAX_ZOOM);
+  });
+
+  it('rejects nonfinite camera or anchor input without moving it', () => {
+    const invalid = { pan: { x: Number.NaN, y: 0 }, zoom: 1 };
+    expect(zoomAboutPoint(invalid, [0, 0], 2)).toBe(invalid);
+    const original = cam(12, -8, 2);
+    expect(zoomAboutPoint(original, [Number.NaN, 0], 3)).toBe(original);
+    expect(zoomAboutPoint(original, [0, 0], Number.NaN)).toBe(original);
   });
 });
 
@@ -562,5 +592,44 @@ describe('clampCamera', () => {
     const bounds = { x: 0, y: 0, w: 100, h: 100 };
     const clamped = clampCamera(cam(2500, 1600, 1), vp, bounds, 100);
     expect(clamped.pan).toEqual({ x: 2020, y: 1180 });
+  });
+
+  it('uses all four corners when the view is rotated', () => {
+    const starting = {
+      pan: { x: 300, y: 0 },
+      zoom: 1,
+      rotation: Math.PI / 4,
+    } as const;
+    const clamped = clampCamera(
+      starting,
+      { width: 500, height: 500 },
+      { x: 0, y: 0, w: 1000, h: 1000 },
+      0,
+    );
+    // The named top-left/bottom-right corners are beyond the right/bottom
+    // edges, but the other corners still cross the viewport. A two-corner
+    // implementation incorrectly snaps the camera; the projected AABB does
+    // not authorize a clamp until the whole document leaves an edge.
+    expect(clamped.pan).toEqual(starting.pan);
+    const bounds = [
+      [0, 0],
+      [1000, 0],
+      [0, 1000],
+      [1000, 1000],
+    ] as const;
+    const projected = bounds.map(([x, y]) =>
+      worldToScreen(clamped, x, y, { width: 500, height: 500 }),
+    );
+    expect(Math.min(...projected.map(([x]) => x))).toBeLessThan(0);
+    expect(Math.max(...projected.map(([x]) => x))).toBeGreaterThan(500);
+    expect(Math.min(...projected.map(([, y]) => y))).toBeLessThan(0);
+    expect(Math.max(...projected.map(([, y]) => y))).toBeGreaterThan(500);
+  });
+
+  it('leaves invalid bounds and cameras untouched', () => {
+    const original = cam(4, 5, 2);
+    expect(clampCamera(original, vp, { x: Number.NaN, y: 0, w: 10, h: 10 })).toBe(original);
+    const invalidCamera = { pan: { x: Number.NaN, y: 5 }, zoom: 2 };
+    expect(clampCamera(invalidCamera, vp, { x: 0, y: 0, w: 10, h: 10 })).toBe(invalidCamera);
   });
 });

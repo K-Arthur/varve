@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { classifyWheelEvent, normalizeWheelDelta, resolveWheelAction } from './wheelClassifier';
+import {
+  classifyWheelEvent,
+  DEFAULT_WHEEL_LINE_HEIGHT_CSS_PX,
+  normalizeWheelDelta,
+  resolveWheelAction,
+} from './wheelClassifier';
 
 function makeWheel(overrides: Partial<WheelEvent> = {}): WheelEvent {
   return {
@@ -56,7 +61,7 @@ describe('normalizeWheelDelta', () => {
   });
 
   it('multiplies line-mode deltas by 16', () => {
-    expect(normalizeWheelDelta(3, 1, 800)).toBe(48);
+    expect(normalizeWheelDelta(3, 1, 800)).toBe(3 * DEFAULT_WHEEL_LINE_HEIGHT_CSS_PX);
   });
 
   it('multiplies page-mode deltas by client height', () => {
@@ -65,6 +70,11 @@ describe('normalizeWheelDelta', () => {
 
   it('handles negative deltas', () => {
     expect(normalizeWheelDelta(-3, 1, 800)).toBe(-48);
+  });
+
+  it('keeps invalid values finite', () => {
+    expect(normalizeWheelDelta(Number.NaN, 0, 800)).toBe(0);
+    expect(normalizeWheelDelta(1, 2, Number.NaN)).toBe(0);
   });
 });
 
@@ -144,10 +154,10 @@ describe('resolveWheelAction', () => {
     expect(action.applyInertia).toBe(true);
   });
 
-  it('treats borderline (unknown) deltas like mouse for inertia', () => {
+  it('keeps borderline (unknown) deltas direct without app inertia', () => {
     const action = resolveWheelAction(wheel({ deltaY: 60 }));
     expect(action.kind).toBe('pan');
-    expect(action.applyInertia).toBe(true);
+    expect(action.applyInertia).toBe(false);
   });
 
   it('routes shift+vertical-wheel to horizontal pan', () => {

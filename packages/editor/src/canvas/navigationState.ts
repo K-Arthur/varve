@@ -10,7 +10,9 @@
  * - idle        : no navigation gesture in progress
  * - wheel-pan   : plain wheel scrolling the viewport (momentum may follow)
  * - wheel-zoom  : ctrl/cmd+wheel zooming at the cursor
- * - touch-pan   : one-finger touch (route to tool, no viewport pan)
+ * - touch-pan   : one-finger touch navigation (tool ownership is decided by
+ *                  inputPolicy.ts, so a remaining post-pinch finger cannot
+ *                  become a new stroke)
  * - touch-pinch : two-finger pan+zoom about the centroid
  * - space-hand  : Spacebar spring-loaded Hand tool pan
  *
@@ -31,7 +33,7 @@ export type NavigationGestureEvent =
   | { type: 'pointer-down'; pointerType: string; pointerCount: number }
   | { type: 'pointer-move'; pointerType: string; pointerCount: number }
   | { type: 'pointer-up'; pointerType: string; pointerCount: number }
-  | { type: 'pointer-cancel' }
+  | { type: 'pointer-cancel'; pointerType?: string; pointerCount?: number }
   | { type: 'space-down' }
   | { type: 'space-up' }
   | { type: 'blur' }
@@ -80,6 +82,16 @@ export function transitionNavigationState(
       }
       return { next: state, finished: false };
     case 'pointer-cancel':
+      if (event.pointerType === 'touch' && event.pointerCount !== undefined) {
+        if (event.pointerCount >= 2) {
+          return { next: 'touch-pinch', finished: false };
+        }
+        return {
+          next: event.pointerCount === 1 ? 'touch-pan' : 'idle',
+          finished: state !== 'idle',
+        };
+      }
+      return { next: 'idle', finished: state !== 'idle' };
     case 'blur':
     case 'reset':
       return { next: 'idle', finished: state !== 'idle' };
