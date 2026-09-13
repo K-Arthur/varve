@@ -238,6 +238,58 @@ test.describe('Font selector', () => {
     });
   });
 
+  test('full browser favorites are explicit, filterable, and do not select a row', async ({
+    page,
+  }) => {
+    await page.keyboard.press('t');
+    await dragOnCanvas(page, 120, 160, 360, 220);
+    await page.keyboard.insertText('Typography in context');
+    await expect(page.getByRole('treeitem').first()).toContainText(/text/i, { timeout: 10000 });
+
+    await page.getByRole('button', { name: 'Browse fonts' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Browse fonts' });
+    const search = dialog.getByRole('searchbox', {
+      name: 'Search fonts by name or design language',
+    });
+    // Keep the query to the distinctive family stem. The semantic parser can
+    // interpret words such as “Variable” and “Sans” as design filters, which
+    // returns a large ranked catalog and leaves the exact row outside the
+    // initial virtualized viewport.
+    await search.fill('Plex');
+
+    const row = dialog
+      .locator('.font-browser__entry')
+      .filter({ hasText: 'IBM Plex Sans Variable' })
+      .first();
+    await expect(row).toBeVisible();
+    const favorite = row.locator('button.font-browser__favorite');
+    await expect(favorite).toHaveAttribute('aria-label', 'Add IBM Plex Sans Variable to favorites');
+    await expect(favorite).toHaveAttribute('aria-pressed', 'false');
+    await page.screenshot({
+      path: test.info().outputPath('font-browser-favorite-available.png'),
+      fullPage: true,
+    });
+
+    await favorite.click();
+    await expect(favorite).toHaveAttribute(
+      'aria-label',
+      'Remove IBM Plex Sans Variable from favorites',
+    );
+    await expect(favorite).toHaveAttribute('aria-pressed', 'true');
+
+    await dialog.getByRole('tab', { name: 'Favorites' }).click();
+    await expect(
+      dialog.locator('.font-browser__entry').filter({ hasText: 'IBM Plex Sans Variable' }).first(),
+    ).toBeVisible();
+    await page.screenshot({
+      path: test.info().outputPath('font-browser-favorite-filter.png'),
+      fullPage: true,
+    });
+
+    await row.locator('.font-browser__select-btn').click();
+    await expect(dialog.getByRole('heading', { name: 'IBM Plex Sans Variable' })).toBeVisible();
+  });
+
   test('finds gothic families without unrelated filler and keeps inspection stable', async ({
     page,
   }) => {
