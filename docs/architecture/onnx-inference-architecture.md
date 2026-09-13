@@ -3,14 +3,18 @@
 ## Overview
 
 Varve's ONNX inference system provides on-device, offline-first AI features across
-both browser (WASM/WebGL/WebGPU) and Tauri desktop (native onnxruntime) runtimes.
+both browser (WASM/WebGL/WebGPU) and Tauri desktop (native ONNX Runtime) runtimes.
+Desktop native inference and native GPU effect/resampling are separate from the
+webview's presentation backend. A native GPU or an OS-advertised NPU is not
+evidence that a particular model used that device.
 
 The system is organized into four layers:
 
 1. **Core Infrastructure** (`packages/engine/src/inference/core/`)
 2. **Model Registry & Catalog** (`packages/engine/src/inference/`)
 3. **Feature Adapters** (`packages/engine/src/inference/models/`)
-4. **Frontend Integration** (`packages/editor/src/components/Settings/`)
+4. **Native capability and provider boundary** (`crates/varve-accel/`, `crates/varve-bgremove/`, `crates/varve-upscale/`)
+5. **Frontend Integration** (`packages/editor/src/components/Settings/`)
 
 ## Core Architecture
 
@@ -181,17 +185,43 @@ fallback chain. Cancelled caller requests never fall through.
 ### Native Path (Tauri Desktop)
 
 1. Frontend calls Tauri IPC command
-2. Rust `varve-bgremove` or `varve-upscale` crate handles inference
-3. `ort` crate (Rust ONNX Runtime bindings) with dynamic library loading
-4. Session pool with LRU eviction (max 2, 1.5 GB budget)
-5. SHA-256 verification of downloaded models
+2. Rust `varve-bgremove` or `varve-upscale` crate handles inference on a
+   blocking worker; the Tauri/GTK event thread is not used for model setup or
+   execution
+3. `ort` crate (Rust ONNX Runtime bindings) loads the app-managed core library
+   dynamically; the optional native WebGPU EP is a separately staged plugin
+4. Automatic policy prefers the WebGPU EP only after plugin registration and a
+   real device are available, while CPU is always a supported fallback; explicit
+   GPU policy fails closed instead of silently relabelling CPU work
+5. Session pools and job gates bound memory/concurrency; model and runtime
+   artifacts are SHA-256 checked before use
+6. Results report the provider observed for the completed model run where the
+   runtime exposes that evidence (`native-webgpu` or `native-cpu`)
+
+The native WebGPU EP is not the browser JavaScript WebGPU path and is not the
+Rust `wgpu` effect engine. The `wgpu` engine currently serves offscreen effects
+and conventional resampling; the webview still owns authoritative presentation.
+
+### NPU support boundary
+
+The capability report reserves separate NPU rows for QNN/HTP, OpenVINO NPU,
+AMD XDNA/Vitis AI, and Core ML, but the current release does not ship a vendor
+NPU runtime or expose an enabled NPU selector. These rows remain
+`artifactMissing`/unavailable until a provider artifact, driver/permission
+boundary, model contract, and real execution trace are all available. A
+Qualcomm, Intel, AMD, or Apple device name alone cannot advance the row beyond
+discovery. Core ML's allowed compute-unit policy likewise does not prove that
+every operator ran on the Neural Engine. This is an intentional honest state,
+not a promise of NPU execution.
 
 ### Quantization Policy
 
 INT8 models are NOT automatically selected. The policy engine considers:
 
 1. **CPU capabilities**: VNNI (Ice Lake+/Zen 4+) = INT8 beneficial; AVX2-only = INT8 likely slower
-2. **Execution provider**: WebGPU/WebGL have no INT8 dot-product; FP16 is native
+2. **Execution provider**: provider support and precision are model/runtime
+   specific; WebGPU/WebGL availability does not prove that an INT8, FP16, or
+   NPU graph is supported
 3. **Quality validation**: INT8 variant must pass quality thresholds (IoU, PSNR, SSIM)
 4. **Storage trade-off**: INT8 is always smaller; benefit is communicated separately
 
@@ -215,10 +245,17 @@ INT8 models are NOT automatically selected. The policy engine considers:
 ## Known Limitations
 
 1. **5 of 20+ manifest models have null SHA-256** — cannot be securely downloaded (mostly legacy/stub entries)
-2. **`fetch-onnxruntime.mjs`** silently exits with code 0 on any error
+2. **Native runtime artifacts** are optional by target. The fetcher verifies
+   archive and extracted-file digests and logs a CPU fallback when a target has
+   no published optional provider artifact; a configured core-runtime failure is
+   not treated as a valid accelerated installation
 3. **Rust session pool** limits are hardcoded (max 2 sessions, 2 concurrent, 1.5 GB)
 4. **ORT threads** hardcoded to 2 intra + 1 inter in `varve-upscale/src/ai.rs`
-5. **WebKitGTK** does not support WebGPU; WebGL is unreliable
+5. **Embedded webviews differ by platform.** Linux WebKitGTK in the supported
+   desktop route does not currently provide the browser WebGPU contract used by
+   the web compositor; Windows WebView2 and macOS WKWebView must be verified
+   independently. Native desktop `wgpu`/ONNX providers do not change that
+   presentation boundary.
 6. **Large model WASM inference** (BiRefNet at 1024×1024) can cause `std::bad_alloc`
 
 ## Model delivery and colorization readiness
