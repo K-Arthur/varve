@@ -92,6 +92,10 @@ export function useAutoBackupServices(
       { intervalMs: (uiSettings.general?.autosaveInterval ?? 5) * 60 * 1000 },
     );
     autoSaveRef.current.setOnSaveRecovery(async (doc, meta) => {
+      // saveFn already persisted an untitled document as a recovery point.
+      // Writing a second point here duplicated a full-document write (and
+      // consumed two cap slots) on every autosave cycle.
+      if (!meta.fileId) return;
       await recoveryRef.current?.createRecoveryPoint(doc, meta.name, meta.fileId);
     });
     autoSaveRef.current.start();

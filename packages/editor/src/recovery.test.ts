@@ -2,6 +2,7 @@
  * Tests for RecoveryManager and its storage implementations.
  */
 
+import { getStorageWriteMetrics, resetStorageWriteMetrics } from '@varve/platform';
 import {
   addNode,
   createDocument,
@@ -69,6 +70,14 @@ describe('RecoveryManager', () => {
     expect(sessions[0]?.filePath).toBeUndefined();
     expect(sessions[0]?.timestamp).toBeGreaterThan(0);
     expect(sessions[0]?.id).toBeTruthy();
+  });
+
+  it('records a logical recovery write for each point', async () => {
+    resetStorageWriteMetrics();
+    const doc = { formatVersion: '1.0', name: 'telemetry', nodes: {}, rootChildren: [] };
+    await manager.createRecoveryPoint(doc as never, 'Telemetry');
+    expect(getStorageWriteMetrics().byKind.recovery.writes).toBe(1);
+    expect(getStorageWriteMetrics().byKind.recovery.logicalBytes).toBeGreaterThan(0);
   });
 
   it('restores a session', async () => {

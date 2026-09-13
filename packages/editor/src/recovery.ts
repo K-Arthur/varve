@@ -5,6 +5,7 @@
  * with cleanup of stale sessions and graceful handling of corrupt data.
  */
 
+import { recordStorageWrite } from '@varve/platform';
 import type { Document } from '@varve/scene';
 import { migrateDocumentJson, serializeDocument } from '@varve/scene';
 
@@ -220,6 +221,9 @@ export class RecoveryManager {
     const data = `{"session":${JSON.stringify(session)},"document":${serializeDocument(doc)}}`;
 
     await this.storage.save(`${KEY_PREFIX}${id}`, data);
+    // Logical write telemetry for write-amplification regressions; see
+    // storageWriteMetrics for the string-length caveat.
+    recordStorageWrite('recovery', data.length);
 
     // Enforce max sessions limit — remove oldest beyond cap
     await this.enforceMaxSessions(MAX_SESSIONS_DEFAULT);

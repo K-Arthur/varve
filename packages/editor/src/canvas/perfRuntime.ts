@@ -15,6 +15,7 @@ import {
   setPyramidViewport,
   setRasterPyramidEnabled,
 } from '@varve/engine/rasterPyramid';
+import { getStorageWriteMetrics } from '@varve/platform';
 import {
   cancelEditorFrame,
   createEditorFrameKey,
@@ -454,6 +455,8 @@ function augmentPerfDiagnosticsHandle(): void {
       refreshIntervalMs: refreshEstimator.intervalMs,
     }),
     clockCalibration: () => getRegisteredWorkerHost()?.getClockCalibration() ?? null,
+    /** Logical structured-clone write counters for storage regressions. */
+    storageWrites: () => getStorageWriteMetrics(),
   };
 }
 

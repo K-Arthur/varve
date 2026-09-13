@@ -5,9 +5,18 @@
  * describe the bytes Varve asks the structured-clone layer to persist, which
  * is the useful signal for write amplification regressions and is explicitly
  * not a claim about eMMC throughput.
+ *
+ * Recovery and backup bytes are recorded as JS string length (an
+ * approximation that undercounts multi-byte characters); write counts are
+ * exact for every instrumented path. Uninstrumented paths do not appear here.
  */
 
-export type StorageWriteKind = 'document-content' | 'file-metadata' | 'other';
+export type StorageWriteKind =
+  | 'document-content'
+  | 'file-metadata'
+  | 'recovery'
+  | 'backup'
+  | 'other';
 
 export interface StorageWriteMetrics {
   writes: number;
@@ -24,6 +33,8 @@ function emptyMetrics(): StorageWriteMetrics {
     byKind: {
       'document-content': { writes: 0, logicalBytes: 0, clonedBytes: 0 },
       'file-metadata': { writes: 0, logicalBytes: 0, clonedBytes: 0 },
+      recovery: { writes: 0, logicalBytes: 0, clonedBytes: 0 },
+      backup: { writes: 0, logicalBytes: 0, clonedBytes: 0 },
       other: { writes: 0, logicalBytes: 0, clonedBytes: 0 },
     },
   };
