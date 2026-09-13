@@ -144,12 +144,32 @@ fn safe_face_key(face_key: &str) -> String {
         .collect()
 }
 
-fn find_font_storage_path(app: &tauri::AppHandle, family: &str) -> Result<PathBuf, String> {
-    let legacy = font_storage_path(app, family)?;
-    if legacy.exists() {
+fn select_family_storage_path(
+    legacy: PathBuf,
+    legacy_exists: bool,
+    matches: &[PathBuf],
+    family: &str,
+) -> Result<PathBuf, String> {
+    // A pre-v2 family directory is an explicit compatibility record and can
+    // still be read without inventing an exact identity. New hash/member
+    // directories are safe to use only when the family maps to one face.
+    if legacy_exists {
         return Ok(legacy);
     }
+    match matches {
+        [] => Ok(legacy),
+        [path] => Ok(path.clone()),
+        _ => Err(format!(
+            "Multiple stored font faces match family \"{family}\"; select an exact face identity"
+        )),
+    }
+}
+
+fn find_font_storage_path(app: &tauri::AppHandle, family: &str) -> Result<PathBuf, String> {
+    let legacy = font_storage_path(app, family)?;
+    let legacy_exists = legacy.exists();
     let root = font_dir(app)?;
+    let mut matches = Vec::new();
     for entry in std::fs::read_dir(root).map_err(|e| format!("Cannot read font dir: {e}"))? {
         let Ok(entry) = entry else { continue };
         let path = entry.path();
@@ -164,10 +184,10 @@ fn find_font_storage_path(app: &tauri::AppHandle, family: &str) -> Result<PathBu
             continue;
         };
         if meta.family.eq_ignore_ascii_case(family) {
-            return Ok(path);
+            matches.push(path);
         }
     }
-    Ok(legacy)
+    select_family_storage_path(legacy, legacy_exists, &matches, family)
 }
 
 fn meta_path(dir: &PathBuf) -> PathBuf {
@@ -467,7 +487,8 @@ pub fn get_filesystem_font_storage_usage(app: tauri::AppHandle) -> Result<(u64, 
 
 #[cfg(test)]
 mod tests {
-    use super::{canonical_face_key, is_canonical_face_key};
+    use super::{canonical_face_key, is_canonical_face_key, select_family_storage_path};
+    use std::path::PathBuf;
 
     const DIGEST: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
@@ -488,5 +509,28 @@ mod tests {
         );
         assert!(canonical_face_key(DIGEST, Some(2), Some(format!("sha256:{DIGEST}:1"))).is_err());
         assert!(canonical_face_key(DIGEST, None, Some("sha256:bad:single".into())).is_err());
+    }
+
+    #[test]
+    fn family_lookup_rejects_ambiguous_hash_directories() {
+        let legacy = PathBuf::from("legacy-family");
+        let matches = [PathBuf::from("face-a"), PathBuf::from("face-b")];
+        let error = select_family_storage_path(legacy, false, &matches, "Inter").unwrap_err();
+        assert!(error.contains("exact face identity"));
+    }
+
+    #[test]
+    fn family_lookup_keeps_legacy_and_unique_compatibility_paths() {
+        let legacy = PathBuf::from("legacy-family");
+        let hash_path = PathBuf::from("face-a");
+        assert_eq!(
+            select_family_storage_path(legacy.clone(), true, &[hash_path.clone()], "Inter")
+                .unwrap(),
+            legacy
+        );
+        assert_eq!(
+            select_family_storage_path(legacy, false, &[hash_path.clone()], "Inter").unwrap(),
+            hash_path
+        );
     }
 }
