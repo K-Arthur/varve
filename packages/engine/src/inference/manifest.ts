@@ -55,6 +55,7 @@ function inferCategory(id: string): string {
   if (id.startsWith('birefnet-') || id.startsWith('u2netp') || id.startsWith('isnet-'))
     return 'segmentation';
   if (id.startsWith('sam2-')) return 'segmentation';
+  if (id.startsWith('ddcolor')) return 'colorization';
   if (id === 'scunet') return 'denoising';
   if (id.startsWith('depth-')) return 'depth';
   if (id.includes('ocr') || id.includes('text-detect') || id.startsWith('tr-ocr')) return 'ocr';
@@ -83,6 +84,11 @@ const KNOWN_SIZES: Record<string, number> = {
   'tr-ocr-base-printed': 340_000_000,
   'depth-anything-v2-small': 27_258_801,
   'dinov2-small': 88_459_888,
+  // Expected release sizes from the colorization recovery record. The
+  // artifacts are not bundled or verified in this checkout; these values are
+  // used only for download budgeting until a release is smoke-tested.
+  'ddcolor-tiny': 220_524_460,
+  ddcolor: 980_082_799,
 };
 
 function computeSizeBytes(id: string, bundled: boolean): number {
@@ -124,6 +130,10 @@ function entryDescription(id: string, notes?: string): string {
     return 'Depth-Anything-V2 Small — monocular depth estimation for lens blur, 3D effects, depth-aware masking. Input: 518x518 RGB. Output: relative depth map.';
   if (id === 'dinov2-small')
     return 'DINOv2 Small — local image embeddings for visual similarity search. Input: 224x224 RGB center crop; output: normalized 384-dimensional CLS embedding.';
+  if (id === 'ddcolor-tiny')
+    return 'DDColor Tiny — local AI colorization for grayscale photos. Requires a hash-verified model download; not bundled.';
+  if (id === 'ddcolor')
+    return 'DDColor — higher-quality local AI colorization for grayscale photos. Requires a hash-verified model download; not bundled.';
   return '';
 }
 
@@ -195,6 +205,16 @@ function normalizeEntry(raw: RawManifestEntry): ModelManifestEntry {
  * `sha256 === null`, etc.) into one place.
  */
 function deriveAcquisition(raw: RawManifestEntry): ModelAcquisition {
+  if (raw.id === 'ddcolor' || raw.id === 'ddcolor-tiny') {
+    return {
+      kind: 'unavailable',
+      reasonCode: 'export-pending',
+      detail:
+        'No verified DDColor ONNX artifact is published. Freeze the official source revision, export it with tools/ddcolor-export, then record its hash and worker smoke test before enabling download.',
+      alternatives: ['Use deterministic Tint / Selective Recolor'],
+    };
+  }
+
   // Bundled models ship with the app — no download needed.
   if (raw.bundled) {
     return {
@@ -253,6 +273,8 @@ function modelDisplayName(id: string): string {
     'tr-ocr-base-printed': 'TrOCR (Printed Text)',
     'depth-anything-v2-small': 'Depth-Anything-V2 Small',
     'dinov2-small': 'Find Similar Images (DINOv2)',
+    'ddcolor-tiny': 'DDColor Tiny (AI Colorize)',
+    ddcolor: 'DDColor (AI Colorize)',
   };
   return names[id] ?? id;
 }
@@ -272,6 +294,8 @@ function modelQuality(id: string): number {
     'tr-ocr-base-printed': 4,
     'depth-anything-v2-small': 4.5,
     'dinov2-small': 4,
+    'ddcolor-tiny': 3,
+    ddcolor: 4,
   };
   return qualities[id] ?? 1;
 }

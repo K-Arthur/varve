@@ -82,7 +82,7 @@ describe('dispatchColorization (classical)', () => {
     await expect(dispatchColorization(request, sourceData)).rejects.toThrow('requestId');
   });
 
-  it('rejects palette-colorize with fewer than 2 colors', async () => {
+  it('accepts a one-color palette for strict tonal mapping', async () => {
     const sourceData = new ImageData(new Uint8ClampedArray([0, 0, 0, 255]), 1, 1);
 
     const request: ColorizationRequestContract = {
@@ -91,10 +91,34 @@ describe('dispatchColorization (classical)', () => {
       source: { nodeId: 'n1', revision: 1, width: 1, height: 1 },
       qualityMode: 'balanced',
       provider: { backend: 'auto', intent: 'full' },
-      palette: { colors: ['#ff0000'], revision: 1 },
+      palette: { colors: ['#ff0000'], revision: 1, adherence: 1 },
+      params: { paletteMode: 'strict' },
     };
 
-    await expect(dispatchColorization(request, sourceData)).rejects.toThrow('2 palette colors');
+    const result = await dispatchColorization(request, sourceData);
+    expect(result.imageData.data.slice(0, 3)).toEqual(new Uint8ClampedArray([255, 0, 0]));
+  });
+
+  it('requires decoded reference pixels as well as reference identity', async () => {
+    const sourceData = new ImageData(new Uint8ClampedArray([0, 0, 0, 255]), 1, 1);
+    const request: ColorizationRequestContract = {
+      requestId: 'test-transfer-missing-pixels',
+      kind: 'reference-transfer',
+      source: { nodeId: 'n1', revision: 1, width: 1, height: 1 },
+      qualityMode: 'balanced',
+      provider: { backend: 'auto', intent: 'full' },
+      reference: {
+        assetId: 'ref-1',
+        revision: 1,
+        width: 1,
+        height: 1,
+        src: 'data:image/png;base64,...',
+      },
+    };
+
+    await expect(dispatchColorization(request, sourceData)).rejects.toThrow(
+      'Reference image data required',
+    );
   });
 
   it('rejects cancelled requests', async () => {

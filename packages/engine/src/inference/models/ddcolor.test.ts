@@ -42,4 +42,32 @@ describe('decodeDdColorOutput', () => {
     expect(result.a[0]).toBe(42);
     expect(result.b[0]).toBe(-17);
   });
+
+  it('uses explicit asymmetric content bounds when reversing letterbox geometry', () => {
+    const width = 6;
+    const height = 4;
+    const data = new Float32Array(width * height * 2);
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        data[y * width + x] = y * 10 + x;
+        data[width * height + y * width + x] = -(y * 10 + x);
+      }
+    }
+    const result = decodeDdColorOutput(data, width, height, 3, 2, {
+      offsetX: 1,
+      offsetY: 1,
+      contentWidth: 3,
+      contentHeight: 2,
+    });
+    expect(result.a.length).toBe(6);
+    expect(result.a[0]).toBe(11);
+    expect(result.b[0]).toBe(-11);
+  });
+
+  it('rejects malformed or non-finite model tensors', () => {
+    expect(() => decodeDdColorOutput(new Float32Array(3), 2, 2, 2, 2)).toThrow('output length');
+    const malformed = new Float32Array(8);
+    malformed[0] = Number.NaN;
+    expect(() => decodeDdColorOutput(malformed, 2, 2, 2, 2)).toThrow('non-finite');
+  });
 });

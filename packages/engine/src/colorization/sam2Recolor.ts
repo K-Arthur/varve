@@ -47,14 +47,22 @@ export interface Sam2MaskResult {
 // ---------------------------------------------------------------------------
 
 export interface SelectiveRecolorParams {
-  /** Target hue rotation in degrees. */
+  /** Absolute target hue in degrees. */
   targetHue?: number;
+  /** Absolute set or relative hue rotation. */
+  hueMode?: 'set' | 'rotate';
   /** Saturation scale factor (1 = unchanged). */
   saturationScale?: number;
   /** Luminance preservation 0-1 (1 = fully preserve original luminance). */
   luminancePreservation?: number;
   /** Blend strength 0-1 (1 = full recolor, 0 = no change). */
   blendStrength?: number;
+  /** Scales the generated chroma, including neutral-pixel tint seeds. */
+  chromaStrength?: number;
+  /** Protect near-neutral authored chroma. */
+  neutralProtection?: boolean;
+  /** Apply the conservative skin heuristic only when explicitly enabled. */
+  skinProtection?: boolean;
   /** Edge cleanup: feather radius in pixels. */
   edgeFeather?: number;
   /** Edge cleanup: expand/contract mask by N pixels. */
@@ -91,6 +99,10 @@ export function applySelectiveRecolor(
     saturationScale = 1,
     luminancePreservation = 1,
     blendStrength = 1,
+    hueMode = 'set',
+    chromaStrength = 1,
+    neutralProtection = false,
+    skinProtection = false,
   } = params;
 
   // If blend is 0, return source unchanged
@@ -105,26 +117,13 @@ export function applySelectiveRecolor(
     targetHue,
     saturationScale,
     luminancePreservation,
+    blendStrength,
+    hueMode,
+    chromaStrength,
+    neutralProtection,
+    skinProtection,
   );
-
-  // Blend with original based on strength
-  if (blendStrength >= 1) return recolored;
-
-  const { width, height, data } = sourceData;
-  const out = new ImageData(width, height);
-  const outData = out.data;
-  const recData = recolored.data;
-  const t = blendStrength;
-
-  for (let i = 0; i < width * height; i++) {
-    const idx = i * 4;
-    outData[idx] = Math.round(data[idx]! * (1 - t) + recData[idx]! * t);
-    outData[idx + 1] = Math.round(data[idx + 1]! * (1 - t) + recData[idx + 1]! * t);
-    outData[idx + 2] = Math.round(data[idx + 2]! * (1 - t) + recData[idx + 2]! * t);
-    outData[idx + 3] = data[idx + 3]!;
-  }
-
-  return out;
+  return recolored;
 }
 
 /**

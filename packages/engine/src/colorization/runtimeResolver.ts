@@ -33,14 +33,20 @@ export const DD_COLOR_MODELS: Record<string, ColorizationModelConfig> = {
 };
 
 export function resolveRuntime(
-  _workflow: string,
+  workflow: string,
   qualityMode: QualityMode,
   stats: ImageStats,
   installedModels: string[],
 ): RuntimeResolution {
+  if (workflow !== 'photo-colorize') {
+    throw new Error(`DDColor runtime does not support workflow: ${workflow}`);
+  }
   const longest = Math.max(stats.width, stats.height);
   const hasDefault = installedModels.includes('ddcolor');
   const hasTiny = installedModels.includes('ddcolor-tiny');
+  if (!hasDefault && !hasTiny) {
+    throw new Error('No verified DDColor model is installed');
+  }
 
   let modelId: string;
   let maxDimension: number;

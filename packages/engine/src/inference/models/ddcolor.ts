@@ -20,8 +20,9 @@
  *     input  "input"  — float32 [1, 3, H, W], RGB normalized to [0, 1]
  *     output "output" — float32 [1, 2, H, W], a*b* channels
  *
- *   The model supports dynamic input dimensions (H, W) but is trained on
- *   512x512. Best results at 512px longest edge; 256px for fast preview.
+ *   The official exporter can emit dynamic H/W only when invoked with
+ *   `--input_size 0`; Varve's approved contracts use fixed 512x512 and
+ *   256x256 tensors, matching the model variants we intend to verify.
  *
  *   Training data: ImageNet (ILSVRC 2012) + private artistic images for
  *   the "artistic" variant. No personally-identifiable data.
@@ -30,9 +31,10 @@
  * with attribution. See https://github.com/piddnad/DDColor/blob/master/LICENSE
  *
  * DDColor variants:
- *   ddcolor-tiny  — DDColor-T (ConvNeXt-tiny), ~50MB, fast preview
- *   ddcolor       — DDColor-L (ConvNeXt-large), ~150MB, default quality
- *                   (same architecture as "ddcolor_modelscope" in paper)
+ *   ddcolor-tiny  — DDColor-T (ConvNeXt-tiny), fast preview
+ *   ddcolor       — DDColor-L (ConvNeXt-large), default quality
+ *                   (same architecture as "ddcolor_modelscope" in paper).
+ *   Artifact sizes are release/export dependent and remain unverified here.
  */
 
 import type { TensorSpec } from '../imageTensor';
@@ -57,6 +59,14 @@ export const DD_COLOR_TINY_TENSOR_SPEC: TensorSpec = {
   paddingRgb: [128, 128, 128],
 };
 
+export interface DdColorLetterbox {
+  offsetX: number;
+  offsetY: number;
+  /** Rounded raster width/height of the drawn source region. */
+  contentWidth?: number;
+  contentHeight?: number;
+}
+
 /**
  * Decode DDColor's [1, 2, H, W] a*b* output into separate a* and b* plane
  * Float32Arrays, cropped back from letterbox padding to the original
@@ -72,9 +82,33 @@ export function decodeDdColorOutput(
   outputHeight: number,
   targetWidth: number,
   targetHeight: number,
-  letterbox?: { offsetX: number; offsetY: number },
+  letterbox?: DdColorLetterbox,
 ): { a: Float32Array<ArrayBuffer>; b: Float32Array<ArrayBuffer> } {
+  if (
+    !Number.isSafeInteger(outputWidth) ||
+    !Number.isSafeInteger(outputHeight) ||
+    outputWidth <= 0 ||
+    outputHeight <= 0
+  ) {
+    throw new Error('DDColor output dimensions must be positive integers');
+  }
+  if (
+    !Number.isSafeInteger(targetWidth) ||
+    !Number.isSafeInteger(targetHeight) ||
+    targetWidth <= 0 ||
+    targetHeight <= 0
+  ) {
+    throw new Error('DDColor target dimensions must be positive integers');
+  }
   const planeSize = outputWidth * outputHeight;
+  if (data.length !== planeSize * 2) {
+    throw new Error(
+      `DDColor output length ${data.length} does not match [2, ${outputHeight}, ${outputWidth}]`,
+    );
+  }
+  for (const value of data) {
+    if (!Number.isFinite(value)) throw new Error('DDColor output contains a non-finite value');
+  }
 
   let aPlane: Float32Array<ArrayBuffer> = new Float32Array(planeSize);
   let bPlane: Float32Array<ArrayBuffer> = new Float32Array(planeSize);
@@ -87,26 +121,35 @@ export function decodeDdColorOutput(
   let srcW = outputWidth;
   let srcH = outputHeight;
 
-  if (letterbox && (letterbox.offsetX > 0 || letterbox.offsetY > 0)) {
-    const scaledW = Math.round(outputWidth - 2 * letterbox.offsetX);
-    const scaledH = Math.round(outputHeight - 2 * letterbox.offsetY);
+  if (letterbox) {
+    if (!Number.isFinite(letterbox.offsetX) || !Number.isFinite(letterbox.offsetY)) {
+      throw new Error('DDColor letterbox offsets must be finite');
+    }
+    const cropX = Math.round(letterbox.offsetX);
+    const cropY = Math.round(letterbox.offsetY);
+    const scaledW =
+      letterbox.contentWidth !== undefined
+        ? Math.round(letterbox.contentWidth)
+        : Math.round(outputWidth - 2 * letterbox.offsetX);
+    const scaledH =
+      letterbox.contentHeight !== undefined
+        ? Math.round(letterbox.contentHeight)
+        : Math.round(outputHeight - 2 * letterbox.offsetY);
+    if (
+      !Number.isSafeInteger(scaledW) ||
+      !Number.isSafeInteger(scaledH) ||
+      scaledW <= 0 ||
+      scaledH <= 0 ||
+      cropX < 0 ||
+      cropY < 0 ||
+      cropX + scaledW > outputWidth ||
+      cropY + scaledH > outputHeight
+    ) {
+      throw new Error('DDColor letterbox crop is outside the model output');
+    }
     if (scaledW > 0 && scaledH > 0 && (scaledW !== outputWidth || scaledH !== outputHeight)) {
-      aPlane = cropRegion(
-        aPlane,
-        outputWidth,
-        Math.round(letterbox.offsetX),
-        Math.round(letterbox.offsetY),
-        scaledW,
-        scaledH,
-      );
-      bPlane = cropRegion(
-        bPlane,
-        outputWidth,
-        Math.round(letterbox.offsetX),
-        Math.round(letterbox.offsetY),
-        scaledW,
-        scaledH,
-      );
+      aPlane = cropRegion(aPlane, outputWidth, cropX, cropY, scaledW, scaledH);
+      bPlane = cropRegion(bPlane, outputWidth, cropX, cropY, scaledW, scaledH);
       srcW = scaledW;
       srcH = scaledH;
     }

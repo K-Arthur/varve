@@ -1,9 +1,40 @@
 import { describe, expect, it } from 'vitest';
-import { colorizationPipeline } from './pipeline';
+import { colorizationPipeline, paletteColorize } from './pipeline';
 import { resolveRuntime } from './runtimeResolver';
 import { analyzeImageData, classifyTask } from './taskClassifier';
 
 describe('colorizationPipeline non-AI workflows', () => {
+  it('does not fall through to AI when a classical request is incomplete', async () => {
+    const source = new ImageData(new Uint8ClampedArray([128, 128, 128, 255]), 1, 1);
+    await expect(
+      colorizationPipeline.execute({
+        params: {
+          workflow: 'selective-recolor',
+          qualityMode: 'automatic',
+          sourceNodeId: 'n1',
+          sourceRevision: 0,
+          targetHue: 120,
+          saturationScale: 1,
+          luminancePreservation: 1,
+          skinProtection: false,
+          neutralProtection: false,
+        },
+        imageData: source,
+      }),
+    ).rejects.toThrow('mask');
+  });
+
+  it('strict palette mode emits only the authored palette colors', () => {
+    const source = new ImageData(new Uint8ClampedArray([255, 255, 255, 255]), 1, 1);
+    const result = paletteColorize(source, ['#123456'], 1, 'strict');
+    expect(Array.from(result.data.slice(0, 3))).toEqual([0x12, 0x34, 0x56]);
+  });
+
+  it('rejects malformed palette colors', () => {
+    const source = new ImageData(new Uint8ClampedArray([128, 128, 128, 255]), 1, 1);
+    expect(() => paletteColorize(source, ['not-a-color'], 1, 'strict')).toThrow('palette color');
+  });
+
   it('applies reference transfer without a model', async () => {
     const src = new ImageData(8, 8);
     for (let i = 0; i < src.data.length; i += 4) {
@@ -203,5 +234,20 @@ describe('resolveRuntime', () => {
     };
     const runtime = resolveRuntime('photo-colorize', 'quality', stats, ['ddcolor', 'ddcolor-tiny']);
     expect(runtime.maxDimension).toBe(1024);
+  });
+
+  it('does not resolve a missing model as if it were installed', () => {
+    const stats = {
+      meanLuminance: 0.5,
+      saturationStd: 0.1,
+      fractionNearNeutral: 0.5,
+      fractionLowSaturation: 0.5,
+      edgeDensity: 0.1,
+      width: 256,
+      height: 256,
+    };
+    expect(() => resolveRuntime('photo-colorize', 'balanced', stats, [])).toThrow(
+      'No verified DDColor model',
+    );
   });
 });

@@ -62,13 +62,19 @@ export interface ColorizationParams {
   sourceNodeId: string;
   sourceRevision: number;
   targetHue?: number;
+  /** Absolute target hue by default; rotate preserves source hue relationships. */
+  hueMode?: 'set' | 'rotate';
   saturationScale?: number;
   chromaStrength?: number;
+  /** Final effect strength, applied once after mask coverage. */
+  blendStrength?: number;
   luminancePreservation: number;
   skinProtection: boolean;
   neutralProtection: boolean;
   referenceNodeId?: string;
   palette?: readonly string[];
+  /** Shaded palette influence or literal palette quantization. */
+  paletteMode?: 'shaded' | 'strict';
   maskNodeId?: string;
   adherence?: number;
 }
@@ -95,9 +101,14 @@ export interface ColorizationRequest {
   params: ColorizationParams;
   imageData: ImageData;
   referenceData?: ImageData;
+  /** Identity of the decoded reference used by the legacy facade. */
+  referenceSrc?: string;
   maskData?: Uint8Array;
   maskWidth?: number;
   maskHeight?: number;
+  /** Runtime intent used to bound previews without changing authored params. */
+  providerIntent?: 'preview' | 'full';
+  previewMaxDimension?: number;
   signal?: AbortSignal;
   onProgress?: ColorizationProgressCallback;
 }

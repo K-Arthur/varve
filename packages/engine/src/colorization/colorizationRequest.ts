@@ -131,6 +131,10 @@ export interface ProviderPreference {
 export interface ColorizationRequestContract {
   /** Unique request ID for cancellation correlation. */
   requestId: string;
+  /** Document identity captured before asynchronous work starts. */
+  documentId?: string;
+  /** Stable serialized authored-parameter signature for stale checks. */
+  parameterVersion?: string;
   /** Which colorization workflow. */
   kind: ColorizationRequestKind;
   /** Source image being processed. */
@@ -149,12 +153,18 @@ export interface ColorizationRequestContract {
   params?: {
     /** Target hue in degrees (for selective-recolor). */
     targetHue?: number;
+    /** `set` is absolute; `rotate` applies a relative hue rotation. */
+    hueMode?: 'set' | 'rotate';
     /** Saturation scale 0-∞ (for selective-recolor). */
     saturationScale?: number;
     /** Luminance preservation 0-1. */
     luminancePreservation?: number;
     /** Chroma strength 0-1 (for transfer/harmonize). */
     chromaStrength?: number;
+    /** Final effect strength, applied once after coverage. */
+    blendStrength?: number;
+    /** Palette mapping semantics. */
+    paletteMode?: 'shaded' | 'strict';
     /** Neutral region protection. */
     neutralProtection?: boolean;
     /** Skin-tone protection. */
@@ -182,8 +192,15 @@ export interface ColorizationRequestContract {
 export interface ColorizationResultContract {
   /** Echo of the request ID for correlation. */
   requestId: string;
+  documentId?: string;
+  parameterVersion?: string;
   /** The source identity at time of dispatch (for staleness check). */
   sourceRevision: number;
+  /** Stable identities captured at dispatch for stale-result checks. */
+  sourceNodeId?: string;
+  paletteRevision?: number;
+  maskRevision?: number;
+  referenceRevision?: number;
   /** When the request was dispatched (performance.now()). */
   dispatchedAt: number;
   /** Output image data. */
@@ -243,15 +260,42 @@ export interface ColorizationProgress {
 export function detectStaleResult(
   result: ColorizationResultContract,
   currentSourceRevision: number,
-  _currentPaletteRevision?: number,
-  _currentMaskRevision?: number,
-  _currentReferenceRevision?: number,
+  currentPaletteRevision?: number,
+  currentMaskRevision?: number,
+  currentReferenceRevision?: number,
+  currentParameterVersion?: string,
 ): string | null {
   if (result.sourceRevision !== currentSourceRevision) {
     return 'source-changed';
   }
-  // Additional staleness checks can be added here when palette/mask/
-  // reference revisions are threaded through the result.
+  if (
+    currentPaletteRevision !== undefined &&
+    result.paletteRevision !== undefined &&
+    result.paletteRevision !== currentPaletteRevision
+  ) {
+    return 'palette-changed';
+  }
+  if (
+    currentMaskRevision !== undefined &&
+    result.maskRevision !== undefined &&
+    result.maskRevision !== currentMaskRevision
+  ) {
+    return 'mask-changed';
+  }
+  if (
+    currentReferenceRevision !== undefined &&
+    result.referenceRevision !== undefined &&
+    result.referenceRevision !== currentReferenceRevision
+  ) {
+    return 'reference-changed';
+  }
+  if (
+    currentParameterVersion !== undefined &&
+    result.parameterVersion !== undefined &&
+    result.parameterVersion !== currentParameterVersion
+  ) {
+    return 'parameters-changed';
+  }
   return null;
 }
 

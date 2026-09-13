@@ -54,6 +54,22 @@ describe('detectStaleResult', () => {
   it('detects source rolled back', () => {
     expect(detectStaleResult(baseResult, 4)).toBe('source-changed');
   });
+
+  it('detects referenced input revisions independently', () => {
+    const result: ColorizationResultContract = {
+      ...baseResult,
+      paletteRevision: 2,
+      maskRevision: 3,
+      referenceRevision: 4,
+    };
+    expect(detectStaleResult(result, 5, 3)).toBe('palette-changed');
+    expect(detectStaleResult(result, 5, 2, 4)).toBe('mask-changed');
+    expect(detectStaleResult(result, 5, 2, 3, 5)).toBe('reference-changed');
+    expect(detectStaleResult(result, 5, 2, 3, 4)).toBeNull();
+    expect(detectStaleResult({ ...result, parameterVersion: 'a' }, 5, 2, 3, 4, 'b')).toBe(
+      'parameters-changed',
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -108,7 +124,7 @@ describe('validateColorizationRequest', () => {
     expect(validateColorizationRequest(req)).toBeNull();
   });
 
-  it('rejects palette-colorize with fewer than 2 colors', () => {
+  it('accepts a one-color palette for strict or shaded mapping', () => {
     const req: ColorizationRequestContract = {
       ...validBase,
       kind: 'palette-colorize',
@@ -117,7 +133,7 @@ describe('validateColorizationRequest', () => {
         revision: 1,
       },
     };
-    expect(validateColorizationRequest(req)).toContain('2 palette colors');
+    expect(validateColorizationRequest(req)).toBeNull();
   });
 
   it('accepts valid reference-transfer request', () => {

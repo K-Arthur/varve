@@ -5,6 +5,7 @@ describe('harmonize', () => {
   it('preserves image dimensions', () => {
     const src = new ImageData(4, 4);
     const ref = new ImageData(4, 4);
+    ref.data.fill(255);
     const result = harmonize(src, ref, 0.5, true);
     expect(result.width).toBe(4);
     expect(result.height).toBe(4);
@@ -28,5 +29,11 @@ describe('harmonize', () => {
     expect(result.data[0]).toBe(100);
     expect(result.data[1]).toBe(150);
     expect(result.data[2]).toBe(200);
+  });
+
+  it('rejects a transparent reference instead of producing non-finite output', () => {
+    const source = new ImageData(new Uint8ClampedArray([100, 150, 200, 255]), 1, 1);
+    const reference = new ImageData(new Uint8ClampedArray([255, 0, 0, 0]), 1, 1);
+    expect(() => harmonize(source, reference, 0.5, true)).toThrow('reference');
   });
 });

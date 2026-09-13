@@ -1,92 +1,80 @@
 /**
- * Color harmonization — adjusts source image to match reference color
- * statistics (mean and variance in LAB) with neutral-region protection.
+ * Statistical foreground/background harmonization in CIELAB.
  *
- * Based on the same Reinhard (2001) LAB statistics matching used for
- * color transfer, but with:
- *   - Weaker strength (default 0.5) for subtle adjustment
- *   - Neutral protection: pixels near L*=50, a*=0, b*=0 are adjusted less
- *   - Skin protection: a* > 5 region adjustment is reduced
+ * This is deliberately a global color-distribution operation. It does not
+ * claim semantic correspondence between objects in the source and reference.
+ * L* and alpha stay source-owned; only chroma statistics are moved.
  */
 
 import { labToRgb, rgbToLab } from '../nonSeparable';
+import { computeLabStats } from './transfer';
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function byte(value: number): number {
+  return Math.round(clamp(Number.isFinite(value) ? value : 0, 0, 255));
+}
+
+function finiteParameter(name: string, value: number): number {
+  if (!Number.isFinite(value)) throw new Error(`${name} must be finite`);
+  return value;
+}
 
 export function harmonize(
   source: ImageData,
   reference: ImageData,
   strength: number,
   neutralProtection: boolean,
+  blendStrength = 1,
+  skinProtection = false,
 ): ImageData {
-  const { data: srcData, width, height } = source;
-  const { data: refData } = reference;
-  const pixelCount = width * height;
+  const { data: sourceData, width, height } = source;
+  const sourceStats = computeLabStats(sourceData, width * height);
+  const referenceStats = computeLabStats(reference.data, reference.width * reference.height);
+  if (referenceStats.sampleWeight <= 0) {
+    throw new Error('reference image has no usable opaque pixels');
+  }
+
+  const amount = clamp(finiteParameter('strength', strength), 0, 1);
+  const blend = clamp(finiteParameter('blendStrength', blendStrength), 0, 1);
   const out = new ImageData(width, height);
-  const outData = out.data;
 
-  let refSumA = 0;
-  let refSumB = 0;
-  let refSumA2 = 0;
-  let refSumB2 = 0;
-  let srcSumA = 0;
-  let srcSumB = 0;
-  const refCount = Math.min(pixelCount, Math.floor(refData.length / 4));
-  for (let i = 0; i < refCount; i++) {
-    const idx = i * 4;
-    const r = refData[idx]! / 255;
-    const g = refData[idx + 1]! / 255;
-    const b = refData[idx + 2]! / 255;
-    const [, a, bb] = rgbToLab(r, g, b);
-    refSumA += a;
-    refSumB += bb;
-    refSumA2 += a * a;
-    refSumB2 += bb * bb;
-  }
-  for (let i = 0; i < pixelCount; i++) {
-    const idx = i * 4;
-    const r = srcData[idx]! / 255;
-    const g = srcData[idx + 1]! / 255;
-    const b = srcData[idx + 2]! / 255;
-    const [, a, bb] = rgbToLab(r, g, b);
-    srcSumA += a;
-    srcSumB += bb;
-  }
-
-  const refMeanA = refSumA / refCount;
-  const refMeanB = refSumB / refCount;
-  const refStdA = Math.sqrt(Math.max(0, refSumA2 / refCount - refMeanA * refMeanA));
-  const refStdB = Math.sqrt(Math.max(0, refSumB2 / refCount - refMeanB * refMeanB));
-  const srcMeanA = srcSumA / pixelCount;
-  const srcMeanB = srcSumB / pixelCount;
-
-  const s = Math.max(0, Math.min(1, strength));
-
-  for (let i = 0; i < pixelCount; i++) {
-    const idx = i * 4;
-    const r = srcData[idx]! / 255;
-    const g = srcData[idx + 1]! / 255;
-    const b = srcData[idx + 2]! / 255;
-
-    const [srcL, srcA, srcB] = rgbToLab(r, g, b);
-
-    let weight = s;
-    if (neutralProtection) {
-      const neutralDist = Math.sqrt(srcA * srcA + srcB * srcB);
-      const neutralWeight = Math.min(1, neutralDist / 15);
-      const skinWeight = srcA > 5 ? 0.5 : 1;
-      weight = s * Math.max(0.1, neutralWeight * skinWeight);
+  for (let pixel = 0; pixel < width * height; pixel += 1) {
+    const index = pixel * 4;
+    const sourceR = sourceData[index] ?? 0;
+    const sourceG = sourceData[index + 1] ?? 0;
+    const sourceB = sourceData[index + 2] ?? 0;
+    const alpha = sourceData[index + 3] ?? 255;
+    out.data[index + 3] = alpha;
+    if (alpha === 0) {
+      out.data[index] = sourceR;
+      out.data[index + 1] = sourceG;
+      out.data[index + 2] = sourceB;
+      continue;
     }
 
-    const targetA = refMeanA + (srcA - srcMeanA) * (refStdA / Math.max(refStdA, 0.01));
-    const targetB = refMeanB + (srcB - srcMeanB) * (refStdB / Math.max(refStdB, 0.01));
-
-    const finalA = srcA * (1 - weight) + targetA * weight;
-    const finalB = srcB * (1 - weight) + targetB * weight;
-
-    const [outR, outG, outBval] = labToRgb(srcL, finalA, finalB);
-    outData[idx] = Math.round(Math.min(255, Math.max(0, outR * 255)));
-    outData[idx + 1] = Math.round(Math.min(255, Math.max(0, outG * 255)));
-    outData[idx + 2] = Math.round(Math.min(255, Math.max(0, outBval * 255)));
-    outData[idx + 3] = srcData[idx + 3]!;
+    const [sourceL, sourceA, sourceBStar] = rgbToLab(sourceR / 255, sourceG / 255, sourceB / 255);
+    const sourceChroma = Math.hypot(sourceA, sourceBStar);
+    let protection = 1;
+    if (neutralProtection && sourceChroma < 8) protection = 0;
+    if (skinProtection && sourceA > 5 && sourceBStar > 5 && sourceBStar > sourceA * 0.35) {
+      protection *= 0.35;
+    }
+    const pixelAmount = amount * blend * protection;
+    const targetA =
+      referenceStats.meanA +
+      (sourceA - sourceStats.meanA) * (referenceStats.stdA / Math.max(sourceStats.stdA, 0.01));
+    const targetBStar =
+      referenceStats.meanB +
+      (sourceBStar - sourceStats.meanB) * (referenceStats.stdB / Math.max(sourceStats.stdB, 0.01));
+    const finalA = sourceA * (1 - pixelAmount) + targetA * pixelAmount;
+    const finalB = sourceBStar * (1 - pixelAmount) + targetBStar * pixelAmount;
+    const [targetR, targetG, targetB] = labToRgb(sourceL, finalA, finalB);
+    out.data[index] = byte(sourceR * (1 - pixelAmount) + targetR * 255 * pixelAmount);
+    out.data[index + 1] = byte(sourceG * (1 - pixelAmount) + targetG * 255 * pixelAmount);
+    out.data[index + 2] = byte(sourceB * (1 - pixelAmount) + targetB * 255 * pixelAmount);
   }
 
   return out;

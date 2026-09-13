@@ -16,8 +16,9 @@ export {
   detectStaleResult,
   generateColorizationRequestId,
 } from './colorizationRequest';
+export { resolveDdColorRuntime } from './ddcolorRuntime';
 export { harmonize } from './harmonize';
-export { colorizationPipeline, paletteColorize } from './pipeline';
+export { colorizationPipeline, paletteColorize, validatePalette } from './pipeline';
 export { dispatchColorization, validateColorizationRequest } from './pipelineDispatch';
 export type {
   BackendCapabilities,

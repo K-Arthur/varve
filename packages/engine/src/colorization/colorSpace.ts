@@ -28,16 +28,37 @@ export function combineLabToImageData(
   predB: Float32Array,
   luminancePreservation: number,
 ): ImageData {
+  if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width <= 0 || height <= 0) {
+    throw new Error('Source dimensions must be positive integers');
+  }
   const pixelCount = width * height;
+  if (sourceData.length < pixelCount * 4) {
+    throw new Error('Source data is shorter than its dimensions');
+  }
+  if (predA.length < pixelCount || predB.length < pixelCount) {
+    throw new Error('Predicted chroma planes are shorter than the source image');
+  }
+  if (!Number.isFinite(luminancePreservation)) {
+    throw new Error('Luminance preservation must be finite');
+  }
   const out = new ImageData(width, height);
   const outData = out.data;
   const lumPres = Math.max(0, Math.min(1, luminancePreservation));
 
   for (let i = 0; i < pixelCount; i++) {
     const srcIdx = i * 4;
-    const r = sourceData[srcIdx]! / 255;
-    const g = sourceData[srcIdx + 1]! / 255;
-    const b = sourceData[srcIdx + 2]! / 255;
+    const dstIdx = i * 4;
+    const sourceAlpha = sourceData[srcIdx + 3] ?? 255;
+    if (sourceAlpha === 0) {
+      outData[dstIdx] = sourceData[srcIdx] ?? 0;
+      outData[dstIdx + 1] = sourceData[srcIdx + 1] ?? 0;
+      outData[dstIdx + 2] = sourceData[srcIdx + 2] ?? 0;
+      outData[dstIdx + 3] = 0;
+      continue;
+    }
+    const r = (sourceData[srcIdx] ?? 0) / 255;
+    const g = (sourceData[srcIdx + 1] ?? 0) / 255;
+    const b = (sourceData[srcIdx + 2] ?? 0) / 255;
 
     const [srcL] = rgbToLab(r, g, b);
     const modelL = srcL;
@@ -45,13 +66,15 @@ export function combineLabToImageData(
 
     const a = predA[i] ?? 0;
     const bVal = predB[i] ?? 0;
+    if (!Number.isFinite(a) || !Number.isFinite(bVal)) {
+      throw new Error('Predicted chroma contains a non-finite value');
+    }
     const [outR, outG, outB] = labToRgb(finalL, a, bVal);
 
-    const dstIdx = i * 4;
-    outData[dstIdx] = outR * 255;
-    outData[dstIdx + 1] = outG * 255;
-    outData[dstIdx + 2] = outB * 255;
-    outData[dstIdx + 3] = sourceData[srcIdx + 3] ?? 255;
+    outData[dstIdx] = Number.isFinite(outR) ? outR * 255 : 0;
+    outData[dstIdx + 1] = Number.isFinite(outG) ? outG * 255 : 0;
+    outData[dstIdx + 2] = Number.isFinite(outB) ? outB * 255 : 0;
+    outData[dstIdx + 3] = sourceAlpha;
   }
 
   return out;

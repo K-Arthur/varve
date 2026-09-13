@@ -19,7 +19,11 @@ import {
 } from '../semanticSimilarity/preprocess';
 import type { TensorSpec } from './imageTensor';
 import { packNchwTensor, packNhwcTensor } from './imageTensor';
-import { DD_COLOR_INPUT_SIZE, DD_COLOR_TENSOR_SPEC } from './models/ddcolor';
+import {
+  DD_COLOR_INPUT_SIZE,
+  DD_COLOR_TENSOR_SPEC,
+  DD_COLOR_TINY_INPUT_SIZE,
+} from './models/ddcolor';
 import { DEPTH_ANYTHING_INPUT_SIZE, DEPTH_ANYTHING_TENSOR_SPEC } from './models/depth';
 import { DETR_INPUT_SIZE, DETR_TENSOR_SPEC } from './models/detr';
 import { EFFICIENTNET_INPUT_SIZE, EFFICIENTNET_TENSOR_SPEC } from './models/efficientnet';
@@ -69,6 +73,8 @@ export interface WorkerTensor {
 export interface WorkerLetterbox {
   offsetX: number;
   offsetY: number;
+  contentWidth?: number;
+  contentHeight?: number;
 }
 
 /** External-weights sidecar: the graph-internal filename and a readable URL. */
@@ -142,7 +148,7 @@ interface ConstantFeed {
 
 interface ModelPreprocessor {
   tensorSpec: TensorSpec;
-  getInputSize: () => number;
+  getInputSize: (modelId?: string) => number;
   hasImageInput: boolean;
   /** Pack the primary image in NHWC (interleaved per-pixel) instead of the
    * default NCHW (planar) layout — EfficientNet-Lite's TF-native export. */
@@ -237,7 +243,8 @@ registerModelType('lineart', {
 
 registerModelType('ddcolor', {
   tensorSpec: DD_COLOR_TENSOR_SPEC,
-  getInputSize: () => DD_COLOR_INPUT_SIZE,
+  getInputSize: (modelId) =>
+    modelId === 'ddcolor-tiny' ? DD_COLOR_TINY_INPUT_SIZE : DD_COLOR_INPUT_SIZE,
   hasImageInput: true,
 });
 
@@ -562,7 +569,15 @@ function preprocessImage(
   inputSize: number,
   spec: TensorSpec,
   options: { singleChannel?: boolean; channelsLast?: boolean } = {},
-): { tensor: Float32Array; width: number; height: number; offsetX: number; offsetY: number } {
+): {
+  tensor: Float32Array;
+  width: number;
+  height: number;
+  offsetX: number;
+  offsetY: number;
+  contentWidth: number;
+  contentHeight: number;
+} {
   if (inputSize <= 0) {
     // Dynamic-size (SCUNet, PaddleOCR detection): no letterbox, direct pack.
     const width = imageData.width;
@@ -572,12 +587,28 @@ function preprocessImage(
       for (let i = 0; i < width * height; i++) {
         tensor[i] = (imageData.data[i * 4] ?? 0) / 255;
       }
-      return { tensor, width, height, offsetX: 0, offsetY: 0 };
+      return {
+        tensor,
+        width,
+        height,
+        offsetX: 0,
+        offsetY: 0,
+        contentWidth: width,
+        contentHeight: height,
+      };
     }
     const tensor = options.channelsLast
       ? packNhwcTensor(imageData, { ...spec, mean: [0, 0, 0], std: [255, 255, 255] })
       : packNchwTensor(imageData, { ...spec, mean: [0, 0, 0], std: [255, 255, 255] });
-    return { tensor, width, height, offsetX: 0, offsetY: 0 };
+    return {
+      tensor,
+      width,
+      height,
+      offsetX: 0,
+      offsetY: 0,
+      contentWidth: width,
+      contentHeight: height,
+    };
   }
 
   const resizedCanvas = new OffscreenCanvas(inputSize, inputSize);
@@ -592,8 +623,10 @@ function preprocessImage(
   const scale = Math.min(inputSize / imageData.width, inputSize / imageData.height);
   const offsetX = (inputSize - imageData.width * scale) / 2;
   const offsetY = (inputSize - imageData.height * scale) / 2;
+  const contentWidth = Math.max(1, Math.round(imageData.width * scale));
+  const contentHeight = Math.max(1, Math.round(imageData.height * scale));
 
-  ctx.drawImage(srcCanvas, offsetX, offsetY, imageData.width * scale, imageData.height * scale);
+  ctx.drawImage(srcCanvas, offsetX, offsetY, contentWidth, contentHeight);
   const resizedData = ctx.getImageData(0, 0, inputSize, inputSize);
 
   if (options.singleChannel) {
@@ -601,13 +634,29 @@ function preprocessImage(
     for (let i = 0; i < inputSize * inputSize; i++) {
       tensor[i] = (resizedData.data[i * 4] ?? 0) / 255;
     }
-    return { tensor, width: inputSize, height: inputSize, offsetX, offsetY };
+    return {
+      tensor,
+      width: inputSize,
+      height: inputSize,
+      offsetX,
+      offsetY,
+      contentWidth,
+      contentHeight,
+    };
   }
 
   const tensor = options.channelsLast
     ? packNhwcTensor(resizedData, spec)
     : packNchwTensor(resizedData, spec);
-  return { tensor, width: inputSize, height: inputSize, offsetX, offsetY };
+  return {
+    tensor,
+    width: inputSize,
+    height: inputSize,
+    offsetX,
+    offsetY,
+    contentWidth,
+    contentHeight,
+  };
 }
 
 self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
@@ -654,6 +703,8 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
     const inputNameSet = new Set(inputNames);
     let letterboxOffsetX = 0;
     let letterboxOffsetY = 0;
+    let letterboxContentWidth = 0;
+    let letterboxContentHeight = 0;
 
     if (modelPre.hasImageInput && imageData) {
       let finalTensor: Float32Array;
@@ -665,12 +716,14 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
         finalTensor = semantic.tensor;
         dims = [1, 3, semantic.height, semantic.width];
       } else {
-        const inputSize = modelPre.getInputSize();
+        const inputSize = modelPre.getInputSize(modelId);
         const primary = preprocessImage(imageData, inputSize, modelPre.tensorSpec, {
           channelsLast: modelPre.channelsLast,
         });
         letterboxOffsetX = primary.offsetX;
         letterboxOffsetY = primary.offsetY;
+        letterboxContentWidth = primary.contentWidth;
+        letterboxContentHeight = primary.contentHeight;
 
         finalTensor = primary.tensor;
         dims = modelPre.channelsLast
@@ -774,10 +827,12 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
       outputs.originalHeight = targetHeight ?? imageData.height;
       outputs.paddedWidth = imageData.width;
       outputs.paddedHeight = imageData.height;
-      if (modelPre.getInputSize() > 0) {
+      if (modelPre.getInputSize(modelId) > 0) {
         outputs.letterbox = {
           offsetX: letterboxOffsetX,
           offsetY: letterboxOffsetY,
+          contentWidth: letterboxContentWidth,
+          contentHeight: letterboxContentHeight,
         } satisfies WorkerLetterbox;
       }
     }

@@ -734,7 +734,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     id: 'ddcolor-tiny',
     name: 'DDColor Tiny (AI Colorize)',
     description:
-      'Fast AI colorization for grayscale photos and line art. ConvNeXt-tiny, 256x256 input. Bundled with the app (Apache-2.0).',
+      'Fast local AI colorization for grayscale photos. ConvNeXt-tiny, 256x256 input. Requires a verified model download; the artifact is not bundled (Apache-2.0).',
     sizeBytes: 220_524_460,
     remoteUrl: 'https://github.com/K-Arthur/varve/releases/download/models-v1/ddcolor-tiny.onnx',
     checksum: 'cb8996efe193140d536d338cad429ac74330dda3d49d57aa53c5b6131c3a3aa8',
@@ -755,21 +755,18 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
       outputActivation: 'none',
     },
     acquisition: {
-      kind: 'remote',
-      sources: [
-        {
-          url: 'https://github.com/K-Arthur/varve/releases/download/models-v1/ddcolor-tiny.onnx',
-          sha256: 'cb8996efe193140d536d338cad429ac74330dda3d49d57aa53c5b6131c3a3aa8',
-        },
-      ],
-      sha256: 'cb8996efe193140d536d338cad429ac74330dda3d49d57aa53c5b6131c3a3aa8',
+      kind: 'unavailable',
+      reasonCode: 'export-pending',
+      detail:
+        'No verified DDColor Tiny ONNX artifact is published. Freeze the official source revision, export it with tools/ddcolor-export, then record its hash and worker smoke test before enabling download.',
+      alternatives: ['Use deterministic Tint / Selective Recolor'],
     },
   },
   {
     id: 'ddcolor',
     name: 'DDColor (AI Colorize)',
     description:
-      'Photo-realistic AI colorization for grayscale photos. ConvNeXt-large, 512x512 input. Bundled with the app (Apache-2.0).',
+      'Higher-quality local AI colorization for grayscale photos. ConvNeXt-large, 512x512 input. Requires a verified model download; the artifact is not bundled (Apache-2.0).',
     sizeBytes: 980_082_799,
     remoteUrl: 'https://github.com/K-Arthur/varve/releases/download/models-v1/ddcolor.onnx',
     checksum: '69ba2e3d20ec79290d2056e46b1810e3518d4ba8707dd7e964d1518a18fec812',
@@ -790,14 +787,11 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
       outputActivation: 'none',
     },
     acquisition: {
-      kind: 'remote',
-      sources: [
-        {
-          url: 'https://github.com/K-Arthur/varve/releases/download/models-v1/ddcolor.onnx',
-          sha256: '69ba2e3d20ec79290d2056e46b1810e3518d4ba8707dd7e964d1518a18fec812',
-        },
-      ],
-      sha256: '69ba2e3d20ec79290d2056e46b1810e3518d4ba8707dd7e964d1518a18fec812',
+      kind: 'unavailable',
+      reasonCode: 'export-pending',
+      detail:
+        'No verified DDColor ONNX artifact is published. Freeze the official source revision, export it with tools/ddcolor-export, then record its hash and worker smoke test before enabling download.',
+      alternatives: ['Use deterministic Tint / Selective Recolor'],
     },
   },
   {
