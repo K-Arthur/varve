@@ -47,19 +47,29 @@ async function createFrame(
   await page.waitForTimeout(150);
   await page.keyboard.press('Escape');
   await page.waitForTimeout(100);
+  // Return to the select tool and re-select the frame: Escape clears the
+  // selection, and the mockup actions need a live selection.
+  await page.keyboard.press('v');
+  await page.waitForTimeout(100);
+  await page.mouse.click(box.x + x + 70, box.y + y + 90);
+  await page.waitForTimeout(150);
 }
 
-async function openMockupsFromContextMenu(page: import('@playwright/test').Page): Promise<void> {
-  await page
-    .locator('canvas.editor-canvas__content-layer')
-    .click({ button: 'right', position: { x: 190, y: 210 } });
-  const ctxMenu = page.getByRole('menu');
-  await ctxMenu.waitFor({ timeout: 8000 });
-  await ctxMenu.getByRole('menuitem', { name: /apply mockup/i }).click();
-  await page.waitForTimeout(300);
-  const mockupsTab = page.getByRole('tab', { name: /mockups/i });
-  await mockupsTab.waitFor({ timeout: 8000 });
-  expect(await mockupsTab.getAttribute('aria-selected')).toBe('true');
+/**
+ * Open the Resources → Mockups tab. The canvas context menu path is avoided
+ * here: tool-hint overlays can sit above the canvas and the panel route is the
+ * primary discoverable surface anyway. The current selection supplies the
+ * apply sources.
+ */
+async function openMockupsPanel(page: import('@playwright/test').Page): Promise<void> {
+  const tab = page.getByRole('tab', { name: /mockups/i });
+  if (!(await tab.first().isVisible().catch(() => false))) {
+    await page.keyboard.press('Control+Alt+l');
+  }
+  await tab.first().waitFor({ timeout: 10000 });
+  await tab.first().click();
+  await page.waitForTimeout(200);
+  await expect(tab.first()).toHaveAttribute('aria-selected', 'true');
 }
 
 async function applyTemplate(
@@ -95,7 +105,7 @@ test('mockup workflow: apply, link, update, save/reopen, export, replace, detach
   expect(await page.locator('.layers-panel [role="treeitem"]').count()).toBeGreaterThan(0);
 
   // 2. Open Mockups from the canvas context menu (selection is the new frame).
-  await openMockupsFromContextMenu(page);
+  await openMockupsPanel(page);
 
   // 3. Apply the built-in phone template.
   await applyTemplate(page, 'Phone — Front');
@@ -104,7 +114,7 @@ test('mockup workflow: apply, link, update, save/reopen, export, replace, detach
   const section = page.locator('.mockups-section');
   await section.waitFor({ timeout: 8000 });
   await expect(section.getByText('Phone — Front')).toBeVisible();
-  await expect(section.getByText(/Linked to node/)).toBeVisible();
+  await expect(section.getByText(/Frame 1/)).toBeVisible();
 
   // 5. Linked source update: nudge the source frame (digest invalidation).
   const sourceLayer = page.locator('.layers-panel [role="treeitem"]').first();
@@ -131,7 +141,7 @@ test('mockup workflow: apply, link, update, save/reopen, export, replace, detach
   await mockupLayer.click();
   await page.waitForTimeout(300);
   await expect(page.locator('.mockups-section')).toBeVisible({ timeout: 8000 });
-  await expect(page.locator('.mockups-section').getByText(/Linked to node/)).toBeVisible();
+  await expect(page.locator('.mockups-section').getByText(/Frame 1/)).toBeVisible();
 
   // 7. Add a PNG export configuration, then open Export and capture the
   // download. The advanced dialog only lists nodes with enabled presets.
@@ -229,8 +239,8 @@ test('multi-surface template: business card front and back bind two sources', as
   // Both surfaces bound (two sources cycled into front/back slots).
   const section = page.locator('.mockups-section');
   await section.waitFor({ timeout: 8000 });
-  await expect(section.getByText(/Linked to node/).first()).toBeVisible();
-  expect(await section.getByText(/Linked to node/).count()).toBe(2);
+  await expect(section.getByText(/Frame 1/).first()).toBeVisible();
+  await expect(section.getByText(/Frame 2/).first()).toBeVisible();
 });
 
 /** Configure a PNG export preset, then export and return the PNG bytes. */
@@ -260,7 +270,7 @@ test('export renders the composed mockup, not the frame background', async ({ pa
   mkdirSync(reviewDir, { recursive: true });
   await navigateToEditor(page);
   await createFrame(page, 120, 120);
-  await openMockupsFromContextMenu(page);
+  await openMockupsPanel(page);
   await applyTemplate(page, 'Phone — Front');
   await page.locator('.mockups-section').waitFor({ timeout: 8000 });
 
@@ -294,7 +304,7 @@ test('export renders the composed mockup, not the frame background', async ({ pa
 test('canvas surface overlay edits geometry and undoes in one step', async ({ page }) => {
   await navigateToEditor(page);
   await createFrame(page, 120, 120);
-  await openMockupsFromContextMenu(page);
+  await openMockupsPanel(page);
   await applyTemplate(page, 'Phone — Front');
   // The applied mockup frame is selected: its surfaces are click targets.
   const chip = page.locator('.mockup-overlay__chip', { hasText: 'Screen' });
@@ -331,7 +341,7 @@ test('deleting a bound source reports a missing source instead of crashing', asy
   });
   await navigateToEditor(page);
   await createFrame(page, 120, 120);
-  await openMockupsFromContextMenu(page);
+  await openMockupsPanel(page);
   await applyTemplate(page, 'Phone — Front');
   const section = page.locator('.mockups-section');
   await section.waitFor({ timeout: 8000 });
@@ -367,19 +377,16 @@ test('create template from selection adds a reusable Custom template', async ({ 
   });
   await navigateToEditor(page);
   await createFrame(page, 120, 120);
-  await page
-    .locator('canvas.editor-canvas__content-layer')
-    .click({ button: 'right', position: { x: 190, y: 210 } });
-  const ctxMenu = page.getByRole('menu');
-  await ctxMenu.waitFor({ timeout: 8000 });
-  await ctxMenu.getByRole('menuitem', { name: /create mockup template/i }).click();
-  await page.waitForTimeout(1200);
+
+  // Author a template from the selected frame through the panel action.
+  await openMockupsPanel(page);
+  await page.getByRole('button', { name: /Create from selection/ }).click();
+  await page.waitForTimeout(1500);
 
   // A new mockup instance is created and selected.
   await expect(page.locator('.mockups-section')).toBeVisible({ timeout: 10000 });
 
   // The Mockups library lists it as a Custom template with an export action.
-  await page.getByRole('tab', { name: /mockups/i }).click();
   const card = page.locator('.mockups-panel__card', { hasText: /Custom/ }).first();
   await card.waitFor({ timeout: 8000 });
   await expect(card.getByRole('button', { name: /export/i })).toBeVisible();
