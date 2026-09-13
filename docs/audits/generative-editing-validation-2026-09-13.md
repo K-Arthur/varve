@@ -10,6 +10,12 @@ prompt-conditioned generation has qualified for release.
   workflow, with architecture/user/marketing documentation and updated
   website visual baselines.
 - `c46d9c619` — real local inpainting model comparison and failure evidence.
+- `f26e28ef0` — constrained-device preflight coverage and the validation
+  ledger for the remaining qualification gates.
+- `530fc67df` — official component-conversion follow-up and model evidence
+  clarification.
+- `60eef0f4a` — preserve NCHW LaMa output geometry for portrait contexts,
+  with a regression test for the decoder dimension contract.
 
 The E2E test source and the raw model comparison PNGs remain task-owned in the
 worktree while the shared repository E2E typecheck is failing on unrelated
@@ -27,8 +33,9 @@ Passed:
 - `pnpm audit:emoji` — clean.
 - `packages/engine/src/generativeEdit/generativeEdit.test.ts` — 16 tests
   passed, including the 4 GiB ARM/ChromeOS diffusion pre-allocation refusal.
-- Seven focused generative test files — 64 tests passed, including mask,
-  bounded context, expansion, worker-host, composition, and controls checks.
+- Nine focused generative test files — 74 tests passed, including mask,
+  bounded context, expansion, worker-host, composition, controls, LaMa
+  output-dimension, and portrait-geometry checks.
 
 ### Real-browser interaction and visual checks
 
@@ -53,6 +60,11 @@ button, after an earlier two-case run reported the same startup instability.
 This is recorded as a harness/resource failure, not as a generation pass or
 failure. The existing real-photo CAF qualification lane remains the source of
 the earlier promptless Fill/Remove evidence.
+
+A later single-case retry for promptless Fill also did not reach the test body:
+the concurrent worktree's Vite server repeatedly failed to resolve the
+unrelated `packages/engine/src/frequencySeparation` export before the editor
+could load. This is likewise an infrastructure failure, not visual evidence.
 
 ### Native model-quality evidence
 
