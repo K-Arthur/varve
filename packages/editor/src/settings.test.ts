@@ -22,6 +22,10 @@ describe('loadSettings', () => {
     expect(s.viewport.guidesVisible).toBe(true);
     expect(s.viewport.snapGrid).toBe(8);
     expect(s.render.memoryBudget).toBe('medium');
+    expect(s.render.interactivePreview).toBe('automatic');
+    expect(s.viewport.wheelMode).toBe('auto');
+    expect(s.viewport.wheelSensitivity).toBe(1);
+    expect(s.viewport.wheelInertia).toBe(true);
     expect(s.performance.reducedMotionOverride).toBe('system');
     expect(s.performance.showPerformanceDiagnostics).toBe(false);
     expect(s.panel.minimapVisible).toBe(true);
@@ -216,6 +220,30 @@ describe('loadSettings', () => {
     });
   });
 
+  it('normalizes wheel navigation and interactive preview preferences', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        render: { interactivePreview: 'invalid' },
+        viewport: { wheelMode: 'invalid', wheelSensitivity: 99, wheelInertia: false },
+      }),
+    );
+    expect(loadSettings().render.interactivePreview).toBe('automatic');
+    expect(loadSettings().viewport).toMatchObject({
+      wheelMode: 'auto',
+      wheelSensitivity: 4,
+      wheelInertia: false,
+    });
+
+    const updated = updateSettings({
+      render: { interactivePreview: 'full' },
+      viewport: { wheelMode: 'zoom', wheelSensitivity: 0.01 },
+    });
+    expect(updated.render.interactivePreview).toBe('full');
+    expect(updated.viewport.wheelMode).toBe('zoom');
+    expect(updated.viewport.wheelSensitivity).toBe(0.25);
+  });
+
   it('normalizes drawing input preferences without rejecting older settings files', () => {
     localStorage.setItem(
       STORAGE_KEY,
@@ -286,11 +314,12 @@ describe('resetSettings', () => {
 
   it('restores performance settings to factory defaults', () => {
     updateSettings({
-      render: { memoryBudget: 'high' },
+      render: { memoryBudget: 'high', interactivePreview: 'full' },
       performance: { reducedMotionOverride: 'never' },
     });
     const r = resetSettings();
     expect(r.render.memoryBudget).toBe('medium');
+    expect(r.render.interactivePreview).toBe('automatic');
     expect(r.performance.reducedMotionOverride).toBe('system');
   });
 

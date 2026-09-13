@@ -1,6 +1,13 @@
 import { Button, NumberInput, Select, SwitchField } from '@varve/ui';
 import { useCallback, useState } from 'react';
-import { DEFAULT_DRAWING_INPUT_SETTINGS, type DrawingInputSettingsStore } from '../../settings';
+import {
+  DEFAULT_DRAWING_INPUT_SETTINGS,
+  DEFAULT_VIEWPORT_SETTINGS,
+  type DrawingInputSettingsStore,
+  type ViewportSettingsStore,
+  WHEEL_SENSITIVITY_MAX,
+  WHEEL_SENSITIVITY_MIN,
+} from '../../settings';
 import { refreshDrawingInputSettings } from '../../tools/drawingInputRuntime';
 import {
   getObservedInputCapabilities,
@@ -20,6 +27,24 @@ const FINGER_MODE_OPTIONS = [
     value: 'navigate',
     label: 'Finger navigates',
     description: 'One finger pans; pen or mouse remains available for drawing.',
+  },
+];
+
+const WHEEL_MODE_OPTIONS = [
+  {
+    value: 'auto',
+    label: 'Standard: wheel pans',
+    description: 'Plain wheel pans; Ctrl/Cmd+wheel zooms around the pointer.',
+  },
+  {
+    value: 'pan',
+    label: 'Always pan',
+    description: 'Treat wheel input as canvas travel, including modified wheel input.',
+  },
+  {
+    value: 'zoom',
+    label: 'Always zoom',
+    description: 'Treat wheel input as zoom around the pointer.',
   },
 ];
 
@@ -73,6 +98,13 @@ export function DrawingInputSettingsTab() {
       // The next contact sees the persisted setting without rebuilding the
       // editor or reading localStorage on every pointermove.
       refreshDrawingInputSettings();
+    },
+    [updateSettings],
+  );
+
+  const updateNavigation = useCallback(
+    (patch: Partial<ViewportSettingsStore>) => {
+      updateSettings({ viewport: patch });
     },
     [updateSettings],
   );
@@ -197,6 +229,70 @@ export function DrawingInputSettingsTab() {
 
       <Button variant="ghost" size="sm" onClick={resetInput}>
         Reset drawing input settings
+      </Button>
+
+      <div className="settings-divider" />
+
+      <h3 className="settings-section__title">Canvas navigation</h3>
+      <p className="settings-section__hint">
+        Navigation changes the view only. It never creates artwork undo entries or changes saved
+        geometry. Settings are applied to the next wheel event without recreating the editor.
+      </p>
+
+      <div className="settings-field-row">
+        <span className="settings-field-row__label">Wheel behavior</span>
+        <div className="settings-field-row__control">
+          <Select
+            options={WHEEL_MODE_OPTIONS}
+            value={settings.viewport.wheelMode}
+            onChange={(value) =>
+              updateNavigation({ wheelMode: value as ViewportSettingsStore['wheelMode'] })
+            }
+            label="Wheel behavior"
+          />
+        </div>
+      </div>
+      <p className="settings-hint">
+        Standard is the safest choice across detented wheels, precision mice, and trackpads. The
+        canvas claims the gesture only while the pointer is over it; page zoom outside it remains
+        available.
+      </p>
+
+      <div className="settings-field-row">
+        <span className="settings-field-row__label">Wheel sensitivity</span>
+        <div className="settings-field-row__control">
+          <NumberInput
+            value={settings.viewport.wheelSensitivity}
+            min={WHEEL_SENSITIVITY_MIN}
+            max={WHEEL_SENSITIVITY_MAX}
+            step={0.05}
+            altStep={0.25}
+            label="Wheel sensitivity"
+            onChange={(value) => updateNavigation({ wheelSensitivity: value })}
+          />
+        </div>
+      </div>
+      <p className="settings-hint">1.00 is the default. The value is bounded from 0.25x to 4x.</p>
+
+      <SwitchField
+        label="Continue detented mouse-wheel motion"
+        description="Adds a short elapsed-time continuation to mouse-classified wheel input. Trackpad momentum and ambiguous devices stay direct-only so operating-system momentum is not doubled."
+        checked={settings.viewport.wheelInertia}
+        onChange={(event) => updateNavigation({ wheelInertia: event.target.checked })}
+      />
+
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() =>
+          updateNavigation({
+            wheelMode: DEFAULT_VIEWPORT_SETTINGS.wheelMode,
+            wheelSensitivity: DEFAULT_VIEWPORT_SETTINGS.wheelSensitivity,
+            wheelInertia: DEFAULT_VIEWPORT_SETTINGS.wheelInertia,
+          })
+        }
+      >
+        Reset canvas navigation settings
       </Button>
     </div>
   );

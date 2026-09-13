@@ -1,5 +1,9 @@
 import { createContext, type ReactNode, useCallback, useContext, useState } from 'react';
 import {
+  refreshInteractivePreviewSettings,
+  refreshNavigationSettings,
+} from '../../canvas/navigationRuntime';
+import {
   updateSettings as applyEditorSettingsPatch,
   DEFAULT_EDITOR_SETTINGS,
   type EditorSettings,
@@ -56,6 +60,16 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       // Delegate to the store's canonical merge so the dialog and every other
       // caller of `updateSettings` produce the same result for the same patch.
       persist(applyEditorSettingsPatch(patch));
+      if (
+        patch.viewport?.wheelMode !== undefined ||
+        patch.viewport?.wheelSensitivity !== undefined ||
+        patch.viewport?.wheelInertia !== undefined
+      ) {
+        refreshNavigationSettings();
+      }
+      if (patch.render?.interactivePreview !== undefined) {
+        refreshInteractivePreviewSettings();
+      }
     },
     [persist],
   );
@@ -76,6 +90,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   const resetSettings = useCallback(() => {
     persist({ ...DEFAULT_EDITOR_SETTINGS });
+    refreshNavigationSettings();
+    refreshInteractivePreviewSettings();
   }, [persist]);
 
   return (

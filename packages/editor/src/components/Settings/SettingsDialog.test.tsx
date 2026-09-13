@@ -48,6 +48,21 @@ describe('SettingsDialog', () => {
     expect(JSON.parse(localStorage.getItem('varve-editor-settings')!).drawingInput.fingerMode).toBe(
       'navigate',
     );
+
+    const wheel = screen.getByRole('combobox', { name: 'Wheel behavior' });
+    expect(wheel).toHaveTextContent('Standard: wheel pans');
+    fireEvent.click(wheel);
+    fireEvent.click(await screen.findByRole('option', { name: /Always zoom/ }));
+    expect(JSON.parse(localStorage.getItem('varve-editor-settings')!).viewport.wheelMode).toBe(
+      'zoom',
+    );
+
+    const sensitivity = screen.getByLabelText('Wheel sensitivity') as HTMLInputElement;
+    fireEvent.change(sensitivity, { target: { value: '1.5' } });
+    fireEvent.blur(sensitivity);
+    expect(
+      JSON.parse(localStorage.getItem('varve-editor-settings')!).viewport.wheelSensitivity,
+    ).toBe(1.5);
   });
 
   it('closes on close button', () => {
@@ -165,6 +180,7 @@ describe('PerformanceSettingsTab', () => {
   it('shows the memory budget and reduce motion selectors', () => {
     openPerformanceTab();
     expect(screen.getByLabelText('Memory / cache budget')).toBeTruthy();
+    expect(screen.getByLabelText('Interactive preview quality')).toBeTruthy();
     expect(screen.getByLabelText('Reduce motion')).toBeTruthy();
   });
 

@@ -131,15 +131,26 @@ export function resolveWheelAction(e: {
   clientHeight: number;
   /** Sequence-aware source from wheelGesture.ts; when omitted, per-event. */
   source?: WheelSource;
+  /** User override; auto is the standard pan / modifier-zoom contract. */
+  wheelMode?: 'auto' | 'pan' | 'zoom';
+  /** Bounded multiplier applied after DOM delta normalization. */
+  wheelSensitivity?: number;
+  /** App continuation is only eligible for mouse-classified input. */
+  wheelInertia?: boolean;
 }): ResolvedWheelAction {
   const source = e.source ?? classifyWheelEvent(e);
-  const normX = normalizeWheelDelta(e.deltaX, e.deltaMode, e.clientHeight);
-  const normY = normalizeWheelDelta(e.deltaY, e.deltaMode, e.clientHeight);
+  const sensitivity =
+    typeof e.wheelSensitivity === 'number' && Number.isFinite(e.wheelSensitivity)
+      ? Math.min(4, Math.max(0.25, e.wheelSensitivity))
+      : 1;
+  const normX = normalizeWheelDelta(e.deltaX, e.deltaMode, e.clientHeight) * sensitivity;
+  const normY = normalizeWheelDelta(e.deltaY, e.deltaMode, e.clientHeight) * sensitivity;
+  const wheelMode = e.wheelMode ?? 'auto';
 
   // Ctrl/Cmd + wheel is the platform-standard pinch-to-zoom signal (Chromium
   // converts trackpad pinch into ctrlKey+wheel sequences; some mice also bind
   // it as zoom).
-  if (e.ctrlKey || e.metaKey) {
+  if (wheelMode === 'zoom' || (wheelMode === 'auto' && (e.ctrlKey || e.metaKey))) {
     const d = Math.max(-ZOOM_DELTA_CLAMP, Math.min(ZOOM_DELTA_CLAMP, normY));
     return {
       kind: 'zoom',
@@ -154,7 +165,7 @@ export function resolveWheelAction(e: {
 
   // Shift + vertical wheel scrolls horizontally (mouse convention). Preserved
   // for trackpads too, where the user may hold Shift deliberately.
-  if (e.shiftKey && normX === 0) {
+  if (wheelMode !== 'zoom' && e.shiftKey && normX === 0) {
     return {
       kind: 'pan',
       source,
@@ -173,6 +184,6 @@ export function resolveWheelAction(e: {
     deltaY: -normY,
     shiftHeld: false,
     scale: 1,
-    applyInertia: source === 'mouse',
+    applyInertia: source === 'mouse' && e.wheelInertia !== false,
   };
 }

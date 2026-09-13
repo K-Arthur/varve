@@ -88,6 +88,9 @@ describe('resolveWheelAction', () => {
       metaKey?: boolean;
       shiftKey?: boolean;
       clientHeight?: number;
+      wheelMode?: 'auto' | 'pan' | 'zoom';
+      wheelSensitivity?: number;
+      wheelInertia?: boolean;
     } = {},
   ) {
     return {
@@ -178,5 +181,27 @@ describe('resolveWheelAction', () => {
   it('normalizes page-mode panning by client height', () => {
     const action = resolveWheelAction(wheel({ deltaY: 1, deltaMode: 2, clientHeight: 600 }));
     expect(action.deltaY).toBe(-600);
+  });
+
+  it('honours an explicit always-pan policy even for Ctrl+wheel', () => {
+    const action = resolveWheelAction(wheel({ ctrlKey: true, deltaY: -20, wheelMode: 'pan' }));
+    expect(action.kind).toBe('pan');
+    expect(action.deltaY).toBe(20);
+    expect(action.applyInertia).toBe(false);
+  });
+
+  it('honours an explicit always-zoom policy for unmodified wheel input', () => {
+    const action = resolveWheelAction(wheel({ deltaY: -10, wheelMode: 'zoom' }));
+    expect(action.kind).toBe('zoom');
+    expect(action.scale).toBeGreaterThan(1);
+  });
+
+  it('scales normalized deltas without rounding and can disable mouse continuation', () => {
+    const action = resolveWheelAction(
+      wheel({ deltaX: 5.5, deltaY: -120, wheelSensitivity: 2, wheelInertia: false }),
+    );
+    expect(action.deltaX).toBe(-11);
+    expect(action.deltaY).toBe(240);
+    expect(action.applyInertia).toBe(false);
   });
 });

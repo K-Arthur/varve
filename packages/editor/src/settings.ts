@@ -81,11 +81,19 @@ export interface AppearanceSettingsStore {
   fontSizeUI: 'small' | 'medium' | 'large';
 }
 
+/** How unmodified wheel input is interpreted while the canvas owns it. */
+export type WheelNavigationMode = 'auto' | 'pan' | 'zoom';
+
+/** Whether adaptive interaction rendering may lower the temporary backing scale. */
+export type InteractivePreviewMode = 'automatic' | 'full';
+
 export interface RenderSettingsStore {
   /** Prefer WebGPU compositor when adapter available (Canvas2D fallback on loss). */
   preferWebGpu: boolean;
   /** IR cache byte budget preset — see packages/editor/src/canvas/memoryBudget.ts. */
   memoryBudget: 'low' | 'medium' | 'high';
+  /** Keep full device resolution during navigation instead of using adaptive preview scale. */
+  interactivePreview: InteractivePreviewMode;
 }
 
 export interface PerformanceSettingsStore {
@@ -115,6 +123,12 @@ export interface ViewportSettingsStore {
   snapToPages: boolean;
   /** Include authored ruler and frame layout guide lines in pointer snapping. */
   snapToGuides: boolean;
+  /** Standard keeps plain wheel as pan and Ctrl/Cmd+wheel as zoom. */
+  wheelMode: WheelNavigationMode;
+  /** Multiplier for normalized wheel deltas; bounded to keep input predictable. */
+  wheelSensitivity: number;
+  /** Allow app-side continuation for detented mouse wheels; trackpad tails never use it. */
+  wheelInertia: boolean;
   pixelGridEnabled: boolean;
   pixelGridSnapEnabled: boolean;
   dotGridEnabled: boolean;
@@ -302,6 +316,7 @@ export const DEFAULT_PANEL_SETTINGS: PanelSettingsStore = {
 export const DEFAULT_RENDER_SETTINGS: RenderSettingsStore = {
   preferWebGpu: false,
   memoryBudget: 'medium',
+  interactivePreview: 'automatic',
 };
 
 export const DEFAULT_PERFORMANCE_SETTINGS: PerformanceSettingsStore = {
@@ -319,6 +334,9 @@ export const DEFAULT_VIEWPORT_SETTINGS: ViewportSettingsStore = {
   snapToObjects: true,
   snapToPages: true,
   snapToGuides: true,
+  wheelMode: 'auto',
+  wheelSensitivity: 1,
+  wheelInertia: true,
   pixelGridEnabled: false,
   pixelGridSnapEnabled: false,
   dotGridEnabled: false,
@@ -335,6 +353,8 @@ export const DEFAULT_VIEWPORT_SETTINGS: ViewportSettingsStore = {
 
 export const SNAP_TOLERANCE_MIN = 1;
 export const SNAP_TOLERANCE_MAX = 32;
+export const WHEEL_SENSITIVITY_MIN = 0.25;
+export const WHEEL_SENSITIVITY_MAX = 4;
 
 export const DEFAULT_SECTION_SETTINGS: SectionSettingsStore = {
   version: 1,
@@ -554,7 +574,7 @@ export function loadSettings(): EditorSettings {
         ),
       },
       panel: mergePartial(DEFAULT_PANEL_SETTINGS, parsed.panel as Partial<PanelSettingsStore>),
-      render: mergePartial(DEFAULT_RENDER_SETTINGS, parsed.render as Partial<RenderSettingsStore>),
+      render: normalizeRenderSettings(parsed.render as Partial<RenderSettingsStore>),
       startup: mergePartial(
         DEFAULT_STARTUP_SETTINGS,
         parsed.startup as Partial<StartupSettingsStore>,
@@ -640,6 +660,10 @@ function normalizeViewportSettings(
   partial: Partial<ViewportSettingsStore> | undefined,
 ): ViewportSettingsStore {
   const viewport = mergePartial(DEFAULT_VIEWPORT_SETTINGS, partial);
+  const wheelSensitivity =
+    typeof viewport.wheelSensitivity === 'number' && Number.isFinite(viewport.wheelSensitivity)
+      ? Math.min(WHEEL_SENSITIVITY_MAX, Math.max(WHEEL_SENSITIVITY_MIN, viewport.wheelSensitivity))
+      : DEFAULT_VIEWPORT_SETTINGS.wheelSensitivity;
   return {
     ...viewport,
     snapTolerancePx: normalizeSnapTolerance(viewport.snapTolerancePx),
@@ -655,6 +679,28 @@ function normalizeViewportSettings(
       typeof viewport.snapToGuides === 'boolean'
         ? viewport.snapToGuides
         : DEFAULT_VIEWPORT_SETTINGS.snapToGuides,
+    wheelMode:
+      viewport.wheelMode === 'auto' || viewport.wheelMode === 'pan' || viewport.wheelMode === 'zoom'
+        ? viewport.wheelMode
+        : DEFAULT_VIEWPORT_SETTINGS.wheelMode,
+    wheelSensitivity,
+    wheelInertia:
+      typeof viewport.wheelInertia === 'boolean'
+        ? viewport.wheelInertia
+        : DEFAULT_VIEWPORT_SETTINGS.wheelInertia,
+  };
+}
+
+function normalizeRenderSettings(
+  partial: Partial<RenderSettingsStore> | undefined,
+): RenderSettingsStore {
+  const render = mergePartial(DEFAULT_RENDER_SETTINGS, partial);
+  return {
+    ...render,
+    interactivePreview:
+      render.interactivePreview === 'automatic' || render.interactivePreview === 'full'
+        ? render.interactivePreview
+        : DEFAULT_RENDER_SETTINGS.interactivePreview,
   };
 }
 
@@ -688,7 +734,7 @@ export function updateSettings(patch: EditorSettingsPatch): EditorSettings {
     export: { ...current.export, ...patch.export },
     appearance: { ...current.appearance, ...patch.appearance },
     panel: { ...current.panel, ...patch.panel },
-    render: { ...current.render, ...patch.render },
+    render: normalizeRenderSettings({ ...current.render, ...patch.render }),
     startup: { ...current.startup, ...patch.startup },
     viewport: normalizeViewportSettings({ ...current.viewport, ...patch.viewport }),
     sections: {
