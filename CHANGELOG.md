@@ -14,6 +14,12 @@ update, not for someone reading the commit log.
 
 ### Added
 
+- **Advanced typography and artistic text** — The Typography inspector now
+  exposes face-aware OpenType values (including indexed and source-ranged
+  settings where the shaping backend supports them), variable-font axes, a
+  keyboard-accessible alternate-feature browser, cluster-safe wordmark
+  adjustments, path-text controls, bounded deformation, and explicit
+  text-to-outlines conversion with source-range/font provenance.
 - **Depth-aware masking** — Reusable relative depth maps can now be imported
   or saved from Depth Blur, inspected with a valid-only heatmap/histogram,
   range-picked and combined into non-destructive layer or adjustment masks.
@@ -50,6 +56,14 @@ update, not for someone reading the commit log.
 
 ### Fixed
 
+- **Shaping and outline fidelity** — Browser replay keeps ligature-sensitive
+  source runs intact; HarfBuzz/rustybuzz shaping now preserves UTF-16 clusters,
+  numeric feature values, ranges, inferred direction, metrics, and face identity.
+  Supported monochrome outline conversion uses the actual shaped glyph IDs and
+  refuses missing, corrupt, collection-face, or colour-font inputs instead of
+  producing placeholder geometry. PDF preflight rasterizes shaping-sensitive
+  text through the live renderer so advanced typography cannot silently change
+  during export.
 - **Path editing correctness** — Full affine and rotated-camera projection now
   keeps hit targets aligned at arbitrary zoom, selection-only clicks avoid
   history, pointer cancellation restores the pre-drag shape, and topology edits
