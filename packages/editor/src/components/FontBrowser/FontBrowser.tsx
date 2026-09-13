@@ -339,6 +339,14 @@ export function FontBrowser({
     return [searchQuery.trim(), filterQuery].filter(Boolean).join(' ');
   }, [searchQuery, semanticFilter]);
 
+  const hasActiveFilters =
+    searchQuery.trim().length > 0 || activeFilter !== 'all' || semanticFilter !== 'all';
+  const resetFilters = useCallback(() => {
+    setSearchQuery('');
+    setActiveFilter('all');
+    setSemanticFilter('all');
+  }, []);
+
   const interpretation = useMemo(() => parseFontSemanticQuery(effectiveQuery), [effectiveQuery]);
   const searchResults = useMemo(
     () =>
@@ -725,6 +733,16 @@ export function FontBrowser({
               </span>
             )}
           </div>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              className="font-browser__reset-button"
+              onClick={resetFilters}
+              aria-label="Reset font browser filters"
+            >
+              Reset filters
+            </button>
+          )}
         </div>
       </div>
 

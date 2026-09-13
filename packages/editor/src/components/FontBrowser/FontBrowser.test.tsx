@@ -123,6 +123,30 @@ describe('FontBrowser', () => {
     ).toBeVisible();
   });
 
+  it('resets search and source or semantic filters in one action', () => {
+    render(<FontBrowser layout="modal" showDownloadable />);
+
+    const search = screen.getByRole('searchbox', {
+      name: 'Search fonts by name or design language',
+    });
+    fireEvent.change(search, { target: { value: 'gothic' } });
+    fireEvent.click(screen.getByRole('tab', { name: 'Favorites' }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Semantic font filter' }), {
+      target: { value: 'variable' },
+    });
+
+    const reset = screen.getByRole('button', { name: 'Reset font browser filters' });
+    expect(reset).toBeVisible();
+    fireEvent.click(reset);
+
+    expect(search).toHaveValue('');
+    expect(screen.getByRole('tab', { name: 'All' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('combobox', { name: 'Semantic font filter' })).toHaveValue('all');
+    expect(
+      screen.queryByRole('button', { name: 'Reset font browser filters' }),
+    ).not.toBeInTheDocument();
+  });
+
   it('applies the exact registered face chosen from an expanded family', () => {
     const onSelectFace = vi.fn();
     render(

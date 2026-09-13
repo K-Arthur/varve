@@ -188,6 +188,32 @@
   opacity: 0.7;
 }
 
+.font-browser__reset-button {
+  flex: 0 0 auto;
+  min-height: var(--component-compact-height);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.font-browser__reset-button:hover {
+  border-color: var(--color-interactive-default);
+  background: var(--color-interactive-hover-surface);
+  color: var(--color-interactive-default);
+}
+
+.font-browser__reset-button:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+
 .font-browser__local-fonts-status {
   max-width: 10rem;
   overflow: hidden;
@@ -936,6 +962,10 @@
     width: 100%;
   }
 
+  .font-browser__reset-button {
+    width: 100%;
+  }
+
   .font-browser__local-fonts-status {
     max-width: none;
   }
@@ -970,7 +1000,8 @@
 [data-theme="high-contrast"] .font-browser__specimen-label input,
 [data-theme="high-contrast"] .font-browser__tag-editor input,
 [data-theme="high-contrast"] .font-browser__semantic-filter select,
-[data-theme="high-contrast"] .font-browser__local-fonts-button {
+[data-theme="high-contrast"] .font-browser__local-fonts-button,
+[data-theme="high-contrast"] .font-browser__reset-button {
   border-color: var(--color-border-strong);
 }
 
@@ -994,7 +1025,8 @@
   .font-browser__badge,
   .font-browser__chip,
   .font-browser__detail-tag,
-  .font-browser__local-fonts-button {
+  .font-browser__local-fonts-button,
+  .font-browser__reset-button {
     border: 1px solid ButtonText;
   }
 }
