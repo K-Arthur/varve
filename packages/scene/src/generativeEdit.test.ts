@@ -56,6 +56,7 @@ function fixture(): GenerativeEditRecord {
       {
         id: 'variation-1',
         assetId: 'asset-output',
+        thumbnailAssetId: 'asset-output-thumbnail',
         width: 640,
         height: 480,
         createdAt: 10,
@@ -117,5 +118,11 @@ describe('generative edit document contract', () => {
     const invalid = fixture();
     invalid.settings.maskExpansion = -65;
     expect(validateGenerativeEdit(invalid)).toContain('settings');
+  });
+
+  it('rejects an empty retained thumbnail reference', () => {
+    const invalid = fixture();
+    invalid.variations[0]!.thumbnailAssetId = '';
+    expect(validateGenerativeEdit(invalid)).toContain('variations');
   });
 });

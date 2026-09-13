@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createEmbeddedAsset } from './assets';
+import type { Document } from './document';
 import {
   addNode,
   addPage,
@@ -565,6 +566,40 @@ describe('DocumentCodec', () => {
       const { doc, asset } = docWithAsset();
       const closure = DocumentCodec.collectNodeClosure(doc, ['s1']);
       expect(closure.assets?.[asset.id]).toEqual(asset);
+    });
+
+    it('includes retained generative thumbnails in the copy/paste dependency closure', () => {
+      const resultAsset = createEmbeddedAsset({
+        dataUrl: DATA_URL,
+        mimeType: 'image/png',
+        naturalWidth: 640,
+        naturalHeight: 480,
+      });
+      const thumbnailAsset = createEmbeddedAsset({
+        dataUrl: 'data:image/png;base64,dGh1bWJuYWls',
+        mimeType: 'image/png',
+        naturalWidth: 256,
+        naturalHeight: 192,
+      });
+      const node = makeShapeNode('s1', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 });
+      const doc = {
+        ...addNode(createDocument('Generative thumbnails', true), node),
+        assets: { [resultAsset.id]: resultAsset, [thumbnailAsset.id]: thumbnailAsset },
+        generativeEdits: {
+          edit: {
+            sourceNodeId: node.id,
+            resultNodeId: node.id,
+            maskAssetId: 'mask-1',
+            masks: { userMaskAssetId: 'mask-1' },
+            variations: [{ assetId: resultAsset.id, thumbnailAssetId: thumbnailAsset.id }],
+          },
+        } as unknown as Document['generativeEdits'],
+      };
+
+      const closure = DocumentCodec.collectNodeClosure(doc, [node.id]);
+
+      expect(closure.assets?.[resultAsset.id]).toEqual(resultAsset);
+      expect(closure.assets?.[thumbnailAsset.id]).toEqual(thumbnailAsset);
     });
   });
 

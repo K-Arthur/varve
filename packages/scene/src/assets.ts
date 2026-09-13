@@ -26,7 +26,11 @@ interface AssetNodeMap {
     {
       sourceAssetId?: string;
       sourceSnapshotAssetId?: string;
-      variations?: Array<{ assetId?: string; contextAssetId?: string }>;
+      variations?: Array<{
+        assetId?: string;
+        thumbnailAssetId?: string;
+        contextAssetId?: string;
+      }>;
     }
   >;
 }
@@ -393,7 +397,10 @@ export function isAssetReferenced(doc: AssetNodeMap, assetId: string): boolean {
     if (edit.sourceAssetId === assetId || edit.sourceSnapshotAssetId === assetId) return true;
     if (
       edit.variations?.some(
-        (variation) => variation.assetId === assetId || variation.contextAssetId === assetId,
+        (variation) =>
+          variation.assetId === assetId ||
+          variation.thumbnailAssetId === assetId ||
+          variation.contextAssetId === assetId,
       )
     ) {
       return true;

@@ -15,6 +15,7 @@ import { makePaint } from '../types';
 
 const DATA_URL_A = 'data:image/png;base64,aGVsbG8gd29ybGQ=';
 const DATA_URL_B = 'data:image/png;base64,Z29vZGJ5ZSB3b3JsZA==';
+const THUMBNAIL_DATA_URL = 'data:image/png;base64,dGh1bWJuYWls';
 
 describe('hashContent', () => {
   it('is deterministic for identical input', () => {
@@ -184,6 +185,12 @@ describe('isAssetReferenced / pruneUnusedAssets', () => {
       naturalWidth: 10,
       naturalHeight: 10,
     });
+    const thumbnail = createEmbeddedAsset({
+      dataUrl: THUMBNAIL_DATA_URL,
+      mimeType: 'image/png',
+      naturalWidth: 256,
+      naturalHeight: 192,
+    });
     const unused = createEmbeddedAsset({
       dataUrl: 'data:image/png;base64,QQ==',
       mimeType: 'image/png',
@@ -192,19 +199,26 @@ describe('isAssetReferenced / pruneUnusedAssets', () => {
     });
     const doc = {
       nodes: {},
-      assets: { [source.id]: source, [candidate.id]: candidate, [unused.id]: unused },
+      assets: {
+        [source.id]: source,
+        [candidate.id]: candidate,
+        [thumbnail.id]: thumbnail,
+        [unused.id]: unused,
+      },
       generativeEdits: {
         edit: {
           sourceSnapshotAssetId: source.id,
-          variations: [{ assetId: candidate.id }],
+          variations: [{ assetId: candidate.id, thumbnailAssetId: thumbnail.id }],
         },
       },
     };
     expect(isAssetReferenced(doc, source.id)).toBe(true);
     expect(isAssetReferenced(doc, candidate.id)).toBe(true);
+    expect(isAssetReferenced(doc, thumbnail.id)).toBe(true);
     expect(pruneUnusedAssets(doc).assets).toEqual({
       [source.id]: source,
       [candidate.id]: candidate,
+      [thumbnail.id]: thumbnail,
     });
   });
 

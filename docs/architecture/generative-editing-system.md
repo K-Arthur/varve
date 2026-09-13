@@ -92,6 +92,17 @@ the original source bytes are retained separately. Missing models therefore
 affect regeneration only, not rendering, restore, or export of an accepted
 result.
 
+Variation assets remain compressed in the document, and each newly accepted
+candidate also retains a bounded 256-pixel thumbnail. On reopen the dialog
+uses thumbnails for inactive candidate cards and does not decode every retained
+full-resolution candidate into `ImageData`; only the active candidate uses the
+small working representation needed by the session. Selecting a candidate
+loads its full asset for review or Apply. This keeps accepted edits usable on
+memory-constrained Chromebooks and ARM devices without discarding older
+candidates or their provenance. Legacy records without thumbnails remain
+readable and fall back to their full asset until the next Apply creates the
+thumbnail metadata.
+
 ## Freshness and history
 
 Every job captures document id, target id, immutable source asset/hash,

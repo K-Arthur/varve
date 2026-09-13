@@ -78,6 +78,8 @@ export interface GenerativeEditOutputFrame {
 export interface GenerativeEditVariation {
   id: string;
   assetId: string;
+  /** Small preview asset used by candidate cards before a full result is selected. */
+  thumbnailAssetId?: string;
   width: number;
   height: number;
   createdAt: number;
@@ -231,6 +233,8 @@ function validVariation(value: unknown): value is GenerativeEditVariation {
     variation.id.length > 0 &&
     typeof variation.assetId === 'string' &&
     variation.assetId.length > 0 &&
+    (variation.thumbnailAssetId === undefined ||
+      (typeof variation.thumbnailAssetId === 'string' && variation.thumbnailAssetId.length > 0)) &&
     Number.isSafeInteger(width) &&
     (width ?? 0) > 0 &&
     Number.isSafeInteger(height) &&

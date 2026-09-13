@@ -49,6 +49,7 @@ const DEFAULT_BRUSH_SIZE = 28;
 const MAX_BATCH_VARIATIONS = 4;
 const MAX_RETAINED_VARIATIONS = 8;
 const MAX_PREVIEW_PIXELS = 4_000_000;
+const MAX_VARIATION_THUMBNAIL_DIMENSION = 256;
 
 function previewRasterDimensions(width: number, height: number): { width: number; height: number } {
   const scale = Math.min(1, Math.sqrt(MAX_PREVIEW_PIXELS / Math.max(1, width * height)));
@@ -76,6 +77,31 @@ function imageDataDataUrl(imageData: ImageData): string {
   if (!context) throw new Error('Canvas unavailable');
   context.putImageData(imageData, 0, 0);
   return canvas.toDataURL('image/png');
+}
+
+function thumbnailDimensions(width: number, height: number): { width: number; height: number } {
+  const scale = Math.min(1, MAX_VARIATION_THUMBNAIL_DIMENSION / Math.max(width, height));
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
+  };
+}
+
+/** Encode only a bounded preview for inactive variation cards. */
+function thumbnailDataUrlFromCanvas(source: HTMLCanvasElement): string {
+  const dimensions = thumbnailDimensions(source.width, source.height);
+  if (dimensions.width === source.width && dimensions.height === source.height) {
+    return source.toDataURL('image/png');
+  }
+  const thumbnail = document.createElement('canvas');
+  thumbnail.width = dimensions.width;
+  thumbnail.height = dimensions.height;
+  const context = thumbnail.getContext('2d');
+  if (!context) throw new Error('Canvas unavailable');
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = 'medium';
+  context.drawImage(source, 0, 0, dimensions.width, dimensions.height);
+  return thumbnail.toDataURL('image/png');
 }
 
 function loadImageToImageData(
@@ -126,6 +152,20 @@ function persistedVariationResult(
     processingTimeMs: 0,
     warnings: [],
   };
+}
+
+/**
+ * Keep candidate metadata available without retaining another decoded full
+ * raster. The persisted asset/data URL remains the source of truth for the
+ * preview and Apply path; ImageData is only needed by the inference result
+ * type and is not read by the dialog for an unloaded candidate.
+ */
+function unloadedVariationImageData(): ImageData {
+  return new ImageData(new Uint8ClampedArray(4), 1, 1);
+}
+
+function metadataOnlyVariationResult(result: GenerativeEditResult): GenerativeEditResult {
+  return { ...result, imageData: unloadedVariationImageData() };
 }
 
 export interface ContentAwareFillDialogProps {
@@ -232,7 +272,13 @@ export function ContentAwareFillDialog({
   const [result, setResult] = useState<GenerativeEditResult | null>(null);
   const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
   const [variations, setVariations] = useState<
-    Array<{ id: string; dataUrl: string; result: GenerativeEditResult; seed: number }>
+    Array<{
+      id: string;
+      dataUrl: string;
+      thumbnailDataUrl?: string;
+      result: GenerativeEditResult;
+      seed: number;
+    }>
   >([]);
   const [activeVariationId, setActiveVariationId] = useState<string | null>(null);
   const [hasMaskStrokes, setHasMaskStrokes] = useState(false);
@@ -596,44 +642,32 @@ export function ContentAwareFillDialog({
         }
 
         if (acceptedEdit && acceptedVariation && acceptedResultAsset?.dataUrl) {
-          const resultPreview = previewRasterDimensions(
-            acceptedVariation.width,
-            acceptedVariation.height,
-          );
-          const resultImageData = await loadImageToImageData(
-            acceptedResultAsset.dataUrl,
-            resultPreview.width,
-            resultPreview.height,
-          );
           if (cancelled) return;
-          const restoredVariations = (
-            await Promise.all(
-              acceptedEdit.variations.map(async (variation) => {
-                const asset = variation.assetId
-                  ? state.document.assets?.[variation.assetId]
-                  : undefined;
-                if (!asset?.dataUrl) return null;
-                const imageData =
-                  variation.id === acceptedVariation.id
-                    ? resultImageData
-                    : await loadImageToImageData(
-                        asset.dataUrl,
-                        previewRasterDimensions(variation.width, variation.height).width,
-                        previewRasterDimensions(variation.width, variation.height).height,
-                      );
-                return {
-                  id: variation.id,
-                  dataUrl: asset.dataUrl,
-                  result: persistedVariationResult(acceptedEdit, variation, imageData),
-                  seed:
-                    variation.seed ?? variation.settings?.seed ?? acceptedEdit.settings.seed ?? 0,
-                };
-              }),
-            )
-          ).filter((variation): variation is NonNullable<typeof variation> => variation !== null);
+          const restoredVariations = acceptedEdit.variations
+            .map((variation) => {
+              const asset = variation.assetId
+                ? state.document.assets?.[variation.assetId]
+                : undefined;
+              const thumbnail = variation.thumbnailAssetId
+                ? state.document.assets?.[variation.thumbnailAssetId]
+                : undefined;
+              if (!asset?.dataUrl) return null;
+              return {
+                id: variation.id,
+                dataUrl: asset.dataUrl,
+                thumbnailDataUrl: thumbnail?.dataUrl,
+                result: persistedVariationResult(
+                  acceptedEdit,
+                  variation,
+                  unloadedVariationImageData(),
+                ),
+                seed: variation.seed ?? variation.settings?.seed ?? acceptedEdit.settings.seed ?? 0,
+              };
+            })
+            .filter((variation): variation is NonNullable<typeof variation> => variation !== null);
           const restoredResult =
             restoredVariations.find((variation) => variation.id === acceptedVariation.id)?.result ??
-            persistedVariationResult(acceptedEdit, acceptedVariation, resultImageData);
+            persistedVariationResult(acceptedEdit, acceptedVariation, unloadedVariationImageData());
           const restoredOutputFrame = acceptedVariation.outputFrame ?? acceptedEdit.outputFrame;
           const inferenceMaskWidth = acceptedEdit.masks.width;
           const inferenceMaskHeight = acceptedEdit.masks.height;
@@ -1187,6 +1221,7 @@ export function ContentAwareFillDialog({
       const generatedVariations: Array<{
         id: string;
         dataUrl: string;
+        thumbnailDataUrl: string;
         result: GenerativeEditResult;
         seed: number;
       }> = [];
@@ -1228,10 +1263,18 @@ export function ContentAwareFillDialog({
         const rctx = outCanvas.getContext('2d');
         if (!rctx) throw new Error('Canvas unavailable');
         rctx.putImageData(generated.imageData, 0, 0);
+        const dataUrl = outCanvas.toDataURL('image/png');
         generatedVariations.push({
           id: `variation-${++variationSequenceRef.current}`,
-          dataUrl: outCanvas.toDataURL('image/png'),
-          result: generated,
+          dataUrl,
+          thumbnailDataUrl: thumbnailDataUrlFromCanvas(outCanvas),
+          // Keep only the active last candidate decoded in JS memory. Earlier
+          // candidates remain fully available through their compressed data
+          // URLs/assets and are rehydrated as metadata-only candidates.
+          result:
+            index === effectiveVariationCount - 1
+              ? generated
+              : metadataOnlyVariationResult(generated),
           seed: variationSeed,
         });
       }
@@ -1266,7 +1309,10 @@ export function ContentAwareFillDialog({
       };
       setVariations((previous) =>
         mergeGenerativeVariations(
-          previous,
+          previous.map((variation) => ({
+            ...variation,
+            result: metadataOnlyVariationResult(variation.result),
+          })),
           generatedVariations,
           activeVariationId,
           MAX_RETAINED_VARIATIONS,
@@ -1386,6 +1432,7 @@ export function ContentAwareFillDialog({
               {
                 id: 'variation-1',
                 dataUrl: previewDataUrl,
+                thumbnailDataUrl: undefined,
                 result,
                 seed: generationRef.current.seed,
               },
@@ -1398,6 +1445,17 @@ export function ContentAwareFillDialog({
           naturalHeight: variation.result.height,
         }),
       );
+      const variationThumbnailAssets = variationEntries.map((variation, index) => {
+        const thumbnailDataUrl = variation.thumbnailDataUrl ?? variation.dataUrl;
+        if (thumbnailDataUrl === variation.dataUrl) return variationAssets[index]!;
+        const dimensions = thumbnailDimensions(variation.result.width, variation.result.height);
+        return createEmbeddedAsset({
+          dataUrl: thumbnailDataUrl,
+          mimeType: 'image/png',
+          naturalWidth: dimensions.width,
+          naturalHeight: dimensions.height,
+        });
+      });
       const activeVariation =
         variationEntries.find((variation) => variation.id === activeVariationId) ??
         variationEntries[variationEntries.length - 1]!;
@@ -1453,6 +1511,7 @@ export function ContentAwareFillDialog({
         variations: variationEntries.map((variation, index) => ({
           id: variation.id,
           assetId: variationAssets[index]!.id,
+          thumbnailAssetId: variationThumbnailAssets[index]!.id,
           width: variation.result.width,
           height: variation.result.height,
           createdAt: now,
@@ -1474,6 +1533,7 @@ export function ContentAwareFillDialog({
           ...currentDoc.assets,
           [sourceSnapshot.id]: sourceSnapshot,
           ...Object.fromEntries(variationAssets.map((asset) => [asset.id, asset])),
+          ...Object.fromEntries(variationThumbnailAssets.map((asset) => [asset.id, asset])),
           [contextAsset.id]: contextAsset,
         },
         rasterMaskAssets: {
@@ -2241,7 +2301,12 @@ export function ContentAwareFillDialog({
                       aria-label={`Variation ${index + 1}`}
                       aria-pressed={activeVariationId === variation.id}
                     >
-                      <img src={variation.dataUrl} alt="" />
+                      <img
+                        src={variation.thumbnailDataUrl ?? variation.dataUrl}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                      />
                       <span>{index + 1}</span>
                     </button>
                     <button

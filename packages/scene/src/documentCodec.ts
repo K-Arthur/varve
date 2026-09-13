@@ -1238,6 +1238,10 @@ function collectNodeClosure(doc: Document, rootIds: NodeId[]): DocumentClosure {
       for (const variation of edit.variations) {
         const asset = doc.assets?.[variation.assetId];
         if (asset) assets[asset.id] = asset;
+        if (variation.thumbnailAssetId) {
+          const thumbnail = doc.assets?.[variation.thumbnailAssetId];
+          if (thumbnail) assets[thumbnail.id] = thumbnail;
+        }
         if (variation.contextAssetId) {
           const context = doc.assets?.[variation.contextAssetId];
           if (context) assets[context.id] = context;
