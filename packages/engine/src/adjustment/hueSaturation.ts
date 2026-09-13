@@ -58,8 +58,12 @@ function hueDistance(a: number, b: number): number {
   return Math.min(distance, 360 - distance);
 }
 
-function rangeWeight(range: HueSaturationRange, hue: number): number {
+function rangeWeight(range: HueSaturationRange, hue: number, saturation: number): number {
   if (range === 'master') return 1;
+  // An achromatic pixel has no hue. Do not let a selected colour family
+  // invent chroma in neutral artwork; the Master range remains available for
+  // deliberate global saturation/lightness edits.
+  if (saturation <= 1e-6) return 0;
   const centers: Record<Exclude<HueSaturationRange, 'master'>, number> = {
     reds: 0,
     yellows: 60,
@@ -84,7 +88,7 @@ export function applyHueSaturation(imageData: ImageData, params: HueSaturationPa
     let saturationShift = 0;
     let lightnessShift = 0;
     for (const range of HUE_SATURATION_RANGES) {
-      const weight = rangeWeight(range, hue);
+      const weight = rangeWeight(range, hue, saturation);
       const adjustment = params[range];
       hueShift += (adjustment?.hue ?? 0) * weight;
       saturationShift += (adjustment?.saturation ?? 0) * weight;

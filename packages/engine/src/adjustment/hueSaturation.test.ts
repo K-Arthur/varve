@@ -23,4 +23,14 @@ describe('hue/saturation ranges', () => {
     expect(input.data[2]).toBe(0);
     expect([...input.data.slice(4)]).toEqual([0, 0, 255, 0]);
   });
+
+  it('does not invent hue in achromatic pixels for a targeted range', () => {
+    const input = new ImageData(new Uint8ClampedArray([128, 128, 128, 255]), 1, 1);
+    const next = params();
+    next.reds.saturation = 100;
+
+    applyHueSaturation(input, next);
+
+    expect([...input.data]).toEqual([128, 128, 128, 255]);
+  });
 });
