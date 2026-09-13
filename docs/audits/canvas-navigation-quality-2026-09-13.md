@@ -158,14 +158,14 @@ and architecture jobs, so startup durations are not frame-budget baselines.
 | Settings E2E source check | 1 file clean | The real Settings workflow is formatted and type-checked separately from the unit UI suite. |
 | Website production build | 100 routes built; 1m53s; exit 0 | The updated canvas, keyboard-shortcut, touch, settings, and performance documentation routes compile in static output. |
 | Website canvas browser E2E | 1 test passed; 18.0 s; exit 0 | Desktop and mobile responsive copy/layout assertions passed; both screenshots were inspected. |
-| Editor navigation browser E2E | Hand keyboard pan and stationary edge auto-pan passed in the broad run; 2 other tests failed in setup and 6 did not run | Real DOM canvas routing and artwork/document invariants passed for the two completed workflows. The failures were setup timeouts under concurrent Vite/Playwright load, not assertion failures. |
+| Editor navigation browser E2E | Hand keyboard pan and stationary edge auto-pan passed in the broad run; an isolated Hand visual-contract rerun passed 1 test in 3.3m; 2 other broad-run tests failed in setup and 6 did not run | Real DOM canvas routing and artwork/document invariants passed for the completed workflows. The other failures were setup timeouts under concurrent Vite/Playwright load, not assertion failures. |
 | Partial-redraw visual oracle | 3 cases passed; the fourth authoritative full-redraw case timed out in `page.goto` after 180 s while Vite was starved under concurrent jobs | Passed cases cover localized pruning, a spanning dependency, missing-candidate sensitivity, and stale pixels across a pan. The final exact-match case remains pending; no full oracle pass is claimed. |
 
 Completed visual loop for the Hand/auto-pan slice: reproduce the gesture in the
 real editor DOM, capture before/moving/settled states, open the screenshots,
 and verify artwork movement, selection-overlay alignment, unchanged layer
 count, and no checkerboard/smear. The inspected artifacts are
-`test-results/var/tmp/varve-nav-final/e2e-results/canvas-input-navigation-Na-156ed-thout-changing-the-document-chromium/navigation-before.png`,
+`test-results/var/tmp/varve-nav-final/hand-final/canvas-input-navigation-Na-156ed-thout-changing-the-document-chromium/navigation-before.png`,
 `navigation-after-right.png`, and `navigation-settled.png`.
 
 The website canvas E2E likewise captured and inspected desktop/mobile output.
