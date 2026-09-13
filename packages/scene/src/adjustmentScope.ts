@@ -69,10 +69,16 @@ export function collectContainerDescendants(
   if (!container || !isContainer(container)) return [];
 
   const result: NodeId[] = [];
+  // A recovered or hand-authored document can contain duplicate child IDs or
+  // a cycle. Scope resolution runs on the render path, so it must terminate
+  // without relying on document validation having run first.
+  const visited = new Set<NodeId>([containerId]);
   const visit = (parentId: NodeId, isRoot: boolean) => {
     const parent = doc.nodes[parentId];
     if (!parent || !isContainer(parent) || parent.visible === false) return;
     for (const childId of parent.children) {
+      if (visited.has(childId)) continue;
+      visited.add(childId);
       const child = doc.nodes[childId];
       if (!child || child.visible === false) continue;
       if (child.kind === 'adjustment') continue;

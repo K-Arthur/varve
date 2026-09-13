@@ -13,6 +13,7 @@ import {
 } from './adjustmentScope';
 import type { Document } from './document';
 import { createDocument, makeAdjustmentNode } from './document';
+import { makeGroupNode } from './document-utils';
 import type { NodeId } from './types';
 
 function makeTestDoc(): Document {
@@ -371,6 +372,18 @@ describe('collectContainerDescendants', () => {
   it('returns empty for non-container', () => {
     const doc = makeTestDoc();
     expect(collectContainerDescendants(doc, 'nonexistent', true)).toEqual([]);
+  });
+
+  it('terminates on a cyclic container graph', () => {
+    const doc = makeTestDoc();
+    const cycle = makeGroupNode('cycle', { children: ['cycle'] });
+    const malformed = {
+      ...doc,
+      nodes: { ...doc.nodes, [cycle.id]: cycle },
+      rootChildren: [cycle.id],
+    } as Document;
+
+    expect(collectContainerDescendants(malformed, cycle.id, true)).toEqual([]);
   });
 });
 
