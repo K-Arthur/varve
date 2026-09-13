@@ -6,9 +6,13 @@ import { decodeMaskDataUrl } from './maskDecode';
 import { resizeMaskBilinear } from './maskOps';
 import { downscaleImageData } from './previewDownscale';
 import { dispatchBackgroundRemoval } from './providers/dispatch';
+import {
+  getNativeBackgroundRemovalModelStatus,
+  preflightNativeBackgroundRemoval,
+} from './providers/tauriProvider';
 import { composeSourceAndSubjectAlpha } from './reconstructMask';
 import type { BackgroundRemovalOptions, BackgroundRemovalResult } from './types';
-import { DEFAULT_PREVIEW_MAX_DIMENSION } from './types';
+import { DEFAULT_PREVIEW_MAX_DIMENSION, preferredWorkerModelIdForMethod } from './types';
 
 export type { AdaptiveSelection, AdaptiveSelectionOptions } from './adaptiveSelection';
 export { selectAdaptiveModel } from './adaptiveSelection';
@@ -177,11 +181,12 @@ function boundedWorkingDimensions(
 }
 
 /**
- * Refuse a browser source before `downscaleImageData` creates another
- * full-resolution canvas. The model-only WASM gate cannot see that resident
- * source buffer, which is enough to tip a 2 GB Chromebook or ARM WebView into
- * an allocation failure. Native desktop providers perform their authoritative
- * OS/cgroup check in the command immediately before model startup instead.
+ * Refuse a source before `downscaleImageData` creates another full-resolution
+ * canvas. The model-only WASM gate cannot see that resident source buffer,
+ * which is enough to tip a 2 GB Chromebook or ARM WebView into an allocation
+ * failure. A ready native provider gets an OS/cgroup preflight with the
+ * original dimensions; a desktop WebView without that provider uses the same
+ * conservative browser gate as any other WASM fallback.
  */
 async function preflightBrowserSourceMemory(
   imageData: ImageData,
@@ -193,11 +198,20 @@ async function preflightBrowserSourceMemory(
 
   const runtime = await getRuntimeCapabilities();
   if (signal?.aborted) throw new Error('cancelled');
-  // Native providers perform their authoritative OS/cgroup check in the
-  // command immediately before model startup. Browser/WASM runtimes use the
-  // canonical safe peak even when `navigator.deviceMemory` is absent; that is
-  // common in privacy-preserving browsers and some ChromeOS/ARM WebViews.
-  if (runtime.isTauri) return;
+  const nativeModelId = preferredWorkerModelIdForMethod(options.method);
+  if (runtime.isTauri && nativeModelId) {
+    const nativeStatus = await getNativeBackgroundRemovalModelStatus(nativeModelId);
+    if (signal?.aborted) throw new Error('cancelled');
+    if (nativeStatus?.runtimeReady && nativeStatus.installed) {
+      await preflightNativeBackgroundRemoval(nativeModelId, imageData.width, imageData.height);
+      return;
+    }
+  }
+
+  // Browser/WASM runtimes, including a Tauri WebView that has no usable native
+  // model, use the canonical safe peak even when `navigator.deviceMemory` is
+  // absent. That is common in privacy-preserving browsers and some ChromeOS/
+  // ARM WebViews.
 
   const working = boundedWorkingDimensions(imageData.width, imageData.height, maxDimension);
   const sourceBytes = imageData.width * imageData.height * 4;

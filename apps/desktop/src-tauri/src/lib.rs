@@ -985,6 +985,33 @@ fn native_background_removal_model_status(
     })
 }
 
+/// Preflight a native background-removal request before the renderer allocates
+/// a full-resolution canvas/PNG. The command deliberately accepts dimensions,
+/// not image bytes: low-memory ChromeOS/Crostini and ARM devices must be able
+/// to receive a refusal without first crossing the webview allocation boundary.
+/// `remove_background` repeats the same check immediately before native
+/// session checkout because available memory can change while a request waits.
+#[tauri::command]
+fn preflight_native_background_removal(
+    model_id: String,
+    width: u32,
+    height: u32,
+) -> Result<(), String> {
+    let model = background_removal_model_info(&model_id)?;
+    let installed_bytes = varve_bgremove::model::model_path(&model_id)
+        .metadata()
+        .map(|metadata| metadata.len())
+        .unwrap_or(0);
+    if installed_bytes != model.size_bytes {
+        return Err(format!(
+            "Native background-removal model '{model_id}' is not installed"
+        ));
+    }
+    validate_bounded_image_dimensions(width, height, "background-removal image")?;
+    preflight_native_model("Native background removal", &model_id, width, height)?;
+    Ok(())
+}
+
 #[tauri::command]
 fn cancel_background_removal_model_download(request_id: String) -> Result<(), String> {
     if !valid_download_request_id(&request_id) {
@@ -4697,6 +4724,7 @@ pub fn run() {
             remove_background,
             native_ai_status,
             native_background_removal_model_status,
+            preflight_native_background_removal,
             download_background_removal_model,
             cancel_background_removal_model_download,
             delete_background_removal_model,

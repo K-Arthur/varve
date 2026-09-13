@@ -283,10 +283,15 @@ describe('removeBackground dispatch', () => {
 
     // Dispatch checks native readiness, then the Tauri provider verifies the
     // exact model is installed before invoking native inference.
-    expect(mockInvoke).toHaveBeenCalledTimes(3);
+    expect(mockInvoke).toHaveBeenCalledTimes(6);
     expect(mockInvoke).toHaveBeenCalledWith('native_ai_status');
     expect(mockInvoke).toHaveBeenCalledWith('native_background_removal_model_status', {
       modelId: 'birefnet-general-lite',
+    });
+    expect(mockInvoke).toHaveBeenCalledWith('preflight_native_background_removal', {
+      modelId: 'birefnet-general-lite',
+      width: 4,
+      height: 4,
     });
     expect(mockInvoke).toHaveBeenCalledWith('remove_background', expect.anything());
     expect(result.maskDataUrl).toBe('data:image/png;base64,abc123');

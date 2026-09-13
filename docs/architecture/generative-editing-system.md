@@ -218,7 +218,13 @@ large photograph is refused before a second full-resolution canvas can trigger
 an allocation failure. Quick Cleanup remains available. An absent browser hint
 does not claim a measured low-memory device; the canonical runtime's
 conservative safe peak still decides whether source preparation fits, and the
-provider's own model/runtime gates remain authoritative for starting AI.
+provider's own model/runtime gates remain authoritative for starting AI. When a
+native model is installed on desktop, the renderer first sends only the source
+dimensions to a native preflight command, before canvas/PNG encoding; the
+desktop command checks the measured OS/cgroup budget and repeats the check
+before ONNX session checkout. If no native model is ready, a Tauri WebView is
+treated as a browser fallback and must pass the conservative WebView source
+preflight instead of assuming the host's memory is available to WASM.
 
 ## Mask and coordinate contract
 
