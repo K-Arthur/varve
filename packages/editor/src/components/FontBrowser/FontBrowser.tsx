@@ -394,7 +394,7 @@ export function FontBrowser({
     overscan: 8,
     rangeExtractor: (range) => {
       const visible = defaultRangeExtractor(range);
-      if (activeFamilyIndex < 0) return visible;
+      if (activeFamilyIndex < 0 || activeFamilyIndex >= displayEntries.length) return visible;
       return [...new Set([...visible, activeFamilyIndex])].sort((a, b) => a - b);
     },
   });
@@ -420,6 +420,10 @@ export function FontBrowser({
   useEffect(() => {
     setActiveFamilyIndex((current) => (current >= displayEntries.length ? -1 : current));
   }, [displayEntries.length]);
+
+  useEffect(() => {
+    setActiveFamilyIndex(-1);
+  }, [activeFilter, effectiveQuery, semanticFilter]);
 
   useEffect(() => {
     if (activeFamilyIndex < 0) return;
