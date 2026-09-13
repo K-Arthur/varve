@@ -143,3 +143,22 @@ assertions: the editor imported `getRuntimeCapabilitiesSync` from the engine
 root without that export. It is now present in the engine root export from
 `07098c3de`; the concurrent inference-resource exports in the same file remain
 task-owned by their original change and are preserved separately.
+
+## Final visual recheck — 2026-09-12
+
+After the contextual range adapter landed, the same Chromium visual spec was
+rerun against the committed frontend tree:
+
+```text
+VARVE_E2E_PORT=1522 VARVE_E2E_WORKERS=1 npx playwright test tests/e2e/canvas/font-toolbar-visual.spec.ts --project=chromium --reporter=list
+```
+
+All **3/3** DPR scenarios passed. Fresh inspected captures are retained at:
+
+- `test-results/run-1718748-1522/canvas-font-toolbar-visual-76f26-adable-menus-in-every-theme-chromium/light-open.png`
+- `test-results/run-1718748-1522/canvas-font-toolbar-visual-c70f7-adable-menus-in-every-theme-chromium/dark-narrow.png`
+- `test-results/run-1718748-1522/canvas-font-toolbar-visual-cbecb-adable-menus-in-every-theme-chromium/high-contrast-open.png`
+
+The family field remains readable, the 32px controls share a centerline, and
+opened menus stay within the viewport at desktop and narrow widths. No clipping
+or theme contrast regression was observed.
