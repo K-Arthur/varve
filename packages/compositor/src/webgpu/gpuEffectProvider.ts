@@ -17,6 +17,7 @@ async function runnerFor(_options?: {
 }): Promise<GpuEffectRunner | null> {
   const runner = await getSharedEffectRunner();
   if (runner && !runner.diagnostics.ready) return null;
+  if (runner) registerEffectKernels(runner);
   // getSharedEffectRunner inits once with the default policy; a caller that
   // explicitly allows software adapters (harness) builds its own runner.
   return runner;

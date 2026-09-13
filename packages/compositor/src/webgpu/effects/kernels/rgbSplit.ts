@@ -45,7 +45,7 @@ fn remapCoord(v: f32, w: i32, border: u32) -> f32 {
 }
 ` +
     `
-@group(0) @binding(0) var<storage, read_write> p: array<f32, 128>;
+@group(0) @binding(0) var<storage, read> p: array<f32, 128>;
 @group(2) @binding(0) var dst: texture_storage_2d<rgba8unorm, write>;
 @group(2) @binding(1) var src: texture_2d<f32>;
 @group(2) @binding(2) var samp: sampler;

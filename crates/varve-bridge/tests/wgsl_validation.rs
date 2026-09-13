@@ -428,7 +428,7 @@ fn remapCoord(v: f32, w: i32, border: u32) -> f32 {
   return clamp(v, 0.0, f32(w - 1));
 }
 
-@group(0) @binding(0) var<storage, read_write> p: array<f32, 128>;
+@group(0) @binding(0) var<storage, read> p: array<f32, 128>;
 @group(2) @binding(0) var dst: texture_storage_2d<rgba8unorm, write>;
 @group(2) @binding(1) var src: texture_2d<f32>;
 @group(2) @binding(2) var samp: sampler;
@@ -593,7 +593,7 @@ fn hslToRgb01(h: f32, s: f32, l: f32) -> vec3f {
   return vec3f(hue2rgb(p, q, hue + 1.0 / 3.0), hue2rgb(p, q, hue), hue2rgb(p, q, hue - 1.0 / 3.0));
 }
 
-@group(0) @binding(0) var<storage, read_write> p: array<f32, 128>;
+@group(0) @binding(0) var<storage, read> p: array<f32, 128>;
 @group(2) @binding(0) var dst: texture_storage_2d<rgba8unorm, write>;
 @group(2) @binding(1) var src: texture_2d<f32>;
 @group(2) @binding(2) var samp: sampler;
@@ -903,7 +903,8 @@ fn hslToRgb01(h: f32, s: f32, l: f32) -> vec3f {
   return vec3f(hue2rgb(p, q, hue + 1.0 / 3.0), hue2rgb(p, q, hue), hue2rgb(p, q, hue - 1.0 / 3.0));
 }
 
-@group(0) @binding(0) var<storage, read_write> p: array<f32, 128>;
+@group(0) @binding(0) var<storage, read> p: array<f32, 128>;
+@group(0) @binding(1) var<storage, read> ip: array<u32, 16>;
 @group(2) @binding(0) var dst: texture_storage_2d<rgba8unorm, write>;
 @group(2) @binding(1) var src: texture_2d<f32>;
 
@@ -917,7 +918,7 @@ fn lightLeakMain(@builtin(global_invocation_id) gid: vec3u) {
   if (x >= w || y >= h) { return; }
 
   let intensity = max(0.0, p[9]);
-  let seed = u32(p[0]);
+  let seed = ip[0];
   let cx = f32(w) * clamp01(p[1]);
   let cy = f32(h) * clamp01(p[2]);
   let angle = p[3] * 3.141592653589793 / 180.0;
@@ -1072,8 +1073,9 @@ fn hslToRgb01(h: f32, s: f32, l: f32) -> vec3f {
   return vec3f(hue2rgb(p, q, hue + 1.0 / 3.0), hue2rgb(p, q, hue), hue2rgb(p, q, hue - 1.0 / 3.0));
 }
 
-@group(0) @binding(0) var<storage, read_write> p: array<f32, 128>;
-@group(1) @binding(0) var<storage, read_write> pal: array<f32, 384>;
+@group(0) @binding(0) var<storage, read> p: array<f32, 128>;
+@group(0) @binding(1) var<storage, read> ip: array<u32, 16>;
+@group(1) @binding(0) var<storage, read> pal: array<f32, 384>;
 @group(2) @binding(0) var dst: texture_storage_2d<rgba8unorm, write>;
 @group(2) @binding(1) var src: texture_2d<f32>;
 
@@ -1144,7 +1146,7 @@ fn paletteSnapMain(@builtin(global_invocation_id) gid: vec3u) {
   let metric = i32(p[3]);
   let dither = p[4] > 0.5;
   let ditherStrength = p[5];
-  let seed = u32(p[2]);
+  let seed = ip[0];
   let paletteSize = i32(p[7]);
 
   let s = textureLoad(src, vec2i(x, y), 0);
@@ -1321,7 +1323,8 @@ fn hslToRgb01(h: f32, s: f32, l: f32) -> vec3f {
   return vec3f(hue2rgb(p, q, hue + 1.0 / 3.0), hue2rgb(p, q, hue), hue2rgb(p, q, hue - 1.0 / 3.0));
 }
 
-@group(0) @binding(0) var<storage, read_write> p: array<f32, 128>;
+@group(0) @binding(0) var<storage, read> p: array<f32, 128>;
+@group(0) @binding(1) var<storage, read> ip: array<u32, 16>;
 @group(2) @binding(0) var dst: texture_storage_2d<rgba8unorm, write>;
 @group(2) @binding(1) var src: texture_2d<f32>;
 
@@ -1334,7 +1337,7 @@ fn vhsMain(@builtin(global_invocation_id) gid: vec3u) {
   let y = i32(gid.y);
   if (x >= w || y >= h) { return; }
 
-  let seed = u32(p[0]);
+  let seed = ip[0];
   let frameRate = max(1.0, p[1]);
   let time = max(0.0, p[2]);
   let frame = i32(floor(time * frameRate));
@@ -1610,7 +1613,7 @@ fn hslToRgb01(h: f32, s: f32, l: f32) -> vec3f {
   return vec3f(hue2rgb(p, q, hue + 1.0 / 3.0), hue2rgb(p, q, hue), hue2rgb(p, q, hue - 1.0 / 3.0));
 }
 
-@group(0) @binding(0) var<storage, read_write> p: array<f32, 128>;
+@group(0) @binding(0) var<storage, read> p: array<f32, 128>;
 @group(2) @binding(0) var dst: texture_storage_2d<rgba8unorm, write>;
 @group(2) @binding(1) var src: texture_2d<f32>;
 
@@ -1866,7 +1869,8 @@ fn hslToRgb01(h: f32, s: f32, l: f32) -> vec3f {
   return vec3f(hue2rgb(p, q, hue + 1.0 / 3.0), hue2rgb(p, q, hue), hue2rgb(p, q, hue - 1.0 / 3.0));
 }
 
-@group(0) @binding(0) var<storage, read_write> p: array<f32, 128>;
+@group(0) @binding(0) var<storage, read> p: array<f32, 128>;
+@group(0) @binding(1) var<storage, read> ip: array<u32, 16>;
 @group(2) @binding(0) var dst: texture_storage_2d<rgba8unorm, write>;
 @group(2) @binding(1) var src: texture_2d<f32>;
 
@@ -1883,7 +1887,7 @@ fn causticsField(@builtin(global_invocation_id) gid: vec3u) {
   let depth = clamp01(p[1]);
   let count = max(2, min(8, i32(round(p[2]))));
   let complexity = clamp01(p[3]);
-  let seed = u32(p[20]);
+  let seed = ip[0];
   let time = max(0.0, p[21]);
   let animSpeed = p[22];
   let tileable = p[23] > 0.5;
@@ -2151,7 +2155,8 @@ fn hslToRgb01(h: f32, s: f32, l: f32) -> vec3f {
   return vec3f(hue2rgb(p, q, hue + 1.0 / 3.0), hue2rgb(p, q, hue), hue2rgb(p, q, hue - 1.0 / 3.0));
 }
 
-@group(0) @binding(0) var<storage, read_write> p: array<f32, 128>;
+@group(0) @binding(0) var<storage, read> p: array<f32, 128>;
+@group(0) @binding(1) var<storage, read> ip: array<u32, 16>;
 @group(2) @binding(0) var dst: texture_storage_2d<rgba8unorm, write>;
 @group(2) @binding(1) var src: texture_2d<f32>;
 
@@ -2165,7 +2170,7 @@ fn lensFlareMain(@builtin(global_invocation_id) gid: vec3u) {
   if (x >= w || y >= h) { return; }
 
   let brightness = max(0.0, p[0]);
-  let seed = u32(p[1]);
+  let seed = ip[0];
   let scale = max(0.05, p[2]);
   let baseRadius = f32(min(w, h)) * 0.09 * scale;
   let ghostCount = max(0, min(8, i32(round(p[3]))));
@@ -2399,7 +2404,7 @@ fn hslToRgb01(h: f32, s: f32, l: f32) -> vec3f {
   return vec3f(hue2rgb(p, q, hue + 1.0 / 3.0), hue2rgb(p, q, hue), hue2rgb(p, q, hue - 1.0 / 3.0));
 }
 
-@group(0) @binding(0) var<storage, read_write> p: array<f32, 128>;
+@group(0) @binding(0) var<storage, read> p: array<f32, 128>;
 @group(2) @binding(0) var dst: texture_storage_2d<rgba8unorm, write>;
 @group(2) @binding(1) var src: texture_2d<f32>;
 
@@ -2428,29 +2433,30 @@ fn bloomBright(@builtin(global_invocation_id) gid: vec3u) {
   textureStore(dst, vec2i(x, y), vec4f(s.r * f, s.g * f, s.b * f, s.a));
 }
 
-// ── downsample: 2x2 box average, written at full-res stride ────────────────
+// ── downsample: 2x2 box average into the actual output resolution ──────────
 
 @group(2) @binding(1) var downSrc: texture_2d<f32>;
 
 @compute @workgroup_size(8, 8, 1)
 fn bloomDown(@builtin(global_invocation_id) gid: vec3u) {
-  let size = textureDimensions(downSrc);
-  let w = i32(size.x);
-  let h = i32(size.y);
-  let gx = i32(gid.x);
-  let gy = i32(gid.y);
-  if (gx * 2 >= w || gy * 2 >= h) { return; }
-  let px = gx * 2;
-  let py = gy * 2;
+  let srcSize = textureDimensions(downSrc);
+  let dstSize = textureDimensions(dst);
+  let w = i32(srcSize.x);
+  let h = i32(srcSize.y);
+  let x = i32(gid.x);
+  let y = i32(gid.y);
+  if (x >= i32(dstSize.x) || y >= i32(dstSize.y)) { return; }
+  let px = x * 2;
+  let py = y * 2;
   let c00 = textureLoad(downSrc, vec2i(px, py), 0);
   let c10 = textureLoad(downSrc, vec2i(min(w - 1, px + 1), py), 0);
   let c01 = textureLoad(downSrc, vec2i(px, min(h - 1, py + 1)), 0);
   let c11 = textureLoad(downSrc, vec2i(min(w - 1, px + 1), min(h - 1, py + 1)), 0);
   let avg = (c00 + c10 + c01 + c11) * 0.25;
-  textureStore(dst, vec2i(px, py), avg);
+  textureStore(dst, vec2i(x, y), avg);
 }
 
-// ── 5-tap separable blur at grid stride ─────────────────────────────────────
+// ── 5-tap separable blur at the producer's actual resolution ───────────────
 
 @group(2) @binding(1) var blurSrc: texture_2d<f32>;
 
@@ -2459,18 +2465,16 @@ fn bloomBlurH(@builtin(global_invocation_id) gid: vec3u) {
   let size = textureDimensions(blurSrc);
   let w = i32(size.x);
   let h = i32(size.y);
-  let gx = i32(gid.x);
-  let gy = i32(gid.y);
-  if (gx * 2 >= w || gy * 2 >= h) { return; }
-  let py = gy * 2;
-  let px = gx * 2;
+  let x = i32(gid.x);
+  let y = i32(gid.y);
+  if (x >= w || y >= h) { return; }
   var sum = vec4f(0.0);
   let weights = array<f32, 5>(0.05, 0.2, 0.5, 0.2, 0.05);
   for (var k: i32 = -2; k <= 2; k = k + 1) {
-    let nx = clamp(px + k * 2, 0, w - 1);
-    sum += textureLoad(blurSrc, vec2i(nx, py), 0) * weights[k + 2];
+    let nx = clamp(x + k, 0, w - 1);
+    sum += textureLoad(blurSrc, vec2i(nx, y), 0) * weights[k + 2];
   }
-  textureStore(dst, vec2i(px, py), sum);
+  textureStore(dst, vec2i(x, y), sum);
 }
 
 @group(2) @binding(1) var blurSrc2: texture_2d<f32>;
@@ -2480,18 +2484,16 @@ fn bloomBlurV(@builtin(global_invocation_id) gid: vec3u) {
   let size = textureDimensions(blurSrc2);
   let w = i32(size.x);
   let h = i32(size.y);
-  let gx = i32(gid.x);
-  let gy = i32(gid.y);
-  if (gx * 2 >= w || gy * 2 >= h) { return; }
-  let py = gy * 2;
-  let px = gx * 2;
+  let x = i32(gid.x);
+  let y = i32(gid.y);
+  if (x >= w || y >= h) { return; }
   var sum = vec4f(0.0);
   let weights = array<f32, 5>(0.05, 0.2, 0.5, 0.2, 0.05);
   for (var k: i32 = -2; k <= 2; k = k + 1) {
-    let ny = clamp(py + k * 2, 0, h - 1);
-    sum += textureLoad(blurSrc2, vec2i(px, ny), 0) * weights[k + 2];
+    let ny = clamp(y + k, 0, h - 1);
+    sum += textureLoad(blurSrc2, vec2i(x, ny), 0) * weights[k + 2];
   }
-  textureStore(dst, vec2i(px, py), sum);
+  textureStore(dst, vec2i(x, y), sum);
 }
 
 // ── streak: horizontal smear on the coarsest grid ───────────────────────────
@@ -2503,24 +2505,22 @@ fn bloomStreak(@builtin(global_invocation_id) gid: vec3u) {
   let size = textureDimensions(streakSrc);
   let w = i32(size.x);
   let h = i32(size.y);
-  let gx = i32(gid.x);
-  let gy = i32(gid.y);
-  if (gx * 4 >= w || gy * 4 >= h) { return; }
-  let py = gy * 4;
-  let px = gx * 4;
+  let x = i32(gid.x);
+  let y = i32(gid.y);
+  if (x >= w || y >= h) { return; }
   let lenPx = p[12];
   let steps = max(3, min(16, i32(round(lenPx / 6.0))));
   var sum = vec4f(0.0);
   var n = 0.0;
   for (var s = -steps; s <= steps; s = s + 1) {
-    let nx = clamp(px + s * 4, 0, w - 1);
-    sum += textureLoad(streakSrc, vec2i(nx, py), 0);
+    let nx = clamp(x + s, 0, w - 1);
+    sum += textureLoad(streakSrc, vec2i(nx, y), 0);
     n += 1.0;
   }
   let avg = sum / max(n, 1.0);
-  let cur = textureLoad(streakSrc, vec2i(px, py), 0);
+  let cur = textureLoad(streakSrc, vec2i(x, y), 0);
   let mix = p[13] * 0.5;
-  textureStore(dst, vec2i(px, py), cur + (avg - cur) * mix);
+  textureStore(dst, vec2i(x, y), cur + (avg - cur) * mix);
 }
 
 // ── composite ───────────────────────────────────────────────────────────────
@@ -2539,15 +2539,12 @@ fn bloomComposite(@builtin(global_invocation_id) gid: vec3u) {
   let y = i32(gid.y);
   if (x >= w || y >= h) { return; }
 
-  let fxx = f32(x);
-  let fyy = f32(y);
-  let u2 = vec2f((fxx * 0.5 + 0.5) / f32(w), (fyy * 0.5 + 0.5) / f32(h));
-  let u4 = vec2f((fxx * 0.25 + 0.5) / f32(w), (fyy * 0.25 + 0.5) / f32(h));
+  let uv = (vec2f(f32(x), f32(y)) + 0.5) / vec2f(f32(w), f32(h));
 
   let diffusion = p[4];
   let w2 = 1.0 + 2.0 * diffusion * 0.35;
   let w4 = 1.0 + 1.0 * diffusion * 0.35;
-  let glow = (textureSampleLevel(g2, samp, u2, 0.0).rgb * w2 + textureSampleLevel(g4, samp, u4, 0.0).rgb * w4) / (w2 + w4);
+  let glow = (textureSampleLevel(g2, samp, uv, 0.0).rgb * w2 + textureSampleLevel(g4, samp, uv, 0.0).rgb * w4) / (w2 + w4);
 
   let s = textureLoad(src2, vec2i(x, y), 0);
   let tintMix = p[5];

@@ -25,7 +25,8 @@ export const LENS_FLARE_KERNEL: GpuKernelSpec = {
   wgsl:
     WGSL_HELPERS +
     /* wgsl */ `
-@group(0) @binding(0) var<storage, read_write> p: array<f32, 128>;
+@group(0) @binding(0) var<storage, read> p: array<f32, 128>;
+@group(0) @binding(1) var<storage, read> ip: array<u32, 16>;
 @group(2) @binding(0) var dst: texture_storage_2d<rgba8unorm, write>;
 @group(2) @binding(1) var src: texture_2d<f32>;
 
@@ -39,7 +40,7 @@ fn lensFlareMain(@builtin(global_invocation_id) gid: vec3u) {
   if (x >= w || y >= h) { return; }
 
   let brightness = max(0.0, p[0]);
-  let seed = u32(p[1]);
+  let seed = ip[0];
   let scale = max(0.05, p[2]);
   let baseRadius = f32(min(w, h)) * 0.09 * scale;
   let ghostCount = max(0, min(8, i32(round(p[3]))));
@@ -159,6 +160,7 @@ fn lensFlareMain(@builtin(global_invocation_id) gid: vec3u) {
   buildPasses(request) {
     const q = request.params;
     const params = new Float32Array(13);
+    const integerParams = new Uint32Array([pack.u32(q.seed, 0)]);
     let o = pack.f(params, 0, q.brightness, 1);
     o = pack.f(params, o, q.seed, 0);
     o = pack.f(params, o, q.scale, 1);
@@ -178,6 +180,7 @@ fn lensFlareMain(@builtin(global_invocation_id) gid: vec3u) {
       {
         entry: 'lensFlareMain',
         params,
+        integerParams,
         textures: ['out', 'src'],
         sampler: 'nearest',
         workgroup: [8, 8, 1],

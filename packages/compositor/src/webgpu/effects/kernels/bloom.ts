@@ -1,13 +1,11 @@
 /**
  * GPU kernel: bloom — port of `packages/engine/src/liveEffects/bloom.ts`.
  *
- * Multi-pass pipeline (all passes at full surface size — the runner pools
- * textures per (name, size); downsampled content is stored at full-res
- * stride and sampled with scaled UVs):
+ * Multi-pass pipeline (the runner pools textures per (name, size)):
  *   bloomBright   — linearized-luma threshold + soft knee → 'b1'
- *   bloomDown2    — 2x2 box average of 'b1' → 'b2' (half grid)
- *   bloomDown4    — 2x2 box average of 'b2' → 'b3' (quarter grid)
- *   bloomBlurH2/V2, bloomBlurH4/V4 — 5-tap separable blur on each grid
+ *   bloomDown2    — 2x2 box average of 'b1' → 'b2' (half-resolution texture)
+ *   bloomDown4    — 2x2 box average of 'b2' → 'b3' (quarter-resolution texture)
+ *   bloomBlurH2/V2, bloomBlurH4/V4 — 5-tap separable blur on each texture
  *   bloomComposite — weighted (diffusion) upsample-add + tint, screen/add
  *                    composite over the source → 'out'
  *
@@ -32,7 +30,7 @@ export const BLOOM_KERNEL: GpuKernelSpec = {
   wgsl:
     WGSL_HELPERS +
     /* wgsl */ `
-@group(0) @binding(0) var<storage, read_write> p: array<f32, 128>;
+@group(0) @binding(0) var<storage, read> p: array<f32, 128>;
 @group(2) @binding(0) var dst: texture_storage_2d<rgba8unorm, write>;
 @group(2) @binding(1) var src: texture_2d<f32>;
 
@@ -61,29 +59,30 @@ fn bloomBright(@builtin(global_invocation_id) gid: vec3u) {
   textureStore(dst, vec2i(x, y), vec4f(s.r * f, s.g * f, s.b * f, s.a));
 }
 
-// ── downsample: 2x2 box average, written at full-res stride ────────────────
+// ── downsample: 2x2 box average into the actual output resolution ──────────
 
 @group(2) @binding(1) var downSrc: texture_2d<f32>;
 
 @compute @workgroup_size(8, 8, 1)
 fn bloomDown(@builtin(global_invocation_id) gid: vec3u) {
-  let size = textureDimensions(downSrc);
-  let w = i32(size.x);
-  let h = i32(size.y);
-  let gx = i32(gid.x);
-  let gy = i32(gid.y);
-  if (gx * 2 >= w || gy * 2 >= h) { return; }
-  let px = gx * 2;
-  let py = gy * 2;
+  let srcSize = textureDimensions(downSrc);
+  let dstSize = textureDimensions(dst);
+  let w = i32(srcSize.x);
+  let h = i32(srcSize.y);
+  let x = i32(gid.x);
+  let y = i32(gid.y);
+  if (x >= i32(dstSize.x) || y >= i32(dstSize.y)) { return; }
+  let px = x * 2;
+  let py = y * 2;
   let c00 = textureLoad(downSrc, vec2i(px, py), 0);
   let c10 = textureLoad(downSrc, vec2i(min(w - 1, px + 1), py), 0);
   let c01 = textureLoad(downSrc, vec2i(px, min(h - 1, py + 1)), 0);
   let c11 = textureLoad(downSrc, vec2i(min(w - 1, px + 1), min(h - 1, py + 1)), 0);
   let avg = (c00 + c10 + c01 + c11) * 0.25;
-  textureStore(dst, vec2i(px, py), avg);
+  textureStore(dst, vec2i(x, y), avg);
 }
 
-// ── 5-tap separable blur at grid stride ─────────────────────────────────────
+// ── 5-tap separable blur at the producer's actual resolution ───────────────
 
 @group(2) @binding(1) var blurSrc: texture_2d<f32>;
 
@@ -92,18 +91,16 @@ fn bloomBlurH(@builtin(global_invocation_id) gid: vec3u) {
   let size = textureDimensions(blurSrc);
   let w = i32(size.x);
   let h = i32(size.y);
-  let gx = i32(gid.x);
-  let gy = i32(gid.y);
-  if (gx * 2 >= w || gy * 2 >= h) { return; }
-  let py = gy * 2;
-  let px = gx * 2;
+  let x = i32(gid.x);
+  let y = i32(gid.y);
+  if (x >= w || y >= h) { return; }
   var sum = vec4f(0.0);
   let weights = array<f32, 5>(0.05, 0.2, 0.5, 0.2, 0.05);
   for (var k: i32 = -2; k <= 2; k = k + 1) {
-    let nx = clamp(px + k * 2, 0, w - 1);
-    sum += textureLoad(blurSrc, vec2i(nx, py), 0) * weights[k + 2];
+    let nx = clamp(x + k, 0, w - 1);
+    sum += textureLoad(blurSrc, vec2i(nx, y), 0) * weights[k + 2];
   }
-  textureStore(dst, vec2i(px, py), sum);
+  textureStore(dst, vec2i(x, y), sum);
 }
 
 @group(2) @binding(1) var blurSrc2: texture_2d<f32>;
@@ -113,18 +110,16 @@ fn bloomBlurV(@builtin(global_invocation_id) gid: vec3u) {
   let size = textureDimensions(blurSrc2);
   let w = i32(size.x);
   let h = i32(size.y);
-  let gx = i32(gid.x);
-  let gy = i32(gid.y);
-  if (gx * 2 >= w || gy * 2 >= h) { return; }
-  let py = gy * 2;
-  let px = gx * 2;
+  let x = i32(gid.x);
+  let y = i32(gid.y);
+  if (x >= w || y >= h) { return; }
   var sum = vec4f(0.0);
   let weights = array<f32, 5>(0.05, 0.2, 0.5, 0.2, 0.05);
   for (var k: i32 = -2; k <= 2; k = k + 1) {
-    let ny = clamp(py + k * 2, 0, h - 1);
-    sum += textureLoad(blurSrc2, vec2i(px, ny), 0) * weights[k + 2];
+    let ny = clamp(y + k, 0, h - 1);
+    sum += textureLoad(blurSrc2, vec2i(x, ny), 0) * weights[k + 2];
   }
-  textureStore(dst, vec2i(px, py), sum);
+  textureStore(dst, vec2i(x, y), sum);
 }
 
 // ── streak: horizontal smear on the coarsest grid ───────────────────────────
@@ -136,24 +131,22 @@ fn bloomStreak(@builtin(global_invocation_id) gid: vec3u) {
   let size = textureDimensions(streakSrc);
   let w = i32(size.x);
   let h = i32(size.y);
-  let gx = i32(gid.x);
-  let gy = i32(gid.y);
-  if (gx * 4 >= w || gy * 4 >= h) { return; }
-  let py = gy * 4;
-  let px = gx * 4;
+  let x = i32(gid.x);
+  let y = i32(gid.y);
+  if (x >= w || y >= h) { return; }
   let lenPx = p[12];
   let steps = max(3, min(16, i32(round(lenPx / 6.0))));
   var sum = vec4f(0.0);
   var n = 0.0;
   for (var s = -steps; s <= steps; s = s + 1) {
-    let nx = clamp(px + s * 4, 0, w - 1);
-    sum += textureLoad(streakSrc, vec2i(nx, py), 0);
+    let nx = clamp(x + s, 0, w - 1);
+    sum += textureLoad(streakSrc, vec2i(nx, y), 0);
     n += 1.0;
   }
   let avg = sum / max(n, 1.0);
-  let cur = textureLoad(streakSrc, vec2i(px, py), 0);
+  let cur = textureLoad(streakSrc, vec2i(x, y), 0);
   let mix = p[13] * 0.5;
-  textureStore(dst, vec2i(px, py), cur + (avg - cur) * mix);
+  textureStore(dst, vec2i(x, y), cur + (avg - cur) * mix);
 }
 
 // ── composite ───────────────────────────────────────────────────────────────
@@ -172,15 +165,12 @@ fn bloomComposite(@builtin(global_invocation_id) gid: vec3u) {
   let y = i32(gid.y);
   if (x >= w || y >= h) { return; }
 
-  let fxx = f32(x);
-  let fyy = f32(y);
-  let u2 = vec2f((fxx * 0.5 + 0.5) / f32(w), (fyy * 0.5 + 0.5) / f32(h));
-  let u4 = vec2f((fxx * 0.25 + 0.5) / f32(w), (fyy * 0.25 + 0.5) / f32(h));
+  let uv = (vec2f(f32(x), f32(y)) + 0.5) / vec2f(f32(w), f32(h));
 
   let diffusion = p[4];
   let w2 = 1.0 + 2.0 * diffusion * 0.35;
   let w4 = 1.0 + 1.0 * diffusion * 0.35;
-  let glow = (textureSampleLevel(g2, samp, u2, 0.0).rgb * w2 + textureSampleLevel(g4, samp, u4, 0.0).rgb * w4) / (w2 + w4);
+  let glow = (textureSampleLevel(g2, samp, uv, 0.0).rgb * w2 + textureSampleLevel(g4, samp, uv, 0.0).rgb * w4) / (w2 + w4);
 
   let s = textureLoad(src2, vec2i(x, y), 0);
   let tintMix = p[5];
@@ -242,18 +232,43 @@ fn bloomComposite(@builtin(global_invocation_id) gid: vec3u) {
     o = pack.f(params, o, Number(q.streakLength ?? 64) * coordScale, 64);
     o = pack.f(params, o, q.streakIntensity, 0.5);
     pack.f(params, o, q.streakAspect, 2);
-    const passes: Array<{ entry: string; textures: string[] }> = [
-      { entry: 'bloomBright' as const, textures: ['b1', 'src'] },
-      { entry: 'bloomDown' as const, textures: ['b2', 'b1'] },
-      { entry: 'bloomDown' as const, textures: ['b3', 'b2'] },
-      { entry: 'bloomBlurH' as const, textures: ['c2', 'b2'] },
-      { entry: 'bloomBlurV' as const, textures: ['b2', 'c2'] },
-      { entry: 'bloomBlurH' as const, textures: ['c3', 'b3'] },
-      { entry: 'bloomBlurV' as const, textures: ['b3', 'c3'] },
+    const half = {
+      width: Math.max(1, Math.ceil(request.width / 2)),
+      height: Math.max(1, Math.ceil(request.height / 2)),
+    };
+    const quarter = {
+      width: Math.max(1, Math.ceil(request.width / 4)),
+      height: Math.max(1, Math.ceil(request.height / 4)),
+    };
+    const passes: Array<{
+      entry: string;
+      textures: string[];
+      size?: { width: number; height: number };
+    }> = [
+      {
+        entry: 'bloomBright' as const,
+        textures: ['b1', 'src'],
+        size: { width: request.width, height: request.height },
+      },
+      { entry: 'bloomDown' as const, textures: ['b2', 'b1'], size: half },
+      { entry: 'bloomDown' as const, textures: ['b3', 'b2'], size: quarter },
+      { entry: 'bloomBlurH' as const, textures: ['c2', 'b2'], size: half },
+      { entry: 'bloomBlurV' as const, textures: ['b2', 'c2'], size: half },
+      { entry: 'bloomBlurH' as const, textures: ['c3', 'b3'], size: quarter },
+      { entry: 'bloomBlurV' as const, textures: ['b3', 'c3'], size: quarter },
     ];
-    if (streakEnabled && Number(q.streakIntensity ?? 0.5) > 0) {
-      passes.push({ entry: 'bloomStreak' as const, textures: ['b3', 'b3'] });
+    const streakPassEnabled = streakEnabled && Number(q.streakIntensity ?? 0.5) > 0;
+    if (streakPassEnabled) {
+      // A storage target cannot also be sampled by the same pass. Keep the
+      // coarsest pyramid level immutable and publish the streak into a fresh
+      // resource before the composite pass consumes it.
+      passes.push({
+        entry: 'bloomStreak' as const,
+        textures: ['bloomStreak', 'b3'],
+        size: quarter,
+      });
     }
+    const coarsestTexture = streakPassEnabled ? 'bloomStreak' : 'b3';
     return [
       ...passes.map((pass) => ({
         entry: pass.entry,
@@ -261,11 +276,12 @@ fn bloomComposite(@builtin(global_invocation_id) gid: vec3u) {
         textures: pass.textures,
         sampler: 'nearest' as const,
         workgroup: [8, 8, 1] as [number, number, number],
+        size: pass.size,
       })),
       {
         entry: 'bloomComposite',
         params,
-        textures: ['out', 'b2', 'b3', 'src'],
+        textures: ['out', 'b2', coarsestTexture, 'src'],
         sampler: 'linear',
         workgroup: [8, 8, 1],
       },

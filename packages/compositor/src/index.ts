@@ -13,5 +13,12 @@ export type {
 } from './types';
 export { WebGPUBackend } from './webgpu/backend';
 export type { EffectDispatchRequest as GpuEffectDispatchRequest } from './webgpu/effects/runner';
-export { type EffectPass, GpuEffectRunner, type GpuKernelSpec } from './webgpu/effects/runner';
+export {
+  type EffectPass,
+  formatShaderDiagnostics,
+  GpuEffectRunner,
+  type GpuKernelSpec,
+  planEffectPasses,
+  snapshotEffectDispatchRequest,
+} from './webgpu/effects/runner';
 export { gpuEffectProvider, installEffectKernels } from './webgpu/gpuEffectProvider';

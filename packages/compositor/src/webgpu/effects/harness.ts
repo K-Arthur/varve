@@ -4,19 +4,16 @@
  * Loaded by `tests/e2e/effects/gpu-agreement.spec.ts` inside a plain page
  * (no app boot). Exposes `window.__effectsHarness`:
  *
- *   run(effects: string[]): Promise<HarnessResult>
+ *   run(effects: string[], options?): Promise<HarnessResult>
  *
  * For each effect it applies the CPU kernel and the GPU kernel to the same
  * deterministic input and reports per-effect delta statistics. The spec
  * asserts the bounds.
  *
- * Note on this Dawn build (observed on Chromium 1228 headless + RADV):
- * - read-only storage buffers (`var<storage, read>`) silently no-op the
- *   dispatch — kernels MUST declare `read_write`.
- * - a shader entry point that doesn't exist in the module silently no-ops
- *   the dispatch (no throw) — keep entry names in sync.
- * - pipelines with unbound bind-group layouts can no-op — the runner always
- *   binds the palette group.
+ * Validation note: read-only storage buffers are valid WGSL. Compilation and
+ * pipeline validation diagnostics are collected by the runner; an entry-point
+ * or bind-group mismatch is a failure that must be fixed, not a browser
+ * workaround to preserve as a silent no-op.
  */
 
 import type { EffectDispatchRequest } from '@varve/engine/liveEffects';
@@ -343,7 +340,12 @@ async function runOne(
 
 export async function runHarness(
   effects: string[],
-  options?: { width?: number; height?: number; requireHardwareAdapter?: boolean },
+  options?: {
+    width?: number;
+    height?: number;
+    requireHardwareAdapter?: boolean;
+    concurrent?: boolean;
+  },
 ): Promise<HarnessResult> {
   const width = options?.width ?? 48;
   const height = options?.height ?? 32;
@@ -375,15 +377,18 @@ export async function runHarness(
     // Warm-up failure is non-fatal; the real cases will surface it.
   }
 
-  const entries: HarnessResultEntry[] = [];
-  for (const name of effects) {
+  const runNamed = async (name: string): Promise<HarnessResultEntry> => {
     const caseSpec = CASES[name];
-    if (!caseSpec) {
-      entries.push({ effect: name, gpuReady: true, stats: null, error: 'unknown case' });
-      continue;
-    }
-    entries.push(await runOne(runner, name, caseSpec, width, height));
-  }
+    if (!caseSpec) return { effect: name, gpuReady: true, stats: null, error: 'unknown case' };
+    return runOne(runner, name, caseSpec, width, height);
+  };
+  const entries = options?.concurrent
+    ? await Promise.all(effects.map((name) => runNamed(name)))
+    : await (async () => {
+        const ordered: HarnessResultEntry[] = [];
+        for (const name of effects) ordered.push(await runNamed(name));
+        return ordered;
+      })();
   runner.destroy();
   return { entries };
 }
@@ -391,7 +396,15 @@ export async function runHarness(
 declare global {
   interface Window {
     __effectsHarness: {
-      run: (effects: string[]) => Promise<HarnessResult>;
+      run: (
+        effects: string[],
+        options?: {
+          width?: number;
+          height?: number;
+          requireHardwareAdapter?: boolean;
+          concurrent?: boolean;
+        },
+      ) => Promise<HarnessResult>;
       cpuOnly: (name: string) => Promise<HarnessStats | null>;
       effectNames: () => string[];
     };
@@ -399,7 +412,7 @@ declare global {
 }
 
 window.__effectsHarness = {
-  run: (effects: string[]) => runHarness(effects),
+  run: (effects: string[], options) => runHarness(effects, options),
   cpuOnly: async (name: string) => {
     const caseSpec = CASES[name];
     if (!caseSpec) return null;

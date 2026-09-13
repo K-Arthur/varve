@@ -71,7 +71,10 @@ const FILTER = (process.env.EFFECTS ?? '')
 declare global {
   interface Window {
     __effectsHarness: {
-      run(names: string[]): Promise<{
+      run(
+        names: string[],
+        options?: { width?: number; height?: number; concurrent?: boolean },
+      ): Promise<{
         entries: Array<{
           effect: string;
           gpuReady: boolean;
@@ -129,7 +132,11 @@ test('live effects: WebGPU compute agrees with the CPU kernels', async ({ page }
   }
 
   const result = await page.evaluate(async (names) => {
-    return await window.__effectsHarness.run(names);
+    return await window.__effectsHarness.run(names, {
+      width: 48,
+      height: 32,
+      concurrent: true,
+    });
   }, effects);
 
   for (const entry of result.entries) {
@@ -153,4 +160,60 @@ test('live effects: WebGPU compute agrees with the CPU kernels', async ({ page }
       expect(stats.maxAbs, `${entry.effect} max abs delta`).toBeLessThanOrEqual(bound.max);
     }
   }
+});
+
+test('Color Halftone: 48px rows survive padded WebGPU readback', async ({ page }, testInfo) => {
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  const moduleUrl = `/@fs${join(process.cwd(), 'packages/engine/src/gpu/colorHalftoneGpu.ts')}`;
+
+  const result = await page.evaluate(async (url) => {
+    const mod = (await import(/* @vite-ignore */ url)) as {
+      applyColorHalftoneGpu: (
+        data: ImageData,
+        params: import('@varve/engine').ColorHalftoneParams,
+      ) => Promise<ImageData>;
+      getColorHalftoneGpuDiagnostics: () => {
+        backend: 'webgpu' | 'cpu';
+        width: number;
+        height: number;
+        reason: string;
+      };
+    };
+    const data = new Uint8ClampedArray(48 * 32 * 4);
+    for (let i = 0; i < data.length; i += 4) {
+      data[i] = (i / 4) % 251;
+      data[i + 1] = 180;
+      data[i + 2] = 220;
+      data[i + 3] = 255;
+    }
+    const output = await mod.applyColorHalftoneGpu(new ImageData(data, 48, 32), {
+      screenSize: 12,
+      angle: 0,
+      dotShape: 'round',
+      mode: 'cmyk',
+      intensity: 1,
+      inkColor: [0, 0, 0, 255],
+    });
+    const diagnostics = mod.getColorHalftoneGpuDiagnostics();
+    const canvas = document.createElement('canvas');
+    canvas.id = 'halftone-probe';
+    canvas.width = 48;
+    canvas.height = 32;
+    canvas.getContext('2d')?.putImageData(output, 0, 0);
+    document.body.append(canvas);
+    return {
+      diagnostics,
+      outputLength: output.data.length,
+      alpha: output.data[3],
+    };
+  }, moduleUrl);
+
+  await page.locator('#halftone-probe').screenshot({
+    path: testInfo.outputPath('color-halftone-48x32.png'),
+  });
+  expect(result.diagnostics.backend, result.diagnostics.reason).toBe('webgpu');
+  expect(result.diagnostics.width).toBe(48);
+  expect(result.diagnostics.height).toBe(32);
+  expect(result.outputLength).toBe(48 * 32 * 4);
+  expect(result.alpha).toBe(255);
 });

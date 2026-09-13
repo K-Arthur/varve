@@ -28,7 +28,8 @@ export const CAUSTICS_KERNEL: GpuKernelSpec = {
   wgsl:
     WGSL_HELPERS +
     /* wgsl */ `
-@group(0) @binding(0) var<storage, read_write> p: array<f32, 128>;
+@group(0) @binding(0) var<storage, read> p: array<f32, 128>;
+@group(0) @binding(1) var<storage, read> ip: array<u32, 16>;
 @group(2) @binding(0) var dst: texture_storage_2d<rgba8unorm, write>;
 @group(2) @binding(1) var src: texture_2d<f32>;
 
@@ -45,7 +46,7 @@ fn causticsField(@builtin(global_invocation_id) gid: vec3u) {
   let depth = clamp01(p[1]);
   let count = max(2, min(8, i32(round(p[2]))));
   let complexity = clamp01(p[3]);
-  let seed = u32(p[20]);
+  let seed = ip[0];
   let time = max(0.0, p[21]);
   let animSpeed = p[22];
   let tileable = p[23] > 0.5;
@@ -201,6 +202,7 @@ fn causticsComposite(@builtin(global_invocation_id) gid: vec3u) {
     void resolveQuality;
     const scale = request.coordSpace && request.coordSpace.scale > 0 ? request.coordSpace.scale : 1;
     const params = new Float32Array(25);
+    const integerParams = new Uint32Array([pack.u32(q.seed, 0)]);
     let o = pack.f(params, 0, Math.max(4, Number(q.scale ?? 24) * scale), 24);
     o = pack.f(params, o, q.depth, 0.5);
     o = pack.f(params, o, q.waveCount, 4);
@@ -244,6 +246,7 @@ fn causticsComposite(@builtin(global_invocation_id) gid: vec3u) {
       {
         entry: 'causticsField',
         params,
+        integerParams,
         textures: ['field', 'src'],
         sampler: 'nearest',
         workgroup: [8, 8, 1],
@@ -251,6 +254,7 @@ fn causticsComposite(@builtin(global_invocation_id) gid: vec3u) {
       {
         entry: 'causticsComposite',
         params,
+        integerParams,
         textures: ['out', 'field', 'src'],
         sampler: 'linear',
         workgroup: [8, 8, 1],

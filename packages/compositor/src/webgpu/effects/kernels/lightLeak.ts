@@ -18,7 +18,8 @@ export const LIGHT_LEAK_KERNEL: GpuKernelSpec = {
   wgsl:
     WGSL_HELPERS +
     /* wgsl */ `
-@group(0) @binding(0) var<storage, read_write> p: array<f32, 128>;
+@group(0) @binding(0) var<storage, read> p: array<f32, 128>;
+@group(0) @binding(1) var<storage, read> ip: array<u32, 16>;
 @group(2) @binding(0) var dst: texture_storage_2d<rgba8unorm, write>;
 @group(2) @binding(1) var src: texture_2d<f32>;
 
@@ -32,7 +33,7 @@ fn lightLeakMain(@builtin(global_invocation_id) gid: vec3u) {
   if (x >= w || y >= h) { return; }
 
   let intensity = max(0.0, p[9]);
-  let seed = u32(p[0]);
+  let seed = ip[0];
   let cx = f32(w) * clamp01(p[1]);
   let cy = f32(h) * clamp01(p[2]);
   let angle = p[3] * 3.141592653589793 / 180.0;
@@ -73,6 +74,7 @@ fn lightLeakMain(@builtin(global_invocation_id) gid: vec3u) {
   buildPasses(request) {
     const q = request.params;
     const params = new Float32Array(11);
+    const integerParams = new Uint32Array([pack.u32(q.seed, 0)]);
     let o = pack.f(params, 0, q.seed, 0);
     o = pack.f(params, o, q.x, 0.5);
     o = pack.f(params, o, q.y, 0.5);
@@ -88,6 +90,7 @@ fn lightLeakMain(@builtin(global_invocation_id) gid: vec3u) {
       {
         entry: 'lightLeakMain',
         params,
+        integerParams,
         textures: ['out', 'src'],
         sampler: 'nearest',
         workgroup: [8, 8, 1],

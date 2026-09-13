@@ -24,7 +24,8 @@ export const VHS_KERNEL: GpuKernelSpec = {
   wgsl:
     WGSL_HELPERS +
     /* wgsl */ `
-@group(0) @binding(0) var<storage, read_write> p: array<f32, 128>;
+@group(0) @binding(0) var<storage, read> p: array<f32, 128>;
+@group(0) @binding(1) var<storage, read> ip: array<u32, 16>;
 @group(2) @binding(0) var dst: texture_storage_2d<rgba8unorm, write>;
 @group(2) @binding(1) var src: texture_2d<f32>;
 
@@ -37,7 +38,7 @@ fn vhsMain(@builtin(global_invocation_id) gid: vec3u) {
   let y = i32(gid.y);
   if (x >= w || y >= h) { return; }
 
-  let seed = u32(p[0]);
+  let seed = ip[0];
   let frameRate = max(1.0, p[1]);
   let time = max(0.0, p[2]);
   let frame = i32(floor(time * frameRate));
@@ -200,6 +201,7 @@ fn vhsBlur(@builtin(global_invocation_id) gid: vec3u) {
     const q = request.params;
     const tier = resolveQuality(q, request.quality);
     const params = new Float32Array(14);
+    const integerParams = new Uint32Array([pack.u32(q.seed, 0)]);
     let o = pack.f(params, 0, q.seed, 0);
     o = pack.f(params, o, q.frameRate, 24);
     o = pack.f(params, o, q.time, 0);
@@ -218,6 +220,7 @@ fn vhsBlur(@builtin(global_invocation_id) gid: vec3u) {
       {
         entry: 'vhsMain',
         params,
+        integerParams,
         textures: ['a', 'src'],
         sampler: 'nearest',
         workgroup: [8, 8, 1],
@@ -225,6 +228,7 @@ fn vhsBlur(@builtin(global_invocation_id) gid: vec3u) {
       {
         entry: 'vhsBleed',
         params,
+        integerParams,
         textures: ['b', 'a'],
         sampler: 'nearest',
         workgroup: [8, 8, 1],
@@ -232,6 +236,7 @@ fn vhsBlur(@builtin(global_invocation_id) gid: vec3u) {
       {
         entry: 'vhsBlur',
         params,
+        integerParams,
         textures: ['out', 'b'],
         sampler: 'nearest',
         workgroup: [8, 8, 1],

@@ -30,8 +30,9 @@ export const PALETTE_SNAP_KERNEL: GpuKernelSpec = {
   wgsl:
     WGSL_HELPERS +
     /* wgsl */ `
-@group(0) @binding(0) var<storage, read_write> p: array<f32, 128>;
-@group(1) @binding(0) var<storage, read_write> pal: array<f32, 384>;
+@group(0) @binding(0) var<storage, read> p: array<f32, 128>;
+@group(0) @binding(1) var<storage, read> ip: array<u32, 16>;
+@group(1) @binding(0) var<storage, read> pal: array<f32, 384>;
 @group(2) @binding(0) var dst: texture_storage_2d<rgba8unorm, write>;
 @group(2) @binding(1) var src: texture_2d<f32>;
 
@@ -102,7 +103,7 @@ fn paletteSnapMain(@builtin(global_invocation_id) gid: vec3u) {
   let metric = i32(p[3]);
   let dither = p[4] > 0.5;
   let ditherStrength = p[5];
-  let seed = u32(p[2]);
+  let seed = ip[0];
   let paletteSize = i32(p[7]);
 
   let s = textureLoad(src, vec2i(x, y), 0);
@@ -169,6 +170,7 @@ fn paletteSnapMain(@builtin(global_invocation_id) gid: vec3u) {
       throw new Error('sequential dither not supported on GPU');
     }
     const params = new Float32Array(8);
+    const integerParams = new Uint32Array([pack.u32(q.seed, 0)]);
     let o = pack.f(params, 0, q.amount, 1);
     o = pack.f(params, o, q.alphaCutoff, 0);
     o = pack.f(params, o, q.seed, 0);
@@ -189,6 +191,7 @@ fn paletteSnapMain(@builtin(global_invocation_id) gid: vec3u) {
       {
         entry: 'paletteSnapMain',
         params,
+        integerParams,
         palette: pack.palette(colors, 128),
         textures: ['out', 'src'],
         sampler: 'nearest',
