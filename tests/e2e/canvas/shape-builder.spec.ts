@@ -46,6 +46,9 @@ test.describe('Shape Builder workflow', () => {
     await expect(toolbar.getByRole('button', { name: 'Shape Builder', exact: true })).toBeVisible();
     await toolbar.getByRole('button', { name: 'Shape Builder', exact: true }).click();
     await expect(page.getByTestId('shape-builder-controls')).toBeVisible();
+    await expect(page.getByTestId('shape-builder-style-policy')).toHaveText(
+      'Style: first selected source · Create retains sources',
+    );
 
     // A single pointer sweep crosses the left, overlap, and right faces. The
     // endpoints are deliberately in the outer faces so this catches thin-face
