@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { addNode, createDocument } from '../document';
-import type { SceneNode } from '../types';
+import type { SceneNode, TextNode } from '../types';
 import {
   canGlyphAdjust,
   clearGlyphAdjustments,
@@ -150,15 +150,15 @@ describe('clear + stats', () => {
 
 describe('source edit invalidation', () => {
   it('clears index-derived adjustments when the editable source changes', () => {
-    const original = textNodeDoc('Hello').nodes.n1 as never;
+    const original = textNodeDoc('Hello').nodes.n1 as TextNode;
     const withAdjustments = setGlyphAdjustment(textNodeDoc('Hello'), 'n1', 1, { dx: 8 }).nodes
-      .n1 as never;
+      .n1 as TextNode;
     const withPair = setPairAdjustment(
       { ...textNodeDoc('Hello'), nodes: { ...textNodeDoc('Hello').nodes, n1: withAdjustments } },
       'n1',
       1,
       4,
-    ).nodes.n1 as never;
+    ).nodes.n1 as TextNode;
     const changed = { ...withPair, text: 'New text' };
     const invalidated = invalidateGlyphAdjustmentsOnTextChange(original, changed);
     expect(invalidated.text).toBe('New text');
@@ -167,8 +167,9 @@ describe('source edit invalidation', () => {
   });
 
   it('keeps adjustments when only appearance or font settings change', () => {
-    const original = textNodeDoc('Hello').nodes.n1 as never;
-    const adjusted = setGlyphAdjustment(textNodeDoc('Hello'), 'n1', 1, { dx: 8 }).nodes.n1 as never;
+    const original = textNodeDoc('Hello').nodes.n1 as TextNode;
+    const adjusted = setGlyphAdjustment(textNodeDoc('Hello'), 'n1', 1, { dx: 8 }).nodes
+      .n1 as TextNode;
     const changed = { ...adjusted, fontSize: 48 };
     expect(invalidateGlyphAdjustmentsOnTextChange(original, changed)).toBe(changed);
   });
