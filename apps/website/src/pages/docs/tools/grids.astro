@@ -105,11 +105,15 @@ import { sitePath } from '../../../lib/siteUrl';
           </div>
           <div class="control-card__row"><span>Show grid</span><span class="fake-switch fake-switch--on" aria-hidden="true"></span></div>
           <div class="control-card__row"><span>Snap to document grid</span><span class="fake-switch fake-switch--on" aria-hidden="true"></span></div>
-          <div class="control-card__row"><span>Enable snapping globally</span><span class="fake-switch" aria-hidden="true"></span></div>
           <div class="control-card__row control-card__row--values"><span>Spacing X / Y</span><strong>8 / 12 px</strong></div>
           <div class="control-card__row control-card__row--values"><span>Origin</span><strong>0, 0</strong></div>
         </div>
       </section>
+
+      <p class="grid-systems__crosslink">
+        Need magnetic pointer assistance as well? Configure its tolerance and candidate families in
+        the Inspector's <a href={sitePath('/docs/settings')}>Document → Snapping</a> section.
+      </p>
 
       <section class="grid-detail grid-detail--pixel" aria-labelledby="pixel-grid-title">
         <div class="pixel-preview" aria-label="Illustration of pixel inspection">

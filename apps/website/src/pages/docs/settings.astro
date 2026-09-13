@@ -68,14 +68,25 @@ import { sitePath } from '../../lib/siteUrl';
           <li><strong>Layout Grid</strong> — Toggle layout grid overlay for alignment reference</li>
         </ul>
 
-        <h3>Snap</h3>
+        <h3>Pointer snapping (Inspector → Document → Snapping)</h3>
+        <p>
+          Pointer-snap preferences live with the editor viewport, not in the document file. Open
+          the Inspector's <strong>Document</strong> panel and expand <strong>Snapping</strong> to
+          change them without changing the artwork.
+        </p>
         <ul>
           <li><strong>Enable snapping</strong> — Turn magnetic pointer assistance on or off for eligible canvas tools</li>
-          <li><strong>Snap to Grid</strong> — Snap objects to configured document-grid lines and intersections</li>
-          <li><strong>Snap to Objects</strong> — Snap to visible object edges and centers in the active editing scope</li>
-          <li><strong>Pixel alignment</strong> — Keep integer-pixel placement as a separate explicit choice; it does not round every nudge</li>
-          <li><strong>Snap threshold</strong> — Screen-space distance within which magnetic snapping activates; zoom does not change the size of the hand movement</li>
+          <li><strong>Tolerance</strong> — Set magnetic acquisition distance from 1–32 CSS pixels; zoom does not change the size of the hand movement</li>
+          <li><strong>Object geometry</strong> — Include visible object edges and centers in the active editing scope</li>
+          <li><strong>Pages and frames</strong> — Include page and containing-frame bounds</li>
+          <li><strong>Guides</strong> — Include ruler and authored layout guides</li>
+          <li><strong>Reset snapping</strong> — Restore these viewport preferences without changing document geometry</li>
         </ul>
+        <p>
+          Document-grid snap and integer pixel snap remain explicit controls in the separate
+          <strong>Document Grid</strong> section. They are not substitutes for magnetic pointer
+          snapping, and Arrow-key nudges never use the magnetic tolerance.
+        </p>
 
         <h3>Nudging &amp; Movement</h3>
         <p>

@@ -81,6 +81,14 @@ correction is applied once to the primary selection bounds and the resulting
 world displacement is then translated through every selected root's parent.
 Keyboard nudging never enters that snap path.
 
+Pointer snapping preferences are viewport-scoped and are not document geometry:
+the Inspector's Document → Snapping section exposes magnetic enablement, a
+1–32 CSS-pixel acquisition tolerance, and independent object-geometry,
+page/frame, and ruler/layout-guide candidate families. Document-grid snap and
+integer-pixel snap remain explicit document/grid controls. A temporary Ctrl/Cmd
+bypass affects the active pointer gesture only; it does not rewrite the stored
+preference or the pointer-to-object origin.
+
 ## Transactions and feedback
 
 A held Arrow gesture announces once, reuses its repeat session, and commits on
