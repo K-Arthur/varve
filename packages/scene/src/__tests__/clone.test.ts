@@ -12,8 +12,10 @@ import {
   makeTextNode,
   nextNodeId,
 } from '../document';
+import { createDefaultEffect } from '../effects';
+import { createEmptyTile, makeRasterLayerNode } from '../rasterLayer';
 import { setCellSceneContent } from '../tableOps';
-import type { FrameNode, GroupNode, NodeId, ShapeNode } from '../types';
+import type { FrameNode, GroupNode, NodeId, RasterLayerNode, ShapeNode } from '../types';
 
 function shape(doc: Document, name: string, opts?: Partial<ShapeNode>) {
   const { id, doc: d2 } = nextNodeId(doc);
@@ -523,5 +525,147 @@ describe('deepCloneSubtree', () => {
     if (clonedText?.kind !== 'text' || !clonedPath) return;
     expect(clonedText.pathTextSettings?.pathNodeId).toBe(clonedPath.id);
     expect(clonedText.pathTextSettings?.pathNodeId).not.toBe(path.id);
+  });
+});
+
+function effectMask(nodeId: NodeId) {
+  return {
+    source: { kind: 'scene-node' as const, nodeId },
+    type: 'alpha' as const,
+    coordinateSpace: 'world' as const,
+  };
+}
+
+describe('deepCloneSubtree — duplicate fidelity', () => {
+  it('mints fresh effect ids and deep-copies effect parameters', () => {
+    let doc = createDocument();
+    const a = shape(doc, 'Card', {
+      effects: [createDefaultEffect('dropShadow', 'fx-src')],
+    });
+    doc = a.doc;
+    doc = addNode(doc, a.node);
+
+    const result = deepCloneSubtree(doc.nodes, doc.nextId, a.id);
+    const cloned = result.nodes[result.rootId] as ShapeNode;
+    const original = doc.nodes[a.id] as ShapeNode;
+
+    expect(cloned.effects).toHaveLength(1);
+    expect(cloned.effects[0]?.id).toBeTruthy();
+    expect(cloned.effects[0]?.id).not.toBe('fx-src');
+    expect(cloned.effects[0]).not.toBe(original.effects[0]);
+
+    // Nested parameter mutation must not leak into the original.
+    (cloned.effects[0] as { blur: number }).blur = 99;
+    expect((original.effects[0] as { blur: number }).blur).not.toBe(99);
+  });
+
+  it('remaps effect-mask sources that live inside the cloned subtree', () => {
+    let doc = createDocument();
+    const matte = shape(doc, 'Matte');
+    doc = matte.doc;
+    doc = addNode(doc, matte.node);
+    const content = shape(doc, 'Content', {
+      effects: [{ ...createDefaultEffect('dropShadow', 'fx-masked'), mask: effectMask(matte.id) }],
+    });
+    doc = content.doc;
+    doc = addNode(doc, content.node);
+    const groupIdResult = nextNodeId(doc);
+    doc = groupIdResult.doc;
+    doc = addNode(
+      doc,
+      makeGroupNode(groupIdResult.id, {
+        name: 'G',
+        children: [matte.id, content.id],
+      }),
+    );
+
+    const result = deepCloneSubtree(doc.nodes, doc.nextId, groupIdResult.id);
+    const clonedGroup = result.nodes[result.rootId] as GroupNode;
+    const clonedContent = result.nodes[result.idMap.get(content.id)!];
+    expect(clonedGroup.children).toHaveLength(2);
+    expect(clonedContent).toBeDefined();
+    if (!clonedContent || !('effects' in clonedContent)) return;
+    const maskSource = (
+      clonedContent.effects[0] as { mask?: { source?: { kind: string; nodeId: string } } }
+    ).mask?.source;
+    expect(maskSource?.kind).toBe('scene-node');
+    expect(maskSource?.nodeId).toBe(result.idMap.get(matte.id));
+    expect(maskSource?.nodeId).not.toBe(matte.id);
+  });
+
+  it('keeps an in-document foreign mask source but drops it for cross-document paste', () => {
+    let doc = createDocument();
+    const outside = shape(doc, 'Outside');
+    doc = outside.doc;
+    doc = addNode(doc, outside.node);
+    const content = shape(doc, 'Content', {
+      effects: [
+        { ...createDefaultEffect('dropShadow', 'fx-foreign'), mask: effectMask(outside.id) },
+      ],
+    });
+    doc = content.doc;
+    doc = addNode(doc, content.node);
+
+    const sameDoc = deepCloneSubtree(doc.nodes, doc.nextId, content.id);
+    const sameDocClone = sameDoc.nodes[sameDoc.rootId] as ShapeNode;
+    const sameDocMask = (sameDocClone.effects[0] as { mask?: { source?: { nodeId: string } } })
+      .mask;
+    expect(sameDocMask?.source?.nodeId).toBe(outside.id);
+
+    const crossDoc = deepCloneSubtree(doc.nodes, doc.nextId, content.id, {
+      dropForeignReferences: true,
+    });
+    const crossDocClone = crossDoc.nodes[crossDoc.rootId] as ShapeNode;
+    expect(crossDocClone.effects).toHaveLength(1);
+    expect(crossDocClone.effects[0]?.mask).toBeUndefined();
+  });
+
+  it('copies raster tiles so the duplicate shares no pixel buffer', () => {
+    let doc = createDocument();
+    const raster = makeRasterLayerNode('rl-src', { width: 256, height: 256 });
+    const tile = createEmptyTile();
+    tile.pixels.set([12, 34, 56, 255]);
+    raster.tiles.set('0:0', tile);
+    doc = addNode(doc, raster);
+
+    const result = deepCloneSubtree(doc.nodes, doc.nextId, 'rl-src');
+    const cloned = result.nodes[result.rootId] as RasterLayerNode;
+    const clonedTile = cloned.tiles.get('0:0');
+
+    expect(cloned.tiles).not.toBe(raster.tiles);
+    expect(clonedTile?.pixels).not.toBe(tile.pixels);
+    expect([...clonedTile!.pixels.slice(0, 4)]).toEqual([12, 34, 56, 255]);
+
+    clonedTile!.pixels[0] = 200;
+    expect(tile.pixels[0]).toBe(12);
+  });
+
+  it('applies the duplicate translate to the root and the name suffix to every clone', () => {
+    let doc = createDocument();
+    const parent = frame(doc, 'Card');
+    doc = parent.doc;
+    const child = shape(doc, 'Label', { transform: [1, 0, 0, 1, 5, 6] });
+    doc = child.doc;
+    const parentWithChild: FrameNode = { ...parent.node, children: [child.id] };
+    doc = {
+      ...doc,
+      nodes: { ...doc.nodes, [parent.id]: parentWithChild, [child.id]: child.node },
+      rootChildren: [...doc.rootChildren, parent.id],
+    };
+
+    const result = deepCloneSubtree(doc.nodes, doc.nextId, parent.id, {
+      translate: { x: 20, y: 20 },
+      nameSuffix: ' copy',
+    });
+    const clonedParent = result.nodes[result.rootId] as FrameNode;
+    expect(clonedParent.name).toBe('Card copy');
+    expect(clonedParent.transform[4]).toBeCloseTo(20);
+    expect(clonedParent.transform[5]).toBeCloseTo(20);
+
+    const clonedChild = result.nodes[clonedParent.children[0]!] as ShapeNode;
+    expect(clonedChild.name).toBe('Label copy');
+    // Children keep their local transform; only the root moves.
+    expect(clonedChild.transform[4]).toBeCloseTo(5);
+    expect(clonedChild.transform[5]).toBeCloseTo(6);
   });
 });

@@ -5,6 +5,8 @@
  * and other node-to-node references are remapped.
  */
 
+import type { Affine } from '@varve/engine';
+import { cloneEffects } from './effects';
 import type { ExportPreset } from './export-types';
 import { mintId } from './identity';
 import { nextNodeId } from './node-id';
@@ -42,6 +44,14 @@ export interface CloneOptions {
   /** Additional roots to clone in the same id map. This preserves references
    * between separately selected roots during cross-document paste. */
   additionalRootIds?: readonly NodeId[];
+  /**
+   * Translation applied to the cloned root's local transform only (children
+   * keep their parent-relative transforms, so the whole subtree moves).
+   * Used by canvas duplicate (Alt-drag / Ctrl+D) for the copy offset.
+   */
+  translate?: { x: number; y: number };
+  /** Suffix appended to every cloned node's name (duplicate naming). */
+  nameSuffix?: string;
 }
 
 /**
@@ -254,6 +264,10 @@ export function deepCloneSubtree(
       cloned = { ...cloned, smartFilters: cloneSmartFilters(node.smartFilters) } as SceneNode;
     }
 
+    if (options?.nameSuffix) {
+      cloned = { ...cloned, name: `${node.name}${options.nameSuffix}` } as SceneNode;
+    }
+
     newNodes[newId] = cloned;
     return newId;
   }
@@ -265,6 +279,18 @@ export function deepCloneSubtree(
 
   if (!newRootId) {
     return { nodes: {}, idMap, rootId, nextId: currentDoc.nextId };
+  }
+
+  const translate = options?.translate;
+  if (translate && (translate.x !== 0 || translate.y !== 0)) {
+    const root = newNodes[newRootId];
+    if (root) {
+      const t = root.transform as Affine;
+      newNodes[newRootId] = {
+        ...root,
+        transform: [t[0], t[1], t[2], t[3], t[4] + translate.x, t[5] + translate.y],
+      } as SceneNode;
+    }
   }
 
   // Post-pass: remap node-to-node references once the whole subtree has been
@@ -325,7 +351,12 @@ export function deepCloneSubtree(
       }
     }
     if (original && 'effects' in original && Array.isArray(original.effects)) {
-      const nextEffects = original.effects.map((effect) => {
+      // A duplicate/paste owns independent effect identity: mint fresh effect
+      // ids, deep-copy nested parameters (params objects and mask bindings are
+      // otherwise shared with the source), and remap scene-node mask sources
+      // that live inside the cloned subtree. Foreign sources are kept in the
+      // same document (valid) and dropped under cross-document paste.
+      const clonedEffects = cloneEffects(original.effects).map((effect) => {
         const source = effect.mask?.source;
         if (source?.kind !== 'scene-node') return effect;
         const mappedSource = idMap.get(source.nodeId);
@@ -340,7 +371,7 @@ export function deepCloneSubtree(
         }
         return effect;
       });
-      newNodes[newId] = { ...newNodes[newId], effects: nextEffects } as SceneNode;
+      newNodes[newId] = { ...newNodes[newId], effects: clonedEffects } as SceneNode;
     }
     if (original.kind === 'adjustment') {
       const originalScope = (original as { scope?: import('./types').AdjustmentScope }).scope;
