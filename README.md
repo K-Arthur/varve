@@ -60,8 +60,10 @@ WASM for the browser. No account, no forced cloud sync, no feature paywall.
   multi-format export (HTML, plain text) with preflight diagnostics
 
 **Not yet implemented:** real-time collaboration exists only as UI scaffolding.
-The WASM/browser build exists for development — the supported product path is
-the native desktop application.
+The native desktop application is the full product; an experimental browser build
+is available at [varve.studio/try](https://varve.studio/try/), and
+[Varve on Chromebook](https://varve.studio/docs/chromebook) explains the browser,
+installed-web-app, and ChromeOS Linux routes.
 
 ## See Varve in action
 
@@ -363,12 +365,13 @@ the document format can still change — see
 <details>
 <summary><strong>Does Varve work in a browser?</strong></summary>
 <br>
-A bounded browser demo is available at
+An experimental browser build is available at
 <a href="https://varve.studio/try/">varve.studio/try</a> — no download
-required. It runs a curated sample document with honest capability messaging
-about what the browser build can and cannot do. The full product experience
-is the native desktop application; the WASM target also supports the browser
-compatibility build and test harness.
+required. It runs the editor on the WASM engine with honest capability messaging
+about what the browser build can and cannot do; it can also be installed as a
+web app. The full product experience is the native desktop application. On a
+Chromebook, see <a href="https://varve.studio/docs/chromebook">Varve on
+Chromebook</a> for the browser, installed-web-app, and ChromeOS Linux routes.
 </details>
 
 <details>

@@ -46,8 +46,8 @@ environment; that limitation does not describe the native Chrome browser.
 
 | Route | Current artifact/path | Required evidence still missing | Stage 1 tier |
 |---|---|---|---|
-| Native Chrome browser tab | `apps/desktop` bounded `VITE_DEMO=1` build, WASM engine, IndexedDB and File System Access/input fallbacks | Duet launch, first editable frame, pen/touch/keyboard, storage quota/recovery, import/export, and paired performance samples | **Tier 3 — Experimental, demo only** |
-| Installed browser app/PWA | Same browser artifact; `apps/desktop/public/manifest.json` supplies standalone metadata and 192/512 icons | Install criteria, service-worker control, offline reload/update, persistence, and route-specific smoke test | **Tier 3 — Experimental, unverified** |
+| Native Chrome browser tab | `apps/desktop` bounded `VITE_DEMO=1` build, WASM engine, IndexedDB and File System Access/input fallbacks; the site detects ChromeOS and routes touch/Chromebook visitors to the browser build with a server-rendered manual chooser (`/docs/chromebook`) | Duet launch, first editable frame, pen/touch/keyboard, storage quota/recovery, import/export, and paired performance samples | **Tier 3 — Experimental, demo only** |
+| Installed browser app/PWA | Same browser artifact; `apps/desktop/public/manifest.json` supplies standalone metadata and 192/512 icons | Install criteria and offline reload/update behavior were verified against the production artifact on 2026-09-12 (Stage 2); the OS install surface and persistence on a real Chromebook remain unverified | **Tier 3 — Experimental, unverified** |
 | ARM64 Linux through ChromeOS Linux | Existing ARM64 Tauri packages and native engine; this is not native ChromeOS Chrome. Stage 5 (2026-09-12): v0.2.1 `.deb` bytes, metadata, glibc floor and Debian 12/13 dependency closure verified; install/update/uninstall contract in [`chromeos-linux.md`](chromeos-linux.md) | Crostini GUI launch, WebKitGTK/portal behavior, display/input, fonts, printing, graphics fallback, and model behavior | **Tier 3 — Experimental, separate from native ARM64 Linux Tier 2** |
 
 The browser/PWA capability report is available on request from **Settings →
@@ -56,6 +56,15 @@ facts, including dynamic graphics/worker/WASM/storage checks, but it does not
 promote a route or upload diagnostics. The full evidence ledger, fixture map,
 budgets, and hardware checklist are in
 [`docs/audits/chromeos-stage1-baseline-2026-09-11.md`](../audits/chromeos-stage1-baseline-2026-09-11.md).
+
+Stage 6 (2026-09-12) aligned the public routes with that evidence: the download
+page no longer tells touch devices that no builds exist, ChromeOS is detected
+as its own route (never handed a desktop installer), the browser, installed-app,
+and Linux choices are documented in
+[`/docs/chromebook`](https://varve.studio/docs/chromebook), and troubleshooting
+covers wrong architecture, unavailable Linux, low storage, blocked model
+downloads, and safe diagnostics. No Chromebook run happened, so every route
+stays Tier 3.
 
 Stage 5 (2026-09-12) added Linux ARM64 package evidence for the third route:
 the published v0.2.1 `.deb` was re-verified byte-for-byte against
