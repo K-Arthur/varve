@@ -11,7 +11,12 @@
  *                 W3C SVG textPath, HarfBuzz glyph positioning.
  */
 
-import type { Affine } from '@varve/shared';
+import {
+  type Affine,
+  hasPotentialStandardLigatureSequence,
+  type OpenTypeFeatureMap,
+  openTypeFeaturesToCss,
+} from '@varve/shared';
 import {
   type CubicBezier,
   cubicBezierDerivative,
@@ -99,6 +104,59 @@ export interface GlyphPlaceOptions {
 export interface PathCluster {
   text: string;
   advance: number;
+}
+
+/**
+ * Keep common Latin ligature candidates together when the browser shaping
+ * bridge only has grapheme measurements (glyphId 0). A real shaping backend
+ * already returns one cluster, so this is only a bounded Canvas2D fallback.
+ *
+ * The merge is deliberately disabled for ranged feature maps: a face-wide
+ * CSS alias cannot express those ranges, and guessing their coverage here
+ * would be worse than retaining the source clusters for the honest fallback.
+ */
+export function mergePotentialLigatureClusters(
+  clusters: readonly PathCluster[],
+  features?: OpenTypeFeatureMap,
+): PathCluster[] {
+  if (clusters.length < 2 || (features && openTypeFeaturesToCss(features) === undefined)) {
+    return [...clusters];
+  }
+
+  const merged: PathCluster[] = [];
+  for (let index = 0; index < clusters.length; ) {
+    let matchLength = 0;
+    for (const length of [3, 2]) {
+      if (index + length > clusters.length) continue;
+      const candidate = clusters
+        .slice(index, index + length)
+        .map((cluster) => cluster.text)
+        .join('');
+      if (
+        (candidate === 'ffi' ||
+          candidate === 'ffl' ||
+          candidate === 'fi' ||
+          candidate === 'fl' ||
+          candidate === 'ff') &&
+        hasPotentialStandardLigatureSequence(candidate, features)
+      ) {
+        matchLength = length;
+        break;
+      }
+    }
+    if (matchLength === 0) {
+      merged.push(clusters[index]!);
+      index += 1;
+      continue;
+    }
+    const group = clusters.slice(index, index + matchLength);
+    merged.push({
+      text: group.map((cluster) => cluster.text).join(''),
+      advance: group.reduce((sum, cluster) => sum + cluster.advance, 0),
+    });
+    index += matchLength;
+  }
+  return merged;
 }
 
 /**

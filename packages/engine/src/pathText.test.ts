@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   flattenShapedRuns,
+  mergePotentialLigatureClusters,
   type PathCluster,
   pathLength,
   placeClustersOnPath,
@@ -291,6 +292,20 @@ describe('placeGlyphsOnPath — multi-glyph text', () => {
 // ── placeClustersOnPath (shaped clusters) ──────────────────────────────
 
 describe('placeClustersOnPath', () => {
+  it('keeps a browser fallback fi sequence in one path cluster', () => {
+    const clusters: PathCluster[] = [
+      { text: 'f', advance: 9 },
+      { text: 'i', advance: 8 },
+      { text: 'x', advance: 10 },
+    ];
+
+    expect(mergePotentialLigatureClusters(clusters)).toEqual([
+      { text: 'fi', advance: 17 },
+      { text: 'x', advance: 10 },
+    ]);
+    expect(mergePotentialLigatureClusters(clusters, { liga: false })).toEqual(clusters);
+  });
+
   it('places shaped clusters along a circle', () => {
     const shape: Shape = { kind: 'circle', cx: 0, cy: 0, r: 100 };
     const clusters: PathCluster[] = [

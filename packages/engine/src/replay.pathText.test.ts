@@ -69,14 +69,19 @@ function recordingTarget() {
 }
 
 /** A text primitive attached to a circle, as the editor builds one. */
-function pathTextItem(startOffset: number, withPathShape = true): RenderItem {
+function pathTextItem(
+  startOffset: number,
+  withPathShape = true,
+  text = 'VELO',
+  openTypeFeatures?: { liga?: boolean },
+): RenderItem {
   return {
     transform: [1, 0, 0, 1, 0, 0],
     opacity: 1,
     blendMode: 'normal',
     primitive: {
       kind: 'text',
-      text: 'VELO',
+      text,
       x: 0,
       y: 0,
       w: 300,
@@ -92,6 +97,7 @@ function pathTextItem(startOffset: number, withPathShape = true): RenderItem {
       textMode: 'path',
       fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       pathTextSettings: { pathNodeId: 'ring-1', startOffset, side: 'top' },
+      ...(openTypeFeatures ? { openTypeFeatures } : {}),
       ...(withPathShape ? { pathShape: { kind: 'circle', cx: 200, cy: 200, r: 140 } } : {}),
     },
   } as unknown as RenderItem;
@@ -116,10 +122,23 @@ describe('path text painting', () => {
     expect(JSON.stringify(a.placements)).not.toBe(JSON.stringify(b.placements));
   });
 
-  it('draws nothing without a resolved path — the regression to catch', () => {
-    // This is the state the capture hit: settings present, geometry absent.
+  it('keeps a browser-measured fi candidate together on the path', () => {
+    const { target, drawn } = recordingTarget();
+    replayIr(target as never, [pathTextItem(0, true, 'fi')]);
+    expect(drawn.map((entry) => entry.text)).toEqual(['fi']);
+  });
+
+  it('does not merge fi when standard ligatures are explicitly disabled', () => {
+    const { target, drawn } = recordingTarget();
+    replayIr(target as never, [pathTextItem(0, true, 'fi', { liga: false })]);
+    expect(drawn.map((entry) => entry.text)).toEqual(['f', 'i']);
+  });
+
+  it('falls back to ordinary text without a resolved path', () => {
+    // A deleted path must not make the logical source disappear. The editor
+    // can reattach/detach it later, while the source remains visible now.
     const { target, drawn } = recordingTarget();
     replayIr(target as never, [pathTextItem(0, false)]);
-    expect(drawn.length).toBe(0);
+    expect(drawn.map((entry) => entry.text)).toEqual(['VELO']);
   });
 });
