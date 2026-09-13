@@ -225,22 +225,41 @@ export class FontLoader {
     let lastError: string | undefined;
 
     for (let attempt = 0; attempt <= this.config.retryCount; attempt++) {
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
+      let response: Response | undefined;
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), this.config.timeoutMs);
+        const timeout = new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(() => {
+            controller.abort();
+            reject(new Error(`Font load timed out after ${this.config.timeoutMs}ms`));
+          }, this.config.timeoutMs);
+        });
 
-        const response = await fetch(url, { signal: controller.signal });
-        clearTimeout(timeoutId);
+        // Keep one deadline across both the response headers and body. A
+        // server that accepts the connection and then stalls the body must
+        // release the queue slot just like a header timeout.
+        response = await Promise.race([fetch(url, { signal: controller.signal }), timeout]);
 
         if (!response.ok) {
           throw new Error(`HTTP ${response.status} for ${url}`);
         }
 
-        const buffer = await response.arrayBuffer();
+        const buffer = await Promise.race([response.arrayBuffer(), timeout]);
         const result = await this.loadFromArrayBuffer(family, buffer, 'network', 'user');
         return result;
       } catch (err) {
         lastError = err instanceof Error ? err.message : String(err);
+        // Give fetch implementations that expose a readable body a chance to
+        // release it before a retry. This is best effort because some browser
+        // responses do not expose a cancelable stream.
+        try {
+          await response?.body?.cancel();
+        } catch {
+          // Ignore cleanup failures; the original load error is actionable.
+        }
+      } finally {
+        if (timeoutId !== undefined) clearTimeout(timeoutId);
       }
     }
 

@@ -166,6 +166,35 @@ describe('FontLoader', () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
+  it('times out a response body that stalls after headers', async () => {
+    vi.useFakeTimers();
+    const abortSignals: AbortSignal[] = [];
+    const cancel = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init?: { signal?: AbortSignal }) => {
+        if (init?.signal) abortSignals.push(init.signal);
+        return Promise.resolve({
+          ok: true,
+          body: { cancel },
+          arrayBuffer: () => new Promise<ArrayBuffer>(() => undefined),
+        });
+      }),
+    );
+
+    const loader = new FontLoader({ timeoutMs: 25, retryCount: 0 });
+    const pending = loader.loadFontFromUrl('StalledFont', 'https://example.com/stalled.woff2');
+    await Promise.resolve();
+    vi.advanceTimersByTime(25);
+    const result = await pending;
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('timed out');
+    expect(abortSignals[0]?.aborted).toBe(true);
+    expect(cancel).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
   it('loadFonts respects concurrency limit', async () => {
     let activeCount = 0;
     let maxActive = 0;
