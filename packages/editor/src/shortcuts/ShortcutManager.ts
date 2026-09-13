@@ -285,6 +285,11 @@ export const SHORTCUT_DEFS = {
   toolScale: { binding: { key: 's' }, label: 'Scale tool', category: 'Tools' },
   toolSlice: { binding: { key: 'k' }, label: 'Export Region tool', category: 'Tools' },
   toolKnife: { binding: { key: 'n' }, label: 'Knife tool', category: 'Tools' },
+  toolShapeBuilder: {
+    binding: { key: 'b', shift: true },
+    label: 'Shape Builder tool',
+    category: 'Tools',
+  },
   toolCloneStamp: { binding: { key: 'j' }, label: 'Clone Stamp tool', category: 'Tools' },
   toolSam2Segment: { binding: { key: 'm' }, label: 'Object Selection tool', category: 'Tools' },
   toolMagicWand: {

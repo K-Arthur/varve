@@ -184,6 +184,7 @@ export function buildToolContext(
     setNodeSize: (id, w, h) => e.setNodeSize(id, w, h),
     updateNode: (id, updater) => e.updateNode(id, updater),
     updateNodes: (updaters) => e.updateNodes(updaters),
+    updateDocument: (updater) => e.updateDoc(updater),
     setActivePage: (pageId) => e.setActivePage(pageId),
     movePageOnPasteboard: (pageId, x, y) => e.movePageOnPasteboard(pageId, x, y),
     resizePage: (pageId, w, h) => e.resizePage(pageId, w, h),

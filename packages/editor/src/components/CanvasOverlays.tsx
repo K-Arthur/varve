@@ -30,7 +30,7 @@ import type { GridOverlayMode } from '../context/types';
 import { DebugOverlayHost } from '../debug/DebugOverlayHost';
 import { SelectionOverlay } from '../SelectionOverlay';
 import { nodeWorldBounds, worldRectToScreenAabb } from '../scene/world';
-import type { PixelProbe } from '../tools';
+import type { DraftShape, PixelProbe, ShapeBuilderDraft } from '../tools';
 import type { CropTool } from '../tools/CropTool';
 import type { PerspectiveTool } from '../tools/PerspectiveTool';
 import type { SnapGuide } from '../tools/snapping';
@@ -58,6 +58,7 @@ import { PageToolOverlay } from './PageToolOverlay';
 import { PerspectiveOverlay } from './PerspectiveOverlay';
 import { Ruler } from './Ruler/Ruler';
 import { SelectionQuickBarHost } from './SelectionQuickBar/SelectionQuickBarHost';
+import { ShapeBuilderOverlay } from './ShapeBuilderOverlay';
 import { SnapGuidesOverlay } from './SnapGuidesOverlay';
 import { SpatialFilterOverlay } from './SpatialFilterOverlay';
 import { MeasureOverlay } from './SpecPanel/MeasureOverlay';
@@ -119,6 +120,9 @@ export interface CanvasOverlaysProps {
   renameInputRef: React.RefObject<HTMLInputElement | null>;
   artboardRect: { x: number; y: number; w: number; h: number } | null;
   pixelProbe: PixelProbe | null;
+  draft: DraftShape | null;
+  onShapeBuilderAction: (action: import('@varve/scene').ShapeBuilderAction) => void;
+  onShapeBuilderExit: () => void;
 }
 
 export function CanvasOverlays({
@@ -161,6 +165,9 @@ export function CanvasOverlays({
   renameInputRef,
   artboardRect,
   pixelProbe,
+  draft,
+  onShapeBuilderAction,
+  onShapeBuilderExit,
 }: CanvasOverlaysProps) {
   const editor = useEditor();
   const showOverlays = canvasMode !== 'preview';
@@ -775,6 +782,17 @@ export function CanvasOverlays({
           zoom={zoom}
           pan={pan}
           cameraRotation={cameraRotation}
+        />
+      )}
+      {tool === 'shapeBuilder' && draft?.kind === 'shape-builder' && (
+        <ShapeBuilderOverlay
+          document={doc}
+          selection={selection}
+          draft={draft as ShapeBuilderDraft}
+          canvasSize={canvasSize}
+          worldToCanvas={(wx, wy) => editor.worldToCanvas(wx, wy)}
+          onAction={onShapeBuilderAction}
+          onExit={onShapeBuilderExit}
         />
       )}
       {renderVariantBox}
