@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { createHarfBuzzWasmBackend } from './shapingBackend';
 import { glyphOutlineToSvgPath, textOutlinesToSvg, textToOutlines } from './textOutlines';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -9,6 +10,10 @@ const GEIST_PATH = new URL(
   './font/__fixtures__/geist/geist-latin-wght-normal.woff2',
   import.meta.url,
 );
+const OPEN_SANS_PATH = new URL(
+  '../../../crates/varve-print/fixtures/OpenSans-Regular.ttf',
+  import.meta.url,
+);
 
 async function loadFontData(): Promise<ArrayBuffer> {
   const woff2 = readFileSync(GEIST_PATH);
@@ -16,6 +21,11 @@ async function loadFontData(): Promise<ArrayBuffer> {
   const copy = new Uint8Array(decompressed.length);
   copy.set(decompressed);
   return copy.buffer;
+}
+
+function loadOpenSansData(): ArrayBuffer {
+  const bytes = readFileSync(OPEN_SANS_PATH);
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
 }
 
 /** Synthetic policy variants of the licensed fixture; original bytes stay unchanged. */
@@ -199,6 +209,62 @@ describe('textToOutlines — opentype.js path (with fontData)', () => {
       y: 0,
     });
     expect(result.glyphs).toHaveLength(0);
+  });
+});
+
+describe('textToOutlines — shaped glyph stream', () => {
+  it('outlines the exact ligature glyphs and retains source cluster ranges', async () => {
+    const fontData = loadOpenSansData();
+    const shaped = await createHarfBuzzWasmBackend().shape({
+      text: 'fi ffi',
+      fontData,
+      fontSize: 100,
+      features: { liga: true },
+    });
+    const result = textToOutlines('fi ffi', {
+      fontSize: 100,
+      fontFamily: 'Open Sans',
+      fontData,
+      openTypeFeatures: { liga: true },
+      shapedGlyphs: shaped.glyphs,
+    });
+
+    expect(result.isPlaceholder).toBe(false);
+    expect(result.glyphs.map((glyph) => glyph.glyphId)).toEqual([907, 3, 909]);
+    expect(result.glyphs.map((glyph) => glyph.char)).toEqual(['fi', ' ', 'ffi']);
+    expect(result.glyphs.map((glyph) => [glyph.sourceStart, glyph.sourceEnd])).toEqual([
+      [0, 2],
+      [2, 3],
+      [3, 6],
+    ]);
+    expect(result.glyphs[0]!.points.length).toBeGreaterThan(0);
+    expect(result.glyphs[2]!.points.length).toBeGreaterThan(0);
+    expect(result.glyphs[2]!.bounds.x).toBeGreaterThan(result.glyphs[0]!.bounds.x);
+    expect(result.warnings).toHaveLength(0);
+  });
+
+  it('does not silently replace a missing shaped glyph with a rectangle', () => {
+    const result = textToOutlines('A', {
+      fontSize: 100,
+      fontFamily: 'Open Sans',
+      fontData: loadOpenSansData(),
+      shapedGlyphs: [
+        {
+          glyphId: 999999,
+          xAdvance: 60,
+          yAdvance: 0,
+          xOffset: 0,
+          yOffset: 0,
+          clusterUtf16: 0,
+          sourceEnd: 1,
+        },
+      ],
+    });
+
+    expect(result.isPlaceholder).toBe(false);
+    expect(result.glyphs).toHaveLength(0);
+    expect(result.warnings.join(' ')).toContain('is not present');
+    expect(result.warnings.join(' ')).toContain('no placeholder geometry');
   });
 });
 

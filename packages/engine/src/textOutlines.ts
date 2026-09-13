@@ -6,24 +6,21 @@
  * to bounding-box placeholder outlines when it is not.
  *
  * SHAPING NOTE:
- *   This module extracts glyph OUTLINES from font binary data using opentype.js.
- *   It does NOT perform text shaping (ligatures, GSUB/GPOS, complex-script
- *   reordering). The caller is responsible for providing CORRECT positions via
- *   the shaping pipeline (Canvas2D measureText or HarfBuzz). Positions from the
- *   shaping pipeline are correct because the browser's native text engine
- *   applies GSUB/GPOS; this module provides the glyph shapes at those positions.
+ *   When the caller supplies `shapedGlyphs`, this module extracts the exact
+ *   glyph IDs and positions returned by HarfBuzz/rustybuzz. Source ranges stay
+ *   attached to each shaped unit, so ligatures, marks, and reordered scripts
+ *   do not fall back to character lookup during conversion.
  *
- *   Limitation: without glyph IDs from the shaper, we look up glyphs by
- *   character code (font.charToGlyph). For ligatures and complex scripts, the
- *   glyph shape may differ from what the shaper substituted. This is a known
- *   ceiling on correctness for the browser-only path — the native Rust backend
- *   (rustybuzz + ab_glyph) will provide true glyph-ID-based outlining.
+ *   The legacy character-lookup path remains available for callers that have
+ *   no shaping result. It is intentionally not used by the editor's
+ *   text-to-outlines command once a font can be resolved: raw lookup cannot
+ *   reproduce GSUB/GPOS or complex-script shaping.
  *
  * Known limitations:
- *   - Ligatures, combining marks, RTL scripts, and Indic/Arabic shaping are
- *     NOT supported at the glyph-lookup level. Positions from the shaper are
- *     correct, but the extracted glyph shapes match the raw character-to-glyph
- *     mapping, which may differ from the shaped glyphs.
+ *   - A font collection face must be selected by the shaping backend and the
+ *     same face bytes must be supplied here. opentype.js does not expose a
+ *     reliable collection-face API, so non-zero collection faces are rejected
+ *     by the conversion adapter rather than silently outlining face zero.
  *   - Variable fonts: outlines reflect the glyph shapes at the requested axis
  *     coordinates (via opentype.js font.variation.set()).
  *   - Color fonts (COLR/CPAL, CBDT, SVG-in-OpenType): detected and reported;
@@ -33,11 +30,18 @@
  * opentype.js glyph path extraction, ab_glyph Rust crate.
  */
 
+import type { OpenTypeFeatureMap } from '@varve/shared';
 import { parse as parseOpentypeBuffer } from 'opentype.js';
-import type { PathPoint } from './types';
+import type { PathPoint, ShapedGlyph } from './types';
 
 /** A single glyph outline represented as a series of path points. */
 export interface GlyphOutline {
+  /** Font glyph index used for this outline, when shaped data was supplied. */
+  glyphId?: number;
+  /** Inclusive logical UTF-16 source start for this glyph cluster. */
+  sourceStart?: number;
+  /** Exclusive logical UTF-16 source end for this glyph cluster. */
+  sourceEnd?: number;
   char: string;
   /** Path points describing the glyph outline (bezier-compatible).
    *  Contains all subpaths (outer contour + holes) concatenated. */
@@ -53,7 +57,7 @@ export interface GlyphOutline {
 
 /** Result of converting text to outlines. */
 export interface TextOutlineResult {
-  /** One outline per character in the input text. */
+  /** One outline per shaped glyph (or raw character when no shaped stream was supplied). */
   glyphs: GlyphOutline[];
   /** Total bounds of all glyphs. */
   bounds: { x: number; y: number; w: number; h: number };
@@ -81,6 +85,14 @@ export interface TextOutlineOptions {
   fontData?: ArrayBuffer;
   /** Variable font axis coordinates (e.g. { wght: 700, wdth: 75 }). */
   variableAxes?: Record<string, number>;
+  /** Exact face within a collection. */
+  faceIndex?: number;
+  /** Stable identity of the font artifact used for diagnostics. */
+  fontIdentity?: string;
+  /** Feature settings used to produce `shapedGlyphs`. */
+  openTypeFeatures?: OpenTypeFeatureMap;
+  /** Glyph-ID shaping output. When present, raw character lookup is bypassed. */
+  shapedGlyphs?: readonly ShapedGlyph[];
 }
 
 /** Cubic bezier command from opentype.js. */
@@ -138,7 +150,7 @@ export function textToOutlines(text: string, options: TextOutlineOptions): TextO
   const y0 = options.y ?? 0;
 
   if (options.fontData) {
-    return extractWithOpentype(text, options.fontData, fs, ls, x0, y0, options.variableAxes);
+    return extractWithOpentype(text, options.fontData, fs, ls, x0, y0, options);
   }
 
   return {
@@ -214,7 +226,7 @@ function extractWithOpentype(
   letterSpacing: number,
   x0: number,
   y0: number,
-  variableAxes?: Record<string, number>,
+  options: TextOutlineOptions,
 ): TextOutlineResult {
   const font = parseOpentypeFont(fontData);
   const warnings: string[] = [];
@@ -260,15 +272,32 @@ function extractWithOpentype(
   }
 
   // Apply variable font axis coordinates if provided
-  if (variableAxes && Object.keys(variableAxes).length > 0 && isVariableFont(font)) {
+  if (
+    options.variableAxes &&
+    Object.keys(options.variableAxes).length > 0 &&
+    isVariableFont(font)
+  ) {
     try {
-      font.variation.set(variableAxes);
+      font.variation.set(options.variableAxes);
     } catch {
       warnings.push('Failed to set variable font axes; using default instance.');
     }
   }
 
   const scale = fontSize / font.unitsPerEm;
+  if (options.shapedGlyphs) {
+    return extractShapedGlyphs(
+      text,
+      font,
+      fontSize,
+      letterSpacing,
+      x0,
+      y0,
+      options.shapedGlyphs,
+      warnings,
+      restrictedEmbedding,
+    );
+  }
   const glyphs: GlyphOutline[] = [];
   let cursorX = x0;
 
@@ -326,6 +355,99 @@ function extractWithOpentype(
   };
 }
 
+/** Extract the exact glyph IDs returned by HarfBuzz/rustybuzz. */
+function extractShapedGlyphs(
+  text: string,
+  font: ReturnType<typeof parseOpentypeFont>,
+  fontSize: number,
+  letterSpacing: number,
+  x0: number,
+  y0: number,
+  shapedGlyphs: readonly ShapedGlyph[],
+  warnings: string[],
+  restrictedEmbedding: boolean,
+): TextOutlineResult {
+  const glyphs: GlyphOutline[] = [];
+  let cursorX = x0;
+  let failed = false;
+  for (let index = 0; index < shapedGlyphs.length; index += 1) {
+    const shaped = shapedGlyphs[index]!;
+    const glyphId = Math.trunc(shaped.glyphId);
+    const glyph =
+      glyphId >= 0 && glyphId < font.glyphs.length ? font.glyphs.get(glyphId) : undefined;
+    if (!glyph) {
+      warnings.push(`Shaped glyph ${shaped.glyphId} is not present in the selected font face.`);
+      failed = true;
+      continue;
+    }
+
+    const sourceStart = clampSourceOffset(shaped.clusterUtf16, text.length);
+    const sourceEnd = clampSourceOffset(
+      shaped.sourceEnd ?? nextClusterEnd(shapedGlyphs, index, text.length),
+      text.length,
+    );
+    const char = text.slice(sourceStart, Math.max(sourceStart, sourceEnd));
+    const path = glyph.getPath(
+      cursorX + finiteOr(shaped.xOffset, 0),
+      y0 + finiteOr(shaped.yOffset, 0),
+      fontSize,
+    );
+    const commands = (path as unknown as { commands: OTCommand[] }).commands;
+    const rings = commandsToRings(commands);
+    const allPoints = rings.flat();
+    const bounds = computeBounds(allPoints);
+    const advance = finiteOr(shaped.xAdvance, glyph.advanceWidth * (fontSize / font.unitsPerEm));
+    glyphs.push({
+      glyphId,
+      sourceStart,
+      sourceEnd,
+      char,
+      points: allPoints,
+      rings,
+      bounds,
+      advance,
+    });
+    cursorX += advance + (index < shapedGlyphs.length - 1 ? letterSpacing : 0);
+  }
+
+  if (failed) {
+    warnings.push(
+      'The shaped glyph stream could not be fully outlined; no placeholder geometry was generated.',
+    );
+  }
+  return {
+    glyphs,
+    bounds: {
+      x: x0,
+      y: y0 - fontSize * 1.2,
+      w: Math.max(0, cursorX - x0),
+      h: fontSize * 1.5,
+    },
+    isPlaceholder: false,
+    warnings,
+    hasColorGlyphs: false,
+    restrictedEmbedding,
+  };
+}
+
+function nextClusterEnd(glyphs: readonly ShapedGlyph[], index: number, textLength: number): number {
+  const start = clampSourceOffset(glyphs[index]?.clusterUtf16 ?? 0, textLength);
+  let end = textLength;
+  for (const glyph of glyphs) {
+    const candidate = clampSourceOffset(glyph.clusterUtf16, textLength);
+    if (candidate > start) end = Math.min(end, candidate);
+  }
+  return end;
+}
+
+function clampSourceOffset(value: number, textLength: number): number {
+  return Math.min(textLength, Math.max(0, Math.trunc(Number.isFinite(value) ? value : 0)));
+}
+
+function finiteOr(value: number | undefined, fallback: number): number {
+  return Number.isFinite(value) ? value! : fallback;
+}
+
 function parseOpentypeFont(data: ArrayBuffer) {
   return parseOpentypeBuffer(data) as unknown as {
     unitsPerEm: number;
@@ -339,7 +461,21 @@ function parseOpentypeFont(data: ArrayBuffer) {
       ) => { commands: OTCommand[] };
       path: { unitsPerEm: number };
     };
-    glyphs: { length: number };
+    glyphs: {
+      length: number;
+      get: (index: number) =>
+        | {
+            index: number;
+            advanceWidth: number;
+            getPath: (
+              x: number,
+              y: number,
+              size: number,
+              options?: { variation?: Record<string, number> },
+            ) => { commands: OTCommand[] };
+          }
+        | undefined;
+    };
     variation: {
       set: (coords: Record<string, number>) => void;
       get: () => Record<string, number>;
