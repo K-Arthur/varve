@@ -1,5 +1,10 @@
 import type { Document } from '@varve/scene';
-import { plainTextToRichText, richTextReplace, richTextToPlainText } from '@varve/scene';
+import {
+  invalidateGlyphAdjustmentsOnTextChange,
+  plainTextToRichText,
+  richTextReplace,
+  richTextToPlainText,
+} from '@varve/scene';
 import { searchInDocument } from './search';
 import type { MatchResult, SearchOptions } from './types';
 
@@ -12,15 +17,16 @@ export function replaceSingle(doc: Document, match: MatchResult, replacement: st
   const updatedRich = richTextReplace(rt, match.flatStart, match.flatEnd, replacement);
   const updatedPlain = richTextToPlainText(updatedRich);
 
+  const nextNode = {
+    ...textNode,
+    text: updatedPlain,
+    richText: updatedRich,
+  } as import('@varve/scene').TextNode;
   return {
     ...doc,
     nodes: {
       ...doc.nodes,
-      [match.nodeId]: {
-        ...textNode,
-        text: updatedPlain,
-        richText: updatedRich,
-      } as import('@varve/scene').SceneNode,
+      [match.nodeId]: invalidateGlyphAdjustmentsOnTextChange(textNode, nextNode),
     },
   };
 }

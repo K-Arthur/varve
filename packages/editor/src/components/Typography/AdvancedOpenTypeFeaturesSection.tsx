@@ -7,6 +7,7 @@ import type {
   OpenTypeFeatureSetting,
   OpenTypeFeatureValue,
 } from '@varve/shared';
+import { REQUIRED_SHAPING_FEATURE_TAGS } from '@varve/shared';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useEditor } from '../../context';
 import { DisclosureSection } from '../Inspector/controls/DisclosureSection';
@@ -256,12 +257,14 @@ export function AdvancedOpenTypeFeaturesSection({
           {knownTags.map((tag) => {
             const value = featureBaseValue(currentFeatures[tag]);
             const available = !metadataKnown || supported.has(tag);
+            const required = REQUIRED_SHAPING_FEATURE_TAGS.has(tag);
             return (
               <FeatureRow
                 key={tag}
                 tag={tag}
                 value={value}
                 available={available}
+                required={required}
                 onChange={(next) => updateFeature(tag, next)}
                 onReset={() => clearFeature(tag)}
               />
@@ -287,32 +290,36 @@ function FeatureRow({
   tag,
   value,
   available,
+  required,
   onChange,
   onReset,
 }: {
   tag: string;
   value: OpenTypeFeatureValue | undefined;
   available: boolean;
+  required: boolean;
   onChange: (value: OpenTypeFeatureValue) => void;
   onReset: () => void;
 }) {
   const current = featureControlValue(value);
   const indexed = /^cv|^ss/u.test(tag) || (typeof value === 'number' && value > 1);
+  const canEdit = available && !required;
   return (
     <div
       className="insp-opentype-row"
-      data-feature-availability={available ? 'available' : 'unsupported'}
+      data-feature-availability={required ? 'required' : available ? 'available' : 'unsupported'}
     >
       <span className="insp-opentype-label">
         {labelForFeature(tag)}
         {!available && <small className="insp-opentype-state">unsupported by face</small>}
+        {required && <small className="insp-opentype-state">required for script shaping</small>}
         {available && value === undefined && <small className="insp-opentype-state">inherit</small>}
       </span>
       <code className="insp-opentype-tag">{tag}</code>
       <select
         aria-label={`${labelForFeature(tag)} value`}
         value={current}
-        disabled={!available}
+        disabled={!canEdit}
         onChange={(event) => {
           const next = event.currentTarget.value;
           if (next === 'inherit') return onReset();
@@ -335,6 +342,7 @@ function FeatureRow({
           max={99}
           step={1}
           value={typeof value === 'number' && value > 1 ? value : 2}
+          disabled={!canEdit}
           onChange={(event) => {
             const next = Number(event.currentTarget.value);
             if (Number.isFinite(next)) onChange(Math.max(2, Math.min(99, Math.trunc(next))));

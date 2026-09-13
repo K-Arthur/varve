@@ -8,6 +8,7 @@ import {
   canGlyphAdjust,
   clearGlyphAdjustments,
   glyphAdjustmentStats,
+  invalidateGlyphAdjustmentsOnTextChange,
   setGlyphAdjustment,
   setPairAdjustment,
   setTextKerningMode,
@@ -30,6 +31,15 @@ describe('canGlyphAdjust', () => {
   it('accepts plain single-line LTR text', () => {
     const doc = textNodeDoc('Hello');
     expect(canGlyphAdjust(doc.nodes.n1 as never).ok).toBe(true);
+  });
+
+  it('requires optional ligatures to be disabled before splitting Latin clusters', () => {
+    const ligature = textNodeDoc('office').nodes.n1 as never;
+    expect(canGlyphAdjust(ligature)).toMatchObject({ ok: false });
+    expect(
+      canGlyphAdjust(textNodeDoc('office', { openTypeFeatures: { liga: false } }).nodes.n1 as never)
+        .ok,
+    ).toBe(true);
   });
 
   it('rejects rich text, empty, multi-line, RTL, case, list, and path text', () => {
@@ -135,5 +145,31 @@ describe('clear + stats', () => {
     const b = setPairAdjustment(a, 'n1', 1, 3);
     const stats = glyphAdjustmentStats(b.nodes.n1 as never);
     expect(stats).toEqual({ adjustedClusters: 1, adjustedPairs: 1 });
+  });
+});
+
+describe('source edit invalidation', () => {
+  it('clears index-derived adjustments when the editable source changes', () => {
+    const original = textNodeDoc('Hello').nodes.n1 as never;
+    const withAdjustments = setGlyphAdjustment(textNodeDoc('Hello'), 'n1', 1, { dx: 8 }).nodes
+      .n1 as never;
+    const withPair = setPairAdjustment(
+      { ...textNodeDoc('Hello'), nodes: { ...textNodeDoc('Hello').nodes, n1: withAdjustments } },
+      'n1',
+      1,
+      4,
+    ).nodes.n1 as never;
+    const changed = { ...withPair, text: 'New text' };
+    const invalidated = invalidateGlyphAdjustmentsOnTextChange(original, changed);
+    expect(invalidated.text).toBe('New text');
+    expect(invalidated.glyphAdjustments).toBeUndefined();
+    expect(invalidated.pairAdjustments).toBeUndefined();
+  });
+
+  it('keeps adjustments when only appearance or font settings change', () => {
+    const original = textNodeDoc('Hello').nodes.n1 as never;
+    const adjusted = setGlyphAdjustment(textNodeDoc('Hello'), 'n1', 1, { dx: 8 }).nodes.n1 as never;
+    const changed = { ...adjusted, fontSize: 48 };
+    expect(invalidateGlyphAdjustmentsOnTextChange(original, changed)).toBe(changed);
   });
 });

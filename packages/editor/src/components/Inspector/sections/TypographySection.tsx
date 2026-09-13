@@ -17,6 +17,7 @@
 import { getFontRegistry } from '@varve/engine';
 import type { SceneNode, TextNode } from '@varve/scene';
 import {
+  invalidateGlyphAdjustmentsOnTextChange,
   plainTextToRichText,
   replaceRichTextContent,
   resolveNodeFills,
@@ -256,9 +257,10 @@ export function TypographySection({ nodes }: TypographySectionProps) {
           const rich = node.richText ?? plainTextToRichText(node.text);
           const nextRich = replaceRichTextContent(rich, text);
           const nextText = richTextToPlainText(nextRich);
-          return node.richText
+          const nextNode = node.richText
             ? { ...node, text: nextText, richText: nextRich }
             : { ...node, text: nextText };
+          return invalidateGlyphAdjustmentsOnTextChange(node, nextNode);
         });
       }
       commitTransaction();

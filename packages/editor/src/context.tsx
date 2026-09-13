@@ -219,6 +219,7 @@ import {
   insertFlattenedCopy,
   installLibrary as installLibraryDoc,
   instantiate as instantiateComponent,
+  invalidateGlyphAdjustmentsOnTextChange,
   isAdjustmentEligible,
   isClippingMaskGroup,
   isContainer,
@@ -3315,7 +3316,15 @@ export function EditorProvider({
 
   const updateNodeProp = useCallback(
     (id: NodeId, updater: (n: SceneNode) => SceneNode) => {
-      updateDoc((doc) => autoNaming.updateNodeWithAutomaticTextName(doc, id, updater));
+      updateDoc((doc) => {
+        const previous = doc.nodes[id];
+        const named = autoNaming.updateNodeWithAutomaticTextName(doc, id, updater);
+        const next = named.nodes[id];
+        if (previous?.kind !== 'text' || next?.kind !== 'text') return named;
+        const invalidated = invalidateGlyphAdjustmentsOnTextChange(previous, next);
+        if (invalidated === next) return named;
+        return { ...named, nodes: { ...named.nodes, [id]: invalidated } };
+      });
     },
     [updateDoc],
   );

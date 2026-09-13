@@ -12,6 +12,7 @@ import type { CollabUser } from '@varve/collab';
 import type { Adjustment, MeshWarp, SpatialBlurEffect } from '@varve/engine';
 import type { Document, Fill, IsometricGrid, NodeId, SceneNode } from '@varve/scene';
 import {
+  invalidateGlyphAdjustmentsOnTextChange,
   nodeLocalBounds,
   plainTextToRichText,
   replaceRichTextContent,
@@ -518,9 +519,10 @@ export function CanvasOverlays({
                       editor.state.pendingFormat ?? undefined,
                     );
                     const nextText = richTextToPlainText(nextRich);
-                    return node.richText
+                    const nextNode = node.richText
                       ? { ...node, text: nextText, richText: nextRich }
                       : { ...node, text: nextText };
+                    return invalidateGlyphAdjustmentsOnTextChange(node, nextNode);
                   })()
                 : node,
             )

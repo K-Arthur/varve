@@ -33,6 +33,30 @@ function patchText(doc: Document, nodeId: NodeId, patch: Partial<TextNode>): Doc
   };
 }
 
+/**
+ * Apply the documented source-edit policy for per-cluster typography.
+ *
+ * A cluster index is only meaningful relative to the exact source string it
+ * was authored against. Keeping an old index after an insertion or deletion
+ * moves a wordmark adjustment onto a different letter, which is worse than
+ * losing the optional adjustment. Text edits therefore clear the derived
+ * maps atomically while preserving the editable source and all normal text
+ * formatting. New adjustments are authored against the new source.
+ */
+export function invalidateGlyphAdjustmentsOnTextChange(
+  previous: TextNode,
+  next: TextNode,
+): TextNode {
+  if (previous.text === next.text) return next;
+  if (!next.glyphAdjustments && !next.pairAdjustments) return next;
+  const {
+    glyphAdjustments: _glyphAdjustments,
+    pairAdjustments: _pairAdjustments,
+    ...withoutDerivedMaps
+  } = next;
+  return withoutDerivedMaps as TextNode;
+}
+
 /** Whether glyph-level editing is safe for this text node (with a reason). */
 export function canGlyphAdjust(node: TextNode | undefined): { ok: boolean; reason?: string } {
   if (!node) return { ok: false, reason: 'Select a text layer first' };
@@ -49,7 +73,24 @@ export function canGlyphAdjust(node: TextNode | undefined): { ok: boolean; reaso
     return { ok: false, reason: 'Glyph editing is not supported with list styles' };
   if (node.textMode === 'path')
     return { ok: false, reason: 'Glyph editing is not supported for path text' };
+  if (hasActiveStandardLigatureSequence(node)) {
+    return {
+      ok: false,
+      reason:
+        'Turn Standard ligatures off before moving letters in fi, fl, ff, ffi, or ffl sequences',
+    };
+  }
   return { ok: true };
+}
+
+function hasActiveStandardLigatureSequence(node: TextNode): boolean {
+  if (!/(?:fi|fl|ff(?:i|l)?)/u.test(node.text ?? '')) return false;
+  const entry = node.openTypeFeatures?.liga;
+  if (entry === false || entry === 0) return false;
+  if (typeof entry === 'object' && entry !== null && 'value' in entry) {
+    return entry.value !== false && entry.value !== 0;
+  }
+  return true;
 }
 
 export function setTextKerningMode(doc: Document, nodeId: NodeId, mode: KerningMode): Document {
