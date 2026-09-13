@@ -204,6 +204,12 @@ describe('nearestPointOnPath', () => {
     const result = nearestPointOnPath([pt(0, 0), pt(100, 0)], false, { x: 50, y: 10 });
     expect(result).not.toBeNull();
     expect(result!.point.x).toBeCloseTo(50, 1);
+    expect(result!.dist).toBeCloseTo(10, 6);
+
+    const nearSample = nearestPointOnPath([pt(0, 0), pt(100, 0)], false, { x: 50.1, y: 0.5 });
+    expect(nearSample).not.toBeNull();
+    expect(nearSample!.point.x).toBeCloseTo(50.1, 4);
+    expect(nearSample!.dist).toBeCloseTo(0.5, 6);
   });
 
   it('returns null for single-point path', () => {

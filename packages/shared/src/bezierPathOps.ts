@@ -460,7 +460,7 @@ export function nearestPointOnPath(
     const pt = cubicBezierPoint(cb, candidateT);
     const dx = pt.x - query.x;
     const dy = pt.y - query.y;
-    const d = Math.hypot(dx, dy);
+    const d = dx * dx + dy * dy;
     if (d < bestDist) {
       bestDist = d;
       bestPt = pt;
@@ -469,7 +469,7 @@ export function nearestPointOnPath(
     }
   }
 
-  return { segmentIndex: bestSeg, t: bestT, point: bestPt, dist: bestDist };
+  return { segmentIndex: bestSeg, t: bestT, point: bestPt, dist: Math.sqrt(bestDist) };
 }
 
 // ─── Multi-anchor delete ───────────────────────────────────────────────
