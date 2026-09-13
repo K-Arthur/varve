@@ -23,6 +23,10 @@ update, not for someone reading the commit log.
 - **Drawing input controls** — Settings now exposes a reversible one-finger
   draw/navigation policy, pressure enablement/curve, and an opt-in pointer test
   surface that reports observed capability state without collecting artwork.
+- **Canvas navigation** — Wheel policy and sensitivity controls, explicit Hand
+  keyboard panning, rotation-aware focal-point zoom, and full-resolution
+  interactive preview choice keep navigation precise without changing authored
+  geometry or artwork history.
 - **Spatial Object Filters** — Motion Blur, Mosaic, Surface Smooth, and Edge
   Ink are available in the ordered Object Filters stack with bounded CPU
   replay, object-local coordinates, transparent-edge handling, expanded bounds,
