@@ -77,7 +77,7 @@ The naga mirror is updated in lockstep and
 
 ## Repairs
 
-### Circle coverage used framebuffer space (fixed 2026-09-13)
+### Circle coverage used framebuffer space (fixed 2026-09-13, `9e1e7c3f1`)
 
 `CIRCLE_FRAGMENT_WGSL` compared `distance(@builtin(position).xy, center)` to
 `r × zoom`. That is only correct while the composed transform is conformal.
@@ -102,6 +102,15 @@ generation guards. The bloom streak pass no longer reads and writes the same
 storage texture. Integer seeds travel in a `u32` storage buffer, so values
 above 2^24 are no longer rounded through f32.
 
+### Dispatch grid contract (`004ac51d1`)
+
+`planEffectPasses` accepted any positive workgroup z and the runner used that
+value as the Z dispatch count. Passes write a single 2D storage texture, so
+the grid is `(ceil(w/wgX), ceil(h/wgY), 1)`. Every shipped kernel already
+declared `[8, 8, 1]`, but a `z` other than 1 would have dispatched a different
+grid than the shader's `@workgroup_size`; the planner now rejects it and the
+runner dispatches one layer.
+
 ## Reachability findings (not repaired here)
 
 These are verified by import tracing; a registered kernel or a passing helper
@@ -111,7 +120,7 @@ test is not evidence of production use.
 | --- | --- | --- |
 | WebGPU effect runner + 10 kernels | Production-unreachable | `gpuEffectProvider`, `dispatchLiveEffect`, `buildEffectChain` have no callers outside the E2E harness. The async export hook (`packages/editor/src/export/flattenForExport.ts`) was removed in `d07f8877f` as dead code. |
 | GPU color halftone (`applyColorHalftoneGpu`) | Production-unreachable | Only re-exported by `packages/engine/src/gpu/index.ts`. The interactive/export adjustment path calls the CPU `applyColorHalftone` via `filterCompositor`. |
-| GPU color-halftone algorithm | Stale relative to the CPU reference | The WGSL uses Rec.601 luma, no min(CMY) black extraction, and an analytic `sqrt(t)` dot radius; the CPU V2 screen (corrected 2026-09-13) uses the area-proportional threshold matrix and min(CMY) separation. Wiring it in as-is would change pixels by backend. |
+| GPU color-halftone algorithm | Guarded legacy-only | The WGSL implements the legacy v1 screening contract; `applyColorHalftoneGpu` rejects other algorithm versions with a `gpu-supports-legacy-color-halftone-only` diagnostic and falls back to CPU, so it cannot silently change corrected V2 artwork if a caller appears. |
 | Native GPU compute (desktop) | Wired | `nativeGpuEffectProvider` + `apply_live_effect_binary` backend header (`052339410`); unsupported effects and device loss fall through to native CPU providers. |
 | Browser WebGPU primitive presentation | Wired, opt-in | `settings.render.preferWebGpu` (default false); Canvas2D present surface; structural fallback planning. |
 
