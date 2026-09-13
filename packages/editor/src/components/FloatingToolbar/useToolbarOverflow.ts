@@ -21,6 +21,7 @@ const FRONT_FACING_TOOL_IDS = new Set<ToolId>([
   'booleanSubtract',
   'booleanIntersect',
   'booleanExclude',
+  'shapeBuilder',
 ]);
 
 interface ResponsiveToolbarGroups {
