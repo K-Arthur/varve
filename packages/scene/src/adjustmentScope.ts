@@ -21,8 +21,7 @@
  *    Capture One styles (apply-to-selected-only), Lightroom virtual copies.
  */
 import type { Document } from './document';
-import { walkNodes } from './document';
-import type { AdjustmentScope, NodeId } from './types';
+import type { AdjustmentScope, NodeId, SceneNode } from './types';
 import { isContainer } from './types';
 
 /**
@@ -215,15 +214,33 @@ export function collectAllEligibleNodes(doc: Document): NodeId[] {
     ...(doc.globalChildren ?? []),
     ...Object.values(doc.masters ?? {}).map((master) => master.contentRoot),
   ];
-  for (const [id, entry] of walkNodes(doc, roots)) {
-    if (
-      isAdjustmentEligible(entry.node) &&
-      entry.node.visible !== false &&
-      isVisibleInScene(doc, id)
-    ) {
+  for (const [id, node] of walkReachableNodes(doc, roots)) {
+    if (isAdjustmentEligible(node) && node.visible !== false && isVisibleInScene(doc, id)) {
       result.push(id);
     }
   }
+  return result;
+}
+
+/**
+ * Local, cycle-safe traversal for scope resolution. Keeping this small walker
+ * here avoids a value dependency on `document.ts`, whose broad scene helpers
+ * would turn the scene type edge into a runtime module cycle.
+ */
+function walkReachableNodes(doc: Document, roots: NodeId[]): Array<[NodeId, SceneNode]> {
+  const result: Array<[NodeId, SceneNode]> = [];
+  const visited = new Set<NodeId>();
+  const visit = (ids: NodeId[]) => {
+    for (const id of ids) {
+      if (visited.has(id)) continue;
+      const node = doc.nodes[id];
+      if (!node) continue;
+      visited.add(id);
+      result.push([id, node]);
+      if (isContainer(node) && node.children.length > 0) visit(node.children);
+    }
+  };
+  visit(roots);
   return result;
 }
 
