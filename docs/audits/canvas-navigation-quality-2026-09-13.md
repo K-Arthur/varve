@@ -153,22 +153,29 @@ and architecture jobs, so startup durations are not frame-budget baselines.
 
 | Check | Result | Interpretation |
 |---|---|---|
-| Shared camera/property suite | 63/63 passed before settings-only changes | Rotation, finite-state, clamping, round-trip, and moving-anchor math passed. |
-| `viewportOps.test.ts` | 9/9 passed; 165.91 s wall time under contention | Rotated fit preserves rotation and changes the camera footprint; duration is not a product frame budget. |
-| `inputPipeline.test.ts` + `zoom.test.ts` | 17/17 passed; 185.94 s wall time under contention | Keyboard context mapping and ZoomTool behavior passed. |
-| `settings.test.ts` + `wheelClassifier.test.ts` | 51/51 passed; 150.73 s wall time under contention | Defaults, malformed persistence, explicit policy, sensitivity, and inertia controls passed. |
-| Biome targeted check | 9 changed files clean | Formatting/import contract clean for the preference/render/input slice. |
+| Navigation correctness closure | 7 files, 157 tests passed; 416.92 s wall time under contention | Camera, viewport actions, pointer/wheel policy, ZoomTool, settings, and Settings UI checks passed. Wall time is not a product frame budget. |
+| Targeted Biome check | 14 navigation source files clean | Formatting/import contracts passed for the input, camera, settings, and render preference slice. |
+| Settings E2E source check | 1 file clean | The real Settings workflow is formatted and type-checked separately from the unit UI suite. |
+| Website production build | 100 routes built; 1m16s; exit 0 | The updated canvas, keyboard-shortcut, and touch documentation routes compile in static output. |
+| Website canvas browser E2E | 1 test passed; 18.0 s; exit 0 | Desktop and mobile responsive copy/layout assertions passed; both screenshots were inspected. |
+| Editor navigation browser E2E | Hand keyboard pan and stationary edge auto-pan passed in the broad run; 2 other tests failed in setup and 6 did not run | Real DOM canvas routing and artwork/document invariants passed for the two completed workflows. The failures were setup timeouts under concurrent Vite/Playwright load, not assertion failures. |
+| Partial-redraw visual oracle | 3 tests failed before rendering because Vite could not resolve a concurrently moved `SpecPanel/export` module | This is an environment/worktree race, not a passing oracle; it remains a required retry before claiming stale-pixel coverage. |
 
-Required visual loop for the next browser run: reproduce wheel pan, Ctrl/Cmd
-wheel zoom, rotated ZoomTool click/marquee, Hand keyboard pan, minimap/fit,
-and settled refinement on one deterministic scene; save before/moving/settled
-screenshots; open each screenshot and inspect anchor position, overlays,
-effects, minimap indicator, seams, blur, and stale content. Then hash the
-settled optimized surface and call `forceFullRedraw()` at the same camera.
-Existing artifacts from concurrent Stage 3 validation are under
+Completed visual loop for the Hand/auto-pan slice: reproduce the gesture in the
+real editor DOM, capture before/moving/settled states, open the screenshots,
+and verify artwork movement, selection-overlay alignment, unchanged layer
+count, and no checkerboard/smear. The inspected artifacts are
+`test-results/var/tmp/varve-nav-final/e2e-results/canvas-input-navigation-Na-156ed-thout-changing-the-document-chromium/navigation-before.png`,
+`navigation-after-right.png`, and `navigation-settled.png`.
+
+The website canvas E2E likewise captured and inspected desktop/mobile output.
+Wheel pan, Ctrl/Cmd-wheel zoom, rotated ZoomTool/pinch, minimap/fit, and the
+settled optimized-vs-authoritative surface hash still require a clean targeted
+browser run. The partial-redraw oracle attempt was blocked before the harness
+loaded by a concurrent missing-module race, so it is not represented as
+evidence. Existing artifacts from concurrent Stage 3 validation are under
 `/tmp/varve-chromeos-stage3-visual/`; this record does not represent them as
-physical-device evidence. A dedicated run remains pending if the shared
-Playwright server cannot start without competing jobs.
+physical-device evidence.
 
 ## Exact remaining limitations
 
