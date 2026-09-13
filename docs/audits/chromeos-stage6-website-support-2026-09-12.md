@@ -191,7 +191,7 @@ not establish Varve or ChromeOS support.
 
 | Question | Source URL / title | Publisher / access date | Applicable versions / platforms | Finding and confidence | Implementation consequence | Unresolved conflict |
 |---|---|---|---|---|---|---|
-| How should a below-the-fold video avoid consuming constrained-device bandwidth? | [Lazy-loading video](https://web.dev/articles/lazy-loading-video) | Google web.dev, updated 2026-07-02, accessed 2026-09-13 | Current Chromium and compatible browsers | `preload="none"` prevents a video from being preloaded; `loading="lazy"` can defer poster/metadata work; autoplay overrides preload. **High** | The product recording is user-controlled, uses a poster, and is `preload="none"`/lazy instead of starting when it enters the viewport. | Browser codec and preload behavior still varies; the regression test checks the current Chromium build only. |
+| How should a below-the-fold video avoid consuming constrained-device bandwidth? | [Lazy-loading video](https://web.dev/articles/lazy-loading-video) | Google web.dev, updated 2026-07-02, accessed 2026-09-13 | Current Chromium and compatible browsers | `preload="none"` prevents a video from being preloaded; autoplay overrides preload. **High** | The product recording is user-controlled, uses a poster, and is `preload="none"` instead of starting when it enters the viewport. | Browser codec and preload behavior still varies; the regression test checks the current Chromium build only. |
 | What does a field Core Web Vitals claim require? | [Web Vitals](https://web.dev/articles/vitals) | Google web.dev, accessed 2026-09-13 | Current Chrome/CrUX | LCP ≤ 2.5 s, INP ≤ 200 ms, and CLS ≤ 0.1 are 75th-percentile targets; lab TBT is not field INP. **High** | Follow-up measurements are labeled lab observations and do not claim field performance or editor smoothness. | No consent-approved field telemetry exists, so there is no Varve field sample. |
 | What failures do users report when a browser editor is used on weak hardware or connections? | [Photopea #8018](https://github.com/photopea/photopea/issues/8018), [#5756](https://github.com/photopea/photopea/issues/5756), [#7275](https://github.com/photopea/photopea/issues/7275), [#5941](https://github.com/photopea/photopea/issues/5941), [#1066](https://github.com/photopea/photopea/issues/1066) | Photopea public issue tracker, accessed 2026-09-13 | Community reports; not platform certification | Reports include Chromebook/tablet lag, large request bursts/freezes, unbounded tab memory growth, huge-document save failures, and offline expectations not being met. **Low-to-medium signal confidence; individual causes are unverified** | Keep route guidance explicit, do not auto-download heavy media/models, state browser/offline prerequisites, distinguish explicit saves from recovery, and provide bounded escalation data. | Reports are anecdotal and product/version-specific; no numerical Varve limit is inferred from them. |
 | What touch/pen failures are visible in another canvas editor? | [Excalidraw #9603](https://github.com/excalidraw/excalidraw/issues/9603), [#9705](https://github.com/excalidraw/excalidraw/issues/9705), [#6474](https://github.com/excalidraw/excalidraw/issues/6474) | Excalidraw public issue tracker, accessed 2026-09-13 | Community reports across iOS/Chromebook touch devices | Reports include coordinate drift, missing palm rejection/gesture handling, slow input, many-element slowdown, and skipped Chromebook pen samples. **Low signal confidence; not reproduced here** | Keep the touch/pen guide explicit about unverified hardware behavior and preserve a no-pen/no-keyboard route; require a real-device pointer test before promoting support. | No user-agent or hardware emulation can prove USI Pen 2 or Duet behavior. |
@@ -204,16 +204,17 @@ intersection-observed autoplay. That was still unnecessary work for a marketing
 page: it could start a large recording when a visitor did not ask for it, and
 the poster was already a sufficient reduced-motion fallback. The source now
 keeps the demonstration purposeful and available, but asks the visitor to
-press play. The product page's release-route note also links directly to the
-Chromebook chooser and browser demo.
+press play with `preload="none"`. The product page's release-route note also
+links directly to the Chromebook chooser and browser demo.
 
 The ChromeOS guide now reads filenames, sizes, URLs, and checksums from the
 generated release manifest, with a build-time failure if the required ARM64 or
 x86_64 Debian artifact is absent. The release-notes generator no longer emits
 the blanket “no in-app updater” sentence when a feed is published; it states
 that eligibility is target/package-specific and keeps Debian/RPM/manual paths
-manual. The product-truth check covers those canonical sources so a future
-release bump cannot silently leave v0.2.1 in the Chromebook instructions.
+manual without claiming the feed is signed when the manifest says it is not.
+The product-truth check covers those canonical sources so a future release bump
+cannot silently leave v0.2.1 in the Chromebook instructions.
 
 ### 7.3 Validation boundary
 
@@ -232,3 +233,67 @@ fresh request to `/download/`, `/docs/chromebook/`, and
 `/support/troubleshooting/` with cache headers recorded. Until that happens,
 public-production claims must be phrased as “implemented in `master` and
 validated in the local production-equivalent build,” not as live-site proof.
+
+### 7.4 Follow-up validation and visual evidence (2026-09-13)
+
+The follow-up was validated against both local static deployment modes after
+the Stage 7 route-copy correction had rebuilt each output. No public deployment
+was performed.
+
+```text
+pnpm build:website
+  # Astro check: 149 files, 0 errors; static build: 100 pages, 0 errors
+pnpm build:website:pages
+  # static build: 100 pages, 0 errors
+node scripts/release/verify-product-truth.mjs --verbose
+  # all 12 checks pass, including chromeos-release-docs
+pnpm exec biome check --no-errors-on-unmatched \
+  apps/website/tests/e2e/browser-demo.spec.ts \
+  scripts/release/release-notes.mjs scripts/release/verify-product-truth.mjs
+  # pass; node --check passed for both release scripts
+VARVE_WEBSITE_E2E_PORT=4331 VARVE_WEBSITE_E2E_PORT_ROOT=4332 \
+  pnpm exec playwright test -c playwright.website.config.ts \
+  apps/website/tests/e2e/browser-demo.spec.ts --project=ghpages
+  # 5 passed: docs contract, route copy, desktop/portrait/320px responsive
+  # capture, no video request before play, and reduced-motion poster
+VARVE_WEBSITE_E2E_PORT=4339 VARVE_WEBSITE_E2E_PORT_ROOT=4340 \
+  pnpm exec playwright test -c playwright.website.config.ts \
+  apps/website/tests/e2e/chromeos-stage7-truth.spec.ts \
+  --project=ghpages --project=custom-domain
+  # 4 passed: both static deployment modes retain the device-qualified copy
+VARVE_WEBSITE_E2E_PORT=4345 VARVE_WEBSITE_E2E_PORT_ROOT=4346 \
+  pnpm exec playwright test -c playwright.website.config.ts \
+  apps/website/tests/e2e/visual.spec.ts --project=ghpages \
+  --grep "chromeos docs page light|chromebook route chooser page light|lower-memory performance page light"
+  # 3 passed after inspected snapshot refresh
+pnpm test:website
+  # 196 passed; 2 pre-existing token failures remain in features/canvas.astro,
+  # docs/tools/grids.astro, and the existing --surface-raised/--font-ui checks
+```
+
+The local static output measured 67,970,261 bytes for `dist` and 68,029,607
+bytes for `dist-pages`; `_astro` was 654,828 and 654,912 bytes respectively.
+The prior Stage 6 production-equivalent `dist` was 67,357,144 bytes and its
+`_astro` directory was 651,757 bytes. The change does not remove the roughly
+61.7 MB workflow-media directory from the deploy artifact; it prevents the
+marketing product page from requesting `workflow.webm` or `workflow.mp4` during
+the desktop, 800×1280 portrait, and 320×720 narrow Chromium captures until a
+visitor plays the recording. This is a delivery/request improvement, not a
+claim that the artifact is smaller or that editor rendering is faster.
+
+The inspected, deterministic captures are committed under
+[`docs/screenshots/chromeos-stage6-followup/`](../screenshots/chromeos-stage6-followup/):
+
+- [`product-workflow-desktop.png`](../screenshots/chromeos-stage6-followup/product-workflow-desktop.png),
+  [`product-workflow-portrait.png`](../screenshots/chromeos-stage6-followup/product-workflow-portrait.png),
+  and [`product-workflow-narrow.png`](../screenshots/chromeos-stage6-followup/product-workflow-narrow.png)
+  show the product page at 1280×900, 800×1280, and 320×720 CSS viewports without
+  horizontal overflow.
+- [`product-workflow-reduced-motion.png`](../screenshots/chromeos-stage6-followup/product-workflow-reduced-motion.png)
+  shows the still poster in place of the recording for `prefers-reduced-motion`.
+- [`chromebook-light.png`](../screenshots/chromeos-stage6-followup/chromebook-light.png),
+  [`chromeos-linux-light.png`](../screenshots/chromeos-stage6-followup/chromeos-linux-light.png),
+  and [`performance-light.png`](../screenshots/chromeos-stage6-followup/performance-light.png)
+  show the route chooser, manifest-backed Linux instructions, and lower-memory
+  guide after visual inspection. These are Chromium/static-build captures, not
+  Chromebook hardware evidence.

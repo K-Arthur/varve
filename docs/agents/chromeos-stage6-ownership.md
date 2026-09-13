@@ -127,3 +127,17 @@ deployment workflow, or public release asset. Release metadata remains
 read-only input. The production site was inspected but not deployed; the
 remaining handoff is an explicitly authorized deploy/cache check. Device
 support remains unpromoted until the Duet hardware checklist is completed.
+
+### Continuation implementation and evidence
+
+- `c6915d354` records the follow-up research ledger and the deployment boundary.
+- `ce2461148` makes the product recording user-controlled, derives ChromeOS
+  Linux artifact details from the release manifest, corrects the manual-update
+  wording, and adds product-truth coverage.
+- The inspected deterministic website captures are in
+  `docs/screenshots/chromeos-stage6-followup/`. They are Chromium/static-build
+  evidence only; they do not promote native ChromeOS, PWA, Crostini, touch, pen,
+  battery, GPU, or NPU support.
+- Stage 7 owns the concurrent Chromebook route-copy correction and its E2E
+  truth spec. Its files and refreshed route snapshots remain outside the
+  continuation implementation commit until that owner integrates them.
