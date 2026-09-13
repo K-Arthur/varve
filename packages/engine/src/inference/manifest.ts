@@ -81,7 +81,7 @@ const KNOWN_SIZES: Record<string, number> = {
   'sam2-hiera-tiny': 154902133_902_201,
   'sam2-hiera-small': 183344311_344_379,
   'tr-ocr-base-printed': 340_000_000,
-  'depth-anything-v2-small': 25_000_000,
+  'depth-anything-v2-small': 27_258_801,
   'dinov2-small': 88_459_888,
 };
 

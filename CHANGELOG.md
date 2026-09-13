@@ -14,6 +14,12 @@ update, not for someone reading the commit log.
 
 ### Added
 
+- **Depth-aware masking** — Reusable relative depth maps can now be imported
+  or saved from Depth Blur, inspected with a valid-only heatmap/histogram,
+  range-picked and combined into non-destructive layer or adjustment masks.
+  Recipes, manual coverage corrections, undo, save/reopen, duplicate/paste,
+  scalar export, and model-free reuse are preserved through the existing mask
+  and resource systems; Depth Blur is not required to edit an accepted map.
 - **Curve and node editing** — Node editing now supports compound contours and
   holes, multi-anchor movement, relative-handle numeric controls, distinct
   corner/smooth/symmetric/automatic modes, nearest-parameter Bézier insertion,

@@ -1239,7 +1239,7 @@
         "contractVersion": 1,
         "contractVerifiedAt": "2026-07-27T20:17:34.043Z"
       },
-      "notes": "AI depth estimation — powers Depth Blur's depth-aware background blur. Verified source: onnx-community/depth-anything-v2-small on Hugging Face (Apache-2.0, converted from the official depth-anything/Depth-Anything-V2-Small checkpoint). Using the INT8 variant (~27MB) over FP32 (~99MB) to keep the one-time download reasonable on constrained connections and 4GB-RAM devices. Input: 518x518 RGB letterboxed (multiple of 14). Output: relative depth map, raw convention nearIsHigh. Normalization: ImageNet (mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225])."
+      "notes": "AI relative-depth estimation for Depth Blur and reusable depth-range masks. Verified source: onnx-community/depth-anything-v2-small on Hugging Face (Apache-2.0 converted artifact; the original depth-anything/Depth-Anything-V2-Small checkpoint is Apache-2.0). Exact artifact: 27,258,801 bytes, INT8. Input: 518x518 RGB letterboxed (multiple of 14), ImageNet normalization (mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225]); output: relative depth, raw convention nearIsHigh, canonicalized to 0=near and 1=far. It does not provide metric distance or true 3D geometry."
     },
     {
       "id": "lineart",

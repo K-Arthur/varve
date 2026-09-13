@@ -7,7 +7,11 @@ import type { Page } from '@playwright/test';
  * Sequence:
  *   / → [New] → dialog → [Create] → wait for the editor shell → dismiss welcome
  */
-export async function navigateToEditor(page: Page, path = '/') {
+export async function navigateToEditor(
+  page: Page,
+  path = '/',
+  options: { waitUntil?: 'commit' | 'domcontentloaded'; startupTimeout?: number } = {},
+) {
   // Generous timeouts: under heavy concurrent dev-server load (many watched
   // files recompiling at once), first paint can take much longer than a
   // quiet dev server without indicating any real problem. Measured cold
@@ -15,7 +19,10 @@ export async function navigateToEditor(page: Page, path = '/') {
   // 45s was not enough and failed on every platform in CI. With several
   // agent suites sharing one machine, domcontentloaded itself has been
   // observed at 90-200s — keep this budget above the observed ceiling.
-  await page.goto(path, { timeout: 300000, waitUntil: 'domcontentloaded' });
+  await page.goto(path, {
+    timeout: 300000,
+    waitUntil: options.waitUntil ?? 'domcontentloaded',
+  });
   // A previously crashed or interrupted test run can leave the app in safe
   // mode (localStorage-backed): it blocks the whole UI behind the "Varve had
   // trouble starting" gate. Clear the flag and reload so the canvas flow can
@@ -46,7 +53,7 @@ export async function navigateToEditor(page: Page, path = '/') {
     await page.waitForTimeout(400);
   }
   const newBtn = page.getByRole('button', { name: /^new$/i });
-  await newBtn.waitFor({ state: 'visible', timeout: 45000 });
+  await newBtn.waitFor({ state: 'visible', timeout: options.startupTimeout ?? 45000 });
   await newBtn.click({ force: true, timeout: 15000 });
   // The new-document dialog's primary action is labelled "Create design" in
   // some builds and plain "Create" in others, so match either. The 5s budget
