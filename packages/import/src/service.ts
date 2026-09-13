@@ -25,7 +25,7 @@ import {
 } from './registry';
 import { createSketchParser } from './sketch';
 import { createSvgParser } from './svg';
-import type { ImportOptions } from './types';
+import type { ImportOptions, ImportResult } from './types';
 import { validateImport } from './validation';
 
 export type ImportSource = 'file-picker' | 'drop' | 'clipboard' | 'home' | 'asset-library' | 'api';
