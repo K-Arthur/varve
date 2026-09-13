@@ -1995,3 +1995,68 @@ VARVE_TEST_WORKERS=1 pnpm exec vitest run packages/import/src \
 The repository still has no licensed Illustrator-authored fixture, so this
 closes the adapter/reporting defect without changing the documented partial
 fidelity claim.
+
+### IMP-15 — PSD group roots and sentinel masks changed the displayed artwork (2026-09-12)
+
+**Checkout:** `af4a6dea4ab47839fdb7df93e4cba8733859dc7d` on `master`,
+`/home/kevina/CodingProjects/varve`. **Environment:** Linux KDE/Wayland,
+Chromium and Firefox, Node 26, with concurrent Inspector, generative-edit,
+typography, and visual-snapshot work left in the shared worktree.
+
+The first visual review of the real Photoshop fixture found two conversion
+defects that object-count assertions missed. A group conversion left each
+child in `rootChildren` as well as in its group, so the same layer could be
+painted and selected twice. The fixture also exposed an unsigned `0xffff`
+layer-mask rectangle sentinel through `@webtoon/psd`; treating that value as a
+real 65k-pixel mask hid the decoded layer pixels. These are application
+placement/scene-ownership defects, separate from file transport and parser
+signature detection.
+
+| ID | Defect | Status | Evidence |
+| --- | --- | --- | --- |
+| IMP-15 | PSD groups leaked child layers into document roots, and sentinel mask bounds could hide visible layer pixels | **Resolved locally** | `packages/import/src/psd.ts`, `packages/import/src/psd-mask.test.ts`, `apps/website/src/pages/docs/file-formats.astro`, `docs/architecture/image-format-capability-matrix.md`, `docs/architecture/import-system.md` |
+
+The converter now allocates a group as the only transfer root and removes its
+child IDs from `rootChildren` after both synchronous and asynchronous
+conversion. Mask containers still retain valid masks, while non-finite,
+sentinel, non-positive, or over-budget rectangles are omitted with a warning;
+the decoded layer shape remains visible and available for its embedded PNG
+fill. Dependency-only PSD nodes never become visible roots.
+
+Validation on the checkout above:
+
+```text
+pnpm exec biome check packages/import/src/psd.ts packages/import/src/psd-mask.test.ts packages/import/src/format-honesty.test.ts
+passed
+
+pnpm exec tsc -p packages/import/tsconfig.json --noEmit --pretty false
+passed
+
+VITE_CONFIG_NATIVE_IGNORE_WARNING=true VARVE_TEST_WORKERS=1 pnpm exec vitest run packages/import/src/psd-mask.test.ts packages/import/src/psd.test.ts packages/import/src/format-honesty.test.ts --maxWorkers=1 --reporter=dot
+36 tests passed
+
+VITE_CONFIG_NATIVE_IGNORE_WARNING=true VARVE_TEST_WORKERS=1 pnpm exec vitest run packages/import/src --maxWorkers=1 --reporter=dot
+31 files, 365 tests passed
+
+VITE_CONFIG_NATIVE_IGNORE_WARNING=true VARVE_E2E_PORT=1635 VARVE_E2E_WORKERS=1 VARVE_E2E_OUTPUT_DIR=import-format-visual-2026-09-12-final-chromium pnpm exec playwright test tests/e2e/canvas/import-format-smoke.spec.ts --project=chromium --workers=1 --reporter=list
+2 passed (1.0m)
+
+VITE_CONFIG_NATIVE_IGNORE_WARNING=true VARVE_E2E_PORT=1636 VARVE_E2E_WORKERS=1 VARVE_E2E_OUTPUT_DIR=import-format-visual-2026-09-12-final-firefox pnpm exec playwright test tests/e2e/canvas/import-format-smoke.spec.ts --project=firefox --workers=1 --reporter=list
+2 passed (1.0m)
+```
+
+The post-report artwork captures were inspected in both browsers. The PSD
+capture shows 31 objects with 25 shapes and 2 groups, visible source imagery,
+and no duplicate child roots. The SVG/PDF/AI/EPS capture keeps the ordered
+layer-panel sequence `Rectangle → Group → Circle → Rectangle`; its missing-font
+dialog is the existing actionable report for the synthetic `sans-serif` text.
+Evidence files are:
+
+* `test-results/import-format-visual-2026-09-12-final-chromium/canvas-import-format-smoke-25372-TIFF-bytes-through-the-menu-chromium/design-format-psd-tiff-artwork.png`
+* `test-results/import-format-visual-2026-09-12-final-chromium/canvas-import-format-smoke-05a48-PS-content-through-the-menu-chromium/design-format-svg-ai-eps-artwork.png`
+* `test-results/import-format-visual-2026-09-12-final-firefox/canvas-import-format-smoke-25372-TIFF-bytes-through-the-menu-firefox/design-format-psd-tiff-artwork.png`
+* `test-results/import-format-visual-2026-09-12-final-firefox/canvas-import-format-smoke-05a48-PS-content-through-the-menu-firefox/design-format-svg-ai-eps-artwork.png`
+
+No visual baseline was replaced. A packaged Tauri/WebKitGTK run, a licensed
+Illustrator-authored fixture, and multi-page/layered TIFF remain explicit
+external verification lanes.

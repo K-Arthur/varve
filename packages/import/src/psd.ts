@@ -288,11 +288,20 @@ async function convertPsdNodeAsync(
       children: childIds,
       ...(groupBlendMode ? { blendMode: groupBlendMode } : {}),
     });
-    return { doc: addNode(allocated, groupNode), ids: [id] };
+    const withGroup = addNode(allocated, groupNode);
+    return {
+      doc: {
+        ...withGroup,
+        rootChildren: withGroup.rootChildren.filter(
+          (rootId) => rootId === id || !childIds.includes(rootId),
+        ),
+      },
+      ids: [id],
+    };
   }
 
   const base = convertPsdLayer(node, doc, opts, warnings);
-  const layerId = base.ids[0];
+  const layerId = base.contentId ?? base.ids[0];
   if (!layerId) return base;
   const sceneNode = base.doc.nodes[layerId];
   if (sceneNode?.kind !== 'shape') return base;
@@ -417,6 +426,8 @@ function validatePsdHeader(data: Uint8Array): { ok: true } | { ok: false; messag
 interface PsdConvertResult {
   doc: Document;
   ids: string[];
+  /** The editable pixel-bearing layer when ids[0] is a mask container. */
+  contentId?: string;
 }
 
 function convertPsdNode(
@@ -461,7 +472,13 @@ function convertPsdGroup(
   });
 
   d = addNode(d, groupNode);
-  return { doc: d, ids: [id] };
+  return {
+    doc: {
+      ...d,
+      rootChildren: d.rootChildren.filter((rootId) => rootId === id || !childIds.includes(rootId)),
+    },
+    ids: [id],
+  };
 }
 
 function convertPsdLayer(
@@ -498,12 +515,46 @@ function convertPsdLayer(
   d = addNode(d, layerNode);
 
   // Check for mask data and apply it
-  if (layer.maskData) {
+  if (layer.maskData && isPsdMaskBoundsUsable(layer.maskData, opts)) {
     const result = applyPsdMask(layer, id, d, opts, warnings);
-    d = result;
+    return { doc: result.doc, ids: [result.rootId], contentId: id };
   }
 
-  return { doc: d, ids: [id] };
+  if (layer.maskData) {
+    warnings.push(`Layer "${layer.name}" has invalid mask bounds — mask omitted`);
+  }
+
+  return { doc: d, ids: [id], contentId: id };
+}
+
+interface PsdMaskResult {
+  doc: Document;
+  rootId: string;
+}
+
+function isPsdMaskBoundsUsable(
+  mask: NonNullable<PsdLayer['maskData']>,
+  opts: ImportOptions,
+): boolean {
+  const values = [mask.top, mask.left, mask.bottom, mask.right];
+  if (values.some((value) => !Number.isFinite(value) || Math.abs(value) >= 0xffff)) {
+    // @webtoon/psd exposes the unsigned 0xffff sentinel found in malformed or
+    // absent layer-mask rectangles. Treating it as a real coordinate creates a
+    // 65k-pixel mask that hides the decoded layer, so retain the pixels and
+    // report the omitted mask instead.
+    return false;
+  }
+  const width = (mask.right - mask.left) * opts.scale;
+  const height = (mask.bottom - mask.top) * opts.scale;
+  return (
+    Number.isFinite(width) &&
+    Number.isFinite(height) &&
+    width > 0 &&
+    height > 0 &&
+    width <= MAX_PSD_DIMENSION &&
+    height <= MAX_PSD_DIMENSION &&
+    width <= Math.floor(MAX_PSD_PIXELS / Math.max(1, height))
+  );
 }
 
 function applyPsdMask(
@@ -512,9 +563,9 @@ function applyPsdMask(
   doc: Document,
   opts: ImportOptions,
   warnings: string[],
-): Document {
+): PsdMaskResult {
   const md = layer.maskData;
-  if (!md) return doc;
+  if (!md) return { doc, rootId: nodeId };
 
   // Check if mask is disabled
   if (md.flags?.layerMaskDisabled) {
@@ -589,7 +640,7 @@ function applyPsdMask(
       `— imported as ${maskType} mask`,
   );
 
-  return d;
+  return { doc: d, rootId: containerId };
 }
 
 // ─── Parser registration ───────────────────────────────────────────────────

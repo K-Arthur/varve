@@ -166,8 +166,9 @@ const figmaImportFaq = {
           editable; text pixels remain rasterized. These losses remain in the Import Results report
           so a partial layer import is distinguishable from a fully preserved Photoshop document.
           Header, dimension, encoded-size, and pixel budgets are checked before parsing; truncated
-          or over-budget files fail without inserting placeholder layers. There is no PSD/PSB export
-          path.
+          or over-budget files fail without inserting placeholder layers. Invalid or sentinel mask
+          rectangles are omitted with a warning instead of hiding decoded layer pixels. There is no
+          PSD/PSB export path.
         </p>
 
         <h3>AI (Adobe Illustrator)</h3>
