@@ -69,6 +69,31 @@ export function useShortcuts(
   }, []);
 
   useEffect(() => {
+    // Browsers can reserve Ctrl/Cmd+Z for native editing before a bubbling
+    // window listener sees it. Undo/redo are global editor commands, but only
+    // when focus is not in a real text/widget context. Capture these two
+    // bindings early so canvas editing does not silently lose its first undo;
+    // leave every other shortcut on the normal bubble path, which lets tools
+    // such as NodeEditTool consume Escape/V/arrow keys first.
+    const captureHistoryShortcut = (e: KeyboardEvent) => {
+      if (!enabledRef.current) return;
+      if (e.defaultPrevented || shouldIgnoreShortcutTarget(e.target as Element | null)) return;
+      if (e.isComposing) return;
+
+      const id = bindingMatchesEvent(e, getEffectiveBinding('undo'))
+        ? 'undo'
+        : bindingMatchesEvent(e, getEffectiveBinding('redo'))
+          ? 'redo'
+          : null;
+      if (!id) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      ref.current.recordAction(`shortcut:${id}`);
+      if (id === 'undo') ref.current.undo();
+      else ref.current.redo();
+    };
+
     const handler = (e: KeyboardEvent) => {
       if (!enabledRef.current) return;
       if (e.defaultPrevented) return;
@@ -157,8 +182,12 @@ export function useShortcuts(
         ref.current.removeSelected();
       }
     };
+    window.addEventListener('keydown', captureHistoryShortcut, true);
     window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    return () => {
+      window.removeEventListener('keydown', captureHistoryShortcut, true);
+      window.removeEventListener('keydown', handler);
+    };
   }, [getHandler]);
 
   return {

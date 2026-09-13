@@ -1,5 +1,5 @@
 import { act, cleanup, renderHook } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getActionRegistry, resetActionRegistryForTesting } from '../actions/ActionRegistry';
 import type { EditorContextValue } from '../context';
 import { useShortcuts } from './useShortcuts';
@@ -35,5 +35,45 @@ describe('useShortcuts', () => {
     });
 
     expect(result.current.quickActionsOpen).toBe(true);
+  });
+
+  it('captures undo and redo before the browser consumes canvas history shortcuts', () => {
+    const undo = vi.fn();
+    const redo = vi.fn();
+    const editor = {
+      state: { selectedGuideId: null, isolatedNodeId: null },
+      recordAction: vi.fn(),
+      undo,
+      redo,
+    } as unknown as EditorContextValue;
+
+    renderHook(() => useShortcuts(editor));
+
+    act(() => {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'z',
+          code: 'KeyZ',
+          ctrlKey: true,
+          cancelable: true,
+          bubbles: true,
+        }),
+      );
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'z',
+          code: 'KeyZ',
+          ctrlKey: true,
+          shiftKey: true,
+          cancelable: true,
+          bubbles: true,
+        }),
+      );
+    });
+
+    expect(undo).toHaveBeenCalledOnce();
+    expect(redo).toHaveBeenCalledOnce();
+    expect(editor.recordAction).toHaveBeenNthCalledWith(1, 'shortcut:undo');
+    expect(editor.recordAction).toHaveBeenNthCalledWith(2, 'shortcut:redo');
   });
 });
