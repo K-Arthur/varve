@@ -42,18 +42,21 @@ export function hashMockupTemplate(template: Omit<MockupTemplateAsset, 'contentH
     id: template.id,
     schemaVersion: template.schemaVersion,
     name: template.name,
+    description: template.description,
     category: template.category,
     source: template.source,
     orientation: template.orientation,
     outputWidth: template.outputWidth,
     outputHeight: template.outputHeight,
     backgroundColor: template.backgroundColor,
+    plateImage: template.plateImage,
     plate: template.plate,
     surfaces: template.surfaces,
     overlays: template.overlays,
     licence: template.licence,
     tags: template.tags,
     capabilities: template.capabilities,
+    library: template.library,
   };
   return hashContent(JSON.stringify(canonical));
 }
@@ -90,7 +93,9 @@ export function addMockupTemplate(
   };
 }
 
-/** Drop templates not referenced by any frame's mockup payload. */
+/** Drop templates not referenced by any frame's mockup payload. Library
+ *  templates (user-authored for reuse) are retained until explicitly
+ *  deleted. */
 export function pruneUnusedMockupTemplates(doc: Document): Document {
   if (!doc.mockupTemplates) return doc;
   const used = new Set<string>();
@@ -98,7 +103,9 @@ export function pruneUnusedMockupTemplates(doc: Document): Document {
     if (isMockupFrame(node) && node.mockup.templateId) used.add(node.mockup.templateId);
   }
   const kept = Object.fromEntries(
-    Object.entries(doc.mockupTemplates).filter(([id]) => used.has(id)),
+    Object.entries(doc.mockupTemplates).filter(
+      ([id, template]) => used.has(id) || template.library === true,
+    ),
   );
   if (Object.keys(kept).length === Object.keys(doc.mockupTemplates).length) return doc;
   return {

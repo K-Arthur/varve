@@ -10,14 +10,17 @@ import {
   makeFrameNode,
   nextNodeId,
   setMockupBinding,
+  setMockupSurfaceOverride,
 } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
   decorateMockupIr,
   effectiveSurface,
   expandQuadForPadding,
+  getMockupRenderDiagnostics,
   MockupSurfaceCache,
   parseCssColor,
+  resetMockupRenderDiagnostics,
 } from '../mockupIr';
 
 function buildFixture(templateId: string): {
@@ -196,6 +199,114 @@ describe('decorateMockupIr', () => {
     });
     expect(cache.size).toBe(before);
     expect(again.extrasByNodeId.get(frameId)?.length).toBeGreaterThan(0);
+  });
+});
+
+describe('mockup recovery and override rendering', () => {
+  it('emits the template background colour and maps overlay blend modes', () => {
+    const { doc, frameId, sourceId, template } = buildFixture('builtin:phone-flat');
+    const extraOverlay = {
+      id: 'gloss',
+      name: 'Gloss',
+      kind: 'reflection' as const,
+      opacity: 0.5,
+      blendMode: 'multiply',
+      shapes: [{ kind: 'rect' as const, x: 0, y: 0, width: 100, height: 100, fill: '#ffffff' }],
+    };
+    const withOverlay = { ...template, id: 'test:overlay', overlays: [extraOverlay] };
+    const registered = addMockupTemplate(doc, withOverlay).document;
+    const frame = registered.nodes[frameId] as FrameNode;
+    const withMockup = {
+      ...registered,
+      nodes: {
+        ...registered.nodes,
+        [frameId]: { ...frame, mockup: createMockupInstanceData('test:overlay', {}) },
+      },
+    };
+    const items = [stubFrameItem(frameId, template.outputWidth, template.outputHeight)];
+    const result = decorateMockupIr({
+      doc: withMockup,
+      nodeIds: [frameId, sourceId],
+      items,
+      renderSubtree: () => {},
+      qualityScale: 1,
+      cache: new MockupSurfaceCache(),
+    });
+    const extras = result.extrasByNodeId.get(frameId)!;
+    // First extra is the template background colour rect (#eef0f4).
+    expect(extras[0]!.primitive.kind).toBe('rect');
+    expect(extras[0]!.fill).toMatchObject({ r: 238, g: 240, b: 244 });
+    const overlayItem = extras.find((item) => item.blendMode === 'multiply');
+    expect(overlayItem).toBeTruthy();
+    expect(overlayItem!.opacity).toBeCloseTo(0.5);
+  });
+
+  it('reports a missing source and falls back to the last good preview', () => {
+    resetMockupRenderDiagnostics();
+    const { doc, frameId, sourceId, template } = buildFixture('builtin:phone-flat');
+    const cache = new MockupSurfaceCache();
+    const run = (document: Document) =>
+      decorateMockupIr({
+        doc: document,
+        nodeIds: [frameId, sourceId],
+        items: [stubFrameItem(frameId, template.outputWidth, template.outputHeight)],
+        renderSubtree: () => {},
+        qualityScale: 1,
+        cache,
+      });
+    const first = run(doc);
+    expect(first.missingSurfaces).toHaveLength(0);
+    expect(cache.size).toBeGreaterThan(0);
+
+    // Delete the bound source: preview keeps the last good raster, export
+    // does not.
+    const remainingNodes = { ...doc.nodes };
+    delete remainingNodes[sourceId];
+    const withoutSource: Document = { ...doc, nodes: remainingNodes as Document['nodes'] };
+    const preview = run(withoutSource);
+    expect(preview.missingSurfaces).toEqual([
+      expect.objectContaining({
+        frameId,
+        surfaceId: template.surfaces[0]!.id,
+        reason: 'source-missing',
+      }),
+    ]);
+    expect(getMockupRenderDiagnostics().staleFallbacks).toBeGreaterThan(0);
+
+    const strict = decorateMockupIr({
+      doc: withoutSource,
+      nodeIds: [frameId],
+      items: [stubFrameItem(frameId, template.outputWidth, template.outputHeight)],
+      renderSubtree: () => {},
+      qualityScale: 1,
+      cache,
+      allowStalePreview: false,
+    });
+    const strictExtras = strict.extrasByNodeId.get(frameId)!;
+    const placeholder = strictExtras.find((item) => (item.strokes?.length ?? 0) > 0);
+    expect(placeholder).toBeTruthy();
+    expect(strictExtras.some((item) => item.fills?.some((f) => f.type === 'image'))).toBe(false);
+  });
+
+  it('includes override geometry in the bake cache identity', () => {
+    const { doc, frameId, sourceId, template } = buildFixture('builtin:phone-flat');
+    const cache = new MockupSurfaceCache();
+    const run = (document: Document) =>
+      decorateMockupIr({
+        doc: document,
+        nodeIds: [frameId, sourceId],
+        items: [stubFrameItem(frameId, template.outputWidth, template.outputHeight)],
+        renderSubtree: () => {},
+        qualityScale: 1,
+        cache,
+      });
+    run(doc);
+    const afterFirst = cache.size;
+    const moved = setMockupSurfaceOverride(doc, frameId, template.surfaces[0]!.id, {
+      x: template.surfaces[0]!.x + 25,
+    });
+    run(moved);
+    expect(cache.size).toBeGreaterThan(afterFirst);
   });
 });
 

@@ -229,12 +229,50 @@ export function validateSurface(
       return false;
     }
   }
-  // Reserved fields (Level 3/4) must not be set on templates we can't render.
-  for (const reserved of ['clipMaskAssetId', 'occlusionMaskAssetId', 'displacementAssetId']) {
-    if (s[reserved] !== undefined) {
-      errors.push(`surface ${s.id}: ${reserved} is reserved and not yet supported`);
+  // Raster clip/occlusion coverage: asset references are validated here;
+  // existence is checked at load time against the document's asset table
+  // (normalize clears dangling references instead of dropping the template).
+  for (const maskKey of ['clipMaskAssetId', 'occlusionMaskAssetId'] as const) {
+    const value = s[maskKey];
+    if (
+      value !== undefined &&
+      (typeof value !== 'string' || value.length === 0 || value.length > 256)
+    ) {
+      errors.push(`surface ${s.id}: ${maskKey} must be a non-empty asset id`);
       return false;
     }
+  }
+  if (s.maskOptions !== undefined && s.maskOptions !== null) {
+    const m = s.maskOptions as Record<string, unknown>;
+    if (m.invert !== undefined && typeof m.invert !== 'boolean') {
+      errors.push(`surface ${s.id}: maskOptions.invert must be boolean`);
+      return false;
+    }
+    if (
+      m.feather !== undefined &&
+      (!isFiniteNumber(m.feather) || m.feather < 0 || m.feather > 512)
+    ) {
+      errors.push(`surface ${s.id}: maskOptions.feather must be within [0, 512]`);
+      return false;
+    }
+    if (m.channel !== undefined && m.channel !== 'alpha' && m.channel !== 'luminance') {
+      errors.push(`surface ${s.id}: maskOptions.channel must be alpha|luminance`);
+      return false;
+    }
+    if (m.channel === 'luminance') {
+      // Alpha-coverage masks are implemented end to end; luminance coverage
+      // has no renderer path yet, so accepting it would silently misread data.
+      errors.push(
+        `surface ${s.id}: maskOptions.channel 'luminance' is reserved (only alpha coverage is implemented)`,
+      );
+      return false;
+    }
+  }
+  // Displacement maps remain reserved: no renderer path exists, so accepting
+  // them would silently claim a capability the app does not have.
+  if (s.displacementAssetId !== undefined) {
+    errors.push(`surface ${s.id}: displacementAssetId is reserved and not yet supported`);
+    return false;
   }
   // Out-of-output-bounds slots degrade the presentation; warn (builtins are
   // reviewed, user templates get a finding that blocks import).
@@ -292,6 +330,31 @@ export function validateTemplate(template: unknown): MockupValidationResult {
   }
   if (!isPlausibleCssColor(t.backgroundColor)) {
     errors.push('invalid backgroundColor');
+  }
+  if (t.plateImage !== undefined && t.plateImage !== null) {
+    const p = t.plateImage as Record<string, unknown>;
+    if (typeof p.assetId !== 'string' || p.assetId.length === 0 || p.assetId.length > 256) {
+      errors.push('plateImage.assetId must be a non-empty string');
+    }
+    if (
+      !isFiniteNumber(p.width) ||
+      !isFiniteNumber(p.height) ||
+      p.width <= 0 ||
+      p.height <= 0 ||
+      p.width > MOCKUP_LIMITS.maxOutputDimension ||
+      p.height > MOCKUP_LIMITS.maxOutputDimension
+    ) {
+      errors.push('plateImage dimensions must be positive and within limits');
+    }
+    if (p.fit !== 'cover' && p.fit !== 'contain' && p.fit !== 'stretch') {
+      errors.push('plateImage.fit must be cover|contain|stretch');
+    }
+    if (p.opacity !== undefined && (!isFiniteNumber(p.opacity) || p.opacity < 0 || p.opacity > 1)) {
+      errors.push('plateImage.opacity must be within [0, 1]');
+    }
+  }
+  if (t.library !== undefined && typeof t.library !== 'boolean') {
+    errors.push('library must be boolean');
   }
   if (t.plate !== undefined) {
     if (!Array.isArray(t.plate) || t.plate.length > MOCKUP_LIMITS.maxShapes) {

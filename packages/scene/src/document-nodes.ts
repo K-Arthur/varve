@@ -1,5 +1,6 @@
 import type { Affine } from '@varve/engine';
 import { generateKeyBetween, multiplyAffine, tryInvertAffine } from '@varve/shared';
+import { isAssetReferenced } from './assets';
 import { deepCloneSubtree } from './clone';
 import { captureSyncBaseline, detectOverrides } from './component-sync';
 import { pruneUnreferencedDepthMaps } from './depthMaskRecipe';
@@ -119,9 +120,12 @@ export function removeNode(doc: Document, id: NodeId): Document {
     if (n && isContainer(n)) pending.push(...n.children);
   }
   const removedRasterAssetIds = new Set(
-    [...toRemove]
-      .map((nodeId) => nodes[nodeId]?.mask?.rasterMask?.assetId)
-      .filter((assetId): assetId is string => Boolean(assetId)),
+    [...toRemove].flatMap((nodeId) => {
+      const rasterMask = nodes[nodeId]?.mask?.rasterMask;
+      return [rasterMask?.assetId, rasterMask?.depthRecipe?.correction?.assetId].filter(
+        (assetId): assetId is string => Boolean(assetId),
+      );
+    }),
   );
   const removedImageAssetIds = new Set(
     [...toRemove].flatMap((nodeId) =>
@@ -212,20 +216,21 @@ export function removeNode(doc: Document, id: NodeId): Document {
   const rasterMaskAssets = { ...doc.rasterMaskAssets };
   for (const assetId of removedRasterAssetIds) {
     const stillReferenced = Object.values(nodes).some(
-      (node) => node.mask?.rasterMask?.assetId === assetId,
+      (node) =>
+        node.mask?.rasterMask?.assetId === assetId ||
+        node.mask?.rasterMask?.depthRecipe?.correction?.assetId === assetId,
     );
     if (!stillReferenced) delete rasterMaskAssets[assetId];
   }
   const assets = { ...doc.assets };
+  const referenceDoc = {
+    nodes,
+    paints: doc.paints,
+    generativeEdits: doc.generativeEdits,
+    mockupTemplates: doc.mockupTemplates,
+  };
   for (const assetId of removedImageAssetIds) {
-    const stillReferenced =
-      Object.values(nodes).some((node) =>
-        node.fills?.some((f) => f.type === 'image' && f.image?.assetId === assetId),
-      ) ||
-      Object.values(doc.paints ?? {}).some(
-        (paint) => paint.fill.type === 'image' && paint.fill.image?.assetId === assetId,
-      );
-    if (!stillReferenced) delete assets[assetId];
+    if (!isAssetReferenced(referenceDoc, assetId)) delete assets[assetId];
   }
   const remainingComponents = Object.fromEntries(
     Object.entries(doc.components).filter(([, component]) => !toRemove.has(component.masterRootId)),

@@ -18,6 +18,13 @@ export function sceneNeedsStructuralCompositing(doc: Document): boolean {
 function computeNeedsStructuralCompositing(doc: Document): boolean {
   for (const node of Object.values(doc.nodes)) {
     if (!node) continue;
+    if (node.kind === 'frame' && (node as { mockup?: unknown }).mockup) {
+      // Mockup surfaces bake live source subtrees and quad surfaces warp
+      // through DOM canvas APIs; both require the structural main-thread
+      // replay. Forcing structural compositing also guarantees the worker is
+      // never handed a `warpedImage` it cannot replay.
+      return true;
+    }
     if ('mask' in node && node.mask?.visible) return true;
     if (
       'effects' in node &&

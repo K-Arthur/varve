@@ -46,7 +46,7 @@ export function sanitizeMockupTemplates(
         severity: 'warning',
       });
     }
-    kept[id] = template;
+    kept[id] = repairTemplateAssetReferences(doc, id, template, warnings);
   }
   if (Object.keys(kept).length === Object.keys(doc.mockupTemplates).length) {
     return doc;
@@ -57,6 +57,54 @@ export function sanitizeMockupTemplates(
   };
 }
 
+/**
+ * Clear plate/mask references whose document asset is missing. Dropping the
+ * reference (rather than the template) keeps the template usable with a
+ * visible warning; the renderer falls back to the slot geometry.
+ */
+function repairTemplateAssetReferences(
+  doc: Document,
+  templateId: string,
+  template: MockupTemplateAsset,
+  warnings: MockupNormalizeWarnings,
+): MockupTemplateAsset {
+  const missing = new Set<string>();
+  if (template.plateImage && !doc.assets?.[template.plateImage.assetId]) {
+    missing.add(template.plateImage.assetId);
+  }
+  for (const surface of template.surfaces) {
+    if (surface.clipMaskAssetId && !doc.assets?.[surface.clipMaskAssetId]) {
+      missing.add(surface.clipMaskAssetId);
+    }
+    if (surface.occlusionMaskAssetId && !doc.assets?.[surface.occlusionMaskAssetId]) {
+      missing.add(surface.occlusionMaskAssetId);
+    }
+  }
+  if (missing.size === 0) return template;
+  warnings.push({
+    code: 'mockup.missing-template-asset',
+    message: `Mockup template ${templateId} references ${missing.size} missing raster asset(s); those plate/mask references were cleared`,
+    severity: 'warning',
+  });
+  return {
+    ...template,
+    plateImage:
+      template.plateImage && !missing.has(template.plateImage.assetId)
+        ? template.plateImage
+        : undefined,
+    surfaces: template.surfaces.map((surface) => ({
+      ...surface,
+      clipMaskAssetId:
+        surface.clipMaskAssetId && !missing.has(surface.clipMaskAssetId)
+          ? surface.clipMaskAssetId
+          : undefined,
+      occlusionMaskAssetId:
+        surface.occlusionMaskAssetId && !missing.has(surface.occlusionMaskAssetId)
+          ? surface.occlusionMaskAssetId
+          : undefined,
+    })),
+  };
+}
 /** Validate every frame mockup payload; drop invalid payloads. */
 export function sanitizeMockupInstances(
   doc: Document,
@@ -96,7 +144,9 @@ export function sanitizeMockupState(doc: Document, warnings: MockupNormalizeWarn
   }
   if (document.mockupTemplates) {
     const referenced = Object.fromEntries(
-      Object.entries(document.mockupTemplates).filter(([id]) => used.has(id)),
+      Object.entries(document.mockupTemplates).filter(
+        ([id, template]) => used.has(id) || template.library === true,
+      ),
     );
     if (Object.keys(referenced).length !== Object.keys(document.mockupTemplates).length) {
       document = {

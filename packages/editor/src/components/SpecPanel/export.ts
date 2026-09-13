@@ -43,6 +43,13 @@ import {
   findFlattenBoundaries,
 } from '../../export/compositor';
 import { failureWarning, settleEngineImageResources } from '../../export/resourceReadiness';
+import {
+  clearMockupExportCache,
+  collectMockupLiveSourceIds,
+  decorateMockupSubtree,
+  missingSurfaceWarning,
+  settleMockupSurfaces,
+} from '../../render/mockup/mockupExport';
 import { replayStructuredScene } from '../../render/replayScene';
 import { flattenSceneToEngine } from '../../render/sceneToEngine';
 import { worldBBox } from './measurement';
@@ -125,6 +132,7 @@ function exportWorldBounds(
   doc: SceneDocument,
   flattenedIds: readonly string[],
   items: readonly RenderItem[],
+  extraItems: readonly RenderItem[] = [],
 ): {
   x: number;
   y: number;
@@ -132,7 +140,7 @@ function exportWorldBounds(
   h: number;
 } {
   let bounds: { x: number; y: number; w: number; h: number } | null = null;
-  for (const item of items) {
+  for (const item of [...items, ...extraItems]) {
     const geometry = transformRect(item.transform, primitiveBounds(item.primitive));
     const visual = expandRect(geometry, appearancePaddingWorld(item, item.transform));
     bounds = bounds ? unionBounds(bounds, visual) : visual;
@@ -179,7 +187,9 @@ export async function exportNodeAsRaster(
   // Resolve variants, bindings, reusable styles, and world transforms before
   // resource readiness. Waiting on the raw model can load a stale font/image
   // while the resolved render node uses a different resource.
-  const flattened = flattenSceneToEngine(doc, [node.id], {
+  clearMockupExportCache();
+  const mockupSourceIds = collectMockupLiveSourceIds(doc, [node.id]);
+  const flattened = flattenSceneToEngine(doc, [node.id, ...mockupSourceIds], {
     mediaFrameResolver: posterFrameResolver,
   });
   // Guard against exporting mid-font-swap: a font requested via fontFamily
@@ -212,7 +222,22 @@ export async function exportNodeAsRaster(
   }
 
   const ir = await eng.buildIr({ nodes: flattened.nodes });
-  const bbox = exportWorldBounds(node, doc, flattened.ids, ir);
+  // Mockup + perspective decoration shares the canonical export pipeline
+  // (`render/mockup/mockupExport.ts`) with SVG/PDF flatten boundaries, so a
+  // PNG/JPG/WebP of a mockup frame is the composed mockup, not the frame's
+  // own background. Missing sources are reported, never silently stale.
+  const decoration = decorateMockupSubtree({
+    doc,
+    rootIds: [node.id, ...mockupSourceIds],
+    flattenedIds: flattened.ids,
+    items: ir,
+    qualityScale: opts.scale,
+    insertIntoList: false,
+  });
+  warnings.push(...decoration.missingSurfaces.map(missingSurfaceWarning));
+  await settleMockupSurfaces(decoration.extrasByNodeId);
+  const extraItems = [...decoration.extrasByNodeId.values()].flat();
+  const bbox = exportWorldBounds(node, doc, flattened.ids, ir, extraItems);
 
   let scale = opts.scale;
   const requestedW = Math.max(Math.round(bbox.w * scale), 1);
@@ -260,6 +285,7 @@ export async function exportNodeAsRaster(
     rootIds: [node.id],
     flattenedIds: flattened.ids,
     items: ir,
+    extrasByNodeId: decoration.extrasByNodeId,
     quality: 'export',
   });
 

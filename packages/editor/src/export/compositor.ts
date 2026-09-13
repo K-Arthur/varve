@@ -38,15 +38,17 @@ import {
   type Fill,
   findCommonAncestor,
   hasActiveSmartFilters,
-  isMockupFrame,
   type NodeId,
   resolveAdjustmentScope,
   type SceneNode,
   type ShapeNode,
   textNodeLocalBounds,
 } from '@varve/scene';
-import { decorateMockupIr, MockupSurfaceCache } from '../render/mockup/mockupIr';
-import { decoratePerspectiveImages } from '../render/perspectiveImage';
+import {
+  collectMockupLiveSourceIds,
+  decorateMockupSubtree,
+  settleMockupSurfaces,
+} from '../render/mockup/mockupExport';
 import { replayStructuredScene } from '../render/replayScene';
 import { flattenSceneToEngine } from '../render/sceneToEngine';
 import { settleEngineImageResources } from './resourceReadiness';
@@ -951,31 +953,6 @@ function widenAdjustmentBoundaries(
  * version of this file) silently produced blank or wrong output for
  * anything beyond solid-fill rects.
  */
-/** Live-bound source ids of the given mockup frames (for export flattening). */
-function mockupLiveSourceIds(doc: Document, rootIds: readonly NodeId[]): NodeId[] {
-  const ids: NodeId[] = [];
-  const seen = new Set<NodeId>();
-  for (const id of rootIds) {
-    const node = doc.nodes[id];
-    if (!isMockupFrame(node)) continue;
-    for (const binding of Object.values(node.mockup.surfaceBindings)) {
-      if (binding.mode === 'live' && binding.nodeId && !seen.has(binding.nodeId)) {
-        seen.add(binding.nodeId);
-        ids.push(binding.nodeId);
-      }
-    }
-  }
-  return ids;
-}
-
-let exportMockupSurfaceCache: MockupSurfaceCache | null = null;
-
-/** Module-level export cache (export runs are sequential and infrequent). */
-function getExportMockupSurfaceCache(): MockupSurfaceCache {
-  if (!exportMockupSurfaceCache) exportMockupSurfaceCache = new MockupSurfaceCache();
-  return exportMockupSurfaceCache;
-}
-
 async function renderBoundaryToSurface(
   surface: RasterSurface,
   boundaryNodeId: NodeId,
@@ -987,7 +964,7 @@ async function renderBoundaryToSurface(
 ): Promise<void> {
   // Mockup frames present live-bound sources: include them in the flattened
   // set so the surface bake can replay them at export resolution.
-  const sourceIds = mockupLiveSourceIds(doc, [boundaryNodeId]);
+  const sourceIds = collectMockupLiveSourceIds(doc, [boundaryNodeId]);
   const flattened = flattenSceneToEngine(doc, [boundaryNodeId, ...sourceIds]);
   // Export barrier: no replay may begin until every required image resource
   // has settled. Permanent failures throw so the export fails clearly rather
@@ -1014,35 +991,17 @@ async function renderBoundaryToSurface(
   }
   const ir = await eng.buildIr({ nodes: flattened.nodes });
 
-  const decorated = decorateMockupIr({
+  const decorated = decorateMockupSubtree({
     doc,
-    nodeIds: [boundaryNodeId, ...sourceIds],
+    rootIds: [boundaryNodeId, ...sourceIds],
+    flattenedIds: flattened.ids,
     items: ir,
-    renderSubtree: (ctx, nodeId) => {
-      replayStructuredScene(ctx, {
-        document: doc,
-        rootIds: [nodeId],
-        flattenedIds: flattened.ids,
-        items: ir,
-        quality: 'export',
-      });
-    },
     qualityScale: exportScale,
-    cache: getExportMockupSurfaceCache(),
     insertIntoList: false,
   });
-
-  // Perspective (four-corner) image decoration for the export path. Runs
-  // after mockup decoration (insertIntoList:false keeps `ir` in 1:1
-  // correspondence with nodeIds), so image items with a `perspective` quad
-  // are replaced by `warpedImage` primitives. Export pre-loads image
-  // resources (see settleEngineImageResources above) so baking never stalls.
-  decoratePerspectiveImages({
-    doc,
-    nodeIds: [boundaryNodeId, ...sourceIds],
-    items: ir,
-    qualityScale: exportScale,
-  });
+  // Baked mockup surfaces are created after the engine resource barrier, so
+  // settle their decoded pixels explicitly before the one-shot export paint.
+  await settleMockupSurfaces(decorated.extrasByNodeId);
 
   const ctx = surface.context as CanvasRenderingContext2D;
   ctx.save();

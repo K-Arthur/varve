@@ -97,6 +97,37 @@ export interface MockupSurfaceShadow {
   opacity: number;
 }
 
+/**
+ * Embedded raster base plate (photographic templates). The image itself
+ * lives in `Document.assets`; the template only records layout so documents
+ * stay self-contained and offline-capable.
+ */
+export interface MockupPlateImage {
+  assetId: string;
+  width: number;
+  height: number;
+  fit: 'cover' | 'contain' | 'stretch';
+  /** 0..1, applied to the plate draw. */
+  opacity?: number;
+}
+
+/**
+ * How a template mask asset's RGBA pixels are interpreted.
+ * - `alpha`: the alpha channel is the coverage (transparent = unmasked).
+ * - `luminance`: sRGB luminance × alpha (white = keep).
+ */
+export type MockupMaskChannel = 'alpha' | 'luminance';
+
+/** Shared clip/occlusion mask settings. */
+export interface MockupMaskOptions {
+  /** Invert the derived coverage. */
+  invert?: boolean;
+  /** Feather radius in template px (0 = hard edge). */
+  feather?: number;
+  /** Coverage channel interpretation (default `alpha`). */
+  channel?: MockupMaskChannel;
+}
+
 export interface MockupSurfaceDefinition {
   /** Unique within the template. */
   id: string;
@@ -129,9 +160,21 @@ export interface MockupSurfaceDefinition {
   screenGlow?: boolean;
   /** Dark bezel variant. */
   dark?: boolean;
-  /** Reserved (Level 3/4): raster masks and displacement. */
+  /**
+   * Embedded alpha coverage (document asset) that clips the surface content.
+   * Applied before the occluder so content never spills past the printed
+   * area. Absent means the slot rect clips by itself.
+   */
   clipMaskAssetId?: string;
+  /**
+   * Embedded alpha coverage (document asset) of foreground objects that
+   * occlude the content (hands, straps, bezels, folds). The plate pixels
+   * inside this coverage are redrawn over the mapped artwork.
+   */
   occlusionMaskAssetId?: string;
+  /** Shared mask interpretation options for clip/occlusion. */
+  maskOptions?: MockupMaskOptions;
+  /** Reserved (Level 3/4): displacement maps are not implemented. */
   displacementAssetId?: string;
 }
 
@@ -159,6 +202,12 @@ export interface MockupTemplateAsset {
   outputHeight: number;
   /** CSS color behind everything, or 'transparent'. */
   backgroundColor: string;
+  /**
+   * Optional photographic base plate (document asset). Drawn after
+   * `backgroundColor`/`plate` and before surface content; the artwork for
+   * each surface is composed on top of it.
+   */
+  plateImage?: MockupPlateImage;
   /** Full-bleed background shapes (output coordinates). */
   plate: MockupVectorShape[];
   surfaces: MockupSurfaceDefinition[];
@@ -168,6 +217,12 @@ export interface MockupTemplateAsset {
   contentHash: string;
   capabilities?: string[];
   minVarveVersion?: string;
+  /**
+   * True for templates the user authored/imported for reuse. Library
+   * templates are not pruned when no frame currently uses them; applied
+   * catalog templates are.
+   */
+  library?: boolean;
   createdAt?: number;
   updatedAt?: number;
 }
