@@ -89,6 +89,11 @@ integer-pixel snap remain explicit document/grid controls. A temporary Ctrl/Cmd
 bypass affects the active pointer gesture only; it does not rewrite the stored
 preference or the pointer-to-object origin.
 
+Selection-handle transforms consume the same scoped object, page/frame, and
+guide line families. A proportional resize keeps its original aspect ratio and
+fixed opposite edge or corner while applying one deterministic snap winner; it
+does not independently round width and height.
+
 ## Transactions and feedback
 
 A held Arrow gesture announces once, reuses its repeat session, and commits on

@@ -75,6 +75,11 @@ import { sitePath } from '../../../lib/siteUrl';
           visible grid does not round all document coordinates, and moving an object with Arrow
           keys does not silently snap it to an integer.
         </p>
+        <p>
+          Selection handles use these same scoped line targets. With proportional resize enabled,
+          a snapped edge or corner keeps the original aspect ratio and fixed opposite anchor; Varve
+          never rounds width and height independently.
+        </p>
       </section>
 
       <section class="docs-section" aria-labelledby="arrange-title">
