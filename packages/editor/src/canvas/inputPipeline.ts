@@ -1434,6 +1434,25 @@ export function useCanvasInputs({
         return;
       }
 
+      // Arrow keys pan only in an explicit navigation context: the Hand tool
+      // or while Space has armed its temporary Hand tool. Selection, text,
+      // sliders, trees, and specialized tools retain their normal Arrow
+      // ownership. Values are CSS pixels, so zoom never changes the user's
+      // keyboard travel.
+      const panDelta = keyboardPanDelta(e.key, e.shiftKey);
+      if (
+        panDelta &&
+        tmInst &&
+        (tmInst.activeToolId === 'hand' || tmInst.springActive) &&
+        !e.ctrlKey &&
+        !e.altKey &&
+        !e.metaKey
+      ) {
+        e.preventDefault();
+        editor.panBy(panDelta.dx, panDelta.dy);
+        return;
+      }
+
       if (tmInst) {
         if (
           shouldDeferArrowToSelectedGuide({
@@ -1848,6 +1867,23 @@ export function useCanvasInputs({
  */
 export function shouldSkipCanvasKeydown(e: { isComposing?: boolean; keyCode?: number }): boolean {
   return e.isComposing === true || e.keyCode === 229;
+}
+
+/** Return a screen-space camera delta for explicit keyboard panning. */
+export function keyboardPanDelta(key: string, large = false): { dx: number; dy: number } | null {
+  const step = large ? 192 : 48;
+  switch (key) {
+    case 'ArrowLeft':
+      return { dx: step, dy: 0 };
+    case 'ArrowRight':
+      return { dx: -step, dy: 0 };
+    case 'ArrowUp':
+      return { dx: 0, dy: step };
+    case 'ArrowDown':
+      return { dx: 0, dy: -step };
+    default:
+      return null;
+  }
 }
 
 /**

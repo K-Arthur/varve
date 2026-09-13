@@ -1,9 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import {
+  keyboardPanDelta,
   shouldDeferArrowToSelectedGuide,
   shouldResolveHover,
   shouldSkipCanvasKeydown,
 } from './inputPipeline';
+
+describe('explicit keyboard pan policy', () => {
+  it('maps arrows to CSS-pixel camera travel without zoom scaling', () => {
+    expect(keyboardPanDelta('ArrowRight')).toEqual({ dx: -48, dy: 0 });
+    expect(keyboardPanDelta('ArrowUp')).toEqual({ dx: 0, dy: 48 });
+    expect(keyboardPanDelta('ArrowLeft', true)).toEqual({ dx: 192, dy: 0 });
+    expect(keyboardPanDelta('ArrowDown', true)).toEqual({ dx: 0, dy: -192 });
+  });
+
+  it('does not claim non-navigation keys', () => {
+    expect(keyboardPanDelta('Enter')).toBeNull();
+  });
+});
 
 describe('canvas input hover policy', () => {
   it('resolves hover only for idle select and inspect pointers', () => {
