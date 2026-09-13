@@ -20,6 +20,10 @@ const MACOS_UA =
 const BOT_UA = 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)';
 const IPHONE_UA =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
+const CHROMEOS_ARM64_UA =
+  'Mozilla/5.0 (X11; CrOS aarch64 15183.78.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
+const IPAD_DESKTOP_MODE_UA =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15';
 
 async function openDownload(page: Page) {
   await page.goto('/download');
@@ -146,7 +150,7 @@ test('bots and crawlers get no recommendation, no banner, no preselect', async (
   await context.close();
 });
 
-test('mobile visitors see the desktop-only notice and no recommendation', async ({ browser }) => {
+test('touch phone/tablet visitors are routed to the browser, not blocked', async ({ browser }) => {
   const context = await browser.newContext({
     userAgent: IPHONE_UA,
     hasTouch: true,
@@ -155,9 +159,72 @@ test('mobile visitors see the desktop-only notice and no recommendation', async 
   const page = await context.newPage();
   await openDownload(page);
 
-  await expect(page.locator('#mobile-download-notice')).toBeVisible();
+  // The route notice is server-rendered and always visible: the browser
+  // route is offered instead of a wall.
+  await expect(page.locator('#device-route-notice')).toBeVisible();
+  await expect(page.locator('#device-route-notice')).toContainText('no desktop install');
+  await expect(page.locator('#device-route-notice')).toContainText('web app');
+  await expect(
+    page.locator('#device-route-notice').getByRole('link', { name: /varve\.studio\/try/ }),
+  ).toBeVisible();
+  await expect(page.locator('#device-route-notice')).toHaveAttribute(
+    'data-detected-device-route',
+    'touch',
+  );
+  await expect(page.locator('body')).not.toContainText('There are no mobile or tablet builds');
+
+  // No desktop platform is claimed for a touch phone; the manual chooser stays.
   await expect(page.locator('#detection-banner')).toBeHidden();
   await expect(page.locator('.recommend-chip').first()).toBeHidden();
+  await expect(page.locator('.platform-tab').first()).toBeVisible();
+
+  await context.close();
+});
+
+test('a touch Chromebook gets the browser route and never a wrong-arch installer', async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    userAgent: CHROMEOS_ARM64_UA,
+    hasTouch: true,
+    viewport: { width: 800, height: 1280 },
+  });
+  const page = await context.newPage();
+  await openDownload(page);
+
+  const banner = page.locator('#detection-banner');
+  await expect(banner).toBeVisible();
+  await expect(banner).toContainText('Chromebook');
+  await expect(banner).toContainText('in your browser');
+  await expect(banner).toContainText('ARM64');
+  // A Chromebook is not preselected into a desktop column (no wrong arch);
+  // Linux remains reachable manually as the optional route.
+  await expect(page.locator('.recommend-chip').first()).toBeHidden();
+  await expect(page.locator('#platform-tab-linux')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#device-route-notice')).toHaveAttribute(
+    'data-detected-device-route',
+    'chromeos',
+  );
+
+  await context.close();
+});
+
+test('an iPad in desktop mode is not handed the macOS disk image', async ({ browser }) => {
+  // iPadOS sends a Macintosh UA; touch points are the only tell a browser has.
+  const context = await browser.newContext({
+    userAgent: IPAD_DESKTOP_MODE_UA,
+    hasTouch: true,
+    viewport: { width: 1366, height: 1024 },
+  });
+  const page = await context.newPage();
+  await openDownload(page);
+
+  await expect(page.locator('#detection-banner')).toBeHidden();
+  await expect(page.locator('.recommend-chip').first()).toBeHidden();
+  await expect(page.locator('#device-route-notice')).toHaveAttribute(
+    'data-detected-device-route',
+    'touch',
+  );
 
   await context.close();
 });
@@ -341,6 +408,11 @@ test('the page works with JavaScript disabled (server-rendered baseline)', async
   // detection banner is needed for the page to be usable.
   await expect(page.locator('.quick-download-btn').first()).toBeVisible();
   await expect(page.locator('#platform-linux')).toHaveClass(/active/);
+  // The browser/Chromebook route notice and the manual platform chooser are
+  // part of the server-rendered baseline: a visitor without JavaScript (or
+  // with denied client hints) is never left without a route.
+  await expect(page.locator('#device-route-notice')).toBeVisible();
+  await expect(page.locator('.platform-tab').first()).toBeVisible();
   await expect(
     page.locator('.quick-download-col[data-platform-col="linux"] .quick-architecture').first(),
   ).toHaveAttribute('data-arch', 'x86_64');

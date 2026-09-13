@@ -34,6 +34,19 @@ describe('detectPlatform', () => {
     expect(detectPlatform('Mozilla/5.0 (Linux; Android 14; Pixel 8) Chrome/126.0')).toBe('unknown');
   });
 
+  it('detects ChromeOS before the X11/Linux tokens it also carries', () => {
+    expect(
+      detectPlatform(
+        'Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
+      ),
+    ).toBe('chromeos');
+    expect(
+      detectPlatform(
+        'Mozilla/5.0 (X11; CrOS aarch64 15183.78.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
+      ),
+    ).toBe('chromeos');
+  });
+
   it('returns unknown for privacy-reduced UAs without platform tokens', () => {
     expect(detectPlatform('Mozilla/5.0')).toBe('unknown');
     expect(detectPlatform('Mozilla/5.0 (compatible; Googlebot/2.1)')).toBe('unknown');
@@ -69,7 +82,7 @@ describe('isMobileOrTablet', () => {
     // neither 1440x900 nor a common 1366x768 laptop may trigger the notice.
     expect(
       isMobileOrTablet(
-        input('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', {
+        input('Mozilla/5.0 (Windows NT 10.0; Win64; x64)', {
           maxTouchPoints: 10,
           screenWidth: 1440,
           screenHeight: 900,
@@ -83,6 +96,31 @@ describe('isMobileOrTablet', () => {
           screenWidth: 1366,
           screenHeight: 768,
         }),
+      ),
+    ).toBe(false);
+  });
+
+  it('treats a Macintosh UA with touch points as an iPad in desktop mode', () => {
+    // iPadOS reports "Macintosh; Intel Mac OS X" plus touch points. No Mac
+    // has a touchscreen, so this must never be handed the macOS disk image.
+    expect(
+      isMobileOrTablet(
+        input('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', {
+          maxTouchPoints: 5,
+          screenWidth: 1366,
+          screenHeight: 1024,
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it('never treats a touch Chromebook as a phone/tablet', () => {
+    expect(
+      isMobileOrTablet(
+        input(
+          'Mozilla/5.0 (X11; CrOS aarch64 15183.78.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
+          { maxTouchPoints: 10, screenWidth: 800, screenHeight: 1280 },
+        ),
       ),
     ).toBe(false);
   });
@@ -124,6 +162,55 @@ describe('detect (integration)', () => {
   it('leaves mobile visitors without a platform recommendation', () => {
     const result = detect(input('Mozilla/5.0 (Linux; Android 14; Pixel 8) Chrome/126.0'));
     expect(result.mobile).toBe(true);
+    expect(result.platform).toBe('unknown');
+    expect(recommendationCopy(result)).toBeNull();
+  });
+
+  it('routes a touch Chromebook to the browser route, never to a desktop installer', () => {
+    const result = detect(
+      input(
+        'Mozilla/5.0 (X11; CrOS aarch64 15183.78.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
+        { maxTouchPoints: 10, screenWidth: 800, screenHeight: 1280 },
+      ),
+    );
+    expect(result.chromeos).toBe(true);
+    expect(result.platform).toBe('chromeos');
+    expect(result.mobile).toBe(false);
+    expect(result.arch).toBe('arm64');
+    const copy = recommendationCopy(result);
+    expect(copy).toMatch(/Chromebook/);
+    expect(copy).toMatch(/in your browser/);
+    expect(copy).toMatch(/ARM64/);
+  });
+
+  it('uses the UA client-hint platform when desktop mode strips mobile tokens', () => {
+    // "Request desktop site" can remove the Android token and a tablet can
+    // report a desktop-width screen; the low-entropy hint still identifies it.
+    const desktopModeAndroid = detect(
+      input('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0', {
+        maxTouchPoints: 5,
+        screenWidth: 1920,
+        screenHeight: 1200,
+        uaDataPlatform: 'Android',
+        uaDataMobile: true,
+      }),
+    );
+    expect(desktopModeAndroid.mobile).toBe(true);
+    expect(recommendationCopy(desktopModeAndroid)).toBeNull();
+
+    const desktopModeChromeOs = detect(
+      input('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0', {
+        uaDataPlatform: 'Chrome OS',
+      }),
+    );
+    expect(desktopModeChromeOs.platform).toBe('chromeos');
+  });
+
+  it('keeps reduced/denied client hints on the manual chooser path', () => {
+    const result = detect(
+      input('Mozilla/5.0 (unrecognized; rv:128.0) Gecko/20100101 Firefox/128.0'),
+    );
+    expect(result.reducedUa).toBe(true);
     expect(result.platform).toBe('unknown');
     expect(recommendationCopy(result)).toBeNull();
   });

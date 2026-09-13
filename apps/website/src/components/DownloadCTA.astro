@@ -50,37 +50,46 @@ const fallbackLabel = label ?? (hasRelease ? 'Download Varve' : 'See the beta st
 <script>
   /**
    * Platform label enhancement. Detection is best-effort:
-   *  - navigator.userAgentData.platform when available (Chromium),
-   *  - UA sniffing otherwise (case-insensitive, order-safe).
-   * Unknown platforms keep the static fallback label — the page still
-   * works with zero JS, on exotic agents, and under reduced UA headers.
+   *  - ChromeOS is labelled as a browser route (native Chrome always exists);
+   *  - phones/tablets keep a neutral label — desktop installers do not apply,
+   *    but the browser route does, so the label must not imply "no builds";
+   *  - other desktops get their platform name when a release exists.
+   * Unknown platforms and reduced UAs keep the static fallback label — the
+   * page still works with zero JS and without high-entropy hints.
    */
-  const link = document.querySelector<HTMLAnchorElement>('[data-download-cta]');
-  const label = document.querySelector<HTMLElement>('[data-cta-label]');
-  if (link && label) {
-    function detectPlatform(): 'linux' | 'macos' | 'windows' | null {
+  const links = document.querySelectorAll<HTMLAnchorElement>('[data-download-cta]');
+  if (links.length > 0) {
+    function detectRoute(): 'linux' | 'macos' | 'windows' | 'chromeos' | 'mobile' | null {
       const uaData = (navigator as Navigator & { userAgentData?: { platform?: string } })
         .userAgentData;
       const platform = uaData?.platform ?? '';
       const ua = navigator.userAgent;
+      if (/\bCrOS\b/i.test(ua) || /chrome\s?os/i.test(platform)) return 'chromeos';
       // Mobile and tablet builds do not exist. Do not mistake Android's
-      // Linux user-agent for a supported desktop Linux download.
+      // Linux user-agent for a supported desktop Linux download; still, the
+      // browser route applies, so keep a neutral label.
       if (/android|iphone|ipad|ipod|mobile|tablet|webos|iemobile|opera mini/i.test(`${platform} ${ua}`)) {
-        return null;
+        return 'mobile';
       }
       if (/^win/i.test(platform) || /windows/i.test(ua)) return 'windows';
       if (/^mac/i.test(platform) || /macintosh|mac os x/i.test(ua)) return 'macos';
       if (/^linux/i.test(platform) || /linux/i.test(ua)) return 'linux';
       return null;
     }
-    const platform = detectPlatform();
-    if (platform) {
+    const route = detectRoute();
+    if (route) {
       const names = { linux: 'Linux', macos: 'macOS', windows: 'Windows' } as const;
-      // Platform labels are only truthful once a release exists; before
-      // that the generic beta label stays on all platforms.
-      if (link.dataset.hasRelease === 'true') {
-        label.textContent = `Download for ${names[platform]}`;
-      }
+      links.forEach((link) => {
+        const label = link.querySelector<HTMLElement>('[data-cta-label]');
+        if (!label) return;
+        if (route === 'chromeos' || route === 'mobile') {
+          // Neutral: the browser route exists, desktop installers do not.
+          // The download page resolves the actual route.
+          if (link.dataset.hasRelease === 'true') label.textContent = 'Get Varve';
+        } else if (link.dataset.hasRelease === 'true') {
+          label.textContent = `Download for ${names[route]}`;
+        }
+      });
     }
   }
 </script>

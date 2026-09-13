@@ -21,7 +21,7 @@ import release from '../../data/release-manifest.json';
       </p>
 
       <aside class="docs-note">
-        <strong>Current release note (v{release.version}):</strong> {release.updater ? 'An updater feed exists, but only Windows NSIS auto-updates are cryptographically verified and working.' : 'No updater feed is published for this release.'} {' '}Linux AppImage and macOS updates are currently manual. See the platform status below.
+        <strong>Current release note (v{release.version}):</strong> {release.updater ? 'An updater feed exists. Windows NSIS and installed macOS copies can update in-app; Linux AppImage updates are manual until the signature fix ships.' : 'No updater feed is published for this release.'} See the platform status below.
       </aside>
 
       <section class="docs-section">
@@ -87,8 +87,9 @@ import release from '../../data/release-manifest.json';
         <ul>
           <li>
             <strong>Debian and RPM packages:</strong> the package manager owns the installed
-            files, so update them through your configured package source or the{' '}
-            <a href={sitePath('/download')}>download page</a>.
+            files, and no Varve package repository is configured. Update by installing the newer
+            package file from the <a href={sitePath('/download')}>download page</a> over the
+            installed one.
           </li>
           <li>
             <strong>Read-only, mounted, or extracted copies:</strong> download a new release and

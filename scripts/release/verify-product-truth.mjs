@@ -28,7 +28,7 @@
  * Run: node scripts/release/verify-product-truth.mjs [--fix] [--verbose]
  * Wired into CI via pnpm verify:affected (Tier 4).
  */
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -457,6 +457,82 @@ function checkCopyrightConsistency() {
 }
 
 // ---------------------------------------------------------------------------
+// 11. Website device routing and hardcoded release text
+// ---------------------------------------------------------------------------
+
+function listFilesRecursive(relDir, extension) {
+  const out = [];
+  const walk = (rel) => {
+    const abs = join(repoRoot, rel);
+    let entries;
+    try {
+      entries = readdirSync(abs, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const child = `${rel}/${entry.name}`;
+      if (entry.isDirectory()) walk(child);
+      else if (entry.isFile() && entry.name.endsWith(extension)) out.push(child);
+    }
+  };
+  walk(relDir);
+  return out;
+}
+
+function checkWebsiteRoutingAndVersions() {
+  const problems = [];
+  const manifest = readJSON('apps/website/src/data/release-manifest.json');
+
+  // A touch/Chromebook visitor must never be told that no build exists; the
+  // browser route is real and must be offered instead.
+  const bannedPhrases = [/no mobile or tablet builds/i, /there are no mobile/i];
+  const websiteFiles = listFilesRecursive('apps/website/src', '.astro');
+  for (const file of websiteFiles) {
+    const content = readFile(file);
+    if (!content) continue;
+    for (const phrase of bannedPhrases) {
+      if (phrase.test(content)) {
+        problems.push(
+          `${file}: contains "${phrase.source}" — touch devices must be routed to the browser, not blocked`,
+        );
+      }
+    }
+  }
+
+  // The download page must keep the server-rendered route notice and the
+  // browser route link; removing either re-introduces the blocked-mobile bug.
+  const downloadPage = readFile('apps/website/src/pages/download.astro') ?? '';
+  if (!downloadPage.includes('device-route-notice')) {
+    problems.push('download.astro: missing the device-route notice');
+  }
+  if (!downloadPage.includes("sitePath('/try/')")) {
+    problems.push('download.astro: missing the browser route link');
+  }
+
+  // Hardcoded release file names anywhere on the site must match the
+  // published manifest version, so a version bump cannot leave stale
+  // artifact names in user-facing copy.
+  if (manifest?.version) {
+    const filenamePattern = /Varve[-_]\d+\.\d+\.\d+/g;
+    for (const file of websiteFiles) {
+      const content = readFile(file);
+      if (!content) continue;
+      for (const match of content.match(filenamePattern) ?? []) {
+        const versionInName = match.replace(/^Varve[-_]/, '');
+        if (versionInName !== manifest.version) {
+          problems.push(
+            `${file}: hardcoded artifact name "${match}" does not match the published release version ${manifest.version}`,
+          );
+        }
+      }
+    }
+  }
+
+  return problems;
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -471,6 +547,7 @@ const checks = [
   ['updater', checkUpdaterConsistency],
   ['updater-truth', checkUpdaterTruth],
   ['copyright', checkCopyrightConsistency],
+  ['website-routing', checkWebsiteRoutingAndVersions],
 ];
 
 let totalProblems = 0;

@@ -10,7 +10,7 @@
  * recommendation with a manual override.
  */
 
-export type DetectedPlatform = 'linux' | 'macos' | 'windows' | 'unknown';
+export type DetectedPlatform = 'linux' | 'macos' | 'windows' | 'chromeos' | 'unknown';
 export type DetectedArch = 'arm64' | 'x64' | 'unknown';
 
 export interface DetectionResult {
@@ -18,8 +18,17 @@ export interface DetectionResult {
   bot: boolean;
   /** True when the UA hides platform tokens entirely: no recommendation. */
   reducedUa: boolean;
-  /** True for phones/tablets: the page shows the desktop-only notice. */
+  /**
+   * True for phones/tablets: no desktop-installer recommendation. The page
+   * must still offer the browser route; this flag never hides it.
+   */
   mobile: boolean;
+  /**
+   * True when the UA is ChromeOS (CrOS). A touch Chromebook is not a tablet:
+   * it gets its own route (browser/app + optional Linux), and its architecture
+   * is read from the UA for the optional Linux ARM64/x86_64 package.
+   */
+  chromeos: boolean;
   platform: DetectedPlatform;
   /**
    * Architecture hint from the UA. Never 'x64' for macOS: browsers report
@@ -33,6 +42,16 @@ export interface DetectionResult {
 
 const MOBILE_PATTERN = /android|iphone|ipad|ipod|mobile|tablet|webos|iemobile|opera mini/i;
 
+/**
+ * ChromeOS identifies itself with a `CrOS` token and otherwise looks like
+ * X11 Linux. It is deliberately checked before the mobile pattern and is
+ * excluded from `isMobileOrTablet`: a Chromebook can be a touch device, but
+ * it is not a phone/tablet and it has its own access routes.
+ */
+export function isChromeOS(ua: string): boolean {
+  return /\bCrOS\b/.test(ua);
+}
+
 const BOT_PATTERN =
   /googlebot|bingbot|duckduckbot|petalbot|yandex|baiduspider|semrush|sogou|exabot|ia_archiver|archive\.org|facebookexternalhit|twitterbot|linkedinbot|slurp|uptimerobot|headlesschrome|phantomjs|curl|wget|python-requests|python-urllib/i;
 
@@ -41,9 +60,19 @@ export interface DetectionInput {
   maxTouchPoints: number;
   screenWidth: number;
   screenHeight: number;
+  /**
+   * Low-entropy UA client hint platform (Chromium only). Used to catch
+   * ChromeOS and Android when the user agent itself is reduced or when
+   * "request desktop site" strips the mobile token. Denied/unavailable
+   * hints simply leave the manual chooser in charge.
+   */
+  uaDataPlatform?: string;
+  /** Low-entropy UA client hint: true on phones/tablets. */
+  uaDataMobile?: boolean;
 }
 
 export function detectPlatform(ua: string): DetectedPlatform {
+  if (isChromeOS(ua)) return 'chromeos';
   if (MOBILE_PATTERN.test(ua)) return 'unknown';
   if (ua.includes('Linux') && !ua.includes('Mac')) return 'linux';
   if (ua.includes('Mac')) return 'macos';
@@ -65,6 +94,11 @@ export function detectArch(ua: string): DetectedArch {
  * landscape tablets (768..1194 wide).
  */
 export function isMobileOrTablet(input: DetectionInput): boolean {
+  if (isChromeOS(input.userAgent)) return false;
+  // iPadOS reports a Macintosh user agent in desktop mode. No Mac has a
+  // touchscreen, so touch points on a Macintosh UA identify an iPad — which
+  // must never be handed the macOS disk image.
+  if (input.maxTouchPoints > 1 && /Macintosh/.test(input.userAgent)) return true;
   return (
     MOBILE_PATTERN.test(input.userAgent) || (input.maxTouchPoints > 1 && input.screenWidth < 1280)
   );
@@ -72,8 +106,14 @@ export function isMobileOrTablet(input: DetectionInput): boolean {
 
 export function detect(input: DetectionInput): DetectionResult {
   const bot = BOT_PATTERN.test(input.userAgent);
-  const mobile = isMobileOrTablet(input);
-  const platform = detectPlatform(input.userAgent);
+  const uaDataPlatform = (input.uaDataPlatform ?? '').toLowerCase();
+  const hintChromeOs = uaDataPlatform.includes('chrome os') || uaDataPlatform.includes('chromeos');
+  const hintMobile =
+    input.uaDataMobile === true || uaDataPlatform === 'android' || uaDataPlatform === 'ios';
+  const chromeos = hintChromeOs || isChromeOS(input.userAgent);
+  const mobile = chromeos ? false : isMobileOrTablet(input) || hintMobile;
+  let platform = detectPlatform(input.userAgent);
+  if (chromeos) platform = 'chromeos';
   const reducedUa = platform === 'unknown' && !mobile && !bot;
 
   let arch: DetectedArch = 'unknown';
@@ -85,7 +125,7 @@ export function detect(input: DetectionInput): DetectionResult {
     arch = detectArch(input.userAgent);
   }
 
-  return { bot, reducedUa, mobile, platform, arch, macArchHint };
+  return { bot, reducedUa, mobile, chromeos, platform, arch, macArchHint };
 }
 
 /**
@@ -133,6 +173,15 @@ export function primaryFormatFor(platform: string, formats: string[]): string {
 export function recommendationCopy(result: DetectionResult): string | null {
   if (result.bot || result.mobile || result.reducedUa || result.platform === 'unknown') {
     return null;
+  }
+  if (result.platform === 'chromeos') {
+    const archNote =
+      result.arch === 'arm64'
+        ? ' This device reports <strong>ARM64</strong>, which matches the Linux ARM64 package if you enable Linux.'
+        : result.arch === 'x64'
+          ? ' This device reports <strong>x86_64</strong>, which matches the Linux x86_64 package if you enable Linux.'
+          : '';
+    return `This looks like a <strong>Chromebook</strong>. The recommended route is <strong>Varve in your browser</strong>${archNote} The Chromebook guide compares the browser, installed app, and Linux routes.`;
   }
   const platformName =
     result.platform === 'linux' ? 'Linux' : result.platform === 'macos' ? 'macOS' : 'Windows';

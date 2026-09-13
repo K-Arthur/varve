@@ -288,13 +288,23 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
         features are disclosed and user-controlled.
       </p>
 
-      <div class="mobile-download-notice" id="mobile-download-notice" hidden>
-        <strong>Varve is a desktop application.</strong>
+      <section class="device-route-notice" aria-labelledby="device-route-title">
+        <h2 class="device-route-title" id="device-route-title">
+          On a Chromebook, tablet, or phone?
+        </h2>
         <p>
-          There are no mobile or tablet builds. Open this page on Linux, macOS, or Windows to
-          choose a desktop download, or send the release link to a desktop device.
+          Varve runs in your browser without a desktop install: open{' '}
+          <a href={sitePath('/try/')} target="_blank" rel="noopener noreferrer" data-analytics-demo-launch>
+            varve.studio/try
+          </a>{' '}
+          (experimental) or install it as a web app. On a Chromebook with the Linux
+          development environment enabled, the{' '}
+          <a href={sitePath('/docs/chromeos-linux')}>Linux package</a> is a separate
+          experimental route. The installers below target Linux, macOS, and Windows —
+          there is no native ChromeOS, Android, or iOS installer. Compare the routes in{' '}
+          <a href={sitePath('/docs/chromebook')}>Varve on Chromebook</a>.
         </p>
-      </div>
+      </section>
 
       {!release.hasRelease && (
         <div class="prerelease-notice">
@@ -335,7 +345,9 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
           <div class="try-browser-banner">
             <p>
               <strong>Or try it right now</strong> — no download required.
-              The full editor runs in your browser with the WASM engine.
+              The editor runs in your browser on the WASM engine; the browser
+              build is experimental, with the limits listed in the{' '}
+              <a href={sitePath('/docs/browser-demo')}>browser guide</a>.
             </p>
             <a
               href={sitePath('/try/')}
@@ -616,13 +628,17 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                       system WebKitGTK library.
                     </p>
                     <p>
-                      <strong>Debian package (.deb)</strong> — installs system-wide and updates
-                      through apt. Pulls in the WebKitGTK dependency automatically. For Debian,
-                      Ubuntu, and derivatives.
+                      <strong>Debian package (.deb)</strong> — installs system-wide and pulls in
+                      the WebKitGTK dependency automatically. There is no apt repository for
+                      Varve, so <code>apt upgrade</code> does not update it; install the newer
+                      package file from the release page over it. For Debian, Ubuntu, and
+                      derivatives.
                     </p>
                     <p>
-                      <strong>RPM package (.rpm)</strong> — installs system-wide and updates through
-                      dnf. For Fedora, RHEL, and derivatives.
+                      <strong>RPM package (.rpm)</strong> — installs system-wide. There is no
+                      dnf/yum repository for Varve, so <code>dnf upgrade</code> does not update
+                      it; install the newer package file from the release page over it. For
+                      Fedora, RHEL, and derivatives.
                     </p>
                     <p>
                       <strong>Arch/CachyOS PKGBUILD</strong> — a
@@ -763,8 +779,11 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                   </li>
                   <li>
                     <strong>Debian / RPM packages:</strong> installed files are owned by your package
-                    manager. Varve does not overwrite them; use your package manager to install newer
-                    versions from the release page.
+                    manager, but no Varve package repository is configured. Update by installing
+                    the newer package file from the{' '}
+                    <a href={sitePath('/releases')}>release page</a>{' '}
+                    over the installed one; <code>apt upgrade</code> / <code>dnf upgrade</code> alone
+                    will not move Varve to a new version.
                   </li>
                 </ul>
                 <p class="download-meta">
@@ -977,7 +996,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     max-width: 52ch;
   }
 
-  .mobile-download-notice {
+  .device-route-notice {
     background: var(--surface-info);
     border: 1px solid var(--border-accent);
     border-radius: var(--website-radius-surface);
@@ -986,7 +1005,13 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     color: var(--text-primary);
   }
 
-  .mobile-download-notice p {
+  .device-route-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .device-route-notice p {
     margin: 0.35rem 0 0;
     color: var(--text-secondary);
     line-height: 1.55;
@@ -1986,11 +2011,19 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     maxTouchPoints: navigator.maxTouchPoints,
     screenWidth: window.screen.width,
     screenHeight: window.screen.height,
+    uaDataPlatform: (navigator as Navigator & { userAgentData?: { platform?: string } })
+      .userAgentData?.platform,
+    uaDataMobile: (navigator as Navigator & { userAgentData?: { mobile?: boolean } })
+      .userAgentData?.mobile,
   });
 
-  const mobileNotice = document.getElementById('mobile-download-notice');
-  if (mobileNotice && detection.mobile) {
-    mobileNotice.hidden = false;
+  // The device-route notice is server-rendered and visible for everyone, so
+  // touch, Chromebook, reduced-UA and no-JS visitors always see the browser
+  // route. This flag only lets the styles emphasize it once detection has
+  // confirmed the visitor is on a phone/tablet or ChromeOS.
+  const routeNotice = document.getElementById('device-route-notice');
+  if (routeNotice && (detection.mobile || detection.chromeos)) {
+    routeNotice.setAttribute('data-detected-device-route', detection.chromeos ? 'chromeos' : 'touch');
   }
 
   const platformTabs = document.querySelectorAll<HTMLButtonElement>('.platform-tab');
@@ -2100,6 +2133,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
         macArchHint: 'none',
         bot: false,
         mobile: false,
+        chromeos: choice.platform === 'chromeos',
         reducedUa: false,
       };
     } else if (detection.platform !== 'unknown') {
@@ -2117,8 +2151,32 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     });
   }
 
+  function recommendationDismissLabel(result: DetectionResult): string {
+    // A Chromebook's primary route is the browser, so the appended link takes
+    // the visitor to the desktop chooser rather than asking them to re-choose
+    // a platform they never had.
+    return result.platform === 'chromeos' ? 'See desktop downloads' : 'Choose another platform';
+  }
+
+  function showRecommendationBanner(result: DetectionResult) {
+    if (!showBanner || !banner) return;
+    const copy = recommendationCopy(result);
+    if (!copy) return;
+    banner.style.display = 'block';
+    banner.innerHTML =
+      copy +
+      ' <a href="#choose-platform" data-dismiss-recommend>' +
+      recommendationDismissLabel(result) +
+      '</a>.';
+  }
+
   function applyRecommendation() {
     if (!recommendation || recommendation.platform === 'unknown') return;
+
+    // The banner is shown before any platform-panel handling: ChromeOS has no
+    // desktop tab to activate, but it still gets its route recommendation.
+    showRecommendationBanner(recommendation);
+    if (recommendation.platform === 'chromeos') return;
 
     const tab = document.querySelector('.platform-tab[data-platform="' + recommendation.platform + '"]');
     if (tab instanceof HTMLButtonElement) activatePlatform(tab);
@@ -2152,16 +2210,6 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
         const chip = row.querySelector<HTMLElement>('.arch-chip');
         if (chip) chip.hidden = rowArch !== archKey;
       });
-    }
-
-    if (showBanner && banner) {
-      const copy = recommendationCopy(recommendation);
-      if (copy) {
-        banner.style.display = 'block';
-        banner.innerHTML =
-          copy +
-          ' <a href="#choose-platform" data-dismiss-recommend>Choose another platform</a>.';
-      }
     }
   }
 
