@@ -1627,3 +1627,70 @@ not a format parser failure.
 
 The implementation and focused regressions are committed as
 `286ccee4710c1a6ca64af15b502c02ba2fcd2632`.
+
+### IMP-09 — Browser format smoke coverage did not exercise the complete design-file matrix (2026-09-12)
+
+**Validation checkout:** `7b5cd7af8fcbd8c62c0cd7813e34c741e1f1868f` on
+`master` (the smoke test was committed immediately afterward as
+`7f4a052ba6287e477258f9f9fcc80246193b77a5`). **Environment:** Linux
+KDE/Wayland (`WAYLAND_DISPLAY=wayland-0`, `DISPLAY=:0`), Node `v22.23.2`,
+Chromium Playwright, and the checked-in corpus. The corpus contains Adobe
+Photoshop 22.4/22.5 PSD/PSB fixtures and a 64×48 16-bit RGB TIFF; AI/PDF/EPS
+are intentionally synthetic parser fixtures because no licensed
+Illustrator-authored file is available in this checkout.
+
+The existing package tests covered parser behavior, but the browser matrix did
+not independently prove that each supported file reached the real File > Import
+action and produced an Import Results entry. This was an **open application /
+validation gap**, separate from parser correctness.
+
+| ID | Defect | Status | Evidence |
+| --- | --- | --- | --- |
+| IMP-09 | No independent browser smoke asserted PSD, PSB, TIFF, SVG, PDF, AI, and EPS together through File > Import | **Resolved locally** | `tests/e2e/canvas/import-format-smoke.spec.ts`, Playwright run below |
+
+Validation evidence:
+
+```text
+pnpm exec biome check tests/e2e/canvas/import-format-smoke.spec.ts
+passed
+
+pnpm exec tsc -p packages/import/tsconfig.json --noEmit --pretty false
+passed after importing the `ImportResult` type used by the service classifier
+
+pnpm exec vitest run packages/import/src/service.test.ts \
+  packages/import/src/format-honesty.test.ts --maxWorkers=1 --reporter=dot
+2 files, 22 tests passed
+
+VITE_CONFIG_NATIVE_IGNORE_WARNING=true VARVE_E2E_PORT=1614 \
+  VARVE_E2E_WORKERS=1 pnpm exec playwright test \
+  tests/e2e/canvas/import-format-smoke.spec.ts --project=chromium \
+  --workers=1 --reporter=list
+2 passed (45.5s)
+```
+
+The first test imported the checked-in `example.psd`, `example.psb`, and
+`raster.tif` bytes. The second imported an ordered/transformed SVG and
+synthetic PDF-compatible AI plus EPS content. Both tests used the hidden file
+input behind the actual File menu, asserted the layer tree became populated,
+expanded Import Results, and checked every filename. The captured screenshots
+were inspected manually:
+
+* `test-results/run-1571628-1614/canvas-import-format-smoke-25372-TIFF-bytes-through-the-menu-chromium/design-format-psd-tiff.png`
+* `test-results/run-1571628-1614/canvas-import-format-smoke-05a48-PS-content-through-the-menu-chromium/design-format-svg-ai-eps.png`
+
+The first image shows 27 inserted layers and the PSD/PSB/TIFF fidelity
+warnings; the second shows the ordered SVG artwork, eight inserted layers, and
+the PDF/AI/EPS fidelity report. A missing-font dialog visible behind the second
+report is an existing fixture limitation and is surfaced as a warning. The
+test intentionally does not turn these screenshots into shell-size baselines;
+the long-lived visual baselines still have the unrelated 682×597 versus
+682×552 canvas-height mismatch recorded above.
+
+The supported local matrix is therefore exercised as follows: PSD/PSB retain
+editable layer trees with partial fidelity; SVG/SVGZ retain editable vector
+groups, source order, transforms, and viewBox placement within the bounded
+subset; AI/EPS/PDF use the bounded text/vector wrapper adapters; TIFF is
+decoded through the bounded first-IFD path and stored as an alpha-preserving
+PNG asset with source colour metadata. Layer effects, smart objects, advanced
+Illustrator appearance, multi-page/layered TIFF, and exact high-bit-depth/CMYK
+round-trips remain explicit fidelity losses or unverified external cases.
