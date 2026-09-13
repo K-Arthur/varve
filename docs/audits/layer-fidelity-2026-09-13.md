@@ -35,6 +35,31 @@ External references (accessed 2026-09-13):
 | 4 | Icon/asset-library insertion discarded the `ImportReport`; a sanitized SVG that lost constructs looked like a clean insert. | `packages/editor/src/context/useIconAssets.ts` `svgToDocument` | New `useIconAssets.test.tsx` cases (lossy report published; clean report silent) | `svgToDocument` returns the report; insertion/replacement publish through the shared `ImportReport` surface. |
 | 5 | Five copies of the "does this report need UI?" predicate had drifted (file-level warnings were shown on some routes, dropped on others). Detection warning codes (`extension-mismatch`, `mime-mismatch`, `signature-unverified`) were flattened to `parser.warning`; `ImportCapabilities` (PDF) was produced and discarded. | `sessionGlobals` consumers, `packages/import/src/service.ts` | `sessionGlobals.test.ts`, `format-honesty.test.ts` | One canonical `importReportHasIssues`; detection codes preserved; `ImportFileReport.capabilities` carried and rendered as a clearly-labelled *format-level* summary in Import Results, separate from per-layer losses. |
 | 6 | Structural render plan was not fail-closed: once any declared boundary produced a fallback island, unsupported leaves outside it were never scanned (emitted as "native WebGPU"); a declared `fallbackBoundary` whose leaves looked supported was ignored. | `packages/compositor/src/structuralRenderPlan.ts` `collectUnsupportedRanges` | New cases in `structuralRenderPlan.test.ts` (`falls back for unsupported leaves outside an already-created boundary`, `honors a declared boundary even when every leaf looks supported`, nested collapse) | Every item is scanned unless covered by a declared boundary; declared boundaries are authoritative; nested boundaries collapse into the enclosing range. The WebGPU backend's per-batch `isGpuBatchSupported` guard remains the second, independent gate. |
+| 7 | Structured export flattened a group but only applied drop shadow, glow, inner shadow, and the first layer blur. Group backdrop, spatial/depth, chromatic, glitch, and subsequent content effects were lost at the export/print raster boundary. | `packages/editor/src/render/replayScene.ts` group branch | `packages/editor/src/render/replayScene.test.ts` (backdrop draw-through and multiple layer-blur cases); Chromium export test and inspected PNG | Group replay now applies backdrop effects through the rendered alpha silhouette, content effects once to the flattened surface in authored stage order, and appearance effects before final group compositing. |
+| 8 | Export bounds were derived from flattened leaf geometry and omitted effect spill owned by a container or accumulated through a subtree. | `packages/editor/src/components/SpecPanel/export.ts` `exportWorldBounds`; `replayScene.ts` group buffer allocation | Chromium grouped-spatial-blur export: 248×228 output for a 200×180 union with σ=8, plus 31,880 partial-alpha halo pixels | Export bounds and group buffers now include visible authored effect support through the selected subtree, with conservative accumulated padding. |
+
+## Follow-up implementation evidence (2026-09-13)
+
+The first lossy boundary for the export defect was the group branch of
+`replayStructuredScene`: the scene tree retained the effects and the export
+capability planner correctly selected a raster boundary, but the raster replay
+then emitted the child surface without evaluating the group-owned effects. The
+repair stays at that boundary and reuses the engine's canonical blur, depth,
+spatial, chromatic, glitch, glass, and backdrop operations. It does not mutate
+the authored document or turn the group into a permanent raster layer.
+
+The inspected Chromium evidence is deliberately two-part:
+
+- `reports/layer-fidelity/group-spatial-blur-live.png` shows the live group
+  surface after the real editor update and selection flow.
+- `reports/layer-fidelity/group-spatial-blur-export.png` shows the downloaded
+  transparent PNG. It is 248×228 rather than the 200×180 leaf union and has
+  31,880 partial-alpha pixels in the blur halo. The visual comparison found
+  the same cyan silhouette, transparent corners, and soft spill in both
+  artifacts; selection chrome is present only in the live overview.
+
+The portable SVG/PDF boundary remains appearance-only for unsupported native
+constructs. The editable Varve document is not rewritten by this fallback.
 
 ## Verified, no defect found
 
@@ -44,7 +69,7 @@ External references (accessed 2026-09-13):
 | Raster tile pixels survive `DocumentCodec.encode → decode` | `packages/scene/src/__tests__/rasterLayer.test.ts`. |
 | Clipping-mask source remap on duplicate | `packages/editor/src/editor.test.tsx`; now also covered at scene level. |
 
-## Remaining limitations (not fixed in this pass)
+## Remaining limitations (after the follow-up)
 
 Severity: H = wrong final output / irreversible loss; M = degraded but visible;
 L = diagnostics/coverage only.
@@ -52,11 +77,10 @@ L = diagnostics/coverage only.
 | # | Limitation | Severity | Owner surface | Notes |
 |---|---|---|---|---|
 | A | Effect masks on shadow/glow/backdrop effects are ignored by every renderer; live canvas never resolves `scene-node`/`vector` effect masks | H (renderer) | `packages/engine/src/replay.ts`, `shadowSource.ts`, `canvas/renderPipeline.ts`, `render/replayScene.ts` | The Inspector no longer offers mask authoring for effect types that ignore masks (`effectSupportsMask`; content-stage only), and existing masks stay removable, but the renderers still do not evaluate them and the live canvas still has no effect-mask resolver. Needs per-effect mask semantics or an explicit degraded-preview state. |
-| B | Export loses background blur, glass, depth blur, spatial blurs, chromatic aberration, and glitch on groups | H | `packages/editor/src/render/replayScene.ts` group branch | `compositor.ts` marks these unsupported and forces rasterization, which then drops them. |
-| C | Live container flattening evaluates group effects in authored order with one out-of-band `layerBlur`, diverging from the leaf staged contract; group `depthBlur` is a no-op | M | `packages/editor/src/canvas/renderPipeline.ts` | Documented in `docs/architecture/layer-effects.md` "Known renderer gaps". |
+| B | Live container flattening evaluates group effects in authored order with one out-of-band `layerBlur`, diverging from the leaf staged contract; live group `depthBlur` remains a no-op | M | `packages/editor/src/canvas/renderPipeline.ts` | Structured export is staged and complete for visible group content effects; live parity is still open and documented in `docs/architecture/layer-effects.md`. |
 | D | Frame-owned effects see the frame's own item, not child pixels | M | `renderPipeline.ts`, `replayScene.ts` | Group flattening has the correct surface. |
 | E | Allocation refusal / failed pixel reads in effects are silent (no diagnostic channel) | M | `replay.ts`, `effectPipeline.ts`, `shadowSource.ts`, `renderPipeline.ts` | `filterCompositor`'s `onDiagnostic` exists but is unused in production. |
-| F | Flatten-boundary bounds ignore layer-effect overflow in `compositor.computeNodeBounds`, so an SVG/PDF-rasterized node can clip shadow/glow spill | M | `packages/editor/src/export/compositor.ts` | Full-node raster export does pad (`SpecPanel/export.ts`). |
+| F | Flatten-boundary bounds are conservative for nested effect overflow, but the shared `compositor.computeNodeBounds` contract still uses maximum subtree padding rather than accumulated staged support | M | `packages/editor/src/export/compositor.ts` | Direct node export now accumulates authored effect support in `SpecPanel/export.ts`; the batch SVG/PDF boundary remains a separate follow-up. |
 | G | Unknown node kinds are preserved by the codec but not traversed as containers, so their children are reported as orphans; no covered test for unknown-kind/field survival | L | `packages/scene/src/documentCodec.ts` | `version-utils.ts` / `version-migrations.ts` remain dead duplicate schemas (timestamped note in `docs/implementation/gradient-map-progress.md`). |
 | H | Recovery/auxiliary/detached snapshots now serialize correctly, but recovery does not warn when a legacy point already contains `{}` tiles | L | `packages/editor/src/recovery.ts` | Legacy empty maps decode without a warning by design (`documentCodec.ts` `normalizeRasterTiles`). |
 
@@ -82,6 +106,11 @@ workspace/toolchain edits, so the affected closure below was run directly).
 | E2E typecheck | `pnpm typecheck:e2e` | only pre-existing `packages/engine/src/depthMap.ts(846)` unused-var error from a concurrent session; zero errors in the new spec |
 | Group-opacity numeric (Chromium) | `VARVE_E2E_PORT=1473 pnpm exec playwright test tests/e2e/canvas/group-opacity-alpha.spec.ts --project=chromium` | transparent-page test PASSED (45 s): alpha is 0.5 in singly and doubly covered overlap regions, overlap is not 0.75; screenshot `reports/layer-fidelity/group-opacity-alpha.png` inspected — uniform 50% teal across single/overlap coverage |
 | Group-opacity over colored backdrop | same spec, second case | First browser run exposed a test-design weakness (all shapes share one default fill, making isolation unobservable); the backdrop is now recolored through `setSelectedFill` and the guard asserts the foreground differs from both its pre-group color and the untouched backdrop. A green browser run is pending: repeated reruns died in `page.goto` (120–180 s timeouts) while the shared machine was at load average 40–60. |
+| Structured group export replay | `pnpm exec vitest run --maxWorkers=1 packages/editor/src/render/replayScene.test.ts` | 10 passed, including group backdrop and multiple-layer-blur regressions |
+| Raster export utility | `pnpm exec vitest run --maxWorkers=1 packages/editor/src/components/SpecPanel/export.test.ts` | 21 passed |
+| Grouped spatial-blur export (real browser) | `VARVE_E2E_PORT=1793 VARVE_E2E_OUTPUT_DIR=layer-fidelity-export pnpm exec playwright test tests/e2e/export/compositor.spec.ts --project=chromium --grep "grouped spatial blur" --reporter=list` | 1 passed (3m 12s including cold Vite startup); export and live screenshots inspected |
+| Package/editor typecheck | `pnpm --filter @varve/editor typecheck` | blocked by pre-existing unrelated errors in the dirty checkout; no diagnostic referenced the changed replay/export files |
+| E2E typecheck | `pnpm typecheck:e2e` | blocked by pre-existing `packages/engine/src/canvasFontAliases.ts:307` and `packages/engine/src/replay.ts:1278`; no diagnostic referenced the new spec |
 
 Pending in this environment: the Chromium run of
 `tests/e2e/canvas/group-opacity-alpha.spec.ts` was attempted while every CPU

@@ -1,6 +1,6 @@
 # Layer Effects
 
-**Date:** 2026-09-07 | **Status:** Verified in the Canvas2D/editor path
+**Date:** 2026-09-13 | **Status:** Verified in the Canvas2D/editor and structured export paths
 
 Layer Effects are non-destructive appearance effects owned by the scene node
 that produces the pixels. They are distinct from Object Filters (adjustment
@@ -85,7 +85,12 @@ effect variants, but Canvas2D/software replay remains authoritative for
 effects that a target cannot reproduce natively. SVG/PDF/export consumers must
 rasterize the smallest affected compositing region when a target lacks the
 required blur, backdrop, alpha, mask, or procedural semantics. Text, vector
-geometry, and source raster assets remain editable in the document.
+geometry, and source raster assets remain editable in the document. The
+structured raster replay applies group-owned backdrop, content, and appearance
+effects to the flattened group surface before that region is emitted, including
+background blur, glass, depth/spatial blur, chromatic aberration, glitch, and
+multiple layer-blur entries. A raster region in a portable export is explicitly
+appearance-only.
 
 For pass-level details, see
 [Effect Rendering Architecture](effect-rendering.md). The marketing website
@@ -97,18 +102,18 @@ An executed audit (code inspection + tests, not documentation) found these
 fidelity gaps. They are stated here so the staged contract above is not read
 as a claim about every renderer:
 
-- **Live container flattening evaluates group effects in authored array
+- **Live container flattening still evaluates group effects in authored array
   order** (`packages/editor/src/canvas/renderPipeline.ts`, group branch) with
-  `layerBlur` applied out of band, instead of the leaf staged passes
-  (`packages/engine/src/replay.ts`). Only the first group `layerBlur` runs.
-  Leaf layers follow the staged contract.
-- **Export group effects cover a subset**: `packages/editor/src/render/replayScene.ts`
-  handles drop shadow, outer/inner glow, inner shadow, and one layer blur for
-  groups; background blur, glass, depth blur, spatial blurs, chromatic
-  aberration, and glitch on a group are absent from SVG/PDF raster fallbacks
-  without a warning.
-- **Group `depthBlur` is a no-op in both live and export container paths**
-  (image-workflow leaf conversion only).
+  `layerBlur` applied out of band, instead of using one shared staged helper
+  with the leaf renderer (`packages/engine/src/replay.ts`). The structured
+  export path is staged and applies every visible group content effect; live
+  parity remains tracked separately.
+- **Group effect masks remain content-stage-only.** Group backdrop and
+  appearance effects are now rendered, but `effect.mask` on
+  `backgroundBlur`, `glassMaterial`, shadows, and glows is still ignored by
+  every renderer. The Inspector hides mask authoring for those types and
+  preserves an existing mask for recovery; a future implementation needs a
+  declared mask-combination contract before enabling the control.
 - **Effect masks are applied to the content pass only.** `dropShadow`,
   `outerGlow`, `innerShadow`, `innerGlow`, `backgroundBlur`, and
   `glassMaterial` ignore `effect.mask` in every renderer. The Inspector now

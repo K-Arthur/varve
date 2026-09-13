@@ -1,3 +1,4 @@
+import { mkdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
@@ -7,6 +8,51 @@ const requireFromEngine = createRequire(join(process.cwd(), 'packages', 'engine'
 const { PNG } = requireFromEngine('pngjs') as {
   PNG: { sync: { read(input: Buffer): { width: number; height: number; data: Buffer } } };
 };
+
+async function updateNode(
+  page: import('@playwright/test').Page,
+  nodeId: string,
+  patch: Record<string, unknown>,
+): Promise<void> {
+  const updated = await page.evaluate(
+    ({ nodeId, patch }) => {
+      const root = document.getElementById('root');
+      if (!root) return false;
+      const key = Object.keys(root).find(
+        (candidate) =>
+          candidate.startsWith('__reactFiber$') || candidate.startsWith('__reactContainer$'),
+      );
+      if (!key) return false;
+      function find(fiber: Record<string, unknown> | null): Record<string, unknown> | null {
+        if (!fiber) return null;
+        for (const props of [fiber.memoizedProps, fiber.pendingProps]) {
+          const value = (props as Record<string, unknown> | undefined)?.value;
+          if (value && typeof value === 'object' && 'updateNode' in value) {
+            return value as Record<string, unknown>;
+          }
+        }
+        return (
+          find(fiber.child as Record<string, unknown> | null) ||
+          find(fiber.sibling as Record<string, unknown> | null)
+        );
+      }
+      const context = find(
+        (root as unknown as Record<string, unknown>)[key] as Record<string, unknown> | null,
+      );
+      const update = context?.updateNode as
+        | ((
+            id: string,
+            updater: (node: Record<string, unknown>) => Record<string, unknown>,
+          ) => void)
+        | undefined;
+      if (typeof update !== 'function') return false;
+      update(nodeId, (node) => ({ ...node, ...patch }));
+      return true;
+    },
+    { nodeId, patch },
+  );
+  expect(updated).toBe(true);
+}
 
 function expectOpaqueRasterEdges(png: { width: number; height: number; data: Buffer }) {
   const alphaAt = (x: number, y: number) => png.data[(y * png.width + x) * 4 + 3];
@@ -112,6 +158,102 @@ test.describe('Export compositor — structural flattening', () => {
     expect(png.width).toBeGreaterThan(0);
     expect(png.height).toBeGreaterThan(0);
     expectOpaqueRasterEdges(png);
+  });
+
+  test('Export a grouped spatial blur keeps its effect halo in the raster', async ({ page }) => {
+    await page.keyboard.press('r');
+    await dragOnCanvas(page, 100, 100, 220, 220);
+    await page.keyboard.press('r');
+    await dragOnCanvas(page, 180, 160, 300, 280);
+    await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 10000 });
+
+    const rows = page.getByRole('treeitem');
+    await rows.nth(0).click();
+    await rows.nth(1).click({ modifiers: ['Control'] });
+    const grouped = await page.evaluate(() => {
+      const root = document.getElementById('root');
+      if (!root) return false;
+      const key = Object.keys(root).find(
+        (candidate) =>
+          candidate.startsWith('__reactFiber$') || candidate.startsWith('__reactContainer$'),
+      );
+      if (!key) return false;
+      function find(fiber: Record<string, unknown> | null): Record<string, unknown> | null {
+        if (!fiber) return null;
+        for (const props of [fiber.memoizedProps, fiber.pendingProps]) {
+          const value = (props as Record<string, unknown> | undefined)?.value;
+          if (value && typeof value === 'object' && 'groupSelected' in value) {
+            return value as Record<string, unknown>;
+          }
+        }
+        return (
+          find(fiber.child as Record<string, unknown> | null) ||
+          find(fiber.sibling as Record<string, unknown> | null)
+        );
+      }
+      const context = find(
+        (root as unknown as Record<string, unknown>)[key] as Record<string, unknown> | null,
+      );
+      const groupSelected = context?.groupSelected as (() => unknown) | undefined;
+      if (typeof groupSelected !== 'function') return false;
+      groupSelected();
+      return true;
+    });
+    expect(grouped).toBe(true);
+
+    const group = page
+      .getByRole('treeitem')
+      .filter({ hasText: /^Group\b/ })
+      .first();
+    await group.click();
+    const groupId = await group.getAttribute('data-node-id');
+    expect(groupId).toBeTruthy();
+    await updateNode(page, groupId!, {
+      effects: [
+        {
+          id: 'group-gaussian-export',
+          type: 'gaussianBlur',
+          sigmaX: 8,
+          sigmaY: 8,
+          linkedAxes: true,
+          algorithmVersion: 1,
+          coordinateSpace: 'owner-normalized',
+          edgeMode: 'transparent',
+          visible: true,
+        },
+      ],
+    });
+    await page.waitForTimeout(500);
+
+    await selectExportTab(page);
+    await page
+      .locator('.spec-export__group')
+      .getByRole('button', { name: 'PNG', exact: true })
+      .click();
+    const downloadPromise = page.waitForEvent('download', { timeout: 15000 });
+    await page.getByRole('button', { name: /download/i }).click();
+    const download = await downloadPromise;
+    const exportPath = 'reports/layer-fidelity/group-spatial-blur-export.png';
+    mkdirSync('reports/layer-fidelity', { recursive: true });
+    await download.saveAs(exportPath);
+    const buffer = await (await import('node:fs/promises')).readFile(exportPath);
+    const png = PNG.sync.read(buffer);
+
+    // The two shapes occupy a 200×180 union. The group-owned blur must widen
+    // the export bounds and leave partial-alpha pixels in the halo; a dropped
+    // group effect produces the unexpanded opaque union instead.
+    expect(png.width).toBeGreaterThan(200);
+    expect(png.height).toBeGreaterThan(180);
+    let partialAlpha = 0;
+    for (let offset = 3; offset < png.data.length; offset += 4) {
+      const alpha = png.data[offset] ?? 0;
+      if (alpha > 0 && alpha < 255) partialAlpha += 1;
+    }
+    expect(partialAlpha).toBeGreaterThan(20);
+
+    await page.locator('canvas.editor-canvas__content-layer').screenshot({
+      path: 'reports/layer-fidelity/group-spatial-blur-live.png',
+    });
   });
 
   test('Export a clean document to SVG produces pure vector output', async ({ page }) => {

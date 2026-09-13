@@ -33,7 +33,7 @@ import {
   stripPngMetadata,
 } from '@varve/engine';
 import type { Document as SceneDocument, SceneNode, ShapeNode } from '@varve/scene';
-import { imageFill } from '@varve/scene';
+import { effectPadding, imageFill } from '@varve/scene';
 import type { MetadataPolicy } from '@varve/scene/export';
 import { capabilitiesForFormat } from '@varve/scene/export';
 import { DEFAULT_ARTWORK_FONT_FAMILY, transformRect } from '@varve/shared';
@@ -52,6 +52,7 @@ import {
 } from '../../render/mockup/mockupExport';
 import { replayStructuredScene } from '../../render/replayScene';
 import { flattenSceneToEngine } from '../../render/sceneToEngine';
+import { nodeWorldTransform } from '../../scene/world';
 import { worldBBox } from './measurement';
 
 export type RasterFormat = 'image/png' | 'image/jpeg' | 'image/webp';
@@ -126,6 +127,53 @@ function unionBounds(
   };
 }
 
+/**
+ * Add authored scene effects to export bounds, including effects owned by a
+ * container. RenderItem bounds only describe flattened leaves, so relying on
+ * them alone clips group-level blur, displacement, and glow spill.
+ */
+function sceneEffectPaddingWorld(node: SceneNode, doc: SceneDocument): number {
+  if (!('effects' in node) || !node.effects?.length) return 0;
+  let localPadding = 0;
+  for (const effect of node.effects) {
+    if (effect.visible === false) continue;
+    const padding = effectPadding(effect);
+    localPadding += Math.max(padding.left, padding.top, padding.right, padding.bottom);
+  }
+  const transform = nodeWorldTransform(doc, node.id);
+  const scale = Math.max(
+    Math.hypot(transform[0], transform[1]),
+    Math.hypot(transform[2], transform[3]),
+    1,
+  );
+  return localPadding * scale;
+}
+
+function expandSubtreeEffectBounds(
+  node: SceneNode,
+  doc: SceneDocument,
+  initial: { x: number; y: number; w: number; h: number } | null,
+): { x: number; y: number; w: number; h: number } | null {
+  let bounds = initial;
+  const stack = [node.id];
+  const visited = new Set<string>();
+  while (stack.length > 0) {
+    const id = stack.pop()!;
+    if (visited.has(id)) continue;
+    visited.add(id);
+    const current = doc.nodes[id];
+    if (!current || current.visible === false) continue;
+    if ('effects' in current && current.effects?.length) {
+      const geometry = worldBBox(current, doc);
+      const padding = sceneEffectPaddingWorld(current, doc);
+      const visual = expandRect(geometry, padding);
+      bounds = bounds ? unionBounds(bounds, visual) : visual;
+    }
+    if ('children' in current) stack.push(...current.children);
+  }
+  return bounds;
+}
+
 /** Bounds of every pixel the resolved render IR may emit. */
 function exportWorldBounds(
   node: SceneNode,
@@ -153,6 +201,7 @@ function exportWorldBounds(
       bounds = expandRect(geometry, appearancePaddingWorld(rootItem, rootItem.transform));
     }
   }
+  bounds = expandSubtreeEffectBounds(node, doc, bounds);
   bounds ??= worldBBox(node, doc);
   const x = Math.floor(bounds.x);
   const y = Math.floor(bounds.y);

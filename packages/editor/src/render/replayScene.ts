@@ -15,13 +15,20 @@ import {
   acquireMaskSurface,
   adjustmentsToFilters,
   applyAlphaSpread,
+  applyBackgroundBlurBackdrop,
+  applyChromaticAberration,
+  applyDepthBlur,
   applyFilterWithCompositing,
-  applyLayerBlur,
+  applyGlassMaterialBackdrop,
+  applyGlitch,
   applyMaskAlpha,
+  applySpatialBlur,
   buildInnerGlowImage,
   buildOuterGlowImage,
   CompositeCanvas,
+  computeScreenBounds,
   createRasterSurface,
+  deserializeDepthMap,
   type EffectMaskResolver,
   type EffectQuality,
   type FilterIR,
@@ -33,6 +40,7 @@ import {
   type ReplayTarget,
   releaseMaskSurface,
   replayIr,
+  resizeDepthMap,
   totalEffectExpansion,
   traceSceneNodeOutline,
 } from '@varve/engine';
@@ -41,8 +49,8 @@ import type { Document, Effect, ManagedColor, Mask, NodeId } from '@varve/scene'
 import {
   activeSmartFilters,
   effectivePaintOrder,
+  effectPadding,
   isLiveBooleanNode,
-  nodeEffectPadding,
   resolveAdjustmentScope,
 } from '@varve/scene';
 import { managedColorToRgba, tryInvertAffine } from '@varve/shared';
@@ -119,15 +127,24 @@ function traceEffectVectorMask(
 /** Maximum effect expansion over a subtree, used to pad the flatten surface. */
 function subtreeEffectPadding(document: Document, rootIds: readonly NodeId[]): number {
   let padding = 2;
-  const stack = [...rootIds];
+  const stack = rootIds.map((id) => ({ id, inherited: 0 }));
   while (stack.length > 0) {
-    const node = document.nodes[stack.pop()!];
+    const entry = stack.pop()!;
+    const node = document.nodes[entry.id];
     if (!node) continue;
+    let own = 0;
     if ('effects' in node && node.effects) {
-      const p = nodeEffectPadding(node as { effects?: Array<Record<string, unknown>> });
-      padding = Math.max(padding, p.left, p.right, p.top, p.bottom);
+      for (const effect of node.effects) {
+        if (effect.visible === false) continue;
+        const p = effectPadding(effect);
+        own += Math.max(p.left, p.right, p.top, p.bottom);
+      }
+      padding = Math.max(padding, entry.inherited + own);
     }
-    if ('children' in node) stack.push(...node.children);
+    if ('children' in node) {
+      const inherited = entry.inherited + own;
+      for (const childId of node.children) stack.push({ id: childId, inherited });
+    }
   }
   return Math.ceil(padding);
 }
@@ -327,6 +344,241 @@ function applyGroupInsetEffect(
     dst.data[i + 3] = Math.max(dst.data[i + 3]!, glowData.data[i + 3]!);
   }
   ctx.putImageData(dst, 0, 0);
+}
+
+type GroupBackdropEffect = Extract<Effect, { type: 'backgroundBlur' | 'glassMaterial' }>;
+type EngineChromaticEffect = Parameters<typeof applyChromaticAberration>[3];
+type EngineGlitchEffect = Parameters<typeof applyGlitch>[3];
+type GroupContentEffect = Extract<
+  Effect,
+  {
+    type:
+      | 'layerBlur'
+      | 'depthBlur'
+      | 'gaussianBlur'
+      | 'fieldBlur'
+      | 'irisBlur'
+      | 'tiltShiftBlur'
+      | 'pathBlur'
+      | 'spinBlur'
+      | 'chromaticAberration'
+      | 'glitch';
+  }
+>;
+
+function isGroupContentEffect(effect: Effect): effect is GroupContentEffect {
+  return (
+    effect.type === 'layerBlur' ||
+    effect.type === 'depthBlur' ||
+    effect.type === 'gaussianBlur' ||
+    effect.type === 'fieldBlur' ||
+    effect.type === 'irisBlur' ||
+    effect.type === 'tiltShiftBlur' ||
+    effect.type === 'pathBlur' ||
+    effect.type === 'spinBlur' ||
+    effect.type === 'chromaticAberration' ||
+    effect.type === 'glitch'
+  );
+}
+
+/**
+ * Apply content-stage effects to the already-composited group surface.
+ *
+ * A group effect is not an item in the flattened render IR, so routing it
+ * through replayIr would either paint the children twice or apply the effect
+ * to each child independently. Keeping the stage here preserves the authored
+ * group boundary while reusing the engine's canonical pixel operations.
+ */
+function applyGroupContentEffects(
+  documentModel: Document,
+  gCanvas: CompositeCanvas,
+  effects: readonly Effect[],
+): void {
+  for (const effect of effects) {
+    if (!effect.visible || !isGroupContentEffect(effect)) continue;
+    if (effect.type === 'layerBlur') {
+      try {
+        gCanvas.applyBlur(effect.radius);
+      } catch {
+        // A refused readback leaves the authoritative pre-effect surface.
+      }
+      continue;
+    }
+    if (effect.type === 'depthBlur') {
+      const resource = documentModel.depthMaps?.[effect.depthMapId];
+      if (!resource) continue;
+      try {
+        const input = gCanvas.getImageData(0, 0, gCanvas.width, gCanvas.height);
+        const decoded = deserializeDepthMap(resource);
+        const depthMap = resizeDepthMap(decoded, input.width, input.height);
+        gCanvas.putImageData(
+          applyDepthBlur(input, depthMap, {
+            blurAmount: effect.blurStrength,
+            focalDepth: effect.focusDepth,
+            transitionRange: effect.focusRange * Math.max(0, effect.falloff),
+            invert: effect.invert,
+            edgeProtection: effect.edgeProtection,
+          }),
+          0,
+          0,
+        );
+      } catch {
+        // A missing/corrupt depth resource must not blank the group. The
+        // unmodified surface remains the safe, visible rendering fallback.
+      }
+      continue;
+    }
+    if (
+      effect.type === 'gaussianBlur' ||
+      effect.type === 'fieldBlur' ||
+      effect.type === 'irisBlur' ||
+      effect.type === 'tiltShiftBlur' ||
+      effect.type === 'pathBlur' ||
+      effect.type === 'spinBlur'
+    ) {
+      try {
+        const input = gCanvas.getImageData(0, 0, gCanvas.width, gCanvas.height);
+        gCanvas.putImageData(
+          applySpatialBlur(input, effect as unknown as Parameters<typeof applySpatialBlur>[1]),
+          0,
+          0,
+        );
+      } catch {
+        // Constrained runtimes keep the authoritative pre-effect surface.
+      }
+      continue;
+    }
+    if (effect.type === 'chromaticAberration') {
+      try {
+        applyChromaticAberration(
+          gCanvas,
+          gCanvas.width,
+          gCanvas.height,
+          effect as unknown as EngineChromaticEffect,
+        );
+      } catch {
+        // Keep the source surface if a pixel allocation is refused.
+      }
+      continue;
+    }
+    if (effect.type === 'glitch') {
+      try {
+        applyGlitch(
+          gCanvas,
+          gCanvas.width,
+          gCanvas.height,
+          effect as unknown as EngineGlitchEffect,
+        );
+      } catch {
+        // Keep the source surface if a pixel allocation is refused.
+      }
+    }
+  }
+}
+
+/**
+ * Paint a group backdrop effect before the group surface. The captured result
+ * is clipped by the group's rendered alpha silhouette, so a non-rectangular
+ * group does not turn background blur/glass into a rectangular overlay.
+ */
+function compositeGroupBackdropEffect(
+  target: SceneContext,
+  effect: GroupBackdropEffect,
+  gCanvas: CompositeCanvas,
+  dx: number,
+  dy: number,
+  dw: number,
+  dh: number,
+  groupOpacity: number,
+): void {
+  const source = target.canvas as HTMLCanvasElement | OffscreenCanvas;
+  const transform = target.getTransform?.();
+  if (!source || !transform) return;
+
+  const radius = effect.type === 'backgroundBlur' ? effect.radius : effect.blur;
+  const blurPad = Math.ceil(Math.max(0, radius) * 3);
+  const screen = computeScreenBounds(transform, dx, dy, dw, dh);
+  const scaleX = Math.max(1e-6, Math.hypot(transform.a, transform.b));
+  const scaleY = Math.max(1e-6, Math.hypot(transform.c, transform.d));
+  const padX = Math.ceil(blurPad * scaleX);
+  const padY = Math.ceil(blurPad * scaleY);
+  const capX = screen.x - padX;
+  const capY = screen.y - padY;
+  const capW = Math.max(1, screen.w + padX * 2);
+  const capH = Math.max(1, screen.h + padY * 2);
+
+  try {
+    const backdrop = new CompositeCanvas({
+      width: capW,
+      height: capH,
+      devicePixelRatio: 1,
+      testCanvas: document.createElement('canvas'),
+    });
+    backdrop.captureSource(source, capX, capY, capW, capH, 0, 0);
+    if (effect.type === 'backgroundBlur') {
+      applyBackgroundBlurBackdrop(backdrop, capW, capH, effect.radius);
+    } else {
+      backdrop.applyBlur(effect.blur);
+      applyGlassMaterialBackdrop(backdrop, capW, capH, effect);
+    }
+
+    const silhouette = new CompositeCanvas({
+      width: capW,
+      height: capH,
+      devicePixelRatio: 1,
+      testCanvas: document.createElement('canvas'),
+    });
+    const silhouetteCtx = silhouette.ctx;
+    silhouetteCtx.save();
+    silhouetteCtx.setTransform(
+      transform.a,
+      transform.b,
+      transform.c,
+      transform.d,
+      transform.e - capX,
+      transform.f - capY,
+    );
+    silhouetteCtx.drawImage(
+      gCanvas.canvas as CanvasImageSource,
+      0,
+      0,
+      gCanvas.canvas.width,
+      gCanvas.canvas.height,
+      dx,
+      dy,
+      dw,
+      dh,
+    );
+    silhouetteCtx.restore();
+
+    const backdropCtx = backdrop.ctx;
+    backdropCtx.save();
+    backdropCtx.setTransform(1, 0, 0, 1, 0, 0);
+    backdropCtx.globalCompositeOperation = 'destination-in';
+    backdropCtx.drawImage(silhouette.canvas as CanvasImageSource, 0, 0);
+    backdropCtx.restore();
+
+    target.save();
+    target.setTransform(1, 0, 0, 1, 0, 0);
+    target.globalAlpha = groupOpacity;
+    target.globalCompositeOperation = 'source-over';
+    target.drawImage(
+      backdrop.canvas as CanvasImageSource,
+      0,
+      0,
+      capW,
+      capH,
+      capX,
+      capY,
+      capW,
+      capH,
+    );
+    target.restore();
+  } catch {
+    // Backdrop effects are an optional preview/export stage. A refused
+    // allocation leaves the original target intact; the authored group
+    // content is still painted immediately after this function.
+  }
 }
 
 export function replayStructuredScene(context: SceneContext, input: StructuredReplayInput): void {
@@ -870,7 +1122,7 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
           }
         }
         if (Number.isFinite(minX)) {
-          const padding = subtreeEffectPadding(input.document, node.children);
+          const padding = subtreeEffectPadding(input.document, [nodeId, ...node.children]);
           const groupWidth = Math.max(1, maxX - minX + padding * 2);
           const groupHeight = Math.max(1, maxY - minY + padding * 2);
           const m = target.getTransform();
@@ -933,6 +1185,21 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
           const dx = minX - padding;
           const dy = minY - padding;
           for (const effect of visibleEffects) {
+            if (effect.type === 'backgroundBlur' || effect.type === 'glassMaterial') {
+              compositeGroupBackdropEffect(
+                target,
+                effect,
+                gCanvas,
+                dx,
+                dy,
+                groupWidth,
+                groupHeight,
+                gopacity,
+              );
+            }
+          }
+          applyGroupContentEffects(input.document, gCanvas, visibleEffects);
+          for (const effect of visibleEffects) {
             if (effect.type === 'dropShadow' || effect.type === 'outerGlow') {
               compositeGroupOuterEffect(
                 target,
@@ -960,41 +1227,17 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
             target.globalCompositeOperation = mapBlendMode(blendMode) as GlobalCompositeOperation;
           }
           target.globalAlpha = gopacity;
-          const layerBlur = visibleEffects.find((effect) => effect.type === 'layerBlur');
-          if (layerBlur && layerBlur.type === 'layerBlur' && layerBlur.radius > 0) {
-            applyLayerBlur(
-              target as unknown as {
-                drawImage?: (
-                  src: CanvasImageSource,
-                  dx: number,
-                  dy: number,
-                  dw: number,
-                  dh: number,
-                ) => void;
-                save?: () => void;
-                restore?: () => void;
-                filter?: string;
-              },
-              gCanvas,
-              layerBlur.radius,
-              dx,
-              dy,
-              groupWidth,
-              groupHeight,
-            );
-          } else {
-            target.drawImage(
-              gCanvas.canvas as unknown as CanvasImageSource,
-              0,
-              0,
-              gCanvas.canvas.width,
-              gCanvas.canvas.height,
-              dx,
-              dy,
-              groupWidth,
-              groupHeight,
-            );
-          }
+          target.drawImage(
+            gCanvas.canvas as unknown as CanvasImageSource,
+            0,
+            0,
+            gCanvas.canvas.width,
+            gCanvas.canvas.height,
+            dx,
+            dy,
+            groupWidth,
+            groupHeight,
+          );
           target.restore();
           return;
         }

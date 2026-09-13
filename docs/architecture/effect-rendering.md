@@ -125,6 +125,34 @@ small exposure/curves/LUT treatment from allocating a full viewport while
 keeping blur, displacement, dither, grain, halftone, and similar treatments
 on their authoritative path.
 
+## Container replay
+
+Groups and frames are not represented as ordinary leaf `RenderItem` effects.
+When a container has isolation, non-default opacity/blend, or visible owned
+effects, `packages/editor/src/render/replayScene.ts` first composites its
+children into a bounded `CompositeCanvas`. The structured export/print replay
+then evaluates the same stages against that surface:
+
+1. backdrop effects capture the already-painted parent canvas and are masked by
+   the container's rendered alpha silhouette;
+2. content effects run once over the composited child surface, in authored
+   order within the content stage; and
+3. shadows/glows are generated from that post-content silhouette before the
+   final group opacity and blend operation.
+
+The group surface and export bounds include conservative accumulated support for
+visible effects in the selected subtree. This prevents a portable raster
+boundary from cropping blur or displacement spill while leaving the source
+hierarchy editable. The live CanvasArea container path still has a separate
+implementation and its group-effect ordering/depth-blur limitations are
+documented in [Layer Effects](layer-effects.md); parity work must keep both
+paths on this staged contract.
+
+Effect masks on backdrop and appearance effects remain intentionally disabled
+in the Inspector until their mask-combination semantics are specified. An
+existing authored mask is retained for recovery but is not silently presented
+as rendered support.
+
 Portable raster and composite surfaces validate their axis and area limits
 before constructing a backing store. If a content-effect extent or a later
 readback is not allocatable, the item renders its authoritative fills/strokes

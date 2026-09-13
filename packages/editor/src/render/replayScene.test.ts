@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { createEngine } from '@varve/engine';
+import { CompositeCanvas, createEngine } from '@varve/engine';
 import { isRasterPyramidEnabled, setRasterPyramidEnabled } from '@varve/engine/rasterPyramid';
 import {
   addChild,
@@ -119,6 +119,77 @@ describe('replayStructuredScene', () => {
     // shadow-only scratch canvas) via drawImage — not be silently dropped.
     expect(drawImage).toHaveBeenCalled();
     expect(context.globalCompositeOperation).toBe('source-over');
+  });
+
+  it('composites group background blur through the rendered alpha silhouette', async () => {
+    let sceneDocument = createDocument('Group backdrop export', true);
+    const group = makeGroupNode('group', {
+      effects: [{ type: 'backgroundBlur', radius: 4, visible: true }],
+    });
+    const child = makeShapeNode(
+      'child',
+      { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+      { transform: [1, 0, 0, 1, 10, 10] },
+    );
+    sceneDocument = addNode(sceneDocument, group);
+    sceneDocument = addChild(sceneDocument, group.id, child);
+    const flattened = flattenSceneToEngine(sceneDocument, [group.id]);
+    const engine = await createEngine('stub');
+    const items = await engine.buildIr({ nodes: flattened.nodes });
+    const canvas = document.createElement('canvas');
+    canvas.width = 200;
+    canvas.height = 200;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('test canvas unavailable');
+    if (typeof context.getTransform !== 'function') {
+      context.getTransform = () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }) as DOMMatrix;
+    }
+    const drawImage = vi.spyOn(context, 'drawImage');
+
+    replayStructuredScene(context, {
+      document: sceneDocument,
+      rootIds: [group.id],
+      flattenedIds: flattened.ids,
+      items,
+    });
+
+    const nineArg = drawImage.mock.calls.filter((call) => call.length === 9);
+    expect(nineArg.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('applies every authored group layer blur instead of only the first', async () => {
+    let sceneDocument = createDocument('Multiple group blurs', true);
+    const group = makeGroupNode('group', {
+      effects: [
+        { type: 'layerBlur', radius: 2, visible: true },
+        { type: 'layerBlur', radius: 3, visible: true },
+      ],
+    });
+    const child = makeShapeNode('child', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    sceneDocument = addNode(sceneDocument, group);
+    sceneDocument = addChild(sceneDocument, group.id, child);
+    const flattened = flattenSceneToEngine(sceneDocument, [group.id]);
+    const engine = await createEngine('stub');
+    const items = await engine.buildIr({ nodes: flattened.nodes });
+    const canvas = document.createElement('canvas');
+    canvas.width = 200;
+    canvas.height = 200;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('test canvas unavailable');
+    if (typeof context.getTransform !== 'function') {
+      context.getTransform = () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }) as DOMMatrix;
+    }
+    const applyBlur = vi.spyOn(CompositeCanvas.prototype, 'applyBlur');
+
+    replayStructuredScene(context, {
+      document: sceneDocument,
+      rootIds: [group.id],
+      flattenedIds: flattened.ids,
+      items,
+    });
+
+    expect(applyBlur).toHaveBeenCalledTimes(2);
+    applyBlur.mockRestore();
   });
 
   it('applies container opacity and blend mode after alpha-mask compositing', async () => {
