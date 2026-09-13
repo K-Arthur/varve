@@ -42,6 +42,7 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
           <li><strong>Pencil tool:</strong> Freehand drawing with automatic bezier curve fitting (Schneider algorithm)</li>
           <li><strong>Node editing:</strong> Select and drag individual anchors and bezier handles on any path</li>
           <li><strong>Boolean operations:</strong> Union, subtract, intersect, exclude on selected shapes</li>
+          <li><strong>Shape Builder:</strong> Preview individual overlap regions, then merge, erase, extract, create, or divide them with one undoable operation</li>
           <li><strong>Transformation:</strong> Move, rotate, scale with affine transforms and centroid-based scaling</li>
           <li><strong>Layers:</strong> A dense, virtualized hierarchy with search, filters, thumbnails, compact drag handles, inline rename, and precise before/after/into reparenting</li>
           <li><strong>Groups and frames:</strong> Group/ungroup, spatial containers with flex and grid auto-layout</li>
@@ -70,7 +71,7 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
         <div class="limitations">
           <p><strong>Current limitations:</strong></p>
           <ul>
-            <li>Complex boolean operations on curved paths may produce approximate results</li>
+            <li>Complex boolean and Shape Builder results on curved paths use bounded, documented approximation; original sources remain available with Create</li>
             <li>Advanced grid track functions and absolute-child anchoring remain limited; use the <a href={sitePath('/docs/tools/auto-layout')}>Auto Layout guide</a> for the supported responsive subset</li>
           </ul>
         </div>
