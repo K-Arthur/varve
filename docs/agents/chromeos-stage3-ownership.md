@@ -2,10 +2,10 @@
 
 **Task:** `chromeos-stage3-2026-09-12` (rendering, responsiveness, memory, slow
 storage, optional AI)
-**Coordinator:** opencode (graphics/performance session)
+**Coordinator:** codex /root
 **Started:** 2026-09-12
 **Updated:** 2026-09-12
-**Base SHA:** `c4e16a7f763887b2f1feb64a20e7c5c621da307e`
+**Base SHA:** `0a1ef3d9010f4f4a117c01453c8ef7f498bdd9eb`
 **Branch/worktree:** `master` / `/home/kevina/CodingProjects/varve` (explicit
 user instruction: work on `master`, not a new branch)
 
@@ -41,19 +41,22 @@ session). No second performance manager: all changes extend the existing
 |---|---|
 | `docs/agents/chromeos-stage3-ownership.md` | This record |
 | `docs/audits/chromeos-stage3-rendering-ai-2026-09-12.md` | Research ledger, diagnosis, evidence, limits |
-| `packages/editor/src/canvas/adaptiveProfile.ts` (+ its test) | Truthful adaptive profile |
-| `packages/editor/src/canvas/viewportPrefetch.ts` (+ test) | Profile-gated idle prefetch, hidden suspension |
-| `packages/editor/src/canvas/memoryBudget.ts` (only if byte budgeting is needed) | Existing budget authority |
-| `packages/editor/src/render/offscreenCapabilityProbe.ts` | Probe lifecycle/revalidation if evidence requires |
-| `packages/editor/src/performance/capabilityReport.ts` (+ test) | Extend the Stage 1 report, do not duplicate |
-| `packages/engine/src/upscaleProviders/aiUpscale.ts` and related provider tests | Real provider gating, cancellation, disposal |
-| `packages/editor/src/components/Settings/PerformanceSettingsTab.tsx` + `settings.ts` (only if a user override is required) | Existing settings system |
-| `tests/e2e/canvas/` or `tests/e2e/browser/` new spec files | Acceptance + visual evidence |
-| `apps/website/src/pages/docs/browser-demo.astro`, `support/faq.astro`, `product.astro` | Evidence-backed marketing copy |
+| `packages/editor/src/performance/frameCadence.ts` (+ test) | Conservative visible-rAF cadence estimator |
+| `packages/editor/src/performance/frameScheduler.ts`, `editorFrameRuntime.ts` | Dynamic frame budgets and lifecycle wiring |
+| `packages/editor/src/canvas/frameBudget.ts`, `adaptiveProfile.ts` (+ tests) | Class-tail adaptive policy |
+| `packages/platform/src/derivedWorkAdmission.ts` (+ test) | Shared bounded disposable-work admission |
+| `packages/editor/src/thumbnail/`, `packages/engine/src/rasterPyramid/`, `packages/platform/src/semanticEmbeddingQueue.ts` | Lease integration; preserve queue semantics |
+| `packages/editor/src/render/adaptiveResidency.ts`, image/worker budget adapters, compositor GPU cleanup | Actual resource accounting and release |
+| `packages/platform/src/web-db.ts`, `packages/platform/src/web.ts` (+ tests) | Browser metadata sidecar and lazy DB lifecycle |
+| `packages/editor/src/recovery.ts`, `autoSaveService.ts` (+ tests) | Indexed recovery index and serialized recovery path |
+| `packages/engine/src/inference/` and provider tests | Qualification, bounded fallback, session disposal (after handoff) |
+| `packages/editor/src/components/Settings/` (only if existing controls need wiring) | Existing settings integration |
+| `tests/e2e/canvas/`, `tests/e2e/browser/` new specs | Acceptance, pixel oracle, visual evidence |
+| `apps/website/src/pages/product.astro`, clean performance/support docs | Evidence-backed marketing copy |
 
 **Deliberately not owned:** `packages/editor/src/CanvasArea.tsx`,
-`Shell.tsx`, `context.tsx` (hub import ceilings and active writers); Stage 2
-persistence/recovery/service-worker files; Stage 5 website files
+`Shell.tsx`, `context.tsx` (hub import ceilings and active writers); service
+worker files; Stage 5 website files
 (`docs/chromeos-linux.astro`, `download.astro`, `support/troubleshooting.astro`);
 the modified font/clipboard/generative/UI paths in the worktree belong to their
 active agents. AI model registry paths under `packages/ai` and
@@ -80,16 +83,15 @@ that area at this snapshot.
   paths listed above.
 - Serialize commits on `master`; no rebase, reset, global stash, history
   rewrite, force-push, or worktree removal.
-- Reserve `VARVE_E2E_PORT=1496` for browser runs from this task (1491/1492
-  Stage 1/2, 1493 Stage 5, 1494 used by Stage 2 evidence, 1495 occupied;
-  1420/1481 other agents). Do not run heavy suites while other agents'
-  vitest/Playwright jobs are active.
-- Stage 4 (input/responsive) owns `apps/website/src/pages/docs/browser-demo.astro`,
+- Reserve `VARVE_E2E_PORT=1498` for browser runs from this task when free;
+  otherwise use the first free port in `15000-15009`. Do not run heavy suites
+  while another workload is active.
+- Stage 4 owns `apps/website/src/pages/docs/browser-demo.astro`,
   `apps/website/src/pages/support/troubleshooting.astro`, and
-  `tests/e2e/interaction/*`. Stage 3 uses `product.astro`,
-  `tests/e2e/canvas/*`, and `docs/audits/chromeos-stage3-*` instead.
-- Temporary evidence lives in `/tmp/varve-chromeos-stage3-*`; only distilled
-  results are committed.
+  `tests/e2e/interaction/*`. Stage 3 uses clean performance/product paths,
+  `tests/e2e/canvas/*`, and `docs/audits/chromeos-stage3-*` only after handoff.
+- Temporary evidence lives in `/tmp/varve-chromeos-stage3-<base-sha>/`; only
+  distilled results are committed.
 - Paired measurements only: same build, viewport/DPR, machine load, and power
   state; no comparative numbers taken while another agent's workload runs.
 
@@ -99,3 +101,5 @@ that area at this snapshot.
   behavior, real storage-pressure autosave, and installed-app performance.
 - Support-matrix tier promotion is not claimed here.
 - Stage 5 Linux ARM64 remains independent.
+- The v6 browser database is forward-only. A v6-aware legacy mode is the
+  rollback path; an unmodified v5 client cannot open a higher-version IDB.
