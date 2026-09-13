@@ -1,10 +1,11 @@
 import type { Shape } from '@varve/engine';
-import { createDocument, makeShapeNode } from '@varve/scene';
+import { createDocument, makeShapeNode, makeTextNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
   invertSelectionCmd,
   selectAllChildrenCmd,
   selectAllWithSameBlendModeCmd,
+  selectAllWithSameFontCmd,
   selectAllWithSameOpacityCmd,
   selectChildrenCmd,
   selectNextSiblingCmd,
@@ -355,6 +356,84 @@ describe('selectionCommands', () => {
       const { selection } = selectAllChildrenCmd(doc, 'parent');
       expect(selection).toContain('child');
       expect(selection).toContain('grandchild');
+    });
+  });
+
+  describe('selectAllWithSameFontCmd', () => {
+    it('matches inherited and rich-text fonts, including an exact face', () => {
+      let doc = createDocument('font-selection');
+      const reference = { artifactHash: 'a'.repeat(64), collectionIndex: 0 };
+      const primary = makeTextNode('primary', 'Primary', {
+        fontFamily: 'Inter',
+        fontReference: reference,
+      });
+      const inherited = makeTextNode('inherited', 'Inherited', { styleId: 'body' });
+      const rich = makeTextNode('rich', 'Rich', {
+        fontFamily: 'Roboto',
+        richText: {
+          paragraphs: [
+            {
+              runs: [{ text: 'Inter', format: { fontFamily: 'Inter', fontReference: reference } }],
+            },
+          ],
+        },
+      });
+      const otherArtifact = makeTextNode('other-artifact', 'Other', {
+        fontFamily: 'Inter',
+        fontReference: { artifactHash: 'b'.repeat(64), collectionIndex: 0 },
+      });
+      doc = {
+        ...doc,
+        nodes: { ...doc.nodes, primary, inherited, rich, 'other-artifact': otherArtifact },
+        rootChildren: ['primary', 'inherited', 'rich', 'other-artifact'],
+        styles: {
+          ...doc.styles,
+          body: {
+            id: 'body',
+            type: 'text',
+            name: 'Body',
+            fontFamily: 'Inter',
+            fontSize: 16,
+          },
+        },
+      } as typeof doc;
+
+      const { selection } = selectAllWithSameFontCmd(doc, 'primary');
+      expect(selection).toEqual(['primary', 'rich']);
+      expect(selection).not.toContain('inherited');
+      expect(selection).not.toContain('other-artifact');
+    });
+
+    it('matches all exact faces when the primary request is family-only', () => {
+      let doc = createDocument('family-selection');
+      const a = makeTextNode('a', 'A', {
+        fontFamily: 'Inter',
+        fontReference: { artifactHash: 'a' },
+      });
+      const b = makeTextNode('b', 'B', {
+        fontFamily: 'Inter',
+        fontReference: { artifactHash: 'b' },
+      });
+      const c = makeTextNode('c', 'C', { fontFamily: 'Roboto' });
+      doc = {
+        ...doc,
+        nodes: { ...doc.nodes, a, b, c },
+        rootChildren: ['a', 'b', 'c'],
+      } as typeof doc;
+
+      expect(selectAllWithSameFontCmd(doc, 'a').selection).toEqual(['a']);
+      expect(selectAllWithSameFontCmd(doc, 'c').selection).toEqual(['c']);
+      const familyOnly = makeTextNode('family-only', 'Family', { fontFamily: 'Inter' });
+      doc = {
+        ...doc,
+        nodes: { ...doc.nodes, 'family-only': familyOnly },
+        rootChildren: [...doc.rootChildren, 'family-only'],
+      } as typeof doc;
+      expect(selectAllWithSameFontCmd(doc, 'family-only').selection).toEqual([
+        'family-only',
+        'a',
+        'b',
+      ]);
     });
   });
 

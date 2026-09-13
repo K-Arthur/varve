@@ -594,6 +594,7 @@ export function makeTextNode(
       | 'h'
       | 'fontSize'
       | 'fontFamily'
+      | 'fontReference'
       | 'fontWeight'
       | 'fontStyle'
       | 'lineHeight'
@@ -643,6 +644,7 @@ export function makeTextNode(
     fill: opts.fill ?? { space: 'rgb', r: 16, g: 21, b: 31, a: 255 },
     fontSize: opts.fontSize ?? 16,
     fontFamily: opts.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY,
+    fontReference: opts.fontReference,
     fontWeight: opts.fontWeight ?? 400,
     fontStyle: opts.fontStyle ?? 'normal',
     lineHeight: opts.lineHeight ?? 1.2,

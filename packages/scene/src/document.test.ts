@@ -583,6 +583,15 @@ describe('makeTextNode', () => {
     expect(node.letterSpacing).toBe(2);
   });
 
+  it('preserves an exact font reference override', () => {
+    const reference = { artifactHash: 'a'.repeat(64), collectionIndex: 1 };
+    const node = makeTextNode('t-reference', 'Portable face', {
+      fontFamily: 'Inter',
+      fontReference: reference,
+    });
+    expect(node.fontReference).toEqual(reference);
+  });
+
   it('accepts advanced typography properties', () => {
     const node = makeTextNode('t4', 'Advanced', {
       textAlignVertical: 'middle',

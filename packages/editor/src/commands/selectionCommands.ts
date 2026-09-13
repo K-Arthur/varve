@@ -31,6 +31,67 @@ function isSelectable(n: SceneNode | undefined): n is SceneNode {
   return !!n && !n.locked && n.visible !== false;
 }
 
+type FontReferenceLike = {
+  artifactHash: string;
+  collectionIndex?: number;
+  postScriptName?: string;
+};
+
+function fontKey(family: string | undefined, reference?: FontReferenceLike): string | undefined {
+  if (!family) return undefined;
+  const normalized = family.trim().toLocaleLowerCase();
+  if (!reference) return `family:${normalized}`;
+  return `face:${normalized}:${reference.artifactHash.toLocaleLowerCase()}:${reference.collectionIndex ?? 'single'}:${reference.postScriptName?.toLocaleLowerCase() ?? ''}`;
+}
+
+function effectivelySelectable(doc: Document, id: NodeId): boolean {
+  let current: NodeId | undefined = id;
+  const visited = new Set<NodeId>();
+  while (current && !visited.has(current)) {
+    visited.add(current);
+    if (!isSelectable(doc.nodes[current])) return false;
+    current = getParent(doc, current) ?? undefined;
+  }
+  return true;
+}
+
+function textFontKeys(doc: Document, node: Extract<SceneNode, { kind: 'text' }>): string[] {
+  const style = node.styleId ? doc.styles?.[node.styleId] : undefined;
+  const styleFont = style?.type === 'text' ? style : undefined;
+  const baseFamily = node.fontFamily ?? styleFont?.fontFamily;
+  const baseReference = node.fontReference ?? styleFont?.fontReference;
+  const keys = new Set<string>();
+  const add = (family: string | undefined, reference?: FontReferenceLike) => {
+    const key = fontKey(family, reference);
+    if (key) keys.add(key);
+  };
+
+  add(baseFamily, baseReference);
+  for (const paragraph of node.richText?.paragraphs ?? []) {
+    for (const run of paragraph.runs) {
+      add(run.format?.fontFamily ?? baseFamily, run.format?.fontReference ?? baseReference);
+    }
+  }
+
+  const story = node.storyBinding ? doc.stories?.[node.storyBinding.storyId] : undefined;
+  for (const paragraph of story?.content.paragraphs ?? []) {
+    for (const run of paragraph.runs) {
+      add(run.format?.fontFamily ?? baseFamily, run.format?.fontReference ?? baseReference);
+    }
+  }
+  return [...keys];
+}
+
+function sameFontKey(target: string, candidate: string): boolean {
+  // A family-only request intentionally matches every exact face in that
+  // family. An exact request only matches the same artifact/member identity.
+  if (target.startsWith('family:')) {
+    const family = target.slice('family:'.length);
+    return candidate === target || candidate.startsWith(`face:${family}:`);
+  }
+  return target === candidate;
+}
+
 /**
  * Select None — clear the entire selection.
  */
@@ -254,20 +315,26 @@ export function selectAllWithSameBlendModeCmd(
 }
 
 /**
- * Select all visible unlocked text nodes matching the primary text node's
- * font family.
+ * Select all visible, effectively unlocked text nodes using the primary text
+ * node's effective font. Rich-text runs, linked stories, inherited text
+ * styles, and exact artifact/member references are included in the match.
  */
 export function selectAllWithSameFontCmd(doc: Document, primaryId: NodeId | null): SelectionResult {
   if (!primaryId) return empty();
   const first = doc.nodes[primaryId];
   if (first?.kind !== 'text') return empty();
-  const targetFamily = first.fontFamily;
-  if (!targetFamily) return empty();
+  const targetKeys = textFontKeys(doc, first);
+  if (targetKeys.length === 0) return empty();
   const matching: NodeId[] = [];
   for (const [id, node] of Object.entries(doc.nodes)) {
     if (id === primaryId) continue;
-    if (!isSelectable(node)) continue;
-    if (node.kind === 'text' && node.fontFamily === targetFamily) {
+    if (!effectivelySelectable(doc, id as NodeId)) continue;
+    if (
+      node.kind === 'text' &&
+      textFontKeys(doc, node).some((candidate) =>
+        targetKeys.some((target) => sameFontKey(target, candidate)),
+      )
+    ) {
       matching.push(id as NodeId);
     }
   }
