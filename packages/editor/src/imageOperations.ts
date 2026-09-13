@@ -121,6 +121,9 @@ export interface InPlaceImageInput {
     height: number;
     x: number;
     y: number;
+    /** Source-pixel frame occupied by the bounded patch after placement. */
+    frameWidth?: number;
+    frameHeight?: number;
     editId: string;
     variationId: string;
   };
@@ -174,9 +177,26 @@ export function replaceImageShapeContent(
       !Number.isSafeInteger(patch.height) ||
       patch.height <= 0 ||
       !Number.isFinite(patch.x) ||
-      !Number.isFinite(patch.y)
+      !Number.isFinite(patch.y) ||
+      (patch.frameWidth !== undefined &&
+        (!Number.isFinite(patch.frameWidth) || patch.frameWidth <= 0)) ||
+      (patch.frameHeight !== undefined &&
+        (!Number.isFinite(patch.frameHeight) || patch.frameHeight <= 0))
     ) {
       throw new Error('Generative image patch is invalid');
+    }
+    const frameWidth = patch.frameWidth ?? patch.width;
+    const frameHeight = patch.frameHeight ?? patch.height;
+    const scale = frameWidth / patch.width;
+    const heightScale = frameHeight / patch.height;
+    if (
+      !Number.isFinite(scale) ||
+      scale <= 0 ||
+      !Number.isFinite(heightScale) ||
+      heightScale <= 0 ||
+      Math.abs(scale - heightScale) > 0.01 * Math.max(1, scale, heightScale)
+    ) {
+      throw new Error('Generative image patch frame is invalid');
     }
 
     // Retain prior generative overlays so repeated edits build on the visible
@@ -202,7 +222,7 @@ export function replaceImageShapeContent(
         fit: 'crop',
         x: patch.x,
         y: patch.y,
-        scale: 1,
+        scale,
         imageWidth: patch.width,
         imageHeight: patch.height,
         generativeEditOverlay: {

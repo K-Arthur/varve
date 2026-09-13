@@ -87,6 +87,8 @@ describe('replaceImageShapeContent', () => {
         height: 80,
         x: 240,
         y: 160,
+        frameWidth: 240,
+        frameHeight: 160,
         editId: 'edit-patch',
         variationId: 'variation-1',
       },
@@ -108,6 +110,7 @@ describe('replaceImageShapeContent', () => {
         y: 160,
         imageWidth: 120,
         imageHeight: 80,
+        scale: 2,
         generativeEditOverlay: { editId: 'edit-patch', variationId: 'variation-1' },
       },
     });

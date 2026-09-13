@@ -30,9 +30,10 @@ import {
   imageShapeSrc,
   isImageShape,
   resolveRasterMaskAsset,
+  type ShapeNode,
 } from '@varve/scene';
 import { Button, Switch } from '@varve/ui';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { replaceImageShapeContent } from '../../imageOperations';
 import { decodeRasterMaskDataUrl, rasterizeAreaSelectionForNode } from '../../tools/selectionMask';
@@ -132,6 +133,127 @@ async function loadBoundedImageSource(
     maxDimension,
     sourceWidth > 0 && sourceHeight > 0 ? { width: sourceWidth, height: sourceHeight } : undefined,
   );
+}
+
+interface VisibleSourceOverlay {
+  src: string;
+  width: number;
+  height: number;
+  x: number;
+  y: number;
+  frameWidth: number;
+  frameHeight: number;
+  editId: string;
+}
+
+/**
+ * Build the currently visible source at proxy resolution. Bounded accepted
+ * edits are stored as transparent patches above the immutable base fill; a
+ * repeated edit must see those patches in its context or it would regress to
+ * the original pixels on the next generation.
+ */
+async function loadVisibleImageSource(
+  source: string,
+  sourceWidth: number,
+  sourceHeight: number,
+  maxDimension: number,
+  overlays: readonly VisibleSourceOverlay[],
+): Promise<CachedImage | HTMLCanvasElement> {
+  const base = await loadBoundedImageSource(source, sourceWidth, sourceHeight, maxDimension);
+  if (overlays.length === 0) return base;
+  if (sourceWidth <= 0 || sourceHeight <= 0) {
+    throw new Error('Visible source dimensions are unavailable');
+  }
+  const baseDimensions = cachedImageDims(base);
+  if (!baseDimensions.width || !baseDimensions.height) {
+    throw new Error('Visible source proxy dimensions are unavailable');
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = baseDimensions.width;
+  canvas.height = baseDimensions.height;
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Visible source proxy canvas is unavailable');
+  context.drawImage(base, 0, 0, canvas.width, canvas.height);
+
+  for (const overlay of overlays) {
+    const patch = await loadBoundedImageSource(
+      overlay.src,
+      overlay.width,
+      overlay.height,
+      maxDimension,
+    );
+    const patchDimensions = cachedImageDims(patch);
+    if (!patchDimensions.width || !patchDimensions.height) {
+      throw new Error('Visible generative overlay dimensions are unavailable');
+    }
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = 'high';
+    context.drawImage(
+      patch,
+      0,
+      0,
+      patchDimensions.width,
+      patchDimensions.height,
+      (overlay.x / sourceWidth) * canvas.width,
+      (overlay.y / sourceHeight) * canvas.height,
+      (overlay.frameWidth / sourceWidth) * canvas.width,
+      (overlay.frameHeight / sourceHeight) * canvas.height,
+    );
+  }
+  return canvas;
+}
+
+function imageSourceDims(image: CachedImage | HTMLCanvasElement): {
+  width: number;
+  height: number;
+} {
+  return image instanceof HTMLCanvasElement
+    ? { width: image.width, height: image.height }
+    : cachedImageDims(image);
+}
+
+function visibleSourceOverlays(
+  node: ShapeNode | null,
+  assets:
+    | Record<string, { dataUrl?: string; naturalWidth?: number; naturalHeight?: number }>
+    | undefined,
+): VisibleSourceOverlay[] {
+  if (!node) return [];
+  return (node.fills ?? []).flatMap((fill) => {
+    if (fill.type !== 'image' || !fill.image?.generativeEditOverlay) return [];
+    const image = fill.image;
+    const overlay = image.generativeEditOverlay;
+    if (!overlay) return [];
+    const asset = image.assetId ? assets?.[image.assetId] : undefined;
+    const src = asset?.dataUrl ?? image.src;
+    const width = image.imageWidth ?? asset?.naturalWidth ?? 0;
+    const height = image.imageHeight ?? asset?.naturalHeight ?? 0;
+    const x = image.x;
+    const y = image.y;
+    if (
+      !src ||
+      width <= 0 ||
+      height <= 0 ||
+      !Number.isFinite(x) ||
+      !Number.isFinite(y) ||
+      !Number.isFinite(width) ||
+      !Number.isFinite(height)
+    ) {
+      return [];
+    }
+    return [
+      {
+        src,
+        width,
+        height,
+        x,
+        y,
+        frameWidth: width * (Number.isFinite(image.scale) && image.scale > 0 ? image.scale : 1),
+        frameHeight: height * (Number.isFinite(image.scale) && image.scale > 0 ? image.scale : 1),
+        editId: overlay.editId,
+      },
+    ];
+  });
 }
 
 async function loadImageToImageData(
@@ -370,6 +492,7 @@ export function ContentAwareFillDialog({
   const [activeVariationId, setActiveVariationId] = useState<string | null>(null);
   const [hasMaskStrokes, setHasMaskStrokes] = useState(false);
   const [maskRevision, setMaskRevision] = useState(0);
+  const [isRefiningMask, setIsRefiningMask] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false);
   const [previewZoom, setPreviewZoom] = useState<'fit' | 'custom'>('fit');
   const [customZoomBase, setCustomZoomBase] = useState<'fit' | 'natural'>('fit');
@@ -383,7 +506,7 @@ export function ContentAwareFillDialog({
     status === 'qualifying' ||
     status === 'generating' ||
     status === 'applying';
-  const hasResult = previewDataUrl != null && result != null;
+  const hasResult = !isRefiningMask && previewDataUrl != null && result != null;
   const capabilities = getGenerativeEditCapabilities();
   const modeCapability = capabilities.modes[mode];
   const resourceProfile = capabilities.resourceProfile;
@@ -430,6 +553,24 @@ export function ContentAwareFillDialog({
         src: imageSrc,
         assetId: typedNode.fills?.find((fill) => fill.type === 'image')?.image?.assetId,
         imagePlacement: typedNode.fills?.find((fill) => fill.type === 'image')?.image,
+        overlays: (typedNode.fills ?? []).flatMap((fill) => {
+          if (fill.type !== 'image' || !fill.image?.generativeEditOverlay) return [];
+          const image = fill.image;
+          const overlay = image.generativeEditOverlay;
+          if (!overlay) return [];
+          return [
+            {
+              assetId: image.assetId ?? null,
+              editId: overlay.editId,
+              variationId: overlay.variationId,
+              x: image.x,
+              y: image.y,
+              imageWidth: image.imageWidth,
+              imageHeight: image.imageHeight,
+              scale: image.scale,
+            },
+          ];
+        }),
         shape: typedNode.shape,
         transform: typedNode.transform,
       })
@@ -463,6 +604,10 @@ export function ContentAwareFillDialog({
     : undefined;
   const sourceAssetId = sourceImage?.assetId ?? null;
   const sourceAsset = sourceAssetId ? state.document.assets?.[sourceAssetId] : undefined;
+  const overlaySources = useMemo(
+    () => visibleSourceOverlays(typedNode, state.document.assets),
+    [state.document.assets, typedNode?.fills],
+  );
   const sourceHash = sourceAssetId
     ? (state.document.assets?.[sourceAssetId]?.hash ?? hashContent(imageSrc))
     : hashContent(imageSrc);
@@ -507,6 +652,18 @@ export function ContentAwareFillDialog({
     setVariations([]);
     setActiveVariationId(null);
     setStatus('idle');
+  }, []);
+
+  const handleEditMask = useCallback(() => {
+    jobControllerRef.current.cancel();
+    generationRef.current = null;
+    setIsRefiningMask(true);
+    setResult(null);
+    setPreviewDataUrl(null);
+    setActiveVariationId(null);
+    setShowOriginal(false);
+    setStatus('idle');
+    setErrorMessage(null);
   }, []);
 
   const bumpMaskRevision = useCallback(() => {
@@ -576,6 +733,7 @@ export function ContentAwareFillDialog({
     setActiveVariationId(null);
     generationRef.current = null;
     setHasMaskStrokes(false);
+    setIsRefiningMask(false);
     setShowOriginal(false);
     setPreviewZoom('fit');
     setCustomZoomBase('fit');
@@ -680,21 +838,34 @@ export function ContentAwareFillDialog({
     let cancelled = false;
     (async () => {
       try {
-        const knownWidth = sourceImage?.imageWidth ?? sourceAsset?.naturalWidth ?? 0;
-        const knownHeight = sourceImage?.imageHeight ?? sourceAsset?.naturalHeight ?? 0;
+        const knownWidth =
+          acceptedSourceAsset?.naturalWidth ??
+          sourceImage?.imageWidth ??
+          sourceAsset?.naturalWidth ??
+          0;
+        const knownHeight =
+          acceptedSourceAsset?.naturalHeight ??
+          sourceImage?.imageHeight ??
+          sourceAsset?.naturalHeight ??
+          0;
         const previewHint =
           knownWidth > 0 && knownHeight > 0
             ? previewRasterDimensions(knownWidth, knownHeight)
             : { width: 1024, height: 1024 };
-        const img = await loadBoundedImageSource(
-          imageSrc,
+        const baseSource = acceptedSourceAsset?.dataUrl ?? sourceAsset?.dataUrl ?? imageSrc;
+        const reviewOverlays = overlaySources.filter(
+          (overlay) => overlay.editId !== acceptedEdit?.id,
+        );
+        const img = await loadVisibleImageSource(
+          baseSource,
           knownWidth,
           knownHeight,
           Math.max(previewHint.width, previewHint.height),
+          reviewOverlays,
         );
         if (cancelled) return;
 
-        const decoded = cachedImageDims(img);
+        const decoded = imageSourceDims(img);
         const nw = knownWidth || decoded.width;
         const nh = knownHeight || decoded.height;
         if (nw <= 0 || nh <= 0) throw new Error('Image dimensions are unavailable');
@@ -708,17 +879,6 @@ export function ContentAwareFillDialog({
           previewCanvas.height = preview.height;
           const ctx = previewCanvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, preview.width, preview.height);
-          if (acceptedSourceAsset?.dataUrl) {
-            const original = await loadImageToImageData(
-              acceptedSourceAsset.dataUrl,
-              preview.width,
-              preview.height,
-              acceptedSourceAsset.naturalWidth,
-              acceptedSourceAsset.naturalHeight,
-            );
-            if (cancelled) return;
-            ctx?.putImageData(original, 0, 0);
-          }
         }
         if (maskCanvas) {
           maskCanvas.width = preview.width;
@@ -869,6 +1029,7 @@ export function ContentAwareFillDialog({
     acceptedVariation,
     imageSrc,
     isOpen,
+    overlaySources,
     sourceSignature,
     sourceAsset,
     sourceImage?.imageHeight,
@@ -1366,13 +1527,15 @@ export function ContentAwareFillDialog({
           region,
           workingPixelBudgetForTier(capabilities.resourceProfile.tier),
         );
-        const sourceProxy = await loadBoundedImageSource(
-          imageSrc,
+        const sourceBase = sourceAsset?.dataUrl ?? acceptedSourceAsset?.dataUrl ?? imageSrc;
+        const sourceProxy = await loadVisibleImageSource(
+          sourceBase,
           sourceWidth,
           sourceHeight,
           MAX_SOURCE_PROXY_DIMENSION,
+          overlaySources,
         );
-        const proxyDimensions = cachedImageDims(sourceProxy);
+        const proxyDimensions = imageSourceDims(sourceProxy);
         const proxyRegion = mapSourceRegionToProxy(
           region,
           sourceWidth,
@@ -1615,6 +1778,7 @@ export function ContentAwareFillDialog({
       setActiveVariationId(generated.id);
       setResult(generated.result);
       setPreviewDataUrl(generated.dataUrl);
+      setIsRefiningMask(false);
       setShowOriginal(false);
       setStatus('idle');
     } catch (err) {
@@ -1632,6 +1796,7 @@ export function ContentAwareFillDialog({
     diffusionModelHandle,
     expandPadding,
     imageSrc,
+    acceptedSourceAsset,
     maskExpansion,
     maskFeather,
     modeCapability,
@@ -1640,6 +1805,8 @@ export function ContentAwareFillDialog({
     prompt,
     quality,
     sourceSignature,
+    sourceAsset,
+    overlaySources,
     negativePrompt,
     seed,
     strength,
@@ -1674,9 +1841,12 @@ export function ContentAwareFillDialog({
       const generatedFrame = generationRef.current.outputFrame;
       const sourceWidth = generatedFrame.sourceWidth || naturalSize.w || result.width;
       const sourceHeight = generatedFrame.sourceHeight || naturalSize.h || result.height;
-      const sourceAsset = sourceFill?.assetId ? currentDoc.assets?.[sourceFill.assetId] : undefined;
+      const currentSourceAsset = sourceFill?.assetId
+        ? currentDoc.assets?.[sourceFill.assetId]
+        : undefined;
       const sourceSnapshot =
-        sourceAsset ??
+        acceptedSourceAsset ??
+        currentSourceAsset ??
         createEmbeddedAsset({
           dataUrl: imageSrc,
           mimeType: 'image/png',
@@ -1871,6 +2041,8 @@ export function ContentAwareFillDialog({
                 height: activeAsset.naturalHeight,
                 x: activeVariation.patchFrame.x,
                 y: activeVariation.patchFrame.y,
+                frameWidth: activeVariation.patchFrame.width,
+                frameHeight: activeVariation.patchFrame.height,
                 editId,
                 variationId: activeVariation.id,
               },
@@ -1913,6 +2085,7 @@ export function ContentAwareFillDialog({
     beginTransaction,
     commitTransaction,
     contextPadding,
+    acceptedSourceAsset,
     variations,
     activeVariationId,
     mode,
@@ -2565,6 +2738,20 @@ export function ContentAwareFillDialog({
             </div>
           )}
 
+          {hasResult && (
+            <div className="caf-dialog__section">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleEditMask}
+                disabled={isProcessing}
+              >
+                Edit mask
+              </Button>
+            </div>
+          )}
+
           <div className="caf-dialog__section">
             <Button
               type="button"
@@ -2631,6 +2818,7 @@ export function ContentAwareFillDialog({
                     <button
                       type="button"
                       className={`caf-dialog__variation${activeVariationId === variation.id ? ' caf-dialog__variation--active' : ''}`}
+                      disabled={isRefiningMask || isProcessing}
                       onClick={() => {
                         setActiveVariationId(variation.id);
                         setResult(variation.result);

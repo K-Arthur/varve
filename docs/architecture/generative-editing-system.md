@@ -55,7 +55,10 @@ a binary selection. Invert, Clear
 Paint, Show Mask Overlay, brush size, add/subtract/intersect mask operations,
 mask grow/shrink, feather, context padding, quality/model choice, prompt (when
 a ready provider can consume it), Fit, 1:1, Original/Result, variation
-selection/deletion, cancellation, and Apply are exposed in the same session. The
+selection/deletion, cancellation, Edit mask, and Apply are exposed in the same
+session. Reopening an accepted edit keeps its result visible; Edit mask returns
+to the editable mask without losing the prompt or retained candidates, and a
+new generation is required before Apply can mutate the document again. The
 last retained candidate cannot be deleted. Changing
 the source, mask, or generation settings invalidates the preview rather than
 silently applying a candidate made for an earlier state.
@@ -197,7 +200,10 @@ that transparent bounded patch above the immutable source fill, so the normal
 browser path does not require a full-frame generated PNG. Expand retains its
 explicit full-frame preparation helper until a qualified outpainting provider
 is available; it is currently unavailable and the helper is not reachable
-through the product UI.
+through the product UI. When a bounded edit is repeated, the next bounded
+context starts from the immutable source plus all previously accepted overlay
+patches; the active candidate is excluded only from the review baseline so it
+cannot be painted twice.
 
 The renderer reports a best-effort platform family and architecture in the
 resource profile. ChromeOS/ARM browser sessions therefore show their

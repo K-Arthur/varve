@@ -764,6 +764,72 @@ test.describe('Content-Aware Fill dialog', () => {
     await page.screenshot({ path: testInfo.outputPath('real-portrait-bounded-applied.png') });
   });
 
+  test('retains earlier bounded edits when a real photograph is edited twice', async ({
+    page,
+  }, testInfo) => {
+    const photographicNodeId = await dropImageAndSelect(
+      page,
+      path.join(FIXTURES_DIR, 'real-life-landscape.jpg'),
+    );
+
+    let editNumber = 0;
+    const applyBoundedEdit = async () => {
+      await triggerCafDialog(page, photographicNodeId);
+      const dialog = page.locator('dialog.varve-dialog--caf[open]');
+      const editMaskButton = dialog.getByRole('button', { name: 'Edit mask', exact: true });
+      const maskCanvas = dialog.locator('canvas.caf-dialog__mask-canvas');
+      await expect
+        .poll(
+          async () => {
+            if (await editMaskButton.isVisible().catch(() => false)) return 'result';
+            if (await maskCanvas.isVisible().catch(() => false)) return 'mask';
+            return 'loading';
+          },
+          { timeout: 15_000 },
+        )
+        .toMatch(/^(result|mask)$/);
+      if (await editMaskButton.isVisible().catch(() => false)) await editMaskButton.click();
+      await paintMaskStroke(page);
+      await dialog.getByRole('button', { name: /remove && fill/i }).click();
+      await expect(dialog.getByRole('button', { name: /^apply$/i })).toBeEnabled({
+        timeout: 30_000,
+      });
+      editNumber += 1;
+      if (editNumber === 2) {
+        await dialog.screenshot({
+          path: testInfo.outputPath('real-landscape-repeated-result.png'),
+        });
+      }
+      await dialog.getByRole('button', { name: /^apply$/i }).click();
+      await dialog.waitFor({ state: 'hidden', timeout: 10_000 });
+    };
+
+    await applyBoundedEdit();
+    const firstDocument = await readEditorDocument(page);
+    const firstNode = firstDocument.nodes[photographicNodeId];
+    const firstEditId = firstNode.generativeEditId;
+    const firstEdit = firstDocument.generativeEdits?.[firstEditId];
+    expect(firstEditId).toBeTruthy();
+    expect(firstEdit?.parentEditId).toBeUndefined();
+    expect(firstNode.fills.filter((fill: any) => fill.type === 'image')).toHaveLength(2);
+
+    await applyBoundedEdit();
+    const secondDocument = await readEditorDocument(page);
+    const secondNode = secondDocument.nodes[photographicNodeId];
+    const secondEditId = secondNode.generativeEditId;
+    const secondEdit = secondDocument.generativeEdits?.[secondEditId];
+    const imageFills = secondNode.fills.filter((fill: any) => fill.type === 'image');
+    expect(secondEditId).toBeTruthy();
+    expect(secondEditId).not.toBe(firstEditId);
+    expect(secondEdit?.parentEditId).toBe(firstEditId);
+    expect(imageFills).toHaveLength(3);
+    expect(imageFills[1]?.image?.generativeEditOverlay?.editId).toBe(firstEditId);
+    expect(imageFills[2]?.image?.generativeEditOverlay?.editId).toBe(secondEditId);
+    expect(imageFills[1]?.image?.assetId).toBeTruthy();
+    expect(imageFills[2]?.image?.assetId).toBeTruthy();
+    await page.screenshot({ path: testInfo.outputPath('real-landscape-repeated-applied.png') });
+  });
+
   test('undo reverts the CAF apply operation', async ({ page }) => {
     await triggerCafDialog(page, nodeId);
     await paintMaskStroke(page);

@@ -50,12 +50,13 @@ export function remapGenerativeEditLineage(
 ): void {
   for (const sourceEditId of generativeIdMap.keys()) {
     const editId = generativeIdMap.get(sourceEditId);
-    const edit = editId ? generativeEdits[editId] : undefined;
+    if (!editId) continue;
+    const edit = generativeEdits[editId];
     if (!edit || edit.parentEditId === undefined) continue;
 
-    const parentEditId = generativeIdMap.get(edit.parentEditId);
-    if (parentEditId && generativeEdits[parentEditId]) {
-      generativeEdits[editId] = { ...edit, parentEditId };
+    const mappedParentEditId = generativeIdMap.get(edit.parentEditId);
+    if (mappedParentEditId && generativeEdits[mappedParentEditId]) {
+      generativeEdits[editId] = { ...edit, parentEditId: mappedParentEditId };
       continue;
     }
 
