@@ -98,6 +98,11 @@ export const LEGACY_FONT_STORAGE_DATABASES = [
 
 let migrationPromise: Promise<void> | undefined;
 
+/** Reset the process-local migration guard for isolated storage tests. */
+export function resetFontStorageMigrationForTests(): void {
+  migrationPromise = undefined;
+}
+
 function requestResult<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
@@ -139,7 +144,15 @@ function openDb(): Promise<IDBDatabase> {
     };
     request.onsuccess = () => {
       const db = request.result;
-      migrationPromise ??= migrateLegacyStorage(db);
+      // Keep concurrent opens on one migration attempt. A failed attempt
+      // clears the in-memory guard so a later open can retry from the durable
+      // journal's `started` state; successful migrations remain cached because
+      // legacy databases are otherwise needlessly reopened on every read.
+      if (!migrationPromise) {
+        migrationPromise = migrateLegacyStorage(db).then((completed) => {
+          if (!completed) migrationPromise = undefined;
+        });
+      }
       void migrationPromise.then(() => resolve(db), reject);
     };
     request.onerror = () => reject(request.error);
@@ -593,7 +606,7 @@ async function readLegacyRecords(databaseName: string): Promise<LegacyFontRecord
   });
 }
 
-async function migrateLegacyStorage(target: IDBDatabase): Promise<void> {
+async function migrateLegacyStorage(target: IDBDatabase): Promise<boolean> {
   try {
     const journal = (await requestResult(
       target
@@ -601,7 +614,7 @@ async function migrateLegacyStorage(target: IDBDatabase): Promise<void> {
         .objectStore(MIGRATION_STORE)
         .get(LEGACY_MIGRATION_KEY),
     )) as MigrationJournalRecord | undefined;
-    if (journal?.state === 'complete') return;
+    if (journal?.state === 'complete') return true;
 
     const startTransaction = target.transaction(MIGRATION_STORE, 'readwrite');
     startTransaction.objectStore(MIGRATION_STORE).put({
@@ -709,7 +722,10 @@ async function migrateLegacyStorage(target: IDBDatabase): Promise<void> {
       updatedAt: Date.now(),
     } satisfies MigrationJournalRecord);
     await transactionDone(transaction);
+    return true;
   } catch {
     // A corrupt or inaccessible legacy database must not prevent app startup.
+    // Returning false lets the next database open retry the durable journal.
+    return false;
   }
 }

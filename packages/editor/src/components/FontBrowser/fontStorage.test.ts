@@ -6,6 +6,7 @@ import {
   listStoredFonts,
   removeStoredFont,
   removeStoredFontByIdentity,
+  resetFontStorageMigrationForTests,
   storeFont,
 } from './fontStorage';
 
@@ -44,13 +45,55 @@ async function readArtifactBlob(hash: string): Promise<{ refCount: number } | un
   }
 }
 
-beforeEach(async () => {
+async function deleteDatabase(name: string): Promise<void> {
   await new Promise<void>((resolve, reject) => {
-    const request = indexedDB.deleteDatabase('varve-font-storage-v2');
+    const request = indexedDB.deleteDatabase(name);
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error);
+    // fake-indexeddb can report a blocked delete when a previous test is
+    // still closing a connection. Resolving keeps the following open call
+    // responsible for the authoritative state.
     request.onblocked = () => resolve();
   });
+}
+
+async function seedLegacyFont(): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const request = indexedDB.open('varve-font-storage', 1);
+    request.onupgradeneeded = () => {
+      request.result.createObjectStore('fonts', { keyPath: 'key' });
+    };
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const transaction = db.transaction('fonts', 'readwrite');
+      transaction.objectStore('fonts').put({
+        key: 'Legacy Imported',
+        familyName: 'Legacy Imported',
+        data: new Uint8Array([31, 32, 33]).buffer,
+        metadata: { providerId: 'legacy' },
+        storedAt: Date.now(),
+      });
+      transaction.oncomplete = () => {
+        db.close();
+        resolve();
+      };
+      transaction.onerror = () => {
+        db.close();
+        reject(transaction.error);
+      };
+      transaction.onabort = () => {
+        db.close();
+        reject(transaction.error);
+      };
+    };
+  });
+}
+
+beforeEach(async () => {
+  resetFontStorageMigrationForTests();
+  await deleteDatabase('varve-font-storage-v2');
+  await deleteDatabase('varve-font-storage');
 });
 
 describe('canonical font storage', () => {
@@ -160,5 +203,24 @@ describe('canonical font storage', () => {
     db.close();
     await expect(listStoredFonts()).resolves.toEqual([seed]);
     expect(await getStoredFontCount()).toBe(1);
+  });
+
+  it('retries an interrupted legacy migration on the next database open', async () => {
+    await seedLegacyFont();
+
+    const idb = indexedDB as IDBFactory;
+    const originalOpen = idb.open.bind(indexedDB);
+    idb.open = ((name: string, version?: number) => {
+      if (name === 'varve-font-storage') throw new Error('simulated migration interruption');
+      return originalOpen(name, version);
+    }) as IDBFactory['open'];
+    await storeFont('Interrupted', new Uint8Array([24, 25, 26]).buffer, metadata);
+    idb.open = originalOpen;
+
+    await storeFont('After Retry', new Uint8Array([27, 28, 29]).buffer, metadata);
+
+    expect((await listStoredFonts()).map((record) => record.familyName)).toEqual(
+      expect.arrayContaining(['Legacy Imported']),
+    );
   });
 });

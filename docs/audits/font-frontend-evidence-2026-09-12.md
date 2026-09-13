@@ -403,3 +403,37 @@ viewport. A fresh DPR-1 retry on `master` (port 1602) reached the browser cold
 start but ended with Playwright `page.goto: Target page, context or browser has
 been closed`; no new screenshot was treated as passing. This is recorded as an
 environment limitation, not visual certification of that failed retry.
+
+## Local-font capability and migration retry follow-up — 2026-09-13
+
+The browser discovery status previously collapsed an unavailable Local Font
+Access API into a generic fallback and classified every API rejection as a
+permission denial. `enumerateSystemFonts()` now checks that
+`queryLocalFonts` is callable and reports separate `unsupported`,
+`permission-denied`, and `error` states. The full browser keeps the shipped
+compatibility list visible in each state and labels the difference so a user
+knows whether to enable permission, use the compatibility list, or retry a
+runtime failure. Search, hover, and opening the picker remain side-effect
+free.
+
+The IndexedDB migration journal also now clears its process-local guard after
+an interrupted attempt. A later database open retries work recorded as
+`started`; successful migrations remain cached to avoid reopening legacy
+databases on every font read. The regression seeds a legacy database, forces
+one migration interruption, restores the API, and verifies that the next open
+imports the recoverable record.
+
+Focused checks:
+
+```text
+TMPDIR=/home/kevina/CodingProjects/varve/.tmp pnpm exec vitest run packages/engine/src/font/fontLoader.test.ts packages/editor/src/components/FontBrowser/FontBrowser.test.tsx --config vitest.config.ts --pool=threads --maxWorkers=1 --reporter=dot
+TMPDIR=/home/kevina/CodingProjects/varve/.tmp pnpm exec vitest run packages/editor/src/components/FontBrowser/fontStorage.test.ts --config vitest.config.ts --pool=threads --maxWorkers=1 --reporter=dot
+TMPDIR=/home/kevina/CodingProjects/varve/.tmp pnpm exec biome check packages/engine/src/font/fontStorage.ts packages/engine/src/font/index.ts packages/editor/src/components/FontBrowser/fontStorage.ts packages/editor/src/components/FontBrowser/fontStorage.test.ts packages/engine/src/font/fontLoader.ts packages/engine/src/font/fontLoader.test.ts packages/editor/src/components/FontBrowser/FontBrowser.tsx packages/editor/src/components/FontBrowser/FontBrowser.test.tsx
+```
+
+The discovery suite passed **19/19**, the browser component suite passed
+**8/8**, the storage suite passed **8/8**, and the touched-file Biome check
+passed. The browser visual retry on port 1602 still ended with Playwright
+`Target page, context or browser has been closed`; no screenshot from that
+failed run is counted as visual certification. Existing inspected toolbar
+captures remain the evidence for spacing, sizing, and menu containment.

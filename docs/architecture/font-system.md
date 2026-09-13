@@ -149,8 +149,10 @@ does not fetch a remote font. The public browser demo can browse metadata and
 bundled faces, but additional artifacts require an explicit desktop install.
 
 The full browser exposes that boundary as an explicit **Allow local fonts** or
-**Refresh local fonts** action. Its status reports whether native enumeration,
-the browser permission, or the compatibility list supplied the results. Face
+**Refresh local fonts** action. Its status distinguishes a native result, a
+successful browser permission, a denied permission, an unavailable API, and a
+runtime discovery error; all fallback states keep the compatibility list
+visible and explain the next action. Face
 expansion reads exact registry entries (including a known PostScript name and
 portable face key); catalog weight/style combinations are never presented as
 selectable faces when no corresponding artifact is installed. The family list

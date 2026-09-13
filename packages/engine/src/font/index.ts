@@ -130,6 +130,7 @@ export {
   loadStoredFont,
   removeStoredFont,
   removeStoredFontByIdentity,
+  resetFontStorageMigrationForTests,
   storeFont,
 } from './fontStorage';
 // Tauri filesystem font storage adapter

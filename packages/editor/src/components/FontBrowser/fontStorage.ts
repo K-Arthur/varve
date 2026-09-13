@@ -11,5 +11,6 @@ export {
   listStoredFonts,
   removeStoredFont,
   removeStoredFontByIdentity,
+  resetFontStorageMigrationForTests,
   storeFont,
 } from '@varve/engine/font';
