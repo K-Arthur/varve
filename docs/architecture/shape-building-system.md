@@ -36,6 +36,7 @@ as an arbitrary region recipe.
 ```text
 eligible sources
   -> world-space construction paths
+  -> translated construction frame anchored at source bounds
   -> curve sampling with a bounded tolerance
   -> intersections and split fragments
   -> directed half-edge arrangement
@@ -54,9 +55,12 @@ Parametric rectangles with ordinary corner radii are converted from the
 rendered rounded boundary before intersection construction. Arc sampling uses
 the complete world affine and a bounded 0.01-world-unit chord-error ceiling;
 continuous/smoothed corners remain explicitly unsupported until their renderer
-path can be shared without drift. Zero-area primitives are rejected before the
-arrangement is built, while self-intersecting paths are still allowed when they
-contain non-collinear geometry.
+path can be shared without drift. After world-space extraction, construction is
+translated to the source bounds and its topology tolerance is capped by the
+shortest authored edge. This avoids losing a small feature inside a very large
+operand while keeping dimensional tolerances explicit. Zero-area primitives
+are rejected before the arrangement is built, while self-intersecting paths
+are still allowed when they contain non-collinear geometry.
 
 Each source is classified independently using its authored fill rule before
 the sources are combined. Even-odd parity and non-zero winding are not

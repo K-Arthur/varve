@@ -193,13 +193,14 @@ not attributed to Shape Builder.
 
 ### 2026-09-13 implementation receipt
 
-- Scene geometry: `packages/scene/src/shapeBuilder.test.ts` passed 13/13,
+- Scene geometry: `packages/scene/src/shapeBuilder.test.ts` passed 14/14,
   including the rectangle area oracle, thin-face sweep, donut hole,
   disconnected output, one self-intersecting path under its authored fill rule,
   retained-source Create, destructive remainders, stale revision rejection,
-  rendered rounded-rectangle hit testing, and zero-area primitive rejection.
+  rendered rounded-rectangle hit testing, negative-direction per-corner
+  geometry, mixed-scale placement, and zero-area primitive rejection.
 - The document-codec round-trip fixture covers a created compound result with a
-  hole and passed as part of the 12/12 scene run; the arrangement remains
+  hole and passed as part of the 14/14 scene run; the arrangement remains
   derived state rather than a second serialized authority.
 - Independent curve checks in `packages/scene/src/boolean/integration.test.ts`
   passed 3/3: a transformed cubic remains below the 0.08-unit fixture budget,
