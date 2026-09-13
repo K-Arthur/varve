@@ -53,7 +53,17 @@ export function AdjustmentScopeSection({
   const eligibleTargets = useMemo(
     () =>
       Object.values(doc.nodes)
-        .filter((node) => node.id !== nodeId && isAdjustmentEligible(node))
+        .filter((node) => {
+          if (node.id === nodeId || !isAdjustmentEligible(node)) return false;
+          // Use the same scene-aware resolver as rendering. A node below a
+          // hidden ancestor is not an actionable target even if its own
+          // `visible` flag is true.
+          return resolveAdjustmentScope(
+            doc,
+            { mode: 'image-local', targetNodeId: node.id },
+            nodeId,
+          ).includes(node.id);
+        })
         .sort((a, b) => a.name.localeCompare(b.name)),
     [doc, nodeId],
   );
@@ -83,10 +93,11 @@ export function AdjustmentScopeSection({
           // first eligible raster or vector node rather than silently falling
           // back to an arbitrary image-only target.
           const currentTarget =
-            scope?.mode === 'image-local' ? doc.nodes[scope.targetNodeId] : undefined;
-          const eligible = Object.values(doc.nodes).filter((n) => isAdjustmentEligible(n));
+            scope?.mode === 'image-local' && eligibleTargets.some((n) => n.id === scope.targetNodeId)
+              ? doc.nodes[scope.targetNodeId]
+              : undefined;
           const target =
-            currentTarget && isAdjustmentEligible(currentTarget) ? currentTarget : eligible[0];
+            currentTarget && isAdjustmentEligible(currentTarget) ? currentTarget : eligibleTargets[0];
           if (target) onChangeScope({ mode: 'image-local', targetNodeId: target.id });
           break;
         }
@@ -115,7 +126,7 @@ export function AdjustmentScopeSection({
           break;
       }
     },
-    [doc, nodeId, onChangeScope, scope],
+    [doc, eligibleTargets, nodeId, onChangeScope, scope],
   );
 
   const toggleExplicitTarget = useCallback(

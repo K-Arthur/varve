@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { fireEvent, render, screen } from '@testing-library/react';
-import { addNode, createDocument, makeShapeNode } from '@varve/scene';
+import { addChild, addNode, createDocument, makeGroupNode, makeShapeNode } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { AdjustmentScopeSection } from './AdjustmentScopeSection';
 
@@ -46,5 +46,30 @@ describe('AdjustmentScopeSection', () => {
       mode: 'explicit-targets',
       targetNodeIds: ['target-b'],
     });
+  });
+
+  it('does not offer children hidden by an ancestor as targets', () => {
+    let doc = createDocument('hidden scope test', true);
+    doc = addNode(doc, makeGroupNode('hidden-group', { name: 'Hidden group', visible: false }));
+    doc = addChild(
+      doc,
+      'hidden-group',
+      makeShapeNode(
+        'hidden-child',
+        { kind: 'rect', x: 0, y: 0, w: 20, h: 20 },
+        { name: 'Hidden child' },
+      ),
+    );
+
+    render(
+      <AdjustmentScopeSection
+        nodeId="adjustment"
+        doc={doc}
+        scope={{ mode: 'explicit-targets', targetNodeIds: [] }}
+        onChangeScope={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole('checkbox', { name: 'Apply adjustment to Hidden child' })).toBeNull();
   });
 });
