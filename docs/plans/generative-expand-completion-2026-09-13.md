@@ -1,6 +1,6 @@
 # Generative Expand and Subtract completion plan — 2026-09-13
 
-Status: active implementation plan on `master`. Integration owner for this
+Status: implementation complete; final validation record in progress on `master`. Integration owner for this
 slice: Codex. This document deliberately does not claim ownership of unrelated
 dirty files listed by `git status`; those changes belong to concurrent work and
 will be re-read before any shared-file edit.
@@ -80,6 +80,36 @@ from hosted-service terms; no remote provider is enabled by this plan.
    claims. Keep prompt-conditioned Replace/Expand gated and distinguish
    promptless reconstruction, heuristic cleanup, crop reveal, canvas padding,
    and synthesis. Existing concurrent website edits are not overwritten.
+
+## Delivery record
+
+The planned vertical slices are implemented in the existing Crop & Bounds /
+Generative Edit flow. No workspace, route, scene model, inference manager, or
+provider manager was added.
+
+- `175045830` — coherent, bounded Expand passes with source restoration.
+- `a6ac35792` — accepted Expand save/reopen/export coverage.
+- `86ce88dc4` — Expand undo/redo coverage without rerunning generation.
+- `e2b50b939` — truthful Expand quality and generated-resolution limits.
+- `172720f71` — preserve the reviewed authored raster bounds during export.
+- `2133bed06` — Generative Subtract E2E source-asset protection assertion.
+- The final docs/marketing/evidence commit will contain the qualification
+  record, website copy and visual goldens, and retained browser captures.
+
+The pinned native `lama-inpainting` ONNX model was executed through the
+production `varve-bgremove` helper on Linux x86_64 CPU across landscape,
+portrait, architecture, and seascape cases. Promptless Expand is enabled only
+within the measured photographic boundary; Prompt-conditioned Replace/Expand
+remain gated. Existing Remove is the compatible persisted operation for
+Generative Subtract and now has an explicit real-photo source-preservation
+regression. Fast/PatchMatch remains the offline browser/constrained-device
+fallback.
+
+The final validation record must retain the exact affected/full-gate outcomes
+and distinguish the browser workflow pass (WASM unavailable, Fast provider)
+from the native model-quality qualification. The architecture case remains a
+review-only limitation because independent inspection found a dark generated
+band despite a close immediate seam score.
 
 ## Coordination and validation gates
 

@@ -3,12 +3,12 @@ import Layout from '../../../layouts/Layout.astro';
 import { sitePath } from '../../../lib/siteUrl';
 ---
 
-<Layout title="Generative Editing — Varve Docs" description="Use Varve's local, mask-guided generative editing workflow for Fill and Remove, with desktop prompt modes gated by model qualification.">
+<Layout title="Generative Editing — Varve Docs" description="Use Varve's local, mask-guided workflow for Fill, Remove / Generative Subtract, and photographic Expand, with desktop prompt modes gated by model qualification.">
   <div class="container-custom">
     <article class="docs-page">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href={sitePath('/docs')}>Documentation</a> / Tools / Generative Editing</nav>
       <h1>Generative Editing</h1>
-      <p class="docs-intro">A mask-guided, local-first workflow for reconstructing image regions while keeping an immutable source snapshot and an editable accepted result.</p>
+      <p class="docs-intro">A mask-guided, local-first workflow for reconstructing image regions or extending photographic bounds while keeping an immutable source snapshot and an editable accepted result.</p>
 
       <section class="docs-section">
         <h2>Open the tool</h2>
@@ -36,7 +36,7 @@ import { sitePath } from '../../../lib/siteUrl';
           <thead><tr><th>Mode</th><th>Meaning</th><th>Availability</th></tr></thead>
           <tbody>
             <tr><td>Fill</td><td>Reconstruct painted pixels from nearby context.</td><td>Local, available</td></tr>
-            <tr><td>Remove</td><td>Rebuild the background after painting an unwanted object.</td><td>Local, available</td></tr>
+            <tr><td>Remove / Generative Subtract</td><td>Rebuild the background after painting an unwanted object; it does not delete the source layer or make the region transparent.</td><td>Local, available</td></tr>
             <tr><td>Replace</td><td>Replace a region from a text instruction.</td><td>Desktop only after a local model passes qualification</td></tr>
             <tr><td>Expand</td><td>Generate pixels beyond the current image bounds. The retained source is copied through unchanged and only the new border is synthesized.</td><td>Local, available without a prompt; prompt-conditioned expansion is desktop-only after a local model passes qualification</td></tr>
           </tbody>

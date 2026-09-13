@@ -67,12 +67,27 @@ Two browser workflow lanes complement the native run:
 - `tests/e2e/caf/expand-real-photo.spec.ts` drives the real dialog on a
   1632x1224 landscape with Fast quality and asserts the reviewed preview
   dimensions, the accepted record (mode, output frame, full-output asset kind),
-  node identity and geometry, reopening the accepted edit, and Restore
-  Original. It passed twice on Chromium (ports 1777 and 1779, 33.3 s and
-  42.8 s) on 2026-09-13; the reviewed dialog is retained as
-  `browser-expand-dialog-result.png`.
+  node identity and geometry, exact retained source pixels, independent PNG
+  export dimensions/protection, undo/redo, reopening the accepted edit, and
+  Restore Original. The final clean no-HMR Chromium run in an isolated
+  validation worktree passed one test in 2.6 minutes on 2026-09-13. Its
+  reviewed dialog and independently decoded 1664x1272 export are retained as
+  `browser-expand-dialog-result.png` and `browser-expand-export.png`.
 - The promptless reconstruction warning is visible in the review footer, so
   the provider boundary is disclosed at acceptance time.
+- `tests/e2e/caf/caf.spec.ts` drives the real Remove workflow on the same
+  photograph. The final clean no-HMR Chromium run passed one test in 2.8
+  minutes; it records the `remove` recipe, `varve-content-aware` provider,
+  bounded `region-overlay`, and now compares the canonical source asset bytes
+  and source fill identity before and after acceptance. The dialog and applied
+  scene are retained under
+  `tests/e2e/fixtures/generative-evidence/subtract-2026-09-13/`.
+
+The browser lanes used the Fast/PatchMatch local provider because the browser
+WASM engine was unavailable in that isolated run and native LaMa is not a
+browser capability. They prove the editor workflow, source-safe composition,
+persistence/export plumbing, and fallback behavior; the native qualification
+above is the model-backed quality evidence.
 
 ## Results
 
@@ -153,6 +168,14 @@ Retained under
 - Per case: `-source.png`, `-frame.png`, `-provider.png` (raw model output),
   `-accepted.png` (source restored). Review copies are bounded to a 640-pixel
   long side; all metrics were computed at full resolution.
+- `browser-expand-dialog-result.png` and `browser-expand-export.png` are the
+  reviewed browser acceptance and independent PNG export captures.
+
+`tests/e2e/fixtures/generative-evidence/subtract-2026-09-13/` contains the
+real-photo Remove / Generative Subtract dialog and applied-scene captures,
+plus a hash manifest. The accepted operation remains named `remove` in the
+document schema for compatibility, while the inspector, docs, and marketing
+surface describe its user-facing meaning as Generative Subtract.
 
 Reproduce with:
 
