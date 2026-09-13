@@ -179,4 +179,52 @@ test.describe('snapping after a target has moved', () => {
     await captureState(page, testInfo, 'snap-after-create-after');
     expect(after.x).toBe(created.x);
   });
+
+  test('snaps to a moved target after save and reopen', async ({ page }, testInfo) => {
+    await drawRect(page, 150, 180, 250, 280); // target
+    await drawRect(page, 400, 180, 500, 280); // mover
+    await selectRect(page, 'Rectangle 1');
+    const targetBefore = await selectedScreenRect(page);
+    await dragScreen(
+      page,
+      { x: targetBefore.x + targetBefore.width / 2, y: targetBefore.y + targetBefore.height / 2 },
+      {
+        x: targetBefore.x + targetBefore.width / 2 + 100,
+        y: targetBefore.y + targetBefore.height / 2 + 40,
+      },
+    );
+    await page.waitForTimeout(250);
+    const target = await readXY(page);
+
+    await page.keyboard.press('Control+s');
+    await expect(page.locator('.save-status')).toHaveText('Saved', { timeout: 30_000 });
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 120_000 });
+    await page.locator('.varve-home__toolbar').waitFor({ state: 'visible', timeout: 30_000 });
+    await page.getByRole('gridcell').first().dblclick();
+    await page.locator('.editor-shell').waitFor({ state: 'visible', timeout: 60_000 });
+    await page.locator('canvas.editor-canvas__content-layer').waitFor({
+      state: 'visible',
+      timeout: 60_000,
+    });
+    await page.waitForTimeout(500);
+    await captureState(page, testInfo, 'snap-after-reopen-before');
+
+    await selectRect(page, 'Rectangle 1');
+    const targetScreen = await selectedScreenRect(page);
+    await selectRect(page, 'Rectangle 2');
+    const moverScreen = await selectedScreenRect(page);
+    await dragScreen(
+      page,
+      { x: moverScreen.x + moverScreen.width / 2, y: moverScreen.y + moverScreen.height / 2 },
+      {
+        x: targetScreen.x + 3 + moverScreen.width / 2,
+        y: targetScreen.y + 180 + moverScreen.height / 2,
+      },
+      () => captureState(page, testInfo, 'snap-after-reopen-during'),
+    );
+    await page.waitForTimeout(250);
+    const after = await readXY(page);
+    await captureState(page, testInfo, 'snap-after-reopen-after');
+    expect(after.x).toBe(target.x);
+  });
 });
