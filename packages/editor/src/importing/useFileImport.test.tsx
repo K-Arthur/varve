@@ -2,7 +2,7 @@
 
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { type ImportReport, ImportService } from '@varve/import';
-import { addNode, createDocument, makeFrameNode, makeShapeNode } from '@varve/scene';
+import { addNode, createDocument, makeShapeNode } from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { FileImportEditor } from './useFileImport';
 import { useFileImport } from './useFileImport';
@@ -45,18 +45,12 @@ function reportFor(name: string): ImportReport {
 }
 
 function editorFixture(): FileImportEditor {
-  const document = createDocument('destination');
   return {
     state: {
-      document,
+      document: { id: 'destination' },
       activeId: 'session',
       revision: 0,
       selectionRevision: 0,
-      selection: [],
-      workspaceMode: 'print',
-      zoom: 1,
-      pan: { x: 0, y: 0 },
-      cameraRotation: 0,
     },
     announce: vi.fn(),
     addLutAdjustment: vi.fn(),
@@ -67,49 +61,6 @@ function editorFixture(): FileImportEditor {
 
 describe('useFileImport operation ownership', () => {
   afterEach(() => vi.restoreAllMocks());
-
-  it('captures the picker destination before the browser file dialog opens', async () => {
-    vi.spyOn(ImportService, 'importFiles').mockResolvedValue(reportFor('picked.svg'));
-    const editor = editorFixture();
-    const frame = makeFrameNode('destination-frame', {
-      name: 'Destination',
-      transform: [1, 0, 0, 1, 300, 200],
-      w: 100,
-      h: 80,
-      children: [],
-    });
-    editor.state.document = addNode(editor.state.document, frame);
-    editor.state.selection = [frame.id];
-
-    const { result } = renderHook(() => useFileImport(editor));
-    const click = vi.fn();
-    result.current.inputRef.current = { click } as unknown as HTMLInputElement;
-
-    act(() => result.current.openPicker());
-    expect(click).toHaveBeenCalledTimes(1);
-
-    // Camera changes while the native picker is open must not change the
-    // placement captured by the initiating gesture.
-    editor.state.pan = { x: 900, y: -400 };
-    editor.state.zoom = 4;
-    const event = {
-      target: {
-        files: [new File(['picked'], 'picked.svg', { type: 'image/svg+xml' })],
-        value: '',
-      },
-    } as unknown as React.ChangeEvent<HTMLInputElement>;
-
-    await act(async () => {
-      await result.current.onFilesSelected(event);
-    });
-
-    expect(editor.commitPreparedFragment).toHaveBeenCalledWith(
-      expect.objectContaining({
-        targetParentId: frame.id,
-        center: { x: 350, y: 240 },
-      }),
-    );
-  });
 
   it('lets a newer picker gesture commit while an older decode settles late', async () => {
     const pending: Array<{

@@ -199,10 +199,10 @@ import { sitePath } from '../../lib/siteUrl';
           comfortable touch targets.
         </p>
         <ul>
-          <li><strong>One finger</strong> draws or selects with the active tool.</li>
-          <li><strong>Two fingers</strong> pan and pinch-zoom the canvas around the gesture; page zoom is not affected.</li>
+          <li><strong>One finger</strong> draws or selects with the active tool by default. Settings &gt; Drawing input can switch one-finger touch to viewport navigation.</li>
+          <li><strong>Two fingers</strong> cancel only a provisional first-pointer action, then pan and pinch-zoom the canvas around the gesture; page zoom is not affected. Lift both fingers and start a new contact before drawing again.</li>
           <li><strong>Long-press</strong> a stack of overlapping layers for the deep-selection menu — the touch equivalent of right-click.</li>
-          <li><strong>Pen</strong> input is treated as a precision pointer: pressure, tilt, and twist are used when the browser and device report them, and strokes fall back to constant width when they do not. Eraser-tip input is detected where the platform exposes it.</li>
+          <li><strong>Pen</strong> input is treated as a precision pointer: pressure, tilt, and twist are used when the browser and device report useful values, and strokes fall back to a stable constant response when they do not. Eraser-tip input is preserved where the platform exposes it, but real pressure, palm rejection, hover, and USI button behavior are not certified by browser emulation.</li>
         </ul>
         <p>
           A detachable keyboard is optional. The app adapts to the actual viewport and pointer

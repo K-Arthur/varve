@@ -28,7 +28,6 @@ export * from './component';
 export * from './component-sync';
 export * from './constraints';
 export * from './coordinateService';
-export * from './depthMaskRecipe';
 export * from './designCanvas';
 export type { CreateMasterOptions } from './document';
 export * from './document';

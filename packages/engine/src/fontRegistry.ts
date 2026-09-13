@@ -271,53 +271,6 @@ export class FontRegistry {
     this._scheduleNotify();
   }
 
-  /**
-   * Remove one exact face from the registry.
-   *
-   * Family-level removal was the only operation available to the loader, so
-   * unloading one revision could leave a stale face advertised to the picker
-   * and to the render-worker provisioner. Prefer the portable face key; the
-   * metadata fallback is intentionally narrow and never treats a family name
-   * alone as an exact identity.
-   */
-  unregisterFace(criteria: {
-    family?: string;
-    faceKey?: string;
-    postScriptName?: string;
-    weight?: number;
-    style?: string;
-  }): boolean {
-    if (!criteria.faceKey && !criteria.family) return false;
-    let removed = false;
-    const families = criteria.family ? [criteria.family] : [...this.entries.keys()];
-    for (const family of families) {
-      const entries = this.entries.get(family);
-      if (!entries?.length) continue;
-      const kept = entries.filter((entry) => {
-        const matches = criteria.faceKey
-          ? entry.faceKey === criteria.faceKey
-          : criteria.postScriptName
-            ? entry.postScriptName === criteria.postScriptName &&
-              (criteria.weight === undefined || entry.weight === criteria.weight) &&
-              (criteria.style === undefined || entry.style === criteria.style)
-            : false;
-        if (matches) removed = true;
-        return !matches;
-      });
-      if (kept.length === entries.length) continue;
-      if (kept.length === 0) {
-        this.entries.delete(family);
-        this.loaded.delete(family);
-        this.loadState.delete(family);
-        this.metadata.delete(family);
-      } else {
-        this.entries.set(family, kept);
-      }
-    }
-    if (removed) this._scheduleNotify();
-    return removed;
-  }
-
   /** Stable process-local identity for font-dependent layout cache keys. */
   get revision(): string {
     return `font-registry:${this._revision}`;

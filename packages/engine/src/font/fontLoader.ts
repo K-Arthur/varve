@@ -38,22 +38,6 @@ export interface LoadResult {
 
 type Listener = () => void;
 
-interface WorkerFaceBridge {
-  styleElement: HTMLStyleElement;
-  objectUrl: string;
-  revision: string;
-  faceKey?: string;
-}
-
-interface LoadedFaceRecord {
-  recordKey: string;
-  family: string;
-  face: FontFace;
-  faceKey?: string;
-  bridge?: WorkerFaceBridge;
-  result: LoadResult;
-}
-
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 /** Safe list of system font families available on all major platforms. */
@@ -118,33 +102,6 @@ function weightFromSubfamily(subfamily: string): number {
   return 400;
 }
 
-function portableFaceKey(options?: {
-  faceKey?: string;
-  artifactHash?: string;
-  collectionIndex?: number;
-}): string | undefined {
-  if (options?.faceKey) return options.faceKey;
-  if (!options?.artifactHash || !/^[0-9a-f]{64}$/i.test(options.artifactHash)) return undefined;
-  return fontReferenceKey({
-    artifactHash: options.artifactHash,
-    ...(options.collectionIndex === undefined ? {} : { collectionIndex: options.collectionIndex }),
-  });
-}
-
-function exactFaceKey(
-  options: { faceKey?: string; artifactHash?: string; collectionIndex?: number } | undefined,
-  meta?: ParsedFontMetadata,
-): string | undefined {
-  const supplied = portableFaceKey(options);
-  if (supplied) return supplied;
-  const reference = meta ? fontReferenceFromIdentity(meta.identity) : undefined;
-  return reference ? fontReferenceKey(reference) : undefined;
-}
-
-function cssString(value: string): string {
-  return value.replaceAll('\\', '\\\\').replaceAll('"', '\\"').replaceAll('\n', '\\A ');
-}
-
 // ── FontLoader ─────────────────────────────────────────────────────────────
 
 export class FontLoader {
@@ -153,11 +110,6 @@ export class FontLoader {
   private loaded = new Map<string, LoadResult>();
   private inFlight = new Map<string, Promise<LoadResult>>();
   private listeners = new Set<Listener>();
-  /** Loaded FontFace objects, keyed by a portable face identity when known. */
-  private loadedFaces = new Map<string, LoadedFaceRecord>();
-  /** Monotone bridge revision prevents remove/re-add races in render workers. */
-  private workerRevision = 0;
-  private exactFaceRecords = new Map<string, Set<string>>();
   /** CSS bridges for byte-backed faces so the render worker can adopt them. */
   private workerStyles = new Map<string, HTMLStyleElement[]>();
   private workerObjectUrls = new Map<string, string[]>();
@@ -183,15 +135,8 @@ export class FontLoader {
   async loadFont(meta: ParsedFontMetadata, data?: ArrayBuffer): Promise<LoadResult> {
     const family = meta.identity.familyName;
 
-    // Deduplicate by the exact artifact/member when a canonical hash exists.
-    // Family plus subfamily is retained only for legacy metadata that cannot
-    // prove which bytes are being loaded.
-    const reference = fontReferenceFromIdentity(meta.identity);
-    const key = reference
-      ? `face:${fontReferenceKey(reference)}`
-      : `${family}\u0000${meta.identity.postScriptName || meta.identity.subfamilyName}`;
-    const cached = reference ? this.findLoadedFace(fontReferenceKey(reference)) : undefined;
-    if (cached) return cached.result;
+    // Deduplicate concurrent loads of the same family
+    const key = `${family}\u0000${meta.identity.postScriptName || meta.identity.subfamilyName}`;
     const existing = this.inFlight.get(key);
     if (existing) return existing;
 
@@ -227,12 +172,7 @@ export class FontLoader {
       axes?: Array<{ tag: string; name?: string; min: number; max: number; default: number }>;
     },
   ): Promise<LoadResult> {
-    const exactKey = portableFaceKey(storageMetadata);
-    const key = exactKey
-      ? `face:${exactKey}`
-      : `${family}\u0000${storageMetadata?.weight ?? 'auto'}:${storageMetadata?.style ?? 'normal'}`;
-    const cached = exactKey ? this.findLoadedFace(exactKey) : undefined;
-    if (cached) return cached.result;
+    const key = `${family}\u0000${storageMetadata?.weight ?? 'auto'}:${storageMetadata?.style ?? 'normal'}`;
     const existing = this.inFlight.get(key);
     if (existing) return existing;
 
@@ -370,26 +310,16 @@ export class FontLoader {
 
   /** Remove a font from document.fonts and the cache. */
   unloadFont(family: string): boolean {
-    const records = [...this.loadedFaces.values()].filter((record) => record.family === family);
-    const exactKeys = [
-      ...new Set(records.flatMap((record) => (record.faceKey ? [record.faceKey] : []))),
-    ];
-    let removed = false;
-    for (const record of records) {
-      removed = this.removeLoadedFace(record) || removed;
-    }
+    if (typeof document === 'undefined' || !document.fonts) return false;
 
-    // Keep compatibility with faces that predate exact tracking (or were
-    // declared by another loader). Those are still removable by family, but
-    // exact byte-backed records above are deleted only once.
-    if (typeof document !== 'undefined' && document.fonts) {
-      for (const face of document.fonts) {
-        if (face.family === family) {
-          document.fonts.delete(face);
-          removed = true;
-        }
+    let removed = false;
+    for (const face of document.fonts) {
+      if (face.family === family) {
+        document.fonts.delete(face);
+        removed = true;
       }
     }
+
     for (const style of this.workerStyles.get(family) ?? []) style.remove();
     this.workerStyles.delete(family);
     for (const url of this.workerObjectUrls.get(family) ?? []) URL.revokeObjectURL(url);
@@ -397,45 +327,9 @@ export class FontLoader {
 
     if (removed) {
       this.loaded.delete(family);
-      for (const faceKey of exactKeys) this.registry.unregisterFace({ faceKey });
       this.notify();
     }
 
-    return removed;
-  }
-
-  /**
-   * Remove every loaded instance of one exact artifact/member.
-   *
-   * A family can legitimately have two files with the same names and styles;
-   * callers removing one imported face must not evict its sibling or leave its
-   * worker bridge alive. The portable key is the only selector accepted here.
-   */
-  unloadFace(faceKey: string): boolean {
-    const recordKeys = this.exactFaceRecords.get(faceKey);
-    if (!recordKeys?.size) return false;
-    let removed = false;
-    const families = new Set<string>();
-    for (const recordKey of [...recordKeys]) {
-      const record = this.loadedFaces.get(recordKey);
-      if (record) {
-        families.add(record.family);
-        removed = this.removeLoadedFace(record) || removed;
-      }
-    }
-    this.exactFaceRecords.delete(faceKey);
-    if (removed) {
-      this.registry.unregisterFace({ faceKey });
-      // `loaded` is a family projection used by getLoadedFonts(). Keep it
-      // while a sibling exact face is still loaded, and clear it when this
-      // removal evicts the final face for that family.
-      for (const family of families) {
-        if (![...this.loadedFaces.values()].some((record) => record.family === family)) {
-          this.loaded.delete(family);
-        }
-      }
-      this.notify();
-    }
     return removed;
   }
 
@@ -504,10 +398,6 @@ export class FontLoader {
       // Parse errors are non-fatal; we fall back to generic registration below.
     }
 
-    const exactKey = exactFaceKey(faceOptions, meta);
-    const cached = exactKey ? this.findLoadedFace(exactKey) : undefined;
-    if (cached) return cached.result;
-
     const subfamily = meta?.identity.subfamilyName ?? 'Regular';
     const weight = faceOptions?.weight ?? weightFromSubfamily(subfamily);
     const style =
@@ -524,27 +414,11 @@ export class FontLoader {
     }
 
     document.fonts.add(face);
-    const bridge = this.exposeByteBackedFaceToWorkers(family, data, weight, style, exactKey);
+    this.exposeByteBackedFaceToWorkers(family, data, weight, style);
     await document.fonts.ready;
 
     const result: LoadResult = { success: true, family, loadedFrom: source };
     this.loaded.set(family, result);
-    const recordKey =
-      exactKey ?? `${family}\u0000${weight}\u0000${style}\u0000${++this.workerRevision}`;
-    const record: LoadedFaceRecord = {
-      recordKey,
-      family,
-      face,
-      ...(exactKey ? { faceKey: exactKey } : {}),
-      ...(bridge ? { bridge } : {}),
-      result,
-    };
-    this.loadedFaces.set(recordKey, record);
-    if (exactKey) {
-      const records = this.exactFaceRecords.get(exactKey) ?? new Set<string>();
-      records.add(recordKey);
-      this.exactFaceRecords.set(exactKey, records);
-    }
 
     // Register in FontRegistry so existing UI components see the font
     const faceReference = meta ? fontReferenceFromIdentity(meta.identity) : undefined;
@@ -563,8 +437,8 @@ export class FontLoader {
         : meta?.identity.collectionIndex === undefined
           ? {}
           : { collectionIndex: meta.identity.collectionIndex }),
-      ...(exactKey
-        ? { faceKey: exactKey }
+      ...(faceOptions?.faceKey
+        ? { faceKey: faceOptions.faceKey }
         : faceReference
           ? { faceKey: fontReferenceKey(faceReference) }
           : {}),
@@ -618,43 +492,6 @@ export class FontLoader {
     return result;
   }
 
-  private findLoadedFace(faceKey: string): LoadedFaceRecord | undefined {
-    const recordKeys = this.exactFaceRecords.get(faceKey);
-    if (!recordKeys) return undefined;
-    for (const recordKey of recordKeys) {
-      const record = this.loadedFaces.get(recordKey);
-      if (record) return record;
-    }
-    return undefined;
-  }
-
-  private removeLoadedFace(record: LoadedFaceRecord): boolean {
-    if (!this.loadedFaces.delete(record.recordKey)) return false;
-    if (record.faceKey) {
-      const records = this.exactFaceRecords.get(record.faceKey);
-      records?.delete(record.recordKey);
-      if (records && records.size === 0) this.exactFaceRecords.delete(record.faceKey);
-    }
-    if (typeof document !== 'undefined' && document.fonts) {
-      document.fonts.delete(record.face);
-    }
-    if (record.bridge) {
-      record.bridge.styleElement.remove();
-      URL.revokeObjectURL(record.bridge.objectUrl);
-      const styles = (this.workerStyles.get(record.family) ?? []).filter(
-        (style) => style !== record.bridge!.styleElement,
-      );
-      if (styles.length > 0) this.workerStyles.set(record.family, styles);
-      else this.workerStyles.delete(record.family);
-      const urls = (this.workerObjectUrls.get(record.family) ?? []).filter(
-        (url) => url !== record.bridge!.objectUrl,
-      );
-      if (urls.length > 0) this.workerObjectUrls.set(record.family, urls);
-      else this.workerObjectUrls.delete(record.family);
-    }
-    return true;
-  }
-
   /**
    * A FontFace constructed from bytes is visible only to this realm. Mirror
    * the exact bytes through a local blob URL in an @font-face rule so the
@@ -666,33 +503,23 @@ export class FontLoader {
     data: ArrayBuffer,
     weight: number,
     style: 'normal' | 'italic',
-    faceKey?: string,
-  ): WorkerFaceBridge | undefined {
-    if (typeof document === 'undefined' || !document.head) return undefined;
-    if (typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') return undefined;
-    if (typeof Blob === 'undefined') return undefined;
+  ): void {
+    if (typeof document === 'undefined' || !document.head) return;
+    if (typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') return;
+    if (typeof Blob === 'undefined') return;
 
     try {
       const url = URL.createObjectURL(new Blob([data], { type: 'font/woff2' }));
-      const revision = `${family}:${++this.workerRevision}`;
-      const cssFamily = cssString(family);
-      const marker = [
-        `--varve-face-revision:"${cssString(revision)}";`,
-        faceKey ? `--varve-face-key:"${cssString(faceKey)}";` : '',
-      ].join('');
+      const cssFamily = family.replaceAll('\\', '\\\\').replaceAll('"', '\\"');
       const styleElement = document.createElement('style');
       styleElement.dataset.varveFontLoader = family;
-      if (faceKey) styleElement.dataset.varveFaceKey = faceKey;
-      styleElement.dataset.varveFaceRevision = revision;
-      styleElement.textContent = `@font-face{font-family:"${cssFamily}";src:url("${url}");font-weight:${weight};font-style:${style};${marker}}`;
+      styleElement.textContent = `@font-face{font-family:"${cssFamily}";src:url("${url}");font-weight:${weight};font-style:${style};}`;
       document.head.append(styleElement);
       this.workerStyles.set(family, [...(this.workerStyles.get(family) ?? []), styleElement]);
       this.workerObjectUrls.set(family, [...(this.workerObjectUrls.get(family) ?? []), url]);
-      return { styleElement, objectUrl: url, revision, ...(faceKey ? { faceKey } : {}) };
     } catch {
       // The CSS Font Loading API remains authoritative when the bridge is
       // unavailable (for example in a restricted embedded document).
-      return undefined;
     }
   }
 

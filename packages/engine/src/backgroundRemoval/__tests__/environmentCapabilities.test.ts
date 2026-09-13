@@ -33,26 +33,6 @@ describe('getEnvironmentCapabilitiesSync', () => {
     const sync2 = getEnvironmentCapabilitiesSync();
     expect(sync2.hasWebGPU).toBe(async_.hasWebGPU);
   });
-
-  it('inherits the conservative 2 GB browser budget from the canonical runtime probe', async () => {
-    const previous = Object.getOwnPropertyDescriptor(navigator, 'deviceMemory');
-    Object.defineProperty(navigator, 'deviceMemory', {
-      configurable: true,
-      value: 2,
-    });
-    resetEnvironmentCapabilities();
-
-    try {
-      const caps = getEnvironmentCapabilitiesSync();
-      expect(caps.wasmSafePeakBytes).toBeLessThanOrEqual(400_000_000);
-      expect(caps.wasmSafeModelBytes).toBeLessThanOrEqual(200_000_000);
-      await expect(isWasmModelSafe('isnet-general-use')).resolves.toBe(false);
-    } finally {
-      if (previous) Object.defineProperty(navigator, 'deviceMemory', previous);
-      else Reflect.deleteProperty(navigator, 'deviceMemory');
-      resetEnvironmentCapabilities();
-    }
-  });
 });
 
 describe('getEnvironmentCapabilities', () => {

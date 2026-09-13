@@ -1014,7 +1014,7 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
       if (!record) throw new Error(`Memory file not found: ${path}`);
       return new TextEncoder().encode(record.json);
     },
-    async readClipboardImage(_signal?: AbortSignal) {
+    async readClipboardImage() {
       return null;
     },
     async readClipboardData() {

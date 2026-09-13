@@ -1,6 +1,6 @@
 # Pen and Pencil Tools — Architecture
 
-Last updated: 2026-08-25
+Last updated: 2026-09-13
 
 ## Overview
 
@@ -12,6 +12,7 @@ space; handles are **relative offsets** from each anchor.
 
 ```
 PointerEvent (canvas)
+  → inputPipeline pointer-ownership policy
   → CanvasArea.buildToolCtx (rect-subtract, forward pathPoints)
   → ToolManager → PenTool | PencilTool
   → world-space capture (canvasToWorld)
@@ -45,6 +46,35 @@ The preview uses the same point/relative-handle convention as the committed
 
 Pen stays active after each path commit (multi-path workflow).
 
+### Contact ownership and cancellation
+
+`packages/editor/src/tools/inputPolicy.ts` is the DOM-free contract shared by
+the canvas adapter and tools:
+
+- every contact is tracked by `pointerId`; `button` is a transition while
+  `buttons` is the active state;
+- the default one-finger policy is **Finger draws**. Settings can switch to
+  **Finger navigates**; unknown/custom pointer types follow that preference so
+  users are not stranded in a pen-only mode when a WebView cannot identify a
+  stylus;
+- a second touch after a provisional drawing contact returns the original
+  owner ID. Only that interaction is cancelled; global undo is never used as a
+  gesture repair mechanism. Both contacts then belong to navigation;
+- a touch left after a pinch remains navigation-only until a fresh contact, so
+  it cannot turn into an accidental stroke;
+- an active pen owns the drawing surface. Foreign touch/compatibility contacts
+  are ignored while the pen contact remains intact;
+- `pointercancel`, lost capture, blur, visibility changes, deactivation, and
+  tool changes are idempotent cleanup paths. A normal pointer-up is not treated
+  as an abort, and Pen's Escape/finish/close/undo-anchor semantics remain
+  distinct.
+
+The browser adapter scopes `touch-action` to the canvas surface. Panels, text
+fields, context menus, OS gestures, and accessibility zoom are not globally
+disabled. See the [input behavior matrix](input-system-behavior-matrix.md) and
+the dated [drawing-input audit](../audits/drawing-input-quality-audit-2026-09-13.md)
+for route-specific evidence and physical-device limits.
+
 ## Pencil Tool
 
 | Stage | Algorithm |
@@ -66,15 +96,17 @@ Module: `packages/editor/src/tools/pathCoords.ts`
 
 ## Deployment Targets
 
-| Concern | Browser (`pnpm dev`) | Tauri (WebKitGTK) |
+| Concern | Chrome tab / installed PWA | Tauri Linux (system WebKitGTK) |
 |---|---|---|
-| Pointer capture | `setPointerCapture` on canvas | Same |
-| `pointerType: "pen"` | Chrome/Firefox: yes | **No — always mouse** |
-| `pressure` | Stylus: real | Stuck at 0.5 |
-| `getCoalescedEvents` | Chrome/Firefox/Safari 18.2+ | Stub on GTK |
-| Fractional scaling | Use doubles end-to-end; rect subtract in buildToolCtx | Same code path |
+| Pointer capture | Feature-detected `setPointerCapture`; cancellation is handled | Same contract, WebKitGTK behavior must be observed |
+| `pointerType` | Preserved when reported; custom/empty values become `unknown` | Runtime-specific; no universal pen claim |
+| Pressure/tilt/twist/eraser | Preserved when reported; observed capability starts unknown | Unknown until the installed WebKitGTK/device route is tested |
+| Coalesced/predicted samples | Coalesced baseline; prediction is replaceable preview only | Feature-detected, throwing/missing APIs fall back safely |
+| Fractional scaling | CSS/client → canvas/world stays in doubles | Same code path; actual Crostini scaling remains a manual check |
 
-Pencil degrades gracefully on Linux Tauri: geometry-only smoothing, no pressure width.
+Pencil and Paint degrade to constant-width/opacity behavior when pressure is
+disabled or not useful. A successful Linux launch does not establish pen
+pressure, tilt, eraser, or multitouch support.
 
 ## Testing
 
@@ -88,10 +120,36 @@ E2E verifies document state and canvas paint, plus live overlay screenshots for
 anchors, handles, curvature, and closure. It does **not** measure stylus feel or
 pressure.
 
-## Research Sources (2026-07-13)
+## Research Sources (refreshed 2026-09-13)
 
 - Figma vector networks: https://help.figma.com/hc/en-us/articles/360040450213
-- Illustrator pen: Adobe CC manual / Smart Notes
+- Illustrator Pen tool (official guide, last updated 2026-02-25):
+  https://helpx.adobe.com/illustrator/desktop/draw-shapes-and-paths/draw-shapes/draw-curves-with-the-pen-tool.html
+- Illustrator path preview (official guide, last updated 2026-02-11):
+  https://helpx.adobe.com/uk/illustrator/desktop/draw-shapes-and-paths/draw-shapes/preview-paths-drawn.html
 - Inkscape keys: https://inkscape.org/doc/keys092.html
 - WebKitGTK pen limitation: https://github.com/tauri-apps/tauri/issues/10636
 - Wayland fractional scale: https://wayland.app/protocols/fractional-scale-v1
+- Pointer Events Level 3 (W3C Recommendation, 2026-06-30):
+  https://www.w3.org/TR/pointerevents3/
+- Pointer events, pressure, multitouch, and `touch-action` (MDN; accessed
+  2026-09-13):
+  https://developer.mozilla.org/en-US/docs/Web/API/Pointer_events
+  https://developer.mozilla.org/en-US/docs/Web/API/PointerEvent/pressure
+  https://developer.mozilla.org/en-US/docs/Web/API/Pointer_events/Multi-touch_interaction
+  https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/touch-action
+- Chrome low-latency canvas and aligned input guidance (accessed 2026-09-13):
+  https://developer.chrome.com/blog/desynchronized
+  https://developer.chrome.com/blog/aligning-input-events/
+- Tauri v2 webview versions (accessed 2026-09-13):
+  https://v2.tauri.app/reference/webview-versions/
+
+The dated drawing-input audit records the decisions, complaint-derived failure
+modes, route matrix, and source uncertainties in one place.
+
+The first-party Pen references reinforce two interaction decisions: a visible
+rubber-band/live curve preview is useful while placing the next anchor, and
+closing should be discoverable by hovering the hollow first anchor. Varve
+implements those behaviors for pointer input and keeps Finish/Close/Cancel
+actions available to touch users without requiring the reference applications'
+modifier keys.

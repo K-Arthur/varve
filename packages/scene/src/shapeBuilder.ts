@@ -113,17 +113,6 @@ export type ShapeBuilderApplyResult =
     }
   | { ok: false; reason: string; revision?: string };
 
-export interface ShapeBuilderRegionPreview {
-  outer: Point2D[];
-  holes: Point2D[][];
-}
-
-export interface ShapeBuilderActionPreview {
-  selected: BooleanResult;
-  output: ShapeBuilderRegionPreview[];
-  remainders: Array<{ sourceId: NodeId; regions: ShapeBuilderRegionPreview[] }>;
-}
-
 interface ConstructionSegment {
   id: number;
   sourceId: NodeId;
@@ -1037,56 +1026,13 @@ function outputRegionsForAction(
   action: ShapeBuilderAction,
   selectedFaces: ShapeBuilderFace[],
   selectedResult: BooleanResult,
-): ShapeBuilderRegionPreview[] {
+): Array<{ outer: Point2D[]; holes: Point2D[][] }> {
   if (action === 'divide')
     return selectedFaces.map((face) => ({ outer: face.outer, holes: face.holes }));
   return selectedResult.components.map((component) => ({
     outer: component.outer,
     holes: component.holes,
   }));
-}
-
-/**
- * Build the same output and source-remainder preview that an accepted action
- * will commit. This keeps the overlay honest for destructive actions: Erase
- * shows what remains, rather than only tinting the area that is about to go.
- */
-export function previewShapeBuilderAction(
-  model: ShapeBuilderModel,
-  faceIds: readonly string[],
-  action: ShapeBuilderAction,
-): ShapeBuilderActionPreview {
-  const empty: ShapeBuilderActionPreview = {
-    selected: { components: [], outerContours: [], holes: [], fillRule: 'evenodd' },
-    output: [],
-    remainders: [],
-  };
-  if (model.status !== 'ready') return empty;
-  const requested = new Set(faceIds);
-  const selectedFaces = model.faces.filter((face) => requested.has(face.id) && face.selectable);
-  if (selectedFaces.length === 0) return empty;
-  const selected = previewShapeBuilderSelection(
-    model,
-    selectedFaces.map((face) => face.id),
-  );
-  const output = action === 'erase' ? [] : outputRegionsForAction(action, selectedFaces, selected);
-  if (action === 'create') return { selected, output, remainders: [] };
-  const selectedRegion = booleanResultRegion(selected);
-  const affectedSourceIds = [...new Set(selectedFaces.flatMap((face) => face.filledBy))];
-  const remainders = affectedSourceIds.map((sourceId) => {
-    const remainder = booleanNormalizedRegions(
-      [sourceFilledRegion(model, sourceId), selectedRegion],
-      'subtract',
-    );
-    return {
-      sourceId,
-      regions: remainder.components.map((component) => ({
-        outer: component.outer,
-        holes: component.holes,
-      })),
-    };
-  });
-  return { selected, output, remainders };
 }
 
 function sourceFilledRegion(model: ShapeBuilderModel, sourceId: NodeId): Region2D {

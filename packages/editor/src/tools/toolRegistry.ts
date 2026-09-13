@@ -197,15 +197,6 @@ export const TOOL_REGISTRY = [
     aliases: ['object slice', 'split', 'cut', 'slice object'],
   },
   {
-    id: 'shapeBuilder',
-    label: 'Shape Builder',
-    icon: 'Combine',
-    category: 'vector',
-    kind: 'tool',
-    shortcutId: 'toolShapeBuilder',
-    aliases: ['regions', 'merge regions', 'erase regions', 'extract regions', 'divide'],
-  },
-  {
     id: 'eyedropper',
     label: 'Eyedropper',
     icon: 'Pipette',

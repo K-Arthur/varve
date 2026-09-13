@@ -47,9 +47,10 @@ import { sitePath } from '../../lib/siteUrl';
             <tr><th>Action</th><th>Gesture</th><th>Alternative</th></tr>
           </thead>
           <tbody>
-            <tr><td>Use the active tool</td><td>One finger drag (a tap does not move anything)</td><td>Keyboard shortcuts, command palette</td></tr>
+            <tr><td>Use the active tool</td><td>One finger drag by default; switch to one-finger viewport navigation in Settings &gt; Drawing input</td><td>Keyboard shortcuts, command palette, or the Hand tool</td></tr>
             <tr><td>Pan the canvas</td><td>Two-finger drag</td><td>Hand tool, trackpad two-finger scroll, scrollbars/space-drag where available</td></tr>
             <tr><td>Zoom</td><td>Two-finger pinch</td><td>Status-bar zoom field, View menu, keyboard zoom, Zoom tool</td></tr>
+            <tr><td>Recover from a second contact</td><td>The first provisional tool contact is cancelled for that pointer; both contacts become navigation-owned</td><td>Lift both fingers and start a fresh drawing contact</td></tr>
             <tr><td>Move or resize</td><td>Drag a selection or handle</td><td>Arrow-key nudge, Inspector position/size fields</td></tr>
             <tr><td>Context actions</td><td>Long-press (about 0.5 s) for the deep-selection menu</td><td>Right-click / two-finger tap with a trackpad or mouse</td></tr>
             <tr><td>Multi-select</td><td>Enable the touch multi-select toggle, then marquee</td><td>Shift/⌘-click with a pointer, Select menu</td></tr>
@@ -64,11 +65,30 @@ import { sitePath } from '../../lib/siteUrl';
       </section>
 
       <section class="docs-section">
+        <h2>Drawing input settings</h2>
+        <p>
+          Open <strong>Settings &gt; Drawing input</strong> to choose whether one-finger
+          touch follows the active tool or navigates the viewport. The setting is local,
+          reversible, and also applies when a WebView reports a custom or empty pointer type;
+          Varve does not strand the canvas in a pen-only mode. Two-finger navigation always
+          takes ownership without calling global Undo, creating history entries, or allowing
+          the remaining finger to resume a stroke unexpectedly.
+        </p>
+        <p>
+          The same panel enables pressure interpretation and adjusts its curve. If a runtime
+          or device does not provide useful pressure data, brushes remain usable with constant
+          width/opacity. A default <code>0.5</code> sample is not treated as proof that a pen
+          has a pressure sensor. Predicted samples can improve a transient preview, but are
+          never saved, exported, or added to Undo history.
+        </p>
+      </section>
+
+      <section class="docs-section">
         <h2>Pen</h2>
         <ul>
-          <li><strong>Pressure:</strong> stylus input is normalized with Pointer Events; a stylus that reports pressure passes it through to brushes. Per the specification, active pens that do not report pressure are treated as a constant <code>0.5</code> rather than being ignored.</li>
+          <li><strong>Pressure:</strong> stylus input is normalized with Pointer Events; a stylus that reports useful pressure passes it through to brushes. When pressure is unavailable or disabled, brushes use a stable constant response rather than becoming unusable.</li>
           <li><strong>Tilt and twist:</strong> the event model carries <code>tiltX</code>/<code>tiltY</code>, <code>twist</code>, and altitude/azimuth where the hardware reports them. Whether the USI Pen 2 reports any of these in Chrome is unmeasured.</li>
-          <li><strong>Eraser end and barrel button:</strong> not verified on this hardware. If your pen's eraser or button does not behave as expected, report it with the device model.</li>
+          <li><strong>Eraser end and barrel button:</strong> event state is preserved where the runtime exposes it, but behavior on the Lenovo USI Pen 2 is not verified on real hardware. If your pen's eraser or button does not behave as expected, report it with the device model and route.</li>
           <li><strong>Palm rejection and hover:</strong> left to ChromeOS and the digitizer; Varve does not synthesize or override them, and they are unverified.</li>
           <li><strong>Drawing:</strong> pressure sensitivity applies to brush tools; vector tools always place document-space geometry regardless of pressure.</li>
         </ul>
@@ -123,6 +143,26 @@ import { sitePath } from '../../lib/siteUrl';
           <li>Momentum scrolling does not double-apply; the gesture classifier distinguishes detented and high-resolution wheels.</li>
           <li>Tap-to-click, two-finger tap (right-click), and the clickpad's physical click all work; three- and four-finger swipes stay with ChromeOS.</li>
         </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Runtime routes</h2>
+        <table class="input-table">
+          <thead>
+            <tr><th>Route</th><th>What this guide covers</th><th>What still needs device evidence</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Chrome browser</td><td>Pointer ownership, touch controls, local persistence, and browser zoom/shortcut boundaries</td><td>Physical USI pressure, palm rejection, hover, and exact ChromeOS dispatch</td></tr>
+            <tr><td>Installed web app/PWA</td><td>The same web input contract in its installed window, subject to the active Chromium version</td><td>Install-specific update/reload and device behavior</td></tr>
+            <tr><td>Linux desktop in ChromeOS</td><td>Separate Tauri/WebKitGTK route with its own native file permissions and renderer</td><td>ARM64 package availability, WebKitGTK pointer capabilities, multitouch, pressure, and Crostini scaling</td></tr>
+          </tbody>
+        </table>
+        <p>
+          A successful browser test or Linux launch does not certify the other route. The Linux
+          application uses the system WebKitGTK webview rather than Chrome, so pressure and
+          multitouch must be checked separately. Varve does not advertise an Android app as a
+          substitute for either route.
+        </p>
       </section>
 
       <section class="docs-section">

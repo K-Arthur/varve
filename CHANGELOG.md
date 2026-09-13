@@ -14,6 +14,9 @@ update, not for someone reading the commit log.
 
 ### Added
 
+- **Drawing input controls** — Settings now exposes a reversible one-finger
+  draw/navigation policy, pressure enablement/curve, and an opt-in pointer test
+  surface that reports observed capability state without collecting artwork.
 - **Spatial Object Filters** — Motion Blur, Mosaic, Surface Smooth, and Edge
   Ink are available in the ordered Object Filters stack with bounded CPU
   replay, object-local coordinates, transparent-edge handling, expanded bounds,
@@ -25,6 +28,15 @@ update, not for someone reading the commit log.
 
 ### Fixed
 
+- **Touch and stylus ownership** — pointer IDs, active button state, coalesced
+  dynamics, capture loss, foreign contacts, and cancellation now flow through
+  one policy. A second finger resolves only its provisional interaction, a
+  remaining pinch contact cannot resume drawing, and predicted samples stay out
+  of committed artwork, history, persistence, and export.
+- **Pen/Pencil input fallbacks** — malformed or unavailable pressure/tilt/eraser
+  data degrades to a usable constant response while valid zero pressure,
+  unchanged-coordinate dynamics, final endpoints, and custom pointer types are
+  preserved.
 - **Image Enhance model execution** — AI upscaling now configures the same
   single-threaded ONNX WASM runtime as other inference workers, avoiding a
   Chromium/headless session-creation deadlock. Denoise waits for SCUNet's

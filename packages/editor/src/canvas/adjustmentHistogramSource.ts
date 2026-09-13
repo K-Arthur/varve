@@ -16,15 +16,8 @@
  * + replayIr) but returns raw ImageData instead of a data URL.
  */
 import type { Histogram } from '@varve/engine';
-import {
-  adjustmentsToFilters,
-  applyFilterWithCompositing,
-  computeHistogram,
-  createEngine,
-  createRasterSurface,
-  replayIr,
-} from '@varve/engine';
-import type { Adjustment, AdjustmentNode, Document } from '@varve/scene';
+import { computeHistogram, createEngine, createRasterSurface, replayIr } from '@varve/engine';
+import type { AdjustmentNode, Document } from '@varve/scene';
 import { resolveAdjustmentScope } from '@varve/scene';
 import { flattenSceneToEngine } from '../render/sceneToEngine';
 
@@ -45,12 +38,8 @@ const histogramCache: Array<{
   result: Histogram;
 }> = [];
 
-function buildCacheKey(
-  adjNode: AdjustmentNode,
-  targetIds: readonly string[],
-  beforeAdjustmentId?: string,
-): string {
-  return `${adjNode.id}:${beforeAdjustmentId ?? 'scope-source'}:${[...targetIds].sort().join(',')}`;
+function buildCacheKey(adjNode: AdjustmentNode, targetIds: readonly string[]): string {
+  return `${adjNode.id}:${[...targetIds].sort().join(',')}`;
 }
 
 /**
@@ -123,17 +112,6 @@ export function getAdjustmentTargetIds(doc: Document, adjNode: AdjustmentNode): 
   return targets.length > 0 ? targets : null;
 }
 
-/** Return the canonical upstream entries for a histogram stage. */
-export function adjustmentsBeforeEntry(
-  adjNode: Pick<AdjustmentNode, 'adjustments'>,
-  beforeAdjustmentId?: string,
-): Adjustment[] {
-  if (!beforeAdjustmentId) return [];
-  const adjustments = adjNode.adjustments ?? [];
-  const index = adjustments.findIndex((adjustment) => adjustment.id === beforeAdjustmentId);
-  return index >= 0 ? adjustments.slice(0, index) : [];
-}
-
 /**
  * Compute the source histogram for an adjustment node's scope targets.
  *
@@ -145,12 +123,11 @@ export function adjustmentsBeforeEntry(
 export async function computeAdjustmentSourceHistogram(
   doc: Document,
   adjNode: AdjustmentNode,
-  beforeAdjustmentId?: string,
 ): Promise<Histogram | null> {
   const targets = getAdjustmentTargetIds(doc, adjNode);
   if (!targets) return null;
 
-  const key = buildCacheKey(adjNode, targets, beforeAdjustmentId);
+  const key = buildCacheKey(adjNode, targets);
   const cached = histogramCache.find((entry) => entry.doc === doc && entry.key === key);
   if (cached) return cached.result;
 
@@ -178,25 +155,10 @@ export async function computeAdjustmentSourceHistogram(
     replayIr(ctx, ir);
     ctx.restore();
 
-    // A histogram for a later stack entry must describe that entry's input,
-    // not the original scoped composite. Reuse the canonical FilterIR and
-    // compositor so the diagnostic follows the same ordering, opacity, blend,
-    // and backend contract as the visible adjustment stack.
-    if (beforeAdjustmentId) {
-      const upstreamFilters = adjustmentsToFilters(
-        adjustmentsBeforeEntry(adjNode, beforeAdjustmentId),
-      );
-      if (upstreamFilters.length > 0) {
-        applyFilterWithCompositing(ctx as CanvasRenderingContext2D, upstreamFilters, cw, ch);
-      }
-    }
-
     const imageData = ctx.getImageData(0, 0, cw, ch);
     const histogram = computeHistogram(imageData);
 
-    const existingIndex = histogramCache.findIndex(
-      (entry) => entry.doc === doc && entry.key === key,
-    );
+    const existingIndex = histogramCache.findIndex((entry) => entry.doc === doc);
     if (existingIndex >= 0) histogramCache.splice(existingIndex, 1);
     histogramCache.unshift({ doc, key, result: histogram });
     if (histogramCache.length > MAX_CACHE_ENTRIES) histogramCache.pop();

@@ -224,12 +224,30 @@ import { sitePath } from '../../lib/siteUrl';
         <div class="troubleshoot-item">
           <h3>Touch gestures don't do what I expect in the browser demo</h3>
           <p>
-            <strong>Solution:</strong> One finger operates the active tool, while two fingers pan
-            and pinch-zoom the canvas. If the wrong tool is active, pick one from the palette or
-            press its shortcut. Long-press a stack of overlapping layers for the deep-selection
-            menu (the touch equivalent of right-click). On a touchscreen laptop both the
-            touchscreen and the trackpad stay active — a trackpad two-finger scroll pans the
-            canvas, and a trackpad pinch zooms it.
+            <strong>Solution:</strong> One finger operates the active tool by default, while two
+            fingers cancel only the provisional first-pointer action and then pan or pinch-zoom
+            the canvas. Change the reversible choice in <strong>Settings &gt; Drawing input</strong>
+            if one-finger viewport navigation is more useful. After a pinch, lift both fingers
+            and start a fresh contact before drawing; the remaining finger cannot silently resume
+            a stroke. If the wrong tool is active, pick one from the palette or press its shortcut.
+            Long-press a stack of overlapping layers for the deep-selection menu (the touch
+            equivalent of right-click). On a touchscreen laptop both the touchscreen and the
+            trackpad stay active — a trackpad two-finger scroll pans the canvas, and a trackpad
+            pinch zooms it.
+          </p>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>A pen stroke is not pressure-sensitive or a finger interrupts it</h3>
+          <p>
+            <strong>Solution:</strong> Open <strong>Settings &gt; Drawing input</strong> and confirm
+            pressure interpretation is enabled. A default or missing pressure sample is not proof
+            of a working pressure sensor, so Varve keeps a stable constant response as the
+            fallback. During an active pen stroke, foreign touch and compatibility contacts are
+            ignored rather than merged into the stroke. Browser emulation does not prove physical
+            USI pressure, tilt, eraser, hover, or palm rejection; include the ChromeOS version,
+            device, and whether this happened in the browser/PWA or Linux desktop route when
+            reporting it.
           </p>
         </div>
 

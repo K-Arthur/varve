@@ -72,7 +72,6 @@ export function LogoTypographySection({ node }: { node: TextNode }) {
       <div className="logo-panel__field logo-panel__font-field">
         <FontSelector
           value={node.fontFamily ?? ''}
-          fontReference={node.fontReference}
           label="Font family"
           onChange={(family) => patch(fontFamilyChanges(family || undefined))}
         />

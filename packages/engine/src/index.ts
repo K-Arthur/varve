@@ -523,11 +523,26 @@ export type {
   GenerativeJobToken,
   NativeGenerativeModelDownloadProgress,
   NativeGenerativeModelStatus,
+  ExpandGenerationEstimate,
+  ExpandLimits,
+  ExpandMargins,
+  ExpandPlan,
+  ExpandPlanRejection,
+  ExpandPlanRejectionCode,
+  ExpandPlanResult,
+  ExpandRegion,
+  ExpandedFrame,
 } from './generativeEdit';
 export {
   assessGenerativeEditResources,
+  buildExpandedFrame,
+  computeExpandPlan,
   createGenerativeJobState,
+  DEFAULT_EXPAND_LIMITS,
   downloadNativeGenerativeModel,
+  estimateExpandGenerationResolution,
+  expandCoverageMask,
+  expandPlanOutputFrame,
   GenerativeEditError,
   GenerativeJobController,
   getGenerativeEditCapabilities,
@@ -535,7 +550,9 @@ export {
   getNativeGenerativeModelStatus,
   importNativeGenerativeModel,
   NATIVE_GENERATIVE_MODEL_PROFILE,
+  normalizeExpandMargins,
   qualifyNativeGenerativeModel,
+  restoreProtectedPixels,
   runGenerativeEdit,
 } from './generativeEdit';
 export * from './geometry';
@@ -700,7 +717,6 @@ export * from './imageTreatments';
 export type {
   DownloadProgress,
   EmbeddingCacheOptions,
-  ImageInferenceResourceAssessment,
   InferenceEvents,
   InferenceProvider,
   InferenceRequest,
@@ -718,7 +734,6 @@ export type {
   RuntimeCapabilities,
 } from './inference';
 export {
-  assessImageInferenceResources,
   createDiagnosticsLabel,
   DownloadManager,
   deriveAcquisition,
@@ -729,7 +744,6 @@ export {
   getInferenceWorkerHost,
   getModelById,
   getRuntimeCapabilities,
-  getRuntimeCapabilitiesSync,
   InferenceAdmission,
   InferenceAdmissionError,
   InferenceError,

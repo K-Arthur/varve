@@ -129,37 +129,12 @@ function computePreferredProviders(caps: {
   return providers;
 }
 
-interface UserAgentDataHints {
-  platform?: string;
-  architecture?: string;
-  getHighEntropyValues?: (hints: string[]) => Promise<{
-    platform?: string;
-    architecture?: string;
-  }>;
-}
-
-async function detectUserAgentDataHints(): Promise<UserAgentDataHints> {
-  if (typeof navigator === 'undefined') return {};
-  const userAgentData = (navigator as Navigator & { userAgentData?: UserAgentDataHints })
-    .userAgentData;
-  if (!userAgentData) return {};
-  try {
-    const highEntropy = await userAgentData.getHighEntropyValues?.(['architecture']);
-    return { ...userAgentData, ...highEntropy };
-  } catch {
-    return userAgentData;
-  }
-}
-
 async function buildCapabilities(hasWebGPU: boolean): Promise<RuntimeCapabilities> {
   const crossOriginIsolated = detectCrossOriginIsolated();
   const isWebKitGTK = detectWebKitGTK();
   const isTauri = detectTauri();
   const sharedMemoryAvailable = detectSharedMemory();
   const memoryMB = approximateMemoryMB();
-  const userAgentData = await detectUserAgentDataHints();
-  const os = detectOsFromSignal(userAgentData.platform) ?? detectOs();
-  const cpuArch = detectCpuArch() ?? detectCpuArchFromSignal(userAgentData.architecture);
   const logicalProcessors =
     typeof navigator !== 'undefined' ? (navigator.hardwareConcurrency ?? 0) : 0;
   const batteryPowered = await detectBatteryPoweredAsync();
@@ -188,8 +163,8 @@ async function buildCapabilities(hasWebGPU: boolean): Promise<RuntimeCapabilitie
       : crossOriginIsolated
         ? 'Browser (cross-origin isolated)'
         : 'Browser (standard)',
-    os,
-    cpuArch,
+    os: detectOs(),
+    cpuArch: detectCpuArch(),
     logicalProcessors,
     approximateMemoryMB: memoryMB,
     memoryTier: memoryTier(memoryMB),
@@ -204,39 +179,30 @@ async function buildCapabilities(hasWebGPU: boolean): Promise<RuntimeCapabilitie
   };
 }
 
-function detectOsFromSignal(signal: string | undefined): string | undefined {
-  if (!signal) return undefined;
-  if (/windows/i.test(signal)) return 'windows';
-  if (/mac os|macintosh|darwin/i.test(signal)) return 'macos';
-  if (/cros|chrome os/i.test(signal)) return 'chromeos';
-  if (/android/i.test(signal)) return 'android';
-  if (/ios|iphone|ipad/i.test(signal)) return 'ios';
-  if (/linux/i.test(signal)) return 'linux';
-  return undefined;
-}
-
 function detectOs(): string | undefined {
   if (typeof navigator === 'undefined') return undefined;
-  return detectOsFromSignal(navigator.userAgent);
-}
-
-function detectCpuArchFromSignal(signal: string | undefined): string | undefined {
-  if (!signal) return undefined;
-  const normalized = signal.toLowerCase();
-  if (/\b(?:aarch64|arm64|armv8\w*|arm64e)\b/.test(normalized)) return 'arm64';
-  if (/\b(?:armv[5-7]\w*|armhf|arm32|arm)\b/.test(normalized)) return 'arm32';
-  if (/\b(?:x86_64|amd64|win64)\b/.test(normalized)) return 'x86_64';
-  if (/\b(?:x86|i386|i686)\b/.test(normalized)) return 'x86';
+  const ua = navigator.userAgent;
+  if (ua.includes('Windows')) return 'windows';
+  if (ua.includes('Mac OS')) return 'macos';
+  if (ua.includes('CrOS')) return 'chromeos';
+  if (ua.includes('Android')) return 'android';
+  if (ua.includes('iOS') || ua.includes('iPhone')) return 'ios';
+  if (ua.includes('Linux')) return 'linux';
   return undefined;
 }
 
 function detectCpuArch(): string | undefined {
   if (typeof navigator === 'undefined') return undefined;
   const nav = navigator as unknown as Record<string, string | undefined>;
-  const signals = [nav.platform, navigator.userAgent];
+  const signals = [nav.platform, navigator.userAgent]
+    .filter((value): value is string => typeof value === 'string')
+    .map((value) => value.toLowerCase());
   for (const signal of signals) {
-    const architecture = detectCpuArchFromSignal(signal);
-    if (architecture) return architecture;
+    if (/\b(?:aarch64|arm64|armv[5-8]\w*|arm)\b/.test(signal)) return 'arm64';
+  }
+  for (const signal of signals) {
+    if (/\b(?:x86_64|amd64|win64)\b/.test(signal)) return 'x86_64';
+    if (/\b(?:x86|i386|i686)\b/.test(signal)) return 'x86';
   }
   return undefined;
 }
@@ -276,10 +242,6 @@ export function getRuntimeCapabilitiesSync(): RuntimeCapabilities {
   if (cachedCapabilities) return cachedCapabilities;
   const memoryMB = approximateMemoryMB();
   const crossOriginIsolated = detectCrossOriginIsolated();
-  const userAgentData =
-    typeof navigator !== 'undefined'
-      ? (navigator as Navigator & { userAgentData?: UserAgentDataHints }).userAgentData
-      : undefined;
   return {
     crossOriginIsolated,
     isWebKitGTK: detectWebKitGTK(),
@@ -292,8 +254,8 @@ export function getRuntimeCapabilitiesSync(): RuntimeCapabilities {
     wasmSafePeakBytes: estimateWasmSafePeakBytes(crossOriginIsolated, memoryMB),
     preferredOnnxProviders: ['wasm'],
     label: 'Sync snapshot (no async probes)',
-    os: detectOsFromSignal(userAgentData?.platform) ?? detectOs(),
-    cpuArch: detectCpuArch() ?? detectCpuArchFromSignal(userAgentData?.architecture),
+    os: detectOs(),
+    cpuArch: detectCpuArch(),
     logicalProcessors: typeof navigator !== 'undefined' ? (navigator.hardwareConcurrency ?? 0) : 0,
     approximateMemoryMB: memoryMB,
     memoryTier: memoryTier(memoryMB),

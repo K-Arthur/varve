@@ -80,24 +80,15 @@ export function AdjustmentPanel() {
   // Derive the adjustment node for the histogram hook (must be before early return).
   const adjNodeRef = isAdjustmentNode ? (selNode as AdjustmentNode) : undefined;
 
+  // Source histogram for the adjustment layer's scope targets.
+  // The histogram shows the INPUT pixels (before this adjustment is applied).
+  const { histogram: sourceHistogram } = useAdjustmentHistogram(state.document, adjNodeRef);
+
   const [selectedAdjId, setSelectedAdjId] = useState<string | null>(null);
   const [showAddMenu, setShowAddMenu] = useState(false);
   const addBtnRef = useRef<HTMLButtonElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const editTransactionRef = useRef(false);
-  const selectedHistogramEntryId = adjNodeRef?.adjustments?.some(
-    (adjustment) => adjustment.id === selectedAdjId,
-  )
-    ? (selectedAdjId ?? undefined)
-    : undefined;
-
-  // The histogram is the scoped composite before the selected entry. With no
-  // entry selected it remains the source of the first stack stage.
-  const { histogram: sourceHistogram, loading: histogramLoading } = useAdjustmentHistogram(
-    state.document,
-    adjNodeRef,
-    selectedHistogramEntryId,
-  );
 
   const startEditTransaction = useCallback(() => {
     if (editTransactionRef.current) return;
@@ -276,9 +267,6 @@ export function AdjustmentPanel() {
   const { opacity, blendMode } = adjNode;
   const adjustments = adjNode.adjustments ?? [];
   const selectedAdj = adjustments.find((a) => a.id === selectedAdjId) ?? null;
-  const histogramSourceLabel = selectedAdj
-    ? `Input to ${filterKindDisplayName(selectedAdj.kind)}`
-    : 'Scoped source before the adjustment stack';
 
   return (
     <div className="insp-panel adj-panel">
@@ -486,8 +474,6 @@ export function AdjustmentPanel() {
             onEditEnd={finishEditTransaction}
             doc={state.document}
             sourceHistogram={sourceHistogram}
-            histogramSourceLabel={histogramSourceLabel}
-            histogramLoading={histogramLoading}
           />
           <div className="adj-panel__effect-controls">
             <div className="adj-editor__slider-row">

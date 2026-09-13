@@ -552,8 +552,6 @@ export interface EditorState {
     // Smudge settings
     smudgeStrength: number;
     smudgeMode: 'sampling' | 'mixing' | 'fingerpaint';
-    /** When true, smudge samples a read-only visible raster snapshot but still deposits on the active target. */
-    smudgeSampleAllLayers: boolean;
     alphaLock: boolean;
     blendMode: string;
     // Grain settings

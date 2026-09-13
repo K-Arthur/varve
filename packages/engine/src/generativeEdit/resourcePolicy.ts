@@ -60,7 +60,6 @@ export function getGenerativeEditResourceProfile(
   const architecture = runtime.cpuArch;
   const shared = {
     tier,
-    ...(runtime.os ? { platform: runtime.os } : {}),
     executionBackend: backend,
     ...(architecture ? { architecture } : {}),
     ...(memoryBytes ? { approximateMemoryBytes: memoryBytes } : {}),

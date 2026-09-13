@@ -1,12 +1,14 @@
 # Input System — Behavior Matrix (cross-platform)
 
-Branch: `feat/input-system` — 2026-08-01
+Canonical behavior — refreshed 2026-09-13 on `master`
 
 This matrix is the canonical statement of *intended* input behavior for the
-Varve canvas. It accompanies `docs/audits/input-system-audit-2026-08-01.md`
-(the "as-was" audit) and records the behavior after the Milestone 2–4/7 work:
-physical-key zoom matching, wheel-action classification, anchored viewport
-zoom, and the input diagnostics surface.
+Varve canvas. It accompanies the dated audits in
+`docs/audits/`, including
+[`drawing-input-quality-audit-2026-09-13.md`](../audits/drawing-input-quality-audit-2026-09-13.md).
+It separates the browser/PWA route from the Tauri/WebKitGTK route and records
+the explicit contact-ownership contract as well as the existing zoom and
+diagnostics behavior.
 
 ## 1. Conventions
 
@@ -47,20 +49,21 @@ zoom, and the input diagnostics surface.
 
 | Input | Behavior |
 |---|---|
-| One finger | Routed to the active tool (draw/select/edit). |
+| One finger | Routed to the active tool by default. Settings > Drawing input can reversibly switch one-finger touch to viewport navigation. |
 | Two-finger pinch | Combined pan + zoom around the gesture centroid. |
-| Two-finger pan | Pans the viewport; does not draw or select objects. |
-| Three fingers | Ignored by navigation (no spurious zoom). |
-| Pointer cancel | Cancels pinch; gesture state reset; tool receives `pointercancel`. |
+| Two-finger pan | Pans the viewport; the provisional first tool interaction is cancelled for that pointer only; no global undo or history entry is created. |
+| Three or more fingers | Navigation-owned or ignored; never creates a path, selection change, or paint dab. |
+| Return from pinch | A remaining finger stays navigation-owned; a new contact is required before drawing resumes. |
+| Pointer cancel / capture loss | Cancels only the owning interaction; gesture state is reset idempotently. |
 
 ### 2.4 Stylus / pen
 
 | Input | Behavior |
 |---|---|
-| Pen draw | Routed to the active tool; pressure/tilt/twist preserved. |
-| Eraser tip | Detected via button 5. |
-| Barrel button | Secondary action (configurable in future). |
-| Pen + touch coexistence | Touch navigation can run while a pen is hovering; touch does not merge into a pen stroke. |
+| Pen draw | Routed to the active tool; pressure/tilt/twist are preserved when events provide them. Missing/default values do not prove a sensor is present. |
+| Eraser tip | Active eraser state uses button 5, the active `buttons` bitfield, or an explicit eraser channel; a transition value alone is not enough. |
+| Barrel button | Button state is preserved for tools/diagnostics; no universal action is claimed. |
+| Pen + touch coexistence | During a pen stroke, foreign touch/compatibility contacts are ignored; hovering and between-stroke navigation remain runtime-dependent. |
 
 ### 2.5 Keyboard (canvas focused)
 
@@ -124,11 +127,10 @@ Settings > Nudging & Movement for the local small/big amounts.
 |---|---|---|---|---|---|---|---|
 | Windows | Tauri/WebView2 | Yes | Yes | Yes (ctrl+wheel) | Yes | Yes | Yes |
 | macOS | Tauri/WKWebView | Yes | Yes | Yes (gesture events) | Yes | Yes | Yes |
-| Linux Wayland | Tauri/WebKitGTK | Yes | Yes | Via pinch bridge | Yes | Yes | Yes |
-| Linux X11 | Tauri/WebKitGTK | Yes | Yes | Via pinch bridge | Yes | Yes | Yes |
-| Browser | Chromium | Yes | Yes | Yes (ctrl+wheel) | Yes | Yes | Yes |
-| Browser | Firefox | Yes | Yes | Verify event model | Yes | Yes | Yes |
-| Browser | Safari | Yes | Yes | Yes (gesture events) | Yes | Yes | Yes |
+| Linux Wayland/X11 | Tauri 2 + system WebKitGTK | Yes | Yes | Via bridge where available | Route-specific; synthetic only here | Unknown until WebKitGTK/device test | Yes |
+| Browser/PWA | Chromium | Yes | Yes | Yes (ctrl+wheel) | Automated PointerEvent coverage; hardware pending | Automated normalization only; hardware pending | Yes |
+| Browser | Firefox | Yes | Yes | Verify event model | Route-specific | Route-specific | Yes |
+| Browser | Safari | Yes | Yes | Yes (gesture events) | Route-specific | Route-specific | Yes |
 
 Known limitation: Firefox and WebKitGTK pinch support depends on the browser
 emitting ctrl+wheel or gesture events; where neither is emitted the reliable
@@ -164,7 +166,7 @@ cannot leave the editor stuck.
 | `zoomBy`/`zoomAtScreenPoint`/`panToWorldPoint` convenience API | Absorbed by existing `commitCamera`/`computeZoom*`; not re-exported |
 | Viewport-rotation gestures (touch twist) | Not implemented; rotation via toolbar/shortcuts only |
 | Diagnostics HUD toggle | Ring buffer exists; opt-in via `?perf=1` query param. Exposed as `window.__varvePerf` (see `drawDiagnostics.ts`); input diagnostics module (`inputDiagnostics.ts`) provides a ring buffer of normalized events but does not currently expose a window global |
-| Real USI Pen 2 pressure/tilt/eraser/palm behavior | CDP pen emulation covers the pipeline; hardware truth requires the Duet checklist in `docs/audits/chromeos-stage4-input-responsive-2026-09-12.md` |
+| Real USI Pen 2 pressure/tilt/eraser/palm behavior | Hardware truth is untested in this workspace; use the open checklist in [`drawing-input-quality-audit-2026-09-13.md`](../audits/drawing-input-quality-audit-2026-09-13.md). |
 | Real on-screen keyboard appearance/dismissal | Inset model and surface adaptation implemented and unit/E2E-tested with synthetic geometry; real OSK is a device check |
 | ChromeOS-reserved shortcut conflicts | Documented in section 8; no app code change required (menu/palette provide alternatives) |
 
@@ -216,14 +218,14 @@ for desktop; they are not yet re-verified on the Duet.
 
 | Input | Behavior | Evidence |
 |---|---|---|
-| One-finger touch | Routed to the active tool (draw/select/edit), not viewport pan | E2E `one-finger touch draws with the active tool` |
-| Two-finger touch | Pan + zoom about the centroid; page zoom stays at 1 | E2E `two-finger pinch zooms the canvas without page zoom` |
+| One-finger touch | Follows the persisted Drawing input preference: draw by default, or viewport navigation | `inputPolicy` unit tests + `tests/e2e/interaction/drawing-input.spec.ts`; physical touch pending |
+| Two-finger touch | Pan + zoom about the centroid; second contact cancels only the first pointer’s provisional tool interaction | `inputPolicy` unit tests + `drawing-input.spec.ts`; physical touch pending |
 | Touch long-press | Opens the deep-selection menu (SelectTool, `LONG_PRESS_MS`) | unit tests + implementation |
 | Touch multi-select | Toolbar toggle (`state.touchMultiSelect`) with marquee suppression | E2E and unit tests |
-| Pen | Pressure/tilt/twist normalized when reported; missing data falls back to constant pressure, never dropped | `inputNormalizer` unit tests; synthetic CDP pen E2E |
-| Pen + touch | Touch navigation can run while a pen hovers; touch never merges into a pen stroke | documented policy; real arbitration is a device check |
-| Eraser tip | Detected via `button === 5` | `inputNormalizer` |
-| Palm touches | Platform palm rejection is trusted where exposed; the app does not claim perfect rejection | device checklist |
+| Pen | Pressure/tilt/twist normalized when reported; missing data falls back to constant pressure, never dropped; observed capabilities remain separate from API availability | `inputNormalizer` unit tests; synthetic E2E; physical pressure pending |
+| Pen + touch | Foreign contacts cannot cancel or merge into an active pen stroke | `inputPolicy` unit tests + synthetic E2E; real arbitration is a device check |
+| Eraser tip | Active state uses button 5 or the active button/channel state | `inputNormalizer` unit tests; hardware behavior pending |
+| Palm touches | The runtime’s palm rejection is not claimed; ignored-contact heuristics are scoped and recoverable | device checklist |
 
 ### 8.3 Coarse-pointer target policy
 

@@ -144,32 +144,6 @@ describe('FontRegistry', () => {
     ]);
   });
 
-  it('unregisters one exact face without removing its sibling', () => {
-    const reg = new FontRegistry([]);
-    const first = `sha256:${'1'.repeat(64)}:single`;
-    const second = `sha256:${'2'.repeat(64)}:single`;
-    reg.register({
-      family: 'Shared Family',
-      weight: 400,
-      style: 'normal',
-      source: 'user',
-      postScriptName: 'Shared-Regular-A',
-      faceKey: first,
-    });
-    reg.register({
-      family: 'Shared Family',
-      weight: 400,
-      style: 'normal',
-      source: 'user',
-      postScriptName: 'Shared-Regular-B',
-      faceKey: second,
-    });
-
-    expect(reg.unregisterFace({ family: 'Shared Family', faceKey: first })).toBe(true);
-    expect(reg.getEntries('Shared Family')).toEqual([expect.objectContaining({ faceKey: second })]);
-    expect(reg.unregisterFace({ family: 'Shared Family', faceKey: first })).toBe(false);
-  });
-
   it('registers a font entry with url source', () => {
     const reg = new FontRegistry([]);
     reg.register({

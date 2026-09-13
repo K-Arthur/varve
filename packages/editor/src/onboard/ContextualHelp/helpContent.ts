@@ -115,25 +115,6 @@ const LOCAL_HELP_CONTENT: Record<string, HelpArticle> = {
     category: 'Tools',
     related: ['tool:slice', 'tool:pen'],
   },
-  'tool:shapeBuilder': {
-    id: 'tool:shapeBuilder',
-    title: 'Shape Builder (Shift+B)',
-    summary:
-      'Select individual filled regions, then merge, erase, extract, create, or divide them.',
-    body: 'Enter Shape Builder with editable filled shapes or closed paths selected. Click a region or sweep across regions; the preview crosses every face between pointer samples and does not change the document. Choose an action in the overlay or use M to merge, E/Delete to erase, X to extract, C to create while retaining sources, and D to divide. Escape clears the staged selection before leaving the tool. Open paths, visible strokes, masks, effects, locked layers, and live Boolean groups explain the required conversion instead of being flattened silently.',
-    keywords: [
-      'shape builder',
-      'regions',
-      'merge',
-      'erase',
-      'extract',
-      'create',
-      'divide',
-      'shift b',
-    ],
-    category: 'Tools',
-    related: ['tool:booleanUnion', 'tool:booleanSubtract', 'tool:knife', 'tool:nodeEdit'],
-  },
   'tool:eyedropper': {
     id: 'tool:eyedropper',
     title: 'Eyedropper Tool (I)',

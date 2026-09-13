@@ -38,8 +38,8 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
         <h2>Key Capabilities</h2>
         <ul>
           <li><strong>Shape primitives:</strong> Rectangle, ellipse, circle, line, arrow, polygon, star with precise controls</li>
-          <li><strong>Pen tool:</strong> Click to place bezier anchors, drag to create smooth handles, corner/smooth toggle</li>
-          <li><strong>Pencil tool:</strong> Freehand drawing with automatic bezier curve fitting (Schneider algorithm)</li>
+          <li><strong>Pen tool:</strong> Click or tap to place Bézier anchors, drag to create smooth handles, and finish, close, cancel, or undo anchors without relying on a keyboard</li>
+          <li><strong>Pencil tool:</strong> Freehand drawing with automatic Bézier curve fitting (Schneider algorithm), preserving endpoints and intentional corners</li>
           <li><strong>Node editing:</strong> Select and drag individual anchors and bezier handles on any path</li>
           <li><strong>Boolean operations:</strong> Union, subtract, intersect, exclude on selected shapes</li>
           <li><strong>Shape Builder:</strong> Preview individual overlap regions, then merge, erase, extract, create, or divide them with one undoable operation</li>
@@ -60,6 +60,11 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
         <h2>Technical Depth</h2>
         <p>
           The vector system is built on kurbo, a Rust geometry library providing Point, Rect, Affine, Circle, Ellipse, Line, and Path types. The ShapeNode enum encapsulates all shape types with point-containment testing for hit detection. The scene graph uses fractional-indexing for CRDT-safe concurrent ordering.
+        </p>
+        <p>
+          Pointer input is normalized once for mouse, touch, and stylus. A second touch cancels
+          only a provisional first contact before navigation begins, and a remaining finger after
+          a pinch must be lifted before drawing resumes. See the <a href={sitePath('/docs/touch-and-pen')}>touch and pen guide</a> for the reversible finger-drawing preference and route-specific pen limitations.
         </p>
         <p>
           Path editing uses bezier handles with smooth/corner toggle. The pencil tool fits freehand strokes to cubic bezier curves using least-squares optimization. Boolean operations use polygon clipping with support for self-intersecting paths and degenerate geometry.

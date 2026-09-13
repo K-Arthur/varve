@@ -300,21 +300,8 @@ fn checkout_session(
     cancellation: &InferenceCancellationToken,
 ) -> Result<SessionLease<Box<dyn InferenceSession>>, String> {
     let key = model_path.to_string_lossy();
-    // The graph file size is a poor reservation: BiRefNet Lite is a 224 MB
-    // file but its measured native CPU peak is about 7 GB. Use the canonical
-    // model metadata for cache eviction and diagnostics, with a conservative
-    // file-size fallback for future models that have not yet been qualified.
-    let model_id = model_path
-        .file_stem()
-        .and_then(|name| name.to_str())
-        .unwrap_or_default();
-    let estimated_bytes = model::model_info(model_id)
-        .and_then(|info| info.peak_memory_bytes)
-        .or_else(|| {
-            std::fs::metadata(model_path)
-                .ok()
-                .map(|metadata| metadata.len())
-        })
+    let estimated_bytes = std::fs::metadata(model_path)
+        .map(|metadata| metadata.len())
         .unwrap_or_default();
     get_session_pool().checkout(&key, estimated_bytes, cancellation, || {
         get_runtime().create_session(model_path)

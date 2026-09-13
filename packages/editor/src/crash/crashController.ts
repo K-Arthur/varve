@@ -51,13 +51,6 @@ import { getReleaseInfo, type ReleaseInfo } from './releaseInfo';
 
 export type PlatformKind = 'tauri' | 'web' | 'memory';
 
-/** Browser diagnostic events that are not application failures. */
-function isBenignWindowError(message: string): boolean {
-  return /^ResizeObserver loop (completed with undelivered notifications|limit exceeded)\.?$/i.test(
-    message.trim(),
-  );
-}
-
 export interface CrashUiState {
   consent: CrashConsentRecord;
   /** Newest report awaiting an explicit decision. */
@@ -285,11 +278,6 @@ export class CrashCenterController {
 
   private readonly handleWindowError = (event: ErrorEvent): void => {
     if (this.capturing) return;
-    // Chromium/WebKit report this non-fatal layout diagnostic through the
-    // global error channel. Treating it as a crash blocks the editor with a
-    // recovery dialog while the document is still healthy, especially when a
-    // responsive font browser is measuring its virtualized panes.
-    if (isBenignWindowError(event.message)) return;
     this.capturing = true;
     try {
       const error = event.error;

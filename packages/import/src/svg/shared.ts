@@ -4,8 +4,6 @@
 
 import type { Affine, PathPoint } from '@varve/engine';
 import type { Document, ManagedColor, SceneNode } from '@varve/scene';
-import { nodeLocalBounds } from '@varve/scene';
-import { transformRect } from '@varve/shared';
 
 /** Bounds for untrusted SVG source before XML parsing begins. */
 export const MAX_SVG_SOURCE_BYTES = 64 * 1024 * 1024;
@@ -640,40 +638,65 @@ export function computeGroupBounds(
     maxX = -Infinity,
     maxY = -Infinity;
   for (const id of ids) {
-    const bounds = localNodeBounds(doc, id);
-    if (!bounds) continue;
-    minX = Math.min(minX, bounds.x);
-    minY = Math.min(minY, bounds.y);
-    maxX = Math.max(maxX, bounds.x + bounds.w);
-    maxY = Math.max(maxY, bounds.y + bounds.h);
+    const n = doc.nodes[id];
+    if (!n) continue;
+    const tx = n.transform[4] ?? 0;
+    const ty = n.transform[5] ?? 0;
+    let bw = 0,
+      bh = 0;
+    if (n.kind === 'shape') {
+      const s = n.shape;
+      if (s.kind === 'rect') {
+        bw = s.w;
+        bh = s.h;
+      } else if (s.kind === 'circle') {
+        bw = s.r * 2;
+        bh = s.r * 2;
+      } else if (s.kind === 'ellipse') {
+        bw = s.rx * 2;
+        bh = s.ry * 2;
+      } else if (s.kind === 'polygon') {
+        bw = s.radius * 2;
+        bh = s.radius * 2;
+      } else if (s.kind === 'star') {
+        bw = s.outerRadius * 2;
+        bh = s.outerRadius * 2;
+      } else if (s.kind === 'line' || s.kind === 'arrow') {
+        bw = Math.abs(s.to[0] - s.from[0]) || 4;
+        bh = Math.abs(s.to[1] - s.from[1]) || 4;
+      } else if (s.kind === 'path') {
+        if (s.points.length > 0) {
+          let pMinX = Infinity,
+            pMinY = Infinity,
+            pMaxX = -Infinity,
+            pMaxY = -Infinity;
+          for (const pt of s.points) {
+            const xs = [pt.x, pt.handleIn?.[0] ?? pt.x, pt.handleOut?.[0] ?? pt.x];
+            const ys = [pt.y, pt.handleIn?.[1] ?? pt.y, pt.handleOut?.[1] ?? pt.y];
+            for (const v of xs) {
+              if (v < pMinX) pMinX = v;
+              if (v > pMaxX) pMaxX = v;
+            }
+            for (const v of ys) {
+              if (v < pMinY) pMinY = v;
+              if (v > pMaxY) pMaxY = v;
+            }
+          }
+          bw = pMaxX - pMinX;
+          bh = pMaxY - pMinY;
+        }
+      }
+    } else if (n.kind === 'text') {
+      bw = (n.fontSize ?? 16) * 6;
+      bh = (n.fontSize ?? 16) * 1.4;
+    }
+    minX = Math.min(minX, tx);
+    minY = Math.min(minY, ty);
+    maxX = Math.max(maxX, tx + bw);
+    maxY = Math.max(maxY, ty + bh);
   }
   if (minX === Infinity) return { x: 0, y: 0, w: 0, h: 0 };
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
-}
-
-/**
- * Return a node's bounds in the coordinate system of its current parent.
- *
- * `nodeLocalBounds` describes geometry before the node transform. SVG groups
- * can carry scale, rotation, and skew, so a translation-only approximation
- * makes the frame too small and can clip artwork when it is pasted. Transform
- * the four local corners so the group envelope remains faithful to the source.
- */
-function localNodeBounds(
-  doc: Document,
-  id: string,
-): { x: number; y: number; w: number; h: number } | null {
-  const node = doc.nodes[id];
-  if (!node) return null;
-
-  if (node.kind === 'group') {
-    const children = computeGroupBounds(doc, node.children);
-    if (children.w <= 0 || children.h <= 0) return null;
-    return transformRect(node.transform, children);
-  }
-
-  const local = nodeLocalBounds(node, doc);
-  return local ? transformRect(node.transform, local) : null;
 }
 
 export function adjustNodePosition(doc: Document, id: string, dx: number, dy: number): void {
@@ -693,8 +716,63 @@ export function adjustNodePosition(doc: Document, id: string, dx: number, dy: nu
 }
 
 export function nodeBounds(node: SceneNode): { x: number; y: number; w: number; h: number } {
-  const local = nodeLocalBounds(node);
-  return local ? transformRect(node.transform, local) : { x: 0, y: 0, w: 0, h: 0 };
+  const tx = node.transform[4] ?? 0;
+  const ty = node.transform[5] ?? 0;
+  let bw = 0;
+  let bh = 0;
+  if (node.kind === 'shape') {
+    const s = node.shape;
+    if (s.kind === 'rect') {
+      bw = s.w;
+      bh = s.h;
+    } else if (s.kind === 'circle') {
+      bw = s.r * 2;
+      bh = s.r * 2;
+    } else if (s.kind === 'ellipse') {
+      bw = s.rx * 2;
+      bh = s.ry * 2;
+    } else if (s.kind === 'polygon') {
+      bw = s.radius * 2;
+      bh = s.radius * 2;
+    } else if (s.kind === 'star') {
+      bw = s.outerRadius * 2;
+      bh = s.outerRadius * 2;
+    } else if (s.kind === 'line' || s.kind === 'arrow') {
+      bw = Math.abs(s.to[0] - s.from[0]) || 4;
+      bh = Math.abs(s.to[1] - s.from[1]) || 4;
+    } else if (s.kind === 'path') {
+      if (s.points.length > 0) {
+        let pMinX = Infinity,
+          pMinY = Infinity,
+          pMaxX = -Infinity,
+          pMaxY = -Infinity;
+        for (const pt of s.points) {
+          const xs = [pt.x, pt.handleIn?.[0] ?? pt.x, pt.handleOut?.[0] ?? pt.x];
+          const ys = [pt.y, pt.handleIn?.[1] ?? pt.y, pt.handleOut?.[1] ?? pt.y];
+          for (const v of xs) {
+            if (v < pMinX) pMinX = v;
+            if (v > pMaxX) pMaxX = v;
+          }
+          for (const v of ys) {
+            if (v < pMinY) pMinY = v;
+            if (v > pMaxY) pMaxY = v;
+          }
+        }
+        bw = pMaxX - pMinX;
+        bh = pMaxY - pMinY;
+      }
+    }
+  } else if (node.kind === 'text') {
+    bw = (node.fontSize ?? 16) * 6;
+    bh = (node.fontSize ?? 16) * 1.4;
+  } else if (node.kind === 'frame') {
+    bw = node.w;
+    bh = node.h;
+  } else if (node.kind === 'group') {
+    bw = 0;
+    bh = 0;
+  }
+  return { x: tx, y: ty, w: bw, h: bh };
 }
 
 export function collectDefs(el: ParsedElement): Map<string, ParsedElement> {

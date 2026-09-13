@@ -2,8 +2,6 @@ import { createDocument } from '@varve/scene';
 import { getParser } from './registry';
 import type { ImportOptions, ImportParser, ImportResult } from './types';
 
-const MAX_AI_SOURCE_BYTES = 64 * 1024 * 1024;
-
 export function createAiParser(): ImportParser {
   return {
     format: 'ai',
@@ -26,26 +24,11 @@ export function createAiParser(): ImportParser {
       const doc = createDocument('Imported AI');
 
       if (typeof data === 'string') {
-        return {
-          document: doc,
-          nodeIds: [],
-          warnings: ['AI parsing requires binary data'],
-        };
+        return { document: doc, nodeIds: [], warnings: ['AI parsing requires binary data'] };
       }
 
       if (data.length < 4) {
-        return {
-          document: doc,
-          nodeIds: [],
-          warnings: ['File too small to be a valid AI'],
-        };
-      }
-      if (data.byteLength > MAX_AI_SOURCE_BYTES) {
-        return {
-          document: doc,
-          nodeIds: [],
-          warnings: [`AI source exceeds the ${MAX_AI_SOURCE_BYTES}-byte import budget`],
-        };
+        return { document: doc, nodeIds: [], warnings: ['File too small to be a valid AI'] };
       }
 
       const header = new TextDecoder().decode(data.slice(0, 5));
@@ -60,11 +43,7 @@ export function createAiParser(): ImportParser {
         return parseAiEpsWrapper(data, opts, warnings);
       }
 
-      return {
-        document: doc,
-        nodeIds: [],
-        warnings: ['Unrecognized AI file format'],
-      };
+      return { document: doc, nodeIds: [], warnings: ['Unrecognized AI file format'] };
     },
   };
 }
@@ -84,29 +63,15 @@ function parseAiPdfWrapper(
   if (svgContent && svgParser) {
     const result = svgParser.parse(svgContent, opts);
     warnings.push(...result.warnings);
-    if (result.nodeIds.length > 0) {
-      return { document: result.document, nodeIds: result.nodeIds, warnings };
-    }
+    return { document: result.document, nodeIds: result.nodeIds, warnings };
   }
 
-  // Fallback: try basic PDF text and rectangle extraction. Do not fabricate a
-  // placeholder node for a header-only PDF: that makes a corrupt AI appear to
-  // have imported successfully and leaves the user with artwork they did not
-  // author.
+  // Fallback: try basic PDF text extraction
   if (svgParser) {
-    const textContent = extractPdfTextAsSvg(str);
-    const rectangleContent = extractPdfRectsAsSvg(str);
-    const fallbackContent = [textContent, rectangleContent].filter(Boolean).join('\n');
-    if (!fallbackContent) {
-      const message = 'AI parsing failed: no supported Illustrator content found';
-      warnings.push(message);
-      return {
-        document: createDocument('AI Import'),
-        nodeIds: [],
-        warnings,
-      };
-    }
-    const pdfFallback = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300">${fallbackContent}</svg>`;
+    const pdfFallback = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300">
+  <text x="10" y="50" font-family="sans-serif" font-size="14" fill="black">Adobe Illustrator content</text>
+  ${extractPdfTextAsSvg(str)}
+</svg>`;
 
     const result = svgParser.parse(pdfFallback, opts);
     warnings.push(...result.warnings);
@@ -116,7 +81,7 @@ function parseAiPdfWrapper(
   return {
     document: createDocument('AI Import'),
     nodeIds: [],
-    warnings: [...warnings, 'AI parsing failed: SVG parser not available'],
+    warnings: [...warnings, 'SVG parser not available; AI import requires SVG parser'],
   };
 }
 
@@ -128,14 +93,13 @@ function parseAiEpsWrapper(
   warnings.push('AI file with EPS wrapper: converting to basic SVG');
   const epsParser = getParser('eps');
   if (epsParser) {
-    const result = epsParser.parse(data, opts);
-    return { ...result, warnings: [...warnings, ...result.warnings] };
+    return epsParser.parse(data, opts);
   }
 
   return {
     document: createDocument('AI Import'),
     nodeIds: [],
-    warnings: [...warnings, 'AI parsing failed: EPS parser not available'],
+    warnings: [...warnings, 'EPS parser not available'],
   };
 }
 
@@ -172,20 +136,6 @@ function extractPdfTextAsSvg(pdfStr: string): string {
         `<text x="${t.x}" y="${t.y}" font-family="sans-serif" font-size="12" fill="black">${escapeXml(t.text)}</text>`,
     )
     .join('\n');
-}
-
-function extractPdfRectsAsSvg(pdfStr: string): string {
-  const rects: string[] = [];
-  const rectPattern = /(-?[\d.]+)\s+(-?[\d.]+)\s+([\d.]+)\s+([\d.]+)\s+re(?:\s*(?:f|f\*|S|s))?/g;
-  let match: RegExpExecArray | null;
-  match = rectPattern.exec(pdfStr);
-  while (match) {
-    rects.push(
-      `<rect x="${match[1]}" y="${match[2]}" width="${match[3]}" height="${match[4]}" fill="black"/>`,
-    );
-    match = rectPattern.exec(pdfStr);
-  }
-  return rects.join('\n');
 }
 
 function escapeXml(s: string): string {

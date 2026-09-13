@@ -80,18 +80,4 @@ describe('FontSelector', () => {
     expect(input).toHaveValue(longName);
     expect(input).toHaveAccessibleName('Font family');
   });
-
-  it('surfaces an exact-face fallback when the family exists but the requested artifact does not', () => {
-    render(
-      <FontSelector
-        value="Inter"
-        fontReference={{ artifactHash: 'a'.repeat(64), collectionIndex: 0 }}
-        onChange={() => {}}
-      />,
-    );
-
-    expect(
-      screen.getByRole('img', { name: /Exact font face is not installed/i }),
-    ).toBeInTheDocument();
-  });
 });

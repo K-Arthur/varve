@@ -206,7 +206,6 @@ The current automated and manual accessibility evidence matrix is in
 | `adr/0232-generative-editing-semantics.md` | Non-destructive generative editing semantics and provider boundary |
 | `adr/0233-clipboard-import-boundary.md` | Shared clipboard/import ownership, validation, and interoperability boundary |
 | `adr/0234-inspector-stack-layout-contract.md` | Canonical inspector ownership, responsive sizing, spacing, borders, and paint order |
-| `adr/0237-native-gpu-compute.md` | Native GPU compute, truthful accelerator capability stages, and inference-provider honesty |
 | `adr/0223-palette-extraction-derived-analysis.md` | Palette extraction as derived, versioned analysis (see `architecture/palette-extraction-system.md`) |
 | `adr/0224-non-destructive-effect-attachments.md` | Separate node-local Object Filters from scoped Adjustment Layers |
 | `adr/0225-effect-studio.md` | Integrate Effect Studio with the existing effect pipeline |
@@ -308,7 +307,6 @@ The current automated and manual accessibility evidence matrix is in
 | `architecture/viewport-guides-system.md` | Viewport guides contract |
 | `architecture/focus-navigation.md` | Focus and keyboard navigation contract |
 | `architecture/input-system-behavior-matrix.md` | Input behavior matrix |
-| `audits/drawing-input-quality-audit-2026-09-13.md` | Pointer ownership, stylus dynamics, ChromeOS route boundaries, complaint-derived fixes, and validation evidence |
 | `architecture/inspector-feature-ownership.md` | Inspector feature ownership |
 | `architecture/selection-colors.md` | Selection-scoped vector paint collection, safe replacement, and inspector behavior |
 | `architecture/icon-library.md` | User-facing icon library: search, acquisition, cache, licensing (distinct from internal UI icons — see `design/icon-system.md` and `adr/0006-icon-system-architecture.md`) |
@@ -535,7 +533,6 @@ records; check the current code before acting on their findings.
 | `audits/minimap-repair-2026-09-05.md` | Minimap geometry, lifecycle, persistence, responsive, and marketing repair record |
 | `audits/drag-drop-repair-2026-09-06.md` | App-wide drag/drop inventory, repaired ownership defects, validation matrix, and known platform limits |
 | `audits/ui-visual-optimization-2026-09-09.md` | Evidence-based UI map, visual audit, design direction, implementation groups, and residual debt |
-| `audits/illustration-workflow-improvement-2026-09-13.md` | Research-backed illustration/concept-art workflow slice: explicit smudge sampling, complaint evidence, validation, website claims, and deferred boundaries |
 
 ## Website-specific (current state)
 

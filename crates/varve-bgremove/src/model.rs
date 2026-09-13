@@ -33,10 +33,6 @@ pub struct ModelInfo {
     pub name: String,
     pub description: String,
     pub size_bytes: u64,
-    /// Measured native CPU peak RSS for the model's bounded inference
-    /// contract. This is separate from the file size: ONNX intermediates can
-    /// be several times larger than the downloaded graph.
-    pub peak_memory_bytes: Option<u64>,
     pub remote_url: String,
     pub checksum_sha256: Option<String>,
 }
@@ -49,7 +45,6 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
         name: "U^2-Net Light".to_owned(),
         description: "4.7 MB — fast preview quality, works on most images".to_owned(),
         size_bytes: 4_574_861,
-        peak_memory_bytes: Some(330_000_000),
         remote_url: "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx".to_owned(),
         checksum_sha256: Some(
             "309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8".into(),
@@ -60,7 +55,6 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
         name: "IS-Net General Use".to_owned(),
         description: "179 MB — enhanced balanced quality for varied subjects".to_owned(),
         size_bytes: 178_648_008,
-        peak_memory_bytes: Some(1_300_000_000),
         remote_url: "https://github.com/danielgatis/rembg/releases/download/v0.0.0/isnet-general-use.onnx".to_owned(),
         checksum_sha256: Some(
             "60920e99c45464f2ba57bee2ad08c919a52bbf852739e96947fbb4358c0d964a".into(),
@@ -71,7 +65,6 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
         name: "BiRefNet Lite".to_owned(),
         description: "224 MB — high quality, handles complex edges".to_owned(),
         size_bytes: 224_005_088,
-        peak_memory_bytes: Some(7_000_000_000),
         remote_url: "https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-bb_swin_v1_tiny-epoch_232.onnx".to_owned(),
         checksum_sha256: Some(
             "5600024376f572a557870a5eb0afb1e5961636bef4e1e22132025467d0f03333".into(),
@@ -82,7 +75,6 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
         name: "BiRefNet Full".to_owned(),
         description: "928 MB — best quality, handles hair/fur/transparency".to_owned(),
         size_bytes: 972_666_916,
-        peak_memory_bytes: Some(8_500_000_000),
         remote_url: "https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-epoch_244.onnx".to_owned(),
         checksum_sha256: Some(
             "58f621f00f5d756097615970a88a791584600dcf7c45b18a0a6267535a1ebd3c".into(),
@@ -93,7 +85,6 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
         name: "SCUNet Denoise".to_owned(),
         description: "77 MB — real-world blind image denoising (graph + external weights)".to_owned(),
         size_bytes: 76_936_854,
-        peak_memory_bytes: Some(280_000_000),
         remote_url: "https://huggingface.co/Heliosoph/scunet-onnx/resolve/main/scunet_color_real_psnr.onnx".to_owned(),
         checksum_sha256: Some(
             "231be201ab413dbc999d7951caa9844846b93a12a40a41e037d6b5888ed4e88c".into(),
@@ -104,7 +95,6 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
         name: "NAFNet Deblur".to_owned(),
         description: "138 MB — task-specific deblurring (NAFNet-GoPro-width64, fp16). Parity-verified against the trusted reference.".to_owned(),
         size_bytes: 138_050_767,
-        peak_memory_bytes: Some(420_000_000),
         remote_url: "https://github.com/K-Arthur/varve/releases/download/varve-models-v1/nafnet-gopro-width64-fp16b-embed.onnx".to_owned(),
         checksum_sha256: Some(
             "e9b82a578b6ddf47a3f22118da65d13a4459b53e6c0e5fcf41f5615eadf92f5e".into(),
@@ -115,7 +105,6 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
         name: "PaddleOCR v4 Detection".to_owned(),
         description: "4.7 MB — text region detection (DBNet++)".to_owned(),
         size_bytes: 4_745_517,
-        peak_memory_bytes: Some(40_000_000),
         remote_url: "https://huggingface.co/deepghs/paddleocr/resolve/main/det/ch_PP-OCRv4_det/model.onnx".to_owned(),
         checksum_sha256: Some(
             "30a86f5731181461d08021402766601e4302a9b9b9666be8aff402696339cdff".into(),
@@ -126,7 +115,6 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
         name: "PaddleOCR v4 Recognition".to_owned(),
         description: "10.8 MB — text recognition (CRNN), 6624 chars + CTC blank".to_owned(),
         size_bytes: 10_826_336,
-        peak_memory_bytes: None,
         remote_url: "https://huggingface.co/deepghs/paddleocr/resolve/main/rec/ch_PP-OCRv4_rec/model.onnx".to_owned(),
         checksum_sha256: Some(
             "1c7cf60de2afd728d512f4190cf37455092b45f06175365c6fc58d8cd7e2a68b".into(),
@@ -136,12 +124,9 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
         id: "lama-inpainting".to_owned(),
         name: "LaMa Inpainting".to_owned(),
         description: "208 MB — mask-guided inpainting for content-aware fill. Large Mask Inpainting (LaMa, Samsung AI / saic-mdal)".to_owned(),
-        size_bytes: 208_044_816,
-        peak_memory_bytes: Some(850_000_000),
+        size_bytes: 208_000_000,
         remote_url: "https://huggingface.co/Carve/LaMa-ONNX/resolve/main/lama_fp32.onnx".to_owned(),
-        checksum_sha256: Some(
-            "1faef5301d78db7dda502fe59966957ec4b79dd64e16f03ed96913c7a4eb68d".into(),
-        ),
+        checksum_sha256: None,
     },
     ]
 });
@@ -336,17 +321,14 @@ mod tests {
         assert!(lite.remote_url.contains("rembg"));
         assert!(lite.remote_url.contains("BiRefNet-general-bb_swin"));
         assert_eq!(lite.size_bytes, 224_005_088);
-        assert_eq!(lite.peak_memory_bytes, Some(7_000_000_000));
 
         let balanced = model_info("isnet-general-use").expect("enhanced balanced model");
         assert_eq!(balanced.size_bytes, 178_648_008);
-        assert_eq!(balanced.peak_memory_bytes, Some(1_300_000_000));
         assert!(balanced.remote_url.ends_with("isnet-general-use.onnx"));
 
         let full = model_info("birefnet-general").expect("full model");
         assert!(full.remote_url.contains("BiRefNet-general-epoch_244"));
         assert_eq!(full.size_bytes, 972_666_916);
-        assert_eq!(full.peak_memory_bytes, Some(8_500_000_000));
     }
 
     #[test]
@@ -359,18 +341,6 @@ mod tests {
         // model as not installed.
         let u2netp = model_info("u2netp").expect("u2netp model");
         assert_eq!(u2netp.size_bytes, 4_574_861);
-        assert_eq!(u2netp.peak_memory_bytes, Some(330_000_000));
-    }
-
-    #[test]
-    fn lama_metadata_matches_the_verified_manifest_contract() {
-        let lama = model_info("lama-inpainting").expect("LaMa model");
-        assert_eq!(lama.size_bytes, 208_044_816);
-        assert_eq!(
-            lama.checksum_sha256.as_deref(),
-            Some("1faef5301d78db7dda502fe59966957ec4b79dd64e16f03ed96913c7a4eb68d")
-        );
-        assert_eq!(lama.peak_memory_bytes, Some(850_000_000));
     }
 
     #[test]

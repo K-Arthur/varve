@@ -29,28 +29,13 @@ export function buildLevelsLUT(params: Partial<LevelParams>): Uint8Array {
   const p = { ...DEFAULT_LEVELS, ...params };
   const lut = new Uint8Array(256);
 
-  const finiteClamp = (value: number, fallback: number): number =>
-    Number.isFinite(value) ? Math.max(0, Math.min(255, value)) : fallback;
-  const inputBlack = finiteClamp(p.inputBlack, DEFAULT_LEVELS.inputBlack);
-  const inputWhite = finiteClamp(p.inputWhite, DEFAULT_LEVELS.inputWhite);
-  const outputBlack = finiteClamp(p.outputBlack, DEFAULT_LEVELS.outputBlack);
-  const outputWhite = finiteClamp(p.outputWhite, DEFAULT_LEVELS.outputWhite);
-  const gamma = Number.isFinite(p.gamma) ? Math.max(0.01, Math.min(10, p.gamma)) : 1;
-
-  // A collapsed or reversed input interval is still a valid edit. Normalize
-  // it into a deterministic interval instead of allowing a negative range to
-  // wrap through Uint8Array assignment or produce a hidden discontinuity.
-  const inputLow = Math.min(inputBlack, inputWhite);
-  const inputHigh = Math.max(inputBlack, inputWhite);
-  const inRange = Math.max(1, inputHigh - inputLow);
-  const outputLow = Math.min(outputBlack, outputWhite);
-  const outputHigh = Math.max(outputBlack, outputWhite);
-  const outRange = outputHigh - outputLow;
+  const inRange = Math.max(1, p.inputWhite - p.inputBlack);
+  const outRange = p.outputWhite - p.outputBlack;
 
   for (let i = 0; i < 256; i++) {
-    const normalized = Math.max(0, Math.min(1, (i - inputLow) / inRange));
-    const gammaCorrected = gamma !== 1 ? normalized ** (1 / gamma) : normalized;
-    lut[i] = Math.round(outputLow + gammaCorrected * outRange);
+    const normalized = Math.max(0, Math.min(1, (i - p.inputBlack) / inRange));
+    const gammaCorrected = p.gamma !== 1 ? normalized ** (1 / Math.max(0.01, p.gamma)) : normalized;
+    lut[i] = Math.round(p.outputBlack + gammaCorrected * outRange);
   }
 
   return lut;

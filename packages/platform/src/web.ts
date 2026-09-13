@@ -1243,17 +1243,14 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
       if (!response.ok) throw new Error(`Unable to read file bytes: ${response.status}`);
       return new Uint8Array(await response.arrayBuffer());
     },
-    async readClipboardImage(signal?: AbortSignal) {
+    async readClipboardImage() {
       const clipboard = navigator.clipboard;
       if (!clipboard || typeof clipboard.read !== 'function') return null;
-      if (signal?.aborted) return null;
       try {
         for (const item of await clipboard.read()) {
-          if (signal?.aborted) return null;
           const imageType = item.types.find((type) => type.startsWith('image/'));
           if (!imageType) continue;
-          const bytes = new Uint8Array(await (await item.getType(imageType)).arrayBuffer());
-          return signal?.aborted ? null : bytes;
+          return new Uint8Array(await (await item.getType(imageType)).arrayBuffer());
         }
       } catch {
         // Permission denial/no image is a recoverable browser capability miss.

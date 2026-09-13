@@ -18,10 +18,7 @@ const mockedUseEditor = vi.mocked(useEditor);
 
 const { mockExportRemoveBg, mockExportImageCache, mockExportIsModelAvailable } = vi.hoisted(() => ({
   mockExportRemoveBg: vi.fn(),
-  mockExportImageCache: {
-    load: vi.fn(),
-    loadAtSize: vi.fn().mockResolvedValue({ width: 200, height: 160 }),
-  },
+  mockExportImageCache: { load: vi.fn() },
   mockExportIsModelAvailable: vi.fn().mockResolvedValue(true),
 }));
 

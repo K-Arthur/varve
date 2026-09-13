@@ -13,7 +13,6 @@ import {
   nextNodeId,
   nodeLocalBounds,
 } from '@varve/scene';
-import { tryInvertAffine } from '@varve/shared';
 import type { ImportOptions } from '../types';
 import { droppedElementFeature, resolveSvgImageHref } from './resourcePolicy';
 import {
@@ -820,42 +819,9 @@ export function convertElement(
       gIds.push(...r.ids);
     }
     if (gIds.length > 0) {
-      const groupTransformAffine = composeTransforms(transforms);
-      const groupInverse = tryInvertAffine(groupTransformAffine);
-      if (!groupInverse) {
-        // A zero-scale or otherwise singular SVG transform cannot be
-        // represented as a parent frame while preserving child geometry.
-        // Keep the converted children at their source transforms and report
-        // the loss instead of applying the transform twice or producing a
-        // frame that clips everything.
-        warnings.push('SVG group transform is non-invertible; grouping was omitted');
-        return { doc: gDoc, ids: gIds };
-      }
-
       const { id, doc: gDocWithId } = nextNodeId(gDoc);
       gDoc = gDocWithId;
-
-      // Children were converted with the complete inherited transform so
-      // standalone roots retain their world placement. Once a source group is
-      // materialised as a frame, rebase each direct child into that frame's
-      // local coordinate system. This is essential for nested groups and for
-      // root viewBox/scale transforms; otherwise the ancestor transform is
-      // applied once to the child and once again by the frame.
-      for (const childId of gIds) {
-        const child = gDoc.nodes[childId];
-        if (!child) continue;
-        gDoc = {
-          ...gDoc,
-          nodes: {
-            ...gDoc.nodes,
-            [childId]: {
-              ...child,
-              transform: multiplyAffine(groupInverse, child.transform),
-            } as SceneNode,
-          },
-        };
-      }
-
+      const groupTransformAffine = composeTransforms(transforms);
       const { x, y, w, h } = computeGroupBounds(gDoc, gIds);
       const groupNode: FrameNode = {
         ...makeFrameNode(id, {
@@ -864,7 +830,14 @@ export function convertElement(
           w,
           h,
         }),
-        transform: multiplyAffine(groupTransformAffine, [1, 0, 0, 1, x, y]) as Affine,
+        transform: [
+          groupTransformAffine[0],
+          groupTransformAffine[1],
+          groupTransformAffine[2],
+          groupTransformAffine[3],
+          groupTransformAffine[4] + x,
+          groupTransformAffine[5] + y,
+        ] as Affine,
       };
       for (const childId of gIds) {
         adjustNodePosition(gDoc, childId, -x, -y);

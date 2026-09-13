@@ -14,8 +14,7 @@ test.describe('Font selector', () => {
     await page.keyboard.press('t');
 
     // Create a text node on canvas
-    await dragOnCanvas(page, 120, 160, 360, 220);
-    await page.keyboard.insertText('Typography in context');
+    await dragOnCanvas(page, 200, 200, 400, 250);
     await page.waitForTimeout(500);
 
     // TextTool enters editing mode after the drag, so the floating text bar is
@@ -55,8 +54,7 @@ test.describe('Font selector', () => {
   test('font selector shows bundled and system sections', async ({ page }) => {
     // Select text tool
     await page.keyboard.press('t');
-    await dragOnCanvas(page, 120, 160, 360, 220);
-    await page.keyboard.insertText('Typography in context');
+    await dragOnCanvas(page, 200, 200, 400, 250);
     await expect(page.getByRole('treeitem').first()).toContainText(/text/i, { timeout: 10000 });
 
     const fontSelector = page.locator('.font-selector').first();
@@ -75,8 +73,7 @@ test.describe('Font selector', () => {
   test('keyboard navigation works in font selector', async ({ page }) => {
     // Select text tool
     await page.keyboard.press('t');
-    await dragOnCanvas(page, 120, 160, 360, 220);
-    await page.keyboard.insertText('Typography in context');
+    await dragOnCanvas(page, 200, 200, 400, 250);
 
     const fontSelector = page.locator('.font-selector').first();
     await fontSelector.waitFor({ state: 'visible', timeout: 5000 });
@@ -105,10 +102,9 @@ test.describe('Font selector', () => {
     expect(currentValue.length).toBeGreaterThan(0);
   });
 
-  test('font selector explains when a searched font is unknown', async ({ page }) => {
+  test('font selector warns when font is unknown', async ({ page }) => {
     await page.keyboard.press('t');
-    await dragOnCanvas(page, 120, 160, 360, 220);
-    await page.keyboard.insertText('Typography in context');
+    await dragOnCanvas(page, 200, 200, 400, 250);
     await expect(page.getByRole('treeitem').first()).toContainText(/text/i, { timeout: 10000 });
 
     const fontSelector = page.locator('.font-selector').first();
@@ -121,18 +117,14 @@ test.describe('Font selector', () => {
     await fontInput.fill('NonExistentFontXYZ');
     await page.waitForTimeout(300);
 
-    // While the combobox is open the current document value is unchanged, so
-    // the missing-family warning intentionally stays tied to the committed
-    // value. The open menu gives the actionable query result instead.
-    await expect(page.locator('.font-selector__option--empty')).toContainText(
-      'No installed fonts match',
-    );
+    // Warning indicator should appear
+    const warning = page.locator('.font-selector__warning');
+    await expect(warning).toBeVisible({ timeout: 3000 });
   });
 
   test('font selector displays variable font badge', async ({ page }) => {
     await page.keyboard.press('t');
-    await dragOnCanvas(page, 120, 160, 360, 220);
-    await page.keyboard.insertText('Typography in context');
+    await dragOnCanvas(page, 200, 200, 400, 250);
     await expect(page.getByRole('treeitem').first()).toContainText(/text/i, { timeout: 10000 });
 
     const fontSelector = page.locator('.font-selector').first();
@@ -159,8 +151,7 @@ test.describe('Font selector', () => {
     });
 
     await page.keyboard.press('t');
-    await dragOnCanvas(page, 120, 160, 360, 220);
-    await page.keyboard.insertText('Typography in context');
+    await dragOnCanvas(page, 200, 200, 400, 250);
     const fontSelector = page.locator('.font-selector').first();
     await fontSelector.waitFor({ state: 'visible', timeout: 5000 });
     const fontInput = fontSelector.locator('input');
@@ -179,8 +170,7 @@ test.describe('Font selector', () => {
     page,
   }) => {
     await page.keyboard.press('t');
-    await dragOnCanvas(page, 120, 160, 360, 220);
-    await page.keyboard.insertText('Typography in context');
+    await dragOnCanvas(page, 200, 200, 400, 250);
     await expect(page.getByRole('treeitem').first()).toContainText(/text/i, { timeout: 10000 });
 
     await page.getByRole('button', { name: 'Browse fonts' }).click();
@@ -203,47 +193,11 @@ test.describe('Font selector', () => {
     });
   });
 
-  test('full browser exposes the exact variable axis before applying a face', async ({ page }) => {
-    test.setTimeout(120000);
-    await page.keyboard.press('t');
-    await dragOnCanvas(page, 120, 160, 360, 220);
-    await page.keyboard.insertText('Typography in context');
-    await expect(page.getByRole('treeitem').first()).toContainText(/text/i, { timeout: 10000 });
-
-    await page.getByRole('button', { name: 'Browse fonts' }).click();
-    const dialog = page.getByRole('dialog', { name: 'Browse fonts' });
-    // The new document uses the bundled IBM Plex face by default, so the
-    // manager opens on a real selected family without making a network-backed
-    // catalog search part of this axis contract.
-    await expect(dialog.getByRole('heading', { name: 'IBM Plex Sans Variable' })).toBeVisible();
-    const axes = dialog.getByRole('region', { name: 'Variable font axes' });
-    await expect(axes).toBeVisible();
-    const weight = axes.getByRole('slider', { name: 'Weight (wght)' });
-    await expect(weight).toHaveAttribute('min', '100');
-    await expect(weight).toHaveAttribute('max', '700');
-    await expect(weight).toHaveValue('400');
-    await page.screenshot({
-      path: test.info().outputPath('font-browser-variable-axes.png'),
-      fullPage: true,
-    });
-
-    await weight.fill('650');
-    await expect(weight).toHaveValue('650');
-    await expect(
-      dialog.getByRole('button', { name: 'Use IBM Plex Sans Variable face' }),
-    ).toBeEnabled();
-    await page.screenshot({
-      path: test.info().outputPath('font-browser-variable-axes-custom.png'),
-      fullPage: true,
-    });
-  });
-
   test('finds gothic families without unrelated filler and keeps inspection stable', async ({
     page,
   }) => {
     await page.keyboard.press('t');
     await dragOnCanvas(page, 200, 200, 400, 250);
-    await page.keyboard.insertText('Typography in context');
     await expect(page.getByRole('treeitem').first()).toContainText(/text/i, { timeout: 10000 });
 
     await page.getByRole('button', { name: 'Browse fonts' }).click();
@@ -262,29 +216,22 @@ test.describe('Font selector', () => {
     await dialog.locator('.font-browser__select-btn').first().click();
     await expect(dialog.locator('.font-browser__details h3')).toBeVisible();
     await expect(dialog.getByLabel('Preview text')).toBeVisible();
-    const specimen = dialog.locator('.font-browser__specimen');
-    await expect(specimen).toHaveAttribute('data-preview-status', /^(ready|unavailable)$/, {
-      timeout: 15000,
+    await expect(dialog.locator('.font-browser__specimen')).toHaveAttribute(
+      'data-preview-status',
+      'ready',
+      { timeout: 15000 },
+    );
+    const specimenGeometry = await dialog.locator('.font-browser__specimen').evaluate((element) => {
+      const specimen = element.getBoundingClientRect();
+      const nextContent = element.nextElementSibling?.getBoundingClientRect();
+      return {
+        specimenBottom: specimen.bottom,
+        nextContentTop: nextContent?.top ?? specimen.bottom,
+      };
     });
-    const previewStatus = await specimen.getAttribute('data-preview-status');
-    if (previewStatus === 'ready') {
-      const specimenGeometry = await specimen.evaluate((element) => {
-        const bounds = element.getBoundingClientRect();
-        const nextContent = element.nextElementSibling?.getBoundingClientRect();
-        return {
-          specimenBottom: bounds.bottom,
-          nextContentTop: nextContent?.top ?? bounds.bottom,
-        };
-      });
-      expect(specimenGeometry.specimenBottom).toBeLessThanOrEqual(
-        specimenGeometry.nextContentTop + 1,
-      );
-    } else {
-      // Search may select a catalog face that is not installed locally. The
-      // manager must explain the explicit install boundary instead of
-      // fetching a preview as a side effect of search or hover.
-      await expect(dialog.getByText(/install this font to preview/i)).toBeVisible();
-    }
+    expect(specimenGeometry.specimenBottom).toBeLessThanOrEqual(
+      specimenGeometry.nextContentTop + 1,
+    );
     await expect(dialog.locator('.font-browser__list-heading strong')).toBeVisible();
     await expect(dialog.locator('.font-browser__list')).toBeVisible();
     await page.screenshot({
@@ -296,7 +243,6 @@ test.describe('Font selector', () => {
   test('keeps the browser readable across themes at a compact viewport', async ({ page }) => {
     await page.keyboard.press('t');
     await dragOnCanvas(page, 120, 160, 360, 220);
-    await page.keyboard.insertText('Typography in context');
     await expect(page.getByRole('treeitem').first()).toContainText(/text/i, { timeout: 10000 });
     await page.getByRole('button', { name: 'Browse fonts' }).click();
 
@@ -401,12 +347,8 @@ test.describe('downloaded font restoration', () => {
       await page.getByRole('gridcell').first().dblclick({ timeout: 30000 });
       await editorShell.waitFor({ state: 'visible', timeout: 30000 });
     }
-    // The main tool strip owns data-tool attributes. Use the same keyboard
-    // activation path as the other font workflows so this remains valid when
-    // the toolbar is collapsed on a responsive layout.
-    await page.keyboard.press('t');
+    await page.locator('[data-tool="text"]:visible').first().click();
     await dragOnCanvas(page, 200, 200, 400, 250);
-    await page.keyboard.insertText('Typography in context');
     await expect(page.getByRole('treeitem').first()).toContainText(/text/i, { timeout: 10000 });
 
     const fontSelector = page.locator('.font-selector').first();
