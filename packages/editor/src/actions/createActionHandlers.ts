@@ -1,5 +1,6 @@
 import { exportNodeToSvg } from '@varve/codegen';
 import {
+  type AreaSelection,
   areaSelectionBounds,
   areaSelectionFromColorRange,
   areaSelectionFromImageAlpha,
@@ -315,12 +316,20 @@ export function createActionHandlers(
       return;
     }
     const sel = e.state.areaSelection;
-    if (!sel || !e.setAreaSelection) {
+    if (!sel || (!e.commitAreaSelection && !e.setAreaSelection)) {
       e.announce('Make a pixel selection first');
       return;
     }
     const next = transformAreaSelection(sel, matrix);
-    if (next) e.setAreaSelection(next);
+    if (next) commitAreaSelectionChange(next);
+  };
+
+  const commitAreaSelectionChange = (selection: AreaSelection): void => {
+    if (e.commitAreaSelection) {
+      e.commitAreaSelection(selection);
+      return;
+    }
+    e.setAreaSelection?.(selection);
   };
   const saveAreaSelection = (): void => {
     const selection = e.state.areaSelection;
@@ -886,49 +895,49 @@ export function createActionHandlers(
     // transform keeps the selection analytical.
     areaSelectionGrow: () => {
       const sel = e.state.areaSelection;
-      if (!sel || !e.setAreaSelection) {
+      if (!sel || (!e.commitAreaSelection && !e.setAreaSelection)) {
         e.announce('Make a pixel selection first');
         return;
       }
       const next = refineAreaSelection(sel, 'grow', { amount: 1 });
       if (next) {
-        e.setAreaSelection(next);
+        commitAreaSelectionChange(next);
         e.announce('Selection grown by 1 px');
       }
     },
     areaSelectionShrink: () => {
       const sel = e.state.areaSelection;
-      if (!sel || !e.setAreaSelection) {
+      if (!sel || (!e.commitAreaSelection && !e.setAreaSelection)) {
         e.announce('Make a pixel selection first');
         return;
       }
       const next = refineAreaSelection(sel, 'shrink', { amount: 1 });
       if (next) {
-        e.setAreaSelection(next);
+        commitAreaSelectionChange(next);
         e.announce('Selection shrunk by 1 px');
       }
     },
     areaSelectionSmooth: () => {
       const sel = e.state.areaSelection;
-      if (!sel || !e.setAreaSelection) {
+      if (!sel || (!e.commitAreaSelection && !e.setAreaSelection)) {
         e.announce('Make a pixel selection first');
         return;
       }
       const next = refineAreaSelection(sel, 'smooth', { sigma: 1 });
       if (next) {
-        e.setAreaSelection(next);
+        commitAreaSelectionChange(next);
         e.announce('Selection softened');
       }
     },
     areaSelectionThreshold: () => {
       const sel = e.state.areaSelection;
-      if (!sel || !e.setAreaSelection) {
+      if (!sel || (!e.commitAreaSelection && !e.setAreaSelection)) {
         e.announce('Make a pixel selection first');
         return;
       }
       const next = refineAreaSelection(sel, 'threshold', { threshold: 0.5 });
       if (next) {
-        e.setAreaSelection(next);
+        commitAreaSelectionChange(next);
         e.announce('Selection thresholded to a hard mask');
       }
     },

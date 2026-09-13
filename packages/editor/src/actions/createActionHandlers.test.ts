@@ -788,4 +788,19 @@ describe('createActionHandlers — pixel selection refine & transform', () => {
     const next = setAreaSelection.mock.calls[0]![0];
     expect(areaSelectionCoverageAt(next, { x: 2, y: 2 })).toBe(1);
   });
+
+  it('uses the undoable selection commit path when it is available', () => {
+    const commitAreaSelection = vi.fn();
+    const setAreaSelection = vi.fn();
+    const editor = makeEditorMock({
+      state: { areaSelection: rectSelection() } as unknown as EditorContextValue['state'],
+      commitAreaSelection,
+      setAreaSelection,
+    });
+
+    createActionHandlers(editor).areaSelectionGrow?.();
+
+    expect(commitAreaSelection).toHaveBeenCalledTimes(1);
+    expect(setAreaSelection).not.toHaveBeenCalled();
+  });
 });

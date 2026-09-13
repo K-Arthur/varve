@@ -2844,9 +2844,17 @@ export function EditorProvider({
   const redoSelStackRef = useRef<NodeId[][]>([]);
   const undoLabelsRef = useRef<string[]>([]);
   const redoLabelsRef = useRef<string[]>([]);
-  /** Ephemeral selection history; one entry is created per committed paint stroke. */
-  const areaUndoStackRef = useRef<Array<AreaSelection | null>>([]);
-  const areaRedoStackRef = useRef<Array<AreaSelection | null>>([]);
+  /**
+   * Ephemeral selection history; one entry is created per committed paint
+   * stroke/refinement. The document depth keeps selection and document edits
+   * in chronological order when a selection is filled after it is refined.
+   */
+  type AreaSelectionHistoryEntry = {
+    selection: AreaSelection | null;
+    documentDepth: number;
+  };
+  const areaUndoStackRef = useRef<AreaSelectionHistoryEntry[]>([]);
+  const areaRedoStackRef = useRef<AreaSelectionHistoryEntry[]>([]);
   /** Persistent-history API ref (assigned after the hook runs; used by
    *  stable callbacks and the derived undo-state sync below). */
   const persistentHistoryRef = useRef<PersistentHistoryApi | null>(null);
@@ -3220,7 +3228,9 @@ export function EditorProvider({
       // crop) into a history entry that makes Undo skip a real preceding edit.
       if (newDoc === s.document) return s;
 
-      areaUndoStackRef.current = [];
+      // A document edit must not erase a prior selection refinement. The
+      // selection entry is still older than this document edit and is undone
+      // only after the document stack returns to its recorded depth.
       areaRedoStackRef.current = [];
       const isPreviewTransaction =
         inTransactionRef.current && transactionModeRef.current === 'preview';
@@ -3606,10 +3616,17 @@ export function EditorProvider({
   }, []);
 
   const commitAreaSelection = useCallback((selection: AreaSelection) => {
+    const previousSelection = stateRef.current.areaSelection ?? null;
+    areaUndoStackRef.current = [
+      ...areaUndoStackRef.current.slice(-49),
+      {
+        selection: previousSelection,
+        documentDepth: undoStackRef.current.length,
+      },
+    ];
+    areaRedoStackRef.current = [];
     setState((s) => {
       const nextGeneration = Math.max(selection.generation, (s.areaSelection?.generation ?? 0) + 1);
-      areaUndoStackRef.current = [...areaUndoStackRef.current.slice(-49), s.areaSelection ?? null];
-      areaRedoStackRef.current = [];
       return {
         ...s,
         areaSelection: { ...selection, generation: nextGeneration },
@@ -6138,11 +6155,21 @@ export function EditorProvider({
       removeFrameFromChain,
 
       undo: () => {
-        const previousAreaSelection = areaUndoStackRef.current.pop();
-        if (previousAreaSelection !== undefined) {
-          areaRedoStackRef.current = [...areaRedoStackRef.current, state.areaSelection ?? null];
+        const previousAreaSelection = areaUndoStackRef.current.at(-1);
+        if (
+          previousAreaSelection &&
+          undoStackRef.current.length <= previousAreaSelection.documentDepth
+        ) {
+          areaUndoStackRef.current.pop();
+          areaRedoStackRef.current = [
+            ...areaRedoStackRef.current,
+            {
+              selection: state.areaSelection ?? null,
+              documentDepth: previousAreaSelection.documentDepth,
+            },
+          ];
           patch({
-            areaSelection: previousAreaSelection,
+            areaSelection: previousAreaSelection.selection,
             canUndo: areaUndoStackRef.current.length > 0 || undoStackRef.current.length > 0,
             canRedo: true,
             undoLabel:
@@ -6153,13 +6180,23 @@ export function EditorProvider({
           });
           return;
         }
-        // Persistent history (ADR-0019 Model A): when attached, undo moves
-        // the branch head through the revision store. Falls back to the
-        // in-memory stack for mutation paths not yet migrated.
-        const persistent = persistentHistoryRef.current;
-        if (persistent?.attached && persistent.session?.canUndo) {
-          void persistent.undo();
-          return;
+        // A document edit that follows a selection refinement is kept in the
+        // local shadow stack so the refinement can remain the next undo after
+        // that edit. Persistent history has no ephemeral-selection entries,
+        // so routing this step to it would skip the selection boundary and
+        // make the following undo remove an older paint stroke instead.
+        const localDocumentNeededForSelectionHistory =
+          previousAreaSelection !== undefined &&
+          undoStackRef.current.length > previousAreaSelection.documentDepth;
+        if (!localDocumentNeededForSelectionHistory) {
+          // Persistent history (ADR-0019 Model A): when attached, undo moves
+          // the branch head through the revision store. Falls back to the
+          // in-memory stack for mutation paths not yet migrated.
+          const persistent = persistentHistoryRef.current;
+          if (persistent?.attached && persistent.session?.canUndo) {
+            void persistent.undo();
+            return;
+          }
         }
         const prev = undoStackRef.current.pop();
         const prevSel = undoSelStackRef.current.pop();
@@ -6175,19 +6212,34 @@ export function EditorProvider({
           documentGrid: synced.documentGrid,
           isometricGrid: synced.isometricGrid,
           snapGrid: synced.documentGrid.spacingX,
-          canUndo: undoStackRef.current.length > 0,
+          canUndo: undoStackRef.current.length > 0 || areaUndoStackRef.current.length > 0,
           canRedo: true,
-          undoLabel: undoLabelsRef.current[undoLabelsRef.current.length - 1] ?? 'Undo',
+          undoLabel:
+            areaUndoStackRef.current.at(-1)?.documentDepth !== undefined &&
+            undoStackRef.current.length <= areaUndoStackRef.current.at(-1)!.documentDepth
+              ? 'Paint Selection'
+              : (undoLabelsRef.current[undoLabelsRef.current.length - 1] ?? 'Undo'),
           redoLabel: prevLabel ?? 'Undo',
         });
       },
 
       redo: () => {
-        const nextAreaSelection = areaRedoStackRef.current.pop();
-        if (nextAreaSelection !== undefined) {
-          areaUndoStackRef.current = [...areaUndoStackRef.current, state.areaSelection ?? null];
+        const nextAreaSelection = areaRedoStackRef.current.at(-1);
+        const redoDocumentFirst =
+          nextAreaSelection !== undefined &&
+          redoStackRef.current.length > 0 &&
+          undoStackRef.current.length <= nextAreaSelection.documentDepth;
+        if (nextAreaSelection && !redoDocumentFirst) {
+          areaRedoStackRef.current.pop();
+          areaUndoStackRef.current = [
+            ...areaUndoStackRef.current,
+            {
+              selection: state.areaSelection ?? null,
+              documentDepth: nextAreaSelection.documentDepth,
+            },
+          ];
           patch({
-            areaSelection: nextAreaSelection,
+            areaSelection: nextAreaSelection.selection,
             canUndo: true,
             canRedo: areaRedoStackRef.current.length > 0 || redoStackRef.current.length > 0,
             undoLabel: 'Paint Selection',
