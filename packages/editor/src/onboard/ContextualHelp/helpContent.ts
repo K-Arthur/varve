@@ -201,7 +201,7 @@ const LOCAL_HELP_CONTENT: Record<string, HelpArticle> = {
     id: 'tool:nodeEdit',
     title: 'Node Edit Tool',
     summary: 'Edit anchor points and bezier handles of paths.',
-    body: 'Double-click a path to enter node edit mode. Click and drag anchors to reposition. Drag bezier handles to adjust curves. Use the toolbar to convert between corner and smooth points.',
+    body: 'Double-click a path to enter node edit mode. Click an anchor, then Shift-click to add or remove anchors; dragging an already-selected anchor moves the group. Drag handles to adjust curves: Corner is independent, Smooth keeps tangent directions aligned, Symmetric also matches lengths, and Automatic derives handles from neighbours. Use the panel for local coordinates, relative handles, insert, delete, open/close, reverse, and line/curve conversion. Shift+C/S/Y/A apply modes; Escape cancels an active drag before leaving node editing.',
     keywords: ['node', 'anchor', 'bezier', 'handle', 'path', 'edit'],
     category: 'Tools',
     related: ['tool:pen', 'tool:pencil'],
