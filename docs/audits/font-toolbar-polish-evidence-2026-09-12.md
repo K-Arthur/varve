@@ -121,6 +121,11 @@ VARVE_E2E_PORT=1520 VARVE_E2E_WORKERS=1 npx playwright test tests/e2e/canvas/fon
 The run passed **3/3** DPR scenarios (1, 2, and 3). The inspected captures
 cover the open light, dark narrow, and high-contrast states:
 
+The visual run used the tree rooted at `07098c3de` with the follow-up toolbar
+diff applied. The implementation is now pinned in `ab3315390` (toolbar
+geometry and responsive visual helper), `85115ec2e` (contextual range adapter),
+and `a573f800a` (this evidence update).
+
 - `test-results/run-1665420-1520/canvas-font-toolbar-visual-76f26-adable-menus-in-every-theme-chromium/light-open.png`
 - `test-results/run-1665420-1520/canvas-font-toolbar-visual-c70f7-adable-menus-in-every-theme-chromium/dark-narrow.png`
 - `test-results/run-1665420-1520/canvas-font-toolbar-visual-cbecb-adable-menus-in-every-theme-chromium/high-contrast-open.png`
