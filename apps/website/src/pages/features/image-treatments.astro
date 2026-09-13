@@ -71,6 +71,22 @@ import { sitePath } from '../../lib/siteUrl';
         </p>
       </section>
 
+      <section class="feature-section constrained-editing" aria-labelledby="constrained-title">
+        <p class="eyebrow">Local-first performance</p>
+        <h2 id="constrained-title">A lighter preview is still an honest edit.</h2>
+        <p>
+          On constrained browser devices, active sliders and navigation take priority over
+          background thumbnails and speculative work. Varve coalesces stale preview requests,
+          keeps the latest state authoritative, and refines after the gesture settles. Export
+          uses the requested final quality rather than whichever preview scale was most recent.
+        </p>
+        <p>
+          Treatments remain local and editable. Browser model features are optional and lazy;
+          unsupported or memory-limited paths explain the fallback instead of uploading the
+          artwork or silently replacing a committed result. <a href={sitePath('/docs/performance')}>Read how performance modes work</a>.
+        </p>
+      </section>
+
       <aside class="honesty" aria-labelledby="honesty-title">
         <h2 id="honesty-title">Clear names, honest boundaries.</h2>
         <p>
@@ -94,6 +110,7 @@ import { sitePath } from '../../lib/siteUrl';
   .page-hero p, .feature-section p, .honesty p { color: var(--text-secondary); font-size: 1.05rem; line-height: 1.75; }
   .eyebrow { color: var(--accent-primary); font-size: .75rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
   .feature-section { margin: 0 0 4rem; }
+  .constrained-editing { border-left: 2px solid var(--border-accent); padding-left: 1.25rem; }
   .feature-section h2, .honesty h2 { color: var(--text-primary); font-size: clamp(1.6rem, 3vw, 2.3rem); margin: .5rem 0 1rem; }
   .treatment-grid { display: grid; gap: 1rem; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 1.75rem; }
   .treatment-grid article { border-top: 2px solid var(--border-accent); padding-top: 1rem; }
@@ -108,5 +125,5 @@ import { sitePath } from '../../lib/siteUrl';
   .pipeline-step small { color: var(--text-secondary); line-height: 1.4; }
   .pipeline-arrow { align-self: center; color: var(--accent-primary); font-size: 1.25rem; }
   .honesty a { color: var(--text-link); font-weight: 600; }
-  @media (max-width: 680px) { .treatment-grid, .pipeline { grid-template-columns: 1fr; } .pipeline-arrow { justify-self: center; transform: rotate(90deg); } }
+  @media (max-width: 680px) { .treatment-grid, .pipeline { grid-template-columns: 1fr; } .pipeline-arrow { justify-self: center; transform: rotate(90deg); } .constrained-editing { padding-left: 1rem; } }
 </style>
