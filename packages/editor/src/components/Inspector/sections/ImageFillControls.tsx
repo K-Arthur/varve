@@ -6,6 +6,7 @@
  *
  * Research basis: Figma image fill controls; APG file input patterns.
  */
+import { getImageCache } from '@varve/engine';
 import type { DocumentAsset, EmbeddedAssetInput, ImageFillData, ImageFit } from '@varve/scene';
 import { rasterEncodingLabel, rasterProvenanceLabel } from '@varve/shared';
 import { Icon, Select, Tooltip, TooltipProvider } from '@varve/ui';
@@ -41,6 +42,100 @@ const FIT_OPTIONS: { value: ImageFit; label: string }[] = [
   { value: 'tile', label: 'Tile' },
 ];
 
+const IMAGE_FILL_PREVIEW_MAX_DIMENSION = 1024;
+
+function isInlineImageSource(source: string): boolean {
+  return source.startsWith('data:') || source.startsWith('blob:');
+}
+
+function imageSourceDimensions(source: {
+  naturalWidth?: number;
+  naturalHeight?: number;
+  width?: number;
+  height?: number;
+}): { width: number; height: number } {
+  return {
+    width: source.naturalWidth || source.width || 0,
+    height: source.naturalHeight || source.height || 0,
+  };
+}
+
+/**
+ * Render an embedded large source through the bounded image-cache proxy.
+ * Inspector previews must not put the original data URL in an <img>: browser
+ * image elements decode their intrinsic dimensions even when CSS makes the
+ * preview small, which can exhaust a Chromebook/WebView on a large photo.
+ */
+function BoundedImagePreview({
+  source,
+  sourceWidth,
+  sourceHeight,
+}: {
+  source: string;
+  sourceWidth: number;
+  sourceHeight: number;
+}) {
+  const [thumbnailSource, setThumbnailSource] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setThumbnailSource(null);
+    setFailed(false);
+    const cache = getImageCache();
+    if (!isInlineImageSource(source) || typeof document === 'undefined') {
+      setFailed(true);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void cache
+      .loadAtSize(source, IMAGE_FILL_PREVIEW_MAX_DIMENSION, {
+        width: sourceWidth,
+        height: sourceHeight,
+      })
+      .then((image) => {
+        if (cancelled) return;
+        const dimensions = imageSourceDimensions(image);
+        if (dimensions.width <= 0 || dimensions.height <= 0)
+          throw new Error('invalid preview size');
+        const scale = Math.min(
+          1,
+          IMAGE_FILL_PREVIEW_MAX_DIMENSION / Math.max(dimensions.width, dimensions.height),
+        );
+        const width = Math.max(1, Math.round(dimensions.width * scale));
+        const height = Math.max(1, Math.round(dimensions.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext('2d');
+        if (!context) throw new Error('preview canvas unavailable');
+        context.drawImage(image as CanvasImageSource, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/png');
+        if (!cancelled) setThumbnailSource(dataUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [source, sourceHeight, sourceWidth]);
+
+  if (thumbnailSource) {
+    return (
+      <img src={thumbnailSource} alt="" className="insp-image-fill__preview-img" decoding="async" />
+    );
+  }
+  return (
+    <span className="insp-image-fill__preview-status" role="img" aria-label="Image preview">
+      {failed ? 'Preview unavailable' : 'Preparing preview...'}
+    </span>
+  );
+}
+
 export function ImageFillControls({
   image,
   onChange,
@@ -74,6 +169,12 @@ export function ImageFillControls({
   const previewSrc = hasMissingEmbeddedPayload ? undefined : (asset?.dataUrl ?? image.src);
   const hasPreview = Boolean(previewSrc);
   const hasImageReference = Boolean(image.src);
+  const sourceWidth = image.imageWidth ?? asset?.naturalWidth ?? 0;
+  const sourceHeight = image.imageHeight ?? asset?.naturalHeight ?? 0;
+  const useBoundedPreview =
+    Boolean(previewSrc) &&
+    isInlineImageSource(previewSrc ?? '') &&
+    (sourceWidth <= 0 || sourceHeight <= 0 || Math.max(sourceWidth, sourceHeight) > 1024);
 
   const handleFitChange = useCallback(
     (value: string) => {
@@ -206,7 +307,20 @@ export function ImageFillControls({
           aria-label="Replace image"
           onClick={openFilePicker}
         >
-          <img src={previewSrc} alt="" className="insp-image-fill__preview-img" />
+          {useBoundedPreview ? (
+            <BoundedImagePreview
+              source={previewSrc}
+              sourceWidth={sourceWidth}
+              sourceHeight={sourceHeight}
+            />
+          ) : (
+            <img
+              src={previewSrc}
+              alt=""
+              className="insp-image-fill__preview-img"
+              decoding="async"
+            />
+          )}
         </button>
       )}
 

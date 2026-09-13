@@ -45,6 +45,26 @@ describe('ImageFillControls', () => {
     expect(document.querySelector('.insp-image-fill__preview img')).toHaveAttribute('src', dataUrl);
   });
 
+  it('does not expose a large embedded source directly to the preview image element', () => {
+    const dataUrl = 'data:image/jpeg;base64,large-photo';
+    const asset = createEmbeddedAsset({
+      dataUrl,
+      mimeType: 'image/jpeg',
+      naturalWidth: 6000,
+      naturalHeight: 4000,
+    });
+    render(
+      <ImageFillControls
+        image={{ src: `asset:${asset.id}`, assetId: asset.id, fit: 'fill', x: 0, y: 0, scale: 1 }}
+        asset={asset}
+        onChange={() => {}}
+      />,
+    );
+
+    expect(document.querySelector('.insp-image-fill__preview img')).toBeNull();
+    expect(document.querySelector('.insp-image-fill__preview-status')).toBeTruthy();
+  });
+
   it('does not expose an unresolved asset reference as an image URL', () => {
     render(
       <ImageFillControls
