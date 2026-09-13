@@ -53,55 +53,118 @@ const { staticText = 'One canvas.', phrases = DEFAULT_PHRASES } = Astro.props;
   const TRANSITION_MS = 260;
   /** Hold time between phrase transitions. */
   const CYCLE_MS = 3400;
+  /** Below this width the CSS keeps the accessible static phrase. */
+  const NARROW_QUERY = '(max-width: 640px)';
+
+  interface PhraseTicker {
+    start: () => void;
+    stop: () => void;
+  }
 
   const hosts = [...document.querySelectorAll<HTMLElement>('[data-animated-phrase]')];
-  for (const host of hosts) {
-    if (!prefersMotion()) continue;
-    const current = host.querySelector<HTMLElement>('.hero-phrase-current');
-    const sourceItems = [...host.querySelectorAll<HTMLElement>('.hero-phrase-source-item')];
-    const staticEl = host.querySelector<HTMLElement>('.hero-phrase-static');
-    if (sourceItems.length > 1 && current && staticEl) {
-      const start = (): void => {
-        // Reserve the widest phrase so rotation never shifts the layout.
-        const probe = document.createElement('span');
-        probe.className = 'hero-phrase-probe';
-        probe.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;';
-        host.appendChild(probe);
-        let widest = staticEl.getBoundingClientRect().width;
-        const phrases = sourceItems.map((item) => item.textContent ?? '');
-        for (const phrase of phrases) {
-          probe.textContent = phrase;
-          widest = Math.max(widest, probe.getBoundingClientRect().width);
+  const tickers: PhraseTicker[] = [];
+
+  if (prefersMotion() && hosts.length > 0) {
+    for (const host of hosts) {
+      const current = host.querySelector<HTMLElement>('.hero-phrase-current');
+      const sourceItems = [...host.querySelectorAll<HTMLElement>('.hero-phrase-source-item')];
+      const staticEl = host.querySelector<HTMLElement>('.hero-phrase-static');
+      if (!current || !staticEl || sourceItems.length <= 1) continue;
+
+      const phrases = sourceItems.map((item) => item.textContent ?? '');
+      const narrow = window.matchMedia(NARROW_QUERY);
+      let interval: number | null = null;
+      let transition: number | null = null;
+      let index = 0;
+      let onScreen = false;
+      let measured = false;
+
+      const stop = (): void => {
+        if (interval !== null) {
+          window.clearInterval(interval);
+          interval = null;
         }
-        probe.remove();
-        host.style.minWidth = `${Math.ceil(widest)}px`;
-        host.classList.add('is-rotating');
-
-        let index = 0;
-        const timer = window.setInterval(() => {
-          current.classList.add('is-leaving');
-          window.setTimeout(() => {
-            index = (index + 1) % phrases.length;
-            current.textContent = phrases[index] ?? '';
-            current.classList.remove('is-leaving');
-            current.classList.add('is-entering');
-            requestAnimationFrame(() => current.classList.remove('is-entering'));
-          }, TRANSITION_MS);
-        }, CYCLE_MS);
-
-        (host as HTMLElement & { __varvePhraseTimer?: number }).__varvePhraseTimer = timer;
+        if (transition !== null) {
+          window.clearTimeout(transition);
+          transition = null;
+        }
+        host.classList.remove('is-rotating');
+        current.classList.remove('is-leaving', 'is-entering');
       };
 
-      if (host.offsetParent !== null) {
-        start();
-      } else {
-        const wait = (): void => {
-          if (host.offsetParent !== null) start();
-          else requestAnimationFrame(wait);
-        };
-        requestAnimationFrame(wait);
-      }
+      const tick = (): void => {
+        current.classList.add('is-leaving');
+        transition = window.setTimeout(() => {
+          transition = null;
+          index = (index + 1) % phrases.length;
+          current.textContent = phrases[index] ?? '';
+          current.classList.remove('is-leaving');
+          current.classList.add('is-entering');
+          requestAnimationFrame(() => current.classList.remove('is-entering'));
+        }, TRANSITION_MS);
+      };
+
+      const start = (): void => {
+        if (interval !== null || !onScreen || narrow.matches || document.hidden) return;
+        if (!measured) {
+          // Reserve the widest phrase so rotation never shifts the layout.
+          const probe = document.createElement('span');
+          probe.className = 'hero-phrase-probe';
+          probe.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;';
+          host.appendChild(probe);
+          let widest = staticEl.getBoundingClientRect().width;
+          for (const phrase of phrases) {
+            probe.textContent = phrase;
+            widest = Math.max(widest, probe.getBoundingClientRect().width);
+          }
+          probe.remove();
+          host.style.minWidth = `${Math.ceil(widest)}px`;
+          measured = true;
+        }
+        host.classList.add('is-rotating');
+        interval = window.setInterval(tick, CYCLE_MS);
+      };
+
+      // Start only while the host is actually on screen; stop otherwise. This
+      // replaces the old unbounded requestAnimationFrame wait loop and keeps
+      // the rotor from rotating inside a hidden or narrow layout.
+      const observer = new IntersectionObserver(
+        (entries) => {
+          onScreen = entries.some((entry) => entry.isIntersecting);
+          if (onScreen) start();
+          else stop();
+        },
+        { threshold: 0.1 },
+      );
+      observer.observe(host);
+
+      narrow.addEventListener('change', (event) => {
+        if (event.matches) stop();
+        else start();
+      });
+
+      tickers.push({ start, stop });
     }
+
+    // A hidden tab must not keep a timer alive. rAF is already throttled, but
+    // this interval is not, so pause it explicitly and resume on return.
+    document.addEventListener(
+      'visibilitychange',
+      () => {
+        for (const ticker of tickers) {
+          if (document.hidden) ticker.stop();
+          else ticker.start();
+        }
+      },
+      { passive: true },
+    );
+    window.addEventListener(
+      'pagehide',
+      () => {
+        for (const ticker of tickers) ticker.stop();
+      },
+      { passive: true },
+    );
   }
 </script>
 

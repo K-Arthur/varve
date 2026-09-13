@@ -57,7 +57,6 @@ import ClosingCTA from '../components/ClosingCTA.astro';
         <figure class="workflow-loop">
           <video
             class="workflow-video"
-            autoplay
             muted
             loop
             playsinline
@@ -81,8 +80,9 @@ import ClosingCTA from '../components/ClosingCTA.astro';
           />
           <figcaption>
             Select, node-edit, export &mdash; one pass through the real
-            interface. The recording is muted and loops; a still frame replaces
-            it when your system asks for reduced motion.
+            interface. The recording is muted, plays only while it is on screen,
+            and is replaced by a still frame when your system asks for reduced
+            motion.
           </figcaption>
         </figure>
       </section>
@@ -235,6 +235,36 @@ import ClosingCTA from '../components/ClosingCTA.astro';
     </div>
   </div>
 </Layout>
+
+<script>
+  /**
+   * Play the workflow recording only while it is on screen. The video is
+   * muted and looped, so playing it is not required for the page to work;
+   * starting it below the fold would compete with the largest paint for
+   * bandwidth on constrained devices. Reduced-motion visitors keep the CSS
+   * still frame and never reach this code.
+   */
+  const workflowVideo = document.querySelector<HTMLVideoElement>('.workflow-video');
+  if (
+    workflowVideo &&
+    !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  ) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.some((entry) => entry.isIntersecting);
+        if (visible) {
+          // Autoplay policy or a missing codec can reject this; the poster
+          // remains, so there is nothing to recover.
+          void workflowVideo.play().catch(() => {});
+        } else {
+          workflowVideo.pause();
+        }
+      },
+      { threshold: 0.25 },
+    );
+    observer.observe(workflowVideo);
+  }
+</script>
 
 <style>
   .product-page {
