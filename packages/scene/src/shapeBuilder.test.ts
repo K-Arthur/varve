@@ -254,6 +254,31 @@ describe('Shape Builder arrangement and actions', () => {
     expect(hitTestShapeBuilderFace(model, { x: 50, y: 30 })).not.toBeNull();
   });
 
+  it('does not discard a small feature inside a very large operand', () => {
+    let doc = createDocument('mixed-scale', true);
+    doc = addNode(
+      doc,
+      makeShapeNode(
+        'large',
+        { kind: 'rect', x: 1_000_000_000, y: -1_000_000_000, w: 1_000_000_000, h: 1_000_000_000 },
+        { transform: identity },
+      ),
+    );
+    doc = addNode(
+      doc,
+      makeShapeNode(
+        'small',
+        { kind: 'rect', x: 1_000_001_000, y: -999_999_000, w: 0.001, h: 0.001 },
+        { transform: identity },
+      ),
+    );
+
+    const model = buildShapeBuilderModel(doc, ['large', 'small']);
+    expect(model.status).toBe('ready');
+    expect(model.faces.filter((face) => face.selectable)).toHaveLength(2);
+    expect(model.faces.some((face) => face.area < 0.000002)).toBe(true);
+  });
+
   it('rejects zero-area primitive operands with an actionable reason', () => {
     let doc = createDocument('zero-area', true);
     doc = addNode(

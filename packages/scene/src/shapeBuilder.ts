@@ -411,6 +411,42 @@ function boundsForSources(sources: ShapeBuilderSource[]) {
   return computeAABB(sources.flatMap((source) => source.rings.flat()));
 }
 
+function translatePoint(point: Point2D, origin: Point2D): Point2D {
+  return { x: point.x - origin.x, y: point.y - origin.y };
+}
+
+function translateRing(ring: Point2D[], origin: Point2D): Point2D[] {
+  return ring.map((point) => ({ x: point.x + origin.x, y: point.y + origin.y }));
+}
+
+function translatedSources(sources: ShapeBuilderSource[], origin: Point2D): ShapeBuilderSource[] {
+  return sources.map((source) => ({
+    ...source,
+    rings: source.rings.map((ring) => ring.map((point) => translatePoint(point, origin))),
+  }));
+}
+
+/**
+ * Keep a small authored edge visible even when another operand spans a much
+ * larger range. The arrangement runs in a translated frame, so this is a
+ * topology tolerance rather than a world-coordinate floating-point safety
+ * allowance.
+ */
+function constructionTolerance(rings: Point2D[][]): number {
+  const scaleTolerance = workingTolerance(rings);
+  let shortestEdge = Infinity;
+  for (const ring of rings) {
+    for (let index = 0; index < ring.length; index++) {
+      const start = ring[index]!;
+      const end = ring[(index + 1) % ring.length]!;
+      const length = Math.hypot(end.x - start.x, end.y - start.y);
+      if (length > 0 && length < shortestEdge) shortestEdge = length;
+    }
+  }
+  if (!Number.isFinite(shortestEdge)) return scaleTolerance;
+  return Math.max(1e-12, Math.min(scaleTolerance, shortestEdge * 0.25));
+}
+
 function squaredDistance(a: Point2D, b: Point2D): number {
   const dx = a.x - b.x;
   const dy = a.y - b.y;
@@ -931,9 +967,12 @@ export function buildShapeBuilderModel(
   }
   const bounds = boundsForSources(sources);
   const allPoints = sources.flatMap((source) => source.rings.flat());
-  const tolerance = Math.max(workingTolerance(sources.flatMap((source) => source.rings)), 1e-9);
+  const origin = { x: bounds.minX, y: bounds.minY };
+  const construction = translatedSources(sources, origin);
+  const constructionRings = construction.flatMap((source) => source.rings);
+  const tolerance = constructionTolerance(constructionRings);
   const revision = `shape-builder-v1:${hashString(geometrySignature(sources))}`;
-  const segments = createConstructionSegments(sources, tolerance);
+  const segments = createConstructionSegments(construction, tolerance);
   if (segments.length > SHAPE_BUILDER_LIMITS.maxSegments) {
     return unsupported(
       'The selected artwork has too many construction segments.',
@@ -947,12 +986,22 @@ export function buildShapeBuilderModel(
   if (intersections.reason) {
     return unsupported(intersections.reason, sources, tolerance, bounds, revision);
   }
-  const arrangement = makeArrangement(segments, bounds, tolerance);
+  const arrangement = makeArrangement(
+    segments,
+    { minX: 0, minY: 0, maxX: bounds.maxX - origin.x, maxY: bounds.maxY - origin.y },
+    tolerance,
+  );
   if ('reason' in arrangement) {
     return unsupported(arrangement.reason, sources, tolerance, bounds, revision);
   }
-  const raw = buildRawFaces(arrangement.cycles, arrangement.edges, sources, tolerance);
-  const faces = mergeEquivalentFaces(raw, revision, tolerance);
+  const raw = buildRawFaces(arrangement.cycles, arrangement.edges, construction, tolerance);
+  const localFaces = mergeEquivalentFaces(raw, revision, tolerance);
+  const faces = localFaces.map((face) => ({
+    ...face,
+    outer: translateRing(face.outer, origin),
+    holes: face.holes.map((hole) => translateRing(hole, origin)),
+    representative: translateRing([face.representative], origin)[0]!,
+  }));
   if (faces.length > SHAPE_BUILDER_LIMITS.maxFaces) {
     return unsupported(
       'The arrangement has too many regions to build safely.',
@@ -988,7 +1037,10 @@ export function buildShapeBuilderModel(
       ? undefined
       : 'No filled bounded region is available in the current selection.',
     sources,
-    vertices: arrangement.vertices,
+    vertices: arrangement.vertices.map((point) => ({
+      x: point.x + origin.x,
+      y: point.y + origin.y,
+    })),
     edges: arrangement.edges,
     faces,
     tolerance,
