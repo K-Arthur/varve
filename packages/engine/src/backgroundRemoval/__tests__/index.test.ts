@@ -85,8 +85,6 @@ const HEURISTIC_RESULT = {
   height: 4,
 };
 
-const navigatorDeviceMemoryDescriptor = Object.getOwnPropertyDescriptor(navigator, 'deviceMemory');
-
 describe('removeBackground dispatch', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -128,20 +126,11 @@ describe('removeBackground dispatch', () => {
     mockGetBestOnnxProviders.mockReset().mockResolvedValue(['wasm']);
     vi.unstubAllGlobals();
     delete (window as unknown as { __TAURI__?: unknown }).__TAURI__;
-    Object.defineProperty(navigator, 'deviceMemory', {
-      configurable: true,
-      value: 8,
-    });
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
     delete (window as unknown as { __TAURI__?: unknown }).__TAURI__;
-    if (navigatorDeviceMemoryDescriptor) {
-      Object.defineProperty(navigator, 'deviceMemory', navigatorDeviceMemoryDescriptor);
-    } else {
-      Reflect.deleteProperty(navigator, 'deviceMemory');
-    }
   });
 
   it('rejects 0-byte images before dispatching anywhere', async () => {
@@ -283,15 +272,10 @@ describe('removeBackground dispatch', () => {
 
     // Dispatch checks native readiness, then the Tauri provider verifies the
     // exact model is installed before invoking native inference.
-    expect(mockInvoke).toHaveBeenCalledTimes(6);
+    expect(mockInvoke).toHaveBeenCalledTimes(3);
     expect(mockInvoke).toHaveBeenCalledWith('native_ai_status');
     expect(mockInvoke).toHaveBeenCalledWith('native_background_removal_model_status', {
       modelId: 'birefnet-general-lite',
-    });
-    expect(mockInvoke).toHaveBeenCalledWith('preflight_native_background_removal', {
-      modelId: 'birefnet-general-lite',
-      width: 4,
-      height: 4,
     });
     expect(mockInvoke).toHaveBeenCalledWith('remove_background', expect.anything());
     expect(result.maskDataUrl).toBe('data:image/png;base64,abc123');

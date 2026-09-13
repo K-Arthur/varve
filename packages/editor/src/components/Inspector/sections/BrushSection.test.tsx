@@ -48,20 +48,4 @@ describe('BrushSection', () => {
     expect(screen.getAllByText('Eraser').length).toBeGreaterThan(0);
     expect(screen.getByLabelText(/^Spacing/)).toBeInTheDocument();
   });
-
-  it('exposes the smudge mode and explicit merged sampling controls', () => {
-    render(
-      <EditorProvider>
-        <BrushSection tool="smudge" />
-      </EditorProvider>,
-    );
-
-    expect(screen.getAllByText('Smudge').length).toBeGreaterThan(0);
-    expect(screen.getByLabelText('Smudge mode')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Sample merged layers' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    );
-    expect(screen.getByLabelText(/^Strength/)).toBeInTheDocument();
-  });
 });

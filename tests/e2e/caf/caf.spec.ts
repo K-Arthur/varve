@@ -600,11 +600,7 @@ test.describe('Content-Aware Fill dialog', () => {
     // outside that workspace instead of relying on an internal dialog state.
     await switchWorkspace(page, 'Photo');
     await page.getByRole('tab', { name: 'Adjustments' }).click();
-    const sectionToggle = page.getByRole('button', { name: 'Generative Edit', exact: true });
-    await expect(sectionToggle).toBeVisible({ timeout: 10_000 });
-    if ((await sectionToggle.getAttribute('aria-expanded')) !== 'true') {
-      await sectionToggle.click();
-    }
+    await openGenerativeEditFromAdjustments(page);
     const duplicateButton = page.getByRole('button', {
       name: 'Duplicate generative result as layer',
     });
@@ -707,127 +703,6 @@ test.describe('Content-Aware Fill dialog', () => {
     expect(after.assets?.[edit.variations[0].assetId]).toBeTruthy();
 
     await page.screenshot({ path: testInfo.outputPath('real-landscape-applied.png') });
-  });
-
-  test('bounds a small edit on the 33 MP real portrait fixture', async ({ page }, testInfo) => {
-    const photographicNodeId = await dropImageAndSelect(
-      page,
-      path.join(FIXTURES_DIR, 'real-life-portrait.jpg'),
-    );
-    const before = await readEditorDocument(page);
-    const beforeNode = before.nodes[photographicNodeId];
-    const sourceAssetId = beforeNode?.fills?.find((fill: any) => fill.type === 'image')?.image
-      ?.assetId;
-    expect(sourceAssetId).toBeTruthy();
-    const sourceAsset = before.assets?.[sourceAssetId];
-    expect(sourceAsset.naturalWidth * sourceAsset.naturalHeight).toBeGreaterThan(16_777_216);
-
-    await triggerCafDialog(page, photographicNodeId);
-    const dialog = page.locator('dialog.varve-dialog--caf[open]');
-    await paintMaskStroke(page);
-    await dialog.getByRole('button', { name: /remove && fill/i }).click();
-    await expect(dialog.getByRole('button', { name: /^apply$/i })).toBeEnabled({ timeout: 30_000 });
-    await dialog.screenshot({ path: testInfo.outputPath('real-portrait-bounded-result.png') });
-    await dialog.getByRole('button', { name: /^apply$/i }).click();
-    await dialog.waitFor({ state: 'hidden', timeout: 10_000 });
-
-    const after = await readEditorDocument(page);
-    const afterNode = after.nodes[photographicNodeId];
-    const edit = after.generativeEdits?.[afterNode.generativeEditId];
-    const contextAsset = after.assets?.[edit.variations[0].contextAssetId];
-    expect(edit.provider.id).toBe('varve-content-aware');
-    expect(contextAsset.naturalWidth * contextAsset.naturalHeight).toBeLessThan(
-      sourceAsset.naturalWidth * sourceAsset.naturalHeight,
-    );
-    expect(edit.masks.width * edit.masks.height).toBeLessThanOrEqual(4_000_000);
-    expect(edit.masks.offsetX).toBeGreaterThanOrEqual(0);
-    expect(edit.masks.offsetY).toBeGreaterThanOrEqual(0);
-    expect(edit.outputFrame.sourceWidth).toBe(sourceAsset.naturalWidth);
-    expect(edit.outputFrame.sourceHeight).toBe(sourceAsset.naturalHeight);
-    const userMaskAsset = after.rasterMaskAssets?.[edit.maskAssetId];
-    expect(userMaskAsset?.width).toBe(sourceAsset.naturalWidth);
-    expect(userMaskAsset?.height).toBe(sourceAsset.naturalHeight);
-    expect(edit.maskWidth).toBe(sourceAsset.naturalWidth);
-    expect(edit.maskHeight).toBe(sourceAsset.naturalHeight);
-    expect(edit.masks.userWidth).toBe(sourceAsset.naturalWidth);
-    expect(edit.masks.userHeight).toBe(sourceAsset.naturalHeight);
-    const fills = afterNode?.fills?.filter((fill: any) => fill.type === 'image') ?? [];
-    expect(fills).toHaveLength(2);
-    expect(fills[0]?.image?.assetId).toBe(sourceAssetId);
-    expect(fills[1]?.image?.generativeEditOverlay).toMatchObject({
-      editId: afterNode.generativeEditId,
-      variationId: edit.acceptedVariationId,
-    });
-    expect(fills[1]?.image?.fit).toBe('crop');
-    expect(fills[1]?.image?.imageWidth).toBeGreaterThan(0);
-    expect(fills[1]?.image?.imageHeight).toBeGreaterThan(0);
-    await page.screenshot({ path: testInfo.outputPath('real-portrait-bounded-applied.png') });
-  });
-
-  test('retains earlier bounded edits when a real photograph is edited twice', async ({
-    page,
-  }, testInfo) => {
-    const photographicNodeId = await dropImageAndSelect(
-      page,
-      path.join(FIXTURES_DIR, 'real-life-landscape.jpg'),
-    );
-
-    let editNumber = 0;
-    const applyBoundedEdit = async () => {
-      await triggerCafDialog(page, photographicNodeId);
-      const dialog = page.locator('dialog.varve-dialog--caf[open]');
-      const editMaskButton = dialog.getByRole('button', { name: 'Edit mask', exact: true });
-      const maskCanvas = dialog.locator('canvas.caf-dialog__mask-canvas');
-      await expect
-        .poll(
-          async () => {
-            if (await editMaskButton.isVisible().catch(() => false)) return 'result';
-            if (await maskCanvas.isVisible().catch(() => false)) return 'mask';
-            return 'loading';
-          },
-          { timeout: 15_000 },
-        )
-        .toMatch(/^(result|mask)$/);
-      if (await editMaskButton.isVisible().catch(() => false)) await editMaskButton.click();
-      await paintMaskStroke(page);
-      await dialog.getByRole('button', { name: /remove && fill/i }).click();
-      await expect(dialog.getByRole('button', { name: /^apply$/i })).toBeEnabled({
-        timeout: 30_000,
-      });
-      editNumber += 1;
-      if (editNumber === 2) {
-        await dialog.screenshot({
-          path: testInfo.outputPath('real-landscape-repeated-result.png'),
-        });
-      }
-      await dialog.getByRole('button', { name: /^apply$/i }).click();
-      await dialog.waitFor({ state: 'hidden', timeout: 10_000 });
-    };
-
-    await applyBoundedEdit();
-    const firstDocument = await readEditorDocument(page);
-    const firstNode = firstDocument.nodes[photographicNodeId];
-    const firstEditId = firstNode.generativeEditId;
-    const firstEdit = firstDocument.generativeEdits?.[firstEditId];
-    expect(firstEditId).toBeTruthy();
-    expect(firstEdit?.parentEditId).toBeUndefined();
-    expect(firstNode.fills.filter((fill: any) => fill.type === 'image')).toHaveLength(2);
-
-    await applyBoundedEdit();
-    const secondDocument = await readEditorDocument(page);
-    const secondNode = secondDocument.nodes[photographicNodeId];
-    const secondEditId = secondNode.generativeEditId;
-    const secondEdit = secondDocument.generativeEdits?.[secondEditId];
-    const imageFills = secondNode.fills.filter((fill: any) => fill.type === 'image');
-    expect(secondEditId).toBeTruthy();
-    expect(secondEditId).not.toBe(firstEditId);
-    expect(secondEdit?.parentEditId).toBe(firstEditId);
-    expect(imageFills).toHaveLength(3);
-    expect(imageFills[1]?.image?.generativeEditOverlay?.editId).toBe(firstEditId);
-    expect(imageFills[2]?.image?.generativeEditOverlay?.editId).toBe(secondEditId);
-    expect(imageFills[1]?.image?.assetId).toBeTruthy();
-    expect(imageFills[2]?.image?.assetId).toBeTruthy();
-    await page.screenshot({ path: testInfo.outputPath('real-landscape-repeated-applied.png') });
   });
 
   test('undo reverts the CAF apply operation', async ({ page }) => {

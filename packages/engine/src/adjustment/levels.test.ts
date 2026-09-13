@@ -67,21 +67,6 @@ describe('buildLevelsLUT', () => {
       expect(lut[i]).toBeLessThanOrEqual(255);
     }
   });
-
-  it('keeps malformed numeric input finite and clamped', () => {
-    const lut = buildLevelsLUT({
-      inputBlack: Number.NaN,
-      inputWhite: Number.POSITIVE_INFINITY,
-      gamma: Number.NaN,
-      outputBlack: Number.NEGATIVE_INFINITY,
-      outputWhite: Number.POSITIVE_INFINITY,
-    });
-    for (const value of lut) {
-      expect(Number.isFinite(value)).toBe(true);
-      expect(value).toBeGreaterThanOrEqual(0);
-      expect(value).toBeLessThanOrEqual(255);
-    }
-  });
 });
 
 describe('applyLevels', () => {

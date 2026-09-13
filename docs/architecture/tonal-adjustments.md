@@ -1,13 +1,11 @@
 # Tonal Adjustments Architecture
 
-**Status:** current · **Scope:** tone/color kernels and their Adjustment Layer
-diagnostics
+**Status:** current · **Scope:** Threshold, Gradient Map, and Color Balance
 
-This document records the current implementation boundary for tonal and
-creative adjustments. They use one adjustment/filter pipeline and separate
-scalar kernels. The shared pipeline owns validation, scope, history, opacity,
-blend, masking, persistence, and export; the kernels own only pixel
-mathematics.
+This document records the current implementation boundary for the three
+tonal adjustments. They use one adjustment/filter pipeline and separate scalar
+kernels. The shared pipeline owns validation, scope, history, opacity, blend,
+masking, persistence, and export; the kernels own only pixel mathematics.
 
 ## Executive diagnosis
 
@@ -150,34 +148,6 @@ The last row is an intentional non-claim: the current implementation does not
 pretend that an RGBA8 Canvas2D path is an ICC-accurate HDR or CMYK effect
 engine. The colour-management boundary and print limitations are documented in
 [Colour Management](colour-management.md).
-
-## Core tone controls and diagnostic stages
-
-The core editor also exposes Brightness/Contrast, Exposure, Levels, Curves,
-Hue/Saturation, Vibrance, White Balance/Color Balance, Selective Color,
-Channel Mixer, and Black & White through the same `Adjustment` union and
-`FilterIR` lowering. These controls are not interchangeable aliases:
-
-- Exposure `value` is in stops. The reference kernel converts sRGB bytes to
-  linear light, multiplies by `2^value`, applies its bounded linear offset and
-  gamma correction, then encodes back to sRGB.
-- Levels owns input black/white, input gamma, and output black/white. Collapsed
-  or reversed intervals are normalized deterministically and malformed numeric
-  values cannot wrap through the byte LUT.
-- Curves preserve non-monotonic output values for creative inversions while
-  sorting and de-duplicating input coordinates and clamping malformed points.
-  The editor and kernel share the same normalized point representation.
-- Temperature/tint controls are creative channel shifts, not calibrated Kelvin
-  or ICC white-point transforms. Selective Color's CMYK-style controls are not
-  native CMYK raster processing.
-
-The Levels histogram and Curves background are labelled diagnostics. They show
-the resolved scope composite before the selected adjustment; for a later stack
-entry, upstream entries are rendered through the canonical compositor before
-sampling. The sample is bounded to a 256-pixel maximum dimension and remains a
-diagnostic of the authored RGBA8 effect boundary, not a hidden HDR or display
-proof pipeline. Empty, missing, and unavailable sources remain distinct from
-an invented histogram.
 
 ## Verification and residual risks
 

@@ -111,7 +111,6 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
       <div className="floating-text-bar" role="toolbar" aria-label="Text formatting">
         <FontSelector
           value={node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY}
-          fontReference={node.fontReference}
           onChange={handleFontFamilyChange}
         />
 

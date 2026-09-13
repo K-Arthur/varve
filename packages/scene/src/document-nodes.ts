@@ -2,7 +2,6 @@ import type { Affine } from '@varve/engine';
 import { generateKeyBetween, multiplyAffine, tryInvertAffine } from '@varve/shared';
 import { deepCloneSubtree } from './clone';
 import { captureSyncBaseline, detectOverrides } from './component-sync';
-import { pruneUnreferencedDepthMaps } from './depthMaskRecipe';
 import type { Document } from './document';
 import { composeWorldTransform, devValidate, getParent } from './document-utils';
 import type {
@@ -266,7 +265,7 @@ export function removeNode(doc: Document, id: NodeId): Document {
         : undefined,
     },
   }));
-  const result = pruneUnreferencedDepthMaps({
+  const result = {
     ...doc,
     rootChildren,
     ...(globalChildren ? { globalChildren } : {}),
@@ -276,7 +275,7 @@ export function removeNode(doc: Document, id: NodeId): Document {
     layerStates,
     rasterMaskAssets: Object.keys(rasterMaskAssets).length > 0 ? rasterMaskAssets : undefined,
     assets: Object.keys(assets).length > 0 ? assets : undefined,
-  });
+  };
   devValidate(result);
   return result;
 }

@@ -78,11 +78,6 @@ export interface GenerativeEditOutputFrame {
 export interface GenerativeEditVariation {
   id: string;
   assetId: string;
-  /**
-   * New bounded browser/desktop results are transparent region overlays. An
-   * omitted value means the legacy asset is a complete output frame.
-   */
-  assetKind?: 'full-output' | 'region-overlay';
   /** Small preview asset used by candidate cards before a full result is selected. */
   thumbnailAssetId?: string;
   width: number;
@@ -101,8 +96,6 @@ export interface GenerativeEditRecord {
   id: string;
   mode: GenerativeEditMode;
   sourceNodeId: string;
-  /** Previous accepted edit on the same source, when this is a repeated edit. */
-  parentEditId?: string;
   sourceAssetId?: string;
   /** Immutable source snapshot used even if the source fill is later replaced. */
   sourceSnapshotAssetId?: string;
@@ -240,9 +233,6 @@ function validVariation(value: unknown): value is GenerativeEditVariation {
     variation.id.length > 0 &&
     typeof variation.assetId === 'string' &&
     variation.assetId.length > 0 &&
-    (variation.assetKind === undefined ||
-      variation.assetKind === 'full-output' ||
-      variation.assetKind === 'region-overlay') &&
     (variation.thumbnailAssetId === undefined ||
       (typeof variation.thumbnailAssetId === 'string' && variation.thumbnailAssetId.length > 0)) &&
     Number.isSafeInteger(width) &&
@@ -274,14 +264,6 @@ export function validateGenerativeEdit(value: unknown): string | null {
   if (!MODES.has(edit.mode as GenerativeEditMode)) return 'Generative edit mode is invalid';
   if (typeof edit.sourceNodeId !== 'string' || edit.sourceNodeId.length === 0) {
     return 'Generative edit sourceNodeId is required';
-  }
-  if (
-    edit.parentEditId !== undefined &&
-    (typeof edit.parentEditId !== 'string' ||
-      edit.parentEditId.length === 0 ||
-      edit.parentEditId === edit.id)
-  ) {
-    return 'Generative edit parentEditId is invalid';
   }
   if (typeof edit.sourceLocator !== 'string') return 'Generative edit sourceLocator is invalid';
   if (!Number.isSafeInteger(sourceRevision) || (sourceRevision ?? -1) < 0) {

@@ -142,35 +142,6 @@ const gradientPickerShot = scenes['gradient-picker']?.status === 'captured' ? sc
           raster images and rendered vectors through the same ordered compositor;
           original image assets and vector geometry remain editable.
         </p>
-        <p>
-          Adjustment layers show their resolved target count and keep an empty
-          selection inactive until you choose a target. Levels and Curves show
-          the histogram for the stage you are editing, while Exposure applies
-          stops in linear light at the reference pixel boundary. These are
-          deterministic, offline controls; the current browser effect surface
-          is RGBA8 and does not claim HDR, CMYK-raster, or ICC-accurate effect
-          math.
-        </p>
-      </section>
-
-      <section class="feature-section constrained-editing" aria-labelledby="constrained-editing-title">
-        <p class="eyebrow">Designed for real machines</p>
-        <h2 id="constrained-editing-title">Keep editing while effects settle.</h2>
-        <p>
-          The browser editor treats responsiveness as part of the effect workflow. During a
-          drag or pinch it prioritizes the canvas and active selection, coalesces superseded
-          previews, and can use a temporary lower preview scale. Settled previews and exports
-          return to the requested quality; the authored radius, intensity, seed, mask, and
-          colour values are not rewritten.
-        </p>
-        <p>
-          Small pointwise corrections such as exposure, curves, and LUT treatments use the
-          painted object region when it is safe. Blur, grain, dither, halftone, displacement,
-          and other spatial or global operations keep their full dependency bounds instead of
-          risking clipped halos or tile seams. If a temporary surface cannot fit, Varve keeps
-          the editable base content visible and reports the limitation rather than claiming a
-          successful incomplete render. <a href={sitePath('/docs/performance')}>See the constrained-device guide</a>.
-        </p>
       </section>
 
       <section class="feature-section control-contract">
@@ -337,11 +308,6 @@ const gradientPickerShot = scenes['gradient-picker']?.status === 'captured' ? sc
     margin-bottom: 3rem;
   }
 
-  .constrained-editing {
-    border-left: 2px solid var(--border-accent);
-    padding-left: 1.25rem;
-  }
-
   .feature-visual {
     margin: -1rem 0 3rem;
   }
@@ -428,10 +394,6 @@ const gradientPickerShot = scenes['gradient-picker']?.status === 'captured' ? sc
   @media (max-width: 52rem) {
     .control-contract__grid {
       grid-template-columns: 1fr;
-    }
-
-    .constrained-editing {
-      padding-left: 1rem;
     }
   }
   

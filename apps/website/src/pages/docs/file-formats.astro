@@ -106,14 +106,12 @@ const figmaImportFaq = {
           <li>Fill, stroke, opacity, and style attributes</li>
         </ul>
         <p>
-          Imported SVG keeps the source's ordered sibling roots and nested groups as logical artifacts. Their transforms (including nested scale and rotation), viewBox origin, and relative spacing are resolved once before placement, so separate groups are not pasted as an unordered stack or given independent offsets. Unsupported effects and semantics remain visible in Import Results instead of being silently flattened.
+          Imported SVG keeps the source's ordered sibling roots and nested groups as logical artifacts. Their transforms, viewBox origin, and relative spacing are resolved before placement, so separate groups are not pasted as an unordered stack or given independent offsets. Unsupported effects and semantics remain visible in Import Results instead of being silently flattened.
         </p>
         <p>
           <code>.svgz</code> uses the same bounded parser after gzip decompression. The encoded and
           decoded source budgets are checked before parsing, and malformed or external references
-          are rejected with a report rather than being handed to the browser as active markup. A
-          malformed declared vector file is reported as a parse failure for that format, rather
-          than as an unknown importer.
+          are rejected with a report rather than being handed to the browser as active markup.
         </p>
 
         <h3>Figma design data</h3>
@@ -157,18 +155,13 @@ const figmaImportFaq = {
         <ul>
           <li>Layer and group names, order, bounds, visibility, opacity, and blend modes</li>
           <li>Representable layer masks as native Varve masks</li>
-          <li>Document dimensions, editable layer metadata, and decoded layer pixels as embedded PNG fills</li>
+          <li>Document dimensions and editable shape placeholders for supported layers</li>
         </ul>
         <p>
-          Adjustment layers, layer effects, clipping masks, smart objects, and exact Photoshop text
-          styling are not a round-trip promise. Supported layer pixels are materialized as embedded
-          PNG image fills so the imported artwork is visible, while the layer metadata remains
-          editable; text pixels remain rasterized. These losses remain in the Import Results report
-          so a partial layer import is distinguishable from a fully preserved Photoshop document.
-          Header, dimension, encoded-size, and pixel budgets are checked before parsing; truncated
-          or over-budget files fail without inserting placeholder layers. Invalid or sentinel mask
-          rectangles are omitted with a warning instead of hiding decoded layer pixels. There is no
-          PSD/PSB export path.
+          Layer pixels, adjustment layers, layer effects, clipping masks, smart objects, and exact
+          Photoshop text styling are not a round-trip promise. They remain in the Import Results
+          report so a partial layer import is distinguishable from a fully preserved Photoshop
+          document. There is no PSD/PSB export path.
         </p>
 
         <h3>AI (Adobe Illustrator)</h3>
@@ -182,12 +175,6 @@ const figmaImportFaq = {
           <li>Falls back to the maintained EPS subset for legacy PostScript AI files</li>
           <li>Reports losses for gradients, meshes, transparency effects, fonts, and other native Illustrator semantics</li>
         </ul>
-        <p>
-          A PDF-compatible header alone is not treated as artwork: if the bounded adapter cannot
-          find supported SVG, text, or basic path content, Import Results reports a failure and
-          inserts nothing. This keeps a corrupt or truncated <code>.ai</code> from appearing as a
-          successful placeholder import.
-        </p>
 
         <h3>EPS</h3>
         <p>

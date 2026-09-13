@@ -38,35 +38,12 @@ function ensureEndpoints(points: CurvePoint[]): CurvePoint[] {
       { x: 1, y: 1 },
     ];
   }
-  const sorted = points
-    .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y))
-    .map((point) => ({
-      x: clamp01(point.x),
-      y: clamp01(point.y),
-    }))
-    .sort((a, b) => a.x - b.x);
-  if (sorted.length === 0) {
-    return [
-      { x: 0, y: 0 },
-      { x: 1, y: 1 },
-    ];
-  }
-
-  // Two points at the same input coordinate do not define a segment. Keep the
-  // last authored value deterministically instead of allowing a zero-length
-  // segment to depend on sort stability or emit NaN for malformed input.
-  const unique: CurvePoint[] = [];
-  for (const point of sorted) {
-    const previous = unique[unique.length - 1];
-    if (previous && previous.x === point.x) previous.y = point.y;
-    else unique.push(point);
-  }
-  const normalized = unique;
-  const first = normalized[0];
-  const last = normalized[normalized.length - 1];
-  if (first && first.x > 0) normalized.unshift({ x: 0, y: 0 });
-  if (last && last.x < 1) normalized.push({ x: 1, y: 1 });
-  return normalized;
+  const sorted = [...points].sort((a, b) => a.x - b.x);
+  const first = sorted[0];
+  const last = sorted[sorted.length - 1];
+  if (first && first.x > 0) sorted.unshift({ x: 0, y: 0 });
+  if (last && last.x < 1) sorted.push({ x: 1, y: 1 });
+  return sorted;
 }
 
 export function buildCurveLUT(points: CurvePoint[]): Uint8Array {

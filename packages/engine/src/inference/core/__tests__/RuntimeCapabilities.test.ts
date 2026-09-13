@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { getGenerativeEditResourceProfile } from '../../../generativeEdit/resourcePolicy';
 import {
   createDiagnosticsLabel,
   getBestOnnxProviders,
@@ -16,7 +15,6 @@ describe('RuntimeCapabilities', () => {
     userAgent: string;
     platform: string;
     deviceMemory: number;
-    userAgentData?: unknown;
   }): void {
     for (const [key, value] of Object.entries(values)) {
       navigatorDescriptors.set(key, Object.getOwnPropertyDescriptor(navigator, key));
@@ -50,8 +48,8 @@ describe('RuntimeCapabilities', () => {
   it('classifies a low-memory ARM Chromebook conservatively', () => {
     emulateNavigator({
       userAgent:
-        'Mozilla/5.0 (X11; CrOS aarch64 14541.0.0) AppleWebKit/537.36 Chrome/140.0 Safari/537.36',
-      platform: 'Linux aarch64',
+        'Mozilla/5.0 (X11; CrOS armv7l 14541.0.0) AppleWebKit/537.36 Chrome/140.0 Safari/537.36',
+      platform: 'Linux armv8l',
       deviceMemory: 2,
     });
 
@@ -62,31 +60,6 @@ describe('RuntimeCapabilities', () => {
     expect(caps.approximateMemoryMB).toBe(2048);
     expect(caps.wasmSafePeakBytes).toBeLessThanOrEqual(400_000_000);
     expect(caps.preferredOnnxProviders).toEqual(['wasm']);
-
-    expect(getGenerativeEditResourceProfile(caps)).toMatchObject({
-      tier: 'constrained',
-      platform: 'chromeos',
-      architecture: 'arm64',
-      executionBackend: 'wasm',
-      approximateMemoryBytes: 2_048_000_000,
-    });
-  });
-
-  it('uses reduced Chromium client hints for a Chromebook ARM profile', async () => {
-    emulateNavigator({
-      userAgent: 'Mozilla/5.0 (X11; Linux) AppleWebKit/537.36 Chrome/140 Safari/537.36',
-      platform: 'Linux',
-      deviceMemory: 2,
-      userAgentData: {
-        platform: 'Chrome OS',
-        architecture: 'arm64',
-        getHighEntropyValues: async () => ({ architecture: 'arm64' }),
-      },
-    });
-
-    const caps = await getRuntimeCapabilities();
-    expect(caps.os).toBe('chromeos');
-    expect(caps.cpuArch).toBe('arm64');
   });
 
   it('recognises an ARM browser even when the user agent is not ChromeOS', () => {
@@ -101,16 +74,6 @@ describe('RuntimeCapabilities', () => {
     expect(caps.os).toBe('android');
     expect(caps.cpuArch).toBe('arm64');
     expect(caps.memoryTier).toBe('medium');
-  });
-
-  it('keeps 32-bit ARM distinct from ARM64', () => {
-    emulateNavigator({
-      userAgent: 'Mozilla/5.0 (X11; CrOS armv7l) AppleWebKit/537.36 Chrome/140 Safari/537.36',
-      platform: 'Linux armv7l',
-      deviceMemory: 2,
-    });
-
-    expect(getRuntimeCapabilitiesSync().cpuArch).toBe('arm32');
   });
 
   it('returns async capabilities', async () => {

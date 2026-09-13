@@ -43,22 +43,6 @@ async function activatePaint(page: import('@playwright/test').Page) {
   return toolbar;
 }
 
-async function activateSmudge(page: import('@playwright/test').Page) {
-  const toolbar = page.locator('[data-testid="toolbar"]');
-  const smudge = toolbar.locator('[data-tool="smudge"]');
-  if (await smudge.isVisible().catch(() => false)) {
-    await smudge.click();
-  } else {
-    // The shortcut remains the stable route when a narrow toolbar moves the
-    // tool into overflow. This also exercises the real command registry.
-    await page.keyboard.press('u');
-  }
-  await expect(toolbar.locator('[data-tool="smudge"][aria-pressed="true"]')).toBeVisible({
-    timeout: 10000,
-  });
-  return toolbar;
-}
-
 async function openToolOptions(page: import('@playwright/test').Page) {
   const trigger = page.getByRole('button', { name: 'Tool options' });
   await expect(trigger).toBeVisible({ timeout: 30000 });
@@ -254,70 +238,5 @@ test.describe('paint UI in the running app', () => {
 
     await expect.poll(() => contentCanvasHash(page), { timeout: 10000 }).not.toBe(before);
     await surface.screenshot({ path: testInfo.outputPath('painted-stroke.png') });
-  });
-
-  test('smudge mode and sampling controls drive a real canvas stroke', async ({
-    page,
-  }, testInfo) => {
-    await page.setViewportSize(VIEWPORT);
-    await navigateToEditor(page);
-    await switchToPhotoWorkspace(page);
-    await activatePaint(page);
-
-    const surface = page.locator('.editor-canvas');
-    const box = await surface.boundingBox();
-    if (!box) throw new Error('editor canvas surface not found');
-
-    // Create source pigment through the normal paint tool, then switch tools.
-    await page.waitForTimeout(750);
-    const blank = await contentCanvasHash(page);
-    const y = box.y + box.height * 0.5;
-    await page.mouse.move(box.x + box.width * 0.25, y);
-    await page.mouse.down();
-    for (let i = 1; i <= 14; i++) {
-      const t = i / 14;
-      await page.mouse.move(
-        box.x + box.width * (0.25 + 0.2 * t),
-        y + Math.sin(t * Math.PI * 2) * box.height * 0.08,
-      );
-    }
-    await page.mouse.up();
-    await expect.poll(() => contentCanvasHash(page), { timeout: 10000 }).not.toBe(blank);
-    // Paint batches may finish on the worker after pointer-up. Let the
-    // authoritative frame and history callback settle before Smudge samples
-    // the source layer; a layer-created frame is not proof of painted pixels.
-    await page.waitForTimeout(1000);
-    await surface.screenshot({ path: testInfo.outputPath('smudge-source-stroke.png') });
-
-    await activateSmudge(page);
-    const popover = await openToolOptions(page);
-    await expect(popover).toBeVisible();
-
-    const mode = popover.getByRole('combobox', { name: 'Smudge mode' });
-    await expect(mode).toContainText('Pure smudge');
-    await mode.click();
-    await page.getByRole('option', { name: 'Fingerpaint', exact: true }).click();
-    await expect(mode).toContainText('Fingerpaint');
-
-    const mergedSampling = popover.getByRole('button', { name: 'Sample merged layers' });
-    await expect(mergedSampling).toHaveAttribute('aria-pressed', 'false');
-    await mergedSampling.click();
-    await expect(mergedSampling).toHaveAttribute('aria-pressed', 'true');
-    await page.screenshot({ path: testInfo.outputPath('smudge-controls.png'), fullPage: false });
-
-    const before = await contentCanvasHash(page);
-    await page.mouse.move(box.x + box.width * 0.3, y);
-    await page.mouse.down();
-    for (let i = 1; i <= 12; i++) {
-      const t = i / 12;
-      await page.mouse.move(
-        box.x + box.width * (0.3 + 0.2 * t),
-        y + Math.sin(t * Math.PI) * box.height * 0.05,
-      );
-    }
-    await page.mouse.up();
-
-    await expect.poll(() => contentCanvasHash(page), { timeout: 10000 }).not.toBe(before);
-    await surface.screenshot({ path: testInfo.outputPath('smudge-merged-stroke.png') });
   });
 });

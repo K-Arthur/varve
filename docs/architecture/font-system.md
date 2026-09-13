@@ -156,9 +156,6 @@ portable face key); catalog weight/style combinations are never presented as
 selectable faces when no corresponding artifact is installed. The family list
 uses measured virtualization with an overscan window; an unmeasured or
 zero-sized test viewport falls back to normal flow until a real range exists.
-Search-result merges are deduplicated by canonical family identity before rows
-are virtualized, so a literal-family match cannot render a duplicate row or
-steal the active descendant while the catalog revision settles.
 Selecting an expanded registered face applies its weight, style, PostScript
 metadata, and canonical `fontReference` together; variable-font named
 instances are real `fvar` records and apply their declared coordinates without
@@ -172,22 +169,15 @@ validated face, main-thread readiness, worker adoption, shaping/export
 support, and operation permission. A face is not “ready” merely because its
 family name is present. Byte-backed loads publish a local blob-backed
 `@font-face` rule so the worker can harvest the exact payload without a
-network request. The bridge also carries the portable
-`sha256:<digest>:<member>` face key and a process-local revision in the rule.
-Those markers are included in the worker face-set key, so removing and
-re-adding the same bytes cannot be mistaken for an already-adopted set.
-`FontLoader.unloadFace(faceKey)` removes only that artifact/member from
-`document.fonts`, its worker style/object URL, and the registry; family-level
-unload remains a compatibility operation for legacy unkeyed faces. Worker
-font assets still need an adoption acknowledgement before worker rendering
-can reuse them; otherwise the main-thread replay remains authoritative.
-Package export sets `bundled` only after writing verified bytes into `fonts/`.
-Export requests carry a document's exact
-`fontReference`, so same-family artifacts and collection members remain
-separate; an unavailable requested member is never silently replaced by a
-different family artifact. Full cache identity across face revision, axes,
-features, language and rich runs remains an integration requirement, not
-established by the family bridge.
+network request. Worker font assets still need an adoption acknowledgement
+before worker rendering can reuse them; otherwise the main-thread replay
+   remains authoritative. Package export sets `bundled` only after writing
+   verified bytes into `fonts/`. Export requests carry a document's exact
+   `fontReference`, so same-family artifacts and collection members remain
+   separate; an unavailable requested member is never silently replaced by a
+   different family artifact. Full cache identity across face revision, axes,
+   features, language and rich runs remains an integration requirement, not
+   established by the family bridge.
 
 ## Compact editing surfaces
 
@@ -214,15 +204,6 @@ no-subsetting and bitmap-only declarations as separate rows, plus whether the
 font actually declares license provenance. This keeps a technical file flag
 from reading like a legal assurance and gives export preflight a stable reason
 to block an unsupported operation.
-
-The full browser's inspection pane also exposes the exact variable axes declared
-by the selected catalog family. Sliders use the font's own minimum, default,
-maximum, and a bounded step; the live specimen receives the same variation
-settings. Axis edits remain a draft until **Use face**, and **Reset** restores
-the `fvar` defaults without creating a document change. The ordinary `wght`
-axis updates the pending face weight while preserving non-weight axes and the
-portable face reference. Catalog search and hover remain metadata-only; an
-installed or bundled face is required before the apply action is enabled.
 
 Moving focus from typing to the quick toolbar first flushes pending text and
 closes the typing transaction, while keeping the editing surface mounted.

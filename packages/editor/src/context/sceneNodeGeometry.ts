@@ -199,7 +199,6 @@ export function shapeForTool(tool: ToolId): Shape {
     case 'booleanSubtract':
     case 'booleanIntersect':
     case 'booleanExclude':
-    case 'shapeBuilder':
     case 'cloneStamp':
     case 'healBrush':
     case 'spotHeal':

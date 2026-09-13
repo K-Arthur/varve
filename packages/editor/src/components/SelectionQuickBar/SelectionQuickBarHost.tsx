@@ -138,7 +138,9 @@ export function SelectionQuickBarHost({
               editor.announce(pathTopologyBlockMessage(dependency));
               return;
             }
+            editor.beginTransaction();
             editor.updateDoc((doc) => simplifyPathNode(doc, id));
+            editor.commitTransaction();
             editor.announce('Path simplified');
           },
           reverseSelectedPath: () => {
@@ -149,7 +151,9 @@ export function SelectionQuickBarHost({
               editor.announce(pathTopologyBlockMessage(dependency));
               return;
             }
+            editor.beginTransaction();
             editor.updateDoc((doc) => reversePathNode(doc, id));
+            editor.commitTransaction();
             editor.announce('Path direction reversed');
           },
           toggleSelectedPathClosed: (closed) => {
@@ -160,7 +164,9 @@ export function SelectionQuickBarHost({
               editor.announce(pathTopologyBlockMessage(dependency));
               return;
             }
+            editor.beginTransaction();
             editor.updateDoc((doc) => setPathClosed(doc, id, closed));
+            editor.commitTransaction();
             editor.announce(closed ? 'Path closed' : 'Path opened');
           },
         });

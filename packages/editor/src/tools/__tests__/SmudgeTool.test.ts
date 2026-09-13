@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 // Mock canvas getContext
 HTMLCanvasElement.prototype.getContext = vi.fn() as any;
 
-import { rasterSamplingLayersInPaintOrder, SmudgeTool } from '../SmudgeTool';
+import { SmudgeTool } from '../SmudgeTool';
 import type { ToolContext } from '../types';
 
 function createMockContext(overrides: Partial<ToolContext> = {}): ToolContext {
@@ -220,21 +220,6 @@ describe('SmudgeTool', () => {
     expect(settings.smudgeStrength).toBe(0.7);
   });
 
-  it('round-trips the smudge mode and merged-sampling setting', () => {
-    const tool = new SmudgeTool();
-
-    tool.updatePresetFromSettings({
-      ...tool.getSettings(),
-      smudgeMode: 'fingerpaint',
-      smudgeSampleAllLayers: true,
-    });
-
-    expect(tool.getSettings()).toMatchObject({
-      smudgeMode: 'fingerpaint',
-      smudgeSampleAllLayers: true,
-    });
-  });
-
   it('onSettingsChange callback fires when settings change', () => {
     const tool = new SmudgeTool();
     const onSettingsChange = vi.fn();
@@ -304,59 +289,5 @@ describe('SmudgeTool stroke continuity', () => {
     expect(tool.samplesAllLayers).toBe(false);
     tool.setSampleAllLayers(true);
     expect(tool.samplesAllLayers).toBe(true);
-  });
-
-  it('orders merged sources by the active scene tree and skips hidden ancestors', () => {
-    const lower = {
-      id: 'lower',
-      kind: 'rasterLayer',
-      tiles: new Map(),
-      visible: true,
-      opacity: 1,
-    };
-    const upper = {
-      id: 'upper',
-      kind: 'rasterLayer',
-      tiles: new Map(),
-      visible: true,
-      opacity: 1,
-    };
-    const hidden = {
-      id: 'hidden-group',
-      kind: 'group',
-      children: ['hidden-raster'],
-      visible: false,
-    };
-    const hiddenRaster = {
-      id: 'hidden-raster',
-      kind: 'rasterLayer',
-      tiles: new Map(),
-      visible: true,
-      opacity: 1,
-    };
-    const visibleGroup = {
-      id: 'visible-group',
-      kind: 'group',
-      children: ['lower', 'upper'],
-      visible: true,
-    };
-    const ctx = createMockContext({
-      document: {
-        nodes: {
-          upper,
-          'visible-group': visibleGroup,
-          lower,
-          'hidden-group': hidden,
-          'hidden-raster': hiddenRaster,
-        },
-        rootChildren: ['visible-group', 'hidden-group'],
-      } as any,
-      rootNodes: vi.fn(() => [visibleGroup, hidden] as any),
-    });
-
-    expect(rasterSamplingLayersInPaintOrder(ctx).map((layer) => layer.id)).toEqual([
-      'lower',
-      'upper',
-    ]);
   });
 });

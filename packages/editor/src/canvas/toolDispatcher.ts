@@ -35,7 +35,6 @@ import { ScaleTool } from '../tools/ScaleTool';
 import { SelectionBoundaryTool } from '../tools/SelectionBoundaryTool';
 import { SelectionPaintTool } from '../tools/SelectionPaintTool';
 import { SelectTool } from '../tools/SelectTool';
-import { ShapeBuilderTool } from '../tools/ShapeBuilderTool';
 import { SliceTool } from '../tools/SliceTool';
 import { SmudgeTool } from '../tools/SmudgeTool';
 import { SpotHealTool } from '../tools/SpotHealTool';
@@ -68,7 +67,6 @@ export function getToolManager(): ToolManager {
     toolManager.register('text', () => new TextTool());
     toolManager.register('slice', () => new SliceTool());
     toolManager.register('knife', () => new KnifeTool());
-    toolManager.register('shapeBuilder', () => new ShapeBuilderTool());
     toolManager.register('eyedropper', () => new EyedropperTool());
     toolManager.register('nodeEdit', () => new NodeEditTool());
     toolManager.register('page', () => new PageTool());

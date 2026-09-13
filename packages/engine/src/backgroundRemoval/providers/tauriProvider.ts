@@ -66,23 +66,6 @@ export async function getNativeBackgroundRemovalModelStatus(
   }
 }
 
-/**
- * Check the native model and source dimensions before the renderer creates a
- * full-resolution canvas and PNG. The Rust command repeats this check inside
- * the worker immediately before ONNX session checkout; the early call exists
- * specifically to protect the webview allocation on low-memory ChromeOS,
- * ARM, and embedded desktop environments.
- */
-export async function preflightNativeBackgroundRemoval(
-  modelId: string,
-  width: number,
-  height: number,
-): Promise<void> {
-  if (!isTauriRuntime()) return;
-  const { invoke } = await import('@tauri-apps/api/core');
-  await invoke('preflight_native_background_removal', { modelId, width, height });
-}
-
 export async function downloadNativeBackgroundRemovalModel(
   modelId: string,
   onProgress?: (loaded: number, total: number) => void,
@@ -125,14 +108,6 @@ async function invokeTauriRemoveBackground(
 ): Promise<BackgroundRemovalResult> {
   if (signal?.aborted) {
     throw new Error('cancelled');
-  }
-
-  const modelId = preferredWorkerModelIdForMethod(options.method);
-  if (modelId) {
-    await preflightNativeBackgroundRemoval(modelId, imageData.width, imageData.height);
-    if (signal?.aborted) {
-      throw new Error('cancelled');
-    }
   }
 
   const canvas = document.createElement('canvas');
@@ -185,7 +160,7 @@ async function invokeTauriRemoveBackground(
     width: raw.width,
     height: raw.height,
     executionProvider: 'native',
-    modelId: modelId ?? undefined,
+    modelId: preferredWorkerModelIdForMethod(options.method) ?? undefined,
     rawMask: decoded.mask,
   };
 }

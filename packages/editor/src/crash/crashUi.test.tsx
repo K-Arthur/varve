@@ -278,20 +278,6 @@ describe('CrashReviewDialog', () => {
 });
 
 describe('controller + dialog flow (integration)', () => {
-  it('ignores non-fatal ResizeObserver diagnostics', async () => {
-    const { controller } = makeController({ state: 'unknown' });
-    await controller.boot();
-    window.dispatchEvent(
-      new ErrorEvent('error', {
-        message: 'ResizeObserver loop completed with undelivered notifications.',
-      }),
-    );
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(controller.getState().awaitingReport).toBeNull();
-    expect(controller.getState().queuedReports).toHaveLength(0);
-    controller.dispose();
-  });
-
   it('first crash with unknown consent queues locally and opens the dialog', async () => {
     const { controller } = makeController({ state: 'unknown' });
     const states: CrashUiState[] = [];

@@ -125,16 +125,6 @@ export function resolveReplayImage(
       .catch(() => undefined);
     const residentProxy = cache.getClosestImageAtSize?.(loadableSource, maxSourceDim);
     if (residentProxy) return residentProxy;
-
-    // Do not fall through to cache.load() here. That would start a second,
-    // full-resolution decode while the bounded representation is still
-    // loading, defeating the memory policy on large photographs. A full
-    // source that is already resident is safe to use; otherwise the caller
-    // draws its placeholder and the cache listener requests a fresh frame
-    // when the bounded decode completes.
-    const fullEntry = cache.get(loadableSource);
-    if (fullEntry?.state === 'loaded' && fullEntry.image) return fullEntry.image;
-    return undefined;
   }
   const imgEntry = cache.get(loadableSource);
   if (imgEntry?.state === 'loaded' && imgEntry.image) {

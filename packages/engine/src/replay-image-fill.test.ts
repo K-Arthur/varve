@@ -222,42 +222,6 @@ describe('image fill modes', () => {
     expect(calls.some((call) => call.includes('resident-512'))).toBe(true);
   });
 
-  it('does not start a full decode while a large-source proxy is pending', () => {
-    const source = 'data:image/png;base64,pending-proxy-source';
-    const cache = getImageCache();
-    const pending = new Promise<never>(() => {});
-    const loadAtSize = vi.spyOn(cache, 'loadAtSize').mockReturnValue(pending);
-    const load = vi.spyOn(cache, 'load').mockRejectedValue(new Error('full decode must not start'));
-    const { target, calls } = makeRecorder();
-
-    replayIr(
-      target,
-      [
-        rectItem(
-          400,
-          200,
-          imageFill({
-            type: 'image',
-            src: source,
-            fit: 'fill',
-            x: 0,
-            y: 0,
-            scale: 1,
-            imageWidth: 4000,
-            imageHeight: 2000,
-          }),
-        ),
-      ],
-      undefined,
-      undefined,
-      { intent: 'settled-preview', maxSourceDim: 512 },
-    );
-
-    expect(loadAtSize).toHaveBeenCalledWith(source, 512, { width: 4000, height: 2000 });
-    expect(load).not.toHaveBeenCalled();
-    expect(calls).toContain('fillRect');
-  });
-
   it('uses an interactive proxy while keeping authoritative source dimensions', () => {
     const source = 'data:image/png;base64,adaptive-source';
     const cache = getImageCache();

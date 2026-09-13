@@ -42,34 +42,6 @@ describe('Tauri background-removal provider', () => {
     await expect(tauriRemovalProvider.isAvailable({ method: 'ai-quality' })).resolves.toBe(true);
   });
 
-  it('preflights native memory before encoding the source canvas', async () => {
-    const commands: string[] = [];
-    mockInvoke.mockImplementation(async (command: string) => {
-      commands.push(command);
-      if (command === 'preflight_native_background_removal') return undefined;
-      return {
-        maskBase64: 'test',
-        confidence: 0.98,
-        method: 'ai-quality',
-        processingTimeMs: 123,
-        width: 1,
-        height: 1,
-      };
-    });
-    const { tauriRemovalProvider } = await import('../providers/tauriProvider');
-
-    await tauriRemovalProvider.remove(new ImageData(new Uint8ClampedArray([1, 2, 3, 255]), 1, 1), {
-      method: 'ai-quality',
-    });
-
-    expect(commands).toEqual(['preflight_native_background_removal', 'remove_background']);
-    expect(mockInvoke).toHaveBeenCalledWith('preflight_native_background_removal', {
-      modelId: 'birefnet-general-lite',
-      width: 1,
-      height: 1,
-    });
-  });
-
   it('returns a source-reconstructable raw mask and native backend telemetry', async () => {
     mockInvoke.mockResolvedValue({
       maskBase64: 'test',

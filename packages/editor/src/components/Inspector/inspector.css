@@ -1932,16 +1932,6 @@
   height: 100%;
   object-fit: contain;
 }
-.insp-image-fill__preview-status {
-  display: grid;
-  width: 100%;
-  height: 100%;
-  place-items: center;
-  padding: var(--space-2);
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-2xs);
-  text-align: center;
-}
 .insp-image-fill__actions {
   display: flex;
   align-items: center;

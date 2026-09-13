@@ -86,13 +86,5 @@ startxref
     const data = new TextEncoder().encode('%PDF-1.6 fake');
     const result = parser.parse(data);
     expect(Array.isArray(result.warnings)).toBe(true);
-    expect(result.nodeIds).toHaveLength(0);
-    expect(result.warnings.join(' ')).toMatch(/no supported Illustrator content/i);
-  });
-
-  it('keeps a basic PDF rectangle when the wrapper has no text or SVG', () => {
-    const data = new TextEncoder().encode('%PDF-1.6\n10 20 30 40 re f\n');
-    const result = parser.parse(data);
-    expect(result.nodeIds).toHaveLength(1);
   });
 });

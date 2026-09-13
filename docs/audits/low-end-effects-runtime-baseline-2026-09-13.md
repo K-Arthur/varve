@@ -58,47 +58,9 @@ device-specific evidence:
 - `604b22b2b` — provider timeout fail-closed behavior unless hard cancellation
   is declared, plus conservative `Content-Range`, ETag, size, HTML-response,
   and multipart component validation for model downloads.
-- `61df5d4d3` — pre-construction raster/composite guards and authoritative base
-  replay fallback for unallocatable content-effect surfaces.
-- `53af2922b` — website E2E coverage for the constrained Image Treatments
-  workflow, including desktop/mobile screenshots and both production base-path
-  modes.
-
-## Checkpoint measurements and visual evidence
-
-The following evidence was collected after the implementation checkpoints. It
-is host-control evidence, not a Lenovo or Crostini qualification:
-
-```text
-Website build: pnpm build:website
-  92 static pages built; 0 errors; 5 TypeScript hints
-Website Pages build: pnpm build:website:pages
-  92 static pages built; 0 errors; 5 TypeScript hints
-Website E2E:
-  VARVE_WEBSITE_E2E_PORT=4335 VARVE_WEBSITE_E2E_PORT_ROOT=4336
-  pnpm exec playwright test -c playwright.website.config.ts \
-    apps/website/tests/e2e/image-treatments-feature.spec.ts \
-    --project=ghpages --project=custom-domain --workers=1 --reporter=list
-  2 tests passed (14.6 s)
-Render control benchmark:
-  isolated jsdom replay bench, one worker
-  100 rectangles: p50 7.90 ms, p95 23.09 ms
-  1,000 rectangles: p50 23.24 ms, p95 25.21 ms
-  3 tests passed
-```
-
-Inspected artifacts from the website run:
-
-- `test-results/image-treatments-feature-i-aa34f-and-preserves-mobile-reflow-ghpages/image-treatments-desktop-light.png`
-- `test-results/image-treatments-feature-i-aa34f-and-preserves-mobile-reflow-ghpages/image-treatments-mobile-light.png`
-
-The captures show the new low-end preview explanation, readable attachment
-choices, and a mobile single-column reflow without page-level overflow. Three
-fresh full-editor effects E2E attempts were stopped before editor setup by
-unrelated, transient shared-worktree syntax/module-resolution failures in
-other agents' in-flight colorization and WebGPU files. Existing effect
-inspection artifacts were reviewed separately; physical touch, ChromeOS
-browser, PWA, and Crostini effects evidence remains pending.
+- The allocation-safety checkpoint adds pre-construction raster/composite
+  guards and replay fallback for unallocatable content-effect surfaces. Its
+  targeted validation is recorded with the final commit below.
 
 ## Research record
 

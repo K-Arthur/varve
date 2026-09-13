@@ -1455,14 +1455,6 @@ export function CanvasArea({
         renameInputRef={renameInputRef}
         artboardRect={artboardRect}
         pixelProbe={pixelProbe}
-        draft={draft}
-        onShapeBuilderAction={(action) => {
-          const tool = tm.current?.getTool('shapeBuilder') as
-            | { applyAction: (nextAction: typeof action, ctx: ToolContext) => void }
-            | undefined;
-          tool?.applyAction(action, buildToolCtx(new PointerEvent('pointerup')));
-        }}
-        onShapeBuilderExit={() => editor.setTool('select')}
       />
       {deepSelectionCandidates && (
         <TouchCandidateMenu
