@@ -686,6 +686,7 @@ export * from './imageTreatments';
 export type {
   DownloadProgress,
   EmbeddingCacheOptions,
+  ImageInferenceResourceAssessment,
   InferenceEvents,
   InferenceProvider,
   InferenceRequest,
@@ -703,6 +704,7 @@ export type {
   RuntimeCapabilities,
 } from './inference';
 export {
+  assessImageInferenceResources,
   createDiagnosticsLabel,
   DownloadManager,
   deriveAcquisition,
@@ -713,6 +715,7 @@ export {
   getInferenceWorkerHost,
   getModelById,
   getRuntimeCapabilities,
+  getRuntimeCapabilitiesSync,
   InferenceAdmission,
   InferenceAdmissionError,
   InferenceError,

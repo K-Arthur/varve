@@ -1,11 +1,14 @@
 import type { AreaSelection, WorkerInferResult } from '@varve/engine';
 import {
+  assessImageInferenceResources,
   cachedImageDims,
   decodeSam2DecoderOutput,
   EmbeddingCache,
   getImageCache,
   getInferenceWorkerHost,
+  getModelById,
   getModelLoader,
+  getRuntimeCapabilitiesSync,
 } from '@varve/engine';
 import { type Document, imageShapeSrc, type NodeId } from '@varve/scene';
 import { useCallback, useEffect, useRef } from 'react';
@@ -398,8 +401,6 @@ export function useSam2Segmentation(
 
       if (combinedSignal.aborted) return null;
 
-      writeCurrentSam2Stage(stateRef, setState, nodeId, 'encoding');
-
       const naturalW =
         typeof HTMLImageElement !== 'undefined' && img instanceof HTMLImageElement
           ? img.naturalWidth || img.width
@@ -408,6 +409,30 @@ export function useSam2Segmentation(
         typeof HTMLImageElement !== 'undefined' && img instanceof HTMLImageElement
           ? img.naturalHeight || img.height
           : img.height;
+
+      const encoderId = 'sam2-hiera-tiny-encoder';
+      const decoderId = 'sam2-hiera-tiny-decoder';
+      const encoderPeakBytes = getModelById(encoderId)?.peakMemoryBytes ?? 700_000_000;
+      const resourceAssessment = assessImageInferenceResources({
+        width: naturalW,
+        height: naturalH,
+        modelPeakBytes: encoderPeakBytes,
+        runtime: getRuntimeCapabilitiesSync(),
+        operation: 'Object Selection',
+      });
+      if (!resourceAssessment.allowed) {
+        markFailure({
+          code: 'out_of_memory',
+          message:
+            resourceAssessment.reason ?? 'Object Selection needs more memory on this device.',
+          retryable: false,
+        });
+        return null;
+      }
+
+      // Do not allocate a full-resolution canvas or ImageData until the
+      // model-plus-source working set has passed the runtime's safe budget.
+      writeCurrentSam2Stage(stateRef, setState, nodeId, 'encoding');
 
       const canvas = document.createElement('canvas');
       canvas.width = naturalW;
@@ -449,8 +474,6 @@ export function useSam2Segmentation(
       }
       const normPrompts = normalizeSam2Prompts(prompts, imageMapper, naturalW, naturalH);
 
-      const encoderId = 'sam2-hiera-tiny-encoder';
-      const decoderId = 'sam2-hiera-tiny-decoder';
       const loader = getModelLoader();
       let resolvedEncoderPath: string | null;
       let resolvedDecoderPath: string | null;
@@ -504,7 +527,10 @@ export function useSam2Segmentation(
               imageData,
               reuseSession: true,
             },
-            { signal: combinedSignal },
+            {
+              signal: combinedSignal,
+              reservationBytes: resourceAssessment.estimatedPeakBytes,
+            },
           );
 
           if (generation !== generationRef.current || combinedSignal.aborted) return null;
@@ -559,7 +585,10 @@ export function useSam2Segmentation(
             },
             reuseSession: true,
           },
-          { signal: combinedSignal },
+          {
+            signal: combinedSignal,
+            reservationBytes: resourceAssessment.estimatedPeakBytes,
+          },
         );
 
         if (generation !== generationRef.current || combinedSignal.aborted) return null;

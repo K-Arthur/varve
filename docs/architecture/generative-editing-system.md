@@ -193,6 +193,16 @@ authoritative available-memory check in the desktop process immediately before
 model startup. Refusal is actionable and leaves Quick Cleanup available; no
 remote fallback is attempted.
 
+Object Selection follows the same rule before it allocates a full-resolution
+canvas and `ImageData`. The SAM2 encoder's measured peak and the source-frame
+working set are checked against the browser/WebView safe peak, rather than
+checking the model file alone. A 2 GB Chromebook or ARM browser therefore
+receives an immediate, actionable refusal for a large photograph and keeps its
+prompts intact; the user can paint a mask or use Fast/PatchMatch instead. This
+path does not silently downscale a confirmed source mask, because doing so
+without carrying the exact source-to-working transform through the decoder
+would make the result appear plausible while targeting the wrong pixels.
+
 ## Mask and coordinate contract
 
 The analytical selection is document-space and camera-aware. The model mask is
