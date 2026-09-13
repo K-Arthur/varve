@@ -395,13 +395,23 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
     },
     async purgeFile(id) {
       const rec = await db.get(STORE_FILES, id);
-      if (rec?.entry?.contentHash) {
-        await this.deleteThumbnail(rec.entry.contentHash);
+      const contentHash = rec?.entry?.contentHash;
+      if (contentHash) {
+        await this.deleteThumbnail(contentHash);
       }
       await db.delete(STORE_FILES, id);
       // Keep the file index and durable recent history consistent. A
       // permanently deleted library id is no longer a valid recent target.
       await db.delete(STORE_RECENT_FILES, id);
+      // Reclaim the content-addressed JSON once nothing references it.
+      // Content hashes are shared between files, so this is reference
+      // checked rather than blindly deleting the purged record's payload.
+      if (contentHash) {
+        const remaining = await db.getAll(STORE_FILES);
+        if (!remaining.some((r) => r.entry?.contentHash === contentHash)) {
+          await db.delete(STORE_FILE_CONTENT, contentHash);
+        }
+      }
     },
 
     // ─── Projects ──────────────────────────────────────────────────────────────
@@ -775,7 +785,16 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
       return version?.documentHash ?? '';
     },
     async deleteVersionInfo(versionId) {
+      const version = (await db.get(STORE_VERSIONS, versionId)) as VersionEntry | undefined;
       await db.delete(STORE_VERSIONS, versionId);
+      // Multiple versions can share one content hash; reclaim only when the
+      // last reference is gone (pruneVersions does the same sweep in bulk).
+      if (version?.documentHash) {
+        const remaining = (await db.getAll(STORE_VERSIONS)) as VersionEntry[];
+        if (!remaining.some((v) => v.documentHash === version.documentHash)) {
+          await db.delete(STORE_VERSION_CONTENT, version.documentHash);
+        }
+      }
     },
     async createVersion(input: CreateVersionInput): Promise<VersionEntry> {
       const existing = await db.get(STORE_VERSION_CONTENT, input.contentHash);
