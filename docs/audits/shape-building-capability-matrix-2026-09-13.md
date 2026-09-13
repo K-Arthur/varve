@@ -121,8 +121,11 @@ Style ownership for a newly created output is the first selected eligible source
 and is shown in the tool status. Existing source remainders keep their own
 styles. New outputs do not inherit independent multi-source opacity/effect
 stacks or visible strokes implicitly; unsupported style combinations are
-reported or split into separate outputs. Paint transforms are rebased with the
-result’s world placement.
+reported or split into separate outputs. Inline gradient placement is rebased
+through source world space; bounds-relative image/pattern paints are rejected
+with an explicit conversion instruction, and shared gradient paints must be
+detached before construction. The current builder never substitutes a
+bounding-box fill.
 
 ## Required topology and numerical invariants
 
@@ -193,14 +196,15 @@ not attributed to Shape Builder.
 
 ### 2026-09-13 implementation receipt
 
-- Scene geometry: `packages/scene/src/shapeBuilder.test.ts` passed 14/14,
+- Scene geometry: `packages/scene/src/shapeBuilder.test.ts` passed 16/16,
   including the rectangle area oracle, thin-face sweep, donut hole,
   disconnected output, one self-intersecting path under its authored fill rule,
   retained-source Create, destructive remainders, stale revision rejection,
   rendered rounded-rectangle hit testing, negative-direction per-corner
-  geometry, mixed-scale placement, and zero-area primitive rejection.
+  geometry, mixed-scale placement, zero-area primitive rejection, explicit
+  image/pattern eligibility errors, and inline-gradient placement rebasing.
 - The document-codec round-trip fixture covers a created compound result with a
-  hole and passed as part of the 14/14 scene run; the arrangement remains
+  hole and passed as part of the 16/16 scene run; the arrangement remains
   derived state rather than a second serialized authority.
 - Independent curve checks in `packages/scene/src/boolean/integration.test.ts`
   passed 3/3: a transformed cubic remains below the 0.08-unit fixture budget,

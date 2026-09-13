@@ -23,9 +23,10 @@ Apply creates one undoable document transaction.
 
 The unbounded exterior is never selectable. A bounded face that is empty under
 the authored fill rules is shown as an unavailable face; version 1 does not
-create new artwork in that empty face. Open paths, visible strokes, masks,
-effects, layout-managed children, instances, and live Boolean groups are
-reported as unsupported rather than silently flattened or outlined.
+create new artwork in that empty face. Open paths, visible strokes, image and
+pattern paints, masks, effects, layout-managed children, instances, and live
+Boolean groups are reported as unsupported rather than silently flattened,
+outlined, or shifted to a new paint bounds.
 
 Whole-object Union, Subtract, Intersect, and Exclude remain available as
 separate commands. Shape Builder does not reinterpret a whole-object command
@@ -90,8 +91,10 @@ The first source supplies the result style. This is an explicit policy rather
 than a promise to merge incompatible fills, gradients, blend modes, opacity
 stacks, or effects. Create retains the original appearance alongside the new
 result; destructive actions preserve the source fill policy where a source
-remainder is reconstructed. Gradient and pattern placement is still an
-integration limitation when a result changes its bounds.
+remainder is reconstructed. Inline gradient fields are rebased through world
+space when a result changes its bounds; bounds-relative image/pattern paints
+are rejected with an explicit conversion instruction, and shared gradient
+paints must be detached before construction.
 
 ## Interaction and accessibility
 
