@@ -20,7 +20,10 @@
   font-family: var(--font-body);
   font-size: var(--font-size-xs);
   color: var(--color-text-primary);
-  pointer-events: auto;
+  /* Hints are informational overlays and must never steal a canvas gesture
+   * when they happen to overlap artwork. Keep the close control interactive
+   * below, while letting pointer input through the rest of the surface. */
+  pointer-events: none;
   animation: varve-tooltip-fade-in var(--duration-fast) var(--ease-default);
   /* Never wider than the canvas cell (minus a small inset), and never wider
    * than the readable measure. */
@@ -78,6 +81,7 @@
   line-height: 1;
   border-radius: var(--radius-control-compact);
   margin-left: var(--space-1);
+  pointer-events: auto;
 }
 
 .micro-hint__dismiss:hover {
