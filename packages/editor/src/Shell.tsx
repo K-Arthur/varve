@@ -319,7 +319,8 @@ function ShellInner({
     );
   }, [openFile, editor]);
   const fileRef = useRef<HTMLInputElement>(null);
-  const fileImport = useFileImport(editor);
+  const canvasContainerRef = useRef<HTMLDivElement | null>(null);
+  const fileImport = useFileImport(editor, canvasContainerRef);
   const [transferReport, setTransferReport] = useState<ImportResultReport | null>(null);
   useEffect(() => {
     setImportReportHandler((report) => setTransferReport(report));
@@ -556,7 +557,6 @@ function ShellInner({
   }
 
   const layersDndRef = useRef<LayersDnDHandle | null>(null);
-  const canvasContainerRef = useRef<HTMLDivElement | null>(null);
 
   // When a workspace switch (or any panel-collapse) hides the focused panel,
   // focus would drop to body — an invisible stop for keyboard/AT users. Move
