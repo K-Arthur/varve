@@ -114,6 +114,27 @@ viewport-contained menu. The crash is recorded as a Linux headless browser
 limitation; the earlier quiet run at port 1522 remains the complete three-DPR
 geometry evidence for the unchanged surface contract.
 
+A later recheck after the exact-face weight scoping follow-up used port 1578:
+
+```text
+VARVE_E2E_PORT=1578 VARVE_E2E_WORKERS=1 npx playwright test tests/e2e/canvas/font-toolbar-visual.spec.ts --project=chromium --reporter=list --timeout=120000
+```
+
+DPR 1 and DPR 2 passed again. DPR 3 reproduced the same Linux headless
+Chromium crash while measuring a toolbar bound (`Target crashed`), before a
+product assertion ran. I inspected representative light-open, dark-narrow,
+and high-contrast-closed captures from the passing run:
+
+- `test-results/run-1950417-1578/canvas-font-toolbar-visual-cbecb-adable-menus-in-every-theme-chromium/light-open.png`
+- `test-results/run-1950417-1578/canvas-font-toolbar-visual-cbecb-adable-menus-in-every-theme-chromium/dark-narrow.png`
+- `test-results/run-1950417-1578/canvas-font-toolbar-visual-c70f7-adable-menus-in-every-theme-chromium/high-contrast-closed.png`
+
+The inspected geometry remains aligned with the shared palette: a
+46.796875px border-box surface, 32px controls on one centerline, 2.88px gaps,
+5.76px/9.44px outer padding, and a contained readable family menu. The
+captured DPR 3 failure is retained as a platform limitation rather than being
+silently omitted from the visual record.
+
 ## Focused validation
 
 Commands run:
