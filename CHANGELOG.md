@@ -14,6 +14,12 @@ update, not for someone reading the commit log.
 
 ### Added
 
+- **Curve and node editing** — Node editing now supports compound contours and
+  holes, multi-anchor movement, relative-handle numeric controls, distinct
+  corner/smooth/symmetric/automatic modes, nearest-parameter Bézier insertion,
+  open/close/reverse, line/curve conversion, and visible disabled states for
+  topology operations that are not yet safe.
+
 - **Drawing input controls** — Settings now exposes a reversible one-finger
   draw/navigation policy, pressure enablement/curve, and an opt-in pointer test
   surface that reports observed capability state without collecting artwork.
@@ -27,6 +33,12 @@ update, not for someone reading the commit log.
   preserving output behavior.
 
 ### Fixed
+
+- **Path editing correctness** — Full affine and rotated-camera projection now
+  keeps hit targets aligned at arbitrary zoom, selection-only clicks avoid
+  history, pointer cancellation restores the pre-drag shape, and topology edits
+  no longer silently update only a legacy outer-point array or break dependent
+  text, mask, motion, and interaction references.
 
 - **Touch and stylus ownership** — pointer IDs, active button state, coalesced
   dynamics, capture loss, foreign contacts, and cancellation now flow through
