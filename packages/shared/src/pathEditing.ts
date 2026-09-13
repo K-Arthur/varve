@@ -126,7 +126,12 @@ export function translateSelectedAnchors<T extends EditablePathShape>(
         : point,
     );
     offset += ring.length;
-    return next;
+    // Automatic nodes are derived from their neighbours. Recompute every
+    // automatic point in the affected ring after anchors move so a selected
+    // neighbour cannot leave an unselected automatic tangent stale.
+    return next.map((point, index) =>
+      point.mode === 'automatic' ? automaticPoint(point, next, index, shape.closed) : point,
+    );
   });
   return withPathRings(shape, moved);
 }

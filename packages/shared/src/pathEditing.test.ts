@@ -66,6 +66,21 @@ describe('canonical path editing', () => {
     expect(corner[1]?.handleOut).toEqual(automatic[1]?.handleOut);
   });
 
+  it('recomputes automatic tangents when neighbouring anchors move', () => {
+    const shape: EditablePathShape = {
+      points: [
+        point(0, 0),
+        { ...point(50, 0, [-16, 0], [16, 0]), mode: 'automatic' },
+        point(100, 0),
+      ],
+      closed: false,
+    };
+    const moved = translateSelectedAnchors(shape, new Set([2]), [0, 50]);
+    expect(moved.points[1]?.mode).toBe('automatic');
+    expect(moved.points[1]?.handleOut?.[1]).toBeGreaterThan(0);
+    expect(moved.points[1]?.handleIn?.[1]).toBeLessThan(0);
+  });
+
   it('subdivides a closing segment without changing its curve', () => {
     const shape: EditablePathShape = {
       points: [point(0, 0), point(100, 0, null, [0, 80]), point(100, 100, [-80, 0], null)],
