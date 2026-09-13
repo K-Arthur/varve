@@ -133,3 +133,44 @@ The implementation plan follows these decisions in dependency order: canonical
 ring helpers and remapping, gesture/hit/camera correctness, node modes and
 topology commands, accessible controls, then persistence/export/dependent
 features and measured performance.
+
+## Final validation evidence (2026-09-13)
+
+The focused geometry and document checks passed after the implementation pass:
+
+- `packages/shared/src/pathEditing.test.ts` — 8 tests passed, including
+  automatic-tangent refresh after anchor movement.
+- `packages/shared/src/bezierPathOps.test.ts` — 23 tests passed, including the
+  nearest-point distance-unit regression.
+- The editor node-tool, geometry, topology-dependency, and document-codec
+  suites previously passed together with 61 tests; a later combined run passed
+  68 tests but also reported one unrelated Vitest worker-start timeout while
+  the shared machine was saturated. Those suites are therefore not reported as
+  a clean final aggregate.
+
+The real capture workflow
+(`pnpm capture:workflow bezier-node-edit --no-mp4`) exercised the application,
+not a mock geometry helper. Its product assertions passed for entering node
+editing, four real anchors, anchor dragging, handle dragging, undo, and redo.
+The recording verifier reported one presentation finding only: the generated
+WebM was 30.6 seconds, outside its 14–26 second delivery window. The inspected
+mid-edit frame showed the rendered path, anchors, and handles; the final frame
+showed the normal selection state. This is visual evidence of the workflow, but
+not a clean canonical-video result.
+
+The committed Playwright regression
+(`tests/e2e/canvas/node-editing.spec.ts`) drives pointer events through the real
+canvas and checks artwork pixels independently of the SVG overlay. Several
+reruns were attempted on isolated Vite ports. The host was simultaneously
+running other browser and test jobs; attempts either selected only one node,
+timed out during app startup, hit a concurrent Vite export mismatch, or lost
+the Chromium page. The corrected spec has not therefore been reported as
+passed. Physical Chromebook/ChromeOS and a real Tauri WebKitGTK window remain
+unverified; this host only confirmed Headless Chromium 151 pointer capture,
+`pointercancel`, `touch-action`, and device-pixel-ratio APIs, plus installed
+WebKitGTK 2.52.x libraries.
+
+No 50k-anchor performance benchmark is claimed for this milestone. The
+nearest-point unit regression and automatic-tangent refresh are linear in the
+affected rings, but a representative drag/frame profile still needs an idle
+machine and should be run before broadening the editing scope.
