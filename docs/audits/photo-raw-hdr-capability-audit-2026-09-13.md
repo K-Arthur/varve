@@ -1,7 +1,7 @@
 # Photo, RAW, HDR, and retouch capability audit
 
-Date: 2026-09-13  
-Branch: `master`  
+Date: 2026-09-13
+Branch: `master`
 Status: implementation evidence record; update after each release fixture
 
 ## Scope and baseline
