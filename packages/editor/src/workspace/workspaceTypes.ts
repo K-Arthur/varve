@@ -48,6 +48,18 @@ export type PanelId =
   | 'logo'
   | 'history';
 
+/** Runtime enumeration of every panel id — the validation source for imports. */
+export const ALL_PANEL_IDS: readonly PanelId[] = [
+  'layers',
+  'inspector',
+  'timeline',
+  'pagenav',
+  'library',
+  'codegen',
+  'logo',
+  'history',
+];
+
 export interface PanelConfig {
   /** Whether this panel is visible by default in this mode. */
   visible: boolean;
@@ -242,6 +254,25 @@ export interface WorkspaceConfig {
   tabStrip: boolean;
 }
 
+/** Editor chrome toggles that a saved layout can capture. */
+export interface ChromeConfig {
+  floatingToolbar: boolean;
+  statusBar: boolean;
+  tabStrip: boolean;
+}
+
+export const CHROME_CONFIG_KEYS: readonly (keyof ChromeConfig)[] = [
+  'floatingToolbar',
+  'statusBar',
+  'tabStrip',
+];
+
+export const CHROME_CONFIG_LABELS: Record<keyof ChromeConfig, string> = {
+  floatingToolbar: 'Floating toolbar',
+  statusBar: 'Status bar',
+  tabStrip: 'Document tabs',
+};
+
 // ---------------------------------------------------------------------------
 // Workspace preference (user-customizable, persisted)
 // ---------------------------------------------------------------------------
@@ -257,6 +288,8 @@ export interface WorkspacePreference {
   panelWidths?: Partial<Record<PanelId, number>>;
   /** Mode-specific toolbar tool visibility overrides (tool id → visible). */
   toolbarToolOverrides?: Partial<Record<string, boolean>>;
+  /** Mode-specific editor chrome visibility overrides. */
+  chromeOverrides?: Partial<ChromeConfig>;
   /**
    * When the user reset this mode to defaults.
    *

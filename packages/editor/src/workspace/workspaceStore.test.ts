@@ -16,6 +16,7 @@ import {
   resetWorkspacePreferenceCache,
   savePanelWidths,
   saveWorkspacePreferences,
+  setChromeOverride,
   setPanelOverride,
   setToolbarToolOverride,
   setWorkspacePreferences,
@@ -236,6 +237,43 @@ describe('workspaceStore — effective configuration', () => {
     );
     setWorkspacePreferences(resetAllPreferences());
     expect(getEffectiveWorkspaceConfig('design').panels.layers.visible).toBe(true);
+  });
+
+  it('merges chrome overrides into the effective config', () => {
+    let prefs = getWorkspacePreferences();
+    prefs = setChromeOverride(prefs, 'design', 'statusBar', false);
+    prefs = setChromeOverride(prefs, 'design', 'tabStrip', false);
+    setWorkspacePreferences(prefs);
+    const effective = getEffectiveWorkspaceConfig('design');
+    expect(effective.statusBar).toBe(false);
+    expect(effective.tabStrip).toBe(false);
+    expect(effective.floatingToolbar).toBe(true);
+  });
+
+  it('drops a chrome override equal to the built-in default (sparse storage)', () => {
+    let prefs = setChromeOverride(getWorkspacePreferences(), 'design', 'statusBar', false);
+    prefs = setChromeOverride(prefs, 'design', 'statusBar', true);
+    expect(prefs.design.chromeOverrides?.statusBar).toBeUndefined();
+    expect(getEffectiveWorkspaceConfig('design').statusBar).toBe(true);
+  });
+
+  it('sanitizes unknown chrome override keys and types', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        design: {
+          customized: true,
+          chromeOverrides: { statusBar: false, tabStrip: 'nope', notAKey: true },
+        },
+      }),
+    );
+    resetWorkspacePreferenceCache();
+    const chrome = loadWorkspacePreferences().design.chromeOverrides as
+      | Record<string, unknown>
+      | undefined;
+    expect(chrome?.statusBar).toBe(false);
+    expect(chrome?.tabStrip).toBeUndefined();
+    expect(chrome?.notAKey).toBeUndefined();
   });
 
   it('notifies subscribers on change', () => {

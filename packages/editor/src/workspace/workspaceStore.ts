@@ -20,6 +20,8 @@ import type { ToolId } from '../tools/types';
 import { ESSENTIAL_TOOL_IDS } from './toolLabels';
 import {
   ALL_WORKSPACE_MODES,
+  CHROME_CONFIG_KEYS,
+  type ChromeConfig,
   getToolbarToolIds,
   getWorkspaceConfig,
   type InspectorTabId,
@@ -170,6 +172,16 @@ function sanitizePreference(
     }
   }
 
+  // Sanitize editor-chrome overrides — only known keys, boolean values.
+  const chromeRaw = pref.chromeOverrides;
+  const cleanChrome: Partial<ChromeConfig> = {};
+  if (chromeRaw && typeof chromeRaw === 'object') {
+    for (const key of CHROME_CONFIG_KEYS) {
+      const value = (chromeRaw as Record<string, unknown>)[key];
+      if (typeof value === 'boolean') cleanChrome[key] = value;
+    }
+  }
+
   return {
     ...(clean && Object.keys(clean).length > 0 ? { panelOverrides: clean } : {}),
     ...(cleanTabs && Object.keys(cleanTabs).length > 0 ? { inspectorTabOverrides: cleanTabs } : {}),
@@ -180,6 +192,7 @@ function sanitizePreference(
       ? { toolbarToolOverrides: cleanTools }
       : {}),
     ...(cleanWidths && Object.keys(cleanWidths).length > 0 ? { panelWidths: cleanWidths } : {}),
+    ...(Object.keys(cleanChrome).length > 0 ? { chromeOverrides: cleanChrome } : {}),
     customized: pref.customized === true,
     ...(typeof pref.lastCustomized === 'number' ? { lastCustomized: pref.lastCustomized } : {}),
     ...(typeof pref.clearedAt === 'number' ? { clearedAt: pref.clearedAt } : {}),
@@ -505,6 +518,18 @@ export function getEffectiveWorkspaceConfig(
     },
   };
 
+  // Editor chrome overrides (floating toolbar, status bar, tab strip). These
+  // are presentation toggles a saved layout can capture; they must not touch
+  // renderer policy or document state.
+  const chrome = modePrefs.chromeOverrides;
+  if (chrome) {
+    const patch: Partial<ChromeConfig> = {};
+    for (const key of CHROME_CONFIG_KEYS) {
+      if (typeof chrome[key] === 'boolean') patch[key] = chrome[key];
+    }
+    if (Object.keys(patch).length > 0) result = { ...result, ...patch };
+  }
+
   return result;
 }
 
@@ -611,6 +636,33 @@ export function clearPanelWidths(
       lastCustomized: Date.now(),
     },
   };
+}
+
+/** Toggle an editor-chrome surface's visibility for a workspace. */
+export function setChromeOverride(
+  prefs: WorkspacePreferences,
+  mode: WorkspaceMode,
+  key: keyof ChromeConfig,
+  visible: boolean,
+): WorkspacePreferences {
+  const modePrefs = prefs[mode];
+  // Sparse storage: an override equal to the built-in default is removed so
+  // future built-in changes still flow through.
+  if (getWorkspaceConfig(mode)[key] === visible) {
+    if (!modePrefs?.chromeOverrides || !(key in modePrefs.chromeOverrides)) return prefs;
+    const { [key]: _removed, ...rest } = modePrefs.chromeOverrides;
+    const nextMode = { ...modePrefs, customized: true, lastCustomized: Date.now() };
+    if (Object.keys(rest).length > 0) nextMode.chromeOverrides = rest;
+    else delete nextMode.chromeOverrides;
+    return { ...prefs, [mode]: nextMode };
+  }
+  const updated = { ...prefs };
+  const nextMode = { ...updated[mode] };
+  nextMode.chromeOverrides = { ...(nextMode.chromeOverrides ?? {}), [key]: visible };
+  nextMode.customized = true;
+  nextMode.lastCustomized = Date.now();
+  updated[mode] = nextMode;
+  return updated;
 }
 
 /** Toggle a toolbar tool's visibility for a workspace. */
