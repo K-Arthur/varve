@@ -110,6 +110,7 @@ export interface NativeSelfTestReport {
 const STATUS_TTL_MS = 30_000;
 
 let cached: { at: number; value: NativeAccelerationStatus } | null = null;
+let selfTestInFlight: Promise<NativeSelfTestReport | null> | null = null;
 
 export function isNativeAccelerationAvailable(): boolean {
   return isTauriRuntime();
@@ -140,23 +141,43 @@ export async function getNativeAccelerationStatus(options?: {
  * Bounded hardware self-test: creates a device if needed, runs a small
  * compute shader, and verifies the readback. Returns `null` on web.
  */
-export async function runNativeGpuSelfTest(): Promise<NativeSelfTestReport | null> {
-  if (!isTauriRuntime()) return null;
-  const { invoke } = await import('@tauri-apps/api/core');
-  const report = await invoke<NativeSelfTestReport>('native_gpu_self_test');
-  cached = null;
-  return report;
+export function runNativeGpuSelfTest(): Promise<NativeSelfTestReport | null> {
+  if (!isTauriRuntime()) return Promise.resolve(null);
+  if (selfTestInFlight) return selfTestInFlight;
+
+  const request = (async () => {
+    const { invoke } = await import('@tauri-apps/api/core');
+    const report = await invoke<NativeSelfTestReport>('native_gpu_self_test');
+    cached = null;
+    return report;
+  })();
+  selfTestInFlight = request.finally(() => {
+    selfTestInFlight = null;
+  });
+  return selfTestInFlight;
 }
 
 /**
- * True when a hardware compute device is present. This does not mean a
- * device has been created or that any workload ran on it; use
- * `runNativeGpuSelfTest` for execution verification.
+ * True only after a native hardware compute device has been created and the
+ * bounded self-test has verified a dispatch/readback. Adapter enumeration is
+ * deliberately insufficient: driver, sandbox, remote-session, and feature
+ * limits can still reject device creation.
  */
 export async function isNativeGpuComputeUsable(): Promise<boolean> {
   try {
     const status = await getNativeAccelerationStatus();
-    return status?.report.compute.available === true;
+    if (!status?.report.compute.available) return false;
+    const selected = status.report.compute.devices.find(
+      (device) => device.id === status.report.compute.selectedId,
+    );
+    if (
+      status.engineReady &&
+      (selected?.stage === 'deviceUsable' || selected?.stage === 'executionVerified')
+    ) {
+      return true;
+    }
+    const report = await runNativeGpuSelfTest();
+    return report !== null;
   } catch {
     return false;
   }

@@ -132,10 +132,10 @@ export const nativeEffectProvider: LiveEffectProvider = {
 
 /**
  * Desktop GPU provider: native wgpu compute through
- * `apply_live_effect_binary` with an explicit GPU backend. Availability is
- * the native capability report (hardware adapter present); unsupported
- * effects or a failed device fall through to the CPU providers in the chain,
- * so a GPU success here always means the GPU produced the bytes.
+ * `apply_live_effect_binary` with an explicit GPU backend. Availability runs a
+ * shared bounded native self-test when necessary; unsupported effects or a
+ * failed device fall through to the CPU providers in the chain, so a GPU
+ * success here always means the GPU produced the bytes.
  */
 export const nativeGpuEffectProvider: LiveEffectProvider = {
   id: 'native-gpu-effects',
