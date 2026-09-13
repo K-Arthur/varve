@@ -140,6 +140,12 @@ test.describe('Pen and Pencil tools', () => {
     await clickOnCanvas(page, 340, 160);
     await page.waitForTimeout(100);
     await expect(actions.getByRole('button', { name: 'Close path' })).toBeEnabled();
+    const actionsScreenshot = test.info().outputPath('pen-touch-actions.png');
+    await page.locator('[data-testid="canvas-overlay"]').screenshot({ path: actionsScreenshot });
+    await test.info().attach('pen-touch-actions', {
+      path: actionsScreenshot,
+      contentType: 'image/png',
+    });
     await actions.getByRole('button', { name: 'Close path' }).click();
 
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
