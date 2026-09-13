@@ -143,6 +143,22 @@ describe('TransformEngine.isAllRaster', () => {
   });
 });
 
+describe('TransformEngine hierarchy selection', () => {
+  it('applies one transform delta to a selected parent and descendant', () => {
+    const frame = makeFrame('frame1', 100, 100);
+    frame.children = ['child1'];
+    const child = makeVectorShape('child1', 20, 20);
+    child.transform = [1, 0, 0, 1, 10, 15] as Affine;
+    const doc = makeDoc({ frame1: frame, child1: child });
+    const engine = new TransformEngine(doc, ['frame1', 'child1']);
+
+    const transformed = engine.rotate(Math.PI / 2, [50, 50], doc);
+
+    expect(transformed.nodes.child1?.transform).toEqual(child.transform);
+    expect(transformed.nodes.frame1?.transform).not.toEqual(frame.transform);
+  });
+});
+
 describe('TransformEngine.resize — image aspect ratio', () => {
   it('bypasses selection-box snapping when the alternate transform modifier is active', () => {
     const img = makeRasterShape('img1', 'a.png', 100, 100);

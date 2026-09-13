@@ -16,7 +16,7 @@
 import { type PathPoint, type Shape, transformPathShape } from '@varve/engine';
 import { reflowLayoutChildren, resizeNodeGeometry } from '@varve/layout';
 import type { Document, Fill, NodeId, SceneNode, ShapeNode, Stroke } from '@varve/scene';
-import { applyConstraints, getParent } from '@varve/scene';
+import { applyConstraints, buildParentIndexMap, getParent } from '@varve/scene';
 import type { Affine, Point, Rect } from '@varve/shared';
 import {
   applyAffine,
@@ -90,7 +90,7 @@ export class TransformEngine {
 
   constructor(doc: Document, selectedIds: NodeId[], options: TransformOptions = {}) {
     this.doc = doc;
-    this.selectedIds = selectedIds;
+    this.selectedIds = independentTransformRoots(doc, selectedIds);
     this.options = options;
     this.initialStates = this.buildInitialStates();
     this.initialBox = this.computeBoxFromDoc(doc);
@@ -718,6 +718,28 @@ export class TransformEngine {
     }
     return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
   }
+}
+
+/**
+ * Resolve one transform subject per selected hierarchy. A selected ancestor
+ * already carries its descendants through the scene transform chain; applying
+ * the same selection delta to both would move the descendant twice.
+ */
+function independentTransformRoots(doc: Document, selectedIds: readonly NodeId[]): NodeId[] {
+  const requested = new Set(selectedIds.filter((id) => doc.nodes[id] !== undefined));
+  if (requested.size < 2) return [...requested];
+
+  const parentIndex = buildParentIndexMap(doc);
+  return [...requested].filter((id) => {
+    let parent = parentIndex.get(id) ?? null;
+    const visited = new Set<NodeId>();
+    while (parent && !visited.has(parent)) {
+      if (requested.has(parent)) return false;
+      visited.add(parent);
+      parent = parentIndex.get(parent) ?? null;
+    }
+    return true;
+  });
 }
 
 const HANDLE_SIGNS: Record<ResizeHandle, { x: number; y: number }> = {
