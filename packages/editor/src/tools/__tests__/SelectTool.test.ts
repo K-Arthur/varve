@@ -12,6 +12,8 @@ import {
 import type { Affine } from '@varve/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { SelectTool } from '../SelectTool';
+import { ToolManager } from '../ToolManager';
+import type { ToolContext } from '../types';
 
 function makeCtx(overrides?: Record<string, unknown>) {
   const doc = createDocument('test');
@@ -133,6 +135,28 @@ function makeNudgeCtx(
   return ctx;
 }
 
+function makeNudgeManager(): ToolManager {
+  const manager = new ToolManager('select');
+  manager.register('select', () => new SelectTool());
+  return manager;
+}
+
+function nudgeKeyDown(
+  manager: ToolManager,
+  ctx: ReturnType<typeof makeNudgeCtx>,
+  event: Record<string, unknown>,
+): boolean {
+  return manager.handleKeyDown(event as KeyboardEvent, ctx as unknown as ToolContext);
+}
+
+function nudgeKeyUp(
+  manager: ToolManager,
+  ctx: ReturnType<typeof makeNudgeCtx>,
+  event: Record<string, unknown>,
+): void {
+  manager.handleKeyUp(event as KeyboardEvent, ctx as unknown as ToolContext);
+}
+
 function documentWithRootNodes(ids: readonly string[]) {
   let doc = createDocument('selection test');
   const contentRoot = doc.pages![0]!.contentRoot;
@@ -251,35 +275,35 @@ describe('SelectTool', () => {
   });
 
   it('arrow key nudges selected nodes', () => {
-    const tool = new SelectTool();
     const ctx = makeNudgeCtx();
-    tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
+    const manager = makeNudgeManager();
+    nudgeKeyDown(manager, ctx, { key: 'ArrowRight' });
     expect(ctx.setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 101, y: 100 }]);
     expect(ctx.announceOperation).toHaveBeenCalledWith('Nudge', '1px');
   });
 
   it('shift+arrow nudges by 10px', () => {
-    const tool = new SelectTool();
     const ctx = makeNudgeCtx();
-    tool.onKeyDown({ key: 'ArrowLeft', shiftKey: true } as any, ctx);
+    const manager = makeNudgeManager();
+    nudgeKeyDown(manager, ctx, { key: 'ArrowLeft', shiftKey: true });
     expect(ctx.setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 90, y: 100 }]);
   });
 
   it('arrow key nudges a rotated node along document axes', () => {
-    const tool = new SelectTool();
     const c = Math.cos(Math.PI / 4);
     const s = Math.sin(Math.PI / 4);
     const ctx = makeNudgeCtx([c, s, -s, c, 100, 100]);
-    tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
+    const manager = makeNudgeManager();
+    nudgeKeyDown(manager, ctx, { key: 'ArrowRight' });
     expect(ctx.setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 101, y: 100 }]);
   });
 
   it('arrow key nudges a rotated node upward in document space', () => {
-    const tool = new SelectTool();
     const c = Math.cos(Math.PI / 4);
     const s = Math.sin(Math.PI / 4);
     const ctx = makeNudgeCtx([c, s, -s, c, 100, 100]);
-    tool.onKeyDown({ key: 'ArrowUp' } as any, ctx);
+    const manager = makeNudgeManager();
+    nudgeKeyDown(manager, ctx, { key: 'ArrowUp' });
     expect(ctx.setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 100, y: 99 }]);
   });
 
@@ -590,60 +614,60 @@ describe('SelectTool — keyboard selection cycle (Tab)', () => {
 
 describe('SelectTool — keyboard nudge undo transaction', () => {
   it('begins transaction on keydown, commits on keyup for coalesced undo', () => {
-    const tool = new SelectTool();
     const ctx = makeNudgeCtx();
-    tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
+    const manager = makeNudgeManager();
+    nudgeKeyDown(manager, ctx, { key: 'ArrowRight' });
     expect(ctx.beginTransaction).toHaveBeenCalledTimes(1);
     expect(ctx.commitTransaction).not.toHaveBeenCalled();
     expect(ctx.setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 101, y: 100 }]);
-    tool.onKeyUp({ key: 'ArrowRight' } as any, ctx);
+    nudgeKeyUp(manager, ctx, { key: 'ArrowRight' });
     expect(ctx.commitTransaction).toHaveBeenCalledTimes(1);
   });
 
   it('coalesces repeat keydowns into the same transaction', () => {
-    const tool = new SelectTool();
     const ctx = makeNudgeCtx();
+    const manager = makeNudgeManager();
 
     // First press begins transaction, moves to 101
-    tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
+    nudgeKeyDown(manager, ctx, { key: 'ArrowRight' });
     expect(ctx.beginTransaction).toHaveBeenCalledTimes(1);
     expect(ctx.setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 101, y: 100 }]);
 
     // Repeat press shares the same transaction, moves to 102
     vi.mocked(ctx.setNodePositions).mockClear();
-    tool.onKeyDown({ key: 'ArrowRight', repeat: true } as any, ctx);
+    nudgeKeyDown(manager, ctx, { key: 'ArrowRight', repeat: true });
     expect(ctx.beginTransaction).toHaveBeenCalledTimes(1);
     expect(ctx.commitTransaction).not.toHaveBeenCalled();
     expect(ctx.setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 102, y: 100 }]);
 
     // Keyup commits once
-    tool.onKeyUp({ key: 'ArrowRight' } as any, ctx);
+    nudgeKeyUp(manager, ctx, { key: 'ArrowRight' });
     expect(ctx.commitTransaction).toHaveBeenCalledTimes(1);
   });
 
   it('wraps shift+arrow nudge in beginTransaction/commitTransaction', () => {
-    const tool = new SelectTool();
     const ctx = makeNudgeCtx();
-    tool.onKeyDown({ key: 'ArrowLeft', shiftKey: true } as any, ctx);
+    const manager = makeNudgeManager();
+    nudgeKeyDown(manager, ctx, { key: 'ArrowLeft', shiftKey: true });
     expect(ctx.beginTransaction).toHaveBeenCalledTimes(1);
     expect(ctx.setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 90, y: 100 }]);
-    tool.onKeyUp({ key: 'ArrowLeft' } as any, ctx);
+    nudgeKeyUp(manager, ctx, { key: 'ArrowLeft' });
     expect(ctx.commitTransaction).toHaveBeenCalledTimes(1);
   });
 
   it('does not call beginTransaction when no selection', () => {
-    const tool = new SelectTool();
     const ctx = makeCtx({ selection: [] });
-    expect(tool.onKeyDown({ key: 'ArrowRight' } as any, ctx)).toBe(false);
+    const manager = makeNudgeManager();
+    expect(nudgeKeyDown(manager, ctx as never, { key: 'ArrowRight' })).toBe(false);
     expect(ctx.beginTransaction).not.toHaveBeenCalled();
     expect(ctx.commitTransaction).not.toHaveBeenCalled();
   });
 
   it('never reparents an object that enters a frame through arrow nudging', () => {
-    const tool = new SelectTool();
     const ctx = makeNudgeCtx();
+    const manager = makeNudgeManager();
     ctx.findContainingFrame.mockReturnValue('frame1');
-    tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
+    nudgeKeyDown(manager, ctx, { key: 'ArrowRight' });
     expect(ctx.setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 101, y: 100 }]);
     expect(ctx.reparentNode).not.toHaveBeenCalled();
   });
@@ -653,45 +677,45 @@ describe('SelectTool — keyboard nudge undo transaction', () => {
     { name: 'Ctrl', ctrlKey: true },
     { name: 'Command', metaKey: true },
   ])('leaves $name+Arrow for a dedicated shortcut', ({ altKey, ctrlKey, metaKey }) => {
-    const tool = new SelectTool();
     const ctx = makeNudgeCtx();
+    const manager = makeNudgeManager();
 
-    expect(tool.onKeyDown({ key: 'ArrowRight', altKey, ctrlKey, metaKey } as any, ctx)).toBe(false);
+    expect(nudgeKeyDown(manager, ctx, { key: 'ArrowRight', altKey, ctrlKey, metaKey })).toBe(false);
     expect(ctx.setNodePositions).not.toHaveBeenCalled();
     expect(ctx.beginTransaction).not.toHaveBeenCalled();
   });
 
   it('does not create history for a wholly locked selection', () => {
-    const tool = new SelectTool();
     const ctx = makeNudgeCtx([1, 0, 0, 1, 100, 100], { locked: true });
+    const manager = makeNudgeManager();
 
-    expect(tool.onKeyDown({ key: 'ArrowRight' } as any, ctx)).toBe(false);
+    expect(nudgeKeyDown(manager, ctx, { key: 'ArrowRight' })).toBe(true);
     expect(ctx.setNodePositions).not.toHaveBeenCalled();
     expect(ctx.beginTransaction).not.toHaveBeenCalled();
     expect(ctx.commitTransaction).not.toHaveBeenCalled();
   });
 
   it('commits only after every held nudge direction is released', () => {
-    const tool = new SelectTool();
     const ctx = makeNudgeCtx();
+    const manager = makeNudgeManager();
 
-    tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
-    tool.onKeyDown({ key: 'ArrowDown' } as any, ctx);
+    nudgeKeyDown(manager, ctx, { key: 'ArrowRight' });
+    nudgeKeyDown(manager, ctx, { key: 'ArrowDown' });
     expect(ctx.beginTransaction).toHaveBeenCalledTimes(1);
-    tool.onKeyUp({ key: 'ArrowRight' } as any, ctx);
+    nudgeKeyUp(manager, ctx, { key: 'ArrowRight' });
     expect(ctx.commitTransaction).not.toHaveBeenCalled();
-    tool.onKeyUp({ key: 'ArrowDown' } as any, ctx);
+    nudgeKeyUp(manager, ctx, { key: 'ArrowDown' });
     expect(ctx.commitTransaction).toHaveBeenCalledTimes(1);
   });
 
   it('commits a held nudge when keyboard focus is lost', () => {
-    const tool = new SelectTool();
     const ctx = makeNudgeCtx();
+    const manager = makeNudgeManager();
 
-    tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
-    tool.onFocusLoss(ctx);
+    nudgeKeyDown(manager, ctx, { key: 'ArrowRight' });
+    manager.handleFocusLoss(ctx as unknown as ToolContext);
     expect(ctx.commitTransaction).toHaveBeenCalledTimes(1);
-    tool.onKeyUp({ key: 'ArrowRight' } as any, ctx);
+    nudgeKeyUp(manager, ctx, { key: 'ArrowRight' });
     expect(ctx.commitTransaction).toHaveBeenCalledTimes(1);
   });
 });

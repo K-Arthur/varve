@@ -63,11 +63,17 @@ export class CanvasNudgeController {
       small: loadSettings().nudge.small,
       big: loadSettings().nudge.big,
     });
+    const hadHeldDirections = this.heldDirections.size > 0;
     let plan = this.session
       ? planNudgeRepeat(this.session, direction, step, ctx.document, ctx.selection)
       : null;
     if (!plan) {
-      this.session = null;
+      // A changed selection, document, ancestry, or transform witness must
+      // close the old history boundary before this event can address the new
+      // state. Otherwise a held OS-repeat key can place two unrelated
+      // selections in one undo entry.
+      if (hadHeldDirections) this.finish(ctx);
+      else this.session = null;
       plan = planNudge(direction, step, ctx.document, ctx.selection);
     }
 

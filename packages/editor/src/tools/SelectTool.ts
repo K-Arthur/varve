@@ -6,7 +6,8 @@
  * Depth cycling: clicking an already-selected single node cycles to the next
  *   overlapping node below (B1). Transparent/stroke-only shapes pass through
  *   to the next filled node below (B2).
- * Arrow keys nudge along document/world axes for every selected transform root.
+ * Arrow keys are routed by ToolManager to the shared canvas nudge controller;
+ * specialized node-edit tools keep ownership of their own arrow interactions.
  * Tab cycles selection through visible unlocked nodes (B4).
  * Alt+marquee selects only fully contained nodes (A3).
  *
@@ -31,15 +32,6 @@ import {
   pathPointToBezier,
   pointToSegmentDistSq,
 } from '@varve/shared';
-import {
-  applyNudgePlan,
-  createNudgeGestureSession,
-  getNudgeStep,
-  type NudgeDirection,
-  type NudgeGestureSession,
-  planNudge,
-  planNudgeRepeat,
-} from '../commands/nudge';
 import { planManualWorldTranslationFromOrigins } from '../scene/selectionArrangement';
 import { nodeWorldBounds, nodeWorldTransform } from '../scene/world';
 import { loadSettings } from '../settings';
@@ -67,21 +59,6 @@ const LONG_PRESS_MS = 500;
 const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
 
 type HitTarget = { nodeId: NodeId; node: SceneNode };
-
-function nudgeDirectionForKey(key: string): NudgeDirection | null {
-  switch (key) {
-    case 'ArrowUp':
-      return 'up';
-    case 'ArrowDown':
-      return 'down';
-    case 'ArrowLeft':
-      return 'left';
-    case 'ArrowRight':
-      return 'right';
-    default:
-      return null;
-  }
-}
 
 /**
  * World-space centre of a node for drag-drop reparent decisions.
@@ -122,8 +99,6 @@ export class SelectTool extends BaseTool {
   private isMoveGesture = false;
   private initialPositions = new Map<string, { x: number; y: number }>();
   private hasDuplicated = false;
-  private heldNudgeKeys = new Set<NudgeDirection>();
-  private nudgeSession: NudgeGestureSession | null = null;
   /** Nodes that were selected when an Alt-duplicate fired, in selection order. */
   private duplicateSourceIds: string[] = [];
   /** True between firing an Alt-duplicate and the clones becoming the selection. */
@@ -161,7 +136,6 @@ export class SelectTool extends BaseTool {
   }
 
   override onDeactivate(ctx: ToolContext): void {
-    this.finishNudgeGesture(ctx);
     this.forceMarqueeHeld = false;
     ctx.setSelectionPreview?.(null);
     // Cancel any active drag when switching tools
@@ -197,16 +171,8 @@ export class SelectTool extends BaseTool {
     }
   }
 
-  override onFocusLoss(ctx: ToolContext): void {
-    this.finishNudgeGesture(ctx);
+  override onFocusLoss(_ctx: ToolContext): void {
     this.forceMarqueeHeld = false;
-  }
-
-  private finishNudgeGesture(ctx: ToolContext): void {
-    this.nudgeSession = null;
-    if (this.heldNudgeKeys.size === 0) return;
-    this.heldNudgeKeys.clear();
-    ctx.commitTransaction();
   }
 
   override onPointerDown(e: PointerEvent, ctx: ToolContext): GestureResult {
@@ -911,44 +877,6 @@ export class SelectTool extends BaseTool {
       return false;
     }
 
-    const direction = nudgeDirectionForKey(e.key);
-    if (direction) {
-      // Alt, Ctrl, and Command arrows belong to dedicated selection/history/
-      // alignment commands. Bare and Shift arrows are the object-nudge
-      // contract while the canvas has focus.
-      if (e.altKey || e.ctrlKey || e.metaKey) {
-        this.finishNudgeGesture(ctx);
-        return false;
-      }
-
-      const nudgeSettings = loadSettings().nudge;
-      const step = getNudgeStep(e.shiftKey ? 'large' : 'standard', nudgeSettings);
-      let plan = this.nudgeSession
-        ? planNudgeRepeat(this.nudgeSession, direction, step, ctx.document, ctx.selection)
-        : null;
-      if (!plan) {
-        this.nudgeSession = null;
-        plan = planNudge(direction, step, ctx.document, ctx.selection);
-      }
-      if (plan.moved === 0) return false;
-
-      const nextSession =
-        this.nudgeSession ?? createNudgeGestureSession(ctx.document, ctx.selection, plan);
-
-      const startsGesture = this.heldNudgeKeys.size === 0;
-      this.heldNudgeKeys.add(direction);
-      if (startsGesture) {
-        ctx.beginTransaction();
-        // Announce once per held-key gesture, not once per OS repeat.
-        ctx.announceOperation('Nudge', `${step}px`);
-      }
-      applyNudgePlan(plan, {
-        setNodePosition: (id, x, y) => ctx.setNodePosition(id, x, y),
-        setNodePositions: (positions) => ctx.setNodePositions(positions),
-      });
-      this.nudgeSession = nextSession;
-      return true;
-    }
     if (e.key === 'Enter' && !e.repeat) {
       // Enter descends into the selected container (frame/group).
       const sel = ctx.selection;
@@ -964,11 +892,6 @@ export class SelectTool extends BaseTool {
     }
 
     if (e.key === 'Escape') {
-      // If mid-nudge, commit the transaction (do not discard user intent).
-      if (this.heldNudgeKeys.size > 0) {
-        this.finishNudgeGesture(ctx);
-        return true;
-      }
       // If mid-drag, abort the move or discard the marquee without changing
       // the committed selection. The latter is important because marquee
       // selection is intentionally deferred until pointer-up.
@@ -998,13 +921,8 @@ export class SelectTool extends BaseTool {
     return false;
   }
 
-  override onKeyUp(e: KeyboardEvent, ctx: ToolContext): void {
+  override onKeyUp(e: KeyboardEvent, _ctx: ToolContext): void {
     if (e.key.toLowerCase() === 'x') this.forceMarqueeHeld = false;
-    const direction = nudgeDirectionForKey(e.key);
-    if (direction && this.heldNudgeKeys.delete(direction) && this.heldNudgeKeys.size === 0) {
-      this.nudgeSession = null;
-      ctx.commitTransaction();
-    }
   }
 
   /**

@@ -215,6 +215,14 @@ export class ToolManager {
   handleKeyDown(e: KeyboardEvent, base: ToolContext): boolean {
     const ctx = this.buildContext(e, base);
 
+    // Escape belongs to an active keyboard movement before it can reach the
+    // selection tool. This keeps nudge completion from also clearing the
+    // selection or cancelling an unrelated selection gesture.
+    if (e.key === 'Escape' && this.genericNudge.active) {
+      this.genericNudge.finish(ctx);
+      return true;
+    }
+
     const consumed = this.activeTool.onKeyDown?.(e, ctx) ?? false;
     if (consumed) return true;
 
