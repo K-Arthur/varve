@@ -191,9 +191,10 @@ not attributed to Shape Builder.
 
 ### 2026-09-13 implementation receipt
 
-- Scene geometry: `packages/scene/src/shapeBuilder.test.ts` passed 8/8, including
+- Scene geometry: `packages/scene/src/shapeBuilder.test.ts` passed 9/9, including
   the rectangle area oracle, thin-face sweep, donut hole, disconnected output,
-  retained-source Create, destructive remainders, and stale revision rejection.
+  one self-intersecting path under its authored fill rule, retained-source
+  Create, destructive remainders, and stale revision rejection.
 - Independent curve check: the transformed cubic deviation test passed with a
   measured maximum below the 0.08-unit fixture budget; it does not compare two
   paths through the same conversion helper.
