@@ -372,6 +372,50 @@ describe('workspaceStore — durable (platform) persistence', () => {
     // …and the session snapshot is unaffected.
     expect(getWorkspacePreferences().design.panelOverrides?.layers?.visible).toBe(false);
   });
+
+  it('a reset tombstone beats a stale durable customization', async () => {
+    // The user reset Design, but the durable copy still holds the pre-reset
+    // customization because the debounced write never flushed. Hydration
+    // must honor the reset instead of resurrecting the old layout.
+    const cleared = resetAllPreferences(1_000);
+    setWorkspacePreferences(resetModePreferences(cleared, 'design', 2_000));
+    const platform = fakePlatform(
+      JSON.stringify({
+        design: {
+          customized: true,
+          lastCustomized: 1_500,
+          panelOverrides: { layers: { visible: false } },
+        },
+      }),
+    );
+    await hydrateWorkspacePreferencesFromPlatform(platform);
+    expect(getWorkspacePreferences().design.customized).toBe(false);
+    expect(getWorkspacePreferences().design.panelOverrides).toBeUndefined();
+    expect(getWorkspacePreferences().design.clearedAt).toBe(2_000);
+  });
+
+  it('a customization newer than a reset survives hydration', async () => {
+    setWorkspacePreferences(resetModePreferences(resetAllPreferences(1_000), 'design', 2_000));
+    const platform = fakePlatform(
+      JSON.stringify({
+        design: {
+          customized: true,
+          lastCustomized: 3_000,
+          panelOverrides: { layers: { visible: false } },
+        },
+      }),
+    );
+    await hydrateWorkspacePreferencesFromPlatform(platform);
+    expect(getWorkspacePreferences().design.customized).toBe(true);
+    expect(getWorkspacePreferences().design.panelOverrides?.layers?.visible).toBe(false);
+  });
+
+  it('persists and sanitizes the clearedAt marker', () => {
+    const prefs = resetModePreferences(getWorkspacePreferences(), 'print', 4_242);
+    saveWorkspacePreferences(prefs);
+    resetWorkspacePreferenceCache();
+    expect(loadWorkspacePreferences().print.clearedAt).toBe(4_242);
+  });
 });
 
 describe('workspaceStore — panel widths', () => {

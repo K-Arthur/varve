@@ -182,6 +182,7 @@ function sanitizePreference(
     ...(cleanWidths && Object.keys(cleanWidths).length > 0 ? { panelWidths: cleanWidths } : {}),
     customized: pref.customized === true,
     ...(typeof pref.lastCustomized === 'number' ? { lastCustomized: pref.lastCustomized } : {}),
+    ...(typeof pref.clearedAt === 'number' ? { clearedAt: pref.clearedAt } : {}),
   };
 }
 
@@ -279,14 +280,21 @@ export async function flushWorkspacePreferences(): Promise<void> {
 }
 
 /**
- * Per mode, keep whichever copy was customized more recently.
+ * Per mode, keep whichever copy reflects the user's latest *decision*.
  *
  * Both stores are legitimate sources: localStorage can be wiped by the
  * WebView while platform storage survives, and platform storage can lag
  * behind a write that has not flushed yet or was made by another window.
- * `lastCustomized` is the only ordering we have, so it decides; an
- * uncustomized entry never displaces a customized one.
+ * `lastCustomized` and `clearedAt` are the only event ordering we have:
+ * a reset is a decision and must beat an older customization, and a
+ * customization made after a reset must beat the reset. When neither copy
+ * carries an event (both untouched), an uncustomized entry never displaces
+ * a customized one.
  */
+function preferenceEventTime(pref: WorkspacePreference): number {
+  return Math.max(pref.lastCustomized ?? 0, pref.clearedAt ?? 0);
+}
+
 function mergePreferencesByRecency(
   local: WorkspacePreferences,
   remote: WorkspacePreferences,
@@ -295,9 +303,17 @@ function mergePreferencesByRecency(
   for (const mode of ALL_WORKSPACE_MODES) {
     const l = local[mode] ?? defaultPreference();
     const r = remote[mode] ?? defaultPreference();
-    if (!r.customized) merged[mode] = l;
-    else if (!l.customized) merged[mode] = r;
-    else merged[mode] = (r.lastCustomized ?? 0) > (l.lastCustomized ?? 0) ? r : l;
+    const localTime = preferenceEventTime(l);
+    const remoteTime = preferenceEventTime(r);
+    if (localTime !== remoteTime) {
+      merged[mode] = localTime > remoteTime ? l : r;
+      continue;
+    }
+    // Same event time (usually both zero): preserve the old customized-wins
+    // rule, then fall back to the current session's copy.
+    if (!r.customized && l.customized) merged[mode] = l;
+    else if (!l.customized && r.customized) merged[mode] = r;
+    else merged[mode] = l;
   }
   return merged;
 }
@@ -623,19 +639,34 @@ export function setToolbarToolOverride(
   return updated;
 }
 
-/** Reset a mode's preferences to defaults. */
+/** Reset a mode's preferences to defaults, recording the reset as an event. */
 export function resetModePreferences(
   prefs: WorkspacePreferences,
   mode: WorkspaceMode,
+  clearedAt: number = Date.now(),
 ): WorkspacePreferences {
   const updated = { ...prefs };
-  updated[mode] = defaultPreference();
+  updated[mode] = { customized: false, clearedAt };
   return updated;
 }
 
-/** Reset all workspace preferences to defaults. */
-export function resetAllPreferences(): WorkspacePreferences {
-  return createDefaultPreferences();
+/** Reset all workspace preferences to defaults, recording one reset event. */
+export function resetAllPreferences(clearedAt: number = Date.now()): WorkspacePreferences {
+  const prefs = createDefaultPreferences();
+  for (const mode of ALL_WORKSPACE_MODES) {
+    prefs[mode] = { customized: false, clearedAt };
+  }
+  return prefs;
+}
+
+/**
+ * When each mode's latest layout decision happened (customization or reset).
+ *
+ * Exported for persistence diagnostics/tests; merge logic uses the same value.
+ */
+export function getPreferenceEventTime(pref: WorkspacePreference | undefined): number {
+  if (!pref) return 0;
+  return Math.max(pref.lastCustomized ?? 0, pref.clearedAt ?? 0);
 }
 
 /** Check if a mode has been customized by the user. */

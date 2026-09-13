@@ -257,6 +257,16 @@ export interface WorkspacePreference {
   panelWidths?: Partial<Record<PanelId, number>>;
   /** Mode-specific toolbar tool visibility overrides (tool id → visible). */
   toolbarToolOverrides?: Partial<Record<string, boolean>>;
+  /**
+   * When the user reset this mode to defaults.
+   *
+   * A reset must be an event, not the absence of state: without this marker
+   * an uncustomized entry is indistinguishable from "never customized", and a
+   * stale durable (SQLite/IndexedDB) copy could resurrect the pre-reset
+   * layout on the next hydration. Merge compares this against the other
+   * copy's `lastCustomized` so the newer decision wins in either direction.
+   */
+  clearedAt?: number;
   /** Whether the user has customized this mode. */
   customized: boolean;
   /** Timestamp of last customization. */
@@ -296,6 +306,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'arrow' },
         { toolId: 'pen', groupStart: true },
         { toolId: 'knife' },
+        { toolId: 'shapeBuilder' },
         { toolId: 'text', groupStart: true },
         { toolId: 'frame' },
         { toolId: 'table' },
@@ -393,6 +404,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'arrow' },
         { toolId: 'pen', groupStart: true },
         { toolId: 'knife' },
+        { toolId: 'shapeBuilder' },
         { toolId: 'text', groupStart: true },
         { toolId: 'frame' },
         { toolId: 'table' },
@@ -489,6 +501,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'smudge' },
         { toolId: 'pen', groupStart: true },
         { toolId: 'knife' },
+        { toolId: 'shapeBuilder' },
         { toolId: 'pencil' },
         { toolId: 'line' },
         { toolId: 'arrow' },
@@ -793,6 +806,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'zoom' },
         { toolId: 'pen', groupStart: true },
         { toolId: 'knife' },
+        { toolId: 'shapeBuilder' },
         { toolId: 'pencil' },
         { toolId: 'nodeEdit' },
         { toolId: 'text', groupStart: true },

@@ -888,6 +888,15 @@ function ShellInner({
                 openPalette();
               }}
             />
+          </>
+        )}
+        {/* Responsive panel launchers and their backdrop are deliberately
+            outside the statusBar config gate: they are the only way to open
+            the layers/inspector/resources drawers at <=899px. Gating them on
+            a status-bar preference left a workspace with the status bar
+            disabled with no reachable way to reveal a hidden panel. */}
+        {!distractionFreeMode && (
+          <>
             {/* FAB for layers (responsive) */}
             <button
               type="button"
