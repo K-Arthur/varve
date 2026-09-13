@@ -184,7 +184,16 @@ export function makeSetRefs(
     const nextSelection = [...new Set(selection)].filter((id) =>
       Boolean(current.document.nodes[id]),
     );
-    if (JSON.stringify(current.selection) === JSON.stringify(nextSelection)) return;
+    if (JSON.stringify(current.selection) === JSON.stringify(nextSelection)) {
+      // A text caret/range belongs to the active editing session, not to an
+      // object selected from the Layers panel. The same layer can be clicked
+      // again after text editing, so do not let a collapsed native-textarea
+      // range turn the next inspector edit into pending formatting.
+      if (current.selectionRange === null && current.pendingFormat === null) return;
+      stateRef.current = { ...current, selectionRange: null, pendingFormat: null };
+      setState((state) => ({ ...state, selectionRange: null, pendingFormat: null }));
+      return;
+    }
     const primaryId =
       options?.primary && nextSelection.includes(options.primary)
         ? options.primary
@@ -198,6 +207,8 @@ export function makeSetRefs(
       focusedNodeId: primaryId,
       selectionRevision: current.selectionRevision + 1,
       selectionOrigin: resolvedOrigin,
+      selectionRange: null,
+      pendingFormat: null,
     };
     setState((state) => ({
       ...state,
@@ -206,6 +217,8 @@ export function makeSetRefs(
       focusedNodeId: primaryId,
       selectionRevision: state.selectionRevision + 1,
       selectionOrigin: resolvedOrigin,
+      selectionRange: null,
+      pendingFormat: null,
     }));
     onSelectionChangeRef.current?.(nextSelection);
   };

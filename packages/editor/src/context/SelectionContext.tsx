@@ -58,6 +58,8 @@ export function SelectionProvider({ children, state, setState }: SelectionProvid
         primaryId: id,
         selectionOrigin: origin ?? DEFAULT_SELECTION_ORIGIN,
         selectionRevision: s.selectionRevision + 1,
+        selectionRange: null,
+        pendingFormat: null,
       }));
     },
     [setState],
@@ -86,6 +88,8 @@ export function SelectionProvider({ children, state, setState }: SelectionProvid
           primaryId: newPrimaryId,
           selectionOrigin: origin ?? DEFAULT_SELECTION_ORIGIN,
           selectionRevision: s.selectionRevision + 1,
+          selectionRange: null,
+          pendingFormat: null,
         };
       });
     },
@@ -99,7 +103,11 @@ export function SelectionProvider({ children, state, setState }: SelectionProvid
     ) => {
       setState((s) => {
         const nextSelection = [...new Set(selection)].filter((id) => Boolean(s.document.nodes[id]));
-        if (JSON.stringify(s.selection) === JSON.stringify(nextSelection)) return s;
+        if (JSON.stringify(s.selection) === JSON.stringify(nextSelection)) {
+          return s.selectionRange === null && s.pendingFormat === null
+            ? s
+            : { ...s, selectionRange: null, pendingFormat: null };
+        }
         const primaryId =
           options?.primary && nextSelection.includes(options.primary)
             ? options.primary
@@ -111,6 +119,8 @@ export function SelectionProvider({ children, state, setState }: SelectionProvid
           focusedNodeId: primaryId,
           selectionOrigin: options?.origin ?? DEFAULT_SELECTION_ORIGIN,
           selectionRevision: s.selectionRevision + 1,
+          selectionRange: null,
+          pendingFormat: null,
         };
       });
     },

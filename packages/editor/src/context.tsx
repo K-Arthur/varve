@@ -4322,6 +4322,11 @@ export function EditorProvider({
           focusedNodeId: id,
           selectionRevision: state.selectionRevision + 1,
           selectionOrigin: resolvedOrigin,
+          // A character range is scoped to the text editing session. An
+          // object/layer selection must not leave a stale collapsed range
+          // that redirects an inspector edit into pending formatting.
+          selectionRange: null,
+          pendingFormat: null,
         });
         if (onSelectionChangeRef.current) {
           onSelectionChangeRef.current(newSelection);
@@ -4389,6 +4394,8 @@ export function EditorProvider({
           focusedNodeId: newFocusedNodeId,
           selectionRevision: stateRef.current.selectionRevision + 1,
           selectionOrigin: resolvedOrigin,
+          selectionRange: null,
+          pendingFormat: null,
         };
         setState((s) => ({
           ...s,
@@ -4397,6 +4404,8 @@ export function EditorProvider({
           focusedNodeId: newFocusedNodeId,
           selectionRevision: s.selectionRevision + 1,
           selectionOrigin: resolvedOrigin,
+          selectionRange: null,
+          pendingFormat: null,
         }));
       },
 
