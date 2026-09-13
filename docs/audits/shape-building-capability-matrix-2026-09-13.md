@@ -155,7 +155,7 @@ license to drop small regions.
 
 | Capability | Baseline | Target evidence |
 | --- | --- | --- |
-| Two overlapping rectangles: regions, areas, boundaries, remainders | Working / verified in scene | Scene tests cover 15,000 union / 5,000 intersection / 5,000 difference / 10,000 XOR, face ownership, disconnected components, destructive remainders, and stale revisions; real UI E2E is the remaining gate. |
+| Two overlapping rectangles: regions, areas, boundaries, remainders | Working / verified in scene | Scene tests cover 15,000 union / 5,000 intersection / 5,000 difference / 10,000 XOR, face ownership, disconnected components, destructive remainders, stale revisions, and paint-placement safety in the 16/16 suite; real UI E2E is the remaining gate. |
 | Circles/curves and transformed artwork | Partial / bounded | Independent deviation checks cover transformed cubic and ellipse conversion; reconstructed results remain documented polygonal approximations and screenshot/node-edit inspection remain required. |
 | Rendered rounded rectangles and negative-direction geometry | Working / scene verified | Rounded-rectangle hit testing uses the rendered boundary, including per-corner radii, transformed arc sampling, and negative-direction rectangles; continuous/smoothed corners remain explicitly unsupported. |
 | Donuts, nested islands, compound paths | Working / scene verified | Fill-rule-aware arrangement tests preserve a donut hole and reject artificial connectors; save/reopen/export visual evidence remains required. |
