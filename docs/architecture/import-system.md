@@ -146,7 +146,7 @@ hold, but that is an inference and not a measurement.
 | Feature | Support | Degradation |
 |---|---|---|
 | `rect`, `circle`, `ellipse`, `line`, `polyline`, `polygon`, `path` | Full | — |
-| Groups, nested transforms | Full | Flattened to a Varve frame with a composed affine |
+| Groups, nested transforms | Full | Flattened to a Varve frame with a composed affine; direct children are rebased into the frame once, preserving source order and avoiding repeated ancestor scale/rotation |
 | `viewBox`, `width`/`height`, units (px/pt/mm/cm/in) | Full | — |
 | Fill, stroke, opacity, fill-rule | Full | — |
 | Linear/radial gradients | Supported | Warned as "may not render identically" |
