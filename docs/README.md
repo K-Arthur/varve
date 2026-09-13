@@ -372,6 +372,7 @@ The following dated files were moved from `docs/architecture/` to
 |-----|---------|
 | `release/README.md` | Overview of the release pipeline and tooling |
 | `release/platform-support-matrix.md` | Which OSes/architectures are supported vs claimed |
+| `release/native-acceleration-support.md` | Native GPU/NPU workload and platform evidence matrix |
 | `release/production-build.md` | Verified production build commands |
 | `release/release-checklists.md` | Alpha/beta/RC/stable checklists + rollback runbooks |
 | `release/release-candidate-runbook.md` | Exact-SHA candidate certification, resumable packaging, and release-data deployment |
