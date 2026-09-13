@@ -93,11 +93,14 @@ export function AdjustmentScopeSection({
           // first eligible raster or vector node rather than silently falling
           // back to an arbitrary image-only target.
           const currentTarget =
-            scope?.mode === 'image-local' && eligibleTargets.some((n) => n.id === scope.targetNodeId)
+            scope?.mode === 'image-local' &&
+            eligibleTargets.some((n) => n.id === scope.targetNodeId)
               ? doc.nodes[scope.targetNodeId]
               : undefined;
           const target =
-            currentTarget && isAdjustmentEligible(currentTarget) ? currentTarget : eligibleTargets[0];
+            currentTarget && isAdjustmentEligible(currentTarget)
+              ? currentTarget
+              : eligibleTargets[0];
           if (target) onChangeScope({ mode: 'image-local', targetNodeId: target.id });
           break;
         }

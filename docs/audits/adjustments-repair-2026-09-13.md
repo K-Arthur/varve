@@ -1,7 +1,7 @@
 # Adjustments repair and verification — 2026-09-13
 
-**Status:** current implementation record  
-**Owner:** Adjustments integration  
+**Status:** current implementation record
+**Owner:** Adjustments integration
 **Scope:** adjustment-layer targeting, reference pixel kernels, histogram
 diagnostics, and the existing editor/website surfaces
 
