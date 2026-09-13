@@ -178,3 +178,36 @@ export function fontWeightChanges(
     : undefined;
   return { fontWeight: weight, fontReference: targetReference };
 }
+
+/**
+ * Apply a real style change without leaving the previous exact face attached.
+ *
+ * Static families encode italic as a sibling face, so an exact normal-face
+ * reference must move to that sibling when it exists. If the registry cannot
+ * prove the requested style for the same artifact, clear the reference rather
+ * than claiming that the old bytes satisfy the new style. Family-only legacy
+ * nodes retain their existing style-only behavior.
+ */
+export function fontStyleChanges(
+  node: TextNode,
+  style: TextNode['fontStyle'],
+  registry: ReturnType<typeof getFontRegistry> = getFontRegistry(),
+): Partial<TextNode> {
+  const nextStyle = style ?? 'normal';
+  if (!node.fontReference || nextStyle === (node.fontStyle ?? 'normal')) {
+    return { fontStyle: style };
+  }
+
+  const family = node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY;
+  const entries = registry.getEntries(family);
+  const target = entries.find(
+    (entry) =>
+      entry.style === nextStyle &&
+      entry.weight === (node.fontWeight ?? 400) &&
+      sameArtifact(entry.faceKey, node.fontReference!),
+  );
+  return {
+    fontStyle: style,
+    fontReference: target ? referenceFromFaceKey(target.faceKey, target.postScriptName) : undefined,
+  };
+}

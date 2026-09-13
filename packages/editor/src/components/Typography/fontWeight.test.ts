@@ -2,7 +2,12 @@ import { FontRegistry } from '@varve/engine';
 import { fontReferenceKey } from '@varve/engine/font';
 import type { TextNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
-import { fontFamilyChanges, fontWeightChanges, fontWeightOptions } from './fontWeight';
+import {
+  fontFamilyChanges,
+  fontStyleChanges,
+  fontWeightChanges,
+  fontWeightOptions,
+} from './fontWeight';
 
 function node(
   overrides: Partial<
@@ -262,5 +267,68 @@ describe('fontWeightChanges', () => {
       fontWeight: 700,
       fontReference: undefined,
     });
+  });
+});
+
+describe('fontStyleChanges', () => {
+  it('moves an exact static face to a matching italic sibling', () => {
+    const artifactHash = 'd'.repeat(64);
+    const registry = new FontRegistry([
+      {
+        family: 'Styled Family',
+        weight: 400,
+        style: 'normal',
+        source: 'user',
+        faceKey: fontReferenceKey({ artifactHash }),
+        postScriptName: 'Styled-Regular',
+      },
+      {
+        family: 'Styled Family',
+        weight: 400,
+        style: 'italic',
+        source: 'user',
+        faceKey: fontReferenceKey({ artifactHash, collectionIndex: 1 }),
+        postScriptName: 'Styled-Italic',
+      },
+    ]);
+
+    const changes = fontStyleChanges(
+      node({
+        fontFamily: 'Styled Family',
+        fontReference: { artifactHash },
+      }),
+      'italic',
+      registry,
+    );
+
+    expect(changes).toEqual({
+      fontStyle: 'italic',
+      fontReference: {
+        artifactHash,
+        collectionIndex: 1,
+        postScriptName: 'Styled-Italic',
+      },
+    });
+  });
+
+  it('clears an exact reference when the requested style is unavailable', () => {
+    const artifactHash = 'e'.repeat(64);
+    const registry = new FontRegistry([
+      {
+        family: 'Regular Only',
+        weight: 400,
+        style: 'normal',
+        source: 'user',
+        faceKey: fontReferenceKey({ artifactHash }),
+      },
+    ]);
+
+    expect(
+      fontStyleChanges(
+        node({ fontFamily: 'Regular Only', fontReference: { artifactHash } }),
+        'italic',
+        registry,
+      ),
+    ).toEqual({ fontStyle: 'italic', fontReference: undefined });
   });
 });

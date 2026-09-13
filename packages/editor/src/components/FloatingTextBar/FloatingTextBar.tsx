@@ -14,7 +14,12 @@ import {
 } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FontSelector } from '../FontBrowser/FontSelector';
-import { fontFamilyChanges, fontWeightChanges, fontWeightOptions } from '../Typography/fontWeight';
+import {
+  fontFamilyChanges,
+  fontStyleChanges,
+  fontWeightChanges,
+  fontWeightOptions,
+} from '../Typography/fontWeight';
 import './FloatingTextBar.css';
 
 export interface FloatingTextBarProps {
@@ -50,10 +55,9 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
   }, [node, onUpdate, registry, weightOptions]);
 
   const handleItalicToggle = useCallback(() => {
-    onUpdate(node.id, {
-      fontStyle: (node.fontStyle ?? 'normal') === 'italic' ? 'normal' : 'italic',
-    });
-  }, [node, onUpdate]);
+    const next = (node.fontStyle ?? 'normal') === 'italic' ? 'normal' : 'italic';
+    onUpdate(node.id, fontStyleChanges(node, next, registry));
+  }, [node, onUpdate, registry]);
 
   const handleAlignChange = useCallback(
     (v: 'left' | 'center' | 'right' | 'justify') => {

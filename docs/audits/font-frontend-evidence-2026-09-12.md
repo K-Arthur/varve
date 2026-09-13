@@ -437,3 +437,22 @@ passed. The browser visual retry on port 1602 still ended with Playwright
 `Target page, context or browser has been closed`; no screenshot from that
 failed run is counted as visual certification. Existing inspected toolbar
 captures remain the evidence for spacing, sizing, and menu containment.
+
+## Quick-toolbar style identity follow-up — 2026-09-13
+
+The compact italic toggle previously changed only `fontStyle`. When a text node
+held an exact static-face reference, that left normal-face bytes attached to the
+new italic metadata. The shared typography adapter now resolves a same-artifact,
+same-weight sibling face for the requested style and carries its collection
+member and PostScript name forward. If the requested style is unavailable for
+that artifact, it clears the exact reference so the resolver reports a truthful
+fallback instead of borrowing another file with the same family name. Legacy
+family-only nodes keep the existing style-only behavior.
+
+The pure adapter regression suite passed **13/13**, including both sibling-face
+selection and unavailable-style clearing. This change has no new pixel surface;
+the previously inspected light, dark, narrow, and high-DPI toolbar captures
+remain the visual evidence for the shared 32 px control geometry and tokenized
+spacing. A fresh Chromium retry remains blocked by the documented cold-start
+`Target page, context or browser has been closed` environment failure, so it is
+not counted as a new visual pass.
