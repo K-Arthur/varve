@@ -926,7 +926,8 @@ export function buildShapeBuilderModel(
   const generatedVertexCount =
     arrangement.vertices.length +
     faces.reduce(
-      (total, face) => total + face.outer.length + face.holes.reduce((sum, hole) => sum + hole.length, 0),
+      (total, face) =>
+        total + face.outer.length + face.holes.reduce((sum, hole) => sum + hole.length, 0),
       0,
     );
   if (
