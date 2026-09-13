@@ -263,7 +263,7 @@ function hasVisibleStroke(node: ShapeNode): boolean {
 }
 
 function unsupportedPaintReason(doc: Document, node: ShapeNode): string | null {
-  const fills = resolveNodePaints(node, doc);
+  const fills = resolveNodePaints(node as unknown as Parameters<typeof resolveNodePaints>[0], doc);
   if (!fills.some((fill) => fill.visible)) return 'The selected layer has no visible fill.';
   if (fills.some((fill) => fill.visible && fill.type === 'image')) {
     return 'Image fills need to be converted to vector or solid paint before building regions.';
