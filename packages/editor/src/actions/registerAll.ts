@@ -160,6 +160,7 @@ export function registerEditorActions(
     ['resetWorkspace', 'Reset Workspace', 'view'],
     ['resetAllWorkspaces', 'Reset All Workspaces', 'view'],
     ['customizeWorkspace', 'Customize Workspace', 'view'],
+    ['manageWorkspaceLayouts', 'Manage Layouts', 'view'],
     ['contentAwareFill', 'Generative Edit…', 'object'],
     ['batchBgRemove', 'Batch Background Removal', 'object'],
     ['resizeImage', 'Resize Image…', 'object'],

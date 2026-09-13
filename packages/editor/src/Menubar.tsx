@@ -1093,6 +1093,10 @@ function buildMenus(
           label: 'Customize Workspace\u2026',
           action: 'customizeWorkspace',
         },
+        {
+          label: 'Manage Layouts\u2026',
+          action: 'manageWorkspaceLayouts',
+        },
         { label: '---' },
         // Focus modes
         {

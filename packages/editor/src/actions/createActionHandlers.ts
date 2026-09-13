@@ -102,6 +102,8 @@ export interface ActionHandlerCallbacks {
   onFindReplace?: () => void;
   onResizeImage?: () => void;
   onCustomizeWorkspace?: () => void;
+  /** Open the named-layout manager (save/apply/import/export). */
+  onManageWorkspaceLayouts?: () => void;
   /** Recover every live detached panel window onto the primary display. */
   onBringAllPanelsToCurrentDisplay?: () => void;
   /** Reattach detached panels and clear only their window-placement state. */
@@ -1633,6 +1635,9 @@ export function createActionHandlers(
     },
     customizeWorkspace: () => {
       cb.onCustomizeWorkspace?.();
+    },
+    manageWorkspaceLayouts: () => {
+      cb.onManageWorkspaceLayouts?.();
     },
 
     // ── Other ──
