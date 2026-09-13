@@ -702,3 +702,11 @@ as an oversight.
 ### Fixed
 ### Security
 -->
+- **RAW, bracket merge, and persistent photo retouching** — Photo/Image
+  Tuning can develop the verified classic DNG subset from sensor data, retain
+  immutable source bytes and versioned recipes, review exposure brackets with
+  separate radiance/fusion semantics, and export a range-bearing OpenEXR
+  master beside a disposable SDR rendition. Clone, heal, spot-heal, and patch
+  repairs remain on explicit raster layers with undo/reopen persistence;
+  unsupported camera variants, gain-map/PQ/HLG export, and physical HDR display
+  presentation remain clearly labeled as unsupported or unverified.

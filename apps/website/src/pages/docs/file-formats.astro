@@ -354,3 +354,22 @@ const figmaImportFaq = {
     color: var(--text-secondary);
   }
 </style>
+        <h3>DNG (RAW source)</h3>
+        <p>
+          DNG is not a generic flattened-image import. A supported classic, uncompressed Bayer or
+          monochrome DNG can be opened from the selected image's Photo/Image Tuning &gt; Photo source
+          controls, where Varve reads the sensor IFD, preserves the original bytes, and stores a
+          versioned development recipe. The current route is a verified subset, not universal camera
+          RAW support; compressed, X-Trans, multi-shot, linear RGB, and unsupported opcode variants
+          remain explicitly unsupported. See the <a href={sitePath('/docs/tools/raw-hdr-photo')}>RAW &amp; HDR Photo guide</a>.
+        </p>
+        <h3>OpenEXR (range-bearing master)</h3>
+        <p>
+          Varve can import and export the same verified OpenEXR subset used by its HDR master path:
+          single-part, uncompressed scanline RGB(A) with finite float16/float32 samples and explicit
+          Varve range metadata. On an SDR-only runtime, the master is decoded without clipping and a
+          separate SDR rendition is shown. Tone-map/output changes do not rewrite the master. Deep,
+          multipart, tiled, compressed, unknown-channel, and display-referred EXR inputs are not
+          accepted by this route; PQ, HLG, and gain-map export remain deferred.
+        </p>
+          <li><strong>OpenEXR master</strong> — Verified single-part uncompressed scanline float16/float32 RGB(A) subset for HDR range preservation; PQ/HLG and gain-map output are not currently promised</li>
