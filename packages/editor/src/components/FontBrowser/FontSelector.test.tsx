@@ -70,6 +70,22 @@ describe('FontSelector', () => {
     ).toBeInTheDocument();
   });
 
+  it('bounds the pre-measure menu while retaining the active option', async () => {
+    render(<FontSelector value="Inter" onChange={() => {}} />);
+    const input = screen.getByRole('combobox', { name: 'Font family' });
+    fireEvent.focus(input);
+    await screen.findByRole('listbox', { name: 'Font families' });
+
+    const options = screen.getAllByRole('option');
+    expect(options.length).toBeGreaterThan(0);
+    expect(options.length).toBeLessThanOrEqual(120);
+
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    const activeId = input.getAttribute('aria-activedescendant');
+    expect(activeId).toBeTruthy();
+    expect(document.getElementById(activeId!)).toHaveAttribute('role', 'option');
+  });
+
   it('keeps a 60-character family name intact and labelled', () => {
     // Regression guard for the inspector truncation audit: a long family
     // name must not be truncated in the data layer (the input scrolls, it

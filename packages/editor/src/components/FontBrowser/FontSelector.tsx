@@ -41,6 +41,7 @@ type FontRow =
   | { kind: 'font'; key: string; family: string; index: number; record: FontSemanticRecord };
 
 const MENU_FALLBACKS: Array<'top-start'> = ['top-start'];
+const MENU_FALLBACK_ROW_LIMIT = 120;
 
 function normalize(value: string): string {
   return value
@@ -211,32 +212,46 @@ export function FontSelector({
   // and aria-activedescendant always points at a real option. Once the viewport
   // reports a range, the normal virtualizer owns the list again.
   const virtualItems = virtualizer.getVirtualItems();
-  const fallbackVirtualItems = useMemo(() => {
+  const fallbackLayout = useMemo(() => {
+    const starts: number[] = [];
+    let totalSize = 0;
+    for (const row of rows) {
+      starts.push(totalSize);
+      totalSize += row.kind === 'section' ? 24 : 32;
+    }
+
     const indexes = new Set<number>();
-    for (let index = 0; index < Math.min(rows.length, 120); index += 1) indexes.add(index);
+    for (let index = 0; index < Math.min(rows.length, MENU_FALLBACK_ROW_LIMIT); index += 1) {
+      indexes.add(index);
+    }
     const activeRow = rows.findIndex(
       (row) => row.kind === 'font' && row.index === highlightedIndex,
     );
+    const pinned = activeRow >= 0 ? new Set([activeRow]) : new Set<number>();
     if (activeRow >= 0) indexes.add(activeRow);
-    let cursor = 0;
-    return [...indexes]
+    while (indexes.size > MENU_FALLBACK_ROW_LIMIT) {
+      const removable = [...indexes].reverse().find((index) => !pinned.has(index));
+      if (removable === undefined) break;
+      indexes.delete(removable);
+    }
+    const items = [...indexes]
       .sort((a, b) => a - b)
       .map((index) => {
         const size = rows[index]?.kind === 'section' ? 24 : 32;
-        const item = {
+        return {
           index,
           key: rows[index]?.key ?? index,
-          start: cursor,
+          start: starts[index] ?? 0,
           size,
-          end: cursor + size,
+          end: (starts[index] ?? 0) + size,
           lane: 0,
         };
-        cursor += size;
-        return item;
       });
+    return { items, totalSize };
   }, [highlightedIndex, rows]);
-  const renderedVirtualItems = virtualItems.length > 0 ? virtualItems : fallbackVirtualItems;
-  const contentHeight = Math.max(virtualizer.getTotalSize(), fallbackVirtualItems.at(-1)?.end ?? 0);
+  const renderedVirtualItems = virtualItems.length > 0 ? virtualItems : fallbackLayout.items;
+  const contentHeight =
+    virtualItems.length > 0 ? virtualizer.getTotalSize() : fallbackLayout.totalSize;
 
   const scrollToFontIndex = useCallback(
     (index: number) => {
