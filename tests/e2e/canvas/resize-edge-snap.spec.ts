@@ -68,6 +68,31 @@ async function closeOpenDialogs(page: import('@playwright/test').Page) {
   }
 }
 
+/**
+ * A concurrent dev-server transform can briefly hand the browser back to
+ * Home after the editor document is created. Keep that startup race local to
+ * this canvas workflow so the resize assertions only run once the actual
+ * interaction surface is mounted.
+ */
+async function navigateToStableEditor(page: import('@playwright/test').Page): Promise<void> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await navigateToEditor(page, '/', { startupTimeout: 90_000 });
+      await page.locator('.editor-shell').waitFor({ state: 'visible', timeout: 30_000 });
+      await page.locator('canvas.editor-canvas__content-layer').waitFor({
+        state: 'visible',
+        timeout: 30_000,
+      });
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt < 2) await page.waitForTimeout(250);
+    }
+  }
+  throw lastError;
+}
+
 async function handleCenter(page: import('@playwright/test').Page, name: string) {
   const box = await page.getByLabel(name, { exact: true }).boundingBox();
   if (!box) throw new Error(`${name} has no rendered bounds`);
@@ -78,7 +103,7 @@ async function openFixtureAndSelectSource(
   page: import('@playwright/test').Page,
   fixture: { name: string } = RESIZE_EDGE_SNAP_DOCUMENT,
 ) {
-  await navigateToEditor(page);
+  await navigateToStableEditor(page);
   await page.locator('#file-open-input').setInputFiles({
     name: `${fixture.name}.strata`,
     mimeType: 'application/json',
@@ -127,7 +152,11 @@ test.describe('Selection resize edge snapping', () => {
     await width.press('Enter');
 
     const height = page.getByRole('spinbutton', { name: 'H (px)', exact: true });
-    await expect.poll(async () => Number(await height.inputValue())).toBeCloseTo(106.66664, 6);
+    // Resting inspector text is intentionally compact (two decimals), while
+    // the spinbutton's accessible value exposes the canonical document value.
+    // Assert both contracts so display formatting cannot hide a rounded write.
+    await expect.poll(() => height.getAttribute('aria-valuetext')).toBe('106.66664px');
+    await expect.poll(async () => Number(await height.inputValue())).toBeCloseTo(106.67, 2);
   });
 
   test('pixel-grid snapping rounds only the moving resize edge', async ({ page }) => {
