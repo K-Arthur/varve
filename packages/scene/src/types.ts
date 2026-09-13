@@ -160,6 +160,42 @@ export type RasterMaskSourceIdentity =
       revision: number;
     };
 
+/**
+ * A persisted, re-editable depth-derived mask recipe.
+ *
+ * The resolved PNG remains the mask's fast/offline artifact (`assetId`), while
+ * this record retains the accepted scalar resource and the user's intent. It
+ * deliberately lives on the existing raster-mask union instead of creating a
+ * second mask format or making a blur effect the owner of depth.
+ */
+export interface DepthMaskRecipe {
+  schemaVersion: 1;
+  depthMapId: string;
+  sourceBinding: {
+    nodeId: NodeId;
+    fillAssetId?: string;
+    processingRevision: number;
+    coordinateSpace: 'source-image-pixels';
+  };
+  sourceIdentity: RasterMaskSourceIdentity;
+  range: {
+    near: number;
+    far: number;
+    nearTransition: number;
+    farTransition: number;
+  };
+  invert: boolean;
+  combine: 'replace' | 'intersect' | 'union' | 'subtract';
+  /** Version of the shared depth-to-coverage kernel. */
+  algorithmVersion: number;
+  /** Optional independent correction layer; it never edits the depth map. */
+  correction?: {
+    assetId?: string;
+    revision: number;
+    target: 'coverage' | 'depth';
+  };
+}
+
 /** Placement and source-revision metadata for a raster alpha mask. */
 export interface RasterMaskData {
   assetId: string;
@@ -183,6 +219,8 @@ export interface RasterMaskData {
   editRevision?: number;
   staleReason?: 'source-replaced' | 'source-changed' | 'legacy-preview-resolution';
   provenance?: BackgroundRemovalProvenance;
+  /** Present when this resolved mask was created from a reusable depth map. */
+  depthRecipe?: DepthMaskRecipe;
 }
 
 /** A live source reference for rendered alpha/luminance coverage. */
@@ -781,6 +819,24 @@ export interface ImageFillUpscale {
   modelId?: string;
 }
 
+/**
+ * Identifies a bounded generative result painted above an immutable source
+ * image. The fill's crop/placement fields carry the source-pixel frame; this
+ * marker lets Restore Original and repeated edits remove only the patch that
+ * belongs to the accepted recipe.
+ */
+export interface GenerativeEditOverlay {
+  editId: string;
+  variationId: string;
+  /** Source-image-pixel frame, independent of node-local image placement. */
+  sourceFrame?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+}
+
 export interface ImageFillData {
   /**
    * Image source as a data URL.
@@ -833,6 +889,8 @@ export interface ImageFillData {
   flipV?: boolean;
   /** Non-destructive upscale metadata. */
   upscale?: ImageFillUpscale;
+  /** Bounded generative patch painted over the source fill. */
+  generativeEditOverlay?: GenerativeEditOverlay;
   /**
    * Non-destructive four-corner (perspective) transform. When present, the
    * image fill is rendered through the engine's projective `warpedImage`

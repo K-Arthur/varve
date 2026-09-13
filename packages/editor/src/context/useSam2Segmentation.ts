@@ -1,11 +1,15 @@
 import type { AreaSelection, WorkerInferResult } from '@varve/engine';
 import {
+  assessImageInferenceResources,
   cachedImageDims,
   decodeSam2DecoderOutput,
   EmbeddingCache,
   getImageCache,
   getInferenceWorkerHost,
+  getModelById,
   getModelLoader,
+  getNativeGenerativeModelStatus,
+  getRuntimeCapabilitiesSync,
 } from '@varve/engine';
 import { type Document, imageShapeSrc, type NodeId } from '@varve/scene';
 import { useCallback, useEffect, useRef } from 'react';
@@ -398,8 +402,6 @@ export function useSam2Segmentation(
 
       if (combinedSignal.aborted) return null;
 
-      writeCurrentSam2Stage(stateRef, setState, nodeId, 'encoding');
-
       const naturalW =
         typeof HTMLImageElement !== 'undefined' && img instanceof HTMLImageElement
           ? img.naturalWidth || img.width
@@ -409,19 +411,76 @@ export function useSam2Segmentation(
           ? img.naturalHeight || img.height
           : img.height;
 
-      const canvas = document.createElement('canvas');
-      canvas.width = naturalW;
-      canvas.height = naturalH;
-      const ctx = canvas.getContext('2d')!;
-      ctx.drawImage(img, 0, 0, naturalW, naturalH);
+      if (
+        !Number.isSafeInteger(naturalW) ||
+        !Number.isSafeInteger(naturalH) ||
+        naturalW <= 0 ||
+        naturalH <= 0
+      ) {
+        markFailure({
+          code: 'image_pixels_unavailable',
+          message: 'The image has invalid dimensions and cannot be used for object selection.',
+          retryable: true,
+        });
+        return null;
+      }
+
+      const encoderId = 'sam2-hiera-tiny-encoder';
+      const decoderId = 'sam2-hiera-tiny-decoder';
+      const encoderPeakBytes = getModelById(encoderId)?.peakMemoryBytes ?? 700_000_000;
+      const runtime = getRuntimeCapabilitiesSync();
+      let safePeakBytes = runtime.wasmSafePeakBytes;
+      if (runtime.isTauri) {
+        // Tauri WebViews commonly omit navigator.deviceMemory. Reuse the
+        // desktop process' cgroup/OS snapshot when it is available so a
+        // capable ARM or x86 desktop is not mistaken for a 2 GB browser.
+        const nativeResources = await getNativeGenerativeModelStatus();
+        if (
+          nativeResources.memoryAvailableBytes != null &&
+          nativeResources.memoryAvailableBytes > 0
+        ) {
+          safePeakBytes = nativeResources.memoryAvailableBytes;
+        }
+      }
+      const resourceAssessment = assessImageInferenceResources({
+        width: naturalW,
+        height: naturalH,
+        modelPeakBytes: encoderPeakBytes,
+        runtime: { wasmSafePeakBytes: safePeakBytes },
+        operation: 'Object Selection',
+      });
+      if (combinedSignal.aborted) return null;
+      if (!resourceAssessment.allowed) {
+        markFailure({
+          code: 'out_of_memory',
+          message:
+            resourceAssessment.reason ?? 'Object Selection needs more memory on this device.',
+          retryable: false,
+        });
+        return null;
+      }
+
+      // Do not allocate a full-resolution canvas or ImageData until the
+      // model-plus-source working set has passed the runtime's safe budget.
+      writeCurrentSam2Stage(stateRef, setState, nodeId, 'encoding');
 
       let imageData: ImageData;
       try {
+        const canvas = document.createElement('canvas');
+        canvas.width = naturalW;
+        canvas.height = naturalH;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Canvas context unavailable');
+        ctx.drawImage(img, 0, 0, naturalW, naturalH);
         imageData = ctx.getImageData(0, 0, naturalW, naturalH);
-      } catch {
+      } catch (error) {
+        const raw = error instanceof Error ? error.message : String(error);
+        const allocationFailure = /memory|allocation|too large|invalid state/i.test(raw);
         markFailure({
-          code: 'image_pixels_unavailable',
-          message: 'The image pixels could not be read. Check the file permissions and try again.',
+          code: allocationFailure ? 'out_of_memory' : 'image_pixels_unavailable',
+          message: allocationFailure
+            ? 'Object Selection could not allocate a safe working buffer for this image. Use the brush or Fast cutout path, or work on a smaller image.'
+            : 'The image pixels could not be read. Check the file permissions and try again.',
           retryable: true,
         });
         return null;
@@ -449,8 +508,6 @@ export function useSam2Segmentation(
       }
       const normPrompts = normalizeSam2Prompts(prompts, imageMapper, naturalW, naturalH);
 
-      const encoderId = 'sam2-hiera-tiny-encoder';
-      const decoderId = 'sam2-hiera-tiny-decoder';
       const loader = getModelLoader();
       let resolvedEncoderPath: string | null;
       let resolvedDecoderPath: string | null;
@@ -504,7 +561,10 @@ export function useSam2Segmentation(
               imageData,
               reuseSession: true,
             },
-            { signal: combinedSignal },
+            {
+              signal: combinedSignal,
+              reservationBytes: resourceAssessment.estimatedPeakBytes,
+            },
           );
 
           if (generation !== generationRef.current || combinedSignal.aborted) return null;
@@ -559,7 +619,10 @@ export function useSam2Segmentation(
             },
             reuseSession: true,
           },
-          { signal: combinedSignal },
+          {
+            signal: combinedSignal,
+            reservationBytes: resourceAssessment.estimatedPeakBytes,
+          },
         );
 
         if (generation !== generationRef.current || combinedSignal.aborted) return null;

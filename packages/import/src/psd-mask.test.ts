@@ -136,6 +136,36 @@ describe('PSD mask import (D13)', () => {
     expect(layerNode!.visible).not.toBe(false);
   });
 
+  it('keeps PSD group children nested instead of leaving duplicate root layers', () => {
+    const psd = makeBasicPsdResponse();
+    const first = psd.children[0]!;
+    const second = { ...first, name: 'Layer 2' };
+    (Psd.parse as ReturnType<typeof vi.fn>).mockReturnValue({
+      ...psd,
+      children: [
+        {
+          type: 'Group',
+          name: 'Folder',
+          children: [first, second],
+        },
+      ],
+    });
+
+    const parser = createPsdParser();
+    const result = parser.parse(makeSimplePsdBuffer());
+    const groupId = result.nodeIds[0]!;
+    const group = result.document.nodes[groupId];
+
+    expect(result.nodeIds).toHaveLength(1);
+    expect(result.document.rootChildren).toContain(groupId);
+    expect(group?.kind).toBe('group');
+    if (group?.kind !== 'group') return;
+    expect(group.children).toHaveLength(2);
+    expect(group.children.every((childId) => !result.document.rootChildren.includes(childId))).toBe(
+      true,
+    );
+  });
+
   it('imports a layer with an active mask', () => {
     const psd = makeBasicPsdResponse();
     psd.children[0] = {
@@ -168,6 +198,8 @@ describe('PSD mask import (D13)', () => {
     expect(containerNode!.mask).toBeDefined();
     expect(containerNode!.mask!.type).toBe('alpha');
     expect(containerNode!.mask!.inverted).toBeUndefined();
+    expect(result.nodeIds).toContain(containerNode!.id);
+    expect(result.document.rootChildren).toContain(containerNode!.id);
   });
 
   it('imports an inverted mask', () => {
@@ -198,6 +230,39 @@ describe('PSD mask import (D13)', () => {
       (n) => n.kind === 'frame' && (n as any).name === 'Layer 1',
     );
     expect(containerNode!.mask!.inverted).toBe(true);
+  });
+
+  it('omits unsigned sentinel mask bounds without hiding the layer', () => {
+    const psd = makeBasicPsdResponse();
+    psd.children[0] = {
+      ...psd.children[0],
+      maskData: {
+        top: 0xffff,
+        left: 0xffff,
+        bottom: 0xffff,
+        right: 0xffff,
+        backgroundColor: 0,
+        flags: {
+          positionRelativeToLayer: true,
+          layerMaskDisabled: false,
+          invertMaskWhenBlending: false,
+          userMaskFromRenderingOtherData: false,
+          masksHaveParametersApplied: false,
+        },
+      },
+    } as MockLayer;
+    (Psd.parse as ReturnType<typeof vi.fn>).mockReturnValue(psd);
+
+    const parser = createPsdParser();
+    const result = parser.parse(makeSimplePsdBuffer());
+
+    const layerNode = Object.values(result.document.nodes).find(
+      (n) => n.kind === 'shape' && (n as any).name === 'Layer 1',
+    );
+    expect(layerNode).toBeDefined();
+    expect(Object.values(result.document.nodes).some((n) => n.kind === 'frame')).toBe(false);
+    expect(result.warnings).toContain('Layer "Layer 1" has invalid mask bounds — mask omitted');
+    expect(result.nodeIds).toContain(layerNode!.id);
   });
 
   it('marks a disabled mask in warnings', () => {

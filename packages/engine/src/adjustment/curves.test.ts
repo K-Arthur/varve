@@ -70,6 +70,17 @@ describe('buildCurveLUT', () => {
       expect(v).toBeLessThanOrEqual(255);
     }
   });
+
+  it('ignores non-finite points and resolves duplicate input coordinates', () => {
+    const lut = buildCurveLUT([
+      { x: Number.NaN, y: 0.2 },
+      { x: 0.5, y: 0.2 },
+      { x: 0.5, y: 0.8 },
+      { x: Number.POSITIVE_INFINITY, y: 1 },
+    ]);
+    expect(lut.every((value) => Number.isFinite(value))).toBe(true);
+    expect(lut[128]).toBeGreaterThan(150);
+  });
 });
 
 describe('applyCurve', () => {

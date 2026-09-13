@@ -146,25 +146,6 @@ export function applyFilterWithCompositing(
       continue;
     }
 
-    // A normal-strength crossfade can be evaluated into the existing current
-    // surface. This keeps the peak at two full-size intermediates instead of
-    // allocating a third composed surface for every partially opaque filter.
-    if (!f.blendMode || f.blendMode === 'normal') {
-      try {
-        const backdrop = current.context.getImageData(0, 0, width, height);
-        const source = filtered.context.getImageData(0, 0, width, height);
-        current.context.putImageData(
-          mixFilterPixels(backdrop, source, 'normal', f.opacity ?? 1),
-          0,
-          0,
-        );
-        continue;
-      } catch {
-        // Preserve the existing compositor fallback below when pixel access is
-        // unavailable in a particular WebView.
-      }
-    }
-
     try {
       const composed = createRasterSurface(width, height);
       const normal = !f.blendMode || f.blendMode === 'normal';

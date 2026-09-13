@@ -799,10 +799,50 @@ export function createTauriPlatform(): Platform {
       return (await c.invoke('cancel_print_job', { printerName, jobId })) as string;
     },
 
-    async readClipboardImage() {
-      const c = core();
-      const bytes = (await c.invoke('read_clipboard_image_png')) as number[] | null;
-      return bytes ? new Uint8Array(bytes) : null;
+    async readClipboardImage(signal?: AbortSignal) {
+      const operationId = uuid();
+      const invokePromise = core().invoke('read_clipboard_image_png', { operationId });
+      let cancelRequested = signal?.aborted ?? false;
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+      let removeAbortListener: (() => void) | undefined;
+      const cancelNativeOperation = async (): Promise<void> => {
+        try {
+          await core().invoke('cancel_clipboard_operation', { operationId });
+        } catch {
+          // The webview may be closing; the native deadline remains the final
+          // cleanup guard in that case.
+        }
+      };
+      const deadline = new Promise<never>((_, reject) => {
+        timeout = setTimeout(() => {
+          cancelRequested = true;
+          reject(new Error('Native clipboard image read exceeded the 5 second deadline'));
+        }, NATIVE_CLIPBOARD_DEADLINE_MS);
+      });
+      const cancelled = signal
+        ? new Promise<never>((_, reject) => {
+            const onAbort = () => {
+              cancelRequested = true;
+              reject(abortError());
+            };
+            if (signal.aborted) onAbort();
+            else {
+              signal.addEventListener('abort', onAbort, { once: true });
+              removeAbortListener = () => signal.removeEventListener('abort', onAbort);
+            }
+          })
+        : null;
+      try {
+        const result = (await Promise.race(
+          cancelled ? [invokePromise, deadline, cancelled] : [invokePromise, deadline],
+        )) as number[] | null;
+        if (!result || !Array.isArray(result)) return null;
+        return cancelRequested ? null : new Uint8Array(result);
+      } finally {
+        if (timeout !== undefined) clearTimeout(timeout);
+        removeAbortListener?.();
+        if (cancelRequested) await cancelNativeOperation();
+      }
     },
     async readClipboardData(mimeTypes, signal) {
       const operationId = uuid();

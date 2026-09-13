@@ -79,6 +79,25 @@ describe('InferenceWorkerHost message handling', () => {
     vi.unstubAllGlobals();
   });
 
+  it('detaches a cancelled request without terminating unrelated worker work', async () => {
+    const h = makeHost();
+    const controller = new AbortController();
+    const pending = h.host.infer(
+      { type: 'infer', modelType: 'scunet', modelPath: '/m.onnx', modelId: 'scunet' } as never,
+      { timeoutMs: 5000, signal: controller.signal },
+    );
+    const requestId = requestIdOf(h.worker);
+    controller.abort();
+    await expect(pending).rejects.toMatchObject({ code: 'inference_cancelled' });
+    expect(h.worker.terminated).toBe(false);
+    expect(h.host.pendingCount).toBe(0);
+
+    // The late worker response is harmless and does not resurrect the request.
+    h.worker.emit({ type: 'result', requestId, outputs: { stale: true } });
+    expect(h.host.pendingCount).toBe(0);
+    vi.unstubAllGlobals();
+  });
+
   it('terminates the worker on timeout so a retry gets a clean worker', async () => {
     vi.useFakeTimers();
     const h = makeHost();

@@ -66,4 +66,42 @@ test.describe('Object Selection workflow', () => {
       contentType: 'image/png',
     });
   });
+
+  test('keeps a real photo usable when the browser reports 2 GB of memory', async ({
+    page,
+  }, testInfo) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'deviceMemory', {
+        configurable: true,
+        value: 2,
+      });
+    });
+    await navigateToEditor(page);
+    await page
+      .locator('#file-import-input')
+      .setInputFiles(path.resolve('tests/e2e/fixtures/real-life-portrait.jpg'));
+    await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 15000 });
+
+    const inspector = page.locator('.editor__inspector-panel');
+    await inspector.getByRole('tab', { name: 'Adjustments' }).click();
+    await inspector.getByRole('button', { name: 'Object Selection' }).click();
+    await inspector.getByRole('button', { name: 'Select Object' }).click();
+
+    const canvas = page.getByTestId('editor-canvas');
+    const bounds = await canvas.boundingBox();
+    expect(bounds).not.toBeNull();
+    await page.mouse.click(bounds!.x + bounds!.width / 2, bounds!.y + bounds!.height / 2);
+
+    await expect(
+      inspector.getByText(/Object Selection needs about .*safe inference budget/i),
+    ).toBeVisible({ timeout: 30000 });
+    await expect(canvas).toBeVisible();
+    await testInfo.attach('object-selection-low-memory-real-photo', {
+      body: await canvas.screenshot(),
+      contentType: 'image/png',
+    });
+    await canvas.screenshot({
+      path: testInfo.outputPath('object-selection-low-memory-real-photo.png'),
+    });
+  });
 });

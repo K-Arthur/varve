@@ -1,6 +1,10 @@
 import { expect } from '@wdio/globals';
 
 async function openNewDocument(): Promise<void> {
+  // Pin the session to the main webview before querying elements. This also
+  // disables the service's repeated focus-recovery IPC calls, which are not
+  // available in the embedded WebKitGTK provider on this desktop.
+  await browser.tauri.switchWindow('main');
   const homeButton = await browser.$('.editor-menubar__home');
   if (await homeButton.isDisplayed().catch(() => false)) {
     await homeButton.click();
@@ -16,11 +20,20 @@ async function openNewDocument(): Promise<void> {
 
 async function createRectangle(): Promise<void> {
   await openNewDocument();
-  const rectTool = await browser.$('[data-tool="rect"]');
-  await rectTool.waitForDisplayed({ timeout: 10000 });
-  await rectTool.click();
+  // The compact native viewport puts the shape tools in the context bar;
+  // wider browser viewports expose the same command through the floating
+  // toolbar. Resolve the action by its accessible name so this lane exercises
+  // the user-visible command in either layout.
+  const rectTool = await browser.$('[aria-label="Draw rectangle"]');
+  if (!(await rectTool.isDisplayed().catch(() => false))) {
+    const floatingRectTool = await browser.$('[data-tool="rect"]');
+    await floatingRectTool.waitForDisplayed({ timeout: 10000 });
+    await floatingRectTool.click();
+  } else {
+    await rectTool.click();
+  }
   await browser.pause(100);
-  await browser.tauri.execute(() => {
+  await browser.execute(() => {
     const canvas = document.querySelector<HTMLCanvasElement>('[data-testid="editor-canvas"]');
     if (!canvas) throw new Error('editor canvas not found');
     const box = canvas.getBoundingClientRect();
@@ -48,24 +61,21 @@ async function createRectangle(): Promise<void> {
 
 async function copyAndClearSelection(): Promise<void> {
   await browser.$('[role="treeitem"]').click();
-  await browser.tauri.execute(() => {
-    const root = document.getElementById('root');
-    if (!root) throw new Error('React root not found');
-    const key = Object.keys(root).find(
-      (name) => name.startsWith('__reactContainer$') || name.startsWith('__reactFiber$'),
-    );
-    if (!key) throw new Error('React fiber not found');
-    function find(fiber: any): any {
-      if (!fiber) return null;
-      const value = fiber.memoizedProps?.value;
-      if (typeof value?.serializeDocument === 'function') return value;
-      return find(fiber.child) || find(fiber.sibling);
-    }
-    const editor = find((root as any)[key]);
-    if (!editor) throw new Error('Editor context not found');
-    editor.copySelected();
-    editor.setSelection(null);
-  });
+  // Exercise the same command surface as a user. Calling the React context
+  // from a test bypassed menu ownership, clipboard permission handling, and
+  // the real native write path this suite is intended to qualify.
+  const edit = await browser.$(
+    '//div[@role="menubar"]//*[@role="menuitem" and normalize-space()="Edit"]',
+  );
+  await edit.waitForDisplayed({ timeout: 5000 });
+  await edit.click();
+  const menu = await browser.$('[role="menu"][aria-label="Edit"]');
+  await menu.waitForDisplayed({ timeout: 5000 });
+  await menu.$('//button[@role="menuitem" and .//span[normalize-space()="Copy"]]').click();
+  // Escape is the canvas selection command after the menu has closed. Keep
+  // the clipboard contents untouched while removing the source target so the
+  // subsequent paste assertions exercise viewport placement.
+  await browser.keys(['Escape']);
   await browser.pause(700);
 }
 
@@ -96,7 +106,7 @@ describe('Tauri desktop: Wayland clipboard', () => {
     // event that the real pointer path delivers; Playwright covers the actual
     // right-click gesture in the browser E2E suite.
     await canvas.click();
-    await browser.tauri.execute(() => {
+    await browser.execute(() => {
       const target = document.querySelector<HTMLCanvasElement>('[data-testid="editor-canvas"]');
       if (!target) throw new Error('editor canvas not found');
       const box = target.getBoundingClientRect();

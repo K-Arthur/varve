@@ -48,6 +48,27 @@ import StatusPill from '../../components/StatusPill.astro';
         </p>
       </section>
 
+      <section class="feature-section">
+        <h2>Raster marks on the same canvas</h2>
+        <p>
+          Vector strokes and raster marks share the existing editor and document. Switch to Paint, Eraser, or Smudge when the artwork needs pixel-level texture, line cleanup, or a soft paintover; no separate illustration document is required.
+        </p>
+        <div class="capability-grid">
+          <article>
+            <h3>Predictable smudge modes</h3>
+            <p>Choose pure smudge, loaded-paint, or fingerpaint behavior in Tool options. The reservoir is frozen per stroke so a setting change cannot rewrite an in-progress mark.</p>
+          </article>
+          <article>
+            <h3>Explicit stack sampling</h3>
+            <p>Opt into merged raster-layer sampling when texturing a new paint layer. Deposits still go to the active target, keeping the source layers intact.</p>
+          </article>
+          <article>
+            <h3>Honest boundaries</h3>
+            <p>Merged sampling currently covers visible raster-layer tiles. Vector, group, effect, and transformed-content sampling remains explicit work rather than a hidden flattening step.</p>
+          </article>
+        </div>
+      </section>
+
       <section class="feature-section limitations">
         <h2>Export boundaries</h2>
         <p>

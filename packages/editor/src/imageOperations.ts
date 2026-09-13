@@ -11,6 +11,7 @@ import {
   addChild,
   type Document,
   type DocumentAsset,
+  type Fill,
   getParent,
   imageFill,
   insertNode,
@@ -25,6 +26,7 @@ import {
   type ShapeNode,
   type TraceMetadata,
 } from '@varve/scene';
+import { placeGenerativeOverlay } from './generativeEditOverlayPlacement';
 
 export function selectedImageShape(doc: Document, selection: NodeId[]): ShapeNode | null {
   for (const id of selection) {
@@ -109,6 +111,23 @@ export interface InPlaceImageInput {
     sourceWidth: number;
     sourceHeight: number;
   };
+  /**
+   * Bounded patch to paint over the existing source fill. The patch pixels
+   * use the supplied source-pixel frame; no full-frame output is required.
+   */
+  patch?: {
+    dataUrl: string;
+    assetId: string;
+    width: number;
+    height: number;
+    x: number;
+    y: number;
+    /** Source-pixel frame occupied by the bounded patch after placement. */
+    frameWidth?: number;
+    frameHeight?: number;
+    editId: string;
+    variationId: string;
+  };
 }
 
 export interface RestoreImageInput {
@@ -140,21 +159,121 @@ export function replaceImageShapeContent(
   if (source?.kind !== 'shape' || !isImageShape(source)) {
     throw new Error('Source must be an image-filled shape');
   }
-  let replaced = false;
-  const fills = (source.fills ?? []).map((fill) => {
-    if (replaced || fill.type !== 'image' || !fill.image) return fill;
-    replaced = true;
-    return {
-      ...fill,
+
+  const sourceFills = source.fills ?? [];
+  const sourceImageIndex = sourceFills.findIndex(
+    (fill) => fill.type === 'image' && Boolean(fill.image) && !fill.image?.generativeEditOverlay,
+  );
+  if (sourceImageIndex < 0) throw new Error('Source does not contain an image fill');
+
+  if (input.patch) {
+    const { patch } = input;
+    if (
+      !patch.dataUrl.startsWith('data:') ||
+      !patch.assetId ||
+      !patch.editId ||
+      !patch.variationId ||
+      !Number.isSafeInteger(patch.width) ||
+      patch.width <= 0 ||
+      !Number.isSafeInteger(patch.height) ||
+      patch.height <= 0 ||
+      !Number.isFinite(patch.x) ||
+      !Number.isFinite(patch.y) ||
+      (patch.frameWidth !== undefined &&
+        (!Number.isFinite(patch.frameWidth) || patch.frameWidth <= 0)) ||
+      (patch.frameHeight !== undefined &&
+        (!Number.isFinite(patch.frameHeight) || patch.frameHeight <= 0))
+    ) {
+      throw new Error('Generative image patch is invalid');
+    }
+    const frameWidth = patch.frameWidth ?? patch.width;
+    const frameHeight = patch.frameHeight ?? patch.height;
+    const placement = placeGenerativeOverlay(
+      doc,
+      source,
+      input.width,
+      input.height,
+      patch.width,
+      patch.height,
+      { x: patch.x, y: patch.y, width: frameWidth, height: frameHeight },
+    );
+
+    // Retain prior generative overlays so repeated edits build on the visible
+    // image instead of silently erasing earlier accepted patches. The
+    // original image fill and all unrelated fills remain in their original
+    // order, so effects, masks, and user-authored paint stacks continue to
+    // behave as before. Restore Original removes the complete overlay stack.
+    const fills = [...sourceFills];
+    const baseImageIndex = fills.findIndex(
+      (fill) => fill.type === 'image' && Boolean(fill.image) && !fill.image?.generativeEditOverlay,
+    );
+    if (baseImageIndex < 0) throw new Error('Source does not contain an image fill');
+    const lastOverlayIndex = fills.reduce(
+      (lastIndex, fill, index) =>
+        fill.type === 'image' && fill.image?.generativeEditOverlay ? index : lastIndex,
+      -1,
+    );
+    fills.splice(Math.max(baseImageIndex + 1, lastOverlayIndex + 1), 0, {
+      type: 'image',
       image: {
-        ...fill.image,
-        src: input.dataUrl,
-        assetId: input.assetId,
-        imageWidth: input.width,
-        imageHeight: input.height,
+        src: patch.dataUrl,
+        assetId: patch.assetId,
+        fit: 'crop',
+        x: placement.localX,
+        y: placement.localY,
+        scale: placement.scale,
+        imageWidth: patch.width,
+        imageHeight: patch.height,
+        ...(placement.rotation !== undefined ? { rotation: placement.rotation } : {}),
+        ...(placement.flipH !== undefined ? { flipH: placement.flipH } : {}),
+        ...(placement.flipV !== undefined ? { flipV: placement.flipV } : {}),
+        generativeEditOverlay: {
+          editId: patch.editId,
+          variationId: patch.variationId,
+          sourceFrame: {
+            x: placement.x,
+            y: placement.y,
+            width: placement.width,
+            height: placement.height,
+          },
+        },
+      },
+      opacity: 1,
+      blendMode: 'normal',
+      visible: true,
+    });
+
+    return {
+      ...doc,
+      nodes: {
+        ...doc.nodes,
+        [nodeId]: {
+          ...source,
+          fills,
+          ...(input.generativeEditId ? { generativeEditId: input.generativeEditId } : {}),
+        },
       },
     };
-  });
+  }
+
+  let replaced = false;
+  const fills = sourceFills
+    .filter((fill) => !(fill.type === 'image' && fill.image?.generativeEditOverlay))
+    .map((fill) => {
+      if (replaced || fill.type !== 'image' || !fill.image) return fill;
+      replaced = true;
+      const { generativeEditOverlay: _overlay, ...image } = fill.image;
+      return {
+        ...fill,
+        image: {
+          ...image,
+          src: input.dataUrl,
+          assetId: input.assetId,
+          imageWidth: input.width,
+          imageHeight: input.height,
+        },
+      };
+    });
   if (!replaced) throw new Error('Source does not contain an image fill');
   const outputFrame = input.outputFrame;
   if (
@@ -216,20 +335,26 @@ export function restoreImageShapeContent(
     throw new Error('Source must be an image-filled shape');
   }
   let replaced = false;
-  const fills = (source.fills ?? []).map((fill) => {
-    if (replaced || fill.type !== 'image' || !fill.image) return fill;
+  const fills = (source.fills ?? []).reduce<Fill[]>((result, fill) => {
+    if (fill.type === 'image' && fill.image?.generativeEditOverlay) return result;
+    if (replaced || fill.type !== 'image' || !fill.image) {
+      result.push(fill);
+      return result;
+    }
     replaced = true;
-    return {
+    const { generativeEditOverlay: _overlay, ...image } = fill.image;
+    result.push({
       ...fill,
       image: {
-        ...fill.image,
+        ...image,
         src: input.sourceAsset.dataUrl,
         assetId: input.sourceAsset.id,
         imageWidth: input.sourceAsset.naturalWidth,
         imageHeight: input.sourceAsset.naturalHeight,
       },
-    };
-  });
+    });
+    return result;
+  }, []);
   if (!replaced) throw new Error('Source does not contain an image fill');
 
   const frame = input.outputFrame;

@@ -298,3 +298,108 @@ contents, selection handoff, and announcement (`4/4` focused cases including
 the new target flow). A candidate with no catalog face remains available only
 through the explicit family request; it is never presented as a verified exact
 face.
+
+## Full browser variable-axis follow-up — 2026-09-13
+
+The full **Browse fonts** manager now uses the same parsed axis definitions as
+the Typography inspector. For an installed or bundled variable family, the
+inspection pane renders one range control per declared `fvar` axis, displays
+minimum/default/maximum values, couples `wght` to the pending face weight, and
+keeps non-weight axes and the exact face reference together. Axis changes are
+preview-only until **Use face**; **Reset** is disabled at defaults and restores
+the defaults after a draft edit. Catalog-only families remain preview-only and
+cannot be applied.
+
+Focused checks:
+
+```text
+pnpm exec vitest run packages/editor/src/components/FontBrowser/FontBrowser.test.tsx --reporter=dot
+pnpm exec biome check packages/editor/src/components/FontBrowser/FontBrowser.tsx packages/editor/src/components/FontBrowser/FontBrowser.test.tsx tests/e2e/canvas/font-selector.spec.ts
+pnpm exec stylelint packages/editor/src/components/FontBrowser/FontBrowser.css
+pnpm typecheck:e2e
+VARVE_E2E_PORT=1594 VARVE_E2E_WORKERS=1 npx playwright test tests/e2e/canvas/font-selector.spec.ts --project=chromium -g 'full browser exposes the exact variable axis' --reporter=list --timeout=120000
+```
+
+The component suite passed **8/8** and the browser test passed **1/1**. I
+inspected the light closed and custom-axis captures at:
+
+- `test-results/run-2016180-1594/canvas-font-selector-Font--7326b-axis-before-applying-a-face-chromium/font-browser-variable-axes.png`
+- `test-results/run-2016180-1594/canvas-font-selector-Font--7326b-axis-before-applying-a-face-chromium/font-browser-variable-axes-custom.png`
+
+At the 1280×720 Chromium viewport, the two-pane manager stayed within the
+dialog, the family row remained readable, and moving Weight from 400 to 650
+made the specimen visibly heavier while leaving the pending apply boundary
+clear. A prior retry exposed the existing app-wide ResizeObserver diagnostic as
+a crash dialog; `CrashCenterController` now ignores that documented non-fatal
+browser error so it cannot block an otherwise healthy font workflow. The
+controller regression test passed **24/24** in
+`packages/editor/src/crash/crashUi.test.tsx`.
+
+## Compact selector sizing and restoration recheck — 2026-09-13
+
+The compact family combobox now opts into `FloatingPortal`'s anchor-width
+contract. Its menu layer and listbox both use the measured field width, so a
+toolbar field and its open menu share the same left and right edges instead of
+the menu expanding to an unrelated 320 px width. The existing 32 px controls,
+toolbar padding, and viewport collision handling remain unchanged.
+
+The full selector workflow passed **11/11** in Chromium:
+
+```text
+VARVE_E2E_PORT=1597 VARVE_E2E_WORKERS=1 npx playwright test tests/e2e/canvas/font-selector.spec.ts --project=chromium --reporter=list --timeout=180000
+```
+
+The inspected open-menu capture is
+`test-results/run-2032091-1595/canvas-font-selector-Font--db6f0-dropdown-with-bundled-fonts-chromium/font-selector-open.png`.
+At 1280×720 the menu measures the same 218 px as the family field, keeps all
+visible system names and source badges inside the surface, and stays clear of
+the canvas. The persisted-face capture is
+`test-results/run-2032091-1595/canvas-font-selector-downl-14280-ditor-checks-document-fonts-chromium/downloaded-font-restored.png`;
+it shows Carrois Gothic restored from IndexedDB before editing, with no
+Missing Fonts dialog. Catalog-only Gothic inspection was also verified with
+an explicit preview-only message; no provider request is made by search or
+hover.
+
+The same selector audit found duplicate React keys when a literal family match
+and the semantic ranker both returned a local record. The full browser now
+deduplicates result rows by `familyId` before virtualization; the focused
+FontBrowser suite passed **8/8** after the repair and no longer emits the
+duplicate-key warning during the exact-family search.
+
+## Exact-face worker lifecycle follow-up — 2026-09-13
+
+The audit found that `FontLoader.unloadFont(family)` was the only removal path:
+two imported artifacts with the same family, weight, and style could not be
+removed independently, and the worker bridge retained a stale blob rule after
+one face was removed. The loader now tracks each loaded `FontFace` by its
+portable `sha256:<digest>:<member>` key, exposes `unloadFace(faceKey)`, removes
+only that face's document entry, bridge style, object URL, and registry entry,
+and keeps family-level removal for legacy unkeyed faces. Worker font rules now
+carry the exact face key and a monotone bridge revision; the worker face-set
+identity includes both so a remove/re-add cycle cannot reuse an old adoption
+acknowledgement.
+
+Focused checks:
+
+```text
+TMPDIR=/home/kevina/CodingProjects/varve/.tmp pnpm exec biome check --write packages/engine/src/font/fontLoader.ts packages/engine/src/font/fontLoader.test.ts packages/engine/src/fontRegistry.ts packages/engine/src/fontRegistry.test.ts packages/editor/src/render/workerFonts.ts packages/editor/src/render/workerFonts.test.ts
+TMPDIR=/home/kevina/CodingProjects/varve/.tmp pnpm exec vitest run packages/engine/src/font/fontLoader.test.ts packages/engine/src/fontRegistry.test.ts packages/editor/src/render/workerFonts.test.ts --reporter=dot
+```
+
+The focused suites passed **85/85** across three files. The first attempt hit
+`ENOSPC` because the shared `/tmp` tmpfs was full; rerunning with the repository
+`.tmp` directory passed. The package typecheck remains blocked by an unrelated
+concurrent `rasterSurface.test.ts` import of a missing
+`validateRasterSurfaceDimensions` export. No browser screenshot was required
+for this lifecycle-only change; the existing worker/font visual captures above
+remain the rendering evidence, while exact face removal is covered by the
+registry/loader tests.
+
+The toolbar geometry evidence was re-inspected at 1280x720 in the existing
+light, dark, and narrow captures. The compact text bar and contextual bar share
+the palette's 32px controls, tokenized gap and padding, surface, radius, and
+shadow; long family names remain readable and the open menu stays within the
+viewport. A fresh DPR-1 retry on `master` (port 1602) reached the browser cold
+start but ended with Playwright `page.goto: Target page, context or browser has
+been closed`; no new screenshot was treated as passing. This is recorded as an
+environment limitation, not visual certification of that failed retry.

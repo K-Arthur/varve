@@ -1,4 +1,4 @@
-import type { DocumentAsset, RasterMaskAsset, SceneNode } from '@varve/scene';
+import type { Document, DocumentAsset, RasterMaskAsset, SceneNode } from '@varve/scene';
 import type { Affine } from '@varve/shared';
 import { describe, expect, it, vi } from 'vitest';
 import {
@@ -7,7 +7,9 @@ import {
   clearCapturedClipboardEvent,
   createTransferRequest,
   getClipboardSnapshot,
+  orderClipboardRoots,
   parseClipboardData,
+  readClipboardUnified,
   readClipboardUnifiedWithFallback,
   readFromClipboardEvent,
   writeClipboard,
@@ -87,6 +89,17 @@ function createClipboardEventWithFiles(files: File[]): ClipboardEvent {
 }
 
 describe('readFromClipboardEvent', () => {
+  it('orders multi-root exports by document display order, not click order', () => {
+    const first = { id: 'first', kind: 'shape' } as unknown as SceneNode;
+    const second = { id: 'second', kind: 'shape' } as unknown as SceneNode;
+    const document = {
+      rootChildren: [first.id, second.id],
+      nodes: { [first.id]: first, [second.id]: second },
+    } as unknown as Document;
+
+    expect(orderClipboardRoots(document, [second.id, first.id])).toEqual([first.id, second.id]);
+  });
+
   it('extracts image files from clipboardData.files', async () => {
     const pngBytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
     const file = new File([pngBytes], 'image.png', { type: 'image/png' });
@@ -110,6 +123,39 @@ describe('readFromClipboardEvent', () => {
     const svgItem = result.importItems.find((i) => i.mimeType === 'image/svg+xml');
     expect(svgItem).toBeDefined();
     expect(svgItem?.data).toBe(svgContent);
+  });
+
+  it('keeps byte-identical SVGs from separate ClipboardItem entries', async () => {
+    const svg = '<svg><rect width="10" height="10" /></svg>';
+    const originalClipboard = navigator.clipboard;
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        read: vi.fn(async () => [
+          {
+            types: ['image/svg+xml'],
+            getType: async () => new Blob([svg], { type: 'image/svg+xml' }),
+          },
+          {
+            types: ['image/svg+xml'],
+            getType: async () => new Blob([svg], { type: 'image/svg+xml' }),
+          },
+        ]),
+      },
+    });
+    try {
+      const result = await readClipboardUnified();
+      expect(result.importItems).toHaveLength(2);
+      expect(result.importItems.map((item) => item.name)).toEqual([
+        'clipboard-0.svg',
+        'clipboard-1.svg',
+      ]);
+    } finally {
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: originalClipboard,
+      });
+    }
   });
 
   it('keeps SVG and plain text supplied as string clipboard representations', async () => {

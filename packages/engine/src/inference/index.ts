@@ -130,6 +130,8 @@ export {
 } from './models/trocr';
 export type { ProviderChainOptions } from './ProviderChain';
 export { runProviderChain } from './ProviderChain';
+export type { ImageInferenceResourceAssessment } from './resourcePolicy';
+export { assessImageInferenceResources } from './resourcePolicy';
 export type { ManagedSession } from './SessionManager';
 export { SessionManager } from './SessionManager';
 export type {

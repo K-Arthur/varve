@@ -1,3 +1,4 @@
+import { linearToSrgbUnit, srgbToLinearUnit } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import { applyFilterWithCompositing, applySoftwareFilter } from './filterCompositor';
 import { filterToCss } from './filters';
@@ -84,6 +85,36 @@ function mockTarget() {
 }
 
 describe('filter compositing', () => {
+  it('applies exposure stops in linear light with the shared sRGB transfer curve', () => {
+    let output: ImageData | undefined;
+    const context = {
+      getImageData: () => makeTestImageData([[128, 128, 128, 255]], 1, 1),
+      putImageData: (data: ImageData) => {
+        output = data;
+      },
+    };
+
+    applySoftwareFilter(
+      context as unknown as OffscreenCanvasRenderingContext2D,
+      {
+        kind: 'exposure',
+        value: 1,
+        offset: 0,
+        gammaCorrection: 1,
+        opacity: 1,
+        blendMode: 'normal',
+      },
+      1,
+      1,
+    );
+
+    const expected = Math.round(
+      linearToSrgbUnit(Math.min(1, srgbToLinearUnit(128 / 255) * 2)) * 255,
+    );
+    expect(output?.data[0]).toBe(expected);
+    expect(output?.data[0]).toBeGreaterThan(160);
+  });
+
   it('applies canonical partial/full invert to RGB and preserves alpha', () => {
     const pixels: Array<[number, number, number, number]> = [
       [0, 10, 255, 0],

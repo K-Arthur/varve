@@ -26,6 +26,10 @@ export interface WorkerFontFace {
   style?: string;
   stretch?: string;
   unicodeRange?: string;
+  /** Portable identity for the exact artifact/member, when the face came from bytes. */
+  faceKey?: string;
+  /** Process-local bridge revision. Changes when an exact face is removed/re-added. */
+  revision?: string;
 }
 
 /**
@@ -60,6 +64,12 @@ export function harvestDocumentFontFaces(): WorkerFontFace[] {
         style: style.getPropertyValue('font-style').trim() || undefined,
         stretch: style.getPropertyValue('font-stretch').trim() || undefined,
         unicodeRange: style.getPropertyValue('unicode-range').trim() || undefined,
+        // Byte-backed faces injected by FontLoader carry their portable
+        // identity as custom descriptors. CSSFontFaceRule does not expose the
+        // owning <style> element, so keeping the marker in the rule is the
+        // only way to transfer it through the stylesheet harvester.
+        faceKey: unquote(style.getPropertyValue('--varve-face-key').trim()) || undefined,
+        revision: unquote(style.getPropertyValue('--varve-face-revision').trim()) || undefined,
       };
       const key = faceKey(face);
       if (seen.has(key)) continue;
@@ -104,9 +114,16 @@ function absolutizeSources(source: string, sheetHref: string | null): string {
 }
 
 function faceKey(face: WorkerFontFace): string {
-  return [face.family, face.weight, face.style, face.stretch, face.unicodeRange, face.source].join(
-    '|',
-  );
+  return [
+    face.family,
+    face.weight,
+    face.style,
+    face.stretch,
+    face.unicodeRange,
+    face.source,
+    face.faceKey,
+    face.revision,
+  ].join('|');
 }
 
 /**

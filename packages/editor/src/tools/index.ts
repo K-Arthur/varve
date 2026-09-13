@@ -9,6 +9,7 @@ export {
   isNavTool,
   NAV_TOOL_IDS,
   type PixelProbe,
+  type ShapeBuilderDraft,
   type Tool,
   type ToolContext,
   type ToolCursorState,

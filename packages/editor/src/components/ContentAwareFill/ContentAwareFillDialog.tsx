@@ -1,5 +1,7 @@
 import {
+  type CachedImage,
   type ContentAwareFillQuality,
+  cachedImageDims,
   downloadNativeGenerativeModel,
   extractBoundedContext,
   GenerativeEditError,
@@ -8,9 +10,11 @@ import {
   GenerativeJobController,
   type GenerativeJobSnapshot,
   getGenerativeEditCapabilities,
+  getImageCache,
   getModelLoader,
   getNativeGenerativeModelStatus,
   importNativeGenerativeModel,
+  isWasmModelSafe,
   NATIVE_GENERATIVE_MODEL_PROFILE,
   QUALITY_DESCRIPTIONS,
   QUALITY_LABELS,
@@ -26,13 +30,26 @@ import {
   imageShapeSrc,
   isImageShape,
   resolveRasterMaskAsset,
+  type ShapeNode,
 } from '@varve/scene';
 import { Button, Switch } from '@varve/ui';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { replaceImageShapeContent } from '../../imageOperations';
 import { decodeRasterMaskDataUrl, rasterizeAreaSelectionForNode } from '../../tools/selectionMask';
-import { type ExpandPadding, prepareExpandedGenerationInput } from './expandCanvas';
+import type { ExpandPadding } from './expandCanvas';
+import {
+  computeSourceRegionFromPreviewMask,
+  encodePreviewMaskAtSourceSize,
+  loadImageRegionToImageData,
+  mapSourceRegionToProxy,
+  renderGeneratedRegionToPatchCanvas,
+  renderGeneratedRegionToPreviewCanvas,
+  type SourceImageRegion,
+  samplePreviewMaskToRegion,
+  workingPixelBudgetForTier,
+  workingRasterDimensions,
+} from './generationRaster';
 import {
   combineMaskCoverage,
   type MaskCombineOperation,
@@ -48,8 +65,9 @@ const MODEL_ID = 'lama-inpainting';
 const DEFAULT_BRUSH_SIZE = 28;
 const MAX_BATCH_VARIATIONS = 4;
 const MAX_RETAINED_VARIATIONS = 8;
-const MAX_PREVIEW_PIXELS = 4_000_000;
+const MAX_PREVIEW_PIXELS = 2_000_000;
 const MAX_VARIATION_THUMBNAIL_DIMENSION = 256;
+const MAX_SOURCE_PROXY_DIMENSION = 1536;
 
 function previewRasterDimensions(width: number, height: number): { width: number; height: number } {
   const scale = Math.min(1, Math.sqrt(MAX_PREVIEW_PIXELS / Math.max(1, width * height)));
@@ -104,29 +122,181 @@ function thumbnailDataUrlFromCanvas(source: HTMLCanvasElement): string {
   return thumbnail.toDataURL('image/png');
 }
 
-function loadImageToImageData(
+async function loadBoundedImageSource(
+  src: string,
+  sourceWidth: number,
+  sourceHeight: number,
+  maxDimension: number,
+): Promise<CachedImage> {
+  return getImageCache().loadAtSize(
+    src,
+    maxDimension,
+    sourceWidth > 0 && sourceHeight > 0 ? { width: sourceWidth, height: sourceHeight } : undefined,
+  );
+}
+
+interface VisibleSourceOverlay {
+  src: string;
+  width: number;
+  height: number;
+  x: number;
+  y: number;
+  frameWidth: number;
+  frameHeight: number;
+  editId: string;
+}
+
+function validOverlaySourceFrame(
+  frame: unknown,
+): frame is { x: number; y: number; width: number; height: number } {
+  if (!frame || typeof frame !== 'object') return false;
+  const candidate = frame as Record<string, unknown>;
+  return ['x', 'y', 'width', 'height'].every(
+    (key) => typeof candidate[key] === 'number' && Number.isFinite(candidate[key]),
+  );
+}
+
+/**
+ * Build the currently visible source at proxy resolution. Bounded accepted
+ * edits are stored as transparent patches above the immutable base fill; a
+ * repeated edit must see those patches in its context or it would regress to
+ * the original pixels on the next generation.
+ */
+async function loadVisibleImageSource(
+  source: string,
+  sourceWidth: number,
+  sourceHeight: number,
+  maxDimension: number,
+  overlays: readonly VisibleSourceOverlay[],
+): Promise<CachedImage | HTMLCanvasElement> {
+  const base = await loadBoundedImageSource(source, sourceWidth, sourceHeight, maxDimension);
+  if (overlays.length === 0) return base;
+  if (sourceWidth <= 0 || sourceHeight <= 0) {
+    throw new Error('Visible source dimensions are unavailable');
+  }
+  const baseDimensions = cachedImageDims(base);
+  if (!baseDimensions.width || !baseDimensions.height) {
+    throw new Error('Visible source proxy dimensions are unavailable');
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = baseDimensions.width;
+  canvas.height = baseDimensions.height;
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Visible source proxy canvas is unavailable');
+  context.drawImage(base, 0, 0, canvas.width, canvas.height);
+
+  for (const overlay of overlays) {
+    const patch = await loadBoundedImageSource(
+      overlay.src,
+      overlay.width,
+      overlay.height,
+      maxDimension,
+    );
+    const patchDimensions = cachedImageDims(patch);
+    if (!patchDimensions.width || !patchDimensions.height) {
+      throw new Error('Visible generative overlay dimensions are unavailable');
+    }
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = 'high';
+    context.drawImage(
+      patch,
+      0,
+      0,
+      patchDimensions.width,
+      patchDimensions.height,
+      (overlay.x / sourceWidth) * canvas.width,
+      (overlay.y / sourceHeight) * canvas.height,
+      (overlay.frameWidth / sourceWidth) * canvas.width,
+      (overlay.frameHeight / sourceHeight) * canvas.height,
+    );
+  }
+  return canvas;
+}
+
+function imageSourceDims(image: CachedImage | HTMLCanvasElement): {
+  width: number;
+  height: number;
+} {
+  return image instanceof HTMLCanvasElement
+    ? { width: image.width, height: image.height }
+    : cachedImageDims(image);
+}
+
+function visibleSourceOverlays(
+  node: ShapeNode | null,
+  assets:
+    | Record<string, { dataUrl?: string; naturalWidth?: number; naturalHeight?: number }>
+    | undefined,
+): VisibleSourceOverlay[] {
+  if (!node) return [];
+  return (node.fills ?? []).flatMap((fill) => {
+    if (fill.type !== 'image' || !fill.image?.generativeEditOverlay) return [];
+    const image = fill.image;
+    const overlay = image.generativeEditOverlay;
+    if (!overlay) return [];
+    const asset = image.assetId ? assets?.[image.assetId] : undefined;
+    const src = asset?.dataUrl ?? image.src;
+    const width = image.imageWidth ?? asset?.naturalWidth ?? 0;
+    const height = image.imageHeight ?? asset?.naturalHeight ?? 0;
+    const sourceFrame = validOverlaySourceFrame(overlay.sourceFrame) ? overlay.sourceFrame : null;
+    const x = sourceFrame?.x ?? image.x;
+    const y = sourceFrame?.y ?? image.y;
+    const imageScale = Number.isFinite(image.scale) && image.scale > 0 ? image.scale : 1;
+    const frameWidth = sourceFrame?.width ?? width * imageScale;
+    const frameHeight = sourceFrame?.height ?? height * imageScale;
+    if (
+      !src ||
+      width <= 0 ||
+      height <= 0 ||
+      !Number.isFinite(x) ||
+      !Number.isFinite(y) ||
+      !Number.isFinite(width) ||
+      !Number.isFinite(height) ||
+      !Number.isFinite(frameWidth) ||
+      !Number.isFinite(frameHeight) ||
+      frameWidth <= 0 ||
+      frameHeight <= 0
+    ) {
+      return [];
+    }
+    return [
+      {
+        src,
+        width,
+        height,
+        x,
+        y,
+        frameWidth,
+        frameHeight,
+        editId: overlay.editId,
+      },
+    ];
+  });
+}
+
+async function loadImageToImageData(
   src: string,
   targetWidth?: number,
   targetHeight?: number,
+  sourceWidth = 0,
+  sourceHeight = 0,
 ): Promise<ImageData> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = targetWidth ?? img.naturalWidth;
-      canvas.height = targetHeight ?? img.naturalHeight;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        reject(new Error('Failed to get canvas context'));
-        return;
-      }
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      resolve(ctx.getImageData(0, 0, canvas.width, canvas.height));
-    };
-    img.onerror = () => reject(new Error('Failed to load image'));
-    img.crossOrigin = 'anonymous';
-    img.src = src;
-  });
+  if (!targetWidth || !targetHeight || targetWidth <= 0 || targetHeight <= 0) {
+    throw new Error('A bounded target size is required');
+  }
+  const image = await loadBoundedImageSource(
+    src,
+    sourceWidth,
+    sourceHeight,
+    Math.max(targetWidth, targetHeight),
+  );
+  const canvas = document.createElement('canvas');
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Failed to get canvas context');
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  return context.getImageData(0, 0, canvas.width, canvas.height);
 }
 
 /** Rehydrate a persisted candidate for comparison without rerunning inference. */
@@ -166,6 +336,51 @@ function unloadedVariationImageData(): ImageData {
 
 function metadataOnlyVariationResult(result: GenerativeEditResult): GenerativeEditResult {
   return { ...result, imageData: unloadedVariationImageData() };
+}
+
+/** Rebuild a bounded full-composition preview from a persisted candidate. */
+async function persistedVariationPreviewDataUrl(
+  basePreview: HTMLCanvasElement,
+  sourceWidth: number,
+  sourceHeight: number,
+  variation: GenerativeEditVariation,
+  asset: { dataUrl: string; naturalWidth: number; naturalHeight: number },
+): Promise<string> {
+  const canvas = document.createElement('canvas');
+  canvas.width = basePreview.width;
+  canvas.height = basePreview.height;
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Preview canvas unavailable');
+  context.drawImage(basePreview, 0, 0);
+
+  const image = await loadBoundedImageSource(
+    asset.dataUrl,
+    asset.naturalWidth,
+    asset.naturalHeight,
+    Math.max(basePreview.width, basePreview.height),
+  );
+  const outputFrame = variation.outputFrame;
+  const frame =
+    variation.assetKind === 'region-overlay' && outputFrame
+      ? outputFrame
+      : {
+          x: 0,
+          y: 0,
+          width: sourceWidth,
+          height: sourceHeight,
+        };
+  context.drawImage(
+    image,
+    0,
+    0,
+    cachedImageDims(image).width,
+    cachedImageDims(image).height,
+    (frame.x / sourceWidth) * basePreview.width,
+    (frame.y / sourceHeight) * basePreview.height,
+    (frame.width / sourceWidth) * basePreview.width,
+    (frame.height / sourceHeight) * basePreview.height,
+  );
+  return canvas.toDataURL('image/png');
 }
 
 export interface ContentAwareFillDialogProps {
@@ -216,6 +431,11 @@ export function ContentAwareFillDialog({
       sourceWidth: number;
       sourceHeight: number;
     };
+    patchDataUrl: string;
+    patchWidth: number;
+    patchHeight: number;
+    patchFrame?: SourceImageRegion;
+    assetKind: 'full-output' | 'region-overlay';
     result: GenerativeEditResult;
     seed: number;
   } | null>(null);
@@ -246,6 +466,7 @@ export function ContentAwareFillDialog({
   >('brush');
   const [maskOperation, setMaskOperation] = useState<MaskCombineOperation>('replace');
   const [modelAvailable, setModelAvailable] = useState(false);
+  const [modelFitsMemory, setModelFitsMemory] = useState<boolean | null>(null);
   const [diffusionModelInstalled, setDiffusionModelInstalled] = useState(false);
   const [diffusionModelHandle, setDiffusionModelHandle] = useState<string | null>(null);
   const [diffusionModelSize, setDiffusionModelSize] = useState(0);
@@ -255,6 +476,7 @@ export function ContentAwareFillDialog({
     requiredBytes: number;
     tier: string;
     backend: string;
+    platform: string;
     architecture: string;
   } | null>(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
@@ -276,6 +498,11 @@ export function ContentAwareFillDialog({
       id: string;
       dataUrl: string;
       thumbnailDataUrl?: string;
+      patchDataUrl: string;
+      patchWidth: number;
+      patchHeight: number;
+      patchFrame?: SourceImageRegion;
+      assetKind: 'full-output' | 'region-overlay';
       result: GenerativeEditResult;
       seed: number;
     }>
@@ -283,6 +510,7 @@ export function ContentAwareFillDialog({
   const [activeVariationId, setActiveVariationId] = useState<string | null>(null);
   const [hasMaskStrokes, setHasMaskStrokes] = useState(false);
   const [maskRevision, setMaskRevision] = useState(0);
+  const [isRefiningMask, setIsRefiningMask] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false);
   const [previewZoom, setPreviewZoom] = useState<'fit' | 'custom'>('fit');
   const [customZoomBase, setCustomZoomBase] = useState<'fit' | 'natural'>('fit');
@@ -296,14 +524,22 @@ export function ContentAwareFillDialog({
     status === 'qualifying' ||
     status === 'generating' ||
     status === 'applying';
-  const hasResult = previewDataUrl != null && result != null;
+  const hasResult = !isRefiningMask && previewDataUrl != null && result != null;
   const capabilities = getGenerativeEditCapabilities();
   const modeCapability = capabilities.modes[mode];
+  const resourceProfile = capabilities.resourceProfile;
+  const resourceLabel = [
+    resourceProfile.platform,
+    resourceProfile.tier === 'unknown' ? null : `${resourceProfile.tier} memory`,
+    resourceProfile.architecture,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join(' · ');
   const promptNeedsDiffusion =
     (mode === 'replace' || mode === 'expand' || mode === 'fill') && prompt.trim().length > 0;
   const usesDiffusion = mode === 'replace' || mode === 'expand' || promptNeedsDiffusion;
   const modeMissingModel =
-    (!usesDiffusion && quality === 'ai' && !modelAvailable) ||
+    (!usesDiffusion && quality === 'ai' && (!modelAvailable || modelFitsMemory === false)) ||
     (usesDiffusion && !diffusionModelHandle);
   const diffusionMemoryFits =
     !usesDiffusion ||
@@ -335,6 +571,25 @@ export function ContentAwareFillDialog({
         src: imageSrc,
         assetId: typedNode.fills?.find((fill) => fill.type === 'image')?.image?.assetId,
         imagePlacement: typedNode.fills?.find((fill) => fill.type === 'image')?.image,
+        overlays: (typedNode.fills ?? []).flatMap((fill) => {
+          if (fill.type !== 'image' || !fill.image?.generativeEditOverlay) return [];
+          const image = fill.image;
+          const overlay = image.generativeEditOverlay;
+          if (!overlay) return [];
+          return [
+            {
+              assetId: image.assetId ?? null,
+              editId: overlay.editId,
+              variationId: overlay.variationId,
+              x: image.x,
+              y: image.y,
+              imageWidth: image.imageWidth,
+              imageHeight: image.imageHeight,
+              scale: image.scale,
+              sourceFrame: overlay.sourceFrame ?? null,
+            },
+          ];
+        }),
         shape: typedNode.shape,
         transform: typedNode.transform,
       })
@@ -367,6 +622,11 @@ export function ContentAwareFillDialog({
     ? state.document.assets?.[acceptedVariation.contextAssetId]
     : undefined;
   const sourceAssetId = sourceImage?.assetId ?? null;
+  const sourceAsset = sourceAssetId ? state.document.assets?.[sourceAssetId] : undefined;
+  const overlaySources = useMemo(
+    () => visibleSourceOverlays(typedNode, state.document.assets),
+    [state.document.assets, typedNode?.fills],
+  );
   const sourceHash = sourceAssetId
     ? (state.document.assets?.[sourceAssetId]?.hash ?? hashContent(imageSrc))
     : hashContent(imageSrc);
@@ -411,6 +671,18 @@ export function ContentAwareFillDialog({
     setVariations([]);
     setActiveVariationId(null);
     setStatus('idle');
+  }, []);
+
+  const handleEditMask = useCallback(() => {
+    jobControllerRef.current.cancel();
+    generationRef.current = null;
+    setIsRefiningMask(true);
+    setResult(null);
+    setPreviewDataUrl(null);
+    setActiveVariationId(null);
+    setShowOriginal(false);
+    setStatus('idle');
+    setErrorMessage(null);
   }, []);
 
   const bumpMaskRevision = useCallback(() => {
@@ -467,6 +739,7 @@ export function ContentAwareFillDialog({
     maskRevisionRef.current = 0;
     setMaskRevision(0);
     setModelAvailable(false);
+    setModelFitsMemory(null);
     setDiffusionModelInstalled(false);
     setDiffusionModelHandle(null);
     setDiffusionModelSize(0);
@@ -479,6 +752,7 @@ export function ContentAwareFillDialog({
     setActiveVariationId(null);
     generationRef.current = null;
     setHasMaskStrokes(false);
+    setIsRefiningMask(false);
     setShowOriginal(false);
     setPreviewZoom('fit');
     setCustomZoomBase('fit');
@@ -539,13 +813,20 @@ export function ContentAwareFillDialog({
     let cancelled = false;
     (async () => {
       const loader = getModelLoader();
-      const available = await loader.isModelAvailable(MODEL_ID);
-      if (!cancelled) setModelAvailable(available);
+      const isNative = capabilities.resourceProfile.executionBackend === 'native';
+      const [available, fitsMemory] = await Promise.all([
+        loader.isModelAvailable(MODEL_ID),
+        isNative ? Promise.resolve(true) : isWasmModelSafe(MODEL_ID),
+      ]);
+      if (!cancelled) {
+        setModelAvailable(available);
+        setModelFitsMemory(fitsMemory);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [isOpen]);
+  }, [capabilities.resourceProfile.executionBackend, isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -562,6 +843,7 @@ export function ContentAwareFillDialog({
           available.memoryRequiredBytes ?? NATIVE_GENERATIVE_MODEL_PROFILE.minimumMemoryBytes,
         tier: available.resourceTier ?? 'unknown',
         backend: available.executionBackend ?? 'unknown',
+        platform: available.platform ?? 'unknown',
         architecture: available.architecture ?? 'unknown',
       });
     });
@@ -575,17 +857,37 @@ export function ContentAwareFillDialog({
     let cancelled = false;
     (async () => {
       try {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        await new Promise<void>((resolve, reject) => {
-          img.onload = () => resolve();
-          img.onerror = () => reject(new Error('Failed to load image'));
-          img.src = imageSrc;
-        });
+        const knownWidth =
+          acceptedSourceAsset?.naturalWidth ??
+          sourceImage?.imageWidth ??
+          sourceAsset?.naturalWidth ??
+          0;
+        const knownHeight =
+          acceptedSourceAsset?.naturalHeight ??
+          sourceImage?.imageHeight ??
+          sourceAsset?.naturalHeight ??
+          0;
+        const previewHint =
+          knownWidth > 0 && knownHeight > 0
+            ? previewRasterDimensions(knownWidth, knownHeight)
+            : { width: 1024, height: 1024 };
+        const baseSource = acceptedSourceAsset?.dataUrl ?? sourceAsset?.dataUrl ?? imageSrc;
+        const reviewOverlays = overlaySources.filter(
+          (overlay) => overlay.editId !== acceptedEdit?.id,
+        );
+        const img = await loadVisibleImageSource(
+          baseSource,
+          knownWidth,
+          knownHeight,
+          Math.max(previewHint.width, previewHint.height),
+          reviewOverlays,
+        );
         if (cancelled) return;
 
-        const nw = img.naturalWidth;
-        const nh = img.naturalHeight;
+        const decoded = imageSourceDims(img);
+        const nw = knownWidth || decoded.width;
+        const nh = knownHeight || decoded.height;
+        if (nw <= 0 || nh <= 0) throw new Error('Image dimensions are unavailable');
         const preview = previewRasterDimensions(nw, nh);
         setNaturalSize({ w: nw, h: nh });
 
@@ -596,15 +898,6 @@ export function ContentAwareFillDialog({
           previewCanvas.height = preview.height;
           const ctx = previewCanvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, preview.width, preview.height);
-          if (acceptedSourceAsset?.dataUrl) {
-            const original = await loadImageToImageData(
-              acceptedSourceAsset.dataUrl,
-              preview.width,
-              preview.height,
-            );
-            if (cancelled) return;
-            ctx?.putImageData(original, 0, 0);
-          }
         }
         if (maskCanvas) {
           maskCanvas.width = preview.width;
@@ -643,32 +936,63 @@ export function ContentAwareFillDialog({
 
         if (acceptedEdit && acceptedVariation && acceptedResultAsset?.dataUrl) {
           if (cancelled) return;
-          const restoredVariations = acceptedEdit.variations
-            .map((variation) => {
-              const asset = variation.assetId
-                ? state.document.assets?.[variation.assetId]
-                : undefined;
-              const thumbnail = variation.thumbnailAssetId
-                ? state.document.assets?.[variation.thumbnailAssetId]
-                : undefined;
-              if (!asset?.dataUrl) return null;
-              return {
-                id: variation.id,
-                dataUrl: asset.dataUrl,
-                thumbnailDataUrl: thumbnail?.dataUrl,
-                result: persistedVariationResult(
-                  acceptedEdit,
+          if (!previewCanvas) throw new Error('Preview canvas is unavailable');
+          const restoredVariations = (
+            await Promise.all(
+              acceptedEdit.variations.map(async (variation) => {
+                const asset = variation.assetId
+                  ? state.document.assets?.[variation.assetId]
+                  : undefined;
+                const thumbnail = variation.thumbnailAssetId
+                  ? state.document.assets?.[variation.thumbnailAssetId]
+                  : undefined;
+                if (!asset?.dataUrl) return null;
+                const assetKind = variation.assetKind ?? 'full-output';
+                const dataUrl = await persistedVariationPreviewDataUrl(
+                  previewCanvas,
+                  nw,
+                  nh,
                   variation,
-                  unloadedVariationImageData(),
-                ),
-                seed: variation.seed ?? variation.settings?.seed ?? acceptedEdit.settings.seed ?? 0,
-              };
-            })
-            .filter((variation): variation is NonNullable<typeof variation> => variation !== null);
+                  asset,
+                );
+                return {
+                  id: variation.id,
+                  dataUrl,
+                  thumbnailDataUrl: thumbnail?.dataUrl,
+                  patchDataUrl: asset.dataUrl,
+                  patchWidth: asset.naturalWidth,
+                  patchHeight: asset.naturalHeight,
+                  patchFrame:
+                    assetKind === 'region-overlay' && variation.outputFrame
+                      ? {
+                          x: variation.outputFrame.x,
+                          y: variation.outputFrame.y,
+                          width: variation.outputFrame.width,
+                          height: variation.outputFrame.height,
+                        }
+                      : undefined,
+                  assetKind,
+                  result: persistedVariationResult(
+                    acceptedEdit,
+                    variation,
+                    unloadedVariationImageData(),
+                  ),
+                  seed:
+                    variation.seed ?? variation.settings?.seed ?? acceptedEdit.settings.seed ?? 0,
+                };
+              }),
+            )
+          ).filter((variation): variation is NonNullable<typeof variation> => variation !== null);
           const restoredResult =
             restoredVariations.find((variation) => variation.id === acceptedVariation.id)?.result ??
             persistedVariationResult(acceptedEdit, acceptedVariation, unloadedVariationImageData());
-          const restoredOutputFrame = acceptedVariation.outputFrame ?? acceptedEdit.outputFrame;
+          const restoredActive =
+            restoredVariations.find((variation) => variation.id === acceptedVariation.id) ??
+            restoredVariations[0];
+          // The session's output frame describes the accepted node bounds. A
+          // region-overlay variation carries its bounded patch frame on the
+          // variation itself and must not replace this source frame.
+          const restoredOutputFrame = acceptedEdit.outputFrame;
           const inferenceMaskWidth = acceptedEdit.masks.width;
           const inferenceMaskHeight = acceptedEdit.masks.height;
           const context = acceptedContextAsset;
@@ -693,13 +1017,18 @@ export function ContentAwareFillDialog({
               sourceWidth: restoredOutputFrame.sourceWidth,
               sourceHeight: restoredOutputFrame.sourceHeight,
             },
+            patchDataUrl: restoredActive?.patchDataUrl ?? acceptedResultAsset.dataUrl,
+            patchWidth: restoredActive?.patchWidth ?? acceptedResultAsset.naturalWidth,
+            patchHeight: restoredActive?.patchHeight ?? acceptedResultAsset.naturalHeight,
+            patchFrame: restoredActive?.patchFrame,
+            assetKind: restoredActive?.assetKind ?? 'full-output',
             result: restoredResult,
-            seed: acceptedVariation.seed ?? acceptedEdit.settings.seed ?? 0,
+            seed: restoredActive?.seed ?? acceptedVariation.seed ?? acceptedEdit.settings.seed ?? 0,
           };
           setVariations(restoredVariations);
           setActiveVariationId(acceptedVariation.id);
           setResult(restoredResult);
-          setPreviewDataUrl(acceptedResultAsset.dataUrl);
+          setPreviewDataUrl(restoredActive?.dataUrl ?? acceptedResultAsset.dataUrl);
           setShowOriginal(false);
         }
       } catch {
@@ -719,7 +1048,11 @@ export function ContentAwareFillDialog({
     acceptedVariation,
     imageSrc,
     isOpen,
+    overlaySources,
     sourceSignature,
+    sourceAsset,
+    sourceImage?.imageHeight,
+    sourceImage?.imageWidth,
     state.document.assets,
   ]);
 
@@ -1025,6 +1358,7 @@ export function ContentAwareFillDialog({
           downloaded.memoryRequiredBytes ?? NATIVE_GENERATIVE_MODEL_PROFILE.minimumMemoryBytes,
         tier: downloaded.resourceTier ?? 'unknown',
         backend: downloaded.executionBackend ?? 'unknown',
+        platform: downloaded.platform ?? 'unknown',
         architecture: downloaded.architecture ?? 'unknown',
       });
       setStatus('idle');
@@ -1075,6 +1409,7 @@ export function ContentAwareFillDialog({
           imported.memoryRequiredBytes ?? NATIVE_GENERATIVE_MODEL_PROFILE.minimumMemoryBytes,
         tier: imported.resourceTier ?? 'unknown',
         backend: imported.executionBackend ?? 'unknown',
+        platform: imported.platform ?? 'unknown',
         architecture: imported.architecture ?? 'unknown',
       });
       setErrorMessage(null);
@@ -1101,6 +1436,7 @@ export function ContentAwareFillDialog({
           qualified.memoryRequiredBytes ?? NATIVE_GENERATIVE_MODEL_PROFILE.minimumMemoryBytes,
         tier: qualified.resourceTier ?? 'unknown',
         backend: qualified.executionBackend ?? 'unknown',
+        platform: qualified.platform ?? 'unknown',
         architecture: qualified.architecture ?? 'unknown',
       });
       if (!qualified.ready) throw new Error(qualified.reason ?? 'Model qualification failed.');
@@ -1132,7 +1468,16 @@ export function ContentAwareFillDialog({
     setGenerationStage('Preparing');
 
     try {
-      const fullData = await loadImageToImageData(imageSrc);
+      const sourceWidth =
+        naturalSize.w || sourceImage?.imageWidth || sourceAsset?.naturalWidth || 0;
+      const sourceHeight =
+        naturalSize.h || sourceImage?.imageHeight || sourceAsset?.naturalHeight || 0;
+      if (sourceWidth <= 0 || sourceHeight <= 0) {
+        throw new GenerativeEditError(
+          'invalid-image',
+          'The source image dimensions are unavailable.',
+        );
+      }
       if (!isCurrentJob()) {
         throw new GenerativeEditError('stale', 'The source changed before generation completed.');
       }
@@ -1140,36 +1485,105 @@ export function ContentAwareFillDialog({
       const maskCanvas = maskCanvasRef.current;
       if (!maskCanvas) throw new GenerativeEditError('invalid-mask', 'The mask is unavailable.');
 
-      const fullMaskCanvas = new OffscreenCanvas(fullData.width, fullData.height);
-      const fullMaskCtx = fullMaskCanvas.getContext('2d');
-      if (!fullMaskCtx) throw new Error('Canvas unavailable');
-      fullMaskCtx.imageSmoothingEnabled = false;
-      fullMaskCtx.drawImage(maskCanvas, 0, 0, fullData.width, fullData.height);
-      const maskImageData = fullMaskCtx.getImageData(0, 0, fullData.width, fullData.height);
-      const rawMask = new Uint8Array(fullData.width * fullData.height);
-      for (let i = 0; i < rawMask.length; i++) {
-        rawMask[i] = maskImageData.data[i * 4]!;
+      const previewMaskImageData = maskCanvas
+        .getContext('2d')
+        ?.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
+      if (!previewMaskImageData)
+        throw new GenerativeEditError('invalid-mask', 'The mask is unavailable.');
+      const previewMask = maskCoverageFromRgba(previewMaskImageData.data);
+      const previewWidth = maskCanvas.width;
+      const previewHeight = maskCanvas.height;
+      if (previewWidth <= 0 || previewHeight <= 0) {
+        throw new GenerativeEditError('invalid-mask', 'The mask is unavailable.');
       }
-      // The editable mask is preview-sized while the dialog is open, but the
-      // persisted recipe must retain a source-resolution mask. Upscale the
-      // coverage with smoothing disabled so its dimensions and origin match
-      // the immutable source snapshot recorded below.
-      const userMaskDataUrl = maskCoverageDataUrl(rawMask, fullData.width, fullData.height);
-      const refinedMask = refineGenerativeMask(
-        rawMask,
-        { width: fullData.width, height: fullData.height },
-        { expansion: maskExpansion, feather: maskFeather },
-      );
-      const expanded =
-        mode === 'expand'
-          ? prepareExpandedGenerationInput(fullData, refinedMask, expandPadding)
-          : null;
-      const generationImage = expanded?.imageData ?? fullData;
-      const mask = expanded?.mask ?? refinedMask;
-      const maskWidth = expanded?.maskWidth ?? fullData.width;
-      const maskHeight = expanded?.maskHeight ?? fullData.height;
-      const sourceOffsetX = expanded?.sourceOffsetX ?? 0;
-      const sourceOffsetY = expanded?.sourceOffsetY ?? 0;
+
+      let generationImage: ImageData;
+      let mask: Uint8Array;
+      let maskWidth: number;
+      let maskHeight: number;
+      let sourceRegion: SourceImageRegion | null = null;
+      let userMaskDataUrl: string;
+
+      if (mode === 'expand') {
+        throw new GenerativeEditError(
+          'unsupported-mode',
+          'Expand is unavailable until a qualified local expansion provider is installed.',
+        );
+      } else {
+        const rawBounds = computeSourceRegionFromPreviewMask(
+          previewMask,
+          previewWidth,
+          previewHeight,
+          sourceWidth,
+          sourceHeight,
+          contextPadding,
+        );
+        if (!rawBounds) {
+          throw new GenerativeEditError('empty-mask', 'Paint an area to edit before generating.');
+        }
+        const previewScaleX = previewWidth / sourceWidth;
+        const previewScaleY = previewHeight / sourceHeight;
+        const refinedPreviewMask = refineGenerativeMask(
+          previewMask,
+          { width: previewWidth, height: previewHeight },
+          {
+            expansion: Math.round(maskExpansion * previewScaleX),
+            feather: Math.round(maskFeather * Math.min(previewScaleX, previewScaleY)),
+          },
+        );
+        const region = computeSourceRegionFromPreviewMask(
+          refinedPreviewMask,
+          previewWidth,
+          previewHeight,
+          sourceWidth,
+          sourceHeight,
+          contextPadding,
+        );
+        if (!region) {
+          throw new GenerativeEditError('empty-mask', 'Mask refinement removed the edit region.');
+        }
+        const working = workingRasterDimensions(
+          region,
+          workingPixelBudgetForTier(capabilities.resourceProfile.tier),
+        );
+        const sourceBase = sourceAsset?.dataUrl ?? acceptedSourceAsset?.dataUrl ?? imageSrc;
+        const sourceProxy = await loadVisibleImageSource(
+          sourceBase,
+          sourceWidth,
+          sourceHeight,
+          MAX_SOURCE_PROXY_DIMENSION,
+          overlaySources,
+        );
+        const proxyDimensions = imageSourceDims(sourceProxy);
+        const proxyRegion = mapSourceRegionToProxy(
+          region,
+          sourceWidth,
+          sourceHeight,
+          proxyDimensions.width,
+          proxyDimensions.height,
+        );
+        generationImage = loadImageRegionToImageData(sourceProxy, proxyRegion, working);
+        mask = samplePreviewMaskToRegion(
+          refinedPreviewMask,
+          previewWidth,
+          previewHeight,
+          sourceWidth,
+          sourceHeight,
+          region,
+          working,
+        );
+        if (!mask.some((value) => value > 0)) {
+          throw new GenerativeEditError('empty-mask', 'Mask refinement removed the edit region.');
+        }
+        maskWidth = working.width;
+        maskHeight = working.height;
+        sourceRegion = region;
+        // The editable mask is authored on the bounded preview canvas, then
+        // encoded row-by-row at source resolution for persistence. This keeps
+        // the record's source-image-pixels contract without allocating a
+        // source-sized RGBA working buffer.
+        userMaskDataUrl = '';
+      }
       const inferenceMaskDataUrl = maskCoverageDataUrl(mask, maskWidth, maskHeight);
       const preparedContext = extractBoundedContext(
         generationImage,
@@ -1182,16 +1596,15 @@ export function ContentAwareFillDialog({
       );
       const contextDataUrl = imageDataDataUrl(preparedContext.imageData);
       const outputFrame = {
-        x: -sourceOffsetX,
-        y: -sourceOffsetY,
-        width: generationImage.width,
-        height: generationImage.height,
-        sourceWidth: fullData.width,
-        sourceHeight: fullData.height,
+        x: 0,
+        y: 0,
+        width: sourceWidth,
+        height: sourceHeight,
+        sourceWidth,
+        sourceHeight,
       };
       const generationSeed = seed ?? jobSnapshot.sourceRevision + variationSequenceRef.current;
-      const needsDiffusion =
-        mode === 'replace' || mode === 'expand' || (mode === 'fill' && prompt.trim().length > 0);
+      const needsDiffusion = mode === 'replace' || (mode === 'fill' && prompt.trim().length > 0);
       let modelPath: string | undefined;
       if (needsDiffusion) {
         if (!diffusionModelHandle) {
@@ -1222,6 +1635,11 @@ export function ContentAwareFillDialog({
         id: string;
         dataUrl: string;
         thumbnailDataUrl: string;
+        patchDataUrl: string;
+        patchWidth: number;
+        patchHeight: number;
+        patchFrame?: SourceImageRegion;
+        assetKind: 'full-output' | 'region-overlay';
         result: GenerativeEditResult;
         seed: number;
       }> = [];
@@ -1257,24 +1675,58 @@ export function ContentAwareFillDialog({
           modelPath,
           modelHandle: diffusionModelHandle ?? undefined,
         });
-        const outCanvas = document.createElement('canvas');
-        outCanvas.width = generated.imageData.width;
-        outCanvas.height = generated.imageData.height;
-        const rctx = outCanvas.getContext('2d');
-        if (!rctx) throw new Error('Canvas unavailable');
-        rctx.putImageData(generated.imageData, 0, 0);
-        const dataUrl = outCanvas.toDataURL('image/png');
+        if (!sourceRegion) throw new Error('Generated source region is unavailable');
+        const patchCanvas = renderGeneratedRegionToPatchCanvas({
+          source: generationImage,
+          result: generated,
+          mask,
+        });
+        const previewBase = previewCanvasRef.current;
+        if (!previewBase) throw new Error('Preview canvas is unavailable');
+        const previewResultCanvas = renderGeneratedRegionToPreviewCanvas({
+          preview: previewBase,
+          previewWidth,
+          previewHeight,
+          sourceWidth,
+          sourceHeight,
+          region: sourceRegion,
+          source: generationImage,
+          result: generated,
+          mask,
+        });
+        const dataUrl = previewResultCanvas.toDataURL('image/png');
+        const displayResult: GenerativeEditResult = {
+          ...generated,
+          imageData: unloadedVariationImageData(),
+          width: sourceWidth,
+          height: sourceHeight,
+          filledBounds: {
+            x:
+              sourceRegion.x +
+              (generated.filledBounds.x * sourceRegion.width) / generationImage.width,
+            y:
+              sourceRegion.y +
+              (generated.filledBounds.y * sourceRegion.height) / generationImage.height,
+            w: (generated.filledBounds.w * sourceRegion.width) / generationImage.width,
+            h: (generated.filledBounds.h * sourceRegion.height) / generationImage.height,
+          },
+        };
         generatedVariations.push({
           id: `variation-${++variationSequenceRef.current}`,
           dataUrl,
-          thumbnailDataUrl: thumbnailDataUrlFromCanvas(outCanvas),
+          thumbnailDataUrl: thumbnailDataUrlFromCanvas(previewResultCanvas),
+          patchDataUrl: patchCanvas.toDataURL('image/png'),
+          patchWidth: patchCanvas.width,
+          patchHeight: patchCanvas.height,
+          patchFrame: sourceRegion,
+          assetKind: 'region-overlay',
           // Keep only the active last candidate decoded in JS memory. Earlier
           // candidates remain fully available through their compressed data
           // URLs/assets and are rehydrated as metadata-only candidates.
           result:
             index === effectiveVariationCount - 1
-              ? generated
-              : metadataOnlyVariationResult(generated),
+              ? displayResult
+              : metadataOnlyVariationResult(displayResult),
           seed: variationSeed,
         });
       }
@@ -1283,27 +1735,51 @@ export function ContentAwareFillDialog({
       if (
         !generated ||
         !currentSnapshot ||
-        !jobControllerRef.current.complete(token, {
+        !jobControllerRef.current.isCurrent(token, {
           ...currentSnapshot,
           maskRevision: maskRevisionRef.current,
         })
       ) {
         throw new GenerativeEditError('stale', 'The source changed while generation was running.');
       }
+      userMaskDataUrl = await encodePreviewMaskAtSourceSize(
+        previewMask,
+        previewWidth,
+        previewHeight,
+        sourceWidth,
+        sourceHeight,
+        token.signal,
+      );
+      if (!isCurrentJob()) {
+        throw new GenerativeEditError('stale', 'The source changed while saving the edit mask.');
+      }
+      if (
+        !jobControllerRef.current.complete(token, {
+          ...currentSnapshot,
+          maskRevision: maskRevisionRef.current,
+        })
+      ) {
+        throw new GenerativeEditError('stale', 'The source changed while finalizing the result.');
+      }
       generationRef.current = {
         sourceSignature,
         userMaskDataUrl,
         inferenceMaskDataUrl,
-        userMaskWidth: fullData.width,
-        userMaskHeight: fullData.height,
+        userMaskWidth: sourceWidth,
+        userMaskHeight: sourceHeight,
         inferenceMaskWidth: maskWidth,
         inferenceMaskHeight: maskHeight,
-        inferenceMaskOffsetX: -sourceOffsetX,
-        inferenceMaskOffsetY: -sourceOffsetY,
+        inferenceMaskOffsetX: sourceRegion?.x ?? 0,
+        inferenceMaskOffsetY: sourceRegion?.y ?? 0,
         contextDataUrl,
         contextWidth: preparedContext.width,
         contextHeight: preparedContext.height,
         outputFrame,
+        patchDataUrl: generated.patchDataUrl,
+        patchWidth: generated.patchWidth,
+        patchHeight: generated.patchHeight,
+        patchFrame: generated.patchFrame,
+        assetKind: generated.assetKind,
         result: generated.result,
         seed: generated.seed,
       };
@@ -1321,6 +1797,7 @@ export function ContentAwareFillDialog({
       setActiveVariationId(generated.id);
       setResult(generated.result);
       setPreviewDataUrl(generated.dataUrl);
+      setIsRefiningMask(false);
       setShowOriginal(false);
       setStatus('idle');
     } catch (err) {
@@ -1338,6 +1815,7 @@ export function ContentAwareFillDialog({
     diffusionModelHandle,
     expandPadding,
     imageSrc,
+    acceptedSourceAsset,
     maskExpansion,
     maskFeather,
     modeCapability,
@@ -1346,6 +1824,8 @@ export function ContentAwareFillDialog({
     prompt,
     quality,
     sourceSignature,
+    sourceAsset,
+    overlaySources,
     negativePrompt,
     seed,
     strength,
@@ -1380,9 +1860,12 @@ export function ContentAwareFillDialog({
       const generatedFrame = generationRef.current.outputFrame;
       const sourceWidth = generatedFrame.sourceWidth || naturalSize.w || result.width;
       const sourceHeight = generatedFrame.sourceHeight || naturalSize.h || result.height;
-      const sourceAsset = sourceFill?.assetId ? currentDoc.assets?.[sourceFill.assetId] : undefined;
+      const currentSourceAsset = sourceFill?.assetId
+        ? currentDoc.assets?.[sourceFill.assetId]
+        : undefined;
       const sourceSnapshot =
-        sourceAsset ??
+        acceptedSourceAsset ??
+        currentSourceAsset ??
         createEmbeddedAsset({
           dataUrl: imageSrc,
           mimeType: 'image/png',
@@ -1433,16 +1916,21 @@ export function ContentAwareFillDialog({
                 id: 'variation-1',
                 dataUrl: previewDataUrl,
                 thumbnailDataUrl: undefined,
+                patchDataUrl: generationRef.current.patchDataUrl,
+                patchWidth: generationRef.current.patchWidth,
+                patchHeight: generationRef.current.patchHeight,
+                patchFrame: generationRef.current.patchFrame,
+                assetKind: generationRef.current.assetKind,
                 result,
                 seed: generationRef.current.seed,
               },
             ];
       const variationAssets = variationEntries.map((variation) =>
         createEmbeddedAsset({
-          dataUrl: variation.dataUrl,
+          dataUrl: variation.patchDataUrl,
           mimeType: 'image/png',
-          naturalWidth: variation.result.width,
-          naturalHeight: variation.result.height,
+          naturalWidth: variation.patchWidth,
+          naturalHeight: variation.patchHeight,
         }),
       );
       const variationThumbnailAssets = variationEntries.map((variation, index) => {
@@ -1482,6 +1970,9 @@ export function ContentAwareFillDialog({
         id: editId,
         mode,
         sourceNodeId: nodeId,
+        ...(sourceNode.generativeEditId && currentDoc.generativeEdits?.[sourceNode.generativeEditId]
+          ? { parentEditId: sourceNode.generativeEditId }
+          : {}),
         sourceAssetId: sourceSnapshot.id,
         sourceSnapshotAssetId: sourceSnapshot.id,
         sourceLocator: `asset:${sourceSnapshot.id}`,
@@ -1517,7 +2008,18 @@ export function ContentAwareFillDialog({
           createdAt: now,
           seed: variation.seed,
           settings: { ...settings, seed: variation.seed },
-          outputFrame: { ...outputFrame },
+          assetKind: variation.assetKind,
+          outputFrame: {
+            ...outputFrame,
+            ...(variation.patchFrame
+              ? {
+                  x: variation.patchFrame.x,
+                  y: variation.patchFrame.y,
+                  width: variation.patchFrame.width,
+                  height: variation.patchFrame.height,
+                }
+              : {}),
+          },
           provider: variation.result.provider,
           contextAssetId: contextAsset.id,
         })),
@@ -1544,21 +2046,32 @@ export function ContentAwareFillDialog({
         },
       };
       const accepted = replaceImageShapeContent(docWithAssets, nodeId, {
-        dataUrl: activeAsset.dataUrl,
-        assetId: activeAsset.id,
+        dataUrl: sourceFill?.src ?? sourceSnapshot.dataUrl,
+        assetId: sourceFill?.assetId ?? sourceSnapshot.id,
         generativeEditId: editId,
-        width: result.width,
-        height: result.height,
-        ...(mode === 'expand'
+        width: sourceWidth,
+        height: sourceHeight,
+        ...(activeVariation.assetKind === 'region-overlay' && activeVariation.patchFrame
           ? {
-              outputFrame: {
-                sourceOffsetX: -outputFrame.x,
-                sourceOffsetY: -outputFrame.y,
-                sourceWidth,
-                sourceHeight,
+              patch: {
+                dataUrl: activeAsset.dataUrl,
+                assetId: activeAsset.id,
+                width: activeAsset.naturalWidth,
+                height: activeAsset.naturalHeight,
+                x: activeVariation.patchFrame.x,
+                y: activeVariation.patchFrame.y,
+                frameWidth: activeVariation.patchFrame.width,
+                frameHeight: activeVariation.patchFrame.height,
+                editId,
+                variationId: activeVariation.id,
               },
             }
-          : {}),
+          : {
+              dataUrl: activeAsset.dataUrl,
+              assetId: activeAsset.id,
+              width: result.width,
+              height: result.height,
+            }),
       });
       const record = { ...recordBase, resultNodeId: nodeId };
       beginTransaction();
@@ -1591,6 +2104,7 @@ export function ContentAwareFillDialog({
     beginTransaction,
     commitTransaction,
     contextPadding,
+    acceptedSourceAsset,
     variations,
     activeVariationId,
     mode,
@@ -1631,6 +2145,11 @@ export function ContentAwareFillDialog({
         if (generationRef.current) {
           generationRef.current.result = nextActive.result;
           generationRef.current.seed = nextActive.seed;
+          generationRef.current.patchDataUrl = nextActive.patchDataUrl;
+          generationRef.current.patchWidth = nextActive.patchWidth;
+          generationRef.current.patchHeight = nextActive.patchHeight;
+          generationRef.current.patchFrame = nextActive.patchFrame;
+          generationRef.current.assetKind = nextActive.assetKind;
         }
       }
       announce(`Deleted variation ${variationNumber}`);
@@ -1782,16 +2301,21 @@ export function ContentAwareFillDialog({
               <small>
                 {mode === 'replace' || mode === 'expand' || promptNeedsDiffusion
                   ? diffusionModelHandle
-                    ? `Diffusion · ${Math.round(diffusionModelSize / 1_000_000)} MB · qualified local${diffusionResource ? ` · ${diffusionResource.backend}/${diffusionResource.architecture}` : ''}`
+                    ? `Diffusion · ${Math.round(diffusionModelSize / 1_000_000)} MB · qualified local${diffusionResource ? ` · ${diffusionResource.backend}/${diffusionResource.platform}/${diffusionResource.architecture}` : ''}`
                     : diffusionModelInstalled
                       ? 'Diffusion model installed · validation required'
                       : 'Diffusion model required · local only'
                   : quality === 'fast'
                     ? 'PatchMatch · no download'
                     : 'LaMa · stored on this device'}
+                {resourceLabel ? ` · ${resourceLabel}` : ''}
               </small>
             </span>
           </div>
+
+          <p className="caf-dialog__hint" aria-live="polite">
+            {resourceProfile.summary}
+          </p>
 
           {(mode === 'replace' || mode === 'expand' || promptNeedsDiffusion) && (
             <div className="caf-dialog__section">
@@ -1851,7 +2375,8 @@ export function ContentAwareFillDialog({
                   diffusionResource.availableBytes >= diffusionResource.requiredBytes && (
                     <>
                       {diffusionResource.tier} memory · {diffusionResource.backend}/
-                      {diffusionResource.architecture} · measured before generation.{' '}
+                      {diffusionResource.platform}/{diffusionResource.architecture} · measured
+                      before generation.{' '}
                     </>
                   )}
                 {diffusionModelHandle
@@ -2070,13 +2595,22 @@ export function ContentAwareFillDialog({
             </div>
           </div>
 
-          {quality === 'ai' && !modelAvailable && status !== 'downloading' && (
-            <div className="caf-dialog__section">
-              <Button type="button" variant="default" size="sm" onClick={handleDownload}>
-                Download AI Model (~208 MB)
-              </Button>
-              <p className="caf-dialog__hint">One-time download required. Stored locally.</p>
-            </div>
+          {quality === 'ai' &&
+            modelFitsMemory !== false &&
+            !modelAvailable &&
+            status !== 'downloading' && (
+              <div className="caf-dialog__section">
+                <Button type="button" variant="default" size="sm" onClick={handleDownload}>
+                  Download AI Model (~208 MB)
+                </Button>
+                <p className="caf-dialog__hint">One-time download required. Stored locally.</p>
+              </div>
+            )}
+          {quality === 'ai' && modelFitsMemory === false && (
+            <p className="caf-dialog__hint" role="status">
+              AI quality is unavailable on this device's current memory budget. Choose Fast / Quick
+              Cleanup; it runs without loading a model and remains suitable for small repairs.
+            </p>
           )}
 
           {status === 'downloading' && (
@@ -2223,6 +2757,20 @@ export function ContentAwareFillDialog({
             </div>
           )}
 
+          {hasResult && (
+            <div className="caf-dialog__section">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleEditMask}
+                disabled={isProcessing}
+              >
+                Edit mask
+              </Button>
+            </div>
+          )}
+
           <div className="caf-dialog__section">
             <Button
               type="button"
@@ -2289,6 +2837,7 @@ export function ContentAwareFillDialog({
                     <button
                       type="button"
                       className={`caf-dialog__variation${activeVariationId === variation.id ? ' caf-dialog__variation--active' : ''}`}
+                      disabled={isRefiningMask || isProcessing}
                       onClick={() => {
                         setActiveVariationId(variation.id);
                         setResult(variation.result);
@@ -2296,6 +2845,11 @@ export function ContentAwareFillDialog({
                         if (generationRef.current) {
                           generationRef.current.result = variation.result;
                           generationRef.current.seed = variation.seed;
+                          generationRef.current.patchDataUrl = variation.patchDataUrl;
+                          generationRef.current.patchWidth = variation.patchWidth;
+                          generationRef.current.patchHeight = variation.patchHeight;
+                          generationRef.current.patchFrame = variation.patchFrame;
+                          generationRef.current.assetKind = variation.assetKind;
                         }
                       }}
                       aria-label={`Variation ${index + 1}`}

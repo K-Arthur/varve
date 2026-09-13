@@ -46,6 +46,8 @@ function makeImage(w = 4096, h = 4096): ImageData {
   return new ImageData(new Uint8ClampedArray(w * h * 4), w, h);
 }
 
+const navigatorDeviceMemoryDescriptor = Object.getOwnPropertyDescriptor(navigator, 'deviceMemory');
+
 function stubCanvas2d(): void {
   const fakeCtx = {
     drawImage: vi.fn(),
@@ -71,6 +73,10 @@ describe('direct AI previewMaxDimension parity', () => {
     vi.resetModules();
     vi.unstubAllGlobals();
     vi.stubGlobal('Worker', undefined);
+    Object.defineProperty(navigator, 'deviceMemory', {
+      configurable: true,
+      value: 8,
+    });
     mockHeuristic.mockReset();
     mockGetModelLoader.mockReset().mockReturnValue({
       getState: () => 'ready',
@@ -88,6 +94,11 @@ describe('direct AI previewMaxDimension parity', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    if (navigatorDeviceMemoryDescriptor) {
+      Object.defineProperty(navigator, 'deviceMemory', navigatorDeviceMemoryDescriptor);
+    } else {
+      Reflect.deleteProperty(navigator, 'deviceMemory');
+    }
   });
 
   it('downscales source before model input resize on direct ONNX path', async () => {

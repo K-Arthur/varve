@@ -16,11 +16,12 @@ evidence.
 ## Decision
 
 1. **Acquire synchronously, commit deliberately.** Clipboard events are
-   snapshotted during dispatch under a typed `TransferRequest`. Async reads
-   may provide alternatives, but the initiating document, session, revision,
-   selection revision, and canvas geometry are captured and checked before an
-   import or drop commits. Fallback timers and event snapshots are keyed by the
-   operation and gesture identity.
+   snapshotted during dispatch under a typed `TransferRequest`. File > Import
+   snapshots its destination parent and canvas geometry before invoking the
+   picker. Async reads may provide alternatives, but the initiating document,
+   session, revision, selection revision, page/design canvas, and editing scope
+   are captured and checked before an import or drop commits. Fallback timers
+   and event snapshots are keyed by the operation and gesture identity.
 2. **Use one versioned Varve fragment envelope.** It carries ordered roots,
   world anchors, node closure, and resource classes the transport can validate
   and remap, including component masters, styles, paints, variable aliases,
@@ -53,7 +54,8 @@ evidence.
    representation commands never read a later selection after an await.
 
 9. **Give every asynchronous frontend operation one owner.** File-picker and
-   drop requests carry a monotonic operation ID and abort signal. Paste menu
+   drop requests carry a monotonic operation ID and abort signal; the picker
+   request owns the context captured before the dialog opens. Paste menu
    commands capture their request scope before prompts or reads. A newer
    operation may supersede an older one, but only the owner can report progress,
    clear controls, publish Import Results, or commit roots. The shared
