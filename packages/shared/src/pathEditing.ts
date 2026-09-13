@@ -31,6 +31,11 @@ export interface InsertedPathPoint<T extends EditablePathShape> {
   insertedIndex: number;
 }
 
+/** Compound-path rings after the outer ring are authored as closed holes. */
+function ringIsClosed(shape: EditablePathShape, ringIndex: number): boolean {
+  return shape.closed || ringIndex > 0;
+}
+
 /** Return a defensive ring view with the legacy aliases reconciled. */
 export function pathRings(shape: EditablePathShape): PathPoint[][] {
   if (shape.contours && shape.contours.length > 0) {
@@ -119,7 +124,7 @@ export function translateSelectedAnchors<T extends EditablePathShape>(
   if (!Number.isFinite(delta[0]) || !Number.isFinite(delta[1]) || selected.size === 0) return shape;
   const rings = pathRings(shape);
   let offset = 0;
-  const moved = rings.map((ring) => {
+  const moved = rings.map((ring, ringIndex) => {
     const next = ring.map((point, index) =>
       selected.has(offset + index)
         ? { ...point, x: point.x + delta[0], y: point.y + delta[1] }
@@ -130,7 +135,9 @@ export function translateSelectedAnchors<T extends EditablePathShape>(
     // automatic point in the affected ring after anchors move so a selected
     // neighbour cannot leave an unselected automatic tangent stale.
     return next.map((point, index) =>
-      point.mode === 'automatic' ? automaticPoint(point, next, index, shape.closed) : point,
+      point.mode === 'automatic'
+        ? automaticPoint(point, next, index, ringIsClosed(shape, ringIndex))
+        : point,
     );
   });
   return withPathRings(shape, moved);
@@ -338,7 +345,7 @@ export function setNodeModeAtIndex<T extends EditablePathShape>(
     rings[location.ringIndex]!,
     location.pointIndex,
     mode,
-    shape.closed,
+    ringIsClosed(shape, location.ringIndex),
   );
   return withPathRings(shape, rings);
 }
@@ -412,7 +419,7 @@ export function insertPointOnPath<T extends EditablePathShape>(
   const rings = pathRings(shape);
   const ring = rings[ringIndex];
   if (!ring) return null;
-  const split = splitRingSegment(ring, segmentIndex, t, shape.closed);
+  const split = splitRingSegment(ring, segmentIndex, t, ringIsClosed(shape, ringIndex));
   if (!split) return null;
   rings[ringIndex] = split.points;
   const offset = rings.slice(0, ringIndex).reduce((sum, current) => sum + current.length, 0);
@@ -502,7 +509,7 @@ export function bendPathSegment<T extends EditablePathShape>(
   const rings = pathRings(shape);
   const ring = rings[ringIndex];
   if (!ring || ring.length < 2) return shape;
-  const last = shape.closed ? ring.length - 1 : ring.length - 2;
+  const last = ringIsClosed(shape, ringIndex) ? ring.length - 1 : ring.length - 2;
   if (segmentIndex < 0 || segmentIndex > last) return shape;
   const fromIndex = segmentIndex;
   const toIndex = segmentIndex === ring.length - 1 ? 0 : segmentIndex + 1;

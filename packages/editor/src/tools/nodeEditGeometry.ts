@@ -138,7 +138,9 @@ export function findNodeEditHit(
   } | null = null;
   for (let ringIndex = 0; ringIndex < rings.length; ringIndex++) {
     const ring = rings[ringIndex]!;
-    const segmentCount = closed ? ring.length : ring.length - 1;
+    // Compound-path holes are closed even when the outer contour is open.
+    const ringClosed = closed || ringIndex > 0;
+    const segmentCount = ringClosed ? ring.length : ring.length - 1;
     for (let segmentIndex = 0; segmentIndex < segmentCount; segmentIndex++) {
       const toIndex = segmentIndex + 1 < ring.length ? segmentIndex + 1 : 0;
       const from = ring[segmentIndex];

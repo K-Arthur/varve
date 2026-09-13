@@ -81,6 +81,27 @@ describe('canonical path editing', () => {
     expect(moved.points[1]?.handleIn?.[1]).toBeLessThan(0);
   });
 
+  it('treats compound-path holes as closed rings', () => {
+    const shape: EditablePathShape = {
+      points: [point(0, 0), point(100, 0)],
+      contours: [
+        [point(0, 0), point(100, 0)],
+        [
+          { ...point(20, 20), mode: 'automatic' },
+          point(80, 20),
+          point(50, 80),
+        ],
+      ],
+      closed: false,
+    };
+    const moved = translateSelectedAnchors(shape, new Set([3]), [5, 0]);
+    expect(moved.contours?.[1]?.[0]?.handleIn).not.toBeNull();
+    expect(moved.contours?.[1]?.[0]?.handleOut).not.toBeNull();
+    const inserted = insertPointOnPath(moved, 1, 2, 0.5);
+    expect(inserted?.insertedIndex).toBe(5);
+    expect(inserted?.shape.contours?.[1]).toHaveLength(4);
+  });
+
   it('subdivides a closing segment without changing its curve', () => {
     const shape: EditablePathShape = {
       points: [point(0, 0), point(100, 0, null, [0, 80]), point(100, 100, [-80, 0], null)],

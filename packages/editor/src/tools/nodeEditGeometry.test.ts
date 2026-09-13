@@ -41,4 +41,21 @@ describe('node edit screen-space hit testing', () => {
     expect(hit && hit.kind === 'segment' ? hit.t : -1).toBeGreaterThan(0);
     expect(hit && hit.kind === 'segment' ? hit.t : 2).toBeLessThan(1);
   });
+
+  it('keeps compound holes closed when the outer contour is open', () => {
+    const rings = [
+      [point(0, 0), point(100, 0)],
+      [point(20, 20), point(80, 20), point(50, 80)],
+    ];
+    const hit = findNodeEditHit(
+      rings,
+      false,
+      [1, 0, 0, 1, 0, 0],
+      { x: 35, y: 50 },
+      (world) => world,
+    );
+    expect(hit?.kind).toBe('segment');
+    expect(hit && hit.kind === 'segment' ? hit.ringIndex : -1).toBe(1);
+    expect(hit && hit.kind === 'segment' ? hit.segmentIndex : -1).toBe(2);
+  });
 });
