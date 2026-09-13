@@ -1,6 +1,7 @@
 import { getImageFill, isImageShape } from '@varve/scene';
+import { MAX_ZOOM, MIN_ZOOM } from '@varve/shared';
 import { Icon, NumberInput, Select, Tooltip, TooltipProvider } from '@varve/ui';
-import { useSyncExternalStore } from 'react';
+import { useRef, useState, useSyncExternalStore } from 'react';
 import { AIStatusIndicator } from './components/AIStatusIndicator/AIStatusIndicator';
 import { AuditBadge } from './components/AuditBadge';
 import { DebtBadge } from './components/DebtBadge';
@@ -22,6 +23,68 @@ import { getVisibleStatusSections, type StatusSectionId } from './workspace/work
 
 interface StatusBarProps {
   onOpenPalette?: (shortcutId?: string) => void;
+}
+
+function formatZoomPercent(zoom: number): string {
+  const safeZoom = Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
+  const clamped = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, safeZoom));
+  return String(Math.round(clamped * 100 * 100) / 100);
+}
+
+function parseZoomPercent(value: string): number | null {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return null;
+  const percent = Number(trimmed);
+  if (!Number.isFinite(percent) || percent <= 0) return null;
+  return Math.min(MAX_ZOOM * 100, Math.max(MIN_ZOOM * 100, percent)) / 100;
+}
+
+function ZoomInput({ zoom, setZoom }: { zoom: number; setZoom: (value: number) => void }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const cancelRef = useRef(false);
+
+  const commit = (value: string) => {
+    const nextZoom = parseZoomPercent(value);
+    setDraft(null);
+    if (nextZoom !== null) setZoom(nextZoom);
+  };
+
+  return (
+    <input
+      id="status-zoom"
+      type="number"
+      min={MIN_ZOOM * 100}
+      max={MAX_ZOOM * 100}
+      step={0.1}
+      inputMode="decimal"
+      value={draft ?? formatZoomPercent(zoom)}
+      onChange={(e) => setDraft(e.target.value)}
+      onFocus={() => {
+        cancelRef.current = false;
+        setDraft((current) => current ?? formatZoomPercent(zoom));
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          cancelRef.current = true;
+          setDraft(null);
+          e.currentTarget.blur();
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          e.currentTarget.blur();
+        }
+      }}
+      onBlur={(e) => {
+        if (cancelRef.current) {
+          cancelRef.current = false;
+          return;
+        }
+        commit(e.currentTarget.value);
+      }}
+      aria-label={`Zoom ${formatZoomPercent(zoom)}%`}
+      className="editor-status__zoom-value"
+    />
+  );
 }
 
 export function StatusBar({ onOpenPalette }: StatusBarProps) {
@@ -51,16 +114,6 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
     () => null,
   );
   const sel = selectedNodes();
-
-  function handleZoomInput(e: React.ChangeEvent<HTMLInputElement>) {
-    const v = parseFloat(e.target.value);
-    if (!Number.isNaN(v) && v > 0) setZoom(v / 100);
-  }
-
-  function handleZoomKey(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-    if (e.key === 'Escape') (e.target as HTMLInputElement).blur();
-  }
 
   const singleSel = sel.length === 1;
   const statusSectionIds = getVisibleStatusSections(state.workspaceMode, effectiveConfig);
@@ -261,18 +314,7 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
             <label htmlFor="status-zoom" className="sr-only">
               Zoom
             </label>
-            <input
-              id="status-zoom"
-              type="number"
-              min={1}
-              max={1000}
-              step={1}
-              value={Math.round(state.zoom * 100)}
-              onChange={handleZoomInput}
-              onKeyDown={handleZoomKey}
-              aria-label={`Zoom ${Math.round(state.zoom * 100)}%`}
-              className="editor-status__zoom-value"
-            />
+            <ZoomInput zoom={state.zoom} setZoom={setZoom} />
             <span aria-hidden>%</span>
             <Tooltip label="Zoom in" shortcut={sc('zoomIn')}>
               <button

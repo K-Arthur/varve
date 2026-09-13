@@ -1,7 +1,7 @@
 // COMPLEXITY: 275 cyclo (over ceiling 200) — see Phase 5 of architecture-health-remediation-2026-07-26.md
 
 import { adoptBrowserFileHandle, contentHash } from '@varve/platform';
-import { VARVE_URLS } from '@varve/shared';
+import { MAX_ZOOM, MIN_ZOOM, VARVE_URLS } from '@varve/shared';
 import {
   AlertDialog,
   closeAllOverlays,
@@ -73,6 +73,78 @@ function ariaShortcut(binding: {
 }
 
 const INSTALL_DISMISS_KEY = 'strata-install-desktop-dismissed';
+
+function formatZoomPercent(zoom: number): string {
+  const safeZoom = Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
+  const clamped = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, safeZoom));
+  return String(Math.round(clamped * 100 * 100) / 100);
+}
+
+function parseZoomPercent(value: string): number | null {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return null;
+  const percent = Number(trimmed);
+  if (!Number.isFinite(percent) || percent <= 0) return null;
+  return Math.min(MAX_ZOOM * 100, Math.max(MIN_ZOOM * 100, percent)) / 100;
+}
+
+function ZoomInput({
+  id,
+  className,
+  zoom,
+  setZoom,
+}: {
+  id: string;
+  className: string;
+  zoom: number;
+  setZoom: (value: number) => void;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const cancelRef = useRef(false);
+
+  const commit = (value: string) => {
+    const nextZoom = parseZoomPercent(value);
+    setDraft(null);
+    if (nextZoom !== null) setZoom(nextZoom);
+  };
+
+  return (
+    <input
+      id={id}
+      className={className}
+      type="number"
+      min={MIN_ZOOM * 100}
+      max={MAX_ZOOM * 100}
+      step={0.1}
+      inputMode="decimal"
+      value={draft ?? formatZoomPercent(zoom)}
+      onChange={(e) => setDraft(e.target.value)}
+      onFocus={() => {
+        cancelRef.current = false;
+        setDraft((current) => current ?? formatZoomPercent(zoom));
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          cancelRef.current = true;
+          setDraft(null);
+          e.currentTarget.blur();
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          e.currentTarget.blur();
+        }
+      }}
+      onBlur={(e) => {
+        if (cancelRef.current) {
+          cancelRef.current = false;
+          return;
+        }
+        commit(e.currentTarget.value);
+      }}
+      aria-label={`Zoom ${formatZoomPercent(zoom)}%`}
+    />
+  );
+}
 
 function safeLocalStorageGet(key: string): string | null {
   try {
@@ -2258,18 +2330,6 @@ export function Menubar({
     getTheme: getThemePreference,
   });
 
-  const handleZoomInput = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const v = parseFloat(e.target.value);
-      if (!Number.isNaN(v) && v > 0) setZoom(v / 100);
-    },
-    [setZoom],
-  );
-
-  const handleZoomKey = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' || e.key === 'Escape') (e.target as HTMLInputElement).blur();
-  }, []);
-
   // ─── keyboard navigation ──────────────────────────────────────────────
 
   const currentSubmenuItems = useMemo(() => {
@@ -2581,17 +2641,11 @@ export function Menubar({
           <label htmlFor="menubar-zoom" className="sr-only">
             Zoom
           </label>
-          <input
+          <ZoomInput
             id="menubar-zoom"
             className="editor-menubar__zoom-input"
-            type="number"
-            min={1}
-            max={1000}
-            step={1}
-            value={Math.round(state.zoom * 100)}
-            onChange={handleZoomInput}
-            onKeyDown={handleZoomKey}
-            aria-label={`Zoom ${Math.round(state.zoom * 100)}%`}
+            zoom={state.zoom}
+            setZoom={setZoom}
           />
           <span className="editor-menubar__zoom-unit">%</span>
         </div>

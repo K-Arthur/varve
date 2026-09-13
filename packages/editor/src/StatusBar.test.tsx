@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { StatusBar } from './StatusBar';
 import {
@@ -185,5 +185,27 @@ describe('StatusBar section gating', () => {
     expect(screen.queryByRole('button', { name: 'Zoom out' })).toBeNull();
     expect(screen.queryByRole('combobox', { name: /Units/ })).toBeNull();
     expect(screen.queryByText('Hero Card')).toBeNull();
+  });
+
+  it('keeps an in-progress zoom edit stable and rejects malformed values', () => {
+    const editor = baseEditor();
+    useEditorMock.mockReturnValue(editor);
+    const { rerender } = render(<StatusBar />);
+    const zoom = screen.getByRole('spinbutton', { name: 'Zoom 100%' }) as HTMLInputElement;
+
+    fireEvent.focus(zoom);
+    fireEvent.change(zoom, { target: { value: '12.5' } });
+    editor.state.zoom = 2;
+    rerender(<StatusBar />);
+    expect(zoom.value).toBe('12.5');
+
+    fireEvent.blur(zoom);
+    expect(editor.setZoom).toHaveBeenCalledWith(0.125);
+
+    fireEvent.focus(zoom);
+    fireEvent.change(zoom, { target: { value: 'not-a-number' } });
+    fireEvent.blur(zoom);
+    expect(editor.setZoom).toHaveBeenCalledTimes(1);
+    expect(zoom.value).toBe('200');
   });
 });
