@@ -1766,6 +1766,15 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   ) => void;
   toggleTimelinePanel: () => void;
   toggleHistoryPanel: () => void;
+  /**
+   * Set a panel's visibility explicitly and persist it as a per-workspace
+   * override in one transaction. Used by the customize dialog and named
+   * layouts so the live surface changes immediately, not on the next switch.
+   */
+  setPanelVisible: (
+    panelId: import('./workspace/workspaceTypes').PanelId,
+    visible: boolean,
+  ) => void;
   addTimelineMarker: (timelineId: string, name: string, progress: number) => void;
   removeTimelineMarker: (timelineId: string, markerId: string) => void;
   renameTimelineMarker: (timelineId: string, markerId: string, name: string) => void;
@@ -4082,6 +4091,31 @@ export function EditorProvider({
         const next = !state.historyPanelVisible;
         patch({ historyPanelVisible: next });
         recordPanelVisibilityOverride(state.workspaceMode, 'history', next);
+      },
+      /**
+       * Explicit panel visibility for surfaces that are projected into
+       * EditorState (the customize dialog and named layouts). Recording the
+       * preference alone only changes the next projection; the live surface
+       * must be patched in the same transaction.
+       */
+      setPanelVisible: (panelId, visible) => {
+        const stateFieldByPanel: Partial<Record<typeof panelId, keyof EditorState>> = {
+          layers: 'leftPanelVisible',
+          inspector: 'rightPanelVisible',
+          timeline: 'timelinePanelVisible',
+          library: 'libraryPanelVisible',
+          codegen: 'codegenPanelVisible',
+          logo: 'logoPanelVisible',
+          history: 'historyPanelVisible',
+        };
+        const field = stateFieldByPanel[panelId];
+        if (field) {
+          patch({ [field]: visible } as Partial<EditorState>);
+        }
+        recordPanelVisibilityOverride(state.workspaceMode, panelId, visible);
+        if (panelId === 'layers') updateSettings({ panel: { leftPanelVisible: visible } });
+        else if (panelId === 'inspector') updateSettings({ panel: { rightPanelVisible: visible } });
+        else if (panelId === 'logo') updateSettings({ panel: { logoPanelVisible: visible } });
       },
       restoreAllPanels: () => {
         // Recovery path for accidentally hidden panels: show every panel the

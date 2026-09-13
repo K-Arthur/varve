@@ -102,6 +102,32 @@ describe('WorkspaceCustomizeDialog', () => {
     expect((historyToggle as HTMLInputElement).checked).toBe(false);
   });
 
+  it('applies a panel toggle to the live editor state immediately', async () => {
+    let editor: ReturnType<typeof useEditor> | undefined;
+    function Fixture() {
+      editor = useEditor();
+      return <WorkspaceCustomizeDialog open onClose={() => {}} />;
+    }
+
+    render(
+      <EditorProvider>
+        <Fixture />
+      </EditorProvider>,
+    );
+    await waitFor(() => expect(editor).toBeDefined());
+    if (!editor) throw new Error('editor context was not mounted');
+    expect(editor.state.historyPanelVisible).toBe(false);
+
+    // The override alone only changes the next projection; the control must
+    // change the live surface in the same interaction.
+    const dialog = screen.getByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: /History/ }));
+    await waitFor(() => expect(editor?.state.historyPanelVisible).toBe(true));
+
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: /History/ }));
+    await waitFor(() => expect(editor?.state.historyPanelVisible).toBe(false));
+  });
+
   it('filters tools by registry label and moves an active hidden tool to Select', async () => {
     let editor: ReturnType<typeof useEditor> | undefined;
     function Fixture() {

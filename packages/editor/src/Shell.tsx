@@ -74,6 +74,7 @@ import { UpscaleDialogHost } from './components/Upscale/UpscaleDialogHost';
 import { LifecycleProvider } from './lifecycle';
 import { buildCanvasContextMenuItems } from './menu/canvasContextMenu';
 import './components/Shell/shellStyles.css';
+import { ManageLayoutsDialog } from './components/ManageLayoutsDialog';
 import { SoftProofOverlay } from './components/SoftProofOverlay';
 import { SpreadSettings } from './components/SpreadSettings/SpreadSettings';
 import { StateMachinePanel } from './components/StateMachinePanel';
@@ -359,6 +360,7 @@ function ShellInner({
   const [inspectorVisible, setInspectorVisible] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [workspaceCustomizeOpen, setWorkspaceCustomizeOpen] = useState(false);
+  const [manageLayoutsOpen, setManageLayoutsOpen] = useState(false);
   const [iconBrowserOpen, setIconBrowserOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<
     | 'general'
@@ -375,8 +377,8 @@ function ShellInner({
   const findReplaceLayerRef = useRef<FindReplaceLayerHandle | null>(null);
   const onboardingLayerRef = useRef<OnboardingLayerHandle | null>(null);
 
-  const { shellStyle, widths, setWidth } = usePanelWidths();
-  useWorkspacePanelWidths(editor.state.workspaceMode, widths, setWidth);
+  const { shellStyle, widths, desiredWidths, setWidth } = usePanelWidths();
+  useWorkspacePanelWidths(editor.state.workspaceMode, desiredWidths, setWidth);
 
   // Crash-center deep link: "Privacy and diagnostics settings" in the crash
   // dialogs opens this dialog on the privacy section.
@@ -430,6 +432,7 @@ function ShellInner({
       onImportFile: fileImport.openPicker,
       onQuickConvert: () => window.dispatchEvent(new Event('varve:open-quick-convert')),
       onCustomizeWorkspace: () => setWorkspaceCustomizeOpen(true),
+      onManageWorkspaceLayouts: () => setManageLayoutsOpen(true),
       onResizeImage: editor.openImageResizeDialog,
       onBringAllPanelsToCurrentDisplay: bringAllPanelsToCurrentDisplay,
       onResetPanelWindowLayout: resetPanelWindowLayout,
@@ -1021,6 +1024,8 @@ function ShellInner({
           open={workspaceCustomizeOpen}
           onClose={() => setWorkspaceCustomizeOpen(false)}
         />
+        {/* Named layouts: save/apply/recover single-window arrangements */}
+        <ManageLayoutsDialog open={manageLayoutsOpen} onClose={() => setManageLayoutsOpen(false)} />
         {/* Content-Aware Fill dialog */}
         {editor.state.cafDialogNodeId && (
           <ContentAwareFillDialog

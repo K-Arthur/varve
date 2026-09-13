@@ -1,10 +1,10 @@
 /**
  * WorkspaceCustomizeDialog — customize the current workspace's panels,
- * inspector tabs, and status sections.
+ * editor chrome, toolbar tools, inspector tabs, and status sections.
  *
- * Opens from the workspace overflow menu or the View menu. Changes are
- * applied immediately and persisted per-workspace. A "Reset" button
- * reverts to built-in defaults.
+ * Opens from View > Customize Workspace… or the command palette. Changes are
+ * applied immediately and persisted per-workspace. A "Reset" button reverts
+ * to built-in defaults (and leaves a recoverable snapshot in Manage Layouts).
  */
 import { Dialog, SearchField } from '@varve/ui';
 import { useCallback, useMemo, useState } from 'react';
@@ -16,13 +16,16 @@ import {
   useWorkspaceCustomizations,
 } from '../workspace/useWorkspaceConfig';
 import {
+  setChromeOverride,
   setInspectorTabOverride,
-  setPanelOverride,
   setStatusSectionOverride,
   setToolbarToolOverride,
   updateWorkspacePreferences,
 } from '../workspace/workspaceStore';
 import {
+  CHROME_CONFIG_KEYS,
+  CHROME_CONFIG_LABELS,
+  type ChromeConfig,
   getToolbarToolIds,
   getWorkspaceConfig,
   type InspectorTabId,
@@ -39,7 +42,8 @@ export function WorkspaceCustomizeDialog({
   open: boolean;
   onClose: () => void;
 }) {
-  const { state, setTool, resetWorkspaceToDefault, resetAllWorkspacesToDefaults } = useEditor();
+  const { state, setTool, setPanelVisible, resetWorkspaceToDefault, resetAllWorkspacesToDefaults } =
+    useEditor();
   const effectiveConfig = useEffectiveWorkspaceConfig(state.workspaceMode);
   const customizations = useWorkspaceCustomizations();
   const mode = state.workspaceMode;
@@ -49,9 +53,11 @@ export function WorkspaceCustomizeDialog({
 
   const handleTogglePanel = useCallback(
     (panelId: PanelId, visible: boolean) => {
-      updateWorkspacePreferences((prefs) => setPanelOverride(prefs, mode, panelId, { visible }));
+      // Explicit live set, not just the stored override: the dialog must
+      // visibly change the surface (and record the preference) at once.
+      setPanelVisible(panelId, visible);
     },
-    [mode],
+    [setPanelVisible],
   );
 
   const handleToggleInspectorTab = useCallback(
@@ -79,6 +85,13 @@ export function WorkspaceCustomizeDialog({
       updateWorkspacePreferences((prefs) => setToolbarToolOverride(prefs, mode, toolId, visible));
     },
     [mode, setTool, state.tool],
+  );
+
+  const handleToggleChrome = useCallback(
+    (key: keyof ChromeConfig, visible: boolean) => {
+      updateWorkspacePreferences((prefs) => setChromeOverride(prefs, mode, key, visible));
+    },
+    [mode],
   );
 
   const handleReset = useCallback(() => {
@@ -147,6 +160,24 @@ export function WorkspaceCustomizeDialog({
                 onChange={(e) => handleTogglePanel(panel.id, e.target.checked)}
               />
               <span>{panel.label}</span>
+            </label>
+          ))}
+        </section>
+
+        {/* Editor chrome */}
+        <section className="workspace-customize__section">
+          <h3>Editor Chrome</h3>
+          <p className="workspace-customize__hint">
+            Chrome stays reachable through the menu and command palette when hidden.
+          </p>
+          {CHROME_CONFIG_KEYS.map((key) => (
+            <label key={key} className="workspace-customize__toggle">
+              <input
+                type="checkbox"
+                checked={effectiveConfig[key]}
+                onChange={(e) => handleToggleChrome(key, e.target.checked)}
+              />
+              <span>{CHROME_CONFIG_LABELS[key]}</span>
             </label>
           ))}
         </section>

@@ -78,15 +78,32 @@ export function ShortcutPalette({
     setTimeout(() => setFeedback(null), 2000);
   }, []);
 
-  const all = useMemo(
-    () =>
-      Object.entries(SHORTCUT_DEFS).map(([id, def]) => ({
-        id,
-        def: { ...def, id } as ShortcutDef,
-      })),
+  const all = useMemo(() => {
+    const entries = Object.entries(SHORTCUT_DEFS).map(([id, def]) => ({
+      id,
+      def: { ...def, id } as ShortcutDef,
+    }));
+    // Registry-only commands have no shortcut definition, but command search
+    // must still find them (View > Customize Workspace, Manage Layouts, panel
+    // recovery, …). Synthesize a non-remappable row; dispatch goes through the
+    // canonical registry handler.
+    const known = new Set(entries.map((entry) => entry.id));
+    for (const action of getActionRegistry().getAll()) {
+      if (known.has(action.id) || action.placeholder === true) continue;
+      entries.push({
+        id: action.id,
+        def: {
+          id: action.id,
+          binding: action.shortcut ?? { key: '' },
+          label: action.label,
+          category: action.category.charAt(0).toUpperCase() + action.category.slice(1),
+          remappable: false,
+        } as ShortcutDef,
+      });
+    }
+    return entries;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [reloadKey],
-  );
+  }, [reloadKey]);
 
   const grouped = useMemo(() => {
     const groups: Record<string, typeof all> = {};
@@ -491,38 +508,42 @@ export function ShortcutPalette({
                           {binding?.key ? formatShortcut(binding) : '—'}
                         </span>
                       )}
-                      <Tooltip label="Remap shortcut">
-                        <button
-                          type="button"
-                          className="shortcut-palette__btn"
-                          onClick={(e) => handleRemapClick(id, e)}
-                          aria-label="Remap shortcut"
-                          aria-keyshortcuts="Alt+Enter"
-                          tabIndex={-1}
-                        >
-                          <Icon name="Keyboard" />
-                        </button>
-                      </Tooltip>
-                      <Tooltip
-                        label="Reset to default"
-                        disabledReason={
-                          isRemapping ? 'Wait until the current remap completes' : undefined
-                        }
-                      >
-                        <button
-                          type="button"
-                          className="shortcut-palette__btn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleResetOne(id);
-                          }}
-                          aria-label="Reset to default"
-                          aria-keyshortcuts="Alt+Backspace"
-                          tabIndex={-1}
-                        >
-                          <SolidIcon name={SOLID_CHROME_ICONS.rotateCcw} />
-                        </button>
-                      </Tooltip>
+                      {def.remappable !== false && (
+                        <>
+                          <Tooltip label="Remap shortcut">
+                            <button
+                              type="button"
+                              className="shortcut-palette__btn"
+                              onClick={(e) => handleRemapClick(id, e)}
+                              aria-label="Remap shortcut"
+                              aria-keyshortcuts="Alt+Enter"
+                              tabIndex={-1}
+                            >
+                              <Icon name="Keyboard" />
+                            </button>
+                          </Tooltip>
+                          <Tooltip
+                            label="Reset to default"
+                            disabledReason={
+                              isRemapping ? 'Wait until the current remap completes' : undefined
+                            }
+                          >
+                            <button
+                              type="button"
+                              className="shortcut-palette__btn"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleResetOne(id);
+                              }}
+                              aria-label="Reset to default"
+                              aria-keyshortcuts="Alt+Backspace"
+                              tabIndex={-1}
+                            >
+                              <SolidIcon name={SOLID_CHROME_ICONS.rotateCcw} />
+                            </button>
+                          </Tooltip>
+                        </>
+                      )}
                     </div>
                   );
                 })}
