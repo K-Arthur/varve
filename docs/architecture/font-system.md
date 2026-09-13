@@ -127,7 +127,12 @@ the chooser opens. A committed choice updates matching rich runs and shared
 text styles in one history transaction, clears stale identity for a family-only
 choice, and records the original family/reference in manifest replacement
 history. Closing the chooser leaves the document untouched. A full layout
-geometry preview and restore-original command are still pending.
+geometry preview is still pending. When a replacement has unambiguous
+provenance, the row also exposes **Restore**; it opens a modal preview with the
+current/original family, affected character/layer counts, and wrapping warning.
+Cancel and Escape leave history untouched, while confirmation restores the
+recorded family/reference in one transaction and removes only that provenance
+entry. Ambiguous family-only history deliberately has no restore action.
 
 ## Discovery and privacy
 
