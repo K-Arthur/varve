@@ -19,5 +19,9 @@ varve-effects = { path = "../varve-effects" }
 wgpu = { version = "30", default-features = false, features = ["std", "wgsl", "vulkan", "metal", "dx12"] }
 pollster = "0.4"
 
+[dev-dependencies]
+varve-upscale = { path = "../varve-upscale" }
+image = { version = "0.25", default-features = false, features = ["png"] }
+
 [lints]
 workspace = true

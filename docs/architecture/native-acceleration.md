@@ -134,8 +134,15 @@ placement is observed.
 ```bash
 cargo test -p varve-accel
 cargo run --release -p varve-accel --example gpu_effect_bench
+cargo run --release -p varve-accel --example gpu_resample_bench
+cargo run --release -p varve-accel --example gpu_visual_report
 cargo run --release -p varve-effects --example effect_cost
 ```
+
+`gpu_visual_report` writes CPU/GPU pairs and an amplified (24×) difference
+image to `reports/native-gpu/` for human inspection; the RGB-split difference
+is fully black and the resample difference is limited to the ≤1 LSB hairlines
+reported below.
 
 Measured on CachyOS / RADV RENOIR (Ryzen 3 5300U), 2026-09-13:
 

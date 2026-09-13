@@ -3417,10 +3417,12 @@ dependencies = [
 name = "varve-accel"
 version = "0.2.1"
 dependencies = [
+ "image",
  "pollster",
  "serde",
  "serde_json",
  "varve-effects",
+ "varve-upscale",
  "wgpu",
 ]
 

@@ -318,7 +318,11 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
 
   useEffect(() => {
     getEnvironmentCapabilities().then((caps) => {
-      setHasGpuAccel(caps.hasWebGPU || caps.hasWebGL || caps.isTauri);
+      // Browser-only GPU signal. Native ONNX inference in the desktop app
+      // runs on the CPU, and a native GPU is not used by these preview
+      // kernels; `aiAvailable` separately suppresses WASM warnings when the
+      // native provider can run the model.
+      setHasGpuAccel(caps.hasWebGPU || caps.hasWebGL);
     });
   }, []);
 
@@ -406,7 +410,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
 
   const handleDownload = (modelId = requiredModelId) => {
     // Show a warning before downloading AI Quality on environments without GPU
-    if (method === 'ai-quality' && !hasGpuAccel) {
+    if (method === 'ai-quality' && !hasGpuAccel && !aiAvailable) {
       announce(
         'This model requires significant memory. Download it now, but inference may fail without GPU acceleration on this device.',
       );
@@ -673,7 +677,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                   value: 'ai-quality',
                   label: `High quality — fine details (AI High Quality)${
                     !aiAvailable ? ' (download required)' : ''
-                  }${!wasmModelSafe && !hasGpuAccel ? ' — may need GPU' : ''}`,
+                  }${!wasmModelSafe && !hasGpuAccel && !aiAvailable ? ' — may need GPU' : ''}`,
                 },
               ]}
               onChange={(v) => setMethod(v as RemovalMethod)}
@@ -704,7 +708,8 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
           {(() => {
             const info = getModelInfo(method);
             if (!info) return null;
-            const needsGpuWarn = info.gpuRecommended && method === 'ai-quality' && !hasGpuAccel;
+            const needsGpuWarn =
+              info.gpuRecommended && method === 'ai-quality' && !hasGpuAccel && !aiAvailable;
             return (
               <div className="insp-model-info">
                 <p className="insp-hint">
@@ -718,13 +723,17 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                     or fail on some systems.
                   </p>
                 )}
-                {method === 'ai-quality' && !wasmModelSafe && !hasGpuAccel && !needsGpuWarn && (
-                  <p className="insp-hint insp-hint--warn" role="status">
-                    This model exceeds the safe WASM memory limit without GPU acceleration. The AI
-                    Balanced model will be used as fallback if AI Quality fails. Consider switching
-                    to AI Balanced for reliable results.
-                  </p>
-                )}
+                {method === 'ai-quality' &&
+                  !wasmModelSafe &&
+                  !hasGpuAccel &&
+                  !aiAvailable &&
+                  !needsGpuWarn && (
+                    <p className="insp-hint insp-hint--warn" role="status">
+                      This model exceeds the safe WASM memory limit without GPU acceleration. The AI
+                      Balanced model will be used as fallback if AI Quality fails. Consider
+                      switching to AI Balanced for reliable results.
+                    </p>
+                  )}
               </div>
             );
           })()}

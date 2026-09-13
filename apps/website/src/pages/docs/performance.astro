@@ -76,7 +76,7 @@ import { sitePath } from '../../lib/siteUrl';
         <ul>
           <li><strong>Settled and exported output:</strong> a blurred or scaled preview never becomes the file. Saved documents, exports, and print output render at full fidelity.</li>
           <li><strong>Your document:</strong> the profile changes rendering cost, not geometry, text, effects, or undo history.</li>
-          <li><strong>WebGPU or NPU access:</strong> Canvas2D remains authoritative. WebGPU is used only after an adapter and device probe succeeds; the Chromebook NPU is not exposed to the browser or the Linux container and is never used by Varve.</li>
+          <li><strong>Presentation and compute are separate:</strong> Canvas2D remains authoritative for the canvas. Browser WebGPU and native desktop GPU compute are used only after an adapter or device probe succeeds; native compute is limited to offscreen effects and resampling. A device NPU is never used — it is not exposed to the browser or the Linux container, and no NPU provider runtime ships with Varve.</li>
           <li><strong>Manual quality control:</strong> there is no user-facing render-scale slider. Selection is measured from actual frame time; a manual override would duplicate the measured authority. This is a deliberate choice and may be revisited with real device data.</li>
         </ul>
       </section>
