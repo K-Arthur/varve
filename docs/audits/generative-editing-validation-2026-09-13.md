@@ -92,3 +92,15 @@ Fill, and Expand remain capability-gated until a model/runtime clears the
 frozen photographic quality gate. Linux x86_64 promptless reconstruction is
 the available local path; Windows, macOS, ARM, Chromebook, 4-GB, cancellation,
 portability, and complete 24-photo/32-task evidence remain outstanding.
+
+The official component conversion follow-up also completed its isolated
+streaming conversion, but the first generated GGUF did not carry the
+architecture/name form required by the standalone loader. A temporary loader
+rebuild was intentionally stopped when concurrent validation work reduced the
+host to about 1 GiB available memory; it did not change repository files or
+qualify a model. The conversion evidence and checksum are recorded in the
+[model comparison report](generative-inpainting-model-comparison-2026-09-13.md).
+
+The attempted E2E test commit was blocked by the unrelated shared
+`typecheck:e2e` errors in `packages/engine/src/mockup/cylinderWarp.ts`,
+`packages/scene/src/mockup/validate.ts`, and `packages/scene/src/shapeBuilder.ts`.

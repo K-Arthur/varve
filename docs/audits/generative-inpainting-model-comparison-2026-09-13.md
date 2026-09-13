@@ -104,6 +104,22 @@ compatibility do not establish runtime compatibility. The raw-component path
 is rejected until a supervised conversion step and a fresh qualification run
 are available.
 
+## Supervised conversion follow-up
+
+The three official component files were converted with the pinned
+`stable-diffusion.cpp` `6b3edaa` CLI in an isolated `/var/tmp` workspace. The
+streaming conversion completed successfully in 22.15 seconds and produced a
+2,132,618,336-byte F16 GGUF (SHA-256
+`6ca6a1830652f2af65abb10a6c3d033cf4fea3655b5f8497e61b4086b1f840ff`). A first
+load attempt failed before inference because the standalone converter emitted
+the `text_encoders.clip_l.*` component namespace without the architecture
+metadata/name form required by the SD 1.5 loader (`get sd version from file
+failed`). A temporary loader adjustment was prepared to force the known SD 1.5
+inpainting architecture and canonicalize the CLIP prefix, but the rebuild was
+stopped when concurrent repository validation jobs reduced the host to about
+1 GiB available memory. No prompt-quality conclusion is drawn from this
+partial conversion follow-up, and the artifact remains outside the repository.
+
 ## Product consequence
 
 Prompt-conditioned Fill, Replace, and Expand remain capability-gated. The
