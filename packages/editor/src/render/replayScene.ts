@@ -15,21 +15,12 @@ import {
   acquireMaskSurface,
   adjustmentsToFilters,
   applyAlphaSpread,
-  applyBackgroundBlurBackdrop,
-  applyChromaticAberration,
-  applyDepthBlur,
   applyFilterWithCompositing,
-  applyGlassMaterialBackdrop,
-  applyGlitch,
   applyMaskAlpha,
-  applySpatialBlur,
   buildInnerGlowImage,
   buildOuterGlowImage,
   CompositeCanvas,
-  computeScreenBounds,
   createRasterSurface,
-  deserializeDepthMap,
-  type EffectMaskResolver,
   type EffectQuality,
   type FilterIR,
   gaussianBlurSeparable,
@@ -40,7 +31,6 @@ import {
   type ReplayTarget,
   releaseMaskSurface,
   replayIr,
-  resizeDepthMap,
   totalEffectExpansion,
   traceSceneNodeOutline,
 } from '@varve/engine';
@@ -50,6 +40,7 @@ import {
   activeSmartFilters,
   effectivePaintOrder,
   effectPadding,
+  getFrequencySeparationState,
   isLiveBooleanNode,
   resolveAdjustmentScope,
 } from '@varve/scene';
@@ -60,6 +51,12 @@ import {
   requiresLeafMaskReplay,
 } from '../canvas/maskReplay';
 import { nodeWorldTransform } from '../scene/world';
+import {
+  applyGroupContentEffects as applyStagedGroupContentEffects,
+  compositeGroupBackdropEffect as compositeStagedGroupBackdropEffect,
+  createEffectMaskResolver,
+  createGroupEffectTargetItem,
+} from './groupEffectStages';
 import { alphaBounds } from './surfaceBounds';
 import {
   documentTreatmentSpaceForCapture,
@@ -84,42 +81,40 @@ function setMatrix(context: SceneContext, matrix: DOMMatrix): void {
   context.setTransform(matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f);
 }
 
-function traceEffectVectorMask(
-  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
-  vector: {
-    points: readonly {
-      x: number;
-      y: number;
-      handleIn?: readonly [number, number] | null;
-      handleOut?: readonly [number, number] | null;
-    }[];
-    closed: boolean;
-    fillRule: 'nonzero' | 'evenodd';
-  },
-): void {
-  const first = vector.points[0];
-  if (!first) return;
-  ctx.beginPath();
-  ctx.moveTo(first.x, first.y);
-  for (let index = 1; index < vector.points.length; index++) {
-    const point = vector.points[index]!;
-    const previous = vector.points[index - 1]!;
-    if (previous.handleOut || point.handleIn) {
-      ctx.bezierCurveTo(
-        previous.handleOut?.[0] ?? previous.x,
-        previous.handleOut?.[1] ?? previous.y,
-        point.handleIn?.[0] ?? point.x,
-        point.handleIn?.[1] ?? point.y,
-        point.x,
-        point.y,
-      );
-    } else {
-      ctx.lineTo(point.x, point.y);
-    }
-  }
-  if (vector.closed) ctx.closePath();
-  ctx.fillStyle = 'rgba(255,255,255,1)';
-  ctx.fill(vector.fillRule);
+type BoundsRect = { x: number; y: number; w: number; h: number };
+
+function transformedBounds(rect: BoundsRect, transform: readonly number[]): BoundsRect {
+  const a = transform[0] ?? 1;
+  const b = transform[1] ?? 0;
+  const c = transform[2] ?? 0;
+  const d = transform[3] ?? 1;
+  const e = transform[4] ?? 0;
+  const f = transform[5] ?? 0;
+  const corners: Array<[number, number]> = [
+    [rect.x, rect.y],
+    [rect.x + rect.w, rect.y],
+    [rect.x + rect.w, rect.y + rect.h],
+    [rect.x, rect.y + rect.h],
+  ];
+  const points: Array<[number, number]> = corners.map(([x, y]) => [
+    a * x + c * y + e,
+    b * x + d * y + f,
+  ]);
+  const xs = points.map(([x]) => x);
+  const ys = points.map(([, y]) => y);
+  const minX = Math.min(...xs);
+  const minY = Math.min(...ys);
+  const maxX = Math.max(...xs);
+  const maxY = Math.max(...ys);
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+}
+
+function unionBounds(left: BoundsRect, right: BoundsRect): BoundsRect {
+  const minX = Math.min(left.x, right.x);
+  const minY = Math.min(left.y, right.y);
+  const maxX = Math.max(left.x + left.w, right.x + right.w);
+  const maxY = Math.max(left.y + left.h, right.y + right.h);
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 }
 
 // ── Group-level effects (parity with the live canvas) ─────────────────────────
@@ -346,241 +341,6 @@ function applyGroupInsetEffect(
   ctx.putImageData(dst, 0, 0);
 }
 
-type GroupBackdropEffect = Extract<Effect, { type: 'backgroundBlur' | 'glassMaterial' }>;
-type EngineChromaticEffect = Parameters<typeof applyChromaticAberration>[3];
-type EngineGlitchEffect = Parameters<typeof applyGlitch>[3];
-type GroupContentEffect = Extract<
-  Effect,
-  {
-    type:
-      | 'layerBlur'
-      | 'depthBlur'
-      | 'gaussianBlur'
-      | 'fieldBlur'
-      | 'irisBlur'
-      | 'tiltShiftBlur'
-      | 'pathBlur'
-      | 'spinBlur'
-      | 'chromaticAberration'
-      | 'glitch';
-  }
->;
-
-function isGroupContentEffect(effect: Effect): effect is GroupContentEffect {
-  return (
-    effect.type === 'layerBlur' ||
-    effect.type === 'depthBlur' ||
-    effect.type === 'gaussianBlur' ||
-    effect.type === 'fieldBlur' ||
-    effect.type === 'irisBlur' ||
-    effect.type === 'tiltShiftBlur' ||
-    effect.type === 'pathBlur' ||
-    effect.type === 'spinBlur' ||
-    effect.type === 'chromaticAberration' ||
-    effect.type === 'glitch'
-  );
-}
-
-/**
- * Apply content-stage effects to the already-composited group surface.
- *
- * A group effect is not an item in the flattened render IR, so routing it
- * through replayIr would either paint the children twice or apply the effect
- * to each child independently. Keeping the stage here preserves the authored
- * group boundary while reusing the engine's canonical pixel operations.
- */
-function applyGroupContentEffects(
-  documentModel: Document,
-  gCanvas: CompositeCanvas,
-  effects: readonly Effect[],
-): void {
-  for (const effect of effects) {
-    if (!effect.visible || !isGroupContentEffect(effect)) continue;
-    if (effect.type === 'layerBlur') {
-      try {
-        gCanvas.applyBlur(effect.radius);
-      } catch {
-        // A refused readback leaves the authoritative pre-effect surface.
-      }
-      continue;
-    }
-    if (effect.type === 'depthBlur') {
-      const resource = documentModel.depthMaps?.[effect.depthMapId];
-      if (!resource) continue;
-      try {
-        const input = gCanvas.getImageData(0, 0, gCanvas.width, gCanvas.height);
-        const decoded = deserializeDepthMap(resource);
-        const depthMap = resizeDepthMap(decoded, input.width, input.height);
-        gCanvas.putImageData(
-          applyDepthBlur(input, depthMap, {
-            blurAmount: effect.blurStrength,
-            focalDepth: effect.focusDepth,
-            transitionRange: effect.focusRange * Math.max(0, effect.falloff),
-            invert: effect.invert,
-            edgeProtection: effect.edgeProtection,
-          }),
-          0,
-          0,
-        );
-      } catch {
-        // A missing/corrupt depth resource must not blank the group. The
-        // unmodified surface remains the safe, visible rendering fallback.
-      }
-      continue;
-    }
-    if (
-      effect.type === 'gaussianBlur' ||
-      effect.type === 'fieldBlur' ||
-      effect.type === 'irisBlur' ||
-      effect.type === 'tiltShiftBlur' ||
-      effect.type === 'pathBlur' ||
-      effect.type === 'spinBlur'
-    ) {
-      try {
-        const input = gCanvas.getImageData(0, 0, gCanvas.width, gCanvas.height);
-        gCanvas.putImageData(
-          applySpatialBlur(input, effect as unknown as Parameters<typeof applySpatialBlur>[1]),
-          0,
-          0,
-        );
-      } catch {
-        // Constrained runtimes keep the authoritative pre-effect surface.
-      }
-      continue;
-    }
-    if (effect.type === 'chromaticAberration') {
-      try {
-        applyChromaticAberration(
-          gCanvas,
-          gCanvas.width,
-          gCanvas.height,
-          effect as unknown as EngineChromaticEffect,
-        );
-      } catch {
-        // Keep the source surface if a pixel allocation is refused.
-      }
-      continue;
-    }
-    if (effect.type === 'glitch') {
-      try {
-        applyGlitch(
-          gCanvas,
-          gCanvas.width,
-          gCanvas.height,
-          effect as unknown as EngineGlitchEffect,
-        );
-      } catch {
-        // Keep the source surface if a pixel allocation is refused.
-      }
-    }
-  }
-}
-
-/**
- * Paint a group backdrop effect before the group surface. The captured result
- * is clipped by the group's rendered alpha silhouette, so a non-rectangular
- * group does not turn background blur/glass into a rectangular overlay.
- */
-function compositeGroupBackdropEffect(
-  target: SceneContext,
-  effect: GroupBackdropEffect,
-  gCanvas: CompositeCanvas,
-  dx: number,
-  dy: number,
-  dw: number,
-  dh: number,
-  groupOpacity: number,
-): void {
-  const source = target.canvas as HTMLCanvasElement | OffscreenCanvas;
-  const transform = target.getTransform?.();
-  if (!source || !transform) return;
-
-  const radius = effect.type === 'backgroundBlur' ? effect.radius : effect.blur;
-  const blurPad = Math.ceil(Math.max(0, radius) * 3);
-  const screen = computeScreenBounds(transform, dx, dy, dw, dh);
-  const scaleX = Math.max(1e-6, Math.hypot(transform.a, transform.b));
-  const scaleY = Math.max(1e-6, Math.hypot(transform.c, transform.d));
-  const padX = Math.ceil(blurPad * scaleX);
-  const padY = Math.ceil(blurPad * scaleY);
-  const capX = screen.x - padX;
-  const capY = screen.y - padY;
-  const capW = Math.max(1, screen.w + padX * 2);
-  const capH = Math.max(1, screen.h + padY * 2);
-
-  try {
-    const backdrop = new CompositeCanvas({
-      width: capW,
-      height: capH,
-      devicePixelRatio: 1,
-      testCanvas: document.createElement('canvas'),
-    });
-    backdrop.captureSource(source, capX, capY, capW, capH, 0, 0);
-    if (effect.type === 'backgroundBlur') {
-      applyBackgroundBlurBackdrop(backdrop, capW, capH, effect.radius);
-    } else {
-      backdrop.applyBlur(effect.blur);
-      applyGlassMaterialBackdrop(backdrop, capW, capH, effect);
-    }
-
-    const silhouette = new CompositeCanvas({
-      width: capW,
-      height: capH,
-      devicePixelRatio: 1,
-      testCanvas: document.createElement('canvas'),
-    });
-    const silhouetteCtx = silhouette.ctx;
-    silhouetteCtx.save();
-    silhouetteCtx.setTransform(
-      transform.a,
-      transform.b,
-      transform.c,
-      transform.d,
-      transform.e - capX,
-      transform.f - capY,
-    );
-    silhouetteCtx.drawImage(
-      gCanvas.canvas as CanvasImageSource,
-      0,
-      0,
-      gCanvas.canvas.width,
-      gCanvas.canvas.height,
-      dx,
-      dy,
-      dw,
-      dh,
-    );
-    silhouetteCtx.restore();
-
-    const backdropCtx = backdrop.ctx;
-    backdropCtx.save();
-    backdropCtx.setTransform(1, 0, 0, 1, 0, 0);
-    backdropCtx.globalCompositeOperation = 'destination-in';
-    backdropCtx.drawImage(silhouette.canvas as CanvasImageSource, 0, 0);
-    backdropCtx.restore();
-
-    target.save();
-    target.setTransform(1, 0, 0, 1, 0, 0);
-    target.globalAlpha = groupOpacity;
-    target.globalCompositeOperation = 'source-over';
-    target.drawImage(
-      backdrop.canvas as CanvasImageSource,
-      0,
-      0,
-      capW,
-      capH,
-      capX,
-      capY,
-      capW,
-      capH,
-    );
-    target.restore();
-  } catch {
-    // Backdrop effects are an optional preview/export stage. A refused
-    // allocation leaves the original target intact; the authored group
-    // content is still painted immediately after this function.
-  }
-}
-
 export function replayStructuredScene(context: SceneContext, input: StructuredReplayInput): void {
   // Export/print/preview replay must never consume display LOD (ADR-0214
   // D12): the interactive pyramid is a display acceleration structure, and
@@ -635,38 +395,10 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
     for (const childId of effectivePaintOrder(input.document, node)) replayNode(childId, target);
   };
 
-  const resolveEffectMask: EffectMaskResolver = (binding, item, target, width, height) => {
-    if (binding.source.kind === 'raster-asset') return undefined;
-    let maskSurface: ReturnType<typeof createRasterSurface>;
-    try {
-      maskSurface = createRasterSurface(width, height);
-    } catch {
-      return undefined;
-    }
-    const maskCtx = maskSurface.context;
-    const current = target.getTransform?.();
-    if (current) {
-      maskCtx.setTransform(current.a, current.b, current.c, current.d, current.e, current.f);
-    }
-    const inverse = tryInvertAffine(item.transform);
-    if (!inverse) return undefined;
-    maskCtx.save();
-    try {
-      // Rendered scene-node mattes are world-space output. The effect surface
-      // is target-local, so project the matte through the inverse target
-      // transform before sampling it.
-      maskCtx.transform(...inverse);
-      if (binding.source.kind === 'scene-node') {
-        if (!input.document.nodes[binding.source.nodeId]) return undefined;
-        replayNode(binding.source.nodeId, maskCtx as unknown as SceneContext);
-      } else {
-        traceEffectVectorMask(maskCtx, binding.source.vectorMask);
-      }
-    } finally {
-      maskCtx.restore();
-    }
-    return maskCtx.getImageData(0, 0, width, height);
-  };
+  const resolveEffectMask = createEffectMaskResolver({
+    document: input.document,
+    replayNode: (nodeId, target) => replayNode(nodeId, target),
+  });
 
   const compositeIsolated = (
     target: SceneContext,
@@ -713,6 +445,29 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
       maskSourceId === undefined || maskSource === undefined || maskSource.kind !== 'adjustment';
     const maskHasVector = !!mask?.vectorMask && mask.vectorMask.points.length > 0;
     const maskHasRaster = mask?.rasterMask !== undefined;
+
+    // Frequency-separation groups resolve to one decoded composite item under
+    // the group's id (see flattenSceneToEngine). Replay that item with the
+    // group's own leaf mask instead of painting the two band children; an
+    // inert marker produces no item and falls through to normal group replay.
+    if (item && node.kind === 'group' && getFrequencySeparationState(node) !== null) {
+      if (mask && requiresLeafMaskReplay(mask)) {
+        replayLeafMask(target as unknown as CanvasRenderingContext2D, {
+          node,
+          mask,
+          irItem: item,
+          doc: input.document,
+          baseTransform: target.getTransform(),
+          paintContent: (ctx) =>
+            replayIr(ctx as unknown as ReplayTarget, [item], undefined, resolveEffectMask),
+          getWorldTransform: (nodeId) => nodeWorldTransform(input.document, nodeId),
+        });
+      } else {
+        replayIr(target as unknown as ReplayTarget, [item], undefined, resolveEffectMask);
+      }
+      return;
+    }
+
     if (
       node.kind !== 'adjustment' &&
       'children' in node &&
@@ -929,6 +684,206 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
     }
 
     if (node.kind === 'frame') {
+      const frameEffects = (node.effects ?? []).filter((effect) => effect.visible);
+      const frameSmartFilters = adjustmentsToFilters(activeSmartFilters(node));
+      const frameNeedsSurface =
+        node.children.length > 0 &&
+        (frameEffects.length > 0 ||
+          frameSmartFilters.length > 0 ||
+          (node.opacity ?? 1) < 1 ||
+          (node.blendMode !== undefined &&
+            node.blendMode !== 'normal' &&
+            node.blendMode !== 'passThrough'));
+
+      // A frame is both a drawable surface and a container. When it owns
+      // Layer Effects, painting its IR item first makes the effect blind to
+      // descendants. Render the frame base and descendants together, then
+      // apply the fixed backdrop → content → appearance stages once.
+      if (frameNeedsSurface) {
+        const frameTransform = item?.transform ?? nodeWorldTransform(input.document, nodeId);
+        let frameBounds = transformedBounds({ x: 0, y: 0, w: node.w, h: node.h }, frameTransform);
+        const pendingChildren = [...node.children];
+        const visitedChildren = new Set<NodeId>();
+        while (pendingChildren.length > 0) {
+          const childId = pendingChildren.pop()!;
+          if (visitedChildren.has(childId)) continue;
+          visitedChildren.add(childId);
+          const child = input.document.nodes[childId];
+          if (!child || child.visible === false) continue;
+          const childItem = itemById.get(childId);
+          if (childItem) {
+            frameBounds = unionBounds(
+              frameBounds,
+              transformedBounds(primitiveBounds(childItem.primitive), childItem.transform),
+            );
+          }
+          if ('children' in child) pendingChildren.push(...child.children);
+        }
+
+        const padding = subtreeEffectPadding(input.document, [nodeId, ...node.children]);
+        const width = Math.max(1, frameBounds.w + padding * 2);
+        const height = Math.max(1, frameBounds.h + padding * 2);
+        const renderScale = Math.max(
+          1,
+          Math.hypot(target.getTransform().a, target.getTransform().b),
+        );
+        let frameSurface: CompositeCanvas | null = null;
+        try {
+          frameSurface = new CompositeCanvas({
+            width,
+            height,
+            devicePixelRatio: renderScale,
+            testCanvas: document.createElement('canvas'),
+          });
+        } catch {
+          // Fall through to the source-preserving frame replay below. An
+          // allocation refusal must never hide the authored frame/children.
+        }
+
+        if (frameSurface) {
+          const surfaceContext = frameSurface.ctx;
+          surfaceContext.save();
+          surfaceContext.translate(-frameBounds.x + padding, -frameBounds.y + padding);
+          if (item) {
+            // Frame effects, opacity, blend, and object filters are applied
+            // to the complete surface below, not once to the frame base.
+            replayIr(
+              surfaceContext as unknown as ReplayTarget,
+              [
+                {
+                  ...item,
+                  opacity: 1,
+                  blendMode: 'normal',
+                  effects: undefined,
+                  filters: undefined,
+                },
+              ],
+              undefined,
+              resolveEffectMask,
+            );
+          }
+          for (const extra of input.extrasByNodeId?.get(nodeId) ?? []) {
+            replayIr(surfaceContext as unknown as ReplayTarget, [extra]);
+          }
+          if (node.clipContent !== false) {
+            const [a, b, c, d, e, f] = frameTransform;
+            surfaceContext.beginPath();
+            surfaceContext.moveTo(e, f);
+            surfaceContext.lineTo(a * node.w + e, b * node.w + f);
+            surfaceContext.lineTo(a * node.w + c * node.h + e, b * node.w + d * node.h + f);
+            surfaceContext.lineTo(c * node.h + e, d * node.h + f);
+            surfaceContext.closePath();
+            surfaceContext.clip();
+          }
+          replayChildren(nodeId, surfaceContext as unknown as SceneContext);
+          surfaceContext.restore();
+
+          if (frameSmartFilters.length > 0) {
+            const framePixelToDocument = [
+              1 / renderScale,
+              0,
+              0,
+              1 / renderScale,
+              frameBounds.x - padding,
+              frameBounds.y - padding,
+            ] as const;
+            applyFilterWithCompositing(
+              surfaceContext as unknown as CanvasRenderingContext2D,
+              frameSmartFilters,
+              frameSurface.canvas.width,
+              frameSurface.canvas.height,
+              {
+                quality: input.quality,
+                coordSpace: patternAnchorCoordSpace(
+                  frameSmartFilters,
+                  renderScale,
+                  frameBounds.x - padding,
+                  frameBounds.y - padding,
+                ),
+                fullFrame: input.quality === 'export',
+                treatmentSpace: objectTreatmentSpaceForCapture(
+                  framePixelToDocument,
+                  frameTransform,
+                  {
+                    x: 0,
+                    y: 0,
+                    width: node.w,
+                    height: node.h,
+                  },
+                ),
+              },
+            );
+          }
+
+          const dx = frameBounds.x - padding;
+          const dy = frameBounds.y - padding;
+          const frameOpacity = node.opacity ?? 1;
+          for (const effect of frameEffects) {
+            if (effect.type === 'backgroundBlur' || effect.type === 'glassMaterial') {
+              compositeStagedGroupBackdropEffect(
+                target,
+                effect,
+                frameSurface,
+                dx,
+                dy,
+                width,
+                height,
+                frameOpacity,
+              );
+            }
+          }
+          applyStagedGroupContentEffects(input.document, frameSurface, frameEffects, {
+            effectMaskResolver: resolveEffectMask,
+            effectTarget: createGroupEffectTargetItem(dx, dy, width, height),
+          });
+          for (const effect of frameEffects) {
+            if (effect.type === 'dropShadow' || effect.type === 'outerGlow') {
+              compositeGroupOuterEffect(
+                target,
+                effect,
+                frameSurface,
+                renderScale,
+                dx,
+                dy,
+                width,
+                height,
+                frameOpacity,
+              );
+            }
+          }
+          for (const effect of frameEffects) {
+            if (effect.type === 'innerShadow') {
+              applyGroupInsetEffect(effect, frameSurface, renderScale, 'shadow');
+            } else if (effect.type === 'innerGlow') {
+              applyGroupInsetEffect(effect, frameSurface, renderScale, 'glow');
+            }
+          }
+
+          target.save();
+          try {
+            target.globalAlpha = frameOpacity;
+            target.globalCompositeOperation =
+              node.blendMode && node.blendMode !== 'passThrough'
+                ? (mapBlendMode(node.blendMode) as GlobalCompositeOperation)
+                : 'source-over';
+            target.drawImage(
+              frameSurface.canvas as CanvasImageSource,
+              0,
+              0,
+              frameSurface.canvas.width,
+              frameSurface.canvas.height,
+              dx,
+              dy,
+              width,
+              height,
+            );
+          } finally {
+            target.restore();
+          }
+          return;
+        }
+      }
+
       if (item) replayIr(target as unknown as ReplayTarget, [item], undefined, resolveEffectMask);
       const extras = input.extrasByNodeId?.get(nodeId);
       if (extras) {
@@ -936,7 +891,7 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
       }
       if (node.children.length === 0) return;
 
-      const smartFilters = adjustmentsToFilters(activeSmartFilters(node));
+      const smartFilters = frameSmartFilters;
       if (smartFilters.length > 0) {
         // Frame filters operate on the frame's already-composited children.
         // Render only the transformed frame bounds to an intermediate surface
@@ -1186,7 +1141,7 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
           const dy = minY - padding;
           for (const effect of visibleEffects) {
             if (effect.type === 'backgroundBlur' || effect.type === 'glassMaterial') {
-              compositeGroupBackdropEffect(
+              compositeStagedGroupBackdropEffect(
                 target,
                 effect,
                 gCanvas,
@@ -1198,7 +1153,10 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
               );
             }
           }
-          applyGroupContentEffects(input.document, gCanvas, visibleEffects);
+          applyStagedGroupContentEffects(input.document, gCanvas, visibleEffects, {
+            effectMaskResolver: resolveEffectMask,
+            effectTarget: createGroupEffectTargetItem(dx, dy, groupWidth, groupHeight),
+          });
           for (const effect of visibleEffects) {
             if (effect.type === 'dropShadow' || effect.type === 'outerGlow') {
               compositeGroupOuterEffect(

@@ -1,3 +1,4 @@
+import { applyMaskPostProcess } from './maskCompositing';
 import type { EffectMaskBindingIR } from './types';
 
 export interface PixelImageData {
@@ -22,6 +23,32 @@ function coverageAt(mask: PixelImageData, offset: number, binding: EffectMaskBin
 }
 
 /**
+ * Convert luminance and feather the source once before the per-pixel
+ * premultiplied cross-fade. Inversion and density deliberately remain in
+ * `coverageAt`: that is the established effect-mask order and keeps the
+ * existing alpha/luminance behavior stable while adding feather support.
+ */
+function preprocessMask(
+  mask: PixelImageData,
+  binding: EffectMaskBindingIR,
+): { mask: PixelImageData; binding: EffectMaskBindingIR } {
+  const luminance = binding.type === 'luminance';
+  const feather = binding.feather ?? 0;
+  if (!luminance && feather <= 0) return { mask, binding };
+
+  const image = new ImageData(mask.width, mask.height);
+  image.data.set(mask.data);
+  applyMaskPostProcess(image, {
+    luminance,
+    feather,
+  });
+  return {
+    mask: { data: image.data, width: image.width, height: image.height },
+    binding: luminance ? { ...binding, type: 'alpha' } : binding,
+  };
+}
+
+/**
  * Cross-fade one evaluated effect stage with its input using premultiplied
  * alpha semantics. This is the canonical `I * (1-M) + E * M` operation and is
  * deliberately independent of how a backend obtains the mask pixels.
@@ -32,17 +59,19 @@ export function compositeMaskedEffectPixels(
   mask: PixelImageData,
   binding: EffectMaskBindingIR,
 ): PixelImageData {
-  const width = Math.min(input.width, evaluated.width, mask.width);
-  const height = Math.min(input.height, evaluated.height, mask.height);
+  const prepared = preprocessMask(mask, binding);
+  const width = Math.min(input.width, evaluated.width, prepared.mask.width);
+  const height = Math.min(input.height, evaluated.height, prepared.mask.height);
   const out = new Uint8ClampedArray(width * height * 4);
-  const density = Math.max(0, Math.min(1, binding.density ?? 1));
+  const effectiveBinding = prepared.binding;
+  const density = Math.max(0, Math.min(1, effectiveBinding.density ?? 1));
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const offset = (y * width + x) * 4;
-      const maskOffset = (y * mask.width + x) * 4;
-      let coverage = coverageAt(mask, maskOffset, binding) * density;
-      if (binding.inverted) coverage = 1 - coverage;
+      const maskOffset = (y * prepared.mask.width + x) * 4;
+      let coverage = coverageAt(prepared.mask, maskOffset, effectiveBinding) * density;
+      if (effectiveBinding.inverted) coverage = 1 - coverage;
       coverage = Math.max(0, Math.min(1, coverage));
 
       const inputAlpha = input.data[offset + 3]! / 255;

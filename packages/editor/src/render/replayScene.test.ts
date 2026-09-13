@@ -64,6 +64,55 @@ describe('replayStructuredScene', () => {
     expect(lineTo).toHaveBeenCalledWith(300, 170);
   });
 
+  it('applies frame-owned layer effects to the frame and its descendants', async () => {
+    let sceneDocument = createDocument('Frame effect surface', true);
+    const frame = makeFrameNode('frame', {
+      transform: [1, 0, 0, 1, 100, 50],
+      w: 200,
+      h: 120,
+      children: [],
+      clipContent: true,
+      effects: [{ type: 'layerBlur', radius: 6, visible: true }],
+    });
+    const child = makeShapeNode(
+      'child',
+      { kind: 'rect', x: 0, y: 0, w: 60, h: 40 },
+      { transform: [1, 0, 0, 1, 180, 90] },
+    );
+    sceneDocument = addNode(sceneDocument, frame);
+    sceneDocument = addChild(sceneDocument, frame.id, child);
+    const flattened = flattenSceneToEngine(sceneDocument, [frame.id]);
+    const engine = await createEngine('stub');
+    const built = await engine.buildIr({ nodes: flattened.nodes });
+    const frameIndex = flattened.ids.indexOf(frame.id);
+    expect(frameIndex).toBeGreaterThanOrEqual(0);
+    const items = built.map((item, index) =>
+      index === frameIndex && item ? { ...item, effects: undefined } : item,
+    );
+    const canvas = document.createElement('canvas');
+    canvas.width = 400;
+    canvas.height = 300;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('test canvas unavailable');
+    if (typeof context.getTransform !== 'function') {
+      context.getTransform = () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }) as DOMMatrix;
+    }
+    const applyBlur = vi.spyOn(CompositeCanvas.prototype, 'applyBlur');
+
+    replayStructuredScene(context, {
+      document: sceneDocument,
+      rootIds: [frame.id],
+      flattenedIds: flattened.ids,
+      items,
+    });
+
+    // The frame item was deliberately stripped of effects above. A blur call
+    // therefore proves the scene-owned effect was applied after the child was
+    // composited onto the frame surface rather than being inherited from IR.
+    expect(applyBlur).toHaveBeenCalledTimes(1);
+    applyBlur.mockRestore();
+  });
+
   it('composites a group-level drop shadow from the flattened subtree', async () => {
     let sceneDocument = createDocument('Group effect export', true);
     const group = makeGroupNode('group', {
