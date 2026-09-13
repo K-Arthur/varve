@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { pruneUnusedAssets } from '../../assets';
 import type { Document } from '../../document';
 import { createDocument, makeFrameNode, nextNodeId } from '../../document';
 import { DocumentCodec } from '../../documentCodec';
@@ -8,11 +9,14 @@ import { classifyMockupIntent, validateMockupRequest } from '../multimodal';
 import { sanitizeMockupState } from '../normalize';
 import {
   addMockupTemplate,
+  applyMockupTemplateRemap,
   clearMockup,
   computeMockupSourceDigest,
   createMockupInstanceData,
   isMockupFrame,
+  makeMockupTemplateUnique,
   markMockupDetached,
+  planMockupTemplateRemap,
   pruneUnusedMockupTemplates,
   setMockupBinding,
   setMockupSurfaceOverride,
@@ -106,15 +110,240 @@ describe('mockup templates', () => {
     expect(result.errors.some((e) => e.includes('quad'))).toBe(true);
   });
 
-  it('rejects reserved surface kinds and reserved asset fields', () => {
+  it('rejects reserved surface kinds, displacement, and luminance masks; accepts raster clip masks', () => {
     const [template] = getBuiltinMockupTemplates();
     const mesh = { ...template!, surfaces: [{ ...template!.surfaces[0], kind: 'mesh' }] };
     expect(validateTemplate(mesh).ok).toBe(false);
+
+    // Clip/occlusion coverage is implemented (alpha only); a well-formed
+    // reference passes structural validation. Asset existence is checked at
+    // load time against the document asset table.
     const withMask = {
       ...template!,
-      surfaces: [{ ...template!.surfaces[0], clipMaskAssetId: 'asset-1' }],
+      surfaces: [
+        {
+          ...template!.surfaces[0],
+          clipMaskAssetId: 'asset-1',
+          occlusionMaskAssetId: 'asset-2',
+          maskOptions: { feather: 4, invert: true },
+        },
+      ],
     };
-    expect(validateTemplate(withMask).ok).toBe(false);
+    expect(validateTemplate(withMask).ok).toBe(true);
+
+    // Luminance coverage and displacement maps have no renderer path yet.
+    const withLuminance = {
+      ...template!,
+      surfaces: [
+        {
+          ...template!.surfaces[0],
+          clipMaskAssetId: 'asset-1',
+          maskOptions: { channel: 'luminance' },
+        },
+      ],
+    };
+    expect(validateTemplate(withLuminance).ok).toBe(false);
+    const withDisplacement = {
+      ...template!,
+      surfaces: [{ ...template!.surfaces[0], displacementAssetId: 'asset-1' }],
+    };
+    expect(validateTemplate(withDisplacement).ok).toBe(false);
+  });
+
+  it('validates photographic plate images', () => {
+    const [template] = getBuiltinMockupTemplates();
+    const good = {
+      ...template!,
+      plateImage: { assetId: 'asset-photo', width: 1600, height: 1200, fit: 'cover' as const },
+    };
+    expect(validateTemplate(good).ok).toBe(true);
+    const badFit = {
+      ...template!,
+      plateImage: { assetId: 'asset-photo', width: 1600, height: 1200, fit: 'squish' },
+    };
+    expect(validateTemplate(badFit).ok).toBe(false);
+    const badDims = {
+      ...template!,
+      plateImage: { assetId: 'asset-photo', width: 0, height: 1200, fit: 'cover' as const },
+    };
+    expect(validateTemplate(badDims).ok).toBe(false);
+  });
+
+  it('retains library templates when unreferenced and prunes applied ones', () => {
+    const { doc } = fixtureDoc();
+    const template = getBuiltinMockupTemplates()[0]!;
+    const library = {
+      ...template,
+      id: 'user:library-template',
+      source: 'user' as const,
+      library: true,
+    };
+    const applied = { ...template, id: 'user:applied-template', source: 'user' as const };
+    let next = addMockupTemplate(doc, library).document;
+    next = addMockupTemplate(next, applied).document;
+    const pruned = pruneUnusedMockupTemplates(next);
+    expect(Object.keys(pruned.mockupTemplates ?? {})).toEqual(['user:library-template']);
+
+    const sanitized = sanitizeMockupState(next, { push: () => {} });
+    expect(Object.keys(sanitized.mockupTemplates ?? {})).toEqual(['user:library-template']);
+  });
+
+  it('retains snapshot bindings and template raster assets through GC', () => {
+    const { doc, frameId } = fixtureDoc();
+    const template = getBuiltinMockupTemplates()[0]!;
+    const withAssets = {
+      ...doc,
+      assets: {
+        'asset-snapshot': {
+          id: 'asset-snapshot',
+          storage: 'embedded' as const,
+          mimeType: 'image/png',
+          dataUrl: 'data:image/png;base64,AAAA',
+          naturalWidth: 10,
+          naturalHeight: 10,
+          byteLength: 8,
+          hash: 'h1',
+        },
+        'asset-plate': {
+          id: 'asset-plate',
+          storage: 'embedded' as const,
+          mimeType: 'image/jpeg',
+          dataUrl: 'data:image/jpeg;base64,BBBB',
+          naturalWidth: 100,
+          naturalHeight: 80,
+          byteLength: 8,
+          hash: 'h2',
+        },
+        'asset-mask': {
+          id: 'asset-mask',
+          storage: 'embedded' as const,
+          mimeType: 'image/png',
+          dataUrl: 'data:image/png;base64,CCCC',
+          naturalWidth: 100,
+          naturalHeight: 80,
+          byteLength: 8,
+          hash: 'h3',
+        },
+        'asset-orphan': {
+          id: 'asset-orphan',
+          storage: 'embedded' as const,
+          mimeType: 'image/png',
+          dataUrl: 'data:image/png;base64,DDDD',
+          naturalWidth: 10,
+          naturalHeight: 10,
+          byteLength: 8,
+          hash: 'h4',
+        },
+      },
+    };
+    const photoTemplate = {
+      ...template,
+      id: 'user:photo-template',
+      source: 'user' as const,
+      library: true,
+      plateImage: { assetId: 'asset-plate', width: 100, height: 80, fit: 'cover' as const },
+      surfaces: [
+        {
+          ...template.surfaces[0]!,
+          clipMaskAssetId: 'asset-mask',
+          occlusionMaskAssetId: 'asset-mask',
+        },
+      ],
+    };
+    let next = addMockupTemplate(withAssets, photoTemplate).document;
+    next = frameWithMockup(next, 'user:photo-template', frameId);
+    next = setMockupBinding(next, frameId, template.surfaces[0]!.id, {
+      mode: 'snapshot',
+      assetId: 'asset-snapshot',
+    });
+    const pruned = pruneUnusedAssets(next);
+    const kept = Object.keys(pruned.assets ?? {}).sort();
+    expect(kept).toEqual(['asset-mask', 'asset-plate', 'asset-snapshot']);
+  });
+});
+
+describe('template replacement planning and uniqueness', () => {
+  function twoTemplateFixture(): {
+    doc: Document;
+    frameId: string;
+    sourceA: string;
+    sourceB: string;
+  } {
+    const base = getBuiltinMockupTemplates()[0]!;
+    const templateA = {
+      ...base,
+      id: 'test:two-a',
+      source: 'user' as const,
+      contentHash: 'hash-a',
+      surfaces: [
+        { ...base.surfaces[0]!, id: 'front', name: 'Front', sourceSlot: 'front' },
+        { ...base.surfaces[0]!, id: 'back', name: 'Back', sourceSlot: 'back' },
+      ],
+    };
+    const templateB = {
+      ...templateA,
+      id: 'test:two-b',
+      contentHash: 'hash-b',
+      surfaces: [
+        { ...templateA.surfaces[0]!, id: 'left', name: 'Left', sourceSlot: 'back' },
+        { ...templateA.surfaces[1]!, id: 'right', name: 'Right', sourceSlot: 'front' },
+        { ...templateA.surfaces[0]!, id: 'extra', name: 'Extra', sourceSlot: 'artwork' },
+      ],
+    };
+    const { doc: baseDoc, frameId, sourceId } = fixtureDoc();
+    let doc = addMockupTemplate(baseDoc, templateA).document;
+    doc = addMockupTemplate(doc, templateB).document;
+    const s2 = nextNodeId(doc);
+    doc = s2.doc;
+    const sourceB = s2.id;
+    doc = {
+      ...doc,
+      nodes: {
+        ...doc.nodes,
+        [sourceB]: makeFrameNode(sourceB, { transform: [1, 0, 0, 1, 800, 0], w: 200, h: 300 }),
+      },
+      rootChildren: [...doc.rootChildren, sourceB],
+    };
+    doc = frameWithMockup(doc, 'test:two-a', frameId);
+    doc = setMockupBinding(doc, frameId, 'front', { mode: 'live', nodeId: sourceId });
+    doc = setMockupBinding(doc, frameId, 'back', { mode: 'live', nodeId: sourceB });
+    return { doc, frameId, sourceA: sourceId, sourceB };
+  }
+
+  it('remaps bindings by sourceSlot, not array position', () => {
+    const { doc, frameId, sourceA, sourceB } = twoTemplateFixture();
+    const plan = planMockupTemplateRemap(doc, frameId, 'test:two-b');
+    expect(plan.templateFound).toBe(true);
+    expect(plan.remappedCount).toBe(2);
+    expect(plan.unboundSurfaceIds).toEqual(['extra']);
+    const byId = Object.fromEntries(plan.assignments.map((a) => [a.surfaceId, a.binding]));
+    expect(byId.left).toMatchObject({ mode: 'live', nodeId: sourceB });
+    expect(byId.right).toMatchObject({ mode: 'live', nodeId: sourceA });
+    expect(byId.extra).toBeUndefined();
+
+    const applied = applyMockupTemplateRemap(doc, frameId, 'test:two-b');
+    const node = applied.document.nodes[frameId] as FrameNode & {
+      mockup: NonNullable<FrameNode['mockup']>;
+    };
+    expect(applied.unboundSurfaceIds).toEqual(['extra']);
+    expect(node.mockup.templateId).toBe('test:two-b');
+    expect(node.mockup.surfaceBindings.left).toMatchObject({ nodeId: sourceB });
+    expect(node.mockup.surfaceBindings.right).toMatchObject({ nodeId: sourceA });
+    expect(node.mockup.surfaceBindings.extra).toBeUndefined();
+  });
+
+  it('gives one instance a private template copy without mutating the original', () => {
+    const { doc, frameId } = twoTemplateFixture();
+    const result = makeMockupTemplateUnique(doc, frameId);
+    expect(result).not.toBeNull();
+    const unique = result!.document;
+    const node = unique.nodes[frameId] as FrameNode & {
+      mockup: NonNullable<FrameNode['mockup']>;
+    };
+    expect(node.mockup.templateId).toMatch(/^user:test:two-a-/);
+    expect(unique.mockupTemplates?.[node.mockup.templateId]?.library).toBe(true);
+    expect(unique.mockupTemplates?.['test:two-a']).toBeDefined();
+    expect(unique.mockupTemplates?.['test:two-a']).toBe(doc.mockupTemplates?.['test:two-a']);
   });
 });
 
