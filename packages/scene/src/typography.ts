@@ -183,11 +183,14 @@ export function mergeCharacterFormat(
     const val = override[key];
     if (val !== undefined && val !== null) {
       if (key === 'openTypeFeatures') {
-        result.openTypeFeatures = resolveOpenTypeFeatureMaps(result.openTypeFeatures, val);
+        result.openTypeFeatures = resolveOpenTypeFeatureMaps(
+          result.openTypeFeatures,
+          val as CharacterFormat['openTypeFeatures'],
+        );
       } else if (key === 'variableFontSettings') {
         result.variableFontSettings = {
           ...(result.variableFontSettings ?? {}),
-          ...val,
+          ...(val as CharacterFormat['variableFontSettings']),
         };
       } else {
         (result as Record<string, unknown>)[key] = val;
