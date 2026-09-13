@@ -13,7 +13,7 @@ import {
   createBackupStore,
   DEFAULT_RETENTION,
 } from '@varve/engine';
-import { isTauriRuntime } from '@varve/platform';
+import { isTauriRuntime, recordStorageWrite } from '@varve/platform';
 
 export type IncludeAssetsPolicy = 'none' | 'used' | 'all';
 
@@ -68,6 +68,8 @@ export class BackupService {
   private intervalId: ReturnType<typeof setInterval> | null = null;
   private dirtyProjects = new Map<string, DirtyProject>();
   private lastBackupTimes = new Map<string, number>();
+  /** Last successfully auto-backed-up JSON per project (content dedup). */
+  private lastAutomaticJson = new Map<string, string>();
   private onEvent: ((event: BackupEvent) => void) | null = null;
   private onProgress: ((event: BackupEvent) => void) | null = null;
   private running = false;
@@ -152,13 +154,16 @@ export class BackupService {
 
   async markSaved(
     projectId: string,
-    _documentJson: string,
+    documentJson: string,
     _fileName: string,
     _revision: number,
     _fileId?: string,
     _filePath?: string,
   ): Promise<void> {
     this.lastBackupTimes.set(projectId, Date.now());
+    // Remember the saved content so a later dirty tick does not rewrite an
+    // identical full-document backup.
+    this.lastAutomaticJson.set(projectId, documentJson);
     this.dirtyProjects.delete(projectId);
   }
 
@@ -197,6 +202,10 @@ export class BackupService {
       this.state.consecutiveFailures = 0;
       this.state.totalBackups++;
       this.dirtyProjects.delete(projectId);
+      if (type === 'automatic') {
+        this.lastAutomaticJson.set(projectId, documentJson);
+      }
+      recordStorageWrite('backup', documentJson.length);
       await this.applyRetention(projectId);
     } else {
       this.state.consecutiveFailures++;
@@ -295,6 +304,13 @@ export class BackupService {
     const lastBackup = this.lastBackupTimes.get(projectId) ?? 0;
     if (now - lastBackup < this.config.intervalMs) return;
     if (!this.dirtyProjects.has(projectId)) return;
+    if (this.lastAutomaticJson.get(projectId) === documentJson) {
+      // Unchanged content: count the interval as satisfied without writing a
+      // duplicate full-document backup (the dirty map can outlive a manual
+      // save when no caller invokes markSaved).
+      this.lastBackupTimes.set(projectId, now);
+      return;
+    }
     await this.createBackup(
       projectId,
       'automatic',
@@ -376,6 +392,10 @@ export class BackupService {
       const lastBackup = this.lastBackupTimes.get(projectId) ?? 0;
       const sinceLast = lastBackup === 0 ? now - data.dirtyAt : now - lastBackup;
       if (sinceLast < this.config.intervalMs) continue;
+      if (this.lastAutomaticJson.get(projectId) === data.documentJson) {
+        this.lastBackupTimes.set(projectId, now);
+        continue;
+      }
       await this.createBackup(
         projectId,
         'automatic',
