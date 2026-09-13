@@ -11,6 +11,7 @@ import type {
   SceneNode,
 } from '@varve/scene';
 import { nextNodeId } from '@varve/scene';
+import { remapGenerativeEditOverlays } from './remapGenerativeEditOverlays';
 
 export interface ImportedResourceSet {
   sourceDoc: Document;
@@ -582,6 +583,11 @@ function mergeGroup(
     };
     const remappedAssetReferences = remapNodeAssetReferences(candidate, maps, doc.assets);
     Object.assign(candidate, remappedAssetReferences);
+    candidate.fills = remapGenerativeEditOverlays(
+      candidate.fills,
+      generativeIdMap,
+      generativeEdits,
+    );
     if ('componentId' in candidate) {
       const componentId = maps.componentIds.get(candidate.componentId ?? '');
       if (componentId && components[componentId]) candidate.componentId = componentId;

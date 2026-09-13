@@ -204,6 +204,28 @@ describe('mergeImportedResources', () => {
           image: {
             src: 'data:image/png;base64,AA==',
             assetId: 'shared-image',
+            generativeEditOverlay: {
+              editId: 'source-edit',
+              variationId: 'source-variation',
+            },
+            fit: 'fill' as const,
+            x: 0,
+            y: 0,
+            scale: 1,
+          },
+          opacity: 1,
+          blendMode: 'normal' as const,
+          visible: true,
+        },
+        {
+          type: 'image' as const,
+          image: {
+            src: 'data:image/png;base64,AA==',
+            assetId: 'shared-image',
+            generativeEditOverlay: {
+              editId: 'missing-edit',
+              variationId: 'missing-variation',
+            },
             fit: 'fill' as const,
             x: 0,
             y: 0,
@@ -345,6 +367,11 @@ describe('mergeImportedResources', () => {
     expect(merged.rasterMaskAssets?.['shared-mask']?.dataUrl).toBe(targetMask.dataUrl);
     expect(merged.rasterMaskAssets?.[maskAssetId!]?.dataUrl).toBe(sourceMask.dataUrl);
     expect(clonedNode.fills?.[0]?.image?.src).toBe(sourceAsset.dataUrl);
+    expect(clonedNode.fills?.[0]?.image?.generativeEditOverlay).toEqual({
+      editId: importedEdit?.id,
+      variationId: 'source-variation',
+    });
+    expect(clonedNode.fills?.[1]?.image?.generativeEditOverlay).toBeUndefined();
     expect(importedEdit?.sourceAssetId).toBe(imageAssetId);
     expect(importedEdit?.sourceSnapshotAssetId).toBe(imageAssetId);
     expect(importedEdit?.maskAssetId).toBe(maskAssetId);
