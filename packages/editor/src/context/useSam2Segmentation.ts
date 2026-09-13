@@ -411,6 +411,20 @@ export function useSam2Segmentation(
           ? img.naturalHeight || img.height
           : img.height;
 
+      if (
+        !Number.isSafeInteger(naturalW) ||
+        !Number.isSafeInteger(naturalH) ||
+        naturalW <= 0 ||
+        naturalH <= 0
+      ) {
+        markFailure({
+          code: 'image_pixels_unavailable',
+          message: 'The image has invalid dimensions and cannot be used for object selection.',
+          retryable: true,
+        });
+        return null;
+      }
+
       const encoderId = 'sam2-hiera-tiny-encoder';
       const decoderId = 'sam2-hiera-tiny-decoder';
       const encoderPeakBytes = getModelById(encoderId)?.peakMemoryBytes ?? 700_000_000;
@@ -450,19 +464,23 @@ export function useSam2Segmentation(
       // model-plus-source working set has passed the runtime's safe budget.
       writeCurrentSam2Stage(stateRef, setState, nodeId, 'encoding');
 
-      const canvas = document.createElement('canvas');
-      canvas.width = naturalW;
-      canvas.height = naturalH;
-      const ctx = canvas.getContext('2d')!;
-      ctx.drawImage(img, 0, 0, naturalW, naturalH);
-
       let imageData: ImageData;
       try {
+        const canvas = document.createElement('canvas');
+        canvas.width = naturalW;
+        canvas.height = naturalH;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Canvas context unavailable');
+        ctx.drawImage(img, 0, 0, naturalW, naturalH);
         imageData = ctx.getImageData(0, 0, naturalW, naturalH);
-      } catch {
+      } catch (error) {
+        const raw = error instanceof Error ? error.message : String(error);
+        const allocationFailure = /memory|allocation|too large|invalid state/i.test(raw);
         markFailure({
-          code: 'image_pixels_unavailable',
-          message: 'The image pixels could not be read. Check the file permissions and try again.',
+          code: allocationFailure ? 'out_of_memory' : 'image_pixels_unavailable',
+          message: allocationFailure
+            ? 'Object Selection could not allocate a safe working buffer for this image. Use the brush or Fast cutout path, or work on a smaller image.'
+            : 'The image pixels could not be read. Check the file permissions and try again.',
           retryable: true,
         });
         return null;
