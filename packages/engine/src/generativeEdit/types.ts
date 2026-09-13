@@ -1,5 +1,11 @@
 import type { ContentAwareFillResult } from '../contentAwareFill';
 
+/**
+ * `remove` is the persisted operation name for Generative Subtract: the user
+ * marks content to remove and the provider reconstructs the surrounding image
+ * in that coverage. It is deliberately distinct from deleting pixels or
+ * filling transparent canvas.
+ */
 export type GenerativeEditMode = 'fill' | 'remove' | 'replace' | 'expand';
 export type GenerativeEditQuality = 'draft' | 'balanced' | 'quality';
 export type GenerativeEditProviderKind = 'local' | 'remote';

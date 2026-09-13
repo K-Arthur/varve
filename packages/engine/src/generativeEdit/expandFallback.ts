@@ -15,6 +15,15 @@ import type { ContentAwareFillQuality, ContentAwareFillResult } from '../content
 const CONTEXT_GUARD_PIXELS = 4;
 const DEFAULT_CONTEXT_PADDING = 32;
 const MAX_TILE_PIXELS = 262_144;
+/**
+ * A single model pass keeps horizons, lighting, and corners in one shared
+ * context. Above this bound the native/WASM model input and decoded result can
+ * become an avoidable memory spike, so the fallback uses ordered border bands.
+ * This is a workflow budget, not a claim about the model's maximum size.
+ */
+const MAX_COHERENT_MODEL_PIXELS = 1_048_576;
+
+export type ExpandGenerationStrategy = 'coherent-full-frame' | 'staged-border';
 
 interface FrameRegion {
   x: number;
@@ -178,6 +187,29 @@ function splitRegion(region: FrameRegion): FrameRegion[] {
   return regions;
 }
 
+/**
+ * Select the expansion execution shape before any guarded frame or inference
+ * buffer is allocated. A model-backed request gets one shared frame while it
+ * fits the measured coherence budget; larger requests are explicitly staged.
+ * Small heuristic requests also use one frame to avoid needless seams.
+ */
+export function chooseExpandGenerationStrategy(
+  width: number,
+  height: number,
+  quality: ContentAwareFillQuality,
+  hasModel: boolean,
+): ExpandGenerationStrategy {
+  if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width <= 0 || height <= 0) {
+    throw new Error('Expand frame dimensions are invalid');
+  }
+  const pixels = width * height;
+  if (quality === 'ai' && hasModel && pixels <= MAX_COHERENT_MODEL_PIXELS) {
+    return 'coherent-full-frame';
+  }
+  if (pixels <= MAX_TILE_PIXELS) return 'coherent-full-frame';
+  return 'staged-border';
+}
+
 function extractRegion(imageData: ImageData, region: FrameRegion): ImageData {
   const result = new ImageData(region.width, region.height);
   for (let y = 0; y < region.height; y += 1) {
@@ -256,30 +288,41 @@ export async function runDeterministicExpandFallback(options: {
     options.contextPadding ?? DEFAULT_CONTEXT_PADDING,
     CONTEXT_GUARD_PIXELS + 1,
   );
-  const targetBands: FrameRegion[] = [
-    { x: 0, y: 0, width: imageData.width, height: protectedBounds.y },
-    {
-      x: 0,
-      y: protectedBounds.y + protectedBounds.height,
-      width: imageData.width,
-      height: imageData.height - protectedBounds.y - protectedBounds.height,
-    },
-    {
-      x: 0,
-      y: protectedBounds.y,
-      width: protectedBounds.x,
-      height: protectedBounds.height,
-    },
-    {
-      x: protectedBounds.x + protectedBounds.width,
-      y: protectedBounds.y,
-      width: imageData.width - protectedBounds.x - protectedBounds.width,
-      height: protectedBounds.height,
-    },
-  ].filter(
-    (region) =>
-      region.width > 0 && region.height > 0 && containsCoverage(mask, imageData.width, region),
+  const strategy = chooseExpandGenerationStrategy(
+    imageData.width,
+    imageData.height,
+    options.quality,
+    Boolean(options.modelPath),
   );
+  const targetBands: FrameRegion[] =
+    strategy === 'coherent-full-frame'
+      ? [{ x: 0, y: 0, width: imageData.width, height: imageData.height }]
+      : [
+          { x: 0, y: 0, width: imageData.width, height: protectedBounds.y },
+          {
+            x: 0,
+            y: protectedBounds.y + protectedBounds.height,
+            width: imageData.width,
+            height: imageData.height - protectedBounds.y - protectedBounds.height,
+          },
+          {
+            x: 0,
+            y: protectedBounds.y,
+            width: protectedBounds.x,
+            height: protectedBounds.height,
+          },
+          {
+            x: protectedBounds.x + protectedBounds.width,
+            y: protectedBounds.y,
+            width: imageData.width - protectedBounds.x - protectedBounds.width,
+            height: protectedBounds.height,
+          },
+        ].filter(
+          (region) =>
+            region.width > 0 &&
+            region.height > 0 &&
+            containsCoverage(mask, imageData.width, region),
+        );
 
   // A stale or deliberately holey mask can contain editable pixels inside
   // the protected rectangle. Keep that case correct too, without turning a
@@ -298,7 +341,18 @@ export async function runDeterministicExpandFallback(options: {
   );
   let executionProvider = options.quality === 'fast' ? 'heuristic' : 'wasm';
   let generatedModelId: string | undefined;
-  const generationWarnings: string[] = [];
+  const generationWarnings: string[] =
+    strategy === 'coherent-full-frame'
+      ? [
+          options.quality === 'ai'
+            ? 'Expansion used one shared model frame so borders and corners receive common context.'
+            : 'Expansion used one shared frame so the generated border and corners receive common context.',
+        ]
+      : options.quality === 'ai'
+        ? [
+            'Expansion used ordered border stages because the requested frame exceeds the coherent model-pass budget; inspect side and corner seams at 1:1.',
+          ]
+        : [];
   for (let index = 0; index < tiles.length; index += 1) {
     if (options.signal?.aborted) throw new Error('cancelled');
     const target = tiles[index]!;

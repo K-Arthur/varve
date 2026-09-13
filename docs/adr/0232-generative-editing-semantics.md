@@ -1,6 +1,6 @@
 # ADR-0232: Non-destructive generative editing semantics
 
-- **Status:** Accepted boundary; Fill/Remove local slice implemented
+- **Status:** Accepted boundary; Fill/Remove and promptless Expand local slices implemented
 - Date: 2026-09-09
 - Owners: Varve scene, engine, and editor
 
@@ -35,9 +35,9 @@ The four user-facing modes have distinct semantics:
 | Mode | Mask meaning | Current verified local behavior |
 | --- | --- | --- |
 | Fill | Pixels to create inside a selection | PatchMatch offline; LaMa when installed |
-| Remove | Object/region to reconstruct as background | Same mask-guided providers; never transparency |
+| Remove / Generative Subtract | Object/region to reconstruct as background | Same mask-guided providers; never transparency |
 | Replace | Region to replace under a text instruction | Contract and UI state only until a prompt-conditioned provider passes parity |
-| Expand | Newly exposed canvas/image bounds to synthesize | Contract and UI state only until an outpainting provider passes parity |
+| Expand | Newly exposed canvas/image bounds to synthesize | Promptless local reconstruction through the qualified LaMa path or offline PatchMatch; prompt-conditioned expansion remains gated |
 
 Provider contracts carry the mode and prompt even when a provider does not
 support every mode. Capability gating is explicit: a provider must advertise
@@ -79,8 +79,11 @@ Positive:
 - Provider provenance remains inspectable without claiming unsupported model
   capabilities. Prompt text is session-only until a verified provider consumes
   it, avoiding misleading document history.
-- Replace and Expand have stable document semantics before their providers are
-  available.
+- Replace has stable document semantics before its provider is available.
+  Expand has a verified promptless provider boundary; it is not presented as
+  equivalent to text-conditioned outpainting. A model-backed expansion uses one
+  shared frame when the measured working budget permits it and ordered border
+  stages above that budget, with the limitation recorded in the result warning.
 - Source edits, transforms, crops, and rotations can be detected as stale
   rather than silently misapplying a result.
 
@@ -95,8 +98,10 @@ Costs and boundaries:
 
 ## Release gates
 
-Before marketing Replace or Expand as available, Varve needs a verified
-provider with deterministic fixtures, model licensing, mask/prompt parity,
-bounded memory behavior, cancellation, save/reopen, export, and browser/native
-evidence. Until then, the website describes those modes as planned capability
-with the local Fill/Remove boundary stated plainly.
+Before marketing prompt-conditioned Replace or Expand as available, Varve needs
+a verified provider with deterministic fixtures, model licensing, mask/prompt
+parity, bounded memory behavior, cancellation, save/reopen, export, and
+browser/native evidence. The current website may market the narrower verified
+local boundary: Fill, Remove / Generative Subtract, and promptless Expand. It
+must state that LaMa is not language-conditioned and that the generated border
+is synthesized at bounded model resolution.

@@ -153,7 +153,9 @@ export function ContentAwareFillSection({ nodes, onOpenDialog }: ContentAwareFil
     <DisclosureSection title="Generative Edit" sectionId="content-aware-fill">
       <div className="insp-field-group">
         <p className="insp-hint">
-          Fill or remove selected pixels with local processing. The source layer stays editable.
+          Fill selected pixels, remove an object with Generative Subtract, or expand image bounds
+          with local processing. The source layer stays editable and accepted pixels remain
+          recoverable.
         </p>
         {imageSrc && (
           <div className="caf-entry-thumb">

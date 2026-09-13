@@ -1,3 +1,7 @@
+export {
+  chooseExpandGenerationStrategy,
+  type ExpandGenerationStrategy,
+} from './expandFallback';
 export type {
   ExpandedFrame,
   ExpandGenerationEstimate,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { runDeterministicExpandFallback } from './expandFallback';
+import { chooseExpandGenerationStrategy, runDeterministicExpandFallback } from './expandFallback';
 import { runGenerativeEdit } from './pipeline';
 
 function expandedFrame(): {
@@ -50,6 +50,13 @@ function sourcePixels(frame: ReturnType<typeof expandedFrame>): number[] {
 }
 
 describe('deterministic Expand fallback', () => {
+  it('uses a shared model frame while the coherence budget allows it', () => {
+    expect(chooseExpandGenerationStrategy(512, 512, 'ai', true)).toBe('coherent-full-frame');
+    expect(chooseExpandGenerationStrategy(1024, 1025, 'ai', true)).toBe('staged-border');
+    expect(chooseExpandGenerationStrategy(512, 512, 'fast', false)).toBe('coherent-full-frame');
+    expect(chooseExpandGenerationStrategy(513, 513, 'ai', false)).toBe('staged-border');
+  });
+
   it('fills the requested frame while preserving every source pixel', async () => {
     const frame = expandedFrame();
     const result = await runDeterministicExpandFallback({

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   assessGenerativeEditResources,
+  chooseExpandGenerationStrategy,
   GenerativeEditError,
   GenerativeJobController,
   getGenerativeEditCapabilities,
@@ -34,6 +35,11 @@ function request(overrides: Partial<Parameters<typeof runGenerativeEdit>[0]> = {
 }
 
 describe('generative edit capabilities', () => {
+  it('keeps promptless reconstruction and model-backed coherence distinct', () => {
+    expect(chooseExpandGenerationStrategy(768, 768, 'ai', true)).toBe('coherent-full-frame');
+    expect(chooseExpandGenerationStrategy(768, 768, 'ai', false)).toBe('staged-border');
+  });
+
   it('exposes the honest local provider boundary', () => {
     const capabilities = getGenerativeEditCapabilities();
     expect(capabilities).toMatchObject({
