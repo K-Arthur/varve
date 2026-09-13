@@ -21,7 +21,7 @@ import {
   getParent,
   makeGroupNode,
   nextNodeId,
-  reparentNode,
+  reparentPreservingWorldTransform,
 } from './document';
 import { addMask, canBeClipMaskSource, removeMask } from './masks';
 import type { FrameNode, GroupNode, MaskFillRule, MaskType, NodeId, SceneNode } from './types';
@@ -202,7 +202,8 @@ export function createClippingMask(
  *
  * Scene nodes keep `rotation` separate from `transform`; a world-preserving
  * reparent bakes both into the replacement matrix, so retaining the old
- * rotation would apply it twice.
+ * rotation would apply it twice. Delegates to the canonical
+ * `reparentPreservingWorldTransform` so this policy lives in one place.
  */
 function reparentWithComposedTransform(
   doc: Document,
@@ -211,13 +212,7 @@ function reparentWithComposedTransform(
   index: number,
   transform: Affine,
 ): Document {
-  const reparented = reparentNode(doc, id, parentId, index, transform);
-  const node = reparented.nodes[id];
-  if (!node || node.rotation === 0) return reparented;
-  return {
-    ...reparented,
-    nodes: { ...reparented.nodes, [id]: { ...node, rotation: 0 } as SceneNode },
-  };
+  return reparentPreservingWorldTransform(doc, id, parentId, index, transform);
 }
 
 function insertGroupAtMaskIndex(

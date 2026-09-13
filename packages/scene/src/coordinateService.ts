@@ -27,13 +27,13 @@ import type { Affine, Point, Rect } from '@varve/shared';
 import {
   transformRect as affineTransformRect,
   applyAffine,
-  identity,
   multiplyAffine,
   rotateDeg,
   tryInvertAffine,
 } from '@varve/shared';
 import type { Document } from './document';
 import { buildParentIndexMap, getParent } from './document';
+import { composeWorldTransform } from './document-utils';
 import { nodeLocalBounds } from './nodeBounds';
 import { resolvePagePlacement, resolveSpreadPlacement } from './pasteboardLayout';
 import type { NodeId, SceneNode } from './types';
@@ -58,48 +58,12 @@ export { nodeLocalBounds } from './nodeBounds';
  * parent graph (visited-set guard + depth ceiling), so a corrupt document
  * can never hang the renderer or hit-tester.
  */
-const MAX_WORLD_TRANSFORM_DEPTH = 256;
-
 export function nodeWorldTransform(
   doc: Document,
   id: NodeId,
   parentIndex?: Map<NodeId, NodeId>,
 ): Affine {
-  const node = doc.nodes[id];
-  if (!node) return identity;
-
-  const nodeTransform = node.transform as Affine;
-  const rot = node.rotation ?? 0;
-  const combined = rot !== 0 ? multiplyAffine(nodeTransform, rotateDeg(rot)) : nodeTransform;
-  const chain: Affine[] = [combined];
-
-  const getParentFn = parentIndex
-    ? (_d: Document, childId: NodeId) => parentIndex.get(childId) ?? null
-    : getParent;
-  const visited = new Set<NodeId>([id]);
-  let parentId = getParentFn(doc, id);
-  let depth = 0;
-  while (parentId) {
-    if (visited.has(parentId) || depth >= MAX_WORLD_TRANSFORM_DEPTH) break;
-    visited.add(parentId);
-    depth++;
-    const parent = doc.nodes[parentId];
-    if (!parent) break;
-    const parentRot = parent.rotation ?? 0;
-    const parentTransform = parent.transform as Affine;
-    chain.push(
-      parentRot !== 0 ? multiplyAffine(parentTransform, rotateDeg(parentRot)) : parentTransform,
-    );
-    parentId = getParentFn(doc, parentId);
-  }
-
-  let world: Affine = identity;
-  for (let i = chain.length - 1; i >= 0; i--) {
-    const m = chain[i];
-    if (!m) continue;
-    world = multiplyAffine(world, m);
-  }
-  return world;
+  return composeWorldTransform(doc, id, parentIndex);
 }
 
 /**

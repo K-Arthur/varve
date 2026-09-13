@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { nodeWorldTransform } from './coordinateService';
 import {
   addChild,
   addGuide,
@@ -501,6 +502,85 @@ describe('groupNodes / ungroupNode', () => {
     doc = addNode(doc, a.node);
     const result = ungroupNode(doc, a.id);
     expect(result).toBe(doc);
+  });
+
+  it('ungroupNode preserves each child world transform when the group is transformed', () => {
+    let doc = createDocument();
+    const a = shape(doc, 'a');
+    doc = a.doc;
+    const b = shape(doc, 'b');
+    doc = b.doc;
+    doc = addNode(doc, a.node);
+    doc = addNode(doc, b.node);
+    const { id: gId, doc: d2 } = nextNodeId(doc);
+    doc = d2;
+    // Scale 2, rotate 30deg, translate (40, -15). The group is not at identity,
+    // which is what a user gets after moving/rotating the group in the canvas.
+    const group = makeGroupNode(gId, {
+      name: 'G',
+      transform: [1.7320508, 1, -1, 1.7320508, 40, -15],
+    });
+    doc = groupNodes(doc, [a.id, b.id], group);
+
+    const worldBefore = new Map(
+      [a.id, b.id].map((id) => [id, nodeWorldTransform(doc, id)] as const),
+    );
+
+    doc = ungroupNode(doc, gId);
+    expect(getById(doc, gId)).toBeUndefined();
+
+    for (const id of [a.id, b.id]) {
+      const before = worldBefore.get(id)!;
+      const after = nodeWorldTransform(doc, id);
+      for (let i = 0; i < 6; i++) {
+        expect(after[i]!).toBeCloseTo(before[i]!, 5);
+      }
+    }
+  });
+
+  it('ungroupNode preserves world pose for rotated nodes inside a transformed parent', () => {
+    let doc = createDocument();
+    const cr = pageContentRoot(doc);
+    const { id: frameId, doc: d1 } = nextNodeId(doc);
+    doc = d1;
+    doc = addChild(
+      doc,
+      cr,
+      makeFrameNode(frameId, {
+        name: 'Frame',
+        w: 200,
+        h: 200,
+        transform: [1.5, 0, 0, 1.5, 100, 50],
+      }),
+    );
+
+    const { id: gId, doc: d2 } = nextNodeId(doc);
+    doc = d2;
+    const group = makeGroupNode(gId, {
+      name: 'G',
+      transform: [1, 0, 0, 1, 20, 10],
+      rotation: 30,
+    });
+    doc = addChild(doc, frameId, group);
+
+    const { id: childId, doc: d3 } = nextNodeId(doc);
+    doc = d3;
+    doc = addChild(
+      doc,
+      gId,
+      makeShapeNode(childId, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'rotated' }),
+    );
+    doc = {
+      ...doc,
+      nodes: { ...doc.nodes, [childId]: { ...doc.nodes[childId]!, rotation: 45 } },
+    };
+
+    const before = nodeWorldTransform(doc, childId);
+    doc = ungroupNode(doc, gId);
+    const after = nodeWorldTransform(doc, childId);
+    for (let i = 0; i < 6; i++) {
+      expect(after[i]!).toBeCloseTo(before[i]!, 5);
+    }
   });
 
   it('groups siblings nested inside a real container, not just rootChildren (regression: groupNodes created the group via addNode, which always appends to doc.rootChildren — for a non-null parentId the group was never reparented into it, leaving it orphaned in rootChildren while its members vanished from the visible tree)', () => {

@@ -105,6 +105,7 @@ export {
   removeNode,
   renameNode,
   reparentNode,
+  reparentPreservingWorldTransform,
   resetInstanceOverrides,
   rootNodes,
   setBackgroundRemoval,

@@ -1,9 +1,9 @@
 import type { Affine } from '@varve/engine';
-import { generateKeyBetween } from '@varve/shared';
+import { generateKeyBetween, multiplyAffine, tryInvertAffine } from '@varve/shared';
 import { deepCloneSubtree } from './clone';
 import { captureSyncBaseline, detectOverrides } from './component-sync';
 import type { Document } from './document';
-import { devValidate, getParent } from './document-utils';
+import { composeWorldTransform, devValidate, getParent } from './document-utils';
 import type {
   ArrangeOp,
   ContainerNode,
@@ -687,6 +687,33 @@ function containsDescendant(doc: Document, root: NodeId, target: NodeId): boolea
 }
 
 /**
+ * Reparent a node with a world-preserving composed transform.
+ *
+ * Scene nodes keep `rotation` separate from `transform`; a world-preserving
+ * reparent bakes both into the replacement matrix, so retaining the old
+ * rotation would apply it twice. When `localTransform` is omitted the node
+ * keeps its transform verbatim and its rotation is left untouched.
+ *
+ * Policy shared with clipping-mask insertion (`clippingMask.ts`).
+ */
+export function reparentPreservingWorldTransform(
+  doc: Document,
+  id: NodeId,
+  newParentId: NodeId | null,
+  toIndex: number,
+  localTransform?: Affine,
+): Document {
+  const reparented = reparentNode(doc, id, newParentId, toIndex, localTransform);
+  if (localTransform === undefined) return reparented;
+  const node = reparented.nodes[id];
+  if (!node || (node.rotation ?? 0) === 0) return reparented;
+  return {
+    ...reparented,
+    nodes: { ...reparented.nodes, [id]: { ...node, rotation: 0 } as SceneNode },
+  };
+}
+
+/**
  * Group a set of sibling nodes into a new GroupNode.
  * All nodes must share the same parent (or be root-level).
  */
@@ -766,6 +793,12 @@ export function groupNodes(doc: Document, ids: NodeId[], groupNode: GroupNode): 
 
 /**
  * Ungroup a GroupNode: move all children to the group's parent and remove the group.
+ *
+ * Children keep their world transform (newLocal = newParent.world⁻¹ × oldWorld),
+ * so ungrouping a moved/rotated/scaled group does not shift its content. When
+ * the destination parent's transform is non-invertible (zero scale) no local
+ * transform can represent the old world pose; in that case the child keeps its
+ * current local transform rather than being dropped.
  */
 export function ungroupNode(doc: Document, id: NodeId): Document {
   const node = doc.nodes[id];
@@ -778,12 +811,21 @@ export function ungroupNode(doc: Document, id: NodeId): Document {
   for (let i = 0; i < children.length; i++) {
     const childId = children[i];
     if (!childId) continue;
+    const parentNode = parentId ? d.nodes[parentId] : undefined;
     const toIndex = parentId
-      ? (d.nodes[parentId] && isContainer(d.nodes[parentId])
-          ? (d.nodes[parentId] as ContainerNode).children.indexOf(id)
-          : -1) + i
+      ? (parentNode && isContainer(parentNode) ? parentNode.children.indexOf(id) : -1) + i
       : d.rootChildren.indexOf(id) + i;
-    d = reparentNode(d, childId, parentId, toIndex);
+
+    const childWorld = composeWorldTransform(d, childId);
+    let newLocal: Affine | undefined;
+    if (!parentId) {
+      newLocal = childWorld;
+    } else {
+      const parentInv = tryInvertAffine(composeWorldTransform(d, parentId));
+      if (parentInv) newLocal = multiplyAffine(parentInv, childWorld);
+    }
+
+    d = reparentPreservingWorldTransform(d, childId, parentId, toIndex, newLocal);
   }
 
   d = removeNode(d, id);

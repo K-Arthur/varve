@@ -1,4 +1,5 @@
 import type { Affine } from '@varve/engine';
+import { identity, multiplyAffine, rotateDeg } from '@varve/shared';
 import {
   type AdjustmentNode,
   type FrameNode,
@@ -84,6 +85,64 @@ export function getParent(doc: DocumentLike, id: NodeId): NodeId | null {
     if (childrenOf(node).includes(id)) return nid as NodeId;
   }
   return null;
+}
+
+/** Cycle/depth bound for ancestor walks on possibly-corrupt documents. */
+const MAX_WORLD_TRANSFORM_DEPTH = 256;
+
+/**
+ * Compose a node's local transform with all ancestor transforms into a single
+ * world affine. `node.rotation` is applied after the node's own transform, and
+ * ancestors' rotations are composed the same way.
+ *
+ * Lives in this leaf module (not coordinateService) so document-level
+ * operations such as ungroup can preserve world transforms without creating a
+ * module cycle. `coordinateService.nodeWorldTransform` delegates here.
+ *
+ * Cycle safety: the ancestor walk terminates even on a malformed cyclic
+ * parent graph (visited-set guard + depth ceiling), so a corrupt document can
+ * never hang the renderer or hit-tester.
+ */
+export function composeWorldTransform(
+  doc: DocumentLike,
+  id: NodeId,
+  parentIndex?: Map<NodeId, NodeId>,
+): Affine {
+  const node = doc.nodes[id];
+  if (!node) return identity;
+
+  const nodeTransform = node.transform as Affine;
+  const rot = node.rotation ?? 0;
+  const combined = rot !== 0 ? multiplyAffine(nodeTransform, rotateDeg(rot)) : nodeTransform;
+  const chain: Affine[] = [combined];
+
+  const getParentFn = parentIndex
+    ? (_d: DocumentLike, childId: NodeId) => parentIndex.get(childId) ?? null
+    : getParent;
+  const visited = new Set<NodeId>([id]);
+  let parentId = getParentFn(doc, id);
+  let depth = 0;
+  while (parentId) {
+    if (visited.has(parentId) || depth >= MAX_WORLD_TRANSFORM_DEPTH) break;
+    visited.add(parentId);
+    depth++;
+    const parent = doc.nodes[parentId];
+    if (!parent) break;
+    const parentRot = parent.rotation ?? 0;
+    const parentTransform = parent.transform as Affine;
+    chain.push(
+      parentRot !== 0 ? multiplyAffine(parentTransform, rotateDeg(parentRot)) : parentTransform,
+    );
+    parentId = getParentFn(doc, parentId);
+  }
+
+  let world: Affine = identity;
+  for (let i = chain.length - 1; i >= 0; i--) {
+    const m = chain[i];
+    if (!m) continue;
+    world = multiplyAffine(world, m);
+  }
+  return world;
 }
 
 function childrenOf(node: SceneNode | undefined): NodeId[] {
