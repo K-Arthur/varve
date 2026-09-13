@@ -154,6 +154,7 @@ describe('DocumentFontsPanel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Replace Inter Inter-Bold' }));
     expect(screen.getByRole('dialog', { name: 'Browse fonts' })).toBeVisible();
+    expect(screen.getByText(/in Page 1\. Review wrapping after replacement\./)).toBeVisible();
 
     fireEvent.click(screen.getByRole('button', { name: 'Use exact face' }));
     expect(editor.beginTransaction).toHaveBeenCalledTimes(1);
