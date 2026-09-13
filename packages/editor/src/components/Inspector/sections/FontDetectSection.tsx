@@ -73,9 +73,22 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
    * selection or mutate the first text node implicitly.
    */
   const textTargets = useMemo(() => {
+    const entries = [...editor.walkNodes().values()];
+    const entriesById = new Map(entries.map((entry) => [entry.nodeId, entry]));
+    const isVisibleAndUnlocked = (entry: (typeof entries)[number]) => {
+      let current: (typeof entries)[number] | undefined = entry;
+      const visited = new Set<string>();
+      while (current && !visited.has(current.nodeId)) {
+        visited.add(current.nodeId);
+        if (current.node.visible === false || current.node.locked === true) return false;
+        current = current.parentId ? entriesById.get(current.parentId) : undefined;
+      }
+      return true;
+    };
     const targets: Array<{ id: string; label: string; preview: string; node: TextNode }> = [];
-    for (const { node } of editor.walkNodes().values()) {
-      if (node.kind !== 'text') continue;
+    for (const entry of entries) {
+      if (entry.node.kind !== 'text' || !isVisibleAndUnlocked(entry)) continue;
+      const node = entry.node;
       const preview = (node.richText ? richTextToPlainText(node.richText) : node.text)
         .replace(/\s+/g, ' ')
         .trim();

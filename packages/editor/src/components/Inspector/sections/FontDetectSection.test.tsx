@@ -99,6 +99,14 @@ const groupCompoundOperation = vi.fn((_label: string, action: () => void) => act
 const updateNode = vi.fn();
 const setSelection = vi.fn();
 const textTarget = makeTextNode('text-target', 'Editable target', { name: 'Headline' });
+const hiddenTextTarget = {
+  ...makeTextNode('hidden-target', 'Hidden target', { name: 'Hidden headline' }),
+  visible: false,
+};
+const lockedTextTarget = {
+  ...makeTextNode('locked-target', 'Locked target', { name: 'Locked headline' }),
+  locked: true,
+};
 const ocrResult = {
   words: [
     {
@@ -170,6 +178,14 @@ beforeEach(() => {
     walkNodes: () =>
       new Map([
         ['text-target', { nodeId: 'text-target', node: textTarget, parentId: null, depth: 0 }],
+        [
+          'hidden-target',
+          { nodeId: 'hidden-target', node: hiddenTextTarget, parentId: null, depth: 0 },
+        ],
+        [
+          'locked-target',
+          { nodeId: 'locked-target', node: lockedTextTarget, parentId: null, depth: 0 },
+        ],
       ]),
     groupCompoundOperation,
     updateNode,
@@ -254,6 +270,8 @@ describe('FontDetectSection', () => {
 
   it('applies a reviewed candidate to an explicitly chosen text target', async () => {
     render(<FontDetectSection nodes={[image]} />);
+    expect(screen.queryByRole('option', { name: /Hidden headline/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /Locked headline/ })).not.toBeInTheDocument();
     fireEvent.change(screen.getByRole('combobox', { name: 'Existing text target' }), {
       target: { value: 'text-target' },
     });
