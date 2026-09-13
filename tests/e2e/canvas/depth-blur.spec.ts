@@ -261,14 +261,27 @@ test.describe('Depth Blur workflow', () => {
     test.setTimeout(180000);
     await importTestImage(page);
     await page.locator('.layers-panel').getByRole('treeitem').click();
-    const section = await openDepthBlurSection(page);
+    const blurSection = await openDepthBlurSection(page);
 
-    await generateDepthMap(section);
-    await expect(section.getByRole('button', { name: /create depth mask/i })).toBeVisible({
+    await generateDepthMap(blurSection);
+    await expect(blurSection.getByRole('button', { name: /save depth map/i })).toBeVisible({
       timeout: 30000,
     });
+    await blurSection.getByRole('button', { name: /save depth map/i }).click();
 
-    await section.getByRole('button', { name: /create depth mask/i }).click();
+    const maskTrigger = page.getByRole('button', { name: 'Depth Mask' });
+    await expect(maskTrigger).toBeVisible({ timeout: 15000 });
+    if ((await maskTrigger.getAttribute('aria-expanded')) === 'false') {
+      await maskTrigger.click();
+    }
+    const section = page.getByRole('group', { name: 'Depth Mask' });
+    await expect(section.getByRole('slider', { name: 'Depth mask near endpoint' })).toBeVisible({
+      timeout: 15000,
+    });
+
+    await section.getByRole('slider', { name: 'Depth mask near endpoint' }).fill('0');
+    await section.getByRole('slider', { name: 'Depth mask far endpoint' }).fill('45');
+    await section.getByRole('button', { name: /apply depth mask/i }).click();
     // The mask is exposed as an accessible badge on its owner row. The
     // displayed type may be alpha/luminance rather than the literal word
     // "mask", so assert the semantic label rather than rendered text.

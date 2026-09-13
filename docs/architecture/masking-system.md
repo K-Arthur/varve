@@ -20,7 +20,7 @@ deliberately one coherent subsystem, not a pile of per-feature special cases.
 | **Vector clip / clip path** | A geometric path (`vectorMask` or a traced node outline) that decides inside/outside with a fill rule (`nonzero`/`evenodd`). |
 | **Alpha mask** | Mask alpha (`A`) controls target opacity. |
 | **Luminance mask** | Mask luminance (`L·A`, BT.709 coefficients in linear RGB) controls target opacity (SVG 1.1 §14.4 semantics). |
-| **Raster mask** | A document-owned PNG payload (`Document.rasterMaskAssets`) supplying mask pixels. Attaches to image-filled shape nodes (`source-image-pixels` space) or frames (`container-local-pixels` space); must be `type: 'alpha'`. |
+| **Raster mask** | A document-owned PNG payload (`Document.rasterMaskAssets`) supplying mask pixels. Attaches to image-filled shape nodes (`source-image-pixels` space), frames (`container-local-pixels` space), visual leaves (`node-local-pixels`), or a source-image-bound depth mask on an adjustment; must be `type: 'alpha'`. |
 | **Brush mask** | A raster mask created/edited by painting with the brush tool (`refineMask`): paint reveals, Alt+paint hides, pressure/coalesced events supported. Images and frames both support paint-to-create — no background removal required. |
 | **Layer mask** | A mask attached to a single node (leaf raster masks; container masks). |
 | **Group mask** | A mask attached to a group: group children composite, then the mask modulates the group's result. |
@@ -61,6 +61,15 @@ serialization, and test paths are also present.
 live/export structural replay is in `packages/editor/src/canvas/maskReplay.ts`
 and `packages/editor/src/render/replayScene.ts`; UI coverage is in the Mask
 section, Layers tree, action registry, and `tests/e2e/canvas/clipping-masks.spec.ts`.
+
+Depth range masks are the source-bound raster-mask variant. A
+`RasterMaskData.depthRecipe` points to a reusable `Document.depthMaps` resource
+and records range, transitions, inversion, combination, source binding, and
+correction provenance beside the resolved PNG. The existing Adjustments →
+Depth Mask section imports/reuses maps, samples the contained preview, and
+commits through the same mask owner; a source-image-bound adjustment uses the
+same coverage as its spatial output mask. The model and Depth Blur effect are
+not render dependencies once the map and resolved coverage are accepted.
 
 ## 1c. Live matte and effect-local source contract
 
@@ -233,8 +242,14 @@ tested — see `replayScene.test.ts` and the E2E corpus):
 8. **Adjustments inside a clipped run are confined by the matte** — the
    adjustment's filtered backdrop is composited inside the clip scope, so
    its output cannot leak outside the matte.
-9. **Raster masks apply only to image-filled shapes** and are resolved to
-   `FillIR.alphaMask`; they never conflict with structural masks.
+9. **Raster masks on image-filled shapes** are resolved to `FillIR.alphaMask`;
+   source-image depth masks use that same path and never conflict with
+   structural masks.
+10. **Depth masks on adjustments are source-bound.** The recipe names the image
+    node whose pixels were analyzed; the adjustment scope controls what is
+    processed and the raster mask controls where the result is visible. A
+    missing map does not erase the last resolved coverage asset, and removing
+    Depth Blur does not prune a map still referenced by a recipe.
 
 ## 5. Effect targeting
 

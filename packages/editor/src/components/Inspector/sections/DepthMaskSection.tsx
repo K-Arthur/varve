@@ -1,5 +1,5 @@
 import type { DepthHistogram, DepthMap, DepthMapResource } from '@varve/engine';
-import { depthToHeatmapImageData, sampleDepth } from '@varve/engine';
+import { alignDepthMapToSource, depthToHeatmapImageData, sampleDepth } from '@varve/engine';
 import type {
   DepthMaskRecipe,
   Document,
@@ -74,11 +74,16 @@ function sourceInfo(doc: Document, node: ShapeNode): SourceInfo {
   };
 }
 
-function candidatesForSource(doc: Document, node: SceneNode, source: SourceInfo): DepthCandidate[] {
-  const recipeMapId = node.mask?.rasterMask?.depthRecipe?.depthMapId;
+function candidatesForSource(
+  doc: Document,
+  target: SceneNode,
+  sourceNode: SceneNode,
+  source: SourceInfo,
+): DepthCandidate[] {
+  const recipeMapId = target.mask?.rasterMask?.depthRecipe?.depthMapId;
   const effectMapIds =
-    'effects' in node
-      ? (node.effects ?? [])
+    'effects' in sourceNode
+      ? (sourceNode.effects ?? [])
           .filter((effect) => effect.type === 'depthBlur')
           .map((effect) => effect.depthMapId)
       : [];
@@ -93,18 +98,22 @@ function candidatesForSource(doc: Document, node: SceneNode, source: SourceInfo)
     const resource = doc.depthMaps?.[id];
     if (!resource) continue;
     const dimensionsMatch = resource.width === source.width && resource.height === source.height;
+    const registeredSourceMatch =
+      resource.registration?.sourceWidth === source.width &&
+      resource.registration?.sourceHeight === source.height;
+    const alignmentMatch = dimensionsMatch || registeredSourceMatch;
     const assetMatch =
       !resource.sourceAssetId ||
       Boolean(source.fillAssetId && resource.sourceAssetId === source.fillAssetId);
     const hashMatch =
       !resource.sourceHash ||
       Boolean(source.sourceHash && resource.sourceHash === source.sourceHash);
-    const compatible = dimensionsMatch && assetMatch && hashMatch;
+    const compatible = alignmentMatch && assetMatch && hashMatch;
     result.push({
       resource,
       compatible,
-      reason: !dimensionsMatch
-        ? `Map is ${resource.width} x ${resource.height}; source is ${source.width} x ${source.height}`
+      reason: !alignmentMatch
+        ? `Map is ${resource.width} x ${resource.height}; source registration is ${source.width} x ${source.height}`
         : !assetMatch || !hashMatch
           ? 'Map belongs to a different source revision'
           : undefined,
@@ -124,7 +133,11 @@ function formatDepthStatus(map: DepthMap, histogram: DepthHistogram): string {
 function mapLabel(candidate: DepthCandidate): string {
   const resource = candidate.resource;
   const origin = resource.provenance?.origin ?? (resource.modelId ? 'generated' : 'imported');
-  return `${origin === 'generated' ? 'Generated' : 'Imported'} - ${resource.width} x ${resource.height}${candidate.compatible ? '' : ' - unavailable'}`;
+  const meaning =
+    resource.depthType === 'metric'
+      ? `metric ${resource.unit}`
+      : `relative ${resource.unit === 'unknown' ? 'unitless' : 'ordinal'}`;
+  return `${origin === 'generated' ? 'Generated' : 'Imported'} - ${meaning} - ${resource.width} x ${resource.height}${candidate.compatible ? '' : ' - unavailable'}`;
 }
 
 function decodeRasterMask(asset: RasterMaskAsset): Promise<Uint8Array> {
@@ -174,19 +187,41 @@ function downloadResource(resource: DepthMapResource, nodeName: string): void {
   URL.revokeObjectURL(url);
 }
 
-export function DepthMaskSection({ nodes }: { nodes: SceneNode[] }) {
+export interface DepthMaskSectionProps {
+  nodes: SceneNode[];
+  /** Adjustment layers use a selected image as the registered mask source. */
+  targetNode?: SceneNode;
+}
+
+export function DepthMaskSection({ nodes, targetNode }: DepthMaskSectionProps) {
   const { state, updateDoc, announce } = useEditor();
-  const node = nodes.length === 1 && isImageShape(nodes[0]!) ? (nodes[0] as ShapeNode) : undefined;
-  const source = node ? sourceInfo(state.document, node) : null;
-  const candidates = useMemo(
-    () => (node && source ? candidatesForSource(state.document, node, source) : []),
-    [node, source?.fillAssetId, source?.height, source?.sourceHash, source?.width, state.document],
+  const target =
+    targetNode ??
+    (nodes.length === 1 && (isImageShape(nodes[0]!) || nodes[0]?.kind === 'adjustment')
+      ? nodes[0]
+      : undefined);
+  const imageSources = useMemo(
+    () => Object.values(state.document.nodes).filter(isImageShape),
+    [state.document.nodes],
   );
-  const recipe = node?.mask?.rasterMask?.depthRecipe;
+  const [sourceNodeId, setSourceNodeId] = useState('');
+  const sourceNode =
+    target?.kind === 'adjustment'
+      ? imageSources.find((candidate) => candidate.id === sourceNodeId)
+      : target;
+  const node = sourceNode && isImageShape(sourceNode) ? (sourceNode as ShapeNode) : undefined;
+  const source = node ? sourceInfo(state.document, node) : null;
+  const recipe = target?.mask?.rasterMask?.depthRecipe;
+  const candidates = useMemo(
+    () =>
+      target && node && source ? candidatesForSource(state.document, target, node, source) : [],
+    [node, source, state.document, target],
+  );
   const [selectedMapId, setSelectedMapId] = useState<string>('');
   const [depthData, setDepthData] = useState<DepthMap | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pickTarget, setPickTarget] = useState<'near' | 'far' | null>(null);
+  const [replaceNonRasterMask, setReplaceNonRasterMask] = useState(false);
   const [range, setRange] = useState<MaskRangeState>({
     near: 0,
     far: 100,
@@ -199,12 +234,28 @@ export function DepthMaskSection({ nodes }: { nodes: SceneNode[] }) {
   const previewRef = useRef<HTMLCanvasElement>(null);
   const initializedRecipeRef = useRef<string | null>(null);
 
+  useEffect(() => {
+    if (target?.kind !== 'adjustment') return;
+    const preferred = recipe?.sourceBinding.nodeId;
+    setSourceNodeId((current) => {
+      if (imageSources.some((candidate) => candidate.id === current)) return current;
+      if (preferred && imageSources.some((candidate) => candidate.id === preferred)) {
+        return preferred;
+      }
+      return imageSources[0]?.id ?? '';
+    });
+  }, [imageSources, recipe?.sourceBinding.nodeId, target?.kind]);
+
   const selectedCandidate = candidates.find(({ resource }) => resource.id === selectedMapId);
   const selectedResource = selectedCandidate?.resource;
   const previewLayout = depthData ? containDepthPreview(depthData.width, depthData.height) : null;
   const histogram = depthData ? depthMapHistogram(depthData) : null;
-  const hasExistingNonRasterMask = Boolean(node?.mask && !node.mask.rasterMask);
+  const hasExistingNonRasterMask = Boolean(target?.mask && !target.mask.rasterMask);
   const hasCompatibleMap = Boolean(selectedCandidate?.compatible && source?.width && source.height);
+
+  useEffect(() => {
+    setReplaceNonRasterMask(false);
+  }, [target?.id]);
 
   useEffect(() => {
     const preferred = recipe?.depthMapId;
@@ -221,22 +272,39 @@ export function DepthMaskSection({ nodes }: { nodes: SceneNode[] }) {
   }, [candidates, recipe?.depthMapId]);
 
   useEffect(() => {
+    if (!pickTarget) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      setPickTarget(null);
+      announce('Depth range sampling cancelled');
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [announce, pickTarget]);
+
+  useEffect(() => {
     if (!selectedResource) {
       setDepthData(null);
       return;
     }
     try {
-      setDepthData(decodeDepthResource(selectedResource));
+      const decoded = decodeDepthResource(selectedResource);
+      setDepthData(
+        source && source.width > 0 && source.height > 0
+          ? alignDepthMapToSource(decoded, source.width, source.height)
+          : decoded,
+      );
       setError(null);
     } catch (cause) {
       setDepthData(null);
       setError(cause instanceof Error ? cause.message : 'Depth map could not be decoded');
     }
-  }, [selectedResource]);
+  }, [selectedResource, source?.height, source?.width]);
 
   useEffect(() => {
     if (!recipe || recipe.depthMapId !== selectedResource?.id) return;
-    const key = `${recipe.depthMapId}:${node?.id}`;
+    const key = `${recipe.depthMapId}:${target?.id}:${node?.id}`;
     if (initializedRecipeRef.current === key) return;
     initializedRecipeRef.current = key;
     setRange({
@@ -247,7 +315,7 @@ export function DepthMaskSection({ nodes }: { nodes: SceneNode[] }) {
       invert: recipe.invert,
       combine: recipe.combine,
     });
-  }, [node?.id, recipe, selectedResource?.id]);
+  }, [node?.id, recipe, selectedResource?.id, target?.id]);
 
   useEffect(() => {
     if (!depthData || !previewRef.current || !previewLayout) return;
@@ -303,6 +371,10 @@ export function DepthMaskSection({ nodes }: { nodes: SceneNode[] }) {
           throw new Error('Choose a Varve .vdepth.json resource with canonical near-is-low values');
         }
         const decoded = decodeDepthResource(parsed as DepthMapResource);
+        const aligned =
+          source && source.width > 0 && source.height > 0
+            ? alignDepthMapToSource(decoded, source.width, source.height)
+            : decoded;
         const id = !state.document.depthMaps?.[parsed.id]
           ? parsed.id
           : `depth-import-${cryptoId()}`;
@@ -312,7 +384,7 @@ export function DepthMaskSection({ nodes }: { nodes: SceneNode[] }) {
           depthMaps: { ...(doc.depthMaps ?? {}), [id]: resource },
         }));
         setSelectedMapId(id);
-        setDepthData(decoded);
+        setDepthData(aligned);
         setError(null);
         announce(
           `Imported a ${decoded.width} x ${decoded.height} ${decoded.metadata.depthType} depth map; verify its source alignment before applying`,
@@ -321,7 +393,7 @@ export function DepthMaskSection({ nodes }: { nodes: SceneNode[] }) {
         setError(cause instanceof Error ? cause.message : 'Depth map import failed');
       }
     },
-    [announce, state.document.depthMaps, updateDoc],
+    [announce, source, state.document.depthMaps, updateDoc],
   );
 
   const handlePreviewClick = useCallback(
@@ -349,15 +421,22 @@ export function DepthMaskSection({ nodes }: { nodes: SceneNode[] }) {
   );
 
   const handleApply = useCallback(async () => {
-    if (!node || !source || !selectedResource || !depthData || !selectedCandidate?.compatible)
+    if (
+      !target ||
+      !node ||
+      !source ||
+      !selectedResource ||
+      !depthData ||
+      !selectedCandidate?.compatible
+    )
       return;
     if (range.near > range.far) {
       setError('Near must be less than or equal to Far; crossed handles produce an empty mask');
       return;
     }
-    if (hasExistingNonRasterMask) {
+    if (hasExistingNonRasterMask && (!replaceNonRasterMask || range.combine !== 'replace')) {
       setError(
-        'This node already has a non-raster mask. Convert or remove it before applying a depth mask so it is not lost.',
+        'This node already has a non-raster mask. Choose Replace and explicitly enable replacement before applying.',
       );
       return;
     }
@@ -382,7 +461,7 @@ export function DepthMaskSection({ nodes }: { nodes: SceneNode[] }) {
     });
     try {
       const incoming = depthCoverageForRecipe(depthData, depthRecipe);
-      const currentMask = node.mask?.rasterMask;
+      const currentMask = target.mask?.rasterMask;
       const currentAsset = currentMask
         ? state.document.rasterMaskAssets?.[currentMask.assetId]
         : undefined;
@@ -408,9 +487,22 @@ export function DepthMaskSection({ nodes }: { nodes: SceneNode[] }) {
         : depthRecipe;
       let committed = false;
       updateDoc((doc) => {
-        const currentNode = doc.nodes[node.id];
+        const currentNode = doc.nodes[target.id];
         const currentResource = doc.depthMaps?.[selectedResource.id];
-        if (currentNode !== node || currentResource !== selectedResource) return doc;
+        const currentSourceNode = doc.nodes[node.id];
+        const currentSourceAsset = source.fillAssetId
+          ? doc.assets?.[source.fillAssetId]
+          : undefined;
+        if (
+          currentNode !== target ||
+          currentSourceNode !== node ||
+          currentResource !== selectedResource ||
+          (selectedResource.sourceAssetId !== undefined &&
+            selectedResource.sourceAssetId !== source.fillAssetId) ||
+          (selectedResource.sourceHash !== undefined &&
+            currentSourceAsset?.hash !== selectedResource.sourceHash)
+        )
+          return doc;
         const withCorrection = correctionAsset
           ? {
               ...doc,
@@ -420,11 +512,12 @@ export function DepthMaskSection({ nodes }: { nodes: SceneNode[] }) {
               },
             }
           : doc;
-        const next = commitRasterMask(withCorrection, node.id, {
+        const next = commitRasterMask(withCorrection, target.id, {
           dataUrl,
           width: depthData.width,
           height: depthData.height,
           sourceLocator: source.locator,
+          sourceIdentity: depthRecipe.sourceIdentity,
           depthRecipe: recipeWithCorrection,
         });
         committed = next !== doc;
@@ -442,20 +535,34 @@ export function DepthMaskSection({ nodes }: { nodes: SceneNode[] }) {
     hasExistingNonRasterMask,
     node,
     range,
+    replaceNonRasterMask,
     selectedCandidate?.compatible,
     selectedResource,
     source,
     state.document.rasterMaskAssets,
+    target,
     updateDoc,
   ]);
 
   const handleExport = useCallback(() => {
-    if (!selectedResource || !node) return;
-    downloadResource(selectedResource, node.name);
+    if (!selectedResource || !target) return;
+    downloadResource(selectedResource, target.name);
     announce('Depth map exported as a scalar Varve resource');
-  }, [announce, node, selectedResource]);
+  }, [announce, selectedResource, target]);
 
-  if (!node || !source) return null;
+  if (!target) return null;
+  if (!node || !source) {
+    return (
+      <DisclosureSection title="Depth Mask" sectionId="depth-mask">
+        <div className="insp-field-group">
+          <p className="insp-hint insp-hint--error" role="alert">
+            This depth mask has no available source image. Select or restore the bound image before
+            importing, editing, or exporting source-aligned coverage.
+          </p>
+        </div>
+      </DisclosureSection>
+    );
+  }
 
   const options = candidates.map((candidate) => ({
     value: candidate.resource.id,
@@ -469,7 +576,25 @@ export function DepthMaskSection({ nodes }: { nodes: SceneNode[] }) {
       <div className="insp-field-group">
         <p className="insp-hint">
           Select a reusable scalar depth map, refine its range, and apply coverage as the existing
-          non-destructive layer mask. Relative depth is ordinal (0 near, 100 far), not metres.
+          non-destructive layer mask. Relative maps are ordinal (0 near, 100 far); metric maps
+          retain calibrated values while their normalized UI range remains explicit.
+        </p>
+        {target.kind === 'adjustment' && (
+          <NativeSelect
+            label="Depth source image"
+            value={sourceNodeId}
+            options={imageSources.map((candidate) => ({
+              value: candidate.id,
+              label: candidate.name,
+            }))}
+            placeholder={imageSources.length > 0 ? undefined : 'No image source available'}
+            onValueChange={setSourceNodeId}
+            disabled={imageSources.length === 0}
+            description={`Coverage will localize ${target.name} in the selected image's source coordinates.`}
+          />
+        )}
+        <p className="insp-hint">
+          Target: {target.name}. Source: {node.name} ({source.width} x {source.height}).
         </p>
         <NativeSelect
           label="Depth source"
@@ -660,10 +785,19 @@ export function DepthMaskSection({ nodes }: { nodes: SceneNode[] }) {
               </p>
             )}
             {hasExistingNonRasterMask && (
-              <p className="insp-hint insp-hint--warn">
-                An existing vector, live, or structural mask is protected. Applying now would
-                replace it, so the action is blocked.
-              </p>
+              <>
+                <p className="insp-hint insp-hint--warn">
+                  An existing vector, live, or structural mask is protected. Only an explicit
+                  Replace can discard that mask; Intersect, Add, and Subtract require an existing
+                  raster coverage asset.
+                </p>
+                <Switch
+                  className="insp-switch"
+                  label="Confirm replacing the existing mask"
+                  checked={replaceNonRasterMask}
+                  onChange={(event) => setReplaceNonRasterMask(event.target.checked)}
+                />
+              </>
             )}
             <div className="insp-actions">
               <Button
@@ -671,7 +805,12 @@ export function DepthMaskSection({ nodes }: { nodes: SceneNode[] }) {
                 variant="default"
                 size="sm"
                 onClick={handleApply}
-                disabled={!hasCompatibleMap || rangeInvalid || hasExistingNonRasterMask}
+                disabled={
+                  !hasCompatibleMap ||
+                  rangeInvalid ||
+                  (hasExistingNonRasterMask &&
+                    (!replaceNonRasterMask || range.combine !== 'replace'))
+                }
               >
                 Apply depth mask
               </Button>

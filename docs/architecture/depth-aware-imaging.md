@@ -1,7 +1,9 @@
 # Depth-aware imaging
 
-Status: vertical slice implemented; model integrity, contract, and inference
-ordering verified (2026-08-13); final visual gate pending E2E/visual review
+Status: depth-mask workflow implemented on `master`; scalar contract, model
+integrity, persistence, and browser workflow are covered by focused tests and
+the depth-masking Playwright evidence dated 2026-09-13. Model/preprocessing
+parity and low-end hardware performance remain explicit release gates.
 
 This document records the repository audit and the contract for Varve's
 depth-aware imaging foundation. It deliberately separates the user-facing
@@ -41,11 +43,16 @@ DepthMap concept from the model and inference runtime that creates it.
 - Effects are typed scene values and are lowered through
   `sceneNodeToEngineNode` into the shared Canvas2D replay and export paths.
   Existing layer/background blur effects do not have access to a depth resource.
-- The editor integration is now a “Depth Blur” panel. It can download/load the
-  local model, generate and inspect a reusable map, pick a focus value from the
-  depth preview, and save a typed effect plus document-level resource. Rendering
-  uses the saved map and does not require the model. Source hashes invalidate a
-  saved map when the underlying image asset changes.
+- The editor integration keeps generation in the existing “Depth Blur” panel,
+  and exposes a separate “Depth Mask” section in the existing Adjustments
+  surface. The latter can reuse a saved map, import a bounded `.vdepth.json`
+  resource, inspect a valid-only heatmap/histogram, sample near/far values, and
+  commit a source-aligned mask without enabling blur. Rendering and editing use
+  the saved resource and resolved mask bytes; neither requires the model.
+- A depth mask may target an image layer or a source-image-bound adjustment
+  layer. The adjustment's scope still answers **what** is processed and its
+  depth mask answers **where** the result is visible. The existing Mask section
+  and `RefineMaskTool` remain the coverage-refinement owner.
 - Browser inference is routed through the same worker abstraction. Saved
   raster/image assets already render without a model, so persisted depth must
   follow that rule; generation may remain capability-gated where the runtime is
@@ -106,17 +113,19 @@ an encoded scalar payload. The model is a creation/regeneration dependency, not
 a render dependency. A missing or corrupt resource must produce a controlled
 warning and a regeneration action, never prevent a document from opening.
 
-Depth Blur will be non-destructive and will use a depth-aware gather/composite
-strategy with premultiplied alpha. The implementation must include explicit
-foreground/background boundary fixtures; a clean Gaussian level blend is not a
-substitute for occlusion handling.
+Depth Blur is non-destructive and uses the existing depth-aware
+gather/composite strategy with premultiplied alpha. Depth-range masking does
+not reuse blur focus or blur inversion: it evaluates the shared coverage
+kernel and commits through the existing raster-mask owner.
 
 ## Implemented contract
 
 - `DepthMapResource.schemaVersion` is currently `1`; scalar data is persisted
   as uint16 little-endian values encoded in base64, with an optional validity
-  payload. Unsupported or corrupt resources are left in the document so the
-  renderer can fail soft and keep the source pixels visible.
+  payload and optional metric measurement payload. Unsupported or corrupt
+  resources are reported and the last resolved raster coverage remains
+  available where one was saved, so the renderer can fail soft and keep source
+  pixels visible.
 - `depthBlur` is a scene effect with a `depthMapId`, focal depth, focus range,
   blur strength, falloff, inversion, edge protection, and visibility. Scene
   normalization clamps numeric fields, while engine lowering attaches the
@@ -132,18 +141,55 @@ substitute for occlusion handling.
   and decoded byte size; resource identity includes payload metadata so a
   regenerated map cannot reuse stale decoded samples.
 - Depth Range → Mask is implemented as a non-destructive layer mask: the
-  Inspector converts a depth range (near/far/feather/invert) into a
-  `RasterMaskAsset` through the same `commitRasterMask` path used by
-  background removal, so masks participate in the document's existing
-  immutable-asset and undo semantics.
-- Removing the Depth Blur effect drops depth resources that are no longer
-  referenced by any node effect. Updates and removal target the stable effect
-  identifier when one is present; legacy effects without an identifier are
-  migrated in place on the next save.
+  existing Adjustments surface evaluates near/far endpoints, independent
+  depth-domain transitions, valid-only inversion, and soft Replace,
+  Intersect, Union, or Subtract coverage through the shared kernel. It commits
+  a `RasterMaskAsset` through the same `commitRasterMask` path used by
+  background removal, so masks participate in existing immutable-asset and
+  undo semantics.
+- The mask keeps a `RasterMaskData.depthRecipe` beside its resolved PNG. The
+  recipe records the accepted map id, source node/fill identity, range,
+  transitions, inversion, combine mode, algorithm version, and a correction
+  asset when a later coverage edit is made. Changing the range does not rerun
+  inference; Replace intentionally starts a fresh range, while a combine mode
+  can rebase against the saved correction.
+- Removing Depth Blur no longer removes an accepted map: explicit resource
+  deletion owns pruning, so a map referenced by a mask recipe remains
+  available. Duplicate/paste remap source, map, mask, and recipe ids together.
+  Document closure includes map references from effects and recipes.
 - The compact generic Effects picker does not create an empty `depthBlur`
   placeholder. Depth Blur is entered through the image workflow, where a
   validated DepthMap resource is generated or loaded before the effect is
   saved.
+
+## Depth mask workflow
+
+The supported workflow stays inside existing editor surfaces:
+
+1. Select an image and open **Adjustments → Depth Mask**, or select an
+   adjustment layer and choose its bound source image.
+2. Choose a generated/saved resource, or import Varve's self-describing
+   `.vdepth.json` file. A resource must declare canonical near-is-low ordering,
+   dimensions, precision, validity, and (when present) source registration.
+3. Inspect the contained heatmap, valid-sample histogram, legend, and constant/
+   invalid status. **Sample near** and **Sample far** read the displayed map,
+   not the viewport or image luminance; clicks in contain bars are ignored.
+4. Set numeric near/far endpoints and separate near/far depth transitions.
+   Crossed endpoints are visibly rejected. Apply with Replace, Intersect,
+   Add/Union, or Subtract. Applying never enables Depth Blur and never changes
+   source image pixels.
+5. Use the existing **Mask** surface and `RefineMaskTool` to paint coverage.
+   A coverage correction is retained independently enough for supported range
+   edits. Correcting depth itself remains a separate future correction layer;
+   the shipped workflow does not pretend that painting coverage edits the
+   continuous field.
+
+Only `.vdepth.json` is currently accepted by the scalar import control. PNG,
+EXR, HEIC portrait metadata, Android Dynamic Depth, and arbitrary grayscale
+images are not silently interpreted as depth because the required sample
+precision, no-data, orientation, calibration, and registration contracts are
+not implemented for those inputs. Exporting a scalar resource is distinct from
+exporting a colorized heatmap or a binary/soft coverage mask.
 
 ## Model verification (2026-08-13)
 
@@ -164,25 +210,21 @@ Verified facts:
   `[1, 518, 518]`. The manifest's contract now records exactly this; the
   editor reads the last two output dims so `[1, 1, H, W]` exports also work.
 - The raw near/far convention of this export is **nearIsHigh** on the
-  two-plane and portrait fixtures (nearer pixels have higher raw values), but
-  the perspective-corridor fixture measures **nearIsLow**: monocular relative
-  depth carries a per-image sign ambiguity (the model itself is deterministic —
-  same input, byte-identical output; the ambiguity is across images).
-  Per-image sign detection without ground truth is mathematically impossible
-  (any monotone-invariant self-consistency metric is sign-insensitive), so
-  `normalizeDepthPrediction` pins `nearFarConvention: 'nearIsHigh'` per the
-  verified majority, every persisted map is canonical nearIsLow (0 = near,
-  1 = far), and the Depth Blur controls expose **Invert Depth** for the
-  minority of images the fixed convention gets wrong. The manifest records the
-  raw convention and the verification report records every fixture's measured
-  sign so a future real-photo corpus can validate or refine the assumption.
+  two-plane and portrait fixtures, but the perspective-corridor fixture
+  measures **nearIsLow**. The current adapter records the raw convention as
+  provenance and canonicalizes using the verified production adapter choice; it
+  does not claim that a self-consistency score can infer a correct per-photo
+  sign. Users have an explicit range inversion control when the estimate needs
+  review. This remains a model-quality/review limitation, not a reason to
+  silently flip saved maps.
 - Outputs are NaN/Inf-free across the corpus; a flat uniform input yields a
   finite, stable mid-plane.
-- Measured on the verification machine (Intel workstation, 8-core, CPU-only,
-  under unrelated load): ~9.8 s cold first pass, ~13.6 s warm p50, ~20.2 s
-  warm p95 for a three-fixture pass at 518x518. A single 518x518 pass is the
-  dominant cost of one DepthMap generation; generation is worker-backed and
-  cancellable, so it does not block editing.
+- The checked-in report records 264,582 ms cold, 279,404 ms warm p50, and
+  361,144 ms warm p95 for its three-fixture CPU run, while older prose in that
+  report says 9.8/13.6/20.2 s. The two records conflict; no product latency
+  claim is based on either until the report is regenerated with a known ORT
+  version. A single model run is still treated as heavyweight, worker-backed,
+  and cancellable; map editing/import/reopen/export remain model-free.
 - Fixture metrics are deliberately modest (Spearman rho 0.31 on the two-plane
   fixture, 0.27 on the corridor): synthetic flat-color scenes are a pessimistic
   case for a model trained on real imagery. The gate thresholds target
@@ -222,14 +264,22 @@ at a near edge, sharp-subject-into-background rejection, foreground bokeh
 allowance, background-into-foreground rejection, alpha-edge transparency, and
 the downscaled path.
 
-## Known release gates
+## Verified, deferred, and unsupported
 
-The remaining gates before claiming the backend is production-ready: CPU/WASM
-measurements in the shipped runtime, depth-edge visual fixtures on real
-photos, transparent PNG fixtures, save/reopen without the model, export
-parity, cancellation/stale-job E2E, and browser/mobile-sized Inspector
-screenshots. Marketing copy says "relative depth" and "depth-aware" rather
-than implying metric 3D or optical-lens equivalence.
+Verified in the implementation slice: canonical scalar validation and
+round-trip, valid-only range coverage and soft combination, contained preview
+geometry, source-bound image and adjustment masks, recipe persistence and
+correction ownership, owner-aware cancellation, duplicate/paste reference
+remapping, model-free saved-map use, scalar export, and real Chromium UI
+interaction. Deferred: official-vs-worker preprocessing parity, real-photo
+boundary quality corpus, guided/joint-bilateral refinement evaluation,
+Linux WebKitGTK and physical 4 GB/ARM measurements, and stale-resource
+policies for every RAW/retouch/warp variant. Unsupported for now: arbitrary
+PNG/EXR/HEIC/Android/iOS depth import, metric generated depth, video/frame
+reuse, full continuous-depth correction, and 3D reconstruction.
+
+Marketing copy says “relative depth” and “depth-aware” rather than implying
+metric 3D, a perfect matte, or optical-lens equivalence.
 
 ## Known limitations
 
@@ -252,13 +302,21 @@ than implying metric 3D or optical-lens equivalence.
   re-composited, which is the intended edge-protection behaviour but is not
   a full optical simulation.
 
-## Planned commit sequence
+## Implementation record
 
-1. `test(depth): add depth-map fixtures and backend contracts`
-2. `feat(depth): add normalized reusable DepthMap resources and cache keys`
-3. `feat(effects): add non-destructive depth-aware blur compositor`
-4. `feat(editor): add Depth Blur generation, focus picker, and preview`
-5. `feat(depth): verify model integrity, contract, and inference ordering`
-6. `test(depth): add visual, E2E, and performance coverage`
-7. `docs(depth): document runtime, persistence, limitations, and workflow`
-8. `feat(website): market depth-aware effects with verified claims`
+The depth-aware masking slice was delivered incrementally on `master`:
+
+- `af8ea7501` — scalar contract, validity, normalization, range kernel, and
+  serialization tests.
+- `6b2f693c3` — recipe ownership, codec reachability, and owner-aware
+  inference cancellation.
+- `d1df45b8d` — reusable standalone range-mask workflow and editor surface.
+- `e8d9331c7` — restoration of concurrent pen-tool files after the standalone
+  workflow commit exposed an unrelated shared-index overlap.
+- Follow-up commits record source registration/alpha validity, persistence and
+  clipboard remapping, browser evidence, and the documentation/website copy.
+
+The exact final commit list and validation results are recorded in
+`docs/audits/depth-aware-masking-implementation-2026-09-13.md`. The workflow
+is intentionally integrated into Mask/Selection/Adjustments and Depth Blur;
+there is no separate Depth workspace or competing resource manager.

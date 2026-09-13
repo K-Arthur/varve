@@ -5,15 +5,15 @@ import { sitePath } from '../../../lib/siteUrl';
 
 <Layout
   title="Depth Blur — Varve Docs"
-  description="How to generate, inspect, and persist a DepthMap for Varve's non-destructive Depth Blur effect."
+  description="How to generate, import, reuse, and edit Varve's relative depth maps for blur and non-destructive masks."
 >
   <div class="container-custom">
     <article class="doc-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
         <a href={sitePath('/docs')}>Docs</a> / Depth Blur
       </nav>
-      <h1>Depth Blur</h1>
-      <p class="lead">Use a reusable relative DepthMap to control focus blur while keeping the source image editable.</p>
+      <h1>Depth Blur and Depth Masks</h1>
+      <p class="lead">Use one reusable relative DepthMap for focus blur, range masks, and localized edits while keeping the source image editable.</p>
 
       <h2>Generate a DepthMap</h2>
       <ol>
@@ -30,19 +30,30 @@ import { sitePath } from '../../../lib/siteUrl';
         preview and saved replay use the same canonical depth-aware compositor.
       </p>
 
-      <h2>Depth Range Mask</h2>
+      <h2>Use the same map as a mask</h2>
       <p>
-        A saved DepthMap can also be converted into a non-destructive layer mask: set the near and far
-        thresholds, feather the transition, optionally invert the selection, then choose
-        <strong>Create Depth Mask</strong>. The mask is stored as a standard raster mask on the image
-        layer, so adjustments and other effects can consume it like any other mask.
+        Open <strong>Adjustments → Depth Mask</strong> on the image, or select an Adjustment Layer and
+        choose its source image. Pick a generated map, reuse a saved map, or import Varve's
+        self-describing <code>.vdepth.json</code> resource. The contained preview, valid-sample
+        histogram, legend, and <strong>Sample near</strong>/<strong>Sample far</strong> controls make
+        the map's orientation visible before you edit the range.
+      </p>
+      <p>
+        Set numeric near/far endpoints and separate depth-domain transitions. Choose
+        <strong>Replace</strong>, <strong>Intersect</strong>, <strong>Add / union</strong>, or
+        <strong>Subtract</strong> when a raster mask already exists, then choose
+        <strong>Apply depth mask</strong>. This does not enable blur or change source pixels. The
+        resulting mask stays in the existing Mask surface, where the Refine Mask brush can add,
+        subtract, and protect coverage without rerunning inference.
       </p>
 
-      <h2>Regenerate and remove</h2>
+      <h2>Revisit, remove, and work offline</h2>
       <p>
-        <strong>Regenerate Depth Map</strong> reruns local inference when you want a fresh estimate.
-        <strong>Remove Depth Blur</strong> deletes the effect and any depth resources that are no
-        longer referenced by other effects. Removing the map never touches the original image pixels.
+        The accepted map, range recipe, and resolved mask coverage are saved separately from the
+        blur effect. Changing a range is a lightweight edit; it does not rerun the model. Removing
+        <strong>Depth Blur</strong> leaves a map that is still referenced by a mask. Reopening,
+        refining, and exporting an accepted mask work without the model being installed. Use
+        <strong>Regenerate Depth Map</strong> only when the source image or estimate needs to change.
       </p>
 
       <h2>Persistence and invalidation</h2>
@@ -55,9 +66,12 @@ import { sitePath } from '../../../lib/siteUrl';
 
       <h2>Limitations</h2>
       <p>
-        Depth is relative, not metric. It is a guide for image effects, not a measurement of real-world
-        distance. Transparent objects, reflections, thin structures, and severe occlusion may be uncertain.
-        Missing or corrupt maps fail soft and preserve the source pixels.
+        Generated depth is relative, not metric, and is a guide for image effects rather than a
+        measurement or 3D reconstruction. Transparent objects, reflections, hair, wires, thin
+        structures, and severe occlusion may need manual coverage refinement or a separate matte.
+        The current scalar import is Varve's validated <code>.vdepth.json</code> profile; arbitrary
+        grayscale PNG, EXR, HEIC, and camera-depth metadata are not silently treated as depth.
+        Missing or corrupt maps fail soft and preserve the last resolved coverage where available.
       </p>
 
       <p><a href={sitePath('/features/depth-aware-effects')}>Read the depth-aware effects overview →</a></p>

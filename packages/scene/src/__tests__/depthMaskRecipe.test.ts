@@ -5,6 +5,8 @@ import {
   pruneUnreferencedDepthMaps,
   validateDepthMaskRecipe,
 } from '../depthMaskRecipe';
+import { addNode, createDocument, makeImageShapeNode } from '../document';
+import { DocumentCodec } from '../documentCodec';
 import type { DepthMaskRecipe, SceneNode } from '../types';
 
 const depthMap = {
@@ -12,12 +14,14 @@ const depthMap = {
   schemaVersion: 1 as const,
   width: 2,
   height: 1,
-  depthType: 'float32' as const,
-  depthUnit: 'normalized' as const,
+  depthType: 'relative' as const,
+  unit: 'normalized' as const,
   nearFarConvention: 'nearIsLow' as const,
-  dataBase64: 'AAAAAAAAgD8=',
+  inferenceVersion: 1,
+  preprocessingVersion: 1,
+  dataBase64: 'AAAAAP//',
   validBase64: 'AQE=',
-  byteLength: 8,
+  byteLength: 6,
 };
 
 const recipe: DepthMaskRecipe = {
@@ -112,5 +116,74 @@ describe('depth mask recipe ownership', () => {
     expect(depthMaskRecipeForNode(maskNode)).toEqual(recipe);
     const pruned = pruneUnreferencedDepthMaps(doc);
     expect(Object.keys(pruned.depthMaps ?? {})).toEqual(['depth-1', 'depth-2']);
+  });
+
+  it('round-trips a recipe with its resolved coverage and keeps that coverage offline', () => {
+    const sourceNode = makeImageShapeNode('image-1', {
+      src: 'asset:photo-1',
+      w: 1,
+      h: 1,
+      imageWidth: 1,
+      imageHeight: 1,
+    });
+    const rasterMaskAsset = {
+      id: 'mask-1',
+      mimeType: 'image/png' as const,
+      dataUrl:
+        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4////fwAJ+wP9KobjigAAAABJRU5ErkJggg==',
+      width: 1,
+      height: 1,
+      byteLength: 70,
+    };
+    const singleMap = { ...depthMap, width: 1, height: 1, dataBase64: 'AAAA', byteLength: 2 };
+    const singleRecipe: DepthMaskRecipe = {
+      ...recipe,
+      sourceBinding: { ...recipe.sourceBinding, fillAssetId: undefined },
+      sourceIdentity: {
+        ...recipe.sourceIdentity,
+        locator: 'asset:photo-1',
+        pixelWidth: 1,
+        pixelHeight: 1,
+      },
+    };
+    const withMask = {
+      ...addNode(createDocument('Depth recipe'), sourceNode),
+      nodes: {
+        'image-1': {
+          ...sourceNode,
+          mask: {
+            type: 'alpha' as const,
+            visible: true,
+            rasterMask: {
+              assetId: rasterMaskAsset.id,
+              coordinateSpace: 'source-image-pixels' as const,
+              sourceIdentity: singleRecipe.sourceIdentity,
+              depthRecipe: singleRecipe,
+            },
+          },
+        },
+      },
+      rasterMaskAssets: { [rasterMaskAsset.id]: rasterMaskAsset },
+      depthMaps: { [singleMap.id]: singleMap },
+    };
+
+    const reopened = DocumentCodec.decode(DocumentCodec.encode(withMask));
+    expect(reopened.ok, reopened.ok ? '' : reopened.error).toBe(true);
+    if (!reopened.ok) return;
+    expect(reopened.document.depthMaps?.[singleMap.id]).toEqual(singleMap);
+    expect(reopened.document.nodes['image-1']?.mask?.rasterMask?.depthRecipe).toEqual(singleRecipe);
+
+    const modelMissing = DocumentCodec.decode(
+      JSON.stringify({ ...withMask, depthMaps: undefined }),
+    );
+    expect(modelMissing.ok, modelMissing.ok ? '' : modelMissing.error).toBe(true);
+    if (!modelMissing.ok) return;
+    expect(modelMissing.document.nodes['image-1']?.mask?.rasterMask?.assetId).toBe('mask-1');
+    expect(modelMissing.document.nodes['image-1']?.mask?.rasterMask?.depthRecipe).toBeUndefined();
+    expect(
+      modelMissing.warnings.some(
+        (warning) => warning.code === 'document.invalid-depth-mask-recipe',
+      ),
+    ).toBe(true);
   });
 });
