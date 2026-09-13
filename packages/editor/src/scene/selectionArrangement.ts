@@ -468,15 +468,7 @@ export function alignmentFeedbackForResult(
   }
   if (position === null || !Number.isFinite(position)) return null;
 
-  const movedIds = selection.filter((id) => {
-    const oldTransform = before.nodes[id]?.transform;
-    const newTransform = after.nodes[id]?.transform;
-    return Boolean(
-      oldTransform &&
-        newTransform &&
-        oldTransform.some((value, index) => value !== newTransform[index]),
-    );
-  });
+  const movedIds = changedTransformIds(before, after, selection);
   if (movedIds.length === 0) return null;
 
   const reference = options.reference ?? 'selection';
@@ -511,6 +503,95 @@ export function alignmentFeedbackForResult(
     reference,
     keyObjectId: keyIsValid ? (options.keyObjectId ?? null) : null,
   };
+}
+
+/**
+ * Describe the spacing relationship produced by a distribution command. The
+ * guide positions come from the post-command bounds, so unequal-size and
+ * fixed-gap operations cannot display a pre-operation estimate.
+ */
+export function distributionFeedbackForResult(
+  before: Document,
+  after: Document,
+  selection: readonly NodeId[],
+  axis: DistributeAxis,
+  options: DistributeSelectionOptions = {},
+): AlignmentFeedback | null {
+  if (before === after) return null;
+  const movedIds = changedTransformIds(before, after, selection);
+  if (movedIds.length === 0) return null;
+
+  const mode = options.mode ?? 'equalGap';
+  const items = collectSelection(after, selection).items.sort((a, b) =>
+    compareItems(axis, mode, a, b),
+  );
+  if (items.length < 2) return null;
+
+  const lines: AlignmentGuideLine[] = [];
+  if (mode === 'equalCenter') {
+    const centers = items.map((item) =>
+      axis === 'horizontal' ? item.bounds.x + item.bounds.w / 2 : item.bounds.y + item.bounds.h / 2,
+    );
+    const spacing = centers[1]! - centers[0]!;
+    if (!Number.isFinite(spacing)) return null;
+    const lineAxis = axis === 'horizontal' ? 'vertical' : 'horizontal';
+    for (const [index, position] of centers.entries()) {
+      lines.push({
+        axis: lineAxis,
+        position,
+        label:
+          index === Math.floor(centers.length / 2)
+            ? `Equal centers · ${formatArrangementValue(spacing)}`
+            : undefined,
+      });
+    }
+  } else {
+    const lineAxis = axis === 'horizontal' ? 'vertical' : 'horizontal';
+    for (let index = 1; index < items.length; index++) {
+      const previous = items[index - 1]!.bounds;
+      const current = items[index]!.bounds;
+      const previousEnd = axis === 'horizontal' ? previous.x + previous.w : previous.y + previous.h;
+      const currentStart = axis === 'horizontal' ? current.x : current.y;
+      const gap = currentStart - previousEnd;
+      const position = (previousEnd + currentStart) / 2;
+      if (!Number.isFinite(gap) || !Number.isFinite(position)) continue;
+      lines.push({
+        axis: lineAxis,
+        position,
+        label: `Gap ${formatArrangementValue(gap)}`,
+      });
+    }
+  }
+  if (lines.length === 0) return null;
+  return {
+    lines,
+    movedIds,
+    reference: 'selection',
+    keyObjectId: null,
+  };
+}
+
+function changedTransformIds(
+  before: Document,
+  after: Document,
+  selection: readonly NodeId[],
+): NodeId[] {
+  return selection.filter((id) => {
+    const oldTransform = before.nodes[id]?.transform;
+    const newTransform = after.nodes[id]?.transform;
+    return Boolean(
+      oldTransform &&
+        newTransform &&
+        oldTransform.some((value, index) => value !== newTransform[index]),
+    );
+  });
+}
+
+function formatArrangementValue(value: number): string {
+  if (!Number.isFinite(value)) return '—';
+  return Number.isInteger(value)
+    ? String(value)
+    : value.toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
 }
 
 function collectSelection(doc: Document, selection: readonly NodeId[]): CollectedSelection {

@@ -15,6 +15,7 @@ import {
   alignSelectionInDocument,
   commonAlignmentContainerBounds,
   distributeSelectionInDocument,
+  distributionFeedbackForResult,
   getAlignmentCapabilities,
   planManualWorldTranslationFromOrigins,
   tidySelectionInDocument,
@@ -298,6 +299,31 @@ describe('selectionArrangement', () => {
       { axis: 'vertical', position: 20, label: 'Right edge · Key object' },
     ]);
     expect(feedback?.movedIds).toEqual([other.id]);
+  });
+
+  it('reports final fixed gaps from the post-distribution bounds', () => {
+    let doc = createDocument('distribution feedback');
+    const a = rect('a', 0, 0, 20, 20);
+    const b = rect('b', 80, 0, 40, 20);
+    const c = rect('c', 180, 0, 60, 20);
+    doc = addNode(addNode(addNode(doc, a), b), c);
+
+    const next = distributeSelectionInDocument(doc, [a.id, b.id, c.id], 'horizontal', {
+      gap: 10,
+    });
+    const feedback = distributionFeedbackForResult(doc, next, [a.id, b.id, c.id], 'horizontal', {
+      gap: 10,
+    });
+
+    expect(feedback).toEqual({
+      lines: [
+        { axis: 'vertical', position: 25, label: 'Gap 10' },
+        { axis: 'vertical', position: 75, label: 'Gap 10' },
+      ],
+      movedIds: [b.id, c.id],
+      reference: 'selection',
+      keyObjectId: null,
+    });
   });
 
   it('aligns a single child to its nearest common frame bounds', () => {
