@@ -46,7 +46,7 @@ fn save(path: &std::path::Path, width: u32, height: u32, rgba: &[u8]) {
 fn amplified_diff(cpu: &[u8], gpu: &[u8]) -> Vec<u8> {
     let mut out = Vec::with_capacity(cpu.len());
     for (a, b) in cpu.iter().zip(gpu.iter()) {
-        out.push(((*a as i32 - *b as i32).unsigned_abs() as u32 * 24).min(255) as u8);
+        out.push(((*a as i32 - *b as i32).unsigned_abs() * 24).min(255) as u8);
     }
     // Force opaque alpha so equal pixels read as black, not transparent.
     for pixel in out.chunks_exact_mut(4) {

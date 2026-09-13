@@ -101,7 +101,7 @@ impl GpuCompute {
             .or_else(|| ranked.iter().find(|(score, _, _)| *score > 0));
 
         let (_, adapter, adapter_info) = selected.ok_or_else(|| {
-            let software = ranked.iter().any(|(score, _, _)| *score <= 0);
+            let software = ranked.iter().any(|(score, _, _)| *score == 0);
             AccelError::Unavailable(
                 if software {
                     UnavailableReason::SoftwareOnly
@@ -134,7 +134,7 @@ impl GpuCompute {
             ));
         }
 
-        let info = describe_adapter(&adapter_info, Some(adapter.limits()));
+        let info = describe_adapter(adapter_info, Some(adapter.limits()));
         Ok(Self {
             device,
             queue,
@@ -318,7 +318,7 @@ pub fn discover_compute_devices() -> ComputeCapabilities {
             let limits = adapter.limits();
             let mut device = describe_adapter(&info, Some(limits));
             let score = adapter_score(&info);
-            if score <= 0 {
+            if score == 0 {
                 device.stage = AccelStage::Unavailable;
                 device.software = true;
                 device.reason = Some(UnavailableReason::SoftwareOnly);

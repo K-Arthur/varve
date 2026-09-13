@@ -457,6 +457,7 @@ just install-dev-icons
 - **ADR-0003** — Canvas2D default, WebGPU opt-in with fallback.
 - **ADR-0004** — varve-bridge + varve-wasm for shared IPC/WASM IR.
 - **ADR-0005** — Offline-first ONNX: bundled models manifest, remote download explicit only.
+- **ADR-0237** — Native `wgpu` compute (effects/resampling) with truthful accelerator capability stages (discovered → runtime-loadable → device-usable → execution-verified); inference stays CPU until a provider artifact ships; no NPU claims.
 
 ## WebGPU + WASM program
 
@@ -622,6 +623,7 @@ panels.
 | `varve-effects` | **Built** | Native live-effects kernels — deterministic RGBA ports of `packages/engine/src/liveEffects/`; consumed by the desktop `apply_effect` IPC and `varve-wasm` |
 | `varve-colour` | **Built** | Colour science: ICC transforms (tintbox), analytical conversion, WASM bindings |
 | `varve-bridge` | **Built** | TS wire-format → `varve-core` `SceneNode` conversion (Tauri IPC + WASM) |
+| `varve-accel` | **Built** | Native acceleration: capability model, `wgpu` device discovery + bounded self-test, offscreen GPU effect/resample kernels (ADR-0237) |
 | `varve-wasm` | **Built** | wasm-bindgen glue for `varve-engine` (web IR build + hit test) |
 
 ### packages/ (TypeScript)
