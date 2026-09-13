@@ -78,6 +78,25 @@ const enhanceShot = scenes['enhance-dialog-auto']?.status === 'captured' ? scene
         </div>
       </section>
 
+      <section class="acceleration" aria-labelledby="acceleration-title">
+        <p class="eyebrow">Desktop acceleration</p>
+        <h2 id="acceleration-title">The useful path is selected per workload.</h2>
+        <p>
+          On the installed desktop app, conventional resampling may use a native Vulkan, Metal,
+          or D3D12 GPU path after a real device self-test. AI upscaling and other local models use
+          the bundled native runtime and a verified WebGPU provider when that optional component,
+          driver, model, and graph all pass their checks. The result can still use CPU work when
+          that is faster for a small or cold request.
+        </p>
+        <p>
+          The browser demo has its own WebGPU/WASM capability path; it cannot borrow the desktop
+          app's device or runtime. Varve does not infer NPU use from a product specification, and
+          the current release does not ship a vendor NPU runtime. Every unsupported or lost
+          accelerator falls back to a correct CPU workflow without changing the source layer.
+        </p>
+        <a href={sitePath('/docs/performance')}>See the capability stages and fallback guide →</a>
+      </section>
+
       <section class="review" aria-labelledby="review-title">
         <div>
           <p class="eyebrow">Review first</p>
@@ -144,6 +163,10 @@ const enhanceShot = scenes['enhance-dialog-auto']?.status === 'captured' ? scene
   .review-grid article { border: 1px solid var(--border-default); border-radius: var(--website-radius-surface); padding: 1rem; }
   .review-grid h3 { color: var(--text-primary); margin: 0 0 .5rem; }
   .review-grid p { line-height: 1.65; margin: 0; }
+  .acceleration { border-top: 1px solid var(--border-default); padding: 4rem 0; }
+  .acceleration h2 { color: var(--text-primary); font-size: clamp(1.6rem, 3vw, 2.3rem); margin: .5rem 0 1rem; }
+  .acceleration p { color: var(--text-secondary); line-height: 1.75; }
+  .acceleration a { color: var(--text-link); font-weight: 600; }
   .honesty a { color: var(--text-link); font-weight: 600; }
   @media (max-width: 680px) { .pipeline { grid-template-columns: 1fr; } .pipeline-arrow { transform: rotate(90deg); justify-self: center; } .capability-grid, .review-grid { grid-template-columns: 1fr; } }
 </style>
