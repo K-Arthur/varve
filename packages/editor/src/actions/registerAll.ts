@@ -3,7 +3,10 @@ import { type ContactChannelId, contactMailto } from '@varve/shared';
 import { isCapabilityRestricted } from '../capabilities/restrictions';
 import { registerColorConversionActions } from '../components/ColorConversion/colorConversionCommands';
 import type { EditorContextValue } from '../context';
-import { openMockupsWithSelection } from '../mockup/mockupActions';
+import {
+  createMockupTemplateFromSelection,
+  openMockupsWithSelection,
+} from '../mockup/mockupActions';
 import { SHORTCUT_DEFS } from '../shortcuts/ShortcutManager';
 import { registerThumbnailActions } from '../thumbnail/thumbnailCommands';
 import { type ActionCategory, getActionRegistry } from './ActionRegistry';
@@ -282,6 +285,11 @@ export function registerEditorActions(
   }
   reg('applyMockup', 'Apply Mockup…', 'object', () => {
     openMockupsWithSelection(ctx);
+  });
+  reg('createMockupTemplate', 'Create Mockup Template from Selection…', 'object', () => {
+    void createMockupTemplateFromSelection(ctx).then((result) => {
+      if (result) ctx.announce?.('Mockup template created from the selection');
+    });
   });
   reg('openMockupsPanel', 'Open Mockups Panel', 'panel', () => {
     openMockupsWithSelection(ctx);

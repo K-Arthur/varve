@@ -157,6 +157,16 @@ import { appearancePaddingWorld, expandRect, nodeVisualWorldBounds } from './vis
 let _showOriginalBgNodeId: string | null = null;
 
 /**
+ * Document id that owns the current mockup surface cache. Node ids are
+ * per-document counters, so a cache carried across a document switch could
+ * serve another document's pixels for the same `node-1`/`surface` key. The
+ * cache is cleared (and its baked-surface image retention released) whenever
+ * the document id changes. The id — not the object — is compared so ordinary
+ * immutable edits keep the cache warm.
+ */
+let _mockupCacheDocId: string | null = null;
+
+/**
  * Whether the worker can be trusted with this document's text.
  *
  * The question is per family, not per batch: a document that uses only
@@ -2052,7 +2062,12 @@ export function renderContent(deps: RenderContentDeps): void {
     {
       if (!mockupSurfaceCacheRef.current) {
         mockupSurfaceCacheRef.current = new MockupSurfaceCache();
+      } else if (_mockupCacheDocId !== doc.id) {
+        // Never serve a previous document's baked surfaces under colliding
+        // per-document node ids.
+        mockupSurfaceCacheRef.current.clear();
       }
+      _mockupCacheDocId = doc.id;
       const result = decorateMockupIr({
         doc,
         nodeIds,

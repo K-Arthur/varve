@@ -338,6 +338,15 @@ export function buildCanvasContextMenuItems({
               closeMenu();
             },
           } satisfies MenuEntry,
+          {
+            id: 'ctx-create-mockup-template',
+            label: 'Create mockup template from selection…',
+            onAction: () => {
+              record('createMockupTemplate');
+              getActionRegistry().get('createMockupTemplate')?.handler(undefined);
+              closeMenu();
+            },
+          } satisfies MenuEntry,
         ]
       : []),
     ...(hasNodes

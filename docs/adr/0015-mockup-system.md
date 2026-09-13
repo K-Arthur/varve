@@ -153,3 +153,40 @@ workspace/panel plumbing.
   geometry validation, licence passthrough with unknown-permission
   semantics.
 - AI assistance stays optional; no model is added by this work.
+
+## Amendment (2026-09-13): export parity, surface editing, photographic templates
+
+Vertical-slice follow-up. Full audit, reproduction evidence, and research
+citations: `docs/audits/mockup-editing-improvement-2026-09-13.md`. Canonical
+architecture: `docs/architecture/mockup-system.md`.
+
+Decisions that extend, not replace, the original ADR:
+
+1. **Export parity is a contract, not a convention.** All export-shaped hosts
+   share `render/mockup/mockupExport.ts`; a mockup selected for raster/PDF
+   export renders the composed mockup. Missing sources always warn and draw a
+   placeholder; stale preview rasters are canvas-only.
+2. **Mockup frames force structural compositing.** Quad warp uses DOM canvas
+   APIs; docs now match the code.
+3. **Per-surface instance overrides are rendering inputs.** Rotation, flips,
+   alignment, shadow/glow, backgroundColor, and overlay blend modes are
+   applied; anything not applied is not exposed.
+4. **Photographic templates are an additive template capability.** A raster
+   `plateImage` plus alpha `clipMaskAssetId`/`occlusionMaskAssetId` coverage
+   compose in a defined order (background → plate → content → occluder →
+   overlays). Luminance-channel coverage and displacement maps stay rejected
+   until a renderer path exists; an ellipse clip is never called a cylinder.
+5. **Template instances are scoped.** Editing surface geometry/masks on an
+   instance first clones the template into a private user-library copy;
+   library templates are retained when unreferenced.
+6. **Portable template bundles are bounded and content-free by default.**
+   `.varve-mockup.json` carries template geometry plus plate/mask assets only;
+   bound artwork, paths, and fonts are never exported. Import validates every
+   bound before embedding.
+7. **Source loss is recoverable and honest.** Deleting a bound source keeps a
+   labelled last-good preview in the editor, reports the missing source in
+   the inspector, and warns on export.
+
+Validation: scene/scene-adjacent unit tests, focused editor tests, E2E
+coverage, and inspected visual/export artifacts are recorded in the audit
+report and the Agent Validation Report.

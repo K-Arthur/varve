@@ -1,0 +1,136 @@
+.mockup-overlay {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+  z-index: var(--z-overlay);
+}
+
+.mockup-overlay__outline {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.mockup-overlay__outline polygon {
+  fill: color-mix(in oklch, var(--color-accent-primary) 5%, transparent);
+  stroke: color-mix(in oklch, var(--color-accent-primary) 55%, transparent);
+  stroke-width: 1;
+  stroke-dasharray: 5 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.mockup-overlay__outline--active polygon {
+  fill: none;
+  stroke: color-mix(in oklch, var(--color-accent-primary) 90%, transparent);
+  stroke-dasharray: none;
+  stroke-width: 1.5;
+}
+
+.mockup-overlay__chip {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill, var(--radius-control-compact));
+  background: var(--surface-raised, var(--surface-muted));
+  color: var(--text-primary);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.mockup-overlay__chip:hover,
+.mockup-overlay__chip:focus-visible {
+  border-color: var(--color-accent-primary);
+  color: var(--color-accent-primary);
+}
+
+.mockup-overlay__handle {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+}
+
+.mockup-overlay__handle:active {
+  cursor: grabbing;
+}
+
+.mockup-overlay__handle-dot {
+  display: block;
+  border-radius: 50%;
+  background: var(--color-accent-primary);
+  box-shadow: 0 0 0 2px var(--surface-raised, var(--surface-muted));
+}
+
+.mockup-overlay__handle:focus-visible .mockup-overlay__handle-dot {
+  box-shadow:
+    0 0 0 2px var(--surface-raised, var(--surface-muted)),
+    0 0 0 4px var(--color-accent-primary);
+}
+
+.mockup-overlay__toolbar {
+  position: absolute;
+  left: 50%;
+  bottom: var(--space-5);
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--elevation-surface-raised, var(--surface-raised, var(--surface-muted)));
+  box-shadow: var(--shadow-md);
+  pointer-events: auto;
+}
+
+.mockup-overlay__toolbar-label {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  padding-inline: var(--space-1);
+}
+
+.mockup-overlay__action {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-micro);
+  border-radius: var(--radius-control-compact);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.mockup-overlay__action:hover,
+.mockup-overlay__action:focus-visible {
+  color: var(--text-primary);
+  border-color: var(--border-subtle);
+}
+
+.mockup-overlay__action--primary {
+  border-color: var(--color-accent-primary);
+  color: var(--color-accent-primary);
+}
+
+.mockup-overlay__placement {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--space-5) + 34px);
+  transform: translateX(-50%);
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-control-compact);
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+}

@@ -1269,6 +1269,22 @@ function collectNodeClosure(doc: Document, rootIds: NodeId[]): DocumentClosure {
       : undefined;
     if (template) mockupTemplates[template.id] = template;
   }
+  // Template-referenced raster assets (photographic plate, clip/occlusion
+  // coverage) are part of the resource closure even though no node fill
+  // points at them directly.
+  for (const template of Object.values(mockupTemplates)) {
+    const referenced = [
+      template.plateImage?.assetId,
+      ...template.surfaces.flatMap((surface) => [
+        surface.clipMaskAssetId,
+        surface.occlusionMaskAssetId,
+      ]),
+    ];
+    for (const assetId of referenced) {
+      const asset = assetId ? doc.assets?.[assetId] : undefined;
+      if (assetId && asset) assets[assetId] = asset;
+    }
+  }
   const generativeEdits: NonNullable<Document['generativeEdits']> = {};
   for (const [editId, edit] of Object.entries(doc.generativeEdits ?? {})) {
     if (nodeIds.has(edit.sourceNodeId) || (edit.resultNodeId && nodeIds.has(edit.resultNodeId))) {

@@ -186,6 +186,194 @@ export function setMockupSurfaceOverride(
   };
 }
 
+/** Replace (or clear, with `null`) a surface's whole override object. */
+export function replaceMockupSurfaceOverride(
+  doc: Document,
+  nodeId: NodeId,
+  surfaceId: string,
+  override: MockupSurfaceOverride | null,
+): Document {
+  const node = doc.nodes[nodeId];
+  if (!isMockupFrame(node)) return doc;
+  const nextOverrides: Record<string, MockupSurfaceOverride> = { ...node.mockup.overrides };
+  if (override === null) delete nextOverrides[surfaceId];
+  else nextOverrides[surfaceId] = override;
+  const updated: FrameNode = {
+    ...node,
+    mockup: {
+      ...node.mockup,
+      overrides: Object.keys(nextOverrides).length > 0 ? nextOverrides : undefined,
+    },
+  };
+  return {
+    ...doc,
+    nodes: { ...doc.nodes, [nodeId]: updated },
+  };
+}
+
+/** Remove a surface binding entirely (the surface renders as unassigned). */
+export function clearMockupBinding(doc: Document, nodeId: NodeId, surfaceId: string): Document {
+  const node = doc.nodes[nodeId];
+  if (!isMockupFrame(node)) return doc;
+  const rest = { ...node.mockup.surfaceBindings };
+  delete rest[surfaceId];
+  const updated: FrameNode = {
+    ...node,
+    mockup: { ...node.mockup, surfaceBindings: rest },
+  };
+  return {
+    ...doc,
+    nodes: { ...doc.nodes, [nodeId]: updated },
+  };
+}
+
+export interface MockupTemplateRemapAssignment {
+  surfaceId: string;
+  surfaceName: string;
+  sourceSlot: string;
+  binding?: MockupSourceBinding;
+}
+
+export interface MockupTemplateRemapPlan {
+  templateFound: boolean;
+  assignments: MockupTemplateRemapAssignment[];
+  unboundSurfaceIds: string[];
+  remappedCount: number;
+}
+
+/**
+ * Plan replacing an instance's template. Surfaces are matched by
+ * `sourceSlot` semantics (stable identity), never by array position: a new
+ * surface inherits the binding of the not-yet-consumed old surface with the
+ * same slot. New slots with no semantic match stay explicitly unbound so the
+ * UI can show them before committing.
+ */
+export function planMockupTemplateRemap(
+  doc: Document,
+  nodeId: NodeId,
+  templateId: string,
+): MockupTemplateRemapPlan {
+  const node = doc.nodes[nodeId];
+  const template = doc.mockupTemplates?.[templateId];
+  if (!isMockupFrame(node) || !template) {
+    return { templateFound: false, assignments: [], unboundSurfaceIds: [], remappedCount: 0 };
+  }
+  const oldTemplate = doc.mockupTemplates?.[node.mockup.templateId];
+  const oldSurfaces = oldTemplate?.surfaces ?? [];
+  const consumed = new Set<string>();
+  const assignments: MockupTemplateRemapAssignment[] = [];
+  const unboundSurfaceIds: string[] = [];
+  for (const surface of template.surfaces) {
+    const match = oldSurfaces.find(
+      (s) => s.sourceSlot === surface.sourceSlot && !consumed.has(s.id),
+    );
+    if (match) consumed.add(match.id);
+    const binding = match ? node.mockup.surfaceBindings[match.id] : undefined;
+    assignments.push({
+      surfaceId: surface.id,
+      surfaceName: surface.name,
+      sourceSlot: surface.sourceSlot,
+      binding,
+    });
+    if (!binding) unboundSurfaceIds.push(surface.id);
+  }
+  return {
+    templateFound: true,
+    assignments,
+    unboundSurfaceIds,
+    remappedCount: assignments.filter((a) => a.binding !== undefined).length,
+  };
+}
+
+/** Apply a planned template replacement (bindings remapped, overrides reset). */
+export function applyMockupTemplateRemap(
+  doc: Document,
+  nodeId: NodeId,
+  templateId: string,
+): { document: Document; unboundSurfaceIds: string[] } {
+  const node = doc.nodes[nodeId];
+  if (!isMockupFrame(node)) return { document: doc, unboundSurfaceIds: [] };
+  const plan = planMockupTemplateRemap(doc, nodeId, templateId);
+  if (!plan.templateFound) return { document: doc, unboundSurfaceIds: [] };
+  const bindings: Record<string, MockupSourceBinding> = {};
+  for (const assignment of plan.assignments) {
+    if (assignment.binding) bindings[assignment.surfaceId] = assignment.binding;
+  }
+  const updated: FrameNode = {
+    ...node,
+    mockup: {
+      ...node.mockup,
+      templateId,
+      surfaceBindings: bindings,
+      overrides: undefined,
+    },
+  };
+  return {
+    document: { ...doc, nodes: { ...doc.nodes, [nodeId]: updated } },
+    unboundSurfaceIds: plan.unboundSurfaceIds,
+  };
+}
+
+/**
+ * Update an embedded template through an immutable updater. Used by authoring
+ * controls; callers should make the template unique first when editing an
+ * instance-owned copy so shared users are not mutated.
+ */
+export function updateMockupTemplate(
+  doc: Document,
+  templateId: string,
+  updater: (template: MockupTemplateAsset) => MockupTemplateAsset,
+): Document {
+  const existing = doc.mockupTemplates?.[templateId];
+  if (!existing) return doc;
+  const next = updater(existing);
+  return {
+    ...doc,
+    mockupTemplates: {
+      ...doc.mockupTemplates,
+      [templateId]: { ...next, contentHash: hashMockupTemplate(next), updatedAt: Date.now() },
+    },
+  };
+}
+
+/**
+ * Give an instance its own private copy of its template (user library),
+ * leaving every other user of the original untouched. Returns the new
+ * template id, or null when the frame/template is missing or already unique.
+ */
+export function makeMockupTemplateUnique(
+  doc: Document,
+  nodeId: NodeId,
+): { document: Document; templateId: string } | null {
+  const node = doc.nodes[nodeId];
+  if (!isMockupFrame(node)) return null;
+  const template = doc.mockupTemplates?.[node.mockup.templateId];
+  if (!template) return null;
+  const uniqueId = `user:${template.id.replace(/^user:/, '')}-${Date.now().toString(36)}`;
+  const clone: MockupTemplateAsset = {
+    ...template,
+    id: uniqueId,
+    source: 'user',
+    library: true,
+    name: template.name,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+  const unique: MockupTemplateAsset = { ...clone, contentHash: hashMockupTemplate(clone) };
+  const updated: FrameNode = {
+    ...node,
+    mockup: { ...node.mockup, templateId: uniqueId },
+  };
+  return {
+    document: {
+      ...doc,
+      mockupTemplates: { ...doc.mockupTemplates, [uniqueId]: unique },
+      nodes: { ...doc.nodes, [nodeId]: updated },
+    },
+    templateId: uniqueId,
+  };
+}
+
 /** Replace the instance's template. */
 export function setMockupTemplate(doc: Document, nodeId: NodeId, templateId: string): Document {
   const node = doc.nodes[nodeId];

@@ -123,3 +123,38 @@ Dependency-ordered slices, each leaving a working workflow:
   works in narrow panels.
 - Validation evidence: affected unit tests, focused E2E, inspected
   screenshots, and independent export inspection.
+
+## 5. Implementation status (updated as work lands)
+
+Landed in `fix(mockup): render mockups in raster exports, route worker safely,
+honor overrides` (commit 4b7fdd7e5):
+
+- Export parity: raster (and therefore PDF rasterization) exports decorate
+  mockups through the shared `mockupExport.ts`; stale previews are disabled
+  for export and missing surfaces are warnings.
+- Worker safety: mockup frames force structural compositing.
+- Cache identity: frame size, geometry, rotation/flip and mask settings are
+  part of the key; per-document cache identity avoids cross-document reuse.
+- Instance overrides now render (rotation/flip), plus `backgroundColor` and
+  overlay blend modes.
+- Export surface bake scales with output instead of upscaling previews.
+- Missing live sources keep a labelled last-good preview on canvas.
+- Scene schema: `plateImage`, alpha clip/occlusion masks, `maskOptions`,
+  library templates; validation, normalization and asset retention updated.
+
+Landed in the surface-editing slice:
+
+- Canvas surface overlay (chips + rect/quad handles, per-gesture transactions,
+  Escape abort, Reset).
+- Inspector: per-surface source actions (Replace, Edit source, Snapshot,
+  Reconnect, Clear), placement/appearance/geometry controls, mask authoring
+  from selection, surface rename/reorder/remove, template replacement with
+  slot-identity remap and unbound reporting, duplicate linked/independent,
+  flatten-to-image.
+- Template authoring from selection; portable `.varve-mockup.json` bundles
+  with bounded import validation; library templates retained across reloads;
+  instance edits auto-scope to a private template copy.
+
+Still deferred with explicit rejection: mesh surfaces, cylindrical surfaces,
+displacement maps, luminance mask coverage, PSD smart-object replacement, and
+model-assisted surface proposals.

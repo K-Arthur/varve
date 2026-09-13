@@ -14,10 +14,20 @@
 import type { MockupCategory, MockupTemplateAsset, NodeId } from '@varve/scene';
 import { getBuiltinMockupTemplates } from '@varve/scene';
 import { Button, Card, Icon, SearchField } from '@varve/ui';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
-import { applyMockupToSources, templatesForDocument } from '../../mockup/mockupActions';
+import {
+  applyMockupToSources,
+  createMockupTemplateFromSelection,
+  templatesForDocument,
+} from '../../mockup/mockupActions';
 import { subscribeMockupsTab } from '../../mockup/mockupTabStore';
+import {
+  exportMockupTemplateBundle,
+  importMockupTemplateBundle,
+  parseMockupTemplateBundle,
+  serializeMockupTemplateBundle,
+} from '../../mockup/mockupTemplatePackage';
 import { MockupTemplatePreview } from './MockupTemplatePreview';
 import './MockupsPanel.css';
 
@@ -72,6 +82,8 @@ export function MockupsPanel(): React.ReactElement {
   const [recents, setRecents] = useState<string[]>(() => readList(RECENTS_KEY));
   const [pendingSources, setPendingSources] = useState<NodeId[] | null>(null);
   const [appliedId, setAppliedId] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     return subscribeMockupsTab((request) => {
@@ -140,6 +152,69 @@ export function MockupsPanel(): React.ReactElement {
     [favourites],
   );
 
+  const createFromSelection = useCallback(async () => {
+    setStatus(null);
+    const result = await createMockupTemplateFromSelection(editor);
+    setStatus(
+      result
+        ? 'Template created from the selection and added as a Custom template.'
+        : 'Select an image, frame, or group first.',
+    );
+  }, [editor]);
+
+  const importTemplate = useCallback(
+    async (file: File) => {
+      setStatus(null);
+      try {
+        const parsed = parseMockupTemplateBundle(await file.text());
+        if ('errors' in parsed) {
+          setStatus(parsed.errors[0] ?? 'Import failed validation.');
+          return;
+        }
+        const imported = importMockupTemplateBundle(editor.state.document, parsed.bundle);
+        if ('errors' in imported) {
+          setStatus(imported.errors[0] ?? 'Import failed validation.');
+          return;
+        }
+        editor.beginTransaction();
+        try {
+          editor.updateDoc(() => imported.document);
+        } finally {
+          editor.commitTransaction();
+        }
+        setStatus('Template imported. It is available under Custom.');
+      } catch {
+        setStatus('Could not read that file.');
+      }
+    },
+    [editor],
+  );
+
+  const exportTemplate = useCallback(
+    (template: MockupTemplateAsset) => {
+      setStatus(null);
+      const result = exportMockupTemplateBundle(editor.state.document, template.id);
+      if ('errors' in result) {
+        setStatus(result.errors[0] ?? 'Export failed.');
+        return;
+      }
+      const blob = new Blob([serializeMockupTemplateBundle(result.bundle)], {
+        type: 'application/json',
+      });
+      const url = URL.createObjectURL(blob);
+      try {
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `${template.id.replace(/[^a-z0-9-]+/gi, '-')}.varve-mockup.json`;
+        anchor.click();
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+      setStatus('Template exported without bound artwork.');
+    },
+    [editor],
+  );
+
   const builtinIds = useMemo(() => new Set(getBuiltinMockupTemplates().map((t) => t.id)), []);
 
   return (
@@ -150,6 +225,33 @@ export function MockupsPanel(): React.ReactElement {
           {sorted.length} template{sorted.length === 1 ? '' : 's'}
         </span>
       </div>
+
+      <div className="mockups-panel__library-actions">
+        <Button size="sm" variant="ghost" onClick={() => void createFromSelection()}>
+          Create from selection
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => importInputRef.current?.click()}>
+          Import template
+        </Button>
+        <input
+          ref={importInputRef}
+          type="file"
+          accept=".json,application/json"
+          className="visually-hidden"
+          aria-label="Import mockup template bundle"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = '';
+            if (file) void importTemplate(file);
+          }}
+        />
+      </div>
+
+      {status && (
+        <p className="mockups-panel__status" role="status">
+          {status}
+        </p>
+      )}
 
       {!hasSources && (
         <p className="mockups-panel__hint" role="status">
@@ -260,7 +362,17 @@ export function MockupsPanel(): React.ReactElement {
                     </Button>
                   </div>
                   {template.source !== 'builtin' && !builtinIds.has(template.id) && (
-                    <p className="mockups-panel__card-source">Custom</p>
+                    <div className="mockups-panel__card-source">
+                      <span>Custom</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => exportTemplate(template)}
+                        aria-label={`Export ${template.name} as a template bundle`}
+                      >
+                        Export
+                      </Button>
+                    </div>
                   )}
                 </div>
               </Card>

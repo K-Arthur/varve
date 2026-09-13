@@ -48,6 +48,7 @@ import { GradientHandleOverlay } from './GradientHandleOverlay';
 import { GuideOverlay } from './GuideOverlay/GuideOverlay';
 import { KnifeHoverOverlay } from './KnifeHoverOverlay';
 import { MeshWarpOverlay } from './MeshWarpOverlay';
+import { MockupSurfaceOverlay } from './MockupSurfaceOverlay';
 import { MotionPathOverlay } from './MotionPathOverlay';
 import { NodeEditControls } from './NodeEditControls';
 import { NodeEditOverlay } from './NodeEditOverlay';
@@ -654,6 +655,14 @@ export function CanvasOverlays({
       )}
       {tool === 'warp' && editor.state.warpEdit && (
         <WarpOverlay zoom={zoom} pan={pan} cameraRotation={cameraRotation} />
+      )}
+      {tool === 'select' && selection.length === 1 && (
+        <MockupSurfaceOverlay
+          zoom={zoom}
+          pan={pan}
+          cameraRotation={cameraRotation}
+          selection={selection}
+        />
       )}
       {tool === 'perspective' && perspectiveTool && (
         <PerspectiveOverlay

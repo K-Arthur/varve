@@ -1,10 +1,8 @@
 # Mockup System — Architecture
 
-Status: implemented (Level 1 + Level 2 vertical slice); Level 3-5 deferred.
-ADR: docs/adr/0015-mockup-system.md.
-Audit: docs/audits/mockup-capability-audit-2026-08-05.md.
-Slice report: docs/audits/mockup-vertical-slice-report-2026-08-05.md.
-Deferred multimodal plan: docs/plans/mockup-multimodal-deferred.md.
+Status: implemented (Levels 1–2 + photographic templates); curated curved
+surfaces and displacement remain deferred. ADR: `docs/adr/0015-mockup-system.md`.
+Audit and improvement record: `docs/audits/mockup-editing-improvement-2026-09-13.md`.
 
 ## Product definition
 
@@ -23,68 +21,64 @@ distinct from:
 - **AI-generated imagery** — optional future input to surface detection;
   never a replacement for deterministic placement.
 
-## Document schema (2.15)
+Nothing in the mockup system introduces a workspace, route, document type,
+or parallel editor. It is frames + document-embedded template assets +
+renderer decoration + inspector/overlay controls.
+
+## Document schema
 
 ### `Document.mockupTemplates: Record<string, MockupTemplateAsset>`
 
 ```ts
 interface MockupTemplateAsset {
-  id: string;                 // stable id, e.g. 'builtin:phone-flat'
+  id: string;                    // 'builtin:phone-flat' | 'user:…'
   schemaVersion: 1;
-  name: string;
+  name: string; description?: string;
   category: MockupCategory;
   source: 'builtin' | 'user' | 'workspace' | 'community';
   orientation: 'portrait' | 'landscape' | 'square' | 'any';
-  outputWidth: number;        // template design space, px
-  outputHeight: number;
-  backgroundColor: string;    // css color, or 'transparent'
-  plate: MockupVectorShape[]; // full-bleed background shapes
+  outputWidth: number; outputHeight: number;   // template design space, px
+  backgroundColor: string;                     // css color or 'transparent'
+  plateImage?: {                               // photographic base plate
+    assetId: string; width: number; height: number;
+    fit: 'cover' | 'contain' | 'stretch'; opacity?: number;
+  };
+  plate: MockupVectorShape[];                  // full-bleed vector background
   surfaces: MockupSurfaceDefinition[];
   overlays: MockupOverlayDefinition[];
   licence?: MockupLicenceSnapshot;
   tags?: string[];
   contentHash: string;
-  capabilities?: string[];    // e.g. ['quad']
-  createdAt?: number;
-  updatedAt?: number;
+  capabilities?: string[];    // e.g. ['flat'], ['quad']
+  library?: boolean;          // user-authored: retained when unreferenced
+  createdAt?: number; updatedAt?: number;
 }
 
 interface MockupSurfaceDefinition {
-  id: string;
-  name: string;
-  kind: 'flat' | 'quad';          // 'mesh' | 'cylindrical' reserved
-  sourceSlot: string;             // 'screen' | 'front' | 'back' | ...
+  id: string; name: string; sourceSlot: string;
+  kind: 'flat' | 'quad';         // 'mesh' | 'cylindrical' reserved, rejected
   x: number; y: number;           // slot rect, template space
   width: number; height: number;
   quad?: MockupQuad;              // required when kind === 'quad'
   fit: 'contain' | 'cover' | 'stretch' | 'native';
   alignment: { x: 'min' | 'center' | 'max'; y: 'min' | 'center' | 'max' };
-  plate?: MockupVectorShape[];    // device chrome behind the content
-  shadow?: { blur: number; offsetY: number; opacity: number };
-  screenGlow?: boolean;           // soft screen emissive glow
-  dark?: boolean;                 // dark bezel variant
+  plate?: MockupVectorShape[];    // slot-local for quads, absolute for flat
+  platePadding?: { x: number; y: number };
+  shadow?: { blur: number; offsetX?: number; offsetY: number; opacity: number };
+  screenGlow?: boolean;
+  dark?: boolean;                 // legacy decorative flag (templates use plate colours)
+  clipMaskAssetId?: string;       // alpha coverage in template space
+  occlusionMaskAssetId?: string;  // foreground coverage; requires plateImage
+  maskOptions?: { invert?: boolean; feather?: number; channel?: 'alpha' | 'luminance' };
+  displacementAssetId?: string;   // reserved — rejected until a renderer exists
 }
-
-interface MockupOverlayDefinition {
-  id: string;
-  name: string;
-  kind: 'shadow' | 'highlight' | 'reflection' | 'vignette' | 'grain';
-  opacity: number;
-  blendMode?: BlendMode;
-  shapes: MockupVectorShape[];
-}
-
-type MockupVectorShape =
-  | { kind: 'rect'; x; y; width; height; rx?: number; fill: string }
-  | { kind: 'ellipse'; x; y; width; height; fill: string };
 ```
 
-Validation (`scene/src/mockup/validate.ts`) enforces: finite numbers,
-non-degenerate quads, surface ids unique, slot inside output bounds,
-bounded shape counts, known kinds/fits, licence shape. Raster assets for
-masks/displacement are reserved fields (`clipMaskAssetId`,
-`occlusionMaskAssetId`, `displacementAssetId`) validated but unused until
-Level 4.
+`MockupPlateImage` and the mask asset ids reference `Document.assets`
+(content-addressed). Templates remain self-contained: the closure retains
+plate/mask assets on save, clipboard payloads and packages, and codec
+normalization clears dangling references with a warning instead of silently
+dropping the template.
 
 ### `FrameNode.mockup: MockupInstanceData`
 
@@ -92,118 +86,174 @@ Level 4.
 interface MockupInstanceData {
   templateId: string;
   surfaceBindings: Record<string, MockupSourceBinding>;
-  overrides?: MockupInstanceOverrides;   // per-surface geometry/fit/appearance
-  detached?: boolean;                    // true once content is flattened away
+  overrides?: Record<string, MockupSurfaceOverride>;
+  detached?: boolean;             // legacy flag; flattening removes the payload
+  createdAt?: number;
 }
 ```
 
 Binding modes:
 
 - **live** — `{ mode: 'live', nodeId }`; re-rendered when the source subtree
-  content digest changes.
+  content digest changes. Editing the source is an ordinary document edit.
 - **snapshot** — `{ mode: 'snapshot', assetId }`; an immutable embedded
-  raster of the source at capture time (content-addressed in
+  raster of the source captured at freeze time (content-addressed in
   `Document.assets`).
-- external/component binding and detached content are represented by
-  snapshot + regular frame editing (the editable raster is a normal image
-  shape node when detached); UI labels this honestly.
+
+Per-surface overrides: rect/quad geometry, fit, alignment, rotation (degrees
+about the slot centre), flips, shadow, glow. All are applied by the renderer;
+none are decoration-only.
+
+Property operations (scene): `setMockupBinding`, `clearMockupBinding`,
+`setMockupSurfaceOverride`, `replaceMockupSurfaceOverride`,
+`setMockupTemplate` (raw swap), `planMockupTemplateRemap` +
+`applyMockupTemplateRemap` (slot-identity remap), `updateMockupTemplate`,
+`makeMockupTemplateUnique`, `clearMockup`, `pruneUnusedMockupTemplates`
+(library templates retained), `computeMockupSourceDigest`.
 
 ## Rendering
 
-Mockup frames render as ordinary IR. `decorateMockupIr` (editor,
-`src/render/mockup/mockupIr.ts`) expands a mockup frame's IR item into:
+Mockup frames render as ordinary IR through `decorateMockupIr`
+(`editor/src/render/mockup/mockupIr.ts`). Composition order is explicit and
+shared by every host:
 
-1. background plate shapes;
-2. per surface: plate shapes → surface content item;
-3. overlays.
+1. template `backgroundColor` rect;
+2. `template.plate` vector shapes;
+3. `template.plateImage` (untouched photo, fitted cover/contain/stretch);
+4. per surface, in template order: shadow → content → glow;
+5. template overlays (opacity multiplied; blend modes mapped to engine names).
 
-Surface content is an image-fill item (flat) or `warpedImage` item (quad)
-whose `src` is a cached raster of the source subtree at the surface
-resolution. The host supplies `renderSourceToCanvas(ctx, nodeId)`; both the
-live canvas and the export compositor pass their structural replay, so
-preview and export are pixel-identical.
+Surface content is an image-fill item (flat) or `warpedImage` item (quad).
+`bakeSurface` fits the live source subtree (or snapshot asset) with
+contain/cover/stretch/native + alignment, applies rotation/flips to the
+artwork only, and composites clip/occlusion coverage exactly once:
 
-### Geometry (`@varve/engine/src/mockup/`)
+- **clip** keeps content where coverage exists (`destination-in`); inverted
+  clip removes it (`destination-out`).
+- **occlusion** removes content where foreground coverage exists
+  (`destination-out`), revealing the base plate beneath; inverted occlusion
+  keeps only covered content. This is why occlusion requires `plateImage`.
+- A mask that has not decoded yet is deferred (content stays unclipped for
+  that frame); the image-cache listener schedules a reframe. Masks are
+  coverage, never colour, so no ICC/gamma transform touches them.
+- Only `channel: 'alpha'` is implemented; `luminance` is rejected by
+  validation until a renderer path exists.
 
-- `homography.ts` — DLT solve (normalized), forward/inverse point mapping,
-  quad validation (finite, non-crossing, non-concave, non-degenerate,
-  minimum area) and corner normalization.
-- `quadWarp.ts` — `warpImageToQuad(ImageData, srcRect, dstQuad, outW, outH)`
-  inverse-homography per-pixel bilinear warp (same sampling family as
-  `meshWarp.ts`, true projective mapping, not a two-triangle bilinear
-  patch).
-- `fit.ts` — `fitRect(contain/cover/stretch/native + alignment)` used by
-  both flat and quad surface placement (the quad's source sampling rect).
+Quad surfaces bake slot-local plate chrome together with content and warp the
+expanded quad (`platePadding`) through the engine's true inverse-homography
+`warpImageToQuad`. This is projective mapping of a plane, not mesh or 3D.
 
-### Cache
+### Host parity
 
-`MockupSurfaceCache`: LRU, byte-budgeted. Key = (frameId, surfaceId,
-`computeMockupSourceDigest(doc, nodeId)`, quality bucket). Source edits
-change the digest → only that surface re-renders. Quality buckets: preview
-(≤ 512px slot long edge), full (surface slot at render scale). Export uses
-its own full-resolution pass, never preview upscaling.
+`render/mockup/mockupExport.ts` is the single decoration module for
+export-shaped hosts. It collects live-bound source ids, flattens them with the
+boundary, decorates with `allowStalePreview: false`, settles the baked data
+URLs, and reports missing surfaces. Used by:
 
-### Renderer parity / diagnostics
+- **live canvas** (`canvas/renderPipeline.ts`) at `qualityScale: 1`;
+- **raster export** (`components/SpecPanel/export.ts`) at the requested
+  export scale — this is the route used by PNG/JPEG/WebP and the rasterized
+  PDF paths;
+- **SVG/PDF flatten boundaries** (`export/compositor.ts`).
 
-Because surfaces ride IR, Canvas2D, worker, preview, and export agree by
-construction. When a mockup frame exists, `sceneNeedsStructuralCompositing`
-returns true (source rasterization is main-thread); a diagnostics counter
-reports mockup frames and per-surface cache hit/miss. WebGPU backend
-renders mockups through the fallback Canvas2D draw path (they are not GPU
-primitives) — this is the documented deterministic fallback.
+Export bakes surfaces above 1× at output scale; export never upscales a
+frame-resolution raster and never presents stale pixels. Missing sources are
+reported as export warnings and rendered as explicit placeholders.
 
-## Level 2 perspective UX
+### Cache and invalidation
 
-- Quad corners rendered as handles on the canvas overlay for the selected
-  mockup frame; drag commits via one transaction.
-- Snapping to other surface corners/edges, and pixel alignment.
-- Inspector numeric fields for all four corners; Reset; invalid-geometry
-  feedback (outline turns red, warp disabled rather than corrupted).
-- Fit/alignment controls per surface; shadow/glow toggles.
+`MockupSurfaceCache` is a byte-budgeted LRU keyed by frame, surface, source
+digest, quality bucket, surface kind, and a geometry signature that includes
+frame size, override rect/quad, fit/alignment, rotation/flip, and mask
+configuration. Source edits change only the affected surface's digest. The
+live cache is cleared when the document id changes (per-document node ids
+would otherwise collide) and bounded by 32 MiB. `getLatest(frame, surface)`
+provides a clearly labelled last-good preview for a lost source on the canvas;
+`allowStalePreview: false` disables it for export.
 
-## Templates
+### Worker and structural routing
 
-- **Built-in catalog** (`scene/src/mockup/builtinTemplates.ts`): 12
-  original vector templates — phone (flat + perspective), tablet, browser,
-  monitor, laptop (perspective), poster, business card (2 surfaces),
-  book cover (perspective), packaging box (perspective front),
-  social board, logo board. No device trade dress, no brand marks; licence
-  snapshot: FSL-1.1-MIT, attribution "Varve contributors".
-- **User templates**: import a validated template JSON (limits: 1 MiB,
-  32 surfaces, 512 shapes, finite geometry); save a mockup instance as a
-  user template; export the same JSON. Stored through the app-settings KV
-  substrate, listed under Custom in the panel.
-- **Template previews**: SVG rendered from template data (plate + slot
-  outlines) — meaningful previews without raster assets.
+`sceneNeedsStructuralCompositing` returns true when any visible node carries a
+`mockup` payload. Mockup surface baking needs main-thread structural replay,
+and quad warp uses DOM canvas APIs, so mockup documents never enter the
+replay worker; this also keeps the worker from ever receiving a
+`warpedImage` it cannot render.
 
-## UI
+## Template authoring
 
-- ResourcesPanel gains a **Mockups** tab (no Shell import change). Search,
-  category chips, orientation filter, built-in/custom filter, grid of
-  previews, detail + Apply.
-- Context menu on a selected frame: **Apply mockup…** (Object menu and
-  command palette reach the same action).
-- Inspector **Mockups** section for selected mockup frames: Source
-  (replace / reconnect / convert to snapshot / detach / remove), Placement
-  (fit, alignment, rotation, quad numeric), Appearance (shadow, glow),
-  Template (name, licence, replace, reveal).
-- Canvas overlay with quad handles when a mockup surface is selected.
+- **From selection**: the canvas context menu / command palette action
+  captures the selected image, frame, or group as an untouched base plate
+  (PNG asset), wraps it in a user library template with one replaceable
+  surface, and instantiates it beside the source. One undo step; the source
+  artwork is never modified.
+- **Surface geometry**: the canvas overlay (`MockupSurfaceOverlay`) outlines
+  every surface of a selected mockup; clicking a chip selects the edit
+  target. Flat surfaces get corner and edge handles; quad surfaces get four
+  corner handles. Drags are one transaction per gesture; invalid quads are
+  rejected (geometry stays at the last valid state); Escape aborts; Reset
+  clears the override.
+- **Masks**: "Clip from selection" / "Occluder from selection" capture the
+  selected node's alpha into a document asset and assign it to the surface.
+  The instance first gets a private template copy, so a shared template is
+  never mutated by an instance edit.
+- **Surface management**: rename, reorder (draw order), and remove surfaces
+  on the instance's template. Removing a surface also drops its binding and
+  overrides.
+- **Portable bundles**: `.varve-mockup.json` is
+  `{ format: 'varve-mockup-template', version: 1, template, assets }`.
+  Import validates template structure, asset count (≤ 8), MIME allowlist
+  (PNG/JPEG/WebP), per-asset bytes (≤ 20 MB), dimensions (≤ 16 384 px),
+  data-URL shape, and referenced-asset completeness before embedding.
+  Exports never include bound artwork, paths, or fonts.
 
-## Level 3-5 (deferred, evidence-backed)
+Built-in catalog (`scene/src/mockup/builtinTemplates.ts`): 12 original vector
+templates — no device trade dress, no brand marks; licence FSL-1.1-MIT,
+attribution "Varve contributors".
 
-| Level | Capability | Deferral evidence |
+## Source integrity
+
+- Live bindings reference document nodes; snapshots are immutable embedded
+  rasters. A snapshot keeps the surface fit, so later fit changes apply to the
+  frozen image instead of double-fitting baked pixels.
+- Copy/paste and cross-document paste remap bindings and templates
+  (`import/mergeImportedResources.ts`); unresolvable references are dropped
+  explicitly.
+- Deleting a bound source keeps the binding as a missing reference: the
+  inspector shows "Missing source", the canvas keeps a labelled last-good
+  preview, and export warns. No stale pixels are silently presented as
+  current.
+- `isAssetReferenced` / `removeNode` retain snapshot bindings and template
+  plate/mask assets; library templates are not pruned while unreferenced.
+- Self/ancestor/indirect cycles are structurally impossible: a mockup
+  surface binds a node id and renders it through the normal subtree replay;
+  digests are cycle-guarded (`computeMockupSourceDigest` visited set).
+
+## UI surfaces
+
+- **Resources → Mockups tab**: search, category/orientation filters, vector
+  previews, favourites/recents, licence display, apply, create-from-selection,
+  bundle import, per-custom-template export.
+- **Inspector → Mockups**: template identity/licence/replacement (slot-identity
+  remap with unbound reporting), per-surface list, source actions (Replace,
+  Edit source, Snapshot, Reconnect, Clear), placement (fit, alignment,
+  rotation, flips), appearance (shadow, glow), geometry (numeric rect/quad),
+  masks, surface rename/reorder/remove, duplicate linked/independent,
+  flatten-to-image, remove mockup.
+- **Canvas overlay**: surface chips + geometry handles described above,
+  labelled targets, Reset/Done, keyboard abort.
+- Canvas context menu and command palette: "Apply mockup…" and "Create mockup
+  template from selection…".
+
+## Deferred, with evidence
+
+| Capability | Status | Evidence / next step |
 |---|---|---|
-| 3 | mesh / cylindrical surfaces | `warpMesh` + `warpPath` exist and are tested; requires mesh-editing UX, displacement maps, seam handling, and tiled high-res rendering. `MockupSurfaceKind` reserves the kinds; validation rejects them today. |
-| 4 | photographic raster templates | Schema reserves plate/mask/displacement assets; needs raster asset packaging (ZIP limits, path traversal, symlink, decompression-bomb protections), occluder compositing, and color management. |
-| 5 | multimodal detection | `MockupRequest` types + schema validation ship; candidate-surface/segmentation/depth requires a new ONNX model (catalog entry, checksum, consent, memory gating per `engine/src/inference/`) and the Stage C-H pipeline; design recorded in `docs/plans/mockup-multimodal-deferred.md`. |
-| Batch export / variants | multiple templates × sources | Export dialog extensions; naming and collision handling. |
-| Home discovery | mockup templates in Home | Mockup templates are scene-anchored, not document starting points; editor-side discovery (context menu, palette, panel, inspector) is primary. |
-| Community packs | remote downloads | Requires pack download host consent (CSP `connect-src`), checksums, update checks — icon-pack precedent; not wired for mockups. |
-
-## Performance targets (measured in `packages/editor/src/render/mockup/__tests__/mockupPerf.test.ts`)
-
-- Browsing templates: no canvas work.
-- Surface rasterization: ≤ 512 px preview bucket; quad warp ~ms for phone
-  sizes; full-res at export only.
-- Cache: bounded LRU; digest change invalidates one surface.
-- Export: re-renders sources at output resolution (no preview upscale).
+| Mesh surfaces | reserved, rejected | `meshWarp` exists but has no topology validation, seam handling, or authoring UI. |
+| Cylindrical surfaces | reserved, rejected | Needs an explicit wrap model (extent, seam, curvature, crop) rendered through a real mapping; an ellipse clip is not a cylindrical projection. |
+| Displacement maps | reserved, rejected | Needs map encoding, channel, neutral value, strength units, coordinate space, and edge behaviour defined end to end. Luminance/depth is not a calibrated displacement field. |
+| Luminance mask coverage | reserved, rejected | Only alpha coverage has a renderer path. |
+| Batch variants | in progress | Reuses `exportNodeAsRaster` over a variant plan; previews/UX under `Export` follow-up. |
+| PSD smart-object replacement | not supported | `@webtoon/psd` imports layers/masks/blend modes as pixels; it does not implement Photoshop's renderer. See `docs/architecture/import-system.md`. |
+| Multimodal surface proposals | deferred | Typed request contract ships (`mockup/multimodal.ts`); no model is required for manual workflows. |
+| Community template packs | deferred | Would reuse the icon-pack download/manifest precedent; no remote host is configured. |
+| Thumbnail decoration | follow-up | Home covers render through the engine thumbnail path, which does not yet decorate mockup frames. |

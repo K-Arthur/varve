@@ -16,8 +16,18 @@
  * Plus a multi-surface workflow (business card front/back with two sources).
  */
 
+import { mkdirSync, readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
+
+const requireFromEngine = createRequire(resolve('packages/engine/package.json'));
+const { PNG } = requireFromEngine('pngjs') as {
+  PNG: { sync: { read(input: Buffer): { width: number; height: number; data: Buffer } } };
+};
+
+const reviewDir = 'reports/mockup-review';
 
 async function createFrame(
   page: import('@playwright/test').Page,
@@ -221,4 +231,157 @@ test('multi-surface template: business card front and back bind two sources', as
   await section.waitFor({ timeout: 8000 });
   await expect(section.getByText(/Linked to node/).first()).toBeVisible();
   expect(await section.getByText(/Linked to node/).count()).toBe(2);
+});
+
+/** Configure a PNG export preset, then export and return the PNG bytes. */
+async function exportPng(page: import('@playwright/test').Page): Promise<Buffer> {
+  await page.locator('[role="tablist"] button[role="tab"]', { hasText: /^export$/i }).click();
+  await page.getByRole('button', { name: 'PNG', exact: true }).click();
+  await page.getByRole('button', { name: 'Add configuration' }).click();
+  await page.evaluate(() => {
+    delete (window as Window & { showSaveFilePicker?: unknown }).showSaveFilePicker;
+  });
+  const downloadPromise = page.waitForEvent('download', { timeout: 60000 });
+  await page.keyboard.press('Control+e');
+  const exportDialog = page.getByRole('dialog');
+  await exportDialog.waitFor({ timeout: 8000 });
+  await exportDialog.getByRole('button', { name: /^Export \(/ }).click({ timeout: 8000 });
+  const download = await downloadPromise;
+  const downloadPath = await download.path();
+  expect(downloadPath).toBeTruthy();
+  return readFileSync(downloadPath as string);
+}
+
+test('export renders the composed mockup, not the frame background', async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') consoleErrors.push(msg.text());
+  });
+  mkdirSync(reviewDir, { recursive: true });
+  await navigateToEditor(page);
+  await createFrame(page, 120, 120);
+  await openMockupsFromContextMenu(page);
+  await applyTemplate(page, 'Phone — Front');
+  await page.locator('.mockups-section').waitFor({ timeout: 8000 });
+
+  const bytes = await exportPng(page);
+  const png = PNG.sync.read(bytes);
+  expect(png.width).toBeGreaterThan(200);
+  expect(png.height).toBeGreaterThan(200);
+
+  // The composed output must contain the template background (#eef0f4) and
+  // the phone plate (#16181c) — the export is the decorated mockup, not a
+  // single flat frame fill.
+  let background = 0;
+  let plate = 0;
+  const colors = new Set<string>();
+  for (let i = 0; i < png.data.length; i += 4) {
+    const r = png.data[i]!;
+    const g = png.data[i + 1]!;
+    const b = png.data[i + 2]!;
+    const a = png.data[i + 3]!;
+    if (a < 250) continue;
+    colors.add(`${r >> 3}-${g >> 3}-${b >> 3}`);
+    if (Math.abs(r - 238) <= 3 && Math.abs(g - 240) <= 3 && Math.abs(b - 244) <= 3) background++;
+    if (r < 40 && g < 45 && b < 50) plate++;
+  }
+  expect(background).toBeGreaterThan(1000);
+  expect(plate).toBeGreaterThan(500);
+  expect(colors.size).toBeGreaterThan(10);
+  expect(consoleErrors.filter((text) => !text.includes('favicon'))).toEqual([]);
+});
+
+test('canvas surface overlay edits geometry and undoes in one step', async ({ page }) => {
+  await navigateToEditor(page);
+  await createFrame(page, 120, 120);
+  await openMockupsFromContextMenu(page);
+  await applyTemplate(page, 'Phone — Front');
+  // The applied mockup frame is selected: its surfaces are click targets.
+  const chip = page.locator('.mockup-overlay__chip', { hasText: 'Screen' });
+  await chip.waitFor({ timeout: 8000 });
+  await chip.click();
+  await page.waitForTimeout(200);
+
+  const xInput = page.locator('.mockups-section__number input[aria-label="x"]');
+  await xInput.waitFor({ timeout: 5000 });
+  const before = Number(await xInput.inputValue());
+
+  const handle = page.locator('.mockup-overlay__handle[aria-label*="Corner top left"]');
+  await handle.waitFor({ timeout: 5000 });
+  const box = await handle.boundingBox();
+  expect(box).not.toBeNull();
+  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box!.x + box!.width / 2 + 24, box!.y + box!.height / 2 + 12, { steps: 5 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+
+  const after = Number(await xInput.inputValue());
+  expect(after).toBeGreaterThan(before);
+
+  await page.keyboard.press('Control+z');
+  await page.waitForTimeout(300);
+  expect(Number(await xInput.inputValue())).toBeCloseTo(before, 0);
+});
+
+test('deleting a bound source reports a missing source instead of crashing', async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') consoleErrors.push(msg.text());
+  });
+  await navigateToEditor(page);
+  await createFrame(page, 120, 120);
+  await openMockupsFromContextMenu(page);
+  await applyTemplate(page, 'Phone — Front');
+  const section = page.locator('.mockups-section');
+  await section.waitFor({ timeout: 8000 });
+
+  // Select the source frame (first layer) and delete it.
+  const sourceLayer = page.locator('.layers-panel [role="treeitem"]').first();
+  await sourceLayer.click();
+  await page.waitForTimeout(200);
+  await page.keyboard.press('Delete');
+  await page.waitForTimeout(400);
+
+  // Re-select the mockup frame; the surface reports the missing source.
+  const mockupLayer = page
+    .locator('.layers-panel [role="treeitem"]', { hasText: /mockup/i })
+    .first();
+  await mockupLayer.click();
+  await page.waitForTimeout(300);
+  await expect(
+    page
+      .locator('.mockups-section')
+      .getByText(/Missing source/)
+      .first(),
+  ).toBeVisible({
+    timeout: 8000,
+  });
+  expect(consoleErrors.filter((text) => !text.includes('favicon'))).toEqual([]);
+});
+
+test('create template from selection adds a reusable Custom template', async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') consoleErrors.push(msg.text());
+  });
+  await navigateToEditor(page);
+  await createFrame(page, 120, 120);
+  await page
+    .locator('canvas.editor-canvas__content-layer')
+    .click({ button: 'right', position: { x: 190, y: 210 } });
+  const ctxMenu = page.getByRole('menu');
+  await ctxMenu.waitFor({ timeout: 8000 });
+  await ctxMenu.getByRole('menuitem', { name: /create mockup template/i }).click();
+  await page.waitForTimeout(1200);
+
+  // A new mockup instance is created and selected.
+  await expect(page.locator('.mockups-section')).toBeVisible({ timeout: 10000 });
+
+  // The Mockups library lists it as a Custom template with an export action.
+  await page.getByRole('tab', { name: /mockups/i }).click();
+  const card = page.locator('.mockups-panel__card', { hasText: /Custom/ }).first();
+  await card.waitFor({ timeout: 8000 });
+  await expect(card.getByRole('button', { name: /export/i })).toBeVisible();
+  expect(consoleErrors.filter((text) => !text.includes('favicon'))).toEqual([]);
 });
