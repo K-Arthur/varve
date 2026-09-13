@@ -269,21 +269,34 @@ function replayPaintStrokeWithDependencies(
 }
 
 /** Maximum padding needed to keep content effects from being cropped. */
-function contentEffectPadding(
-  effects: readonly (
-    | LayerBlurEffect
-    | DepthBlurEffect
-    | SpatialContentBlurEffect
-    | ChromaticAberrationEffect
-    | GlitchEffect
-  )[],
-): number {
+function finiteNonNegative(value: number | undefined): number {
+  return value !== undefined && Number.isFinite(value) ? Math.max(0, value) : 0;
+}
+
+function finiteAbs(value: number | undefined): number {
+  return value !== undefined && Number.isFinite(value) ? Math.abs(value) : 0;
+}
+
+function addEffectSupport(total: number, support: number): number {
+  if (!Number.isFinite(support) || support <= 0) return total;
+  const next = total + support;
+  return Number.isFinite(next) && next <= Number.MAX_SAFE_INTEGER ? next : Number.POSITIVE_INFINITY;
+}
+
+export type ContentEffect =
+  | LayerBlurEffect
+  | DepthBlurEffect
+  | SpatialContentBlurEffect
+  | ChromaticAberrationEffect
+  | GlitchEffect;
+
+export function contentEffectPadding(effects: readonly ContentEffect[]): number {
   let padding = 0;
   for (const e of effects) {
     if (e.type === 'layerBlur') {
-      padding = Math.max(padding, Math.max(0, e.radius) * 3);
+      padding = addEffectSupport(padding, finiteNonNegative(e.radius) * 3);
     } else if (e.type === 'depthBlur') {
-      padding = Math.max(padding, Math.max(0, e.blurStrength) * 3);
+      padding = addEffectSupport(padding, finiteNonNegative(e.blurStrength) * 3);
     } else if (
       e.type === 'gaussianBlur' ||
       e.type === 'fieldBlur' ||
@@ -292,9 +305,9 @@ function contentEffectPadding(
       e.type === 'pathBlur' ||
       e.type === 'spinBlur'
     ) {
-      padding = Math.max(padding, spatialBlurSupport(e as SpatialBlurEffect));
+      padding = addEffectSupport(padding, spatialBlurSupport(e as SpatialBlurEffect));
     } else if (e.type === 'chromaticAberration') {
-      const mix = Math.max(0, e.mix ?? 1);
+      const mix = finiteNonNegative(e.mix ?? 1);
       const maxOff =
         e.channelMode === 'custom' && e.customChannels
           ? Math.max(
@@ -302,32 +315,34 @@ function contentEffectPadding(
               ...e.customChannels.map((channel) =>
                 channel.enabled === false
                   ? 0
-                  : Math.max(Math.abs(channel.x), Math.abs(channel.y)) *
-                    Math.max(0, channel.strength),
+                  : Math.max(finiteAbs(channel.x), finiteAbs(channel.y)) *
+                    finiteNonNegative(channel.strength),
               ),
-            ) * Math.max(0, e.intensity ?? 1)
+            ) * finiteNonNegative(e.intensity ?? 1)
           : Math.max(
-              Math.abs(e.offsets.redX),
-              Math.abs(e.offsets.redY),
-              Math.abs(e.offsets.greenX),
-              Math.abs(e.offsets.greenY),
-              Math.abs(e.offsets.blueX),
-              Math.abs(e.offsets.blueY),
-            ) * Math.max(0, e.intensity ?? 1);
-      padding = Math.max(padding, Math.ceil(maxOff * mix));
+              finiteAbs(e.offsets.redX),
+              finiteAbs(e.offsets.redY),
+              finiteAbs(e.offsets.greenX),
+              finiteAbs(e.offsets.greenY),
+              finiteAbs(e.offsets.blueX),
+              finiteAbs(e.offsets.blueY),
+            ) * finiteNonNegative(e.intensity ?? 1);
+      padding = addEffectSupport(padding, Math.ceil(maxOff * mix));
     } else if (e.type === 'glitch') {
       const cs = e.channelShift;
       const maxChannel = Math.max(
-        Math.abs(cs.redX),
-        Math.abs(cs.redY),
-        Math.abs(cs.greenX),
-        Math.abs(cs.greenY),
-        Math.abs(cs.blueX),
-        Math.abs(cs.blueY),
+        finiteAbs(cs.redX),
+        finiteAbs(cs.redY),
+        finiteAbs(cs.greenX),
+        finiteAbs(cs.greenY),
+        finiteAbs(cs.blueX),
+        finiteAbs(cs.blueY),
       );
-      padding = Math.max(
+      padding = addEffectSupport(
         padding,
-        Math.ceil(Math.max(Math.max(0, e.strength), Math.max(0, e.blockStrength), maxChannel)),
+        Math.ceil(
+          Math.max(finiteNonNegative(e.strength), finiteNonNegative(e.blockStrength), maxChannel),
+        ),
       );
     }
   }
