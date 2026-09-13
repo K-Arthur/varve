@@ -143,6 +143,16 @@ qualification. A constrained device is refused before model loading and is direc
 device-memory hints are advisory only and never imply that a prompt model is
 available; WASM/WebGPU providers must still pass their own safe-peak budget.
 
+The same native boundary now protects ONNX-backed LaMa, background-removal,
+and denoise commands before ONNX Runtime initialization and again immediately
+before session checkout. Their reservations use the measured peak RSS recorded
+in the native model catalog, plus bounded source-image buffers; graph download
+size is not used as a proxy. The native session pool admits one model session
+at a time and does not retain sessions whose measured peak exceeds its cache
+budget. This is important on 4–8 GB ARM laptops and Crostini containers, where
+BiRefNet's 7–8.5 GB native CPU peaks must be refused while the smaller
+promptless or lightweight paths remain usable.
+
 Fast/PatchMatch preparation and matching run in a dedicated module worker in
 browser-capable runtimes. Cancelling a request terminates that worker, so a
 long textured-region search cannot block pointer input or later mutate the

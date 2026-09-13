@@ -20,7 +20,11 @@ impl Default for SessionPoolLimits {
         Self {
             max_cached_entries: 2,
             max_cached_bytes: 1_500 * 1024 * 1024,
-            max_concurrent: 2,
+            // Native ONNX models share the process address space and their
+            // peak RSS is not represented by the graph file size. Keep one
+            // heavy model session active by default; callers that own a
+            // separately measured budget can construct a wider pool.
+            max_concurrent: 1,
         }
     }
 }
@@ -361,6 +365,11 @@ mod tests {
             max_cached_bytes: bytes,
             max_concurrent: concurrent,
         })
+    }
+
+    #[test]
+    fn default_pool_serializes_native_model_sessions() {
+        assert_eq!(SessionPoolLimits::default().max_concurrent, 1);
     }
 
     #[test]

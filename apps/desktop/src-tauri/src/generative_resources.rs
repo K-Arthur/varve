@@ -156,6 +156,79 @@ pub(crate) fn estimated_required_memory_bytes(width: u32, height: u32) -> Option
     NATIVE_DIFFUSION_MINIMUM_MEMORY_BYTES.checked_add(frame_working_bytes)
 }
 
+/// Estimate the reservation for a native ONNX model whose measured peak RSS
+/// is already known. The model peak covers the model graph and its fixed-size
+/// inference tensors; the command still has to retain the source image and
+/// one or more conversion/output buffers. Three RGBA source-sized buffers are
+/// a deliberately conservative allowance for that command-side lifetime.
+pub(crate) fn estimated_required_memory_bytes_for_model(
+    width: u32,
+    height: u32,
+    measured_peak_memory_bytes: u64,
+) -> Option<u64> {
+    let pixels = u64::from(width).checked_mul(u64::from(height))?;
+    if pixels == 0 {
+        return None;
+    }
+    let source_working_bytes = pixels.checked_mul(4)?.checked_mul(3)?;
+    measured_peak_memory_bytes.checked_add(source_working_bytes)
+}
+
+fn snapshot_with_requirement(required_memory_bytes: u64) -> NativeResourceSnapshot {
+    let available_memory_bytes = available_memory_bytes();
+    NativeResourceSnapshot {
+        available_memory_bytes,
+        required_memory_bytes,
+        resource_tier: resource_tier(available_memory_bytes),
+        execution_backend: "native-cpu",
+        platform: std::env::consts::OS,
+        architecture: std::env::consts::ARCH,
+    }
+}
+
+fn memory_shortage_error(
+    operation: &str,
+    required_memory_bytes: u64,
+    available_memory_bytes: u64,
+    architecture: &str,
+) -> Option<String> {
+    if available_memory_bytes >= required_memory_bytes {
+        return None;
+    }
+    let available_mib = (available_memory_bytes / BYTES_PER_MIB).max(1);
+    let required_mib = required_memory_bytes.div_ceil(BYTES_PER_MIB);
+    Some(format!(
+        "{operation} needs about {required_mib} MiB, but only {available_mib} MiB is currently available on this {architecture} device. Close other memory-heavy apps or use Quick Cleanup, which does not load a model."
+    ))
+}
+
+/// Perform the native-side check for a model-backed ONNX operation. This is
+/// intentionally separate from the diffusion check because segmentation and
+/// inpainting have measured footprints that are materially smaller (or, for
+/// BiRefNet, larger) than the six-GiB diffusion floor.
+pub(crate) fn preflight_model(
+    operation: &str,
+    width: u32,
+    height: u32,
+    measured_peak_memory_bytes: u64,
+) -> Result<NativeResourceSnapshot, String> {
+    let required_memory_bytes =
+        estimated_required_memory_bytes_for_model(width, height, measured_peak_memory_bytes)
+            .ok_or_else(|| format!("{operation} source dimensions are empty or overflowed"))?;
+    let snapshot = snapshot_with_requirement(required_memory_bytes);
+    if let Some(available) = snapshot.available_memory_bytes {
+        if let Some(error) = memory_shortage_error(
+            operation,
+            snapshot.required_memory_bytes,
+            available,
+            snapshot.architecture,
+        ) {
+            return Err(error);
+        }
+    }
+    Ok(snapshot)
+}
+
 pub(crate) fn snapshot(width: u32, height: u32) -> NativeResourceSnapshot {
     let available_memory_bytes = available_memory_bytes();
     NativeResourceSnapshot {
@@ -172,13 +245,13 @@ pub(crate) fn snapshot(width: u32, height: u32) -> NativeResourceSnapshot {
 pub(crate) fn preflight(width: u32, height: u32) -> Result<NativeResourceSnapshot, String> {
     let snapshot = snapshot(width, height);
     if let Some(available) = snapshot.available_memory_bytes {
-        if available < snapshot.required_memory_bytes {
-            let available_mib = (available / BYTES_PER_MIB).max(1);
-            let required_mib = snapshot.required_memory_bytes.div_ceil(BYTES_PER_MIB);
-            return Err(format!(
-                "Local diffusion generation needs about {required_mib} MiB, but only {available_mib} MiB is currently available on this {} device. Close other memory-heavy apps or use Quick Cleanup, which does not load the diffusion model.",
-                snapshot.architecture
-            ));
+        if let Some(error) = memory_shortage_error(
+            "Local diffusion generation",
+            snapshot.required_memory_bytes,
+            available,
+            snapshot.architecture,
+        ) {
+            return Err(error);
         }
     }
     Ok(snapshot)
@@ -187,8 +260,9 @@ pub(crate) fn preflight(width: u32, height: u32) -> Result<NativeResourceSnapsho
 #[cfg(test)]
 mod tests {
     use super::{
-        cgroup_available_memory, estimated_required_memory_bytes, parse_cgroup_memory_value,
-        parse_linux_available_memory, resource_tier,
+        cgroup_available_memory, estimated_required_memory_bytes,
+        estimated_required_memory_bytes_for_model, memory_shortage_error,
+        parse_cgroup_memory_value, parse_linux_available_memory, resource_tier, BYTES_PER_MIB,
     };
 
     const GIB: u64 = 1024 * 1024 * 1024;
@@ -236,5 +310,31 @@ mod tests {
         assert!(base >= 6 * GIB);
         assert!(large > base);
         assert_eq!(estimated_required_memory_bytes(0, 512), None);
+    }
+
+    #[test]
+    fn measured_model_peak_includes_bounded_source_buffers() {
+        let base =
+            estimated_required_memory_bytes_for_model(1, 1, 850_000_000).expect("valid dimensions");
+        let large = estimated_required_memory_bytes_for_model(4096, 4096, 850_000_000)
+            .expect("valid dimensions");
+        assert!(base > 850_000_000);
+        assert!(large > base);
+        assert_eq!(estimated_required_memory_bytes_for_model(0, 1, 1), None);
+    }
+
+    #[test]
+    fn memory_shortage_is_actionable_and_architecture_specific() {
+        let error = memory_shortage_error(
+            "Native background removal",
+            850_000_000,
+            512 * BYTES_PER_MIB,
+            "aarch64",
+        )
+        .expect("insufficient memory should be refused");
+        assert!(error.contains("Native background removal"));
+        assert!(error.contains("aarch64"));
+        assert!(error.contains("Quick Cleanup"));
+        assert!(memory_shortage_error("operation", 1, 2, "x86_64").is_none());
     }
 }

@@ -427,22 +427,54 @@ const NATIVE_CLIPBOARD_DEADLINE: Duration = Duration::from_secs(5);
 static NATIVE_CLIPBOARD_CANCELLATIONS: LazyLock<Mutex<HashSet<String>>> =
     LazyLock::new(|| Mutex::new(HashSet::new()));
 
-fn validate_native_image_dimensions(width: u32, height: u32) -> Result<(), String> {
+fn validate_bounded_image_dimensions(
+    width: u32,
+    height: u32,
+    label: &str,
+) -> Result<(), String> {
     if width == 0 || height == 0 {
-        return Err("clipboard image has empty dimensions".into());
+        return Err(format!("{label} has empty dimensions"));
     }
     if width > MAX_NATIVE_IMAGE_DIMENSION || height > MAX_NATIVE_IMAGE_DIMENSION {
         return Err(format!(
-            "clipboard image dimensions exceed the {MAX_NATIVE_IMAGE_DIMENSION}px limit"
+            "{label} dimensions exceed the {MAX_NATIVE_IMAGE_DIMENSION}px limit"
         ));
     }
     let pixels = u64::from(width)
         .checked_mul(u64::from(height))
-        .ok_or_else(|| "clipboard image dimensions overflow".to_string())?;
+        .ok_or_else(|| format!("{label} dimensions overflow"))?;
     if pixels > MAX_NATIVE_IMAGE_PIXELS {
-        return Err("clipboard image exceeds the 64 megapixel limit".into());
+        return Err(format!(
+            "{label} exceeds the 64 megapixel limit"
+        ));
     }
     Ok(())
+}
+
+fn validate_native_image_dimensions(width: u32, height: u32) -> Result<(), String> {
+    validate_bounded_image_dimensions(width, height, "clipboard image")
+}
+
+fn clipboard_operation_id(operation_id: Option<String>) -> Result<String, String> {
+    let request_id = operation_id.unwrap_or_else(uuid);
+    if request_id.is_empty() || request_id.len() > 128 {
+        return Err("Invalid clipboard operation id".into());
+    }
+    Ok(request_id)
+}
+
+fn clipboard_operation_cancelled(operation_id: &str) -> bool {
+    #[cfg(target_os = "linux")]
+    {
+        return native_clipboard_cancelled(operation_id);
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        return NATIVE_CLIPBOARD_CANCELLATIONS
+            .lock()
+            .map(|cancelled| cancelled.contains(operation_id))
+            .unwrap_or(true);
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -728,8 +760,10 @@ fn read_dropped_file(path: String) -> Result<Vec<u8>, String> {
     std::fs::read(&resolved).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
-fn read_clipboard_image_png() -> Result<Option<Vec<u8>>, String> {
+fn read_clipboard_image_png_blocking(operation_id: &str) -> Result<Option<Vec<u8>>, String> {
+    if clipboard_operation_cancelled(operation_id) {
+        return Err("Clipboard image read was cancelled".into());
+    }
     let mut clipboard = arboard::Clipboard::new().map_err(|e| e.to_string())?;
     let img = match clipboard.get_image() {
         Ok(img) => img,
@@ -741,6 +775,21 @@ fn read_clipboard_image_png() -> Result<Option<Vec<u8>>, String> {
     let height = u32::try_from(img.height)
         .map_err(|_| "clipboard image height exceeds the supported range".to_string())?;
     validate_native_image_dimensions(width, height)?;
+    let expected_bytes = usize::try_from(width)
+        .ok()
+        .and_then(|width| {
+            usize::try_from(height)
+                .ok()
+                .and_then(|height| width.checked_mul(height))
+        })
+        .and_then(|pixels| pixels.checked_mul(4))
+        .ok_or_else(|| "clipboard image buffer size overflowed".to_string())?;
+    if img.bytes.len() != expected_bytes {
+        return Err("clipboard image buffer size did not match its dimensions".into());
+    }
+    if clipboard_operation_cancelled(operation_id) {
+        return Err("Clipboard image read was cancelled".into());
+    }
     let rgba = image::RgbaImage::from_raw(width, height, img.bytes.into_owned())
         .ok_or_else(|| "clipboard image buffer size did not match its dimensions".to_string())?;
     let mut png_bytes: Vec<u8> = Vec::new();
@@ -750,7 +799,44 @@ fn read_clipboard_image_png() -> Result<Option<Vec<u8>>, String> {
             image::ImageFormat::Png,
         )
         .map_err(|e| e.to_string())?;
+    if clipboard_operation_cancelled(operation_id) {
+        return Err("Clipboard image read was cancelled".into());
+    }
     Ok(Some(png_bytes))
+}
+
+#[tauri::command]
+async fn read_clipboard_image_png(operation_id: Option<String>) -> Result<Option<Vec<u8>>, String> {
+    let request_id = clipboard_operation_id(operation_id)?;
+    if let Ok(mut cancelled) = NATIVE_CLIPBOARD_CANCELLATIONS.lock() {
+        if cancelled.remove(&request_id) {
+            return Err("Clipboard image read was cancelled".into());
+        }
+    }
+    let (sender, receiver) = std::sync::mpsc::sync_channel(1);
+    let worker_id = request_id.clone();
+    std::thread::spawn(move || {
+        let result = read_clipboard_image_png_blocking(&worker_id);
+        let _ = sender.send((worker_id, result));
+    });
+    let waited = tauri::async_runtime::spawn_blocking(move || {
+        receiver.recv_timeout(NATIVE_CLIPBOARD_DEADLINE)
+    })
+    .await
+    .map_err(|_| "Clipboard image read worker stopped unexpectedly".to_string())?;
+    let (finished_id, result) = match waited {
+        Ok(value) => value,
+        Err(_) => {
+            if let Ok(mut cancelled) = NATIVE_CLIPBOARD_CANCELLATIONS.lock() {
+                cancelled.insert(request_id);
+            }
+            return Err("Clipboard image read exceeded the 5 second deadline".into());
+        }
+    };
+    if let Ok(mut cancelled) = NATIVE_CLIPBOARD_CANCELLATIONS.lock() {
+        cancelled.remove(&finished_id);
+    }
+    result
 }
 
 // ── Legacy Sync ──────────────────────────────────────────────────────────
@@ -816,6 +902,7 @@ struct NativeBgModelStatus {
     runtime_ready: bool,
     installed: bool,
     size_bytes: u64,
+    peak_memory_bytes: Option<u64>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -845,6 +932,43 @@ fn background_removal_model_info(
         .ok_or_else(|| format!("Unknown background-removal model: {model_id}"))
 }
 
+fn native_background_model_id(method: &str) -> Option<&'static str> {
+    match method {
+        "ai-balanced" => Some("isnet-general-use"),
+        "ai-quality" => Some("birefnet-general-lite"),
+        _ => None,
+    }
+}
+
+fn encoded_image_dimensions(image_data: &[u8]) -> Result<(u32, u32), String> {
+    image::ImageReader::new(std::io::Cursor::new(image_data))
+        .with_guessed_format()
+        .map_err(|error| format!("Image format error: {error}"))?
+        .into_dimensions()
+        .map_err(|error| format!("Image dimensions error: {error}"))
+}
+
+fn preflight_native_model(
+    operation: &str,
+    model_id: &str,
+    width: u32,
+    height: u32,
+) -> Result<(), String> {
+    let model = background_removal_model_info(model_id)?;
+    let measured_peak_memory_bytes = model.peak_memory_bytes.ok_or_else(|| {
+        format!(
+            "{operation} cannot start because native model '{model_id}' has no measured memory profile"
+        )
+    })?;
+    generative_resources::preflight_model(
+        operation,
+        width,
+        height,
+        measured_peak_memory_bytes,
+    )?;
+    Ok(())
+}
+
 #[tauri::command]
 fn native_background_removal_model_status(
     app: tauri::AppHandle,
@@ -857,6 +981,7 @@ fn native_background_removal_model_status(
         runtime_ready: ensure_native_ai(&app),
         installed: size_bytes == model.size_bytes,
         size_bytes,
+        peak_memory_bytes: model.peak_memory_bytes,
     })
 }
 
@@ -1040,16 +1165,33 @@ async fn remove_background(
     options: BgRemoveOptions,
 ) -> Result<BgRemoveResult, String> {
     #[cfg(feature = "ai")]
-    if matches!(options.method.as_str(), "ai-balanced" | "ai-quality") && !ensure_native_ai(&app) {
-        return Err(
-            "Native AI runtime is unavailable on this system; use the in-app (WASM) model instead"
-                .into(),
-        );
+    if let Some(model_id) = native_background_model_id(&options.method) {
+        let (width, height) = encoded_image_dimensions(&image_data)?;
+        validate_bounded_image_dimensions(width, height, "background-removal image")?;
+        // This check happens before ONNX Runtime initialization and is
+        // repeated inside the worker immediately before session checkout.
+        // That matters on Crostini/ARM systems where host memory can look
+        // healthy while the process is under a smaller cgroup limit.
+        preflight_native_model("Native background removal", model_id, width, height)?;
+        if !ensure_native_ai(&app) {
+            return Err(
+                "Native AI runtime is unavailable on this system; use the in-app (WASM) model instead"
+                    .into(),
+            );
+        }
     }
     #[cfg(not(feature = "ai"))]
     let _ = &app;
 
-    tauri::async_runtime::spawn_blocking(move || remove_background_impl(image_data, options))
+    tauri::async_runtime::spawn_blocking(move || {
+        #[cfg(feature = "ai")]
+        if let Some(model_id) = native_background_model_id(&options.method) {
+            let (width, height) = encoded_image_dimensions(&image_data)?;
+            validate_bounded_image_dimensions(width, height, "background-removal image")?;
+            preflight_native_model("Native background removal", model_id, width, height)?;
+        }
+        remove_background_impl(image_data, options)
+    })
         .await
         .map_err(|e| format!("Background removal task failed: {e}"))?
 }
@@ -1062,9 +1204,10 @@ fn remove_background_impl(
 
     #[cfg(feature = "ai")]
     let method = match options.method.as_str() {
+        "quick" => varve_bgremove::RemovalMethod::Quick,
         "ai-balanced" => varve_bgremove::RemovalMethod::AiBalanced,
         "ai-quality" => varve_bgremove::RemovalMethod::AiQuality,
-        _ => varve_bgremove::RemovalMethod::Quick,
+        method => return Err(format!("Unsupported background removal method '{method}'")),
     };
     #[cfg(not(feature = "ai"))]
     let method = match options.method.as_str() {
@@ -1132,21 +1275,27 @@ async fn denoise_image(
     image_data: Vec<u8>,
     options: NativeDenoiseOptions,
 ) -> Result<NativeDenoiseResult, String> {
-    if !ensure_native_ai(&app) {
-        return Err(
-            "Native AI runtime is unavailable on this system; use the in-app (WASM) denoise instead"
-                .into(),
-        );
-    }
     let model_id = options.model_id.unwrap_or_else(|| "scunet".to_string());
     if !varve_bgremove::is_image_model(&model_id) {
         return Err(format!(
             "Unknown denoise model '{model_id}'. Supported: scunet"
         ));
     }
+    let (width, height) = encoded_image_dimensions(&image_data)?;
+    validate_bounded_image_dimensions(width, height, "denoise image")?;
+    preflight_native_model("Native denoise", &model_id, width, height)?;
+    if !ensure_native_ai(&app) {
+        return Err(
+            "Native AI runtime is unavailable on this system; use the in-app (WASM) denoise instead"
+                .into(),
+        );
+    }
     let strength = options.strength.unwrap_or(0.7).clamp(0.0, 1.0);
 
     tauri::async_runtime::spawn_blocking(move || {
+        let (width, height) = encoded_image_dimensions(&image_data)?;
+        validate_bounded_image_dimensions(width, height, "denoise image")?;
+        preflight_native_model("Native denoise", &model_id, width, height)?;
         let img = load_from_memory(&image_data).map_err(|e| format!("Image decode error: {e}"))?;
         let result = varve_bgremove::denoise_image(&img, strength, &model_id)?;
         Ok(NativeDenoiseResult {
@@ -1174,6 +1323,32 @@ pub struct ContentAwareFillOptions {
     pub mask_w: u32,
     pub mask_h: u32,
     pub preview_max_dimension: Option<u32>,
+}
+
+fn validate_content_aware_fill_options(options: &ContentAwareFillOptions) -> Result<(), String> {
+    validate_bounded_image_dimensions(options.image_w, options.image_h, "content-aware fill image")?;
+    validate_bounded_image_dimensions(options.mask_w, options.mask_h, "content-aware fill mask")?;
+    if options.preview_max_dimension == Some(0) {
+        return Err("content-aware fill preview_max_dimension must be positive".into());
+    }
+
+    let image_pixels = u64::from(options.image_w)
+        .checked_mul(u64::from(options.image_h))
+        .ok_or_else(|| "content-aware fill image dimensions overflow".to_string())?;
+    let image_bytes = image_pixels
+        .checked_mul(4)
+        .ok_or_else(|| "content-aware fill image buffer size overflow".to_string())?;
+    if options.image_data.len() as u64 != image_bytes {
+        return Err("content-aware fill image buffer does not match its dimensions".into());
+    }
+
+    let mask_pixels = u64::from(options.mask_w)
+        .checked_mul(u64::from(options.mask_h))
+        .ok_or_else(|| "content-aware fill mask dimensions overflow".to_string())?;
+    if options.mask.len() as u64 != mask_pixels {
+        return Err("content-aware fill mask buffer does not match its dimensions".into());
+    }
+    Ok(())
 }
 
 /// Result of a native content-aware fill operation.
@@ -1271,6 +1446,13 @@ async fn content_aware_fill(
     app: tauri::AppHandle,
     options: ContentAwareFillOptions,
 ) -> Result<ContentAwareFillResult, String> {
+    validate_content_aware_fill_options(&options)?;
+    preflight_native_model(
+        "Native content-aware fill",
+        "lama-inpainting",
+        options.image_w,
+        options.image_h,
+    )?;
     if !ensure_native_ai(&app) {
         return Err(
             "Native AI runtime is unavailable on this system; use the in-app (WASM) model instead"
@@ -1300,6 +1482,12 @@ async fn content_aware_fill(
         if cancellation_for_worker.is_cancelled() {
             return Err("Inference cancelled".to_owned());
         }
+        preflight_native_model(
+            "Native content-aware fill",
+            "lama-inpainting",
+            options.image_w,
+            options.image_h,
+        )?;
         let request = varve_bgremove::LamaInpaintRequest {
             image_rgba: options.image_data,
             image_w: options.image_w,
@@ -4762,6 +4950,30 @@ mod tests {
         assert!(validate_native_image_dimensions(32_769, 1).is_err());
         assert!(validate_native_image_dimensions(8_193, 8_193).is_err());
         assert!(validate_native_image_dimensions(0, 10).is_err());
+    }
+
+    #[test]
+    fn content_aware_fill_rejects_mismatched_buffers_before_model_access() {
+        let options = ContentAwareFillOptions {
+            request_id: Some("preflight-test".into()),
+            image_data: vec![0; 3],
+            image_w: 1,
+            image_h: 1,
+            mask: vec![0],
+            mask_w: 1,
+            mask_h: 1,
+            preview_max_dimension: Some(512),
+        };
+        assert_eq!(
+            validate_content_aware_fill_options(&options),
+            Err("content-aware fill image buffer does not match its dimensions".into())
+        );
+    }
+
+    #[test]
+    fn encoded_image_dimensions_are_read_without_decoding_pixels() {
+        let png = make_test_png(20, 12);
+        assert_eq!(encoded_image_dimensions(&png).expect("valid PNG"), (20, 12));
     }
 
     #[cfg(target_os = "linux")]
