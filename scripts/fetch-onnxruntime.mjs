@@ -22,6 +22,13 @@
  * for the current platform is not a hard failure: the app still runs, it
  * just can't use the native `ai` feature there and falls back to the
  * existing WASM/heuristic providers.
+ *
+ * Also stages the optional `onnxruntime-ep-webgpu` WebGPU plugin execution
+ * provider (a separate wheel) on platforms where one is published. The plugin
+ * is strictly optional: a missing wheel, a download failure, or a checksum
+ * failure is logged and skipped, never fatal — the runtime reports
+ * `artifactMissing` and falls back to the CPU execution provider (see
+ * crates/varve-bgremove/src/webgpu_ep.rs).
  */
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -36,6 +43,39 @@ const stageDir = join(repoRoot, 'apps', 'desktop', 'src-tauri', 'onnxruntime-lib
 const FETCH_TIMEOUT_MS = 120_000;
 
 const ORT_VERSION = '1.27.1';
+
+/**
+ * ONNX Runtime WebGPU plugin execution provider (`onnxruntime-ep-webgpu`) —
+ * a separate wheel from the core runtime. The pinned core 1.27.1 builds expose
+ * the plugin execution provider API, and the plugin picks a Dawn graphics
+ * backend at runtime (Vulkan on Linux, Metal on macOS, D3D12 on Windows).
+ *
+ * Not every target has a published wheel (Linux aarch64 and macOS x86_64 do
+ * not), which is why the plugin is optional and never fatal.
+ */
+const WEBGPU_PLUGIN_VERSION = '0.3.0';
+
+/** Target keys for which an `onnxruntime-ep-webgpu` wheel is published. */
+const WEBGPU_PLUGIN_TARGETS = ['linux-x86_64', 'macos-aarch64', 'windows-x86_64'];
+
+/**
+ * Complete the WebGPU plugin spec with the license paths shared by every
+ * wheel's `dist-info` directory. `libraryPath`/`libraryName` stay per-platform
+ * because the archive member (and its staged name) differs by OS.
+ */
+function webgpuPluginSpec({ url, sha256, libraryPath, libraryName }) {
+  const distInfo = `onnxruntime_ep_webgpu-${WEBGPU_PLUGIN_VERSION}.dist-info`;
+  return {
+    url,
+    sha256,
+    libraryPath,
+    libraryName,
+    licensePath: `${distInfo}/licenses/LICENSE`,
+    licenseName: 'LICENSE.onnxruntime-webgpu.txt',
+    noticesPath: `${distInfo}/licenses/ThirdPartyNotices.txt`,
+    noticesName: 'THIRD_PARTY_NOTICES.onnxruntime-webgpu.txt',
+  };
+}
 
 /**
  * One entry per platform-arch pair Varve's desktop build targets.
@@ -54,6 +94,12 @@ const PLATFORMS = {
     archivePath: `onnxruntime-linux-x64-${ORT_VERSION}/lib/libonnxruntime.so.${ORT_VERSION}`,
     libName: 'libonnxruntime.so',
     kind: 'tar',
+    webgpuPlugin: webgpuPluginSpec({
+      url: 'https://files.pythonhosted.org/packages/97/9c/d37bc05c56c3d91d44585db7bebbf0f068ece5d01df5b3898449771d4bf2/onnxruntime_ep_webgpu-0.3.0-py3-none-manylinux_2_28_x86_64.whl',
+      sha256: '865ce82d80319d7f259a4a65e66e32834f0f117db55ae4377868b4f28016e7bf',
+      libraryPath: 'onnxruntime_ep_webgpu/libonnxruntime_providers_webgpu.so',
+      libraryName: 'libonnxruntime_providers_webgpu.so',
+    }),
   },
   'linux-aarch64': {
     url: `https://github.com/microsoft/onnxruntime/releases/download/v${ORT_VERSION}/onnxruntime-linux-aarch64-${ORT_VERSION}.tgz`,
@@ -68,6 +114,12 @@ const PLATFORMS = {
     archivePath: `onnxruntime-osx-arm64-${ORT_VERSION}/lib/libonnxruntime.dylib`,
     libName: 'libonnxruntime.dylib',
     kind: 'tar',
+    webgpuPlugin: webgpuPluginSpec({
+      url: 'https://files.pythonhosted.org/packages/0f/77/cfdbe4900a5a38a8b49de9b10254e3ce77f164d246fa3126db7cb7dbc713/onnxruntime_ep_webgpu-0.3.0-py3-none-macosx_14_0_universal2.whl',
+      sha256: 'facdb3ad9933cb4504c579c2085c9be1644b6912ee74d7c9a7281046d7e7155a',
+      libraryPath: 'onnxruntime_ep_webgpu/libonnxruntime_providers_webgpu.dylib',
+      libraryName: 'libonnxruntime_providers_webgpu.dylib',
+    }),
   },
   'windows-x86_64': {
     url: `https://github.com/microsoft/onnxruntime/releases/download/v${ORT_VERSION}/onnxruntime-win-x64-${ORT_VERSION}.zip`,
@@ -75,6 +127,12 @@ const PLATFORMS = {
     archivePath: `onnxruntime-win-x64-${ORT_VERSION}/lib/onnxruntime.dll`,
     libName: 'onnxruntime.dll',
     kind: 'zip',
+    webgpuPlugin: webgpuPluginSpec({
+      url: 'https://files.pythonhosted.org/packages/84/20/f4d51697015cb1eb0fb027b19bcc8641b93144beaed4cd332979803f0a99/onnxruntime_ep_webgpu-0.3.0-py3-none-win_amd64.whl',
+      sha256: 'f25ed449a8f152176a20bc9b2f959a16511f16ff0f962a37979799d1b2d56bf7',
+      libraryPath: 'onnxruntime_ep_webgpu/onnxruntime_providers_webgpu.dll',
+      libraryName: 'onnxruntime_providers_webgpu.dll',
+    }),
   },
   'windows-aarch64': {
     url: `https://github.com/microsoft/onnxruntime/releases/download/v${ORT_VERSION}/onnxruntime-win-arm64-${ORT_VERSION}.zip`,
@@ -181,6 +239,126 @@ async function extractFromZip(archiveBuffer, entryPath) {
   }
 }
 
+/**
+ * Stage the core ONNX Runtime shared library for one target. A missing bundle
+ * for a target is handled by the caller as a non-error skip; once a bundle is
+ * configured, a download or checksum failure is fatal because the native `ai`
+ * feature relies on the library matching its pinned build.
+ */
+async function stageCoreLibrary(key, platform) {
+  const destDir = join(stageDir, key);
+  const destFile = join(destDir, platform.libName);
+
+  if (existsSync(destFile)) {
+    const existingSize = readFileSync(destFile).length;
+    if (existingSize === 0) {
+      console.error(`[fetch-onnxruntime] ${key}: existing staged file is empty, re-downloading.`);
+      rmSync(destFile);
+    } else {
+      console.log(`[fetch-onnxruntime] ${key}: already staged at ${destFile}, skipping download.`);
+      return;
+    }
+  }
+
+  console.log(
+    `[fetch-onnxruntime] ${key}: downloading onnxruntime ${ORT_VERSION} from ${platform.url}`,
+  );
+  const archiveBuffer = await downloadToBuffer(platform.url);
+
+  // Verify BEFORE extracting. The previous order downloaded, ran tar/unzip on
+  // the bytes, wrote the library to disk, and only then compared checksums —
+  // so an attacker able to substitute the archive got a decompressor invoked
+  // on their input before anything was checked. Archive parsers are exactly
+  // the kind of C code you do not want reached by unverified data, and the
+  // check costs nothing where it is now.
+  const archiveSha256 = createHash('sha256').update(archiveBuffer).digest('hex');
+  if (archiveSha256 !== platform.sha256) {
+    console.error(
+      `[fetch-onnxruntime] CHECKSUM MISMATCH for ${key} archive.\n` +
+        `  expected: ${platform.sha256}\n  actual:   ${archiveSha256}\n` +
+        `Refusing to extract an archive that doesn't match the pinned checksum.`,
+    );
+    process.exit(1);
+  }
+
+  mkdirSync(stageDir, { recursive: true });
+  const extracted =
+    platform.kind === 'zip'
+      ? await extractFromZip(archiveBuffer, platform.archivePath)
+      : await extractFromTarGz(archiveBuffer, platform.archivePath);
+
+  mkdirSync(destDir, { recursive: true });
+  writeFileSync(destFile, extracted);
+
+  const actualSha256 = await sha256OfFile(destFile);
+
+  console.log(`[fetch-onnxruntime] ${key}: staged ${destFile} (extracted sha256=${actualSha256})`);
+}
+
+/**
+ * Stage the optional WebGPU plugin execution provider (library + license
+ * files) for one target. Idempotent per file: only entries that are missing or
+ * zero-length are downloaded and written, so an already-staged plugin is never
+ * re-fetched.
+ *
+ * The plugin is strictly optional. Errors are thrown for the caller to catch
+ * and downgrade to a warning — a build must never fail because an optional
+ * acceleration artifact could not be fetched.
+ */
+async function stageWebgpuPlugin(key, platform) {
+  const plugin = WEBGPU_PLUGIN_TARGETS.includes(key) ? platform.webgpuPlugin : undefined;
+  if (!plugin) {
+    console.log(
+      `[fetch-onnxruntime] ${key}: no WebGPU plugin wheel is published for this platform; ` +
+        `the native ai feature runs on the CPU execution provider. Not an error.`,
+    );
+    return;
+  }
+
+  const destDir = join(stageDir, key);
+  const files = [
+    { entryPath: plugin.libraryPath, name: plugin.libraryName },
+    { entryPath: plugin.licensePath, name: plugin.licenseName },
+    { entryPath: plugin.noticesPath, name: plugin.noticesName },
+  ].map((file) => ({ ...file, destPath: join(destDir, file.name) }));
+
+  const missing = files.filter(
+    (file) => !existsSync(file.destPath) || readFileSync(file.destPath).length === 0,
+  );
+  if (missing.length === 0) {
+    console.log(
+      `[fetch-onnxruntime] ${key}: WebGPU plugin ${WEBGPU_PLUGIN_VERSION} already staged at ` +
+        `${destDir}, skipping download.`,
+    );
+    return;
+  }
+
+  console.log(
+    `[fetch-onnxruntime] ${key}: downloading onnxruntime WebGPU plugin ${WEBGPU_PLUGIN_VERSION} ` +
+      `from ${plugin.url}`,
+  );
+  const archiveBuffer = await downloadToBuffer(plugin.url);
+
+  // Same posture as the core runtime: verify the pinned checksum before any
+  // archive parser (unzip) touches the bytes.
+  const archiveSha256 = createHash('sha256').update(archiveBuffer).digest('hex');
+  if (archiveSha256 !== plugin.sha256) {
+    throw new Error(
+      `WebGPU plugin archive checksum mismatch.\n` +
+        `  expected: ${plugin.sha256}\n  actual:   ${archiveSha256}\n` +
+        `Refusing to extract an archive that doesn't match the pinned checksum.`,
+    );
+  }
+
+  mkdirSync(stageDir, { recursive: true });
+  mkdirSync(destDir, { recursive: true });
+  for (const file of missing) {
+    const extracted = await extractFromZip(archiveBuffer, file.entryPath);
+    writeFileSync(file.destPath, extracted);
+    console.log(`[fetch-onnxruntime] ${key}: staged ${file.destPath}`);
+  }
+}
+
 async function main() {
   const requested = process.argv[2];
   const targets = requested ? [normalizeTargetId(requested)] : [currentPlatformKey()];
@@ -195,57 +373,16 @@ async function main() {
       continue;
     }
 
-    const destDir = join(stageDir, key);
-    const destFile = join(destDir, platform.libName);
+    await stageCoreLibrary(key, platform);
 
-    if (existsSync(destFile)) {
-      const existingSize = readFileSync(destFile).length;
-      if (existingSize === 0) {
-        console.error(`[fetch-onnxruntime] ${key}: existing staged file is empty, re-downloading.`);
-        rmSync(destFile);
-      } else {
-        console.log(
-          `[fetch-onnxruntime] ${key}: already staged at ${destFile}, skipping download.`,
-        );
-        continue;
-      }
-    }
-
-    console.log(
-      `[fetch-onnxruntime] ${key}: downloading onnxruntime ${ORT_VERSION} from ${platform.url}`,
-    );
-    const archiveBuffer = await downloadToBuffer(platform.url);
-
-    // Verify BEFORE extracting. The previous order downloaded, ran tar/unzip on
-    // the bytes, wrote the library to disk, and only then compared checksums —
-    // so an attacker able to substitute the archive got a decompressor invoked
-    // on their input before anything was checked. Archive parsers are exactly
-    // the kind of C code you do not want reached by unverified data, and the
-    // check costs nothing where it is now.
-    const archiveSha256 = createHash('sha256').update(archiveBuffer).digest('hex');
-    if (archiveSha256 !== platform.sha256) {
+    try {
+      await stageWebgpuPlugin(key, platform);
+    } catch (err) {
       console.error(
-        `[fetch-onnxruntime] CHECKSUM MISMATCH for ${key} archive.\n` +
-          `  expected: ${platform.sha256}\n  actual:   ${archiveSha256}\n` +
-          `Refusing to extract an archive that doesn't match the pinned checksum.`,
+        `[fetch-onnxruntime] ${key}: WebGPU plugin staging failed (optional; continuing ` +
+          `without it, the runtime falls back to the CPU execution provider): ${err.message}`,
       );
-      process.exit(1);
     }
-
-    mkdirSync(stageDir, { recursive: true });
-    const extracted =
-      platform.kind === 'zip'
-        ? await extractFromZip(archiveBuffer, platform.archivePath)
-        : await extractFromTarGz(archiveBuffer, platform.archivePath);
-
-    mkdirSync(destDir, { recursive: true });
-    writeFileSync(destFile, extracted);
-
-    const actualSha256 = await sha256OfFile(destFile);
-
-    console.log(
-      `[fetch-onnxruntime] ${key}: staged ${destFile} (extracted sha256=${actualSha256})`,
-    );
   }
 }
 

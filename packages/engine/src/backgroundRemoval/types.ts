@@ -79,7 +79,7 @@ export interface BackgroundRemovalResult {
   width: number;
   height: number;
   /** Which ONNX execution provider succeeded. */
-  executionProvider?: 'webgpu' | 'webgl' | 'wasm' | 'native';
+  executionProvider?: 'webgpu' | 'webgl' | 'wasm' | 'native' | 'native-webgpu' | 'native-cpu';
   /** ONNX model that produced this result (absent for Quick/cloud providers). */
   modelId?: WorkerModelId;
   /** Precision of the model that produced this result (FP32 or INT8). */

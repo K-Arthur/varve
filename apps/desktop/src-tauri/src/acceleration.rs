@@ -123,6 +123,33 @@ pub struct NativeAccelerationStatus {
     pub verified_device_id: Option<String>,
     /// Most recent device-creation failure, if any.
     pub last_error: Option<String>,
+    /// Native inference provider policy: `auto`, `cpu`, or `gpu`.
+    pub inference_policy: String,
+}
+
+/// Set the native inference provider policy. `gpu` is only accepted when the
+/// WebGPU execution provider is actually registered and has a device.
+#[tauri::command]
+pub fn native_set_inference_provider(policy: String) -> Result<String, String> {
+    #[cfg(feature = "ai")]
+    {
+        use varve_bgremove::webgpu_ep::{self, InferenceProviderPolicy};
+        let parsed = InferenceProviderPolicy::from_str(&policy);
+        if matches!(parsed, InferenceProviderPolicy::Gpu) && !webgpu_ep::device_usable() {
+            return Err(
+                "The WebGPU execution provider is not registered on this system; \
+                 keep Automatic or CPU"
+                    .to_string(),
+            );
+        }
+        webgpu_ep::set_inference_provider_policy(parsed);
+        Ok(parsed.as_str().to_string())
+    }
+    #[cfg(not(feature = "ai"))]
+    {
+        let _ = policy;
+        Err("Native inference is not compiled into this build".to_string())
+    }
 }
 
 /// Cheap (no device creation) native capability report. Device stages are
@@ -167,6 +194,18 @@ pub async fn native_acceleration_status(
         engine_ready,
         verified_device_id,
         last_error: state.last_error(),
+        inference_policy: {
+            #[cfg(feature = "ai")]
+            {
+                varve_bgremove::webgpu_ep::inference_provider_policy()
+                    .as_str()
+                    .to_string()
+            }
+            #[cfg(not(feature = "ai"))]
+            {
+                "cpu".to_string()
+            }
+        },
     })
 }
 
@@ -257,6 +296,54 @@ fn provider(
     }
 }
 
+/// The WebGPU plugin EP row, reported from registration/run state rather
+/// than from a compiled feature flag.
+fn webgpu_provider() -> InferenceProviderStatus {
+    match varve_bgremove::webgpu_ep::status() {
+        varve_bgremove::webgpu_ep::WebGpuEpStatus::Registered(device) => {
+            let stage = if varve_bgremove::webgpu_ep::execution_verified() {
+                AccelStage::ExecutionVerified
+            } else {
+                AccelStage::DeviceUsable
+            };
+            InferenceProviderStatus {
+                id: "webgpu".into(),
+                label: "WebGPU (Dawn)".into(),
+                device_kind: DeviceKind::Gpu,
+                stage,
+                reason: None,
+                detail: Some(format!(
+                    "Plugin EP registered; device vendor={} id={} type={}{}",
+                    device.vendor.as_deref().unwrap_or("unknown"),
+                    device.device_id,
+                    device.device_type,
+                    varve_bgremove::webgpu_ep::last_attach_error()
+                        .map(|err| format!("; last attach error: {err}"))
+                        .unwrap_or_default()
+                )),
+            }
+        }
+        varve_bgremove::webgpu_ep::WebGpuEpStatus::Failed(err) => InferenceProviderStatus {
+            id: "webgpu".into(),
+            label: "WebGPU (Dawn)".into(),
+            device_kind: DeviceKind::Gpu,
+            stage: AccelStage::Unavailable,
+            reason: Some(UnavailableReason::InitFailed),
+            detail: Some(err),
+        },
+        varve_bgremove::webgpu_ep::WebGpuEpStatus::NotAttempted => InferenceProviderStatus {
+            id: "webgpu".into(),
+            label: "WebGPU (Dawn)".into(),
+            device_kind: DeviceKind::Gpu,
+            stage: AccelStage::Discovered,
+            reason: Some(UnavailableReason::RuntimeMissing),
+            detail: Some(
+                "Native ONNX Runtime not initialized yet; CPU is the shipped baseline".into(),
+            ),
+        },
+    }
+}
+
 /// Inference providers, reported from the shipped runtime rather than from
 /// compiled features. The staged ORT artifact is a CPU-only build; every
 /// accelerated provider stays `unavailable(artifactMissing)` until a
@@ -331,11 +418,14 @@ fn inference_capabilities() -> InferenceCapabilities {
             DeviceKind::Npu,
             "Requires a Core ML-enabled ONNX Runtime build; compute-unit policy is separate from observed placement",
         ),
+        #[cfg(feature = "ai")]
+        webgpu_provider(),
+        #[cfg(not(feature = "ai"))]
         provider(
             "webgpu",
-            "WebGPU plugin EP",
+            "WebGPU (Dawn)",
             DeviceKind::Gpu,
-            "Native plugin execution provider (onnxruntime_providers_webgpu) is a candidate for a future milestone; not bundled or registered today",
+            "Native inference is not compiled into this build",
         ),
     ];
     caps

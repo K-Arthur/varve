@@ -127,7 +127,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
           AI-assisted operations are optional and on-device. Nothing is uploaded, core editing never requires a model download, and unsupported acceleration shows an honest unavailable state instead of silently switching to a server.
         </p>
         <p>
-          On desktop, heavy offscreen work — procedural live effects and non-AI image resampling — can run on the machine's GPU through a native Vulkan, Metal, or D3D12 path. A device is only used after it is discovered through the OS graphics stack and passes a bounded self-test; software renderers are declined, and every accelerated operation keeps a working CPU fallback. Canvas presentation stays in the webview either way. AI inference remains on the CPU unless a supported provider runtime is actually installed and reports execution.
+          On desktop, heavy offscreen work — procedural live effects and non-AI image resampling — can run on the machine's GPU through a native Vulkan, Metal, or D3D12 path. A device is only used after it is discovered through the OS graphics stack and passes a bounded self-test; software renderers are declined, and every accelerated operation keeps a working CPU fallback. Canvas presentation stays in the webview either way. On-device AI inference can use a verified GPU execution provider when the optional WebGPU runtime component is present and the model has been verified for it; otherwise it runs on the CPU, and every result reports which provider actually ran.
         </p>
         <aside class="product-route-note">
           <strong>Chromebook routes are deliberately separate.</strong>

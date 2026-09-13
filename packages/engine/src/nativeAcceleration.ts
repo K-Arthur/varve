@@ -95,6 +95,8 @@ export interface NativeAccelerationStatus {
   engineReady: boolean;
   verifiedDeviceId: string | null;
   lastError: string | null;
+  /** Native inference provider policy: `auto`, `cpu`, or `gpu`. */
+  inferencePolicy: 'auto' | 'cpu' | 'gpu';
 }
 
 export interface NativeSelfTestReport {
@@ -162,6 +164,23 @@ export async function isNativeGpuComputeUsable(): Promise<boolean> {
 
 export function nativeAccelerationClearCache(): void {
   cached = null;
+}
+
+export type NativeInferenceProviderPolicy = 'auto' | 'cpu' | 'gpu';
+
+/**
+ * Set the native inference provider policy. `gpu` is rejected by the native
+ * side when the WebGPU execution provider is not actually registered, so the
+ * UI never shows an enabled choice backed by a stub.
+ */
+export async function setNativeInferenceProviderPolicy(
+  policy: NativeInferenceProviderPolicy,
+): Promise<NativeInferenceProviderPolicy | null> {
+  if (!isTauriRuntime()) return null;
+  const { invoke } = await import('@tauri-apps/api/core');
+  const applied = await invoke<string>('native_set_inference_provider', { policy });
+  cached = null;
+  return applied as NativeInferenceProviderPolicy;
 }
 
 /** Stage-aware label for diagnostics surfaces. */

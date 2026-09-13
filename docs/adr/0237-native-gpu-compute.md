@@ -39,11 +39,15 @@ model must therefore never conflate *advertised* with *usable*.
 3. Keep presentation unchanged: the webview still replays IR.
    `packages/compositor` remains the presentation path; native compute only
    produces pixels for workloads that explicitly request them.
-4. Inference reporting follows the loaded runtime: the shipped ONNX Runtime
-   artifact contains only the CPU execution provider, so no GPU/NPU provider
-   may be advertised as active. Accelerated inference targets are documented
-   as gated on provider artifacts, with the native WebGPU plugin EP
-   (`onnxruntime_providers_webgpu.so`) as the first cross-vendor candidate.
+4. Inference reports what the loaded runtime plus registered plugin providers
+   actually provide. The core ONNX Runtime artifact is CPU-only; accelerated
+   inference arrives through the native WebGPU plugin EP
+   (`onnxruntime_providers_webgpu`, MIT), registered at runtime and attached
+   to sessions under an explicit `auto`/`cpu`/`gpu` policy. `auto` prefers
+   WebGPU only when registration and a real device succeeded, and always
+   falls back to CPU. Results report the provider that produced them
+   (`native-webgpu`/`native-cpu`); placement claims require observed
+   execution, never registration alone.
 5. Do not reintroduce async effect dispatch into export flattening. The
    current export path replays the real pipeline by design; the earlier
    `flattenForExport.ts` dispatch was removed because it produced wrong
@@ -61,9 +65,11 @@ model must therefore never conflate *advertised* with *usable*.
 - Negative: a new heavyweight build dependency (`wgpu`) and a new workspace
   crate that must stay green across Linux, Windows, and macOS. The engine must
   handle device loss, bounded readback, and fall back to the CPU kernels.
-- Deferred: canvas presentation on a native surface (ADR-0003 still holds),
-  GPU inference, and NPU execution. Each requires its own bounded prototype
-  and hardware verification before it may be advertised.
+- Deferred: canvas presentation on a native surface (ADR-0003 still holds)
+  and NPU execution. GPU inference is implemented and hardware-verified for
+  one segmentation model (u2netp: 1468/1468 nodes on WebGPU, parity 2e-6,
+  1999 ms CPU vs 336 ms GPU); other models and platforms remain on the CPU
+  policy until measured.
 
 ## Verification
 

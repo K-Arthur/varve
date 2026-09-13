@@ -14,14 +14,18 @@ base64 = "0.23"
 image = "0.25"
 dirs-next = "2.0"
 
-# AI feature requires ONNX Runtime
+# AI feature requires ONNX Runtime. `api-22` + `std` expose the plugin
+# execution-provider APIs (`Environment::register_ep_library`,
+# `SessionBuilder::with_devices`) used for the WebGPU EP; without them the
+# `register_ep_library` cfg gate is off in standalone builds. The pinned
+# runtime (ORT 1.27.1) is backward compatible with GetApi(22).
 # Pinned to rc.11: rc.12 has a known upstream regression where the Vitis AI
 # EP's `register()` accesses `SessionOptionsAppendExecutionProvider_VitisAI`
 # unconditionally under `load-dynamic`, but that OrtApi field is gated behind
 # the `api-18` feature (which `load-dynamic` does not enable) — breaks the
 # build on Linux x86_64 (our desktop target), not just Android.
 # https://github.com/pykeio/ort/issues/547
-ort = { version = "=2.0.0-rc.13", optional = true, default-features = false, features = ["load-dynamic"] }
+ort = { version = "=2.0.0-rc.13", optional = true, default-features = false, features = ["load-dynamic", "std", "api-22"] }
 sha2 = "0.11"
 
 [features]
@@ -30,6 +34,10 @@ ai = ["ort"]
 
 [[example]]
 name = "bgremove_bench"
+required-features = ["ai"]
+
+[[example]]
+name = "webgpu_ep_probe"
 required-features = ["ai"]
 
 [lints]

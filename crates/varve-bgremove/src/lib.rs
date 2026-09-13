@@ -16,6 +16,9 @@ pub mod inference;
 pub mod model;
 #[cfg(feature = "ai")]
 pub mod runtime;
+
+#[cfg(feature = "ai")]
+pub mod webgpu_ep;
 #[cfg(feature = "ai")]
 pub mod session_pool;
 
@@ -67,6 +70,10 @@ pub struct RemovalResult {
     pub width: u32,
     /// Height of the mask in pixels.
     pub height: u32,
+    /// Execution provider that produced the mask: `native-webgpu` when the
+    /// WebGPU plugin EP ran the session, `native-cpu` otherwise, `cpu` for
+    /// non-inference (heuristic) methods.
+    pub execution_provider: String,
 }
 
 /// Remove the background from an image using the specified method.

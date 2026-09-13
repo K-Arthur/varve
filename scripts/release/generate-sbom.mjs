@@ -222,6 +222,67 @@ function bundledBinaryComponents(args) {
     });
   }
 
+  // The WebGPU plugin execution provider is a separate wheel staged by the
+  // same fetch script, and only exists for some targets. Optional at runtime
+  // (CPU fallback), so a platform-scoped SBOM only lists it where a wheel
+  // exists — the support matrix is parsed from the fetch script so there is
+  // one source of truth. The combined (unscoped) SBOM lists it generically.
+  const pluginVersion = ortScript.match(/WEBGPU_PLUGIN_VERSION\s*=\s*'([^']+)'/)?.[1];
+  if (pluginVersion) {
+    const supportedTargets = (() => {
+      const match = ortScript.match(/WEBGPU_PLUGIN_TARGETS\s*=\s*\[([^\]]*)\]/);
+      return match ? [...match[1].matchAll(/'([^']+)'/g)].map((m) => m[1]) : null;
+    })();
+    const os = args.os ?? null;
+    const arch = args.arch ?? null;
+    const targetKey = os && arch ? `${os}-${arch}` : null;
+    const pluginPublished = !targetKey || !supportedTargets || supportedTargets.includes(targetKey);
+
+    if (pluginPublished) {
+      const libName =
+        os === 'windows'
+          ? 'onnxruntime_providers_webgpu.dll'
+          : os === 'macos'
+            ? 'libonnxruntime_providers_webgpu.dylib'
+            : 'libonnxruntime_providers_webgpu.so';
+      const stagedPath = targetKey
+        ? join('apps/desktop/src-tauri/onnxruntime-libs', targetKey, libName)
+        : null;
+      const libPath = stagedPath ? join(repoRoot, stagedPath) : null;
+      const libHash =
+        libPath && existsSync(libPath) && statSync(libPath).isFile()
+          ? createHash('sha256').update(readFileSync(libPath)).digest('hex')
+          : null;
+
+      components.push({
+        type: 'library',
+        'bom-ref': `pkg:generic/onnxruntime-webgpu-execution-provider@${pluginVersion}${targetKey ? `+${targetKey}` : ''}`,
+        name: 'onnxruntime-webgpu-execution-provider',
+        version: pluginVersion,
+        purl: `pkg:generic/onnxruntime-webgpu-execution-provider@${pluginVersion}`,
+        description:
+          os && arch
+            ? `ONNX Runtime WebGPU plugin execution provider (${os}/${arch}), bundled as a Tauri resource`
+            : 'ONNX Runtime WebGPU plugin execution provider, bundled as a Tauri resource where published',
+        licenses: [{ license: { id: 'MIT' } }],
+        externalReferences: [
+          {
+            type: 'distribution',
+            url: `https://pypi.org/project/onnxruntime-ep-webgpu/${pluginVersion}/`,
+          },
+        ],
+        ...(libHash ? { hashes: [{ alg: 'SHA-256', content: libHash }] } : {}),
+        properties: [
+          { name: 'varve:ecosystem', value: 'generic' },
+          { name: 'varve:origin', value: 'vendored-binary' },
+          ...(os ? [{ name: 'varve:buildOs', value: os }] : []),
+          ...(arch ? [{ name: 'varve:buildArch', value: arch }] : []),
+          ...(stagedPath ? [{ name: 'varve:stagedPath', value: stagedPath }] : []),
+        ],
+      });
+    }
+  }
+
   const manifestPath = join(repoRoot, 'apps/desktop/public/models/manifest.json');
   const models = JSON.parse(readFileSync(manifestPath, 'utf-8')).models ?? [];
   for (const model of models.filter((m) => m.bundled)) {

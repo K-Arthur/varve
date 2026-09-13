@@ -104,18 +104,39 @@ without a full frame-delivery prototype.
 
 ## Inference status
 
-The shipped ONNX Runtime (`scripts/fetch-onnxruntime.mjs`, ORT 1.27.1)
-contains only the CPU execution provider — verified by symbol scan of the
-staged `libonnxruntime.so` (`OrtSessionOptionsAppendExecutionProvider_CPU`
-only) and by the absence of any provider shared library in the bundle. The
-capability report therefore lists CPU as available and every accelerated
-provider as `runtimeMissing`/`artifactMissing` with the reason named.
+The shipped core ONNX Runtime (`scripts/fetch-onnxruntime.mjs`, ORT 1.27.1)
+contains only the CPU execution provider. Accelerated inference uses the
+**native WebGPU plugin EP** instead: ONNX Runtime ships it as a separately
+registered shared library (`onnxruntime_providers_webgpu`, PyPI package
+`onnxruntime-ep-webgpu` 0.3.0, MIT, Dawn → Vulkan/D3D12/Metal).
 
-Candidate accelerated routes and their exact gates are tracked in the audit
-matrix (Windows ML, OpenVINO, CUDA/TensorRT, MIGraphX, QNN, Core ML, and the
-native WebGPU plugin EP). None may be exposed as an enabled selector until a
-provider artifact ships, a session initializes on real hardware, and
-placement is observed.
+Flow and honesty rules:
+
+1. `ensure_native_ai` loads the core runtime, then registers the plugin
+   library from `onnxruntime-libs/<os>-<arch>/` (absolute path; ORT resolves
+   plugin paths relative to the core runtime directory).
+2. Registration must succeed against the *loaded* runtime and a
+   `WebGpuExecutionProvider` device must be reported; otherwise the status
+   names the missing component (`artifactMissing` on platforms without a
+   wheel such as linux-aarch64, `initFailed` with the error otherwise).
+3. Sessions attach the device through `SessionBuilder::with_devices` under
+   the inference provider policy: `auto` (prefer WebGPU when registered,
+   otherwise CPU), `cpu`, or `gpu` (require it; rejected in the UI when not
+   registered). `auto` never fails a request for a missing accelerator.
+4. Background-removal results report which provider produced the mask
+   (`native-webgpu` or `native-cpu`), and the Settings panel exposes the
+   policy and the provider stages.
+
+Hardware evidence (AMD Ryzen 3 5300U, RADV RENOIR, Mesa 26.2.2, u2netp
+1×3×320×320): the plugin registers, the ONNX Runtime profiler reports
+1468/1468 node executions on WebGPU and **0 on CPU** across warmup + three
+runs, output parity vs the CPU EP is 2e-6 max / 4e-8 mean absolute
+difference, and median wall time is 1999 ms (CPU) vs 336 ms (WebGPU).
+
+Unverified limits: only u2netp has placement/parity evidence; other models
+(birefnet-lite, scunet, LaMa, upscale models), Windows, and macOS execution
+still default to CPU until measured. NPU execution remains unsupported and
+none is advertised.
 
 ## Memory and scheduling
 

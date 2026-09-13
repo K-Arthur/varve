@@ -895,6 +895,7 @@ struct BgRemoveResult {
     processing_time_ms: u64,
     width: u32,
     height: u32,
+    execution_provider: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -1262,6 +1263,7 @@ fn remove_background_impl(
         processing_time_ms: result.processing_time_ms,
         width: result.width,
         height: result.height,
+        execution_provider: result.execution_provider,
     })
 }
 
@@ -2636,27 +2638,53 @@ fn native_ai_status(_app: tauri::AppHandle) -> bool {
 /// than erroring when its API is used with no dylib loaded.
 #[cfg(feature = "ai")]
 fn ensure_native_ai(app: &tauri::AppHandle) -> bool {
-    if varve_bgremove::runtime::native_ai_ready() {
-        return true;
-    }
-    match resolve_onnxruntime_dylib(app) {
-        Some(path) => match varve_bgremove::runtime::init_native_runtime(&path) {
-            Ok(()) => println!("[bgremove] native ONNX Runtime ready: {}", path.display()),
-            Err(e) => {
-                eprintln!("[bgremove] native ONNX Runtime init failed ({e}); falling back to WASM")
+    if !varve_bgremove::runtime::native_ai_ready() {
+        match resolve_onnxruntime_dylib(app) {
+            Some(path) => match varve_bgremove::runtime::init_native_runtime(&path) {
+                Ok(()) => println!("[bgremove] native ONNX Runtime ready: {}", path.display()),
+                Err(e) => {
+                    eprintln!("[bgremove] native ONNX Runtime init failed ({e}); falling back to WASM")
+                }
+            },
+            None => {
+                eprintln!(
+                    "[bgremove] no bundled onnxruntime dylib found for this platform ({}-{}); \
+                     falling back to WASM inference. Run `node scripts/fetch-onnxruntime.mjs` \
+                     from the repo root to stage the native library.",
+                    std::env::consts::OS,
+                    std::env::consts::ARCH,
+                );
             }
-        },
-        None => {
-            eprintln!(
-                "[bgremove] no bundled onnxruntime dylib found for this platform ({}-{}); \
-                 falling back to WASM inference. Run `node scripts/fetch-onnxruntime.mjs` \
-                 from the repo root to stage the native library.",
-                std::env::consts::OS,
-                std::env::consts::ARCH,
-            );
         }
     }
-    varve_bgremove::runtime::native_ai_ready()
+    let ready = varve_bgremove::runtime::native_ai_ready();
+    if ready
+        && matches!(
+            varve_bgremove::webgpu_ep::status(),
+            varve_bgremove::webgpu_ep::WebGpuEpStatus::NotAttempted
+        )
+    {
+        match resolve_onnxruntime_plugin(app) {
+            Some(plugin) => match varve_bgremove::webgpu_ep::register(&plugin) {
+                Ok(()) => println!(
+                    "[bgremove] WebGPU execution provider registered: {}",
+                    plugin.display()
+                ),
+                Err(err) => eprintln!(
+                    "[bgremove] WebGPU execution provider unavailable ({err}); \
+                     CPU inference remains active"
+                ),
+            },
+            None => eprintln!(
+                "[bgremove] WebGPU plugin library not staged for {}-{}; \
+                 CPU inference remains active. Optional WebGPU acceleration: \
+                 run `node scripts/fetch-onnxruntime.mjs` after updating the pins.",
+                std::env::consts::OS,
+                std::env::consts::ARCH,
+            ),
+        }
+    }
+    ready
 }
 
 /// Shared state for cancelling an in-flight AI upscaling job. The active job's
@@ -4552,6 +4580,34 @@ fn resolve_onnxruntime_dylib(app: &tauri::AppHandle) -> Option<std::path::PathBu
     None
 }
 
+fn resolve_onnxruntime_plugin(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+    let platform_key = format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH);
+    let lib_name = if cfg!(target_os = "windows") {
+        "onnxruntime_providers_webgpu.dll"
+    } else if cfg!(target_os = "macos") {
+        "libonnxruntime_providers_webgpu.dylib"
+    } else {
+        "libonnxruntime_providers_webgpu.so"
+    };
+    let relative = std::path::Path::new("onnxruntime-libs")
+        .join(&platform_key)
+        .join(lib_name);
+
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        let candidate = resource_dir.join(&relative);
+        if candidate.exists() {
+            return Some(candidate);
+        }
+    }
+
+    let dev_candidate = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(&relative);
+    if dev_candidate.exists() {
+        return Some(dev_candidate);
+    }
+
+    None
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // On Wayland (especially KDE Plasma), the window icon is resolved via the
@@ -4723,6 +4779,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             acceleration::native_acceleration_status,
             acceleration::native_gpu_self_test,
+            acceleration::native_set_inference_provider,
             crash::crash_write_report,
             crash::crash_list_reports,
             crash::crash_read_report,
@@ -5691,6 +5748,7 @@ mod tests {
             processing_time_ms: 42,
             width: 10,
             height: 20,
+            execution_provider: "native-cpu".to_string(),
         };
         let json = serde_json::to_value(&result).expect("serialize");
         // The TS side (`BackgroundRemovalResult`/`invokeTauriRemoveBackground`)
@@ -5698,6 +5756,7 @@ mod tests {
         // background removal on the desktop build with no compile-time signal.
         assert_eq!(json["maskBase64"], "abc123");
         assert_eq!(json["processingTimeMs"], 42);
+        assert_eq!(json["executionProvider"], "native-cpu");
         assert!(json.get("mask_base64").is_none());
         assert!(json.get("processing_time_ms").is_none());
     }

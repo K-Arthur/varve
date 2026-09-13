@@ -83,6 +83,12 @@ pub trait InferenceSession: Send {
     /// List the model's output names (for commands that need to pick one).
     fn output_names(&self) -> Vec<String>;
 
+    /// Execution provider that created this session (`native-webgpu` or
+    /// `native-cpu`). Defaults to the CPU provider for non-ORT runtimes.
+    fn execution_provider(&self) -> &'static str {
+        "native-cpu"
+    }
+
     /// List the model's input names (for multi-input model validation).
     fn input_names(&self) -> Vec<String> {
         Vec::new()
@@ -110,6 +116,7 @@ struct OrtSession {
     inner: Session,
     output_name: String,
     output_names: Vec<String>,
+    provider: &'static str,
 }
 
 impl InferenceRuntime for OrtInferenceRuntime {
@@ -126,12 +133,44 @@ impl InferenceRuntime for OrtInferenceRuntime {
         // arena and the memory pattern trades a small allocation-speed
         // constant for a much lower retained footprint; inference math is
         // identical (the golden parity test runs with these options).
-        let session = Session::builder()
-            .map_err(|e| format!("Failed to create ONNX session: {e}"))?
-            .with_config_entry("session.enable_cpu_mem_arena", "0")
-            .map_err(|e| format!("Failed to disable CPU memory arena: {e}"))?
-            .with_memory_pattern(false)
-            .map_err(|e| format!("Failed to disable memory pattern: {e}"))?
+        let base_builder = || -> Result<ort::session::builder::SessionBuilder, String> {
+            Session::builder()
+                .map_err(|e| format!("Failed to create ONNX session: {e}"))?
+                .with_config_entry("session.enable_cpu_mem_arena", "0")
+                .map_err(|e| format!("Failed to disable CPU memory arena: {e}"))?
+                .with_memory_pattern(false)
+                .map_err(|e| format!("Failed to disable memory pattern: {e}"))
+        };
+
+        // Provider policy: Auto prefers the WebGPU plugin EP when a device is
+        // registered, Cpu always uses the CPU EP, Gpu requires WebGPU. Any
+        // Auto failure falls back to a fresh CPU builder, never to a broken
+        // session, and the user-visible status names what happened.
+        use crate::webgpu_ep::InferenceProviderPolicy;
+        let policy = crate::webgpu_ep::inference_provider_policy();
+        let (mut builder, provider) = if crate::webgpu_ep::device_usable()
+            && !matches!(policy, InferenceProviderPolicy::Cpu)
+        {
+            match crate::webgpu_ep::attach_webgpu(base_builder()?) {
+                Ok(builder) => (builder, "native-webgpu"),
+                Err(err) => {
+                    if matches!(policy, InferenceProviderPolicy::Gpu) {
+                        return Err(err);
+                    }
+                    crate::webgpu_ep::note_attach_failure(&err);
+                    (base_builder()?, "native-cpu")
+                }
+            }
+        } else {
+            if matches!(policy, InferenceProviderPolicy::Gpu) {
+                return Err(
+                    "WebGPU execution provider is unavailable; select Automatic or CPU".to_string(),
+                );
+            }
+            (base_builder()?, "native-cpu")
+        };
+
+        let session = builder
             .commit_from_file(model_path)
             .map_err(|e| format!("Failed to load model from '{}': {e}", model_path.display()))?;
 
@@ -149,11 +188,16 @@ impl InferenceRuntime for OrtInferenceRuntime {
             inner: session,
             output_name,
             output_names,
+            provider,
         }))
     }
 }
 
 impl InferenceSession for OrtSession {
+    fn execution_provider(&self) -> &'static str {
+        self.provider
+    }
+
     fn run(&mut self, input: &[f32], input_size: u32) -> Result<Vec<f32>, String> {
         let input_name = self
             .inner
@@ -182,6 +226,7 @@ impl InferenceSession for OrtSession {
             .try_extract_tensor::<f32>()
             .map_err(|e| format!("Failed to extract output tensor: {e}"))?;
 
+        crate::webgpu_ep::note_run(self.provider);
         Ok(output_data.to_vec())
     }
 
@@ -217,6 +262,7 @@ impl InferenceSession for OrtSession {
             .map_err(|e| format!("Failed to extract output tensor: {e}"))?;
 
         let shape_usize: Vec<usize> = shape.iter().map(|&d| d as usize).collect();
+        crate::webgpu_ep::note_run(self.provider);
         Ok(TensorOutput {
             data: output_data.to_vec(),
             shape: TensorShape(shape_usize),
@@ -261,6 +307,7 @@ impl InferenceSession for OrtSession {
             .map_err(|e| format!("Failed to extract output tensor: {e}"))?;
 
         let shape_usize: Vec<usize> = shape.iter().map(|&d| d as usize).collect();
+        crate::webgpu_ep::note_run(self.provider);
         Ok(TensorOutput {
             data: output_data.to_vec(),
             shape: TensorShape(shape_usize),
@@ -1149,6 +1196,7 @@ pub fn remove_ai_cancellable(
         processing_time_ms: elapsed.as_millis() as u64,
         width: orig_w,
         height: orig_h,
+        execution_provider: crate::webgpu_ep::last_run_provider().to_string(),
     })
 }
 

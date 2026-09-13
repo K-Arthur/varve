@@ -202,3 +202,28 @@ implies for Varve:
 5. Web: wire `gpuEffectProvider` into the restored export chain (feature of the
    same consumer), keeping Canvas2D preview authoritative.
 6. Docs, website support matrix, E2E + visual validation, benchmarks.
+
+## 7. Post-audit update (same day): native WebGPU inference verified
+
+After this audit, the native WebGPU plugin EP was implemented and verified on
+the audit host:
+
+| Check | Result |
+|---|---|
+| Plugin registration (`onnxruntime-ep-webgpu` 0.3.0 vs core 1.27.1) | Registered; `WebGpuExecutionProvider` device, hardware id 5708, type GPU |
+| Node placement (ORT profiler, u2netp 1×3×320×320, 4 runs) | 1468/1468 node executions on WebGPU, 0 on CPU |
+| Output parity vs CPU EP | max abs 2e-6, mean abs 4e-8 |
+| Median wall time | CPU 1999 ms vs WebGPU 336 ms (~6×) |
+
+Command:
+
+```bash
+cargo run --release -p varve-bgremove --features ai --example webgpu_ep_probe -- \
+  apps/desktop/src-tauri/onnxruntime-libs/linux-x86_64/libonnxruntime.so \
+  apps/desktop/src-tauri/onnxruntime-libs/linux-x86_64/libonnxruntime_providers_webgpu.so \
+  apps/desktop/public/models/u2netp.onnx
+```
+
+F1/F2/F5 are superseded accordingly: the core artifact is still CPU-only, but
+registered plugin execution is real and observed for this model. Other models
+and platforms remain unverified and stay on the CPU policy.

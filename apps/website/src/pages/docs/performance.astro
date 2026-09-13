@@ -76,7 +76,7 @@ import { sitePath } from '../../lib/siteUrl';
         <ul>
           <li><strong>Settled and exported output:</strong> a blurred or scaled preview never becomes the file. Saved documents, exports, and print output render at full fidelity.</li>
           <li><strong>Your document:</strong> the profile changes rendering cost, not geometry, text, effects, or undo history.</li>
-          <li><strong>Presentation and compute are separate:</strong> Canvas2D remains authoritative for the canvas. Browser WebGPU and native desktop GPU compute are used only after an adapter or device probe succeeds; native compute is limited to offscreen effects and resampling. A device NPU is never used — it is not exposed to the browser or the Linux container, and no NPU provider runtime ships with Varve.</li>
+          <li><strong>Presentation and compute are separate:</strong> Canvas2D remains authoritative for the canvas. Browser WebGPU and native desktop GPU compute are used only after an adapter or device probe succeeds; native compute is limited to offscreen effects and resampling, plus AI inference through a verified GPU execution provider on supported models. Background removal reports which provider actually ran and keeps a CPU fallback. A device NPU is never used — it is not exposed to the browser or the Linux container, and no NPU provider runtime ships with Varve.</li>
           <li><strong>Manual quality control:</strong> the Performance tab offers Automatic or Full resolution for interactive navigation; it does not expose a render-scale slider. Selection is measured from actual frame time, while Full resolution is an explicit fidelity choice rather than a promise of a fixed frame rate.</li>
         </ul>
       </section>

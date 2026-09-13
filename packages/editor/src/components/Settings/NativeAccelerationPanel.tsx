@@ -13,10 +13,12 @@ import {
   getNativeAccelerationStatus,
   isNativeAccelerationAvailable,
   type NativeAccelerationStatus,
+  type NativeInferenceProviderPolicy,
   runNativeGpuSelfTest,
+  setNativeInferenceProviderPolicy,
   type UnavailableReason,
 } from '@varve/engine/nativeAcceleration';
-import { Button } from '@varve/ui';
+import { Button, Select } from '@varve/ui';
 import { useCallback, useEffect, useState } from 'react';
 
 import './NativeAccelerationPanel.css';
@@ -82,6 +84,18 @@ export function NativeAccelerationPanel() {
   const compute = status?.report.compute;
   const selected = compute?.devices.find((device) => device.id === compute.selectedId);
   const inference = status?.report.inference;
+  const policy = status?.inferencePolicy ?? 'auto';
+
+  async function handlePolicyChange(value: string) {
+    setError(null);
+    setSelfTest(null);
+    try {
+      await setNativeInferenceProviderPolicy(value as NativeInferenceProviderPolicy);
+      await refresh(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
 
   async function handleSelfTest() {
     setChecking(true);
@@ -132,6 +146,21 @@ export function NativeAccelerationPanel() {
             {inference?.runtimeLoaded
               ? 'ONNX Runtime loaded; CPU execution provider available'
               : 'ONNX Runtime not loaded yet; CPU execution provider is the shipped baseline'}
+          </dd>
+        </div>
+        <div className="native-accel__row native-accel__row--control">
+          <dt>AI inference device</dt>
+          <dd>
+            <Select
+              options={[
+                { value: 'auto', label: 'Automatic (WebGPU when available and verified)' },
+                { value: 'cpu', label: 'CPU only' },
+                { value: 'gpu', label: 'WebGPU only (fails if unavailable)' },
+              ]}
+              value={policy}
+              onChange={(value) => void handlePolicyChange(value)}
+              label="AI inference device"
+            />
           </dd>
         </div>
       </dl>

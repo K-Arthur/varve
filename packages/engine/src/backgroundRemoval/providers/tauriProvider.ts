@@ -14,6 +14,8 @@ interface TauriBgRemoveResponse {
   processingTimeMs: number;
   width: number;
   height: number;
+  /** Present on runtimes with provider reporting. */
+  executionProvider?: string;
 }
 
 interface NativeModelStatus {
@@ -184,7 +186,15 @@ async function invokeTauriRemoveBackground(
     processingTimeMs: raw.processingTimeMs,
     width: raw.width,
     height: raw.height,
-    executionProvider: 'native',
+    // The Rust result reports which provider actually produced the mask
+    // (`native-webgpu` when the WebGPU plugin EP ran the session). Older
+    // runtimes omit the field; keep the generic `native` label then.
+    executionProvider:
+      raw.executionProvider === 'native-webgpu'
+        ? 'native-webgpu'
+        : raw.executionProvider === 'native-cpu'
+          ? 'native-cpu'
+          : 'native',
     modelId: modelId ?? undefined,
     rawMask: decoded.mask,
   };

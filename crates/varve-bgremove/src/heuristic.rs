@@ -418,6 +418,7 @@ pub fn remove_quick(img: &DynamicImage, opts: &RemovalOptions) -> Result<Removal
         processing_time_ms: elapsed.as_millis() as u64,
         width,
         height,
+        execution_provider: "cpu".to_string(),
     })
 }
 
