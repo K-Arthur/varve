@@ -849,8 +849,10 @@ describe('replayIr', () => {
     const rec = new MeasuredRecorder();
     replayIr(rec, [item]);
     const textCalls = rec.calls.filter((call) => call.startsWith('fillText('));
-    expect(textCalls).toHaveLength(4);
-    expect(new Set(textCalls.map((call) => call.split(',').at(-1))).size).toBe(1);
+    // A whole source run is intentionally painted in one call. Splitting it
+    // into four character calls would disable ligatures and contextual forms.
+    expect(textCalls).toHaveLength(1);
+    expect(textCalls[0]).toContain('"ABCD"');
 
     // The browser-less fallback uses the same no-wrap sentinel. A point
     // paragraph containing breakable words must stay one line there too.
@@ -1146,11 +1148,9 @@ describe('replayIr', () => {
     };
     const rec = new Recorder();
     replayIr(rec, [item]);
-    expect(rec.calls).toContain('fillText("ב",10,12)');
-    expect(rec.calls).toContain('fillText("א",0,12)');
-    expect(rec.calls.indexOf('fillText("ב",10,12)')).toBeLessThan(
-      rec.calls.indexOf('fillText("א",0,12)'),
-    );
+    // The logical source is kept intact so the browser's native bidi shaper
+    // can preserve joining/context; it must not be painted as isolated glyphs.
+    expect(rec.calls).toContain('fillText("אב",0,12)');
   });
 
   it('renders a shape with image fill via the fill painting path', () => {

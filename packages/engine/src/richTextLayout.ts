@@ -12,7 +12,14 @@ import { scriptCodeToTag, shapeRun } from './shaping';
 import { type ItemizedParagraph, itemizeParagraph, type ParagraphRange } from './text/paragraphs';
 import type { TextLayoutSnapshot } from './textLayoutSnapshot';
 import { type LayoutParagraphInput, layoutText } from './textLayoutSnapshot';
-import type { RichText, ShapedRun, TextOrientation, TextRun, WritingMode } from './types';
+import type {
+  OpenTypeFeatureMap,
+  RichText,
+  ShapedRun,
+  TextOrientation,
+  TextRun,
+  WritingMode,
+} from './types';
 
 export interface RichTextMeasureContext {
   font: string;
@@ -29,6 +36,8 @@ export interface RichTextLayoutDefaults {
   lineHeight?: number;
   direction?: 'ltr' | 'rtl' | 'auto';
   language?: string;
+  openTypeFeatures?: OpenTypeFeatureMap;
+  variableAxes?: Record<string, number>;
   writingMode?: WritingMode;
   textOrientation?: TextOrientation;
 }
@@ -103,8 +112,10 @@ function shapeParagraph(
           fontStyle: format.fontStyle ?? defaults.fontStyle,
           letterSpacing: format.letterSpacing ?? defaults.letterSpacing,
           tracking: format.tracking ?? defaults.tracking,
+          openTypeFeatures: format.openTypeFeatures ?? defaults.openTypeFeatures,
+          variableAxes: format.variableFontSettings ?? defaults.variableAxes,
           direction: scripted.direction,
-          language: defaults.language,
+          language: format.language ?? defaults.language,
           ctx: ctx as unknown as CanvasRenderingContext2D,
         });
         for (const run of runs) {

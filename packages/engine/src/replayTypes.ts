@@ -39,6 +39,16 @@ export interface ReplayTarget {
   lineWidth: number;
   lineCap: CanvasLineCap;
   textAlign: CanvasTextAlign;
+  /** Canvas text direction; optional for lightweight test targets. */
+  direction?: CanvasDirection;
+  /** Forward-compatible Canvas text feature hook when exposed by a runtime. */
+  fontFeatureSettings?: string;
+  /** Forward-compatible Canvas variation hook when exposed by a runtime. */
+  fontVariationSettings?: string;
+  /** Standard Canvas text spacing/kerning hooks where implemented. */
+  letterSpacing?: string;
+  wordSpacing?: string;
+  fontKerning?: CanvasFontKerning;
   lineJoin: CanvasLineJoin;
   strokeStyle: string | CanvasGradient | CanvasPattern;
   /** Canvas text outline API; optional so structural test targets can omit it. */

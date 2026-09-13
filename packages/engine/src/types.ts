@@ -74,6 +74,8 @@ export interface CharacterFormat {
   color?: import('@varve/shared').ManagedColorShim;
   openTypeFeatures?: OpenTypeFeatureMap;
   variableFontSettings?: VariableFontSettings;
+  /** ISO language tag used for language-specific shaping. */
+  language?: string;
   baselineShift?: number;
   /** Compact horizontal-in-vertical span for a rich-text run. */
   textCombineUpright?: boolean;

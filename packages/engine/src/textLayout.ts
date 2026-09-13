@@ -12,7 +12,7 @@
  * Figma text layout engine, HarfBuzz line breaking.
  */
 
-import { measureAdvanceWidth } from '@varve/shared';
+import { measureAdvanceWidth, openTypeFeaturesToCss } from '@varve/shared';
 import type { OpenTypeFeatureMap, VariableFontSettings } from './types';
 
 export interface RichTextRun {
@@ -58,6 +58,8 @@ export interface LayoutRun {
     textDecoration?: 'none' | 'underline' | 'line-through';
     /** Run color carried through layout; applied by the renderer. */
     color?: import('@varve/shared').ManagedColorShim | readonly [number, number, number, number];
+    openTypeFeatures?: OpenTypeFeatureMap;
+    variableFontSettings?: VariableFontSettings;
   };
   font: string;
   featureSettings: string;
@@ -89,13 +91,8 @@ export function buildFontString(
 }
 
 function buildFeatureSettings(openTypeFeatures?: OpenTypeFeatureMap): string {
-  if (!openTypeFeatures || Object.keys(openTypeFeatures).length === 0) return '';
-  const entries = Object.entries(openTypeFeatures).filter(([k]) => k !== 'custom');
-  const custom = openTypeFeatures.custom;
-  if (custom) entries.push(...Object.entries(custom));
-  if (entries.length === 0) return '';
-  const features = entries.map(([k, v]) => `"${k}" ${v ? 1 : 0}`).join(', ');
-  return `font-feature-settings: ${features}`;
+  const settings = openTypeFeaturesToCss(openTypeFeatures);
+  return settings ? `font-feature-settings: ${settings}` : '';
 }
 
 function buildVariationSettings(variableFontSettings?: VariableFontSettings): string {
@@ -240,6 +237,8 @@ export function layoutRichText(
             fontStyle: fontStyle ?? 'normal',
             textDecoration,
             color: run.format?.color,
+            openTypeFeatures: run.format?.openTypeFeatures,
+            variableFontSettings: run.format?.variableFontSettings,
           },
           font,
           featureSettings,

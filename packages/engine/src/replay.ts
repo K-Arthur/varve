@@ -11,7 +11,11 @@
  * and effects, plus arrow/path/image primitive rendering.
  */
 
-import { type BlendEvaluationSpace, managedColorToRgba } from '@varve/shared';
+import {
+  type BlendEvaluationSpace,
+  managedColorToRgba,
+  openTypeFeaturesToCss,
+} from '@varve/shared';
 import { isVerticalWritingMode } from '@varve/shared/verticalText';
 import type { AlphaStrokeOps } from './alphaStroke';
 import { blendPixels, CompositeCanvas, mapBlendMode } from './compositeCanvas';
@@ -2349,6 +2353,8 @@ function paintRichText(
           lineHeight: p.lineHeight,
           direction: p.direction,
           language: p.language,
+          openTypeFeatures: p.openTypeFeatures,
+          variableAxes: p.variableAxes,
           writingMode: p.writingMode,
           textOrientation: p.textOrientation,
         },
@@ -2421,6 +2427,11 @@ function paintRichText(
       if (runFormat?.color) {
         target.fillStyle = rgba(runFormat.color);
       }
+      const restoreSettings = applyReplayTextSettings(
+        target,
+        runFormat.openTypeFeatures,
+        runFormat.variableFontSettings,
+      );
       if (wordSpacingAdjust > 0 && /\s/.test(run.text)) {
         // Distribute extra space between words within this run
         const parts = run.text.split(/(\s+)/);
@@ -2454,6 +2465,7 @@ function paintRichText(
         target.stroke();
       }
 
+      restoreSettings();
       target.fillStyle = originalFillStyle;
     }
   }
@@ -2472,6 +2484,55 @@ function richTextFormatAt(
     cursor += 1;
   }
   return {};
+}
+
+type ReplayTextSettingsTarget = ReplayTarget & {
+  fontFeatureSettings?: string;
+  fontVariationSettings?: string;
+  direction?: CanvasDirection;
+};
+
+/**
+ * Apply optional Canvas typography extensions without manufacturing support.
+ * Chromium/WebKit versions that do not expose these properties keep their
+ * native whole-run shaping; range settings remain a glyph-ID-backend concern.
+ */
+function applyReplayTextSettings(
+  target: ReplayTarget,
+  features: import('@varve/shared').OpenTypeFeatureMap | undefined,
+  axes: Record<string, number> | undefined,
+  direction?: 'ltr' | 'rtl',
+): () => void {
+  const candidate = target as ReplayTextSettingsTarget;
+  const previous: Array<() => void> = [];
+  if ('fontFeatureSettings' in candidate) {
+    const value = candidate.fontFeatureSettings;
+    previous.push(() => {
+      candidate.fontFeatureSettings = value;
+    });
+    candidate.fontFeatureSettings = openTypeFeaturesToCss(features) ?? 'normal';
+  }
+  if ('fontVariationSettings' in candidate) {
+    const value = candidate.fontVariationSettings;
+    previous.push(() => {
+      candidate.fontVariationSettings = value;
+    });
+    const settings = Object.entries(axes ?? {})
+      .filter(([tag]) => tag !== 'wght')
+      .map(([tag, axisValue]) => `"${tag}" ${axisValue}`)
+      .join(', ');
+    candidate.fontVariationSettings = settings || 'normal';
+  }
+  if (direction && 'direction' in candidate) {
+    const value = candidate.direction;
+    previous.push(() => {
+      candidate.direction = value;
+    });
+    candidate.direction = direction;
+  }
+  return () => {
+    for (let index = previous.length - 1; index >= 0; index -= 1) previous[index]!();
+  };
 }
 
 function paintCanonicalRichText(
@@ -2501,27 +2562,24 @@ function paintCanonicalRichText(
           ? p.w - line.width
           : 0;
     for (const run of line.runs) {
-      for (const glyph of run.glyphs) {
-        const cluster = snapshot.text.slice(glyph.clusterUtf16, glyph.sourceEnd);
-        if (cluster.length === 0 || cluster.includes('\n')) continue;
-        const format = richTextFormatAt(richText, glyph.clusterUtf16);
-        const style = (format.fontStyle ?? run.sourceRun.fontStyle) === 'italic' ? 'italic ' : '';
-        const weight = format.fontWeight ?? run.sourceRun.fontWeight;
-        const size = format.fontSize ?? run.sourceRun.fontSize;
-        const family = format.fontFamily ?? run.sourceRun.fontFamily;
-        target.font = `${style}${Math.max(1, Math.min(1000, weight))} ${size}px "${family}"`;
-        if (format.color) target.fillStyle = rgba(format.color);
-        const glyphX =
-          run.direction === 'rtl'
-            ? run.x + run.width - (glyph.x - run.x) - glyph.xAdvance
-            : glyph.x;
-        target.fillText(
-          cluster,
-          p.x + xOffset + glyphX + glyph.xOffset,
-          p.y + verticalOffset + glyph.y,
-        );
-        target.fillStyle = originalFillStyle;
-      }
+      const format = richTextFormatAt(richText, run.sourceStart);
+      const style = (format.fontStyle ?? run.sourceRun.fontStyle) === 'italic' ? 'italic ' : '';
+      const weight = Math.max(1, Math.min(1000, format.fontWeight ?? run.sourceRun.fontWeight));
+      const size = format.fontSize ?? run.sourceRun.fontSize;
+      const family = format.fontFamily ?? run.sourceRun.fontFamily;
+      const runText = snapshot.text.slice(run.sourceStart, run.sourceEnd);
+      if (runText.length === 0 || runText.includes('\n')) continue;
+      target.font = `${style}${weight} ${size}px "${family}"`;
+      if (format.color) target.fillStyle = rgba(format.color);
+      const restoreSettings = applyReplayTextSettings(
+        target,
+        format.openTypeFeatures,
+        format.variableFontSettings,
+        run.direction,
+      );
+      target.fillText(runText, p.x + xOffset + run.x, p.y + verticalOffset + line.baseline);
+      restoreSettings();
+      target.fillStyle = originalFillStyle;
     }
   }
 }
@@ -2540,6 +2598,11 @@ function canUseCanonicalTextLayout(p: TextPrimitive): boolean {
     !p.text.includes('\t') &&
     !p.glyphAdjustments &&
     !p.pairAdjustments &&
+    p.letterSpacing === 0 &&
+    (p.tracking ?? 0) === 0 &&
+    (!p.openTypeFeatures ||
+      Object.keys(p.openTypeFeatures).length === 0 ||
+      openTypeFeaturesToCss(p.openTypeFeatures) !== undefined) &&
     p.kerningMode !== 'none'
   );
 }
@@ -2569,6 +2632,8 @@ function canonicalTextSnapshot(target: ReplayTarget, p: TextPrimitive): TextLayo
           fontStyle: p.fontStyle,
           letterSpacing: p.letterSpacing,
           tracking: p.tracking,
+          openTypeFeatures: p.openTypeFeatures,
+          variableAxes: p.variableAxes,
           direction,
           language,
           writingMode: p.writingMode,
@@ -2622,28 +2687,20 @@ function paintCanonicalText(
           ? effectiveWeight(p)
           : Math.max(1, Math.min(1000, run.sourceRun.fontWeight));
       target.font = `${style}${weight} ${run.sourceRun.fontSize}px "${run.sourceRun.fontFamily}"`;
-      if (isComplexScriptRun(run.sourceRun.script) && !p.shaping) {
-        // Canvas must shape joining scripts as a complete run. Painting each
-        // grapheme independently loses Arabic/Indic contextual forms and can
-        // make clusters overlap even though layout geometry is correct.
-        const runText = snapshot.text.slice(run.sourceStart, run.sourceEnd);
-        if (runText.length > 0) {
-          target.fillText(runText, p.x + xOffset + run.x, p.y + verticalOffset + line.baseline);
-        }
-        continue;
-      }
-      for (const glyph of run.glyphs) {
-        const cluster = snapshot.text.slice(glyph.clusterUtf16, glyph.sourceEnd);
-        if (cluster.length === 0 || cluster.includes('\n')) continue;
-        const glyphX =
-          run.direction === 'rtl'
-            ? run.x + run.width - (glyph.x - run.x) - glyph.xAdvance
-            : glyph.x;
-        target.fillText(
-          cluster,
-          p.x + xOffset + glyphX + glyph.xOffset,
-          p.y + verticalOffset + glyph.y,
+      // Canvas2D has no portable glyph-ID drawing API. Painting every shaped
+      // glyph by slicing its source cluster is therefore incorrect: it
+      // disables ligatures and contextual joining. Keep the logical source
+      // run intact and let the browser's native shaper paint it as one unit.
+      const runText = snapshot.text.slice(run.sourceStart, run.sourceEnd);
+      if (runText.length > 0 && !runText.includes('\n')) {
+        const restoreSettings = applyReplayTextSettings(
+          target,
+          p.openTypeFeatures,
+          p.variableAxes,
+          run.direction,
         );
+        target.fillText(runText, p.x + xOffset + run.x, p.y + verticalOffset + line.baseline);
+        restoreSettings();
       }
     }
     if (p.textDecoration === 'underline' || p.textDecoration === 'line-through') {
@@ -2661,32 +2718,6 @@ function paintCanonicalText(
     }
   }
   target.fillStyle = originalFillStyle;
-}
-
-const COMPLEX_SCRIPT_TAGS = new Set([
-  'arab',
-  'hebr',
-  'dev2',
-  'beng',
-  'guru',
-  'gujr',
-  'orya',
-  'taml',
-  'telu',
-  'knda',
-  'mlym',
-  'sinh',
-  'thai',
-  'laoo',
-  'tibt',
-  'mymr',
-  'khmr',
-  'hang',
-  'hani',
-]);
-
-function isComplexScriptRun(script: string): boolean {
-  return COMPLEX_SCRIPT_TAGS.has(script);
 }
 
 /**
@@ -2737,6 +2768,8 @@ function paintPathText(
           tracking: p.tracking,
           direction: (p.direction as 'ltr' | 'rtl' | 'auto' | undefined) ?? 'auto',
           language: p.language,
+          openTypeFeatures: p.openTypeFeatures,
+          variableAxes: p.variableAxes,
         },
       );
       return flattenShapedRuns(shaping.runs, paragraph);
@@ -2770,8 +2803,10 @@ function paintPathText(
     const c = Math.cos(glyph.angle);
     const s = Math.sin(glyph.angle);
     target.transform(c, s, -s, c, 0, 0);
+    const restoreSettings = applyReplayTextSettings(target, p.openTypeFeatures, p.variableAxes);
     if (stroke && target.strokeText) target.strokeText(glyph.char, 0, 0);
     else if (!stroke) target.fillText(glyph.char, 0, 0);
+    restoreSettings();
     target.restore();
   }
 

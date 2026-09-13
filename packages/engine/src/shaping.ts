@@ -23,8 +23,16 @@
  * in exactly one place.
  */
 
+import { openTypeFeaturesToCss } from '@varve/shared';
 import type { ItemizedParagraph } from './text/paragraphs';
-import type { ShapedGlyph, ShapedRun, TextOrientation, TextShaping, WritingMode } from './types';
+import type {
+  OpenTypeFeatureMap,
+  ShapedGlyph,
+  ShapedRun,
+  TextOrientation,
+  TextShaping,
+  WritingMode,
+} from './types';
 import type { BidiParagraph } from './unicode/bidi';
 import { analyzeParagraph } from './unicode/bidi';
 import { splitGraphemes } from './unicode/grapheme';
@@ -45,6 +53,10 @@ export interface ShapeRunInput {
   letterSpacing?: number;
   /** Typographic tracking in 1/1000 em units, added between glyphs. */
   tracking?: number;
+  /** Whole-run OpenType values; ranged values require a glyph-ID backend. */
+  openTypeFeatures?: OpenTypeFeatureMap;
+  /** Variable axes not expressible by the CSS font shorthand. */
+  variableAxes?: Record<string, number>;
   /** Direction override ('ltr' | 'rtl' | 'auto'). */
   direction?: 'ltr' | 'rtl' | 'auto';
   /** ISO language tag. */
@@ -70,6 +82,8 @@ export interface ShapeRichTextInput {
     language?: string;
     writingMode?: WritingMode;
     textOrientation?: TextOrientation;
+    openTypeFeatures?: OpenTypeFeatureMap;
+    variableAxes?: Record<string, number>;
     textAlign?: 'left' | 'center' | 'right' | 'justify';
   }>;
   ctx: CanvasRenderingContext2D;
@@ -96,6 +110,26 @@ function buildFontString(
   const style = fontStyle === 'italic' ? 'italic ' : '';
   const weight = fontWeight ? `${fontWeight} ` : '';
   return `${style}${weight}${fontSize}px "${fontFamily}"`;
+}
+
+type CanvasTypographyContext = CanvasRenderingContext2D & {
+  fontFeatureSettings?: string;
+  fontVariationSettings?: string;
+};
+
+/** Apply only typography properties exposed by the current Canvas runtime. */
+function applyCanvasTypography(input: ShapeRunInput): void {
+  const ctx = input.ctx as CanvasTypographyContext;
+  if ('fontFeatureSettings' in ctx) {
+    ctx.fontFeatureSettings = openTypeFeaturesToCss(input.openTypeFeatures) ?? 'normal';
+  }
+  if ('fontVariationSettings' in ctx) {
+    const axes = Object.entries(input.variableAxes ?? {})
+      .filter(([tag]) => tag !== 'wght')
+      .map(([tag, value]) => `"${tag}" ${value}`)
+      .join(', ');
+    ctx.fontVariationSettings = axes || 'normal';
+  }
 }
 
 /**
@@ -162,10 +196,17 @@ export function shapeParagraphRuns(
     fontStyle?: 'normal' | 'italic';
     letterSpacing?: number;
     tracking?: number;
+    openTypeFeatures?: OpenTypeFeatureMap;
+    variableAxes?: Record<string, number>;
     language?: string;
   },
 ): ShapedRun[] {
   const runs: ShapedRun[] = [];
+  applyCanvasTypography({
+    text: paragraph.text,
+    ...style,
+    ctx,
+  });
   ctx.font = buildFontString(style.fontFamily, style.fontSize, style.fontWeight, style.fontStyle);
   for (const scriptedRun of paragraph.scriptedRuns) {
     const runText = paragraph.text.slice(scriptedRun.start, scriptedRun.end);
@@ -268,6 +309,7 @@ export function shapeRun(input: ShapeRunInput): ShapedRun[] {
   const para: BidiParagraph = analyzeParagraph(text, explicitDir);
 
   // Set the font on the context for measurement.
+  applyCanvasTypography(input);
   ctx.font = buildFontString(fontFamily, fontSize, fontWeight, fontStyle);
 
   // Step 2: For each BiDi run, segment further by script and walk graphemes.
@@ -403,6 +445,8 @@ export function shapeText(
     tracking?: number;
     direction?: 'ltr' | 'rtl' | 'auto';
     language?: string;
+    openTypeFeatures?: OpenTypeFeatureMap;
+    variableAxes?: Record<string, number>;
     writingMode?: WritingMode;
     textOrientation?: TextOrientation;
   },
@@ -417,6 +461,8 @@ export function shapeText(
     tracking: opts?.tracking,
     direction: opts?.direction ?? 'auto',
     language: opts?.language,
+    openTypeFeatures: opts?.openTypeFeatures,
+    variableAxes: opts?.variableAxes,
     writingMode: opts?.writingMode,
     textOrientation: opts?.textOrientation,
     ctx,
