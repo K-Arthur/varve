@@ -18,11 +18,23 @@ import { useEditor } from '../context';
 import { findPathTopologyDependency } from '../pathTopologyDependencies';
 import './NodeEditControls.css';
 
+type EditablePathShape = Extract<ShapeNode['shape'], { kind: 'path' }>;
+
 interface NodeEditControlsProps {
   targetId: string;
   selectedAnchors: ReadonlySet<number>;
   setSelectedAnchors: (anchors: ReadonlySet<number>) => void;
   setTargetId: (id: string | null) => void;
+}
+
+/** Only the final node of the outer ring is an open-contour endpoint. */
+export function isOpenOuterEndpoint(
+  shape: EditablePathShape,
+  ringIndex: number,
+  pointIndex: number,
+): boolean {
+  const ring = pathRings(shape)[ringIndex];
+  return !shape.closed && ringIndex === 0 && ring !== undefined && pointIndex === ring.length - 1;
 }
 
 const MODES: readonly { value: PathNodeMode; label: string; shortcut: string }[] = [
@@ -33,7 +45,7 @@ const MODES: readonly { value: PathNodeMode; label: string; shortcut: string }[]
 ];
 
 function selectedPoint(
-  shape: Extract<ShapeNode['shape'], { kind: 'path' }>,
+  shape: EditablePathShape,
   selected: ReadonlySet<number>,
 ): PathPoint | null {
   if (selected.size !== 1) return null;
@@ -125,8 +137,7 @@ export function NodeEditControls({
       const ring = rings[ringIndex]!;
       if (index >= offset && index < offset + ring.length) {
         const pointIndex = index - offset;
-        const isLastOpenPoint = !shape.closed && pointIndex === ring.length - 1;
-        if (isLastOpenPoint) return;
+        if (isOpenOuterEndpoint(shape, ringIndex, pointIndex)) return;
         const segmentIndex = pointIndex;
         const result = insertPointOnPath(shape, ringIndex, segmentIndex, 0.5);
         if (!result) return;
