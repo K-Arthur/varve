@@ -1,4 +1,5 @@
 import { getFontRegistry } from '@varve/engine';
+import { fontReferenceKey } from '@varve/engine/font';
 import type { TextNode } from '@varve/scene';
 import { DEFAULT_ARTWORK_FONT_FAMILY } from '@varve/shared';
 
@@ -11,7 +12,7 @@ export interface FontWeightOption {
   disabledReason?: string;
 }
 
-type WeightNode = Pick<TextNode, 'fontFamily' | 'fontWeight' | 'fontStyle'>;
+type WeightNode = Pick<TextNode, 'fontFamily' | 'fontWeight' | 'fontStyle' | 'fontReference'>;
 
 const STANDARD_WEIGHT_STOPS = [100, 200, 300, 400, 500, 600, 700, 800, 900] as const;
 
@@ -24,7 +25,40 @@ function supportedWeights(
   registry: ReturnType<typeof getFontRegistry>,
 ): Set<number> {
   const family = node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY;
-  const axis = registry.getAxisDefinitions(family)?.find((candidate) => candidate.tag === 'wght');
+  const entries = registry.getEntries(family);
+  const requestedFaceKey = node.fontReference
+    ? fontReferenceKey(node.fontReference).toLowerCase()
+    : undefined;
+  const entriesWithIdentity = entries.filter((entry) => entry.faceKey);
+  const exactKeyEntries = requestedFaceKey
+    ? entries.filter((entry) => entry.faceKey?.toLowerCase() === requestedFaceKey)
+    : [];
+  const postScriptEntries = node.fontReference?.postScriptName
+    ? entries.filter(
+        (entry) =>
+          entry.postScriptName?.toLowerCase() === node.fontReference?.postScriptName?.toLowerCase(),
+      )
+    : [];
+  const exactEntries = node.fontReference
+    ? exactKeyEntries.length > 0
+      ? exactKeyEntries
+      : entriesWithIdentity.length === 0 && postScriptEntries.length > 0
+        ? postScriptEntries
+        : entriesWithIdentity.length === 0
+          ? entries
+          : []
+    : [];
+  // An exact reference is authoritative when the registry has identity data.
+  // Older system enumeration records may only contain family/style metadata;
+  // retain that usable fallback rather than hiding every control.
+  const referenceCanUseFamilyMetadata =
+    !node.fontReference || exactEntries.length > 0 || entriesWithIdentity.length === 0;
+  const scopedEntries =
+    exactEntries.length > 0 ? exactEntries : referenceCanUseFamilyMetadata ? entries : [];
+  const axis = (
+    scopedEntries.find((entry) => entry.axisDefinitions?.length)?.axisDefinitions ??
+    (referenceCanUseFamilyMetadata ? registry.getAxisDefinitions(family) : undefined)
+  )?.find((candidate) => candidate.tag === 'wght');
   if (axis) {
     const min = Math.min(axis.min, axis.max);
     const max = Math.max(axis.min, axis.max);
@@ -38,10 +72,9 @@ function supportedWeights(
     return values;
   }
 
-  const entries = registry.getEntries(family);
   const style = node.fontStyle ?? 'normal';
-  const styledEntries = entries.filter((entry) => entry.style === style);
-  const candidates = styledEntries.length > 0 ? styledEntries : entries;
+  const styledEntries = scopedEntries.filter((entry) => entry.style === style);
+  const candidates = styledEntries.length > 0 ? styledEntries : scopedEntries;
   return new Set(candidates.map((entry) => entry.weight));
 }
 

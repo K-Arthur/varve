@@ -1,9 +1,14 @@
 import { FontRegistry } from '@varve/engine';
+import { fontReferenceKey } from '@varve/engine/font';
 import type { TextNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { fontFamilyChanges, fontWeightOptions } from './fontWeight';
 
-function node(overrides: Partial<Pick<TextNode, 'fontFamily' | 'fontWeight' | 'fontStyle'>> = {}) {
+function node(
+  overrides: Partial<
+    Pick<TextNode, 'fontFamily' | 'fontWeight' | 'fontStyle' | 'fontReference'>
+  > = {},
+) {
   return {
     fontFamily: 'Georgia',
     fontWeight: 400,
@@ -87,6 +92,111 @@ describe('fontWeightOptions', () => {
     ).toEqual([
       { value: 400, label: '400' },
       { value: 700, label: '700', disabled: true, disabledReason: expect.any(String) },
+    ]);
+  });
+
+  it('scopes static weights to an exact artifact when the registry has face keys', () => {
+    const firstReference = { artifactHash: 'a'.repeat(64) };
+    const secondReference = { artifactHash: 'b'.repeat(64) };
+    const registry = new FontRegistry([
+      {
+        family: 'Duplicate Family',
+        weight: 400,
+        style: 'normal',
+        source: 'user',
+        faceKey: fontReferenceKey(firstReference),
+      },
+      {
+        family: 'Duplicate Family',
+        weight: 700,
+        style: 'normal',
+        source: 'user',
+        faceKey: fontReferenceKey(firstReference),
+      },
+      {
+        family: 'Duplicate Family',
+        weight: 400,
+        style: 'normal',
+        source: 'user',
+        faceKey: fontReferenceKey(secondReference),
+      },
+    ]);
+
+    expect(
+      fontWeightOptions(
+        node({ fontFamily: 'Duplicate Family', fontReference: secondReference }),
+        registry,
+      ),
+    ).toEqual([{ value: 400, label: '400' }]);
+  });
+
+  it('uses a matching PostScript name when an older entry lacks a face key', () => {
+    const registry = new FontRegistry([
+      {
+        family: 'Legacy Family',
+        weight: 400,
+        style: 'normal',
+        source: 'user',
+        postScriptName: 'Legacy-Regular',
+      },
+      {
+        family: 'Legacy Family',
+        weight: 700,
+        style: 'normal',
+        source: 'user',
+        postScriptName: 'Legacy-Bold',
+      },
+    ]);
+
+    expect(
+      fontWeightOptions(
+        node({
+          fontFamily: 'Legacy Family',
+          fontWeight: 700,
+          fontReference: {
+            artifactHash: 'c'.repeat(64),
+            postScriptName: 'Legacy-Bold',
+          },
+        }),
+        registry,
+      ),
+    ).toEqual([{ value: 700, label: '700' }]);
+  });
+
+  it('keeps a face from another artifact unavailable instead of borrowing family weights', () => {
+    const registry = new FontRegistry([
+      {
+        family: 'Duplicate Family',
+        weight: 400,
+        style: 'normal',
+        source: 'user',
+        faceKey: fontReferenceKey({ artifactHash: 'a'.repeat(64) }),
+      },
+      {
+        family: 'Duplicate Family',
+        weight: 700,
+        style: 'normal',
+        source: 'user',
+        faceKey: fontReferenceKey({ artifactHash: 'b'.repeat(64) }),
+      },
+    ]);
+
+    expect(
+      fontWeightOptions(
+        node({
+          fontFamily: 'Duplicate Family',
+          fontWeight: 400,
+          fontReference: { artifactHash: 'c'.repeat(64) },
+        }),
+        registry,
+      ),
+    ).toEqual([
+      {
+        value: 400,
+        label: '400',
+        disabled: true,
+        disabledReason: expect.any(String),
+      },
     ]);
   });
 });
