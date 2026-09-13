@@ -199,21 +199,54 @@ import { sitePath } from '../../../lib/siteUrl';
       <section class="docs-section">
         <h2>OpenType Features</h2>
         <p>
-          For fonts that support them, Varve exposes OpenType feature toggles in a collapsible section:
+          Open the <strong>Advanced typography</strong> disclosure in the Typography inspector. Varve reads the selected face's feature metadata; it does not fabricate a feature that the font does not declare. Whole-run values can be Boolean or numeric/indexed, while byte-backed shaping also accepts UTF-16 source ranges. Unset/inherit, explicit off, and a selected numeric value remain distinct in the document.
         </p>
         <ul>
           <li><code>liga</code> — Standard ligatures</li>
+          <li><code>dlig</code>, <code>hlig</code> — Discretionary and historical ligatures</li>
+          <li><code>calt</code>, <code>swsh</code>, <code>cswh</code>, <code>titl</code>, <code>salt</code> — Contextual alternates, swashes, and titling forms</li>
           <li><code>kern</code> — Kerning</li>
-          <li><code>salt</code> — Stylistic alternates</li>
-          <li><code>ss01</code> through <code>ss20</code> — Stylistic sets</li>
-          <li>And other common features (calt, dlig, frac, sups, subs, onum, lnum, pnum, tnum, zero)</li>
+          <li><code>ss01</code> through <code>ss20</code> and <code>cv01</code> through <code>cv99</code> — Font-defined stylistic sets and character variants</li>
+          <li><code>smcp</code>, <code>c2sc</code>, <code>frac</code>, <code>afrc</code>, <code>numr</code>, <code>dnom</code>, <code>onum</code>, <code>lnum</code>, <code>pnum</code>, <code>tnum</code>, <code>zero</code> — Small caps, fractions, numeral styles, and slashed zero where declared by the face</li>
         </ul>
+        <p>
+          Required script-shaping features are protected from a generic “turn ligatures off” action. The alternate browser previews available feature choices for the current face; it is a feature browser, not a universal glyph-insertion palette. Applying a choice changes the real canvas artwork and creates one history entry. Hover previews are cancellable and do not create history entries; Escape or selection changes restore the previous value.
+        </p>
       </section>
 
       <section class="docs-section">
         <h2>Variable Fonts</h2>
         <p>
           Varve exposes registered variable-font axes. When a variable font is selected, the Typography section and the full Browse fonts inspector show a <strong>Variable Axes</strong> panel with range sliders for each registered axis (e.g., weight, width, optical size, slant). The available axes, bounds, and defaults are determined by the selected face's <code>fvar</code> table. Adjustments preview live and stay a draft until you choose <strong>Use face</strong>; <strong>Reset</strong> returns to the font's defaults without changing the document.
+        </p>
+        <p>
+          Axis values are applied once to the resolved face and are included in layout, outline, and export identity. Canvas2D reliably exposes the standard CSS route; custom-axis support depends on the browser and font-byte/native path. A zoom change never changes optical sizing. If a face or runtime cannot honor an axis, the control reports that state instead of pretending the preview is authoritative.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Artistic text and custom lettering</h2>
+        <p>
+          Point text grows with its content; area text wraps inside its frame. Changing a frame changes wrapping, changing font size changes type metrics, and an object transform changes placement. These are separate operations and remain undoable.
+        </p>
+        <p>
+          Select a plain, single-line LTR wordmark and use <strong>Glyph adjustments</strong> for cluster offset, rotation, scale, baseline movement, or pair spacing. Adjustments stay attached to logical grapheme/source indices and are cleared when the source text, font, features, or shaping context changes. Combining marks and required script clusters are kept together. For an ordinary Latin ligature, turn <strong>Standard ligatures</strong> off before moving inside <code>fi</code>, <code>ff</code>, <code>ffi</code>, <code>ffl</code>, or <code>fl</code>; use <strong>Reset</strong> to remove the adjustments.
+        </p>
+        <p>
+          Use <strong>Text on path</strong> for baseline placement. The renderer positions shaped source clusters along the curve and supports start/end offset, baseline offset, side, flip, reversal, fit, detach, and live path edits. It does not bend the actual glyph outlines. If the path is deleted or unavailable, reset the path settings to return to ordinary editable text.
+        </p>
+        <p>
+          The existing deformation controls provide bounded arc/bend/wave-style effects while preserving source text and parameters. Edit the source text through the normal text editor; expand a live deformation before outlining so the final geometry is intentional and recoverable.
+        </p>
+        <p>
+          Choose <strong>Convert to outlines</strong> only when you accept destructive text conversion. Varve uses the actual shaped glyph IDs, contours, counters, feature values, axes, and source ranges for supported monochrome faces, stores provenance on the resulting group, and keeps the original available through undo. Missing/corrupt fonts, collection faces, color glyphs, path text, case transforms, and live warps are refused or require the documented detach/expand step; no placeholder rectangles are presented as success.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Export behavior</h2>
+        <p>
+          SVG keeps editable text, feature settings, variable-axis settings, and native <code>textPath</code> semantics where the SVG viewer supports them. Browser PDF is a local raster PDF. Desktop PDF preserves simple eligible text through the native print path, but shaping-sensitive text—ligatures, non-Latin/script text, rich runs, feature values/ranges, axes, tracking, manual cluster edits, and path text—is rasterized from the live renderer so it cannot silently change shape. This preserves appearance but means that node is not searchable/editable text in the PDF. Convert to outlines when vector geometry is more important than PDF text semantics, and inspect the exported artifact before delivery.
         </p>
       </section>
 
@@ -258,13 +291,13 @@ import { sitePath } from '../../../lib/siteUrl';
       <section class="docs-section">
         <h2>Text on Path</h2>
         <p>
-          Text can be placed along any vector path. This feature uses adaptive Simpson integration to compute accurate arc-length parameters for cubic bezier curves. To use text on path:
+          Text can be placed along any vector path. This feature uses adaptive Simpson integration to compute arc-length parameters for cubic bezier curves and consumes shaped source clusters rather than measuring isolated characters. To use text on path:
         </p>
         <ol>
           <li>Create a path using the Pen or Pencil tool</li>
           <li>Create a text node</li>
           <li>In the Typography section, select the path node as the <strong>Path Shape</strong> reference</li>
-          <li>The text renders along the path with per-glyph positioning and rotation</li>
+          <li>The text renders along the baseline with cluster-aware positioning and rotation; bending the outlines is a separate deformation operation</li>
         </ol>
       </section>
 

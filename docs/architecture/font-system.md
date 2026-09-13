@@ -211,8 +211,11 @@ editing. The size field commits its draft on blur or Enter; Escape discards an
 unfinished draft. Family, weight, and size changes from the contextual and
 floating bars use the shared range/caret command adapter. The inspector and
 toolbar weight controls share the same variable-font `wght` update path,
-preserving unrelated authored axes.
-Presentation-only hover preview is not integrated yet.
+preserving unrelated authored axes. The Advanced Typography inspector also
+uses the registry revision to refresh face-defined feature rows and alternate
+previews; hover previews are transient, cancellable, and never create history.
+The browser preview remains metadata/specimen-only until an exact installed or
+bundled face is available.
 
 The full browser's license details view exposes the base embedding right,
 no-subsetting and bitmap-only declarations as separate rows, plus whether the

@@ -34,26 +34,34 @@ The typography system spans TypeScript (browser/web) and Rust (native/Tauri) lay
 
 ## Capability Matrix
 
-| Feature | Browser Canvas2D | WASM (planned) | Native Rust |
-|---------|-----------------|-----------------|-------------|
-| Text rendering | ✓ (Canvas2D fillText) | — | PDF operators |
-| Text measurement | ✓ (measureText) | — | rustybuzz metrics |
-| Glyph IDs | ✗ (always 0) | ✓ (rustybuzz-wasm) | ✓ (rustybuzz) |
-| Ligatures | ✓ (browser engine) | ✓ | ✓ |
-| Complex scripts | ✓ (browser engine) | ✓ | ✓ |
-| OpenType features | ✓ (via Canvas2D) | ✓ | ✓ |
-| Variation axes | ✓ | ✓ | ✓ |
+The columns describe the path actually selected by the application, not merely
+the library APIs present in the repository. Canvas2D is the live browser paint
+backend; its text drawing API does not expose portable glyph-ID drawing or
+per-range feature application. HarfBuzz WASM is used when exact font bytes are
+available for outline conversion, and the desktop adapter prefers the native
+`shape_text_command` for that same conversion. The native PDF writer remains a
+separate, character-oriented path.
+
+| Feature | Browser Canvas2D live paint | HarfBuzz WASM / editor outlining | Native Rust / Tauri |
+|---------|-----------------------------|----------------------------------|---------------------|
+| Text rendering | ✓ whole source runs; browser shaping | ✓ glyph-ID derived outlines | ✓ PDF operators for simple text; advanced text rasterized by editor preflight |
+| Text measurement | ✓ `measureText()` fallback/snapshot | ✓ font metrics and advances | ✓ rustybuzz metrics through shaping command |
+| Glyph IDs | ✗ portable Canvas2D API does not expose them | ✓ rustybuzz/harfbuzzjs | ✓ rustybuzz |
+| Ligatures | ✓ browser decides for the whole run | ✓ real GSUB shaping | ✓ shaping command; PDF export does not yet consume it |
+| Complex scripts | ✓ delegated to browser font engine | ✓ when bytes and script/font support are available | ✓ shaping command; PDF export uses raster fallback |
+| OpenType values/ranges | ✓ whole-run CSS values only; ranged values require a derived path | ✓ Boolean, indexed, and UTF-16-ranged settings | ✓ structured settings in `shape_text_command`; not yet wired into PDF operators |
+| Variation axes | ✓ reliable for supported browser/CSS axes | ✓ exact outline conversion | ✓ structured native shaping; PDF advanced text is rasterized |
 | COLR/CPAL detection | ✓ | ✓ | ✓ (raw table check) |
 | COLR/CPAL rendering | ✗ (monochrome) | ✗ | ✗ |
-| PDF native text | ✗ (raster only) | — | ✓ (WinAnsi + subset) |
-| PDF native CJK | ✗ | — | ✓ (CIDFont2 + Identity-H) |
-| PDF ToUnicode CMap | — | — | ✓ |
-| PDF font subsetting | — | — | ✓ (font-subset) |
-| PDF font metrics | — | — | ✓ (from font binary) |
-| PDF kerning (TJ arrays) | — | — | ✓ (hex-encoded glyphs) |
-| PDF/X font embedding | — | — | ✓ (TrueType + WinAnsi) |
-| Text outlining | ✓ (opentype.js) | ✓ | ✓ (ab_glyph) |
-| Rich-text outlining | ✓ (per-run) | ✓ | ✓ |
+| PDF native text | ✗ (browser PDF is raster) | — | ✓ only for simple eligible runs; no GSUB/GPOS parity claim |
+| PDF native CJK | ✗ | — | ✗ for editor fidelity; raster fallback |
+| PDF ToUnicode CMap | — | — | ✓ on native text path; not evidence of shaped accessibility |
+| PDF font subsetting | — | — | ✓ for native text path; advanced glyph dependencies remain a limitation |
+| PDF font metrics | — | — | ✓ from font binary |
+| PDF kerning (TJ arrays) | — | — | ✗ exact parity not established; sensitive text rasterized |
+| PDF/X font embedding | — | — | ✓ native print path, subject to preflight/license policy |
+| Text outlining | — | ✓ exact shaped glyph IDs for supported monochrome faces | ✓ raw PDF outline helper; not the editor's exact shaping authority |
+| Rich-text outlining | — | ✓ per-run when each run matches the resolved face | — |
 | Decoration outlining | ✓ | ✓ | ✓ |
 | Worker outlining | ✓ (Web Worker) | ✓ | ✓ (native thread) |
 | System font discovery | ✓ (queryLocalFonts) | — | ✓ (fontconfig/CoreText/DWrite) |
@@ -102,6 +110,25 @@ advances, offsets, and UTF-16 clusters for the native/WASM integration. This
 is not evidence that every installed font has complete `vmtx`/`VORG` or
 vertical-alternate coverage. Native PDF vertical text and exact vertical
 outlining remain separate validation targets.
+
+### Artistic text and custom lettering
+
+Point/area text, path text, per-cluster adjustments, and bounded warp parameters
+remain editable scene properties. Cluster adjustments are anchored to logical
+grapheme/source ranges rather than ephemeral glyph-array positions. The editor
+refuses to split a likely active standard Latin ligature; turn `liga` off before
+moving inside `fi`, `ff`, `ffi`, `ffl`, or `fl`. Required script-shaping features
+remain protected. Path text positions shaped source clusters along the path; it
+does not claim to bend each glyph outline. A missing path falls back to ordinary
+text instead of painting stale or placeholder geometry.
+
+Text-to-outlines is an explicit destructive command. It shapes with the selected
+font artifact, face, feature values/ranges, and variation coordinates, extracts
+the resulting glyph IDs and contours, retains source-range provenance on the
+outlined group, and preserves an undo path to the original text. Malformed,
+missing, collection-face, or colour-font input is refused rather than replaced
+with rectangles. Live warps and path text must be detached/expanded first so
+operation order is visible and export cannot silently change the artwork.
 
 The editor's authoritative runtime family list is `FontRegistry`. `FontSelector`
 and `FontBrowser` subscribe to its revision, so a system-font discovery or a
@@ -212,18 +239,24 @@ while only records that load successfully are exposed to the runtime registry.
 
 ## PDF Text Pipeline
 
-```
-Rust export_pdf():
-  1. For each text node, collect font data from TS (Vec<(String, Vec<u8>)>)
-  2. Validate embedding permission (OS/2 fsType)
-  3. Subset font to used characters (font-subset crate)
-  4. Generate FontDescriptor with metrics from actual font binary
-  5. Embed subset font as FontFile2 stream
-  6. Generate ToUnicode CMap from cmap table
-  7. Emit native PDF text operators (Tj/Tm/Tf) for WinAnsi-encodable text
-  8. Fall back to vector outlines for non-Latin scripts
-  9. Fall back to raster for unsupported effects
-```
+Editor PDF preflight:
+  1. Resolve and settle the exact font artifact before rendering.
+  2. Detect path text, rich runs, non-Latin/script text, standard-ligature
+     sequences, explicit OpenType values/ranges, variation axes, tracking,
+     manual cluster edits, and other shaping-sensitive state.
+  3. Rasterize those nodes with the live render engine and embed the resulting
+     image through the native print image path. This preserves appearance but
+     intentionally loses searchable/editable text for that node.
+  4. For a simple eligible node, pass font bytes to `export_pdf`; the native
+     writer validates embedding metadata, subsets character coverage, emits
+     font metrics/ToUnicode data, and uses native PDF text operators.
+
+The native `shape_text_command` is now reachable from desktop text-to-outline
+conversion and carries numeric/ranged feature settings, variation coordinates,
+UTF-16 clusters, and exact face identity. It is not yet the PDF writer's layout
+authority. Therefore a successful PDF byte stream or ToUnicode map is not proof
+of glyph-accurate PDF accessibility; artifact checks must distinguish native text
+from an explicit raster fallback.
 
 ## Worker Outlining
 
@@ -302,8 +335,9 @@ pane is hidden behind the modal viewport. Automated coverage lives in
 
 | Limitation | Impact | Timeline |
 |------------|--------|----------|
-| No rustybuzz WASM build | Browser glyph-ID shaping unavailable | P2 |
+| Browser Canvas2D has no portable glyph-ID draw API | Live paint delegates shaping to the browser; exact glyph data comes from the byte-backed outlining path | Active |
 | No COLR/CPAL rendering | Colour fonts render monochrome | P3 |
-| No `Differences` array in font encoding | Some character mappings may be approximate | P4 |
-| Full GPOS kerning in TJ arrays | Uses hex-glyph (no numeric kern) | P4 |
-| No E2E text-extraction validation | PDF text extraction not validated in CI | P2 |
+| Native PDF operators do not consume the shared shaped run | Editor rasterizes shaping-sensitive text to preserve appearance; simple native text remains subject to print-path limitations | Active |
+| Collection-face exact outlining in the editor | Non-zero collection faces are refused until the outline adapter accepts face indices | Active |
+| No COLR/CPAL vector extraction | Colour-font text-to-outlines is refused rather than flattened incorrectly | Active |
+| PDF text-extraction parity | Native text and raster fallback need separate artifact/E2E assertions; ToUnicode metadata alone is insufficient | Active |

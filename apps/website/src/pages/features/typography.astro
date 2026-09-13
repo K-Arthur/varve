@@ -77,7 +77,7 @@ const fontReplacementFaq = {
       <section class="feature-section">
         <h2>What It Is</h2>
         <p>
-          Varve's typography system provides multi-line layout, text decoration, overflow handling, list styles, letter spacing, vertical alignment, and text case transforms. It supports OpenType feature toggles, variable font axis control, text placed along arbitrary paths, and a logical Unicode source model designed to keep shaping, editing, and export aligned.
+          Varve's typography system provides multi-line layout, text decoration, overflow handling, list styles, letter spacing, vertical alignment, and text case transforms. It supports font-defined OpenType features, variable font axes, point and area text, text placed along arbitrary paths, bounded non-destructive deformation, and a logical Unicode source model designed to keep shaping, editing, and export aligned.
         </p>
         <p>
           Vertical writing is a real text-flow setting, not a rotated layer. Choose <code>vertical-rl</code> or <code>vertical-lr</code> for column progression, then choose Mixed, Upright, or Sideways character orientation. The logical text, rich runs, transform, and text-frame geometry stay intact while the content reflows on the vertical inline axis.
@@ -180,9 +180,12 @@ const fontReplacementFaq = {
           <li><strong>Editable appearance:</strong> Gradients, strokes, shadows, glows, and supported layer effects remain visible while text is being edited; alpha-aware effects follow glyph counters and transparent backgrounds</li>
           <li><strong>Glyph-aware strokes:</strong> Text outlines follow the rendered glyphs, counters, and antialiased edges instead of tracing the text layer's rectangular bounds</li>
           <li><strong>Predictable layer names:</strong> Content-derived labels follow automatic text layers; manual names persist until you explicitly restore automatic naming</li>
-          <li><strong>OpenType features:</strong> 14 common feature toggles (liga, kern, salt, ss01-ss20) with per-font support detection</li>
+          <li><strong>OpenType features:</strong> Face-aware controls for Boolean, indexed, and (where byte-backed shaping is available) ranged values, including ligatures, alternates, swashes, stylistic sets, small caps, numerals, and fractions; required script-shaping features are protected</li>
           <li><strong>Variable fonts:</strong> Per-axis slider control with min/max/default from font metadata</li>
-          <li><strong>Text on path:</strong> Place text along any shape path — circle, bezier, rectangle, polygon, star</li>
+          <li><strong>Alternate feature browser:</strong> Search and preview the selected face's available feature choices with keyboard navigation, cancellable hover previews, and one undoable apply action; feature choices are not presented as universal Unicode glyphs</li>
+          <li><strong>Artistic text:</strong> Point/area text, cluster-safe offset/rotation/scale/baseline controls, and bounded arc/bend/wave deformation remain editable until you explicitly outline</li>
+          <li><strong>Text on path:</strong> Place shaped source clusters along circle, bezier, rectangle, polygon, or star paths with offset, side, flip, reversal, and detach controls; this positions text on a baseline rather than bending glyph outlines</li>
+          <li><strong>Text to outlines:</strong> Convert supported monochrome text using the actual shaped glyph IDs, counters, feature values, axes, and source-range provenance; invalid or unavailable font data leaves the editable source intact</li>
           <li><strong>CJK support:</strong> Line breaking via Intl.Segmenter for Chinese, Japanese, and Korean text</li>
           <li><strong>Unicode foundations:</strong> Explicit UTF-16, code-point, grapheme, shaping-cluster, and visual-caret mappings</li>
           <li><strong>BiDi foundations:</strong> UAX #9 embedding levels, per-line visual run ordering, mirrored punctuation, and cluster-safe caret geometry in the engine</li>
@@ -199,7 +202,7 @@ const fontReplacementFaq = {
       <section class="feature-section">
         <h2>Technical Depth</h2>
         <p>
-          The FontRegistry manages font loading, CSS fallback chains, font revisions, and variable font axis discovery. The engine has a typed HarfBuzz-compatible shaping seam, a canonical derived layout snapshot, bounded cache identity, and explicit Unicode source maps. A paragraph-aware layout pipeline resolves UAX #9 base direction and embedding levels per paragraph, itemizes script and language runs, breaks lines at word boundaries without ever splitting an extended grapheme cluster, and derives line-level visual run order after wrapping — so wrapped RTL paragraphs reorder correctly. Vertical writing uses the same snapshot with a physical-height inline constraint, right-to-left or left-to-right column progression, and grapheme-cluster orientation policy. Cluster-safe caret stops, hit testing, and selection geometry come from the same snapshot. The browser renderer still uses Canvas2D measurement as a clearly-labeled fallback while font-byte shaping is integrated.
+          The FontRegistry manages font loading, CSS fallback chains, font revisions, and variable font axis discovery. The engine has a typed HarfBuzz-compatible shaping seam, a canonical derived layout snapshot, bounded cache identity, and explicit Unicode source maps. A paragraph-aware layout pipeline resolves UAX #9 base direction and embedding levels per paragraph, itemizes script and language runs, breaks lines at word boundaries without ever splitting an extended grapheme cluster, and derives line-level visual run order after wrapping — so wrapped RTL paragraphs reorder correctly. Vertical writing uses the same snapshot with a physical-height inline constraint, right-to-left or left-to-right column progression, and grapheme-cluster orientation policy. Cluster-safe caret stops, hit testing, and selection geometry come from the same snapshot. Live browser paint deliberately uses Canvas2D source-run shaping; exact glyph IDs are supplied by the byte-backed HarfBuzz path for outlining, and the desktop outline path prefers the native rustybuzz adapter when Tauri is available.
         </p>
         <p>
           SVG export includes multi-line and rich text support. Typography preflight checks font availability and CSS generation.
@@ -211,11 +214,12 @@ const fontReplacementFaq = {
         <div class="limitations">
           <p><strong>Current limitations:</strong></p>
           <ul>
-            <li>Complex-script shaping (Arabic, Devanagari, Thai, and similar scripts) is not yet guaranteed in the live Canvas2D and export paths — the engine shapes contextually only when font bytes are available</li>
-            <li>The canonical paragraph layout pipeline (BiDi, line breaking, vertical columns, caret/selection geometry) is engine-complete, but full font-byte shaping and complex mixed-direction inline editing remain under integration</li>
+            <li>Live Canvas2D and SVG text are delegated to the browser's font engine; exact glyph-ID shaping requires accessible font bytes and a face that contains the requested script/features</li>
+            <li>The native desktop shaper is reachable for text-to-outlines, but the live renderer remains Canvas2D and the native PDF writer does not yet consume the shared shaped glyph stream</li>
             <li>Native PDF vertical text and exact vertical font-table/vertical-alternate fidelity are not yet proven end to end; HTML/CSS and SVG retain semantic writing-mode data, while unsupported targets require an explicit outline or raster fallback</li>
-            <li>Text-to-outlines produces placeholder bounding boxes (real glyph path extraction deferred)</li>
-            <li>Rich-text transactions and mixed inspector state exist, but insertion-style state, composition transactions, and complete shaped per-span rendering remain in development</li>
+            <li>Collection faces with a non-zero face index and COLR/CPAL colour glyphs are refused by the exact outline converter; they are not replaced with a misleading monochrome or placeholder shape</li>
+            <li>PDF preflight rasterizes path text, complex/non-Latin text, rich runs, ligature-sensitive strings, explicit features/axes/ranges, tracking, and manual cluster edits through the live renderer. This preserves appearance but loses PDF text searchability for those nodes</li>
+            <li>Direct cluster manipulation is intentionally limited around required shaping and likely active standard Latin ligatures; turn Standard ligatures off before moving inside fi, ff, ffi, ffl, or fl</li>
             <li>Font substitution preserves editability and provenance, but a compatible or category fallback can change text metrics; scoped restore-to-original replacement actions remain under integration</li>
           </ul>
         </div>
@@ -225,7 +229,7 @@ const fontReplacementFaq = {
         <h2>Status</h2>
         <div class="status-badge built">
           <span class="badge-text">Built</span>
-          <p>Core text controls, OpenType settings, variable fonts, text-on-path, inline editing, horizontal and vertical writing modes, Mixed/Upright/Sideways orientation, Unicode indexing, UAX #9 BiDi, canonical paragraph layout with cluster-safe caret geometry, rich-text transactions, and local-first missing-font replacement are functional in the beta. Font-byte shaping in the live canvas, native PDF vertical text, and full complex-script editing remain in development.</p>
+          <p>Core text controls, face-aware OpenType settings, variable fonts, cluster-safe artistic adjustments, text-on-path, bounded deformation, exact monochrome text-to-outlines, inline editing, horizontal and vertical writing modes, Mixed/Upright/Sideways orientation, Unicode indexing, UAX #9 BiDi, canonical paragraph layout, rich-text transactions, and local-first missing-font replacement are functional in the beta. Browser live paint remains Canvas2D; native PDF text shaping and collection/color-font outlining remain limited as described above.</p>
         </div>
       </section>
 
@@ -239,7 +243,7 @@ const fontReplacementFaq = {
           and style controls. Recovery of an imported collection face, scoped
           Select by Font replacement with layout preview, arbitrary image-region crop/overlay selection,
           and applying an identified face to an existing text target are still
-          being integrated. Browser
+          being integrated. Text-to-outlines is available from the Typography inspector for supported monochrome, byte-backed faces; it creates an explicit destructive conversion with source-range/font provenance and undo recovery. Browser
           local-font enumeration is available only through the explicit action
           in the full browser and remains subject to the browser's permission
           policy.

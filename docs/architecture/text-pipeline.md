@@ -17,7 +17,7 @@ TextNode.text / TextNode.richText / TextStory
       ├─ Canvas measureText → transient approximate snapshot → cluster replay (browser fallback)
       ├─ rich-span snapshot → positioned cluster replay (Canvas2D measurement fallback)
       ├─ legacy rich layout fallback (advanced paragraph controls)
-      └─ Rust rustybuzz command (native, currently export/diagnostic oriented)
+      └─ Rust rustybuzz command (native desktop outline conversion; PDF is separate)
   → SVG/PDF/codegen-specific consumers
 ```
 
@@ -96,7 +96,13 @@ use the checked-in licensed Geist artifact; synthetic flag variants are
 created only in memory. See the [diagnostic repair evidence](../audits/font-outlining-policy-evidence-2026-09-10.md).
 
 * Native desktop shaping uses the existing `rustybuzz` implementation over
-  validated font bytes.
+  validated font bytes. The editor's desktop text-to-outlines command now
+  reaches it through `createNativeShapingBackend`; the adapter carries exact
+  artifact/face identity, UTF-16 feature ranges, numeric feature values, and
+  variation coordinates, then normalizes native units back to the shared
+  `ShapingBackendResult`. If the command is unavailable, the local HarfBuzz WASM
+  adapter is an explicit fallback and emits a diagnostic rather than silently
+  changing the source.
 * Web/WASM shaping uses the existing `harfbuzzjs` dependency behind the same
   request/result contract when font bytes are available. The WASM adapter
   always runs `buffer.guessSegmentProperties()` before applying explicit
@@ -128,6 +134,17 @@ target exposes `measureText`. The transient fallback is deliberately not
 cached because replay does not own a font-face revision token; late font
 loading must be allowed to change its measurement.
 
+The live browser canvas still paints complete source runs through the browser's
+native shaping implementation. Canvas2D has no portable API for drawing an
+arbitrary glyph ID, and CSS feature settings do not provide a portable
+UTF-16-ranged shaping contract, so the byte-backed backend is used for exact
+outline conversion rather than pretending that browser `fillText` exposed the
+same glyph stream. Native PDF currently has a character-oriented writer; the
+editor preflight rasterizes path text, complex/non-Latin text, rich runs,
+ligature-sensitive strings, feature/axis/range settings, tracking, and manual
+cluster edits through the live renderer. This is an intentional appearance
+guarantee with an explicit loss of PDF text searchability for those nodes.
+
 The legacy Canvas measurement bridge now consumes the resolved visual BiDi run
 order from `analyzeParagraph`; it no longer reverses an entire RTL paragraph as
 a proxy for UAX-9 ordering. Glyph advances remain approximate until a font-byte
@@ -156,6 +173,31 @@ with adjacent equivalent runs normalized after each transaction.
 `characterFormatValue` reports mixed values across a logical selection, and the
 existing rich-span inspector uses that state for its bold/italic controls while
 keeping formatting changes property-specific.
+
+## Artistic text and outline conversion
+
+Point text and area text share one logical `TextNode`; resizing a frame changes
+wrapping, while a font-size edit changes type metrics and an object transform
+changes placement. Path text consumes shaped cluster advances and positions each
+cluster along the canonical curve. It deliberately does not bend glyph
+outlines. Detaching a deleted or missing path returns the node to ordinary text
+so a stale path cannot make the artwork disappear.
+
+Per-cluster offsets, rotation, scale, baseline movement, and pair spacing are
+stored against grapheme/source indices. Required script clusters and likely
+active standard Latin ligatures are not split by the direct-manipulation path;
+the user must explicitly disable optional `liga` before editing inside a
+sequence such as `fi` or `ffi`. Source edits invalidate these derived
+adjustments, and a reset removes only the authored adjustment map.
+
+Arc/bend/wave-style deformation remains a bounded, non-destructive effect. The
+operation order is source text → shaping/layout → cluster adjustments →
+deformation → appearance. The live warp must be expanded before outline
+conversion; the conversion command refuses to bake a different geometry by
+accident. Exact monochrome text-to-outlines uses the shaped glyph stream and
+records source ranges, face identity, feature values, and variation axes on the
+resulting group. Corrupt, missing, collection-face, and colour-font inputs are
+reported and leave the editable source untouched.
 
 ## Canonical paragraph layout
 
@@ -231,6 +273,23 @@ workstation): 100 chars ≈ 1 ms, 1,000 chars ≈ 6–16 ms, 10,000 chars
 shaping cache accepts it, face identity, OpenType features, variation axes,
 width, and layout mode in its key and bounds both entries and estimated bytes;
 callers must supply the revision when requesting font-dependent geometry.
+
+## Research references (checked 2026-09-13)
+
+The implementation choices above are grounded in the [OpenType feature
+registry](https://learn.microsoft.com/en-us/typography/opentype/spec/featurelist),
+[HarfBuzz shaping API](https://harfbuzz.github.io/harfbuzz-hb-shape.html),
+[HarfBuzz cluster guidance](https://harfbuzz.github.io/clusters.html),
+[Unicode grapheme rules](https://www.unicode.org/reports/tr29/),
+[Unicode bidirectional algorithm](https://www.unicode.org/reports/tr9/),
+[Unicode line breaking](https://www.unicode.org/reports/tr14/),
+[CSS Fonts 4](https://www.w3.org/TR/css-fonts-4/),
+[SVG 2 text](https://www.w3.org/TR/SVG2/text.html), and the
+[WHATWG Canvas 2D specification](https://html.spec.whatwg.org/multipage/canvas.html).
+The installed bindings are `harfbuzzjs` 1.6.0, `rustybuzz` 0.20.1,
+`ttf-parser` 0.25.1, and `opentype.js` 2.0.0. These sources establish the
+contract; they do not imply that Canvas2D or the native PDF writer exposes all
+of the same capabilities.
 
 ## Related decisions
 

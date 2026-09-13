@@ -1,8 +1,10 @@
 # Typography, ligatures, and artistic text audit
 
 **Date:** 2026-09-13
-**Repository state:** `master` at `07f4340` when the audit began; the shared
-worktree subsequently advanced through unrelated agent commits.
+**Repository state:** `master`; the baseline was captured at `07f4340` and the
+shared worktree subsequently advanced through unrelated agent commits. The
+implementation slices below are recorded by commit so this audit does not
+mistake the moving shared HEAD for an isolated branch.
 **Integration owner:** Codex
 **Scope:** OpenType features, shaping, glyph identity, variable axes, editing
 anchors, artistic/path text, outlining, persistence/export, frontend access,
@@ -76,7 +78,7 @@ The current Canvas bridge was separately reproduced with a deterministic
 This is the specific “correct measurement, incorrect painted glyph identity”
 failure that the implementation must remove from the canonical path.
 
-## Runtime dispatch audit
+## Baseline runtime dispatch audit (before implementation slices)
 
 | Path | Current behavior | Classification |
 |---|---|---|
@@ -101,6 +103,22 @@ verify with tests before claiming support: Rustybuzz cluster units for every
 runtime, TTC face bounds, cross-style contextual shaping, actual color-glyph
 painting, and PDF extraction/tagging. They are not treated as working merely
 because an API or metadata table exists.
+
+### Post-implementation status
+
+The following status supersedes the “not yet integrated” portions of the
+baseline matrix above. It is intentionally narrower than the complete product
+goal: the browser still paints through Canvas2D, while exact glyph identity is
+used where a font-byte shaping path can actually consume it.
+
+| Capability | Current behavior | Root cause / boundary | Affected layers | User impact | Implemented response | Verification |
+|---|---|---|---|---|---|---|
+| Feature values and ranges | Boolean, numeric/indexed, and UTF-16-ranged values survive scene → backend conversion | Canvas2D cannot portably address ranged glyph IDs; native/WASM adapters can | shared, engine, scene, editor, Rust shaper | A value can otherwise be silently reduced to on/off | normalized shared map, structured native wire request, required-feature warning | shared/engine/native contract tests |
+| Live ligature painting | Whole source runs are painted through Canvas2D; per-cluster replay refuses to split likely active standard ligatures | Canvas2D does not expose arbitrary glyph drawing | engine replay, path/warp | `fi`/`ffi` can lose their joined form when adjusted | source-run replay, conservative cluster guard, explicit `liga`-off instruction | replay/path/warp tests and browser close-up |
+| Exact outline conversion | Shaped glyph IDs, offsets, source spans, axes, and face identity are used for supported monochrome faces | `opentype.js` contour API must be fed a shaped glyph, not `charToGlyph`; collection/color faces remain unsupported | engine, scene, editor | Outline conversion can otherwise change a wordmark or create fake boxes | HarfBuzz WASM plus native desktop adapter, provenance metadata, refusal on incomplete data | OpenSans `fi`, multiline, corrupt-font, conversion tests |
+| Artistic/path text | Path placement is cluster-aware and baseline-only; bounded warp and per-cluster edits stay source-backed | Bending outlines and required script clusters need a distinct operation | scene, engine, editor | Missing paths or ligatures can disappear or be torn apart | detach/reset fallback, cluster grouping, invalidation on source edits, warp preflight | path/warp/invalidation tests and UI E2E |
+| PDF fidelity | Shaping-sensitive nodes use a live-rendered raster PDF fallback; simple eligible text can use native operators | Native PDF writer still emits source characters/raw outlines and does not consume the shared shaped run | compositor, editor export, Rust print | A visually plausible PDF can otherwise differ while retaining misleading ToUnicode metadata | compositor preflight for ligatures, non-Latin, rich/features/axes/spacing/manual edits with explicit searchability trade-off | compositor/export tests, PDF byte/artifact inspection |
+| Native desktop route | Tauri outline conversion prefers `shape_text_command`, then local WASM on command failure | Live editor renderer remains Canvas2D; native PDF is a separate path | editor, engine, Tauri | A desktop-only control can appear to work while using a different face/metrics | injected adapter copies exact bytes once, reads face metrics, reports fallback | adapter contract/typecheck; Tauri GUI remains pending |
 
 ## Standards and implementation decisions
 
@@ -162,21 +180,22 @@ evidence. They identify failure modes that Varve can realistically avoid:
 | Appearance and effects | per-glyph paint paths can leave stale coverage/masks | replay/effects/export | invalidate on glyph coverage changes; preserve counters/fill rule and operation order | shadow/counter/clip/transparent-background visual and raster checks |
 | Export/persistence honesty | native outline/PDF paths remeasure source characters | scene codec, Rust print, SVG/PDF/raster | share resolved shaped result or explicitly outline with exact glyph IDs; report editability/accessibility | artifact parse/render/text extraction; old-file migration |
 
-Dependency-aware order:
+Dependency-aware order and completed slices:
 
-1. Land the engine contract, feature normalization, source-span derivation,
-   truthful capabilities, and failing regression tests.
-2. Repair browser replay to preserve whole-run shaping and extend path placement
-   from canonical clusters; keep advanced glyph-ID work explicit where Canvas
-   cannot address IDs.
-3. Add shaped-glyph outline conversion and wire a user-accessible, asynchronous
-   conversion path with undo/source-copy behavior.
-4. Integrate feature/axis UI and a virtualized exact-face alternate browser
-   through the existing inspector/toolbar and command/history paths.
-5. Repair per-range editing anchors, artistic deformation/path controls, and
-   persistence/export adapters; add website claims only for verified behavior.
-6. Run visual/artifact/performance/platform validation, then update architecture
-   docs, limitations, changelog, and the Agent Validation Report.
+1. `6efb218d8` and `de0cd84d6` landed the shared feature-value/source-range
+   contract and whole-run Canvas replay guard.
+2. `00544184d` and `62d80db95` landed glyph-ID outline extraction, shaped
+   conversion, provenance, multiline baselines, and refusal of incomplete data.
+3. `339be47f5` integrated the Advanced Typography inspector, rich-span CSS,
+   variable-axis controls, hover-preview cancellation, and explicit conversion.
+4. `680c8ae89` and `542366ae2` repaired native feature/direction/cluster
+   normalization and invalidation of edits after source changes.
+5. `89aca9d0d` protected ligatures across replay, path, and deformation; the
+   current export slice `8c335cd9b` rasterizes shaping-sensitive PDF nodes, and
+   `163640101` connects desktop outline conversion to native shaping.
+6. Remaining validation is the browser/UI screenshot, exported artifact,
+   persistence and platform matrix described below; native Tauri GUI and
+   physical ARM/low-memory testing are not available in this environment.
 
 The pre-existing shared worktree means `pnpm verify:plan` currently selects
 Tiers 0–4 and reports `FULL-SUITE ESCALATION: YES` for workspace/validation
