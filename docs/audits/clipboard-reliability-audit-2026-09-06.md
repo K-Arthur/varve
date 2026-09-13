@@ -1539,4 +1539,5 @@ The format guide and capability table now describe malformed declared files as
 parse failures and align GIF/WebP language with the animated-media path. A
 packaged Tauri/WebKitGTK run, Firefox-owned external transfers, and an
 Illustrator-authored fixture remain external verification lanes; this repair
-does not infer those results.
+does not infer those results. The implementation and evidence update are
+committed as `4fe38896ac661e0dce2ef184f77336a52417f6b3`.
