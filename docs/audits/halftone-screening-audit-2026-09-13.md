@@ -38,9 +38,11 @@ numerics are clamped at load and sanitized again at render time.
 - 38 corrected-contract engine tests, updated legacy tests, compositor
   precedence tests, scene normalization/persistence tests.
 - Playwright `tests/e2e/canvas/halftone-visual.spec.ts` drives the production
-  UI; export tests inspect the written PNG/JPEG pixels and the SVG's embedded
-  raster payload. Runs 01–09 pass on the isolated snapshot; the export tests
-  export the frame that the effect is scoped to.
+  UI on an isolated working-tree snapshot; export tests inspect the written
+  PNG/JPEG pixels and the SVG's embedded raster payload. All 18 tests pass,
+  including the measured 12 LPI ≈ 8 px ruling on the live canvas. Test 12
+  needed one retry after a Chromium renderer `SIGSEGV` during a screenshot;
+  the retry passed, and the crash log is in the run output.
 - Export verification finding (outside the halftone contract): exporting the
   zero-size adjustment node as the selected target produces a 1x1 file. The
   E2E tests now select the frame explicitly; the export surface's target

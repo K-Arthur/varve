@@ -73,7 +73,12 @@ async function drawEllipse(page: Page, x1: number, y1: number, x2: number, y2: n
  */
 async function addHalftoneAdjustment(page: Page) {
   // Alt+N is the canonical New Adjustment Layer shortcut. Using it keeps the
-  // spec independent of the top-level menubar dropdown portals.
+  // spec independent of the top-level menubar dropdown portals. Numeric
+  // fields swallow the shortcut while focused, so blur only — pressing
+  // Escape here would clear the selection and leave the adjustment with no
+  // targets (a no-op for the artwork under test).
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await page.waitForTimeout(150);
   await page.keyboard.press('Alt+n');
   await page.waitForTimeout(1200);
 
@@ -829,6 +834,9 @@ test.describe('Halftone visual verification', () => {
     await hex.fill('#00AAFF');
     await hex.press('Enter');
     await page.waitForTimeout(600);
+    // The picker popover stays open and would intercept the tab click.
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
 
     // Color Halftone is a creative object-local treatment, so it belongs in
     // the Object Filter stack rather than an Adjustment Layer correction.
