@@ -113,6 +113,7 @@ export function NodeEditOverlay({
               {inScreen && (
                 <>
                   <line
+                    pointerEvents="none"
                     x1={anchor.x}
                     y1={anchor.y}
                     x2={inScreen.x}
@@ -121,6 +122,7 @@ export function NodeEditOverlay({
                     strokeWidth={1}
                   />
                   <circle
+                    pointerEvents="none"
                     data-node-handle="in"
                     cx={inScreen.x}
                     cy={inScreen.y}
@@ -132,6 +134,7 @@ export function NodeEditOverlay({
               {outScreen && (
                 <>
                   <line
+                    pointerEvents="none"
                     x1={anchor.x}
                     y1={anchor.y}
                     x2={outScreen.x}
@@ -140,6 +143,7 @@ export function NodeEditOverlay({
                     strokeWidth={1}
                   />
                   <circle
+                    pointerEvents="none"
                     data-node-handle="out"
                     cx={outScreen.x}
                     cy={outScreen.y}
@@ -150,6 +154,7 @@ export function NodeEditOverlay({
               )}
               {mode === 'corner' ? (
                 <rect
+                  pointerEvents="none"
                   x={anchor.x - 4}
                   y={anchor.y - 4}
                   width={8}
@@ -162,6 +167,7 @@ export function NodeEditOverlay({
                 />
               ) : (
                 <circle
+                  pointerEvents="none"
                   cx={anchor.x}
                   cy={anchor.y}
                   r={5}

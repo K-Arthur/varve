@@ -85,15 +85,21 @@ test.describe('Node editing pointer selection', () => {
 
     const before = await nodeAnchors(page);
     expect(before).toHaveLength(3);
-    expect((await artworkInkNear(page, before)).every((count) => count > 0)).toBe(true);
+    await expect
+      .poll(async () => (await artworkInkNear(page, before)).every((count) => count > 0), {
+        timeout: 30000,
+        message: 'waited for a painted frame aligned with every node anchor',
+      })
+      .toBe(true);
 
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     const beforePixels = await canvas.screenshot();
     await page.mouse.click(before[0]!.x, before[0]!.y);
-    // The node overlay intentionally sits above the canvas and owns anchor
-    // events. Use a real client-coordinate pointer event instead of asking
-    // Playwright to click the canvas element underneath that overlay.
-    await page.mouse.click(before[1]!.x, before[1]!.y, { modifiers: ['Shift'] });
+    // Use a real client-coordinate pointer event so selection follows the
+    // same canvas input pipeline as a user's pointer, including Shift state.
+    await page.keyboard.down('Shift');
+    await page.mouse.click(before[1]!.x, before[1]!.y);
+    await page.keyboard.up('Shift');
     await expect(
       page.locator('[data-testid="node-edit-overlay"] [data-node-selected="true"]'),
     ).toHaveCount(2);
