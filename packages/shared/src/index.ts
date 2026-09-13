@@ -111,7 +111,7 @@ export {
   sharedFindingToSceneShape,
   shouldShowByDefault,
 } from './auditTypes';
-export type { CubicBezier, PathPoint as BezierPathPoint, Point2D } from './bezier';
+export type { CubicBezier, PathNodeMode, PathPoint as BezierPathPoint, Point2D } from './bezier';
 export {
   cubicBezierBBox,
   cubicBezierClosestPoint,
@@ -125,6 +125,17 @@ export {
   pathSegmentIntersections,
   pointToPointDist,
 } from './bezier';
+export type { PointType } from './bezierPathOps';
+export {
+  canRecombineCubics,
+  cubicToSegments,
+  deleteAnchorPreservingGeometry,
+  deleteMultipleAnchors,
+  inferPointType,
+  insertPointOnSegment,
+  nearestPointOnPath,
+  segmentToCubic,
+} from './bezierPathOps';
 export type {
   BlendEvaluationCategory,
   BlendEvaluationPolicy,
@@ -401,6 +412,29 @@ export {
   parseGplPalette,
   parsePaletteFile,
 } from './paletteFormats';
+export type { EditablePathShape, InsertedPathPoint, PathIndexLocation } from './pathEditing';
+export {
+  areFinitePathRings,
+  bendPathSegment,
+  deleteSelectedAnchorsFromPath,
+  globalIndexForLocation,
+  insertPointOnPath,
+  isFinitePathPoint,
+  locatePathIndex,
+  nearestEditableSegment,
+  nodeModeForPoint,
+  pathPointAtIndex,
+  pathRings,
+  remapSelectionAfterDeletion,
+  remapSelectionAfterInsertion,
+  remapSelectionAfterRingReverse,
+  reversePathShape,
+  setNodeMode,
+  setNodeModeAtIndex,
+  translateSelectedAnchors,
+  updatePathPointAtIndex,
+  withPathRings,
+} from './pathEditing';
 export type { PathSample } from './pathProjection';
 export {
   findNearestKeyframeIndex,
@@ -456,6 +490,7 @@ export {
   BUILTIN_PRESET_GROUPS,
   builtinCategories,
   findBuiltinPreset,
+  findMatchingPreset,
   flattenBuiltinPresets,
 } from './presetRegistry';
 export type {

@@ -12,7 +12,10 @@
  * for the canvas renderer.
  */
 
+import type { PathNodeMode } from '@varve/shared';
 import type { SpatialBlurEffect } from './spatialBlur';
+
+export type { PathNodeMode } from '@varve/shared';
 
 export type Point = readonly [number, number];
 
@@ -355,6 +358,8 @@ export interface PathPoint {
   y: number;
   handleIn: [number, number] | null;
   handleOut: [number, number] | null;
+  /** Explicit node behaviour. Omitted for legacy/imported points. */
+  mode?: PathNodeMode;
   /** Normalised pressure 0-1 (from PointerEvent.pressure). Null when unavailable. */
   pressure?: number;
   /** Pointer tilt (from PointerEvent.tiltX/tiltY). Null when unavailable. */

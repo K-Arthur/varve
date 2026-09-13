@@ -22,6 +22,14 @@ export interface CubicBezier {
 }
 
 /**
+ * Semantic behaviour of an editable path anchor.
+ *
+ * Handles remain relative vectors in document-local space.  The mode is
+ * optional so older documents continue to load with the inferred behaviour.
+ */
+export type PathNodeMode = 'corner' | 'smooth' | 'symmetric' | 'automatic';
+
+/**
  * PathPoint matching the scene model: a point with optional incoming and
  * outgoing bezier handles.
  */
@@ -30,6 +38,8 @@ export interface PathPoint {
   y: number;
   handleIn: [number, number] | null;
   handleOut: [number, number] | null;
+  /** Explicit node behaviour; omitted means infer legacy behaviour. */
+  mode?: PathNodeMode;
   pressure?: number;
   tilt?: { x: number; y: number };
 }

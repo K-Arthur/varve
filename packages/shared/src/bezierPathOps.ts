@@ -425,22 +425,38 @@ export function nearestPointOnPath(
       }
     }
 
-    // Newton refinement
+    // Newton refinement.  The candidate must be local to this segment; using
+    // the winning parameter from a previous segment can move the refinement
+    // to the wrong curve and return an impossible segment/parameter pair.
+    let candidateT = bestT;
+    let candidateDist = Infinity;
+    for (let s = 0; s <= steps; s++) {
+      const t = s / steps;
+      const pt = cubicBezierPoint(cb, t);
+      const dx = pt.x - query.x;
+      const dy = pt.y - query.y;
+      const d = dx * dx + dy * dy;
+      if (d < candidateDist) {
+        candidateDist = d;
+        candidateT = t;
+      }
+    }
+
     for (let iter = 0; iter < 8; iter++) {
-      const pt = cubicBezierPoint(cb, bestT);
-      const d = cubicBezierDerivative(cb, bestT);
+      const pt = cubicBezierPoint(cb, candidateT);
+      const d = cubicBezierDerivative(cb, candidateT);
       const dx = pt.x - query.x;
       const dy = pt.y - query.y;
       const f1 = 2 * (dx * d.x + dy * d.y);
       // Approximate f'' with dot product of derivative with itself
       const f2 = 2 * (d.x * d.x + d.y * d.y);
       if (Math.abs(f2) < EPS) break;
-      const newT = bestT - f1 / f2;
-      if (newT <= 0 || newT >= 1) break;
-      bestT = newT;
+      const newT = candidateT - f1 / f2;
+      if (newT < 0 || newT > 1 || !Number.isFinite(newT)) break;
+      candidateT = newT;
     }
 
-    const pt = cubicBezierPoint(cb, bestT);
+    const pt = cubicBezierPoint(cb, candidateT);
     const dx = pt.x - query.x;
     const dy = pt.y - query.y;
     const d = Math.hypot(dx, dy);
@@ -448,6 +464,7 @@ export function nearestPointOnPath(
       bestDist = d;
       bestPt = pt;
       bestSeg = i;
+      bestT = candidateT;
     }
   }
 
