@@ -131,6 +131,7 @@ export * from './savedAreaSelection';
 export * from './selectedPaints';
 export * from './selectionSet';
 export * from './sha256';
+export * from './shapeBuilder';
 export * from './smartFilters';
 export * from './smudge';
 export * from './spotLibraries';

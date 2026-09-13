@@ -26,6 +26,7 @@ export {
 export {
   booleanAnchorForNode,
   booleanOp,
+  pathPointsToPolygon,
   placeBooleanResult,
   shapeHolesToPolygons,
   shapeNodesInWorldSpace,

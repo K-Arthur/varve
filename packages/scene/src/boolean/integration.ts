@@ -21,15 +21,26 @@ import { signedArea } from './region';
 
 // ── Shape → Polygon conversion ──────────────────────────────────────────────
 
+function pointToChordDistanceSq(point: Point2D, start: Point2D, end: Point2D): number {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const lengthSq = dx * dx + dy * dy;
+  if (lengthSq === 0) {
+    const px = point.x - start.x;
+    const py = point.y - start.y;
+    return px * px + py * py;
+  }
+  const cross = (point.x - start.x) * dy - (point.y - start.y) * dx;
+  return (cross * cross) / lengthSq;
+}
+
+/** Squared Hausdorff-style control-polygon distance to the cubic chord. */
 function flatnessSq(p0: Point2D, p1: Point2D, p2: Point2D, p3: Point2D): number {
-  const dx = p3.x - p0.x;
-  const dy = p3.y - p0.y;
-  const d2 = Math.abs((p1.x - p3.x) * dy - (p1.y - p3.y) * dx);
-  const d3 = Math.abs((p2.x - p3.x) * dy - (p2.y - p3.y) * dx);
-  return d2 + d3;
+  return Math.max(pointToChordDistanceSq(p1, p0, p3), pointToChordDistanceSq(p2, p0, p3));
 }
 
 function curveTolerance(points: readonly Point2D[]): number {
+  if (points.length === 0) return 1e-9;
   const xs = points.map((point) => point.x);
   const ys = points.map((point) => point.y);
   const diagonal = Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
@@ -60,7 +71,22 @@ function sampleCubicBezier(
   tolerance: number,
   depth = 0,
 ): Point2D[] {
-  if (flatnessSq(p0, p1, p2, p3) <= tolerance * tolerance || depth >= 24) return [p0, p3];
+  if (flatnessSq(p0, p1, p2, p3) <= tolerance * tolerance) return [p0, p3];
+  // A bounded fallback still contributes a point on the curve. Returning only
+  // the endpoint chord at the recursion limit used to turn long handles and
+  // cusps into an unreported straight segment.
+  if (depth >= 24) {
+    const u = 0.5;
+    const v = 1 - u;
+    return [
+      p0,
+      {
+        x: v * v * v * p0.x + 3 * v * v * u * p1.x + 3 * v * u * u * p2.x + u * u * u * p3.x,
+        y: v * v * v * p0.y + 3 * v * v * u * p1.y + 3 * v * u * u * p2.y + u * u * u * p3.y,
+      },
+      p3,
+    ];
+  }
   const mid = (a: Point2D, b: Point2D) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
   const m0 = mid(p0, p1);
   const m1 = mid(p1, p2);
@@ -81,22 +107,47 @@ function applyAffineToPt(
 }
 
 /** Convert PathPoint[] with optional handles to a sampled polygon. */
-function pathPointsToPolygon(points: PathPoint[], closed: boolean): Point2D[] {
-  if (points.length < 2) return points.map((p) => ({ x: p.x, y: p.y }));
-  const tolerance = curveTolerance(points);
+export function pathPointsToPolygon(
+  points: PathPoint[],
+  closed: boolean,
+  transform: readonly [number, number, number, number, number, number] = [1, 0, 0, 1, 0, 0],
+): Point2D[] {
+  if (points.length < 2) {
+    return points.map((point) => applyAffineToPt({ x: point.x, y: point.y }, transform));
+  }
+  const transformVector = (vector: [number, number]): Point2D => ({
+    x: transform[0] * vector[0] + transform[2] * vector[1],
+    y: transform[1] * vector[0] + transform[3] * vector[1],
+  });
+  const transformed = points.map((point) => ({
+    anchor: applyAffineToPt({ x: point.x, y: point.y }, transform),
+    handleIn: point.handleIn ? transformVector(point.handleIn) : null,
+    handleOut: point.handleOut ? transformVector(point.handleOut) : null,
+  }));
+  const tolerance = curveTolerance(
+    transformed.flatMap((point) => [
+      point.anchor,
+      ...(point.handleIn
+        ? [{ x: point.anchor.x + point.handleIn.x, y: point.anchor.y + point.handleIn.y }]
+        : []),
+      ...(point.handleOut
+        ? [{ x: point.anchor.x + point.handleOut.x, y: point.anchor.y + point.handleOut.y }]
+        : []),
+    ]),
+  );
   const result: Point2D[] = [];
-  for (let i = 0; i < points.length; i++) {
-    const curr = points[i]!;
-    const next = points[(i + 1) % points.length]!;
-    if (i === points.length - 1 && !closed) break;
-    const p0: Point2D = { x: curr.x, y: curr.y };
-    const p3: Point2D = { x: next.x, y: next.y };
+  for (let i = 0; i < transformed.length; i++) {
+    const curr = transformed[i]!;
+    const next = transformed[(i + 1) % transformed.length]!;
+    if (i === transformed.length - 1 && !closed) break;
+    const p0 = curr.anchor;
+    const p3 = next.anchor;
     if (curr.handleOut || next.handleIn) {
-      const p1: Point2D = curr.handleOut
-        ? { x: curr.x + curr.handleOut[0], y: curr.y + curr.handleOut[1] }
+      const p1 = curr.handleOut
+        ? { x: curr.anchor.x + curr.handleOut.x, y: curr.anchor.y + curr.handleOut.y }
         : p0;
-      const p2: Point2D = next.handleIn
-        ? { x: next.x + next.handleIn[0], y: next.y + next.handleIn[1] }
+      const p2 = next.handleIn
+        ? { x: next.anchor.x + next.handleIn.x, y: next.anchor.y + next.handleIn.y }
         : p3;
       const sampled = sampleCubicBezier(p0, p1, p2, p3, tolerance);
       for (let j = 0; j < sampled.length - 1; j++) result.push(sampled[j]!);
@@ -184,8 +235,7 @@ export function shapeToPolygon(
       ];
       break;
     case 'path': {
-      poly = pathPointsToPolygon(shape.points, shape.closed);
-      return poly.map((p) => applyAffineToPt(p, transform));
+      return pathPointsToPolygon(shape.points, shape.closed, transform);
     }
     default:
       poly = [];
@@ -203,9 +253,7 @@ export function shapeHolesToPolygons(
   if (shape.kind !== 'path') return [];
   const rings = shape.contours?.length ? shape.contours.slice(1) : (shape.holes ?? []);
   if (rings.length === 0) return [];
-  return rings.map((hole) =>
-    pathPointsToPolygon(hole, true).map((p) => applyAffineToPt(p, transform)),
-  );
+  return rings.map((hole) => pathPointsToPolygon(hole, true, transform));
 }
 
 /** Convert a filled ShapeNode into a compound region in its supplied space. */
