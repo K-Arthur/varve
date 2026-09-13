@@ -4,6 +4,11 @@ This entry records a follow-up visual audit of the quick typography surfaces on
 `master`. It addresses the remaining density mismatch between the floating text
 bar, the main canvas palette, and the contextual properties bar.
 
+The implementation is committed as
+[`f8499d236466a75396787325b310a14696abf19d`](https://github.com/K-Arthur/varve/commit/f8499d236466a75396787325b310a14696abf19d).
+The validation below was run from the same working tree before that commit;
+later `master` commits were concurrent, unrelated work.
+
 ## Changes
 
 - The floating text bar now derives its minimum height from its 32px compact
