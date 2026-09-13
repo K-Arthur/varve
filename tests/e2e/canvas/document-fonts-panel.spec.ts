@@ -19,7 +19,9 @@ test.describe('Document fonts panel', () => {
     await toolbarRoot.waitFor({ state: 'visible', timeout: 60000 });
     // Use the rendered tool action so the test does not depend on whichever
     // element retained focus after startup.
-    await toolbarRoot.locator('[data-tool="text"]').click();
+    const textTool = toolbarRoot.locator('[data-tool="text"]');
+    await textTool.waitFor({ state: 'visible', timeout: 15000 });
+    await textTool.click({ timeout: 15000 });
     // The empty-state card owns the middle of a blank canvas. Keep the drag
     // above it so the text tool receives the real pointer sequence instead of
     // the card swallowing the start event.

@@ -23,7 +23,9 @@ async function startText(page: Page) {
   const bounds = await canvas.boundingBox();
   if (!bounds) throw new Error('Canvas has no bounds');
   // Use the rendered tool action so startup focus cannot swallow the shortcut.
-  await toolbarRoot.locator('[data-tool="text"]').click();
+  const textTool = toolbarRoot.locator('[data-tool="text"]');
+  await textTool.waitFor({ state: 'visible', timeout: 15000 });
+  await textTool.click({ timeout: 15000 });
   await page.mouse.click(bounds.x + 120, bounds.y + 160);
   await page.keyboard.insertText('Typography in context');
   const toolbar = page.getByRole('toolbar', { name: 'Text formatting' });
