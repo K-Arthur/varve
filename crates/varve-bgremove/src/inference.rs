@@ -10,6 +10,9 @@
 
 use image::{DynamicImage, GenericImageView, ImageBuffer, Rgba, RgbaImage};
 use ort::session::Session;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
 
 use crate::session_pool::{
     InferenceCancellationToken, SessionLease, SessionPool, SessionPoolLimits, SessionPoolMetrics,
@@ -25,10 +28,15 @@ use crate::{heuristic, mask_to_base64, model, RemovalOptions, RemovalResult};
 /// and are selected at the call site via a builder or config.
 pub trait InferenceRuntime: Send + Sync {
     /// Create an inference session for the given model path.
-    fn create_session(
-        &self,
-        model_path: &std::path::Path,
-    ) -> Result<Box<dyn InferenceSession>, String>;
+    fn create_session(&self, model_path: &Path) -> Result<Box<dyn InferenceSession>, String>;
+
+    /// Create a CPU-only session for a bounded fallback retry. Test and
+    /// alternate runtimes inherit the normal constructor because they may
+    /// not expose a separate provider selector; the production ORT runtime
+    /// overrides this to bypass the process-wide accelerator policy.
+    fn create_cpu_session(&self, model_path: &Path) -> Result<Box<dyn InferenceSession>, String> {
+        self.create_session(model_path)
+    }
 }
 
 /// Shape of an ONNX tensor.
@@ -119,11 +127,14 @@ struct OrtSession {
     provider: &'static str,
 }
 
-impl InferenceRuntime for OrtInferenceRuntime {
-    fn create_session(
+impl OrtInferenceRuntime {
+    fn create_session_with_policy(
         &self,
-        model_path: &std::path::Path,
+        model_path: &Path,
+        policy: crate::webgpu_ep::InferenceProviderPolicy,
     ) -> Result<Box<dyn InferenceSession>, String> {
+        use crate::webgpu_ep::InferenceProviderPolicy;
+
         // Bounded-memory session options. The ONNX Runtime CPU memory arena
         // retains its high-water allocation after inference; measured peak
         // RSS for BiRefNet Lite at 1024×1024 with the arena enabled was
@@ -146,9 +157,7 @@ impl InferenceRuntime for OrtInferenceRuntime {
         // registered, Cpu always uses the CPU EP, Gpu requires WebGPU. Any
         // Auto failure falls back to a fresh CPU builder, never to a broken
         // session, and the user-visible status names what happened.
-        use crate::webgpu_ep::InferenceProviderPolicy;
-        let policy = crate::webgpu_ep::inference_provider_policy();
-        let (mut builder, provider) = if crate::webgpu_ep::device_usable()
+        let (mut builder, mut provider) = if crate::webgpu_ep::device_usable()
             && !matches!(policy, InferenceProviderPolicy::Cpu)
         {
             match crate::webgpu_ep::attach_webgpu(base_builder()?) {
@@ -170,9 +179,34 @@ impl InferenceRuntime for OrtInferenceRuntime {
             (base_builder()?, "native-cpu")
         };
 
-        let session = builder
-            .commit_from_file(model_path)
-            .map_err(|e| format!("Failed to load model from '{}': {e}", model_path.display()))?;
+        let session = match builder.commit_from_file(model_path) {
+            Ok(session) => session,
+            Err(error)
+                if provider == "native-webgpu"
+                    && matches!(policy, InferenceProviderPolicy::Auto) =>
+            {
+                let gpu_error = format!(
+                    "Failed to load model from '{}' with native WebGPU: {error}",
+                    model_path.display()
+                );
+                crate::webgpu_ep::note_attach_failure(&gpu_error);
+                provider = "native-cpu";
+                base_builder()?
+                    .commit_from_file(model_path)
+                    .map_err(|cpu_error| {
+                        format!(
+                            "{gpu_error}; CPU session fallback also failed for '{}': {cpu_error}",
+                            model_path.display()
+                        )
+                    })?
+            }
+            Err(error) => {
+                return Err(format!(
+                    "Failed to load model from '{}': {error}",
+                    model_path.display()
+                ));
+            }
+        };
 
         let output_names: Vec<String> = session
             .outputs()
@@ -190,6 +224,16 @@ impl InferenceRuntime for OrtInferenceRuntime {
             output_names,
             provider,
         }))
+    }
+}
+
+impl InferenceRuntime for OrtInferenceRuntime {
+    fn create_session(&self, model_path: &Path) -> Result<Box<dyn InferenceSession>, String> {
+        self.create_session_with_policy(model_path, crate::webgpu_ep::inference_provider_policy())
+    }
+
+    fn create_cpu_session(&self, model_path: &Path) -> Result<Box<dyn InferenceSession>, String> {
+        self.create_session_with_policy(model_path, crate::webgpu_ep::InferenceProviderPolicy::Cpu)
     }
 }
 
@@ -317,10 +361,9 @@ impl InferenceSession for OrtSession {
 
 // ── Default runtime instance ──────────────────────────────────────────
 
-use std::sync::OnceLock;
-
 static CURRENT_RUNTIME: OnceLock<Box<dyn InferenceRuntime>> = OnceLock::new();
 static SESSION_POOL: OnceLock<SessionPool<Box<dyn InferenceSession>>> = OnceLock::new();
+static AUTO_GPU_MODEL_FAILURES: OnceLock<Mutex<HashMap<PathBuf, String>>> = OnceLock::new();
 
 /// Set the inference runtime for the current process.
 /// Must be called before any inference; panics if called twice.
@@ -342,11 +385,51 @@ fn get_session_pool() -> &'static SessionPool<Box<dyn InferenceSession>> {
     SESSION_POOL.get_or_init(|| SessionPool::new(SessionPoolLimits::default()))
 }
 
-fn checkout_session(
-    model_path: &std::path::Path,
-    cancellation: &InferenceCancellationToken,
-) -> Result<SessionLease<Box<dyn InferenceSession>>, String> {
-    let key = model_path.to_string_lossy();
+fn auto_gpu_model_failures() -> &'static Mutex<HashMap<PathBuf, String>> {
+    AUTO_GPU_MODEL_FAILURES.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn model_failure_key(model_path: &Path) -> PathBuf {
+    model_path.to_path_buf()
+}
+
+fn auto_gpu_model_is_quarantined(model_path: &Path) -> bool {
+    auto_gpu_model_failures()
+        .lock()
+        .map(|failures| failures.contains_key(&model_failure_key(model_path)))
+        .unwrap_or(false)
+}
+
+fn quarantine_auto_gpu_model(model_path: &Path, reason: &str) {
+    if let Ok(mut failures) = auto_gpu_model_failures().lock() {
+        failures.insert(model_failure_key(model_path), reason.to_owned());
+    }
+}
+
+/// Clear model-scoped automatic GPU fallbacks after a device/provider
+/// re-detection. Explicit CPU/GPU policy selection does not mutate this
+/// quarantine; re-detection is the deliberate recovery boundary.
+pub fn clear_auto_gpu_model_quarantine() {
+    if let Ok(mut failures) = auto_gpu_model_failures().lock() {
+        failures.clear();
+    }
+}
+
+/// Return the reason for an automatic GPU fallback for one model, if any.
+/// This is diagnostics-only state and is never persisted into a document.
+pub fn auto_gpu_model_fallback_reason(model_id: &str) -> Option<String> {
+    let path = model::model_path(model_id);
+    auto_gpu_model_failures()
+        .lock()
+        .ok()
+        .and_then(|failures| failures.get(&model_failure_key(&path)).cloned())
+}
+
+fn provider_cache_key(model_path: &Path, provider: &str) -> String {
+    format!("{}::{provider}", model_path.to_string_lossy())
+}
+
+fn model_memory_estimate(model_path: &Path) -> u64 {
     // The graph file size is a poor reservation: BiRefNet Lite is a 224 MB
     // file but its measured native CPU peak is about 7 GB. Use the canonical
     // model metadata for cache eviction and diagnostics, with a conservative
@@ -355,17 +438,115 @@ fn checkout_session(
         .file_stem()
         .and_then(|name| name.to_str())
         .unwrap_or_default();
-    let estimated_bytes = model::model_info(model_id)
+    model::model_info(model_id)
         .and_then(|info| info.peak_memory_bytes)
         .or_else(|| {
             std::fs::metadata(model_path)
                 .ok()
                 .map(|metadata| metadata.len())
         })
-        .unwrap_or_default();
-    get_session_pool().checkout(&key, estimated_bytes, cancellation, || {
-        get_runtime().create_session(model_path)
-    })
+        .unwrap_or_default()
+}
+
+fn automatic_gpu_fallback_allowed() -> bool {
+    matches!(
+        crate::webgpu_ep::inference_provider_policy(),
+        crate::webgpu_ep::InferenceProviderPolicy::Auto
+    )
+}
+
+fn execution_provider_fallback<T, F>(
+    model_path: &Path,
+    cancellation: &InferenceCancellationToken,
+    mut session: SessionLease<Box<dyn InferenceSession>>,
+    mut run: F,
+    checkout_cpu: impl FnOnce(
+        &Path,
+        &InferenceCancellationToken,
+    ) -> Result<SessionLease<Box<dyn InferenceSession>>, String>,
+) -> Result<(T, String), String>
+where
+    F: FnMut(&mut dyn InferenceSession) -> Result<T, String>,
+{
+    let provider = session.execution_provider();
+    match run(&mut **session) {
+        Ok(value) => Ok((value, provider.to_owned())),
+        Err(gpu_error) if provider == "native-webgpu" && automatic_gpu_fallback_allowed() => {
+            if cancellation.is_cancelled() {
+                session.discard();
+                return Err("Inference cancelled".to_owned());
+            }
+            let reason = format!(
+                "Model '{}' returned an execution error on native WebGPU: {gpu_error}",
+                model_path.display()
+            );
+            quarantine_auto_gpu_model(model_path, &reason);
+            session.discard();
+
+            let mut cpu_session = checkout_cpu(model_path, cancellation).map_err(|error| {
+                format!("{reason}; CPU fallback session could not be created: {error}")
+            })?;
+            let cpu_provider = cpu_session.execution_provider().to_owned();
+            let cpu_result = run(&mut **cpu_session);
+            match cpu_result {
+                Ok(value) => Ok((value, cpu_provider)),
+                Err(cpu_error) => {
+                    cpu_session.discard();
+                    Err(format!("{reason}; CPU fallback also failed: {cpu_error}"))
+                }
+            }
+        }
+        Err(error) => {
+            // A failed session is not returned to the cache. This applies to
+            // explicit WebGPU requests and to CPU/provider failures alike.
+            session.discard();
+            Err(error)
+        }
+    }
+}
+
+fn checkout_session(
+    model_path: &std::path::Path,
+    cancellation: &InferenceCancellationToken,
+) -> Result<SessionLease<Box<dyn InferenceSession>>, String> {
+    let policy = crate::webgpu_ep::inference_provider_policy();
+    let use_cpu = matches!(policy, crate::webgpu_ep::InferenceProviderPolicy::Cpu)
+        || (matches!(policy, crate::webgpu_ep::InferenceProviderPolicy::Auto)
+            && auto_gpu_model_is_quarantined(model_path));
+    let expected_provider = if use_cpu {
+        "native-cpu"
+    } else {
+        "native-webgpu"
+    };
+    let key = provider_cache_key(model_path, expected_provider);
+    let estimated_bytes = model_memory_estimate(model_path);
+    let mut session = get_session_pool().checkout(&key, estimated_bytes, cancellation, || {
+        if use_cpu {
+            get_runtime().create_cpu_session(model_path)
+        } else {
+            get_runtime().create_session(model_path)
+        }
+    })?;
+    // Auto attachment may fail closed to CPU, and alternate runtimes may
+    // expose a different provider than the requested bucket. Cache by what
+    // the session reports, never by the request alone.
+    session.set_model_key(provider_cache_key(model_path, session.execution_provider()));
+    Ok(session)
+}
+
+fn checkout_cpu_session(
+    model_path: &Path,
+    cancellation: &InferenceCancellationToken,
+) -> Result<SessionLease<Box<dyn InferenceSession>>, String> {
+    let expected_key = provider_cache_key(model_path, "native-cpu");
+    let mut session = get_session_pool().checkout(
+        &expected_key,
+        model_memory_estimate(model_path),
+        cancellation,
+        || get_runtime().create_cpu_session(model_path),
+    )?;
+    session.set_model_key(provider_cache_key(model_path, session.execution_provider()));
+    Ok(session)
 }
 
 /// Snapshot native model-session reuse and admission metrics.
@@ -377,7 +558,10 @@ pub fn session_pool_metrics() -> SessionPoolMetrics {
 /// interrupted and can be unloaded after it returns.
 pub fn unload_model_session(model_id: &str) -> usize {
     let path = model::model_path(model_id);
-    get_session_pool().unload(&path.to_string_lossy())
+    ["native-cpu", "native-webgpu"]
+        .iter()
+        .map(|provider| get_session_pool().unload(&provider_cache_key(&path, provider)))
+        .sum()
 }
 
 /// Explicitly unload every idle native model session.
@@ -509,6 +693,9 @@ pub struct DenoiseResult {
     pub width: u32,
     pub height: u32,
     pub processing_time_ms: u64,
+    /// Provider that successfully produced the returned image. This is the
+    /// observed session provider, not a device capability or a permission.
+    pub execution_provider: String,
 }
 
 /// Run SCUNet denoising on an image natively via ONNX Runtime.
@@ -545,9 +732,9 @@ pub fn denoise_image_cancellable(
         .ok_or_else(|| format!("Denoise: no image model spec for '{model_id}'"))?;
 
     let model_path = model::model_path(model_id);
-    if !model_path.exists() {
+    if !model::is_model_downloaded(model_id) {
         return Err(format!(
-            "Denoise model '{}' not found at {}.",
+            "Denoise model '{}' is not installed completely at {}.",
             model_id,
             model_path.display()
         ));
@@ -583,11 +770,17 @@ pub fn denoise_image_cancellable(
         }
     }
 
-    let mut session = checkout_session(&model_path, cancellation)?;
+    let session = checkout_session(&model_path, cancellation)?;
     if cancellation.is_cancelled() {
         return Err("Inference cancelled".to_owned());
     }
-    let output = session.run_nd(&tensor_data, &[1, 3, proc_h as usize, proc_w as usize])?;
+    let (output, execution_provider) = execution_provider_fallback(
+        &model_path,
+        cancellation,
+        session,
+        |session| session.run_nd(&tensor_data, &[1, 3, proc_h as usize, proc_w as usize]),
+        checkout_cpu_session,
+    )?;
     if cancellation.is_cancelled() {
         return Err("Inference cancelled".to_owned());
     }
@@ -658,6 +851,7 @@ pub fn denoise_image_cancellable(
         width: orig_w,
         height: orig_h,
         processing_time_ms: elapsed.as_millis() as u64,
+        execution_provider,
     })
 }
 
@@ -738,15 +932,15 @@ pub fn lama_inpaint_cancellable(
 
     // ── Model path ─────────────────────────────────────────────────────
     let model_path = model::model_path(model_id);
-    if !model_path.exists() {
+    if !model::is_model_downloaded(model_id) {
         return Err(format!(
-            "LaMa model not found at {}. Download in Settings and try again.",
+            "LaMa model is not installed completely at {}. Download in Settings and try again.",
             model_path.display()
         ));
     }
 
     // ── Session ────────────────────────────────────────────────────────
-    let mut session = checkout_session(&model_path, cancellation)?;
+    let session = checkout_session(&model_path, cancellation)?;
 
     // ── Input validation ───────────────────────────────────────────────
     let input_names = session.input_names();
@@ -892,19 +1086,24 @@ pub fn lama_inpaint_cancellable(
         LAMA_INPUT_SIZE as usize,
         LAMA_INPUT_SIZE as usize,
     ];
-    let output = session.run_multi(&[
-        ("image", &image_tensor, &dims[..]),
-        (
-            "mask",
-            &mask_tensor,
-            &[
-                1usize,
-                1,
-                LAMA_INPUT_SIZE as usize,
-                LAMA_INPUT_SIZE as usize,
-            ],
-        ),
-    ])?;
+    let mask_dims = [
+        1usize,
+        1,
+        LAMA_INPUT_SIZE as usize,
+        LAMA_INPUT_SIZE as usize,
+    ];
+    let (output, execution_provider) = execution_provider_fallback(
+        &model_path,
+        cancellation,
+        session,
+        |session| {
+            session.run_multi(&[
+                ("image", &image_tensor, &dims[..]),
+                ("mask", &mask_tensor, &mask_dims[..]),
+            ])
+        },
+        checkout_cpu_session,
+    )?;
 
     if cancellation.is_cancelled() {
         return Err("Inference cancelled".to_owned());
@@ -989,7 +1188,7 @@ pub fn lama_inpaint_cancellable(
         width: orig_w,
         height: orig_h,
         model_id: model_id.to_owned(),
-        execution_backend: "ort-native".to_owned(),
+        execution_backend: execution_provider,
         processing_time_ms: elapsed.as_millis() as u64,
         warnings,
     })
@@ -1070,19 +1269,15 @@ pub fn remove_ai_cancellable(
     }
 
     let model_path = model::model_path(model_id);
-    if !model_path.exists() {
+    if !model::is_model_downloaded(model_id) {
         return Err(format!(
-            "Model '{}' not found at {}. Download via Settings or export from webview.",
+            "Model '{}' is not installed completely at {}. Download via Settings or export from webview.",
             model_id,
             model_path.display()
         ));
     }
 
-    let mut session = checkout_session(&model_path, cancellation)?;
-    // Capture the provider attached to this lease before running the graph.
-    // `last_run_provider()` is process-global and can be overwritten by a
-    // different native inference consumer before this result is assembled.
-    let execution_provider = session.execution_provider().to_string();
+    let session = checkout_session(&model_path, cancellation)?;
 
     let (orig_w, orig_h) = img.dimensions();
     let preview_max = opts
@@ -1135,7 +1330,13 @@ pub fn remove_ai_cancellable(
     if cancellation.is_cancelled() {
         return Err("Inference cancelled".to_owned());
     }
-    let output_data = session.run(&tensor_data, input_size)?;
+    let (output_data, execution_provider) = execution_provider_fallback(
+        &model_path,
+        cancellation,
+        session,
+        |session| session.run(&tensor_data, input_size),
+        checkout_cpu_session,
+    )?;
     if cancellation.is_cancelled() {
         return Err("Inference cancelled".to_owned());
     }
@@ -1292,10 +1493,13 @@ fn resize_mask(mask: &[u8], src_w: u32, src_h: u32, dst_w: u32, dst_h: u32) -> V
 #[cfg(test)]
 mod tests {
     use super::{
-        model_spec, normalize_segmentation_output, pad_rgba_edges, reconstruct_letterbox_mask,
-        resize_mask, InferenceRuntime, InferenceSession, LetterboxTransform, OrtInferenceRuntime,
+        clear_auto_gpu_model_quarantine, execution_provider_fallback, model_spec,
+        normalize_segmentation_output, pad_rgba_edges, reconstruct_letterbox_mask, resize_mask,
+        InferenceRuntime, InferenceSession, LetterboxTransform, OrtInferenceRuntime,
     };
+    use crate::session_pool::{InferenceCancellationToken, SessionPool, SessionPoolLimits};
     use image::{Rgba, RgbaImage};
+    use std::path::Path;
 
     fn decode_gray_png(png: &[u8]) -> Vec<u8> {
         let image = image::load_from_memory(png).expect("png should decode");
@@ -1418,6 +1622,79 @@ mod tests {
         let mut session: Box<dyn InferenceSession> = Box::new(StubSession);
         let result = session.run(&[], 0).unwrap();
         assert!(result.is_empty());
+    }
+
+    #[test]
+    fn automatic_gpu_execution_failure_retries_once_on_cpu_and_discards_gpu_session() {
+        struct FakeSession {
+            provider: &'static str,
+            fail: bool,
+        }
+
+        impl InferenceSession for FakeSession {
+            fn run(&mut self, _input: &[f32], _input_size: u32) -> Result<Vec<f32>, String> {
+                if self.fail {
+                    self.fail = false;
+                    Err("synthetic WebGPU kernel failure".to_owned())
+                } else {
+                    Ok(vec![42.0])
+                }
+            }
+
+            fn output_names(&self) -> Vec<String> {
+                vec!["output".to_owned()]
+            }
+
+            fn execution_provider(&self) -> &'static str {
+                self.provider
+            }
+        }
+
+        crate::webgpu_ep::set_inference_provider_policy(
+            crate::webgpu_ep::InferenceProviderPolicy::Auto,
+        );
+        clear_auto_gpu_model_quarantine();
+
+        let pool = SessionPool::new(SessionPoolLimits {
+            max_cached_entries: 2,
+            max_cached_bytes: 100,
+            max_concurrent: 1,
+        });
+        let cpu_pool = pool.clone();
+        let token = InferenceCancellationToken::default();
+        let gpu_session = pool
+            .checkout("gpu", 10, &token, || {
+                Ok(Box::new(FakeSession {
+                    provider: "native-webgpu",
+                    fail: true,
+                }) as Box<dyn InferenceSession>)
+            })
+            .expect("GPU session checkout");
+        let model_path = Path::new("/tmp/varve-provider-fallback-test.onnx");
+
+        let (output, provider) = execution_provider_fallback(
+            model_path,
+            &token,
+            gpu_session,
+            |session| session.run(&[], 1),
+            move |_, cancellation| {
+                cpu_pool.checkout("cpu", 10, cancellation, || {
+                    Ok(Box::new(FakeSession {
+                        provider: "native-cpu",
+                        fail: false,
+                    }) as Box<dyn InferenceSession>)
+                })
+            },
+        )
+        .expect("CPU retry should succeed");
+
+        assert_eq!(output, vec![42.0]);
+        assert_eq!(provider, "native-cpu");
+        assert!(super::auto_gpu_model_is_quarantined(model_path));
+        let metrics = pool.metrics();
+        assert_eq!(metrics.active, 0);
+        assert_eq!(metrics.cached_entries, 1);
+        clear_auto_gpu_model_quarantine();
     }
 
     /// Native-parity golden test against the checked-in rembg reference mask

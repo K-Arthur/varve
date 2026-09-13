@@ -281,6 +281,25 @@ impl<S> SessionLease<S> {
     pub fn load_duration(&self) -> Duration {
         self.load_duration
     }
+
+    /// Change the cache key after a provider-aware checkout has observed the
+    /// provider that actually created the session. This prevents an automatic
+    /// attachment fallback from storing a CPU session in the GPU bucket.
+    pub(crate) fn set_model_key(&mut self, model_key: impl Into<String>) {
+        self.model_key = model_key.into();
+    }
+
+    /// Release a failed or device-lost session without returning it to the
+    /// idle cache. A provider session that returned an execution error is not
+    /// safe to reuse, even when the Rust wrapper is still movable.
+    pub fn discard(mut self) {
+        if self.value.take().is_none() {
+            return;
+        }
+        let mut state = self.shared.state.lock().expect("session pool poisoned");
+        state.active = state.active.saturating_sub(1);
+        sync_gauges(&mut state);
+    }
 }
 
 impl<S> std::ops::Deref for SessionLease<S> {
@@ -510,5 +529,20 @@ mod tests {
         let metrics = pool.metrics();
         assert_eq!(metrics.cached_entries, 0);
         assert_eq!(metrics.evicted_oversize, 1);
+    }
+
+    #[test]
+    fn discarded_session_releases_active_capacity_without_caching() {
+        let pool = pool(2, 100, 1);
+        let token = InferenceCancellationToken::default();
+        let lease = pool
+            .checkout("broken", 40, &token, || Ok("broken".to_owned()))
+            .unwrap();
+        assert_eq!(pool.metrics().active, 1);
+        lease.discard();
+        let metrics = pool.metrics();
+        assert_eq!(metrics.active, 0);
+        assert_eq!(metrics.cached_entries, 0);
+        assert_eq!(metrics.cached_bytes, 0);
     }
 }

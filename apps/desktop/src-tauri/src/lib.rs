@@ -1431,6 +1431,7 @@ pub struct NativeDenoiseResult {
     pub width: u32,
     pub height: u32,
     pub processing_time_ms: u64,
+    pub execution_provider: String,
 }
 
 /// Run native SCUNet denoising on an image. Preferred over the WASM-worker
@@ -1470,6 +1471,7 @@ async fn denoise_image(
             width: result.width,
             height: result.height,
             processing_time_ms: result.processing_time_ms,
+            execution_provider: result.execution_provider,
         })
     })
     .await
@@ -5957,6 +5959,7 @@ mod tests {
             width: 12,
             height: 8,
             processing_time_ms: 27,
+            execution_provider: "native-cpu".to_string(),
         };
         let json = serde_json::to_value(&result).expect("serialize denoise result");
 

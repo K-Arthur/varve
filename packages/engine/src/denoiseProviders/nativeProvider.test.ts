@@ -34,6 +34,7 @@ describe('nativeRestorationProvider', () => {
       width: 12,
       height: 8,
       processingTimeMs: 27,
+      executionProvider: 'native-webgpu',
     });
 
     const result = await nativeRestorationProvider.restore({
@@ -56,6 +57,7 @@ describe('nativeRestorationProvider', () => {
     expect(result.imageData.width).toBe(12);
     expect(result.imageData.height).toBe(8);
     expect(result.processingTimeMs).toBe(27);
+    expect(result.executionProvider).toBe('native-webgpu');
   });
 
   it('routes the model id through to the native command for task dispatch', async () => {

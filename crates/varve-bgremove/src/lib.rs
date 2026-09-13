@@ -147,8 +147,8 @@ pub fn lama_inpaint_cancellable(
 
 #[cfg(feature = "ai")]
 pub use inference::{
-    session_pool_metrics, unload_all_model_sessions, unload_model_session, LamaInpaintRequest,
-    LamaInpaintResult,
+    auto_gpu_model_fallback_reason, clear_auto_gpu_model_quarantine, session_pool_metrics,
+    unload_all_model_sessions, unload_model_session, LamaInpaintRequest, LamaInpaintResult,
 };
 
 #[cfg(feature = "ai")]

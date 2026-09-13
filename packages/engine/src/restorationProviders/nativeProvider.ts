@@ -20,6 +20,7 @@ interface NativeRestorationResponse {
   width: number;
   height: number;
   processingTimeMs: number;
+  executionProvider?: string;
 }
 
 export const nativeRestorationProvider: RestorationTileProvider = {
@@ -63,7 +64,7 @@ export const nativeRestorationProvider: RestorationTileProvider = {
 
     return {
       imageData,
-      executionProvider: 'native',
+      executionProvider: raw.executionProvider || 'native-cpu',
       processingTimeMs: raw.processingTimeMs,
     };
   },
