@@ -98,6 +98,12 @@ first anchor before closure. The live cubic-handle run also passed and was
 inspected. These are browser-engine and synthetic-pointer results, not
 physical pressure or palm-rejection evidence.
 
+The real-DOM Pen touch-action regression on isolated port 2007 passed 1/1:
+the toolbar exposed Close only after a second anchor, committed one closed
+path through the active Pen tool, and removed the draft toolbar without a
+global undo. This remains synthetic browser input; it does not certify a
+physical touchscreen or stylus.
+
 The separate ChromeOS Stage 2 production-artifact run served `/try/` from a
 disposable local origin and passed its three PWA checks: incomplete offline
 setup showed a truthful unavailable page, a completed setup reopened the
