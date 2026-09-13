@@ -37,7 +37,9 @@ The typography system spans TypeScript (browser/web) and Rust (native/Tauri) lay
 The columns describe the path actually selected by the application, not merely
 the library APIs present in the repository. Canvas2D is the live browser paint
 backend; its text drawing API does not expose portable glyph-ID drawing or
-per-range feature application. HarfBuzz WASM is used when exact font bytes are
+per-range feature application. For a local CSS font source, Varve attaches
+whole-run feature values and custom axes through a process-local `FontFace`
+descriptor alias before Canvas2D paint. HarfBuzz WASM is used when exact font bytes are
 available for outline conversion, and the desktop adapter prefers the native
 `shape_text_command` for that same conversion. The native PDF writer remains a
 separate, character-oriented path.
@@ -49,8 +51,8 @@ separate, character-oriented path.
 | Glyph IDs | ✗ portable Canvas2D API does not expose them | ✓ rustybuzz/harfbuzzjs | ✓ rustybuzz |
 | Ligatures | ✓ browser decides for the whole run | ✓ real GSUB shaping | ✓ shaping command; PDF export does not yet consume it |
 | Complex scripts | ✓ delegated to browser font engine | ✓ when bytes and script/font support are available | ✓ shaping command; PDF export uses raster fallback |
-| OpenType values/ranges | ✓ whole-run CSS values only; ranged values require a derived path | ✓ Boolean, indexed, and UTF-16-ranged settings | ✓ structured settings in `shape_text_command`; not yet wired into PDF operators |
-| Variation axes | ✓ reliable for supported browser/CSS axes | ✓ exact outline conversion | ✓ structured native shaping; PDF advanced text is rasterized |
+| OpenType values/ranges | ✓ whole-run values through Canvas2D plus a local `FontFace` descriptor when the source is inspectable; ranged values require a derived path | ✓ Boolean, indexed, and UTF-16-ranged settings | ✓ structured settings in `shape_text_command`; not yet wired into PDF operators |
+| Variation axes | ✓ whole-run axes through Canvas2D/`FontFace` when the source is inspectable; support remains browser/font dependent | ✓ exact outline conversion | ✓ structured native shaping; PDF advanced text is rasterized |
 | COLR/CPAL detection | ✓ | ✓ | ✓ (raw table check) |
 | COLR/CPAL rendering | ✗ (monochrome) | ✗ | ✗ |
 | PDF native text | ✗ (browser PDF is raster) | — | ✓ only for simple eligible runs; no GSUB/GPOS parity claim |

@@ -220,7 +220,7 @@ import { sitePath } from '../../../lib/siteUrl';
           Varve exposes registered variable-font axes. When a variable font is selected, the Typography section and the full Browse fonts inspector show a <strong>Variable Axes</strong> panel with range sliders for each registered axis (e.g., weight, width, optical size, slant). The available axes, bounds, and defaults are determined by the selected face's <code>fvar</code> table. Adjustments preview live and stay a draft until you choose <strong>Use face</strong>; <strong>Reset</strong> returns to the font's defaults without changing the document.
         </p>
         <p>
-          Axis values are applied once to the resolved face and are included in layout, outline, and export identity. Canvas2D reliably exposes the standard CSS route; custom-axis support depends on the browser and font-byte/native path. A zoom change never changes optical sizing. If a face or runtime cannot honor an axis, the control reports that state instead of pretending the preview is authoritative.
+          Axis values are applied once to the resolved face and are included in layout, outline, and export identity. Browser whole-run axes use the Canvas2D/FontFace route when the selected face has an inspectable local source; custom-axis support remains browser- and font-dependent, while exact outlines use the font-byte/native path. A zoom change never changes optical sizing. If a face or runtime cannot honor an axis, the control reports that state instead of pretending the preview is authoritative.
         </p>
       </section>
 

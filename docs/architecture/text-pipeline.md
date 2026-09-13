@@ -135,11 +135,14 @@ cached because replay does not own a font-face revision token; late font
 loading must be allowed to change its measurement.
 
 The live browser canvas still paints complete source runs through the browser's
-native shaping implementation. Canvas2D has no portable API for drawing an
-arbitrary glyph ID, and CSS feature settings do not provide a portable
-UTF-16-ranged shaping contract, so the byte-backed backend is used for exact
-outline conversion rather than pretending that browser `fillText` exposed the
-same glyph stream. Native PDF currently has a character-oriented writer; the
+native shaping implementation. When the selected family has an inspectable
+local CSS source, Varve creates a process-local `FontFace` descriptor alias so
+whole-run feature values and custom variation axes reach that browser shaper;
+the generated family is never persisted. Canvas2D has no portable API for
+drawing an arbitrary glyph ID or applying a UTF-16-ranged feature map, so the
+byte-backed backend is used for exact outline conversion rather than
+pretending that browser `fillText` exposed the same glyph stream. Native PDF
+currently has a character-oriented writer; the
 editor preflight rasterizes path text, complex/non-Latin text, rich runs,
 ligature-sensitive strings, feature/axis/range settings, tracking, and manual
 cluster edits through the live renderer. This is an intentional appearance
