@@ -1,7 +1,22 @@
 /** Shared scene-level ownership and validation for re-editable depth masks. */
 
-import type { Document } from './document';
-import type { DepthMaskRecipe, SceneNode } from './types';
+import type {
+  DepthMapAsset,
+  DepthMaskRecipe,
+  RasterMaskAsset,
+  SceneNode,
+} from './types';
+
+/**
+ * Deliberately structural: this ownership helper is used by document.ts and
+ * document-nodes.ts, so importing the monolithic Document type here would
+ * recreate their scene-module cycle even though the dependency is type-only.
+ */
+interface DepthMaskDocument {
+  depthMaps?: Record<string, DepthMapAsset>;
+  rasterMaskAssets?: Record<string, RasterMaskAsset>;
+  nodes?: Record<string, SceneNode>;
+}
 
 const COMBINE_MODES = ['replace', 'intersect', 'union', 'subtract'] as const;
 
@@ -20,9 +35,7 @@ function isObject(value: unknown): value is Record<string, unknown> {
 /** Validate intent without decoding the potentially large scalar payload. */
 export function validateDepthMaskRecipe(
   recipe: unknown,
-  doc: Pick<Document, 'depthMaps' | 'rasterMaskAssets'> & {
-    nodes?: Document['nodes'];
-  },
+  doc: DepthMaskDocument,
 ): string | null {
   if (!isObject(recipe)) return 'Depth mask recipe must be an object';
   if (recipe.schemaVersion !== 1) return 'Depth mask recipe schema is unsupported';
@@ -80,7 +93,7 @@ export function validateDepthMaskRecipe(
 }
 
 /** Return all depth resources needed by live effects and depth-mask recipes. */
-export function collectDepthMapIds(doc: Pick<Document, 'nodes'>): Set<string> {
+export function collectDepthMapIds(doc: { nodes: Record<string, SceneNode> }): Set<string> {
   const ids = new Set<string>();
   for (const node of Object.values(doc.nodes)) {
     const effects = 'effects' in node ? node.effects : undefined;
@@ -98,9 +111,10 @@ export function collectDepthMapIds(doc: Pick<Document, 'nodes'>): Set<string> {
  * caller controls when pruning occurs; simply saving a document never invokes
  * this helper, so a reusable library resource is not deleted accidentally.
  */
-export function pruneUnreferencedDepthMaps<T extends Pick<Document, 'nodes' | 'depthMaps'>>(
-  doc: T,
-): T {
+export function pruneUnreferencedDepthMaps<T extends DepthMaskDocument & {
+  nodes: Record<string, SceneNode>;
+  depthMaps?: Record<string, DepthMapAsset>;
+}>(doc: T): T {
   if (!doc.depthMaps) return doc;
   const references = collectDepthMapIds(doc);
   const depthMaps = Object.fromEntries(

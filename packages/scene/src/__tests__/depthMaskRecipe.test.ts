@@ -140,10 +140,11 @@ describe('depth mask recipe ownership', () => {
       ...recipe,
       sourceBinding: { ...recipe.sourceBinding, fillAssetId: undefined },
       sourceIdentity: {
-        ...recipe.sourceIdentity,
+        kind: 'source-metadata',
         locator: 'asset:photo-1',
         pixelWidth: 1,
         pixelHeight: 1,
+        revision: recipe.sourceIdentity.revision,
       },
     };
     const withMask = {
