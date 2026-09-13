@@ -1459,10 +1459,7 @@ export function CanvasArea({
         onPenAction={(action) => {
           const tool = tm.current?.getTool('pen') as
             | {
-                performConstructionAction: (
-                  nextAction: typeof action,
-                  ctx: ToolContext,
-                ) => void;
+                performConstructionAction: (nextAction: typeof action, ctx: ToolContext) => void;
               }
             | undefined;
           tool?.performConstructionAction(action, buildToolCtx(new PointerEvent('pointerup')));
