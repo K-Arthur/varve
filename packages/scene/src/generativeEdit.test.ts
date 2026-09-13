@@ -92,6 +92,13 @@ describe('generative edit document contract', () => {
     expect(validateGenerativeEdit(fixture())).toBeNull();
   });
 
+  it('accepts repeated-edit lineage and rejects self-parenting records', () => {
+    expect(validateGenerativeEdit({ ...fixture(), parentEditId: 'gen-0' })).toBeNull();
+    expect(validateGenerativeEdit({ ...fixture(), parentEditId: 'gen-1' })).toContain(
+      'parentEditId',
+    );
+  });
+
   it('rejects an active variation that is not persisted', () => {
     expect(validateGenerativeEdit({ ...fixture(), activeVariationId: 'missing' })).toContain(
       'active variation',

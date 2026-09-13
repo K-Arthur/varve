@@ -11,7 +11,10 @@ import type {
   SceneNode,
 } from '@varve/scene';
 import { nextNodeId } from '@varve/scene';
-import { remapGenerativeEditOverlays } from './remapGenerativeEditOverlays';
+import {
+  remapGenerativeEditLineage,
+  remapGenerativeEditOverlays,
+} from './remapGenerativeEditOverlays';
 
 export interface ImportedResourceSet {
   sourceDoc: Document;
@@ -568,6 +571,7 @@ function mergeGroup(
       generativeEdits[editId] = remapGenerativeEditAssets(importedEdit, maps);
     }
   }
+  remapGenerativeEditLineage(generativeEdits, generativeIdMap);
   for (const targetId of nodeIds.values()) {
     const node = nodes[targetId];
     if (!node) continue;

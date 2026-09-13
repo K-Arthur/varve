@@ -84,13 +84,17 @@ invoke inference.
   padding, and mask refinement settings. Prompt text is persisted only when
   the recorded provider actually consumed it;
 - provider/model/runtime provenance and creation time;
-- variation records, accepted variation id, and compatibility version.
+- variation records, accepted variation id, and compatibility version;
+- `parentEditId` when an edit is generated from an earlier accepted edit on the
+  same layer, preserving explicit lineage across repeated edits and imports.
 
 Generated pixels live in `Document.assets`. The accepted result remains an
-ordinary image asset linked from the original image node and generation record;
-the original source bytes are retained separately. Missing models therefore
-affect regeneration only, not rendering, restore, or export of an accepted
-result.
+ordinary image asset linked from the original image node and generation record
+for full-output providers. Bounded providers retain the immutable source fill
+and link a transparent region-overlay asset above it; both assets and the
+provenance marker travel together. The original source bytes are retained
+separately. Missing models therefore affect regeneration only, not rendering,
+restore, or export of an accepted result.
 
 Variation assets remain compressed in the document, and each newly accepted
 candidate also retains a bounded 256-pixel thumbnail. On reopen the dialog

@@ -42,3 +42,24 @@ export function remapGenerativeEditOverlays(
     };
   });
 }
+
+/** Remap repeated-edit lineage after every imported edit has an allocated ID. */
+export function remapGenerativeEditLineage(
+  generativeEdits: Record<string, GenerativeEditRecord>,
+  generativeIdMap: ReadonlyMap<string, string>,
+): void {
+  for (const sourceEditId of generativeIdMap.keys()) {
+    const editId = generativeIdMap.get(sourceEditId);
+    const edit = editId ? generativeEdits[editId] : undefined;
+    if (!edit || edit.parentEditId === undefined) continue;
+
+    const parentEditId = generativeIdMap.get(edit.parentEditId);
+    if (parentEditId && generativeEdits[parentEditId]) {
+      generativeEdits[editId] = { ...edit, parentEditId };
+      continue;
+    }
+
+    const { parentEditId: _parentEditId, ...withoutParent } = edit;
+    generativeEdits[editId] = withoutParent;
+  }
+}

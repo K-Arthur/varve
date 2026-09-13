@@ -1781,6 +1781,9 @@ export function ContentAwareFillDialog({
         id: editId,
         mode,
         sourceNodeId: nodeId,
+        ...(sourceNode.generativeEditId && currentDoc.generativeEdits?.[sourceNode.generativeEditId]
+          ? { parentEditId: sourceNode.generativeEditId }
+          : {}),
         sourceAssetId: sourceSnapshot.id,
         sourceSnapshotAssetId: sourceSnapshot.id,
         sourceLocator: `asset:${sourceSnapshot.id}`,

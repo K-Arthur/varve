@@ -30,7 +30,7 @@ the user starts a job.
 | Region-first source preparation | Bounded preview, source-rectangle decode, tiered working-pixel cap, source-resolution streaming mask persistence, and transparent bounded overlay acceptance | Shared browser/desktop adapter for Fill/Remove | Expand remains explicitly full-frame and unavailable until a qualified outpainting provider exists | `packages/editor/src/components/ContentAwareFill/generationRaster.test.ts`; `tests/e2e/caf/caf.spec.ts` (33 MP portrait) |
 | Bounded variation storage and reopen | Implemented; inactive cards use persisted thumbnails and full candidates are loaded only for the active preview | Shared implementation | Shared implementation; device-package memory evidence pending | `packages/scene/src/__tests__/assets.test.ts`, `packages/scene/src/documentCodec.test.ts`, `tests/e2e/caf/caf.spec.ts` |
 | In-place acceptance and Restore Original | Implemented; automatically verified | Shared implementation | Shared implementation | `packages/editor/src/imageOperations.test.ts` and scene persistence tests |
-| Save/reopen, clipboard, package export | Implemented paths | Implemented paths | Shared implementation | Document codec, closure, and clipboard tests; generative package evidence pending |
+| Save/reopen, clipboard, package export | Implemented paths | Implemented paths; repeated-edit lineage and bounded overlay markers are remapped on import | Shared implementation | Document codec, closure, and clipboard tests; generative package evidence pending |
 
 ## Pinned desktop model profile
 
