@@ -138,6 +138,6 @@ support remains unpromoted until the Duet hardware checklist is completed.
   `docs/screenshots/chromeos-stage6-followup/`. They are Chromium/static-build
   evidence only; they do not promote native ChromeOS, PWA, Crostini, touch, pen,
   battery, GPU, or NPU support.
-- Stage 7 owns the concurrent Chromebook route-copy correction and its E2E
-  truth spec. Its files and refreshed route snapshots remain outside the
-  continuation implementation commit until that owner integrates them.
+- Stage 7's concurrent Chromebook route-copy correction and E2E truth spec are
+  now integrated on `master` as `d690e30a4`; the route snapshots refreshed
+  during that handoff are covered by the visual evidence recorded in the audit.
