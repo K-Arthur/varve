@@ -807,6 +807,7 @@ export function CanvasOverlays({
           worldToCanvas={(wx, wy) => editor.worldToCanvas(wx, wy)}
           onAction={onShapeBuilderAction}
           onExit={onShapeBuilderExit}
+          onOutlineStrokes={() => editor.expandStrokeSelected()}
         />
       )}
       {tool === 'pen' && draft?.kind === 'bezier-path' && (

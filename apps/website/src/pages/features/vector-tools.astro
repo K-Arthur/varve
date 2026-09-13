@@ -42,7 +42,7 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
           <li><strong>Pencil tool:</strong> Freehand drawing with automatic Bézier curve fitting (Schneider algorithm), preserving endpoints and intentional corners</li>
           <li><strong>Node editing:</strong> Select one or many anchors, edit compound-path holes, drag Bézier handles, bend segments, and use precise local coordinate fields</li>
           <li><strong>Boolean operations:</strong> Union, subtract, intersect, exclude on selected shapes</li>
-          <li><strong>Shape Builder:</strong> Preview individual overlap regions, then merge, erase, extract, create, or divide them with one undoable operation</li>
+          <li><strong>Shape Builder:</strong> Preview individual overlap regions, then merge, erase, extract, create, or divide them with one undoable operation; stroke-blocked selections offer an in-panel outline-and-retry action</li>
           <li><strong>Transformation:</strong> Move, rotate, scale with affine transforms and centroid-based scaling</li>
           <li><strong>Layers:</strong> A dense, virtualized hierarchy with search, filters, thumbnails, compact drag handles, inline rename, and precise before/after/into reparenting</li>
           <li><strong>Groups and frames:</strong> Group/ungroup, spatial containers with flex and grid auto-layout</li>
@@ -62,12 +62,12 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
           The vector system is built on kurbo, a Rust geometry library providing Point, Rect, Affine, Circle, Ellipse, Line, and Path types. The ShapeNode enum encapsulates all shape types with point-containment testing for hit detection. The scene graph uses fractional-indexing for CRDT-safe concurrent ordering.
         </p>
         <p>
+          Path editing uses relative Bézier handles with explicit corner, smooth, symmetric, and automatic node modes. Selection-only clicks stay out of history; an accepted drag is one undo step and Escape restores the pre-drag geometry. Insertion uses the nearest curve parameter and de Casteljau subdivision, including a closed contour's closing segment. The pencil tool fits freehand strokes to cubic Bézier curves using least-squares optimization. Boolean operations use polygon clipping with support for self-intersecting paths and degenerate geometry.
+        </p>
+        <p>
           Pointer input is normalized once for mouse, touch, and stylus. A second touch cancels
           only a provisional first contact before navigation begins, and a remaining finger after
           a pinch must be lifted before drawing resumes. See the <a href={sitePath('/docs/touch-and-pen')}>touch and pen guide</a> for the reversible finger-drawing preference and route-specific pen limitations.
-        </p>
-        <p>
-          Path editing uses relative Bézier handles with explicit corner, smooth, symmetric, and automatic node modes. Selection-only clicks stay out of history; an accepted drag is one undo step and Escape restores the pre-drag geometry. Insertion uses the nearest curve parameter and de Casteljau subdivision, including a closed contour's closing segment. The pencil tool fits freehand strokes to cubic Bézier curves using least-squares optimization. Boolean operations use polygon clipping with support for self-intersecting paths and degenerate geometry.
         </p>
       </section>
 

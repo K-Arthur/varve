@@ -1,6 +1,7 @@
 import type { ShapeBuilderAction, ShapeBuilderModel } from '@varve/scene';
 import {
   buildShapeBuilderModel,
+  explainShapeBuilderEligibility,
   previewShapeBuilderAction,
   previewShapeBuilderSelection,
 } from '@varve/scene';
@@ -15,6 +16,12 @@ interface ShapeBuilderOverlayProps {
   worldToCanvas: (x: number, y: number) => { x: number; y: number };
   onAction: (action: ShapeBuilderAction) => void;
   onExit: () => void;
+  /**
+   * Converts visible strokes on the current selection into filled outlines so
+   * a stroke-blocked selection can become eligible without leaving the tool.
+   * Omitted when the host surface cannot run the editor geometry command.
+   */
+  onOutlineStrokes?: () => void;
 }
 
 const ACTIONS: Array<{
@@ -94,9 +101,17 @@ export function ShapeBuilderOverlay({
   worldToCanvas,
   onAction,
   onExit,
+  onOutlineStrokes,
 }: ShapeBuilderOverlayProps) {
   const selectionKey = selection.join('|');
   const model = useMemo(() => buildShapeBuilderModel(doc, selection), [doc, selectionKey]);
+  const eligibility = useMemo(
+    () => explainShapeBuilderEligibility(doc, selection),
+    [doc, selectionKey],
+  );
+  const canOutlineStrokes =
+    model.status === 'unsupported' &&
+    eligibility.some((entry) => !entry.eligible && /outline the stroke/i.test(entry.reason ?? ''));
   const selectedFaceKey = draft.selectedFaceIds.join('|');
   const [previewAction, setPreviewAction] = useState<ShapeBuilderAction | null>(null);
   const selectedFaces = useMemo(
@@ -269,6 +284,17 @@ export function ShapeBuilderOverlay({
             </div>
           )}
         </div>
+        {canOutlineStrokes && onOutlineStrokes && (
+          <button
+            type="button"
+            className="varve-btn varve-btn--secondary"
+            data-testid="shape-builder-outline-strokes"
+            onClick={onOutlineStrokes}
+            style={{ minHeight: 32, alignSelf: 'flex-start' }}
+          >
+            Outline strokes and retry
+          </button>
+        )}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1)' }}>
           {ACTIONS.map(({ action, label, shortcut, title }) => (
             <button

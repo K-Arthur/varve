@@ -29,6 +29,16 @@ import { sitePath } from '../../../lib/siteUrl';
       </section>
 
       <section class="docs-section">
+        <h2>Strokes, open paths, and gaps</h2>
+        <p>
+          Shape Builder operates on filled areas, not on stroke centerlines. A source with a visible stroke is blocked with the reason shown in the panel; when outlining is the right fix, the panel offers <strong>Outline strokes and retry</strong>, which runs the same stroke-to-outline conversion as Object → Expand Stroke and then rebuilds the regions. Open paths are dividers rather than filled operands, so close or outline them first. Varve never silently outlines text, detaches an instance, or replaces a stroke with its bounding box.
+        </p>
+        <p>
+          Gaps are handled honestly. Varve does not silently weld a nearly-missed boundary or apply a hidden epsilon: a small mismatch stays visible as a thin, finite region that you can select, merge, or erase like any other. Alignment stays in your hands (snapping, align, or a deliberate merge), and the construction tolerance is derived from the artwork scale after the complete transform, so a tiny legitimate feature inside a very large operand is not discarded.
+        </p>
+      </section>
+
+      <section class="docs-section">
         <h2>What each action means</h2>
         <div class="action-grid">
           <article><h3>Merge</h3><p>Combines only the regions you selected and removes their internal boundaries. Unselected source areas remain.</p></article>
@@ -46,7 +56,7 @@ import { sitePath } from '../../../lib/siteUrl';
           Donuts, nested islands, compound paths, self-intersections, shared edges, and transformed shapes are decomposed into selectable faces. Holes remain holes. The unbounded outside is never offered as a giant region, and a bounded empty face is shown as unavailable rather than silently turned into new artwork.
         </p>
         <p>
-          Ordinary rounded rectangles use the rendered rounded boundary, including per-corner radii and negative-direction geometry. Inline gradients keep their world placement; continuous/smoothed corners, open paths, visible strokes, image or pattern paints, shared gradient paints, masks, effects, instances, locked ancestors, and live Boolean groups are reported as unsupported. Convert or outline them explicitly when you need those semantics; Varve does not silently flatten or shift your source.
+          Ordinary rounded rectangles use the rendered rounded boundary, including per-corner radii and negative-direction geometry. Inline gradients keep their world placement; continuous/smoothed corners, open paths, visible strokes, image or pattern paints, shared gradient paints, masks, effects, instances, locked ancestors, and live Boolean groups are reported as unsupported. Convert or outline them explicitly when you need those semantics; Varve does not silently flatten or shift your source. Stretch, tangency, shared or coincident edges, and self-intersecting paths are decomposed deterministically with the authored even-odd or non-zero fill rule applied per source.
         </p>
       </section>
 

@@ -96,6 +96,13 @@ space when a result changes its bounds; bounds-relative image/pattern paints
 are rejected with an explicit conversion instruction, and shared gradient
 paints must be detached before construction.
 
+When a visible stroke is the only blocker, the tool panel offers an explicit
+**Outline strokes and retry** action. It runs the same stroke-to-outline
+conversion as the Object menu command on the current selection, commits it as
+its own undoable step, and rebuilds the arrangement. Nothing is outlined
+silently: the action is only shown after eligibility has reported the stroke,
+and open paths without a stroke are told to be closed instead.
+
 ## Interaction and accessibility
 
 The interaction has an idle/preparing/hovering/selecting/previewing/committing
@@ -150,6 +157,19 @@ construction tools demonstrate the useful “discard untouched segments” mode,
 but also provide cautionary reports about stale cursors, fast sweeps,
 transforms, fracture topology, and crashes; these are covered by the audit and
 regression fixtures rather than hidden behind a generic Boolean command.
+
+The reported failure classes that shaped this implementation were verified
+against the arrangement with dedicated fixtures: externally tangent circles
+(no phantom or missing area), exact shared edges, fully coincident rectangles
+and circles, four quadrants meeting at one vertex, partial overlaps, thin
+slivers, very large coordinate offsets, rotation and non-uniform scale,
+nested islands, self-intersecting paths under both authored fill rules,
+duplicate even-odd/non-zero rings, duplicate points and zero-length segments,
+and repeated-build determinism. Gap handling stays explicit: Varve does not
+silently weld a near-miss boundary, and a small mismatch remains a finite,
+selectable region that the user can merge or erase. A scale-aware tolerance is
+computed after the complete world transform and capped by the shortest
+authored edge, so a tiny feature inside a very large operand is not discarded.
 
 Primary evidence and the full capability matrix are recorded in
 `docs/audits/shape-building-capability-matrix-2026-09-13.md`.
