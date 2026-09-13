@@ -393,6 +393,51 @@ describe('parse3dlData', () => {
     const result = parse3dlData(withComments);
     expect(result.transform.size).toBe(2);
   });
+
+  it("decodes integer .3dl code values in the format's blue-fastest order", () => {
+    const rows: string[] = ['# Autodesk/Discreet .3dl', '3DMESH', 'Mesh 1 8'];
+    for (let r = 0; r < 2; r++) {
+      for (let g = 0; g < 2; g++) {
+        for (let b = 0; b < 2; b++) {
+          // The file order is blue-fastest. The asymmetric output makes an
+          // accidental R-fastest interpretation observable.
+          rows.push(`${b * 255} ${r * 255} ${g * 255}`);
+        }
+      }
+    }
+
+    const result = parse3dlData(rows.join('\n'));
+    expect(result.transform.kind).toBe('3d');
+    if (result.transform.kind === '3d') {
+      const index = (r: number, g: number, b: number) => ((b * 2 + g) * 2 + r) * 3;
+      const atRedCorner = index(1, 0, 0);
+      const atBlueCorner = index(0, 0, 1);
+      expect(result.transform.data[atRedCorner]).toBeCloseTo(0);
+      expect(result.transform.data[atRedCorner + 1]).toBeCloseTo(1);
+      expect(result.transform.data[atRedCorner + 2]).toBeCloseTo(0);
+      expect(result.transform.data[atBlueCorner]).toBeCloseTo(1);
+      expect(result.transform.data[atBlueCorner + 1]).toBeCloseTo(0);
+      expect(result.transform.data[atBlueCorner + 2]).toBeCloseTo(0);
+    }
+  });
+
+  it('returns a normalized shaper plus 3D transform and scales both stages', () => {
+    const rows: string[] = ['3DMESH', 'Mesh 1 8', '0 64 128 192 255'];
+    for (let r = 0; r < 2; r++) {
+      for (let g = 0; g < 2; g++) {
+        for (let b = 0; b < 2; b++) rows.push(`${r * 255} ${g * 255} ${b * 255}`);
+      }
+    }
+
+    const result = parse3dlData(rows.join('\n'));
+    expect(result.transform.kind).toBe('shaper3d');
+    if (result.transform.kind === 'shaper3d') {
+      expect(result.transform.shaper.size).toBe(5);
+      expect(result.transform.shaper.r[1]).toBeCloseTo(64 / 255);
+      expect(result.transform.shaper.g[2]).toBeCloseTo(128 / 255);
+      expect(result.transform.lut3d.data[7]).toBeCloseTo(1);
+    }
+  });
 });
 
 // ─── .cube Export ──────────────────────────────────────────────

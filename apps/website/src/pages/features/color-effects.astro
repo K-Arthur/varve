@@ -157,6 +157,12 @@ const gradientPickerShot = scenes['gradient-picker']?.status === 'captured' ? sc
           tested sRGB transfer—not an ACES, Display-P3, or camera-log conversion—so
           those labels are not advertised as equivalent color-managed transforms.
         </p>
+        <p>
+          Autodesk/Discreet <code>.3dl</code> imports retain their integer code values,
+          optional shaper stage, and canonical channel order. That format support is a
+          portable LUT decode, not a promise of the source application's color-space
+          conversion or grading model.
+        </p>
       </section>
 
       <section class="feature-section constrained-editing" aria-labelledby="constrained-editing-title">

@@ -60,6 +60,13 @@ documents as disabled metadata-only choices, and reports that no conversion is
 implemented. Those labels must not be presented as equivalent color-managed
 transforms until a conversion contract and provider parity tests exist.
 
+The supported `.cube` and `.3dl` codecs are intentionally format-specific:
+`.3dl` integer code values are normalized using a bounded inferred code range,
+an optional scalar shaper is retained as the existing `shaper3d` transform, and
+the format's blue-fastest rows are converted to Varve's canonical R-fastest
+storage. This does not make `.3dl` a color-management profile; the source-space
+assumption remains sRGB unless a real conversion is implemented.
+
 ## Layer-panel identity
 
 The Layers panel deliberately separates a layer's user name from its applied

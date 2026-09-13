@@ -23,6 +23,7 @@ checked before changing the contracts:
 | [Adobe Curves](https://helpx.adobe.com/photoshop/using/curves-adjustment.html) | Current help page accessed 2026-09-13 | Curves expose black/white points and keyboard/point editing; this is a workflow reference, not an algorithm claim. |
 | [Krita filter masks](https://docs.krita.org/en/reference_manual/layers_and_masks/filter_masks.html) | Current manual accessed 2026-09-13 | A local filter attachment should retain its source and mask ownership instead of becoming an unrelated global stack. |
 | [OpenColorIO authoring](https://opencolorio.readthedocs.io/en/latest/guides/authoring/authoring.html) | Current documentation accessed 2026-09-13 | Input/process/output color-space boundaries must be named; a richer document color model does not make an RGBA8 effect kernel ICC/HDR aware. |
+| [OpenColorIO 3DL reader](https://github.com/AcademySoftwareFoundation/OpenColorIO/blob/main/src/OpenColorIO/fileformats/FileFormat3DL.cpp) | `main` source accessed 2026-09-13 | Discreet/Flame `.3dl` data uses integer code values, may contain one scalar shaper row, and stores 3D entries blue-fastest; a parser that assumes normalized floats or R-fastest order silently changes a look. |
 | [ONNX Runtime execution providers](https://onnxruntime.ai/docs/execution-providers/) | Current documentation accessed 2026-09-13 | Providers are an optional dispatch layer with ordered fallback; model assistance must not replace the deterministic adjustment path. |
 
 The installed workspace/runtime facts checked locally were pnpm 11.9.0,
@@ -56,6 +57,7 @@ source inspection and focused tests before repair.
 | Apply +1 EV to a midtone | Software kernel used `encoded ** 2.2` while describing linear light | Approximate gamma was substituted for the shared sRGB transfer curve | Use `srgbToLinearUnit`, EV multiplication, linear offset/gamma, and `linearToSrgbUnit`; clamp non-finite inputs | Exact numeric compositor oracle |
 | Enter malformed Levels/Curves values | NaN/infinity and reversed intervals could reach LUT arithmetic | Kernel trusted UI-normalized input | Finite bounded Levels parameters, deterministic interval collapse/reversal, finite Curve points and duplicate-x resolution | Levels/Curves focused tests |
 | Target a neutral pixel with a colour-range Hue/Saturation edit | A Reds/Saturation edit treated an achromatic hue of zero as red | Range selection was evaluated without an achromatic guard | Only the Master range can affect a zero-chroma pixel; targeted ranges keep neutral artwork neutral | Hue/Saturation focused test |
+| Import an integer/shaper `.3dl` LUT | The reader accepted only one kind of three-value row and inferred no code range or axis order | Real Discreet/Flame files use integer code values, optional scalar shaper data, and blue-fastest entries | Normalize bounded integer code ranges, return the existing `shaper3d` transform when present, and transpose into canonical R-fastest storage; retain an explicit normalized compatibility path | LUT parser known-answer fixtures: 45/45 |
 | Inspect Levels/Curves later in a stack | Histogram source was always the scoped pre-stack composite | Cache key and render stage omitted selected entry/upstream filters | Histogram key includes stage; upstream `FilterIR` is rendered through the existing compositor; UI labels the source stage | Panel/editor tests; browser visual workflow pending final E2E gate |
 | Open the adjustment entry point from Object immediately after creating a document | Chromium reached the editor but the Object button returned to `aria-expanded=false` with no menu portal after a click | A startup/native-overlay history guard was being removed with asynchronous `history.back()`; a new menu could push a second guard before the old pop arrived, and the stale pop dispatched Escape to the focused Object button. Menubar context invalidation was a separate stale-menu risk. | Extracted menubar context lifecycle handling and made `TabletBackDismiss` reconcile a pending guard removal without dispatching Escape to a newly opened layer | Menubar unit suite 21/21; tablet-guard regression 1/1; Chromium adjustment-picker 1/1; front-facing visual adjustment scenarios 2/2 |
 
@@ -96,7 +98,7 @@ is not a final-output or display-proof histogram.
 
 ## Remaining limits and next slices
 
-- Adjustment masks, LUT portability, save/reopen, and raster/SVG/PDF export
+- Adjustment masks, LUT library portability, save/reopen, and raster/SVG/PDF export
   still need a fresh full workflow capture on this checkout; existing
   architecture documents describe their current boundaries but do not replace
   that evidence. The focused Chromium attempt is captured under
@@ -115,6 +117,10 @@ is not a final-output or display-proof histogram.
   the spec's own navigation/readiness checks remained active.
 - The effect kernel remains an RGBA8 Canvas2D/software reference path. Native,
   WASM, and WebGPU acceleration must prove equivalence before dispatch.
+- `.3dl` import now covers the verified integer/shaper/blue-fastest contract and
+  preserves the canonical embedded transform. LUT library replace/reveal,
+  missing-resource recovery, and portable treatment-copy workflows still need
+  their own end-to-end evidence.
 - Histogram sampling is stage-aware but still downscaled and does not yet
   expose viewport/crop provenance in the UI.
 - No neural model was added. Deterministic controls remain usable offline and
