@@ -24,7 +24,12 @@ import type {
   WarpModifier,
   WarpSettings,
 } from '@varve/engine';
-import type { AnimatedAssetMetadata, MediaFillSettings, RasterColorEncoding } from '@varve/shared';
+import type {
+  AnimatedAssetMetadata,
+  MediaFillSettings,
+  OpenTypeFeatureMap as SharedOpenTypeFeatureMap,
+  RasterColorEncoding,
+} from '@varve/shared';
 
 export type { AnimatedAssetMetadata, MediaFillSettings } from '@varve/shared';
 
@@ -1059,9 +1064,8 @@ export type OpenTypeFeatureTag =
   | 'ccmp'
   | 'dist';
 
-export type OpenTypeFeatureMap = Partial<Record<OpenTypeFeatureTag, boolean>> & {
-  custom?: Record<string, boolean>;
-};
+/** Shared feature values support explicit off/on, indexed values, and source ranges. */
+export type OpenTypeFeatureMap = SharedOpenTypeFeatureMap;
 
 export type RegisteredAxisTag = 'wght' | 'wdth' | 'slnt' | 'opsz' | 'ital';
 
@@ -1461,8 +1465,8 @@ export interface TextNode extends NodeBase {
   textOverflow?: 'clip' | 'ellipsis' | 'visible';
   /** F6: resizing mode — auto-width/auto-height/fixed. */
   textResizing?: 'autoWidth' | 'autoHeight' | 'fixed';
-  /** F6: OpenType feature flags (stub — e.g. { liga: true, kern: true }). */
-  openTypeFeatures?: Record<string, boolean>;
+  /** OpenType feature values/ranges; absent entries inherit the resolved style. */
+  openTypeFeatures?: OpenTypeFeatureMap;
   /**
    * Kerning mode. 'auto' uses font pair kerning (browser/rustybuzz default).
    * 'none' disables pair kerning between clusters while tracking, manual
@@ -1541,6 +1545,8 @@ export interface GroupNode extends NodeBase {
    * content hash for staleness checks.
    */
   traceMetadata?: TraceMetadata;
+  /** Exact source/shaping provenance for a destructive text-to-outlines conversion. */
+  outlinedTextMetadata?: OutlinedTextMetadata;
   /**
    * Non-destructive Pathfinder state. The group's direct children are the
    * ordered operands; renderer/export resolvers derive the visible compound

@@ -1,6 +1,7 @@
 export type {
   ConvertTextToPathOptions,
   ConvertTextToPathResult,
+  ShapedOutlineRun,
 } from './convertTextToPath';
 export {
   convertTextNodeToPath,

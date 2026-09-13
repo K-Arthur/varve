@@ -1,4 +1,4 @@
-import { type TextOutlineOptions, textToOutlines } from '@varve/engine';
+import { type ShapedGlyph, type TextOutlineOptions, textToOutlines } from '@varve/engine';
 import { managedColorToRgba } from '@varve/shared';
 import type { Document } from '../document';
 import { getParent, makeGroupNode, makeShapeNode } from '../document';
@@ -7,6 +7,7 @@ import type {
   Effect,
   ManagedColor,
   NodeId,
+  OutlinedTextMetadata,
   SceneNode,
   ShapeNode,
   Stroke,
@@ -28,6 +29,14 @@ function legacyOrManagedToRgb(
 export interface ConvertTextToPathOptions {
   fontData?: ArrayBuffer;
   variableAxes?: Record<string, number>;
+  /** Exact glyph stream for flat text, produced by the resolved shaping backend. */
+  shapedGlyphs?: readonly ShapedGlyph[];
+  /** Exact glyph streams for rich-text runs, in paragraph/run order. */
+  shapedRuns?: readonly ShapedOutlineRun[];
+  /** Exact face index used by the shaping backend. Non-zero collection faces are rejected by opentype.js. */
+  faceIndex?: number;
+  /** Stable artifact identity used to diagnose stale outline results. */
+  fontIdentity?: string;
   /** Max characters before warning. -1 for no limit. */
   maxChars?: number;
   /** When true, flatten compatible glyphs into single compound paths. */
@@ -42,6 +51,13 @@ export interface ConvertTextToPathOptions {
   createCopy?: boolean;
 }
 
+export interface ShapedOutlineRun {
+  text: string;
+  /** Paragraph-local UTF-16 source start for diagnostics and future remapping. */
+  sourceStart?: number;
+  glyphs: readonly ShapedGlyph[];
+}
+
 export interface ConvertTextToPathResult {
   document: Document;
   warnings: string[];
@@ -52,7 +68,7 @@ export interface ConvertTextToPathResult {
 }
 
 /** Metadata key to store original text for recovery/search. */
-export const ORIGINAL_TEXT_META_KEY = 'strata:originalText';
+export const ORIGINAL_TEXT_META_KEY = 'varve:originalText';
 
 // Decoration metrics (approximate, derived from font size)
 function underlinePosition(fontSize: number): number {
@@ -172,33 +188,57 @@ export function convertTextNodeToPath(
   const allGlyphShapes: ShapeNode[] = [];
   const decorationShapes: ShapeNode[] = [];
   const runGroups: Array<{ name: string; glyphIds: string[]; fill?: ManagedColor }> = [];
+  const outlinedGlyphSources: OutlinedTextMetadata['glyphs'] = [];
   let idCounter = 0;
+  let shapedRunIndex = 0;
 
   if (preserveRuns && richText) {
     // Process each rich-text run individually for per-run styling
     let runIndex = 0;
+    let paragraphBaseline = 0;
     for (const paragraph of richText.paragraphs ?? []) {
+      let runCursorX = 0;
       for (const run of paragraph.runs ?? []) {
         const runText = run.text ?? '';
-        if (!runText.trim()) continue;
+        const shapedRun = opts.shapedRuns?.[shapedRunIndex++];
+        if (!runText) continue;
 
         const runFontSize = run.format?.fontSize ?? fontSize;
         const runFill = run.format?.color ? legacyOrManagedToRgb(run.format.color) : fillColor;
+        const runOriginX = runCursorX;
+        const runFontFamily = run.format?.fontFamily ?? textNode.fontFamily ?? 'sans-serif';
+        if (runFontFamily !== (textNode.fontFamily ?? 'sans-serif')) {
+          warnings.push(
+            `Rich-text run ${runIndex} uses "${runFontFamily}", but this conversion has bytes for "${textNode.fontFamily ?? 'sans-serif'}" only; the run may not match the editable artwork.`,
+          );
+        }
 
         const outlineOptions: TextOutlineOptions = {
           fontSize: runFontSize,
-          fontFamily: run.format?.fontFamily ?? textNode.fontFamily ?? 'sans-serif',
+          fontFamily: runFontFamily,
           fontWeight: run.format?.fontWeight ?? textNode.fontWeight,
           fontStyle: run.format?.fontStyle ?? textNode.fontStyle,
           letterSpacing: run.format?.letterSpacing ?? textNode.letterSpacing,
-          x: 0,
-          y: 0,
+          x: runOriginX,
+          y: paragraphBaseline,
           fontData: opts.fontData,
-          variableAxes: opts.variableAxes ?? textNode.variableAxes,
+          variableAxes:
+            run.format?.variableFontSettings ?? opts.variableAxes ?? textNode.variableAxes,
+          faceIndex: opts.faceIndex,
+          fontIdentity: opts.fontIdentity,
+          openTypeFeatures: run.format?.openTypeFeatures ?? textNode.openTypeFeatures,
+          shapedGlyphs: shapedRun?.text === runText ? shapedRun.glyphs : undefined,
         };
+
+        if (opts.shapedRuns && shapedRun?.text !== runText) {
+          warnings.push(
+            `The shaped outline run did not match source text for run ${runIndex}; raw character lookup was used for that run.`,
+          );
+        }
 
         const runResult = textToOutlines(runText, outlineOptions);
         warnings.push(...runResult.warnings);
+        runCursorX += runResult.bounds.w;
 
         const runGlyphIds: string[] = [];
         for (let i = 0; i < runResult.glyphs.length; i++) {
@@ -227,6 +267,18 @@ export function convertTextNodeToPath(
           );
           allGlyphShapes.push(shapeNode);
           runGlyphIds.push(shapeNodeId);
+          outlinedGlyphSources.push({
+            nodeId: shapeNodeId,
+            glyphId: glyph.glyphId,
+            sourceStart:
+              glyph.sourceStart === undefined
+                ? undefined
+                : glyph.sourceStart + (shapedRun?.sourceStart ?? 0),
+            sourceEnd:
+              glyph.sourceEnd === undefined
+                ? undefined
+                : glyph.sourceEnd + (shapedRun?.sourceStart ?? 0),
+          });
         }
 
         if (runGlyphIds.length > 0) {
@@ -246,8 +298,8 @@ export function convertTextNodeToPath(
               const decoId = `${nodeId}-run-${runIndex}-underline`;
               const deco = makeDecorationShape(
                 decoId,
-                0,
-                underlinePosition(runFontSize),
+                runOriginX,
+                paragraphBaseline + underlinePosition(runFontSize),
                 advance,
                 underlineThickness(runFontSize),
                 runFill,
@@ -258,8 +310,8 @@ export function convertTextNodeToPath(
               const decoId = `${nodeId}-run-${runIndex}-strikethrough`;
               const deco = makeDecorationShape(
                 decoId,
-                0,
-                strikethroughPosition(runFontSize),
+                runOriginX,
+                paragraphBaseline + strikethroughPosition(runFontSize),
                 advance,
                 strikethroughThickness(runFontSize),
                 runFill,
@@ -272,6 +324,9 @@ export function convertTextNodeToPath(
 
         runIndex++;
       }
+      paragraphBaseline +=
+        (paragraph.format?.lineHeight ?? textNode.lineHeight ?? 1.2) * fontSize +
+        (paragraph.format?.paragraphSpacing ?? textNode.paragraphSpacing ?? 0);
     }
   } else {
     // Flat text — single outline pass
@@ -285,6 +340,10 @@ export function convertTextNodeToPath(
       y: 0,
       fontData: opts.fontData,
       variableAxes: opts.variableAxes ?? textNode.variableAxes,
+      faceIndex: opts.faceIndex,
+      fontIdentity: opts.fontIdentity,
+      openTypeFeatures: textNode.openTypeFeatures,
+      shapedGlyphs: opts.shapedGlyphs,
     };
 
     const result = textToOutlines(rawText, outlineOptions);
@@ -328,6 +387,12 @@ export function convertTextNodeToPath(
 
       shapeIndexByGlyph[i] = allGlyphShapes.length;
       allGlyphShapes.push(shapeNode);
+      outlinedGlyphSources.push({
+        nodeId: shapeNodeId,
+        glyphId: glyph.glyphId,
+        sourceStart: glyph.sourceStart,
+        sourceEnd: glyph.sourceEnd,
+      });
     }
 
     // Glyph-level parity: apply per-cluster adjustments to the outlined
@@ -425,6 +490,16 @@ export function convertTextNodeToPath(
     fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 0 },
   });
 
+  groupNode.outlinedTextMetadata = {
+    schemaVersion: 1,
+    sourceText: rawText,
+    fontFamily: textNode.fontFamily,
+    fontReference: textNode.fontReference,
+    fontIdentity: opts.fontIdentity,
+    openTypeFeatures: textNode.openTypeFeatures,
+    variableAxes: opts.variableAxes ?? textNode.variableAxes,
+    glyphs: outlinedGlyphSources,
+  };
   (groupNode as unknown as Record<string, unknown>)[ORIGINAL_TEXT_META_KEY] = rawText;
 
   // Build new document

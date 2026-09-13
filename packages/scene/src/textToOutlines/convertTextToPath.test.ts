@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { createHarfBuzzWasmBackend } from '@varve/engine';
 import { addChild, createDocument, makeTextNode } from '../document';
 import { convertTextNodeToPath, ORIGINAL_TEXT_META_KEY } from './convertTextToPath';
 
@@ -30,6 +31,13 @@ function resolveGeistPath(): string {
 }
 
 const GEIST_PATH = resolveGeistPath();
+const OPEN_SANS_PATH = join(
+  PROJECT_ROOT,
+  'crates',
+  'varve-print',
+  'fixtures',
+  'OpenSans-Regular.ttf',
+);
 
 async function loadFontData(): Promise<ArrayBuffer> {
   const woff2 = readFileSync(GEIST_PATH);
@@ -37,6 +45,11 @@ async function loadFontData(): Promise<ArrayBuffer> {
   const copy = new Uint8Array(decompressed.length);
   copy.set(decompressed);
   return copy.buffer;
+}
+
+function loadOpenSansData(): ArrayBuffer {
+  const bytes = readFileSync(OPEN_SANS_PATH);
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
 }
 
 function makeDocWithText(text: string, overrides: Record<string, unknown> = {}) {
@@ -137,5 +150,47 @@ describe('convertTextNodeToPath', () => {
 
     const group = result.document.nodes['txt1-outlined'] as unknown as { rotation: number };
     expect(group.rotation).toBe(45);
+  });
+
+  it('uses shaped ligature geometry instead of raw character lookup', async () => {
+    const fontData = loadOpenSansData();
+    const shaped = await createHarfBuzzWasmBackend().shape({
+      text: 'fi',
+      fontData,
+      fontSize: 100,
+      features: { liga: true },
+    });
+    const { doc } = makeDocWithText('fi', {
+      fontFamily: 'Open Sans',
+      fontSize: 100,
+      openTypeFeatures: { liga: true },
+    });
+    const result = convertTextNodeToPath(doc, 'txt1', {
+      fontData,
+      shapedGlyphs: shaped.glyphs,
+    });
+
+    const group = result.document.nodes['txt1-outlined'] as unknown as { children: string[] };
+    expect(group.children).toHaveLength(1);
+    const glyph = result.document.nodes[group.children[0]!] as {
+      shape: { kind: string; points: Array<{ x: number; y: number }> };
+      name: string;
+    };
+    expect(glyph.name).toBe('fi');
+    expect(glyph.shape.kind).toBe('path');
+    expect(glyph.shape.points.length).toBeGreaterThan(0);
+    const metadata = (
+      result.document.nodes['txt1-outlined'] as {
+        outlinedTextMetadata?: {
+          glyphs: Array<{ glyphId?: number; sourceStart?: number; sourceEnd?: number }>;
+          sourceText: string;
+        };
+      }
+    ).outlinedTextMetadata;
+    expect(metadata?.sourceText).toBe('fi');
+    expect(metadata?.glyphs[0]?.glyphId).toBe(shaped.glyphs[0]?.glyphId);
+    expect(metadata?.glyphs[0]?.sourceStart).toBe(0);
+    expect(metadata?.glyphs[0]?.sourceEnd).toBe(2);
+    expect(result.warnings).toHaveLength(0);
   });
 });

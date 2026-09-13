@@ -1,5 +1,5 @@
-import { getFontRegistry } from '@varve/engine';
-import type { Document } from '@varve/scene';
+import { collectFontData, createHarfBuzzWasmBackend, getFontRegistry } from '@varve/engine';
+import type { Document, TextNode } from '@varve/scene';
 import { convertTextNodeToPath } from '@varve/scene';
 
 export interface ConvertTextOutlineCallbacks {
@@ -21,12 +21,47 @@ export async function convertTextOutline(
   callbacks: ConvertTextOutlineCallbacks,
 ): Promise<void> {
   try {
+    const sourceNode = doc.nodes[nodeId];
+    if (!sourceNode || sourceNode.kind !== 'text') {
+      callbacks.onError('Select a text node before converting to outlines.');
+      return;
+    }
+    const textNode = sourceNode as TextNode;
+
     // Try to get font binary data
     let fontData: ArrayBuffer | undefined;
 
     // Access FontRegistry to find font URLs
     const registry = getRegistry();
     const entries = registry?.getEntries(fontFamily) ?? [];
+    const selectedEntry = entries.find(
+      (entry) =>
+        entry.weight === (textNode.fontWeight ?? 400) &&
+        entry.style === (textNode.fontStyle ?? 'normal'),
+    );
+    const faceIndex =
+      textNode.fontReference?.collectionIndex ?? selectedEntry?.collectionIndex ?? 0;
+    const fontIdentity = textNode.fontReference
+      ? `sha256:${textNode.fontReference.artifactHash}:${textNode.fontReference.collectionIndex ?? 'single'}`
+      : selectedEntry?.faceKey;
+
+    // The shared collector resolves exact local storage and bundled assets
+    // before the legacy provider fallback below. This keeps outlining local
+    // and prevents a same-family, different-artifact substitution.
+    try {
+      const records = await collectFontData(
+        [{ family: fontFamily, fontReference: textNode.fontReference }],
+        { fetchBundled: true },
+      );
+      const record = records[0];
+      if (record) {
+        const copy = new Uint8Array(record.data.byteLength);
+        copy.set(record.data);
+        fontData = copy.buffer;
+      }
+    } catch {
+      // Keep the provider fallback below available for older registry entries.
+    }
 
     // Try bundled fonts first (they have direct URLs)
     const bundledEntry = entries.find((e) => e.source === 'bundled' && e.url);
@@ -96,9 +131,31 @@ export async function convertTextOutline(
       return;
     }
 
+    if (faceIndex !== 0) {
+      callbacks.onWarn(
+        `Font face ${faceIndex} belongs to a collection. Exact collection-face outlining is not available in this runtime, so the text was left editable.`,
+      );
+      callbacks.onError('This font collection face cannot be outlined safely yet.');
+      return;
+    }
+
+    const shaping = await shapeForOutline(textNode, fontData, faceIndex, fontIdentity);
+    for (const warning of shaping.warnings) callbacks.onWarn(warning);
+    if (shaping.missingGlyphs.length > 0) {
+      callbacks.onError(
+        'The selected font could not provide every glyph for this text. The editable text was preserved.',
+      );
+      return;
+    }
+
     // Run the conversion with progressive options
     const result = convertTextNodeToPath(doc, nodeId, {
       fontData,
+      faceIndex,
+      fontIdentity,
+      shapedGlyphs: shaping.glyphs,
+      shapedRuns: shaping.runs,
+      variableAxes: textNode.variableAxes,
       maxChars: 20000,
       includeDecorations: true,
       preserveRuns: true,
@@ -119,6 +176,85 @@ export async function convertTextOutline(
     console.error('[Varve] text outline conversion failed', err);
     callbacks.onError('Could not convert text to outlines. Check that the font is available.');
   }
+}
+
+interface OutlineShapingResult {
+  glyphs?: Awaited<ReturnType<ReturnType<typeof createHarfBuzzWasmBackend>['shape']>>['glyphs'];
+  runs?: Array<{
+    text: string;
+    sourceStart: number;
+    glyphs: Awaited<ReturnType<ReturnType<typeof createHarfBuzzWasmBackend>['shape']>>['glyphs'];
+  }>;
+  warnings: string[];
+  missingGlyphs: number[];
+}
+
+async function shapeForOutline(
+  node: TextNode,
+  fontData: ArrayBuffer,
+  faceIndex: number,
+  fontIdentity: string | undefined,
+): Promise<OutlineShapingResult> {
+  const backend = createHarfBuzzWasmBackend();
+  const warnings: string[] = [];
+  const missingGlyphs: number[] = [];
+  const shape = async (
+    text: string,
+    fontSize: number,
+    features: TextNode['openTypeFeatures'],
+    axes: Record<string, number> | undefined,
+    language: string | undefined,
+    direction: 'ltr' | 'rtl' | undefined,
+  ) => {
+    const result = await backend.shape({
+      text,
+      fontData,
+      fontIdentity,
+      faceIndex,
+      fontSize,
+      features,
+      variationAxes: axes,
+      language,
+      direction,
+    });
+    warnings.push(...result.warnings);
+    missingGlyphs.push(...result.missingGlyphIndices);
+    return result;
+  };
+
+  if (!node.richText?.paragraphs?.length) {
+    const result = await shape(
+      node.text,
+      node.fontSize,
+      node.openTypeFeatures,
+      node.variableAxes,
+      node.language,
+      node.direction === 'ltr' || node.direction === 'rtl' ? node.direction : undefined,
+    );
+    return { glyphs: result.glyphs, warnings, missingGlyphs };
+  }
+
+  const runs: NonNullable<OutlineShapingResult['runs']> = [];
+  let sourceStart = 0;
+  for (const paragraph of node.richText.paragraphs) {
+    for (const run of paragraph.runs ?? []) {
+      const text = run.text ?? '';
+      const format = run.format;
+      const result = await shape(
+        text,
+        format?.fontSize ?? node.fontSize,
+        format?.openTypeFeatures ?? node.openTypeFeatures,
+        format?.variableFontSettings ?? node.variableAxes,
+        format?.language ?? node.language,
+        paragraph.format?.direction ??
+          (node.direction === 'ltr' || node.direction === 'rtl' ? node.direction : undefined),
+      );
+      runs.push({ text, sourceStart, glyphs: result.glyphs });
+      sourceStart += text.length;
+    }
+    sourceStart += 1;
+  }
+  return { runs, warnings, missingGlyphs };
 }
 
 function getRegistry() {

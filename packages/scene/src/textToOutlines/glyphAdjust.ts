@@ -17,6 +17,9 @@ import type { GlyphAdjustment, ShapeNode } from '../types';
 interface OutlineGlyphLike {
   char: string;
   points: Array<{ x: number; y: number }>;
+  /** Source-range anchor emitted by a shaping backend, when available. */
+  sourceStart?: number;
+  sourceEnd?: number;
 }
 
 export interface OutlineAdjustmentResult {
@@ -55,15 +58,19 @@ export function applyGlyphAdjustmentsToOutlines(
     }
   }
 
-  // Assign each glyph to its cluster by UTF-16 offset.
+  // Assign each glyph to its source grapheme anchor. Shaped glyphs may cover
+  // multiple graphemes (for example `fi`), so their sourceStart is the stable
+  // unit to which an explicit manipulation belongs. Raw outlines retain the
+  // legacy cumulative character offset fallback.
   const clusterOfGlyph: number[] = [];
   {
     let offset = 0;
     let clusterIndex = 0;
     for (const glyph of glyphs) {
+      const sourceOffset = glyph.sourceStart ?? offset;
       while (
         clusterIndex < clusters.length - 1 &&
-        offset >= (clusterStart[clusterIndex] ?? 0) + clusters[clusterIndex]!.length
+        sourceOffset >= (clusterStart[clusterIndex + 1] ?? 0)
       ) {
         clusterIndex += 1;
       }
