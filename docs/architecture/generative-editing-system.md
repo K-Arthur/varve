@@ -10,7 +10,8 @@ provider, while the document semantics remain the same.
 
 ## Current capability boundary
 
-The verified local pipeline currently supports mask-guided Fill and Remove:
+The verified local pipeline currently supports mask-guided Fill and Remove, and
+promptless Expand:
 
 ```text
 selection / painted mask / confirmed Object Selection candidate
@@ -20,13 +21,24 @@ selection / painted mask / confirmed Object Selection candidate
   → source-safe composite
   → embedded result asset + generation provenance
   → one editor transaction on accept
+
+expand margins on a retained source rectangle
+  → validated full-frame plan (source translated, never rescaled)
+  → border coverage mask including corners
+  → LaMa (local model) or PatchMatch (offline) on the padded frame
+  → authoritative source restored byte-for-byte
+  → expanded asset + output-frame geometry + provenance
+  → one editor transaction on accept
 ```
 
 LaMa is an image-conditioned inpainting model. It does not consume natural
 language, so the shared prompt control is explicitly advisory in the current
-local provider and is not persisted as if it conditioned the result. Replace
-and Expand use the same session and job contract, but remain capability-gated
-until a verified prompt-conditioned/outpainting provider exists.
+local provider and is not persisted as if it conditioned the result.
+Prompt-conditioned Replace and Expand use the same session and job contract but
+remain capability-gated until a verified prompt-conditioned model exists.
+Promptless Expand is available because its plan, source protection, and real
+model output were measured; see
+[the expand qualification](../audits/generative-expand-qualification-2026-09-13.md).
 
 ## Tool surface and synchronization
 
@@ -204,13 +216,19 @@ source-pixel frame independently of node-local coordinates. Resized or
 uniformly fitted images therefore retain exact patch alignment after
 save/reopen; tiled, perspective-warped, cropped-out, or non-uniformly
 stretched mappings fail closed with an actionable message rather than
-producing a plausible but displaced edit. Expand retains its explicit
-full-frame preparation helper until a qualified outpainting provider is
-available; it is currently unavailable and the helper is not reachable
-through the product UI. When a bounded edit is repeated, the next bounded
-context starts from the immutable source plus all previously accepted overlay
-patches; the active candidate is excluded only from the review baseline so it
-cannot be painted twice.
+producing a plausible but displaced edit. Expand uses its own validated
+full-frame plan instead of the bounded-overlay path: the retained rectangle is
+translated by the left/top margins with no resampling, the new border including
+corners is covered by the generation mask, the model runs on the padded frame,
+and the authoritative source is restored byte-for-byte before acceptance. The
+accepted expanded asset replaces the image fill and the node geometry grows to
+the output frame while `outputFrame` preserves the source's world-space
+position, so expanding on the top or left does not move the subject. The review
+surface states the effective generation resolution, because the fixed LaMa
+graph letterboxes the frame and enlarges its output. When a bounded edit is
+repeated, the next bounded context starts from the immutable source plus all
+previously accepted overlay patches; the active candidate is excluded only
+from the review baseline so it cannot be painted twice.
 
 The renderer reports a best-effort platform family and architecture in the
 resource profile. ChromeOS/ARM browser sessions therefore show their
@@ -322,6 +340,17 @@ cross-platform backend qualification, the real-photograph task corpus, and
 reviewed Fill/Remove/Replace/Expand results. Until that evidence is recorded,
 the product must keep prompt-conditioned modes unavailable and must not use
 their interface presence as marketing evidence.
+
+The promptless LaMa path is separately qualified for expansion on Linux x86_64
+CPU: four public-domain photographs covering right/bottom, both-sides, top, and
+all-sides margins produced exact protected-pixel equality, non-degenerate
+generated borders, and plausible continuation for sky, water, grass, studio
+backdrop, and plain print surround. Measured warm latency was 20 to 21 seconds
+(58 seconds including the first cold model load). The qualification report
+records the evidence hashes, effective-resolution boundary, and declared
+content categories. Windows, macOS, ARM, constrained-memory, and browser
+model lanes remain to be measured; the browser lane uses PatchMatch texture
+continuation rather than the model.
 
 ## Non-goals for this slice
 

@@ -37,7 +37,7 @@ import { sitePath } from '../../../lib/siteUrl';
             <tr><td>Fill</td><td>Reconstruct painted pixels from nearby context.</td><td>Local, available</td></tr>
             <tr><td>Remove</td><td>Rebuild the background after painting an unwanted object.</td><td>Local, available</td></tr>
             <tr><td>Replace</td><td>Replace a region from a text instruction.</td><td>Desktop only after a local model passes qualification</td></tr>
-            <tr><td>Expand</td><td>Synthesize pixels beyond the current image bounds.</td><td>Desktop only after a local model passes qualification</td></tr>
+            <tr><td>Expand</td><td>Generate pixels beyond the current image bounds. The retained source is copied through unchanged and only the new border is synthesized.</td><td>Local, available without a prompt; prompt-conditioned expansion is desktop-only after a local model passes qualification</td></tr>
           </tbody>
         </table>
       </section>
@@ -48,6 +48,7 @@ import { sitePath } from '../../../lib/siteUrl';
           <li><strong>Fast / Quick Cleanup</strong> uses the offline PatchMatch heuristic in a worker when the runtime supports workers and needs no model download. It is the fallback for constrained-memory devices and simple dust, blemish, and background cleanup; cancelling it does not leave a matching job running in the editor.</li>
           <li>For Fill and Remove, the editor decodes only the painted source rectangle. The working raster is aspect-preserving and capped at 1 MP on constrained devices, 4 MP on standard devices, 8 MP on high-memory devices, and 2 MP when browser memory is unknown. The editable mask is persisted at source dimensions through a row-by-row grayscale PNG encoder, while acceptance stores a bounded transparent patch above the original pixels.</li>
           <li><strong>AI</strong> uses the optional LaMa inpainting model. Download it explicitly; the model is kept in local model storage.</li>
+          <li><strong>Expand</strong> takes integer margins for each side and shows the original boundary while you set them. The source is placed at the requested offset without resampling, the whole new border including corners is generated, and the retained rectangle is restored byte-for-byte after inference, so provider changes inside the original never reach the document. LaMa synthesizes the border at a bounded resolution and enlarges it to the output size, so fine detail in new areas is approximate; the review step states the effective resolution. On a measured Linux x86_64 CPU, a 1024-pixel source with 120 to 160-pixel margins took about 20 seconds warm (about 60 seconds including the first cold model load).</li>
           <li>LaMa is image-conditioned, not text-conditioned. Prompt-conditioned Fill, Replace, and Expand require an explicitly imported safe-format model that passes the desktop validation run. The browser has no silent remote fallback.</li>
           <li>Desktop model setup is deliberately two-step: download the allowlisted Stable Diffusion 1.5 Inpainting Q4_0 candidate or import a safe-format artifact, then choose <strong>Validate Model</strong>. A non-empty model file is not treated as compatible until the production helper completes a masked test.</li>
           <li>The current 1.75 GB candidate needs about 6 GB of available memory and is licensed CreativeML OpenRAIL-M. It failed Varve's 2026-09-12 real-photograph semantic/runtime qualification, so its prompt-conditioned modes remain disabled. A model checksum and reviewed result are required before any prompt mode is enabled.</li>
@@ -70,7 +71,7 @@ import { sitePath } from '../../../lib/siteUrl';
 
       <section class="docs-section">
         <h2>What this tool does not promise</h2>
-        <p>PatchMatch and LaMa can produce useful reconstructions, but they do not understand semantic instructions, guarantee repeating patterns, or solve every transparent, reflective, or highly structured image. Inspect the result at 1:1 and keep the source layer until the edit is approved.</p>
+        <p>PatchMatch and LaMa can produce useful reconstructions, but they do not understand semantic instructions, guarantee repeating patterns, or solve every transparent, reflective, or highly structured image. Expansion continues what is already near the boundary; it does not invent requested objects, recover information that was never photographed, or make a sharp new subject out of a soft generated border. Text, logos, diagrams, pixel art, and screenshots are not supported expansion targets. Inspect the result at 1:1 and keep the source layer until the edit is approved.</p>
       </section>
     </article>
   </div>

@@ -19,9 +19,10 @@ import StatusPill from '../../components/StatusPill.astro';
         <h1>Make room in an image without losing the original.</h1>
         <p>
           Paint the pixels that need work, preview a bounded local result, and accept it in the
-          existing image layer. Varve's current verified providers handle mask-guided Fill and
-          Remove; prompt-conditioned Replace and canvas Expand remain gated until a local model
-          passes compatibility and quality review.
+          existing image layer. Varve's verified local providers handle mask-guided Fill and Remove,
+          and promptless Expand adds real pixels beyond an image while keeping the original exactly
+          in place. Prompt-conditioned Replace and Expand remain gated until a local model passes
+          compatibility and quality review.
         </p>
       </header>
 
@@ -44,11 +45,11 @@ import StatusPill from '../../components/StatusPill.astro';
           <p>Prompt-conditioned replacement is wired for desktop, but requires an explicitly imported and qualified local model.</p>
           <strong>Desktop qualification required</strong>
         </article>
-        <article class="mode-card">
+        <article class="mode-card mode-card--available">
           <span class="mode-card__number">04</span>
           <h2>Expand</h2>
-          <p>Outpainting beyond the current image bounds is wired for desktop, but remains gated until a measured provider is ready.</p>
-          <strong>Desktop qualification required</strong>
+          <p>Add pixels beyond the current image bounds. The retained source is copied through exactly, the full new border including corners is generated, and the result is reviewed before it replaces the image. Desktop uses the local LaMa model when installed; Fast mode extends texture offline.</p>
+          <strong>Available locally</strong>
         </article>
       </section>
 
@@ -57,7 +58,7 @@ import StatusPill from '../../components/StatusPill.astro';
         <h2>Paint, preview, accept.</h2>
         <div class="workflow-grid">
           <article><span>01</span><h3>Mark the edit</h3><p>Use a brush, pixel selection, layer mask, image alpha, or a confirmed Object Selection candidate. Black preserves the source; white identifies the region to regenerate.</p></article>
-          <article><span>02</span><h3>Choose the local path</h3><p>Draft uses the fast PatchMatch path. Higher quality uses the optional LaMa model; prompt-conditioned desktop modes use an explicitly downloaded and validated local diffusion profile. For Fill and Remove, only the selected source region is decoded, the working raster is capped for the device tier, and the accepted result remains a bounded patch over the source.</p></article>
+          <article><span>02</span><h3>Choose the local path</h3><p>Draft uses the fast PatchMatch path. Higher quality uses the optional LaMa model; prompt-conditioned desktop modes use an explicitly downloaded and validated local diffusion profile. For Fill and Remove, only the selected source region is decoded, the working raster is capped for the device tier, and the accepted result remains a bounded patch over the source. Expand builds a validated full-frame plan, protects the retained rectangle byte-for-byte, and states the effective resolution of the generated border.</p></article>
           <article><span>03</span><h3>Review before committing</h3><p>Compare Original and Result, inspect at Fit or 1:1, and keep a generated variation only when it looks right. Reopen an accepted edit and choose Edit mask to refine it without losing the recipe.</p></article>
           <article><span>04</span><h3>Keep the source recoverable</h3><p>Accepting updates the existing image layer in one undoable transaction while retaining an immutable source snapshot and the mask/provider record.</p></article>
         </div>
@@ -66,7 +67,7 @@ import StatusPill from '../../components/StatusPill.astro';
       <section class="feature-section qualification-section" aria-labelledby="qualification-title">
         <p class="eyebrow">Qualification status</p>
         <h2 id="qualification-title">Prompt modes stay gated until they pass.</h2>
-        <p class="qualification-note">Varve currently publishes only the verified local Fill and Remove boundary. The prompt-conditioned model candidates tested on a real photograph did not meet the semantic-quality and runtime-integrity bar, so Replace, prompt-conditioned Fill, and Expand remain unavailable. We do not show an unreviewed before/after as product proof.</p>
+        <p class="qualification-note">Varve publishes the verified local Fill, Remove, and promptless Expand boundary. Promptless Expand was measured on four public-domain photographs: the retained source was byte-identical after composition, generation ran locally in 20 to 60 seconds per image, and the results held for sky, water, grass, studio backdrop, and plain print surround. The prompt-conditioned model candidates tested on a real photograph did not meet the semantic-quality and runtime-integrity bar, so Replace, prompt-conditioned Fill, and prompt-conditioned Expand remain unavailable. LaMa is not a dedicated outpainting model: the generated border is synthesized at a bounded resolution and detail there is approximate. We do not show an unreviewed before/after as product proof.</p>
       </section>
 
       <section class="feature-section integration-section" aria-labelledby="integration-title">
@@ -75,16 +76,17 @@ import StatusPill from '../../components/StatusPill.astro';
         <div class="integration-grid">
           <p><strong>Reuse existing intent.</strong><br />Start with a brush mask, the current pixel selection, an image layer mask, source alpha, or a confirmed Object Selection candidate. Expansion, feathering, and bounded context keep the edit aligned to source pixels.</p>
           <p><strong>Keep the document honest.</strong><br />Apply updates the selected image in place, preserves its identity and layout, and retains the original pixels for Restore Original. Provenance, undo, save/reopen, export, and the Layers panel stay on one document state.</p>
-          <p><strong>Know what is available.</strong><br />Fill and Remove run locally today. Fast/PatchMatch is the lightweight path for constrained devices, including many Chromebooks and ARM systems; large photographs use a bounded source region and a transparent accepted patch instead of a full inference frame. Replace and Expand are visible in the shared interface, but remain gated until an imported local model passes Varve's compatibility and quality requirements.</p>
+          <p><strong>Know what is available.</strong><br />Fill, Remove, and promptless Expand run locally today. Fast/PatchMatch is the lightweight path for constrained devices, including many Chromebooks and ARM systems; large photographs use a bounded source region and a transparent accepted patch instead of a full inference frame. Expand copies the retained source through exactly and generates only the new border. Replace and prompt-conditioned Expand are visible in the shared interface, but remain gated until an imported local model passes Varve's compatibility and quality requirements.</p>
         </div>
       </section>
 
       <aside class="honesty" aria-labelledby="privacy-title">
         <h2 id="privacy-title">Local by default, explicit about limits.</h2>
         <p>
-          Current Fill and Remove processing stays on the device. There is no silent cloud fallback.
-          The local LaMa model does not read natural-language prompts, so prompt text is not treated
-          as conditioning and is not retained in the current local edit record. Accepted pixels are
+          Current Fill, Remove, and promptless Expand processing stays on the device. There is no
+          silent cloud fallback. The local LaMa model does not read natural-language prompts, so
+          prompt text is not treated as conditioning and is not retained in the current local edit
+          record. Expanding uploads nothing and costs nothing per attempt. Accepted pixels are
           embedded in the document and render without the model being installed later.
         </p>
         <a href={sitePath('/docs/tools/generative-editing')}>Read the workflow guide →</a>
