@@ -2066,8 +2066,10 @@ external verification lanes.
 
 ### CLIP-46 — File picker placement was captured after the dialog returned (2026-09-12)
 
-**Checkout:** `1550d288233c2e032efa0f6d8e30b894236179cc` on `master`, with the
-repair committed as `b8231a4351f568a83f2af974b0287ce067ffd3bf`. **Environment:**
+**Checkout:** `b98cb90723d283f259cd7ff935b86ebcb6bc3beb` on `master`, with the
+initial repair committed as `b8231a4351f568a83f2af974b0287ce067ffd3bf` and the
+canvas-boundary tightening committed as `45a49fbc4c70425d43bb87c0822177ea885f9816`.
+**Environment:**
 `/home/kevina/CodingProjects/varve`, Linux KDE/Wayland, Node 26, Chromium/jsdom
 unit harness; concurrent Inspector, generative-edit, typography, and visual
 snapshot work remained in the shared worktree.
@@ -2085,6 +2087,9 @@ placement defect, separate from file transport and parser behavior.
 `useFileImport.openPicker` now captures document/session/revision, selection
 revision, page/design canvas, workspace, the selected-container destination,
 and the initiating canvas world center before calling the input's `click()`.
+That center is calculated directly from the captured camera and initiating
+canvas dimensions rather than from `editor.canvasToWorld`, whose fallback can
+query a later global canvas element.
 The selected files carry that snapshot into `PreparedFragment`; a document-scope
 change cancels the operation before commit. A second picker gesture still
 aborts the first owner, and only the active owner can publish progress, clear

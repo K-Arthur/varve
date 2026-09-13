@@ -247,7 +247,9 @@ request-owned abort controller before reading bytes. Starting another gesture
 supersedes the earlier request, and unmounting the editor aborts it. Progress,
 report state, and the hidden file input are cleared only by the operation that
 owns them. The importer checks its signal before worker progress/report
-callbacks and before returning a result.
+callbacks and before returning a result. The picker computes the center with the
+captured camera and that canvas's dimensions directly; it does not consult a
+later global canvas query.
 
 Paste, Import, and Drop all finish through `commitPreparedFragment`, which
 clones each logical artifact with one dependency mapping, applies its route
