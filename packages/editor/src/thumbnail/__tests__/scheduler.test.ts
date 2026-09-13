@@ -149,6 +149,15 @@ describe('ThumbnailScheduler', () => {
     });
   });
 
+  it('applies bounded backpressure to queued thumbnails', () => {
+    const bounded = new ThumbnailScheduler(1, null, 1);
+    bounded.enqueue(job('first').j);
+    bounded.enqueue(job('second', 'idle').j);
+    expect(bounded.pendingCount).toBe(1);
+    expect(bounded.droppedCount).toBe(1);
+    bounded.shutdown();
+  });
+
   it('provides an application-wide singleton', () => {
     const global = getThumbnailScheduler();
     expect(getThumbnailScheduler()).toBe(global);

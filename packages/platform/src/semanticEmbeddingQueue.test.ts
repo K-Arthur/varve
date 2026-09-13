@@ -73,4 +73,19 @@ describe('SemanticEmbeddingQueue', () => {
     release();
     await expect(running).resolves.toBe(1);
   });
+
+  it('applies backpressure when the pending queue is full', async () => {
+    const queue = new SemanticEmbeddingQueue<number>(1, null, 1);
+    let release!: () => void;
+    queue.enqueue({
+      id: 'running',
+      run: () => new Promise<number>((resolve) => (release = () => resolve(1))),
+    });
+    const pending = queue.enqueue({ id: 'pending', run: async () => 2 });
+    const rejected = queue.enqueue({ id: 'overflow', run: async () => 3 });
+    await expect(rejected).rejects.toThrow('queue is full');
+    release();
+    await expect(pending).resolves.toBe(2);
+    expect(queue.getStats().rejected).toBe(1);
+  });
 });

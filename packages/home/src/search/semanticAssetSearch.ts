@@ -23,6 +23,7 @@ import type { Asset } from '@varve/platform';
 import {
   type AssetEmbeddingIdentity,
   type AssetEmbeddingRecord,
+  getDerivedWorkAdmission,
   makeAssetEmbeddingRecord,
   SemanticAssetIndex,
   SemanticEmbeddingQueue,
@@ -95,7 +96,10 @@ class ContentHashIndex {
 export class SemanticAssetSearchService {
   private readonly store: SemanticEmbeddingStore;
   private readonly deps: SemanticSearchDeps;
-  private readonly queue = new SemanticEmbeddingQueue<AssetEmbeddingRecord | undefined>(1);
+  private readonly queue = new SemanticEmbeddingQueue<AssetEmbeddingRecord | undefined>(
+    1,
+    getDerivedWorkAdmission(),
+  );
   private index = new SemanticAssetIndex();
   private contentHashes = new ContentHashIndex([]);
   private readonly assets = new Map<string, Asset>();

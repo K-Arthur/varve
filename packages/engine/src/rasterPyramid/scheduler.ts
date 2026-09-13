@@ -22,6 +22,8 @@
  *   4 background — pyramid maintenance / persistence
  */
 
+import { type DerivedWorkAdmission, DerivedWorkAdmissionError } from '@varve/platform';
+
 export const PYRAMID_PRIORITY_VIEWPORT = 0;
 export const PYRAMID_PRIORITY_INTERACTION = 1;
 export const PYRAMID_PRIORITY_NEAR = 2;
@@ -50,6 +52,8 @@ export interface PyramidSchedulerOptions<T> {
   maxConcurrency?: number;
   maxQueued?: number;
   now?: () => number;
+  /** Shared derived-work gate. Omit for an isolated scheduler (for tests). */
+  admission?: DerivedWorkAdmission | null;
 }
 
 export interface PyramidSchedulerDiagnostics {
@@ -74,6 +78,8 @@ export class PyramidScheduler<T> {
   private readonly maxQueued: number;
   private readonly now: () => number;
   private readonly runFn: (job: PyramidJob<T>) => Promise<void> | void;
+  private readonly admission: DerivedWorkAdmission | null;
+  private readonly admissionControllers = new Map<string, AbortController>();
   private disposed = false;
 
   constructor(options: PyramidSchedulerOptions<T>) {
@@ -81,6 +87,7 @@ export class PyramidScheduler<T> {
     this.maxConcurrency = options.maxConcurrency ?? 1;
     this.maxQueued = options.maxQueued ?? 512;
     this.now = options.now ?? (() => performance.now());
+    this.admission = options.admission ?? null;
     this.queues = Array.from({ length: PYRAMID_PRIORITY_COUNT }, () => []);
   }
 
@@ -105,6 +112,7 @@ export class PyramidScheduler<T> {
       // the running result must not commit after this enqueue: cancel it and
       // queue the freshest revision.
       running.cancelled = true;
+      this.admissionControllers.get(job.key)?.abort();
     }
     const existing = this.byKey.get(job.key);
     if (existing) {
@@ -138,6 +146,7 @@ export class PyramidScheduler<T> {
     const running = this.runningByKey.get(key);
     if (running) {
       running.cancelled = true;
+      this.admissionControllers.get(key)?.abort();
       this.cancelled++;
       return true;
     }
@@ -155,6 +164,7 @@ export class PyramidScheduler<T> {
     for (const job of [...this.runningByKey.values()]) {
       if (job.layerId === layerId) {
         job.cancelled = true;
+        this.admissionControllers.get(job.key)?.abort();
         n++;
       }
     }
@@ -175,6 +185,7 @@ export class PyramidScheduler<T> {
     for (const job of [...this.byKey.values()]) {
       if (job.priority >= PYRAMID_PRIORITY_PREFETCH) {
         job.cancelled = true;
+        this.admissionControllers.get(job.key)?.abort();
         this.byKey.delete(job.key);
         this.removeQueued(job);
         this.cancelled++;
@@ -199,6 +210,8 @@ export class PyramidScheduler<T> {
 
   dispose(): void {
     this.disposed = true;
+    for (const controller of this.admissionControllers.values()) controller.abort();
+    this.admissionControllers.clear();
     for (const q of this.queues) q.length = 0;
     this.byKey.clear();
     for (const job of this.runningByKey.values()) job.cancelled = true;
@@ -237,22 +250,72 @@ export class PyramidScheduler<T> {
     if (!job) return;
     this.running++;
     this.runningByKey.set(job.key, job);
+
+    if (this.admission) {
+      const controller = new AbortController();
+      this.admissionControllers.set(job.key, controller);
+      void this.runWithAdmission(job, controller);
+      return;
+    }
+
+    this.execute(job);
+  }
+
+  private async runWithAdmission(job: PyramidJob<T>, controller: AbortController): Promise<void> {
+    let lease: Awaited<ReturnType<DerivedWorkAdmission['acquire']>> | undefined;
+    try {
+      lease = await this.admission!.acquire({
+        id: `raster-pyramid:${job.id}`,
+        kind: 'raster-pyramid',
+        priority: pyramidWorkPriority(job.priority),
+        signal: controller.signal,
+      });
+      if (job.cancelled || this.disposed || controller.signal.aborted) return;
+      await this.runFn(job);
+    } catch (error) {
+      // Admission rejection is a bounded, recoverable degradation: callers
+      // still see the normal stale/cancelled result path, never an unhandled
+      // promise from a background tile.
+      if (error instanceof DerivedWorkAdmissionError && error.code === 'queue-full') {
+        this.rejected++;
+      }
+    } finally {
+      lease?.release();
+      if (this.admissionControllers.get(job.key) === controller) {
+        this.admissionControllers.delete(job.key);
+      }
+      this.finish(job);
+    }
+  }
+
+  private execute(job: PyramidJob<T>): void {
     let result: Promise<void> | void;
     try {
       result = this.runFn(job);
     } catch {
       result = undefined;
     }
-    const finished = () => {
-      this.runningByKey.delete(job.key);
-      this.running--;
-      this.completed++;
-      this.drain();
-    };
+    const finished = () => this.finish(job);
     if (result && typeof (result as Promise<void>).then === 'function') {
       (result as Promise<void>).catch(() => undefined).finally(finished);
     } else {
       finished(); // synchronous executor: drain the whole queue inline
     }
   }
+
+  private finish(job: PyramidJob<T>): void {
+    this.runningByKey.delete(job.key);
+    this.running = Math.max(0, this.running - 1);
+    this.completed++;
+    this.drain();
+  }
+}
+
+function pyramidWorkPriority(
+  priority: number,
+): 'visible' | 'current-document' | 'background' | 'idle' {
+  if (priority <= PYRAMID_PRIORITY_VIEWPORT) return 'visible';
+  if (priority <= PYRAMID_PRIORITY_NEAR) return 'current-document';
+  if (priority < PYRAMID_PRIORITY_BACKGROUND) return 'background';
+  return 'idle';
 }

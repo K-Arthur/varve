@@ -30,6 +30,20 @@ export type {
   NormalizedAssetQuery,
 } from './assetSearch';
 export { normalizeAssetSearchQuery, searchAssets } from './assetSearch';
+export type {
+  DerivedWorkAdmissionErrorCode,
+  DerivedWorkAdmissionSnapshot,
+  DerivedWorkKind,
+  DerivedWorkLease,
+  DerivedWorkPriority,
+  DerivedWorkRequest,
+} from './derivedWorkAdmission';
+export {
+  DerivedWorkAdmission,
+  DerivedWorkAdmissionError,
+  getDerivedWorkAdmission,
+  setDerivedWorkAdmissionForTest,
+} from './derivedWorkAdmission';
 export type { PlatformKind } from './detect';
 export { detectPlatform, detectPlatformKind } from './detect';
 export { upsertPreservingMeta } from './filePersist';
@@ -81,6 +95,7 @@ export {
   resetPlatformInfo,
   setPlatformInfoForTest,
 } from './runtime';
+export { yieldToMain } from './scheduling';
 export type { ContentSearchMatch } from './searchIndex';
 export type { SemanticIndexHit, SemanticIndexSnapshot } from './semanticAssetIndex';
 export { SEMANTIC_INDEX_SCHEMA_VERSION, SemanticAssetIndex } from './semanticAssetIndex';

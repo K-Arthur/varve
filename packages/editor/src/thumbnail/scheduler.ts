@@ -14,6 +14,7 @@
  *  - idle-time scheduling with a bounded timeout fallback.
  */
 
+import { type DerivedWorkAdmission, getDerivedWorkAdmission } from '@varve/platform';
 import { isEditorInteractionActive } from '../performance/editorFrameRuntime';
 
 /** Max drain deferrals while an interaction is open (see drain()). */
@@ -47,8 +48,23 @@ export class ThumbnailScheduler {
   private shutdownFlag = false;
   private aborters = new Map<string, AbortController>();
   private interactionDeferrals = 0;
+  private readonly maxPending: number;
+  private dropped = 0;
 
-  constructor(public readonly maxConcurrency = 1) {}
+  /**
+   * `admission` is injected so isolated tests/hosts can own their budget;
+   * the application singleton supplies the shared derived-work gate.
+   */
+  constructor(
+    public readonly maxConcurrency = 1,
+    private readonly admission: DerivedWorkAdmission | null = null,
+    maxPending = 128,
+  ) {
+    if (!Number.isInteger(maxPending) || maxPending < 1) {
+      throw new Error('Thumbnail scheduler maxPending must be a positive integer');
+    }
+    this.maxPending = maxPending;
+  }
 
   get pendingCount(): number {
     return this.queue.length;
@@ -56,6 +72,10 @@ export class ThumbnailScheduler {
 
   get activeCount(): number {
     return this.running;
+  }
+
+  get droppedCount(): number {
+    return this.dropped;
   }
 
   /** True when any job with this key is queued or running. */
@@ -75,6 +95,16 @@ export class ThumbnailScheduler {
     if (existingIdx >= 0) {
       this.queue[existingIdx] = job;
     } else {
+      if (this.queue.length >= this.maxPending) {
+        const candidateIdx = this.lowestPriorityIndex();
+        const candidate = candidateIdx < 0 ? undefined : this.queue[candidateIdx];
+        if (!candidate || PRIORITY_ORDER[job.priority] <= PRIORITY_ORDER[candidate.priority]) {
+          this.dropped++;
+          return;
+        }
+        this.queue.splice(candidateIdx, 1);
+        this.dropped++;
+      }
       this.queue.push(job);
     }
 
@@ -151,8 +181,25 @@ export class ThumbnailScheduler {
         this.aborters.delete(job.key);
         if (!this.shutdownFlag && this.queue.length > 0) this.scheduleDrain();
       };
+      const run = async (): Promise<void> => {
+        let lease: Awaited<ReturnType<DerivedWorkAdmission['acquire']>> | undefined;
+        try {
+          if (this.admission) {
+            lease = await this.admission.acquire({
+              id: `thumbnail:${job.key}`,
+              kind: 'thumbnail',
+              priority: job.priority === 'current-doc' ? 'current-document' : job.priority,
+              signal: aborter.signal,
+            });
+            if (aborter.signal.aborted) return;
+          }
+          await job.run(aborter.signal);
+        } finally {
+          lease?.release();
+        }
+      };
       Promise.resolve()
-        .then(() => job.run(aborter.signal))
+        .then(run)
         .catch(() => undefined)
         .finally(done);
     }
@@ -167,13 +214,27 @@ export class ThumbnailScheduler {
     }
     return best;
   }
+
+  private lowestPriorityIndex(): number {
+    let candidate = -1;
+    for (let index = 0; index < this.queue.length; index++) {
+      if (
+        candidate < 0 ||
+        PRIORITY_ORDER[this.queue[index]!.priority] <
+          PRIORITY_ORDER[this.queue[candidate]!.priority]
+      ) {
+        candidate = index;
+      }
+    }
+    return candidate;
+  }
 }
 
 /** The single application-wide thumbnail scheduler. */
 let globalScheduler: ThumbnailScheduler | null = null;
 
 export function getThumbnailScheduler(): ThumbnailScheduler {
-  if (!globalScheduler) globalScheduler = new ThumbnailScheduler(1);
+  if (!globalScheduler) globalScheduler = new ThumbnailScheduler(1, getDerivedWorkAdmission());
   return globalScheduler;
 }
 

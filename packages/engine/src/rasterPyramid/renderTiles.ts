@@ -13,6 +13,7 @@
  * affine), so no IR schema change is required (brief §6).
  */
 
+import { getDerivedWorkAdmission } from '@varve/platform';
 import { getRasterLayerCache } from '../rasterLayerCache';
 import { maxPyramidLevel, PYRAMID_TILE_SIZE } from './pyramid';
 import {
@@ -440,6 +441,7 @@ export function getPyramidScheduler(): PyramidScheduler<undefined> {
     scheduler = new PyramidScheduler<undefined>({
       maxConcurrency: 1,
       maxQueued: 256,
+      admission: getDerivedWorkAdmission(),
       run: (job) => {
         const source = sources.get(job.layerId);
         if (!source) return;
