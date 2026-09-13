@@ -1960,3 +1960,34 @@ No visual baselines were replaced. Illustrator-authored fixtures,
 multi-page/layered TIFF, full Photoshop effects/smart objects, and packaged
 Tauri/WebKitGTK import remain provenance/platform lanes rather than inferred
 support.
+
+### IMP-14 — Legacy Illustrator wrappers lost their source-route warning (2026-09-12)
+
+The format audit also exercised the legacy PostScript form of an Illustrator
+file. The EPS subset produced the expected rectangle, but the adapter returned
+the nested EPS result directly and dropped the outer `.ai` warning. That made a
+partial Illustrator conversion look like a generic EPS import in Import
+Results. The adapter now merges its AI-wrapper warning with the EPS parser's
+warnings while retaining the `.ai` report format and the same bounded subset.
+
+| ID | Defect | Status | Evidence |
+| --- | --- | --- | --- |
+| IMP-14 | Legacy `.ai` EPS wrapper omitted its source-route/provenance warning | **Resolved locally** | `packages/import/src/ai.ts`, `packages/import/src/format-honesty.test.ts` |
+
+Validation on `master` after `cc537652c` (Linux KDE/Wayland, Node 26) was:
+
+```text
+pnpm exec biome check packages/import/src/ai.ts packages/import/src/format-honesty.test.ts
+passed
+
+pnpm exec tsc -p packages/import/tsconfig.json --noEmit --pretty false
+passed
+
+VARVE_TEST_WORKERS=1 pnpm exec vitest run packages/import/src/format-honesty.test.ts \
+  packages/import/src/ai.test.ts --maxWorkers=1 --reporter=dot
+24 tests passed
+```
+
+The repository still has no licensed Illustrator-authored fixture, so this
+closes the adapter/reporting defect without changing the documented partial
+fidelity claim.

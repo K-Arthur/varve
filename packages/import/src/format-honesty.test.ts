@@ -242,6 +242,21 @@ describe('import format honesty', () => {
     );
   });
 
+  it('routes a legacy PostScript AI wrapper through the EPS subset with provenance', async () => {
+    const ai =
+      '%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 300 200\n' + '20 30 120 80 rectfill\nshowpage\n';
+    const report = await ImportService.importFiles([
+      { name: 'legacy.ai', source: 'file-picker', bytes: strToU8(ai) },
+    ]);
+    const file = report.files[0]!;
+
+    expect(file).toMatchObject({ format: 'ai', status: 'partial' });
+    expect(file.nodeCount).toBeGreaterThan(0);
+    expect(file.warnings.map((warning) => warning.message).join(' ')).toMatch(
+      /AI file with EPS wrapper/i,
+    );
+  });
+
   it('does not offer bare .json, which belongs to File > Open', () => {
     const accept = getImportAcceptString();
     expect(accept.split(',')).not.toContain('.json');

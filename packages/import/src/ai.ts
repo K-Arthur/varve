@@ -128,7 +128,8 @@ function parseAiEpsWrapper(
   warnings.push('AI file with EPS wrapper: converting to basic SVG');
   const epsParser = getParser('eps');
   if (epsParser) {
-    return epsParser.parse(data, opts);
+    const result = epsParser.parse(data, opts);
+    return { ...result, warnings: [...warnings, ...result.warnings] };
   }
 
   return {
