@@ -134,8 +134,11 @@ runs, output parity vs the CPU EP is 2e-6 max / 4e-8 mean absolute
 difference, and median wall time is 1999 ms (CPU) vs 336 ms (WebGPU).
 
 Unverified limits: u2netp and isnet-general-use run fully on WebGPU in
-measured runs; LaMa runs with a CPU fallback partition (≈28% of node
-executions) reported as such. The embedded Real-ESRGAN
+measured runs; LaMa and SCUNet run with CPU fallback partitions (≈28% of node
+executions) reported as such. birefnet-general-lite runs on CPU but its
+WebGPU EP run fails on a decoder kernel that needs 17 storage buffers per
+shader stage (WebGPU default maximum is 16), so run-time EP failure fallback
+is the next required integration step. The embedded Real-ESRGAN
 upscale pipeline shares the same policy and attaches the same devices. Other
 models, Windows, and macOS execution still default to CPU until measured.
 NPU execution remains unsupported and none is advertised.

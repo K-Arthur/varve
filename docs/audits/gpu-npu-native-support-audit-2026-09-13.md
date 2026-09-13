@@ -216,7 +216,39 @@ the audit host:
 | Median wall time | CPU 1999 ms vs WebGPU 336 ms (~6×) |
 | isnet-general-use 1×3×1024×1024 | 1460/1460 on WebGPU, 0 CPU; parity 2e-6; CPU 6514 ms vs GPU 2029 ms |
 | lama-inpainting (2-input, 512²) | **Partial partition**: 21592 WebGPU vs 11232 CPU node executions across 4 runs; parity exact (0); CPU 96192 ms vs GPU 8190 ms |
+| scunet 1×3×256×256 (graph + external weights) | **Partial partition**: 6360 WebGPU vs 2312 CPU node executions across 4 runs; parity 1e-6; CPU 10376 ms vs GPU 4820 ms |
+| birefnet-general-lite 1×3×1024×1024 | CPU baseline runs; **WebGPU EP fails at run time** on `/decoder/Split_33`: `Too many storage buffers in shader. Current: 17, Max is 16` (Dawn/WebGPU kernel limit for this adapter; the graph fixes input at 1024). No parity/timing captured because the probe aborts on the failure. |
 | Missing plugin (negative control) | `PLUGIN_REGISTER_FAILED` with the missing path named, exit 2 — no silent GPU claim, CPU policy unaffected |
+
+### Discovered gap: run-time EP failures need model-level CPU fallback
+
+`birefnet-general-lite` shows that session creation succeeding is not a
+guarantee that a model can execute on the WebGPU EP: the failure surfaces at
+the first `run()` (`16` storage buffers per shader stage is the WebGPU
+specification default; this decoder kernel needs `17`). Under the `auto`
+policy the request currently fails instead of falling back, so the remaining
+integration work is: quarantine a model path after a WebGPU run failure,
+retry once on a fresh CPU session, and report the quarantine reason in the
+capability status. Until that lands, `auto` users can select `cpu` for this
+model class; the CPU execution provider path is unaffected.
+
+### Discovered defect: native SCUNet download omits the external weights file
+
+- `crates/varve-bgremove/src/model.rs` pins only the graph: `checksum_sha256`
+  matches the 3.8 MB `scunet_color_real_psnr.onnx`, while `size_bytes`
+  (76,936,854) is the graph **plus** the 73 MB external-weights file. The
+  `ModelInfo` struct has no external-data URL.
+- `packages/engine/src/inference/modelLoader.ts:345` only fetches
+  `remoteDataUrl` when `isBrowserEnv()`, so the Tauri path never downloads
+  `scunet_color_real_psnr.onnx.data`.
+- Reproduction: with only the graph in the native models directory, session
+  creation fails because ONNX Runtime cannot resolve the external-data
+  sibling. Supplying the 73 MB file beside the graph (the run above) loads
+  and executes correctly, and the combined size matches the pinned total
+  exactly.
+- Fix shape: add a data URL + checksum + size to the native model table,
+  download both files in `download_background_removal_model`, and delete
+  both on model deletion.
 
 Node counts are not time-weighted: LaMa's CPU-side nodes account for a small
 fraction of kernel time (profiler CPU total 815 ms vs WebGPU 23304 ms over
