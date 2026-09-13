@@ -1541,3 +1541,28 @@ packaged Tauri/WebKitGTK run, Firefox-owned external transfers, and an
 Illustrator-authored fixture remain external verification lanes; this repair
 does not infer those results. The implementation and evidence update are
 committed as `4fe38896ac661e0dce2ef184f77336a52417f6b3`.
+
+### Validation refresh — 2026-09-12
+
+After the malformed-format repair, the complete import package suite was
+rerun from the current `master` checkout:
+
+```text
+pnpm exec vitest run packages/import/src --maxWorkers=1 --reporter=dot
+31 files, 358 tests passed
+
+VITE_CONFIG_NATIVE_IGNORE_WARNING=true VARVE_E2E_PORT=1605 \
+  VARVE_E2E_WORKERS=1 pnpm exec playwright test \
+  tests/e2e/canvas/file-import.spec.ts --project=chromium --workers=1 \
+  --grep "advertises parser-backed formats" --reporter=list
+1 passed; the real File > Import accept list included PNG/JPEG/WebP/GIF/BMP/
+TIFF/AVIF/PSD/PSB/SVG/PDF/AI/EPS/Figma/Sketch routes
+```
+
+The required `pnpm verify:plan` selected the broad concurrent workspace
+closure with no full-suite escalation. `pnpm verify:affected` stopped at
+`format:touched` on the unrelated concurrent `AIStatusIndicator.tsx`
+formatter diagnostic; no import file was implicated. The targeted import
+package typecheck, format check, documentation/emoji/token audits, and the
+two commands above passed. This refresh is recorded on `master` after
+`4fe38896ac661e0dce2ef184f77336a52417f6b3`.
