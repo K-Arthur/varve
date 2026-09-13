@@ -110,9 +110,9 @@ repository's concurrent Vite, Vitest, and full-gate workers:
 | Scene package typecheck | `pnpm --filter @varve/scene typecheck` | Blocked by unrelated concurrent diagnostics in `src/__tests__/clone.test.ts`, `src/__tests__/depthMaskRecipe.test.ts`, and `../shared/src/typographyFeatures.ts`; no diagnostic named this slice. |
 | E2E typecheck | `timeout 180s pnpm typecheck:e2e` | Blocked by unrelated concurrent diagnostics in engine colorization dispatch and WebGPU circle-parity metrics; no diagnostic named `selection-fill.spec.ts`. |
 | Real Chromium workflow | `timeout 540s env TMPDIR="$test_tmp" VARVE_E2E_PORT=1756 VARVE_E2E_OUTPUT_DIR=selection-fill-e2e-final19 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 pnpm exec playwright test tests/e2e/canvas/selection-fill.spec.ts --project=chromium --reporter=list` | Pass: 1 test, 2.0m wall time. The UI created a print-intent document, resized it through Page Print to a bounded 640×480 fixture, painted, selected, filled, undid, redid, saved, exported, reloaded, and reopened it. |
-| Real Chromium raster Magic Wand workflow | `test_tmp=$(mktemp -d /var/tmp/varve-raster-wand-e2e.XXXXXX); trap 'rm -rf "$test_tmp"' EXIT; timeout 420s env TMPDIR="$test_tmp" VARVE_E2E_PORT=1774 VARVE_E2E_OUTPUT_DIR=raster-magic-wand-e2e-final9 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 pnpm exec playwright test tests/e2e/canvas/raster-magic-wand.spec.ts --project=chromium --reporter=list` | Pass: 1 test, 1.3m wall time. Real paint, selected raster target, Magic Wand click, existing Selection Sources fill, and screenshot capture all completed. |
+| Real Chromium raster Magic Wand workflow | `test_tmp=$(mktemp -d /var/tmp/varve-raster-wand-e2e.XXXXXX); trap 'rm -rf "$test_tmp"' EXIT; timeout 540s env TMPDIR="$test_tmp" VARVE_E2E_PORT=1777 VARVE_E2E_OUTPUT_DIR=raster-magic-wand-e2e-final12 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 pnpm exec playwright test tests/e2e/canvas/raster-magic-wand.spec.ts --project=chromium --reporter=list` | Pass: 1 test, 1.3m wall time. Real paint, selected raster target, Magic Wand click, existing Selection Sources fill, Ctrl+S, PNG export, Home-library reopen, and screenshot capture all completed. |
 | Export content invariant | Same Chromium run; PNG decoded with `pngjs` | Pass: PNG signature, 640×480 dimensions, and more than 5,000 opaque black pixels. The saved PNG was inspected both with transparency and composited over a neutral background. |
-| Documentation/emoji/token audits | `pnpm audit:docs`, `pnpm audit:emoji`, `pnpm audit:tokens` | Pass: docs clean (794 docs, 396 links, 174 ADRs indexed), emoji clean (4,538 files), and all 153 theme token pairs pass across three themes. |
+| Documentation/emoji/token audits | `pnpm audit:docs`, `pnpm audit:emoji`, `pnpm audit:tokens` | Pass: docs clean (796 docs, 401 links, 174 ADRs indexed), emoji clean (4,546 files), and all 153 theme token pairs pass across three themes. |
 | Affected planner/full gate | `pnpm verify:plan`, `pnpm verify:affected`, and `VARVE_FULL_GATE_REASON='Final shared-master illustration integration gate; planner escalated because concurrent workspace/toolchain/validation changes broadened the affected closure' timeout 900s pnpm verify:full` | Planner required full escalation. Affected stopped at that mandated boundary. The full gate timed out under shared load and reported unrelated concurrent lint/architecture failures; no full-gate pass is claimed. |
 | Website build | `timeout 300s pnpm --filter @varve/website build` | Environment timeout after the env guard and Astro diagnostics phase under concurrent repository load. It emitted existing unused-import warnings but no error naming the two changed stroke pages. |
 
@@ -131,8 +131,8 @@ The browser evidence is under
   artwork is visible when composited over a neutral background because the
   transparent remainder is correctly encoded as zero-alpha pixels.
 
-The raster Magic Wand screenshots are under
-`test-results/raster-magic-wand-e2e-final9/canvas-raster-magic-wand-r-ea64f-e-existing-flat-fill-action-chromium/`:
+The raster Magic Wand screenshots and export are under
+`test-results/raster-magic-wand-e2e-final12/canvas-raster-magic-wand-r-ea64f-e-existing-flat-fill-action-chromium/`:
 
 - `raster-magic-wand-selection.png` was inspected and shows the painted mark
   still present with the selected pixel layer active after the Magic Wand
@@ -140,6 +140,9 @@ The raster Magic Wand screenshots are under
 - `raster-magic-wand-filled.png` was inspected and shows the existing
   **Selection Sources** panel with **Fill pixel layer** enabled and the
   completed fill path still on the same canvas/document.
+- `raster-magic-wand.png` was decoded and verified as a 640×480 PNG with
+  non-empty opaque artwork; `raster-magic-wand-reopened.png` was inspected
+  after Home-library reopen and shows the persisted stroke on a fresh canvas.
 
 Earlier browser attempts were useful regression discovery, not acceptance
 evidence: a concurrent engine parse error blocked one startup; an open
