@@ -81,6 +81,21 @@ describe('typography command adapter', () => {
     expect(current.updateNode).not.toHaveBeenCalled();
   });
 
+  it('carries family replacement through as an explicit axis reset', () => {
+    const current = surface();
+    applyTypographyChanges(current, 'text-1', {
+      fontFamily: 'Inter',
+      fontReference: undefined,
+      variableAxes: undefined,
+    });
+
+    expect(current.applyFormatToSelection).toHaveBeenCalledWith({
+      fontFamily: 'Inter',
+      fontReference: undefined,
+      variableFontSettings: undefined,
+    });
+  });
+
   it('stores collapsed-caret formatting without dirtying the document', () => {
     const current = surface({
       selectionRange: range(4, 4),

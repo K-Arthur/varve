@@ -27,6 +27,7 @@ describe('fontFamilyChanges', () => {
     expect(fontFamilyChanges('Inter')).toEqual({
       fontFamily: 'Inter',
       fontReference: undefined,
+      variableAxes: undefined,
     });
   });
 
@@ -34,6 +35,7 @@ describe('fontFamilyChanges', () => {
     expect(fontFamilyChanges(undefined)).toEqual({
       fontFamily: undefined,
       fontReference: undefined,
+      variableAxes: undefined,
     });
   });
 });

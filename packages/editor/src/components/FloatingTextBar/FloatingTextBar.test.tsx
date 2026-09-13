@@ -290,6 +290,7 @@ describe('FloatingTextBar', () => {
     expect(fontFamilyChanges('IBM Plex Sans Variable')).toEqual({
       fontFamily: 'IBM Plex Sans Variable',
       fontReference: undefined,
+      variableAxes: undefined,
     });
   });
 

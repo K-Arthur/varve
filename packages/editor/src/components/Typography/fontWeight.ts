@@ -139,9 +139,14 @@ export function fontWeightOptions(
     });
 }
 
-/** A family-only choice must not retain a reference to a different artifact. */
+/**
+ * A family-only choice must not retain identity or variation data from a
+ * different artifact. Axis tags are family-specific (for example, `wdth` or
+ * `opsz` may not exist on the newly chosen face), so retaining them would
+ * make the resolver apply unsupported coordinates or silently alter layout.
+ */
 export function fontFamilyChanges(family: string | undefined): Partial<TextNode> {
-  return { fontFamily: family, fontReference: undefined };
+  return { fontFamily: family, fontReference: undefined, variableAxes: undefined };
 }
 
 /**
