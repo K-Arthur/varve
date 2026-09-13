@@ -9,6 +9,7 @@ import { detectPlatformCapabilities, getCurrentTier } from '../../canvas/adaptiv
 import { enableDrawDiagnostics } from '../../canvas/drawDiagnostics';
 import { getAverageFrameTime, getPercentileFrameTime } from '../../canvas/frameBudget';
 import { setReducedMotionOverride } from '../../context/reducedMotionManager';
+import { ensureWebGpuCapabilityProbe, type WebGpuProbeStatus } from '../../performance/webGpuProbe';
 import type { PerformanceSettingsStore, RenderSettingsStore } from '../../settings';
 import { CapabilityReportPanel } from './CapabilityReportPanel';
 import { InteractionTracePanel } from './InteractionTracePanel';
@@ -44,6 +45,17 @@ export function PerformanceSettingsTab() {
   const { settings, updateSettings } = useSettings();
   const [copied, setCopied] = useState(false);
   const caps = detectPlatformCapabilities();
+  const [webGpuStatus, setWebGpuStatus] = useState<WebGpuProbeStatus>(caps.webGpuStatus);
+
+  useEffect(() => {
+    let active = true;
+    void ensureWebGpuCapabilityProbe().then((probe) => {
+      if (active) setWebGpuStatus(probe.status);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   function updateRender(patch: Partial<RenderSettingsStore>) {
     updateSettings({ render: patch });
@@ -75,6 +87,7 @@ export function PerformanceSettingsTab() {
       p95FrameTimeMs: Number(getPercentileFrameTime(95).toFixed(2)),
       memoryBudget: settings.render.memoryBudget,
       reducedMotionOverride: settings.performance.reducedMotionOverride,
+      webGpuStatus,
       platform: caps,
     };
     try {
@@ -153,7 +166,11 @@ export function PerformanceSettingsTab() {
         <div className="performance-settings__stat">
           <span className="performance-settings__stat-label">WebGPU</span>
           <span className="performance-settings__stat-value">
-            {caps.hasWebGPU ? 'Available' : 'Unavailable'}
+            {webGpuStatus === 'supported'
+              ? 'Available'
+              : webGpuStatus === 'unknown'
+                ? 'Checking'
+                : 'Unavailable'}
           </span>
         </div>
       </div>

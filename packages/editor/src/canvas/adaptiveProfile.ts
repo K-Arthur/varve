@@ -12,6 +12,12 @@
  * switching. A cooldown period prevents rapid re-evaluation.
  */
 
+import {
+  ensureWebGpuCapabilityProbe,
+  getWebGpuCapability,
+  resetWebGpuCapabilityProbe,
+  type WebGpuProbeStatus,
+} from '../performance/webGpuProbe';
 import { probeOffscreenCapability } from '../render/offscreenCapabilityProbe';
 import { resolveWorkerEligibility } from '../render/workerEligibility';
 
@@ -53,6 +59,10 @@ export interface PlatformCapabilities {
   isWebKitGTK: boolean;
   hasWebGL: boolean;
   hasWebGPU: boolean;
+  /** Dynamic readiness; API presence alone is reported as `unknown`. */
+  webGpuStatus: WebGpuProbeStatus;
+  /** Small allowlist of adapter limits, only after a successful probe. */
+  webGpuLimits: Readonly<Record<string, number>>;
   /** Explicit OffscreenCanvas support (WebKitGTK is unreliable across point releases). */
   hasOffscreenCanvas: boolean;
   /** Explicit createImageBitmap support. */
@@ -102,6 +112,7 @@ function probeWebGL(): boolean {
  * pattern already used by `tools/inputNormalizer.ts`.
  */
 let cachedCapabilities: PlatformCapabilities | null = null;
+let capabilityGeneration = 0;
 
 /** Detect platform capabilities. Computed once, then cached for the session. */
 export function detectPlatformCapabilities(): PlatformCapabilities {
@@ -122,6 +133,8 @@ export function detectPlatformCapabilities(): PlatformCapabilities {
     isWebKitGTK,
     hasWebGL: probeWebGL(),
     hasWebGPU: typeof navigator !== 'undefined' && 'gpu' in navigator,
+    webGpuStatus: getWebGpuCapability().status,
+    webGpuLimits: getWebGpuCapability().limits,
     hasOffscreenCanvas: typeof OffscreenCanvas !== 'undefined',
     hasCreateImageBitmap: typeof createImageBitmap === 'function',
     engine,
@@ -133,6 +146,15 @@ export function detectPlatformCapabilities(): PlatformCapabilities {
     hardwareConcurrency:
       typeof navigator !== 'undefined' ? navigator.hardwareConcurrency : undefined,
   };
+
+  const generation = capabilityGeneration;
+  if (cachedCapabilities.hasWebGPU) {
+    void ensureWebGpuCapabilityProbe().then((probe) => {
+      if (generation !== capabilityGeneration || !cachedCapabilities) return;
+      cachedCapabilities.webGpuStatus = probe.status;
+      cachedCapabilities.webGpuLimits = probe.limits;
+    });
+  }
 
   // Engines whose worker eligibility depends on verified capability start the
   // probe here, once, on the first capability read. It is a single disposable
@@ -151,16 +173,29 @@ export function detectPlatformCapabilities(): PlatformCapabilities {
 
 /** Clear cached capability detection. Test seam for environment changes. */
 export function _resetPlatformCapabilities(): void {
+  capabilityGeneration++;
   cachedCapabilities = null;
+  resetWebGpuCapabilityProbe();
 }
 
 function selectTier(
   avgFrameTime: number,
   overBudgetCount: number,
-  _nodeCount: number,
-  _caps: PlatformCapabilities,
+  nodeCount: number,
+  caps: PlatformCapabilities,
 ): ProfileTier {
   const budget = 1000 / 60;
+
+  // deviceMemory is a deliberately coarse hint. It supplies a floor only
+  // for a substantial document; it never describes the user's total usable
+  // RAM and never allocates against the advertised device size.
+  const deviceMemory = caps.deviceMemory;
+  if (deviceMemory !== undefined && deviceMemory <= 2 && nodeCount >= 500) {
+    return 'constrained';
+  }
+  if (deviceMemory !== undefined && deviceMemory <= 4 && nodeCount >= 1500) {
+    return 'performance';
+  }
 
   if (overBudgetCount >= OBSERVATION_WINDOW * 0.8 || avgFrameTime > budget * 2.5) {
     return 'constrained';

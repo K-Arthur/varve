@@ -144,3 +144,12 @@ export function resolveRuntimePressureProfile(): PressureProfile {
   if (deviceMemory <= 4) return '4gb';
   return 'normal';
 }
+
+/** Map the coarse device-memory hint to a residency pressure floor. */
+export function pressureProfileToResidencyPressure(
+  profile: PressureProfile,
+): 'normal' | 'elevated' | 'high' {
+  if (profile === '2gb') return 'high';
+  if (profile === '4gb') return 'elevated';
+  return 'normal';
+}

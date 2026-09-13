@@ -14,6 +14,9 @@ import {
   type OffscreenProbeDetail,
   probeOffscreenCapability,
 } from '../render/offscreenCapabilityProbe';
+import { ensureWebGpuCapabilityProbe } from './webGpuProbe';
+
+export type { WebGpuCapabilityProbe } from './webGpuProbe';
 
 export const CAPABILITY_REPORT_SCHEMA_VERSION = 1 as const;
 
@@ -24,15 +27,6 @@ export interface WebGlCapabilityProbe {
   contextCreated: boolean;
   contextKind: 'webgl2' | 'webgl' | null;
   contextReleased: boolean;
-  status: CapabilityProbeStatus;
-}
-
-export interface WebGpuCapabilityProbe {
-  apiPresent: boolean;
-  adapterCreated: boolean;
-  deviceCreated: boolean;
-  deviceDestroyed: boolean;
-  limits: Readonly<Record<string, number>>;
   status: CapabilityProbeStatus;
 }
 
@@ -101,14 +95,6 @@ export interface CapabilityReport {
   storage: StorageCapabilityProbe;
   files: FileCapabilityProbe;
 }
-
-const WEBGPU_LIMIT_KEYS = [
-  'maxTextureDimension2D',
-  'maxTextureArrayLayers',
-  'maxBufferSize',
-  'maxStorageBufferBindingSize',
-  'maxComputeWorkgroupsPerDimension',
-] as const;
 
 const WASM_SIMD_PROBE = new Uint8Array([
   0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15,
@@ -189,77 +175,6 @@ function probeWebGl(): WebGlCapabilityProbe {
       contextReleased: false,
       status: 'failed',
     };
-  }
-}
-
-interface WebGpuDevice {
-  destroy?: () => void;
-}
-
-interface WebGpuAdapter {
-  limits?: unknown;
-  requestDevice?: () => Promise<WebGpuDevice>;
-}
-
-interface WebGpuApi {
-  requestAdapter?: (options?: { powerPreference?: 'low-power' }) => Promise<WebGpuAdapter | null>;
-}
-
-function readWebGpuLimits(limits: unknown): Readonly<Record<string, number>> {
-  if (!limits || typeof limits !== 'object') return {};
-  const record = limits as Record<string, unknown>;
-  const result: Record<string, number> = {};
-  for (const key of WEBGPU_LIMIT_KEYS) {
-    const value = finiteNumber(record[key]);
-    if (value !== undefined) result[key] = value;
-  }
-  return result;
-}
-
-async function probeWebGpu(): Promise<WebGpuCapabilityProbe> {
-  const api = getNavigatorRecord().gpu as WebGpuApi | undefined;
-  const base = {
-    apiPresent: api !== undefined,
-    adapterCreated: false,
-    deviceCreated: false,
-    deviceDestroyed: false,
-    limits: {},
-  } as const;
-  if (!api || !hasFunction(api.requestAdapter)) {
-    return { ...base, status: 'unavailable' };
-  }
-
-  try {
-    const requestAdapter = api.requestAdapter;
-    if (!requestAdapter) return { ...base, status: 'unavailable' };
-    const adapter = await requestAdapter({ powerPreference: 'low-power' });
-    if (!adapter) return { ...base, status: 'failed' };
-    const limits = readWebGpuLimits(adapter.limits);
-    if (!hasFunction(adapter.requestDevice)) {
-      return { ...base, adapterCreated: true, limits, status: 'failed' };
-    }
-    const requestDevice = adapter.requestDevice;
-    if (!requestDevice) {
-      return { ...base, adapterCreated: true, limits, status: 'failed' };
-    }
-    const device = await requestDevice();
-    let deviceDestroyed = false;
-    try {
-      device.destroy?.();
-      deviceDestroyed = true;
-    } catch {
-      // A successful probe still reports cleanup failure as unhealthy.
-    }
-    return {
-      apiPresent: true,
-      adapterCreated: true,
-      deviceCreated: true,
-      deviceDestroyed,
-      limits,
-      status: deviceDestroyed ? 'supported' : 'failed',
-    };
-  } catch {
-    return { ...base, status: 'failed' };
   }
 }
 
@@ -379,7 +294,7 @@ export async function collectCapabilityReport(): Promise<CapabilityReport> {
   const adaptiveProfile = detectPlatformCapabilities();
   const offscreenPromise = probeOffscreenCapability();
   const [webgpu, offscreen, storage] = await Promise.all([
-    probeWebGpu(),
+    ensureWebGpuCapabilityProbe(),
     offscreenPromise,
     probeStorage(),
   ]);

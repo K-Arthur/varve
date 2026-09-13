@@ -37,6 +37,10 @@ import {
   summarizeInteractionTraces,
 } from '../performance/interactionTrace';
 import {
+  readRuntimeMemorySample,
+  resolveMeasuredMemoryPressure,
+} from '../performance/memoryPressure';
+import {
   detectPresentationCapabilities,
   estimateCompositeFromRaf,
   observePresentation,
@@ -430,6 +434,10 @@ function augmentPerfDiagnosticsHandle(): void {
     },
     workerBitmapBudget: () => getRegisteredWorkerHost()?.getBitmapBudgetState() ?? null,
     residency: () => getAdaptiveResidencyManager().diagnostics(),
+    memory: () => ({
+      pressure: resolveMeasuredMemoryPressure(),
+      sample: readRuntimeMemorySample(),
+    }),
     // Presentation evidence is reported with its class and limits so a probe
     // cannot mistake the rAF lower bound for a measured presentation time.
     // Node work and the individual pre-merge dirty rectangles behind it, so a
@@ -707,8 +715,16 @@ function renderSecondaryPerfPanel(ctx: CanvasRenderingContext2D, canvasWidth: nu
   }
   if (lines.length === 0) return;
 
+  const gpuLabel =
+    caps.webGpuStatus === 'supported'
+      ? 'webgpu'
+      : caps.webGpuStatus === 'unknown'
+        ? 'probing'
+        : caps.hasWebGL
+          ? 'webgl'
+          : 'none';
   lines.push(
-    `engine:${caps.engine}${caps.webKitVersion ? `/${caps.webKitVersion}` : ''} offscreen:${caps.hasOffscreenCanvas ? 'y' : 'n'} bitmap:${caps.hasCreateImageBitmap ? 'y' : 'n'} gpu:${caps.hasWebGPU ? 'webgpu' : caps.hasWebGL ? 'webgl' : 'none'}`,
+    `engine:${caps.engine}${caps.webKitVersion ? `/${caps.webKitVersion}` : ''} offscreen:${caps.hasOffscreenCanvas ? 'y' : 'n'} bitmap:${caps.hasCreateImageBitmap ? 'y' : 'n'} gpu:${gpuLabel}`,
   );
 
   ctx.save();

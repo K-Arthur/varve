@@ -58,6 +58,7 @@ import {
 } from '@varve/shared';
 import type { EditorContextValue, EditorState } from '../context';
 import { isEditorInteractionActive } from '../performance/editorFrameRuntime';
+import { resolveMeasuredMemoryPressure } from '../performance/memoryPressure';
 import { applyPropertyPath } from '../propertyPath';
 import {
   getAdaptiveResidencyManager,
@@ -125,6 +126,7 @@ import {
   replayMaskedContainer,
   requiresLeafMaskReplay,
 } from './maskReplay';
+import { pressureProfileToResidencyPressure, resolveRuntimePressureProfile } from './memoryBudget';
 import { openFullRedraw, openMultiRectPartialClip, openUnionPartialClip } from './partialPaint';
 import {
   beginContentFrame,
@@ -1099,15 +1101,21 @@ export function renderContent(deps: RenderContentDeps): void {
     const residency = getAdaptiveResidencyManager();
     residency.beginFrame();
     const averageFrameTime = getAverageFrameTime();
-    residency.setPressure(
+    const framePressure =
       averageFrameTime > 50
         ? 'critical'
         : averageFrameTime > 32
           ? 'high'
           : averageFrameTime > 20
             ? 'elevated'
-            : 'normal',
+            : 'normal';
+    const memoryPressure = resolveMeasuredMemoryPressure();
+    const hintPressure = pressureProfileToResidencyPressure(resolveRuntimePressureProfile());
+    const pressureRank = { normal: 0, elevated: 1, high: 2, critical: 3 } as const;
+    const pressure = [framePressure, memoryPressure, hintPressure].reduce((best, next) =>
+      pressureRank[next] > pressureRank[best] ? next : best,
     );
+    residency.setPressure(pressure);
     residency.setBudgets({
       cpuBytes: budgets.imageCacheBytes,
       gpuBytes: budgets.workerBitmapBytes,

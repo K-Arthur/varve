@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ensureWebGpuCapabilityProbe } from '../../performance/webGpuProbe';
 import {
   _resetPlatformCapabilities,
   _setCooldownFrames,
@@ -114,6 +115,11 @@ describe('adaptiveProfile', () => {
 describe('platform capability detection', () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    Reflect.deleteProperty(navigator, 'gpu');
+    Object.defineProperty(navigator, 'deviceMemory', {
+      configurable: true,
+      value: undefined,
+    });
     _resetPlatformCapabilities();
   });
 
@@ -201,5 +207,38 @@ describe('platform capability detection', () => {
     expect(profile.enableWorker).toBe(
       typeof Worker !== 'undefined' && typeof OffscreenCanvas !== 'undefined',
     );
+  });
+
+  it('keeps a coarse low-memory device on a safe tier for substantial scenes', () => {
+    _resetPlatformCapabilities();
+    Object.defineProperty(navigator, 'deviceMemory', {
+      configurable: true,
+      value: 2,
+    });
+    resetProfile();
+    _setCooldownFrames(1);
+    for (let i = 0; i < 12; i++) computeProfile(8, 0, 500);
+    expect(getCurrentTier()).toBe('constrained');
+  });
+
+  it('does not treat WebGPU API presence as a ready device', async () => {
+    _resetPlatformCapabilities();
+    const destroy = vi.fn();
+    Object.defineProperty(navigator, 'gpu', {
+      configurable: true,
+      value: {
+        requestAdapter: vi.fn().mockResolvedValue({
+          limits: { maxTextureDimension2D: 4096 },
+          requestDevice: vi.fn().mockResolvedValue({ destroy }),
+        }),
+      },
+    });
+    const initial = detectPlatformCapabilities();
+    expect(initial.hasWebGPU).toBe(true);
+    expect(initial.webGpuStatus).toBe('unknown');
+    const result = await ensureWebGpuCapabilityProbe();
+    expect(result.status).toBe('supported');
+    expect(detectPlatformCapabilities().webGpuStatus).toBe('supported');
+    expect(destroy).toHaveBeenCalledOnce();
   });
 });
