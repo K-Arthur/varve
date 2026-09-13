@@ -6,9 +6,17 @@
  * saved map has been accepted: source selection, contained preview/picking,
  * persistent mask commit, undo/redo, scalar export, and project reopen.
  */
+import { readFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { importImageFile } from '../helpers/editor-helpers';
 import { navigateToEditor } from '../shared';
+
+const requireFromEngine = createRequire(join(process.cwd(), 'packages', 'engine', 'package.json'));
+const { PNG } = requireFromEngine('pngjs') as {
+  PNG: { sync: { read(input: Buffer): { width: number; height: number; data: Buffer } } };
+};
 
 const CONTENT_CANVAS = 'canvas.editor-canvas__content-layer';
 
@@ -140,6 +148,22 @@ test.describe('standalone depth masking', () => {
     const exported = JSON.parse(Buffer.concat(chunks).toString('utf8'));
     expect(exported.nearFarConvention).toBe('nearIsLow');
     expect(exported.byteLength).toBe(resource.byteLength);
+
+    // Numeric depth and rendered appearance are separate products. Verify
+    // that the accepted mask also survives the existing PNG export route.
+    await page.getByRole('tab', { name: 'Export', exact: true }).click();
+    const pngGroup = page.locator('.spec-export__group').filter({ hasText: 'PNG' }).first();
+    await pngGroup.getByRole('button', { name: 'PNG', exact: true }).click();
+    const appearanceDownload = page.waitForEvent('download', { timeout: 60000 });
+    await page.getByRole('button', { name: /download/i }).click();
+    const appearance = await appearanceDownload;
+    const appearancePath = await appearance.path();
+    expect(appearancePath).toBeTruthy();
+    const appearanceBytes = await readFile(appearancePath!);
+    expect(appearanceBytes.subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+    const appearancePng = PNG.sync.read(appearanceBytes);
+    expect(appearancePng.width).toBeGreaterThan(0);
+    expect(appearancePng.height).toBeGreaterThan(0);
 
     // The existing Mask surface remains the refinement owner; painting is a
     // later operation and does not require regenerating or changing depth.
