@@ -233,8 +233,8 @@ refused once the surface returns to full resolution.
 | `pnpm --filter @varve/engine typecheck` | clean |
 | `pnpm --filter @varve/website typecheck` | 0 errors (5 pre-existing hints) |
 | `pnpm --filter @varve/website build` | 86 static routes built; 0 errors (bundler warnings recorded in handoff) |
-| `pnpm --filter @varve/editor typecheck` | Stage 3 files clean; blocked only by unrelated in-flight `packages/import/src/service.ts` errors (`ImportResult` missing and an implicit-any callback) |
-| `pnpm --filter @varve/desktop typecheck` | blocked by the same unrelated `packages/import/src/service.ts` errors |
+| `pnpm --filter @varve/editor typecheck` | Stage 3 files clean; blocked by unrelated in-flight `ContentAwareFillDialog.tsx` missing-`platform` fields and `packages/import/src/service.ts` errors (`ImportResult` missing and an implicit-any callback) |
+| `pnpm --filter @varve/desktop typecheck` | blocked by the same unrelated workspace errors |
 
 The final shared-worktree validation was intentionally recorded separately from
 the owned-scope checks above. `pnpm verify:plan` selected 63 changed files
@@ -243,8 +243,9 @@ the checkout; it reported **no** full-suite escalation. `pnpm verify:affected`
 therefore stopped at Tier 0 on an unrelated formatting diagnostic in
 `packages/editor/src/components/AIStatusIndicator/AIStatusIndicator.tsx`.
 The explicitly escalated `pnpm verify:full` reached workspace typechecks and
-stopped on the unrelated `packages/import/src/service.ts` errors above. The
-required docs, emoji, token, and architecture audits passed (architecture
+stopped on the unrelated import errors above; the later editor typecheck also
+reported three missing-`platform` fields in the concurrently edited
+`ContentAwareFillDialog.tsx`. The required docs, emoji, token, and architecture audits passed (architecture
 reported 14 distinct cycles, below its enforced ceiling, with existing hub and
 instability warnings). The root `pnpm bench` command was stopped after
 discovery showed 108 benchmark files under existing sibling worktrees and
