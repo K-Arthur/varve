@@ -94,6 +94,17 @@ The F16 run reinforces the product decision: increasing numerical precision
 does not compensate for an unqualified artifact/runtime or establish useful
 prompt adherence. The profile remains unsuitable for automatic exposure.
 
+### Normal-step Q4_0 follow-up
+
+To check whether the product qualification's four-step probe was masking a
+sampling-budget problem, the same Q4_0 artifact was run with the product
+qualification prompt, seed `417`, CFG `7`, strength `0.85`, and 20 nominal
+steps at a 256 × 256 working frame. The CPU probe was bounded to 240 seconds;
+it reached 15 of 18 effective sampler units and produced no output file before
+the bound expired. Because there was no candidate to inspect, this is a
+timeout/resource failure—not a quality pass—and it further prevents the
+profile from being exposed as a genuine prompt-conditioned provider.
+
 ## Compatibility finding
 
 The official SD 1.5 inpainting repository also exposes separate Diffusers

@@ -92,6 +92,13 @@ boundary crops, hashes, settings, runtime revisions, and the decision not to
 qualify are documented in
 [`generative-inpainting-model-comparison-2026-09-13.md`](generative-inpainting-model-comparison-2026-09-13.md).
 
+A follow-up Q4_0 run used the product qualification prompt and 20 nominal
+steps at 256 × 256 on the same isolated CPU runtime. It reached 15 of 18
+effective sampler units before the bounded 240-second probe expired and wrote
+no candidate. This is recorded as a timeout/resource failure; it is not
+counted as a successful visual result or as evidence that the profile is
+qualified.
+
 ## Escalated checks and outstanding gates
 
 `pnpm verify:plan` selected the broad affected closure and reported full-suite
