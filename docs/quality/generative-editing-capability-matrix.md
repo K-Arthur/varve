@@ -65,10 +65,13 @@ Weights are not stored in the repository or in portable documents.
 
 ## Evidence state
 
-- The repository currently contains eleven attributed photographic fixtures:
-  [fixture provenance](../../tests/e2e/fixtures/PROVENANCE.md). They are
-  used by the browser surface lane for interface and image-path checks, not
-  the planned 24-photo/32-task release corpus.
+- The repository currently contains the complete 24-photo/32-task frozen
+  qualification corpus: eleven original browser-surface fixtures plus thirteen
+  licensed additions. The [fixture provenance](../../tests/e2e/fixtures/PROVENANCE.md)
+  page and [corpus manifest](../../tests/e2e/fixtures/generative-evidence/photo-corpus-2026-09-12.json)
+  record the source page, creator, license, derivative URL, dimensions, and
+  checksum for each image. The corpus is frozen input evidence; it does not
+  imply that every model or mode has passed quality qualification.
 - The downloaded Q4_0 artifact was verified against the pinned hash in a
   temporary test location. A real masked CPU inference run completed, but its
   inspected output failed prompt adherence and photographic plausibility. The
