@@ -423,17 +423,44 @@ export function flattenShapedRuns(
     // only RTL runs before walking the path. Reversing the source string (or
     // the whole paragraph) would corrupt mixed-direction text and clusters.
     const glyphs = run.direction === 'rtl' ? [...run.glyphs].reverse() : run.glyphs;
+    let clusterStart: number | undefined;
+    let clusterEnd = 0;
+    let clusterAdvance = 0;
+    const flush = (): void => {
+      if (clusterStart === undefined) return;
+      const cluster = text.slice(clusterStart, clusterEnd);
+      if (cluster.length > 0 && cluster !== '\n' && cluster !== '\r\n' && cluster !== '\r') {
+        // A shaping cluster can contain several glyphs (combining marks,
+        // Arabic joining forms, Indic reordering, or a ligature). It is one
+        // path unit: drawing/positioning each glyph independently would tear
+        // apart marks and would make ligature width depend on array order.
+        out.push({ text: cluster, advance: Math.max(0, clusterAdvance) });
+      }
+      clusterStart = undefined;
+      clusterEnd = 0;
+      clusterAdvance = 0;
+    };
     for (const glyph of glyphs) {
-      const end = glyph.sourceEnd ?? glyph.clusterUtf16 + 1;
-      const cluster = text.slice(glyph.clusterUtf16, end);
-      if (cluster.length === 0) continue;
-      // Skip newlines: they carry no arc length on a path.
-      if (cluster === '\n' || cluster === '\r\n' || cluster === '\r') continue;
-      // xOffset is a glyph-position adjustment, not advance. The browser
-      // shaping bridge currently emits zero offsets; native shapers may emit
-      // one later, and folding it into distance would double-count spacing.
-      out.push({ text: cluster, advance: glyph.xAdvance });
+      const start = Math.max(0, Math.min(text.length, glyph.clusterUtf16));
+      const end = Math.max(start, Math.min(text.length, glyph.sourceEnd ?? start + 1));
+      if (clusterStart !== start) {
+        flush();
+        clusterStart = start;
+        clusterEnd = end;
+      } else {
+        clusterEnd = Math.max(clusterEnd, end);
+      }
+      // xOffset/yOffset move the glyph within the cluster; they are not
+      // baseline distance. Vertical advances are used only by vertical
+      // shapers that have no horizontal advance.
+      clusterAdvance +=
+        Number.isFinite(glyph.xAdvance) && glyph.xAdvance !== 0
+          ? Math.abs(glyph.xAdvance)
+          : Number.isFinite(glyph.yAdvance)
+            ? Math.abs(glyph.yAdvance)
+            : 0;
     }
+    flush();
   }
   return out;
 }

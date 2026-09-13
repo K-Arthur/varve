@@ -929,10 +929,18 @@ export interface ShapingCapabilities {
   supportsFontFallback: boolean;
   /** Backend applies OpenType variation axes. */
   supportsVariationAxes: boolean;
+  /** Backend accepts numeric/indexed OpenType feature values. */
+  supportsFeatureValues: boolean;
+  /** Backend accepts source-local feature ranges. */
+  supportsFeatureRanges: boolean;
   /** Backend resolves colour glyphs (COLR/CPAL). */
   supportsColorGlyphs: boolean;
+  /** Backend actually paints colour glyph layers, rather than only detecting them. */
+  supportsColorGlyphRendering: boolean;
   /** Backend can provide glyph outline paths. */
   supportsOutlines: boolean;
+  /** Outline output is derived from the exact shaped glyph stream. */
+  supportsExactShapedOutlines: boolean;
   /** Human-readable backend identifier. */
   backend: 'canvas2d' | 'rustybuzz-native' | 'rustybuzz-wasm' | 'harfbuzz';
 }
@@ -963,12 +971,23 @@ export interface NativeShapeRequest {
   features?: string[];
   /** OpenType feature tags to disable. */
   disableFeatures?: string[];
+  /** Indexed values and source-local UTF-16 ranges; preferred over the legacy lists. */
+  featureSettings?: NativeFeatureSetting[];
+  /** Shared authored feature map before the IPC adapter normalizes it. */
+  openTypeFeatures?: OpenTypeFeatureMap;
   /** Variable font axis coordinates (tag -> value). */
   variationAxes?: Record<string, number>;
   /** Letter spacing in font units. */
   letterSpacing?: number;
   /** Word spacing in font units. */
   wordSpacing?: number;
+}
+
+export interface NativeFeatureSetting {
+  tag: string;
+  value: number;
+  startUtf16?: number;
+  endUtf16?: number;
 }
 
 /**
@@ -988,7 +1007,11 @@ export interface NativeShapeResponse {
   /** Resolved script. */
   script: string;
   /** Resolved direction. */
-  direction: 'ltr' | 'rtl';
+  direction: 'ltr' | 'rtl' | 'ttb' | 'btt';
+  /** Language selected by the shaper, when one was provided or inferred. */
+  language?: string;
+  /** Exact collection face used for this response. */
+  faceIndex?: number;
   /** Whether the font has colour glyphs (COLR/CPAL/SVG). */
   hasColorGlyphs: boolean;
   /** Any glyph IDs that map to .notdef (missing glyphs). */
@@ -1005,8 +1028,12 @@ export const CANVAS2D_SHAPING_CAPABILITIES: ShapingCapabilities = {
   supportsLigatures: true,
   supportsFontFallback: true,
   supportsVariationAxes: true,
+  supportsFeatureValues: true,
+  supportsFeatureRanges: false,
   supportsColorGlyphs: false,
+  supportsColorGlyphRendering: false,
   supportsOutlines: false,
+  supportsExactShapedOutlines: false,
   backend: 'canvas2d',
 };
 
@@ -1016,10 +1043,14 @@ export const NATIVE_SHAPING_CAPABILITIES: ShapingCapabilities = {
   supportsComplexScripts: true,
   supportsClusters: true,
   supportsLigatures: true,
-  supportsFontFallback: true,
+  supportsFontFallback: false,
   supportsVariationAxes: true,
+  supportsFeatureValues: true,
+  supportsFeatureRanges: true,
   supportsColorGlyphs: true,
+  supportsColorGlyphRendering: false,
   supportsOutlines: true,
+  supportsExactShapedOutlines: true,
   backend: 'rustybuzz-native',
 };
 

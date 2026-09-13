@@ -72,9 +72,27 @@ pub struct ShapeRequest {
     /// OpenType feature tags to disable.
     #[serde(default)]
     pub disable_features: Vec<String>,
+    /// Structured feature values and source ranges. The string lists above
+    /// remain wire-compatible for older callers; this field carries indexed
+    /// values and UTF-16 range overrides without flattening them to booleans.
+    #[serde(default)]
+    pub feature_settings: Vec<FeatureSetting>,
     /// Variable font axis settings (tag -> value).
     #[serde(default)]
     pub variation_axes: std::collections::HashMap<String, f32>,
+}
+
+/// A source-local OpenType feature request. `end` is exclusive and all
+/// offsets are UTF-16 units, matching DOM selections and the shared scene
+/// contract.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FeatureSetting {
+    pub tag: String,
+    pub value: u32,
+    #[serde(default)]
+    pub start: Option<u32>,
+    #[serde(default)]
+    pub end: Option<u32>,
 }
 
 /// Shape a run of text using rustybuzz.
@@ -82,61 +100,93 @@ pub struct ShapeRequest {
 pub fn shape_text(request: &ShapeRequest) -> Result<ShapedRun, String> {
     let font_data = &request.font_data;
 
+    const MAX_FONT_BYTES: usize = 128 * 1024 * 1024;
+    const MAX_TEXT_UTF16: usize = 1_000_000;
+    if font_data.len() > MAX_FONT_BYTES {
+        return Err(format!(
+            "Font data exceeds the {} MiB shaping limit",
+            MAX_FONT_BYTES / (1024 * 1024)
+        ));
+    }
+    if request.text.encode_utf16().count() > MAX_TEXT_UTF16 {
+        return Err("Text exceeds the shaping work limit".to_string());
+    }
+
     // Create the HarfBuzz face
     let mut hb_face = rustybuzz::Face::from_slice(font_data, request.face_index)
         .ok_or_else(|| "Failed to create HarfBuzz face".to_string())?;
 
     let _units_per_em = hb_face.units_per_em();
 
-    // Resolve direction
-    let direction = match request.direction.as_deref() {
-        Some("rtl") => rustybuzz::Direction::RightToLeft,
-        Some("ttb") => rustybuzz::Direction::TopToBottom,
-        Some("btt") => rustybuzz::Direction::BottomToTop,
-        _ => rustybuzz::Direction::LeftToRight,
-    };
-
-    // Resolve script
-    let dflt_tag = ttf_parser::Tag::from_bytes(b"DFLT");
-    let script = match request.script.as_deref() {
-        Some(s) => {
-            let bytes = s.as_bytes();
-            if bytes.len() >= 4 {
-                let tag = ttf_parser::Tag::from_bytes(&[bytes[0], bytes[1], bytes[2], bytes[3]]);
-                rustybuzz::Script::from_iso15924_tag(tag)
-                    .unwrap_or(rustybuzz::Script::from_iso15924_tag(dflt_tag).unwrap())
-            } else {
-                rustybuzz::Script::from_iso15924_tag(dflt_tag).unwrap()
-            }
+    // Resolve an explicit script, leaving it unset when the caller asks the
+    // shaper to infer it. A DFLT script is not equivalent to “unknown”: it
+    // skips Arabic/Indic shaping lookups in fonts that provide them.
+    let explicit_script = request.script.as_deref().and_then(|s| {
+        let bytes = s.as_bytes();
+        if bytes.len() != 4 {
+            return None;
         }
-        None => rustybuzz::Script::from_iso15924_tag(dflt_tag).unwrap(),
-    };
+        let tag = ttf_parser::Tag::from_bytes(&[bytes[0], bytes[1], bytes[2], bytes[3]]);
+        rustybuzz::Script::from_iso15924_tag(tag)
+    });
 
     // Resolve language
-    let language: Option<rustybuzz::Language> = match request.language.as_deref() {
-        Some(l) => l.parse().ok(),
-        None => None,
-    };
+    let language: Option<rustybuzz::Language> = request
+        .language
+        .as_deref()
+        .and_then(|value| value.parse().ok());
 
     // Build rustybuzz buffer
     let mut buffer = rustybuzz::UnicodeBuffer::new();
-    buffer.push_str(&request.text);
-    buffer.set_direction(direction);
-    buffer.set_script(script);
+    // rustybuzz's convenience `push_str` uses UTF-8 byte offsets. Varve's
+    // source contract is UTF-16, so add code points ourselves and advance by
+    // each scalar's UTF-16 width (important for emoji and astral scripts).
+    let mut cluster_utf16 = 0u32;
+    for character in request.text.chars() {
+        buffer.add(character, cluster_utf16);
+        cluster_utf16 += character.len_utf16() as u32;
+    }
+    buffer.guess_segment_properties();
+    if let Some(direction) = request.direction.as_deref().and_then(parse_direction) {
+        buffer.set_direction(direction);
+    }
+    if let Some(script) = explicit_script {
+        buffer.set_script(script);
+    }
     if let Some(lang) = language {
         buffer.set_language(lang);
     }
 
+    let resolved_direction = buffer.direction();
+    let resolved_script = buffer.script();
+    let resolved_language = buffer.language();
+
     // Build feature list
     let mut features: Vec<rustybuzz::Feature> = Vec::new();
+    let mut warnings = Vec::new();
     for tag in &request.features {
-        if let Ok(feature) = parse_feature_tag(tag, true) {
-            features.push(feature);
+        match parse_feature_tag(tag, true) {
+            Ok(feature) => features.push(feature),
+            Err(warning) => warnings.push(warning),
         }
     }
     for tag in &request.disable_features {
-        if let Ok(feature) = parse_feature_tag(tag, false) {
-            features.push(feature);
+        if is_required_feature_tag(tag) {
+            warnings.push(format!(
+                "Ignored disabling required shaping feature \"{}\"",
+                feature_tag_name(tag)
+            ));
+            continue;
+        }
+        match parse_feature_tag(tag, false) {
+            Ok(feature) => features.push(feature),
+            Err(warning) => warnings.push(warning),
+        }
+    }
+    for setting in &request.feature_settings {
+        match parse_structured_feature(setting, cluster_utf16 as usize) {
+            Ok(feature) => features.push(feature),
+            Err(warning) => warnings.push(warning),
         }
     }
 
@@ -145,17 +195,20 @@ pub fn shape_text(request: &ShapeRequest) -> Result<ShapedRun, String> {
     let coords: Vec<rustybuzz::Variation> = request
         .variation_axes
         .iter()
-        .map(|(tag, val)| {
+        .filter_map(|(tag, val)| {
             let tag_bytes = tag.as_bytes();
+            if tag_bytes.len() != 4 || !tag_bytes.iter().all(|byte| byte.is_ascii_graphic()) {
+                return None;
+            }
             let mut t = [0u8; 4];
             for (i, &b) in tag_bytes.iter().enumerate().take(4) {
                 t[i] = b;
             }
             let tag_u32 = u32::from_be_bytes(t);
-            rustybuzz::Variation {
+            Some(rustybuzz::Variation {
                 tag: ttf_parser::Tag(tag_u32),
                 value: *val,
-            }
+            })
         })
         .collect();
     if !coords.is_empty() {
@@ -170,8 +223,6 @@ pub fn shape_text(request: &ShapeRequest) -> Result<ShapedRun, String> {
 
     let mut glyphs: Vec<ShapedGlyph> = Vec::with_capacity(infos.len());
     let mut missing_glyph_indices = Vec::new();
-    let mut warnings = Vec::new();
-
     // Check for COLR/CPAL tables using raw OpenType table check
     let has_color_glyphs = check_color_tables(font_data, request.face_index);
 
@@ -201,15 +252,15 @@ pub fn shape_text(request: &ShapeRequest) -> Result<ShapedRun, String> {
 
     Ok(ShapedRun {
         glyphs,
-        direction: match direction {
+        direction: match resolved_direction {
             rustybuzz::Direction::LeftToRight => "ltr".into(),
             rustybuzz::Direction::RightToLeft => "rtl".into(),
             rustybuzz::Direction::TopToBottom => "ttb".into(),
             rustybuzz::Direction::BottomToTop => "btt".into(),
             rustybuzz::Direction::Invalid => "ltr".into(),
         },
-        script: request.script.clone().unwrap_or_else(|| "DFLT".to_string()),
-        language: request.language.clone(),
+        script: String::from_utf8_lossy(&resolved_script.tag().to_bytes()).into_owned(),
+        language: resolved_language.map(|lang| lang.as_str().to_string()),
         has_color_glyphs,
         missing_glyph_indices,
         warnings,
@@ -247,10 +298,15 @@ fn check_color_tables(data: &[u8], face_index: u32) -> bool {
                 return false;
             }
             let num_fonts = u32::from_be_bytes([data[8], data[9], data[10], data[11]]) as usize;
-            if data.len() < 12 + num_fonts * 4 {
+            let offsets_end = match 12usize.checked_add(num_fonts.saturating_mul(4)) {
+                Some(end) => end,
+                None => return false,
+            };
+            if data.len() < offsets_end || face_index as usize >= num_fonts {
                 return false;
             }
-            let font_offset_bytes = &data[12 + face_index as usize * 4..][..4];
+            let offset_start = 12 + face_index as usize * 4;
+            let font_offset_bytes = &data[offset_start..offset_start + 4];
             offset = u32::from_be_bytes([
                 font_offset_bytes[0],
                 font_offset_bytes[1],
@@ -260,19 +316,29 @@ fn check_color_tables(data: &[u8], face_index: u32) -> bool {
         }
     }
 
-    if offset + 12 > data.len() {
+    let header_end = match offset.checked_add(12) {
+        Some(end) => end,
+        None => return false,
+    };
+    if header_end > data.len() {
         return false;
     }
 
     let num_tables = u16::from_be_bytes([data[offset + 4], data[offset + 5]]) as usize;
-    let records_start = offset + 12;
+    let records_start = header_end;
 
-    if records_start + num_tables * 16 > data.len() {
+    let records_end = match records_start.checked_add(num_tables.saturating_mul(16)) {
+        Some(end) => end,
+        None => return false,
+    };
+    if records_end > data.len() {
         return false;
     }
 
     for i in 0..num_tables {
-        let rec_start = records_start + i * 16;
+        let Some(rec_start) = records_start.checked_add(i.saturating_mul(16)) else {
+            return false;
+        };
         if rec_start + 4 > data.len() {
             continue;
         }
@@ -294,15 +360,17 @@ fn check_color_tables(data: &[u8], face_index: u32) -> bool {
 /// Parse an OpenType feature tag string (e.g. "liga", "kern=0") into a
 /// rustybuzz Feature with the given enable/disable value.
 fn parse_feature_tag(tag: &str, enable: bool) -> Result<rustybuzz::Feature, String> {
-    let parts: Vec<&str> = tag.split('=').collect();
-    let tag_str = parts[0];
-    if tag_str.len() != 4 {
+    let (tag_str, value_str) = match tag.split_once('=') {
+        Some((tag_str, value)) => (tag_str, Some(value)),
+        None => (tag, None),
+    };
+    if !valid_tag(tag_str) {
         return Err(format!("Invalid feature tag: {tag}"));
     }
     let tag_bytes = tag_str.as_bytes();
     let tag_u32 = u32::from_be_bytes([tag_bytes[0], tag_bytes[1], tag_bytes[2], tag_bytes[3]]);
-    let value = if parts.len() > 1 {
-        parts[1]
+    let value = if let Some(value) = value_str {
+        value
             .parse::<u32>()
             .map_err(|_| format!("Invalid feature value: {tag}"))?
     } else if enable {
@@ -315,6 +383,71 @@ fn parse_feature_tag(tag: &str, enable: bool) -> Result<rustybuzz::Feature, Stri
         value,
         0..usize::MAX,
     ))
+}
+
+fn parse_structured_feature(
+    setting: &FeatureSetting,
+    text_length: usize,
+) -> Result<rustybuzz::Feature, String> {
+    if !valid_tag(&setting.tag) {
+        return Err(format!("Invalid feature tag: {}", setting.tag));
+    }
+    let tag_bytes = setting.tag.as_bytes();
+    let tag =
+        ttf_parser::Tag::from_bytes(&[tag_bytes[0], tag_bytes[1], tag_bytes[2], tag_bytes[3]]);
+    let start = setting.start.map(|value| value as usize).unwrap_or(0);
+    let end = setting
+        .end
+        .map(|value| value as usize)
+        .unwrap_or(text_length);
+    if end <= start {
+        return Err(format!(
+            "Invalid range for feature {}: {}..{}",
+            setting.tag, start, end
+        ));
+    }
+    Ok(rustybuzz::Feature::new(tag, setting.value, start..end))
+}
+
+fn valid_tag(tag: &str) -> bool {
+    tag.len() == 4
+        && tag
+            .as_bytes()
+            .iter()
+            .all(|byte| byte.is_ascii() && !byte.is_ascii_control())
+}
+
+fn parse_direction(direction: &str) -> Option<rustybuzz::Direction> {
+    match direction {
+        "ltr" => Some(rustybuzz::Direction::LeftToRight),
+        "rtl" => Some(rustybuzz::Direction::RightToLeft),
+        "ttb" => Some(rustybuzz::Direction::TopToBottom),
+        "btt" => Some(rustybuzz::Direction::BottomToTop),
+        _ => None,
+    }
+}
+
+fn feature_tag_name(tag: &str) -> &str {
+    tag.split_once('=').map_or(tag, |(name, _)| name)
+}
+
+fn is_required_feature_tag(tag: &str) -> bool {
+    matches!(
+        feature_tag_name(tag),
+        "rlig"
+            | "ccmp"
+            | "locl"
+            | "mark"
+            | "mkmk"
+            | "curs"
+            | "init"
+            | "medi"
+            | "fina"
+            | "isol"
+            | "abvm"
+            | "blwm"
+            | "rvrn"
+    )
 }
 
 #[cfg(test)]
@@ -345,6 +478,7 @@ mod tests {
             direction: Some("ltr".into()),
             features: vec![],
             disable_features: vec![],
+            feature_settings: vec![],
             variation_axes: std::collections::HashMap::new(),
         }
     }
@@ -446,6 +580,28 @@ mod tests {
     }
 
     #[test]
+    fn absent_script_and_direction_are_inferred_from_unicode() {
+        let mut request = latin_request("مرحبا");
+        request.language = None;
+        request.script = None;
+        request.direction = None;
+
+        let result = shape_text(&request).expect("Arabic should shape with inferred properties");
+
+        assert_eq!(result.direction, "rtl");
+        assert_eq!(result.script, "Arab");
+    }
+
+    #[test]
+    fn clusters_use_utf16_offsets_for_astral_code_points() {
+        let request = latin_request("A😀B");
+        let result = shape_text(&request).expect("astral input should shape");
+
+        let clusters: Vec<u32> = result.glyphs.iter().map(|glyph| glyph.cluster).collect();
+        assert_eq!(clusters, vec![0, 1, 3]);
+    }
+
+    #[test]
     fn disabling_a_feature_is_accepted_and_shapes() {
         let mut request = latin_request("fi");
         request.disable_features = vec!["liga".into(), "kern".into()];
@@ -457,6 +613,19 @@ mod tests {
             2,
             "with liga disabled, 'fi' must stay two glyphs"
         );
+    }
+
+    #[test]
+    fn disabling_required_shaping_features_is_ignored_with_a_warning() {
+        let mut request = latin_request("fi");
+        request.disable_features = vec!["rlig".into()];
+
+        let result = shape_text(&request).expect("required feature request should shape");
+
+        assert!(result
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("required shaping feature")));
     }
 
     #[test]
@@ -522,6 +691,14 @@ mod tests {
     }
 
     #[test]
+    fn color_glyph_detection_rejects_an_out_of_range_collection_face() {
+        let mut ttc = vec![0u8; 16];
+        ttc[0..4].copy_from_slice(b"ttcf");
+        ttc[8..12].copy_from_slice(&1u32.to_be_bytes());
+        assert!(!font_has_color_glyphs(&ttc, 1));
+    }
+
+    #[test]
     fn test_empty_text() {
         let request = ShapeRequest {
             text: String::new(),
@@ -533,6 +710,7 @@ mod tests {
             direction: None,
             features: vec![],
             disable_features: vec![],
+            feature_settings: vec![],
             variation_axes: std::collections::HashMap::new(),
         };
 
@@ -550,6 +728,20 @@ mod tests {
 
         let disabled = parse_feature_tag("kern=0", true).expect("kern=0 should parse");
         assert_eq!(disabled.value, 0, "Disabled feature should have value 0");
+
+        let indexed = parse_structured_feature(
+            &FeatureSetting {
+                tag: "ss01".into(),
+                value: 2,
+                start: Some(1),
+                end: Some(3),
+            },
+            8,
+        )
+        .expect("indexed range should parse");
+        assert_eq!(indexed.value, 2);
+        assert_eq!(indexed.start, 1);
+        assert_eq!(indexed.end, 2);
     }
 
     #[test]
@@ -564,6 +756,7 @@ mod tests {
             direction: None,
             features: vec![],
             disable_features: vec![],
+            feature_settings: vec![],
             variation_axes: std::collections::HashMap::new(),
         };
 

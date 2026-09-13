@@ -432,6 +432,57 @@ describe('ellipse arc-length parameterization', () => {
 // ── flattenShapedRuns ──────────────────────────────────────────────────
 
 describe('flattenShapedRuns', () => {
+  it('keeps a multi-glyph shaping cluster together', () => {
+    const runs: ShapedRun[] = [
+      {
+        fontFamily: 'Arial',
+        fontSize: 16,
+        fontWeight: 400,
+        fontStyle: 'normal',
+        direction: 'ltr',
+        level: 0,
+        script: 'Latn',
+        glyphs: [
+          {
+            glyphId: 101,
+            xAdvance: 0,
+            yAdvance: 0,
+            xOffset: 0,
+            yOffset: 4,
+            clusterUtf16: 0,
+            sourceEnd: 2,
+          },
+          {
+            glyphId: 102,
+            xAdvance: 12,
+            yAdvance: 0,
+            xOffset: 0,
+            yOffset: 0,
+            clusterUtf16: 0,
+            sourceEnd: 2,
+          },
+          {
+            glyphId: 103,
+            xAdvance: 10,
+            yAdvance: 0,
+            xOffset: 0,
+            yOffset: 0,
+            clusterUtf16: 2,
+            sourceEnd: 3,
+          },
+        ],
+        width: 22,
+        ascent: 12,
+        descent: 4,
+      },
+    ];
+
+    expect(flattenShapedRuns(runs, 'ÀB')).toEqual([
+      { text: 'À', advance: 12 },
+      { text: 'B', advance: 10 },
+    ]);
+  });
+
   it('flattens single LTR run into path clusters', () => {
     const runs: ShapedRun[] = [
       {
