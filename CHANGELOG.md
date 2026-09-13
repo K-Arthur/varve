@@ -31,7 +31,10 @@ update, not for someone reading the commit log.
   corner/smooth/symmetric/automatic modes, nearest-parameter Bézier insertion,
   open/close/reverse, line/curve conversion, and visible disabled states for
   topology operations that are not yet safe.
-
+- **Precision placement** — Exact configurable fractional nudges, scoped pointer
+  snapping with stable target identity and temporary bypass, explicit page/frame/key
+  alignment references, and separate equal-gap, equal-center, fixed-gap, and Tidy Up
+  commands are now documented and exposed through the editor's shared geometry paths.
 - **Drawing input controls** — Settings now exposes a reversible one-finger
   draw/navigation policy, pressure enablement/curve, and an opt-in pointer test
   surface that reports observed capability state without collecting artwork.
@@ -107,6 +110,10 @@ update, not for someone reading the commit log.
   earlier effect. Object Filter recipe members expose the full blend-mode set
   on both raster and vector objects, with each member retaining its own blend
   mode through replay and export.
+- WebGPU canvas presentation now tests circle coverage in object-local space,
+  so circles scaled non-uniformly or skewed render as the same ellipses
+  Canvas2D produces instead of being clipped back to an unscaled circle.
+  Singular transforms fall back to Canvas2D, where they paint nothing.
 
 ## [0.2.1] - 2026-08-24
 
