@@ -84,6 +84,32 @@ describe('FontBrowser', () => {
     expect(new Set(familyRows.map((button) => button.textContent)).size).toBe(familyRows.length);
   });
 
+  it('marks a family as a favorite without applying it to the document', () => {
+    const onSelect = vi.fn();
+    render(<FontBrowser layout="modal" showDownloadable onSelect={onSelect} />);
+
+    fireEvent.change(
+      screen.getByRole('searchbox', { name: 'Search fonts by name or design language' }),
+      {
+        target: { value: 'gothic' },
+      },
+    );
+    const favorite = screen.getByRole('button', { name: 'Add Gothic A1 to favorites' });
+    fireEvent.click(favorite);
+
+    expect(screen.getByRole('button', { name: 'Remove Gothic A1 from favorites' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(onSelect).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Gothic A1 from favorites' }));
+    expect(screen.getByRole('button', { name: 'Add Gothic A1 to favorites' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+  });
+
   it('exposes local font discovery as an explicit action', async () => {
     render(<FontBrowser layout="modal" showDownloadable />);
 

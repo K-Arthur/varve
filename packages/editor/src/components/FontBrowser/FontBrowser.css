@@ -368,6 +368,10 @@
   gap: var(--space-1);
 }
 
+.font-browser__favorite {
+  flex: 0 0 auto;
+}
+
 .font-browser__badge {
   display: inline-flex;
   align-items: center;

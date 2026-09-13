@@ -23,7 +23,7 @@ import {
   resetSystemFontCache,
   tagLabel,
 } from '@varve/engine/font';
-import { Icon, SearchField, Tooltip } from '@varve/ui';
+import { Icon, IconButton, SearchField, Tooltip } from '@varve/ui';
 import {
   useCallback,
   useEffect,
@@ -502,6 +502,13 @@ export function FontBrowser({
     [semantic],
   );
 
+  const toggleFavorite = useCallback(
+    (record: FontSemanticRecord) => {
+      semantic.setFavorite(record.familyId, !record.isFavorite);
+    },
+    [semantic],
+  );
+
   const handleAxisChange = useCallback(
     (tag: string, value: number) => {
       if (!selectedRecord || !Number.isFinite(value)) return;
@@ -809,6 +816,23 @@ export function FontBrowser({
                           </span>
                         </button>
                         <span className="font-browser__meta">
+                          <IconButton
+                            icon="Star"
+                            label={
+                              record.isFavorite
+                                ? `Remove ${record.familyName} from favorites`
+                                : `Add ${record.familyName} to favorites`
+                            }
+                            solid={record.isFavorite}
+                            pressed={record.isFavorite}
+                            size="sm"
+                            variant="ghost"
+                            className="font-browser__favorite"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              toggleFavorite(record);
+                            }}
+                          />
                           <Tooltip label={sourceLabel(record)}>
                             <span className="font-browser__badge">{sourceBadge(record)}</span>
                           </Tooltip>
