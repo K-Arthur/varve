@@ -1746,3 +1746,45 @@ The images show the intact desktop shell and no renderer crash. A rerun on a
 machine with the missing driver/IPC bridge must assert real copy, paste, cut,
 ownership lifetime, and native `.fig` import before CLIP-15 or CLIP-14 can be
 closed.
+
+### CLIP-45 — Native image fallback now shares cancellation and deadline ownership (2026-09-12)
+
+**Classification:** Native transport / lifetime. **Resolved in the local
+bridge; packaged ownership remains open.**
+
+The `arboard` image fallback previously ran synchronously inside the Tauri
+command and accepted no operation identity. A stalled compositor read or an
+oversized pixel buffer could therefore block command processing or allocate
+before the frontend's read deadline had a chance to act. The command now
+accepts a bounded operation ID, runs the clipboard read and PNG conversion on a
+worker, checks cancellation before and after conversion, validates dimensions,
+pixel count, and the RGBA byte length before constructing an image, and returns
+within the same five-second deadline used by native MIME reads. The platform
+interface carries an optional `AbortSignal`; the Tauri wrapper sends
+`cancel_clipboard_operation` on timeout or abort, while web and memory
+implementations preserve the optional cancellation contract.
+
+Evidence from the current `master` checkout (`344360a47`) at
+`/home/kevina/CodingProjects/varve`, Linux KDE/Wayland (`WAYLAND_DISPLAY=wayland-0`,
+`DISPLAY=:0`), Node 26, Rust 1.97, and the installed WebKitGTK toolchain:
+
+```text
+pnpm exec biome check packages/platform/src/platform.ts \
+  packages/platform/src/memory.ts packages/platform/src/web.ts \
+  packages/platform/src/tauri.ts packages/platform/src/tauri.test.ts
+passed
+
+VARVE_TEST_WORKERS=1 pnpm exec vitest run packages/platform/src/tauri.test.ts \
+  --maxWorkers=1 --reporter=dot
+8 tests passed
+
+cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml \
+  --features wdio --bin varve-desktop
+passed (existing warnings only)
+```
+
+The native image dimension unit test and bounded Wayland pipe tests remain in
+the desktop crate. This evidence does not close CLIP-15: the packaged
+WebKitGTK/Tauri ownership lane still fails when the embedded WebDriver cannot
+expose `Tauri core.invoke`, and a real Firefox-to-desktop image transfer and
+clipboard-owner lifetime test still require a working native driver.
