@@ -57,6 +57,23 @@ const image = makeImageShapeNode('image-1', {
   h: 180,
 });
 
+const croppedImageBase = makeImageShapeNode('image-crop', {
+  src: 'data:image/png;base64,fixture',
+  w: 320,
+  h: 180,
+});
+const croppedImage = {
+  ...croppedImageBase,
+  fills: croppedImageBase.fills?.map((fill) =>
+    fill.type === 'image' && fill.image
+      ? {
+          ...fill,
+          image: { ...fill.image, crop: { x: 8, y: 4, w: 120, h: 64 }, rotation: 12, flipH: true },
+        }
+      : fill,
+  ),
+};
+
 const announce = vi.fn();
 const setPendingFormat = vi.fn();
 const setTool = vi.fn();
@@ -113,7 +130,12 @@ beforeEach(() => {
     },
   );
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+    save: vi.fn(),
+    translate: vi.fn(),
+    rotate: vi.fn(),
+    scale: vi.fn(),
     drawImage: vi.fn(),
+    restore: vi.fn(),
     getImageData: () => new ImageData(32, 16),
   } as never);
 });
@@ -148,5 +170,26 @@ describe('FontDetectSection', () => {
     expect(setPendingFormat).toHaveBeenCalledWith({ fontFamily: 'Inter' });
     expect(setTool).toHaveBeenCalledWith('text');
     expect(announce).toHaveBeenCalledWith('Font selected for new text: Inter');
+  });
+
+  it('uses the existing visible crop and offers transformed canvas-region selection', async () => {
+    render(<FontDetectSection nodes={[croppedImage]} />);
+
+    expect(screen.getByText('120 x 64 px')).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: 'Analyze visible crop' })).toBeChecked();
+    expect(screen.getByText(/follows the image transform/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Identify font in image' }));
+    await waitFor(() => expect(screen.getByText('Inter')).toBeInTheDocument());
+    expect(detectFont).toHaveBeenCalledWith(
+      expect.objectContaining({ imageData: expect.any(ImageData) }),
+      expect.anything(),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select region on canvas' }));
+    expect(setTool).toHaveBeenCalledWith('crop');
+    expect(announce).toHaveBeenCalledWith(
+      'Crop tool active. Select the text region, then return to Identify Font.',
+    );
   });
 });

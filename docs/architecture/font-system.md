@@ -251,10 +251,15 @@ off.
 The image **Identify Font** panel bounds decoded image data to a 2048px edge,
 passes the live registry projection and local render comparison into the
 detection pipeline, and accepts optional recognized text to improve matching.
-Because an image selection is not a text target, a candidate action is labelled
-**Use for new text**: it stores a pending family/reference and activates the
-Text tool. Arbitrary transformed crop selection, OCR-assisted region overlays,
-and applying a result to an existing text target remain separate work.
+It follows the image fill's existing non-destructive crop, rotation, and flip
+settings; **Select region on canvas** enters the existing crop tool so the user
+can choose a text region before running detection, while **Analyze visible crop**
+can be disabled to compare the full source. Crop extraction clamps malformed
+coordinates and applies transforms in a bounded offscreen canvas without
+mutating the document. Because an image selection is not a text target, a
+candidate action is labelled **Use for new text**: it stores a pending
+family/reference and activates the Text tool. Arbitrary OCR-assisted region
+overlays and applying a result to an existing text target remain separate work.
 
 ## Research-derived UX constraints
 

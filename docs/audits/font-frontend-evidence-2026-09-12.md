@@ -46,9 +46,18 @@ browser and native stores can be validated without a mounted editor surface.
   family, weight, style, and portable reference together.
 - Identify Font now bounds decoded image data to a 2048px edge, supplies a
   registry-backed catalog and local render comparison to the detection
-  pipeline, and accepts optional recognized text. Candidate actions are
+  pipeline, and accepts optional recognized text. The panel reuses the existing
+  crop tool, reports the current crop dimensions, and extracts the bounded
+  source region after the fill's rotation/flip transform. **Analyze visible
+  crop** can be disabled for a full-source comparison. Candidate actions are
   labelled **Use for new text** and queue a pending family/reference before
   activating the Text tool; they no longer claim to mutate the selected image.
+
+The crop extraction follow-up is covered by the focused `FontDetectSection` and
+`fontDetectImage` tests (5/5). They assert transformed source-rectangle drawing,
+coordinate clamping, visible-crop reporting, crop-tool entry, and the existing
+candidate-to-new-text handoff. The extraction is a presentation input only: it
+does not write a crop or any other change while detection is running.
 
 ## Registry-backed weight controls — 2026-09-12
 

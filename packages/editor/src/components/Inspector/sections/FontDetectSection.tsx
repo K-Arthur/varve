@@ -22,43 +22,20 @@ import {
   renderAndCompare,
 } from '@varve/engine';
 import type { SceneNode } from '@varve/scene';
-import { imageShapeSrc, isImageShape } from '@varve/scene';
+import { getImageFill, imageShapeSrc, isImageShape } from '@varve/scene';
 import { Button } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
+import { FONT_DETECT_MAX_EDGE, loadFontDetectionImage } from './fontDetectImage';
 import './FontDetectSection.css';
 
 const MODEL_ID = 'font-classify';
-const MAX_IMAGE_EDGE = 2048;
-
 interface FontDetectState {
   status: 'idle' | 'downloading' | 'detecting' | 'error';
   errorMessage: string | null;
   progress: number;
   result: FontDetectionResult | null;
-}
-
-function loadImageToImageData(src: string): Promise<ImageData> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(img.naturalWidth, img.naturalHeight));
-      canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
-      canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        reject(new Error('Failed to get canvas context'));
-        return;
-      }
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      resolve(ctx.getImageData(0, 0, canvas.width, canvas.height));
-    };
-    img.onerror = () => reject(new Error('Failed to load image'));
-    img.crossOrigin = 'anonymous';
-    img.src = src;
-  });
 }
 
 export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
@@ -81,6 +58,13 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
   const isImage = Boolean(node && isImageShape(node));
   const typedNode = isImage ? (node as import('@varve/scene').ShapeNode) : null;
   const imageSrc = typedNode ? imageShapeSrc(typedNode) : '';
+  const image = typedNode ? getImageFill(typedNode)?.image : undefined;
+  const visibleCrop = image?.crop;
+  const [analyzeVisibleCrop, setAnalyzeVisibleCrop] = useState(Boolean(visibleCrop));
+
+  useEffect(() => {
+    setAnalyzeVisibleCrop(Boolean(visibleCrop));
+  }, [imageSrc, visibleCrop?.x, visibleCrop?.y, visibleCrop?.w, visibleCrop?.h]);
 
   useEffect(() => {
     if (!isImage) return;
@@ -107,7 +91,7 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
     abortRef.current = null;
     downloadAbortRef.current = null;
     setDetect((prev) => ({ ...prev, status: 'idle', errorMessage: null, result: null }));
-  }, [imageSrc]);
+  }, [imageSrc, visibleCrop?.x, visibleCrop?.y, visibleCrop?.w, visibleCrop?.h]);
 
   const handleDownload = useCallback(async () => {
     setDetect((prev) => ({ ...prev, status: 'downloading', errorMessage: null }));
@@ -150,7 +134,12 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
 
     try {
       if (!imageSrc) throw new Error('No image selected');
-      const fullData = await loadImageToImageData(imageSrc);
+      const imageData = await loadFontDetectionImage(imageSrc, {
+        crop: analyzeVisibleCrop ? visibleCrop : undefined,
+        rotation: image?.rotation,
+        flipH: image?.flipH,
+        flipV: image?.flipV,
+      });
       if (controller.signal.aborted) throw new Error('cancelled');
 
       const registry = getFontRegistry();
@@ -158,7 +147,7 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
 
       const result = await detectFont(
         {
-          imageData: fullData,
+          imageData,
           mode: 'hybrid',
           recognizedText: recognizedText.trim() || undefined,
           maxCandidates: 5,
@@ -198,7 +187,7 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
       const message = err instanceof Error ? err.message : 'Font detection failed';
       setDetect((prev) => ({ ...prev, status: 'error', errorMessage: message }));
     }
-  }, [imageSrc, announce, recognizedText]);
+  }, [analyzeVisibleCrop, announce, image, imageSrc, recognizedText, visibleCrop]);
 
   const handleCancel = useCallback(() => {
     abortRef.current?.abort();
@@ -237,10 +226,51 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
     <DisclosureSection title="Identify Font" sectionId="font-detect">
       <div className="insp-field-group">
         <p className="insp-hint">
-          Identifies the font family used in this image. The source is bounded to a 2048px edge and
-          all comparison work stays local. Select a clear, high-contrast text region for best
-          results.
+          Identifies the font family used in the selected image region. The source is bounded to a{' '}
+          {FONT_DETECT_MAX_EDGE}px edge and all comparison work stays local. Select a clear,
+          high-contrast text region for best results.
         </p>
+
+        <section className="font-detect-region" aria-label="Font detection region">
+          <div className="font-detect-region__header">
+            <span className="insp-subsection__label">Analysis region</span>
+            {visibleCrop ? (
+              <span className="font-detect-region__dimensions">
+                {Math.round(visibleCrop.w)} x {Math.round(visibleCrop.h)} px
+              </span>
+            ) : (
+              <span className="font-detect-region__dimensions">Full image</span>
+            )}
+          </div>
+          <label className="font-detect-region__toggle">
+            <input
+              type="checkbox"
+              checked={Boolean(visibleCrop) && analyzeVisibleCrop}
+              disabled={!visibleCrop}
+              onChange={(event) => setAnalyzeVisibleCrop(event.target.checked)}
+            />
+            <span>Analyze visible crop</span>
+          </label>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              editor.setTool('crop');
+              announce('Crop tool active. Select the text region, then return to Identify Font.');
+            }}
+          >
+            Select region on canvas
+          </Button>
+          {(image?.rotation || image?.flipH || image?.flipV) && (
+            <p className="insp-hint">
+              Detection follows the image transform
+              {image.rotation ? ` (${Math.round(image.rotation)}°)` : ''}
+              {image.flipH ? ' and horizontal flip' : ''}
+              {image.flipV ? ' and vertical flip' : ''}.
+            </p>
+          )}
+        </section>
 
         <label className="font-detect-text-field">
           <span className="insp-subsection__label">Text in image (optional)</span>
