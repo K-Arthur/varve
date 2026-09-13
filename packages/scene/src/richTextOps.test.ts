@@ -276,4 +276,26 @@ describe('richTextOps', () => {
     expect(next.paragraphs[0]?.runs[0]?.format).toEqual({ fontWeight: 700 });
     expect(next.paragraphs[1]?.runs[0]?.format).toEqual({ fontStyle: 'italic' });
   });
+
+  it('applies pending formatting only to newly inserted content', () => {
+    const source: RichText = {
+      paragraphs: [
+        {
+          runs: [
+            { text: 'Hello ', format: { fontWeight: 400 } },
+            { text: 'world', format: { fontStyle: 'italic' } },
+          ],
+        },
+      ],
+    };
+    const next = replaceRichTextContent(source, 'Hello brave world', {
+      fontWeight: 700,
+    });
+
+    expect(next.paragraphs[0]?.runs).toEqual([
+      { text: 'Hello ', format: { fontWeight: 400 } },
+      { text: 'brave ', format: { fontWeight: 700 } },
+      { text: 'world', format: { fontStyle: 'italic' } },
+    ]);
+  });
 });

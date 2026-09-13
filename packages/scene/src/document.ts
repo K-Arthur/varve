@@ -510,6 +510,7 @@ export function makeAdjustmentNode(
       | 'clipping'
       | 'effects'
       | 'order'
+      | 'styleId'
       | 'scope'
     >
   > = {},
@@ -645,6 +646,7 @@ export function makeTextNode(
     fontSize: opts.fontSize ?? 16,
     fontFamily: opts.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY,
     fontReference: opts.fontReference,
+    styleId: opts.styleId,
     fontWeight: opts.fontWeight ?? 400,
     fontStyle: opts.fontStyle ?? 'normal',
     lineHeight: opts.lineHeight ?? 1.2,

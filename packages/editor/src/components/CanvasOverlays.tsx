@@ -64,6 +64,7 @@ import { TableCellEditor } from './TableEditOverlay/TableCellEditor';
 import { TableEditOverlay } from './TableEditOverlay/TableEditOverlay';
 import { TextEditOverlay } from './TextEditOverlay';
 import { TextThreadOverlay } from './TextThreadOverlay';
+import { applyTypographyChanges } from './Typography/typographyCommand';
 import { VariantBox } from './VariantBox/VariantBox';
 import { WarpOverlay } from './WarpOverlay';
 import { ZoomIndicator } from './ZoomIndicator';
@@ -476,6 +477,8 @@ export function CanvasOverlays({
         editor.commitTransaction();
       }
       newTextEditTargetRef.current = null;
+      editor.setSelectionRange(null);
+      editor.setPendingFormat(null);
       setTextEditTargetId(null);
     };
     return (
@@ -495,7 +498,11 @@ export function CanvasOverlays({
               node.kind === 'text'
                 ? (() => {
                     const rich = node.richText ?? plainTextToRichText(node.text);
-                    const nextRich = replaceRichTextContent(rich, text);
+                    const nextRich = replaceRichTextContent(
+                      rich,
+                      text,
+                      editor.state.pendingFormat ?? undefined,
+                    );
                     const nextText = richTextToPlainText(nextRich);
                     return node.richText
                       ? { ...node, text: nextText, richText: nextRich }
@@ -509,10 +516,18 @@ export function CanvasOverlays({
           node={n}
           textScreenRect={textScreenRect}
           onUpdate={(id, changes) =>
-            editor.groupCompoundOperation('Typography', () =>
-              editor.updateNode(id, (node) =>
-                node.kind === 'text' ? { ...node, ...changes } : node,
-              ),
+            applyTypographyChanges(
+              {
+                selectedIds: editor.state.selection,
+                selectionRange: editor.state.selectionRange,
+                pendingFormat: editor.state.pendingFormat,
+                updateNode: editor.updateNode,
+                applyFormatToSelection: editor.applyFormatToSelection,
+                setPendingFormat: editor.setPendingFormat,
+                groupCompoundOperation: editor.groupCompoundOperation,
+              },
+              id,
+              changes,
             )
           }
           onClose={() =>

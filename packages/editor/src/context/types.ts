@@ -896,7 +896,7 @@ export interface EditorContextValue {
    * Store the format that new typing should inherit (collapsed caret with
    * a "pending" format state — grapheme input applies this format).
    */
-  setPendingFormat: (format: import('@varve/scene').CharacterFormat) => void;
+  setPendingFormat: (format: import('@varve/scene').CharacterFormat | null) => void;
   /** The pending character format for new typing (null when unset). */
   pendingFormat: import('@varve/scene').CharacterFormat | null;
   /** Report the selected grapheme range within the focused text node. */

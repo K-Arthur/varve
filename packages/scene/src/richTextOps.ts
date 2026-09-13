@@ -190,6 +190,7 @@ export function replaceRichTextRange(
   start: number,
   end: number,
   replacement: string,
+  format?: CharacterFormat,
 ): RichText {
   const source = richTextToPlainText(rich);
   const normalized = normalizeGraphemeRange(createUnicodeIndexMap(source), start, end);
@@ -215,7 +216,16 @@ export function replaceRichTextRange(
     const isLast = index === replacementLines.length - 1;
     const runs: TextRun[] = [];
     if (isFirst) runs.push(...prefixRuns);
-    if (line) runs.push({ ...insertionRun, text: line });
+    if (line) {
+      const replacementFormat = format
+        ? { ...(insertionRun?.format ?? {}), ...format }
+        : insertionRun?.format;
+      runs.push({
+        ...(insertionRun ?? { text: '' }),
+        text: line,
+        ...(replacementFormat ? { format: replacementFormat } : {}),
+      });
+    }
     if (isLast) runs.push(...suffixRuns);
     created.push({
       ...(isLast && startAddress.paragraphIndex !== endAddress.paragraphIndex
@@ -229,7 +239,11 @@ export function replaceRichTextRange(
 }
 
 /** Replace the smallest changed range between the current and next text. */
-export function replaceRichTextContent(rich: RichText, nextText: string): RichText {
+export function replaceRichTextContent(
+  rich: RichText,
+  nextText: string,
+  insertedFormat?: CharacterFormat,
+): RichText {
   const currentText = richTextToPlainText(rich);
   if (currentText === nextText) return rich;
 
@@ -264,6 +278,7 @@ export function replaceRichTextContent(rich: RichText, nextText: string): RichTe
     currentRange.start,
     currentRange.end,
     nextText.slice(nextRange.start, nextRange.end),
+    insertedFormat,
   );
 }
 
