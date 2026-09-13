@@ -59,6 +59,7 @@ source inspection and focused tests before repair.
 | Target a neutral pixel with a colour-range Hue/Saturation edit | A Reds/Saturation edit treated an achromatic hue of zero as red | Range selection was evaluated without an achromatic guard | Only the Master range can affect a zero-chroma pixel; targeted ranges keep neutral artwork neutral | Hue/Saturation focused test |
 | Import an integer/shaper `.3dl` LUT | The reader accepted only one kind of three-value row and inferred no code range or axis order | Real Discreet/Flame files use integer code values, optional scalar shaper data, and blue-fastest entries | Normalize bounded integer code ranges, return the existing `shaper3d` transform when present, and transpose into canonical R-fastest storage; retain an explicit normalized compatibility path | LUT parser known-answer fixtures: 45/45 |
 | Inspect Levels/Curves later in a stack | Histogram source was always the scoped pre-stack composite | Cache key and render stage omitted selected entry/upstream filters | Histogram key includes stage; upstream `FilterIR` is rendered through the existing compositor; UI labels the source stage | Panel/editor tests; browser visual workflow pending final E2E gate |
+| Localize an adjustment with a spatial mask | The live workflow configured an adjustment mask after explicit target resolution, then compared pixels inside and outside the matte and inspected the attachment in the inspector | The canonical `MaskSection` supported adjustment nodes, but the adjustment-layer panel did not render it; users could otherwise see a working mask in scene data without a reachable editor | Render the existing shared `MaskSection` from `AdjustmentPanel`; keep mask ownership separate from scope and expose type, source, visibility, inversion, feather, density, and transform-link controls | Chromium `clipping-masks.spec.ts --grep "spatial mask confines an adjustment"`: 1 passed; numeric inside/outside oracle and `reports/masking-review/09-mask-inspector-canvas.png` inspected |
 | Open the adjustment entry point from Object immediately after creating a document | Chromium reached the editor but the Object button returned to `aria-expanded=false` with no menu portal after a click | A startup/native-overlay history guard was being removed with asynchronous `history.back()`; a new menu could push a second guard before the old pop arrived, and the stale pop dispatched Escape to the focused Object button. Menubar context invalidation was a separate stale-menu risk. | Extracted menubar context lifecycle handling and made `TabletBackDismiss` reconcile a pending guard removal without dispatching Escape to a newly opened layer | Menubar unit suite 21/21; tablet-guard regression 1/1; Chromium adjustment-picker 1/1; front-facing visual adjustment scenarios 2/2 |
 | Use File → Export SVG after adding an adjustment | The old E2E dispatched an unhandled `strata:*` event; the live File-menu action called the legacy document serializer and could omit adjustment pixels | Whole-document SVG export bypassed the structural flattening compositor used by the batch exporter | Route the existing action through `composeFlattenedExportSnapshot` and `exportDocumentToSvgAdvanced`, save through the active platform, and cancel if the document revision changes during rendering | Chromium File-menu workflow passed; downloaded SVG bytes were inspected for a complete `<svg>` envelope and absence of the old adjustment warning |
 
@@ -99,9 +100,11 @@ is not a final-output or display-proof histogram.
 
 ## Remaining limits and next slices
 
-- Adjustment masks, LUT library portability, save/reopen, and raster/PDF export
-  still need a fresh full workflow capture on this checkout; the direct
-  File → Export SVG path now has an isolated browser pass, while existing
+- LUT library portability, save/reopen, and raster/PDF export still need a
+  fresh full workflow capture on this checkout. Adjustment masks now have a
+  targeted Chromium workflow pass (pixel oracle plus live inspector screenshot),
+  but that pass does not establish save/reopen or every export format. The direct
+  File → Export SVG path has an isolated browser pass, while existing
   architecture documents describe their current boundaries but do not replace
   that evidence. The focused Chromium attempt is captured under
   `test-results/adjustments-e2e-1517/` and `test-results/adjustments-e2e-1518/`:
