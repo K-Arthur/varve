@@ -1915,8 +1915,11 @@ receive the visible pixel path.
 | --- | --- | --- | --- |
 | IMP-13 | PSD/PSB layer-tree imports used transparent placeholders and could hide the source artwork | **Resolved locally** | `packages/import/src/types.ts`, `packages/import/src/service.ts`, `packages/import/src/psd.ts`, `packages/import/src/format-honesty.test.ts`, `tests/e2e/canvas/import-format-smoke.spec.ts` |
 
-Validation from the current `master` browser build (Linux KDE/Wayland,
-Chromium and Firefox) was:
+Validation checkout for the parser and browser commands was the parent
+`master` SHA `163d9a89076f505ede02157ffd7dcac1986cbcc8`; the reviewed format
+milestone is committed as `cc537652cbdb81d4fefc98f21e83b43f967d285e`. The
+environment was Linux KDE/Wayland (Chromium and Firefox), and the following
+commands passed:
 
 ```text
 VARVE_TEST_WORKERS=1 pnpm exec vitest run \
