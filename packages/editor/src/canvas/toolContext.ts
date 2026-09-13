@@ -30,13 +30,16 @@ import {
 } from '../scene/transformCache';
 import { nodeWorldBounds } from '../scene/world';
 import type { DraftShape, PixelProbe, ToolContext } from '../tools';
+import { getDrawingInputSettings } from '../tools/drawingInputRuntime';
 import type { collectSourceEvents } from '../tools/inputNormalizer';
+import { classifyPointerType } from '../tools/inputPolicy';
 import {
   createSnapSession,
-  filterSnapTargets,
+  filterSnapTargetEntries,
   pageSnapTargets,
   type SnapGuide,
   type SnapSession,
+  type SnapTarget,
   snapPosition,
   snapTargetSearchRect,
 } from '../tools/snapping';
@@ -107,6 +110,7 @@ export function buildToolContext(
   const s = deps.stateRef.current;
   const e = deps.editorRef.current;
   const eng = deps.engineRef.current;
+  const drawingInput = getDrawingInputSettings();
   const effectiveDesignCanvasId =
     s.document.activeDesignCanvasId ?? s.document.designCanvases?.[0]?.id ?? null;
   return {
@@ -114,12 +118,15 @@ export function buildToolContext(
     selection: s.selection,
     zoom: s.zoom,
     pan: s.pan,
+    cameraRotation: s.cameraRotation,
     shiftKey: ev.shiftKey,
     altKey: ev.altKey,
     ctrlKey: ev.ctrlKey,
     metaKey: ev.metaKey,
-    pointerType: (ev.pointerType as 'mouse' | 'pen' | 'touch') ?? 'mouse',
+    pointerType: classifyPointerType(ev.pointerType),
     pointerPressure: ev.pressure ?? 0,
+    pressureEnabled: drawingInput.pressureEnabled,
+    pressureCurve: drawingInput.pressureCurve,
     tiltX: ev.tiltX ?? 0,
     tiltY: ev.tiltY ?? 0,
     twist: ev.twist ?? 0,
@@ -352,7 +359,7 @@ export function buildToolContext(
       const parentIdx = snapIndex.parentIndex;
       const selection = deps.stateRef.current.selection;
       const draggedId = selection[0] ?? '';
-      const filtered = filterSnapTargets(
+      const filtered = filterSnapTargetEntries(
         bounds,
         { zoom: s.zoom },
         nearbyBoundsWithIds,
@@ -362,6 +369,7 @@ export function buildToolContext(
         // invalid target — snapping a multi-selection against its own members
         // both wastes evaluation and produces incorrect guides.
         selection.length > 1 ? new Set(selection) : undefined,
+        selection.length > 0 ? new Set(selection) : undefined,
       );
       finishSnapPrefilter({
         indexedCandidates: snapIndex.indexedNodeCount,
@@ -372,7 +380,10 @@ export function buildToolContext(
       // Page trim snap targets (M6): every placed page's trim bounds, so
       // nodes snap to page edges on any page of the pasteboard — not only
       // the active page's trim at the origin.
-      const pageBoundsTargets = pageSnapTargets(doc);
+      const pageBoundsTargets: SnapTarget[] = pageSnapTargets(doc).map((bounds, index) => ({
+        id: `page:${doc.pages?.[index]?.id ?? index}`,
+        bounds,
+      }));
       if (draggedId) {
         const parentId = parentIdx.get(draggedId);
         if (parentId) {
@@ -386,17 +397,24 @@ export function buildToolContext(
             const parentWorldBounds = nodeWorldBounds(doc, parentId);
             if (parentWorldBounds) {
               pageBoundsTargets.push({
-                x: parentWorldBounds.x,
-                y: parentWorldBounds.y,
-                w: parentWorldBounds.w,
-                h: parentWorldBounds.h,
+                id: `frame:${parentId}`,
+                bounds: {
+                  x: parentWorldBounds.x,
+                  y: parentWorldBounds.y,
+                  w: parentWorldBounds.w,
+                  h: parentWorldBounds.h,
+                },
               });
             }
           }
         }
       }
 
-      const layoutGridTargets: Array<{ axis: 'horizontal' | 'vertical'; position: number }> = [];
+      const layoutGridTargets: Array<{
+        axis: 'horizontal' | 'vertical';
+        position: number;
+        id: string;
+      }> = [];
       if (draggedId) {
         const parentId = parentIdx.get(draggedId);
         if (parentId) {
@@ -419,12 +437,14 @@ export function buildToolContext(
                   layoutGridTargets.push({
                     axis: 'vertical',
                     position: applyAffine(parentWorld, [x, 0])[0],
+                    id: `layout-grid:${parentId}:vertical:${x}`,
                   });
                 }
                 for (const y of geometry.horizontal) {
                   layoutGridTargets.push({
                     axis: 'horizontal',
                     position: applyAffine(parentWorld, [0, y])[1],
+                    id: `layout-grid:${parentId}:horizontal:${y}`,
                   });
                 }
               }
@@ -436,6 +456,7 @@ export function buildToolContext(
       const allTargets = [...filtered, ...pageBoundsTargets];
       const guideTargets =
         getGuidesForPage(doc, doc.activePageId).map((guide) => ({
+          id: `guide:${guide.id}`,
           axis: guide.axis,
           position: guide.position,
         })) ?? [];
