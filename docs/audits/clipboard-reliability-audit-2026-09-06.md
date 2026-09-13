@@ -1419,8 +1419,8 @@ Validation evidence for this audit:
 - `pnpm audit:docs`, `pnpm audit:emoji`, and `pnpm audit:tokens` — **all passed**. `pnpm verify:plan` selected the broad concurrent workspace closure and required escalation; `pnpm verify:affected` exited 2 at that escalation boundary, so the full gate was not run.
 
 The implementation and this evidence update are on `master` in commits
-`581c124728ff70e8e5d67cf924793070ac77e010` and the follow-up documentation
-commit that records this validation state.
+`581c124728ff70e8e5d67cf924793070ac77e010` and
+`57b0e4e24e081a458ca25e0e053ace5b0ac3949b`.
 
 External verification remains open for a real Illustrator-authored `.ai`, a
 multi-page or layered TIFF, a PSD with pixel-bearing layers/effects, packaged
