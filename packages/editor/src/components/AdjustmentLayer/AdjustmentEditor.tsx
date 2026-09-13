@@ -6,6 +6,7 @@ import {
   DOC_PIXELS_PER_INCH,
   HALFTONE_PRESETS,
   isImageTreatmentKind,
+  isLutInputSpaceImplemented,
   LUT_INPUT_SPACE_LABELS,
   parseLutFile,
   serializeLutForDocument,
@@ -676,6 +677,7 @@ function LegacyAdjustmentEditor({
 
   function LutEditor({ adjustment, onChange }: AdjustmentEditorProps) {
     const adj = adjustment as import('@varve/engine').LutAdjustment;
+    const declaredInputSpace = adj.inputSpace ?? 'sRGB';
     const [status, setStatus] = useState<string | null>(null);
     const [lutMeta, setLutMeta] = useState<{ name: string; format: string; size: number } | null>(
       null,
@@ -805,14 +807,31 @@ function LegacyAdjustmentEditor({
           <span className="adj-editor__label">Input Space</span>
           <Select
             label="Input colour space"
-            value={adj.inputSpace ?? 'sRGB'}
-            options={Object.entries(LUT_INPUT_SPACE_LABELS).map(([k, v]) => ({
-              value: k,
-              label: v,
-            }))}
+            value={declaredInputSpace}
+            options={Object.entries(LUT_INPUT_SPACE_LABELS).map(([k, v]) => {
+              const implemented = isLutInputSpaceImplemented(
+                k as import('@varve/engine').LutInputSpace,
+              );
+              return {
+                value: k,
+                label: implemented ? v : `${v} (metadata only)`,
+                disabled: !implemented,
+                disabledReason: implemented
+                  ? undefined
+                  : 'No verified colour-space conversion is implemented for this label.',
+              };
+            })}
             onChange={(v) => onChange({ inputSpace: v } as unknown as Partial<Adjustment>)}
           />
         </div>
+
+        {!isLutInputSpaceImplemented(declaredInputSpace) && (
+          <div className="adj-lut-editor__warning" role="status">
+            This saved LUT declares {LUT_INPUT_SPACE_LABELS[declaredInputSpace]}, but Varve does not
+            currently convert that colour space. The LUT is evaluated against sRGB values; choose
+            sRGB to make that assumption explicit.
+          </div>
+        )}
 
         <BooleanRow
           label="Linearize"

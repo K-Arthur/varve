@@ -111,6 +111,20 @@ export const DEFAULT_LUT_INTERPOLATION: LutInterpolation = 'tetrahedral';
 
 export const LUT_SUPPORTED_EXTENSIONS = ['cube', '3dl'] as const;
 
+/**
+ * Input-space labels that the current LUT compositor can actually execute.
+ *
+ * The broader `LutInputSpace` union is retained for document compatibility
+ * and future colour-management work. It is intentionally not the set of
+ * selectable transforms: a label alone does not perform a primaries,
+ * white-point, or log-transfer conversion.
+ */
+export const LUT_IMPLEMENTED_INPUT_SPACES = ['sRGB'] as const;
+
+export function isLutInputSpaceImplemented(value: LutInputSpace): boolean {
+  return (LUT_IMPLEMENTED_INPUT_SPACES as readonly LutInputSpace[]).includes(value);
+}
+
 export const LUT_FORMAT_LABELS: Record<string, string> = {
   cube: 'Adobe Cube LUT',
   '3dl': 'Autodesk 3D LUT',

@@ -1079,6 +1079,12 @@
   padding: var(--space-1) var(--space-2);
 }
 
+.adj-lut-editor__warning {
+  color: var(--color-feedback-warning);
+  font-size: var(--font-size-xs);
+  line-height: 1.35;
+}
+
 /* ─── Adjustment Scope Section ───────────────────────────── */
 
 .insp-select {

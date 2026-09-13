@@ -44,7 +44,9 @@ export type {
 } from './types';
 export {
   DEFAULT_LUT_INTERPOLATION,
+  isLutInputSpaceImplemented,
   LUT_FORMAT_LABELS,
+  LUT_IMPLEMENTED_INPUT_SPACES,
   LUT_INPUT_SPACE_LABELS,
   LUT_SUPPORTED_EXTENSIONS,
   lutFormatSupports,

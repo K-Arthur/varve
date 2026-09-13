@@ -12,7 +12,21 @@ import {
 } from './interpolate';
 import { Parse3dlError, parse3dlData } from './parse3dl';
 import { CubeParseError, parseCubeData } from './parseCube';
-import { makeIdentityLut1D, makeIdentityLut3D } from './types';
+import {
+  isLutInputSpaceImplemented,
+  LUT_IMPLEMENTED_INPUT_SPACES,
+  makeIdentityLut1D,
+  makeIdentityLut3D,
+} from './types';
+
+describe('LUT input-space capability', () => {
+  it('only advertises sRGB as executable until real colour conversions exist', () => {
+    expect(LUT_IMPLEMENTED_INPUT_SPACES).toEqual(['sRGB']);
+    expect(isLutInputSpaceImplemented('sRGB')).toBe(true);
+    expect(isLutInputSpaceImplemented('acescct')).toBe(false);
+    expect(isLutInputSpaceImplemented('displayP3')).toBe(false);
+  });
+});
 
 // ─── Identity LUTs ─────────────────────────────────────────────
 

@@ -78,6 +78,40 @@ describe('AdjustmentEditor — spatial additions', () => {
   });
 });
 
+describe('AdjustmentEditor — LUT capability disclosure', () => {
+  it('does not present unimplemented colour-space labels as executable choices', () => {
+    render(
+      <AdjustmentEditor
+        adjustment={{
+          ...base,
+          kind: 'lut',
+          lutJson: '',
+          originalFilename: 'legacy.cube',
+          inputSpace: 'acescct',
+          interpolation: 'tetrahedral',
+          intensity: 1,
+          linearize: false,
+        }}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/does not currently convert/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('combobox', { name: 'Input colour space' }));
+    const legacyInputSpaceOption = screen
+      .getAllByText(/ACEScct \(metadata only\)/i)
+      .find((element) => element.closest('[role="option"]'))
+      ?.closest('[role="option"]');
+    const executableInputSpaceOption = screen
+      .getAllByText(/sRGB \(IEC 61966-2-1\)/i)
+      .find((element) => element.closest('[role="option"]'))
+      ?.closest('[role="option"]');
+    expect(legacyInputSpaceOption).toHaveAttribute('aria-disabled', 'true');
+    expect(executableInputSpaceOption).not.toHaveAttribute('aria-disabled');
+  });
+});
+
 describe('AdjustmentEditor — curves', () => {
   it('renders the interactive CurveEditor (not the old raw number inputs)', () => {
     render(
