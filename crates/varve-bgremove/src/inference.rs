@@ -1079,6 +1079,10 @@ pub fn remove_ai_cancellable(
     }
 
     let mut session = checkout_session(&model_path, cancellation)?;
+    // Capture the provider attached to this lease before running the graph.
+    // `last_run_provider()` is process-global and can be overwritten by a
+    // different native inference consumer before this result is assembled.
+    let execution_provider = session.execution_provider().to_string();
 
     let (orig_w, orig_h) = img.dimensions();
     let preview_max = opts
@@ -1196,7 +1200,7 @@ pub fn remove_ai_cancellable(
         processing_time_ms: elapsed.as_millis() as u64,
         width: orig_w,
         height: orig_h,
-        execution_provider: crate::webgpu_ep::last_run_provider().to_string(),
+        execution_provider,
     })
 }
 

@@ -70,9 +70,10 @@ pub struct RemovalResult {
     pub width: u32,
     /// Height of the mask in pixels.
     pub height: u32,
-    /// Execution provider that produced the mask: `native-webgpu` when the
-    /// WebGPU plugin EP ran the session, `native-cpu` otherwise, `cpu` for
-    /// non-inference (heuristic) methods.
+    /// Provider attached to the session that produced the mask: `native-webgpu`
+    /// when the WebGPU plugin EP was selected, `native-cpu` otherwise, `cpu`
+    /// for non-inference (heuristic) methods. Provider-level reporting does
+    /// not by itself prove that every graph node avoided CPU partitioning.
     pub execution_provider: String,
 }
 
