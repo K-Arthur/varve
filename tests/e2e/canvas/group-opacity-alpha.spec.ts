@@ -180,9 +180,14 @@ test.describe('group opacity isolation', () => {
   test('group opacity stays isolated over a colored backdrop', async ({ page }) => {
     await navigateToCleanEditor(page);
 
-    // Opaque backdrop rectangle first (painted before the group).
+    // Opaque backdrop rectangle first, recolored so isolation is observable
+    // against a different backdrop (all shapes otherwise share one default
+    // fill, which makes a compounded group look identical).
     await page.keyboard.press('r');
     await dragOnCanvas(page, 80, 80, 380, 300);
+    expect(
+      await callEditor(page, 'setSelectedFill', { space: 'rgb', r: 30, g: 60, b: 200, a: 255 }),
+    ).not.toBeNull();
     // Two overlapping group members.
     await page.keyboard.press('r');
     await dragOnCanvas(page, 120, 120, 260, 220);
@@ -193,16 +198,20 @@ test.describe('group opacity isolation', () => {
     await waitForArtwork(page);
 
     const points = [
+      [95, 95],
       [140, 150],
       [210, 190],
       [300, 240],
     ] as const;
     const before = await samplePixels(page, points);
+    // The backdrop recolor must have landed (blue channel above red).
+    expect(before[0]?.[2] ?? 0).toBeGreaterThan(before[0]?.[0] ?? 255);
 
     const rows = page.getByRole('treeitem');
-    // Group the two foreground rects only (rows 1 and 2).
-    await rows.nth(1).click();
-    await rows.nth(2).click({ modifiers: ['Control'] });
+    // Layers list top-first: rows 0 and 1 are the two foreground rects, the
+    // backdrop is the bottom row and must stay outside the group.
+    await rows.nth(0).click();
+    await rows.nth(1).click({ modifiers: ['Control'] });
     expect(await callEditor(page, 'groupSelected')).not.toBeNull();
     const group = page
       .getByRole('treeitem')
@@ -213,13 +222,15 @@ test.describe('group opacity isolation', () => {
 
     await waitForArtwork(page);
     await page.waitForTimeout(400);
-    const [onlyA, overlap, onlyB] = await samplePixels(page, points);
+    const [backdropOnly, onlyA, overlap, onlyB] = await samplePixels(page, points);
 
     const channelClose = (a: number[] | undefined, b: number[] | undefined, tol: number) =>
       a && b && a.every((value, i) => Math.abs(value - (b[i] ?? 0)) <= tol);
 
-    // Opacity applied: the foreground no longer matches its pre-group color.
-    expect(channelClose(before[0], onlyA, 0)).toBe(false);
+    // Opacity applied: the foreground no longer matches its pre-group color,
+    // and differs from the untouched backdrop.
+    expect(channelClose(before[1], onlyA, 0)).toBe(false);
+    expect(channelClose(backdropOnly, onlyA, 0)).toBe(false);
     // Isolation over the colored backdrop: single and double coverage match.
     expect(channelClose(onlyA, overlap, 3)).toBe(true);
     expect(channelClose(onlyA, onlyB, 3)).toBe(true);

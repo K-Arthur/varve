@@ -111,8 +111,9 @@ as a claim about every renderer:
   (image-workflow leaf conversion only).
 - **Effect masks are applied to the content pass only.** `dropShadow`,
   `outerGlow`, `innerShadow`, `innerGlow`, `backgroundBlur`, and
-  `glassMaterial` ignore `effect.mask` in every renderer, while the Inspector
-  offers the control.
+  `glassMaterial` ignore `effect.mask` in every renderer. The Inspector now
+  hides mask authoring for those types (`effectSupportsMask`) and keeps an
+  existing authored mask removable, but the renderers still ignore it.
 - **The live canvas never resolves `scene-node`/`vector` effect masks**; only
   export/thumbnail replay (`replayScene.ts` `EffectMaskResolver`) evaluates
   them.

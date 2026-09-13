@@ -51,7 +51,7 @@ L = diagnostics/coverage only.
 
 | # | Limitation | Severity | Owner surface | Notes |
 |---|---|---|---|---|
-| A | Effect masks on shadow/glow/backdrop effects are silently ignored; live canvas never resolves `scene-node`/`vector` effect masks | H | `packages/engine/src/replay.ts`, `shadowSource.ts`, `canvas/renderPipeline.ts`, `render/replayScene.ts` | Inspector offers the control for all effects. Export resolves masks but only via the content pass. Needs per-effect mask semantics or an explicit "masks not supported for this effect" state. |
+| A | Effect masks on shadow/glow/backdrop effects are ignored by every renderer; live canvas never resolves `scene-node`/`vector` effect masks | H (renderer) | `packages/engine/src/replay.ts`, `shadowSource.ts`, `canvas/renderPipeline.ts`, `render/replayScene.ts` | The Inspector no longer offers mask authoring for effect types that ignore masks (`effectSupportsMask`; content-stage only), and existing masks stay removable, but the renderers still do not evaluate them and the live canvas still has no effect-mask resolver. Needs per-effect mask semantics or an explicit degraded-preview state. |
 | B | Export loses background blur, glass, depth blur, spatial blurs, chromatic aberration, and glitch on groups | H | `packages/editor/src/render/replayScene.ts` group branch | `compositor.ts` marks these unsupported and forces rasterization, which then drops them. |
 | C | Live container flattening evaluates group effects in authored order with one out-of-band `layerBlur`, diverging from the leaf staged contract; group `depthBlur` is a no-op | M | `packages/editor/src/canvas/renderPipeline.ts` | Documented in `docs/architecture/layer-effects.md` "Known renderer gaps". |
 | D | Frame-owned effects see the frame's own item, not child pixels | M | `renderPipeline.ts`, `replayScene.ts` | Group flattening has the correct surface. |
@@ -77,8 +77,11 @@ workspace/toolchain edits, so the affected closure below was run directly).
 | Recovery | `pnpm exec vitest run packages/editor/src/recovery.test.ts` | 30 passed (raster tile regression) |
 | Import/editor batch | 9 files incl. `context.import`, `sessionBroker`, `auxiliaryShell`, `mergeImportedResources`, `useIconAssets`, `sessionGlobals`, `useFileImport`, `createActionHandlers`, `ImportResults` | 121 passed |
 | Import honesty | `format-honesty.test.ts`, `service.test.ts`, `ImportResults.test.tsx` | 38 passed |
+| Effect-mask capability gating | `pnpm exec vitest run --maxWorkers=1 packages/editor/src/components/Inspector/sections/EffectsSection.test.tsx packages/scene/src/effects.test.ts` | 32 + scene effects pass (new mask-support + hidden-control tests) |
 | Tier 0 audits | `pnpm audit:tokens` / `audit:emoji` / `audit:docs` | tokens 153 pairs pass; emoji clean; docs clean |
 | E2E typecheck | `pnpm typecheck:e2e` | only pre-existing `packages/engine/src/depthMap.ts(846)` unused-var error from a concurrent session; zero errors in the new spec |
+| Group-opacity numeric (Chromium) | `VARVE_E2E_PORT=1473 pnpm exec playwright test tests/e2e/canvas/group-opacity-alpha.spec.ts --project=chromium` | transparent-page test PASSED (45 s): alpha is 0.5 in singly and doubly covered overlap regions, overlap is not 0.75; screenshot `reports/layer-fidelity/group-opacity-alpha.png` inspected — uniform 50% teal across single/overlap coverage |
+| Group-opacity over colored backdrop | same spec, second case | First browser run exposed a test-design weakness (all shapes share one default fill, making isolation unobservable); the backdrop is now recolored through `setSelectedFill` and the guard asserts the foreground differs from both its pre-group color and the untouched backdrop. A green browser run is pending: repeated reruns died in `page.goto` (120–180 s timeouts) while the shared machine was at load average 40–60. |
 
 Pending in this environment: the Chromium run of
 `tests/e2e/canvas/group-opacity-alpha.spec.ts` was attempted while every CPU
