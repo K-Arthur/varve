@@ -184,6 +184,11 @@ focused checks; its global editor warm-up timed out at 180 seconds before the
 test body under the shared Vite/Playwright load. No p95/p99 or frame-cadence
 number is reported from that attempt.
 
+A final isolated plain-wheel retry reached the app loading surface but timed
+out waiting 60 seconds for the editor canvas; the inspected failure capture is
+the Varve loading mark only, with no wheel assertion executed. This is retained
+as startup contention evidence rather than product evidence.
+
 ## Exact remaining limitations
 
 - Physical Chromebook touchscreen, USI pen, detachable trackpad, ChromeOS
