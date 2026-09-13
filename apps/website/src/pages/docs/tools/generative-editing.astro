@@ -46,11 +46,12 @@ import { sitePath } from '../../../lib/siteUrl';
         <h2>Quality and providers</h2>
         <ul>
           <li><strong>Fast / Quick Cleanup</strong> uses the offline PatchMatch heuristic in a worker when the runtime supports workers and needs no model download. It is the fallback for constrained-memory devices and simple dust, blemish, and background cleanup; cancelling it does not leave a matching job running in the editor.</li>
+          <li>For Fill and Remove, the editor decodes only the painted source rectangle. The working raster is aspect-preserving and capped at 1 MP on constrained devices, 4 MP on standard devices, 8 MP on high-memory devices, and 2 MP when browser memory is unknown. The accepted PNG may still need one final full-size canvas.</li>
           <li><strong>AI</strong> uses the optional LaMa inpainting model. Download it explicitly; the model is kept in local model storage.</li>
           <li>LaMa is image-conditioned, not text-conditioned. Prompt-conditioned Fill, Replace, and Expand require an explicitly imported safe-format model that passes the desktop validation run. The browser has no silent remote fallback.</li>
           <li>Desktop model setup is deliberately two-step: download the allowlisted Stable Diffusion 1.5 Inpainting Q4_0 candidate or import a safe-format artifact, then choose <strong>Validate Model</strong>. A non-empty model file is not treated as compatible until the production helper completes a masked test.</li>
           <li>The current 1.75 GB candidate needs about 6 GB of available memory and is licensed CreativeML OpenRAIL-M. It failed Varve's 2026-09-12 real-photograph semantic/runtime qualification, so its prompt-conditioned modes remain disabled. A model checksum and reviewed result are required before any prompt mode is enabled.</li>
-          <li>On desktop, the native runtime measures available memory and reports the architecture/backend before loading diffusion. ChromeOS browser sessions and ARM browser sessions retain the local lightweight paths; prompt-conditioned generation is not advertised unless a qualified desktop provider is present.</li>
+          <li>On desktop, the native runtime measures available memory and reports the architecture/backend before loading diffusion. ChromeOS browser sessions and ARM browser sessions report their best-effort platform/tier and retain the bounded local lightweight paths; prompt-conditioned generation is not advertised unless a qualified desktop provider is present. Browser memory hints are advisory, not a hardware guarantee.</li>
           <li>There is no silent remote fallback. A future remote provider must state what it uploads and ask for consent immediately before transmission.</li>
         </ul>
       </section>

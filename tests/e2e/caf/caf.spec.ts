@@ -705,6 +705,43 @@ test.describe('Content-Aware Fill dialog', () => {
     await page.screenshot({ path: testInfo.outputPath('real-landscape-applied.png') });
   });
 
+  test('bounds a small edit on the 33 MP real portrait fixture', async ({ page }, testInfo) => {
+    const photographicNodeId = await dropImageAndSelect(
+      page,
+      path.join(FIXTURES_DIR, 'real-life-portrait.jpg'),
+    );
+    const before = await readEditorDocument(page);
+    const beforeNode = before.nodes[photographicNodeId];
+    const sourceAssetId = beforeNode?.fills?.find((fill: any) => fill.type === 'image')?.image
+      ?.assetId;
+    expect(sourceAssetId).toBeTruthy();
+    const sourceAsset = before.assets?.[sourceAssetId];
+    expect(sourceAsset.naturalWidth * sourceAsset.naturalHeight).toBeGreaterThan(16_777_216);
+
+    await triggerCafDialog(page, photographicNodeId);
+    const dialog = page.locator('dialog.varve-dialog--caf[open]');
+    await paintMaskStroke(page);
+    await dialog.getByRole('button', { name: /remove && fill/i }).click();
+    await expect(dialog.getByRole('button', { name: /^apply$/i })).toBeEnabled({ timeout: 30_000 });
+    await dialog.screenshot({ path: testInfo.outputPath('real-portrait-bounded-result.png') });
+    await dialog.getByRole('button', { name: /^apply$/i }).click();
+    await dialog.waitFor({ state: 'hidden', timeout: 10_000 });
+
+    const after = await readEditorDocument(page);
+    const afterNode = after.nodes[photographicNodeId];
+    const edit = after.generativeEdits?.[afterNode.generativeEditId];
+    const contextAsset = after.assets?.[edit.variations[0].contextAssetId];
+    expect(edit.provider.id).toBe('varve-content-aware');
+    expect(contextAsset.naturalWidth * contextAsset.naturalHeight).toBeLessThan(
+      sourceAsset.naturalWidth * sourceAsset.naturalHeight,
+    );
+    expect(edit.masks.width * edit.masks.height).toBeLessThanOrEqual(4_000_000);
+    expect(edit.masks.offsetX).toBeGreaterThanOrEqual(0);
+    expect(edit.masks.offsetY).toBeGreaterThanOrEqual(0);
+    expect(edit.outputFrame.sourceWidth).toBe(sourceAsset.naturalWidth);
+    expect(edit.outputFrame.sourceHeight).toBe(sourceAsset.naturalHeight);
+  });
+
   test('undo reverts the CAF apply operation', async ({ page }) => {
     await triggerCafDialog(page, nodeId);
     await paintMaskStroke(page);

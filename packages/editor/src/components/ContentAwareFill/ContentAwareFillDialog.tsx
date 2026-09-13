@@ -34,6 +34,16 @@ import { replaceImageShapeContent } from '../../imageOperations';
 import { decodeRasterMaskDataUrl, rasterizeAreaSelectionForNode } from '../../tools/selectionMask';
 import { type ExpandPadding, prepareExpandedGenerationInput } from './expandCanvas';
 import {
+  computeSourceRegionFromPreviewMask,
+  encodePreviewMaskAtSourceSize,
+  loadImageRegionToImageData,
+  renderGeneratedRegionToCanvas,
+  type SourceImageRegion,
+  samplePreviewMaskToRegion,
+  workingPixelBudgetForTier,
+  workingRasterDimensions,
+} from './generationRaster';
+import {
   combineMaskCoverage,
   type MaskCombineOperation,
   maskCoverageFromRgba,
@@ -112,20 +122,39 @@ function loadImageToImageData(
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = targetWidth ?? img.naturalWidth;
-      canvas.height = targetHeight ?? img.naturalHeight;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        reject(new Error('Failed to get canvas context'));
-        return;
+      try {
+        resolve(imageElementToImageData(img, targetWidth, targetHeight));
+      } catch (error) {
+        reject(error);
       }
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      resolve(ctx.getImageData(0, 0, canvas.width, canvas.height));
     };
     img.onerror = () => reject(new Error('Failed to load image'));
     img.crossOrigin = 'anonymous';
     img.src = src;
+  });
+}
+
+function imageElementToImageData(
+  image: HTMLImageElement,
+  targetWidth?: number,
+  targetHeight?: number,
+): ImageData {
+  const canvas = document.createElement('canvas');
+  canvas.width = targetWidth ?? image.naturalWidth;
+  canvas.height = targetHeight ?? image.naturalHeight;
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Failed to get canvas context');
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  return context.getImageData(0, 0, canvas.width, canvas.height);
+}
+
+function loadImageElement(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('Failed to load image'));
+    image.crossOrigin = 'anonymous';
+    image.src = src;
   });
 }
 
@@ -299,6 +328,14 @@ export function ContentAwareFillDialog({
   const hasResult = previewDataUrl != null && result != null;
   const capabilities = getGenerativeEditCapabilities();
   const modeCapability = capabilities.modes[mode];
+  const resourceProfile = capabilities.resourceProfile;
+  const resourceLabel = [
+    resourceProfile.platform,
+    resourceProfile.tier === 'unknown' ? null : `${resourceProfile.tier} memory`,
+    resourceProfile.architecture,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join(' · ');
   const promptNeedsDiffusion =
     (mode === 'replace' || mode === 'expand' || mode === 'fill') && prompt.trim().length > 0;
   const usesDiffusion = mode === 'replace' || mode === 'expand' || promptNeedsDiffusion;
@@ -1132,7 +1169,9 @@ export function ContentAwareFillDialog({
     setGenerationStage('Preparing');
 
     try {
-      const fullData = await loadImageToImageData(imageSrc);
+      const sourceImage = await loadImageElement(imageSrc);
+      const sourceWidth = sourceImage.naturalWidth;
+      const sourceHeight = sourceImage.naturalHeight;
       if (!isCurrentJob()) {
         throw new GenerativeEditError('stale', 'The source changed before generation completed.');
       }
@@ -1140,36 +1179,115 @@ export function ContentAwareFillDialog({
       const maskCanvas = maskCanvasRef.current;
       if (!maskCanvas) throw new GenerativeEditError('invalid-mask', 'The mask is unavailable.');
 
-      const fullMaskCanvas = new OffscreenCanvas(fullData.width, fullData.height);
-      const fullMaskCtx = fullMaskCanvas.getContext('2d');
-      if (!fullMaskCtx) throw new Error('Canvas unavailable');
-      fullMaskCtx.imageSmoothingEnabled = false;
-      fullMaskCtx.drawImage(maskCanvas, 0, 0, fullData.width, fullData.height);
-      const maskImageData = fullMaskCtx.getImageData(0, 0, fullData.width, fullData.height);
-      const rawMask = new Uint8Array(fullData.width * fullData.height);
-      for (let i = 0; i < rawMask.length; i++) {
-        rawMask[i] = maskImageData.data[i * 4]!;
+      const previewMaskImageData = maskCanvas
+        .getContext('2d')
+        ?.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
+      if (!previewMaskImageData)
+        throw new GenerativeEditError('invalid-mask', 'The mask is unavailable.');
+      const previewMask = maskCoverageFromRgba(previewMaskImageData.data);
+      const previewWidth = maskCanvas.width;
+      const previewHeight = maskCanvas.height;
+      if (previewWidth <= 0 || previewHeight <= 0) {
+        throw new GenerativeEditError('invalid-mask', 'The mask is unavailable.');
       }
-      // The editable mask is preview-sized while the dialog is open, but the
-      // persisted recipe must retain a source-resolution mask. Upscale the
-      // coverage with smoothing disabled so its dimensions and origin match
-      // the immutable source snapshot recorded below.
-      const userMaskDataUrl = maskCoverageDataUrl(rawMask, fullData.width, fullData.height);
-      const refinedMask = refineGenerativeMask(
-        rawMask,
-        { width: fullData.width, height: fullData.height },
-        { expansion: maskExpansion, feather: maskFeather },
-      );
-      const expanded =
-        mode === 'expand'
-          ? prepareExpandedGenerationInput(fullData, refinedMask, expandPadding)
-          : null;
-      const generationImage = expanded?.imageData ?? fullData;
-      const mask = expanded?.mask ?? refinedMask;
-      const maskWidth = expanded?.maskWidth ?? fullData.width;
-      const maskHeight = expanded?.maskHeight ?? fullData.height;
-      const sourceOffsetX = expanded?.sourceOffsetX ?? 0;
-      const sourceOffsetY = expanded?.sourceOffsetY ?? 0;
+
+      let generationImage: ImageData;
+      let mask: Uint8Array;
+      let maskWidth: number;
+      let maskHeight: number;
+      let sourceOffsetX = 0;
+      let sourceOffsetY = 0;
+      let sourceRegion: SourceImageRegion | null = null;
+      let userMaskDataUrl: string;
+
+      if (mode === 'expand') {
+        // Expand is intentionally kept on its existing full-frame path until
+        // a qualified provider can generate the new bounds. It is currently
+        // unavailable, but retaining this branch keeps its geometry contract
+        // explicit instead of silently applying region semantics to it.
+        const fullData = imageElementToImageData(sourceImage);
+        const fullMaskCanvas = new OffscreenCanvas(fullData.width, fullData.height);
+        const fullMaskCtx = fullMaskCanvas.getContext('2d');
+        if (!fullMaskCtx) throw new Error('Canvas unavailable');
+        fullMaskCtx.imageSmoothingEnabled = false;
+        fullMaskCtx.drawImage(maskCanvas, 0, 0, fullData.width, fullData.height);
+        const maskImageData = fullMaskCtx.getImageData(0, 0, fullData.width, fullData.height);
+        const rawMask = new Uint8Array(fullData.width * fullData.height);
+        for (let i = 0; i < rawMask.length; i++) rawMask[i] = maskImageData.data[i * 4]!;
+        const refinedMask = refineGenerativeMask(
+          rawMask,
+          { width: fullData.width, height: fullData.height },
+          { expansion: maskExpansion, feather: maskFeather },
+        );
+        const expanded = prepareExpandedGenerationInput(fullData, refinedMask, expandPadding);
+        generationImage = expanded.imageData;
+        mask = expanded.mask;
+        maskWidth = expanded.maskWidth;
+        maskHeight = expanded.maskHeight;
+        sourceOffsetX = expanded.sourceOffsetX;
+        sourceOffsetY = expanded.sourceOffsetY;
+        userMaskDataUrl = maskCoverageDataUrl(rawMask, fullData.width, fullData.height);
+      } else {
+        const rawBounds = computeSourceRegionFromPreviewMask(
+          previewMask,
+          previewWidth,
+          previewHeight,
+          sourceWidth,
+          sourceHeight,
+          contextPadding,
+        );
+        if (!rawBounds) {
+          throw new GenerativeEditError('empty-mask', 'Paint an area to edit before generating.');
+        }
+        const previewScaleX = previewWidth / sourceWidth;
+        const previewScaleY = previewHeight / sourceHeight;
+        const refinedPreviewMask = refineGenerativeMask(
+          previewMask,
+          { width: previewWidth, height: previewHeight },
+          {
+            expansion: Math.round(maskExpansion * previewScaleX),
+            feather: Math.round(maskFeather * Math.min(previewScaleX, previewScaleY)),
+          },
+        );
+        const region = computeSourceRegionFromPreviewMask(
+          refinedPreviewMask,
+          previewWidth,
+          previewHeight,
+          sourceWidth,
+          sourceHeight,
+          contextPadding,
+        );
+        if (!region) {
+          throw new GenerativeEditError('empty-mask', 'Mask refinement removed the edit region.');
+        }
+        const working = workingRasterDimensions(
+          region,
+          workingPixelBudgetForTier(capabilities.resourceProfile.tier),
+        );
+        generationImage = loadImageRegionToImageData(sourceImage, region, working);
+        mask = samplePreviewMaskToRegion(
+          refinedPreviewMask,
+          previewWidth,
+          previewHeight,
+          sourceWidth,
+          sourceHeight,
+          region,
+          working,
+        );
+        if (!mask.some((value) => value > 0)) {
+          throw new GenerativeEditError('empty-mask', 'Mask refinement removed the edit region.');
+        }
+        maskWidth = working.width;
+        maskHeight = working.height;
+        sourceRegion = region;
+        userMaskDataUrl = encodePreviewMaskAtSourceSize(
+          previewMask,
+          previewWidth,
+          previewHeight,
+          sourceWidth,
+          sourceHeight,
+        );
+      }
       const inferenceMaskDataUrl = maskCoverageDataUrl(mask, maskWidth, maskHeight);
       const preparedContext = extractBoundedContext(
         generationImage,
@@ -1182,12 +1300,12 @@ export function ContentAwareFillDialog({
       );
       const contextDataUrl = imageDataDataUrl(preparedContext.imageData);
       const outputFrame = {
-        x: -sourceOffsetX,
-        y: -sourceOffsetY,
-        width: generationImage.width,
-        height: generationImage.height,
-        sourceWidth: fullData.width,
-        sourceHeight: fullData.height,
+        x: mode === 'expand' ? -sourceOffsetX : 0,
+        y: mode === 'expand' ? -sourceOffsetY : 0,
+        width: mode === 'expand' ? generationImage.width : sourceWidth,
+        height: mode === 'expand' ? generationImage.height : sourceHeight,
+        sourceWidth,
+        sourceHeight,
       };
       const generationSeed = seed ?? jobSnapshot.sourceRevision + variationSequenceRef.current;
       const needsDiffusion =
@@ -1257,13 +1375,46 @@ export function ContentAwareFillDialog({
           modelPath,
           modelHandle: diffusionModelHandle ?? undefined,
         });
-        const outCanvas = document.createElement('canvas');
-        outCanvas.width = generated.imageData.width;
-        outCanvas.height = generated.imageData.height;
-        const rctx = outCanvas.getContext('2d');
-        if (!rctx) throw new Error('Canvas unavailable');
-        rctx.putImageData(generated.imageData, 0, 0);
+        const outCanvas =
+          mode === 'expand'
+            ? document.createElement('canvas')
+            : sourceRegion
+              ? renderGeneratedRegionToCanvas({
+                  image: sourceImage,
+                  sourceWidth,
+                  sourceHeight,
+                  region: sourceRegion,
+                  source: generationImage,
+                  result: generated,
+                  mask,
+                })
+              : null;
+        if (!outCanvas) throw new Error('Generated source region is unavailable');
+        if (mode === 'expand') {
+          outCanvas.width = generated.imageData.width;
+          outCanvas.height = generated.imageData.height;
+          const rctx = outCanvas.getContext('2d');
+          if (!rctx) throw new Error('Canvas unavailable');
+          rctx.putImageData(generated.imageData, 0, 0);
+        }
         const dataUrl = outCanvas.toDataURL('image/png');
+        const displayResult: GenerativeEditResult =
+          mode === 'expand'
+            ? { ...generated, imageData: unloadedVariationImageData() }
+            : {
+                ...generated,
+                imageData: unloadedVariationImageData(),
+                width: sourceWidth,
+                height: sourceHeight,
+                filledBounds: sourceRegion
+                  ? {
+                      x: sourceRegion.x + generated.filledBounds.x,
+                      y: sourceRegion.y + generated.filledBounds.y,
+                      w: generated.filledBounds.w,
+                      h: generated.filledBounds.h,
+                    }
+                  : generated.filledBounds,
+              };
         generatedVariations.push({
           id: `variation-${++variationSequenceRef.current}`,
           dataUrl,
@@ -1273,8 +1424,8 @@ export function ContentAwareFillDialog({
           // URLs/assets and are rehydrated as metadata-only candidates.
           result:
             index === effectiveVariationCount - 1
-              ? generated
-              : metadataOnlyVariationResult(generated),
+              ? displayResult
+              : metadataOnlyVariationResult(displayResult),
           seed: variationSeed,
         });
       }
@@ -1294,12 +1445,12 @@ export function ContentAwareFillDialog({
         sourceSignature,
         userMaskDataUrl,
         inferenceMaskDataUrl,
-        userMaskWidth: fullData.width,
-        userMaskHeight: fullData.height,
+        userMaskWidth: sourceWidth,
+        userMaskHeight: sourceHeight,
         inferenceMaskWidth: maskWidth,
         inferenceMaskHeight: maskHeight,
-        inferenceMaskOffsetX: -sourceOffsetX,
-        inferenceMaskOffsetY: -sourceOffsetY,
+        inferenceMaskOffsetX: mode === 'expand' ? -sourceOffsetX : (sourceRegion?.x ?? 0),
+        inferenceMaskOffsetY: mode === 'expand' ? -sourceOffsetY : (sourceRegion?.y ?? 0),
         contextDataUrl,
         contextWidth: preparedContext.width,
         contextHeight: preparedContext.height,
@@ -1789,9 +1940,14 @@ export function ContentAwareFillDialog({
                   : quality === 'fast'
                     ? 'PatchMatch · no download'
                     : 'LaMa · stored on this device'}
+                {resourceLabel ? ` · ${resourceLabel}` : ''}
               </small>
             </span>
           </div>
+
+          <p className="caf-dialog__hint" aria-live="polite">
+            {resourceProfile.summary}
+          </p>
 
           {(mode === 'replace' || mode === 'expand' || promptNeedsDiffusion) && (
             <div className="caf-dialog__section">

@@ -148,6 +148,39 @@ dialog. The synchronous implementation remains only for SSR, tests, and
 embedded runtimes without `Worker`; it is never the preferred desktop/web
 path.
 
+### Memory-bounded source preparation
+
+The dialog preview is capped at four million pixels. For Fill and Remove, the
+preview mask is used to calculate a source-image rectangle around the refined
+selection (with source-pixel context padding capped at 256 pixels). Only that
+rectangle is decoded into explicit `ImageData`; the source image and mask are
+not first expanded into full-resolution JavaScript buffers. The working raster
+is aspect-preserving and is capped at 1,048,576 pixels for a constrained tier,
+4,000,000 for a standard tier, 8,000,000 for a high tier, and 2,000,000 when a
+browser cannot establish a tier. A downsampled working raster keeps its source
+rectangle and mask mapping, so the result is never mistaken for a new source
+frame.
+
+The user mask is encoded back into the source-image coordinate frame without a
+full-resolution `Uint8Array`. A bounded result is converted into a
+source-over overlay by solving the existing premultiplied, linear-light
+composite equation; unmasked pixels have zero overlay alpha and remain from
+the original image. One final full-size canvas is still required to produce an
+embedded accepted PNG, but inference and intermediate `ImageData` are bounded
+to the edit region. Expand retains its explicit full-frame preparation until a
+qualified outpainting provider is available; it is currently unavailable, so
+this exception cannot be reached through the product UI.
+
+The renderer reports a best-effort platform family and architecture in the
+resource profile. ChromeOS/ARM browser sessions therefore show their
+constrained local path and use the smaller working budget when the browser
+exposes a two-gigabyte hint. That hint is advisory: browser model providers
+must still pass their safe-peak check. Native Linux (including the ChromeOS
+Linux container), Windows/Windows-on-ARM, and macOS/Apple Silicon perform the
+authoritative available-memory check in the desktop process immediately before
+model startup. Refusal is actionable and leaves Quick Cleanup available; no
+remote fallback is attempted.
+
 ## Mask and coordinate contract
 
 The analytical selection is document-space and camera-aware. The model mask is

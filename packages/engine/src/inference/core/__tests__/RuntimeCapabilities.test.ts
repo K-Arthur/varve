@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { getGenerativeEditResourceProfile } from '../../../generativeEdit/resourcePolicy';
 import {
   createDiagnosticsLabel,
   getBestOnnxProviders,
@@ -60,6 +61,14 @@ describe('RuntimeCapabilities', () => {
     expect(caps.approximateMemoryMB).toBe(2048);
     expect(caps.wasmSafePeakBytes).toBeLessThanOrEqual(400_000_000);
     expect(caps.preferredOnnxProviders).toEqual(['wasm']);
+
+    expect(getGenerativeEditResourceProfile(caps)).toMatchObject({
+      tier: 'constrained',
+      platform: 'chromeos',
+      architecture: 'arm64',
+      executionBackend: 'wasm',
+      approximateMemoryBytes: 2_048_000_000,
+    });
   });
 
   it('recognises an ARM browser even when the user agent is not ChromeOS', () => {
