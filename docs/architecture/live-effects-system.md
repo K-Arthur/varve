@@ -6,6 +6,10 @@ The live effects family is the coherent, registry-driven extension of Varve's
 existing non-destructive adjustment pipeline. Ten new effect kinds cover seven
 feature areas:
 
+The shared shader contract, WebGPU resource rules, and current verification
+boundary are maintained in [`shader-system.md`](./shader-system.md). This
+document focuses on the creative-effect and document integration contract.
+
 | Feature | Effect kind(s) |
 | --- | --- |
 | Live dithering | `dither` |
@@ -67,34 +71,39 @@ No hub file (CanvasArea/Shell) changes.
 
 ## 2. Renderer capability matrix
 
-| Effect | WebGPU | CPU/Canvas2D | Native | Export | Notes |
+| Effect | WebGPU runner | CPU/Canvas2D | Native | Export | Notes |
 | --- | --- | --- | --- | --- | --- |
-| dither | partial | yes | yes | raster | error diffusion is sequential; GPU path = CPU |
-| paletteSnap | implemented | yes | yes | raster | LUT-accelerated lookup |
-| bloom | implemented | yes | yes | raster | GPU: 2-level pyramid; CPU: 3-4 levels |
-| rgbSplit | implemented | yes | yes | raster | premultiplied sampling |
-| crt | implemented | yes | yes | raster | analytic patterns only |
-| vhs | implemented | yes | yes | raster | seeded, frame-locked; GPU noise is hash-per-pixel |
-| lightShafts | implemented | yes | yes | raster | screen-space ray marching |
-| lensFlare | implemented | yes | yes | raster | procedural components |
-| lightLeak | implemented | yes | yes | raster | seeded fBm + HSL |
-| caustics | implemented | yes | yes | raster | GPU evaluates the field at full res |
+| dither | partial | yes | yes | raster | error diffusion is sequential; GPU runner falls back to CPU |
+| paletteSnap | async provider | yes | yes | raster | LUT-accelerated lookup |
+| bloom | async provider | yes | yes | raster | GPU: 2-level pyramid; CPU: 3-4 levels |
+| rgbSplit | async provider | yes | yes | raster | premultiplied sampling |
+| crt | async provider | yes | yes | raster | analytic patterns only |
+| vhs | async provider | yes | yes | raster | seeded, frame-locked; GPU noise is hash-per-pixel |
+| lightShafts | async provider | yes | yes | raster | screen-space ray marching |
+| lensFlare | async provider | yes | yes | raster | procedural components |
+| lightLeak | async provider | yes | yes | raster | seeded fBm + HSL |
+| caustics | async provider | yes | yes | raster | GPU evaluates the field at full res |
 
 Three backends, one dispatch:
 
 ```
 Adjustment → FilterIR → applyFilterWithCompositing (sync, interactive preview: CPU)
-                        └─ export path (async): dispatchLiveEffect
-                             ├─ nativeEffectProvider  (Tauri IPC → crates/varve-effects)
-                             ├─ gpuEffectProvider     (WebGPU compute, @varve/compositor)
-                             └─ cpuEffectProvider     (TS reference kernels)
+                        ├─ canonical replay/export path (sync: CPU/native scene replay)
+                        └─ explicit async consumers: dispatchLiveEffect
+                              ├─ nativeEffectProvider  (Tauri IPC → crates/varve-effects)
+                              ├─ gpuEffectProvider     (WebGPU compute, @varve/compositor)
+                              └─ cpuEffectProvider     (TS reference kernels)
 ```
 
 - The interactive preview stays synchronous CPU — the adjustment backdrop runs
   in CanvasArea's per-frame sync path; routing it through async IPC/GPU would
-  change the per-frame hot path. Export (`flattenForExport`) applies live
-  effects through the async chain, order-preserving per filter, falling back
-  to the software path per filter on failure.
+  change the per-frame hot path. The current raster/SVG/PDF export boundaries
+  also replay the canonical scene synchronously at export quality. The
+  `dispatchLiveEffect` chain is available to an asynchronous consumer that
+  explicitly opts in, but it is not injected into synchronous flattening: an
+  earlier attempt caused double application and ordering errors. This keeps
+  export semantics correct while leaving measured native/GPU acceleration
+  available at a safe async boundary.
 - Native kernels live in `crates/varve-effects` (f64, JS-compatible rounding,
   u32-wrapping hashes) and are exposed via the `apply_live_effect_binary`
   Tauri command (raw RGBA body + `x-varve-effect` JSON header). All 20
@@ -115,9 +124,9 @@ Adjustment → FilterIR → applyFilterWithCompositing (sync, interactive previe
 `interactive` < `normal` < `export` (`liveEffects/quality.ts`). The serialized
 per-effect `quality` param (`auto` | `interactive` | `normal` | `export`)
 resolves against the caller's tier — `auto` means "normal in preview, export
-at export". Export call sites (`flattenForExport`,
-`exportRasterizedSubtree`) always pass `export`, so preview shortcuts can
-never leak into exported output. Tier effects today: bloom pyramid levels and
+at export". Canonical replay/export call sites (`exportRasterizedSubtree` and
+the scene replay path) always pass `export`, so preview shortcuts can never
+leak into exported output. Tier effects today: bloom pyramid levels and
 internal resolution, light-shaft step counts, caustic field resolution, VHS
 bleed radius, flare intensity.
 
@@ -251,8 +260,8 @@ the effect parameters, so export and reload never need the original file.
 
 - Error diffusion runs one sequential pass; the LUT-accelerated palette
   lookup makes per-pixel quantisation O(1) for large palettes.
-- Bloom uses a downsample pyramid (3 levels, 4 at export) instead of a giant
-  kernel; streak mode smears only the coarsest level.
+- Bloom uses two lower-resolution GPU pyramid levels (and 3–4 CPU levels) instead
+  of a giant kernel; streak mode smears only the coarsest level.
 - Ray marching in light shafts caps at 96 steps; interactive tier halves the
   count.
 - The adjustment backdrop surface is bounded by the 512px preview cap; the
