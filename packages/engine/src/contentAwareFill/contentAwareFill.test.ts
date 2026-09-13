@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { compositeFillResult, computeMaskBounds, extractBoundedContext } from './contextExtraction';
+import {
+  compositeFillResult,
+  computeBoundedContextRegion,
+  computeMaskBounds,
+  extractBoundedContext,
+} from './contextExtraction';
 import { applyFillTransform, mapMaskThroughTransform } from './coordinateMapping';
 import type { FillTransform } from './types';
 
@@ -265,6 +270,18 @@ describe('extractBoundedContext', () => {
     const ctx = extractBoundedContext(img, mask, 10, 10, 10, 10, 8);
     expect(ctx.offsetX).toBe(7); // 10 + 5 - 8 = 7
     expect(ctx.offsetY).toBe(7); // 10 + 5 - 8 = 7
+  });
+
+  it('computes the same bounded region without allocating source pixels', () => {
+    const mask = new Uint8Array(30 * 30);
+    mask[15 * 30 + 14] = 255;
+
+    expect(computeBoundedContextRegion(30, 30, mask, 30, 30, 0, 0, 8)).toEqual({
+      offsetX: 6,
+      offsetY: 7,
+      width: 17,
+      height: 17,
+    });
   });
 });
 

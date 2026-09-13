@@ -42,8 +42,8 @@ function approximateMemoryMB(): number {
   if (typeof navigator === 'undefined') return 2048;
   try {
     const nav = navigator as unknown as Record<string, unknown>;
-    if (nav.deviceMemory !== undefined) {
-      return (nav.deviceMemory as number) * 1024;
+    if (typeof nav.deviceMemory === 'number' && Number.isFinite(nav.deviceMemory)) {
+      if (nav.deviceMemory > 0) return nav.deviceMemory * 1024;
     }
   } catch {}
   return 2048;
@@ -184,20 +184,25 @@ function detectOs(): string | undefined {
   const ua = navigator.userAgent;
   if (ua.includes('Windows')) return 'windows';
   if (ua.includes('Mac OS')) return 'macos';
-  if (ua.includes('Linux')) return 'linux';
+  if (ua.includes('CrOS')) return 'chromeos';
   if (ua.includes('Android')) return 'android';
   if (ua.includes('iOS') || ua.includes('iPhone')) return 'ios';
+  if (ua.includes('Linux')) return 'linux';
   return undefined;
 }
 
 function detectCpuArch(): string | undefined {
   if (typeof navigator === 'undefined') return undefined;
   const nav = navigator as unknown as Record<string, string | undefined>;
-  if (nav.platform) {
-    const p = nav.platform.toLowerCase();
-    if (p.includes('arm') || p.includes('aarch')) return 'arm64';
-    if (p.includes('x86_64') || p.includes('amd64') || p.includes('win64')) return 'x86_64';
-    if (p.includes('x86') || p.includes('i386') || p.includes('i686')) return 'x86';
+  const signals = [nav.platform, navigator.userAgent]
+    .filter((value): value is string => typeof value === 'string')
+    .map((value) => value.toLowerCase());
+  for (const signal of signals) {
+    if (/\b(?:aarch64|arm64|armv[5-8]\w*|arm)\b/.test(signal)) return 'arm64';
+  }
+  for (const signal of signals) {
+    if (/\b(?:x86_64|amd64|win64)\b/.test(signal)) return 'x86_64';
+    if (/\b(?:x86|i386|i686)\b/.test(signal)) return 'x86';
   }
   return undefined;
 }

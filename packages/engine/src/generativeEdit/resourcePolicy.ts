@@ -119,6 +119,9 @@ export function assessGenerativeEditResources(options: {
   mode: GenerativeEditMode;
   width: number;
   height: number;
+  /** Bounded context dimensions used by the model, when already known. */
+  workingWidth?: number;
+  workingHeight?: number;
   outputWidth?: number;
   outputHeight?: number;
   quality: GenerativeEditQuality;
@@ -127,16 +130,26 @@ export function assessGenerativeEditResources(options: {
 }): GenerativeEditResourceAssessment {
   const profile = options.profile ?? getGenerativeEditResourceProfile();
   const modelBytes = modelBytesForRequest(options);
+  const workingWidth = options.workingWidth ?? options.width;
+  const workingHeight = options.workingHeight ?? options.height;
   const estimatedPeakBytes = estimateInferenceReservation({
-    width: options.width,
-    height: options.height,
-    outputWidth: options.outputWidth,
-    outputHeight: options.outputHeight,
+    width: workingWidth,
+    height: workingHeight,
+    outputWidth: options.outputWidth ?? workingWidth,
+    outputHeight: options.outputHeight ?? workingHeight,
     modelBytes,
     workingSetMultiplier: options.requiresDiffusion ? 4 : options.quality === 'quality' ? 4 : 2,
   });
 
-  if (modelBytes === 0 || profile.executionBackend === 'native' || profile.tier === 'unknown') {
+  // Native memory is checked again in the desktop command immediately before
+  // helper startup. Browser/WASM must still use its conservative safe-peak
+  // budget even when deviceMemory is unavailable (common in privacy-focused
+  // browsers and some ChromeOS configurations).
+  if (
+    modelBytes === 0 ||
+    profile.executionBackend === 'native' ||
+    (profile.tier === 'unknown' && profile.safePeakBytes === undefined)
+  ) {
     return { allowed: true, estimatedPeakBytes, fallback: 'none' };
   }
 

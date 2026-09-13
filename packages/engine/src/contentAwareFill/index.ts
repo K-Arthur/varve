@@ -1,4 +1,9 @@
-export { compositeFillResult, computeMaskBounds, extractBoundedContext } from './contextExtraction';
+export {
+  compositeFillResult,
+  computeBoundedContextRegion,
+  computeMaskBounds,
+  extractBoundedContext,
+} from './contextExtraction';
 export {
   applyFillTransform,
   computeFillOffset,

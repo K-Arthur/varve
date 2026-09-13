@@ -104,6 +104,49 @@ describe('generative edit capabilities', () => {
     expect(assessment.estimatedPeakBytes).toBeGreaterThan(6 * 1024 ** 3);
   });
 
+  it('budgets the bounded context instead of a large source frame', () => {
+    const assessment = assessGenerativeEditResources({
+      mode: 'fill',
+      width: 33_000,
+      height: 22_000,
+      workingWidth: 256,
+      workingHeight: 192,
+      quality: 'quality',
+      requiresDiffusion: false,
+      profile: {
+        tier: 'standard',
+        executionBackend: 'wasm',
+        safePeakBytes: 500 * 1024 * 1024,
+        summary: 'test',
+      },
+    });
+
+    expect(assessment.allowed).toBe(true);
+    expect(assessment.estimatedPeakBytes).toBeLessThan(500 * 1024 * 1024);
+  });
+
+  it('keeps the browser safe-peak guard active when memory is unknown', () => {
+    const assessment = assessGenerativeEditResources({
+      mode: 'fill',
+      width: 1024,
+      height: 1024,
+      quality: 'quality',
+      requiresDiffusion: false,
+      profile: {
+        tier: 'unknown',
+        executionBackend: 'wasm',
+        safePeakBytes: 100 * 1024 * 1024,
+        summary: 'privacy-preserving browser',
+      },
+    });
+
+    expect(assessment).toMatchObject({
+      allowed: false,
+      reasonCode: 'insufficient-memory',
+      fallback: 'quick-cleanup',
+    });
+  });
+
   it('rejects prompt-only modes until a verified provider exists', async () => {
     await expect(runGenerativeEdit(request({ mode: 'replace' }))).rejects.toMatchObject({
       code: 'unsupported-mode',

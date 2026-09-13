@@ -3,6 +3,17 @@ import type { BoundedContext } from './types';
 const AUTO_MIN_CONTEXT_PADDING = 16;
 const MAX_CONTEXT_PADDING = 256;
 
+export interface BoundedContextRegion {
+  /** X offset of the region within the source image. */
+  offsetX: number;
+  /** Y offset of the region within the source image. */
+  offsetY: number;
+  /** Width of the region in source-image pixels. */
+  width: number;
+  /** Height of the region in source-image pixels. */
+  height: number;
+}
+
 function estimateContextPadding(maskWidth: number, maskHeight: number): number {
   const maxDim = Math.max(maskWidth, maskHeight);
   if (maxDim <= 64) return Math.max(AUTO_MIN_CONTEXT_PADDING, maxDim);
@@ -37,6 +48,44 @@ export function computeMaskBounds(
   return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
 }
 
+/**
+ * Calculate the bounded inference region without allocating an ImageData.
+ *
+ * The generation admission check uses this function before it creates a
+ * context buffer. Keeping the geometry calculation separate prevents a
+ * small edit on a very large photograph from being budgeted as a full-frame
+ * model request.
+ */
+export function computeBoundedContextRegion(
+  imageWidth: number,
+  imageHeight: number,
+  mask: Uint8Array,
+  maskWidth: number,
+  maskHeight: number,
+  maskOffsetX: number,
+  maskOffsetY: number,
+  contextPadding?: number,
+): BoundedContextRegion {
+  const bounds = computeMaskBounds(mask, maskWidth, maskHeight);
+
+  if (!bounds) {
+    return { offsetX: 0, offsetY: 0, width: maskWidth, height: maskHeight };
+  }
+
+  const padding = contextPadding ?? estimateContextPadding(bounds.w, bounds.h);
+  const clamped = Math.max(1, Math.min(padding, MAX_CONTEXT_PADDING));
+  const srcX = Math.max(0, maskOffsetX + bounds.x - clamped);
+  const srcY = Math.max(0, maskOffsetY + bounds.y - clamped);
+  const srcW = Math.min(imageWidth - srcX, bounds.w + clamped * 2);
+  const srcH = Math.min(imageHeight - srcY, bounds.h + clamped * 2);
+
+  if (srcW <= 0 || srcH <= 0) {
+    return { offsetX: 0, offsetY: 0, width: maskWidth, height: maskHeight };
+  }
+
+  return { offsetX: srcX, offsetY: srcY, width: srcW, height: srcH };
+}
+
 export function extractBoundedContext(
   imageData: ImageData,
   mask: Uint8Array,
@@ -46,22 +95,27 @@ export function extractBoundedContext(
   maskOffsetY: number,
   contextPadding?: number,
 ): BoundedContext {
-  const bounds = computeMaskBounds(mask, maskWidth, maskHeight);
+  const region = computeBoundedContextRegion(
+    imageData.width,
+    imageData.height,
+    mask,
+    maskWidth,
+    maskHeight,
+    maskOffsetX,
+    maskOffsetY,
+    contextPadding,
+  );
+  const { offsetX: srcX, offsetY: srcY, width: srcW, height: srcH } = region;
 
-  if (!bounds) {
-    return { imageData, mask, offsetX: 0, offsetY: 0, width: maskWidth, height: maskHeight };
-  }
-
-  const padding = contextPadding ?? estimateContextPadding(bounds.w, bounds.h);
-  const clamped = Math.max(1, Math.min(padding, MAX_CONTEXT_PADDING));
-
-  const srcX = Math.max(0, maskOffsetX + bounds.x - clamped);
-  const srcY = Math.max(0, maskOffsetY + bounds.y - clamped);
-  const srcW = Math.min(imageData.width - srcX, bounds.w + clamped * 2);
-  const srcH = Math.min(imageData.height - srcY, bounds.h + clamped * 2);
-
-  if (srcW <= 0 || srcH <= 0) {
-    return { imageData, mask, offsetX: 0, offsetY: 0, width: maskWidth, height: maskHeight };
+  if (srcW === imageData.width && srcH === imageData.height && srcX === 0 && srcY === 0) {
+    return {
+      imageData,
+      mask,
+      offsetX: 0,
+      offsetY: 0,
+      width: maskWidth,
+      height: maskHeight,
+    };
   }
 
   const boundedImageData = new ImageData(srcW, srcH);

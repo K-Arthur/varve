@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   createDiagnosticsLabel,
   getBestOnnxProviders,
@@ -9,6 +9,31 @@ import {
 } from '../RuntimeCapabilities';
 
 describe('RuntimeCapabilities', () => {
+  const navigatorDescriptors = new Map<string, PropertyDescriptor | undefined>();
+
+  function emulateNavigator(values: {
+    userAgent: string;
+    platform: string;
+    deviceMemory: number;
+  }): void {
+    for (const [key, value] of Object.entries(values)) {
+      navigatorDescriptors.set(key, Object.getOwnPropertyDescriptor(navigator, key));
+      Object.defineProperty(navigator, key, {
+        configurable: true,
+        value,
+      });
+    }
+  }
+
+  afterEach(() => {
+    for (const [key, descriptor] of navigatorDescriptors) {
+      if (descriptor) Object.defineProperty(navigator, key, descriptor);
+      else Reflect.deleteProperty(navigator, key);
+    }
+    navigatorDescriptors.clear();
+    resetRuntimeCapabilities();
+  });
+
   beforeEach(() => {
     resetRuntimeCapabilities();
   });
@@ -18,6 +43,37 @@ describe('RuntimeCapabilities', () => {
     expect(caps.hasWebGPU).toBe(false);
     expect(caps.preferredOnnxProviders).toContain('wasm');
     expect(caps.wasmSafeModelBytes).toBeGreaterThan(0);
+  });
+
+  it('classifies a low-memory ARM Chromebook conservatively', () => {
+    emulateNavigator({
+      userAgent:
+        'Mozilla/5.0 (X11; CrOS armv7l 14541.0.0) AppleWebKit/537.36 Chrome/140.0 Safari/537.36',
+      platform: 'Linux armv8l',
+      deviceMemory: 2,
+    });
+
+    const caps = getRuntimeCapabilitiesSync();
+    expect(caps.os).toBe('chromeos');
+    expect(caps.cpuArch).toBe('arm64');
+    expect(caps.memoryTier).toBe('low');
+    expect(caps.approximateMemoryMB).toBe(2048);
+    expect(caps.wasmSafePeakBytes).toBeLessThanOrEqual(400_000_000);
+    expect(caps.preferredOnnxProviders).toEqual(['wasm']);
+  });
+
+  it('recognises an ARM browser even when the user agent is not ChromeOS', () => {
+    emulateNavigator({
+      userAgent:
+        'Mozilla/5.0 (Linux; Android 15; Pixel Tablet arm64) AppleWebKit/537.36 Chrome/140.0 Safari/537.36',
+      platform: 'Linux aarch64',
+      deviceMemory: 4,
+    });
+
+    const caps = getRuntimeCapabilitiesSync();
+    expect(caps.os).toBe('android');
+    expect(caps.cpuArch).toBe('arm64');
+    expect(caps.memoryTier).toBe('medium');
   });
 
   it('returns async capabilities', async () => {

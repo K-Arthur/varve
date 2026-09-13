@@ -1,5 +1,9 @@
 import { type ContentAwareFillQuality, runContentAwareFillPipeline } from '../contentAwareFill';
-import { compositeFillResult, extractBoundedContext } from '../contentAwareFill/contextExtraction';
+import {
+  compositeFillResult,
+  computeBoundedContextRegion,
+  extractBoundedContext,
+} from '../contentAwareFill/contextExtraction';
 import { prepareDiffusionFrame } from './diffusionFrame';
 import { NATIVE_GENERATIVE_MODEL_PROFILE } from './nativeModel';
 import { nativeGenerativeProvider } from './nativeProvider';
@@ -211,12 +215,27 @@ export async function runGenerativeEdit(
     request.mode === 'replace' ||
     request.mode === 'expand' ||
     (request.mode === 'fill' && promptRequested);
+  const workingRegion = computeBoundedContextRegion(
+    request.imageData.width,
+    request.imageData.height,
+    request.mask,
+    request.maskWidth,
+    request.maskHeight,
+    request.maskOffsetX ?? 0,
+    request.maskOffsetY ?? 0,
+    request.contextPadding,
+  );
   const resourceAssessment = assessGenerativeEditResources({
     mode: request.mode,
     width: request.imageData.width,
     height: request.imageData.height,
-    outputWidth: request.outputWidth,
-    outputHeight: request.outputHeight,
+    workingWidth: workingRegion.width,
+    workingHeight: workingRegion.height,
+    // The model sees the bounded context. The public result may be a full
+    // source composite, but budgeting that output frame here would defeat
+    // regional inference on large photographs.
+    outputWidth: workingRegion.width,
+    outputHeight: workingRegion.height,
     quality: request.quality,
     requiresDiffusion,
   });
