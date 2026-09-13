@@ -26,12 +26,13 @@ pnpm exec vitest run \
   --config vitest.config.ts --reporter=verbose
 ```
 
-Result: 2 files, 12 tests passed. The new adapter assertions cover:
+Result: 2 files, 13 tests passed. The new adapter assertions cover:
 
 - a replacement changing one usage row while an identically named node stays
   on the original family;
 - a linked text style becoming a scoped node override while the shared style
   and the other style consumer remain unchanged;
+- restoring a scoped style override without changing its other consumers;
 - existing exact-face, rich-run, provenance, restore, and ambiguous-history
   behavior.
 
