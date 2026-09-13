@@ -159,7 +159,7 @@ and architecture jobs, so startup durations are not frame-budget baselines.
 | Website production build | 100 routes built; 1m16s; exit 0 | The updated canvas, keyboard-shortcut, and touch documentation routes compile in static output. |
 | Website canvas browser E2E | 1 test passed; 18.0 s; exit 0 | Desktop and mobile responsive copy/layout assertions passed; both screenshots were inspected. |
 | Editor navigation browser E2E | Hand keyboard pan and stationary edge auto-pan passed in the broad run; 2 other tests failed in setup and 6 did not run | Real DOM canvas routing and artwork/document invariants passed for the two completed workflows. The failures were setup timeouts under concurrent Vite/Playwright load, not assertion failures. |
-| Partial-redraw visual oracle | 3 tests failed before rendering because Vite could not resolve a concurrently moved `SpecPanel/export` module | This is an environment/worktree race, not a passing oracle; it remains a required retry before claiming stale-pixel coverage. |
+| Partial-redraw visual oracle | 3 cases passed; the fourth authoritative full-redraw case timed out in `page.goto` after 180 s while Vite was starved under concurrent jobs | Passed cases cover localized pruning, a spanning dependency, missing-candidate sensitivity, and stale pixels across a pan. The final exact-match case remains pending; no full oracle pass is claimed. |
 
 Completed visual loop for the Hand/auto-pan slice: reproduce the gesture in the
 real editor DOM, capture before/moving/settled states, open the screenshots,
@@ -171,9 +171,11 @@ count, and no checkerboard/smear. The inspected artifacts are
 The website canvas E2E likewise captured and inspected desktop/mobile output.
 Wheel pan, Ctrl/Cmd-wheel zoom, rotated ZoomTool/pinch, minimap/fit, and the
 settled optimized-vs-authoritative surface hash still require a clean targeted
-browser run. The partial-redraw oracle attempt was blocked before the harness
-loaded by a concurrent missing-module race, so it is not represented as
-evidence. Existing artifacts from concurrent Stage 3 validation are under
+browser run. The partial-redraw oracle passed three cases on the final source
+tree; its last case was blocked by a 180-second harness navigation timeout
+under concurrent Vite/Playwright load, so the oracle is not yet a complete
+pass. An earlier attempt also exposed a concurrent missing-module race; that
+was not treated as product evidence. Existing artifacts from concurrent Stage 3 validation are under
 `/tmp/varve-chromeos-stage3-visual/`; this record does not represent them as
 physical-device evidence.
 
