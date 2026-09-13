@@ -30,9 +30,8 @@ export function simplifyPathNode(doc: Document, nodeId: NodeId, epsilon = 1.5): 
   const node = getPathShape(doc, nodeId);
   if (node?.shape.kind !== 'path') return doc;
   const rings = pathRings(node.shape);
-  const results = rings.map((ring) =>
-    simplifyPathRDP(ring as PathPoint[], epsilon, node.shape.closed),
-  );
+  const closed = node.shape.closed;
+  const results = rings.map((ring) => simplifyPathRDP(ring as PathPoint[], epsilon, closed));
   if (results.every((result) => result.simplifiedCount >= result.originalCount)) return doc;
   const simplifiedRings = results.map((result) => result.points);
   const updated: ShapeNode = {
