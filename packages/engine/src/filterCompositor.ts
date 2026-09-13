@@ -12,6 +12,7 @@
  *   W3C Compositing and Blending spec.
  */
 
+import { linearToSrgbUnit, srgbToLinearUnit } from '@varve/shared';
 import { applyCurve, buildCurveLUT } from './adjustment/curves';
 import { applyHueSaturation } from './adjustment/hueSaturation';
 import { applyLevels } from './adjustment/levels';
@@ -1033,23 +1034,29 @@ function applyExposure(
   offset: number,
   gammaCorrection: number,
 ): void {
-  const factor = 2 ** value; // Exposure in EV
+  // Exposure is authored in stops and offset is a linear-light shift. Use the
+  // shared sRGB transfer functions at this boundary; a display-byte power
+  // such as `value ** 2.2` is only an approximation and produces visibly wrong
+  // midtones (especially at one stop).
+  const safeValue = Number.isFinite(value) ? Math.max(-32, Math.min(32, value)) : 0;
+  const safeOffset = Number.isFinite(offset) ? Math.max(-1, Math.min(1, offset)) : 0;
+  const safeGamma =
+    Number.isFinite(gammaCorrection) && gammaCorrection > 0
+      ? Math.max(0.01, Math.min(10, gammaCorrection))
+      : 1;
+  const factor = 2 ** safeValue; // Exposure in EV
+  const correct = (encoded: number): number => {
+    const linear = srgbToLinearUnit(encoded / 255);
+    const shifted = Math.max(0, linear * factor + safeOffset);
+    const gammaCorrected = Math.min(1, shifted ** (1 / safeGamma));
+    return clampByte(linearToSrgbUnit(gammaCorrected) * 255);
+  };
   const pixels = data.data;
   for (let i = 0; i < pixels.length; i += 4) {
     if (pixels[i + 3] === 0) continue;
-    const r = pixels[i]! / 255;
-    const g = pixels[i + 1]! / 255;
-    const b = pixels[i + 2]! / 255;
-    // Linearize, apply exposure, gamma correct, re-quantize
-    const lr = r ** 2.2 * factor + offset;
-    const lg = g ** 2.2 * factor + offset;
-    const lb = b ** 2.2 * factor + offset;
-    const correctedR = Math.max(0, lr) ** (1 / gammaCorrection);
-    const correctedG = Math.max(0, lg) ** (1 / gammaCorrection);
-    const correctedB = Math.max(0, lb) ** (1 / gammaCorrection);
-    pixels[i] = clampByte(correctedR * 255);
-    pixels[i + 1] = clampByte(correctedG * 255);
-    pixels[i + 2] = clampByte(correctedB * 255);
+    pixels[i] = correct(pixels[i]!);
+    pixels[i + 1] = correct(pixels[i + 1]!);
+    pixels[i + 2] = correct(pixels[i + 2]!);
   }
 }
 

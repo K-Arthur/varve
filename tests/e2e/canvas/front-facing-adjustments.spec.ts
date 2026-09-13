@@ -7,6 +7,19 @@ import { dragOnCanvas, navigateToEditor } from '../shared';
 const REVIEW_DIR = path.resolve('reports/ui-review/front-facing-adjustments');
 const IMAGE_FIXTURE = path.resolve('tests/e2e/fixtures/test-image.png');
 
+async function navigateToAdjustmentEditor(page: import('@playwright/test').Page) {
+  // A prior crash can leave the local test profile on Varve's explicit safe
+  // mode screen. Recover through the product control before using the normal
+  // shared editor navigation; this keeps the visual test about adjustments,
+  // not a stale browser profile.
+  await page.goto('/');
+  const continueNormal = page.getByRole('button', { name: /continue normal startup/i });
+  if (await continueNormal.isVisible({ timeout: 1500 }).catch(() => false)) {
+    await continueNormal.click();
+  }
+  await navigateToEditor(page);
+}
+
 async function createAdjustmentLayer(page: import('@playwright/test').Page) {
   await page.getByRole('menuitem', { name: /^Object$/i }).click();
   await page.getByRole('menuitem', { name: /new adjustment layer/i }).click();
@@ -26,7 +39,7 @@ test.describe('front-facing adjustment and canvas controls', () => {
   }) => {
     test.setTimeout(120000);
     mkdirSync(REVIEW_DIR, { recursive: true });
-    await navigateToEditor(page);
+    await navigateToAdjustmentEditor(page);
 
     await page.locator('#file-import-input').setInputFiles(IMAGE_FIXTURE);
     await expect(page.getByRole('treeitem')).toHaveCount(1);
@@ -60,7 +73,22 @@ test.describe('front-facing adjustment and canvas controls', () => {
     const curve = page.getByRole('img', { name: /Curve editor/i });
     await expect(curve).toBeVisible();
     await expect(curve.locator('xpath=preceding-sibling::canvas')).toHaveCount(1);
+    await expect(page.getByText('Histogram: Input to Curves', { exact: true })).toBeVisible();
     await page.screenshot({ path: path.join(REVIEW_DIR, '03-curves-histogram.png') });
+  });
+
+  test('keeps a newly-created layer inactive when nothing is selected', async ({ page }) => {
+    test.setTimeout(120000);
+    mkdirSync(REVIEW_DIR, { recursive: true });
+    await navigateToAdjustmentEditor(page);
+
+    await createAdjustmentLayer(page);
+    await expect(page.getByText('Affected targets', { exact: true })).toBeVisible();
+    await expect(page.getByText('0', { exact: true }).first()).toBeVisible();
+    await expect(
+      page.getByText('No targets selected; this adjustment is currently inactive', { exact: true }),
+    ).toBeVisible();
+    await page.screenshot({ path: path.join(REVIEW_DIR, '01-empty-adjustment-scope.png') });
   });
 
   test('reaches Pixel Info and the soft-proof/gamut controls from the canvas shell', async ({

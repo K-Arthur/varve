@@ -11,7 +11,7 @@
  * Architecture:
  *   The async computation runs through the canonical scene→engine→replay
  *   pipeline at reduced resolution (256px max). Results are cached by
- *   (doc revision, adjustment id, sorted target ids) at the module level
+ *   (doc revision, adjustment id, selected stack entry, sorted target ids) at the module level
  *   so identical requests return instantly.
  *
  * The histogram is recomputed when:
@@ -35,6 +35,7 @@ export interface UseAdjustmentHistogramResult {
 export function useAdjustmentHistogram(
   doc: Document | undefined,
   adjNode: AdjustmentNode | undefined,
+  beforeAdjustmentId?: string,
 ): UseAdjustmentHistogramResult {
   const [histogram, setHistogram] = useState<Histogram | null>(null);
   const [loading, setLoading] = useState(false);
@@ -49,13 +50,22 @@ export function useAdjustmentHistogram(
 
     const generation = ++abortRef.current;
     let cancelled = false;
+    // Do not display the previous stage's distribution under the new stage
+    // label while the revisioned diagnostic job is pending.
+    setHistogram(null);
     setLoading(true);
 
-    computeAdjustmentSourceHistogram(doc, adjNode).then((result) => {
-      if (cancelled || generation !== abortRef.current) return;
-      setHistogram(result);
-      setLoading(false);
-    });
+    computeAdjustmentSourceHistogram(doc, adjNode, beforeAdjustmentId)
+      .then((result) => {
+        if (cancelled || generation !== abortRef.current) return;
+        setHistogram(result);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (cancelled || generation !== abortRef.current) return;
+        setHistogram(null);
+        setLoading(false);
+      });
 
     return () => {
       cancelled = true;
@@ -63,7 +73,7 @@ export function useAdjustmentHistogram(
     // Documents are immutable, so identity is the reliable invalidation token.
     // `nextId` only changes when allocating node ids and would leave the
     // histogram stale after an edit to an existing scoped target.
-  }, [doc, adjNode?.id, adjNode?.scope]);
+  }, [doc, adjNode?.id, adjNode?.scope, beforeAdjustmentId]);
 
   return { histogram, loading };
 }

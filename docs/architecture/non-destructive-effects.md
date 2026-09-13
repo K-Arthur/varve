@@ -103,13 +103,20 @@ An Adjustment Layer resolves one of four serialised scopes:
 | `image-local` | One eligible node |
 | `explicit-targets` | Named eligible nodes, de-duplicated |
 | `container-descendant` | Eligible descendants of a container, optionally including nested containers |
-| `document` | All eligible nodes |
+| `document` | All reachable, visible eligible nodes across the document |
 
 Resolution drops missing, hidden, duplicate, self-referential, and nested
 duplicate targets. In particular, a target that contains the adjustment node
 is rejected before rendering: otherwise it would include the adjustment's own
 output recursively. The legacy unscoped form remains a deterministic
 sibling-below fallback for old documents.
+
+An explicitly empty target list is an inactive adjustment, not a document
+scope. Newly created layers use this explicit empty state when there is no
+selection, so a user must choose targets before pixels outside the intended
+context can change. Document scope remains a deliberate inspector choice with
+an impact preview. The preview reports resolved target/page/frame geometry; it
+does not infer viewport/off-screen work from an arbitrary target-count cutoff.
 
 A node mask answers **where a node is visible**. An adjustment mask answers
 **where the filtered scoped result is visible**; it does not add targets to

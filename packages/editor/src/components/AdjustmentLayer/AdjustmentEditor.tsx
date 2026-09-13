@@ -51,6 +51,9 @@ export interface AdjustmentEditorProps {
    * Used by Levels (HistogramWidget) and Curves (background display).
    */
   sourceHistogram?: import('@varve/engine').Histogram | null;
+  /** Human-readable stage represented by the histogram diagnostic. */
+  histogramSourceLabel?: string;
+  histogramLoading?: boolean;
 }
 
 function BooleanRow({
@@ -91,6 +94,8 @@ function LegacyAdjustmentEditor({
   onEditEnd,
   doc,
   sourceHistogram,
+  histogramSourceLabel,
+  histogramLoading,
 }: AdjustmentEditorProps) {
   const handleValue = useCallback(
     (key: string) => (value: number) => {
@@ -155,6 +160,8 @@ function LegacyAdjustmentEditor({
           onEditStart={onEditStart}
           onEditEnd={onEditEnd}
           sourceHistogram={sourceHistogram}
+          histogramSourceLabel={histogramSourceLabel}
+          histogramLoading={histogramLoading}
         />
       );
 
@@ -166,6 +173,8 @@ function LegacyAdjustmentEditor({
           onEditStart={onEditStart}
           onEditEnd={onEditEnd}
           sourceHistogram={sourceHistogram}
+          histogramSourceLabel={histogramSourceLabel}
+          histogramLoading={histogramLoading}
         />
       );
 
@@ -848,6 +857,8 @@ function LevelsEditor({
   onEditStart,
   onEditEnd,
   sourceHistogram,
+  histogramSourceLabel,
+  histogramLoading,
 }: AdjustmentEditorProps) {
   const adj = adjustment as import('@varve/scene').LevelsAdjustment;
   const handleSelect = (key: string) => (value: string) => {
@@ -880,6 +891,8 @@ function LevelsEditor({
       </div>
       <HistogramWidget
         histogram={sourceHistogram ?? undefined}
+        sourceLabel={histogramSourceLabel}
+        loading={histogramLoading}
         levels={levelsAdjustmentToParams(adj)}
         onChange={(params) => onChange(paramsToLevelsAdjustmentPatch(params))}
         channel={histogramChannel}
@@ -929,6 +942,8 @@ function CurvesEditor({
   onEditStart,
   onEditEnd,
   sourceHistogram,
+  histogramSourceLabel,
+  histogramLoading,
 }: AdjustmentEditorProps) {
   const adj = adjustment as import('@varve/scene').CurvesAdjustment;
   const handleSelect = (key: string) => (value: string) => {
@@ -937,6 +952,11 @@ function CurvesEditor({
 
   return (
     <div>
+      {(histogramSourceLabel || histogramLoading) && (
+        <div className="histogram-widget__source" role="note">
+          {histogramLoading ? 'Loading histogram…' : `Histogram: ${histogramSourceLabel}`}
+        </div>
+      )}
       <CurveEditor
         value={curvesPointsToCurvePoints(adj.points)}
         onChange={(points) =>

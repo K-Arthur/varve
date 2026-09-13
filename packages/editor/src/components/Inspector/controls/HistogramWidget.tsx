@@ -28,6 +28,8 @@ export interface HistogramWidgetProps {
   onDragEnd?: () => void;
   channel?: HistogramChannel;
   onChannelChange?: (channel: HistogramChannel) => void;
+  sourceLabel?: string;
+  loading?: boolean;
 }
 
 function drawHistogram(
@@ -86,6 +88,8 @@ export function HistogramWidget({
   onDragEnd,
   channel = 'luminance',
   onChannelChange,
+  sourceLabel,
+  loading = false,
 }: HistogramWidgetProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dragType, setDragType] = useState<'black' | 'gamma' | 'white' | null>(null);
@@ -342,6 +346,16 @@ export function HistogramWidget({
           </label>
         ))}
       </div>
+      {sourceLabel && (
+        <div className="histogram-widget__source" role="note">
+          Histogram: {sourceLabel}
+        </div>
+      )}
+      {loading && (
+        <div className="histogram-widget__source" role="status" aria-live="polite">
+          Loading histogram…
+        </div>
+      )}
       <canvas
         ref={canvasRef}
         width={WIDTH}
