@@ -163,6 +163,20 @@ Everything dropped is named in `ImportResult.unsupportedFeatures` and reaches
 the Import Results dialog. A silent drop reads identically to corrupt output,
 which is why the reporting matters as much as the parsing.
 
+Two boundaries on that guarantee, stated explicitly:
+
+- **Icon/asset-library insertion** previously discarded the parser report
+  entirely. As of 2026-09-13 it publishes through the same shared
+  `ImportResultReport` surface for every ingestion route (see
+  `useIconAssets.ts` `reportIconFidelity`).
+- `ImportCapabilities` is a **format-level** record (currently produced only
+  by the PDF parser) and is carried on `ImportFileReport.capabilities` for the
+  Import Results detail view. It is not a per-layer guarantee: a format-wide
+  `text: true` does not mean every text layer survived. Per-layer losses are
+  always warnings/`unsupportedFeatures`, never inferred from capabilities.
+- Home's asset/document pipeline (`homeFileDrop`, `BulkImportDialog`) is not a
+  scene import and has no fidelity report; it registers files/assets only.
+
 ## Security
 
 SVG is untrusted, active document content. Two properties are pinned by

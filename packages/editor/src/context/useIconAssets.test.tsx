@@ -5,6 +5,7 @@ import { ImportService } from '@varve/import';
 import type { Document, SceneNode } from '@varve/scene';
 import { addNode, createDocument, makeShapeNode } from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { setImportReportHandler } from './sessionGlobals';
 import type { EditorState } from './types';
 import { type IconInsertRequest, useIconAssets } from './useIconAssets';
 
@@ -202,6 +203,96 @@ describe('useIconAssets — insertIconAsset', () => {
     expect(updateDoc).not.toHaveBeenCalled();
     expect(stateRef.current.document).toBe(before);
     expect(announce).toHaveBeenCalledWith(expect.stringContaining('failed security checks'));
+  });
+
+  it('publishes parser fidelity losses through the shared import report surface', async () => {
+    vi.spyOn(ImportService, 'importFiles').mockResolvedValue({
+      files: [
+        {
+          name: 'home.svg',
+          source: 'asset-library',
+          format: 'svg',
+          status: 'partial',
+          byteCount: 1,
+          durationMs: 1,
+          nodeCount: 1,
+          artifacts: [
+            { kind: 'document-fragment', document: artifactDoc(), nodeIds: ['icon-root'] },
+          ],
+          warnings: [
+            { code: 'svg.unsupported-filter', message: 'Filter dropped', severity: 'warning' },
+          ],
+          unsupportedFeatures: [
+            { code: 'svg.filter', feature: 'filter', message: 'Filter dropped' },
+          ],
+        },
+      ],
+      startedAt: 0,
+      completedAt: 0,
+      durationMs: 1,
+      totalFiles: 1,
+      successCount: 0,
+      partialCount: 1,
+      failureCount: 0,
+      unsupportedCount: 0,
+      warnings: [],
+    });
+    const reports: unknown[] = [];
+    setImportReportHandler((report) => reports.push(report));
+    try {
+      const { api } = setup();
+      await act(async () => api.insertIconAsset(REQUEST));
+    } finally {
+      setImportReportHandler(null);
+    }
+
+    expect(reports).toHaveLength(1);
+    expect(reports[0]).toMatchObject({
+      route: 'import',
+      insertedCount: 1,
+      committedRootIds: ['icon-root'],
+      partialCount: 1,
+    });
+  });
+
+  it('does not publish a report for a clean icon insert', async () => {
+    vi.spyOn(ImportService, 'importFiles').mockResolvedValue({
+      files: [
+        {
+          name: 'home.svg',
+          source: 'asset-library',
+          format: 'svg',
+          status: 'success',
+          byteCount: 1,
+          durationMs: 1,
+          nodeCount: 1,
+          artifacts: [
+            { kind: 'document-fragment', document: artifactDoc(), nodeIds: ['icon-root'] },
+          ],
+          warnings: [],
+          unsupportedFeatures: [],
+        },
+      ],
+      startedAt: 0,
+      completedAt: 0,
+      durationMs: 1,
+      totalFiles: 1,
+      successCount: 1,
+      partialCount: 0,
+      failureCount: 0,
+      unsupportedCount: 0,
+      warnings: [],
+    });
+    const handler = vi.fn();
+    setImportReportHandler(handler);
+    try {
+      const { api } = setup();
+      await act(async () => api.insertIconAsset(REQUEST));
+    } finally {
+      setImportReportHandler(null);
+    }
+
+    expect(handler).not.toHaveBeenCalled();
   });
 });
 

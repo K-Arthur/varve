@@ -6,7 +6,7 @@
  */
 
 import type { Document } from '@varve/scene';
-import { migrateDocumentJson } from '@varve/scene';
+import { migrateDocumentJson, serializeDocument } from '@varve/scene';
 
 export interface RecoverySession {
   id: string;
@@ -212,10 +212,12 @@ export class RecoveryManager {
     if (fileId) session.fileId = fileId;
     if (filePath) session.filePath = filePath;
 
-    const data = JSON.stringify({
-      session,
-      document: doc,
-    });
+    // Serialize through the canonical document serializer: raw
+    // JSON.stringify converts RasterLayerNode.tiles (a Map) into {}, which
+    // decodes back as an empty raster layer and silently discards paint
+    // pixels on recovery. Splicing the serialized document keeps the existing
+    // envelope shape without paying a parse+stringify round trip.
+    const data = `{"session":${JSON.stringify(session)},"document":${serializeDocument(doc)}}`;
 
     await this.storage.save(`${KEY_PREFIX}${id}`, data);
 

@@ -155,6 +155,61 @@ describe('ImportResults', () => {
     expect(warningItems[0]?.textContent).toMatch(/gradient approximated/i);
   });
 
+  it('shows format-level capabilities separately from per-file losses', () => {
+    const result = {
+      startedAt: 0,
+      completedAt: 1,
+      durationMs: 1,
+      totalFiles: 1,
+      successCount: 0,
+      partialCount: 1,
+      failureCount: 0,
+      unsupportedCount: 0,
+      warnings: [],
+      files: [
+        {
+          name: 'layout.pdf',
+          source: 'file-picker' as const,
+          format: 'pdf',
+          status: 'partial' as const,
+          byteCount: 1,
+          durationMs: 1,
+          nodeCount: 1,
+          artifacts: [],
+          warnings: [
+            {
+              code: 'parser.warning',
+              message: 'Text approximated',
+              severity: 'warning' as const,
+            },
+          ],
+          unsupportedFeatures: [],
+          capabilities: {
+            format: 'pdf',
+            multipage: false,
+            pageDimensions: false,
+            vectors: false,
+            text: true,
+            images: false,
+            masters: false,
+            textThreads: false,
+            notes: [],
+          },
+        },
+      ],
+    };
+    const { container } = render(<ImportResults result={result} onClose={() => {}} />);
+    const toggle = container.querySelector('.import-results__toggle') as HTMLButtonElement;
+    fireEvent.click(toggle);
+    const summary = container.querySelector('.import-results__file-capabilities');
+    expect(summary?.textContent).toMatch(/format-level: vectors not preserved/i);
+    expect(summary?.textContent).toMatch(/text preserved/i);
+    // Per-layer losses stay in the warning list, not the capability summary.
+    const warningItems = container.querySelectorAll('.import-results__file-warning-list li');
+    expect(warningItems.length).toBe(1);
+    expect(warningItems[0]?.getAttribute('data-code')).toBe('parser.warning');
+  });
+
   it('handles all-failed result', () => {
     const result = makeResult({ successCount: 0, failCount: 4 });
     render(<ImportResults result={result} onClose={() => {}} />);

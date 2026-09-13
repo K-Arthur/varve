@@ -138,6 +138,12 @@
   font-size: var(--font-size-xs);
   color: var(--color-feedback-warning);
 }
+.import-results__file-capabilities {
+  width: 100%;
+  padding-left: var(--space-4);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-subtle);
+}
 .import-results__file-warning-list {
   width: 100%;
   list-style: none;
@@ -145,6 +151,9 @@
   padding: 0 0 0 var(--space-4);
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
+}
+.import-results__file-warning-list li[data-severity="error"] {
+  color: var(--color-feedback-danger);
 }
 .import-results__footer {
   display: flex;

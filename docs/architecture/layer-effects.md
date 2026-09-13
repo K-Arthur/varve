@@ -90,3 +90,37 @@ geometry, and source raster assets remain editable in the document.
 For pass-level details, see
 [Effect Rendering Architecture](effect-rendering.md). The marketing website
 has a matching user-facing Layer Effects feature page.
+
+## Known renderer gaps (verified 2026-09-13)
+
+An executed audit (code inspection + tests, not documentation) found these
+fidelity gaps. They are stated here so the staged contract above is not read
+as a claim about every renderer:
+
+- **Live container flattening evaluates group effects in authored array
+  order** (`packages/editor/src/canvas/renderPipeline.ts`, group branch) with
+  `layerBlur` applied out of band, instead of the leaf staged passes
+  (`packages/engine/src/replay.ts`). Only the first group `layerBlur` runs.
+  Leaf layers follow the staged contract.
+- **Export group effects cover a subset**: `packages/editor/src/render/replayScene.ts`
+  handles drop shadow, outer/inner glow, inner shadow, and one layer blur for
+  groups; background blur, glass, depth blur, spatial blurs, chromatic
+  aberration, and glitch on a group are absent from SVG/PDF raster fallbacks
+  without a warning.
+- **Group `depthBlur` is a no-op in both live and export container paths**
+  (image-workflow leaf conversion only).
+- **Effect masks are applied to the content pass only.** `dropShadow`,
+  `outerGlow`, `innerShadow`, `innerGlow`, `backgroundBlur`, and
+  `glassMaterial` ignore `effect.mask` in every renderer, while the Inspector
+  offers the control.
+- **The live canvas never resolves `scene-node`/`vector` effect masks**; only
+  export/thumbnail replay (`replayScene.ts` `EffectMaskResolver`) evaluates
+  them.
+- **Skipped optional effects are silent.** Allocation refusal, missing
+  canvases, and failed pixel reads fall through with no diagnostic channel;
+  `filterCompositor`'s `onDiagnostic` hook has no production caller.
+- **Frame-owned effects evaluate the frame's own IR item before children**,
+  so an `innerShadow`/`layerBlur` on a frame does not see child pixels
+  (group flattening does).
+
+Fixing these is tracked in `docs/audits/layer-fidelity-2026-09-13.md`.

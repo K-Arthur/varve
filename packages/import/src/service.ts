@@ -25,7 +25,7 @@ import {
 } from './registry';
 import { createSketchParser } from './sketch';
 import { createSvgParser } from './svg';
-import type { ImportOptions, ImportResult } from './types';
+import type { ImportCapabilities, ImportOptions, ImportResult } from './types';
 import { validateImport } from './validation';
 
 export type ImportSource = 'file-picker' | 'drop' | 'clipboard' | 'home' | 'asset-library' | 'api';
@@ -69,6 +69,12 @@ export interface ImportFileReport {
   artifacts: ImportArtifact[];
   warnings: FidelityIssue[];
   unsupportedFeatures: UnsupportedFeature[];
+  /**
+   * Parser capability record for this file, when the parser provides one
+   * (currently PDF). Carried through the service so the Import Results
+   * surface can distinguish "format-level support" from per-layer losses.
+   */
+  capabilities?: ImportCapabilities;
   error?: string;
 }
 
@@ -158,6 +164,16 @@ function warning(message: string): FidelityIssue {
   return { code: 'parser.warning', message, severity: 'warning' };
 }
 
+/**
+ * Detection warnings already carry stable codes (`extension-mismatch`,
+ * `mime-mismatch`, `signature-unverified`); preserve them instead of
+ * flattening every one to `parser.warning`, which made the codes unusable for
+ * UI grouping and tests.
+ */
+function detectionWarning(item: { code: string; message: string }): FidelityIssue {
+  return { code: item.code, message: item.message, severity: 'warning' };
+}
+
 function featureCode(feature: string): string {
   return `feature.${feature
     .toLowerCase()
@@ -221,7 +237,7 @@ async function importOne(
   const rasterCandidate =
     data instanceof Uint8Array &&
     (isRasterFallbackFormat(format) ||
-      (detection.format !== null && detectImageMime(data) !== null));
+      (detection.format !== 'dng' && detection.format !== null && detectImageMime(data) !== null));
 
   if (looksLikeVarveDocument(data)) {
     return {
@@ -233,7 +249,7 @@ async function importOne(
       durationMs: performance.now() - started,
       nodeCount: 0,
       artifacts: [],
-      warnings: detection.warnings.map((item) => warning(item.message)),
+      warnings: detection.warnings.map(detectionWarning),
       unsupportedFeatures: [
         {
           code: 'format.varve-document',
@@ -245,6 +261,10 @@ async function importOne(
   }
 
   if (!parser && !rasterCandidate) {
+    const unsupportedMessage =
+      detection.format === 'dng'
+        ? 'DNG is a RAW source, not a flattened artwork import. Open it from Photo/Image Tuning > RAW source so the sensor mosaic and recipe remain available.'
+        : `No importer is registered for ${format}`;
     return {
       name: input.name,
       source: input.source,
@@ -254,12 +274,12 @@ async function importOne(
       durationMs: performance.now() - started,
       nodeCount: 0,
       artifacts: [],
-      warnings: detection.warnings.map((item) => warning(item.message)),
+      warnings: detection.warnings.map(detectionWarning),
       unsupportedFeatures: [
         {
           code: 'format.unsupported',
           feature: format,
-          message: `No importer is registered for ${format}`,
+          message: unsupportedMessage,
         },
       ],
     };
@@ -286,7 +306,7 @@ async function importOne(
       ...(result.unsupportedFeatures?.map(unsupportedFeature) ?? []),
     ]);
     const warnings = dedupeWarnings([
-      ...detection.warnings.map((item) => warning(item.message)),
+      ...detection.warnings.map(detectionWarning),
       ...(validation?.warnings.map(warning) ?? []),
       ...result.warnings.map(warning),
       ...normalized.warnings.map((w) => ({
@@ -329,6 +349,7 @@ async function importOne(
       ],
       warnings,
       unsupportedFeatures,
+      ...(result.capabilities ? { capabilities: result.capabilities } : {}),
     };
   } catch (err) {
     return {

@@ -8,7 +8,7 @@
  */
 
 import { type DisplayInfo, getWindowService, type NativeWindowService } from '@varve/platform';
-import { DocumentCodec } from '@varve/scene';
+import { DocumentCodec, serializeDocument } from '@varve/scene';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { EditorContextValue } from '../context';
 import {
@@ -231,7 +231,9 @@ export function useDetachedPanels(editor: EditorContextValue): DetachedPanelsCon
     const getSnapshot = (): BrokerSnapshot => {
       const state = editorRef.current.state;
       return {
-        documentJson: JSON.stringify(state.document),
+        // Detached panels decode this with DocumentCodec; the canonical
+        // serializer keeps raster tile Maps from collapsing to {}.
+        documentJson: serializeDocument(state.document),
         documentRevision: state.revision,
         activeDocumentId: state.activeId ?? '',
         activeDocumentName: state.document.name ?? '',

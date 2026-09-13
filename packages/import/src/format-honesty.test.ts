@@ -125,6 +125,21 @@ describe('import format honesty', () => {
     );
   });
 
+  it('does not flatten a DNG through the generic TIFF preview importer', async () => {
+    const report = await ImportService.importFiles([
+      {
+        name: 'camera.dng',
+        source: 'file-picker',
+        bytes: new Uint8Array([0x49, 0x49, 0x2a, 0x00, 0x08, 0x00, 0x00, 0x00]),
+      },
+    ]);
+    const file = report.files[0]!;
+
+    expect(file).toMatchObject({ format: 'dng', status: 'unsupported', nodeCount: 0 });
+    expect(file.artifacts).toEqual([]);
+    expect(file.unsupportedFeatures[0]?.message).toMatch(/RAW source.*Photo\/Image Tuning/i);
+  });
+
   it('rejects Photoshop dimensions before the parser can allocate a pixel grid', async () => {
     const report = await ImportService.importFiles([
       {
@@ -277,5 +292,35 @@ describe('import format honesty', () => {
     const file = report.files[0]!;
     expect(file.status).toBe('unsupported');
     expect(file.unsupportedFeatures[0]!.message).toMatch(/File > Open/);
+  });
+
+  it('preserves stable detection warning codes through the service report', async () => {
+    // SVG content in a `.png` file: signature detection wins and imports the
+    // SVG, but the mismatch must remain addressable by code (not flattened to
+    // `parser.warning`) so UI grouping and tests can rely on it.
+    const svg = '<svg><rect width="10" height="10" /></svg>';
+    const report = await ImportService.importFiles([
+      { name: 'mislabeled.png', source: 'file-picker', text: svg },
+    ]);
+    const file = report.files[0]!;
+    expect(file.status).toBe('success');
+    expect(file.warnings.map((warning) => warning.code)).toContain('extension-mismatch');
+    expect(file.warnings.every((warning) => warning.severity === 'warning')).toBe(true);
+  });
+
+  it('carries parser capabilities into the file report', async () => {
+    const report = await ImportService.importFiles([
+      {
+        name: 'header-only.pdf',
+        source: 'file-picker',
+        bytes: strToU8('%PDF-1.4\n'),
+      },
+    ]);
+    const file = report.files[0]!;
+    expect(file.capabilities).toBeDefined();
+    expect(file.capabilities?.format).toBe('pdf');
+    // The capability record is format-level only; per-layer losses stay in
+    // warnings/unsupportedFeatures.
+    expect(typeof file.capabilities?.text).toBe('boolean');
   });
 });

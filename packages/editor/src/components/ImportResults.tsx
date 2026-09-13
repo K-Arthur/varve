@@ -1,4 +1,4 @@
-import type { BatchImportResult, ImportReport } from '@varve/import';
+import type { BatchImportResult, ImportCapabilities, ImportReport } from '@varve/import';
 import { type KeyboardEvent, useCallback, useState } from 'react';
 
 import './ImportResults.css';
@@ -17,10 +17,18 @@ export type ImportResultReport = ImportReport & {
   route?: 'paste' | 'import' | 'drop';
 };
 
+interface ImportResultWarning {
+  code: string;
+  message: string;
+  severity: 'info' | 'warning' | 'error';
+}
+
 interface ImportResultRow {
   name: string;
   status: 'success' | 'partial' | 'failed' | 'unsupported';
-  warnings: string[];
+  warnings: ImportResultWarning[];
+  /** Parser capability record, when available (format-level summary). */
+  capabilities?: ImportCapabilities;
 }
 
 function isServiceReport(
@@ -34,18 +42,46 @@ function rowsFor(result: BatchImportResult | ImportResultReport): ImportResultRo
     return result.results.map((file) => ({
       name: file.name,
       status: file.success ? 'success' : 'failed',
-      warnings: file.warnings,
+      warnings: file.warnings.map((message) => ({
+        code: 'batch.warning',
+        message,
+        severity: 'warning' as const,
+      })),
     }));
   }
   return result.files.map((file) => ({
     name: file.name,
     status: file.status,
     warnings: [
-      ...file.warnings.map((issue) => issue.message),
-      ...file.unsupportedFeatures.map((feature) => feature.message),
-      ...(file.error ? [file.error] : []),
+      ...file.warnings.map((issue) => ({
+        code: issue.code,
+        message: issue.message,
+        severity: issue.severity,
+      })),
+      ...file.unsupportedFeatures.map((feature) => ({
+        code: feature.code,
+        message: feature.message,
+        severity: 'warning' as const,
+      })),
+      ...(file.error
+        ? [{ code: 'import.error', message: file.error, severity: 'error' as const }]
+        : []),
     ],
+    ...(file.capabilities ? { capabilities: file.capabilities } : {}),
   }));
+}
+
+function capabilitySummary(capabilities: ImportCapabilities): string {
+  const yes = (value: boolean) => (value ? 'preserved' : 'not preserved');
+  return [
+    `format-level: vectors ${yes(capabilities.vectors)}`,
+    `text ${yes(capabilities.text)}`,
+    `images ${yes(capabilities.images)}`,
+    `multipage ${yes(capabilities.multipage)}`,
+    `page size ${yes(capabilities.pageDimensions)}`,
+    `masters ${yes(capabilities.masters)}`,
+    `text threads ${yes(capabilities.textThreads)}`,
+  ].join(' · ');
 }
 
 export function ImportResults({ result, onClose, onRevealSelection }: ImportResultsProps) {
@@ -202,11 +238,19 @@ export function ImportResults({ result, onClose, onRevealSelection }: ImportResu
                         ({file.warnings.length} warning{file.warnings.length !== 1 ? 's' : ''})
                       </span>
                     )}
+                    {expanded && file.capabilities && (
+                      <span className="import-results__file-capabilities">
+                        {capabilitySummary(file.capabilities)}
+                      </span>
+                    )}
                     {expanded && file.warnings.length > 0 && (
                       <ul className="import-results__file-warning-list">
                         {file.warnings.map((w, j) => (
                           // biome-ignore lint/suspicious/noArrayIndexKey: stateless warning strings; content keys would collide on duplicates
-                          <li key={j}>{w}</li>
+                          <li key={j} data-code={w.code} data-severity={w.severity}>
+                            {w.severity === 'error' ? <strong>Error: </strong> : null}
+                            {w.message}
+                          </li>
                         ))}
                       </ul>
                     )}

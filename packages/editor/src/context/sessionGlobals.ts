@@ -65,3 +65,24 @@ export function setImportReportHandler(
 export function publishImportReport(report: ImportResultReport): void {
   importReportHandler?.(report);
 }
+
+/**
+ * Canonical predicate for "this import report carries something the user
+ * should see." Single source of truth for every ingestion route (picker,
+ * drop, paste, icon insert) — previously five copies drifted apart, so a
+ * degraded report could surface on one route and be silently dropped on
+ * another.
+ */
+export function importReportHasIssues(report: ImportReport): boolean {
+  return (
+    report.partialCount > 0 ||
+    report.failureCount > 0 ||
+    report.warnings.length > 0 ||
+    report.files.some(
+      (file) =>
+        file.status !== 'success' ||
+        file.warnings.length > 0 ||
+        file.unsupportedFeatures.length > 0,
+    )
+  );
+}

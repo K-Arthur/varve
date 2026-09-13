@@ -23,6 +23,7 @@ import type { Document, NodeId, SceneNode } from '@varve/scene';
 import { type ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { editorScreenToWorld } from '../canvas/cameraState';
 import type { ImportResultReport } from '../context/sessionGlobals';
+import { importReportHasIssues } from '../context/sessionGlobals';
 import {
   type PreparedFragment,
   preparedFragmentFromRootSets,
@@ -161,12 +162,7 @@ async function importLutFiles(
 
 /** True when the report carries anything the user should see. */
 function reportHasIssues(report: ImportReport): boolean {
-  return (
-    report.partialCount > 0 ||
-    report.failureCount > 0 ||
-    report.warnings.length > 0 ||
-    report.files.some((file) => file.unsupportedFeatures.length > 0)
-  );
+  return importReportHasIssues(report);
 }
 
 export function useFileImport(

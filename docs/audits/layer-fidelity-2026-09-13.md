@@ -1,0 +1,100 @@
+# Layer Fidelity Audit — 2026-09-13
+
+Scope: authored layer appearance, structure, identity, editability, persistence,
+and interchange across the live canvas, export, scene operations, and import.
+Method: code inspection with executed tests (Vitest, Playwright/Chromium), not
+documentation reading. Line references are `master` at the time of the audit.
+
+External references (accessed 2026-09-13):
+
+- W3C Compositing and Blending Level 1, §8 Compositing Groups, §9 Porter Duff,
+  §10 Blending — the basis for "group opacity applies to the composited group
+  surface once, not per child" (https://www.w3.org/TR/compositing-1/).
+- Rive community, "Group Layer Overlapping Transparency" — users report
+  overlap darkening when group opacity compounds per child
+  (https://community.rive.app/c/support/group-layer-overlapping-transparency).
+- Shopify/react-native-skia issue #3355 — group opacity leaking to nodes
+  outside the group when a mask child is present
+  (https://github.com/Shopify/react-native-skia/issues/3355).
+- Figma Learn, export settings — "Outline text" makes text non-editable after
+  export; strokes export as fills
+  (https://help.figma.com/hc/en-us/articles/13402894554519).
+- Adobe Community / UserVoice threads on outlined SVG text, knockout groups,
+  and isolated transparency groups in PDF overprint — the recurring theme is
+  that a visually similar result is not the same as preserved editability and
+  group semantics (illustrator.uservoice.com 49642487, 50428098; Adobe
+  community 782436).
+
+## Fixed in this pass
+
+| # | Defect | First lossy boundary | Evidence | Fix |
+|---|---|---|---|---|
+| 1 | `ungroupNode` moved children to the group's parent without rebasing their local transforms. Ungrouping a moved/rotated/scaled group shifted all content. | `packages/scene/src/document-nodes.ts` `ungroupNode` | New tests in `packages/scene/src/document.test.ts` failed with `after[0]=1` vs `before[0]=1.7320508` before the fix | `ungroupNode` now computes `newLocal = newParent.world⁻¹ × oldWorld` per child via `composeWorldTransform`; `reparentPreservingWorldTransform` zeroes the legacy `rotation` field so it cannot apply twice (policy extracted from `clippingMask.ts`). |
+| 2 | Node duplicate/repeat-duplicate shallow-copied `effects` and `tiles`: duplicates shared effect IDs and effect-mask source node IDs; raster duplicates shared tile `Map`/pixel buffers. Duplicate also translated every descendant, distorting internal layout. | `packages/editor/src/context.tsx` three bespoke `cloneNodeDeep` copies | `packages/scene/src/__tests__/clone.test.ts` (effect ID/param/mask/foreign/raster/offset) and `packages/editor/src/editor.test.tsx` duplicate tests | `deepCloneSubtree` now mints independent effect IDs (`cloneEffects`), deep-copies parameters, and remaps scene-node effect-mask sources (drops foreign references under cross-document paste). It gains `translate` (root only) and `nameSuffix`; the three duplicated clone bodies in `context.tsx` were replaced with one helper (`duplicateSubtreeInDocument`). |
+| 3 | Crash-recovery points serialized the live document with raw `JSON.stringify`, converting `RasterLayerNode.tiles` (a `Map`) to `{}`. Recovery reopened an empty raster layer with no warning. The same raw pattern existed for auxiliary-window sync and detached-panel snapshots. | `packages/editor/src/recovery.ts` `createRecoveryPoint`; `context.tsx` mutation payloads; `useDetachedPanels.ts` broker snapshot | `packages/editor/src/recovery.test.ts` "preserves raster tile pixels across a recovery point" failed before the fix | All three now serialize through `@varve/scene.serializeDocument` (tile-aware, version-stamping, asset-payload-safe) and decode through the existing `DocumentCodec`. |
+| 4 | Icon/asset-library insertion discarded the `ImportReport`; a sanitized SVG that lost constructs looked like a clean insert. | `packages/editor/src/context/useIconAssets.ts` `svgToDocument` | New `useIconAssets.test.tsx` cases (lossy report published; clean report silent) | `svgToDocument` returns the report; insertion/replacement publish through the shared `ImportReport` surface. |
+| 5 | Five copies of the "does this report need UI?" predicate had drifted (file-level warnings were shown on some routes, dropped on others). Detection warning codes (`extension-mismatch`, `mime-mismatch`, `signature-unverified`) were flattened to `parser.warning`; `ImportCapabilities` (PDF) was produced and discarded. | `sessionGlobals` consumers, `packages/import/src/service.ts` | `sessionGlobals.test.ts`, `format-honesty.test.ts` | One canonical `importReportHasIssues`; detection codes preserved; `ImportFileReport.capabilities` carried and rendered as a clearly-labelled *format-level* summary in Import Results, separate from per-layer losses. |
+| 6 | Structural render plan was not fail-closed: once any declared boundary produced a fallback island, unsupported leaves outside it were never scanned (emitted as "native WebGPU"); a declared `fallbackBoundary` whose leaves looked supported was ignored. | `packages/compositor/src/structuralRenderPlan.ts` `collectUnsupportedRanges` | New cases in `structuralRenderPlan.test.ts` (`falls back for unsupported leaves outside an already-created boundary`, `honors a declared boundary even when every leaf looks supported`, nested collapse) | Every item is scanned unless covered by a declared boundary; declared boundaries are authoritative; nested boundaries collapse into the enclosing range. The WebGPU backend's per-batch `isGpuBatchSupported` guard remains the second, independent gate. |
+
+## Verified, no defect found
+
+| Property | Evidence |
+|---|---|
+| Live and export group opacity composite the flattened group surface once, so overlap alpha is `0.5` not `0.75` | `tests/e2e/canvas/group-opacity-alpha.spec.ts` samples real Chromium Canvas2D pixels in single and double coverage; `renderPipeline.ts` group flatten draws `gCanvas` once with `globalAlpha = n.opacity`. |
+| Raster tile pixels survive `DocumentCodec.encode → decode` | `packages/scene/src/__tests__/rasterLayer.test.ts`. |
+| Clipping-mask source remap on duplicate | `packages/editor/src/editor.test.tsx`; now also covered at scene level. |
+
+## Remaining limitations (not fixed in this pass)
+
+Severity: H = wrong final output / irreversible loss; M = degraded but visible;
+L = diagnostics/coverage only.
+
+| # | Limitation | Severity | Owner surface | Notes |
+|---|---|---|---|---|
+| A | Effect masks on shadow/glow/backdrop effects are silently ignored; live canvas never resolves `scene-node`/`vector` effect masks | H | `packages/engine/src/replay.ts`, `shadowSource.ts`, `canvas/renderPipeline.ts`, `render/replayScene.ts` | Inspector offers the control for all effects. Export resolves masks but only via the content pass. Needs per-effect mask semantics or an explicit "masks not supported for this effect" state. |
+| B | Export loses background blur, glass, depth blur, spatial blurs, chromatic aberration, and glitch on groups | H | `packages/editor/src/render/replayScene.ts` group branch | `compositor.ts` marks these unsupported and forces rasterization, which then drops them. |
+| C | Live container flattening evaluates group effects in authored order with one out-of-band `layerBlur`, diverging from the leaf staged contract; group `depthBlur` is a no-op | M | `packages/editor/src/canvas/renderPipeline.ts` | Documented in `docs/architecture/layer-effects.md` "Known renderer gaps". |
+| D | Frame-owned effects see the frame's own item, not child pixels | M | `renderPipeline.ts`, `replayScene.ts` | Group flattening has the correct surface. |
+| E | Allocation refusal / failed pixel reads in effects are silent (no diagnostic channel) | M | `replay.ts`, `effectPipeline.ts`, `shadowSource.ts`, `renderPipeline.ts` | `filterCompositor`'s `onDiagnostic` exists but is unused in production. |
+| F | Flatten-boundary bounds ignore layer-effect overflow in `compositor.computeNodeBounds`, so an SVG/PDF-rasterized node can clip shadow/glow spill | M | `packages/editor/src/export/compositor.ts` | Full-node raster export does pad (`SpecPanel/export.ts`). |
+| G | Unknown node kinds are preserved by the codec but not traversed as containers, so their children are reported as orphans; no covered test for unknown-kind/field survival | L | `packages/scene/src/documentCodec.ts` | `version-utils.ts` / `version-migrations.ts` remain dead duplicate schemas (timestamped note in `docs/implementation/gradient-map-progress.md`). |
+| H | Recovery/auxiliary/detached snapshots now serialize correctly, but recovery does not warn when a legacy point already contains `{}` tiles | L | `packages/editor/src/recovery.ts` | Legacy empty maps decode without a warning by design (`documentCodec.ts` `normalizeRasterTiles`). |
+
+## Validation executed (2026-09-13)
+
+Targeted, impact-scoped checks (the machine was heavily loaded by concurrent
+sessions for part of the run; the full `pnpm verify:affected` plan was
+escalated to `FULL-SUITE ESCALATION: YES` by *other* sessions' uncommitted
+workspace/toolchain edits, so the affected closure below was run directly).
+
+| Check | Command | Result |
+|---|---|---|
+| Scene ungroup/clone/coordinate | `pnpm exec vitest run packages/scene/src/document.test.ts packages/scene/src/coordinateService.test.ts packages/scene/src/clippingMask.test.ts packages/scene/src/__tests__/clone.test.ts packages/scene/src/__tests__/layerInvariants.test.ts packages/scene/src/__tests__/maskInvariants.test.ts packages/scene/src/__tests__/maskClone.test.ts` | 181 passed (22 clone incl. 5 new; 89 document incl. 2 new) |
+| Scene typecheck | `pnpm --filter @varve/scene typecheck` | passed |
+| Compositor plan | `pnpm exec vitest run packages/compositor/src/structuralRenderPlan.test.ts` | 6 passed (3 new) |
+| Compositor typecheck | `pnpm --filter @varve/compositor typecheck` | passed |
+| Editor duplicate integration | `pnpm exec vitest run --maxWorkers=1 packages/editor/src/editor.test.tsx` | 15 passed (offset + effect-mask duplicate assertions) |
+| Recovery | `pnpm exec vitest run packages/editor/src/recovery.test.ts` | 30 passed (raster tile regression) |
+| Import/editor batch | 9 files incl. `context.import`, `sessionBroker`, `auxiliaryShell`, `mergeImportedResources`, `useIconAssets`, `sessionGlobals`, `useFileImport`, `createActionHandlers`, `ImportResults` | 121 passed |
+| Import honesty | `format-honesty.test.ts`, `service.test.ts`, `ImportResults.test.tsx` | 38 passed |
+| Tier 0 audits | `pnpm audit:tokens` / `audit:emoji` / `audit:docs` | tokens 153 pairs pass; emoji clean; docs clean |
+| E2E typecheck | `pnpm typecheck:e2e` | only pre-existing `packages/engine/src/depthMap.ts(846)` unused-var error from a concurrent session; zero errors in the new spec |
+
+Pending in this environment: the Chromium run of
+`tests/e2e/canvas/group-opacity-alpha.spec.ts` was attempted while every CPU
+and ~22 GB of RAM were saturated by concurrent sessions (load average > 45);
+the Playwright web server never reached `domcontentloaded` within 180 s. The
+spec is typechecked and ready; it must be run when the machine is not
+saturated.
+
+## Research-driven product gaps worth scheduling
+
+- **Duplicate direction**: other tools' duplicate offsets only the root; the
+  old Varve behavior also translated descendants, which this pass corrected
+  (test `editor.test.tsx` "deep-clones container nodes...").
+- **SVG text editability**: Varve's SVG *import* keeps text where the parser
+  supports it; SVG *export* outlining policy is a codegen concern; the
+  marketing file-formats page already distinguishes editable/subset support.
+- **PSD clipping-group blend options**: the PSD importer reports clipping
+  masks as unsupported rather than silently mapping them; keep it that way
+  until a real clipping-group model exists (see `docs/architecture/import-system.md`).

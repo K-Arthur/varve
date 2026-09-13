@@ -12,7 +12,7 @@
  */
 
 import { rewriteSvgIds, type SanitizeError, type Shape, sanitizeSvg } from '@varve/engine';
-import { ImportService } from '@varve/import';
+import { type ImportReport, ImportService } from '@varve/import';
 import {
   createDocumentIconAsset,
   type Document,
@@ -23,6 +23,7 @@ import {
   type SceneNode,
 } from '@varve/scene';
 import { useCallback } from 'react';
+import { importReportHasIssues, publishImportReport } from './sessionGlobals';
 import type { EditorState } from './types';
 
 export interface IconInsertRequest {
@@ -249,17 +250,35 @@ export function useIconAssets(deps: UseIconAssetsDeps): IconAssetsAPI {
   const { stateRef, updateDoc, patch, announce, insertSubtree, viewportCenterWorld } = deps;
 
   /** Convert sanitized SVG to scene nodes via the import pipeline. */
-  const svgToDocument = useCallback(async (svg: string, name: string): Promise<Document | null> => {
-    const input = {
-      name: `${name}.svg`,
-      source: 'asset-library' as const,
-      size: new TextEncoder().encode(svg).byteLength,
-      text: svg,
-    };
-    const report = await ImportService.importFiles([input], { center: false });
-    const artifact = report?.files[0]?.artifacts[0];
-    if (!artifact || artifact.nodeIds.length === 0) return null;
-    return artifact.document;
+  const svgToDocument = useCallback(
+    async (svg: string, name: string): Promise<{ doc: Document; report: ImportReport } | null> => {
+      const input = {
+        name: `${name}.svg`,
+        source: 'asset-library' as const,
+        size: new TextEncoder().encode(svg).byteLength,
+        text: svg,
+      };
+      const report = await ImportService.importFiles([input], { center: false });
+      const artifact = report?.files[0]?.artifacts[0];
+      if (!artifact || artifact.nodeIds.length === 0) return null;
+      return { doc: artifact.document, report };
+    },
+    [],
+  );
+
+  /**
+   * Surface parser-level fidelity losses for an icon insertion through the
+   * shared Import Results surface. Previously this route discarded the report
+   * entirely, so a sanitized SVG that lost constructs read as a clean insert.
+   */
+  const reportIconFidelity = useCallback((report: ImportReport, rootId: NodeId) => {
+    if (!importReportHasIssues(report)) return;
+    publishImportReport({
+      ...report,
+      insertedCount: 1,
+      committedRootIds: [rootId],
+      route: 'import',
+    });
   }, []);
 
   /**
@@ -339,14 +358,15 @@ export function useIconAssets(deps: UseIconAssetsDeps): IconAssetsAPI {
         announce(`Icon "${request.name}" has no convertible content`);
         return null;
       }
-      const computed = computeInsertion(request, sanitized, sourceDoc);
+      const computed = computeInsertion(request, sanitized, sourceDoc.doc);
       if (!computed) return null;
       updateDoc(() => computed.doc);
       patch({ selection: [computed.rootId] });
+      reportIconFidelity(sourceDoc.report, computed.rootId);
       announce(`Inserted icon "${request.name}"`);
       return computed.rootId;
     },
-    [announce, svgToDocument, computeInsertion, updateDoc, patch],
+    [announce, svgToDocument, computeInsertion, updateDoc, patch, reportIconFidelity],
   );
 
   const replaceIconAsset = useCallback(
@@ -369,7 +389,7 @@ export function useIconAssets(deps: UseIconAssetsDeps): IconAssetsAPI {
       const computed = computeInsertion(
         { ...request, position: bounds ?? undefined },
         sanitized,
-        sourceDoc,
+        sourceDoc.doc,
       );
       if (!computed) return null;
 
@@ -398,10 +418,11 @@ export function useIconAssets(deps: UseIconAssetsDeps): IconAssetsAPI {
       const removed = removeNodesPure(nextDoc, new Set(nodeIds));
       updateDoc(() => removed.doc);
       patch({ selection: [computed.rootId] });
+      reportIconFidelity(sourceDoc.report, computed.rootId);
       announce(`Replaced icon with "${request.name}"`);
       return computed.rootId;
     },
-    [stateRef, announce, svgToDocument, computeInsertion, updateDoc, patch],
+    [stateRef, announce, svgToDocument, computeInsertion, updateDoc, patch, reportIconFidelity],
   );
 
   const detachIconNodes = useCallback(

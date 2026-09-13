@@ -27,6 +27,12 @@ import StatusPill from '../../components/StatusPill.astro';
           <article><span class="stage-number">02</span><h3>Content</h3><p>Gaussian, Layer, Field, Iris, Tilt-Shift, Path, Spin, Depth Blur, Chromatic Aberration, and Glitch transform painted content.</p></article>
           <article><span class="stage-number">03</span><h3>Appearance</h3><p>Shadows and glows wrap the authored source with stable, reorderable identity.</p></article>
         </div>
+        <p class="feature-note">
+          Current boundary: leaf layers run the full staged order. Flattened
+          group and frame surfaces evaluate their appearance effects in
+          authored order and support one Layer Blur per container; the
+          Inspector disables cross-stage moves in both cases.
+        </p>
       </section>
 
       <section class="feature-section">

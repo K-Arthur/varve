@@ -2,6 +2,13 @@
  * Tests for RecoveryManager and its storage implementations.
  */
 
+import {
+  addNode,
+  createDocument,
+  createEmptyTile,
+  DocumentCodec,
+  makeRasterLayerNode,
+} from '@varve/scene';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getSharedRecoveryManager, MemoryRecoveryStorage, RecoveryManager } from './recovery';
 
@@ -130,6 +137,31 @@ describe('RecoveryManager', () => {
   it('restoreSession returns null for missing session', async () => {
     const result = await manager.restoreSession('nonexistent');
     expect(result).toBeNull();
+  });
+
+  it('preserves raster tile pixels across a recovery point', async () => {
+    let doc = createDocument('recovery-raster');
+    const node = makeRasterLayerNode('rl-recover', { width: 256, height: 256 });
+    const tile = createEmptyTile();
+    tile.pixels.set([12, 34, 56, 255]);
+    node.tiles.set('0:0', tile);
+    doc = addNode(doc, node);
+
+    await manager.createRecoveryPoint(doc, 'Raster Tab');
+    const sessions = await manager.listSessions();
+    const restored = await manager.restoreSession(sessions[0]!.id);
+    expect(restored).not.toBeNull();
+
+    // The real restore path re-encodes the returned object and loads it
+    // through DocumentCodec; assert tiles survive that complete path.
+    const decoded = DocumentCodec.decode(JSON.stringify(restored!.document));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    const restoredNode = decoded.document.nodes['rl-recover'];
+    expect(restoredNode?.kind).toBe('rasterLayer');
+    if (restoredNode?.kind !== 'rasterLayer') return;
+    expect(restoredNode.tiles).toBeInstanceOf(Map);
+    expect([...restoredNode.tiles.get('0:0')!.pixels.slice(0, 4)]).toEqual([12, 34, 56, 255]);
   });
 
   it('cleanup preserves recent sessions', async () => {
