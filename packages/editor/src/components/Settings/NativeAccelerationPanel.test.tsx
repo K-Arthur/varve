@@ -17,12 +17,14 @@ function provider(overrides: Partial<InferenceProviderStatus> = {}): InferencePr
 
 describe('NativeAccelerationPanel diagnostics labels', () => {
   it('does not call a registered GPU provider verified before it runs a model', () => {
-    expect(inferencePlacementLabel([provider()])).toContain('placement is verified only after');
+    expect(inferencePlacementLabel([provider()])).toContain(
+      'graph partitioning remains unprofiled',
+    );
   });
 
-  it('reports actual verified placement when a provider has completed work', () => {
+  it('reports provider execution without overstating graph placement', () => {
     expect(inferencePlacementLabel([provider({ stage: 'executionVerified' })])).toContain(
-      'execution placement verified',
+      'graph placement is not profiled',
     );
   });
 

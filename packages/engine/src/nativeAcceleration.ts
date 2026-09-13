@@ -18,6 +18,7 @@ export type AccelStage =
   | 'discovered'
   | 'runtimeLoadable'
   | 'deviceUsable'
+  /** A real session completed with the selected provider; graph placement may be mixed. */
   | 'executionVerified'
   | 'unavailable';
 

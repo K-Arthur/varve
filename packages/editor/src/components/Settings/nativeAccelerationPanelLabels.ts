@@ -37,7 +37,9 @@ export function inferencePlacementLabel(providers: InferenceProviderStatus[] | u
   if (!providers) return 'Not checked yet';
 
   const verified = providers.find((provider) => provider.stage === 'executionVerified');
-  if (verified) return `${verified.label} — execution placement verified for a completed result`;
+  if (verified) {
+    return `${verified.label} — provider execution observed for a completed result; graph placement is not profiled`;
+  }
 
   const ready = providers.find(
     (provider) =>
@@ -45,7 +47,7 @@ export function inferencePlacementLabel(providers: InferenceProviderStatus[] | u
       (provider.stage === 'deviceUsable' || provider.stage === 'runtimeLoadable'),
   );
   if (ready) {
-    return `${ready.label} is ready; placement is verified only after a real model run`;
+    return `${ready.label} is ready; a real model run is required; graph partitioning remains unprofiled`;
   }
 
   const npu = providers.find((provider) => provider.deviceKind === 'npu');
@@ -59,8 +61,10 @@ export function npuPlacementLabel(providers: InferenceProviderStatus[] | undefin
   if (!providers) return 'Not checked yet';
   const npuProviders = providers.filter((provider) => provider.deviceKind === 'npu');
   const verified = npuProviders.find((provider) => provider.stage === 'executionVerified');
-  if (verified) return `${verified.label} — execution placement verified`;
+  if (verified) {
+    return `${verified.label} — provider execution observed; Neural Engine/NPU placement is not profiled`;
+  }
   const ready = npuProviders.find((provider) => provider.stage !== 'unavailable');
-  if (ready) return `${ready.label} is available; placement is not verified yet`;
+  if (ready) return `${ready.label} is available; accelerator placement is not profiled yet`;
   return 'No supported NPU provider is installed in this build; CPU fallback remains available';
 }
