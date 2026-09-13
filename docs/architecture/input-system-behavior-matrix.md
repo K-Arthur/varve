@@ -251,3 +251,20 @@ for desktop; they are not yet re-verified on the Duet.
   events, so OS-reserved gestures and accessibility zoom keep working.
 - Real OSK verification (caret, commit controls, restore after dismissal) is
   on the Duet checklist.
+
+### 8.5 System back gesture and orientation (tablet mode)
+
+| Input / condition | Behavior | Evidence |
+|---|---|---|
+| Left-edge swipe with a menu, popover, or dialog open | Dismisses the topmost layer with Escape semantics; the document is not left and the URL does not change; a second swipe dismisses the next layer | E2E `system back dismisses an open menu instead of leaving the editor`; guard cleanup test |
+| Back with no layers open | Normal browser/deep-link history behavior; no guard is pushed | `TabletBackDismiss` + deep-link guard skip |
+| Portrait compact width | Inspector/library/logo present as bottom sheets; layers stays a side drawer | E2E portrait sheet test; screenshots inspected |
+| Landscape compact width (`<=899px`) | Supplementary panels stay right side drawers | E2E landscape test |
+| `>899px` | Regular docked columns | viewport matrix + rotation test |
+| Rotation mid-gesture | `pointercancel` rolls the gesture back; no stuck tool, no partial undo entry; the next gesture works | E2E `rotation mid-gesture does not leave a stuck interaction` |
+| Rotation with a panel open | Panel stays open and re-presents (sheet ↔ drawer/docked); document, selection, and scroll state are untouched | E2E rotation presentation test |
+
+The OS back gesture starts in a narrow left-edge inset and cannot be claimed
+by page content; a canvas stroke that intersects it receives `pointercancel`
+and is rolled back. ChromeOS-reserved combinations remain documented in
+section 8.1.

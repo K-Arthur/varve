@@ -117,6 +117,13 @@ Delivered on `master`:
 - Architecture docs ([responsive-workspace.md](../architecture/responsive-workspace.md),
   behavior-matrix ChromeOS section) and marketing-website guidance for touch,
   pen, keyboard conflicts, and the on-screen keyboard.
+- Tablet-mode back gesture (`TabletBackDismiss`, history guard, Escape-exact
+  dismissal), registry count subscription, deep-link guard skip, portrait
+  bottom sheets for supplementary panels, landscape side drawers, safe-area
+  insets, and rotation-safe presentation switching (`f52f64305`).
+- Certified device-matrix run: 21/21 Chromium tests passed, including tablet
+  back, portrait/landscape, rotation mid-gesture, tap-does-not-move, and
+  guard cleanup; portrait sheet screenshots visually inspected.
 
 Explicit remaining gaps: Duet hardware verification (audit section 5),
 support-matrix promotion (Stage 7), and a real OSK run in the installed PWA.

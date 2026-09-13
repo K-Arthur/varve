@@ -77,6 +77,47 @@ Real on-screen keyboard behavior (installed PWA vs tab, caret visibility,
 restore after dismissal) remains a Duet hardware check — the automated tests
 inject synthetic geometry.
 
+## Portrait and landscape presentation
+
+Platform guidance (Apple HIG and WWDC inspector/sidebar sessions; ChromeOS
+large-screen guidance) treats orientation as a width change, not a separate
+screen: adapt non-destructively, present inspectors as sheets in compact
+widths, and keep navigation as an overlay.
+
+| Condition | Supplementary panels (inspector, library, logo) | Layers |
+|---|---|---|
+| `<= 899px` + portrait | Bottom sheet: full width, `min(72dvh, 560px)` tall, rounded top, safe-area padded; slide up from the bottom | Left side drawer |
+| `<= 899px` + landscape | Right side drawer | Left side drawer |
+| `> 899px` | Docked column (unchanged) | Docked column |
+
+Open panel state survives rotation: the panel stays mounted and adapts its
+presentation between sheet and drawer/docked forms. Bottom-anchored chrome
+(FABs, toasts) adds `env(safe-area-inset-bottom)` so standalone PWA landscape
+never sits under the gesture bar.
+
+## Platform back gesture (ChromeOS tablet mode)
+
+ChromeOS tablet mode maps a left-edge swipe to a browser Back navigation.
+`packages/editor/src/navigation/TabletBackDismiss.tsx` (mounted once in
+`apps/desktop/src/App.tsx`) turns that into native-app behavior:
+
+- While any registered overlay or native `<dialog>` is open, one same-URL
+  history entry (the guard) is pushed.
+- A back gesture pops the guard and dismisses the topmost layer by dispatching
+  an Escape key press on the focused element — the exact same path a physical
+  Escape takes, so menubar keynav, the overlay registry, and dialog
+  dismissible/nested rules all stay authoritative.
+- If layers remain, one guard is re-pushed per layer, so each back gesture
+  closes exactly one surface.
+- Closing the last layer from the UI removes the guard, leaving no dead
+  history entry. Deep links skip guard entries via `OVERLAY_GUARD_FLAG`.
+- Registry count changes are exposed by `subscribeToOverlayCount`; native
+  dialogs are observed through their `open` attribute.
+
+The OS gesture itself cannot be prevented and starts at the extreme left edge;
+a canvas gesture that intersects it receives `pointercancel`, which the tool
+layer already rolls back without leaving an undo entry or stuck drag.
+
 ## Panel recovery
 
 - View menu: **Reset Window Layout** (`resetPanelWindowLayout`) restores panel
@@ -89,11 +130,14 @@ inject synthetic geometry.
 
 ## Test coverage
 
-- `tests/e2e/interaction/chromeos-device-matrix.spec.ts` — viewport matrix
-  (960x600, 1200x750, 1280x800, 600x960, 800x1280, 480x640,
+- `tests/e2e/interaction/chromeos-device-matrix.spec.ts` — 21 Chromium tests:
+  viewport matrix (960x600, 1200x750, 1280x800, 600x960, 800x1280, 480x640,
   640x400 as the 200%-zoom equivalent), fractional DPR 1.25, coarse-pointer
-  target floor, one-finger touch, two-finger pinch, synthetic pen pressure,
-  keyboard-inset publication, and bottom-chrome clearance.
+  target floor, one-finger touch, tap-does-not-move, two-finger pinch,
+  synthetic pen pressure, keyboard-inset publication, bottom-chrome
+  clearance, system-back menu dismissal, guard cleanup, portrait bottom
+  sheets, landscape side drawers, rotation presentation switching, and
+  rotation mid-gesture.
 - `tests/e2e/a11y/responsive-panels.spec.ts` — drawer focus trap and return.
 - `packages/editor/src/canvas/__tests__/keyboardInset.test.ts` — pure model
   and subscription behavior.
