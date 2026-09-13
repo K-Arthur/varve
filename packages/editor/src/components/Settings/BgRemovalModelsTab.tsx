@@ -14,12 +14,14 @@ import {
 } from '@varve/engine';
 import { Button, RegionLoader } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { modelRequirementLabel } from '../../modelRequirements';
 import { ModelDownloadDialog } from '../BackgroundRemoval/ModelDownloadDialog';
 
 interface InstalledModelRow {
   id: string;
   name: string;
   size: number;
+  peakMemoryBytes?: number;
   installed: boolean;
   source: 'bundled' | 'downloaded' | 'none';
   downloadable: boolean;
@@ -30,10 +32,6 @@ interface InstalledModelRow {
    * graphs) — download/delete acts on every id in this list as one unit
    * instead of showing each part as its own row. */
   componentIds?: string[];
-}
-
-function formatMb(bytes: number): string {
-  return `~${Math.round(bytes / 1_000_000)} MB`;
 }
 
 function storageLabel(): string {
@@ -67,6 +65,7 @@ async function buildRows(
         id: model.id,
         name: model.name,
         size: model.components.reduce((sum, c) => sum + c.sizeBytes, 0),
+        peakMemoryBytes: model.peakMemoryBytes,
         installed: componentAvailability.every(Boolean),
         source: componentAvailability.some(Boolean) ? 'downloaded' : 'none',
         downloadable: model.components.every((c) => Boolean(c.remoteUrl)),
@@ -83,6 +82,7 @@ async function buildRows(
       id: model.id,
       name: model.name,
       size: model.sizeBytes,
+      peakMemoryBytes: model.peakMemoryBytes,
       installed,
       source: model.bundled
         ? 'bundled'
@@ -241,7 +241,7 @@ export function BgRemovalModelsTab() {
                       {row.isQuantized && <span className="bg-models-list__badge">INT8</span>}
                     </span>
                     <span className="bg-models-list__meta">
-                      {formatMb(row.size)}
+                      {modelRequirementLabel(row.size, row.peakMemoryBytes)}
                       {row.installed
                         ? row.source === 'bundled'
                           ? ' — bundled'

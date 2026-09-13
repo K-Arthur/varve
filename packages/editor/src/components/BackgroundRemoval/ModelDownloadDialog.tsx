@@ -4,6 +4,7 @@ import {
   type NormalizedModelDownloadError,
   normalizeModelDownloadError,
 } from '../../backgroundRemoval/normalizeModelDownloadError';
+import { modelRequirementLabel } from '../../modelRequirements';
 import { FocusTrap } from '../../onboard/FocusTrap';
 import './ModelDownloadDialog.css';
 
@@ -39,7 +40,10 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
   // prompt. The shared catalog carries the real name, size, and source, and for
   // a model whose weights sit in a sibling file the advertised size must be the
   // catalog total rather than just the graph's.
-  const catalogEntry = featureModel ? undefined : getModelById(modelId);
+  // Keep the unified catalog alongside the legacy feature metadata so the
+  // dialog can disclose measured peak working memory even for older feature
+  // entries (background removal/upscaling).
+  const catalogEntry = getModelById(modelId);
   const model =
     featureModel ??
     (catalogEntry
@@ -49,6 +53,7 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
           remoteUrl: catalogEntry.remoteUrl,
         }
       : undefined);
+  const peakMemoryBytes = catalogEntry?.peakMemoryBytes;
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState<DownloadStatus>('confirm');
   const [error, setError] = useState<NormalizedModelDownloadError | null>(null);
@@ -130,6 +135,10 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
                 <strong>{sourceHost}</strong> and stored on this device for offline local {purpose}.
                 It is only used on this machine — no images are uploaded. This is a one-time
                 download.
+              </p>
+              <p className="model-download__requirements">
+                {modelRequirementLabel(model?.size ?? 0, peakMemoryBytes)}. The working-memory
+                figure is an estimate; actual usage depends on the image and execution provider.
               </p>
               <div className="model-download__actions">
                 <button type="button" className="varve-btn varve-btn--ghost" onClick={handleCancel}>

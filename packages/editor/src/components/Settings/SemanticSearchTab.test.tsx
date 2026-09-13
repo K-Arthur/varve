@@ -116,9 +116,9 @@ describe('SemanticSearchTab', () => {
       expect(screen.getByText('Natural-language search model (text encoder)')).toBeDefined();
       expect(screen.getByText('Text tokenizer')).toBeDefined();
     });
-    expect(screen.getByText(/211.0 MB — Not installed/)).toBeDefined();
-    expect(screen.getByText(/111.5 MB — Not installed/)).toBeDefined();
-    expect(screen.getByText(/2.4 MB — Not installed/)).toBeDefined();
+    expect(screen.getByText(/Download\/storage ~211 MB.*Not installed/)).toBeDefined();
+    expect(screen.getByText(/Download\/storage ~111 MB.*Not installed/)).toBeDefined();
+    expect(screen.getByText(/Download\/storage ~2 MB.*Not installed/)).toBeDefined();
   });
 
   it('offers Download for missing models and Remove for installed ones', async () => {

@@ -2,20 +2,18 @@ import type { ModelAcquisition } from '@varve/engine';
 import { getModelLoaderReady, listAllModels, resolveAcquisition } from '@varve/engine';
 import { Button, RegionLoader } from '@varve/ui';
 import { useCallback, useEffect, useState } from 'react';
+import { modelRequirementLabel } from '../../modelRequirements';
 import { ModelDownloadDialog } from '../BackgroundRemoval/ModelDownloadDialog';
 
 interface ModelRow {
   id: string;
   name: string;
   size: number;
+  peakMemoryBytes?: number;
   installed: boolean;
   source: 'bundled' | 'downloaded' | 'none';
   acquisition: ModelAcquisition;
   description?: string;
-}
-
-function formatMb(bytes: number): string {
-  return `~${Math.round(bytes / 1_000_000)} MB`;
 }
 
 async function buildRows(
@@ -29,6 +27,7 @@ async function buildRows(
       id: model.id,
       name: model.name,
       size: model.sizeBytes,
+      peakMemoryBytes: model.peakMemoryBytes,
       installed,
       source: model.bundled
         ? 'bundled'
@@ -93,7 +92,7 @@ export function ColorizationModelsTab() {
               <div className="bg-models-list__info">
                 <span className="bg-models-list__name">{row.name}</span>
                 <span className="bg-models-list__meta">
-                  {formatMb(row.size)}
+                  {modelRequirementLabel(row.size, row.peakMemoryBytes)}
                   {row.installed
                     ? row.source === 'bundled'
                       ? ' — bundled'

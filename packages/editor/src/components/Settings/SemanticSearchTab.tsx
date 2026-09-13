@@ -11,6 +11,7 @@ import { DownloadManager, listAllModels, type ModelManifestEntry } from '@varve/
 import { IndexedDbSemanticEmbeddingStore } from '@varve/platform';
 import { Button, Icon, RegionLoader } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { modelRequirementLabel } from '../../modelRequirements';
 
 interface SemanticModelRow {
   entry: ModelManifestEntry;
@@ -206,7 +207,8 @@ export function SemanticSearchTab() {
               <div className="bg-models-list__info">
                 <span className="bg-models-list__name">{modelLabel(row.entry.id)}</span>
                 <span className="bg-models-list__meta">
-                  {formatSize(row.entry.sizeBytes)} — {stateLabel(row.state)}
+                  {modelRequirementLabel(row.entry.sizeBytes, row.entry.peakMemoryBytes)} —{' '}
+                  {stateLabel(row.state)}
                   {row.entry.precision === 'int8' && ' (quantized)'}
                 </span>
                 {row.entry.id === 'siglip-base-patch16-224-text' && !tokenizerInstalled && (

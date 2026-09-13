@@ -58,8 +58,8 @@ describe('ModelDownloadDialog — consent gate', () => {
         onComplete={() => {}}
       />,
     );
-    expect(screen.getByText(/BiRefNet Lite/)).toBeInTheDocument();
-    expect(screen.getByText(/120 MB/)).toBeInTheDocument();
+    expect(screen.getByText(/BiRefNet Lite — ~120 MB/)).toBeInTheDocument();
+    expect(screen.getByText(/estimated peak working memory/i)).toBeInTheDocument();
     // Must name the actual network source, not just say "the internet".
     expect(screen.getByText(/github\.com/i)).toBeInTheDocument();
     // Must state what the download is used for / where it's stored, so the
