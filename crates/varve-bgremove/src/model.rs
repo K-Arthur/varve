@@ -6,9 +6,9 @@
 //! - macOS: `~/Library/Application Support/dev.varve.desktop/models/`
 //! - Windows: `%APPDATA%/dev.varve.desktop/models/`
 //!
-//! IndexedDB in the webview remains the primary download path for shipped
-//! builds. Native storage is populated only via explicit export/import or
-//! future native download IPC — not automatic dual-storage.
+//! IndexedDB in the webview remains the primary browser download path. Native
+//! storage is populated only by explicit desktop model-download IPC; it is not
+//! an automatic dual-storage mirror.
 
 use sha2::{Digest, Sha256};
 use std::{
@@ -32,6 +32,7 @@ pub struct ModelInfo {
     pub id: String,
     pub name: String,
     pub description: String,
+    /// Total bytes for the graph and every required external-data artifact.
     pub size_bytes: u64,
     /// Measured native CPU peak RSS for the model's bounded inference
     /// contract. This is separate from the file size: ONNX intermediates can
@@ -39,6 +40,43 @@ pub struct ModelInfo {
     pub peak_memory_bytes: Option<u64>,
     pub remote_url: String,
     pub checksum_sha256: Option<String>,
+    /// Optional sibling file referenced by the ONNX graph's external-data
+    /// location. Its filename is preserved because ONNX Runtime resolves the
+    /// location relative to the downloaded graph directory.
+    pub external_data: Option<ModelArtifactInfo>,
+}
+
+/// One downloaded file belonging to a native model installation.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ModelArtifactInfo {
+    pub filename: String,
+    pub size_bytes: u64,
+    pub remote_url: String,
+    pub checksum_sha256: Option<String>,
+}
+
+impl ModelInfo {
+    /// The primary graph's size, excluding an optional external-data file.
+    pub fn primary_size_bytes(&self) -> u64 {
+        self.external_data
+            .as_ref()
+            .and_then(|artifact| self.size_bytes.checked_sub(artifact.size_bytes))
+            .unwrap_or(self.size_bytes)
+    }
+
+    /// All files required for a complete native model installation.
+    pub fn artifacts(&self) -> Vec<ModelArtifactInfo> {
+        let mut artifacts = vec![ModelArtifactInfo {
+            filename: format!("{}.onnx", self.id),
+            size_bytes: self.primary_size_bytes(),
+            remote_url: self.remote_url.clone(),
+            checksum_sha256: self.checksum_sha256.clone(),
+        }];
+        if let Some(external_data) = &self.external_data {
+            artifacts.push(external_data.clone());
+        }
+        artifacts
+    }
 }
 
 /// Available models — synced with TS `AVAILABLE_MODELS` + manifest.json.
@@ -54,6 +92,7 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
         checksum_sha256: Some(
             "309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8".into(),
         ),
+        external_data: None,
     },
     ModelInfo {
         id: "isnet-general-use".to_owned(),
@@ -65,6 +104,7 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
         checksum_sha256: Some(
             "60920e99c45464f2ba57bee2ad08c919a52bbf852739e96947fbb4358c0d964a".into(),
         ),
+        external_data: None,
     },
     ModelInfo {
         id: "birefnet-general-lite".to_owned(),
@@ -76,6 +116,7 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
         checksum_sha256: Some(
             "5600024376f572a557870a5eb0afb1e5961636bef4e1e22132025467d0f03333".into(),
         ),
+        external_data: None,
     },
     ModelInfo {
         id: "birefnet-general".to_owned(),
@@ -87,6 +128,7 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
         checksum_sha256: Some(
             "58f621f00f5d756097615970a88a791584600dcf7c45b18a0a6267535a1ebd3c".into(),
         ),
+        external_data: None,
     },
     ModelInfo {
         id: "scunet".to_owned(),
@@ -98,6 +140,14 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
         checksum_sha256: Some(
             "231be201ab413dbc999d7951caa9844846b93a12a40a41e037d6b5888ed4e88c".into(),
         ),
+        external_data: Some(ModelArtifactInfo {
+            filename: "scunet_color_real_psnr.onnx.data".to_owned(),
+            size_bytes: 73_138_176,
+            remote_url: "https://huggingface.co/Heliosoph/scunet-onnx/resolve/main/scunet_color_real_psnr.onnx.data".to_owned(),
+            checksum_sha256: Some(
+                "98825ea1210b641c71e5f052f582c70c49fd44b35387ebe2c034268c17df3feb".into(),
+            ),
+        }),
     },
     ModelInfo {
         id: "nafnet-deblur-gopro".to_owned(),
@@ -109,6 +159,7 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
         checksum_sha256: Some(
             "e9b82a578b6ddf47a3f22118da65d13a4459b53e6c0e5fcf41f5615eadf92f5e".into(),
         ),
+        external_data: None,
     },
     ModelInfo {
         id: "paddleocr-det-v4".to_owned(),
@@ -120,6 +171,7 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
         checksum_sha256: Some(
             "30a86f5731181461d08021402766601e4302a9b9b9666be8aff402696339cdff".into(),
         ),
+        external_data: None,
     },
     ModelInfo {
         id: "paddleocr-rec-v4".to_owned(),
@@ -131,6 +183,7 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
         checksum_sha256: Some(
             "1c7cf60de2afd728d512f4190cf37455092b45f06175365c6fc58d8cd7e2a68b".into(),
         ),
+        external_data: None,
     },
     ModelInfo {
         id: "lama-inpainting".to_owned(),
@@ -142,6 +195,7 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
         checksum_sha256: Some(
             "1faef5301d78db7dda502fe59966957ec4b79dd64e16f03ed96913c7a4eb68d".into(),
         ),
+        external_data: None,
     },
     ]
 });
@@ -166,12 +220,31 @@ fn fallback_models_dir() -> PathBuf {
 
 /// Check if a model is already downloaded to native storage.
 pub fn is_model_downloaded(model_id: &str) -> bool {
-    model_path(model_id).exists()
+    let Some(model) = model_info(model_id) else {
+        return false;
+    };
+    valid_model_install_at(model, &models_dir())
 }
 
 /// Get the file path for a downloaded model.
 pub fn model_path(model_id: &str) -> PathBuf {
     models_dir().join(format!("{model_id}.onnx"))
+}
+
+/// Sum the bytes currently present for all artifacts of a model. This is a
+/// progress/status value, not an installation-validity check.
+pub fn downloaded_model_size(model_id: &str) -> u64 {
+    let Some(model) = model_info(model_id) else {
+        return 0;
+    };
+    model
+        .artifacts()
+        .iter()
+        .map(|artifact| models_dir().join(&artifact.filename))
+        .filter_map(|path| path.metadata().ok())
+        .filter(|metadata| metadata.is_file())
+        .map(|metadata| metadata.len())
+        .sum()
 }
 
 /// Copy valid models from pre-Varve application directories without deleting
@@ -211,31 +284,68 @@ pub fn migrate_legacy_models_from(source: &Path, destination: &Path) -> Result<u
 
     let mut migrated = 0;
     for model in AVAILABLE_MODELS.iter() {
-        let source_path = source.join(format!("{}.onnx", model.id));
-        let destination_path = destination.join(format!("{}.onnx", model.id));
-        if destination_path.is_file() || !valid_model_file(model, &source_path) {
+        let artifacts = model.artifacts();
+        let needs_migration = artifacts.iter().any(|artifact| {
+            !valid_artifact(
+                &destination.join(&artifact.filename),
+                artifact.size_bytes,
+                artifact.checksum_sha256.as_deref(),
+            )
+        });
+        if !needs_migration {
             continue;
         }
-        let staging = destination.join(format!(".legacy-{}.onnx.tmp", model.id));
-        fs::copy(&source_path, &staging)
-            .map_err(|error| format!("Failed to migrate {}: {error}", model.id))?;
-        if let Err(error) = fs::rename(&staging, &destination_path) {
-            let _ = fs::remove_file(&staging);
-            return Err(format!("Failed to finalize migrated {}: {error}", model.id));
+
+        let mut staged = Vec::new();
+        let mut source_complete = true;
+        for (index, artifact) in artifacts.iter().enumerate() {
+            let destination_path = destination.join(&artifact.filename);
+            if valid_artifact(
+                &destination_path,
+                artifact.size_bytes,
+                artifact.checksum_sha256.as_deref(),
+            ) {
+                continue;
+            }
+            let source_path = source.join(&artifact.filename);
+            if !valid_artifact(
+                &source_path,
+                artifact.size_bytes,
+                artifact.checksum_sha256.as_deref(),
+            ) {
+                source_complete = false;
+                break;
+            }
+            let staging = destination.join(format!(".legacy-{}-{index}.tmp", model.id));
+            fs::copy(&source_path, &staging)
+                .map_err(|error| format!("Failed to migrate {}: {error}", model.id))?;
+            staged.push((staging, destination_path));
+        }
+        if !source_complete {
+            for (staging, _) in &staged {
+                let _ = fs::remove_file(staging);
+            }
+            continue;
+        }
+        for (staging, destination_path) in staged {
+            if let Err(error) = fs::rename(&staging, &destination_path) {
+                let _ = fs::remove_file(&staging);
+                return Err(format!("Failed to finalize migrated {}: {error}", model.id));
+            }
         }
         migrated += 1;
     }
     Ok(migrated)
 }
 
-fn valid_model_file(model: &ModelInfo, path: &Path) -> bool {
+fn valid_artifact(path: &Path, expected_size: u64, expected_checksum: Option<&str>) -> bool {
     let Ok(metadata) = path.metadata() else {
         return false;
     };
-    if !metadata.is_file() || metadata.len() != model.size_bytes {
+    if !metadata.is_file() || metadata.len() != expected_size {
         return false;
     }
-    let Some(expected) = model.checksum_sha256.as_deref() else {
+    let Some(expected) = expected_checksum else {
         return true;
     };
     let Ok(bytes) = fs::read(path) else {
@@ -249,6 +359,16 @@ fn valid_model_file(model: &ModelInfo, path: &Path) -> bool {
         .map(|byte| format!("{byte:02x}"))
         .collect::<String>();
     actual == expected
+}
+
+fn valid_model_install_at(model: &ModelInfo, directory: &Path) -> bool {
+    model.artifacts().iter().all(|artifact| {
+        valid_artifact(
+            &directory.join(&artifact.filename),
+            artifact.size_bytes,
+            artifact.checksum_sha256.as_deref(),
+        )
+    })
 }
 
 /// Get metadata for a model id.
@@ -319,9 +439,14 @@ pub fn write_model(model_id: &str, bytes: &[u8]) -> Result<PathBuf, String> {
 
 /// Delete a model from native storage.
 pub fn delete_model(model_id: &str) -> Result<(), String> {
-    let path = model_path(model_id);
-    if path.exists() {
-        std::fs::remove_file(&path).map_err(|e| format!("Failed to delete model: {e}"))?;
+    let model = model_info(model_id).ok_or_else(|| format!("Unknown model: {model_id}"))?;
+    for artifact in model.artifacts() {
+        let path = models_dir().join(&artifact.filename);
+        if path.exists() {
+            std::fs::remove_file(&path).map_err(|e| {
+                format!("Failed to delete model artifact {}: {e}", artifact.filename)
+            })?;
+        }
     }
     Ok(())
 }
@@ -360,6 +485,29 @@ mod tests {
         let u2netp = model_info("u2netp").expect("u2netp model");
         assert_eq!(u2netp.size_bytes, 4_574_861);
         assert_eq!(u2netp.peak_memory_bytes, Some(330_000_000));
+    }
+
+    #[test]
+    fn scunet_declares_and_validates_its_external_weights_artifact() {
+        let scunet = model_info("scunet").expect("scunet model");
+        let artifacts = scunet.artifacts();
+        assert_eq!(scunet.primary_size_bytes(), 3_798_678);
+        assert_eq!(artifacts.len(), 2);
+        assert_eq!(artifacts[0].filename, "scunet.onnx");
+        assert_eq!(artifacts[0].size_bytes, 3_798_678);
+        assert_eq!(artifacts[1].filename, "scunet_color_real_psnr.onnx.data");
+        assert_eq!(artifacts[1].size_bytes, 73_138_176);
+        assert_eq!(
+            artifacts
+                .iter()
+                .map(|artifact| artifact.size_bytes)
+                .sum::<u64>(),
+            scunet.size_bytes
+        );
+        assert_eq!(
+            artifacts[1].checksum_sha256.as_deref(),
+            Some("98825ea1210b641c71e5f052f582c70c49fd44b35387ebe2c034268c17df3feb")
+        );
     }
 
     #[test]

@@ -1026,8 +1026,7 @@ async fn native_background_removal_model_status(
     model_id: String,
 ) -> Result<NativeBgModelStatus, String> {
     let model = background_removal_model_info(&model_id)?;
-    let path = varve_bgremove::model::model_path(&model_id);
-    let size_bytes = path.metadata().map(|metadata| metadata.len()).unwrap_or(0);
+    let size_bytes = varve_bgremove::model::downloaded_model_size(&model_id);
     // Loading the native ONNX Runtime and registering its optional provider
     // can enter a platform loader and create runtime threads. Keep that work
     // off the Tauri/GTK event thread even though this command only returns a
@@ -1037,7 +1036,7 @@ async fn native_background_removal_model_status(
         .map_err(|error| format!("Native AI status task failed: {error}"))?;
     Ok(NativeBgModelStatus {
         runtime_ready,
-        installed: size_bytes == model.size_bytes,
+        installed: varve_bgremove::model::is_model_downloaded(&model_id),
         size_bytes,
         peak_memory_bytes: model.peak_memory_bytes,
     })
@@ -1056,11 +1055,7 @@ fn preflight_native_background_removal(
     height: u32,
 ) -> Result<(), String> {
     let model = background_removal_model_info(&model_id)?;
-    let installed_bytes = varve_bgremove::model::model_path(&model_id)
-        .metadata()
-        .map(|metadata| metadata.len())
-        .unwrap_or(0);
-    if installed_bytes != model.size_bytes {
+    if !varve_bgremove::model::is_model_downloaded(&model_id) {
         return Err(format!(
             "Native background-removal model '{model_id}' is not installed"
         ));
@@ -1108,28 +1103,27 @@ async fn download_background_removal_model(
         return Err("Native ONNX Runtime is unavailable on this desktop build".into());
     }
     let model = background_removal_model_info(&model_id)?.clone();
-    if !model.remote_url.starts_with("https://") {
-        return Err(format!("Refusing insecure model URL for {}", model.id));
-    }
-    let expected_checksum = model.checksum_sha256.clone().ok_or_else(|| {
-        format!(
-            "Model {} has no SHA-256 checksum and cannot be securely installed",
-            model.id
-        )
-    })?;
-    let destination = varve_bgremove::model::model_path(&model_id);
-    if destination.is_file() {
-        if let Ok((bytes, checksum)) = sha256_file(&destination) {
-            if checksum == expected_checksum {
-                return Ok(bytes);
-            }
+    let artifacts = model.artifacts();
+    for artifact in &artifacts {
+        if !artifact.remote_url.starts_with("https://") {
+            return Err(format!(
+                "Refusing insecure model URL for {} ({})",
+                model.id, artifact.filename
+            ));
+        }
+        if artifact.checksum_sha256.is_none() {
+            return Err(format!(
+                "Model {} artifact {} has no SHA-256 checksum and cannot be securely installed",
+                model.id, artifact.filename
+            ));
         }
     }
-    if let Some(parent) = destination.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|error| format!("Failed to create native model directory: {error}"))?;
+    if varve_bgremove::model::is_model_downloaded(&model_id) {
+        return Ok(model.size_bytes);
     }
-    let temporary = destination.with_extension(format!("onnx.download-{request_id}"));
+    let model_dir = varve_bgremove::model::models_dir();
+    std::fs::create_dir_all(&model_dir)
+        .map_err(|error| format!("Failed to create native model directory: {error}"))?;
     let result = async {
         let client = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::custom(|attempt| {
@@ -1141,76 +1135,121 @@ async fn download_background_removal_model(
             }))
             .build()
             .map_err(|error| format!("Failed to create model downloader: {error}"))?;
-        let mut response = client
-            .get(&model.remote_url)
-            .send()
-            .await
-            .map_err(|error| format!("Model download failed: {error}"))?
-            .error_for_status()
-            .map_err(|error| format!("Model download failed: {error}"))?;
-        let total = response.content_length().unwrap_or(model.size_bytes);
-        let mut file = std::fs::File::create(&temporary)
-            .map_err(|error| format!("Failed to create model file: {error}"))?;
-        let mut digest = Sha256::new();
         let mut loaded = 0u64;
-        while let Some(chunk) = response
-            .chunk()
-            .await
-            .map_err(|error| format!("Model download interrupted: {error}"))?
-        {
-            let cancelled = CANCELLED_BG_MODEL_DOWNLOADS
-                .lock()
-                .map_err(|_| "Model-download cancellation state is unavailable".to_string())?
-                .remove(&request_id);
-            if cancelled {
-                return Err("Download cancelled".into());
+        for artifact in artifacts {
+            let destination = model_dir.join(&artifact.filename);
+            let expected_checksum = artifact.checksum_sha256.as_deref().ok_or_else(|| {
+                format!(
+                    "Model {} artifact {} has no checksum",
+                    model.id, artifact.filename
+                )
+            })?;
+            if destination.is_file() {
+                if let Ok((bytes, checksum)) = sha256_file(&destination) {
+                    if bytes == artifact.size_bytes && checksum == expected_checksum {
+                        loaded = loaded.saturating_add(bytes);
+                        let _ = app.emit(
+                            "background-removal-model-progress",
+                            NativeBgModelProgress {
+                                request_id: request_id.clone(),
+                                model_id: model_id.clone(),
+                                loaded,
+                                total: model.size_bytes,
+                            },
+                        );
+                        continue;
+                    }
+                }
             }
-            file.write_all(&chunk)
-                .map_err(|error| format!("Failed to write model file: {error}"))?;
-            digest.update(&chunk);
-            loaded += chunk.len() as u64;
-            let _ = app.emit(
-                "background-removal-model-progress",
-                NativeBgModelProgress {
-                    request_id: request_id.clone(),
-                    model_id: model_id.clone(),
-                    loaded,
-                    total,
-                },
-            );
-        }
-        file.sync_all()
-            .map_err(|error| format!("Failed to flush model file: {error}"))?;
-        let actual = digest
-            .finalize()
-            .iter()
-            .map(|b| format!("{:02x}", b))
-            .collect::<String>();
-        if actual != expected_checksum {
-            return Err(format!(
-                "Model SHA-256 mismatch: expected {expected_checksum}, received {actual}"
-            ));
-        }
-        let cancelled = CANCELLED_BG_MODEL_DOWNLOADS
-            .lock()
-            .map_err(|_| "Model-download cancellation state is unavailable".to_string())?
-            .remove(&request_id);
-        if cancelled {
-            return Err("Download cancelled".into());
-        }
-        // On Unix, rename replaces the destination atomically. Windows does
-        // not allow replacing an existing file, so retain a narrow fallback
-        // for that platform rather than deleting the good model first on all
-        // platforms.
-        if let Err(rename_error) = std::fs::rename(&temporary, &destination) {
-            if destination.exists() {
-                std::fs::remove_file(&destination)
-                    .map_err(|error| format!("Failed to replace native model: {error}"))?;
-                std::fs::rename(&temporary, &destination).map_err(|error| {
-                    format!("Failed to install native model after replacement: {error}")
-                })?;
-            } else {
-                return Err(format!("Failed to install native model: {rename_error}"));
+            let temporary = destination.with_extension(format!("download-{request_id}"));
+            let artifact_result: Result<(), String> = async {
+                let mut response = client
+                    .get(&artifact.remote_url)
+                    .send()
+                    .await
+                    .map_err(|error| format!("Model download failed: {error}"))?
+                    .error_for_status()
+                    .map_err(|error| format!("Model download failed: {error}"))?;
+                let mut file = std::fs::File::create(&temporary)
+                    .map_err(|error| format!("Failed to create model file: {error}"))?;
+                let mut digest = Sha256::new();
+                let mut artifact_loaded = 0u64;
+                while let Some(chunk) = response
+                    .chunk()
+                    .await
+                    .map_err(|error| format!("Model download interrupted: {error}"))?
+                {
+                    let cancelled = CANCELLED_BG_MODEL_DOWNLOADS
+                        .lock()
+                        .map_err(|_| "Model-download cancellation state is unavailable".to_string())?
+                        .remove(&request_id);
+                    if cancelled {
+                        return Err("Download cancelled".into());
+                    }
+                    file.write_all(&chunk)
+                        .map_err(|error| format!("Failed to write model file: {error}"))?;
+                    digest.update(&chunk);
+                    artifact_loaded = artifact_loaded.saturating_add(chunk.len() as u64);
+                    loaded = loaded.saturating_add(chunk.len() as u64);
+                    let _ = app.emit(
+                        "background-removal-model-progress",
+                        NativeBgModelProgress {
+                            request_id: request_id.clone(),
+                            model_id: model_id.clone(),
+                            loaded,
+                            total: model.size_bytes,
+                        },
+                    );
+                }
+                file.sync_all()
+                    .map_err(|error| format!("Failed to flush model file: {error}"))?;
+                if artifact_loaded != artifact.size_bytes {
+                    return Err(format!(
+                        "Model artifact {} size mismatch: expected {}, received {}",
+                        artifact.filename, artifact.size_bytes, artifact_loaded
+                    ));
+                }
+                let actual = digest
+                    .finalize()
+                    .iter()
+                    .map(|b| format!("{:02x}", b))
+                    .collect::<String>();
+                if actual != expected_checksum {
+                    return Err(format!(
+                        "Model artifact {} SHA-256 mismatch: expected {expected_checksum}, received {actual}",
+                        artifact.filename
+                    ));
+                }
+                let cancelled = CANCELLED_BG_MODEL_DOWNLOADS
+                    .lock()
+                    .map_err(|_| "Model-download cancellation state is unavailable".to_string())?
+                    .remove(&request_id);
+                if cancelled {
+                    return Err("Download cancelled".into());
+                }
+                // On Unix, rename replaces the destination atomically. Windows
+                // does not allow replacing an existing file, so retain a narrow
+                // fallback rather than deleting a good file before verification.
+                if let Err(rename_error) = std::fs::rename(&temporary, &destination) {
+                    if destination.exists() {
+                        std::fs::remove_file(&destination).map_err(|error| {
+                            format!("Failed to replace native model artifact: {error}")
+                        })?;
+                        std::fs::rename(&temporary, &destination).map_err(|error| {
+                            format!("Failed to install native model artifact after replacement: {error}")
+                        })?;
+                    } else {
+                        return Err(format!(
+                            "Failed to install native model artifact: {rename_error}"
+                        ));
+                    }
+                }
+                Ok(())
+            }
+            .await;
+            if let Err(error) = artifact_result {
+                let _ = std::fs::remove_file(&temporary);
+                return Err(error);
             }
         }
         Ok(loaded)
@@ -1219,9 +1258,6 @@ async fn download_background_removal_model(
     let _ = CANCELLED_BG_MODEL_DOWNLOADS
         .lock()
         .map(|mut cancelled| cancelled.remove(&request_id));
-    if result.is_err() {
-        let _ = std::fs::remove_file(&temporary);
-    }
     result
 }
 
