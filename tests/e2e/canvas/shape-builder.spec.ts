@@ -63,6 +63,18 @@ test.describe('Shape Builder workflow', () => {
       fullPage: true,
     });
 
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('shape-builder-status')).toContainText(
+      'Click a filled region or sweep across several regions',
+    );
+    await expect(page.getByRole('treeitem')).toHaveCount(2);
+
+    await page.mouse.move(box.x + 150, box.y + 205);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 320, box.y + 205, { steps: 3 });
+    await page.mouse.up();
+    await expect(page.getByTestId('shape-builder-status')).toContainText('3 regions selected');
+
     await page.getByRole('button', { name: 'Create selected regions' }).click();
     await expect(page.getByTestId('shape-builder-controls')).toHaveCount(0);
     await expect(page.getByRole('treeitem')).toHaveCount(3);
