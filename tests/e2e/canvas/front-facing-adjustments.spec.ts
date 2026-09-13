@@ -14,9 +14,10 @@ async function navigateToAdjustmentEditor(page: import('@playwright/test').Page)
   // not a stale browser profile.
   await page.goto('/');
   const continueNormal = page.getByRole('button', { name: /continue normal startup/i });
-  if (await continueNormal.isVisible({ timeout: 1500 }).catch(() => false)) {
-    await continueNormal.click();
-  }
+  await continueNormal
+    .waitFor({ state: 'visible', timeout: 5000 })
+    .then(() => continueNormal.click())
+    .catch(() => undefined);
   await navigateToEditor(page);
 }
 
