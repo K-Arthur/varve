@@ -364,6 +364,30 @@ describe('exportNodeAsRaster', () => {
     expect(createRasterSurface).toHaveBeenCalledWith(11, 10, { alpha: true });
   });
 
+  it('keeps an integer-sized translated image export at its authored bounds', async () => {
+    const doc = createDocument('Expanded image export', true);
+    const baseNode = makeShapeNode(
+      'expanded-image',
+      { kind: 'rect', x: 0, y: 0, w: 1664, h: 1272 },
+      { name: 'Expanded image', transform: [1, 0, 0, 1, -672, -476.15625] },
+    );
+    const node = {
+      ...baseNode,
+      fills: [
+        imageFill(
+          'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+          { fit: 'fill' },
+        ),
+      ],
+    };
+    const imageDoc = { ...doc, rootChildren: [node.id], nodes: { [node.id]: node } };
+    const eng = await createEngine('stub');
+
+    await exportNodeAsRaster(node, imageDoc, eng, { format: 'image/png', scale: 1 });
+
+    expect(createRasterSurface).toHaveBeenCalledWith(1664, 1272, { alpha: true });
+  });
+
   it('exports group content successfully when group-level effects are present', async () => {
     // replayScene.ts's group branch (compositeIsolated) handles group-level
     // effects via offscreen compositing — no special warning is needed.

@@ -344,10 +344,22 @@ test.describe('real photographic Expand workflow', () => {
     // Export the reviewed candidate and inspect the file with an independent
     // decoder. This catches the failure mode where the review surface looks
     // correct but export uses stale bounds or a different raster.
-    const exportTab = page.locator('[role="tablist"] button[role="tab"]', {
-      hasText: /^export$/i,
-    });
-    await exportTab.click();
+    const inspectorTabs = page.getByRole('tablist', { name: 'Inspector tabs' });
+    const exportTab = inspectorTabs.getByRole('tab', { name: 'Export', exact: true });
+    if (await exportTab.isVisible().catch(() => false)) {
+      await exportTab.click();
+    } else {
+      // Narrow inspector layouts keep lower-priority tabs behind More. Use
+      // that same user-visible route instead of assuming Export is always in
+      // the tab row after the expansion changes the document bounds.
+      const moreTabs = page.getByRole('button', { name: /more inspector tabs/i });
+      await expect(moreTabs).toBeVisible();
+      await moreTabs.click();
+      await page
+        .getByRole('menu', { name: 'More inspector tabs' })
+        .getByRole('menuitem', { name: 'Export', exact: true })
+        .click();
+    }
     await page
       .locator('.spec-export__group')
       .first()
@@ -401,7 +413,9 @@ test.describe('real photographic Expand workflow', () => {
         };
       })
       .toEqual({ width: 1632, height: 1224, generativeEditId: null });
-    const redoButton = page.getByRole('button', { name: /^Redo$/ });
+    // The shared history control exposes the next action label after Undo
+    // (currently the accepted edit name) rather than always saying Redo.
+    const redoButton = page.getByRole('button', { name: /^(Redo|Edit)$/ });
     await expect(redoButton).toBeEnabled({ timeout: 15_000 });
     await redoButton.click();
     await expect

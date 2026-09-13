@@ -174,6 +174,34 @@ function expandSubtreeEffectBounds(
   return bounds;
 }
 
+/**
+ * An unwarped image shape has a declared raster rectangle. A fractional
+ * translation must not turn that rectangle into an extra export row/column:
+ * the raster is still the authored image dimensions, merely placed at a
+ * fractional world coordinate. Effects, strokes, filters, and warps remain
+ * on the conservative floor/ceil path because they can legitimately paint
+ * outside the nominal image rectangle.
+ */
+function hasAuthoredRasterBounds(node: SceneNode, doc: SceneDocument): boolean {
+  if (node.kind !== 'shape' || node.shape.kind !== 'rect') return false;
+  if (!node.fills?.some((fill) => fill.type === 'image' && fill.image && fill.visible !== false)) {
+    return false;
+  }
+  if (node.strokes?.some((stroke) => stroke.visible !== false)) return false;
+  if (node.effects?.some((effect) => effect.visible !== false)) return false;
+  if (
+    node.smartFiltersEnabled !== false &&
+    node.smartFilters?.some((filter) => filter.visible !== false)
+  ) {
+    return false;
+  }
+  if (node.warps?.length) return false;
+
+  const transform = nodeWorldTransform(doc, node.id);
+  const epsilon = 1e-9;
+  return Math.abs(transform[1]) <= epsilon && Math.abs(transform[2]) <= epsilon;
+}
+
 /** Bounds of every pixel the resolved render IR may emit. */
 function exportWorldBounds(
   node: SceneNode,
@@ -202,6 +230,20 @@ function exportWorldBounds(
     }
   }
   bounds = expandSubtreeEffectBounds(node, doc, bounds);
+  if (hasAuthoredRasterBounds(node, doc)) {
+    // Keep the exact translated image rectangle. Using floor/ceil here would
+    // add a pixel whenever a source image was placed at a fractional world
+    // coordinate, which changes the reviewed export dimensions. The raster
+    // transform can use a fractional origin; only its pixel dimensions need
+    // to be rounded at the requested export scale.
+    const authored = worldBBox(node, doc);
+    return {
+      x: authored.x,
+      y: authored.y,
+      w: Math.max(0, authored.w),
+      h: Math.max(0, authored.h),
+    };
+  }
   bounds ??= worldBBox(node, doc);
   const x = Math.floor(bounds.x);
   const y = Math.floor(bounds.y);
