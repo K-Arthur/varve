@@ -140,6 +140,26 @@ VARVE_LAMA_QUALIFICATION=1 cargo test -p varve-bgremove --features ai \
 The test requires the pinned model at the native model path and the staged
 ONNX Runtime dylib; it is skipped unless `VARVE_LAMA_QUALIFICATION=1` is set.
 
+## Failure modes observed in other products
+
+The product decisions above are a direct response to reported failures in
+generative expand tools. These are user reports and vendor documentation, not
+prevalence estimates; they identify the failure mode, and each has a concrete
+answering behavior in Varve.
+
+| Reported failure | Source | Varve response |
+| --- | --- | --- |
+| Generated expansion rewrites or invents content inside the original image; users ask for expansion "fundamentally different from Generative Fill" that stays faithful to the source | [Adobe community: expand in all directions problems](https://community.adobe.com/t5/photoshop-ecosystem-ideas/generative-expand-in-all-directions-problems/idi-p/14364407) | The retained rectangle is drawn from the authoritative source through a border clip; provider output cannot touch it, and the native qualification asserts byte-exact protected pixels |
+| Visible border/tonal seam between original and generated area, especially on dark or smooth images | [Adobe community: expand issue](https://community.adobe.com/questions-700/generative-expand-issue-671957), [Reddit: removing seams](https://www.reddit.com/r/photoshop/comments/1ewrvbd/how_do_i_remove_these_seems/) | One-pass full-border generation with edge-clamped context (no separately generated sides), per-case seam-gradient measurement, and 1:1 review before acceptance |
+| Generated result drifts from "continue the scene" toward random inserted objects | [Reddit: generative extend changed](https://www.reddit.com/r/Adobe/comments/1u0b5rj/has_something_changed_on_generative_extend_in/) | A promptless provider is used as promptless; no ignored prompt text, no fabricated "creative variation" labels, and LaMa is documented as continuation, not semantic invention |
+| Gaps around the outside edge after expansion | [Adobe community: expand in all directions problems](https://community.adobe.com/t5/photoshop-ecosystem-ideas/generative-expand-in-all-directions-problems/idi-p/14364407) | The coverage mask marks the entire new border including corners, and the accepted output is the full requested frame |
+| Inpaint checkpoints change unmasked pixels unless the unmasked area is explicitly overlaid back | [Diffusers inpainting guide](https://huggingface.co/docs/diffusers/using-diffusers/inpaint) | Varve composites the source over the provider result and separately restores the authoritative rectangle; the qualification measures provider change in the protected area |
+| Failed or slow generations consume credits or allowances, and reliability failures block ordinary work | [Adobe community: unreliable expand](https://community.adobe.com/questions-712/generative-expand-doesn-t-work-glitchy-and-unreliable-1183575), [Canva review](https://litmustools.com/review/canva/) | Expansion is local, free per attempt, cancellable, and never uploads; the heuristic path works without any model |
+| Outpainting seams, discontinuities, and overpainting outside the mask in local diffusion workflows | [InvokeAI issue 1319](https://github.com/invoke-ai/InvokeAI/issues/1319) | The mask contract is enforced at composition, and higher seam strength is not simulated by hidden blur |
+| Iterative expansion degrades quality; each pass should build on the accepted result | [Canva Magic Expand guide](https://artificial-intelligence-wiki.com/ai-tools/ai-design-tools/canva-magic-expand/), [Canva after-crop report](https://www.reddit.com/r/canva/comments/1ggk3o2/magic_expand_after_cropping/) | The next expansion starts from the accepted asset and protects it the same way; the original snapshot and output frame keep Restore Original available |
+| Model output is only valid within the model's trained resolution; enlarged output must not be presented as native detail | [LaMa paper](https://arxiv.org/abs/2109.07161), [outpainting comparison paper](https://openaccess.thecvf.com/content/CVPR2022W/NTIRE/papers/Cipolina-Kun_Comparison_of_CoModGANs_LaMa_and_GLIDE_for_Art_Inpainting_Completing_CVPR2022_paper.pdf) | `estimateExpandGenerationResolution` states the effective synthesized resolution in the expansion controls before generation |
+| Browser runtimes cannot serve arbitrarily large model graphs | [ONNX Runtime Web: large models](https://onnxruntime.ai/docs/tutorials/web/large-models.html) | The browser path uses PatchMatch texture continuation; model-backed expansion is desktop-only with a pinned 208 MB graph and a measured memory reservation |
+
 ## Remaining gaps
 
 - Browser PatchMatch expansion is implemented as the offline heuristic path and
