@@ -65,6 +65,7 @@ import type { SnapGuide } from '../tools/snapping';
 import { createSnapSession } from '../tools/snapping';
 import type { CanvasViewportAnchor } from './canvasSurface';
 import { recordInputDiagnostic } from './inputDiagnostics';
+import { getNavigationSettings } from './navigationRuntime';
 import {
   type NavigationGestureEvent,
   type NavigationGestureState,
@@ -993,6 +994,7 @@ export function useCanvasInputs({
         shiftKey: e.shiftKey,
         clientHeight: el.clientHeight,
         source: wheelSource,
+        ...getNavigationSettings(),
       });
       advanceNavigation({ type: 'wheel', zoom: action.kind === 'zoom' });
       if (action.kind === 'zoom') {
