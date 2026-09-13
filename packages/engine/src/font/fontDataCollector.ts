@@ -135,20 +135,18 @@ export async function collectFontData(
         ? await loadFontFromFilesystem(request.fontReference)
         : await loadStoredFont(family);
       if (stored?.data) {
-        if (
-          request.fontReference &&
-          !(await matchesExactReference(new Uint8Array(stored.data), request.fontReference))
-        ) {
-          onProgress?.(family, 'missing');
+        const usable =
+          !request.fontReference ||
+          (await matchesExactReference(new Uint8Array(stored.data), request.fontReference));
+        if (usable) {
+          results.push({
+            family,
+            data: new Uint8Array(stored.data),
+            ...(request.fontReference ? { fontReference: request.fontReference } : {}),
+          });
+          onProgress?.(family, 'storage');
           continue;
         }
-        results.push({
-          family,
-          data: new Uint8Array(stored.data),
-          ...(request.fontReference ? { fontReference: request.fontReference } : {}),
-        });
-        onProgress?.(family, 'storage');
-        continue;
       }
     } catch {
       // IndexedDB unavailable
