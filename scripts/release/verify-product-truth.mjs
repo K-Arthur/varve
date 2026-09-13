@@ -542,9 +542,7 @@ function checkChromeOsReleaseDocumentation() {
   const guide = readFile('docs/release/chromeos-linux.md');
   if (!manifest || !guide || !manifest.version) return problems;
 
-  const linuxArtifacts = Array.isArray(manifest.platforms?.linux)
-    ? manifest.platforms.linux
-    : [];
+  const linuxArtifacts = Array.isArray(manifest.platforms?.linux) ? manifest.platforms.linux : [];
   const artifact = (arch, format) =>
     linuxArtifacts.find((candidate) => candidate.arch === arch && candidate.format === format);
   const arm64Deb = artifact('aarch64', 'deb');
@@ -581,9 +579,7 @@ function checkChromeOsReleaseDocumentation() {
     );
   }
   if (!/There is \*\*no apt repository for Varve\*\*/i.test(guide)) {
-    problems.push(
-      'docs/release/chromeos-linux.md: must state that Varve has no apt repository',
-    );
+    problems.push('docs/release/chromeos-linux.md: must state that Varve has no apt repository');
   }
 
   const releaseNotesGenerator = readFile('scripts/release/release-notes.mjs');

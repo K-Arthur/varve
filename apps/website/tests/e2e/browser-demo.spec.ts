@@ -86,7 +86,9 @@ test.describe('browser demo docs', () => {
     }
   });
 
-  test('product workflow keeps the poster for reduced-motion visitors', async ({ page }, testInfo) => {
+  test('product workflow keeps the poster for reduced-motion visitors', async ({
+    page,
+  }, testInfo) => {
     await page.addInitScript(() => {
       localStorage.setItem('varve:website-analytics-consent', 'denied');
     });
