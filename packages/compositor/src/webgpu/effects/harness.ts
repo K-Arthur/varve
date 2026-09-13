@@ -360,37 +360,40 @@ export async function runHarness(
     };
   }
   try {
-    const warm = CASES.rgbSplit ?? Object.values(CASES)[0];
-    if (warm) {
-      const warmReq: EffectDispatchRequest = {
-        effect: warm.effect,
-        width: 8,
-        height: 8,
-        quality: 'normal',
-        coordSpace: warm.coordSpace,
-        params: warm.params,
-      };
-      const warmInput = makeInput(8, 8);
-      await runner.apply(warmReq, warmInput);
+    try {
+      const warm = CASES.rgbSplit ?? Object.values(CASES)[0];
+      if (warm) {
+        const warmReq: EffectDispatchRequest = {
+          effect: warm.effect,
+          width: 8,
+          height: 8,
+          quality: 'normal',
+          coordSpace: warm.coordSpace,
+          params: warm.params,
+        };
+        const warmInput = makeInput(8, 8);
+        await runner.apply(warmReq, warmInput);
+      }
+    } catch {
+      // Warm-up failure is non-fatal; the real cases will surface it.
     }
-  } catch {
-    // Warm-up failure is non-fatal; the real cases will surface it.
-  }
 
-  const runNamed = async (name: string): Promise<HarnessResultEntry> => {
-    const caseSpec = CASES[name];
-    if (!caseSpec) return { effect: name, gpuReady: true, stats: null, error: 'unknown case' };
-    return runOne(runner, name, caseSpec, width, height);
-  };
-  const entries = options?.concurrent
-    ? await Promise.all(effects.map((name) => runNamed(name)))
-    : await (async () => {
-        const ordered: HarnessResultEntry[] = [];
-        for (const name of effects) ordered.push(await runNamed(name));
-        return ordered;
-      })();
-  runner.destroy();
-  return { entries };
+    const runNamed = async (name: string): Promise<HarnessResultEntry> => {
+      const caseSpec = CASES[name];
+      if (!caseSpec) return { effect: name, gpuReady: true, stats: null, error: 'unknown case' };
+      return runOne(runner, name, caseSpec, width, height);
+    };
+    const entries = options?.concurrent
+      ? await Promise.all(effects.map((name) => runNamed(name)))
+      : await (async () => {
+          const ordered: HarnessResultEntry[] = [];
+          for (const name of effects) ordered.push(await runNamed(name));
+          return ordered;
+        })();
+    return { entries };
+  } finally {
+    runner.destroy();
+  }
 }
 
 declare global {

@@ -164,6 +164,10 @@ test('live effects: WebGPU compute agrees with the CPU kernels', async ({ page }
 
 test('Color Halftone: 48px rows survive padded WebGPU readback', async ({ page }, testInfo) => {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
+  // Establish the localhost origin, then replace the app DOM before the
+  // dynamic module import. The loading shell may finish booting after
+  // DOMContentLoaded and navigate/re-render underneath an evaluation.
+  await page.setContent('<html><body></body></html>');
   const moduleUrl = `/@fs${join(process.cwd(), 'packages/engine/src/gpu/colorHalftoneGpu.ts')}`;
 
   const result = await page.evaluate(async (url) => {
@@ -193,6 +197,7 @@ test('Color Halftone: 48px rows survive padded WebGPU readback', async ({ page }
       mode: 'cmyk',
       intensity: 1,
       inkColor: [0, 0, 0, 255],
+      algorithmVersion: 1,
     });
     const diagnostics = mod.getColorHalftoneGpuDiagnostics();
     const canvas = document.createElement('canvas');
@@ -205,6 +210,9 @@ test('Color Halftone: 48px rows survive padded WebGPU readback', async ({ page }
       diagnostics,
       outputLength: output.data.length,
       alpha: output.data[3],
+      redMin: Math.min(...output.data.filter((_, index) => index % 4 === 0)),
+      redMax: Math.max(...output.data.filter((_, index) => index % 4 === 0)),
+      firstPixel: Array.from(output.data.slice(0, 4)),
     };
   }, moduleUrl);
 
@@ -216,4 +224,6 @@ test('Color Halftone: 48px rows survive padded WebGPU readback', async ({ page }
   expect(result.diagnostics.height).toBe(32);
   expect(result.outputLength).toBe(48 * 32 * 4);
   expect(result.alpha).toBe(255);
+  expect(result.redMax, 'readback should contain rendered pixels').toBeGreaterThan(result.redMin);
+  expect(result.firstPixel).not.toEqual([242, 245, 251, 255]);
 });

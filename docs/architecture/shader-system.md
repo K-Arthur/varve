@@ -1,6 +1,6 @@
 # Varve shader system
 
-**Status:** current implementation and verification boundary  
+**Status:** current implementation and verification boundary
 **Updated:** 2026-09-13
 
 This document separates the three things that are often called “shaders” in
@@ -80,6 +80,15 @@ references, duplicate texture inputs, same-pass read/write aliases, and
 dispatches over the device workgroup limit before submitting work. Multi-pass
 effects identify their actual producer dimensions; a consumer may not silently
 reinterpret a lower-resolution producer using its own size.
+
+### Color Halftone compatibility boundary
+
+The corrected Color Halftone document semantics are algorithm version 2 and
+remain on the verified CPU/reference path. The standalone WebGPU helper accepts
+an explicit `algorithmVersion: 1` request for its legacy screening contract;
+other versions fall back to CPU with a diagnostic. This is intentional: the
+backend must not silently change screen polarity, phase, cell geometry, or
+colour-separation behavior while a matching v2 kernel is being validated.
 
 ## Color, alpha, and compositing boundary
 

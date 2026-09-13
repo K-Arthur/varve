@@ -265,6 +265,18 @@ export async function applyColorHalftoneGpu(
     };
     return applyColorHalftone(data, params);
   }
+  if ((params.algorithmVersion ?? 2) !== 1) {
+    // The standalone WGSL helper still implements the legacy screening
+    // polarity and 72px cell contract. Never let it silently replace the
+    // corrected v2 CPU semantics with a different creative result.
+    lastDiagnostics = {
+      backend: 'cpu',
+      width: data.width,
+      height: data.height,
+      reason: 'gpu-supports-legacy-color-halftone-only',
+    };
+    return applyColorHalftone(data, params);
+  }
 
   try {
     const device = await ensureGpuDevice();
