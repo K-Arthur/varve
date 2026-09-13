@@ -440,11 +440,13 @@ These are known gaps, not settled design:
 
 - **Interaction resolution is typed but bounded.** `interactionResolution.ts`
   classifies text drafts, IME composition, active controls, transient tools,
-  playback, and modals. Canvas pointer capture held by an arbitrary overlay and
-  pending export/inference work are not individually inspectable yet and are
-  treated as `continue`. `requestWorkspaceSwitch` still returns
-  `Promise<boolean>`; the typed plan is executed internally and a blocked
-  transition announces its reason.
+  playback, and modals. A modal is any open native dialog, which covers the
+  export, upscale, and generative-edit dialogs; background inference without
+  a modal has no cancellable UI and is deliberately `continue` because a
+  workspace change never unmounts the AI or motion stores. Canvas pointer
+  capture held by an arbitrary overlay is still not individually inspectable.
+  `requestWorkspaceSwitch` still returns `Promise<boolean>`; the typed plan is
+  executed internally and a blocked transition announces its reason.
 - **Panel overrides now support visibility, widths, inspector tabs, status
   sections, and toolbar tools.** The full override surface is wired:
   - `panelOverrides` — visibility per panel
