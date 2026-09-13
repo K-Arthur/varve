@@ -351,7 +351,7 @@ function MultiSection({
         onClick={groupSelected}
       />
       <CcbButton
-        icon="AlignCenter"
+        icon="AlignCenterHorizontal"
         label="Align horizontal centers"
         onClick={() => alignSelected('centerH')}
       />
