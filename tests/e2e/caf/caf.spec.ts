@@ -201,6 +201,7 @@ async function openGenerativeEditFromAdjustments(
 async function dropImageAndSelect(
   page: import('@playwright/test').Page,
   imagePath = CAF_PNG,
+  dropPoint: { x: number; y: number } = { x: 150, y: 150 },
 ): Promise<string> {
   const imageBuffer = readFileSync(imagePath);
   const base64 = imageBuffer.toString('base64');
@@ -241,11 +242,17 @@ async function dropImageAndSelect(
         }),
       );
     },
-    { cX: box.x + 150, cY: box.y + 150, b64: base64, name: imageName, type: imageType },
+    {
+      cX: box.x + dropPoint.x,
+      cY: box.y + dropPoint.y,
+      b64: base64,
+      name: imageName,
+      type: imageType,
+    },
   );
 
   await expect.poll(() => treeItems.count(), { timeout: 60_000 }).toBeGreaterThan(countBefore);
-  await page.mouse.click(box.x + 175, box.y + 175);
+  await page.mouse.click(box.x + dropPoint.x + 25, box.y + dropPoint.y + 25);
   await page.waitForTimeout(300);
 
   // Recover the node id from the fiber tree
@@ -295,6 +302,86 @@ async function paintMaskStroke(page: import('@playwright/test').Page): Promise<v
   await page.mouse.move(box.x + box.width * 0.7, sy);
   await page.mouse.up();
   await page.waitForTimeout(200);
+}
+
+/**
+ * Inspect the persisted bounded overlay rather than accepting a screenshot
+ * or metadata-only result as evidence of generation. A successful no-op
+ * result has no visible overlay pixels; a flat placeholder is also rejected
+ * by the colour-bucket check on the real photograph.
+ */
+async function inspectBoundedOverlay(
+  page: import('@playwright/test').Page,
+  sourceUrl: string,
+  overlayUrl: string,
+  frame: { x: number; y: number; width: number; height: number },
+  sourceWidth: number,
+  sourceHeight: number,
+): Promise<{ nonTransparentPixels: number; changedPixels: number; uniqueColorBuckets: number }> {
+  return page.evaluate(
+    async ({ sourceUrl, overlayUrl, frame, sourceWidth, sourceHeight }) => {
+      const decode = (url: string): Promise<ImageData> =>
+        new Promise((resolve, reject) => {
+          const image = new Image();
+          image.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = image.naturalWidth;
+            canvas.height = image.naturalHeight;
+            const context = canvas.getContext('2d');
+            if (!context) {
+              reject(new Error('overlay-check canvas is unavailable'));
+              return;
+            }
+            context.drawImage(image, 0, 0);
+            resolve(context.getImageData(0, 0, canvas.width, canvas.height));
+          };
+          image.onerror = () => reject(new Error('overlay-check image decode failed'));
+          image.src = url;
+        });
+      const source = await decode(sourceUrl);
+      const overlay = await decode(overlayUrl);
+      if (overlay.width !== frame.width || overlay.height !== frame.height) {
+        throw new Error(
+          `Overlay dimensions ${overlay.width}x${overlay.height} do not match its ${frame.width}x${frame.height} frame`,
+        );
+      }
+      let nonTransparentPixels = 0;
+      let changedPixels = 0;
+      const colors = new Set<number>();
+      for (let y = 0; y < overlay.height; y += 1) {
+        for (let x = 0; x < overlay.width; x += 1) {
+          const overlayOffset = (y * overlay.width + x) * 4;
+          if (overlay.data[overlayOffset + 3]! <= 8) continue;
+          nonTransparentPixels += 1;
+          colors.add(
+            (overlay.data[overlayOffset]! >> 4) * 256 +
+              (overlay.data[overlayOffset + 1]! >> 4) * 16 +
+              (overlay.data[overlayOffset + 2]! >> 4),
+          );
+          const sourceX = frame.x + x;
+          const sourceY = frame.y + y;
+          if (
+            sourceX < 0 ||
+            sourceY < 0 ||
+            sourceX >= sourceWidth ||
+            sourceY >= sourceHeight ||
+            sourceX >= source.width ||
+            sourceY >= source.height
+          ) {
+            continue;
+          }
+          const sourceOffset = (sourceY * source.width + sourceX) * 4;
+          const delta =
+            Math.abs(overlay.data[overlayOffset]! - source.data[sourceOffset]!) +
+            Math.abs(overlay.data[overlayOffset + 1]! - source.data[sourceOffset + 1]!) +
+            Math.abs(overlay.data[overlayOffset + 2]! - source.data[sourceOffset + 2]!);
+          if (delta >= 12) changedPixels += 1;
+        }
+      }
+      return { nonTransparentPixels, changedPixels, uniqueColorBuckets: colors.size };
+    },
+    { sourceUrl, overlayUrl, frame, sourceWidth, sourceHeight },
+  );
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────────
@@ -673,6 +760,7 @@ test.describe('Content-Aware Fill dialog', () => {
     const photographicNodeId = await dropImageAndSelect(
       page,
       path.join(FIXTURES_DIR, 'real-life-landscape.jpg'),
+      { x: 400, y: 300 },
     );
     const before = await readEditorDocument(page);
     const beforeNode = before.nodes[photographicNodeId];
@@ -688,6 +776,10 @@ test.describe('Content-Aware Fill dialog', () => {
 
     const applyBtn = page.getByRole('button', { name: /^apply$/i });
     await expect(applyBtn).toBeEnabled({ timeout: 30_000 });
+    await page.locator('dialog.varve-dialog--caf[open]').screenshot({
+      path: testInfo.outputPath('real-landscape-remove-result.png'),
+      animations: 'disabled',
+    });
     await applyBtn.click();
     await page.locator('dialog.varve-dialog--caf[open]').waitFor({
       state: 'hidden',
@@ -706,13 +798,82 @@ test.describe('Content-Aware Fill dialog', () => {
     expect(edit?.variations).toHaveLength(1);
     expect(after.assets?.[edit.variations[0].assetId]).toBeTruthy();
 
+    const variation = edit.variations[0];
+    const overlayAsset = after.assets?.[variation.assetId];
+    const overlayStats = await inspectBoundedOverlay(
+      page,
+      after.assets?.[sourceAssetId].dataUrl,
+      overlayAsset.dataUrl,
+      variation.outputFrame,
+      after.assets?.[sourceAssetId].naturalWidth,
+      after.assets?.[sourceAssetId].naturalHeight,
+    );
+    expect(variation.assetKind).toBe('region-overlay');
+    expect(overlayStats.nonTransparentPixels).toBeGreaterThan(100);
+    expect(overlayStats.changedPixels).toBeGreaterThan(100);
+    expect(overlayStats.uniqueColorBuckets).toBeGreaterThan(8);
+
+    const fitAllButton = page.getByRole('button', { name: 'Fit all to viewport' });
+    await expect(fitAllButton).toBeVisible({ timeout: 10_000 });
+    await fitAllButton.click();
+    await page.waitForTimeout(250);
     await page.screenshot({ path: testInfo.outputPath('real-landscape-applied.png') });
+  });
+
+  test('applies promptless Fill to a real photograph with substantive output', async ({
+    page,
+  }, testInfo) => {
+    const photographicNodeId = await dropImageAndSelect(
+      page,
+      path.join(FIXTURES_DIR, 'real-life-still-life.jpg'),
+      { x: 400, y: 300 },
+    );
+    await triggerCafDialog(page, photographicNodeId);
+    const dialog = page.locator('dialog.varve-dialog--caf[open]');
+    await dialog.getByRole('tab', { name: 'Fill', exact: true }).click();
+    await paintMaskStroke(page);
+
+    const generateBtn = dialog
+      .locator('button.varve-btn--secondary')
+      .filter({ hasText: /^fill$/i });
+    await expect(generateBtn).toBeEnabled();
+    await generateBtn.click();
+    await expect(dialog.getByRole('button', { name: /^apply$/i })).toBeEnabled({
+      timeout: 30_000,
+    });
+    await dialog.screenshot({ path: testInfo.outputPath('real-still-life-fill-result.png') });
+    await dialog.getByRole('button', { name: /^apply$/i }).click();
+    await dialog.waitFor({ state: 'hidden', timeout: 10_000 });
+
+    const after = await readEditorDocument(page);
+    const node = after.nodes[photographicNodeId];
+    const edit = after.generativeEdits?.[node.generativeEditId];
+    expect(edit?.mode).toBe('fill');
+    expect(edit?.provider.id).toBe('varve-content-aware');
+    const variation = edit.variations[0];
+    const sourceAsset = after.assets?.[edit.sourceSnapshotAssetId];
+    const overlayAsset = after.assets?.[variation.assetId];
+    expect(sourceAsset?.dataUrl).toBeTruthy();
+    expect(overlayAsset?.dataUrl).toBeTruthy();
+    const overlayStats = await inspectBoundedOverlay(
+      page,
+      sourceAsset.dataUrl,
+      overlayAsset.dataUrl,
+      variation.outputFrame,
+      sourceAsset.naturalWidth,
+      sourceAsset.naturalHeight,
+    );
+    expect(variation.assetKind).toBe('region-overlay');
+    expect(overlayStats.nonTransparentPixels).toBeGreaterThan(100);
+    expect(overlayStats.changedPixels).toBeGreaterThan(100);
+    expect(overlayStats.uniqueColorBuckets).toBeGreaterThan(8);
   });
 
   test('bounds a small edit on the 33 MP real portrait fixture', async ({ page }, testInfo) => {
     const photographicNodeId = await dropImageAndSelect(
       page,
       path.join(FIXTURES_DIR, 'real-life-portrait.jpg'),
+      { x: 400, y: 300 },
     );
     const before = await readEditorDocument(page);
     const beforeNode = before.nodes[photographicNodeId];
@@ -770,6 +931,7 @@ test.describe('Content-Aware Fill dialog', () => {
     const photographicNodeId = await dropImageAndSelect(
       page,
       path.join(FIXTURES_DIR, 'real-life-landscape.jpg'),
+      { x: 400, y: 300 },
     );
 
     let editNumber = 0;
