@@ -142,6 +142,10 @@ moving the model to another platform or ARM/x86 build requires a fresh masked
 qualification. A constrained device is refused before model loading and is directed to the promptless Fast/PatchMatch path. Browser
 device-memory hints are advisory only and never imply that a prompt model is
 available; WASM/WebGPU providers must still pass their own safe-peak budget.
+If a native target does not expose a trustworthy available-memory measurement,
+model-backed work is refused rather than treating unknown capacity as unlimited;
+the status stays not-ready and the promptless Fast/PatchMatch path remains
+available.
 The background-removal provider's legacy capability facade projects this same
 canonical runtime snapshot, so segmentation, Object Selection, and generative
 editing cannot disagree about a 2 GB browser, ChromeOS container, or ARM
@@ -196,6 +200,10 @@ Linux container), Windows/Windows-on-ARM, and macOS/Apple Silicon perform the
 authoritative available-memory check in the desktop process immediately before
 model startup. Refusal is actionable and leaves Quick Cleanup available; no
 remote fallback is attempted.
+An unsupported or temporarily unmeasurable native memory API is also a refusal
+condition for model-backed work, with the platform and architecture included
+in the recovery message. This prevents an ARM or embedded build from turning an
+unknown budget into an unbounded allocation attempt.
 
 Object Selection follows the same rule before it allocates a full-resolution
 canvas and `ImageData`. The SAM2 encoder's measured peak and the source-frame

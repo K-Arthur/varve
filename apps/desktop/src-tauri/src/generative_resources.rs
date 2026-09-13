@@ -202,6 +202,22 @@ fn memory_shortage_error(
     ))
 }
 
+fn memory_measurement_error(operation: &str, snapshot: &NativeResourceSnapshot) -> String {
+    format!(
+        "{operation} cannot start because available memory could not be measured on this {}/{} device. Close memory-heavy apps or use Quick Cleanup, which does not load a model.",
+        snapshot.platform, snapshot.architecture
+    )
+}
+
+fn measured_available_memory(
+    operation: &str,
+    snapshot: &NativeResourceSnapshot,
+) -> Result<u64, String> {
+    snapshot
+        .available_memory_bytes
+        .ok_or_else(|| memory_measurement_error(operation, snapshot))
+}
+
 /// Perform the native-side check for a model-backed ONNX operation. This is
 /// intentionally separate from the diffusion check because segmentation and
 /// inpainting have measured footprints that are materially smaller (or, for
@@ -216,15 +232,14 @@ pub(crate) fn preflight_model(
         estimated_required_memory_bytes_for_model(width, height, measured_peak_memory_bytes)
             .ok_or_else(|| format!("{operation} source dimensions are empty or overflowed"))?;
     let snapshot = snapshot_with_requirement(required_memory_bytes);
-    if let Some(available) = snapshot.available_memory_bytes {
-        if let Some(error) = memory_shortage_error(
-            operation,
-            snapshot.required_memory_bytes,
-            available,
-            snapshot.architecture,
-        ) {
-            return Err(error);
-        }
+    let available = measured_available_memory(operation, &snapshot)?;
+    if let Some(error) = memory_shortage_error(
+        operation,
+        snapshot.required_memory_bytes,
+        available,
+        snapshot.architecture,
+    ) {
+        return Err(error);
     }
     Ok(snapshot)
 }
@@ -244,15 +259,14 @@ pub(crate) fn snapshot(width: u32, height: u32) -> NativeResourceSnapshot {
 
 pub(crate) fn preflight(width: u32, height: u32) -> Result<NativeResourceSnapshot, String> {
     let snapshot = snapshot(width, height);
-    if let Some(available) = snapshot.available_memory_bytes {
-        if let Some(error) = memory_shortage_error(
-            "Local diffusion generation",
-            snapshot.required_memory_bytes,
-            available,
-            snapshot.architecture,
-        ) {
-            return Err(error);
-        }
+    let available = measured_available_memory("Local diffusion generation", &snapshot)?;
+    if let Some(error) = memory_shortage_error(
+        "Local diffusion generation",
+        snapshot.required_memory_bytes,
+        available,
+        snapshot.architecture,
+    ) {
+        return Err(error);
     }
     Ok(snapshot)
 }
@@ -261,8 +275,9 @@ pub(crate) fn preflight(width: u32, height: u32) -> Result<NativeResourceSnapsho
 mod tests {
     use super::{
         cgroup_available_memory, estimated_required_memory_bytes,
-        estimated_required_memory_bytes_for_model, memory_shortage_error,
-        parse_cgroup_memory_value, parse_linux_available_memory, resource_tier, BYTES_PER_MIB,
+        estimated_required_memory_bytes_for_model, measured_available_memory,
+        memory_measurement_error, memory_shortage_error, parse_cgroup_memory_value,
+        parse_linux_available_memory, resource_tier, NativeResourceSnapshot, BYTES_PER_MIB,
     };
 
     const GIB: u64 = 1024 * 1024 * 1024;
@@ -336,5 +351,26 @@ mod tests {
         assert!(error.contains("aarch64"));
         assert!(error.contains("Quick Cleanup"));
         assert!(memory_shortage_error("operation", 1, 2, "x86_64").is_none());
+    }
+
+    #[test]
+    fn unknown_native_memory_fails_closed_with_platform_context() {
+        let snapshot = NativeResourceSnapshot {
+            available_memory_bytes: None,
+            required_memory_bytes: 6 * GIB,
+            resource_tier: "unknown",
+            execution_backend: "native-cpu",
+            platform: "linux",
+            architecture: "aarch64",
+        };
+
+        let error = measured_available_memory("Local diffusion generation", &snapshot)
+            .expect_err("unknown native memory must not be treated as unlimited");
+        assert_eq!(
+            error,
+            memory_measurement_error("Local diffusion generation", &snapshot)
+        );
+        assert!(error.contains("linux/aarch64"));
+        assert!(error.contains("Quick Cleanup"));
     }
 }

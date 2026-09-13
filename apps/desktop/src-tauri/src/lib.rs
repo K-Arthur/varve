@@ -1662,10 +1662,9 @@ fn generative_model_is_ready(
     resource: &generative_resources::NativeResourceSnapshot,
 ) -> bool {
     generative_model_record_is_ready(record, size_bytes, checksum_sha256, resource)
-        && resource
-            .available_memory_bytes
-            .map(|available| available >= resource.required_memory_bytes)
-            .unwrap_or(true)
+        && resource.available_memory_bytes.is_some_and(|available| {
+            available >= resource.required_memory_bytes
+        })
 }
 
 fn managed_generative_model_paths(app: &tauri::AppHandle) -> Result<Vec<std::path::PathBuf>, String> {
@@ -1719,12 +1718,17 @@ fn model_status_blocking(
                 let memory_available = resource.available_memory_bytes;
                 let memory_sufficient = memory_available
                     .map(|available| available >= resource.required_memory_bytes)
-                    .unwrap_or(true);
+                    .unwrap_or(false);
                 let ready = record.as_ref().is_some_and(|record| {
                     generative_model_is_ready(record, size_bytes, &checksum_sha256, &resource)
                 });
                 let reason = if ready {
                     Some("The local model passed Varve's masked inpainting qualification.".into())
+                } else if record_matches_runtime && memory_available.is_none() {
+                    Some(format!(
+                        "The model is qualified, but available memory could not be measured on this {}/{} device. Use Quick Cleanup or a smaller local model.",
+                        resource.platform, resource.architecture
+                    ))
                 } else if record_matches_runtime && !memory_sufficient {
                     let available_mib = memory_available.unwrap_or_default() / (1024 * 1024);
                     let required_mib = resource.required_memory_bytes.div_ceil(1024 * 1024);
@@ -1734,7 +1738,14 @@ fn model_status_blocking(
                 } else if record.is_some() {
                     Some("The model changed, was qualified on another runtime/device, or failed qualification. Validate it again before generation.".into())
                 } else {
-                    Some("Model installed locally. Validate it with a masked production run before generation.".into())
+                    Some(if memory_available.is_none() {
+                        format!(
+                            "Model installed locally, but available memory could not be measured on this {}/{} device. Use Quick Cleanup or a smaller local model.",
+                            resource.platform, resource.architecture
+                        )
+                    } else {
+                        "Model installed locally. Validate it with a masked production run before generation.".into()
+                    })
                 };
                 return Ok(GenerativeModelStatus {
                     installed: true,
@@ -4960,6 +4971,16 @@ mod tests {
             42,
             "hash",
             &constrained_resource
+        ));
+
+        let mut unknown_resource = resource.clone();
+        unknown_resource.available_memory_bytes = None;
+        unknown_resource.resource_tier = "unknown";
+        assert!(!generative_model_is_ready(
+            &record,
+            42,
+            "hash",
+            &unknown_resource
         ));
 
         let mut windows_resource = resource.clone();
