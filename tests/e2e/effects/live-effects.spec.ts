@@ -1,5 +1,5 @@
 /**
- * End-to-end: live non-destructive effects family (dither, paletteSnap,
+ * End-to-end: live non-destructive Object Filter effects family (dither, paletteSnap,
  * bloom, rgbSplit, crt, vhs, lightShafts, lensFlare, lightLeak, caustics).
  *
  * Covers the full interaction contract on the real canvas:
@@ -16,7 +16,6 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 import { dropImageOnCanvas } from '../helpers/editor-helpers';
 import { navigateToCleanEditor } from '../helpers/nav';
-import { dragOnCanvas } from '../shared';
 
 const REVIEW_DIR = resolve(__dirname, '../../../reports/effect-review');
 
@@ -113,142 +112,45 @@ async function canvasRegionHash(
   }, region);
 }
 
-async function createAdjustmentLayer(page: import('@playwright/test').Page): Promise<void> {
-  const created = await page.evaluate(() => {
-    const container = document.getElementById('root');
-    if (!container) return false;
-    const fiberKey = Object.keys(container).find(
-      (k) => k.startsWith('__reactFiber$') || k.startsWith('__reactContainer$'),
-    );
-    if (!fiberKey) return false;
-    function walk(fiber: Record<string, unknown> | null): Record<string, unknown> | null {
-      if (!fiber) return null;
-      const mp = fiber.memoizedProps as Record<string, unknown> | undefined;
-      if (
-        mp?.value &&
-        typeof mp.value === 'object' &&
-        'createAdjustmentLayer' in (mp.value as Record<string, unknown>)
-      ) {
-        return mp.value as Record<string, unknown>;
-      }
-      const pp = fiber.pendingProps as Record<string, unknown> | undefined;
-      if (
-        pp?.value &&
-        typeof pp.value === 'object' &&
-        'createAdjustmentLayer' in (pp.value as Record<string, unknown>)
-      ) {
-        return pp.value as Record<string, unknown>;
-      }
-      return (
-        walk(fiber.child as Record<string, unknown> | null) ||
-        walk(fiber.sibling as Record<string, unknown> | null)
-      );
-    }
-    const ctx = walk(
-      (container as unknown as Record<string, unknown>)[fiberKey] as Record<string, unknown> | null,
-    );
-    if (ctx && typeof ctx.createAdjustmentLayer === 'function') {
-      (ctx.createAdjustmentLayer as () => void)();
-      return true;
-    }
-    return false;
+async function forceFullRedraw(page: import('@playwright/test').Page): Promise<void> {
+  await page.evaluate(() => {
+    const perf = (window as unknown as { __varvePerf?: { forceFullRedraw?: () => void } })
+      .__varvePerf;
+    perf?.forceFullRedraw?.();
   });
-  expect(created).toBe(true);
-  await page.waitForTimeout(400);
-  const adjustmentsTab = page.getByRole('tab', { name: /Adjustments/i });
-  await expect(adjustmentsTab).toBeVisible({ timeout: 5000 });
-  await adjustmentsTab.click();
-  await page.waitForTimeout(200);
+  await page.waitForTimeout(150);
 }
 
-/** Give the shapes a bright-on-dark corpus: bottom rect dark, top rect white
- *  so light-dependent effects (bloom, light shafts, flares) have material to
- *  work with and somewhere to spill onto. */
-async function makeRectBright(page: import('@playwright/test').Page): Promise<void> {
-  const done = await page.evaluate(() => {
-    const container = document.getElementById('root');
-    if (!container) return false;
-    const fiberKey = Object.keys(container).find(
-      (k) => k.startsWith('__reactFiber$') || k.startsWith('__reactContainer$'),
-    );
-    if (!fiberKey) return false;
-    function walk(fiber: Record<string, unknown> | null): Record<string, unknown> | null {
-      if (!fiber) return null;
-      const mp = fiber.memoizedProps as Record<string, unknown> | undefined;
-      if (
-        mp?.value &&
-        typeof mp.value === 'object' &&
-        'updateNode' in (mp.value as Record<string, unknown>)
-      ) {
-        return mp.value as Record<string, unknown>;
-      }
-      const pp = fiber.pendingProps as Record<string, unknown> | undefined;
-      if (
-        pp?.value &&
-        typeof pp.value === 'object' &&
-        'updateNode' in (pp.value as Record<string, unknown>)
-      ) {
-        return pp.value as Record<string, unknown>;
-      }
-      return (
-        walk(fiber.child as Record<string, unknown> | null) ||
-        walk(fiber.sibling as Record<string, unknown> | null)
-      );
-    }
-    const ctx = walk(
-      (container as unknown as Record<string, unknown>)[fiberKey] as Record<string, unknown> | null,
-    );
-    if (!ctx || typeof ctx.updateNode !== 'function') return false;
-    const state = ctx.state as { document: { nodes: Record<string, { kind: string }> } };
-    const nodes = state.document.nodes;
-    const shapeIds = Object.keys(nodes).filter((k) => nodes[k]!.kind === 'shape');
-    if (shapeIds.length < 2) return false;
-    // The legacy node `fill` field is a bare ManagedColor (not a Fill object).
-    const dark = { space: 'rgb', r: 16, g: 28, b: 40, a: 255 };
-    const white = { space: 'rgb', r: 255, g: 255, b: 255, a: 255 };
-    const update = (id: string, color: unknown) => {
-      (
-        ctx.updateNode as (
-          id: string,
-          fn: (n: Record<string, unknown>) => Record<string, unknown>,
-        ) => void
-      )(id, (n) => ({
-        ...n,
-        fill: color,
-      }));
-    };
-    update(shapeIds[0]!, dark);
-    update(shapeIds[1]!, white);
-    return true;
+async function settledCanvasRegionHash(page: import('@playwright/test').Page): Promise<string> {
+  let previous = await canvasRegionHash(page);
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    await page.waitForTimeout(200);
+    const current = await canvasRegionHash(page);
+    if (current === previous) return current;
+    previous = current;
+  }
+  return previous;
+}
+
+async function openObjectFilters(page: import('@playwright/test').Page): Promise<void> {
+  await page.getByRole('tab', { name: 'Design', exact: true }).click();
+  const section = page.getByRole('button', { name: 'Object Filters', exact: true });
+  await section.scrollIntoViewIfNeeded();
+  if ((await section.getAttribute('aria-expanded')) !== 'true') await section.click();
+  await expect(page.getByRole('combobox', { name: 'Add Object Filter' })).toBeVisible({
+    timeout: 5000,
   });
-  expect(done).toBe(true);
-  await page.waitForTimeout(300);
 }
 
-async function addAdjustment(page: import('@playwright/test').Page, name: string): Promise<void> {
-  const stackCount = await page.locator('.adj-panel__item').count();
-  await page.locator('button.adj-panel__add-btn').click();
-  await page.locator('.adj-panel__add-menu').waitFor({ state: 'visible', timeout: 5000 });
-  await page
-    .locator('.adj-panel__add-menu-item')
-    .filter({ hasText: new RegExp(`^${name}$`) })
-    .click();
-  await expect(page.locator('.adj-panel__item')).toHaveCount(stackCount + 1, { timeout: 5000 });
+async function addObjectFilter(page: import('@playwright/test').Page, name: string): Promise<void> {
+  await openObjectFilters(page);
+  const stack = page.locator('ul[aria-label="Object Filter stack"] > li.smart-filters__row');
+  const stackCount = await stack.count();
+  const addFilter = page.getByRole('combobox', { name: 'Add Object Filter' });
+  await addFilter.click();
+  await page.getByRole('option', { name, exact: true }).click();
+  await expect(stack).toHaveCount(stackCount + 1, { timeout: 5000 });
   await page.waitForTimeout(300);
-}
-
-async function drawRect(page: import('@playwright/test').Page): Promise<void> {
-  await page.keyboard.press('r');
-  await dragOnCanvas(page, 100, 60, 380, 320);
-  // Re-activate the tool and draw the second (top) rect, starting the drag
-  // outside the first rect so the tool creates a new shape instead of
-  // moving the existing one. Keep both endpoints inside the fitted artboard;
-  // coordinates near the canvas chrome are treated as selection/navigation
-  // input by some viewport sizes.
-  await page.keyboard.press('r');
-  await dragOnCanvas(page, 420, 40, 620, 240);
-  await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 10000 });
-  await page.keyboard.press('v');
 }
 
 test.describe('Live effects', () => {
@@ -313,7 +215,6 @@ test.describe('Live effects', () => {
       // document (the file-input flow opens it as a separate document).
       await dropImageOnCanvas(page, 'photo-fixture.jpg', 320, 240);
       await page.waitForTimeout(1200);
-      await createAdjustmentLayer(page);
     });
 
     for (const effect of EFFECTS) {
@@ -322,13 +223,11 @@ test.describe('Live effects', () => {
         mkdirSync(REVIEW_DIR, { recursive: true });
         await page.screenshot({ path: resolve(REVIEW_DIR, `source.png`), fullPage: false });
 
-        await addAdjustment(page, effect.name);
+        await addObjectFilter(page, effect.name);
 
-        const editor = page.locator('.adj-panel__editor');
+        const editor = page.locator('.smart-filters__editor');
         await expect(editor).toBeVisible({ timeout: 5000 });
-        await expect(
-          page.locator('.adj-panel__editor-title').filter({ hasText: effect.name }),
-        ).toBeVisible();
+        await expect(page.locator('.smart-filters__row--selected')).toContainText(effect.name);
 
         await page.waitForTimeout(900);
         const affected = await canvasRegionHash(page);
@@ -343,7 +242,7 @@ test.describe('Live effects', () => {
 
         // The editor must be free of automated accessibility violations.
         const results = await new AxeBuilder({ page })
-          .include('.adj-panel__editor')
+          .include('.smart-filters__editor')
           .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
           .analyze();
         expect(results.violations).toEqual([]);
@@ -363,74 +262,70 @@ test.describe('Live effects', () => {
 
   test.describe('interaction and integration', () => {
     test.beforeEach(async ({ page }) => {
-      await drawRect(page);
-      await makeRectBright(page);
-      await createAdjustmentLayer(page);
+      await dropImageOnCanvas(page, 'photo-fixture.jpg', 320, 240);
+      await page.waitForTimeout(1200);
     });
 
     test('interaction contract: slider, undo/redo, disable, reorder', async ({ page }) => {
-      const source = await canvasRegionHash(page);
+      await forceFullRedraw(page);
+      const source = await settledCanvasRegionHash(page);
 
-      await addAdjustment(page, 'Bloom');
-      await page.waitForTimeout(400);
-      const afterAdd = await canvasRegionHash(page);
+      await addObjectFilter(page, 'Bloom');
+      await forceFullRedraw(page);
+      await expect.poll(() => canvasRegionHash(page), { timeout: 10_000 }).not.toBe(source);
+      const afterAdd = await settledCanvasRegionHash(page);
       expect(afterAdd).not.toBe(source);
 
       // Slider change updates the canvas live — drive it with real keyboard
-      // interaction on the focused slider (Home jumps to the minimum, a large
-      // change that must re-render the effect).
-      const threshold = page.getByRole('slider', { name: 'Bloom threshold' });
-      await threshold.focus();
-      await page.keyboard.press('Home');
-      await page.waitForTimeout(500);
-      const afterSlider = await canvasRegionHash(page);
+      // interaction on the focused slider. Filling the range avoids relying on
+      // browser-specific Home/End handling while still dispatching a real DOM
+      // input event through the editor.
+      const intensity = page.getByRole('slider', { name: 'Bloom intensity' });
+      await intensity.fill('4');
+      await intensity.press('Enter');
+      await expect.poll(() => canvasRegionHash(page), { timeout: 10_000 }).not.toBe(afterAdd);
+      const afterSlider = await settledCanvasRegionHash(page);
       expect(afterSlider).not.toBe(afterAdd);
       // Blur the slider so the app-level undo shortcut is not eaten by the
       // native input undo behaviour.
-      await threshold.evaluate((el) => (el as HTMLInputElement).blur());
+      await intensity.evaluate((el) => (el as HTMLInputElement).blur());
       await page.keyboard.press('Escape');
 
       // Undo: one step restores the pre-drag parameter value.
       await page.keyboard.press('Control+z');
-      await page.waitForTimeout(400);
-      expect(await canvasRegionHash(page)).toBe(afterAdd);
+      await expect.poll(() => canvasRegionHash(page), { timeout: 10_000 }).toBe(afterAdd);
 
       // Redo: the effect returns.
       await page.keyboard.press('Control+Shift+z');
-      await page.waitForTimeout(400);
-      expect(await canvasRegionHash(page)).toBe(afterSlider);
+      await expect.poll(() => canvasRegionHash(page), { timeout: 10_000 }).toBe(afterSlider);
 
       // Disable → source appearance returns; re-enable → effect returns.
-      const visButton = page.locator('.adj-panel__item-vis-btn');
+      const visButton = page.getByRole('button', { name: 'Disable all Object Filters' });
       await visButton.click();
-      await page.waitForTimeout(400);
-      expect(await canvasRegionHash(page)).toBe(source);
+      await forceFullRedraw(page);
+      await expect.poll(() => canvasRegionHash(page), { timeout: 10_000 }).toBe(source);
       await visButton.click();
-      await page.waitForTimeout(400);
-      expect(await canvasRegionHash(page)).toBe(afterSlider);
+      await forceFullRedraw(page);
+      await expect.poll(() => canvasRegionHash(page), { timeout: 10_000 }).toBe(afterSlider);
 
       // Reorder: adding CRT below bloom then moving it above changes output.
-      await addAdjustment(page, 'CRT');
-      await page.waitForTimeout(400);
-      const stacked = await canvasRegionHash(page);
+      await addObjectFilter(page, 'CRT');
+      await expect.poll(() => canvasRegionHash(page), { timeout: 10_000 }).not.toBe(afterSlider);
+      const stacked = await settledCanvasRegionHash(page);
       expect(stacked).not.toBe(afterSlider);
-      const moveUp = page
-        .locator('.adj-panel__item')
-        .last()
-        .locator('.adj-panel__item-reorder-btn')
-        .first();
+      const moveUp = page.getByRole('button', { name: 'Move CRT up' });
       await moveUp.click();
-      await page.waitForTimeout(400);
-      const reordered = await canvasRegionHash(page);
+      await expect.poll(() => canvasRegionHash(page), { timeout: 10_000 }).not.toBe(stacked);
+      const reordered = await settledCanvasRegionHash(page);
       expect(reordered).not.toBe(stacked);
 
       await page.screenshot({ path: resolve(REVIEW_DIR, 'stack-reordered.png') });
     });
 
     test('persistence: serialize → reload reproduces params and pixels', async ({ page }) => {
-      await addAdjustment(page, 'Dither');
+      await addObjectFilter(page, 'Dither');
       await page.getByRole('slider', { name: 'Dither strength' }).fill('0.5');
-      await addAdjustment(page, 'VHS');
+      await addObjectFilter(page, 'VHS');
       await page.waitForTimeout(400);
       const before = await canvasRegionHash(page);
 
@@ -593,11 +488,11 @@ test.describe('Live effects', () => {
     test('export: PNG export completes with live effects in the document', async ({ page }) => {
       // A document with live effects must export without errors and produce a
       // valid PNG. (Per-node raster export covers the node's own IR; the
-      // adjustment-layer rasterization path for SVG/PDF exports is verified at
-      // the unit level in flattenForExport.test.ts, including the effect
-      // bounds expansion and filter application.)
-      await addAdjustment(page, 'Bloom');
-      await addAdjustment(page, 'CRT');
+      // Object Filter rasterization for SVG/PDF exports is verified at the
+      // unit level in compositor.test.ts, including effect bounds expansion
+      // and filter application.
+      await addObjectFilter(page, 'Bloom');
+      await addObjectFilter(page, 'CRT');
       await page.waitForTimeout(400);
 
       const exportTab = page.locator('[role="tablist"] button[role="tab"]', {
@@ -619,8 +514,8 @@ test.describe('Live effects', () => {
       }
 
       // Select the first layer with actual content and export it: the exported
-      // PNG must contain rendered geometry (an empty adjustment layer yields a
-      // ~88-byte transparent PNG; a rect export is several KB).
+      // PNG must contain rendered geometry rather than an empty transparent
+      // filter owner.
       let largest: Buffer | null = null;
       const treeItems = page.locator('.layers-panel [role="treeitem"]');
       const count = await treeItems.count();
@@ -635,7 +530,7 @@ test.describe('Live effects', () => {
 
     test('palette snap imports a palette file and applies it', async ({ page }) => {
       const source = await canvasRegionHash(page);
-      await addAdjustment(page, 'Palette Snap');
+      await addObjectFilter(page, 'Palette Snap');
       const importBtn = page.getByRole('button', { name: /import palette/i });
       await expect(importBtn).toBeVisible({ timeout: 5000 });
 
@@ -661,60 +556,14 @@ test.describe('Live effects', () => {
         Object.defineProperty(navigator, 'gpu', { value: undefined, configurable: true });
       });
       await page.waitForTimeout(1500);
-      const created = await page.evaluate(() => {
-        const container = document.getElementById('root');
-        if (!container) return false;
-        const fiberKey = Object.keys(container).find(
-          (k) => k.startsWith('__reactFiber$') || k.startsWith('__reactContainer$'),
-        );
-        if (!fiberKey) return false;
-        function walk(fiber: Record<string, unknown> | null): Record<string, unknown> | null {
-          if (!fiber) return null;
-          const mp = fiber.memoizedProps as Record<string, unknown> | undefined;
-          if (
-            mp?.value &&
-            typeof mp.value === 'object' &&
-            'createAdjustmentLayer' in (mp.value as Record<string, unknown>)
-          ) {
-            return mp.value as Record<string, unknown>;
-          }
-          const pp = fiber.pendingProps as Record<string, unknown> | undefined;
-          if (
-            pp?.value &&
-            typeof pp.value === 'object' &&
-            'createAdjustmentLayer' in (pp.value as Record<string, unknown>)
-          ) {
-            return pp.value as Record<string, unknown>;
-          }
-          return (
-            walk(fiber.child as Record<string, unknown> | null) ||
-            walk(fiber.sibling as Record<string, unknown> | null)
-          );
-        }
-        const ctx = walk(
-          (container as unknown as Record<string, unknown>)[fiberKey] as Record<
-            string,
-            unknown
-          > | null,
-        );
-        if (!ctx || typeof ctx.createAdjustmentLayer !== 'function') return false;
-        (ctx.createAdjustmentLayer as () => void)();
-        return true;
-      });
-      expect(created).toBe(true);
-      await page.waitForTimeout(600);
-      const adjustmentsTab = page.getByRole('tab', { name: /Adjustments/i });
-      await expect(adjustmentsTab).toBeVisible({ timeout: 10000 });
-      await adjustmentsTab.click();
-      await page.waitForTimeout(200);
 
       const source = await canvasRegionHash(page);
-      await addAdjustment(page, 'Bloom');
+      await addObjectFilter(page, 'Bloom');
       await page.waitForTimeout(900);
       const bloomed = await canvasRegionHash(page);
       expect(bloomed).not.toBe(source);
       // Disable → source appearance returns.
-      await page.locator('.adj-panel__item-vis-btn').click();
+      await page.getByRole('button', { name: 'Disable all Object Filters' }).click();
       await page.waitForTimeout(500);
       expect(await canvasRegionHash(page)).toBe(source);
       await page.screenshot({ path: resolve(REVIEW_DIR, 'fallback-no-webgpu.png') });
