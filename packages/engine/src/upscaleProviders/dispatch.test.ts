@@ -45,10 +45,10 @@ describe('trace provider chain', () => {
 });
 
 describe('dispatchUpscale', () => {
-  it('ships worker AI with native and direct fallbacks', () => {
+  it('puts the native desktop route ahead of browser fallbacks', () => {
     expect(UPSCALE_PROVIDER_CHAIN.map((provider) => provider.id)).toEqual([
-      'worker-upscale',
       'native-upscale',
+      'worker-upscale',
       'direct-cpu',
     ]);
   });

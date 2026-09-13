@@ -1,5 +1,8 @@
 /**
- * Worker-first upscale dispatch with a direct CPU fallback.
+ * Native-first on desktop, worker-first in practice on the web because the
+ * native provider is gated by the Tauri runtime. Keeping one chain preserves
+ * the provider contract while making the installed app reach its native GPU
+ * resampler and native ONNX inference before its browser/WASM fallback.
  */
 
 import type { UpscaleOptions } from '../imageEnhancement';
@@ -10,8 +13,8 @@ import { workerUpscaleProvider } from './workerProvider';
 
 /** Ordered providers — first available success wins. */
 export const UPSCALE_PROVIDER_CHAIN: UpscaleProvider[] = [
-  workerUpscaleProvider,
   nativeUpscaleProvider,
+  workerUpscaleProvider,
   directUpscaleProvider,
 ];
 
