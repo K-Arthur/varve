@@ -26,8 +26,13 @@ test.describe('browser demo docs', () => {
 
   test('FAQ answers the browser question with a pointer to the guide', async ({ page }) => {
     await page.goto('/support/faq/', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByText('Can I use Varve in a browser?')).toBeVisible();
+    // FAQ answers live in collapsed disclosures; open the question the way a
+    // reader does before asserting the answer's link is reachable.
+    const question = page.getByText('Can I use Varve in a browser?');
+    await expect(question).toBeVisible();
+    await question.click();
     await expect(page.getByRole('link', { name: /Browser Demo & Offline guide/i })).toBeVisible();
+    await expect(page.getByRole('link', { name: /Varve on Chromebook/i })).toBeVisible();
   });
 
   test('product page no longer claims there is no browser build', async ({ page }) => {

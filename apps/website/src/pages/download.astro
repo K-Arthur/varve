@@ -288,7 +288,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
         features are disclosed and user-controlled.
       </p>
 
-      <section class="device-route-notice" aria-labelledby="device-route-title">
+      <section class="device-route-notice" id="device-route-notice" aria-labelledby="device-route-title">
         <h2 class="device-route-title" id="device-route-title">
           On a Chromebook, tablet, or phone?
         </h2>
@@ -466,7 +466,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
             <p>
               Expect bugs and incomplete tools. The <code>.varve</code> document format may still
               change in ways that break older files. <strong>Keep backups of anything you care
-              about.</strong> See <a href={sitePath('/support/known-issues')}>known issues</a> and
+              about.</strong> See <a href={sitePath('/support/known-issues')}>known issues</a> and{' '}
               <a href={sitePath('/releases')}>release notes</a>.
             </p>
           </div>
@@ -641,17 +641,17 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                       Fedora, RHEL, and derivatives.
                     </p>
                     <p>
-                      <strong>Arch/CachyOS PKGBUILD</strong> — a
-                      <code>varve-desktop-bin</code> PKGBUILD is in the
+                      <strong>Arch/CachyOS PKGBUILD</strong> — a{' '}
+                      <code>varve-desktop-bin</code> PKGBUILD is in the{' '}
                       <a href="https://github.com/K-Arthur/varve/tree/master/packaging/aur/varve-desktop-bin" target="_blank" rel="noopener noreferrer">
                         repository
-                      </a>. It extracts the AppImage at install time, providing proper
-                      <code>.desktop</code> file, icons, MIME types, and clean uninstall via
-                      <code>pacman -R</code>. No FUSE dependency. Build with
+                      </a>. It extracts the AppImage at install time, providing proper{' '}
+                      <code>.desktop</code> file, icons, MIME types, and clean uninstall via{' '}
+                      <code>pacman -R</code>. No FUSE dependency. Build with{' '}
                       <code>makepkg -si</code> from the PKGBUILD directory.
                     </p>
                     <p>
-                      <strong>ChromeOS (Linux development environment)</strong> — install the
+                      <strong>ChromeOS (Linux development environment)</strong> — install the{' '}
                       <code>.deb</code> inside the Linux container. It is an ARM64 or x86_64
                       Debian environment, not native ChromeOS Chrome; GPU acceleration is not
                       available to Linux apps, and files kept only inside the container are
@@ -875,7 +875,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                 &gt; About (Windows) and pick the matching label above.
               </li>
               <li>
-                <strong>Linux — AppImage will not start (FUSE2 missing):</strong> install the
+                <strong>Linux — AppImage will not start (FUSE2 missing):</strong> install the{' '}
                 <code>fuse2</code> package for your distro (e.g. <code>sudo pacman -S fuse2</code>
                 on Arch, <code>sudo apt install fuse libfuse2</code> on Debian/Ubuntu), or run
                 with <code>--appimage-extract-and-run</code>. Alternatively, build the AUR package
@@ -883,7 +883,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
               </li>
               <li>
                 <strong>Linux — AppImage white screen or EGL error:</strong> some GPU/driver
-                combinations conflict with bundled Mesa libraries. Run with
+                combinations conflict with bundled Mesa libraries. Run with{' '}
                 <code>--appimage-extract-and-run</code> to use system libraries instead.
               </li>
               <li>
@@ -899,8 +899,8 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                 See the <a href={sitePath('/docs/chromeos-linux')}>ChromeOS guide</a>.
               </li>
               <li>
-                <strong>Arch/CachyOS — prefer the PKGBUILD:</strong> the
-                <code>varve-desktop-bin</code> PKGBUILD is in the
+                <strong>Arch/CachyOS — prefer the PKGBUILD:</strong> the{' '}
+                <code>varve-desktop-bin</code> PKGBUILD is in the{' '}
                 <a href="https://github.com/K-Arthur/varve/tree/master/packaging/aur/varve-desktop-bin" target="_blank" rel="noopener noreferrer">repository</a>.
                 It extracts the AppImage, providing proper desktop integration (icons, MIME types,
                 clean uninstall) without FUSE. Build with <code>makepkg -si</code> from the

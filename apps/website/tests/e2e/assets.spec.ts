@@ -44,6 +44,46 @@ test('all local assets referenced by pages resolve without 404', async ({ page, 
   }
 });
 
+test('stage 6 docs copy never glues a link to the preceding word', async ({ page }) => {
+  // Astro collapses the newline before an inline <a> in JSX-like templates,
+  // which renders "inVarve" instead of "in Varve". A rendered-text check is
+  // the only reliable detector: the source line break looks correct. Scope:
+  // the pages this stage owns; a sitewide audit found the same pre-existing
+  // spacing defect on contact/press/legal pages and is recorded separately.
+  const textRoutes = [
+    '/download',
+    '/docs',
+    '/docs/chromebook',
+    '/docs/performance',
+    '/docs/touch-and-pen',
+    '/docs/browser-demo',
+    '/docs/chromeos-linux',
+    '/docs/getting-started',
+    '/support/faq',
+    '/support/troubleshooting',
+    '/releases',
+    '/about',
+    '/accessibility',
+  ];
+  for (const route of textRoutes) {
+    await page.goto(route);
+    const glued = await page.evaluate(() => {
+      const out: string[] = [];
+      for (const anchor of document.querySelectorAll('a')) {
+        const previous = anchor.previousSibling;
+        if (
+          previous?.nodeType === Node.TEXT_NODE &&
+          /[A-Za-z0-9]$/.test(previous.textContent ?? '')
+        ) {
+          out.push(`${(previous.textContent ?? '').slice(-20)}|${anchor.textContent ?? ''}`);
+        }
+      }
+      return out;
+    });
+    expect(glued, `${route}: ${glued.join(', ')}`).toEqual([]);
+  }
+});
+
 test('known routes return 200 and unknown routes return the 404 page', async ({
   page,
   request,

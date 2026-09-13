@@ -103,15 +103,19 @@ describe('isMobileOrTablet', () => {
   it('treats a Macintosh UA with touch points as an iPad in desktop mode', () => {
     // iPadOS reports "Macintosh; Intel Mac OS X" plus touch points. No Mac
     // has a touchscreen, so this must never be handed the macOS disk image.
-    expect(
-      isMobileOrTablet(
-        input('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', {
-          maxTouchPoints: 5,
-          screenWidth: 1366,
-          screenHeight: 1024,
-        }),
-      ),
-    ).toBe(true);
+    // A single point is included because Chromium touch emulation and some
+    // digitizers report exactly one.
+    for (const maxTouchPoints of [1, 5]) {
+      expect(
+        isMobileOrTablet(
+          input('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', {
+            maxTouchPoints,
+            screenWidth: 1366,
+            screenHeight: 1024,
+          }),
+        ),
+      ).toBe(true);
+    }
   });
 
   it('never treats a touch Chromebook as a phone/tablet', () => {

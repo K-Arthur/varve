@@ -38,15 +38,15 @@ import release from '../../data/release-manifest.json';
         <h2>Before you start</h2>
         <ol>
           <li>
-            <strong>Enable Linux.</strong> Select the time at the bottom right, then
+            <strong>Enable Linux.</strong> Select the time at the bottom right, then{' '}
             <strong>Settings</strong> &rarr; <strong>About ChromeOS</strong> &rarr;
             <strong>Developers</strong> &rarr; next to "Linux development environment",
             select <strong>Set up</strong>. ChromeOS installs a sandboxed Debian environment
             and opens a Terminal; setup can take ten minutes or more.
           </li>
           <li>
-            <strong>Check the architecture.</strong> Open the Terminal and run
-            <code class="code-block">uname -m</code>. ARM Chromebooks print
+            <strong>Check the architecture.</strong> Open the Terminal and run{' '}
+            <code class="code-block">uname -m</code>. ARM Chromebooks print{' '}
             <code>aarch64</code>; Intel/AMD Chromebooks print <code>x86_64</code>. Download
             the matching build — do not mix them.
           </li>
@@ -133,7 +133,7 @@ import release from '../../data/release-manifest.json';
       <section class="docs-section">
         <h2>First launch and where files live</h2>
         <p>
-          Search for <strong>Varve</strong> in the Launcher, or run
+          Search for <strong>Varve</strong> in the Launcher, or run{' '}
           <code>varve-desktop</code> in the Terminal. Create a document, draw, save with
           Ctrl+S, close it, and reopen it to confirm the round trip.
         </p>
@@ -179,7 +179,7 @@ import release from '../../data/release-manifest.json';
         <p>
           To remove the application without touching your documents:
           <code class="code-block">sudo apt remove varve</code>. App settings and recovery
-          records live under <code>~/.local/share/dev.varve.desktop</code> and
+          records live under <code>~/.local/share/dev.varve.desktop</code> and{' '}
           <code>~/.config/dev.varve.desktop</code>; remove those only if you actually want
           them gone. Removing the Linux environment itself deletes everything held inside
           Linux, so back up first with ChromeOS's Linux backup (.tini) flow. Browser/PWA

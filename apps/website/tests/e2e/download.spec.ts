@@ -162,7 +162,7 @@ test('touch phone/tablet visitors are routed to the browser, not blocked', async
   // The route notice is server-rendered and always visible: the browser
   // route is offered instead of a wall.
   await expect(page.locator('#device-route-notice')).toBeVisible();
-  await expect(page.locator('#device-route-notice')).toContainText('no desktop install');
+  await expect(page.locator('#device-route-notice')).toContainText('without a desktop install');
   await expect(page.locator('#device-route-notice')).toContainText('web app');
   await expect(
     page.locator('#device-route-notice').getByRole('link', { name: /varve\.studio\/try/ }),

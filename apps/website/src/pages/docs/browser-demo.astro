@@ -16,7 +16,7 @@ import { sitePath } from '../../lib/siteUrl';
         running on the WASM engine, entirely on your device. Nothing is uploaded, no account is
         required, and the same document format opens in the desktop app. This guide covers what is
         actually saved, how offline operation works, and what the demo deliberately leaves out.
-        On a Chromebook, compare this route with the installed app and the Linux application in
+        On a Chromebook, compare this route with the installed app and the Linux application in{' '}
         <a href={sitePath('/docs/chromebook')}>Varve on Chromebook</a>.
       </p>
 
@@ -86,7 +86,7 @@ import { sitePath } from '../../lib/siteUrl';
         </p>
         <p>
           <strong>Saved means the write to the destination actually finished.</strong> The status
-          bar reports <em>Saving…</em>, <em>Saved</em>, <em>Modified</em>, <em>Not saved</em>, or
+          bar reports <em>Saving…</em>, <em>Saved</em>, <em>Modified</em>, <em>Not saved</em>, or{' '}
           <em>Save failed</em> with the reason in its tooltip. A cancelled file picker changes
           nothing and does not mark the document saved. While edits have not reached a destination,
           the demo writes <strong>recovery copies</strong> into this browser's storage; they are
@@ -112,11 +112,6 @@ import { sitePath } from '../../lib/siteUrl';
           If install is unavailable (policy, an unsupported browser, or a private window), keep
           using the demo in a normal tab — every feature behaves identically. Uninstalling the app
           with "delete data" removes documents and recovery copies; export what you need first.
-        </p>
-        <p>
-          Once installed, the app can open <code>.varve</code> files directly from the Files app
-          (Open with → Varve). The document opens in its own window and <strong>Save writes back
-          to that file</strong>, using the same permission prompt the first time.
         </p>
       </section>
 
@@ -167,7 +162,6 @@ import { sitePath } from '../../lib/siteUrl';
           <li><strong>My Files and removable media</strong> work like any other folder. If an SD card or USB drive is removed while a document is open, the next save reports the destination is unavailable — reconnect it and save again, or use Save As.</li>
           <li><strong>Google Drive files</strong> can be opened and saved through the Files app, but Drive sync is handled by ChromeOS, not Varve. If a newer copy was synced from another device, Varve refuses to overwrite it and points you at Save As, so both versions survive.</li>
           <li><strong>Offline Drive copies</strong> are your Files app's "available offline" setting. Varve does not manage which Drive files stay offline.</li>
-          <li><strong>Reopening from Recent</strong> keeps the file bound: Save writes back to the same file instead of asking for a location again.</li>
           <li><strong>Read-only or shared files</strong> cannot be overwritten; the save reports a permission failure and Save As creates your own copy.</li>
           <li><strong>Deleting browsing data or uninstalling the app with data removal</strong> deletes documents and recovery copies stored in the browser. Files saved through the Files app live outside browser storage and are not removed by that.</li>
           <li><strong>Private/incognito windows</strong> discard everything at the end of the session; save to a file if the work matters.</li>
@@ -215,7 +209,7 @@ import { sitePath } from '../../lib/siteUrl';
           capabilities, never to assumptions about whether a keyboard is attached. Where the
           browser reports the on-screen keyboard geometry, dialogs, toasts, and the panel drawer
           buttons move above it so the field you are editing and its commit controls stay visible.
-          The full touch, pen, keyboard, trackpad, and accessibility reference is
+          The full touch, pen, keyboard, trackpad, and accessibility reference is{' '}
           <a href={sitePath('/docs/touch-and-pen')}>Touch, pen, keyboard, and trackpad</a>.
         </p>
         <p>
@@ -226,7 +220,7 @@ import { sitePath } from '../../lib/siteUrl';
           the system's back gesture — closes the open menu or dialog instead of leaving the page.
         </p>
         <p>
-          ChromeOS owns some keyboard combinations. Varve switches workspaces with
+          ChromeOS owns some keyboard combinations. Varve switches workspaces with{' '}
           <code>Ctrl+Shift+1…7</code> (not the browser's <code>Ctrl+1…8</code> tab switches).
           Combinations such as <code>Ctrl+T</code>, <code>Ctrl+W</code>,
           <code>Ctrl+Shift+I</code>, and <code>Ctrl+P</code> belong to the browser, so use the

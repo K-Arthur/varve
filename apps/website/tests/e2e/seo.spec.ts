@@ -36,7 +36,6 @@ const ROUTES = [
   '/learn',
   '/about',
   '/press',
-  '/releases',
   '/compare',
   '/security',
   '/accessibility',
@@ -51,7 +50,7 @@ const ROUTES = [
 ];
 
 /** Routes that must never appear in the sitemap. */
-const SITEMAP_EXCLUDED = ['/404', '/about/security'];
+const SITEMAP_EXCLUDED = ['/404', '/about/security', '/releases'];
 
 test('every page emits complete, consistent head metadata', async ({ page }) => {
   for (const route of ROUTES) {

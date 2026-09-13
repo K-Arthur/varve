@@ -85,6 +85,24 @@ async function seedTheme(page: import('@playwright/test').Page, theme: 'light' |
 }
 
 /**
+ * Clip a full-page capture to an article element in document coordinates.
+ * Docs pages can vary by a few pixels between Playwright's repeated
+ * screenshots near the viewport edges (measured 2026-09-12); the article
+ * itself is stable.
+ */
+async function articleClip(page: import('@playwright/test').Page, selector: string) {
+  return page.locator(selector).evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return {
+      x: Math.floor(rect.left + window.scrollX),
+      y: Math.floor(rect.top + window.scrollY),
+      width: Math.ceil(rect.width),
+      height: Math.ceil(rect.height),
+    };
+  });
+}
+
+/**
  * Visual regression baselines.
  *
  * Screenshots are only meaningful once the corrected rendering is deliberate —
@@ -319,6 +337,54 @@ test('chromeos docs page light', async ({ page }) => {
   await expect(page).toHaveScreenshot('chromeos-linux-light.png', {
     fullPage: true,
     clip: docsClip,
+    maxDiffPixelRatio: 0.02,
+  });
+});
+
+test('chromebook route chooser page light', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
+  await seedTheme(page, 'light');
+  await page.goto('/docs/chromebook?test-motion=static');
+  await expect(
+    page.getByRole('heading', { name: 'Varve on Chromebook', exact: true }),
+  ).toBeVisible();
+  await warmFullPage(page);
+  await waitForStableDocument(page);
+  await expect(page).toHaveScreenshot('chromebook-light.png', {
+    fullPage: true,
+    clip: await articleClip(page, '.docs-page'),
+    maxDiffPixelRatio: 0.02,
+  });
+});
+
+test('lower-memory performance page light', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
+  await seedTheme(page, 'light');
+  await page.goto('/docs/performance?test-motion=static');
+  await expect(
+    page.getByRole('heading', { name: 'Performance on lower-memory devices', exact: true }),
+  ).toBeVisible();
+  await warmFullPage(page);
+  await waitForStableDocument(page);
+  await expect(page).toHaveScreenshot('performance-light.png', {
+    fullPage: true,
+    clip: await articleClip(page, '.docs-page'),
+    maxDiffPixelRatio: 0.02,
+  });
+});
+
+test('touch and pen page light', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
+  await seedTheme(page, 'light');
+  await page.goto('/docs/touch-and-pen?test-motion=static');
+  await expect(
+    page.getByRole('heading', { name: 'Touch, pen, keyboard, and trackpad', exact: true }),
+  ).toBeVisible();
+  await warmFullPage(page);
+  await waitForStableDocument(page);
+  await expect(page).toHaveScreenshot('touch-and-pen-light.png', {
+    fullPage: true,
+    clip: await articleClip(page, '.docs-page'),
     maxDiffPixelRatio: 0.02,
   });
 });

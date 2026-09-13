@@ -24,6 +24,9 @@ function toRoute(filePath: string): string | null {
   if (relative === '404') return null;
   // Legacy security URL is a redirect alias for the canonical /security page.
   if (relative === 'about/security') return null;
+  // /releases is a noindex redirect alias for /changelog; a sitemap must not
+  // advertise a page that asks not to be indexed.
+  if (relative === 'releases') return null;
   if (relative.includes('[')) return null;
 
   if (relative === 'index') return '/';

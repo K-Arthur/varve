@@ -96,9 +96,10 @@ export function detectArch(ua: string): DetectedArch {
 export function isMobileOrTablet(input: DetectionInput): boolean {
   if (isChromeOS(input.userAgent)) return false;
   // iPadOS reports a Macintosh user agent in desktop mode. No Mac has a
-  // touchscreen, so touch points on a Macintosh UA identify an iPad — which
-  // must never be handed the macOS disk image.
-  if (input.maxTouchPoints > 1 && /Macintosh/.test(input.userAgent)) return true;
+  // touchscreen, so any touch points on a Macintosh UA identify an iPad —
+  // which must never be handed the macOS disk image. (Chromium's touch
+  // emulation and some digitizers report a single point.)
+  if (input.maxTouchPoints > 0 && /Macintosh/.test(input.userAgent)) return true;
   return (
     MOBILE_PATTERN.test(input.userAgent) || (input.maxTouchPoints > 1 && input.screenWidth < 1280)
   );
