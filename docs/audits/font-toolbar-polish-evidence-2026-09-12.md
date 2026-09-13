@@ -100,6 +100,13 @@ the edit target. This closes a focus/lifecycle hole where a selected text node
 could show the editing target while Select remained active; the first caret
 click then exited editing and dismissed the formatting surface.
 
+The contextual font bar now uses the same shared typography command adapter as
+the floating bar. Family, weight, and size changes therefore apply to an
+expanded rich-text range or remain pending at a collapsed caret; they no longer
+force a whole-node replacement while text editing is active. The focused
+`ContextControlBar` regression covers family identity clearing, variable-aware
+weight changes, size validation, and active-range application (4/4 passed).
+
 The visual helper also follows the responsive product path: it uses the direct
 Text action when that action is visible and the context-bar **Add text** action
 when the compact palette has moved Text into More tools. It creates an area-text
