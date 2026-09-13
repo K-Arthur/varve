@@ -1430,3 +1430,58 @@ External verification remains open for a real Illustrator-authored `.ai`, a
 multi-page or layered TIFF, a PSD with pixel-bearing layers/effects, packaged
 Tauri CSP, and WebKitGTK. Those are recorded as unverified rather than inferred
 from synthetic fixtures.
+
+### IMP-06 — Nested SVG group transform and bounds correction (2026-09-12)
+
+The format audit reproduced a parser/placement defect that the earlier SVG
+tests did not cover. A nested `<g>` carrying scale or rotation inherited the
+complete ancestor matrix on each child and then applied that same matrix again
+to the generated frame. Group bounds also considered only translation and
+untransformed width/height. The result could scale or rotate artwork twice and
+clip the edges when a design was pasted or imported.
+
+The correction is local to the SVG conversion boundary. Before a source group
+becomes a Varve frame, every direct child transform is rebased through the
+inverse composed group matrix. Bounds use the canonical scene local bounds and
+the full affine rectangle transform, then children are offset into the frame
+origin. The authored root and child arrays are left in source order. A
+non-invertible group transform is reported and its converted children remain
+visible as roots instead of being hidden by an empty frame.
+
+Evidence and reproduction:
+
+```text
+pnpm exec vitest run packages/import/src/svg.test.ts \
+  packages/import/src/svg-clipmask.test.ts --maxWorkers=1 --reporter=dot
+36 tests passed
+
+pnpm exec vitest run packages/import/src/formatCapabilities.test.ts \
+  packages/import/src/registry.test.ts \
+  packages/import/src/format-honesty.test.ts \
+  packages/import/src/service.test.ts \
+  packages/import/src/psd.test.ts \
+  packages/import/src/psd-mask.test.ts \
+  packages/import/src/bitmap.test.ts \
+  packages/import/src/svg.test.ts \
+  packages/import/src/svg-clipmask.test.ts \
+  packages/import/src/validation.test.ts --maxWorkers=1 --reporter=dot
+112 tests passed
+
+pnpm exec tsc -p packages/import/tsconfig.json --noEmit --pretty false
+passed
+```
+
+The regression test asserts source sibling order, nested frame ownership, and
+the expected world matrix for a rotated child under a scaled parent. It also
+asserts that `scale(0)` reports the singular transform without dropping its
+child. The implementation and documentation are committed as
+`49efa563285b1af0cbb3df5738e9b942acbf152a`.
+
+The real Chromium File > Import checks also reached the application on this
+checkout. The parser-advertising test passed. The SVG, PSD/PSB, and PDF/AI/EPS
+tests passed their menu, layer-tree, and Import Results assertions; their
+visual snapshot comparisons stopped on the existing 682×552 canvas versus
+682×597 baseline size drift. The received artwork was inspected in the
+generated PNGs and no unrelated baselines were changed. Packaged WebKitGTK,
+Firefox-owned external transfers, and an Illustrator-authored fixture remain
+separate verification lanes.
