@@ -41,4 +41,63 @@ test.describe('browser demo docs', () => {
     expect(body).not.toMatch(/there is no hosted web app yet/i);
     expect(body).toMatch(/browser demo/i);
   });
+
+  test('product workflow recording is user-controlled and stays unloaded until play', async ({
+    page,
+  }, testInfo) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('varve:website-analytics-consent', 'denied');
+    });
+
+    const videoRequests: string[] = [];
+    page.on('request', (request) => {
+      if (/\/screenshots\/workflow\.(?:webm|mp4)(?:\?|$)/.test(request.url())) {
+        videoRequests.push(request.url());
+      }
+    });
+
+    const captures = [
+      { name: 'desktop', width: 1280, height: 900 },
+      { name: 'portrait', width: 800, height: 1280 },
+      { name: 'narrow', width: 320, height: 720 },
+    ];
+
+    for (const capture of captures) {
+      await page.setViewportSize({ width: capture.width, height: capture.height });
+      await page.goto('/product/', { waitUntil: 'domcontentloaded' });
+      const video = page.locator('.workflow-video');
+
+      await expect(video).toHaveAttribute('controls', '');
+      await expect(video).toHaveAttribute('preload', 'none');
+      await expect(video).not.toHaveAttribute('autoplay');
+      await expect(page.getByRole('link', { name: /Chromebook route chooser/i })).toBeVisible();
+
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      );
+      expect(overflow, `${capture.name} product page overflow`).toBeLessThanOrEqual(0);
+      await page.waitForTimeout(250);
+      expect(videoRequests, `${capture.name} video requests before play`).toEqual([]);
+
+      await page.screenshot({
+        path: testInfo.outputPath(`product-workflow-${capture.name}.png`),
+        fullPage: true,
+      });
+    }
+  });
+
+  test('product workflow keeps the poster for reduced-motion visitors', async ({ page }, testInfo) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('varve:website-analytics-consent', 'denied');
+    });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/product/', { waitUntil: 'domcontentloaded' });
+
+    await expect(page.locator('.workflow-video')).toBeHidden();
+    await expect(page.locator('.workflow-still')).toBeVisible();
+    await page.screenshot({
+      path: testInfo.outputPath('product-workflow-reduced-motion.png'),
+      fullPage: true,
+    });
+  });
 });

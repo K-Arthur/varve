@@ -2,6 +2,30 @@
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 import release from '../../data/release-manifest.json';
+
+interface LinuxArtifact {
+  filename: string;
+  arch: string;
+  format: string;
+  size: string;
+  sha256: string;
+  url: string;
+}
+
+const linuxArtifacts = release.platforms.linux as unknown as LinuxArtifact[];
+function requiredLinuxArtifact(arch: string, format: string): LinuxArtifact {
+  const artifact = linuxArtifacts.find(
+    (candidate) => candidate.arch === arch && candidate.format === format,
+  );
+  if (!artifact) {
+    throw new Error(`Release manifest is missing the Linux ${arch} ${format} artifact`);
+  }
+  return artifact;
+}
+
+const arm64Deb = requiredLinuxArtifact('aarch64', 'deb');
+const x64Deb = requiredLinuxArtifact('x86_64', 'deb');
+const arm64AppImage = requiredLinuxArtifact('aarch64', 'appimage');
 ---
 
 <Layout
@@ -57,7 +81,7 @@ import release from '../../data/release-manifest.json';
             (trixie) both satisfy.
           </li>
           <li>
-            <strong>Leave room.</strong> The package is about 49 MB download and 85 MB
+            <strong>Leave room.</strong> The ARM64 package is {arm64Deb.size} download and 85 MB
             installed, plus the WebKitGTK/GTK system dependencies (a few hundred MB) and any
             optional AI models you download later. Keep more than 2 GB free in Linux.
           </li>
@@ -73,8 +97,8 @@ import release from '../../data/release-manifest.json';
         <h2>Download the right package</h2>
         <p>
           The Debian package is the recommended format on ChromeOS, because the Linux
-          environment is Debian-based. Table below shows the current release
-          (v{release.version}).
+          environment is Debian-based. The table below shows the current release
+          (v{release.version}) directly from the published release manifest.
         </p>
         <div class="docs-table-wrap">
           <table class="docs-table">
@@ -88,21 +112,22 @@ import release from '../../data/release-manifest.json';
             <tbody>
               <tr>
                 <td>ARM Chromebook (<code>aarch64</code>)</td>
-                <td><code>Varve-{release.version}-linux-aarch64.deb</code></td>
-                <td>49.0 MB</td>
+                <td><code>{arm64Deb.filename}</code></td>
+                <td>{arm64Deb.size}</td>
               </tr>
               <tr>
                 <td>Intel/AMD Chromebook (<code>x86_64</code>)</td>
-                <td><code>Varve-{release.version}-linux-x86_64.deb</code></td>
-                <td>49.9 MB</td>
+                <td><code>{x64Deb.filename}</code></td>
+                <td>{x64Deb.size}</td>
               </tr>
             </tbody>
           </table>
         </div>
         <p>
-          An AppImage also exists, but on ChromeOS it needs FUSE2 and the host WebKitGTK
-          libraries. The published v0.2.1 AppImages are additionally missing the bundled
-          native ONNX Runtime because of a packaging defect (fixed for the next release),
+          An AppImage also exists ({arm64AppImage.filename}), but on ChromeOS it needs FUSE2
+          and the host WebKitGTK libraries. The published v{release.version} AppImages are
+          additionally missing the bundled native ONNX Runtime because of a packaging defect
+          (fixed for the next release),
           so native AI features fall back there. Use the <code>.deb</code>.
         </p>
       </section>
@@ -115,14 +140,16 @@ import release from '../../data/release-manifest.json';
           code-signed.
         </p>
         <code class="code-block">mkdir -p ~/Downloads/varve &amp;&amp; cd ~/Downloads/varve</code>
-        <code class="code-block">curl -fLO https://github.com/K-Arthur/varve/releases/download/v{release.version}/Varve-{release.version}-linux-aarch64.deb</code>
-        <code class="code-block">curl -fLO https://github.com/K-Arthur/varve/releases/download/v{release.version}/SHA256SUMS.txt</code>
+        <code class="code-block">curl -fLO {arm64Deb.url}</code>
+        <code class="code-block">curl -fLO {release.checksumsUrl}</code>
         <code class="code-block">sha256sum -c --ignore-missing SHA256SUMS.txt</code>
         <p>
-          The expected result is <code>Varve-{release.version}-linux-aarch64.deb: OK</code>.
+          The expected result is <code>{arm64Deb.filename}: OK</code>. The published SHA-256
+          is <code>{arm64Deb.sha256}</code>; the checksum file remains the preferred check
+          because it covers the exact download.
           Then install — this is a system modification, so it asks for your password:
         </p>
-        <code class="code-block">sudo apt update &amp;&amp; sudo apt install ./Varve-{release.version}-linux-aarch64.deb</code>
+        <code class="code-block">sudo apt update &amp;&amp; sudo apt install ./{arm64Deb.filename}</code>
         <p>
           Use <code>apt install ./file.deb</code>, not <code>dpkg -i</code>: only apt
           resolves the WebKitGTK and GTK dependencies. Do not use forced installs if it

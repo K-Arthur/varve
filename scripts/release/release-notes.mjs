@@ -215,7 +215,15 @@ function main() {
       `The \`.${documentExtension()}\` document format may still change in ways that ` +
       'break older files.',
   );
-  out.push('- Updates are manual — there is no in-app updater yet.');
+  if (manifest.updater === true) {
+    out.push(
+      `- An ${manifest.signed === true ? 'signed ' : ''}updater feed is published for eligible targets; Debian/RPM packages, ` +
+        'unsigned or unsupported installs, and package-specific fallback paths remain manual. ' +
+        'See the [Updates guide](https://varve.studio/docs/updates).',
+    );
+  } else {
+    out.push('- Updates are manual — there is no in-app updater for this release.');
+  }
   if (!platforms.includes('macos')) {
     out.push('- No macOS build in this release.');
   }

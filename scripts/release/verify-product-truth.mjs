@@ -533,6 +533,82 @@ function checkWebsiteRoutingAndVersions() {
 }
 
 // ---------------------------------------------------------------------------
+// 12. Canonical ChromeOS release documentation
+// ---------------------------------------------------------------------------
+
+function checkChromeOsReleaseDocumentation() {
+  const problems = [];
+  const manifest = readJSON('apps/website/src/data/release-manifest.json');
+  const guide = readFile('docs/release/chromeos-linux.md');
+  if (!manifest || !guide || !manifest.version) return problems;
+
+  const linuxArtifacts = Array.isArray(manifest.platforms?.linux)
+    ? manifest.platforms.linux
+    : [];
+  const artifact = (arch, format) =>
+    linuxArtifacts.find((candidate) => candidate.arch === arch && candidate.format === format);
+  const arm64Deb = artifact('aarch64', 'deb');
+  const x64Deb = artifact('x86_64', 'deb');
+  const arm64AppImage = artifact('aarch64', 'appimage');
+
+  if (!guide.includes(`current release: v${manifest.version}`)) {
+    problems.push(
+      `docs/release/chromeos-linux.md: current release text does not match published v${manifest.version}`,
+    );
+  }
+
+  for (const [label, candidate, fields] of [
+    ['ARM64 Debian', arm64Deb, ['filename', 'size', 'sha256', 'url']],
+    ['x86_64 Debian', x64Deb, ['filename', 'size']],
+    ['ARM64 AppImage', arm64AppImage, ['filename']],
+  ]) {
+    if (!candidate) {
+      problems.push(`website manifest: missing ${label} artifact required by the ChromeOS guide`);
+      continue;
+    }
+    for (const field of fields) {
+      if (!guide.includes(candidate[field])) {
+        problems.push(
+          `docs/release/chromeos-linux.md: ${label} ${field} '${candidate[field]}' is missing or stale`,
+        );
+      }
+    }
+  }
+
+  if (manifest.checksumsUrl && !guide.includes(manifest.checksumsUrl)) {
+    problems.push(
+      `docs/release/chromeos-linux.md: checksum URL does not match the published release v${manifest.version}`,
+    );
+  }
+  if (!/There is \*\*no apt repository for Varve\*\*/i.test(guide)) {
+    problems.push(
+      'docs/release/chromeos-linux.md: must state that Varve has no apt repository',
+    );
+  }
+
+  const releaseNotesGenerator = readFile('scripts/release/release-notes.mjs');
+  if (manifest.updater === true && releaseNotesGenerator) {
+    if (/Updates are manual — there is no in-app updater yet\./.test(releaseNotesGenerator)) {
+      problems.push(
+        'scripts/release/release-notes.mjs: emits a blanket no-updater claim while the published manifest has an updater feed',
+      );
+    }
+    if (!/manifest\.updater === true/.test(releaseNotesGenerator)) {
+      problems.push(
+        'scripts/release/release-notes.mjs: updater note is not derived from manifest.updater',
+      );
+    }
+    if (manifest.signed !== true && /signed updater feed/.test(releaseNotesGenerator)) {
+      problems.push(
+        'scripts/release/release-notes.mjs: claims a signed updater feed while the published manifest is unsigned',
+      );
+    }
+  }
+
+  return problems;
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -548,6 +624,7 @@ const checks = [
   ['updater-truth', checkUpdaterTruth],
   ['copyright', checkCopyrightConsistency],
   ['website-routing', checkWebsiteRoutingAndVersions],
+  ['chromeos-release-docs', checkChromeOsReleaseDocumentation],
 ];
 
 let totalProblems = 0;

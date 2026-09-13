@@ -60,7 +60,8 @@ import ClosingCTA from '../components/ClosingCTA.astro';
             muted
             loop
             playsinline
-            preload="metadata"
+            controls
+            preload="none"
             width="1440"
             height="900"
             poster={sitePath('/screenshots/workflow-poster.png')}
@@ -80,9 +81,9 @@ import ClosingCTA from '../components/ClosingCTA.astro';
           />
           <figcaption>
             Select, node-edit, export &mdash; one pass through the real
-            interface. The recording is muted, plays only while it is on screen,
-            and is replaced by a still frame when your system asks for reduced
-            motion.
+            interface. The recording is available on demand with native controls;
+            the poster remains visible until you press play and is used as the
+            still frame when your system asks for reduced motion.
           </figcaption>
         </figure>
       </section>
@@ -137,7 +138,9 @@ import ClosingCTA from '../components/ClosingCTA.astro';
           does not expose the Linux app, Chrome's built-in Prompt API, or a
           device NPU. The current browser demo keeps on-device model features
           desktop-only, and this page makes no Duet frame-rate claim until a
-          physical 8&nbsp;GB Duet run is recorded.
+          physical 8&nbsp;GB Duet run is recorded. Start with the{' '}
+          <a href={sitePath('/docs/chromebook')}>Chromebook route chooser</a>{' '}
+          or <a href={sitePath('/try/')}>open the browser demo</a>.
         </aside>
       </section>
 
@@ -239,36 +242,6 @@ import ClosingCTA from '../components/ClosingCTA.astro';
   </div>
 </Layout>
 
-<script>
-  /**
-   * Play the workflow recording only while it is on screen. The video is
-   * muted and looped, so playing it is not required for the page to work;
-   * starting it below the fold would compete with the largest paint for
-   * bandwidth on constrained devices. Reduced-motion visitors keep the CSS
-   * still frame and never reach this code.
-   */
-  const workflowVideo = document.querySelector<HTMLVideoElement>('.workflow-video');
-  if (
-    workflowVideo &&
-    !window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  ) {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries.some((entry) => entry.isIntersecting);
-        if (visible) {
-          // Autoplay policy or a missing codec can reject this; the poster
-          // remains, so there is nothing to recover.
-          void workflowVideo.play().catch(() => {});
-        } else {
-          workflowVideo.pause();
-        }
-      },
-      { threshold: 0.25 },
-    );
-    observer.observe(workflowVideo);
-  }
-</script>
-
 <style>
   .product-page {
     max-width: 800px;
@@ -333,9 +306,9 @@ import ClosingCTA from '../components/ClosingCTA.astro';
     color: var(--text-link-hover);
   }
 
-  /* Workflow loop: the video autoplays muted; reduced-motion users get the
-     poster still instead. display:none also removes the hidden element from
-     the accessibility tree, so assistive tech sees exactly one description. */
+  /* Workflow recording: visitors choose when to load/play it; reduced-motion
+     users get the poster still instead. display:none also removes the hidden
+     element from the accessibility tree, so assistive tech sees one description. */
   .workflow-loop {
     margin: 1.5rem 0 0;
   }

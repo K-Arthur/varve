@@ -133,7 +133,8 @@ If dependency resolution fails, the Linux environment's Debian release is
 older than Varve supports (glibc below 2.35 / a pre-`bookworm` container) or
 the sources are misconfigured. Update the container's packages first
 (`sudo apt update && sudo apt dist-upgrade`), then retry. Do not add random
-third-party repositories.
+third-party repositories. This updates the container dependencies, not Varve;
+Varve itself still follows the manual package path in section 6.
 
 ## 4. First launch and your first project
 
