@@ -8,6 +8,8 @@
  * Uses DPT (Dense Prediction Transformer) architecture with ViT backbone.
  * Output is relative depth (not metric) — closer objects have lower values.
  */
+import type { DepthMap } from '../../depthMap';
+import { normalizeDepthPrediction, resizeDepthMap } from '../../depthMap';
 import type { TensorSpec } from '../imageTensor';
 
 export const DEPTH_ANYTHING_INPUT_SIZE = 518;
@@ -25,12 +27,14 @@ export interface DepthInferenceInput {
 }
 
 export interface DepthInferenceOutput {
-  /** Depth map normalized to 0-255 (0=far, 255=near) */
+  /** @deprecated Compatibility bytes only: 0=far, 255=near. */
   depthMap: Uint8Array;
-  /** Raw depth values (relative, lower = farther) */
+  /** @deprecated Compatibility normalized values, not the storage contract. */
   rawDepth?: Float32Array;
   width: number;
   height: number;
+  /** Canonical field for callers migrating away from the byte adapter. */
+  canonicalDepth?: DepthMap;
 }
 
 /**
@@ -44,63 +48,36 @@ export function decodeDepthOutput(
   targetWidth: number,
   targetHeight: number,
 ): DepthInferenceOutput {
-  // Min-max normalize
-  let min = Infinity;
-  let max = -Infinity;
-  for (let i = 0; i < rawOutput.length; i++) {
-    if (rawOutput[i]! < min) min = rawOutput[i]!;
-    if (rawOutput[i]! > max) max = rawOutput[i]!;
-  }
-  const range = max - min || 1;
-
-  // Normalize to 0-255 and resize if needed
-  const normalized = new Float32Array(rawOutput.length);
-  for (let i = 0; i < rawOutput.length; i++) {
-    normalized[i] = (rawOutput[i]! - min) / range;
-  }
-
-  // Resize to target if different
-  let finalDepth: Float32Array;
-  if (outputWidth !== targetWidth || outputHeight !== targetHeight) {
-    finalDepth = resizeDepth(normalized, outputWidth, outputHeight, targetWidth, targetHeight);
-  } else {
-    finalDepth = normalized;
-  }
-
-  // Convert to uint8
-  const depthMap = new Uint8Array(finalDepth.length);
-  for (let i = 0; i < finalDepth.length; i++) {
-    depthMap[i] = Math.round(finalDepth[i]! * 255);
+  const hasFiniteSample = rawOutput.some((value) => Number.isFinite(value));
+  const canonical = normalizeDepthPrediction(rawOutput, outputWidth, outputHeight, {
+    // Preserve the historical byte adapter while making the canonical field
+    // explicit: raw low values become byte-far, canonical 0 remains near.
+    nearFarConvention: 'nearIsHigh',
+    lowPercentile: 0,
+    highPercentile: 1,
+  });
+  const aligned =
+    outputWidth !== targetWidth || outputHeight !== targetHeight
+      ? resizeDepthMap(canonical, targetWidth, targetHeight)
+      : canonical;
+  const depthMap = new Uint8Array(aligned.values.length);
+  const legacyNormalized = new Float32Array(aligned.values.length);
+  const degenerate =
+    canonical.metadata.normalization?.rangeMin !== undefined &&
+    canonical.metadata.normalization.rangeMin === canonical.metadata.normalization.rangeMax;
+  for (let i = 0; i < aligned.values.length; i++) {
+    // Invalid samples remain zero rather than becoming a plausible mid-plane.
+    legacyNormalized[i] = aligned.valid[i] ? (degenerate ? 0 : 1 - aligned.values[i]!) : 0;
+    depthMap[i] = hasFiniteSample && aligned.valid[i] ? Math.round(legacyNormalized[i]! * 255) : 0;
   }
 
   return {
     depthMap,
-    rawDepth: finalDepth,
+    rawDepth: legacyNormalized,
     width: targetWidth,
     height: targetHeight,
+    canonicalDepth: aligned,
   };
-}
-
-function resizeDepth(
-  data: Float32Array,
-  srcW: number,
-  srcH: number,
-  dstW: number,
-  dstH: number,
-): Float32Array {
-  const result = new Float32Array(dstW * dstH);
-  const xRatio = srcW / dstW;
-  const yRatio = srcH / dstH;
-
-  for (let y = 0; y < dstH; y++) {
-    for (let x = 0; x < dstW; x++) {
-      const srcX = Math.min(Math.floor(x * xRatio), srcW - 1);
-      const srcY = Math.min(Math.floor(y * yRatio), srcH - 1);
-      result[y * dstW + x] = data[srcY * srcW + srcX]!;
-    }
-  }
-
-  return result;
 }
 
 /**
