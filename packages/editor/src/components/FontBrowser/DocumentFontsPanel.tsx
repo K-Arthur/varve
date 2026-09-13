@@ -4,6 +4,7 @@ import {
   type FontReference,
   type FontReplacement,
 } from '@varve/engine/font';
+import type { Document } from '@varve/scene';
 import { useMemo, useState } from 'react';
 import { useEditor } from '../../context';
 import { applyFontReplacement } from './applyFontReplacement';
@@ -13,6 +14,48 @@ import { FontBrowserDialog } from './FontBrowserDialog';
 import './DocumentFontsPanel.css';
 
 type Scope = 'page' | 'document';
+
+type DocumentSurface = {
+  id: string;
+  rootId: string;
+  name: string;
+  kind: 'page' | 'canvas';
+};
+
+function childIds(node: unknown): string[] {
+  const children = (node as { children?: unknown } | null)?.children;
+  return Array.isArray(children)
+    ? children.filter((child): child is string => typeof child === 'string')
+    : [];
+}
+
+function containsNode(document: Document, rootId: string, targetId: string): boolean {
+  const pending = [rootId];
+  const visited = new Set<string>();
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (!current || visited.has(current)) continue;
+    if (current === targetId) return true;
+    visited.add(current);
+    const node = document.nodes[current];
+    for (const child of childIds(node)) pending.push(child);
+  }
+  return false;
+}
+
+function surfaceForNode(document: Document, nodeId: string): DocumentSurface | undefined {
+  for (const page of document.pages ?? []) {
+    if (containsNode(document, page.contentRoot, nodeId)) {
+      return { id: page.id, rootId: page.contentRoot, name: page.name, kind: 'page' };
+    }
+  }
+  for (const canvas of document.designCanvases ?? []) {
+    if (containsNode(document, canvas.contentRoot, nodeId)) {
+      return { id: canvas.id, rootId: canvas.contentRoot, name: canvas.name, kind: 'canvas' };
+    }
+  }
+  return undefined;
+}
 
 function faceName(usage: DocumentFontUsage): string {
   if (usage.faceLabel) return usage.faceLabel;
@@ -99,6 +142,18 @@ export function DocumentFontsPanel() {
     announce(
       `Selected ${entry.nodeIds.length} text layer${entry.nodeIds.length === 1 ? '' : 's'} using ${entry.family}`,
     );
+  };
+
+  const goToUsage = (entry: DocumentFontUsage) => {
+    const [targetId] = entry.nodeIds;
+    if (!targetId) return;
+    const surface = surfaceForNode(state.document, targetId);
+    if (surface?.kind === 'page' && surface.id !== state.document.activePageId) {
+      editor.setActivePage(surface.id);
+    }
+    setSelectionRefs([targetId], { primary: targetId, origin: 'api' });
+    editor.revealSelection({ nodeId: targetId, behavior: 'center' });
+    announce(`Showing ${entry.family} on ${surface?.name ?? entry.locations[0] ?? 'the canvas'}`);
   };
 
   const applyReplacement = (entry: DocumentFontUsage, replacement: FontReplacement) => {
@@ -226,6 +281,14 @@ export function DocumentFontsPanel() {
                   </small>
                 </div>
                 <div className="document-fonts-panel__row-actions">
+                  <button
+                    type="button"
+                    className="document-fonts-panel__go-to"
+                    onClick={() => goToUsage(entry)}
+                    aria-label={`Go to ${entry.family} ${faceName(entry)}`}
+                  >
+                    Go to
+                  </button>
                   <button
                     type="button"
                     className="document-fonts-panel__select"

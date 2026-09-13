@@ -126,6 +126,7 @@
 .document-fonts-panel__scope button:focus-visible,
 .document-fonts-panel__browse:focus-visible,
 .document-fonts-panel__select:focus-visible,
+.document-fonts-panel__go-to:focus-visible,
 .document-fonts-panel__replace:focus-visible,
 .document-fonts-panel__subnav button:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
@@ -196,6 +197,25 @@
 
 .document-fonts-panel__select {
   flex: 0 0 auto;
+}
+
+.document-fonts-panel__go-to {
+  min-block-size: var(--component-compact-height);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.document-fonts-panel__go-to:hover {
+  border-color: var(--color-interactive-default);
+  color: var(--color-interactive-default);
 }
 
 .document-fonts-panel__row-actions {

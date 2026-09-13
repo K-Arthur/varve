@@ -63,6 +63,8 @@ function makeEditorState() {
     state: { document, selection: [], workspaceMode: 'design' },
     setSelectionRefs: vi.fn(),
     announce: vi.fn(),
+    revealSelection: vi.fn(),
+    setActivePage: vi.fn(),
     beginTransaction: vi.fn(),
     commitTransaction: vi.fn(),
     updateDoc: vi.fn((fn: (value: typeof document) => typeof document) => fn(document)),
@@ -100,6 +102,22 @@ describe('DocumentFontsPanel', () => {
       origin: 'api',
     });
     expect(editor.announce).toHaveBeenCalledWith('Selected 1 text layer using Inter');
+  });
+
+  it('navigates to the first matching layer when the document scope spans surfaces', () => {
+    const editor = makeEditorState();
+    mockedUseEditor.mockReturnValue(editor);
+    render(<DocumentFontsPanel />);
+
+    fireEvent.click(screen.getAllByRole('button', { name: /^Go to / })[0]!);
+
+    expect(editor.setSelectionRefs).toHaveBeenCalledWith(
+      [expect.any(String)],
+      expect.objectContaining({ origin: 'api' }),
+    );
+    expect(editor.revealSelection).toHaveBeenCalledWith(
+      expect.objectContaining({ behavior: 'center', nodeId: expect.any(String) }),
+    );
   });
 
   it('switches to the full browser without changing the document', () => {

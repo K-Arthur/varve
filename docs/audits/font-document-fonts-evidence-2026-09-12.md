@@ -10,7 +10,9 @@ Implementation and evidence are committed at
 ## Runtime contract
 
 - Each used face row keeps its existing **Select** action and now exposes
-  **Replace** with an accessible label containing the family and face.
+  **Go to** and **Replace** actions with accessible labels containing the
+  family and face. **Select** keeps the whole matching set; **Go to** selects
+  the first match, activates its publishing page when needed, and centers it.
 - The panel reports the affected layer and character counts while the chooser
   is open. Closing the chooser does not mutate the document.
 - Choosing a family clears an old exact reference. Choosing an expanded
@@ -36,6 +38,10 @@ Result: **10 files, 84 tests passed** (including exact replacement reference,
 rich-run/style updates, single transaction wiring, Escape dismissal, and
 missing-font recovery).
 
+After adding cross-surface navigation, the replacement/navigation subset was
+rerun independently: **3 files, 8 tests passed**, including the first-match
+selection and viewport-reveal assertions.
+
 The editor package typecheck also passed:
 
 ```text
@@ -46,22 +52,23 @@ The shared replacement helper was extracted from the missing-font controller so
 the Document Fonts and missing-font flows cannot drift in their matching,
 identity-clearing, or manifest bookkeeping behavior.
 
-The focused Chromium scene passed on port 1543:
+The focused Chromium scene passed on port 1546:
 
 ```text
-VARVE_E2E_PORT=1543 VARVE_E2E_WORKERS=1 npx playwright test tests/e2e/canvas/document-fonts-panel.spec.ts --project=chromium --reporter=list --timeout=120000
+VARVE_E2E_PORT=1546 VARVE_E2E_WORKERS=1 npx playwright test tests/e2e/canvas/document-fonts-panel.spec.ts --project=chromium --reporter=list --timeout=120000
 ```
 
 The run reached the replacement chooser, verified Escape dismissal, reopened
 the responsive inspector at 560×760 in dark mode, and passed the containment
 assertions. The inspected captures are:
 
-- `test-results/run-1823034-1543/canvas-document-fonts-pane-5b10a--in-a-narrow-dark-inspector-chromium/document-fonts-replacement-chooser.png`
-- `test-results/run-1823034-1543/canvas-document-fonts-pane-5b10a--in-a-narrow-dark-inspector-chromium/document-fonts-narrow-dark.png`
+- `test-results/run-1869442-1546/canvas-document-fonts-pane-5b10a--in-a-narrow-dark-inspector-chromium/document-fonts-replacement-chooser.png`
+- `test-results/run-1869442-1546/canvas-document-fonts-pane-5b10a--in-a-narrow-dark-inspector-chromium/document-fonts-narrow-dark.png`
 
 The first image shows the anchored Browse fonts chooser with the affected
-Document fonts row behind it. The second shows the readable dark responsive
-Document fonts panel with exact-face status, affected character count, and
-Select/Replace actions within the viewport. A later retry on port 1544 hit a
+Document fonts row behind it, including the new Go to, Select, and Replace
+actions. The second shows the readable dark responsive Document fonts panel
+with exact-face status, affected character count, and all three actions within
+the viewport. A later retry on port 1544 hit a
 headless Chromium SIGSEGV during screenshot capture; it is retained as an
 environment limitation and is not counted as evidence.

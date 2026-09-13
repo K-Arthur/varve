@@ -217,6 +217,12 @@ floating palette. This keeps contextual actions on one centerline with the
 font toolbar at wide, narrow, and coarse-pointer sizes; the bar's placement
 still flips above a selection when the canvas safe area has no room below.
 
+Document Fonts keeps selection and navigation separate: **Select** selects all
+matching visible layers in the current scope, while **Go to** selects the first
+matching layer, activates its publishing page when needed, and centers it in the
+viewport. This makes cross-page results explicit instead of silently changing
+the current canvas. Hidden and locked layers remain excluded from both actions.
+
 The Logo wordmark controls use the same picker and an explicit Browse fonts
 dialog. Choosing a family clears an older exact reference; choosing a
 registered face applies its family, weight, style, and reference together.
