@@ -73,16 +73,20 @@ describe('mergeCharacterFormat', () => {
     expect(merged.fontWeight).toBe(400);
   });
 
-  it('merges openTypeFeatures by override (not deep merge)', () => {
+  it('merges feature tags and variable axes without dropping siblings', () => {
     const base: CharacterFormat = {
       openTypeFeatures: { liga: true, kern: true },
+      variableFontSettings: { wght: 400, wdth: 100 },
     };
     const override: CharacterFormat = {
       openTypeFeatures: { dlig: true },
+      variableFontSettings: { wght: 650 },
     };
     const merged = mergeCharacterFormat(base, override);
     expect(merged.openTypeFeatures?.dlig).toBe(true);
-    expect(merged.openTypeFeatures?.liga).toBeUndefined();
+    expect(merged.openTypeFeatures?.liga).toBe(true);
+    expect(merged.openTypeFeatures?.kern).toBe(true);
+    expect(merged.variableFontSettings).toEqual({ wght: 650, wdth: 100 });
   });
 });
 

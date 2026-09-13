@@ -1,6 +1,6 @@
 import { collectFontData, createHarfBuzzWasmBackend, getFontRegistry } from '@varve/engine';
 import type { Document, TextNode } from '@varve/scene';
-import { convertTextNodeToPath } from '@varve/scene';
+import { convertTextNodeToPath, plainTextToRichText } from '@varve/scene';
 
 export interface ConvertTextOutlineCallbacks {
   onWarn: (msg: string) => void;
@@ -29,6 +29,24 @@ export async function convertTextOutline(
       return;
     }
     const textNode = sourceNode as TextNode;
+
+    if (textNode.textCase && textNode.textCase !== 'none') {
+      callbacks.onError(
+        'Text uses a case transform. Apply the displayed case to the source text before outlining.',
+      );
+      return;
+    }
+    if (textNode.textMode === 'path' || textNode.pathTextSettings) {
+      callbacks.onError('Detach text from its path before converting it to outlines.');
+      return;
+    }
+    const liveWarps = (textNode as TextNode & { warps?: Array<{ enabled?: boolean }> }).warps;
+    if (liveWarps?.some((warp) => warp.enabled !== false)) {
+      callbacks.onError(
+        'Expand the live warp first. Outlining the source text would otherwise lose the deformation.',
+      );
+      return;
+    }
 
     // Try to get font binary data
     let fontData: ArrayBuffer | undefined;
@@ -228,7 +246,9 @@ async function shapeForOutline(
     return result;
   };
 
-  if (!node.richText?.paragraphs?.length) {
+  const richText =
+    node.richText ?? (node.text.includes('\n') ? plainTextToRichText(node.text) : undefined);
+  if (!richText?.paragraphs?.length) {
     const result = await shape(
       node.text,
       node.fontSize,
@@ -242,7 +262,7 @@ async function shapeForOutline(
 
   const runs: NonNullable<OutlineShapingResult['runs']> = [];
   let sourceStart = 0;
-  for (const paragraph of node.richText.paragraphs) {
+  for (const paragraph of richText.paragraphs) {
     for (const run of paragraph.runs ?? []) {
       const text = run.text ?? '';
       const format = run.format;

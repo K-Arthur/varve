@@ -164,6 +164,51 @@ describe('convertTextNodeToPath', () => {
     expect(group.rotation).toBe(45);
   });
 
+  it('advances plain multi-line text instead of overlapping the lines', async () => {
+    const fontData = loadOpenSansData();
+    const { doc } = makeDocWithText('A\nB', { fontFamily: 'Open Sans', fontSize: 100 });
+    const result = convertTextNodeToPath(doc, 'txt1', { fontData });
+    expect(result.document.nodes.txt1).toBeUndefined();
+    const glyphs = Object.values(result.document.nodes).filter(
+      (node) => node.kind === 'shape' && node.id.startsWith('txt1-run-'),
+    );
+    expect(glyphs).toHaveLength(2);
+    const yPositions = glyphs.map((node) => {
+      if (node.kind !== 'shape' || node.shape.kind !== 'path') return 0;
+      return Math.min(...node.shape.points.map((point) => point.y));
+    });
+    expect(Math.abs(yPositions[1]! - yPositions[0]!)).toBeGreaterThan(1);
+  });
+
+  it('preserves editable text when a display transform or live path would be lost', async () => {
+    const fontData = loadOpenSansData();
+    for (const overrides of [
+      { textCase: 'uppercase' },
+      { textMode: 'path', pathTextSettings: { pathNodeId: 'path-1' } },
+    ]) {
+      const { doc } = makeDocWithText('fi', {
+        fontFamily: 'Open Sans',
+        ...(overrides as Record<string, unknown>),
+      });
+      const result = convertTextNodeToPath(doc, 'txt1', { fontData });
+      expect(result.document).toBe(doc);
+      expect(result.document.nodes.txt1).toBeDefined();
+      expect(result.warnings.join(' ')).toMatch(/preserved|Detach|Expand/i);
+    }
+    const { doc, textNode } = makeDocWithText('fi', { fontFamily: 'Open Sans' });
+    const warpedDoc = {
+      ...doc,
+      nodes: {
+        ...doc.nodes,
+        txt1: { ...textNode, warps: [{ id: 'warp-1', kind: 'bend', enabled: true }] },
+      },
+    };
+    const warpedResult = convertTextNodeToPath(warpedDoc, 'txt1', { fontData });
+    expect(warpedResult.document).toBe(warpedDoc);
+    expect(warpedResult.document.nodes.txt1).toBeDefined();
+    expect(warpedResult.warnings.join(' ')).toMatch(/Expand|preserved/i);
+  });
+
   it('uses shaped ligature geometry instead of raw character lookup', async () => {
     const fontData = loadOpenSansData();
     const shaped = await createHarfBuzzWasmBackend().shape({

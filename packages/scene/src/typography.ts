@@ -6,6 +6,7 @@
  * OpenType variation axis registry, HarfBuzz variable font API.
  */
 
+import { resolveOpenTypeFeatureMaps } from '@varve/shared';
 import type { Document } from './document';
 import type {
   AdaptiveContrastPolicy,
@@ -181,7 +182,16 @@ export function mergeCharacterFormat(
   for (const key of Object.keys(override) as (keyof CharacterFormat)[]) {
     const val = override[key];
     if (val !== undefined && val !== null) {
-      (result as Record<string, unknown>)[key] = val;
+      if (key === 'openTypeFeatures') {
+        result.openTypeFeatures = resolveOpenTypeFeatureMaps(result.openTypeFeatures, val);
+      } else if (key === 'variableFontSettings') {
+        result.variableFontSettings = {
+          ...(result.variableFontSettings ?? {}),
+          ...val,
+        };
+      } else {
+        (result as Record<string, unknown>)[key] = val;
+      }
     }
   }
   return result;

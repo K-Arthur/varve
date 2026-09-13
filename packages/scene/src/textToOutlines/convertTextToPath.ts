@@ -13,6 +13,7 @@ import type {
   Stroke,
   TextNode,
 } from '../types';
+import { plainTextToRichText } from '../typography';
 import { applyGlyphAdjustmentsToOutlines } from './glyphAdjust';
 
 /** Reduce a run color (ManagedColor or legacy tuple) to an rgb ManagedColor. */
@@ -164,6 +165,35 @@ export function convertTextNodeToPath(
     );
   }
 
+  if (textNode.textCase && textNode.textCase !== 'none') {
+    return {
+      document: doc,
+      warnings: [
+        'Text uses a case transform. Convert the displayed text to source characters first; the editable text was preserved.',
+      ],
+      hadRichText: Boolean(textNode.richText),
+    };
+  }
+  if (textNode.textMode === 'path' || textNode.pathTextSettings) {
+    return {
+      document: doc,
+      warnings: [
+        'Text on a path must be detached before outlining so the path layout is not lost or changed.',
+      ],
+      hadRichText: Boolean(textNode.richText),
+    };
+  }
+  const liveWarps = (textNode as TextNode & { warps?: Array<{ enabled?: boolean }> }).warps;
+  if (liveWarps?.some((warp) => warp.enabled !== false)) {
+    return {
+      document: doc,
+      warnings: [
+        'Text has a live warp. Expand the warp first, then outline the resulting editable text.',
+      ],
+      hadRichText: Boolean(textNode.richText),
+    };
+  }
+
   if (!opts.fontData) {
     return {
       document: doc,
@@ -180,7 +210,10 @@ export function convertTextNodeToPath(
     : { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 };
 
   // Check for rich text — extract paragraphs and runs
-  const richText = textNode.richText;
+  // Treat a plain multi-line node as temporary rich text for conversion. A
+  // single raw outline pass cannot advance its baseline after a newline.
+  const richText =
+    textNode.richText ?? (rawText.includes('\n') ? plainTextToRichText(rawText) : undefined);
   const hasRichText = !!richText?.paragraphs && richText.paragraphs.length > 0;
   const preserveRuns = opts.preserveRuns !== false && hasRichText;
 
@@ -202,6 +235,17 @@ export function convertTextNodeToPath(
         const runText = run.text ?? '';
         const shapedRun = opts.shapedRuns?.[shapedRunIndex++];
         if (!runText) continue;
+
+        if (run.format?.textCase && run.format.textCase !== 'none') {
+          return {
+            document: doc,
+            warnings: [
+              ...warnings,
+              `Text run ${runIndex} uses a case transform. The editable text was preserved.`,
+            ],
+            hadRichText: Boolean(textNode.richText),
+          };
+        }
 
         const runFontSize = run.format?.fontSize ?? fontSize;
         const runFill = run.format?.color ? legacyOrManagedToRgb(run.format.color) : fillColor;
@@ -231,9 +275,14 @@ export function convertTextNodeToPath(
         };
 
         if (opts.shapedRuns && shapedRun?.text !== runText) {
-          warnings.push(
-            `The shaped outline run did not match source text for run ${runIndex}; raw character lookup was used for that run.`,
-          );
+          return {
+            document: doc,
+            warnings: [
+              ...warnings,
+              `The shaped outline run did not match source text for run ${runIndex}; the editable text was preserved.`,
+            ],
+            hadRichText: Boolean(textNode.richText),
+          };
         }
 
         const runResult = textToOutlines(runText, outlineOptions);
@@ -273,6 +322,7 @@ export function convertTextNodeToPath(
             {
               name: glyph.char.trim() || `run-${runIndex}-${i}`,
               fill: runFill,
+              strokes: cloneStrokes(textNode.strokes),
             },
           );
           allGlyphShapes.push(shapeNode);
