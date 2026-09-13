@@ -634,7 +634,10 @@ async function parseRawFontAtOffset(
     namedInstances: fvarData.instances,
     openTypeFeatures: [...featureSet],
     unicodeRanges: cmapRanges,
-    scripts: os2Data.scripts,
+    // Script coverage is derived from the validated cmap ranges rather than
+    // guessed from the family name. This keeps source filters useful for
+    // multilingual fonts whose OS/2 code-page bits are incomplete.
+    scripts: scriptsFromUnicodeRanges(cmapRanges),
     languages: [],
     embeddingRights,
     embeddingPolicy: os2Data.embeddingPolicy,
@@ -1008,71 +1011,240 @@ function parseCmapTable(
   tables: Map<string, TableDirectory>,
 ): Array<[number, number]> {
   const table = tables.get('cmap');
-  if (!table) return [];
+  if (!table || table.length < 4) return [];
 
   const view = new DataView(data);
   const base = table.offset;
-  if (base + 4 > data.byteLength) return [];
-
+  const tableEnd = Math.min(data.byteLength, base + table.length);
   const numSubtables = view.getUint16(base + 2);
+  const recordsEnd = base + 4 + numSubtables * 8;
+  if (recordsEnd > tableEnd) return [];
+
   const ranges: Array<[number, number]> = [];
-  let subtableOffset = base + 4;
-
-  for (let i = 0; i < numSubtables && i < 10; i++) {
-    if (subtableOffset + 8 > data.byteLength) break;
-
-    void view.getUint16(subtableOffset);
-    void view.getUint16(subtableOffset + 2);
-    const offset2 = view.getUint32(subtableOffset + 4);
-    const formatOffset = base + offset2;
-
-    if (formatOffset + 2 > data.byteLength) {
-      subtableOffset += 8;
-      continue;
-    }
-
-    const format = view.getUint16(formatOffset);
-
-    if (format === 4) {
-      // Format 4: Segment mapping
-      if (formatOffset + 28 > data.byteLength) {
-        subtableOffset += 8;
-        continue;
-      }
-      const segCount = view.getUint16(formatOffset + 6) / 2;
-      const endCodes = formatOffset + 14;
-      const startCodes = endCodes + segCount * 2 + 2; // reservedPad follows endCode[]
-      for (let s = 0; s < segCount && s < 200; s++) {
-        const endOffset = endCodes + s * 2;
-        const startOffset = startCodes + s * 2;
-        if (startOffset + 2 > data.byteLength || endOffset + 2 > data.byteLength) break;
-
-        const start = view.getUint16(startOffset);
-        const end = view.getUint16(endOffset);
-        if (start !== 0xffff && end !== 0xffff) {
-          if (start <= end) ranges.push([start, end]);
-        }
-      }
-    } else if (format === 12) {
-      // Format 12 covers the supplementary planes and is common in CJK fonts.
-      if (formatOffset + 16 > data.byteLength) {
-        subtableOffset += 8;
-        continue;
-      }
-      const groups = view.getUint32(formatOffset + 12);
-      for (let g = 0; g < groups && g < 10000; g++) {
-        const groupOffset = formatOffset + 16 + g * 12;
-        if (groupOffset + 12 > data.byteLength) break;
-        const start = view.getUint32(groupOffset);
-        const end = view.getUint32(groupOffset + 4);
-        if (start <= end) ranges.push([start, end]);
-      }
-    }
-    subtableOffset += 8;
+  for (let i = 0; i < Math.min(numSubtables, 32); i++) {
+    const record = base + 4 + i * 8;
+    const offset = view.getUint32(record + 4);
+    if (offset > table.length - 2) continue;
+    const subtable = base + offset;
+    const format = view.getUint16(subtable);
+    ranges.push(...parseCmapSubtable(view, subtable, tableEnd, format));
   }
 
+  return mergeUnicodeRanges(ranges);
+}
+
+function parseCmapSubtable(
+  view: DataView,
+  offset: number,
+  tableEnd: number,
+  format: number,
+): Array<[number, number]> {
+  switch (format) {
+    case 0:
+      return parseCmapFormat0(view, offset, tableEnd);
+    case 4:
+      return parseCmapFormat4(view, offset, tableEnd);
+    case 6:
+      return parseCmapFormat6(view, offset, tableEnd);
+    case 10:
+      return parseCmapFormat10(view, offset, tableEnd);
+    case 12:
+      return parseCmapFormat12Or13(view, offset, tableEnd, false);
+    case 13:
+      return parseCmapFormat12Or13(view, offset, tableEnd, true);
+    default:
+      return [];
+  }
+}
+
+function subtableEnd(
+  view: DataView,
+  offset: number,
+  tableEnd: number,
+  lengthBytes: 2 | 4,
+  minimumLength: number,
+): number | null {
+  if (offset + 2 + lengthBytes > tableEnd) return null;
+  const length = lengthBytes === 2 ? view.getUint16(offset + 2) : view.getUint32(offset + 4);
+  if (length < minimumLength || length > tableEnd - offset) return null;
+  return offset + length;
+}
+
+function parseCmapFormat0(
+  view: DataView,
+  offset: number,
+  tableEnd: number,
+): Array<[number, number]> {
+  const end = subtableEnd(view, offset, tableEnd, 2, 262);
+  if (end === null) return [];
+  const ranges: Array<[number, number]> = [];
+  for (let code = 0; code < 256; code++) {
+    if (view.getUint8(offset + 6 + code) !== 0) ranges.push([code, code]);
+  }
   return ranges;
 }
+
+function parseCmapFormat4(
+  view: DataView,
+  offset: number,
+  tableEnd: number,
+): Array<[number, number]> {
+  const end = subtableEnd(view, offset, tableEnd, 2, 16);
+  if (end === null || offset + 8 > end) return [];
+  const segCountX2 = view.getUint16(offset + 6);
+  if (segCountX2 === 0 || (segCountX2 & 1) !== 0) return [];
+  const segCount = segCountX2 / 2;
+  const endCodes = offset + 14;
+  const startCodes = endCodes + segCount * 2 + 2;
+  const idDeltas = startCodes + segCount * 2;
+  const idRangeOffsets = idDeltas + segCount * 2;
+  if (idRangeOffsets + segCount * 2 > end) return [];
+
+  const ranges: Array<[number, number]> = [];
+  for (let segment = 0; segment < segCount; segment++) {
+    const endCode = view.getUint16(endCodes + segment * 2);
+    const startCode = view.getUint16(startCodes + segment * 2);
+    if (startCode > endCode || startCode === 0xffff) continue;
+    const delta = view.getInt16(idDeltas + segment * 2);
+    const rangeOffset = view.getUint16(idRangeOffsets + segment * 2);
+    let runStart: number | null = null;
+    let previous = -2;
+    for (let code = startCode; code <= endCode; code++) {
+      let glyph = 0;
+      if (rangeOffset === 0) {
+        glyph = (code + delta) & 0xffff;
+      } else {
+        const glyphOffset = idRangeOffsets + segment * 2 + rangeOffset + (code - startCode) * 2;
+        if (glyphOffset + 2 > end) break;
+        glyph = view.getUint16(glyphOffset);
+        if (glyph !== 0) glyph = (glyph + delta) & 0xffff;
+      }
+      if (glyph !== 0) {
+        if (runStart === null || code !== previous + 1) {
+          if (runStart !== null) ranges.push([runStart, previous]);
+          runStart = code;
+        }
+        previous = code;
+      }
+    }
+    if (runStart !== null) ranges.push([runStart, previous]);
+  }
+  return ranges;
+}
+
+function parseCmapFormat6(
+  view: DataView,
+  offset: number,
+  tableEnd: number,
+): Array<[number, number]> {
+  const end = subtableEnd(view, offset, tableEnd, 2, 10);
+  if (end === null) return [];
+  const firstCode = view.getUint16(offset + 6);
+  const entryCount = view.getUint16(offset + 8);
+  if (offset + 10 + entryCount * 2 > end) return [];
+  const ranges: Array<[number, number]> = [];
+  for (let index = 0; index < entryCount; index++) {
+    if (view.getUint16(offset + 10 + index * 2) !== 0) {
+      ranges.push([firstCode + index, firstCode + index]);
+    }
+  }
+  return ranges;
+}
+
+function parseCmapFormat10(
+  view: DataView,
+  offset: number,
+  tableEnd: number,
+): Array<[number, number]> {
+  const end = subtableEnd(view, offset, tableEnd, 4, 20);
+  if (end === null) return [];
+  const firstCode = view.getUint32(offset + 12);
+  const entryCount = view.getUint32(offset + 16);
+  if (entryCount > (end - (offset + 20)) / 2) return [];
+  const ranges: Array<[number, number]> = [];
+  for (let index = 0; index < entryCount; index++) {
+    if (view.getUint16(offset + 20 + index * 2) !== 0) {
+      ranges.push([firstCode + index, firstCode + index]);
+    }
+  }
+  return ranges;
+}
+
+function parseCmapFormat12Or13(
+  view: DataView,
+  offset: number,
+  tableEnd: number,
+  constantGlyph: boolean,
+): Array<[number, number]> {
+  const end = subtableEnd(view, offset, tableEnd, 4, 16);
+  if (end === null) return [];
+  const groups = view.getUint32(offset + 12);
+  if (groups > (end - (offset + 16)) / 12 || groups > 100_000) return [];
+  const ranges: Array<[number, number]> = [];
+  for (let index = 0; index < groups; index++) {
+    const group = offset + 16 + index * 12;
+    const start = view.getUint32(group);
+    const finish = view.getUint32(group + 4);
+    const glyph = view.getUint32(group + 8);
+    if (start <= finish && finish <= 0x10ffff && (constantGlyph ? glyph !== 0 : true)) {
+      ranges.push([start, finish]);
+    }
+  }
+  return ranges;
+}
+
+function mergeUnicodeRanges(ranges: Array<[number, number]>): Array<[number, number]> {
+  if (ranges.length < 2) return ranges;
+  const sorted = [...ranges].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const merged: Array<[number, number]> = [];
+  for (const [start, end] of sorted) {
+    const previous = merged.at(-1);
+    if (previous && start <= previous[1] + 1) previous[1] = Math.max(previous[1], end);
+    else merged.push([start, end]);
+  }
+  return merged;
+}
+
+/** Return OpenType script tags represented by validated cmap coverage. */
+function scriptsFromUnicodeRanges(ranges: Array<[number, number]>): string[] {
+  const scripts = new Set<string>();
+  for (const [start, end] of ranges) {
+    for (const [tag, scriptStart, scriptEnd] of UNICODE_SCRIPT_RANGES) {
+      if (start <= scriptEnd && end >= scriptStart) scripts.add(tag);
+    }
+  }
+  return [...scripts];
+}
+
+const UNICODE_SCRIPT_RANGES: readonly [string, number, number][] = [
+  ['latn', 0x0000, 0x024f],
+  ['grek', 0x0370, 0x03ff],
+  ['cyrl', 0x0400, 0x052f],
+  ['hebr', 0x0590, 0x05ff],
+  ['arab', 0x0600, 0x06ff],
+  ['syrc', 0x0700, 0x074f],
+  ['armn', 0x0530, 0x058f],
+  ['deva', 0x0900, 0x097f],
+  ['beng', 0x0980, 0x09ff],
+  ['guru', 0x0a00, 0x0a7f],
+  ['gujr', 0x0a80, 0x0aff],
+  ['orya', 0x0b00, 0x0b7f],
+  ['taml', 0x0b80, 0x0bff],
+  ['telu', 0x0c00, 0x0c7f],
+  ['knda', 0x0c80, 0x0cff],
+  ['mlym', 0x0d00, 0x0d7f],
+  ['sinh', 0x0d80, 0x0dff],
+  ['thai', 0x0e00, 0x0e7f],
+  ['lao ', 0x0e80, 0x0eff],
+  ['tibt', 0x0f00, 0x0fff],
+  ['mymr', 0x1000, 0x109f],
+  ['geor', 0x10a0, 0x10ff],
+  ['ethi', 0x1200, 0x137f],
+  ['khmr', 0x1780, 0x17ff],
+  ['hani', 0x3400, 0x9fff],
+  ['hang', 0xac00, 0xd7af],
+  ['kana', 0x3040, 0x30ff],
+];
 
 function parseGSUBTable(data: ArrayBuffer, tables: Map<string, TableDirectory>): string[] {
   const table = tables.get('GSUB');
@@ -1087,18 +1259,21 @@ function parseGPOSTable(data: ArrayBuffer, tables: Map<string, TableDirectory>):
 }
 
 function parseFeatureList(data: ArrayBuffer, offset: number, length: number): string[] {
-  if (offset + 10 > data.byteLength || length < 10) return [];
+  const tableEnd = Math.min(data.byteLength, offset + length);
+  if (length < 10 || offset < 0 || offset + 10 > tableEnd) return [];
 
   const view = new DataView(data);
   const featureListOffset = view.getUint16(offset + 6);
+  if (featureListOffset > length - 2) return [];
   const featureList = offset + featureListOffset;
-  if (featureList + 2 > data.byteLength || featureListOffset >= length) return [];
+  if (featureList + 2 > tableEnd) return [];
   const featureCount = view.getUint16(featureList);
+  const recordsEnd = featureList + 2 + featureCount * 6;
+  if (recordsEnd > tableEnd) return [];
   const features: string[] = [];
 
   for (let i = 0; i < featureCount && i < 100; i++) {
     const recOff = featureList + 2 + i * 6;
-    if (recOff + 6 > data.byteLength) break;
 
     const tag = String.fromCharCode(
       view.getUint8(recOff),

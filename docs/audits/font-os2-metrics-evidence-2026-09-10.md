@@ -207,3 +207,19 @@ pnpm --filter @varve/engine typecheck
 
 The subsequent [WOFF repair](./font-woff-evidence-2026-09-10.md) adds decoding,
 container validation and reconstruction coverage to this parser milestone.
+
+## Cmap and layout-table bounds follow-up — 2026-09-13
+
+The parser audit found that coverage and GSUB/GPOS feature walks used the whole
+file as their read boundary. A malformed subtable could therefore consume
+bytes belonging to the next table and advertise coverage or features that the
+font did not declare. The repaired walks stay inside the directory's declared
+span, validate each format's length and record count, map glyph-zero gaps, and
+support the common cmap formats 0, 4, 6, 10, 12, and 13. Validated ranges are
+merged and projected to OpenType script tags so multilingual catalog filters
+can use actual coverage. The targeted parser suite now passes **85/85** tests,
+including truncated cmap/GSUB spans and Latin/Cyrillic/Arabic script coverage.
+
+This remains bounded metadata evidence. It does not certify shaping, glyph
+fallback, or the complete Unicode ScriptExtensions data set; legacy Mac name
+decoding and format-1 language tags remain open.

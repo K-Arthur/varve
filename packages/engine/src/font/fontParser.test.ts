@@ -647,6 +647,30 @@ describe('parseFontData', () => {
     expect(meta.unicodeRanges.length).toBeGreaterThanOrEqual(2);
   });
 
+  it('derives OpenType script tags from validated cmap coverage', async () => {
+    const data = buildTestFont(undefined, {
+      cmap: [
+        [0x0041, 0x005a],
+        [0x0400, 0x045f],
+        [0x0620, 0x064a],
+      ],
+    });
+    const meta = await parseFontData(data);
+    expect(meta.scripts).toEqual(expect.arrayContaining(['latn', 'cyrl', 'arab']));
+  });
+
+  it('does not read cmap records beyond the declared table span', async () => {
+    const data = buildTestFont(undefined, { cmap: [[0x0041, 0x005a]] });
+    // `cmap` is the sixth table emitted by buildTestFont (head, name, OS/2,
+    // hhea, maxp, cmap). Leave its bytes in the file but truncate its
+    // directory span so later tables cannot be mistaken for subtable data.
+    const directoryEntry = 12 + 5 * 16;
+    new DataView(data).setUint32(directoryEntry + 12, 4);
+    const meta = await parseFontData(data);
+    expect(meta.unicodeRanges).toEqual([]);
+    expect(meta.scripts).toEqual([]);
+  });
+
   it('extracts OpenType feature tags from GSUB table', async () => {
     const data = buildTestFont(undefined, {
       gsub: ['liga', 'dlig', 'kern', 'salt'],
@@ -654,6 +678,35 @@ describe('parseFontData', () => {
     const meta = await parseFontData(data);
     expect(meta.openTypeFeatures).toContain('liga');
     expect(meta.openTypeFeatures).toContain('kern');
+  });
+
+  it('does not read GSUB feature records beyond the declared table span', async () => {
+    const data = buildTestFont(undefined, { gsub: ['liga', 'kern'] });
+    // GSUB is the eighth table emitted by buildTestFont (head, name, OS/2,
+    // hhea, maxp, cmap, then fvar if present, then GSUB). Locate the tag so
+    // this assertion remains stable if the fixture gains another optional
+    // table before it.
+    const view = new DataView(data);
+    const tableCount = view.getUint16(4);
+    let gsubEntry = -1;
+    for (let index = 0; index < tableCount; index++) {
+      const entry = 12 + index * 16;
+      if (
+        String.fromCharCode(
+          view.getUint8(entry),
+          view.getUint8(entry + 1),
+          view.getUint8(entry + 2),
+          view.getUint8(entry + 3),
+        ) === 'GSUB'
+      ) {
+        gsubEntry = entry;
+        break;
+      }
+    }
+    expect(gsubEntry).toBeGreaterThan(0);
+    view.setUint32(gsubEntry + 12, 10);
+    const meta = await parseFontData(data);
+    expect(meta.openTypeFeatures).toEqual([]);
   });
 
   it('detects colour fonts from COLR table', async () => {

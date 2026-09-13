@@ -57,7 +57,12 @@ use required fixtures, and their absence fails validation.
 
 Name records and their strings are bounded by the declared name table, rather
 than the whole file. Unicode-platform names use UTF-16BE; incomplete code units
-are ignored. Legacy code pages and format-1 language tags still need coverage.
+are ignored. Cmap coverage now validates the table's own span and supports the
+common format 0/4/6/10/12/13 mappings, including glyph-zero gaps; the resulting
+coverage is merged into OpenType script tags (`latn`, `cyrl`, `arab`, `hani`,
+and the other supported ranges) for catalog filtering. GSUB/GPOS feature-list
+records are likewise bounded to their declared table. Legacy Mac code pages,
+format-1 language tags, and full script-table provenance still need coverage.
 
 WOFF1 decoding uses zlib streams and requires exact decoded table lengths.
 Header/directory spans, block order, padding and table checksums are validated
@@ -260,8 +265,13 @@ coordinates and applies transforms in a bounded offscreen canvas without
 mutating the document; an AbortSignal cancels the decode itself when the image
 target changes or the user presses Cancel. Because an image selection is not a
 candidate action is labelled **Use for new text**: it stores a pending
-family/reference and activates the Text tool. Arbitrary OCR-assisted region
-overlays and applying a result to an existing text target remain separate work.
+family/reference and activates the Text tool. When existing text layers are
+present, the panel also requires an explicit **Apply result to** target and
+offers **Apply to target** beside the new-text action. That command updates only
+the chosen layer, carries a verified face reference when one is available,
+clears stale exact identity for classifier-only results, and records one undo
+transaction before selecting the updated layer. OCR-assisted region overlays
+remain separate work.
 
 ## Research-derived UX constraints
 

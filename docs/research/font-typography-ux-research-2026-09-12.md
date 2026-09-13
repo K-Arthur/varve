@@ -108,7 +108,7 @@ never silently mutates an image.
 | P1 | Document Fonts and Select by Font usage index covering effective runs, inherited styles, linked stories, components, locations, and hidden/locked filtering. | Core indexing and replacement contract remain in progress. The next UI slice should expose current-page scope, exact-face counts, affected locations, and restore-original. |
 | P1 | Per-face variable-axis inspection, preview-size/reduced-preview preference, version-conflict diagnostics, and explicit replacement impact preview. | Planned; the current axis adapter establishes the data path. |
 | P1 | Native embedded WebKitGTK test plus Windows WebView2 and macOS WKWebView evidence. | Linux focused coverage is executable; Windows/macOS remain platform dependencies. |
-| P2 | Transformed image crop, local classifier/OCR target selection, and cancellation-safe candidate actions. | Detection has bounded decode, local adapters, optional recognized text, and a manual/new-text path; transformed-region UI and full target workflow remain. |
+| P2 | Transformed image crop, local classifier/OCR target selection, and cancellation-safe candidate actions. | Detection has bounded transformed decode, local adapters, optional recognized text, explicit existing-text target selection, one-step application, and a manual/new-text path; arbitrary OCR region overlays remain. |
 | P2 | Portable collaboration transport for font dependency closures. | Payload contracts are prepared; live transport is outside this project. |
 
 ## Acceptance and evidence follow-up

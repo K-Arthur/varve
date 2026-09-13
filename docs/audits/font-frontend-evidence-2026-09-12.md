@@ -282,5 +282,19 @@ Linux Tauri/WebKitGTK still needs an embedded local-font permission and native
 refresh capture. Windows WebView2 and macOS WKWebView remain pending their
 native CI/manual environments. Document Fonts, Select by Font, exact
 collection-face replacement, arbitrary image-region crop/overlay selection,
-OCR-assisted identification, and applying a detected face to an existing text
-target remain open from the main typography audit.
+and OCR-assisted identification remain open from the main typography audit.
+
+## Explicit image-detection target — 2026-09-13
+
+The Identify Font panel now lists document text layers in an explicit
+**Apply result to** select. Detection remains scoped to the selected image, so
+choosing a target cannot accidentally change the image or the first text layer.
+Each candidate exposes **Apply to target** as a separate action. The command
+updates only the chosen text node, carries a `fontReference` when the candidate
+has a verified catalog identity, clears stale exact identity for a classifier
+only result, selects the updated layer, and groups the edit into one undo
+transaction. The component regression covers target selection, updater
+contents, selection handoff, and announcement (`4/4` focused cases including
+the new target flow). A candidate with no catalog face remains available only
+through the explicit family request; it is never presented as a verified exact
+face.

@@ -7,7 +7,7 @@ import {
   loadFullLabelMap,
   renderAndCompare,
 } from '@varve/engine';
-import { makeImageShapeNode } from '@varve/scene';
+import { makeImageShapeNode, makeTextNode } from '@varve/scene';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useEditor } from '../../../context';
@@ -77,6 +77,10 @@ const croppedImage = {
 const announce = vi.fn();
 const setPendingFormat = vi.fn();
 const setTool = vi.fn();
+const groupCompoundOperation = vi.fn((_label: string, action: () => void) => action());
+const updateNode = vi.fn();
+const setSelection = vi.fn();
+const textTarget = makeTextNode('text-target', 'Editable target', { name: 'Headline' });
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -115,6 +119,13 @@ beforeEach(() => {
     announce,
     setPendingFormat,
     setTool,
+    walkNodes: () =>
+      new Map([
+        ['text-target', { nodeId: 'text-target', node: textTarget, parentId: null, depth: 0 }],
+      ]),
+    groupCompoundOperation,
+    updateNode,
+    setSelection,
   } as never);
 
   vi.stubGlobal(
@@ -191,5 +202,32 @@ describe('FontDetectSection', () => {
     expect(announce).toHaveBeenCalledWith(
       'Crop tool active. Select the text region, then return to Identify Font.',
     );
+  });
+
+  it('applies a reviewed candidate to an explicitly chosen text target', async () => {
+    render(<FontDetectSection nodes={[image]} />);
+    fireEvent.change(screen.getByRole('combobox', { name: 'Existing text target' }), {
+      target: { value: 'text-target' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Identify font in image' }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Apply Inter to existing text target' }),
+      ).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Apply Inter to existing text target' }));
+    expect(groupCompoundOperation).toHaveBeenCalledWith(
+      'Apply identified font',
+      expect.any(Function),
+    );
+    expect(updateNode).toHaveBeenCalledWith('text-target', expect.any(Function));
+    expect(setSelection).toHaveBeenCalledWith('text-target');
+    expect(announce).toHaveBeenCalledWith('Applied Inter to Headline');
+
+    const updater = vi.mocked(updateNode).mock.calls[0]?.[1] as (
+      node: typeof textTarget,
+    ) => typeof textTarget;
+    expect(updater(textTarget)).toMatchObject({ fontFamily: 'Inter', fontReference: undefined });
   });
 });

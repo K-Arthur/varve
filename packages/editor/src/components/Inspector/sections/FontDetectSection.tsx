@@ -9,6 +9,8 @@
  *     compares visually. Works without any model download.
  *
  * Results are presented as ranked candidates with honest confidence language.
+ * Applying a result always names an explicit destination: new text or one of
+ * the document's existing text layers.
  */
 
 import type { FontCandidate, FontDetectionResult } from '@varve/engine';
@@ -21,10 +23,10 @@ import {
   loadFullLabelMap,
   renderAndCompare,
 } from '@varve/engine';
-import type { SceneNode } from '@varve/scene';
-import { getImageFill, imageShapeSrc, isImageShape } from '@varve/scene';
+import type { SceneNode, TextNode } from '@varve/scene';
+import { getImageFill, imageShapeSrc, isImageShape, richTextToPlainText } from '@varve/scene';
 import { Button } from '@varve/ui';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FONT_DETECT_MAX_EDGE, loadFontDetectionImage } from './fontDetectImage';
@@ -47,6 +49,34 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
   const [modelAvailable, setModelAvailable] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [recognizedText, setRecognizedText] = useState('');
+  const [targetId, setTargetId] = useState('');
+
+  /**
+   * Keep the output target explicit. The image is the source of the
+   * identification request, while an existing text layer is an independent
+   * destination. Never infer that destination from the current image
+   * selection or mutate the first text node implicitly.
+   */
+  const textTargets = useMemo(() => {
+    const targets: Array<{ id: string; label: string; preview: string; node: TextNode }> = [];
+    for (const { node } of editor.walkNodes().values()) {
+      if (node.kind !== 'text') continue;
+      const preview = (node.richText ? richTextToPlainText(node.richText) : node.text)
+        .replace(/\s+/g, ' ')
+        .trim();
+      targets.push({
+        id: node.id,
+        label: node.name || 'Text layer',
+        preview: preview.length > 36 ? `${preview.slice(0, 36)}…` : preview,
+        node,
+      });
+    }
+    return targets;
+  }, [editor]);
+
+  useEffect(() => {
+    if (targetId && !textTargets.some((target) => target.id === targetId)) setTargetId('');
+  }, [targetId, textTargets]);
 
   const [detect, setDetect] = useState<FontDetectState>({
     status: 'idle',
@@ -218,6 +248,32 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
     [announce, editor],
   );
 
+  const applyCandidateToTarget = useCallback(
+    (candidate: FontCandidate) => {
+      const target = textTargets.find((item) => item.id === targetId);
+      if (!target) return;
+      const reference = candidate.catalogEntry
+        ? fontReferenceFromIdentity(candidate.catalogEntry.identity)
+        : undefined;
+      editor.groupCompoundOperation('Apply identified font', () => {
+        editor.updateNode(target.id, (current) => {
+          if (current.kind !== 'text') return current;
+          return {
+            ...current,
+            // An unavailable classifier result deliberately clears any old
+            // exact reference, leaving the resolver to report a family-only
+            // fallback instead of silently retaining the wrong face.
+            fontFamily: candidate.family,
+            fontReference: reference,
+          };
+        });
+      });
+      editor.setSelection(target.id);
+      announce(`Applied ${candidate.family} to ${target.label}`);
+    },
+    [announce, editor, targetId, textTargets],
+  );
+
   if (!isImage || !typedNode) return null;
 
   const isProcessing = detect.status === 'detecting';
@@ -285,6 +341,29 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
           />
         </label>
 
+        {textTargets.length > 0 && (
+          <label className="font-detect-target-field">
+            <span className="insp-subsection__label">Apply result to</span>
+            <select
+              className="font-detect-target-select"
+              value={targetId}
+              onChange={(event) => setTargetId(event.target.value)}
+              aria-label="Existing text target"
+            >
+              <option value="">New text (choose below)</option>
+              {textTargets.map((target) => (
+                <option key={target.id} value={target.id}>
+                  {target.label}
+                  {target.preview ? ` — ${target.preview}` : ''}
+                </option>
+              ))}
+            </select>
+            <span className="insp-hint">
+              Applying a candidate edits only this layer and creates one undo step.
+            </span>
+          </label>
+        )}
+
         {needsDownload && (
           <div className="insp-actions">
             <Button
@@ -324,7 +403,12 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
 
         {detect.result && (
           <section className="insp-nested-panel" aria-label="Font detection results">
-            <ResultsList result={detect.result} onUseForNewText={useCandidateForNewText} />
+            <ResultsList
+              result={detect.result}
+              targetSelected={Boolean(targetId)}
+              onUseForNewText={useCandidateForNewText}
+              onApplyToTarget={applyCandidateToTarget}
+            />
             <div className="insp-actions">
               <Button type="button" variant="ghost" size="sm" onClick={handleDismissResult}>
                 Dismiss
@@ -368,10 +452,14 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
 
 function ResultsList({
   result,
+  targetSelected,
   onUseForNewText,
+  onApplyToTarget,
 }: {
   result: FontDetectionResult;
+  targetSelected: boolean;
   onUseForNewText?: (candidate: FontCandidate) => void;
+  onApplyToTarget?: (candidate: FontCandidate) => void;
 }) {
   if (result.candidates.length === 0) {
     return (
@@ -408,6 +496,17 @@ function ResultsList({
               <span className="font-detect-candidate__source">{candidate.source}</span>
             </div>
             <div className="insp-actions" style={{ marginTop: 4 }}>
+              {targetSelected && (
+                <Button
+                  type="button"
+                  variant="default"
+                  size="sm"
+                  onClick={() => onApplyToTarget?.(candidate)}
+                  aria-label={`Apply ${candidate.family} to existing text target`}
+                >
+                  Apply to target
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="secondary"
