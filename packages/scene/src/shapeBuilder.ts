@@ -9,7 +9,13 @@
  */
 
 import type { PathPoint } from '@varve/engine';
-import { type Affine, applyAffine, tryInvertAffine } from '@varve/shared';
+import {
+  type Affine,
+  applyAffine,
+  materializeLegacyGradientTransform,
+  multiplyAffine,
+  tryInvertAffine,
+} from '@varve/shared';
 import { type BooleanResult, booleanNormalizedRegions } from './boolean/engine';
 import { booleanAnchorForNode, shapeHolesToPolygons, shapeToPolygon } from './boolean/integration';
 import { computeAABB, workingTolerance } from './boolean/precision';
@@ -20,6 +26,7 @@ import type { Document } from './document';
 import { getParent } from './document';
 import { addNode, removeNode, reparentNode } from './document-nodes';
 import { nextNodeId } from './node-id';
+import { resolveNodePaints } from './paint';
 import type { NodeId, ShapeNode } from './types';
 import { isContainer } from './types';
 
@@ -255,6 +262,21 @@ function hasVisibleStroke(node: ShapeNode): boolean {
   });
 }
 
+function unsupportedPaintReason(doc: Document, node: ShapeNode): string | null {
+  const fills = resolveNodePaints(node, doc);
+  if (!fills.some((fill) => fill.visible)) return 'The selected layer has no visible fill.';
+  if (fills.some((fill) => fill.visible && fill.type === 'image')) {
+    return 'Image fills need to be converted to vector or solid paint before building regions.';
+  }
+  if (fills.some((fill) => fill.visible && fill.type === 'pattern')) {
+    return 'Pattern fills need to be converted to vector or solid paint before building regions.';
+  }
+  if (node.paintRefs?.length && fills.some((fill) => fill.visible && fill.type === 'gradient')) {
+    return 'Detach shared gradient paint before building regions so its placement can stay source-specific.';
+  }
+  return null;
+}
+
 function hasPositiveCornerRadius(node: ShapeNode): boolean {
   if (node.shape.kind !== 'rect' && node.shape.kind !== 'table') return false;
   const radius = node.cornerRadius;
@@ -321,6 +343,8 @@ function nodeEligibility(
   if (hasVisibleStroke(node)) {
     return { eligible: false, reason: 'Outline the stroke before using its visible area.' };
   }
+  const paintReason = unsupportedPaintReason(doc, node);
+  if (paintReason) return { eligible: false, reason: paintReason };
   if (hasInvalidCornerRadius(node)) {
     return { eligible: false, reason: 'The rounded-corner values are not finite.' };
   }
@@ -424,6 +448,47 @@ function translatedSources(sources: ShapeBuilderSource[], origin: Point2D): Shap
     ...source,
     rings: source.rings.map((ring) => ring.map((point) => translatePoint(point, origin))),
   }));
+}
+
+function localBoundsForSource(source: ShapeBuilderSource) {
+  const inverse = tryInvertAffine(source.transform);
+  if (!inverse) return null;
+  const localPoints = source.rings.flatMap((ring) =>
+    ring.map((point) => {
+      const [x, y] = applyAffine(inverse, [point.x, point.y]);
+      return { x, y };
+    }),
+  );
+  const bounds = computeAABB(localPoints);
+  return Number.isFinite(bounds.minX) &&
+    Number.isFinite(bounds.minY) &&
+    Number.isFinite(bounds.maxX) &&
+    Number.isFinite(bounds.maxY)
+    ? { x: bounds.minX, y: bounds.minY, w: bounds.maxX - bounds.minX, h: bounds.maxY - bounds.minY }
+    : null;
+}
+
+/** Rebase inline gradients so a changed result bounds does not move the paint. */
+function rebaseFills(
+  base: ShapeNode,
+  source: ShapeBuilderSource,
+  inverseDestinationParent: Affine,
+): ShapeNode['fills'] {
+  if (!base.fills?.length) return base.fills;
+  const sourceBounds = localBoundsForSource(source);
+  if (!sourceBounds) return [...base.fills];
+  return base.fills.map((fill) => {
+    if (fill.type !== 'gradient' || !fill.gradient) return { ...fill };
+    const sourceFillTransform =
+      fill.gradient.transform ??
+      materializeLegacyGradientTransform(sourceBounds, fill.gradient.rotation ?? 0);
+    const worldFillTransform = multiplyAffine(source.transform, sourceFillTransform);
+    const destinationFillTransform = multiplyAffine(inverseDestinationParent, worldFillTransform);
+    return {
+      ...fill,
+      gradient: { ...fill.gradient, transform: destinationFillTransform },
+    };
+  });
 }
 
 /**
@@ -1224,6 +1289,7 @@ function makeOutputNode(
   name: string,
   regions: Array<{ outer: Point2D[]; holes: Point2D[][] }>,
   inverseParent: Affine,
+  source: ShapeBuilderSource,
 ): ShapeNode {
   return {
     ...base,
@@ -1233,6 +1299,7 @@ function makeOutputNode(
     transform: IDENTITY,
     rotation: 0,
     shape: pathShapeForRegions(regions, inverseParent),
+    fills: rebaseFills(base, source, inverseParent),
     // A visible source stroke is ineligible. Keeping this explicit prevents a
     // future eligibility change from creating doubled internal strokes.
     strokes: [],
@@ -1373,6 +1440,14 @@ export function applyShapeBuilderAction(
     for (const sourceId of affectedSourceIds) {
       const sourceNode = doc.nodes[sourceId];
       if (sourceNode?.kind !== 'shape') continue;
+      const source = model.sources.find((candidate) => candidate.id === sourceId);
+      if (!source) {
+        return {
+          ok: false,
+          reason: 'The selected source geometry is no longer available.',
+          revision: model.revision,
+        };
+      }
       const sourceRegion = sourceFilledRegion(model, sourceId);
       const remainder = booleanNormalizedRegions([sourceRegion, selectedRegion], 'subtract');
       const remainderRegion = booleanResultRegion(remainder);
@@ -1404,6 +1479,7 @@ export function applyShapeBuilderAction(
               holes: component.holes,
             })),
             sourceInverse,
+            source,
           ),
         });
       }
@@ -1435,6 +1511,7 @@ export function applyShapeBuilderAction(
         action === 'create' ? 'Shape Builder result' : `Shape Builder ${action}`,
         [outputRegions[index]!],
         inverseParent,
+        styleSource,
       );
       nextDoc = addNode(nextDoc, output);
       nextDoc = reparentNode(

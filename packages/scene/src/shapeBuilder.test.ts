@@ -1,3 +1,4 @@
+import { applyAffine } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import { addNode, createDocument, makeShapeNode } from './document';
 import { DocumentCodec } from './documentCodec';
@@ -289,6 +290,92 @@ describe('Shape Builder arrangement and actions', () => {
     const model = buildShapeBuilderModel(doc, ['flat']);
     expect(model.status).toBe('unsupported');
     expect(model.message).toMatch(/degenerate|area|geometry/i);
+  });
+
+  it('rejects bounds-relative image and pattern paints instead of shifting them', () => {
+    for (const type of ['image', 'pattern'] as const) {
+      let doc = createDocument(`${type}-paint`, true);
+      const node = makeShapeNode(
+        type,
+        { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
+        { transform: identity },
+      );
+      node.fills =
+        type === 'image'
+          ? [
+              {
+                type,
+                image: { src: 'fixture.png', fit: 'fill', x: 0, y: 0, scale: 1 },
+                opacity: 1,
+                blendMode: 'normal',
+                visible: true,
+              },
+            ]
+          : [
+              {
+                type,
+                pattern: { tileSrc: 'fixture.png', spacing: 0, rotation: 0 },
+                opacity: 1,
+                blendMode: 'normal',
+                visible: true,
+              },
+            ];
+      doc = addNode(doc, node);
+
+      const model = buildShapeBuilderModel(doc, [type]);
+      expect(model.status).toBe('unsupported');
+      expect(model.message).toMatch(/image|pattern|vector|solid/i);
+    }
+  });
+
+  it('rebases inline gradient placement through a transformed result parent', () => {
+    let doc = createDocument('gradient-rebase', true);
+    const sourceTransform = [2, 0, 0, 2, 10, 20] as const;
+    const source = makeShapeNode(
+      'gradient-source',
+      { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
+      { transform: sourceTransform },
+    );
+    const sourceGradientTransform = [60, 10, -5, 40, 12, 18] as const;
+    source.fills = [
+      {
+        type: 'gradient',
+        gradient: {
+          type: 'linear',
+          stops: [],
+          transform: sourceGradientTransform,
+        },
+        opacity: 1,
+        blendMode: 'normal',
+        visible: true,
+      },
+    ];
+    doc = addNode(doc, source);
+
+    const model = buildShapeBuilderModel(doc, ['gradient-source']);
+    const applied = applyShapeBuilderAction(
+      doc,
+      ['gradient-source'],
+      model.faces.map((f) => f.id),
+      'create',
+      {
+        expectedRevision: model.revision,
+      },
+    );
+    expect(applied.ok).toBe(true);
+    if (!applied.ok) return;
+    const output = applied.doc.nodes[applied.createdNodeIds[0]!];
+    const outputTransform =
+      output?.kind === 'shape' ? output.fills?.[0]?.gradient?.transform : undefined;
+    expect(outputTransform).toBeDefined();
+    if (!outputTransform) return;
+    const sourcePaintPoint = applyAffine(
+      sourceTransform,
+      applyAffine(sourceGradientTransform, [0.35, 0.65]),
+    );
+    const outputPaintPoint = applyAffine(outputTransform, [0.35, 0.65]);
+    expect(outputPaintPoint[0]).toBeCloseTo(sourcePaintPoint[0], 8);
+    expect(outputPaintPoint[1]).toBeCloseTo(sourcePaintPoint[1], 8);
   });
 
   it('round-trips created components and holes through the document codec', () => {
