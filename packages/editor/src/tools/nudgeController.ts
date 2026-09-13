@@ -91,7 +91,7 @@ export class CanvasNudgeController {
     this.heldDirections.add(direction);
     if (startsGesture) {
       ctx.beginTransaction();
-      ctx.announceOperation('Nudge', `${formatAmount(step)}px`);
+      ctx.announceOperation('Nudge', formatNudgeAnnouncement(step, plan));
     }
 
     applyNudgePlan(plan, {
@@ -122,4 +122,19 @@ export class CanvasNudgeController {
 
 function formatAmount(value: number): string {
   return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(4)));
+}
+
+function formatNudgeAnnouncement(step: number, plan: { locked: number; skipped: number }): string {
+  const detail = [`${formatAmount(step)}px`];
+  if (plan.locked > 0) {
+    detail.push(
+      `${plan.locked} locked/hidden selected item${plan.locked === 1 ? '' : 's'} excluded`,
+    );
+  }
+  if (plan.skipped > 0) {
+    detail.push(
+      `${plan.skipped} nested or non-manual selected item${plan.skipped === 1 ? '' : 's'} skipped`,
+    );
+  }
+  return detail.join(' · ');
 }
