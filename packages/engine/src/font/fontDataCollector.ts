@@ -1,6 +1,6 @@
 import { getFontRegistry } from '../fontRegistry';
 import type { FontReference } from './fontIdentity';
-import { fontReferenceKey } from './fontIdentity';
+import { computeFontHash, fontReferenceKey } from './fontIdentity';
 import { listStoredFonts, loadStoredFont } from './fontStorage';
 import { loadFontFromFilesystem } from './fontStorageFs';
 
@@ -68,16 +68,43 @@ async function decompressWoff2(data: Uint8Array): Promise<Uint8Array | null> {
   return null;
 }
 
-async function fetchFontData(url: string, signal?: AbortSignal): Promise<Uint8Array | null> {
+interface FetchedFontData {
+  /** Bytes used by the consumer (SFNT after WOFF2 reconstruction when needed). */
+  data: Uint8Array;
+  /** SHA-256 of the original artifact returned by the provider. */
+  artifactHash?: string;
+}
+
+function arrayBufferFor(bytes: Uint8Array): ArrayBuffer {
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
+async function fetchFontData(url: string, signal?: AbortSignal): Promise<FetchedFontData | null> {
   try {
     const response = await fetch(url, { signal });
     if (!response.ok) return null;
     const buffer = await response.arrayBuffer();
     const data = new Uint8Array(buffer);
+    const hash = await computeFontHash(buffer);
     const decompressed = await decompressWoff2(data);
-    return decompressed ?? data;
+    return {
+      data: decompressed ?? data,
+      ...(hash.hashAlgorithm === 'sha256' ? { artifactHash: hash.contentHash } : {}),
+    };
   } catch {
     return null;
+  }
+}
+
+async function matchesExactReference(data: Uint8Array, reference: FontReference): Promise<boolean> {
+  if (!/^[0-9a-f]{64}$/i.test(reference.artifactHash)) return false;
+  try {
+    const hash = await computeFontHash(arrayBufferFor(data));
+    return (
+      hash.hashAlgorithm === 'sha256' && hash.contentHash === reference.artifactHash.toLowerCase()
+    );
+  } catch {
+    return false;
   }
 }
 
@@ -108,6 +135,13 @@ export async function collectFontData(
         ? await loadFontFromFilesystem(request.fontReference)
         : await loadStoredFont(family);
       if (stored?.data) {
+        if (
+          request.fontReference &&
+          !(await matchesExactReference(new Uint8Array(stored.data), request.fontReference))
+        ) {
+          onProgress?.(family, 'missing');
+          continue;
+        }
         results.push({
           family,
           data: new Uint8Array(stored.data),
@@ -138,11 +172,14 @@ export async function collectFontData(
                 entry.postScriptName === request.fontReference.postScriptName)),
         );
         if (bundled?.url) {
-          const data = await fetchFontData(bundled.url, signal);
-          if (data) {
+          const fetched = await fetchFontData(bundled.url, signal);
+          const exactArtifactMatches =
+            !request.fontReference ||
+            fetched?.artifactHash === request.fontReference.artifactHash.toLowerCase();
+          if (fetched && exactArtifactMatches) {
             results.push({
               family,
-              data,
+              data: fetched.data,
               ...(request.fontReference ? { fontReference: request.fontReference } : {}),
             });
             onProgress?.(family, 'fetched');

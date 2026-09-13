@@ -12,7 +12,10 @@ vi.mock('../fontRegistry', () => ({
 import { collectFontData } from './fontDataCollector';
 
 const firstReference = { artifactHash: 'a'.repeat(64), collectionIndex: 0 };
-const secondReference = { artifactHash: 'b'.repeat(64), collectionIndex: 1 };
+const secondReference = {
+  artifactHash: 'dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986',
+  collectionIndex: 1,
+};
 
 describe('collectFontData exact requests', () => {
   beforeEach(() => {
@@ -70,6 +73,37 @@ describe('collectFontData exact requests', () => {
     );
 
     expect(fetchMock).not.toHaveBeenCalled();
+    expect(result).toEqual([]);
+  });
+
+  it('rejects bytes whose artifact hash does not match the exact request', async () => {
+    const fetchMock = vi.fn(async () => new Response(new Uint8Array([2]), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    getEntries.mockReturnValue([
+      {
+        family: 'Shared Family',
+        weight: 700,
+        style: 'normal',
+        source: 'bundled',
+        url: '/fonts/modified-member-1.woff2',
+        faceKey: fontReferenceKey({
+          artifactHash: '1'.repeat(64),
+          collectionIndex: 1,
+        }),
+      },
+    ]);
+
+    const result = await collectFontData(
+      [
+        {
+          family: 'Shared Family',
+          fontReference: { artifactHash: '1'.repeat(64), collectionIndex: 1 },
+        },
+      ],
+      { fetchBundled: true },
+    );
+
+    expect(fetchMock).toHaveBeenCalledOnce();
     expect(result).toEqual([]);
   });
 });

@@ -192,7 +192,10 @@ Package export sets `bundled` only after writing verified bytes into `fonts/`.
 Export requests carry a document's exact
 `fontReference`, so same-family artifacts and collection members remain
 separate; an unavailable requested member is never silently replaced by a
-different family artifact. Full cache identity across face revision, axes,
+different family artifact. Exact bundled URLs are checked against the
+original artifact SHA-256 before WOFF2 reconstruction; a response with the
+right family label but the wrong bytes is therefore reported unavailable and
+cannot enter the ZIP. Full cache identity across face revision, axes,
 features, language and rich runs remains an integration requirement, not
 established by the family bridge.
 
