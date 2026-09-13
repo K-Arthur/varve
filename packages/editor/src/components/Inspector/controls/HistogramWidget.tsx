@@ -11,6 +11,7 @@ import type { Histogram, LevelParams } from '@varve/engine';
 import { autoLevelsParams, computeHistogramStats } from '@varve/engine';
 import { Icon } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import './HistogramWidget.css';
 
 const WIDTH = 300;
 const HEIGHT = 130;
@@ -19,6 +20,13 @@ const TRI_Y = BAR_AREA_H + 4;
 const TRI_SIZE = 8;
 
 export type HistogramChannel = 'luminance' | 'red' | 'green' | 'blue';
+
+/**
+ * Percentage of opaque pixels at either end that counts as meaningful
+ * clipping. Marks and warnings stay hidden below this so ordinary
+ * black-point pixels in a photo do not look like an error.
+ */
+const CLIP_WARNING_PERCENT = 0.1;
 
 export interface HistogramWidgetProps {
   histogram?: Histogram;
@@ -100,9 +108,32 @@ export function HistogramWidget({
   onDragEndRef.current = onDragEnd;
 
   // Compute accessible histogram stats (visible to screen readers only).
+  const stats = useMemo(() => {
+    if (!histogram || histogram.opaquePixels === 0) return null;
+    return computeHistogramStats(histogram[channel], histogram.opaquePixels);
+  }, [channel, histogram]);
+
+  /**
+   * Visible clipping warnings. Photoshop-class editors surface clipped
+   * shadows/highlights next to the histogram because the distribution alone
+   * does not say whether an endpoint spike is the subject or lost detail.
+   * Counts are relative to opaque pixels so transparent backdrop pixels never
+   * dilute the percentage.
+   */
+  const clipping = useMemo(() => {
+    if (!histogram || !stats || histogram.opaquePixels === 0) return null;
+    const blackPercent = (stats.blackClipped / histogram.opaquePixels) * 100;
+    const whitePercent = (stats.whiteClipped / histogram.opaquePixels) * 100;
+    return {
+      blackPercent,
+      whitePercent,
+      black: blackPercent >= CLIP_WARNING_PERCENT,
+      white: whitePercent >= CLIP_WARNING_PERCENT,
+    };
+  }, [histogram, stats]);
+
   const statsSummary = useMemo(() => {
-    if (!histogram || histogram.totalPixels === 0) return '';
-    const stats = computeHistogramStats(histogram[channel], histogram.opaquePixels);
+    if (!histogram || !stats || histogram.totalPixels === 0) return '';
     const channelLabel = channel === 'luminance' ? 'Luminance' : channel.toUpperCase();
     return (
       `${channelLabel} histogram: mean ${stats.mean.toFixed(0)}, median ${stats.median}, ` +
@@ -110,7 +141,7 @@ export function HistogramWidget({
       `5th percentile ${stats.percentile5}, 95th percentile ${stats.percentile95}. ` +
       `${stats.blackClipped} pixels at black, ${stats.whiteClipped} pixels at white.`
     );
-  }, [channel, histogram]);
+  }, [channel, histogram, stats]);
 
   const redraw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -124,11 +155,22 @@ export function HistogramWidget({
     const accentColor = computed.getPropertyValue('--color-accent-primary').trim() || '#39d0c6';
     const interactiveColor =
       computed.getPropertyValue('--color-interactive-default').trim() || '#555';
+    const clipColor = computed.getPropertyValue('--color-feedback-warning').trim() || '#c08a2e';
 
     ctx.clearRect(0, 0, WIDTH, HEIGHT);
 
     if (histogram) {
       drawHistogram(ctx, histogram, mutedColor, channel);
+    }
+
+    // Endpoint markers make clipping visible while a level is dragged.
+    if (clipping?.black) {
+      ctx.fillStyle = clipColor;
+      ctx.fillRect(0, 0, 3, BAR_AREA_H);
+    }
+    if (clipping?.white) {
+      ctx.fillStyle = clipColor;
+      ctx.fillRect(WIDTH - 3, 0, 3, BAR_AREA_H);
     }
 
     const blackX = (levels.inputBlack / 255) * WIDTH;
@@ -138,7 +180,7 @@ export function HistogramWidget({
     drawTriangle(ctx, blackX, accentColor, 'B', mutedColor);
     drawTriangle(ctx, gammaX, interactiveColor, 'G', mutedColor);
     drawTriangle(ctx, whiteX, accentColor, 'W', mutedColor);
-  }, [channel, histogram, levels]);
+  }, [channel, clipping, histogram, levels]);
 
   useEffect(() => {
     redraw();
@@ -356,6 +398,15 @@ export function HistogramWidget({
           Loading histogram…
         </div>
       )}
+      {clipping && (clipping.black || clipping.white) ? (
+        <p className="histogram-widget__clipping" role="note" data-testid="histogram-clipping">
+          {clipping.black ? <span>Clipped shadows {clipping.blackPercent.toFixed(1)}%</span> : null}
+          {clipping.black && clipping.white ? <span aria-hidden="true">·</span> : null}
+          {clipping.white ? (
+            <span>Clipped highlights {clipping.whitePercent.toFixed(1)}%</span>
+          ) : null}
+        </p>
+      ) : null}
       <canvas
         ref={canvasRef}
         width={WIDTH}

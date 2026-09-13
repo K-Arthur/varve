@@ -114,4 +114,32 @@ describe('HistogramWidget', () => {
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onDragEnd).toHaveBeenCalledTimes(1);
   });
+
+  it('surfaces clipped shadows and highlights as a visible warning', () => {
+    const channel = new Uint32Array(256);
+    channel[0] = 5; // 0.5% of 1000 opaque pixels
+    channel[255] = 3; // 0.3%
+    channel[128] = 992;
+    const clipped = {
+      ...mockHistogram,
+      luminance: channel,
+      opaquePixels: 1000,
+    };
+    render(<HistogramWidget histogram={clipped} levels={defaultLevels} onChange={vi.fn()} />);
+    const warning = screen.getByTestId('histogram-clipping');
+    expect(warning.textContent).toContain('Clipped shadows 0.5%');
+    expect(warning.textContent).toContain('Clipped highlights 0.3%');
+  });
+
+  it('stays quiet when the histogram endpoints are empty', () => {
+    const channel = new Uint32Array(256);
+    for (let i = 1; i < 255; i += 1) channel[i] = 4;
+    const clean = {
+      ...mockHistogram,
+      luminance: channel,
+      opaquePixels: 1016,
+    };
+    render(<HistogramWidget histogram={clean} levels={defaultLevels} onChange={vi.fn()} />);
+    expect(screen.queryByTestId('histogram-clipping')).toBeNull();
+  });
 });
