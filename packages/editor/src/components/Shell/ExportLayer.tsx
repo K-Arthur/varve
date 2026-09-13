@@ -291,6 +291,14 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
           latest.announce('SVG export cancelled');
           return;
         }
+        const diagnostics = snapshots.svg.diagnostics;
+        if (diagnostics.length > 0) {
+          latest.showToast({
+            message: `Exported as SVG with ${diagnostics.length} fidelity warning${diagnostics.length === 1 ? '' : 's'}: ${diagnostics[0]?.message ?? ''}`,
+            type: 'warning',
+          });
+          return;
+        }
         latest.announce(`Exported ${documentSnapshot.name || 'untitled'} as SVG`);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);

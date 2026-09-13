@@ -133,6 +133,12 @@ export interface ComposeSnapshotOptions {
    * live renderer uses).
    */
   engine?: Engine;
+  /**
+   * Called for every rasterized fallback that could not be produced. The
+   * export continues with an explicit empty placeholder; callers surface the
+   * diagnostic instead of silently shipping an incomplete file.
+   */
+  onRasterizationDiagnostic?: (diagnostic: RasterizationDiagnostic) => void;
 }
 
 /** A node that needs to be rasterized for a given export target. */
@@ -159,6 +165,41 @@ export interface ExportSnapshot {
   rasterizedNodeIds: ReadonlySet<string>;
   /** Node IDs that are supported and should be emitted as-is. */
   supportedNodeIds: ReadonlySet<string>;
+  /** Rasterization failures that leave an empty asset placeholder. */
+  diagnostics: RasterizationDiagnostic[];
+}
+
+/** A rasterized fallback that could not be produced. */
+export interface RasterizationDiagnostic {
+  code: 'pixel-budget-exceeded' | 'surface-unavailable' | 'encode-failed';
+  nodeId: string;
+  message: string;
+}
+
+function rasterizationDiagnostic(
+  code: RasterizationDiagnostic['code'],
+  nodeId: string,
+): RasterizationDiagnostic {
+  switch (code) {
+    case 'pixel-budget-exceeded':
+      return {
+        code,
+        nodeId,
+        message: `Rasterized fallback for "${nodeId}" exceeds the 33.5-megapixel budget. Reduce the export scale or split the layer; the fallback is emitted as an empty image.`,
+      };
+    case 'surface-unavailable':
+      return {
+        code,
+        nodeId,
+        message: `Rasterized fallback for "${nodeId}" could not allocate an offscreen surface, so effect spill and unsupported constructs are missing from this export. Close other tabs or reduce the export scale and retry.`,
+      };
+    case 'encode-failed':
+      return {
+        code,
+        nodeId,
+        message: `Rasterized fallback for "${nodeId}" could not be encoded as PNG, so the unsupported region is missing from this export. Retry the export.`,
+      };
+  }
 }
 
 // ── Capability tables ─────────────────────────────────────────────────────────
@@ -1131,10 +1172,23 @@ async function rasterizeBoundaries(
   eng: Engine,
   exportScale: number,
   dpi: number,
-  opts: Pick<ComposeSnapshotOptions, 'signal' | 'background' | 'onProgress'>,
-): Promise<{ rasterAssets: Record<string, RasterAsset>; rasterizedIds: Set<string> }> {
+  opts: Pick<
+    ComposeSnapshotOptions,
+    'signal' | 'background' | 'onProgress' | 'onRasterizationDiagnostic'
+  >,
+): Promise<{
+  rasterAssets: Record<string, RasterAsset>;
+  rasterizedIds: Set<string>;
+  diagnostics: RasterizationDiagnostic[];
+}> {
   const rasterAssets: Record<string, RasterAsset> = {};
   const rasterizedIds = new Set<string>();
+  const diagnostics: RasterizationDiagnostic[] = [];
+  const report = (code: RasterizationDiagnostic['code'], nodeId: string): void => {
+    const diagnostic = rasterizationDiagnostic(code, nodeId);
+    diagnostics.push(diagnostic);
+    opts.onRasterizationDiagnostic?.(diagnostic);
+  };
   let processed = 0;
 
   for (const boundary of boundaries) {
@@ -1188,6 +1242,7 @@ async function rasterizeBoundaries(
         dpi,
       };
       rasterizedIds.add(node.id);
+      report('pixel-budget-exceeded', node.id);
       continue;
     }
 
@@ -1195,7 +1250,19 @@ async function rasterizeBoundaries(
     try {
       surface = createRasterSurface(pixelW, pixelH);
     } catch {
-      // Renderer unavailable — skip this boundary
+      // Declared degraded fallback: keep the placeholder so the emitter knows
+      // the node was rasterized, and report the missing region.
+      rasterAssets[node.id] = {
+        nodeId: node.id,
+        dataUrl: '',
+        pixelWidth: 0,
+        pixelHeight: 0,
+        cssWidth,
+        cssHeight,
+        dpi,
+      };
+      rasterizedIds.add(node.id);
+      report('surface-unavailable', node.id);
       continue;
     }
 
@@ -1232,6 +1299,17 @@ async function rasterizeBoundaries(
         reader.readAsDataURL(blob);
       });
     } catch {
+      rasterAssets[node.id] = {
+        nodeId: node.id,
+        dataUrl: '',
+        pixelWidth: 0,
+        pixelHeight: 0,
+        cssWidth,
+        cssHeight,
+        dpi,
+      };
+      rasterizedIds.add(node.id);
+      report('encode-failed', node.id);
       continue;
     }
 
@@ -1248,7 +1326,7 @@ async function rasterizeBoundaries(
     rasterizedIds.add(node.id);
   }
 
-  return { rasterAssets, rasterizedIds };
+  return { rasterAssets, rasterizedIds, diagnostics };
 }
 
 export async function composeFlattenedExportSnapshot(
@@ -1289,7 +1367,7 @@ export async function composeFlattenedExportSnapshot(
     }
 
     const exportScale = scale * (dpi / 96);
-    const { rasterAssets, rasterizedIds } = await rasterizeBoundaries(
+    const { rasterAssets, rasterizedIds, diagnostics } = await rasterizeBoundaries(
       boundaries,
       doc,
       eng,
@@ -1303,6 +1381,7 @@ export async function composeFlattenedExportSnapshot(
       rootNodeIds: rootIds,
       rasterizedNodeIds: rasterizedIds,
       supportedNodeIds: supportedIds,
+      diagnostics,
     };
 
     currentPhase++;

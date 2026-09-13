@@ -221,6 +221,7 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
   switch (job.format) {
     case 'svg':
     case 'svg-component': {
+      const rasterWarnings: string[] = [];
       const rasterAssets = await composeFlattenedRasterAssetsForNode(
         node,
         context.document,
@@ -228,6 +229,7 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
         {
           scale: 1,
           engine: context.engine ?? undefined,
+          onRasterizationDiagnostic: (diagnostic) => rasterWarnings.push(diagnostic.message),
         },
       );
       const fontWarnings = collectMissingFontWarnings(node);
@@ -243,6 +245,7 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
         warnings: [
           ...fontWarnings,
           ...collectGradientMapFlattenWarnings(node, context.document, 'svg'),
+          ...rasterWarnings,
         ],
       };
     }

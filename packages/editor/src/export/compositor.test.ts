@@ -1199,3 +1199,32 @@ describe('mergeRasterExpansion', () => {
     ).toEqual({ left: 4, top: 30, right: 8, bottom: 0 });
   });
 });
+
+describe('rasterization diagnostics', () => {
+  it('reports an over-budget fallback instead of silently emitting an empty image', async () => {
+    const big = makeShapeNode(
+      'big',
+      { kind: 'rect', x: 0, y: 0, w: 6000, h: 6000 },
+      {
+        effects: [{ type: 'dropShadow', visible: true, x: 0, y: 0, blur: 0 }] as any,
+      },
+    );
+    const doc = makeDoc({ big: big });
+
+    const diagnostics: Array<{ code: string; nodeId: string }> = [];
+    const result = await composeFlattenedExportSnapshot(doc, ['svg'], {
+      scale: 1,
+      onRasterizationDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
+    });
+
+    expect(result.svg.diagnostics.map((diagnostic) => diagnostic.code)).toEqual([
+      'pixel-budget-exceeded',
+    ]);
+    expect(result.svg.diagnostics[0]?.nodeId).toBe('big');
+    expect(diagnostics.map((diagnostic) => diagnostic.code)).toEqual(['pixel-budget-exceeded']);
+    // The placeholder asset keeps the node in the rasterized set so the
+    // emitter places an empty image rather than dropping the layer silently.
+    expect(result.svg.rasterAssets.big?.dataUrl).toBe('');
+    expect(result.svg.rasterizedNodeIds.has('big')).toBe(true);
+  });
+});
