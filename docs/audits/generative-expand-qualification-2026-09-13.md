@@ -53,6 +53,18 @@ Fixtures are the public-domain photographic corpus documented in
 the run. The harness lives at
 `crates/varve-bgremove/tests/lama_expand_qualification.rs`.
 
+Two browser workflow lanes complement the native run:
+
+- `tests/e2e/caf/expand-real-photo.spec.ts` drives the real dialog on a
+  1632x1224 landscape with Fast quality and asserts the reviewed preview
+  dimensions, the accepted record (mode, output frame, full-output asset kind),
+  node identity and geometry, reopening the accepted edit, and Restore
+  Original. It passed twice on Chromium (ports 1777 and 1779, 33.3 s and
+  42.8 s) on 2026-09-13; the reviewed dialog is retained as
+  `browser-expand-dialog-result.png`.
+- The promptless reconstruction warning is visible in the review footer, so
+  the provider boundary is disclosed at acceptance time.
+
 ## Results
 
 | Case | Fixture | Source | Output | Margin (T/R/B/L) | Provider ms | Border changed | Border luminance stddev | Mean seam gradient (0-255) |
