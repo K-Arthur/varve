@@ -8147,6 +8147,7 @@ export function EditorProvider({
             ...fragmentBase,
             nodes: tempNodes,
             ...(varveData.rasterMaskAssets ? { rasterMaskAssets: varveData.rasterMaskAssets } : {}),
+            ...(varveData.depthMaps ? { depthMaps: varveData.depthMaps } : {}),
             ...(varveData.assets ? { assets: varveData.assets } : {}),
             ...(varveData.iconAssets ? { iconAssets: varveData.iconAssets } : {}),
             ...(varveData.mockupTemplates ? { mockupTemplates: varveData.mockupTemplates } : {}),

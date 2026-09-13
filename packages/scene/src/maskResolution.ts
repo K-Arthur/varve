@@ -74,10 +74,12 @@ export function resolveNodeRasterMaskAsset(
   }
   const coordinateSpace = mask.rasterMask.coordinateSpace;
   if (
-    (coordinateSpace === 'source-image-pixels' && !isImageMaskTarget(doc, node)) ||
+    (coordinateSpace === 'source-image-pixels' &&
+      !isImageMaskTarget(doc, node) &&
+      !(node.kind === 'adjustment' && mask.rasterMask.depthRecipe?.sourceBinding.nodeId)) ||
     (coordinateSpace === 'container-local-pixels' && node.kind !== 'frame') ||
     (coordinateSpace === 'node-local-pixels' && !isVisualMaskTarget(node)) ||
-    !canReceiveRasterMask(node)
+    !canReceiveRasterMask(node, coordinateSpace)
   ) {
     return null;
   }

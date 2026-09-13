@@ -9,6 +9,7 @@
 import {
   acquireMaskSurface,
   applyMaskAlpha,
+  computeImagePlacement,
   getImageCache,
   mapBlendMode,
   primitiveBounds,
@@ -16,8 +17,15 @@ import {
   renderEnhancedMask,
   traceSceneNodeOutline,
 } from '@varve/engine';
-import type { Document, Mask, NodeId, SceneNode } from '@varve/scene';
+import {
+  type Document,
+  type Mask,
+  type NodeId,
+  resolveNodePaints,
+  type SceneNode,
+} from '@varve/scene';
 import type { TransformCache } from '../scene/transformCache';
+import { nodeLocalBounds } from '../scene/world';
 
 type RasterContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
@@ -101,6 +109,105 @@ export interface AdjustmentSpatialMaskOptions {
   getWorldTransform: (nodeId: NodeId) => readonly [number, number, number, number, number, number];
 }
 
+function applyPlacementTransform(
+  ctx: RasterContext,
+  centerX: number,
+  centerY: number,
+  rotation: number,
+  flipH: boolean,
+  flipV: boolean,
+): void {
+  ctx.translate(centerX, centerY);
+  if (rotation !== 0) ctx.rotate((rotation * Math.PI) / 180);
+  ctx.scale(flipH ? -1 : 1, flipV ? -1 : 1);
+  ctx.translate(-centerX, -centerY);
+}
+
+/** Draw a source-image mask using the same placement contract as image fills. */
+function drawSourceBoundRasterMask(
+  ctx: RasterContext,
+  image: CanvasImageSource,
+  assetWidth: number,
+  assetHeight: number,
+  placement: ReturnType<typeof computeImagePlacement>,
+): void {
+  if (!placement) return;
+  const drawTile = (rect: { x: number; y: number; w: number; h: number }): void => {
+    const centerX = rect.x + rect.w / 2;
+    const centerY = rect.y + rect.h / 2;
+    ctx.save();
+    applyPlacementTransform(
+      ctx,
+      centerX,
+      centerY,
+      placement.rotation,
+      placement.flipH,
+      placement.flipV,
+    );
+    ctx.drawImage(image, 0, 0, assetWidth, assetHeight, rect.x, rect.y, rect.w, rect.h);
+    ctx.restore();
+  };
+
+  if (placement.fit !== 'tile') {
+    drawTile(placement.drawRect);
+    return;
+  }
+
+  const { bounds, drawRect } = placement;
+  const startX = drawRect.x + Math.floor((bounds.x - drawRect.x) / drawRect.w) * drawRect.w;
+  const startY = drawRect.y + Math.floor((bounds.y - drawRect.y) / drawRect.h) * drawRect.h;
+  let count = 0;
+  for (let y = startY; y < bounds.y + bounds.h && count < 4096; y += drawRect.h) {
+    for (let x = startX; x < bounds.x + bounds.w && count < 4096; x += drawRect.w) {
+      drawTile({ x, y, w: drawRect.w, h: drawRect.h });
+      count++;
+    }
+  }
+}
+
+function sourceBoundMaskPlacement(
+  doc: Document,
+  mask: Mask,
+  assetWidth: number,
+  assetHeight: number,
+): { nodeId: NodeId; placement: ReturnType<typeof computeImagePlacement> } | null {
+  const sourceNodeId = mask.rasterMask?.depthRecipe?.sourceBinding.nodeId;
+  const sourceNode = sourceNodeId ? doc.nodes[sourceNodeId] : undefined;
+  if (sourceNode?.kind !== 'shape') return null;
+  const image = resolveNodePaints(
+    sourceNode as unknown as Parameters<typeof resolveNodePaints>[0],
+    doc,
+  ).find((fill) => fill.type === 'image')?.image;
+  const bounds = nodeLocalBounds(sourceNode, doc);
+  if (!image || !bounds) return null;
+  const sourceWidth = image.imageWidth ?? doc.assets?.[image.assetId ?? '']?.naturalWidth;
+  const sourceHeight = image.imageHeight ?? doc.assets?.[image.assetId ?? '']?.naturalHeight;
+  if (
+    !Number.isFinite(sourceWidth) ||
+    !Number.isFinite(sourceHeight) ||
+    sourceWidth !== assetWidth ||
+    sourceHeight !== assetHeight
+  ) {
+    return null;
+  }
+  return {
+    nodeId: sourceNode.id,
+    placement: computeImagePlacement({
+      fit: image.fit ?? 'fill',
+      sourceWidth,
+      sourceHeight,
+      bounds,
+      x: image.x,
+      y: image.y,
+      scale: image.scale,
+      sourceCrop: image.crop,
+      rotation: image.rotation,
+      flipH: image.flipH,
+      flipV: image.flipV,
+    }),
+  };
+}
+
 /**
  * Apply an adjustment's spatial mask to its filtered backdrop in place.
  *
@@ -120,9 +227,22 @@ export function applyAdjustmentSpatialMask(options: AdjustmentSpatialMaskOptions
   const maskHasVector = !!mask.vectorMask && mask.vectorMask.points.length > 0;
   // Adjustment nodes have no renderable geometry — a spatial mask whose
   // source is another adjustment contributes nothing.
+  const rasterAsset = mask.rasterMask
+    ? (doc.rasterMaskAssets?.[mask.rasterMask.assetId] ?? null)
+    : null;
+  const rasterMaskImage = rasterAsset ? getImageCache().getImage(rasterAsset.dataUrl) : null;
+  if (rasterAsset && !rasterMaskImage) {
+    getImageCache()
+      .load(rasterAsset.dataUrl)
+      .catch(() => undefined);
+  }
+  const rasterPlacement = rasterAsset
+    ? sourceBoundMaskPlacement(doc, mask, rasterAsset.width, rasterAsset.height)
+    : null;
   const maskUsable =
     maskHasVector ||
-    (maskSrcId !== undefined && maskSource !== undefined && maskSource.kind !== 'adjustment');
+    (maskSrcId !== undefined && maskSource !== undefined && maskSource.kind !== 'adjustment') ||
+    Boolean(rasterMaskImage && rasterPlacement?.placement);
   if (!maskUsable) return;
 
   const maskWorldTransform = maskSrcId
@@ -165,6 +285,16 @@ export function applyAdjustmentSpatialMask(options: AdjustmentSpatialMaskOptions
       fillClipGeometry(maskCtx);
     } else if (maskSrcId) {
       replayNode(maskSrcId, maskCtx);
+    } else if (rasterMaskImage && rasterAsset && rasterPlacement?.placement) {
+      const sourceWorld = getWorldTransform(rasterPlacement.nodeId);
+      maskCtx.transform(...sourceWorld);
+      drawSourceBoundRasterMask(
+        maskCtx,
+        rasterMaskImage,
+        rasterAsset.width,
+        rasterAsset.height,
+        rasterPlacement.placement,
+      );
     }
   };
   const hardClip =
@@ -182,6 +312,16 @@ export function applyAdjustmentSpatialMask(options: AdjustmentSpatialMaskOptions
       fillClipGeometry(backdropCtx);
     } else if (maskSrcId) {
       fillClipGeometry(backdropCtx);
+    } else if (rasterMaskImage && rasterAsset && rasterPlacement?.placement) {
+      const sourceWorld = getWorldTransform(rasterPlacement.nodeId);
+      backdropCtx.transform(...sourceWorld);
+      drawSourceBoundRasterMask(
+        backdropCtx,
+        rasterMaskImage,
+        rasterAsset.width,
+        rasterAsset.height,
+        rasterPlacement.placement,
+      );
     }
   } else {
     applyMaskAlpha(backdropCtx as CanvasRenderingContext2D, drawMaskAtDevice, {

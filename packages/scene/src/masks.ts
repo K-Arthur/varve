@@ -41,6 +41,7 @@ import {
   isVisualMaskTarget,
 } from './maskCapability';
 import {
+  isImageMaskTarget,
   resolvedImageMaskFill,
   resolveNodeMask,
   resolveNodeRasterMaskAsset,
@@ -541,7 +542,11 @@ function validateSourcePixelDimensions(
   ) {
     return `${node.id}: Raster mask source identity dimensions must match its asset dimensions`;
   }
-  const sourceDimensions = knownOrientedSourceDimensions(doc, node);
+  const sourceNode =
+    node.kind === 'adjustment'
+      ? doc.nodes[node.mask?.rasterMask?.depthRecipe?.sourceBinding.nodeId ?? '']
+      : node;
+  const sourceDimensions = sourceNode ? knownOrientedSourceDimensions(doc, sourceNode) : null;
   if (
     sourceDimensions &&
     (asset.width !== sourceDimensions.width || asset.height !== sourceDimensions.height)
@@ -582,8 +587,15 @@ export function validateRasterMaskDocument(doc: Document): string | null {
     }
     const error = validateMaskSource(doc, node.mask);
     if (error) return `${node.id}: ${error}`;
-    if (node.mask.rasterMask && !canReceiveRasterMask(node)) {
-      return `${node.id}: Raster masks may only attach to visual leaf nodes or frames`;
+    if (node.mask.rasterMask && !canReceiveRasterMask(node, node.mask.rasterMask.coordinateSpace)) {
+      return `${node.id}: Raster masks may only attach to visual leaves, frames, or depth-scoped adjustment layers`;
+    }
+    if (node.kind === 'adjustment' && node.mask.rasterMask) {
+      const sourceId = node.mask.rasterMask.depthRecipe?.sourceBinding.nodeId;
+      const sourceNode = sourceId ? doc.nodes[sourceId] : undefined;
+      if (!sourceId || !sourceNode || !isImageMaskTarget(doc, sourceNode)) {
+        return `${node.id}: Depth masks on adjustments require an existing image source binding`;
+      }
     }
     if (node.mask.rasterMask) {
       const asset = getOwnRasterMaskAsset(doc, node.mask.rasterMask.assetId);

@@ -56,7 +56,13 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
       closed: boolean;
       fillRule: 'nonzero' | 'evenodd';
     };
-    rasterMask?: unknown;
+    rasterMask?: {
+      coordinateSpace?:
+        | 'source-image-pixels'
+        | 'legacy-preview-pixels'
+        | 'container-local-pixels'
+        | 'node-local-pixels';
+    };
   } | null;
 
   const isVisualLeaf = isVisualMaskTarget(node);
@@ -66,7 +72,9 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
   // children or adjustment kind for structural mask sources.
   const canAddMask =
     canHaveMask && !mask && (hasChildren || node.kind === 'adjustment' || isVisualLeaf);
-  const canPaintRasterMask = canReceiveRasterMask(node) && (!mask || Boolean(mask.rasterMask));
+  const canPaintRasterMask =
+    canReceiveRasterMask(node, mask?.rasterMask?.coordinateSpace) &&
+    (!mask || Boolean(mask.rasterMask));
 
   const nodeMap = useMemo(() => {
     if (!document || !mask?.sourceNodeId) return null;

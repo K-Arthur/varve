@@ -1,7 +1,6 @@
 import type { DepthMap, DepthMapResource } from '@varve/engine';
 import {
   applyDepthBlur,
-  depthRangeToMask,
   depthToHeatmapImageData,
   deserializeDepthMap,
   getInferenceWorkerHost,
@@ -10,20 +9,24 @@ import {
   resizeDepthMap,
   sampleDepth,
   serializeDepthMap,
+  sourceAlphaToDepthValidity,
   unletterboxDepthMap,
 } from '@varve/engine';
 import type { Effect, SceneNode, ShapeNode } from '@varve/scene';
 import { imageShapeSrc, isImageShape } from '@varve/scene';
 import { Button, Separator, Switch } from '@varve/ui';
 import { type MouseEvent, useCallback, useEffect, useId, useRef, useState } from 'react';
-import { commitRasterMask } from '../../../backgroundRemoval/commitRasterMask';
 import { useEditor, useViewport } from '../../../context';
+import { containDepthPreview, depthPreviewPointToMap } from '../../../depth/depthPreviewLayout';
 import { worldPointToImageMaskPixel } from '../../../tools/imageMaskCoordinates';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 import { RangeValueControl } from '../controls/RangeValueControl';
 
 const DEPTH_MODEL_ID = 'depth-anything-v2-small';
+const DEPTH_MODEL_VERSION = '2.0.0';
+const DEPTH_MODEL_CHECKSUM = '01aa7a23de3f4a0ee1a2bb9997e6918104c85a9f95dea46d27b9b3fb0c6b9001';
+const DEPTH_PREPROCESSING_VERSION = 1;
 
 /**
  * Reject if `promise` has not settled within `ms`.
@@ -157,7 +160,6 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
     transitionRange: 20,
     invert: false,
   });
-  const [maskParams, setMaskParams] = useState({ near: 0, far: 100, feather: 10, invert: false });
   const [livePreview, setLivePreview] = useState(false);
   const [previewDepth, setPreviewDepth] = useState(false);
   const [pickFocus, setPickFocus] = useState(false);
@@ -171,9 +173,6 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
   const blurAmountId = useId();
   const focalDepthId = useId();
   const transitionRangeId = useId();
-  const maskNearId = useId();
-  const maskFarId = useId();
-  const maskFeatherId = useId();
 
   const src = node && isImageShape(node) ? imageShapeSrc(node) : '';
   const sourceAssetId = node?.fills?.find((fill) => fill.type === 'image')?.image?.assetId;
@@ -193,7 +192,7 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
       controller.abort();
       generateAbortRef.current = null;
     };
-  }, [src, node?.id]);
+  }, [sourceAsset?.hash, src, node?.id]);
 
   useEffect(() => {
     setDepthData(null);
@@ -241,8 +240,9 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
         img.src = src;
       });
       if (cancelled) return;
-      canvas.width = Math.min(img.naturalWidth, 300);
-      canvas.height = Math.min(img.naturalHeight, 200);
+      const layout = containDepthPreview(img.naturalWidth, img.naturalHeight);
+      canvas.width = Math.max(1, Math.round(layout.drawWidth));
+      canvas.height = Math.max(1, Math.round(layout.drawHeight));
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
@@ -265,14 +265,30 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
   useEffect(() => {
     if (!depthData || !heatmapCanvasRef.current) return;
     const canvas = heatmapCanvasRef.current;
-    canvas.width = Math.min(depthData.width, 300);
-    canvas.height = Math.min(depthData.height, 200);
+    const layout = containDepthPreview(depthData.width, depthData.height);
+    canvas.width = layout.canvasWidth;
+    canvas.height = layout.canvasHeight;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    const source = document.createElement('canvas');
+    source.width = depthData.width;
+    source.height = depthData.height;
+    const sourceCtx = source.getContext('2d');
+    if (!sourceCtx) return;
     const preview = new Uint8Array(depthData.values.length);
-    for (let i = 0; i < preview.length; i++) preview[i] = Math.round(depthData.values[i]! * 255);
+    for (let i = 0; i < preview.length; i++) {
+      preview[i] = depthData.valid[i] ? Math.round(depthData.values[i]! * 255) : 0;
+    }
     const heatmap = depthToHeatmapImageData(preview, depthData.width, depthData.height);
-    ctx.putImageData(heatmap, 0, 0);
+    for (let i = 0; i < depthData.valid.length; i++) {
+      if (!depthData.valid[i]) heatmap.data[i * 4 + 3] = 0;
+    }
+    sourceCtx.putImageData(heatmap, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = 'rgba(127, 127, 127, 0.16)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(source, layout.drawX, layout.drawY, layout.drawWidth, layout.drawHeight);
   }, [depthData, pickFocus, previewDepth]);
 
   useEffect(() => {
@@ -330,6 +346,7 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
     const runId = ++generateRunRef.current;
     const nodeAtStart = node;
     const sourceAssetIdAtStart = sourceAssetId;
+    const sourceHashAtStart = sourceAsset?.hash;
     const controller = new AbortController();
     generateAbortRef.current = controller;
     setDepthState('generating');
@@ -384,30 +401,69 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
       // [1, 1, H, W]. Read the last two dims so either shape works.
       const outputH = dims[dims.length - 2] as number;
       const outputW = dims[dims.length - 1] as number;
+      const letterbox = result.outputs.letterbox as
+        | { offsetX: number; offsetY: number; contentWidth?: number; contentHeight?: number }
+        | undefined;
+      const sourceValidity = sourceAlphaToDepthValidity(
+        imageData.data,
+        imageData.width,
+        imageData.height,
+        outputW,
+        outputH,
+        letterbox,
+      );
       const normalized = normalizeDepthPrediction(rawData, outputW, outputH, {
         // The pinned export's raw convention is nearIsHigh (verified by
         // scripts/models/verify-depth-model.mjs).
         nearFarConvention: 'nearIsHigh',
+        valid: sourceValidity,
         metadata: {
           modelId: DEPTH_MODEL_ID,
-          modelVersion: '2.0.0',
+          modelVersion: DEPTH_MODEL_VERSION,
           sourceAssetId: sourceAssetIdAtStart,
-          sourceHash: sourceAsset?.hash,
+          sourceHash: sourceHashAtStart,
           sourceRevision: 1,
-          preprocessingVersion: 1,
+          preprocessingVersion: DEPTH_PREPROCESSING_VERSION,
           inferenceVersion: 1,
           generatedAt: Date.now(),
         },
       });
-      const letterbox = result.outputs.letterbox as
-        | { offsetX: number; offsetY: number }
-        | undefined;
       const aligned = letterbox
         ? unletterboxDepthMap(normalized, imageData.width, imageData.height, letterbox)
         : resizeDepthMap(normalized, imageData.width, imageData.height);
+      const accepted = {
+        ...aligned,
+        metadata: {
+          ...aligned.metadata,
+          registration: {
+            schemaVersion: 1 as const,
+            sourceWidth: imageData.width,
+            sourceHeight: imageData.height,
+            mapWidth: aligned.width,
+            mapHeight: aligned.height,
+            coordinateSpace: 'source-image-pixels' as const,
+            orientation: 'top-left' as const,
+            sourceToMap: [1, 0, 0, 1, 0, 0] as const,
+          },
+          provenance: {
+            origin: 'generated' as const,
+            format: 'onnx',
+            ...(typeof result.outputs.executionProvider === 'string'
+              ? { runtime: result.outputs.executionProvider }
+              : {}),
+            modelId: DEPTH_MODEL_ID,
+            modelVersion: DEPTH_MODEL_VERSION,
+            modelChecksum: DEPTH_MODEL_CHECKSUM,
+            preprocessingVersion: DEPTH_PREPROCESSING_VERSION,
+          },
+        },
+      } satisfies DepthMap;
       const resourceId = `depth-${nodeAtStart?.id ?? 'image'}-${sourceAssetIdAtStart ?? 'source'}`;
-      const resource = serializeDepthMap(aligned, resourceId);
-      setDepthData(aligned);
+      const resource = serializeDepthMap(accepted, resourceId);
+      // The accepted resource is the persisted truth. Decode it once before
+      // preview/apply so a slider value on the in-memory float field cannot
+      // disagree with the reopened uint16 map at a narrow boundary.
+      setDepthData(deserializeDepthMap(resource));
       setDepthResource(resource);
       setDepthState('ready');
     } catch (err) {
@@ -460,9 +516,21 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
         edgeProtection: 0.035,
         visible: true,
       };
+      let committed = false;
       updateDoc((doc) => {
         const current = doc.nodes[node.id];
-        if (!current || !('effects' in current)) return doc;
+        const currentSourceAsset = sourceAssetId ? doc.assets?.[sourceAssetId] : undefined;
+        if (
+          !current ||
+          current !== node ||
+          !('effects' in current) ||
+          (depthResource.sourceAssetId !== undefined &&
+            depthResource.sourceAssetId !== sourceAssetId) ||
+          (depthResource.sourceHash !== undefined &&
+            currentSourceAsset?.hash !== depthResource.sourceHash)
+        )
+          return doc;
+        committed = true;
         const effects = current.effects ?? [];
         const index = existingDepthEffect?.id
           ? effects.findIndex(
@@ -479,6 +547,7 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
           nodes: { ...doc.nodes, [node.id]: { ...current, effects: nextEffects } },
         };
       });
+      if (!committed) throw new Error('The source changed; the depth result was not applied');
       announce(`Depth Blur saved (blur ${params.blurAmount}px, focus ${params.focalDepth}%)`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Apply failed';
@@ -492,18 +561,22 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
     existingDepthEffect?.id,
     node,
     params,
+    sourceAssetId,
     updateDoc,
   ]);
 
   const handleDepthPreviewClick = useCallback(
     (event: MouseEvent<HTMLCanvasElement>) => {
       if (!pickFocus || !depthData) return;
-      const rect = event.currentTarget.getBoundingClientRect();
-      const x = ((event.clientX - rect.left) / Math.max(1, rect.width)) * depthData.width;
-      const y = ((event.clientY - rect.top) / Math.max(1, rect.height)) * depthData.height;
-      const index =
-        Math.min(depthData.height - 1, Math.max(0, Math.floor(y))) * depthData.width +
-        Math.min(depthData.width - 1, Math.max(0, Math.floor(x)));
+      const layout = containDepthPreview(depthData.width, depthData.height);
+      const point = depthPreviewPointToMap(
+        event.clientX,
+        event.clientY,
+        event.currentTarget.getBoundingClientRect(),
+        layout,
+      );
+      if (!point) return;
+      const index = point.y * depthData.width + point.x;
       if (!depthData.valid[index]) return;
       setParams((current) => ({
         ...current,
@@ -514,6 +587,32 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
     },
     [announce, depthData, pickFocus],
   );
+
+  const handleSaveDepthMap = useCallback(() => {
+    if (!depthResource || !depthData || depthState !== 'ready' || !node) return;
+    let committed = false;
+    updateDoc((doc) => {
+      if (
+        doc.nodes[node.id] !== node ||
+        (depthResource.sourceAssetId !== undefined &&
+          depthResource.sourceAssetId !== sourceAssetId) ||
+        (sourceAssetId &&
+          depthResource.sourceHash !== undefined &&
+          doc.assets?.[sourceAssetId]?.hash !== depthResource.sourceHash)
+      )
+        return doc;
+      committed = true;
+      return {
+        ...doc,
+        depthMaps: { ...(doc.depthMaps ?? {}), [depthResource.id]: depthResource },
+      };
+    });
+    if (!committed) {
+      setInferenceError('The source changed; the depth map was not saved');
+      return;
+    }
+    announce('Depth map saved for reuse by masks and effects');
+  }, [announce, depthData, depthResource, depthState, node, sourceAssetId, updateDoc]);
 
   // Canvas-integrated focus picking: while armed, the next pointer press on
   // the canvas is mapped screen -> world -> node -> source pixel -> DepthMap
@@ -556,57 +655,6 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
     };
   }, [announce, canvasToWorld, depthData, node, pickFromCanvas, state.document]);
 
-  const handleCreateDepthMask = useCallback(() => {
-    if (!depthData || !depthResource || !node) return;
-    try {
-      const coverage = depthRangeToMask(
-        depthData,
-        maskParams.near / 100,
-        maskParams.far / 100,
-        maskParams.feather / 100,
-        maskParams.invert,
-      );
-      const canvas = document.createElement('canvas');
-      canvas.width = depthData.width;
-      canvas.height = depthData.height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      const encoded = new ImageData(
-        new Uint8ClampedArray(depthData.width * depthData.height * 4),
-        canvas.width,
-        canvas.height,
-      );
-      for (let i = 0; i < coverage.length; i++) {
-        const offset = i * 4;
-        encoded.data[offset] = 255;
-        encoded.data[offset + 1] = 255;
-        encoded.data[offset + 2] = 255;
-        encoded.data[offset + 3] = coverage[i]!;
-      }
-      ctx.putImageData(encoded, 0, 0);
-      const dataUrl = canvas.toDataURL('image/png');
-      updateDoc((doc) =>
-        commitRasterMask(doc, node.id, {
-          dataUrl,
-          width: depthData.width,
-          height: depthData.height,
-          method: 'quick',
-          runtime: 'typescript',
-          modelId: depthResource.modelId,
-          modelVersion: depthResource.modelVersion,
-          generatedAt: depthResource.generatedAt,
-          sourceLocator: imageShapeSrc(node),
-        }),
-      );
-      announce(
-        `Depth mask created for ${maskParams.invert ? 'outside' : 'inside'} the depth range`,
-      );
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Mask creation failed';
-      setInferenceError(msg);
-    }
-  }, [announce, depthData, depthResource, maskParams, node, updateDoc]);
-
   const handleRemoveDepthBlur = useCallback(() => {
     if (!node) return;
     updateDoc((doc) => {
@@ -624,28 +672,17 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
         ...doc,
         nodes: { ...doc.nodes, [node.id]: { ...current, effects } },
       };
-      // Drop depth resources no longer referenced by any node effect.
-      const referenced = new Set<string>();
-      for (const candidate of Object.values(next.nodes)) {
-        if (!('effects' in candidate)) continue;
-        for (const effect of candidate.effects ?? []) {
-          if (effect.type === 'depthBlur') referenced.add(effect.depthMapId);
-        }
-      }
-      const remaining = next.depthMaps
-        ? Object.fromEntries(Object.entries(next.depthMaps).filter(([id]) => referenced.has(id)))
-        : undefined;
-      return {
-        ...next,
-        depthMaps: remaining && Object.keys(remaining).length > 0 ? remaining : undefined,
-      };
+      // Accepted maps are document resources and may be reused by a depth
+      // mask after this effect is removed. Explicit resource deletion owns
+      // pruning; removing one consumer must not discard a reusable map.
+      return next;
     });
     setDepthData(null);
     setDepthResource(null);
     setDepthState('idle');
     setInferenceError(null);
     announce('Depth Blur removed');
-  }, [announce, node, updateDoc]);
+  }, [announce, depthEffectId, node, updateDoc]);
 
   if (!node || !isImageShape(node)) return null;
 
@@ -848,75 +885,14 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
               <Button type="button" variant="default" size="sm" onClick={handleApply}>
                 Save Depth Blur
               </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={handleSaveDepthMap}>
+                Save Depth Map
+              </Button>
               {depthEffectId && (
                 <Button type="button" variant="ghost" size="sm" onClick={handleRemoveDepthBlur}>
                   Remove Depth Blur
                 </Button>
               )}
-            </div>
-          </>
-        )}
-
-        {depthData && depthState === 'ready' && (
-          <>
-            <Separator className="insp-divider" decorative tone="subtle" />
-            <p className="insp-subsection__label">Depth Range Mask</p>
-            <p className="insp-hint">
-              Converts the DepthMap into a non-destructive layer mask. Useful for foreground or
-              background selection; the mask can be used by adjustments and other effects.
-            </p>
-            <FieldRow label="Near" htmlFor={`${maskNearId}-range`}>
-              <RangeValueControl
-                id={maskNearId}
-                label="Near"
-                value={maskParams.near}
-                min={0}
-                max={100}
-                step={1}
-                unit="%"
-                rangeClassName="insp-range"
-                rangeAriaLabel="Mask near threshold"
-                onChange={(value) => setMaskParams((p) => ({ ...p, near: value }))}
-              />
-            </FieldRow>
-            <FieldRow label="Far" htmlFor={`${maskFarId}-range`}>
-              <RangeValueControl
-                id={maskFarId}
-                label="Far"
-                value={maskParams.far}
-                min={0}
-                max={100}
-                step={1}
-                unit="%"
-                rangeClassName="insp-range"
-                rangeAriaLabel="Mask far threshold"
-                onChange={(value) => setMaskParams((p) => ({ ...p, far: value }))}
-              />
-            </FieldRow>
-            <FieldRow label="Feather" htmlFor={`${maskFeatherId}-range`}>
-              <RangeValueControl
-                id={maskFeatherId}
-                label="Feather"
-                value={maskParams.feather}
-                min={0}
-                max={50}
-                step={1}
-                unit="%"
-                rangeClassName="insp-range"
-                rangeAriaLabel="Mask feather"
-                onChange={(value) => setMaskParams((p) => ({ ...p, feather: value }))}
-              />
-            </FieldRow>
-            <Switch
-              className="insp-switch"
-              label="Select outside depth range"
-              checked={maskParams.invert}
-              onChange={(e) => setMaskParams((p) => ({ ...p, invert: e.target.checked }))}
-            />
-            <div className="insp-actions">
-              <Button type="button" variant="ghost" size="sm" onClick={handleCreateDepthMask}>
-                Create Depth Mask
-              </Button>
             </div>
           </>
         )}

@@ -20,7 +20,9 @@ function isObject(value: unknown): value is Record<string, unknown> {
 /** Validate intent without decoding the potentially large scalar payload. */
 export function validateDepthMaskRecipe(
   recipe: unknown,
-  doc: Pick<Document, 'depthMaps' | 'rasterMaskAssets'>,
+  doc: Pick<Document, 'depthMaps' | 'rasterMaskAssets'> & {
+    nodes?: Document['nodes'];
+  },
 ): string | null {
   if (!isObject(recipe)) return 'Depth mask recipe must be an object';
   if (recipe.schemaVersion !== 1) return 'Depth mask recipe schema is unsupported';
@@ -30,6 +32,9 @@ export function validateDepthMaskRecipe(
   const binding = recipe.sourceBinding;
   if (!isObject(binding) || typeof binding.nodeId !== 'string') {
     return 'Depth mask recipe source binding is invalid';
+  }
+  if (doc.nodes && !doc.nodes[binding.nodeId]) {
+    return 'Depth mask recipe source binding references a missing node';
   }
   if (
     binding.coordinateSpace !== 'source-image-pixels' ||

@@ -33,7 +33,12 @@ export function AdjustmentsPanel() {
   const node = nodes[0];
 
   if (nodes.length === 1 && node?.kind === 'adjustment') {
-    return <AdjustmentPanel />;
+    return (
+      <>
+        <AdjustmentPanel />
+        <DepthMaskSection nodes={[node]} targetNode={node} />
+      </>
+    );
   }
 
   const allImages = nodes.length > 0 && nodes.every(isImageShape);

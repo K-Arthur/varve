@@ -164,7 +164,9 @@ export function removeNode(doc: Document, id: NodeId): Document {
     const mask = nextNode.mask;
     if (
       (mask?.sourceNodeId && toRemove.has(mask.sourceNodeId)) ||
-      (mask?.matteSource?.kind === 'scene-node' && toRemove.has(mask.matteSource.nodeId))
+      (mask?.matteSource?.kind === 'scene-node' && toRemove.has(mask.matteSource.nodeId)) ||
+      (mask?.rasterMask?.depthRecipe?.sourceBinding.nodeId &&
+        toRemove.has(mask.rasterMask.depthRecipe.sourceBinding.nodeId))
     ) {
       const { mask: _mask, ...rest } = nextNode;
       nextNode = rest as SceneNode;

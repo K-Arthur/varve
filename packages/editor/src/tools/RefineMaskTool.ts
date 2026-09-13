@@ -214,14 +214,31 @@ export class RefineMaskTool extends BaseTool {
     }
 
     const node = ctx.getNode(selectedId);
-    if (!node || !canReceiveRasterMask(node)) {
+    const depthSourceId = node?.mask?.rasterMask?.depthRecipe?.sourceBinding.nodeId;
+    const sourceNode =
+      node?.kind === 'adjustment' && depthSourceId ? ctx.getNode(depthSourceId) : node;
+    const isDepthAdjustment =
+      node?.kind === 'adjustment' &&
+      node.mask?.rasterMask?.coordinateSpace === 'source-image-pixels' &&
+      Boolean(depthSourceId) &&
+      Boolean(sourceNode && isImageShape(sourceNode));
+    if (!node) {
       ctx.announce('Select a visual layer or frame to paint a mask');
+      this.resetState();
+      return;
+    }
+    if (
+      !canReceiveRasterMask(node, node.mask?.rasterMask?.coordinateSpace) ||
+      (node.kind === 'adjustment' && !isDepthAdjustment)
+    ) {
+      ctx.announce('Select a visual layer, frame, or depth-masked adjustment to paint a mask');
       this.resetState();
       return;
     }
 
     const isFrame = node.kind === 'frame';
-    const isImage = isImageShape(node);
+    const imageSourceNode = sourceNode && isImageShape(sourceNode) ? sourceNode : null;
+    const isImage = imageSourceNode !== null;
     const rasterMask = node.mask?.rasterMask;
     const asset = rasterMask?.assetId
       ? getOwnRasterMaskAsset(ctx.document, rasterMask.assetId)
@@ -251,7 +268,7 @@ export class RefineMaskTool extends BaseTool {
       return;
     }
 
-    if (!isImage) {
+    if (!imageSourceNode) {
       // A node-local pixel mask follows the target's local paint bounds. This
       // covers true raster layers as well as editable vector/text targets;
       // only the coverage asset is raster, never the source artwork.
@@ -273,10 +290,14 @@ export class RefineMaskTool extends BaseTool {
     }
 
     const imageFill = resolveNodePaints(
-      { paintRefs: node.paintRefs, fills: node.fills, fill: { ...node.fill } },
+      {
+        paintRefs: imageSourceNode.paintRefs,
+        fills: imageSourceNode.fills,
+        fill: { ...imageSourceNode.fill },
+      },
       ctx.document,
     ).find((fill) => fill.type === 'image')?.image;
-    const sourceShape = node.kind === 'shape' ? node.shape : undefined;
+    const sourceShape = imageSourceNode.shape;
     const sourceWidth =
       imageFill?.imageWidth ?? (sourceShape?.kind === 'rect' ? sourceShape.w : 256);
     const sourceHeight =
@@ -284,7 +305,7 @@ export class RefineMaskTool extends BaseTool {
 
     const prepared = prepareImageMaskMapper({
       document: ctx.document,
-      node,
+      node: imageSourceNode,
       sourceWidth,
       sourceHeight,
     });

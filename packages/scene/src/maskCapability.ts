@@ -86,7 +86,19 @@ export function canReceiveLayerMask(node: SceneNode): boolean {
  * groups deliberately do not expose a painted mask until they have a bounded
  * local coordinate space.
  */
-export function canReceiveRasterMask(node: SceneNode): boolean {
+export function canReceiveRasterMask(
+  node: SceneNode,
+  coordinateSpace?:
+    | 'source-image-pixels'
+    | 'legacy-preview-pixels'
+    | 'container-local-pixels'
+    | 'node-local-pixels',
+): boolean {
+  // An adjustment layer has no own pixel bounds. Its depth recipe can still
+  // provide a source-image registration, which the shared adjustment replay
+  // projects into document space. Keep this narrower than the ordinary
+  // brush-mask capability so paint tools continue to reject adjustments.
+  if (node.kind === 'adjustment') return coordinateSpace === 'source-image-pixels';
   return isVisualMaskTarget(node) || node.kind === 'frame';
 }
 

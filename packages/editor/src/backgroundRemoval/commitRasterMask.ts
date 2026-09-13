@@ -20,6 +20,7 @@ import type {
   ImageFillData,
   NodeId,
   RasterMaskAsset,
+  RasterMaskSourceIdentity,
   SceneNode,
 } from '@varve/scene';
 import {
@@ -54,6 +55,8 @@ export interface RasterMaskCommitFields {
   coordinateSpace?: 'source-image-pixels' | 'container-local-pixels' | 'node-local-pixels';
   /** Persist depth intent beside the resolved PNG; null explicitly clears it. */
   depthRecipe?: DepthMaskRecipe | null;
+  /** Optional source identity for a recipe-backed source-pixel mask. */
+  sourceIdentity?: RasterMaskSourceIdentity;
 }
 
 function dataUrlByteLength(dataUrl: string): number {
@@ -101,7 +104,10 @@ function attachDepthRecipe(
   if (!node || !rasterMask) return doc;
   const nextRasterMask = { ...rasterMask };
   if (recipe === null) delete nextRasterMask.depthRecipe;
-  else nextRasterMask.depthRecipe = recipe;
+  else {
+    nextRasterMask.depthRecipe = recipe;
+    nextRasterMask.sourceIdentity = recipe.sourceIdentity;
+  }
   return pruneUnreferencedRasterMaskAssets({
     ...doc,
     nodes: {
@@ -242,8 +248,15 @@ export function commitRasterMask(
       ...(fields.depthRecipe !== undefined && fields.depthRecipe !== null
         ? { depthRecipe: fields.depthRecipe }
         : {}),
+      ...(fields.sourceIdentity ? { sourceIdentity: fields.sourceIdentity } : {}),
     },
-    { coordinateSpace: fields.coordinateSpace },
+    {
+      coordinateSpace:
+        fields.coordinateSpace ??
+        (fields.depthRecipe !== undefined && fields.depthRecipe !== null
+          ? 'source-image-pixels'
+          : undefined),
+    },
   );
   return updated === sourceAlignedDoc ? doc : updated;
 }

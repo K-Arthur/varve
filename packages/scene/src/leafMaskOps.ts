@@ -73,11 +73,16 @@ export function attachRasterMaskAsset(
   const node = doc.nodes[nodeId];
   const isImage = node !== undefined && isImageMaskTarget(doc, node);
   const isFrame = node?.kind === 'frame';
-  if (!node || !canReceiveRasterMask(node) || deps.validateAsset(asset)) return doc;
+  const isDepthAdjustment =
+    node?.kind === 'adjustment' &&
+    coordinateSpace === 'source-image-pixels' &&
+    rasterMask?.depthRecipe?.sourceBinding.nodeId !== undefined;
+  if (!node || !canReceiveRasterMask(node, coordinateSpace) || deps.validateAsset(asset))
+    return doc;
   if (
     (coordinateSpace === 'node-local-pixels' && !isVisualMaskTarget(node)) ||
     (coordinateSpace === 'container-local-pixels' && !isFrame) ||
-    (coordinateSpace === 'source-image-pixels' && !isImage)
+    (coordinateSpace === 'source-image-pixels' && !isImage && !isDepthAdjustment)
   ) {
     return doc;
   }
@@ -91,7 +96,13 @@ export function attachRasterMaskAsset(
       : coordinateSpace === 'node-local-pixels'
         ? ({ kind: 'source-metadata', locator: `node-local:${nodeId}`, revision } as const)
         : (rasterMask?.sourceIdentity ??
-          deps.imageSourceIdentity(doc, node as ShapeNode, revision));
+          (isImage
+            ? deps.imageSourceIdentity(doc, node as ShapeNode, revision)
+            : ({
+                kind: 'source-metadata',
+                locator: `depth-adjustment:${node.id}`,
+                revision,
+              } as const)));
   const maskData: RasterMaskData = {
     assetId: asset.id,
     coordinateSpace,
@@ -164,7 +175,8 @@ export function replaceRasterMaskAsset(
   const node = doc.nodes[nodeId];
   const currentMask = node?.mask;
   const current = currentMask?.rasterMask;
-  if (!node || !currentMask || !current || !canReceiveRasterMask(node)) return doc;
+  if (!node || !currentMask || !current || !canReceiveRasterMask(node, current.coordinateSpace))
+    return doc;
   if (deps.validateAsset(asset)) return doc;
   const existing = deps.getAsset(doc, asset.id);
   if (existing && !deps.assetsEqual(existing, asset)) return doc;

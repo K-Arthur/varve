@@ -12,6 +12,7 @@
  *
  * Research basis: Clipboard API (W3C), custom MIME types for structured data.
  */
+import type { DepthMapResource } from '@varve/engine';
 import type { Platform } from '@varve/platform';
 import {
   activePageNodes,
@@ -92,6 +93,8 @@ export interface ClipboardData {
    * These are explicit in v2; older payloads infer them from reachability.
    */
   dependencyIds?: string[];
+  /** Accepted depth resources referenced by the copied mask/effect closure. */
+  depthMaps?: Record<string, DepthMapResource>;
   rasterMaskAssets?: Record<string, RasterMaskAsset>;
   assets?: Record<string, DocumentAsset>;
   iconAssets?: Record<string, DocumentIconAsset>;
@@ -404,6 +407,7 @@ export function parseClipboardData(text: string): ClipboardData | null {
     return null;
   }
   if (
+    !validResourceMap(raw.depthMaps) ||
     !validResourceMap(raw.rasterMaskAssets) ||
     !validResourceMap(raw.assets) ||
     !validResourceMap(raw.iconAssets) ||
@@ -447,6 +451,7 @@ export function parseClipboardData(text: string): ClipboardData | null {
     nodes,
     ...(rootIds ? { rootIds: [...rootIds] } : {}),
     ...(dependencyIds ? { dependencyIds: [...dependencyIds] } : {}),
+    ...(isRecord(raw.depthMaps) ? { depthMaps: raw.depthMaps as ClipboardData['depthMaps'] } : {}),
     ...(isRecord(raw.rasterMaskAssets)
       ? { rasterMaskAssets: raw.rasterMaskAssets as ClipboardData['rasterMaskAssets'] }
       : {}),
@@ -505,6 +510,7 @@ function serializeClipboardData(
   motionExtensions?: Document['motionExtensions'],
   motionPresets?: Document['motionPresets'],
   dependencyIds?: string[],
+  depthMaps?: Record<string, DepthMapResource>,
 ): string {
   const data: ClipboardData = {
     format: VARVE_CLIPBOARD_FORMAT,
@@ -513,6 +519,7 @@ function serializeClipboardData(
     nodes: nodes.map(serializeClipboardNode),
     ...(rootIds && rootIds.length > 0 ? { rootIds: [...rootIds] } : {}),
     ...(dependencyIds && dependencyIds.length > 0 ? { dependencyIds: [...dependencyIds] } : {}),
+    ...(depthMaps && Object.keys(depthMaps).length > 0 ? { depthMaps } : {}),
     ...(rasterMaskAssets && Object.keys(rasterMaskAssets).length > 0 ? { rasterMaskAssets } : {}),
     ...(assets && Object.keys(assets).length > 0 ? { assets } : {}),
     ...(iconAssets && Object.keys(iconAssets).length > 0 ? { iconAssets } : {}),
@@ -573,6 +580,7 @@ export function writeClipboardOutcome(
   motionExtensions?: Document['motionExtensions'],
   motionPresets?: Document['motionPresets'],
   dependencyIds?: string[],
+  depthMaps?: Record<string, DepthMapResource>,
 ): Promise<ClipboardWriteOutcome> {
   return enqueueClipboardWrite((generation) =>
     writeClipboardOutcomeNow(
@@ -597,6 +605,7 @@ export function writeClipboardOutcome(
       motionPresets,
       generation,
       dependencyIds,
+      depthMaps,
     ),
   );
 }
@@ -689,6 +698,7 @@ async function writeClipboardOutcomeNow(
   motionPresets?: Document['motionPresets'],
   generation?: number,
   dependencyIds?: string[],
+  depthMaps?: Record<string, DepthMapResource>,
 ): Promise<ClipboardWriteOutcome> {
   const isCurrentWrite = (): boolean =>
     generation === undefined || generation === latestClipboardWrite;
@@ -715,6 +725,7 @@ async function writeClipboardOutcomeNow(
       motionExtensions,
       motionPresets,
       dependencyIds,
+      depthMaps,
     );
   } catch {
     return { status: 'failed', reason: 'write-failed' };
@@ -828,6 +839,7 @@ export async function writeClipboard(
   motionExtensions?: Document['motionExtensions'],
   motionPresets?: Document['motionPresets'],
   dependencyIds?: string[],
+  depthMaps?: Record<string, DepthMapResource>,
 ): Promise<boolean> {
   return (
     (
@@ -852,6 +864,7 @@ export async function writeClipboard(
         motionExtensions,
         motionPresets,
         dependencyIds,
+        depthMaps,
       )
     ).status === 'editable'
   );
