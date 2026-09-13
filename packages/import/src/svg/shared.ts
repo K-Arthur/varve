@@ -5,6 +5,11 @@
 import type { Affine, PathPoint } from '@varve/engine';
 import type { Document, ManagedColor, SceneNode } from '@varve/scene';
 
+/** Bounds for untrusted SVG source before XML parsing begins. */
+export const MAX_SVG_SOURCE_BYTES = 64 * 1024 * 1024;
+/** Keep recursive conversion and XML ownership traversal stack-safe. */
+export const MAX_SVG_NESTING_DEPTH = 256;
+
 export interface ParsedElement {
   tag: string;
   attrs: Record<string, string>;
@@ -798,13 +803,16 @@ function nextTagInfo(
   endPos: number;
 } | null {
   let pos = start;
-  while (pos < xml.length && /\s/.test(xml[pos]!)) pos++;
-  if (pos >= xml.length || xml[pos] !== '<') return null;
-
-  if (xml.startsWith('<!--', pos)) {
+  // Skip comments iteratively. Clipboard producers can prepend many comments;
+  // recursion here used to make a hostile document consume the call stack
+  // before the actual element parser even started.
+  while (true) {
+    while (pos < xml.length && /\s/.test(xml[pos]!)) pos++;
+    if (pos >= xml.length || xml[pos] !== '<') return null;
+    if (!xml.startsWith('<!--', pos)) break;
     const end = xml.indexOf('-->', pos + 4);
     if (end < 0) return null;
-    return nextTagInfo(xml, end + 3);
+    pos = end + 3;
   }
 
   const isClose = xml[pos + 1] === '/';
@@ -851,7 +859,12 @@ function nextTagInfo(
   };
 }
 
-function parseElement(xml: string, start: number): { el: ParsedElement; endPos: number } | null {
+function parseElement(
+  xml: string,
+  start: number,
+  depth = 0,
+): { el: ParsedElement; endPos: number } | null {
+  if (depth > MAX_SVG_NESTING_DEPTH) return null;
   const info = nextTagInfo(xml, start);
   if (!info || info.type === 'close') return null;
 
@@ -885,7 +898,7 @@ function parseElement(xml: string, start: number): { el: ParsedElement; endPos: 
       };
     }
 
-    const childResult = parseElement(xml, pos);
+    const childResult = parseElement(xml, pos, depth + 1);
     if (childResult) {
       children.push(childResult.el);
       pos = childResult.endPos;
@@ -902,6 +915,9 @@ function parseElement(xml: string, start: number): { el: ParsedElement; endPos: 
 }
 
 export function parseSingleElement(xml: string): ParsedElement | null {
+  const sourceBytes =
+    typeof TextEncoder === 'undefined' ? xml.length : new TextEncoder().encode(xml).byteLength;
+  if (sourceBytes > MAX_SVG_SOURCE_BYTES) return null;
   const trimmed = xml.replace(/^\uFEFF/u, '').trim();
   let start = 0;
   while (start < trimmed.length && trimmed[start] === '<') {
@@ -928,7 +944,7 @@ export function parseSingleElement(xml: string): ParsedElement | null {
     }
     break;
   }
-  const result = parseElement(trimmed, start);
+  const result = parseElement(trimmed, start, 0);
   return result?.el ?? null;
 }
 

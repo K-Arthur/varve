@@ -8,10 +8,16 @@
  * Research basis: SVG 1.1 (W3C Recommendation), Adobe Illustrator SVG export.
  */
 import { createDocument } from '@varve/scene';
-import { gunzipSync } from 'fflate';
+import { Gunzip } from 'fflate';
 import { registerParser } from './registry';
 import { convertElement } from './svg/elements';
-import { collectDefs, composeTransforms, parseSingleElement, parseUnit } from './svg/shared';
+import {
+  collectDefs,
+  composeTransforms,
+  MAX_SVG_SOURCE_BYTES,
+  parseSingleElement,
+  parseUnit,
+} from './svg/shared';
 import type { ImportOptions, ImportParser, ImportResult } from './types';
 
 export function parseSvg(svg: string, options?: Partial<ImportOptions>): ImportResult {
@@ -144,8 +150,34 @@ function isGzip(data: Uint8Array): boolean {
 function svgText(data: string | Uint8Array): string {
   if (typeof data === 'string') return data;
   if (!isGzip(data)) return new TextDecoder().decode(data);
+  if (data.byteLength > MAX_SVG_SOURCE_BYTES) return '';
+
+  // Do not use gunzipSync here. Its output buffer is sized from the gzip
+  // trailer before the parser has a chance to enforce its source budget, so a
+  // tiny clipboard payload can otherwise request an arbitrarily large
+  // allocation. Gunzip streams bounded chunks; abort as soon as the aggregate
+  // decoded source exceeds the same limit used by parseSingleElement.
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  let oversized = false;
   try {
-    return new TextDecoder().decode(gunzipSync(data));
+    const gunzip = new Gunzip((chunk) => {
+      total += chunk.byteLength;
+      if (total > MAX_SVG_SOURCE_BYTES) {
+        oversized = true;
+        throw new Error('SVG source exceeds the decompression budget');
+      }
+      chunks.push(chunk);
+    });
+    gunzip.push(data, true);
+    if (oversized) return '';
+    const decoded = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) {
+      decoded.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return new TextDecoder().decode(decoded);
   } catch {
     // Report through the normal "no <svg> element" path rather than throwing.
     return '';

@@ -12,9 +12,11 @@
  *   284  PlanarConfiguration (1 chunky, 2 planar)
  *   34675 ICC_Profile (handled by ./icc.ts)
  *
- * Varve does not decode TIFF pixels today (browser/Tauri paths reject it);
- * the encoding record is still written so preflight can describe a placed
- * TIFF honestly instead of assuming sRGB.
+ * TIFF pixels are normalized by the import path's UTIF decoder to an embedded
+ * PNG because browser image elements do not decode TIFF consistently. This
+ * module only describes the source encoding; the normalized PNG is not a
+ * claim that layered, multi-page, CMYK, or high-bit-depth TIFF semantics were
+ * preserved.
  */
 
 import type { RasterColorEncoding, RasterColorModel } from '@varve/shared';

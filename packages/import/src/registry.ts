@@ -111,9 +111,22 @@ export function getParserForFile(
   data: string | Uint8Array,
 ): ImportParser | undefined {
   const extension = filename.split('.').pop() ?? '';
+  const normalizedExtension = extension.toLowerCase().replace(/^\./, '');
   const byExtension = getParserForExtension(extension);
   const byData = getParserForData(data);
   const detection = detectFileFormat({ filename, data });
+  // Illustrator's PDF-compatible container has a `%PDF-` signature, while
+  // the `.ai` extension is the bounded discriminator for its wrapper parser.
+  // Likewise, PSB shares PSD's `8BPS` signature but is handled by the same
+  // Photoshop parser. Prefer those extension adapters before generic
+  // signature parsers so reports and fidelity warnings describe the logical
+  // source format.
+  if (
+    (normalizedExtension === 'ai' || normalizedExtension === 'psb') &&
+    byExtension?.canParse(data)
+  ) {
+    return byExtension;
+  }
   if (detection.source === 'signature') {
     return byData ?? (byExtension?.canParse(data) ? byExtension : undefined);
   }

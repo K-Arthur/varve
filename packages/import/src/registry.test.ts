@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import { createAiParser } from './ai';
+import { createPsdParser } from './psd';
 import {
   getImportAcceptString,
   getParser,
   getParserForExtension,
+  getParserForFile,
   listSupportedExtensions,
   listSupportedFormats,
   registerParser,
@@ -63,5 +66,21 @@ describe('ImportRegistry', () => {
     expect(accept).toContain('.png');
     expect(accept).toContain('.cube');
     expect(accept.startsWith('.')).toBe(true);
+  });
+
+  it('keeps format-specific adapters ahead of generic container signatures', () => {
+    resetRegistry();
+    const svg = createSvgParser();
+    const ai = createAiParser();
+    const psd = createPsdParser();
+    registerParser(svg);
+    registerParser(ai);
+    registerParser(psd);
+
+    const pdfCompatibleAi = new TextEncoder().encode('%PDF-1.7\n% Illustrator wrapper');
+    const largePhotoshop = new Uint8Array([0x38, 0x42, 0x50, 0x53, 0x00, 0x02]);
+
+    expect(getParserForFile('artwork.ai', pdfCompatibleAi)).toBe(ai);
+    expect(getParserForFile('artwork.psb', largePhotoshop)).toBe(psd);
   });
 });

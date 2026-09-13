@@ -197,7 +197,10 @@ async function importOne(
   ensureBuiltInsRegistered();
   const detection = detectFileFormat({ filename: input.name, data });
   const parser = getParserForFile(input.name, data);
-  const reportFormat = parser?.format ?? detection.format ?? format;
+  const reportFormat =
+    detection.format === 'psb' && parser?.format === 'psd'
+      ? 'psb'
+      : (parser?.format ?? detection.format ?? format);
   const rasterCandidate =
     data instanceof Uint8Array &&
     (isRasterFallbackFormat(format) ||

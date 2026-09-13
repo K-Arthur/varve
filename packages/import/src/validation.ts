@@ -193,13 +193,14 @@ export async function validateImport(
       'PDF embedded fonts (will use substitutes)',
     );
   } else if (parser.format === 'psd') {
+    const photoshopLabel = detectedFormat === 'psb' ? 'PSB' : 'PSD';
     const layers = estimatePsdLayerCount(data);
     estimatedNodeCount = Math.max(1, layers);
     unsupportedFeatures.push(
-      'PSD layer effects (drop shadow, glow, etc.)',
-      'PSD adjustment layers',
-      'PSD smart objects',
-      'PSD layer masks and clipping masks',
+      `${photoshopLabel} layer effects (drop shadow, glow, etc.)`,
+      `${photoshopLabel} adjustment layers`,
+      `${photoshopLabel} smart objects`,
+      `${photoshopLabel} layer masks and clipping masks`,
     );
   } else if (parser.format === 'ai') {
     estimatedNodeCount = estimateAiNodeCount(data);

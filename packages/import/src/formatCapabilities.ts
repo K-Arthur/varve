@@ -321,17 +321,19 @@ const nonRaster = {
     extensions: ['psb'],
     mimeTypes: ['image/vnd.adobe.photoshop'],
     import: {
-      level: 'unsupported',
-      browser: 'unsupported',
-      desktop: 'unsupported',
-      notes: ['Large-document Photoshop decoding is not bundled.'],
+      level: 'partial-document',
+      browser: 'parser',
+      desktop: 'parser',
+      notes: [
+        'The bounded Photoshop parser imports the layer tree and reports effects, smart objects, and unsupported adjustment layers.',
+      ],
     },
     export: { available: false, lossy: false, notes: ['No PSB encoder.'] },
-    alpha: 'unknown',
+    alpha: 'full',
     animation: 'none',
     pages: 'none',
-    color: [],
-    metadata: [],
+    color: ['Source metadata inspected where available'],
+    metadata: ['Layer names and dimensions where parsed'],
   },
   eps: {
     id: 'eps',
@@ -590,6 +592,11 @@ function ascii(bytes: Uint8Array, start: number, length: number): string {
   return String.fromCharCode(...bytes.subarray(start, Math.min(bytes.length, start + length)));
 }
 
+function readUint16BE(bytes: Uint8Array, offset: number): number | undefined {
+  if (offset + 2 > bytes.length) return undefined;
+  return ((bytes[offset] ?? 0) << 8) | (bytes[offset + 1] ?? 0);
+}
+
 function signatureFormat(bytes: Uint8Array): ImageFormatId | undefined {
   if (startsWith(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return 'png';
   if (startsWith(bytes, [0xff, 0xd8, 0xff])) return 'jpeg';
@@ -599,7 +606,13 @@ function signatureFormat(bytes: Uint8Array): ImageFormatId | undefined {
     return 'tiff';
   if (startsWith(bytes, [0x52, 0x49, 0x46, 0x46]) && ascii(bytes, 8, 4) === 'WEBP') return 'webp';
   if (ascii(bytes, 0, 5) === '%PDF-') return 'pdf';
-  if (ascii(bytes, 0, 4) === '8BPS') return 'psd';
+  if (ascii(bytes, 0, 4) === '8BPS') {
+    // Photoshop's large-document format uses the same signature as PSD and
+    // is distinguished by the two-byte header version (2 = PSB, 1 = PSD).
+    // Unknown/truncated versions remain PSD so malformed files still reach
+    // the parser and receive a useful failure report.
+    return readUint16BE(bytes, 4) === 2 ? 'psb' : 'psd';
+  }
 
   // HEIF/AVIF are ISO Base Media containers. The compatible-brand list can
   // appear after a variable number of bytes, so scan bounded top-level boxes.
@@ -643,11 +656,16 @@ export function detectFileFormat(input: {
     ?.toLowerCase();
   const extensionFormat = extension ? formatForExtension(extension) : undefined;
   const mimeFormat = input.mimeType ? formatForMime(input.mimeType) : undefined;
-  const signature = input.data
+  const detectedSignature = input.data
     ? hasBytes(input.data)
       ? (signatureFormat(input.data) ?? textSignature(input.data))
       : textSignature(input.data)
     : undefined;
+  // PDF-compatible Illustrator files deliberately use a PDF header. The
+  // `.ai` extension is the only bounded discriminator available before the
+  // AI wrapper parser inspects the payload, so retain that logical format.
+  const signature =
+    detectedSignature === 'pdf' && extensionFormat === 'ai' ? 'ai' : detectedSignature;
   const format = signature ?? mimeFormat ?? extensionFormat ?? null;
   const warnings: FormatDetectionWarning[] = [];
 

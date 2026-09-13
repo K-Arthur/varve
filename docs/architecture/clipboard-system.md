@@ -289,7 +289,6 @@ clipboard read. A navigation, unrelated edit, or selection change therefore
 cancels the insertion instead of moving text into a different document or
 placing it from a stale canvas query.
 
-
 ## Frontend operation ownership (2026-09-12)
 
 The frontend keeps asynchronous ingestion tied to the gesture that started it.
@@ -299,8 +298,8 @@ current owner may update progress, clear the input, publish Import Results, or
 commit the prepared batch. Unmounting the editor aborts the owner as well.
 
 `CanvasArea` applies the same lifetime contract to HTML5 and native Tauri
-file drops. The drop position, document identity, session, revision, and
-mask target are captured before `ImportService` starts. A superseded drop or a
+file drops. The drop position, document identity, session, revision, and mask
+target are captured before `ImportService` starts. A superseded drop or a
 document change releases its controller and cannot append stale roots or
 reports. `ImportService` checks cancellation immediately before progress and
 report callbacks, so a late worker result cannot repaint UI for a newer
@@ -313,3 +312,8 @@ opening a prompt or reading the clipboard, then reject a result whose document
 scope changed. SVG markup warnings and partial conversion are published through
 the Import Results bridge with the actual committed root IDs. This keeps the
 visible frontend feedback aligned with the one undoable scene transaction.
+
+SVG and SVGZ file imports use the same bounded parser and preserve ordered
+logical roots and nested groups. TIFF is normalized from its first IFD to an
+embedded PNG; PSD/PSB and AI remain explicitly partial routes with material
+losses in Import Results.

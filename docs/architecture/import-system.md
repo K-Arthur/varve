@@ -103,12 +103,12 @@ server (`tests/e2e/canvas/file-import.spec.ts`, snapshots inspected).
 | WebP | Full | Extended-format dimension probe fixed 2026-08-27. Animated WebP retained as animated media |
 | GIF | Full | Animation retained, not flattened to a first frame |
 | BMP | Full | |
-| TIFF | Full | Transcoded to PNG on ingest (`utif` + `upng-js`) because browsers do not decode TIFF in an `<img>` |
+| TIFF | Flattened raster | The first IFD is decoded and transcoded to an embedded PNG (`utif` + `upng-js`); multi-page/layered TIFF fidelity is reported as a loss |
 | AVIF | Full | `ispe` box probe now recurses through `iprp`/`ipco` |
 | SVG / SVGZ | Editable vector | See fidelity matrix; `.svgz` is gunzipped by content sniff |
-| PSD / PSB | Partial | Layers import; effects, adjustment layers and smart objects are reported as unsupported |
+| PSD / PSB | Partial | Version 1/2 `8BPS` files import a bounded layer tree (groups, bounds, visibility, opacity, and representable masks); layer pixels, effects, adjustment layers, and smart objects are reported as unsupported |
 | PDF | Partial | Basic paths and text; gradients approximated, fonts substituted |
-| AI | Partial | PDF-compatible AI only |
+| AI | Partial | `.ai` files with a PDF-compatible wrapper or legacy EPS header use the AI adapter; complex Illustrator effects, meshes, and native semantics are reported as losses |
 | EPS | Partial | Basic paths |
 | Sketch | Partial | Symbols, shared styles and constraints not preserved |
 | Figma | Partial | REST/plugin JSON is the documented high-fidelity route; local native `.fig` decoding is format-version dependent and desktop CSP verification remains open |
@@ -228,10 +228,10 @@ decode; cyclic `<use>` is detected by a visited-id set.
 ## Testing
 
 - Unit: `packages/import/src/*.test.ts` (registry, raster, SVG, security,
-  format honesty, service), `packages/editor/src/importPickerWiring.test.tsx`.
+  format honesty, service), including the checked-in PSD/PSB/TIFF corpus and
+  synthetic PDF-compatible AI wrapper, plus `packages/editor/src/importPickerWiring.test.tsx`.
 - E2E: `tests/e2e/canvas/file-import.spec.ts` (real menu action, six specs
   with visual snapshots), `tests/e2e/browser/try-demo.spec.ts` (demo import).
-
 
 ## Frontend operation lifetime
 

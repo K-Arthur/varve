@@ -103,7 +103,7 @@ export function createPsdParser(): ImportParser {
         return parsePsdData(data, opts, warnings);
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Unknown error';
-        warnings.push(`PSD parsing failed: ${msg}`);
+        warnings.push(`${photoshopFormatLabel(data)} parsing failed: ${msg}`);
         return { document: doc, nodeIds: [], warnings };
       }
     },
@@ -113,6 +113,7 @@ export function createPsdParser(): ImportParser {
 function parsePsdData(data: Uint8Array, opts: ImportOptions, warnings: string[]): ImportResult {
   let doc = createDocument('Imported PSD');
   const nodeIds: string[] = [];
+  const formatLabel = photoshopFormatLabel(data);
 
   try {
     const buf = data.buffer.slice(
@@ -122,7 +123,7 @@ function parsePsdData(data: Uint8Array, opts: ImportOptions, warnings: string[])
     const psd = Psd.parse(buf);
 
     if (!psd.children || psd.children.length === 0) {
-      warnings.push('PSD file contains no layers');
+      warnings.push(`${formatLabel} file contains no layers`);
       return { document: doc, nodeIds, warnings };
     }
 
@@ -138,16 +139,20 @@ function parsePsdData(data: Uint8Array, opts: ImportOptions, warnings: string[])
     }
 
     warnings.push(
-      'PSD import may lose fidelity: layer effects, adjustment layers, smart objects are not supported',
+      `${formatLabel} import may lose fidelity: layer effects, adjustment layers, smart objects are not supported`,
     );
-    warnings.push('PSD text layers may use font substitutes');
+    warnings.push(`${formatLabel} text layers may use font substitutes`);
 
     return { document: doc, nodeIds, warnings };
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
-    warnings.push(`PSD parsing failed: ${msg}`);
+    warnings.push(`${formatLabel} parsing failed: ${msg}`);
     return { document: doc, nodeIds, warnings };
   }
+}
+
+function photoshopFormatLabel(data: Uint8Array): 'PSD' | 'PSB' {
+  return data[4] === 0 && data[5] === 2 ? 'PSB' : 'PSD';
 }
 
 interface PsdConvertResult {

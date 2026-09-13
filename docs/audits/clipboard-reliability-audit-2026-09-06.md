@@ -1281,10 +1281,10 @@ pnpm exec tsc -p packages/editor/tsconfig.json --noEmit --pretty false
 passed
 ```
 
-
 ### CLIP-42 — Superseded frontend ingestion could outlive its gesture (2026-09-12)
 
-**Checkout:** `d6e7c3839d4c529e165bfe0fc636a6a3f13d4724` on `master`, `/home/kevina/CodingProjects/varve`.
+**Checkout:** `d6e7c3839d4c529e165bfe0fc636a6a3f13d4724` on `master`,
+`/home/kevina/CodingProjects/varve`.
 **Environment:** Linux KDE/Wayland (`WAYLAND_DISPLAY=wayland-0`,
 `DISPLAY=:0`); Chromium, Firefox, WebKit MiniBrowser, and the Tauri
 preflight are installed. The working tree also contains concurrent Inspector,
@@ -1343,3 +1343,82 @@ The website capability page and file-format guide now describe operation
 supersession, grouped SVG insertion, and the honest Figma boundary. The full
 Wayland/WebKitGTK lane, owned Firefox Figma captures, and packaged `.fig` CSP
 smoke remain specifically unverified rather than inferred from jsdom tests.
+
+### CLIP-43 — Design-file format boundary and fixture coverage (2026-09-12)
+
+**Checkout:** `d9093c07f5688bf4b705b47b1c2c77027846ed6c` on `master`,
+`/home/kevina/CodingProjects/varve`.
+**Environment:** Linux KDE/Wayland (`WAYLAND_DISPLAY=wayland-0`,
+`DISPLAY=:0`), Node/Vitest, Chromium Playwright dev server. The checkout also
+contains unrelated concurrent Inspector, generative-edit, typography, and
+visual-snapshot work; no files from those workstreams are included here.
+
+The fresh reproduction used a real checked-in corpus and a synthetic
+PDF-compatible Illustrator wrapper through `ImportService.importFiles`:
+
+| Fixture | Bytes | SHA-256 | Provenance used in this audit |
+| --- | ---: | --- | --- |
+| `tests/fixtures/import-corpus/example.psd` | 293,068 | `3a938ec66f02b8ddd197888927a6906b05a2c346216d69321620e0dab6a48060` | Checked-in Photoshop layer-tree fixture |
+| `tests/fixtures/import-corpus/example.psb` | 323,094 | `033d32a7e4a2182111f15a59395b1fcffc55300f7c9f3954e1634dd8b258839f` | Checked-in Photoshop large-document fixture |
+| `tests/fixtures/import-corpus/raster.tif` | 18,696 | `204124cc35bbf8999b56a7bf20c8d118bb6faf95d02fb971d97cc6137b93dfa0` | Checked-in single-IFD TIFF raster fixture |
+| `sample.ai` | synthetic | — | Bounded PDF-compatible wrapper bytes built in the test; not an Illustrator-authored claim |
+
+| ID | Defect or coverage gap | Status | Evidence |
+| --- | --- | --- | --- |
+| IMP-01 | `8BPS` version 2 (`.psb`) was detected and reported as generic PSD | **Resolved locally** | `packages/import/src/formatCapabilities.ts`, `formatCapabilities.test.ts`, `format-honesty.test.ts` |
+| IMP-02 | A PDF-compatible `.ai` was selected by the generic PDF parser and reported as PDF | **Resolved locally** | `packages/import/src/registry.ts`, `service.ts`, `registry.test.ts`, `format-honesty.test.ts` |
+| IMP-03 | Unit coverage did not exercise real PSD/PSB/TIFF bytes through the service | **Resolved locally** | `tests/fixtures/import-corpus/example.psd`, `example.psb`, `raster.tif`; `format-honesty.test.ts` |
+| IMP-04 | Website and capability matrix implied TIFF/PSD fidelity beyond the implemented subset | **Resolved locally** | `apps/website/src/pages/docs/file-formats.astro`, `docs/architecture/image-format-capability-matrix.md`, `docs/architecture/import-system.md` |
+| IMP-05 | Packaged Tauri/WebKit decoder parity and native/third-party AI fixture provenance | **Open external lane** | Requires the desktop package and owned source applications; Chromium/Node evidence does not stand in for those environments |
+
+Observed before repair: `raster.tif` produced a normalized PNG but there was
+no persisted route-level assertion; `example.psb` was content-labeled `psd`
+with an extension mismatch; and `sample.ai` produced a partial PDF report
+with a PDF warning set. These are application/parser routing defects, not
+clipboard transport failures.
+
+The implemented contract is deliberately bounded:
+
+- SVG and SVGZ share the same safe vector parser; SVGZ is decompressed before
+  parsing and malformed/external resources are reported.
+- PSD version 1 and PSB version 2 preserve the parsed layer tree, bounds,
+  visibility, opacity, groups, blend modes, and representable masks. Layer
+  pixels, effects, adjustment layers, smart objects, and exact text styling
+  remain explicit losses.
+- AI stays on the `.ai` adapter for PDF-compatible and legacy EPS wrappers;
+  embedded safe SVG is delegated to the SVG parser and complex Illustrator
+  semantics are partial.
+- TIFF is decoded from its first IFD and normalized to an embedded PNG. The
+  report discloses the loss of multi-page/layered/high-bit-depth semantics.
+
+The standards references used for the boundary are Adobe's [Photoshop File
+Format Specification](https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/),
+Adobe's [supported Illustrator file formats](https://helpx.adobe.com/illustrator/desktop/get-started/learn-the-basics/supported-file-formats.html),
+and the [W3C SVG 1.1 specification](https://www.w3.org/TR/SVG11/). They define
+source-format behavior; they do not turn a partial Varve parser into a full
+round-trip implementation.
+
+Requirement-to-test mapping:
+
+| Requirement | Evidence |
+| --- | --- |
+| Correct PSD/PSB signature and parser ownership | `formatCapabilities.test.ts`, `registry.test.ts` |
+| Real layered Photoshop fixtures and partial report | `format-honesty.test.ts`, `tests/e2e/canvas/file-import.spec.ts` |
+| AI wrapper remains AI and returns editable fallback nodes | `format-honesty.test.ts`, `ai.test.ts`, `file-import.spec.ts` |
+| SVG/SVGZ parser path and order-preserving insertion | `format-honesty.test.ts`, `svg.test.ts`, `tests/e2e/canvas/clipboard.spec.ts` |
+| TIFF first-IFD normalization, managed asset, dimensions | `format-honesty.test.ts`, `bitmap.test.ts`, `rasterInspection.test.ts` |
+
+Validation evidence for this audit:
+
+- `pnpm exec vitest run packages/import/src/formatCapabilities.test.ts packages/import/src/registry.test.ts packages/import/src/format-honesty.test.ts packages/import/src/service.test.ts packages/import/src/psd.test.ts packages/import/src/psd-mask.test.ts packages/import/src/bitmap.test.ts packages/import/src/svg.test.ts packages/import/src/validation.test.ts --maxWorkers=1 --reporter=dot` — **101 tests passed**.
+- `pnpm exec tsc -p packages/import/tsconfig.json --noEmit --pretty false` — **passed**.
+- `pnpm build:website && pnpm build:website:pages` — **both 86-page builds passed**.
+- `VARVE_WEBSITE_E2E_PORT=4341 VARVE_WEBSITE_E2E_PORT_ROOT=4342 pnpm exec playwright test -c playwright.website.config.ts apps/website/tests/e2e/clipboard-feature.spec.ts --project=ghpages --project=custom-domain --project=touch --workers=1 --reporter=list` — **8 passed**; desktop light/dark and mobile captures were inspected for both bases.
+- `VARVE_WEBSITE_E2E_PORT=4361 VARVE_WEBSITE_E2E_PORT_ROOT=4362 pnpm exec playwright test -c playwright.website.config.ts apps/website/tests/e2e/file-ingestion-marketing.spec.ts --project=ghpages --project=custom-domain --workers=1 --reporter=list` — **4 passed**; file-format documentation captures were inspected for both bases.
+- The Chromium `tests/e2e/canvas/file-import.spec.ts` format lane was attempted through the real menu. The parser-advertising retry hit the shared Vite editor startup timeout before the `New` button appeared; the earlier SVG visual run reached the editor and imported the artwork, but its Chromium snapshot differed only in the concurrent shell/canvas height (682×552 actual versus 682×597 baseline). The artwork itself was inspected; no baseline was changed.
+- `pnpm audit:docs`, `pnpm audit:emoji`, and `pnpm audit:tokens` — **all passed**. `pnpm verify:plan` selected the broad concurrent workspace closure and required escalation; `pnpm verify:affected` exited 2 at that escalation boundary, so the full gate was not run.
+
+External verification remains open for a real Illustrator-authored `.ai`, a
+multi-page or layered TIFF, a PSD with pixel-bearing layers/effects, packaged
+Tauri CSP, and WebKitGTK. Those are recorded as unverified rather than inferred
+from synthetic fixtures.

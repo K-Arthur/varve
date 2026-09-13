@@ -40,9 +40,18 @@ describe('format capability registry', () => {
     expect(detectFileFormat({ filename: 'frame.heic', data: heif }).format).toBe('heif');
   });
 
+  it('distinguishes PSB from PSD using the Photoshop header version', () => {
+    const psd = new Uint8Array([0x38, 0x42, 0x50, 0x53, 0x00, 0x01]);
+    const psb = new Uint8Array([0x38, 0x42, 0x50, 0x53, 0x00, 0x02]);
+
+    expect(detectFileFormat({ filename: 'layered.psd', data: psd }).format).toBe('psd');
+    expect(detectFileFormat({ filename: 'large.psb', data: psb }).format).toBe('psb');
+  });
+
   it('does not claim unsupported formats are importable', () => {
     expect(getFormatCapability('heif')?.import.level).toBe('unsupported');
     expect(getFormatCapability('jxl')?.import.browser).toBe('unsupported');
+    expect(getFormatCapability('psb')?.import.level).toBe('partial-document');
     expect(formatForExtension('.tiff')).toBe('tiff');
     expect(listFormatCapabilities().some((format) => format.id === 'svg')).toBe(true);
   });

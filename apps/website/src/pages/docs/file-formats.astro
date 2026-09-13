@@ -108,6 +108,11 @@ const figmaImportFaq = {
         <p>
           Imported SVG keeps the source's ordered sibling roots and nested groups as logical artifacts. Their transforms, viewBox origin, and relative spacing are resolved before placement, so separate groups are not pasted as an unordered stack or given independent offsets. Unsupported effects and semantics remain visible in Import Results instead of being silently flattened.
         </p>
+        <p>
+          <code>.svgz</code> uses the same bounded parser after gzip decompression. The encoded and
+          decoded source budgets are checked before parsing, and malformed or external references
+          are rejected with a report rather than being handed to the browser as active markup.
+        </p>
 
         <h3>Figma design data</h3>
         <p>
@@ -133,7 +138,7 @@ const figmaImportFaq = {
 
         <h3>PDF</h3>
         <p>
-          PDF import via pdf.js with <code>%PDF-</code> header detection. Extracts:
+          PDF import via a bounded local parser with <code>%PDF-</code> header detection. Extracts:
         </p>
         <ul>
           <li>Text content from BT...ET blocks</li>
@@ -141,25 +146,34 @@ const figmaImportFaq = {
           <li>Multi-page conversion (each page becomes a Varve frame)</li>
         </ul>
 
-        <h3>PSD (Photoshop)</h3>
+        <h3>PSD and PSB (Photoshop)</h3>
         <p>
-          PSD import via <code>@webtoon/psd</code> with <code>8BPS</code> header detection. Supports:
+          PSD and PSB import via <code>@webtoon/psd</code>. The shared <code>8BPS</code> signature is
+          distinguished by its header version (1 for PSD, 2 for PSB). The bounded parser keeps
+          the editable layer tree and reports any material loss before insertion. It supports:
         </p>
         <ul>
-          <li>Layer tree extraction (groups, text layers, image layers)</li>
-          <li>Text layer content and styling</li>
-          <li>Image layer pixel data</li>
+          <li>Layer and group names, order, bounds, visibility, opacity, and blend modes</li>
+          <li>Representable layer masks as native Varve masks</li>
+          <li>Document dimensions and editable shape placeholders for supported layers</li>
         </ul>
+        <p>
+          Layer pixels, adjustment layers, layer effects, clipping masks, smart objects, and exact
+          Photoshop text styling are not a round-trip promise. They remain in the Import Results
+          report so a partial layer import is distinguishable from a fully preserved Photoshop
+          document. There is no PSD/PSB export path.
+        </p>
 
         <h3>AI (Adobe Illustrator)</h3>
         <p>
-          Adobe Illustrator files use a PDF wrapper with embedded SVG content. The importer:
+          Adobe Illustrator files use a PDF-compatible wrapper in current releases and may use a
+          legacy PostScript wrapper. The importer:
         </p>
         <ul>
-          <li>Detects the PDF wrapper via header</li>
-          <li>Extracts embedded SVG content where available</li>
-          <li>Falls back to EPS header parsing for legacy files</li>
-          <li>Reports fidelity warnings for AI-specific features</li>
+          <li>Keeps the <code>.ai</code> route ahead of the generic PDF parser even when the bytes begin with <code>%PDF-</code></li>
+          <li>Extracts embedded SVG content where it is present and safe</li>
+          <li>Falls back to the maintained EPS subset for legacy PostScript AI files</li>
+          <li>Reports losses for gradients, meshes, transparency effects, fonts, and other native Illustrator semantics</li>
         </ul>
 
         <h3>EPS</h3>
@@ -175,6 +189,12 @@ const figmaImportFaq = {
         <h3>Raster Images</h3>
         <p>
           Direct import of PNG, JPG, WebP, AVIF, GIF, BMP, and TIFF files where the active runtime and normalization path support them. Images are loaded into the ImageCache and can be used as image fills on shapes or imported as ImageNodes. GIF and other animated containers are inspected for media metadata, while editor placement is currently first-frame.
+        </p>
+        <p>
+          TIFF is decoded from its first image file directory and normalized to an embedded PNG
+          before browser rendering. Multi-page, layered, CMYK, and high-bit-depth TIFF semantics
+          are reported as losses; the source is not silently advertised as a TIFF round trip.
+          Raster inspection enforces encoded-byte, dimension, and pixel budgets before decoding.
         </p>
         <p>
           For local raster transcoding, use <a href={sitePath('/docs/tools/image-conversion')}>Image Conversion</a>. It is a normalized canvas workflow and does not promise metadata-preserving or layered round trips.
@@ -211,7 +231,12 @@ const figmaImportFaq = {
           <li>Multiple files are tiled with spacing</li>
           <li>Batch import decodes at most two files concurrently, restores selection order, and reports progress per completed file</li>
         </ul>
-        <p>Each picker or drop is bound to the document and session that started it. A newer transfer cancels an older decode before commit, so stale artwork cannot appear in a different tab or overwrite the current report. SVG artifacts keep their source order, grouping, and relative spacing; unsupported features are listed in Import Results.</p>
+        <p>
+          Each picker and drop is bound to the document and session that started it. A newer
+          transfer cancels an older decode before commit, so stale artwork cannot appear in a
+          different tab or overwrite the current report. SVG artifacts keep their source order,
+          grouping, and relative spacing; unsupported features are listed in Import Results.
+        </p>
       </section>
 
       <div class="docs-cta">

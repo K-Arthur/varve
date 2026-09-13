@@ -6,6 +6,20 @@ picker and detection policy. A format's extension is never enough to select a
 decoder: when bytes are available, signature detection wins and a mismatch is
 reported.
 
+Two container adapters are intentionally extension-aware: PDF-compatible
+Illustrator bytes stay on the `.ai` parser, and Photoshop version 2 bytes stay
+on the `.psb` report label even though both share a generic container
+signature with another format.
+
+The format boundary follows the primary format references: Adobe's [Photoshop
+File Format Specification](https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/)
+documents the shared `8BPS` header and PSB large-document variant; Adobe's
+[supported Illustrator file formats](https://helpx.adobe.com/illustrator/desktop/get-started/learn-the-basics/supported-file-formats.html)
+documents AI/PDF/EPS as separate routes; and the [W3C SVG
+specification](https://www.w3.org/TR/SVG11/) defines local and external resource
+references. These references describe source formats, not a promise that Varve
+preserves every feature.
+
 ## Support levels
 
 | Level | Meaning |
@@ -30,8 +44,9 @@ reported.
 | TIFF | Signature | Flattened raster | First IFD only | Decoder-dependent | EXIF/ICC/photometric metadata inspected before normalization | First page only | No generic TIFF encoder | Normalized / normalized |
 | SVG/SVGZ | XML or gzip/container path | Vector preserving | Supported paths/text/paints remain editable; unsafe/external resources rejected | Yes | Scene color policy; SVG metadata where safe | Animation is not exported as a motion timeline | SVG export when representable; embedding and tracing are separate semantics | Parser / parser |
 | PDF | `%PDF-` signature | Partial document | Page/vector fidelity depends on source constructs; warnings are retained | Target-dependent | Page boxes and print/color policy | First page or bounded page import, depending parser path | Print PDF export; not a generic PDF-to-image claim | Parser / parser |
-| PSD | `8BPS` signature | Partial document | Supported layers only; effects/smart objects disclosed | Yes | Parsed source metadata where available | None | No PSD encoder | Parser / parser |
-| PSB, HEIF/HEIC, JPEG XL, QOI, ICNS import | Signature/extension where available | Unsupported | Not placed | — | — | — | Not offered as generic conversion targets | Unsupported / unsupported |
+| PSD | `8BPS` + version 1 | Partial document | Layer tree, bounds, visibility, opacity, groups, and representable masks; layer pixels/effects/smart objects are disclosed as losses | Yes | Parsed source metadata where available | None | No PSD encoder | Parser / parser |
+| PSB | `8BPS` + version 2 | Partial document | Same bounded layer-tree conversion as PSD; large-document features outside the parser are disclosed | Yes | Parsed source metadata where available | None | No PSB encoder | Parser / parser |
+| HEIF/HEIC, JPEG XL, QOI, ICNS import | Signature/extension where available | Unsupported | Not placed | — | — | — | Not offered as generic conversion targets | Unsupported / unsupported |
 | ICO | Container signature/extension | Not generic image import | — | Yes | Icon frame metadata | Multiple icon frames | Dedicated icon export only | Export path / export path |
 
 ## Lifecycle invariants
@@ -56,9 +71,8 @@ reported.
 
 ## Deliberate deferrals
 
-There is no bundled HEIF/HEIC, JPEG XL, RAW, EXR, PSD encoder, or generic TIFF
-encoder. Adding one requires an evaluated local provider, bounded-memory
+There is no bundled HEIF/HEIC, JPEG XL, RAW, EXR, PSD/PSB encoder, or generic
+TIFF encoder. Adding one requires an evaluated local provider, bounded-memory
 measurements, license/provenance review, browser/native parity, and packaging
-tests. The registry therefore marks these capabilities unsupported instead of
-showing a control that cannot complete the workflow.
-
+tests. The registry therefore keeps those export capabilities unavailable
+instead of showing a control that cannot complete the workflow.
