@@ -215,6 +215,13 @@ function hasImageFill(doc: Document, node: SceneNode): boolean {
   );
 }
 
+function hasDepthMaskSource(doc: Document, node: SceneNode): boolean {
+  if (node.kind !== 'adjustment') return false;
+  const sourceId = node.mask?.rasterMask?.depthRecipe?.sourceBinding.nodeId;
+  const source = sourceId ? doc.nodes[sourceId] : undefined;
+  return source ? hasImageFill(doc, source) : false;
+}
+
 function sanitizeRasterMaskState(doc: Document, warnings: DocumentCodecWarning[]): Document {
   const validAssets = Object.fromEntries(
     Object.entries(doc.rasterMaskAssets ?? {}).filter(([assetId, asset]) => {
@@ -239,7 +246,7 @@ function sanitizeRasterMaskState(doc: Document, warnings: DocumentCodecWarning[]
     }
     const targetError =
       rasterMask.coordinateSpace === 'source-image-pixels'
-        ? !hasImageFill(candidate, node)
+        ? !hasImageFill(candidate, node) && !hasDepthMaskSource(candidate, node)
           ? 'Source-pixel raster masks require an image-filled shape node'
           : null
         : rasterMask.coordinateSpace === 'container-local-pixels'
@@ -270,10 +277,19 @@ function sanitizeRasterMaskState(doc: Document, warnings: DocumentCodecWarning[]
             `${nodeId}.mask.rasterMask.depthRecipe`,
           ),
         );
-        nodes[nodeId] = {
-          ...node,
-          mask: { ...node.mask!, rasterMask: { ...rasterMask, depthRecipe: undefined } },
-        } as SceneNode;
+        // A missing depth resource is recoverable: the immutable resolved
+        // coverage can still protect an adjustment's output while the user
+        // imports/relinks the map. Only discard the recipe when its source
+        // binding cannot be proved safe; image masks can fall back to the
+        // established generic raster-mask form.
+        const retainAdjustmentRecipe =
+          node.kind === 'adjustment' && hasDepthMaskSource(candidate, node);
+        nodes[nodeId] = retainAdjustmentRecipe
+          ? node
+          : ({
+              ...node,
+              mask: { ...node.mask!, rasterMask: { ...rasterMask, depthRecipe: undefined } },
+            } as SceneNode);
         referencedAssets.add(rasterMask.assetId);
         continue;
       }
@@ -982,6 +998,7 @@ function collectNodeClosure(doc: Document, rootIds: NodeId[]): DocumentClosure {
       mask?: {
         sourceNodeId?: NodeId;
         matteSource?: { kind?: string; nodeId?: NodeId };
+        rasterMask?: { depthRecipe?: { sourceBinding?: { nodeId?: NodeId } } };
       };
       effects?: Array<{ mask?: { source?: { kind?: string; nodeId?: NodeId } } }>;
     };
@@ -1011,6 +1028,9 @@ function collectNodeClosure(doc: Document, rootIds: NodeId[]): DocumentClosure {
     if (candidate.mask?.sourceNodeId) visit(candidate.mask.sourceNodeId);
     if (candidate.mask?.matteSource?.kind === 'scene-node' && candidate.mask.matteSource.nodeId) {
       visit(candidate.mask.matteSource.nodeId);
+    }
+    if (candidate.mask?.rasterMask?.depthRecipe?.sourceBinding?.nodeId) {
+      visit(candidate.mask.rasterMask.depthRecipe.sourceBinding.nodeId);
     }
     for (const effect of candidate.effects ?? []) {
       if (effect.mask?.source?.kind === 'scene-node' && effect.mask.source.nodeId) {

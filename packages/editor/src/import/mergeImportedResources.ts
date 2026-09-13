@@ -1,3 +1,4 @@
+import type { DepthMapResource } from '@varve/engine';
 import type {
   Document,
   DocumentAsset,
@@ -35,6 +36,7 @@ interface ResourceMaps {
   motionPresetIds: Map<string, string>;
   assetIds: Map<string, string>;
   rasterMaskAssetIds: Map<string, string>;
+  depthMapIds: Map<string, string>;
   iconAssetIds: Map<string, string>;
   iccProfileIds: Map<string, string>;
 }
@@ -102,15 +104,19 @@ function remapLiveMatteSource(
 }
 
 function remapEffects(effects: readonly Effect[], maps: ResourceMaps): Effect[] {
-  return effects.map((effect) => {
+  return effects.flatMap((effect) => {
+    if (effect.type === 'depthBlur') {
+      const depthMapId = maps.depthMapIds.get(effect.depthMapId);
+      return depthMapId ? [{ ...effect, depthMapId }] : [];
+    }
     const source = effect.mask?.source;
-    if (!source) return effect;
+    if (!source) return [effect];
     const remapped = remapLiveMatteSource(source, maps);
     if (!remapped) {
       const { mask: _mask, ...withoutMask } = effect;
-      return withoutMask as Effect;
+      return [withoutMask as Effect];
     }
-    return { ...effect, mask: { ...effect.mask!, source: remapped } };
+    return [{ ...effect, mask: { ...effect.mask!, source: remapped } }];
   });
 }
 
@@ -158,10 +164,34 @@ function remapNodeAssetReferences(
       else delete mask.sourceNodeId;
     }
     if (mask.rasterMask) {
-      mask.rasterMask = {
-        ...mask.rasterMask,
-        assetId: maps.rasterMaskAssetIds.get(mask.rasterMask.assetId) ?? mask.rasterMask.assetId,
-      };
+      const assetId = maps.rasterMaskAssetIds.get(mask.rasterMask.assetId);
+      if (assetId) {
+        const depthRecipe = mask.rasterMask.depthRecipe;
+        const depthMapId = depthRecipe ? maps.depthMapIds.get(depthRecipe.depthMapId) : undefined;
+        const sourceNodeId = depthRecipe
+          ? maps.nodeIds.get(depthRecipe.sourceBinding.nodeId)
+          : undefined;
+        const fillAssetId = depthRecipe?.sourceBinding.fillAssetId
+          ? maps.assetIds.get(depthRecipe.sourceBinding.fillAssetId)
+          : undefined;
+        mask.rasterMask = {
+          ...mask.rasterMask,
+          assetId,
+          ...(depthRecipe && depthMapId && sourceNodeId
+            ? {
+                depthRecipe: {
+                  ...depthRecipe,
+                  depthMapId,
+                  sourceBinding: {
+                    ...depthRecipe.sourceBinding,
+                    nodeId: sourceNodeId,
+                    ...(fillAssetId ? { fillAssetId } : { fillAssetId: undefined }),
+                  },
+                },
+              }
+            : { depthRecipe: undefined }),
+        };
+      } else delete (mask as { rasterMask?: typeof mask.rasterMask }).rasterMask;
     }
     if (mask.matteSource) {
       const matteSource = remapLiveMatteSource(mask.matteSource, maps);
@@ -269,6 +299,20 @@ function mergeImportedAssets(target: Document, source: Document, maps: ResourceM
     rasterMaskAssets[id] = { ...asset, id };
   }
 
+  const depthMaps: Record<string, DepthMapResource> = { ...(target.depthMaps ?? {}) };
+  for (const [sourceId, resource] of Object.entries(source.depthMaps ?? {})) {
+    const id = maps.depthMapIds.get(sourceId);
+    if (!id || (id === sourceId && depthMaps[id])) continue;
+    const sourceAssetId = resource.sourceAssetId
+      ? maps.assetIds.get(resource.sourceAssetId)
+      : undefined;
+    depthMaps[id] = {
+      ...resource,
+      id,
+      ...(resource.sourceAssetId ? { sourceAssetId: sourceAssetId ?? undefined } : {}),
+    };
+  }
+ 
   const iconAssets: Record<string, DocumentIconAsset> = { ...(target.iconAssets ?? {}) };
   for (const [sourceId, asset] of Object.entries(source.iconAssets ?? {})) {
     const id = maps.iconAssetIds.get(sourceId);
@@ -293,6 +337,7 @@ function mergeImportedAssets(target: Document, source: Document, maps: ResourceM
     ...target,
     ...(Object.keys(assets).length > 0 ? { assets } : {}),
     ...(Object.keys(rasterMaskAssets).length > 0 ? { rasterMaskAssets } : {}),
+    ...(Object.keys(depthMaps).length > 0 ? { depthMaps } : {}),
     ...(Object.keys(iconAssets).length > 0 ? { iconAssets } : {}),
     ...(Object.keys(iccProfiles).length > 0 ? { iccProfiles } : {}),
   };
@@ -362,6 +407,7 @@ function mergeGroup(
     motionPresetIds: new Map(),
     assetIds: new Map(),
     rasterMaskAssetIds: new Map(),
+    depthMapIds: new Map(),
     iconAssetIds: new Map(),
     iccProfileIds: new Map(),
   };
@@ -372,6 +418,9 @@ function mergeGroup(
   mapped = mapImportedAssetIds(doc, sourceDoc.rasterMaskAssets, doc.rasterMaskAssets, occupied);
   doc = mapped.doc;
   maps.rasterMaskAssetIds = mapped.ids;
+  mapped = mapImportedAssetIds(doc, sourceDoc.depthMaps, doc.depthMaps, occupied);
+  doc = mapped.doc;
+  maps.depthMapIds = mapped.ids;
   mapped = mapImportedAssetIds(doc, sourceDoc.iconAssets, doc.iconAssets, occupied);
   doc = mapped.doc;
   maps.iconAssetIds = mapped.ids;
@@ -744,6 +793,7 @@ export function mergeImportedResources(target: Document, imports: ImportedResour
     ...Object.keys(doc.motionPresets ?? {}),
     ...Object.keys(doc.assets ?? {}),
     ...Object.keys(doc.rasterMaskAssets ?? {}),
+    ...Object.keys(doc.depthMaps ?? {}),
     ...Object.keys(doc.iconAssets ?? {}),
     ...Object.keys(doc.iccProfiles ?? {}),
   ]);
