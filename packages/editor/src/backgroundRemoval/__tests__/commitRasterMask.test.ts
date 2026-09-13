@@ -182,6 +182,40 @@ describe('commitRasterMask', () => {
     expect(asset.dataUrl).toBe(PNG_BLACK);
   });
 
+  it('stores depth recipe source identity on the native mask owner', () => {
+    const sourceIdentity = {
+      kind: 'source-metadata' as const,
+      locator: 'test-src',
+      pixelWidth: 1,
+      pixelHeight: 1,
+      revision: 7,
+    };
+    const recipe = {
+      schemaVersion: 1 as const,
+      depthMapId: 'depth-1',
+      sourceBinding: {
+        nodeId: 'img-1',
+        processingRevision: 7,
+        coordinateSpace: 'source-image-pixels' as const,
+      },
+      sourceIdentity,
+      range: { near: 0, far: 1, nearTransition: 0, farTransition: 0 },
+      invert: false,
+      combine: 'replace' as const,
+      algorithmVersion: 1,
+    };
+    const updated = commitRasterMask(makeDoc(), 'img-1', {
+      dataUrl: PNG_WHITE,
+      width: 1,
+      height: 1,
+      sourceIdentity,
+      depthRecipe: recipe,
+    });
+
+    expect(updated.nodes['img-1']?.mask?.rasterMask?.sourceIdentity).toEqual(sourceIdentity);
+    expect(updated.nodes['img-1']?.mask?.rasterMask?.depthRecipe).toEqual(recipe);
+  });
+
   it('removes a mask and cleans up the asset', () => {
     const doc = makeDoc();
     const committed = commitRasterMask(doc, 'img-1', {

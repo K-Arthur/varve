@@ -56,7 +56,7 @@ const EXTENDED_MODEL_META: Record<string, { remoteUrl: string; name: string; siz
     remoteUrl:
       'https://huggingface.co/onnx-community/depth-anything-v2-small/resolve/main/onnx/model_int8.onnx',
     name: 'Depth-Anything-V2 Small (INT8)',
-    size: 27_300_000,
+    size: 27_258_801,
   },
   'sam2-hiera-tiny': {
     remoteUrl: '',

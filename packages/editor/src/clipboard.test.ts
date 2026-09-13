@@ -398,6 +398,21 @@ describe('readFromClipboardEvent', () => {
           byteLength: 68,
         },
       },
+      depthMaps: {
+        'depth-img-1': {
+          id: 'depth-img-1',
+          schemaVersion: 1,
+          width: 1,
+          height: 1,
+          depthType: 'relative',
+          unit: 'normalized',
+          nearFarConvention: 'nearIsLow',
+          inferenceVersion: 1,
+          preprocessingVersion: 1,
+          dataBase64: 'AAAA',
+          byteLength: 2,
+        },
+      },
     };
     const strataJson = JSON.stringify(varveData);
     const file = new File([strataJson], 'data.strata', { type: 'application/vnd.strata+json' });
@@ -413,6 +428,7 @@ describe('readFromClipboardEvent', () => {
     expect(result.varveData?.rasterMaskAssets).toBeDefined();
     expect(result.varveData?.rasterMaskAssets?.['mask-img-1']).toBeDefined();
     expect(result.varveData?.rasterMaskAssets?.['mask-img-1']?.mimeType).toBe('image/png');
+    expect(result.varveData?.depthMaps?.['depth-img-1']?.nearFarConvention).toBe('nearIsLow');
   });
 
   it('round-trips cropped image geometry with image and raster-mask asset closure', async () => {
