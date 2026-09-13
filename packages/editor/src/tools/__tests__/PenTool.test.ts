@@ -268,6 +268,55 @@ describe('PenTool', () => {
     expect(ctx.announce).toHaveBeenCalledWith('Path finished');
   });
 
+  it('explicit touch actions keep finish, close, cancel, and undo-anchor distinct', () => {
+    const tool = new PenTool();
+    const ctx = makeCtx();
+    tool.onActivate?.(ctx);
+
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+    tool.onPointerUp?.(makePointerEvent(100, 100), ctx);
+    vi.advanceTimersByTime(500);
+    tool.onPointerDown?.(makePointerEvent(200, 150), ctx);
+    tool.onPointerUp?.(makePointerEvent(200, 150), ctx);
+
+    tool.performConstructionAction('undo-anchor', ctx);
+    const draft = vi.mocked(ctx.setDraft).mock.lastCall?.[0];
+    expect(draft).toMatchObject({ kind: 'bezier-path', points: [{ x: 100, y: 100 }] });
+    expect(ctx.createShapeAt).not.toHaveBeenCalled();
+
+    tool.performConstructionAction('close', ctx);
+    expect(ctx.createShapeAt).not.toHaveBeenCalled();
+    expect(ctx.announce).toHaveBeenCalledWith('Add another anchor before closing the path');
+
+    tool.performConstructionAction('cancel', ctx);
+    expect(ctx.setDraft).toHaveBeenLastCalledWith(null);
+    expect(ctx.createShapeAt).not.toHaveBeenCalled();
+  });
+
+  it('explicit close commits one closed path transaction', () => {
+    const tool = new PenTool();
+    const ctx = makeCtx();
+    tool.onActivate?.(ctx);
+
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+    tool.onPointerUp?.(makePointerEvent(100, 100), ctx);
+    vi.advanceTimersByTime(500);
+    tool.onPointerDown?.(makePointerEvent(200, 150), ctx);
+    tool.onPointerUp?.(makePointerEvent(200, 150), ctx);
+
+    tool.performConstructionAction('close', ctx);
+
+    expect(ctx.createShapeAt).toHaveBeenCalledWith(
+      { x: 100, y: 100 },
+      undefined,
+      undefined,
+      expect.any(Array),
+      true,
+    );
+    expect(ctx.beginTransaction).toHaveBeenCalledTimes(1);
+    expect(ctx.commitTransaction).toHaveBeenCalledTimes(1);
+  });
+
   it('single click without commit creates a dot (placeholder)', () => {
     const tool = new PenTool();
     const ctx = makeCtx();

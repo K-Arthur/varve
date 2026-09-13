@@ -37,6 +37,7 @@ describe('drawPenConstructionPreview', () => {
       pointer: null,
       closedPreview: false,
       isDragging: false,
+      undoAnchorAvailable: true,
     };
 
     drawPenConstructionPreview(ctx, draft, 1, '#00a99d');
@@ -56,6 +57,7 @@ describe('drawPenConstructionPreview', () => {
       pointer: { x: 0, y: 0 },
       closedPreview: true,
       isDragging: false,
+      undoAnchorAvailable: true,
     };
 
     drawPenConstructionPreview(ctx, draft, 2, '#00a99d');
