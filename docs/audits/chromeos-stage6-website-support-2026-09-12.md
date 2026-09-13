@@ -88,6 +88,25 @@ Visual suite (same ports):
 
 Filtered re-run after inspection/update: 6 passed.
 
+Full website suite (both deployment modes):
+
+```text
+VARVE_WEBSITE_E2E_PORT=4331 VARVE_WEBSITE_E2E_PORT_ROOT=4332 \
+  node scripts/quality/heavy-lease.mjs website-stage6-full -- \
+  pnpm exec playwright test -c playwright.website.config.ts --reporter=list
+                              # 474 passed, 19 failed
+```
+
+Failure classification:
+
+| Failures | Classification | Evidence |
+|---|---|---|
+| 12 visual baselines (homepage ×4, product showcase, docs, workspaces docs, features dark, features tone rotation, typography, theme-matrix product ×2) | Pre-existing baseline drift | Reproduced identically on the untouched base worktree |
+| `background-removal-feature` ×2, `generative-editing.visual` ×2 | Pre-existing | Reproduced on the base worktree |
+| `clipboard-feature` ×2, `corner-radius` ×1 | Renderer crashes under parallel load, plus one stale label assertion | All pass with `--workers=1` (14 passed); the clipboard assertion now targets the visible `[data-download-cta]` hook because the CTA correctly labels every instance |
+
+No Stage 6-attributable failure remains.
+
 ### 4.2 Measured website changes
 
 Method: same host, frozen base worktree at `434015906`, production builds with
