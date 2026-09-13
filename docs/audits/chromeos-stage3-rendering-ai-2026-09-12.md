@@ -34,6 +34,8 @@ attached to this session.
 | What must a WebGPU consumer do when the device is lost? | [GPUDevice: lost](https://developer.mozilla.org/en-US/docs/Web/API/GPUDevice/lost) | MDN contributors, last modified 2025-06-18 | 2026-09-12 | WebGPU implementations | `requestDevice()` never returns `null`; it can resolve to an already-lost device. Devices can be lost at any time (resource management, driver update); most losses are transient and the correct recovery is to request a new device and recreate resources. `destroy()` marks a deliberate, non-retryable loss. An adapter can become permanently unavailable (GPU disabled/unplugged). | High | Allocation/probe code must not cache an adapter/device forever, must destroy temporary devices, and must treat loss as recoverable. The Stage 1 capability probe already requests and destroys a real device; ORT's WebGPU EP has its own device recovery path (`WebGPURecovery`). | ChromeOS/Mali loss frequency is unmeasured. |
 | What does the ORT WebGPU EP require on import and cleanup? | [Using the WebGPU Execution Provider](https://onnxruntime.ai/docs/tutorials/web/ep-webgpu.html) | ONNX Runtime docs (Microsoft) | 2026-09-12 | onnxruntime-web 1.27.x | WebGPU requires the `onnxruntime-web/webgpu` build entry; graph capture needs static shapes; GPU tensors must be disposed with `buffer.destroy()`/`tensor.dispose()` to avoid leaks; zero-sized tensors are always CPU-side. | High | Keep the dedicated worker/EP path bounded and dispose device resources on cancellation; do not enable graph capture without static-shape evidence. | The repository's WebGPU EP usage on the Duet remains untested. |
 | What is pinned in the repository? | Repository manifests and lockfile: `package.json`, `pnpm-lock.yaml`, `crates/varve-wasm/Cargo.toml`, `justfile`, `scripts/fetch-onnxruntime.mjs` | Varve repository | 2026-09-12 | actual checkout | `onnxruntime-web` resolves to 1.27.0 for web; the native ORT dylib is pinned to 1.27.1 with per-platform SHA-256 verification; `wasm-bindgen` is `0.2` built with `wasm-pack --target web`, with a separate SIMD artifact; the demo build prunes `models/` and `ort-wasm/` assets. | High | Do not upgrade ORT or `wasm-bindgen` in this stage; keep the single-thread, non-proxy WASM defaults and the version-matched asset layout. | Rust `wasm-bindgen` minor is unpinned within 0.2. |
+| What does the WebGPU specification require around adapter/device lifetime? | [GPUWeb specification](https://gpuweb.github.io/gpuweb/) | GPU for the Web Community Group | 2026-09-12 | current WebGPU draft | Adapter/device objects can become invalid; a device may be lost and resources become unusable. Temporary probe devices must be destroyed, and a consumer must recreate resources after loss. | High | Keep the probe bounded and disposable; make the compositor/effect runner recover to Canvas2D or a fresh device without changing document data. | Driver-specific loss reasons and recovery time on ChromeOS/Mali remain unmeasured. |
+| Which cooperative scheduling APIs are safe to call conditionally? | [Scheduling APIs](https://wicg.github.io/scheduling-apis/) and [scheduler.yield()](https://developer.chrome.com/blog/use-scheduler-yield) | WICG / Chrome for Developers; draft 2025-05-30, article 2025-03-06 | 2026-09-12 | Chrome 129+ for `scheduler.yield`; other browsers vary | `scheduler.yield()` and `scheduler.postTask()` are feature-detectable; a fallback is required because the Scheduling API is not universal. Aborted tasks should not resume stale work. | High | Admitted thumbnail, raster-pyramid, and semantic jobs yield at chunk boundaries with a MessageChannel/timer fallback; this is not used to hide synchronous inference. | Exact scheduler behavior on ChromeOS release channels is unmeasured. |
 
 ### 1.3 Stage 1/2 evidence reused (not re-derived)
 
@@ -43,9 +45,10 @@ attached to this session.
 - Storage quotas and eviction are origin-level and all-or-nothing, so recovery
   data must be separable from disposable caches and must never be deleted to
   make room ([Stage 2 ledger](chromeos-stage2-browser-pwa-2026-09-12.md) §1).
-- Frame budgets are derived from the display refresh rate, with per-work-class
-  multipliers (`frameBudget.ts`); the adaptive profile consumes the rolling
-  average and over-budget counts (`adaptiveProfile.ts`).
+- Frame budgets use a bounded, measured `requestAnimationFrame` cadence (with a
+  conservative fallback) and per-work-class multipliers (`frameBudget.ts`);
+  the adaptive profile consumes rolling cost and over-budget counts
+  (`adaptiveProfile.ts`).
 
 ## 2. Repository diagnosis
 
@@ -80,8 +83,11 @@ unreferenced; it is not presented as an optimization.
   one-shot quiet timer, not a polling loop (`render/imageRefinement.ts`).
 - Thumbnail work defers while an interaction is open
   (`thumbnail/scheduler.ts`) and runs under a concurrency-1 scheduler.
-- Lightweight capture confirmed no new background loop is required by this
-  stage's changes.
+- Raster pyramid and semantic-index jobs use the same bounded admission gate,
+  with stale-result rejection and cooperative yields at chunk boundaries.
+- The app-wide page-lifecycle adapter pauses derived work while hidden, frozen,
+  or page-hidden, then resumes it on visibility/resume/pageshow. It does not
+  claim that a hidden tab will always receive a final callback.
 
 ### 2.3 Memory and slow-storage findings
 
@@ -89,7 +95,7 @@ unreferenced; it is not presented as an optimization.
 |---|---|---|
 | Worker image admission had `maxEntries = Infinity` as its default | `render/collectImageBitmaps.ts` | Bounded to 64; tests added |
 | Recovery points were capped at 20 sessions but had no byte cap | `recovery.ts` | 64 MiB total cap with newest-point-per-tab protection; tests added |
-| `platform/web.ts touchFile` rewrites the full document record; autosave writes a recovery copy per save | `packages/platform/src/web.ts`, `context/useAutoBackupServices.ts` | Not changed: the persistence entry points are Stage 2-owned and a schema change requires its own migration tests. Recorded as a measured follow-up (write-amplification instrumentation) rather than papered over. |
+| `platform/web.ts touchFile` rewrites the full document record; autosave writes a recovery copy per save | `packages/platform/src/web.ts`, `context/useAutoBackupServices.ts` | Stage 2's v6 web database now stores large document content in a separate content-addressed store, keeps file metadata small, and records logical document/content writes. Autosave cadence is unchanged; physical eMMC throughput is not inferred from logical counters. |
 | Persistent-history DAG has no compaction | `packages/history`, `context/usePersistentHistory.ts` | Out of scope for this slice; recorded as a bounded follow-up (retention policy must preserve undo semantics). |
 
 ### 2.4 Optional AI findings
@@ -99,8 +105,10 @@ unreferenced; it is not presented as an optimization.
 | A rejected `onnxruntime-web` dynamic import was cached forever, permanently disabling optional inference after one transient failure | `engine/src/inference/SessionManager.ts` | Rejected attempts are dropped so the next call retries; regression tests added |
 | `runPrecisionBenchmark` released its two sessions only on the success path | `engine/src/backgroundRemoval/precisionCapabilities.ts` | Both sessions release in a `finally`; regression tests added |
 | WebGPU provider selection already performs a real hardware-adapter probe; WebNN is absent | `backgroundRemoval/environmentCapabilities.ts`, `inference/core/RuntimeCapabilities.ts` | Verified; no change. No `navigator.ml` reference exists anywhere in the repository |
+| Adapter presence alone was too coarse for diagnostics and GPU effects | `editor/performance/webGpuProbe.ts`, `engine/gpuAdapter.ts`, `backgroundRemoval/gpuEffectRunner.ts`, `compositor/WebGPUBackend.ts` | A low-power adapter/device probe now reports supported/unavailable/failed, destroys its temporary device, and invalidates effect resources after `device.lost`; the Canvas2D path remains authoritative when the probe or runtime fails. |
 | Cloud background removal is disabled by default and has no editor UI caller | `backgroundRemoval/providers/cloudProvider.ts`, `cloudConfig.ts` | Verified; no silent fallback to a paid endpoint |
 | `session.run` is not cancellable; worker restart is the only true stop | `inference/inferenceWorkerHost.ts` | Documented limit; cancellation remains bounded by one inference/tile |
+| Model file size did not communicate working-set cost | `packages/editor/src/modelRequirements.ts`, model settings tabs, `ModelDownloadDialog.tsx` | Optional model surfaces now show download/storage bytes separately from estimated peak working memory, with an explicit estimate caveat; core editing remains model-free. |
 
 ## 3. Implementation delivered
 
@@ -109,6 +117,12 @@ unreferenced; it is not presented as an optimization.
 | `7eb32ac76` | Interactive preview render scale: the current tier's `renderScale` (0.75 performance, 0.5 constrained) applies to the content canvas backing store only while an editor interaction is open; settled frames and exports stay at full device resolution. `presentWorkerFrame` matches bitmaps against the actual backing store so the cheap present path works at preview scale and refuses a stale preview bitmap after promotion. False profile fields removed. `?perf=1` handle exposes tier/renderScale for acceptance. | `adaptiveProfile.ts` (+test), `renderPipeline.ts`, `presentWorkerFrame.ts` (+new test), `perfRuntime.ts` |
 | `342546dab` | Session lifecycle: a rejected ORT import is retryable, and the precision benchmark releases both sessions on every path. | `SessionManager.ts` (+new test), `precisionCapabilities.ts` (+new test) |
 | `f1e86c4d9` | Memory/storage bounds: worker image admission defaults to 64 sources; recovery evicts the oldest redundant point beyond a 64 MiB total while protecting the newest point per tab. | `collectImageBitmaps.ts` (+test), `recovery.ts` (+test) |
+| `d9093c07f` | Measured rAF cadence (with a conservative 60 Hz fallback) now drives frame budgets; hidden/gapped samples reset and hysteresis prevents tier thrash. | `frameCadence.ts` (+test), `frameScheduler.ts`, `editorFrameRuntime.ts`, `frameBudget.ts` |
+| `d7c722d65` | Shared derived-work admission bounds pending/concurrent thumbnails, raster pyramids, and semantic indexing, with priorities, cancellation, stale-result rejection, lifecycle pause/resume, and cooperative yielding. | `derivedWorkAdmission.ts`, `scheduling.ts`, thumbnail/semantic/raster schedulers (+tests) |
+| `5f6a11cc6` | Web database v6 separates large file content from metadata, deduplicates content by hash, lazily migrates legacy inline JSON, and records logical write amplification without pretending to measure eMMC throughput. | `web-db.ts`, `web.ts`, `storageWriteMetrics.ts` (+tests) |
+| `f9eca85e4` | Adaptive profile uses a bounded real WebGPU device probe and throttled memory-pressure signal; residency and diagnostics degrade conservatively without vendor hard-coding. | `webGpuProbe.ts`, `adaptiveProfile.ts`, `memoryPressure.ts`, `memoryBudget.ts`, `renderPipeline.ts`, `perfRuntime.ts` (+tests) |
+| `cd23ec748` | Derived work pauses across page lifecycle transitions; admitted jobs yield between chunks; GPU effect resources are released and retried after device loss. | `pageLifecycle.ts` (+test), `App.tsx`, worker schedulers, `gpuAdapter.ts`, `GpuEffectRunner`, `WebGPUBackend` (+tests) |
+| `23c7238d4` | Optional model dialogs and settings disclose download/storage bytes and estimated peak working memory separately, including unknown values when the catalog has no measurement. | `modelRequirements.ts` (+test), model settings tabs, `ModelDownloadDialog.tsx` (+tests) |
 
 Design constraints preserved:
 
@@ -129,11 +143,11 @@ Two deliberate non-changes:
   reduced motion, and a manual render-scale control would duplicate the
   measured-profile authority. Revisit only if device data shows the automatic
   selection is wrong for a real workflow.
-- **No `scheduler.yield`/`postTask` retrofit was made.** The diagnosis did not
-  find a chunked main-thread CPU path newly introduced or newly blocking in
-  this slice; background work already uses `requestIdleCallback` with a
-  timeout fallback and the lane scheduler, and the cooperative yield helper is
-  deferred until a measured long task justifies one.
+- **No full-scene `scheduler.yield`/`postTask` retrofit was made.** The shared
+  derived-work lanes now yield at bounded thumbnail, pyramid, and semantic
+  chunks, but inference and the renderer remain synchronous at their measured
+  boundaries. The helper is feature-detected with a fallback and is not used
+  to imply that a single async function makes CPU work non-blocking.
 
 ## 4. Acceptance evidence
 
@@ -221,7 +235,11 @@ per the repository's validation economy.
    worker termination remains the only hard stop.
 6. Built-in browser AI (Gemini Nano / Prompt API) is unavailable on this device
    class per Chrome's documented requirements; no Varve feature depends on it.
-7. The repository's `wasm-bindgen` minor version is not pinned; this stage did
+7. Generic ORT runtime diagnostics still retain an adapter-level capability
+   report in the legacy `RuntimeCapabilities` surface; actual device creation
+   is enforced by the effect runner/background-removal path and the editor's
+   adaptive probe. WebNN is not implemented or claimed.
+8. The repository's `wasm-bindgen` minor version is not pinned; this stage did
    not change the WASM toolchain.
 
 ## 6. Duet run kit (missing real-device evidence)

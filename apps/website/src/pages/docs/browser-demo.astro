@@ -36,6 +36,34 @@ import { sitePath } from '../../lib/siteUrl';
       </section>
 
       <section class="docs-section">
+        <h2>Constrained devices and rendering</h2>
+        <p>
+          The browser build measures the cadence of the actual animation frames
+          and keeps a small amount of CPU and memory headroom. During an active
+          drag or zoom it may use a lower preview backing scale, then promotes
+          the settled frame back to the full device-pixel resolution. Text,
+          selection handles, hit testing, exports, and saved originals keep
+          their document coordinates and fidelity; the preview is never a
+          resampling of your file.
+        </p>
+        <p>
+          Thumbnails, raster pyramids, and semantic indexing are background
+          work. They are bounded, cancellable, and paused when the page is
+          hidden or frozen so pointer and keyboard input keeps priority. A
+          browser may still discard a tab under memory pressure, so save
+          important work to a real file and keep the recovery copy as a safety
+          net.
+        </p>
+        <p>
+          WebGPU is attempted only after an adapter and device can be created;
+          a failed or lost device returns to the Canvas2D path. The browser
+          build does not claim access to a Chromebook NPU. The optional
+          on-device model catalog is currently a desktop feature; core browser
+          editing never waits for a model download.
+        </p>
+      </section>
+
+      <section class="docs-section">
         <h2>Opening the demo</h2>
         <ol>
           <li>Open <a href={sitePath('/try/')}>varve.studio/try/</a> in a current Chrome, Edge, or other Chromium-based browser. Firefox and Safari work with the download save fallback described below.</li>

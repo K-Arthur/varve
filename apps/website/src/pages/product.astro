@@ -126,6 +126,16 @@ import ClosingCTA from '../components/ClosingCTA.astro';
         <p>
           AI-assisted operations are optional and on-device. Nothing is uploaded, core editing never requires a model download, and unsupported acceleration shows an honest unavailable state instead of silently switching to a server.
         </p>
+        <aside class="product-route-note">
+          <strong>Chromebook routes are deliberately separate.</strong>
+          The native Chrome tab and installed PWA use the bounded browser/WASM
+          build; the ARM64 or x86_64 Linux package runs in ChromeOS's Linux
+          environment with its own files and runtime limits. Installing the PWA
+          does not expose the Linux app, Chrome's built-in Prompt API, or a
+          device NPU. The current browser demo keeps on-device model features
+          desktop-only, and this page makes no Duet frame-rate claim until a
+          physical 8&nbsp;GB Duet run is recorded.
+        </aside>
       </section>
 
       <section class="product-section">
@@ -255,6 +265,19 @@ import ClosingCTA from '../components/ClosingCTA.astro';
   .product-section p {
     color: var(--text-secondary);
     line-height: 1.8;
+  }
+
+  .product-route-note {
+    margin-top: 1.25rem;
+    padding: 1rem 1.125rem;
+    border-left: 3px solid var(--brand-teal);
+    background: var(--surface-muted);
+    color: var(--text-secondary);
+    line-height: 1.7;
+  }
+
+  .product-route-note strong {
+    color: var(--text-primary);
   }
 
   .product-section ul {
