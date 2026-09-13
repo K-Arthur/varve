@@ -2612,15 +2612,35 @@ fixed permitted regions and extends the live override surface instead.
 
 ### Verification
 
-- `workspaceStore.test.ts` 33/33, `layoutVariants.test.ts` 24/24,
-  `interactionResolution.test.ts` 8/8, `ManageLayoutsDialog.test.tsx` 6/6,
-  `PanelResizeHandle.test.tsx` 5/5, `WorkspaceCustomizeDialog.test.tsx` 5/5,
-  `workspaceSwitching.test.tsx` 41/41 green; `audit:docs` and `audit:emoji`
-  clean.
-- Playwright visual pass (`tests/e2e/workspace/customization.spec.ts`) and a
-  full desktop relaunch are pending: the shared working tree was mid-edit by
-  concurrent agents during this session (broken imports in
-  `mockupVariants.ts`, missing uncommitted modules referenced by committed
-  index files, and a pnpm deps-check that aborts on a non-TTY). Exact
-  remaining commands are recorded in the handoff notes.
+- Unit suites green in the main worktree: `workspaceStore.test.ts` 33/33,
+  `layoutVariants.test.ts` 24/24, `interactionResolution.test.ts` 8/8,
+  `ManageLayoutsDialog.test.tsx` 6/6, `PanelResizeHandle.test.tsx` 5/5,
+  `WorkspaceCustomizeDialog.test.tsx` 6/6 (including the new live
+  panel-toggle test), `WorkspaceTabs.test.tsx`, `workspaceSwitching.test.tsx`
+  41/41, `ShortcutPalette.test.tsx`; `audit:docs` and `audit:emoji` clean.
+- Playwright ran the new `tests/e2e/workspace/customization.spec.ts` against a
+  clean install of this change set in an isolated worktree (the shared tree
+  was mid-edit by concurrent agents):
+  - PASS: Focus canvas applies and Default restores (verified by inspection of
+    `reports/workspace-review/focus-canvas-applied.png`: panels, tab strip,
+    and status bar hidden; menubar and floating toolbar retained; status line
+    "Applied 'Focus canvas' to Design.").
+  - PASS: reset captures a recoverable snapshot and Restore re-applies it.
+  - The two remaining specs caught a real pre-existing defect: customize
+    dialog panel toggles wrote the preference but never patched the live
+    `EditorState`, so surfaces did not change until a workspace switch. Fixed
+    with `setPanelVisible` on the editor context plus a regression test.
+  - Visual inspection of `reports/workspace-review/manage-layouts-pre-css-fix.png`
+    showed the Manage Layouts dialog clipping its right-side actions; the
+    dialog now uses max-width with wrapped action rows. Re-capturing that
+    screenshot and re-running the two remaining specs is pending until the
+    shared tree compiles again (foreign mid-edit `typography.ts` and missing
+    scene exports block `typecheck:e2e`).
+- Commits landed on master: layout-variant store, interaction classification,
+  Manage Layouts dialog, panel-width intent, editor-chrome customization +
+  Shell mount, menus/palette wiring, and docs/site/help. The E2E spec commit
+  is held in the working tree because the foreign `typecheck:e2e` failure
+  blocks the commit checkpoint; the exact command to land it once the tree is
+  green is in the handoff notes.
+
 
