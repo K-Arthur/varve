@@ -14,6 +14,7 @@ import {
   createFontCatalogFromRegistry,
   type FontCatalog,
   FontResolver,
+  fontReferenceKey,
   getFontsourceCatalog,
 } from '@varve/engine/font';
 import type { Document } from '@varve/scene';
@@ -84,12 +85,13 @@ export function MissingFontController() {
     if (dismissedKeyRef.current !== missingKey) setShowDialog(true);
   }, [hasMissing, missingKey]);
 
-  const handleReplace = (original: string, replacement: string) => {
+  const handleReplace = (original: string, replacement: string, missing?: MissingFontInfo) => {
     editor.beginTransaction();
     editor.updateDoc((doc) =>
       replaceFontInDocument(doc, catalogRef.current!, {
         original,
         replacement,
+        ...(missing?.fontReference ? { originalReference: missing.fontReference } : {}),
         applyToAll: true,
         preserveOriginalReference: true,
       }),
@@ -97,15 +99,23 @@ export function MissingFontController() {
     editor.commitTransaction();
   };
 
-  const handleReplaceAll = (map: Map<string, string>) => {
+  const handleReplaceAll = (
+    map: Map<string, string>,
+    resolvedMissing: readonly MissingFontInfo[] = missingFonts,
+  ) => {
     editor.beginTransaction();
     editor.updateDoc((doc) => {
       let next = doc;
-      for (const [original, replacement] of map) {
+      for (const missing of resolvedMissing) {
+        const key = missing.fontReference
+          ? `reference:${fontReferenceKey(missing.fontReference)}`
+          : missing.familyName;
+        const replacement = map.get(key);
         if (!replacement) continue;
         next = replaceFontInDocument(next, catalogRef.current!, {
-          original,
+          original: missing.familyName,
           replacement,
+          ...(missing.fontReference ? { originalReference: missing.fontReference } : {}),
           applyToAll: true,
           preserveOriginalReference: true,
         });
@@ -209,7 +219,7 @@ function replaceFontInDocument(
       nodes: updated.nodes,
       styles: updated.styles,
       fontManifest: {
-        version: 1,
+        version: 2,
         fonts: doc.fontManifest?.fonts ?? [],
         replacements,
       },

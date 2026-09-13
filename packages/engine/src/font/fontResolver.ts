@@ -12,8 +12,9 @@
  * match patterns, Figma/ Sketch font substitution heuristics.
  */
 
-import type { FontCatalog } from './fontCatalog';
-import type { FontSourceKind } from './fontIdentity';
+import type { FontCatalog, FontCatalogEntry } from './fontCatalog';
+import type { FontReference, FontSourceKind } from './fontIdentity';
+import { fontReferenceKey } from './fontIdentity';
 
 // ---------------------------------------------------------------------------
 // Minimal document types (avoids dependency on @varve/scene)
@@ -24,6 +25,8 @@ export interface ResolverTextNode {
   id: string;
   kind: 'text';
   fontFamily?: string;
+  /** Exact artifact/member identity when the document has one. */
+  fontReference?: FontReference;
   fontWeight?: number;
   fontStyle?: string;
   text?: string;
@@ -31,7 +34,12 @@ export interface ResolverTextNode {
     paragraphs: Array<{
       runs: Array<{
         text: string;
-        format?: { fontFamily?: string; fontWeight?: number; fontStyle?: string };
+        format?: {
+          fontFamily?: string;
+          fontReference?: FontReference;
+          fontWeight?: number;
+          fontStyle?: string;
+        };
       }>;
     }>;
   };
@@ -41,6 +49,7 @@ export interface ResolverTextNode {
 export interface ResolverTextStyle {
   type: 'text';
   fontFamily?: string;
+  fontReference?: FontReference;
   fontWeight?: number;
   fontStyle?: string;
 }
@@ -57,6 +66,7 @@ export interface ResolverDocument {
 
 export type MissingFontStatus =
   | 'missing'
+  | 'missing-glyph'
   | 'corrupt'
   | 'unsupported'
   | 'conflicting'
@@ -80,17 +90,25 @@ export interface FontSubstitute {
 
 export interface MissingFontInfo {
   familyName: string;
+  /** Exact artifact/member identity that failed, when the document supplied one. */
+  fontReference?: FontReference;
   requestedWeight?: number;
   requestedStyle?: string;
   nodeIds: string[];
   status: MissingFontStatus;
   substitutes: FontSubstitute[];
   originalReference: string;
+  /** Code points requested by the document but outside the resolved cmap. */
+  missingGlyphs?: string[];
 }
 
 export interface FontReplacement {
   original: string;
   replacement: string;
+  /** Restrict replacement to this exact artifact/member when present. */
+  originalReference?: FontReference;
+  /** Optional exact face to assign to the replacement runs. */
+  replacementReference?: FontReference;
   applyToAll: boolean;
   preserveOriginalReference: boolean;
 }
@@ -156,12 +174,14 @@ function hasTextStyleFont(
 
 function getFontFamiliesFromStyles(doc: ResolverDocument): Array<{
   family: string;
+  fontReference?: FontReference;
   weight?: number;
   style?: string;
   styleId: string;
 }> {
   const results: Array<{
     family: string;
+    fontReference?: FontReference;
     weight?: number;
     style?: string;
     styleId: string;
@@ -174,6 +194,7 @@ function getFontFamiliesFromStyles(doc: ResolverDocument): Array<{
       if (ts.fontFamily) {
         results.push({
           family: ts.fontFamily,
+          fontReference: ts.fontReference,
           weight: ts.fontWeight,
           style: ts.fontStyle,
           styleId: id,
@@ -186,20 +207,26 @@ function getFontFamiliesFromStyles(doc: ResolverDocument): Array<{
 
 function getFontFamiliesFromNode(node: ResolverTextNode): Array<{
   family: string;
+  fontReference?: FontReference;
   weight?: number;
   style?: string;
+  text?: string;
 }> {
   const results: Array<{
     family: string;
+    fontReference?: FontReference;
     weight?: number;
     style?: string;
+    text?: string;
   }> = [];
 
   if (node.fontFamily) {
     results.push({
       family: node.fontFamily,
+      fontReference: node.fontReference,
       weight: node.fontWeight,
       style: node.fontStyle,
+      text: node.text,
     });
   }
 
@@ -209,8 +236,10 @@ function getFontFamiliesFromNode(node: ResolverTextNode): Array<{
       if (!family) continue;
       results.push({
         family,
+        fontReference: run.format?.fontReference,
         weight: run.format?.fontWeight,
         style: run.format?.fontStyle,
+        text: run.text,
       });
     }
   }
@@ -233,9 +262,11 @@ export class FontResolver {
       string,
       {
         family: string;
+        fontReference?: FontReference;
         nodeIds: string[];
         weight?: number;
         style?: string;
+        missingGlyphs: Set<string>;
       }
     >();
 
@@ -245,24 +276,27 @@ export class FontResolver {
 
       for (const reference of getFontFamiliesFromNode(node as ResolverTextNode)) {
         const family = reference.family;
-        const key = family.toLowerCase();
-        const entry = catalog
-          .getEntriesForFamily(family)
-          .find((e) => e.identity.familyName.toLowerCase() === key);
-
-        if (entry) continue;
+        const key = reference.fontReference
+          ? `reference:${fontReferenceKey(reference.fontReference)}`
+          : `family:${family.toLowerCase()}`;
+        const entry = resolveCatalogEntry(catalog, reference);
+        const missingGlyphs = entry ? findMissingGlyphs(reference.text, entry) : [];
+        if (entry && missingGlyphs.length === 0) continue;
 
         const existing = familyNodes.get(key);
         if (existing) {
           if (!existing.nodeIds.includes(node.id)) existing.nodeIds.push(node.id);
           if (existing.weight === undefined) existing.weight = reference.weight;
           if (existing.style === undefined) existing.style = reference.style;
+          for (const glyph of missingGlyphs) existing.missingGlyphs.add(glyph);
         } else {
           familyNodes.set(key, {
             family,
+            fontReference: reference.fontReference,
             nodeIds: [node.id],
             weight: reference.weight,
             style: reference.style,
+            missingGlyphs: new Set(missingGlyphs),
           });
         }
       }
@@ -271,18 +305,20 @@ export class FontResolver {
     // Scan text/paragraph style references
     const styleRefs = getFontFamiliesFromStyles(doc);
     for (const ref of styleRefs) {
-      const key = ref.family.toLowerCase();
-      const entry = catalog
-        .getEntriesForFamily(ref.family)
-        .find((e) => e.identity.familyName.toLowerCase() === key);
+      const key = ref.fontReference
+        ? `reference:${fontReferenceKey(ref.fontReference)}`
+        : `family:${ref.family.toLowerCase()}`;
+      const entry = resolveCatalogEntry(catalog, ref);
       if (!entry) {
         const existing = familyNodes.get(key);
         if (!existing) {
           familyNodes.set(key, {
             family: ref.family,
+            fontReference: ref.fontReference,
             nodeIds: [],
             weight: ref.weight,
             style: ref.style,
+            missingGlyphs: new Set(),
           });
         }
       }
@@ -294,24 +330,28 @@ export class FontResolver {
       const substitutes = this.findSubstitutes(
         {
           familyName: family,
+          fontReference: info.fontReference,
           requestedWeight: info.weight,
           requestedStyle: info.style,
           nodeIds: info.nodeIds,
-          status: 'missing',
+          status: info.missingGlyphs.size > 0 ? 'missing-glyph' : 'missing',
           substitutes: [],
           originalReference: family,
+          ...(info.missingGlyphs.size > 0 ? { missingGlyphs: [...info.missingGlyphs].sort() } : {}),
         },
         catalog,
       );
 
       results.push({
         familyName: family,
+        fontReference: info.fontReference,
         requestedWeight: info.weight,
         requestedStyle: info.style,
         nodeIds: info.nodeIds,
-        status: 'missing',
+        status: info.missingGlyphs.size > 0 ? 'missing-glyph' : 'missing',
         substitutes,
         originalReference: family,
+        ...(info.missingGlyphs.size > 0 ? { missingGlyphs: [...info.missingGlyphs].sort() } : {}),
       });
     }
 
@@ -424,14 +464,34 @@ export class FontResolver {
       ResolverTextNode | { id: string; kind: string }
     >;
     const lowerOriginal = replacement.original.toLowerCase();
+    const matches = (family: string | undefined, reference: FontReference | undefined): boolean => {
+      if (replacement.originalReference) {
+        return Boolean(
+          reference &&
+            fontReferenceKey(reference) === fontReferenceKey(replacement.originalReference),
+        );
+      }
+      return family?.toLowerCase() === lowerOriginal;
+    };
+    const replaceFormat = <T extends { fontFamily?: string; fontReference?: FontReference }>(
+      value: T,
+    ): T => {
+      const next = { ...value, fontFamily: replacement.replacement } as T;
+      if (replacement.replacementReference) {
+        next.fontReference = replacement.replacementReference;
+      } else {
+        delete next.fontReference;
+      }
+      return next;
+    };
 
     for (const [id, node] of Object.entries(updatedNodes)) {
       if (!hasTextStyleFont(node)) continue;
       let updatedNode: ResolverTextNode = node;
       let nodeChanged = false;
 
-      if (node.fontFamily?.toLowerCase() === lowerOriginal) {
-        updatedNode = { ...updatedNode, fontFamily: replacement.replacement };
+      if (matches(node.fontFamily, node.fontReference)) {
+        updatedNode = replaceFormat(updatedNode);
         nodeChanged = true;
       }
 
@@ -440,11 +500,11 @@ export class FontResolver {
         const paragraphs = node.richText.paragraphs.map((paragraph) => {
           let paragraphChanged = false;
           const runs = paragraph.runs.map((run) => {
-            if (run.format?.fontFamily?.toLowerCase() !== lowerOriginal) return run;
+            if (!matches(run.format?.fontFamily, run.format?.fontReference)) return run;
             paragraphChanged = true;
             return {
               ...run,
-              format: { ...run.format, fontFamily: replacement.replacement },
+              format: replaceFormat(run.format ?? {}),
             };
           });
           if (!paragraphChanged) return paragraph;
@@ -468,12 +528,12 @@ export class FontResolver {
       for (const [id, style] of Object.entries(updatedStyles)) {
         if (style.type === 'text') {
           const ts = style as ResolverTextStyle;
-          if (ts.fontFamily?.toLowerCase() === lowerOriginal) {
+          if (matches(ts.fontFamily, ts.fontReference)) {
             if (!stylesChanged) {
               updatedStyles = { ...updatedStyles };
               stylesChanged = true;
             }
-            updatedStyles[id] = { ...ts, fontFamily: replacement.replacement };
+            updatedStyles[id] = replaceFormat(ts);
           }
         }
       }
@@ -507,6 +567,38 @@ export class FontResolver {
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
+
+function resolveCatalogEntry(
+  catalog: FontCatalog,
+  reference: { family: string; fontReference?: FontReference; weight?: number; style?: string },
+): FontCatalogEntry | undefined {
+  if (reference.fontReference) {
+    return catalog.getEntryForReference(reference.fontReference);
+  }
+  const familyKey = reference.family.toLowerCase();
+  return catalog
+    .getEntriesForFamily(reference.family)
+    .find((entry) => entry.identity.familyName.toLowerCase() === familyKey);
+}
+
+/**
+ * Report characters outside a parsed face's cmap when the parser supplied a
+ * non-empty range list. An empty list means coverage is unknown (common for
+ * legacy/provider metadata), so it must not be treated as “supports nothing”.
+ */
+function findMissingGlyphs(text: string | undefined, entry: FontCatalogEntry): string[] {
+  if (!text || entry.unicodeRanges.length === 0) return [];
+  const missing = new Set<string>();
+  for (const character of Array.from(text)) {
+    const codePoint = character.codePointAt(0);
+    if (codePoint === undefined) continue;
+    const supported = entry.unicodeRanges.some(
+      ([start, end]) => codePoint >= start && codePoint <= end,
+    );
+    if (!supported) missing.add(character);
+  }
+  return [...missing];
+}
 
 function collectVariants(
   catalog: FontCatalog,

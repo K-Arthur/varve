@@ -197,6 +197,60 @@ describe('FontCatalog', () => {
     });
   });
 
+  describe('getEntryForReference()', () => {
+    it('resolves the exact artifact and collection member without family fallback', () => {
+      const catalog = new FontCatalog();
+      const first = catalog.addEntry(
+        makeMeta({
+          identity: makeIdentity({
+            contentHash: 'a'.repeat(64),
+            collectionIndex: 0,
+            postScriptName: 'Shared-Regular',
+          }),
+        }),
+      );
+      catalog.addEntry(
+        makeMeta({
+          identity: makeIdentity({
+            contentHash: 'b'.repeat(64),
+            collectionIndex: 0,
+            postScriptName: 'Shared-Regular',
+          }),
+        }),
+      );
+
+      expect(
+        catalog.getEntryForReference({
+          artifactHash: 'a'.repeat(64),
+          collectionIndex: 0,
+          postScriptName: 'Shared-Regular',
+        }),
+      ).toBe(first);
+      expect(
+        catalog.getEntryForReference({ artifactHash: 'a'.repeat(64), collectionIndex: 1 }),
+      ).toBeUndefined();
+    });
+
+    it('does not accept a same-hash face with a conflicting PostScript name', () => {
+      const catalog = new FontCatalog();
+      catalog.addEntry(
+        makeMeta({
+          identity: makeIdentity({
+            contentHash: 'c'.repeat(64),
+            postScriptName: 'Actual-Regular',
+          }),
+        }),
+      );
+
+      expect(
+        catalog.getEntryForReference({
+          artifactHash: 'c'.repeat(64),
+          postScriptName: 'Different-Regular',
+        }),
+      ).toBeUndefined();
+    });
+  });
+
   // -- Runtime state -------------------------------------------------------
 
   describe('setFavorite / setRecentlyUsed / setActive', () => {

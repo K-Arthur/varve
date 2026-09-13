@@ -7,7 +7,7 @@
  *
  * Research basis: Figma missing font dialog, InDesign missing font replacement.
  */
-import type { FontSubstitute, MissingFontInfo } from '@varve/engine/font';
+import { type FontSubstitute, fontReferenceKey, type MissingFontInfo } from '@varve/engine/font';
 import { Select } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MissingFontRecoveryMatch } from './missingFontRecovery';
@@ -18,8 +18,8 @@ export interface MissingFontDialogProps {
   missingFonts: MissingFontInfo[];
   recoveryMatches: ReadonlyMap<string, MissingFontRecoveryMatch>;
   downloadRestrictionMessage?: string;
-  onReplace: (original: string, replacement: string) => void;
-  onReplaceAll: (map: Map<string, string>) => void;
+  onReplace: (original: string, replacement: string, missing?: MissingFontInfo) => void;
+  onReplaceAll: (map: Map<string, string>, missingFonts?: readonly MissingFontInfo[]) => void;
   onInstallFontsource: (missing: MissingFontInfo, match: MissingFontRecoveryMatch) => Promise<void>;
   onBrowseCatalog: (missing: MissingFontInfo) => void;
   onDismiss: () => void;
@@ -31,19 +31,26 @@ function bestSubstitute(substitutes: FontSubstitute[]): FontSubstitute | undefin
   return substitutes.reduce((best, cur) => (cur.confidence > best.confidence ? cur : best));
 }
 
+function missingFontKey(missing: MissingFontInfo): string {
+  return missing.fontReference
+    ? `reference:${fontReferenceKey(missing.fontReference)}`
+    : missing.familyName;
+}
+
 function initialSelections(
   missingFonts: readonly MissingFontInfo[],
   previous?: ReadonlyMap<string, string>,
 ): Map<string, string> {
   const map = new Map<string, string>();
   for (const missing of missingFonts) {
-    const prior = previous?.get(missing.familyName);
+    const key = missingFontKey(missing);
+    const prior = previous?.get(key);
     if (prior && missing.substitutes.some((candidate) => candidate.familyName === prior)) {
-      map.set(missing.familyName, prior);
+      map.set(key, prior);
       continue;
     }
     const best = bestSubstitute(missing.substitutes);
-    if (best) map.set(missing.familyName, best.familyName);
+    if (best) map.set(key, best.familyName);
   }
   return map;
 }
@@ -113,24 +120,25 @@ export function MissingFontDialog({
   );
 
   const handleApply = useCallback(
-    (family: string) => {
-      const replacement = selections.get(family);
+    (missing: MissingFontInfo) => {
+      const replacement = selections.get(missingFontKey(missing));
       if (replacement) {
-        onReplace(family, replacement);
+        onReplace(missing.familyName, replacement, missing);
       }
     },
     [selections, onReplace],
   );
 
   const handleReplaceAll = useCallback(() => {
-    onReplaceAll(new Map(selections));
-  }, [selections, onReplaceAll]);
+    onReplaceAll(new Map(selections), missingFonts);
+  }, [missingFonts, selections, onReplaceAll]);
 
-  const handleSelectionChange = useCallback((family: string, replacement: string) => {
+  const handleSelectionChange = useCallback((missing: MissingFontInfo, replacement: string) => {
+    const key = missingFontKey(missing);
     setSelections((prev) => {
       const next = new Map(prev);
-      if (replacement) next.set(family, replacement);
-      else next.delete(family);
+      if (replacement) next.set(key, replacement);
+      else next.delete(key);
       return next;
     });
   }, []);
@@ -153,13 +161,16 @@ export function MissingFontDialog({
   );
 
   const allResolved = useMemo(() => {
-    return missingFonts.every((mf) => Boolean(selections.get(mf.familyName)));
+    return missingFonts.every((mf) => Boolean(selections.get(missingFontKey(mf))));
   }, [missingFonts, selections]);
 
   const statusLabels: Record<string, string> = {
     missing: 'Missing',
+    'missing-glyph': 'Missing glyphs',
     corrupt: 'Corrupt',
     unsupported: 'Unsupported',
+    conflicting: 'Conflicting face',
+    'version-mismatch': 'Version mismatch',
   };
 
   return (
@@ -198,13 +209,13 @@ export function MissingFontDialog({
 
         <div className="missing-font-dialog__list">
           {missingFonts.map((mf) => {
-            const substitute = selections.get(mf.familyName);
+            const substitute = selections.get(missingFontKey(mf));
             const hasSubstitutes = mf.substitutes.length > 0;
             const recoveryMatch = recoveryMatches.get(mf.familyName);
             const installing = installingFamily === mf.familyName;
 
             return (
-              <div key={mf.familyName} className="missing-font-dialog__item">
+              <div key={missingFontKey(mf)} className="missing-font-dialog__item">
                 <div className="missing-font-dialog__item-info">
                   <span className="missing-font-dialog__item-name">
                     <span className="missing-font-dialog__item-warning" aria-hidden="true">
@@ -226,6 +237,17 @@ export function MissingFontDialog({
                   <span className="missing-font-dialog__item-reference">
                     Original: {mf.originalReference}
                   </span>
+                  {mf.fontReference?.postScriptName && (
+                    <span className="missing-font-dialog__item-reference">
+                      Face: {mf.fontReference.postScriptName}
+                    </span>
+                  )}
+                  {mf.missingGlyphs && mf.missingGlyphs.length > 0 && (
+                    <span className="missing-font-dialog__item-reference">
+                      Missing glyphs: {mf.missingGlyphs.slice(0, 8).join(' ')}
+                      {mf.missingGlyphs.length > 8 ? ' …' : ''}
+                    </span>
+                  )}
                 </div>
 
                 <div className="missing-font-dialog__recovery">
@@ -291,12 +313,12 @@ export function MissingFontDialog({
                       })),
                     ]}
                     disabled={!hasSubstitutes}
-                    onChange={(v) => handleSelectionChange(mf.familyName, v)}
+                    onChange={(v) => handleSelectionChange(mf, v)}
                   />
                   <button
                     type="button"
                     className="missing-font-dialog__apply-btn"
-                    onClick={() => handleApply(mf.familyName)}
+                    onClick={() => handleApply(mf)}
                     disabled={!substitute || installingFamily !== null}
                   >
                     Apply

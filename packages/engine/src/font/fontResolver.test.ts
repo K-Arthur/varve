@@ -182,6 +182,77 @@ describe('FontResolver', () => {
         nodeIds: ['t1'],
       });
     });
+
+    it('reports an unavailable exact face even when another file shares its family', () => {
+      const catalog = new FontCatalog();
+      catalog.addEntry(
+        makeMeta({
+          identity: makeIdentity({
+            contentHash: 'b'.repeat(64),
+            hashAlgorithm: 'sha256',
+            familyName: 'Inter',
+            postScriptName: 'Inter-Regular',
+          }),
+        }),
+      );
+      const requestedReference = {
+        artifactHash: 'a'.repeat(64),
+        postScriptName: 'Inter-Regular',
+      };
+      const missing = resolver.detectMissing(
+        {
+          nodes: {
+            t1: {
+              id: 't1',
+              kind: 'text',
+              text: 'Hello',
+              fontFamily: 'Inter',
+              fontReference: requestedReference,
+            },
+          },
+        },
+        catalog,
+      );
+
+      expect(missing).toHaveLength(1);
+      expect(missing[0]).toMatchObject({
+        familyName: 'Inter',
+        fontReference: requestedReference,
+        status: 'missing',
+        nodeIds: ['t1'],
+      });
+    });
+
+    it('reports missing glyphs when parsed cmap coverage is known', () => {
+      const catalog = new FontCatalog();
+      catalog.addEntry(
+        makeMeta({
+          identity: makeIdentity({
+            contentHash: 'd'.repeat(64),
+            hashAlgorithm: 'sha256',
+            familyName: 'Latin Face',
+          }),
+          unicodeRanges: [[0x20, 0x7e]],
+        }),
+      );
+      const missing = resolver.detectMissing(
+        {
+          nodes: {
+            t1: {
+              id: 't1',
+              kind: 'text',
+              text: 'Hello Ж',
+              fontFamily: 'Latin Face',
+            },
+          },
+        },
+        catalog,
+      );
+
+      expect(missing).toHaveLength(1);
+      expect(missing[0]!.status).toBe('missing-glyph');
+      expect(missing[0]!.missingGlyphs).toEqual(['Ж']);
+    });
   });
 
   describe('findSubstitutes', () => {
@@ -360,6 +431,41 @@ describe('FontResolver', () => {
         { text: 'B', format: { fontFamily: 'Inter' } },
       ]);
     });
+
+    it('replaces only the requested exact face when a family has multiple artifacts', () => {
+      const exact = { artifactHash: 'a'.repeat(64), postScriptName: 'Inter-Regular' };
+      const other = { artifactHash: 'b'.repeat(64), postScriptName: 'Inter-Regular' };
+      const doc: ResolverDocument = {
+        nodes: {
+          exact: {
+            id: 'exact',
+            kind: 'text',
+            text: 'Exact',
+            fontFamily: 'Inter',
+            fontReference: exact,
+          },
+          other: {
+            id: 'other',
+            kind: 'text',
+            text: 'Other',
+            fontFamily: 'Inter',
+            fontReference: other,
+          },
+        },
+      };
+
+      const updated = resolver.applyReplacement(doc, {
+        original: 'Inter',
+        replacement: 'Noto Sans',
+        originalReference: exact,
+        applyToAll: true,
+        preserveOriginalReference: true,
+      });
+
+      expect(updated.nodes.exact).toMatchObject({ fontFamily: 'Noto Sans' });
+      expect((updated.nodes.exact as any).fontReference).toBeUndefined();
+      expect(updated.nodes.other).toMatchObject({ fontFamily: 'Inter', fontReference: other });
+    });
   });
 
   describe('buildReplacementMap', () => {
@@ -462,6 +568,36 @@ describe('FontUsageIndex', () => {
       expect(usage.has('inter')).toBe(true);
       expect(usage.has('roboto')).toBe(true);
       expect(usage.get('roboto')!.totalCharacters).toBe(5); // "World"
+    });
+
+    it('keeps exact artifact members separate while family queries remain aggregated', () => {
+      const first = { artifactHash: 'a'.repeat(64), collectionIndex: 0 };
+      const second = { artifactHash: 'b'.repeat(64), collectionIndex: 0 };
+      const doc: UsageDocument = {
+        nodes: {
+          t1: {
+            id: 't1',
+            kind: 'text',
+            text: 'A',
+            fontFamily: 'Inter',
+            fontReference: first,
+          },
+          t2: {
+            id: 't2',
+            kind: 'text',
+            text: 'B',
+            fontFamily: 'Inter',
+            fontReference: second,
+          },
+        },
+      };
+
+      const usage = index.build(doc);
+      expect(usage.size).toBe(2);
+      expect([...usage.values()].map((entry) => entry.fontReference?.artifactHash)).toEqual(
+        expect.arrayContaining([first.artifactHash, second.artifactHash]),
+      );
+      expect(index.getFamilyUsage(doc, 'Inter').nodeIds).toEqual(['t1', 't2']);
     });
   });
 

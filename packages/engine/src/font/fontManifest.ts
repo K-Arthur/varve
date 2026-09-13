@@ -20,7 +20,7 @@ import type {
   FontReference,
   FontSourceKind,
 } from './fontIdentity';
-import { fontIdentityKey, fontReferenceFromIdentity } from './fontIdentity';
+import { fontIdentityKey, fontReferenceFromIdentity, fontReferenceKey } from './fontIdentity';
 import type { FontReplacement, MissingFontInfo } from './fontResolver';
 import { FontResolver } from './fontResolver';
 import { FontUsageIndex, type UsageDocument } from './fontUsageIndex';
@@ -135,7 +135,7 @@ export function buildDocumentFontManifest(
 
   const missingMap = new Map<string, MissingFontInfo>();
   for (const info of resolver.detectMissing(doc, catalog)) {
-    missingMap.set(info.familyName.toLowerCase(), info);
+    missingMap.set(manifestUsageKey(info.familyName, info.fontReference), info);
   }
 
   const entries: FontManifestEntry[] = [];
@@ -144,12 +144,12 @@ export function buildDocumentFontManifest(
 
   for (const u of usage.values()) {
     const family = u.familyName;
-    const key = family.toLowerCase();
+    const key = manifestUsageKey(family, u.fontReference);
     if (seen.has(key)) continue;
     seen.add(key);
 
-    const catalogEntry = findBestCatalogEntry(catalog, family, u.weight, u.style);
-    const missing = missingMap.get(key);
+    const catalogEntry = findBestCatalogEntry(catalog, family, u.weight, u.style, u.fontReference);
+    const missing = missingMap.get(key) ?? missingMap.get(manifestUsageKey(family));
 
     if (catalogEntry) {
       const appliedReplacement = findReplacementForFamily(replacements, family);
@@ -183,6 +183,7 @@ export function buildDocumentFontManifest(
       addReplacement(replacements, {
         original: family,
         replacement: sub.familyName,
+        ...(u.fontReference ? { originalReference: u.fontReference } : {}),
         applyToAll: true,
         preserveOriginalReference: true,
       });
@@ -192,6 +193,7 @@ export function buildDocumentFontManifest(
     // Missing and not auto-substituted.
     entries.push({
       familyName: family,
+      ...(u.fontReference ? { fontReference: u.fontReference } : {}),
       requestedWeight: u.weight,
       requestedStyle: u.style,
       identity: { ...DEFAULT_MISSING_IDENTITY, familyName: family, fullName: family },
@@ -203,11 +205,12 @@ export function buildDocumentFontManifest(
 
   // Include missing families that have no usage characters (e.g. styles only)
   for (const missing of missingMap.values()) {
-    const key = missing.familyName.toLowerCase();
+    const key = manifestUsageKey(missing.familyName, missing.fontReference);
     if (seen.has(key)) continue;
     seen.add(key);
     entries.push({
       familyName: missing.familyName,
+      ...(missing.fontReference ? { fontReference: missing.fontReference } : {}),
       requestedWeight: missing.requestedWeight,
       requestedStyle: missing.requestedStyle,
       identity: {
@@ -243,14 +246,16 @@ export function resolveManifestAgainstCatalog(
   for (const entry of manifest.fonts) {
     if (entry.status === 'available' || entry.status === 'restricted') {
       // Verify the font is still available and the identity still matches.
-      const catalogEntry = entry.identity.contentHash
-        ? catalog.getEntry(fontIdentityKey(entry.identity))
-        : findBestCatalogEntry(
-            catalog,
-            entry.familyName,
-            entry.requestedWeight,
-            entry.requestedStyle,
-          );
+      const catalogEntry = entry.fontReference
+        ? catalog.getEntryForReference(entry.fontReference)
+        : entry.identity.contentHash
+          ? catalog.getEntry(fontIdentityKey(entry.identity))
+          : findBestCatalogEntry(
+              catalog,
+              entry.familyName,
+              entry.requestedWeight,
+              entry.requestedStyle,
+            );
 
       if (catalogEntry) {
         updated.push(
@@ -347,12 +352,20 @@ export function resolveManifestAgainstCatalog(
 // Internal helpers
 // ---------------------------------------------------------------------------
 
+function manifestUsageKey(family: string, reference?: FontReference): string {
+  return reference
+    ? `${family.toLowerCase()}\u0000${fontReferenceKey(reference)}`
+    : family.toLowerCase();
+}
+
 function findBestCatalogEntry(
   catalog: FontCatalog,
   family: string,
   weight?: number,
   style?: string,
+  fontReference?: FontReference,
 ): FontCatalogEntry | undefined {
+  if (fontReference) return catalog.getEntryForReference(fontReference);
   const entries = catalog.getEntriesForFamily(family);
   if (entries.length === 0) return undefined;
   if (entries.length === 1) return entries[0];

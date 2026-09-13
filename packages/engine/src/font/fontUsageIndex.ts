@@ -12,6 +12,9 @@
  * Figma/ Sketch font usage tracking.
  */
 
+import type { FontReference } from './fontIdentity';
+import { fontReferenceKey } from './fontIdentity';
+
 // ---------------------------------------------------------------------------
 // Minimal document types (avoids dependency on @varve/scene)
 // ---------------------------------------------------------------------------
@@ -22,6 +25,7 @@ export interface UsageTextNode {
   kind: 'text';
   text?: string;
   fontFamily?: string;
+  fontReference?: FontReference;
   fontWeight?: number;
   fontStyle?: string;
   /** Legacy font field (pre-v1.6 documents). */
@@ -30,7 +34,12 @@ export interface UsageTextNode {
     paragraphs: Array<{
       runs: Array<{
         text: string;
-        format?: { fontFamily?: string; fontWeight?: number; fontStyle?: string };
+        format?: {
+          fontFamily?: string;
+          fontReference?: FontReference;
+          fontWeight?: number;
+          fontStyle?: string;
+        };
       }>;
     }>;
   };
@@ -40,6 +49,7 @@ export interface UsageTextNode {
 export interface UsageTextStyle {
   type: 'text';
   fontFamily?: string;
+  fontReference?: FontReference;
   fontWeight?: number;
   fontStyle?: string;
   /** Legacy font field (pre-v1.6 documents). */
@@ -58,6 +68,7 @@ export interface UsageDocument {
 
 export interface FontUsage {
   familyName: string;
+  fontReference?: FontReference;
   weight?: number;
   style?: string;
   nodeIds: string[];
@@ -93,12 +104,15 @@ export class FontUsageIndex {
   build(doc: UsageDocument): Map<string, FontUsage> {
     const index = new Map<string, FontUsage>();
 
-    const ensure = (family: string): FontUsage => {
-      const key = family.toLowerCase();
+    const ensure = (family: string, fontReference?: FontReference): FontUsage => {
+      const key = fontReference
+        ? `${family.toLowerCase()}\u0000${fontReferenceKey(fontReference)}`
+        : family.toLowerCase();
       let usage = index.get(key);
       if (!usage) {
         usage = {
           familyName: family,
+          ...(fontReference ? { fontReference } : {}),
           nodeIds: [],
           styleIds: [],
           totalCharacters: 0,
@@ -114,7 +128,7 @@ export class FontUsageIndex {
 
       // Node-level fontFamily
       if (node.fontFamily) {
-        const usage = ensure(node.fontFamily);
+        const usage = ensure(node.fontFamily, node.fontReference);
         usage.nodeIds.push(node.id);
         usage.totalCharacters += countChars(node.text ?? '');
 
@@ -128,7 +142,7 @@ export class FontUsageIndex {
           for (const run of paragraph.runs) {
             const family = run.format?.fontFamily;
             if (family) {
-              const usage = ensure(family);
+              const usage = ensure(family, run.format?.fontReference);
               if (!usage.nodeIds.includes(node.id)) {
                 usage.nodeIds.push(node.id);
               }
@@ -148,7 +162,7 @@ export class FontUsageIndex {
         if (style.type === 'text') {
           const ts = style as UsageTextStyle;
           if (ts.fontFamily) {
-            const usage = ensure(ts.fontFamily);
+            const usage = ensure(ts.fontFamily, ts.fontReference);
             usage.styleIds.push(id);
             if (ts.fontWeight !== undefined) usage.weight = ts.fontWeight;
             if (ts.fontStyle !== undefined) usage.style = ts.fontStyle;
@@ -165,15 +179,27 @@ export class FontUsageIndex {
    */
   getFamilyUsage(doc: UsageDocument, family: string): FontUsage {
     const index = this.build(doc);
-    const key = family.toLowerCase();
-    return (
-      index.get(key) ?? {
-        familyName: family,
-        nodeIds: [],
-        styleIds: [],
-        totalCharacters: 0,
-      }
+    const familyKey = family.toLowerCase();
+    const entries = [...index.values()].filter(
+      (usage) => usage.familyName.toLowerCase() === familyKey,
     );
+    if (entries.length === 0) {
+      return { familyName: family, nodeIds: [], styleIds: [], totalCharacters: 0 };
+    }
+    const merged: FontUsage = {
+      familyName: entries[0]!.familyName,
+      nodeIds: [],
+      styleIds: [],
+      totalCharacters: 0,
+    };
+    for (const entry of entries) {
+      for (const id of entry.nodeIds) if (!merged.nodeIds.includes(id)) merged.nodeIds.push(id);
+      for (const id of entry.styleIds) if (!merged.styleIds.includes(id)) merged.styleIds.push(id);
+      merged.totalCharacters += entry.totalCharacters;
+      if (merged.weight === undefined) merged.weight = entry.weight;
+      if (merged.style === undefined) merged.style = entry.style;
+    }
+    return merged;
   }
 
   /**

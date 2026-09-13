@@ -109,6 +109,15 @@ legacy requests untouched. Manifest resolution reports missing, substituted,
 restricted, and unavailable outcomes instead of silently changing authored
 text.
 
+The resolver treats an authored `fontReference` as a hard lookup against the
+artifact hash and collection member. A same-family entry with a different
+artifact is therefore an unavailable face and cannot satisfy the request. When
+a validated face has parsed cmap ranges, the resolver reports the distinct
+`missing-glyph` state with the requested characters; an empty range list means
+coverage is unknown and is never interpreted as an empty font. Replacement can
+be scoped to the exact reference, clears stale identity when the user chooses a
+family-only fallback, and records that scope in manifest replacement history.
+
 ## Discovery and privacy
 
 Desktop enumeration uses the native `enumerate_system_fonts` request envelope

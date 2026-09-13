@@ -119,6 +119,46 @@ describe('buildDocumentFontManifest', () => {
     expect(manifest.fonts).toHaveLength(1);
   });
 
+  it('keeps same-family artifacts as separate manifest faces', () => {
+    const first = makeEntry('Inter', 'Regular');
+    first.identity = {
+      ...first.identity,
+      contentHash: 'a'.repeat(64),
+      hashAlgorithm: 'sha256',
+      postScriptName: 'Inter-Regular-A',
+    };
+    const second = makeEntry('Inter', 'Regular');
+    second.identity = {
+      ...second.identity,
+      contentHash: 'b'.repeat(64),
+      hashAlgorithm: 'sha256',
+      postScriptName: 'Inter-Regular-B',
+    };
+    const catalog = catalogWith([first, second]);
+    const doc = docWith({
+      t1: {
+        id: 't1',
+        kind: 'text',
+        text: 'A',
+        fontFamily: 'Inter',
+        fontReference: { artifactHash: 'a'.repeat(64), postScriptName: 'Inter-Regular-A' },
+      },
+      t2: {
+        id: 't2',
+        kind: 'text',
+        text: 'B',
+        fontFamily: 'Inter',
+        fontReference: { artifactHash: 'b'.repeat(64), postScriptName: 'Inter-Regular-B' },
+      },
+    });
+
+    const manifest = buildDocumentFontManifest(doc, catalog);
+    expect(manifest.fonts).toHaveLength(2);
+    expect(manifest.fonts.map((entry) => entry.fontReference?.artifactHash)).toEqual(
+      expect.arrayContaining(['a'.repeat(64), 'b'.repeat(64)]),
+    );
+  });
+
   it('preserves an applied replacement when rebuilding from the substituted document', () => {
     const catalog = catalogWith([makeEntry('Inter', 'Regular')]);
     const doc = docWith({

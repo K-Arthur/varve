@@ -12,6 +12,7 @@
 import type {
   EmbeddingRights,
   FontCategory,
+  FontReference,
   FontSourceKind,
   ParsedFontMetadata,
 } from './fontIdentity';
@@ -180,6 +181,31 @@ export class FontCatalog {
   getEntriesForFamily(family: string): FontCatalogEntry[] {
     const lower = family.toLowerCase();
     return [...this.entries.values()].filter((e) => e.identity.familyName.toLowerCase() === lower);
+  }
+
+  /**
+   * Resolve a portable artifact/member reference without falling back to the
+   * display family. A family can legitimately contain multiple files and a
+   * collection can contain multiple faces, so family lookup is never an
+   * acceptable substitute for an exact reference.
+   */
+  getEntryForReference(reference: FontReference): FontCatalogEntry | undefined {
+    const artifactHash = reference.artifactHash.toLowerCase();
+    const collectionIndex = reference.collectionIndex;
+    return [...this.entries.values()].find((entry) => {
+      const identity = entry.identity;
+      if (identity.contentHash.toLowerCase() !== artifactHash) return false;
+      if ((identity.collectionIndex ?? undefined) !== collectionIndex) return false;
+      if (
+        reference.postScriptName &&
+        identity.postScriptName &&
+        identity.postScriptName !== 'Unknown' &&
+        identity.postScriptName !== reference.postScriptName
+      ) {
+        return false;
+      }
+      return true;
+    });
   }
 
   // -- Runtime state -------------------------------------------------------
