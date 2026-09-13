@@ -1202,12 +1202,6 @@ async fn remove_background(
         // That matters on Crostini/ARM systems where host memory can look
         // healthy while the process is under a smaller cgroup limit.
         preflight_native_model("Native background removal", model_id, width, height)?;
-        if !ensure_native_ai(&app) {
-            return Err(
-                "Native AI runtime is unavailable on this system; use the in-app (WASM) model instead"
-                    .into(),
-            );
-        }
     }
     #[cfg(not(feature = "ai"))]
     let _ = &app;
@@ -1215,6 +1209,12 @@ async fn remove_background(
     tauri::async_runtime::spawn_blocking(move || {
         #[cfg(feature = "ai")]
         if let Some(model_id) = native_background_model_id(&options.method) {
+            if !ensure_native_ai(&app) {
+                return Err(
+                    "Native AI runtime is unavailable on this system; use the in-app (WASM) model instead"
+                        .into(),
+                );
+            }
             let (width, height) = encoded_image_dimensions(&image_data)?;
             validate_bounded_image_dimensions(width, height, "background-removal image")?;
             preflight_native_model("Native background removal", model_id, width, height)?;
@@ -2614,10 +2614,12 @@ fn cancel_generative_edit(request_id: String) -> Result<(), String> {
 /// process/thread startup; by the time frontend JS can call this command,
 /// the webview is already fully up, so that risk doesn't apply here.
 #[tauri::command]
-fn native_ai_status(_app: tauri::AppHandle) -> bool {
+async fn native_ai_status(_app: tauri::AppHandle) -> bool {
     #[cfg(feature = "ai")]
     {
-        ensure_native_ai(&_app)
+        tauri::async_runtime::spawn_blocking(move || ensure_native_ai(&_app))
+            .await
+            .unwrap_or(false)
     }
     #[cfg(not(feature = "ai"))]
     {
@@ -2839,13 +2841,6 @@ async fn upscale_image_command(
     image_data: Vec<u8>,
     options: UpscaleImageOptions,
 ) -> Result<Response, String> {
-    #[cfg(feature = "ai")]
-    if options.method == "ai" && !crate::ensure_native_ai(&app) {
-        return Err(
-            "Native AI runtime is unavailable on this system; use the in-app (WASM) model instead"
-                .into(),
-        );
-    }
     #[cfg(not(feature = "ai"))]
     let _ = &app;
 
@@ -2900,15 +2895,18 @@ async fn upscale_image_command(
     let scale_opt = options.scale;
 
     // Non-AI methods can use the native GPU resampler when a hardware device
-    // is available. Any failure (no adapter, device loss, unsupported size)
-    // falls back to the CPU filters below; the request never fails because of
-    // an unavailable accelerator.
-    let gpu_workers = if method != "ai" {
+    // is available. Keep the state handle, not a created device, until the
+    // blocking worker has admitted the request; device creation can take long
+    // enough to make a Tauri/GTK event thread visibly unresponsive.
+    let acceleration_state = if method != "ai" {
         app.try_state::<std::sync::Arc<acceleration::AccelerationState>>()
-            .and_then(|state| state.workers().ok())
+            .map(|state| std::sync::Arc::clone(&*state))
     } else {
         None
     };
+
+    #[cfg(feature = "ai")]
+    let app_for_worker = app.clone();
 
     let result = tauri::async_runtime::spawn_blocking(move || {
         // Serialize native upscale allocations. Superseded jobs remain cheap
@@ -2920,6 +2918,16 @@ async fn upscale_image_command(
         if cancel_for_worker.load(Ordering::SeqCst) {
             return Err("Upscale cancelled".into());
         }
+        #[cfg(feature = "ai")]
+        if method == "ai" && !crate::ensure_native_ai(&app_for_worker) {
+            return Err(
+                "Native AI runtime is unavailable on this system; use the in-app (WASM) model instead"
+                    .into(),
+            );
+        }
+        // GPU device creation is intentionally after cancellation and inside
+        // the blocking worker. A failed creation is a normal CPU fallback.
+        let gpu_workers = acceleration_state.and_then(|state| state.workers().ok());
         let dimensions = image::ImageReader::new(std::io::Cursor::new(&image_data))
             .with_guessed_format()
             .map_err(|e| format!("Image format error: {e}"))?
@@ -3013,9 +3021,11 @@ async fn apply_live_effect_binary(
     if backend == "gpu" {
         // Explicit GPU requests fail closed: the provider chain decides
         // whether to fall back to the CPU command, and a success here means
-        // the GPU actually produced the bytes.
-        let workers = state.workers()?;
+        // the GPU actually produced the bytes. Device creation can block on
+        // adapter negotiation, so keep it off the Tauri/GTK event thread.
+        let acceleration_state = std::sync::Arc::clone(&*state);
         let result = tauri::async_runtime::spawn_blocking(move || {
+            let workers = acceleration_state.workers()?;
             acceleration::apply_effect_on_gpu(&workers, &effect_request, &rgba)
         })
         .await
