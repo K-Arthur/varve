@@ -153,6 +153,30 @@ describe('generative edit capabilities', () => {
     });
   });
 
+  it('refuses semantic diffusion on a constrained 4 GiB browser before allocation', () => {
+    const assessment = assessGenerativeEditResources({
+      mode: 'replace',
+      width: 512,
+      height: 512,
+      quality: 'quality',
+      requiresDiffusion: true,
+      profile: {
+        tier: 'constrained',
+        platform: 'chromeos',
+        architecture: 'arm64',
+        executionBackend: 'wasm',
+        safePeakBytes: 4 * 1024 ** 3,
+        summary: '4 GiB ARM Chromebook',
+      },
+    });
+
+    expect(assessment).toMatchObject({
+      allowed: false,
+      reasonCode: 'insufficient-memory',
+      fallback: 'content-aware-fill',
+    });
+  });
+
   it('rejects prompt-only modes until a verified provider exists', async () => {
     await expect(runGenerativeEdit(request({ mode: 'replace' }))).rejects.toMatchObject({
       code: 'unsupported-mode',
