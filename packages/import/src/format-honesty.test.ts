@@ -18,6 +18,19 @@ function corpusFile(name: string): Uint8Array {
   return new Uint8Array(readFileSync(resolve(process.cwd(), 'tests/fixtures/import-corpus', name)));
 }
 
+function photoshopHeader(version: 1 | 2, width: number, height: number): Uint8Array {
+  const bytes = new Uint8Array(26);
+  bytes.set(new TextEncoder().encode('8BPS'), 0);
+  const view = new DataView(bytes.buffer);
+  view.setUint16(4, version, false);
+  view.setUint16(12, 4, false);
+  view.setUint32(14, height, false);
+  view.setUint32(18, width, false);
+  view.setUint16(22, 8, false);
+  view.setUint16(24, 3, false);
+  return bytes;
+}
+
 describe('import format honesty', () => {
   it('imports a real .svgz, which is gzipped SVG', async () => {
     const svgz = gzipSync(strToU8('<svg><rect width="10" height="10" fill="red"/></svg>'));
@@ -54,6 +67,64 @@ describe('import format honesty', () => {
       /no <svg> element found/i,
     );
     expect(file.unsupportedFeatures).toEqual([]);
+  });
+
+  it('reports truncated PSD and PSB headers as failed, not partial imports', async () => {
+    const report = await ImportService.importFiles([
+      {
+        name: 'broken.psd',
+        source: 'file-picker',
+        bytes: new Uint8Array([0x38, 0x42, 0x50, 0x53, 0x00, 0x01]),
+      },
+      {
+        name: 'broken.psb',
+        source: 'file-picker',
+        bytes: new Uint8Array([0x38, 0x42, 0x50, 0x53, 0x00, 0x02]),
+      },
+    ]);
+
+    expect(report.files.map((file) => [file.format, file.status, file.nodeCount])).toEqual([
+      ['psd', 'failed', 0],
+      ['psb', 'failed', 0],
+    ]);
+    expect(report.files.every((file) => file.artifacts[0]?.nodeIds.length === 0)).toBe(true);
+    expect(report.files.map((file) => file.warnings[0]?.message)).toEqual([
+      'File too small to be a valid PSD/PSB header',
+      'File too small to be a valid PSD/PSB header',
+    ]);
+  });
+
+  it('does not fabricate an AI layer from a header-only PDF wrapper', async () => {
+    const report = await ImportService.importFiles([
+      {
+        name: 'broken.ai',
+        source: 'file-picker',
+        bytes: new TextEncoder().encode('%PDF-1.7'),
+      },
+    ]);
+    const file = report.files[0]!;
+
+    expect(file).toMatchObject({ format: 'ai', status: 'failed', nodeCount: 0 });
+    expect(file.artifacts[0]?.nodeIds).toEqual([]);
+    expect(file.warnings.map((warning) => warning.message).join(' ')).toMatch(
+      /no supported Illustrator content/i,
+    );
+  });
+
+  it('rejects Photoshop dimensions before the parser can allocate a pixel grid', async () => {
+    const report = await ImportService.importFiles([
+      {
+        name: 'oversized.psd',
+        source: 'file-picker',
+        bytes: photoshopHeader(1, 100_000, 100_000),
+      },
+    ]);
+    const file = report.files[0]!;
+
+    expect(file).toMatchObject({ format: 'psd', status: 'failed', nodeCount: 0 });
+    expect(file.warnings.map((warning) => warning.message).join(' ')).toMatch(
+      /pixel import budget/i,
+    );
   });
 
   it('imports real layered PSD and PSB fixtures as partial editable layer trees', async () => {

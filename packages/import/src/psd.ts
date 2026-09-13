@@ -25,6 +25,11 @@ import type { Group as PsdGroup, Layer as PsdLayer } from '@webtoon/psd';
 import Psd from '@webtoon/psd';
 import type { ImportOptions, ImportParser, ImportResult } from './types';
 
+const PSD_HEADER_BYTES = 26;
+const MAX_PSD_ENCODED_BYTES = 128 * 1024 * 1024;
+const MAX_PSD_PIXELS = 64 * 1024 * 1024;
+const MAX_PSD_DIMENSION = 300_000;
+
 /**
  * Map PSD blend mode constants to Varve blend modes.
  *
@@ -92,11 +97,20 @@ export function createPsdParser(): ImportParser {
       const doc = createDocument('Imported PSD');
 
       if (typeof data === 'string') {
-        return { document: doc, nodeIds: [], warnings: ['PSD parsing requires binary data'] };
+        return {
+          document: doc,
+          nodeIds: [],
+          warnings: ['PSD parsing requires binary data'],
+        };
       }
 
-      if (data.length < 4) {
-        return { document: doc, nodeIds: [], warnings: ['File too small to be a valid PSD'] };
+      const header = validatePsdHeader(data);
+      if (!header.ok) {
+        return {
+          document: doc,
+          nodeIds: [],
+          warnings: [header.message],
+        };
       }
 
       try {
@@ -153,6 +167,55 @@ function parsePsdData(data: Uint8Array, opts: ImportOptions, warnings: string[])
 
 function photoshopFormatLabel(data: Uint8Array): 'PSD' | 'PSB' {
   return data[4] === 0 && data[5] === 2 ? 'PSB' : 'PSD';
+}
+
+function validatePsdHeader(data: Uint8Array): { ok: true } | { ok: false; message: string } {
+  if (data.length < PSD_HEADER_BYTES) {
+    return { ok: false, message: 'File too small to be a valid PSD/PSB header' };
+  }
+
+  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  const version = view.getUint16(4, false);
+  if (version !== 1 && version !== 2) {
+    return { ok: false, message: `Unsupported Photoshop file version: ${version}` };
+  }
+
+  const channels = view.getUint16(12, false);
+  const height = view.getUint32(14, false);
+  const width = view.getUint32(18, false);
+  const depth = view.getUint16(22, false);
+  const colorMode = view.getUint16(24, false);
+
+  if (data.byteLength > MAX_PSD_ENCODED_BYTES) {
+    return {
+      ok: false,
+      message: `Photoshop source exceeds the ${MAX_PSD_ENCODED_BYTES}-byte import budget`,
+    };
+  }
+  if (channels < 1 || channels > 56) {
+    return { ok: false, message: `Invalid Photoshop channel count: ${channels}` };
+  }
+  if (width < 1 || height < 1) {
+    return { ok: false, message: 'Photoshop document dimensions must be positive' };
+  }
+  if (
+    width > MAX_PSD_DIMENSION ||
+    height > MAX_PSD_DIMENSION ||
+    width > Math.floor(MAX_PSD_PIXELS / height)
+  ) {
+    return {
+      ok: false,
+      message: `Photoshop document exceeds the ${MAX_PSD_PIXELS}-pixel import budget`,
+    };
+  }
+  if (depth !== 1 && depth !== 8 && depth !== 16 && depth !== 32) {
+    return { ok: false, message: `Unsupported Photoshop bit depth: ${depth}` };
+  }
+  if (colorMode > 9) {
+    return { ok: false, message: `Unsupported Photoshop color mode: ${colorMode}` };
+  }
+
+  return { ok: true };
 }
 
 interface PsdConvertResult {
