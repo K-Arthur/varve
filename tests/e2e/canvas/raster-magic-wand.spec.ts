@@ -8,6 +8,23 @@ const { PNG } = requireFromEngine('pngjs') as {
   PNG: { sync: { read(input: Buffer): { width: number; height: number; data: Buffer } } };
 };
 
+function opaqueBlackPixels(input: Buffer): number {
+  const image = PNG.sync.read(input);
+  let count = 0;
+  for (let offset = 0; offset < image.data.length; offset += 4) {
+    const alpha = image.data[offset + 3] ?? 0;
+    if (
+      alpha > 200 &&
+      (image.data[offset] ?? 255) < 16 &&
+      (image.data[offset + 1] ?? 255) < 16 &&
+      (image.data[offset + 2] ?? 255) < 16
+    ) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
 const VIEWPORT = { width: 1280, height: 800 };
 
 test.describe('raster Magic Wand workflow', () => {
@@ -133,5 +150,51 @@ test.describe('raster Magic Wand workflow', () => {
     await fill.click();
     await expect(announcer).toContainText('Selection filled on', { timeout: 15000 });
     await page.screenshot({ path: testInfo.outputPath('raster-magic-wand-filled.png') });
+
+    // Prove that the raster-selection route survives the same durable save,
+    // export, and Home-library reopen path as the marquee workflow.
+    await page.evaluate(() => {
+      Object.defineProperty(window, 'showSaveFilePicker', {
+        configurable: true,
+        value: undefined,
+      });
+    });
+    await page.waitForTimeout(750);
+    await page.keyboard.press('Control+s');
+    await expect(page.locator('.save-status')).toHaveText('Saved', { timeout: 30000 });
+    await page.waitForTimeout(750);
+
+    const exportTab = page.locator('[role="tablist"] button[role="tab"]', {
+      hasText: /^export$/i,
+    });
+    await exportTab.click();
+    const pngGroup = page.locator('.spec-export__group').filter({ hasText: 'PNG' }).first();
+    await pngGroup.getByRole('button', { name: 'PNG', exact: true }).click();
+    const exportDownloadPromise = page.waitForEvent('download', { timeout: 180000 });
+    await page.getByRole('button', { name: 'Download PNG', exact: true }).click();
+    const exportDownload = await exportDownloadPromise;
+    const exportPath = testInfo.outputPath('raster-magic-wand.png');
+    await exportDownload.saveAs(exportPath);
+    const { readFile } = await import('node:fs/promises');
+    const exported = await readFile(exportPath);
+    expect(exported.subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+    const exportedPng = PNG.sync.read(exported);
+    expect(exportedPng.width).toBe(640);
+    expect(exportedPng.height).toBe(480);
+    expect(opaqueBlackPixels(exported)).toBeGreaterThan(1000);
+
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('.varve-home__toolbar').waitFor({ state: 'visible', timeout: 30000 });
+    await page.getByRole('gridcell').first().dblclick();
+    await page.locator('canvas.editor-canvas__content-layer').waitFor({
+      state: 'visible',
+      timeout: 60000,
+    });
+    await expect(page.locator('[role="treeitem"][data-node-id]')).not.toHaveCount(0);
+    const reopenedCanvas = page.locator('canvas.editor-canvas__content-layer');
+    await expect
+      .poll(async () => opaqueBlackPixels(await reopenedCanvas.screenshot()), { timeout: 15000 })
+      .toBeGreaterThan(1000);
+    await page.screenshot({ path: testInfo.outputPath('raster-magic-wand-reopened.png') });
   });
 });
