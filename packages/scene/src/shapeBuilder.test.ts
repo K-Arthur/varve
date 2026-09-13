@@ -4,6 +4,7 @@ import {
   applyShapeBuilderAction,
   buildShapeBuilderModel,
   facesCrossedBySegment,
+  previewShapeBuilderAction,
   previewShapeBuilderSelection,
 } from './shapeBuilder';
 
@@ -169,5 +170,18 @@ describe('Shape Builder arrangement and actions', () => {
     );
     expect(output.components).toHaveLength(2);
     expect(output.components.every((component) => component.outer.length === 4)).toBe(true);
+  });
+
+  it('previews destructive remainders separately from the selected output', () => {
+    const doc = rectangles();
+    const model = buildShapeBuilderModel(doc, ['a', 'b']);
+    const selected = model.faces
+      .filter((face) => face.filledBy.includes('a') && face.filledBy.includes('b'))
+      .map((face) => face.id);
+    const preview = previewShapeBuilderAction(model, selected, 'erase');
+
+    expect(preview.output).toHaveLength(0);
+    expect(preview.remainders).toHaveLength(2);
+    expect(preview.remainders.every((remainder) => remainder.regions.length > 0)).toBe(true);
   });
 });
