@@ -5,6 +5,7 @@ import {
   applyShapeBuilderAction,
   buildShapeBuilderModel,
   facesCrossedBySegment,
+  hitTestShapeBuilderFace,
   previewShapeBuilderAction,
   previewShapeBuilderSelection,
 } from './shapeBuilder';
@@ -213,6 +214,56 @@ describe('Shape Builder arrangement and actions', () => {
     expect(preview.output).toHaveLength(0);
     expect(preview.remainders).toHaveLength(2);
     expect(preview.remainders.every((remainder) => remainder.regions.length > 0)).toBe(true);
+  });
+
+  it('uses the rendered rounded-rectangle boundary for region hit testing', () => {
+    let doc = createDocument('rounded-rectangle', true);
+    doc = addNode(
+      doc,
+      makeShapeNode(
+        'rounded',
+        { kind: 'rect', x: 0, y: 0, w: 100, h: 60 },
+        { transform: identity, cornerRadius: 10 },
+      ),
+    );
+
+    const model = buildShapeBuilderModel(doc, ['rounded']);
+    expect(model.status).toBe('ready');
+    expect(model.faces.filter((face) => face.selectable)).toHaveLength(1);
+    expect(model.faces[0]!.outer.length).toBeGreaterThan(4);
+    expect(hitTestShapeBuilderFace(model, { x: 1, y: 1 })).toBeNull();
+    expect(hitTestShapeBuilderFace(model, { x: 50, y: 30 })).not.toBeNull();
+  });
+
+  it('keeps per-corner radii and bounds for negative-direction rectangles', () => {
+    let doc = createDocument('negative-rounded-rectangle', true);
+    doc = addNode(
+      doc,
+      makeShapeNode(
+        'negative-rounded',
+        { kind: 'rect', x: 100, y: 60, w: -100, h: -60 },
+        { transform: identity, cornerRadius: [4, 8, 12, 16] },
+      ),
+    );
+
+    const model = buildShapeBuilderModel(doc, ['negative-rounded']);
+    expect(model.status).toBe('ready');
+    expect(model.bounds).toEqual({ minX: 0, minY: 0, maxX: 100, maxY: 60 });
+    expect(model.faces.filter((face) => face.selectable)).toHaveLength(1);
+    expect(model.faces[0]!.outer.length).toBeGreaterThan(4);
+    expect(hitTestShapeBuilderFace(model, { x: 50, y: 30 })).not.toBeNull();
+  });
+
+  it('rejects zero-area primitive operands with an actionable reason', () => {
+    let doc = createDocument('zero-area', true);
+    doc = addNode(
+      doc,
+      makeShapeNode('flat', { kind: 'rect', x: 0, y: 0, w: 0, h: 100 }, { transform: identity }),
+    );
+
+    const model = buildShapeBuilderModel(doc, ['flat']);
+    expect(model.status).toBe('unsupported');
+    expect(model.message).toMatch(/degenerate|area|geometry/i);
   });
 
   it('round-trips created components and holes through the document codec', () => {

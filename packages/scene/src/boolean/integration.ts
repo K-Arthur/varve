@@ -53,14 +53,126 @@ function curveTolerance(points: readonly Point2D[]): number {
   return Math.max(diagonal * 1e-4, Number.EPSILON * coordinateMagnitude * 64);
 }
 
-function ellipseSegmentCount(rx: number, ry: number): number {
+type CornerRadius = number | readonly [number, number, number, number];
+
+const IDENTITY_TRANSFORM = [1, 0, 0, 1, 0, 0] as const;
+
+/** Conservative upper bound for how much an affine can stretch a vector. */
+function affineScaleBound(
+  transform: readonly [number, number, number, number, number, number],
+): number {
+  return Math.max(1, Math.hypot(transform[0], transform[1], transform[2], transform[3]));
+}
+
+function arcSegmentCount(
+  radius: number,
+  sweep: number,
+  transform: readonly [number, number, number, number, number, number],
+): number {
+  const worldRadius = Math.abs(radius) * affineScaleBound(transform);
+  if (worldRadius === 0) return 0;
+  // Keep the committed polygon within 1e-4 of the local feature scale, with a
+  // 0.01 world-unit ceiling so a large transformed primitive does not retain a
+  // visibly coarse boundary. This is an approximation budget, not an exactness
+  // claim; generated-vertex limits still guard pathological inputs.
+  const maxChordError = Math.min(worldRadius * 1e-4, 0.01);
+  const halfAngle = Math.acos(Math.max(-1, 1 - maxChordError / worldRadius));
+  if (!(halfAngle > 0)) return 1;
+  return Math.max(1, Math.ceil(Math.abs(sweep) / (2 * halfAngle)));
+}
+
+function ellipseSegmentCount(
+  rx: number,
+  ry: number,
+  transform: readonly [number, number, number, number, number, number] = IDENTITY_TRANSFORM,
+): number {
   const radius = Math.max(Math.abs(rx), Math.abs(ry));
   if (radius === 0) return 0;
-  // Chord error is bounded to 1e-4 of the ellipse radius, matching the
-  // path-flattening policy instead of imposing the old fixed 48-sided circle.
-  const maxChordError = radius * 1e-4;
-  const halfAngle = Math.acos(Math.max(-1, 1 - maxChordError / radius));
-  return Math.max(8, Math.ceil(Math.PI / halfAngle));
+  return Math.max(8, arcSegmentCount(radius, 2 * Math.PI, transform));
+}
+
+function cornerRadii(
+  cornerRadius: CornerRadius,
+  w: number,
+  h: number,
+): [number, number, number, number] | null {
+  const authored = (
+    typeof cornerRadius === 'number'
+      ? [cornerRadius, cornerRadius, cornerRadius, cornerRadius]
+      : [...cornerRadius]
+  ) as [number, number, number, number];
+  if (authored.some((radius) => !Number.isFinite(radius))) return null;
+  const xReversed = w < 0;
+  const yReversed = h < 0;
+  const physical =
+    xReversed && yReversed
+      ? [authored[2], authored[3], authored[0], authored[1]]
+      : xReversed
+        ? [authored[1], authored[0], authored[3], authored[2]]
+        : yReversed
+          ? [authored[3], authored[2], authored[1], authored[0]]
+          : authored;
+  const maxRadius = Math.min(Math.abs(w), Math.abs(h)) / 2;
+  let [tl, tr, br, bl] = physical.map((radius) => Math.max(0, Math.min(radius, maxRadius))) as [
+    number,
+    number,
+    number,
+    number,
+  ];
+  const clampPair = (a: number, b: number, length: number): [number, number] => {
+    if (a + b <= length) return [a, b];
+    const scale = length / (a + b);
+    return [a * scale, b * scale];
+  };
+  [tl, tr] = clampPair(tl, tr, Math.abs(w));
+  [tr, br] = clampPair(tr, br, Math.abs(h));
+  [br, bl] = clampPair(br, bl, Math.abs(w));
+  [bl, tl] = clampPair(bl, tl, Math.abs(h));
+  return [tl, tr, br, bl];
+}
+
+function roundedRectanglePolygon(
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  cornerRadius: CornerRadius,
+  transform: readonly [number, number, number, number, number, number],
+): Point2D[] {
+  if (!(Math.abs(w) > 0 && Math.abs(h) > 0)) return [];
+  const radii = cornerRadii(cornerRadius, w, h);
+  if (!radii) return [];
+  const [tl, tr, br, bl] = radii;
+  const x0 = Math.min(x, x + w);
+  const x1 = Math.max(x, x + w);
+  const y0 = Math.min(y, y + h);
+  const y1 = Math.max(y, y + h);
+  const points: Point2D[] = [];
+  const push = (point: Point2D): void => {
+    const previous = points[points.length - 1];
+    if (!previous || Math.hypot(point.x - previous.x, point.y - previous.y) > 1e-12) {
+      points.push(point);
+    }
+  };
+  const appendArc = (cx: number, cy: number, radius: number, start: number, end: number): void => {
+    if (radius <= 0) return;
+    const count = arcSegmentCount(radius, end - start, transform);
+    for (let index = 1; index <= count; index++) {
+      const angle = start + ((end - start) * index) / count;
+      push({ x: cx + radius * Math.cos(angle), y: cy + radius * Math.sin(angle) });
+    }
+  };
+
+  push({ x: x0 + tl, y: y0 });
+  push({ x: x1 - tr, y: y0 });
+  appendArc(x1 - tr, y0 + tr, tr, -Math.PI / 2, 0);
+  push({ x: x1, y: y1 - br });
+  appendArc(x1 - br, y1 - br, br, 0, Math.PI / 2);
+  push({ x: x0 + bl, y: y1 });
+  appendArc(x0 + bl, y1 - bl, bl, Math.PI / 2, Math.PI);
+  push({ x: x0, y: y0 + tl });
+  appendArc(x0 + tl, y0 + tl, tl, Math.PI, (3 * Math.PI) / 2);
+  return points;
 }
 
 function sampleCubicBezier(
@@ -166,20 +278,23 @@ export function pathPointsToPolygon(
 export function shapeToPolygon(
   shape: ShapeNode['shape'],
   transform: readonly [number, number, number, number, number, number],
+  cornerRadius?: CornerRadius,
 ): Point2D[] {
   let poly: Point2D[];
   switch (shape.kind) {
     case 'rect':
     case 'table':
-      poly = [
-        { x: shape.x, y: shape.y },
-        { x: shape.x + shape.w, y: shape.y },
-        { x: shape.x + shape.w, y: shape.y + shape.h },
-        { x: shape.x, y: shape.y + shape.h },
-      ];
+      poly = cornerRadius
+        ? roundedRectanglePolygon(shape.x, shape.y, shape.w, shape.h, cornerRadius, transform)
+        : [
+            { x: shape.x, y: shape.y },
+            { x: shape.x + shape.w, y: shape.y },
+            { x: shape.x + shape.w, y: shape.y + shape.h },
+            { x: shape.x, y: shape.y + shape.h },
+          ];
       break;
     case 'ellipse': {
-      const n = ellipseSegmentCount(shape.rx, shape.ry);
+      const n = ellipseSegmentCount(shape.rx, shape.ry, transform);
       poly = [];
       for (let i = 0; i < n; i++) {
         const theta = (2 * Math.PI * i) / n;
@@ -191,7 +306,7 @@ export function shapeToPolygon(
       break;
     }
     case 'circle': {
-      const n = ellipseSegmentCount(shape.r, shape.r);
+      const n = ellipseSegmentCount(shape.r, shape.r, transform);
       poly = [];
       for (let i = 0; i < n; i++) {
         const theta = (2 * Math.PI * i) / n;

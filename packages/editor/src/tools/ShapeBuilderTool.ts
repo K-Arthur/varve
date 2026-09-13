@@ -91,7 +91,9 @@ export class ShapeBuilderTool implements Tool {
     this.gestureLastWorld = world;
     this.gesturePath = [world];
     this.gestureVisited = new Set<string>();
-    this.gestureToggle = e.shiftKey || e.altKey || e.ctrlKey || e.metaKey;
+    const touchMultiSelect =
+      e.pointerType === 'touch' && ctx.touchMultiSelect.active && !ctx.touchMultiSelect.suspended;
+    this.gestureToggle = e.shiftKey || e.altKey || e.ctrlKey || e.metaKey || touchMultiSelect;
     this.gestureDragging = false;
     this.selectionBeforeGesture = new Set(this.selectedFaceIds);
     if (!this.gestureToggle) this.selectedFaceIds.clear();
@@ -272,7 +274,7 @@ export class ShapeBuilderTool implements Tool {
     if (this.model && this.modelDoc === ctx.document && this.modelSelectionKey === selectionKey) {
       return this.model;
     }
-    if (this.model && this.modelSelectionKey !== selectionKey) {
+    if (this.model && (this.modelSelectionKey !== selectionKey || this.modelDoc !== ctx.document)) {
       this.selectedFaceIds.clear();
       this.hoveredFaceId = null;
     }

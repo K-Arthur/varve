@@ -228,6 +228,26 @@ function isFiniteRing(ring: Point2D[]): boolean {
   );
 }
 
+function hasNonCollinearPoints(ring: Point2D[]): boolean {
+  if (ring.length < 3) return false;
+  const origin = ring[0]!;
+  let baseline: Point2D | null = null;
+  for (let index = 1; index < ring.length; index++) {
+    const candidate = ring[index]!;
+    if (candidate.x !== origin.x || candidate.y !== origin.y) {
+      baseline = candidate;
+      break;
+    }
+  }
+  if (!baseline) return false;
+  return ring.slice(1).some((candidate) => {
+    const area =
+      (baseline!.x - origin.x) * (candidate.y - origin.y) -
+      (baseline!.y - origin.y) * (candidate.x - origin.x);
+    return Number.isFinite(area) && area !== 0;
+  });
+}
+
 function hasVisibleStroke(node: ShapeNode): boolean {
   return (node.strokes ?? []).some((stroke) => {
     const sideWeight = stroke.perSideWeights?.some((weight) => weight > 0) ?? false;
@@ -236,9 +256,25 @@ function hasVisibleStroke(node: ShapeNode): boolean {
 }
 
 function hasPositiveCornerRadius(node: ShapeNode): boolean {
+  if (node.shape.kind !== 'rect' && node.shape.kind !== 'table') return false;
   const radius = node.cornerRadius;
   if (typeof radius === 'number') return radius > 0;
-  return (radius?.some((value) => value > 0) ?? false) || (node.cornerSmoothing ?? 0) > 0;
+  return radius?.some((value) => value > 0) ?? false;
+}
+
+function hasInvalidCornerRadius(node: ShapeNode): boolean {
+  if (node.shape.kind !== 'rect' && node.shape.kind !== 'table') return false;
+  const radius = node.cornerRadius;
+  if (typeof radius === 'number') return !Number.isFinite(radius);
+  return radius?.some((value) => !Number.isFinite(value)) ?? false;
+}
+
+function hasUnsupportedCornerSmoothing(node: ShapeNode): boolean {
+  return (
+    (node.shape.kind === 'rect' || node.shape.kind === 'table') &&
+    (node.cornerSmoothing ?? 0) > 0 &&
+    hasPositiveCornerRadius(node)
+  );
 }
 
 function ancestorRestriction(doc: Document, nodeId: NodeId): string | null {
@@ -285,10 +321,13 @@ function nodeEligibility(
   if (hasVisibleStroke(node)) {
     return { eligible: false, reason: 'Outline the stroke before using its visible area.' };
   }
-  if (hasPositiveCornerRadius(node)) {
+  if (hasInvalidCornerRadius(node)) {
+    return { eligible: false, reason: 'The rounded-corner values are not finite.' };
+  }
+  if (hasUnsupportedCornerSmoothing(node)) {
     return {
       eligible: false,
-      reason: 'Convert rounded corners to a path before building regions.',
+      reason: 'Convert continuous/smoothed corners to a path before building regions.',
     };
   }
   const restriction = ancestorRestriction(doc, nodeId);
@@ -319,13 +358,13 @@ function nodeEligibility(
   let outer: Point2D[];
   let holes: Point2D[][];
   try {
-    outer = shapeToPolygon(node.shape, transform);
+    outer = shapeToPolygon(node.shape, transform, node.cornerRadius);
     holes = shapeHolesToPolygons(node.shape, transform);
   } catch {
     return { eligible: false, reason: 'The selected geometry could not be converted safely.' };
   }
   const rings = [outer, ...holes];
-  if (!rings.every(isFiniteRing)) {
+  if (!rings.every((ring) => isFiniteRing(ring) && hasNonCollinearPoints(ring))) {
     return {
       eligible: false,
       reason: 'The selected geometry contains a degenerate or malformed ring.',

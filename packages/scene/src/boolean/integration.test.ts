@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pathPointsToPolygon } from './integration';
+import { pathPointsToPolygon, shapeToPolygon } from './integration';
 
 function distanceToSegment(
   point: { x: number; y: number },
@@ -15,6 +15,42 @@ function distanceToSegment(
     Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSq),
   );
   return Math.hypot(point.x - (start.x + t * dx), point.y - (start.y + t * dy));
+}
+
+function transformedPoint(
+  x: number,
+  y: number,
+  transform: readonly [number, number, number, number, number, number],
+) {
+  return {
+    x: transform[0] * x + transform[2] * y + transform[4],
+    y: transform[1] * x + transform[3] * y + transform[5],
+  };
+}
+
+function maximumEllipseDeviation(
+  polygon: { x: number; y: number }[],
+  ellipse: { cx: number; cy: number; rx: number; ry: number },
+  transform: readonly [number, number, number, number, number, number],
+): number {
+  let maximum = 0;
+  for (let sample = 0; sample < 720; sample++) {
+    const angle = (2 * Math.PI * sample) / 720;
+    const expected = transformedPoint(
+      ellipse.cx + ellipse.rx * Math.cos(angle),
+      ellipse.cy + ellipse.ry * Math.sin(angle),
+      transform,
+    );
+    let nearest = Infinity;
+    for (let index = 0; index < polygon.length; index++) {
+      nearest = Math.min(
+        nearest,
+        distanceToSegment(expected, polygon[index]!, polygon[(index + 1) % polygon.length]!),
+      );
+    }
+    maximum = Math.max(maximum, nearest);
+  }
+  return maximum;
 }
 
 describe('Boolean curve conversion', () => {
@@ -59,5 +95,13 @@ describe('Boolean curve conversion', () => {
     }
     expect(maximumDeviation).toBeLessThan(0.08);
     expect(output.length).toBeGreaterThan(4);
+  });
+
+  it('keeps transformed ellipse approximation under the world-unit error budget', () => {
+    const ellipse = { kind: 'ellipse' as const, cx: 10, cy: -20, rx: 80, ry: 20 };
+    const transform = [25, 3, 4, 0.3, 1000, -500] as const;
+    const polygon = shapeToPolygon(ellipse, transform);
+
+    expect(maximumEllipseDeviation(polygon, ellipse, transform)).toBeLessThan(0.011);
   });
 });
