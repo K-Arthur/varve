@@ -79,3 +79,36 @@ restore is bounded by window count (ADR-0142 limits).
 
 Storing screen coordinates in the document; unbounded unversioned JSON;
 one global "last layout" slot with no named layouts.
+
+## Amendment (2026-09-13): phased single-window layouts
+
+The full multi-window `NativeWorkspaceLayout` (dock trees, window roles,
+panel-instance transfer) described above is still not wired to a runtime
+surface; `layoutPersistence.ts` and `dock/dockOps.ts` remain its tested
+foundation. What shipped first is the single-window slice of this decision:
+
+- `varve-workspace-layouts` (localStorage) plus platform app-setting
+  `workspace-layouts` hold the versioned envelope
+  `{ schemaVersion, revision, variants, tombstones, resetSnapshot }`
+  (`workspace/layoutVariants.ts`). A variant
+  payload is sparse arrangement state over registered capabilities (panel
+  visibility/widths, inspector tabs, status sections, toolbar tools, editor
+  chrome) — not a dock tree. This is the "per-mode panel visibility
+  preferences" half of the separation above, minus the mode association:
+  variants apply to whichever mode is active and never switch modes.
+- Machine placements stay out of this store entirely, preserving the
+  logical/device separation. The multi-window machine-placement keys remain
+  `varve-window-placements` and `varve-workspace-layout-last-good`.
+- Deletion tombstones and a monotonic revision replace "last writer wins":
+  a reset or deletion is durable information, and a stale copy must not
+  resurrect either.
+- When the dock-tree milestone lands, `activeLayoutId` and logical layouts
+  can be added to this store as a new schema version; the variant payload
+  becomes the panel-visibility projection of a logical layout rather than a
+  parallel concept.
+
+`saveLogicalLayout` no longer writes "last-known-good" on every save.
+Promotion happens only through `promoteLastKnownGood`, after a validated
+restore; unknown future schema versions are left unread rather than
+relabelled. See `docs/architecture/workspace-system.md` for the live
+contract.

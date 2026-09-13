@@ -53,6 +53,7 @@ visibility in browser (`web`) vs Tauri desktop (`tauri`) vs memory/test (`mem`).
 | `openRecent` | `—` | ✓ | ✓ | ✓ |  |
 | `reopenLast` | `—` | ✓ | ✓ | ✓ |  |
 | `import` | `—` | ✓ | ✓ | ✓ |  |
+| `quickConvert` | `—` | ✓ | ✓ | ✓ |  |
 | `insertIcon` | `—` | ✓ | ✓ | ✓ |  |
 | `createTableFromClipboard` | `—` | ✓ | ✓ | ✓ |  |
 | `tabClose` | `—` | ✓ | ✓ | ✓ |  |
@@ -80,6 +81,11 @@ visibility in browser (`web`) vs Tauri desktop (`tauri`) vs memory/test (`mem`).
 | `cut` | `—` | ✓ | ✓ | ✓ |  |
 | `copy` | `—` | ✓ | ✓ | ✓ |  |
 | `paste` | `—` | ✓ | ✓ | ✓ |  |
+| `copyText` | `—` | ✓ | ✓ | ✓ |  |
+| `copyAsSvg` | `—` | ✓ | ✓ | ✓ |  |
+| `copyAsPng` | `—` | ✓ | ✓ | ✓ |  |
+| `pastePlainText` | `—` | ✓ | ✓ | ✓ |  |
+| `pasteSvgMarkup` | `—` | ✓ | ✓ | ✓ |  |
 | `duplicate` | `—` | ✓ | ✓ | ✓ |  |
 | `repeatDuplicate` | `—` | ✓ | ✓ | ✓ |  |
 | `selectAll` | `—` | ✓ | ✓ | ✓ |  |
@@ -107,6 +113,8 @@ visibility in browser (`web`) vs Tauri desktop (`tauri`) vs memory/test (`mem`).
 | `areaSelectionScaleDown` | `—` | ✓ | ✓ | ✓ |  |
 | `areaSelectionRotateCW` | `—` | ✓ | ✓ | ✓ |  |
 | `areaSelectionRotateCCW` | `—` | ✓ | ✓ | ✓ |  |
+| `transformSelectedPixels` | `—` | ✓ | ✓ | ✓ |  |
+| `transformSelectionBoundary` | `—` | ✓ | ✓ | ✓ |  |
 | `selectParent` | `—` | ✓ | ✓ | ✓ |  |
 | `selectChildren` | `—` | ✓ | ✓ | ✓ |  |
 | `delete` | `—` | ✓ | ✓ | ✓ |  |
@@ -135,6 +143,7 @@ visibility in browser (`web`) vs Tauri desktop (`tauri`) vs memory/test (`mem`).
 
 | Item | Cap | Web | Tauri | Mem | Notes |
 |------|-----|-----|-------|-----|-------|
+| `theme:system` | `—` | ✓ | ✓ | ✓ |  |
 | `theme:light` | `—` | ✓ | ✓ | ✓ |  |
 | `theme:dark` | `—` | ✓ | ✓ | ✓ |  |
 | `theme:high-contrast` | `—` | ✓ | ✓ | ✓ |  |
@@ -160,6 +169,7 @@ visibility in browser (`web`) vs Tauri desktop (`tauri`) vs memory/test (`mem`).
 | `gridOverlayIsometric` | `—` | ✓ | ✓ | ✓ |  |
 | `toggleSnap` | `—` | ✓ | ✓ | ✓ |  |
 | `toggleGuides` | `—` | ✓ | ✓ | ✓ |  |
+| `toggleMarqueeContainment` | `—` | ✓ | ✓ | ✓ |  |
 | `lockGuides` | `—` | ✓ | ✓ | ✓ |  |
 | `clearGuides` | `—` | ✓ | ✓ | ✓ |  |
 | `toggleFacingPages` | `—` | ✓ | ✓ | ✓ |  |
@@ -169,6 +179,9 @@ visibility in browser (`web`) vs Tauri desktop (`tauri`) vs memory/test (`mem`).
 | `toggleGraphEditor` | `—` | ✓ | ✓ | ✓ |  |
 | `toggleStateMachinePanel` | `—` | ✓ | ✓ | ✓ |  |
 | `toggleLogoPanel` | `—` | ✓ | ✓ | ✓ |  |
+| `toggleMinimap` | `—` | ✓ | ✓ | ✓ |  |
+| `bringAllPanelsToCurrentDisplay` | `—` | ✓ | ✓ | ✓ |  |
+| `resetPanelWindowLayout` | `—` | ✓ | ✓ | ✓ |  |
 | `workspaceDesign` | `—` | ✓ | ✓ | ✓ |  |
 | `workspacePrint` | `—` | ✓ | ✓ | ✓ |  |
 | `workspaceDrawing` | `—` | ✓ | ✓ | ✓ |  |
@@ -178,6 +191,10 @@ visibility in browser (`web`) vs Tauri desktop (`tauri`) vs memory/test (`mem`).
 | `workspaceEmail` | `—` | ✓ | ✓ | ✓ |  |
 | `workspaceCodegen` | `—` | ✓ | ✓ | ✓ |  |
 | `resetWorkspace` | `—` | ✓ | ✓ | ✓ |  |
+| `resetAllWorkspaces` | `—` | ✓ | ✓ | ✓ |  |
+| `customizeWorkspace` | `—` | ✓ | ✓ | ✓ |  |
+| `manageWorkspaceLayouts` | `—` | ✓ | ✓ | ✓ |  |
+| `restoreAllPanels` | `—` | ✓ | ✓ | ✓ |  |
 | `logoPreview` | `—` | ✓ | ✓ | ✓ |  |
 | `exportLogoPackage` | `—` | ✓ | ✓ | ✓ |  |
 | `toggleDistractionFree` | `—` | ✓ | ✓ | ✓ |  |
@@ -200,6 +217,7 @@ visibility in browser (`web`) vs Tauri desktop (`tauri`) vs memory/test (`mem`).
 | `repeatTransform` | `—` | ✓ | ✓ | ✓ |  |
 | `resizeImage` | `—` | ✓ | ✓ | ✓ |  |
 | `bakeWarp` | `—` | ✓ | ✓ | ✓ |  |
+| `openEffectStudio` | `—` | ✓ | ✓ | ✓ |  |
 | `newAdjustmentLayer` | `—` | ✓ | ✓ | ✓ |  |
 | `createClippingMask` | `—` | ✓ | ✓ | ✓ |  |
 | `releaseClippingMask` | `—` | ✓ | ✓ | ✓ |  |

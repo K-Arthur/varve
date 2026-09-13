@@ -85,6 +85,7 @@ import { sitePath } from '../../lib/siteUrl';
           <li><strong>Panels</strong> — show or hide the Layers, Inspector, Timeline, Resources, Code, Logo, and History panels.</li>
           <li><strong>Toolbar</strong> — hide tools, including tools that live inside flyouts (boolean operations, retouch, mask). Select, Hand, and Zoom always stay available.</li>
           <li><strong>Inspector tabs</strong> and <strong>status bar sections</strong> — per-workspace visibility.</li>
+          <li><strong>Editor chrome</strong> — floating toolbar, status bar, and document tabs.</li>
           <li><strong>Panel widths</strong> — resize the Layers, Inspector, and Resources panels with the drag handle; widths are remembered per workspace.</li>
         </ul>
         <p>
@@ -93,6 +94,22 @@ import { sitePath } from '../../lib/siteUrl';
           Reset returns the current mode to its built-in layout; Reset All asks before clearing
           every workspace's customizations.
         </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Saving Named Layouts</h2>
+        <p>
+          <strong>Manage Layouts…</strong> (View menu or the command palette) saves the
+          current arrangement as a named layout and applies it later. Applying a layout
+          changes only the chrome — the document, selection, undo history, and active
+          workspace mode are untouched.
+        </p>
+        <ul>
+          <li><strong>Templates</strong> — <em>Default</em> restores the mode's built-in arrangement, <em>Every panel</em> reveals every panel, and <em>Focus canvas</em> hides the panels, status bar, and tabs while keeping the floating toolbar.</li>
+          <li><strong>Your layouts</strong> — save the current arrangement, update it, rename, duplicate, copy as portable JSON, import JSON, or delete with confirmation. Duplicate names are never silently overwritten.</li>
+          <li><strong>Recovery</strong> — resetting a workspace snapshots the arrangement first; Manage Layouts offers Restore until the next reset, so a reset is not a one-way door.</li>
+          <li><strong>Portable and private</strong> — exported layouts contain only a name and registered panel/tool visibility. They never include file paths, machine geometry, or document content, and imported layouts are validated before they are applied.</li>
+        </ul>
       </section>
 
       <section class="docs-section">

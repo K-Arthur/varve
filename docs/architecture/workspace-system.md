@@ -40,6 +40,18 @@ fixed 28px status bar so document name, save state, zoom, and fit controls are
 never obscured. The narrow-layout E2E assertion in
 `tests/e2e/canvas/workspace-mode.spec.ts` guards this geometry.
 
+The responsive drawers and the panel-launcher FABs are deliberately **not**
+gated by `statusBar`/`tabStrip`/`floatingToolbar` chrome preferences: a
+workspace that hides the status bar still needs a way to open a hidden panel,
+and a hidden panel is never the only route to the feature behind it.
+
+Panel width persistence separates the user's **desired** width from the
+**displayed** width. Only the desired value (panel min/max clamped) is
+persisted; the displayed value additionally yields to `CANVAS_MIN_WIDTH`.
+Opening a narrow window therefore cannot permanently overwrite the desktop
+arrangement, and the saved value returns at the next wide viewport.
+
+
 ## Scope: the workspace is application-global
 
 The active workspace is global to the application. It is **not** stored per
@@ -67,6 +79,7 @@ getEffectiveWorkspaceConfig(mode, prefs?)
   + prefs[mode].inspectorTabOverrides  per-workspace inspector tab visibility
   + prefs[mode].statusSectionOverrides per-workspace status bar section visibility
   + prefs[mode].toolbarToolOverrides   sparse toolbar visibility overrides
+  + prefs[mode].chromeOverrides        floating-toolbar / status-bar / tab-strip visibility
 ```
 
 - `workspaceTypes.ts` owns the built-in configs and pure config→derived-data
@@ -102,6 +115,8 @@ preview and other transient states do not leave orphaned overlays.
 |---|---|---|
 | Per-workspace panel overrides | `varve-workspace-preferences` (localStorage) | session mirror, read synchronously during render |
 | Same, durable copy | platform app-setting `workspace-preferences` | SQLite (desktop) / IndexedDB (web) |
+| Named layout variants + reset snapshot | `varve-workspace-layouts` (localStorage) | session mirror, read synchronously |
+| Same, durable copy | platform app-setting `workspace-layouts` | SQLite (desktop) / IndexedDB (web) |
 | Global panel mirror | `settings.panel` (`varve-editor-settings`) | legacy; seeds boot for users with no overrides yet |
 
 localStorage alone is not sufficient: on Linux/WebKitGTK it has been observed
@@ -111,12 +126,17 @@ reappear every launch, fixed for onboarding the same way (see
 are debounced (400 ms) and can be flushed explicitly.
 
 `hydrateWorkspacePreferencesFromPlatform` runs once at startup and merges
-**per mode by `lastCustomized`**. Both stores are legitimate sources —
-localStorage can be wiped while platform storage survives, and platform storage
-can lag a write that has not flushed or came from another window. An
-uncustomized entry never displaces a customized one, so durability can never
-itself lose a customization. A missing, empty, or corrupt payload leaves the
-local snapshot untouched.
+**per mode by event time** (`lastCustomized` or `clearedAt`). Both stores are
+legitimate sources — localStorage can be wiped while platform storage
+survives, and platform storage can lag a write that has not flushed or came
+from another window. A reset is a decision: it beats an older customization,
+and a customization made after a reset beats the reset. When neither copy
+carries an event, an uncustomized entry never displaces a customized one, so
+durability can never itself lose a customization. A missing, empty, or corrupt
+payload leaves the local snapshot untouched.
+
+`hydrateLayoutStoreFromPlatform` follows the same pattern for named layouts,
+merging by variant `updatedAt` and deletion tombstone time.
 
 ### Recovery and migration
 
@@ -339,29 +359,92 @@ gaps:
   (`clearPanelWidths`). Codegen, Logo, and Timeline remain fixed-layout by
   design (their content is code/text and timeline-spanning).
 
+## Named layout variants (2026-09-13)
+
+A named layout is a saved **arrangement** of the surfaces the customize
+dialog already controls — panel visibility/widths, inspector tabs, status
+sections, toolbar tools, and editor chrome. It is deliberately not a new
+workspace mode, editor route, or document format: applying one writes the
+same per-mode preference overrides every other customization path writes, so
+there is still exactly one resolver and one projection.
+
+`workspace/layoutVariants.ts` owns the store:
+
+- **Capture is sparse.** A payload stores only differences from the target
+  mode's built-in defaults, so a layout saved before a new built-in tool
+  shipped still reveals that tool when applied. Captured payloads are
+  re-sanitized on read and apply.
+- **Apply replaces, and never switches mode.** Applying a variant to the
+  active mode replaces that mode's arrangement (preferences are not merged
+  with leftover overrides); `Default` is therefore a one-click mode reset and
+  records a `clearedAt` event. The variant's `sourceMode` is informational.
+  `applyWorkspaceLayout` on the editor context routes through
+  `applyWorkspaceConfig`, so panel booleans, overlays, and the settings mirror
+  stay in sync; `emitWorkspaceLayoutApplied` lets the resize hooks adopt the
+  layout's panel widths (an omitted width intentionally falls back to the
+  mode/global default).
+- **Built-in templates are recovery vocabulary**: `Default` (empty payload —
+  reset), `Every panel` (reveals every registered panel), and `Focus canvas`
+  (hides every panel plus the status bar and tab strip, keeping the floating
+  toolbar). Built-ins cannot be renamed, updated, or deleted; duplicating one
+  creates an editable user variant.
+- **Resets leave a snapshot.** `resetWorkspaceToDefault` /
+  `resetAllWorkspacesToDefaults` capture the pre-reset preferences into
+  `resetSnapshot` before discarding them. Manage Layouts offers Restore,
+  which re-applies the snapshot with fresh event timestamps so it outranks
+  the reset. This is layout recovery, separate from document undo and enabled
+  even when no optional panel is open.
+- **User variants** support save-current-as, update, rename, duplicate, and
+  delete. Duplicate names are rejected, never silently overwritten. Deleting
+  is confirmed and tombstoned.
+- **Import/export is capability-only.** Export emits a versioned
+  `varve-workspace-layout` document with a name, source mode, and sanitized
+  payload — no ids, timestamps, machine geometry, paths, or identity. Import
+  is bounded (64 KiB), rejects future versions rather than relabelling them,
+  assigns a fresh local id, drops unknown/removed ids, cannot hide essential
+  recovery tools, and offers replace-or-duplicate on a name collision.
+- **Persistence** uses `varve-workspace-layouts` in localStorage plus the
+  `workspace-layouts` platform app-setting (SQLite on desktop / IndexedDB on
+  web), debounced 400 ms. Merge is by variant `updatedAt` with deletion
+  tombstones, so a stale durable copy can never resurrect a deleted variant,
+  and hydration never overwrites local edits.
+
+Entry points: **View ▸ Manage Layouts…** and the command palette
+(`manageWorkspaceLayouts`); the native menu defs carry the
+same id. `WorkspaceCustomizeDialog` exposes the chrome toggles a layout can
+capture under **Editor Chrome**.
+
 ## Switching
+
 
 `requestWorkspaceSwitch(mode, options?)` on the editor context is the **only**
 switch path. It guards re-entrancy with `workspaceSwitchInProgressRef`, is a
 no-op when the target equals the current mode, resolves in-progress
 interactions, applies the effective config, and announces the change.
 
-Current interaction policy: node editing, crop, and an active mask preview are
-resolved to the Select tool before the switch (`options.force` skips this).
-This is deliberately conservative and is the main area still to develop — see
-Limitations.
+Current interaction policy: `workspace/interactionResolution.ts` classifies
+in-progress interactions before the projection runs and returns a typed plan
+(commit / cancel / pause / continue / block). Node editing, crop, and mask
+previews resolve to Select; a focused text field or active control is
+committed with a blur so hiding a panel cannot discard a draft; timeline
+playback continues because the motion system is not remounted; an active IME
+composition or an open modal blocks the switch with an announced reason, and
+`options.force` skips resolution entirely. Layout application runs the same
+resolver (ignoring the modal that initiated it) before replacing the
+arrangement. The public return remains `Promise<boolean>`; the typed plan is
+what the hook executes, and a blocked transition announces why.
 
 ## Limitations
 
 These are known gaps, not settled design:
 
-- **Interaction resolution is coarse.** Text editing, IME composition, active
-  drags with pointer capture, transform sessions, inline rename, open modals,
-  motion playback, and in-flight export/inference are not individually
-  classified into commit / cancel / pause / block / continue; several are
-  simply reduced to "switch to Select". `requestWorkspaceSwitch` returns
-  `Promise<boolean>` rather than a typed result that can express *blocked* or
-  *failed* with a reason.
+- **Interaction resolution is typed but bounded.** `interactionResolution.ts`
+  classifies text drafts, IME composition, active controls, transient tools,
+  playback, and modals. Canvas pointer capture held by an arbitrary overlay and
+  pending export/inference work are not individually inspectable yet and are
+  treated as `continue`. `requestWorkspaceSwitch` still returns
+  `Promise<boolean>`; the typed plan is executed internally and a blocked
+  transition announces its reason.
 - **Panel overrides now support visibility, widths, inspector tabs, status
   sections, and toolbar tools.** The full override surface is wired:
   - `panelOverrides` — visibility per panel
@@ -385,8 +468,24 @@ These are known gaps, not settled design:
   `bleedGuidesVisible` controls `PrintOverlays` rendering on the canvas.
   Both are projected from workspace config via `overlayPatch` and persisted
   in viewport settings.
-- **Workspace customization is now complete for the supported surfaces.**
+- **Workspace customization is complete for the supported surfaces.**
   Reset exists (`resetWorkspaceToDefault`, `resetAllWorkspacesToDefaults`),
   a "customized" dot indicator is shown on workspace tabs, and the
-  `WorkspaceCustomizeDialog` provides panel, toolbar, inspector, and status
-  section toggles with immediate application and persistence.
+  `WorkspaceCustomizeDialog` provides panel, toolbar, inspector, status
+  section, and editor-chrome toggles with immediate application and
+  persistence. Named layout variants (`layoutVariants.ts`, Manage Layouts)
+  extend the same override surface with save/apply/import/export and a
+  pre-reset recovery snapshot.
+- **Detached panel windows are desktop-only and deliberately narrow.**
+  Layers, Inspector, Assets, Code, and Logo can move to auxiliary windows;
+  Timeline, Page Navigator, and History cannot. The single-window layout
+  variants do not move or resize those windows — device placement stays in
+  the panel-placement store, and the multi-window logical-layout path
+  (`layoutPersistence.ts`, `dockOps.ts`) remains unwired pending the
+  multi-window milestone. Its recovery snapshot and safe-mode generators are
+  sound and tested, but no runtime surface applies them yet.
+- **Panel move/reorder within the shell is not offered.** The shell's fixed
+  grid defines the permitted regions per panel; customization covers
+  visibility, width, tabs/sections, and chrome instead of arbitrary docking.
+  A full dock tree is explicitly not a prerequisite for the supported
+  customization surface.

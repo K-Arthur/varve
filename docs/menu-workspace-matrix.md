@@ -47,6 +47,7 @@ image, motion, logo, codegen.
 | openRecent | Open Recent (submenu) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | reopenLast | Reopen Last File | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | import | Import\u2026 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| quickConvert | Quick Convert\u2026 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | insertIcon | Insert Icon\u2026 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | createTableFromClipboard | Create Table From Clipboard | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | tabClose | Close Document | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -74,6 +75,11 @@ image, motion, logo, codegen.
 | cut | Cut | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | copy | Copy | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | paste | Paste | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| copyText | Copy Text | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| copyAsSvg | Copy as SVG | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| copyAsPng | Copy as PNG | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| pastePlainText | Paste as Plain Text | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| pasteSvgMarkup | Paste SVG Markup… | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | duplicate | Duplicate | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | repeatDuplicate | Repeat Duplicate | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | selectAll | Select All | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -101,6 +107,8 @@ image, motion, logo, codegen.
 | areaSelectionScaleDown | Scale Down | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | areaSelectionRotateCW | Rotate Clockwise | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | areaSelectionRotateCCW | Rotate Counter-Clockwise | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| transformSelectedPixels | Transform Pixels | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| transformSelectionBoundary | Transform Selection Boundary | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | selectParent | Select Parent | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | selectChildren | Select Children | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | delete | Delete | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -129,6 +137,7 @@ image, motion, logo, codegen.
 
 | ID | Label | design | print | drawing | image | motion | logo | codegen |
 |----|-------|--------|-------|---------|-------|--------|------|---------|
+| theme:system | System | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | theme:light | Light | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | theme:dark | Dark | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | theme:high-contrast | High Contrast | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -154,6 +163,7 @@ image, motion, logo, codegen.
 | gridOverlayIsometric | Isometric Grid Overlay | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | toggleSnap | Snap | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | toggleGuides | Guides | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| toggleMarqueeContainment | Marquee Selects Contained Objects | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | lockGuides | Lock Guides | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | clearGuides | Clear Guides | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | toggleFacingPages | Facing Pages | – | ✓ | – | – | – | – | – |
@@ -163,6 +173,9 @@ image, motion, logo, codegen.
 | toggleGraphEditor | Graph Editor | ✓ | – | – | – | ✓ | – | – |
 | toggleStateMachinePanel | State Machine Panel | ✓ | – | – | – | ✓ | – | – |
 | toggleLogoPanel | Logo Panel | – | – | – | – | – | ✓ | – |
+| toggleMinimap | Minimap | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| bringAllPanelsToCurrentDisplay | Bring All Panels to This Display | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| resetPanelWindowLayout | Reset Window Layout | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | workspaceDesign | Workspace: Design | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | workspacePrint | Workspace: Print | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | workspaceDrawing | Workspace: Draw | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -172,6 +185,10 @@ image, motion, logo, codegen.
 | workspaceEmail | Workspace Email | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | workspaceCodegen | Workspace: Codegen | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | resetWorkspace | Reset Workspace | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| resetAllWorkspaces | Reset All Workspaces | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| customizeWorkspace | Customize Workspace… | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| manageWorkspaceLayouts | Manage Layouts… | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| restoreAllPanels | Show All Panels | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | logoPreview | Test Logo at Small Sizes | ✓ | ✓ | ✓ | – | – | ✓ | – |
 | exportLogoPackage | Export Logo Package… | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | toggleDistractionFree | Distraction-Free Mode | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -194,6 +211,7 @@ image, motion, logo, codegen.
 | repeatTransform | Repeat Transform | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | resizeImage | Resize Image… | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | bakeWarp | Bake Warp to Path | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| openEffectStudio | Open Effect Studio… | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | newAdjustmentLayer | New Adjustment Layer | ✓ | ✓ | – | ✓ | – | – | – |
 | createClippingMask | Create Clipping Mask | ✓ | ✓ | ✓ | ✓ | – | – | – |
 | releaseClippingMask | Release Clipping Mask | ✓ | ✓ | ✓ | ✓ | – | – | – |

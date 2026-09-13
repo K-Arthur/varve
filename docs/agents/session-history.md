@@ -2573,3 +2573,54 @@ real per-stage progress. Documented the validated capability matrix.
 - Rust varve-upscale: 7/7 passed including semi-transparent edge test
 - Biome: clean on all changed engine files
 - TypeScript: no regressions (pre-existing type errors in unrelated packages)
+
+---
+
+## Session: Workspace Customization, Named Layouts & Recovery (2026-09-13)
+
+Diagnosed and completed the single-window workspace customization program
+over the existing workspace/preference architecture. The second-generation
+dock/recovery modules (`dockOps`, `layoutPersistence`, `recoveryManager`,
+`browserFallback`) were confirmed unwired; no runtime surface applies them,
+so they were made sound but not forced into the shell. The shell keeps its
+fixed permitted regions and extends the live override surface instead.
+
+### Changes
+
+| Area | Change | Key files |
+|---|---|---|
+| P0 reachability | Responsive panel FABs/backdrop are no longer gated by the `statusBar` preference; a workspace that hides the status bar keeps a drawer trigger | `Shell.tsx` |
+| P0 recovery | `workspaceStore` records `clearedAt` on reset and merges local/platform copies by event time, so a stale durable copy cannot resurrect a reset | `workspaceStore.ts`, `workspaceTypes.ts` |
+| Recovery soundness | `saveLogicalLayout` no longer writes "last-known-good" on every save; `promoteLastKnownGood` validates first, future schema versions are left unread | `layoutPersistence.ts` |
+| Safe mode | `createSafeModeLayout` hosts carried-forward panels in the dock tree instead of orphaning them | `recoveryManager.ts` |
+| Chrome | `WorkspacePreference.chromeOverrides` (floating toolbar/status bar/tab strip) with sparse storage, sanitization, resolver support, and customize-dialog toggles | `workspaceStore.ts`, `WorkspaceCustomizeDialog.tsx` |
+| Named layouts | New `layoutVariants.ts` store: sparse capture, built-in Default/Every panel/Focus canvas templates, CRUD, validated import/export, revision+tombstone persistence, pre-reset snapshot | `workspace/layoutVariants.ts` |
+| UI | `ManageLayoutsDialog` (apply, update, rename, duplicate, delete, import collision handling, copy JSON, restore snapshot) wired into Shell and both menus | `ManageLayoutsDialog.tsx`, `menu/defs.ts`, `Menubar.tsx` |
+| Interaction safety | Typed interaction plan (IME/modal/text drafts/transient tools/active controls/playback) before a switch or layout apply | `interactionResolution.ts`, `useWorkspaceMode.ts` |
+| Widths | Desired width is persisted; viewport clamping applies to the rendered value only, so a narrow window cannot overwrite a desktop arrangement | `PanelResizeHandle.tsx`, `useWorkspacePanelWidths.ts` |
+| Docs/site/help | Canonical workspace contract, ADR-0137 amendment, menu matrices, website Workspaces page, two help articles | `docs/architecture/workspace-system.md`, `docs/adr/0137-*.md`, `apps/website/.../workspaces.astro`, `packages/help/...` |
+
+### Semantics locked in
+
+- A layout is an arrangement over registered capabilities, not a mode, route,
+  or document artifact. Applying replaces the active mode's arrangement and
+  never switches modes or touches the document.
+- Reset captures a recoverable snapshot; delete is tombstoned and confirmed;
+  duplicate names are never silently overwritten.
+- Imported layouts are bounded, version-checked, capability-allowlisted, and
+  cannot hide essential recovery tools.
+
+### Verification
+
+- `workspaceStore.test.ts` 33/33, `layoutVariants.test.ts` 24/24,
+  `interactionResolution.test.ts` 8/8, `ManageLayoutsDialog.test.tsx` 6/6,
+  `PanelResizeHandle.test.tsx` 5/5, `WorkspaceCustomizeDialog.test.tsx` 5/5,
+  `workspaceSwitching.test.tsx` 41/41 green; `audit:docs` and `audit:emoji`
+  clean.
+- Playwright visual pass (`tests/e2e/workspace/customization.spec.ts`) and a
+  full desktop relaunch are pending: the shared working tree was mid-edit by
+  concurrent agents during this session (broken imports in
+  `mockupVariants.ts`, missing uncommitted modules referenced by committed
+  index files, and a pnpm deps-check that aborts on a non-TTY). Exact
+  remaining commands are recorded in the handoff notes.
+

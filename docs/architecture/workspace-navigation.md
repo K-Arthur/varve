@@ -150,6 +150,7 @@ coordinate → teardown-safe listeners.
 | `tabStrip` | Applied (Shell hides TabStrip) | |
 | `inspectorTabs` | Applied | `PropertiesPanel` consumes visibility/default/grouping |
 | `canvasOverlays` | Applied on switch (guides/pixel/dot/baseline) | `bleedGuides`, `layoutGrid` are canvas-renderer concerns without state fields; deferred |
+| `chromeOverrides` | Applied through the effective config (floating toolbar / status bar / tab strip) | Per-mode override, exposed in Customize Workspace; captured by named layouts |
 | `shortcuts.extra` | **Deprecated — no consumer** | Never wired to ShortcutManager; removal planned |
 | `shortcuts.disabled` | Applied | `useShortcutTips` |
 | `performance` | **Deprecated — no consumer** | Worker/cache knobs belong to the renderer settings system; removal or rewiring planned |
