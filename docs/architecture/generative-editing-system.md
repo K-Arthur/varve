@@ -170,7 +170,7 @@ path.
 
 ### Memory-bounded source preparation
 
-The dialog preview is capped at four million pixels. For Fill and Remove, the
+The dialog preview is capped at two million pixels. For Fill and Remove, the
 preview mask is used to calculate a source-image rectangle around the refined
 selection (with source-pixel context padding capped at 256 pixels). Only that
 rectangle is decoded into explicit `ImageData`; the source image and mask are
@@ -181,15 +181,19 @@ browser cannot establish a tier. A downsampled working raster keeps its source
 rectangle and mask mapping, so the result is never mistaken for a new source
 frame.
 
-The user mask is encoded back into the source-image coordinate frame without a
-full-resolution `Uint8Array`. A bounded result is converted into a
-source-over overlay by solving the existing premultiplied, linear-light
-composite equation; unmasked pixels have zero overlay alpha and remain from
-the original image. One final full-size canvas is still required to produce an
-embedded accepted PNG, but inference and intermediate `ImageData` are bounded
-to the edit region. Expand retains its explicit full-frame preparation until a
-qualified outpainting provider is available; it is currently unavailable, so
-this exception cannot be reached through the product UI.
+The user mask is encoded back into the source-image coordinate frame as a
+source-resolution grayscale PNG. `CompressionStream` receives one scanline at
+a time, so persistence does not allocate a source-resolution RGBA
+`Uint8Array` or `ImageData`; if the runtime lacks that API, the operation fails
+with an actionable setup message instead of silently persisting a preview
+bitmap. A bounded result is converted into a source-over overlay by solving
+the existing premultiplied, linear-light composite equation; unmasked pixels
+have zero overlay alpha and remain from the original image. Acceptance stores
+that transparent bounded patch above the immutable source fill, so the normal
+browser path does not require a full-frame generated PNG. Expand retains its
+explicit full-frame preparation helper until a qualified outpainting provider
+is available; it is currently unavailable and the helper is not reachable
+through the product UI.
 
 The renderer reports a best-effort platform family and architecture in the
 resource profile. ChromeOS/ARM browser sessions therefore show their
