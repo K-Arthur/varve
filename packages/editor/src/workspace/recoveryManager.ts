@@ -12,6 +12,7 @@ import {
   createEmptyDockNode,
   createPanelDockNode,
   createSplitDockNode,
+  createTabGroupDockNode,
   WORKSPACE_LAYOUT_VERSION,
 } from './dockTypes';
 import type { PanelTypeId } from './panelRegistry';
@@ -185,40 +186,60 @@ export function cleanOrphanedPanels(layout: NativeWorkspaceLayout): NativeWorksp
 export function createSafeModeLayout(
   previousLayout?: NativeWorkspaceLayout,
 ): NativeWorkspaceLayout {
-  const layersId = `pi-safe-layers-${Date.now().toString(36)}`;
-  const inspectorId = `pi-safe-inspector-${Date.now().toString(36)}`;
+  const stamp = Date.now().toString(36);
+  const layersId = `pi-safe-layers-${stamp}`;
+  const inspectorId = `pi-safe-inspector-${stamp}`;
 
   const layersNode = createPanelDockNode(layersId);
   const inspectorNode = createPanelDockNode(inspectorId);
-  const dockRoot = createSplitDockNode('horizontal', layersNode, inspectorNode, 0.35);
+  const baseRoot = createSplitDockNode('horizontal', layersNode, inspectorNode, 0.35);
 
   const panelInstances: PanelInstance[] = [
-    { id: layersId, panelTypeId: 'layers' as PanelTypeId, hostNodeId: dockRoot.id },
-    { id: inspectorId, panelTypeId: 'inspector' as PanelTypeId, hostNodeId: dockRoot.id },
+    { id: layersId, panelTypeId: 'layers' as PanelTypeId, hostNodeId: layersNode.id },
+    { id: inspectorId, panelTypeId: 'inspector' as PanelTypeId, hostNodeId: inspectorNode.id },
   ];
 
   // If a previous layout exists, carry forward any additional panel types
-  // that are safe to include (non-auxiliary, non-detached).
+  // that are safe to include (non-auxiliary, non-detached) — but only host
+  // them in the dock tree. Pushing a panel instance without a dock reference
+  // orphaned it immediately: findOrphanedPanels would delete it on the next
+  // pass, so safe mode silently lost exactly the panels it claimed to carry.
+  const carried: PanelInstance[] = [];
   if (previousLayout) {
     const safeTypes = new Set(['timeline', 'pagenav', 'library', 'history']);
     for (const pi of previousLayout.panelInstances) {
       if (
         safeTypes.has(pi.panelTypeId as string) &&
-        !panelInstances.some((p) => p.panelTypeId === pi.panelTypeId)
+        !panelInstances.some((p) => p.panelTypeId === pi.panelTypeId) &&
+        !carried.some((p) => p.panelTypeId === pi.panelTypeId)
       ) {
-        const newId = `pi-safe-${pi.panelTypeId}-${Date.now().toString(36)}`;
-        panelInstances.push({
-          id: newId,
+        carried.push({
+          id: `pi-safe-${pi.panelTypeId}-${stamp}`,
           panelTypeId: pi.panelTypeId,
-          hostNodeId: dockRoot.id,
+          hostNodeId: '',
         });
       }
     }
   }
 
+  let dockRoot: DockNode = baseRoot;
+  if (carried.length === 1) {
+    const node = createPanelDockNode(carried[0]!.id);
+    carried[0]!.hostNodeId = node.id;
+    dockRoot = createSplitDockNode('vertical', baseRoot, node, 0.65);
+  } else if (carried.length > 1) {
+    const group = createTabGroupDockNode(
+      carried.map((p) => p.id),
+      0,
+    );
+    for (const panel of carried) panel.hostNodeId = group.id;
+    dockRoot = createSplitDockNode('vertical', baseRoot, group, 0.65);
+  }
+  panelInstances.push(...carried);
+
   return {
     schemaVersion: WORKSPACE_LAYOUT_VERSION,
-    id: `layout-safe-${Date.now().toString(36)}`,
+    id: `layout-safe-${stamp}`,
     name: 'Safe Mode',
     windows: [
       {

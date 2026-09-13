@@ -16,6 +16,7 @@ import {
   loadLogicalLayout,
   loadMachinePlacements,
   migrateFromCurrentSettings,
+  promoteLastKnownGood,
   restoreLayoutAgainstMonitors,
   saveLogicalLayout,
   saveMachinePlacements,
@@ -81,11 +82,48 @@ describe('layoutPersistence: logical layout round-trip', () => {
     expect(loadLogicalLayout()).toBeNull();
   });
 
-  it('saves last-known-good separately', () => {
-    saveLogicalLayout(TEST_LAYOUT);
-    const lastGood = loadLastKnownGoodLayout();
-    expect(lastGood).toBeDefined();
-    expect(lastGood!.id).toBe('test-layout');
+  it('promotes last-known-good only when asked', () => {
+    // A plain save must not clobber the recovery snapshot: the save path has
+    // no evidence the layout can mount, so LKG is promoted explicitly after
+    // a validated restore.
+    promoteLastKnownGood(TEST_LAYOUT);
+    const saved: NativeWorkspaceLayout = { ...TEST_LAYOUT, id: 'newer-but-unproven' };
+    saveLogicalLayout(saved);
+    expect(loadLastKnownGoodLayout()!.id).toBe('test-layout');
+    expect(promoteLastKnownGood(saved)).toBe(true);
+    expect(loadLastKnownGoodLayout()!.id).toBe('newer-but-unproven');
+  });
+
+  it('rejects a future schema version instead of relabelling it', () => {
+    localStorage.setItem(
+      'varve-workspace-layout',
+      JSON.stringify({ ...TEST_LAYOUT, schemaVersion: 99 }),
+    );
+    expect(loadLogicalLayout()).toBeNull();
+    expect(importLogicalLayout(JSON.stringify({ ...TEST_LAYOUT, schemaVersion: 99 }))).toBeNull();
+  });
+
+  it('rejects windows with invalid roles, states, or missing ids', () => {
+    const bad = JSON.stringify({
+      ...TEST_LAYOUT,
+      windows: [{ ...TEST_LAYOUT.windows[0], role: 'overlay', state: 'normal' }],
+    });
+    expect(importLogicalLayout(bad)).toBeNull();
+    const missingId = JSON.stringify({
+      ...TEST_LAYOUT,
+      windows: [{ ...TEST_LAYOUT.windows[0], id: '' }],
+    });
+    expect(importLogicalLayout(missingId)).toBeNull();
+  });
+
+  it('never promotes a layout that fails restore-time validation', () => {
+    expect(
+      promoteLastKnownGood({
+        ...TEST_LAYOUT,
+        schemaVersion: 99,
+      }),
+    ).toBe(false);
+    expect(loadLastKnownGoodLayout()).toBeNull();
   });
 });
 
@@ -112,6 +150,35 @@ describe('layoutPersistence: machine placements', () => {
   it('returns empty for corrupt data', () => {
     localStorage.setItem('varve-window-placements', 'not json');
     expect(loadMachinePlacements()).toEqual([]);
+  });
+
+  it('drops placements with non-finite or non-positive geometry', () => {
+    localStorage.setItem(
+      'varve-window-placements',
+      JSON.stringify([
+        {
+          windowId: 'main',
+          logicalPosition: { x: Number.NaN, y: 0 },
+          logicalSize: { width: 1280, height: 800 },
+          state: 'normal',
+        },
+        {
+          windowId: 'aux',
+          logicalPosition: { x: 0, y: 0 },
+          logicalSize: { width: -10, height: 800 },
+          state: 'normal',
+        },
+        {
+          windowId: 'good',
+          logicalPosition: { x: 10, y: 20 },
+          logicalSize: { width: 100, height: 100 },
+          state: 'minimized',
+        },
+      ]),
+    );
+    const loaded = loadMachinePlacements();
+    expect(loaded).toHaveLength(1);
+    expect(loaded[0]!.windowId).toBe('good');
   });
 });
 

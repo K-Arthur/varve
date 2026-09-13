@@ -52,15 +52,33 @@ export interface WorkspaceLayoutStore {
 
 export function saveLogicalLayout(layout: NativeWorkspaceLayout): void {
   try {
-    const serialized = JSON.stringify({
-      ...layout,
-      updatedAt: Date.now(),
-    });
-    localStorage.setItem(LOGICAL_LAYOUT_KEY, serialized);
-    // Save as last-known-good
-    localStorage.setItem(LAST_KNOWN_GOOD_KEY, serialized);
+    localStorage.setItem(LOGICAL_LAYOUT_KEY, JSON.stringify({ ...layout, updatedAt: Date.now() }));
   } catch {
     // Storage full or unavailable — non-fatal
+  }
+}
+
+/**
+ * Promote a layout to last-known-good.
+ *
+ * Called only after the layout has actually been validated and restored
+ * successfully — never from the save path. Writing the same payload to both
+ * keys made "last-known-good" a synonym for "last written", including a
+ * layout that was never proven to mount; the recovery path below can then
+ * fall back to a snapshot that predates the damage. The payload is
+ * re-parsed through the same sanitizer as loading, so a caller cannot
+ * promote an object that fails restore-time validation.
+ */
+export function promoteLastKnownGood(layout: NativeWorkspaceLayout): boolean {
+  try {
+    const sanitized = sanitizeLogicalLayout(
+      JSON.parse(JSON.stringify({ ...layout, updatedAt: Date.now() })) as Record<string, unknown>,
+    );
+    if (!sanitized) return false;
+    localStorage.setItem(LAST_KNOWN_GOOD_KEY, JSON.stringify(sanitized));
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -251,27 +269,70 @@ export function migrateFromCurrentSettings(settings: {
 // Sanitization
 // ---------------------------------------------------------------------------
 
+const VALID_WINDOW_ROLES = new Set(['primary', 'auxiliary-panel', 'document-view']);
+const VALID_WINDOW_STATES = new Set(['normal', 'maximized', 'fullscreen', 'minimized']);
+
+/** Imported layouts are untrusted input; bound the payload before parsing. */
+const MAX_LAYOUT_IMPORT_BYTES = 2 * 1024 * 1024;
+
 function sanitizeLogicalLayout(raw: Record<string, unknown>): NativeWorkspaceLayout | null {
   if (typeof raw !== 'object' || raw === null) return null;
-  if (typeof raw.schemaVersion !== 'number') return null;
+  const version = raw.schemaVersion;
+  // Reject unknown future versions instead of relabelling them: rewriting a
+  // payload written by a newer build as "version 1" destroys whatever the
+  // future version meant, and a downgrade must leave it untouched so the
+  // newer build can still read it.
+  if (typeof version !== 'number' || !Number.isInteger(version) || version < 1) return null;
+  if (version > WORKSPACE_LAYOUT_VERSION) return null;
   if (!Array.isArray(raw.windows)) return null;
   if (!Array.isArray(raw.panelInstances)) return null;
 
-  // Normalize all dock roots
-  const windows = (raw.windows as Record<string, unknown>[]).map((w) => ({
-    id: String(w.id ?? ''),
-    role: (w.role as 'primary' | 'auxiliary-panel' | 'document-view') ?? 'auxiliary-panel',
-    dockRoot: normalizeDockTree(w.dockRoot as DockNode),
-    state: (w.state as 'normal' | 'maximized' | 'fullscreen' | 'minimized') ?? 'normal',
-  }));
+  const windows: NativeWorkspaceLayout['windows'] = [];
+  for (const value of raw.windows as unknown[]) {
+    if (typeof value !== 'object' || value === null) return null;
+    const w = value as Record<string, unknown>;
+    if (typeof w.id !== 'string' || w.id.length === 0) return null;
+    const role = typeof w.role === 'string' && VALID_WINDOW_ROLES.has(w.role) ? w.role : null;
+    if (!role) return null;
+    const state = typeof w.state === 'string' && VALID_WINDOW_STATES.has(w.state) ? w.state : null;
+    if (!state) return null;
+    let dockRoot: DockNode;
+    try {
+      dockRoot = normalizeDockTree(w.dockRoot as DockNode);
+    } catch {
+      return null;
+    }
+    windows.push({
+      id: w.id,
+      role: role as NativeWorkspaceLayout['windows'][number]['role'],
+      dockRoot,
+      state: state as NativeWorkspaceLayout['windows'][number]['state'],
+    });
+  }
+
+  const panelInstances: PanelInstance[] = [];
+  for (const value of raw.panelInstances as unknown[]) {
+    if (typeof value !== 'object' || value === null) return null;
+    const p = value as Record<string, unknown>;
+    if (typeof p.id !== 'string' || p.id.length === 0) return null;
+    if (typeof p.panelTypeId !== 'string' || p.panelTypeId.length === 0) return null;
+    if (typeof p.hostNodeId !== 'string' || p.hostNodeId.length === 0) return null;
+    panelInstances.push({
+      id: p.id,
+      panelTypeId: p.panelTypeId as PanelTypeId,
+      hostNodeId: p.hostNodeId,
+      ...(typeof p.pinnedDocumentId === 'string' ? { pinnedDocumentId: p.pinnedDocumentId } : {}),
+      ...(typeof p.titleOverride === 'string' ? { titleOverride: p.titleOverride } : {}),
+    });
+  }
 
   return {
     schemaVersion: WORKSPACE_LAYOUT_VERSION,
     id: String(raw.id ?? ''),
     name: String(raw.name ?? 'Unnamed'),
     workspaceMode: raw.workspaceMode ? String(raw.workspaceMode) : undefined,
-    windows: windows as NativeWorkspaceLayout['windows'],
-    panelInstances: raw.panelInstances as PanelInstance[],
+    windows,
+    panelInstances,
     createdAt: Number(raw.createdAt) || Date.now(),
     updatedAt: Number(raw.updatedAt) || Date.now(),
   };
@@ -304,16 +365,42 @@ function clampToWorkArea(
   };
 }
 
+function isFinitePoint(value: unknown): value is { x: number; y: number } {
+  if (typeof value !== 'object' || value === null) return false;
+  const p = value as Record<string, unknown>;
+  return (
+    typeof p.x === 'number' &&
+    Number.isFinite(p.x) &&
+    typeof p.y === 'number' &&
+    Number.isFinite(p.y)
+  );
+}
+
+function isFiniteSize(value: unknown): value is { width: number; height: number } {
+  if (typeof value !== 'object' || value === null) return false;
+  const s = value as Record<string, unknown>;
+  return (
+    typeof s.width === 'number' &&
+    Number.isFinite(s.width) &&
+    s.width > 0 &&
+    typeof s.height === 'number' &&
+    Number.isFinite(s.height) &&
+    s.height > 0
+  );
+}
+
 function isValidMachinePlacement(p: unknown): p is MachinePlacement {
   if (typeof p !== 'object' || p === null) return false;
   const m = p as Record<string, unknown>;
-  return (
-    typeof m.windowId === 'string' &&
-    typeof m.logicalPosition === 'object' &&
-    m.logicalPosition !== null &&
-    typeof m.logicalSize === 'object' &&
-    m.logicalSize !== null
-  );
+  if (typeof m.windowId !== 'string' || m.windowId.length === 0) return false;
+  if (!isFinitePoint(m.logicalPosition)) return false;
+  if (!isFiniteSize(m.logicalSize)) return false;
+  if (typeof m.state !== 'string' || !VALID_WINDOW_STATES.has(m.state)) {
+    return false;
+  }
+  if (m.displayId !== undefined && typeof m.displayId !== 'string') return false;
+  if (m.displayFingerprint !== undefined && typeof m.displayFingerprint !== 'object') return false;
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -333,6 +420,7 @@ export function exportLogicalLayout(layout: NativeWorkspaceLayout): string {
 }
 
 export function importLogicalLayout(json: string): NativeWorkspaceLayout | null {
+  if (typeof json !== 'string' || json.length > MAX_LAYOUT_IMPORT_BYTES) return null;
   try {
     const parsed = JSON.parse(json);
     return sanitizeLogicalLayout(parsed);

@@ -260,6 +260,10 @@ describe('recoveryManager: createSafeModeLayout', () => {
     expect(types).toContain('inspector');
     expect(types).toContain('timeline');
     expect(types).toContain('library');
+    // Carried panels must actually be hosted in the dock tree — an instance
+    // without a dock reference is deleted by findOrphanedPanels on the next
+    // repair pass, which silently discarded the panels safe mode promised.
+    expect(findOrphanedPanels(layout)).toHaveLength(0);
   });
 
   it('does not carry forward unsafe panel types', () => {
