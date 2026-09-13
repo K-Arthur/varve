@@ -972,15 +972,22 @@ fn preflight_native_model(
 }
 
 #[tauri::command]
-fn native_background_removal_model_status(
+async fn native_background_removal_model_status(
     app: tauri::AppHandle,
     model_id: String,
 ) -> Result<NativeBgModelStatus, String> {
     let model = background_removal_model_info(&model_id)?;
     let path = varve_bgremove::model::model_path(&model_id);
     let size_bytes = path.metadata().map(|metadata| metadata.len()).unwrap_or(0);
+    // Loading the native ONNX Runtime and registering its optional provider
+    // can enter a platform loader and create runtime threads. Keep that work
+    // off the Tauri/GTK event thread even though this command only returns a
+    // small status object.
+    let runtime_ready = tauri::async_runtime::spawn_blocking(move || ensure_native_ai(&app))
+        .await
+        .map_err(|error| format!("Native AI status task failed: {error}"))?;
     Ok(NativeBgModelStatus {
-        runtime_ready: ensure_native_ai(&app),
+        runtime_ready,
         installed: size_bytes == model.size_bytes,
         size_bytes,
         peak_memory_bytes: model.peak_memory_bytes,
@@ -1041,7 +1048,14 @@ async fn download_background_removal_model(
     if !valid_download_request_id(&request_id) {
         return Err("Invalid model-download request id".into());
     }
-    if !ensure_native_ai(&app) {
+    // Runtime/provider loading is lazy, but it is not UI-thread safe. Do it
+    // before the network future starts so model download progress remains
+    // responsive and a loader failure becomes a normal command error.
+    let runtime_app = app.clone();
+    let runtime_ready = tauri::async_runtime::spawn_blocking(move || ensure_native_ai(&runtime_app))
+        .await
+        .map_err(|error| format!("Native AI initialization task failed: {error}"))?;
+    if !runtime_ready {
         return Err("Native ONNX Runtime is unavailable on this desktop build".into());
     }
     let model = background_removal_model_info(&model_id)?.clone();
