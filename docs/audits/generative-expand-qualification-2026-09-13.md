@@ -24,7 +24,7 @@ declared capability rather than hidden by the interface.
 | --- | --- |
 | Model id | `lama-inpainting` |
 | Artifact | `lama_fp32.onnx` (Carve/LaMa-ONNX port of `saic-mdal/lama` big-lama) |
-| SHA-256 | `1faef5301d78db7dda502fe59966957ec4b79d64e16f03ed96913c7a4eb68d6` |
+| SHA-256 | `1faef5301d78db7dda502fe59966957ec4b79dd64e16f03ed96913c7a4eb68d6` |
 | License | Apache-2.0 (code and weights) |
 | Runtime | `varve-bgremove` `lama_inpaint` over ONNX Runtime, `ort-native`, CPU |
 | Graph contract | two inputs `image [1,3,512,512]` + `mask [1,1,512,512]`, output `[1,3,512,512]` in 0-255 |
