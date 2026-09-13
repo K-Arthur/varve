@@ -29,6 +29,7 @@ import {
   type TransformCache,
 } from '../scene/transformCache';
 import { nodeWorldBounds } from '../scene/world';
+import { loadSettings } from '../settings';
 import type { DraftShape, PixelProbe, ToolContext } from '../tools';
 import { getDrawingInputSettings } from '../tools/drawingInputRuntime';
 import type { collectSourceEvents } from '../tools/inputNormalizer';
@@ -313,6 +314,7 @@ export function buildToolContext(
 
       // D-02: Spatial + hierarchical filtering of snap targets
       const doc = deps.stateRef.current.document;
+      const snapPreferences = loadSettings().viewport;
       const sceneScope = resolveEditorSceneScope(doc, {
         workspaceMode: s.workspaceMode,
         activePageId: doc.activePageId,
@@ -344,6 +346,7 @@ export function buildToolContext(
         // Semantic filter: hidden nodes are not visible, so snapping to their
         // edges would produce invisible feedback — exclude them as candidates.
         if (node.visible === false) continue;
+        if (node.snapExcluded === true) continue;
         // Read through the transform cache rather than recomputing. This runs
         // on every pointer move of a drag, and the uncached nodeWorldBounds
         // re-derives a group's bounds by unioning all of its children every
@@ -380,11 +383,13 @@ export function buildToolContext(
       // Page trim snap targets (M6): every placed page's trim bounds, so
       // nodes snap to page edges on any page of the pasteboard — not only
       // the active page's trim at the origin.
-      const pageBoundsTargets: SnapTarget[] = pageSnapTargets(doc).map((bounds, index) => ({
-        id: `page:${doc.pages?.[index]?.id ?? index}`,
-        bounds,
-      }));
-      if (draggedId) {
+      const pageBoundsTargets: SnapTarget[] = snapPreferences.snapToPages
+        ? pageSnapTargets(doc).map((bounds, index) => ({
+            id: `page:${doc.pages?.[index]?.id ?? index}`,
+            bounds,
+          }))
+        : [];
+      if (snapPreferences.snapToPages && draggedId) {
         const parentId = parentIdx.get(draggedId);
         if (parentId) {
           const parentNode = doc.nodes[parentId];
@@ -453,13 +458,14 @@ export function buildToolContext(
         }
       }
 
-      const allTargets = [...filtered, ...pageBoundsTargets];
-      const guideTargets =
-        getGuidesForPage(doc, doc.activePageId).map((guide) => ({
-          id: `guide:${guide.id}`,
-          axis: guide.axis,
-          position: guide.position,
-        })) ?? [];
+      const allTargets = [...(snapPreferences.snapToObjects ? filtered : []), ...pageBoundsTargets];
+      const guideTargets = snapPreferences.snapToGuides
+        ? getGuidesForPage(doc, doc.activePageId).map((guide) => ({
+            id: `guide:${guide.id}`,
+            axis: guide.axis,
+            position: guide.position,
+          }))
+        : [];
       const gridConfig = s.snapEnabled && s.documentGrid?.snapEnabled ? s.documentGrid : undefined;
       const finishSnapEvaluate = beginInteractionSpan('snap.evaluate');
       const result = snapPosition(
@@ -472,9 +478,10 @@ export function buildToolContext(
         undefined,
         {
           zoom: s.zoom,
+          tolerancePx: snapPreferences.snapTolerancePx,
           session: deps.snapSessionRef.current,
           guideTargets,
-          layoutGridTargets,
+          layoutGridTargets: snapPreferences.snapToGuides ? layoutGridTargets : [],
           pixelGridSnap: s.snapEnabled && s.pixelGridSnapEnabled,
         },
       );

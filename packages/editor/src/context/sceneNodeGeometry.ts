@@ -23,6 +23,7 @@ export {
   alignSelectionWithObbInDocument,
   commonAlignmentContainerBounds,
   distributeSelectionInDocument,
+  distributionFeedbackForResult,
   tidySelectionInDocument,
 } from '../scene/selectionArrangement';
 export type { KnifeCutOutcome, KnifeCutState, KnifeSelectionPatch } from './knifeCommand';

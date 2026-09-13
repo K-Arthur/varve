@@ -13,14 +13,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import {
   type AlignmentReference,
-  alignmentFeedbackForResult,
-  alignmentPageBounds,
-  alignSelectionInDocument,
-  alignSelectionWithObbInDocument,
-  commonAlignmentContainerBounds,
   getAlignmentCapabilities,
 } from '../../../scene/selectionArrangement';
-import { showAlignmentGuidesFromResult } from '../../AlignmentOverlay/AlignmentGuideOverlay';
 
 interface AlignIconProps {
   type: 'alignLeft' | 'alignCenterH' | 'alignRight' | 'alignTop' | 'alignCenterV' | 'alignBottom';
@@ -383,35 +377,13 @@ export function AlignDistributeBar() {
 
   const doAlign = useCallback(
     (axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom') => {
-      const sel = state.selection;
-      const doc = state.document;
-      const options = {
-        reference: alignmentReference,
-        keyObjectId: effectiveKeyObjectId,
-        pageBounds: alignmentReference === 'page' ? alignmentPageBounds(doc) : null,
-        containerBounds:
-          alignmentReference === 'container' ? commonAlignmentContainerBounds(doc, sel) : null,
-      } as const;
-      const nextDoc = obbEnabled
-        ? alignSelectionWithObbInDocument(doc, sel, axis, options)
-        : alignSelectionInDocument(doc, sel, axis, options);
       if (obbEnabled) {
         obbAlignSelected(axis, alignmentReference);
       } else {
         alignSelected(axis, alignmentReference);
       }
-      const feedback = alignmentFeedbackForResult(doc, nextDoc, sel, axis, options, obbEnabled);
-      if (feedback) showAlignmentGuidesFromResult(feedback);
     },
-    [
-      alignSelected,
-      alignmentReference,
-      obbAlignSelected,
-      obbEnabled,
-      effectiveKeyObjectId,
-      state.selection,
-      state.document,
-    ],
+    [alignSelected, alignmentReference, obbAlignSelected, obbEnabled],
   );
 
   const handleDistribute = useCallback(
