@@ -66,7 +66,7 @@ export function collectContainerDescendants(
   includeNested: boolean,
 ): NodeId[] {
   const container = doc.nodes[containerId];
-  if (!container || !isContainer(container)) return [];
+  if (!container || !isContainer(container) || !isVisibleInScene(doc, containerId)) return [];
 
   const result: NodeId[] = [];
   // A recovered or hand-authored document can contain duplicate child IDs or

@@ -385,6 +385,35 @@ describe('collectContainerDescendants', () => {
 
     expect(collectContainerDescendants(malformed, cycle.id, true)).toEqual([]);
   });
+
+  it('does not resolve descendants below a hidden ancestor', () => {
+    const doc = makeTestDoc();
+    const hidden = makeGroupNode('hidden', { visible: false, children: ['nested'] });
+    const nested = makeGroupNode('nested', { children: ['shape'] });
+    const shape = {
+      id: 'shape',
+      kind: 'shape',
+      name: 'Hidden shape',
+      order: 'a0',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal',
+      rotation: 0,
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      transform: [1, 0, 0, 1, 0, 0] as const,
+      shape: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+      strokes: [],
+      effects: [],
+    } as import('./types').ShapeNode;
+    const malformed = {
+      ...doc,
+      nodes: { ...doc.nodes, hidden, nested, shape },
+      rootChildren: [hidden.id],
+    } as Document;
+
+    expect(collectContainerDescendants(malformed, nested.id, true)).toEqual([]);
+  });
 });
 
 describe('collectAllEligibleNodes', () => {
