@@ -210,11 +210,9 @@ function detectCpuArch(): string | undefined {
 async function detectWebGPUAsync(): Promise<boolean> {
   try {
     if (typeof navigator === 'undefined' || !navigator.gpu) return false;
-    const { selectWebGpuAdapter } = await import('../../gpuAdapter');
-    const selection = await selectWebGpuAdapter(navigator.gpu, {
-      requireHardwareAdapter: true,
-    });
-    return selection.kind === 'accepted';
+    const { probeWebGpuDevice } = await import('../../gpuAdapter');
+    const probe = await probeWebGpuDevice(navigator.gpu);
+    return probe.status === 'supported';
   } catch {
     return false;
   }

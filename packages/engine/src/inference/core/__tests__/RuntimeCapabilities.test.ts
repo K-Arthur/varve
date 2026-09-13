@@ -82,6 +82,34 @@ describe('RuntimeCapabilities', () => {
     expect(caps.preferredOnnxProviders.length).toBeGreaterThanOrEqual(1);
   });
 
+  it('only advertises WebGPU after a real device probe succeeds', async () => {
+    const destroy = () => {};
+    emulateNavigator({
+      userAgent: 'Mozilla/5.0 (X11; CrOS aarch64) AppleWebKit/537.36 Chrome/140 Safari/537.36',
+      platform: 'Linux aarch64',
+      deviceMemory: 8,
+    });
+    const adapter = {
+      info: { vendor: 'Test', architecture: 'gpu', device: 'test', description: 'hardware' },
+      limits: { maxTextureDimension2D: 8192 },
+      requestDevice: async () => ({ destroy }),
+    } as unknown as GPUAdapter;
+    const gpu = {
+      requestAdapter: async () => adapter,
+    } as unknown as GPU;
+    const previousGpu = Object.getOwnPropertyDescriptor(navigator, 'gpu');
+    Object.defineProperty(navigator, 'gpu', { configurable: true, value: gpu });
+    try {
+      const caps = await getRuntimeCapabilities();
+
+      expect(caps.hasWebGPU).toBe(true);
+      expect(caps.preferredOnnxProviders[0]).toBe('webgpu');
+    } finally {
+      if (previousGpu) Object.defineProperty(navigator, 'gpu', previousGpu);
+      else Reflect.deleteProperty(navigator, 'gpu');
+    }
+  });
+
   it('caches capabilities after first call', async () => {
     const caps1 = await getRuntimeCapabilities();
     const caps2 = await getRuntimeCapabilities();
