@@ -172,7 +172,12 @@ particular, an Object Filter never widens to scene siblings, and an Adjustment
 Layer never becomes a destructive edit of an image asset. Full-frame and
 cropped-surface replay both use the same `FilterIR` compositor; export takes
 the same structural replay path before choosing a supported vector form or
-the smallest necessary raster boundary.
+the smallest necessary raster boundary. The existing **File → Export SVG**
+command uses `composeFlattenedExportSnapshot` before
+`exportDocumentToSvgAdvanced`, so adjustment pixels are embedded at the
+smallest required boundary rather than silently omitted. The live document is
+never replaced by that derived asset, and a revision change while the export
+is rendering cancels the save.
 
 ## 4. Content behavior matrix
 
@@ -253,5 +258,7 @@ Changes in this system require focused coverage for at least the following:
 - scope resolution, parent/child de-duplication, and recursive-target safety;
 - transparent-edge alpha and hidden-RGB behavior in the reference compositor;
 - live and export replay of a cropped adjustment mask away from origin;
+- whole-document File → Export SVG with a non-native adjustment, including
+  independent inspection of the downloaded SVG bytes;
 - an actual-browser canvas test for Object Filters and masked adjustment
   layers, with screenshots retained as review artifacts when behavior changes.

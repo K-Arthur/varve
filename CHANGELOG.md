@@ -114,6 +114,11 @@ update, not for someone reading the commit log.
   so circles scaled non-uniformly or skewed render as the same ellipses
   Canvas2D produces instead of being clipped back to an unscaled circle.
   Singular transforms fall back to Canvas2D, where they paint nothing.
+- **Whole-document SVG export** now routes the existing File → Export SVG
+  command through the structural flattening compositor, so adjustment layers
+  and other non-native effects are embedded at the smallest required raster
+  boundary instead of being silently omitted. A document edit during export
+  cancels the stale save rather than exporting the wrong revision.
 
 ## [0.2.1] - 2026-08-24
 

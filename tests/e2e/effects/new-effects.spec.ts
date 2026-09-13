@@ -5,12 +5,22 @@
  * Covers: UI controls, live preview, enable/disable, undo/redo, save/reopen,
  * export to SVG (verifying the old warning is absent), keyboard navigation.
  */
+import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
 import { dragOnCanvas, navigateToEditor } from '../shared';
 
 test.describe('New Adjustment Effects', () => {
   test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }) => {
+    // Headless Chromium exposes the File System Access picker but cannot
+    // complete its native dialog. Force the platform's documented download
+    // fallback so this test can inspect real SVG bytes.
+    await page.addInitScript(() => {
+      Object.defineProperty(window, 'showSaveFilePicker', {
+        configurable: true,
+        value: undefined,
+      });
+    });
     await navigateToEditor(page);
   });
 
@@ -428,19 +438,21 @@ test.describe('New Adjustment Effects', () => {
 
     await page.waitForTimeout(500);
 
-    const svgContent = await page.evaluate(() => {
-      return new Promise<string>((resolve) => {
-        const event = new CustomEvent('strata:request-svg-export', { detail: {} });
-        document.dispatchEvent(event);
-        const handler = (e: Event) => {
-          const customEvent = e as CustomEvent;
-          document.removeEventListener('strata:svg-export-result', handler as EventListener);
-          resolve(customEvent.detail?.svg ?? '');
-        };
-        document.addEventListener('strata:svg-export-result', handler as EventListener);
-        setTimeout(() => resolve(''), 3000);
-      });
-    });
+    // Exercise the user-facing File > Export SVG command. The former test
+    // dispatched a `strata:*` event that no application listener handled, so
+    // it could only time out or pass against a test-only bridge. Inspect the
+    // downloaded artifact produced by the live export compositor instead.
+    await page
+      .getByRole('menubar')
+      .getByRole('menuitem', { name: /^File$/ })
+      .click();
+    const fileMenu = page.locator('[role="menu"]:visible').last();
+    const pending = page.waitForEvent('download', { timeout: 30000 });
+    await fileMenu.getByRole('menuitem', { name: /^Export SVG/ }).click();
+    const download = await pending;
+    const downloadPath = await download.path();
+    expect(downloadPath).toBeTruthy();
+    const svgContent = await readFile(downloadPath!, 'utf8');
 
     expect(svgContent).toBeTruthy();
     expect(svgContent).not.toContain('cannot render adjustment');

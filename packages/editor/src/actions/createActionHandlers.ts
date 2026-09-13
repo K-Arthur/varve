@@ -1,4 +1,4 @@
-import { exportDocumentToSvg, exportNodeToSvg } from '@varve/codegen';
+import { exportNodeToSvg } from '@varve/codegen';
 import {
   areaSelectionBounds,
   areaSelectionFromColorRange,
@@ -110,6 +110,8 @@ export interface ActionHandlerCallbacks {
   onResetPanelWindowLayout?: () => void;
   /** Renderer-owned selection snapshot for Copy as PNG. */
   onCopyAsPng?: (scale: 1 | 2 | 3, selection?: ClipboardSelectionSnapshot) => void;
+  /** Whole-document SVG export routed through the live export compositor. */
+  onExportSvg?: () => void;
 }
 
 const MAX_DIRECT_CLIPBOARD_TEXT = 2_000_000;
@@ -1023,14 +1025,7 @@ export function createActionHandlers(
       void navigator.clipboard.writeText(active.filePath).catch(() => undefined);
     },
     exportSvg: () => {
-      const svg = exportDocumentToSvg(e.state.document);
-      const blob = new Blob([svg], { type: 'image/svg+xml' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${e.state.document.name || 'untitled'}.svg`;
-      a.click();
-      URL.revokeObjectURL(url);
+      cb.onExportSvg?.();
     },
     export: () => e.setShowExportDialog(true),
     createTableFromClipboard: () => {

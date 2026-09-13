@@ -438,6 +438,7 @@ function ShellInner({
       onResetPanelWindowLayout: resetPanelWindowLayout,
       onCopyAsPng: (scale, selection) =>
         void exportLayerRef.current?.copySelectionAsPng(scale, selection),
+      onExportSvg: () => exportLayerRef.current?.exportSvg(),
     });
     if (staticActionsRegistered.current) return;
     staticActionsRegistered.current = true;

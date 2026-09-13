@@ -163,6 +163,12 @@ const gradientPickerShot = scenes['gradient-picker']?.status === 'captured' ? sc
           portable LUT decode, not a promise of the source application's color-space
           conversion or grading model.
         </p>
+        <p>
+          File → Export SVG uses the same structural compositor as the export panel. Vector
+          artwork stays vector where the format can represent it; adjustment layers and other
+          non-native regions are embedded as derived raster assets at the smallest required
+          boundary, while the editable document remains unchanged.
+        </p>
       </section>
 
       <section class="feature-section constrained-editing" aria-labelledby="constrained-editing-title">

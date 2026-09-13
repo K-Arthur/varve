@@ -1,4 +1,4 @@
-import { exportNodeToSvg } from '@varve/codegen';
+import { exportDocumentToSvgAdvanced, exportNodeToSvg } from '@varve/codegen';
 import { createEngine, type Engine, getFontRegistry } from '@varve/engine';
 import { FontCatalog } from '@varve/engine/font';
 import type { Platform } from '@varve/platform';
@@ -13,6 +13,7 @@ import {
 import { isCapabilityRestricted } from '../../capabilities/restrictions';
 import { type ClipboardSelectionSnapshot, writeClipboardRepresentation } from '../../clipboard';
 import { useEditor } from '../../context';
+import { composeFlattenedExportSnapshot } from '../../export/compositor';
 import {
   createBufferedExportArchive,
   createExportFolderSaveFile,
@@ -57,6 +58,7 @@ function exportableNodes(doc: Document): SceneNode[] {
 export interface ExportLayerHandle {
   openBatchBgRemove: () => void;
   copySelectionAsPng: (scale: 1 | 2 | 3, selection?: ClipboardSelectionSnapshot) => Promise<void>;
+  exportSvg: () => void;
 }
 
 export interface ExportLayerProps {
@@ -244,6 +246,59 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
     [platform],
   );
 
+  const getExportEngine = useCallback(() => {
+    exportEngineRef.current ??= createEngine('auto');
+    return exportEngineRef.current;
+  }, []);
+
+  /**
+   * The File > Export SVG action is a whole-document export, not a selected
+   * node export. Route it through the same structural flattening compositor
+   * as the batch dialog so adjustment layers and other non-SVG effects are
+   * represented by derived raster assets instead of being silently omitted.
+   */
+  const exportSvg = useCallback((): void => {
+    const current = editorRef.current;
+    const documentSnapshot = current.state.document;
+    const documentId = documentSnapshot.id;
+    const revision = current.state.revision;
+
+    void (async () => {
+      try {
+        const engine = await getExportEngine();
+        const snapshots = await composeFlattenedExportSnapshot(documentSnapshot, ['svg'], {
+          scale: 1,
+          engine,
+        });
+        const latest = editorRef.current;
+        if (latest.state.document.id !== documentId || latest.state.revision !== revision) {
+          latest.announce('SVG export cancelled because the document changed');
+          return;
+        }
+
+        const svg = exportDocumentToSvgAdvanced(documentSnapshot, {
+          rasterAssets: snapshots.svg.rasterAssets,
+        });
+        const fileName = `${documentSnapshot.name || 'untitled'}.svg`;
+        const saved = await saveExportBytes(
+          platform,
+          fileName,
+          new TextEncoder().encode(svg),
+          'image/svg+xml',
+          '.svg',
+        );
+        if (saved === null) {
+          latest.announce('SVG export cancelled');
+          return;
+        }
+        latest.announce(`Exported ${documentSnapshot.name || 'untitled'} as SVG`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        editorRef.current.announce(`SVG export failed — ${message}`);
+      }
+    })();
+  }, [getExportEngine, platform]);
+
   useImperativeHandle(
     ref,
     () => ({
@@ -257,14 +312,10 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
         setBatchBgRemoveOpen(true);
       },
       copySelectionAsPng,
+      exportSvg,
     }),
-    [copySelectionAsPng],
+    [copySelectionAsPng, exportSvg],
   );
-
-  const getExportEngine = useCallback(() => {
-    exportEngineRef.current ??= createEngine('auto');
-    return exportEngineRef.current;
-  }, []);
 
   const handleExportBatch = useCallback(
     async (

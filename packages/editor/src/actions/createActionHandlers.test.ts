@@ -50,6 +50,16 @@ describe('createActionHandlers — tool actions', () => {
   });
 });
 
+describe('createActionHandlers — document export', () => {
+  it('delegates whole-document SVG export to the live export layer', () => {
+    const onExportSvg = vi.fn();
+
+    createActionHandlers(makeEditorMock(), { onExportSvg }).exportSvg?.();
+
+    expect(onExportSvg).toHaveBeenCalledOnce();
+  });
+});
+
 describe('createActionHandlers — clipboard dialogs', () => {
   beforeEach(() => {
     vi.clearAllMocks();
