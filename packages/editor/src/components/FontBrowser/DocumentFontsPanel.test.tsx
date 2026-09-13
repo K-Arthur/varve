@@ -47,7 +47,7 @@ vi.mock('./FontBrowserDialog', () => ({
 
 const mockedUseEditor = vi.mocked(useEditor);
 
-function makeEditorState() {
+function makeEditorState(options: { withReplacement?: boolean } = {}) {
   let document = createDocument('document-fonts-panel');
   const rootId = document.pages?.[0]?.contentRoot;
   if (!rootId) throw new Error('fixture page root missing');
@@ -59,6 +59,24 @@ function makeEditorState() {
   const familyOnly = makeTextNode('family-only', 'Family', { fontFamily: 'Inter' });
   document = addChild(document, rootId, exact);
   document = addChild(document, rootId, familyOnly);
+  if (options.withReplacement) {
+    document = {
+      ...document,
+      fontManifest: {
+        version: 2,
+        fonts: [],
+        replacements: [
+          {
+            original: 'Arial',
+            replacement: 'Inter',
+            replacementReference: exact.fontReference,
+            applyToAll: true,
+            preserveOriginalReference: true,
+          },
+        ],
+      },
+    };
+  }
   return {
     state: { document, selection: [], workspaceMode: 'design' },
     setSelectionRefs: vi.fn(),
@@ -143,6 +161,33 @@ describe('DocumentFontsPanel', () => {
     expect(editor.updateDoc).toHaveBeenCalledTimes(1);
     expect(editor.announce).toHaveBeenCalledWith(
       'Replaced Inter in 1 text layer. Layout may change.',
+    );
+  });
+
+  it('previews an exact restore before committing and supports cancellation', () => {
+    const editor = makeEditorState({ withReplacement: true });
+    mockedUseEditor.mockReturnValue(editor);
+    render(<DocumentFontsPanel />);
+
+    const restoreButton = screen.getByRole('button', {
+      name: 'Restore original Inter Inter-Bold',
+    });
+    fireEvent.click(restoreButton);
+    expect(screen.getByRole('heading', { name: 'Restore original font?' })).toBeVisible();
+    expect(screen.getByText(/Preview: Inter to Arial/)).toBeVisible();
+    expect(editor.beginTransaction).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('heading', { name: 'Restore original font?' })).toBeNull();
+    expect(editor.beginTransaction).not.toHaveBeenCalled();
+
+    fireEvent.click(restoreButton);
+    fireEvent.click(screen.getByRole('button', { name: 'Restore original' }));
+    expect(editor.beginTransaction).toHaveBeenCalledTimes(1);
+    expect(editor.commitTransaction).toHaveBeenCalledTimes(1);
+    expect(editor.updateDoc).toHaveBeenCalledTimes(1);
+    expect(editor.announce).toHaveBeenCalledWith(
+      'Restored Arial in 1 text layer. Layout may change.',
     );
   });
 });

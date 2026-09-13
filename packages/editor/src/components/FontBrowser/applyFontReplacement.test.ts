@@ -1,7 +1,11 @@
 import { FontCatalog } from '@varve/engine/font';
 import { addChild, createDocument, makeTextNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
-import { applyFontReplacement } from './applyFontReplacement';
+import {
+  applyFontReplacement,
+  findRestorableFontReplacement,
+  restoreFontReplacement,
+} from './applyFontReplacement';
 
 describe('applyFontReplacement', () => {
   it('replaces an exact face in node and rich text data while preserving provenance', () => {
@@ -84,5 +88,83 @@ describe('applyFontReplacement', () => {
     expect(
       secondUpdated.fontManifest?.replacements?.map((entry) => entry.replacementReference),
     ).toEqual([first.replacementReference, second.replacementReference]);
+  });
+
+  it('restores an exact replacement and removes only its provenance entry', () => {
+    let doc = createDocument('font-restore');
+    const rootId = doc.pages?.[0]?.contentRoot;
+    if (!rootId) throw new Error('fixture page root missing');
+    const originalReference = {
+      artifactHash: 'a'.repeat(64),
+      postScriptName: 'Inter-Bold',
+    };
+    const replacementReference = {
+      artifactHash: 'b'.repeat(64),
+      postScriptName: 'NotoSans-Bold',
+    };
+    const node = makeTextNode('text', 'Hello', {
+      fontFamily: 'Noto Sans',
+      fontWeight: 700,
+      fontReference: replacementReference,
+    });
+    doc = addChild(doc, rootId, node);
+    doc = {
+      ...doc,
+      fontManifest: {
+        version: 2,
+        fonts: [],
+        replacements: [
+          {
+            original: 'Inter',
+            replacement: 'Noto Sans',
+            originalReference,
+            replacementReference,
+            applyToAll: true,
+            preserveOriginalReference: true,
+          },
+        ],
+      },
+    };
+
+    const replacement = findRestorableFontReplacement(doc, 'Noto Sans', replacementReference);
+    expect(replacement?.original).toBe('Inter');
+
+    const restored = restoreFontReplacement(
+      doc,
+      new FontCatalog(),
+      replacement!,
+      replacementReference,
+    );
+    const restoredNode = restored.nodes.text;
+    if (restoredNode?.kind !== 'text') throw new Error('text node missing');
+    expect(restoredNode.fontFamily).toBe('Inter');
+    expect(restoredNode.fontReference).toEqual(originalReference);
+    expect(restored.fontManifest?.replacements ?? []).toEqual([]);
+  });
+
+  it('does not guess when family-only replacement history is ambiguous', () => {
+    const doc = {
+      ...createDocument('font-restore-ambiguous'),
+      fontManifest: {
+        version: 2 as const,
+        fonts: [],
+        replacements: [
+          {
+            original: 'Inter',
+            replacement: 'Noto Sans',
+            applyToAll: true,
+            preserveOriginalReference: true,
+          },
+          {
+            original: 'Arial',
+            replacement: 'Noto Sans',
+            applyToAll: true,
+            preserveOriginalReference: true,
+          },
+        ],
+      },
+    };
+
+    expect(findRestorableFontReplacement(doc, 'Noto Sans')).toBeUndefined();
   });
 });

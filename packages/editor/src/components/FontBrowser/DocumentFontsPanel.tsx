@@ -5,9 +5,13 @@ import {
   type FontReplacement,
 } from '@varve/engine/font';
 import type { Document } from '@varve/scene';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
-import { applyFontReplacement } from './applyFontReplacement';
+import {
+  applyFontReplacement,
+  findRestorableFontReplacement,
+  restoreFontReplacement,
+} from './applyFontReplacement';
 import { buildDocumentFontUsage, type DocumentFontUsage } from './documentFontUsage';
 import { FontBrowser } from './FontBrowser';
 import { FontBrowserDialog } from './FontBrowserDialog';
@@ -96,6 +100,11 @@ export function DocumentFontsPanel() {
   const [query, setQuery] = useState('');
   const [view, setView] = useState<'document' | 'browse'>('document');
   const [replacementTarget, setReplacementTarget] = useState<DocumentFontUsage | null>(null);
+  const [restoreTarget, setRestoreTarget] = useState<{
+    entry: DocumentFontUsage;
+    replacement: FontReplacement;
+  } | null>(null);
+  const restoreDialogRef = useRef<HTMLDivElement>(null);
   const page = state.document.pages?.find(
     (candidate) => candidate.id === state.document.activePageId,
   );
@@ -120,6 +129,19 @@ export function DocumentFontsPanel() {
     (entry) => !entry.unusedStyle && entry.nodeIds.length > 0,
   );
   const unusedStyles = filteredUsage.filter((entry) => entry.unusedStyle);
+
+  useEffect(() => {
+    if (!restoreTarget) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      setRestoreTarget(null);
+    };
+    window.addEventListener('keydown', handleEscape, true);
+    restoreDialogRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
+    return () => window.removeEventListener('keydown', handleEscape, true);
+  }, [restoreTarget]);
 
   if (view === 'browse') {
     return (
@@ -167,6 +189,25 @@ export function DocumentFontsPanel() {
     );
   };
 
+  const confirmRestore = () => {
+    if (!restoreTarget) return;
+    const catalog = createFontCatalogFromRegistry(getFontRegistry());
+    editor.beginTransaction();
+    editor.updateDoc((doc) =>
+      restoreFontReplacement(
+        doc,
+        catalog,
+        restoreTarget.replacement,
+        restoreTarget.entry.fontReference,
+      ),
+    );
+    editor.commitTransaction();
+    announce(
+      `Restored ${restoreTarget.replacement.original} in ${restoreTarget.entry.nodeIds.length} text layer${restoreTarget.entry.nodeIds.length === 1 ? '' : 's'}. Layout may change.`,
+    );
+    setRestoreTarget(null);
+  };
+
   const openReplacement = (entry: DocumentFontUsage) => {
     setReplacementTarget(entry);
   };
@@ -177,6 +218,48 @@ export function DocumentFontsPanel() {
 
   return (
     <>
+      {restoreTarget && (
+        <div
+          ref={restoreDialogRef}
+          className="document-fonts-panel__restore-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="document-fonts-restore-title"
+          aria-describedby="document-fonts-restore-description"
+        >
+          <div className="document-fonts-panel__restore-card">
+            <h2 id="document-fonts-restore-title">Restore original font?</h2>
+            <p id="document-fonts-restore-description">
+              Replace <strong>{restoreTarget.entry.family}</strong> with the recorded original{' '}
+              <strong>{restoreTarget.replacement.original}</strong> for this exact face.
+            </p>
+            <p className="document-fonts-panel__restore-impact">
+              Preview: {restoreTarget.entry.family} to {restoreTarget.replacement.original} ·{' '}
+              {restoreTarget.entry.totalCharacters}{' '}
+              {restoreTarget.entry.totalCharacters === 1 ? 'character' : 'characters'} across{' '}
+              {restoreTarget.entry.nodeIds.length}{' '}
+              {restoreTarget.entry.nodeIds.length === 1 ? 'text layer' : 'text layers'}. Wrapping,
+              metrics, and overflow may change.
+            </p>
+            <div className="document-fonts-panel__restore-actions">
+              <button
+                type="button"
+                className="document-fonts-panel__restore-cancel"
+                onClick={() => setRestoreTarget(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="document-fonts-panel__restore-confirm"
+                onClick={confirmRestore}
+              >
+                Restore original
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {replacementTarget && (
         <FontBrowserDialog
           open
@@ -270,44 +353,61 @@ export function DocumentFontsPanel() {
               </span>
             </div>
           ) : (
-            usedEntries.map((entry) => (
-              <article key={entry.key} className="document-fonts-panel__row">
-                <div className="document-fonts-panel__row-copy">
-                  <strong>{entry.family}</strong>
-                  <span>{faceName(entry)}</span>
-                  <small>{usageDescription(entry)}</small>
-                  <small className={entry.fontReference ? 'is-exact' : 'is-family-only'}>
-                    {referenceSummary(entry.fontReference)}
-                  </small>
-                </div>
-                <div className="document-fonts-panel__row-actions">
-                  <button
-                    type="button"
-                    className="document-fonts-panel__go-to"
-                    onClick={() => goToUsage(entry)}
-                    aria-label={`Go to ${entry.family} ${faceName(entry)}`}
-                  >
-                    Go to
-                  </button>
-                  <button
-                    type="button"
-                    className="document-fonts-panel__select"
-                    onClick={() => selectUsage(entry)}
-                    aria-label={`Select text using ${entry.family} ${faceName(entry)}`}
-                  >
-                    Select
-                  </button>
-                  <button
-                    type="button"
-                    className="document-fonts-panel__replace"
-                    onClick={() => openReplacement(entry)}
-                    aria-label={`Replace ${entry.family} ${faceName(entry)}`}
-                  >
-                    Replace
-                  </button>
-                </div>
-              </article>
-            ))
+            usedEntries.map((entry) => {
+              const restorable = findRestorableFontReplacement(
+                state.document,
+                entry.family,
+                entry.fontReference,
+              );
+              return (
+                <article key={entry.key} className="document-fonts-panel__row">
+                  <div className="document-fonts-panel__row-copy">
+                    <strong>{entry.family}</strong>
+                    <span>{faceName(entry)}</span>
+                    <small>{usageDescription(entry)}</small>
+                    <small className={entry.fontReference ? 'is-exact' : 'is-family-only'}>
+                      {referenceSummary(entry.fontReference)}
+                    </small>
+                  </div>
+                  <div className="document-fonts-panel__row-actions">
+                    <button
+                      type="button"
+                      className="document-fonts-panel__go-to"
+                      onClick={() => goToUsage(entry)}
+                      aria-label={`Go to ${entry.family} ${faceName(entry)}`}
+                    >
+                      Go to
+                    </button>
+                    <button
+                      type="button"
+                      className="document-fonts-panel__select"
+                      onClick={() => selectUsage(entry)}
+                      aria-label={`Select text using ${entry.family} ${faceName(entry)}`}
+                    >
+                      Select
+                    </button>
+                    <button
+                      type="button"
+                      className="document-fonts-panel__replace"
+                      onClick={() => openReplacement(entry)}
+                      aria-label={`Replace ${entry.family} ${faceName(entry)}`}
+                    >
+                      Replace
+                    </button>
+                    {restorable && (
+                      <button
+                        type="button"
+                        className="document-fonts-panel__restore"
+                        onClick={() => setRestoreTarget({ entry, replacement: restorable })}
+                        aria-label={`Restore original ${entry.family} ${faceName(entry)}`}
+                      >
+                        Restore
+                      </button>
+                    )}
+                  </div>
+                </article>
+              );
+            })
           )}
         </section>
 

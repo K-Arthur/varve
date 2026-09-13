@@ -66,3 +66,90 @@ export function applyFontReplacement(
     fontManifest: manifest,
   };
 }
+
+function sameReplacement(left: FontReplacement, right: FontReplacement): boolean {
+  const sameReference = (
+    a: FontReplacement['originalReference'] | FontReplacement['replacementReference'],
+    b: FontReplacement['originalReference'] | FontReplacement['replacementReference'],
+  ) => {
+    if (!a || !b) return !a && !b;
+    return fontReferenceKey(a) === fontReferenceKey(b);
+  };
+  return (
+    left.original.toLowerCase() === right.original.toLowerCase() &&
+    left.replacement.toLowerCase() === right.replacement.toLowerCase() &&
+    sameReference(left.originalReference, right.originalReference) &&
+    sameReference(left.replacementReference, right.replacementReference)
+  );
+}
+
+/**
+ * Find one unambiguous replacement that can restore a Document Fonts row.
+ *
+ * Family-only replacements deliberately clear the current face reference, so
+ * they are restorable only when no other replacement history entry targets the
+ * same family. Exact replacements use the current artifact/member reference
+ * and can coexist with other faces of the same family.
+ */
+export function findRestorableFontReplacement(
+  doc: Document,
+  family: string,
+  currentReference?: FontReplacement['replacementReference'],
+): FontReplacement | undefined {
+  const candidates = (doc.fontManifest?.replacements ?? []).filter(
+    (replacement) => replacement.replacement.toLowerCase() === family.toLowerCase(),
+  );
+  const matching = currentReference
+    ? candidates.filter(
+        (replacement) =>
+          replacement.replacementReference !== undefined &&
+          fontReferenceKey(replacement.replacementReference) === fontReferenceKey(currentReference),
+      )
+    : candidates.filter((replacement) => replacement.replacementReference === undefined);
+  return matching.length === 1 ? matching[0] : undefined;
+}
+
+/** Restore one reviewed replacement and remove its provenance entry. */
+export function restoreFontReplacement(
+  doc: Document,
+  catalog: FontCatalog,
+  replacement: FontReplacement,
+  currentReference?: FontReplacement['replacementReference'],
+): Document {
+  const inverse: FontReplacement = {
+    original: replacement.replacement,
+    replacement: replacement.original,
+    ...(currentReference ? { originalReference: currentReference } : {}),
+    ...(replacement.originalReference
+      ? { replacementReference: replacement.originalReference }
+      : {}),
+    applyToAll: true,
+    preserveOriginalReference: false,
+  };
+  const resolver = new FontResolver();
+  const updated = resolver.applyReplacement(
+    { nodes: doc.nodes, styles: doc.styles } as unknown as ResolverDocument,
+    inverse,
+  );
+  const remaining = (doc.fontManifest?.replacements ?? []).filter(
+    (existing) => !sameReplacement(existing, replacement),
+  );
+  const { manifest } = attachFontManifestToDocument(
+    {
+      nodes: updated.nodes,
+      styles: updated.styles,
+      fontManifest: {
+        version: 2,
+        fonts: doc.fontManifest?.fonts ?? [],
+        replacements: remaining,
+      },
+    } as Parameters<typeof attachFontManifestToDocument>[0],
+    catalog,
+  );
+  return {
+    ...doc,
+    nodes: updated.nodes as Document['nodes'],
+    ...(updated.styles ? { styles: updated.styles as Document['styles'] } : {}),
+    fontManifest: manifest,
+  };
+}
