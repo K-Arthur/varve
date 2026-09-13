@@ -293,8 +293,11 @@ describe('AdjustmentScope - Edge Cases', () => {
     expect(targets).toEqual([]);
   });
 
-  it('scopeForTargets returns document for empty array', () => {
-    expect(scopeForTargets(makeTestDoc(), []).mode).toBe('document');
+  it('scopeForTargets returns an explicit empty scope for empty array', () => {
+    expect(scopeForTargets(makeTestDoc(), [])).toEqual({
+      mode: 'explicit-targets',
+      targetNodeIds: [],
+    });
   });
 
   it('validateScope warns about missing container', () => {

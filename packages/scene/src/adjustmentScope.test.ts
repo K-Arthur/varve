@@ -326,10 +326,10 @@ describe('scopeForTargets', () => {
     expect(scope).toEqual({ mode: 'explicit-targets', targetNodeIds: ['t1', 't2'] });
   });
 
-  it('returns document for empty targets', () => {
+  it('returns an explicit empty scope for empty targets', () => {
     const doc = makeTestDoc();
     const scope = scopeForTargets(doc, []);
-    expect(scope.mode).toBe('document');
+    expect(scope).toEqual({ mode: 'explicit-targets', targetNodeIds: [] });
   });
 });
 
@@ -359,6 +359,12 @@ describe('validateScope', () => {
     });
     expect(warnings.length).toBeGreaterThanOrEqual(1);
   });
+
+  it('warns when an explicit scope has no targets', () => {
+    const doc = makeTestDoc();
+    const warnings = validateScope(doc, { mode: 'explicit-targets', targetNodeIds: [] });
+    expect(warnings).toContain('No targets selected; this adjustment is currently inactive');
+  });
 });
 
 describe('collectContainerDescendants', () => {
@@ -387,6 +393,6 @@ describe('estimateAdjustmentImpact', () => {
     expect(typeof impact.targetCount).toBe('number');
     expect(typeof impact.affectedFrames).toBe('number');
     expect(typeof impact.estimatedPixelArea).toBe('number');
-    expect(typeof impact.hasOffscreenTargets).toBe('boolean');
+    expect(impact).not.toHaveProperty('hasOffscreenTargets');
   });
 });

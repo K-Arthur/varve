@@ -21,6 +21,7 @@
  *    Capture One styles (apply-to-selected-only), Lightroom virtual copies.
  */
 import type { Document } from './document';
+import { walkNodes } from './document';
 import type { AdjustmentScope, NodeId } from './types';
 import { isContainer } from './types';
 
@@ -33,7 +34,6 @@ export interface AdjustmentImpact {
   affectedPages: number;
   estimatedPixelArea: number;
   activeAdjustmentCount: number;
-  hasOffscreenTargets: boolean;
 }
 
 /**
@@ -71,10 +71,10 @@ export function collectContainerDescendants(
   const result: NodeId[] = [];
   const visit = (parentId: NodeId, isRoot: boolean) => {
     const parent = doc.nodes[parentId];
-    if (!parent || !isContainer(parent)) return;
+    if (!parent || !isContainer(parent) || parent.visible === false) return;
     for (const childId of parent.children) {
       const child = doc.nodes[childId];
-      if (!child) continue;
+      if (!child || child.visible === false) continue;
       if (child.kind === 'adjustment') continue;
       if (isAdjustmentEligible(child)) {
         result.push(childId);
@@ -110,14 +110,17 @@ export function resolveAdjustmentScope(
   switch (scope.mode) {
     case 'image-local': {
       const target = doc.nodes[scope.targetNodeId];
-      resolved = target && isAdjustmentEligible(target) ? [scope.targetNodeId] : [];
+      resolved =
+        target && isVisibleInScene(doc, scope.targetNodeId) && isAdjustmentEligible(target)
+          ? [scope.targetNodeId]
+          : [];
       break;
     }
 
     case 'explicit-targets': {
       resolved = scope.targetNodeIds.filter((id) => {
         const target = doc.nodes[id];
-        return !!target && isAdjustmentEligible(target);
+        return !!target && isVisibleInScene(doc, id) && isAdjustmentEligible(target);
       });
       break;
     }
@@ -201,10 +204,16 @@ function findParentId(doc: Document, nodeId: NodeId): NodeId | null {
  */
 export function collectAllEligibleNodes(doc: Document): NodeId[] {
   const result: NodeId[] = [];
-  for (const [id, n] of Object.entries(doc.nodes)) {
+  const roots = [
+    ...doc.rootChildren,
+    ...(doc.globalChildren ?? []),
+    ...Object.values(doc.masters ?? {}).map((master) => master.contentRoot),
+  ];
+  for (const [id, entry] of walkNodes(doc, roots)) {
     if (
-      n.visible !== false &&
-      isAdjustmentEligible(n as unknown as { kind: string; visible?: boolean })
+      isAdjustmentEligible(entry.node) &&
+      entry.node.visible !== false &&
+      isVisibleInScene(doc, id)
     ) {
       result.push(id);
     }
@@ -263,7 +272,6 @@ export function estimateAdjustmentImpact(
     affectedPages: pageSet.size,
     estimatedPixelArea: totalPixels,
     activeAdjustmentCount,
-    hasOffscreenTargets: targets.length > 10,
   };
 }
 
@@ -295,7 +303,10 @@ function isDescendantOf(doc: Document, nodeId: NodeId, ancestorId: NodeId): bool
  * selection, where the user can see that the whole container is targeted.
  */
 export function scopeForTargets(_doc: Document, targetIds: NodeId[]): AdjustmentScope {
-  if (targetIds.length === 0) return { mode: 'document' };
+  // An empty selection is an explicit empty scope. Document scope is always a
+  // deliberate choice in the UI; using it as an empty sentinel makes a new
+  // adjustment silently affect unrelated pages and siblings.
+  if (targetIds.length === 0) return { mode: 'explicit-targets', targetNodeIds: [] };
   if (targetIds.length === 1) return { mode: 'image-local', targetNodeId: targetIds[0] as NodeId };
 
   return { mode: 'explicit-targets', targetNodeIds: [...targetIds] };
@@ -316,6 +327,9 @@ export function validateScope(doc: Document, scope: AdjustmentScope): string[] {
       break;
     }
     case 'explicit-targets': {
+      if (scope.targetNodeIds.length === 0) {
+        warnings.push('No targets selected; this adjustment is currently inactive');
+      }
       const missing = scope.targetNodeIds.filter((id) => !doc.nodes[id]);
       if (missing.length > 0) {
         warnings.push(`${missing.length} target(s) no longer exist`);
@@ -342,4 +356,25 @@ export function validateScope(doc: Document, scope: AdjustmentScope): string[] {
   }
 
   return warnings;
+}
+
+/**
+ * Resolve visibility through the actual scene tree, not just a node's own
+ * `visible` flag. A hidden parent still renders as hidden, and an adjustment
+ * must not report or process a child that cannot contribute pixels.
+ *
+ * The visited set also bounds malformed cyclic trees so a hand-authored or
+ * partially recovered document cannot hang scope resolution.
+ */
+function isVisibleInScene(doc: Document, nodeId: NodeId): boolean {
+  const visited = new Set<NodeId>();
+  let currentId: NodeId | null = nodeId;
+  while (currentId) {
+    if (visited.has(currentId)) return false;
+    visited.add(currentId);
+    const current = doc.nodes[currentId];
+    if (!current || current.visible === false) return false;
+    currentId = findParentId(doc, currentId);
+  }
+  return true;
 }

@@ -45,6 +45,11 @@ export function AdjustmentScopeSection({
     return estimateAdjustmentImpact(doc, scope, nodeId);
   }, [doc, scope, nodeId]);
 
+  const pendingImpact = useMemo(() => {
+    if (!pendingScope) return null;
+    return estimateAdjustmentImpact(doc, pendingScope, nodeId);
+  }, [doc, nodeId, pendingScope]);
+
   const eligibleTargets = useMemo(
     () =>
       Object.values(doc.nodes)
@@ -239,18 +244,17 @@ export function AdjustmentScopeSection({
       </div>
 
       {/* Impact summary dialog */}
-      {showImpact && pendingScope && impact && (
+      {showImpact && pendingScope && pendingImpact && (
         <div className="insp-overlay" role="dialog" aria-label="Adjustment impact preview">
           <div className="insp-overlay__content">
             <h3>Adjustment Impact</h3>
             <p>This adjustment will affect:</p>
             <ul>
-              <li>{impact.targetCount} target(s)</li>
-              <li>{impact.affectedFrames} frame(s)</li>
-              <li>{impact.affectedPages} page(s)</li>
-              <li>Est. {(impact.estimatedPixelArea / 1000000).toFixed(1)} MPix processed</li>
-              <li>{impact.activeAdjustmentCount} active adjustment(s)</li>
-              {impact.hasOffscreenTargets && <li>Off-screen targets will be deferred</li>}
+              <li>{pendingImpact.targetCount} target(s)</li>
+              <li>{pendingImpact.affectedFrames} frame(s)</li>
+              <li>{pendingImpact.affectedPages} page(s)</li>
+              <li>Est. {(pendingImpact.estimatedPixelArea / 1000000).toFixed(1)} MPix processed</li>
+              <li>{pendingImpact.activeAdjustmentCount} active adjustment(s)</li>
             </ul>
             <div className="insp-overlay__actions">
               <button
