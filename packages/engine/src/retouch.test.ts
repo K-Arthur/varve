@@ -8,6 +8,7 @@ import {
   findBestPatch,
   healPixels,
   ncc,
+  nccPackedPatch,
   patchRegion,
   spotHeal,
 } from './retouch';
@@ -68,6 +69,18 @@ describe('clonePixels', () => {
 
     expect(() => clonePixels(target, source, 0, 0, 0, 0, 20, null)).not.toThrow();
   });
+
+  it('composites transparent source pixels without darkening the destination', () => {
+    const target = makeTestImageData(3, 3, () => 80);
+    const source = makeTestImageData(3, 3, () => 240);
+    source.data[3] = 0;
+
+    const result = clonePixels(target, source, 1, 1, 0, 0, 1, null);
+
+    const index = (1 * 3 + 1) * 4;
+    expect(result.data[index]).toBe(80);
+    expect(result.data[index + 3]).toBe(255);
+  });
 });
 
 describe('createBrushMask', () => {
@@ -100,6 +113,34 @@ describe('ncc', () => {
     const score = ncc(a.data, b.data, 0, 40, 9);
     expect(score).toBeLessThan(0.9);
   });
+
+  it('compares a packed patch against a strided image region', () => {
+    // Source rows are 20 pixels wide; the matching texture sits at (8, 4).
+    // The pattern is deliberately non-affine so a shifted region cannot also
+    // score a perfect correlation.
+    const source = makeTestImageData(
+      20,
+      20,
+      (x, y) => (x * x * 7 + y * y * 13 + ((x * 3) ^ (y * 5))) % 256,
+    );
+    const packed = new Uint8ClampedArray(3 * 3 * 4);
+    for (let row = 0; row < 3; row++) {
+      for (let column = 0; column < 3; column++) {
+        const srcIndex = ((4 + row) * 20 + (8 + column)) * 4;
+        const dstIndex = (row * 3 + column) * 4;
+        packed[dstIndex] = source.data[srcIndex]!;
+        packed[dstIndex + 1] = source.data[srcIndex + 1]!;
+        packed[dstIndex + 2] = source.data[srcIndex + 2]!;
+        packed[dstIndex + 3] = 255;
+      }
+    }
+
+    const offset = (4 * 20 + 8) * 4;
+    expect(nccPackedPatch(packed, source.data, offset, 20 * 4, 3)).toBeCloseTo(1, 5);
+    // A different region of the same source does not correlate as strongly.
+    const otherOffset = (4 * 20 + 12) * 4;
+    expect(nccPackedPatch(packed, source.data, otherOffset, 20 * 4, 3)).toBeLessThan(1);
+  });
 });
 
 describe('findBestPatch', () => {
@@ -115,6 +156,17 @@ describe('findBestPatch', () => {
     const result = findBestPatch(src, src, 6, 6, 1, 10);
     expect(result.x).toBeGreaterThanOrEqual(5);
     expect(result.y).toBeGreaterThanOrEqual(5);
+  });
+
+  it('uses the target image rather than assuming source and target are the same buffer', () => {
+    const target = makeTestImageData(20, 20, (x, y) => (x * 17 + y * 11) % 256);
+    const source = makeTestImageData(20, 20, (x, y) => (x + y) % 256);
+    const result = findBestPatch(target, source, 10, 10, 1, 4);
+
+    expect(result.x).toBeGreaterThanOrEqual(1);
+    expect(result.x).toBeLessThanOrEqual(18);
+    expect(result.y).toBeGreaterThanOrEqual(1);
+    expect(result.y).toBeLessThanOrEqual(18);
   });
 });
 
