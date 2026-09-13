@@ -1,9 +1,10 @@
 # Illustration and Concept-Art Workflow Improvement — 2026-09-13
 
-**Status:** Slice 1 implemented; broader workflow work remains explicitly
+**Status:** Slices 1–2 implemented; broader workflow work remains explicitly
 bounded below
-**Scope:** Existing editor tools, brush state, smudge sampling, validation,
-current-state documentation, and the existing website stroke surfaces
+**Scope:** Existing editor tools, brush state, smudge sampling, raster colour
+selection, selection-to-flats, validation, current-state documentation, and
+the existing website stroke surfaces
 **Product boundary:** No new workspace, editor route, project type, document
 format, or parallel paint system was introduced.
 
@@ -41,6 +42,8 @@ threads are treated as anecdotal complaint evidence, not as specifications.
 | [Krita brush engines](https://docs.krita.org/en/reference_manual/brushes.html) | Krita manual 5.3.0 | Brush feel is a combination of tip, spacing, dynamics, opacity/flow, and engine-specific behaviour; labels alone do not make a usable brush. | Krita's engine and UI are not Varve's contract. | Repair and expose existing Varve engine semantics before adding another brush implementation. |
 | [Krita Color Smudge Engine](https://docs.krita.org/en/reference_manual/brushes/brush_engines/color_smudge_engine.html) | Krita manual 5.3.0 | Smudge length, colour rate, and sampling scope are distinct concerns. The manual warns that sampled lower-layer pixels can complicate later edits. | The exact reservoir model differs from Varve's implementation. | Make sampling scope explicit, keep it read-only, and separate source sampling from the deposit target. |
 | [Krita Fill Tool](https://docs.krita.org/en/reference_manual/tools/fill.html) | Krita manual 5.3.0 | Reference scope, grow, feather, and gap handling are separate controls in a production fill workflow. | This slice does not change Varve fill behaviour. | Record fill/gap closure as a later vertical slice rather than pretending smudge UI solves flats. |
+| [Krita Contiguous Selection Tool](https://docs.krita.org/en/reference_manual/tools/contiguous_select.html) | Krita manual 5.3.0, accessed 2026-09-13 | Magic Wand selection separates contiguous colour matching, threshold, reference scope, anti-aliasing, grow, feather, and gap closure. | Varve's raster extension intentionally starts with current selected-layer sampling and existing tolerance/mode/edge-feather controls. | Implement bounded raster current-layer sampling; keep merged references and gap closure as separately testable work. |
+| [GIMP Fuzzy Select and Select by Colour](https://docs.gimp.org/3.0/en_GB/gimp-tool-fuzzy-select.html) and [Select by Colour](https://docs.gimp.org/3.0/en_GB/gimp-tool-by-color-select.html) | GIMP 3.0 manual, accessed 2026-09-13 | Fuzzy Select is contiguous while Select by Colour is global, and the clicked seed plus transparent/sample-merged settings materially change the result. | GIMP's diagonal-neighbour and drag-threshold options are outside this slice. | Keep Varve's contiguous/global distinction explicit, reject transparent seeds, and avoid silent merged sampling. |
 | [Krita Reference Images Tool](https://docs.krita.org/en/reference_manual/tools/reference_images_tool.html) | Krita manual 5.3.0 | Reference images have explicit placement, opacity, transform, and embedded/linked storage decisions. | Varve's reference implementation must be audited separately. | Do not make a visible image automatically become a paint source or export content. |
 | [Tauri Webview versions](https://tauri.app/reference/webview-versions/) | Page updated 2026-05-17 | Tauri uses the system WebKit implementation on Linux; distro versions vary. | This page does not guarantee a specific WebKitGTK behaviour on every distro. | Keep browser and Linux desktop claims separate; validate actual WebKitGTK when input/render changes land. |
 | [Wry WebViewBuilder](https://docs.rs/wry/latest/wry/struct.WebViewBuilder.html) | wry 0.57.0 docs | Linux WebView setup depends on GTK/X11/Wayland choices; the desktop path is not Chromium by default. | Packaging and compositor differences remain environment-specific. | Avoid treating Chromium-only Playwright results as Linux desktop proof. |
@@ -51,6 +54,7 @@ threads are treated as anecdotal complaint evidence, not as specifications.
 | [Adobe community: pen tablet drawing delay](https://community.adobe.com/questions-712/issues-with-pen-tablet-drawing-delay-1178863) | User report, 2025 thread | Users report that small details become impractical when the brush catches up late. | No controlled reproduction in Varve or a shared hardware profile. | Require real pointer-path E2E evidence for input fixes; synthetic unit tests alone are insufficient. |
 | [Tauri issue 5761](https://github.com/tauri-apps/tauri/issues/5761) | Upstream issue, Linux canvas report | A user reported Canvas performance lower in Tauri than in a browser. | Old issue and environment-specific; not proof of current Varve performance. | Keep render-worker fallbacks and actual desktop measurements separate from browser results. |
 | [MyPaint issue 296](https://github.com/mypaint/mypaint/issues/296) | User request, issue history | Gap closure is requested because bucket fills leaking through small line-art gaps are a recurring workflow failure. | This is a request rather than a resolved algorithm specification. | Plan bounded gap closure/preview for the flats slice; do not add an untested “magic fill” claim here. |
+| [Adobe community: contiguous Magic Wand edge case](https://community.adobe.com/t5/photoshop-ecosystem-discussions/how-does-contiguous-work/m-p/15527954/highlight/true) | User report, 2025 thread, accessed 2026-09-13 | A user reported incorrect contiguous/intersection results despite matching visible colours and tolerance changes. | Anecdotal and version-specific. | Add separated-region regression coverage and preserve a distinct global mode instead of allowing contiguous selection to degrade into “all similar pixels”. |
 
 ## Baseline diagnosis
 
@@ -63,6 +67,7 @@ was already visually verified:
 | Know whether a smudge stroke samples current or merged content | The tool defaulted to current-layer sampling, but there was no visible status/control. | Hidden boolean created ambiguous source semantics. | `SmudgeTool.flattenVisibleStack` | Implemented as an explicit toggle with accessible state and truthful copy. | `aria-pressed` assertion plus canvas stroke E2E. |
 | Smudge vector, groups, effects, and transformed content as if it were a final composite | Current helper collects visible raster-layer tile maps in active scene-tree order only. | It is a tile sampling helper, not a renderer readback. | `flattenTilesForSampling` and `SmudgeTool` | Deferred; documented as a limitation. | No claim of support; future work requires renderer-backed source contract and revision checks. |
 | Paint line-art flats without leaks | Gap closure/threshold controls need a separate end-to-end audit. | Existing fill semantics are broader than this slice. | Fill/selection systems | Deferred to a bounded flats slice. | Use line-art fixtures, source preservation, cancellation, and export checks. |
+| Select a painted raster region for flats | Magic Wand handled image-bearing shapes but not sparse pixel-layer tiles; selecting a painted raster and clicking its visible mark could announce that an image was required. | The tool had a colour-range engine route but no raster tile source adapter, and the generic hit-test can decline a raster mark at the pointer. | `MagicWandTool`, `rasterColorSelection.ts`, `areaSelectionFromColorRange` | Implemented in Slice 2: selected-raster fallback, contiguous/global OKLab selection, bounded working plane, full-transform mapping. | Raster helper unit suite plus real Chromium paint → select → fill E2E and inspected screenshots. |
 | Maintain line quality under pen input | Current repository contains input work from other agents; this slice does not take ownership of those shared files. | Pointer event fidelity and WebKitGTK behaviour need separate validation. | Input pipeline and tool dispatch | Coordinate through the drawing-input ownership record. | Real DOM PointerEvent E2E plus desktop validation where available. |
 | Improve concept-art reference/paintover iteration | Reference persistence, masking, transform, provenance, and export inclusion are a separate surface. | A visible image is not automatically a sampling or export layer. | Existing asset/image/reference systems | Deferred; no parallel concept-art project model. | Import, lock, transform, save/reopen, export, and pixel-difference checks. |
 
@@ -82,6 +87,16 @@ Changed in the first slice:
 - `packages/editor/src/tools/__tests__/SmudgeTool.test.ts` and
   `packages/editor/src/components/Inspector/sections/BrushSection.test.tsx` —
   cover state round-tripping and discoverability.
+- `packages/editor/src/tools/rasterColorSelection.ts` and
+  `packages/editor/src/tools/rasterColorSelection.test.ts` — read sparse raster
+  tiles into a bounded working plane and cover contiguous/global matches and
+  transparent seed rejection.
+- `packages/editor/src/tools/MagicWandTool.ts` — routes an explicitly selected
+  raster layer through the existing area-selection engine while preserving
+  modifier operations and full node transforms.
+- `tests/e2e/canvas/raster-magic-wand.spec.ts` — drives real paint, target
+  selection, Magic Wand sampling, and the existing Selection Sources fill
+  action in Chromium.
 - `tests/e2e/paint/brush-ui.spec.ts` — drives paint, smudge mode selection,
   merged sampling, and a real canvas stroke; screenshots are reviewed as test
   artifacts and are not treated as proof merely because they were generated.
@@ -98,13 +113,16 @@ surface was added.
 ## Artist workflow status
 
 The existing editor remains the workflow surface for the three requested
-reference projects. This slice specifically improves the raster paintover
-step in workflows A and C:
+reference projects. These slices specifically improve the raster paintover
+and flats steps in workflows A and C:
 
 - **Raster illustration:** brush and smudge controls are now discoverable in
   the same tool options; current-layer sampling is the safe default and merged
-  raster sampling is explicit. Full flats, clipping, adjustment, save/reopen,
-  and transparent-export evidence belongs to the next workflow slice.
+  raster sampling is explicit. A painted raster layer can now be selected with
+  contiguous or global Magic Wand and sent to the existing **Fill pixel layer**
+  command without losing the source stroke. Clipping, adjustment, save/reopen,
+  and transparent-export evidence beyond the focused fill path belongs to the
+  next workflow slice.
 - **Hybrid illustration:** vector and raster tools remain in the same scene;
   smudge source scope is now explicit. Full vector contour and hybrid-export
   coverage remains to be measured.
@@ -134,6 +152,8 @@ slice is:
 | Token contrast gate | `pnpm audit:tokens` | Pass: 153 pairs across light, dark, and high-contrast themes. |
 | Real browser workflow | `test_tmp=$(mktemp -d /var/tmp/varve-smudge-e2e.XXXXXX); TMPDIR="$test_tmp" VARVE_E2E_PORT=1496 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 pnpm exec playwright test tests/e2e/paint/brush-ui.spec.ts --project=chromium --grep "smudge mode and sampling controls" --reporter=list` | Pass: 1 test. The run used its own port and output directory. |
 | Browser artifacts | `test-results/run-2296405-1496/paint-brush-ui-paint-UI-in-a306a--drive-a-real-canvas-stroke-chromium/` | Inspected `smudge-source-stroke.png`, `smudge-controls.png`, and `smudge-merged-stroke.png`. The source stroke is visible, the mode/source state is readable, and the resulting smudge stroke changes the artwork. |
+| Raster colour-selection helper | `test_tmp=$(mktemp -d /var/tmp/varve-raster-wand-unit.XXXXXX); trap 'rm -rf "$test_tmp"' EXIT; TMPDIR="$test_tmp" timeout 180s pnpm exec vitest run packages/editor/src/tools/rasterColorSelection.test.ts --pool=forks --maxWorkers=1 --no-file-parallelism --reporter=verbose` | Pass: 3 tests for contiguous connected regions, global separated matches, and transparent seed rejection. |
+| Raster Magic Wand browser workflow | `test_tmp=$(mktemp -d /var/tmp/varve-raster-wand-e2e.XXXXXX); trap 'rm -rf "$test_tmp"' EXIT; timeout 420s env TMPDIR="$test_tmp" VARVE_E2E_PORT=1774 VARVE_E2E_OUTPUT_DIR=raster-magic-wand-e2e-final9 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 pnpm exec playwright test tests/e2e/canvas/raster-magic-wand.spec.ts --project=chromium --reporter=list` | Pass: 1 test in 1.3m. Inspected selection and filled screenshots under the isolated output directory. |
 
 `pnpm verify:plan` on the current shared tree selected 274 changed files,
 all affected packages, and a full-suite escalation because concurrent
@@ -172,6 +192,7 @@ agents; the full affected/full gate was not claimed for this slice.
 - No new ML checkpoint was introduced. Existing model paths still require
   artifact, license, provider, memory, latency, and art-quality evidence
   before any marketing claim is expanded.
-- Gap closure, robust line-art flats, reference provenance/locking, perspective
+- Gap closure beyond the current raster Magic Wand, merged/reference-layer
+  sampling, robust line-art flats, reference provenance/locking, perspective
   assistants, vector tracing quality, color-management limits, and broad
   save/reopen/export workflow evidence remain follow-up slices.
