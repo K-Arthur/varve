@@ -7,6 +7,7 @@ import {
   findCommonAncestor,
   nodeEffectPadding,
   subtreeEffectPadding,
+  subtreeEffectPaddingAccumulated,
 } from './bounds';
 
 function makeShape(
@@ -386,5 +387,48 @@ describe('subtreeEffectPadding', () => {
     const group = makeGroup('g1', ['hidden']);
     const doc = docWith([hidden], group);
     expect(subtreeEffectPadding(doc, 'g1')).toEqual({ left: 0, top: 0, right: 0, bottom: 0 });
+  });
+
+  it('accumulates sequential support along a nested effect path', () => {
+    const parent = makeGroup('parent', ['child']);
+    parent.effects = [
+      { type: 'layerBlur', id: 'fx-parent', radius: 10, visible: true } as any,
+      {
+        type: 'dropShadow',
+        id: 'fx-parent-shadow',
+        x: 4,
+        y: -2,
+        blur: 2,
+        spread: 0,
+        color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+        opacity: 1,
+        blendMode: 'normal',
+        visible: true,
+      } as any,
+    ];
+    const child = makeShape('child', 0, 0, 20, 20, {
+      effects: [
+        { type: 'gaussianBlur', id: 'fx-child', sigmaX: 5, sigmaY: 1, visible: true } as any,
+      ],
+    });
+    const group = makeGroup('g1', ['parent']);
+    const doc: Document = {
+      id: 'test-doc',
+      name: 'Test',
+      formatVersion: '2.6',
+      nodes: { parent, child, g1: group },
+      rootChildren: ['g1'],
+      nextId: 100,
+      components: {},
+    };
+
+    // Parent support is 30 + (6 + offset), child support adds 15 on the
+    // path. The result is conservative per side and larger than the old max.
+    expect(subtreeEffectPaddingAccumulated(doc, 'g1')).toEqual({
+      left: 51,
+      top: 53,
+      right: 55,
+      bottom: 51,
+    });
   });
 });

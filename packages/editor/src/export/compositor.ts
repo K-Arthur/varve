@@ -42,7 +42,7 @@ import {
   resolveAdjustmentScope,
   type SceneNode,
   type ShapeNode,
-  subtreeEffectPadding,
+  subtreeEffectPaddingAccumulated,
   textNodeLocalBounds,
 } from '@varve/scene';
 import { hasPotentialStandardLigatureSequence } from '@varve/shared';
@@ -1223,8 +1223,10 @@ async function rasterizeBoundaries(
     }
     // Layer effects (shadows, glows, blur, chromatic split, glitch) paint
     // outside the source rectangle. Pad the fallback surface by the subtree's
-    // maximum per-side effect overflow or the rasterized island clips them.
-    expansion = mergeRasterExpansion(expansion, subtreeEffectPadding(doc, node.id));
+    // accumulated per-side effect overflow or the rasterized island clips
+    // sequential blur/displacement/shadow support at the boundary. Keep the
+    // older maximum helper available to callers that need independent bounds.
+    expansion = mergeRasterExpansion(expansion, subtreeEffectPaddingAccumulated(doc, node.id));
     const expandedCssW = cssWidth + (expansion?.left ?? 0) + (expansion?.right ?? 0);
     const expandedCssH = cssHeight + (expansion?.top ?? 0) + (expansion?.bottom ?? 0);
     const pixelW = Math.max(1, Math.round(expandedCssW * exportScale));

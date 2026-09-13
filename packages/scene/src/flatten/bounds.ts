@@ -223,6 +223,74 @@ export function subtreeEffectPadding(
 }
 
 /**
+ * Per-side effect support for a flattened subtree when effects are evaluated
+ * sequentially. Unlike `subtreeEffectPadding`, this adds the support of
+ * effects along each ancestor/descendant path and takes the maximum path
+ * result across siblings. A blur followed by a displacement or shadow can
+ * therefore not be cropped merely because each individual effect fits in the
+ * same rectangle.
+ *
+ * This is a bounds-only safety contract. It does not reorder authored effects
+ * or claim that effects from separate siblings are composited sequentially;
+ * sibling paths are still unioned by maximum support.
+ */
+export function subtreeEffectPaddingAccumulated(
+  doc: Document,
+  rootId: NodeId,
+): { left: number; top: number; right: number; bottom: number } {
+  let left = 0;
+  let top = 0;
+  let right = 0;
+  let bottom = 0;
+  const stack: Array<{
+    id: NodeId;
+    inherited: { left: number; top: number; right: number; bottom: number };
+  }> = [{ id: rootId, inherited: { left: 0, top: 0, right: 0, bottom: 0 } }];
+  const visited = new Set<NodeId>();
+
+  const finite = (value: number): number => (Number.isFinite(value) ? Math.max(0, value) : 0);
+
+  while (stack.length > 0) {
+    const entry = stack.pop()!;
+    if (visited.has(entry.id)) continue;
+    visited.add(entry.id);
+    const node = doc.nodes[entry.id];
+    if (!node || node.visible === false) continue;
+
+    const own = { left: 0, top: 0, right: 0, bottom: 0 };
+    if ('effects' in node && node.effects) {
+      for (const effect of node.effects) {
+        if (effect.visible === false) continue;
+        const padding = effectPadding(effect);
+        own.left += finite(padding.left);
+        own.top += finite(padding.top);
+        own.right += finite(padding.right);
+        own.bottom += finite(padding.bottom);
+      }
+    }
+
+    const path = {
+      left: entry.inherited.left + own.left,
+      top: entry.inherited.top + own.top,
+      right: entry.inherited.right + own.right,
+      bottom: entry.inherited.bottom + own.bottom,
+    };
+    left = Math.max(left, path.left);
+    top = Math.max(top, path.top);
+    right = Math.max(right, path.right);
+    bottom = Math.max(bottom, path.bottom);
+
+    if ('children' in node) {
+      for (const childId of node.children ?? []) {
+        if (doc.nodes[childId]) stack.push({ id: childId, inherited: path });
+      }
+    }
+  }
+
+  return { left, top, right, bottom };
+}
+
+/**
  * Compute world-space bounds for a set of nodes, including effect overflow.
  * Returns null if no valid bounds could be computed.
  */
