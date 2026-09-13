@@ -1788,3 +1788,33 @@ the desktop crate. This evidence does not close CLIP-15: the packaged
 WebKitGTK/Tauri ownership lane still fails when the embedded WebDriver cannot
 expose `Tauri core.invoke`, and a real Firefox-to-desktop image transfer and
 clipboard-owner lifetime test still require a working native driver.
+
+### IMP-10 — Cross-browser design-file menu smoke (2026-09-12)
+
+The real File > Import menu smoke was rerun in Firefox against the checked-in
+corpus and synthetic vector wrappers. Both cases passed: the Photoshop PSD/PSB
+and 16-bit TIFF bytes produced 27 editable layers with their fidelity report,
+and the ordered/transformed SVG plus PDF-compatible AI and EPS inputs produced
+8 layers with the expected grouped SVG order and per-file warnings. This
+confirms the format route and frontend report do not depend on Chromium's file
+input implementation.
+
+```text
+VITE_CONFIG_NATIVE_IGNORE_WARNING=true VARVE_E2E_PORT=1617 \
+  VARVE_E2E_WORKERS=1 pnpm exec playwright test \
+  tests/e2e/canvas/import-format-smoke.spec.ts --project=firefox \
+  --workers=1 --reporter=list
+2 passed (54.4s)
+```
+
+Inspected captures:
+
+* `test-results/run-1646462-1617/canvas-import-format-smoke-25372-TIFF-bytes-through-the-menu-firefox/design-format-psd-tiff.png`
+* `test-results/run-1646462-1617/canvas-import-format-smoke-05a48-PS-content-through-the-menu-firefox/design-format-svg-ai-eps.png`
+
+The Firefox screenshots show the same inserted-layer counts, grouped SVG
+children, report details, and actionable **Reveal selection** control as the
+Chromium run. This remains browser-level evidence; Illustrator-authored files,
+layered/multipage TIFF, full Photoshop effects/smart objects, and packaged
+Tauri/WebKitGTK import still require the provenance and platform lanes listed
+in IMP-09 and CLIP-15.
