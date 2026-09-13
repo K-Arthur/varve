@@ -186,4 +186,5 @@ Both tests passed. The run measured the selection quick-bar's token-backed gap,
 padding, no-wrap overflow, and 32px controls against the floating palette while
 also checking the existing no-overlap placement contract. The run emitted only
 the existing outside-transaction history warnings from the fixture setup; no
-toolbar assertion failed.
+toolbar assertion failed. The selection quick-bar and Document Fonts follow-up
+are included in [`2e897c02d`](https://github.com/K-Arthur/varve/commit/2e897c02da2b063c7f7811bad542e155999add50).

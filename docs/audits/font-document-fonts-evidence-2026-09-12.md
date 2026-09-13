@@ -4,6 +4,9 @@ This checkpoint adds the missing replacement command to the Document Fonts
 panel. The action is intentionally scoped to one usage row and reuses the
 full browser's installed-family and exact-face selection model.
 
+Implementation and evidence are committed at
+[`2e897c02d`](https://github.com/K-Arthur/varve/commit/2e897c02da2b063c7f7811bad542e155999add50).
+
 ## Runtime contract
 
 - Each used face row keeps its existing **Select** action and now exposes
