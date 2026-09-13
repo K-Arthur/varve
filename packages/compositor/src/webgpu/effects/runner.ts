@@ -52,7 +52,7 @@ export interface EffectPass {
   textures: string[];
   /** Sampler for sampled textures: 'linear' | 'nearest'. */
   sampler: 'linear' | 'nearest';
-  /** Workgroup size for the dispatch. */
+  /** Workgroup size for the dispatch (2D; `z` must be 1). */
   workgroup: [number, number, number];
   /** Texture sizes for the write target; default = full surface. */
   size?: { width: number; height: number };
@@ -140,6 +140,16 @@ export function planEffectPasses(
       pass.workgroup.some((value) => !Number.isInteger(value) || value <= 0)
     ) {
       throw new Error(`GPU pass ${index} has an invalid workgroup size`);
+    }
+    // Passes write a single 2D storage texture, so the dispatch grid is
+    // (ceil(w/wgX), ceil(h/wgY), 1). A z workgroup size other than 1 would
+    // either re-run identical invocations or imply a volume this runner
+    // cannot bind; reject it instead of silently dispatching a different
+    // grid than the shader's `@workgroup_size` declares.
+    if (pass.workgroup[2] !== 1) {
+      throw new Error(
+        `GPU pass ${index} must use a 2D workgroup (z=1); got z=${pass.workgroup[2]}`,
+      );
     }
     if (pass.params.length > PARAM_COUNT) {
       throw new Error(
@@ -704,7 +714,9 @@ export class GpuEffectRunner {
 
           const dispatchX = Math.ceil(texW / pass.workgroup[0]);
           const dispatchY = Math.ceil(texH / pass.workgroup[1]);
-          const dispatchZ = pass.workgroup[2];
+          // One layer: the pass writes a single 2D storage texture, and
+          // planEffectPasses rejects any pass whose workgroup z is not 1.
+          const dispatchZ = 1;
           const maxWorkgroups = device.limits.maxComputeWorkgroupsPerDimension;
           if (dispatchX > maxWorkgroups || dispatchY > maxWorkgroups || dispatchZ > maxWorkgroups) {
             throw new Error(

@@ -50,6 +50,15 @@ describe('GPU effect pass planner', () => {
     ).toThrow(/reads and writes/);
   });
 
+  it('rejects a 3D workgroup instead of dispatching the wrong z grid', () => {
+    expect(() =>
+      planEffectPasses([pass({ workgroup: [8, 8, 4] as [number, number, number] })], {
+        width: 8,
+        height: 8,
+      }),
+    ).toThrow(/2D workgroup/);
+  });
+
   it('allocates Bloom pyramid producers at their declared resolutions', () => {
     const request: EffectDispatchRequest = {
       effect: 'bloom',
