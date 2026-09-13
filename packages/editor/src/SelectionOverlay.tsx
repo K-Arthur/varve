@@ -10,7 +10,7 @@
  */
 
 import type { ShapeNode } from '@varve/scene';
-import { buildParentIndexMap } from '@varve/scene';
+import { buildParentIndexMap, resolveEditorSceneScope } from '@varve/scene';
 import type { Affine, Camera, Point, Rect, Viewport } from '@varve/shared';
 import {
   applyAffine,
@@ -34,6 +34,7 @@ import {
   nodeWorldTransform,
 } from './scene/world';
 import { loadSettings } from './settings';
+import { buildSelectionSnapLineTargets } from './tools/selectionSnapTargets';
 import { filterSnapTargetEntries, type SnapBoxOptions, snapSelectionBox } from './tools/snapping';
 import { storeRepeatTransform } from './transform/repeatTransform';
 import { type SkewAxis, TransformEngine } from './transform/TransformEngine';
@@ -500,12 +501,20 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
   const buildSnapOptions = useCallback((): SnapBoxOptions => {
     if (snapOptionsRef.current) return snapOptionsRef.current;
     const snapPreferences = loadSettings().viewport;
+    const sceneScope = resolveEditorSceneScope(state.document, {
+      workspaceMode: state.workspaceMode,
+      activePageId: state.document.activePageId ?? null,
+      activeDesignCanvasId: state.document.activeDesignCanvasId ?? null,
+      masterEditId: state.masterEditId,
+      isolatedNodeId: state.isolatedNodeId,
+    });
     const otherBoundsWithIds: Array<{
       nodeId: string;
       bounds: { x: number; y: number; w: number; h: number };
     }> = [];
     for (const [id, candidate] of Object.entries(state.document.nodes)) {
       if (state.selection.includes(id)) continue;
+      if (!sceneScope.authoredNodeIds.has(id)) continue;
       if (candidate.visible === false || candidate.snapExcluded === true) continue;
       const bounds = nodeWorldBounds(state.document, id, parentIndex);
       if (bounds) otherBoundsWithIds.push({ nodeId: id, bounds });
@@ -525,10 +534,17 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
             new Set(state.selection),
           ).map((target) => target.bounds)
         : [];
+    const lineTargets = state.snapEnabled
+      ? buildSelectionSnapLineTargets(state.document, state.selection, parentIndex, {
+          includePages: snapPreferences.snapToPages,
+          includeGuides: snapPreferences.snapToGuides,
+        })
+      : [];
     snapOptionsRef.current = {
       zoom: state.zoom,
       tolerancePx: snapPreferences.snapTolerancePx,
       otherBounds,
+      lineTargets,
       grid: state.snapEnabled && state.documentGrid?.snapEnabled ? state.documentGrid : undefined,
       pixelGridSnap: state.snapEnabled && state.pixelGridSnapEnabled,
     };
@@ -569,6 +585,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
             ...buildSnapOptions(),
             resizeHandle: context?.operation === 'resize' ? context.handle : undefined,
             resizeCentered: context?.centered,
+            resizeProportional: context?.proportional,
           }),
       });
       beginTransaction();

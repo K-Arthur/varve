@@ -56,6 +56,8 @@ export interface TransformSnapContext {
   handle?: ResizeHandle;
   /** Whether the resize is symmetric around the selection centre. */
   centered?: boolean;
+  /** Whether the resize policy requires the solved box to keep its aspect ratio. */
+  proportional?: boolean;
 }
 
 export interface TransformOptions {
@@ -163,6 +165,7 @@ export class TransformEngine {
           operation: 'resize',
           handle,
           centered: policy.centered,
+          proportional: policy.proportional,
         });
     const delta = boxDeltaMatrix(box, newBox);
     this.lastDelta = delta;

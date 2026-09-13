@@ -40,10 +40,14 @@ export interface SnapBoxOptions {
   /** Magnetic acquisition tolerance in CSS pixels. */
   tolerancePx?: number;
   otherBounds?: Array<{ x: number; y: number; w: number; h: number }>;
+  /** Page, frame, and authored guide lines available to handle snapping. */
+  lineTargets?: SnapLineTarget[];
   /** Handle that produced this box. Enables anchor-preserving resize snaps. */
   resizeHandle?: ResizeHandle;
   /** A centred resize has no fixed opposite edge. */
   resizeCentered?: boolean;
+  /** Keep the aspect ratio selected by the resize policy while snapping. */
+  resizeProportional?: boolean;
   grid?: number | GridSnapConfig;
   layoutGridStep?: number;
   pixelGridSnap?: boolean;
@@ -64,6 +68,14 @@ export interface SnapMatch {
   referenceSpace: 'world';
   correction: { x: number; y: number };
   category: NonNullable<SnapGuide['type']>;
+}
+
+/** A single world-axis line that a selection edge or centre can acquire. */
+export interface SnapLineTarget {
+  axis: 'horizontal' | 'vertical';
+  position: number;
+  id?: string;
+  type?: SnapGuide['type'];
 }
 
 export interface SnapTarget {
@@ -1173,8 +1185,9 @@ export function snapSize(
   h: number,
   otherBounds: Array<{ x: number; y: number; w: number; h: number }>,
   zoom = 1,
+  tolerancePx?: number,
 ): { w: number; h: number; matched: boolean; guide?: SnapGuide } {
-  const threshold = thresholdWorld(zoom);
+  const threshold = thresholdWorld(zoom, tolerancePx);
   for (const b of otherBounds) {
     if (Math.abs(b.w - w) < threshold) {
       return {
@@ -1208,11 +1221,84 @@ interface ResizeAxisTarget {
   priority: number;
 }
 
+function lineTargetPriority(type: SnapGuide['type']): number {
+  switch (type) {
+    case 'guide':
+      return SNAP_PRIORITY.guide;
+    case 'layout-grid':
+      return SNAP_PRIORITY.layoutGrid;
+    default:
+      return SNAP_PRIORITY.edge;
+  }
+}
+
+function lineAxisTargets(lineTargets: SnapLineTarget[], axis: 'x' | 'y'): ResizeAxisTarget[] {
+  const expectedAxis = axis === 'x' ? 'vertical' : 'horizontal';
+  return lineTargets
+    .filter((target) => target.axis === expectedAxis && Number.isFinite(target.position))
+    .map((target) => ({
+      position: target.position,
+      priority: lineTargetPriority(target.type),
+    }));
+}
+
 interface ResizeAxisSnap {
   center: number;
   size: number;
   priority: number;
   diff: number;
+}
+
+function preferResizeAxis(x: ResizeAxisSnap | null, y: ResizeAxisSnap | null): 'x' | 'y' | null {
+  if (!x && !y) return null;
+  if (!y) return 'x';
+  if (!x) return 'y';
+  if (x.priority !== y.priority) return x.priority > y.priority ? 'x' : 'y';
+  if (x.diff !== y.diff) return x.diff < y.diff ? 'x' : 'y';
+  // A corner can be close to two equally strong targets. Keeping X as the
+  // stable tie-breaker makes the result independent of candidate iteration.
+  return 'x';
+}
+
+function preserveProportionalResize(
+  box: SelectionBox,
+  snapped: SelectionBox,
+  resizeX: ResizeSide | null,
+  resizeY: ResizeSide | null,
+  xSnap: ResizeAxisSnap | null,
+  ySnap: ResizeAxisSnap | null,
+  centered: boolean,
+): SelectionBox {
+  const axis = preferResizeAxis(xSnap, ySnap);
+  if (!axis || box.w <= Number.EPSILON || box.h <= Number.EPSILON) return snapped;
+
+  const width = axis === 'x' ? xSnap?.size : box.w * ((ySnap?.size ?? box.h) / box.h);
+  const height = axis === 'y' ? ySnap?.size : box.h * ((xSnap?.size ?? box.w) / box.w);
+  if (
+    width === undefined ||
+    height === undefined ||
+    !Number.isFinite(width) ||
+    !Number.isFinite(height) ||
+    width <= Number.EPSILON ||
+    height <= Number.EPSILON
+  ) {
+    return snapped;
+  }
+
+  let cx = box.cx;
+  let cy = box.cy;
+  if (!centered) {
+    const fixedX = resizeX ? box.cx + (resizeX === 'end' ? -box.w / 2 : box.w / 2) : null;
+    const fixedY = resizeY ? box.cy + (resizeY === 'end' ? -box.h / 2 : box.h / 2) : null;
+    if (fixedX !== null && resizeX) {
+      cx = fixedX + (resizeX === 'end' ? width / 2 : -width / 2);
+    }
+    if (fixedY !== null && resizeY) {
+      cy = fixedY + (resizeY === 'end' ? height / 2 : -height / 2);
+    }
+  }
+
+  return { ...snapped, cx, cy, w: width, h: height };
 }
 
 function resizeSideForHandle(handle: ResizeHandle, axis: 'x' | 'y'): ResizeSide | null {
@@ -1311,9 +1397,11 @@ export function snapSelectionBox(box: SelectionBox, options: SnapBoxOptions = {}
     otherBounds = [],
     resizeHandle,
     resizeCentered = false,
+    resizeProportional = false,
     grid,
     layoutGridStep,
     pixelGridSnap,
+    lineTargets = [],
   } = options;
   const thresh = thresholdWorld(zoom, tolerancePx);
 
@@ -1337,17 +1425,20 @@ export function snapSelectionBox(box: SelectionBox, options: SnapBoxOptions = {}
   // parallel candidate model. An oriented box has no world-axis-aligned edges
   // at arbitrary rotation; its centre is still meaningful, but edge matching
   // is intentionally restricted to axis-aligned selections.
-  if (otherBounds.length > 0) {
+  let xResizeSnap: ResizeAxisSnap | null = null;
+  let yResizeSnap: ResizeAxisSnap | null = null;
+  if (otherBounds.length > 0 || lineTargets.length > 0) {
     if (canSnapResizeAxes && resizeX) {
       const snap = snapResizeAxis(
         box.cx,
         box.w,
         resizeX,
-        objectAxisTargets(otherBounds, 'x'),
+        [...objectAxisTargets(otherBounds, 'x'), ...lineAxisTargets(lineTargets, 'x')],
         resizeCentered,
         thresh,
       );
       if (snap) {
+        xResizeSnap = snap;
         snappedCx = snap.center;
         snappedW = snap.size;
         bestXDiff = snap.diff;
@@ -1359,11 +1450,12 @@ export function snapSelectionBox(box: SelectionBox, options: SnapBoxOptions = {}
         box.cy,
         box.h,
         resizeY,
-        objectAxisTargets(otherBounds, 'y'),
+        [...objectAxisTargets(otherBounds, 'y'), ...lineAxisTargets(lineTargets, 'y')],
         resizeCentered,
         thresh,
       );
       if (snap) {
+        yResizeSnap = snap;
         snappedCy = snap.center;
         snappedH = snap.size;
         bestYDiff = snap.diff;
@@ -1413,6 +1505,30 @@ export function snapSelectionBox(box: SelectionBox, options: SnapBoxOptions = {}
           }
         }
       }
+      for (const target of lineTargets) {
+        const targetPriority = lineTargetPriority(target.type);
+        if (target.axis === 'vertical') {
+          for (const key of ['left', 'centerX', 'right'] as const) {
+            const diff = boxEdges[key] - target.position;
+            const absDiff = Math.abs(diff);
+            if (absDiff < thresh && compete(targetPriority, absDiff, bestXPriority, bestXDiff)) {
+              bestXDiff = absDiff;
+              bestXPriority = targetPriority;
+              snappedCx = box.cx - diff;
+            }
+          }
+        } else {
+          for (const key of ['top', 'centerY', 'bottom'] as const) {
+            const diff = boxEdges[key] - target.position;
+            const absDiff = Math.abs(diff);
+            if (absDiff < thresh && compete(targetPriority, absDiff, bestYPriority, bestYDiff)) {
+              bestYDiff = absDiff;
+              bestYPriority = targetPriority;
+              snappedCy = box.cy - diff;
+            }
+          }
+        }
+      }
     }
   }
 
@@ -1432,6 +1548,7 @@ export function snapSelectionBox(box: SelectionBox, options: SnapBoxOptions = {}
           SNAP_PRIORITY.grid,
         );
         if (snap && compete(snap.priority, snap.diff, bestXPriority, bestXDiff)) {
+          xResizeSnap = snap;
           snappedCx = snap.center;
           snappedW = snap.size;
           bestXDiff = snap.diff;
@@ -1450,6 +1567,7 @@ export function snapSelectionBox(box: SelectionBox, options: SnapBoxOptions = {}
           SNAP_PRIORITY.grid,
         );
         if (snap && compete(snap.priority, snap.diff, bestYPriority, bestYDiff)) {
+          yResizeSnap = snap;
           snappedCy = snap.center;
           snappedH = snap.size;
           bestYDiff = snap.diff;
@@ -1493,6 +1611,7 @@ export function snapSelectionBox(box: SelectionBox, options: SnapBoxOptions = {}
         SNAP_PRIORITY.grid,
       );
       if (snap && compete(snap.priority, snap.diff, bestXPriority, bestXDiff)) {
+        xResizeSnap = snap;
         snappedCx = snap.center;
         snappedW = snap.size;
         bestXDiff = snap.diff;
@@ -1511,6 +1630,7 @@ export function snapSelectionBox(box: SelectionBox, options: SnapBoxOptions = {}
         SNAP_PRIORITY.grid,
       );
       if (snap && compete(snap.priority, snap.diff, bestYPriority, bestYDiff)) {
+        yResizeSnap = snap;
         snappedCy = snap.center;
         snappedH = snap.size;
         bestYDiff = snap.diff;
@@ -1548,6 +1668,7 @@ export function snapSelectionBox(box: SelectionBox, options: SnapBoxOptions = {}
         SNAP_PRIORITY.layoutGrid,
       );
       if (snap && compete(snap.priority, snap.diff, bestXPriority, bestXDiff)) {
+        xResizeSnap = snap;
         snappedCx = snap.center;
         snappedW = snap.size;
         bestXDiff = snap.diff;
@@ -1566,6 +1687,7 @@ export function snapSelectionBox(box: SelectionBox, options: SnapBoxOptions = {}
         SNAP_PRIORITY.layoutGrid,
       );
       if (snap && compete(snap.priority, snap.diff, bestYPriority, bestYDiff)) {
+        yResizeSnap = snap;
         snappedCy = snap.center;
         snappedH = snap.size;
         bestYDiff = snap.diff;
@@ -1594,10 +1716,26 @@ export function snapSelectionBox(box: SelectionBox, options: SnapBoxOptions = {}
   // Object-edge snapping may already have changed a resize dimension. Match
   // size against that resolved result so an unchanged perpendicular dimension
   // cannot restore the pre-snap width or height.
-  const sizeSnap = snapSize(snappedW, snappedH, otherBounds, zoom);
-  if (sizeSnap.matched) {
-    snappedW = sizeSnap.w;
-    snappedH = sizeSnap.h;
+  if (resizeProportional && resizeHandle && canSnapResizeAxes) {
+    const proportional = preserveProportionalResize(
+      box,
+      { cx: snappedCx, cy: snappedCy, w: snappedW, h: snappedH, rotation: box.rotation },
+      resizeX,
+      resizeY,
+      xResizeSnap,
+      yResizeSnap,
+      resizeCentered,
+    );
+    snappedCx = proportional.cx;
+    snappedCy = proportional.cy;
+    snappedW = proportional.w;
+    snappedH = proportional.h;
+  } else {
+    const sizeSnap = snapSize(snappedW, snappedH, otherBounds, zoom, tolerancePx);
+    if (sizeSnap.matched) {
+      snappedW = sizeSnap.w;
+      snappedH = sizeSnap.h;
+    }
   }
 
   return {

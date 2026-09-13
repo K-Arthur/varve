@@ -255,6 +255,14 @@ describe('snapSize', () => {
     expect(result.guide?.type).toBe('size-match');
     expect(result.guide?.label).toBe('200px');
   });
+
+  it('uses the configured CSS-pixel tolerance', () => {
+    const defaultTolerance = snapSize(209, 150, [box(0, 0, 200, 100)], 1, 8);
+    const widerTolerance = snapSize(209, 150, [box(0, 0, 200, 100)], 1, 10);
+
+    expect(defaultTolerance.matched).toBe(false);
+    expect(widerTolerance).toMatchObject({ w: 200, h: 150, matched: true });
+  });
 });
 
 describe('snapSelectionBox', () => {
@@ -342,6 +350,34 @@ describe('snapSelectionBox', () => {
 
     expect(result.cx - result.w / 2).toBe(160);
     expect(result.cx + result.w / 2).toBe(320);
+  });
+
+  it('snaps a resize edge to a page or guide line without changing the anchor', () => {
+    const result = snapSelectionBox(
+      { cx: 233.5, cy: 160, w: 147, h: 80, rotation: 0 },
+      {
+        lineTargets: [{ axis: 'vertical', position: 310, type: 'guide' }],
+        resizeHandle: 'e',
+      },
+    );
+
+    expect(result.cx - result.w / 2).toBe(160);
+    expect(result.cx + result.w / 2).toBe(310);
+  });
+
+  it('preserves the requested aspect ratio when a proportional resize snaps', () => {
+    const result = snapSelectionBox(
+      { cx: 151, cy: 100, w: 102, h: 51, rotation: 0 },
+      {
+        lineTargets: [{ axis: 'vertical', position: 205, type: 'guide' }],
+        resizeHandle: 'e',
+        resizeProportional: true,
+      },
+    );
+
+    expect(result.cx - result.w / 2).toBe(100);
+    expect(result.cx + result.w / 2).toBe(205);
+    expect(result.w / result.h).toBeCloseTo(2, 10);
   });
 
   it('snaps an axis-aligned bounding-box edge to the matching object edge', () => {
