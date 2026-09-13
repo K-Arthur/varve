@@ -383,6 +383,39 @@ test.describe('real photographic Expand workflow', () => {
     // resampled protected region.
     expect(protectedMaxDelta).toBeLessThanOrEqual(1);
 
+    // The accepted expansion is one document transaction. Undo/redo must
+    // restore the saved scene data, not rerun the stochastic/model job.
+    // The shared history surface labels a fresh transaction "Edit" while
+    // the empty-stack state is "Undo"; both are the same toolbar command.
+    const undoButton = page.getByRole('button', { name: /^(Undo|Edit)$/ });
+    await expect(undoButton).toBeEnabled({ timeout: 15_000 });
+    await undoButton.click();
+    await expect
+      .poll(async () => {
+        const document = await readDocument(page);
+        const undoneNode = document.nodes[nodeId];
+        return {
+          width: undoneNode?.shape?.w,
+          height: undoneNode?.shape?.h,
+          generativeEditId: undoneNode?.generativeEditId ?? null,
+        };
+      })
+      .toEqual({ width: 1632, height: 1224, generativeEditId: null });
+    const redoButton = page.getByRole('button', { name: /^Redo$/ });
+    await expect(redoButton).toBeEnabled({ timeout: 15_000 });
+    await redoButton.click();
+    await expect
+      .poll(async () => {
+        const document = await readDocument(page);
+        const redoneNode = document.nodes[nodeId];
+        return {
+          width: redoneNode?.shape?.w,
+          height: redoneNode?.shape?.h,
+          generativeEditId: redoneNode?.generativeEditId ?? null,
+        };
+      })
+      .toEqual({ width: 1664, height: 1272, generativeEditId: expect.any(String) });
+
     await page.getByRole('tab', { name: 'Adjustments', exact: true }).click();
     const section = page.getByRole('button', { name: 'Generative Edit', exact: true });
     await expect(section).toBeVisible({ timeout: 10_000 });
