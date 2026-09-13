@@ -7,6 +7,7 @@
  */
 
 import { managedColorToRgba } from '@varve/shared';
+import { resolveCanvasFontFamily, setCanvasFont } from './canvasFontAliases';
 import type { ReplayTarget } from './replayTypes';
 import { shapeText } from './shaping';
 import { buildTextLayoutSnapshot, type TextLayoutSnapshot } from './textLayoutSnapshot';
@@ -38,6 +39,20 @@ function effectiveWeight(p: { fontWeight: number; variableAxes?: Record<string, 
   const axis = p.variableAxes?.wght;
   const weight = typeof axis === 'number' && Number.isFinite(axis) ? axis : p.fontWeight;
   return Math.max(1, Math.min(1000, weight));
+}
+
+function verticalFontString(
+  family: string,
+  size: number,
+  weight: number,
+  style: string | undefined,
+  features: import('@varve/shared').OpenTypeFeatureMap | undefined,
+  axes: Record<string, number> | undefined,
+  text?: string,
+): string {
+  const italic = style === 'italic' ? 'italic ' : '';
+  const resolvedFamily = resolveCanvasFontFamily(family, features, axes, text);
+  return `${italic}${Math.max(1, Math.min(1000, weight))} ${size}px "${resolvedFamily}"`;
 }
 
 function verticalBoxOffset(
@@ -91,6 +106,8 @@ export function buildVerticalTextSnapshot(
           tracking: p.tracking,
           direction: p.direction ?? 'auto',
           language: p.language,
+          openTypeFeatures: p.openTypeFeatures,
+          variableAxes: p.variableAxes,
           writingMode: p.writingMode,
           textOrientation: p.textOrientation,
         })
@@ -125,11 +142,21 @@ export function paintVerticalCanonicalRichText(
         const cluster = snapshot.text.slice(glyph.clusterUtf16, glyph.sourceEnd);
         if (cluster.length === 0 || cluster.includes('\n')) continue;
         const format = richTextFormatAt(richText, glyph.clusterUtf16);
-        const style = (format.fontStyle ?? run.sourceRun.fontStyle) === 'italic' ? 'italic ' : '';
         const weight = format.fontWeight ?? run.sourceRun.fontWeight;
         const size = format.fontSize ?? run.sourceRun.fontSize;
         const family = format.fontFamily ?? run.sourceRun.fontFamily;
-        target.font = `${style}${Math.max(1, Math.min(1000, weight))} ${size}px "${family}"`;
+        setCanvasFont(
+          target,
+          verticalFontString(
+            family,
+            size,
+            weight,
+            format.fontStyle ?? run.sourceRun.fontStyle,
+            format.openTypeFeatures ?? p.openTypeFeatures,
+            format.variableFontSettings ?? p.variableAxes,
+            cluster,
+          ),
+        );
         if (format.color) target.fillStyle = rgba(format.color);
         paintCluster(
           target,
@@ -158,12 +185,22 @@ export function paintVerticalCanonicalText(
   const painted = new Set<string>();
   for (const line of snapshot.lines) {
     for (const run of line.runs) {
-      const style = run.sourceRun.fontStyle === 'italic' ? 'italic ' : '';
       const weight =
         p.variableAxes?.wght != null
           ? effectiveWeight(p)
           : Math.max(1, Math.min(1000, run.sourceRun.fontWeight));
-      target.font = `${style}${weight} ${run.sourceRun.fontSize}px "${run.sourceRun.fontFamily}"`;
+      setCanvasFont(
+        target,
+        verticalFontString(
+          run.sourceRun.fontFamily,
+          run.sourceRun.fontSize,
+          weight,
+          run.sourceRun.fontStyle,
+          p.openTypeFeatures,
+          p.variableAxes,
+          snapshot.text.slice(run.sourceStart, run.sourceEnd),
+        ),
+      );
       for (const glyph of run.glyphs) {
         const key = `${line.paragraphIndex}:${glyph.clusterUtf16}`;
         if (painted.has(key)) continue;
@@ -210,9 +247,19 @@ export function paintVerticalCanonicalTextStroke(
   target.textBaseline = 'middle';
   const painted = new Set<string>();
   for (const line of snapshot.lines) {
-    const style = line.runs[0]?.sourceRun.fontStyle === 'italic' ? 'italic ' : '';
     const weight = effectiveWeight(p);
-    target.font = `${style}${weight} ${p.fontSize}px "${p.fontFamily}"`;
+    setCanvasFont(
+      target,
+      verticalFontString(
+        p.fontFamily,
+        p.fontSize,
+        weight,
+        line.runs[0]?.sourceRun.fontStyle,
+        p.openTypeFeatures,
+        p.variableAxes,
+        line.runs.map((run) => snapshot.text.slice(run.sourceStart, run.sourceEnd)).join(''),
+      ),
+    );
     for (const run of line.runs) {
       for (const glyph of run.glyphs) {
         const key = `${line.paragraphIndex}:${glyph.clusterUtf16}`;

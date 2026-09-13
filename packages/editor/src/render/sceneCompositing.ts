@@ -2,7 +2,7 @@
  * Detect scenes that require structural compositing (masks, isolated groups).
  * Flat worker replay cannot handle these — main-thread replaySubtree is required.
  */
-import type { Document, NodeId } from '@varve/scene';
+import type { Document, NodeId, TextNode } from '@varve/scene';
 import { hasActiveSmartFilters, isInIsolatedSubtree } from '@varve/scene';
 
 let _prevDoc: Document | null = null;
@@ -194,4 +194,52 @@ export function sceneCanUseWorkerRenderer(
     if (!isImageLoaded(src)) return false;
   }
   return true;
+}
+
+/**
+ * Canvas2D worker replay has no access to the document's generated
+ * @font-face aliases. Keep explicit whole-run feature/axis requests on the
+ * main thread, where replay can resolve the same local source face. The
+ * worker remains eligible for ordinary text and the CSS `wght` shorthand.
+ * Source-range features are also held back: they require a glyph-ID shaper
+ * and must not be approximated by splitting a joining run.
+ */
+export function sceneNeedsMainThreadTypography(doc: Document): boolean {
+  for (const node of Object.values(doc.nodes)) {
+    if (node?.kind !== 'text') continue;
+    if (textNeedsMainThreadTypography(node)) return true;
+    const story = node.storyBinding ? doc.stories?.[node.storyBinding.storyId] : undefined;
+    if (
+      story?.content.paragraphs.some((paragraph) => richTextNeedsMainThreadTypography(paragraph))
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function textNeedsMainThreadTypography(node: TextNode): boolean {
+  if (hasExplicitFeatureMap(node.openTypeFeatures)) return true;
+  if (hasCustomVariationAxis(node.variableAxes)) return true;
+  return (
+    node.richText?.paragraphs.some((paragraph) => richTextNeedsMainThreadTypography(paragraph)) ??
+    false
+  );
+}
+
+function richTextNeedsMainThreadTypography(
+  paragraph: NonNullable<TextNode['richText']>['paragraphs'][number],
+): boolean {
+  return paragraph.runs.some((run) => {
+    if (hasExplicitFeatureMap(run.format?.openTypeFeatures)) return true;
+    return hasCustomVariationAxis(run.format?.variableFontSettings);
+  });
+}
+
+function hasExplicitFeatureMap(value: unknown): boolean {
+  return typeof value === 'object' && value !== null && Object.keys(value).length > 0;
+}
+
+function hasCustomVariationAxis(value: Record<string, number> | undefined): boolean {
+  return Object.keys(value ?? {}).some((tag) => tag !== 'wght');
 }

@@ -13,6 +13,7 @@
  */
 
 import { measureAdvanceWidth, openTypeFeaturesToCss } from '@varve/shared';
+import { resolveCanvasFontFamily, setCanvasFont } from './canvasFontAliases';
 import type { OpenTypeFeatureMap, VariableFontSettings } from './types';
 
 export interface RichTextRun {
@@ -84,10 +85,19 @@ export function buildFontString(
   fontFamily: string,
   fontWeight?: number,
   fontStyle?: string,
+  openTypeFeatures?: OpenTypeFeatureMap,
+  variableFontSettings?: VariableFontSettings,
+  text?: string,
 ): string {
   const weight = fontWeight ? `${fontWeight} ` : '';
   const style = fontStyle && fontStyle !== 'normal' ? `${fontStyle} ` : '';
-  return `${style}${weight}${fontSize}px ${fontFamily}`;
+  const resolvedFamily = resolveCanvasFontFamily(
+    fontFamily,
+    openTypeFeatures,
+    variableFontSettings,
+    text,
+  );
+  return `${style}${weight}${fontSize}px ${resolvedFamily}`;
 }
 
 function buildFeatureSettings(openTypeFeatures?: OpenTypeFeatureMap): string {
@@ -118,7 +128,7 @@ function getMeasureContext(): CanvasRenderingContext2D | null {
 export function measureRunWidth(text: string, font: string, fontSize: number): number {
   const ctx = getMeasureContext();
   if (ctx) {
-    ctx.font = font;
+    setCanvasFont(ctx, font);
     return ctx.measureText(text).width;
   }
   // No DOM: fall back to the one estimate the whole codebase shares, so a
@@ -195,7 +205,15 @@ export function layoutRichText(
       const fontStyle = run.format?.fontStyle;
       const textDecoration = run.format?.textDecoration;
 
-      const font = buildFontString(fontSize, fontFamily, fontWeight, fontStyle);
+      const font = buildFontString(
+        fontSize,
+        fontFamily,
+        fontWeight,
+        fontStyle,
+        run.format?.openTypeFeatures,
+        run.format?.variableFontSettings,
+        run.text,
+      );
       const featureSettings = buildFeatureSettings(run.format?.openTypeFeatures);
       const variationSettings = buildVariationSettings(run.format?.variableFontSettings);
 

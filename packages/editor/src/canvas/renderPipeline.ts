@@ -72,6 +72,7 @@ import {
   collectImageBitmaps,
   type RenderWorkerHost,
   sceneCanUseWorkerRenderer,
+  sceneNeedsMainThreadTypography,
   sceneNeedsStructuralCompositing,
   sceneNodeToEngineNode,
   workerBitmapDelta,
@@ -603,7 +604,14 @@ export function renderContent(deps: RenderContentDeps): void {
     // Present-only path: composite the worker bitmap, nothing else. Page
     // decorations are not part of the worker IR, so they repaint through
     // the paintUnderlays hook between the board fill and the bitmap.
-    if (frameDecision.kind === 'present') {
+    // A pending worker bitmap is only a valid present source for scenes the
+    // worker is still allowed to render.  Typography capability can change
+    // without changing the coordinator's present classification (for
+    // example when a controlled feature update is coalesced with a worker
+    // response).  Never let that stale bitmap win over the main-thread path:
+    // Canvas font aliases live in this document realm and cannot be resolved
+    // by the worker.
+    if (frameDecision.kind === 'present' && !sceneNeedsMainThreadTypography(doc)) {
       const presented = tryPresentWorkerFrame({
         ctx,
         canvas,
@@ -767,6 +775,7 @@ export function renderContent(deps: RenderContentDeps): void {
       profileCanUseWorker &&
       !documentHasPerspectiveImage(doc) &&
       sceneCanUseWorkerRenderer(doc, (src) => getImageCache().isLoaded(src)) &&
+      !sceneNeedsMainThreadTypography(doc) &&
       !sceneNeedsStructuralCompositing(doc) &&
       // The worker realm has its own FontFaceSet and does not inherit the
       // document's @font-face rules. Until it has adopted them, text in a
@@ -2051,7 +2060,8 @@ export function renderContent(deps: RenderContentDeps): void {
     const workerReady =
       workerImageRefusal === null &&
       !documentHasPerspectiveImage(doc) &&
-      sceneCanUseWorkerRenderer(doc, (src) => getImageCache().isLoaded(src));
+      sceneCanUseWorkerRenderer(doc, (src) => getImageCache().isLoaded(src)) &&
+      !sceneNeedsMainThreadTypography(doc);
 
     // Mockup surface decoration: compose mockup frames into the IR list
     // (plate shapes, baked surface rasters, shadows, glows). Runs before

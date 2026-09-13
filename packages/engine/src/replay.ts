@@ -19,6 +19,7 @@ import {
 } from '@varve/shared';
 import { isVerticalWritingMode } from '@varve/shared/verticalText';
 import type { AlphaStrokeOps } from './alphaStroke';
+import { resolveCanvasFontFamily, setCanvasFont } from './canvasFontAliases';
 import { blendPixels, CompositeCanvas, mapBlendMode } from './compositeCanvas';
 import { DepthMapCache, deserializeDepthMap, resizeDepthMap } from './depthMap';
 import { compositeMaskedEffectPixels, type PixelImageData } from './effectMaskCompositor';
@@ -48,7 +49,7 @@ import {
   resolveReplayImage,
 } from './mockup/warpReplay';
 import { pathFillRule, pathRings } from './pathCompound';
-import { flattenShapedRuns, placeLinesOnPath } from './pathText';
+import { flattenShapedRuns, mergePotentialLigatureClusters, placeLinesOnPath } from './pathText';
 import { getRasterLayerCache } from './rasterLayerCache';
 import {
   decideRasterStrategy,
@@ -960,6 +961,7 @@ export function replayIr(
   effectMaskResolverForCurrentReplay = effectMaskResolver ?? previousEffectMaskResolver;
   imagePolicyForCurrentReplay = imagePolicy ?? previousImagePolicy;
   try {
+    primeCanvasTypographyAliases(target, ir);
     for (const item of ir) {
       if (
         replayItemOnIsolatedSurface(
@@ -1206,6 +1208,74 @@ export function replayIr(
     effectMaskResolverForCurrentReplay = previousEffectMaskResolver;
     imagePolicyForCurrentReplay = previousImagePolicy;
   }
+}
+
+/**
+ * Prime generated font aliases before replay paints any authored text.
+ *
+ * Chromium can retain the fallback selected for a generated family on a
+ * Canvas2D context after the context has first measured the source family.
+ * A ready alias therefore has to be the first typography lookup on a fresh
+ * replay target. This is a no-op in workers/non-DOM runtimes and for ordinary
+ * text, so the common path keeps its existing hot-loop behaviour.
+ */
+function primeCanvasTypographyAliases(target: ReplayTarget, items: readonly RenderItem[]): void {
+  if (typeof document === 'undefined' || !target.measureText) return;
+  const previousFont = target.font;
+  try {
+    for (const item of items) {
+      const primitive = item.primitive;
+      if (primitive.kind !== 'text') continue;
+      primeCanvasTypographyAlias(target, {
+        family: primitive.fontFamily,
+        size: primitive.fontSize,
+        weight: effectiveWeight(primitive),
+        style: primitive.fontStyle,
+        features: primitive.openTypeFeatures,
+        axes: primitive.variableAxes,
+        text: primitive.text,
+      });
+      for (const paragraph of primitive.richText?.paragraphs ?? []) {
+        for (const run of paragraph.runs) {
+          const format = run.format;
+          primeCanvasTypographyAlias(target, {
+            family: format?.fontFamily ?? primitive.fontFamily,
+            size: format?.fontSize ?? primitive.fontSize,
+            weight: format?.fontWeight ?? effectiveWeight(primitive),
+            style: format?.fontStyle ?? primitive.fontStyle,
+            features: format?.openTypeFeatures ?? primitive.openTypeFeatures,
+            axes: format?.variableFontSettings ?? primitive.variableAxes,
+            text: run.text,
+          });
+        }
+      }
+    }
+  } finally {
+    target.font = previousFont;
+  }
+}
+
+function primeCanvasTypographyAlias(
+  target: ReplayTarget,
+  input: {
+    family: string;
+    size: number;
+    weight: number;
+    style: string;
+    features?: import('@varve/shared').OpenTypeFeatureMap;
+    axes?: Record<string, number>;
+    text: string;
+  },
+): void {
+  const hasFeatures = Object.keys(input.features ?? {}).length > 0;
+  const hasCustomAxes = Object.keys(input.axes ?? {}).some((tag) => tag !== 'wght');
+  if (!hasFeatures && !hasCustomAxes) return;
+  const alias = resolveCanvasFontFamily(input.family, input.features, input.axes, input.text);
+  if (alias === input.family) return;
+  const style = input.style === 'italic' ? 'italic ' : '';
+  const weight = Math.max(1, Math.min(1000, input.weight));
+  setCanvasFont(target, `${style}${weight} ${input.size}px "${alias}"`);
+  target.measureText(input.text);
 }
 
 /** Paint a single fill (solid, gradient, image, or pattern) over the primitive shape. */
@@ -2421,8 +2491,19 @@ function paintRichText(
     }
 
     for (const run of line.runs) {
-      target.font = run.font;
       const runFormat = run.format;
+      setCanvasFont(
+        target,
+        replayFontString(
+          runFormat.fontFamily ?? p.fontFamily,
+          runFormat.fontSize ?? p.fontSize,
+          runFormat.fontWeight ?? p.fontWeight,
+          runFormat.fontStyle ?? p.fontStyle,
+          runFormat.openTypeFeatures ?? p.openTypeFeatures,
+          runFormat.variableFontSettings ?? p.variableAxes,
+          run.text,
+        ),
+      );
       // Run color is ManagedColor since schema 2.14; legacy tuples still
       // render (clipboard fragments, external IR). rgba() handles both.
       if (runFormat?.color) {
@@ -2430,8 +2511,8 @@ function paintRichText(
       }
       const restoreSettings = applyReplayTextSettings(
         target,
-        runFormat.openTypeFeatures,
-        runFormat.variableFontSettings,
+        runFormat.openTypeFeatures ?? p.openTypeFeatures,
+        runFormat.variableFontSettings ?? p.variableAxes,
       );
       if (wordSpacingAdjust > 0 && /\s/.test(run.text)) {
         // Distribute extra space between words within this run
@@ -2579,20 +2660,27 @@ function paintCanonicalRichText(
           : 0;
     for (const run of line.runs) {
       const format = richTextFormatAt(richText, run.sourceStart);
-      const style = (format.fontStyle ?? run.sourceRun.fontStyle) === 'italic' ? 'italic ' : '';
       const weight = Math.max(1, Math.min(1000, format.fontWeight ?? run.sourceRun.fontWeight));
       const size = format.fontSize ?? run.sourceRun.fontSize;
       const family = format.fontFamily ?? run.sourceRun.fontFamily;
       const runText = snapshot.text.slice(run.sourceStart, run.sourceEnd);
       if (runText.length === 0 || runText.includes('\n')) continue;
-      target.font = `${style}${weight} ${size}px "${family}"`;
-      if (format.color) target.fillStyle = rgba(format.color);
-      const restoreSettings = applyReplayTextSettings(
+      const features = format.openTypeFeatures ?? p.openTypeFeatures;
+      const axes = format.variableFontSettings ?? p.variableAxes;
+      setCanvasFont(
         target,
-        format.openTypeFeatures,
-        format.variableFontSettings,
-        run.direction,
+        replayFontString(
+          family,
+          size,
+          weight,
+          format.fontStyle ?? run.sourceRun.fontStyle,
+          features,
+          axes,
+          runText,
+        ),
       );
+      if (format.color) target.fillStyle = rgba(format.color);
+      const restoreSettings = applyReplayTextSettings(target, features, axes, run.direction);
       target.fillText(runText, p.x + xOffset + run.x, p.y + verticalOffset + line.baseline);
       restoreSettings();
       target.fillStyle = originalFillStyle;
@@ -2694,7 +2782,6 @@ function paintCanonicalText(
           ? p.w - line.width
           : 0;
     for (const run of line.runs) {
-      const style = run.sourceRun.fontStyle === 'italic' ? 'italic ' : '';
       // The shaped run carries the weight it was measured at. The axis has to
       // win here as well: shaping with the effective weight is not enough,
       // because this is where the font actually gets assigned before drawing.
@@ -2702,7 +2789,18 @@ function paintCanonicalText(
         p.variableAxes?.wght != null
           ? effectiveWeight(p)
           : Math.max(1, Math.min(1000, run.sourceRun.fontWeight));
-      target.font = `${style}${weight} ${run.sourceRun.fontSize}px "${run.sourceRun.fontFamily}"`;
+      setCanvasFont(
+        target,
+        replayFontString(
+          run.sourceRun.fontFamily,
+          run.sourceRun.fontSize,
+          weight,
+          run.sourceRun.fontStyle,
+          p.openTypeFeatures,
+          p.variableAxes,
+          snapshot.text.slice(run.sourceStart, run.sourceEnd),
+        ),
+      );
       // Canvas2D has no portable glyph-ID drawing API. Painting every shaped
       // glyph by slicing its source cluster is therefore incorrect: it
       // disables ligatures and contextual joining. Keep the logical source
@@ -2757,9 +2855,19 @@ function paintPathText(
   if (!shape) return;
 
   const displayText = applyTextCase(p.text, p.textCase);
-  const style = p.fontStyle === 'italic' ? 'italic ' : '';
   const fw = effectiveWeight(p);
-  target.font = `${style}${fw} ${p.fontSize}px "${p.fontFamily}"`;
+  setCanvasFont(
+    target,
+    replayFontString(
+      p.fontFamily,
+      p.fontSize,
+      fw,
+      p.fontStyle,
+      p.openTypeFeatures,
+      p.variableAxes,
+      displayText,
+    ),
+  );
   target.textBaseline = 'alphabetic';
   target.textAlign = 'left';
 
@@ -2788,14 +2896,20 @@ function paintPathText(
           variableAxes: p.variableAxes,
         },
       );
-      return flattenShapedRuns(shaping.runs, paragraph);
+      return mergePotentialLigatureClusters(
+        flattenShapedRuns(shaping.runs, paragraph),
+        p.openTypeFeatures,
+      );
     }
     // No measureText (e.g. pure WASM stub): fall back to grapheme clusters
     // with an estimated advance so they at least stay attached to each other.
-    return splitGraphemes(paragraph).map((ch) => ({
-      text: ch,
-      advance: p.fontSize * 0.6,
-    }));
+    return mergePotentialLigatureClusters(
+      splitGraphemes(paragraph).map((ch) => ({
+        text: ch,
+        advance: p.fontSize * 0.6,
+      })),
+      p.openTypeFeatures,
+    );
   });
 
   const lineHeightPx = p.fontSize * (p.lineHeight ?? 1.4);
@@ -2903,6 +3017,21 @@ function effectiveWeight(p: { fontWeight: number; variableAxes?: Record<string, 
   return Math.max(1, Math.min(1000, weight));
 }
 
+function replayFontString(
+  family: string,
+  fontSize: number,
+  fontWeight: number,
+  fontStyle: string | undefined,
+  features: import('@varve/shared').OpenTypeFeatureMap | undefined,
+  axes: Record<string, number> | undefined,
+  text?: string,
+): string {
+  const style = fontStyle === 'italic' ? 'italic ' : '';
+  const weight = Math.max(1, Math.min(1000, fontWeight));
+  const resolvedFamily = resolveCanvasFontFamily(family, features, axes, text);
+  return `${style}${weight} ${fontSize}px "${resolvedFamily}"`;
+}
+
 function ellipsizeText(text: string, maxWidth: number, measure: (value: string) => number): string {
   const suffix = '…';
   if (maxWidth <= 0 || measure(suffix) > maxWidth) return '';
@@ -2938,9 +3067,19 @@ function paintText(
     return;
   }
 
-  const style = p.fontStyle === 'italic' ? 'italic ' : '';
   const fw = effectiveWeight(p);
-  target.font = `${style}${fw} ${p.fontSize}px "${p.fontFamily}"`;
+  setCanvasFont(
+    target,
+    replayFontString(
+      p.fontFamily,
+      p.fontSize,
+      fw,
+      p.fontStyle,
+      p.openTypeFeatures,
+      p.variableAxes,
+      p.text,
+    ),
+  );
 
   // Text baseline from vertical alignment.
   // When textAlignVertical='bottom', use 'bottom' baseline so descenders
@@ -3111,7 +3250,18 @@ function paintText(
     // Handle overflow ellipsis
     let displayLine = text;
     if (p.textOverflow === 'ellipsis' && (hasVerticalOverflow || measureLine(text) > p.w)) {
-      target.font = `${style}${fw} ${p.fontSize}px "${p.fontFamily}"`;
+      setCanvasFont(
+        target,
+        replayFontString(
+          p.fontFamily,
+          p.fontSize,
+          fw,
+          p.fontStyle,
+          p.openTypeFeatures,
+          p.variableAxes,
+          displayLine,
+        ),
+      );
       displayLine = ellipsizeText(text, p.w, measureLine);
     }
 
@@ -3126,7 +3276,18 @@ function paintText(
       xOrigin = p.x;
       // Justify: distribute extra space between words
       if (displayLine.length > 0) {
-        target.font = `${style}${fw} ${p.fontSize}px "${p.fontFamily}"`;
+        setCanvasFont(
+          target,
+          replayFontString(
+            p.fontFamily,
+            p.fontSize,
+            fw,
+            p.fontStyle,
+            p.openTypeFeatures,
+            p.variableAxes,
+            displayLine,
+          ),
+        );
         const totalTextWidth =
           measureTextAdvance(target, displayLine.replace(/\s/g, '')) +
           (displayLine.split(/\s+/).length - 1) * measureTextAdvance(target, ' ');

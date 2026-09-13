@@ -1,6 +1,70 @@
 import { expect, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
 
+async function callEditor(
+  page: import('@playwright/test').Page,
+  method: string,
+  ...args: unknown[]
+): Promise<unknown> {
+  return page.evaluate(
+    ({ method, args }) => {
+      const container = document.getElementById('root');
+      if (!container) return null;
+      const fiberKey = Object.keys(container).find(
+        (key) => key.startsWith('__reactFiber$') || key.startsWith('__reactContainer$'),
+      );
+      if (!fiberKey) return null;
+      function walk(fiber: Record<string, unknown> | null): Record<string, unknown> | null {
+        if (!fiber) return null;
+        for (const props of [fiber.memoizedProps, fiber.pendingProps]) {
+          const value = props as Record<string, unknown> | undefined;
+          if (
+            value?.value &&
+            typeof value.value === 'object' &&
+            'serializeDocument' in (value.value as Record<string, unknown>)
+          ) {
+            return value.value as Record<string, unknown>;
+          }
+        }
+        return (
+          walk(fiber.child as Record<string, unknown> | null) ||
+          walk(fiber.sibling as Record<string, unknown> | null)
+        );
+      }
+      const context = walk(
+        (container as unknown as Record<string, unknown>)[fiberKey] as Record<string, unknown>,
+      );
+      const fn = context?.[method] as ((...values: unknown[]) => unknown) | undefined;
+      return typeof fn === 'function' ? fn(...args) : null;
+    },
+    { method, args },
+  );
+}
+
+async function contentCanvasFingerprint(canvas: import('@playwright/test').Locator) {
+  return canvas.evaluate((element) => {
+    const context = (element as HTMLCanvasElement).getContext('2d');
+    if (!context) return { hash: 0, inkPixels: 0 };
+    const { data } = context.getImageData(0, 0, context.canvas.width, context.canvas.height);
+    const background = [data[0], data[1], data[2], data[3]];
+    let hash = 2166136261;
+    let inkPixels = 0;
+    for (let index = 0; index < data.length; index += 4) {
+      const differsFromBackground =
+        data[index] !== background[0] ||
+        data[index + 1] !== background[1] ||
+        data[index + 2] !== background[2] ||
+        data[index + 3] !== background[3];
+      if (differsFromBackground) inkPixels += 1;
+      for (let channel = 0; channel < 4; channel += 1) {
+        hash ^= data[index + channel] ?? 0;
+        hash = Math.imul(hash, 16777619);
+      }
+    }
+    return { hash: hash >>> 0, inkPixels };
+  });
+}
+
 test.describe('Typography editing workflow', () => {
   test('point text shows immediate input and keeps its toolbar alive', async ({
     page,
@@ -83,5 +147,101 @@ test.describe('Typography editing workflow', () => {
     await page.keyboard.press('Escape');
     await expect(editor).toBeHidden();
     await expect(page.getByRole('listitem', { name: /text:/i })).toHaveCount(0);
+  });
+
+  test('OpenType changes and cluster adjustment redraw the real artwork', async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(120000);
+    await navigateToEditor(page, '/?perf=1');
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    await canvas.waitFor({ state: 'visible', timeout: 15000 });
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('editor canvas has no bounds');
+
+    await page.keyboard.press('t');
+    await page.mouse.click(box.x + 220, box.y + 180);
+    const editor = page.getByRole('textbox', { name: /editing text/i });
+    await expect(editor).toBeFocused();
+    await page.keyboard.insertText('office fi');
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('v');
+    await page.getByRole('treeitem', { name: /text:/i }).first().click();
+
+    const openType = page
+      .locator('button.insp-disclosure__trigger')
+      .filter({ hasText: 'OpenType features' });
+    await expect(openType).toBeVisible({ timeout: 10000 });
+    if ((await openType.getAttribute('aria-expanded')) !== 'true') await openType.click();
+    const ligature = page.getByRole('combobox', { name: 'Standard ligatures value' });
+    await expect(ligature).toBeVisible();
+
+    const fontSize = page.getByRole('spinbutton', { name: 'Font size', exact: true });
+    await expect(fontSize).toBeVisible();
+    await fontSize.fill('96');
+    await fontSize.press('Enter');
+    await expect(fontSize).toHaveValue('96');
+    await page.mouse.move(box.x + 12, box.y + 12);
+    const beforeContent = await contentCanvasFingerprint(canvas);
+    await canvas.screenshot({
+      path: testInfo.outputPath('advanced-typography-before-canvas.png'),
+      animations: 'disabled',
+    });
+    await page.screenshot({
+      path: testInfo.outputPath('advanced-typography-before-ligature-off.png'),
+      animations: 'disabled',
+      fullPage: false,
+    });
+    await ligature.selectOption('off');
+    await expect(ligature).toHaveValue('off');
+    const serialized = (await callEditor(page, 'serializeDocument')) as string | null;
+    const documentNodes = serialized
+      ? (JSON.parse(serialized) as { nodes?: Record<string, unknown> }).nodes
+      : undefined;
+    const textNode = Object.values(documentNodes ?? {}).find(
+      (node) => (node as { kind?: string }).kind === 'text',
+    ) as { openTypeFeatures?: Record<string, unknown> } | undefined;
+    expect(textNode?.openTypeFeatures).toEqual({ liga: false });
+
+    let afterContent: Awaited<ReturnType<typeof contentCanvasFingerprint>> | undefined;
+    await page.waitForTimeout(2000);
+    await expect
+      .poll(
+        async () => {
+          await canvas.screenshot();
+          afterContent = await contentCanvasFingerprint(canvas);
+          return afterContent.hash;
+        },
+        { timeout: 30000, intervals: [100, 250, 500, 1000] },
+      )
+      .not.toBe(beforeContent.hash);
+    if (!afterContent) throw new Error('Missing post-feature canvas fingerprint');
+    await testInfo.attach('advanced-typography-content-fingerprints.json', {
+      body: JSON.stringify({ before: beforeContent, after: afterContent }, null, 2),
+      contentType: 'application/json',
+    });
+    await page.mouse.move(box.x + 12, box.y + 12);
+    await canvas.screenshot({
+      path: testInfo.outputPath('advanced-typography-after-canvas.png'),
+      animations: 'disabled',
+    });
+    await page.screenshot({
+      path: testInfo.outputPath('advanced-typography-after-ligature-off.png'),
+      animations: 'disabled',
+      fullPage: false,
+    });
+
+    const glyphAdjustments = page.getByText('Glyph adjustments', { exact: true });
+    await expect(glyphAdjustments).toBeVisible();
+    const x = page.getByRole('spinbutton', { name: 'X (px)', exact: true });
+    await expect(x).toBeVisible();
+    await x.fill('12');
+    await expect(x).toHaveValue('12');
+    await page.waitForTimeout(500);
+    await page.screenshot({
+      path: testInfo.outputPath('advanced-typography-after-cluster-offset.png'),
+      animations: 'disabled',
+      fullPage: false,
+    });
   });
 });

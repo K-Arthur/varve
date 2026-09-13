@@ -10,6 +10,7 @@ import {
   makeGroupNode,
   makeShapeNode,
   makeSmartFilter,
+  makeTextNode,
   patternFill,
   solidFill,
 } from '@varve/scene';
@@ -17,6 +18,7 @@ import { describe, expect, it } from 'vitest';
 import {
   sceneCanUseWorkerRenderer,
   sceneHasImageFills,
+  sceneNeedsMainThreadTypography,
   sceneNeedsStructuralCompositing,
 } from './sceneCompositing';
 
@@ -319,5 +321,36 @@ describe('sceneCanUseWorkerRenderer', () => {
     });
 
     expect(sceneCanUseWorkerRenderer(doc, () => true)).toBe(false);
+  });
+});
+
+describe('sceneNeedsMainThreadTypography', () => {
+  it('keeps explicit feature values out of the font-isolated worker', () => {
+    let doc = createDocument('feature scene');
+    doc = addNode(doc, makeTextNode('text', 'office fi', { openTypeFeatures: { liga: false } }));
+
+    expect(sceneNeedsMainThreadTypography(doc)).toBe(true);
+  });
+
+  it('allows the CSS weight axis that the font shorthand can express', () => {
+    let doc = createDocument('weight scene');
+    doc = addNode(doc, makeTextNode('text', 'Variable', { variableAxes: { wght: 650 } }));
+
+    expect(sceneNeedsMainThreadTypography(doc)).toBe(false);
+  });
+
+  it('keeps custom variation axes and rich-run features on the main thread', () => {
+    let doc = createDocument('custom axis scene');
+    doc = addNode(
+      doc,
+      makeTextNode('text', 'Wordmark', {
+        variableAxes: { wdth: 80 },
+        richText: {
+          paragraphs: [{ runs: [{ text: 'Wordmark', format: { openTypeFeatures: { ss01: 1 } } }] }],
+        },
+      }),
+    );
+
+    expect(sceneNeedsMainThreadTypography(doc)).toBe(true);
   });
 });

@@ -5,7 +5,11 @@ export {
 } from './collectImageBitmaps';
 export { setCompositorDiagnostics } from './compositorDiagnosticsStore';
 export { type BitmapBudgetState, RenderBitmapBudget } from './renderBitmapBudget';
-export { sceneCanUseWorkerRenderer, sceneNeedsStructuralCompositing } from './sceneCompositing';
+export {
+  sceneCanUseWorkerRenderer,
+  sceneNeedsMainThreadTypography,
+  sceneNeedsStructuralCompositing,
+} from './sceneCompositing';
 export { sceneNodeToEngineNode } from './sceneToEngine';
 export { workerBitmapDelta } from './workerCamera';
 export {

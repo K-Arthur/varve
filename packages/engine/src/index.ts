@@ -188,6 +188,12 @@ export {
 } from './blendModes';
 export { gaussianBlurSeparable } from './blur';
 export {
+  canResolveCanvasFontFamily,
+  resetCanvasFontAliases,
+  resolveCanvasFontFamily,
+  subscribeToCanvasFontReady,
+} from './canvasFontAliases';
+export {
   installCanvasTextMeasurer,
   invalidateCanvasTextMeasurements,
   resetCanvasTextMeasurer,

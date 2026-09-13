@@ -24,6 +24,7 @@
  */
 
 import { openTypeFeaturesToCss } from '@varve/shared';
+import { resolveCanvasFontFamily, setCanvasFont } from './canvasFontAliases';
 import type { ItemizedParagraph } from './text/paragraphs';
 import type {
   OpenTypeFeatureMap,
@@ -106,10 +107,14 @@ function buildFontString(
   fontSize: number,
   fontWeight?: number,
   fontStyle?: string,
+  openTypeFeatures?: OpenTypeFeatureMap,
+  variableAxes?: Record<string, number>,
+  text?: string,
 ): string {
   const style = fontStyle === 'italic' ? 'italic ' : '';
   const weight = fontWeight ? `${fontWeight} ` : '';
-  return `${style}${weight}${fontSize}px "${fontFamily}"`;
+  const resolvedFamily = resolveCanvasFontFamily(fontFamily, openTypeFeatures, variableAxes, text);
+  return `${style}${weight}${fontSize}px "${resolvedFamily}"`;
 }
 
 type CanvasTypographyContext = CanvasRenderingContext2D & {
@@ -207,7 +212,18 @@ export function shapeParagraphRuns(
     ...style,
     ctx,
   });
-  ctx.font = buildFontString(style.fontFamily, style.fontSize, style.fontWeight, style.fontStyle);
+  setCanvasFont(
+    ctx,
+    buildFontString(
+      style.fontFamily,
+      style.fontSize,
+      style.fontWeight,
+      style.fontStyle,
+      style.openTypeFeatures,
+      style.variableAxes,
+      paragraph.text,
+    ),
+  );
   for (const scriptedRun of paragraph.scriptedRuns) {
     const runText = paragraph.text.slice(scriptedRun.start, scriptedRun.end);
     if (runText.length === 0) continue;
@@ -310,7 +326,18 @@ export function shapeRun(input: ShapeRunInput): ShapedRun[] {
 
   // Set the font on the context for measurement.
   applyCanvasTypography(input);
-  ctx.font = buildFontString(fontFamily, fontSize, fontWeight, fontStyle);
+  setCanvasFont(
+    ctx,
+    buildFontString(
+      fontFamily,
+      fontSize,
+      fontWeight,
+      fontStyle,
+      input.openTypeFeatures,
+      input.variableAxes,
+      text,
+    ),
+  );
 
   // Step 2: For each BiDi run, segment further by script and walk graphemes.
   const allRuns: ShapedRun[] = [];
