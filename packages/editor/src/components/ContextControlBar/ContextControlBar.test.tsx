@@ -45,7 +45,7 @@ vi.mock('@varve/ui', () => ({
 }));
 
 const node = makeTextNode('text-1', 'Typography', {
-  fontFamily: 'Inter',
+  fontFamily: 'Arial',
   fontSize: 16,
   fontWeight: 400,
 });

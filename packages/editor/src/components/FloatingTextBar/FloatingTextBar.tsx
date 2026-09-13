@@ -14,7 +14,7 @@ import {
 } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FontSelector } from '../FontBrowser/FontSelector';
-import { fontFamilyChanges, fontWeightChanges } from '../Typography/fontWeight';
+import { fontFamilyChanges, fontWeightChanges, fontWeightOptions } from '../Typography/fontWeight';
 import './FloatingTextBar.css';
 
 export interface FloatingTextBarProps {
@@ -24,7 +24,6 @@ export interface FloatingTextBarProps {
   textScreenRect: { x: number; y: number; w: number; h: number };
 }
 
-const FONT_WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800, 900];
 const TOOLBAR_FALLBACKS: Array<'bottom-start' | 'right-start' | 'left-start'> = [
   'bottom-start',
   'right-start',
@@ -33,6 +32,7 @@ const TOOLBAR_FALLBACKS: Array<'bottom-start' | 'right-start' | 'left-start'> = 
 
 export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: FloatingTextBarProps) {
   const registry = useMemo(() => getFontRegistry(), []);
+  const weightOptions = useMemo(() => fontWeightOptions(node, registry), [node, registry]);
   const [colorOpen, setColorOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLButtonElement>(null);
@@ -43,8 +43,11 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
 
   const handleBoldToggle = useCallback(() => {
     const current = node.fontWeight ?? 400;
-    onUpdate(node.id, fontWeightChanges(node, current >= 600 ? 400 : 700, registry));
-  }, [node, onUpdate, registry]);
+    const next = current >= 600 ? 400 : 700;
+    const option = weightOptions.find((candidate) => candidate.value === next);
+    if (!option || option.disabled) return;
+    onUpdate(node.id, fontWeightChanges(node, next, registry));
+  }, [node, onUpdate, registry, weightOptions]);
 
   const handleItalicToggle = useCallback(() => {
     onUpdate(node.id, {
@@ -87,6 +90,8 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
   const fillColor: ManagedColor = node.fill ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 255 };
   const fillColorRgba = managedColorToRgba(fillColor);
   const isBold = (node.fontWeight ?? 400) >= 600;
+  const boldAvailable =
+    isBold || weightOptions.some((option) => option.value === 700 && !option.disabled);
   const isItalic = (node.fontStyle ?? 'normal') === 'italic';
   const isList = (node.listStyle ?? 'none') !== 'none';
   const textAlign = node.textAlign ?? 'left';
@@ -115,7 +120,12 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
           label="Font weight"
           className="floating-text-bar__weight-select"
           value={String(node.fontWeight ?? 400)}
-          options={FONT_WEIGHTS.map((w) => ({ value: String(w), label: String(w) }))}
+          options={weightOptions.map((option) => ({
+            value: String(option.value),
+            label: option.label,
+            disabled: option.disabled,
+            disabledReason: option.disabledReason,
+          }))}
           onChange={(v) => handleFontWeightChange(v)}
         />
 
@@ -125,6 +135,7 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
           pressed={isBold}
           onPressedChange={handleBoldToggle}
           label="Bold"
+          disabled={!boldAvailable}
           className={`floating-text-bar__btn${isBold ? ' floating-text-bar__btn--active' : ''}`}
         />
 

@@ -30,7 +30,11 @@ import { docVariableStore } from '../../../docVariableStore';
 import type { FontFaceSelection } from '../../FontBrowser/FontBrowser';
 import { FontBrowserDialog } from '../../FontBrowser/FontBrowserDialog';
 import { FontSelector } from '../../FontBrowser/FontSelector';
-import { fontFamilyChanges, fontWeightChanges } from '../../Typography/fontWeight';
+import {
+  fontFamilyChanges,
+  fontWeightChanges,
+  fontWeightOptions,
+} from '../../Typography/fontWeight';
 import { GlyphTypographySection } from '../../Typography/GlyphTypographySection';
 import { BindingMenu } from '../controls/BindingMenu';
 import { ContrastIndicator } from '../controls/ContrastIndicator';
@@ -82,8 +86,6 @@ function applyTextResizing(node: TextNode, mode: TextNode['textResizing']): Text
 export interface TypographySectionProps {
   nodes: SceneNode[];
 }
-
-const FONT_WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800, 900];
 
 const DIRECTION_OPTIONS: readonly SegmentedOption<'auto' | 'ltr' | 'rtl'>[] = [
   { value: 'auto', label: 'Auto' },
@@ -429,7 +431,12 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             label="Font weight"
             value={isMixed(weightRaw) ? '400' : String(weightRaw)}
             placeholder={isMixed(weightRaw) ? 'Mixed' : undefined}
-            options={FONT_WEIGHTS.map((w) => ({ value: String(w), label: String(w) }))}
+            options={fontWeightOptions(textNodes).map((option) => ({
+              value: String(option.value),
+              label: option.label,
+              disabled: option.disabled,
+              disabledReason: option.disabledReason,
+            }))}
             onChange={(v) => batchUpdate((n) => ({ ...n, ...fontWeightChanges(n, Number(v)) }))}
           />
         </FieldRow>

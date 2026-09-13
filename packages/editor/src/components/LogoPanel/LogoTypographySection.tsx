@@ -14,7 +14,7 @@ import { useEditor } from '../../context';
 import type { FontFaceSelection } from '../FontBrowser/FontBrowser';
 import { FontBrowserDialog } from '../FontBrowser/FontBrowserDialog';
 import { FontSelector } from '../FontBrowser/FontSelector';
-import { fontFamilyChanges, fontWeightChanges } from '../Typography/fontWeight';
+import { fontFamilyChanges, fontWeightChanges, fontWeightOptions } from '../Typography/fontWeight';
 import { GlyphTypographySection } from '../Typography/GlyphTypographySection';
 
 export function LogoTypographySection({ node }: { node: TextNode }) {
@@ -93,9 +93,11 @@ export function LogoTypographySection({ node }: { node: TextNode }) {
           <Select
             label="Font weight"
             value={String(node.fontWeight ?? 400)}
-            options={[100, 200, 300, 400, 500, 600, 700, 800, 900].map((weight) => ({
-              value: String(weight),
-              label: String(weight),
+            options={fontWeightOptions(node).map((option) => ({
+              value: String(option.value),
+              label: option.label,
+              disabled: option.disabled,
+              disabledReason: option.disabledReason,
             }))}
             onChange={(value) => patch(fontWeightChanges(node, Number(value)))}
           />

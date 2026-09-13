@@ -27,7 +27,9 @@ const BASE_TEXT_NODE: TextNode = {
   text: 'Hello',
   transform: [1, 0, 0, 1, 100, 200],
   fontSize: 16,
-  fontFamily: 'Inter',
+  // Arial has registered regular and bold faces in the test registry, so the
+  // weight menu exercises a real static-face choice rather than a stale value.
+  fontFamily: 'Arial',
   fontWeight: 400,
   fontStyle: 'normal',
   fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
@@ -174,6 +176,23 @@ describe('FloatingTextBar', () => {
     );
     fireEvent.click(screen.getByLabelText('Bold'));
     expect(onUpdate).toHaveBeenCalledWith('text-1', { fontWeight: 400 });
+  });
+
+  it('does not synthesize bold when the selected family has no bold face', () => {
+    const onUpdate = vi.fn();
+    render(
+      <FloatingTextBar
+        {...defaultProps({
+          onUpdate,
+          node: { ...BASE_TEXT_NODE, fontFamily: 'Inter', fontWeight: 400 },
+        })}
+      />,
+    );
+
+    const bold = screen.getByLabelText('Bold');
+    expect(bold).toBeDisabled();
+    fireEvent.click(bold);
+    expect(onUpdate).not.toHaveBeenCalled();
   });
 
   it('couples weight changes to the wght axis while preserving custom axes', () => {

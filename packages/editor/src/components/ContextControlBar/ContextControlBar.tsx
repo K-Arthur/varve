@@ -24,7 +24,7 @@ import { Icon, Select, Tooltip } from '@varve/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { type ToolId, useEditor } from '../../context';
 import { FontSelector } from '../FontBrowser/FontSelector';
-import { fontFamilyChanges, fontWeightChanges } from '../Typography/fontWeight';
+import { fontFamilyChanges, fontWeightChanges, fontWeightOptions } from '../Typography/fontWeight';
 import {
   applyTypographyChanges,
   type TypographyCommandSurface,
@@ -166,8 +166,6 @@ function ImageSection({
   );
 }
 
-const FONT_WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800, 900];
-
 function TextSection({
   node,
   typographySurface,
@@ -177,6 +175,7 @@ function TextSection({
 }) {
   const fontFamily = node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY;
   const fontWeight = node.fontWeight ?? 400;
+  const weightOptions = fontWeightOptions(node);
   const applyChanges = (changes: TypographyTextChanges) =>
     applyTypographyChanges(typographySurface, node.id, changes);
   return (
@@ -192,9 +191,11 @@ function TextSection({
         label="Font weight"
         className="ccb__weight-select"
         value={String(fontWeight)}
-        options={FONT_WEIGHTS.map((weight) => ({
-          value: String(weight),
-          label: String(weight),
+        options={weightOptions.map((option) => ({
+          value: String(option.value),
+          label: option.label,
+          disabled: option.disabled,
+          disabledReason: option.disabledReason,
         }))}
         onChange={(value) => applyChanges(fontWeightChanges(node, Number(value)))}
       />
