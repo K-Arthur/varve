@@ -267,12 +267,17 @@ import { sitePath } from '../../../lib/siteUrl';
         <p>
           The <strong>Identify Font</strong> panel accepts a selected image,
           bounds decoded data to a 2048px edge, and can use optional recognized
-          text for local render comparison against the installed catalog. A
+          text for local render comparison against the installed catalog. When
+          the detector and TrOCR assets are already installed, <strong>Read text
+          with local OCR</strong> fills an editable field and reports the model
+          and average confidence; opening the panel never downloads OCR assets,
+          and manual entry remains available when they are missing. A
           candidate's <strong>Use for new text</strong> action queues its family
           (and known exact reference) for the next text layer and activates the
-          Text tool. Arbitrary transformed crop selection, OCR-assisted region
-          overlays, and applying a result to an existing text target remain
-          under integration. Document Fonts is available from the Fonts panel;
+          Text tool, while <strong>Apply to target</strong> updates only an
+          explicitly chosen existing text layer in one undo step. Arbitrary
+          transformed crop selection, OCR-assisted region overlays, and richer
+          candidate target previews remain under integration. Document Fonts is available from the Fonts panel;
           scoped Select by Font replacement with layout preview remains under
           integration.
         </p>

@@ -300,8 +300,12 @@ present, the panel also requires an explicit **Apply result to** target and
 offers **Apply to target** beside the new-text action. That command updates only
 the chosen layer, carries a verified face reference when one is available,
 clears stale exact identity for classifier-only results, and records one undo
-transaction before selecting the updated layer. OCR-assisted region overlays
-remain separate work.
+transaction before selecting the updated layer. When both local OCR model
+assets are already present, the same panel can run bounded transformed OCR to
+fill an editable recognized-text field, report model/confidence metadata, and
+cancel on target changes; it never downloads assets while opening or searching.
+Manual entry remains the fallback. OCR-assisted region overlays remain separate
+work.
 
 ## Research-derived UX constraints
 
