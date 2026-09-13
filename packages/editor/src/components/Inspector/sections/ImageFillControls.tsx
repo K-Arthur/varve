@@ -10,7 +10,15 @@ import { getImageCache } from '@varve/engine';
 import type { DocumentAsset, EmbeddedAssetInput, ImageFillData, ImageFit } from '@varve/scene';
 import { rasterEncodingLabel, rasterProvenanceLabel } from '@varve/shared';
 import { Icon, Select, Tooltip, TooltipProvider } from '@varve/ui';
-import { type ChangeEvent, useCallback, useEffect, useId, useRef, useState } from 'react';
+import {
+  type ChangeEvent,
+  type CSSProperties,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from 'react';
 import { FieldRow } from '../controls/FieldRow';
 
 /**
@@ -66,14 +74,23 @@ function imageSourceDimensions(source: {
  * image elements decode their intrinsic dimensions even when CSS makes the
  * preview small, which can exhaust a Chromebook/WebView on a large photo.
  */
-function BoundedImagePreview({
+export function BoundedImagePreview({
   source,
   sourceWidth,
   sourceHeight,
+  className,
+  alt = '',
+  maskDataUrl,
+  style,
 }: {
   source: string;
   sourceWidth: number;
   sourceHeight: number;
+  className?: string;
+  alt?: string;
+  /** Optional preview-only mask. The persisted mask remains source-resolution. */
+  maskDataUrl?: string;
+  style?: CSSProperties;
 }) {
   const [thumbnailSource, setThumbnailSource] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -126,11 +143,35 @@ function BoundedImagePreview({
 
   if (thumbnailSource) {
     return (
-      <img src={thumbnailSource} alt="" className="insp-image-fill__preview-img" decoding="async" />
+      <img
+        src={thumbnailSource}
+        alt={alt}
+        className={className ?? 'insp-image-fill__preview-img'}
+        decoding="async"
+        style={
+          maskDataUrl
+            ? {
+                ...style,
+                WebkitMaskImage: `url("${maskDataUrl}")`,
+                WebkitMaskSize: 'contain',
+                WebkitMaskPosition: 'center',
+                WebkitMaskRepeat: 'no-repeat',
+                maskImage: `url("${maskDataUrl}")`,
+                maskSize: 'contain',
+                maskPosition: 'center',
+                maskRepeat: 'no-repeat',
+              }
+            : style
+        }
+      />
     );
   }
   return (
-    <span className="insp-image-fill__preview-status" role="img" aria-label="Image preview">
+    <span
+      className={className ?? 'insp-image-fill__preview-status'}
+      role="img"
+      aria-label="Image preview"
+    >
       {failed ? 'Preview unavailable' : 'Preparing preview...'}
     </span>
   );
