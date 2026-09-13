@@ -30,6 +30,7 @@ import {
   uuid,
 } from './pure';
 import { indexDocumentContent, searchContentIndex } from './searchIndex';
+import { recordStorageWrite } from './storageWriteMetrics';
 import type {
   ActivityEvent,
   Asset,
@@ -59,7 +60,7 @@ import { DRAFTS_ID, MAX_RECENT_FILES } from './types';
 import { chooseWebSaveTarget, writeWebSaveTarget } from './web-save';
 
 const DB_NAME = 'varve-home';
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 const STORE_FILES = 'files';
 const STORE_PROJECTS = 'projects';
 const STORE_THUMBS = 'thumbnails';
@@ -82,11 +83,12 @@ const STORE_SAVED_SEARCHES = 'savedSearches';
 const STORE_RECENT_FILES = 'recentFiles';
 const STORE_SEMANTIC_EMBEDDINGS = 'semanticEmbeddings';
 const STORE_ASSET_BYTES = 'assetBytes';
+const STORE_FILE_CONTENT = 'fileContent';
 const KV_VIEW_STATE = 'view-state';
 
 interface FileRecord {
   entry: FileEntry;
-  json: string;
+  json?: string;
 }
 
 interface FileTagRecord {
@@ -118,6 +120,54 @@ interface DbSchema {
   savedSearches: SavedSearch;
   recentFiles: RecentFileRecord;
   semanticEmbeddings: import('./assetEmbeddingIndex').AssetEmbeddingRecord;
+  fileContent: { hash: string; json: string };
+}
+
+function byteLength(text: string): number {
+  return new TextEncoder().encode(text).byteLength;
+}
+
+/** Write metadata and content atomically, without cloning JSON into `files`. */
+async function upsertWebFile(
+  db: IDBPDatabase<DbSchema>,
+  entry: FileEntry,
+  documentJson: string,
+): Promise<void> {
+  const hash = contentHash(documentJson);
+  const nextEntry = { ...entry, contentHash: hash, size: byteLength(documentJson) };
+  const tx = db.transaction([STORE_FILES, STORE_FILE_CONTENT], 'readwrite');
+  const contentStore = tx.objectStore(STORE_FILE_CONTENT);
+  const existing = await contentStore.get(hash);
+  if (!existing) {
+    await contentStore.put({ hash, json: documentJson });
+    recordStorageWrite('document-content', byteLength(documentJson));
+  }
+  await tx.objectStore(STORE_FILES).put({ entry: nextEntry });
+  recordStorageWrite('file-metadata', byteLength(JSON.stringify(nextEntry)));
+  await tx.done;
+}
+
+/** Read content and lazily move legacy inline records to the content store. */
+async function readWebFile(db: IDBPDatabase<DbSchema>, id: string): Promise<string | undefined> {
+  const rec = await db.get(STORE_FILES, id);
+  if (!rec) return undefined;
+  if (rec.json !== undefined) {
+    const hash = rec.entry.contentHash ?? contentHash(rec.json);
+    const existing = await db.get(STORE_FILE_CONTENT, hash);
+    if (!existing) {
+      await db.put(STORE_FILE_CONTENT, { hash, json: rec.json });
+      recordStorageWrite('document-content', byteLength(rec.json));
+    }
+    // Drop the legacy inline payload after the content-addressed copy is
+    // durable. Future list/touch/rename operations clone metadata only.
+    await db.put(STORE_FILES, {
+      entry: { ...rec.entry, contentHash: hash, size: byteLength(rec.json) },
+    });
+    return rec.json;
+  }
+  const hash = rec.entry.contentHash;
+  if (!hash) return undefined;
+  return (await db.get(STORE_FILE_CONTENT, hash))?.json;
 }
 
 async function openHomeDb(): Promise<IDBPDatabase<DbSchema>> {
@@ -220,6 +270,12 @@ async function openHomeDb(): Promise<IDBPDatabase<DbSchema>> {
       if (oldVersion < 5 && !db.objectStoreNames.contains(STORE_ASSET_BYTES)) {
         db.createObjectStore(STORE_ASSET_BYTES, { keyPath: 'id' });
       }
+      if (oldVersion < 6 && !db.objectStoreNames.contains(STORE_FILE_CONTENT)) {
+        // Keep large document JSON out of the metadata object store. Existing
+        // inline payloads are copied lazily on first read so an upgrade never
+        // performs an unbounded origin-wide rewrite.
+        db.createObjectStore(STORE_FILE_CONTENT, { keyPath: 'hash' });
+      }
     },
   });
 }
@@ -288,16 +344,10 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
       return rec?.entry;
     },
     async readFile(id) {
-      const rec = await db.get(STORE_FILES, id);
-      return rec?.json;
+      return readWebFile(db, id);
     },
     async upsertFile(entry, documentJson) {
-      const hash = contentHash(documentJson);
-      const rec: FileRecord = {
-        entry: { ...entry, contentHash: hash, size: documentJson.length },
-        json: documentJson,
-      };
-      await db.put(STORE_FILES, rec);
+      await upsertWebFile(db, entry, documentJson);
     },
     async touchFile(id, openedAt = Date.now()) {
       const rec = await db.get(STORE_FILES, id);
@@ -583,9 +633,9 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
     // ─── Search ────────────────────────────────────────────────────────────────
     async searchFileContent(fileId, query) {
       if (!query.trim()) return [];
-      const rec = await db.get(STORE_FILES, fileId);
-      if (!rec?.json) return [];
-      const index = indexDocumentContent(fileId, rec.json);
+      const json = await readWebFile(db, fileId);
+      if (!json) return [];
+      const index = indexDocumentContent(fileId, json);
       const results = searchContentIndex(index, query);
       return results.map((r) => JSON.stringify(r));
     },
@@ -598,6 +648,7 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
     },
     async createTemplateFromFile(fileId, name, category) {
       const rec = await db.get(STORE_FILES, fileId);
+      const documentJson = await readWebFile(db, fileId);
       const now = Date.now();
       const template: TemplateLibrary = {
         id: uuid(),
@@ -606,7 +657,7 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
         category,
         previewHash: rec?.entry.contentHash ?? '00000000',
         source: 'user',
-        documentJson: rec?.json ?? '',
+        documentJson: documentJson ?? '',
         tags: [],
         usageCount: 0,
         createdAt: now,

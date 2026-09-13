@@ -109,6 +109,12 @@ export {
   IndexedDbSemanticEmbeddingStore,
   MemorySemanticEmbeddingStore,
 } from './semanticEmbeddingStore';
+export type { StorageWriteKind, StorageWriteMetrics } from './storageWriteMetrics';
+export {
+  getStorageWriteMetrics,
+  recordStorageWrite,
+  resetStorageWriteMetrics,
+} from './storageWriteMetrics';
 export { createTauriPlatform } from './tauri';
 export * from './types';
 export type { WebPlatformOptions } from './web';
@@ -125,6 +131,7 @@ export {
   STORE_BRANCHES,
   STORE_COLLECTION_ENTRIES,
   STORE_COLLECTIONS,
+  STORE_FILE_CONTENT,
   STORE_FILE_TAGS,
   STORE_FILES,
   STORE_FOLDERS,

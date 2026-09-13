@@ -29,7 +29,7 @@ import type {
 // COMPLEXITY: 15
 
 export const DB_NAME = 'varve-home';
-export const DB_VERSION = 5;
+export const DB_VERSION = 6;
 export const STORE_FILES = 'files';
 export const STORE_PROJECTS = 'projects';
 export const STORE_THUMBS = 'thumbnails';
@@ -52,11 +52,14 @@ export const STORE_SAVED_SEARCHES = 'savedSearches';
 export const STORE_RECENT_FILES = 'recentFiles';
 export const STORE_SEMANTIC_EMBEDDINGS = 'semanticEmbeddings';
 export const STORE_ASSET_BYTES = 'assetBytes';
+/** Content-addressed document JSON; keeps metadata writes small on eMMC/IDB. */
+export const STORE_FILE_CONTENT = 'fileContent';
 export const KV_VIEW_STATE = 'view-state';
 
 export interface FileRecord {
   entry: FileEntry;
-  json: string;
+  /** Legacy inline content. New records use STORE_FILE_CONTENT. */
+  json?: string;
 }
 
 export interface FileTagRecord {
@@ -79,6 +82,7 @@ interface DbSchema {
   templates: TemplateLibrary;
   assets: Asset;
   assetBytes: { id: string; bytes: Uint8Array };
+  fileContent: { hash: string; json: string };
   assetFolders: AssetFolder;
   versions: VersionEntry;
   versionContent: { hash: string; json: string };
@@ -195,6 +199,12 @@ export async function openHomeDb(): Promise<IDBPDatabase<DbSchema>> {
         if (!db.objectStoreNames.contains(STORE_ASSET_BYTES)) {
           db.createObjectStore(STORE_ASSET_BYTES, { keyPath: 'id' });
         }
+      }
+      if (oldVersion < 6 && !db.objectStoreNames.contains(STORE_FILE_CONTENT)) {
+        // Document payloads are content-addressed so metadata-only operations
+        // no longer rewrite the full JSON record. Existing inline payloads are
+        // migrated lazily by the web adapter, avoiding a long upgrade txn.
+        db.createObjectStore(STORE_FILE_CONTENT, { keyPath: 'hash' });
       }
     },
   });
