@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { addNode, createDocument, makeShapeNode } from './document';
+import { DocumentCodec } from './documentCodec';
 import {
   applyShapeBuilderAction,
   buildShapeBuilderModel,
@@ -212,5 +213,44 @@ describe('Shape Builder arrangement and actions', () => {
     expect(preview.output).toHaveLength(0);
     expect(preview.remainders).toHaveLength(2);
     expect(preview.remainders.every((remainder) => remainder.regions.length > 0)).toBe(true);
+  });
+
+  it('round-trips created components and holes through the document codec', () => {
+    let doc = createDocument('persisted-shape-builder', true);
+    const point = (x: number, y: number) => ({ x, y, handleIn: null, handleOut: null });
+    const outer = [point(0, 0), point(100, 0), point(100, 100), point(0, 100)];
+    const hole = [point(25, 25), point(25, 75), point(75, 75), point(75, 25)];
+    doc = addNode(
+      doc,
+      makeShapeNode(
+        'donut',
+        {
+          kind: 'path',
+          points: outer,
+          contours: [outer, hole],
+          holes: [hole],
+          closed: true,
+          tolerance: 3,
+          fillRule: 'evenodd',
+        },
+        { transform: identity },
+      ),
+    );
+    const model = buildShapeBuilderModel(doc, ['donut']);
+    const selected = model.faces.filter((face) => face.selectable).map((face) => face.id);
+    const applied = applyShapeBuilderAction(doc, ['donut'], selected, 'create', {
+      expectedRevision: model.revision,
+    });
+    expect(applied.ok).toBe(true);
+    if (!applied.ok) return;
+
+    const reopened = DocumentCodec.decode(DocumentCodec.encode(applied.doc));
+    expect(reopened.ok).toBe(true);
+    if (!reopened.ok) return;
+    const result = reopened.document.nodes[applied.createdNodeIds[0]!];
+    expect(result?.kind).toBe('shape');
+    if (result?.kind !== 'shape' || result.shape.kind !== 'path') return;
+    expect(result.shape.contours?.length).toBeGreaterThan(0);
+    expect(result.shape.holes?.length).toBeGreaterThan(0);
   });
 });
