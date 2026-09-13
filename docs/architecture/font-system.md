@@ -236,13 +236,16 @@ fall back to a family-only text field.
 
 Ordinary weight menus are registry-backed across the inspector, contextual bar,
 floating text toolbar, and Logo panel. Static families expose only the weights
-registered for the selected style. Variable families expose their declared
-`wght` range at the familiar stops plus the real minimum, default, and maximum;
-other axes remain untouched. A legacy value outside the selected face is kept
-as a disabled option with an explanation, so opening a document does not hide
-or silently synthesize its requested weight. The floating **Bold** action is
-disabled when a real 700 face or in-range variable value is unavailable, while
-an existing legacy bold value can still be turned off.
+registered for the selected style and, when the registry has identity data, the
+selected artifact/member. Variable families expose their declared `wght` range
+at the familiar stops plus the real minimum, default, and maximum; other axes
+remain untouched. A legacy value outside the selected face is kept as a
+disabled option with an explanation, so opening a document does not hide or
+silently synthesize its requested weight. Older family/style-only registry
+records fall back to their metadata until an exact face is discovered. The
+floating **Bold** action is disabled when a real 700 face or in-range variable
+value is unavailable, while an existing legacy bold value can still be turned
+off.
 
 The image **Identify Font** panel bounds decoded image data to a 2048px edge,
 passes the live registry projection and local render comparison into the
