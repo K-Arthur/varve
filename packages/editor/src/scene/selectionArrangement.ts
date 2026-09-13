@@ -472,8 +472,15 @@ export function alignmentFeedbackForResult(
   if (movedIds.length === 0) return null;
 
   const reference = options.reference ?? 'selection';
+  // An explicit page or frame bounds target takes precedence over a key
+  // object in the solver. Keep the feedback label consistent with that same
+  // precedence; otherwise a stale key-object selection makes a page guide
+  // claim the wrong reference was applied.
   const keyIsValid = Boolean(
-    options.keyObjectId && collected.items.some((item) => item.id === options.keyObjectId),
+    !explicitAlignmentBounds(options) &&
+      (options.reference ?? 'selection') === 'selection' &&
+      options.keyObjectId &&
+      collected.items.some((item) => item.id === options.keyObjectId),
   );
   const referenceLabel = keyIsValid
     ? 'Key object'

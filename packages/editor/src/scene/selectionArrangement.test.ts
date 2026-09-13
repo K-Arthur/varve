@@ -286,6 +286,24 @@ describe('selectionArrangement', () => {
     });
   });
 
+  it('does not label a page alignment as a stale key-object alignment', () => {
+    let doc = createDocument('page feedback with stale key');
+    const a = rect('a', 35, 20, 40, 30);
+    doc = addNode(doc, a);
+    const options = {
+      reference: 'page' as const,
+      pageBounds: { x: 0, y: 0, w: 100, h: 80 },
+      keyObjectId: a.id,
+    };
+    const next = alignSelectionInDocument(doc, [a.id], 'right', options);
+    const feedback = alignmentFeedbackForResult(doc, next, [a.id], 'right', options);
+
+    expect(feedback?.lines).toEqual([
+      { axis: 'vertical', position: 100, label: 'Right edge · Page' },
+    ]);
+    expect(feedback?.keyObjectId).toBeNull();
+  });
+
   it('reports a stationary key-object target rather than the old selection snapshot', () => {
     let doc = createDocument('key feedback');
     const key = rect('key', 0, 0, 20, 20);
