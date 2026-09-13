@@ -26,6 +26,7 @@ import {
   type ShapeNode,
   type TraceMetadata,
 } from '@varve/scene';
+import { placeGenerativeOverlay } from './generativeEditOverlayPlacement';
 
 export function selectedImageShape(doc: Document, selection: NodeId[]): ShapeNode | null {
   for (const id of selection) {
@@ -187,17 +188,15 @@ export function replaceImageShapeContent(
     }
     const frameWidth = patch.frameWidth ?? patch.width;
     const frameHeight = patch.frameHeight ?? patch.height;
-    const scale = frameWidth / patch.width;
-    const heightScale = frameHeight / patch.height;
-    if (
-      !Number.isFinite(scale) ||
-      scale <= 0 ||
-      !Number.isFinite(heightScale) ||
-      heightScale <= 0 ||
-      Math.abs(scale - heightScale) > 0.01 * Math.max(1, scale, heightScale)
-    ) {
-      throw new Error('Generative image patch frame is invalid');
-    }
+    const placement = placeGenerativeOverlay(
+      doc,
+      source,
+      input.width,
+      input.height,
+      patch.width,
+      patch.height,
+      { x: patch.x, y: patch.y, width: frameWidth, height: frameHeight },
+    );
 
     // Retain prior generative overlays so repeated edits build on the visible
     // image instead of silently erasing earlier accepted patches. The
@@ -220,14 +219,23 @@ export function replaceImageShapeContent(
         src: patch.dataUrl,
         assetId: patch.assetId,
         fit: 'crop',
-        x: patch.x,
-        y: patch.y,
-        scale,
+        x: placement.localX,
+        y: placement.localY,
+        scale: placement.scale,
         imageWidth: patch.width,
         imageHeight: patch.height,
+        ...(placement.rotation !== undefined ? { rotation: placement.rotation } : {}),
+        ...(placement.flipH !== undefined ? { flipH: placement.flipH } : {}),
+        ...(placement.flipV !== undefined ? { flipV: placement.flipV } : {}),
         generativeEditOverlay: {
           editId: patch.editId,
           variationId: patch.variationId,
+          sourceFrame: {
+            x: placement.x,
+            y: placement.y,
+            width: placement.width,
+            height: placement.height,
+          },
         },
       },
       opacity: 1,

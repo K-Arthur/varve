@@ -1,4 +1,9 @@
-import { createDocument, createEmbeddedAsset, makeImageShapeNode } from '@varve/scene';
+import {
+  createDocument,
+  createEmbeddedAsset,
+  makeImageShapeNode,
+  type ShapeNode,
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
   insertDerivedImageShape,
@@ -83,12 +88,12 @@ describe('replaceImageShapeContent', () => {
       patch: {
         dataUrl: 'data:image/png;base64,PATCH',
         assetId: 'asset-patch',
-        width: 120,
-        height: 80,
-        x: 240,
-        y: 160,
-        frameWidth: 240,
-        frameHeight: 160,
+        width: 2,
+        height: 1,
+        x: 4,
+        y: 2,
+        frameWidth: 4,
+        frameHeight: 2,
         editId: 'edit-patch',
         variationId: 'variation-1',
       },
@@ -106,14 +111,99 @@ describe('replaceImageShapeContent', () => {
       image: {
         assetId: 'asset-patch',
         fit: 'crop',
-        x: 240,
-        y: 160,
-        imageWidth: 120,
-        imageHeight: 80,
+        x: 4,
+        y: 2,
+        imageWidth: 2,
+        imageHeight: 1,
         scale: 2,
         generativeEditOverlay: { editId: 'edit-patch', variationId: 'variation-1' },
       },
     });
+    expect(updated.fills?.[1]?.image?.generativeEditOverlay?.sourceFrame).toEqual({
+      x: 4,
+      y: 2,
+      width: 4,
+      height: 2,
+    });
+  });
+
+  it('maps a bounded source patch through a resized image placement', () => {
+    const sourceDoc = imageDoc();
+    const resized = {
+      ...sourceDoc,
+      nodes: {
+        ...sourceDoc.nodes,
+        img1: {
+          ...sourceDoc.nodes.img1!,
+          shape: { kind: 'rect' as const, x: 0, y: 0, w: 40, h: 20 },
+        },
+      },
+    };
+    const next = replaceImageShapeContent(resized, 'img1', {
+      dataUrl: 'data:image/png;base64,AAAA',
+      assetId: 'asset-source',
+      width: 20,
+      height: 10,
+      patch: {
+        dataUrl: 'data:image/png;base64,PATCH',
+        assetId: 'asset-patch',
+        width: 4,
+        height: 3,
+        x: 5,
+        y: 2,
+        frameWidth: 4,
+        frameHeight: 3,
+        editId: 'edit-resized',
+        variationId: 'variation-1',
+      },
+    });
+    const image = (next.nodes.img1 as ShapeNode).fills?.[1]?.image;
+    expect(image).toMatchObject({ x: 10, y: 4, scale: 2 });
+    expect(image?.generativeEditOverlay?.sourceFrame).toEqual({
+      x: 5,
+      y: 2,
+      width: 4,
+      height: 3,
+    });
+  });
+
+  it('rejects a patch when image placement would distort it non-uniformly', () => {
+    const sourceDoc = imageDoc();
+    const stretched = {
+      ...sourceDoc,
+      nodes: {
+        ...sourceDoc.nodes,
+        img1: {
+          ...sourceDoc.nodes.img1!,
+          shape: { kind: 'rect' as const, x: 0, y: 0, w: 40, h: 30 },
+          fills: sourceDoc.nodes.img1!.fills?.map((fill) =>
+            fill.type === 'image' && fill.image
+              ? { ...fill, image: { ...fill.image, fit: 'stretch' as const } }
+              : fill,
+          ),
+        },
+      },
+    };
+    expect(() =>
+      replaceImageShapeContent(stretched, 'img1', {
+        dataUrl: 'data:image/png;base64,AAAA',
+        assetId: 'asset-source',
+        width: 20,
+        height: 10,
+        patch: {
+          dataUrl: 'data:image/png;base64,PATCH',
+          assetId: 'asset-patch',
+          width: 4,
+          height: 3,
+          x: 5,
+          y: 2,
+          frameWidth: 4,
+          frameHeight: 3,
+          editId: 'edit-stretched',
+          variationId: 'variation-1',
+        },
+      }),
+    ).toThrow(/non-uniformly/);
   });
 
   it('retains earlier bounded patches when a later edit is accepted', () => {
@@ -126,8 +216,8 @@ describe('replaceImageShapeContent', () => {
       patch: {
         dataUrl: 'data:image/png;base64,FIRST',
         assetId: 'asset-first',
-        width: 40,
-        height: 30,
+        width: 4,
+        height: 2,
         x: 2,
         y: 3,
         editId: 'edit-1',
@@ -143,10 +233,10 @@ describe('replaceImageShapeContent', () => {
       patch: {
         dataUrl: 'data:image/png;base64,SECOND',
         assetId: 'asset-second',
-        width: 50,
-        height: 25,
-        x: 60,
-        y: 8,
+        width: 6,
+        height: 3,
+        x: 10,
+        y: 4,
         editId: 'edit-2',
         variationId: 'variation-2',
       },
@@ -180,10 +270,10 @@ describe('replaceImageShapeContent', () => {
       patch: {
         dataUrl: 'data:image/png;base64,PATCH',
         assetId: 'asset-patch',
-        width: 120,
-        height: 80,
-        x: 240,
-        y: 160,
+        width: 2,
+        height: 1,
+        x: 4,
+        y: 2,
         editId: 'edit-patch',
         variationId: 'variation-1',
       },

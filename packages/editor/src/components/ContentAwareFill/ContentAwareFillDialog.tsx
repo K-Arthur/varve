@@ -146,6 +146,16 @@ interface VisibleSourceOverlay {
   editId: string;
 }
 
+function validOverlaySourceFrame(
+  frame: unknown,
+): frame is { x: number; y: number; width: number; height: number } {
+  if (!frame || typeof frame !== 'object') return false;
+  const candidate = frame as Record<string, unknown>;
+  return ['x', 'y', 'width', 'height'].every(
+    (key) => typeof candidate[key] === 'number' && Number.isFinite(candidate[key]),
+  );
+}
+
 /**
  * Build the currently visible source at proxy resolution. Bounded accepted
  * edits are stored as transparent patches above the immutable base fill; a
@@ -228,8 +238,12 @@ function visibleSourceOverlays(
     const src = asset?.dataUrl ?? image.src;
     const width = image.imageWidth ?? asset?.naturalWidth ?? 0;
     const height = image.imageHeight ?? asset?.naturalHeight ?? 0;
-    const x = image.x;
-    const y = image.y;
+    const sourceFrame = validOverlaySourceFrame(overlay.sourceFrame) ? overlay.sourceFrame : null;
+    const x = sourceFrame?.x ?? image.x;
+    const y = sourceFrame?.y ?? image.y;
+    const imageScale = Number.isFinite(image.scale) && image.scale > 0 ? image.scale : 1;
+    const frameWidth = sourceFrame?.width ?? width * imageScale;
+    const frameHeight = sourceFrame?.height ?? height * imageScale;
     if (
       !src ||
       width <= 0 ||
@@ -237,7 +251,11 @@ function visibleSourceOverlays(
       !Number.isFinite(x) ||
       !Number.isFinite(y) ||
       !Number.isFinite(width) ||
-      !Number.isFinite(height)
+      !Number.isFinite(height) ||
+      !Number.isFinite(frameWidth) ||
+      !Number.isFinite(frameHeight) ||
+      frameWidth <= 0 ||
+      frameHeight <= 0
     ) {
       return [];
     }
@@ -248,8 +266,8 @@ function visibleSourceOverlays(
         height,
         x,
         y,
-        frameWidth: width * (Number.isFinite(image.scale) && image.scale > 0 ? image.scale : 1),
-        frameHeight: height * (Number.isFinite(image.scale) && image.scale > 0 ? image.scale : 1),
+        frameWidth,
+        frameHeight,
         editId: overlay.editId,
       },
     ];
@@ -568,6 +586,7 @@ export function ContentAwareFillDialog({
               imageWidth: image.imageWidth,
               imageHeight: image.imageHeight,
               scale: image.scale,
+              sourceFrame: overlay.sourceFrame ?? null,
             },
           ];
         }),

@@ -790,6 +790,13 @@ export interface ImageFillUpscale {
 export interface GenerativeEditOverlay {
   editId: string;
   variationId: string;
+  /** Source-image-pixel frame, independent of node-local image placement. */
+  sourceFrame?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
 }
 
 export interface ImageFillData {
