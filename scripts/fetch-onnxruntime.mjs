@@ -31,7 +31,7 @@
  * crates/varve-bgremove/src/webgpu_ep.rs).
  */
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { currentTargetId, normalizeTargetId } from './release/targets.mjs';
@@ -63,17 +63,28 @@ const WEBGPU_PLUGIN_TARGETS = ['linux-x86_64', 'macos-aarch64', 'windows-x86_64'
  * wheel's `dist-info` directory. `libraryPath`/`libraryName` stay per-platform
  * because the archive member (and its staged name) differs by OS.
  */
-function webgpuPluginSpec({ url, sha256, libraryPath, libraryName }) {
+function webgpuPluginSpec({
+  url,
+  sha256,
+  libraryPath,
+  libraryName,
+  librarySha256,
+  licenseSha256,
+  noticesSha256,
+}) {
   const distInfo = `onnxruntime_ep_webgpu-${WEBGPU_PLUGIN_VERSION}.dist-info`;
   return {
     url,
     sha256,
     libraryPath,
     libraryName,
+    librarySha256,
     licensePath: `${distInfo}/licenses/LICENSE`,
     licenseName: 'LICENSE.onnxruntime-webgpu.txt',
+    licenseSha256,
     noticesPath: `${distInfo}/licenses/ThirdPartyNotices.txt`,
     noticesName: 'THIRD_PARTY_NOTICES.onnxruntime-webgpu.txt',
+    noticesSha256,
   };
 }
 
@@ -93,12 +104,16 @@ const PLATFORMS = {
     // since its target was never extracted, so grab the real file directly.
     archivePath: `onnxruntime-linux-x64-${ORT_VERSION}/lib/libonnxruntime.so.${ORT_VERSION}`,
     libName: 'libonnxruntime.so',
+    extractedSha256: '50e214fa23276cf2f3fb96d90d8e7ca9fc5ba29f42e298eccf3b23f7d8a81ae2',
     kind: 'tar',
     webgpuPlugin: webgpuPluginSpec({
       url: 'https://files.pythonhosted.org/packages/97/9c/d37bc05c56c3d91d44585db7bebbf0f068ece5d01df5b3898449771d4bf2/onnxruntime_ep_webgpu-0.3.0-py3-none-manylinux_2_28_x86_64.whl',
       sha256: '865ce82d80319d7f259a4a65e66e32834f0f117db55ae4377868b4f28016e7bf',
       libraryPath: 'onnxruntime_ep_webgpu/libonnxruntime_providers_webgpu.so',
       libraryName: 'libonnxruntime_providers_webgpu.so',
+      librarySha256: '1139af8249c58f6b0234aafda0ed0e09137a427e4acedebce4be02d589928cac',
+      licenseSha256: '2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c',
+      noticesSha256: '53d3fa5821ac016ac24dd35775c996efec86e2ae0841e9a3a5e146c0ae916845',
     }),
   },
   'linux-aarch64': {
@@ -106,6 +121,7 @@ const PLATFORMS = {
     sha256: '33c67e33d1e25b816878366ea276589a024f71f000e7ff955c4b33224d639edd',
     archivePath: `onnxruntime-linux-aarch64-${ORT_VERSION}/lib/libonnxruntime.so.${ORT_VERSION}`,
     libName: 'libonnxruntime.so',
+    extractedSha256: '2aede08815e740c8c1fce21af1e94353d32190127219759cc7978fb8f2de30f7',
     kind: 'tar',
   },
   'macos-aarch64': {
@@ -113,12 +129,16 @@ const PLATFORMS = {
     sha256: 'e42b77a7281cc6e55141bf44fcfbac2c782b823a491bbb6ac33c781dd991f8a6',
     archivePath: `onnxruntime-osx-arm64-${ORT_VERSION}/lib/libonnxruntime.dylib`,
     libName: 'libonnxruntime.dylib',
+    extractedSha256: 'a441a94433ebf38f1918009aba0199f88c6f877251b9946d89816427839964c8',
     kind: 'tar',
     webgpuPlugin: webgpuPluginSpec({
       url: 'https://files.pythonhosted.org/packages/0f/77/cfdbe4900a5a38a8b49de9b10254e3ce77f164d246fa3126db7cb7dbc713/onnxruntime_ep_webgpu-0.3.0-py3-none-macosx_14_0_universal2.whl',
       sha256: 'facdb3ad9933cb4504c579c2085c9be1644b6912ee74d7c9a7281046d7e7155a',
       libraryPath: 'onnxruntime_ep_webgpu/libonnxruntime_providers_webgpu.dylib',
       libraryName: 'libonnxruntime_providers_webgpu.dylib',
+      librarySha256: '27614b70a0e4563ac236307aa4510f216f023c3d2c07e82bd814c46f59a6e71c',
+      licenseSha256: '2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c',
+      noticesSha256: '53d3fa5821ac016ac24dd35775c996efec86e2ae0841e9a3a5e146c0ae916845',
     }),
   },
   'windows-x86_64': {
@@ -126,12 +146,16 @@ const PLATFORMS = {
     sha256: '2e00414a63fdef0914cd5a5ede6c707844878e0c08e1b6693842f0451b2df2a1',
     archivePath: `onnxruntime-win-x64-${ORT_VERSION}/lib/onnxruntime.dll`,
     libName: 'onnxruntime.dll',
+    extractedSha256: '79df49bcbefb604c019785925daef859c0348280616364e28103d73d4152f6d7',
     kind: 'zip',
     webgpuPlugin: webgpuPluginSpec({
       url: 'https://files.pythonhosted.org/packages/84/20/f4d51697015cb1eb0fb027b19bcc8641b93144beaed4cd332979803f0a99/onnxruntime_ep_webgpu-0.3.0-py3-none-win_amd64.whl',
       sha256: 'f25ed449a8f152176a20bc9b2f959a16511f16ff0f962a37979799d1b2d56bf7',
       libraryPath: 'onnxruntime_ep_webgpu/onnxruntime_providers_webgpu.dll',
       libraryName: 'onnxruntime_providers_webgpu.dll',
+      librarySha256: 'b05a6d5187885be9133ac383d5271af20b76f281e72d8bfe933f35a23d05b94f',
+      licenseSha256: 'c250d6278f0b47a6439fb7592b08b58a55eb9f535aa49a1db63211c3f982b674',
+      noticesSha256: '4c5b864d8974c94b37461f38163facef79a1bb5dea461667ee9e5be6a8e73f83',
     }),
   },
   'windows-aarch64': {
@@ -158,6 +182,24 @@ async function sha256OfFile(path) {
   const hash = createHash('sha256');
   hash.update(readFileSync(path));
   return hash.digest('hex');
+}
+
+async function stagedFileMatches(path, expectedSha256) {
+  if (!existsSync(path)) return false;
+  const bytes = readFileSync(path);
+  if (bytes.length === 0) return false;
+  return !expectedSha256 || (await sha256OfFile(path)) === expectedSha256;
+}
+
+/** Replace a staged artifact only after its complete contents are verified. */
+function writeAtomic(path, bytes) {
+  const temporary = `${path}.tmp-${process.pid}`;
+  try {
+    writeFileSync(temporary, bytes, { flag: 'wx' });
+    renameSync(temporary, path);
+  } finally {
+    if (existsSync(temporary)) rmSync(temporary, { force: true });
+  }
 }
 
 async function downloadToBuffer(url) {
@@ -249,15 +291,17 @@ async function stageCoreLibrary(key, platform) {
   const destDir = join(stageDir, key);
   const destFile = join(destDir, platform.libName);
 
+  if (await stagedFileMatches(destFile, platform.extractedSha256)) {
+    console.log(
+      `[fetch-onnxruntime] ${key}: verified staged file at ${destFile}, skipping download.`,
+    );
+    return;
+  }
   if (existsSync(destFile)) {
-    const existingSize = readFileSync(destFile).length;
-    if (existingSize === 0) {
-      console.error(`[fetch-onnxruntime] ${key}: existing staged file is empty, re-downloading.`);
-      rmSync(destFile);
-    } else {
-      console.log(`[fetch-onnxruntime] ${key}: already staged at ${destFile}, skipping download.`);
-      return;
-    }
+    console.warn(
+      `[fetch-onnxruntime] ${key}: staged file is missing, empty, or has an unexpected ` +
+        'digest; re-downloading the pinned archive.',
+    );
   }
 
   console.log(
@@ -288,9 +332,14 @@ async function stageCoreLibrary(key, platform) {
       : await extractFromTarGz(archiveBuffer, platform.archivePath);
 
   mkdirSync(destDir, { recursive: true });
-  writeFileSync(destFile, extracted);
-
-  const actualSha256 = await sha256OfFile(destFile);
+  const actualSha256 = createHash('sha256').update(extracted).digest('hex');
+  if (platform.extractedSha256 && actualSha256 !== platform.extractedSha256) {
+    throw new Error(
+      `Extracted ${key} runtime digest mismatch: expected ${platform.extractedSha256}, ` +
+        `got ${actualSha256}`,
+    );
+  }
+  writeAtomic(destFile, extracted);
 
   console.log(`[fetch-onnxruntime] ${key}: staged ${destFile} (extracted sha256=${actualSha256})`);
 }
@@ -317,17 +366,33 @@ async function stageWebgpuPlugin(key, platform) {
 
   const destDir = join(stageDir, key);
   const files = [
-    { entryPath: plugin.libraryPath, name: plugin.libraryName },
-    { entryPath: plugin.licensePath, name: plugin.licenseName },
-    { entryPath: plugin.noticesPath, name: plugin.noticesName },
+    {
+      entryPath: plugin.libraryPath,
+      name: plugin.libraryName,
+      sha256: plugin.librarySha256,
+    },
+    {
+      entryPath: plugin.licensePath,
+      name: plugin.licenseName,
+      sha256: plugin.licenseSha256,
+    },
+    {
+      entryPath: plugin.noticesPath,
+      name: plugin.noticesName,
+      sha256: plugin.noticesSha256,
+    },
   ].map((file) => ({ ...file, destPath: join(destDir, file.name) }));
 
-  const missing = files.filter(
-    (file) => !existsSync(file.destPath) || readFileSync(file.destPath).length === 0,
+  const verified = await Promise.all(
+    files.map(async (file) => ({
+      file,
+      matches: await stagedFileMatches(file.destPath, file.sha256),
+    })),
   );
+  const missing = verified.filter(({ matches }) => !matches).map(({ file }) => file);
   if (missing.length === 0) {
     console.log(
-      `[fetch-onnxruntime] ${key}: WebGPU plugin ${WEBGPU_PLUGIN_VERSION} already staged at ` +
+      `[fetch-onnxruntime] ${key}: verified WebGPU plugin ${WEBGPU_PLUGIN_VERSION} at ` +
         `${destDir}, skipping download.`,
     );
     return;
@@ -354,7 +419,14 @@ async function stageWebgpuPlugin(key, platform) {
   mkdirSync(destDir, { recursive: true });
   for (const file of missing) {
     const extracted = await extractFromZip(archiveBuffer, file.entryPath);
-    writeFileSync(file.destPath, extracted);
+    const actualSha256 = createHash('sha256').update(extracted).digest('hex');
+    if (file.sha256 && actualSha256 !== file.sha256) {
+      throw new Error(
+        `Extracted WebGPU plugin file ${file.name} digest mismatch: expected ${file.sha256}, ` +
+          `got ${actualSha256}`,
+      );
+    }
+    writeAtomic(file.destPath, extracted);
     console.log(`[fetch-onnxruntime] ${key}: staged ${file.destPath}`);
   }
 }
