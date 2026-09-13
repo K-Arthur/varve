@@ -540,6 +540,7 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
           <section className="insp-nested-panel" aria-label="Font detection results">
             <ResultsList
               result={detect.result}
+              specimenText={recognizedText}
               targetSelected={Boolean(targetId)}
               onUseForNewText={useCandidateForNewText}
               onApplyToTarget={applyCandidateToTarget}
@@ -587,11 +588,13 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
 
 function ResultsList({
   result,
+  specimenText,
   targetSelected,
   onUseForNewText,
   onApplyToTarget,
 }: {
   result: FontDetectionResult;
+  specimenText: string;
   targetSelected: boolean;
   onUseForNewText?: (candidate: FontCandidate) => void;
   onApplyToTarget?: (candidate: FontCandidate) => void;
@@ -624,6 +627,22 @@ function ResultsList({
               <ConfidenceBadge category={candidate.confidenceCategory} />
             </div>
             <span className="font-detect-candidate__style">{candidate.style}</span>
+            <div
+              className="font-detect-candidate__preview"
+              role="img"
+              aria-label={`Preview ${candidate.family}`}
+              style={
+                candidate.isAvailable
+                  ? {
+                      fontFamily: `"${candidate.family.replaceAll('"', '')}", sans-serif`,
+                      fontStyle: /italic|oblique/i.test(candidate.style) ? 'italic' : 'normal',
+                      fontWeight: /bold|black|heavy/i.test(candidate.style) ? 700 : 400,
+                    }
+                  : undefined
+              }
+            >
+              {(specimenText.trim() || candidate.previewText?.trim() || 'Aa — 0123').slice(0, 96)}
+            </div>
             <div className="font-detect-candidate__meta">
               {candidate.isAvailable && (
                 <span className="font-detect-candidate__available">Installed</span>

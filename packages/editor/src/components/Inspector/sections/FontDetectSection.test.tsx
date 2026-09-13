@@ -224,6 +224,7 @@ describe('FontDetectSection', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Identify font in image' }));
 
     await waitFor(() => expect(screen.getByText('Inter')).toBeInTheDocument());
+    expect(screen.getByRole('img', { name: 'Preview Inter' })).toHaveTextContent('Sample text');
     expect(createFontCatalogFromRegistry).toHaveBeenCalledOnce();
     expect(detectFont).toHaveBeenCalledWith(
       expect.objectContaining({ recognizedText: 'Sample text' }),
