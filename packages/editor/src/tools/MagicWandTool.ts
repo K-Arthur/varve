@@ -14,12 +14,19 @@ import {
   localToSourcePixel,
   transformAreaSelection,
 } from '@varve/engine';
-import { buildParentIndexMap, getImageFill, type ImageFillData, isImageShape } from '@varve/scene';
+import {
+  buildParentIndexMap,
+  getImageFill,
+  type ImageFillData,
+  isImageShape,
+  type RasterLayerNode,
+} from '@varve/scene';
 import { applyAffine, tryInvertAffine } from '@varve/shared';
 import { visibleImageSourceMapping } from '../floatingRaster/imagePlacement';
 import { nodeLocalBounds, nodeWorldTransform } from '../scene/world';
 import { BaseTool } from './BaseTool';
 import { DEFAULT_MAGIC_WAND_SETTINGS } from './magicWandSettings';
+import { rasterColorSelectionAt } from './rasterColorSelection';
 import { decodeRasterMaskDataUrl } from './selectionMask';
 import { selectionOperationFromModifiers } from './selectionOperations';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
@@ -42,8 +49,35 @@ export class MagicWandTool extends BaseTool {
   override onPointerDown(event: PointerEvent, ctx: ToolContext): GestureResult {
     const world = ctx.canvasToWorld(event.clientX, event.clientY);
     const hit = ctx.hitTest(world);
+    if (hit?.node.kind === 'rasterLayer') {
+      const settings = ctx.magicWandSettings ?? DEFAULT_MAGIC_WAND_SETTINGS;
+      const operation =
+        event.shiftKey || event.altKey
+          ? selectionOperationFromModifiers(event)
+          : settings.operation;
+      this.selectRaster(ctx, hit.nodeId, hit.node, world, operation);
+      return { consumed: true };
+    }
+    // Some raster layers intentionally do not participate in alpha hit
+    // testing at transparent or transformed edges. When the artist has
+    // explicitly selected one, use that target as the sampling surface rather
+    // than making a valid painted layer appear unsupported.
+    const selectedRaster =
+      ctx.selection.length === 1 ? ctx.document.nodes[ctx.selection[0]!] : undefined;
+    if (
+      selectedRaster?.kind === 'rasterLayer' &&
+      (hit === null || hit.node.kind !== 'shape' || !isImageShape(hit.node))
+    ) {
+      const settings = ctx.magicWandSettings ?? DEFAULT_MAGIC_WAND_SETTINGS;
+      const operation =
+        event.shiftKey || event.altKey
+          ? selectionOperationFromModifiers(event)
+          : settings.operation;
+      this.selectRaster(ctx, selectedRaster.id, selectedRaster, world, operation);
+      return { consumed: true };
+    }
     if (hit?.node.kind !== 'shape' || !isImageShape(hit.node)) {
-      ctx.announce('Click an image to use Magic Wand');
+      ctx.announce('Click an image or pixel layer to use Magic Wand');
       return { consumed: false };
     }
     const image = getImageFill(hit.node)?.image;
@@ -59,6 +93,57 @@ export class MagicWandTool extends BaseTool {
       event.shiftKey || event.altKey ? selectionOperationFromModifiers(event) : settings.operation;
     void this.select(ctx, hit.nodeId, hit.node, image, source, world, operation);
     return { consumed: true };
+  }
+
+  private selectRaster(
+    ctx: ToolContext,
+    nodeId: string,
+    node: RasterLayerNode,
+    click: { x: number; y: number },
+    operation: AreaSelectionOperation,
+  ): void {
+    if (!ctx.setAreaSelection) {
+      ctx.announce('Pixel selection is unavailable in this editor surface');
+      return;
+    }
+    const settings = ctx.magicWandSettings ?? DEFAULT_MAGIC_WAND_SETTINGS;
+    // Match PaintTool's raster-local mapping when the live canvas context
+    // provides it. The scene helper remains the deterministic fallback for
+    // lightweight callers and unit contexts.
+    const worldTransform =
+      ctx.getWorldTransform?.(nodeId) ??
+      nodeWorldTransform(ctx.document, nodeId, buildParentIndexMap(ctx.document));
+    const inverseWorld = tryInvertAffine(worldTransform);
+    if (!inverseWorld) {
+      ctx.announce('Magic Wand cannot sample a singular pixel-layer transform');
+      return;
+    }
+    const [localX, localY] = applyAffine(inverseWorld, [click.x, click.y]);
+    const localPoint = { x: localX, y: localY };
+    const localSelection = rasterColorSelectionAt(node, localPoint, {
+      tolerance: toleranceToOklab(settings.tolerance),
+      feather: featherToOklab(settings.edgeFeather),
+      mode: settings.mode,
+    });
+    const documentSelection = localSelection
+      ? transformAreaSelection(localSelection, worldTransform)
+      : null;
+    if (!documentSelection) {
+      ctx.announce('No matching opaque pixel was found on this layer');
+      return;
+    }
+    const next = combineAreaSelections(
+      ctx.areaSelection ?? null,
+      documentSelection,
+      operation,
+      (ctx.areaSelection?.generation ?? 0) + 1,
+    );
+    ctx.setAreaSelection(next);
+    ctx.announce(
+      settings.mode === 'contiguous'
+        ? 'Contiguous pixel-layer Magic Wand selection created'
+        : 'Global pixel-layer Magic Wand selection created',
+    );
   }
 
   private async select(
