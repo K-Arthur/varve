@@ -2,6 +2,7 @@ import { linearToSrgbUnit, srgbToLinearUnit } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import { applyFilterWithCompositing, applySoftwareFilter } from './filterCompositor';
 import { filterToCss } from './filters';
+import { applyHalftone } from './halftone';
 import { serializeLutForDocument } from './lut/lutService';
 import { makeIdentityLut1D } from './lut/types';
 import type { FilterIR } from './types';
@@ -916,6 +917,56 @@ describe('halftone through the compositor (canvas preview + export parity path)'
     const normal = ctxNormal.getImageData(0, 0, 64, 64);
     const inverted = ctxInverted.getImageData(0, 0, 64, 64);
     expect(countDark(inverted)).not.toBe(countDark(normal));
+  });
+
+  it('version 2 renders the authored dotShape even when pattern is generic', () => {
+    // Fine Print preset: pattern 'dot' + dotShape 'elliptical'. Before the
+    // corrected contract, pattern precedence silently rendered round dots.
+    const filter: FilterIR = {
+      ...baseHalftone,
+      dotShape: 'elliptical',
+      algorithmVersion: 2,
+    };
+    const viaCompositor = fakeCtx(grayImage(64, 64, 128));
+    applySoftwareFilter(viaCompositor, filter, 64, 64);
+
+    const reference = grayImage(64, 64, 128);
+    applyHalftone(reference, {
+      pattern: 'dot',
+      frequency: 20,
+      angle: 45,
+      dotShape: 'elliptical',
+      channel: 'k',
+      method: 'am',
+      algorithmVersion: 2,
+    });
+    expect(Array.from(viaCompositor.getImageData(0, 0, 64, 64).data)).toEqual(
+      Array.from(reference.data),
+    );
+  });
+
+  it('version 1 keeps pattern precedence for legacy documents', () => {
+    const filter: FilterIR = {
+      ...baseHalftone,
+      dotShape: 'elliptical',
+      algorithmVersion: 1,
+    };
+    const viaCompositor = fakeCtx(grayImage(64, 64, 128));
+    applySoftwareFilter(viaCompositor, filter, 64, 64);
+
+    const reference = grayImage(64, 64, 128);
+    applyHalftone(reference, {
+      pattern: 'dot',
+      frequency: 20,
+      angle: 45,
+      dotShape: 'round',
+      channel: 'k',
+      method: 'am',
+      algorithmVersion: 1,
+    });
+    expect(Array.from(viaCompositor.getImageData(0, 0, 64, 64).data)).toEqual(
+      Array.from(reference.data),
+    );
   });
 });
 

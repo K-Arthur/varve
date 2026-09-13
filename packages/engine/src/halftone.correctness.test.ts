@@ -221,6 +221,50 @@ describe('AM tone response (version 2)', () => {
     expect(inkFraction(black)).toBeGreaterThan(0.98);
   });
 
+  it('screens a smooth gradient with locally accurate, monotonic tone', () => {
+    // Procedural screentone: a gradient (or uniform tone) screened in place,
+    // with no bitmap source. Each band's ink fraction must track its own
+    // source darkness, and dots must grow monotonically toward the dark end.
+    const w = 192;
+    const h = 64;
+    const img = new ImageData(w, h);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const gray = Math.round((x / (w - 1)) * 255);
+        const i = (y * w + x) * 4;
+        img.data[i] = gray;
+        img.data[i + 1] = gray;
+        img.data[i + 2] = gray;
+        img.data[i + 3] = 255;
+      }
+    }
+    applyAMScreeningV2(img, v2({ frequency: 12, angle: 0 }));
+
+    const bands = 4;
+    const bandWidth = w / bands;
+    let previous = 2;
+    for (let band = 0; band < bands; band++) {
+      let ink = 0;
+      let total = 0;
+      let sourceDarkness = 0;
+      for (let y = 0; y < h; y++) {
+        for (let x = band * bandWidth; x < (band + 1) * bandWidth; x++) {
+          const i = (y * w + x) * 4;
+          const lum = 0.299 * img.data[i]! + 0.587 * img.data[i + 1]! + 0.114 * img.data[i + 2]!;
+          const sourceGray = (x / (w - 1)) * 255;
+          sourceDarkness += (255 - sourceGray) / 255;
+          if (lum < 128) ink++;
+          total++;
+        }
+      }
+      const inkFraction = ink / total;
+      const expected = sourceDarkness / total;
+      expect(Math.abs(inkFraction - expected), `band ${band}`).toBeLessThan(0.12);
+      expect(inkFraction, `band ${band} monotonic`).toBeLessThan(previous);
+      previous = inkFraction;
+    }
+  });
+
   it('builds a rank-uniform threshold matrix', () => {
     const size = 32;
     const matrix = generateAMMatrix(size, 'round');
@@ -443,6 +487,29 @@ describe('FM screening (version 2)', () => {
     applyHalftone(preview, v2({ method: 'fm', fmAlgorithm: 'blue-noise' }), 0, 0, 1);
     applyHalftone(exported, v2({ method: 'fm', fmAlgorithm: 'blue-noise' }));
     expect(Array.from(preview.data)).toEqual(Array.from(exported.data));
+  });
+
+  it('renders the same ordered screen for tiles and full frames', () => {
+    // A viewport tile starting at a document offset must be pixel-identical
+    // to the corresponding window of the full-frame render, for both ordered
+    // algorithms. This is the tiling contract the preview relies on.
+    for (const algorithm of ['blue-noise', 'bayer'] as const) {
+      const params = v2({ method: 'fm', fmAlgorithm: algorithm });
+      const full = solid(96, 64, [128, 128, 128]);
+      applyOrderedDitherV2(full, params, algorithm, 0, 0, 1);
+
+      const tile = solid(48, 32, [128, 128, 128]);
+      applyOrderedDitherV2(tile, params, algorithm, 32, 16, 1);
+
+      for (let y = 0; y < 32; y++) {
+        for (let x = 0; x < 48; x++) {
+          const source = ((y + 16) * 96 + x + 32) * 4;
+          const target = (y * 48 + x) * 4;
+          expect(tile.data[target], `${algorithm} tile ${x},${y}`).toBe(full.data[source]);
+          expect(tile.data[target + 3]).toBe(255);
+        }
+      }
+    }
   });
 
   it('substitutes a stable ordered screen for error diffusion in preview mode', () => {

@@ -34,6 +34,74 @@ describe('adjustment normalization', () => {
     expect(second.changed).toBe(false);
   });
 
+  it('pins pre-version halftone documents to legacy screening', () => {
+    const result = normalizeAdjustmentStack([{ kind: 'halftone' }], 'layer-1');
+    expect(result.adjustments[0]).toMatchObject({
+      algorithmVersion: 1,
+      fmAlgorithm: 'bayer',
+      frequency: 45,
+    });
+  });
+
+  it('keeps corrected halftone parameters and sanitizes malformed print fields', () => {
+    const first = normalizeAdjustmentStack(
+      [
+        {
+          kind: 'halftone',
+          algorithmVersion: 2,
+          fmAlgorithm: 'blue-noise',
+          alphaMode: 'screen',
+          channelAngles: { c: 15, k: 999, bogus: 4 },
+          registrationOffset: { c: [1, 2], k: 'nope' },
+          blackGeneration: 'gcr',
+          gcrStrength: 2,
+          tacLimit: -1,
+          previewChannel: 'k',
+          dotGain: 0.4,
+          frequency: 5000,
+        },
+      ],
+      'layer-2',
+    );
+    expect(first.adjustments[0]).toMatchObject({
+      algorithmVersion: 2,
+      fmAlgorithm: 'blue-noise',
+      alphaMode: 'screen',
+      channelAngles: { c: 15, k: 360 },
+      registrationOffset: { c: [1, 2] },
+      blackGeneration: 'gcr',
+      gcrStrength: 1,
+      tacLimit: 0,
+      previewChannel: 'k',
+      dotGain: 0.4,
+      frequency: 1000,
+    });
+    const second = normalizeAdjustmentStack(
+      JSON.parse(JSON.stringify(first.adjustments)),
+      'layer-2',
+    );
+    expect(second.adjustments).toEqual(first.adjustments);
+    expect(second.changed).toBe(false);
+  });
+
+  it('drops unknown fm algorithms instead of executing them', () => {
+    const result = normalizeAdjustmentStack(
+      [{ kind: 'halftone', algorithmVersion: 1, fmAlgorithm: 'nonsense' }],
+      'layer-3',
+    );
+    expect(result.adjustments[0]).toMatchObject({ algorithmVersion: 1, fmAlgorithm: 'bayer' });
+  });
+
+  it('pins pre-version color halftones to legacy screening', () => {
+    const legacy = normalizeAdjustmentStack([{ kind: 'colorHalftone' }], 'layer-4');
+    expect(legacy.adjustments[0]).toMatchObject({ algorithmVersion: 1, screenSize: 12 });
+    const corrected = normalizeAdjustmentStack(
+      [{ kind: 'colorHalftone', algorithmVersion: 2 }],
+      'layer-5',
+    );
+    expect(corrected.adjustments[0]).toMatchObject({ algorithmVersion: 2 });
+  });
+
   it('preserves an explicit export quality tier on reload', () => {
     expect(
       normalizeAdjustmentStack([{ kind: 'bloom', quality: 'export' }], 'photo').adjustments[0],
