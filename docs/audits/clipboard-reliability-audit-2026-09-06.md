@@ -2063,3 +2063,54 @@ Evidence files are:
 No visual baseline was replaced. A packaged Tauri/WebKitGTK run, a licensed
 Illustrator-authored fixture, and multi-page/layered TIFF remain explicit
 external verification lanes.
+
+### CLIP-46 — File picker placement was captured after the dialog returned (2026-09-12)
+
+**Checkout:** `1550d288233c2e032efa0f6d8e30b894236179cc` on `master`, with the
+repair committed as `b8231a4351f568a83f2af974b0287ce067ffd3bf`. **Environment:**
+`/home/kevina/CodingProjects/varve`, Linux KDE/Wayland, Node 26, Chromium/jsdom
+unit harness; concurrent Inspector, generative-edit, typography, and visual
+snapshot work remained in the shared worktree.
+
+The audit found that File > Import resolved the destination only in the change
+handler, after the browser or native picker returned. A user could pan, zoom,
+change selection, or switch workspace while the dialog was open and then place
+the imported artwork in the later context. This was an application lifetime and
+placement defect, separate from file transport and parser behavior.
+
+| ID | Defect | Status | Evidence |
+| --- | --- | --- | --- |
+| CLIP-46 | File picker destination and canvas center were read after dialog return | **Resolved locally** | `packages/editor/src/importing/useFileImport.ts`, `packages/editor/src/importing/useFileImport.test.tsx`, `packages/editor/src/Shell.tsx` |
+
+`useFileImport.openPicker` now captures document/session/revision, selection
+revision, page/design canvas, workspace, the selected-container destination,
+and the initiating canvas world center before calling the input's `click()`.
+The selected files carry that snapshot into `PreparedFragment`; a document-scope
+change cancels the operation before commit. A second picker gesture still
+aborts the first owner, and only the active owner can publish progress, clear
+the input, report results, or commit roots.
+
+Validation for the repair:
+
+```text
+pnpm exec biome check packages/editor/src/importing/useFileImport.ts packages/editor/src/importing/useFileImport.test.tsx packages/editor/src/Shell.tsx
+passed
+
+VITE_CONFIG_NATIVE_IGNORE_WARNING=true pnpm exec vitest run packages/editor/src/importing/useFileImport.test.tsx packages/editor/src/dropUtils.test.ts packages/editor/src/importing/preparedFragment.test.ts packages/editor/src/clipboard.test.ts --maxWorkers=1 --reporter=dot
+4 files, 63 tests passed
+
+pnpm exec tsc -p packages/editor/tsconfig.json --noEmit --pretty false
+passed
+
+pnpm verify:plan
+selected the affected closure; full-suite escalation: NO
+
+pnpm verify:affected
+stopped at the pre-existing formatter violation in packages/editor/src/components/AIStatusIndicator/AIStatusIndicator.tsx:22; no touched import/clipboard file failed
+```
+
+The new regression mutates camera pan and zoom after `openPicker()` but before
+the synthetic file change event; the commit still receives the selected frame
+and its original world center. This closes the browser-picker race. Packaged
+Tauri/WebKitGTK picker behavior and native Wayland transport remain separate
+platform lanes.

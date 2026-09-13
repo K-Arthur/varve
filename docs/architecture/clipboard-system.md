@@ -305,6 +305,11 @@ reports. `ImportService` checks cancellation immediately before progress and
 report callbacks, so a late worker result cannot repaint UI for a newer
 operation.
 
+File > Import captures its destination parent and initiating canvas world
+center before invoking the file picker. The picker may return after camera,
+selection, page, or workspace changes, but the operation remains bound to the
+captured context and is canceled if the document scope no longer matches.
+
 Menu Paste as Plain Text and Paste SVG Markup use the same request-bound
 snapshot and prepared-fragment path as keyboard paste. They capture the
 selection, destination parent, active page, workspace, and canvas center before

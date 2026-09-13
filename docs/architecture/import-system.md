@@ -237,11 +237,17 @@ decode; cyclic `<use>` is detected by a visited-id set.
 
 ## Frontend operation lifetime
 
-File picker and canvas drop each create a request-owned abort controller before
-reading bytes. Starting another gesture supersedes the earlier request, and
-unmounting the editor aborts it. Progress, report state, and the hidden file
-input are cleared only by the operation that owns them. The importer checks its
-signal before worker progress/report callbacks and before returning a result.
+File > Import captures the initiating document, session, page/design canvas,
+workspace, selection-derived destination parent, and canvas world center
+synchronously **before opening the browser or native file picker**. The selected
+files therefore keep the placement and editing scope of the gesture even when
+the dialog remains open while the user pans, changes zoom, switches selection,
+or changes workspace. File picker and canvas drop each then create a
+request-owned abort controller before reading bytes. Starting another gesture
+supersedes the earlier request, and unmounting the editor aborts it. Progress,
+report state, and the hidden file input are cleared only by the operation that
+owns them. The importer checks its signal before worker progress/report
+callbacks and before returning a result.
 
 Paste, Import, and Drop all finish through `commitPreparedFragment`, which
 clones each logical artifact with one dependency mapping, applies its route
