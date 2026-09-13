@@ -14,12 +14,14 @@ vi.mock('../../../../context', () => {
       expandImageBounds: vi.fn(),
       resetImageBounds: vi.fn(),
       applyFaceAwareCrop: mockApplyFaceAwareCrop,
+      openCafDialog: mockOpenCafDialog,
     }),
   };
 });
 
-const { mockApplyFaceAwareCrop } = vi.hoisted(() => ({
+const { mockApplyFaceAwareCrop, mockOpenCafDialog } = vi.hoisted(() => ({
   mockApplyFaceAwareCrop: vi.fn(),
+  mockOpenCafDialog: vi.fn(),
 }));
 
 const { mockIsModelAvailable, mockDownloadModel } = vi.hoisted(() => ({
@@ -118,8 +120,15 @@ function makeImageNode() {
 describe('ImageCropSection - Protect Faces', () => {
   beforeEach(() => {
     mockApplyFaceAwareCrop.mockReset();
+    mockOpenCafDialog.mockReset();
     mockIsModelAvailable.mockReset().mockResolvedValue(true);
     mockDownloadModel.mockReset().mockResolvedValue(undefined);
+  });
+
+  it('opens the shared Generative Edit session from Crop & Bounds', () => {
+    render(<ImageCropSection nodes={[makeImageNode()]} />);
+    fireEvent.click(screen.getByRole('button', { name: /generative expand/i }));
+    expect(mockOpenCafDialog).toHaveBeenCalledWith('n1');
   });
 
   it('renders the Protect Faces entry for a single image node', () => {

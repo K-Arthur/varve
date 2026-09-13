@@ -47,6 +47,12 @@ import { decodeRasterMaskDataUrl, rasterizeAreaSelectionForNode } from '../../to
 import type { ExpandPadding } from './expandCanvas';
 import { composeExpandedFullResolution } from './expandComposition';
 import {
+  EXPAND_ASPECT_PRESETS,
+  type ExpandAnchor,
+  expandPaddingForAspectRatio,
+  expandPaddingForOutputSize,
+} from './expandControls';
+import {
   computeSourceRegionFromPreviewMask,
   encodePreviewMaskAtSourceSize,
   loadImageRegionToImageData,
@@ -497,6 +503,10 @@ export function ContentAwareFillDialog({
     bottom: 0,
     left: 0,
   });
+  const [expandAspectRatio, setExpandAspectRatio] = useState('free');
+  const [expandAnchor, setExpandAnchor] = useState<ExpandAnchor>('center');
+  const [expandTargetWidth, setExpandTargetWidth] = useState('');
+  const [expandTargetHeight, setExpandTargetHeight] = useState('');
 
   type DialogStatus = 'idle' | 'downloading' | 'qualifying' | 'generating' | 'applying' | 'error';
   const [status, setStatus] = useState<DialogStatus>('idle');
@@ -556,17 +566,46 @@ export function ContentAwareFillDialog({
     !diffusionResource ||
     diffusionResource.availableBytes == null ||
     diffusionResource.availableBytes >= diffusionResource.requiredBytes;
-  const modeAvailable = modeCapability.available && !modeMissingModel && diffusionMemoryFits;
   const hasExpandPadding = Object.values(expandPadding).some((value) => value > 0);
-  const canGenerate =
-    (hasMaskStrokes || (mode === 'expand' && hasExpandPadding)) &&
-    (mode !== 'replace' || prompt.trim().length > 0);
   const expandPlanPreview = useMemo(() => {
     if (mode !== 'expand' || naturalSize.w <= 0 || naturalSize.h <= 0) return null;
     return computeExpandPlan(naturalSize.w, naturalSize.h, expandPadding, {
       maxOutputPixels: 16_777_216,
     });
   }, [mode, naturalSize.w, naturalSize.h, expandPadding]);
+  const expandWorkingPlanPreview = useMemo(() => {
+    if (mode !== 'expand' || !expandPlanPreview?.ok) return null;
+    try {
+      return {
+        ok: true as const,
+        plan: planExpandWorkingFrame(
+          expandPlanPreview.plan,
+          workingPixelBudgetForTier(capabilities.resourceProfile.tier),
+        ),
+      };
+    } catch (error) {
+      return {
+        ok: false as const,
+        message: error instanceof Error ? error.message : 'The expansion working frame is invalid.',
+      };
+    }
+  }, [capabilities.resourceProfile.tier, expandPlanPreview, mode]);
+  const modeAvailable =
+    modeCapability.available &&
+    !modeMissingModel &&
+    diffusionMemoryFits &&
+    (mode !== 'expand' ||
+      (expandPlanPreview?.ok === true && expandWorkingPlanPreview?.ok === true));
+  const canGenerate =
+    (hasMaskStrokes || (mode === 'expand' && hasExpandPadding)) &&
+    (mode !== 'replace' || prompt.trim().length > 0) &&
+    (mode !== 'expand' || modeAvailable);
+  const modeUnavailableReason =
+    mode === 'expand' && expandWorkingPlanPreview && !expandWorkingPlanPreview.ok
+      ? expandWorkingPlanPreview.message
+      : mode === 'expand' && expandPlanPreview && !expandPlanPreview.ok
+        ? expandPlanPreview.error.message
+        : null;
 
   const node = nodeId ? state.document.nodes[nodeId] : undefined;
   const isImage = Boolean(node && isImageShape(node));
@@ -795,6 +834,10 @@ export function ContentAwareFillDialog({
     setGenerationStage('Preparing');
     setNaturalSize({ w: 0, h: 0 });
     setExpandPadding({ top: 0, right: 0, bottom: 0, left: 0 });
+    setExpandAspectRatio('free');
+    setExpandAnchor('center');
+    setExpandTargetWidth('');
+    setExpandTargetHeight('');
   }, [isOpen]);
 
   useEffect(() => {
@@ -821,6 +864,10 @@ export function ContentAwareFillDialog({
         bottom: Math.max(0, frame.height - frame.sourceHeight - top),
         left,
       });
+      setExpandAspectRatio('free');
+      setExpandAnchor('center');
+      setExpandTargetWidth(String(frame.width));
+      setExpandTargetHeight(String(frame.height));
     }
     setVariationCount(
       Math.max(1, Math.min(MAX_BATCH_VARIATIONS, acceptedEdit.variations.length || 1)),
@@ -2446,7 +2493,10 @@ export function ContentAwareFillDialog({
                     diffusionResource.availableBytes != null &&
                     diffusionResource.availableBytes < diffusionResource.requiredBytes
                   ? `This ${diffusionResource.architecture} device has about ${Math.floor(diffusionResource.availableBytes / 1_048_576)} MiB available, but local diffusion needs about ${Math.ceil(diffusionResource.requiredBytes / 1_048_576)} MiB. Use Quick Cleanup for this edit.`
-                  : (capabilities.reason ?? diffusionModelReason ?? 'This mode is unavailable.')}
+                  : (modeUnavailableReason ??
+                    capabilities.reason ??
+                    diffusionModelReason ??
+                    'This mode is unavailable.')}
             </p>
           </div>
 
@@ -2746,6 +2796,136 @@ export function ContentAwareFillDialog({
           {mode === 'expand' && (
             <div className="caf-dialog__section">
               <span className="caf-dialog__label">Expansion (source pixels)</span>
+              <div className="caf-dialog__expand-presets">
+                <label className="caf-dialog__expand-control">
+                  <span>Aspect ratio</span>
+                  <select
+                    id="caf-expand-aspect-ratio"
+                    value={expandAspectRatio}
+                    onChange={(event) => setExpandAspectRatio(event.target.value)}
+                    disabled={isProcessing}
+                  >
+                    {EXPAND_ASPECT_PRESETS.map((preset) => (
+                      <option key={preset.id} value={preset.id}>
+                        {preset.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="caf-dialog__expand-control">
+                  <span>Source anchor</span>
+                  <select
+                    id="caf-expand-anchor"
+                    value={expandAnchor}
+                    onChange={(event) => setExpandAnchor(event.target.value as ExpandAnchor)}
+                    disabled={isProcessing}
+                  >
+                    <option value="center">Center</option>
+                    <option value="top-left">Top left</option>
+                    <option value="top">Top</option>
+                    <option value="top-right">Top right</option>
+                    <option value="left">Left</option>
+                    <option value="right">Right</option>
+                    <option value="bottom-left">Bottom left</option>
+                    <option value="bottom">Bottom</option>
+                    <option value="bottom-right">Bottom right</option>
+                  </select>
+                </label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={expandAspectRatio === 'free' || isProcessing || naturalSize.w <= 0}
+                  onClick={() => {
+                    const preset = EXPAND_ASPECT_PRESETS.find(
+                      (candidate) => candidate.id === expandAspectRatio,
+                    );
+                    if (!preset?.ratio || naturalSize.w <= 0 || naturalSize.h <= 0) return;
+                    try {
+                      const padding = expandPaddingForAspectRatio(
+                        naturalSize.w,
+                        naturalSize.h,
+                        preset.ratio,
+                        expandAnchor,
+                      );
+                      setExpandPadding(padding);
+                      setExpandTargetWidth(String(naturalSize.w + padding.left + padding.right));
+                      setExpandTargetHeight(String(naturalSize.h + padding.top + padding.bottom));
+                      invalidatePreview();
+                    } catch (error) {
+                      setErrorMessage(
+                        error instanceof Error ? error.message : 'The aspect ratio is invalid.',
+                      );
+                    }
+                  }}
+                >
+                  Set ratio
+                </Button>
+              </div>
+              <div className="caf-dialog__expand-target">
+                <label className="caf-dialog__expand-control" htmlFor="caf-expand-width">
+                  <span>Output width</span>
+                  <input
+                    id="caf-expand-width"
+                    type="number"
+                    min={naturalSize.w || 1}
+                    max={8192}
+                    step={1}
+                    value={expandTargetWidth}
+                    placeholder={naturalSize.w ? String(naturalSize.w) : 'Source width'}
+                    onChange={(event) => setExpandTargetWidth(event.target.value)}
+                    disabled={isProcessing}
+                  />
+                </label>
+                <label className="caf-dialog__expand-control" htmlFor="caf-expand-height">
+                  <span>Output height</span>
+                  <input
+                    id="caf-expand-height"
+                    type="number"
+                    min={naturalSize.h || 1}
+                    max={8192}
+                    step={1}
+                    value={expandTargetHeight}
+                    placeholder={naturalSize.h ? String(naturalSize.h) : 'Source height'}
+                    onChange={(event) => setExpandTargetHeight(event.target.value)}
+                    disabled={isProcessing}
+                  />
+                </label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={
+                    isProcessing ||
+                    naturalSize.w <= 0 ||
+                    naturalSize.h <= 0 ||
+                    !expandTargetWidth ||
+                    !expandTargetHeight
+                  }
+                  onClick={() => {
+                    const outputWidth = Number(expandTargetWidth);
+                    const outputHeight = Number(expandTargetHeight);
+                    try {
+                      const padding = expandPaddingForOutputSize(
+                        naturalSize.w,
+                        naturalSize.h,
+                        outputWidth,
+                        outputHeight,
+                        expandAnchor,
+                      );
+                      setExpandPadding(padding);
+                      setExpandAspectRatio('free');
+                      invalidatePreview();
+                    } catch (error) {
+                      setErrorMessage(
+                        error instanceof Error ? error.message : 'The output frame is invalid.',
+                      );
+                    }
+                  }}
+                >
+                  Set size
+                </Button>
+              </div>
               <div className="caf-dialog__expand-grid">
                 {(['top', 'right', 'bottom', 'left'] as const).map((side) => (
                   <label key={side} className="caf-dialog__expand-field">
@@ -2754,14 +2934,25 @@ export function ContentAwareFillDialog({
                       id={`caf-expand-${side}`}
                       type="number"
                       min={0}
-                      max={1024}
+                      max={4096}
                       step={1}
                       value={expandPadding[side]}
                       onChange={(event) => {
-                        const value = Math.max(0, Math.min(1024, Number(event.target.value) || 0));
-                        setExpandPadding((current) => ({ ...current, [side]: value }));
+                        const value = Math.max(0, Math.min(4096, Number(event.target.value) || 0));
+                        const nextPadding = { ...expandPadding, [side]: value };
+                        setExpandPadding(nextPadding);
+                        setExpandAspectRatio('free');
+                        if (naturalSize.w > 0 && naturalSize.h > 0) {
+                          setExpandTargetWidth(
+                            String(naturalSize.w + nextPadding.left + nextPadding.right),
+                          );
+                          setExpandTargetHeight(
+                            String(naturalSize.h + nextPadding.top + nextPadding.bottom),
+                          );
+                        }
                         invalidatePreview();
                       }}
+                      disabled={isProcessing}
                     />
                   </label>
                 ))}

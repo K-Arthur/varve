@@ -49,6 +49,7 @@ export function ImageCropSection({ nodes, sectionId }: ImageCropSectionProps) {
     convertToCropAndExpand,
     resetImageBounds,
     applyFaceAwareCrop,
+    openCafDialog,
   } = useEditor();
   const node = nodes[0];
 
@@ -81,6 +82,7 @@ export function ImageCropSection({ nodes, sectionId }: ImageCropSectionProps) {
           isCropMode={isCropMode}
           expandImageBounds={expandImageBounds}
           convertToCropAndExpand={convertToCropAndExpand}
+          openCafDialog={openCafDialog ? () => openCafDialog(shapeNode.id) : undefined}
         />
 
         {/* Reset */}
@@ -559,6 +561,7 @@ function ExpandControls({
   isCropMode,
   expandImageBounds,
   convertToCropAndExpand,
+  openCafDialog,
 }: {
   isCropMode: boolean;
   expandImageBounds: (
@@ -569,6 +572,7 @@ function ExpandControls({
     padding: number,
     sides?: { top?: number; right?: number; bottom?: number; left?: number },
   ) => void;
+  openCafDialog?: () => void;
 }) {
   const [padding, setPadding] = useState(20);
   const [fromCenter, setFromCenter] = useState(false);
@@ -623,6 +627,16 @@ function ExpandControls({
             </Tooltip>
           )}
         </div>
+        {openCafDialog && (
+          <div className="insp-crop-section__expand-actions">
+            <Tooltip label="Open Generative Edit with this image as the source">
+              <button type="button" className="insp-btn-sm" onClick={openCafDialog}>
+                <Icon name="Sparkles" size="0.85em" />
+                <span>Generative Expand</span>
+              </button>
+            </Tooltip>
+          </div>
+        )}
       </div>
     </DisclosureSection>
   );

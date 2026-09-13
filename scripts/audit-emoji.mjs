@@ -43,6 +43,10 @@ const SKIP_DIRS = new Set([
   '.next',
   '.git',
   'coverage',
+  // Playwright traces and screenshots are generated, ignored artifacts. They
+  // can be removed while this audit is walking the tree, which turns a source
+  // check into a spurious ENOENT failure during concurrent validation.
+  'test-results',
   '.pnpm-store',
   '.tauri',
   'playwright-report',
@@ -57,7 +61,13 @@ async function walk(dir, out = []) {
   }
   for (const e of entries) {
     if (e.isDirectory()) {
-      if (!SKIP_DIRS.has(e.name) && !e.name.startsWith('.worktrees'))
+      const isGeneratedPlaywrightResults =
+        e.name === 'test-results' || e.name.startsWith('test-results-');
+      if (
+        !SKIP_DIRS.has(e.name) &&
+        !isGeneratedPlaywrightResults &&
+        !e.name.startsWith('.worktrees')
+      )
         await walk(join(dir, e.name), out);
     } else if (e.isFile() && ALL_EXT.has(extname(e.name))) {
       out.push(join(dir, e.name));
