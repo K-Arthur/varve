@@ -666,6 +666,7 @@ export {
   localRectToScreen,
   MAX_ZOOM,
   MIN_ZOOM,
+  placeWorldPointAtScreen,
   resetViewRotation,
   revealBoundsCamera,
   revealBoundsCameraWithRotation,
