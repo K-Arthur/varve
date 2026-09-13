@@ -55,6 +55,7 @@ source inspection and focused tests before repair.
 | Change a broad scope in the inspector | Impact modal read `impact` for the old scope while showing `pendingScope` | Pending state was not used for diagnostics | Compute `pendingImpact`; remove target-count “off-screen deferred” heuristic because the scene helper has no viewport | Inspector code path and focused UI validation |
 | Apply +1 EV to a midtone | Software kernel used `encoded ** 2.2` while describing linear light | Approximate gamma was substituted for the shared sRGB transfer curve | Use `srgbToLinearUnit`, EV multiplication, linear offset/gamma, and `linearToSrgbUnit`; clamp non-finite inputs | Exact numeric compositor oracle |
 | Enter malformed Levels/Curves values | NaN/infinity and reversed intervals could reach LUT arithmetic | Kernel trusted UI-normalized input | Finite bounded Levels parameters, deterministic interval collapse/reversal, finite Curve points and duplicate-x resolution | Levels/Curves focused tests |
+| Target a neutral pixel with a colour-range Hue/Saturation edit | A Reds/Saturation edit treated an achromatic hue of zero as red | Range selection was evaluated without an achromatic guard | Only the Master range can affect a zero-chroma pixel; targeted ranges keep neutral artwork neutral | Hue/Saturation focused test |
 | Inspect Levels/Curves later in a stack | Histogram source was always the scoped pre-stack composite | Cache key and render stage omitted selected entry/upstream filters | Histogram key includes stage; upstream `FilterIR` is rendered through the existing compositor; UI labels the source stage | Panel/editor tests; browser visual workflow pending final E2E gate |
 
 ## Canonical contracts after this slice
@@ -97,11 +98,15 @@ is not a final-output or display-proof histogram.
 - Adjustment masks, LUT portability, save/reopen, and raster/SVG/PDF export
   still need a fresh full workflow capture on this checkout; existing
   architecture documents describe their current boundaries but do not replace
-  that evidence.
+  that evidence. The focused Chromium attempt is captured under
+  `test-results/adjustments-e2e-1517/` and `test-results/adjustments-e2e-1518/`:
+  one run showed a live `colorHalftone.ts`/`filterCompositor.ts` export mismatch
+  from concurrent work, and the fresh run reached Varve's “bundle loaded but
+  never rendered” startup watchdog during Vite dependency optimization. These
+  are runtime blockers for the visual gate, not successful adjustment evidence.
 - The effect kernel remains an RGBA8 Canvas2D/software reference path. Native,
   WASM, and WebGPU acceleration must prove equivalence before dispatch.
 - Histogram sampling is stage-aware but still downscaled and does not yet
   expose viewport/crop provenance in the UI.
 - No neural model was added. Deterministic controls remain usable offline and
   model/provider absence cannot disable them.
-

@@ -167,6 +167,9 @@ Channel Mixer, and Black & White through the same `Adjustment` union and
 - Curves preserve non-monotonic output values for creative inversions while
   sorting and de-duplicating input coordinates and clamping malformed points.
   The editor and kernel share the same normalized point representation.
+- Hue/Saturation range edits use circular hue distance and leave achromatic
+  pixels out of targeted colour families; only the Master range can deliberately
+  change neutral saturation/lightness.
 - Temperature/tint controls are creative channel shifts, not calibrated Kelvin
   or ICC white-point transforms. Selective Color's CMYK-style controls are not
   native CMYK raster processing.
