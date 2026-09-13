@@ -103,6 +103,7 @@ export function NodeEditOverlay({
           return (
             <g
               key={`node-${globalIndex}-${point.x}-${point.y}-${point.handleIn?.join(':') ?? ''}-${point.handleOut?.join(':') ?? ''}`}
+              pointerEvents="none"
               data-node-anchor={globalIndex}
               data-node-ring={ringIndex}
               data-node-point={pointIndex}

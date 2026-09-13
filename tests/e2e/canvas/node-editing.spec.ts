@@ -90,12 +90,10 @@ test.describe('Node editing pointer selection', () => {
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     const beforePixels = await canvas.screenshot();
     await page.mouse.click(before[0]!.x, before[0]!.y);
-    const canvasBox = await canvas.boundingBox();
-    if (!canvasBox) throw new Error('content canvas not found after node selection');
-    await canvas.click({
-      position: { x: before[1]!.x - canvasBox.x, y: before[1]!.y - canvasBox.y },
-      modifiers: ['Shift'],
-    });
+    // The node overlay intentionally sits above the canvas and owns anchor
+    // events. Use a real client-coordinate pointer event instead of asking
+    // Playwright to click the canvas element underneath that overlay.
+    await page.mouse.click(before[1]!.x, before[1]!.y, { modifiers: ['Shift'] });
     await expect(
       page.locator('[data-testid="node-edit-overlay"] [data-node-selected="true"]'),
     ).toHaveCount(2);
