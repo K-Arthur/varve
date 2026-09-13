@@ -19,7 +19,10 @@ export interface ImageImportOptions {
 
 /** Full ingestion-time view of one raster source (stored + displayed). */
 export interface InspectedImageSource {
+  /** MIME type of the bytes used by the browser/runtime decoder. */
   mimeType: string;
+  /** Original content-sniffed MIME type when normalization changed it. */
+  sourceMimeType?: string;
   /** Stored (pre-orientation) pixel dimensions. */
   storedWidth: number;
   storedHeight: number;
@@ -42,18 +45,26 @@ export interface InspectedImageSource {
  */
 export function inspectImageSource(data: Uint8Array): InspectedImageSource {
   const sourceBytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data;
+  const sourceInspection = inspectRasterBytes(sourceBytes);
   const bytes = normalizeRasterBytes(sourceBytes);
   const inspection = inspectRasterBytes(bytes);
-  const metadata = extractImageSourceMetadata(bytes, inspection.mimeType);
-  const displayed = displayedDimensions(inspection.width, inspection.height, metadata);
+  // Read colour/orientation metadata from the original container. TIFF is
+  // normalized to PNG for browser decode, and inspecting the normalized bytes
+  // would silently replace TIFF photometric/bit-depth provenance with PNG
+  // defaults.
+  const metadata = extractImageSourceMetadata(sourceBytes, sourceInspection.mimeType);
+  const displayed = displayedDimensions(sourceInspection.width, sourceInspection.height, metadata);
   let iccProfileBase64: string | undefined;
   if (metadata.icc.kind === 'valid') {
     iccProfileBase64 = bytesToBase64(metadata.icc.profile.bytes);
   }
   return {
     mimeType: inspection.mimeType,
-    storedWidth: inspection.width,
-    storedHeight: inspection.height,
+    ...(sourceInspection.mimeType !== inspection.mimeType
+      ? { sourceMimeType: sourceInspection.mimeType }
+      : {}),
+    storedWidth: sourceInspection.width,
+    storedHeight: sourceInspection.height,
     displayedWidth: displayed.width,
     displayedHeight: displayed.height,
     metadata,
@@ -99,6 +110,9 @@ export function importImageAsFill(
 /** Convert TIFF to PNG because browser image elements do not decode TIFF. */
 export function normalizeRasterBytes(data: Uint8Array): Uint8Array {
   if (detectImageMime(data) !== 'image/tiff') return data;
+  // Validate encoded size, dimensions, and decoded-pixel budget before UTIF
+  // reads the strip offsets and allocates a decoded raster.
+  inspectRasterBytes(data);
   const buffer = new Uint8Array(data).buffer;
   const ifds = UTIF.decode(buffer);
   const first = ifds[0];

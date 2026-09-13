@@ -17,8 +17,10 @@ documents the shared `8BPS` header and PSB large-document variant; Adobe's
 [supported Illustrator file formats](https://helpx.adobe.com/illustrator/desktop/get-started/learn-the-basics/supported-file-formats.html)
 documents AI/PDF/EPS as separate routes; and the [W3C SVG
 specification](https://www.w3.org/TR/SVG11/) defines local and external resource
-references. These references describe source formats, not a promise that Varve
-preserves every feature.
+references. The [Library of Congress TIFF Revision 6.0 description](https://www.loc.gov/preservation/digital/formats/fdd/fdd000022.shtml)
+describes TIFF as a tag-based raster container whose IFDs can represent
+different compression, colour, and bit-depth choices. These references
+describe source formats, not a promise that Varve preserves every feature.
 
 ## Support levels
 

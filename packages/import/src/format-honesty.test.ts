@@ -9,6 +9,8 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { gzipSync, strToU8 } from 'fflate';
 import { describe, expect, it } from 'vitest';
+import { inspectImageSource } from './image';
+import { importFile } from './import';
 import { getImportAcceptString } from './registry';
 import { ImportService } from './service';
 
@@ -84,6 +86,36 @@ describe('import format honesty', () => {
       assetId: expect.any(String),
       imageWidth: 64,
       imageHeight: 48,
+    });
+  });
+
+  it('keeps TIFF source colour provenance while storing the normalized PNG', () => {
+    const bytes = corpusFile('raster.tif');
+    const inspected = inspectImageSource(bytes);
+    expect(inspected).toMatchObject({
+      mimeType: 'image/png',
+      sourceMimeType: 'image/tiff',
+      storedWidth: 64,
+      storedHeight: 48,
+      metadata: {
+        encoding: {
+          model: 'rgb',
+          bitDepth: 16,
+          provenance: 'format-default',
+        },
+      },
+    });
+
+    const result = importFile('raster.tif', bytes);
+    const node = result.document.nodes[result.nodeIds[0]!]!;
+    const assetId = node.fills?.[0]?.image?.assetId;
+    const asset = assetId ? result.document.assets?.[assetId] : undefined;
+    expect(asset).toMatchObject({
+      mimeType: 'image/png',
+      dataUrl: expect.stringMatching(/^data:image\/png;base64,/),
+      metadata: {
+        colorEncoding: expect.objectContaining({ provenance: 'format-default' }),
+      },
     });
   });
 

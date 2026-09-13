@@ -1388,15 +1388,18 @@ The implemented contract is deliberately bounded:
 - AI stays on the `.ai` adapter for PDF-compatible and legacy EPS wrappers;
   embedded safe SVG is delegated to the SVG parser and complex Illustrator
   semantics are partial.
-- TIFF is decoded from its first IFD and normalized to an embedded PNG. The
-  report discloses the loss of multi-page/layered/high-bit-depth semantics.
+- TIFF is decoded from its first IFD and normalized to an embedded PNG. Source
+  photometric and bit-depth metadata is extracted before normalization; the
+  report discloses the loss of multi-page/layered/high-bit-depth pixel
+  semantics.
 
 The standards references used for the boundary are Adobe's [Photoshop File
 Format Specification](https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/),
 Adobe's [supported Illustrator file formats](https://helpx.adobe.com/illustrator/desktop/get-started/learn-the-basics/supported-file-formats.html),
-and the [W3C SVG 1.1 specification](https://www.w3.org/TR/SVG11/). They define
-source-format behavior; they do not turn a partial Varve parser into a full
-round-trip implementation.
+the [W3C SVG 1.1 specification](https://www.w3.org/TR/SVG11/), and the
+[Library of Congress TIFF Revision 6.0 description](https://www.loc.gov/preservation/digital/formats/fdd/fdd000022.shtml).
+They define source-format behavior; they do not turn a partial Varve parser
+into a full round-trip implementation.
 
 Requirement-to-test mapping:
 
@@ -1410,7 +1413,7 @@ Requirement-to-test mapping:
 
 Validation evidence for this audit:
 
-- `pnpm exec vitest run packages/import/src/formatCapabilities.test.ts packages/import/src/registry.test.ts packages/import/src/format-honesty.test.ts packages/import/src/service.test.ts packages/import/src/psd.test.ts packages/import/src/psd-mask.test.ts packages/import/src/bitmap.test.ts packages/import/src/svg.test.ts packages/import/src/validation.test.ts --maxWorkers=1 --reporter=dot` — **101 tests passed**.
+- `pnpm exec vitest run packages/import/src/formatCapabilities.test.ts packages/import/src/registry.test.ts packages/import/src/format-honesty.test.ts packages/import/src/service.test.ts packages/import/src/psd.test.ts packages/import/src/psd-mask.test.ts packages/import/src/bitmap.test.ts packages/import/src/svg.test.ts packages/import/src/validation.test.ts --maxWorkers=1 --reporter=dot` — **102 tests passed**.
 - `pnpm exec tsc -p packages/import/tsconfig.json --noEmit --pretty false` — **passed**.
 - `pnpm build:website && pnpm build:website:pages` — **both 86-page builds passed**.
 - `VARVE_WEBSITE_E2E_PORT=4341 VARVE_WEBSITE_E2E_PORT_ROOT=4342 pnpm exec playwright test -c playwright.website.config.ts apps/website/tests/e2e/clipboard-feature.spec.ts --project=ghpages --project=custom-domain --project=touch --workers=1 --reporter=list` — **8 passed**; desktop light/dark and mobile captures were inspected for both bases.

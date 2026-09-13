@@ -103,7 +103,7 @@ server (`tests/e2e/canvas/file-import.spec.ts`, snapshots inspected).
 | WebP | Full | Extended-format dimension probe fixed 2026-08-27. Animated WebP retained as animated media |
 | GIF | Full | Animation retained, not flattened to a first frame |
 | BMP | Full | |
-| TIFF | Flattened raster | The first IFD is decoded and transcoded to an embedded PNG (`utif` + `upng-js`); multi-page/layered TIFF fidelity is reported as a loss |
+| TIFF | Flattened raster | The first IFD is decoded and transcoded to an embedded PNG (`utif` + `upng-js`); source photometric/bit-depth metadata is inspected before normalization, while multi-page/layered TIFF fidelity is reported as a loss |
 | AVIF | Full | `ispe` box probe now recurses through `iprp`/`ipco` |
 | SVG / SVGZ | Editable vector | See fidelity matrix; `.svgz` is gunzipped by content sniff |
 | PSD / PSB | Partial | Version 1/2 `8BPS` files import a bounded layer tree (groups, bounds, visibility, opacity, and representable masks); layer pixels, effects, adjustment layers, and smart objects are reported as unsupported |
