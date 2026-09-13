@@ -231,7 +231,9 @@ decode; cyclic `<use>` is detected by a visited-id set.
   format honesty, service), including the checked-in PSD/PSB/TIFF corpus and
   synthetic PDF-compatible AI wrapper, plus `packages/editor/src/importPickerWiring.test.tsx`.
 - E2E: `tests/e2e/canvas/file-import.spec.ts` (real menu action, six specs
-  with visual snapshots), `tests/e2e/browser/try-demo.spec.ts` (demo import).
+  with visual snapshots) and `tests/e2e/canvas/import-format-smoke.spec.ts`
+  (PSD/PSB/TIFF plus SVG/PDF/AI/EPS through the real menu, with inspected
+  evidence screenshots), `tests/e2e/browser/try-demo.spec.ts` (demo import).
 
 ## Frontend operation lifetime
 
