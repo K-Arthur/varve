@@ -28,7 +28,10 @@ so adding an effect cannot silently do nothing.
 ## Execution order and editing order
 
 The authored array preserves entry identity and masks. Rendering uses stable
-execution stages:
+execution stages. Live Canvas2D group replay and structured export replay
+share their content/backdrop implementation in
+`packages/editor/src/render/groupEffectStages.ts`; preview and export therefore
+do not silently choose different group-effect semantics.
 
 1. **Backdrop:** Background Blur and Glass Material backdrop acquisition.
 2. **Content:** fills/strokes followed by Layer Blur, Depth Blur, Chromatic
@@ -102,29 +105,21 @@ An executed audit (code inspection + tests, not documentation) found these
 fidelity gaps. They are stated here so the staged contract above is not read
 as a claim about every renderer:
 
-- **Live container flattening still evaluates group effects in authored array
-  order** (`packages/editor/src/canvas/renderPipeline.ts`, group branch) with
-  `layerBlur` applied out of band, instead of using one shared staged helper
-  with the leaf renderer (`packages/engine/src/replay.ts`). The structured
-  export path is staged and applies every visible group content effect; live
-  parity remains tracked separately.
-- **Group effect masks remain content-stage-only.** Group backdrop and
-  appearance effects are now rendered, but `effect.mask` on
-  `backgroundBlur`, `glassMaterial`, shadows, and glows is still ignored by
-  every renderer. The Inspector hides mask authoring for those types and
-  preserves an existing mask for recovery; a future implementation needs a
-  declared mask-combination contract before enabling the control.
 - **Effect masks are applied to the content pass only.** `dropShadow`,
   `outerGlow`, `innerShadow`, `innerGlow`, `backgroundBlur`, and
-  `glassMaterial` ignore `effect.mask` in every renderer. The Inspector now
-  hides mask authoring for those types (`effectSupportsMask`) and keeps an
-  existing authored mask removable, but the renderers still ignore it.
+  `glassMaterial` ignore `effect.mask` in every renderer. The Inspector hides
+  mask authoring for those types (`effectSupportsMask`) and keeps an existing
+  authored mask removable; a future implementation needs a declared
+  mask-combination contract before enabling the control.
 - **The live canvas never resolves `scene-node`/`vector` effect masks**; only
   export/thumbnail replay (`replayScene.ts` `EffectMaskResolver`) evaluates
   them.
-- **Skipped optional effects are silent.** Allocation refusal, missing
-  canvases, and failed pixel reads fall through with no diagnostic channel;
-  `filterCompositor`'s `onDiagnostic` hook has no production caller.
+- **Skipped optional effects are silent in the engine and live renderer.**
+  Allocation refusal, missing canvases, and failed pixel reads there fall
+  through with no diagnostic channel; `filterCompositor`'s `onDiagnostic` hook
+  has no production caller. Export rasterization is the exception: it now
+  reports typed `pixel-budget-exceeded` / `surface-unavailable` /
+  `encode-failed` diagnostics through `ExportSnapshot` and export warnings.
 - **Frame-owned effects evaluate the frame's own IR item before children**,
   so an `innerShadow`/`layerBlur` on a frame does not see child pixels
   (group flattening does).
