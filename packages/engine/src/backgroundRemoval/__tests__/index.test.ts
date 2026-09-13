@@ -85,6 +85,8 @@ const HEURISTIC_RESULT = {
   height: 4,
 };
 
+const navigatorDeviceMemoryDescriptor = Object.getOwnPropertyDescriptor(navigator, 'deviceMemory');
+
 describe('removeBackground dispatch', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -126,11 +128,20 @@ describe('removeBackground dispatch', () => {
     mockGetBestOnnxProviders.mockReset().mockResolvedValue(['wasm']);
     vi.unstubAllGlobals();
     delete (window as unknown as { __TAURI__?: unknown }).__TAURI__;
+    Object.defineProperty(navigator, 'deviceMemory', {
+      configurable: true,
+      value: 8,
+    });
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
     delete (window as unknown as { __TAURI__?: unknown }).__TAURI__;
+    if (navigatorDeviceMemoryDescriptor) {
+      Object.defineProperty(navigator, 'deviceMemory', navigatorDeviceMemoryDescriptor);
+    } else {
+      Reflect.deleteProperty(navigator, 'deviceMemory');
+    }
   });
 
   it('rejects 0-byte images before dispatching anywhere', async () => {

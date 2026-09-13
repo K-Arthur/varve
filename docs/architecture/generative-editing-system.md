@@ -216,8 +216,9 @@ downscale. On a browser that exposes an explicit memory hint, the reservation
 includes the resident source frame and the temporary preparation copy, so a
 large photograph is refused before a second full-resolution canvas can trigger
 an allocation failure. Quick Cleanup remains available. An absent browser hint
-does not claim a measured low-memory device; the provider's own model and
-runtime gates still decide whether the AI path can start.
+does not claim a measured low-memory device; the canonical runtime's
+conservative safe peak still decides whether source preparation fits, and the
+provider's own model/runtime gates remain authoritative for starting AI.
 
 ## Mask and coordinate contract
 

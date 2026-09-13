@@ -162,12 +162,6 @@ function withPreviewDefaults(options: BackgroundRemovalOptions): BackgroundRemov
 const FALLBACK_MODEL_ID = 'u2netp';
 const FALLBACK_MODEL_PEAK_BYTES = 330_000_000;
 
-function browserReportsDeviceMemory(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  const value = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
-  return typeof value === 'number' && Number.isFinite(value) && value > 0;
-}
-
 function boundedWorkingDimensions(
   width: number,
   height: number,
@@ -199,11 +193,11 @@ async function preflightBrowserSourceMemory(
 
   const runtime = await getRuntimeCapabilities();
   if (signal?.aborted) throw new Error('cancelled');
-  // An absent deviceMemory value is deliberately not treated as a measured
-  // low-memory device. The model/provider gate still remains conservative in
-  // that case, while this source-buffer gate is reserved for an explicit
-  // browser memory signal (for example a 2 GB Chromebook profile).
-  if (runtime.isTauri || !browserReportsDeviceMemory()) return;
+  // Native providers perform their authoritative OS/cgroup check in the
+  // command immediately before model startup. Browser/WASM runtimes use the
+  // canonical safe peak even when `navigator.deviceMemory` is absent; that is
+  // common in privacy-preserving browsers and some ChromeOS/ARM WebViews.
+  if (runtime.isTauri) return;
 
   const working = boundedWorkingDimensions(imageData.width, imageData.height, maxDimension);
   const sourceBytes = imageData.width * imageData.height * 4;

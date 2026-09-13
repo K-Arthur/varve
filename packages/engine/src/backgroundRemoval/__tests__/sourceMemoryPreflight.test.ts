@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockDispatch, mockDownscale, mockRuntime } = vi.hoisted(() => ({
   mockDispatch: vi.fn(),
@@ -20,6 +20,11 @@ vi.mock('../previewDownscale', () => ({
 }));
 
 describe('background-removal source memory preflight', () => {
+  beforeEach(() => {
+    mockDispatch.mockReset();
+    mockDownscale.mockReset();
+  });
+
   it('refuses a large real-image-shaped source before temporary downscale allocation', async () => {
     mockRuntime.mockResolvedValue({
       isTauri: false,
@@ -81,5 +86,37 @@ describe('background-removal source memory preflight', () => {
 
     await removeBackground(imageData, { method: 'ai-balanced' });
     expect(mockDispatch).toHaveBeenCalled();
+  });
+
+  it('uses the conservative safe peak when the browser omits its memory hint', async () => {
+    mockRuntime.mockResolvedValue({
+      isTauri: false,
+      wasmSafePeakBytes: 400_000_000,
+    });
+
+    const navigatorWithMemory = navigator as Navigator & { deviceMemory?: number };
+    const previousDeviceMemory = Object.getOwnPropertyDescriptor(navigator, 'deviceMemory');
+    Reflect.deleteProperty(navigatorWithMemory, 'deviceMemory');
+
+    try {
+      const { removeBackground } = await import('../index');
+      const imageData = {
+        width: 5171,
+        height: 6402,
+        data: new Uint8ClampedArray(0),
+      } as unknown as ImageData;
+
+      await expect(removeBackground(imageData, { method: 'ai-balanced' })).rejects.toThrow(
+        /safe inference budget/i,
+      );
+      expect(mockDownscale).not.toHaveBeenCalled();
+      expect(mockDispatch).not.toHaveBeenCalled();
+    } finally {
+      if (previousDeviceMemory) {
+        Object.defineProperty(navigator, 'deviceMemory', previousDeviceMemory);
+      } else {
+        Reflect.deleteProperty(navigatorWithMemory, 'deviceMemory');
+      }
+    }
   });
 });
