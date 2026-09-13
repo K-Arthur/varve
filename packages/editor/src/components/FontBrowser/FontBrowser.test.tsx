@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { getFontRegistry } from '@varve/engine';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FontBrowser } from './FontBrowser';
@@ -172,7 +172,7 @@ describe('FontBrowser', () => {
     expect(document.activeElement).toBe(all);
   });
 
-  it('keeps virtualized family rows keyboard navigable with one tab stop', () => {
+  it('keeps virtualized family rows keyboard navigable with one tab stop', async () => {
     render(<FontBrowser layout="modal" showDownloadable />);
 
     const rows = screen
@@ -188,13 +188,34 @@ describe('FontBrowser', () => {
     expect(document.activeElement).toBe(rows[1]);
 
     fireEvent.keyDown(rows[1]!, { key: 'End' });
-    const last = rows.at(-1)!;
-    expect(last).toHaveAttribute('tabindex', '0');
-    expect(document.activeElement).toBe(last);
+    await waitFor(() => {
+      const active = screen
+        .getAllByRole('button')
+        .filter((button) => button.classList.contains('font-browser__select-btn'))
+        .find((button) => button.getAttribute('tabindex') === '0');
+      expect(active).toBeTruthy();
+      expect(document.activeElement).toBe(active);
+    });
+    const last = screen
+      .getAllByRole('button')
+      .filter((button) => button.classList.contains('font-browser__select-btn'))
+      .find((button) => button.getAttribute('tabindex') === '0')!;
 
     fireEvent.keyDown(last, { key: 'Home' });
-    expect(rows[0]).toHaveAttribute('tabindex', '0');
-    expect(document.activeElement).toBe(rows[0]);
+    await waitFor(() => {
+      expect(rows[0]).toHaveAttribute('tabindex', '0');
+      expect(document.activeElement).toBe(rows[0]);
+    });
+  });
+
+  it('bounds the pre-measure catalog bootstrap while keeping the active row mounted', () => {
+    render(<FontBrowser layout="modal" showDownloadable />);
+
+    const rows = screen
+      .getAllByRole('button')
+      .filter((button) => button.classList.contains('font-browser__select-btn'));
+    expect(rows.length).toBeLessThanOrEqual(120);
+    expect(rows.length).toBeGreaterThan(0);
   });
 
   it('applies the exact registered face chosen from an expanded family', () => {

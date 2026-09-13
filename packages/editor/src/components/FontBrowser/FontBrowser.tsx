@@ -114,6 +114,12 @@ const SEMANTIC_FILTERS: readonly { key: SemanticFilter; label: string; query?: s
   { key: 'vietnamese', label: 'Vietnamese', query: 'Vietnamese' },
 ] as const;
 
+// A portaled list can render once before its viewport has a measurable size.
+// Keep that bootstrap render bounded so a 1k+ family catalog does not mount
+// every row before TanStack Virtual can take over.
+const FALLBACK_ROW_LIMIT = 120;
+const FALLBACK_ROW_HEIGHT = 58;
+
 function sourceMatches(record: FontSemanticRecord, filter: SourceFilter): boolean {
   switch (filter) {
     case 'all':
@@ -386,6 +392,13 @@ export function FontBrowser({
     return entries.sort((a, b) => a.record.familyName.localeCompare(b.record.familyName));
   }, [activeFilter, effectiveQuery, registry, searchResults, showDownloadable]);
 
+  // A controlled browser can open with a family that is outside the first
+  // bootstrap page. Keep that row mounted so its expansion and exact-face
+  // controls remain actionable while the list is still measuring.
+  const selectedFamilyIndex = selectedFamily
+    ? displayEntries.findIndex((entry) => entry.record.familyName === selectedFamily)
+    : -1;
+
   const virtualizer = useVirtualizer({
     count: displayEntries.length,
     getScrollElement: () => listElement,
@@ -394,25 +407,53 @@ export function FontBrowser({
     overscan: 8,
     rangeExtractor: (range) => {
       const visible = defaultRangeExtractor(range);
-      if (activeFamilyIndex < 0 || activeFamilyIndex >= displayEntries.length) return visible;
-      return [...new Set([...visible, activeFamilyIndex])].sort((a, b) => a - b);
+      const pinned = [activeFamilyIndex, selectedFamilyIndex].filter(
+        (index) => index >= 0 && index < displayEntries.length,
+      );
+      if (pinned.length === 0) return visible;
+      return [...new Set([...visible, ...pinned])].sort((a, b) => a - b);
     },
   });
   const virtualItems = virtualizer.getVirtualItems();
+  const fallbackVirtualItems = useMemo(() => {
+    const indexes = new Set<number>();
+    const pinned = new Set(
+      [activeFamilyIndex, selectedFamilyIndex].filter(
+        (index) => index >= 0 && index < displayEntries.length,
+      ),
+    );
+    for (let index = 0; index < Math.min(displayEntries.length, FALLBACK_ROW_LIMIT); index += 1) {
+      indexes.add(index);
+    }
+    for (const index of pinned) {
+      indexes.add(index);
+    }
+    while (indexes.size > FALLBACK_ROW_LIMIT) {
+      const removable = [...indexes].reverse().find((index) => !pinned.has(index));
+      if (removable === undefined) break;
+      indexes.delete(removable);
+    }
+    return [...indexes]
+      .sort((a, b) => a - b)
+      .map((index) => ({
+        index,
+        key: displayEntries[index]?.record.familyId ?? index,
+        start: index * FALLBACK_ROW_HEIGHT,
+        end: (index + 1) * FALLBACK_ROW_HEIGHT,
+        size: FALLBACK_ROW_HEIGHT,
+        lane: 0,
+      }));
+  }, [activeFamilyIndex, displayEntries, selectedFamilyIndex]);
+
   // A zero-sized jsdom viewport (and the first render before a portal/list
   // element is attached) has no measurable range. Keep the content usable in
-  // that state; a real viewport switches to the measured range immediately.
-  const rowsToRender =
+  // that state with a bounded estimate; a real viewport switches to the
+  // measured range immediately.
+  const rowsToRender = virtualItems.length > 0 ? virtualItems : fallbackVirtualItems;
+  const virtualContentHeight =
     virtualItems.length > 0
-      ? virtualItems
-      : displayEntries.map((entry, index) => ({
-          index,
-          key: entry.record.familyId,
-          start: 0,
-          end: 0,
-          size: 0,
-          lane: 0,
-        }));
+      ? virtualizer.getTotalSize()
+      : displayEntries.length * FALLBACK_ROW_HEIGHT;
 
   const firstVirtualIndex = virtualItems[0]?.index ?? -1;
   const lastVirtualIndex = virtualItems[virtualItems.length - 1]?.index ?? -1;
@@ -835,7 +876,7 @@ export function FontBrowser({
             {displayEntries.length > 0 && (
               <div
                 className="font-browser__virtual-content"
-                style={{ height: virtualizer.getTotalSize() }}
+                style={{ height: virtualContentHeight }}
               >
                 {rowsToRender.map((virtualRow) => {
                   const entry = displayEntries[virtualRow.index];
@@ -851,17 +892,13 @@ export function FontBrowser({
                       ref={virtualizer.measureElement}
                       data-index={virtualRow.index}
                       className={`font-browser__virtual-row font-browser__entry${isSelected ? ' font-browser__entry--selected' : ''}`}
-                      style={
-                        virtualItems.length > 0
-                          ? {
-                              position: 'absolute',
-                              top: 0,
-                              left: 0,
-                              width: '100%',
-                              transform: `translateY(${virtualRow.start}px)`,
-                            }
-                          : undefined
-                      }
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        transform: `translateY(${virtualRow.start}px)`,
+                      }}
                     >
                       <div className="font-browser__row">
                         {hasFaces ? (
