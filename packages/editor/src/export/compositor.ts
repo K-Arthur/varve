@@ -44,6 +44,7 @@ import {
   type ShapeNode,
   textNodeLocalBounds,
 } from '@varve/scene';
+import { hasPotentialStandardLigatureSequence } from '@varve/shared';
 import {
   collectMockupLiveSourceIds,
   decorateMockupSubtree,
@@ -434,6 +435,44 @@ function hasUnsupportedStrokeFeatures(node: SceneNode, cap: FlattenCapability): 
 }
 
 /**
+ * The native PDF writer currently emits source characters (or raw character
+ * outlines), not the resolved GSUB/GPOS glyph stream. Keep any text whose
+ * appearance depends on shaping on the live Canvas2D raster path until the
+ * print backend can consume the shared shaped-run contract.
+ *
+ * This is intentionally conservative: a visibly correct, explicitly marked
+ * raster PDF is safer than a searchable PDF whose ligatures, script joining,
+ * variation axes, or per-range settings silently disappear.
+ */
+function hasUnsupportedPdfTextFeatures(node: SceneNode): boolean {
+  if (node.kind !== 'text') return false;
+
+  if (
+    node.richText?.paragraphs?.length ||
+    (node.textCase && node.textCase !== 'none') ||
+    (node.direction && node.direction !== 'ltr' && node.direction !== 'auto') ||
+    (node.writingMode !== undefined && node.writingMode !== 'horizontal-tb') ||
+    (node.variableAxes && Object.keys(node.variableAxes).length > 0) ||
+    (node.letterSpacing ?? 0) !== 0 ||
+    (node.tracking ?? 0) !== 0 ||
+    (node.glyphAdjustments && Object.keys(node.glyphAdjustments).length > 0) ||
+    (node.pairAdjustments && Object.keys(node.pairAdjustments).length > 0) ||
+    (node.openTypeFeatures && Object.keys(node.openTypeFeatures).length > 0)
+  ) {
+    return true;
+  }
+
+  // Default `liga` is active in normal Latin shaping, even when the scene
+  // contains no explicit feature map. Also protect non-WinAnsi text: the
+  // native fallback's raw character/CID path does not perform BiDi or script
+  // shaping before it reaches the PDF.
+  return (
+    hasPotentialStandardLigatureSequence(node.text, node.openTypeFeatures) ||
+    [...node.text].some((character) => character.codePointAt(0)! > 0xff)
+  );
+}
+
+/**
  * Check whether a node has non-normal blend modes on groups with effects.
  */
 function hasComplexBlend(node: SceneNode, cap: FlattenCapability): boolean {
@@ -508,6 +547,7 @@ export function assessNodeCapability(
     // curved text through the affected-node raster boundary so PDF output
     // matches the live Canvas2D result without flattening the whole page.
     if (target === 'pdf' && node.textMode === 'path') return false;
+    if (target === 'pdf' && hasUnsupportedPdfTextFeatures(node)) return false;
   }
 
   // Groups and frames

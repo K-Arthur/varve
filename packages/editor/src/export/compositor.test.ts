@@ -683,10 +683,33 @@ describe('assessNodeCapability', () => {
       expect(assessNodeCapability(node, doc, 'svg')).toBe(true);
     });
 
-    it('PDF supports text via strata-print', () => {
+    it('PDF supports plain text without shaping-sensitive settings', () => {
       const node = makeTextNode('t1');
       const doc = makeDoc({ t1: node });
       expect(assessNodeCapability(node, doc, 'pdf')).toBe(true);
+    });
+
+    it('PDF rasterizes standard ligatures so the live shaped appearance is preserved', () => {
+      const node = makeTextNode('t1', { text: 'office' });
+      const doc = makeDoc({ t1: node });
+      expect(assessNodeCapability(node, doc, 'pdf')).toBe(false);
+    });
+
+    it('PDF rasterizes explicit feature values, axes, and manual cluster edits', () => {
+      const node = makeTextNode('t1', {
+        text: 'Wordmark',
+        openTypeFeatures: { ss01: 2 },
+        variableAxes: { wdth: 82 },
+        glyphAdjustments: { 2: { dx: 4 } },
+      });
+      const doc = makeDoc({ t1: node });
+      expect(assessNodeCapability(node, doc, 'pdf')).toBe(false);
+    });
+
+    it('PDF rasterizes non-Latin text before the raw CID fallback can lose shaping', () => {
+      const node = makeTextNode('t1', { text: 'سلام' });
+      const doc = makeDoc({ t1: node });
+      expect(assessNodeCapability(node, doc, 'pdf')).toBe(false);
     });
 
     it('PDF rasterizes text on path at the affected node boundary', () => {
