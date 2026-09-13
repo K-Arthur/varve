@@ -39,9 +39,8 @@ interface CanvasFontAliasEntry {
 }
 
 const MAX_ALIASES = 64;
-const MAX_ALIAS_STYLES = 4;
 const ALIAS_STYLE_ID = 'varve-canvas-font-aliases';
-const CANVAS_ALIAS_PREFIX = 'VarveManualProbe_';
+const CANVAS_ALIAS_PREFIX = 'VarveTypography_';
 const LEGACY_CANVAS_ALIAS_PREFIX = '__varve_';
 const ALIAS_SESSION_ID = `s${hashString(`${Date.now()}:${Math.random()}`)}`;
 const aliases = new Map<string, CanvasFontAliasEntry>();
@@ -177,7 +176,7 @@ export function setCanvasFont(context: Pick<CanvasRenderingContext2D, 'font'>, f
 }
 
 function hasFontSetApi(): boolean {
-  return typeof document.fonts?.load === 'function';
+  return typeof FontFace !== 'undefined' && typeof document.fonts?.add === 'function';
 }
 
 function canvasVariationSettings(axes?: Record<string, number>): string | undefined {
@@ -269,22 +268,7 @@ function scheduleAliasRegistration(
 ): void {
   const register = (): void => {
     if (!entry.active) return;
-    // Publish a new stylesheet family only after the authored family has
-    // warmed. Registering the same family first through FontFace objects can
-    // make Chromium retain the variable face's default GSUB state even when
-    // the FontFace reports the requested feature descriptor as loaded.
-    refreshAliasStyle();
-    const stagedReady = text
-      ? document.fonts?.load(`16px ${quoteCss(entry.family)}`, text)
-      : document.fonts?.load(`16px ${quoteCss(entry.family)}`);
-    if (!stagedReady) {
-      publishPaintAlias(entry, text);
-      return;
-    }
-    void stagedReady.then(
-      () => publishPaintAlias(entry, text),
-      () => publishPaintAlias(entry, text),
-    );
+    void loadAliasFaces(entry);
   };
 
   try {
@@ -305,83 +289,45 @@ function scheduleAliasRegistration(
 }
 
 /**
- * Publish the family that Canvas2D will actually paint.
- *
- * Chromium can bind a dynamically-created family to the default GSUB state
- * during its first FontFaceSet lookup. The staged family above is intentionally
- * never handed to a drawing context. A second, fresh family is published after
- * the source and staging lookup have settled; this mirrors the browser's own
- * stylesheet insertion path and prevents a feature-bearing alias from being
- * poisoned by its readiness probe.
+ * Load each source face through FontFace descriptors. Using the constructor
+ * preserves feature and variation settings even when the source URL already
+ * belongs to an authored @font-face rule in the document.
  */
-function publishPaintAlias(entry: CanvasFontAliasEntry, text: string | undefined): void {
-  if (!entry.active) return;
-  const paintFamily = `${CANVAS_ALIAS_PREFIX}paint${hashString(`${entry.family}:paint`)}_${ALIAS_SESSION_ID}`;
-  entry.family = paintFamily;
-  entry.css = buildAliasCss(
-    paintFamily,
-    entry.aliasFaces,
-    entry.featureSettings,
-    entry.variationSettings,
-  );
-  refreshAliasStyle();
-  const paintReady = text
-    ? document.fonts?.load(`16px ${quoteCss(paintFamily)}`, text)
-    : document.fonts?.load(`16px ${quoteCss(paintFamily)}`);
-  if (paintReady) {
-    void paintReady
-      .then(
-        () => waitForCanvasFontStability(),
-        () => waitForCanvasFontStability(),
-      )
-      .then(
-        () => publishActivationAlias(entry, text),
-        () => notifyCanvasFontReady(),
-      );
-  } else {
-    markAliasReady(entry);
-  }
-}
+async function loadAliasFaces(entry: CanvasFontAliasEntry): Promise<void> {
+  if (!entry.active || typeof FontFace === 'undefined' || !document.fonts?.add) return;
 
-/** Publish one final fresh family after the readiness probes have settled. */
-function publishActivationAlias(entry: CanvasFontAliasEntry, text: string | undefined): void {
-  if (!entry.active) return;
-  const activationFamily = `${CANVAS_ALIAS_PREFIX}active${hashString(`${entry.family}:active`)}_${ALIAS_SESSION_ID}`;
-  entry.family = activationFamily;
-  entry.css = buildAliasCss(
-    activationFamily,
-    entry.aliasFaces,
-    entry.featureSettings,
-    entry.variationSettings,
-  );
-  refreshAliasStyle();
-  const activationReady = text
-    ? document.fonts?.load(`16px ${quoteCss(activationFamily)}`, text)
-    : document.fonts?.load(`16px ${quoteCss(activationFamily)}`);
-  if (activationReady) {
-    void activationReady
-      .then(
-        () => waitForCanvasFontStability(),
-        () => waitForCanvasFontStability(),
-      )
-      .then(
-        () => markAliasReady(entry),
-        () => notifyCanvasFontReady(),
-      );
-  } else {
-    markAliasReady(entry);
+  const faces: FontFace[] = [];
+  try {
+    for (const sourceFace of entry.aliasFaces) {
+      const descriptors: FontFaceDescriptors = {
+        ...(sourceFace.weight ? { weight: sourceFace.weight } : {}),
+        ...(sourceFace.style ? { style: sourceFace.style } : {}),
+        ...(sourceFace.stretch ? { stretch: sourceFace.stretch } : {}),
+        ...(sourceFace.unicodeRange ? { unicodeRange: sourceFace.unicodeRange } : {}),
+        ...(sourceFace.display
+          ? { display: sourceFace.display as FontFaceDescriptors['display'] }
+          : {}),
+        ...(entry.featureSettings ? { featureSettings: entry.featureSettings } : {}),
+        ...(entry.variationSettings ? { variationSettings: entry.variationSettings } : {}),
+      };
+      const face = new FontFace(entry.family, sourceFace.source, descriptors);
+      document.fonts.add(face);
+      faces.push(face);
+    }
+    entry.fontFaces = faces;
+    const results = await Promise.allSettled(faces.map((face) => face.load()));
+    if (!entry.active) return;
+    if (faces.length > 0 && results.every((result) => result.status === 'fulfilled')) {
+      markAliasReady(entry);
+      return;
+    }
+  } catch {
+    // Invalid font data or an unavailable FontFace implementation is an
+    // honest fallback to the authored family, never a fake success state.
   }
-}
-
-/** Let the browser commit a newly loaded face before any Canvas context sees it. */
-async function waitForCanvasFontStability(): Promise<void> {
-  await document.fonts?.ready;
-  if (typeof requestAnimationFrame === 'function') {
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-    return;
-  }
-  await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  removeFontFaces(entry);
+  entry.active = false;
+  notifyCanvasFontReady();
 }
 
 function isAliasReady(entry: CanvasFontAliasEntry): boolean {
@@ -480,20 +426,18 @@ function hashString(value: string): string {
 }
 
 function refreshAliasStyle(): void {
-  // Keep a short history of parsed stylesheets. Chromium can retain a
-  // feature-disabled face choice when the stylesheet that introduced it is
-  // removed while a FontFaceSet load is settling. Retaining the last few
-  // immutable parses keeps the browser's face records alive without allowing
-  // generated CSS to grow without bound.
-  const nextStyle = document.createElement('style');
-  aliasStyle?.removeAttribute('id');
-  nextStyle.id = ALIAS_STYLE_ID;
-  nextStyle.dataset.varveGenerated = 'canvas-font-alias';
-  nextStyle.textContent = [...aliases.values()].map((entry) => entry.css).join('');
-  document.head?.append(nextStyle);
-  aliasStyles.push(nextStyle);
-  while (aliasStyles.length > MAX_ALIAS_STYLES) aliasStyles.shift()?.remove();
-  aliasStyle = nextStyle;
+  if (typeof document === 'undefined') return;
+  if (!aliasStyle) {
+    aliasStyle = document.createElement('style');
+    aliasStyle.id = ALIAS_STYLE_ID;
+    aliasStyle.dataset.varveGenerated = 'canvas-font-alias';
+    document.head?.append(aliasStyle);
+    aliasStyles.push(aliasStyle);
+  }
+  aliasStyle.textContent = [...aliases.values()]
+    .filter((entry) => entry.active)
+    .map((entry) => entry.css)
+    .join('');
   void aliasStyle.sheet?.cssRules.length;
 }
 

@@ -1275,7 +1275,7 @@ function primeCanvasTypographyAlias(
   const style = input.style === 'italic' ? 'italic ' : '';
   const weight = Math.max(1, Math.min(1000, input.weight));
   setCanvasFont(target, `${style}${weight} ${input.size}px "${alias}"`);
-  target.measureText(input.text);
+  target.measureText?.(input.text);
 }
 
 /** Paint a single fill (solid, gradient, image, or pattern) over the primitive shape. */

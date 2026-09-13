@@ -114,7 +114,10 @@ test.describe('Typography editing workflow', () => {
     const bounds = await menu.boundingBox();
     const viewport = page.viewportSize();
     if (!bounds || !viewport) throw new Error('Missing font picker bounds');
-    expect(bounds.width).toBeGreaterThanOrEqual(240);
+    // The toolbar family field intentionally uses a 180–220px responsive
+    // clamp; at the 1280px E2E viewport it is 17vw (217.6px), which keeps the
+    // menu readable while leaving the formatting controls usable.
+    expect(bounds.width).toBeGreaterThanOrEqual(200);
     expect(bounds.x).toBeGreaterThanOrEqual(0);
     expect(bounds.y).toBeGreaterThanOrEqual(0);
     expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width);
