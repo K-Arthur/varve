@@ -22,7 +22,7 @@
  *   4 background — pyramid maintenance / persistence
  */
 
-import { type DerivedWorkAdmission, DerivedWorkAdmissionError } from '@varve/platform';
+import { type DerivedWorkAdmission, DerivedWorkAdmissionError, yieldToMain } from '@varve/platform';
 
 export const PYRAMID_PRIORITY_VIEWPORT = 0;
 export const PYRAMID_PRIORITY_INTERACTION = 1;
@@ -271,6 +271,7 @@ export class PyramidScheduler<T> {
         signal: controller.signal,
       });
       if (job.cancelled || this.disposed || controller.signal.aborted) return;
+      await yieldToMain(controller.signal);
       await this.runFn(job);
     } catch (error) {
       // Admission rejection is a bounded, recoverable degradation: callers

@@ -200,6 +200,7 @@ export class GpuEffectRunner {
       if (selection.kind === 'unavailable') return false;
       const device = await selection.adapter.requestDevice();
       this.device = device;
+      this.watchDeviceLost(device);
       this.samplerLinear = device.createSampler({ magFilter: 'linear', minFilter: 'linear' });
       this.samplerNearest = device.createSampler({ magFilter: 'nearest', minFilter: 'nearest' });
       this.paramsBuffer = device.createBuffer({
@@ -521,6 +522,28 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   }
 
   destroy(): void {
+    this.releaseDeviceResources(true);
+  }
+
+  /**
+   * A lost device invalidates every child resource. Drop all cached GPU
+   * objects synchronously and clear the shared runner so the next optional
+   * effect request can re-probe from a fresh adapter. Intentional `destroy()`
+   * calls are ignored by the identity guard in the callback.
+   */
+  private watchDeviceLost(device: GPUDevice): void {
+    const lost = device.lost;
+    if (!lost || typeof lost.then !== 'function') return;
+    void lost
+      .then(() => {
+        if (this.device !== device) return;
+        this.releaseDeviceResources(false);
+        if (sharedRunner === this) sharedRunner = null;
+      })
+      .catch(() => undefined);
+  }
+
+  private releaseDeviceResources(destroyDevice: boolean): void {
     for (const tex of this.pool.values()) tex.destroy();
     this.pool.clear();
     this.pipelines.clear();
@@ -532,12 +555,13 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
     this.paramsBuffer = null;
     this.paletteBuffer?.destroy();
     this.paletteBuffer = null;
-    this.paramsLayout = null;
-    this.paletteLayout = null;
-    this.device?.destroy();
+    const device = this.device;
+    if (destroyDevice) device?.destroy();
     this.device = null;
     this.samplerLinear = null;
     this.samplerNearest = null;
+    this.paramsLayout = null;
+    this.paletteLayout = null;
     this.ready = false;
   }
 }

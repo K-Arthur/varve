@@ -8,6 +8,7 @@
  */
 
 import type { DerivedWorkAdmission } from './derivedWorkAdmission';
+import { yieldToMain } from './scheduling';
 
 export interface SemanticEmbeddingJob<T> {
   id: string;
@@ -157,6 +158,7 @@ export class SemanticEmbeddingQueue<T> {
           return;
         }
       }
+      if (this.admission) await yieldToMain(controller.signal);
       const value = await entry.job.run(controller.signal);
       if (controller.signal.aborted || entry.job.isCurrent?.() === false) {
         this.cancelled += 1;

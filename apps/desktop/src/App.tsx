@@ -5,6 +5,7 @@ import {
   currentDocumentSchemaVersion,
   getDesktopAnalytics,
   installCrashTestHooks,
+  installPageLifecycleAdmission,
   KeyboardInsetPublisher,
   type OpenFileRequest,
   renderProjectThumbnailNow,
@@ -62,6 +63,8 @@ export function App() {
   const [homeSettingsOpen, setHomeSettingsOpen] = useState(false);
   const pendingHomeMilestone = useRef<(() => void) | null>(null);
   const pendingEditorMilestone = useRef<(() => void) | null>(null);
+
+  useEffect(() => installPageLifecycleAdmission(), []);
 
   useEffect(() => {
     desktopAnalytics.track('app_launched', { surface: 'desktop' });

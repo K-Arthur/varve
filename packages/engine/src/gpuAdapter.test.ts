@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest';
-import { isSoftwareAdapter, selectWebGpuAdapter } from './gpuAdapter';
+import { describe, expect, it, vi } from 'vitest';
+import { isSoftwareAdapter, probeWebGpuDevice, selectWebGpuAdapter } from './gpuAdapter';
 
 function fakeAdapter(info: {
   vendor?: string;
@@ -35,6 +35,15 @@ describe('isSoftwareAdapter', () => {
 
   it('does not flag an adapter with no info at all', () => {
     expect(isSoftwareAdapter(fakeAdapter({}))).toBe(false);
+  });
+
+  it('honors the WebGPU fallback-adapter flag even when info is opaque', () => {
+    expect(
+      isSoftwareAdapter({
+        info: {},
+        isFallbackAdapter: true,
+      } as unknown as GPUAdapter),
+    ).toBe(true);
   });
 });
 
@@ -92,5 +101,39 @@ describe('selectWebGpuAdapter', () => {
     } as unknown as GPU;
     const result = await selectWebGpuAdapter(gpu, { requireHardwareAdapter: true });
     expect(result).toEqual({ kind: 'accepted', adapter: hw, isFallbackAdapter: false });
+  });
+
+  it('probes device creation, bounded limits, and deterministic cleanup', async () => {
+    const destroy = vi.fn();
+    const adapter = {
+      info: { vendor: 'amd', device: 'Radeon' },
+      limits: {
+        maxTextureDimension2D: 8192,
+        maxBufferSize: 1234,
+        ignoredIdentityField: 'not reported',
+      },
+      requestDevice: vi.fn().mockResolvedValue({ destroy }),
+    } as unknown as GPUAdapter;
+    const gpu = fakeGpu([adapter]);
+    const result = await probeWebGpuDevice(gpu);
+    expect(result.status).toBe('supported');
+    expect(result.adapterCreated).toBe(true);
+    expect(result.deviceCreated).toBe(true);
+    expect(result.deviceDestroyed).toBe(true);
+    expect(result.limits).toEqual({ maxTextureDimension2D: 8192, maxBufferSize: 1234 });
+    expect(adapter.requestDevice).toHaveBeenCalledWith({ requiredFeatures: [] });
+    expect(destroy).toHaveBeenCalledOnce();
+  });
+
+  it('reports a rejected device request without advertising WebGPU', async () => {
+    const adapter = {
+      info: { vendor: 'arm', device: 'Mali' },
+      limits: { maxTextureDimension2D: 4096 },
+      requestDevice: vi.fn().mockRejectedValue(new Error('device blocked')),
+    } as unknown as GPUAdapter;
+    const result = await probeWebGpuDevice(fakeGpu([adapter]));
+    expect(result.status).toBe('failed');
+    expect(result.deviceCreated).toBe(false);
+    expect(result.reason).toBe('device-request-failed');
   });
 });

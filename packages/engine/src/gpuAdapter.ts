@@ -24,6 +24,9 @@
 const SOFTWARE_ADAPTER_MARKERS = ['swift', 'fallback', 'software', 'llvmpipe', 'lavapipe'];
 
 export function isSoftwareAdapter(adapter: GPUAdapter): boolean {
+  if ((adapter as GPUAdapter & { isFallbackAdapter?: boolean }).isFallbackAdapter === true) {
+    return true;
+  }
   const info = adapter.info;
   const haystack = [info?.vendor, info?.architecture, info?.device, info?.description]
     .filter((s): s is string => !!s)
@@ -43,6 +46,35 @@ export type AdapterSelectionResult =
   | { kind: 'declined-software' }
   /** No adapter of any kind was returned for any power preference. */
   | { kind: 'unavailable' };
+
+export interface WebGpuDeviceProbe {
+  status: 'supported' | 'unavailable' | 'failed';
+  adapterCreated: boolean;
+  deviceCreated: boolean;
+  deviceDestroyed: boolean;
+  limits: Readonly<Record<string, number>>;
+  isFallbackAdapter: boolean;
+  reason?: 'api-unavailable' | 'no-adapter' | 'software-adapter' | 'device-request-failed';
+}
+
+const PROBE_LIMIT_KEYS = [
+  'maxTextureDimension2D',
+  'maxTextureArrayLayers',
+  'maxBufferSize',
+  'maxStorageBufferBindingSize',
+  'maxComputeWorkgroupsPerDimension',
+] as const;
+
+function readProbeLimits(limits: GPUSupportedLimits | undefined): Readonly<Record<string, number>> {
+  if (!limits) return {};
+  const record = limits as unknown as Record<string, unknown>;
+  const result: Record<string, number> = {};
+  for (const key of PROBE_LIMIT_KEYS) {
+    const value = record[key];
+    if (typeof value === 'number' && Number.isFinite(value) && value >= 0) result[key] = value;
+  }
+  return result;
+}
 
 /**
  * Request a WebGPU adapter, trying `high-performance` before `low-power`
@@ -85,4 +117,67 @@ export async function selectWebGpuAdapter(
     return { kind: 'accepted', adapter, isFallbackAdapter };
   }
   return sawSoftwareAdapter ? { kind: 'declined-software' } : { kind: 'unavailable' };
+}
+
+/**
+ * Perform the bounded probe used by optional inference capability reporting.
+ * The returned device is deliberately destroyed; callers must create and own
+ * their own device after a successful result because adapters are one-shot.
+ */
+export async function probeWebGpuDevice(gpu: GPU): Promise<WebGpuDeviceProbe> {
+  const selection = await selectWebGpuAdapter(gpu, { requireHardwareAdapter: true });
+  if (selection.kind === 'unavailable') {
+    return {
+      status: 'unavailable',
+      adapterCreated: false,
+      deviceCreated: false,
+      deviceDestroyed: false,
+      limits: {},
+      isFallbackAdapter: false,
+      reason: 'no-adapter',
+    };
+  }
+  if (selection.kind === 'declined-software') {
+    return {
+      status: 'unavailable',
+      adapterCreated: true,
+      deviceCreated: false,
+      deviceDestroyed: false,
+      limits: {},
+      isFallbackAdapter: true,
+      reason: 'software-adapter',
+    };
+  }
+
+  const { adapter, isFallbackAdapter } = selection;
+  const limits = readProbeLimits(adapter.limits);
+  try {
+    const device = await adapter.requestDevice({ requiredFeatures: [] });
+    let deviceDestroyed = false;
+    try {
+      device.destroy();
+      deviceDestroyed = true;
+    } catch {
+      // A probe that cannot release its temporary device is not healthy.
+    }
+    return {
+      status: deviceDestroyed ? 'supported' : 'failed',
+      adapterCreated: true,
+      deviceCreated: true,
+      deviceDestroyed,
+      limits,
+      isFallbackAdapter,
+      ...(deviceDestroyed ? {} : { reason: 'device-request-failed' as const }),
+    };
+  } catch {
+    return {
+      status: 'failed',
+      adapterCreated: true,
+      deviceCreated: false,
+      deviceDestroyed: false,
+      limits,
+      isFallbackAdapter,
+      reason: 'device-request-failed',
+    };
+  }
 }

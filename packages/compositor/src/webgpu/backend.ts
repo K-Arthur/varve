@@ -488,7 +488,11 @@ export class WebGPUBackend {
   }
 
   watchDeviceLost(device: GPUDevice): void {
+    const wasCurrentDevice = this.device === device;
     void device.lost.then(async () => {
+      // `destroy()` resolves the same promise. A normal backend teardown must
+      // not be reported as a runtime loss or invoke the host recovery hook.
+      if (wasCurrentDevice && this.device !== device) return;
       this.deviceLost = true;
       // In-place recovery: present canvas was always 2D, so dropping GPU
       // leaves a working Canvas2D path. No remount/reload required.

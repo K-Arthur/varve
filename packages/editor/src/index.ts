@@ -101,6 +101,10 @@ export type {
   FrameSchedulerOptions,
 } from './performance/frameScheduler';
 export { createFrameScheduler } from './performance/frameScheduler';
+export {
+  installPageLifecycleAdmission,
+  type PageLifecycleAdmissionOptions,
+} from './performance/pageLifecycle';
 export type {
   PerformanceCollector,
   PerformanceCollectorOptions,

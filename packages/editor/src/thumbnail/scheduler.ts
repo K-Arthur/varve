@@ -14,7 +14,7 @@
  *  - idle-time scheduling with a bounded timeout fallback.
  */
 
-import { type DerivedWorkAdmission, getDerivedWorkAdmission } from '@varve/platform';
+import { type DerivedWorkAdmission, getDerivedWorkAdmission, yieldToMain } from '@varve/platform';
 import { isEditorInteractionActive } from '../performance/editorFrameRuntime';
 
 /** Max drain deferrals while an interaction is open (see drain()). */
@@ -192,6 +192,10 @@ export class ThumbnailScheduler {
               signal: aborter.signal,
             });
             if (aborter.signal.aborted) return;
+            // Keep decode/raster work behind the input task that admitted it.
+            // The platform helper feature-detects scheduler.yield and falls
+            // back to a macrotask on browsers without the Scheduling API.
+            await yieldToMain(aborter.signal);
           }
           await job.run(aborter.signal);
         } finally {
