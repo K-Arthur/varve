@@ -167,10 +167,16 @@ reruns were attempted on isolated Vite ports. The host was simultaneously
 running other browser and test jobs; attempts either selected only one node,
 timed out during app startup, hit a concurrent Vite export mismatch, or lost
 the Chromium page. The corrected spec has not therefore been reported as
-passed. Physical Chromebook/ChromeOS and a real Tauri WebKitGTK window remain
-unverified; this host only confirmed Headless Chromium 151 pointer capture,
-`pointercancel`, `touch-action`, and device-pixel-ratio APIs, plus installed
-WebKitGTK 2.52.x libraries.
+passed. One run did provide direct event evidence for a real defect: the
+second Shift-click targeted the overlay's transparent SVG `rect`, and the
+canvas never received the additive `pointerdown`. `NodeEditOverlay` now marks
+the group and each visual primitive `pointer-events="none"`, keeping selection
+on the canonical canvas pipeline. Later reruns reached the app but hit a page
+reload during startup or a render-readiness timeout; no clean post-fix spec
+pass is claimed. Physical Chromebook/ChromeOS and a real Tauri WebKitGTK
+window remain unverified; this host only confirmed Headless Chromium 151
+pointer capture, `pointercancel`, `touch-action`, and device-pixel-ratio APIs,
+plus installed WebKitGTK 2.52.x libraries.
 
 No 50k-anchor performance benchmark is claimed for this milestone. The
 nearest-point unit regression and automatic-tangent refresh are linear in the
