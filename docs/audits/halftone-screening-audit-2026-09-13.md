@@ -39,9 +39,14 @@ numerics are clamped at load and sanitized again at render time.
   precedence tests, scene normalization/persistence tests.
 - Playwright `tests/e2e/canvas/halftone-visual.spec.ts` drives the production
   UI; export tests inspect the written PNG/JPEG pixels and the SVG's embedded
-  raster payload.
+  raster payload. Runs 01–09 pass on the isolated snapshot; the export tests
+  export the frame that the effect is scoped to.
+- Export verification finding (outside the halftone contract): exporting the
+  zero-size adjustment node as the selected target produces a 1x1 file. The
+  E2E tests now select the frame explicitly; the export surface's target
+  validation is owned by the export feature and was left unchanged.
 - Screenshots: `test-results/halftone-visual/` (run-specific output dirs under
-  `test-results/run-*`).
+  `test-results/run-*`), reviewed set copied to `reports/halftone-review/`.
 
 ## 3b. Export and object-filter wiring
 

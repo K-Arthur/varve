@@ -118,6 +118,19 @@ function exportFormatButton(page: Page, format: 'PNG' | 'SVG' | 'JPEG') {
   return page.locator('.spec-export__group').getByRole('button', { name: format, exact: true });
 }
 
+/**
+ * Select the frame as the export target. The adjustment node stays selected
+ * after creation and is zero-size; exporting that selection yields a 1x1
+ * file, so the tests explicitly target the frame the effect is scoped to.
+ */
+async function selectFrameForExport(page: Page) {
+  const frameRow = page.getByRole('treeitem').filter({ hasText: /Frame/ }).first();
+  if (await frameRow.count()) {
+    await frameRow.click();
+    await page.waitForTimeout(400);
+  }
+}
+
 async function setSlider(page: Page, label: string, value: number) {
   await slider(page, label).fill(String(value));
   await page.waitForTimeout(500);
@@ -494,6 +507,7 @@ test.describe('Halftone visual verification', () => {
     await page.waitForTimeout(300);
     await addHalftoneAdjustment(page);
 
+    await selectFrameForExport(page);
     await openExportTab(page);
 
     await exportFormatButton(page, 'PNG').click();
@@ -521,6 +535,10 @@ test.describe('Halftone visual verification', () => {
       canvas.height = img.naturalHeight;
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('no 2d context');
+      // The document is exported on transparency; composite over white paper
+      // so the paper regions are measurable instead of decoding as black.
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0);
       const px = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
       let dark = 0;
@@ -669,6 +687,7 @@ test.describe('Halftone visual verification', () => {
     await page.waitForTimeout(300);
     await addHalftoneAdjustment(page);
 
+    await selectFrameForExport(page);
     await openExportTab(page);
 
     await exportFormatButton(page, 'SVG').click();
@@ -701,6 +720,7 @@ test.describe('Halftone visual verification', () => {
     await page.waitForTimeout(300);
     await addHalftoneAdjustment(page);
 
+    await selectFrameForExport(page);
     await openExportTab(page);
 
     await exportFormatButton(page, 'JPEG').click();
@@ -726,6 +746,8 @@ test.describe('Halftone visual verification', () => {
       canvas.height = img.naturalHeight;
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('no 2d context');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0);
       const px = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
       let dark = 0;
