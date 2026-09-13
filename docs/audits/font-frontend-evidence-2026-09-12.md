@@ -50,6 +50,53 @@ browser and native stores can be validated without a mounted editor surface.
   labelled **Use for new text** and queue a pending family/reference before
   activating the Text tool; they no longer claim to mutate the selected image.
 
+## Registry-backed weight controls — 2026-09-12
+
+The follow-up audit found four duplicated 100–900 weight lists in the
+inspector, contextual bar, floating text toolbar, and Logo wordmark controls.
+Those lists advertised weights the selected face could not provide and made a
+legacy request look resolved when it was actually being synthesized. The new
+`fontWeightOptions` projection reads the selected static face entries or the
+exact `wght` axis bounds. It includes the familiar 100-point stops only inside
+the real range, adds non-standard endpoints/defaults, and keeps an out-of-range
+persisted value visible as a disabled option with an actionable explanation.
+The floating Bold action now follows the same capability check and does not
+request a synthetic 700 face when the registry cannot resolve one. Custom axes
+remain intact through the existing `fontWeightChanges` adapter.
+
+Focused validation passed:
+
+```text
+pnpm exec vitest run packages/editor/src/components/Typography/fontWeight.test.ts packages/editor/src/components/FloatingTextBar/FloatingTextBar.test.tsx packages/editor/src/components/ContextControlBar/ContextControlBar.test.tsx packages/editor/src/components/LogoPanel/LogoTypographySection.test.tsx --config vitest.config.ts --pool=threads --maxWorkers=1 --reporter=dot
+```
+
+The run passed all tests in these four files (static-face filtering,
+variable-range endpoints, stale-value disclosure, multi-selection intersection,
+and the no-synthetic-bold toolbar regression). The editor typecheck and task
+Biome check also passed. This closes only the weight half of acceptance
+scenario 7; exact italic availability and native face proof remain open.
+
+The post-change toolbar visual check used:
+
+```text
+VARVE_E2E_PORT=1562 VARVE_E2E_WORKERS=1 npx playwright test tests/e2e/canvas/font-toolbar-visual.spec.ts --project=chromium --reporter=list --timeout=120000
+```
+
+DPR 1 and DPR 2 passed. The DPR 3 browser process crashed while measuring the
+toolbar (`locator.boundingBox: Target crashed`) before an assertion ran; an
+isolated DPR 3 retry on port 1563 reproduced the same headless Chromium crash.
+The passing captures were inspected at:
+
+- `test-results/run-1902098-1562/canvas-font-toolbar-visual-76f26-adable-menus-in-every-theme-chromium/light-open.png`
+- `test-results/run-1902098-1562/canvas-font-toolbar-visual-76f26-adable-menus-in-every-theme-chromium/dark-narrow.png`
+- `test-results/run-1902098-1562/canvas-font-toolbar-visual-c70f7-adable-menus-in-every-theme-chromium/high-contrast-closed.png`
+
+The inspected surfaces retain the shared 46.796875px border-box, 32px
+controls, `2.88px` gap, `5.76px 9.44px` padding, readable family field, and
+viewport-contained menu. The crash is recorded as a Linux headless browser
+limitation; the earlier quiet run at port 1522 remains the complete three-DPR
+geometry evidence for the unchanged surface contract.
+
 ## Focused validation
 
 Commands run:
