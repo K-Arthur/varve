@@ -166,6 +166,185 @@ function validatePercentile(value: number, label: string): void {
   }
 }
 
+function validateVersion(value: unknown, label: string): void {
+  if (!Number.isSafeInteger(value) || (value as number) < 1) {
+    throw new Error(`${label} must be a positive safe integer`);
+  }
+}
+
+function validateOptionalString(value: unknown, label: string, maxLength = 4096): void {
+  if (value !== undefined && (typeof value !== 'string' || value.length > maxLength)) {
+    throw new Error(`${label} must be a string of at most ${maxLength} characters`);
+  }
+}
+
+function validateOptionalTimestamp(value: unknown, label: string): void {
+  if (value !== undefined && (!Number.isFinite(value) || (value as number) < 0)) {
+    throw new Error(`${label} must be a finite non-negative timestamp`);
+  }
+}
+
+function validateNormalizationMetadata(
+  normalization: DepthNormalizationMetadata,
+  pixels: number,
+): void {
+  if (!['percentile-clip', 'explicit-range', 'identity'].includes(normalization.method)) {
+    throw new Error('Depth normalization method is unsupported');
+  }
+  for (const [value, label] of [
+    [normalization.sourceMin, 'normalization.sourceMin'],
+    [normalization.sourceMax, 'normalization.sourceMax'],
+  ] as const) {
+    if (value !== null && !Number.isFinite(value)) {
+      throw new Error(`${label} must be finite or null`);
+    }
+  }
+  if (
+    (normalization.sourceMin === null) !== (normalization.sourceMax === null) ||
+    (normalization.sourceMin !== null &&
+      normalization.sourceMax !== null &&
+      normalization.sourceMin > normalization.sourceMax)
+  ) {
+    throw new Error('Depth normalization source range is invalid');
+  }
+  if (
+    !Number.isSafeInteger(normalization.validSampleCount) ||
+    normalization.validSampleCount < 0 ||
+    normalization.validSampleCount > pixels
+  ) {
+    throw new Error('Depth normalization validSampleCount is invalid');
+  }
+  if (normalization.lowPercentile !== undefined) {
+    validatePercentile(normalization.lowPercentile, 'normalization.lowPercentile');
+  }
+  if (normalization.highPercentile !== undefined) {
+    validatePercentile(normalization.highPercentile, 'normalization.highPercentile');
+  }
+  if (
+    normalization.lowPercentile !== undefined &&
+    normalization.highPercentile !== undefined &&
+    normalization.lowPercentile > normalization.highPercentile
+  ) {
+    throw new Error('Depth normalization percentiles are crossed');
+  }
+  if ((normalization.rangeMin === undefined) !== (normalization.rangeMax === undefined)) {
+    throw new Error('Depth normalization range must contain both endpoints');
+  }
+  if (
+    normalization.rangeMin !== undefined &&
+    normalization.rangeMax !== undefined &&
+    (!Number.isFinite(normalization.rangeMin) ||
+      !Number.isFinite(normalization.rangeMax) ||
+      normalization.rangeMin > normalization.rangeMax)
+  ) {
+    throw new Error('Depth normalization range is invalid');
+  }
+  if (!['nearIsLow', 'nearIsHigh'].includes(normalization.inputNearFarConvention)) {
+    throw new Error('Depth normalization input convention is unsupported');
+  }
+  if (
+    normalization.noValidSamples === true &&
+    (normalization.validSampleCount !== 0 ||
+      normalization.sourceMin !== null ||
+      normalization.sourceMax !== null)
+  ) {
+    throw new Error('Depth normalization noValidSamples flag is inconsistent');
+  }
+}
+
+function validateRegistrationMetadata(
+  registration: DepthMapRegistration,
+  width: number,
+  height: number,
+): void {
+  if (registration.schemaVersion !== 1) {
+    throw new Error('Depth registration schema is unsupported');
+  }
+  validateDimensions(registration.sourceWidth, registration.sourceHeight);
+  if (registration.mapWidth !== width || registration.mapHeight !== height) {
+    throw new Error('Depth registration map dimensions do not match the scalar payload');
+  }
+  if (registration.coordinateSpace !== 'source-image-pixels') {
+    throw new Error('Depth registration coordinate space is unsupported');
+  }
+  if (registration.orientation !== 'top-left') {
+    throw new Error('Depth registration orientation is unsupported');
+  }
+  if (registration.sourceToMap !== undefined) {
+    if (registration.sourceToMap.length !== 6) {
+      throw new Error('Depth registration transform must contain six affine values');
+    }
+    if (registration.sourceToMap.some((value) => !Number.isFinite(value))) {
+      throw new Error('Depth registration transform must contain finite values');
+    }
+    const [a, b, c, d] = registration.sourceToMap;
+    if (Math.abs(a * d - b * c) <= Number.EPSILON) {
+      throw new Error('Depth registration transform must be invertible');
+    }
+  }
+}
+
+function validateValidityBuffer(valid: Uint8Array | undefined, expectedLength: number): void {
+  if (!valid) return;
+  if (valid.length !== expectedLength) {
+    throw new Error('Depth validity length must match the prediction');
+  }
+  for (const value of valid) {
+    if (value !== 0 && value !== 1) {
+      throw new Error('Depth validity must contain only 0 or 1');
+    }
+  }
+}
+
+function validateProvenanceMetadata(provenance: DepthMapProvenance): void {
+  if (provenance.origin !== 'generated' && provenance.origin !== 'imported') {
+    throw new Error('Depth provenance origin is unsupported');
+  }
+  validateOptionalString(provenance.format, 'Depth provenance format');
+  validateOptionalString(provenance.runtime, 'Depth provenance runtime');
+  validateOptionalString(provenance.modelId, 'Depth provenance modelId');
+  validateOptionalString(provenance.modelVersion, 'Depth provenance modelVersion');
+  validateOptionalString(provenance.modelChecksum, 'Depth provenance modelChecksum', 128);
+  if (provenance.preprocessingVersion !== undefined) {
+    validateVersion(provenance.preprocessingVersion, 'Depth provenance preprocessingVersion');
+  }
+  validateOptionalTimestamp(provenance.importedAt, 'Depth provenance importedAt');
+}
+
+function validateDepthMetadata(metadata: DepthMapMetadata, width: number, height: number): void {
+  if (metadata.depthType !== 'relative' && metadata.depthType !== 'metric') {
+    throw new Error('Depth metadata type is unsupported');
+  }
+  if (!['normalized', 'metres', 'inverse-metres', 'unknown'].includes(metadata.unit)) {
+    throw new Error('Depth metadata unit is unsupported');
+  }
+  if (metadata.depthType === 'metric') {
+    if (metadata.unit !== 'metres' && metadata.unit !== 'inverse-metres') {
+      throw new Error('Metric depth must declare metres or inverse-metres');
+    }
+  } else if (metadata.unit === 'metres' || metadata.unit === 'inverse-metres') {
+    throw new Error('Relative depth cannot declare a metric unit');
+  }
+  if (metadata.nearFarConvention !== 'nearIsLow') {
+    throw new Error('Persisted depth resources must use canonical nearIsLow ordering');
+  }
+  validateVersion(metadata.inferenceVersion, 'Depth inferenceVersion');
+  validateVersion(metadata.preprocessingVersion, 'Depth preprocessingVersion');
+  validateOptionalString(metadata.modelId, 'Depth modelId');
+  validateOptionalString(metadata.modelVersion, 'Depth modelVersion');
+  validateOptionalString(metadata.sourceAssetId, 'Depth sourceAssetId');
+  validateOptionalString(metadata.sourceHash, 'Depth sourceHash', 128);
+  if (metadata.sourceRevision !== undefined) {
+    if (!Number.isSafeInteger(metadata.sourceRevision) || metadata.sourceRevision < 0) {
+      throw new Error('Depth sourceRevision must be a non-negative safe integer');
+    }
+  }
+  validateOptionalTimestamp(metadata.generatedAt, 'Depth generatedAt');
+  if (metadata.normalization) validateNormalizationMetadata(metadata.normalization, width * height);
+  if (metadata.registration) validateRegistrationMetadata(metadata.registration, width, height);
+  if (metadata.provenance) validateProvenanceMetadata(metadata.provenance);
+}
+
 /** In-place selection avoids a boxed-number full sort for large maps. */
 function selectKth(values: Float32Array, length: number, kth: number): number {
   let left = 0;
@@ -250,8 +429,44 @@ function copyMetadata(metadata: DepthMapMetadata): DepthMapMetadata {
   };
 }
 
+/**
+ * Carry a source-to-map registration through a pixel-grid resample. The
+ * affine is expressed in index coordinates; pixel-centre offsets cancel when
+ * the grid is scaled, so this remains stable across preview sizes.
+ */
+function remapRegistration(
+  metadata: DepthMapMetadata,
+  mapWidth: number,
+  mapHeight: number,
+  scaleX: number,
+  scaleY: number,
+  offsetX = 0,
+  offsetY = 0,
+): DepthMapMetadata {
+  if (!metadata.registration) return copyMetadata(metadata);
+  const registration = metadata.registration;
+  const [a, b, c, d, e, f] = registration.sourceToMap ?? [1, 0, 0, 1, 0, 0];
+  return {
+    ...copyMetadata(metadata),
+    registration: {
+      ...registration,
+      mapWidth,
+      mapHeight,
+      sourceToMap: [
+        scaleX * a,
+        scaleY * b,
+        scaleX * c,
+        scaleY * d,
+        scaleX * (e - offsetX),
+        scaleY * (f - offsetY),
+      ],
+    },
+  };
+}
+
 function validateMapBuffers(map: DepthMap): number {
   const pixels = validateDimensions(map.width, map.height);
+  validateDepthMetadata(map.metadata, map.width, map.height);
   if (map.values.length !== pixels) {
     throw new Error('DepthMap scalar length does not match its dimensions');
   }
@@ -268,8 +483,8 @@ function validateMapBuffers(map: DepthMap): number {
     if (!Number.isFinite(map.values[i]!) || map.values[i]! < 0 || map.values[i]! > 1) {
       throw new Error('DepthMap scalar values must be finite and normalized to 0..1');
     }
-    if (map.valid[i] && map.measurements && !Number.isFinite(map.measurements[i])) {
-      throw new Error('DepthMap calibrated measurements must be finite when valid');
+    if (map.measurements && !Number.isFinite(map.measurements[i])) {
+      throw new Error('DepthMap calibrated measurements must be finite');
     }
   }
   if (map.metadata.depthType === 'metric' && !map.measurements) {
@@ -293,9 +508,7 @@ export function normalizeDepthPrediction(
   if (raw.length !== pixels) {
     throw new Error(`Depth prediction length ${raw.length} does not match ${width}x${height}`);
   }
-  if (options.valid && options.valid.length !== raw.length) {
-    throw new Error('Depth validity length must match the prediction');
-  }
+  validateValidityBuffer(options.valid, raw.length);
   if (options.metadata?.depthType === 'metric') {
     if (!options.metricRange) {
       throw new Error('Metric depth requires an explicit metricRange');
@@ -407,9 +620,7 @@ export function normalizeMetricDepth(
   if (raw.length !== pixels) {
     throw new Error(`Metric depth length ${raw.length} does not match ${width}x${height}`);
   }
-  if (options.valid && options.valid.length !== pixels) {
-    throw new Error('Depth validity length must match the metric depth');
-  }
+  validateValidityBuffer(options.valid, pixels);
   const measurementInput = options.measurements ?? raw;
   if (measurementInput.length !== pixels) {
     throw new Error('Depth measurement length must match the metric depth');
@@ -575,7 +786,13 @@ export function resizeDepthMap(map: DepthMap, width: number, height: number): De
     values,
     valid,
     ...(measurements ? { measurements } : {}),
-    metadata: copyMetadata(map.metadata),
+    metadata: remapRegistration(
+      map.metadata,
+      width,
+      height,
+      width / map.width,
+      height / map.height,
+    ),
   };
 }
 
@@ -583,6 +800,62 @@ export interface DepthLetterboxTransform {
   /** Padding offset in the model-output coordinate space. */
   offsetX: number;
   offsetY: number;
+  /** Content rectangle in the model-output coordinate space. */
+  contentWidth?: number;
+  contentHeight?: number;
+}
+
+/**
+ * Project source alpha into the model-output grid without treating transparent
+ * RGB as valid depth evidence. The transform is the same letterbox geometry
+ * used to build the model input; omitted geometry means a direct contain-free
+ * resize between the two grids. This buffer is validity, not alpha coverage.
+ */
+export function sourceAlphaToDepthValidity(
+  alpha: ArrayLike<number>,
+  sourceWidth: number,
+  sourceHeight: number,
+  mapWidth: number,
+  mapHeight: number,
+  transform?: DepthLetterboxTransform,
+): Uint8Array {
+  const sourcePixels = validateDimensions(sourceWidth, sourceHeight);
+  const mapPixels = validateDimensions(mapWidth, mapHeight);
+  if (alpha.length !== sourcePixels) {
+    throw new Error('Source alpha length must match the source image dimensions');
+  }
+  const offsetX = transform?.offsetX ?? 0;
+  const offsetY = transform?.offsetY ?? 0;
+  const contentWidth = transform?.contentWidth ?? mapWidth;
+  const contentHeight = transform?.contentHeight ?? mapHeight;
+  if (
+    !Number.isFinite(offsetX) ||
+    !Number.isFinite(offsetY) ||
+    !Number.isFinite(contentWidth) ||
+    !Number.isFinite(contentHeight) ||
+    offsetX < 0 ||
+    offsetY < 0 ||
+    contentWidth <= 0 ||
+    contentHeight <= 0
+  ) {
+    throw new Error('Depth alpha registration is invalid');
+  }
+
+  const valid = new Uint8Array(mapPixels);
+  for (let y = 0; y < mapHeight; y++) {
+    const v = (y + 0.5 - offsetY) / contentHeight;
+    if (v < 0 || v > 1) continue;
+    const sourceY = v * sourceHeight - 0.5;
+    const nearestY = Math.max(0, Math.min(sourceHeight - 1, Math.round(sourceY)));
+    for (let x = 0; x < mapWidth; x++) {
+      const u = (x + 0.5 - offsetX) / contentWidth;
+      if (u < 0 || u > 1) continue;
+      const sourceX = u * sourceWidth - 0.5;
+      const nearestX = Math.max(0, Math.min(sourceWidth - 1, Math.round(sourceX)));
+      valid[y * mapWidth + x] = alpha[nearestY * sourceWidth + nearestX]! > 0 ? 1 : 0;
+    }
+  }
+  return valid;
 }
 
 function sampleDepthBilinear(
@@ -620,6 +893,87 @@ function sampleDepthBilinear(
   };
 }
 
+function sampleDepthBilinearInside(
+  map: DepthMap,
+  x: number,
+  y: number,
+): { value: number; measurement?: number } | null {
+  // Pixel centres occupy [-0.5, width - 0.5]. Do not clamp a source pixel
+  // outside a registration to the edge of the map: that turns a no-data bar
+  // into a false strip of selected foreground/background coverage.
+  if (x < -0.5 || y < -0.5 || x > map.width - 0.5 || y > map.height - 0.5) return null;
+  return sampleDepthBilinear(
+    map,
+    Math.max(0, Math.min(map.width - 1, x)),
+    Math.max(0, Math.min(map.height - 1, y)),
+  );
+}
+
+/**
+ * Register a map to source-image pixels using its persisted source-to-map
+ * transform. This is the only source-space resampling entry point for depth
+ * masks; the accepted resource itself is never rewritten.
+ */
+export function alignDepthMapToSource(
+  map: DepthMap,
+  sourceWidth: number,
+  sourceHeight: number,
+  registration = map.metadata.registration,
+): DepthMap {
+  validateMapBuffers(map);
+  validateDimensions(sourceWidth, sourceHeight);
+  if (!registration) {
+    if (map.width !== sourceWidth || map.height !== sourceHeight) {
+      throw new Error('Depth map dimensions require an explicit source registration');
+    }
+    return map;
+  }
+  validateRegistrationMetadata(registration, map.width, map.height);
+  if (registration.sourceWidth !== sourceWidth || registration.sourceHeight !== sourceHeight) {
+    throw new Error('Depth registration source dimensions do not match the image');
+  }
+  const sourceToMap: readonly [number, number, number, number, number, number] =
+    registration.sourceToMap ?? [1, 0, 0, 1, 0, 0];
+  const values = new Float32Array(sourceWidth * sourceHeight);
+  const valid = new Uint8Array(sourceWidth * sourceHeight);
+  const measurements = map.measurements ? new Float32Array(values.length) : undefined;
+  for (let y = 0; y < sourceHeight; y++) {
+    for (let x = 0; x < sourceWidth; x++) {
+      const sourceX = x + 0.5;
+      const sourceY = y + 0.5;
+      const mapX = sourceToMap[0] * sourceX + sourceToMap[2] * sourceY + sourceToMap[4] - 0.5;
+      const mapY = sourceToMap[1] * sourceX + sourceToMap[3] * sourceY + sourceToMap[5] - 0.5;
+      const sample = sampleDepthBilinearInside(map, mapX, mapY);
+      const output = y * sourceWidth + x;
+      if (!sample) {
+        values[output] = 0.5;
+        if (measurements) measurements[output] = 0;
+        continue;
+      }
+      values[output] = sample.value;
+      if (measurements) measurements[output] = sample.measurement ?? 0;
+      valid[output] = 1;
+    }
+  }
+  return {
+    ...map,
+    width: sourceWidth,
+    height: sourceHeight,
+    values,
+    valid,
+    ...(measurements ? { measurements } : {}),
+    metadata: {
+      ...copyMetadata(map.metadata),
+      registration: {
+        ...registration,
+        mapWidth: sourceWidth,
+        mapHeight: sourceHeight,
+        sourceToMap: [1, 0, 0, 1, 0, 0],
+      },
+    },
+  };
+}
+
 /** Remove model-space letterbox padding before mapping depth to source pixels. */
 export function unletterboxDepthMap(
   map: DepthMap,
@@ -644,7 +998,7 @@ export function unletterboxDepthMap(
   const measurements = map.measurements ? new Float32Array(width * height) : undefined;
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      const sample = sampleDepthBilinear(
+      const sample = sampleDepthBilinearInside(
         map,
         transform.offsetX + (x + 0.5) * scale - 0.5,
         transform.offsetY + (y + 0.5) * scale - 0.5,
@@ -667,7 +1021,15 @@ export function unletterboxDepthMap(
     values,
     valid,
     ...(measurements ? { measurements } : {}),
-    metadata: copyMetadata(map.metadata),
+    metadata: remapRegistration(
+      map.metadata,
+      width,
+      height,
+      1 / scale,
+      1 / scale,
+      transform.offsetX,
+      transform.offsetY,
+    ),
   };
 }
 
@@ -860,7 +1222,7 @@ function base64ToBytes(value: string): Uint8Array {
 
 export function serializeDepthMap(map: DepthMap, id: string): DepthMapResource {
   const pixels = validateMapBuffers(map);
-  if (!id) throw new Error('Depth resource id must not be empty');
+  if (!id || id.length > 256) throw new Error('Depth resource id must be 1..256 characters');
   const encoded = new Uint8Array(pixels * 2);
   const view = new DataView(encoded.buffer);
   for (let i = 0; i < pixels; i++) {
@@ -896,14 +1258,15 @@ export function serializeDepthMap(map: DepthMap, id: string): DepthMapResource {
 export function deserializeDepthMap(resource: DepthMapResource): DepthMap {
   if (resource.schemaVersion !== 1) throw new Error('Unsupported DepthMap resource version');
   const pixels = validateDimensions(resource.width, resource.height);
-  if (typeof resource.id !== 'string' || resource.id.length === 0) {
+  if (typeof resource.id !== 'string' || resource.id.length === 0 || resource.id.length > 256) {
     throw new Error('Depth resource id must not be empty');
   }
-  if (!['relative', 'metric'].includes(resource.depthType)) {
-    throw new Error('Depth resource has an unsupported depth type');
+  if (resource.nearFarConvention !== 'nearIsLow') {
+    throw new Error('Depth resource must declare canonical nearIsLow ordering');
   }
-  if (!['normalized', 'metres', 'inverse-metres', 'unknown'].includes(resource.unit)) {
-    throw new Error('Depth resource has an unsupported unit');
+  validateDepthMetadata(resource, resource.width, resource.height);
+  if (resource.depthType !== 'metric' && resource.measurementDataBase64 !== undefined) {
+    throw new Error('Only metric depth resources may carry calibrated measurements');
   }
   const bytes = base64ToBytes(resource.dataBase64);
   if (bytes.byteLength !== pixels * 2) {
@@ -945,7 +1308,7 @@ export function deserializeDepthMap(resource: DepthMapResource): DepthMap {
   }
   const expectedBytes =
     pixels * 2 + (resource.validBase64 ? pixels : 0) + (measurements ? pixels * 4 : 0);
-  if (resource.byteLength !== undefined && resource.byteLength !== expectedBytes) {
+  if (!Number.isSafeInteger(resource.byteLength) || resource.byteLength !== expectedBytes) {
     throw new Error('Depth resource byteLength does not match its payloads');
   }
   const map: DepthMap = {
@@ -955,8 +1318,8 @@ export function deserializeDepthMap(resource: DepthMapResource): DepthMap {
     valid,
     ...(measurements ? { measurements } : {}),
     metadata: {
-      depthType: resource.depthType ?? 'relative',
-      unit: resource.unit ?? 'normalized',
+      depthType: resource.depthType,
+      unit: resource.unit,
       nearFarConvention: 'nearIsLow',
       inferenceVersion: resource.inferenceVersion,
       preprocessingVersion: resource.preprocessingVersion,

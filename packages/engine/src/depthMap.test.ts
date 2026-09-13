@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { DepthMap } from './depthMap';
+import type { DepthMap, DepthMapResource } from './depthMap';
 import {
+  alignDepthMapToSource,
   combineMaskCoverage,
   coverageToMask,
   DepthMapCache,
@@ -14,6 +15,7 @@ import {
   resizeDepthMap,
   sampleDepth,
   serializeDepthMap,
+  sourceAlphaToDepthValidity,
   unletterboxDepthMap,
 } from './depthMap';
 
@@ -62,6 +64,16 @@ describe('DepthMap', () => {
     expect(invalid.metadata.normalization?.noValidSamples).toBe(true);
   });
 
+  it('projects source transparency into model validity without selecting letterbox padding', () => {
+    const valid = sourceAlphaToDepthValidity(new Uint8Array([0, 255]), 2, 1, 4, 4, {
+      offsetX: 0,
+      offsetY: 1,
+      contentWidth: 4,
+      contentHeight: 2,
+    });
+    expect([...valid]).toEqual([0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0]);
+  });
+
   it('retains calibrated metric samples alongside normalized UI values', () => {
     const map = normalizeMetricDepth(new Float32Array([1, 2, 3]), 3, 1, {
       metricRange: { min: 1, max: 3 },
@@ -86,6 +98,62 @@ describe('DepthMap', () => {
     expect(restored.metadata.sourceRevision).toBe(3);
     expect(restored.values[1]).toBeCloseTo(map.values[1]!, 4);
     expect(restored.values[1]).not.toBe(Math.round(map.values[1]! * 255) / 255);
+  });
+
+  it('rejects ambiguous ordering and malformed resource metadata instead of adapting it', () => {
+    const map = normalizeDepthPrediction(new Float32Array([0, 1]), 2, 1, {
+      lowPercentile: 0,
+      highPercentile: 1,
+    });
+    const resource = serializeDepthMap(map, 'depth-contract');
+    const malformed = (patch: Record<string, unknown>): DepthMapResource =>
+      ({ ...resource, ...patch }) as unknown as DepthMapResource;
+
+    expect(() => deserializeDepthMap(malformed({ nearFarConvention: 'nearIsHigh' }))).toThrow(
+      'nearIsLow',
+    );
+    expect(() => deserializeDepthMap(malformed({ inferenceVersion: Number.NaN }))).toThrow(
+      'inferenceVersion',
+    );
+    expect(() =>
+      deserializeDepthMap(
+        malformed({
+          registration: {
+            schemaVersion: 1,
+            sourceWidth: 2,
+            sourceHeight: 1,
+            mapWidth: 3,
+            mapHeight: 1,
+            coordinateSpace: 'source-image-pixels',
+            orientation: 'top-left',
+          },
+        }),
+      ),
+    ).toThrow('dimensions');
+    expect(() => deserializeDepthMap(malformed({ byteLength: 5 }))).toThrow('byteLength');
+  });
+
+  it('rejects invalid validity bytes and preserves a valid constant plane', () => {
+    const constant = normalizeDepthPrediction(new Float32Array([7, 7]), 2, 1, {
+      lowPercentile: 0,
+      highPercentile: 1,
+    });
+    expect([...constant.valid]).toEqual([1, 1]);
+    expect([...deserializeDepthMap(serializeDepthMap(constant, 'constant')).valid]).toEqual([1, 1]);
+
+    const resource = serializeDepthMap(constant, 'invalid-validity');
+    expect(() =>
+      deserializeDepthMap({
+        ...resource,
+        validBase64: 'AgI=',
+        byteLength: resource.byteLength + 2,
+      }),
+    ).toThrow('validity');
+    expect(() =>
+      normalizeDepthPrediction(new Float32Array([0, 1]), 2, 1, {
+        valid: new Uint8Array([2, 1]),
+      }),
+    ).toThrow('validity');
   });
 
   it('uses a robust neighbourhood sample and turns ranges into semantic masks', () => {
@@ -215,6 +283,71 @@ describe('DepthMap', () => {
     expect(restored.height).toBe(2);
     expect(restored.values[0]).toBeCloseTo(0.5 / 7, 5);
     expect(restored.values[3]).toBeCloseTo(6.5 / 7, 5);
+  });
+
+  it('uses explicit registration for source-size changes without clamping outside samples', () => {
+    const map: DepthMap = {
+      width: 2,
+      height: 1,
+      values: new Float32Array([0.1, 0.9]),
+      valid: new Uint8Array([1, 1]),
+      metadata: {
+        depthType: 'relative',
+        unit: 'normalized',
+        nearFarConvention: 'nearIsLow',
+        inferenceVersion: 1,
+        preprocessingVersion: 1,
+        registration: {
+          schemaVersion: 1,
+          sourceWidth: 3,
+          sourceHeight: 1,
+          mapWidth: 2,
+          mapHeight: 1,
+          coordinateSpace: 'source-image-pixels',
+          orientation: 'top-left',
+          sourceToMap: [1, 0, 0, 1, 1, 0],
+        },
+      },
+    };
+    const aligned = alignDepthMapToSource(map, 3, 1);
+    expect(aligned.width).toBe(3);
+    expect(aligned.valid[0]).toBe(1);
+    expect(aligned.values[0]).toBeCloseTo(0.9, 6);
+    expect([...aligned.valid]).toEqual([1, 0, 0]);
+  });
+
+  it('keeps registration dimensions and scaling valid for preview resamples', () => {
+    const map: DepthMap = {
+      width: 4,
+      height: 2,
+      values: new Float32Array(8).fill(0.5),
+      valid: new Uint8Array(8).fill(1),
+      metadata: {
+        depthType: 'relative',
+        unit: 'normalized',
+        nearFarConvention: 'nearIsLow',
+        inferenceVersion: 1,
+        preprocessingVersion: 1,
+        registration: {
+          schemaVersion: 1,
+          sourceWidth: 4,
+          sourceHeight: 2,
+          mapWidth: 4,
+          mapHeight: 2,
+          coordinateSpace: 'source-image-pixels',
+          orientation: 'top-left',
+        },
+      },
+    };
+    const resized = resizeDepthMap(map, 2, 1);
+    expect(resized.metadata.registration).toMatchObject({
+      sourceWidth: 4,
+      sourceHeight: 2,
+      mapWidth: 2,
+      mapHeight: 1,
+      sourceToMap: [0.5, 0, 0, 0.5, 0, 0],
+    });
+    expect(() => serializeDepthMap(resized, 'resized')).not.toThrow();
   });
 
   it('keys maps by source revision and bounds the decoded cache', () => {

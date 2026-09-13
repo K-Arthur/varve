@@ -295,6 +295,7 @@ export type {
   NormalizedDepthRange,
 } from './depthMap';
 export {
+  alignDepthMapToSource,
   combineMaskCoverage,
   coverageToMask,
   DepthMapCache,
@@ -309,6 +310,7 @@ export {
   resizeDepthMap,
   sampleDepth,
   serializeDepthMap,
+  sourceAlphaToDepthValidity,
   unletterboxDepthMap,
 } from './depthMap';
 export { applyDuotone, type DuotoneParams } from './duotone';
