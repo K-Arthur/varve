@@ -1,0 +1,24 @@
+{
+  "capturedAt": "2026-09-13",
+  "commit": "359b08d42",
+  "command": "VARVE_E2E_PORT=1691 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 npx playwright test tests/e2e/canvas/document-fonts-panel.spec.ts --project=chromium --reporter=list --timeout=180000 --output=reports/font-document-scope-20260913",
+  "result": "1 passed",
+  "scenarios": [
+    {
+      "file": "replacement-chooser.png",
+      "viewport": "1280x720",
+      "theme": "light",
+      "state": "Browse fonts replacement chooser",
+      "sha256": "be5da9ee7accc4827fc867a581f927c6cdc19801b9b09eddd081e7fdcd838fcc",
+      "inspected": "Modal remains readable, selected-family details and variable-axis controls fit without clipping, and the underlying scoped document-font row remains visible as context."
+    },
+    {
+      "file": "narrow-dark.png",
+      "viewport": "560x760",
+      "theme": "dark",
+      "state": "Document fonts current-page scope",
+      "sha256": "322de7f236ad86b01696b30ba09260bd36eccd5b6dc787c3da3ecfad38e53952",
+      "inspected": "The inspector stays within the viewport, the current-page tab is clear, the exact usage row remains readable, and action buttons do not overflow."
+    }
+  ]
+}

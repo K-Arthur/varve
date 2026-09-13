@@ -48,3 +48,26 @@ This evidence is editor-side. Linked stories whose content is physically
 shared by frames on multiple pages still require a story-aware scope model and
 remain open in the acceptance matrix; the adapter does not claim to split a
 shared story for a page-only operation.
+
+## Browser and visual evidence
+
+The existing Chromium workflow was run against the implementation:
+
+```text
+VARVE_E2E_PORT=1691 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 \
+  npx playwright test tests/e2e/canvas/document-fonts-panel.spec.ts \
+  --project=chromium --reporter=list --timeout=180000 \
+  --output=reports/font-document-scope-20260913
+```
+
+Result: 1 test passed. The test exercised the real editor, opened the
+replacement chooser, captured the narrow inspector, and checked the dark
+560×760 layout. The inspected captures and hashes are in the
+[screenshot manifest](../screenshots/fonts/2026-09-13-document-font-scope/manifest.json):
+
+- [replacement chooser](../screenshots/fonts/2026-09-13-document-font-scope/replacement-chooser.png)
+- [narrow dark current-page panel](../screenshots/fonts/2026-09-13-document-font-scope/narrow-dark.png)
+
+The chooser remains readable at 1280×720 with the selected-family details and
+variable-axis controls visible. At 560×760 the panel stays within the viewport,
+the current-page scope remains legible, and the action buttons do not overflow.
