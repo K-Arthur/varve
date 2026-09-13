@@ -24,6 +24,7 @@ import {
   createRasterSurface,
   type EffectMaskResolver,
   type EffectQuality,
+  type FilterIR,
   gaussianBlurSeparable,
   getImageCache,
   mapBlendMode,
@@ -341,6 +342,31 @@ export function replayStructuredScene(context: SceneContext, input: StructuredRe
   } finally {
     if (pyramidWasEnabled) setRasterPyramidEnabled(true);
   }
+}
+
+/**
+ * Document-space anchor for object-filter chains that contain a pattern
+ * screen. Other object effects keep their previous (surface-local) behavior
+ * so this is limited to the filters whose contract requires document
+ * anchoring for zoom and pan stability.
+ */
+function patternAnchorCoordSpace(
+  filters: readonly FilterIR[],
+  scale: number,
+  originDocX: number,
+  originDocY: number,
+):
+  | { scale: number; originX: number; originY: number; regionX: number; regionY: number }
+  | undefined {
+  const needsAnchor = filters.some((f) => f.kind === 'halftone' || f.kind === 'colorHalftone');
+  if (!needsAnchor) return undefined;
+  return {
+    scale,
+    originX: -originDocX * scale,
+    originY: -originDocY * scale,
+    regionX: 0,
+    regionY: 0,
+  };
 }
 
 function replayStructuredSceneInner(context: SceneContext, input: StructuredReplayInput): void {
@@ -738,16 +764,15 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
           surface.canvas.height,
           {
             quality: input.quality,
-            // Document-anchor pattern filters on object-local stacks too:
+            // Document-anchor pattern screens on object-local stacks too:
             // the surface origin is (minX - expL, minY - expT) in world
             // coordinates and the surface is rendered at `renderScale`.
-            coordSpace: {
-              scale: renderScale,
-              originX: -(minX - expL) * renderScale,
-              originY: -(minY - expT) * renderScale,
-              regionX: 0,
-              regionY: 0,
-            },
+            coordSpace: patternAnchorCoordSpace(
+              smartFilters,
+              renderScale,
+              minX - expL,
+              minY - expT,
+            ),
             fullFrame: input.quality === 'export',
             treatmentSpace: objectTreatmentSpaceForCapture(framePixelToDocument, frameTransform, {
               x: sourceBounds.x,
@@ -887,14 +912,13 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
               gCanvas.canvas.height,
               {
                 quality: input.quality,
-                // Document-anchor pattern filters on group Object Filters.
-                coordSpace: {
-                  scale: renderScale,
-                  originX: -(minX - padding) * renderScale,
-                  originY: -(minY - padding) * renderScale,
-                  regionX: 0,
-                  regionY: 0,
-                },
+                // Document-anchor pattern screens on group Object Filters.
+                coordSpace: patternAnchorCoordSpace(
+                  smartFilters,
+                  renderScale,
+                  minX - padding,
+                  minY - padding,
+                ),
                 fullFrame: input.quality === 'export',
                 treatmentSpace: documentTreatmentSpaceForCapture(groupPixelToDocument, {
                   x: minX,

@@ -48,10 +48,12 @@ numerics are clamped at load and sanitized again at render time.
 - Export replay declares `fullFrame: true` (editor boundary rasterization,
   `exportRasterizedSubtree`), so an explicitly selected error-diffusion screen
   actually runs on export while previews stay position-stable.
-- Object and group Object Filter surfaces now pass a document-space
-  `coordSpace` (surface origin + capture scale) into the shared compositor, so
-  pattern effects on objects are document-anchored like adjustment layers
-  instead of being anchored to the object's local pixel grid.
+- Object and group Object Filter chains that contain a `halftone` or
+  `colorHalftone` entry now pass a document-space `coordSpace` (surface
+  origin + capture scale) into the shared compositor, so those screens are
+  document-anchored like adjustment layers instead of following the object's
+  local pixel grid. Other object effects keep their previous surface-local
+  behavior.
 
 ## 4. Measured environment and limits
 
