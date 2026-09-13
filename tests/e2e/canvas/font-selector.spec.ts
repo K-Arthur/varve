@@ -290,6 +290,50 @@ test.describe('Font selector', () => {
     await expect(dialog.getByRole('heading', { name: 'IBM Plex Sans Variable' })).toBeVisible();
   });
 
+  test('compact picker exposes a favorited family and records it as recent', async ({ page }) => {
+    await page.keyboard.press('t');
+    await dragOnCanvas(page, 120, 160, 360, 220);
+    await page.keyboard.insertText('Typography in context');
+    await expect(page.getByRole('treeitem').first()).toContainText(/text/i, { timeout: 10000 });
+
+    await page.getByRole('button', { name: 'Browse fonts' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Browse fonts' });
+    const search = dialog.getByRole('searchbox', {
+      name: 'Search fonts by name or design language',
+    });
+    await search.fill('Plex');
+    const row = dialog
+      .locator('.font-browser__entry')
+      .filter({ hasText: 'IBM Plex Sans Variable' })
+      .first();
+    await expect(row).toBeVisible();
+    await row.locator('button.font-browser__favorite').click();
+    await expect(row.locator('button.font-browser__favorite')).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+
+    const family = page
+      .getByRole('toolbar', { name: 'Contextual properties' })
+      .getByRole('combobox', {
+        name: 'Font family',
+        exact: true,
+      });
+    await family.click();
+    const picker = page.getByRole('listbox', { name: 'Font families' });
+    await expect(picker.getByText('Favorites', { exact: true })).toBeVisible();
+    await expect(picker.getByRole('option', { name: /IBM Plex Sans Variable/ })).toBeVisible();
+    await page.screenshot({
+      path: test.info().outputPath('font-selector-favorites-and-recents.png'),
+      animations: 'disabled',
+    });
+    await picker.getByRole('option', { name: /IBM Plex Sans Variable/ }).click();
+    await expect(family).toHaveValue('IBM Plex Sans Variable');
+  });
+
   test('finds gothic families without unrelated filler and keeps inspection stable', async ({
     page,
   }) => {

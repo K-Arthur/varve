@@ -203,6 +203,15 @@
   font-weight: var(--font-weight-bold);
 }
 
+.font-selector__badge--favorite {
+  width: auto;
+  padding-inline: 2px;
+  color: var(--color-feedback-warning);
+  background: var(--color-surface-sunken);
+  font-size: var(--font-size-2xs);
+  line-height: 1;
+}
+
 .font-selector__badge--label {
   width: auto;
   min-width: 1.2em;

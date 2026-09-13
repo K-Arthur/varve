@@ -15,7 +15,7 @@ import {
   parseFontSemanticQuery,
   tagLabel,
 } from '@varve/engine/font';
-import { FloatingPortal, Tooltip } from '@varve/ui';
+import { FloatingPortal, Icon, Tooltip } from '@varve/ui';
 import {
   useCallback,
   useEffect,
@@ -151,6 +151,12 @@ export function FontSelector({
 
     if (!query.trim()) {
       add(
+        'Favorites',
+        allInstalled
+          .filter((record) => record.isFavorite)
+          .sort((a, b) => a.familyName.localeCompare(b.familyName)),
+      );
+      add(
         'Recent',
         allInstalled
           .filter((record) => record.recentlyUsedAt !== undefined)
@@ -255,11 +261,15 @@ export function FontSelector({
 
   const select = useCallback(
     (family: string) => {
+      const record = allInstalled.find(
+        (candidate) => normalize(candidate.familyName) === normalize(family),
+      );
+      if (record) semantic.markRecentlyUsed(record.familyId);
       onChange(family);
       setIsOpen(false);
       setHighlightedIndex(-1);
     },
-    [onChange],
+    [allInstalled, onChange, semantic],
   );
 
   const handleInputFocus = useCallback(() => {
@@ -446,6 +456,14 @@ export function FontSelector({
                             {label.slice(0, 1)}
                           </span>
                         ))}
+                        {record.isFavorite && (
+                          <span
+                            className="font-selector__badge font-selector__badge--favorite"
+                            title="Favorite"
+                          >
+                            <Icon name="Star" size={10} />
+                          </span>
+                        )}
                         <span
                           className="font-selector__badge"
                           title={record.sourceKinds.join(', ')}

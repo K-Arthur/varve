@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { getFontSemanticCatalog } from '@varve/engine/font';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FontSelector } from './FontSelector';
 
@@ -93,5 +94,32 @@ describe('FontSelector', () => {
     expect(
       screen.getByRole('img', { name: /Exact font face is not installed/i }),
     ).toBeInTheDocument();
+  });
+
+  it('shows favorites in the compact picker and records selections as recent', async () => {
+    const semantic = getFontSemanticCatalog();
+    const record = semantic.findByFamilyName('IBM Plex Sans Variable');
+    expect(record).toBeDefined();
+    const previousFavorite = record?.isFavorite ?? false;
+    const markRecentlyUsed = vi.spyOn(semantic, 'markRecentlyUsed');
+    const onChange = vi.fn();
+
+    semantic.setFavorite(record!.familyId, true);
+    try {
+      render(<FontSelector value="Inter" onChange={onChange} />);
+      const input = screen.getByRole('combobox', { name: 'Font family' });
+      fireEvent.focus(input);
+      await screen.findByRole('listbox', { name: 'Font families' });
+      expect(screen.getByText('Favorites')).toBeInTheDocument();
+
+      fireEvent.change(input, { target: { value: 'IBM Plex Sans Variable' } });
+      const option = await screen.findByRole('option', { name: /IBM Plex Sans Variable/ });
+      fireEvent.mouseDown(option);
+      expect(onChange).toHaveBeenCalledWith('IBM Plex Sans Variable');
+      expect(markRecentlyUsed).toHaveBeenCalledWith(record!.familyId);
+    } finally {
+      semantic.setFavorite(record!.familyId, previousFavorite);
+      markRecentlyUsed.mockRestore();
+    }
   });
 });
