@@ -21,6 +21,41 @@ type DownloadListener = (progress: DownloadProgress) => void;
 const STATE_PREFIX = 'varve-model-state-';
 const LEGACY_STATE_PREFIX = 'strata-model-state-';
 
+interface StreamDownloadOptions {
+  entry?: ModelManifestEntry;
+  expectedSizeBytes?: number;
+  responseEtag?: string | null;
+}
+
+interface ContentRange {
+  start: number;
+  end: number;
+  total: number | null;
+}
+
+function parseContentRange(value: string | null): ContentRange | null {
+  if (!value) return null;
+  const match = /^bytes\s+(\d+)-(\d+)\/(\d+|\*)$/i.exec(value.trim());
+  if (!match) return null;
+  const start = Number(match[1]);
+  const end = Number(match[2]);
+  const total = match[3] === '*' ? null : Number(match[3]);
+  if (
+    !Number.isSafeInteger(start) ||
+    !Number.isSafeInteger(end) ||
+    start < 0 ||
+    end < start ||
+    (total !== null && (!Number.isSafeInteger(total) || total <= end))
+  ) {
+    return null;
+  }
+  return { start, end, total };
+}
+
+function expectedDownloadSize(value: number | undefined): number | undefined {
+  return value !== undefined && Number.isSafeInteger(value) && value > 0 ? value : undefined;
+}
+
 export class DownloadManager {
   private activeDownloads = new Map<string, ActiveDownload>();
   private modelMeta = new Map<string, ModelManifestEntry>();
@@ -188,6 +223,8 @@ export class DownloadManager {
           maxSessions: 1,
           precision: 'fp32',
           category: entryCategory(modelId),
+          ...(component.upstreamChecksum ? { upstreamChecksum: component.upstreamChecksum } : {}),
+          ...(component.repair ? { repair: component.repair } : {}),
         };
 
         this.notifyDownloadProgress(modelId, {
@@ -247,6 +284,7 @@ export class DownloadManager {
       this.setState(modelId, 'downloading');
     }
 
+    let responseEtag: string | null = null;
     try {
       const remoteUrl = entry.remoteUrl;
       if (!remoteUrl) {
@@ -257,11 +295,17 @@ export class DownloadManager {
       }
 
       const existingPartial = await this.loadPartialCompat(modelId);
+      const expectedSizeBytes = expectedDownloadSize(entry.sizeBytes);
       let partialLoaded = 0;
       let partialChunks: Uint8Array[] = [];
       let storedEtag: string | null = null;
 
-      if (existingPartial && existingPartial.url === remoteUrl) {
+      if (
+        existingPartial &&
+        existingPartial.url === remoteUrl &&
+        existingPartial.loaded === existingPartial.bytes.length &&
+        (!expectedSizeBytes || existingPartial.bytes.length < expectedSizeBytes)
+      ) {
         partialChunks = [existingPartial.bytes];
         partialLoaded = existingPartial.bytes.length;
         storedEtag = existingPartial.etag;
@@ -294,8 +338,12 @@ export class DownloadManager {
             retryResponse,
             partialChunks,
             0,
-            controller,
             combinedSignal,
+            {
+              entry,
+              expectedSizeBytes,
+              responseEtag: retryResponse.headers.get('etag'),
+            },
           );
           return;
         }
@@ -311,11 +359,20 @@ export class DownloadManager {
         });
       }
 
-      const responseEtag = response.headers.get('etag');
+      responseEtag = response.headers.get('etag');
       const isRangeResponse = response.status === 206;
 
       if (isRangeResponse && partialLoaded > 0) {
-        if (storedEtag && responseEtag && storedEtag !== responseEtag) {
+        const contentRange = parseContentRange(response.headers.get('content-range'));
+        const rangeMatches =
+          contentRange !== null &&
+          contentRange.start === partialLoaded &&
+          contentRange.end >= partialLoaded &&
+          (contentRange.total === null ||
+            expectedSizeBytes === undefined ||
+            contentRange.total === expectedSizeBytes);
+        if (!rangeMatches || !storedEtag || !responseEtag || storedEtag !== responseEtag) {
+          await response.body?.cancel();
           await this.storage.deletePartial(modelId);
           partialChunks = [];
           partialLoaded = 0;
@@ -325,17 +382,17 @@ export class DownloadManager {
               technical: `HTTP ${freshResponse.status} after ETag mismatch`,
             });
           }
-          await this.streamDownload(
-            modelId,
-            notifyId,
-            freshResponse,
-            [],
-            0,
-            controller,
-            combinedSignal,
-          );
+          await this.streamDownload(modelId, notifyId, freshResponse, [], 0, combinedSignal, {
+            entry,
+            expectedSizeBytes,
+            responseEtag: freshResponse.headers.get('etag'),
+          });
           return;
         }
+      } else if (isRangeResponse) {
+        throw new InferenceError('model_download_failed', undefined, {
+          technical: 'Server returned 206 without a matching resumable range.',
+        });
       } else if (partialLoaded > 0) {
         await this.storage.deletePartial(modelId);
         partialChunks = [];
@@ -348,8 +405,8 @@ export class DownloadManager {
         response,
         partialChunks,
         partialLoaded,
-        controller,
         combinedSignal,
+        { entry, expectedSizeBytes, responseEtag },
       );
     } catch (error) {
       if (!parentModelId) {
@@ -360,7 +417,7 @@ export class DownloadManager {
         if (partial) {
           await this.savePartialCompat(modelId, partial.bytes, {
             url: entry.remoteUrl,
-            etag: null,
+            etag: responseEtag,
             loaded: partial.loaded,
           });
           if (!parentModelId) this.setState(modelId, 'unavailable');
@@ -380,12 +437,48 @@ export class DownloadManager {
     response: Response,
     partialChunks: Uint8Array[],
     partialLoaded: number,
-    _controller: AbortController,
     combinedSignal: AbortSignal,
+    options: StreamDownloadOptions = {},
   ): Promise<void> {
-    const entry = this.modelMeta.get(modelId);
+    const entry = options.entry ?? this.modelMeta.get(modelId);
     const manifestEntry = this.manifestEntries.get(modelId);
     const remoteUrl = entry?.remoteUrl ?? manifestEntry?.remoteUrl ?? '';
+
+    const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
+    if (contentType.includes('text/html')) {
+      throw new InferenceError('model_download_failed', undefined, {
+        message: 'Model server returned an HTML document instead of an artifact.',
+        technical: `Unexpected content-type ${contentType}`,
+      });
+    }
+
+    const expectedSizeBytes = expectedDownloadSize(options.expectedSizeBytes);
+    const contentRange = parseContentRange(response.headers.get('content-range'));
+    if (
+      response.status === 206 &&
+      (!contentRange || contentRange.start !== partialLoaded || contentRange.end < partialLoaded)
+    ) {
+      throw new InferenceError('model_download_failed', undefined, {
+        technical: 'A partial response did not identify the requested byte range.',
+      });
+    }
+    const contentLengthHeader = response.headers.get('content-length');
+    const contentLength = contentLengthHeader ? Number(contentLengthHeader) : undefined;
+    if (
+      contentLength !== undefined &&
+      (!Number.isSafeInteger(contentLength) ||
+        contentLength < 0 ||
+        (expectedSizeBytes !== undefined &&
+          response.status === 200 &&
+          contentLength > expectedSizeBytes) ||
+        (expectedSizeBytes !== undefined &&
+          response.status === 206 &&
+          partialLoaded + contentLength > expectedSizeBytes))
+    ) {
+      throw new InferenceError('model_download_failed', undefined, {
+        technical: `Declared response length is invalid for ${modelId}.`,
+      });
+    }
 
     const reader = response.body?.getReader();
     if (!reader)
@@ -393,13 +486,15 @@ export class DownloadManager {
         message: 'Response body not readable.',
       });
 
-    const contentLength = response.headers.get('content-length');
-    const contentRangeTotal = response.headers.get('content-range')?.split('/')[1];
-    const total = contentRangeTotal
-      ? parseInt(contentRangeTotal, 10)
-      : contentLength
-        ? partialLoaded + parseInt(contentLength, 10)
-        : (entry?.sizeBytes ?? 0);
+    const total =
+      contentRange?.total ??
+      (contentLength !== undefined ? partialLoaded + contentLength : (expectedSizeBytes ?? 0));
+    if (expectedSizeBytes !== undefined && total > 0 && total !== expectedSizeBytes) {
+      await reader.cancel();
+      throw new InferenceError('model_download_failed', undefined, {
+        technical: `Expected ${expectedSizeBytes} bytes, server declared ${total}.`,
+      });
+    }
 
     let loaded = partialLoaded;
     const chunks: Uint8Array[] = [...partialChunks];
@@ -409,7 +504,13 @@ export class DownloadManager {
       while (true) {
         if (combinedSignal.aborted) {
           await reader.cancel();
-          await this.savePartialFromChunks(modelId, chunks, remoteUrl, loaded);
+          await this.savePartialFromChunks(
+            modelId,
+            chunks,
+            remoteUrl,
+            loaded,
+            options.responseEtag ?? null,
+          );
           this.setState(notifyId, 'unavailable');
           return;
         }
@@ -417,6 +518,12 @@ export class DownloadManager {
         const { done, value } = await reader.read();
         if (done) break;
 
+        if (expectedSizeBytes !== undefined && loaded > expectedSizeBytes - value.length) {
+          await reader.cancel();
+          throw new InferenceError('model_download_failed', undefined, {
+            technical: `Downloaded more than the declared ${expectedSizeBytes} bytes.`,
+          });
+        }
         chunks.push(value);
         loaded += value.length;
 
@@ -431,6 +538,12 @@ export class DownloadManager {
           total,
           speedBytesPerSec: speed,
           estimatedRemainingMs: estimatedRemaining,
+        });
+      }
+
+      if (expectedSizeBytes !== undefined && loaded !== expectedSizeBytes) {
+        throw new InferenceError('model_download_failed', undefined, {
+          technical: `Incomplete artifact: received ${loaded} of ${expectedSizeBytes} bytes.`,
         });
       }
 
@@ -483,7 +596,13 @@ export class DownloadManager {
         this.activeDownloads.delete(notifyId);
       }
       if (combinedSignal.aborted) {
-        await this.savePartialFromChunks(modelId, chunks, remoteUrl, loaded);
+        await this.savePartialFromChunks(
+          modelId,
+          chunks,
+          remoteUrl,
+          loaded,
+          options.responseEtag ?? null,
+        );
         this.setState(notifyId, 'unavailable');
         throw new InferenceError('download_interrupted');
       }
@@ -665,6 +784,7 @@ export class DownloadManager {
     chunks: Uint8Array[],
     url: string,
     totalLoaded: number,
+    etag: string | null,
   ): Promise<void> {
     const total = chunks.reduce((s, c) => s + c.length, 0);
     const bytes = new Uint8Array(total);
@@ -673,7 +793,7 @@ export class DownloadManager {
       bytes.set(chunk, offset);
       offset += chunk.length;
     }
-    await this.savePartialCompat(modelId, bytes, { url, etag: null, loaded: totalLoaded });
+    await this.savePartialCompat(modelId, bytes, { url, etag, loaded: totalLoaded });
   }
 
   private async getPartialCompat(

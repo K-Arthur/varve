@@ -115,6 +115,10 @@ export interface ModelComponent {
   sizeBytes: number;
   remoteUrl: string;
   checksum?: string;
+  /** SHA-256 of the upstream artifact before an optional repair transform. */
+  upstreamChecksum?: string;
+  /** Optional post-download transform required before the component is usable. */
+  repair?: 'sam2-empty-value-info';
 }
 
 export interface ManifestEntry {
@@ -249,6 +253,10 @@ export interface ModelComponentEntry {
   sizeBytes: number;
   remoteUrl?: string;
   checksum?: string;
+  /** SHA-256 of the upstream artifact before an optional repair transform. */
+  upstreamChecksum?: string;
+  /** Optional post-download transform required before the component is usable. */
+  repair?: 'sam2-empty-value-info';
 }
 
 export interface ModelInputSpec {

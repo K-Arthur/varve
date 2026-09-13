@@ -1,6 +1,39 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DownloadManager } from '../DownloadManager';
+import type { ModelStorage } from '../ModelStorage';
 import type { ModelManifestEntry } from '../types';
+
+function makeStorage(): ModelStorage {
+  const installed = new Map<string, ArrayBuffer>();
+  const partials = new Map<
+    string,
+    { bytes: Uint8Array; url: string; etag: string | null; loaded: number }
+  >();
+  return {
+    name: 'test',
+    isAvailable: () => true,
+    saveInstalled: async (id, bytes) => {
+      installed.set(id, bytes.slice(0));
+    },
+    loadInstalled: async (id) => installed.get(id) ?? null,
+    deleteInstalled: async (id) => void installed.delete(id),
+    hasInstalled: async (id) => installed.has(id),
+    listInstalled: async () => [...installed.keys()],
+    savePartial: async (id, record) => {
+      partials.set(id, { ...record, bytes: new Uint8Array(record.bytes) });
+    },
+    loadPartial: async (id) => {
+      const record = partials.get(id);
+      return record ? { ...record, bytes: new Uint8Array(record.bytes) } : null;
+    },
+    deletePartial: async (id) => void partials.delete(id),
+    getQuota: async () => ({ used: 0, available: 10_000_000 }),
+    clear: async () => {
+      installed.clear();
+      partials.clear();
+    },
+  };
+}
 
 function makeEntry(id: string, overrides?: Partial<ModelManifestEntry>): ModelManifestEntry {
   return {
@@ -23,11 +56,20 @@ function makeEntry(id: string, overrides?: Partial<ModelManifestEntry>): ModelMa
   };
 }
 
+function makeResponse(
+  bytes: Uint8Array | string,
+  status = 200,
+  headers: Record<string, string> = {},
+): Response {
+  const body = typeof bytes === 'string' ? bytes : (bytes as unknown as BodyInit);
+  return new Response(body, { status, headers });
+}
+
 describe('DownloadManager', () => {
   let manager: DownloadManager;
 
   beforeEach(() => {
-    manager = new DownloadManager();
+    manager = new DownloadManager(makeStorage());
     localStorage.clear();
   });
 
@@ -140,6 +182,121 @@ describe('DownloadManager', () => {
     try {
       await manager.resumeDownload('pause-model');
     } catch {}
+  });
+
+  it('resumes only when Content-Range and the stored ETag match', async () => {
+    const storage = manager.getStorage();
+    const url = 'https://example.com/models/resumable.onnx';
+    manager.registerModel(makeEntry('resumable', { remoteUrl: url, sizeBytes: 6 }));
+    await storage.savePartial('resumable', {
+      bytes: new Uint8Array([0, 1]),
+      url,
+      etag: 'v1',
+      loaded: 2,
+    });
+
+    const requests: RequestInit[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_input: string, init?: RequestInit) => {
+        requests.push(init ?? {});
+        if (requests.length === 1) {
+          return makeResponse(new Uint8Array([2, 3, 4]), 206, {
+            'Content-Range': 'bytes 3-5/6',
+            ETag: 'v1',
+          });
+        }
+        return makeResponse(new Uint8Array([0, 1, 2, 3, 4, 5]), 200, {
+          'Content-Length': '6',
+          ETag: 'v2',
+        });
+      }),
+    );
+
+    await manager.startDownload('resumable');
+    vi.unstubAllGlobals();
+
+    expect(requests).toHaveLength(2);
+    expect(requests[0]?.headers).toEqual({ Range: 'bytes=2-' });
+    await expect(manager.getInstalledBytes('resumable')).resolves.toEqual(
+      new Uint8Array([0, 1, 2, 3, 4, 5]),
+    );
+  });
+
+  it('accepts a valid partial response without duplicating the prefix', async () => {
+    const storage = manager.getStorage();
+    const url = 'https://example.com/models/valid-range.onnx';
+    manager.registerModel(makeEntry('valid-range', { remoteUrl: url, sizeBytes: 6 }));
+    await storage.savePartial('valid-range', {
+      bytes: new Uint8Array([0, 1]),
+      url,
+      etag: 'v1',
+      loaded: 2,
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        makeResponse(new Uint8Array([2, 3, 4, 5]), 206, {
+          'Content-Range': 'bytes 2-5/6',
+          'Content-Length': '4',
+          ETag: 'v1',
+        }),
+      ),
+    );
+
+    await manager.startDownload('valid-range');
+    vi.unstubAllGlobals();
+    await expect(manager.getInstalledBytes('valid-range')).resolves.toEqual(
+      new Uint8Array([0, 1, 2, 3, 4, 5]),
+    );
+  });
+
+  it('rejects truncated or HTML responses before installing them', async () => {
+    manager.registerModel(makeEntry('truncated', { sizeBytes: 6 }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => makeResponse(new Uint8Array([0, 1, 2, 3]), 200, { 'Content-Length': '4' })),
+    );
+    await expect(manager.startDownload('truncated')).rejects.toThrow(/download|artifact|bytes/i);
+    vi.unstubAllGlobals();
+    await expect(manager.getInstalledBytes('truncated')).resolves.toBeNull();
+
+    manager.registerModel(makeEntry('html', { sizeBytes: 4 }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        makeResponse('<html>not a model</html>', 200, { 'Content-Type': 'text/html' }),
+      ),
+    );
+    await expect(manager.startDownload('html')).rejects.toThrow(/HTML|artifact/i);
+    vi.unstubAllGlobals();
+    await expect(manager.getInstalledBytes('html')).resolves.toBeNull();
+  });
+
+  it('verifies each multipart component with its own checksum', async () => {
+    const componentId = 'multi-bad-graph';
+    manager.registerModel(
+      makeEntry('multi-bad', {
+        components: [
+          {
+            id: componentId,
+            role: 'graph',
+            filename: 'graph.onnx',
+            sizeBytes: 2,
+            remoteUrl: `https://example.com/${componentId}.onnx`,
+            checksum: '0'.repeat(64),
+          },
+        ],
+      }),
+    );
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => makeResponse(new Uint8Array([1, 2]), 200, { 'Content-Length': '2' })),
+    );
+
+    await expect(manager.startDownload('multi-bad')).rejects.toThrow(/integrity|checksum/i);
+    vi.unstubAllGlobals();
+    await expect(manager.getInstalledBytes(componentId)).resolves.toBeNull();
   });
 });
 

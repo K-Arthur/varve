@@ -251,6 +251,12 @@ export interface InferenceEvents {
 /** Provider interface — each backend implements one inference path. */
 export interface InferenceProvider<TInput = unknown, TOutput = unknown> {
   readonly id: string;
+  /**
+   * The provider guarantees that aborting the request stops the underlying
+   * work before it can overlap a fallback attempt. Omit unless the provider
+   * owns a terminating worker/process or has an equivalent hard-cancel path.
+   */
+  readonly supportsHardCancellation?: boolean;
   isAvailable(request: InferenceRequest<TInput>): boolean | Promise<boolean>;
   run(request: InferenceRequest<TInput>): Promise<InferenceResult<TOutput>>;
 }

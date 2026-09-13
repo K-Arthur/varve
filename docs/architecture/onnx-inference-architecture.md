@@ -83,12 +83,22 @@ Quality modes:
 
 The `DownloadManager` provides:
 - Download with HTTP Range request resume
+- `Content-Range` start/total validation before appending to a partial file
 - SHA-256 checksum verification
+- Declared-size and HTML-response rejection before installation
 - ETag-based freshness checking
 - Progress reporting with speed estimation
 - Cancel/pause/resume
 - State persistence to localStorage
 - State change subscriptions
+
+Resumption is conservative: a partial is reused only when its byte count and
+URL are consistent, the server returns the requested range, and a stored ETag
+matches the response. Otherwise the partial is discarded and a complete
+response is fetched. Multipart entries pass each component's checksum,
+upstream checksum, repair operation, and expected size through the same
+validation path; the parent is not marked ready until every component is
+installed.
 
 ### Bundled Models
 
@@ -151,6 +161,18 @@ User Action
 3. Session cache with LRU eviction (max 3 sessions)
 4. Provider preference: WebGPU → WebGL → WASM
 5. WASM memory safety gate before bare WASM session creation
+
+### Provider timeout and cancellation contract
+
+`ProviderChain` gives each availability probe and inference attempt a private
+abort signal derived from the caller's signal. A timeout aborts that attempt
+signal, but an abort notification is not proof that arbitrary GPU, WASM, or
+native work has stopped. Therefore an ordinary provider that times out fails
+closed instead of immediately starting a fallback and potentially doubling
+peak memory. A provider may set `supportsHardCancellation` only when it owns a
+terminating worker/process or an equivalent contract that stops the underlying
+work before fallback; ordinary provider errors may still use the configured
+fallback chain. Cancelled caller requests never fall through.
 
 ### Native Path (Tauri Desktop)
 

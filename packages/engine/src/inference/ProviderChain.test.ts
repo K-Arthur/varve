@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { runProviderChain } from './ProviderChain';
 import type { InferenceProvider, InferenceRequest, InferenceResult } from './types';
 
@@ -82,19 +82,52 @@ describe('runProviderChain', () => {
     ).rejects.toThrow('all 2 provider(s) failed');
   });
 
-  it('times out slow providers', async () => {
+  it('fails closed on a timeout when the provider cannot prove hard cancellation', async () => {
+    const fastRun = vi.fn(async () => ({
+      output: 'fast-result',
+      executionProvider: 'fast',
+      processingTimeMs: 1,
+      modelId: 'test',
+    }));
     const slow: InferenceProvider<string, string> = {
       id: 'slow',
       isAvailable: () => Promise.resolve(true),
       run: () => new Promise((_, reject) => setTimeout(() => reject(new Error('too slow')), 500)),
     };
-    const fast = makeProvider('b', true, true);
-    const providers = [slow, fast];
+    const fast: InferenceProvider<string, string> = {
+      ...makeProvider('fast', true, true),
+      run: fastRun,
+    };
+    await expect(
+      runProviderChain([slow, fast], { modelId: 'test', input: 'x' }, { providerTimeoutMs: 50 }),
+    ).rejects.toThrow(/timed out/i);
+    expect(fastRun).not.toHaveBeenCalled();
+  }, 10000);
+
+  it('allows a fallback only when the timed-out provider owns hard cancellation', async () => {
+    let abortCount = 0;
+    const cancellable: InferenceProvider<string, string> = {
+      id: 'cancellable',
+      supportsHardCancellation: true,
+      isAvailable: () => true,
+      run: ({ signal }) =>
+        new Promise((_, reject) => {
+          signal?.addEventListener(
+            'abort',
+            () => {
+              abortCount += 1;
+              reject(new Error('cancelled'));
+            },
+            { once: true },
+          );
+        }),
+    };
     const result = await runProviderChain(
-      providers,
+      [cancellable, makeProvider('fast', true, true)],
       { modelId: 'test', input: 'x' },
-      { providerTimeoutMs: 50 },
+      { providerTimeoutMs: 20 },
     );
-    expect(result.output).toBe('b-result');
+    expect(result.output).toBe('fast-result');
+    expect(abortCount).toBe(1);
   }, 10000);
 });

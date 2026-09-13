@@ -45,21 +45,35 @@ export async function runProviderChain<TInput, TOutput>(
     let available: boolean;
     try {
       available = await withTimeout(
-        () => Promise.resolve(provider.isAvailable(request)),
+        (attemptSignal) =>
+          Promise.resolve(provider.isAvailable({ ...request, signal: attemptSignal })),
         opts.providerTimeoutMs,
         request.signal,
       );
-    } catch {
+    } catch (error) {
+      // A timed-out availability probe may still be touching runtime state.
+      // Do not start another provider while that unknown work is in flight.
+      if (isProviderTimeout(error)) break;
       continue;
     }
     if (!available) continue;
     attempted = true;
 
     try {
-      return await withTimeout(() => provider.run(request), opts.providerTimeoutMs, request.signal);
+      return await withTimeout(
+        (attemptSignal) => provider.run({ ...request, signal: attemptSignal }),
+        opts.providerTimeoutMs,
+        request.signal,
+      );
     } catch (e) {
       if ((e as Error).message === 'cancelled') throw e;
       errors.push(`${provider.id}: ${e instanceof Error ? e.message : String(e)}`);
+      if (isProviderTimeout(e) && !provider.supportsHardCancellation) {
+        // AbortSignal is delivery, not proof that native/WASM/GPU work has
+        // stopped. A generic provider has no way to make a safe fallback
+        // promise, so fail closed instead of doubling peak memory/CPU.
+        break;
+      }
       if (!opts.fallbackEnabled) break;
     }
   }
@@ -75,7 +89,22 @@ export async function runProviderChain<TInput, TOutput>(
   );
 }
 
-function withTimeout<T>(fn: () => Promise<T>, timeoutMs: number, signal?: AbortSignal): Promise<T> {
+class ProviderTimeoutError extends Error {
+  constructor() {
+    super('Provider timed out');
+    this.name = 'ProviderTimeoutError';
+  }
+}
+
+function isProviderTimeout(error: unknown): error is ProviderTimeoutError {
+  return error instanceof ProviderTimeoutError;
+}
+
+function withTimeout<T>(
+  fn: (attemptSignal: AbortSignal) => Promise<T>,
+  timeoutMs: number,
+  signal?: AbortSignal,
+): Promise<T> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
       reject(new Error('cancelled'));
@@ -83,23 +112,24 @@ function withTimeout<T>(fn: () => Promise<T>, timeoutMs: number, signal?: AbortS
     }
 
     const controller = new AbortController();
+    const operation = Promise.resolve().then(() => fn(controller.signal));
     const onCallerAbort = () => {
       controller.abort();
       reject(new Error('cancelled'));
     };
-    const timeout = setTimeout(() => {
-      controller.abort();
-      reject(new Error('Provider timed out'));
-    }, timeoutMs);
-
     const cleanup = () => {
       clearTimeout(timeout);
       signal?.removeEventListener('abort', onCallerAbort);
     };
+    const timeout = setTimeout(() => {
+      controller.abort();
+      cleanup();
+      reject(new ProviderTimeoutError());
+    }, timeoutMs);
 
     signal?.addEventListener('abort', onCallerAbort, { once: true });
 
-    fn().then(
+    operation.then(
       (value) => {
         cleanup();
         resolve(value);
