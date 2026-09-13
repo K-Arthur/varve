@@ -31,6 +31,7 @@ export function setToastHandler(fn: ((opts: EditorToastOptions) => void) | null)
 export { requestInspectorTab, setInspectorTabHandler } from './context/inspectorTabBridge';
 export {
   type ImportResultReport,
+  importReportHasIssues,
   publishImportReport,
   setImportReportHandler,
 } from './context/sessionGlobals';
@@ -288,6 +289,7 @@ import {
   setIsometricGrid as sceneSetIsometricGrid,
   setLayoutGrid as sceneSetLayoutGrid,
   scopeForTargets,
+  serializeDocument as serializeSceneDocument,
   setActivePage as setActivePageDoc,
   setActiveTimeline as setActiveTimelineDoc,
   setAllGuidesLocked,
@@ -430,6 +432,7 @@ import {
 import { isReducedMotion } from './context/reducedMotionManager';
 import {
   addMaskForSelection,
+  alignmentFeedbackForResult,
   alignmentPageBounds,
   alignSelectionInDocument,
   alignSelectionWithObbInDocument,
@@ -437,6 +440,7 @@ import {
   commonAlignmentContainerBounds,
   createLiveBooleanForSelection,
   distributeSelectionInDocument,
+  distributionFeedbackForResult,
   makeDrawingFrameNode,
   resizeSceneNode,
   runKnifeCut,
@@ -674,6 +678,48 @@ function offsetRect(
 ): { x: number; y: number; w: number; h: number } | null {
   if (!bounds || !offset) return bounds;
   return { ...bounds, x: bounds.x + offset.x, y: bounds.y + offset.y };
+}
+
+type AlignmentOperationAxis = Parameters<typeof alignmentFeedbackForResult>[3];
+type AlignmentOperationOptions = Parameters<typeof alignmentFeedbackForResult>[4];
+
+/** Publish the same post-command relationship for menus, shortcuts, and the inspector. */
+function publishAlignmentFeedback(feedback: ReturnType<typeof alignmentFeedbackForResult>): void {
+  if (!feedback || feedback.lines.length === 0 || typeof window === 'undefined') return;
+  window.dispatchEvent(
+    new CustomEvent('varve:alignment-guide', {
+      detail: [...feedback.lines],
+    }),
+  );
+}
+
+function applyAlignmentWithFeedback(
+  before: Document,
+  selection: readonly NodeId[],
+  axis: AlignmentOperationAxis,
+  options: AlignmentOperationOptions,
+  oriented: boolean,
+  apply: (doc: Document) => Document,
+): Document {
+  const after = apply(before);
+  publishAlignmentFeedback(
+    alignmentFeedbackForResult(before, after, selection, axis, options, oriented),
+  );
+  return after;
+}
+
+type DistributionOperationAxis = Parameters<typeof distributionFeedbackForResult>[3];
+type DistributionOperationOptions = Parameters<typeof distributionFeedbackForResult>[4];
+
+function applyDistributionWithFeedback(
+  before: Document,
+  selection: readonly NodeId[],
+  axis: DistributionOperationAxis,
+  options: DistributionOperationOptions,
+): Document {
+  const after = distributeSelectionInDocument(before, selection, axis, options);
+  publishAlignmentFeedback(distributionFeedbackForResult(before, after, selection, axis, options));
+  return after;
 }
 
 /** Resolve the active canvas/page trim in placed world space for alignment. */
@@ -928,6 +974,15 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   resetWorkspaceToDefault: () => void;
   /** Reset every workspace to its default panel/tool configuration. */
   resetAllWorkspacesToDefaults: () => void;
+  /**
+   * Apply a saved layout variant to the active workspace without switching
+   * modes. Replaces the mode's arrangement with the variant's sparse payload.
+   */
+  applyWorkspaceLayout: (
+    variant: import('./workspace/layoutVariants').WorkspaceLayoutVariant,
+  ) => boolean;
+  /** Restore the arrangement captured before the most recent workspace reset. */
+  restoreLastResetLayout: () => boolean;
   /** Fit all nodes in the document to the viewport. */
   fitAll: () => void;
   /** Replace selection with a single node (or clear if null). */
@@ -2328,17 +2383,33 @@ function applyFrameLayout(doc: Document, parentId: string | null | undefined): D
  * referenced path was also cloned. If the path is outside the cloned
  * subtree the original reference is still valid (in-document duplicate).
  */
-function remapPathTextClonedNode(cloned: SceneNode, idMap: Record<string, string>): SceneNode {
-  if (cloned.kind === 'text' && cloned.pathTextSettings?.pathNodeId) {
-    const mapped = idMap[cloned.pathTextSettings.pathNodeId];
-    if (mapped) {
-      return {
-        ...cloned,
-        pathTextSettings: { ...cloned.pathTextSettings, pathNodeId: mapped },
-      };
-    }
-  }
-  return cloned;
+/**
+ * Clone one node subtree into the same document for duplicate/repeat-duplicate.
+ *
+ * Delegates to the canonical `deepCloneSubtree` so raster tiles, effect
+ * identity and effect-mask bindings, tables, export presets, adjustment
+ * scopes and cross-references are cloned by the same rules as clipboard
+ * paste. The previous bespoke copies shallow-copied `effects` and `tiles`,
+ * sharing effect IDs and paint surfaces between the original and its copy.
+ *
+ * `offset` translates the cloned root only; children keep parent-relative
+ * transforms so the whole subtree moves together.
+ */
+function duplicateSubtreeInDocument(
+  doc: Document,
+  id: NodeId,
+  offset: { x: number; y: number },
+): { doc: Document; newId: NodeId } | null {
+  const cloned = deepCloneSubtree(doc.nodes, doc.nextId, id, {
+    translate: offset,
+    nameSuffix: ' copy',
+  });
+  const root = cloned.nodes[cloned.rootId];
+  if (!root || Object.keys(cloned.nodes).length === 0) return null;
+  return {
+    doc: { ...doc, nextId: cloned.nextId, nodes: { ...doc.nodes, ...cloned.nodes } },
+    newId: cloned.rootId,
+  };
 }
 
 /**
@@ -2682,6 +2753,7 @@ export function EditorProvider({
         spacing: 0.25,
         smudgeStrength: 0.5,
         smudgeMode: 'sampling' as 'sampling' | 'mixing' | 'fingerpaint',
+        smudgeSampleAllLayers: false,
         grainId: null,
         grainScale: 1,
         grainRotation: 0,
@@ -3156,7 +3228,9 @@ export function EditorProvider({
       }
       if (onMutationRef.current && !isPreviewTransaction) {
         lastMutatedDocRef.current = {
-          documentJson: JSON.stringify(newDoc),
+          // Auxiliary windows decode this with DocumentCodec, so it must use
+          // the canonical serializer (raster tile Maps -> records).
+          documentJson: serializeSceneDocument(newDoc),
           baseDocumentRevision: mutationBaseDocumentRevision,
         };
       }
@@ -3312,7 +3386,8 @@ export function EditorProvider({
           }
           if (transactionMode === 'preview' && onMutationRef.current) {
             lastMutatedDocRef.current = {
-              documentJson: JSON.stringify(current.document),
+              // See above: auxiliary windows decode through DocumentCodec.
+              documentJson: serializeSceneDocument(current.document),
               baseDocumentRevision:
                 txBaseDocumentRevisionRef.current ?? documentRevisionRef.current,
             };
@@ -4119,7 +4194,7 @@ export function EditorProvider({
         announcerRef.current?.announce(`Section order restored`);
       },
       fitAll: () => {
-        const cam = computeFitAllCamera(state.document, getCanvasViewport());
+        const cam = computeFitAllCamera(state.document, getCanvasViewport(), state.cameraRotation);
         if (cam) patch({ zoom: cam.zoom, pan: cam.pan });
       },
       revealSelection: (opts) => {
@@ -4992,65 +5067,9 @@ export function EditorProvider({
           doc: Document,
           offset: { x: number; y: number },
         ): [string, Document, Record<string, string>] {
-          const node = doc.nodes[nodeId];
-          if (!node) return [nodeId, doc, {}];
-
-          const { id: newId, doc: d1 } = nextNodeId(doc);
-          let d = d1;
-          let idMap: Record<string, string> = { [nodeId]: newId };
-
-          // Clone the node with a new ID and offset position
-          let cloned = {
-            ...node,
-            id: newId,
-            name: `${node.name} copy`,
-            ...(node.smartFilters ? { smartFilters: cloneSmartFilters(node.smartFilters) } : {}),
-            ...(node.smartFiltersEnabled === false ? { smartFiltersEnabled: false } : {}),
-            transform: [
-              node.transform[0],
-              node.transform[1],
-              node.transform[2],
-              node.transform[3],
-              node.transform[4] + offset.x,
-              node.transform[5] + offset.y,
-            ] as typeof node.transform,
-          };
-
-          // If container with children, recursively deep-clone all descendants
-          if (isContainer(node)) {
-            const newChildIds: string[] = [];
-            for (const childId of node.children) {
-              const [newChildId, d2, childMap] = cloneNodeDeep(childId, d, offset);
-              d = d2;
-              newChildIds.push(newChildId);
-              idMap = { ...idMap, ...childMap };
-            }
-            const clonedContainer = cloned as import('@varve/scene').ContainerNode;
-            clonedContainer.children = newChildIds;
-
-            // Node-to-node references must follow the cloned subtree. Leaving
-            // a mask pointed at the original source makes the duplicate fail
-            // validation and couple its rendering to the original artwork.
-            if (clonedContainer.mask?.sourceNodeId) {
-              clonedContainer.mask = {
-                ...clonedContainer.mask,
-                sourceNodeId:
-                  idMap[clonedContainer.mask.sourceNodeId] ?? clonedContainer.mask.sourceNodeId,
-              };
-            }
-
-            if ('slots' in clonedContainer && clonedContainer.slots) {
-              clonedContainer.slots = Object.fromEntries(
-                Object.entries(clonedContainer.slots)
-                  .map(([slotId, childId]) => [slotId, idMap[childId]] as const)
-                  .filter((entry): entry is readonly [string, string] => Boolean(entry[1])),
-              );
-            }
-          }
-          cloned = remapPathTextClonedNode(cloned, idMap);
-
-          d = { ...d, nodes: { ...d.nodes, [newId]: cloned } };
-          return [newId, d, idMap];
+          const duplicate = duplicateSubtreeInDocument(doc, nodeId, offset);
+          if (!duplicate) return [nodeId, doc, {}];
+          return [duplicate.newId, duplicate.doc, {}];
         }
 
         runOwnedTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
@@ -5129,60 +5148,9 @@ export function EditorProvider({
             doc: Document,
             offset: { x: number; y: number },
           ): [string, Document, Record<string, string>] {
-            const node = doc.nodes[nodeId];
-            if (!node) return [nodeId, doc, {}];
-
-            const { id: newId, doc: d1 } = nextNodeId(doc);
-            let d = d1;
-            let idMap: Record<string, string> = { [nodeId]: newId };
-
-            let cloned = {
-              ...node,
-              id: newId,
-              name: `${node.name} copy`,
-              ...(node.smartFilters ? { smartFilters: cloneSmartFilters(node.smartFilters) } : {}),
-              ...(node.smartFiltersEnabled === false ? { smartFiltersEnabled: false } : {}),
-              transform: [
-                node.transform[0],
-                node.transform[1],
-                node.transform[2],
-                node.transform[3],
-                node.transform[4] + offset.x,
-                node.transform[5] + offset.y,
-              ] as typeof node.transform,
-            };
-
-            if (isContainer(node)) {
-              const newChildIds: string[] = [];
-              for (const childId of node.children) {
-                const [newChildId, d2, childMap] = cloneNodeDeep(childId, d, offset);
-                d = d2;
-                newChildIds.push(newChildId);
-                idMap = { ...idMap, ...childMap };
-              }
-              const clonedContainer = cloned as import('@varve/scene').ContainerNode;
-              clonedContainer.children = newChildIds;
-
-              if (clonedContainer.mask?.sourceNodeId) {
-                clonedContainer.mask = {
-                  ...clonedContainer.mask,
-                  sourceNodeId:
-                    idMap[clonedContainer.mask.sourceNodeId] ?? clonedContainer.mask.sourceNodeId,
-                };
-              }
-
-              if ('slots' in clonedContainer && clonedContainer.slots) {
-                clonedContainer.slots = Object.fromEntries(
-                  Object.entries(clonedContainer.slots)
-                    .map(([slotId, childId]) => [slotId, idMap[childId]] as const)
-                    .filter((entry): entry is readonly [string, string] => Boolean(entry[1])),
-                );
-              }
-            }
-            cloned = remapPathTextClonedNode(cloned, idMap);
-
-            d = { ...d, nodes: { ...d.nodes, [newId]: cloned } };
-            return [newId, d, idMap];
+            const duplicate = duplicateSubtreeInDocument(doc, nodeId, offset);
+            if (!duplicate) return [nodeId, doc, {}];
+            return [duplicate.newId, duplicate.doc, {}];
           }
 
           setState((s) => {
@@ -5248,60 +5216,9 @@ export function EditorProvider({
           doc: Document,
           offset: { x: number; y: number },
         ): [string, Document, Record<string, string>] {
-          const node = doc.nodes[nodeId];
-          if (!node) return [nodeId, doc, {}];
-
-          const { id: newId, doc: d1 } = nextNodeId(doc);
-          let d = d1;
-          let idMap: Record<string, string> = { [nodeId]: newId };
-
-          let cloned = {
-            ...node,
-            id: newId,
-            name: `${node.name} copy`,
-            ...(node.smartFilters ? { smartFilters: cloneSmartFilters(node.smartFilters) } : {}),
-            ...(node.smartFiltersEnabled === false ? { smartFiltersEnabled: false } : {}),
-            transform: [
-              node.transform[0],
-              node.transform[1],
-              node.transform[2],
-              node.transform[3],
-              node.transform[4] + offset.x,
-              node.transform[5] + offset.y,
-            ] as typeof node.transform,
-          };
-
-          if (isContainer(node)) {
-            const newChildIds: string[] = [];
-            for (const childId of node.children) {
-              const [newChildId, d2, childMap] = cloneNodeDeep(childId, d, offset);
-              d = d2;
-              newChildIds.push(newChildId);
-              idMap = { ...idMap, ...childMap };
-            }
-            const clonedContainer = cloned as import('@varve/scene').ContainerNode;
-            clonedContainer.children = newChildIds;
-
-            if (clonedContainer.mask?.sourceNodeId) {
-              clonedContainer.mask = {
-                ...clonedContainer.mask,
-                sourceNodeId:
-                  idMap[clonedContainer.mask.sourceNodeId] ?? clonedContainer.mask.sourceNodeId,
-              };
-            }
-
-            if ('slots' in clonedContainer && clonedContainer.slots) {
-              clonedContainer.slots = Object.fromEntries(
-                Object.entries(clonedContainer.slots)
-                  .map(([slotId, childId]) => [slotId, idMap[childId]] as const)
-                  .filter((entry): entry is readonly [string, string] => Boolean(entry[1])),
-              );
-            }
-          }
-          cloned = remapPathTextClonedNode(cloned, idMap);
-
-          d = { ...d, nodes: { ...d.nodes, [newId]: cloned } };
-          return [newId, d, idMap];
+          const duplicate = duplicateSubtreeInDocument(doc, nodeId, offset);
+          if (!duplicate) return [nodeId, doc, {}];
+          return [duplicate.newId, duplicate.doc, {}];
         }
 
         setState((s) => {
@@ -6028,33 +5945,42 @@ export function EditorProvider({
         const sel = state.selection;
         const reference = requestedReference ?? (state.alignToPage ? 'page' : 'selection');
         if (sel.length < (reference === 'selection' ? 2 : 1)) return;
-        updateDoc((doc) =>
-          alignSelectionInDocument(doc, sel, axis, {
-            reference,
-            keyObjectId: state.keyObjectId,
-            pageBounds: reference === 'page' ? alignmentPageBounds(doc) : null,
-            containerBounds:
-              reference === 'container' ? commonAlignmentContainerBounds(doc, sel) : null,
-          }),
+        const before = state.document;
+        const options = {
+          reference,
+          keyObjectId: state.keyObjectId,
+          pageBounds: reference === 'page' ? alignmentPageBounds(before) : null,
+          containerBounds:
+            reference === 'container' ? commonAlignmentContainerBounds(before, sel) : null,
+        } as const;
+        const after = applyAlignmentWithFeedback(before, sel, axis, options, false, (doc) =>
+          alignSelectionInDocument(doc, sel, axis, options),
         );
+        if (after !== before) updateDoc(() => after);
       },
 
       distributeSelected: (axis) => {
         const sel = state.selection;
         if (sel.length < 3) return;
-        updateDoc((doc) => distributeSelectionInDocument(doc, sel, axis));
+        const before = state.document;
+        const after = applyDistributionWithFeedback(before, sel, axis, {});
+        if (after !== before) updateDoc(() => after);
       },
 
       distributeWithGap: (axis, gap) => {
         const sel = state.selection;
         if (sel.length < 2) return;
-        updateDoc((doc) => distributeSelectionInDocument(doc, sel, axis, { gap }));
+        const before = state.document;
+        const after = applyDistributionWithFeedback(before, sel, axis, { gap });
+        if (after !== before) updateDoc(() => after);
       },
 
       distributeWithMode: (axis, mode) => {
         const sel = state.selection;
         if (sel.length < 3) return;
-        updateDoc((doc) => distributeSelectionInDocument(doc, sel, axis, { mode }));
+        const before = state.document;
+        const after = applyDistributionWithFeedback(before, sel, axis, { mode });
+        if (after !== before) updateDoc(() => after);
       },
 
       // P0*: set the key object ID (null = use collective bounds)
@@ -6071,15 +5997,18 @@ export function EditorProvider({
         const sel = state.selection;
         const reference = requestedReference ?? (state.alignToPage ? 'page' : 'selection');
         if (sel.length < (reference === 'selection' ? 2 : 1)) return;
-        updateDoc((doc) =>
-          alignSelectionWithObbInDocument(doc, sel, axis, {
-            reference,
-            keyObjectId: state.keyObjectId,
-            pageBounds: reference === 'page' ? alignmentPageBounds(doc) : null,
-            containerBounds:
-              reference === 'container' ? commonAlignmentContainerBounds(doc, sel) : null,
-          }),
+        const before = state.document;
+        const options = {
+          reference,
+          keyObjectId: state.keyObjectId,
+          pageBounds: reference === 'page' ? alignmentPageBounds(before) : null,
+          containerBounds:
+            reference === 'container' ? commonAlignmentContainerBounds(before, sel) : null,
+        } as const;
+        const after = applyAlignmentWithFeedback(before, sel, axis, options, true, (doc) =>
+          alignSelectionWithObbInDocument(doc, sel, axis, options),
         );
+        if (after !== before) updateDoc(() => after);
       },
 
       // P0*: auto-arrange selected nodes into a tidy grid layout
@@ -6596,7 +6525,7 @@ export function EditorProvider({
         const vp: Viewport = canvasEl
           ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
           : { width: window.innerWidth, height: window.innerHeight - 120 };
-        patch(fitBoundsToState(bounds, vp));
+        patch(fitBoundsToState(bounds, vp, 40, state.cameraRotation));
       },
       fitAllPages: () => {
         const doc = state.document;
@@ -6606,7 +6535,7 @@ export function EditorProvider({
         const vp: Viewport = canvasEl
           ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
           : { width: window.innerWidth, height: window.innerHeight - 120 };
-        patch(fitBoundsToState(bounds, vp));
+        patch(fitBoundsToState(bounds, vp, 40, state.cameraRotation));
       },
 
       activePageNodes: () => {
@@ -7663,7 +7592,9 @@ export function EditorProvider({
           doc = index >= 0 ? moveNode(doc, id, index + 1) : doc;
         } else {
           // With no scoped selection, place the new layer on the active
-          // workspace surface so it is immediately visible and editable.
+          // workspace surface so it is immediately visible and editable. Its
+          // explicit empty scope remains inactive until the user chooses
+          // targets in the inspector.
           const contentRootId = activeWorkspaceContentRoot(newDoc, stateRef.current.workspaceMode);
           doc =
             contentRootId && newDoc.nodes[contentRootId]
@@ -8015,6 +7946,7 @@ export function EditorProvider({
           closure.motionExtensions,
           closure.motionPresets,
           dependencyIds,
+          closure.depthMaps,
         ).then(
           (outcome) => {
             if (outcome.status === 'editable') {
@@ -8079,6 +8011,7 @@ export function EditorProvider({
           closure.motionExtensions,
           closure.motionPresets,
           dependencyIds,
+          closure.depthMaps,
         ).then(
           (outcome) => {
             if (outcome.status !== 'editable') {
@@ -8187,15 +8120,7 @@ export function EditorProvider({
             ? (richText?.plainText ?? unified.plainText?.slice(0, 2_000_000))
             : null;
         if (!varveData && importResults.length === 0 && !plainText) {
-          if (
-            importReport &&
-            (importReport.partialCount > 0 ||
-              importReport.failureCount > 0 ||
-              importReport.warnings.length > 0 ||
-              importReport.files.some(
-                (file) => file.unsupportedFeatures.length > 0 || file.warnings.length > 0,
-              ))
-          ) {
+          if (importReport && sessionGlobals.importReportHasIssues(importReport)) {
             sessionGlobals.publishImportReport({
               ...importReport,
               insertedCount: 0,
@@ -8291,15 +8216,7 @@ export function EditorProvider({
               failed > 0 ? `; ${failed} failed` : ''
             }${partial > 0 ? `; ${partial} with fidelity changes` : ''}${clipboardRichTextWarning(richText)}`,
           );
-          if (
-            importReport &&
-            (importReport.partialCount > 0 ||
-              importReport.failureCount > 0 ||
-              importReport.warnings.length > 0 ||
-              importReport.files.some(
-                (file) => file.unsupportedFeatures.length > 0 || file.warnings.length > 0,
-              ))
-          ) {
+          if (importReport && sessionGlobals.importReportHasIssues(importReport)) {
             sessionGlobals.publishImportReport({
               ...importReport,
               insertedCount: committedPasteCount,
@@ -8511,7 +8428,7 @@ export function EditorProvider({
         const vp: Viewport = canvasEl
           ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
           : { width: window.innerWidth, height: window.innerHeight - 120 };
-        patch(fitBoundsToState(bounds, vp));
+        patch(fitBoundsToState(bounds, vp, 40, state.cameraRotation));
       },
       fitActiveFrame: () => {
         const sel = state.selection[0];
@@ -8524,7 +8441,7 @@ export function EditorProvider({
         const vp: Viewport = canvasEl
           ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
           : { width: window.innerWidth, height: window.innerHeight - 120 };
-        patch(fitBoundsToState(bounds, vp));
+        patch(fitBoundsToState(bounds, vp, 40, state.cameraRotation));
       },
       setSoftProofEnabled: (v) => patch({ softProofEnabled: v }),
       setFindingsOverlayVisible: (v: boolean) => patch({ findingsOverlayVisible: v }),
@@ -10606,4 +10523,3 @@ function colorsEqual(a: unknown, b: unknown): boolean {
   if (a.length !== b.length) return false;
   return a.every((v, i) => v === (b as number[])[i]);
 }
-        smudgeSampleAllLayers: false,
