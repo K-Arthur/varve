@@ -19,6 +19,8 @@ test.describe('generative editing marketing pages', () => {
     ).toBeVisible();
     const evidenceImages = page.locator('.before-after-grid img');
     await expect(evidenceImages).toHaveCount(2);
+    await evidenceImages.first().scrollIntoViewIfNeeded();
+    await evidenceImages.last().scrollIntoViewIfNeeded();
     await expect
       .poll(() => evidenceImages.evaluateAll((images) => images.map((image) => image.naturalWidth)))
       .toEqual([640, 640]);
@@ -37,7 +39,10 @@ test.describe('generative editing marketing pages', () => {
     await preparePage(page, 'light');
     await page.goto('/features/generative-editing?test-motion=static');
     await expect(page.getByRole('heading', { name: /make room in an image/i })).toBeVisible();
-    await expect(page.locator('.before-after-grid img')).toHaveCount(2);
+    const evidenceImages = page.locator('.before-after-grid img');
+    await expect(evidenceImages).toHaveCount(2);
+    await evidenceImages.first().scrollIntoViewIfNeeded();
+    await evidenceImages.last().scrollIntoViewIfNeeded();
     const layout = await page.locator('.before-after-grid').evaluate((element) => {
       const style = getComputedStyle(element);
       return {
