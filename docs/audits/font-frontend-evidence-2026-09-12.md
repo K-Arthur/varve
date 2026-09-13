@@ -456,3 +456,11 @@ remain the visual evidence for the shared 32 px control geometry and tokenized
 spacing. A fresh Chromium retry remains blocked by the documented cold-start
 `Target page, context or browser has been closed` environment failure, so it is
 not counted as a new visual pass.
+
+The same adapter is now used by the inspector Style segmented control and the
+Logo wordmark Style select. This keeps exact-face behavior consistent across
+all three authored editing surfaces; family-only legacy records still receive a
+style-only patch. The Logo surface regression suite passed **4/4** after this
+wiring. The inspector suite was not counted from the interrupted shared-host
+run because unrelated concurrent Vitest and typecheck jobs left the process
+without a result.

@@ -89,7 +89,9 @@ vi.mock('@varve/ui', () => ({
 }));
 
 const node = makeTextNode('logo-text', 'Varve', {
-  fontFamily: 'Inter',
+  // The registry knows both Arial 400 and 700, keeping this interaction test
+  // focused on selecting an available face.
+  fontFamily: 'Arial',
   fontWeight: 400,
   fontStyle: 'normal',
   fontSize: 48,
@@ -155,6 +157,22 @@ describe('LogoTypographySection', () => {
     });
     expect(applyLastDocumentUpdate().nodes[node.id]).toEqual(
       expect.objectContaining({ fontStyle: 'italic' }),
+    );
+  });
+
+  it('clears a stale exact face when the requested style is unavailable', () => {
+    const exactNode = {
+      ...node,
+      fontReference: { artifactHash: 'f'.repeat(64) },
+    };
+    render(<LogoTypographySection node={exactNode} />);
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Font style' }), {
+      target: { value: 'italic' },
+    });
+
+    expect(applyLastDocumentUpdate().nodes[exactNode.id]).toEqual(
+      expect.objectContaining({ fontStyle: 'italic', fontReference: undefined }),
     );
   });
 });

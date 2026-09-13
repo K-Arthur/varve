@@ -32,6 +32,7 @@ import { FontBrowserDialog } from '../../FontBrowser/FontBrowserDialog';
 import { FontSelector } from '../../FontBrowser/FontSelector';
 import {
   fontFamilyChanges,
+  fontStyleChanges,
   fontWeightChanges,
   fontWeightOptions,
 } from '../../Typography/fontWeight';
@@ -446,7 +447,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             label="Font style"
             value={isMixed(styleRaw) ? 'normal' : styleRaw}
             options={FONT_STYLE_OPTIONS}
-            onChange={(v) => batchUpdate((n) => ({ ...n, fontStyle: v }))}
+            onChange={(v) => batchUpdate((n) => ({ ...n, ...fontStyleChanges(n, v) }))}
           />
           {textFillColor && (
             <ContrastIndicator

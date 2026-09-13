@@ -14,7 +14,12 @@ import { useEditor } from '../../context';
 import type { FontFaceSelection } from '../FontBrowser/FontBrowser';
 import { FontBrowserDialog } from '../FontBrowser/FontBrowserDialog';
 import { FontSelector } from '../FontBrowser/FontSelector';
-import { fontFamilyChanges, fontWeightChanges, fontWeightOptions } from '../Typography/fontWeight';
+import {
+  fontFamilyChanges,
+  fontStyleChanges,
+  fontWeightChanges,
+  fontWeightOptions,
+} from '../Typography/fontWeight';
 import { GlyphTypographySection } from '../Typography/GlyphTypographySection';
 
 export function LogoTypographySection({ node }: { node: TextNode }) {
@@ -109,7 +114,9 @@ export function LogoTypographySection({ node }: { node: TextNode }) {
               { value: 'normal', label: 'Normal' },
               { value: 'italic', label: 'Italic' },
             ]}
-            onChange={(fontStyle) => patch({ fontStyle: fontStyle as TextNode['fontStyle'] })}
+            onChange={(fontStyle) =>
+              patch(fontStyleChanges(node, fontStyle as TextNode['fontStyle']))
+            }
           />
         </div>
       </div>
