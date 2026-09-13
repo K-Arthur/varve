@@ -69,6 +69,12 @@ store only while an editor interaction is open (drag, pinch, wheel burst):
 tier's scale (1 / 1 / 0.75 / 0.5 for quality / balanced / performance /
 constrained). Consequences and invariants:
 
+Performance settings expose this as **Automatic** (the adaptive behavior) or
+**Full** (device-scale content during navigation). Both modes promote settled
+frames and exports to authoritative full resolution; the preference changes
+only the transient interaction backing scale and does not change document or
+export quality.
+
 - Settled frames always return to full display resolution. The
   `RedrawCoordinator` treats a DPR change as invalidation, so promotion is a
   normal content frame; the image settled-refinement timer requests the

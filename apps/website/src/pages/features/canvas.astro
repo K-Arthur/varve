@@ -41,6 +41,13 @@ import { sitePath } from '../../lib/siteUrl';
             <p>Fast paths remain optional. If a fresh worker frame is not available, the authoritative replay path is used instead of showing stale pixels.</p>
           </article>
         </div>
+        <p>
+          Plain wheel input pans the canvas, while Ctrl/Cmd+wheel and pinch zoom around the
+          pointer. The Hand tool also supports Arrow and Shift+Arrow for precise keyboard-free
+          traversal without taking those keys away from object editing or text fields. Finger
+          drawing versus one-finger navigation, wheel sensitivity, and the optional mouse-wheel
+          continuation are available in the existing Settings panel.
+        </p>
         <p class="responsive-contract__evidence">
           This contract is exercised by the canvas browser regressions and documented in the <a href="https://github.com/K-Arthur/varve/blob/main/docs/audits/canvas-responsiveness-2026-09-08.md">canvas responsiveness audit</a>. Performance figures remain fixture-specific rather than a promise for every document or device.
         </p>

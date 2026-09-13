@@ -239,6 +239,42 @@ test.describe('Wheel navigation', () => {
   });
 });
 
+test.describe('Navigation visual contract', () => {
+  test.beforeEach(async ({ page }) => {
+    await navigateToEditor(page);
+  });
+
+  test('Hand keyboard pan moves fresh artwork without changing the document', async ({
+    page,
+  }, testInfo) => {
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    const before = await drawAndSelect(page);
+    const nodeCount = await page.getByRole('treeitem').count();
+    await page.screenshot({ path: testInfo.outputPath('navigation-before.png'), fullPage: false });
+
+    await page.keyboard.press('h');
+    await canvas.focus();
+    await page.keyboard.press('ArrowRight');
+    await page.waitForTimeout(220);
+    const afterRight = await selectionRect(page);
+    expect(afterRight.width).toBeCloseTo(before.width, 0);
+    expect(afterRight.x).toBeLessThan(before.x);
+    expect(await page.getByRole('treeitem').count()).toBe(nodeCount);
+    await page.screenshot({
+      path: testInfo.outputPath('navigation-after-right.png'),
+      fullPage: false,
+    });
+
+    await page.keyboard.press('Shift+ArrowDown');
+    await page.waitForTimeout(220);
+    const afterDown = await selectionRect(page);
+    expect(afterDown.width).toBeCloseTo(before.width, 0);
+    expect(afterDown.y).toBeLessThan(afterRight.y);
+    expect(await page.getByRole('treeitem').count()).toBe(nodeCount);
+    await page.screenshot({ path: testInfo.outputPath('navigation-settled.png'), fullPage: false });
+  });
+});
+
 test.describe('Edge auto-pan', () => {
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
