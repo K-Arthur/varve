@@ -383,6 +383,7 @@ import {
 } from './canvas/cameraState';
 import {
   clipboardRichTextWarning,
+  orderClipboardRoots,
   parseClipboardRichText,
   readClipboardUnifiedWithFallback,
   type TransferRequest,
@@ -721,13 +722,19 @@ function dependencyNodeIdsForRoots(doc: Document, rootIds: readonly NodeId[]): N
       }
     }
   }
-  return Object.keys(doc.nodes).filter((id) => !reachable.has(id));
+  // Version-1 and legacy envelopes do not carry an explicit dependency list.
+  // Recompute the supported closure from the decoded document instead of
+  // cloning every unrelated node that happened to be present in the payload.
+  // This keeps dependency-only nodes available for reference remapping while
+  // avoiding hidden, unreachable scene data in the destination document.
+  const closure = DocumentCodec.collectNodeClosure(doc, [...rootIds]);
+  return [...closure.nodeIds].filter((id) => !reachable.has(id));
 }
 
 /** Remove selected descendants from transfer roots. */
 function selectionRootIds(doc: Document, ids: readonly NodeId[]): NodeId[] {
   const selected = new Set(ids);
-  return ids.filter((id) => {
+  const roots = ids.filter((id) => {
     const visited = new Set<NodeId>();
     let current: NodeId | null = id;
     while (current && !visited.has(current)) {
@@ -739,6 +746,7 @@ function selectionRootIds(doc: Document, ids: readonly NodeId[]): NodeId[] {
     }
     return true;
   });
+  return orderClipboardRoots(doc, roots);
 }
 
 function sameNodeIdList(left: readonly NodeId[], right: readonly NodeId[]): boolean {
