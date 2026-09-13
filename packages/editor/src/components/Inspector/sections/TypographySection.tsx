@@ -30,7 +30,7 @@ import { docVariableStore } from '../../../docVariableStore';
 import type { FontFaceSelection } from '../../FontBrowser/FontBrowser';
 import { FontBrowserDialog } from '../../FontBrowser/FontBrowserDialog';
 import { FontSelector } from '../../FontBrowser/FontSelector';
-import { fontWeightChanges } from '../../Typography/fontWeight';
+import { fontFamilyChanges, fontWeightChanges } from '../../Typography/fontWeight';
 import { GlyphTypographySection } from '../../Typography/GlyphTypographySection';
 import { BindingMenu } from '../controls/BindingMenu';
 import { ContrastIndicator } from '../controls/ContrastIndicator';
@@ -344,11 +344,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
         onClose={() => setFontBrowserOpen(false)}
         selectedFamily={isMixed(familyRaw) ? undefined : familyRaw}
         onSelect={(family) => {
-          batchUpdate((n) => ({
-            ...n,
-            fontFamily: family || undefined,
-            fontReference: undefined,
-          }));
+          batchUpdate((n) => ({ ...n, ...fontFamilyChanges(family || undefined) }));
           setFontBrowserOpen(false);
         }}
         onSelectFace={(selection: FontFaceSelection) => {
@@ -414,7 +410,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
         <div className="typography__family-field">
           <FontSelector
             value={isMixed(familyRaw) ? '' : familyRaw}
-            onChange={(v) => batchUpdate((n) => ({ ...n, fontFamily: v || undefined }))}
+            onChange={(v) => batchUpdate((n) => ({ ...n, ...fontFamilyChanges(v || undefined) }))}
           />
           <Tooltip label="Browse fonts">
             <button

@@ -104,7 +104,9 @@ const DocumentPanel = lazy(() =>
   import('./panels/DocumentPanel').then((module) => ({ default: module.DocumentPanel })),
 );
 const FontBrowserPanel = lazy(() =>
-  import('../FontBrowser/FontBrowser').then((module) => ({ default: module.FontBrowser })),
+  import('../FontBrowser/DocumentFontsPanel').then((module) => ({
+    default: module.DocumentFontsPanel,
+  })),
 );
 const EmailPanel = lazy(() =>
   import('./panels/EmailPanel').then((module) => ({ default: module.EmailPanel })),
@@ -180,9 +182,9 @@ export function PropertiesPanel() {
       }
     }
 
-    // Fonts tab is merged away: font discovery lives in the Browse-fonts
-    // dialog inside the Typography section. The legacy tab block remains for
-    // the openFontsPanel deep link.
+    // The Fonts tab is a contextual deep link. It opens Document fonts first;
+    // Browse all fonts is an explicit second view, so discovery never starts
+    // as a side effect of opening the inspector.
     if (requestedTab !== 'fonts') {
       const index = tabs.findIndex((tabConfig) => tabConfig.id === 'fonts');
       if (index >= 0) tabs.splice(index, 1);

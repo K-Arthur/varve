@@ -29,8 +29,15 @@ for (const route of ['/features/typography', '/docs/tools/typography']) {
       const content = page.locator('.feature-page, .docs-page');
       await expect(content).toContainText('More text formatting');
       await expect(content).toContainText('Select by Font');
-      await expect(content).toContainText('Document fonts');
-      await expect(content).toContainText('still being integrated');
+      // The feature page uses sentence case while the documentation heading is title case.
+      // Keep the assertion semantic so copy capitalization does not create a false visual failure.
+      await expect(content).toContainText(/Document fonts/i);
+      if (route.startsWith('/features')) {
+        await expect(content).toContainText('still being integrated');
+      } else {
+        // The guide describes the same boundary as active integration/migration.
+        await expect(content).toContainText(/under active integration|still being migrated/i);
+      }
       await page.screenshot({ path: testInfo.outputPath('typography-intro.png') });
       const details = page.getByRole('heading', {
         name: route.startsWith('/features')

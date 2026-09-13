@@ -1,0 +1,275 @@
+.document-fonts-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+  padding: var(--space-3);
+  color: var(--color-text-primary);
+}
+
+.document-fonts-panel--browser {
+  height: 100%;
+  padding: 0;
+}
+
+.document-fonts-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.document-fonts-panel__header h2 {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.document-fonts-panel__header p {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  line-height: 1.4;
+}
+
+.document-fonts-panel__browse,
+.document-fonts-panel__select {
+  min-block-size: var(--component-compact-height);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-interactive-default);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-raised);
+  color: var(--color-interactive-default);
+  font: inherit;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.document-fonts-panel__browse:hover,
+.document-fonts-panel__select:hover {
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+}
+
+.document-fonts-panel__subnav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border-subtle);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+}
+
+.document-fonts-panel__subnav button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-interactive-default);
+  font: inherit;
+  cursor: pointer;
+}
+
+.document-fonts-panel__scope {
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-sunken);
+}
+
+.document-fonts-panel__scope button {
+  flex: 1 1 0;
+  min-block-size: var(--component-compact-height);
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-control-compact);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--font-size-2xs);
+  cursor: pointer;
+}
+
+.document-fonts-panel__scope button.is-active {
+  background: var(--color-surface-raised);
+  box-shadow: var(--elevation-shadow-sm);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.document-fonts-panel__search {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.document-fonts-panel__search input {
+  min-block-size: var(--component-compact-height);
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-weight: var(--font-weight-regular);
+}
+
+.document-fonts-panel__search input:focus-visible,
+.document-fonts-panel__scope button:focus-visible,
+.document-fonts-panel__browse:focus-visible,
+.document-fonts-panel__select:focus-visible,
+.document-fonts-panel__subnav button:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+
+.document-fonts-panel__summary {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+}
+
+.document-fonts-panel__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.document-fonts-panel__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-raised);
+}
+
+.document-fonts-panel__row-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.document-fonts-panel__row-copy strong,
+.document-fonts-panel__row-copy span,
+.document-fonts-panel__row-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.document-fonts-panel__row-copy strong {
+  font-size: var(--font-size-xs);
+}
+
+.document-fonts-panel__row-copy span {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+}
+
+.document-fonts-panel__row-copy small {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-3xs);
+}
+
+.document-fonts-panel__row-copy small.is-exact {
+  color: var(--color-feedback-success-strong);
+}
+
+.document-fonts-panel__row-copy small.is-family-only {
+  color: var(--color-feedback-warning-strong);
+}
+
+.document-fonts-panel__select {
+  flex: 0 0 auto;
+}
+
+.document-fonts-panel__empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-2);
+  border: 1px dashed var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  text-align: center;
+}
+
+.document-fonts-panel__empty strong {
+  color: var(--color-text-secondary);
+}
+
+.document-fonts-panel__unused {
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+}
+
+.document-fonts-panel__unused summary {
+  cursor: pointer;
+}
+
+.document-fonts-panel__unused ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.document-fonts-panel__unused li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.document-fonts-panel__unused small {
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 420px) {
+  .document-fonts-panel__header {
+    flex-direction: column;
+  }
+
+  .document-fonts-panel__browse {
+    align-self: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .document-fonts-panel * {
+    transition-duration: 0s;
+    animation-duration: 0s;
+  }
+}
+
+@media (forced-colors: active) {
+  .document-fonts-panel__row,
+  .document-fonts-panel__scope button.is-active,
+  .document-fonts-panel__empty {
+    border: 1px solid CanvasText;
+  }
+
+  .document-fonts-panel__browse,
+  .document-fonts-panel__select,
+  .document-fonts-panel__scope button.is-active {
+    color: ButtonText;
+  }
+}

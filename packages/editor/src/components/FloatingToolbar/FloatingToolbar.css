@@ -1,4 +1,5 @@
 .floating-toolbar {
+  --floating-toolbar-control-height: var(--component-compact-height);
   /* Stack in the canvas grid cell so the tool palette sits above page chrome
    * without viewport-fixed math fighting SelectionInfoBar / status / page-nav. */
   grid-area: canvas;
@@ -80,8 +81,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: var(--floating-toolbar-control-height);
+  height: var(--floating-toolbar-control-height);
   background: transparent;
   border: none;
   border-radius: var(--radius-control-compact);
@@ -139,7 +140,7 @@
   align-items: center;
   justify-content: center;
   width: 14px;
-  height: 32px;
+  height: var(--floating-toolbar-control-height);
   background: transparent;
   border: none;
   border-radius: var(--radius-control-compact);
@@ -166,6 +167,12 @@
   }
   .floating-toolbar [role="toolbar"] {
     max-width: 100%;
+  }
+}
+
+@media (pointer: coarse), (any-pointer: coarse) {
+  .floating-toolbar {
+    --floating-toolbar-control-height: var(--touch-target-min);
   }
 }
 

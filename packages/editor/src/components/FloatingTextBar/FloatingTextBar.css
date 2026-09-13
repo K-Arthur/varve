@@ -27,16 +27,26 @@
 .floating-text-bar {
   position: static;
   width: max-content;
-  /* The main palette's toolbar-height sits inside its two 1px outer borders. */
-  min-block-size: calc(var(--toolbar-height) + 2px);
+  /* Match the main palette's content-box geometry. The fluid global
+   * toolbar-height token belongs to the canvas palette and otherwise makes
+   * this compact text surface grow at wide viewports. */
+  min-block-size: calc(
+    var(--text-toolbar-control-height) +
+    var(--space-toolbar) +
+    var(--space-toolbar) +
+    2px
+  );
   max-width: calc(100vw - 24px);
   white-space: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .floating-text-bar__separator {
   width: 1px;
   height: 20px;
-  margin-inline: var(--space-1);
   background: var(--color-border-subtle);
   flex-shrink: 0;
 }
@@ -128,13 +138,6 @@
 .floating-text-bar__more .varve-segmented__btn svg {
   width: var(--component-compact-icon-size);
   height: var(--component-compact-icon-size);
-}
-
-@media (max-width: 760px) {
-  .floating-text-bar {
-    flex-wrap: wrap;
-    white-space: normal;
-  }
 }
 
 @media (pointer: coarse) {

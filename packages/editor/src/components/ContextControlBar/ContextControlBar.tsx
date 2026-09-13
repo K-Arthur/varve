@@ -1,7 +1,7 @@
 /**
  * ContextControlBar — Affinity-style context-sensitive properties sub-bar.
  *
- * Renders a 34px bar directly below the menubar, whose contents change
+ * Renders a compact secondary bar directly below the menubar, whose contents change
  * depending on the active selection:
  *
  *   - Nothing selected  → quick-access tool buttons (Frame, Rect, Text, Pen)

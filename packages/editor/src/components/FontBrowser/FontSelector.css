@@ -14,7 +14,7 @@
    readable instead of allowing flex-shrink to collapse it to a few pixels. */
 .floating-text-bar .font-selector {
   flex: 0 0 auto;
-  width: 220px;
+  width: clamp(180px, 17vw, 220px);
   min-width: 0;
   max-width: 100%;
 }

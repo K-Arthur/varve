@@ -4,14 +4,37 @@ import { navigateToEditor } from '../shared';
 
 async function startText(page: Page) {
   await navigateToEditor(page);
+  // A document can finish its IndexedDB hand-off after the navigation helper
+  // returns and briefly put the shell back on Home. Re-open the freshly
+  // created card before querying editor-only controls.
+  const editorShell = page.locator('.editor-shell');
+  const toolbarRoot = page.getByTestId('toolbar');
+  if (!(await editorShell.isVisible({ timeout: 1500 }).catch(() => false))) {
+    const recentFile = page.getByRole('gridcell').first();
+    if (await recentFile.isVisible({ timeout: 1500 }).catch(() => false)) {
+      await recentFile.click({ timeout: 10000 });
+      await editorShell.waitFor({ state: 'visible', timeout: 60000 });
+    }
+  }
+  await editorShell.waitFor({ state: 'visible', timeout: 60000 });
+  await toolbarRoot.waitFor({ state: 'visible', timeout: 60000 });
   const canvas = page.locator('canvas.editor-canvas__content-layer');
   await expect(canvas).toBeVisible();
   const bounds = await canvas.boundingBox();
   if (!bounds) throw new Error('Canvas has no bounds');
-  await page.keyboard.press('t');
+  // Use the rendered tool action so startup focus cannot swallow the shortcut.
+  await toolbarRoot.locator('[data-tool="text"]').click();
   await page.mouse.click(bounds.x + 120, bounds.y + 160);
   await page.keyboard.insertText('Typography in context');
   const toolbar = page.getByRole('toolbar', { name: 'Text formatting' });
+  // Text creation and text editing are separate states on a cold canvas. If
+  // the click created a selected layer without entering editing, use the
+  // same explicit action a user sees in Selection actions before measuring
+  // the quick formatting bar.
+  if (!(await toolbar.isVisible({ timeout: 1000 }).catch(() => false))) {
+    const edit = page.getByRole('button', { name: 'Edit text', exact: true }).first();
+    if (await edit.isVisible({ timeout: 1000 }).catch(() => false)) await edit.click();
+  }
   await expect(toolbar).toBeVisible();
   return toolbar;
 }
@@ -57,6 +80,8 @@ async function measureToolbarConsistency(page: Page, toolbar: Locator) {
       radius: style.borderRadius,
       shadow: getComputedStyle(element.parentElement!).boxShadow,
       height: element.getBoundingClientRect().height,
+      overflowX: style.overflowX,
+      flexWrap: style.flexWrap,
       controls,
       fields,
     };
@@ -71,6 +96,8 @@ async function measureToolbarConsistency(page: Page, toolbar: Locator) {
   expect(measured.radius).toBe(palette.radius);
   expect(measured.shadow).toBe(palette.shadow);
   expect(measured.height).toBeCloseTo(palette.height, 0);
+  expect(measured.overflowX).toBe('auto');
+  expect(measured.flexWrap).toBe('nowrap');
   expect(new Set(measured.fields).size).toBe(1);
   const firstControl = measured.controls[0];
   if (!firstControl) throw new Error('Text toolbar has no controls');
@@ -81,8 +108,9 @@ async function measureToolbarConsistency(page: Page, toolbar: Locator) {
   return { chrome, palette, measured };
 }
 
-async function measureContextFontControls(contextBar: Locator) {
+async function measureContextFontControls(contextBar: Locator, floatingToolbar: Locator) {
   const measured = await contextBar.evaluate((element) => {
+    const style = getComputedStyle(element);
     const controls = Array.from(element.querySelectorAll('input, button')).map((control) => ({
       label: control.getAttribute('aria-label'),
       width: control.getBoundingClientRect().width,
@@ -91,18 +119,28 @@ async function measureContextFontControls(contextBar: Locator) {
     }));
     return {
       height: element.getBoundingClientRect().height,
+      gap: style.gap,
+      fontFamily: style.fontFamily,
+      fontSize: style.fontSize,
       controls,
       familyWidth: element
         .querySelector<HTMLInputElement>('[aria-label="Font family"]')
         ?.getBoundingClientRect().width,
     };
   });
+  const floatingStyle = await floatingToolbar.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { gap: style.gap, fontFamily: style.fontFamily, fontSize: style.fontSize };
+  });
   await test.info().attach('context-font-controls', {
     body: JSON.stringify(measured, null, 2),
     contentType: 'application/json',
   });
   expect(measured.height).toBeGreaterThanOrEqual(32);
-  expect(measured.familyWidth ?? 0).toBeGreaterThanOrEqual(160);
+  expect(measured.gap).toBe(floatingStyle.gap);
+  expect(measured.fontFamily).toBe(floatingStyle.fontFamily);
+  expect(measured.fontSize).toBe(floatingStyle.fontSize);
+  expect(measured.familyWidth ?? 0).toBeGreaterThanOrEqual(180);
   const firstControl = measured.controls[0];
   if (!firstControl) throw new Error('Context bar has no text controls');
   for (const control of measured.controls) {
@@ -123,10 +161,14 @@ for (const dpr of [1, 2, 3]) {
         await page.evaluate((theme) => {
           document.documentElement.dataset.theme = theme;
         }, theme);
+        // The global toolbar token is fluid. Check a wide desktop too so the
+        // text bar cannot grow taller than the main palette at large widths.
+        await page.setViewportSize({ width: 1920, height: 800 });
+        await measureToolbarConsistency(page, toolbar);
         await page.setViewportSize({ width: 1280, height: 800 });
         await containedInViewport(page, toolbar);
         const consistency = await measureToolbarConsistency(page, toolbar);
-        await measureContextFontControls(contextBar);
+        await measureContextFontControls(contextBar, toolbar);
         await writeFile(
           testInfo.outputPath(`${theme}-toolbar-metrics.json`),
           JSON.stringify(consistency, null, 2),
