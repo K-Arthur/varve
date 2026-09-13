@@ -104,12 +104,26 @@ export function PathTextSection({ nodes }: PathTextSectionProps) {
     announce?.('Text detached from path');
   }, [textNode, updateNode, beginTransaction, commitTransaction, announce]);
 
+  const resetSettings = useCallback(() => {
+    patchSettings({
+      startOffset: 0,
+      endOffset: undefined,
+      side: 'top',
+      flip: false,
+      baselineShift: 0,
+      fitToPath: false,
+      reverse: false,
+    });
+    announce?.('Text-on-path settings reset');
+  }, [patchSettings, announce]);
+
   if (!textNode || !attached) return null;
 
   const settings = textNode.pathTextSettings;
   if (!settings) return null;
 
   const pathNode = state.document.nodes[settings.pathNodeId];
+  const pathAvailable = pathNode?.kind === 'shape';
   const percent = (value: number | undefined, fallback: number): number =>
     Number.isFinite(value) ? Math.max(0, Math.min(100, Math.round(value! * 100))) : fallback;
   const offsetPercent = percent(settings.startOffset, 0);
@@ -121,8 +135,16 @@ export function PathTextSection({ nodes }: PathTextSectionProps) {
   return (
     <DisclosureSection title="Text on Path" sectionId="text-on-path" defaultExpanded={true}>
       <FieldRow label="Path">
-        <span className="insp-hint">{pathNode?.name ?? 'Missing path'}</span>
+        <span className={`insp-hint${pathAvailable ? '' : ' insp-hint--warning'}`}>
+          {pathAvailable ? pathNode.name : 'Missing path'}
+        </span>
       </FieldRow>
+      {!pathAvailable && (
+        <p className="insp-hint insp-hint--warning" role="status">
+          The referenced path is unavailable. Text stays visible as ordinary text until you reattach
+          or detach it.
+        </p>
+      )}
       <FieldRow label="Start" htmlFor="path-text-offset-range">
         <RangeValueControl
           id="path-text-offset"
@@ -219,6 +241,9 @@ export function PathTextSection({ nodes }: PathTextSectionProps) {
         />
       </FieldRow>
       <div className="insp-actions">
+        <button type="button" className="insp-btn-sm" onClick={resetSettings}>
+          Reset settings
+        </button>
         <button type="button" className="insp-btn-sm" onClick={detach}>
           Detach from path
         </button>

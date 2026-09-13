@@ -252,7 +252,7 @@ describe('path text rendering', () => {
     expect(fillTextCalls.length).toBe(2);
   });
 
-  it('skips path text when no pathShape is provided', () => {
+  it('keeps path text visible when no pathShape is provided', () => {
     const target = createMockTarget();
     const items: RenderItem[] = [
       {
@@ -293,6 +293,7 @@ describe('path text rendering', () => {
     replayIr(target as unknown as import('./replay').ReplayTarget, items);
 
     const fillTextCalls = target.calls.filter((c) => c.fn === 'fillText');
-    expect(fillTextCalls.length).toBe(0);
+    expect(fillTextCalls.length).toBe(1);
+    expect(fillTextCalls[0]?.args[0]).toBe('Test');
   });
 });

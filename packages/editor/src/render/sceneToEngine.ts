@@ -634,6 +634,7 @@ function deriveTextWarp(
       h: height,
       textAlign: node.textAlign,
       direction: node.direction,
+      openTypeFeatures: node.openTypeFeatures,
       measure: createClusterMeasure(
         node.fontSize ?? 14,
         node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY,

@@ -583,6 +583,107 @@ describe('replayIr', () => {
     expect(rec.calls.some((c) => c.startsWith('fillText("O"'))).toBe(true);
   });
 
+  it('keeps a likely standard ligature intact when cluster edits are present', () => {
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0] as const,
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } as const,
+      primitive: {
+        kind: 'text',
+        text: 'office',
+        fontSize: 16,
+        fontFamily: 'Inter',
+        fontWeight: 400,
+        fontStyle: 'normal',
+        textAlign: 'left',
+        textAlignVertical: 'top',
+        letterSpacing: 0,
+        lineHeight: 1.4,
+        paragraphSpacing: 0,
+        textCase: 'none',
+        textDecoration: 'none',
+        textOverflow: 'visible',
+        listStyle: 'none',
+        x: 0,
+        y: 0,
+        w: 200,
+        h: 24,
+        glyphAdjustments: {
+          1: { dx: 3, dy: 0, advance: 0, rotation: 0, scaleX: 1, scaleY: 1 },
+        },
+      },
+    };
+    const rec = new Recorder();
+    replayIr(rec, [item]);
+    expect(rec.calls).toContain('fillText("office",0,0)');
+    expect(rec.calls.some((call) => call.includes('fillText("f"'))).toBe(false);
+  });
+
+  it('keeps a likely standard ligature intact when tracking is requested', () => {
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0] as const,
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } as const,
+      primitive: {
+        kind: 'text',
+        text: 'fi',
+        fontSize: 16,
+        fontFamily: 'Inter',
+        fontWeight: 400,
+        fontStyle: 'normal',
+        textAlign: 'left',
+        textAlignVertical: 'top',
+        letterSpacing: 0,
+        tracking: 40,
+        lineHeight: 1.4,
+        paragraphSpacing: 0,
+        textCase: 'none',
+        textDecoration: 'none',
+        textOverflow: 'visible',
+        listStyle: 'none',
+        x: 0,
+        y: 0,
+        w: 100,
+        h: 24,
+      },
+    };
+    const rec = new Recorder();
+    replayIr(rec, [item]);
+    expect(rec.calls).toContain('fillText("fi",0,0)');
+    expect(rec.calls.some((call) => call.includes('fillText("f"'))).toBe(false);
+  });
+
+  it('falls back to ordinary text when a path reference is missing', () => {
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0] as const,
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } as const,
+      primitive: {
+        kind: 'text',
+        text: 'Detached safely',
+        fontSize: 16,
+        fontFamily: 'Inter',
+        fontWeight: 400,
+        fontStyle: 'normal',
+        textAlign: 'left',
+        textAlignVertical: 'top',
+        letterSpacing: 0,
+        lineHeight: 1.4,
+        paragraphSpacing: 0,
+        textCase: 'none',
+        textDecoration: 'none',
+        textOverflow: 'visible',
+        listStyle: 'none',
+        x: 0,
+        y: 0,
+        w: 200,
+        h: 24,
+        textMode: 'path',
+        pathTextSettings: { pathNodeId: 'deleted-path' },
+      },
+    };
+    const rec = new Recorder();
+    replayIr(rec, [item]);
+    expect(rec.calls.some((call) => call.includes('fillText("Detached safely"'))).toBe(true);
+  });
+
   it('handles empty string text gracefully', () => {
     const items: RenderItem[] = [
       {

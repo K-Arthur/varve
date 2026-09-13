@@ -13,6 +13,7 @@
 
 import {
   type BlendEvaluationSpace,
+  hasPotentialStandardLigatureSequence,
   managedColorToRgba,
   openTypeFeaturesToCss,
 } from '@varve/shared';
@@ -2535,6 +2536,21 @@ function applyReplayTextSettings(
   };
 }
 
+/**
+ * Preserve an active ligature when a spacing request cannot be represented by
+ * this Canvas2D implementation. Splitting the source string would change the
+ * glyph sequence; a whole-run draw is the safer, visibly bounded fallback.
+ */
+function applyReplayTextSpacing(target: ReplayTarget, spacing: number): () => void {
+  const candidate = target as ReplayTarget & { letterSpacing?: string };
+  if (!('letterSpacing' in candidate)) return () => {};
+  const previous = candidate.letterSpacing;
+  candidate.letterSpacing = `${spacing}px`;
+  return () => {
+    candidate.letterSpacing = previous;
+  };
+}
+
 function paintCanonicalRichText(
   target: ReplayTarget,
   p: Extract<RenderItem['primitive'], { kind: 'text' }>,
@@ -2904,8 +2920,13 @@ function paintText(
   p: Extract<RenderItem['primitive'], { kind: 'text' }>,
 ): void {
   if (p.textMode === 'path' && p.pathTextSettings) {
-    paintPathText(target, p);
-    return;
+    // A missing/deleted path must not make the logical text disappear. The
+    // inspector reports the missing reference; replay keeps the source
+    // visible as ordinary text until the user reattaches or detaches it.
+    if (p.pathShape) {
+      paintPathText(target, p);
+      return;
+    }
   }
   if (p.richText) {
     paintRichText(target, p);
@@ -3138,8 +3159,26 @@ function paintText(
       lines[0] === text &&
       !isRTL &&
       p.textAlign !== 'justify' &&
-      extraWordSpacing === 0;
-    if (clusterSafe) {
+      extraWordSpacing === 0 &&
+      !hasPotentialStandardLigatureSequence(displayLine, p.openTypeFeatures);
+    const mustPreserveLigature =
+      hasPotentialStandardLigatureSequence(displayLine, p.openTypeFeatures) &&
+      (glyphControlled || ls !== 0 || tr !== 0);
+    if (mustPreserveLigature) {
+      // Canvas2D has no portable glyph-ID draw call. Do not split a likely
+      // `liga` sequence just to honour a per-cluster adjustment or spacing;
+      // that would silently replace the ligature with unrelated glyphs.
+      const restoreSettings = applyReplayTextSettings(
+        target,
+        p.openTypeFeatures,
+        p.variableAxes,
+        isRTL ? 'rtl' : 'ltr',
+      );
+      const restoreSpacing = applyReplayTextSpacing(target, ls + tr);
+      target.fillText(displayLine, drawOriginX, y);
+      restoreSpacing();
+      restoreSettings();
+    } else if (clusterSafe) {
       drawClusters(target, displayLine, drawOriginX, y, ls, tr, p);
     } else if (
       (ls !== 0 ||

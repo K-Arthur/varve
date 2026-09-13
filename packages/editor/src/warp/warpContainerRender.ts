@@ -337,6 +337,7 @@ function evaluateLeaf(
         h: height,
         textAlign: textNode.textAlign,
         direction: textNode.direction,
+        openTypeFeatures: textNode.openTypeFeatures,
         measure: createClusterMeasure(textNode.fontSize ?? 14, textNode.fontFamily ?? 'sans-serif'),
       },
       composed,

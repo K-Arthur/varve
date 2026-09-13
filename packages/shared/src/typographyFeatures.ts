@@ -86,6 +86,78 @@ export const REQUIRED_SHAPING_FEATURE_TAGS = new Set([
   'rvrn',
 ]);
 
+/**
+ * Common Latin sequences that are frequently substituted by `liga`.
+ *
+ * This is deliberately a conservative, font-independent safety check. The
+ * feature registry tells us what a font may do, but only shaping that font
+ * can tell us whether a particular sequence actually substitutes. A caller
+ * that wants to move grapheme clusters independently must therefore avoid
+ * splitting these sequences while standard ligatures might be enabled.
+ */
+const COMMON_STANDARD_LIGATURE_SEQUENCES = ['ffi', 'ffl', 'fi', 'fl', 'ff'] as const;
+
+/**
+ * Return whether a feature entry could enable a feature over a source range.
+ * Invalid/nested legacy entries are treated as enabled so a malformed
+ * setting cannot make a per-cluster renderer split shaping context silently.
+ */
+function featureCouldBeEnabled(
+  entry: OpenTypeFeatureEntry | undefined,
+  startUtf16: number,
+  endUtf16: number,
+): boolean {
+  if (entry === undefined) return true;
+  if (typeof entry === 'boolean') return entry;
+  if (typeof entry === 'number') return Number.isFinite(entry) && entry > 0;
+  if (!isOpenTypeFeatureSetting(entry)) return true;
+
+  if (featureValueIsEnabled(entry.value)) return true;
+  return (entry.ranges ?? []).some(
+    (range) =>
+      featureValueIsEnabled(range.value) &&
+      Number.isFinite(range.startUtf16) &&
+      Number.isFinite(range.endUtf16) &&
+      range.endUtf16 > startUtf16 &&
+      range.startUtf16 < endUtf16,
+  );
+}
+
+function featureValueIsEnabled(value: OpenTypeFeatureValue): boolean {
+  return typeof value === 'boolean' ? value : Number.isFinite(value) && value > 0;
+}
+
+/**
+ * True when a common Latin ligature sequence could be shaped as one glyph.
+ *
+ * `liga` is enabled by default in OpenType/CSS. An explicit off value disables
+ * the guard, while a ranged on value re-enables it only for overlapping text.
+ * This helper is used by artistic-text paths before they split a source run;
+ * it is not a claim that the selected font contains every listed ligature.
+ */
+export function hasPotentialStandardLigatureSequence(
+  text: string,
+  map: OpenTypeFeatureMap | undefined,
+): boolean {
+  if (text.length === 0) return false;
+  const entries: Array<OpenTypeFeatureEntry | undefined> = [];
+  const direct = map?.liga;
+  const custom = map?.custom?.liga;
+  if (direct !== undefined) entries.push(direct);
+  if (custom !== undefined) entries.push(custom);
+  if (entries.length === 0) entries.push(undefined);
+
+  for (const sequence of COMMON_STANDARD_LIGATURE_SEQUENCES) {
+    let from = text.indexOf(sequence);
+    while (from >= 0) {
+      const to = from + sequence.length;
+      if (entries.some((entry) => featureCouldBeEnabled(entry, from, to))) return true;
+      from = text.indexOf(sequence, from + 1);
+    }
+  }
+  return false;
+}
+
 /** True when the tag is a valid four-byte printable OpenType tag. */
 export function isOpenTypeFeatureTag(tag: string): boolean {
   return tag.length === 4 && /^[\x20-\x7e]{4}$/.test(tag);

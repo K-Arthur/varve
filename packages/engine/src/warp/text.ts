@@ -14,6 +14,7 @@
  * caller can warn instead of silently mis-warping.
  */
 
+import { hasPotentialStandardLigatureSequence, type OpenTypeFeatureMap } from '@varve/shared';
 import type { GlyphAdjustmentIR } from '../types';
 import type { WarpEvaluation } from './geometry';
 
@@ -30,6 +31,8 @@ export interface WarpTextOptions {
   h: number;
   textAlign?: 'left' | 'center' | 'right' | 'justify';
   direction?: 'auto' | 'ltr' | 'rtl';
+  /** Feature state used to avoid splitting an active standard ligature. */
+  openTypeFeatures?: OpenTypeFeatureMap;
   /** Measure one grapheme cluster's advance (defaults to proportional). */
   measure?: (cluster: string, index: number) => number;
 }
@@ -126,6 +129,14 @@ export function warpTextToClusterAdjustments(
     return {
       adjustments: {},
       unsupported: 'tabs are not warp-rendered in this version',
+      lineWidth: 0,
+    };
+  }
+  if (hasPotentialStandardLigatureSequence(opts.text, opts.openTypeFeatures)) {
+    return {
+      adjustments: {},
+      unsupported:
+        'standard ligatures are enabled for a sequence in this text; turn off Standard ligatures before moving letters independently',
       lineWidth: 0,
     };
   }

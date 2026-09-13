@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  hasPotentialStandardLigatureSequence,
   normalizeOpenTypeFeatureMap,
   openTypeFeaturesToCss,
   resolveOpenTypeFeatureMaps,
@@ -77,5 +78,20 @@ describe('OpenType feature contract', () => {
         liga: { value: true, ranges: [{ startUtf16: 0, endUtf16: 1, value: 0 }] },
       }),
     ).toBeUndefined();
+  });
+
+  it('guards cluster splitting while standard ligatures may be active', () => {
+    expect(hasPotentialStandardLigatureSequence('office', undefined)).toBe(true);
+    expect(hasPotentialStandardLigatureSequence('office', { liga: false })).toBe(false);
+    expect(
+      hasPotentialStandardLigatureSequence('office', {
+        liga: { value: false, ranges: [{ startUtf16: 1, endUtf16: 4, value: true }] },
+      }),
+    ).toBe(true);
+    expect(
+      hasPotentialStandardLigatureSequence('office', {
+        liga: { value: false, ranges: [{ startUtf16: 0, endUtf16: 1, value: true }] },
+      }),
+    ).toBe(false);
   });
 });

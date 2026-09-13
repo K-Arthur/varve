@@ -257,6 +257,31 @@ describe('text warp', () => {
     );
     expect(result.unsupported).not.toBeNull();
   });
+
+  it('does not split common standard ligatures during deformation', () => {
+    const evalW = buildWarpEvaluation(
+      [{ id: 'm1', kind: 'bend', mode: 'arch', amount: 0.5, axis: 'horizontal', origin: 0.5 }],
+      { x: 0, y: 0, w: 100, h: 100 },
+    );
+    const guarded = warpTextToClusterAdjustments(
+      { text: 'office', fontSize: 20, fontFamily: 'sans-serif', w: 100, h: 40 },
+      evalW,
+    );
+    expect(guarded.unsupported).toMatch(/standard ligatures/i);
+
+    const explicitlySeparated = warpTextToClusterAdjustments(
+      {
+        text: 'office',
+        fontSize: 20,
+        fontFamily: 'sans-serif',
+        openTypeFeatures: { liga: false },
+        w: 100,
+        h: 40,
+      },
+      evalW,
+    );
+    expect(explicitlySeparated.unsupported).toBeNull();
+  });
 });
 
 describe('typed warp plans', () => {

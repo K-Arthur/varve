@@ -628,6 +628,7 @@ export type {
 } from './typographyFeatures';
 export {
   isOpenTypeFeatureTag,
+  hasPotentialStandardLigatureSequence,
   normalizeOpenTypeFeatureMap,
   normalizeOpenTypeFeatureValue,
   openTypeFeaturesToCss,

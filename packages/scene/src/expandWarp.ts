@@ -82,6 +82,7 @@ export function bakeNodeWarp(
         h: height,
         textAlign: node.textAlign,
         direction: node.direction,
+        openTypeFeatures: node.openTypeFeatures,
         measure: createClusterMeasure(fontSize, node.fontFamily ?? 'sans-serif'),
       },
       buildWarpEvaluation(warps, sourceBounds, settings ? { settings } : {}),
