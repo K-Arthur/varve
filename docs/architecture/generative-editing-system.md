@@ -142,6 +142,10 @@ moving the model to another platform or ARM/x86 build requires a fresh masked
 qualification. A constrained device is refused before model loading and is directed to the promptless Fast/PatchMatch path. Browser
 device-memory hints are advisory only and never imply that a prompt model is
 available; WASM/WebGPU providers must still pass their own safe-peak budget.
+The background-removal provider's legacy capability facade projects this same
+canonical runtime snapshot, so segmentation, Object Selection, and generative
+editing cannot disagree about a 2 GB browser, ChromeOS container, or ARM
+WebView's safe local path.
 
 The same native boundary now protects ONNX-backed LaMa, background-removal,
 and denoise commands before ONNX Runtime initialization and again immediately
