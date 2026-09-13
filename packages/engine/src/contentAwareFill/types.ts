@@ -1,10 +1,10 @@
 export type ContentAwareFillQuality = 'fast' | 'ai';
 export const QUALITY_LABELS: Record<ContentAwareFillQuality, string> = {
-  fast: 'Fast (heuristic, no download)',
+  fast: 'Quick Cleanup (fast, no download)',
   ai: 'AI (LaMa, ~208 MB model)',
 };
 export const QUALITY_DESCRIPTIONS: Record<ContentAwareFillQuality, string> = {
-  fast: 'PatchMatch heuristic — fast, works offline, best for small regions on textured/repeating backgrounds',
+  fast: 'Deterministic PatchMatch — works offline and suits small dust, blemish, and object repairs on textured or repeating backgrounds',
   ai: 'LaMa big-lama (Apache-2.0) — mask-guided inpainting, best overall quality, requires one-time model download',
 };
 
