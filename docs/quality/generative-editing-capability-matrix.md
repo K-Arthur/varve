@@ -25,7 +25,7 @@ the user starts a job.
 | Prompt-conditioned Expand | Unavailable by design | Contract and candidate adapter exist, but no model is qualified after the 2026-09-12 real-photo run | Not verified | `packages/editor/src/components/ContentAwareFill/expandCanvas.test.ts`; [runtime qualification report](../audits/generative-editing-runtime-qualification-2026-09-12.md) |
 | Mask editing and refinement | Implemented; automatically verified | Shared implementation | Shared implementation | `packages/editor/src/components/ContentAwareFill/maskOperations.test.ts`, CAF browser E2E (paint/source controls) |
 | Object Selection → Generative Edit mask | Implemented; workflow-wired and automatically verified | Shared implementation; confirmed candidate only | Shared implementation; confirmed candidate only | `tests/e2e/caf/object-selection-mask-source.spec.ts`; SAM2 quality remains a separate real-model gate |
-| Native low-memory preflight | Browser hints only; provider safe-peak gate remains required | OS-level available-memory check before helper startup | Windows/ARM and macOS/Apple Silicon code paths compile-targeted; package qualification pending | `apps/desktop/src-tauri/src/generative_resources.rs`; desktop package matrix pending |
+| Native low-memory preflight | Browser hints only; provider safe-peak gate remains required | OS-level available-memory check before helper startup, including Linux cgroup/Crostini limits | Windows/ARM and macOS/Apple Silicon code paths compile-targeted; package qualification pending | `apps/desktop/src-tauri/src/generative_resources.rs`; desktop package matrix pending |
 | Region-first source preparation | Bounded preview, source-rectangle decode, tiered working-pixel cap, and one final full-frame output canvas | Shared browser/desktop adapter for Fill/Remove | Expand remains explicitly full-frame and unavailable until a qualified outpainting provider exists | `packages/editor/src/components/ContentAwareFill/generationRaster.test.ts`; `tests/e2e/caf/caf.spec.ts` (33 MP portrait) |
 | Bounded variation storage and reopen | Implemented; inactive cards use persisted thumbnails and full candidates are loaded only for the active preview | Shared implementation | Shared implementation; device-package memory evidence pending | `packages/scene/src/__tests__/assets.test.ts`, `packages/scene/src/documentCodec.test.ts`, `tests/e2e/caf/caf.spec.ts` |
 | In-place acceptance and Restore Original | Implemented; automatically verified | Shared implementation | Shared implementation | `packages/editor/src/imageOperations.test.ts` and scene persistence tests |
@@ -50,6 +50,11 @@ hash alone does not make the provider ready. The pinned candidate failed the
 [model card](https://huggingface.co/gpustack/stable-diffusion-v1-5-inpainting-GGUF),
 [stable-diffusion.cpp runtime](https://github.com/leejet/stable-diffusion.cpp),
 and [qualification report](../audits/generative-editing-runtime-qualification-2026-09-12.md).
+
+Qualification metadata is bound to the exact helper runtime, target OS,
+execution backend, and CPU architecture. A model qualified on x86_64 is not
+treated as ready on ARM64, Windows, macOS, ChromeOS Linux, or a changed helper
+build until that target runs its own masked qualification.
 
 The pinned Rust binding is `diffusion-rs = 0.1.20`. The helper is supervised in
 a separate process, and the webview receives only an opaque qualified handle.
