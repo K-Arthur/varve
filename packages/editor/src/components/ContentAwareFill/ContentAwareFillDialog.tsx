@@ -1,8 +1,14 @@
 import {
+  buildExpandedFrame,
   type CachedImage,
   type ContentAwareFillQuality,
   cachedImageDims,
+  computeExpandPlan,
   downloadNativeGenerativeModel,
+  type ExpandPlan,
+  type ExpandWorkingFrame,
+  estimateExpandGenerationResolution,
+  expandPlanOutputFrame,
   extractBoundedContext,
   GenerativeEditError,
   type GenerativeEditMode,
@@ -16,6 +22,7 @@ import {
   importNativeGenerativeModel,
   isWasmModelSafe,
   NATIVE_GENERATIVE_MODEL_PROFILE,
+  planExpandWorkingFrame,
   QUALITY_DESCRIPTIONS,
   QUALITY_LABELS,
   qualifyNativeGenerativeModel,
@@ -38,6 +45,7 @@ import { useEditor } from '../../context';
 import { replaceImageShapeContent } from '../../imageOperations';
 import { decodeRasterMaskDataUrl, rasterizeAreaSelectionForNode } from '../../tools/selectionMask';
 import type { ExpandPadding } from './expandCanvas';
+import { composeExpandedFullResolution } from './expandComposition';
 import {
   computeSourceRegionFromPreviewMask,
   encodePreviewMaskAtSourceSize,
@@ -360,15 +368,14 @@ async function persistedVariationPreviewDataUrl(
     Math.max(basePreview.width, basePreview.height),
   );
   const outputFrame = variation.outputFrame;
-  const frame =
-    variation.assetKind === 'region-overlay' && outputFrame
-      ? outputFrame
-      : {
-          x: 0,
-          y: 0,
-          width: sourceWidth,
-          height: sourceHeight,
-        };
+  const frame = outputFrame
+    ? outputFrame
+    : {
+        x: 0,
+        y: 0,
+        width: sourceWidth,
+        height: sourceHeight,
+      };
   context.drawImage(
     image,
     0,
@@ -445,6 +452,9 @@ export function ContentAwareFillDialog({
   const currentJobSnapshotRef = useRef<GenerativeJobSnapshot | null>(null);
 
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const sourcePreviewImageRef = useRef<Awaited<ReturnType<typeof loadVisibleImageSource>> | null>(
+    null,
+  );
   const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const previewAreaRef = useRef<HTMLDivElement | null>(null);
 
@@ -537,7 +547,7 @@ export function ContentAwareFillDialog({
     .join(' · ');
   const promptNeedsDiffusion =
     (mode === 'replace' || mode === 'expand' || mode === 'fill') && prompt.trim().length > 0;
-  const usesDiffusion = mode === 'replace' || mode === 'expand' || promptNeedsDiffusion;
+  const usesDiffusion = mode === 'replace' || promptNeedsDiffusion;
   const modeMissingModel =
     (!usesDiffusion && quality === 'ai' && (!modelAvailable || modelFitsMemory === false)) ||
     (usesDiffusion && !diffusionModelHandle);
@@ -551,6 +561,12 @@ export function ContentAwareFillDialog({
   const canGenerate =
     (hasMaskStrokes || (mode === 'expand' && hasExpandPadding)) &&
     (mode !== 'replace' || prompt.trim().length > 0);
+  const expandPlanPreview = useMemo(() => {
+    if (mode !== 'expand' || naturalSize.w <= 0 || naturalSize.h <= 0) return null;
+    return computeExpandPlan(naturalSize.w, naturalSize.h, expandPadding, {
+      maxOutputPixels: 16_777_216,
+    });
+  }, [mode, naturalSize.w, naturalSize.h, expandPadding]);
 
   const node = nodeId ? state.document.nodes[nodeId] : undefined;
   const isImage = Boolean(node && isImageShape(node));
@@ -673,6 +689,22 @@ export function ContentAwareFillDialog({
     setStatus('idle');
   }, []);
 
+  // Expand temporarily resizes the review canvas to the proposed output frame.
+  // Returning to a bounded mode must restore the source-sized canvas, or the
+  // next review would composite onto the expanded frame dimensions.
+  const resetPreviewToSource = useCallback(() => {
+    const image = sourcePreviewImageRef.current;
+    const previewCanvas = previewCanvasRef.current;
+    if (!image || !previewCanvas || naturalSize.w <= 0 || naturalSize.h <= 0) return;
+    const preview = previewRasterDimensions(naturalSize.w, naturalSize.h);
+    previewCanvas.width = preview.width;
+    previewCanvas.height = preview.height;
+    const context = previewCanvas.getContext('2d');
+    if (!context) return;
+    context.clearRect(0, 0, preview.width, preview.height);
+    context.drawImage(image, 0, 0, preview.width, preview.height);
+  }, [naturalSize.w, naturalSize.h]);
+
   const handleEditMask = useCallback(() => {
     jobControllerRef.current.cancel();
     generationRef.current = null;
@@ -779,6 +811,17 @@ export function ContentAwareFillDialog({
     setMaskExpansion(settings.maskExpansion ?? 0);
     setMaskFeather(settings.feather ?? 0);
     setContextPadding(settings.contextPadding ?? 32);
+    if (acceptedEdit.mode === 'expand') {
+      const frame = acceptedEdit.outputFrame;
+      const left = Math.max(0, -frame.x);
+      const top = Math.max(0, -frame.y);
+      setExpandPadding({
+        top,
+        right: Math.max(0, frame.width - frame.sourceWidth - left),
+        bottom: Math.max(0, frame.height - frame.sourceHeight - top),
+        left,
+      });
+    }
     setVariationCount(
       Math.max(1, Math.min(MAX_BATCH_VARIATIONS, acceptedEdit.variations.length || 1)),
     );
@@ -858,14 +901,14 @@ export function ContentAwareFillDialog({
     (async () => {
       try {
         const knownWidth =
-          acceptedSourceAsset?.naturalWidth ??
           sourceImage?.imageWidth ??
           sourceAsset?.naturalWidth ??
+          acceptedSourceAsset?.naturalWidth ??
           0;
         const knownHeight =
-          acceptedSourceAsset?.naturalHeight ??
           sourceImage?.imageHeight ??
           sourceAsset?.naturalHeight ??
+          acceptedSourceAsset?.naturalHeight ??
           0;
         const previewHint =
           knownWidth > 0 && knownHeight > 0
@@ -883,6 +926,7 @@ export function ContentAwareFillDialog({
           reviewOverlays,
         );
         if (cancelled) return;
+        sourcePreviewImageRef.current = img;
 
         const decoded = imageSourceDims(img);
         const nw = knownWidth || decoded.width;
@@ -1068,12 +1112,17 @@ export function ContentAwareFillDialog({
     return () => cancelAnimationFrame(frame);
   }, [centerPreview, naturalSize, previewZoom, zoomPercent, previewViewport]);
 
+  const previewNaturalWidth = result?.mode === 'expand' ? result.width : naturalSize.w;
+  const previewNaturalHeight = result?.mode === 'expand' ? result.height : naturalSize.h;
   const fitScale =
-    naturalSize.w > 0 &&
-    naturalSize.h > 0 &&
+    previewNaturalWidth > 0 &&
+    previewNaturalHeight > 0 &&
     previewViewport.width > 0 &&
     previewViewport.height > 0
-      ? Math.min(previewViewport.width / naturalSize.w, previewViewport.height / naturalSize.h)
+      ? Math.min(
+          previewViewport.width / previewNaturalWidth,
+          previewViewport.height / previewNaturalHeight,
+        )
       : 1;
   const displayScale =
     previewZoom === 'fit'
@@ -1082,9 +1131,9 @@ export function ContentAwareFillDialog({
         ? fitScale * (zoomPercent / 100)
         : zoomPercent / 100;
   const displayWidth =
-    naturalSize.w > 0 ? Math.max(1, Math.round(naturalSize.w * displayScale)) : 0;
+    previewNaturalWidth > 0 ? Math.max(1, Math.round(previewNaturalWidth * displayScale)) : 0;
   const displayHeight =
-    naturalSize.h > 0 ? Math.max(1, Math.round(naturalSize.h * displayScale)) : 0;
+    previewNaturalHeight > 0 ? Math.max(1, Math.round(previewNaturalHeight * displayScale)) : 0;
 
   const selectFitZoom = useCallback(() => {
     setCustomZoomBase('fit');
@@ -1503,12 +1552,83 @@ export function ContentAwareFillDialog({
       let maskHeight: number;
       let sourceRegion: SourceImageRegion | null = null;
       let userMaskDataUrl: string;
+      let outputFrame: {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+        sourceWidth: number;
+        sourceHeight: number;
+      };
+      let expandContext: {
+        fullPlan: ExpandPlan;
+        working: ExpandWorkingFrame;
+        sourceBase: string;
+      } | null = null;
 
       if (mode === 'expand') {
-        throw new GenerativeEditError(
-          'unsupported-mode',
-          'Expand is unavailable until a qualified local expansion provider is installed.',
+        const planned = computeExpandPlan(sourceWidth, sourceHeight, expandPadding, {
+          maxOutputPixels: 16_777_216,
+        });
+        if (!planned.ok) {
+          throw new GenerativeEditError(
+            planned.error.code === 'invalid-margin' ? 'invalid-mask' : 'insufficient-memory',
+            planned.error.message,
+          );
+        }
+        const fullPlan = planned.plan;
+        const workingBudget = workingPixelBudgetForTier(capabilities.resourceProfile.tier);
+        const working = planExpandWorkingFrame(fullPlan, workingBudget);
+        const sourceBase = sourceAsset?.dataUrl ?? acceptedSourceAsset?.dataUrl ?? imageSrc;
+        const visibleSource = await loadVisibleImageSource(
+          sourceBase,
+          sourceWidth,
+          sourceHeight,
+          Math.max(working.sourceWidth, working.sourceHeight),
+          overlaySources,
         );
+        const visibleDimensions = imageSourceDims(visibleSource);
+        if (visibleDimensions.width <= 0 || visibleDimensions.height <= 0) {
+          throw new GenerativeEditError('invalid-image', 'The source image could not be decoded.');
+        }
+        const sourceRaster = loadImageRegionToImageData(
+          visibleSource,
+          { x: 0, y: 0, width: sourceWidth, height: sourceHeight },
+          { width: working.sourceWidth, height: working.sourceHeight },
+        );
+        const expanded = buildExpandedFrame(sourceRaster, working.plan);
+        generationImage = expanded.imageData;
+        mask = expanded.mask;
+        maskWidth = expanded.width;
+        maskHeight = expanded.height;
+        userMaskDataUrl = maskCoverageDataUrl(mask, maskWidth, maskHeight);
+        expandContext = { fullPlan, working, sourceBase };
+        const originalPreview = previewCanvasRef.current;
+        if (originalPreview) {
+          const previewDimensions = previewRasterDimensions(
+            fullPlan.outputWidth,
+            fullPlan.outputHeight,
+          );
+          originalPreview.width = previewDimensions.width;
+          originalPreview.height = previewDimensions.height;
+          const previewContext = originalPreview.getContext('2d');
+          if (!previewContext) throw new Error('Preview canvas is unavailable');
+          previewContext.clearRect(0, 0, originalPreview.width, originalPreview.height);
+          previewContext.imageSmoothingEnabled = true;
+          previewContext.imageSmoothingQuality = 'high';
+          previewContext.drawImage(
+            visibleSource,
+            0,
+            0,
+            visibleDimensions.width,
+            visibleDimensions.height,
+            (fullPlan.sourceOffsetX / fullPlan.outputWidth) * originalPreview.width,
+            (fullPlan.sourceOffsetY / fullPlan.outputHeight) * originalPreview.height,
+            (fullPlan.sourceWidth / fullPlan.outputWidth) * originalPreview.width,
+            (fullPlan.sourceHeight / fullPlan.outputHeight) * originalPreview.height,
+          );
+        }
+        outputFrame = expandPlanOutputFrame(fullPlan);
       } else {
         const rawBounds = computeSourceRegionFromPreviewMask(
           previewMask,
@@ -1583,6 +1703,14 @@ export function ContentAwareFillDialog({
         // the record's source-image-pixels contract without allocating a
         // source-sized RGBA working buffer.
         userMaskDataUrl = '';
+        outputFrame = {
+          x: 0,
+          y: 0,
+          width: sourceWidth,
+          height: sourceHeight,
+          sourceWidth,
+          sourceHeight,
+        };
       }
       const inferenceMaskDataUrl = maskCoverageDataUrl(mask, maskWidth, maskHeight);
       const preparedContext = extractBoundedContext(
@@ -1595,16 +1723,9 @@ export function ContentAwareFillDialog({
         contextPadding,
       );
       const contextDataUrl = imageDataDataUrl(preparedContext.imageData);
-      const outputFrame = {
-        x: 0,
-        y: 0,
-        width: sourceWidth,
-        height: sourceHeight,
-        sourceWidth,
-        sourceHeight,
-      };
       const generationSeed = seed ?? jobSnapshot.sourceRevision + variationSequenceRef.current;
-      const needsDiffusion = mode === 'replace' || (mode === 'fill' && prompt.trim().length > 0);
+      const needsDiffusion =
+        mode === 'replace' || ((mode === 'fill' || mode === 'expand') && prompt.trim().length > 0);
       let modelPath: string | undefined;
       if (needsDiffusion) {
         if (!diffusionModelHandle) {
@@ -1643,6 +1764,18 @@ export function ContentAwareFillDialog({
         result: GenerativeEditResult;
         seed: number;
       }> = [];
+      let expandFullResolutionSource: Awaited<ReturnType<typeof loadVisibleImageSource>> | null =
+        null;
+      if (mode === 'expand') {
+        if (!expandContext) throw new Error('Expansion plan is unavailable');
+        expandFullResolutionSource = await loadVisibleImageSource(
+          expandContext.sourceBase,
+          sourceWidth,
+          sourceHeight,
+          Math.max(sourceWidth, sourceHeight),
+          overlaySources,
+        );
+      }
       for (let index = 0; index < effectiveVariationCount; index += 1) {
         const variationSeed = generationSeed + index;
         const generated = await runGenerativeEdit({
@@ -1675,51 +1808,99 @@ export function ContentAwareFillDialog({
           modelPath,
           modelHandle: diffusionModelHandle ?? undefined,
         });
-        if (!sourceRegion) throw new Error('Generated source region is unavailable');
-        const patchCanvas = renderGeneratedRegionToPatchCanvas({
-          source: generationImage,
-          result: generated,
-          mask,
-        });
-        const previewBase = previewCanvasRef.current;
-        if (!previewBase) throw new Error('Preview canvas is unavailable');
-        const previewResultCanvas = renderGeneratedRegionToPreviewCanvas({
-          preview: previewBase,
-          previewWidth,
-          previewHeight,
-          sourceWidth,
-          sourceHeight,
-          region: sourceRegion,
-          source: generationImage,
-          result: generated,
-          mask,
-        });
-        const dataUrl = previewResultCanvas.toDataURL('image/png');
-        const displayResult: GenerativeEditResult = {
-          ...generated,
-          imageData: unloadedVariationImageData(),
-          width: sourceWidth,
-          height: sourceHeight,
-          filledBounds: {
-            x:
-              sourceRegion.x +
-              (generated.filledBounds.x * sourceRegion.width) / generationImage.width,
-            y:
-              sourceRegion.y +
-              (generated.filledBounds.y * sourceRegion.height) / generationImage.height,
-            w: (generated.filledBounds.w * sourceRegion.width) / generationImage.width,
-            h: (generated.filledBounds.h * sourceRegion.height) / generationImage.height,
-          },
-        };
+        let dataUrl: string;
+        let thumbnailDataUrl: string;
+        let patchDataUrl: string;
+        let patchWidth: number;
+        let patchHeight: number;
+        let patchFrame: SourceImageRegion | undefined;
+        let assetKind: 'full-output' | 'region-overlay';
+        let displayResult: GenerativeEditResult;
+        if (mode === 'expand') {
+          if (!expandContext || !expandFullResolutionSource) {
+            throw new Error('Expansion plan is unavailable');
+          }
+          const composed = composeExpandedFullResolution({
+            source: expandFullResolutionSource,
+            sourceWidth,
+            sourceHeight,
+            plan: expandContext.fullPlan,
+            generated: generated.imageData,
+            working: expandContext.working,
+          });
+          dataUrl = composed.toDataURL('image/png');
+          thumbnailDataUrl = thumbnailDataUrlFromCanvas(composed);
+          patchDataUrl = dataUrl;
+          patchWidth = composed.width;
+          patchHeight = composed.height;
+          assetKind = 'full-output';
+          const scaleX = composed.width / generated.width;
+          const scaleY = composed.height / generated.height;
+          displayResult = {
+            ...generated,
+            imageData: unloadedVariationImageData(),
+            width: composed.width,
+            height: composed.height,
+            filledBounds: {
+              x: generated.filledBounds.x * scaleX,
+              y: generated.filledBounds.y * scaleY,
+              w: generated.filledBounds.w * scaleX,
+              h: generated.filledBounds.h * scaleY,
+            },
+          };
+        } else {
+          if (!sourceRegion) throw new Error('Generated source region is unavailable');
+          const patchCanvas = renderGeneratedRegionToPatchCanvas({
+            source: generationImage,
+            result: generated,
+            mask,
+          });
+          const previewBase = previewCanvasRef.current;
+          if (!previewBase) throw new Error('Preview canvas is unavailable');
+          const previewResultCanvas = renderGeneratedRegionToPreviewCanvas({
+            preview: previewBase,
+            previewWidth,
+            previewHeight,
+            sourceWidth,
+            sourceHeight,
+            region: sourceRegion,
+            source: generationImage,
+            result: generated,
+            mask,
+          });
+          dataUrl = previewResultCanvas.toDataURL('image/png');
+          thumbnailDataUrl = thumbnailDataUrlFromCanvas(previewResultCanvas);
+          patchDataUrl = patchCanvas.toDataURL('image/png');
+          patchWidth = patchCanvas.width;
+          patchHeight = patchCanvas.height;
+          patchFrame = sourceRegion;
+          assetKind = 'region-overlay';
+          displayResult = {
+            ...generated,
+            imageData: unloadedVariationImageData(),
+            width: sourceWidth,
+            height: sourceHeight,
+            filledBounds: {
+              x:
+                sourceRegion.x +
+                (generated.filledBounds.x * sourceRegion.width) / generationImage.width,
+              y:
+                sourceRegion.y +
+                (generated.filledBounds.y * sourceRegion.height) / generationImage.height,
+              w: (generated.filledBounds.w * sourceRegion.width) / generationImage.width,
+              h: (generated.filledBounds.h * sourceRegion.height) / generationImage.height,
+            },
+          };
+        }
         generatedVariations.push({
           id: `variation-${++variationSequenceRef.current}`,
           dataUrl,
-          thumbnailDataUrl: thumbnailDataUrlFromCanvas(previewResultCanvas),
-          patchDataUrl: patchCanvas.toDataURL('image/png'),
-          patchWidth: patchCanvas.width,
-          patchHeight: patchCanvas.height,
-          patchFrame: sourceRegion,
-          assetKind: 'region-overlay',
+          thumbnailDataUrl,
+          patchDataUrl,
+          patchWidth,
+          patchHeight,
+          patchFrame,
+          assetKind,
           // Keep only the active last candidate decoded in JS memory. Earlier
           // candidates remain fully available through their compressed data
           // URLs/assets and are rehydrated as metadata-only candidates.
@@ -1742,14 +1923,16 @@ export function ContentAwareFillDialog({
       ) {
         throw new GenerativeEditError('stale', 'The source changed while generation was running.');
       }
-      userMaskDataUrl = await encodePreviewMaskAtSourceSize(
-        previewMask,
-        previewWidth,
-        previewHeight,
-        sourceWidth,
-        sourceHeight,
-        token.signal,
-      );
+      if (mode !== 'expand') {
+        userMaskDataUrl = await encodePreviewMaskAtSourceSize(
+          previewMask,
+          previewWidth,
+          previewHeight,
+          sourceWidth,
+          sourceHeight,
+          token.signal,
+        );
+      }
       if (!isCurrentJob()) {
         throw new GenerativeEditError('stale', 'The source changed while saving the edit mask.');
       }
@@ -2071,6 +2254,16 @@ export function ContentAwareFillDialog({
               assetId: activeAsset.id,
               width: result.width,
               height: result.height,
+              ...(mode === 'expand'
+                ? {
+                    outputFrame: {
+                      sourceOffsetX: -outputFrame.x,
+                      sourceOffsetY: -outputFrame.y,
+                      sourceWidth,
+                      sourceHeight,
+                    },
+                  }
+                : {}),
             }),
       });
       const record = { ...recordBase, resultNodeId: nodeId };
@@ -2225,6 +2418,7 @@ export function ContentAwareFillDialog({
                   aria-selected={mode === candidate}
                   className={`caf-dialog__mode-btn${mode === candidate ? ' caf-dialog__mode-btn--active' : ''}`}
                   onClick={() => {
+                    if (mode === 'expand' && candidate !== 'expand') resetPreviewToSource();
                     setMode(candidate);
                     invalidatePreview();
                   }}
@@ -2299,7 +2493,7 @@ export function ContentAwareFillDialog({
             <span>
               <strong>Local processing</strong>
               <small>
-                {mode === 'replace' || mode === 'expand' || promptNeedsDiffusion
+                {usesDiffusion
                   ? diffusionModelHandle
                     ? `Diffusion · ${Math.round(diffusionModelSize / 1_000_000)} MB · qualified local${diffusionResource ? ` · ${diffusionResource.backend}/${diffusionResource.platform}/${diffusionResource.architecture}` : ''}`
                     : diffusionModelInstalled
@@ -2317,7 +2511,7 @@ export function ContentAwareFillDialog({
             {resourceProfile.summary}
           </p>
 
-          {(mode === 'replace' || mode === 'expand' || promptNeedsDiffusion) && (
+          {usesDiffusion && (
             <div className="caf-dialog__section">
               {!diffusionModelInstalled && capabilities.prompt && status !== 'downloading' && (
                 <Button
@@ -2566,6 +2760,18 @@ export function ContentAwareFillDialog({
               <p className="caf-dialog__hint">
                 Expansion generates only the new bounds; existing pixels are copied unchanged.
               </p>
+              {expandPlanPreview && !expandPlanPreview.ok && (
+                <p className="caf-dialog__error" role="status">
+                  {expandPlanPreview.error.message}
+                </p>
+              )}
+              {expandPlanPreview?.ok && !expandPlanPreview.plan.isNoop && (
+                <p className="caf-dialog__hint">
+                  Output {expandPlanPreview.plan.outputWidth} x{' '}
+                  {expandPlanPreview.plan.outputHeight} px.{' '}
+                  {estimateExpandGenerationResolution(expandPlanPreview.plan, 512).disclosure}
+                </p>
+              )}
             </div>
           )}
 

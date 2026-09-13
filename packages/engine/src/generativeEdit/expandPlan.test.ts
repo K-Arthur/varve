@@ -6,6 +6,7 @@ import {
   expandCoverageMask,
   expandPlanOutputFrame,
   normalizeExpandMargins,
+  planExpandWorkingFrame,
   restoreProtectedPixels,
 } from './expandPlan';
 
@@ -223,5 +224,54 @@ describe('expandPlanOutputFrame', () => {
       sourceWidth: 30,
       sourceHeight: 20,
     });
+  });
+});
+
+describe('planExpandWorkingFrame', () => {
+  it('scales a large expansion into the working budget without changing the mapping', () => {
+    const plan = expectPlan(
+      computeExpandPlan(4000, 3000, { top: 0, right: 400, bottom: 300, left: 0 }),
+    );
+    const working = planExpandWorkingFrame(plan, 4_000_000);
+    expect(working.scale).toBeLessThan(1);
+    expect(working.outputWidth * working.outputHeight).toBeLessThanOrEqual(4_000_000);
+    expect(working.margins.left).toBe(0);
+    expect(working.margins.right).toBeGreaterThan(0);
+    expect(working.margins.bottom).toBeGreaterThan(0);
+    expect(working.plan.sourceOffsetX).toBe(0);
+    expect(working.plan.protectedRegion.x + working.plan.protectedRegion.width).toBeLessThanOrEqual(
+      working.plan.outputWidth,
+    );
+    expect(
+      working.plan.protectedRegion.y + working.plan.protectedRegion.height,
+    ).toBeLessThanOrEqual(working.plan.outputHeight);
+    expect(working.plan.sourceWidth / working.plan.outputWidth).toBeCloseTo(4000 / 4400, 1);
+  });
+
+  it('keeps the identity mapping when the frame already fits', () => {
+    const plan = expectPlan(
+      computeExpandPlan(800, 600, { top: 10, right: 10, bottom: 10, left: 10 }),
+    );
+    const working = planExpandWorkingFrame(plan, 4_000_000);
+    expect(working.scale).toBe(1);
+    expect(working.plan).toEqual(plan);
+  });
+
+  it('never allocates a zero-sized frame on a tiny budget', () => {
+    const plan = expectPlan(
+      computeExpandPlan(4000, 3000, { top: 0, right: 0, bottom: 0, left: 1000 }),
+    );
+    const working = planExpandWorkingFrame(plan, 1);
+    expect(working.outputWidth).toBe(1);
+    expect(working.outputHeight).toBe(1);
+    expect(working.plan.outputWidth).toBe(1);
+    expect(working.plan.outputHeight).toBe(1);
+  });
+
+  it('rejects an invalid budget instead of guessing', () => {
+    const plan = expectPlan(computeExpandPlan(100, 100, { top: 1, right: 1, bottom: 1, left: 1 }));
+    expect(() => planExpandWorkingFrame(plan, 0)).toThrow();
+    expect(() => planExpandWorkingFrame(plan, 1.5)).toThrow();
+    expect(() => planExpandWorkingFrame(plan, Number.NaN)).toThrow();
   });
 });

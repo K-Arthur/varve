@@ -44,6 +44,6 @@ describe('prepareExpandedGenerationInput', () => {
         bottom: 0,
         left: 0,
       }),
-    ).toThrow(/invalid|too large/i);
+    ).toThrow(/invalid|too large|exceeds/i);
   });
 });

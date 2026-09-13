@@ -339,3 +339,62 @@ export function expandPlanOutputFrame(plan: ExpandPlan): {
     sourceHeight: plan.sourceHeight,
   };
 }
+
+export interface ExpandWorkingFrame {
+  /** Working frame dimensions divided by full output dimensions (0, 1]. */
+  scale: number;
+  outputWidth: number;
+  outputHeight: number;
+  sourceWidth: number;
+  sourceHeight: number;
+  margins: ExpandMargins;
+  /** A validated plan for the proxy-sized frame. */
+  plan: ExpandPlan;
+}
+
+/**
+ * Choose the largest aspect-preserving working frame that fits the device's
+ * raster budget, so a large photograph can be expanded without allocating a
+ * full-resolution model frame. The retained source is decoded at the proxy
+ * size for conditioning only; acceptance recomposes the authoritative
+ * full-resolution source, so protected pixels never pass through this scale.
+ */
+export function planExpandWorkingFrame(plan: ExpandPlan, maxPixels: number): ExpandWorkingFrame {
+  if (!Number.isSafeInteger(maxPixels) || maxPixels <= 0) {
+    throw new Error('Expansion working-frame budget is invalid');
+  }
+  const outputPixels = plan.outputWidth * plan.outputHeight;
+  const scale = Math.min(1, Math.sqrt(maxPixels / outputPixels));
+  let outputWidth = Math.max(1, Math.round(plan.outputWidth * scale));
+  let outputHeight = Math.max(1, Math.round(plan.outputHeight * scale));
+  while (outputWidth * outputHeight > maxPixels && (outputWidth > 1 || outputHeight > 1)) {
+    if (outputWidth >= outputHeight && outputWidth > 1) outputWidth -= 1;
+    else if (outputHeight > 1) outputHeight -= 1;
+    else break;
+  }
+  const sourceWidth = Math.min(outputWidth, Math.max(1, Math.round(plan.sourceWidth * scale)));
+  const sourceHeight = Math.min(outputHeight, Math.max(1, Math.round(plan.sourceHeight * scale)));
+  const left = Math.max(
+    0,
+    Math.min(outputWidth - sourceWidth, Math.round(plan.sourceOffsetX * scale)),
+  );
+  const top = Math.max(
+    0,
+    Math.min(outputHeight - sourceHeight, Math.round(plan.sourceOffsetY * scale)),
+  );
+  const right = Math.max(0, outputWidth - sourceWidth - left);
+  const bottom = Math.max(0, outputHeight - sourceHeight - top);
+  const working = computeExpandPlan(sourceWidth, sourceHeight, { top, right, bottom, left });
+  if (!working.ok) {
+    throw new Error(`Expansion working frame is invalid: ${working.error.message}`);
+  }
+  return {
+    scale,
+    outputWidth,
+    outputHeight,
+    sourceWidth,
+    sourceHeight,
+    margins: { top, right, bottom, left },
+    plan: working.plan,
+  };
+}

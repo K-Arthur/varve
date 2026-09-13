@@ -8,6 +8,7 @@ export type {
   ExpandPlanRejectionCode,
   ExpandPlanResult,
   ExpandRegion,
+  ExpandWorkingFrame,
 } from './expandPlan';
 export {
   buildExpandedFrame,
@@ -17,6 +18,7 @@ export {
   expandCoverageMask,
   expandPlanOutputFrame,
   normalizeExpandMargins,
+  planExpandWorkingFrame,
   restoreProtectedPixels,
 } from './expandPlan';
 export type {
