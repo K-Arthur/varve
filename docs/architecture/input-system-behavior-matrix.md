@@ -6,6 +6,8 @@ This matrix is the canonical statement of *intended* input behavior for the
 Varve canvas. It accompanies the dated audits in
 `docs/audits/`, including
 [`drawing-input-quality-audit-2026-09-13.md`](../audits/drawing-input-quality-audit-2026-09-13.md).
+The navigation-specific evidence, complaint ledger, and route limitations are
+tracked in [`canvas-navigation-quality-2026-09-13.md`](../audits/canvas-navigation-quality-2026-09-13.md).
 It separates the browser/PWA route from the Tauri/WebKitGTK route and records
 the explicit contact-ownership contract as well as the existing zoom and
 diagnostics behavior.
@@ -41,7 +43,7 @@ diagnostics behavior.
 |---|---|
 | Two-finger scroll | Pan 2D (vertical + horizontal + diagonal). |
 | Pinch (Chromium/WebView2) | ctrl+wheel signal → zoom around cursor. |
-| Pinch (macOS WebKit) | Native `gesturestart/change/end` → zoom around gesture point. |
+| Pinch (macOS WebKit) | Native `gesturestart/change/end` → cumulative scale with a world anchor that follows the moving gesture centroid. |
 | Pinch (WebKitGTK/Tauri) | `canvas://pinch-zoom` bridge re-emits the page-zoom factor onto the artwork. |
 | Momentum | OS momentum flows through; app does NOT double it (trackpad-classified events skip app inertia). |
 
@@ -75,6 +77,7 @@ diagnostics behavior.
 | `1`–`6` (no modifiers) | Zoom presets 50/75/100/150/200/400%. |
 | `Shift+1` / `Shift+2` / `Shift+3` / `Shift+4` | Fit all / fit selection / fit active page / fit active frame. |
 | Numpad digits (NumLock off) | Navigation keys (arrows/End/Insert), NOT zoom presets. |
+| Arrow / Shift+Arrow with Hand active | Pan the viewport by 48 / 192 CSS pixels; does not depend on zoom and does not create an artwork undo entry. |
 | Arrow | Move each eligible selected transform root by the configured small nudge amount in the requested world direction. |
 | `Shift+Arrow` | Move each eligible selected transform root by the configured big nudge amount in the requested world direction. |
 | `Space` | Spring-loaded Hand tool. |
@@ -115,9 +118,9 @@ Settings > Nudging & Movement for the local small/big amounts.
 | Discrete step | ×1.25 / ÷1.25 (`ZOOM_STEP_FACTOR`) |
 | Presets | 0.5 / 0.75 / 1 / 1.5 / 2 / 4 |
 | Continuous scale | `exp(-clampedDelta * 0.01)`, delta clamped ±24 |
-| Focal-point zoom | `zoomAboutPoint` — closed-form, drift-free |
+| Focal-point zoom | `zoomAboutPoint` for a fixed pointer; `placeWorldPointAtScreen` for a moving pinch centroid; clamp before solving translation |
 | 100% | 1 document unit per CSS pixel |
-| UI zoom field range | 1–1000% |
+| UI zoom field range | 0.1–6400% (fractional; shared `MIN_ZOOM` / `MAX_ZOOM`) |
 | Rotation | Supported; all transforms rotation-aware (affine) |
 | Zoom entry points | Canvas keys, ActionRegistry shortcuts, StatusBar, Menubar, wheel, trackpad pinch, touch pinch, ZoomTool, minimap — all route through `commitCamera` / `computeZoom*` |
 
@@ -160,9 +163,10 @@ cannot leave the editor stuck.
 
 | Area | Status |
 |---|---|
-| Keyboard panning (arrow keys move view) | Not implemented (arrows nudge selection) — touch pan, trackpad scroll, and the Hand tool are the pointer paths; an explicit "pan view" keyboard mode remains WIP |
+| Keyboard panning (arrow keys move view) | Implemented only in the explicit Hand/temporary Space-Hand context: Arrow = 48 CSS px, Shift+Arrow = 192 CSS px. Select, text, fields, trees, guides, and specialized tools retain arrow ownership. |
 | Pen barrel-button action customization | Not exposed in settings |
-| Gesture sensitivity settings | Not exposed (defaults follow platform) |
+| Gesture sensitivity settings | Wheel policy (standard/always pan/always zoom), 0.25×–4× sensitivity, and optional mouse-wheel continuation are exposed in Settings > Drawing Input. |
+| Interactive preview quality | Settings > Performance exposes Automatic versus Full resolution while navigating; settled frames and exports remain authoritative. |
 | `zoomBy`/`zoomAtScreenPoint`/`panToWorldPoint` convenience API | Absorbed by existing `commitCamera`/`computeZoom*`; not re-exported |
 | Viewport-rotation gestures (touch twist) | Not implemented; rotation via toolbar/shortcuts only |
 | Diagnostics HUD toggle | Ring buffer exists; opt-in via `?perf=1` query param. Exposed as `window.__varvePerf` (see `drawDiagnostics.ts`); input diagnostics module (`inputDiagnostics.ts`) provides a ring buffer of normalized events but does not currently expose a window global |
@@ -184,6 +188,7 @@ Before shipping an input milestone, verify on each available device:
 - [ ] International layout: `+` requires Shift; `=` zoom-in; Shift+1 fit-all resolves physically.
 - [ ] Text fields/dialogs: typing never triggers canvas zoom; Escape closes dialogs first.
 - [ ] Selected-object arrows: bare Arrow moves 1 document unit, Shift+Arrow moves 10, independently of zoom and without browser page scrolling.
+- [ ] Hand tool: bare Arrow pans 48 CSS px and Shift+Arrow pans 192 CSS px; Select/text/fields still retain their arrow behavior.
 - [ ] Multi-selection arrows: every eligible root moves by the same world delta; spacing and hierarchy remain unchanged.
 - [ ] Held Arrow: repeat movement is responsive, creates one undo interaction, and blur/visibility loss cannot leave it open.
 - [ ] Window blur mid-drag: no stuck state; pointer cancel received.
