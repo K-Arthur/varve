@@ -1948,8 +1948,10 @@ export function ContentAwareFillDialog({
         sourceSignature,
         userMaskDataUrl,
         inferenceMaskDataUrl,
-        userMaskWidth: sourceWidth,
-        userMaskHeight: sourceHeight,
+        // Expand authors its mask as the full-frame border coverage at the
+        // working output size; bounded modes author at source resolution.
+        userMaskWidth: mode === 'expand' ? maskWidth : sourceWidth,
+        userMaskHeight: mode === 'expand' ? maskHeight : sourceHeight,
         inferenceMaskWidth: maskWidth,
         inferenceMaskHeight: maskHeight,
         inferenceMaskOffsetX: sourceRegion?.x ?? 0,
