@@ -1818,3 +1818,31 @@ Chromium run. This remains browser-level evidence; Illustrator-authored files,
 layered/multipage TIFF, full Photoshop effects/smart objects, and packaged
 Tauri/WebKitGTK import still require the provenance and platform lanes listed
 in IMP-09 and CLIP-15.
+
+### IMP-11 — Figma JSON and native archive browser smoke (2026-09-12)
+
+The Figma import route was also exercised through the real browser file input.
+An editable REST-style JSON fixture preserved its frame, button, and text
+hierarchy, and the checked-in native `OpenFigs.fig` archive decoded into an
+editable layer tree. Both Chromium cases passed and the resulting artwork was
+inspected. This verifies the local file-import frontend and decoder contract;
+it does not imply support for ordinary Figma clipboard Copy.
+
+```text
+VITE_CONFIG_NATIVE_IGNORE_WARNING=true VARVE_E2E_PORT=1618 \
+  VARVE_E2E_WORKERS=1 pnpm exec playwright test \
+  tests/e2e/canvas/figma-import.spec.ts --project=chromium \
+  --workers=1 --grep='imports editable Figma JSON|checked-in native' \
+  --reporter=list
+2 passed (53.4s)
+```
+
+Inspected captures:
+
+* `test-results/figma-import-basic-ui.png`
+* `test-results/run-1659237-1618/canvas-figma-import-Figma--82867-hrough-the-real-file-picker-chromium/native-fig-import.png`
+
+The native fixture contains an embedded visual warning for an unavailable
+source asset, which remains visible in the layer/report evidence. Packaged
+Tauri CSP/resource behavior and Firefox-owned Figma clipboard captures remain
+open under CLIP-13, CLIP-14, and CLIP-15.
