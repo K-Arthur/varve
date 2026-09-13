@@ -40,8 +40,10 @@ const releaseLabel = release.hasRelease ? `v${release.version}` : 'the next rele
             <p>
               Open <a href={sitePath('/try/')}>varve.studio/try/</a> in Chrome. The editor
               runs on the WASM engine with browser storage. This is the lowest-setup route
-              and works on any current Chromebook, including managed devices where Linux
-              is unavailable.
+              to try on a current Chromebook, including managed devices where Linux is
+              unavailable. It remains experimental: browser policy, storage, and device
+              capabilities can limit the result, and this project has not yet run it on a
+              physical Chromebook.
             </p>
             <p class="route-meta">Best for: trying Varve, small documents, Chromebooks with Linux disabled.</p>
           </div>
@@ -60,8 +62,10 @@ const releaseLabel = release.hasRelease ? `v${release.version}` : 'the next rele
             <p>
               If the Linux development environment is enabled, install the ARM64 or
               x86_64 <code>.deb</code> to run the native Varve desktop application. This
-              is not native ChromeOS Chrome and not an Android app; ChromeOS does not
-              expose GPU acceleration to Linux applications.
+              is not native ChromeOS Chrome and not an Android app. Google’s current
+              support guidance lists hardware acceleration, including GPU and video
+              decode, as unavailable for Linux apps; behavior is version/device
+              dependent, so Varve does not promise acceleration in this route.
             </p>
             <p class="route-meta">Best for: testing the native desktop feature set. GUI behavior on a Chromebook is unverified.</p>
           </div>
