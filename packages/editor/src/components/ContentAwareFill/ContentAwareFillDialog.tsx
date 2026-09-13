@@ -11,6 +11,7 @@ import {
   getModelLoader,
   getNativeGenerativeModelStatus,
   importNativeGenerativeModel,
+  isWasmModelSafe,
   NATIVE_GENERATIVE_MODEL_PROFILE,
   QUALITY_DESCRIPTIONS,
   QUALITY_LABELS,
@@ -275,6 +276,7 @@ export function ContentAwareFillDialog({
   >('brush');
   const [maskOperation, setMaskOperation] = useState<MaskCombineOperation>('replace');
   const [modelAvailable, setModelAvailable] = useState(false);
+  const [modelFitsMemory, setModelFitsMemory] = useState<boolean | null>(null);
   const [diffusionModelInstalled, setDiffusionModelInstalled] = useState(false);
   const [diffusionModelHandle, setDiffusionModelHandle] = useState<string | null>(null);
   const [diffusionModelSize, setDiffusionModelSize] = useState(0);
@@ -340,7 +342,7 @@ export function ContentAwareFillDialog({
     (mode === 'replace' || mode === 'expand' || mode === 'fill') && prompt.trim().length > 0;
   const usesDiffusion = mode === 'replace' || mode === 'expand' || promptNeedsDiffusion;
   const modeMissingModel =
-    (!usesDiffusion && quality === 'ai' && !modelAvailable) ||
+    (!usesDiffusion && quality === 'ai' && (!modelAvailable || modelFitsMemory === false)) ||
     (usesDiffusion && !diffusionModelHandle);
   const diffusionMemoryFits =
     !usesDiffusion ||
@@ -504,6 +506,7 @@ export function ContentAwareFillDialog({
     maskRevisionRef.current = 0;
     setMaskRevision(0);
     setModelAvailable(false);
+    setModelFitsMemory(null);
     setDiffusionModelInstalled(false);
     setDiffusionModelHandle(null);
     setDiffusionModelSize(0);
@@ -576,13 +579,20 @@ export function ContentAwareFillDialog({
     let cancelled = false;
     (async () => {
       const loader = getModelLoader();
-      const available = await loader.isModelAvailable(MODEL_ID);
-      if (!cancelled) setModelAvailable(available);
+      const isNative = capabilities.resourceProfile.executionBackend === 'native';
+      const [available, fitsMemory] = await Promise.all([
+        loader.isModelAvailable(MODEL_ID),
+        isNative ? Promise.resolve(true) : isWasmModelSafe(MODEL_ID),
+      ]);
+      if (!cancelled) {
+        setModelAvailable(available);
+        setModelFitsMemory(fitsMemory);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [isOpen]);
+  }, [capabilities.resourceProfile.executionBackend, isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -2226,13 +2236,22 @@ export function ContentAwareFillDialog({
             </div>
           </div>
 
-          {quality === 'ai' && !modelAvailable && status !== 'downloading' && (
-            <div className="caf-dialog__section">
-              <Button type="button" variant="default" size="sm" onClick={handleDownload}>
-                Download AI Model (~208 MB)
-              </Button>
-              <p className="caf-dialog__hint">One-time download required. Stored locally.</p>
-            </div>
+          {quality === 'ai' &&
+            modelFitsMemory !== false &&
+            !modelAvailable &&
+            status !== 'downloading' && (
+              <div className="caf-dialog__section">
+                <Button type="button" variant="default" size="sm" onClick={handleDownload}>
+                  Download AI Model (~208 MB)
+                </Button>
+                <p className="caf-dialog__hint">One-time download required. Stored locally.</p>
+              </div>
+            )}
+          {quality === 'ai' && modelFitsMemory === false && (
+            <p className="caf-dialog__hint" role="status">
+              AI quality is unavailable on this device's current memory budget. Choose Fast / Quick
+              Cleanup; it runs without loading a model and remains suitable for small repairs.
+            </p>
           )}
 
           {status === 'downloading' && (

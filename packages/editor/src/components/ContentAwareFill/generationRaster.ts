@@ -22,6 +22,7 @@ const WORKING_PIXEL_BUDGETS: Record<string, number> = {
   high: 8_000_000,
   unknown: 2_000_000,
 };
+const DEFAULT_WORKING_PIXEL_BUDGET = 2_000_000;
 
 function validDimensions(width: number, height: number): boolean {
   return Number.isSafeInteger(width) && Number.isSafeInteger(height) && width > 0 && height > 0;
@@ -37,7 +38,7 @@ function clampByte(value: number): number {
 
 /** Return the maximum temporary raster size appropriate for the reported tier. */
 export function workingPixelBudgetForTier(tier: string | undefined): number {
-  return WORKING_PIXEL_BUDGETS[tier ?? 'unknown'] ?? WORKING_PIXEL_BUDGETS.unknown;
+  return WORKING_PIXEL_BUDGETS[tier ?? 'unknown'] ?? DEFAULT_WORKING_PIXEL_BUDGET;
 }
 
 /**
