@@ -1,0 +1,40 @@
+{
+  "capturedAt": "2026-09-13",
+  "commit": "72e5d93716fc610debc01985cfacbba230202b03",
+  "routes": ["/features/typography", "/docs/tools/typography"],
+  "basePaths": ["/varve", "/"],
+  "browser": "Chromium",
+  "platform": "Linux",
+  "commands": [
+    "pnpm build:website",
+    "pnpm build:website:pages",
+    "VARVE_WEBSITE_E2E_PORT=4331 VARVE_WEBSITE_E2E_PORT_ROOT=4332 npx playwright test -c playwright.website.config.ts apps/website/tests/e2e/typography-workflow.spec.ts --project=ghpages --project=custom-domain --reporter=list --timeout=120000"
+  ],
+  "result": "14 passed (8.0s)",
+  "captures": [
+    {
+      "file": "custom-feature-toolbar-scene.png",
+      "sha256": "1b41c4178f159aac7edc0d84c31e2310813677ffff79d737fb0d63d27fdb1bcf",
+      "viewport": "1280x900",
+      "state": "custom-domain feature page toolbar scene"
+    },
+    {
+      "file": "custom-feature-browser-scene.png",
+      "sha256": "8477ae5a7f0e06fd58da7f73c12b28b8df8900aa72913358c041a90e3498855a",
+      "viewport": "1280x900",
+      "state": "custom-domain feature page browser scene"
+    },
+    {
+      "file": "custom-docs-narrow-intro.png",
+      "sha256": "745c214b2e068372de33af40dbe37266356f668dfdd1dee5b52492cb8f47a49d",
+      "viewport": "390x844",
+      "state": "custom-domain guide introduction"
+    },
+    {
+      "file": "ghpages-docs-narrow-font-access.png",
+      "sha256": "7ca97226823c876bb0e07ae032e4f2577d42084ea0afb71dcfd0d314f2f070a0",
+      "viewport": "390x844",
+      "state": "GitHub Pages guide access/licensing section"
+    }
+  ]
+}
