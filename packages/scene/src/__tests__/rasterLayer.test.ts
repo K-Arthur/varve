@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { deepCloneSubtree } from '../clone';
 import { addNode, createDocument, removeNode, walkNodes } from '../document';
 import { DocumentCodec } from '../documentCodec';
+import { makeCoverageMask } from '../paintCoverage';
 import {
   type BrushDab,
   compositeDabOnNode,
@@ -9,6 +10,7 @@ import {
   createEmptyTile,
   deserializeTiles,
   eraseDabOnNode,
+  fillCoverageOnNode,
   makeRasterLayerNode,
   makeTileKey,
   parseTileKey,
@@ -212,6 +214,40 @@ describe('Tile compositing', () => {
 
     const result = compositeDabOnNode(node, dab, color);
     expect(result.tiles.get('0:0')).toBeDefined();
+  });
+
+  it('fills only the covered pixels and preserves sparse tiles', () => {
+    const node = makeRasterLayerNode('fill-selection', { width: 256, height: 256 });
+    const coverage = makeCoverageMask(10, 10, 10, 10, 255);
+    const result = fillCoverageOnNode(node, coverage, [20, 80, 200, 255]);
+
+    expect(result).not.toBe(node);
+    expect(result.tiles.size).toBe(1);
+    expect(
+      result.tiles
+        .get('0:0')!
+        .pixels.slice((15 * TILE_SIZE + 15) * 4, (15 * TILE_SIZE + 15) * 4 + 4),
+    ).toEqual(new Uint8ClampedArray([20, 80, 200, 255]));
+    expect(
+      result.tiles.get('0:0')!.pixels.slice((5 * TILE_SIZE + 5) * 4, (5 * TILE_SIZE + 5) * 4 + 4),
+    ).toEqual(new Uint8ClampedArray([0, 0, 0, 0]));
+  });
+
+  it('uses soft coverage and alpha lock without changing destination alpha', () => {
+    const node = makeRasterLayerNode('fill-soft', { width: 128, height: 128 });
+    const base = createEmptyTile();
+    const destinationIndex = (20 * TILE_SIZE + 20) * 4;
+    base.pixels.set([10, 20, 30, 128], destinationIndex);
+    node.tiles.set('0:0', base);
+    const coverage = makeCoverageMask(20, 20, 1, 1, 128);
+    const result = fillCoverageOnNode(node, coverage, [210, 100, 40, 255], { alphaLock: true });
+    const pixel = result.tiles.get('0:0')!.pixels;
+
+    expect(pixel[destinationIndex + 3]).toBe(128);
+    expect(pixel[destinationIndex]).toBeGreaterThan(10);
+    expect(pixel[destinationIndex]).toBeLessThan(210);
+    expect(pixel[destinationIndex + 1]).toBeGreaterThan(20);
+    expect(pixel[destinationIndex + 2]).toBeGreaterThan(30);
   });
 
   it('applies deterministic grain to textured dabs', () => {

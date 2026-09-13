@@ -753,6 +753,106 @@ export function compositeDabOnTiles(
   return compositeDabOnNode(node, dab, color, options).tiles;
 }
 
+/**
+ * Fill a bounded coverage plane with one source-over colour.
+ *
+ * Selection fills deliberately use the same straight-alpha tile storage and
+ * premultiplied source-over math as brush dabs.  Keeping this as a tile
+ * operation (rather than synthesising a giant brush dab) preserves soft
+ * selection edges, avoids per-pixel document updates, and does not materialise
+ * untouched tiles.
+ */
+export function fillCoverageOnNode(
+  node: RasterLayerNode,
+  coverage: CoverageMask,
+  color: readonly [number, number, number, number],
+  options: { alphaLock?: boolean } = {},
+): RasterLayerNode {
+  if (
+    coverage.width <= 0 ||
+    coverage.height <= 0 ||
+    coverage.data.length !== coverage.width * coverage.height ||
+    color[3]! <= 0
+  ) {
+    return node;
+  }
+
+  const alphaLock = options.alphaLock === true;
+  const x0 = Math.max(0, coverage.x);
+  const y0 = Math.max(0, coverage.y);
+  const x1 = Math.min(node.width, coverage.x + coverage.width);
+  const y1 = Math.min(node.height, coverage.y + coverage.height);
+  if (x1 <= x0 || y1 <= y0) return node;
+
+  const newTiles = new Map(node.tiles);
+  const srcAlpha = color[3]! / 255;
+  const startTile = tileForPixel(x0, y0);
+  const endTile = tileForPixel(x1 - 1, y1 - 1);
+  let changed = false;
+
+  for (let row = startTile.row; row <= endTile.row; row += 1) {
+    for (let col = startTile.col; col <= endTile.col; col += 1) {
+      const key = makeTileKey(col, row);
+      const previous = newTiles.get(key);
+      const pixels = previous
+        ? new Uint8ClampedArray(previous.pixels)
+        : new Uint8ClampedArray(TILE_SIZE * TILE_SIZE * 4);
+      let wrote = false;
+      const tileX = col * TILE_SIZE;
+      const tileY = row * TILE_SIZE;
+      const minX = Math.max(x0, tileX);
+      const minY = Math.max(y0, tileY);
+      const maxX = Math.min(x1, tileX + TILE_SIZE);
+      const maxY = Math.min(y1, tileY + TILE_SIZE);
+
+      for (let y = minY; y < maxY; y += 1) {
+        const coverageRow = y - coverage.y;
+        for (let x = minX; x < maxX; x += 1) {
+          const coverageValue =
+            coverage.data[coverageRow * coverage.width + (x - coverage.x)]! / 255;
+          if (coverageValue <= 0) continue;
+
+          const index = ((y - tileY) * TILE_SIZE + (x - tileX)) * 4;
+          const destAlpha = pixels[index + 3]! / 255;
+          let effectiveAlpha = srcAlpha * coverageValue;
+          if (alphaLock) {
+            if (destAlpha <= 0) continue;
+            effectiveAlpha *= destAlpha;
+          }
+          if (effectiveAlpha <= 0) continue;
+
+          const outAlpha = alphaLock
+            ? destAlpha
+            : effectiveAlpha + destAlpha * (1 - effectiveAlpha);
+          if (outAlpha <= 0) continue;
+
+          const destR = (pixels[index]! / 255) * destAlpha;
+          const destG = (pixels[index + 1]! / 255) * destAlpha;
+          const destB = (pixels[index + 2]! / 255) * destAlpha;
+          pixels[index] = Math.round(
+            (((color[0]! / 255) * effectiveAlpha + destR * (1 - effectiveAlpha)) / outAlpha) * 255,
+          );
+          pixels[index + 1] = Math.round(
+            (((color[1]! / 255) * effectiveAlpha + destG * (1 - effectiveAlpha)) / outAlpha) * 255,
+          );
+          pixels[index + 2] = Math.round(
+            (((color[2]! / 255) * effectiveAlpha + destB * (1 - effectiveAlpha)) / outAlpha) * 255,
+          );
+          pixels[index + 3] = alphaLock ? pixels[index + 3]! : Math.round(outAlpha * 255);
+          wrote = true;
+        }
+      }
+
+      if (wrote) {
+        newTiles.set(key, { pixels, version: (previous?.version ?? 0) + 1 });
+        changed = true;
+      }
+    }
+  }
+
+  return changed ? { ...node, tiles: newTiles } : node;
+}
+
 /** Erase with the same tip geometry and dynamics as a paint dab. */
 export function eraseDabOnNode(
   node: RasterLayerNode,

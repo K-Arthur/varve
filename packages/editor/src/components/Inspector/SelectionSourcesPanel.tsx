@@ -1,12 +1,14 @@
 import { combineAreaSelections } from '@varve/engine';
-import { isImageShape } from '@varve/scene';
+import { buildParentIndexMap, fillCoverageOnNode, isImageShape } from '@varve/scene';
 import { Icon, Tooltip } from '@varve/ui';
 import { useState } from 'react';
 import { getActionRegistry } from '../../actions/ActionRegistry';
 import { getToolManager } from '../../canvas/toolDispatcher';
 import { type ToolId, useEditor } from '../../context';
+import { nodeWorldTransform } from '../../scene/world';
 import type { SelectionPaintTool } from '../../tools/SelectionPaintTool';
 import { deserializeAreaSelection, serializeAreaSelection } from '../../tools/savedAreaSelections';
+import { selectionCoverageForRasterNode } from '../../tools/selectionCoverage';
 import { DisclosureSection } from './controls/DisclosureSection';
 
 import './selectionSources.css';
@@ -43,7 +45,54 @@ export function SelectionSourcesPanel() {
         ? selectedNode.shape.closed
         : false;
   const hasImage = selectedNode?.kind === 'shape' && isImageShape(selectedNode);
+  const selectedRasterCandidate =
+    state.selection.length === 1 ? state.document.nodes[state.selection[0]!] : undefined;
+  const selectedRasterNode =
+    selectedRasterCandidate?.kind === 'rasterLayer' ? selectedRasterCandidate : undefined;
   const paintingSelection = state.tool === 'selectionPaint';
+
+  const fillDisabledReason = !hasAreaSelection
+    ? 'Create a pixel selection first'
+    : !selectedRasterNode
+      ? 'Select one visible, unlocked pixel layer as the output target'
+      : selectedRasterNode.visible === false
+        ? 'Show the selected pixel layer before filling it'
+        : selectedRasterNode.locked
+          ? 'Unlock the selected pixel layer before filling it'
+          : undefined;
+
+  const fillSelection = () => {
+    const selection = state.areaSelection;
+    const target = selectedRasterNode;
+    if (!selection || !target) {
+      announce(fillDisabledReason ?? 'Select a pixel layer and make a selection first');
+      return;
+    }
+    const coverage = selectionCoverageForRasterNode(
+      selection,
+      { width: target.width, height: target.height },
+      nodeWorldTransform(state.document, target.id, buildParentIndexMap(state.document)),
+    );
+    if (!coverage) {
+      announce('The selection is too large or cannot be mapped to this pixel layer');
+      return;
+    }
+    const color = [...state.foregroundColor] as [number, number, number, number];
+    const preview = fillCoverageOnNode(target, coverage, color);
+    if (preview === target) {
+      announce('Selection did not cover any pixels');
+      return;
+    }
+    updateDoc((doc) => {
+      const current = doc.nodes[target.id];
+      if (current?.kind !== 'rasterLayer' || current.locked || current.visible === false) {
+        return doc;
+      }
+      const filled = fillCoverageOnNode(current, coverage, color);
+      return filled === current ? doc : { ...doc, nodes: { ...doc.nodes, [target.id]: filled } };
+    });
+    announce(`Selection filled on ${target.name}`);
+  };
 
   const cancelPaint = () => {
     const tool = getToolManager().getTool<SelectionPaintTool>('selectionPaint');
@@ -187,6 +236,16 @@ export function SelectionSourcesPanel() {
           >
             Paint selection
           </button>
+          <Tooltip label="Fill active selection" disabledReason={fillDisabledReason}>
+            <button
+              type="button"
+              className="insp-selection-sources__button insp-selection-sources__button--primary"
+              disabled={Boolean(fillDisabledReason)}
+              onClick={fillSelection}
+            >
+              Fill pixel layer
+            </button>
+          </Tooltip>
           <Tooltip
             label="Path to selection"
             disabledReason={
