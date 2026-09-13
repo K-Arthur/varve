@@ -54,26 +54,36 @@ function collectUnsupportedRanges(
     const end = Math.max(start, Math.min(items.length, Math.floor(node.itemEnd)));
     const childRangesBefore = ranges.length;
     for (const child of node.children ?? []) visit(child);
-    const ownReasons = items
-      .slice(start, end)
-      .map(reasonForItem)
-      .filter((reason): reason is FallbackReason => reason !== null);
-    if (node.fallbackBoundary && (ownReasons.length > 0 || ranges.length > childRangesBefore)) {
+    if (node.fallbackBoundary) {
+      // The producer declares that this node's semantics (group blend,
+      // isolation, mask, adjustment, filter) cannot be reproduced by the
+      // per-item path even when every leaf looks supported. Honor the
+      // declared boundary unconditionally; a boundary with supported-looking
+      // leaves is exactly the case a leaf-only scan cannot detect. Descendant
+      // islands collapse into the boundary.
       ranges.splice(childRangesBefore);
-      ranges.push({
-        start,
-        end,
-        reason: (node.fallbackReason as FallbackReason | undefined) ?? 'structural-group',
-      });
+      if (end > start) {
+        ranges.push({
+          start,
+          end,
+          reason: (node.fallbackReason as FallbackReason | undefined) ?? 'structural-group',
+        });
+      }
     }
   };
 
   if (structure) visit(structure);
-  if (!structure || ranges.length === 0) {
-    for (let index = 0; index < items.length; index++) {
-      const reason = reasonForItem(items[index]!);
-      if (reason) ranges.push({ start: index, end: index + 1, reason });
-    }
+
+  // Always scan every item that no declared boundary already covers. This
+  // must not be conditional on `ranges.length === 0`: a scene can contain
+  // both a structural boundary and unrelated unsupported leaves outside it,
+  // and those leaves must still get their own Canvas2D island.
+  const coveredByBoundary = (index: number): boolean =>
+    ranges.some((range) => range.start <= index && index < range.end);
+  for (let index = 0; index < items.length; index++) {
+    if (coveredByBoundary(index)) continue;
+    const reason = reasonForItem(items[index]!);
+    if (reason) ranges.push({ start: index, end: index + 1, reason });
   }
   return ranges;
 }

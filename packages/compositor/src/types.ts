@@ -27,7 +27,13 @@ export interface RenderStructureNode {
   itemStart: number;
   itemEnd: number;
   children?: readonly RenderStructureNode[];
-  /** Preserve the complete node range when a descendant is unsupported. */
+  /**
+   * Authoritative "this node's semantics cannot be reproduced by the
+   * per-item GPU path" boundary (group blend/isolation/mask/adjustment/
+   * filter). The complete node range is preserved on the Canvas2D island
+   * even when every leaf item looks GPU-compatible; descendant islands
+   * collapse into it. Ignored only if unset.
+   */
   fallbackBoundary?: boolean;
   fallbackReason?: string;
 }
