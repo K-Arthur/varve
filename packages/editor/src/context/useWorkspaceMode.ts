@@ -3,15 +3,32 @@ import { type MutableRefObject, useCallback, useEffect, useRef } from 'react';
 import { isWorkspaceModeAllowed } from '../capabilities/restrictions';
 import { loadSettings, updateSettings } from '../settings';
 import type { ToolId } from '../tools/types';
-import { emitWorkspaceReset } from '../workspace/workspaceResetEvents';
+import {
+  classifyWorkspaceInteractions,
+  readWorkspaceInteractionSnapshot,
+} from '../workspace/interactionResolution';
+import {
+  applyLayoutPayloadToPreferences,
+  captureResetSnapshot,
+  clearResetSnapshot,
+  getLayoutStore,
+  hydrateLayoutStoreFromPlatform,
+  restoreResetSnapshotToPreferences,
+  sanitizeLayoutPayload,
+  updateLayoutStore,
+  type WorkspaceLayoutVariant,
+} from '../workspace/layoutVariants';
+import { emitWorkspaceLayoutApplied, emitWorkspaceReset } from '../workspace/workspaceResetEvents';
 import {
   getEffectiveWorkspaceConfig,
+  getPanelWidths,
   getWorkspacePreferences,
   hydrateWorkspacePreferencesFromPlatform,
   isModeCustomized,
   resetAllPreferences,
   resetModePreferences,
   setPanelOverride,
+  setWorkspacePreferences,
   updateWorkspacePreferences,
 } from '../workspace/workspaceStore';
 import {
@@ -101,6 +118,56 @@ function applyWorkspaceConfig(
   updateSettings({ panel: settingsPanelMirror(config) });
 }
 
+/**
+ * Resolve every interaction a workspace/layout change would interrupt.
+ *
+ * Returns false when the change must not proceed (IME composition, or a
+ * blocking modal for a workspace switch). Resolutions execute in place:
+ * transient tools return to Select and focused text/control drafts are
+ * committed with a blur before the surface can unmount.
+ */
+function resolvePendingWorkspaceInteractions(
+  state: EditorState,
+  patch: (patch: Partial<EditorState>) => void,
+  toolRef: MutableRefObject<ToolId>,
+  announcerRef: MutableRefObject<{ announce: (message: string) => void } | null>,
+  options?: { ignoreModal?: boolean },
+): boolean {
+  const plan = classifyWorkspaceInteractions(
+    readWorkspaceInteractionSnapshot({
+      tool: state.tool,
+      maskPreviewMode: state.maskPreviewMode,
+      isPlaying: state.motion.isPlaying,
+    }),
+  );
+  if (plan.blocked) {
+    if (plan.blockedReason === 'modal-open' && options?.ignoreModal) {
+      // The surface that initiated the change (e.g. the Manage Layouts
+      // dialog) is itself a modal; it must not block its own operation.
+    } else {
+      announcerRef.current?.announce(
+        plan.blockedReason === 'ime-composition'
+          ? 'Finish text composition before changing the workspace.'
+          : 'Close the open dialog before changing the workspace.',
+      );
+      return false;
+    }
+  }
+  for (const resolution of plan.resolutions) {
+    if (
+      resolution.kind === 'node-edit' ||
+      resolution.kind === 'crop' ||
+      resolution.kind === 'mask-preview'
+    ) {
+      applyToolChange('select', toolRef, patch);
+    } else if (resolution.kind === 'text-edit' || resolution.kind === 'active-control') {
+      const active = typeof document !== 'undefined' ? document.activeElement : null;
+      if (active instanceof HTMLElement) active.blur();
+    }
+  }
+  return true;
+}
+
 export function useWorkspaceMode(
   state: EditorState,
   patch: (patch: Partial<EditorState>) => void,
@@ -139,6 +206,11 @@ export function useWorkspaceMode(
       const mode = latestState.current.workspaceMode;
       patch(panelVisibilityPatch(getEffectiveWorkspaceConfig(mode)));
     });
+    // Layout variants are not applied automatically; hydration only makes
+    // them available to the Manage Layouts surface. A late hydration cannot
+    // overwrite local variants: the merge keeps the newer revision and any
+    // local deletion tombstone.
+    void hydrateLayoutStoreFromPlatform(platform);
     return () => {
       cancelled = true;
     };
@@ -174,12 +246,8 @@ export function useWorkspaceMode(
       workspaceSwitchInProgressRef.current = true;
       try {
         if (!options?.force) {
-          if (
-            state.tool === 'nodeEdit' ||
-            state.tool === 'crop' ||
-            state.maskPreviewMode !== 'none'
-          ) {
-            applyToolChange('select', toolRef, patch);
+          if (!resolvePendingWorkspaceInteractions(state, patch, toolRef, announcerRef)) {
+            return Promise.resolve(false);
           }
         }
         applyWorkspaceConfig(
@@ -200,9 +268,66 @@ export function useWorkspaceMode(
     [enabled, state, patch, toolRef, announcerRef, workspaceSwitchInProgressRef],
   );
 
+  const applyLayoutArrangement = useCallback(
+    (variant: WorkspaceLayoutVariant): boolean => {
+      if (!enabled) return false;
+      const mode = state.workspaceMode;
+      if (
+        !resolvePendingWorkspaceInteractions(state, patch, toolRef, announcerRef, {
+          ignoreModal: true,
+        })
+      ) {
+        return false;
+      }
+      const payload = sanitizeLayoutPayload(variant.payload);
+      // Replace the mode's arrangement, then project it through the one
+      // workspace-mode projection so panel booleans and overlays stay in
+      // sync. Applying a layout never changes the workspace mode itself.
+      updateWorkspacePreferences((prefs) => applyLayoutPayloadToPreferences(prefs, mode, payload));
+      applyWorkspaceConfig(
+        getEffectiveWorkspaceConfig(mode),
+        toolRef.current,
+        patch,
+        undefined,
+        toolRef,
+      );
+      emitWorkspaceLayoutApplied({ mode, panelWidths: payload.panelWidths ?? {} });
+      announcerRef.current?.announce(
+        `Applied layout \u201c${variant.name}\u201d to ${WORKSPACE_LABELS[mode]}`,
+      );
+      return true;
+    },
+    [enabled, state.workspaceMode, patch, toolRef, announcerRef],
+  );
+
+  const restoreLastResetLayout = useCallback((): boolean => {
+    if (!enabled) return false;
+    const snapshot = getLayoutStore().resetSnapshot;
+    if (!snapshot) return false;
+    const restored = restoreResetSnapshotToPreferences(getWorkspacePreferences(), snapshot);
+    setWorkspacePreferences(restored);
+    updateLayoutStore(clearResetSnapshot);
+    const mode = latestState.current.workspaceMode;
+    applyWorkspaceConfig(
+      getEffectiveWorkspaceConfig(mode),
+      toolRef.current,
+      patch,
+      undefined,
+      toolRef,
+    );
+    emitWorkspaceLayoutApplied({ mode, panelWidths: getPanelWidths(restored, mode) });
+    announcerRef.current?.announce('Restored the layout from before the last reset');
+    return true;
+  }, [enabled, patch, toolRef, announcerRef]);
+
   const resetWorkspaceToDefault = useCallback(() => {
     if (!enabled) return;
     const mode = state.workspaceMode;
+    // Snapshot the arrangement before discarding it so the reset has a
+    // recoverable local undo that is separate from document undo.
+    updateLayoutStore((store) =>
+      captureResetSnapshot(store, { kind: 'mode', mode }, getWorkspacePreferences()),
+    );
     // Clear this mode's saved customizations FIRST. Resolving the effective
     // config before the reset would merge in the very overrides being
     // discarded, so "reset" would re-apply the customized layout instead of
@@ -219,6 +344,9 @@ export function useWorkspaceMode(
   const resetAllWorkspacesToDefaults = useCallback(() => {
     if (!enabled) return;
     const mode = state.workspaceMode;
+    updateLayoutStore((store) =>
+      captureResetSnapshot(store, { kind: 'all' }, getWorkspacePreferences()),
+    );
     updateWorkspacePreferences(() => resetAllPreferences());
     applyWorkspaceConfig(getWorkspaceConfig(mode), toolRef.current, patch, undefined, toolRef);
     emitWorkspaceReset({ kind: 'all' });
@@ -230,6 +358,8 @@ export function useWorkspaceMode(
     requestWorkspaceSwitch,
     resetWorkspaceToDefault,
     resetAllWorkspacesToDefaults,
+    applyWorkspaceLayout: applyLayoutArrangement,
+    restoreLastResetLayout,
   };
 }
 
