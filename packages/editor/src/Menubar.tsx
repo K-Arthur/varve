@@ -4,7 +4,6 @@ import { adoptBrowserFileHandle, contentHash } from '@varve/platform';
 import { MAX_ZOOM, MIN_ZOOM, VARVE_URLS } from '@varve/shared';
 import {
   AlertDialog,
-  closeAllOverlays,
   elementAnchor,
   FloatingPortal,
   IconButton,
@@ -28,7 +27,7 @@ import { RasterizeDialog } from './components/Rasterize/RasterizeDialog';
 import { WorkspaceTabs } from './components/WorkspaceTabs';
 import { useEditor } from './context';
 import { computeCapabilities, getNudgeCapability, useNativeMenu } from './menu';
-import { useMenubarFocusEffects } from './menu/menubarFocus';
+import { useMenubarContextEffects, useMenubarFocusEffects } from './menu/menubarFocus';
 import { handleMenubarKey } from './menu/menubarKeynav';
 import { MenubarSubmenu } from './menu/menubarSubmenu';
 import { labelWithFallback, type RecentEntry, useRecentFiles } from './recentFiles';
@@ -1947,7 +1946,6 @@ export function Menubar({
   // Non-null when Tab/Shift+Tab closed the menu: restore must walk the tab
   // order past the anchor instead of returning focus to it.
   const tabWalkDirRef = useRef<1 | -1 | null>(null);
-  const menuContextRef = useRef({ workspaceMode: state.workspaceMode, activeId: state.activeId });
   const MENU_ITEM_SELECTOR = '[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"]';
 
   useEffect(() => {
@@ -1994,21 +1992,17 @@ export function Menubar({
     setActiveItemIndex,
     setActiveSubmenuIndex,
   });
-
-  useEffect(() => {
-    const contextChanged =
-      menuContextRef.current.workspaceMode !== state.workspaceMode ||
-      menuContextRef.current.activeId !== state.activeId;
-    menuContextRef.current = { workspaceMode: state.workspaceMode, activeId: state.activeId };
-    if (!contextChanged || !openMenu) return;
-    const ownerDocument = dropdownMenuRef.current?.ownerDocument ?? menuRef.current?.ownerDocument;
-    if (!ownerDocument) return;
-    closeAllOverlays(ownerDocument, 'workspace-change');
-    setOpenMenu(null);
-    setOpenSubmenu(null);
-    setActiveItemIndex(0);
-    setActiveSubmenuIndex(0);
-  }, [state.workspaceMode, state.activeId, openMenu]);
+  useMenubarContextEffects({
+    openMenu,
+    workspaceMode: state.workspaceMode,
+    activeId: state.activeId,
+    menuRef,
+    dropdownMenuRef,
+    setOpenMenu,
+    setOpenSubmenu,
+    setActiveItemIndex,
+    setActiveSubmenuIndex,
+  });
 
   const openMenuIndex = openMenu ? menus.findIndex((m) => m.id === openMenu) : -1;
   const openMenuAnchorRef = useRef<HTMLButtonElement | null>(null);

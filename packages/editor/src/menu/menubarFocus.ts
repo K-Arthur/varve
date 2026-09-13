@@ -15,9 +15,10 @@
  *   focused the clicked target, Tab walked the tab order past the trigger).
  */
 
+import { closeAllOverlays } from '@varve/ui';
 import { firstEnabledIndex, walkFocus } from '@varve/ui/utils/focusMovement';
 import type React from 'react';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 const MENU_ITEM_SELECTOR = '[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"]';
 
@@ -34,6 +35,91 @@ export interface MenubarFocusDeps {
   tabWalkDirRef: React.MutableRefObject<1 | -1 | null>;
   setActiveItemIndex: React.Dispatch<React.SetStateAction<number>>;
   setActiveSubmenuIndex: React.Dispatch<React.SetStateAction<number>>;
+}
+
+export interface MenubarContextDeps {
+  openMenu: string | null;
+  workspaceMode: string;
+  activeId: string;
+  menuRef: React.RefObject<HTMLDivElement | null>;
+  dropdownMenuRef: React.RefObject<HTMLDivElement | null>;
+  setOpenMenu: React.Dispatch<React.SetStateAction<string | null>>;
+  setOpenSubmenu: React.Dispatch<React.SetStateAction<number | null>>;
+  setActiveItemIndex: React.Dispatch<React.SetStateAction<number>>;
+  setActiveSubmenuIndex: React.Dispatch<React.SetStateAction<number>>;
+}
+
+/**
+ * Close menus when their owning document/session context changes, while
+ * allowing the opening click to finish when the context settles in the same
+ * React commit. A context change after the menu was already open still closes
+ * it, so stale target-dependent commands cannot remain visible.
+ */
+export function useMenubarContextEffects({
+  openMenu,
+  workspaceMode,
+  activeId,
+  menuRef,
+  dropdownMenuRef,
+  setOpenMenu,
+  setOpenSubmenu,
+  setActiveItemIndex,
+  setActiveSubmenuIndex,
+}: MenubarContextDeps): void {
+  const menuContextRef = useRef({ workspaceMode, activeId });
+  const menuOpenedContextRef = useRef<{
+    menu: string;
+    workspaceMode: string;
+    activeId: string;
+  } | null>(null);
+
+  // Capture the context only when a new menu opens. If the same menu remains
+  // open while the document changes, retain the old context so the invalidation
+  // effect below can dismiss it instead of treating the new context as valid.
+  useEffect(() => {
+    if (!openMenu) {
+      menuOpenedContextRef.current = null;
+      return;
+    }
+    if (menuOpenedContextRef.current?.menu !== openMenu) {
+      menuOpenedContextRef.current = { menu: openMenu, workspaceMode, activeId };
+    }
+  }, [openMenu, workspaceMode, activeId]);
+
+  useEffect(() => {
+    const contextChanged =
+      menuContextRef.current.workspaceMode !== workspaceMode ||
+      menuContextRef.current.activeId !== activeId;
+    menuContextRef.current = { workspaceMode, activeId };
+    if (!contextChanged || !openMenu) return;
+
+    const openedContext = menuOpenedContextRef.current;
+    if (
+      openedContext?.menu === openMenu &&
+      openedContext.workspaceMode === workspaceMode &&
+      openedContext.activeId === activeId
+    ) {
+      return;
+    }
+
+    const ownerDocument = dropdownMenuRef.current?.ownerDocument ?? menuRef.current?.ownerDocument;
+    if (!ownerDocument) return;
+    closeAllOverlays(ownerDocument, 'workspace-change');
+    setOpenMenu(null);
+    setOpenSubmenu(null);
+    setActiveItemIndex(0);
+    setActiveSubmenuIndex(0);
+  }, [
+    workspaceMode,
+    activeId,
+    openMenu,
+    menuRef,
+    dropdownMenuRef,
+    setOpenMenu,
+    setOpenSubmenu,
+    setActiveItemIndex,
+    setActiveSubmenuIndex,
+  ]);
 }
 
 export function useMenubarFocusEffects(deps: MenubarFocusDeps): void {

@@ -57,6 +57,7 @@ source inspection and focused tests before repair.
 | Enter malformed Levels/Curves values | NaN/infinity and reversed intervals could reach LUT arithmetic | Kernel trusted UI-normalized input | Finite bounded Levels parameters, deterministic interval collapse/reversal, finite Curve points and duplicate-x resolution | Levels/Curves focused tests |
 | Target a neutral pixel with a colour-range Hue/Saturation edit | A Reds/Saturation edit treated an achromatic hue of zero as red | Range selection was evaluated without an achromatic guard | Only the Master range can affect a zero-chroma pixel; targeted ranges keep neutral artwork neutral | Hue/Saturation focused test |
 | Inspect Levels/Curves later in a stack | Histogram source was always the scoped pre-stack composite | Cache key and render stage omitted selected entry/upstream filters | Histogram key includes stage; upstream `FilterIR` is rendered through the existing compositor; UI labels the source stage | Panel/editor tests; browser visual workflow pending final E2E gate |
+| Open the adjustment entry point from Object | Chromium reached the editor but the Object button returned to `aria-expanded=false` with no menu portal after a click | Menubar context invalidation could close a menu opened in the same render as session/workspace state settling | Extracted context lifecycle handling; preserve the opening context, but still close a menu when an already-open menu crosses document/workspace context | Menubar unit suite 21/21; fresh canvas E2E remained blocked before this assertion by the editor canvas startup path |
 
 ## Canonical contracts after this slice
 
@@ -104,6 +105,12 @@ is not a final-output or display-proof histogram.
   from concurrent work, and the fresh run reached Varve's “bundle loaded but
   never rendered” startup watchdog during Vite dependency optimization. These
   are runtime blockers for the visual gate, not successful adjustment evidence.
+- After the menubar lifecycle repair, a new Chromium run reached the test
+  worker but timed out waiting for
+  `canvas.editor-canvas__content-layer` before the adjustment scenario began.
+  The captured failure is under
+  `test-results/adjustments-e2e-menu-fix/`; this is a shared editor startup
+  failure, not evidence that the adjustment workflow passed.
 - The effect kernel remains an RGBA8 Canvas2D/software reference path. Native,
   WASM, and WebGPU acceleration must prove equivalence before dispatch.
 - Histogram sampling is stage-aware but still downscaled and does not yet
