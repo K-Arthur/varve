@@ -117,23 +117,34 @@ test('mockup workflow: apply, link, update, save/reopen, export, replace, detach
   await expect(section.getByText(/Frame 1/)).toBeVisible();
 
   // 5. Linked source update: nudge the source frame (digest invalidation).
-  const sourceLayer = page.locator('.layers-panel [role="treeitem"]').first();
+  const sourceLayer = page
+    .locator('.layers-panel [role="treeitem"]', { hasText: /Frame 1/ })
+    .first();
   await sourceLayer.click();
   await page.waitForTimeout(150);
   await page.keyboard.press('ArrowRight');
   await page.waitForTimeout(600);
+  // Selecting the source hides the inspector section; re-select the mockup to
+  // confirm it still resolves its live binding after the source moved.
+  await page
+    .locator('.layers-panel [role="treeitem"]', { hasText: /mockup/i })
+    .first()
+    .click();
+  await page.waitForTimeout(300);
   await expect(section).toBeVisible();
 
   // 6. Save, then reopen from Home.
   await page.keyboard.press('Control+s');
   await page.waitForTimeout(1200);
   await page.goto('/', { timeout: 60000, waitUntil: 'domcontentloaded' });
+  await dismissRecoveryDialog(page);
   // Home uses cards in the current responsive layout; gridcell is the stable
   // semantic contract shared by both the card and legacy row presentations.
   const fileRow = page.getByRole('gridcell').first();
   await fileRow.waitFor({ timeout: 20000 });
   await fileRow.dblclick();
   await page.locator('.layers-panel').waitFor({ timeout: 20000 });
+  await dismissRecoveryDialog(page);
   // The mockup survived save/reopen: select its layer, section is back.
   const mockupLayer = page
     .locator('.layers-panel [role="treeitem"]', { hasText: /mockup/i })
@@ -145,7 +156,7 @@ test('mockup workflow: apply, link, update, save/reopen, export, replace, detach
 
   // 7. Add a PNG export configuration, then open Export and capture the
   // download. The advanced dialog only lists nodes with enabled presets.
-  await page.locator('[role="tablist"] button[role="tab"]', { hasText: /^export$/i }).click();
+  await openInspectorTab(page, 'Export');
   await page.getByRole('button', { name: 'PNG', exact: true }).click();
   await page.getByRole('button', { name: 'Add configuration' }).click();
   // Headless Chromium exposes the File System Access picker, which cannot be
@@ -156,7 +167,7 @@ test('mockup workflow: apply, link, update, save/reopen, export, replace, detach
   });
   const downloadPromise = page.waitForEvent('download', { timeout: 60000 });
   await page.keyboard.press('Control+e');
-  const exportDialog = page.getByRole('dialog');
+  const exportDialog = page.getByRole("dialog", { name: "Export" });
   await exportDialog.waitFor({ timeout: 8000 });
   const exportBtn = exportDialog.getByRole('button', { name: /^Export \(/ });
   await exportBtn.click({ timeout: 8000 });
@@ -178,10 +189,10 @@ test('mockup workflow: apply, link, update, save/reopen, export, replace, detach
   await page.keyboard.press('Escape');
   await page.waitForTimeout(300);
 
-  // 8. Replace the template via the Mockups panel (browser window).
+  // 8. Apply another template from the Mockups panel (browser window).
   await page.getByRole('tab', { name: /mockups/i }).click();
-  await page.getByRole('tab', { name: /^properties$/i }).click();
   await applyTemplate(page, 'Browser Window');
+  await openInspectorTab(page, 'Design');
   await expect(page.locator('.mockups-section').getByText('Browser Window')).toBeVisible({
     timeout: 8000,
   });
@@ -243,9 +254,41 @@ test('multi-surface template: business card front and back bind two sources', as
   await expect(section.getByText(/Frame 2/).first()).toBeVisible();
 });
 
+/** Close the crash-recovery dialog when it appears after navigation. */
+async function dismissRecoveryDialog(page: import('@playwright/test').Page): Promise<void> {
+  const dialog = page.getByRole('dialog', { name: /Recover unsaved documents/ });
+  const deadline = Date.now() + 8000;
+  while (Date.now() < deadline) {
+    if (await dialog.isVisible().catch(() => false)) {
+      await dialog
+        .getByRole('button', { name: /^Close$/ })
+        .click({ timeout: 5000 })
+        .catch(() => undefined);
+      await page.waitForTimeout(300);
+      return;
+    }
+    await page.waitForTimeout(300);
+  }
+}
+
+/** Open an inspector tab, using the "More" overflow menu when it is hidden. */
+async function openInspectorTab(
+  page: import('@playwright/test').Page,
+  label: string,
+): Promise<void> {
+  const direct = page.getByRole('tab', { name: label, exact: true });
+  if (await direct.first().isVisible().catch(() => false)) {
+    await direct.first().click();
+    return;
+  }
+  const more = page.getByRole('button', { name: /More inspector tabs/ });
+  await more.click({ timeout: 10000 });
+  await page.getByRole('menuitem', { name: label, exact: true }).click({ timeout: 10000 });
+}
+
 /** Configure a PNG export preset, then export and return the PNG bytes. */
 async function exportPng(page: import('@playwright/test').Page): Promise<Buffer> {
-  await page.locator('[role="tablist"] button[role="tab"]', { hasText: /^export$/i }).click();
+  await openInspectorTab(page, 'Export');
   await page.getByRole('button', { name: 'PNG', exact: true }).click();
   await page.getByRole('button', { name: 'Add configuration' }).click();
   await page.evaluate(() => {
@@ -253,7 +296,7 @@ async function exportPng(page: import('@playwright/test').Page): Promise<Buffer>
   });
   const downloadPromise = page.waitForEvent('download', { timeout: 60000 });
   await page.keyboard.press('Control+e');
-  const exportDialog = page.getByRole('dialog');
+  const exportDialog = page.getByRole("dialog", { name: "Export" });
   await exportDialog.waitFor({ timeout: 8000 });
   await exportDialog.getByRole('button', { name: /^Export \(/ }).click({ timeout: 8000 });
   const download = await downloadPromise;
@@ -346,8 +389,10 @@ test('deleting a bound source reports a missing source instead of crashing', asy
   const section = page.locator('.mockups-section');
   await section.waitFor({ timeout: 8000 });
 
-  // Select the source frame (first layer) and delete it.
-  const sourceLayer = page.locator('.layers-panel [role="treeitem"]').first();
+  // Select the source frame and delete it.
+  const sourceLayer = page
+    .locator('.layers-panel [role="treeitem"]', { hasText: /Frame 1/ })
+    .first();
   await sourceLayer.click();
   await page.waitForTimeout(200);
   await page.keyboard.press('Delete');

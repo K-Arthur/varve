@@ -158,3 +158,37 @@ Landed in the surface-editing slice:
 Still deferred with explicit rejection: mesh surfaces, cylindrical surfaces,
 displacement maps, luminance mask coverage, PSD smart-object replacement, and
 model-assisted surface proposals.
+
+## 6. Validation log (2026-09-13)
+
+| Check | Command | Result |
+|---|---|---|
+| Scene mockup suite | `pnpm vitest run packages/scene/src/mockup/__tests__/mockup.test.ts` | 23/23 pass |
+| Editor surface decoration | `pnpm vitest run packages/editor/src/render/mockup/__tests__/mockupIr.test.ts` | 10/10 pass |
+| Export decoration | `packages/editor/src/render/mockup/__tests__/mockupExport.test.ts` | 2/2 pass |
+| Template bundles | `packages/editor/src/mockup/mockupTemplatePackage.test.ts` | 4/4 pass |
+| Inspector RTL | `packages/editor/src/components/Inspector/sections/MockupsSection.test.tsx` | 4/4 pass |
+| Panel RTL | `packages/editor/src/components/Mockups/MockupsPanel.test.tsx` | 6/6 pass |
+| E2E typecheck | `pnpm typecheck:e2e` | pass |
+| Format/lint | `pnpm biome check` on all touched files | pass |
+| Docs audit | `pnpm audit:docs` | clean (784 docs) |
+| Emoji audit | `pnpm audit:emoji` | clean (4529 files) |
+| Token audit | `pnpm audit:tokens` | 153/153 across 3 themes |
+| Scene typecheck | `pnpm exec tsc -p packages/scene/tsconfig.json --noEmit` | only a pre-existing unrelated test error |
+| Editor typecheck | `pnpm exec tsc -p packages/editor/tsconfig.json --noEmit` | 23 errors, all in unrelated in-flight files; zero in mockup/touched files |
+| Browser E2E | `tests/e2e/canvas/mockups.spec.ts` on a production build (`vite build` + `vite preview`, port 1453) | 6/6 pass in 1.4 min: full workflow (apply/link/update/save-reopen/export/replace/remove/undo-redo), multi-surface business card, export composition (decoded PNG contains 162 283 template-background px and 22 949 phone-plate px across 85 quantized colours), overlay drag + one-step undo (x 300 → 364 → 300), missing-source reporting after deleting the bound source, template authoring from selection. Zero console/page errors. Artifacts: `reports/mockup-review/` (`export-phone-mockup.png` inspected: bezel, screen with fitted source, shadow, template background). |
+
+Observed unrelated defect (handoff, not introduced here): a real
+right-click on the canvas currently targets the tool-hint overlay
+(`.micro-hint`, pointer-events: auto) that floats over the canvas, so the
+canvas context-menu handler never receives the event (a synthetic
+`contextmenu` dispatched on the canvas opens the menu correctly). The E2E
+drives Resources → Mockups and the Object/panel paths instead; the hint
+overlay's pointer behavior should be fixed by its owner.
+
+Perf note: the protected replay hot path (`replaySubtreeToCtx`, `replayIr`)
+was not restructured. Changes are (a) a per-document boolean scan in
+`sceneNeedsStructuralCompositing` (memoized by document reference), (b) a
+document-id guard in the mockup decoration block, and (c) export-only
+decoration. No per-node-per-frame dispatch changed.
+
