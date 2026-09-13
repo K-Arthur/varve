@@ -62,9 +62,15 @@ export function TabletBackDismiss(): null {
   useEffect(() => {
     if (typeof window === 'undefined' || typeof history === 'undefined') return;
     let guardPushed = false;
+    // Removing a guard uses history.back(), whose popstate is asynchronous.
+    // Keep the guard logically owned until that pop arrives; otherwise a new
+    // overlay opened during the handoff gets a second guard and the old
+    // popstate is mistaken for a user back gesture (dispatching Escape into
+    // the newly focused control).
+    let guardDropPending = false;
 
     const pushGuard = () => {
-      if (guardPushed || !hasDismissableLayer(document)) return;
+      if (guardPushed || guardDropPending || !hasDismissableLayer(document)) return;
       try {
         history.pushState({ ...baseHistoryState(), [OVERLAY_GUARD_FLAG]: true }, '', location.href);
         guardPushed = true;
@@ -75,17 +81,23 @@ export function TabletBackDismiss(): null {
     };
 
     const dropGuard = () => {
-      if (!guardPushed) return;
-      guardPushed = false;
+      if (!guardPushed || guardDropPending) return;
       // Only pop when the guard is actually the current entry; otherwise the
       // back traversal belongs to a real document entry and must not be
       // consumed by overlay cleanup.
       const state = history.state as Record<string, unknown> | null;
-      if (state?.[OVERLAY_GUARD_FLAG] !== true) return;
+      if (state?.[OVERLAY_GUARD_FLAG] !== true) {
+        guardPushed = false;
+        return;
+      }
+      guardDropPending = true;
       try {
         history.back();
       } catch {
-        // See pushGuard.
+        // See pushGuard. There will be no popstate to reconcile after a
+        // history failure, so release the logical ownership immediately.
+        guardDropPending = false;
+        guardPushed = false;
       }
     };
 
@@ -115,6 +127,15 @@ export function TabletBackDismiss(): null {
 
     const onPopState = () => {
       if (!guardPushed) return;
+      if (guardDropPending) {
+        guardDropPending = false;
+        guardPushed = false;
+        // The pop was the cleanup requested by dropGuard, not a user back
+        // gesture. If a new layer opened during the handoff, replace the
+        // consumed guard without sending Escape to that layer.
+        if (hasDismissableLayer(document)) pushGuard();
+        return;
+      }
       guardPushed = false;
       if (!hasDismissableLayer(document)) return;
       dismissTopLayer(document);
