@@ -104,6 +104,19 @@ describe('textToOutlines — placeholder path (no fontData)', () => {
 });
 
 describe('textToOutlines — opentype.js path (with fontData)', () => {
+  it('refuses corrupt font data without fabricating a rectangle', () => {
+    const result = textToOutlines('A', {
+      fontSize: 100,
+      fontFamily: 'Broken Font',
+      fontData: new Uint8Array([0, 1, 2, 3]).buffer,
+    });
+
+    expect(result.isPlaceholder).toBe(true);
+    expect(result.hasMissingGlyphs).toBe(true);
+    expect(result.glyphs).toHaveLength(0);
+    expect(result.warnings.join(' ')).toContain('No placeholder geometry');
+  });
+
   it('produces real glyph outlines with bezier handles', async () => {
     const fontData = await loadFontData();
     const result = textToOutlines('O', {

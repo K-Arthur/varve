@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
 import { createHarfBuzzWasmBackend } from '@varve/engine';
+import { describe, expect, it } from 'vitest';
 import { addChild, createDocument, makeTextNode } from '../document';
 import { convertTextNodeToPath, ORIGINAL_TEXT_META_KEY } from './convertTextToPath';
 
@@ -124,6 +124,18 @@ describe('convertTextNodeToPath', () => {
 
     expect(result.warnings.length).toBeGreaterThanOrEqual(1);
     expect(result.warnings[0]!).toContain('Font binary data');
+  });
+
+  it('refuses corrupt font data without replacing the text with placeholders', () => {
+    const { doc } = makeDocWithText('Hello');
+    const result = convertTextNodeToPath(doc, 'txt1', {
+      fontData: new Uint8Array([0, 1, 2, 3]).buffer,
+    });
+
+    expect(result.document).toBe(doc);
+    expect(result.document.nodes.txt1).toBeDefined();
+    expect(result.document.nodes['txt1-outlined']).toBeUndefined();
+    expect(result.warnings.join(' ')).toContain('complete vector outlines');
   });
 
   it('warns when node is not text', () => {

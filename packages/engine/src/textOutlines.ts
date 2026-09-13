@@ -69,6 +69,8 @@ export interface TextOutlineResult {
   hasColorGlyphs: boolean;
   /** Whether the font has restricted embedding rights. */
   restrictedEmbedding: boolean;
+  /** True when a shaped glyph could not be resolved or the font could not be parsed. */
+  hasMissingGlyphs?: boolean;
 }
 
 export interface TextOutlineOptions {
@@ -180,8 +182,7 @@ function placeholderOutlines(
   const glyphs: GlyphOutline[] = [];
   let cursorX = x0;
 
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i] ?? '';
+  for (const char of Array.from(text)) {
     if (char === '\n') {
       cursorX = x0;
       continue;
@@ -228,8 +229,23 @@ function extractWithOpentype(
   y0: number,
   options: TextOutlineOptions,
 ): TextOutlineResult {
-  const font = parseOpentypeFont(fontData);
   const warnings: string[] = [];
+  let font: ReturnType<typeof parseOpentypeFont>;
+  try {
+    font = parseOpentypeFont(fontData);
+  } catch {
+    return {
+      glyphs: [],
+      bounds: { x: 0, y: 0, w: 0, h: 0 },
+      isPlaceholder: true,
+      warnings: [
+        'The selected font data could not be parsed. No placeholder geometry was generated.',
+      ],
+      hasColorGlyphs: false,
+      restrictedEmbedding: false,
+      hasMissingGlyphs: true,
+    };
+  }
 
   // Check for color glyphs (COLR/CPAL, SVG-in-OpenType, CBDT, sbix)
   if (hasColorGlyphs(font)) {
@@ -243,6 +259,7 @@ function extractWithOpentype(
       ],
       hasColorGlyphs: true,
       restrictedEmbedding: false,
+      hasMissingGlyphs: true,
     };
   }
 
@@ -301,8 +318,7 @@ function extractWithOpentype(
   const glyphs: GlyphOutline[] = [];
   let cursorX = x0;
 
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i] ?? '';
+  for (const char of Array.from(text)) {
     if (char === '\n') {
       cursorX = x0;
       continue;
@@ -352,6 +368,7 @@ function extractWithOpentype(
     warnings,
     hasColorGlyphs: false,
     restrictedEmbedding,
+    hasMissingGlyphs: false,
   };
 }
 
@@ -427,6 +444,7 @@ function extractShapedGlyphs(
     warnings,
     hasColorGlyphs: false,
     restrictedEmbedding,
+    hasMissingGlyphs: failed,
   };
 }
 

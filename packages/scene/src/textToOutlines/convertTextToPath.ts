@@ -238,6 +238,16 @@ export function convertTextNodeToPath(
 
         const runResult = textToOutlines(runText, outlineOptions);
         warnings.push(...runResult.warnings);
+        if (runResult.isPlaceholder || runResult.hasMissingGlyphs || runResult.hasColorGlyphs) {
+          return {
+            document: doc,
+            warnings: [
+              ...warnings,
+              'Text was not converted because the selected font did not produce complete vector outlines.',
+            ],
+            hadRichText: hasRichText,
+          };
+        }
         runCursorX += runResult.bounds.w;
 
         const runGlyphIds: string[] = [];
@@ -349,8 +359,15 @@ export function convertTextNodeToPath(
     const result = textToOutlines(rawText, outlineOptions);
     warnings.push(...result.warnings);
 
-    if (result.hasColorGlyphs) {
-      return { document: doc, warnings, hadRichText: hasRichText };
+    if (result.isPlaceholder || result.hasMissingGlyphs || result.hasColorGlyphs) {
+      return {
+        document: doc,
+        warnings: [
+          ...warnings,
+          'Text was not converted because the selected font did not produce complete vector outlines.',
+        ],
+        hadRichText: hasRichText,
+      };
     }
 
     const shapeIndexByGlyph: (number | null)[] = result.glyphs.map(() => null);
