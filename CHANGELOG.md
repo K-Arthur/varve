@@ -26,6 +26,14 @@ update, not for someone reading the commit log.
   Recipes, manual coverage corrections, undo, save/reopen, duplicate/paste,
   scalar export, and model-free reuse are preserved through the existing mask
   and resource systems; Depth Blur is not required to edit an accepted map.
+- **Colorize workflow completion** — The Inspector exposes one task-oriented
+  Colorize surface: absolute/relative tint with mask or explicit whole-image
+  scope, document-swatch palettes with shaded and strict mapping, file-based
+  reference transfer and harmonization, and a model-gated photo lane with a
+  quality-mapped preview, split-view comparator, real progress phases, and a
+  source-preserving Apply that commits an embedded result asset. Photo previews
+  carry their predicted chroma, so Apply rebuilds the approved colors at full
+  resolution. Deterministic modes stay offline and need no model.
 - **Curve and node editing** — Node editing now supports compound contours and
   holes, multi-anchor movement, relative-handle numeric controls, distinct
   corner/smooth/symmetric/automatic modes, nearest-parameter Bézier insertion,
@@ -67,6 +75,13 @@ update, not for someone reading the commit log.
   producing placeholder geometry. PDF preflight rasterizes shaping-sensitive
   text through the live renderer so advanced typography cannot silently change
   during export.
+- **DDColor input contract and preview/apply agreement** — Photo colorization
+  now feeds the grayscale-derived RGB the official pipeline expects (source L*
+  -> Lab(L*,0,0) -> RGB, squished to the square model input) instead of passing
+  original color channels, resizes only the predicted a*b* planes back to the
+  source, returns the approved chroma with the preview, and rebuilds it at full
+  resolution on Apply without a second inference. The unused photo lightness
+  parameter is gone; photo mode always retains source L*.
 - **Path editing correctness** — Full affine and rotated-camera projection now
   keeps hit targets aligned at arbitrary zoom, selection-only clicks avoid
   history, pointer cancellation restores the pre-drag shape, and topology edits

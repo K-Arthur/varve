@@ -46,6 +46,27 @@ test.describe('Colorize production workflow', () => {
       contentType: 'image/png',
     });
 
+    // The preview is compared against the untouched source; the reveal slider
+    // drives the overlay clip without changing the committed result.
+    await expect(preview.getByRole('img', { name: 'Original source for comparison' })).toBeVisible();
+    const reveal = preview.getByRole('slider', { name: /Reveal colorize preview/ });
+    await expect(reveal).toBeVisible();
+    const overlay = preview.locator('.colorize-section__compare-overlay');
+    const beforeReveal = await overlay.evaluate((element) => element.getAttribute('style'));
+    await reveal.evaluate((element) => {
+      const input = element as HTMLInputElement;
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+      setter?.call(input, '20');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await expect
+      .poll(async () => overlay.evaluate((element) => element.getAttribute('style')))
+      .not.toBe(beforeReveal);
+    await testInfo.attach('colorize-compare', {
+      body: await preview.screenshot(),
+      contentType: 'image/png',
+    });
+
     await preview.getByRole('button', { name: 'Apply colorization at full resolution' }).click();
     await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 30000 });
     const after = await canvas.screenshot();
