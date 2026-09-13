@@ -1,13 +1,6 @@
 import type { Affine } from '@varve/engine';
 import { identity, multiplyAffine, rotateDeg } from '@varve/shared';
-import {
-  type AdjustmentNode,
-  type FrameNode,
-  type GroupNode,
-  isContainer,
-  type NodeId,
-  type SceneNode,
-} from './types';
+import type { AdjustmentNode, FrameNode, GroupNode, NodeId, SceneNode } from './types';
 
 /**
  * Minimal Document interface — only properties needed by validation/utility
@@ -164,9 +157,23 @@ export function composeWorldTransform(
   return world;
 }
 
+/**
+ * Children for reference-graph traversal (reachability, cycle detection,
+ * parent lookup). Known containers plus unknown/future node kinds that carry
+ * a string-id `children` array: a future container must keep its subtree
+ * reachable and cycle-checked even though this version cannot render or edit
+ * it. Rendering/editing paths keep using `isContainer`, so unknown kinds stay
+ * inert.
+ */
+export function traversalChildren(node: SceneNode | undefined): NodeId[] {
+  if (!node) return [];
+  const children = (node as { children?: unknown }).children;
+  if (!Array.isArray(children)) return [];
+  return children.filter((id): id is NodeId => typeof id === 'string');
+}
+
 function childrenOf(node: SceneNode | undefined): NodeId[] {
-  if (!node || !isContainer(node)) return [];
-  return Array.isArray(node.children) ? node.children : [];
+  return traversalChildren(node);
 }
 
 /**

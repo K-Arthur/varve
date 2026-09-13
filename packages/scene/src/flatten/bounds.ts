@@ -182,6 +182,47 @@ export function nodeEffectPadding(node: { effects?: Array<Record<string, unknown
 }
 
 /**
+ * Per-side maximum effect overflow across a node's visible subtree, in the
+ * node's local units. `effectPadding` already treats inset effects as zero
+ * and outer effects conservatively (≈3× blur kernel + spread/offset).
+ *
+ * Used by export rasterization to pad the fallback rectangle: cropping to the
+ * unpadded source box clipped shadows, glows, blur spill, chromatic split and
+ * glitch displacement at the boundary.
+ */
+export function subtreeEffectPadding(
+  doc: Document,
+  rootId: NodeId,
+): { left: number; top: number; right: number; bottom: number } {
+  let left = 0;
+  let top = 0;
+  let right = 0;
+  let bottom = 0;
+  const visited = new Set<NodeId>();
+  const stack: NodeId[] = [rootId];
+  while (stack.length > 0) {
+    const id = stack.pop()!;
+    if (visited.has(id)) continue;
+    visited.add(id);
+    const node = doc.nodes[id];
+    if (!node || node.visible === false) continue;
+    if ('effects' in node && node.effects && node.effects.length > 0) {
+      const padding = nodeEffectPadding(node as { effects?: Array<Record<string, unknown>> });
+      left = Math.max(left, padding.left);
+      top = Math.max(top, padding.top);
+      right = Math.max(right, padding.right);
+      bottom = Math.max(bottom, padding.bottom);
+    }
+    if ('children' in node) {
+      for (const childId of node.children ?? []) {
+        if (doc.nodes[childId]) stack.push(childId);
+      }
+    }
+  }
+  return { left, top, right, bottom };
+}
+
+/**
  * Compute world-space bounds for a set of nodes, including effect overflow.
  * Returns null if no valid bounds could be computed.
  */

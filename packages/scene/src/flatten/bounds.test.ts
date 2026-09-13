@@ -6,6 +6,7 @@ import {
   effectPadding,
   findCommonAncestor,
   nodeEffectPadding,
+  subtreeEffectPadding,
 } from './bounds';
 
 function makeShape(
@@ -309,5 +310,81 @@ describe('findCommonAncestor', () => {
     };
     const ancestor = findCommonAncestor(doc, ['s1', 's2']);
     expect(ancestor).toBe('g2');
+  });
+});
+
+describe('subtreeEffectPadding', () => {
+  function docWith(nodes: ShapeNode[], group: GroupNode): Document {
+    const nodeMap: Document['nodes'] = {};
+    for (const n of nodes) nodeMap[n.id] = n;
+    nodeMap[group.id] = group;
+    return {
+      id: 'test-doc',
+      name: 'Test',
+      formatVersion: '2.6',
+      nodes: nodeMap,
+      rootChildren: [group.id],
+      nextId: 100,
+      components: {},
+    };
+  }
+
+  it('takes the per-side maximum across parent and child effects', () => {
+    const parent = makeShape('parent', 0, 0, 100, 100, {
+      effects: [
+        {
+          type: 'dropShadow',
+          id: 'fx-a',
+          x: 8,
+          y: -4,
+          blur: 0,
+          spread: 0,
+          color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+    });
+    const child = makeShape('child', 0, 0, 20, 20, {
+      effects: [
+        {
+          type: 'layerBlur',
+          id: 'fx-b',
+          radius: 10,
+          visible: true,
+        },
+      ],
+    });
+    const group = makeGroup('g1', ['parent', 'child']);
+    const doc = docWith([parent, child], group);
+
+    expect(subtreeEffectPadding(doc, 'g1')).toEqual({
+      left: 30,
+      top: 30,
+      right: 30,
+      bottom: 30,
+    });
+  });
+
+  it('ignores invisible nodes and effects', () => {
+    const hidden = makeShape('hidden', 0, 0, 10, 10, {
+      effects: [
+        {
+          type: 'outerGlow',
+          id: 'fx-h',
+          blur: 40,
+          spread: 0,
+          color: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+    });
+    hidden.visible = false;
+    const group = makeGroup('g1', ['hidden']);
+    const doc = docWith([hidden], group);
+    expect(subtreeEffectPadding(doc, 'g1')).toEqual({ left: 0, top: 0, right: 0, bottom: 0 });
   });
 });

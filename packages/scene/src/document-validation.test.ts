@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   type DocumentLike,
+  findParentCycle,
   repairDocument,
   validateAndRepairDocument,
   validateDocument,
@@ -252,5 +253,38 @@ describe('repairDocument — safe neutralization of dangling references', () => 
     expect(result.valid).toBe(false);
     expect(repaired.changed).toBe(true);
     expect(validateDocument(repaired.doc).valid).toBe(true);
+  });
+});
+
+describe('unknown future container traversal', () => {
+  function unknownContainer(children: NodeId[]): SceneNode {
+    return {
+      kind: 'futureContainer',
+      id: 'future',
+      name: 'Future',
+      visible: true,
+      children,
+    } as unknown as SceneNode;
+  }
+
+  it('keeps children of an unknown container reachable', () => {
+    const doc: DocumentLike = {
+      rootChildren: ['future'],
+      nodes: { future: unknownContainer(['leaf']), leaf: leaf('leaf') },
+    };
+
+    const result = validateDocument(doc);
+    // Before the traversal fix the child was reported as an orphan even
+    // though the serialized container owns it.
+    expect(result.errors).toEqual([]);
+  });
+
+  it('detects a parent cycle through an unknown container', () => {
+    const doc: DocumentLike = {
+      rootChildren: ['future'],
+      nodes: { future: unknownContainer(['future']) },
+    };
+
+    expect(findParentCycle(doc)).not.toBeNull();
   });
 });

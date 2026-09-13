@@ -7,6 +7,7 @@ import {
   CAPABILITY,
   composeFlattenedExportSnapshot,
   findFlattenBoundaries,
+  mergeRasterExpansion,
 } from './compositor';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -1160,5 +1161,41 @@ describe('determinism', () => {
     expect(result1.svg.rasterizedNodeIds).toEqual(result2.svg.rasterizedNodeIds);
     expect(result1.svg.supportedNodeIds).toEqual(result2.svg.supportedNodeIds);
     expect(Object.keys(result1.svg.rasterAssets)).toEqual(Object.keys(result2.svg.rasterAssets));
+  });
+});
+
+describe('mergeRasterExpansion', () => {
+  it('returns undefined when neither source expands', () => {
+    expect(
+      mergeRasterExpansion(undefined, { left: 0, top: 0, right: 0, bottom: 0 }),
+    ).toBeUndefined();
+  });
+
+  it('keeps an adjustment-only expansion', () => {
+    expect(
+      mergeRasterExpansion(
+        { left: 4, top: 0, right: 0, bottom: 0 },
+        {
+          left: 0,
+          top: 0,
+          right: 0,
+          bottom: 0,
+        },
+      ),
+    ).toEqual({ left: 4, top: 0, right: 0, bottom: 0 });
+  });
+
+  it('takes the per-side maximum so effect spill is never cropped', () => {
+    expect(
+      mergeRasterExpansion(
+        { left: 4, top: 0, right: 2, bottom: 0 },
+        {
+          left: 1,
+          top: 30,
+          right: 8,
+          bottom: 0,
+        },
+      ),
+    ).toEqual({ left: 4, top: 30, right: 8, bottom: 0 });
   });
 });

@@ -11,6 +11,7 @@ export {
   mergeNodes,
   nodeEffectPadding,
   replaceNodesWithFlattened,
+  subtreeEffectPadding,
 } from './bounds';
 export type { FlattenReplacement } from './flattenOps';
 export type { BoundsRect } from './types';

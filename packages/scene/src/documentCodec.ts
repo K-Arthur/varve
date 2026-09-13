@@ -22,7 +22,12 @@ import {
 import { validateDepthMaskRecipe } from './depthMaskRecipe';
 import type { Document } from './document';
 import { isContainer, makeGroupNode } from './document';
-import { type DocumentLike, findParentCycle, validateAndRepairDocument } from './document-utils';
+import {
+  type DocumentLike,
+  findParentCycle,
+  traversalChildren,
+  validateAndRepairDocument,
+} from './document-utils';
 import { normalizeEffectLooks } from './effectLooks';
 import { normalizeDocumentEffects } from './effects';
 import { normalizeGenerativeEdits } from './generativeEdit';
@@ -769,9 +774,10 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
           } as SceneNode)
         : node;
 
-    if (isContainer(nodeWithStrokeIds)) {
+    const rawChildren = (nodeWithStrokeIds as { children?: unknown }).children;
+    if (isContainer(nodeWithStrokeIds) || Array.isArray(rawChildren)) {
       const children: NodeId[] = [];
-      for (const childId of nodeWithStrokeIds.children) {
+      for (const childId of traversalChildren(nodeWithStrokeIds)) {
         if (doc.nodes[childId]) {
           children.push(childId);
         } else {

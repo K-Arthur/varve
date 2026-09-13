@@ -872,3 +872,49 @@ describe('DocumentCodec', () => {
     });
   });
 });
+
+describe('unknown future node kinds', () => {
+  it('preserves an unknown container kind, its children, and its fields', () => {
+    let doc = createDocument('Future kinds', true);
+    const leafNode = makeShapeNode(
+      'leaf',
+      { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+      { name: 'Leaf' },
+    );
+    doc = addNode(doc, leafNode);
+    const future = {
+      id: 'future',
+      kind: 'futureContainer',
+      name: 'Future',
+      order: 'a0',
+      visible: true,
+      locked: false,
+      rotation: 0,
+      opacity: 1,
+      blendMode: 'normal',
+      transform: [1, 0, 0, 1, 0, 0],
+      children: ['leaf'],
+      futureField: { mode: 'v9' },
+    } as unknown as import('./types').SceneNode;
+    doc = addNode(doc, future);
+    // The leaf is owned by the unknown container, not by the root list.
+    doc = { ...doc, rootChildren: doc.rootChildren.filter((id) => id !== 'leaf') };
+
+    // Reachability must traverse the unknown container before encoding.
+    expect(validateDocument(doc).valid).toBe(true);
+
+    const result = DocumentCodec.decode(DocumentCodec.encode(doc));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const reopened = result.document.nodes.future as unknown as {
+      kind: string;
+      children: string[];
+      futureField: unknown;
+    };
+    expect(reopened.kind).toBe('futureContainer');
+    expect(reopened.children).toEqual(['leaf']);
+    expect(reopened.futureField).toEqual({ mode: 'v9' });
+    expect(result.document.nodes.leaf).toBeDefined();
+    expect(result.warnings.some((w) => w.code === 'document.orphan-child')).toBe(false);
+  });
+});

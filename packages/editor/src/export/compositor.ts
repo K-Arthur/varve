@@ -42,6 +42,7 @@ import {
   resolveAdjustmentScope,
   type SceneNode,
   type ShapeNode,
+  subtreeEffectPadding,
   textNodeLocalBounds,
 } from '@varve/scene';
 import { hasPotentialStandardLigatureSequence } from '@varve/shared';
@@ -1103,6 +1104,27 @@ function collectVisibleAdjustments(node: SceneNode): Array<Record<string, unknow
  * @returns ExportSnapshot with raster assets and filtered node lists per target.
  */
 /** Rasterize a set of flatten boundaries, producing one asset per boundary node. */
+/**
+ * Merge a second expansion source into a raster asset's expansion, taking the
+ * per-side maximum. Adjustment-filter expansion and subtree layer-effect
+ * overflow are independent spatial extents; taking the maximum avoids
+ * double-counting while never cropping either source.
+ */
+export function mergeRasterExpansion(
+  current: RasterAsset['expansion'] | undefined,
+  next: { left: number; top: number; right: number; bottom: number },
+): RasterAsset['expansion'] | undefined {
+  const merged = {
+    left: Math.max(current?.left ?? 0, next.left),
+    top: Math.max(current?.top ?? 0, next.top),
+    right: Math.max(current?.right ?? 0, next.right),
+    bottom: Math.max(current?.bottom ?? 0, next.bottom),
+  };
+  return merged.left > 0 || merged.top > 0 || merged.right > 0 || merged.bottom > 0
+    ? merged
+    : undefined;
+}
+
 async function rasterizeBoundaries(
   boundaries: FlattenBoundaryEntry[],
   doc: Document,
@@ -1145,6 +1167,10 @@ async function rasterizeBoundaries(
         expansion = { left: expL, top: expT, right: expR, bottom: expB };
       }
     }
+    // Layer effects (shadows, glows, blur, chromatic split, glitch) paint
+    // outside the source rectangle. Pad the fallback surface by the subtree's
+    // maximum per-side effect overflow or the rasterized island clips them.
+    expansion = mergeRasterExpansion(expansion, subtreeEffectPadding(doc, node.id));
     const expandedCssW = cssWidth + (expansion?.left ?? 0) + (expansion?.right ?? 0);
     const expandedCssH = cssHeight + (expansion?.top ?? 0) + (expansion?.bottom ?? 0);
     const pixelW = Math.max(1, Math.round(expandedCssW * exportScale));
