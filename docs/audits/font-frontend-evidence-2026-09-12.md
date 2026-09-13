@@ -52,8 +52,8 @@ browser and native stores can be validated without a mounted editor surface.
 
 ## Registry-backed weight controls — 2026-09-12
 
-The exact-face scoping follow-up is committed at
-[`e2a645a5b`](https://github.com/K-Arthur/varve/commit/e2a645a5b030ebf9dcf364f9846e0453182fcef5).
+The exact-face scoping and cross-member identity follow-up is committed at
+[`62fc39030`](https://github.com/K-Arthur/varve/commit/62fc3903040970ea706a74bed3d1ffd196b37b5b).
 
 The follow-up audit found four duplicated 100–900 weight lists in the
 inspector, contextual bar, floating text toolbar, and Logo wordmark controls.
@@ -61,9 +61,10 @@ Those lists advertised weights the selected face could not provide and made a
 legacy request look resolved when it was actually being synthesized. The new
 `fontWeightOptions` projection reads the selected static face entries or the
 exact `wght` axis bounds. When an authored portable reference is present, it
-first scopes entries by artifact/member key and then by PostScript name for
-older registry records; only when those identity fields are unavailable does
-it fall back to family/style metadata. It includes the familiar 100-point
+first scopes entries by artifact (allowing a static collection to expose its
+other members) and then by PostScript name for older registry records; only
+when those identity fields are unavailable does it fall back to family/style
+metadata. It includes the familiar 100-point
 stops only inside the real range, adds non-standard endpoints/defaults, and
 keeps an out-of-range persisted value visible as a disabled option with an
 actionable explanation.
@@ -77,9 +78,9 @@ Focused validation passed:
 pnpm exec vitest run packages/editor/src/components/Typography/fontWeight.test.ts packages/editor/src/components/FloatingTextBar/FloatingTextBar.test.tsx packages/editor/src/components/ContextControlBar/ContextControlBar.test.tsx packages/editor/src/components/LogoPanel/LogoTypographySection.test.tsx --config vitest.config.ts --pool=threads --maxWorkers=1 --reporter=dot
 ```
 
-The run passed **47 tests** in these four files (static-face filtering,
+The run passed **49 tests** in these four files (static-face filtering,
 variable-range endpoints, stale-value disclosure, multi-selection intersection,
-exact artifact/PostScript scoping, and the no-synthetic-bold toolbar
+exact artifact/PostScript scoping, cross-member reference updates, and the no-synthetic-bold toolbar
 regression). The editor typecheck and task Biome check also passed. This closes only the weight half of acceptance
 scenario 7; exact italic availability and native face proof remain open.
 

@@ -237,7 +237,8 @@ fall back to a family-only text field.
 Ordinary weight menus are registry-backed across the inspector, contextual bar,
 floating text toolbar, and Logo panel. Static families expose only the weights
 registered for the selected style and, when the registry has identity data, the
-selected artifact/member. Variable families expose their declared `wght` range
+selected artifact (collection members remain available as weight targets).
+Variable families expose their declared `wght` range
 at the familiar stops plus the real minimum, default, and maximum; other axes
 remain untouched. A legacy value outside the selected face is kept as a
 disabled option with an explanation, so opening a document does not hide or
