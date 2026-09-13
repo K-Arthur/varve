@@ -1,10 +1,10 @@
 # Depth-aware masking implementation audit — 2026-09-13
 
-Status: implementation slice complete on `master`; browser/evidence gates are
-recorded below as they are run. This audit covers the reusable depth resource,
-range-mask workflow, adjustment integration, persistence, and the existing
-Depth Blur consumer. It does not claim metric reconstruction or perfect
-matting.
+Status: implementation slice complete on `master`; focused scalar, ownership,
+browser, persistence, and visual evidence are recorded below. This audit
+covers the reusable depth resource, range-mask workflow, adjustment
+integration, persistence, and the existing Depth Blur consumer. It does not
+claim metric reconstruction or perfect matting.
 
 ## User outcome
 
@@ -124,17 +124,63 @@ Official preprocessing parity, real-photo boundary quality, and physical
 
 ## Validation evidence
 
-Evidence directories and exact commands are filled in with the final run. The
-required evidence layers are:
+The required evidence layers were exercised as follows:
 
 1. semantic recipe/ownership assertions;
 2. scalar, geometry, validity, and compositing oracles; and
 3. actual Chromium interaction, screenshots, save/reopen, scalar download,
    and decoded export inspection.
 
-No generated screenshot is treated as visual proof until it has been opened
-and inspected at full preview and edge detail. No model claim is based only on
-finite outputs or synthetic rank correlation.
+Focused deterministic coverage (9 files, 97 tests) passed with:
+
+```text
+pnpm exec vitest run --pool=forks --maxWorkers=1 --no-file-parallelism \
+  packages/engine/src/depthMap.test.ts \
+  packages/editor/src/backgroundRemoval/__tests__/commitRasterMask.test.ts \
+  packages/editor/src/tools/__tests__/RefineMaskTool.test.ts \
+  packages/scene/src/__tests__/depthMaskRecipe.test.ts \
+  packages/editor/src/depth/depthPreviewLayout.test.ts \
+  packages/editor/src/depth/depthMaskWorkflow.test.ts \
+  packages/editor/src/import/depthResourceMerge.test.ts \
+  packages/editor/src/clipboard.test.ts \
+  packages/editor/src/canvas/maskReplay.test.ts
+```
+
+`pnpm typecheck:e2e` also passed. The real browser workflow passed in a
+source snapshot with HMR disabled so unrelated concurrent edits could not
+change the page during the run:
+
+```text
+VARVE_DISABLE_HMR=1 node node_modules/vite/bin/vite.js --port 4192 --strictPort
+node node_modules/.pnpm/@playwright+test@1.62.1/node_modules/@playwright/test/cli.js \
+  test tests/e2e/canvas/depth-masking.spec.ts --project=chromium \
+  --reporter=list --config playwright.depth.local.config.ts
+```
+
+Result: `1 passed (2.7m)` on Linux Chromium, Playwright 1.62.1. The workflow
+imported a 100 x 100 little-endian uint16 ramp, sampled both ends of the
+contained preview, applied a hard 0–45 range, verified a changed authoritative
+canvas frame, exported and parsed the `.vdepth.json`, switched to the existing
+Mask owner, undid/redid, saved, reloaded Home, reopened the document, and
+reopened the Depth Mask controls without model or blur generation.
+
+Inspected artifacts are in the ignored evidence directory
+`reports/depth-aware-masking-2026-09-13/`:
+
+- `depth-map-heatmap.png` — the full 100 x 100 ramp is visible with the correct
+  aspect ratio and no contain-bar samples; the legend/controls are tested in
+  the surrounding Inspector screenshot context.
+- `depth-mask-applied.png` — the source remains in the editor and the applied
+  coverage changes the visible result without replacing the source artwork.
+
+The first browser attempts deliberately retained failures: a persisted
+safe-mode overlay raced the shared navigation helper, a range-picker test
+assumed an exact CSS-rounded value, and a non-exact selector matched both the
+Depth Mask disclosure and Apply button. Commit `d3da1254` fixes those test
+workflow defects; the final isolated run passed. No generated screenshot is
+treated as visual proof until it has been opened and inspected at full preview
+and edge detail. No model claim is based only on finite outputs or synthetic
+rank correlation.
 
 ## Boundaries
 
@@ -148,4 +194,3 @@ staleness variant. Unsupported are arbitrary PNG/EXR/HEIC/Android/iOS depth
 decoding, generated metric depth, video frame reuse, full continuous-depth
 painting, semantic subject selection by depth alone, color decontamination,
 and 3D reconstruction.
-

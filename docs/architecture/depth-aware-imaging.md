@@ -313,8 +313,17 @@ The depth-aware masking slice was delivered incrementally on `master`:
 - `d1df45b8d` — reusable standalone range-mask workflow and editor surface.
 - `e8d9331c7` — restoration of concurrent pen-tool files after the standalone
   workflow commit exposed an unrelated shared-index overlap.
-- Follow-up commits record source registration/alpha validity, persistence and
-  clipboard remapping, browser evidence, and the documentation/website copy.
+- `9eb181012` — source registration and transparent-input validity checks.
+- `c780a3466` — shared range-mask workflow, editor controls, and website/docs
+  entry points.
+- `33ee2ce1a` — source-bound image/adjustment masks and resource ownership.
+- `82b5bbd95` — resource provenance and mask/clipboard ownership tests.
+- `6a9eaab29` — exact model metadata, browser navigation support, and
+  complaint-informed marketing copy.
+- `47d51c47f` / `3cdeb9568` — persistence, paste remapping, and resource
+  closure safety.
+- `d3da1254` — browser workflow selectors, safe-mode recovery, and visual
+  evidence coverage.
 
 The exact final commit list and validation results are recorded in
 `docs/audits/depth-aware-masking-implementation-2026-09-13.md`. The workflow

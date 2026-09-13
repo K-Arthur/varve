@@ -1,7 +1,8 @@
 # Depth-aware masking implementation plan
 
-Status: executing on `master`; this plan is intentionally sliced so each
-commit leaves the existing editor usable. It is based on the research record
+Status: core implementation complete on `master`; model-parity, real-photo
+edge-quality, and low-end-platform gates remain explicitly deferred. This plan
+was intentionally sliced so each commit left the existing editor usable. It is based on the research record
 in [`docs/research/depth-aware-masking-2026-09-13.md`](../research/depth-aware-masking-2026-09-13.md).
 
 ## Ownership and boundaries
@@ -81,9 +82,9 @@ worktree is created: the requested integration branch is the existing
 ### Slice 4 — import, adjustment/selection integration and export
 
 - Add a bounded, self-describing scalar import profile through the existing
-  import service. Initially accept only representations the decoder preserves
-  (Varve's versioned 16-bit little-endian payload and verified 8-bit grayscale
-  fallback if available); do not pretend PNG `ImageData` is 16-bit.
+  import service. The delivered first profile accepts only Varve's versioned
+  16-bit little-endian payload; no unverified grayscale fallback is exposed,
+  and browser `ImageData` is never presented as a generic 16-bit decoder.
 - Require near/far convention, direct/inverse meaning, units, no-data policy,
   dimensions/orientation and source alignment before acceptance. Keep camera
   depth/EXR routes deferred until actual decoders and calibration paths exist.
@@ -124,9 +125,31 @@ unrelated staged entries. Because the depth recipe is a shared scene-schema
 extension, the planner may escalate to the full gate; when it does, the
 explicit reason will be recorded rather than silently omitting it.
 
-Required focused evidence includes engine scalar tests, scene codec/reachability
-tests, editor integration tests, at least one real Playwright pointer workflow,
-screenshots at narrow and normal Inspector widths, a saved/reopened document,
-and independently decoded export bytes. Visual generation is not verification:
-each screenshot will be inspected for aspect ratio, legend, source alignment,
-mask leakage and preserved source pixels.
+Delivered focused evidence includes engine scalar tests, scene
+codec/reachability tests, editor integration tests, a real Playwright pointer
+workflow, a saved/reopened document, and independently parsed scalar export
+bytes. The final run's inspected artifacts are recorded in
+`reports/depth-aware-masking-2026-09-13/` and the implementation audit. A
+normal-width contained heatmap and applied-canvas capture passed visual
+inspection; narrow Inspector, Linux WebKitGTK, physical 4 GB/ARM, real-photo
+boundary, and guided-filter comparisons remain release gates rather than being
+claimed by this slice. Visual generation is not verification: each captured
+artifact was opened and inspected for aspect ratio, full-map visibility,
+source alignment, changed coverage, and preserved source pixels.
+
+## Final delivery status
+
+Implemented and verified: one canonical depth/validity contract; bounded
+Varve scalar import/export; source-bound map alignment; shared range coverage
+and soft combination; standalone image and adjustment masks; existing Mask
+refinement ownership; re-editable recipes with resolved last-good coverage;
+save/reopen, undo/redo, duplicate/paste remapping, blur-independent reuse, and
+owner-aware cancellation. Marketing and user guidance are limited to
+relative-depth, depth-aware image editing and call out unsupported camera,
+metric, arbitrary-image, video, matte, and 3D claims.
+
+Deferred or unsupported: official Depth Anything preprocessing parity with the
+worker transform; generated metric depth; arbitrary PNG/EXR/HEIC/camera-depth
+decoding; full continuous-depth correction; video/frame reuse; guided or joint
+bilateral quality evaluation; physical low-end measurements; and full matte or
+3D reconstruction workflows.
