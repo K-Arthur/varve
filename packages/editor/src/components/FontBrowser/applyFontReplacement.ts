@@ -118,16 +118,27 @@ function resolveReplacement(
 
     const targetIds = new Set(scope.nodeIds);
     const scopedNodes = { ...doc.nodes };
+    const styleBackedTargets = new Set<string>();
     for (const nodeId of targetIds) {
       const node = doc.nodes[nodeId];
-      if (node?.kind !== 'text' || node.fontFamily || node.fontReference) continue;
+      if (node?.kind !== 'text') continue;
       const style = node.styleId ? doc.styles?.[node.styleId] : undefined;
       if (style?.type !== 'text') continue;
-      if (!replacementMatches(replacement, style.fontFamily, style.fontReference)) continue;
+      const overrides = node.styleOverrides ?? {};
+      const effectiveFamily =
+        typeof overrides.fontFamily === 'string'
+          ? overrides.fontFamily
+          : (style.fontFamily ?? node.fontFamily);
+      const effectiveReference =
+        (overrides.fontReference as FontReference | undefined) ??
+        style.fontReference ??
+        node.fontReference;
+      if (!replacementMatches(replacement, effectiveFamily, effectiveReference)) continue;
+      styleBackedTargets.add(nodeId);
       scopedNodes[nodeId] = {
         ...node,
-        ...(style.fontFamily ? { fontFamily: style.fontFamily } : {}),
-        ...(style.fontReference ? { fontReference: style.fontReference } : {}),
+        ...(effectiveFamily ? { fontFamily: effectiveFamily } : {}),
+        ...(effectiveReference ? { fontReference: effectiveReference } : {}),
       };
     }
 
@@ -138,7 +149,19 @@ function resolveReplacement(
     const nodes = { ...doc.nodes };
     for (const nodeId of targetIds) {
       const updated = resolved.nodes[nodeId];
-      if (updated) nodes[nodeId] = updated as Document['nodes'][string];
+      if (!updated) continue;
+      if (styleBackedTargets.has(nodeId) && updated.kind === 'text') {
+        const styleOverrides = { ...(updated.styleOverrides ?? {}) };
+        styleOverrides.fontFamily = replacement.replacement;
+        if (replacement.replacementReference) {
+          styleOverrides.fontReference = replacement.replacementReference;
+        } else {
+          delete styleOverrides.fontReference;
+        }
+        nodes[nodeId] = { ...updated, styleOverrides } as Document['nodes'][string];
+      } else {
+        nodes[nodeId] = updated as Document['nodes'][string];
+      }
     }
     return { nodes, styles: doc.styles };
   }

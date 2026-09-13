@@ -83,6 +83,11 @@ describe('applyFontReplacement', () => {
     expect(
       updatedStyled && 'fontFamily' in updatedStyled ? updatedStyled.fontFamily : undefined,
     ).toBe('Noto Sans');
+    expect(
+      updatedStyled && 'styleOverrides' in updatedStyled ? updatedStyled.styleOverrides : undefined,
+    ).toMatchObject({
+      fontFamily: 'Noto Sans',
+    });
     expect(updatedOther && 'fontFamily' in updatedOther ? updatedOther.fontFamily : undefined).toBe(
       undefined,
     );
