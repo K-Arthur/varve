@@ -3,7 +3,7 @@
  *
  * Full property set: family, weight, style, size, line-height, letter-spacing,
  * paragraph spacing, text align (h/v), text case, decoration, list style,
- * truncation/overflow, resizing mode, and OpenType features (stub).
+ * truncation/overflow, resizing mode, and face-aware OpenType features.
  *
  * Multi-select: every control uses commonValue and shows "Mixed" when values
  * differ. Editing applies to all selected text nodes via batch update in one
