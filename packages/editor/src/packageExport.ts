@@ -329,7 +329,15 @@ async function collectFonts(
       b.fontReference ? fontReferenceKey(b.fontReference) : '',
     );
   });
-  const records = await collectFontData(requestedFonts, { fetchBundled: true });
+  // A legacy family-only request has no portable face identity. Do not fetch
+  // the first family entry and present it as the authored face; that would
+  // silently change weight/style or a same-family artifact on another device.
+  // The manifest keeps the request visible so the user can choose an exact
+  // face before exporting editable text.
+  const records = await collectFontData(
+    requestedFonts.filter((request) => request.fontReference !== undefined),
+    { fetchBundled: true },
+  );
   const recordByRequest = new Map(
     records.map((record) => [
       record.fontReference
@@ -344,8 +352,8 @@ async function collectFonts(
       ? `${family.toLocaleLowerCase()}\u0000${fontReferenceKey(fontReference)}`
       : family.toLocaleLowerCase();
     const embeddingStatus = resolveEmbeddingStatus(family, catalog, fontReference);
-    const canBundle = canBundleFont(embeddingStatus);
-    const record = recordByRequest.get(requestKey);
+    const canBundle = fontReference !== undefined && canBundleFont(embeddingStatus);
+    const record = fontReference ? recordByRequest.get(requestKey) : undefined;
     const bundled = canBundle && record !== undefined;
     let filePath: string | undefined;
     if (bundled && record) {
@@ -361,7 +369,12 @@ async function collectFonts(
       ...(fontReference ? { fontReference } : {}),
       bundled,
       embeddingStatus,
-      reason: embeddingReason(embeddingStatus, bundled, record !== undefined),
+      reason: embeddingReason(
+        embeddingStatus,
+        bundled,
+        record !== undefined,
+        fontReference !== undefined,
+      ),
       ...(filePath ? { filePath, byteCount: record?.data.byteLength } : {}),
     };
   });
@@ -407,7 +420,11 @@ function embeddingReason(
   status: PackageFontEntry['embeddingStatus'],
   bundled: boolean,
   bytesAvailable: boolean,
+  hasExactReference: boolean,
 ): string {
+  if (!hasExactReference) {
+    return 'Family-only legacy request has no exact face identity; choose a face before embedding';
+  }
   if (bundled) {
     return 'Font bytes were verified and included because embedding is permitted by the font license';
   }

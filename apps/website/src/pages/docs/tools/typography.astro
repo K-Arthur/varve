@@ -248,15 +248,26 @@ import { sitePath } from '../../../lib/siteUrl';
         <p>
           SVG keeps editable text, feature settings, variable-axis settings, and native <code>textPath</code> semantics where the SVG viewer supports them. Browser PDF is a local raster PDF. Desktop PDF preserves simple eligible text through the native print path, but shaping-sensitive text—ligatures, non-Latin/script text, rich runs, feature values/ranges, axes, tracking, manual cluster edits, and path text—is rasterized from the live renderer so it cannot silently change shape. This preserves appearance but means that node is not searchable/editable text in the PDF. Convert to outlines when vector geometry is more important than PDF text semantics, and inspect the exported artifact before delivery.
         </p>
+        <p>
+          A native package export includes an editable font file only after the
+          requested artifact and collection member are verified by SHA-256 and
+          the technical embedding policy permits it. Legacy text that stores a
+          family name without an exact face remains listed in the manifest but
+          does not cause the first same-family file to be embedded; choose the
+          exact face in the font browser before sharing the package.
+        </p>
       </section>
 
       <section class="docs-section">
         <h2>Font access and licensing</h2>
         <p>
           The browser demo does not download catalog fonts. Browsers may also
-          limit access to fonts installed on your computer. An explicit local
-          font permission and collection-import workflow is still in progress;
-          use the bundled families when the requested font is unavailable.
+          limit access to fonts installed on your computer. In the full browser,
+          choose <strong>Allow local fonts</strong> before enumerating installed
+          faces; on desktop, <strong>Refresh local fonts</strong> uses the native
+          discovery path. Collection members can be imported explicitly, and a
+          denied or unsupported permission leaves the bundled catalog available
+          without silently downloading a replacement.
         </p>
         <p>
           Font names and technical embedding flags do not establish the full

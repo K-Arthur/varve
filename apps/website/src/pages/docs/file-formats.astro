@@ -73,7 +73,7 @@ const figmaImportFaq = {
           <li><strong>Pages</strong> — Array of Page objects with dimensions, bleed, safe area, and content root</li>
           <li><strong>Node tree</strong> — Recursive tree of scene nodes (shape, text, frame, group, image, adjustment)</li>
           <li><strong>Styles</strong> — Reusable color, text, effect, and layout style definitions</li>
-          <li><strong>Typography dependencies</strong> — Font manifest v2 records exact SHA-256 face/member references when known, requested settings, and missing/substituted status; legacy family-only requests remain recoverable</li>
+          <li><strong>Typography dependencies</strong> — Font manifest v2 records exact SHA-256 face/member references when known, requested settings, and missing/substituted status; legacy family-only requests remain recoverable and are never turned into an arbitrary embedded face during package export</li>
           <li><strong>Variable store</strong> — Variable collections with modes and groups</li>
           <li><strong>Component definitions</strong> — Reusable components with slots and property definitions</li>
           <li><strong>Installed libraries</strong> — References to shared library packages</li>

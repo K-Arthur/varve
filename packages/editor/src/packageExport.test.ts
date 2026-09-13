@@ -70,7 +70,24 @@ describe('buildPackageExport', () => {
       family: 'Inter',
       bundled: false,
       embeddingStatus: 'unknown',
+      reason: expect.stringContaining('Family-only legacy request'),
     });
+  });
+
+  it('does not invent an exact face for legacy family-only text', async () => {
+    const result = await buildPackageExport(docWithAssetsAndFonts());
+    const entries = unzipSync(result.bytes);
+    const manifest = readJson<PackageManifest>(entries, 'manifest.json');
+
+    expect(manifest.fonts).toEqual([
+      expect.objectContaining({
+        family: 'Inter',
+        bundled: false,
+        reason: expect.stringContaining('choose a face before embedding'),
+      }),
+    ]);
+    expect(manifest.fonts[0]!.fontReference).toBeUndefined();
+    expect(Object.keys(entries).some((path) => path.endsWith('.font'))).toBe(false);
   });
 
   it('includes raster mask assets in the package', async () => {
