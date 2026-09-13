@@ -195,6 +195,10 @@ not attributed to Shape Builder.
   the rectangle area oracle, thin-face sweep, donut hole, disconnected output,
   one self-intersecting path under its authored fill rule, retained-source
   Create, destructive remainders, and stale revision rejection.
+- A follow-up document-codec round-trip fixture now covers a created compound
+  result with a hole. It is committed and Biome-checked; its isolated execution
+  was deferred after repeated Vitest startup stalls during the machine's
+  concurrent memory pressure, so it is not counted in the 9/9 receipt.
 - Independent curve check: the transformed cubic deviation test passed with a
   measured maximum below the 0.08-unit fixture budget; it does not compare two
   paths through the same conversion helper.
