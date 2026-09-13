@@ -8,6 +8,87 @@ import {
 } from './applyFontReplacement';
 
 describe('applyFontReplacement', () => {
+  it('limits a page-scoped replacement to the usage row node ids', () => {
+    let doc = createDocument('font-replacement-scope');
+    const rootId = doc.pages?.[0]?.contentRoot;
+    if (!rootId) throw new Error('fixture page root missing');
+    const first = makeTextNode('first', 'First', { fontFamily: 'Inter' });
+    const second = makeTextNode('second', 'Second', { fontFamily: 'Inter' });
+    doc = addChild(addChild(doc, rootId, first), rootId, second);
+
+    const updated = applyFontReplacement(
+      doc,
+      new FontCatalog(),
+      {
+        original: 'Inter',
+        replacement: 'Noto Sans',
+        applyToAll: true,
+        preserveOriginalReference: true,
+      },
+      { nodeIds: ['first'] },
+    );
+
+    expect(updated.nodes.first?.kind).toBe('text');
+    expect(
+      updated.nodes.first && 'fontFamily' in updated.nodes.first
+        ? updated.nodes.first.fontFamily
+        : undefined,
+    ).toBe('Noto Sans');
+    expect(
+      updated.nodes.second && 'fontFamily' in updated.nodes.second
+        ? updated.nodes.second.fontFamily
+        : undefined,
+    ).toBe('Inter');
+  });
+
+  it('materializes a linked text style only on a scoped node', () => {
+    let doc = createDocument('font-replacement-style-scope');
+    const rootId = doc.pages?.[0]?.contentRoot;
+    if (!rootId) throw new Error('fixture page root missing');
+    const styled = makeTextNode('styled', 'Styled', { styleId: 'style-1' });
+    const other = makeTextNode('other', 'Other', { styleId: 'style-1' });
+    delete styled.fontFamily;
+    delete styled.fontReference;
+    delete other.fontFamily;
+    delete other.fontReference;
+    doc = addChild(addChild(doc, rootId, styled), rootId, other);
+    doc = {
+      ...doc,
+      styles: {
+        'style-1': {
+          id: 'style-1',
+          type: 'text',
+          name: 'Body',
+          fontFamily: 'Inter',
+          fontSize: 16,
+        },
+      },
+    };
+
+    const updated = applyFontReplacement(
+      doc,
+      new FontCatalog(),
+      {
+        original: 'Inter',
+        replacement: 'Noto Sans',
+        applyToAll: true,
+        preserveOriginalReference: true,
+      },
+      { nodeIds: ['styled'] },
+    );
+    const updatedStyled = updated.nodes.styled;
+    const updatedOther = updated.nodes.other;
+
+    expect(updatedStyled?.kind).toBe('text');
+    expect(
+      updatedStyled && 'fontFamily' in updatedStyled ? updatedStyled.fontFamily : undefined,
+    ).toBe('Noto Sans');
+    expect(updatedOther && 'fontFamily' in updatedOther ? updatedOther.fontFamily : undefined).toBe(
+      undefined,
+    );
+    expect(updated.styles?.['style-1']).toMatchObject({ fontFamily: 'Inter' });
+  });
+
   it('replaces an exact face in node and rich text data while preserving provenance', () => {
     let doc = createDocument('font-replacement');
     const rootId = doc.pages?.[0]?.contentRoot;

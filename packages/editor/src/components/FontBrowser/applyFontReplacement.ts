@@ -1,6 +1,7 @@
 import {
   attachFontManifestToDocument,
   type FontCatalog,
+  type FontReference,
   type FontReplacement,
   FontResolver,
   fontReferenceKey,
@@ -21,12 +22,10 @@ export function applyFontReplacement(
   doc: Document,
   catalog: FontCatalog,
   replacement: FontReplacement,
+  scope?: FontReplacementScope,
 ): Document {
-  const resolver = new FontResolver();
-  const updated = resolver.applyReplacement(
-    { nodes: doc.nodes, styles: doc.styles } as unknown as ResolverDocument,
-    replacement,
-  );
+  if (scope?.nodeIds?.length === 0) return doc;
+  const updated = resolveReplacement(doc, replacement, scope);
   const priorReplacements = doc.fontManifest?.replacements ?? [];
   const replacements = [...priorReplacements];
   const sameReference = (
@@ -83,6 +82,77 @@ function sameReplacement(left: FontReplacement, right: FontReplacement): boolean
   );
 }
 
+export interface FontReplacementScope {
+  /** Restrict the authored text nodes changed by this operation. */
+  nodeIds?: readonly string[];
+}
+
+function replacementMatches(
+  replacement: FontReplacement,
+  family: string | undefined,
+  reference: FontReference | undefined,
+): boolean {
+  if (replacement.originalReference) {
+    return Boolean(
+      reference && fontReferenceKey(reference) === fontReferenceKey(replacement.originalReference),
+    );
+  }
+  return family?.toLowerCase() === replacement.original.toLowerCase();
+}
+
+/**
+ * Resolve a replacement against either the whole document or a selected set
+ * of text nodes. Scoped operations materialize a linked text style onto the
+ * affected node before resolving it, which keeps the style link intact while
+ * preventing a page-scoped action from changing every document user of that
+ * shared style.
+ */
+function resolveReplacement(
+  doc: Document,
+  replacement: FontReplacement,
+  scope: FontReplacementScope | undefined,
+): { nodes: Document['nodes']; styles: Document['styles'] | undefined } {
+  const resolver = new FontResolver();
+  if (scope?.nodeIds !== undefined) {
+    if (scope.nodeIds.length === 0) return { nodes: doc.nodes, styles: doc.styles };
+
+    const targetIds = new Set(scope.nodeIds);
+    const scopedNodes = { ...doc.nodes };
+    for (const nodeId of targetIds) {
+      const node = doc.nodes[nodeId];
+      if (node?.kind !== 'text' || node.fontFamily || node.fontReference) continue;
+      const style = node.styleId ? doc.styles?.[node.styleId] : undefined;
+      if (style?.type !== 'text') continue;
+      if (!replacementMatches(replacement, style.fontFamily, style.fontReference)) continue;
+      scopedNodes[nodeId] = {
+        ...node,
+        ...(style.fontFamily ? { fontFamily: style.fontFamily } : {}),
+        ...(style.fontReference ? { fontReference: style.fontReference } : {}),
+      };
+    }
+
+    const resolved = resolver.applyReplacement(
+      { nodes: scopedNodes, styles: undefined } as unknown as ResolverDocument,
+      replacement,
+    );
+    const nodes = { ...doc.nodes };
+    for (const nodeId of targetIds) {
+      const updated = resolved.nodes[nodeId];
+      if (updated) nodes[nodeId] = updated as Document['nodes'][string];
+    }
+    return { nodes, styles: doc.styles };
+  }
+
+  const resolved = resolver.applyReplacement(
+    { nodes: doc.nodes, styles: doc.styles } as unknown as ResolverDocument,
+    replacement,
+  );
+  return {
+    nodes: resolved.nodes as Document['nodes'],
+    styles: resolved.styles as Document['styles'] | undefined,
+  };
+}
+
 /**
  * Find one unambiguous replacement that can restore a Document Fonts row.
  *
@@ -115,6 +185,7 @@ export function restoreFontReplacement(
   catalog: FontCatalog,
   replacement: FontReplacement,
   currentReference?: FontReplacement['replacementReference'],
+  scope?: FontReplacementScope,
 ): Document {
   const inverse: FontReplacement = {
     original: replacement.replacement,
@@ -126,11 +197,7 @@ export function restoreFontReplacement(
     applyToAll: true,
     preserveOriginalReference: false,
   };
-  const resolver = new FontResolver();
-  const updated = resolver.applyReplacement(
-    { nodes: doc.nodes, styles: doc.styles } as unknown as ResolverDocument,
-    inverse,
-  );
+  const updated = resolveReplacement(doc, inverse, scope);
   const remaining = (doc.fontManifest?.replacements ?? []).filter(
     (existing) => !sameReplacement(existing, replacement),
   );

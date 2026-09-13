@@ -181,7 +181,9 @@ export function DocumentFontsPanel() {
   const applyReplacement = (entry: DocumentFontUsage, replacement: FontReplacement) => {
     const catalog = createFontCatalogFromRegistry(getFontRegistry());
     editor.beginTransaction();
-    editor.updateDoc((doc) => applyFontReplacement(doc, catalog, replacement));
+    editor.updateDoc((doc) =>
+      applyFontReplacement(doc, catalog, replacement, { nodeIds: entry.nodeIds }),
+    );
     editor.commitTransaction();
     setReplacementTarget(null);
     announce(
@@ -199,6 +201,7 @@ export function DocumentFontsPanel() {
         catalog,
         restoreTarget.replacement,
         restoreTarget.entry.fontReference,
+        { nodeIds: restoreTarget.entry.nodeIds },
       ),
     );
     editor.commitTransaction();
