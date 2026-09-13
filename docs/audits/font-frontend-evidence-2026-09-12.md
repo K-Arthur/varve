@@ -154,6 +154,15 @@ narrow captures:
 The contextual and floating surfaces now share the same visible height and
 control centerline while retaining the narrow horizontal scroll boundary.
 
+A DPR 2 confirmation of the same assertion passed on port 1586:
+
+```text
+VARVE_E2E_PORT=1586 VARVE_E2E_WORKERS=1 npx playwright test tests/e2e/canvas/font-toolbar-visual.spec.ts --project=chromium -g 'DPR 2' --reporter=list --timeout=120000
+```
+
+The inspected dark narrow capture is
+`test-results/run-1972411-1586/canvas-font-toolbar-visual-c70f7-adable-menus-in-every-theme-chromium/dark-narrow.png`.
+
 ## Focused validation
 
 Commands run:
