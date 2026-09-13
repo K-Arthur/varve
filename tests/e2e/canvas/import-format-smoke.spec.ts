@@ -53,6 +53,12 @@ test.describe('File > Import format smoke', () => {
       files.map((file) => file.name),
     );
     await page.screenshot({ path: testInfo.outputPath('design-format-psd-tiff.png') });
+    await page
+      .getByRole('dialog', { name: 'Import results' })
+      .getByRole('button', { name: 'Close', exact: true })
+      .last()
+      .click();
+    await page.screenshot({ path: testInfo.outputPath('design-format-psd-tiff-artwork.png') });
   });
 
   test('imports SVG, PDF, AI, and EPS content through the menu', async ({ page }, testInfo) => {
@@ -86,5 +92,11 @@ test.describe('File > Import format smoke', () => {
       files.map((file) => file.name),
     );
     await page.screenshot({ path: testInfo.outputPath('design-format-svg-ai-eps.png') });
+    await page
+      .getByRole('dialog', { name: 'Import results' })
+      .getByRole('button', { name: 'Close', exact: true })
+      .last()
+      .click();
+    await page.screenshot({ path: testInfo.outputPath('design-format-svg-ai-eps-artwork.png') });
   });
 });

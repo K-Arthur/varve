@@ -1890,3 +1890,70 @@ The existing browser `.fig` smoke and the dynamic-code-disabled unit test
 exercise both the archive decoder and the CSP-compatible interpreter. A
 packaged WebKitGTK run is still required before claiming desktop transport or
 packaged `.fig` parity; that external lane remains open under CLIP-14/15.
+
+### IMP-13 — Photoshop imports had structure but no visible layer pixels (2026-09-12)
+
+The format smoke exposed a fidelity gap that layer-count assertions could not
+catch: the synchronous PSD adapter created transparent shape placeholders for
+every layer. A Photoshop file could therefore report a successful layer-tree
+conversion while its artwork was visually absent. This was an application
+conversion/rendering defect, separate from PSD signature detection and from
+the TIFF/SVG routes.
+
+The import service now uses an optional asynchronous PSD/PSB decoder. It calls
+the maintained `@webtoon/psd` layer compositor, validates each layer's
+dimensions and RGBA length against the existing 64 MiB/64 MPixel budgets,
+encodes the pixels as PNG, and registers one content-addressed embedded asset
+per distinct layer image. Layer names, order, bounds, visibility, opacity,
+groups, and masks remain scene metadata; Photoshop text remains rasterized and
+adjustment layers, effects, smart objects, and exact text editing remain
+reported losses. The synchronous parser stays available for validation and
+legacy callers, while File > Import, Drop, and Paste through `ImportService`
+receive the visible pixel path.
+
+| ID | Defect | Status | Evidence |
+| --- | --- | --- | --- |
+| IMP-13 | PSD/PSB layer-tree imports used transparent placeholders and could hide the source artwork | **Resolved locally** | `packages/import/src/types.ts`, `packages/import/src/service.ts`, `packages/import/src/psd.ts`, `packages/import/src/format-honesty.test.ts`, `tests/e2e/canvas/import-format-smoke.spec.ts` |
+
+Validation from the current `master` browser build (Linux KDE/Wayland,
+Chromium and Firefox) was:
+
+```text
+VARVE_TEST_WORKERS=1 pnpm exec vitest run \
+  packages/import/src/format-honesty.test.ts packages/import/src/psd.test.ts \
+  packages/import/src/service.test.ts --maxWorkers=1 --reporter=dot
+36 tests passed
+
+VARVE_TEST_WORKERS=1 pnpm exec vitest run packages/import/src \
+  --maxWorkers=1 --reporter=dot
+363 tests passed across 31 import test files
+
+VITE_CONFIG_NATIVE_IGNORE_WARNING=true VARVE_E2E_PORT=1621 \
+  VARVE_E2E_WORKERS=1 pnpm exec playwright test \
+  tests/e2e/canvas/import-format-smoke.spec.ts --project=chromium \
+  --workers=1 --reporter=list
+2 passed (1.4m)
+
+VITE_CONFIG_NATIVE_IGNORE_WARNING=true VARVE_E2E_PORT=1622 \
+  VARVE_E2E_WORKERS=1 pnpm exec playwright test \
+  tests/e2e/canvas/import-format-smoke.spec.ts --project=firefox \
+  --workers=1 --reporter=list
+2 passed (1.4m)
+```
+
+Inspected post-report artwork captures (the second pair verifies the canvas
+after the Import Results dialog is closed):
+
+* `test-results/run-1689020-1621/canvas-import-format-smoke-25372-TIFF-bytes-through-the-menu-chromium/design-format-psd-tiff-artwork.png`
+* `test-results/run-1692051-1622/canvas-import-format-smoke-25372-TIFF-bytes-through-the-menu-firefox/design-format-psd-tiff-artwork.png`
+* `test-results/run-1689020-1621/canvas-import-format-smoke-05a48-PS-content-through-the-menu-chromium/design-format-svg-ai-eps-artwork.png`
+* `test-results/run-1692051-1622/canvas-import-format-smoke-05a48-PS-content-through-the-menu-firefox/design-format-svg-ai-eps-artwork.png`
+
+The PSD/PSB captures show visible source colors and imagery behind the
+selection overlays, and the layer report still exposes the mask and fidelity
+warnings. The SVG/AI/EPS captures retain the ordered SVG group and show the
+existing actionable missing-font dialog for the synthetic `sans-serif` text.
+No visual baselines were replaced. Illustrator-authored fixtures,
+multi-page/layered TIFF, full Photoshop effects/smart objects, and packaged
+Tauri/WebKitGTK import remain provenance/platform lanes rather than inferred
+support.

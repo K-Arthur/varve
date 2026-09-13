@@ -50,6 +50,16 @@ export interface ImportOptions {
 export interface ImportParser {
   format: string;
   parse(data: string | Uint8Array, options?: Partial<ImportOptions>): ImportResult;
+  /**
+   * Optional asynchronous decoder for formats whose pixel data is exposed by
+   * a bounded runtime codec. The synchronous parser remains the structural
+   * compatibility path used by validation and legacy embedders.
+   */
+  parseAsync?: (
+    data: string | Uint8Array,
+    options?: Partial<ImportOptions>,
+    signal?: AbortSignal,
+  ) => Promise<ImportResult>;
   supportedExtensions(): string[];
   canParse(data: string | Uint8Array): boolean;
 }

@@ -157,15 +157,17 @@ const figmaImportFaq = {
         <ul>
           <li>Layer and group names, order, bounds, visibility, opacity, and blend modes</li>
           <li>Representable layer masks as native Varve masks</li>
-          <li>Document dimensions and editable shape placeholders for supported layers</li>
+          <li>Document dimensions, editable layer metadata, and decoded layer pixels as embedded PNG fills</li>
         </ul>
         <p>
-          Layer pixels, adjustment layers, layer effects, clipping masks, smart objects, and exact
-          Photoshop text styling are not a round-trip promise. They remain in the Import Results
-          report so a partial layer import is distinguishable from a fully preserved Photoshop
-          document. Header, dimension, encoded-size, and pixel budgets are checked before parsing;
-          truncated or over-budget files fail without inserting placeholder layers. There is no
-          PSD/PSB export path.
+          Adjustment layers, layer effects, clipping masks, smart objects, and exact Photoshop text
+          styling are not a round-trip promise. Supported layer pixels are materialized as embedded
+          PNG image fills so the imported artwork is visible, while the layer metadata remains
+          editable; text pixels remain rasterized. These losses remain in the Import Results report
+          so a partial layer import is distinguishable from a fully preserved Photoshop document.
+          Header, dimension, encoded-size, and pixel budgets are checked before parsing; truncated
+          or over-budget files fail without inserting placeholder layers. There is no PSD/PSB export
+          path.
         </p>
 
         <h3>AI (Adobe Illustrator)</h3>

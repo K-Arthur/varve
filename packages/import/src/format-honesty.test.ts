@@ -94,6 +94,20 @@ describe('import format honesty', () => {
     ]);
   });
 
+  it('rejects a PSD extension with a foreign signature before decoding', async () => {
+    const bytes = photoshopHeader(1, 32, 32);
+    bytes.set(new TextEncoder().encode('ABCD'), 0);
+    const report = await ImportService.importFiles([
+      { name: 'renamed.psd', source: 'file-picker', bytes },
+    ]);
+    const file = report.files[0]!;
+
+    expect(file).toMatchObject({ format: 'psd', status: 'failed', nodeCount: 0 });
+    expect(file.warnings.map((warning) => warning.message).join(' ')).toMatch(
+      /invalid PSD\/PSB signature/i,
+    );
+  });
+
   it('does not fabricate an AI layer from a header-only PDF wrapper', async () => {
     const report = await ImportService.importFiles([
       {
@@ -138,6 +152,15 @@ describe('import format honesty', () => {
       expect(file.status).toBe('partial');
       expect(file.nodeCount).toBeGreaterThan(0);
       expect(file.artifacts[0]?.nodeIds.length).toBe(file.nodeCount);
+      const imageLayers = Object.values(file.artifacts[0]?.document.nodes ?? {}).filter(
+        (node) =>
+          node.kind === 'shape' &&
+          node.fills?.some((fill) => fill.type === 'image' && Boolean(fill.image?.assetId)),
+      );
+      expect(imageLayers.length).toBeGreaterThan(0);
+      expect(file.warnings.map((warning) => warning.message).join(' ')).toMatch(
+        /layer pixels are imported as embedded PNGs/i,
+      );
       expect(file.unsupportedFeatures.map((feature) => feature.feature)).toEqual(
         expect.arrayContaining([
           expect.stringMatching(/^(PSD|PSB) layer effects/),

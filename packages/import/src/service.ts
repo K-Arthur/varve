@@ -194,7 +194,7 @@ function dedupeWarnings(warnings: FidelityIssue[]): FidelityIssue[] {
 function isHardParseFailure(result: ImportResult): boolean {
   if (result.nodeIds.length > 0) return false;
   return result.warnings.some((message) =>
-    /parsing failed|requires binary|file too small|unrecognized .*format|no <svg> element|contains no layers|no supported .*content|invalid Photoshop|unsupported Photoshop|Photoshop (?:document|source) exceeds|AI source exceeds/i.test(
+    /parsing failed|requires binary|file too small|unrecognized .*format|no <svg> element|contains no layers|no supported .*content|invalid PSD\/PSB signature|invalid Photoshop|unsupported Photoshop|Photoshop (?:document|source) exceeds|AI source exceeds/i.test(
       message,
     ),
   );
@@ -269,7 +269,13 @@ async function importOne(
     if (!parser && data instanceof Uint8Array) inspectRasterBytes(data);
     const validation = await validateImport(data, input.name);
     assertNotAborted(signal);
-    const result = importFile(input.name, data, options);
+    // A few format decoders expose pixels only after an asynchronous runtime
+    // step (currently PSD/PSB's bounded layer compositor). Keep the existing
+    // synchronous parser as the compatibility path, but let the service use
+    // the richer decoder so file-picker, drop, and paste share one result.
+    const result = parser?.parseAsync
+      ? await parser.parseAsync(data, options, signal)
+      : importFile(input.name, data, options);
     assertNotAborted(signal);
     const normalized = DocumentCodec.normalize(result.document);
     // Parser-level degradation is more precise than the cheap preflight
