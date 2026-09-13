@@ -257,15 +257,11 @@ describe('planExpandWorkingFrame', () => {
     expect(working.plan).toEqual(plan);
   });
 
-  it('never allocates a zero-sized frame on a tiny budget', () => {
+  it('rejects a tiny budget that would erase the requested border', () => {
     const plan = expectPlan(
       computeExpandPlan(4000, 3000, { top: 0, right: 0, bottom: 0, left: 1000 }),
     );
-    const working = planExpandWorkingFrame(plan, 1);
-    expect(working.outputWidth).toBe(1);
-    expect(working.outputHeight).toBe(1);
-    expect(working.plan.outputWidth).toBe(1);
-    expect(working.plan.outputHeight).toBe(1);
+    expect(() => planExpandWorkingFrame(plan, 1)).toThrow(/too small.*generated border/i);
   });
 
   it('rejects an invalid budget instead of guessing', () => {

@@ -388,6 +388,11 @@ export function planExpandWorkingFrame(plan: ExpandPlan, maxPixels: number): Exp
   if (!working.ok) {
     throw new Error(`Expansion working frame is invalid: ${working.error.message}`);
   }
+  if (!plan.isNoop && working.plan.isNoop) {
+    throw new Error(
+      'Expansion working-frame budget is too small to retain a generated border; increase the memory budget or reduce the requested output size',
+    );
+  }
   return {
     scale,
     outputWidth,
