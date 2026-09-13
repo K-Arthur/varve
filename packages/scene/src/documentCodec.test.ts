@@ -622,6 +622,92 @@ describe('DocumentCodec', () => {
       expect(closure.assets?.[resultAsset.id]).toEqual(resultAsset);
       expect(closure.assets?.[thumbnailAsset.id]).toEqual(thumbnailAsset);
     });
+
+    it('reopens an accepted Expand with its source snapshot and output provenance', () => {
+      const sourceAsset = createEmbeddedAsset({
+        dataUrl: PNG_DATA_URL,
+        mimeType: 'image/png',
+        naturalWidth: 1,
+        naturalHeight: 1,
+      });
+      const resultAsset = createEmbeddedAsset({
+        dataUrl: PNG_2X2_DATA_URL,
+        mimeType: 'image/png',
+        naturalWidth: 2,
+        naturalHeight: 2,
+      });
+      const node = makeShapeNode('expanded', { kind: 'rect', x: 0, y: 0, w: 2, h: 2 });
+      node.fills = [imageFill(resultAsset.dataUrl, { assetId: resultAsset.id })];
+      const record = {
+        schemaVersion: 2,
+        id: 'expand-1',
+        mode: 'expand',
+        sourceNodeId: node.id,
+        resultNodeId: node.id,
+        sourceAssetId: sourceAsset.id,
+        sourceSnapshotAssetId: sourceAsset.id,
+        sourceLocator: 'node:expanded/fill:0',
+        sourceRevision: 4,
+        placementRevision: 'placement:4',
+        masks: {
+          userMaskAssetId: 'mask-1',
+          width: 2,
+          height: 2,
+          offsetX: 0,
+          offsetY: 0,
+          coordinateSpace: 'source-image-pixels',
+        },
+        outputFrame: {
+          x: -1,
+          y: -1,
+          width: 2,
+          height: 2,
+          sourceWidth: 1,
+          sourceHeight: 1,
+          coordinateSpace: 'source-image-pixels',
+        },
+        maskAssetId: 'mask-1',
+        maskWidth: 2,
+        maskHeight: 2,
+        maskCoordinateSpace: 'source-image-pixels',
+        settings: {
+          quality: 'quality',
+          contextPadding: 32,
+          maskExpansion: 0,
+          feather: 0,
+          seed: 7,
+        },
+        provider: { kind: 'local', id: 'lama-inpainting', runtime: 'native-cpu' },
+        variations: [
+          {
+            id: 'variation-1',
+            assetId: resultAsset.id,
+            assetKind: 'full-output',
+            width: 2,
+            height: 2,
+            createdAt: 100,
+            seed: 7,
+          },
+        ],
+        activeVariationId: 'variation-1',
+        acceptedVariationId: 'variation-1',
+        createdAt: 100,
+        updatedAt: 101,
+      } as unknown as NonNullable<Document['generativeEdits']>[string];
+      const doc = {
+        ...addNode(createDocument('Accepted Expand', true), node),
+        assets: { [sourceAsset.id]: sourceAsset, [resultAsset.id]: resultAsset },
+        generativeEdits: { [record.id]: record },
+      };
+
+      const reopened = DocumentCodec.decode(DocumentCodec.encode(doc));
+
+      expect(reopened.ok).toBe(true);
+      if (!reopened.ok) return;
+      expect(reopened.document.generativeEdits?.[record.id]).toEqual(record);
+      expect(reopened.document.assets?.[sourceAsset.id]).toEqual(sourceAsset);
+      expect(reopened.document.assets?.[resultAsset.id]).toEqual(resultAsset);
+    });
   });
 
   it('preserves gradient interpolation metadata through save and reopen', () => {

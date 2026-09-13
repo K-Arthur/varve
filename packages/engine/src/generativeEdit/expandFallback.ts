@@ -353,6 +353,11 @@ export async function runDeterministicExpandFallback(options: {
             'Expansion used ordered border stages because the requested frame exceeds the coherent model-pass budget; inspect side and corner seams at 1:1.',
           ]
         : [];
+  if (options.quality === 'ai') {
+    generationWarnings.push(
+      'LaMa is an inpainting model rather than a dedicated outpainting model; inspect the full generated border at 1:1 and discard or reduce the expansion if structure drifts.',
+    );
+  }
   for (let index = 0; index < tiles.length; index += 1) {
     if (options.signal?.aborted) throw new Error('cancelled');
     const target = tiles[index]!;

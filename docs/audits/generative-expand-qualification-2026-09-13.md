@@ -3,11 +3,20 @@
 ## Decision
 
 Prompt-free expansion through the existing LaMa inpainting model is a real,
-usable local capability. It preserves every retained source pixel byte-for-byte,
-fills the full requested border including corners, and produces plausible
-continuation for photographic backgrounds in the tested categories. The
-capability is therefore enabled as **Expand (promptless, local reconstruction)**
-in the shared generative-edit surface.
+usable local capability for bounded photographic backgrounds in the tested
+categories. It preserves every retained source pixel byte-for-byte and fills
+the full requested border including corners. It is not an all-content quality
+guarantee: the visual review below records a clear dark-band failure on the
+architecture top-expansion case, which remains limited and review-only.
+The capability is therefore enabled as **Expand (promptless, local
+reconstruction)** in the shared generative-edit surface, with the declared
+content limits intact.
+
+The existing **Remove** mode is the user-facing **Generative Subtract**
+operation: marked source pixels are reconstructed from their surrounding
+context, rather than deleted or made transparent. The persisted operation name
+remains `remove` for document compatibility, and its source snapshot/undo
+contract is shared with Expand.
 
 Prompt-conditioned expansion remains unavailable. The pinned Stable Diffusion
 1.5 Inpainting candidate is still unqualified (see the 2026-09-12 runtime
@@ -69,10 +78,10 @@ Two browser workflow lanes complement the native run:
 
 | Case | Fixture | Source | Output | Margin (T/R/B/L) | Provider ms | Border changed | Border luminance stddev | Mean seam gradient (0-255) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| landscape-right-bottom | real-life-landscape.jpg | 1024x768 | 1184x888 | 0/160/120/0 | 58488 | 99.7% | 47.4 | 2.1 |
-| portrait-left-right | real-life-braided-portrait.jpg | 825x1024 | 1145x1024 | 0/160/0/160 | 19917 | 100.0% | 51.2 | 2.9 |
-| architecture-top | real-life-brookings-hall.jpg | 1024x810 | 1024x950 | 140/0/0/0 | 20995 | 100.0% | 66.3 | 3.2 |
-| seascape-all-sides | real-life-seascape-sunset.jpg | 768x1024 | 928x1184 | 80/80/80/80 | 19742 | 99.9% | 83.3 | 11.1 |
+| landscape-right-bottom | real-life-landscape.jpg | 1024x768 | 1184x888 | 0/160/120/0 | 59616 | 99.7% | 47.4 | 2.1 |
+| portrait-left-right | real-life-braided-portrait.jpg | 825x1024 | 1145x1024 | 0/160/0/160 | 17222 | 100.0% | 51.2 | 2.9 |
+| architecture-top | real-life-brookings-hall.jpg | 1024x810 | 1024x950 | 140/0/0/0 | 19099 | 100.0% | 66.3 | 3.2 |
+| seascape-all-sides | real-life-seascape-sunset.jpg | 768x1024 | 928x1184 | 80/80/80/80 | 17004 | 99.9% | 83.3 | 11.1 |
 
 Source protection is asserted for every case: after composition, every retained
 pixel equals the source pixel exactly, including alpha. The border-changed and
@@ -96,8 +105,11 @@ Reviewed by inspecting full frames and the retained evidence images:
 - **Portrait (left and right):** studio backdrop continuation is clean; the
   near-black surround is extended without inventing subjects. Best-case
   category.
-- **Architecture print (top):** the dark emulsion border above the building is
-  continued faithfully. No repeated architecture or invented objects.
+- **Architecture print (top):** source pixels remain exact, but the generated
+  outer band develops a visibly dark/black strip despite the light source
+  surround. This is a structural quality failure that the seam-gradient score
+  does not catch; treat this category as limited, inspect at 100%, and discard
+  or use Fast/another crop when the band is visible.
 - **Seascape (all sides):** wave texture and sunset gradient continue across
   the new border; the seam gradient is the highest measured (11.1), consistent
   with the strong horizontal wave edge crossing the boundary. The generated
@@ -113,7 +125,7 @@ drift.
 | Photographic backgrounds: sky, gradients, water, grass, soft interiors | Supported | Best measured results; largest tested category |
 | Scanned prints with plain surround | Supported | Faithful continuation of plain borders |
 | Textured repeating surfaces | Limited | Texture scale softens; review at 100% |
-| Architecture with strong perspective | Limited | Straight edges may soften; no invented structures observed but not a large sample |
+| Architecture with strong perspective | Limited / review-only | The tested top expansion produced a dark outer band; no protected pixels drifted, but the result is not a reliable architecture continuation |
 | Faces, hands, or subjects crossing the boundary | Limited | Continuation of existing subject matter is not semantic reconstruction |
 | Text, logos, diagrams, pixel art, UI screenshots | Unsuitable | Raster continuation can corrupt legibility; not evaluated as a supported category |
 | Transparent cutouts | Limited | New pixels are opaque; generating a background behind a cutout is a separate choice |
@@ -163,6 +175,7 @@ answering behavior in Varve.
 | --- | --- | --- |
 | Generated expansion rewrites or invents content inside the original image; users ask for expansion "fundamentally different from Generative Fill" that stays faithful to the source | [Adobe community: expand in all directions problems](https://community.adobe.com/t5/photoshop-ecosystem-ideas/generative-expand-in-all-directions-problems/idi-p/14364407) | The retained rectangle is drawn from the authoritative source through a border clip; provider output cannot touch it, and the native qualification asserts byte-exact protected pixels |
 | Visible border/tonal seam between original and generated area, especially on dark or smooth images | [Adobe community: expand issue](https://community.adobe.com/questions-700/generative-expand-issue-671957), [Reddit: removing seams](https://www.reddit.com/r/photoshop/comments/1ewrvbd/how_do_i_remove_these_seems/) | One-pass full-border generation with edge-clamped context (no separately generated sides), per-case seam-gradient measurement, and 1:1 review before acceptance |
+| A smooth seam score hides a structural failure farther into the generated band; the architecture case produced a dark outer strip even though the immediate seam was close | This qualification's independently inspected `architecture-top` evidence | Keep the full-frame review and 100% boundary inspection in the acceptance path; classify the result as limited and offer discard/Fast rather than claiming a successful continuation |
 | Generated result drifts from "continue the scene" toward random inserted objects | [Reddit: generative extend changed](https://www.reddit.com/r/Adobe/comments/1u0b5rj/has_something_changed_on_generative_extend_in/) | A promptless provider is used as promptless; no ignored prompt text, no fabricated "creative variation" labels, and LaMa is documented as continuation, not semantic invention |
 | Gaps around the outside edge after expansion | [Adobe community: expand in all directions problems](https://community.adobe.com/t5/photoshop-ecosystem-ideas/generative-expand-in-all-directions-problems/idi-p/14364407) | The coverage mask marks the entire new border including corners, and the accepted output is the full requested frame |
 | Inpaint checkpoints change unmasked pixels unless the unmasked area is explicitly overlaid back | [Diffusers inpainting guide](https://huggingface.co/docs/diffusers/using-diffusers/inpaint) | Varve composites the source over the provider result and separately restores the authoritative rectangle; the qualification measures provider change in the protected area |

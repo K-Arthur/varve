@@ -9,9 +9,9 @@
       "mean_seam_gradient_0_255": 2.119047619047619,
       "model_id": "lama-inpainting",
       "output": "1184x888",
-      "provider_ms": 58488,
+      "provider_ms": 59616,
       "source": "1024x768",
-      "wall_ms": 58488,
+      "wall_ms": 59616,
       "warnings": []
     },
     {
@@ -23,9 +23,9 @@
       "mean_seam_gradient_0_255": 2.8865559895833335,
       "model_id": "lama-inpainting",
       "output": "1145x1024",
-      "provider_ms": 19917,
+      "provider_ms": 17222,
       "source": "825x1024",
-      "wall_ms": 19917,
+      "wall_ms": 17222,
       "warnings": []
     },
     {
@@ -37,9 +37,9 @@
       "mean_seam_gradient_0_255": 3.1637369791666665,
       "model_id": "lama-inpainting",
       "output": "1024x950",
-      "provider_ms": 20995,
+      "provider_ms": 19099,
       "source": "1024x810",
-      "wall_ms": 20995,
+      "wall_ms": 19099,
       "warnings": []
     },
     {
@@ -51,9 +51,9 @@
       "mean_seam_gradient_0_255": 11.12034970238095,
       "model_id": "lama-inpainting",
       "output": "928x1184",
-      "provider_ms": 19742,
+      "provider_ms": 17004,
       "source": "768x1024",
-      "wall_ms": 19743,
+      "wall_ms": 17004,
       "warnings": []
     }
   ],

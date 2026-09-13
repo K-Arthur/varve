@@ -1,10 +1,21 @@
 import { readFileSync } from 'node:fs';
 import { mkdir } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
 
 const PHOTO_PATH = path.resolve(__dirname, '..', 'fixtures', 'real-life-landscape.jpg');
+const requireFromEngine = createRequire(
+  path.resolve(process.cwd(), 'packages/engine/package.json'),
+);
+const { PNG } = requireFromEngine('pngjs') as {
+  PNG: {
+    sync: {
+      read(input: Buffer): { width: number; height: number; data: Buffer };
+    };
+  };
+};
 
 async function dropPhotoAndSelect(page: import('@playwright/test').Page): Promise<string> {
   const bytes = readFileSync(PHOTO_PATH).toString('base64');
@@ -329,6 +340,48 @@ test.describe('real photographic Expand workflow', () => {
     );
     expect(generatedBorder.opaqueFraction).toBeGreaterThan(0.9);
     expect(generatedBorder.uniqueColorBuckets).toBeGreaterThan(8);
+
+    // Export the reviewed candidate and inspect the file with an independent
+    // decoder. This catches the failure mode where the review surface looks
+    // correct but export uses stale bounds or a different raster.
+    const exportTab = page.locator('[role="tablist"] button[role="tab"]', {
+      hasText: /^export$/i,
+    });
+    await exportTab.click();
+    await page
+      .locator('.spec-export__group')
+      .first()
+      .getByRole('button', { name: 'PNG', exact: true })
+      .click();
+    const downloadPromise = page.waitForEvent('download', { timeout: 30_000 });
+    await page.getByRole('button', { name: /download/i }).click();
+    const download = await downloadPromise;
+    const exportedPath = path.join(evidenceDir, 'real-landscape-expand-export.png');
+    await download.saveAs(exportedPath);
+    const exported = PNG.sync.read(readFileSync(exportedPath));
+    const acceptedBytes = Buffer.from(resultAsset.dataUrl.split(',')[1] ?? '', 'base64');
+    const accepted = PNG.sync.read(acceptedBytes);
+    expect(exported.width).toBe(1664);
+    expect(exported.height).toBe(1272);
+    expect(accepted.width).toBe(exported.width);
+    expect(accepted.height).toBe(exported.height);
+    let protectedMaxDelta = 0;
+    for (let y = 0; y < 1224; y += 1) {
+      for (let x = 0; x < 1632; x += 1) {
+        const offset = (y + 24) * exported.width * 4 + (x + 16) * 4;
+        const acceptedOffset = (y + 24) * accepted.width * 4 + (x + 16) * 4;
+        for (let channel = 0; channel < 4; channel += 1) {
+          protectedMaxDelta = Math.max(
+            protectedMaxDelta,
+            Math.abs(exported.data[offset + channel]! - accepted.data[acceptedOffset + channel]!),
+          );
+        }
+      }
+    }
+    // Both paths are lossless PNG at 1x. A one-code tolerance allows a
+    // browser compositor's final colour conversion without hiding a stale or
+    // resampled protected region.
+    expect(protectedMaxDelta).toBeLessThanOrEqual(1);
 
     await page.getByRole('tab', { name: 'Adjustments', exact: true }).click();
     const section = page.getByRole('button', { name: 'Generative Edit', exact: true });
