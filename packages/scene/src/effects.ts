@@ -19,7 +19,7 @@
 
 import { normalizeSpatialBlurEffect, type SpatialBlurEffect } from '@varve/engine';
 import type { Document } from './document';
-import { cryptoId } from './document-utils';
+import { cloneEffectStack, cryptoId } from './document-utils';
 import type {
   ChannelOffset,
   ChromaticChannelSource,
@@ -712,13 +712,5 @@ export function normalizeDocumentEffects(doc: Document): Document {
  * yet understood by this version of the editor.
  */
 export function cloneEffects(effects: readonly Effect[]): Effect[] {
-  return effects.map((effect) => {
-    let copy: Effect;
-    try {
-      copy = JSON.parse(JSON.stringify(effect)) as Effect;
-    } catch {
-      copy = { ...effect } as Effect;
-    }
-    return { ...copy, id: effectId() };
-  });
+  return cloneEffectStack(effects);
 }

@@ -6,7 +6,7 @@
  */
 
 import type { Affine } from '@varve/engine';
-import { cloneEffects } from './effects';
+import { cloneEffectStack } from './document-utils';
 import type { ExportPreset } from './export-types';
 import { mintId } from './identity';
 import { nextNodeId } from './node-id';
@@ -356,7 +356,7 @@ export function deepCloneSubtree(
       // otherwise shared with the source), and remap scene-node mask sources
       // that live inside the cloned subtree. Foreign sources are kept in the
       // same document (valid) and dropped under cross-document paste.
-      const clonedEffects = cloneEffects(original.effects).map((effect) => {
+      const clonedEffects = cloneEffectStack(original.effects).map((effect) => {
         const source = effect.mask?.source;
         if (source?.kind !== 'scene-node') return effect;
         const mappedSource = idMap.get(source.nodeId);

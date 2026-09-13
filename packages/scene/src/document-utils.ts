@@ -91,6 +91,25 @@ export function getParent(doc: DocumentLike, id: NodeId): NodeId | null {
 const MAX_WORLD_TRANSFORM_DEPTH = 256;
 
 /**
+ * Clone a list of id-bearing wire objects (layer effects) without sharing
+ * nested parameter objects or identity. Lives in this leaf module so
+ * `clone.ts` can use it without importing `effects.ts` (whose type-only
+ * `Document` import would add a clone → effects → document → document-nodes
+ * cycle). `effects.cloneEffects` delegates here.
+ */
+export function cloneEffectStack<T extends { id?: string }>(items: readonly T[]): T[] {
+  return items.map((item) => {
+    let copy: T;
+    try {
+      copy = JSON.parse(JSON.stringify(item)) as T;
+    } catch {
+      copy = { ...item };
+    }
+    return { ...copy, id: cryptoId() };
+  });
+}
+
+/**
  * Compose a node's local transform with all ancestor transforms into a single
  * world affine. `node.rotation` is applied after the node's own transform, and
  * ancestors' rotations are composed the same way.
