@@ -1,7 +1,7 @@
 {
   "capturedAt": "2026-09-13",
-  "commit": "359b08d42",
-  "command": "VARVE_E2E_PORT=1691 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 npx playwright test tests/e2e/canvas/document-fonts-panel.spec.ts --project=chromium --reporter=list --timeout=180000 --output=reports/font-document-scope-20260913",
+  "commit": "d0424c25d",
+  "command": "VARVE_E2E_PORT=1692 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 npx playwright test tests/e2e/canvas/document-fonts-panel.spec.ts --project=chromium --reporter=list --timeout=180000 --output=reports/font-document-scope-20260913-final",
   "result": "1 passed",
   "scenarios": [
     {
@@ -9,7 +9,7 @@
       "viewport": "1280x720",
       "theme": "light",
       "state": "Browse fonts replacement chooser",
-      "sha256": "be5da9ee7accc4827fc867a581f927c6cdc19801b9b09eddd081e7fdcd838fcc",
+      "sha256": "3f63d458c48a4360f4ff1cc3b875df2b6e581345c568294f049db42bedaf1b06",
       "inspected": "Modal remains readable, selected-family details and variable-axis controls fit without clipping, and the underlying scoped document-font row remains visible as context."
     },
     {

@@ -54,10 +54,10 @@ shared story for a page-only operation.
 The existing Chromium workflow was run against the implementation:
 
 ```text
-VARVE_E2E_PORT=1691 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 \
+VARVE_E2E_PORT=1692 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 \
   npx playwright test tests/e2e/canvas/document-fonts-panel.spec.ts \
   --project=chromium --reporter=list --timeout=180000 \
-  --output=reports/font-document-scope-20260913
+  --output=reports/font-document-scope-20260913-final
 ```
 
 Result: 1 test passed. The test exercised the real editor, opened the
