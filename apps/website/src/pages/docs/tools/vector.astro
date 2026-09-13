@@ -121,7 +121,7 @@ import { sitePath } from '../../../lib/siteUrl';
       <section class="docs-section">
         <h2>Shape Builder</h2>
         <p>
-          For region-level construction, use the <a href={sitePath('/docs/tools/shape-building')}>Shape Builder</a> tool (<code>Shift+B</code>). It previews the individual faces formed by selected filled shapes and closed paths, then lets you Merge, Erase, Extract, Create, or Divide only the regions you chose. Unlike a whole-object Boolean, it does not assume that every touched object or every region should be included.
+          For region-level construction, use the <a href={sitePath('/docs/tools/shape-building')}>Shape Builder</a> tool (<code>Shift+B</code>). It previews the individual faces formed by selected filled shapes and closed paths, then lets you Merge, Erase, Extract, Create, or Divide only the regions you chose. Unlike a whole-object Boolean, it does not assume that every touched object or every region should be included. When a visible stroke blocks a source, the tool panel offers an explicit “Outline strokes and retry” action instead of silently flattening the stroke.
         </p>
       </section>
 

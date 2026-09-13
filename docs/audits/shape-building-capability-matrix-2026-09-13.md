@@ -159,11 +159,11 @@ license to drop small regions.
 | Circles/curves and transformed artwork | Partial / bounded | Independent deviation checks cover transformed cubic and ellipse conversion; reconstructed results remain documented polygonal approximations and screenshot/node-edit inspection remain required. |
 | Rendered rounded rectangles and negative-direction geometry | Working / scene verified | Rounded-rectangle hit testing uses the rendered boundary, including per-corner radii, transformed arc sampling, and negative-direction rectangles; continuous/smoothed corners remain explicitly unsupported. |
 | Donuts, nested islands, compound paths | Working / scene verified | Fill-rule-aware arrangement tests preserve a donut hole and reject artificial connectors; save/reopen/export visual evidence remains required. |
-| One self-intersecting path | Partial | Arrangement API supports one selected source; a dedicated self-intersection UI fixture remains to be added. |
+| One self-intersecting path | Working / scene verified | Arrangement supports one selected self-intersecting source under its authored fill rule; the pentagram fixture verifies distinct even-odd (five arms plus an unselectable center) and non-zero (one region) decompositions. A dedicated UI drawing fixture remains future coverage. |
 | Shared/tangent/coincident/near-coincident geometry | Working / fixture-covered | Deterministic no-phantom-face tests cover externally tangent circles, exact shared edges, fully coincident rectangles and circles, four quadrants at one vertex, partial overlaps, thin slivers, duplicate rings, duplicate points, and zero-length segments; finite-coordinate assertions run on every degenerate fixture. |
 | Open boundaries, strokes, and gaps | Guarded with explicit recovery | Visible-stroke sources are reported and the panel offers a real “Outline strokes and retry” action that expands the selection through the existing stroke-outline command and rebuilds regions. Open paths are told to be closed or outlined. No silent gap welding and no bounding-box fallback; near-miss boundaries remain finite, selectable regions. |
-| Staged selection, sweep crossing, idempotence, touch/keyboard/cancel | Implemented / browser evidence partial | Scene/editor tests cover fast face crossing, touch multi-select toggling, and pointer cancellation; manual browser evidence covers entry, sweep, preview, and staged status, while final Create/Undo/Redo/Node Edit runner coverage remains blocked by Chromium crashes under concurrent load. |
-| Source retention, style, hierarchy, references | Partial | Create retains sources, destructive references are guarded, and outputs are ordinary path nodes; save/reopen/export and mixed-style evidence remain. |
+| Staged selection, sweep crossing, idempotence, touch/keyboard/cancel | Implemented / browser verified | Scene/editor tests cover fast face crossing, touch multi-select toggling, and pointer cancellation. A real Chromium session verified entry, sweep (3 regions), staged status, Escape leaving the document unchanged, Create retaining sources, post-create selection, Layers/canvas agreement, Undo/Redo, and double-click Node Edit. The committed spec asserts the same flow; a clean full-suite runner remains an integration gate. |
+| Source retention, style, hierarchy, references | Partial | Create retains sources and places the result above them; the result is selected after commit and opens in Node Edit by double-click. Destructive references are guarded and outputs are ordinary path nodes; the scene codec round-trips compound components and holes. UI export after a real build and mixed-style visual evidence remain. |
 | Browser/Tauri parity and constrained-device behavior | Partial | Browser tool is wired and desktop/editor builds are available; a clean browser E2E and measured constrained-device run remain. |
 
 This matrix is intentionally not marked complete until the linked tests and
@@ -242,3 +242,105 @@ not attributed to Shape Builder.
   stopped in the existing unrelated `src/pages/product.astro:64:13` Astro
   type error (`loading` is not a supported `VideoHTMLAttributes` property),
   before producing a clean site build.
+
+### 2026-09-13 continuation receipt
+
+- Scene degeneracy suite added at
+  `packages/scene/src/shapeBuilder.degeneracy.test.ts`; 16/16 passed
+  (commit `370bd2c0b`): externally tangent circles, exact shared edges, fully
+  coincident rectangles and circles, four quadrants meeting at one vertex,
+  partial overlap, thin sliver, 1e8 coordinate offset, rotation and
+  non-uniform scale, nested island, pentagram under authored even-odd versus
+  non-zero, duplicate even-odd/non-zero rings, duplicate points, open/stroked
+  rejection, deterministic rebuilds, and divide/erase/extract source policy.
+- Stroke recovery: `ShapeBuilderOverlay.test.tsx` passed 2/2 (the action is
+  offered only when a visible stroke is the sole blocker, and clicking it
+  invokes the outline command); `ShapeBuilderTool.test.ts` passed 2/2
+  unchanged. Both are real UI components/controllers, not test-only paths.
+- Browser E2E on this shared dev-server host: runs `run-sb-2`/`run-sb-3`
+  (base `370bd2c0b`) drove two rectangles through the real toolbar and
+  Inspector, swept all three regions, created a retained result, and passed
+  the Undo/Redo and layer-count assertions. Both runs then hit an unrelated
+  full-page HMR reload while waiting for the toolbar's Node Edit step; the
+  failure screenshot shows the app back on Home with the committed result's
+  Home-card thumbnail (autosave evidence), not a Shape Builder failure. The
+  final Node Edit click and the new stroke-recovery E2E remain unverified in
+  this environment and are not reported as passing. A detached frozen
+  worktree was prepared for a clean run, but its Vite dev bundle did not boot
+  (missing generated public assets), so no frozen-run claim is made either.
+- Website: `pnpm --filter @varve/website build` passed (`astro check` plus
+  100 static pages built) with the updated Shape Builder guide, vector-tools
+  feature card, and vector guide text.
+- Measurements taken during this continuation were under load average ≈ 25–30
+  from concurrent agent suites; they are identified as contaminated and no
+  timing comparison is claimed from them.
+- Known remaining gap (recorded in
+  `docs/agents/shape-building-2026-09-13-ownership.md`): the contract says
+  Merge yields one editable compound output, while the current
+  `applyShapeBuilderAction` emits one node per component, making Merge and
+  Extract indistinguishable for disconnected selections. `shapeBuilder.ts`
+  had a concurrent uncommitted editor during this session, so the fix is
+  deferred rather than merged over in-flight work.
+
+### 2026-09-13 continuation receipt — real-UI verification and repairs
+
+A follow-up session reproduced three defects in the committed implementation
+with a real Chromium session on an isolated dev server (Linux, 1280×800),
+repaired them, and re-verified the complete workflow.
+
+1. **Committed results were not selected.** `makeSetRefs`
+   (`packages/editor/src/context/useSelectionCommands.ts`) filters requested
+   ids against the render-synced `stateRef` document. Inside the same tick as
+   `updateDoc`, a just-created node is absent from that snapshot, so the filter
+   dropped every result id and the selection ended empty (all Layers rows
+   `aria-selected="false"`). The tool now commits selection through the
+   single-id primitives (`setSelection` + `toggleSelection`), which merge into
+   the pending state without that filter.
+2. **Create results were inserted below their sources.** Output was placed at
+   the anchor source's sibling index, so a retained-source result sat under an
+   identical opaque source: invisible and not clickable. Output is now
+   inserted immediately above the topmost participating source, and the index
+   is clamped when destructive actions removed sources.
+3. **A whole-path curve tolerance flattened small mixed-scale features.**
+   Independent oracle: an 8×24-unit cubic bump inside a 1,000,000-unit sheared
+   path deviated from the analytic curve by 53.46 world units because the
+   segment collapsed to its endpoint chord. `pathPointsToPolygon` now bounds
+   each segment against its own control polygon as well as the path; the same
+   fixture measures below 0.05 world units and is subdivided (`onCurve > 10`).
+
+Evidence:
+
+- `packages/scene/src/shapeBuilder.test.ts` 24/24 — added first-selected-source
+  style, above-source placement with a later sibling, identical coincident
+  operands, shared-edge merge area (20,000 with one contour), externally
+  tangent circles (2 regions, finite), sub-tolerance separation, and
+  duplicate/zero-length path points.
+- `packages/scene/src/boolean/integration.test.ts` 4/4 — the mixed-scale test
+  fails with the pre-fix code (deviation 53.46) and passes with the fix.
+- `packages/editor/src/tools/ShapeBuilderTool.test.ts` 2/2.
+- `packages/editor/src/export/shapeBuilderExport.test.ts` 1/1 — the created
+  compound result serializes with `fill-rule="evenodd"` and two subpaths (hole
+  preserved) through the same codegen route used by File > Export SVG.
+- Real UI scripted session: two rectangles drawn through the toolbar; entered
+  Shape Builder; swept 3 regions (status “3 regions selected”); Escape cleared
+  the staged set and left 2 layers; re-swept; Create produced a third layer
+  with sources retained; the “Shape Builder result” row was
+  `aria-selected="true"` and first in the Layers list; Undo → 2, Redo → 3;
+  double-click on the result showed the Node edit overlay; the Inspector and
+  status bar reported the result’s 220×140 bounds at (120, 140), matching the
+  canvas. Zero page errors. Screenshots:
+  `/tmp/opencode/shape-ui-1-before.png` … `-6-node-edit.png` and
+  `/tmp/opencode/shape-selection-after-create.png`.
+- `tests/e2e/canvas/shape-builder.spec.ts` now asserts post-create selection
+  and uses the workspace-independent double-click Node Edit entry: the Design
+  workspace does not declare a Node Edit toolbar button (only Logo does), so
+  the original spec could never pass its final step.
+- Runner status: the shared dev server could not complete a run during this
+  session — two attempts failed in navigation/global-setup while unrelated
+  agents were compiling and re-optimizing dependencies on the same server
+  (`504 Outdated Optimize Dep`). The spec’s first test was then run against a
+  production preview build with an isolated local config and passed (17.4 s,
+  zero retries) after asserting post-create selection, Undo/Redo, and
+  double-click Node Edit; the spec captures before/during/after screenshots at
+  each stage (inspected from the same run). The second (stroke-outline) test in
+  the shared spec belongs to a concurrent agent’s in-flight work.
