@@ -417,6 +417,7 @@ export function ContentAwareFillDialog({
     commitTransaction,
     abortTransaction,
     setSelection,
+    setTool,
   } = useEditor();
   const dialogRef = useRef<HTMLDialogElement | null>(null);
   const jobControllerRef = useRef(new GenerativeJobController());
@@ -1354,6 +1355,29 @@ export function ContentAwareFillDialog({
       'object-selection',
     );
   }, [announce, applyMaskCoverage, objectSelection]);
+
+  const handleStartObjectSelection = useCallback(() => {
+    if (!nodeId) {
+      announce('Select one image before starting Object Selection');
+      return;
+    }
+    if (hasMaskStrokes) {
+      announce(
+        'Finish or clear the current mask before leaving Generative Edit for Object Selection; the in-progress mask is not discarded.',
+      );
+      return;
+    }
+    // The dialog is modal, so the canvas cannot receive the click/box prompt
+    // while it is open. Close this review session first, then hand control to
+    // the canonical Object Selection tool. The transient candidate remains
+    // attached to this image and can be imported when Generative Edit is
+    // opened again.
+    onClose();
+    setTool('sam2Segment');
+    announce(
+      'Object Selection active. Click to include, Shift-click to subtract, or drag a box; reopen Generative Edit to use the candidate.',
+    );
+  }, [announce, hasMaskStrokes, nodeId, onClose, setTool]);
 
   const handleUseLayerMask = useCallback(async () => {
     if (!layerMaskAsset) {
@@ -2726,6 +2750,17 @@ export function ContentAwareFillDialog({
               >
                 Use Object Selection
               </Button>
+              {objectSelection?.status !== 'ready' && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleStartObjectSelection}
+                  disabled={hasMaskStrokes || hasResult || isProcessing}
+                >
+                  Start Object Selection
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="ghost"

@@ -24,6 +24,7 @@ import { sitePath } from '../../../lib/siteUrl';
           <li><strong>Use Layer Mask</strong> imports the selected image's raster layer mask.</li>
           <li><strong>Use Image Alpha</strong> imports the source alpha channel, preserving semitransparent coverage.</li>
           <li><strong>Use Object Selection</strong> imports the confirmed candidate from the shared Object Selection tool. It remains editable here, so brush refinement does not alter the original segmentation session.</li>
+          <li>If there is no candidate yet and you have not painted a mask, choose <strong>Start Object Selection</strong>. Varve closes the modal, activates the canvas tool for a point or box prompt, and lets you reopen Generative Edit after confirming the candidate; the handoff stays disabled when an in-progress mask would otherwise be lost.</li>
           <li><strong>Invert</strong> swaps edit and preserve coverage. <strong>Show mask overlay</strong> lets you inspect the boundary before generating.</li>
         </ul>
         <p>Choose Replace, Add, Subtract, or Intersect when combining another mask source. Expand mask grows the edit region to catch edge contamination; a negative value shrinks it. Feather softens the final composite edge. Context controls how much surrounding source imagery is supplied to the local reconstruction. These controls operate in source-image pixels and changing any of them clears the candidate, requiring a fresh preview.</p>

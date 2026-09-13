@@ -76,6 +76,15 @@ last retained candidate cannot be deleted. Changing
 the source, mask, or generation settings invalidates the preview rather than
 silently applying a candidate made for an earlier state.
 
+When no candidate exists yet and no in-progress mask would be lost, **Start
+Object Selection** closes the modal and activates the canonical canvas tool.
+The user can make a point or box prompt, wait for the preview, confirm a
+candidate, and reopen Generative Edit to import it. If the dialog already has
+painted or imported mask coverage, the handoff stays disabled so closing the
+modal cannot silently discard that draft. This avoids trapping a modal
+workflow behind an inert canvas while keeping the transient segmentation
+session and the editable CAF mask separate.
+
 Expand exposes the four independent source-pixel margins as the authoritative
 frame controls. It also provides common target aspect ratios, explicit output
 width and height, and nine source anchors (center, sides, and corners). The
