@@ -51,15 +51,26 @@ const node = makeTextNode('text-1', 'Typography', {
 });
 
 const updateNode = vi.fn();
+const applyFormatToSelection = vi.fn();
+const setPendingFormat = vi.fn();
+const groupCompoundOperation = vi.fn((_label: string, action: () => void) => action());
 
 beforeEach(() => {
   updateNode.mockReset();
+  applyFormatToSelection.mockReset();
+  setPendingFormat.mockReset();
+  groupCompoundOperation.mockClear();
   vi.mocked(useEditor).mockReturnValue({
     state: {
       selection: [node.id],
       document: { nodes: { [node.id]: node } },
+      selectionRange: null,
+      pendingFormat: null,
     },
     updateNode,
+    applyFormatToSelection,
+    setPendingFormat,
+    groupCompoundOperation,
     setTool: vi.fn(),
     groupSelected: vi.fn(),
     setSelectedFlipH: vi.fn(),
@@ -104,6 +115,44 @@ describe('ContextControlBar typography controls', () => {
 
     const [, updater] = updateNode.mock.calls[0] as [string, (current: typeof node) => typeof node];
     expect(updater(node)).toEqual(expect.objectContaining({ fontWeight: 700 }));
+  });
+
+  it('applies a family edit to the active rich-text range', () => {
+    vi.mocked(useEditor).mockReturnValue({
+      state: {
+        selection: [node.id],
+        document: { nodes: { [node.id]: node } },
+        selectionRange: {
+          start: { paragraphIndex: 0, offset: 0 },
+          end: { paragraphIndex: 0, offset: 4 },
+        },
+        pendingFormat: null,
+      },
+      updateNode,
+      applyFormatToSelection,
+      setPendingFormat,
+      groupCompoundOperation,
+      setTool: vi.fn(),
+      groupSelected: vi.fn(),
+      setSelectedFlipH: vi.fn(),
+      setSelectedFlipV: vi.fn(),
+      applyFramePreset: vi.fn(),
+      setNodeClipContent: vi.fn(),
+      removeBackground: vi.fn(),
+      openVectorizeDialog: vi.fn(),
+      alignSelected: vi.fn(),
+      booleanOp: vi.fn(),
+    } as never);
+
+    render(<ContextControlBar />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Font family' }), {
+      target: { value: 'IBM Plex Sans Variable' },
+    });
+
+    expect(applyFormatToSelection).toHaveBeenCalledWith(
+      expect.objectContaining({ fontFamily: 'IBM Plex Sans Variable', fontReference: undefined }),
+    );
+    expect(updateNode).not.toHaveBeenCalled();
   });
 
   it('commits a valid size once on blur and rejects invalid values', () => {

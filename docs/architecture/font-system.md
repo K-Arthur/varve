@@ -42,9 +42,10 @@ character format, text style, and v2 font manifest entry may carry
 `fontReference`; legacy `fontFamily`, weight, and style fields remain readable.
 
 Variation axes and OpenType features remain authored presentation settings.
-The ordinary weight control must update `wght` when supported and preserve
-custom axes and mandatory shaping features. Existing hardcoded weight controls
-still need this integration.
+The shared typography weight adapter updates `wght` when supported and
+preserves custom axes and mandatory shaping features across the inspector,
+contextual bar, floating text bar, and Logo controls. Static faces retain
+ordinary weight behavior without inventing variation data.
 
 ## Parsed metrics
 
@@ -171,9 +172,10 @@ Its independently anchored font menu remains inside the viewport. Escape has an
 explicit precedence: an open family picker
 closes first without committing the search; a subsequent Escape exits text
 editing. The size field commits its draft on blur or Enter; Escape discards an
-unfinished draft. Range/caret targeting still requires the shared typography
-command adapter. The inspector and toolbar weight controls share the same
-variable-font `wght` update path, preserving unrelated authored axes.
+unfinished draft. Family, weight, and size changes from the contextual and
+floating bars use the shared range/caret command adapter. The inspector and
+toolbar weight controls share the same variable-font `wght` update path,
+preserving unrelated authored axes.
 Presentation-only hover preview is not integrated yet.
 
 The full browser's license details view exposes the base embedding right,
@@ -185,16 +187,19 @@ to block an unsupported operation.
 Moving focus from typing to the quick toolbar first flushes pending text and
 closes the typing transaction, while keeping the editing surface mounted.
 The next formatting choice therefore gets its own undo entry. The pointer
-regression verifies typing followed immediately by Bold, Undo and Redo; it
-does not establish the still-pending rich-range command adapter.
+regression verifies typing followed immediately by Bold, Undo and Redo; the
+shared command adapter also routes family, weight, and size changes from the
+contextual bar to an active rich-text range or collapsed caret.
 
 The inspector gives the family picker a full-width row with one label and a
 32px Browse button. Line height and letter spacing use separate shared numeric
 rows so their names and units remain visible at minimum panel width. Alignment
 choices stay on one row. These scoped styles do not change other inspector
 sections. Rich-text operations preserve inherited character-style links when
-splitting, replacing and clearing runs; the ordinary toolbar still needs the
-range/caret command adapter.
+splitting, replacing and clearing runs; compact family, weight, and size
+controls use the shared range/caret command adapter. The inspector's broader
+mixed-value and style-editing paths remain separately covered by its own
+selection tests.
 
 The Logo wordmark controls use the same picker and an explicit Browse fonts
 dialog. Choosing a family clears an older exact reference; choosing a

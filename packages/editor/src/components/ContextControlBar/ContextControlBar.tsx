@@ -25,6 +25,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { type ToolId, useEditor } from '../../context';
 import { FontSelector } from '../FontBrowser/FontSelector';
 import { fontFamilyChanges, fontWeightChanges } from '../Typography/fontWeight';
+import {
+  applyTypographyChanges,
+  type TypographyCommandSurface,
+  type TypographyTextChanges,
+} from '../Typography/typographyCommand';
 import './ContextControlBar.css';
 
 /* ── Small helpers ───────────────────────────────────────────────── */
@@ -165,13 +170,15 @@ const FONT_WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800, 900];
 
 function TextSection({
   node,
-  updateNode,
+  typographySurface,
 }: {
   node: TextNode;
-  updateNode: (id: TextNode['id'], updater: (node: SceneNode) => SceneNode) => void;
+  typographySurface: TypographyCommandSurface;
 }) {
   const fontFamily = node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY;
   const fontWeight = node.fontWeight ?? 400;
+  const applyChanges = (changes: TypographyTextChanges) =>
+    applyTypographyChanges(typographySurface, node.id, changes);
   return (
     <>
       <span className="ccb__label">Text</span>
@@ -179,13 +186,7 @@ function TextSection({
       <FontSelector
         className="ccb__font-selector"
         value={fontFamily}
-        onChange={(family) =>
-          updateNode(node.id, (current) =>
-            current.kind === 'text'
-              ? ({ ...current, ...fontFamilyChanges(family) } as TextNode)
-              : current,
-          )
-        }
+        onChange={(family) => applyChanges(fontFamilyChanges(family))}
       />
       <Select
         label="Font weight"
@@ -195,25 +196,19 @@ function TextSection({
           value: String(weight),
           label: String(weight),
         }))}
-        onChange={(value) =>
-          updateNode(node.id, (current) =>
-            current.kind === 'text'
-              ? ({ ...current, ...fontWeightChanges(current, Number(value)) } as TextNode)
-              : current,
-          )
-        }
+        onChange={(value) => applyChanges(fontWeightChanges(node, Number(value)))}
       />
-      <TextSizeControl node={node} updateNode={updateNode} />
+      <TextSizeControl node={node} applyChanges={applyChanges} />
     </>
   );
 }
 
 function TextSizeControl({
   node,
-  updateNode,
+  applyChanges,
 }: {
   node: TextNode;
-  updateNode: (id: TextNode['id'], updater: (node: SceneNode) => SceneNode) => void;
+  applyChanges: (changes: TypographyTextChanges) => void;
 }) {
   const [draft, setDraft] = useState(String(node.fontSize ?? 16));
   const value = node.fontSize ?? 16;
@@ -227,9 +222,7 @@ function TextSizeControl({
       return;
     }
     if (next !== value) {
-      updateNode(node.id, (current) =>
-        current.kind === 'text' ? ({ ...current, fontSize: next } as TextNode) : current,
-      );
+      applyChanges({ fontSize: next });
     }
     setDraft(String(next));
   };
@@ -382,9 +375,33 @@ export function ContextControlBar() {
     alignSelected,
     booleanOp,
     updateNode,
+    applyFormatToSelection,
+    setPendingFormat,
+    groupCompoundOperation,
   } = useEditor();
   const sel = state.selection;
   const doc = state.document;
+
+  const typographySurface = useMemo<TypographyCommandSurface>(
+    () => ({
+      selectedIds: state.selection,
+      selectionRange: state.selectionRange,
+      pendingFormat: state.pendingFormat,
+      updateNode,
+      applyFormatToSelection,
+      setPendingFormat,
+      groupCompoundOperation,
+    }),
+    [
+      applyFormatToSelection,
+      groupCompoundOperation,
+      setPendingFormat,
+      state.pendingFormat,
+      state.selection,
+      state.selectionRange,
+      updateNode,
+    ],
+  );
 
   const selectedNodes: SceneNode[] = useMemo(
     () => sel.map((id) => doc.nodes[id]).filter((n): n is SceneNode => Boolean(n)),
@@ -419,7 +436,7 @@ export function ContextControlBar() {
     }
 
     if (node.kind === 'text') {
-      return <TextSection node={node as TextNode} updateNode={updateNode} />;
+      return <TextSection node={node as TextNode} typographySurface={typographySurface} />;
     }
 
     if (node.kind === 'frame' && !isExportRegion(node)) {
@@ -456,7 +473,7 @@ export function ContextControlBar() {
     openVectorizeDialog,
     alignSelected,
     booleanOp,
-    updateNode,
+    typographySurface,
   ]);
 
   return (
