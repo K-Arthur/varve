@@ -45,6 +45,9 @@ const ROUTES = [
   '/features/print-production',
   '/features/layers',
   '/docs/chromeos-linux',
+  '/docs/chromebook',
+  '/docs/performance',
+  '/docs/touch-and-pen',
 ];
 
 /** Routes that must never appear in the sitemap. */

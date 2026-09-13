@@ -37,7 +37,7 @@ const faqSchema = {
       name: 'Can I use Varve in a browser?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Yes — a bounded browser demo runs the real editor on the WASM engine at varve.studio/try/, with everything processing locally and no account. It covers the Design, Draw, and Photo workspaces and can be installed as an app in Chrome or Edge. Print production, on-device model features, and the Motion, Codegen, Logo, and Email workspaces remain desktop-only. See the Browser Demo & Offline guide for saving, storage, and offline details.',
+        text: 'Yes — a bounded browser demo runs the real editor on the WASM engine at varve.studio/try/, with everything processing locally and no account. It covers the Design, Draw, and Photo workspaces and can be installed as an app in Chrome or Edge. Print production, on-device model features, and the Motion, Codegen, Logo, and Email workspaces remain desktop-only. See the Browser Demo & Offline guide for saving, storage, and offline details, and Varve on Chromebook for the browser, installed-app, and optional Linux routes.',
       },
     },
     {
@@ -223,7 +223,9 @@ const breadcrumbSchema = {
               as an app in Chrome or Edge. Print production, on-device model features, and the
               Motion, Codegen, Logo, and Email workspaces remain desktop-only. See the
               <a href={sitePath('/docs/browser-demo')}>Browser Demo &amp; Offline guide</a> for
-              saving, storage, and offline details.
+              saving, storage, and offline details, and
+              <a href={sitePath('/docs/chromebook')}>Varve on Chromebook</a> for the browser,
+              installed-app, and optional Linux routes.
             </p>
           </div>
         </details>

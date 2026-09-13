@@ -50,14 +50,17 @@ const firstDocHowTo = {
         </ul>
         <code class="code-block">chmod +x Varve-*.AppImage && ./Varve-*.AppImage</code>
         <ul>
-          <li><strong>deb:</strong> Install via package manager: <code>sudo dpkg -i varve_*.deb</code></li>
-          <li><strong>rpm:</strong> Install via package manager: <code>sudo rpm -i varve-*.rpm</code></li>
+          <li><strong>deb:</strong> Install the downloaded file so dependencies resolve: <code>sudo apt install ./Varve-*.deb</code> (do not use <code>dpkg -i</code> alone).</li>
+          <li><strong>rpm:</strong> Install the downloaded file: <code>sudo dnf install ./Varve-*.rpm</code>.</li>
         </ul>
         <p>
-          <strong>ChromeOS (Chromebook):</strong> use the <code>.deb</code> inside the
-          ChromeOS Linux development environment. Installation, file sharing, updates, and
-          uninstall are covered in <a href={sitePath('/docs/chromeos-linux')}>Varve on
-          ChromeOS</a>.
+          <strong>ChromeOS (Chromebook):</strong> start with the browser route — open
+          <a href={sitePath('/try/')}>varve.studio/try/</a> in Chrome, which needs no
+          setup, or install it as a web app. The optional Linux `.deb` route (only when
+          the Linux development environment is enabled) is covered in
+          <a href={sitePath('/docs/chromeos-linux')}>Varve on ChromeOS</a>, and the
+          trade-offs between all three routes are in
+          <a href={sitePath('/docs/chromebook')}>Varve on Chromebook</a>.
         </p>
 
         <h3>macOS</h3>
