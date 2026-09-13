@@ -216,7 +216,7 @@ function parsedMetadataFromRegistryEntry(
       default: defaultValue,
       max,
     })),
-    namedInstances: [],
+    namedInstances: entry.namedInstances ?? familyMetadata?.namedInstances ?? [],
     openTypeFeatures:
       familyMetadata?.openTypeFeatures ?? registry.getSupportedFeatures(entry.family),
     unicodeRanges: [],

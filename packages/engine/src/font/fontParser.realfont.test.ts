@@ -63,6 +63,8 @@ describe('parsing against required real bundled variable fonts', () => {
     expect(Math.min(...weights)).toBeGreaterThanOrEqual(100);
     expect(Math.max(...weights)).toBeLessThanOrEqual(900);
     expect(weights).toContain(400);
+    expect(meta.namedInstances.map((instance) => instance.name)).toContain('Regular');
+    expect(meta.axes[0]?.name).toBe('Weight');
   });
 });
 

@@ -136,8 +136,10 @@ selectable faces when no corresponding artifact is installed. The family list
 uses measured virtualization with an overscan window; an unmeasured or
 zero-sized test viewport falls back to normal flow until a real range exists.
 Selecting an expanded registered face applies its weight, style, PostScript
-metadata, and canonical `fontReference` together; choosing a family row clears
-an older exact reference instead of leaving stale identity attached to new text.
+metadata, and canonical `fontReference` together; variable-font named
+instances are real `fvar` records and apply their declared coordinates without
+inventing a face. Choosing a family row clears an older exact reference instead
+of leaving stale identity attached to new text.
 
 ## Readiness boundary
 

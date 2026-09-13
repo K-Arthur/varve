@@ -46,11 +46,16 @@ export function LogoTypographySection({ node }: { node: TextNode }) {
           setFontBrowserOpen(false);
         }}
         onSelectFace={(selection: FontFaceSelection) => {
+          const weightChanges = fontWeightChanges(
+            { ...node, fontFamily: selection.family },
+            selection.weight,
+          );
           patch({
             ...fontFamilyChanges(selection.family),
             fontReference: selection.fontReference,
-            ...fontWeightChanges({ ...node, fontFamily: selection.family }, selection.weight),
+            ...weightChanges,
             fontStyle: selection.style,
+            variableAxes: selection.variableAxes ?? weightChanges.variableAxes,
           });
           setFontBrowserOpen(false);
         }}

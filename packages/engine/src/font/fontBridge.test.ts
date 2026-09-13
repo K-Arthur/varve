@@ -19,6 +19,7 @@ describe('createFontCatalogFromRegistry', () => {
       glyphCount: 1200,
       embeddingRights: 'editable',
       openTypeFeatures: ['kern', 'liga'],
+      namedInstances: [{ name: 'Text', coordinates: { wght: 400 } }],
     });
     registry.register({
       family: 'Atlas Variable',
@@ -54,6 +55,7 @@ describe('createFontCatalogFromRegistry', () => {
     expect(entries[0]?.axes).toEqual([
       { tag: 'wght', name: 'Weight', min: 300, default: 400, max: 800 },
     ]);
+    expect(entries[0]?.namedInstances).toEqual([{ name: 'Text', coordinates: { wght: 400 } }]);
   });
 
   it('keeps family-only registry entries distinct without claiming exact hashes', () => {

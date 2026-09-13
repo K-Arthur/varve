@@ -460,6 +460,7 @@ export class FontLoader {
               })),
             }
           : {}),
+      ...(meta?.namedInstances?.length ? { namedInstances: meta.namedInstances } : {}),
     });
 
     if (meta) {
@@ -478,6 +479,7 @@ export class FontLoader {
         colorFormats: meta.colorFormats,
         paletteCount: meta.paletteCount,
         openTypeFeatures: meta.openTypeFeatures,
+        namedInstances: meta.namedInstances,
         glyphCount: meta.glyphCount,
         unitsPerEm: meta.unitsPerEm,
         ascender: meta.ascender,

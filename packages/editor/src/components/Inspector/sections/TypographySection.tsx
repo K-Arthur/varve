@@ -354,6 +354,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             fontWeight: selection.weight,
             fontStyle: selection.style,
             fontReference: selection.fontReference,
+            variableAxes: selection.variableAxes,
           }));
           setFontBrowserOpen(false);
         }}

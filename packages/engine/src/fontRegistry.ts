@@ -13,6 +13,7 @@
  */
 
 import { invalidateCanvasTextMeasurements } from './canvasTextMeasurer';
+import type { ParsedNamedInstance } from './font/fontIdentity';
 
 export interface FontEntry {
   family: string;
@@ -41,6 +42,8 @@ export interface FontEntry {
    * at wght 700, Fraunces defaults opsz to 9 rather than 14).
    */
   axisDefinitions?: VariableAxisInfo[];
+  /** Named variation instances declared by the exact font's `fvar` table. */
+  namedInstances?: ParsedNamedInstance[];
 }
 
 function fontEntryKey(entry: FontEntry): string {
@@ -689,6 +692,8 @@ export interface FontMetadata {
   openTypeFeatures?: string[];
   /** Supported variable font axes. */
   variableAxisTags?: string[];
+  /** Named variation instances declared by the exact font's `fvar` table. */
+  namedInstances?: ParsedNamedInstance[];
   /** Whether the font supports CJK. */
   isCJK?: boolean;
   /** Whether the font supports RTL. */

@@ -596,6 +596,7 @@ export function makeTextNode(
       | 'fontSize'
       | 'fontFamily'
       | 'fontReference'
+      | 'styleId'
       | 'fontWeight'
       | 'fontStyle'
       | 'lineHeight'

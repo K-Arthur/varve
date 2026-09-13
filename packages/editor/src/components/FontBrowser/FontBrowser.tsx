@@ -63,6 +63,8 @@ interface FontFaceEntry {
   key: string;
   faceKey?: string;
   postScriptName?: string;
+  namedInstanceName?: string;
+  variableAxes?: Record<string, number>;
   weight: number;
   style: string;
   source: string;
@@ -75,6 +77,8 @@ export interface FontFaceSelection {
   style: 'normal' | 'italic';
   postScriptName?: string;
   fontReference?: FontReference;
+  variableAxes?: Record<string, number>;
+  namedInstanceName?: string;
 }
 
 interface FontDisplayEntry {
@@ -181,20 +185,43 @@ function facesFor(
     const key =
       entry.faceKey ??
       `${record.familyName}\u0000${entry.postScriptName ?? ''}\u0000${entry.weight}\u0000${entry.style}\u0000${entry.source}\u0000${index}`;
+    const baseFace: FontFaceEntry = {
+      key,
+      ...(entry.faceKey ? { faceKey: entry.faceKey } : {}),
+      ...(entry.postScriptName ? { postScriptName: entry.postScriptName } : {}),
+      weight: entry.weight,
+      style: entry.style,
+      source: entry.source,
+      ...(fontReferenceFromFaceKey(entry.faceKey, entry.postScriptName)
+        ? { fontReference: fontReferenceFromFaceKey(entry.faceKey, entry.postScriptName) }
+        : {}),
+    };
     if (seen.has(key)) return [];
     seen.add(key);
+    const instances =
+      entry.namedInstances ?? registry.getMetadata(record.familyName)?.namedInstances ?? [];
+    const instanceFaces = instances.flatMap((instance) => {
+      const instanceKey = `${key}\u0000instance:${instance.name}`;
+      if (seen.has(instanceKey)) return [];
+      seen.add(instanceKey);
+      const weight = instance.coordinates.wght ?? entry.weight;
+      const style = instance.coordinates.ital === 1 ? 'italic' : entry.style;
+      return [
+        {
+          ...baseFace,
+          key: instanceKey,
+          namedInstanceName: instance.name,
+          variableAxes: { ...instance.coordinates },
+          weight,
+          style,
+        },
+      ];
+    });
     return [
       {
-        key,
-        ...(entry.faceKey ? { faceKey: entry.faceKey } : {}),
-        ...(entry.postScriptName ? { postScriptName: entry.postScriptName } : {}),
-        weight: entry.weight,
-        style: entry.style,
-        source: entry.source,
-        ...(fontReferenceFromFaceKey(entry.faceKey, entry.postScriptName)
-          ? { fontReference: fontReferenceFromFaceKey(entry.faceKey, entry.postScriptName) }
-          : {}),
+        ...baseFace,
       },
+      ...instanceFaces,
     ];
   });
 }
@@ -361,6 +388,8 @@ export function FontBrowser({
         style: face.style === 'italic' ? 'italic' : 'normal',
         ...(face.postScriptName ? { postScriptName: face.postScriptName } : {}),
         ...(face.fontReference ? { fontReference: face.fontReference } : {}),
+        ...(face.variableAxes ? { variableAxes: face.variableAxes } : {}),
+        ...(face.namedInstanceName ? { namedInstanceName: face.namedInstanceName } : {}),
       };
       setSelectedFamily(record.familyName);
       setSelectedFace(selection);
@@ -670,16 +699,23 @@ export function FontBrowser({
                               onClick={() => handleSelectFace(record, face)}
                               aria-pressed={
                                 selectedFace?.family === record.familyName &&
-                                (selectedFace.postScriptName ??
+                                (selectedFace.namedInstanceName ??
+                                  selectedFace.postScriptName ??
                                   `${selectedFace.weight}-${selectedFace.style}`) ===
-                                  (face.postScriptName ?? `${face.weight}-${face.style}`)
+                                  (face.namedInstanceName ??
+                                    face.postScriptName ??
+                                    `${face.weight}-${face.style}`)
                               }
                             >
                               <span className="font-browser__face-name">
-                                {face.postScriptName ?? `${face.weight} ${face.style}`}
+                                {face.namedInstanceName ??
+                                  face.postScriptName ??
+                                  `${face.weight} ${face.style}`}
                               </span>
                               <span className="font-browser__face-meta">
-                                {face.weight} {face.style}
+                                {face.namedInstanceName
+                                  ? `${face.weight} ${face.style} · variable instance`
+                                  : `${face.weight} ${face.style}`}
                               </span>
                             </button>
                           ))}

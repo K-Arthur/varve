@@ -551,7 +551,7 @@ async function parseRawFontAtOffset(
   const headData = parseHeadTable(data, tableMap);
   const os2Data = parseOS2Table(data, tableMap);
   const hheaData = parseHheaTable(data, tableMap);
-  const fvarData = parseFvarTable(data, tableMap);
+  const fvarData = parseFvarTable(data, tableMap, nameRecords);
   const cmapRanges = parseCmapTable(data, tableMap);
   const gsubFeatures = parseGSUBTable(data, tableMap);
   const gposFeatures = parseGPOSTable(data, tableMap);
@@ -912,7 +912,11 @@ function readFixed(view: DataView, offset: number): number {
   return view.getInt32(offset, false) / 65536;
 }
 
-function parseFvarTable(data: ArrayBuffer, tables: Map<string, TableDirectory>): FvarData {
+function parseFvarTable(
+  data: ArrayBuffer,
+  tables: Map<string, TableDirectory>,
+  names: NameRecords = {},
+): FvarData {
   const table = tables.get('fvar');
   if (!table) return { axes: [], instances: [] };
   if (table.offset + 16 > data.byteLength) return { axes: [], instances: [] };
@@ -951,10 +955,10 @@ function parseFvarTable(data: ArrayBuffer, tables: Map<string, TableDirectory>):
     const defaultValue = readFixed(view, axisOffset + 8);
     const maxValue = readFixed(view, axisOffset + 12);
     void view.getUint16(axisOffset + 16);
-    void view.getUint16(axisOffset + 18);
+    const axisNameId = view.getUint16(axisOffset + 18);
 
     // Resolve axis name from name table
-    const axisName = AXIS_NAMES[tag] || tag;
+    const axisName = names[axisNameId] || AXIS_NAMES[tag] || tag;
 
     axes.push({
       tag,
@@ -988,7 +992,11 @@ function parseFvarTable(data: ArrayBuffer, tables: Map<string, TableDirectory>):
       }
     }
 
-    instances.push({ name: `Instance ${i + 1}`, coordinates: coords });
+    const subfamilyNameId = view.getUint16(instOffset);
+    instances.push({
+      name: names[subfamilyNameId] || `Instance ${i + 1}`,
+      coordinates: coords,
+    });
     instOffset += instanceSize;
   }
 

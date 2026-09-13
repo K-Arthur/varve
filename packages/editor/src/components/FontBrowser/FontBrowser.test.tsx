@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { getFontRegistry } from '@varve/engine';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FontBrowser } from './FontBrowser';
 
@@ -95,5 +96,37 @@ describe('FontBrowser', () => {
         style: 'normal',
       }),
     );
+  });
+
+  it('exposes real named variable instances with their authored coordinates', () => {
+    const entry = getFontRegistry().getEntries('IBM Plex Sans Variable')[0];
+    expect(entry).toBeTruthy();
+    entry!.namedInstances = [
+      { name: 'Text', coordinates: { wght: 400, wdth: 100 } },
+      { name: 'Display', coordinates: { wght: 600, wdth: 92 } },
+    ];
+    const onSelectFace = vi.fn();
+    render(
+      <FontBrowser
+        layout="modal"
+        showDownloadable
+        selectedFamily="IBM Plex Sans Variable"
+        onSelectFace={onSelectFace}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand IBM Plex Sans Variable faces' }));
+    const display = screen.getByRole('button', { name: /Display.*600 normal/ });
+    fireEvent.click(display);
+    fireEvent.click(screen.getByRole('button', { name: 'Use IBM Plex Sans Variable face' }));
+
+    expect(onSelectFace).toHaveBeenCalledWith(
+      expect.objectContaining({
+        namedInstanceName: 'Display',
+        variableAxes: { wght: 600, wdth: 92 },
+        weight: 600,
+      }),
+    );
+    entry!.namedInstances = undefined;
   });
 });
